@@ -56,6 +56,7 @@ from app.services.cost_attribution import (
 )
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.cost_value import cost_value
+from app.services.data_quality_bands import DQ_BAND_BOUNDS, band_of, dq_band_condition
 from app.services.eol_custom_service import is_custom_product, load_custom_cycles
 from app.services.eol_service import (
     eol_status,
@@ -2255,12 +2256,7 @@ async def data_quality(db: AsyncSession = Depends(get_db), user: User = Depends(
         ts["total"] += 1
         ts["sum_data_quality"] += card.data_quality or 0
         all_data_quality_scores.append(card.data_quality or 0)
-        if card.data_quality >= 80:
-            ts["complete"] += 1
-        elif card.data_quality >= 40:
-            ts["partial"] += 1
-        else:
-            ts["minimal"] += 1
+        ts[band_of(card.data_quality)] += 1
 
     # Overall completion
     overall = (
@@ -2361,17 +2357,6 @@ async def data_quality(db: AsyncSession = Depends(get_db), user: User = Depends(
     }
 
 
-# Band boundaries MUST stay in lock-step with the counting in `data_quality`
-# above (>=80 complete, >=40 partial, else minimal) and with DATA_QUALITY_BANDS
-# in the frontend — the panel opened from a bar segment has to list exactly the
-# cards that segment counted.
-_DQ_BAND_BOUNDS: dict[str, tuple[float | None, float | None]] = {
-    "complete": (80.0, None),
-    "partial": (40.0, 80.0),
-    "minimal": (None, 40.0),
-}
-
-
 @router.get("/data-quality/cards")
 async def data_quality_cards(
     type: str | None = Query(default=None, description="Card type key"),
@@ -2396,7 +2381,7 @@ async def data_quality_cards(
     """
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
 
-    if band is not None and band not in _DQ_BAND_BOUNDS:
+    if band is not None and band not in DQ_BAND_BOUNDS:
         raise HTTPException(status_code=400, detail=f"Unknown band: {band}")
     eol_scopes = {f"eol_{bucket}": bucket for bucket in EOL_BUCKETS}
     if scope is not None and scope not in ("orphaned", "stale", *eol_scopes):
@@ -2407,11 +2392,7 @@ async def data_quality_cards(
     if type:
         conditions.append(Card.type == type)
     if band:
-        low, high = _DQ_BAND_BOUNDS[band]
-        if low is not None:
-            conditions.append(Card.data_quality >= low)
-        if high is not None:
-            conditions.append(Card.data_quality < high)
+        conditions.append(dq_band_condition([band]))
     if scope == "stale":
         conditions.append(stale_condition())
     elif scope == "orphaned":

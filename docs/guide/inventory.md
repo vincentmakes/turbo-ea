@@ -230,6 +230,36 @@ Saved views appear in the filter panel sidebar. Click any view to instantly appl
 - **Shared with Me** — Views others shared with you
 - **Public Views** — Views available to everyone
 
+### Query views { #query-views }
+<a id="mcp-views"></a>
+
+A **query view** is a saved view whose filters are a **multi-hop query** — a chain of relations with conditions at each step, such as *Organizations that use an active Application which an Initiative with status On Track affects*. The view stores the query, not its results: it runs again every time the view is opened, so the list always reflects the current landscape.
+
+![A query view in the inventory](../assets/img/en/98d_inventory_mcp_view.png)
+
+**Building a query view.** In the **Views** tab of the filter sidebar, click **New query view** next to *Save current* (shown to anyone who may manage views). If any filter is active, the selected card type included, a confirmation asks before clearing them; **Cancel** on the draft puts them back. The strip above the grid opens as a query builder:
+
+1. Click the start chip (*Choose a type*) and pick the card type the view lists.
+2. Click **+ relation** after the last card to add a hop. The menu lists each relation verb with the card type it leads to; a relation between cards of the same type is offered in both directions. A query is a single chain of up to three hops.
+3. Click **+ condition** under any card to narrow it down: **Lifecycle**, **Subtype**, **Approval status**, **Data quality** (*Complete*, *Partial* or *Minimal*, the same bands as the sidebar filter), **Tags**, **Specific cards**, or a select or yes/no field of that card type. For tags, a card matches when it has any of the chosen tags of a group, and it must match every group you add; only tag groups that apply to that card type are offered. **Specific cards** opens the card picker for cards of that type, and the step then matches only the cards you picked; for a hierarchical card type an **Include sub-cards** switch also matches the cards beneath each pick. A picked card you cannot see shows as *(hidden card)*.
+4. Click **Save**. The usual save-view dialog opens for the name, visibility, sharing and OData setting. **Cancel** discards the query.
+
+![Building a query view](../assets/img/en/98e_inventory_query_builder.png)
+
+While you build, the grid filters live and the toolbar count shows how many cards match, so you can see the effect of each hop and condition before saving.
+
+**Changing hops and conditions.** Click a hop's verb chip for its menu: **has no** turns the hop into a requirement that the card has **no** such relation, and **Remove this hop** removes it together with every hop after it. Click a condition chip to change its values, or its **×** to remove it.
+
+**Editing a saved query view.** When a query view is open, the strip shows its path: the card types as chips, joined by the relation verb that links each step (for example *Organization → uses Application → is affected by Initiative*), with each card's conditions underneath. If you own the view or have edit rights on it, a **pencil** in the strip switches it to the same builder; **Save** updates the view. The **×** button (*Leave this view*) returns to the normal inventory. **Save Current View** while a query view is open saves a new query view with the same query.
+
+**Views created by an AI assistant.** An assistant connected through the [MCP server](../admin/mcp.md) can create query views too. Such a view shows an **MCP** chip and a *Created via MCP* note in its strip, and a robot badge in the Views list; it is edited like any other query view. In the Views list every query view carries a small query-view badge (a cube; the robot badge when an assistant created it) and its compact path (*Organization › uses Application › is affected by Initiative*) as its second line.
+
+**Opening a view by link.** When an assistant saves a view it returns a link of the form `/inventory?view=<view id>`; opening it applies the saved view directly. The same link works for any saved view you can see.
+
+**OData.** A query view's OData feed returns the same cards as the inventory: the query is applied to the feed as well.
+
+For the query grammar, its limits and the MCP tools (`query_cards`, `list_inventory_views`, `save_inventory_view`, `list_tag_groups`), see [Multi-hop card queries](../admin/mcp.md#multi-hop-card-queries).
+
 ## Excel Import / Export { #excel-import }
 
 Inventory exports and imports use a **multi-sheet Excel workbook** that round-trips your landscape — cards across any number of types plus the relations between them — without ever requiring you to copy a UUID.

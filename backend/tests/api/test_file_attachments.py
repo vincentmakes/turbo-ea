@@ -257,7 +257,9 @@ async def _replace(client, user, attachment_id, name, data, category=None):
 
 async def _events(db, card_id, event_type):
     rows = await db.execute(
-        select(Event).where(Event.card_id == card_id, Event.event_type == event_type)
+        select(Event)
+        .where(Event.card_id == card_id, Event.event_type == event_type)
+        .order_by(Event.created_at)
     )
     return rows.scalars().all()
 

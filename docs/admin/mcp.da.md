@@ -183,31 +183,34 @@ I denne tilstand autentificerer serveren sig med e-mail/adgangskode og fornyer t
 
 ## Tilgængelige funktioner
 
-MCP-serveren eksponerer **51 værktøjer** på tværs af to grupper: **32 læseværktøjer**, der forespørger EA-data, og **19 skriveværktøjer** (14 additive, 5 destruktive), der opretter og vedligeholder kort, relationer, diagrammer, risici, ADR'er og mere — herunder omdannelse af artefakter, som et AI-værktøj har i sin egen kontekst (regneark, BPMN XML, DrawIO XML, dokumenter, billeder), til strukturerede EA-data. Hvert værktøj bærer MCP-`ToolAnnotations` (skrivebeskyttet / destruktiv / idempotent-hints), så connectors kan vise destruktivitet i deres UI.
+MCP-serveren eksponerer **55 værktøjer** på tværs af to grupper: **35 læseværktøjer**, der forespørger EA-data, og **20 skriveværktøjer** (15 additive, 5 destruktive), der opretter og vedligeholder kort, relationer, diagrammer, risici, ADR'er, gemte inventarvisninger og mere — herunder omdannelse af artefakter, som et AI-værktøj har i sin egen kontekst (regneark, BPMN XML, DrawIO XML, dokumenter, billeder), til strukturerede EA-data. Hvert værktøj bærer MCP-`ToolAnnotations` (skrivebeskyttet / destruktiv / idempotent-hints), så connectors kan vise destruktivitet i deres UI.
 
 ### Dry-run-sikkerhed på skrivninger
 
 Hvert skriveværktøj har **`dry_run=true`** som standard, og intet persisteres, før AI-værktøjet kalder det igen med `dry_run=false` — hvilket det først bør gøre, når brugeren har set forhåndsvisningen og bekræftet. Dette forhindrer en entusiastisk agent i stille at seede hundredvis af kort på et fejltolket regneark. Forhåndsvisningen kommer i to slags:
 
 - **Verificeret af backenden.** Hvor det underliggende endpoint understøtter en dry-run, kører backenden hver validator og resolver — rettigheder, kort-id'er, hvad brugeren må læse —, bygger det komplette resultat og **ruller derefter transaktionen tilbage**. Det gælder kort (`create_cards_bulk`, `update_cards_bulk`), relationer (`upsert_relations_bulk`) og diagrammer (`create_diagram`, `update_diagram`). En diagramforhåndsvisning returnerer de kortlinks, backenden accepterede, og for en opdatering den præcise ændring: omdøbte felter, tilføjede og fjernede kortlinks, og om lærredet er ændret.
-- **Bygget af MCP-serveren.** Hvor endpointet ikke har nogen dry-run, validerer og oversætter værktøjet sit input og viser den præcise payload, en commit ville sende, uden at kalde skriveendpointet: `import_bpmn` (forløbet kladde → indsend → godkend; antallet af flowknuder er et skøn, og forhåndsvisningen siger `verified: false`), `create_adr`, `update_adr`, `sign_adr`, `create_soaw`, `add_card_comment`, `transition_card_lifecycle`, `assign_stakeholders`, `create_risks`, `update_risks`, `archive_cards` (som viser arkiveringspåvirkningen for hvert kort) og `set_card_logos` / `clear_card_logos` (som slår hvert korts type og nuværende logo op og henter hver `image_url`).
+- **Bygget af MCP-serveren.** Hvor endpointet ikke har nogen dry-run, validerer og oversætter værktøjet sit input og viser den præcise payload, en commit ville sende, uden at kalde skriveendpointet: `import_bpmn` (forløbet kladde → indsend → godkend; antallet af flowknuder er et skøn, og forhåndsvisningen siger `verified: false`), `create_adr`, `update_adr`, `sign_adr`, `create_soaw`, `add_card_comment`, `transition_card_lifecycle`, `save_inventory_view` (der kører forespørgslen og rapporterer, hvor mange kort der matcher, med et par eksempelnavne), `assign_stakeholders`, `create_risks`, `update_risks`, `archive_cards` (som viser arkiveringspåvirkningen for hvert kort) og `set_card_logos` / `clear_card_logos` (som slår hvert korts type og nuværende logo op og henter hver `image_url`).
 
 Uanset hvad registreres forhåndsvisningen i auditloggen som en dry-run-batch, så en administrator kan se, hvad en agent foreslog, og hvad den committede.
 
 ### Læseværktøjer
 
-Serveren eksponerer 32 læseværktøjer grupperet i otte klynger.
+Serveren eksponerer 35 læseværktøjer grupperet i otte klynger.
 
 **Kort og metamodel**
 
 | Værktøj | Beskrivelse |
 |------|-------------|
 | `search_cards` | Søg og filtrer kort efter type, status eller fri tekst |
+| `query_cards` | Find kort gennem en kæde af relationer med en betingelse ved hvert led — se [Forespørgsler på kort med flere led](#multi-hop-card-queries) |
+| `list_inventory_views` | List de gemte inventarvisninger, du kan se, med hver visnings forespørgsel og den kanal, der oprettede den |
 | `get_card` | Få fulde detaljer for et kort efter UUID |
 | `get_card_relations` | Få alle relationer forbundet til et kort |
 | `get_card_hierarchy` | Få forfædre og børn af et kort |
 | `list_card_types` | Liste over alle korttyper i metamodellen; hver types `category` er nøglen til dens kategori (arkitekturlag) |
 | `get_relation_types` | Liste over relationstyper, valgfrit filtreret efter korttype |
+| `list_tag_groups` | Vis taggrupperne (med de korttyper, hver gælder for) og deres tags; tag-id'erne er det, `query_cards` og `save_inventory_view` tager under `where.tags` |
 | `resolve_card_refs` | Forhåndsvalider navnebaserede kortreferencer (navn → UUID) før en bulk-import — opløser kun, skriver aldrig |
 | `analyze_impact` | Afhængigheds-konsekvensanalyse (blast radius) for en foreslået ændring af et kort |
 
@@ -279,9 +282,9 @@ Alle værktøjer er bundet af den autentificerede brugers RBAC — en viewer vil
 
 ### Skriveværktøjer
 
-Serveren eksponerer 19 skriveværktøjer, hver annoteret som **additiv** (opretter eller udvider data) eller **destruktiv** (ændrer eller fjerner eksisterende data), så connectors kan advare tilsvarende.
+Serveren eksponerer 20 skriveværktøjer, hver annoteret som **additiv** (opretter eller udvider data) eller **destruktiv** (ændrer eller fjerner eksisterende data), så connectors kan advare tilsvarende.
 
-**Additive (14)**
+**Additive (15)**
 
 | Værktøj | Beskrivelse |
 |------|-------------|
@@ -297,6 +300,7 @@ Serveren eksponerer 19 skriveværktøjer, hver annoteret som **additiv** (oprett
 | `update_adr` | Opdater en ADR (titel, sektioner, status, tilknyttede kort). |
 | `sign_adr` | Signér en ADR (kræver tilladelsen `adr.sign`; ellers returneres et UI-dybdelink til at signere i browseren). |
 | `create_diagram` | Opret et fritformatet DrawIO-diagram med valgfri links til eksisterende kort. |
+| `save_inventory_view` | Gem en kortforespørgsel med flere led som en inventarvisning (ny, eller som erstatning for forespørgslen i en eksisterende angivet med `view_id`). Inventaret kører forespørgslen igen, hver gang visningen åbnes; svaret indeholder et link, der åbner den. En opdatering ændrer kun navn og forespørgsel samt synlighed og kolonner, når de angives; visningens gruppering og layout bevares. |
 | `import_bpmn` | Gem et BPMN 2.0 XML-diagram mod et **eksisterende** Business Process-kort. Hvis intet kort matcher det angivne navn, returnerer værktøjet en `card_not_found`-fejl, der peger agenten mod `create_cards_bulk` — dette tvinger agenten til at oprette kortet eksplicit med beskrivelse, undertype og egenskaber først, i stedet for at tage en genvej, der lander et sparsomt kort. |
 | `set_card_logos` | Set the custom logo on many cards at once — the bulk way to put product marks on an Application inventory. Three ways to supply the image, one per row: a built-in `icon_slug` (resolved server-side, nothing transferred), an `image_url` the MCP server downloads for you from an allowlisted icon host, or `image_base64` from the agent's own context. The packs are a shortcut, not the source of truth — a dry run lists the slugs they do not carry under `unknown_icon_slugs` **and** fetches every `image_url`, so a missing brand or a dead link is reported before anything is written rather than left as a logo nobody could set. `mime` is optional and sniffed from the bytes. PNG/JPEG/WebP/GIF only, 1 MB each. Each row echoes a sha256 so the caller can prove what landed. Use `clear_card_logos` to remove one. |
 
@@ -309,6 +313,65 @@ Serveren eksponerer 19 skriveværktøjer, hver annoteret som **additiv** (oprett
 | `update_diagram` | Erstat et diagrams DrawIO XML, navn eller kortlinks. |
 | `rollback_batch` | Tilbagerul de skrivninger, der blev udført under en tidligere mutations-batch. |
 | `clear_card_logos` | Remove the custom logo from cards, falling them back to their card-type icon. Recoverable — set it again to restore. |
+
+### Forespørgsler på kort med flere led { #multi-hop-card-queries }
+
+`query_cards` besvarer i ét kald et spørgsmål, der kæder relationer sammen — «Organisationer, der bruger en Applikation med livscyklus Aktiv, som berøres af et Initiativ med status On Track» — og `save_inventory_view` gemmer den samme forespørgsel som en gemt inventarvisning. Visningen gemmer forespørgslen, ikke dens resultater: Inventaret kører den igen, hver gang nogen åbner visningen, så listen altid er opdateret.
+
+En forespørgsel er et lille JSON-objekt, der består **udelukkende af nøgler** — nøgler til korttype, relationstype, felt og valgmulighed, som `list_card_types` og `get_relation_types` returnerer dem; kort-id'er kun under `where.cards` og tag-id'er kun under `where.tags`; aldrig etiketter:
+
+```text
+CardQuery = { type, where?, related?: [Hop] }
+Hop       = { relation: "<relation type key>" | "<key>__out" | "<key>__in",
+              type, where?, negate?: true|false, related?: [Hop] }
+Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife | none],
+              subtype?: [subtype key],
+              approval_status?: [status],
+              data_quality_band?: [complete | partial | minimal],
+              attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] },
+              tags?: [tag id],
+              cards?: [card id],
+              include_descendants?: true|false }
+```
+
+- Et led matcher, når **et vilkårligt** relateret kort af den type opfylder sit `where` (og sine egne indlejrede led). `negate: true` gør det til «har **intet** sådant kort».
+- Led side om side på samme niveau skal alle matche (OG); værdierne i én liste er alternativer (ELLER).
+- `<key>__out` og `<key>__in` vælger en side af en relationstype, der forbinder en korttype med sig selv (kortet er kilden eller målet). Ellers er den almindelige nøgle nok.
+- `data_quality_band` matcher et korts datakvalitetsscore efter bånd, som filteret Datakvalitet i inventaret: `complete` (80 og derover), `partial` (fra og med 40 til, men ikke med, 80) eller `minimal` (under 40). Enhver anden værdi afvises med `unknown_band`.
+- `tags` tager tag-id'er fra `list_tag_groups`, grupperet efter taggruppe: Et kort skal bære mindst ét af de anførte tags fra **hver** nævnt gruppe (alternativer inden for en gruppe, OG på tværs af grupper). Et tag, hvis gruppe ikke gælder for ledets korttype, afvises med `tag_not_for_type`; et ukendt id med `unknown_tag`.
+- `cards` fastlåser den node til de anførte kort (alternativer): tag deres id'er fra `search_cards` eller `resolve_card_refs`. Hvert skal være et kort af nodens egen type. Kørsel af en forespørgsel kontrollerer ikke valgene: et id, der ikke navngiver noget kort, et kort af en anden type eller et kort, brugeren ikke må læse, matcher blot ingenting. Gemning af en visning kontrollerer dem og afviser et sådant valg med `unknown_card`. Et arkiveret kort matcher ingenting i et led. `include_descendants: true` udvider hvert valg til alle kort under det via forælderlinket (underkapabiliteter, underordnede organisationer); sat uden `cards` afvises det med `descendants_without_cards`, og på en korttype uden hierarki med `descendants_without_hierarchy`. Et kort- eller tag-id andre steder i forespørgslen afvises med `query_holds_an_id`.
+- Relaterede kort tæller kun med, når de er aktive, og brugeren må læse dem: Et kort, brugeren ikke kan se, bryder kæden, præcis som i webgrænsefladen. Når en visning gemmes, kan en skriver ikke fastlåse et kort, der er skjult for vedkommende (`unknown_card`); en samarbejdspartner, der redigerer en visning delt med vedkommende, beholder de valg, den allerede rummer, også dem vedkommende ikke kan læse. En læser, der åbner en visning, hvis valg inkluderer et kort skjult for vedkommende, afvises ikke — de skjulte valg matcher blot ingenting.
+
+Eksempel — Organisationer, der bruger en aktiv Applikation, som berøres af et Initiativ med status *On Track*:
+
+```json
+{
+  "type": "Organization",
+  "related": [
+    {
+      "relation": "relOrgToApp",
+      "type": "Application",
+      "where": { "lifecycle_phase": ["active"] },
+      "related": [
+        {
+          "relation": "relInitiativeToApp",
+          "type": "Initiative",
+          "where": { "attributes": { "initiativeStatus": ["onTrack"] } }
+        }
+      ]
+    }
+  ]
+}
+```
+
+I inventaret viser en visning, der er gemt på denne måde, sin kæde som en læsbar sti over gitteret med en note om, at den er oprettet via MCP. Dens forespørgsel kan ændres i inventaret (blyanten på stistrimlen) eller via `save_inventory_view` (angiv visningens id fra `list_inventory_views` som `view_id`; opdateringen erstatter navn og forespørgsel, ændrer synlighed og kolonner kun når de angives, og bevarer den gruppering og det layout, der er sat i webgrænsefladen — medmindre den nye forespørgsel starter fra en anden korttype, hvilket nulstiller visningens filtre og gruppering, da de hørte til den gamle type; en visning, du ikke kan redigere, afvises med `view_not_found` eller `view_not_editable`; en ændring af synlighed, som du ikke må foretage (kun ejeren kan ændre den, og offentlig eller delt kræver `bookmarks.share`), afvises med `visibility_not_allowed`); i webgrænsefladen kan dens ejer også omdøbe den, ændre dens deling og OData-indstilling, justere kolonnelayoutet eller slette den.
+
+Begrænsninger:
+
+- Højst **3 niveauer** af `related`, højst 10 led side om side på ét niveau og højst **12 led i hele forespørgslen** (side om side og indlejrede tilsammen). En længere forespørgsel afvises med `too_many_hops`.
+- Højst **50** valgte kort pr. betingelse.
+- En tekstattribut matcher sin værdi **præcist** — der er ingen delvis eller store/små-bogstavs-uafhængig matchning.
+- **`rollback_batch` kan ikke fortryde en gemt visning.** Når en visning gemmes, registreres en mutationsbatch, men der udsendes ingen hændelse, som tilbagerulningen kan vende; slet en uønsket visning fra inventarets Gemte visninger i stedet.
 
 ### Artefakt-upload
 
@@ -328,7 +391,7 @@ Forsvar i dybden ovenpå dry-run, så en LLM-fejltagelse ikke kan forårsage mas
 
 - **Per-kald-størrelsesgrænser.** MCP-skriveværktøjerne håndhæver en meget mindre grænse end de underliggende Excel-importør-endpoints: 200 rækker for `create_cards_bulk`, 500 operationer for `upsert_relations_bulk`. Stort nok til enhver realistisk enkelt artefakt-upload, lille nok til, at en dry-run-forhåndsvisning stadig kan gennemses.
 - **Ingen relationssletning som standard.** `upsert_relations_bulk` afviser `action: "delete"`-operationer — for at fjerne relationer, brug web-UI'et, hvor handlingen registreres under brugerens identitet. Operatører kan tilvælge ved at indstille `MCP_ALLOW_RELATION_DELETE=true`.
-- **Kill switch.** `MCP_WRITES_ENABLED=false` slår alle 19 skriveværktøjer fra uden at re-deploye kode. De 32 læseværktøjer fortsætter med at virke.
+- **Kill switch.** `MCP_WRITES_ENABLED=false` slår alle 20 skriveværktøjer fra uden at re-deploye kode. De 35 læseværktøjer fortsætter med at virke.
 - **Logo-hentning sker kun fra tilladte værter.** De medfølgende ikonpakker kan ikke dække alle produkter hos en kunde, og en assistent kører ofte i en sandkasse uden adgang til nettet, så `set_card_logos` accepterer en `image_url`, som MCP-serveren henter. Kun `https`, kun værter fra `MCP_LOGO_FETCH_HOSTS`, kun offentlige adresser, højst to omdirigeringer (hver kontrolleret på ny), højst 1 MB læst som stream, og byte-strømmen skal bære en ægte PNG/JPEG/WebP/GIF-signatur. Hentningen sker i MCP-kanten, aldrig i backend'en, og billedet uploades derefter ad den almindelige vej — en URL valgt af en sprogmodel når aldrig den proces, der holder databasen. `MCP_LOGO_FETCH_ENABLED=false` slår det fra.
 - **Audit origin-tag.** Hver backend-anmodning fra MCP-serveren bærer en `X-Turbo-EA-Origin: mcp`-header. Hændelser udsendt fra disse anmodninger er tagget `origin: "mcp"` i revisions-log-payloaden, så admins kan filtrere MCP-drevne skrivninger ud af tidslinjen adskilt fra web-UI-handlinger.
 - **Mutations-batches.** Hvert MCP-skrivekald — både forhåndsvisningen og commit'en — er én mutations-batch i auditloggen, åbnet før noget skrives; hver hændelse udsendt under kaldet stemples med batch-id'et, og hvert skriveværktøj returnerer dette `batch_id`. Admins (eller værktøjet `get_change_history`) kan rekonstruere den fulde per-hændelses-diff for en commit fra ét id, og `rollback_batch` kan tilbagerulle den — herunder sletning af et diagram, som `create_diagram` har oprettet, medmindre nogen har publiceret det siden. En diagramopdatering rapporteres som ikke reversibel, fordi det tidligere lærred ikke gemmes. Commits over `MCP_BATCH_CONFIRMATION_THRESHOLD` rækker skal sende den engangs-`confirm_token` tilbage, som den forudgående dry-run returnerede. Backenden kontrollerer den, når commit-batchen åbnes, før noget skrives: den skal stamme fra en dry-run af samme værktøj, af samme bruger, for under 15 minutter siden, og den godkender én enkelt commit. Alle bulk-skriveværktøjer følger denne cyklus med forhåndsvisning og bekræftelse: `create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`.
@@ -371,7 +434,7 @@ De seks rettesnore-miljøvariabler på MCP-containeren:
 | Rolle | Adgang |
 |------|--------|
 | **Admin** | Konfigurer MCP-indstillinger (`admin.mcp`-tilladelse). Fuld læse + skrive gennem MCP. |
-| **Alle autentificerede brugere** | Læseadgang styres af deres eksisterende RBAC. Skriveværktøjer kræver de matchende backend-tilladelser — `inventory.create` / `inventory.edit` / `inventory.archive` (kort), `relations.manage` (relationer), `diagrams.manage` (diagrammer), `bpm.edit` (BPMN), `risks.manage` (risikoregister), `comments.create` (kommentarer), `stakeholders.manage` (interessenter), `soaw.create` (SoAW), `adr.create` / `adr.sign` (ADR'er). |
+| **Alle autentificerede brugere** | Læseadgang styres af deres eksisterende RBAC. Skriveværktøjer kræver de matchende backend-tilladelser — `inventory.create` / `inventory.edit` / `inventory.archive` (kort), `relations.manage` (relationer), `diagrams.manage` (diagrammer), `bpm.edit` (BPMN), `risks.manage` (risikoregister), `comments.create` (kommentarer), `stakeholders.manage` (interessenter), `soaw.create` (SoAW), `adr.create` / `adr.sign` (ADR'er), `bookmarks.manage` / `bookmarks.share` (gemte inventarvisninger). |
 
 Tilladelsen `admin.mcp` styrer, hvem der kan administrere MCP-indstillinger. Den er kun tilgængelig for Admin-rollen som standard. Brugerdefinerede roller kan tildeles denne tilladelse gennem Roller-administrationssiden.
 

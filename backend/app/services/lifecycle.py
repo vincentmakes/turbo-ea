@@ -9,7 +9,12 @@ displayed or sorted. Keep the three in sync.
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
+from typing import Any
 
+from sqlalchemy import and_, case, cast, func, literal
+from sqlalchemy.dialects.postgresql import JSONB
+
+from app.models.card import Card
 from app.services.fiscal_year import fiscal_year_for
 
 # Most-advanced phase first: a card whose endOfLife date has passed is at end
@@ -51,6 +56,57 @@ def current_lifecycle_phase(lifecycle: dict | None) -> str | None:
         if lifecycle.get(phase):
             return phase
     return None
+
+
+#: A stored phase date ``parse_lifecycle_date`` reads: ``YYYY-MM-DD``, optionally
+#: followed by an ISO time part (``T…``). The SQL twin compares the first ten
+#: characters as text, so a value this pattern rejects can never reach a
+#: comparison — one malformed card must not fail the whole inventory, which a
+#: ``::date`` cast would.
+_SQL_DATE_PATTERN = r"^[0-9]{4}-[0-9]{2}-[0-9]{2}(T[0-9:.,+Z-]+)?$"
+
+#: The JSON values Python reads as falsy (``if lifecycle.get(phase)``): null,
+#: ``""``, ``0``, ``false``, ``[]`` and ``{}``. JSONB compares numbers by
+#: value, so ``0.0`` matches ``0`` as it does in Python.
+_JSON_FALSY = ("null", '""', "0", "false", "[]", "{}")
+
+
+def current_lifecycle_phase_sql(card: Any = Card, *, today: date | None = None) -> Any:
+    """``current_lifecycle_phase`` as a SQL expression over ``card.lifecycle``
+    (``Card`` or an ``aliased(Card)``): the phase key, or NULL.
+
+    The first CASE branches walk ``PHASE_PRECEDENCE`` — the most advanced phase
+    whose date has passed — and the rest ``PHASE_CHRONOLOGICAL`` on "any truthy
+    value", the Python fallback when every date is still ahead.
+
+    Dates are compared as **text** (``left(value, 10) <= today``) behind a
+    regular expression guard, never cast to ``date``. ``today`` is bound from
+    Python's UTC clock — the Python twin's clock — rather than SQL
+    ``current_date``, which is transaction-constant and the server's zone.
+
+    Known divergence from the Python twin: an impossible calendar date
+    (``2025-02-30``), a malformed time part after ``T``, or a date Python's
+    ``strptime`` accepts without zero padding (``2025-1-5``) reads differently.
+    The UI only ever writes zero-padded ``YYYY-MM-DD``.
+    """
+    today_text = (today or datetime.now(timezone.utc).date()).isoformat()
+    # Bound as text (a Python ``str`` binds as one) and cast, so each literal
+    # is parsed as JSON rather than serialised again as a JSON string.
+    falsy = [cast(literal(value), JSONB) for value in _JSON_FALSY]
+    whens: list[tuple[Any, str]] = []
+    for phase in PHASE_PRECEDENCE:
+        text = card.lifecycle[phase].astext
+        whens.append(
+            (
+                and_(text.regexp_match(_SQL_DATE_PATTERN), func.left(text, 10) <= today_text),
+                phase,
+            )
+        )
+    # An absent key (or a NULL ``lifecycle``) is SQL NULL, and ``NULL NOT IN
+    # (...)`` is NULL, never true; a CASE without ELSE is NULL — "no phase".
+    for phase in PHASE_CHRONOLOGICAL:
+        whens.append((card.lifecycle[phase].not_in(falsy), phase))
+    return case(*whens)
 
 
 def lifecycle_rank(lifecycle: dict | None) -> int:

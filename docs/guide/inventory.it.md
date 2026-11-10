@@ -228,6 +228,36 @@ Le viste salvate appaiono nel pannello laterale dei filtri. Cliccate su qualsias
 - **Condivise con me** — Viste condivise da altri con voi
 - **Viste pubbliche** — Viste disponibili per tutti
 
+### Viste di query { #query-views }
+<a id="mcp-views"></a>
+
+Una **vista di query** è una vista salvata i cui filtri sono una **query a più salti** — una catena di relazioni con condizioni a ogni passaggio, come *Organizzazioni che usano un'Applicazione attiva interessata da un'Iniziativa con stato On Track*. La vista memorizza la query, non i suoi risultati: viene rieseguita ogni volta che la vista viene aperta, così l'elenco riflette sempre il panorama attuale.
+
+![Una vista di query nell'inventario](../assets/img/it/98d_inventario_vista_mcp.png)
+
+**Creare una vista di query.** Nella scheda **Viste** della barra laterale dei filtri, fai clic su **Nuova vista di query** accanto a *Salva corrente* (mostrato a chiunque possa gestire le viste). Se è attivo un filtro, compreso il tipo di card selezionato, una conferma chiede prima di cancellarli; **Annulla** sulla bozza li ripristina. La striscia sopra la griglia si apre come generatore di query:
+
+1. Fai clic sul chip iniziale (*Scegli un tipo*) e scegli il tipo di card che la vista elenca.
+2. Fai clic su **+ relazione** dopo l'ultima card per aggiungere un salto. Il menu elenca ogni verbo di relazione con il tipo di card a cui porta; una relazione tra card dello stesso tipo viene offerta in entrambe le direzioni. Una query è una singola catena di al massimo tre salti.
+3. Fai clic su **+ condizione** sotto una card per restringerla: **Ciclo di vita**, **Sottotipi**, **Stato di approvazione**, **Qualità dei dati** (*Completo*, *Parziale* o *Minimo*, le stesse fasce del filtro della barra laterale), **Tag**, **Card specifiche**, oppure un campo di selezione o sì/no di quel tipo di card. Per i tag, una card corrisponde se ha uno qualsiasi dei tag scelti di un gruppo e deve corrispondere a ogni gruppo aggiunto; vengono offerti solo i gruppi di tag che si applicano a quel tipo di card. **Card specifiche** apre il selettore di card di quel tipo, e il passo corrisponde allora solo alle card scelte; per un tipo di card gerarchico, un interruttore **Includi le sotto-card** fa corrispondere anche le card sottostanti a ogni scelta. Una card scelta che non puoi vedere appare come *(card nascosta)*.
+4. Fai clic su **Salva**. Si apre la consueta finestra di salvataggio della vista per nome, visibilità, condivisione e impostazione OData. **Annulla** scarta la query.
+
+![Creazione di una vista di query](../assets/img/it/98e_inventario_editor_query.png)
+
+Mentre costruisci, la griglia si filtra in tempo reale e il contatore della barra degli strumenti mostra quante card corrispondono, così vedi l'effetto di ogni salto e condizione prima di salvare.
+
+**Modificare salti e condizioni.** Fai clic sul chip del verbo di un salto per aprirne il menu: **non ha** trasforma il salto nel requisito che la card **non** abbia alcuna relazione di quel tipo, e **Rimuovi questo passaggio** lo rimuove insieme a tutti i salti successivi. Fai clic su un chip di condizione per modificarne i valori, o sulla sua **×** per rimuoverlo.
+
+**Modificare una vista di query salvata.** Quando una vista di query è aperta, la striscia ne mostra il percorso: i tipi di card come chip, uniti dal verbo di relazione che collega ogni passaggio (ad esempio *Organizzazione → usa Applicazione → è interessata da Iniziativa*), con le condizioni di ciascuna card sotto. Se sei il proprietario della vista o hai diritti di modifica su di essa, una **matita** nella striscia la porta nello stesso generatore; **Salva** aggiorna la vista. Il pulsante **×** (*Esci da questa vista*) riporta all'inventario normale. **Salva vista corrente** mentre è aperta una vista di query salva una nuova vista di query con la stessa query.
+
+**Viste create da un assistente IA.** Un assistente connesso tramite il [server MCP](../admin/mcp.md) può creare anch'esso viste di query. Una tale vista mostra nella sua striscia un chip **MCP** e la nota *Creata tramite MCP*, e un badge robot nell'elenco delle viste; si modifica come qualsiasi altra vista di query. Nell'elenco delle viste ogni vista di query porta un piccolo badge di vista di query (un cubo; il badge robot quando l'ha creata un assistente) e il suo percorso compatto (*Organizzazione › usa Applicazione › è interessata da Iniziativa*) come seconda riga.
+
+**Aprire una vista tramite link.** Quando un assistente salva una vista, restituisce un link della forma `/inventory?view=<view id>`; aprendolo si applica direttamente la vista salvata. Lo stesso link funziona per qualsiasi vista salvata che puoi vedere.
+
+**OData.** Il feed OData di una vista di query restituisce le stesse card dell'inventario: la query viene applicata anche al feed.
+
+Per la grammatica delle query, i suoi limiti e gli strumenti MCP (`query_cards`, `list_inventory_views`, `save_inventory_view`, `list_tag_groups`), vedi [Query di card a più salti](../admin/mcp.md#multi-hop-card-queries).
+
 ## Importazione / Esportazione Excel { #excel-import }
 
 Le importazioni ed esportazioni dell'inventario usano una **cartella di lavoro Excel a più fogli** che ricostruisce un intero sotto-paesaggio — schede di qualsiasi numero di tipi e le relazioni tra di esse — senza dover mai copiare un UUID.

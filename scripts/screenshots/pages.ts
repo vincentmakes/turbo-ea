@@ -41,7 +41,8 @@ export interface PageDef {
    * Route to navigate to. Placeholders are replaced at runtime with ids looked
    * up in the demo data: `{{cardId:<key>}}` (CARD_LOOKUPS), `{{draftId:<key>}}`
    * (a draft flow version of that process card), `{{diagramId:<key>}}`
-   * (DIAGRAM_LOOKUPS) and `{{riskId:<key>}}` (RISK_LOOKUPS).
+   * (DIAGRAM_LOOKUPS), `{{riskId:<key>}}` (RISK_LOOKUPS) and
+   * `{{bookmarkId:<key>}}` (BOOKMARK_LOOKUPS).
    */
   route: string;
 
@@ -96,6 +97,13 @@ export const RISK_LOOKUPS = {
   // plus a quarterly recurring one with completed cycles — so the mitigation
   // panel shows both kinds and a real occurrence history.
   nis2Playbook: "R-000006",
+} as const;
+
+/** Demo saved inventory views looked up by exact name at runtime (`{{bookmarkId:<key>}}`). */
+export const BOOKMARK_LOOKUPS = {
+  // Public view carrying a multi-hop query, marked as saved through MCP —
+  // seed_demo_extras.py. The 98d shot shows its path strip above the grid.
+  mcpQueryView: "Organizations using active apps in flight",
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -2610,6 +2618,46 @@ export const DOC_PAGES: PageDef[] = [
       pt: "98b_inventario_importacao",
       zh: "98b_inventory_import",
       ru: "98b_inventarizatsiya_import",
+    },
+  },
+  {
+    id: "98d_inventory_mcp_view",
+    // A saved view whose filters are a multi-hop query (the demo one was
+    // created through MCP): the path strip above the grid shows the chain.
+    route: "/inventory?view={{bookmarkId:mcpQueryView}}",
+    waitFor: '[data-testid="query-path-strip"]',
+    actions: [{ type: "wait", ms: 1200 }],
+    filenames: {
+      en: "98d_inventory_mcp_view",
+      de: "98d_inventar_mcp_ansicht",
+      fr: "98d_inventaire_vue_mcp",
+      es: "98d_inventario_vista_mcp",
+      it: "98d_inventario_vista_mcp",
+      pt: "98d_inventario_visao_mcp",
+      zh: "98d_inventory_mcp_view",
+      ru: "98d_inventarizatsiya_predstavlenie_mcp",
+    },
+  },
+  {
+    id: "98e_inventory_query_builder",
+    // The same query view switched into the in-place query builder via the
+    // pencil on the path strip. The demo view is owned by the demo admin the
+    // capture logs in as, so the pencil is shown.
+    route: "/inventory?view={{bookmarkId:mcpQueryView}}",
+    waitFor: '[data-testid="query-path-strip"]',
+    actions: [
+      { type: "click", selector: '[data-testid="query-path-edit"]' },
+      { type: "wait", ms: 800 },
+    ],
+    filenames: {
+      en: "98e_inventory_query_builder",
+      de: "98e_inventar_abfrage_editor",
+      fr: "98e_inventaire_editeur_requete",
+      es: "98e_inventario_editor_consulta",
+      it: "98e_inventario_editor_query",
+      pt: "98e_inventario_editor_consulta",
+      zh: "98e_inventory_query_builder",
+      ru: "98e_inventarizatsiya_konstruktor_zaprosa",
     },
   },
 

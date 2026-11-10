@@ -12,11 +12,14 @@ from __future__ import annotations
 import datetime as datetime_module
 import importlib.util
 from datetime import date
+from types import SimpleNamespace
 from typing import Self
 
 import pytest
 
 import app.services.seed_demo as seed_demo_module
+from app.services.card_query import _resolve_node, parse_card_query, view_fields_for_query
+from app.services.lifecycle import current_lifecycle_phase
 from app.services.seed import RELATIONS as META_RELATIONS
 from app.services.seed import TYPES as META_TYPES
 from app.services.seed_demo import (
@@ -774,6 +777,67 @@ class TestExtrasDemoData:
                             f"not exist on card type '{type_key}'"
                         )
         assert not errors, "\n".join(errors)
+
+    def test_bookmark_queries_resolve_against_the_metamodel(self):
+        """A query view's card query must resolve against the seeded metamodel
+        (``card_query._resolve_node``, what ``resolve_card_query`` runs on the
+        loaded rows), and its ``card_type`` / ``filters.types`` must be the
+        start type ``view_fields_for_query`` pins them to."""
+        types = {
+            t["key"]: SimpleNamespace(
+                key=t["key"],
+                fields_schema=t.get("fields_schema", []),
+                subtypes=t.get("subtypes", []),
+                has_hierarchy=t.get("has_hierarchy", False),
+                is_hidden=False,
+            )
+            for t in META_TYPES
+        }
+        relation_types = {
+            r["key"]: SimpleNamespace(
+                key=r["key"],
+                source_type_key=r["source_type_key"],
+                target_type_key=r["target_type_key"],
+                is_hidden=False,
+            )
+            for r in META_RELATIONS
+        }
+        query_views = [bm for bm in BOOKMARK_DEFS if bm.get("query")]
+        assert [bm["name"] for bm in query_views] == ["Organizations using active apps in flight"]
+        for bm in query_views:
+            query = parse_card_query(bm["query"])
+            root = _resolve_node(
+                query.type, query.where, query.related, types, relation_types, {}, None
+            )
+            assert root.type == bm["card_type"]
+            assert view_fields_for_query(query, bm["card_type"], bm["filters"]) == (
+                bm["card_type"],
+                bm["filters"],
+            )
+            assert bm["created_via"] == "mcp"
+
+    def test_bookmark_query_view_matches_demo_cards(self):
+        """The demo query view is not empty, nor every Organization: walking
+        the demo relations in Python finds the chain it describes."""
+        by_id = {c["id"]: c for c in _ALL_DEMO_CARDS}
+
+        def ends(rel_type: str) -> list[tuple[dict, dict]]:
+            return [
+                (by_id[r["source_id"]], by_id[r["target_id"]])
+                for r in DEMO_RELATIONS
+                if r["type"] == rel_type
+            ]
+
+        on_track_apps = {
+            app["id"]
+            for init, app in ends("relInitiativeToApp")
+            if init["attributes"].get("initiativeStatus") == "onTrack"
+            and current_lifecycle_phase(app.get("lifecycle")) == "active"
+        }
+        orgs = {org["name"] for org, app in ends("relOrgToApp") if app["id"] in on_track_apps}
+        all_orgs = {c["name"] for c in seed_demo_module.ORGANIZATIONS}
+        assert orgs
+        assert orgs < all_orgs
 
     def test_saved_report_configs_use_valid_keys(self):
         """Each saved report's `config` must only use keys the corresponding

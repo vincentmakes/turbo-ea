@@ -156,7 +156,7 @@ def test_the_sections_that_hold_ids_are_the_known_ones():
         "ProcessFlowVersions": ("bpmn_xml", "draft_element_links"),
         "ComplianceFindings": ("finding_key",),
         "SavedReports": ("config",),
-        "Bookmarks": ("filters",),
+        "Bookmarks": ("filters", "query"),
         "WebPortals": ("filters",),
         "Surveys": ("target_filters",),
         "SurveyResponses": ("responses",),

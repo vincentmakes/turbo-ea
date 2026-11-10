@@ -772,6 +772,64 @@ export interface Bookmark {
   shared_with?: BookmarkShareEntry[];
   odata_url?: string | null;
   created_at?: string;
+  /** A multi-hop condition authored through the MCP server and evaluated by
+   *  the backend on every open. The web UI never writes it: its presence is
+   *  what makes a view a read-only "query view" here. */
+  query?: CardQuery | null;
+  /** Channel the view was created / last changed through (`web`, `mcp`, …). */
+  created_via?: string | null;
+  updated_via?: string | null;
+}
+
+/** Per-node conditions of a `CardQuery` — metamodel keys, plus tag ids. */
+export interface CardQueryWhere {
+  /** Lifecycle phase keys (`plan` … `endOfLife`), or `none` for no lifecycle. */
+  lifecycle_phase?: string[];
+  subtype?: string[];
+  approval_status?: string[];
+  /** Data-quality bands (`complete` / `partial` / `minimal`, as `DATA_QUALITY_BANDS`). */
+  data_quality_band?: string[];
+  /** Field key → option keys / `"true"` / `"false"` / text / `"__empty__"`. */
+  attributes?: Record<string, string[]>;
+  /** Tag ids: any tag of one tag group (OR), every group named (AND). */
+  tags?: string[];
+  /** Card ids of the node's own type (at most 50): the node is one of these. */
+  cards?: string[];
+  /** A picked card also covers its descendants (`parent_id`); needs `cards`. */
+  include_descendants?: boolean;
+}
+
+/** One hop of a `CardQuery`: an EXISTS (or, with `negate`, NOT EXISTS) over a
+ *  relation type to cards of `type` that satisfy `where`. `relation` is a
+ *  relation type key, or `<key>__out` / `<key>__in` on a self-referencing type. */
+export interface CardQueryHop {
+  relation: string;
+  type: string;
+  where?: CardQueryWhere;
+  negate?: boolean;
+  related?: CardQueryHop[];
+}
+
+/** A server-evaluated multi-hop inventory condition (`GET /cards?query=`). */
+export interface CardQuery {
+  type: string;
+  where?: CardQueryWhere;
+  related?: CardQueryHop[];
+}
+
+/** The query view currently applied in the inventory. */
+export interface ActiveQuery {
+  viewId: string;
+  name: string;
+  query: CardQuery;
+  createdVia?: string | null;
+}
+
+/** A query view being built or edited in the inventory's path strip. */
+export interface QueryDraft {
+  query: CardQuery;
+  /** The saved view being edited, or null for a new one. */
+  viewId: string | null;
 }
 
 export interface SavedReport {

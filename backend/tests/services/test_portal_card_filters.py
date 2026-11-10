@@ -15,7 +15,7 @@ import pytest
 from sqlalchemy import select
 
 from app.models.card import Card
-from app.models.tag import CardTag, Tag, TagGroup
+from app.models.tag import TagGroup
 from app.services import portal_card_filters as pcf
 from app.services.portal_card_filters import (
     EMPTY_KEY,
@@ -25,7 +25,14 @@ from app.services.portal_card_filters import (
     preset_conditions,
     public_filters,
 )
-from tests.conftest import create_card, create_card_type, create_relation, create_relation_type
+from tests.conftest import (
+    create_card,
+    create_card_type,
+    create_relation,
+    create_relation_type,
+    create_tag,
+    create_tag_group,
+)
 
 FIELDS = [
     {
@@ -132,24 +139,11 @@ async def land(db):
     await create_relation(db, type_key="appToItc", source_id=epsilon.id, target_id=itc.id)
     await create_relation(db, type_key="appCallsApp", source_id=alpha.id, target_id=beta.id)
 
-    domain = TagGroup(name="Domain")
-    tier = TagGroup(name="Tier")
-    db.add_all([domain, tier])
-    await db.flush()
-    finance = Tag(tag_group_id=domain.id, name="Finance")
-    sales = Tag(tag_group_id=domain.id, name="Sales")
-    gold = Tag(tag_group_id=tier.id, name="Gold")
-    db.add_all([finance, sales, gold])
-    await db.flush()
-    db.add_all(
-        [
-            CardTag(card_id=alpha.id, tag_id=finance.id),
-            CardTag(card_id=alpha.id, tag_id=gold.id),
-            CardTag(card_id=beta.id, tag_id=sales.id),
-            CardTag(card_id=gamma.id, tag_id=gold.id),
-        ]
-    )
-    await db.flush()
+    domain = await create_tag_group(db, name="Domain")
+    tier = await create_tag_group(db, name="Tier")
+    finance = await create_tag(db, group=domain, name="Finance", cards=[alpha])
+    sales = await create_tag(db, group=domain, name="Sales", cards=[beta])
+    gold = await create_tag(db, group=tier, name="Gold", cards=[alpha, gamma])
     return SimpleNamespace(
         corp=corp,
         team=team,
@@ -425,6 +419,9 @@ class TestDescendantIds:
 
     async def test_every_depth_and_none_for_no_roots(self, db, land):
         leaf = await create_card(db, card_type="Organization", name="Leaf", parent_id=land.team.id)
+        # Another tree entirely: never beneath Corp.
+        other = await create_card(db, card_type="Organization", name="Other")
+        await create_card(db, card_type="Organization", name="Stray", parent_id=other.id)
         assert await pcf.descendant_ids(db, [land.corp.id]) == {land.team.id, leaf.id}
         assert await pcf.descendant_ids(db, []) == set()
 
@@ -529,5 +526,5 @@ class TestFieldTypes:
             {"fields": None},
             {"fields": [{"key": "a", "type": "text"}, {"key": "b"}]},
         ]
-        assert pcf._field_types(schema) == {"a": "boolean", "b": ""}
-        assert pcf._field_types(None) == {}
+        assert pcf.field_types(schema) == {"a": "boolean", "b": ""}
+        assert pcf.field_types(None) == {}

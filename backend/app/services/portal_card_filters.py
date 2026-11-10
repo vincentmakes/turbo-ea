@@ -26,10 +26,10 @@ Reads only; never commits.
 from __future__ import annotations
 
 import uuid
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
-from sqlalchemy import ColumnElement, Text, and_, exists, false, func, not_, or_, select
+from sqlalchemy import CTE, ColumnElement, Text, and_, exists, false, func, not_, or_, select
 from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
@@ -145,16 +145,19 @@ def uuids(values: Iterable[str]) -> list[uuid.UUID]:
 # ---------------------------------------------------------------------------
 
 
-def subtype_condition(values: Iterable[str]) -> ColumnElement[bool] | None:
-    """A card whose subtype is picked; "(empty)" a card with none."""
+def subtype_condition(values: Iterable[str], *, card=Card) -> ColumnElement[bool] | None:
+    """A card whose subtype is picked; "(empty)" a card with none.
+
+    ``card`` is the entity the condition reads — ``Card`` itself, or an alias
+    of it when the card is the far end of a relation (``card_query``)."""
     real, want_empty = _split(values)
     if not real and not want_empty:
         return None
     clauses: list[ColumnElement[bool]] = []
     if real:
-        clauses.append(Card.subtype.in_(real))
+        clauses.append(card.subtype.in_(real))
     if want_empty:
-        clauses.append(or_(Card.subtype.is_(None), Card.subtype == ""))
+        clauses.append(or_(card.subtype.is_(None), card.subtype == ""))
     return or_(*clauses)
 
 
@@ -166,19 +169,20 @@ def _absent(col) -> ColumnElement[bool]:
 
 
 def attribute_condition(
-    key: str, values: Iterable[str], field_type: str | None
+    key: str, values: Iterable[str], field_type: str | None, *, card=Card
 ) -> ColumnElement[bool] | None:
     """A card whose ``attributes[key]`` holds a picked value (``matchesFacet``).
 
     A select holds its option key as a string, or a list of them for a
     ``multiple_select``; JSONB ``?|`` matches either. A boolean reads the
     legacy ``"yes"`` / ``"no"`` strings too. A key that is not a facet field is
-    a plain string comparison, as in the matcher's fallback.
+    a plain string comparison, as in the matcher's fallback. ``card`` is the
+    entity read, as in ``subtype_condition``.
     """
     real, want_empty = _split(values)
     if not real and not want_empty:
         return None
-    col = Card.attributes[key]
+    col = card.attributes[key]
     clauses: list[ColumnElement[bool]] = []
     if field_type == "boolean":
         reading = func.lower(func.trim(col.astext))
@@ -283,11 +287,14 @@ def relation_subtype_condition(
     return or_(_related(outgoing=True, where=where), _related(outgoing=False, where=where))
 
 
-def tag_conditions(groups: Mapping[uuid.UUID, list[uuid.UUID]]) -> list[ColumnElement[bool]]:
-    """One condition per tag group: any picked tag of the group (OR within a
-    group), every group with a pick required (AND across groups)."""
+def tag_conditions(
+    groups: Mapping[uuid.UUID, list[uuid.UUID]], *, card=Card
+) -> list[ColumnElement[bool]]:
+    """One condition per tag group over ``card`` (``Card`` or an alias): any
+    picked tag of the group (OR within a group), every group with a pick
+    required (AND across groups)."""
     return [
-        Card.id.in_(select(CardTag.card_id).where(CardTag.tag_id.in_(tag_ids)))
+        card.id.in_(select(CardTag.card_id).where(CardTag.tag_id.in_(tag_ids)))
         for tag_ids in groups.values()
         if tag_ids
     ]
@@ -298,17 +305,23 @@ def tag_conditions(groups: Mapping[uuid.UUID, list[uuid.UUID]]) -> list[ColumnEl
 # ---------------------------------------------------------------------------
 
 
+def descendant_cte(roots: Sequence[uuid.UUID]) -> CTE:
+    """A recursive CTE whose ``id`` column is every card beneath ``roots``,
+    any depth, any status — the roots themselves excluded. Anonymous, so two
+    of them can sit in one statement."""
+    # UNION, not UNION ALL: a card already reached is not walked again, which
+    # is also what stops a parent cycle a bad import might have written.
+    tree = select(Card.id).where(Card.parent_id.in_(list(roots))).cte(recursive=True)
+    child = aliased(Card)
+    return tree.union(select(child.id).where(child.parent_id == tree.c.id))
+
+
 async def descendant_ids(db: AsyncSession, roots: Iterable[uuid.UUID]) -> set[uuid.UUID]:
     """Every card beneath ``roots``, any depth, any status."""
     root_list = list(roots)
     if not root_list:
         return set()
-    # UNION, not UNION ALL: a card already reached is not walked again, which
-    # is also what stops a parent cycle a bad import might have written.
-    tree = select(Card.id).where(Card.parent_id.in_(root_list)).cte(recursive=True)
-    child = aliased(Card)
-    tree = tree.union(select(child.id).where(child.parent_id == tree.c.id))
-    rows = await db.execute(select(tree.c.id))
+    rows = await db.execute(select(descendant_cte(root_list).c.id))
     return set(rows.scalars().all())
 
 
@@ -327,7 +340,9 @@ async def _widen_relation_filters(
     return out
 
 
-def _field_types(fields_schema: object) -> dict[str, str]:
+def field_types(fields_schema: object) -> dict[str, str]:
+    """``{field key: field type}`` over a card type's ``fields_schema``; the
+    first section declaring a key wins, anything malformed is skipped."""
     out: dict[str, str] = {}
     for section in fields_schema if isinstance(fields_schema, list) else []:
         if not isinstance(section, dict):
@@ -347,7 +362,7 @@ async def _card_filter_conditions(
 
     if card_filters["attrFilters"]:
         ct = await db.scalar(select(CardType).where(CardType.key == card_type))
-        types = _field_types(ct.fields_schema if ct else None)
+        types = field_types(ct.fields_schema if ct else None)
         conditions.extend(
             attribute_condition(key, vals, types.get(key))
             for key, vals in sorted(card_filters["attrFilters"].items())

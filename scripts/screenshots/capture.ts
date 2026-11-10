@@ -26,6 +26,7 @@ import {
   CARD_LOOKUPS,
   DIAGRAM_LOOKUPS,
   RISK_LOOKUPS,
+  BOOKMARK_LOOKUPS,
   type PageDef,
   type ScreenshotAction,
 } from "./pages.js";
@@ -350,13 +351,14 @@ async function resolveDraftIds(
 }
 
 // ---------------------------------------------------------------------------
-// Diagram / risk resolution
+// Diagram / risk / saved-view resolution
 // ---------------------------------------------------------------------------
 
 /**
- * Resolve `{{diagramId:<key>}}` and `{{riskId:<key>}}` — a demo diagram by its
- * exact name (DIAGRAM_LOOKUPS) and a demo risk by its reference
- * (RISK_LOOKUPS). Only the tokens some route actually uses are looked up.
+ * Resolve `{{diagramId:<key>}}`, `{{riskId:<key>}}` and `{{bookmarkId:<key>}}` —
+ * a demo diagram by its exact name (DIAGRAM_LOOKUPS), a demo risk by its
+ * reference (RISK_LOOKUPS) and a demo saved inventory view by its exact name
+ * (BOOKMARK_LOOKUPS). Only the tokens some route actually uses are looked up.
  * Keys in the returned map are `<kind>:<key>`, as written in the route.
  */
 async function resolveNamedIds(
@@ -370,7 +372,7 @@ async function resolveNamedIds(
 
   const wanted = new Set<string>();
   for (const def of pageDefs) {
-    for (const match of def.route.matchAll(/\{\{(diagramId|riskId):(\w+)\}\}/g)) {
+    for (const match of def.route.matchAll(/\{\{(diagramId|riskId|bookmarkId):(\w+)\}\}/g)) {
       wanted.add(`${match[1]}:${match[2]}`);
     }
   }
@@ -386,6 +388,14 @@ async function resolveNamedIds(
         );
         const rows = res.ok() ? await res.json() : [];
         const hit = Array.isArray(rows) ? rows.find((d) => d.name === name) : undefined;
+        if (hit) resolved[ref] = hit.id;
+      } else if (kind === "bookmarkId") {
+        const name = BOOKMARK_LOOKUPS[key as keyof typeof BOOKMARK_LOOKUPS];
+        const res = await page.request.get(`${config.baseUrl}/api/v1/bookmarks`, { headers });
+        const rows = res.ok() ? await res.json() : [];
+        const hit = Array.isArray(rows)
+          ? rows.find((b: { name: string }) => b.name === name)
+          : undefined;
         if (hit) resolved[ref] = hit.id;
       } else {
         const reference = RISK_LOOKUPS[key as keyof typeof RISK_LOOKUPS];
@@ -424,7 +434,7 @@ function interpolateRoute(
     .replace(/\{\{cardId:(\w+)\}\}/g, (_match, key) => cardIds[key] || "__MISSING__")
     .replace(/\{\{draftId:(\w+)\}\}/g, (_match, key) => draftIds[key] || "__MISSING__")
     .replace(
-      /\{\{(diagramId|riskId):(\w+)\}\}/g,
+      /\{\{(diagramId|riskId|bookmarkId):(\w+)\}\}/g,
       (_match, kind, key) => namedIds[`${kind}:${key}`] || "__MISSING__"
     );
 }

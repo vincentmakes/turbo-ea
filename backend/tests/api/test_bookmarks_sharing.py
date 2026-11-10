@@ -42,6 +42,9 @@ def _bm(**overrides):
         "visibility": "shared",
         "odata_enabled": True,
         "created_at": CREATED,
+        "query": {"type": "Application"},
+        "created_via": "mcp",
+        "updated_via": "web",
         "shared_with_users": [
             SimpleNamespace(id=BOB, display_name="Bob", email="bob@test.com"),
             SimpleNamespace(id=CAROL, display_name="Carol", email="carol@test.com"),
@@ -87,6 +90,9 @@ class TestSerialize:
                 },
             ],
             "created_at": "2026-01-02T03:04:05+00:00",
+            "query": {"type": "Application"},
+            "created_via": "mcp",
+            "updated_via": "web",
             "odata_url": f"https://ea.example/api/v1/bookmarks/{bm.id}/odata",
         }
 

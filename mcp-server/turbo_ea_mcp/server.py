@@ -19,6 +19,7 @@ import threading
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
+import httpx
 from mcp.server.fastmcp import FastMCP
 from mcp.server.lowlevel.server import request_ctx as _mcp_request_ctx
 from mcp.server.transport_security import TransportSecuritySettings
@@ -128,6 +129,9 @@ mcp = FastMCP(
         upsert_relations_bulk, create_diagram, import_bpmn, resolve_card_refs)
         to turn artifacts the user has shared with you (spreadsheets, BPMN
         XML, DrawIO XML, documents) into cards, relations and diagrams.
+        For a question that chains relations with a condition at each hop,
+        use query_cards; save_inventory_view keeps such a query as an
+        inventory view people can open.
 
         Write tools default to dry_run=True: they validate and return a
         preview without persisting. Surface the preview to the user, then
@@ -172,8 +176,8 @@ async def search_cards(
         query: Free-text search across card name, description and alias.
         type: Filter by card type key (e.g. 'Application', 'ITComponent').
         status: Filter by status ('ACTIVE', 'PHASING_IN', 'PHASING_OUT', 'END_OF_LIFE', 'ARCHIVED').
-        page: Page number (default 1).
-        page_size: Results per page (default 20, max 100).
+        page: Page number (default 1; below 1 reads as 1).
+        page_size: Results per page (default 20, clamped to 1..100).
     """
     token = await _get_current_token()
     if not token:
@@ -188,6 +192,230 @@ async def search_cards(
         params["status"] = status
     data = await client.get("/cards", params=params)
     return _fmt(data)
+
+
+# The fields ``query_cards`` keeps from each card: enough to name, tell apart
+# and follow up on a match with ``get_card``, without the full card payload.
+_QUERY_ITEM_KEYS = (
+    "id",
+    "name",
+    "type",
+    "subtype",
+    "approval_status",
+    "lifecycle",
+    "data_quality",
+)
+_QUERY_HINT = "Check the keys with list_card_types and get_relation_types."
+
+
+def _compact_json(query: dict) -> str:
+    """The ``query=`` parameter as the backend takes it: compact JSON, so a
+    deep chain stays well under the backend's length cap and the URL limit."""
+    return json.dumps(query, separators=(",", ":"))
+
+
+def _query_rejection(exc: httpx.HTTPStatusError) -> dict | None:
+    """The error a 400 (or 422) from a card-query endpoint stands for, else
+    None.
+
+    The backend answers a query it cannot use (an unknown type, relation,
+    field or option, a hop too deep) with 400 and a short code in
+    ``detail`` (``HTTPException(400, detail=<code>)``). That is the agent's
+    input to fix, not a server fault, so the tools hand the code back with a
+    hint instead of raising. A ``{"code": ...}`` detail is tolerated too. A
+    422 is FastAPI's own request validation (``detail`` a list of errors) —
+    still a bad input, answered as ``invalid_query``."""
+    status = exc.response.status_code
+    if status == 422:
+        return {"error": "invalid_query", "hint": _QUERY_HINT}
+    if status != 400:
+        return None
+    try:
+        detail = exc.response.json().get("detail")
+    except Exception:  # noqa: BLE001 — a non-JSON 400 still names a bad query
+        return {"error": "invalid_query", "hint": _QUERY_HINT}
+    if isinstance(detail, dict):
+        detail = detail.get("code") or detail
+    return {"error": detail or "invalid_query", "hint": _QUERY_HINT}
+
+
+_VIEW_HINT = (
+    "List the views with list_inventory_views; only one whose can_edit is true "
+    "can be changed. Leave view_id empty to save a new view."
+)
+#: What a refused ``PATCH /bookmarks/{id}`` stands for.
+_VIEW_REJECTIONS = {403: "view_not_editable", 404: "view_not_found"}
+
+
+_VISIBILITY_HINT = (
+    "Only the view's owner can change its visibility, and making it public or "
+    "shared also needs the bookmarks.share permission. Call again without "
+    "visibility to keep the view's current one."
+)
+
+
+def _view_rejection(exc: httpx.HTTPStatusError, *, visibility: str = "") -> dict | None:
+    """``view_not_editable`` / ``view_not_found`` for a 403 / 404 from the
+    update of a saved view, else None — the agent's ``view_id`` to fix.
+
+    A 403 on an update that also asked for a new ``visibility`` is the
+    owner-only / ``bookmarks.share`` rule, not the view: the preview already
+    confirmed the caller may edit it, so the agent is told to drop the
+    argument rather than to pick another view."""
+    status = exc.response.status_code
+    if status == 403 and visibility:
+        return {"error": "visibility_not_allowed", "hint": _VISIBILITY_HINT}
+    code = _VIEW_REJECTIONS.get(status)
+    return {"error": code, "hint": _VIEW_HINT} if code else None
+
+
+def _view_problem(views: object, view_id: str) -> str | None:
+    """Why ``view_id`` cannot be updated by the caller, judged from their
+    ``GET /bookmarks`` list, or None when it can."""
+    for view in views if isinstance(views, list) else []:
+        if isinstance(view, dict) and str(view.get("id")) == view_id:
+            return None if view.get("can_edit") or view.get("is_owner") else "view_not_editable"
+    return "view_not_found"
+
+
+@mcp.tool(annotations=_READ_ANNOT)
+async def query_cards(query: dict, page: int = 1, page_size: int = 20) -> str:
+    """Find cards by a chain of relations, with a condition at every hop.
+
+    Answers multi-hop questions in one call ("Organizations that use an
+    active Application which an in-flight Initiative affects") and previews
+    exactly what ``save_inventory_view`` would save. The query is keys only
+    — card type, relation type, field and option keys from
+    ``list_card_types`` / ``get_relation_types``; card ids only under
+    ``where.cards``, tag ids only under ``where.tags``; never a label.
+
+    Grammar (at most 3 levels of ``related``, 10 hops per level, 12 hops in
+    the whole tree)::
+
+        CardQuery = {type, where?, related?: [Hop]}
+        Hop       = {relation: "<rtKey>" | "<rtKey>__out" | "<rtKey>__in",
+                     type, where?, negate?: bool, related?: [Hop]}
+        Where     = {lifecycle_phase?: [plan|phaseIn|active|phaseOut|endOfLife|none],
+                     subtype?: [subtypeKey], approval_status?: [status],
+                     data_quality_band?: [complete|partial|minimal],
+                     attributes?: {fieldKey: [optionKey | "true" | "false"
+                                              | text | "__empty__"]},
+                     tags?: [tag id],
+                     cards?: [card id], include_descendants?: bool}
+
+    A hop matches when ANY related card of that type passes its ``where``
+    (and its own nested hops); ``negate: true`` means NO such card. Sibling
+    hops at one level are AND; values inside one list are OR. Use
+    ``<rtKey>__out`` / ``<rtKey>__in`` only when a relation type joins a card
+    type to itself (the card is the source / the target). Related cards must
+    be active and readable by you; one you cannot read breaks the chain.
+    Text attributes match exactly. An unknown ``approval_status`` value
+    simply matches nothing. ``data_quality_band`` is the data quality score
+    band (complete >= 80, partial 40 up to, but excluding, 80, minimal
+    < 40); any other value is
+    refused ``unknown_band``. ``tags`` are grouped by tag group: a card needs
+    at least one of the listed tags from every group named (OR within a
+    group, AND across groups); a tag whose group does not apply to the
+    hop's card type is refused ``tag_not_for_type``, an unknown id
+    ``unknown_tag``. Tag ids come from ``list_tag_groups``.
+
+    ``cards`` pins the node to those cards (OR): take the ids from
+    ``search_cards`` or ``resolve_card_refs``. Each should be a card of the
+    node's own type: this read does not check the picks, so an id naming no
+    card, a card of another type or a card you cannot read simply matches
+    nothing (``save_inventory_view`` refuses those ``unknown_card``). An
+    archived pick matches nothing at a hop. ``include_descendants: true``
+    widens each pick to every card beneath it through the parent link
+    (sub-capabilities, child organizations); set without ``cards`` it is
+    refused ``descendants_without_cards``, and on a card type without a
+    hierarchy ``descendants_without_hierarchy``. At most 50 ids per list. Card and tag ids
+    are the only ids the grammar takes; an id anywhere else is refused
+    ``query_holds_an_id``.
+
+    Example — Organizations using an active Application that an Initiative
+    with status "onTrack" affects (Application is the target of
+    ``relInitiativeToApp``)::
+
+        {"type": "Organization",
+         "related": [{"relation": "relOrgToApp", "type": "Application",
+                      "where": {"lifecycle_phase": ["active"]},
+                      "related": [{"relation": "relInitiativeToApp",
+                                   "type": "Initiative",
+                                   "where": {"attributes":
+                                             {"initiativeStatus": ["onTrack"]}}}]}]}
+
+    Args:
+        query: The CardQuery object above.
+        page: Page number (default 1).
+        page_size: Results per page (default 20, max 100).
+
+    Returns: JSON ``{total, page, page_size, items}``, each item trimmed to
+    ``id, name, type, subtype, approval_status, lifecycle, data_quality``
+    (the 0-100 score ``data_quality_band`` filters on). A query the
+    backend rejects returns ``{error: <code>, hint}`` instead.
+    """
+    token = await _get_current_token()
+    if not token:
+        return "Error: Not authenticated. Please reconnect."
+    client = TurboEAClient(token)
+    params = {
+        "query": _compact_json(query),
+        "page": max(1, page),
+        "page_size": max(1, min(page_size, 100)),
+    }
+    try:
+        data = await client.get("/cards", params=params)
+    except httpx.HTTPStatusError as exc:
+        if (rejection := _query_rejection(exc)) is None:
+            raise
+        return _fmt(rejection)
+    data = data if isinstance(data, dict) else {}
+    return _fmt(
+        {
+            "total": data.get("total"),
+            "page": data.get("page"),
+            "page_size": data.get("page_size"),
+            "items": [
+                {k: item.get(k) for k in _QUERY_ITEM_KEYS} for item in data.get("items") or []
+            ],
+        }
+    )
+
+
+# What ``list_inventory_views`` keeps from each saved view.
+_VIEW_KEYS = (
+    "id",
+    "name",
+    "card_type",
+    "visibility",
+    "is_owner",
+    "can_edit",
+    "owner_name",
+    "query",
+    "created_via",
+)
+
+
+@mcp.tool(annotations=_READ_ANNOT)
+async def list_inventory_views() -> str:
+    """List the saved inventory views you can see (yours, shared with you,
+    and public ones).
+
+    A view with a ``query`` is a multi-hop query view (see ``query_cards``);
+    ``created_via`` says which channel made it ("mcp" for one saved through
+    ``save_inventory_view``). Pass a view's ``id`` as ``view_id`` to
+    ``save_inventory_view`` to change it — only where ``can_edit`` is true.
+
+    Returns: JSON list of ``{id, name, card_type, visibility, is_owner,
+    can_edit, owner_name, query, created_via}``.
+    """
+    token = await _get_current_token()
+    if not token:
+        return "Error: Not authenticated. Please reconnect."
+    client = TurboEAClient(token)
+    data = await client.get("/bookmarks")
+    views = data if isinstance(data, list) else []
+    return _fmt([{k: view.get(k) for k in _VIEW_KEYS} for view in views])
 
 
 @mcp.tool(annotations=_READ_ANNOT)
@@ -244,6 +472,40 @@ async def list_card_types() -> str:
     client = TurboEAClient(token)
     data = await client.get("/metamodel/types")
     return _fmt(data)
+
+
+# What ``list_tag_groups`` keeps from each tag group and from each of its tags.
+_TAG_GROUP_KEYS = ("id", "name", "mode", "restrict_to_types")
+_TAG_KEYS = ("id", "name", "color")
+
+
+@mcp.tool(annotations=_READ_ANNOT)
+async def list_tag_groups() -> str:
+    """List the tag groups and their tags.
+
+    The tag ids are what ``query_cards`` and ``save_inventory_view`` take
+    under ``where.tags``. A group applies only to the card types in its
+    ``restrict_to_types``; null or empty means every card type. ``mode`` is
+    "single" (a card carries at most one tag of the group) or "multi".
+
+    Returns: JSON list of ``{id, name, mode, restrict_to_types, tags: [{id,
+    name, color}]}``.
+    """
+    token = await _get_current_token()
+    if not token:
+        return "Error: Not authenticated. Please reconnect."
+    client = TurboEAClient(token)
+    data = await client.get("/tag-groups")
+    groups = data if isinstance(data, list) else []
+    return _fmt(
+        [
+            {
+                **{k: group.get(k) for k in _TAG_GROUP_KEYS},
+                "tags": [{k: tag.get(k) for k in _TAG_KEYS} for tag in group.get("tags") or []],
+            }
+            for group in groups
+        ]
+    )
 
 
 @mcp.tool(annotations=_READ_ANNOT)
@@ -3676,6 +3938,155 @@ async def create_diagram(
             data["batch_id"] = batch.batch_id
             batch.summary = {"diagram_id": data.get("id")}
         return _fmt(data)
+
+
+_VIEW_VISIBILITIES = ("private", "public", "shared")
+
+
+@mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
+async def save_inventory_view(
+    name: str,
+    query: dict,
+    view_id: str = "",
+    visibility: str = "",
+    columns: list[str] | None = None,
+    dry_run: bool = True,
+) -> str:
+    """Save a multi-hop card query as an inventory view people can open.
+
+    The view stores the query, not its results: the inventory re-runs it on
+    every open, so the list stays current. In the web UI it shows the chain
+    as a readable path; its query can be changed here or in the inventory's
+    query builder. Write and test the query with ``query_cards`` first — the
+    grammar is documented there.
+
+    Args:
+        name: The view's name.
+        query: A CardQuery (see ``query_cards``). Its ``type`` becomes the
+            view's card type. A ``where.cards`` pick that names no card, a
+            card of another type or a card you cannot read is refused
+            ``unknown_card``, so nobody saves a view naming a card hidden from
+            them. Editing a view shared with you keeps the picks it already
+            holds even when you cannot read them.
+        view_id: Update this existing view (from ``list_inventory_views``)
+            instead of creating a new one — only one ``list_inventory_views``
+            shows with ``can_edit`` true (else ``view_not_found`` /
+            ``view_not_editable``). Only the name and query are always
+            replaced; visibility and columns change only when you pass them,
+            and the owner's grouping and layout are kept — unless the query's
+            start type changes, which resets the view's filters and grouping
+            (they belonged to the old type).
+        visibility: "private", "public" (needs the ``bookmarks.share``
+            permission) or "shared"; on an update only the owner may change
+            it (else ``visibility_not_allowed``: call again without it).
+            Empty (default) means "private" for a
+            new view and "keep as is" for an update.
+        columns: Optional grid column keys to show (omitted: unchanged on
+            an update).
+        dry_run: When True (default), runs the query to validate it and
+            returns the payload, the match count and a few sample names;
+            nothing is saved. Call again with dry_run=False to save.
+
+    Returns: JSON with the preview (``matches``, ``sample``, ``batch_id``) or
+    the saved view's ``view_id``, ``batch_id`` and ``inventory_url``.
+    Saving a view publishes no event, so ``rollback_batch`` cannot undo it;
+    delete an unwanted view from the inventory's Saved Views.
+    """
+    token = await _get_current_token()
+    if not token:
+        return "Error: Not authenticated. Please reconnect."
+    if (disabled := _writes_disabled_message()) is not None:
+        return disabled
+    if visibility and visibility not in _VIEW_VISIBILITIES:
+        return _fmt(
+            {
+                "error": "invalid_visibility",
+                "message": "visibility must be one of: private, public, shared.",
+                "received": visibility,
+            }
+        )
+    if not isinstance(query, dict) or not isinstance(query.get("type"), str):
+        return _fmt(
+            {
+                "error": "invalid_query",
+                "message": "query must be an object with a string 'type' (a card type key).",
+                "hint": _QUERY_HINT,
+            }
+        )
+    start = query["type"]
+    # An update sends only what the caller asked to change: the backend
+    # re-derives ``filters.types`` from the query, and leaving ``filters``
+    # out keeps the grouping the owner stored on the view.
+    payload: dict = {"name": name, "card_type": start, "query": query}
+    if not view_id:
+        payload["filters"] = {"types": [start]}
+        payload["visibility"] = visibility or "private"
+    elif visibility:
+        payload["visibility"] = visibility
+    if columns is not None:
+        payload["columns"] = columns
+    async with mutation_batch(
+        token,
+        tool_name="save_inventory_view",
+        row_count=1,
+        dry_run=dry_run,
+    ) as batch:
+        client = batch.client()
+        if dry_run:
+            if view_id:
+                problem = _view_problem(await client.get("/bookmarks"), view_id)
+                if problem is not None:
+                    batch.summary = {"status": "rejected", "error": problem}
+                    return _fmt({"error": problem, "hint": _VIEW_HINT, **_preview_fields(batch)})
+            try:
+                sample = await client.get(
+                    "/cards", params={"query": _compact_json(query), "page_size": 5}
+                )
+            except httpx.HTTPStatusError as exc:
+                if (rejection := _query_rejection(exc)) is None:
+                    raise
+                batch.summary = {"status": "rejected", "error": rejection["error"]}
+                return _fmt({**rejection, **_preview_fields(batch)})
+            sample = sample if isinstance(sample, dict) else {}
+            total = sample.get("total")
+            batch.summary = {"status": "previewed", "view_id": view_id or None, "matches": total}
+            return _fmt(
+                {
+                    "dry_run": True,
+                    ("would_update" if view_id else "would_create"): payload,
+                    "matches": total,
+                    "sample": [item.get("name") for item in sample.get("items") or []],
+                    "note": (
+                        "Preview built by the MCP server: the query was validated by "
+                        "running it (GET /cards?query=); nothing was saved. Call again "
+                        "with dry_run=False to save the view."
+                    ),
+                    **_preview_fields(batch),
+                }
+            )
+        try:
+            if view_id:
+                saved = await client.patch(f"/bookmarks/{view_id}", json=payload)
+            else:
+                saved = await client.post("/bookmarks", json=payload)
+        except httpx.HTTPStatusError as exc:
+            rejection = _query_rejection(exc) or (
+                _view_rejection(exc, visibility=visibility) if view_id else None
+            )
+            if rejection is None:
+                raise
+            batch.summary = {"status": "rejected", "error": rejection["error"]}
+            return _fmt({**rejection, "batch_id": batch.batch_id})
+        saved_id = saved.get("id") if isinstance(saved, dict) else None
+        batch.summary = {"view_id": saved_id, "updated": bool(view_id)}
+        return _fmt(
+            {
+                "view_id": saved_id,
+                "batch_id": batch.batch_id,
+                "updated": bool(view_id),
+                "inventory_url": f"{TURBO_EA_PUBLIC_URL.rstrip('/')}/inventory?view={saved_id}",
+            }
+        )
 
 
 @mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)

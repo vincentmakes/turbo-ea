@@ -183,31 +183,34 @@ Dans ce mode, le serveur s'authentifie avec email/mot de passe et renouvelle le 
 
 ## Capacités disponibles
 
-Le serveur MCP expose **51 outils** répartis en deux groupes : **32 outils de lecture** qui interrogent les données EA et **19 outils d'écriture** (14 additifs, 5 destructifs) qui créent et maintiennent fiches, relations, diagrammes, risques, ADRs et plus encore — y compris la transformation des artefacts qu'un outil d'IA a dans son propre contexte (tableurs, BPMN XML, DrawIO XML, documents, images) en données EA structurées. Chaque outil porte des `ToolAnnotations` MCP (indications lecture seule / destructif / idempotent) afin que les connecteurs puissent afficher la destructivité dans leur interface.
+Le serveur MCP expose **55 outils** répartis en deux groupes : **35 outils de lecture** qui interrogent les données EA et **20 outils d'écriture** (15 additifs, 5 destructifs) qui créent et maintiennent fiches, relations, diagrammes, risques, ADRs, vues d'inventaire enregistrées et plus encore — y compris la transformation des artefacts qu'un outil d'IA a dans son propre contexte (tableurs, BPMN XML, DrawIO XML, documents, images) en données EA structurées. Chaque outil porte des `ToolAnnotations` MCP (indications lecture seule / destructif / idempotent) afin que les connecteurs puissent afficher la destructivité dans leur interface.
 
 ### Sécurité par exécution à blanc lors des écritures
 
 Chaque outil d'écriture utilise par défaut **`dry_run=true`**, et rien n'est persisté tant que l'outil d'IA ne le rappelle pas avec `dry_run=false` — ce qu'il ne doit faire qu'une fois que l'utilisateur a vu l'aperçu et confirmé. Cela empêche un agent trop zélé d'introduire silencieusement des centaines de fiches à partir d'un tableur mal interprété. L'aperçu existe en deux variantes :
 
 - **Vérifié par le backend.** Lorsque l'endpoint sous-jacent prend en charge une exécution à blanc, le backend exécute chaque validateur et résolveur — permissions, ids de fiches, ce que l'utilisateur peut lire —, construit le résultat complet, puis **annule la transaction**. Cela couvre les fiches (`create_cards_bulk`, `update_cards_bulk`), les relations (`upsert_relations_bulk`) et les diagrammes (`create_diagram`, `update_diagram`). L'aperçu d'un diagramme renvoie les liens vers des fiches acceptés par le backend et, pour une mise à jour, la modification exacte : champs renommés, liens vers des fiches ajoutés et retirés, et indication si le canevas a changé.
-- **Construit par le serveur MCP.** Lorsque l'endpoint n'offre pas d'exécution à blanc, l'outil valide et traduit son entrée puis affiche la charge utile exacte qu'enverrait un commit, sans appeler l'endpoint d'écriture : `import_bpmn` (le parcours brouillon → soumission → approbation ; ses décomptes de nœuds de flux sont une estimation et l'aperçu indique `verified: false`), `create_adr`, `update_adr`, `sign_adr`, `create_soaw`, `add_card_comment`, `transition_card_lifecycle`, `assign_stakeholders`, `create_risks`, `update_risks`, `archive_cards` (qui montre l'impact de l'archivage de chaque fiche) et `set_card_logos` / `clear_card_logos` (qui recherchent le type et le logo actuel de chaque fiche et récupèrent chaque `image_url`).
+- **Construit par le serveur MCP.** Lorsque l'endpoint n'offre pas d'exécution à blanc, l'outil valide et traduit son entrée puis affiche la charge utile exacte qu'enverrait un commit, sans appeler l'endpoint d'écriture : `import_bpmn` (le parcours brouillon → soumission → approbation ; ses décomptes de nœuds de flux sont une estimation et l'aperçu indique `verified: false`), `create_adr`, `update_adr`, `sign_adr`, `create_soaw`, `add_card_comment`, `transition_card_lifecycle`, `save_inventory_view` (qui exécute la requête et indique combien de fiches correspondent, avec quelques noms d'exemple), `assign_stakeholders`, `create_risks`, `update_risks`, `archive_cards` (qui montre l'impact de l'archivage de chaque fiche) et `set_card_logos` / `clear_card_logos` (qui recherchent le type et le logo actuel de chaque fiche et récupèrent chaque `image_url`).
 
 Dans les deux cas, l'aperçu est consigné dans le journal d'audit comme un lot d'exécution à blanc, afin qu'un administrateur voie ce qu'un agent a proposé comme ce qu'il a validé.
 
 ### Outils de lecture
 
-Le serveur expose 32 outils de lecture, regroupés en huit clusters.
+Le serveur expose 35 outils de lecture, regroupés en huit clusters.
 
 **Fiches & métamodèle**
 
 | Outil | Description |
 |-------|-------------|
 | `search_cards` | Rechercher et filtrer les fiches par type, statut ou texte libre |
+| `query_cards` | Trouver des fiches à travers une chaîne de relations avec une condition à chaque saut — voir [Requêtes de fiches à plusieurs sauts](#multi-hop-card-queries) |
+| `list_inventory_views` | Lister les vues d'inventaire enregistrées que vous pouvez voir, avec la requête de chaque vue et le canal qui l'a créée |
 | `get_card` | Obtenir les détails complets d'une fiche par UUID |
 | `get_card_relations` | Obtenir toutes les relations connectées à une fiche |
 | `get_card_hierarchy` | Obtenir les ancêtres et enfants d'une fiche |
 | `list_card_types` | Lister tous les types de fiche du métamodèle ; le champ `category` de chaque type est la clé de sa catégorie (couche d'architecture) |
 | `get_relation_types` | Lister les types de relation, avec filtre optionnel par type de fiche |
+| `list_tag_groups` | Lister les groupes de tags (avec les types de fiche auxquels chacun s'applique) et leurs tags ; les identifiants de tag sont ce que `query_cards` et `save_inventory_view` attendent sous `where.tags` |
 | `resolve_card_refs` | Pré-valider les références de fiche basées sur le nom (nom → UUID) avant un import en masse — résout uniquement, n'écrit jamais |
 | `analyze_impact` | Analyse du rayon d'impact des dépendances pour un changement proposé sur une fiche |
 
@@ -279,9 +282,9 @@ Tous les outils respectent le RBAC de l'utilisateur authentifié — un visualis
 
 ### Outils d'écriture
 
-Le serveur expose 19 outils d'écriture, chacun annoté comme **additif** (crée ou étend des données) ou **destructif** (modifie ou supprime des données existantes) afin que les connecteurs puissent avertir en conséquence.
+Le serveur expose 20 outils d'écriture, chacun annoté comme **additif** (crée ou étend des données) ou **destructif** (modifie ou supprime des données existantes) afin que les connecteurs puissent avertir en conséquence.
 
-**Additifs (14)**
+**Additifs (15)**
 
 | Outil | Description |
 |-------|-------------|
@@ -297,6 +300,7 @@ Le serveur expose 19 outils d'écriture, chacun annoté comme **additif** (crée
 | `update_adr` | Met à jour un ADR (titre, sections, statut, fiches liées). |
 | `sign_adr` | Signe un ADR (nécessite la permission `adr.sign` ; sinon renvoie un lien profond vers l'interface pour signer dans le navigateur). |
 | `create_diagram` | Crée un diagramme DrawIO libre avec des liens optionnels vers des fiches existantes. |
+| `save_inventory_view` | Enregistre une requête de fiches à plusieurs sauts comme vue d'inventaire (nouvelle, ou remplaçant la requête d'une vue existante indiquée par `view_id`). L'inventaire réexécute la requête à chaque ouverture de la vue ; la réponse contient un lien qui l'ouvre. Une mise à jour ne change que le nom et la requête, ainsi que la visibilité et les colonnes lorsqu'elles sont transmises ; le regroupement et la disposition de la vue sont conservés. |
 | `import_bpmn` | Enregistre un diagramme XML BPMN 2.0 sur une fiche Processus métier **existante**. Si aucune fiche ne correspond au nom fourni, l'outil renvoie une erreur `card_not_found` qui renvoie l'agent vers `create_cards_bulk` — cela force la création explicite de la fiche avec description, sous-type et attributs au préalable, plutôt qu'un raccourci qui crée une fiche pauvre. |
 | `set_card_logos` | Set the custom logo on many cards at once — the bulk way to put product marks on an Application inventory. Three ways to supply the image, one per row: a built-in `icon_slug` (resolved server-side, nothing transferred), an `image_url` the MCP server downloads for you from an allowlisted icon host, or `image_base64` from the agent's own context. The packs are a shortcut, not the source of truth — a dry run lists the slugs they do not carry under `unknown_icon_slugs` **and** fetches every `image_url`, so a missing brand or a dead link is reported before anything is written rather than left as a logo nobody could set. `mime` is optional and sniffed from the bytes. PNG/JPEG/WebP/GIF only, 1 MB each. Each row echoes a sha256 so the caller can prove what landed. Use `clear_card_logos` to remove one. |
 
@@ -309,6 +313,65 @@ Le serveur expose 19 outils d'écriture, chacun annoté comme **additif** (crée
 | `update_diagram` | Remplace le XML DrawIO, le nom ou les liens de fiches d'un diagramme. |
 | `rollback_batch` | Annule les écritures effectuées dans un lot de mutation précédent. |
 | `clear_card_logos` | Remove the custom logo from cards, falling them back to their card-type icon. Recoverable — set it again to restore. |
+
+### Requêtes de fiches à plusieurs sauts { #multi-hop-card-queries }
+
+`query_cards` répond en un seul appel à une question qui enchaîne des relations — « Organisations qui utilisent une Application dont le cycle de vie est Actif, affectée par une Initiative dont le statut est Dans les temps » — et `save_inventory_view` conserve la même requête comme vue d'inventaire enregistrée. La vue stocke la requête, pas ses résultats : l'inventaire la réexécute à chaque ouverture de la vue, de sorte que la liste reste à jour.
+
+Une requête est un petit objet JSON composé **uniquement de clés** — clés de type de fiche, de type de relation, de champ et d'option telles que les renvoient `list_card_types` et `get_relation_types`; des identifiants de fiche uniquement sous `where.cards` et des identifiants de tag uniquement sous `where.tags` ; jamais des libellés :
+
+```text
+CardQuery = { type, where?, related?: [Hop] }
+Hop       = { relation: "<relation type key>" | "<key>__out" | "<key>__in",
+              type, where?, negate?: true|false, related?: [Hop] }
+Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife | none],
+              subtype?: [subtype key],
+              approval_status?: [status],
+              data_quality_band?: [complete | partial | minimal],
+              attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] },
+              tags?: [tag id],
+              cards?: [card id],
+              include_descendants?: true|false }
+```
+
+- Un saut correspond lorsque **n'importe quelle** fiche liée de ce type satisfait son `where` (et ses propres sauts imbriqués). `negate: true` le transforme en « n'a **aucune** fiche de ce type ».
+- Les sauts côte à côte à un même niveau doivent tous correspondre (ET) ; les valeurs d'une même liste sont des alternatives (OU).
+- `<key>__out` et `<key>__in` choisissent un côté d'un type de relation qui relie un type de fiche à lui-même (la fiche est la source, ou la cible). Sinon, la clé simple suffit.
+- `data_quality_band` fait correspondre le score de qualité des données d'une fiche par tranche, comme le filtre Qualité des données de l'inventaire : `complete` (80 et plus), `partial` (de 40 inclus à 80 exclu) ou `minimal` (moins de 40). Toute autre valeur est refusée avec `unknown_band`.
+- `tags` prend des identifiants de tag issus de `list_tag_groups`, regroupés par groupe de tags : une fiche doit porter au moins un des tags listés de **chaque** groupe nommé (alternatives au sein d'un groupe, ET entre les groupes). Un tag dont le groupe ne s'applique pas au type de fiche de ce saut est refusé avec `tag_not_for_type` ; un identifiant inconnu avec `unknown_tag`.
+- `cards` épingle ce nœud aux fiches listées (alternatives) : prenez leurs identifiants dans `search_cards` ou `resolve_card_refs`. Chacune doit être une fiche du type propre au nœud. L'exécution d'une requête ne vérifie pas ces choix : un identifiant qui ne désigne aucune fiche, une fiche d'un autre type ou une fiche que l'utilisateur ne peut pas lire ne correspond simplement à rien. L'enregistrement d'une vue les vérifie, lui, et refuse un tel choix avec `unknown_card`. Une fiche archivée ne correspond à rien à un saut. `include_descendants: true` étend chaque choix à toutes les fiches situées en dessous par le lien parent (sous-capacités, organisations enfants) ; défini sans `cards`, il est refusé avec `descendants_without_cards`, et sur un type de fiche sans hiérarchie avec `descendants_without_hierarchy`. Un identifiant de fiche ou de tag ailleurs dans la requête est refusé avec `query_holds_an_id`.
+- Les fiches liées ne comptent que si elles sont actives et que l'utilisateur peut les lire : une fiche que l'utilisateur ne peut pas voir rompt la chaîne, exactement comme dans l'interface web. Lors de l'enregistrement d'une vue, un rédacteur ne peut pas épingler une fiche qui lui est masquée (`unknown_card`) ; un collaborateur qui modifie une vue partagée avec lui conserve les choix qu'elle contient déjà, même ceux qu'il ne peut pas lire. Un lecteur qui ouvre une vue dont les choix incluent une fiche qui lui est masquée n'est pas refusé — les choix masqués ne correspondent simplement à rien.
+
+Exemple — Organisations qui utilisent une Application active affectée par une Initiative dont le statut est *On Track* :
+
+```json
+{
+  "type": "Organization",
+  "related": [
+    {
+      "relation": "relOrgToApp",
+      "type": "Application",
+      "where": { "lifecycle_phase": ["active"] },
+      "related": [
+        {
+          "relation": "relInitiativeToApp",
+          "type": "Initiative",
+          "where": { "attributes": { "initiativeStatus": ["onTrack"] } }
+        }
+      ]
+    }
+  ]
+}
+```
+
+Dans l'inventaire, une vue enregistrée ainsi affiche sa chaîne sous forme de chemin lisible au-dessus de la grille avec une note indiquant qu'elle a été créée via MCP. Sa requête peut être modifiée dans l'inventaire (le crayon de la bande de chemin) ou par `save_inventory_view` (transmettez l'identifiant de la vue, obtenu avec `list_inventory_views`, comme `view_id` ; la mise à jour remplace le nom et la requête, ne change la visibilité et les colonnes que si elles sont transmises, et conserve le regroupement et la disposition définis dans l'interface web — sauf si la nouvelle requête part d'un autre type de fiche, ce qui réinitialise les filtres et le regroupement de la vue, car ils appartenaient à l'ancien type ; une vue que vous ne pouvez pas modifier est refusée avec `view_not_found` ou `view_not_editable` ; un changement de visibilité qui ne vous est pas permis (seul le propriétaire peut la modifier, et publique ou partagée exige `bookmarks.share`) est refusé avec `visibility_not_allowed`) ; dans l'interface web, son propriétaire peut aussi la renommer, modifier son partage et son réglage OData, ajuster la disposition des colonnes ou la supprimer.
+
+Limites :
+
+- Au plus **3 niveaux** de `related`, au plus 10 sauts côte à côte à un même niveau, et au plus **12 sauts dans l'ensemble de la requête** (côte à côte et imbriqués confondus). Une requête plus longue est refusée avec `too_many_hops`.
+- Au plus **50** fiches choisies par condition.
+- Un attribut texte correspond à sa valeur **exactement** — il n'y a pas de correspondance partielle ni insensible à la casse.
+- **`rollback_batch` ne peut pas annuler une vue enregistrée.** L'enregistrement d'une vue crée un lot de modifications mais ne publie aucun événement que l'annulation pourrait inverser ; supprimez une vue indésirable depuis les Vues enregistrées de l'inventaire.
 
 ### Téléversement d'artefacts
 
@@ -328,7 +391,7 @@ Défense en profondeur en plus de l'exécution à blanc, afin qu'une mauvaise in
 
 - **Plafond de taille par appel.** Les outils d'écriture MCP appliquent un plafond beaucoup plus petit que les endpoints sous-jacents de l'importateur Excel : 200 lignes pour `create_cards_bulk`, 500 opérations pour `upsert_relations_bulk`. Suffisamment grand pour tout téléversement d'artefact unique réaliste, suffisamment petit pour qu'une prévisualisation d'exécution à blanc reste scannable.
 - **Pas de suppression de relation par défaut.** `upsert_relations_bulk` refuse les opérations `action: "delete"` — pour supprimer des relations, utilisez l'interface web où l'action est consignée sous l'identité de l'utilisateur. Les opérateurs peuvent activer cette possibilité en définissant `MCP_ALLOW_RELATION_DELETE=true`.
-- **Interrupteur d'arrêt.** `MCP_WRITES_ENABLED=false` désactive les 19 outils d'écriture sans redéployer de code. Les 32 outils de lecture continuent de fonctionner.
+- **Interrupteur d'arrêt.** `MCP_WRITES_ENABLED=false` désactive les 20 outils d'écriture sans redéployer de code. Les 35 outils de lecture continuent de fonctionner.
 - **Le téléchargement de logos passe par une liste d'hôtes autorisés.** Les jeux d'icônes fournis ne peuvent pas couvrir tous les produits d'un client, et un assistant est souvent isolé sans accès au web ; `set_card_logos` accepte donc une `image_url` que le serveur MCP va chercher. Uniquement `https`, uniquement les hôtes de `MCP_LOGO_FETCH_HOSTS`, uniquement une adresse publique, au plus deux redirections (revérifiées à chaque fois), au plus 1 Mo lu en flux, et les octets doivent porter une véritable signature PNG/JPEG/WebP/GIF. Le téléchargement a lieu à la périphérie MCP, jamais dans le backend, puis l'image est envoyée par la voie habituelle : une URL choisie par un LLM n'atteint jamais le processus qui détient la base de données. `MCP_LOGO_FETCH_ENABLED=false` désactive le tout.
 - **Étiquette d'origine d'audit.** Chaque requête backend du serveur MCP transporte un en-tête `X-Turbo-EA-Origin: mcp`. Les événements émis depuis ces requêtes sont étiquetés `origin: "mcp"` dans le payload du journal d'audit, ce qui permet aux administrateurs de filtrer les écritures pilotées par MCP hors de la chronologie, séparément des actions de l'interface web.
 - **Lots de mutation.** Chaque appel d'écriture MCP — l'aperçu comme le commit — constitue un lot de mutation dans le journal d'audit, ouvert avant toute écriture ; chaque événement émis pendant l'appel est estampillé avec l'id du lot, et chaque outil d'écriture renvoie ce `batch_id`. Les administrateurs (ou l'outil `get_change_history`) peuvent reconstruire le diff complet, événement par événement, d'un commit à partir d'un seul id, et `rollback_batch` peut l'annuler — y compris en supprimant un diagramme créé par `create_diagram`, sauf si quelqu'un l'a publié depuis. Une mise à jour de diagramme est signalée comme non réversible, car le canevas précédent n'est pas conservé. Les commits dépassant `MCP_BATCH_CONFIRMATION_THRESHOLD` lignes doivent renvoyer le `confirm_token` à usage unique retourné par l'exécution à blanc précédente. Le backend le vérifie à l'ouverture du lot du commit, avant toute écriture : il doit provenir d'une exécution à blanc du même outil, par le même utilisateur, il y a moins de 15 minutes, et il n'autorise qu'un seul commit. Chaque outil d'écriture en masse suit ce cycle aperçu → confirmation : `create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`.
@@ -371,7 +434,7 @@ Les six variables d'environnement de garde-fou sur le conteneur MCP :
 | Rôle | Accès |
 |------|-------|
 | **Administrateur** | Configurer les paramètres MCP (permission `admin.mcp`). Accès complet en lecture + écriture via MCP. |
-| **Tous les utilisateurs authentifiés** | Accès en lecture régi par leur RBAC existant. Les outils d'écriture exigent les permissions backend correspondantes — `inventory.create` / `inventory.edit` / `inventory.archive` (fiches), `relations.manage` (relations), `diagrams.manage` (diagrammes), `bpm.edit` (BPMN), `risks.manage` (registre des risques), `comments.create` (commentaires), `stakeholders.manage` (parties prenantes), `soaw.create` (SoAW), `adr.create` / `adr.sign` (ADRs). |
+| **Tous les utilisateurs authentifiés** | Accès en lecture régi par leur RBAC existant. Les outils d'écriture exigent les permissions backend correspondantes — `inventory.create` / `inventory.edit` / `inventory.archive` (fiches), `relations.manage` (relations), `diagrams.manage` (diagrammes), `bpm.edit` (BPMN), `risks.manage` (registre des risques), `comments.create` (commentaires), `stakeholders.manage` (parties prenantes), `soaw.create` (SoAW), `adr.create` / `adr.sign` (ADRs), `bookmarks.manage` / `bookmarks.share` (vues d'inventaire enregistrées). |
 
 La permission `admin.mcp` contrôle qui peut gérer les paramètres MCP. Elle n'est disponible que pour le rôle Administrateur par défaut. Les rôles personnalisés peuvent recevoir cette permission via la page d'administration des Rôles.
 

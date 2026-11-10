@@ -84,6 +84,11 @@ from app.services.calculation_engine import run_calculations_for_card
 from app.services.card_completeness import missing_mandatory
 from app.services.card_flags import orphaned_condition, stale_condition
 from app.services.card_logo_service import logo_updated_map
+from app.services.card_query import (
+    CardQueryError,
+    compile_card_query,
+    parse_card_query,
+)
 from app.services.card_read_scope import (
     CardReadScope,
     require_card_readable,
@@ -318,6 +323,23 @@ async def list_cards(
             "call), `ext` (an extension) or `system` (a background job)."
         ),
     ),
+    query: str | None = Query(
+        None,
+        description=(
+            "A multi-hop card query as JSON (metamodel keys, plus tag ids): "
+            '`{"type": <card type>, "where"?: {...}, "related"?: [{"relation": '
+            '<relation type, `__out` / `__in` on a self-referencing one>, "type": '
+            '<card type>, "where"?: {...}, "negate"?: bool, "related"?: [...]}]}`, '
+            "where `where` takes `lifecycle_phase`, `subtype`, `approval_status`, "
+            "`attributes` value lists and `tags` (tag ids: any tag of a group, every "
+            "group named). Keeps the cards of the start type with a "
+            "related card matching every hop (`negate`: with none); a related card "
+            "must be ACTIVE and readable by the caller. At most 3 hops deep, "
+            "12 hops in all, 8000 characters. "
+            "400 with a code (`query_too_long`, `invalid_query_json`, `invalid_query`, "
+            "`unknown_card_type`, `unknown_relation_type`, …) when it cannot be answered."
+        ),
+    ),
     page: int = Query(1, ge=1),
     page_size: int = Query(10000, ge=1, le=10000),
     sort_by: str | None = Query(
@@ -417,6 +439,13 @@ async def list_cards(
     if created_via:
         q = q.where(Card.created_via == created_via)
         count_q = count_q.where(Card.created_via == created_via)
+    if query:
+        try:
+            clauses = await compile_card_query(db, parse_card_query(query), read_scope)
+        except CardQueryError as exc:
+            raise HTTPException(400, exc.code) from exc
+        q = q.where(*clauses)
+        count_q = count_q.where(*clauses)
 
     # Sorting — H9: whitelist sort columns
     effective_sort = sort_by if sort_by in _ALLOWED_SORT_COLUMNS else "name"

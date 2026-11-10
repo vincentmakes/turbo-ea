@@ -5,12 +5,17 @@ These tests require a PostgreSQL test database and an HTTP test client.
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from sqlalchemy import select
 
 from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
+from app.models.card import Card
+from app.models.card_type import CardType
+from app.services.permission_service import PermissionService
 from tests.conftest import (
     auth_headers,
     create_card,
@@ -18,6 +23,8 @@ from tests.conftest import (
     create_relation,
     create_relation_type,
     create_role,
+    create_tag,
+    create_tag_group,
     create_user,
 )
 
@@ -1049,3 +1056,375 @@ class TestOrphanedAndStaleFilters:
     async def test_composes_with_the_type_filter(self, client, db, related):
         _, names = await self._names(client, related["admin"], "type=ITComponent&orphaned=true")
         assert names == []
+
+
+# ---------------------------------------------------------------------------
+# GET /cards?query=  (multi-hop card query)
+# ---------------------------------------------------------------------------
+
+
+class TestQueryParam:
+    """``?query=`` keeps the start cards with a chain of related cards matching
+    every hop (``services/card_query.py``)."""
+
+    CHAIN = {
+        "type": "Organization",
+        "related": [
+            {
+                "relation": "orgUsesApp",
+                "type": "Application",
+                "related": [
+                    {
+                        "relation": "initAffectsApp",
+                        "type": "Initiative",
+                        "where": {"attributes": {"initiativeStatus": ["onTrack"]}},
+                    }
+                ],
+            }
+        ],
+    }
+
+    async def _get(self, client, user, query, extra: str = ""):
+        return await client.get(
+            "/api/v1/cards",
+            params={"query": query if isinstance(query, str) else json.dumps(query)}
+            | dict(p.split("=") for p in extra.split("&") if p),
+            headers=auth_headers(user),
+        )
+
+    @pytest.fixture
+    async def chain(self, db, cards_env):
+        """Corp uses Alpha, which the on-track Rocket affects; Team uses Beta,
+        which the at-risk Drag affects; Solo uses nothing. Organization is
+        hierarchical."""
+        await create_card_type(db, key="Organization", label="Organization", has_hierarchy=True)
+        await create_card_type(
+            db,
+            key="Initiative",
+            label="Initiative",
+            fields_schema=[
+                {
+                    "section": "Main",
+                    "fields": [
+                        {
+                            "key": "initiativeStatus",
+                            "type": "single_select",
+                            "options": [{"key": "onTrack"}, {"key": "atRisk"}],
+                        }
+                    ],
+                }
+            ],
+        )
+        await create_relation_type(
+            db, key="orgUsesApp", source_type_key="Organization", target_type_key="Application"
+        )
+        await create_relation_type(
+            db, key="initAffectsApp", source_type_key="Initiative", target_type_key="Application"
+        )
+        corp = await create_card(db, card_type="Organization", name="Corp")
+        team = await create_card(db, card_type="Organization", name="Team")
+        await create_card(db, card_type="Organization", name="Solo")
+        alpha = await create_card(db, name="Alpha")
+        beta = await create_card(db, name="Beta")
+        rocket = await create_card(
+            db,
+            card_type="Initiative",
+            name="Rocket Initiative",
+            attributes={"initiativeStatus": "onTrack"},
+        )
+        drag = await create_card(
+            db, card_type="Initiative", name="Drag", attributes={"initiativeStatus": "atRisk"}
+        )
+        await create_relation(db, type_key="orgUsesApp", source_id=corp.id, target_id=alpha.id)
+        await create_relation(db, type_key="orgUsesApp", source_id=team.id, target_id=beta.id)
+        await create_relation(
+            db, type_key="initAffectsApp", source_id=rocket.id, target_id=alpha.id
+        )
+        await create_relation(db, type_key="initAffectsApp", source_id=drag.id, target_id=beta.id)
+        return cards_env
+
+    async def test_keeps_the_chained_cards(self, client, db, chain):
+        resp = await self._get(client, chain["admin"], self.CHAIN)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert [item["name"] for item in data["items"]] == ["Corp"]
+        assert data["total"] == len(data["items"]) == 1
+
+    async def test_one_hop_total_matches(self, client, db, chain):
+        one_hop = {"type": "Organization", "related": [CHAIN_HOP]}
+        resp = await self._get(client, chain["admin"], one_hop)
+        data = resp.json()
+        assert [item["name"] for item in data["items"]] == ["Corp", "Team"]
+        assert data["total"] == 2
+
+    async def test_total_counts_past_the_page(self, client, db, chain):
+        one_hop = {"type": "Organization", "related": [CHAIN_HOP]}
+        resp = await self._get(client, chain["admin"], one_hop, "page_size=1")
+        data = resp.json()
+        assert [item["name"] for item in data["items"]] == ["Corp"]
+        assert data["total"] == 2
+
+    async def test_combines_with_type(self, client, db, chain):
+        resp = await self._get(client, chain["admin"], self.CHAIN, "type=Organization")
+        assert [item["name"] for item in resp.json()["items"]] == ["Corp"]
+        other = await self._get(client, chain["admin"], self.CHAIN, "type=Application")
+        assert other.status_code == 200
+        assert other.json()["items"] == []
+        assert other.json()["total"] == 0
+
+    async def test_requires_inventory_browse(self, client, db, chain):
+        await create_role(db, key="reports", label="Reports", permissions={})
+        user = await create_user(db, email="reports@test.com", role="reports")
+        resp = await self._get(client, user, self.CHAIN)
+        assert resp.status_code == 403
+
+    @pytest.mark.parametrize(
+        ("query", "code"),
+        [
+            ("{nope", "invalid_query_json"),
+            (json.dumps({"type": "Organization", "colour": "red"}), "invalid_query"),
+            (json.dumps({"type": "Nope"}), "unknown_card_type"),
+            (
+                json.dumps(
+                    {"type": "Organization", "related": [{"relation": "x", "type": "Application"}]}
+                ),
+                "unknown_relation_type",
+            ),
+            # One past the limit: the documented 400, not the parameter's 422.
+            ("x" * 8001, "query_too_long"),
+        ],
+    )
+    async def test_rejected_queries(self, client, db, chain, query, code):
+        resp = await self._get(client, chain["admin"], query)
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == code
+
+    async def test_a_data_quality_band_at_a_hop(self, client, db, chain):
+        """Alpha (Corp's) scores 85, Beta (Team's) 50."""
+        for name, score in (("Alpha", 85.0), ("Beta", 50.0)):
+            card = (await db.execute(select(Card).where(Card.name == name))).scalar_one()
+            card.data_quality = score
+        await db.flush()
+
+        def query(*bands: str) -> dict:
+            where = {"data_quality_band": list(bands)}
+            return {"type": "Organization", "related": [{**CHAIN_HOP, "where": where}]}
+
+        resp = await self._get(client, chain["admin"], query("complete"))
+        assert resp.status_code == 200
+        assert [item["name"] for item in resp.json()["items"]] == ["Corp"]
+        assert resp.json()["total"] == 1
+        resp = await self._get(client, chain["admin"], query("partial"))
+        assert [item["name"] for item in resp.json()["items"]] == ["Team"]
+        resp = await self._get(client, chain["admin"], query("minimal"))
+        assert resp.json()["items"] == []
+        assert resp.json()["total"] == 0
+
+    async def test_an_unknown_data_quality_band_is_refused(self, client, db, chain):
+        query = {"type": "Organization", "where": {"data_quality_band": ["good"]}}
+        resp = await self._get(client, chain["admin"], query)
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "unknown_band"
+
+    @pytest.fixture
+    async def tagged(self, db, chain):
+        """On top of ``chain``: Alpha carries Gold, Beta carries Silver (group
+        Tier); group Hq (Organization only) holds Main, on Team."""
+        apps = {
+            c.name: c
+            for c in (await db.execute(select(Card).where(Card.type == "Application")))
+            .scalars()
+            .all()
+        }
+        team = (await db.execute(select(Card).where(Card.name == "Team"))).scalar_one()
+        tier = await create_tag_group(db, name="Tier")
+        hq = await create_tag_group(db, name="Hq", restrict_to_types=["Organization"])
+        tags = {
+            "Gold": await create_tag(db, group=tier, name="Gold", cards=[apps["Alpha"]]),
+            "Silver": await create_tag(db, group=tier, name="Silver", cards=[apps["Beta"]]),
+            "Main": await create_tag(db, group=hq, name="Main", cards=[team]),
+        }
+        return {**chain, "tags": {k: str(v.id) for k, v in tags.items()}}
+
+    async def test_tags_at_a_hop(self, client, db, tagged):
+        def query(*names: str) -> dict:
+            where = {"tags": [tagged["tags"][n] for n in names]}
+            return {"type": "Organization", "related": [{**CHAIN_HOP, "where": where}]}
+
+        resp = await self._get(client, tagged["admin"], query("Silver"))
+        assert resp.status_code == 200
+        assert [item["name"] for item in resp.json()["items"]] == ["Team"]
+        assert resp.json()["total"] == 1
+        resp = await self._get(client, tagged["admin"], query("Silver", "Gold"))
+        assert [item["name"] for item in resp.json()["items"]] == ["Corp", "Team"]
+
+    async def test_tags_on_the_start_card(self, client, db, tagged):
+        query = {"type": "Organization", "where": {"tags": [tagged["tags"]["Main"]]}}
+        resp = await self._get(client, tagged["admin"], query)
+        assert [item["name"] for item in resp.json()["items"]] == ["Team"]
+
+    @pytest.mark.parametrize(
+        ("where", "code"),
+        [
+            ({"tags": ["7a1d1c1e-0000-4000-8000-000000000001"]}, "unknown_tag"),
+            ({"tags": ["Gold"]}, "unknown_tag"),
+            ({"tags": []}, "empty_values"),
+        ],
+    )
+    async def test_rejected_tags(self, client, db, tagged, where, code):
+        query = {"type": "Organization", "related": [{**CHAIN_HOP, "where": where}]}
+        resp = await self._get(client, tagged["admin"], query)
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == code
+
+    async def test_a_tag_of_a_group_for_other_types_is_refused(self, client, db, tagged):
+        query = {
+            "type": "Organization",
+            "related": [{**CHAIN_HOP, "where": {"tags": [tagged["tags"]["Main"]]}}],
+        }
+        resp = await self._get(client, tagged["admin"], query)
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "tag_not_for_type"
+
+    async def test_a_card_id_beside_tags_is_still_refused(self, client, db, tagged):
+        alpha = (await db.execute(select(Card).where(Card.name == "Alpha"))).scalar_one()
+        query = {
+            "type": "Organization",
+            "where": {"tags": [tagged["tags"]["Main"]], "subtype": [str(alpha.id)]},
+        }
+        resp = await self._get(client, tagged["admin"], query)
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "query_holds_an_id"
+
+    async def test_a_restricted_reader_never_sees_through_a_denied_type(self, client, db, chain):
+        await create_role(db, key="r", label="R", permissions={"inventory.view": True})
+        reader = await create_user(db, email="r@test.com", role="r")
+        ct = (await db.execute(select(CardType).where(CardType.key == "Initiative"))).scalar_one()
+        ct.role_permissions = {"r": {"inventory.view": False}}
+        await db.flush()
+        PermissionService.invalidate_type_permission_cache()
+
+        resp = await self._get(client, reader, self.CHAIN)
+        assert resp.status_code == 200
+        assert resp.json()["items"] == []
+        assert resp.json()["total"] == 0
+        assert "Rocket Initiative" not in resp.text
+        # Control: the admin reaches Corp through the same chain.
+        admin_resp = await self._get(client, chain["admin"], self.CHAIN)
+        assert [item["name"] for item in admin_resp.json()["items"]] == ["Corp"]
+
+    async def _ids(self, db) -> dict[str, str]:
+        rows = await db.execute(select(Card.name, Card.id))
+        return {name: str(card_id) for name, card_id in rows.all()}
+
+    async def test_cards_at_a_hop(self, client, db, chain):
+        ids = await self._ids(db)
+        query = {
+            "type": "Organization",
+            "related": [{**CHAIN_HOP, "where": {"cards": [ids["Beta"]]}}],
+        }
+        resp = await self._get(client, chain["admin"], query)
+        assert resp.status_code == 200
+        assert [item["name"] for item in resp.json()["items"]] == ["Team"]
+        assert resp.json()["total"] == 1
+        both = {
+            "type": "Organization",
+            "related": [{**CHAIN_HOP, "where": {"cards": [ids["Beta"], ids["Alpha"]]}}],
+        }
+        resp = await self._get(client, chain["admin"], both)
+        assert [item["name"] for item in resp.json()["items"]] == ["Corp", "Team"]
+
+    async def test_cards_on_the_start_card_with_sub_cards(self, client, db, chain):
+        ids = await self._ids(db)
+        await create_card(db, card_type="Organization", name="Corp Unit", parent_id=ids["Corp"])
+        query = {"type": "Organization", "where": {"cards": [ids["Corp"]]}}
+        resp = await self._get(client, chain["admin"], query)
+        assert [item["name"] for item in resp.json()["items"]] == ["Corp"]
+        flagged = {
+            "type": "Organization",
+            "where": {"cards": [ids["Corp"]], "include_descendants": True},
+        }
+        resp = await self._get(client, chain["admin"], flagged)
+        assert [item["name"] for item in resp.json()["items"]] == ["Corp", "Corp Unit"]
+        assert resp.json()["total"] == 2
+
+    async def test_unknown_wrong_type_and_hidden_picks_answer_alike(self, client, db, chain):
+        """No existence oracle: the read path checks no pick. For a reader who
+        cannot see Applications, a pick naming no card, a card of another type
+        and a hidden card all answer the same 200 with the same rows."""
+        ids = await self._ids(db)
+        await create_role(db, key="r", label="R", permissions={"inventory.view": True})
+        reader = await create_user(db, email="r@test.com", role="r")
+        ct = (await db.execute(select(CardType).where(CardType.key == "Application"))).scalar_one()
+        ct.role_permissions = {"r": {"inventory.view": False}}
+        await db.flush()
+        PermissionService.invalidate_type_permission_cache()
+
+        bodies = []
+        for value in ("7a1d1c1e-0000-4000-8000-000000000002", ids["Corp"], ids["Alpha"]):
+            hop = {**CHAIN_HOP, "where": {"cards": [value]}}
+            for negate in (False, True):
+                query = {"type": "Organization", "related": [{**hop, "negate": negate}]}
+                resp = await self._get(client, reader, query)
+                assert resp.status_code == 200, resp.text
+                assert "unknown_card" not in resp.text
+                bodies.append((negate, [i["name"] for i in resp.json()["items"]]))
+        assert bodies == [(False, []), (True, ["Corp", "Solo", "Team"])] * 3
+
+    async def test_an_unknown_pick_beside_a_known_one_narrows_to_the_known(self, client, db, chain):
+        ids = await self._ids(db)
+        for extra in ("7a1d1c1e-0000-4000-8000-000000000002", ids["Corp"], "not-a-uuid"):
+            query = {
+                "type": "Organization",
+                "related": [{**CHAIN_HOP, "where": {"cards": [ids["Beta"], extra]}}],
+            }
+            resp = await self._get(client, chain["admin"], query)
+            assert resp.status_code == 200, resp.text
+            assert [item["name"] for item in resp.json()["items"]] == ["Team"]
+            assert resp.json()["total"] == 1
+
+    async def test_descendants_on_a_type_without_hierarchy(self, client, db, chain):
+        ids = await self._ids(db)
+        query = {
+            "type": "Organization",
+            "related": [
+                {**CHAIN_HOP, "where": {"cards": [ids["Alpha"]], "include_descendants": True}}
+            ],
+        }
+        resp = await self._get(client, chain["admin"], query)
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "descendants_without_hierarchy"
+
+    async def test_a_view_naming_a_card_hidden_from_the_reader_is_narrowed(self, client, db, chain):
+        ids = await self._ids(db)
+        await create_role(db, key="r", label="R", permissions={"inventory.view": True})
+        reader = await create_user(db, email="r@test.com", role="r")
+        ct = (await db.execute(select(CardType).where(CardType.key == "Application"))).scalar_one()
+        ct.role_permissions = {"r": {"inventory.view": False}}
+        await db.flush()
+        PermissionService.invalidate_type_permission_cache()
+        query = {
+            "type": "Organization",
+            "related": [{**CHAIN_HOP, "where": {"cards": [ids["Alpha"]]}}],
+        }
+
+        resp = await self._get(client, reader, query)
+        assert resp.status_code == 200
+        assert resp.json()["items"] == []
+        assert resp.json()["total"] == 0
+        assert "Alpha" not in resp.text
+        # The negated hop reads the hidden card as absent: every organization.
+        negated = {
+            "type": "Organization",
+            "related": [{**CHAIN_HOP, "where": {"cards": [ids["Alpha"]]}, "negate": True}],
+        }
+        resp = await self._get(client, reader, negated)
+        assert resp.status_code == 200
+        assert [item["name"] for item in resp.json()["items"]] == ["Corp", "Solo", "Team"]
+        assert "Alpha" not in resp.text
+        # Control: the admin reaches Corp through the pick.
+        admin_resp = await self._get(client, chain["admin"], query)
+        assert [item["name"] for item in admin_resp.json()["items"]] == ["Corp"]
+
+
+CHAIN_HOP = {"relation": "orgUsesApp", "type": "Application"}

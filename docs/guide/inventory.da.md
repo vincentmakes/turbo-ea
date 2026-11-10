@@ -230,6 +230,36 @@ Gemte visninger vises i filterpanelets sidepanel. Klik på en visning for øjebl
 - **Shared with Me** — Visninger andre har delt med dig
 - **Public Views** — Visninger tilgængelige for alle
 
+### Forespørgselsvisninger { #query-views }
+<a id="mcp-views"></a>
+
+En **forespørgselsvisning** er en gemt visning, hvis filtre er en **forespørgsel med flere led** — en kæde af relationer med betingelser i hvert trin, for eksempel *Organisationer, der bruger en aktiv Applikation, som er berørt af et Initiativ med status On Track*. Visningen gemmer forespørgslen, ikke dens resultater: Den køres igen, hver gang visningen åbnes, så listen altid afspejler det aktuelle landskab.
+
+![En forespørgselsvisning i inventaret](../assets/img/da/98d_inventory_mcp_view.png)
+
+**Opbygning af en forespørgselsvisning.** I fanen **Visninger** i filtersidebjælken skal du klikke på **Ny forespørgselsvisning** ved siden af *Gem aktuelle* (vises for alle, der må administrere visninger). Hvis et filter er aktivt, også den valgte korttype, beder en bekræftelse om lov, før de ryddes; **Annuller** på kladden henter dem tilbage. Strimlen over gitteret åbner som en forespørgselsbygger:
+
+1. Klik på startchippen (*Vælg en type*), og vælg den korttype, visningen lister.
+2. Klik på **+ relation** efter det sidste kort for at tilføje et led. Menuen lister hvert relationsverbum med den korttype, det fører til; en relation mellem kort af samme type tilbydes i begge retninger. En forespørgsel er en enkelt kæde på op til tre led.
+3. Klik på **+ betingelse** under et kort for at indsnævre det: **Livscyklus**, **Undertyper**, **Godkendelsesstatus**, **Datakvalitet** (*Komplet*, *Delvis* eller *Minimal*, de samme bånd som sidebjælkens filter), **Tags**, **Bestemte kort** eller et valg- eller ja/nej-felt for den korttype. For tags matcher et kort, hvis det har et vilkårligt af de valgte tags i en gruppe, og det skal matche hver gruppe, du tilføjer; kun taggrupper, der gælder for den korttype, tilbydes. **Bestemte kort** åbner kortvælgeren for kort af den type, og trinnet matcher så kun de valgte kort; for en hierarkisk korttype får en kontakt **Medtag underkort** også kortene under hvert valg til at matche. Et valgt kort, du ikke kan se, vises som *(skjult kort)*.
+4. Klik på **Gem**. Den sædvanlige dialog til at gemme visninger åbnes med navn, synlighed, deling og OData-indstilling. **Annullér** kasserer forespørgslen.
+
+![Opbygning af en forespørgselsvisning](../assets/img/da/98e_inventory_query_builder.png)
+
+Mens du bygger, filtreres gitteret live, og antallet i værktøjslinjen viser, hvor mange kort der matcher, så du kan se effekten af hvert led og hver betingelse, før du gemmer.
+
+**Ændring af led og betingelser.** Klik på et leds verbumschip for at åbne dets menu: **har ingen** gør leddet til et krav om, at kortet **ikke** har nogen sådan relation, og **Fjern dette led** fjerner det sammen med alle efterfølgende led. Klik på en betingelseschip for at ændre dens værdier, eller på dens **×** for at fjerne den.
+
+**Redigering af en gemt forespørgselsvisning.** Når en forespørgselsvisning er åben, viser strimlen dens sti: korttyperne som chips, forbundet af det relationsverbum, der knytter hvert trin (for eksempel *Organisation → bruger Applikation → er berørt af Initiativ*), med hvert korts betingelser nedenunder. Hvis du ejer visningen eller har redigeringsrettigheder til den, skifter en **blyant** i strimlen den til den samme bygger; **Gem** opdaterer visningen. Knappen **×** (*Forlad denne visning*) vender tilbage til det normale inventar. **Gem aktuel visning**, mens en forespørgselsvisning er åben, gemmer en ny forespørgselsvisning med samme forespørgsel.
+
+**Visninger oprettet af en AI-assistent.** En assistent, der er forbundet via [MCP-serveren](../admin/mcp.md), kan også oprette forespørgselsvisninger. En sådan visning viser en **MCP**-chip og noten *Oprettet via MCP* i sin strimmel og et robotmærke i visningslisten; den redigeres som enhver anden forespørgselsvisning. I visningslisten har hver forespørgselsvisning et lille forespørgselsvisningsmærke (en terning; robotmærket, når en assistent har oprettet den) og sin kompakte sti (*Organisation › bruger Applikation › er berørt af Initiativ*) som anden linje.
+
+**Åbning af en visning via link.** Når en assistent gemmer en visning, returnerer den et link på formen `/inventory?view=<view id>`; når du åbner det, anvendes den gemte visning direkte. Det samme link virker for enhver gemt visning, du kan se.
+
+**OData.** OData-feedet for en forespørgselsvisning returnerer de samme kort som inventaret: Forespørgslen anvendes også på feedet.
+
+Se [Forespørgsler på kort med flere led](../admin/mcp.md#multi-hop-card-queries) for forespørgselsgrammatikken, dens grænser og MCP-værktøjerne (`query_cards`, `list_inventory_views`, `save_inventory_view`, `list_tag_groups`).
+
 ## Excel-import / -eksport { #excel-import }
 
 Lager-eksporter og -importer bruger en **Excel-projektmappe med flere ark**, der rund-tur dit landskab — kort på tværs af et hvilket som helst antal typer plus relationerne mellem dem — uden nogensinde at kræve, at du kopierer en UUID.
