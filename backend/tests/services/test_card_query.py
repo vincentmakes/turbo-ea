@@ -2556,6 +2556,10 @@ EOL_UPSTREAM = {
     ]
 }
 NEAR_EOL = (TODAY + timedelta(days=60)).isoformat()
+#: ``where_conditions``' error for an ``eol_status`` compiled unprepared, whole.
+EOL_UNPREPARED = r"^an eol_status condition needs prepared pair statuses$"
+#: A day by which Retiring's manual end of life (``NEAR_EOL``) has passed.
+LATER = TODAY + timedelta(days=90)
 
 
 @pytest.fixture
@@ -2717,7 +2721,7 @@ class TestEolStatusSemantics:
 
     async def test_compiling_without_prepared_statuses_raises(self, db, eol_chain):
         raw = _q("Organization", _hop(USES, "Application", where={"eol_status": ["eol"]}))
-        with pytest.raises(RuntimeError, match="prepared pair statuses"):
+        with pytest.raises(RuntimeError, match=EOL_UNPREPARED):
             await compile_card_query(db, parse_card_query(raw), CardReadScope.everything())
 
     async def test_compiling_empty_alone_needs_no_statuses(self, db, eol_chain):
@@ -2736,6 +2740,96 @@ class TestEolStatusSemantics:
         )
         rows = await db.execute(select(Card.name).where(Card.status == "ACTIVE", *clauses))
         assert set(rows.scalars().all()) == {"Dead"}
+
+
+class TestEolCompileInputs:
+    """What ``compile`` is handed reaches the end-of-life condition: the
+    pinned ``today``, the card (or alias) the clauses are over, and the
+    custom products' cycles."""
+
+    @pytest.mark.parametrize(
+        ("today", "eol", "approaching"),
+        [(TODAY, {"Dead"}, {"Retiring"}), (LATER, {"Dead", "Retiring"}, set())],
+    )
+    async def test_compile_card_query_pins_today(self, db, eol_chain, today, eol, approaching):
+        """Retiring's manual end of life is 60 days out: ``approaching`` today,
+        ``eol`` 90 days on — so the pinned day reaches the manual branch."""
+        statuses = {("nginx", "1.0"): "eol", ("nginx", "1.3"): "supported"}
+        for values, expected in ((["eol"], eol), (["approaching"], approaching)):
+            raw = _q("Application", where={"eol_status": values})
+            clauses = await compile_card_query(
+                db,
+                parse_card_query(raw),
+                CardReadScope.everything(),
+                today=today,
+                pair_statuses=statuses,
+            )
+            rows = await db.execute(select(Card.name).where(Card.status == "ACTIVE", *clauses))
+            assert set(rows.scalars().all()) == expected
+
+    @pytest.mark.parametrize(
+        ("today", "eol", "approaching"),
+        [(TODAY, {"Dead"}, {"Retiring"}), (LATER, {"Dead", "Retiring"}, set())],
+    )
+    async def test_prepared_compile_pins_today(
+        self, db, eol_chain, eol_upstream, today, eol, approaching
+    ):
+        from app.services.card_query import prepare_card_query
+
+        for values, expected in ((["eol"], eol), (["approaching"], approaching)):
+            raw = _q("Application", where={"eol_status": values})
+            prepared = await prepare_card_query(db, eol_chain, parse_card_query(raw))
+            clauses = await prepared.compile(CardReadScope.everything(), today=today)
+            rows = await db.execute(select(Card.name).where(Card.status == "ACTIVE", *clauses))
+            assert set(rows.scalars().all()) == expected
+
+    async def test_prepared_compile_is_over_the_card_it_is_given(self, db, eol_chain, eol_upstream):
+        """Compiled against an alias, the clauses are over the alias: selecting
+        from it alone keeps exactly the matching cards."""
+        from app.services.card_query import prepare_card_query
+
+        raw = _q("Application", where={"eol_status": ["eol"]})
+        prepared = await prepare_card_query(db, eol_chain, parse_card_query(raw))
+        other = aliased(Card)
+        clauses = await prepared.compile(CardReadScope.everything(), other, today=LATER)
+        rows = await db.execute(select(other.name).where(other.status == "ACTIVE", *clauses))
+        assert set(rows.scalars().all()) == {"Dead", "Retiring"}
+
+    async def test_prepared_compile_reads_the_custom_cycles(self, db, eol_chain, monkeypatch):
+        """With upstream answering nothing, only the custom product's own cycle
+        row can make Acme ``eol`` — and the nginx links read ``unknown``."""
+        from app.models.eol_custom_cycle import EolCustomCycle
+        from app.models.eol_custom_product import EolCustomProduct
+        from app.services import eol_service
+        from app.services.card_query import prepare_card_query
+
+        async def nothing(products):
+            return {}
+
+        monkeypatch.setattr(eol_service, "fetch_cycles_for_products", nothing)
+        db.add(EolCustomProduct(key="acme", title="Acme"))
+        await db.flush()
+        db.add(EolCustomCycle(product_key="acme", cycle="7", eol=PAST, support=False))
+        await create_card(
+            db, name="Acme", attributes={"eol_product": "custom:acme", "eol_cycle": "7"}
+        )
+        for values, expected in ((["eol"], {"Acme"}), (["unknown"], {"Dead", "Fresh"})):
+            raw = _q("Application", where={"eol_status": values})
+            prepared = await prepare_card_query(db, eol_chain, parse_card_query(raw))
+            clauses = await prepared.compile(CardReadScope.everything())
+            rows = await db.execute(select(Card.name).where(Card.status == "ACTIVE", *clauses))
+            assert set(rows.scalars().all()) == expected
+
+    async def test_prepared_without_eol_inputs_raises_for_a_status(self, db, eol_chain):
+        """A ``PreparedCardQuery`` holding a status condition but no EOL inputs
+        is a programming error: ``compile`` raises rather than dropping the
+        condition."""
+        from app.services.card_query import PreparedCardQuery
+
+        raw = _q("Application", where={"eol_status": ["eol"]})
+        groups = await resolve_card_query(db, parse_card_query(raw))
+        with pytest.raises(RuntimeError, match=EOL_UNPREPARED):
+            await PreparedCardQuery(groups).compile(CardReadScope.everything())
 
 
 class TestPrepareCardQuery:

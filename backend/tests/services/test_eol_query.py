@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import null, select, update
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import aliased
 
@@ -253,6 +253,11 @@ LIFECYCLES: list = [
     {"phaseOut": TODAY.isoformat()},
     {"phaseOut": _day(1)},
     {"phaseOut": "nope"},
+    # Text that sorts before today but is no YYYY-MM-DD date: the date guard
+    # keeps it from reading as a passed phase-out.
+    {"phaseOut": ""},
+    {"phaseOut": 20200101},
+    {"phaseOut": f"{PAST}T10:00:00"},
     {"endOfLife": FAR, "phaseOut": PAST},
     {"endOfLife": PAST, "phaseOut": PAST},
     {"endOfLife": FAR, "phaseOut": FAR},
@@ -265,19 +270,48 @@ class TestManualTwin:
         await create_card_type(db, key="Application")
         for i, lifecycle in enumerate(LIFECYCLES):
             await create_card(db, name=f"c{i}", lifecycle=lifecycle)
+        # ``None`` above is stored as the JSON ``null``; a SQL NULL lifecycle
+        # (a row written outside the ORM) is a shape of its own.
+        sql_null = await create_card(db, name="sql_null")
+        await db.execute(update(Card).where(Card.id == sql_null.id).values(lifecycle=null()))
+        assert await db.scalar(select(Card.id).where(Card.lifecycle.is_(None))) == sql_null.id
         rows = await db.execute(select(card.name, manual_eol_status_sql(card, today=TODAY)))
         return dict(rows.all())
 
+    @staticmethod
+    def _expected() -> dict[str, str]:
+        expected = {f"c{i}": eol_service.manual_eol_status(lc) for i, lc in enumerate(LIFECYCLES)}
+        return {**expected, "sql_null": eol_service.manual_eol_status(None)}
+
     async def test_matches_python_for_every_shape(self, db):
         got = await self._parity(db, Card)
-        expected = {f"c{i}": eol_service.manual_eol_status(lc) for i, lc in enumerate(LIFECYCLES)}
+        expected = self._expected()
         assert got == expected
+        assert expected["sql_null"] == "unknown"
         assert set(expected.values()) == {"eol", "approaching", "supported", "unknown"}
 
     async def test_matches_python_on_an_alias(self, db):
         got = await self._parity(db, aliased(Card))
-        expected = {f"c{i}": eol_service.manual_eol_status(lc) for i, lc in enumerate(LIFECYCLES)}
-        assert got == expected
+        assert got == self._expected()
+
+    async def test_the_default_day_is_the_utc_date(self, db, monkeypatch):
+        """Without ``today`` the day is the UTC clock's, as in the Python
+        twin — not the server's local one. The clock below answers a different
+        year for any zone but UTC."""
+        from app.services import eol_query
+
+        class Clock:
+            @staticmethod
+            def now(tz=None):
+                return (
+                    datetime(2030, 6, 1, tzinfo=tz) if tz is timezone.utc else datetime(2000, 1, 1)
+                )
+
+        monkeypatch.setattr(eol_query, "datetime", Clock)
+        await create_card_type(db, key="Application")
+        await create_card(db, name="t", lifecycle={"endOfLife": "2020-01-01"})
+        status = await db.scalar(select(manual_eol_status_sql()).where(Card.name == "t"))
+        assert status == "eol"
 
     async def test_today_defaults_to_the_utc_clock(self, db):
         await create_card_type(db, key="Application")
