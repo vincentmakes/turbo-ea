@@ -384,10 +384,23 @@ def comment_recipients(
     """Who hears of a new comment (before the view-permission filter): the
     document's creator, its signatories, its decision makers and participants
     who are users, and earlier commenters; minus the actor and minus the people
-    sent a mention notification for the same comment."""
+    sent a mention notification for the same comment. A signatory entry
+    whose id is not a user id (the demo's and some imported documents' named
+    signatories without an account) is nobody to notify."""
     candidates = {creator_id, *signatories, *people, *commenters}
     excluded = {str(actor_id), *(str(m) for m in mentioned)}
-    return {str(c) for c in candidates if c is not None} - excluded
+    return {str(c) for c in candidates if _user_id(c)} - excluded
+
+
+def _user_id(value: Any) -> bool:
+    """Whether ``value`` can be a user's id (a UUID)."""
+    if value is None:
+        return False
+    try:
+        uuid.UUID(str(value))
+    except ValueError:
+        return False
+    return True
 
 
 def new_user_mentions(stored_html: str | None, new_html: str, *, actor_id: Any) -> list[str]:

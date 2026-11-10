@@ -464,6 +464,19 @@ class TestRecipients:
         )
         assert got == {str(U1), str(U3)}
 
+    def test_a_signatory_without_an_account_is_nobody_to_notify(self):
+        """The demo seeds signatories named ``demo-sig-…``: commenting on such a
+        document must not try to read them as user ids."""
+        got = svc.comment_recipients(
+            creator_id=U1,
+            signatories={"demo-sig-enterprise-architect", str(U3), ""},
+            people=[],
+            commenters=[],
+            actor_id=U2,
+            mentioned=[],
+        )
+        assert got == {str(U1), str(U3)}
+
     def test_nobody(self):
         assert (
             svc.comment_recipients(
