@@ -430,6 +430,42 @@ def test_full_tie_falls_back_to_source_id():
     assert s.superseded_by == ref(x)
 
 
+def test_a_scheduled_closing_link_listed_first_does_not_stop_the_next_one():
+    """A ``revokes`` whose source is not effective yet sorts before an
+    effective one on another chain: it is skipped, and the next still acts."""
+    rows = [dec("a1"), dec("b1", eff=TOMORROW), dec("c1"), dec("x1")]
+    r = reg(rows, [lk("b1", "a1", REVOKES), lk("c1", "x1", REVOKES)])
+    assert r["a1"].standing == IN_FORCE
+    assert r["x1"].standing == REVOKED
+    assert r["x1"].revoked_by == ref(rows[2])
+
+
+def test_a_scheduled_amendment_listed_first_does_not_stop_the_next_one():
+    rows = [dec("a1"), dec("b1", eff=TOMORROW), dec("c1"), dec("x1")]
+    r = reg(rows, [lk("b1", "a1", AMENDS), lk("c1", "x1", AMENDS)])
+    assert r["a1"].standing == IN_FORCE
+    assert r["x1"].standing == AMENDED
+    assert r["x1"].amended_by == (ref(rows[2]),)
+
+
+def test_a_link_of_another_kind_listed_first_does_not_hide_an_upcoming_change():
+    soon = dec("c1", eff=TOMORROW)
+    rows = [dec("a1"), dec("b1"), soon, dec("x1")]
+    r = reg(rows, [lk("b1", "x1", RELATES), lk("c1", "a1", REVOKES)])
+    assert r["a1"].standing == IN_FORCE
+    assert r["a1"].upcoming == (UpcomingChange(REVOKES, ref(soon), TOMORROW),)
+
+
+def test_of_two_identical_closing_links_the_first_listed_is_kept():
+    """A strict comparison: an exact tie keeps the link already held."""
+    first = LinkRow(source_id="r1", target_id="a1", kind=REVOKES, created_at=T0, id="L1")
+    second = LinkRow(source_id="r1", target_id="a1", kind=REVOKES, created_at=T0, id="L2")
+    r = reg([dec("a1"), dec("r1")], [first, second])
+    held, source = r.closing_link("a1")
+    assert held.id == "L1"
+    assert source.id == "r1"
+
+
 def test_chain_closed_by_returns_the_winner():
     rv, rp = dec("r1", eff=YESTERDAY), dec("p1", eff=LAST_YEAR)
     r = reg([dec("a1"), rv, rp], [lk("r1", "a1", REVOKES), lk("p1", "a1", REPLACES)])
@@ -530,6 +566,19 @@ def test_legacy_fork_does_not_crash():
     assert r["a1"].standing == SUPERSEDED
     assert r["a2"].standing == SUPERSEDED
     assert r["a3"].standing == IN_FORCE
+
+
+def test_a_fork_orders_same_numbered_revisions_by_creation_before_id():
+    """Two revisions 2 of one parent: the one created first comes first, even
+    when its id sorts after the other's."""
+    a1 = dec("a1")
+    late = dec("a2", 2, parent="a1", minutes=9)
+    early = dec("a3", 2, parent="a1", minutes=1)
+    r = reg([a1, late, early])
+    assert r["a1"].chain == (ref(a1), ref(early), ref(late))
+    assert r["a2"].is_current is True
+    assert r["a3"].standing == SUPERSEDED
+    assert r["a3"].superseded_by == ref(late)
 
 
 def test_chains_ignore_shared_references_without_a_parent_link():
@@ -807,6 +856,28 @@ def test_today_defaults_to_the_utc_date():
     r = build_register([dec("a1", eff=datetime.now(timezone.utc).date())], [])
     assert r.today == datetime.now(timezone.utc).date()
     assert r["a1"].standing == IN_FORCE
+
+
+def test_today_is_the_utc_date_whatever_the_server_zone():
+    """At any instant UTC+14 or UTC-12 is on another calendar day than UTC,
+    so reading the local date in either zone would show."""
+    import os
+    import time
+
+    from app.services.decision_standing import _today_utc
+
+    saved = os.environ.get("TZ")
+    try:
+        for zone in ("Pacific/Kiritimati", "Etc/GMT+12"):
+            os.environ["TZ"] = zone
+            time.tzset()
+            assert _today_utc() == datetime.now(timezone.utc).date()
+    finally:
+        if saved is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = saved
+        time.tzset()
 
 
 def test_today_is_injectable():

@@ -209,6 +209,85 @@ class TestDeleteDraft:
         assert ids == {shared.content_id}
         assert own.content_id not in ids
 
+    async def test_leaves_an_orphan_it_never_held(self, db):
+        stray = ArchitectureDecisionFileContent(size=3, data=b"abc")
+        db.add(stray)
+        draft = await _decision(db, "Draft")
+        own = await _add(db, draft, "own.pdf")
+
+        await adr_service.delete_draft(db, draft)
+
+        ids = set((await db.execute(select(ArchitectureDecisionFileContent.id))).scalars())
+        assert ids == {stray.id}
+        assert own.content_id not in ids
+
+
+class TestFileEdges:
+    def test_an_unsaved_file_row_has_no_time_and_no_creator(self):
+        f = ArchitectureDecisionFile(
+            id=uuid.UUID(int=1), name="a.pdf", mime_type="application/pdf", size=3
+        )
+        assert adr_file_service.file_row(f, None) == {
+            "id": str(uuid.UUID(int=1)),
+            "name": "a.pdf",
+            "mime_type": "application/pdf",
+            "size": 3,
+            "created_at": None,
+            "created_by": None,
+        }
+
+    async def test_files_are_listed_oldest_first_then_by_id(self, db):
+        from datetime import datetime, timezone
+
+        adr = await _decision(db)
+        content = ArchitectureDecisionFileContent(size=len(PDF), data=PDF)
+        db.add(content)
+        await db.flush()
+        early = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        late = datetime(2026, 2, 1, tzinfo=timezone.utc)
+        # Stored largest id first; the newest has the smallest id.
+        for n, name, at in ((3, "tie-b.pdf", early), (2, "tie-a.pdf", early), (1, "new.pdf", late)):
+            db.add(
+                ArchitectureDecisionFile(
+                    id=uuid.UUID(int=n),
+                    architecture_decision_id=adr.id,
+                    content_id=content.id,
+                    name=name,
+                    mime_type="application/pdf",
+                    size=len(PDF),
+                    created_at=at,
+                )
+            )
+            await db.flush()
+
+        files = await adr_file_service.list_files(db, adr.id)
+
+        assert [f["name"] for f in files] == ["tie-a.pdf", "tie-b.pdf", "new.pdf"]
+
+    async def test_files_carry_their_creators_name(self, db):
+        alice = await create_user(db, email="file-alice@test.com", display_name="Alice")
+        adr = await _decision(db)
+        await _add(db, adr, "mine.pdf", created_by=alice.id)
+        await _add(db, adr, "anon.pdf", data=PDF2)
+
+        files = await adr_file_service.list_files(db, adr.id)
+
+        assert sorted((f["name"], f["created_by"]) for f in files) == [
+            ("anon.pdf", None),
+            ("mine.pdf", {"user_id": str(alice.id), "display_name": "Alice"}),
+        ]
+
+    async def test_removing_a_file_leaves_an_orphan_it_never_held(self, db):
+        stray = ArchitectureDecisionFileContent(size=3, data=b"abc")
+        db.add(stray)
+        adr = await _decision(db)
+        f = await _add(db, adr)
+
+        assert await adr_file_service.remove_file(db, adr.id, f.id) is True
+
+        ids = set((await db.execute(select(ArchitectureDecisionFileContent.id))).scalars())
+        assert ids == {stray.id}
+
 
 class TestRecordHelpers:
     def test_no_problem(self):
@@ -324,6 +403,23 @@ class TestStandingNotices:
             [_link("a", "replaces"), _link("a", "amends")], {"a": u}, actor_id=None
         )
         assert notices == [adr_service.StandingNotice(u, "a", "replaces")]
+
+    def test_a_skipped_link_does_not_stop_the_ones_after_it(self):
+        u = uuid.uuid4()
+        notices = adr_service.standing_notices(
+            [
+                _link("a", "relates"),
+                _link("b", "replaces"),
+                _link("b", "amends"),
+                _link("c", "revokes"),
+            ],
+            {"a": u, "b": u, "c": u},
+            actor_id=None,
+        )
+        assert notices == [
+            adr_service.StandingNotice(u, "b", "replaces"),
+            adr_service.StandingNotice(u, "c", "revokes"),
+        ]
 
     def test_message_says_the_kind_in_words(self):
         assert (

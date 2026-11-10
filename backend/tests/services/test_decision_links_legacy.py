@@ -41,6 +41,25 @@ def test_the_two_spellings_of_one_target_give_one_pair():
     assert plan_relates_links(rows) == [(A, B)]
 
 
+def test_a_repeated_target_does_not_stop_the_entries_after_it():
+    rows = [
+        (A, "ADR-001", ["ADR-002", "adr-002", "ADR-003"]),
+        (B, "ADR-002", []),
+        (C, "ADR-003", []),
+    ]
+    assert plan_relates_links(rows) == [(A, B), (A, C)]
+
+
+def test_two_sources_may_link_the_same_target():
+    rows = [(A, "ADR-001", ["ADR-003"]), (B, "ADR-002", ["ADR-003"]), (C, "ADR-003", [])]
+    assert plan_relates_links(rows) == [(A, C), (B, C)]
+
+
+def test_a_row_without_a_list_does_not_stop_the_rows_after_it():
+    rows = [(A, "ADR-001", "ADR-002"), (B, "ADR-002", ["ADR-001"])]
+    assert plan_relates_links(rows) == [(B, A)]
+
+
 def test_both_directions_are_kept_as_two_ordered_pairs():
     rows = [(A, "ADR-001", ["ADR-002"]), (B, "ADR-002", [str(A)])]
     assert plan_relates_links(rows) == [(A, B), (B, A)]

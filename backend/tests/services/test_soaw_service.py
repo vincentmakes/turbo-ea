@@ -1,6 +1,7 @@
 """Unit tests for the SoAW revision service (``app/services/soaw_service.py``).
 
-Pure except :func:`create_revision`, which takes a stub session. Every
+Pure except :func:`create_revision`, which takes a stub session, and one
+:func:`load_chains` test on the database. Every
 assertion names exact payloads: CI mutates these lines.
 """
 
@@ -325,3 +326,45 @@ class TestCreateRevision:
         new = await svc.create_revision(_Session(), source, created_by=None, chains=svc.build([]))
         assert new.revision_number == 7
         assert new.created_by is None
+
+    async def test_a_revision_of_an_earlier_row_takes_the_chain_maximum_plus_one(self):
+        root, mid, tip = uuid.UUID(int=1), uuid.UUID(int=2), uuid.UUID(int=3)
+        chains = svc.build([row(root, 1), row(mid, 3, parent=root), row(tip, 5, parent=mid)])
+        new = await svc.create_revision(
+            _Session(), self._source(mid, 3), created_by=None, chains=chains
+        )
+        assert new.revision_number == 6
+
+    async def test_nested_content_is_copied_deeply(self):
+        source = self._source(uuid.UUID(int=4), 1)
+        source.document_info = {"meta": {"owner": "A"}}
+        source.version_history = [{"version": "1.0"}]
+        new = await svc.create_revision(_Session(), source, created_by=None, chains=svc.build([]))
+
+        new.document_info["meta"]["owner"] = "B"
+        new.version_history[0]["version"] = "2.0"
+
+        assert source.document_info == {"meta": {"owner": "A"}}
+        assert source.version_history == [{"version": "1.0"}]
+
+
+class TestForkOrder:
+    def test_same_numbered_revisions_are_ordered_by_creation_before_id(self):
+        chains = svc.build(
+            [
+                row("a", 1),
+                row("b", 2, parent="a", minutes=9),
+                row("c", 2, parent="a", minutes=1),
+            ]
+        )
+        assert svc.chain_ids(chains, "a") == ["a", "c", "b"]
+
+    async def test_load_chains_carries_the_stored_created_at(self, db):
+        made = datetime(2025, 3, 4, 5, 6, tzinfo=timezone.utc)
+        soaw = SoAW(name="Loaded", created_at=made)
+        db.add(soaw)
+        await db.flush()
+
+        chains = await svc.load_chains(db)
+
+        assert chains.rows[soaw.id].created_at == made

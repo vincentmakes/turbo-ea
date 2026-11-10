@@ -431,3 +431,31 @@ async def test_two_live_cards_with_one_name_are_ambiguous(db):
     )
 
     assert outcome.warnings == ["Card name is ambiguous: Portal"]
+
+
+def _lone(n: int, reference: str, revision: int) -> DecisionRow:
+    return DecisionRow(
+        id=uuid.UUID(int=n),
+        reference_number=reference,
+        revision_number=revision,
+        status="signed",
+        parent_id=None,
+        created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        title=f"T{n}",
+    )
+
+
+def test_a_reference_shared_by_two_chains_maps_to_the_lowest_revision_first():
+    """Two unrelated chains carry one reference: the row with the lower
+    revision number wins, whatever the ids."""
+    register = build_register(
+        [_lone(5, "ADR-007", 1), _lone(3, "ADR-007", 2)], [], today=date(2026, 6, 1)
+    )
+    assert svc.existing_references(register) == {"ADR-007": uuid.UUID(int=5)}
+
+
+def test_a_reference_shared_on_one_revision_number_maps_to_the_lowest_id():
+    register = build_register(
+        [_lone(5, "ADR-007", 1), _lone(3, "ADR-007", 1)], [], today=date(2026, 6, 1)
+    )
+    assert svc.existing_references(register) == {"ADR-007": uuid.UUID(int=3)}

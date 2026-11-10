@@ -221,3 +221,108 @@ class TestCopyPeople:
             ("participant", None, "Ops", 0),
         ]
         assert len(await _rows(db, src.id)) == 3
+
+
+class TestPeopleEdges:
+    def test_an_entry_object_without_a_user_id_attribute_is_a_named_person(self):
+        from types import SimpleNamespace
+
+        assert svc.plan_people([SimpleNamespace(name="Board")], {}) == [(None, "Board")]
+
+    def test_an_entry_without_user_or_name_is_a_400(self):
+        for entry in ({}, {"name": None}):
+            with pytest.raises(HTTPException) as err:
+                svc.plan_people([entry], {})
+            assert err.value.status_code == 400
+            assert err.value.detail == "A person needs a user or a name"
+
+    async def test_every_unknown_user_is_named_comma_separated(self, db):
+        adr = await _decision(db)
+        first, second = uuid.UUID(int=11), uuid.UUID(int=12)
+        with pytest.raises(HTTPException) as err:
+            await svc.replace_people(
+                db, adr, participants=[{"user_id": str(first)}, {"user_id": str(second)}]
+            )
+        assert err.value.detail == f"User not found: {first}, {second}"
+
+    async def test_rows_are_reused_by_position_not_by_id(self, db):
+        adr = await _decision(db)
+        db.add_all(
+            [
+                ArchitectureDecisionPerson(
+                    id=uuid.UUID(int=2),
+                    architecture_decision_id=adr.id,
+                    part="decision_maker",
+                    name="A",
+                    position=0,
+                ),
+                ArchitectureDecisionPerson(
+                    id=uuid.UUID(int=1),
+                    architecture_decision_id=adr.id,
+                    part="decision_maker",
+                    name="B",
+                    position=1,
+                ),
+            ]
+        )
+        await db.flush()
+
+        await svc.replace_people(db, adr, decision_makers=[{"name": "A"}, {"name": "B"}])
+
+        assert [(pid, n, pos) for pid, _, _, n, pos in await _rows(db, adr.id)] == [
+            (uuid.UUID(int=2), "A", 0),
+            (uuid.UUID(int=1), "B", 1),
+        ]
+
+    async def test_an_unknown_part_listed_first_does_not_hide_the_rest(self, db):
+        adr = await _decision(db)
+        db.add_all(
+            [
+                ArchitectureDecisionPerson(
+                    architecture_decision_id=adr.id, part="x", name="Z", position=0
+                ),
+                ArchitectureDecisionPerson(
+                    architecture_decision_id=adr.id, part="participant", name="P", position=1
+                ),
+            ]
+        )
+        await db.flush()
+        assert await svc.people_payload(db, [adr.id]) == {
+            adr.id: {
+                "decision_makers": [],
+                "participants": [{"user_id": None, "display_name": "P"}],
+            }
+        }
+
+    async def _tied(self, db, adr):
+        """Two decision makers on one position (legacy data), the larger id
+        stored first: the id breaks the tie."""
+        for pid, name in ((2, "Second"), (1, "First")):
+            db.add(
+                ArchitectureDecisionPerson(
+                    id=uuid.UUID(int=pid),
+                    architecture_decision_id=adr.id,
+                    part="decision_maker",
+                    name=name,
+                    position=0,
+                )
+            )
+            await db.flush()
+
+    async def test_a_position_tie_is_listed_by_id(self, db):
+        adr = await _decision(db)
+        await self._tied(db, adr)
+        payload = await svc.people_payload(db, [adr.id])
+        assert [p["display_name"] for p in payload[adr.id]["decision_makers"]] == [
+            "First",
+            "Second",
+        ]
+
+    async def test_a_position_tie_is_reused_by_id(self, db):
+        adr = await _decision(db)
+        await self._tied(db, adr)
+        await svc.replace_people(db, adr, decision_makers=[{"name": "A"}, {"name": "B"}])
+        assert [(pid, n, pos) for pid, _, _, n, pos in await _rows(db, adr.id)] == [
+            (uuid.UUID(int=1), "A", 0),
+            (uuid.UUID(int=2), "B", 1),
+        ]

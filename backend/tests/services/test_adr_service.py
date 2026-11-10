@@ -18,7 +18,7 @@ from app.models.architecture_decision_link import ArchitectureDecisionLink
 from app.models.event import Event
 from app.services import adr_service
 from app.services import decision_standing as ds
-from tests.conftest import create_card, create_card_type
+from tests.conftest import create_card, create_card_type, create_user
 
 
 async def _links(db, source_id):
@@ -764,3 +764,145 @@ class TestDuplicateDecision:
         assert [(e.data["adr_id"], e.data["linked_card_ids"]) for e in events] == [
             (str(dup.id), [str(cards["a"].id)])
         ]
+
+
+class TestAuthorship:
+    """Who made a decision, a revision or a duplicate is stored and evented."""
+
+    async def _created_event(self, db, adr_id):
+        return (
+            await db.execute(
+                select(Event).where(
+                    Event.event_type == "adr.created",
+                    Event.data["adr_id"].astext == str(adr_id),
+                )
+            )
+        ).scalar_one()
+
+    async def test_create_decision_events_its_author(self, db):
+        author = await create_user(db, email="adr-author@test.com")
+        adr = await adr_service.create_decision(db, title="Authored", created_by=author.id)
+        assert adr.created_by == author.id
+        assert (await self._created_event(db, adr.id)).user_id == author.id
+
+    async def test_create_revision_stores_and_events_its_author(self, db):
+        author = await create_user(db, email="rev-author@test.com")
+        source = await adr_service.create_decision(db, title="Source", publish=False)
+        source.status = "signed"
+        await db.flush()
+
+        revision = await adr_service.create_revision(
+            db, source, created_by=author.id, register=await ds.load_register(db)
+        )
+
+        assert revision.created_by == author.id
+        assert (await self._created_event(db, revision.id)).user_id == author.id
+
+    async def test_duplicate_copies_the_text_and_names_its_author(self, db):
+        author = await create_user(db, email="dup-author@test.com")
+        original = await adr_service.create_decision(
+            db,
+            title="Original",
+            context="ctx",
+            decision="dec",
+            consequences="cons",
+            alternatives_considered="alt",
+            publish=False,
+        )
+
+        dup = await adr_service.duplicate_decision(db, original, created_by=author.id)
+
+        assert (
+            dup.context,
+            dup.decision,
+            dup.consequences,
+            dup.alternatives_considered,
+            dup.created_by,
+        ) == ("ctx", "dec", "cons", "alt", author.id)
+        assert (await self._created_event(db, dup.id)).user_id == author.id
+
+
+class TestCopyCardLinks:
+    async def test_returns_the_card_ids_in_id_order_whatever_the_insert_order(self, db, cards):
+        source = await adr_service.create_decision(db, title="Source", publish=False)
+        target = await adr_service.create_decision(db, title="Target", publish=False)
+        low, high = sorted([cards["a"].id, cards["b"].id])
+        for card_id in (high, low):
+            db.add(ArchitectureDecisionCard(architecture_decision_id=source.id, card_id=card_id))
+            await db.flush()
+
+        assert await adr_service.copy_card_links(db, source.id, target.id) == [low, high]
+
+
+class TestParentDecidedOn:
+    def test_a_parent_outside_the_register_has_no_date(self):
+        register = ds.build_register([_row(1, "ADR-001")], [], today=TODAY)
+        orphan = ArchitectureDecision(
+            id=uuid.UUID(int=5), reference_number="ADR-005", title="T", parent_id=uuid.UUID(int=7)
+        )
+        assert adr_service.parent_decided_on(register, orphan) is None
+        child = ArchitectureDecision(
+            id=uuid.UUID(int=6), reference_number="ADR-001", title="T", parent_id=uuid.UUID(int=1)
+        )
+        assert adr_service.parent_decided_on(register, child) is None
+
+
+class TestReviseRefusalNamesTheOpenRevision:
+    def test_a_signed_revision_after_the_open_one_is_not_named(self):
+        register = ds.build_register(
+            [
+                _row(1, "ADR-001"),
+                _row(2, "ADR-001", rev=2, parent=1, status="draft"),
+                _row(3, "ADR-001", rev=3, parent=2),
+            ],
+            [],
+            today=TODAY,
+        )
+        source = ArchitectureDecision(id=uuid.UUID(int=1), reference_number="ADR-001", title="T")
+        assert adr_service.revise_refusal_detail(register, source) == {
+            "error": "open_revision_exists",
+            "revision_id": str(uuid.UUID(int=2)),
+        }
+
+
+class TestDuplicateConsolidationTarget:
+    async def test_the_duplicate_target_is_named(self, db):
+        source = await adr_service.create_decision(db, title="Amended", publish=False)
+        source.status = "signed"
+        amender = await adr_service.create_decision(db, title="Amender", publish=False)
+        amender.status = "signed"
+        await db.flush()
+        db.add(ArchitectureDecisionLink(source_id=amender.id, target_id=source.id, kind="amends"))
+        await db.flush()
+
+        with pytest.raises(HTTPException) as exc:
+            await adr_service.create_revision(
+                db,
+                source,
+                created_by=None,
+                register=await ds.load_register(db),
+                consolidates=[str(amender.id), amender.reference_number],
+            )
+        assert exc.value.detail["target_id"] == str(amender.id)
+
+
+class TestNotifyStandingChanged:
+    async def test_counts_the_notices_and_never_tells_the_actor(self, db):
+        actor = await create_user(db, email="locker@test.com")
+        other = await create_user(db, email="old-author@test.com")
+        mine = await adr_service.create_decision(
+            db, title="Mine", created_by=actor.id, publish=False
+        )
+        theirs = await adr_service.create_decision(
+            db, title="Theirs", created_by=other.id, publish=False
+        )
+        new = await adr_service.create_decision(db, title="New", publish=False)
+        lone = await adr_service.create_decision(db, title="Lone", publish=False)
+        for target in (mine, theirs):
+            target.status = "signed"
+            db.add(ArchitectureDecisionLink(source_id=new.id, target_id=target.id, kind="replaces"))
+        await db.flush()
+        register = await ds.load_register(db)
+
+        assert await adr_service.notify_standing_changed(db, lone, register, actor_id=actor.id) == 0
+        assert await adr_service.notify_standing_changed(db, new, register, actor_id=actor.id) == 1
