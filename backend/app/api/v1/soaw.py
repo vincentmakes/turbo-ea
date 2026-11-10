@@ -16,6 +16,7 @@ from app.models.todo import Todo
 from app.models.user import User
 from app.services import document_collab, notification_service, soaw_service
 from app.services import document_discussion_service as discussion
+from app.services import document_history_service as history
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
@@ -115,6 +116,24 @@ async def _respond(db: AsyncSession, s: SoAW, user: User) -> dict:
     return rendered
 
 
+async def _detail(db: AsyncSession, s: SoAW, user: User) -> dict:
+    """``GET /soaw/{id}``'s reply: the SoAW with its chain fields, its
+    revisions and its open-thread count, rendered for ``user``."""
+    chains = await soaw_service.load_chains(db)
+    (rendered,) = await _render(
+        db,
+        [
+            {
+                **_row_to_dict(s, chains),
+                "revisions": soaw_service.revisions_payload(chains, s.id),
+                **await _detail_fields(db, s),
+            }
+        ],
+        user,
+    )
+    return rendered
+
+
 def _refuse(refusal: tuple[int, object] | None) -> None:
     if refusal is not None:
         raise HTTPException(refusal[0], refusal[1])
@@ -195,19 +214,7 @@ async def get_soaw(
 ):
     await PermissionService.require_permission(db, user, "soaw.view")
     s = await _get_soaw(db, soaw_id)
-    chains = await soaw_service.load_chains(db)
-    (rendered,) = await _render(
-        db,
-        [
-            {
-                **_row_to_dict(s, chains),
-                "revisions": soaw_service.revisions_payload(chains, s.id),
-                **await _detail_fields(db, s),
-            }
-        ],
-        user,
-    )
-    return rendered
+    return await _detail(db, s, user)
 
 
 @router.patch("/{soaw_id}")
@@ -224,6 +231,9 @@ async def update_soaw(
     # review: only the initiative (filing) may change.
     _refuse(soaw_service.update_refusal(s.status, body.status, body.model_fields_set))
     was_draft = s.status == soaw_service.DRAFT
+    # The content before this save touches the row: a draft's first recorded
+    # save keeps it as the baseline version.
+    before = history.snapshot_of(document_collab.SOAW, s) if was_draft else None
 
     if body.name is not None:
         s.name = body.name
@@ -246,7 +256,7 @@ async def update_soaw(
         )
         s.sections = text["sections"]
     await document_collab.after_save(
-        db, document_collab.SOAW, s, user=user, was_draft=was_draft, before=None
+        db, document_collab.SOAW, s, user=user, was_draft=was_draft, before=before
     )
     await db.commit()
     await db.refresh(s)

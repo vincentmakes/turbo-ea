@@ -82,21 +82,6 @@ def test_check_step_accepts_every_known_pair():
             assert collab.check_step(kind, step) is None
 
 
-def test_is_signatory():
-    sigs = [{"user_id": str(U2)}, "junk", {"display_name": "x"}]
-    assert collab.is_signatory(sigs, U2) is True
-    assert collab.is_signatory(sigs, U1) is False
-    assert collab.is_signatory(None, U1) is False
-    assert collab.is_signatory([], U1) is False
-
-
-def test_history_payload():
-    assert collab.history_payload([{"id": "x"}], can_view_versions=False) == {
-        "can_view_versions": False,
-        "entries": [{"id": "x"}],
-    }
-
-
 def _entry(**fields) -> DocumentHistoryEntry:
     base = {
         "id": U1,
@@ -216,7 +201,9 @@ async def test_the_hooks_hand_back_text_without_mentions_as_it_is(db):
     assert (
         await collab.before_save(db, "adr", adr, incoming, user=user, read_scope=scope) is incoming
     )
-    assert await collab.after_save(db, "adr", adr, user=user, was_draft=True, before=None) is None
+    # A save in review records nothing (versions are recorded from drafts only).
+    assert await collab.after_save(db, "adr", adr, user=user, was_draft=False, before=None) is None
+    assert await _rows(db) == []
     payloads = [{"id": "x", "decision": "<p>x</p>"}]
     assert await collab.render_doc(db, "adr", payloads, user=user, read_scope=None) is payloads
 
@@ -234,25 +221,3 @@ async def test_load_document_and_404s(db):
     with pytest.raises(HTTPException) as exc:
         await collab.load_document(db, "soaw", str(adr.id))
     assert exc.value.detail == "Statement of Architecture Work not found"
-
-
-async def test_history_entries_in_seq_order_with_current_names(db):
-    user = await create_user(db, display_name="Now")
-    adr = await _decision(db)
-    other = ArchitectureDecision(reference_number="ADR-002", title="Other")
-    db.add(other)
-    await db.flush()
-    await collab.on_workflow(db, "adr", adr, "created", user=user)
-    await collab.on_workflow(db, "adr", other, "created", user=user)
-    gone = DocumentHistoryEntry(
-        architecture_decision_id=adr.id, kind="signature", actor_name="Gone"
-    )
-    db.add(gone)
-    await db.flush()
-    user.display_name = "Renamed"
-    await db.flush()
-    entries = await collab.history_entries(db, "adr", adr.id)
-    assert [(e["kind"], e["actor"], e["actor_name"]) for e in entries] == [
-        ("created", {"id": str(user.id), "display_name": "Renamed"}, "Now"),
-        ("signature", None, "Gone"),
-    ]

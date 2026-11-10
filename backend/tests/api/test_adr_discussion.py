@@ -488,7 +488,8 @@ class TestResolve:
 class TestWorkflow:
     async def _timeline(self, client, env, adr_id):
         resp = await client.get(f"{ADR}/{adr_id}/history", headers=env["h"]["admin"])
-        return [(e["kind"], e["actor_name"], e["note"]) for e in resp.json()["entries"]]
+        # The API answers newest first; read it in the order things happened.
+        return [(e["kind"], e["actor_name"], e["note"]) for e in reversed(resp.json()["entries"])]
 
     async def test_a_rejection_opens_a_thread(self, client, env):
         adr = await _adr(client, env)

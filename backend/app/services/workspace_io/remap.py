@@ -1077,11 +1077,13 @@ def rewrite_soaw_sections(sections: Any, ids: IdMap, tally: RewriteTally) -> Any
     return out
 
 
+#: The keys of a decision snapshot that list people (``document_history_service``).
+HISTORY_PEOPLE_KEYS: tuple[str, ...] = ("decision_makers", "participants")
+
+
 def _rewrite_people(people: Any, ids: IdMap, tally: RewriteTally) -> Any:
-    """A snapshot's people — a list of ``{user_id?, name}`` or a ``{part:
-    [...]}`` map of such lists — with each ``user_id`` through the users map."""
-    if isinstance(people, dict):
-        return {k: _rewrite_people(v, ids, tally) for k, v in people.items()}
+    """A snapshot's list of ``{user_id?, name}`` with each ``user_id`` through
+    the users map."""
     if not isinstance(people, list):
         return people
     out = []
@@ -1094,12 +1096,15 @@ def _rewrite_people(people: Any, ids: IdMap, tally: RewriteTally) -> Any:
 
 def rewrite_history_content(content: Any, ids: IdMap, tally: RewriteTally) -> Any:
     """A history snapshot: the mention ids in every HTML string and the user
-    id of every person under ``people``."""
+    id of every person under ``decision_makers`` / ``participants``."""
     if not isinstance(content, dict):
         return content
-    out = _rewrite_strings({k: v for k, v in content.items() if k != "people"}, ids, tally)
-    if "people" in content:
-        out["people"] = _rewrite_people(content["people"], ids, tally)
+    out = _rewrite_strings(
+        {k: v for k, v in content.items() if k not in HISTORY_PEOPLE_KEYS}, ids, tally
+    )
+    for key in HISTORY_PEOPLE_KEYS:
+        if key in content:
+            out[key] = _rewrite_people(content[key], ids, tally)
     return out
 
 

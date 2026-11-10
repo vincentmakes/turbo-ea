@@ -96,7 +96,8 @@ async def _request(client, env, soaw_id, *signers):
 
 async def _timeline(client, env, soaw_id):
     resp = await client.get(f"{SOAW}/{soaw_id}/history", headers=env["h"]["admin"])
-    return [(e["kind"], e["actor_name"], e["note"]) for e in resp.json()["entries"]]
+    # The API answers newest first; read it in the order things happened.
+    return [(e["kind"], e["actor_name"], e["note"]) for e in reversed(resp.json()["entries"])]
 
 
 class TestRoutes:

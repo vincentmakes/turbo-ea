@@ -430,3 +430,17 @@ class TestTimeline:
         assert [(r.kind, r.actor_id, r.actor_name, r.via) for r in rows] == [
             ("created", None, None, "ext")
         ]
+        # The ``created`` row carries the filed draft's content.
+        assert rows[0].content == {
+            "title": "Timeline",
+            "context": None,
+            "decision": None,
+            "consequences": None,
+            "alternatives_considered": None,
+            "decided_on": None,
+            "effective_from": None,
+            "valid_until": None,
+            "change_summary": None,
+            "decision_makers": [],
+            "participants": [],
+        }

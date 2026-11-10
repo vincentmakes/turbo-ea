@@ -71,7 +71,8 @@ async def _post(client, env, path, who="admin", json=None, status=200):
 async def _timeline(client, env, base, doc_id, who="admin") -> list[tuple]:
     resp = await client.get(f"{base}/{doc_id}/history", headers=env["h"][who])
     assert resp.status_code == 200, resp.text
-    return [(e["kind"], e["actor_name"], e["note"]) for e in resp.json()["entries"]]
+    # The API answers newest first; read it in the order things happened.
+    return [(e["kind"], e["actor_name"], e["note"]) for e in reversed(resp.json()["entries"])]
 
 
 def _ids(env, *names) -> list[str]:
@@ -165,7 +166,8 @@ class TestHistoryRoute:
             "actor_name": "Ada",
             "note": None,
             "created_at": entry["created_at"],
-            "has_content": False,
+            "has_content": True,
+            "restored_from": None,
         }
         uuid.UUID(entry["id"])
         assert entry["created_at"].startswith(str(date.today().year))
@@ -488,7 +490,28 @@ class TestDecisionHooks:
             uuid.UUID(adr["id"]),
             {"decision": "<p>d</p>", "consequences": "<p>q</p>"},
         )
-        assert _of(spy, "after_save") == [("after_save", "adr", uuid.UUID(adr["id"]), True, None)]
+        # ``before`` is the content as it was before the save touched the row.
+        assert _of(spy, "after_save") == [
+            (
+                "after_save",
+                "adr",
+                uuid.UUID(adr["id"]),
+                True,
+                {
+                    "title": "Decision",
+                    "context": None,
+                    "decision": None,
+                    "consequences": None,
+                    "alternatives_considered": None,
+                    "decided_on": None,
+                    "effective_from": None,
+                    "valid_until": None,
+                    "change_summary": None,
+                    "decision_makers": [],
+                    "participants": [],
+                },
+            )
+        ]
         assert _of(spy, "on_workflow") == []
         (render,) = _of(spy, "render_doc")
         assert render[3] == [resp.json()]
@@ -599,7 +622,20 @@ class TestSoawHooks:
         )
         assert resp.status_code == 200
         assert _of(spy, "before_save") == []
-        assert _of(spy, "after_save") == [("after_save", "soaw", uuid.UUID(soaw["id"]), True, None)]
+        assert _of(spy, "after_save") == [
+            (
+                "after_save",
+                "soaw",
+                uuid.UUID(soaw["id"]),
+                True,
+                {
+                    "name": "Plan",
+                    "document_info": {},
+                    "version_history": [],
+                    "sections": {"1.1": {"content": "<p>a</p>"}},
+                },
+            )
+        ]
         spy.clear()
         resp = await client.patch(
             f"{SOAW}/{soaw['id']}",

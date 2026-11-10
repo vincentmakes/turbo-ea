@@ -245,6 +245,46 @@ class TestNonGetResponses:
         assert rev["decision"] == f"<p>{restricted(rev['id'], 'card', hid)}</p>"
         _no_leak(env, resp.text)
 
+    async def test_a_restore_keeps_the_hidden_mention_and_names_no_hidden_card(
+        self, client, env, db
+    ):
+        """The restricted reader restores a version whose text mentions a card
+        they cannot see and the current text no longer holds: the mention was
+        stored on the document once, so it is kept, not refused (R10, R19)."""
+        hid = env["hidden"].id
+        h = env["h"]["reader"]
+        adr = await _adr(client, env, decision=f"<p>{span('card', hid)}</p>")
+        base = f"{ADR}/{adr['id']}"
+        resp = await client.patch(
+            base, json={"decision": "<p>plain</p>"}, headers=env["h"]["admin"]
+        )
+        assert resp.status_code == 200, resp.text
+        history = (await client.get(f"{base}/history", headers=h)).json()["entries"]
+        assert [e["kind"] for e in history] == ["save", "created"]
+        resp = await client.post(f"{base}/history/{history[1]['id']}/restore", headers=h)
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["decision"] == f"<p>{restricted(adr['id'], 'card', hid)}</p>"
+        _no_leak(env, resp.text)
+        assert await _stored(db, ArchitectureDecision, adr["id"], "decision") == (
+            f"<p>{span('card', hid)}</p>"
+        )
+
+        soaw = await _soaw(client, env, f"<p>{span('card', hid)}</p>")
+        sbase = f"{SOAW}/{soaw['id']}"
+        resp = await client.patch(
+            sbase,
+            json={"sections": {"1.1": {"content": "<p>plain</p>"}}},
+            headers=env["h"]["admin"],
+        )
+        assert resp.status_code == 200, resp.text
+        created = (await client.get(f"{sbase}/history", headers=h)).json()["entries"][-1]
+        resp = await client.post(f"{sbase}/history/{created['id']}/restore", headers=h)
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["sections"] == {
+            "1.1": {"content": f"<p>{restricted(soaw['id'], 'card', hid)}</p>"}
+        }
+        _no_leak(env, resp.text)
+
     async def test_the_soaw_update_response_names_no_hidden_card(self, client, env, db):
         hid = env["hidden"].id
         soaw = await _soaw(client, env, f"<p>{span('card', hid)}</p>")

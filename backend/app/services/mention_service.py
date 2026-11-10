@@ -361,16 +361,20 @@ async def normalise_for_write(
     read_scope: CardReadScope | None,
     system: bool = False,
     copy: bool = False,
+    kept: Iterable[Mention] = (),
 ) -> dict[str, Any]:
     """The text fields to store (see the module doc). ``doc`` is the stored
-    document (``None`` on a create: nothing is restored). ``incoming`` comes
-    back as the same object when none of its fields holds a mention."""
+    document (``None`` on a create: nothing is restored). ``kept`` are
+    mentions that count as already stored on ``doc`` besides its current text
+    — a restored version's, which were stored on the document once and are
+    therefore not new. ``incoming`` comes back as the same object when none
+    of its fields holds a mention."""
     fields = [f for f in text_fields_of(doc_kind) if f in incoming]
     if not has_marker(doc_kind, incoming):
         return incoming
     if user is None and not (system or copy):
         raise ValueError("A user writer needs its user")
-    stored = stored_mentions(doc_kind, doc)
+    stored = stored_mentions(doc_kind, doc) | set(kept)
 
     def token_of(kind: str, mention_id: str) -> str:
         return token_for(doc.id, kind, mention_id)

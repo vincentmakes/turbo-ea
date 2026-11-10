@@ -868,7 +868,7 @@ async def _seed_documents(db, admin):
             {
                 "content": {
                     "decision": f"<p>{_mention('card', crm.id)}</p>",
-                    "people": {"decision_makers": [{"user_id": str(ada.id), "name": "Ada"}]},
+                    "decision_makers": [{"user_id": str(ada.id), "name": "Ada"}],
                 }
             },
         ),
@@ -984,7 +984,7 @@ async def test_mentions_signatories_discussion_and_history_follow_cards_and_user
     assert all(h.actor_id == new_ada.id for h in history)
     assert history[1].content == {
         "decision": f"<p>{_mention('card', new_crm.id)}</p>",
-        "people": {"decision_makers": [{"user_id": str(new_ada.id), "name": "Ada"}]},
+        "decision_makers": [{"user_id": str(new_ada.id), "name": "Ada"}],
     }
     assert history[2].signatories == [{"user_id": str(new_ada.id), "display_name": "Ada"}]
     soaw_history = (

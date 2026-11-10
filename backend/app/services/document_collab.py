@@ -15,8 +15,7 @@ without touching the call sites again:
 * :func:`render_doc` — the response payloads of one request, as one batch
   (mentions are resolved for the reader here).
 
-``after_save`` changes nothing yet. Every helper flushes and never commits:
-the caller owns the transaction.
+Every helper flushes and never commits: the caller owns the transaction.
 """
 
 from __future__ import annotations
@@ -26,7 +25,6 @@ from collections.abc import Iterable, Mapping
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.architecture_decision import ArchitectureDecision
@@ -55,6 +53,9 @@ WORKFLOW_STEPS: tuple[str, ...] = (
     "recalled",
     "recorded",
 )
+
+#: Workflow steps that open a timeline and carry the document's first content.
+CONTENT_STEPS: frozenset[str] = frozenset({"created", "revised"})
 
 Document = ArchitectureDecision | SoAW
 
@@ -110,6 +111,7 @@ async def before_save(
     user: User | None,
     read_scope: CardReadScope | None,
     copy: bool = False,
+    kept: Iterable[mention_service.Mention] = (),
 ) -> dict[str, Any]:
     """The text fields to store for a create (``doc`` is ``None``) or an
     update of ``doc``, their mentions checked and canonicalised
@@ -119,7 +121,8 @@ async def before_save(
     loaded when needed) — every new mention must be readable by them; a
     SYSTEM writer (``user`` ``None``: the extension bridge, the TurboLens
     commit) — existence only; a COPY (``copy=True``: a revision, a duplicate)
-    — canonicalised only. 404 on a refused mention."""
+    — canonicalised only. ``kept`` (a restore) are mentions already stored on
+    ``doc`` once, never re-checked. 404 on a refused mention."""
     return await mention_service.normalise_for_write(
         db,
         doc_kind=doc_kind,
@@ -129,6 +132,7 @@ async def before_save(
         read_scope=read_scope,
         system=user is None and not copy,
         copy=copy,
+        kept=kept,
     )
 
 
@@ -143,8 +147,17 @@ async def after_save(
 ) -> None:
     """Called once an update of ``doc`` has been applied (flushed or not).
     ``was_draft`` is whether the document was a draft before the update;
-    ``before`` its state before it, when the caller captured one. A no-op for
-    now."""
+    ``before`` its content snapshot taken BEFORE the update touched the row
+    (``document_history_service.current_snapshot``; the caller captures it
+    for a draft). A draft's save is recorded as a version when its content
+    changed (``document_history_service.record_save``); a save in review
+    (filing only) records nothing."""
+    if not was_draft:
+        return None
+    # Imported here: the history service builds on this module.
+    from app.services import document_history_service as history
+
+    await history.record_save(db, doc_kind, doc, user=user, before=before)
     return None
 
 
@@ -160,7 +173,9 @@ async def on_workflow(
 ) -> DocumentHistoryEntry:
     """Write the timeline row for ``step`` of ``doc``; flush, never commit.
 
-    ``signatories`` is kept (as ``[{user_id, display_name}]``) on a
+    A ``created`` or ``revised`` row carries the document's content as it is
+    now (the shared writers call this once the content, people included, is
+    in place). ``signatories`` is kept (as ``[{user_id, display_name}]``) on a
     ``sent_for_review`` row only; ``note`` is the reason of a rejection or the
     signer's note. A ``rejected`` step by a person also opens a ``rejection``
     thread in the discussion (an empty reason gives an empty body), and a
@@ -169,6 +184,12 @@ async def on_workflow(
     """
     check_step(doc_kind, step)
     actor_id, actor_name = await _actor(db, user)
+    content: dict[str, Any] = {}
+    if step in CONTENT_STEPS:
+        # Imported here: the history service builds on this module.
+        from app.services import document_history_service as history
+
+        content["content"] = await history.current_snapshot(db, doc_kind, doc)
     entry = DocumentHistoryEntry(
         **owner_fields(doc_kind, doc.id),
         kind=step,
@@ -176,6 +197,7 @@ async def on_workflow(
         actor_name=actor_name,
         note=note or None,
         signatories=history_signatories(signatories) if step == "sent_for_review" else None,
+        **content,
     )
     db.add(entry)
     await db.flush()
@@ -243,14 +265,6 @@ async def load_document(db: AsyncSession, doc_kind: str, doc_id: str) -> Documen
     return doc
 
 
-def is_signatory(signatories: Iterable[Any] | None, user_id: uuid.UUID) -> bool:
-    """Whether ``user_id`` is among a document's current signatory entries."""
-    wanted = str(user_id)
-    return any(
-        isinstance(entry, Mapping) and entry.get("user_id") == wanted for entry in signatories or ()
-    )
-
-
 def history_entry_payload(entry: DocumentHistoryEntry, actor_display_name: str | None) -> dict:
     """One timeline row as the History tab reads it. ``actor`` is the user as
     they are named now (``None`` once deleted); ``actor_name`` the snapshot."""
@@ -266,20 +280,3 @@ def history_entry_payload(entry: DocumentHistoryEntry, actor_display_name: str |
         "created_at": entry.created_at.isoformat() if entry.created_at else None,
         "has_content": entry.content is not None,
     }
-
-
-async def history_entries(db: AsyncSession, doc_kind: str, doc_id: uuid.UUID) -> list[dict]:
-    """The document's timeline in ``seq`` order, with each actor's current name
-    (one query)."""
-    owner = getattr(DocumentHistoryEntry, OWNER_COLUMNS[doc_kind])
-    rows = await db.execute(
-        select(DocumentHistoryEntry, User.display_name)
-        .outerjoin(User, User.id == DocumentHistoryEntry.actor_id)
-        .where(owner == doc_id)
-        .order_by(DocumentHistoryEntry.seq)
-    )
-    return [history_entry_payload(entry, name) for entry, name in rows.all()]
-
-
-def history_payload(entries: list[dict], *, can_view_versions: bool) -> dict[str, Any]:
-    return {"can_view_versions": can_view_versions, "entries": entries}

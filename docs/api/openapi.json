@@ -22279,7 +22279,7 @@
     },
     "/api/v1/adr/{adr_id}/history": {
       "get": {
-        "description": "The decision's timeline: ``{can_view_versions, entries}`` in order.",
+        "description": "The decision's timeline, newest first:\n``{can_view_versions, can_restore, total, entries}``.",
         "operationId": "list_adr_history_api_v1_adr__adr_id__history_get",
         "parameters": [
           {
@@ -22289,6 +22289,29 @@
             "schema": {
               "title": "Adr Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
             }
           }
         ],
@@ -22313,6 +22336,106 @@
           }
         },
         "summary": "List Adr History",
+        "tags": [
+          "document-collaboration"
+        ]
+      }
+    },
+    "/api/v1/adr/{adr_id}/history/{entry_id}": {
+      "get": {
+        "description": "One saved version of the decision: ``{entry, content}``.",
+        "operationId": "get_adr_version_api_v1_adr__adr_id__history__entry_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Adr Version",
+        "tags": [
+          "document-collaboration"
+        ]
+      }
+    },
+    "/api/v1/adr/{adr_id}/history/{entry_id}/restore": {
+      "post": {
+        "description": "Restore a saved version into the draft decision; the decision's detail.",
+        "operationId": "restore_adr_version_api_v1_adr__adr_id__history__entry_id__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Adr Version",
         "tags": [
           "document-collaboration"
         ]
@@ -44470,7 +44593,7 @@
     },
     "/api/v1/soaw/{soaw_id}/history": {
       "get": {
-        "description": "The SoAW's timeline: ``{can_view_versions, entries}`` in order.",
+        "description": "The SoAW's timeline, newest first:\n``{can_view_versions, can_restore, total, entries}``.",
         "operationId": "list_soaw_history_api_v1_soaw__soaw_id__history_get",
         "parameters": [
           {
@@ -44480,6 +44603,29 @@
             "schema": {
               "title": "Soaw Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
             }
           }
         ],
@@ -44504,6 +44650,106 @@
           }
         },
         "summary": "List Soaw History",
+        "tags": [
+          "document-collaboration"
+        ]
+      }
+    },
+    "/api/v1/soaw/{soaw_id}/history/{entry_id}": {
+      "get": {
+        "description": "One saved version of the SoAW: ``{entry, content}``.",
+        "operationId": "get_soaw_version_api_v1_soaw__soaw_id__history__entry_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "soaw_id",
+            "required": true,
+            "schema": {
+              "title": "Soaw Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Soaw Version",
+        "tags": [
+          "document-collaboration"
+        ]
+      }
+    },
+    "/api/v1/soaw/{soaw_id}/history/{entry_id}/restore": {
+      "post": {
+        "description": "Restore a saved version into the draft SoAW; the SoAW's detail.",
+        "operationId": "restore_soaw_version_api_v1_soaw__soaw_id__history__entry_id__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "soaw_id",
+            "required": true,
+            "schema": {
+              "title": "Soaw Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Soaw Version",
         "tags": [
           "document-collaboration"
         ]

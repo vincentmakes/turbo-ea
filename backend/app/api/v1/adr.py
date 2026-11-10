@@ -42,6 +42,7 @@ from app.services import (
 )
 from app.services import decision_standing as ds
 from app.services import document_discussion_service as discussion
+from app.services import document_history_service as history
 from app.services.attachment_upload import (
     content_disposition,
     read_validated_upload,
@@ -489,14 +490,10 @@ async def create_adr(
         change_summary=body.change_summary,
         user=user,
         read_scope=read_scope,
-    )
-    await decision_link_service.replace_links(db, adr, wanted, register=register)
-    await decision_people_service.replace_people(
-        db,
-        adr,
         decision_makers=body.decision_makers or [],
         participants=body.participants or [],
     )
+    await decision_link_service.replace_links(db, adr, wanted, register=register)
     await db.commit()
     await db.refresh(adr)
     return await _detail(db, adr, user, read_scope)
@@ -573,6 +570,9 @@ async def update_adr(
     adr_service.check_editable(adr.status, body.status, body.model_fields_set)
     read_scope = await CardReadScope.load(db, user)
     was_draft = adr.status == "draft"
+    # The content before this save touches the row: a draft's first recorded
+    # save keeps it as the baseline version.
+    before = await history.current_snapshot(db, document_collab.ADR, adr) if was_draft else None
 
     if body.title is not None:
         adr.title = body.title
@@ -660,7 +660,7 @@ async def update_adr(
             )
 
     await document_collab.after_save(
-        db, document_collab.ADR, adr, user=user, was_draft=was_draft, before=None
+        db, document_collab.ADR, adr, user=user, was_draft=was_draft, before=before
     )
     await db.commit()
     await db.refresh(adr)

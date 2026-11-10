@@ -1664,10 +1664,8 @@ def test_rewrite_document_history_row_walks_content_people_and_signatories():
             "title": "T",
             "decision": _mention("card", OLD_A),
             "sections": {"1.1": {"content": _mention("user", OLD_USER)}},
-            "people": {
-                "decision_makers": [{"user_id": OLD_USER, "name": "Ada"}, {"name": "Free"}],
-                "participants": [{"user_id": None, "name": "Nobody"}],
-            },
+            "decision_makers": [{"user_id": OLD_USER, "name": "Ada"}, {"name": "Free"}],
+            "participants": [{"user_id": None, "name": "Nobody"}],
         },
         "signatories": [{"user_id": OLD_USER, "display_name": "Ada"}],
     }
@@ -1677,26 +1675,27 @@ def test_rewrite_document_history_row_walks_content_people_and_signatories():
             "title": "T",
             "decision": _mention("card", NEW_A),
             "sections": {"1.1": {"content": _mention("user", NEW_USER)}},
-            "people": {
-                "decision_makers": [{"user_id": NEW_USER, "name": "Ada"}, {"name": "Free"}],
-                "participants": [{"user_id": None, "name": "Nobody"}],
-            },
+            "decision_makers": [{"user_id": NEW_USER, "name": "Ada"}, {"name": "Free"}],
+            "participants": [{"user_id": None, "name": "Nobody"}],
         },
         "signatories": [{"user_id": NEW_USER, "display_name": "Ada"}],
     }
     assert tally.counts == {"remapped": 4}
 
 
-def test_history_people_as_a_list():
+def test_history_people_lists_map_users_and_keep_the_rest():
     out = rm.rewrite_history_content(
-        {"people": [{"user_id": OLD_USER, "name": "A"}, "x"], "n": 1},
+        {"participants": [{"user_id": OLD_USER, "name": "A"}, "x"], "n": 1},
         _user_ids(),
         rm.RewriteTally(),
     )
-    assert out == {"people": [{"user_id": NEW_USER, "name": "A"}, "x"], "n": 1}
-    assert rm.rewrite_history_content({"people": "odd"}, _user_ids(), rm.RewriteTally()) == {
-        "people": "odd"
-    }
+    assert out == {"participants": [{"user_id": NEW_USER, "name": "A"}, "x"], "n": 1}
+    assert rm.rewrite_history_content(
+        {"decision_makers": "odd"}, _user_ids(), rm.RewriteTally()
+    ) == {"decision_makers": "odd"}
+    # A ``user_id`` outside the people lists is not a person: left as it is.
+    other = {"people": [{"user_id": OLD_USER}]}
+    assert rm.rewrite_history_content(other, _user_ids(), rm.RewriteTally()) == other
 
 
 @pytest.mark.parametrize("value", [None, [], "x"])
