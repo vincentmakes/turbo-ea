@@ -12,7 +12,7 @@ La relación más valiosa de todo el metamodelo es **Application → Business Ca
 ### Camino masivo: modo edición de inventario
 
 1. Vaya a **Inventario**, filtre por Tipo = `Application`.
-2. Asegúrese de que la columna de relación **Business Capability** sea visible (pestaña Columnas → Relaciones).
+2. Asegúrese de que la columna de relación **apoya Capacidad de negocio** sea visible (pestaña Columnas → Relaciones).
 3. Active el modo **Edición de Cuadrícula** en la barra de herramientas.
 4. Haga clic en la celda de capacidad en cada fila y elija una o más capacidades. Cada cambio se guarda en cuanto lo hace.
 

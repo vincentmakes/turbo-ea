@@ -46,6 +46,7 @@ import {
   makeCardType,
   makeField,
   makeOption,
+  makeRelationType,
   makeSection,
 } from "@/test/fixtures/metamodel";
 import { exportCurrentViewToExcel, exportToExcel } from "./excelExport";
@@ -155,13 +156,14 @@ vi.mock("./ImportDialog", () => ({
 }));
 
 vi.mock("./RelationCellPopover", () => ({
-  default: ({ open, onClose, cardId, cardName, relationTypes, onRelationsChanged }: any) =>
+  default: ({ open, onClose, cardId, cardName, relationTypes, isSource, onRelationsChanged }: any) =>
     open ? (
       <div
         data-testid="relation-popover"
         data-card-id={cardId}
         data-card-name={cardName}
         data-rel-types={relationTypes.map((rt: any) => rt.key).join(",")}
+        data-is-source={String(isSource)}
       >
         <button data-testid="relation-popover-changed" onClick={onRelationsChanged} />
         <button data-testid="relation-popover-close" onClick={onClose} />
@@ -306,6 +308,33 @@ const STAKEHOLDER_ROLES: Record<string, { key: string; label: string }[]> = {
     { key: "technicalApplicationOwner", label: "Technical Application Owner" },
   ],
   ITComponent: [{ key: "technicalOwner", label: "Technical Owner" }],
+};
+
+/** A second relation type on the Application → IT Component pair. */
+const REL_APP_TO_ITC_HOSTS = makeRelationType({
+  key: "relAppToITCHosts",
+  label: "is hosted on",
+  reverse_label: "hosts",
+  source_type_key: "Application",
+  target_type_key: "ITComponent",
+});
+
+const REL_ERP_HOSTED_LINUX = {
+  id: "7e1a0000-0000-4000-8000-000000000002",
+  type: "relAppToITCHosts",
+  source_id: CARD_IDS.erp,
+  target_id: CARD_IDS.linux,
+  source: { id: CARD_IDS.erp, type: "Application", name: "ERP Core" },
+  target: { id: CARD_IDS.linux, type: "ITComponent", name: "Linux Server" },
+};
+
+const REL_ERP_TO_CRM = {
+  id: "7e1a0000-0000-4000-8000-000000000003",
+  type: "relAppToApp",
+  source_id: CARD_IDS.erp,
+  target_id: CARD_IDS.crm,
+  source: { id: CARD_IDS.erp, type: "Application", name: "ERP Core" },
+  target: { id: CARD_IDS.crm, type: "Application", name: "CRM Cloud" },
 };
 
 const REL_ERP_PG = {
@@ -701,7 +730,7 @@ describe("InventoryPage loading and URL parameters", () => {
       expect(screen.getByTestId("filter-sidebar")).toHaveAttribute("data-stakeholder-roles", "0"),
     );
     expect(gridStub.colDef("stakeholder_applicationOwner")).toBeUndefined();
-    expect(gridStub.cellValue("rel_ITComponent", ERP)).toBe("");
+    expect(gridStub.cellValue("rel_relAppToITC__out", ERP)).toBe("");
   });
 });
 
@@ -1141,7 +1170,7 @@ describe("InventoryPage client-side filters", () => {
     mockApi.on("get", /^\/relations\?card_type=/, [REL_ERP_PG]);
     const { user } = renderInventory("/inventory?type=Application");
     await waitForRows(3);
-    await waitFor(() => expect(gridStub.cellValue("rel_ITComponent", ERP)).toBe("PostgreSQL"));
+    await waitFor(() => expect(gridStub.cellValue("rel_relAppToITC__out", ERP)).toBe("PostgreSQL"));
     await applyFilters(user, { relations: { relAppToITC: ["PostgreSQL"] } });
     await waitForRows(1);
     await applyFilters(user, { relations: { relAppToITC: [EMPTY_VALUE] } });
@@ -2243,20 +2272,21 @@ describe("InventoryPage column definitions", () => {
     mockApi.on("get", /^\/relations\?card_type=/, [REL_ERP_PG]);
     const { user } = renderInventory("/inventory?type=Application");
     await waitForRows(3);
-    await waitFor(() => expect(gridStub.cellValue("rel_ITComponent", ERP)).toBe("PostgreSQL"));
-    const col = gridStub.colDef("rel_ITComponent");
+    await waitFor(() => expect(gridStub.cellValue("rel_relAppToITC__out", ERP)).toBe("PostgreSQL"));
+    const col = gridStub.colDef("rel_relAppToITC__out");
     expect(col.cellRenderer({ value: "", data: CRM })).toBe("");
     mount(col.cellRenderer({ value: "PostgreSQL", data: ERP }));
     expect(screen.getByText("PostgreSQL")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: BTN.gridEdit }));
     await waitFor(() => expect(gridStub.colDef("core_name").editable).toBe(true));
-    mount(gridStub.colDef("rel_ITComponent").cellRenderer({ value: "", data: CRM }));
+    mount(gridStub.colDef("rel_relAppToITC__out").cellRenderer({ value: "", data: CRM }));
     await user.click(screen.getByText("Click to edit"));
     const popover = await screen.findByTestId("relation-popover");
     expect(popover).toHaveAttribute("data-card-id", CARD_IDS.crm);
     expect(popover).toHaveAttribute("data-card-name", "CRM Cloud");
     expect(popover).toHaveAttribute("data-rel-types", "relAppToITC");
+    expect(popover).toHaveAttribute("data-is-source", "true");
     const relCalls = mockApi.callsOf("get", /^\/relations\?card_type=/).length;
     await user.click(screen.getByTestId("relation-popover-changed"));
     await waitFor(() =>
@@ -2264,6 +2294,201 @@ describe("InventoryPage column definitions", () => {
     );
     await user.click(screen.getByTestId("relation-popover-close"));
     await waitFor(() => expect(screen.queryByTestId("relation-popover")).toBeNull());
+  });
+
+  it("builds one column per relation-type side, headed by its verb, each with its own cell", async () => {
+    withMetamodel(CARD_TYPES, [...RELATION_TYPES, REL_APP_TO_ITC_HOSTS]);
+    mockApi.on("get", /^\/relations\?card_type=/, [REL_ERP_PG, REL_ERP_HOSTED_LINUX, REL_ERP_TO_CRM]);
+    const { user } = renderInventory("/inventory?type=Application");
+    await waitForRows(3);
+    await waitFor(() => expect(gridStub.cellValue("rel_relAppToITC__out", ERP)).toBe("PostgreSQL"));
+    // Two relation types on Application → IT Component: two columns, two cells.
+    expect(gridStub.cellValue("rel_relAppToITCHosts__out", ERP)).toBe("Linux Server");
+    expect(gridStub.colDef("rel_relAppToITC__out").headerName).toBe("uses IT Component");
+    expect(gridStub.colDef("rel_relAppToITCHosts__out").headerName).toBe("is hosted on IT Component");
+    expect(gridStub.colDef("rel_relAppToBC__out").headerName).toBe("supports Business Capability");
+    // A self-referencing type is an outgoing and an incoming column.
+    expect(gridStub.colDef("rel_relAppToApp__out").headerName).toBe("sends data to Application");
+    expect(gridStub.colDef("rel_relAppToApp__in").headerName).toBe("receives data from Application");
+    expect(gridStub.cellValue("rel_relAppToApp__out", ERP)).toBe("CRM Cloud");
+    expect(gridStub.cellValue("rel_relAppToApp__in", ERP)).toBe("");
+    expect(gridStub.cellValue("rel_relAppToApp__in", CRM)).toBe("ERP Core");
+    // No merged per-card-type column any more, and every side is on by default.
+    expect(gridStub.colDef("rel_ITComponent")).toBeUndefined();
+    expect(gridStub.colDef("rel_Application")).toBeUndefined();
+    const relIds = gridStub
+      .colDefs()
+      .map((c) => c.colId ?? c.field)
+      .filter((id: string) => id.startsWith("rel_"));
+    // Same-target columns sit together, a self-pair's two sides adjacent.
+    expect(relIds).toEqual([
+      "rel_relAppToITC__out",
+      "rel_relAppToITCHosts__out",
+      "rel_relAppToBC__out",
+      "rel_relAppToApp__out",
+      "rel_relAppToApp__in",
+    ]);
+    expect(relIds.every((id: string) => gridStub.colDef(id).hide === false)).toBe(true);
+
+    // The incoming column edits that one relation type, on its incoming side.
+    await user.click(screen.getByRole("button", { name: BTN.gridEdit }));
+    await waitFor(() => expect(gridStub.colDef("core_name").editable).toBe(true));
+    mount(gridStub.colDef("rel_relAppToApp__in").cellRenderer({ value: "", data: CRM }));
+    await user.click(screen.getByText("Click to edit"));
+    const popover = await screen.findByTestId("relation-popover");
+    expect(popover).toHaveAttribute("data-rel-types", "relAppToApp");
+    expect(popover).toHaveAttribute("data-is-source", "false");
+  });
+
+  it("translates a layout saved with per-card-type relation columns onto the side columns", async () => {
+    withMetamodel(CARD_TYPES, [...RELATION_TYPES, REL_APP_TO_ITC_HOSTS]);
+    const itcFilter = { filterType: "text", type: "contains", filter: "Postgres" };
+    const bcFilter = { filterType: "text", type: "contains", filter: "Finance" };
+    localStorage.setItem(
+      PREFS_KEY,
+      JSON.stringify({
+        filters: { types: ["Application"] },
+        columns: ["core_type", "core_name", "rel_ITComponent", "rel_Ghost"],
+        coreTagsMerged: true,
+        columnState: [{ colId: "rel_ITComponent", width: 250, sort: "asc", sortIndex: 0 }],
+        columnOrder: ["rel_ITComponent", "core_name"],
+        frozenColumns: ["rel_ITComponent"],
+        columnFilterModel: { rel_ITComponent: itcFilter, rel_BusinessCapability: bcFilter },
+        sortModel: [{ colId: "rel_ITComponent", sort: "asc" }],
+      }),
+    );
+    renderInventory();
+    await waitForRows(3);
+    await act(async () => {
+      gridStub.fire("gridReady");
+    });
+    await waitFor(() => expect(prefs().columns).toContain("rel_relAppToITC__out"));
+    const saved = prefs();
+    // The old id meant "the IT Component column" on every type related to IT
+    // Component, so it becomes every such column, metamodel-wide and in place —
+    // the Provider inventory's one included; an id that resolves to nothing is
+    // left alone.
+    const ITC_COLUMNS = [
+      "rel_relAppToITC__out",
+      "rel_relProviderToITC__out",
+      "rel_relAppToITCHosts__out",
+    ];
+    expect(saved.columns).toEqual(["core_type", "core_name", ...ITC_COLUMNS, "rel_Ghost"]);
+    expect(saved.frozenColumns).toEqual(ITC_COLUMNS);
+    // They take the legacy column's place, ahead of Name as it was saved.
+    const order: string[] = saved.columnOrder;
+    expect(order).not.toContain("rel_ITComponent");
+    const at = order.indexOf("rel_relAppToITC__out");
+    expect(order.slice(at, at + 4)).toEqual([...ITC_COLUMNS, "core_name"]);
+    expect(order.filter((id) => id === "rel_relAppToITC__out")).toHaveLength(1);
+    // Width on every column, the sort on the selected type's first side only.
+    const translatedState = [
+      { colId: "rel_relAppToITC__out", width: 250, sort: "asc", sortIndex: 0 },
+      { colId: "rel_relProviderToITC__out", width: 250 },
+      { colId: "rel_relAppToITCHosts__out", width: 250 },
+    ];
+    expect(saved.columnState).toEqual(translatedState);
+    expect(saved.sortModel).toEqual([{ colId: "rel_relAppToITC__out", sort: "asc" }]);
+    // One side: the filter is renamed. Two sides: it cannot be split, so it goes.
+    expect(saved.columnFilterModel).toEqual({ rel_relAppToBC__out: bcFilter });
+    // The grid receives the translated layout and filters, never the stale ones.
+    expect(gridStub.api().getFilterModel()).toEqual({ rel_relAppToBC__out: bcFilter });
+    expect(gridStub.api().getColumnState()).toEqual(translatedState);
+    expect(gridStub.colDef("rel_relAppToITC__out").hide).toBe(false);
+    expect(gridStub.colDef("rel_relAppToITCHosts__out").hide).toBe(false);
+    expect(gridStub.colDef("rel_relAppToBC__out").hide).toBe(true);
+    expect(gridStub.colDef("rel_relAppToITC__out").pinned).toBe("left");
+    expect(gridStub.colDef("rel_relAppToITCHosts__out").pinned).toBe("left");
+  });
+
+  it("keeps a legacy relation column on every card type related to it", async () => {
+    // Saved before the per-side columns: one shared selection, "show Application".
+    localStorage.setItem(
+      PREFS_KEY,
+      JSON.stringify({
+        filters: { types: ["ITComponent"] },
+        columns: ["core_type", "core_name", "rel_Application"],
+        coreTagsMerged: true,
+      }),
+    );
+    const { user } = renderInventory();
+    await waitFor(() => expect(gridStub.colDef("rel_relAppToITC__in")?.hide).toBe(false));
+    // IT Component reaches Provider too, but that column was never selected.
+    expect(gridStub.colDef("rel_relProviderToITC__in").hide).toBe(true);
+    await waitFor(() => expect(prefs().columns).not.toContain("rel_Application"));
+
+    // Another type related to Application still shows its Application columns
+    // (here both sides of the self-referencing type), though the translation
+    // ran while IT Component was selected.
+    holder.filters = { types: ["Application"] };
+    await user.click(screen.getByTestId("apply-filters"));
+    await waitFor(() => expect(gridStub.colDef("rel_relAppToApp__out")?.hide).toBe(false));
+    expect(gridStub.colDef("rel_relAppToApp__in").hide).toBe(false);
+    expect(gridStub.colDef("rel_relAppToITC__out").hide).toBe(true);
+    expect(gridStub.colDef("rel_relAppToBC__out").hide).toBe(true);
+    expect(prefs().columns).toEqual([
+      "core_type",
+      "core_name",
+      "rel_relAppToITC__in",
+      "rel_relAppToBC__in",
+      "rel_relAppToApp__out",
+      "rel_relAppToApp__in",
+    ]);
+  });
+
+  it("gives a cross-type relation its own column at each end, so hiding one leaves the other", async () => {
+    localStorage.setItem(
+      PREFS_KEY,
+      JSON.stringify({
+        filters: { types: ["Application"] },
+        columns: ["core_type", "core_name", "rel_relAppToITC__out", "rel_relAppToITC__in"],
+        coreTagsMerged: true,
+      }),
+    );
+    const { user } = renderInventory();
+    await waitFor(() => expect(gridStub.colDef("rel_relAppToITC__out")?.hide).toBe(false));
+    expect(gridStub.colDef("rel_relAppToITC__in")).toBeUndefined();
+    // Untick "uses IT Component" on the Application inventory…
+    holder.columns = new Set(["core_type", "core_name", "rel_relAppToITC__in"]);
+    await user.click(screen.getByTestId("set-columns"));
+    await waitFor(() => expect(gridStub.colDef("rel_relAppToITC__out").hide).toBe(true));
+    // …and "is used by Application" on the IT Component inventory stays on.
+    holder.filters = { types: ["ITComponent"] };
+    await user.click(screen.getByTestId("apply-filters"));
+    await waitFor(() => expect(gridStub.colDef("rel_relAppToITC__in")?.hide).toBe(false));
+    expect(gridStub.colDef("rel_relAppToITC__in").headerName).toBe("is used by Application");
+    expect(gridStub.colDef("rel_relAppToITC__out")).toBeUndefined();
+  });
+
+  it("opens a view saved with per-card-type relation columns on the side columns", async () => {
+    mockApi.on("get", /^\/bookmarks/, [
+      {
+        id: "bm-legacy",
+        name: "Legacy layout",
+        is_default: false,
+        visibility: "private",
+        odata_enabled: false,
+        owner_id: "u1",
+        is_owner: true,
+        can_edit: true,
+        filters: { types: ["Application"] },
+        columns: ["core_type", "core_name", "rel_BusinessCapability"],
+        column_state: [{ colId: "rel_BusinessCapability", width: 310 }],
+      },
+    ]);
+    renderInventory("/inventory?view=bm-legacy");
+    await waitForRows(3);
+    await waitFor(() => expect(gridStub.colDef("rel_relAppToBC__out")?.hide).toBe(false));
+    expect(gridStub.colDef("rel_relAppToITC__out").hide).toBe(true);
+    await waitFor(() =>
+      expect(prefs().columnState).toEqual([{ colId: "rel_relAppToBC__out", width: 310 }]),
+    );
+    expect(prefs().columns).not.toContain("rel_BusinessCapability");
+    // The translated width reaches the grid.
+    await act(async () => {
+      gridStub.fire("gridReady");
+    });
+    expect(gridStub.api().getColumnState()).toEqual([{ colId: "rel_relAppToBC__out", width: 310 }]);
   });
 
   it("switches grid-edit mode off when the faceted type may not be edited", async () => {
@@ -2505,7 +2730,7 @@ describe("InventoryPage grid handlers", () => {
     await waitForRows(3);
     // While the fetch is open, an empty relation cell says so rather than
     // reading as "no relations".
-    const relCol = gridStub.colDef("rel_ITComponent");
+    const relCol = gridStub.colDef("rel_relAppToITC__out");
     mount(relCol.cellRenderer({ value: "", data: CRM }));
     expect(screen.getByTitle("Loading relations…")).toHaveTextContent("…");
     await user.click(screen.getByRole("button", { name: BTN.exportMenu }));
@@ -2519,7 +2744,11 @@ describe("InventoryPage grid handlers", () => {
     const [rows, columns, opts] = vi.mocked(exportCurrentViewToExcel).mock.calls[0];
     expect(opts).toEqual({ sheetLabel: "Application" });
     expect(columns.map((c) => c.colId)).not.toContain("core_logo");
-    expect(rows.find((r) => r.core_name === "ERP Core")?.rel_ITComponent).toBe("PostgreSQL");
+    expect(rows.find((r) => r.core_name === "ERP Core")?.rel_relAppToITC__out).toBe("PostgreSQL");
+    // The header names the relationship, not just the card type.
+    expect(columns.find((c) => c.colId === "rel_relAppToITC__out")?.headerName).toBe(
+      "uses IT Component",
+    );
   });
 
   it("exports every field through the full workbook writer", async () => {
@@ -2731,7 +2960,7 @@ describe("inventory fill helpers", () => {
   it("offers the fill handle only on columns that persist through a field", () => {
     expect(isInventoryFillable("core_name", { field: "name" })).toBe(false);
     expect(isInventoryFillable("core_logo", { field: "logo" })).toBe(false);
-    expect(isInventoryFillable("rel_ITComponent", { field: "rel_ITComponent" })).toBe(false);
+    expect(isInventoryFillable("rel_relAppToITC__out", { field: "rel_relAppToITC__out" })).toBe(false);
     expect(isInventoryFillable("ag-Grid-SelectionColumn", { field: "x" })).toBe(false);
     expect(isInventoryFillable("core_path", {})).toBe(false);
     expect(isInventoryFillable("core_description", { field: "description" })).toBe(true);

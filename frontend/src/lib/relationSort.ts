@@ -120,9 +120,14 @@ export function sideFlags(
 
 /**
  * The key one side is filed under. A cross-type rt keeps its bare key, so
- * persisted filters, bookmarks and `rel_<key>` deep links keep resolving; a
- * self-referencing rt takes the `__out` / `__in` suffix the inventory's mass
- * edit already uses for exactly this split.
+ * persisted relation filters and bookmarks keep resolving; a self-referencing
+ * rt takes the `__out` / `__in` suffix the inventory's mass edit already uses
+ * for exactly this split. The inventory grid's relation COLUMN ids are not
+ * side keys: they are always direction-qualified (`rel_<key>__out` /
+ * `rel_<key>__in`, cross-type included — `relationColumnId` in
+ * `features/inventory/relationColumns.ts`), because the column prefs are
+ * shared by every card type and a bare key would be one id at both ends. The
+ * cell still reads its `relationsMap` entry by side key.
  */
 export function sideKey<T extends { key: string; source_type_key: string; target_type_key: string }>(
   rt: T,

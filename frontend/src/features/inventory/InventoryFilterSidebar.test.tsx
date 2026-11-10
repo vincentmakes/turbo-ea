@@ -51,6 +51,7 @@ import {
 } from "@/test/fixtures/metamodel";
 import type { Bookmark, RelatedCardRef } from "@/types";
 import { emptyFilters } from "./viewApply";
+import { relationColumnSides } from "./relationColumns";
 import { createTheme } from "@mui/material/styles";
 import { DATA_QUALITY_BANDS } from "@/lib/dataQualityBands";
 import { EOL_STATUS_COLORS } from "@/lib/eol";
@@ -1014,10 +1015,10 @@ describe("InventoryFilterSidebar — relationship filters", () => {
     expect(last().relations).toEqual({});
   });
 
-  it("falls back to the deduplicated list and skips facets with no names", async () => {
+  it("skips facets with no names", async () => {
     await renderSidebar({
       initialFilters: { types: ["ITComponent"] },
-      relevantRelTypes: [REL_APP_TO_ITC, REL_PROVIDER_TO_ITC],
+      allRelevantRelTypes: [REL_APP_TO_ITC, REL_PROVIDER_TO_ITC],
       relationsMap: new Map([
         ["relAppToITC", new Map([[CARD_IDS.postgres, [ref(CARD_IDS.erp, "ERP Core", "Application")]]])],
       ]),
@@ -1257,7 +1258,7 @@ describe("InventoryFilterSidebar — Columns tab", () => {
   it("lists every field of a single type, relations and stakeholder roles", async () => {
     const { lastColumns } = await renderSidebar({
       initialFilters: { types: ["Application"] },
-      relevantRelTypes: [REL_APP_TO_ITC, REL_APP_TO_BC],
+      relationSides: relationColumnSides([REL_APP_TO_ITC, REL_APP_TO_BC], "Application"),
       stakeholderRoles: [{ key: "applicationOwner", label: "Application Owner" }],
     });
     openTab("Columns");
@@ -1268,8 +1269,10 @@ describe("InventoryFilterSidebar — Columns tab", () => {
 
     fireEvent.click(screen.getByText("Business Criticality"));
     expect(lastColumns().has("attr_businessCriticality")).toBe(true);
-    fireEvent.click(screen.getByText("IT Component"));
-    expect(lastColumns().has("rel_ITComponent")).toBe(true);
+    // A relation row reads "<verb> <Card type>", as the grid heads the column.
+    fireEvent.click(screen.getByText("uses IT Component"));
+    expect(lastColumns().has("rel_relAppToITC__out")).toBe(true);
+    expect(lastColumns().has("rel_relAppToBC__out")).toBe(false);
     fireEvent.click(screen.getByText("Application Owner"));
     expect(lastColumns().has("stakeholder_applicationOwner")).toBe(true);
 
@@ -1280,7 +1283,7 @@ describe("InventoryFilterSidebar — Columns tab", () => {
 
     const relList = screen.getByText("Relations").parentElement!.nextElementSibling as HTMLElement;
     fireEvent.click(within(relList).getByText("Select all"));
-    expect(lastColumns().has("rel_BusinessCapability")).toBe(true);
+    expect(lastColumns().has("rel_relAppToBC__out")).toBe(true);
 
     // The role is already on, so the section reads fully checked and the
     // first Select all turns it off; the second turns it back on.
@@ -1308,13 +1311,14 @@ describe("InventoryFilterSidebar — Columns tab", () => {
     });
     const { lastColumns } = await renderSidebar({
       initialFilters: { types: ["ITComponent"] },
-      relevantRelTypes: [REL_PROVIDER_TO_ITC, ghost],
+      relationSides: relationColumnSides([REL_PROVIDER_TO_ITC, ghost], "ITComponent"),
     });
     openTab("Columns");
-    fireEvent.click(screen.getByText("Provider"));
-    expect(lastColumns().has("rel_Provider")).toBe(true);
-    fireEvent.click(screen.getByText("Ghost"));
-    expect(lastColumns().has("rel_Ghost")).toBe(true);
+    // The selected type is the target: the reverse verb.
+    fireEvent.click(screen.getByText("is provided by Provider"));
+    expect(lastColumns().has("rel_relProviderToITC__in")).toBe(true);
+    fireEvent.click(screen.getByText("is related to by Ghost"));
+    expect(lastColumns().has("rel_relGhostToITC__in")).toBe(true);
   });
 
   it("offers only the common fields of several types", async () => {
@@ -1343,7 +1347,7 @@ describe("InventoryFilterSidebar — Columns tab", () => {
   it("searches every section by label and clears the query", async () => {
     await renderSidebar({
       initialFilters: { types: ["Application"] },
-      relevantRelTypes: [REL_APP_TO_ITC, REL_APP_TO_BC],
+      relationSides: relationColumnSides([REL_APP_TO_ITC, REL_APP_TO_BC], "Application"),
       stakeholderRoles: [{ key: "applicationOwner", label: "Application Owner" }],
     });
     openTab("Columns");
@@ -1367,8 +1371,13 @@ describe("InventoryFilterSidebar — Columns tab", () => {
     expect(screen.queryByText("Alias")).not.toBeInTheDocument();
 
     fireEvent.change(search, { target: { value: "capab" } });
-    expect(screen.getByText("Business Capability")).toBeInTheDocument();
-    expect(screen.queryByText("IT Component")).not.toBeInTheDocument();
+    expect(screen.getByText("supports Business Capability")).toBeInTheDocument();
+    expect(screen.queryByText("uses IT Component")).not.toBeInTheDocument();
+
+    // The verb is part of the label, so it is searchable too.
+    fireEvent.change(search, { target: { value: "uses" } });
+    expect(screen.getByText("uses IT Component")).toBeInTheDocument();
+    expect(screen.queryByText("supports Business Capability")).not.toBeInTheDocument();
 
     fireEvent.change(search, { target: { value: "owner" } });
     expect(screen.getByText("Application Owner")).toBeInTheDocument();
@@ -1387,12 +1396,44 @@ describe("InventoryFilterSidebar — Columns tab", () => {
     });
     await renderSidebar({
       initialFilters: { types: ["ITComponent"] },
-      relevantRelTypes: [REL_PROVIDER_TO_ITC, ghost],
+      relationSides: relationColumnSides([REL_PROVIDER_TO_ITC, ghost], "ITComponent"),
     });
     openTab("Columns");
     fireEvent.change(screen.getByPlaceholderText("Search columns..."), { target: { value: "gho" } });
-    expect(screen.getByText("Ghost")).toBeInTheDocument();
-    expect(screen.queryByText("Provider")).not.toBeInTheDocument();
+    expect(screen.getByText("is related to by Ghost")).toBeInTheDocument();
+    expect(screen.queryByText("is provided by Provider")).not.toBeInTheDocument();
+  });
+
+  it("lists one row per relation type on a shared pair, and both sides of a self-referencing type", async () => {
+    const { lastColumns } = await renderSidebar({
+      initialFilters: { types: ["Application"] },
+      relationSides: relationColumnSides(
+        [REL_APP_TO_ITC, REL_APP_TO_BC, REL_APP_TO_ITC_HOSTS, REL_APP_TO_APP],
+        "Application",
+      ),
+    });
+    openTab("Columns");
+    const relList = screen.getByText("Relations").parentElement!.nextElementSibling as HTMLElement;
+    const rows = within(relList)
+      .getAllByRole("button")
+      .map((b) => b.textContent)
+      .filter((text) => text && !text.includes("Select all") && !/push_pin/.test(text));
+    // Same-target rows sit together; the self-pair is an outgoing and an incoming row.
+    expect(rows).toEqual([
+      expect.stringContaining("uses IT Component"),
+      expect.stringContaining("is hosted on IT Component"),
+      expect.stringContaining("supports Business Capability"),
+      expect.stringContaining("sends data to Application"),
+      expect.stringContaining("receives data from Application"),
+    ]);
+    fireEvent.click(screen.getByText("is hosted on IT Component"));
+    expect(lastColumns().has("rel_relAppToITCHosts__out")).toBe(true);
+    expect(lastColumns().has("rel_relAppToITC__out")).toBe(false);
+    fireEvent.click(screen.getByText("receives data from Application"));
+    expect(lastColumns().has("rel_relAppToApp__in")).toBe(true);
+    expect(lastColumns().has("rel_relAppToApp__out")).toBe(false);
+    // Each row carries its own freeze pin, keyed on its own column id.
+    expect(within(relList).getAllByRole("button", { name: /freeze column/i })).toHaveLength(5);
   });
 
   it("puts a freeze pin on every row, reporting the frozen state", async () => {

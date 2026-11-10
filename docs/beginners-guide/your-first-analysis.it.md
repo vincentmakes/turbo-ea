@@ -12,7 +12,7 @@ La singola relazione più preziosa in tutto il metamodello è **Application → 
 ### Percorso bulk: modalità edit dell'inventario
 
 1. Andare in **Inventario**, filtrare per Type = `Application`.
-2. Assicurarsi che la colonna relazione **Business Capability** sia visibile (tab Colonne → Relazioni).
+2. Assicurarsi che la colonna relazione **supporta Capacità aziendale** sia visibile (tab Colonne → Relazioni).
 3. Attivare la modalità **Modifica griglia** nella toolbar.
 4. Cliccare sulla cella della capability su ogni riga e scegliere una o più capability. Ogni modifica viene salvata non appena la si effettua.
 

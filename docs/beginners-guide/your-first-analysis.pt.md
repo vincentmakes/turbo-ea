@@ -12,7 +12,7 @@ A relação mais valiosa em todo o metamodelo é **Application → Business Capa
 ### Caminho em massa: modo de edição em grade do inventário
 
 1. Vá para **Inventário**, filtre por Tipo = `Application`.
-2. Certifique-se de que a coluna de relação **Business Capability** está visível (aba Colunas → Relações).
+2. Certifique-se de que a coluna de relação **suporta Capacidade de negócio** está visível (aba Colunas → Relações).
 3. Alterne o modo **Edição em grade** na barra de ferramentas.
 4. Clique na célula de capacidade em cada linha e escolha uma ou mais capacidades. Cada alteração é salva assim que você a faz.
 

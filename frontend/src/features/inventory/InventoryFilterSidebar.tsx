@@ -54,6 +54,7 @@ import {
   viaColumnId,
 } from "./viewApply";
 import { compactPath } from "./queryPath";
+import { relationSideLabel, type RelationColumnSide } from "./relationColumns";
 import { setProblem, startTypes } from "./querySet";
 import type {
   ActiveQuery,
@@ -145,12 +146,15 @@ interface Props {
   onToggleCollapse: () => void;
   width: number;
   onWidthChange: (w: number) => void;
-  relevantRelTypes?: RelationType[];
   /**
-   * Every relation type touching the selected type, *without* the per-related-type
-   * dedup `relevantRelTypes` applies for columns. Relation facets are keyed by
-   * relation type, so they must come from this list or cards related only through
-   * a second relation type on the same card-type pair become unfilterable.
+   * The grid's relation columns, one per relation-type side (`rel_<sideKey>`),
+   * in grid order — the Columns tab lists one row per entry.
+   */
+  relationSides?: RelationColumnSide<RelationType>[];
+  /**
+   * Every relation type touching the selected type. Relation facets are keyed by
+   * relation type (and side), so each of several relation types on the same
+   * card-type pair gets its own filter row.
    */
   allRelevantRelTypes?: RelationType[];
   // Stakeholder roles of the single selected type — one togglable
@@ -474,7 +478,7 @@ export default function InventoryFilterSidebar({
   onToggleCollapse,
   width,
   onWidthChange,
-  relevantRelTypes = [],
+  relationSides = [],
   allRelevantRelTypes = [],
   stakeholderRoles = [],
   relationsMap,
@@ -714,7 +718,7 @@ export default function InventoryFilterSidebar({
 
   // Relation facets are per relation type (never deduped by related card type), so
   // each of several relation types sharing a card-type pair gets its own filter row.
-  const filterRelTypes = allRelevantRelTypes.length > 0 ? allRelevantRelTypes : relevantRelTypes;
+  const filterRelTypes = allRelevantRelTypes;
   // …and per SIDE: a self-referencing type ("has site" / "is site of") is two
   // facets, each reading its own index (`<key>__out` / `<key>__in`), because
   // "which end am I" is true at both ends when read off the type alone.
@@ -2122,7 +2126,7 @@ export default function InventoryFilterSidebar({
               filters={filters}
               selectedColumns={selectedColumns}
               onSelectedColumnsChange={onSelectedColumnsChange}
-              relevantRelTypes={relevantRelTypes}
+              relationSides={relationSides}
               stakeholderRoles={stakeholderRoles}
               onResetColumns={onResetColumns}
               frozenColumns={frozenColumns}
@@ -2779,7 +2783,7 @@ function ColumnsTab({
   filters,
   selectedColumns,
   onSelectedColumnsChange,
-  relevantRelTypes,
+  relationSides,
   stakeholderRoles,
   onResetColumns,
   columnsChanged,
@@ -2795,7 +2799,7 @@ function ColumnsTab({
   filters: Filters;
   selectedColumns: Set<string>;
   onSelectedColumnsChange: (cols: Set<string>) => void;
-  relevantRelTypes: RelationType[];
+  relationSides: RelationColumnSide<RelationType>[];
   stakeholderRoles: StakeholderRoleOption[];
   onResetColumns?: () => void;
   columnsChanged?: boolean;
@@ -2807,6 +2811,7 @@ function ColumnsTab({
   onResetColumnOrder?: () => void;
   t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
+  const { i18n } = useTranslation();
   const typeLabel = useTypeLabel();
   const fieldLabel = useFieldLabel();
   const [searchQuery, setSearchQuery] = useState("");
@@ -2928,27 +2933,31 @@ function ColumnsTab({
   const filteredAttrs = attributeFields.filter(
     (f) => !searchQuery || fieldLabel(f).toLowerCase().includes(lowerSearch),
   );
-  const filteredRels = relevantRelTypes.filter((rt) => {
-    if (!searchQuery) return true;
-    const isSource = rt.source_type_key === (filters.types.length === 1 ? filters.types[0] : "");
-    const otherKey = isSource ? rt.target_type_key : rt.source_type_key;
-    const otherType = types.find((ct) => ct.key === otherKey);
-    const label = otherType
-      ? typeLabel(otherType)
-      : otherKey;
-    return label.toLowerCase().includes(lowerSearch);
+  // One row per relation-type side, labelled "<verb> <Card type>" exactly as
+  // the grid heads the column; the search matches that whole label.
+  const relRows = relationSides.map((side) => {
+    const otherType = types.find((ct) => ct.key === side.otherTypeKey);
+    return {
+      side,
+      otherType,
+      label: relationSideLabel(
+        side.rt,
+        side.isSource,
+        otherType ? typeLabel(otherType) : side.otherTypeKey,
+        i18n.language,
+      ),
+    };
   });
+  const filteredRels = relRows.filter(
+    (row) => !searchQuery || row.label.toLowerCase().includes(lowerSearch),
+  );
 
   const coreKeys = filteredCore.map((c) => c.key);
   const allCoreChecked = coreKeys.length > 0 && coreKeys.every((k) => selectedColumns.has(k));
   const someCoreChecked = coreKeys.some((k) => selectedColumns.has(k));
   const metaKeys = filteredMeta.map((m) => m.key);
   const attrKeys = filteredAttrs.map((f) => `attr_${f.key}`);
-  const relKeys = filteredRels.map((rt) => {
-    const selType = filters.types.length === 1 ? filters.types[0] : "";
-    const isSource = rt.source_type_key === selType;
-    return `rel_${isSource ? rt.target_type_key : rt.source_type_key}`;
-  });
+  const relKeys = filteredRels.map((row) => row.side.colId);
 
   const filteredStakeholderRoles = stakeholderRoles.filter(
     (r) => !searchQuery || typeLabel(r).toLowerCase().includes(lowerSearch),
@@ -3275,15 +3284,8 @@ function ColumnsTab({
                   }
                 />
               </ListItemButton>
-              {filteredRels.map((rt) => {
-                const selType = filters.types.length === 1 ? filters.types[0] : "";
-                const isSource = rt.source_type_key === selType;
-                const otherKey = isSource ? rt.target_type_key : rt.source_type_key;
-                const otherType = types.find((ct) => ct.key === otherKey);
-                const label = otherType
-                  ? typeLabel(otherType)
-                  : otherKey;
-                const colKey = `rel_${otherKey}`;
+              {filteredRels.map(({ side, otherType, label }) => {
+                const colKey = side.colId;
 
                 return withPin(
                   colKey,

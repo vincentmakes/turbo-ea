@@ -28,12 +28,19 @@ interface RelationCellPopoverProps {
   cardId: string;
   cardName: string;
   /**
-   * Every relation type the grid column stands for. A column is keyed by the
-   * *related card type*, and the metamodel allows any number of relation types
-   * per ordered card-type pair — so this may hold more than one, each with its
-   * own verb, and each is edited in its own section.
+   * The relation types to edit, each in its own section. The inventory grid
+   * passes the one relation type behind the clicked column (a column is one
+   * relation-type side); several are still accepted — the metamodel allows any
+   * number of relation types per ordered card-type pair, each with its own verb.
    */
   relationTypes: RelationType[];
+  /**
+   * Which side of the relation type(s) to edit — the side the grid column
+   * stands for. A self-referencing type is two columns ("has site" / "is site
+   * of"), so its incoming column opens the incoming section only. Omitted,
+   * every side is offered.
+   */
+  isSource?: boolean;
   selectedType: string;
   onRelationsChanged: () => void;
 }
@@ -352,6 +359,7 @@ export default function RelationCellPopover({
   cardId,
   cardName,
   relationTypes,
+  isSource,
   selectedType,
   onRelationsChanged,
 }: RelationCellPopoverProps) {
@@ -368,7 +376,14 @@ export default function RelationCellPopover({
   const otherType = getType(targetTypeKey);
   // One section per SIDE: a self-referencing type contributes two ("has site"
   // and "is site of"), each with its own rows, verb and add path.
-  const sides = useMemo(() => expandSides(relationTypes, selectedType), [relationTypes, selectedType]);
+  // A column for one side narrows the dialog to that side.
+  const sides = useMemo(
+    () =>
+      expandSides(relationTypes, selectedType).filter(
+        (s) => isSource === undefined || s.isSource === isSource,
+      ),
+    [relationTypes, selectedType, isSource],
+  );
   const multi = sides.length > 1;
 
   // One un-typed round-trip for the card, partitioned client-side across the
@@ -416,7 +431,7 @@ export default function RelationCellPopover({
 
   if (!primary) return null;
 
-  const singleVerb = sides[0]?.isSource ? relLabel(primary) : relLabel(primary, true);
+  const singleVerb = sides[0] ? relLabel(sides[0].rt, !sides[0].isSource) : "";
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>

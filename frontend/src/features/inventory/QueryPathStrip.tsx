@@ -20,7 +20,6 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useIsRtl } from "@/hooks/useIsRtl";
 import { useReadableCardTypes } from "@/hooks/useReadableCardTypes";
 import {
-  relationLabel,
   useFieldLabel,
   useOptionLabel,
   useSubtypeLabel,
@@ -45,6 +44,7 @@ import type {
 } from "@/types";
 import { APPROVAL_STATUS_OPTIONS, EMPTY_VALUE } from "./InventoryFilterSidebar";
 import { hopRelationType, hopVerb } from "./queryPath";
+import { relationSideLabel } from "./relationColumns";
 import QueryConditionPopover from "./QueryConditionPopover";
 import {
   MAX_CHAIN_DEPTH,
@@ -1158,8 +1158,9 @@ function AddHopChip({
   ).flatMap((c) => {
     const other = types.find((ct) => ct.key === c.otherType);
     if (!other) return [];
-    const verb = relationLabel(c.rt, i18n.language, !c.isSource);
-    return [{ ...c, label: `${verb} ${typeLabel(other)}`, other }];
+    return [
+      { ...c, label: relationSideLabel(c.rt, c.isSource, typeLabel(other), i18n.language), other },
+    ];
   });
   if (choices.length === 0) return null;
   return (
