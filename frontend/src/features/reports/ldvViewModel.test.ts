@@ -31,6 +31,7 @@ import {
   hidesCardsOnView,
   labelHitsObstacle,
   movedBeyondClick,
+  cardLineBudget,
   nameLineClamp,
   nextBackground,
   paintOrder,
@@ -152,6 +153,19 @@ describe("card chrome placement", () => {
     expect(nameLineClamp(1)).toBe(2);
     expect(nameLineClamp(2)).toBe(1);
     expect(nameLineClamp(3)).toBe(1);
+  });
+
+  it("gives the type line the first of the card's two lines (#1377)", () => {
+    expect(cardLineBudget(true, 0)).toEqual({ extraShown: 0, total: 1 });
+    expect(cardLineBudget(true, 1)).toEqual({ extraShown: 1, total: 2 });
+    expect(cardLineBudget(true, 3)).toEqual({ extraShown: 1, total: 2 });
+  });
+
+  it("leaves both lines to the extra fields when the type is off", () => {
+    expect(cardLineBudget(false, 0)).toEqual({ extraShown: 0, total: 0 });
+    expect(cardLineBudget(false, 1)).toEqual({ extraShown: 1, total: 1 });
+    expect(cardLineBudget(false, 2)).toEqual({ extraShown: 2, total: 2 });
+    expect(cardLineBudget(false, 5)).toEqual({ extraShown: 2, total: 2 });
   });
 });
 

@@ -245,6 +245,58 @@ describe("LdvNode card logo", () => {
     expect(screen.getByText(/CRM-v2/)).toBeInTheDocument();
   });
 
+  it("keeps the type line when another line is ticked beside it (#1377)", () => {
+    // The type used to be drawn only when no other line was: ticking Alias
+    // beside Card type replaced the type instead of joining it.
+    renderNode({ showType: true, extraLines: [{ label: "Alias", value: "CRM-v2" }] });
+    expect(screen.getByText("[Application]")).toBeInTheDocument();
+    expect(screen.getByText("Alias:")).toBeInTheDocument();
+    // Two caption lines, so the name yields its second line.
+    const nameEl = document.querySelector("p") as HTMLElement;
+    expect(getComputedStyle(nameEl).webkitLineClamp).toBe("1");
+  });
+
+  it("prints the type first, then only as many lines as are left", () => {
+    renderNode({
+      showType: true,
+      extraLines: [
+        { label: "Subtype", value: "Business Application" },
+        { label: "Alias", value: "CRM-v2" },
+      ],
+    });
+    const captions = Array.from(document.querySelectorAll("span.MuiTypography-caption")).map(
+      (el) => el.textContent,
+    );
+    expect(captions).toEqual(["[Application]", "Subtype: Business Application"]);
+  });
+
+  it("gives both lines to the picked fields when the type is unticked", () => {
+    renderNode({
+      showType: false,
+      extraLines: [
+        { label: "Subtype", value: "Business Application" },
+        { label: "Alias", value: "CRM-v2" },
+        { label: "Owner", value: "A. Someone" },
+      ],
+    });
+    const captions = Array.from(document.querySelectorAll("span.MuiTypography-caption")).map(
+      (el) => el.textContent,
+    );
+    expect(captions).toEqual(["Subtype: Business Application", "Alias: CRM-v2"]);
+  });
+
+  it("shows the type alone, on a two-line name, when nothing else is ticked", () => {
+    renderNode({ showType: true });
+    expect(screen.getByText("[Application]")).toBeInTheDocument();
+    const nameEl = document.querySelector("p") as HTMLElement;
+    expect(getComputedStyle(nameEl).webkitLineClamp).toBe("2");
+  });
+
+  it("prints no caption at all when everything is unticked", () => {
+    renderNode({ showType: false });
+    expect(document.querySelectorAll("span.MuiTypography-caption")).toHaveLength(0);
+  });
+
   it("falls back to the plain type icon when the image fails to load", () => {
     // A wiped volume or a 404 must land on exactly the card this app drew
     // before logos existed — never a broken-image glyph.

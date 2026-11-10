@@ -17,6 +17,7 @@ import {
   brand,
   surface,
 } from "@/theme/tokens";
+import { MAX_CARD_LINES } from "@/lib/cardDisplayFields";
 import type { ObstacleBounds } from "./ldvObstacles";
 import type { LdvBackgroundStyle } from "./ldvDisplaySettings";
 import type { TimelineChange } from "./timelineRange";
@@ -114,9 +115,27 @@ export function typeIconPlacement(
   return { right: hasDot ? TYPE_ICON_RIGHT_BESIDE_DOT : DOT_INSET };
 }
 
-/** Lines the card's name may wrap to: two, or one when two extra fields are shown. */
-export function nameLineClamp(extraLineCount: number): number {
-  return extraLineCount > 1 ? 1 : 2;
+/**
+ * How a card's caption lines are shared out under its name.
+ *
+ * The type line is the first pick in the Show on card menu, so it takes the
+ * first of the card's `MAX_CARD_LINES` and the extra lines (subtype, alias,
+ * attribute fields, in that order) take what is left. It used to be drawn only
+ * when there was no extra line at all, so ticking Alias beside Card type made
+ * the type disappear (#1377).
+ */
+export function cardLineBudget(
+  showType: boolean,
+  extraLineCount: number,
+): { extraShown: number; total: number } {
+  const typeLines = showType ? 1 : 0;
+  const extraShown = Math.min(extraLineCount, MAX_CARD_LINES - typeLines);
+  return { extraShown, total: extraShown + typeLines };
+}
+
+/** Lines the card's name may wrap to: two, or one when two caption lines are shown. */
+export function nameLineClamp(captionLineCount: number): number {
+  return captionLineCount > 1 ? 1 : 2;
 }
 
 /** A mirrored handle (`ts-N`, `bt-N`) shares its visibility with its base (`t-N`, `b-N`). */
