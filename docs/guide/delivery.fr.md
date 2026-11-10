@@ -54,13 +54,21 @@ L'éditeur offre :
 | Statut | Signification |
 |--------|---------------|
 | **Brouillon** | En cours de rédaction, pas encore prêt pour examen |
-| **En revue** | Soumis pour examen par les parties prenantes |
+| **En revue** | Envoyé pour signature — verrouillé jusqu'au rappel des signatures |
 | **Approuvé** | Examiné et accepté |
 | **Signé** | Formellement validé |
 
 ### Workflow de signature
 
-Une fois qu'un SoAW est approuvé, vous pouvez demander des signatures aux parties prenantes. Cliquez sur **Demander des signatures** puis utilisez le champ de recherche pour trouver et ajouter des signataires par nom ou e-mail. Le système suit qui a signé et envoie des notifications aux signataires en attente.
+À partir d'un SoAW en brouillon ou approuvé, vous pouvez demander des signatures aux parties prenantes. Cliquez sur **Demander des signatures** puis utilisez le champ de recherche pour trouver et ajouter des signataires par nom ou e-mail. Le système suit qui a signé et envoie des notifications aux signataires en attente.
+
+Un SoAW en revue est **verrouillé**, afin que les signataires signent exactement ce qui leur a été envoyé : seule son initiative peut encore changer. Pour modifier le contenu, cliquez sur **Rappeler les signatures**, ce qui le remet en brouillon. Un signataire qui clique sur **Rejeter** le remet également en brouillon, sous le même numéro de révision. Seul un SoAW en brouillon peut être supprimé.
+
+### Révisions
+
+Un SoAW signé est en lecture seule. Cliquez sur **Nouvelle révision** pour démarrer un nouveau brouillon à partir de celui-ci, sous le même nom avec le numéro de révision suivant. Il n'y a qu'une révision ouverte à la fois : tant qu'une révision est en cours de rédaction, le SoAW signé l'indique et propose **Ouvrir la révision** au lieu d'en démarrer une autre. Seule la dernière révision peut être révisée, et un rejet ne change pas le numéro de révision.
+
+Une révision antérieure affiche un bandeau avec un lien vers la révision actuelle, et la barre **Révisions** de chaque révision les liste toutes. Les listes de SoAW — les livrables de l'initiative, l'onglet SoAW, le rapport EA Delivery — affichent la révision actuelle de chaque document et toute révision en cours de rédaction.
 
 ### Aperçu et export
 
@@ -72,7 +80,7 @@ Une fois qu'un SoAW est approuvé, vous pouvez demander des signatures aux parti
 
 ![Fiche d'initiative — onglet SoAW](../assets/img/fr/55_initiative_soaw_tab.png)
 
-Les initiatives exposent également un onglet **SoAW** dédié directement sur leur page de détail. L'onglet liste chaque SoAW lié à cette initiative (titre, puce de statut, numéro de révision, date de dernière modification) avec un bouton **+ Nouveau SoAW** qui pré-sélectionne l'initiative en cours — vous pouvez ainsi rédiger ou ouvrir un SoAW sans quitter la fiche sur laquelle vous travaillez. La création réutilise le même dialogue que la page EA Delivery, et le nouveau document apparaît aux deux endroits. La visibilité de l'onglet suit les règles de permission standard des fiches.
+Les initiatives exposent également un onglet **SoAW** dédié directement sur leur page de détail. L'onglet liste la révision actuelle de chaque SoAW lié à cette initiative, plus toute révision en cours de rédaction (titre, puce de statut, numéro de révision, date de dernière modification) avec un bouton **+ Nouveau SoAW** qui pré-sélectionne l'initiative en cours — vous pouvez ainsi rédiger ou ouvrir un SoAW sans quitter la fiche sur laquelle vous travaillez. La création réutilise le même dialogue que la page EA Delivery, et le nouveau document apparaît aux deux endroits. La visibilité de l'onglet suit les règles de permission standard des fiches.
 
 ## Architecture Decision Records (ADR)
 

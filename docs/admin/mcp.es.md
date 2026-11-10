@@ -183,20 +183,20 @@ En este modo, el servidor se autentica con correo/contraseña y renueva el token
 
 ## Capacidades disponibles
 
-El servidor MCP expone **55 herramientas** repartidas en dos grupos: **35 herramientas de lectura** que consultan datos de EA y **20 herramientas de escritura** (15 aditivas, 5 destructivas) que crean y mantienen fichas, relaciones, diagramas, riesgos, ADRs, vistas de inventario guardadas y más — incluida la conversión de artefactos que una herramienta de IA tiene en su propio contexto (hojas de cálculo, BPMN XML, DrawIO XML, documentos, imágenes) en datos EA estructurados. Cada herramienta lleva `ToolAnnotations` de MCP (indicaciones de solo lectura / destructiva / idempotente) para que los conectores puedan mostrar la destructividad en su interfaz.
+El servidor MCP expone **56 herramientas** repartidas en dos grupos: **35 herramientas de lectura** que consultan datos de EA y **21 herramientas de escritura** (16 aditivas, 5 destructivas) que crean y mantienen fichas, relaciones, diagramas, riesgos, ADRs, vistas de inventario guardadas y más — incluida la conversión de artefactos que una herramienta de IA tiene en su propio contexto (hojas de cálculo, BPMN XML, DrawIO XML, documentos, imágenes) en datos EA estructurados. Cada herramienta lleva `ToolAnnotations` de MCP (indicaciones de solo lectura / destructiva / idempotente) para que los conectores puedan mostrar la destructividad en su interfaz.
 
 ### Seguridad mediante ejecución en seco en las escrituras
 
 Cada herramienta de escritura usa por defecto **`dry_run=true`**, y no se persiste nada hasta que la herramienta de IA la vuelve a llamar con `dry_run=false`, algo que solo debe hacer después de que el usuario haya visto la vista previa y la haya confirmado. Esto evita que un agente entusiasta inserte silenciosamente cientos de fichas a partir de una hoja de cálculo mal interpretada. La vista previa es de uno de dos tipos:
 
 - **Verificada por el backend.** Cuando el endpoint subyacente admite una ejecución en seco, el backend ejecuta cada validador y resolutor —permisos, ids de fichas, lo que el usuario puede leer—, construye el resultado completo y luego **revierte la transacción**. Esto abarca fichas (`create_cards_bulk`, `update_cards_bulk`), relaciones (`upsert_relations_bulk`) y diagramas (`create_diagram`, `update_diagram`). La vista previa de un diagrama devuelve los vínculos con fichas que el backend aceptó y, en una actualización, el cambio exacto: campos renombrados, vínculos con fichas añadidos y eliminados, y si el lienzo cambió.
-- **Construida por el servidor MCP.** Cuando el endpoint no tiene ejecución en seco, la herramienta valida y traduce su entrada y muestra la carga útil exacta que enviaría un commit, sin llamar al endpoint de escritura: `import_bpmn` (el recorrido borrador → envío → aprobación; sus recuentos de nodos de flujo son una estimación y la vista previa indica `verified: false`), `create_adr`, `update_adr`, `sign_adr`, `create_soaw`, `add_card_comment`, `transition_card_lifecycle`, `save_inventory_view` (que ejecuta la consulta e indica cuántas fichas coinciden, con algunos nombres de ejemplo), `assign_stakeholders`, `create_risks`, `update_risks`, `archive_cards` (que muestra el impacto del archivado de cada ficha) y `set_card_logos` / `clear_card_logos` (que consultan el tipo y el logotipo actual de cada ficha y descargan cada `image_url`).
+- **Construida por el servidor MCP.** Cuando el endpoint no tiene ejecución en seco, la herramienta valida y traduce su entrada y muestra la carga útil exacta que enviaría un commit, sin llamar al endpoint de escritura: `import_bpmn` (el recorrido borrador → envío → aprobación; sus recuentos de nodos de flujo son una estimación y la vista previa indica `verified: false`), `create_adr`, `update_adr`, `sign_adr`, `revise_adr` (que lee la decisión e indica el número de revisión que crearía, o por qué el backend la rechazaría), `create_soaw`, `add_card_comment`, `transition_card_lifecycle`, `save_inventory_view` (que ejecuta la consulta e indica cuántas fichas coinciden, con algunos nombres de ejemplo), `assign_stakeholders`, `create_risks`, `update_risks`, `archive_cards` (que muestra el impacto del archivado de cada ficha) y `set_card_logos` / `clear_card_logos` (que consultan el tipo y el logotipo actual de cada ficha y descargan cada `image_url`).
 
 En ambos casos, la vista previa queda registrada en el registro de auditoría como un lote de ejecución en seco, para que un administrador vea lo que un agente propuso además de lo que confirmó.
 
 ### Herramientas de lectura
 
-El servidor expone 35 herramientas de lectura agrupadas en ocho clusters.
+El servidor expone 35 herramientas de lectura agrupadas en nueve clusters.
 
 **Fichas y metamodelo**
 
@@ -242,9 +242,9 @@ El servidor expone 35 herramientas de lectura agrupadas en ocho clusters.
 | Herramienta | Descripción |
 |-------------|-------------|
 | `list_principles` | Principios EA publicados (declaración, justificación, implicaciones) |
-| `list_adrs` | Architecture Decision Records, filtrables por iniciativa / estado |
-| `get_adr` | ADR individual con secciones, fichas vinculadas y trazado de firmas |
-| `list_soaws` | Statements of Architecture Work de una iniciativa |
+| `list_adrs` | Architecture Decision Records, filtrables por iniciativa, estado y vigencia (`standing="in_force,amended"` lista las decisiones vigentes). Muestra la revisión actual de cada decisión; `include_earlier` añade las revisiones anteriores |
+| `get_adr` | Revisión individual de un ADR con secciones, fichas vinculadas, trazado de firmas, vigencia, vínculos tipados con otras decisiones, responsables de la decisión y participantes, fechas, revisiones y nombres de archivo |
+| `list_soaws` | Statements of Architecture Work de una iniciativa (revisiones actuales; `include_earlier` añade las anteriores) |
 
 **Informes**
 
@@ -282,9 +282,9 @@ Todas las herramientas respetan el RBAC del usuario autenticado — una visualiz
 
 ### Herramientas de escritura
 
-El servidor expone 20 herramientas de escritura, cada una anotada como **aditiva** (crea o amplía datos) o **destructiva** (modifica o elimina datos existentes) para que los conectores puedan advertir en consecuencia.
+El servidor expone 21 herramientas de escritura, cada una anotada como **aditiva** (crea o amplía datos) o **destructiva** (modifica o elimina datos existentes) para que los conectores puedan advertir en consecuencia.
 
-**Aditivas (15)**
+**Aditivas (16)**
 
 | Herramienta | Descripción |
 |-------------|-------------|
@@ -296,9 +296,10 @@ El servidor expone 20 herramientas de escritura, cada una anotada como **aditiva
 | `create_soaw` | Crea un Statement of Architecture Work para una iniciativa. |
 | `assign_stakeholders` | Asigna o retira roles de partes interesadas en fichas. |
 | `update_cards_bulk` | Parches a nivel de campo en muchas fichas en una sola llamada. |
-| `create_adr` | Crea un Architecture Decision Record. |
-| `update_adr` | Actualiza un ADR (título, secciones, estado, fichas vinculadas). |
+| `create_adr` | Crea un Architecture Decision Record, con vínculos tipados con otras decisiones (`replaces`, `amends`, `revokes`, `relates`), responsables de la decisión, participantes y fechas. Así es como se sustituye o revoca una decisión: con una nueva decisión que lleva un vínculo `replaces` / `revokes`, que surte efecto una vez firmada. |
+| `update_adr` | Actualiza un ADR en borrador (título, secciones, fichas vinculadas, vínculos tipados, personas, fechas, resumen de cambios). Una decisión en revisión solo acepta cambios en las fichas vinculadas, y una firmada nunca se edita. |
 | `sign_adr` | Firma un ADR (requiere el permiso `adr.sign`; de lo contrario devuelve un enlace profundo a la interfaz para firmar en el navegador). |
+| `revise_adr` | Inicia la siguiente revisión de un ADR firmado: un borrador con la misma referencia y el siguiente número de revisión, consolidando opcionalmente las decisiones que lo modifican. Se rechaza cuando ya se está redactando una revisión, una revisión posterior está firmada o la decisión fue revocada o sustituida. Registrar una decisión pasada como decidida sigue haciéndose en la interfaz web. |
 | `create_diagram` | Crea un diagrama libre DrawIO con vínculos opcionales a fichas existentes. |
 | `save_inventory_view` | Guarda una consulta de fichas de varios saltos como vista de inventario (nueva, o sustituyendo la consulta de una existente indicada con `view_id`). El inventario vuelve a ejecutar la consulta cada vez que se abre la vista; la respuesta incluye un enlace que la abre. Una actualización solo cambia el nombre y la consulta, además de la visibilidad y las columnas cuando se indican; se conservan la agrupación y el diseño de la vista. |
 | `import_bpmn` | Guarda un diagrama BPMN 2.0 XML contra una ficha de Proceso de negocio **existente**. Si no hay ficha con el nombre indicado, la herramienta devuelve un error `card_not_found` que dirige al agente a `create_cards_bulk` — esto obliga a crear la ficha explícitamente con descripción, subtipo y atributos antes, en vez de tomar un atajo que deja una ficha pobre. |
@@ -440,7 +441,7 @@ Defensa en profundidad sobre la ejecución en seco, para que un descuido del LLM
 
 - **Límite de tamaño por llamada.** Las herramientas de escritura MCP aplican un límite mucho menor que los endpoints subyacentes del importador de Excel: 200 filas para `create_cards_bulk`, 500 operaciones para `upsert_relations_bulk`. Suficientemente grandes para cualquier carga realista de un artefacto, suficientemente pequeñas para que una vista previa de ejecución en seco siga siendo revisable.
 - **Sin eliminación de relaciones por defecto.** `upsert_relations_bulk` rechaza operaciones `action: "delete"` — para eliminar relaciones, use la interfaz web donde la acción queda registrada bajo la identidad del usuario. Los operadores pueden activarlo estableciendo `MCP_ALLOW_RELATION_DELETE=true`.
-- **Interruptor de apagado.** `MCP_WRITES_ENABLED=false` desactiva las 20 herramientas de escritura sin redesplegar código. Las 35 herramientas de lectura siguen funcionando.
+- **Interruptor de apagado.** `MCP_WRITES_ENABLED=false` desactiva las 21 herramientas de escritura sin redesplegar código. Las 35 herramientas de lectura siguen funcionando.
 - **La descarga de logotipos está restringida a hosts permitidos.** Los paquetes de iconos incluidos no pueden cubrir todos los productos de un cliente, y un asistente suele estar aislado sin acceso a la web, así que `set_card_logos` acepta una `image_url` que descarga el servidor MCP. Solo `https`, solo los hosts de `MCP_LOGO_FETCH_HOSTS`, solo direcciones públicas, como máximo dos redirecciones (revisadas de nuevo cada una), como máximo 1 MB leído en streaming, y los bytes deben llevar una firma real de PNG/JPEG/WebP/GIF. La descarga ocurre en el borde MCP, nunca en el backend, y después la imagen se sube por la vía habitual: una URL elegida por un LLM nunca llega al proceso que guarda la base de datos. `MCP_LOGO_FETCH_ENABLED=false` lo desactiva.
 - **Etiqueta de origen para auditoría.** Cada solicitud al backend desde el servidor MCP lleva un encabezado `X-Turbo-EA-Origin: mcp`. Los eventos emitidos desde esas solicitudes se etiquetan con `origin: "mcp"` en el payload del registro de auditoría, de modo que los administradores pueden filtrar las escrituras impulsadas por MCP de la línea de tiempo, separadas de las acciones de la interfaz web.
 - **Lotes de mutación.** Cada llamada de escritura MCP —tanto la vista previa como el commit— es un lote de mutación en el registro de auditoría, abierto antes de escribir nada; cada evento emitido durante la llamada se sella con el id del lote, y cada herramienta de escritura devuelve ese `batch_id`. Los administradores (o la herramienta `get_change_history`) pueden reconstruir el diff completo, evento por evento, de un commit a partir de un solo id, y `rollback_batch` puede revertirlo, incluida la eliminación de un diagrama creado por `create_diagram`, salvo que alguien lo haya publicado desde entonces. Una actualización de diagrama se notifica como no reversible, porque no se conserva el lienzo anterior. Los commits que superan `MCP_BATCH_CONFIRMATION_THRESHOLD` filas deben devolver el `confirm_token` de un solo uso que entregó la ejecución en seco previa. El backend lo comprueba al abrir el lote del commit, antes de escribir nada: debe proceder de una ejecución en seco de la misma herramienta, del mismo usuario, hace menos de 15 minutos, y autoriza un único commit. Todas las herramientas de escritura masiva siguen este ciclo de vista previa y confirmación: `create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`.
@@ -483,7 +484,7 @@ Las seis variables de entorno de salvaguarda en el contenedor MCP:
 | Rol | Acceso |
 |-----|--------|
 | **Administrador** | Configurar ajustes MCP (permiso `admin.mcp`). Acceso completo de lectura + escritura a través de MCP. |
-| **Todos los usuarios autenticados** | Acceso de lectura regido por su RBAC existente. Las herramientas de escritura requieren los permisos backend correspondientes — `inventory.create` / `inventory.edit` / `inventory.archive` (fichas), `relations.manage` (relaciones), `diagrams.manage` (diagramas), `bpm.edit` (BPMN), `risks.manage` (registro de riesgos), `comments.create` (comentarios), `stakeholders.manage` (partes interesadas), `soaw.create` (SoAW), `adr.create` / `adr.sign` (ADRs), `bookmarks.manage` / `bookmarks.share` (vistas de inventario guardadas). |
+| **Todos los usuarios autenticados** | Acceso de lectura regido por su RBAC existente. Las herramientas de escritura requieren los permisos backend correspondientes — `inventory.create` / `inventory.edit` / `inventory.archive` (fichas), `relations.manage` (relaciones), `diagrams.manage` (diagramas), `bpm.edit` (BPMN), `risks.manage` (registro de riesgos), `comments.create` (comentarios), `stakeholders.manage` (partes interesadas), `soaw.create` (SoAW), `adr.manage` / `adr.sign` (ADRs), `bookmarks.manage` / `bookmarks.share` (vistas de inventario guardadas). |
 
 El permiso `admin.mcp` controla quién puede gestionar la configuración de MCP. Solo está disponible para el rol de Administrador por defecto. Los roles personalizados pueden recibir este permiso a través de la página de administración de Roles.
 

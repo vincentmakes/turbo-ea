@@ -43,7 +43,7 @@ Underfanen **Sikkerhed og administration** viser én post pr. sikkerhedsrelevant
 - spærring af konti efter gentagne fejl;
 - registreringer samt adgangskoder, der angives, nulstilles eller ændres;
 - rolleovertagelse — en administrator, der starter og stopper **Vis som rolle…**;
-- administrative handlinger — ændringer af brugere, roller, indstillinger, metamodellen, tags, beregninger, udvidelser, importer, integrationer, offentlige portaler og publicerede diagrammer, undersøgelser og operatøradgang (se [Administrative handlinger](#administrative-actions));
+- administrative handlinger — ændringer af brugere, roller, indstillinger, metamodellen, tags, beregninger, udvidelser, importer, integrationer, offentlige portaler og publicerede diagrammer, undersøgelser, beslutninger registreret som truffet og operatøradgang (se [Administrative handlinger](#administrative-actions));
 - dataeksporter — CSV- og JSON-eksporterne af kort, workspace-eksporter og eksporter til en anden EA-platform (se [Dataeksporter](#data-exports)) — og eksporter af selve denne log.
 
 ### Kolonner
@@ -156,6 +156,7 @@ En gemning, der ikke ændrer noget, registreres ikke, og det gør en bruger, der
 | **Offentlig eksponering** | `admin.web_portal.created`, `.updated`, `.deleted`; `admin.diagram.published`, `.unpublished` | [Web-portaler](web-portals.md) og publicerede diagrammer — alt, der gør data tilgængelige uden en konto |
 | **Dashboards på startsiden** | `admin.dashboard.created`, `.updated`, `.deleted`, `.duplicated`, `.reset` | [Dashboards](../guide/dashboard.md#customizing-dashboards) oprettet, redigeret, slettet, duplikeret eller nulstillet til standard, med det ændrede navn, den ændrede beskrivelse, ikon, synlighed, rækkefølge og adgangsroller; hver tilføjet eller fjernet widget vises ved navn (flytning eller ændring af størrelsen på en widget registreres ikke) |
 | **Undersøgelser** | `admin.survey.sent`, `admin.survey.closed` | En undersøgelse sendt til modtagerne, eller lukket |
+| **Arkitekturbeslutninger** | `admin.adr.recorded` | En beslutning truffet uden for Turbo EA, der er [registreret som truffet](../guide/grc.md#recording-a-past-decision) uden underskrifter, med datoerne Truffet den og Gældende fra samt beslutningstagerne |
 | **Operatøradgang** | `admin.ops.rescue_access.granted`, `.revoked` | Nødadgang tildelt eller tilbagekaldt via [drifts-API'et](ops-api.md), registreret ved siden af de eksisterende `ops.*`-hændelser |
 
 ### Dataeksporter { #data-exports }

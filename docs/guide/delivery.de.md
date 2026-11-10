@@ -54,13 +54,21 @@ Der Editor bietet:
 | Status | Bedeutung |
 |--------|-----------|
 | **Entwurf** | Wird geschrieben, noch nicht bereit zur Überprüfung |
-| **In Überprüfung** | Zur Stakeholder-Überprüfung eingereicht |
+| **In Überprüfung** | Zur Unterschrift gesendet — gesperrt, bis die Unterschriften zurückgerufen werden |
 | **Genehmigt** | Überprüft und akzeptiert |
 | **Unterschrieben** | Formal abgezeichnet |
 
 ### Abzeichnungsworkflow
 
-Sobald ein SoAW genehmigt ist, können Sie Abzeichnungen von Stakeholdern anfordern. Klicken Sie auf **Unterschriften anfordern** und verwenden Sie das Suchfeld, um Unterzeichner nach Name oder E-Mail zu finden und hinzuzufügen. Das System verfolgt, wer unterschrieben hat, und sendet Benachrichtigungen an ausstehende Unterzeichner.
+Für ein SoAW im Entwurf oder ein genehmigtes SoAW können Sie Abzeichnungen von Stakeholdern anfordern. Klicken Sie auf **Unterschriften anfordern** und verwenden Sie das Suchfeld, um Unterzeichner nach Name oder E-Mail zu finden und hinzuzufügen. Das System verfolgt, wer unterschrieben hat, und sendet Benachrichtigungen an ausstehende Unterzeichner.
+
+Ein SoAW in Überprüfung ist **gesperrt**, sodass die Unterzeichner genau das unterschreiben, was ihnen gesendet wurde: Nur seine Initiative lässt sich noch ändern. Um den Inhalt zu bearbeiten, klicken Sie auf **Unterschriften zurückrufen**; das SoAW kehrt dann in den Entwurf zurück. Ein Unterzeichner, der auf **Ablehnen** klickt, setzt es ebenfalls auf Entwurf zurück, unter derselben Revisionsnummer. Nur ein SoAW im Entwurf kann gelöscht werden.
+
+### Revisionen
+
+Ein unterzeichnetes SoAW ist schreibgeschützt. Klicken Sie auf **Neue Revision**, um daraus einen neuen Entwurf unter demselben Namen mit der nächsten Revisionsnummer zu beginnen. Es gibt jeweils nur eine offene Revision: Solange eine Revision entworfen wird, weist das unterzeichnete SoAW darauf hin und bietet **Revision öffnen** an, statt eine weitere zu beginnen. Nur die neueste Revision kann überarbeitet werden, und eine Ablehnung ändert die Revisionsnummer nicht.
+
+Eine frühere Revision zeigt ein Banner mit einem Link zur aktuellen, und die Leiste **Revisionen** auf jeder Revision listet alle auf. Listen von SoAWs — die Lieferobjekte der Initiative, der SoAW-Reiter, der EA-Delivery-Bericht — zeigen die aktuelle Revision jedes Dokuments sowie jede Revision, die gerade entworfen wird.
 
 ### Vorschau und Export
 
@@ -72,7 +80,7 @@ Sobald ein SoAW genehmigt ist, können Sie Abzeichnungen von Stakeholdern anford
 
 ![Initiative-Karte — SoAW-Reiter](../assets/img/de/55_initiative_soaw_tab.png)
 
-Initiativen zeigen außerdem direkt auf ihrer Karten-Detailseite einen eigenen **SoAW**-Reiter. Der Reiter listet jedes mit dieser Initiative verknüpfte SoAW auf (Titel, Status-Chip, Revisionsnummer, Datum der letzten Änderung) mit einer **+ Neues SoAW**-Schaltfläche, die die aktuelle Initiative vorauswählt — so kannst du SoAWs erstellen oder öffnen, ohne die Karte zu verlassen. Die Erstellung verwendet denselben Dialog wie die EA-Delivery-Seite, und das neue Dokument erscheint an beiden Stellen. Die Sichtbarkeit des Reiters folgt den Standard-Karten-Berechtigungsregeln.
+Initiativen zeigen außerdem direkt auf ihrer Karten-Detailseite einen eigenen **SoAW**-Reiter. Der Reiter listet die aktuelle Revision jedes mit dieser Initiative verknüpften SoAW auf, dazu jede Revision, die gerade entworfen wird (Titel, Status-Chip, Revisionsnummer, Datum der letzten Änderung) mit einer **+ Neues SoAW**-Schaltfläche, die die aktuelle Initiative vorauswählt — so kannst du SoAWs erstellen oder öffnen, ohne die Karte zu verlassen. Die Erstellung verwendet denselben Dialog wie die EA-Delivery-Seite, und das neue Dokument erscheint an beiden Stellen. Die Sichtbarkeit des Reiters folgt den Standard-Karten-Berechtigungsregeln.
 
 ## Architecture Decision Records (ADR)
 

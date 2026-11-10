@@ -25,7 +25,7 @@
       "import": {
         "title": "Importer des décisions d'architecture",
         "intro": "Importez un fichier .xlsx pour créer des décisions en masse. Chaque ligne devient une nouvelle décision au statut brouillon, avec sa propre référence ADR ; les lignes dont la référence appartient déjà à une décision sont ignorées, de sorte que réimporter un export ne change rien. Les fiches sont liées par leur nom exact, et les décisions associées par leur référence. Le statut et les signatures ne sont pas importés.",
-        "skippedHint": "Ces lignes correspondent à une décision existante par sa référence et sont ignorées ; l'import ne modifie jamais une décision existante."
+        "skippedHint": "Ces lignes sont ignorées : elles correspondent à une décision existante par sa référence (l'import ne modifie jamais une décision existante), ou ce sont des révisions antérieures d'une décision dont une révision ultérieure figure dans le même fichier."
       }
     }
   },

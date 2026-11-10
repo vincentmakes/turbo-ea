@@ -179,7 +179,7 @@ colonnes.
 | Permission | Autorise |
 |---|---|
 | `adr.view` (cœur) | Voir les panneaux, les colonnes et le tableau de bord |
-| `adr.manage` (cœur) | Ajouter, modifier et supprimer des déclarations sur une décision non signée |
+| `adr.manage` (cœur) | Ajouter, modifier et supprimer des déclarations sur une décision à l'état de brouillon |
 | `ext.value-savings.record` | Enregistrer une réalisation sur une déclaration approuvée |
 | `ext.value-savings.approve` | Approuver ou rejeter une réalisation — **et** être la personne désignée comme approbateur |
 

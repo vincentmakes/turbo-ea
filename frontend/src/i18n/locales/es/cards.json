@@ -416,8 +416,6 @@
   "adrs.linkDialog.title": "Vincular decisión de arquitectura",
   "adrs.linkDialog.search": "Buscar decisiones...",
   "adrs.linkDialog.empty": "No hay decisiones de arquitectura disponibles para vincular.",
-  "adrs.linkDialog.noMatch": "Ninguna decisión coincide con su búsqueda.",
-  "adrs.linkDialog.clearSearch": "Borrar búsqueda",
   "resources.addLinkDialog.title": "Agregar enlace de documento",
   "resources.editLinkDialog.title": "Editar enlace de documento",
   "resources.addLinkDialog.name": "Nombre",

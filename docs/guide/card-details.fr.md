@@ -229,7 +229,7 @@ Tout ce qui déplace la date **Modifié** de la fiche apparaît ici — une modi
 
 ## Onglet ADR
 
-Chaque fiche dispose d'un onglet **ADR** qui répertorie les [décisions d'architecture](delivery.md) qui lui sont liées, avec la référence, le titre, le statut, toutes les fiches liées et la date de dernière modification. Cliquez sur une ligne pour ouvrir la décision.
+Chaque fiche dispose d'un onglet **ADR** qui répertorie les [décisions d'architecture](delivery.md) qui lui sont liées — la révision actuelle de chaque décision, plus toute révision en cours de rédaction — avec la référence, le titre, la validité (ou le statut tant que la décision n'est pas encore signée), toutes les fiches liées et la date de dernière modification. Cliquez sur une ligne pour ouvrir la décision ; les révisions antérieures sont accessibles depuis celle-ci.
 
 Si vous êtes autorisé à gérer les liens ADR, l'onglet propose également **Lier une ADR** pour rattacher une décision existante et **Créer une ADR** pour en créer une déjà liée à cette fiche, ainsi qu'une action de dissociation sur chaque ligne. Sur les fiches sans décision liée, l'onglet est masqué sauf si vous disposez de cette permission : les utilisateurs en lecture seule ne voient donc jamais d'onglet vide.
 

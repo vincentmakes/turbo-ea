@@ -590,6 +590,7 @@
   "dashboard.activity.action.adr.signed": "وقّع ADR",
   "dashboard.activity.action.adr.rejected": "رفض ADR",
   "dashboard.activity.action.adr.signatures_recalled": "سحب توقيعات ADR",
+  "dashboard.activity.action.adr.recorded": "سجّل ADR بوصفه متَّخذًا",
   "dashboard.activity.action.soaw.signatures_requested": "طلب توقيعات على SoAW",
   "dashboard.activity.action.soaw.signed": "وقّع SoAW",
   "dashboard.activity.action.soaw.rejected": "رفض SoAW",

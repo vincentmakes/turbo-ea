@@ -24,6 +24,7 @@ Klik på en hvilken som helst notifikation for at navigere direkte til det relev
 | **Godkendelsesstatus ændret** | Et korts godkendelsesstatus ændres (godkendt, afvist, brudt) |
 | **SoAW-signatur anmodet** | Du bliver bedt om at underskrive en Statement of Architecture Work |
 | **SoAW underskrevet** | En SoAW, du sporer, modtager en underskrift |
+| **ADR-gyldighed ændret** | En underskrevet beslutning erstatter, ændrer eller ophæver en beslutning, du har skrevet |
 | **Undersøgelsesanmodning** | En undersøgelse sendes, der kræver dit svar |
 
 **Godkendelsesstatus ændret** dækker også det automatiske tilfælde. Et godkendt

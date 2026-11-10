@@ -43,7 +43,7 @@ Die Unterregisterkarte **Sicherheit & Administration** listet einen Eintrag pro 
 - Kontosperrungen nach wiederholten Fehlversuchen;
 - Registrierungen sowie das Festlegen, Zurücksetzen und Ändern von Passwörtern;
 - Rollenübernahme — eine Administratorin, die **Als Rolle anzeigen…** startet und beendet;
-- administrative Aktionen — Änderungen an Benutzern, Rollen, Einstellungen, dem Metamodell, Tags, Berechnungen, Erweiterungen, Importen, Integrationen, öffentlichen Portalen und veröffentlichten Diagrammen, Umfragen und dem Betreiberzugang (siehe [Administrative Aktionen](#administrative-actions));
+- administrative Aktionen — Änderungen an Benutzern, Rollen, Einstellungen, dem Metamodell, Tags, Berechnungen, Erweiterungen, Importen, Integrationen, öffentlichen Portalen und veröffentlichten Diagrammen, Umfragen, als entschieden erfassten Entscheidungen und dem Betreiberzugang (siehe [Administrative Aktionen](#administrative-actions));
 - Datenexporte — die CSV- und JSON-Exporte von Karten, Workspace-Exporte und Exporte für eine andere EA-Plattform (siehe [Datenexporte](#data-exports)) — sowie Exporte dieses Protokolls selbst.
 
 ### Spalten
@@ -156,6 +156,7 @@ Eine Speicherung, die nichts ändert, wird nicht erfasst, ebenso wenig wie ein B
 | **Öffentliche Freigabe** | `admin.web_portal.created`, `.updated`, `.deleted`; `admin.diagram.published`, `.unpublished` | [Web-Portale](web-portals.md) und veröffentlichte Diagramme — alles, was Daten ohne Konto erreichbar macht |
 | **Dashboards der Startseite** | `admin.dashboard.created`, `.updated`, `.deleted`, `.duplicated`, `.reset` | [Dashboards](../guide/dashboard.md#customizing-dashboards) erstellt, bearbeitet, gelöscht, dupliziert oder auf den Standard zurückgesetzt, mit dem geänderten Namen, der Beschreibung, dem Symbol, der Sichtbarkeit, der Reihenfolge und den Zugriffsrollen; jedes hinzugefügte oder entfernte Widget wird mit Namen aufgeführt (Verschieben oder Größenänderung eines Widgets wird nicht aufgezeichnet) |
 | **Umfragen** | `admin.survey.sent`, `admin.survey.closed` | Eine Umfrage, die an ihre Empfänger gesendet oder geschlossen wird |
+| **Architekturentscheidungen** | `admin.adr.recorded` | Eine außerhalb von Turbo EA getroffene Entscheidung, die ohne Unterschriften [als entschieden erfasst](../guide/grc.md#recording-a-past-decision) wurde, mit ihren Daten „Entschieden am“ und „Wirksam ab“ und ihren Entscheidungsträgern |
 | **Betreiberzugang** | `admin.ops.rescue_access.granted`, `.revoked` | Über die [Betriebs-API](ops-api.md) gewährter oder widerrufener Notfallzugang, erfasst neben den bestehenden `ops.*`-Ereignissen |
 
 ### Datenexporte { #data-exports }

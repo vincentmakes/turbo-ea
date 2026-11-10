@@ -226,7 +226,7 @@ Alt, der flytter kortets **Ændret**-dato, vises her — en manuel redigering, e
 
 ## ADRs-fane
 
-Hvert kort har en **ADRs**-fane, der viser de [arkitekturbeslutninger](delivery.md), som er tilknyttet kortet, med reference, titel, status, alle tilknyttede kort og tidspunktet for seneste ændring. Klik på en række for at åbne beslutningen.
+Hvert kort har en **ADRs**-fane, der viser de [arkitekturbeslutninger](delivery.md), som er tilknyttet kortet — den aktuelle revision af hver beslutning samt en eventuel revision under udarbejdelse — med reference, titel, gyldighed (eller status, så længe beslutningen endnu ikke er underskrevet), alle tilknyttede kort og tidspunktet for seneste ændring. Klik på en række for at åbne beslutningen; tidligere revisioner nås derfra.
 
 Hvis du må administrere ADR-tilknytninger, tilbyder fanen desuden **Tilknyt ADR** til at vedhæfte en eksisterende beslutning og **Opret ADR** til at oprette en ny, der på forhånd er tilknyttet dette kort, samt en frakoblingshandling på hver række. På kort uden tilknyttede beslutninger er fanen skjult, medmindre du har den tilladelse, så brugere med skrivebeskyttet adgang aldrig ser en tom fane.
 

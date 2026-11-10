@@ -54,13 +54,21 @@ El editor proporciona:
 | Estado | Significado |
 |--------|-------------|
 | **Borrador** | En redacción, aún no listo para revisión |
-| **En Revisión** | Enviado para revisión de partes interesadas |
+| **En Revisión** | Enviado para firma — bloqueado hasta que se retiren las firmas |
 | **Aprobado** | Revisado y aceptado |
 | **Firmado** | Firmado formalmente |
 
 ### Flujo de Firma
 
-Una vez que un SoAW es aprobado, puede solicitar firmas de las partes interesadas. Haga clic en **Solicitar Firmas** y use el campo de búsqueda para encontrar y agregar firmantes por nombre o correo electrónico. El sistema rastrea quién ha firmado y envía notificaciones a los firmantes pendientes.
+A partir de un SoAW en borrador o aprobado, puede solicitar firmas de las partes interesadas. Haga clic en **Solicitar Firmas** y use el campo de búsqueda para encontrar y agregar firmantes por nombre o correo electrónico. El sistema rastrea quién ha firmado y envía notificaciones a los firmantes pendientes.
+
+Un SoAW en revisión está **bloqueado**, para que los firmantes firmen exactamente lo que se les envió: solo su iniciativa puede cambiar todavía. Para editar el contenido, haga clic en **Retirar firmas**, lo que lo devuelve a borrador. Un firmante que hace clic en **Rechazar** también lo devuelve a borrador, con el mismo número de revisión. Solo un SoAW en borrador se puede eliminar.
+
+### Revisiones
+
+Un SoAW firmado es de solo lectura. Haga clic en **Nueva Revisión** para iniciar un nuevo borrador a partir de él, con el mismo nombre y el siguiente número de revisión. Solo hay una revisión abierta a la vez: mientras se redacta una revisión, el SoAW firmado lo indica y ofrece **Abrir la revisión** en lugar de iniciar otra. Solo se puede revisar la última revisión, y un rechazo no cambia el número de revisión.
+
+Una revisión anterior muestra un banner con un enlace a la actual, y la franja **Revisiones** de cada revisión las enumera todas. Las listas de SoAW — los entregables de la iniciativa, la pestaña SoAW, el informe de Entrega EA — muestran la revisión actual de cada documento y cualquier revisión en redacción.
 
 ### Vista Previa y Exportación
 
@@ -72,7 +80,7 @@ Una vez que un SoAW es aprobado, puede solicitar firmas de las partes interesada
 
 ![Ficha de iniciativa — pestaña SoAW](../assets/img/es/55_iniciativa_soaw_tab.png)
 
-Las iniciativas también exponen una pestaña **SoAW** dedicada directamente en su página de detalle. La pestaña lista cada SoAW vinculado a esa iniciativa (título, chip de estado, número de revisión, fecha de última modificación) con un botón **+ Nuevo SoAW** que preselecciona la iniciativa actual — para que puedas redactar o saltar a un SoAW sin salir de la ficha en la que estás trabajando. La creación reutiliza el mismo diálogo que la página de Entrega EA, y el nuevo documento aparece en ambos lugares. La visibilidad de la pestaña sigue las reglas de permisos estándar de las fichas.
+Las iniciativas también exponen una pestaña **SoAW** dedicada directamente en su página de detalle. La pestaña lista la revisión actual de cada SoAW vinculado a esa iniciativa, más cualquier revisión en redacción (título, chip de estado, número de revisión, fecha de última modificación) con un botón **+ Nuevo SoAW** que preselecciona la iniciativa actual — para que puedas redactar o saltar a un SoAW sin salir de la ficha en la que estás trabajando. La creación reutiliza el mismo diálogo que la página de Entrega EA, y el nuevo documento aparece en ambos lugares. La visibilidad de la pestaña sigue las reglas de permisos estándar de las fichas.
 
 ## Registros de Decisiones de Arquitectura (ADR)
 

@@ -25,7 +25,7 @@
       "import": {
         "title": "Importar decisiones de arquitectura",
         "intro": "Suba un archivo .xlsx para crear decisiones de forma masiva. Cada fila se convierte en una nueva decisión en borrador con su propia referencia ADR; las filas cuya referencia ya pertenece a una decisión se omiten, por lo que reimportar una exportación no cambia nada. Las fichas se vinculan por su nombre exacto y las decisiones relacionadas por su referencia. El estado y las firmas no se importan.",
-        "skippedHint": "Estas filas coinciden con una decisión existente por su referencia y se omiten; la importación nunca modifica una decisión existente."
+        "skippedHint": "Estas filas se omiten: coinciden con una decisión existente por su referencia (la importación nunca modifica una decisión existente), o son una revisión anterior de una decisión cuya revisión posterior está en el mismo archivo."
       }
     }
   },

@@ -177,7 +177,7 @@ fixieren.
 | Berechtigung | Erlaubt |
 |---|---|
 | `adr.view` (Kern) | Die Bereiche, die Tabellenspalten und das Dashboard sehen |
-| `adr.manage` (Kern) | Meldungen an einer nicht unterzeichneten Entscheidung anlegen, ändern und löschen |
+| `adr.manage` (Kern) | Meldungen an einer Entscheidung im Entwurf anlegen, ändern und löschen |
 | `ext.value-savings.record` | Eine Realisierung zu einer genehmigten Meldung erfassen |
 | `ext.value-savings.approve` | Eine Realisierung genehmigen oder ablehnen — **und** die dort benannte Person sein |
 

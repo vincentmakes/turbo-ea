@@ -450,8 +450,6 @@
   "adrs.linkDialog.title": "Tilknyt arkitekturbeslutning",
   "adrs.linkDialog.search": "Søg beslutninger...",
   "adrs.linkDialog.empty": "Ingen arkitekturbeslutninger tilgængelige at tilknytte.",
-  "adrs.linkDialog.noMatch": "Ingen beslutninger matcher din søgning.",
-  "adrs.linkDialog.clearSearch": "Ryd søgning",
   "resources.addLinkDialog.title": "Tilføj dokumentlink",
   "resources.editLinkDialog.title": "Rediger dokumentlink",
   "resources.addLinkDialog.name": "Navn",

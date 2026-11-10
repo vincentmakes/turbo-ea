@@ -188,6 +188,7 @@
   "dashboard.activity.action.adr.signed": "подписал ADR",
   "dashboard.activity.action.adr.rejected": "отклонил ADR",
   "dashboard.activity.action.adr.signatures_recalled": "отозвал подписи ADR",
+  "dashboard.activity.action.adr.recorded": "зафиксировал ADR как принятое",
   "dashboard.activity.action.soaw.signatures_requested": "запросил подписи на SoAW",
   "dashboard.activity.action.soaw.signed": "подписал SoAW",
   "dashboard.activity.action.soaw.rejected": "отклонил SoAW",

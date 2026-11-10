@@ -43,7 +43,7 @@ Le sous-onglet **Sécurité et administration** liste une entrée par action aya
 - verrouillages de compte après des échecs répétés ;
 - inscriptions, ainsi que les mots de passe définis, réinitialisés ou modifiés ;
 - emprunt de rôle — un administrateur qui démarre puis arrête **Voir en tant que rôle…** ;
-- les actions administratives — modifications des utilisateurs, des rôles, des paramètres, du métamodèle, des tags, des calculs, des extensions, des imports, des intégrations, des portails publics et des diagrammes publiés, des enquêtes et de l'accès opérateur (voir [Actions administratives](#administrative-actions)) ;
+- les actions administratives — modifications des utilisateurs, des rôles, des paramètres, du métamodèle, des tags, des calculs, des extensions, des imports, des intégrations, des portails publics et des diagrammes publiés, des enquêtes, des décisions enregistrées comme décidées et de l'accès opérateur (voir [Actions administratives](#administrative-actions)) ;
 - les exports de données — les exports CSV et JSON de fiches, les exports d'espace de travail et les exports vers une autre plateforme EA (voir [Exports de données](#data-exports)) — ainsi que les exports de ce journal lui-même.
 
 ### Colonnes
@@ -156,6 +156,7 @@ Un enregistrement qui ne change rien n'est pas consigné, pas plus qu'un utilisa
 | **Exposition publique** | `admin.web_portal.created`, `.updated`, `.deleted`; `admin.diagram.published`, `.unpublished` | [Portails web](web-portals.md) et diagrammes publiés — tout ce qui rend des données accessibles sans compte |
 | **Tableaux de bord de la page d’accueil** | `admin.dashboard.created`, `.updated`, `.deleted`, `.duplicated`, `.reset` | [Tableaux de bord](../guide/dashboard.md#customizing-dashboards) créés, modifiés, supprimés, dupliqués ou réinitialisés par défaut, avec le nom, la description, l’icône, la visibilité, l’ordre et les rôles d’accès modifiés ; chaque widget ajouté ou retiré est listé par son nom (le déplacement ou le redimensionnement d’un widget n’est pas enregistré) |
 | **Enquêtes** | `admin.survey.sent`, `admin.survey.closed` | Une enquête envoyée à ses destinataires, ou clôturée |
+| **Décisions d'architecture** | `admin.adr.recorded` | Une décision prise en dehors de Turbo EA et [enregistrée comme décidée](../guide/grc.md#recording-a-past-decision) sans signatures, avec ses dates « Décidée le » et « En vigueur à partir du » et ses décideurs |
 | **Accès opérateur** | `admin.ops.rescue_access.granted`, `.revoked` | Accès de secours accordé ou révoqué via l'[API d'exploitation](ops-api.md), enregistré à côté des événements `ops.*` existants |
 
 ### Exports de données { #data-exports }

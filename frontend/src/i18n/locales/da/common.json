@@ -510,6 +510,7 @@
   "dashboard.activity.action.adr.signed": "underskrev en ADR",
   "dashboard.activity.action.adr.rejected": "afviste en ADR",
   "dashboard.activity.action.adr.signatures_recalled": "tilbagekaldte ADR-underskrifter",
+  "dashboard.activity.action.adr.recorded": "registrerede en ADR som truffet",
   "dashboard.activity.action.soaw.signatures_requested": "anmodede om underskrifter på en SoAW",
   "dashboard.activity.action.soaw.signed": "underskrev en SoAW",
   "dashboard.activity.action.soaw.rejected": "afviste en SoAW",
