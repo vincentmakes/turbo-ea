@@ -23,6 +23,7 @@ import {
 import type { SoAWDocumentInfo, SoAWVersionEntry, SoAWSectionData, SoAWSignatory } from "@/types";
 import { escapeHtml, printDocument } from "@/lib/printDocument";
 import { PRINT_COLORS, brand } from "@/theme/tokens";
+import { fillMentionLabelsI18n } from "./mentions/mentionLabels";
 
 // ─── constants (matching PDF styles) ─────────────────────────────────────────
 
@@ -65,8 +66,10 @@ const CELL_BORDER = {
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 /** Parse simple HTML into an array of docx Paragraphs. */
-function htmlToParagraphs(html: string): Paragraph[] {
-  if (!html || html === "<p></p>") return [];
+function htmlToParagraphs(stored: string): Paragraph[] {
+  if (!stored || stored === "<p></p>") return [];
+  // Restricted / deleted mentions arrive empty: the reader's words go in first.
+  const html = fillMentionLabelsI18n(stored);
   const doc = new DOMParser().parseFromString(html, "text/html");
   const paragraphs: Paragraph[] = [];
 
@@ -589,7 +592,9 @@ export const PREVIEW_CSS = `
 /** Check if a section has meaningful content worth rendering. */
 function isSectionEmpty(def: TemplateSectionDef, data: SoAWSectionData): boolean {
   if (def.type === "rich_text") {
-    const c = (new DOMParser().parseFromString(data.content ?? "", "text/html").body.textContent ?? "").trim();
+    // A section holding only a restricted / deleted mention still has something to say.
+    const html = fillMentionLabelsI18n(data.content ?? "");
+    const c = (new DOMParser().parseFromString(html, "text/html").body.textContent ?? "").trim();
     return !c;
   }
   if (def.type === "table") {
@@ -678,7 +683,7 @@ export function buildPreviewBody(
     }
 
     if (def.type === "rich_text" && data.content) {
-      html += data.content;
+      html += fillMentionLabelsI18n(data.content);
     }
 
     if (def.type === "table" && data.table_data) {
@@ -705,7 +710,7 @@ export function buildPreviewBody(
     for (const cs of customSections) {
       if (cs.insertAfter === def.id) {
         html += `<h3><span class="custom-badge">${customBadge}</span>${escapeHtml(cs.title)}</h3>`;
-        html += cs.content || "";
+        html += fillMentionLabelsI18n(cs.content || "");
       }
     }
   };
@@ -719,7 +724,7 @@ export function buildPreviewBody(
   for (const cs of customSections) {
     if (!cs.insertAfter || !getTemplateSections().some((d) => d.id === cs.insertAfter)) {
       html += `<h3><span class="custom-badge">${trailingCustomBadge}</span>${escapeHtml(cs.title)}</h3>`;
-      html += cs.content || "";
+      html += fillMentionLabelsI18n(cs.content || "");
     }
   }
 

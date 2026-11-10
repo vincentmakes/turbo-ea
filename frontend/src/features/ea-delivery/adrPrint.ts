@@ -39,6 +39,7 @@ import {
   adrRecordedLine,
   type ExportableDecision,
 } from "./adrDocumentFacts";
+import { fillMentionLabelsI18n } from "./mentions/mentionLabels";
 
 const t = (key: string, opts?: Record<string, unknown>) =>
   String(i18n.t(`delivery:${key}`, opts as never));
@@ -55,8 +56,11 @@ export function buildAdrPrintBody(adr: ExportableDecision): string {
   html += section(t("export.documentInfo"), metaTable(adrFactRows(adr, t, date)));
   html += section(t("adr.export.changeSummary"), textBlock(adr.change_summary));
 
-  const rich = (title: string, content: string | null) =>
-    htmlIsEmpty(content) ? "" : section(title, content ?? "");
+  // Labels first: a section holding only a restricted / deleted mention is not empty.
+  const rich = (title: string, content: string | null) => {
+    const filled = fillMentionLabelsI18n(content ?? "");
+    return htmlIsEmpty(filled) ? "" : section(title, filled);
+  };
   html += rich(t("adr.context"), adr.context);
   html += rich(t("adr.decision"), adr.decision);
   html += rich(t("adr.consequences"), adr.consequences);

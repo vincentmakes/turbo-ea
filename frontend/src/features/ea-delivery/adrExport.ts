@@ -29,6 +29,7 @@ import {
   type ExportableDecision,
 } from "./adrDocumentFacts";
 import { decisionRefLabel, statusLabelKey } from "./decisionStanding";
+import { fillMentionLabelsI18n } from "./mentions/mentionLabels";
 
 // ─── style constants (mirroring soawExport.ts) ──────────────────────────────
 
@@ -66,8 +67,10 @@ const CELL_BORDER = {
 
 // ─── helpers (HTML → docx Paragraphs) ───────────────────────────────────────
 
-function htmlToParagraphs(html: string): Paragraph[] {
-  if (!html || html === "<p></p>") return [];
+function htmlToParagraphs(stored: string): Paragraph[] {
+  if (!stored || stored === "<p></p>") return [];
+  // Restricted / deleted mentions arrive empty: the reader's words go in first.
+  const html = fillMentionLabelsI18n(stored);
   const doc = new DOMParser().parseFromString(html, "text/html");
   const paragraphs: Paragraph[] = [];
 
@@ -253,7 +256,9 @@ function buildDocxTable(columns: string[], rows: string[][]): Table {
 
 function htmlIsEmpty(html: string | null | undefined): boolean {
   if (!html) return true;
-  const text = (new DOMParser().parseFromString(html, "text/html").body.textContent ?? "").trim();
+  // A section holding only a restricted / deleted mention still has something to say.
+  const filled = fillMentionLabelsI18n(html);
+  const text = (new DOMParser().parseFromString(filled, "text/html").body.textContent ?? "").trim();
   return !text;
 }
 

@@ -85,7 +85,8 @@ function serve(adr: ArchitectureDecision, post: (path: string) => unknown) {
       await new Promise((r) => setTimeout(r, 0));
       return adr as never;
     }
-    if (path.startsWith("/cards?search=")) return { items: [KAFKA] } as never;
+    if (path.startsWith("/metamodel/")) return [] as never;
+    if (path.startsWith("/cards?")) return { items: [KAFKA], total: 1 } as never;
     return {} as never;
   });
   vi.mocked(api.post).mockImplementation((async (path: string) => {
@@ -224,9 +225,8 @@ describe("ADREditor — one request per workflow action, however often it is cli
     await renderLoaded(base, () => link.promise);
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /Add Card/ }));
-    const dialog = within(await screen.findByRole("dialog"));
-    await user.type(dialog.getByPlaceholderText("Search cards..."), "ka");
-    const row = (await dialog.findByText("Kafka")).closest("[role='button']") as HTMLElement;
+    await screen.findByRole("dialog");
+    const row = await screen.findByRole("option", { name: "Kafka" });
 
     await user.dblClick(row);
     expect(postsTo("/adr/adr-1/cards")).toHaveLength(1);
@@ -246,11 +246,11 @@ describe("ADREditor — one request per workflow action, however often it is cli
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /Add Card/ }));
     const dialog = within(await screen.findByRole("dialog"));
-    await user.type(dialog.getByPlaceholderText("Search cards..."), "ka");
-    await user.click(await dialog.findByText("Kafka"));
+    await user.click(await screen.findByRole("option", { name: "Kafka" }));
     expect(await screen.findByText("Failed to link")).toBeInTheDocument();
 
-    await user.click(dialog.getByText("Kafka"));
+    await user.click(dialog.getByPlaceholderText("Search cards..."));
+    await user.click(await screen.findByRole("option", { name: "Kafka" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(postsTo("/adr/adr-1/cards")).toHaveLength(2);
   });

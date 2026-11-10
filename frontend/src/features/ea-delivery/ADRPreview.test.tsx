@@ -551,3 +551,79 @@ describe("ADRPreview — revision navigation race", () => {
     expect(screen.getAllByText("Revision two").length).toBeGreaterThan(0);
   });
 });
+
+describe("ADRPreview — mentions", () => {
+  const CARD = "0b0e5b1e-6a0e-4c43-9b8e-2d1c4a5f7e01";
+  const OTHER = "1c1f6c2f-7b1f-4d54-8c9f-3e2d5b6a8f02";
+  const withMentions: ArchitectureDecision = {
+    ...adr,
+    context:
+      `<p>uses <span data-type="mention" data-kind="card" data-id="${CARD}">@SAP ERP</span>, ` +
+      '<span data-type="mention" data-kind="card" data-restricted="true" data-token="ab12cd34"></span> and ' +
+      `<span data-type="mention" data-kind="decision" data-id="${OTHER}" data-missing="true"></span></p>`,
+    decision: `<p>per <span data-type="mention" data-kind="decision" data-id="${OTHER}">ADR-0002 Pick a CRM</span></p>`,
+  };
+
+  function renderRouted() {
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.startsWith("/adr/")) return withMentions as never;
+      return {} as never;
+    });
+    return render(
+      <MemoryRouter initialEntries={["/ea-delivery/adr/adr-1/preview"]}>
+        <Routes>
+          <Route path="/ea-delivery/adr/:id/preview" element={<ADRPreview />} />
+          <Route path="/cards/:id" element={<div data-testid="card-page" />} />
+          <Route path="/ea-delivery/adr/:id" element={<div data-testid="decision-page" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+  }
+
+  it("fills the restricted and deleted labels and marks only the card as a link", async () => {
+    renderRouted();
+    const card = await screen.findByText("@SAP ERP");
+    expect(card).toHaveAttribute("role", "link");
+    expect(card).toHaveAttribute("tabindex", "0");
+    const restricted = screen.getByText("Restricted card");
+    expect(restricted).toHaveAttribute("data-restricted", "true");
+    expect(restricted).not.toHaveAttribute("role");
+    const deleted = screen.getByText("Deleted decision");
+    expect(deleted).toHaveAttribute("data-missing", "true");
+    expect(deleted).not.toHaveAttribute("role");
+  });
+
+  it("navigates to the card on click", async () => {
+    renderRouted();
+    await userEvent.click(await screen.findByText("@SAP ERP"));
+    expect(screen.getByTestId("card-page")).toBeInTheDocument();
+  });
+
+  it("navigates on Enter from the keyboard", async () => {
+    renderRouted();
+    const card = await screen.findByText("@SAP ERP");
+    card.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(screen.getByTestId("card-page")).toBeInTheDocument();
+  });
+
+  it("navigates to a decision on Space, and ignores other keys", async () => {
+    renderRouted();
+    const decision = await screen.findByText("ADR-0002 Pick a CRM");
+    expect(decision).toHaveAttribute("role", "link");
+    decision.focus();
+    await userEvent.keyboard("a");
+    expect(screen.queryByTestId("decision-page")).not.toBeInTheDocument();
+    await userEvent.keyboard(" ");
+    expect(screen.getByTestId("decision-page")).toBeInTheDocument();
+  });
+
+  it("does not navigate from a restricted or deleted chip", async () => {
+    renderRouted();
+    await userEvent.click(await screen.findByText("Restricted card"));
+    await userEvent.click(screen.getByText("Deleted decision"));
+    expect(screen.queryByTestId("card-page")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("decision-page")).not.toBeInTheDocument();
+    expect(screen.getByText("@SAP ERP")).toBeInTheDocument();
+  });
+});

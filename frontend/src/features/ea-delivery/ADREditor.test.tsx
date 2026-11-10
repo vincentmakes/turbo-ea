@@ -505,7 +505,7 @@ describe("ADREditor — signed decision", () => {
 describe("ADREditor — linked cards", () => {
   const LINKED = { ...base, linked_cards: [{ id: "card-1", name: "SAP S/4HANA", type: "Application" }] };
 
-  it("searches, links a card and refuses one already linked", async () => {
+  it("links a card through the card picker, offering only cards not yet linked", async () => {
     await renderLoaded(LINKED, (path, body) =>
       path === "/adr/adr-1/cards"
         ? {
@@ -515,50 +515,112 @@ describe("ADREditor — linked cards", () => {
         : {},
     );
     vi.mocked(api.get).mockImplementation(async (path: string) => {
-      if (path.startsWith("/cards?search=")) {
+      if (path.startsWith("/metamodel/")) return [] as never;
+      if (path.startsWith("/cards?")) {
         return {
           items: [
             { id: "card-1", name: "SAP S/4HANA", type: "Application" },
             { id: "card-2", name: "Kafka", type: "ITComponent" },
           ],
+          total: 2,
         } as never;
       }
       return {} as never;
     });
     await userEvent.click(screen.getByRole("button", { name: /Add Card/ }));
     const dialog = within(await screen.findByRole("dialog"));
-    await userEvent.type(dialog.getByPlaceholderText("Search cards..."), "ka");
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/cards?search=ka&page_size=20"));
-    expect(await dialog.findByText("Kafka")).toBeInTheDocument();
+    // The linked card is listed under "Already linked" and not offered.
     expect(dialog.getByText("Already linked")).toBeInTheDocument();
-    expect(dialog.getByText("SAP S/4HANA").closest("[role='button']")).toHaveAttribute("aria-disabled", "true");
+    expect(dialog.getByText("SAP S/4HANA")).toBeInTheDocument();
+    // Browse on open: the standard picker lists cards before anything is typed.
+    expect(await screen.findByRole("option", { name: "Kafka" })).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith("/cards?page=1&page_size=50");
+    expect(screen.queryByRole("option", { name: "SAP S/4HANA" })).toBeNull();
 
-    // Clearing the box clears the results.
-    await userEvent.clear(dialog.getByPlaceholderText("Search cards..."));
-    expect(dialog.queryByText("Kafka")).toBeNull();
-
-    await userEvent.type(dialog.getByPlaceholderText("Search cards..."), "k");
-    await userEvent.click(await dialog.findByText("Kafka"));
+    await userEvent.type(dialog.getByPlaceholderText("Search cards..."), "ka");
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/cards?page=1&page_size=50&search=ka"));
+    await userEvent.click(await screen.findByRole("option", { name: "Kafka" }));
     await waitFor(() => expect(api.post).toHaveBeenCalledWith("/adr/adr-1/cards", { card_id: "card-2" }));
+    expect(api.post).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.getByText("Kafka")).toBeInTheDocument();
   });
 
-  it("keeps the dialog usable when the search fails, reports a failed link, and cancels", async () => {
+  it("reports a failed link and cancels", async () => {
     await renderLoaded(LINKED, () => new Error("x"));
     vi.mocked(api.get).mockImplementation(async (path: string) => {
-      if (path === "/cards?search=x&page_size=20") throw new Error("search down");
-      return { items: [{ id: "card-3", name: "Redis", type: "ITComponent" }] } as never;
+      if (path.startsWith("/metamodel/")) return [] as never;
+      if (path.startsWith("/cards?")) {
+        return { items: [{ id: "card-3", name: "Redis", type: "ITComponent" }], total: 1 } as never;
+      }
+      return {} as never;
     });
     await userEvent.click(screen.getByRole("button", { name: /Add Card/ }));
     const dialog = within(await screen.findByRole("dialog"));
-    await userEvent.type(dialog.getByPlaceholderText("Search cards..."), "x");
-    expect(dialog.queryByText("Redis")).toBeNull();
-    await userEvent.type(dialog.getByPlaceholderText("Search cards..."), "y");
-    await userEvent.click(await dialog.findByText("Redis"));
+    await userEvent.click(await screen.findByRole("option", { name: "Redis" }));
     expect(await screen.findByText("Failed to link", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(api.post).toHaveBeenCalledWith("/adr/adr-1/cards", { card_id: "card-3" });
     await userEvent.click(dialog.getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  describe("link this card", () => {
+    const KAFKA_ID = "0b0e5b1e-6a0e-4c43-9b8e-2d1c4a5f7e01";
+    const SAP_ID = "card-1";
+    const mention = (id: string, label: string) =>
+      `<span data-type="mention" data-kind="card" data-id="${id}">@${label}</span>`;
+    const MENTIONING: ArchitectureDecision = {
+      ...LINKED,
+      context: `<p>uses ${mention(SAP_ID, "SAP S/4HANA")} and ${mention(KAFKA_ID, "Kafka")}</p>`,
+      consequences:
+        `<p>${mention(KAFKA_ID, "Kafka")} ` +
+        '<span data-type="mention" data-kind="card" data-restricted="true" data-token="ab12cd34"></span></p>',
+    };
+
+    it("offers one button per mentioned card that is not linked, and links it", async () => {
+      authState.user = { id: "u1", permissions: { "adr.manage": true } };
+      await renderLoaded(MENTIONING, (path, body) =>
+        path === "/adr/adr-1/cards"
+          ? {
+              ...MENTIONING,
+              linked_cards: [
+                ...LINKED.linked_cards,
+                { id: (body as { card_id: string }).card_id, name: "Kafka", type: "ITComponent" },
+              ],
+            }
+          : {},
+      );
+      const hint = within(screen.getByTestId("mentioned-unlinked"));
+      expect(hint.getByText("Mentioned in the text but not linked:")).toBeInTheDocument();
+      expect(hint.getAllByRole("button").map((b) => b.textContent)).toEqual(["add_linkKafka"]);
+      const button = hint.getByRole("button", { name: "add_link Kafka" });
+      expect(button).toHaveAccessibleDescription("Link this card");
+      await userEvent.click(button);
+      await waitFor(() =>
+        expect(api.post).toHaveBeenCalledWith("/adr/adr-1/cards", { card_id: KAFKA_ID }),
+      );
+      expect(api.post).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(screen.queryByTestId("mentioned-unlinked")).toBeNull());
+    });
+
+    it("is hidden without the permission to link", async () => {
+      authState.user = { id: "u1", permissions: {} };
+      await renderLoaded(MENTIONING);
+      expect(screen.queryByTestId("mentioned-unlinked")).toBeNull();
+    });
+
+    it("is hidden on a signed decision", async () => {
+      authState.user = { id: "u1", permissions: { "adr.manage": true } };
+      await renderLoaded({ ...MENTIONING, status: "signed" });
+      expect(screen.queryByTestId("mentioned-unlinked")).toBeNull();
+    });
+
+    it("is hidden when every mentioned card is linked", async () => {
+      authState.user = { id: "u1", permissions: { "adr.manage": true } };
+      await renderLoaded({ ...MENTIONING, context: `<p>${mention(SAP_ID, "SAP S/4HANA")}</p>`, consequences: null });
+      expect(screen.getByText("SAP S/4HANA")).toBeInTheDocument();
+      expect(screen.queryByTestId("mentioned-unlinked")).toBeNull();
+    });
   });
 
   it("unlinks a card, and reports a failed unlink", async () => {

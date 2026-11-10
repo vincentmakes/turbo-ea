@@ -18,13 +18,13 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
-import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Link from "@mui/material/Link";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import CardPicker from "@/components/CardPicker";
 import { DateField } from "@/components/DateField";
 import RichTextEditor from "./RichTextEditor";
 import SignatureRequestDialog from "./SignatureRequestDialog";
@@ -49,6 +49,8 @@ import {
   type SavePayload,
 } from "./adrEditorModel";
 import { hasUnsavedEdits } from "./editorDirty";
+import { unlinkedMentionedCards } from "./mentions/mentionModel";
+import type { MentionKind } from "@/lib/mentionHtml";
 import { api, ApiError } from "@/api/client";
 import { useSubmitOnce } from "@/hooks/useSubmitOnce";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
@@ -59,7 +61,6 @@ import { hasPermission } from "@/components/RequirePermission";
 import { ExtensionBoundary, ExtensionSlot, useExtensionAdrPanels } from "@/lib/extensionHost";
 import { printAdr } from "./adrPrint";
 import type {
-  Card,
   ArchitectureDecision,
   DecisionLinkInput,
   DecisionPerson,
@@ -68,6 +69,8 @@ import type {
 import { STATUS_COLORS as STATUS_HUES } from "@/theme/tokens";
 
 const CHANGE_SUMMARY_MAX = 2000;
+/** What "@" offers in a decision's text. */
+const DOCUMENT_MENTIONS: MentionKind[] = ["card", "decision"];
 
 export default function ADREditor() {
   const { t } = useTranslation(["delivery", "common"]);
@@ -168,8 +171,6 @@ export default function ADREditor() {
 
   // Card link dialog
   const [cardLinkOpen, setCardLinkOpen] = useState(false);
-  const [cardSearch, setCardSearch] = useState("");
-  const [searchResults, setSearchResults] = useState<Card[]>([]);
 
   const isSigned = status === "signed";
   const access = editorAccess(status, isNew);
@@ -474,27 +475,7 @@ export default function ADREditor() {
   };
 
   // Card linking
-  const openCardLink = () => {
-    setCardLinkOpen(true);
-    setCardSearch("");
-    setSearchResults([]);
-  };
-
-  const searchCards = async (q: string) => {
-    setCardSearch(q);
-    if (!q.trim()) {
-      setSearchResults([]);
-      return;
-    }
-    try {
-      const res = await api.get<{ items: Card[] }>(
-        `/cards?search=${encodeURIComponent(q)}&page_size=20`,
-      );
-      setSearchResults(res.items);
-    } catch {
-      /* ignore */
-    }
-  };
+  const openCardLink = () => setCardLinkOpen(true);
 
   const handleLinkCard = (cardId: string) =>
     action.run(async () => {
@@ -520,6 +501,12 @@ export default function ADREditor() {
       setError(t("cards:resources.error.unlinkFailed"));
     }
   };
+
+  // Cards the text mentions that are not linked: offered one click each.
+  const mentionedUnlinked = unlinkedMentionedCards(
+    [context, decision, consequences, alternatives].join(""),
+    linkedCards.map((c) => c.id),
+  );
 
   const currentUserIsSignatory = signatories.some(
     (s) => s.user_id === currentUserId && s.status === "pending",
@@ -829,6 +816,7 @@ export default function ADREditor() {
           {t("adr.contextHint")}
         </Typography>
         <RichTextEditor
+          mentions={DOCUMENT_MENTIONS}
           content={context}
           onChange={setContext}
           readOnly={locked}
@@ -845,6 +833,7 @@ export default function ADREditor() {
           {t("adr.decisionHint")}
         </Typography>
         <RichTextEditor
+          mentions={DOCUMENT_MENTIONS}
           content={decision}
           onChange={setDecision}
           readOnly={locked}
@@ -861,6 +850,7 @@ export default function ADREditor() {
           {t("adr.alternativesHint")}
         </Typography>
         <RichTextEditor
+          mentions={DOCUMENT_MENTIONS}
           content={alternatives}
           onChange={setAlternatives}
           readOnly={locked}
@@ -877,6 +867,7 @@ export default function ADREditor() {
           {t("adr.consequencesHint")}
         </Typography>
         <RichTextEditor
+          mentions={DOCUMENT_MENTIONS}
           content={consequences}
           onChange={setConsequences}
           readOnly={locked}
@@ -1058,6 +1049,30 @@ export default function ADREditor() {
               ))}
             </List>
           )}
+          {access.cardsEditable && canManage && mentionedUnlinked.length > 0 && (
+            <Box sx={{ mt: 2 }} data-testid="mentioned-unlinked">
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                {t("adr.editor.mentionedNotLinked")}
+              </Typography>
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                {mentionedUnlinked.map((card) => (
+                  // describeChild: the card's name stays the button's name.
+                  <Tooltip key={card.id} title={t("adr.editor.linkThisCard")} describeChild>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<MaterialSymbol icon="add_link" size={18} />}
+                      onClick={() => handleLinkCard(card.id)}
+                      disabled={action.busy}
+                      sx={{ textTransform: "none" }}
+                    >
+                      {card.label}
+                    </Button>
+                  </Tooltip>
+                ))}
+              </Box>
+            </Box>
+          )}
         </Paper>
       )}
 
@@ -1175,39 +1190,32 @@ export default function ADREditor() {
       >
         <DialogTitle>{t("adr.editor.linkCard")}</DialogTitle>
         <DialogContent>
-          <TextField
+          <CardPicker
+            value={null}
+            onChange={(card) => {
+              if (card) handleLinkCard(card.id);
+            }}
+            excludeIds={linkedCards.map((c) => c.id)}
+            enabled={cardLinkOpen}
             autoFocus
-            placeholder={t("adr.editor.searchCards")}
             fullWidth
             size="small"
-            value={cardSearch}
-            onChange={(e) => searchCards(e.target.value)}
-            sx={{ mt: 1, mb: 2 }}
+            placeholder={t("adr.editor.searchCards")}
+            disabled={action.busy}
+            sx={{ mt: 1 }}
           />
-          <List dense>
-            {searchResults.map((card) => {
-              const alreadyLinked = linkedCards.some((lc) => lc.id === card.id);
-              return (
-                <ListItemButton
-                  key={card.id}
-                  onClick={() => !alreadyLinked && handleLinkCard(card.id)}
-                  disabled={alreadyLinked}
-                >
-                  <ListItemText
-                    primary={card.name}
-                    secondary={card.type}
-                  />
-                  {alreadyLinked && (
-                    <Chip
-                      label={t("adr.editor.alreadyLinked")}
-                      size="small"
-                      variant="outlined"
-                    />
-                  )}
-                </ListItemButton>
-              );
-            })}
-          </List>
+          {linkedCards.length > 0 && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 0.5 }}>
+                {t("adr.editor.alreadyLinked")}
+              </Typography>
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                {linkedCards.map((card) => (
+                  <Chip key={card.id} label={card.name} size="small" variant="outlined" />
+                ))}
+              </Box>
+            </Box>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCardLinkOpen(false)}>

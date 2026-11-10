@@ -436,3 +436,54 @@ describe("SoAWPreview — revision navigation race", () => {
     expect(screen.getAllByText("Revision two").length).toBeGreaterThan(0);
   });
 });
+
+describe("SoAWPreview — mentions", () => {
+  const CARD = "0b0e5b1e-6a0e-4c43-9b8e-2d1c4a5f7e01";
+  const WITH_MENTIONS: SoAW = {
+    ...SOAW,
+    sections: {
+      "1.1": {
+        content:
+          `<p>scope: <span data-type="mention" data-kind="card" data-id="${CARD}">@SAP ERP</span> ` +
+          '<span data-type="mention" data-kind="decision" data-restricted="true" data-token="ab12cd34"></span></p>',
+        hidden: false,
+      },
+      custom_7: {
+        content: `<p><span data-type="mention" data-kind="card" data-id="${CARD}" data-missing="true"></span></p>`,
+        hidden: false,
+        title: "Appendix A",
+        insertAfter: "1.1",
+      } as CustomSection,
+    },
+  };
+
+  function renderRouted() {
+    mockApi.on("get", "/soaw/s1", WITH_MENTIONS);
+    return renderWithProviders(<SoAWPreview />, {
+      route: "/ea-delivery/soaw/s1/preview",
+      routes: [
+        { path: "/ea-delivery/soaw/:id/preview" },
+        { path: "/cards/:id", element: <div>card page</div> },
+      ],
+    });
+  }
+
+  it("fills the restricted and deleted labels, in template and custom sections", async () => {
+    renderRouted();
+    const card = await within(await waitFor(previewBody)).findByText("@SAP ERP");
+    expect(card).toHaveAttribute("role", "link");
+    const restricted = within(previewBody()).getByText("Restricted decision");
+    expect(restricted).not.toHaveAttribute("role");
+    const deleted = within(previewBody()).getByText("Deleted card");
+    expect(deleted).toHaveAttribute("data-missing", "true");
+    expect(deleted).not.toHaveAttribute("role");
+  });
+
+  it("navigates from a card chip, not from a restricted one", async () => {
+    const { user } = renderRouted();
+    await user.click(await screen.findByText("Restricted decision"));
+    expect(screen.queryByText("card page")).not.toBeInTheDocument();
+    await user.click(screen.getByText("@SAP ERP"));
+    expect(await screen.findByText("card page")).toBeInTheDocument();
+  });
+});

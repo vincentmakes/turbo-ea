@@ -57,6 +57,7 @@ import {
   type SoawEditorFields,
 } from "./soawEditorState";
 import { hasUnsavedEdits } from "./editorDirty";
+import type { MentionKind } from "@/lib/mentionHtml";
 import { api } from "@/api/client";
 import { useSubmitOnce } from "@/hooks/useSubmitOnce";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
@@ -68,6 +69,9 @@ import { DELIVERABLE_COLORS, RAG_COLORS, WARNING_STRONG_COLOR, brand } from "@/t
 // ─── constants ──────────────────────────────────────────────────────────────
 
 // ─── component ──────────────────────────────────────────────────────────────
+
+/** What "@" offers in a SoAW's text. */
+const DOCUMENT_MENTIONS: MentionKind[] = ["card", "decision"];
 
 export default function SoAWEditor() {
   const { t } = useTranslation(["delivery", "common"]);
@@ -962,6 +966,7 @@ export default function SoAWEditor() {
                 )}
               </Box>
               <RichTextEditor
+                mentions={DOCUMENT_MENTIONS}
                 content={cs.content}
                 onChange={(html) => updateCustomContent(cs.id, html)}
                 placeholder={t("editor.enterContent")}
@@ -1038,6 +1043,7 @@ export default function SoAWEditor() {
 
               {def.type === "rich_text" && (
                 <RichTextEditor
+                  mentions={DOCUMENT_MENTIONS}
                   content={data.content}
                   onChange={(html) =>
                     updateSection(def.id, { content: html })

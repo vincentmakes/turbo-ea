@@ -19,6 +19,7 @@ import { buildPreviewBody, exportToPdf, PREVIEW_CSS } from "./soawExport";
 import { SoawBanners } from "./DecisionBanners";
 import RevisionStrip, { soawRevisionItems } from "./RevisionStrip";
 import { soawCurrentRevisionId } from "./soawEditorState";
+import MentionContainer from "./mentions/MentionContainer";
 import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useDateFormat } from "@/hooks/useDateFormat";
@@ -213,11 +214,13 @@ export default function SoAWPreview() {
 
       {/* Styled preview content */}
       <style>{PREVIEW_CSS}</style>
-      <Box
-        className="soaw-preview"
-        sx={{ maxWidth: 800, mx: "auto", px: { xs: 1, sm: 0 } }}
-        dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(bodyHtml) }}
-      />
+      <MentionContainer>
+        <Box
+          className="soaw-preview"
+          sx={{ maxWidth: 800, mx: "auto", px: { xs: 1, sm: 0 } }}
+          dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(bodyHtml) }}
+        />
+      </MentionContainer>
 
       {/* Signature Block */}
       {(soaw.signatories ?? []).length > 0 && (

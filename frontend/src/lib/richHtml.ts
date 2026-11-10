@@ -30,10 +30,37 @@ type Purifier = ReturnType<typeof createDOMPurify>;
 
 let purifier: Purifier | null = null;
 
+/**
+ * A mention of a card or decision the reader can open becomes a keyboard-
+ * reachable link (`role="link"`, `tabindex="0"`); the preview navigates on it
+ * with one delegated handler (`MentionContainer`). No href: the sanitiser
+ * strips relative ones. A person, a restricted mention (no id) and a target
+ * that is gone get neither, whatever the stored HTML claimed.
+ */
+function markMentionLink(node: Element): void {
+  const kind = node.getAttribute("data-kind");
+  const linkable =
+    (kind === "card" || kind === "decision") &&
+    Boolean(node.getAttribute("data-id")) &&
+    node.getAttribute("data-restricted") !== "true" &&
+    node.getAttribute("data-missing") !== "true";
+  if (linkable) {
+    node.setAttribute("role", "link");
+    node.setAttribute("tabindex", "0");
+  } else {
+    node.removeAttribute("role");
+    node.removeAttribute("tabindex");
+  }
+}
+
 function getPurifier(): Purifier {
   if (purifier) return purifier;
   const p = createDOMPurify(window);
   p.addHook("afterSanitizeAttributes", (node) => {
+    if (node.nodeName === "SPAN" && node.getAttribute("data-type") === "mention") {
+      markMentionLink(node);
+      return;
+    }
     if (node.nodeName !== "A") return;
     // Stryker disable next-line StringLiteral: an absent href is unlinkable whatever it defaults to
     const href = node.getAttribute("href") ?? "";

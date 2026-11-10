@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router";
 import { sanitizeRichHtml } from "@/lib/richHtml";
+import { fillMentionLabels } from "@/lib/mentionHtml";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -32,6 +33,8 @@ import DecisionFilesSection from "./DecisionFilesSection";
 import { DecisionStandingChip, DecisionStatusChip } from "./DecisionStandingChip";
 import { DATE_LABEL_KEYS, decisionRefLabel } from "./decisionStanding";
 import { currentRevisionId } from "./adrEditorModel";
+import MentionContainer from "./mentions/MentionContainer";
+import { useMentionLabels } from "./mentions/mentionLabels";
 import type { ArchitectureDecision } from "@/types";
 import { RAG_COLORS, WARNING_STRONG_COLOR, brand } from "@/theme/tokens";
 
@@ -49,6 +52,7 @@ export default function ADRPreview() {
   const compact = useMediaQuery(theme.breakpoints.down("sm"));
   const { user } = useAuth();
   const adrPanels = useExtensionAdrPanels();
+  const mentionLabels = useMentionLabels();
 
   const [adr, setAdr] = useState<ArchitectureDecision | null>(null);
   usePageSubject(adr?.title);
@@ -220,27 +224,31 @@ export default function ADRPreview() {
         </Typography>
 
         {/* Sections */}
-        {sections.map(({ key, label, content }) => (
-          <Box key={key} sx={{ mb: 4 }}>
-            <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-              {label}
-            </Typography>
-            {content ? (
-              <Box
-                dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(content) }}
-                sx={{
-                  "& p": { mt: 0, mb: 1 },
-                  "& ul, & ol": { pl: 3 },
-                  lineHeight: 1.7,
-                }}
-              />
-            ) : (
-              <Typography variant="body2" color="text.secondary" fontStyle="italic">
-                -
+        <MentionContainer>
+          {sections.map(({ key, label, content }) => (
+            <Box key={key} sx={{ mb: 4 }}>
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                {label}
               </Typography>
-            )}
-          </Box>
-        ))}
+              {content ? (
+                <Box
+                  dangerouslySetInnerHTML={{
+                    __html: sanitizeRichHtml(fillMentionLabels(content, mentionLabels)),
+                  }}
+                  sx={{
+                    "& p": { mt: 0, mb: 1 },
+                    "& ul, & ol": { pl: 3 },
+                    lineHeight: 1.7,
+                  }}
+                />
+              ) : (
+                <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                  -
+                </Typography>
+              )}
+            </Box>
+          ))}
+        </MentionContainer>
 
         {/* Dates */}
         {DATE_FIELDS.some((f) => adr[f]) && (

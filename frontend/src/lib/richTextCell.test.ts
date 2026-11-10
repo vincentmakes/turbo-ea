@@ -2,6 +2,18 @@ import { describe, expect, it } from "vitest";
 import { htmlToPlainText, looksLikeHtml, plainTextToHtml } from "./richTextCell";
 
 describe("htmlToPlainText", () => {
+  it("fills empty restricted / deleted mentions only when given labels", () => {
+    const html =
+      '<p>a <span data-type="mention" data-kind="card" data-restricted="true" data-token="ab12cd34"></span> ' +
+      '<span data-type="mention" data-kind="card" data-id="x" data-missing="true"></span></p>';
+    const labels = {
+      restricted: { card: "R-card", decision: "R-dec", user: "R-user", other: "R" },
+      missing: { card: "M-card", decision: "M-dec", user: "M-user", other: "M" },
+    };
+    expect(htmlToPlainText(html, labels)).toBe("a R-card M-card");
+    expect(htmlToPlainText(html)).toBe("a");
+  });
+
   it("returns an empty string for nothing", () => {
     expect(htmlToPlainText(null)).toBe("");
     expect(htmlToPlainText(undefined)).toBe("");

@@ -174,3 +174,37 @@ describe("useCardSearch superseding", () => {
     expect(result.current.loading).toBe(false);
   });
 });
+
+describe("useCardSearch errorStatus", () => {
+  beforeEach(() => {
+    vi.mocked(api.get).mockReset();
+  });
+
+  it("reports the status of a refused first page and clears it on success", async () => {
+    vi.mocked(api.get)
+      .mockRejectedValueOnce(Object.assign(new Error("Forbidden"), { status: 403 }))
+      .mockResolvedValueOnce(page([{ id: "a", name: "Alpha", type: "Application" }], 1));
+    const { result, rerender } = renderHook(
+      ({ search }) => useCardSearch({ types: [], search, enabled: true }),
+      { initialProps: { search: "" } },
+    );
+    expect(result.current.errorStatus).toBeNull();
+    await waitFor(() => expect(result.current.errorStatus).toBe(403));
+    expect(result.current.items).toEqual([]);
+
+    rerender({ search: "al" });
+    await waitFor(() => expect(result.current.items).toHaveLength(1));
+    expect(result.current.errorStatus).toBeNull();
+  });
+
+  it("reports 0 for a failure without a status, and null once disabled", async () => {
+    vi.mocked(api.get).mockRejectedValueOnce(new Error("offline"));
+    const { result, rerender } = renderHook(
+      ({ enabled }) => useCardSearch({ types: [], search: "", enabled }),
+      { initialProps: { enabled: true } },
+    );
+    await waitFor(() => expect(result.current.errorStatus).toBe(0));
+    rerender({ enabled: false });
+    await waitFor(() => expect(result.current.errorStatus).toBeNull());
+  });
+});

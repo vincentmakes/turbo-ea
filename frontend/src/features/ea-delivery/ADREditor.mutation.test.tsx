@@ -142,7 +142,7 @@ interface ServeOptions {
   patch?: Reply;
   /** Overrides the loaded record — may return a promise to hold the load. */
   adr?: () => unknown;
-  /** Answers `/cards?search=…`. */
+  /** Answers the card picker's `/cards?…` search. */
   cards?: (path: string) => unknown;
 }
 
@@ -169,8 +169,9 @@ function serve(adr: ArchitectureDecision, opts: ServeOptions = {}) {
       await new Promise((r) => setTimeout(r, 0));
       return (await (opts.adr ? opts.adr() : adr)) as never;
     }
-    if (path.startsWith("/cards?search=")) {
-      return (opts.cards ? opts.cards(path) : { items: [] }) as never;
+    if (path.startsWith("/metamodel/")) return [] as never;
+    if (path.startsWith("/cards?")) {
+      return (opts.cards ? opts.cards(path) : { items: [], total: 0 }) as never;
     }
     return {} as never;
   });
@@ -867,73 +868,59 @@ describe("ADREditor — linking cards", () => {
   const KAFKA = { id: "card-2", name: "Kafka", type: "ITComponent" };
   const SAP = { id: "card-1", name: "SAP S/4HANA", type: "Application" };
 
-  it("the picker starts empty, ignores blank input, and closes with Escape", async () => {
-    await renderLoaded(base, { cards: () => ({ items: [KAFKA] }) });
+  it("the picker browses on open, searches what is typed, and closes with Escape", async () => {
+    await renderLoaded(base, { cards: () => ({ items: [KAFKA], total: 1 }) });
     const user = userEvent.setup();
-    const optionButtons = () =>
-      within(screen.getByRole("dialog"))
-        .queryAllByRole("button")
-        .filter((b) => b.textContent !== "Cancel");
-
     await user.click(screen.getByRole("button", { name: /Add Card/ }));
     const dialog = within(await screen.findByRole("dialog"));
     expect(dialog.getByRole("heading", { name: "Link Card" })).toBeInTheDocument();
-    expect(optionButtons()).toHaveLength(0);
-
-    const box = dialog.getByPlaceholderText("Search cards...");
-    await user.type(box, "ka");
-    const kafka = (await dialog.findByText("Kafka")).closest("[role='button']") as HTMLElement;
-    // Nothing is linked yet, so nothing is marked as such.
-    expect(kafka).not.toHaveAttribute("aria-disabled", "true");
+    // Nothing is linked yet: no "Already linked" block.
     expect(dialog.queryByText("Already linked")).toBeNull();
+    expect(await screen.findByRole("option", { name: "Kafka" })).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith("/cards?page=1&page_size=50");
 
-    await user.clear(box);
-    expect(optionButtons()).toHaveLength(0);
-    await user.type(box, " ");
-    expect(api.get).not.toHaveBeenCalledWith("/cards?search=%20&page_size=20");
+    await user.type(dialog.getByPlaceholderText("Search cards..."), "ka");
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/cards?page=1&page_size=50&search=ka"));
 
     await user.keyboard("{Escape}");
+    await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(api.post).not.toHaveBeenCalled();
   });
 
-  it("reopening the picker drops the previous results", async () => {
-    await renderLoaded(base, { cards: () => ({ items: [KAFKA] }) });
+  it("reopening the picker starts from an empty search", async () => {
+    await renderLoaded(base, { cards: () => ({ items: [KAFKA], total: 1 }) });
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /Add Card/ }));
     let dialog = within(await screen.findByRole("dialog"));
     await user.type(dialog.getByPlaceholderText("Search cards..."), "ka");
-    await dialog.findByText("Kafka");
     await user.click(dialog.getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 
     await user.click(screen.getByRole("button", { name: /Add Card/ }));
     dialog = within(await screen.findByRole("dialog"));
     expect(dialog.getByPlaceholderText("Search cards...")).toHaveValue("");
-    expect(dialog.queryAllByRole("button").filter((b) => b.textContent !== "Cancel")).toHaveLength(0);
   });
 
-  it("marks only the card that is already linked", async () => {
-    await renderLoaded({ ...base, linked_cards: [SAP] }, { cards: () => ({ items: [SAP, KAFKA] }) });
+  it("offers only the cards not yet linked, and lists the linked ones", async () => {
+    await renderLoaded({ ...base, linked_cards: [SAP] }, { cards: () => ({ items: [SAP, KAFKA], total: 2 }) });
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /Add Card/ }));
     const dialog = within(await screen.findByRole("dialog"));
-    await user.type(dialog.getByPlaceholderText("Search cards..."), "a");
-    const kafka = (await dialog.findByText("Kafka")).closest("[role='button']") as HTMLElement;
-    const sap = dialog.getByText("SAP S/4HANA").closest("[role='button']") as HTMLElement;
-    expect(within(sap).getByText("Already linked")).toBeInTheDocument();
-    expect(within(kafka).queryByText("Already linked")).toBeNull();
+    expect(await screen.findByRole("option", { name: "Kafka" })).toBeInTheDocument();
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["Kafka"]);
+    expect(dialog.getByText("Already linked")).toBeInTheDocument();
+    expect(dialog.getByText("SAP S/4HANA")).toBeInTheDocument();
   });
 
   it("a link reply that carries no cards leaves the list empty", async () => {
     await renderLoaded(base, {
-      cards: () => ({ items: [KAFKA] }),
+      cards: () => ({ items: [KAFKA], total: 1 }),
       post: () => ({ ...base, linked_cards: undefined }),
     });
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /Add Card/ }));
-    const dialog = within(await screen.findByRole("dialog"));
-    await user.type(dialog.getByPlaceholderText("Search cards..."), "ka");
-    await user.click(await dialog.findByText("Kafka"));
+    await user.click(await screen.findByRole("option", { name: "Kafka" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(api.post).toHaveBeenCalledWith("/adr/adr-1/cards", { card_id: "card-2" });
     expect(screen.getByText("No cards linked to this decision.")).toBeInTheDocument();

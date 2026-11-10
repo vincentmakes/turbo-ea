@@ -232,3 +232,24 @@ describe("adrPrintDocument / printAdr", () => {
     vi.useRealTimers();
   });
 });
+
+describe("buildAdrPrintBody — mentions", () => {
+  it("fills restricted and deleted mention labels, leaving resolved ones as written", () => {
+    const html = buildAdrPrintBody(
+      adr({
+        context:
+          '<p><span data-type="mention" data-kind="card" data-restricted="true" data-token="ab12cd34"></span> ' +
+          '<span data-type="mention" data-kind="card" data-id="0b0e5b1e-6a0e-4c43-9b8e-2d1c4a5f7e01">@SAP ERP</span></p>',
+        decision:
+          '<p><span data-type="mention" data-kind="decision" data-id="1c1f6c2f-7b1f-4d54-8c9f-3e2d5b6a8f02" data-missing="true"></span></p>',
+      }),
+    );
+    expect(html).toContain(
+      '<p><span data-type="mention" data-kind="card" data-restricted="true" data-token="ab12cd34">Restricted card</span> ' +
+        '<span data-type="mention" data-kind="card" data-id="0b0e5b1e-6a0e-4c43-9b8e-2d1c4a5f7e01">@SAP ERP</span></p>',
+    );
+    expect(html).toContain(
+      '<p><span data-type="mention" data-kind="decision" data-id="1c1f6c2f-7b1f-4d54-8c9f-3e2d5b6a8f02" data-missing="true">Deleted decision</span></p>',
+    );
+  });
+});
