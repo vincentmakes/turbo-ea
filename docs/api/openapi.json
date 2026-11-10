@@ -482,6 +482,34 @@
         "title": "ADRPersonIn",
         "type": "object"
       },
+      "ADRRecordRequest": {
+        "additionalProperties": false,
+        "description": "Body of ``POST /adr/{id}/record``: when a decision taken outside Turbo EA was made.",
+        "properties": {
+          "decided_on": {
+            "format": "date",
+            "title": "Decided On",
+            "type": "string"
+          },
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
+          }
+        },
+        "required": [
+          "decided_on"
+        ],
+        "title": "ADRRecordRequest",
+        "type": "object"
+      },
       "ADRRejectRequest": {
         "properties": {
           "comment": {
@@ -1552,6 +1580,20 @@
           "file"
         ],
         "title": "Body_replace_file_attachment_api_v1_file_attachments__attachment_id__content_put",
+        "type": "object"
+      },
+      "Body_upload_adr_file_api_v1_adr__adr_id__files_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_adr_file_api_v1_adr__adr_id__files_post",
         "type": "object"
       },
       "Body_upload_bundle_api_v1_admin_extensions_install_post": {
@@ -21140,6 +21182,44 @@
             }
           },
           {
+            "description": "Only decisions decided on or after this date (signed or recorded)",
+            "in": "query",
+            "name": "decided_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only decisions decided on or after this date (signed or recorded)",
+              "title": "Decided From"
+            }
+          },
+          {
+            "description": "Only decisions decided on or before this date (signed or recorded)",
+            "in": "query",
+            "name": "decided_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only decisions decided on or before this date (signed or recorded)",
+              "title": "Decided To"
+            }
+          },
+          {
             "description": "Also return every section's text and related decision references (the spreadsheet export)",
             "in": "query",
             "name": "include_content",
@@ -21616,6 +21696,191 @@
         ]
       }
     },
+    "/api/v1/adr/{adr_id}/files": {
+      "get": {
+        "description": "The files on a decision, oldest first.",
+        "operationId": "list_adr_files_api_v1_adr__adr_id__files_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Adr Files",
+        "tags": [
+          "adr"
+        ]
+      },
+      "post": {
+        "description": "Attach a file to a draft decision. Same checks as a card attachment.",
+        "operationId": "upload_adr_file_api_v1_adr__adr_id__files_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_adr_file_api_v1_adr__adr_id__files_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Adr File",
+        "tags": [
+          "adr"
+        ]
+      }
+    },
+    "/api/v1/adr/{adr_id}/files/{attachment_id}": {
+      "delete": {
+        "description": "Remove a file from a draft decision; its bytes go once no decision shares them.",
+        "operationId": "delete_adr_file_api_v1_adr__adr_id__files__attachment_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "attachment_id",
+            "required": true,
+            "schema": {
+              "title": "Attachment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Adr File",
+        "tags": [
+          "adr"
+        ]
+      }
+    },
+    "/api/v1/adr/{adr_id}/files/{attachment_id}/download": {
+      "get": {
+        "description": "One file of a decision, as a download.",
+        "operationId": "download_adr_file_api_v1_adr__adr_id__files__attachment_id__download_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "attachment_id",
+            "required": true,
+            "schema": {
+              "title": "Attachment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download Adr File",
+        "tags": [
+          "adr"
+        ]
+      }
+    },
     "/api/v1/adr/{adr_id}/recall-signatures": {
       "post": {
         "description": "Recall all pending signature requests. Resets status to draft and\nclears signatories.",
@@ -21652,6 +21917,57 @@
           }
         },
         "summary": "Recall Adr Signatures",
+        "tags": [
+          "adr"
+        ]
+      }
+    },
+    "/api/v1/adr/{adr_id}/record": {
+      "post": {
+        "description": "Record a draft as a decision already taken outside Turbo EA.\n\nThe decision locks like a signed one (``status`` ``signed``) with\n``recorded_at`` / ``recorded_by`` set instead of signatures. Draft only\n(409 ``not_draft``); at least one decision maker, ``decided_on`` not in\nthe future and, on a revision, not before the revised decision's date\n(400 ``invalid_record``); then the same lock checks as a request for\nsignatures (409).",
+        "operationId": "record_adr_api_v1_adr__adr_id__record_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ADRRecordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Adr",
         "tags": [
           "adr"
         ]

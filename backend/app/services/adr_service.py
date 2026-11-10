@@ -24,20 +24,27 @@ from __future__ import annotations
 
 import re
 import uuid
-from collections.abc import Iterable, Sequence
-from datetime import date
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
+from datetime import date, datetime
 from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.architecture_decision_file import ArchitectureDecisionFile
 from app.models.architecture_decision_link import ArchitectureDecisionLink
 from app.models.card import Card
-from app.services import decision_link_service, decision_people_service
+from app.services import (
+    adr_file_service,
+    decision_link_service,
+    decision_people_service,
+    notification_service,
+)
 from app.services import decision_standing as ds
 from app.services import revision_chain as rc
 from app.services.event_bus import event_bus
@@ -329,19 +336,26 @@ def check_dates(
         raise date_error(problems)
 
 
-def lock_refusal(register: ds.Register, adr: ArchitectureDecision) -> dict[str, Any] | None:
+def lock_refusal(
+    register: ds.Register,
+    adr: ArchitectureDecision,
+    *,
+    decided_on: date | None = None,
+    effective_from: date | None = None,
+) -> dict[str, Any] | None:
     """Why the decision may not be sent for signature now, as a 409 detail, or ``None``.
 
     Every link target must be signed and the decision's own chain must not be
     revoked or replaced (:func:`decision_standing.validate_lock`); its dates
     must hold once the signing date fills an empty ``effective_from``:
     ``valid_until`` not past nor before ``effective_from``, ``decided_on`` not
-    in the future.
+    in the future. ``decided_on`` / ``effective_from`` check the dates a lock
+    is about to write (record as decided) instead of the stored ones.
     """
     today = register.today
     problems = ds.validate_lock(register, adr.id) + ds.validate_dates(
-        adr.decided_on,
-        adr.effective_from or today,
+        decided_on or adr.decided_on,
+        effective_from or adr.effective_from or today,
         adr.valid_until,
         today=today,
         at_lock=True,
@@ -395,6 +409,174 @@ def apply_lock_dates(adr: ArchitectureDecision, signed_on: date) -> None:
         adr.decided_on = signed_on
     if adr.effective_from is None:
         adr.effective_from = signed_on
+
+
+# --- record as decided --------------------------------------------------------
+
+#: Record-as-decided problems besides ``decision_standing.DECIDED_ON_FUTURE``.
+NO_DECISION_MAKER = "no_decision_maker"
+DECIDED_BEFORE_PARENT = "decided_before_parent"
+
+
+def parent_decided_on(register: ds.Register, adr: ArchitectureDecision) -> date | None:
+    """The decided date of the revision ``adr`` was made from, when it has one."""
+    if adr.parent_id is None or adr.parent_id not in register:
+        return None
+    return register.row(adr.parent_id).decided_on
+
+
+def record_problems(
+    *,
+    decided_on: date,
+    today: date,
+    decision_maker_count: int,
+    parent_decided: date | None,
+) -> list[str]:
+    """Why a draft may not be recorded as decided on ``decided_on``, in order.
+
+    At least one decision maker must be named, the decision cannot have been
+    taken after today, and a revision cannot have been decided before the
+    revision it revises.
+    """
+    problems: list[str] = []
+    if decision_maker_count < 1:
+        problems.append(NO_DECISION_MAKER)
+    if decided_on > today:
+        problems.append(ds.DECIDED_ON_FUTURE)
+    if parent_decided is not None and decided_on < parent_decided:
+        problems.append(DECIDED_BEFORE_PARENT)
+    return problems
+
+
+def record_decision(
+    adr: ArchitectureDecision,
+    *,
+    decided_on: date,
+    effective_from: date | None,
+    recorded_by: uuid.UUID,
+    now: datetime,
+) -> None:
+    """Lock a draft as recorded rather than signed (in memory; the caller flushes).
+
+    ``status`` becomes ``signed`` so every lock check holds, but ``signed_at``
+    stays empty and there are no signatories: ``recorded_at`` /
+    ``recorded_by`` say who recorded it and when. ``effective_from`` defaults
+    to ``decided_on``.
+    """
+    adr.status = ds.LOCKED_STATUS
+    adr.decided_on = decided_on
+    adr.effective_from = effective_from if effective_from is not None else decided_on
+    adr.recorded_by = recorded_by
+    adr.recorded_at = now
+    adr.signed_at = None
+    adr.signatories = []
+    flag_modified(adr, "signatories")
+
+
+# --- standing-changed notifications ---------------------------------------------
+
+#: The link kinds that change the standing of their target when the source locks.
+STANDING_NOTICE_KINDS: tuple[str, ...] = (ds.REPLACES, ds.AMENDS, ds.REVOKES)
+
+#: How a notification says each kind.
+STANDING_NOTICE_VERBS: Mapping[str, str] = {
+    ds.REPLACES: "replaces",
+    ds.AMENDS: "amends",
+    ds.REVOKES: "revokes",
+}
+
+
+@dataclass(frozen=True)
+class StandingNotice:
+    """Tell ``recipient_id`` that the locking decision ``kind``s ``target_id``."""
+
+    recipient_id: uuid.UUID
+    target_id: Any
+    kind: str
+
+
+def standing_notices(
+    links: Iterable[ds.LinkRow],
+    authors: Mapping[Any, uuid.UUID | None],
+    *,
+    actor_id: uuid.UUID | None,
+) -> list[StandingNotice]:
+    """Who to tell when a decision with outgoing ``links`` locks.
+
+    The author of each decision it replaces, amends or revokes, once per
+    author and target, never the person who locked it. ``authors`` maps a
+    target id to its ``created_by``; a target with no author is skipped.
+    """
+    notices: list[StandingNotice] = []
+    seen: set[tuple[uuid.UUID, Any]] = set()
+    for lk in links:
+        if lk.kind not in STANDING_NOTICE_KINDS:
+            continue
+        author = authors.get(lk.target_id)
+        if author is None or author == actor_id:
+            continue
+        key = (author, lk.target_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        notices.append(StandingNotice(recipient_id=author, target_id=lk.target_id, kind=lk.kind))
+    return notices
+
+
+def standing_notice_message(source_label: str, kind: str, target_label: str) -> str:
+    """``'"ADR-051 — New" replaces "ADR-012 — Old"'``."""
+    return f'"{source_label}" {STANDING_NOTICE_VERBS[kind]} "{target_label}"'
+
+
+async def notify_standing_changed(
+    db: AsyncSession,
+    adr: ArchitectureDecision,
+    register: ds.Register,
+    *,
+    actor_id: uuid.UUID | None,
+) -> int:
+    """Notify the authors of the decisions ``adr`` replaces, amends or revokes.
+
+    Called once, when ``adr`` locks (its final signature, or recording it as
+    decided). Returns the number of notices sent.
+    """
+    links = [lk for lk in register.outgoing(adr.id) if lk.kind in STANDING_NOTICE_KINDS]
+    if not links:
+        return 0
+    targets = {
+        row.id: row
+        for row in (
+            await db.execute(
+                select(ArchitectureDecision).where(
+                    ArchitectureDecision.id.in_({lk.target_id for lk in links})
+                )
+            )
+        )
+        .scalars()
+        .all()
+    }
+    authors = {tid: target.created_by for tid, target in targets.items()}
+    notices = standing_notices(links, authors, actor_id=actor_id)
+    source_label = decision_label(adr)
+    for notice in notices:
+        target = targets[notice.target_id]
+        await notification_service.create_notification(
+            db,
+            user_id=notice.recipient_id,
+            actor_id=actor_id,
+            notif_type="adr_standing_changed",
+            title="ADR Standing Changed",
+            message=standing_notice_message(source_label, notice.kind, decision_label(target)),
+            link=f"{decision_link(target.id)}/preview",
+            data={
+                "adr_id": str(target.id),
+                "adr_title": target.title,
+                "by_adr_id": str(adr.id),
+                "by_adr_title": adr.title,
+                "kind": notice.kind,
+            },
+        )
+    return len(notices)
 
 
 # --- revise and duplicate -----------------------------------------------------
@@ -462,6 +644,20 @@ async def copy_file_pointers(db: AsyncSession, source_id: uuid.UUID, new_id: uui
         )
     await db.flush()
     return len(files)
+
+
+async def delete_draft(db: AsyncSession, adr: ArchitectureDecision) -> None:
+    """Delete a draft decision; flush, never commit.
+
+    Its file rows, links, people and card links go with it by database
+    cascade; the bytes of its files go too unless another decision (the
+    revision it was made from, a duplicate) still points at them. The caller
+    has checked that ``adr`` is a draft and that the user may delete it.
+    """
+    content_ids = await adr_file_service.content_ids_of(db, adr.id)
+    await db.delete(adr)
+    await db.flush()
+    await adr_file_service.delete_orphan_contents(db, content_ids)
 
 
 async def _publish_created(

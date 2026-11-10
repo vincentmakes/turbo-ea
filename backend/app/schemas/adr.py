@@ -108,6 +108,16 @@ class ADRReviseRequest(BaseModel):
     model_config = {"extra": "forbid"}
 
 
+class ADRRecordRequest(BaseModel):
+    """Body of ``POST /adr/{id}/record``: when a decision taken outside Turbo EA was made."""
+
+    decided_on: date
+    # Defaults to ``decided_on``.
+    effective_from: date | None = None
+
+    model_config = {"extra": "forbid"}
+
+
 class ADRRejectRequest(BaseModel):
     comment: str
 

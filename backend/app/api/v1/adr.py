@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
@@ -21,6 +22,7 @@ from app.schemas.adr import (
     ADRImportRequest,
     ADRImportResponse,
     ADRImportResult,
+    ADRRecordRequest,
     ADRRejectRequest,
     ADRReviseRequest,
     ADRSignatureRequest,
@@ -28,13 +30,20 @@ from app.schemas.adr import (
     ADRUpdate,
 )
 from app.services import (
+    adr_file_service,
     adr_import_service,
     adr_service,
+    audit_log,
     decision_link_service,
     decision_people_service,
     notification_service,
 )
 from app.services import decision_standing as ds
+from app.services.attachment_upload import (
+    content_disposition,
+    read_validated_upload,
+    require_uploads_enabled,
+)
 from app.services.card_read_scope import CardReadScope, require_card_readable
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
@@ -157,6 +166,7 @@ async def _adr_to_dict(
         "revisions": adr_service.revisions_payload(register, adr.id),
         "change_summary": adr.change_summary,
         "recorded_by": recorded_by,
+        "files": await adr_file_service.list_files(db, adr.id),
     }
 
 
@@ -265,6 +275,12 @@ async def list_adrs(
     modified_to: str | None = Query(None),
     signed_from: str | None = Query(None),
     signed_to: str | None = Query(None),
+    decided_from: date | None = Query(
+        None, description="Only decisions decided on or after this date (signed or recorded)"
+    ),
+    decided_to: date | None = Query(
+        None, description="Only decisions decided on or before this date (signed or recorded)"
+    ),
     include_content: bool = Query(
         False,
         description="Also return every section's text and related decision references "
@@ -363,6 +379,11 @@ async def list_adrs(
                 hour=23, minute=59, second=59, tzinfo=timezone.utc
             )
         )
+
+    if decided_from:
+        stmt = stmt.where(ArchitectureDecision.decided_on >= decided_from)
+    if decided_to:
+        stmt = stmt.where(ArchitectureDecision.decided_on <= decided_to)
 
     if joined_junction:
         stmt = stmt.distinct()
@@ -604,7 +625,7 @@ async def delete_adr(
             raise HTTPException(403, "Only the author or an admin can delete a draft decision")
         await PermissionService.require_permission(db, user, "adr.manage")
 
-    await db.delete(adr)
+    await adr_service.delete_draft(db, adr)
     await db.commit()
 
 
@@ -769,7 +790,8 @@ async def sign_adr(
     label = adr_service.decision_label(adr)
     if all_signed:
         # The chain may have been revoked or replaced since the request.
-        closed_by = ds.chain_closed_by(await ds.load_register(db), adr.id)
+        register = await ds.load_register(db)
+        closed_by = ds.chain_closed_by(register, adr.id)
         if closed_by is not None:
             raise HTTPException(
                 409,
@@ -778,6 +800,7 @@ async def sign_adr(
         adr.status = "signed"
         adr.signed_at = datetime.now(timezone.utc)
         adr_service.apply_lock_dates(adr, adr.signed_at.date())
+        await adr_service.notify_standing_changed(db, adr, register, actor_id=user.id)
 
         if adr.created_by:
             await notification_service.create_notification(
@@ -986,6 +1009,97 @@ async def reject_adr(
 
 
 # ---------------------------------------------------------------------------
+# Record as decided
+# ---------------------------------------------------------------------------
+
+
+async def _audit_recorded(
+    db: AsyncSession, user: User, adr: ArchitectureDecision, decision_makers: list[str]
+) -> None:
+    """The Security & admin log entry for recording a decision as decided."""
+    await audit_log.record(
+        db,
+        action="admin.adr.recorded",
+        category="admin",
+        actor=user,
+        target=("architecture_decision", str(adr.id), adr_service.decision_label(adr)),
+        context={
+            "decided_on": adr.decided_on,
+            "effective_from": adr.effective_from,
+            "decision_makers": decision_makers,
+        },
+    )
+
+
+@router.post("/{adr_id}/record")
+async def record_adr(
+    adr_id: str,
+    body: ADRRecordRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Record a draft as a decision already taken outside Turbo EA.
+
+    The decision locks like a signed one (``status`` ``signed``) with
+    ``recorded_at`` / ``recorded_by`` set instead of signatures. Draft only
+    (409 ``not_draft``); at least one decision maker, ``decided_on`` not in
+    the future and, on a revision, not before the revised decision's date
+    (400 ``invalid_record``); then the same lock checks as a request for
+    signatures (409).
+    """
+    await PermissionService.require_permission(db, user, "adr.record")
+    adr = await _get_adr(db, adr_id)
+    if adr.status != "draft":
+        raise HTTPException(409, {"error": "not_draft"})
+
+    register = await ds.load_register(db)
+    makers = (await decision_people_service.people_payload(db, [adr.id]))[adr.id]["decision_makers"]
+    problems = adr_service.record_problems(
+        decided_on=body.decided_on,
+        today=register.today,
+        decision_maker_count=len(makers),
+        parent_decided=adr_service.parent_decided_on(register, adr),
+    )
+    if problems:
+        raise HTTPException(400, {"error": "invalid_record", "problems": problems})
+
+    refusal = adr_service.lock_refusal(
+        register,
+        adr,
+        decided_on=body.decided_on,
+        effective_from=body.effective_from or body.decided_on,
+    )
+    if refusal is not None:
+        raise HTTPException(409, refusal)
+    adr_service.record_decision(
+        adr,
+        decided_on=body.decided_on,
+        effective_from=body.effective_from,
+        recorded_by=user.id,
+        now=datetime.now(timezone.utc),
+    )
+
+    await adr_service.notify_standing_changed(db, adr, register, actor_id=user.id)
+    await _audit_recorded(db, user, adr, [m["display_name"] or "" for m in makers])
+    await event_bus.publish(
+        "adr.recorded",
+        {
+            "id": adr_id,
+            "reference_number": adr.reference_number,
+            "revision_number": adr.revision_number,
+            "title": adr.title,
+            "decided_on": adr.decided_on.isoformat(),
+            "effective_from": adr.effective_from.isoformat(),
+        },
+        db=db,
+        user_id=user.id,
+    )
+    await db.commit()
+    await db.refresh(adr)
+    return await _detail(db, adr, user)
+
+
+# ---------------------------------------------------------------------------
 # Revisions
 # ---------------------------------------------------------------------------
 
@@ -1043,6 +1157,98 @@ async def list_revisions(
     chain = [by_id[i] for i in ids if i in by_id]
     people = await decision_people_service.people_payload(db, ids)
     return [_adr_to_summary(r, register=register, people=people) for r in chain]
+
+
+# ---------------------------------------------------------------------------
+# Files
+# ---------------------------------------------------------------------------
+
+
+async def _get_adr_for_files(db: AsyncSession, adr_id: str) -> ArchitectureDecision:
+    """The decision whose files are changed: 404 when missing, 403 unless it is
+    a draft (a decision in review or signed is locked, its files with it)."""
+    adr = await _get_adr(db, adr_id)
+    adr_service.check_editable(adr.status, None, {"files"})
+    return adr
+
+
+def _file_id(attachment_id: str) -> uuid.UUID:
+    try:
+        return uuid.UUID(attachment_id)
+    except ValueError as exc:
+        raise HTTPException(404, "File not found") from exc
+
+
+@router.get("/{adr_id}/files")
+async def list_adr_files(
+    adr_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """The files on a decision, oldest first."""
+    await PermissionService.require_permission(db, user, "adr.view")
+    adr = await _get_adr(db, adr_id)
+    return await adr_file_service.list_files(db, adr.id)
+
+
+@router.post("/{adr_id}/files", status_code=201)
+async def upload_adr_file(
+    adr_id: str,
+    file: UploadFile,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Attach a file to a draft decision. Same checks as a card attachment."""
+    await PermissionService.require_permission(db, user, "adr.manage")
+    adr = await _get_adr_for_files(db, adr_id)
+    await require_uploads_enabled(db)
+    fmt, data = await read_validated_upload(file)
+    stored = await adr_file_service.add_file(
+        db,
+        adr,
+        name=file.filename or "untitled",
+        mime_type=fmt.mime,
+        data=data,
+        created_by=user.id,
+    )
+    await db.commit()
+    return adr_file_service.file_row(stored, user.display_name)
+
+
+@router.get("/{adr_id}/files/{attachment_id}/download")
+async def download_adr_file(
+    adr_id: str,
+    attachment_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """One file of a decision, as a download."""
+    await PermissionService.require_permission(db, user, "adr.view")
+    adr = await _get_adr(db, adr_id)
+    found = await adr_file_service.load_for_download(db, adr.id, _file_id(attachment_id))
+    if found is None:
+        raise HTTPException(404, "File not found")
+    return Response(
+        content=found.data,
+        media_type=found.mime_type,
+        headers={"Content-Disposition": content_disposition(found.name)},
+    )
+
+
+@router.delete("/{adr_id}/files/{attachment_id}", status_code=204)
+async def delete_adr_file(
+    adr_id: str,
+    attachment_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Remove a file from a draft decision; its bytes go once no decision shares them."""
+    await PermissionService.require_permission(db, user, "adr.manage")
+    adr = await _get_adr_for_files(db, adr_id)
+    await require_uploads_enabled(db)
+    if not await adr_file_service.remove_file(db, adr.id, _file_id(attachment_id)):
+        raise HTTPException(404, "File not found")
+    await db.commit()
 
 
 # ---------------------------------------------------------------------------

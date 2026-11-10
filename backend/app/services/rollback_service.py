@@ -774,7 +774,7 @@ async def _apply_delete_adr(db: AsyncSession, op: dict[str, Any]) -> dict[str, A
         # Signing is a human act on top of the draft; the draft is no
         # longer only what the batch created.
         return _skip(op, "adr_not_draft")
-    await db.delete(adr)
+    await adr_service.delete_draft(db, adr)
     return _ok(op)
 
 
