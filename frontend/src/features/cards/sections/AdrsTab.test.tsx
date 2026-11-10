@@ -13,6 +13,7 @@ vi.mock("react-router", async () => {
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
   ApiError: class ApiError extends Error {},
+  isAbortError: () => false,
 }));
 vi.mock("@/hooks/useMetamodel", () => ({
   useMetamodel: () => ({
@@ -35,6 +36,7 @@ import { STATUS_COLORS } from "@/theme/tokens";
 import AdrsTab from "./AdrsTab";
 
 const CARD_ID = "card-123";
+const BY_CARD = `/adr/by-card/${CARD_ID}?include_earlier=false`;
 
 const mockAdrs = [
   {
@@ -66,18 +68,35 @@ function renderTab(canManageAdrLinks = true) {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.get).mockImplementation((url: string) => {
-    if (url === `/adr/by-card/${CARD_ID}`) return Promise.resolve(mockAdrs);
-    if (url === "/adr") return Promise.resolve(mockAdrs);
+    if (url === BY_CARD) return Promise.resolve(mockAdrs);
     return Promise.reject(new Error(`no mock for ${url}`));
   });
 });
 
 describe("AdrsTab", () => {
-  it("loads the card-scoped ADR list", async () => {
+  it("loads the card-scoped ADR list without earlier revisions", async () => {
     renderTab();
     await waitFor(() => {
-      expect(api.get).toHaveBeenCalledWith(`/adr/by-card/${CARD_ID}`);
+      expect(api.get).toHaveBeenCalledWith(BY_CARD);
     });
+  });
+
+  it("names a later revision 'ADR-012 · Rev 2' and shows its standing", async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      { ...mockAdrs[0], reference_number: "ADR-012", revision_number: 2, standing: "revoked" },
+    ]);
+    renderTab();
+    expect(await screen.findByText("ADR-012 · Rev 2")).toBeInTheDocument();
+    expect(screen.getByText("Revoked")).toBeInTheDocument();
+    expect(screen.queryByText("Signed")).not.toBeInTheDocument();
+  });
+
+  it("shows Recorded for a decision recorded as decided", async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      { ...mockAdrs[0], recorded_at: "2026-01-01T00:00:00Z" },
+    ]);
+    renderTab();
+    expect(await screen.findByText("Recorded")).toBeInTheDocument();
   });
 
   it("renders reference, title, status and linked cards", async () => {
@@ -136,11 +155,15 @@ describe("AdrsTab", () => {
   });
 
   describe("link picker dialog", () => {
-    /** Card has no linked ADRs, so everything in /adr is offered by the picker. */
-    function mockUnlinked(rows = mockAdrs) {
-      vi.mocked(api.get).mockImplementation((url: string) =>
-        url === `/adr/by-card/${CARD_ID}` ? Promise.resolve([]) : Promise.resolve(rows),
-      );
+    const PICKER = "/adr?include_earlier=false";
+
+    /** Card has no linked ADRs, so everything the picker loads is offered. */
+    function mockUnlinked(rows: unknown[] = mockAdrs, linked: unknown[] = []) {
+      vi.mocked(api.get).mockImplementation((url: string) => {
+        if (url === BY_CARD) return Promise.resolve(linked);
+        if (url === PICKER) return Promise.resolve(rows);
+        return Promise.reject(new Error(`no mock for ${url}`));
+      });
     }
 
     async function openPicker(user: ReturnType<typeof userEvent.setup>) {
@@ -149,17 +172,28 @@ describe("AdrsTab", () => {
         expect(screen.getByRole("button", { name: /Link ADR/ })).toBeInTheDocument(),
       );
       await user.click(screen.getByRole("button", { name: /Link ADR/ }));
+      // The picker takes the focus and opens on it (browse on open).
+      await waitFor(() =>
+        expect(screen.getByPlaceholderText(/Search decisions/)).toHaveFocus(),
+      );
     }
+
+    it("loads the register through the shared picker, earlier revisions excluded", async () => {
+      const user = userEvent.setup();
+      mockUnlinked();
+      await openPicker(user);
+      await waitFor(() => expect(screen.getByRole("option")).toBeInTheDocument());
+      expect(vi.mocked(api.get).mock.calls.map((c) => c[0])).toContain(PICKER);
+      expect(vi.mocked(api.get).mock.calls.map((c) => c[0])).not.toContain("/adr");
+    });
 
     it("asks for confirmation before linking, then links on confirm", async () => {
       const user = userEvent.setup();
       mockUnlinked();
       vi.mocked(api.post).mockResolvedValue({});
       await openPicker(user);
-      await waitFor(() => expect(screen.getByText("ADR-001")).toBeInTheDocument());
-
-      await user.click(screen.getByText("Adopt Cloud-First Strategy"));
-      // The row click must not write on its own.
+      await user.click(await screen.findByRole("option", { name: /Adopt Cloud-First Strategy/ }));
+      // The pick must not write on its own.
       expect(api.post).not.toHaveBeenCalled();
       expect(screen.getByText(/Link this decision\?/)).toBeInTheDocument();
       // The prompt names both the decision and the card being linked.
@@ -169,13 +203,19 @@ describe("AdrsTab", () => {
       expect(api.post).toHaveBeenCalledWith("/adr/adr-1/cards", { card_id: CARD_ID });
     });
 
+    it("names a later revision by its reference and revision in the confirmation", async () => {
+      const user = userEvent.setup();
+      mockUnlinked([{ ...mockAdrs[0], id: "adr-2", reference_number: "ADR-012", revision_number: 2 }]);
+      await openPicker(user);
+      await user.click(await screen.findByRole("option", { name: /Adopt Cloud-First Strategy/ }));
+      expect(screen.getByText(/ADR-012 · Rev 2.*Adopt Cloud-First Strategy/)).toBeInTheDocument();
+    });
+
     it("does not link when the confirmation is cancelled", async () => {
       const user = userEvent.setup();
       mockUnlinked();
       await openPicker(user);
-      await waitFor(() => expect(screen.getByText("ADR-001")).toBeInTheDocument());
-
-      await user.click(screen.getByText("Adopt Cloud-First Strategy"));
+      await user.click(await screen.findByRole("option", { name: /Adopt Cloud-First Strategy/ }));
       await user.click(screen.getByRole("button", { name: /Cancel/ }));
 
       expect(api.post).not.toHaveBeenCalled();
@@ -186,69 +226,27 @@ describe("AdrsTab", () => {
       expect(screen.getByPlaceholderText(/Search decisions/)).toBeInTheDocument();
     });
 
-    it("orders rows by reference, not by the API's recency order", async () => {
+    it("does not offer a decision the card already holds", async () => {
       const user = userEvent.setup();
-      // /adr returns updated_at desc — deliberately out of reference order.
-      mockUnlinked([
-        { ...mockAdrs[0], id: "adr-9", reference_number: "ADR-009", title: "Nine" },
-        { ...mockAdrs[0], id: "adr-11", reference_number: "ADR-011", title: "Eleven" },
-        { ...mockAdrs[0], id: "adr-3", reference_number: "ADR-003", title: "Three" },
-      ]);
-      await openPicker(user);
-      await waitFor(() => expect(screen.getByText("ADR-003")).toBeInTheDocument());
-      const refs = screen
-        .getAllByText(/^ADR-\d{3}$/)
-        .map((el) => el.textContent);
-      expect(refs).toEqual(["ADR-003", "ADR-009", "ADR-011"]);
-    });
-
-    it("shows a status chip on each row", async () => {
-      const user = userEvent.setup();
-      mockUnlinked([
-        { ...mockAdrs[0], id: "adr-d", reference_number: "ADR-020", status: "draft" },
-      ]);
-      await openPicker(user);
-      await waitFor(() => expect(screen.getByText("ADR-020")).toBeInTheDocument());
-      expect(screen.getByText("Draft")).toBeInTheDocument();
-    });
-
-    it("shows a spinner instead of an empty state while loading", async () => {
-      const user = userEvent.setup();
-      let release: (v: unknown) => void = () => {};
-      const pending = new Promise((res) => {
-        release = res;
-      });
-      vi.mocked(api.get).mockImplementation((url: string) =>
-        url === `/adr/by-card/${CARD_ID}` ? Promise.resolve([]) : (pending as Promise<never>),
+      mockUnlinked(
+        [
+          mockAdrs[0],
+          { ...mockAdrs[0], id: "adr-2", reference_number: "ADR-002", title: "Second" },
+        ],
+        [mockAdrs[0]],
       );
       await openPicker(user);
-      // The "nothing available" copy must not flash before the list arrives.
-      expect(screen.queryByText(/No architecture decisions available/)).not.toBeInTheDocument();
-      expect(screen.getByRole("progressbar")).toBeInTheDocument();
-      release(mockAdrs);
-      await waitFor(() => expect(screen.getByText("ADR-001")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(1));
+      expect(screen.getByRole("option", { name: /Second/ })).toBeInTheDocument();
     });
 
-    it("distinguishes 'no search match' from 'nothing left to link'", async () => {
+    it("says nothing is available when every decision is already linked", async () => {
       const user = userEvent.setup();
-      mockUnlinked();
+      mockUnlinked(mockAdrs, mockAdrs);
       await openPicker(user);
-      await waitFor(() => expect(screen.getByText("ADR-001")).toBeInTheDocument());
-      await user.type(screen.getByPlaceholderText(/Search decisions/), "zzzz");
-      await waitFor(() =>
-        expect(screen.getByText(/No decisions match your search/)).toBeInTheDocument(),
-      );
-      expect(screen.queryByText(/No architecture decisions available/)).not.toBeInTheDocument();
-    });
-
-    it("says nothing is available when every ADR is already linked", async () => {
-      const user = userEvent.setup();
-      // by-card returns the same rows /adr does → nothing left to offer.
-      vi.mocked(api.get).mockResolvedValue(mockAdrs);
-      await openPicker(user);
-      await waitFor(() =>
-        expect(screen.getByText(/No architecture decisions available/)).toBeInTheDocument(),
-      );
+      expect(
+        await screen.findByText(/No architecture decisions available/),
+      ).toBeInTheDocument();
     });
   });
 

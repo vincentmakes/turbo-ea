@@ -156,6 +156,14 @@ describe("formatActivityEvent", () => {
     ).toBe("document");
   });
 
+  it("renders a decision recorded as decided with its own action label", async () => {
+    const i18n = (await import("@/i18n")).default;
+    const tReal = i18n.getFixedT("en", "common") as TFunction<"common">;
+    const out = formatActivityEvent({ ...baseEvent, event_type: "adr.recorded" }, tReal);
+    expect(out.category).toBe("adr");
+    expect(out.actionText).toBe("recorded an ADR as decided");
+  });
+
   it("uses a generic 'other' category and the fallback action text for unknown event types", () => {
     const out = formatActivityEvent(
       { ...baseEvent, event_type: "weird.thing" },

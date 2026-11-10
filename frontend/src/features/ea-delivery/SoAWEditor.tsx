@@ -39,6 +39,16 @@ import {
   type TemplateSectionDef,
 } from "./soawTemplate";
 import { exportToDocx, exportToPdf } from "./soawExport";
+import { SoawBanners, soawHref } from "./DecisionBanners";
+import RevisionStrip, { soawRevisionItems } from "./RevisionStrip";
+import { isLocked } from "./decisionStanding";
+import {
+  canRequestSoawSignatures,
+  canReviseSoaw,
+  reviseRefusal,
+  soawCurrentRevisionId,
+  soawSavePayload,
+} from "./soawEditorState";
 import { api } from "@/api/client";
 import { useSubmitOnce } from "@/hooks/useSubmitOnce";
 import { useDateFormat } from "@/hooks/useDateFormat";
@@ -60,6 +70,7 @@ export default function SoAWEditor() {
   const STATUS_CHIP: Record<string, { label: string; color: "default" | "warning" | "success" | "info" }> = {
     draft: { label: t("status.draft"), color: "default" },
     in_review: { label: t("status.inReview"), color: "warning" },
+    approved: { label: t("status.approved"), color: "info" },
     signed: { label: t("status.signed"), color: "success" },
   };
   const theme = useTheme();
@@ -101,6 +112,10 @@ export default function SoAWEditor() {
   const [addSectionOpen, setAddSectionOpen] = useState(false);
   const [newSectionTitle, setNewSectionTitle] = useState("");
   const [newSectionAfter, setNewSectionAfter] = useState("");
+  // The loaded document's chain facts (revision pointers, the strip).
+  const [detail, setDetail] = useState<SoAW | null>(null);
+  // A revise refused because a revision is already being drafted.
+  const [existingRevisionId, setExistingRevisionId] = useState<string | null>(null);
   const soawIdRef = useRef<string | null>(id ?? null);
 
   // Keep ref in sync when route param changes (e.g. after revision navigation)
@@ -131,6 +146,8 @@ export default function SoAWEditor() {
     setSearchParams({}, { replace: true });
   }, [id, searchParams, setSearchParams]);
   const isSigned = status === "signed";
+  // Sent for review or signed: the content is locked (recall to edit).
+  const locked = isLocked(status);
 
   // ── load data ──────────────────────────────────────────────────────────
 
@@ -163,6 +180,8 @@ export default function SoAWEditor() {
       setLoading(true);
       try {
         const data = await api.get<SoAW>(`/soaw/${id}`);
+        setDetail(data);
+        setExistingRevisionId(null);
         setName(data.name);
         setInitiativeId(data.initiative_id ?? "");
         setStatus(data.status);
@@ -298,13 +317,14 @@ export default function SoAWEditor() {
         };
       }
 
-      const payload = {
+      // In review only the initiative link is sent: the content is locked.
+      const payload = soawSavePayload(status, {
         name: name.trim(),
         initiative_id: initiativeId || null,
         document_info: docInfo,
         version_history: versionHistory,
         sections: allSections,
-      };
+      });
 
       if (soawIdRef.current) {
         await api.patch(`/soaw/${soawIdRef.current}`, payload);
@@ -396,7 +416,6 @@ export default function SoAWEditor() {
       );
       setStatus(data.status);
       setSignatories(data.signatories ?? []);
-      setRevisionNumber(data.revision_number ?? revisionNumber);
       setRejectDialogOpen(false);
       setRejectComment("");
       setSnack(t("editor.documentRejected"));
@@ -413,15 +432,25 @@ export default function SoAWEditor() {
     if (!soawIdRef.current) return;
     setSaving(true);
     setError("");
+    setExistingRevisionId(null);
     try {
       const data = await api.post<SoAW>(`/soaw/${soawIdRef.current}/revise`);
       navigate(`/ea-delivery/soaw/${data.id}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("editor.error.reviseFailed"));
+      const refusal = reviseRefusal(e);
+      if (refusal?.kind === "open_revision_exists") {
+        setExistingRevisionId(refusal.revisionId);
+      } else if (refusal?.kind === "not_revisable") {
+        setError(t("editor.error.notRevisable"));
+      } else {
+        setError(e instanceof Error ? e.message : t("editor.error.reviseFailed"));
+      }
     } finally {
       setSaving(false);
     }
   };
+
+  const canRevise = canReviseSoaw(status, detail);
 
   const currentUserIsSignatory = signatories.some(
     (s) => s.user_id === currentUserId && s.status === "pending"
@@ -593,8 +622,8 @@ export default function SoAWEditor() {
             {saving ? t("editor.saving") : t("editor.save")}
           </Button>
         )}
-        {/* Signing actions */}
-        {!isNew && !isSigned && status === "draft" && soawIdRef.current && (
+        {/* Signing actions: a draft or an approved document only. */}
+        {!isNew && canRequestSoawSignatures(status) && soawIdRef.current && (
           <Button
             size="small"
             variant="outlined"
@@ -631,7 +660,7 @@ export default function SoAWEditor() {
             </Button>
           </>
         )}
-        {isSigned && (
+        {canRevise && (
           <Button
             size="small"
             variant="contained"
@@ -649,6 +678,40 @@ export default function SoAWEditor() {
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
           {error}
         </Alert>
+      )}
+
+      {existingRevisionId && (
+        <Alert
+          severity="info"
+          sx={{ mb: 2 }}
+          data-testid="soaw-open-revision-exists"
+          onClose={() => setExistingRevisionId(null)}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => navigate(soawHref(existingRevisionId))}
+            >
+              {t("editor.revise.openExisting")}
+            </Button>
+          }
+        >
+          {t("editor.revise.openRevisionExists")}
+        </Alert>
+      )}
+
+      {/* Chain pointers (earlier revision, revision being drafted, review
+          lock) and the revision strip. */}
+      {detail && !isNew && (
+        <Box sx={{ mb: 2, display: "flex", flexDirection: "column", gap: 1 }}>
+          <SoawBanners soaw={{ ...detail, status: status as SoAW["status"] }} mode="editor" />
+          <RevisionStrip
+            items={soawRevisionItems(detail.revisions ?? [], t)}
+            activeId={detail.id}
+            currentId={soawCurrentRevisionId(detail)}
+            hrefFor={soawHref}
+          />
+        </Box>
       )}
 
       {/* Signed banner */}
@@ -683,7 +746,7 @@ export default function SoAWEditor() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            disabled={isSigned}
+            disabled={locked}
           />
           <TextField
             select
@@ -712,7 +775,7 @@ export default function SoAWEditor() {
             onChange={(e) =>
               setDocInfo((p) => ({ ...p, prepared_by: e.target.value }))
             }
-            disabled={isSigned}
+            disabled={locked}
           />
           <TextField
             label={t("editor.reviewedBy")}
@@ -721,7 +784,7 @@ export default function SoAWEditor() {
             onChange={(e) =>
               setDocInfo((p) => ({ ...p, reviewed_by: e.target.value }))
             }
-            disabled={isSigned}
+            disabled={locked}
           />
           <DateField
             label={t("editor.reviewDate")}
@@ -730,7 +793,7 @@ export default function SoAWEditor() {
             onChange={(v) =>
               setDocInfo((p) => ({ ...p, review_date: v }))
             }
-            disabled={isSigned}
+            disabled={locked}
           />
         </Box>
 
@@ -771,7 +834,7 @@ export default function SoAWEditor() {
           <Typography variant="h6" sx={{ fontWeight: 600, flex: 1 }}>
             {t("editor.versionHistory")}
           </Typography>
-          {!isSigned && (
+          {!locked && (
             <Tooltip title={t("editor.addVersionEntry")}>
               <IconButton size="small" onClick={addVersionRow}>
                 <MaterialSymbol icon="add" size={18} />
@@ -796,7 +859,7 @@ export default function SoAWEditor() {
                   <TextField
                     size="small"
                     fullWidth
-                    disabled={isSigned}
+                    disabled={locked}
                     value={row.version}
                     onChange={(e) =>
                       updateVersionRow(idx, "version", e.target.value)
@@ -810,7 +873,7 @@ export default function SoAWEditor() {
                   <DateField
                     size="small"
                     fullWidth
-                    disabled={isSigned}
+                    disabled={locked}
                     value={row.date}
                     onChange={(v) => updateVersionRow(idx, "date", v)}
                     variant="standard"
@@ -822,7 +885,7 @@ export default function SoAWEditor() {
                   <TextField
                     size="small"
                     fullWidth
-                    disabled={isSigned}
+                    disabled={locked}
                     value={row.revised_by}
                     onChange={(e) =>
                       updateVersionRow(idx, "revised_by", e.target.value)
@@ -836,7 +899,7 @@ export default function SoAWEditor() {
                   <TextField
                     size="small"
                     fullWidth
-                    disabled={isSigned}
+                    disabled={locked}
                     value={row.description}
                     onChange={(e) =>
                       updateVersionRow(idx, "description", e.target.value)
@@ -847,7 +910,7 @@ export default function SoAWEditor() {
                   />
                 </TableCell>
                 <TableCell sx={{ p: 0.5 }}>
-                  {!isSigned && versionHistory.length > 1 && (
+                  {!locked && versionHistory.length > 1 && (
                     <IconButton size="small" onClick={() => removeVersionRow(idx)}>
                       <MaterialSymbol icon="close" size={16} />
                     </IconButton>
@@ -886,7 +949,7 @@ export default function SoAWEditor() {
                 <Typography sx={{ fontWeight: 600, flex: 1 }}>
                   {cs.title}
                 </Typography>
-                {!isSigned && (
+                {!locked && (
                   <Tooltip title={t("editor.removeCustomSection")}>
                     <IconButton
                       size="small"
@@ -901,7 +964,7 @@ export default function SoAWEditor() {
                 content={cs.content}
                 onChange={(html) => updateCustomContent(cs.id, html)}
                 placeholder={t("editor.enterContent")}
-                readOnly={isSigned}
+                readOnly={locked}
               />
             </Paper>
           );
@@ -945,7 +1008,7 @@ export default function SoAWEditor() {
               >
                 {def.title}
               </Typography>
-              {!isSigned && (
+              {!locked && (
                 <Tooltip title={isHidden ? t("editor.showSection") : t("editor.hideSection")}>
                   <IconButton
                     size="small"
@@ -979,7 +1042,7 @@ export default function SoAWEditor() {
                     updateSection(def.id, { content: html })
                   }
                   placeholder={def.hint}
-                  readOnly={isSigned}
+                  readOnly={locked}
                 />
               )}
 
@@ -995,7 +1058,7 @@ export default function SoAWEditor() {
                       },
                     })
                   }
-                  readOnly={isSigned}
+                  readOnly={locked}
                 />
               )}
 
@@ -1018,7 +1081,7 @@ export default function SoAWEditor() {
                             size="small"
                             fullWidth
                             multiline
-                            disabled={isSigned}
+                            disabled={locked}
                             placeholder={t("editor.togafPlaceholder")}
                             value={data.togaf_data?.[phase.key] ?? ""}
                             onChange={(e) => {
@@ -1051,7 +1114,7 @@ export default function SoAWEditor() {
       })}
 
       {/* ── Add custom section ─────────────────────────────────────────── */}
-      {!isSigned && (
+      {!locked && (
         <Box sx={{ display: "flex", justifyContent: "center", my: 3 }}>
           <Button
             variant="outlined"
@@ -1214,7 +1277,7 @@ export default function SoAWEditor() {
             {saving ? t("editor.saving") : t("editor.save")}
           </Button>
         )}
-        {isSigned && (
+        {canRevise && (
           <Button
             variant="contained"
             startIcon={<MaterialSymbol icon="content_copy" size={18} />}

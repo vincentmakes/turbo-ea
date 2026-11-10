@@ -450,8 +450,6 @@
   "adrs.linkDialog.title": "Link Architecture Decision",
   "adrs.linkDialog.search": "Search decisions...",
   "adrs.linkDialog.empty": "No architecture decisions available to link.",
-  "adrs.linkDialog.noMatch": "No decisions match your search.",
-  "adrs.linkDialog.clearSearch": "Clear search",
   "resources.addLinkDialog.title": "Add Document Link",
   "resources.editLinkDialog.title": "Edit Document Link",
   "resources.addLinkDialog.name": "Name",

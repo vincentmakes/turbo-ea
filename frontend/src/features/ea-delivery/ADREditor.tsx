@@ -25,9 +25,28 @@ import Link from "@mui/material/Link";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { DateField } from "@/components/DateField";
 import RichTextEditor from "./RichTextEditor";
 import SignatureRequestDialog from "./SignatureRequestDialog";
-import { api } from "@/api/client";
+import DecisionBanners from "./DecisionBanners";
+import RevisionStrip, { decisionRevisionItems } from "./RevisionStrip";
+import DecisionPeopleField from "./DecisionPeopleField";
+import DecisionLinksBlock from "./DecisionLinksBlock";
+import DecisionFilesSection from "./DecisionFilesSection";
+import RecordAsDecidedDialog from "./RecordAsDecidedDialog";
+import ReviseMenu, { createRevision } from "./ReviseMenu";
+import { DecisionStandingChip, DecisionStatusChip } from "./DecisionStandingChip";
+import { decisionRefLabel } from "./decisionStanding";
+import { problemMessage } from "./decisionProblems";
+import {
+  buildSavePayload,
+  canRecord,
+  chainIds,
+  currentRevisionId,
+  editorAccess,
+  linksFromDetail,
+} from "./adrEditorModel";
+import { api, ApiError } from "@/api/client";
 import { useSubmitOnce } from "@/hooks/useSubmitOnce";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { usePageSubject } from "@/hooks/usePageTitle";
@@ -35,14 +54,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { hasPermission } from "@/components/RequirePermission";
 import { ExtensionBoundary, ExtensionSlot, useExtensionAdrPanels } from "@/lib/extensionHost";
 import { printAdr } from "./adrPrint";
-import type { Card, ArchitectureDecision, SoAWSignatory } from "@/types";
+import type {
+  Card,
+  ArchitectureDecision,
+  DecisionLinkInput,
+  DecisionPerson,
+  SoAWSignatory,
+} from "@/types";
 import { STATUS_COLORS as STATUS_HUES } from "@/theme/tokens";
 
-const STATUS_COLORS: Record<string, "default" | "warning" | "success"> = {
-  draft: "default",
-  in_review: "warning",
-  signed: "success",
-};
+const CHANGE_SUMMARY_MAX = 2000;
 
 export default function ADREditor() {
   const { t } = useTranslation(["delivery", "common"]);
@@ -58,6 +79,11 @@ export default function ADREditor() {
   // The record as last loaded, so an export keeps the audit fields (creator,
   // created / modified dates) the editor has no state for.
   const loadedRef = useRef<ArchitectureDecision | null>(null);
+  // The same record as state, for what renders from it: banners, the revision
+  // strip, standing, links, files.
+  const [detail, setDetail] = useState<ArchitectureDecision | null>(null);
+  // Bumped to load the record again (a save refused because it was locked).
+  const [reloadKey, setReloadKey] = useState(0);
 
   // ADR state
   const [title, setTitle] = useState("");
@@ -79,6 +105,13 @@ export default function ADREditor() {
   const [linkedCards, setLinkedCards] = useState<
     { id: string; name: string; type: string }[]
   >([]);
+  const [decidedOn, setDecidedOn] = useState("");
+  const [effectiveFrom, setEffectiveFrom] = useState("");
+  const [validUntil, setValidUntil] = useState("");
+  const [decisionMakers, setDecisionMakers] = useState<DecisionPerson[]>([]);
+  const [participants, setParticipants] = useState<DecisionPerson[]>([]);
+  const [links, setLinks] = useState<DecisionLinkInput[]>([]);
+  const [changeSummary, setChangeSummary] = useState("");
 
   // UI state
   const [loading, setLoading] = useState(false);
@@ -95,6 +128,9 @@ export default function ADREditor() {
   // Sign dialog
   const [signDialogOpen, setSignDialogOpen] = useState(false);
   const [requestingSignatures, setRequestingSignatures] = useState(false);
+
+  // Record-as-decided dialog
+  const [recordOpen, setRecordOpen] = useState(false);
 
   // Reject dialog
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
@@ -123,6 +159,10 @@ export default function ADREditor() {
   const [searchResults, setSearchResults] = useState<Card[]>([]);
 
   const isSigned = status === "signed";
+  const access = editorAccess(status, isNew);
+  const locked = access.locked;
+  const canManage = hasPermission(user?.permissions, "adr.manage");
+  const isRevision = Boolean(detail?.parent_id);
 
   // Load current user
   useEffect(() => {
@@ -132,30 +172,41 @@ export default function ADREditor() {
       .catch(() => {});
   }, []);
 
+  // Every field from a decision as the server returned it (load, record).
+  const applyLoaded = useCallback((adr: ArchitectureDecision) => {
+    loadedRef.current = adr;
+    setDetail(adr);
+    setTitle(adr.title);
+    setStatus(adr.status);
+    setContext(adr.context || "");
+    setDecision(adr.decision || "");
+    setConsequences(adr.consequences || "");
+    setAlternatives(adr.alternatives_considered || "");
+    setReferenceNumber(adr.reference_number);
+    setRevisionNumber(adr.revision_number);
+    setSignatories(adr.signatories || []);
+    setSignedAt(adr.signed_at);
+    setAttributes(adr.attributes || {});
+    setLinkedCards(adr.linked_cards || []);
+    setDecidedOn(adr.decided_on || "");
+    setEffectiveFrom(adr.effective_from || "");
+    setValidUntil(adr.valid_until || "");
+    setDecisionMakers(adr.decision_makers || []);
+    setParticipants(adr.participants || []);
+    setLinks(linksFromDetail(adr.links));
+    setChangeSummary(adr.change_summary || "");
+  }, []);
+
   // Load existing ADR
   useEffect(() => {
     if (!id) return;
     setLoading(true);
     api
       .get<ArchitectureDecision>(`/adr/${id}`)
-      .then((adr) => {
-        loadedRef.current = adr;
-        setTitle(adr.title);
-        setStatus(adr.status);
-        setContext(adr.context || "");
-        setDecision(adr.decision || "");
-        setConsequences(adr.consequences || "");
-        setAlternatives(adr.alternatives_considered || "");
-        setReferenceNumber(adr.reference_number);
-        setRevisionNumber(adr.revision_number);
-        setSignatories(adr.signatories || []);
-        setSignedAt(adr.signed_at);
-        setAttributes(adr.attributes || {});
-        setLinkedCards(adr.linked_cards || []);
-      })
+      .then(applyLoaded)
       .catch(() => setError(t("adr.editor.error.loadFailed")))
       .finally(() => setLoading(false));
-  }, [id, t]);
+  }, [id, t, applyLoaded, reloadKey]);
 
   // Save
   // Exports read the editor's live state, unsaved edits included — the SoAW
@@ -180,6 +231,12 @@ export default function ADREditor() {
     revision_number: revisionNumber,
     attributes,
     linked_cards: linkedCards,
+    decided_on: decidedOn || null,
+    effective_from: effectiveFrom || null,
+    valid_until: validUntil || null,
+    decision_makers: decisionMakers,
+    participants,
+    change_summary: changeSummary || null,
   });
 
   const handleExportPdf = () => printAdr(editorAdr());
@@ -194,7 +251,26 @@ export default function ADREditor() {
     }
   };
 
-  const handleSave = useCallback(async () => {
+  const savePayload = () =>
+    buildSavePayload(
+      {
+        title,
+        context,
+        decision,
+        consequences,
+        alternatives,
+        decidedOn,
+        effectiveFrom,
+        validUntil,
+        decisionMakers,
+        participants,
+        links,
+        changeSummary,
+      },
+      isRevision,
+    );
+
+  const handleSave = async () => {
     if (!title.trim()) {
       setError(t("adr.editor.titleRequired"));
       return;
@@ -202,13 +278,7 @@ export default function ADREditor() {
     await save.run(async () => {
     setSaving(true);
     try {
-      const payload = {
-        title,
-        context: context || null,
-        decision: decision || null,
-        consequences: consequences || null,
-        alternatives_considered: alternatives || null,
-      };
+      const payload = savePayload();
       if (isNew) {
         const created = await api.post<ArchitectureDecision>("/adr", payload);
         navigate(`/ea-delivery/adr/${created.id}`, { replace: true });
@@ -217,24 +287,46 @@ export default function ADREditor() {
         await api.patch(`/adr/${id}`, payload);
         setSnackbar(t("adr.editor.savedSuccessfully"));
       }
-    } catch {
-      setError(t("adr.editor.error.saveFailed"));
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 403) {
+        // Locked meanwhile (sent for review elsewhere): show what it now is.
+        setError(t("adr.editor.error.locked"));
+        setReloadKey((k) => k + 1);
+      } else {
+        setError(problemMessage(err, t) ?? t("adr.editor.error.saveFailed"));
+      }
     } finally {
       setSaving(false);
     }
     });
-  }, [
-    save,
-    title,
-    context,
-    decision,
-    consequences,
-    alternatives,
-    isNew,
-    id,
-    navigate,
-    t,
-  ]);
+  };
+
+  // Record as decided saves the pending edits first: the backend checks the
+  // decision makers it holds, not the ones on screen.
+  const saveBeforeRecord = async () => {
+    await api.patch(`/adr/${id}`, savePayload());
+  };
+
+  const handleRecorded = (adr: ArchitectureDecision) => {
+    applyLoaded(adr);
+    setRecordOpen(false);
+    setSnackbar(t("adr.record.done"));
+  };
+
+  // "Create consolidated revision" on an amended decision: a revision naming
+  // the amending decisions, then open it.
+  const handleConsolidate = () =>
+    action.run(async () => {
+      if (!id) return;
+      const amenders = (detail?.amended_by ?? []).map((r) => r.id);
+      const out = await createRevision(id, { consolidates: amenders }, t);
+      if ("error" in out) {
+        setError(out.error);
+        return;
+      }
+      navigate(`/ea-delivery/adr/${out.id}`);
+      setSnackbar(out.notice);
+    });
 
   // Duplicate
   const handleDuplicate = () =>
@@ -265,8 +357,10 @@ export default function ADREditor() {
       setStatus(updated.status);
       setSignDialogOpen(false);
       setSnackbar(t("adr.editor.signatureRequestsSent"));
-    } catch {
-      setError(t("adr.editor.error.requestSignaturesFailed"));
+    } catch (err) {
+      // A lock refusal names what blocks it (an unsigned linked decision, a
+      // past "valid until", …).
+      setError(problemMessage(err, t) ?? t("adr.editor.error.requestSignaturesFailed"));
     } finally {
       setRequestingSignatures(false);
     }
@@ -291,22 +385,6 @@ export default function ADREditor() {
         );
       } catch {
         setError(t("adr.editor.error.signFailed"));
-      }
-    });
-
-  // Revise
-  const handleRevise = () =>
-    action.run(async () => {
-      if (!id) return;
-      try {
-        const rev = await api.post<ArchitectureDecision>(
-          `/adr/${id}/revise`,
-          {},
-        );
-        navigate(`/ea-delivery/adr/${rev.id}`);
-        setSnackbar(t("adr.editor.revised"));
-      } catch {
-        setError(t("adr.editor.error.reviseFailed"));
       }
     });
 
@@ -458,7 +536,10 @@ export default function ADREditor() {
 
         {referenceNumber && (
           <Chip
-            label={referenceNumber}
+            label={decisionRefLabel(
+              { reference_number: referenceNumber, revision_number: revisionNumber },
+              t,
+            )}
             variant="outlined"
             size="small"
             sx={{ fontWeight: 700 }}
@@ -469,19 +550,8 @@ export default function ADREditor() {
           {isNew ? t("adr.editor.newTitle") : title || t("adr.editor.untitled")}
         </Typography>
 
-        {revisionNumber > 1 && (
-          <Chip
-            label={t("adr.editor.revisionLabel", { number: revisionNumber })}
-            size="small"
-            color="info"
-          />
-        )}
-
-        <Chip
-          label={status.replace("_", " ")}
-          color={STATUS_COLORS[status] || "default"}
-          size="small"
-        />
+        <DecisionStatusChip adr={{ status: status as ArchitectureDecision["status"], recorded_at: detail?.recorded_at }} />
+        <DecisionStandingChip standing={detail?.standing} />
 
         {/* Preview / PDF / Word — the SoAW editor's export trio, same shape. */}
         {!isNew &&
@@ -536,14 +606,30 @@ export default function ADREditor() {
           ))}
       </Box>
 
-      {/* ── Signed Banner ── */}
+      {/* ── Where the decision stands, and its chain ── */}
+      {detail && !isNew && (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mb: 2, "&:empty": { display: "none" } }}>
+          <DecisionBanners
+            adr={{ ...detail, status: status as ArchitectureDecision["status"] }}
+            mode="editor"
+            onCreateConsolidatedRevision={canManage ? handleConsolidate : undefined}
+          />
+          <RevisionStrip
+            items={decisionRevisionItems(detail.revisions ?? [], t)}
+            activeId={detail.id}
+            currentId={currentRevisionId(detail)}
+            hrefFor={(rid) => `/ea-delivery/adr/${rid}`}
+          />
+        </Box>
+      )}
+
+      {/* ── Signed Banner (a recorded decision has no signing date: the
+          recorded line above says how it was locked) ── */}
       {isSigned && signedAt && (
         <Alert severity="info" sx={{ mb: 2 }}>
           {t("adr.editor.signedBanner", {
             date: formatDate(signedAt),
           })}
-          {revisionNumber > 1 &&
-            t("adr.editor.signedBannerRevision", { number: revisionNumber })}
         </Alert>
       )}
 
@@ -555,7 +641,7 @@ export default function ADREditor() {
 
       {/* ── Action Buttons ── */}
       <Box sx={{ display: "flex", gap: 1, mb: 3, flexWrap: "wrap" }}>
-        {!isSigned && (
+        {!locked && (
           <Button
             variant="contained"
             startIcon={<MaterialSymbol icon="save" size={18} />}
@@ -574,6 +660,16 @@ export default function ADREditor() {
             sx={{ textTransform: "none" }}
           >
             {t("adr.editor.requestSignatures")}
+          </Button>
+        )}
+        {canRecord(user?.permissions, status, isNew) && (
+          <Button
+            variant="outlined"
+            startIcon={<MaterialSymbol icon="history_edu" size={18} />}
+            onClick={() => setRecordOpen(true)}
+            sx={{ textTransform: "none" }}
+          >
+            {t("adr.record.open")}
           </Button>
         )}
         {!isNew && status === "in_review" && (
@@ -614,16 +710,13 @@ export default function ADREditor() {
             </Button>
           </>
         )}
-        {isSigned && (
-          <Button
-            variant="outlined"
-            startIcon={<MaterialSymbol icon="edit_note" size={18} />}
-            onClick={handleRevise}
-            disabled={action.busy}
-            sx={{ textTransform: "none" }}
-          >
-            {t("adr.editor.newRevision")}
-          </Button>
+        {isSigned && detail && (
+          <ReviseMenu
+            adr={{ ...detail, status, title, linked_cards: linkedCards } as ArchitectureDecision}
+            canManage={canManage}
+            onNotice={setSnackbar}
+            onError={setError}
+          />
         )}
         {!isNew && (
           <Button
@@ -644,7 +737,15 @@ export default function ADREditor() {
         {!isNew && id && (
           <ExtensionSlot
             name="adr.header"
-            context={{ adrId: id, status, signed: isSigned, attributes }}
+            context={{
+              adrId: id,
+              status,
+              signed: isSigned,
+              readOnly: access.panelReadOnly,
+              attributes,
+              standing: detail?.standing ?? null,
+              isCurrent: detail?.is_current,
+            }}
           />
         )}
       </Box>
@@ -669,7 +770,7 @@ export default function ADREditor() {
           fullWidth
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          disabled={isSigned}
+          disabled={locked}
           sx={{ mb: 2 }}
         />
       </Paper>
@@ -685,7 +786,7 @@ export default function ADREditor() {
         <RichTextEditor
           content={context}
           onChange={setContext}
-          readOnly={isSigned}
+          readOnly={locked}
           placeholder={t("adr.contextHint")}
         />
       </Paper>
@@ -701,7 +802,7 @@ export default function ADREditor() {
         <RichTextEditor
           content={decision}
           onChange={setDecision}
-          readOnly={isSigned}
+          readOnly={locked}
           placeholder={t("adr.decisionHint")}
         />
       </Paper>
@@ -717,7 +818,7 @@ export default function ADREditor() {
         <RichTextEditor
           content={alternatives}
           onChange={setAlternatives}
-          readOnly={isSigned}
+          readOnly={locked}
           placeholder={t("adr.alternativesHint")}
         />
       </Paper>
@@ -733,10 +834,121 @@ export default function ADREditor() {
         <RichTextEditor
           content={consequences}
           onChange={setConsequences}
-          readOnly={isSigned}
+          readOnly={locked}
           placeholder={t("adr.consequencesHint")}
         />
       </Paper>
+
+      {/* ── Dates ── */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>
+          {t("adr.dates.title")}
+        </Typography>
+        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+          <DateField
+            label={t("adr.dates.decidedOn")}
+            value={decidedOn}
+            onChange={setDecidedOn}
+            disabled={locked}
+            size="small"
+          />
+          <DateField
+            label={t("adr.dates.effectiveFrom")}
+            value={effectiveFrom}
+            onChange={setEffectiveFrom}
+            disabled={locked}
+            size="small"
+          />
+          <DateField
+            label={t("adr.dates.validUntil")}
+            value={validUntil}
+            onChange={setValidUntil}
+            disabled={locked}
+            size="small"
+            helperText={t("adr.dates.validUntilHint")}
+          />
+        </Box>
+      </Paper>
+
+      {/* ── People ── */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>
+          {t("adr.people.title")}
+        </Typography>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <DecisionPeopleField
+            part="decision_makers"
+            value={decisionMakers}
+            onChange={setDecisionMakers}
+            readOnly={locked}
+          />
+          <DecisionPeopleField
+            part="participants"
+            value={participants}
+            onChange={setParticipants}
+            readOnly={locked}
+          />
+        </Box>
+      </Paper>
+
+      {/* ── Links to other decisions ── */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>
+          {t("adr.links.title")}
+        </Typography>
+        {locked && (detail?.links?.outgoing.length ?? 0) + (detail?.links?.incoming.length ?? 0) === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            {t("adr.links.none")}
+          </Typography>
+        ) : (
+          <DecisionLinksBlock
+            links={detail?.links}
+            value={links}
+            onChange={setLinks}
+            ownIds={detail ? chainIds(detail) : []}
+            readOnly={locked}
+          />
+        )}
+      </Paper>
+
+      {/* ── Change summary (a revision only) ── */}
+      {isRevision && (
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            {t("adr.revise.changeSummary")}
+          </Typography>
+          <TextField
+            fullWidth
+            multiline
+            minRows={2}
+            label={t("adr.revise.changeSummary")}
+            placeholder={t("adr.revise.changeSummaryHint")}
+            value={changeSummary}
+            onChange={(e) => setChangeSummary(e.target.value)}
+            disabled={locked}
+            error={changeSummary.length > CHANGE_SUMMARY_MAX}
+            helperText={t("adr.revise.changeSummaryCount", {
+              length: changeSummary.length,
+              max: CHANGE_SUMMARY_MAX,
+            })}
+          />
+        </Paper>
+      )}
+
+      {/* ── Files ── */}
+      {!isNew && id && (
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            {t("adr.files.title")}
+          </Typography>
+          <DecisionFilesSection
+            adrId={id}
+            files={detail?.files}
+            editable={access.filesEditable && canManage}
+            locked={locked}
+          />
+        </Paper>
+      )}
 
       {/* ── Linked Cards ── */}
       {!isNew && (
@@ -750,7 +962,7 @@ export default function ADREditor() {
             }}
           >
             <Typography variant="h6">{t("adr.linkedCards")}</Typography>
-            {!isSigned && (
+            {access.cardsEditable && (
               <Button
                 size="small"
                 startIcon={<MaterialSymbol icon="add" size={18} />}
@@ -771,7 +983,7 @@ export default function ADREditor() {
                 <ListItem
                   key={card.id}
                   secondaryAction={
-                    !isSigned ? (
+                    access.cardsEditable ? (
                       <Tooltip title={t("adr.editor.unlinkCard")}>
                         <IconButton
                           size="small"
@@ -823,7 +1035,9 @@ export default function ADREditor() {
                   adrId={id}
                   status={status}
                   signed={isSigned}
-                  readOnly={isSigned}
+                  readOnly={access.panelReadOnly}
+                  standing={detail?.standing ?? null}
+                  isCurrent={detail?.is_current}
                 />
               </Paper>
             </ExtensionBoundary>
@@ -872,7 +1086,15 @@ export default function ADREditor() {
       {!isNew && id && (
         <ExtensionSlot
           name="adr.signature.footer"
-          context={{ adrId: id, status, signed: isSigned, readOnly: false, attributes }}
+          context={{
+            adrId: id,
+            status,
+            signed: isSigned,
+            readOnly: false,
+            attributes,
+            standing: detail?.standing ?? null,
+            isCurrent: detail?.is_current,
+          }}
         />
       )}
 
@@ -884,7 +1106,20 @@ export default function ADREditor() {
         title={t("adr.editor.signDialog.title")}
         description={t("adr.editor.signDialog.description")}
         requesting={requestingSignatures}
+        decisionMakers={decisionMakers}
       />
+
+      {/* ── Record as decided ── */}
+      {!isNew && id && (
+        <RecordAsDecidedDialog
+          open={recordOpen}
+          adrId={id}
+          decisionMakers={decisionMakers}
+          onClose={() => setRecordOpen(false)}
+          onRecorded={handleRecorded}
+          prepare={saveBeforeRecord}
+        />
+      )}
 
       {/* ── Card Link Dialog ── */}
       <Dialog

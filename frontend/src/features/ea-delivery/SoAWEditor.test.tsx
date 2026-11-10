@@ -667,10 +667,16 @@ describe("SoAWEditor — signatures", () => {
     expect(pendingCard).toHaveStyle({ backgroundColor: "rgba(0, 0, 0, 0.04)" });
   });
 
-  it("rejects with a comment and resets to a new draft revision", async () => {
+  it("rejects with a comment back to a draft, keeping the revision number", async () => {
     mockApi.on("get", "/auth/me", { id: "u2" });
-    mockApi.on("get", "/soaw/s1", { ...SOAW, status: "in_review", signatories: [PENDING_U2] });
-    mockApi.on("post", "/soaw/s1/reject", { ...SOAW, status: "draft", signatories: [], revision_number: 2 });
+    mockApi.on("get", "/soaw/s1", {
+      ...SOAW,
+      status: "in_review",
+      signatories: [PENDING_U2],
+      revision_number: 2,
+    });
+    // Whatever the response carries, a rejection no longer moves the number.
+    mockApi.on("post", "/soaw/s1/reject", { ...SOAW, status: "draft", signatories: [], revision_number: 3 });
     renderEdit();
     await waitForLoaded();
 
@@ -684,6 +690,7 @@ describe("SoAWEditor — signatures", () => {
     expect(await screen.findByText(t("editor.documentRejected"))).toBeInTheDocument();
     expect(mockApi.callsOf("post", "/soaw/s1/reject")[0].body).toEqual({ comment: "Scope unclear" });
     expect(screen.getByText(t("editor.revisionLabel", { number: 2 }))).toBeInTheDocument();
+    expect(screen.queryByText(t("editor.revisionLabel", { number: 3 }))).not.toBeInTheDocument();
     await waitFor(() => expect(dialog).not.toBeInTheDocument());
   });
 
@@ -810,6 +817,148 @@ describe("SoAWEditor — a signed document", () => {
 
     fireEvent.click(screen.getAllByText(t("editor.newRevision"), { selector: "button" })[0]);
     expect(await screen.findByText("POST /soaw/s1/revise failed")).toBeInTheDocument();
+  });
+});
+
+describe("SoAWEditor — in review", () => {
+  const IN_REVIEW: SoAW = { ...SOAW, status: "in_review", signatories: [PENDING_U2] };
+
+  it("locks the content, keeps the initiative link editable and says how to edit", async () => {
+    mockApi.on("get", "/soaw/s1", IN_REVIEW);
+    renderEdit();
+    await waitForLoaded();
+
+    expect(screen.getByText(t("adr.banner.inReviewLock"))).toBeInTheDocument();
+    expect(screen.getByDisplayValue(SOAW.name)).toBeDisabled();
+    expect(screen.getByDisplayValue("Ada Lovelace")).toBeDisabled();
+    expect(screen.getByDisplayValue("Grace Hopper")).toBeDisabled();
+    expect(screen.getByDisplayValue("0.1")).toBeDisabled();
+    expect(screen.getByDisplayValue("First draft")).toBeDisabled();
+    expect(screen.getByDisplayValue("<p>Background</p>")).toHaveAttribute("readonly");
+    expect(screen.getByDisplayValue("<p>Appendix body</p>")).toHaveAttribute("readonly");
+    expect(queryButton(t("editor.addCustomSection"))).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(t("editor.hideSection"))).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(t("editor.removeCustomSection"))).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(t("editor.addVersionEntry"))).not.toBeInTheDocument();
+    // No second request while one is out; recalling is how to edit again.
+    expect(queryButton(t("editor.requestSignatures"))).not.toBeInTheDocument();
+    expect(button(t("editor.recallSignatures"))).toBeInTheDocument();
+    // The initiative link is filing, not content.
+    const initiative = within(docInfoPaper()).getByRole("combobox");
+    expect(initiative).not.toHaveAttribute("aria-disabled", "true");
+    expect(saveButton()).toBeEnabled();
+  });
+
+  it("saves only the initiative link while in review", async () => {
+    mockApi.on("get", "/soaw/s1", IN_REVIEW);
+    renderEdit();
+    await waitForLoaded();
+
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(mockApi.callsOf("patch", "/soaw/s1")).toHaveLength(1));
+    expect(lastBody("patch", "/soaw/s1")).toEqual({ initiative_id: INITIATIVE.id });
+  });
+
+  it("offers Request signatures on an approved document, which stays editable", async () => {
+    mockApi.on("get", "/soaw/s1", { ...SOAW, status: "approved" });
+    renderEdit();
+    await waitForLoaded();
+    expect(button(t("editor.requestSignatures"))).toBeInTheDocument();
+    expect(screen.getByDisplayValue(SOAW.name)).toBeEnabled();
+    expect(screen.getByText(t("status.approved"))).toBeInTheDocument();
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(mockApi.callsOf("patch", "/soaw/s1")).toHaveLength(1));
+    expect(Object.keys(lastBody("patch", "/soaw/s1")).sort()).toEqual([
+      "document_info",
+      "initiative_id",
+      "name",
+      "sections",
+      "version_history",
+    ]);
+  });
+});
+
+describe("SoAWEditor — revisions", () => {
+  const SIGNED: SoAW = {
+    ...SOAW,
+    status: "signed",
+    signed_at: "2026-06-02T09:30:00Z",
+    signatories: [SIGNED_U2],
+    is_current: true,
+    is_earlier_revision: false,
+  };
+  const newRevision = () => screen.getAllByText(t("editor.newRevision"), { selector: "button" })[0];
+
+  it("offers to open the revision already being drafted", async () => {
+    mockApi.on("get", "/soaw/s1", SIGNED);
+    mockApi.fail("post", "/soaw/s1/revise", 409, { error: "open_revision_exists", revision_id: "s9" });
+    mockApi.on("get", "/soaw/s9", { ...SOAW, id: "s9", name: "Next draft", revision_number: 2 });
+    renderEdit();
+    await waitForLoaded();
+
+    fireEvent.click(newRevision());
+    const alert = await screen.findByTestId("soaw-open-revision-exists");
+    expect(alert).toHaveTextContent(t("editor.revise.openRevisionExists"));
+    expect(screen.queryByText("POST /soaw/s1/revise failed")).not.toBeInTheDocument();
+
+    fireEvent.click(within(alert).getByText(t("editor.revise.openExisting"), { selector: "button" }));
+    expect(await screen.findByDisplayValue("Next draft")).toBeInTheDocument();
+    expect(mockApi.callsOf("get", "/soaw/s9")).toHaveLength(1);
+    expect(screen.queryByTestId("soaw-open-revision-exists")).not.toBeInTheDocument();
+  });
+
+  it("says a document that is not the latest cannot be revised", async () => {
+    mockApi.on("get", "/soaw/s1", SIGNED);
+    mockApi.fail("post", "/soaw/s1/revise", 409, { error: "not_revisable", reason: "not_latest" });
+    renderEdit();
+    await waitForLoaded();
+
+    fireEvent.click(newRevision());
+    expect(await screen.findByText(t("editor.error.notRevisable"))).toBeInTheDocument();
+    expect(screen.queryByTestId("soaw-open-revision-exists")).not.toBeInTheDocument();
+  });
+
+  it("hides New revision on an earlier revision and points to the current one", async () => {
+    mockApi.on("get", "/soaw/s1", {
+      ...SIGNED,
+      is_current: false,
+      is_earlier_revision: true,
+      superseded_by: { id: "s2", name: SOAW.name, revision_number: 2 },
+      revisions: [
+        { id: "s1", name: SOAW.name, revision_number: 1, status: "signed" },
+        { id: "s2", name: SOAW.name, revision_number: 2, status: "signed" },
+      ],
+    });
+    renderEdit();
+    await waitForLoaded();
+
+    expect(queryButton(t("editor.newRevision"))).not.toBeInTheDocument();
+    expect(
+      screen.getByText(t("adr.banner.earlierRevision", { current: "Rev 2" })),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: t("adr.banner.openCurrent") })).toHaveAttribute(
+      "href",
+      "/ea-delivery/soaw/s2",
+    );
+    // The strip lists the chain; the page's own revision is not a link.
+    expect(screen.getByTestId("revision-s1")).toHaveAttribute("aria-current", "page");
+    expect(screen.getByTestId("revision-s2")).toHaveAttribute("href", "/ea-delivery/soaw/s2");
+  });
+
+  it("points the current revision to the revision being drafted", async () => {
+    mockApi.on("get", "/soaw/s1", {
+      ...SIGNED,
+      open_revision: { id: "s3", name: SOAW.name, revision_number: 2, status: "draft" },
+    });
+    renderEdit();
+    await waitForLoaded();
+    expect(
+      screen.getByText(t("adr.banner.openRevision", { revision: "Rev 2" })),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: t("adr.banner.open") })).toHaveAttribute(
+      "href",
+      "/ea-delivery/soaw/s3",
+    );
   });
 });
 

@@ -142,10 +142,11 @@ const TYPES = [
   { key: "ITComponent", color: "#d29270" },
 ] as unknown as CardType[];
 
-/** The ten built-in columns, in their natural order. */
+/** The fifteen built-in columns, in their natural order. */
 const NATURAL = [
   "reference",
   "status",
+  "standing",
   "title",
   "decision",
   "linkedCards",
@@ -154,6 +155,10 @@ const NATURAL = [
   "lastModified",
   "signed",
   "signedBy",
+  "decidedOn",
+  "effectiveFrom",
+  "validUntil",
+  "decisionMakers",
 ];
 
 type GridProps = React.ComponentProps<typeof AdrGrid>;
@@ -242,6 +247,11 @@ describe("AdrGrid columns", () => {
       lastModified: "Last Modified",
       signed: "Signed",
       signedBy: "Signed By",
+      standing: "Standing",
+      decidedOn: "Decided on",
+      effectiveFrom: "Effective from",
+      validUntil: "Valid until",
+      decisionMakers: "Decision makers",
     });
   });
 
@@ -344,8 +354,18 @@ describe("AdrGrid cell renderers", () => {
       backgroundColor: "#ff9800",
     });
     review.unmount();
+    // A recorded decision reads "Recorded", in the signed hue.
+    const recorded = renderCell(
+      "reference",
+      adr({ status: "signed", recorded_at: "2026-03-01T10:00:00Z" }),
+    )!;
+    expect(recorded.container.querySelector("[aria-label='Recorded']")).toHaveStyle({
+      backgroundColor: "#4caf50",
+    });
+    recorded.unmount();
+    // An unknown status falls back to the vocabulary's draft style.
     const odd = renderCell("reference", adr({ status: "archived" as ArchitectureDecision["status"] }))!;
-    expect(odd.container.querySelector("[aria-label='archived']")).toHaveStyle({
+    expect(odd.container.querySelector("[aria-label='Draft']")).toHaveStyle({
       backgroundColor: "#9e9e9e",
     });
   });
@@ -493,6 +513,41 @@ describe("AdrGrid group-by", () => {
       { key: "draft", label: "Draft", color: "#9e9e9e" },
       { key: "signed", label: "Signed", color: "#4caf50" },
     ]);
+  });
+
+  it("groups a recorded decision under its own Recorded header", () => {
+    localStorage.setItem(ADR_GRID_LS_KEY, JSON.stringify({ groupBy: "status" }));
+    renderGrid({
+      adrs: [DRAFT, SIGNED, adr({ id: "adr-9", status: "signed", recorded_at: "2026-03-01" })],
+    });
+    expect(headers()).toEqual([
+      { key: "draft", label: "Draft", color: "#9e9e9e" },
+      { key: "signed", label: "Signed", color: "#4caf50" },
+      { key: "recorded", label: "Recorded", color: "#4caf50" },
+    ]);
+  });
+
+  it("groups by standing, unsigned decisions under 'Not signed yet'", () => {
+    localStorage.setItem(ADR_GRID_LS_KEY, JSON.stringify({ groupBy: "standing" }));
+    renderGrid({
+      adrs: [
+        DRAFT,
+        adr({ id: "adr-5", status: "signed", standing: "revoked" }),
+        adr({ id: "adr-6", status: "signed", standing: "in_force" }),
+      ],
+    });
+    expect(headers()).toEqual([
+      { key: "in_force", label: "In force", color: "#4caf50" },
+      { key: "revoked", label: "Revoked", color: "#f44336" },
+      { key: "none", label: "Not signed yet", color: "#9e9e9e" },
+    ]);
+  });
+
+  it("ignores a stored group-by the grid does not know", () => {
+    localStorage.setItem(ADR_GRID_LS_KEY, JSON.stringify({ groupBy: "owner" }));
+    renderGrid();
+    expect(gridStub.rows()).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: /group by: /i })).toBeNull();
   });
 
   it("re-expands collapsed groups when a column filter is applied", () => {
@@ -776,5 +831,75 @@ describe("AdrGrid cell context menu", () => {
     const items = within(menu).getAllByRole("menuitem");
     expect(items.map((i) => i.textContent).join("")).toBe(menu.textContent);
     expect(within(menu).queryByText("Delete")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Decision register columns (#1376)
+// ---------------------------------------------------------------------------
+
+describe("AdrGrid decision register columns", () => {
+  const REGISTERED = adr({
+    id: "adr-7",
+    reference_number: "ADR-012",
+    revision_number: 2,
+    status: "signed",
+    standing: "amended",
+    decided_on: "2026-03-01",
+    effective_from: "2026-03-02",
+    valid_until: "2027-03-01",
+    decision_makers: [
+      { user_id: "u1", display_name: "Alice" },
+      { user_id: null, display_name: "Board" },
+    ],
+  });
+
+  it("shows the reference with its revision from 2 on", () => {
+    renderGrid();
+    expect(gridStub.cellValue("reference", REGISTERED)).toBe("ADR-012 · Rev 2");
+    expect(gridStub.cellValue("reference", SIGNED)).toBe("ADR-002");
+    expect(gridStub.colDef("reference").valueGetter({ data: undefined })).toBe("");
+    const { getByText } = renderCell("reference", REGISTERED)!;
+    expect(getByText("ADR-012 · Rev 2")).toBeInTheDocument();
+  });
+
+  it("shows the standing as a chip, blank for a decision with none", () => {
+    renderGrid();
+    expect(gridStub.cellValue("standing", REGISTERED)).toBe("In force (amended)");
+    expect(gridStub.cellValue("standing", DRAFT)).toBe("");
+    expect(gridStub.colDef("standing").valueGetter({ data: undefined })).toBe("");
+    expect(renderCell("standing", DRAFT)).toBeNull();
+    expect(renderCell("standing", undefined)).toBeNull();
+    const { getByText } = renderCell("standing", REGISTERED)!;
+    expect(getByText("In force (amended)")).toBeInTheDocument();
+  });
+
+  it("reads the three dates off their fields, with the shared date filter", () => {
+    renderGrid();
+    expect(gridStub.colDef("decidedOn").field).toBe("decided_on");
+    expect(gridStub.colDef("effectiveFrom").field).toBe("effective_from");
+    expect(gridStub.colDef("validUntil").field).toBe("valid_until");
+    for (const id of ["decidedOn", "effectiveFrom", "validUntil"]) {
+      expect(gridStub.colDef(id).filter).toBe("agDateColumnFilter");
+      expect(gridStub.colDef(id).valueFormatter({ value: null })).toBe("");
+    }
+    expect(gridStub.colDef("decidedOn").valueFormatter({ value: "2026-03-01" })).not.toBe("");
+  });
+
+  it("joins the decision makers' names", () => {
+    renderGrid();
+    expect(gridStub.cellValue("decisionMakers", REGISTERED)).toBe("Alice, Board");
+    expect(gridStub.cellValue("decisionMakers", DRAFT)).toBe("");
+    expect(gridStub.colDef("decisionMakers").valueGetter({ data: undefined })).toBe("");
+    expect(gridStub.colDef("decisionMakers").sortable).toBe(false);
+  });
+
+  it("mutes the row of an earlier revision, and only that row", () => {
+    renderGrid();
+    const rules = gridStub.lastProps().rowClassRules;
+    const rule = rules["adr-row-earlier-revision"];
+    expect(rule({ data: adr({ is_earlier_revision: true }) })).toBe(true);
+    expect(rule({ data: adr({ is_earlier_revision: false }) })).toBe(false);
+    expect(rule({ data: undefined })).toBe(false);
   });
 });

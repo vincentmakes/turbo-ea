@@ -1380,6 +1380,16 @@ export interface DecisionUpcoming {
   effective_from: string | null;
 }
 
+/** A file attached to a decision (`GET /adr/{id}/files`, `files` on the detail). */
+export interface DecisionFile {
+  id: string;
+  name: string;
+  mime_type: string;
+  size: number;
+  created_at: string | null;
+  created_by: { user_id: string; display_name: string | null } | null;
+}
+
 export interface DecisionRevision extends DecisionRef {
   status: ArchitectureDecision["status"];
   standing: DecisionStanding | null;
@@ -1412,6 +1422,9 @@ export interface ArchitectureDecision {
   updated_at: string | null;
   /** `GET /adr?include_content=true` only: `related_decisions` as reference numbers. */
   related_references?: string[];
+  /** `GET /adr?include_content=true` only: each hard link kind's targets as
+   *  reference numbers (`relates` stays in `related_references`). */
+  link_references?: Partial<Record<"replaces" | "amends" | "revokes" | "consolidates", string[]>>;
   // --- Decision register (derived by the backend; optional so older fixtures
   // and payloads still type-check) ---
   standing?: DecisionStanding | null;
@@ -1440,6 +1453,7 @@ export interface ArchitectureDecision {
   revisions?: DecisionRevision[];
   change_summary?: string | null;
   recorded_by?: { user_id: string; display_name: string | null } | null;
+  files?: DecisionFile[];
 }
 
 export interface FileAttachment {

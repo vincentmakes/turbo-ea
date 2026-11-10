@@ -221,6 +221,18 @@ describe("CardDetailContent tab strip", () => {
     );
   });
 
+  it("counts the card's decisions without their earlier revisions", async () => {
+    flags.counts = { risks: [], compliance: [], adrs: [{ id: "a" }] };
+    useType(typeFor("Application"));
+    const card = cardOf("Application");
+    renderCard(card);
+    await waitFor(() => expect(tabNames()).toContain("ADRs"));
+    const { api } = await import("@/api/client");
+    const urls = vi.mocked(api.get).mock.calls.map((c) => c[0]);
+    expect(urls).toContain(`/adr/by-card/${card.id}?include_earlier=false`);
+    expect(urls).not.toContain(`/adr/by-card/${card.id}`);
+  });
+
   it("keeps the ADR tab on an empty card for someone who can link a decision", async () => {
     useType(typeFor("Application"));
     renderCard(cardOf("Application"), undefined, {

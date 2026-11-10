@@ -155,6 +155,39 @@ describe("SoAWPreview — loading", () => {
   });
 });
 
+describe("SoAWPreview — revisions", () => {
+  it("points an earlier revision to the current one's preview, with the chain strip", async () => {
+    mockApi.on("get", "/soaw/s1", {
+      ...SOAW,
+      status: "signed",
+      is_current: false,
+      is_earlier_revision: true,
+      superseded_by: { id: "s2", name: SOAW.name, revision_number: 2 },
+      revisions: [
+        { id: "s1", name: SOAW.name, revision_number: 1, status: "signed" },
+        { id: "s2", name: SOAW.name, revision_number: 2, status: "signed" },
+      ],
+    });
+    renderPreview();
+    await screen.findByRole("heading", { name: SOAW.name });
+    expect(screen.getByText(t("adr.banner.earlierRevision", { current: "Rev 2" }))).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: t("adr.banner.openCurrent") })).toHaveAttribute(
+      "href",
+      "/ea-delivery/soaw/s2/preview",
+    );
+    expect(screen.getByTestId("revision-s1")).toHaveAttribute("aria-current", "page");
+    expect(screen.getByTestId("revision-s2")).toHaveAttribute("href", "/ea-delivery/soaw/s2/preview");
+  });
+
+  it("shows no review-lock hint in the preview and no strip for a single revision", async () => {
+    mockApi.on("get", "/soaw/s1", { ...SOAW, status: "in_review", revisions: [] });
+    renderPreview();
+    await screen.findByRole("heading", { name: SOAW.name });
+    expect(screen.queryByText(t("adr.banner.inReviewLock"))).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: t("adr.revision.strip") })).not.toBeInTheDocument();
+  });
+});
+
 describe("SoAWPreview — signatures", () => {
   it("renders no signature block without signatories", async () => {
     renderPreview();

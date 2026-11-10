@@ -32,10 +32,26 @@ import {
   type RegisteredAdrGridColumn,
 } from "@/lib/extensionHost";
 import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
-import { loadAdrGridPrefs, updateAdrGridPrefs } from "./adrGridPrefs";
+import { adrGroupByOf, loadAdrGridPrefs, updateAdrGridPrefs } from "./adrGridPrefs";
 import type { ArchitectureDecision, CardType } from "@/types";
 import { gridThemeDark, gridThemeLight } from "@/lib/agGridSetup";
 import { STATUS_COLORS } from "@/theme/tokens";
+import {
+  decisionRefLabel,
+  standingLabelKey,
+  statusChip,
+  statusLabelKey,
+} from "./decisionStanding";
+import { DecisionStandingChip, DecisionStatusChip } from "./DecisionStandingChip";
+import {
+  EARLIER_REVISION_ROW_CLASS,
+  decisionMakerNames,
+  isEarlierRevisionRow,
+  standingGroupKey,
+  standingGroupVocab,
+  statusGroupKey,
+  statusGroupVocab,
+} from "./adrGridModel";
 
 /** Extract plain text from HTML using the browser's DOM parser */
 function stripHtml(html: string | null | undefined): string {
@@ -104,16 +120,10 @@ interface Props {
   autoHeight?: boolean;
 }
 
-const STATUS_CHIP_PROPS: Record<string, { label_key: string; color: "default" | "warning" | "success" }> = {
-  draft: { label_key: "status.draft", color: "default" },
-  in_review: { label_key: "status.inReview", color: "warning" },
-  signed: { label_key: "status.signed", color: "success" },
-};
-
-const STATUS_DOT_COLOR: Record<string, string> = {
-  draft: STATUS_COLORS.neutral,
-  in_review: STATUS_COLORS.warning,
-  signed: STATUS_COLORS.success,
+/** An earlier revision's row is muted; it stays clickable. */
+const ROW_CLASS_RULES = {
+  [EARLIER_REVISION_ROW_CLASS]: (params: { data?: ArchitectureDecision }) =>
+    isEarlierRevisionRow(params.data),
 };
 
 export default function AdrGrid({
@@ -179,13 +189,13 @@ export default function AdrGrid({
     () => Object.keys(columnFilterModelRef.current).length > 0,
   );
 
-  // ── Group-by (collapsible status groups — shared hook, discussion #933) ──
-  const [groupBy, setGroupByState] = useState<string | null>(
-    () => initialPrefs?.groupBy ?? null,
+  // ── Group-by (collapsible status / standing groups — shared hook, #933) ──
+  const [groupBy, setGroupByState] = useState<string | null>(() =>
+    adrGroupByOf(initialPrefs?.groupBy),
   );
   const setGroupBy = useCallback((next: string | null) => {
     setGroupByState(next);
-    updateAdrGridPrefs({ groupBy: next });
+    updateAdrGridPrefs({ groupBy: adrGroupByOf(next) });
   }, []);
 
   const groupAxes = useMemo<GroupAxis<ArchitectureDecision>[]>(
@@ -193,12 +203,14 @@ export default function AdrGrid({
       {
         key: "status",
         label: t("adr.grid.status"),
-        groupKeyOf: (a) => a.status,
-        vocab: Object.entries(STATUS_CHIP_PROPS).map(([key, cfg]) => ({
-          key,
-          label: t(cfg.label_key),
-          color: STATUS_DOT_COLOR[key],
-        })),
+        groupKeyOf: statusGroupKey,
+        vocab: statusGroupVocab(t),
+      },
+      {
+        key: "standing",
+        label: t("adr.grid.standing"),
+        groupKeyOf: standingGroupKey,
+        vocab: standingGroupVocab(t),
       },
     ],
     [t],
@@ -249,14 +261,16 @@ export default function AdrGrid({
         headerName: t("adr.grid.reference"),
         colId: "reference",
         field: "reference_number",
-        width: 140,
+        width: 160,
         minWidth: 120,
+        // "ADR-012 · Rev 2": sorting, filters and the quick filter read what
+        // the cell shows.
+        valueGetter: (params: { data: ArchitectureDecision | undefined }) =>
+          params.data ? decisionRefLabel(params.data, t) : "",
         cellRenderer: (params: { data: ArchitectureDecision | undefined }) => {
           if (!params.data) return null;
-          const status = params.data.status;
-          const dotColor = STATUS_DOT_COLOR[status] || STATUS_COLORS.neutral;
-          const cfg = STATUS_CHIP_PROPS[status];
-          const label = cfg ? t(cfg.label_key) : status;
+          const dotColor = statusChip(params.data).dot;
+          const label = t(statusLabelKey(params.data));
           return (
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Tooltip title={label} arrow>
@@ -270,7 +284,7 @@ export default function AdrGrid({
                   }}
                 />
               </Tooltip>
-              <span>{params.data.reference_number}</span>
+              <span>{decisionRefLabel(params.data, t)}</span>
             </Box>
           );
         },
@@ -283,25 +297,24 @@ export default function AdrGrid({
         hide: hiddenColumns.has("status"),
         // Translated label so sorting, the column filter, and the quick
         // filter all match what the user sees in the cell.
-        valueGetter: (params: { data: ArchitectureDecision | undefined }) => {
-          const status = params.data?.status;
-          if (!status) return "";
-          const cfg = STATUS_CHIP_PROPS[status];
-          return cfg ? t(cfg.label_key) : status;
-        },
-        cellRenderer: (params: { data: ArchitectureDecision | undefined }) => {
-          const status = params.data?.status;
-          if (!status) return null;
-          const cfg = STATUS_CHIP_PROPS[status];
-          return (
-            <Chip
-              label={cfg ? t(cfg.label_key) : status}
-              size="small"
-              color={cfg?.color ?? "default"}
-              sx={{ fontSize: 11, height: 20, fontWeight: 500 }}
-            />
-          );
-        },
+        valueGetter: (params: { data: ArchitectureDecision | undefined }) =>
+          params.data ? t(statusLabelKey(params.data)) : "",
+        cellRenderer: (params: { data: ArchitectureDecision | undefined }) =>
+          params.data ? <DecisionStatusChip adr={params.data} /> : null,
+      },
+      {
+        headerName: t("adr.grid.standing"),
+        colId: "standing",
+        width: 150,
+        minWidth: 120,
+        hide: hiddenColumns.has("standing"),
+        // Blank for a decision that is not signed: it has no standing yet.
+        valueGetter: (params: { data: ArchitectureDecision | undefined }) =>
+          params.data?.standing ? t(standingLabelKey(params.data.standing)) : "",
+        cellRenderer: (params: { data: ArchitectureDecision | undefined }) =>
+          params.data?.standing ? (
+            <DecisionStandingChip standing={params.data.standing} />
+          ) : null,
       },
       {
         headerName: t("adr.grid.title"),
@@ -491,6 +504,43 @@ export default function AdrGrid({
           );
         },
       },
+      {
+        headerName: t("adr.dates.decidedOn"),
+        colId: "decidedOn",
+        field: "decided_on",
+        width: 130,
+        hide: hiddenColumns.has("decidedOn"),
+        ...dateColumnFilterDef,
+        valueFormatter: (params: { value: string | null }) => formatDate(params.value),
+      },
+      {
+        headerName: t("adr.dates.effectiveFrom"),
+        colId: "effectiveFrom",
+        field: "effective_from",
+        width: 140,
+        hide: hiddenColumns.has("effectiveFrom"),
+        ...dateColumnFilterDef,
+        valueFormatter: (params: { value: string | null }) => formatDate(params.value),
+      },
+      {
+        headerName: t("adr.dates.validUntil"),
+        colId: "validUntil",
+        field: "valid_until",
+        width: 130,
+        hide: hiddenColumns.has("validUntil"),
+        ...dateColumnFilterDef,
+        valueFormatter: (params: { value: string | null }) => formatDate(params.value),
+      },
+      {
+        headerName: t("adr.people.decisionMakers"),
+        colId: "decisionMakers",
+        sortable: false,
+        minWidth: 160,
+        flex: 1,
+        hide: hiddenColumns.has("decisionMakers"),
+        valueGetter: (params: { data: ArchitectureDecision | undefined }) =>
+          params.data ? decisionMakerNames(params.data) : "",
+      },
       // Extension-contributed columns (UI SDK 1.10, plain data). Core builds
       // the ColDefs, so they share defaultColDef/theme/sorting/quick-filter
       // with the built-in columns; the guarded helpers keep a throwing
@@ -639,9 +689,12 @@ export default function AdrGrid({
   // act on an arbitrary ADR the user never picked, so they are suppressed.
   const cellMenu = useCellContextMenu<GroupedRow<ArchitectureDecision>>(gridRef, {
     suppressForRow: grouping.isGroupRow,
-    // Linked cards and signatories render as ", "-joined chip lists.
+    // Linked cards, signatories and decision makers are ", "-joined lists.
     splitValues: (ctx) =>
-      (ctx.colId === "linkedCards" || ctx.colId === "signedBy") && ctx.displayValue
+      (ctx.colId === "linkedCards" ||
+        ctx.colId === "signedBy" ||
+        ctx.colId === "decisionMakers") &&
+      ctx.displayValue
         ? ctx.displayValue
             .split(", ")
             .filter(Boolean)
@@ -773,6 +826,11 @@ export default function AdrGrid({
             "& .ag-row-hover": {
               backgroundColor: "var(--ag-row-hover-color)",
             },
+            // An earlier revision is history: muted, still openable.
+            [`& .${EARLIER_REVISION_ROW_CLASS} .ag-cell`]: {
+              color: "text.disabled",
+              fontStyle: "italic",
+            },
           }}
         >
           <AgGridReact<ArchitectureDecision>
@@ -797,6 +855,7 @@ export default function AdrGrid({
             onSortChanged={handleSortChanged}
             onDragStopped={captureColumnState}
             onColumnPinned={captureColumnState}
+            rowClassRules={ROW_CLASS_RULES}
             rowHeight={44}
             headerHeight={44}
             suppressCellFocus

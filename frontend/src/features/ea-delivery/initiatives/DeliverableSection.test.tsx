@@ -257,7 +257,7 @@ describe("DeliverableSection — status chips", () => {
     expect(chipOf("archived")).toHaveClass("MuiChip-colorDefault");
   });
 
-  it("labels and colours every ADR status, and shows an unknown one as is", () => {
+  it("labels and colours every ADR status from the shared vocabulary", () => {
     renderSection(
       <DeliverableSection
         kind="adr"
@@ -268,7 +268,8 @@ describe("DeliverableSection — status chips", () => {
           adr({
             id: "a4",
             title: "Four",
-            status: "superseded" as string as ArchitectureDecision["status"],
+            status: "signed",
+            recorded_at: "2026-01-01T00:00:00Z",
             reference_number: "ADR-4",
           }),
         ]}
@@ -276,7 +277,28 @@ describe("DeliverableSection — status chips", () => {
     );
     expect(chipOf("Draft")).toHaveClass("MuiChip-colorDefault");
     expect(chipOf("In Review")).toHaveClass("MuiChip-colorWarning");
-    expect(chipOf("Signed")).toHaveClass("MuiChip-colorInfo");
-    expect(chipOf("superseded")).toHaveClass("MuiChip-colorDefault");
+    expect(chipOf("Signed")).toHaveClass("MuiChip-colorSuccess");
+    expect(chipOf("Recorded")).toHaveClass("MuiChip-colorSuccess", "MuiChip-outlined");
+  });
+
+  it("shows a signed decision's standing and its revision in the reference", () => {
+    renderSection(
+      <DeliverableSection
+        kind="adr"
+        items={[
+          adr({
+            id: "a5",
+            title: "Five",
+            status: "signed",
+            standing: "revoked",
+            reference_number: "ADR-012",
+            revision_number: 2,
+          }),
+        ]}
+      />,
+    );
+    expect(chipOf("Revoked")).toHaveClass("MuiChip-colorError");
+    expect(screen.queryByText("Signed")).not.toBeInTheDocument();
+    expect(screen.getByText("ADR-012 · Rev 2")).toBeInTheDocument();
   });
 });

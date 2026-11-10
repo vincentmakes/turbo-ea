@@ -210,7 +210,8 @@ export default function CardDetailContent({
     let cancelled = false;
     setAdrCount(null);
     api
-      .get<ArchitectureDecision[]>(`/adr/by-card/${card.id}`)
+      // Counted like the tab lists them: earlier revisions are not counted.
+      .get<ArchitectureDecision[]>(`/adr/by-card/${card.id}?include_earlier=false`)
       .then((rows) => {
         if (!cancelled) setAdrCount(rows.length);
       })

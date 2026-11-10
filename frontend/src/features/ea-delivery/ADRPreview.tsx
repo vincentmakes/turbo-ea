@@ -15,6 +15,7 @@ import Divider from "@mui/material/Divider";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { alpha, useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import LinkifiedText from "@/components/LinkifiedText";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { usePageSubject } from "@/hooks/usePageTitle";
@@ -22,30 +23,31 @@ import { useAuth } from "@/hooks/useAuth";
 import { hasPermission } from "@/components/RequirePermission";
 import { ExtensionBoundary, ExtensionSlot, useExtensionAdrPanels } from "@/lib/extensionHost";
 import { printAdr } from "./adrPrint";
+import DecisionBanners from "./DecisionBanners";
+import RevisionStrip, { decisionRevisionItems } from "./RevisionStrip";
+import DecisionPeopleField from "./DecisionPeopleField";
+import DecisionLinksBlock from "./DecisionLinksBlock";
+import DecisionFilesSection from "./DecisionFilesSection";
+import { DecisionStandingChip, DecisionStatusChip } from "./DecisionStandingChip";
+import { DATE_LABEL_KEYS, decisionRefLabel } from "./decisionStanding";
+import { currentRevisionId } from "./adrEditorModel";
 import type { ArchitectureDecision } from "@/types";
 import { RAG_COLORS, WARNING_STRONG_COLOR, brand } from "@/theme/tokens";
 
-const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> = {
-  draft: "default",
-  in_review: "warning",
-  signed: "info",
-};
+const DATE_FIELDS = ["decided_on", "effective_from", "valid_until"] as const;
+
+/** Pointers on the preview open the other decision's preview. */
+const previewHref = (id: string) => `/ea-delivery/adr/${id}/preview`;
 
 export default function ADRPreview() {
   const { t } = useTranslation(["delivery", "common"]);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { formatDateTime } = useDateFormat();
+  const { formatDate, formatDateTime } = useDateFormat();
   const theme = useTheme();
   const compact = useMediaQuery(theme.breakpoints.down("sm"));
   const { user } = useAuth();
   const adrPanels = useExtensionAdrPanels();
-
-  const STATUS_LABELS: Record<string, string> = {
-    draft: t("status.draft"),
-    in_review: t("status.inReview"),
-    signed: t("status.signed"),
-  };
 
   const [adr, setAdr] = useState<ArchitectureDecision | null>(null);
   usePageSubject(adr?.title);
@@ -127,16 +129,13 @@ export default function ADRPreview() {
           {adr.title}
         </Typography>
         <Chip
-          label={adr.reference_number}
+          label={decisionRefLabel(adr, t)}
           size="small"
           variant="outlined"
           sx={{ fontFamily: "monospace" }}
         />
-        <Chip
-          label={STATUS_LABELS[adr.status] ?? adr.status}
-          size="small"
-          color={STATUS_COLORS[adr.status] ?? "default"}
-        />
+        <DecisionStatusChip adr={adr} />
+        <DecisionStandingChip standing={adr.standing} />
         {id && (
           <ExtensionSlot
             name="adr.header"
@@ -144,7 +143,10 @@ export default function ADRPreview() {
               adrId: id,
               status: adr.status,
               signed: adr.status === "signed",
+              readOnly: true,
               attributes: adr.attributes ?? {},
+              standing: adr.standing ?? null,
+              isCurrent: adr.is_current,
             }}
           />
         )}
@@ -190,18 +192,22 @@ export default function ADRPreview() {
 
       {/* Content */}
       <Box sx={{ maxWidth: 800, mx: "auto", px: { xs: 1, sm: 0 }, pb: 4 }}>
-        {/* Reference + revision info */}
+        {/* Where the decision stands, and its chain */}
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mb: 2, "&:empty": { display: "none" } }}>
+          <DecisionBanners adr={adr} mode="preview" hrefFor={previewHref} />
+          <RevisionStrip
+            items={decisionRevisionItems(adr.revisions ?? [], t)}
+            activeId={adr.id}
+            currentId={currentRevisionId(adr)}
+            hrefFor={previewHref}
+          />
+        </Box>
+
+        {/* Reference (with its revision) */}
         <Box sx={{ mb: 3, display: "flex", alignItems: "center", gap: 1 }}>
           <Typography variant="h4" sx={{ fontWeight: 700 }}>
-            {adr.reference_number}
+            {decisionRefLabel(adr, t)}
           </Typography>
-          {adr.revision_number > 1 && (
-            <Chip
-              label={t("adr.editor.revisionLabel", { number: adr.revision_number })}
-              size="small"
-              variant="outlined"
-            />
-          )}
         </Box>
 
         <Typography variant="h5" sx={{ fontWeight: 600, mb: 3 }}>
@@ -230,6 +236,68 @@ export default function ADRPreview() {
             )}
           </Box>
         ))}
+
+        {/* Dates */}
+        {DATE_FIELDS.some((f) => adr[f]) && (
+          <Box sx={{ mb: 4 }} data-testid="preview-dates">
+            <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+              {t("adr.dates.title")}
+            </Typography>
+            <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+              {DATE_FIELDS.filter((f) => adr[f]).map((f) => (
+                <Box key={f}>
+                  <Typography variant="caption" color="text.secondary" component="div">
+                    {t(DATE_LABEL_KEYS[f])}
+                  </Typography>
+                  <Typography variant="body2">{formatDate(adr[f])}</Typography>
+                </Box>
+              ))}
+            </Box>
+          </Box>
+        )}
+
+        {/* People */}
+        {((adr.decision_makers ?? []).length > 0 || (adr.participants ?? []).length > 0) && (
+          <Box sx={{ mb: 4, display: "flex", flexDirection: "column", gap: 1.5 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+              {t("adr.people.title")}
+            </Typography>
+            <DecisionPeopleField part="decision_makers" value={adr.decision_makers ?? []} readOnly />
+            <DecisionPeopleField part="participants" value={adr.participants ?? []} readOnly />
+          </Box>
+        )}
+
+        {/* Links to and from other decisions */}
+        {((adr.links?.outgoing.length ?? 0) > 0 || (adr.links?.incoming.length ?? 0) > 0) && (
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+              {t("adr.links.title")}
+            </Typography>
+            <DecisionLinksBlock links={adr.links} readOnly />
+          </Box>
+        )}
+
+        {/* Change summary (a revision) */}
+        {adr.change_summary && (
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+              {t("adr.revise.changeSummary")}
+            </Typography>
+            <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+              <LinkifiedText text={adr.change_summary} />
+            </Typography>
+          </Box>
+        )}
+
+        {/* Files */}
+        {id && (adr.files ?? []).length > 0 && (
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+              {t("adr.files.title")}
+            </Typography>
+            <DecisionFilesSection adrId={id} files={adr.files} editable={false} live={false} />
+          </Box>
+        )}
 
         {/* Linked Cards */}
         {(adr.linked_cards ?? []).length > 0 && (
@@ -271,6 +339,8 @@ export default function ADRPreview() {
                     status={adr.status}
                     signed={adr.status === "signed"}
                     readOnly
+                    standing={adr.standing ?? null}
+                    isCurrent={adr.is_current}
                   />
                 </ExtensionBoundary>
               </Box>
@@ -372,6 +442,8 @@ export default function ADRPreview() {
               signed: adr.status === "signed",
               readOnly: true,
               attributes: adr.attributes ?? {},
+              standing: adr.standing ?? null,
+              isCurrent: adr.is_current,
             }}
           />
         )}

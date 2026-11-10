@@ -38,7 +38,7 @@ import type { SoAW } from "@/types";
 import SoAWTab from "./SoAWTab";
 
 const INITIATIVE = "init-1";
-const LIST = `/soaw?initiative_id=${INITIATIVE}`;
+const LIST = `/soaw?initiative_id=${INITIATIVE}&include_earlier=false`;
 
 function soaw(id: string, over: Partial<SoAW> = {}): SoAW {
   return {
@@ -107,7 +107,9 @@ describe("SoAWTab", () => {
 
   it("reloads for another initiative", async () => {
     mockApi.on("get", LIST, [soaw("a")]);
-    mockApi.on("get", "/soaw?initiative_id=init-2", [soaw("z", { name: "Other plan" })]);
+    mockApi.on("get", "/soaw?initiative_id=init-2&include_earlier=false", [
+      soaw("z", { name: "Other plan" }),
+    ]);
     const view = render(
       <MemoryRouter>
         <SoAWTab initiativeId={INITIATIVE} canManage={false} />
@@ -211,6 +213,21 @@ describe("SoAWTab", () => {
     expect(confirmSpy).toHaveBeenCalledWith("Delete this SoAW? This cannot be undone.");
     await waitFor(() => expect(mockApi.callsOf("delete", "/soaw/a")).toHaveLength(1));
     await waitFor(() => expect(mockApi.callsOf("get", LIST)).toHaveLength(2));
+  });
+
+  it("offers Delete on a draft only: the API refuses any other status", async () => {
+    mockApi.on("get", LIST, [
+      soaw("a", { name: "Draft plan", status: "draft" }),
+      soaw("b", { name: "Review plan", status: "in_review" }),
+      soaw("c", { name: "Approved plan", status: "approved" }),
+      soaw("d", { name: "Signed plan", status: "signed" }),
+    ]);
+    renderTab();
+    const rows = await screen.findAllByRole("row");
+    expect(within(rows[1]).getByRole("button", { name: "Delete" })).toBeInTheDocument();
+    for (const row of rows.slice(2)) {
+      expect(within(row).queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    }
   });
 
   it("deletes nothing when the confirmation is declined", async () => {

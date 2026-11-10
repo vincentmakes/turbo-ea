@@ -17,7 +17,18 @@ import {
 } from "docx";
 import { saveAs } from "file-saver";
 import { getExtensionAdrExportSections } from "@/lib/extensionHost";
+import { toLocalDate } from "@/lib/dates";
 import type { ArchitectureDecision } from "@/types";
+import {
+  adrFactRows,
+  adrFileNames,
+  adrHeading,
+  adrLinkHeaders,
+  adrLinkRows,
+  adrRecordedLine,
+  type ExportableDecision,
+} from "./adrDocumentFacts";
+import { decisionRefLabel, statusLabelKey } from "./decisionStanding";
 
 // ─── style constants (mirroring soawExport.ts) ──────────────────────────────
 
@@ -246,20 +257,11 @@ function htmlIsEmpty(html: string | null | undefined): boolean {
   return !text;
 }
 
-function formatDate(iso: string | null): string {
-  if (!iso) return "";
-  try {
-    return new Date(iso).toLocaleDateString();
-  } catch {
-    return iso;
-  }
-}
-
-function statusLabel(status: string, t: (key: string) => string): string {
-  if (status === "draft") return t("status.draft");
-  if (status === "in_review") return t("status.inReview");
-  if (status === "signed") return t("status.signed");
-  return status;
+/** A timestamp or a `YYYY-MM-DD` day as a local date (a bare day is read as
+ *  that calendar day, never UTC midnight). */
+function formatDate(iso: string | null | undefined): string {
+  const d = toLocalDate(iso);
+  return d ? d.toLocaleDateString() : "";
 }
 
 // ─── ADR export ─────────────────────────────────────────────────────────────
@@ -283,7 +285,7 @@ export function adrDocxCover(adrs: ArchitectureDecision[]): AdrDocxCover {
     const [adr] = adrs;
     return {
       title: t("adr.export.documentTitle"),
-      subtitle: `${adr.reference_number} — ${adr.title}`,
+      subtitle: adrHeading(adr, t),
       generatedOn: null,
     };
   }
@@ -300,7 +302,7 @@ export function adrDocxCover(adrs: ArchitectureDecision[]): AdrDocxCover {
  * standard ADR sections (Context, Decision, Consequences, Alternatives,
  * Linked Cards, Signatures).
  */
-export async function exportAdrsToDocx(adrs: ArchitectureDecision[]): Promise<void> {
+export async function exportAdrsToDocx(adrs: ExportableDecision[]): Promise<void> {
   if (adrs.length === 0) return;
   const t = (key: string, opts?: Record<string, unknown>) =>
     String(i18n.t(`delivery:${key}`, opts as never));
@@ -381,7 +383,7 @@ export async function exportAdrsToDocx(adrs: ArchitectureDecision[]): Promise<vo
     children.push(
       buildDocxTable(
         [t("adr.grid.reference"), t("adr.grid.title"), t("adr.grid.status")],
-        adrs.map((a) => [a.reference_number, a.title, statusLabel(a.status, t)]),
+        adrs.map((a) => [decisionRefLabel(a, t), a.title, t(statusLabelKey(a))]),
       ),
     );
     children.push(new Paragraph({ spacing: { after: SPACING_AFTER_TABLE } }));
@@ -412,7 +414,7 @@ export async function exportAdrsToDocx(adrs: ArchitectureDecision[]): Promise<vo
         new Paragraph({
           children: [
             new TextRun({
-              text: `${adr.reference_number} — ${adr.title}`,
+              text: adrHeading(adr, t),
               bold: true,
               font: FONT,
               size: SIZE_PART,
@@ -427,26 +429,9 @@ export async function exportAdrsToDocx(adrs: ArchitectureDecision[]): Promise<vo
       );
     }
 
-    // Metadata table (status, created, signed, signatories)
-    const metaRows: [string, string][] = [];
-    metaRows.push([t("adr.grid.status"), statusLabel(adr.status, t)]);
-    if (adr.creator_name) metaRows.push([t("adr.grid.createdBy"), adr.creator_name]);
-    if (adr.created_at) metaRows.push([t("adr.grid.created"), formatDate(adr.created_at)]);
-    if (adr.updated_at) metaRows.push([t("adr.grid.lastModified"), formatDate(adr.updated_at)]);
-    if (adr.signed_at) metaRows.push([t("adr.grid.signed"), formatDate(adr.signed_at)]);
-    if (adr.revision_number && adr.revision_number > 1) {
-      metaRows.push([
-        t("adr.export.revisionLabel"),
-        String(adr.revision_number),
-      ]);
-    }
-    const signedNames = (adr.signatories ?? [])
-      .filter((s) => s.status === "signed")
-      .map((s) => s.display_name)
-      .filter(Boolean);
-    if (signedNames.length > 0) {
-      metaRows.push([t("adr.grid.signedBy"), signedNames.join(", ")]);
-    }
+    // Facts table (status, standing, dates, people, authoring, signing):
+    // the same rows the print view shows, empty ones left out.
+    const metaRows = adrFactRows(adr, t, formatDate).filter(([, value]) => value !== "");
 
     children.push(
       new Paragraph({
@@ -466,6 +451,34 @@ export async function exportAdrsToDocx(adrs: ArchitectureDecision[]): Promise<vo
       buildDocxTable([t("export.field"), t("export.value")], metaRows),
     );
     children.push(new Paragraph({ spacing: { after: SPACING_AFTER_TABLE } }));
+
+    // Heading helper
+    const addHeading = (title: string) =>
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: title, bold: true, font: FONT, size: SIZE_H2, color: COLOR_H2 }),
+          ],
+          spacing: { before: SPACING_H2_BEFORE, after: SPACING_AFTER_DEFAULT },
+        }),
+      );
+    const addTable = (headers: string[], rows: string[][]) => {
+      children.push(buildDocxTable(headers, rows));
+      children.push(new Paragraph({ spacing: { after: SPACING_AFTER_TABLE } }));
+    };
+
+    // What changed in this revision (plain text, line breaks kept).
+    if (adr.change_summary && adr.change_summary.trim()) {
+      addHeading(t("adr.export.changeSummary"));
+      for (const line of adr.change_summary.split("\n")) {
+        children.push(
+          new Paragraph({
+            children: [new TextRun({ text: line, font: FONT, size: SIZE_BODY, color: COLOR_BODY })],
+            spacing: { after: SPACING_AFTER_DEFAULT },
+          }),
+        );
+      }
+    }
 
     // Section helper
     const addSection = (title: string, html: string | null) => {
@@ -493,6 +506,21 @@ export async function exportAdrsToDocx(adrs: ArchitectureDecision[]): Promise<vo
     addSection(t("adr.decision"), adr.decision);
     addSection(t("adr.consequences"), adr.consequences);
     addSection(t("adr.alternativesConsidered"), adr.alternatives_considered);
+
+    // Linked decisions, both directions, and the files on the decision.
+    const linkRows = adrLinkRows(adr, t);
+    if (linkRows.length > 0) {
+      addHeading(t("adr.export.links"));
+      addTable(adrLinkHeaders(t), linkRows);
+    }
+    const fileNames = adrFileNames(adr);
+    if (fileNames.length > 0) {
+      addHeading(t("adr.export.files"));
+      addTable(
+        [t("adr.export.fileName")],
+        fileNames.map((name) => [name]),
+      );
+    }
 
     // Linked cards
     const linked = adr.linked_cards ?? [];
@@ -562,9 +590,19 @@ export async function exportAdrsToDocx(adrs: ArchitectureDecision[]): Promise<vo
       }
     }
 
-    // Signatures detail
+    // Signatures detail. A recorded decision was not signed here: one line
+    // says so instead.
+    const recorded = adrRecordedLine(adr, t, formatDate);
     const sigs = adr.signatories ?? [];
-    if (sigs.length > 0) {
+    if (recorded) {
+      addHeading(t("adr.editor.signatures"));
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: recorded, font: FONT, size: SIZE_BODY, color: COLOR_BODY })],
+          spacing: { after: SPACING_AFTER_DEFAULT },
+        }),
+      );
+    } else if (sigs.length > 0) {
       children.push(
         new Paragraph({
           children: [
@@ -618,9 +656,14 @@ export async function exportAdrsToDocx(adrs: ArchitectureDecision[]): Promise<vo
   const stamp = exportTimestamp();
   const filename =
     adrs.length === 1
-      ? `${adrs[0].reference_number}_${stamp}.docx`
+      ? `${adrs[0].reference_number}${revisionSuffix(adrs[0])}_${stamp}.docx`
       : `ADRs_${stamp}.docx`;
   saveAs(blob, filename);
+}
+
+/** "-rev2" in a file name from revision 2 on. */
+function revisionSuffix(adr: ArchitectureDecision): string {
+  return adr.revision_number > 1 ? `-rev${adr.revision_number}` : "";
 }
 
 function exportTimestamp(now: Date = new Date()): string {

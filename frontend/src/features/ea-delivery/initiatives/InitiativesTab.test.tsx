@@ -63,8 +63,8 @@ function renderTab(over: Partial<Props> = {}) {
 function scriptData(initiatives: Card[] = [PROGRAM, CHILD, OTHER]) {
   mockApi.on("get", CARDS_URL, cardPage(initiatives));
   mockApi.on("get", "/diagrams", [LINKED_DIAGRAM, ORPHAN_DIAGRAM]);
-  mockApi.on("get", "/soaw", [LINKED_SOAW, ORPHAN_SOAW]);
-  mockApi.on("get", "/adr", [ORPHAN_ADR]);
+  mockApi.on("get", "/soaw?include_earlier=false", [LINKED_SOAW, ORPHAN_SOAW]);
+  mockApi.on("get", "/adr?include_earlier=false", [ORPHAN_ADR]);
   mockApi.on("get", "/favorites?type=Initiative", [{ id: "f1", card_id: "init-3" }]);
   mockApi.on("post", /^\/favorites\//, { ok: true });
   mockApi.on("delete", /^\/favorites\//, undefined);

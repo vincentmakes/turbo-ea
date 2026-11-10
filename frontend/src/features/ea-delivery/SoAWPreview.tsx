@@ -16,11 +16,17 @@ import { alpha, useTheme } from "@mui/material/styles";
 import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { buildPreviewBody, exportToPdf, PREVIEW_CSS } from "./soawExport";
+import { SoawBanners } from "./DecisionBanners";
+import RevisionStrip, { soawRevisionItems } from "./RevisionStrip";
+import { soawCurrentRevisionId } from "./soawEditorState";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { usePageSubject } from "@/hooks/usePageTitle";
 import type { SoAW, SoAWSectionData } from "@/types";
 import { DELIVERABLE_COLORS, RAG_COLORS, WARNING_STRONG_COLOR } from "@/theme/tokens";
+
+/** A revision pointer from the preview stays in the preview. */
+const previewHref = (soawId: string) => `/ea-delivery/soaw/${soawId}/preview`;
 
 const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> = {
   draft: "default",
@@ -185,6 +191,20 @@ export default function SoAWPreview() {
             {t("common:actions.edit")}
           </Button>
         )}
+      </Box>
+
+      {/* Chain pointers and the revision strip (links open the preview). */}
+      <Box
+        className="no-print"
+        sx={{ maxWidth: 960, mx: "auto", mb: 2, display: "flex", flexDirection: "column", gap: 1 }}
+      >
+        <SoawBanners soaw={soaw} mode="preview" hrefFor={previewHref} />
+        <RevisionStrip
+          items={soawRevisionItems(soaw.revisions ?? [], t)}
+          activeId={soaw.id}
+          currentId={soawCurrentRevisionId(soaw)}
+          hrefFor={previewHref}
+        />
       </Box>
 
       {/* Styled preview content */}

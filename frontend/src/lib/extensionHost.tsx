@@ -154,9 +154,9 @@ import { FilterCheckboxList, FilterSectionHeader } from "@/components/FilterSide
 import LifecycleSection from "@/features/cards/sections/LifecycleSection";
 import { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
 import { buildGanttArrowPath } from "@/features/ppm/ganttArrowPath";
-import type { ArchitectureDecision, Card } from "@/types";
+import type { ArchitectureDecision, Card, DecisionStanding } from "@/types";
 
-export const UI_SDK_VERSION = "1.33";
+export const UI_SDK_VERSION = "1.34";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -297,11 +297,20 @@ export interface ExtensionSurveyTemplateContribution {
 export interface ExtensionAdrPanelProps {
   adrId: string;
   status: string; // draft | in_review | signed
-  signed: boolean; // convenience: status === "signed" (attributes are frozen)
-  // The panel must not allow edits when true: it is either a signed (frozen)
-  // ADR or the read-only preview page. Editing is only offered on the editor
-  // page for an unsigned ADR.
+  signed: boolean; // convenience: status === "signed"
+  // THE contract: when true the panel must not offer edits and must not PATCH
+  // the decision's attributes. Since SDK 1.34 it is true whenever the decision
+  // is not a draft — in review as well as signed, because a decision sent for
+  // review is locked so signatories sign exactly what they were sent — and
+  // always on the read-only preview page. Gate editing on `readOnly`, never on
+  // `signed` or `status`.
   readOnly: boolean;
+  // SDK 1.34: where a signed decision stands today (scheduled | in_force |
+  // amended | superseded | revoked | expired), null before signing, and
+  // whether this is its chain's current revision. Optional: older hosts omit
+  // them.
+  standing?: DecisionStanding | null;
+  isCurrent?: boolean;
 }
 
 /**
@@ -309,8 +318,8 @@ export interface ExtensionAdrPanelProps {
  * cards, so this is the sanctioned place to attach ADR-scoped UI — e.g. a
  * custom form that reads/writes the ADR `ext.*` attributes bag via
  * `PATCH /adr/{id}`. `appliesTo` has no analogue (there is only one ADR
- * "type"); gate with `permission` if needed. Rendered read-only-friendly: the
- * component should respect `signed` to disable editing once frozen.
+ * "type"); gate with `permission` if needed. The component must respect
+ * `readOnly` (true outside a draft and on the preview page) to disable editing.
  */
 export interface ExtensionAdrPanelContribution {
   id: string;
@@ -397,7 +406,12 @@ export interface ExtensionFieldVisibilityProps {
  *     which spaces its own band — would otherwise render off the row's centre
  *     line.
  *   - `risk.detail.panel`   (component) — RiskDetailPage
- *   - `adr.header`, `adr.signature.footer` (component) — ADREditor/ADRPreview
+ *   - `adr.header`, `adr.signature.footer` (component) — ADREditor/ADRPreview,
+ *     context `{adrId, status, signed, readOnly, attributes, standing,
+ *     isCurrent}`. `adr.header`'s `readOnly` (SDK 1.34) follows the panel
+ *     contract (true outside a draft and on the preview); `adr.signature.footer`
+ *     passes `readOnly: false` on the editor for post-decision content and must
+ *     never PATCH the decision's attributes (they are locked outside a draft).
  *   - `notification.preferences.channels` (data) — one column per
  *     extension-delivered notification channel. `build({channelKey})` returns
  *     `{label, order?}`; the column only renders when the BACKEND also reports

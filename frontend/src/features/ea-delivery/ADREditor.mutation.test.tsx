@@ -14,6 +14,7 @@ import type { ArchitectureDecision, SoAWSignatory } from "@/types";
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
   ApiError: class ApiError extends Error {},
+  isAbortError: () => false,
 }));
 const authState = vi.hoisted(() => ({
   user: { id: "u1", permissions: {} } as { id: string; permissions: Record<string, boolean> } | null,
@@ -163,6 +164,7 @@ function deferred<T = unknown>() {
 function serve(adr: ArchitectureDecision, opts: ServeOptions = {}) {
   vi.mocked(api.get).mockImplementation(async (path: string) => {
     if (path === "/auth/me") return { id: "u1" } as never;
+    if (path.endsWith("/files")) return [] as never;
     if (path.startsWith("/adr/")) {
       await new Promise((r) => setTimeout(r, 0));
       return (await (opts.adr ? opts.adr() : adr)) as never;
@@ -271,7 +273,7 @@ describe("ADREditor — a new decision", () => {
     renderAt("/ea-delivery/adr/new");
     expect(await screen.findByText("New Architecture Decision")).toBeInTheDocument();
 
-    expect(chipLabels()).toEqual(["draft"]);
+    expect(chipLabels()).toEqual(["Draft"]);
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.queryByTestId("sign-dialog")).toBeNull();
     expect(screen.queryByRole("heading", { name: "Signatures" })).toBeNull();
@@ -298,6 +300,12 @@ describe("ADREditor — a new decision", () => {
       revision_number: 1,
       attributes: {},
       linked_cards: [],
+      decided_on: null,
+      effective_from: null,
+      valid_until: null,
+      decision_makers: [],
+      participants: [],
+      change_summary: null,
     });
 
     // The browser tab follows the draft title as it is typed.
@@ -337,6 +345,12 @@ describe("ADREditor — a new decision", () => {
         decision: null,
         consequences: null,
         alternatives_considered: null,
+        decided_on: null,
+        effective_from: null,
+        valid_until: null,
+        decision_makers: [],
+        participants: [],
+        links: [],
       }),
     );
     expect(await screen.findByText("Saved successfully")).toBeInTheDocument();
@@ -386,7 +400,17 @@ describe("ADREditor — loading a decision", () => {
     const user = userEvent.setup();
 
     // Section headings, their hints and the editors' placeholders.
-    for (const heading of ["Context", "Decision", "Alternatives Considered", "Consequences", "Linked Cards"]) {
+    for (const heading of [
+      "Context",
+      "Decision",
+      "Alternatives Considered",
+      "Consequences",
+      "Dates",
+      "People",
+      "This decision…",
+      "Files",
+      "Linked Cards",
+    ]) {
       expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
     }
     for (const hint of Object.values(HINT)) {
@@ -413,6 +437,12 @@ describe("ADREditor — loading a decision", () => {
         decision: "<p>do it</p>",
         consequences: "<p>cons</p>",
         alternatives_considered: "<p>alt</p>",
+        decided_on: null,
+        effective_from: null,
+        valid_until: null,
+        decision_makers: [],
+        participants: [],
+        links: [],
       }),
     );
   });
@@ -445,15 +475,21 @@ describe("ADREditor — loading a decision", () => {
         decision: null,
         consequences: null,
         alternatives_considered: null,
+        decided_on: null,
+        effective_from: null,
+        valid_until: null,
+        decision_makers: [],
+        participants: [],
+        links: [],
       }),
     );
   });
 
   it("shows the reference as a chip, no revision chip at revision 1, and no banner on a draft", async () => {
     await renderLoaded({ ...base, signed_at: "2026-06-03T12:00:00Z" });
-    expect(chipLabels()).toEqual(["ADR-0001", "draft"]);
+    expect(chipLabels()).toEqual(["ADR-0001", "Draft"]);
     expect(screen.queryByText(/This decision was signed on/)).toBeNull();
-    expect(screen.queryByText("Revision 1")).toBeNull();
+    expect(screen.queryByText(/Rev 1/)).toBeNull();
   });
 
   it("shows no signed banner when a signed record carries no signing date", async () => {
@@ -476,7 +512,7 @@ describe("ADREditor — signatures", () => {
       signatories: [ME_SIGNED, GRACE_SIGNED],
     });
     expect(screen.getByText("This decision was signed on 2026-06-03 and is read-only.")).toBeInTheDocument();
-    expect(chipLabels()).toEqual(["ADR-0001", "signed"]);
+    expect(chipLabels()).toEqual(["ADR-0001", "Signed"]);
 
     const progress = screen.getByText("2 of 2 signatures collected").closest("[role='alert']") as HTMLElement;
     expect(within(progress).getByTestId("SuccessOutlinedIcon")).toBeInTheDocument();
@@ -574,12 +610,14 @@ describe("ADREditor — workflow actions", () => {
   });
 
   it("confirms a new revision", async () => {
+    authState.user = { id: "u1", permissions: { "adr.manage": true } };
     const signed = { ...base, status: "signed" as const, signed_at: "2026-06-03T12:00:00Z" };
     await renderLoaded(signed, {
       post: (path) => (path === "/adr/adr-1/revise" ? { ...signed, id: "adr-rev" } : {}),
     });
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /New Revision/ }));
+    await user.click(screen.getByRole("button", { name: /Revise/ }));
+    await user.click(screen.getByRole("menuitem", { name: /Revise this decision/ }));
     expect(await screen.findByText("New revision created")).toBeInTheDocument();
   });
 
@@ -589,6 +627,7 @@ describe("ADREditor — workflow actions", () => {
     // And it must be ONE toast: the page switches from the old decision to the
     // spinner to the new one, and a toast remounted at each switch re-animates
     // and restarts its timer (and detached the element a test had just found).
+    authState.user = { id: "u1", permissions: { "adr.manage": true } };
     const signed = { ...base, status: "signed" as const, signed_at: "2026-06-03T12:00:00Z" };
     const reload = deferred();
     let loads = 0;
@@ -597,7 +636,8 @@ describe("ADREditor — workflow actions", () => {
       post: (path) => (path === "/adr/adr-1/revise" ? { ...signed, id: "adr-rev" } : {}),
     });
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /New Revision/ }));
+    await user.click(screen.getByRole("button", { name: /Revise/ }));
+    await user.click(screen.getByRole("menuitem", { name: /Revise this decision/ }));
     const toast = await screen.findByText("New revision created");
     await waitFor(() => expect(location()).toBe("/ea-delivery/adr/adr-rev"));
     // The spinner follows the URL by an effect, so wait for it rather than read
@@ -638,7 +678,7 @@ describe("ADREditor — workflow actions", () => {
     await user.click(screen.getByRole("button", { name: "request-one" }));
     expect(await screen.findByText("Signature requests sent")).toBeInTheDocument();
     expect(screen.queryByTestId("sign-dialog")).toBeNull();
-    expect(chipLabels()).toEqual(["ADR-0001", "in review"]);
+    expect(chipLabels()).toEqual(["ADR-0001", "In Review"]);
     expect(screen.queryByText(/signatures collected/)).toBeNull();
   });
 
@@ -699,7 +739,8 @@ describe("ADREditor — workflow actions", () => {
     recall.reject(new Error("x"));
     expect(await screen.findByText("Failed to recall signatures")).toBeInTheDocument();
     expect(button).toBeEnabled();
-    expect(screen.getByRole("button", { name: /Save$/ })).toBeEnabled();
+    // Still in review, so still locked: no Save.
+    expect(screen.queryByRole("button", { name: /Save$/ })).toBeNull();
   });
 
   it("rejecting: needs real text, is busy in flight, closes, applies the reply and clears the reason", async () => {
@@ -722,10 +763,10 @@ describe("ADREditor — workflow actions", () => {
     // The row button behind the modal is busy too.
     expect(screen.getByRole("button", { name: /^block Reject$/, hidden: true })).toBeDisabled();
 
-    reject.resolve({ ...IN_REVIEW, status: "draft", revision_number: 2, signatories: [GRACE_SIGNED] });
+    reject.resolve({ ...IN_REVIEW, status: "draft", signatories: [GRACE_SIGNED] });
     expect(await screen.findByText("Decision rejected and reset to draft")).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(chipLabels()).toEqual(["ADR-0001", "Revision 2", "draft"]);
+    expect(chipLabels()).toEqual(["ADR-0001", "Draft"]);
     expect(screen.getByText("1 of 1 signatures collected")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Save$/ })).toBeEnabled();
 
