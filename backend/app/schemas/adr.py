@@ -103,7 +103,7 @@ class ADRReviseRequest(BaseModel):
     # Decision ids or reference numbers of the amending decisions this
     # revision consolidates; each becomes a ``consolidates`` link.
     consolidates: list[str] = Field(default_factory=list, max_length=100)
-    change_summary: str | None = Field(None, max_length=2000)
+    change_summary: str | None = Field(default=None, max_length=2000)
 
     model_config = {"extra": "forbid"}
 
