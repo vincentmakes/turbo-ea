@@ -124,6 +124,94 @@ async def test_rows_without_a_reference_are_not_duplicates_of_each_other(db):
     assert [o.status for o in outcomes] == ["created", "created"]
 
 
+def test_revision_of_reads_the_cell():
+    assert svc.revision_of(None) == 0
+    assert svc.revision_of(3) == 3
+    assert svc.revision_of(-2) == 0
+    assert svc.revision_of(True) == 0
+    assert svc.revision_of(" 12 ") == 12
+    assert svc.revision_of("") == 0
+    assert svc.revision_of("Rev 2") == 0
+    assert svc.revision_of("²") == 0
+
+
+def test_chosen_rows_keeps_the_highest_revision_per_reference():
+    rows = [
+        Row(row_index=0, reference_number="ADR-1", title="a", revision_number=2),
+        Row(row_index=1, reference_number="adr-1", title="b", revision_number=1),
+        Row(row_index=2, reference_number="ADR-2", title="c"),
+        Row(row_index=3, reference_number="ADR-2", title="d"),
+        Row(row_index=4, title="no reference"),
+        Row(row_index=5, title="no reference either"),
+        Row(row_index=6, reference_number="ADR-3", title="e", revision_number=3),
+        Row(row_index=7, reference_number="ADR-3", title="f", revision_number=3),
+        Row(row_index=8, reference_number="ADR-9", title="g", revision_number=1),
+        Row(row_index=9, reference_number="ADR-9", title="h", revision_number=2),
+    ]
+    # ADR-1: rev 2 (first row); ADR-2: no numbers, the last row; ADR-3: tie,
+    # the last row; ADR-9 is on the instance, so every row is the caller's.
+    assert svc.chosen_rows(rows, {"ADR-9"}) == {0, 3, 4, 5, 7, 8, 9}
+    assert svc.chosen_rows(rows) == {0, 3, 4, 5, 7, 9}
+
+
+def test_earlier_revision_warning():
+    assert svc.earlier_revision_warning("ADR-012") == "Earlier revision of ADR-012 skipped"
+
+
+async def test_repeated_reference_imports_one_row_whatever_the_order(db):
+    rows = [
+        Row(row_index=0, reference_number="OLD-1", title="Rev 2", revision_number=2),
+        Row(row_index=1, reference_number="OLD-1", title="Rev 1", revision_number="1"),
+        Row(row_index=2, title="Refers", related_references=["old-1"]),
+    ]
+
+    kept, earlier, refers = await svc.import_decision_rows(db, rows, created_by=None)
+
+    assert (kept.status, kept.warnings) == ("created", [])
+    assert (earlier.status, earlier.id, earlier.reference_number, earlier.error) == (
+        "skipped",
+        kept.id,
+        "OLD-1",
+        None,
+    )
+    assert earlier.warnings == ["Earlier revision of OLD-1 skipped"]
+    decisions = await _decisions(db)
+    assert sorted(d.title for d in decisions.values()) == ["Refers", "Rev 2"]
+    assert await _relates(db, uuid.UUID(refers.id)) == [uuid.UUID(kept.id)]
+
+
+async def test_an_earlier_revision_of_a_failed_row_names_no_decision(db):
+    rows = [
+        Row(row_index=0, reference_number="OLD-2", title="Rev 1", revision_number=1),
+        Row(row_index=1, reference_number="OLD-2", title=" ", revision_number=2),
+    ]
+
+    earlier, failed = await svc.import_decision_rows(db, rows, created_by=None)
+
+    assert (failed.status, failed.error) == ("failed", "Title is required")
+    assert (earlier.status, earlier.id, earlier.warnings) == (
+        "skipped",
+        None,
+        ["Earlier revision of OLD-2 skipped"],
+    )
+
+
+async def test_a_reference_on_the_instance_skips_all_its_rows_without_warning(db):
+    existing = await adr_service.create_decision(db, title="Existing", publish=False)
+    rows = [
+        Row(row_index=0, reference_number="ADR-001", title="A", revision_number=1),
+        Row(row_index=1, reference_number="ADR-001", title="B", revision_number=2),
+    ]
+
+    outcomes = await svc.import_decision_rows(db, rows, created_by=None)
+
+    assert [(o.status, o.id, o.warnings) for o in outcomes] == [
+        ("skipped", str(existing.id), []),
+        ("skipped", str(existing.id), []),
+    ]
+    assert list(await _decisions(db)) == ["ADR-001"]
+
+
 async def test_one_related_decision_spelled_two_ways_links_once(db):
     existing = await adr_service.create_decision(db, title="Existing", publish=False)
 

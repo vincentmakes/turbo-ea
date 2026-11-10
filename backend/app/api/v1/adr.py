@@ -766,20 +766,27 @@ async def sign_adr(
     if not signatories:
         raise HTTPException(400, "No signatures have been requested for this decision")
 
-    found = False
-    for sig in signatories:
-        if sig["user_id"] == str(user.id):
-            if sig["status"] == "signed":
-                raise HTTPException(400, "You have already signed this decision")
-            sig["status"] = "signed"
-            sig["signed_at"] = datetime.now(timezone.utc).isoformat()
-            if body and body.comment:
-                sig["comment"] = body.comment
-            found = True
-            break
-
-    if not found:
+    mine = next((sig for sig in signatories if sig["user_id"] == str(user.id)), None)
+    if mine is None:
         raise HTTPException(403, "You are not a signatory of this decision")
+    if mine["status"] == "signed":
+        raise HTTPException(400, "You have already signed this decision")
+
+    register: ds.Register | None = None
+    if adr_service.completes_signatures(signatories, str(user.id)):
+        # The final signature locks the decision: the chain may have been
+        # revoked or replaced since the request, and the dates must still hold
+        # with the signing day as the default. Refused before anything is
+        # recorded, so the author can recall, fix and send again.
+        register = await ds.load_register(db)
+        refusal = adr_service.lock_refusal(register, adr)
+        if refusal is not None:
+            raise HTTPException(409, refusal)
+
+    mine["status"] = "signed"
+    mine["signed_at"] = datetime.now(timezone.utc).isoformat()
+    if body and body.comment:
+        mine["comment"] = body.comment
 
     # Auto-close system todos
     sign_todos = await db.execute(
@@ -798,15 +805,7 @@ async def sign_adr(
 
     all_signed = all(sig["status"] == "signed" for sig in signatories)
     label = adr_service.decision_label(adr)
-    if all_signed:
-        # The chain may have been revoked or replaced since the request.
-        register = await ds.load_register(db)
-        closed_by = ds.chain_closed_by(register, adr.id)
-        if closed_by is not None:
-            raise HTTPException(
-                409,
-                {"error": ds.CHAIN_CLOSED, "by": adr_service.ref_payload(closed_by)},
-            )
+    if all_signed and register is not None:
         adr.status = "signed"
         adr.signed_at = datetime.now(timezone.utc)
         adr_service.apply_lock_dates(adr, adr.signed_at.date())
@@ -1252,10 +1251,13 @@ async def delete_adr_file(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Remove a file from a draft decision; its bytes go once no decision shares them."""
+    """Remove a file from a draft decision; its bytes go once no decision shares them.
+
+    Allowed while file uploads are switched off, like a card attachment's
+    delete: otherwise a file could not leave a draft and would be signed with it.
+    """
     await PermissionService.require_permission(db, user, "adr.manage")
     adr = await _get_adr_for_files(db, adr_id)
-    await require_uploads_enabled(db)
     if not await adr_file_service.remove_file(db, adr.id, _file_id(attachment_id)):
         raise HTTPException(404, "File not found")
     await db.commit()

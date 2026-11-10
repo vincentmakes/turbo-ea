@@ -14,7 +14,11 @@ hidden card is a warning, never a failure.
 Related decisions are resolved in a second pass, once every row exists, so a
 row may name a decision that appears later in the same file, and are saved as
 ``relates`` links. A reference already in the database names its chain's
-current revision. Nothing here commits — the route owns the transaction and
+current revision. An exported register carries one row per revision, so a
+file may repeat a reference: the row with the highest ``revision_number`` is
+imported (a tie or an absent number: the last row) and every other row of that
+reference is skipped with a warning (:func:`chosen_rows`); a reference already
+in the database skips all its rows. Nothing here commits — the route owns the transaction and
 the dry-run rollback.
 
 ``related_reference_labels`` is the export side: a decision's ``relates``
@@ -52,6 +56,7 @@ class DecisionImportRow:
     card_names: list[str] = field(default_factory=list)
     related_references: list[str] = field(default_factory=list)
     status: str | None = None
+    revision_number: int | str | None = None
 
 
 @dataclass
@@ -72,6 +77,49 @@ def _text(value: str | None) -> str | None:
     if value is None:
         return None
     return value.strip() or None
+
+
+def revision_of(value: int | str | None) -> int:
+    """A row's ``revision_number`` cell as a number; 0 when absent or unreadable."""
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return max(value, 0)
+    text = (value or "").strip()
+    return int(text) if text.isascii() and text.isdigit() else 0
+
+
+def chosen_rows(rows: Sequence[DecisionImportRow], skip: Iterable[str] = ()) -> set[int]:
+    """Positions (in ``rows``) of the row imported for each reference the file repeats.
+
+    An export carries one row per revision, so a reference can appear several
+    times: the row with the highest ``revision_number`` is imported, a tie or
+    an absent number going to the last row. A row without a reference, or
+    whose reference is in ``skip`` (already on the instance), is always kept
+    here; the caller skips the latter.
+    """
+    skipped = set(skip)
+    best: dict[str, tuple[int, int]] = {}
+    for position, row in enumerate(rows):
+        reference = _norm_ref(row.reference_number)
+        if not reference or reference in skipped:
+            continue
+        rank = (revision_of(row.revision_number), position)
+        if reference not in best or rank > best[reference]:
+            best[reference] = rank
+    keep = {position for _rank, position in best.values()}
+    return {
+        position
+        for position, row in enumerate(rows)
+        if position in keep
+        or not _norm_ref(row.reference_number)
+        or _norm_ref(row.reference_number) in skipped
+    }
+
+
+def earlier_revision_warning(reference: str) -> str:
+    """The warning on a row left out because the file has a later row for its reference."""
+    return f"Earlier revision of {reference} skipped"
 
 
 def _unique(values: Iterable[str]) -> list[str]:
@@ -133,11 +181,13 @@ async def import_decision_rows(
     outcomes: list[DecisionImportOutcome] = []
     created: list[tuple[DecisionImportOutcome, ArchitectureDecision, DecisionImportRow]] = []
     # The file's own references, mapped to the decision each row created —
-    # what a later row repeating one collides with, and what related
-    # references between rows resolve against.
+    # what related references between rows resolve against.
     file_refs: dict[str, uuid.UUID] = {}
+    # One row per reference is imported; the others are earlier revisions.
+    imported = chosen_rows(rows, existing)
+    earlier: list[DecisionImportOutcome] = []
 
-    for row in rows:
+    for position, row in enumerate(rows):
         reference = _norm_ref(row.reference_number)
         if reference in existing:
             outcomes.append(
@@ -149,6 +199,16 @@ async def import_decision_rows(
                 )
             )
             continue
+        if position not in imported:
+            outcome = DecisionImportOutcome(
+                row_index=row.row_index,
+                status="skipped",
+                reference_number=reference,
+                warnings=[earlier_revision_warning(reference)],
+            )
+            outcomes.append(outcome)
+            earlier.append(outcome)
+            continue
 
         title = row.title.strip()
         error: str | None = None
@@ -156,8 +216,6 @@ async def import_decision_rows(
             error = "Title is required"
         elif len(title) > TITLE_MAX_LENGTH:
             error = f"Title is longer than {TITLE_MAX_LENGTH} characters"
-        elif reference in file_refs:
-            error = f"Reference {reference} appears more than once in the file"
         if error is not None:
             outcomes.append(
                 DecisionImportOutcome(row_index=row.row_index, status="failed", error=error)
@@ -191,6 +249,11 @@ async def import_decision_rows(
         )
         outcomes.append(outcome)
         created.append((outcome, adr, row))
+
+    # A skipped earlier revision points at the decision its reference became.
+    for outcome in earlier:
+        target = file_refs.get(outcome.reference_number or "")
+        outcome.id = str(target) if target is not None else None
 
     # Second pass: every row now exists, so a reference to a later row resolves.
     for outcome, adr, row in created:

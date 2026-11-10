@@ -433,12 +433,36 @@ class TestDatesAndLocking:
             register, self._draft(valid_until=TODAY - timedelta(days=1))
         ) == {
             "error": "valid_until_before_effective",
+            "problems": ["valid_until_before_effective"],
+        }
+        assert adr_service.lock_refusal(
+            register, self._draft(valid_until=TODAY - timedelta(days=2))
+        ) == {
+            "error": "valid_until_before_effective",
             "problems": ["valid_until_before_effective", "valid_until_past"],
         }
         assert adr_service.lock_refusal(register, self._draft(decided_on=TODAY)) is None
+        assert (
+            adr_service.lock_refusal(register, self._draft(decided_on=TODAY + timedelta(days=1)))
+            is None
+        )
         assert adr_service.lock_refusal(
-            register, self._draft(decided_on=TODAY + timedelta(days=1))
+            register, self._draft(decided_on=TODAY + timedelta(days=2))
         ) == {"error": "decided_on_future", "problems": ["decided_on_future"]}
+
+    def test_valid_until_yesterday_with_an_explicit_start_may_lock(self):
+        register = self._register()
+        yesterday = TODAY - timedelta(days=1)
+        assert (
+            adr_service.lock_refusal(
+                register, self._draft(effective_from=yesterday, valid_until=yesterday)
+            )
+            is None
+        )
+        two_days_ago = TODAY - timedelta(days=2)
+        assert adr_service.lock_refusal(
+            register, self._draft(effective_from=two_days_ago, valid_until=two_days_ago)
+        ) == {"error": "valid_until_past", "problems": ["valid_until_past"]}
         assert adr_service.lock_refusal(
             register,
             self._draft(effective_from=date(2027, 1, 2), valid_until=date(2027, 1, 1)),
@@ -462,6 +486,18 @@ class TestDatesAndLocking:
             "problems": ["chain_closed"],
             "by": _ref(3, "ADR-003"),
         }
+
+    def test_completes_signatures(self):
+        def sig(uid, status):
+            return {"user_id": uid, "status": status}
+
+        done = adr_service.completes_signatures
+        assert done([sig("u1", "pending")], "u1") is True
+        assert done([sig("u1", "pending"), sig("u2", "signed")], "u1") is True
+        assert done([sig("u1", "pending"), sig("u2", "pending")], "u1") is False
+        assert done([sig("u1", "signed"), sig("u2", "signed")], "u1") is False
+        assert done([sig("u2", "signed")], "u1") is False
+        assert done([], "u1") is False
 
     def test_apply_lock_dates_fills_only_empty_dates(self):
         adr = ArchitectureDecision()

@@ -1,7 +1,8 @@
 """Files on a decision over the API.
 
 ``GET /adr/{id}/files`` and the download need ``adr.view``; upload and delete
-need ``adr.manage``, a draft decision and file uploads switched on. A
+need ``adr.manage`` and a draft decision; an upload also needs file uploads
+switched on, a delete does not (like a card attachment's delete). A
 revision shares its parent's bytes, so deleting a file on the draft revision
 leaves the signed one's file downloadable.
 """
@@ -200,16 +201,27 @@ class TestRejectedInput:
         resp = await _upload(client, admin, adr["id"], "second.pdf", PDF2)
         assert resp.status_code == 403
         assert resp.json()["detail"] == "File uploads are disabled by the administrator"
-        resp = await client.delete(
-            f"{URL}/{adr['id']}/files/{row['id']}", headers=auth_headers(admin)
-        )
-        assert resp.status_code == 403
         assert await _count(db, ArchitectureDecisionFile) == 1
         # Reading still works.
         down = await client.get(
             f"{URL}/{adr['id']}/files/{row['id']}/download", headers=auth_headers(admin)
         )
         assert down.status_code == 200
+
+    async def test_a_file_can_be_removed_while_uploads_are_disabled(self, client, env, db):
+        admin = env["admin"]
+        adr = await _create(client, admin)
+        row = (await _upload(client, admin, adr["id"])).json()
+        await _disable_uploads(client, admin)
+
+        resp = await client.delete(
+            f"{URL}/{adr['id']}/files/{row['id']}", headers=auth_headers(admin)
+        )
+        assert resp.status_code == 204
+        assert await _count(db, ArchitectureDecisionFile) == 0
+        assert await _count(db, ArchitectureDecisionFileContent) == 0
+        listed = await client.get(f"{URL}/{adr['id']}/files", headers=auth_headers(admin))
+        assert listed.json() == []
 
 
 class TestPermissions:

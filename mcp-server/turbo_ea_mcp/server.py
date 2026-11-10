@@ -4077,6 +4077,13 @@ async def sign_adr(adr_id: str, comment: str = "", dry_run: bool = True) -> str:
     with a UI deep-link the user can click to complete the signing
     workflow in the browser (S8 graceful-degradation pattern).
 
+    The final signature locks the decision and re-checks it as a request
+    for signatures does (dates with the signing day as the default
+    ``effective_from``, link targets signed, not revoked or replaced); when
+    a check fails the signature is not recorded, the decision stays in
+    review and the tool answers the refusal (``error``, ``problems``, a
+    message).
+
     Args:
         adr_id: ADR UUID.
         comment: Optional comment recorded on the signature.
@@ -4115,6 +4122,15 @@ async def sign_adr(adr_id: str, comment: str = "", dry_run: bool = True) -> str:
                 data["batch_id"] = batch.batch_id
             return _fmt(data)
         except Exception as exc:  # noqa: BLE001
+            if isinstance(exc, httpx.HTTPStatusError):
+                refusal = _adr_sign_refusal(exc.response.status_code, _detail(exc))
+                if refusal is not None:
+                    batch.summary = {
+                        "adr_id": adr_id,
+                        "status": "refused",
+                        "error": refusal["error"],
+                    }
+                    return _fmt({**refusal, "adr_id": adr_id, "batch_id": batch.batch_id})
             # 403 / 401 → graceful degradation: return the deep-link the
             # human can use to complete the action through the UI.
             msg = str(exc)
@@ -4133,6 +4149,41 @@ async def sign_adr(adr_id: str, comment: str = "", dry_run: bool = True) -> str:
                     }
                 )
             raise
+
+
+_ADR_LOCK_PROBLEMS = {
+    "valid_until_past": "its valid_until date has passed",
+    "valid_until_before_effective": (
+        "valid_until is before effective_from (an empty effective_from becomes the signing day)"
+    ),
+    "decided_on_future": "its decided_on date is in the future",
+    "link_target_not_locked": "it links to a decision that is not signed",
+    "chain_closed": "another decision has revoked or replaced it",
+}
+
+
+def _adr_sign_refusal(status_code: int, detail: object) -> dict | None:
+    """The answer to a 409 from ``POST /adr/{id}/sign``, else None.
+
+    The final signature locks the decision and re-runs the lock checks; when
+    one fails the signature is not recorded and the decision stays in
+    review. The detail is the request-signatures lock refusal:
+    ``{error, problems, target_ids?, by?}``."""
+    if status_code != 409 or not isinstance(detail, dict) or not detail.get("error"):
+        return None
+    problems = [str(p) for p in detail.get("problems") or [detail["error"]]]
+    reasons = "; ".join(_ADR_LOCK_PROBLEMS.get(p, p) for p in problems)
+    refusal: dict = {"error": str(detail["error"]), "problems": problems}
+    for key in ("target_ids", "by"):
+        if key in detail:
+            refusal[key] = detail[key]
+    refusal["message"] = (
+        f"The signature was not recorded: this is the final signature, and the "
+        f"decision cannot be locked because {reasons}. It stays in review; its "
+        "author must recall the signature requests in the web UI, fix it and "
+        "send it for signature again."
+    )
+    return refusal
 
 
 _ADR_NOT_SIGNED_MESSAGE = (
@@ -4177,15 +4228,65 @@ def _adr_closed_refusal(by: object) -> dict:
     }
 
 
+_ADR_CONSOLIDATES_MESSAGES = {
+    "consolidates_not_amender": (
+        "{target} does not amend this decision, so the revision cannot "
+        "consolidate it. List only decisions shown in this decision's "
+        "amended_by (get_adr)."
+    ),
+    "duplicate_target": "{target} is named more than once in consolidates.",
+    "same_chain": (
+        "{target} is a revision of this decision itself; consolidates names "
+        "the decisions that amend it."
+    ),
+}
+
+
+def _adr_consolidates_refusal(detail: dict) -> dict:
+    """A 400 naming a ``consolidates`` entry the backend would not link."""
+    code = str(detail.get("error"))
+    target = detail.get("target_id")
+    template = _ADR_CONSOLIDATES_MESSAGES.get(
+        code, "{target} cannot be consolidated by this revision ({code})."
+    )
+    return {
+        "error": code,
+        "problems": detail.get("problems") or [code],
+        "target_id": target,
+        "detail": detail.get("message"),
+        "message": template.format(target=target or "A consolidates entry", code=code),
+    }
+
+
 def _adr_revise_refusal(status_code: int, detail: object) -> dict | None:
     """The answer to a refused ``POST /adr/{id}/revise``, else None.
 
     409 ``open_revision_exists`` (with ``revision_id``), 409
     ``not_revisable`` with ``reason: not_latest`` or ``by`` (the revoking or
-    replacing decision), 400 for a decision that is not signed, 403 for a
-    missing ``adr.manage`` permission."""
+    replacing decision), 400 for a decision that is not signed (a plain
+    text detail), 400 with an ``error`` code for a ``consolidates`` entry
+    the backend refuses (``consolidates_not_amender``, ``duplicate_target``,
+    ``same_chain``, …: the code, the target and a message), 404
+    ``decision_not_found`` for a ``consolidates`` entry that names no
+    decision, 403 for a missing ``adr.manage`` permission."""
+    if status_code == 400 and isinstance(detail, dict) and detail.get("error"):
+        return _adr_consolidates_refusal(detail)
     if status_code == 400:
         return {"error": "not_signed", "message": _ADR_NOT_SIGNED_MESSAGE}
+    if (
+        status_code == 404
+        and isinstance(detail, dict)
+        and detail.get("error") == "decision_not_found"
+    ):
+        value = detail.get("value")
+        return {
+            "error": "decision_not_found",
+            "value": value,
+            "message": (
+                f"consolidates names {value!r}, which is neither a decision id "
+                "nor a known reference. Find the amending decision with list_adrs."
+            ),
+        }
     if status_code == 403:
         return {
             "error": "forbidden",
@@ -4255,7 +4356,10 @@ async def revise_adr(
     revision is already being drafted (``open_revision_exists``, with its
     ``revision_id``: edit that one), when a later revision is signed
     (``not_revisable`` / ``not_latest``) and when another decision revoked
-    or replaced it (``not_revisable`` with ``by``). Expired and amended
+    or replaced it (``not_revisable`` with ``by``). A ``consolidates`` entry
+    the backend will not link is answered with its code and ``target_id``
+    (``consolidates_not_amender``, ``duplicate_target``, ``same_chain``) or
+    ``decision_not_found`` with the ``value``. Expired and amended
     decisions can be revised.
 
     Replacing or revoking a decision is not a revision: create a new

@@ -104,7 +104,7 @@ Use the **quick filter** search bar for full-text search across all ADRs. Right-
 - `cards` links cards by exact name, among the cards you can see; a card that cannot be found, or whose name is shared by several cards, is skipped with a warning and the decision still imports.
 - `related_decisions` lists references, either of existing decisions or of other rows in the same file (even later rows); each becomes a **Relates to** link. A reference that has several revisions links to its current one.
 - Every other column — standing, dates, people and the typed links included — is ignored: an import creates drafts, never signed or recorded decisions.
-- A file exported with **Show earlier revisions** on holds several rows for one reference. On the instance it came from they are all skipped; elsewhere the first is imported and each further row is reported as an error.
+- An export holds one row per revision, so a file can carry several rows for one reference (an open revision, or earlier revisions when **Show earlier revisions** is on). On the instance it came from they are all skipped; elsewhere only the row with the highest `revision_number` is imported (the last row when the numbers are equal or missing) and each other row is skipped with the warning *Earlier revision of ADR-012 skipped*. A `related_decisions` entry naming that reference links to the imported row.
 
 The preview shows how many rows will be created, skipped and failed, with each error and warning listed by row; nothing is written until you confirm. Importing requires the `adr.manage` permission.
 
@@ -167,11 +167,11 @@ Complete the new draft and send it through sign-off like any other decision. The
 
 #### Amendments and consolidated revisions
 
-A decision that another one amends stays in force, and its page lists the amending decisions. To give readers one current text, click **Create consolidated revision** on that banner: it starts a revision of the amended decision that names the amending decision (*Consolidates the amendment of …*). Fold the amendment into the text, describe it in the **Change summary**, and send the revision for sign-off. Once it is signed and effective, the decision is **In force** again, and the amending decision shows *The amendment made by this decision is consolidated into …*.
+A decision that another one amends stays in force, and its page lists the amending decisions. To give readers one current text, click **Create consolidated revision** on that banner: it starts a revision of the amended decision that names the amending decision (*Consolidates the amendment of …*). Fold the amendment into the text, describe it in the **Change summary**, and send the revision for sign-off. Once it is signed and effective, the decision is **In force** again, and the amending decision shows *The amendment made by this decision is consolidated into …*. An amendment also stops counting once the amending decision is revoked, replaced or expires — but not when it is merely revised: its revision keeps the amendment, and the banner names the amending decision's current revision.
 
 #### Files {: #decision-files }
 
-The **Files** section attaches documents to a decision — a signed minute, a supporting analysis. Files accept the same formats as [card attachments](card-details.md#resources-tab), up to 20 MB each, and only while file uploads are enabled. They can be added and deleted on a saved draft only: once the decision is sent for review they are locked with it. A revision carries its decision's files over.
+The **Files** section attaches documents to a decision — a signed minute, a supporting analysis. Files accept the same formats as [card attachments](card-details.md#resources-tab), up to 20 MB each, and can be uploaded only while file uploads are enabled (deleting one is always possible). They can be added and deleted on a saved draft only: once the decision is sent for review they are locked with it. A revision carries its decision's files over.
 
 #### Sign-off workflow
 

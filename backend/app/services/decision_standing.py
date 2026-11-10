@@ -36,10 +36,15 @@ Definitions (chains come from :mod:`app.services.revision_chain`, built from
   the link whose source has the earliest ``effective_from`` wins (unset counts
   as earliest); then ``revokes`` before ``replaces``; then the earliest link
   ``created_at`` (unset first); then the source id.
-* An ``amends`` link is *open* while it is active, its source's standing by
-  rules 1-5 alone is ``in_force``, and no effective revision of the target
-  chain holds a ``consolidates`` link to the amender revision or to a later
-  revision in the amender's chain.
+* An ``amends`` link is *open* while (a) it is active, (b) the amending
+  chain is in force: its CURRENT revision's standing by rules 1-5 alone is
+  ``in_force`` (a revoked, replaced or expired amending decision no longer
+  amends; the linking revision merely becoming an earlier revision of its
+  chain does not close the link), and (c) no effective revision of the
+  target chain holds a ``consolidates`` link to the amender revision that
+  made the link or to a later revision in the amender's chain. An amended
+  decision's ``amended_by`` names each amending chain once, by its current
+  revision.
 * Unlocked rows have no standing (``None``).
 """
 
@@ -47,7 +52,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import select
@@ -102,6 +107,11 @@ VALID_UNTIL_PAST = "valid_until_past"
 DECIDED_ON_FUTURE = "decided_on_future"
 LINK_TARGET_NOT_LOCKED = "link_target_not_locked"
 CHAIN_CLOSED = "chain_closed"
+
+#: The lock-time date checks' allowance for the timezone spread: the dates are
+#: date-only, the browser picks them in its local day and ``today`` is the
+#: server's UTC day, which can be one day behind or ahead of the author's.
+LOCK_DATE_TOLERANCE = timedelta(days=1)
 
 # ``revokes`` wins a tie against ``replaces``.
 _CLOSING_RANK: dict[str, int] = {REVOKES: 0, REPLACES: 1}
@@ -289,6 +299,19 @@ def _closing_key(link: LinkRow, source: DecisionRow) -> tuple[Any, ...]:
     )
 
 
+def amendment_open(amender_current_base: str | None) -> bool:
+    """Whether an active, unconsolidated ``amends`` link still amends its target.
+
+    Judged on the amending CHAIN, by the base standing (rules 1-5) of that
+    chain's current revision: open while it is ``in_force``; closed once the
+    amending decision is revoked, replaced or expired (or before its current
+    revision is in force). The linking revision being an earlier revision of
+    its chain does not close the link: revising the amending decision keeps
+    its amendment.
+    """
+    return amender_current_base == IN_FORCE
+
+
 def _today_utc() -> date:
     return datetime.now(timezone.utc).date()
 
@@ -359,8 +382,9 @@ def build_register(
         else:
             base[rid] = IN_FORCE
 
-    # Amendments: open amenders per target chain, consolidations per amender.
-    open_amenders: dict[int, set[Any]] = {}
+    # Amendments: open amender chains per target chain (each named by its
+    # current revision), consolidations per amending revision.
+    open_amenders: dict[int, dict[int, Any]] = {}
     consolidated: dict[Any, list[DecisionRow]] = {}
     for lk in usable:
         if lk.kind != AMENDS:
@@ -382,8 +406,10 @@ def build_register(
         ]
         if closers:
             consolidated.setdefault(src.id, []).extend(closers)
-        elif base[src.id] == IN_FORCE:
-            open_amenders.setdefault(id(target_chain), set()).add(src.id)
+        elif amendment_open(base[amender_chain.current.id]):
+            open_amenders.setdefault(id(target_chain), {})[id(amender_chain)] = (
+                amender_chain.current.id
+            )
 
     # Assemble.
     standings: dict[Any, Standing] = {}
@@ -404,7 +430,7 @@ def build_register(
             revoked_by = decision_ref(closure[1])
         elif standing == IN_FORCE and open_amenders.get(id(chain)):
             standing = AMENDED
-            amenders = sorted((rows[a] for a in open_amenders[id(chain)]), key=_row_key)
+            amenders = sorted((rows[a] for a in open_amenders[id(chain)].values()), key=_row_key)
             amended_by = tuple(decision_ref(a) for a in amenders)
 
         open_revision: DecisionRef | None = None
@@ -588,14 +614,22 @@ def validate_dates(
     today: date,
     at_lock: bool,
 ) -> list[str]:
-    """Problems with a decision's dates; ``at_lock`` adds the checks made when it locks."""
+    """Problems with a decision's dates; ``at_lock`` adds the checks made when it locks.
+
+    The lock-time checks allow :data:`LOCK_DATE_TOLERANCE` either side of the
+    UTC ``today``, because a date-only field carries no timezone: an author
+    ahead of UTC may already be on ``today + 1`` and one behind it still on
+    ``today - 1``. ``valid_until_past`` is therefore ``valid_until`` before
+    ``today - 1`` and ``decided_on_future`` is ``decided_on`` after
+    ``today + 1``. Standing derivation keeps the UTC day.
+    """
     problems: list[str] = []
     if valid_until is not None and effective_from is not None and valid_until < effective_from:
         problems.append(VALID_UNTIL_BEFORE_EFFECTIVE)
     if at_lock:
-        if valid_until is not None and valid_until < today:
+        if valid_until is not None and valid_until < today - LOCK_DATE_TOLERANCE:
             problems.append(VALID_UNTIL_PAST)
-        if decided_on is not None and decided_on > today:
+        if decided_on is not None and decided_on > today + LOCK_DATE_TOLERANCE:
             problems.append(DECIDED_ON_FUTURE)
     return problems
 

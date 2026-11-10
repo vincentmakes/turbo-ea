@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, StringConstraints, model_validator
 
 
 class ADRLinkIn(BaseModel):
@@ -176,6 +176,9 @@ class ADRImportItem(BaseModel):
     card_names: list[str] = Field(default_factory=list, max_length=500)
     related_references: list[str] = Field(default_factory=list, max_length=500)
     status: str | None = Field(None, max_length=50)
+    # The export's revision column: several rows of one reference import the
+    # highest. A cell that is not a number counts as absent, never a 422.
+    revision_number: int | Annotated[str, StringConstraints(max_length=50)] | None = None
 
 
 class ADRImportRequest(BaseModel):

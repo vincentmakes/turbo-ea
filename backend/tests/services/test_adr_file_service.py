@@ -222,12 +222,24 @@ class TestRecordHelpers:
             == []
         )
 
+    def test_decided_on_allows_one_day_ahead_of_utc(self):
+        def problems(decided_on):
+            return adr_service.record_problems(
+                decided_on=decided_on,
+                today=date(2026, 1, 10),
+                decision_maker_count=1,
+                parent_decided=None,
+            )
+
+        assert problems(date(2026, 1, 11)) == []
+        assert problems(date(2026, 1, 12)) == [ds.DECIDED_ON_FUTURE]
+
     def test_every_problem_in_order(self):
         assert adr_service.record_problems(
-            decided_on=date(2026, 1, 11),
+            decided_on=date(2026, 1, 12),
             today=date(2026, 1, 10),
             decision_maker_count=0,
-            parent_decided=date(2026, 1, 12),
+            parent_decided=date(2026, 1, 13),
         ) == ["no_decision_maker", ds.DECIDED_ON_FUTURE, "decided_before_parent"]
 
     def test_no_parent_date_means_no_parent_rule(self):

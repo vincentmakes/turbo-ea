@@ -176,7 +176,7 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 
 ### Migrations
 
-Located in `backend/alembic/versions/` (116 migration files, sequentially numbered `001_` through `116_`). The app auto-runs Alembic on startup:
+Located in `backend/alembic/versions/` (168 migration files, sequentially numbered `001_` through `168_`). The app auto-runs Alembic on startup:
 - Fresh DB: `create_all` + stamp head
 - Existing DB without Alembic: stamp head
 - Normal: `upgrade head` (run pending migrations)

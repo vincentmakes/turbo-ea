@@ -345,11 +345,16 @@ def lock_refusal(
 ) -> dict[str, Any] | None:
     """Why the decision may not be sent for signature now, as a 409 detail, or ``None``.
 
-    Every link target must be signed and the decision's own chain must not be
-    revoked or replaced (:func:`decision_standing.validate_lock`); its dates
-    must hold once the signing date fills an empty ``effective_from``:
-    ``valid_until`` not past nor before ``effective_from``, ``decided_on`` not
-    in the future. ``decided_on`` / ``effective_from`` check the dates a lock
+    Asked at the request for signatures, at record as decided and again at
+    the final signature (the dates may have aged in review, and the signing
+    day becomes the default ``effective_from``), each refusing with this
+    detail as a 409. Every link target must be signed and the decision's own
+    chain must not be revoked or replaced
+    (:func:`decision_standing.validate_lock`); its dates must hold once the
+    signing date fills an empty ``effective_from``: ``valid_until`` not past
+    nor before ``effective_from``, ``decided_on`` not in the future (with the
+    one-day timezone allowance of :func:`decision_standing.validate_dates`).
+    ``decided_on`` / ``effective_from`` check the dates a lock
     is about to write (record as decided) instead of the stored ones.
     """
     today = register.today
@@ -403,6 +408,21 @@ def check_editable(current_status: str, new_status: str | None, fields: Iterable
         )
 
 
+def completes_signatures(signatories: Sequence[dict[str, Any]], user_id: str) -> bool:
+    """Whether ``user_id``'s signature is the last one missing.
+
+    Every other signatory has signed and ``user_id`` is one who has not: the
+    signature that locks the decision, so the lock checks run before it.
+    """
+    mine = [sig for sig in signatories if sig.get("user_id") == user_id]
+    others = [sig for sig in signatories if sig.get("user_id") != user_id]
+    return (
+        len(mine) == 1
+        and mine[0].get("status") != "signed"
+        and all(sig.get("status") == "signed" for sig in others)
+    )
+
+
 def apply_lock_dates(adr: ArchitectureDecision, signed_on: date) -> None:
     """Fill an empty ``decided_on`` / ``effective_from`` with the signing date."""
     if adr.decided_on is None:
@@ -435,13 +455,14 @@ def record_problems(
     """Why a draft may not be recorded as decided on ``decided_on``, in order.
 
     At least one decision maker must be named, the decision cannot have been
-    taken after today, and a revision cannot have been decided before the
-    revision it revises.
+    taken after today (with the timezone allowance of
+    :data:`decision_standing.LOCK_DATE_TOLERANCE`: ``today + 1`` passes), and a
+    revision cannot have been decided before the revision it revises.
     """
     problems: list[str] = []
     if decision_maker_count < 1:
         problems.append(NO_DECISION_MAKER)
-    if decided_on > today:
+    if decided_on > today + ds.LOCK_DATE_TOLERANCE:
         problems.append(ds.DECIDED_ON_FUTURE)
     if parent_decided is not None and decided_on < parent_decided:
         problems.append(DECIDED_BEFORE_PARENT)

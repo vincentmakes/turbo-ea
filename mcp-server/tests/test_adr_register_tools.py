@@ -779,12 +779,186 @@ class TestReviseRefusal:
             "message": "Revising a decision needs the adr.manage permission.",
         }
 
+    def test_a_consolidates_entry_that_does_not_amend(self):
+        detail = {
+            "error": "consolidates_not_amender",
+            "problems": ["consolidates_not_amender"],
+            "target_id": REV3_ID,
+            "message": f"The consolidated decision does not amend this decision ({REV3_ID})",
+        }
+        assert server._adr_revise_refusal(400, detail) == {
+            "error": "consolidates_not_amender",
+            "problems": ["consolidates_not_amender"],
+            "target_id": REV3_ID,
+            "detail": f"The consolidated decision does not amend this decision ({REV3_ID})",
+            "message": (
+                f"{REV3_ID} does not amend this decision, so the revision cannot "
+                "consolidate it. List only decisions shown in this decision's "
+                "amended_by (get_adr)."
+            ),
+        }
+
+    def test_a_consolidates_entry_named_twice(self):
+        detail = {
+            "error": "duplicate_target",
+            "problems": ["duplicate_target"],
+            "target_id": REV3_ID,
+            "message": "A decision can be linked only once",
+        }
+        refusal = server._adr_revise_refusal(400, detail)
+        assert (refusal["error"], refusal["problems"], refusal["target_id"]) == (
+            "duplicate_target",
+            ["duplicate_target"],
+            REV3_ID,
+        )
+        assert refusal["message"] == f"{REV3_ID} is named more than once in consolidates."
+
+    def test_a_consolidates_entry_in_the_same_chain(self):
+        detail = {"error": "same_chain", "problems": ["same_chain"], "target_id": REV2_ID}
+        refusal = server._adr_revise_refusal(400, detail)
+        assert (refusal["error"], refusal["target_id"], refusal["detail"]) == (
+            "same_chain",
+            REV2_ID,
+            None,
+        )
+        assert refusal["message"] == (
+            f"{REV2_ID} is a revision of this decision itself; consolidates names "
+            "the decisions that amend it."
+        )
+
+    def test_an_unknown_consolidates_problem_keeps_its_code(self):
+        refusal = server._adr_revise_refusal(400, {"error": "target_missing"})
+        assert refusal == {
+            "error": "target_missing",
+            "problems": ["target_missing"],
+            "target_id": None,
+            "detail": None,
+            "message": (
+                "A consolidates entry cannot be consolidated by this revision (target_missing)."
+            ),
+        }
+
+    def test_an_unknown_consolidates_entry(self):
+        detail = {
+            "error": "decision_not_found",
+            "value": "ADR-404",
+            "message": "Decision not found: ADR-404",
+        }
+        assert server._adr_revise_refusal(404, detail) == {
+            "error": "decision_not_found",
+            "value": "ADR-404",
+            "message": (
+                "consolidates names 'ADR-404', which is neither a decision id "
+                "nor a known reference. Find the amending decision with list_adrs."
+            ),
+        }
+
+    def test_a_plain_400_is_still_not_signed(self):
+        assert server._adr_revise_refusal(400, {"error": ""})["error"] == "not_signed"
+        assert server._adr_revise_refusal(400, None)["error"] == "not_signed"
+
     @pytest.mark.parametrize(
         "status, detail",
-        [(409, "conflict"), (409, {"error": "other"}), (404, {"error": "x"}), (500, None)],
+        [
+            (409, "conflict"),
+            (409, {"error": "other"}),
+            (404, {"error": "x"}),
+            (404, "Architecture decision not found"),
+            (500, None),
+        ],
     )
     def test_anything_else_is_not_mapped(self, status, detail):
         assert server._adr_revise_refusal(status, detail) is None
+
+
+class TestSignRefusal:
+    def test_a_refused_final_signature(self):
+        detail = {
+            "error": "valid_until_before_effective",
+            "problems": ["valid_until_before_effective", "valid_until_past"],
+        }
+        assert server._adr_sign_refusal(409, detail) == {
+            "error": "valid_until_before_effective",
+            "problems": ["valid_until_before_effective", "valid_until_past"],
+            "message": (
+                "The signature was not recorded: this is the final signature, and "
+                "the decision cannot be locked because valid_until is before "
+                "effective_from (an empty effective_from becomes the signing day); "
+                "its valid_until date has passed. It stays in review; its author "
+                "must recall the signature requests in the web UI, fix it and send "
+                "it for signature again."
+            ),
+        }
+
+    def test_the_closer_and_targets_are_kept(self):
+        by = {"id": REV3_ID, "reference_number": "ADR-030", "revision_number": 1}
+        detail = {
+            "error": "chain_closed",
+            "problems": ["chain_closed", "link_target_not_locked"],
+            "by": by,
+            "target_ids": [REV2_ID],
+        }
+        refusal = server._adr_sign_refusal(409, detail)
+        assert (refusal["by"], refusal["target_ids"]) == (by, [REV2_ID])
+        assert (
+            "because another decision has revoked or replaced it; it links to a "
+            in (refusal["message"])
+        )
+
+    def test_an_unknown_problem_reads_as_its_code(self):
+        refusal = server._adr_sign_refusal(409, {"error": "new_rule"})
+        assert refusal["problems"] == ["new_rule"]
+        assert "cannot be locked because new_rule. It stays" in refusal["message"]
+
+    @pytest.mark.parametrize(
+        "status, detail",
+        [(400, {"error": "x"}), (409, "conflict"), (409, {"error": ""}), (403, {"error": "x"})],
+    )
+    def test_anything_else_is_not_mapped(self, status, detail):
+        assert server._adr_sign_refusal(status, detail) is None
+
+
+class TestSignAdrRefused:
+    @pytest.mark.asyncio
+    async def test_a_409_comes_back_as_an_answer(self, fake_token):
+        detail = {"error": "decided_on_future", "problems": ["decided_on_future"]}
+        mocks, calls = _backend(raises=_http_error(409, detail))
+        with mocks[0]:
+            out = await server.sign_adr(adr_id=ADR_ID, dry_run=False)
+        data = _parse(out)
+        assert (data["error"], data["problems"], data["adr_id"], data["batch_id"]) == (
+            "decided_on_future",
+            ["decided_on_future"],
+            ADR_ID,
+            "B-1",
+        )
+        assert "status" not in data
+        assert calls["post"][-1] == _close(
+            {"adr_id": ADR_ID, "status": "refused", "error": "decided_on_future"}
+        )
+
+    @pytest.mark.asyncio
+    async def test_a_409_whose_url_contains_403_is_not_a_permission_problem(self, fake_token):
+        request = httpx.Request("POST", "http://backend/api/v1/adr/a403/sign")
+        response = httpx.Response(409, json={"detail": {"error": "chain_closed"}}, request=request)
+        exc = httpx.HTTPStatusError("409 for /adr/a403/sign", request=request, response=response)
+        mocks, _calls = _backend(raises=exc)
+        with mocks[0]:
+            data = _parse(await server.sign_adr(adr_id="a403", dry_run=False))
+        assert data["error"] == "chain_closed"
+
+    @pytest.mark.asyncio
+    async def test_a_403_still_degrades_to_the_deep_link(self, fake_token):
+        mocks, _calls = _backend(raises=_http_error(403, "Not enough permissions"))
+        with mocks[0]:
+            data = _parse(await server.sign_adr(adr_id=ADR_ID, dry_run=False))
+        assert (data["status"], data["reason"]) == ("pending", "missing_adr_sign_permission")
+
+    @pytest.mark.asyncio
+    async def test_an_unmapped_error_is_raised(self, fake_token):
+        mocks, _calls = _backend(raises=_http_error(400, "Decision is already signed"))
+        with mocks[0], pytest.raises(httpx.HTTPStatusError):
+            await server.sign_adr(adr_id=ADR_ID, dry_run=False)
 
 
 class TestReviseAdr:
@@ -857,6 +1031,12 @@ class TestReviseAdr:
             (409, {"error": "not_revisable", "reason": "not_latest"}, "not_revisable"),
             (409, {"error": "not_revisable", "by": {"reference_number": "A"}}, "not_revisable"),
             (400, "Only signed decisions can be revised", "not_signed"),
+            (
+                400,
+                {"error": "consolidates_not_amender", "target_id": REV3_ID},
+                "consolidates_not_amender",
+            ),
+            (404, {"error": "decision_not_found", "value": "ADR-9"}, "decision_not_found"),
         ],
     )
     async def test_refusals_come_back_as_answers(self, fake_token, status, detail, error):

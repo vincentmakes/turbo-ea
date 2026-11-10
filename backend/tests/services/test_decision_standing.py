@@ -22,6 +22,7 @@ from app.services.decision_standing import (
     IN_FORCE,
     LINK_KINDS,
     LINK_TARGET_NOT_LOCKED,
+    LOCK_DATE_TOLERANCE,
     RELATES,
     REPLACES,
     REVOKED,
@@ -40,6 +41,7 @@ from app.services.decision_standing import (
     Register,
     Standing,
     UpcomingChange,
+    amendment_open,
     build_register,
     chain_closed_by,
     decision_ref,
@@ -571,18 +573,90 @@ def test_amender_no_longer_in_force_does_not_amend():
         [lk("b1", "a1", AMENDS), lk("c1", "b1", REPLACES)],
     )
     assert r["a1"].standing == IN_FORCE
-    # superseded by its own revision (hard links stay on the revision that wrote them)
-    r = reg(
-        [dec("a1"), dec("b1"), dec("b2", 2, parent="b1", minutes=1)],
-        [lk("b1", "a1", AMENDS)],
-    )
-    assert r["a1"].standing == IN_FORCE
     # expired
     r = reg([dec("a1"), dec("b1", until=YESTERDAY)], [lk("b1", "a1", AMENDS)])
     assert r["a1"].standing == IN_FORCE
     # expiring today still amends
     r = reg([dec("a1"), dec("b1", until=TODAY)], [lk("b1", "a1", AMENDS)])
     assert r["a1"].standing == AMENDED
+
+
+def test_amendment_open_reads_the_amender_chains_current_base_standing():
+    assert amendment_open(IN_FORCE) is True
+    for closed in (SUPERSEDED, REVOKED, EXPIRED, SCHEDULED, AMENDED, None):
+        assert amendment_open(closed) is False
+
+
+def test_revising_the_amender_keeps_its_amendment():
+    # The original failure: B Rev 1 amends A; B Rev 2 is signed and effective
+    # with no amends link of its own. A stays amended, named by B Rev 2.
+    a1, b1 = dec("a1"), dec("b1")
+    b2 = dec("b2", 2, parent="b1", minutes=1, eff=TODAY)
+    r = reg([a1, b1, b2], [lk("b1", "a1", AMENDS)])
+    assert r["b1"].standing == SUPERSEDED
+    assert r["b2"].standing == IN_FORCE
+    assert r["a1"].standing == AMENDED
+    assert r["a1"].amended_by == (ref(b2),)
+    assert r["b1"].consolidated_into is None
+
+
+def test_an_amender_revision_not_yet_effective_names_the_in_force_one():
+    # B Rev 2 is scheduled, so B Rev 1 is still the chain's current revision.
+    a1, b1 = dec("a1"), dec("b1")
+    b2 = dec("b2", 2, parent="b1", minutes=1, eff=TOMORROW)
+    r = reg([a1, b1, b2], [lk("b1", "a1", AMENDS)])
+    assert r["a1"].standing == AMENDED
+    assert r["a1"].amended_by == (ref(b1),)
+
+
+def test_a_revised_amender_chain_closed_or_expired_no_longer_amends():
+    a1, b1 = dec("a1"), dec("b1")
+    b2 = dec("b2", 2, parent="b1", minutes=1)
+    for closer in (REVOKES, REPLACES):
+        r = reg([a1, b1, b2, dec("c1")], [lk("b1", "a1", AMENDS), lk("c1", "b2", closer)])
+        assert r["b2"].standing in (REVOKED, SUPERSEDED)
+        assert (r["a1"].standing, r["a1"].amended_by) == (IN_FORCE, ())
+    expired = dec("b2", 2, parent="b1", minutes=1, until=YESTERDAY)
+    r = reg([a1, b1, expired], [lk("b1", "a1", AMENDS)])
+    assert r["b2"].standing == EXPIRED
+    assert (r["a1"].standing, r["a1"].amended_by) == (IN_FORCE, ())
+    last_day = dec("b2", 2, parent="b1", minutes=1, until=TODAY)
+    r = reg([a1, b1, last_day], [lk("b1", "a1", AMENDS)])
+    assert (r["a1"].standing, r["a1"].amended_by) == (AMENDED, (ref(last_day),))
+
+
+def test_an_amender_chain_is_named_once():
+    a1, b1 = dec("a1"), dec("b1")
+    b2 = dec("b2", 2, parent="b1", minutes=1)
+    r = reg([a1, b1, b2], [lk("b1", "a1", AMENDS), lk("b2", "a1", AMENDS)])
+    assert r["a1"].amended_by == (ref(b2),)
+
+
+def test_two_amender_chains_and_one_consolidated():
+    a1 = dec("a1")
+    b1 = dec("b1")
+    b2 = dec("b2", 2, parent="b1", minutes=1)
+    c1 = dec("c1")
+    links = [lk("b1", "a1", AMENDS), lk("c1", "a1", AMENDS)]
+    r = reg([a1, b1, b2, c1], links)
+    assert r["a1"].amended_by == (ref(b2), ref(c1))
+
+    a2 = dec("a2", 2, parent="a1", minutes=1)
+    r = reg([a1, a2, b1, b2, c1], [*links, lk("a2", "c1", CONSOLIDATES)])
+    assert (r["a2"].standing, r["a2"].amended_by) == (AMENDED, (ref(b2),))
+    assert r["c1"].consolidated_into == ref(a2)
+
+
+def test_consolidating_a_revised_amender_closes_its_earlier_link():
+    # The "Create consolidated revision" button names the amender's current
+    # revision (B Rev 2), which closes B Rev 1's link (R7); naming B Rev 1
+    # closes it too.
+    a1, a2 = dec("a1"), dec("a2", 2, parent="a1", minutes=1)
+    b1, b2 = dec("b1"), dec("b2", 2, parent="b1", minutes=1)
+    for target in ("b2", "b1"):
+        r = reg([a1, a2, b1, b2], [lk("b1", "a1", AMENDS), lk("a2", target, CONSOLIDATES)])
+        assert (r["a2"].standing, r["a2"].amended_by) == (IN_FORCE, ())
+        assert r["b1"].consolidated_into == ref(a2)
 
 
 def test_amended_amender_still_amends():
@@ -852,23 +926,43 @@ def test_valid_until_before_effective_from():
     assert validate_dates(None, TODAY, None, today=TODAY, at_lock=False) == []
 
 
+IN_TWO_DAYS = TODAY + timedelta(days=2)
+TWO_DAYS_AGO = TODAY - timedelta(days=2)
+
+
 def test_lock_checks_only_at_lock():
-    assert validate_dates(TOMORROW, None, YESTERDAY, today=TODAY, at_lock=False) == []
-    assert validate_dates(TOMORROW, None, YESTERDAY, today=TODAY, at_lock=True) == [
+    assert validate_dates(IN_TWO_DAYS, None, TWO_DAYS_AGO, today=TODAY, at_lock=False) == []
+    assert validate_dates(IN_TWO_DAYS, None, TWO_DAYS_AGO, today=TODAY, at_lock=True) == [
         VALID_UNTIL_PAST,
         DECIDED_ON_FUTURE,
     ]
 
 
-def test_lock_date_boundaries():
+def test_lock_date_tolerance_is_one_day():
+    assert LOCK_DATE_TOLERANCE == timedelta(days=1)
+
+
+def test_lock_date_boundaries_allow_one_day_of_timezone_spread():
     assert validate_dates(TODAY, None, TODAY, today=TODAY, at_lock=True) == []
     assert validate_dates(YESTERDAY, None, TOMORROW, today=TODAY, at_lock=True) == []
-    assert validate_dates(None, None, YESTERDAY, today=TODAY, at_lock=True) == [VALID_UNTIL_PAST]
-    assert validate_dates(TOMORROW, None, None, today=TODAY, at_lock=True) == [DECIDED_ON_FUTURE]
+    # decided_on: today + 1 passes (an author ahead of UTC), today + 2 does not.
+    assert validate_dates(TOMORROW, None, None, today=TODAY, at_lock=True) == []
+    assert validate_dates(IN_TWO_DAYS, None, None, today=TODAY, at_lock=True) == [DECIDED_ON_FUTURE]
+    # valid_until: today - 1 passes (an author behind UTC), today - 2 does not.
+    assert validate_dates(None, None, YESTERDAY, today=TODAY, at_lock=True) == []
+    assert validate_dates(None, None, TWO_DAYS_AGO, today=TODAY, at_lock=True) == [VALID_UNTIL_PAST]
+
+
+def test_standing_keeps_the_utc_day():
+    # The tolerance is for the lock checks only: a decision effective tomorrow
+    # is still scheduled today, and one valid until yesterday has expired.
+    r = reg([dec("a1", eff=TOMORROW), dec("b1", eff=LAST_YEAR, until=YESTERDAY)])
+    assert r.get("a1").standing == SCHEDULED
+    assert r.get("b1").standing == EXPIRED
 
 
 def test_all_three_date_problems_together():
-    assert validate_dates(TOMORROW, TODAY, YESTERDAY, today=TODAY, at_lock=True) == [
+    assert validate_dates(IN_TWO_DAYS, TODAY, TWO_DAYS_AGO, today=TODAY, at_lock=True) == [
         VALID_UNTIL_BEFORE_EFFECTIVE,
         VALID_UNTIL_PAST,
         DECIDED_ON_FUTURE,

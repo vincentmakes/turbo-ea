@@ -557,22 +557,47 @@ class TestLocking:
 
     async def test_valid_until_past_blocks_the_request(self, client, env):
         admin = env["admin"]
-        yesterday = (_today() - timedelta(days=1)).isoformat()
-        src = await _create(client, admin, "Src", effective_from=yesterday, valid_until=yesterday)
+        two_days_ago = (_today() - timedelta(days=2)).isoformat()
+        src = await _create(
+            client, admin, "Src", effective_from=two_days_ago, valid_until=two_days_ago
+        )
         resp = await self._request(client, admin, src["id"])
         assert resp.status_code == 409
         assert resp.json()["detail"] == {
             "error": "valid_until_past",
             "problems": ["valid_until_past"],
         }
+        assert (await _get(client, admin, src["id"]))["status"] == "draft"
+
+    async def test_valid_until_yesterday_is_accepted(self, client, env):
+        # One day of timezone spread: an author behind UTC is still on "yesterday".
+        admin = env["admin"]
+        yesterday = (_today() - timedelta(days=1)).isoformat()
+        src = await _create(client, admin, "Src", effective_from=yesterday, valid_until=yesterday)
+        resp = await self._request(client, admin, src["id"])
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["status"] == "in_review"
 
     async def test_decided_on_future_blocks_the_request(self, client, env):
+        admin = env["admin"]
+        in_two_days = (_today() + timedelta(days=2)).isoformat()
+        src = await _create(client, admin, "Src", decided_on=in_two_days)
+        resp = await self._request(client, admin, src["id"])
+        assert resp.status_code == 409
+        assert resp.json()["detail"] == {
+            "error": "decided_on_future",
+            "problems": ["decided_on_future"],
+        }
+        assert (await _get(client, admin, src["id"]))["status"] == "draft"
+
+    async def test_decided_on_tomorrow_is_accepted(self, client, env):
+        # One day of timezone spread: an author ahead of UTC is already on "tomorrow".
         admin = env["admin"]
         tomorrow = (_today() + timedelta(days=1)).isoformat()
         src = await _create(client, admin, "Src", decided_on=tomorrow)
         resp = await self._request(client, admin, src["id"])
-        assert resp.status_code == 409
-        assert resp.json()["detail"]["error"] == "decided_on_future"
+        assert resp.status_code == 200, resp.text
+        assert (resp.json()["status"], resp.json()["decided_on"]) == ("in_review", tomorrow)
 
     async def test_signing_keeps_explicit_dates(self, client, env):
         adr = await _signed(client, env["admin"], "Kept", decided_on="2026-01-02")
@@ -592,8 +617,109 @@ class TestLocking:
         resp = await client.post(f"{URL}/{revision['id']}/sign", headers=auth_headers(admin))
 
         assert resp.status_code == 409
-        assert resp.json()["detail"] == {"error": "chain_closed", "by": _ref(revoker)}
-        assert (await _get(client, admin, revision["id"]))["status"] == "in_review"
+        assert resp.json()["detail"] == {
+            "error": "chain_closed",
+            "problems": ["chain_closed"],
+            "by": _ref(revoker),
+        }
+        stored = await _get(client, admin, revision["id"])
+        assert stored["status"] == "in_review"
+        assert [s["status"] for s in stored["signatories"]] == ["pending"]
+
+    async def _aged_in_review(self, client, db, admin, signers, **dates):
+        """A draft sent for signature whose dates no longer hold on signing day.
+
+        Moving ``valid_until`` in the database stands in for the days spent in
+        review: the request passed, the signing day is past ``valid_until``.
+        """
+        adr = await _create(client, admin, "Aged", **dates)
+        resp = await client.post(
+            f"{URL}/{adr['id']}/request-signatures",
+            json={"user_ids": [str(u.id) for u in signers]},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+        row = await db.get(ArchitectureDecision, uuid.UUID(adr["id"]))
+        row.valid_until = _today() - timedelta(days=2)
+        await db.commit()
+        return adr
+
+    async def test_the_last_signature_rechecks_the_dates(self, client, db, env):
+        admin = env["admin"]
+        adr = await self._aged_in_review(
+            client, db, admin, [admin], valid_until=(_today() + timedelta(days=2)).isoformat()
+        )
+
+        resp = await client.post(f"{URL}/{adr['id']}/sign", headers=auth_headers(admin))
+
+        # Same shape as the request-signatures lock refusal; the signing day
+        # would have become effective_from, after valid_until.
+        assert resp.status_code == 409
+        assert resp.json()["detail"] == {
+            "error": "valid_until_before_effective",
+            "problems": ["valid_until_before_effective", "valid_until_past"],
+        }
+        stored = await _get(client, admin, adr["id"])
+        assert (stored["status"], stored["signed_at"], stored["effective_from"]) == (
+            "in_review",
+            None,
+            None,
+        )
+        assert [(s["status"], s["signed_at"]) for s in stored["signatories"]] == [("pending", None)]
+        [todo] = (
+            (await db.execute(select(Todo).where(Todo.link == f"/ea-delivery/adr/{adr['id']}")))
+            .scalars()
+            .all()
+        )
+        assert todo.status == "open"
+        signed_events = (
+            (await db.execute(select(Event).where(Event.event_type == "adr.signed")))
+            .scalars()
+            .all()
+        )
+        assert signed_events == []
+
+    async def test_an_earlier_signature_is_not_held_by_the_dates(self, client, db, env):
+        admin = env["admin"]
+        other = await create_user(db, email="second-signer@test.com", role="admin")
+        adr = await self._aged_in_review(
+            client,
+            db,
+            admin,
+            [admin, other],
+            effective_from=_today().isoformat(),
+            valid_until=(_today() + timedelta(days=2)).isoformat(),
+        )
+
+        resp = await client.post(f"{URL}/{adr['id']}/sign", headers=auth_headers(admin))
+
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["status"] == "in_review"
+        assert [s["status"] for s in resp.json()["signatories"]] == ["signed", "pending"]
+        resp = await client.post(f"{URL}/{adr['id']}/sign", headers=auth_headers(other))
+        assert resp.status_code == 409
+        assert resp.json()["detail"] == {
+            "error": "valid_until_before_effective",
+            "problems": ["valid_until_before_effective", "valid_until_past"],
+        }
+        stored = await _get(client, admin, adr["id"])
+        assert stored["status"] == "in_review"
+        assert [s["status"] for s in stored["signatories"]] == ["signed", "pending"]
+
+    async def test_the_last_signature_locks_when_the_dates_hold(self, client, db, env):
+        admin = env["admin"]
+        adr = await _create(
+            client, admin, "Holds", valid_until=(_today() + timedelta(days=2)).isoformat()
+        )
+        await self._request(client, admin, adr["id"])
+        resp = await client.post(f"{URL}/{adr['id']}/sign", headers=auth_headers(admin))
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert (body["status"], body["effective_from"], body["decided_on"]) == (
+            "signed",
+            _today().isoformat(),
+            _today().isoformat(),
+        )
 
     async def test_sign_todos_are_matched_by_link_and_labelled(self, client, db, env):
         admin = env["admin"]

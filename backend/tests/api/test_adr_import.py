@@ -6,6 +6,8 @@ DB-backed: skipped locally without PostgreSQL, run in CI.
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
 from sqlalchemy import select
 
@@ -166,16 +168,80 @@ class TestBulkImport:
             [
                 {"row_index": 0, "title": ""},
                 {"row_index": 1, "title": "x" * 501},
-                {"row_index": 2, "reference_number": "ADR-900", "title": "First"},
-                {"row_index": 3, "reference_number": "adr-900", "title": "Second"},
             ],
         )
 
         results = resp.json()["results"]
-        assert [r["status"] for r in results] == ["failed", "failed", "created", "failed"]
+        assert [r["status"] for r in results] == ["failed", "failed"]
         assert results[0]["error"] == "Title is required"
         assert results[1]["error"] == "Title is longer than 500 characters"
-        assert results[3]["error"] == "Reference ADR-900 appears more than once in the file"
+
+    @pytest.mark.parametrize("rev2_first", [False, True])
+    async def test_an_exported_chain_imports_its_latest_revision_only(
+        self, client, db, env, rev2_first
+    ):
+        rev1 = {
+            "row_index": 2,
+            "reference_number": "OLD-7",
+            "title": "Rev one",
+            "revision_number": 1,
+        }
+        rev2 = {
+            "row_index": 3,
+            "reference_number": "old-7",
+            "title": "Rev two",
+            "revision_number": "2",
+        }
+        rows = [rev2, rev1] if rev2_first else [rev1, rev2]
+        rows.append({"row_index": 4, "title": "Points at it", "related_references": ["OLD-7"]})
+
+        resp = await _import(client, env["member"], rows)
+
+        body = resp.json()
+        by_row = {r["row_index"]: r for r in body["results"]}
+        assert (body["created"], body["skipped"], body["failed"]) == (2, 1, 0)
+        assert by_row[2] == {
+            "row_index": 2,
+            "status": "skipped",
+            "id": by_row[3]["id"],
+            "reference_number": "OLD-7",
+            "error": None,
+            "warnings": ["Earlier revision of OLD-7 skipped"],
+        }
+        assert (by_row[3]["status"], by_row[3]["warnings"]) == ("created", [])
+        await db.rollback()
+        titles = sorted(d.title for d in await _decisions(db))
+        assert titles == ["Points at it", "Rev two"]
+        links = (
+            (
+                await db.execute(
+                    select(ArchitectureDecisionLink.target_id).where(
+                        ArchitectureDecisionLink.source_id == uuid.UUID(by_row[4]["id"])
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert [str(t) for t in links] == [by_row[3]["id"]]
+
+    async def test_reimporting_an_exported_chain_changes_nothing(self, client, db, env):
+        rows = [
+            {"row_index": 0, "reference_number": "OLD-8", "title": "A", "revision_number": 1},
+            {"row_index": 1, "reference_number": "OLD-8", "title": "B", "revision_number": 2},
+        ]
+        first = (await _import(client, env["member"], rows)).json()
+        assert (first["created"], first["skipped"]) == (1, 1)
+        created_ref = next(r for r in first["results"] if r["status"] == "created")[
+            "reference_number"
+        ]
+
+        rows = [{**r, "reference_number": created_ref} for r in rows]
+        again = (await _import(client, env["member"], rows)).json()
+        assert (again["created"], again["skipped"], again["failed"]) == (0, 2, 0)
+        assert [r["warnings"] for r in again["results"]] == [[], []]
+        await db.rollback()
+        assert [d.title for d in await _decisions(db)] == ["B"]
 
     async def test_related_decisions_resolve_against_the_file_and_the_database(
         self, client, db, env

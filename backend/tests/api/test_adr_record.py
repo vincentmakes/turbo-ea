@@ -265,12 +265,25 @@ class TestRefusals:
     async def test_decided_on_cannot_be_in_the_future(self, client, env):
         admin = env["admin"]
         adr = await _create(client, admin, decision_makers=MAKERS)
-        resp = await _record(client, admin, adr["id"], decided_on=_days(1))
+        resp = await _record(client, admin, adr["id"], decided_on=_days(2))
         assert resp.status_code == 400
         assert resp.json()["detail"] == {
             "error": "invalid_record",
             "problems": ["decided_on_future"],
         }
+        assert (await _get(client, admin, adr["id"]))["status"] == "draft"
+
+    async def test_decided_on_tomorrow_is_accepted_for_authors_ahead_of_utc(self, client, env):
+        admin = env["admin"]
+        adr = await _create(client, admin, decision_makers=MAKERS)
+        resp = await _record(client, admin, adr["id"], decided_on=_days(1))
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert (body["status"], body["decided_on"], body["effective_from"]) == (
+            "signed",
+            _days(1),
+            _days(1),
+        )
 
     async def test_problems_are_listed_together(self, client, env):
         adr = await _create(client, env["admin"])
@@ -304,13 +317,26 @@ class TestRefusals:
 
     async def test_valid_until_in_the_past_is_refused(self, client, env):
         admin = env["admin"]
-        adr = await _create(client, admin, decision_makers=MAKERS, valid_until=_days(-1))
+        adr = await _create(client, admin, decision_makers=MAKERS, valid_until=_days(-2))
         resp = await _record(client, admin, adr["id"], decided_on=_days(-5))
         assert resp.status_code == 409
         assert resp.json()["detail"] == {
             "error": "valid_until_past",
             "problems": ["valid_until_past"],
         }
+        assert (await _get(client, admin, adr["id"]))["status"] == "draft"
+
+    async def test_valid_until_yesterday_is_accepted_for_authors_behind_utc(self, client, env):
+        admin = env["admin"]
+        adr = await _create(client, admin, decision_makers=MAKERS, valid_until=_days(-1))
+        resp = await _record(client, admin, adr["id"], decided_on=_days(-5))
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert (body["status"], body["valid_until"], body["effective_from"]) == (
+            "signed",
+            _days(-1),
+            _days(-5),
+        )
 
     async def test_valid_until_before_effective_from_is_refused(self, client, env):
         admin = env["admin"]

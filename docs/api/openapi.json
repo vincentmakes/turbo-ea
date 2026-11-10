@@ -264,6 +264,21 @@
             "title": "Related References",
             "type": "array"
           },
+          "revision_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision Number"
+          },
           "row_index": {
             "title": "Row Index",
             "type": "integer"
@@ -21788,7 +21803,7 @@
     },
     "/api/v1/adr/{adr_id}/files/{attachment_id}": {
       "delete": {
-        "description": "Remove a file from a draft decision; its bytes go once no decision shares them.",
+        "description": "Remove a file from a draft decision; its bytes go once no decision shares them.\n\nAllowed while file uploads are switched off, like a card attachment's\ndelete: otherwise a file could not leave a draft and would be signed with it.",
         "operationId": "delete_adr_file_api_v1_adr__adr_id__files__attachment_id__delete",
         "parameters": [
           {

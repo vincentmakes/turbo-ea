@@ -484,7 +484,7 @@ The six guardrail environment variables on the MCP container:
 | Role | Access |
 |------|--------|
 | **Admin** | Configure MCP settings (`admin.mcp` permission). Full read + write through MCP. |
-| **All authenticated users** | Read access governed by their existing RBAC. Write tools require the matching backend permissions — `inventory.create` / `inventory.edit` / `inventory.archive` (cards), `relations.manage` (relations), `diagrams.manage` (diagrams), `bpm.edit` (BPMN), `risks.manage` (Risk Register), `comments.create` (comments), `stakeholders.manage` (stakeholders), `soaw.create` (SoAW), `adr.create` / `adr.sign` (ADRs), `bookmarks.manage` / `bookmarks.share` (saved inventory views). |
+| **All authenticated users** | Read access governed by their existing RBAC. Write tools require the matching backend permissions — `inventory.create` / `inventory.edit` / `inventory.archive` (cards), `relations.manage` (relations), `diagrams.manage` (diagrams), `bpm.edit` (BPMN), `risks.manage` (Risk Register), `comments.create` (comments), `stakeholders.manage` (stakeholders), `soaw.create` (SoAW), `adr.manage` / `adr.sign` (ADRs), `bookmarks.manage` / `bookmarks.share` (saved inventory views). |
 
 The `admin.mcp` permission controls who can manage MCP settings. It is only available to the Admin role by default. Custom roles can be granted this permission through the Roles administration page.
 
