@@ -47,6 +47,7 @@
     "bpmn-js-color-picker": "^0.7.2",
     "bpmn-js-create-append-anything": "^2.1.0",
     "bpmn-js-properties-panel": "^5.65.0",
+    "diff": "9.0.0",
     "docx": "^9.5.1",
     "dompurify": "^3.4.17",
     "echarts": "^6.1.0",
