@@ -179,10 +179,11 @@ def test_seeder_keys_are_distinct() -> None:
     ran second would find the marker already set and skip for good."""
     from app.services.seed_demo import SEEDER_KEY as BASE
     from app.services.seed_demo_bpm import SEEDER_KEY as BPM
+    from app.services.seed_demo_collab import SEEDER_KEY as COLLAB
     from app.services.seed_demo_ppm import SEEDER_KEY as PPM
     from app.services.seed_demo_security import SEEDER_KEY as SECURITY
 
-    keys = [BASE, BPM, PPM, SEEDER_KEY, SECURITY, LOGOS_SEEDER_KEY, WORKSPACE_SEEDER_KEY]
+    keys = [BASE, BPM, PPM, SEEDER_KEY, SECURITY, LOGOS_SEEDER_KEY, WORKSPACE_SEEDER_KEY, COLLAB]
     assert len(keys) == len(set(keys)), f"duplicate seeder keys: {keys}"
 
 
