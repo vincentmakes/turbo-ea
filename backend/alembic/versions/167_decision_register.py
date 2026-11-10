@@ -96,10 +96,10 @@ def plan_relates_links(rows: Iterable[tuple[Any, Any, Any]]) -> list[tuple[Any, 
             target = by_id.get(as_id) if as_id is not None else by_ref.get(text.upper())
             if target is None or str(target) == str(row_id):
                 continue
-            key = (str(row_id), str(target))
-            if key in seen:
+            pair_key = (str(row_id), str(target))
+            if pair_key in seen:
                 continue
-            seen.add(key)
+            seen.add(pair_key)
             pairs.append((row_id, target))
     return pairs
 

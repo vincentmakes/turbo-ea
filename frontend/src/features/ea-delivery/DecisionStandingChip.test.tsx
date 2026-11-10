@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-import DecisionStandingChip, { DecisionStateChip, DecisionStatusChip } from "./DecisionStandingChip";
+import {
+  DecisionStandingChip,
+  DecisionStateChip,
+  DecisionStatusChip,
+} from "./DecisionStandingChip";
 
 describe("DecisionStandingChip", () => {
   it("renders nothing without a standing", () => {

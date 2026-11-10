@@ -61,5 +61,3 @@ export function DecisionStateChip({
   if (adr.standing) return <DecisionStandingChip standing={adr.standing} sx={sx} />;
   return <DecisionStatusChip adr={adr} sx={sx} />;
 }
-
-export default DecisionStandingChip;
