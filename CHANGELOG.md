@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.198.1] - 2026-11-10
+
+### Fixed
+- In the Layered Dependency View, a card keeps its type line when another **Show on card** option such as Alias is ticked beside it: the type is the first of the card's two lines instead of disappearing as soon as anything else is shown (#1377).
+
 ## [2.198.0] - 2026-11-10
 
 ### Changed

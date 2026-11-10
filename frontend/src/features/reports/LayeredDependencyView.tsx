@@ -40,7 +40,6 @@ import {
   buildFieldCatalog,
   EMPTY_VALUE,
   formatFieldValue,
-  MAX_CARD_LINES,
   type DisplayLine,
   type FieldMeta,
 } from "@/lib/cardDisplayFields";
@@ -146,6 +145,7 @@ import {
   handleStyle,
   hidesCardsOnView,
   movedBeyondClick,
+  cardLineBudget,
   nameLineClamp,
   nextBackground,
   paintOrder,
@@ -257,6 +257,7 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
   const lifecyclePhase = (data.lifecyclePhase as string | null | undefined) ?? null;
   const extraLines = (data.extraLines as DisplayLine[] | undefined) ?? [];
   const showType = data.showType !== false;
+  const lineBudget = cardLineBudget(showType, extraLines.length);
   const detailText = (data.detailText as string | undefined) ?? data.name;
   const dotColor = phaseDotColor(lifecyclePhase);
   // Minimalistic hierarchy affordances: a hidden parent (above) / hidden
@@ -669,7 +670,7 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
             // normally, one when the reader has switched on two extra fields.
             // Without this a full card spills past its own border, which
             // nothing clips (the badges deliberately overhang it).
-            WebkitLineClamp: nameLineClamp(extraLines.length),
+            WebkitLineClamp: nameLineClamp(lineBudget.total),
             WebkitBoxOrient: "vertical",
             overflow: "hidden",
             wordBreak: "break-word",
@@ -677,27 +678,10 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
         >
           {name}
         </Typography>
-        {extraLines.length > 0 ? (
-          extraLines.slice(0, MAX_CARD_LINES).map((line) => (
-            <Typography
-              key={line.label}
-              variant="caption"
-              sx={{
-                lineHeight: 1.25,
-                maxWidth: "100%",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                color: "text.secondary",
-              }}
-            >
-              <Box component="span" sx={{ color: accent, fontWeight: 600 }}>
-                {line.label}:
-              </Box>{" "}
-              {line.value}
-            </Typography>
-          ))
-        ) : showType ? (
+        {/* Menu order: the type first, then as many extra lines as the card
+            has room left for (#1377 — the type used to show only when nothing
+            else was ticked). */}
+        {showType && (
           <Typography
             variant="caption"
             sx={{
@@ -713,7 +697,26 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
           >
             [{typeLabel({ key: data.typeKey, label: data.typeLabel }) || data.typeLabel}]
           </Typography>
-        ) : null}
+        )}
+        {extraLines.slice(0, lineBudget.extraShown).map((line) => (
+          <Typography
+            key={line.label}
+            variant="caption"
+            sx={{
+              lineHeight: 1.25,
+              maxWidth: "100%",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              color: "text.secondary",
+            }}
+          >
+            <Box component="span" sx={{ color: accent, fontWeight: 600 }}>
+              {line.label}:
+            </Box>{" "}
+            {line.value}
+          </Typography>
+        ))}
       </Box>
     </Box>
   );
