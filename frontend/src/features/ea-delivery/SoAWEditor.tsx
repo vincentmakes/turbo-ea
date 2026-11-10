@@ -57,6 +57,9 @@ import {
   type SoawEditorFields,
 } from "./soawEditorState";
 import { hasUnsavedEdits } from "./editorDirty";
+import DocumentSidePanel from "./collab/DocumentSidePanel";
+import { RejectDocumentDialog, SignDocumentDialog } from "./collab/ReviewDialogs";
+import { sectionOptions, signBody, soawSectionOptions } from "./collab/discussionModel";
 import type { MentionKind } from "@/lib/mentionHtml";
 import { api } from "@/api/client";
 import { useSubmitOnce } from "@/hooks/useSubmitOnce";
@@ -137,7 +140,11 @@ export default function SoAWEditor() {
   const [createdVia, setCreatedVia] = useState<string | null>(null);
   const [signDialogOpen, setSignDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
-  const [rejectComment, setRejectComment] = useState("");
+  // Sign, with an optional note.
+  const [signOpen, setSignOpen] = useState(false);
+  // Open discussion threads on this revision: the detail's count, then the
+  // side panel's live one. Shown as a warning by the review dialogs.
+  const [openThreads, setOpenThreads] = useState<number | undefined>(undefined);
   const [currentUserId, setCurrentUserId] = useState<string>("");
 
   // Deep-link from the MCP `pending` workflow: /ea-delivery/soaw/:id?action=sign|reject
@@ -197,6 +204,7 @@ export default function SoAWEditor() {
     setSignedAt(data.signed_at);
     setRevisionNumber(data.revision_number ?? 1);
     setCreatedVia(data.created_via ?? null);
+    setOpenThreads(data.open_thread_count);
   }, []);
 
   // An action's reply, applied only while the page still shows that document.
@@ -376,13 +384,14 @@ export default function SoAWEditor() {
     }
   };
 
-  const handleSign = async () => {
+  const handleSign = async (note: string) => {
     if (!soawIdRef.current) return;
     setSaving(true);
     setError("");
     try {
-      const data = await api.post<SoAW>(`/soaw/${soawIdRef.current}/sign`);
+      const data = await api.post<SoAW>(`/soaw/${soawIdRef.current}/sign`, signBody("soaw", note));
       applyReply(data);
+      setSignOpen(false);
       setSnack(data.status === "signed" ? t("editor.documentFullySigned") : t("editor.signatureRecorded"));
     } catch (e) {
       setError(e instanceof Error ? e.message : t("editor.error.signFailed"));
@@ -410,18 +419,17 @@ export default function SoAWEditor() {
     }
   };
 
-  const handleReject = async () => {
-    if (!soawIdRef.current || !rejectComment.trim()) return;
+  const handleReject = async (reason: string) => {
+    if (!soawIdRef.current || !reason) return;
     setSaving(true);
     setError("");
     try {
       const data = await api.post<SoAW>(
         `/soaw/${soawIdRef.current}/reject`,
-        { comment: rejectComment.trim() },
+        { comment: reason },
       );
       applyReply(data);
       setRejectDialogOpen(false);
-      setRejectComment("");
       setSnack(t("editor.documentRejected"));
     } catch (e) {
       setError(
@@ -544,6 +552,23 @@ export default function SoAWEditor() {
   }
 
   return (
+    <DocumentSidePanel
+      owner={!isNew && id ? { kind: "soaw", id } : null}
+      status={status}
+      sections={sectionOptions(
+        "soaw",
+        t,
+        soawSectionOptions(
+          getTemplateSections(),
+          Object.fromEntries(customSections.map((cs) => [cs.id, { title: cs.title }])),
+        ),
+      )}
+      openThreadCount={detail?.open_thread_count}
+      onOpenCountChange={setOpenThreads}
+      refreshKey={detail?.updated_at}
+      isDirty={hasEdits}
+      onRestored={(data: SoAW) => applyReply(data)}
+    >
     <Box sx={{ maxWidth: 960, mx: "auto" }}>
       {/* Top bar */}
       <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", mb: 3, gap: 1 }}>
@@ -648,7 +673,7 @@ export default function SoAWEditor() {
               startIcon={<MaterialSymbol icon="task_alt" size={18} />}
               sx={{ textTransform: "none" }}
               disabled={saving}
-              onClick={handleSign}
+              onClick={() => setSignOpen(true)}
             >
               {t("editor.sign")}
             </Button>
@@ -1305,45 +1330,30 @@ export default function SoAWEditor() {
         title={t("editor.signDialog.title")}
         description={t("editor.signDialog.description")}
         requesting={saving}
+        openThreadCount={openThreads}
       />
 
-      {/* Reject dialog */}
-      <Dialog
+      {/* Sign and reject dialogs */}
+      <SignDocumentDialog
+        open={signOpen}
+        onClose={() => setSignOpen(false)}
+        onSign={handleSign}
+        title={t("collab.sign.soawTitle")}
+        description={t("collab.sign.soawDescription")}
+        openThreadCount={openThreads}
+        busy={saving}
+      />
+      <RejectDocumentDialog
         open={rejectDialogOpen}
         onClose={() => setRejectDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>{t("editor.rejectDialog.title")}</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" sx={{ mb: 2 }}>
-            {t("editor.rejectDialog.description")}
-          </Typography>
-          <TextField
-            autoFocus
-            label={t("editor.rejectDialog.commentLabel")}
-            fullWidth
-            multiline
-            minRows={3}
-            value={rejectComment}
-            onChange={(e) => setRejectComment(e.target.value)}
-            sx={{ mt: 1 }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setRejectDialogOpen(false)}>
-            {t("common:actions.cancel")}
-          </Button>
-          <Button
-            variant="contained"
-            color="error"
-            disabled={!rejectComment.trim() || saving}
-            onClick={handleReject}
-          >
-            {t("editor.reject")}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onReject={handleReject}
+        title={t("editor.rejectDialog.title")}
+        description={t("editor.rejectDialog.description")}
+        label={t("editor.rejectDialog.commentLabel")}
+        submitLabel={t("editor.reject")}
+        openThreadCount={openThreads}
+        busy={saving}
+      />
 
       {/* Snackbar */}
       <Snackbar
@@ -1354,5 +1364,6 @@ export default function SoAWEditor() {
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       />
     </Box>
+    </DocumentSidePanel>
   );
 }

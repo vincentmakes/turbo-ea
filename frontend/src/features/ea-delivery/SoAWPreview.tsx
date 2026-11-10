@@ -20,6 +20,9 @@ import { SoawBanners } from "./DecisionBanners";
 import RevisionStrip, { soawRevisionItems } from "./RevisionStrip";
 import { soawCurrentRevisionId } from "./soawEditorState";
 import MentionContainer from "./mentions/MentionContainer";
+import DocumentSidePanel from "./collab/DocumentSidePanel";
+import { sectionOptions, soawSectionOptions } from "./collab/discussionModel";
+import { getTemplateSections } from "./soawTemplate";
 import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useDateFormat } from "@/hooks/useDateFormat";
@@ -127,6 +130,14 @@ export default function SoAWPreview() {
 
   return (
     <>
+      <DocumentSidePanel
+        owner={id ? { kind: "soaw", id } : null}
+        status={soaw.status}
+        sections={sectionOptions("soaw", t, soawSectionOptions(getTemplateSections(), soaw.sections))}
+        openThreadCount={soaw.open_thread_count}
+        refreshKey={soaw.updated_at}
+        onRestored={(restored: SoAW) => setSoaw(restored)}
+      >
       {/* Toolbar (hidden when printing) */}
       <Box
         className="no-print"
@@ -338,6 +349,7 @@ export default function SoAWPreview() {
           </Box>
         </Box>
       )}
+      </DocumentSidePanel>
 
       <Snackbar
         open={!!snack}

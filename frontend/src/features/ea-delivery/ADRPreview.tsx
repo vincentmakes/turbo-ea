@@ -35,6 +35,9 @@ import { DATE_LABEL_KEYS, decisionRefLabel } from "./decisionStanding";
 import { currentRevisionId } from "./adrEditorModel";
 import MentionContainer from "./mentions/MentionContainer";
 import { useMentionLabels } from "./mentions/mentionLabels";
+import DocumentSidePanel from "./collab/DocumentSidePanel";
+import MentionedInList from "./collab/MentionedInList";
+import { sectionOptions } from "./collab/discussionModel";
 import type { ArchitectureDecision } from "@/types";
 import { RAG_COLORS, WARNING_STRONG_COLOR, brand } from "@/theme/tokens";
 
@@ -111,6 +114,14 @@ export default function ADRPreview() {
 
   return (
     <>
+      <DocumentSidePanel
+        owner={id ? { kind: "adr", id } : null}
+        status={adr.status}
+        sections={sectionOptions("adr", t)}
+        openThreadCount={adr.open_thread_count}
+        refreshKey={adr.updated_at ?? undefined}
+        onRestored={(restored: ArchitectureDecision) => setAdr(restored)}
+      >
       {/* Toolbar */}
       <Box
         className="no-print"
@@ -333,6 +344,13 @@ export default function ADRPreview() {
           </Box>
         )}
 
+        {/* Decisions and SoAWs that mention this decision */}
+        {id && (
+          <Box sx={{ mb: 4, "&:empty": { display: "none" } }}>
+            <MentionedInList target={{ kind: "decision", id }} />
+          </Box>
+        )}
+
         {/* Extension ADR panels (SDK 1.3) — read-only on the preview page */}
         {id &&
           adrPanels
@@ -461,6 +479,7 @@ export default function ADRPreview() {
           />
         )}
       </Box>
+      </DocumentSidePanel>
 
       <Snackbar
         open={!!snack}

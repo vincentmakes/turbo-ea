@@ -49,6 +49,9 @@ import {
   type SavePayload,
 } from "./adrEditorModel";
 import { hasUnsavedEdits } from "./editorDirty";
+import DocumentSidePanel from "./collab/DocumentSidePanel";
+import { RejectDocumentDialog, SignDocumentDialog } from "./collab/ReviewDialogs";
+import { sectionOptions, signBody } from "./collab/discussionModel";
 import { unlinkedMentionedCards } from "./mentions/mentionModel";
 import type { MentionKind } from "@/lib/mentionHtml";
 import { api, ApiError } from "@/api/client";
@@ -148,9 +151,12 @@ export default function ADREditor() {
   // Record-as-decided dialog
   const [recordOpen, setRecordOpen] = useState(false);
 
-  // Reject dialog
+  // Sign (with an optional note) and reject dialogs
+  const [signOpen, setSignOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
-  const [rejectComment, setRejectComment] = useState("");
+  // Open discussion threads on this revision: the detail's count, then the
+  // side panel's live one. Shown as a warning by the review dialogs.
+  const [openThreads, setOpenThreads] = useState<number | undefined>(undefined);
 
   // Deep-link handler: when the MCP server returns a `pending` response
   // with `deep_link: /ea-delivery/adr/{id}?action=sign|reject|request-
@@ -214,6 +220,7 @@ export default function ADREditor() {
     setParticipants(content.participants);
     setLinks(content.links);
     setChangeSummary(content.changeSummary);
+    setOpenThreads(adr.open_thread_count);
   }, []);
 
   // An action's reply, applied only while the page still shows that decision.
@@ -416,16 +423,17 @@ export default function ADREditor() {
     }
   };
 
-  // Sign
-  const handleSign = () =>
+  // Sign, with the note (if any) the dialog collected
+  const handleSign = (note: string) =>
     action.run(async () => {
       if (!id) return;
       try {
         const updated = await api.post<ArchitectureDecision>(
           `/adr/${id}/sign`,
-          {},
+          signBody("adr", note),
         );
         applyReply(updated);
+        setSignOpen(false);
         setSnackbar(
           updated.status === "signed"
             ? t("adr.editor.documentFullySigned")
@@ -455,17 +463,16 @@ export default function ADREditor() {
   };
 
   // Reject
-  const handleReject = async () => {
-    if (!id || !rejectComment.trim()) return;
+  const handleReject = async (reason: string) => {
+    if (!id || !reason) return;
     setSaving(true);
     try {
       const updated = await api.post<ArchitectureDecision>(
         `/adr/${id}/reject`,
-        { comment: rejectComment.trim() },
+        { comment: reason },
       );
       applyReply(updated);
       setRejectDialogOpen(false);
-      setRejectComment("");
       setSnackbar(t("adr.editor.documentRejected"));
     } catch {
       setError(t("adr.editor.error.rejectFailed"));
@@ -548,6 +555,16 @@ export default function ADREditor() {
 
   return (
     <>
+    <DocumentSidePanel
+      owner={!isNew && id ? { kind: "adr", id } : null}
+      status={status}
+      sections={sectionOptions("adr", t)}
+      openThreadCount={detail?.open_thread_count}
+      onOpenCountChange={setOpenThreads}
+      refreshKey={detail?.updated_at ?? undefined}
+      isDirty={hasEdits}
+      onRestored={(adr: ArchitectureDecision) => applyReply(adr)}
+    >
     <Box sx={{ maxWidth: 900, mx: "auto", p: 2 }}>
       {/* ── Header ── */}
       <Box
@@ -724,7 +741,7 @@ export default function ADREditor() {
               variant="contained"
               color="success"
               startIcon={<MaterialSymbol icon="draw" size={18} />}
-              onClick={handleSign}
+              onClick={() => setSignOpen(true)}
               disabled={action.busy}
               sx={{ textTransform: "none" }}
             >
@@ -1167,6 +1184,7 @@ export default function ADREditor() {
         description={t("adr.editor.signDialog.description")}
         requesting={requestingSignatures}
         decisionMakers={decisionMakers}
+        openThreadCount={openThreads}
       />
 
       {/* ── Record as decided ── */}
@@ -1224,45 +1242,30 @@ export default function ADREditor() {
         </DialogActions>
       </Dialog>
 
-      {/* ── Reject Dialog ── */}
-      <Dialog
+      {/* ── Sign and Reject Dialogs ── */}
+      <SignDocumentDialog
+        open={signOpen}
+        onClose={() => setSignOpen(false)}
+        onSign={handleSign}
+        title={t("collab.sign.adrTitle")}
+        description={t("collab.sign.adrDescription")}
+        openThreadCount={openThreads}
+        busy={action.busy}
+      />
+      <RejectDocumentDialog
         open={rejectDialogOpen}
         onClose={() => setRejectDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>{t("adr.editor.rejectDialog.title")}</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" sx={{ mb: 2 }}>
-            {t("adr.editor.rejectDialog.description")}
-          </Typography>
-          <TextField
-            autoFocus
-            label={t("adr.editor.rejectDialog.commentLabel")}
-            fullWidth
-            multiline
-            minRows={3}
-            value={rejectComment}
-            onChange={(e) => setRejectComment(e.target.value)}
-            sx={{ mt: 1 }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setRejectDialogOpen(false)}>
-            {t("common:actions.cancel")}
-          </Button>
-          <Button
-            variant="contained"
-            color="error"
-            disabled={!rejectComment.trim() || saving}
-            onClick={handleReject}
-          >
-            {t("adr.editor.reject")}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onReject={handleReject}
+        title={t("adr.editor.rejectDialog.title")}
+        description={t("adr.editor.rejectDialog.description")}
+        label={t("adr.editor.rejectDialog.commentLabel")}
+        submitLabel={t("adr.editor.reject")}
+        openThreadCount={openThreads}
+        busy={saving}
+      />
 
     </Box>
+    </DocumentSidePanel>
     {/* ── Snackbar ── */}
     {snackbarEl}
     </>

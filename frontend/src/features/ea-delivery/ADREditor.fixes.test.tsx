@@ -10,6 +10,15 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import type { ArchitectureDecision, SoAWSignatory } from "@/types";
 
+// The discussion and history side panel has its own tests: here the page
+// renders alone, and the props it hands the panel are recorded.
+const sidePanel = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
+vi.mock("./collab/DocumentSidePanel", () => ({
+  default: (props: { children: unknown }) => {
+    sidePanel.props.push(props);
+    return props.children;
+  },
+}));
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
   ApiError: class ApiError extends Error {},
@@ -133,14 +142,17 @@ describe("ADREditor — one request per workflow action, however often it is cli
       return calls === 1 ? first.promise : { ...IN_REVIEW, signatories: [{ ...ME_PENDING, status: "signed" }] };
     });
     const user = userEvent.setup();
-    const sign = screen.getByRole("button", { name: /^draw Sign$/ });
+    await user.click(screen.getByRole("button", { name: /^draw Sign$/ }));
+    const sign = within(await screen.findByRole("dialog")).getByRole("button", { name: "Sign" });
 
     await user.dblClick(sign);
     expect(postsTo("/adr/adr-1/sign")).toHaveLength(1);
+    expect(postsTo("/adr/adr-1/sign")[0][1]).toEqual({});
 
     first.reject(new Error("down"));
     expect(await screen.findByText("Failed to sign")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /^draw Sign$/ }));
+    // The dialog stays open on a failure: sign again from it.
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Sign" }));
     expect(await screen.findByText("Signature recorded")).toBeInTheDocument();
     expect(postsTo("/adr/adr-1/sign")).toHaveLength(2);
   });

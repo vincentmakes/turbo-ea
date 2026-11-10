@@ -8,6 +8,15 @@ import { configure, fireEvent, screen, waitFor, within } from "@testing-library/
 import { useNavigate } from "react-router";
 import type { SoAW } from "@/types";
 
+// The discussion and history side panel has its own tests: here the page
+// renders alone, and the props it hands the panel are recorded.
+const sidePanel = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
+vi.mock("./collab/DocumentSidePanel", () => ({
+  default: (props: { children: unknown }) => {
+    sidePanel.props.push(props);
+    return props.children;
+  },
+}));
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useDateFormatModule()));
 vi.mock("./soawExport", () => ({ exportToDocx: vi.fn(async () => {}), exportToPdf: vi.fn() }));
@@ -241,6 +250,9 @@ describe("SoAWEditor — action replies refresh the page", () => {
     renderEdit();
     await loaded();
     fireEvent.click(button(t("editor.sign")));
+    fireEvent.click(
+      within(await screen.findByRole("dialog")).getByText(t("collab.sign.confirm"), { selector: "button" }),
+    );
     expect(await screen.findByText(t("editor.documentFullySigned"))).toBeInTheDocument();
     expect(screen.getByText(t("editor.revisionLabel", { number: 2 }))).toBeInTheDocument();
     // A signed current revision offers a new revision: the reply's chain facts were applied.

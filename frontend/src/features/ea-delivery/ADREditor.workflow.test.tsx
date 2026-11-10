@@ -9,6 +9,15 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useNavigate } from "react-router";
 import type { ArchitectureDecision, DecisionLinks } from "@/types";
 
+// The discussion and history side panel has its own tests: here the page
+// renders alone, and the props it hands the panel are recorded.
+const sidePanel = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
+vi.mock("./collab/DocumentSidePanel", () => ({
+  default: (props: { children: unknown }) => {
+    sidePanel.props.push(props);
+    return props.children;
+  },
+}));
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
   ApiError: class ApiError extends Error {
@@ -190,6 +199,13 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 // F1 — pending edits are saved before the decision is locked
 // ---------------------------------------------------------------------------
+
+
+/** Sign through the sign dialog: open it from the toolbar, then confirm. */
+async function signThroughDialog(u: { click: (el: Element) => Promise<void> }) {
+  await u.click(screen.getByRole("button", { name: /^draw Sign$/ }));
+  await u.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Sign" }));
+}
 
 describe("ADREditor — requesting signatures saves pending edits first", () => {
   it("edits + request: PATCHes the edited content, then opens the dialog, then requests", async () => {
@@ -402,7 +418,7 @@ describe("ADREditor — action replies refresh the links, standing and banners",
     });
     const user = userEvent.setup();
     expect(screen.queryByText("Scheduled")).toBeNull();
-    await user.click(screen.getByRole("button", { name: /^draw Sign$/ }));
+    await signThroughDialog(user);
     expect(await screen.findByText("Decision fully signed")).toBeInTheDocument();
     expect(screen.getByText("Scheduled")).toBeInTheDocument();
     expect(screen.getByText("This decision takes effect on 2026-12-01.")).toBeInTheDocument();
@@ -449,8 +465,10 @@ describe("ADREditor — action replies refresh the links, standing and banners",
     renderAt();
     await screen.findByDisplayValue(IN_REVIEW.title);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /^draw Sign$/ }));
-    await user.click(screen.getByRole("button", { name: "go-/ea-delivery/adr/adr-2" }));
+    await signThroughDialog(user);
+    // The sign dialog stays open while the request is in flight; the page
+    // behind it is still navigated.
+    await user.click(screen.getByRole("button", { name: "go-/ea-delivery/adr/adr-2", hidden: true }));
     await screen.findByDisplayValue("Second decision");
     sign.resolve({ ...IN_REVIEW, status: "signed", standing: "in_force", title: "Signed first" });
     expect(await screen.findByText("Decision fully signed")).toBeInTheDocument();

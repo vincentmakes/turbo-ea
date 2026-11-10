@@ -11,6 +11,15 @@ import { useEffect } from "react";
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-router";
 import type { ArchitectureDecision, SoAWSignatory } from "@/types";
 
+// The discussion and history side panel has its own tests: here the page
+// renders alone, and the props it hands the panel are recorded.
+const sidePanel = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
+vi.mock("./collab/DocumentSidePanel", () => ({
+  default: (props: { children: unknown }) => {
+    sidePanel.props.push(props);
+    return props.children;
+  },
+}));
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
   ApiError: class ApiError extends Error {},
@@ -266,6 +275,13 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 // A new decision
 // ---------------------------------------------------------------------------
+
+
+/** Sign through the sign dialog: open it from the toolbar, then confirm. */
+async function signThroughDialog(u: { click: (el: Element) => Promise<void> }) {
+  await u.click(screen.getByRole("button", { name: /^draw Sign$/ }));
+  await u.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Sign" }));
+}
 
 describe("ADREditor — a new decision", () => {
   it("starts empty: only the draft chip, no alerts or dialogs, and exports exactly that", async () => {
@@ -693,7 +709,7 @@ describe("ADREditor — workflow actions", () => {
       }),
     });
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /^draw Sign$/ }));
+    await signThroughDialog(user);
     expect(await screen.findByText("Decision fully signed")).toBeInTheDocument();
     expect(screen.getByText("2 of 2 signatures collected")).toBeInTheDocument();
   });
@@ -701,7 +717,7 @@ describe("ADREditor — workflow actions", () => {
   it("signing with a reply that carries no signatories empties the list", async () => {
     await renderLoaded(IN_REVIEW, { post: () => ({ ...IN_REVIEW, signatories: undefined }) });
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /^draw Sign$/ }));
+    await signThroughDialog(user);
     expect(await screen.findByText("Signature recorded")).toBeInTheDocument();
     expect(screen.queryByText(/signatures collected/)).toBeNull();
   });

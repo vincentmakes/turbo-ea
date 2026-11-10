@@ -72,6 +72,10 @@ const NOTIFICATION_ICONS: Record<string, { icon: string; color: string }> = {
     icon: "published_with_changes",
     color: NOTIFICATION_TYPE_COLORS.adr_standing_changed,
   },
+  // Discussion on a decision or SoAW. Their link opens the document's preview
+  // with `?thread=<id>`, which brings the side panel up on that thread.
+  document_comment: { icon: "forum", color: NOTIFICATION_TYPE_COLORS.document_comment },
+  document_mention: { icon: "alternate_email", color: NOTIFICATION_TYPE_COLORS.document_mention },
   process_flow_approval_requested: {
     icon: "rule",
     color: NOTIFICATION_TYPE_COLORS.process_flow_approval_requested,

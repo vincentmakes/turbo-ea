@@ -4,6 +4,15 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import type { ArchitectureDecision } from "@/types";
 
+// The discussion and history side panel has its own tests: here the page
+// renders alone, and the props it hands the panel are recorded.
+const sidePanel = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
+vi.mock("./collab/DocumentSidePanel", () => ({
+  default: (props: { children: unknown }) => {
+    sidePanel.props.push(props);
+    return props.children;
+  },
+}));
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
   ApiError: class ApiError extends Error {},
@@ -33,16 +42,19 @@ vi.mock("./SignatureRequestDialog", () => ({
     onRequest,
     onClose,
     decisionMakers,
+    openThreadCount,
   }: {
     open: boolean;
     onRequest: (ids: string[]) => void;
     onClose: () => void;
     decisionMakers?: { display_name: string }[];
+    openThreadCount?: number;
   }) =>
     open ? (
       <div
         data-testid="sign-dialog"
         data-makers={(decisionMakers ?? []).map((p) => p.display_name).join(",")}
+        data-open-threads={String(openThreadCount)}
       >
         <button type="button" onClick={() => onRequest(["u2", "u3"])}>
           request-two
@@ -115,6 +127,13 @@ beforeEach(() => {
   exportAdrsToDocx.mockReset();
   authState.user = { id: "u1", permissions: {} };
 });
+
+
+/** Sign through the sign dialog: open it from the toolbar, then confirm. */
+async function signThroughDialog(u: { click: (el: Element) => Promise<void> }) {
+  await u.click(screen.getByRole("button", { name: /^draw Sign$/ }));
+  await u.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Sign" }));
+}
 
 describe("ADREditor — export trio in the title bar", () => {
   it("a draft offers Preview, PDF and Word, and PDF prints the live editor state", async () => {
@@ -393,20 +412,20 @@ describe("ADREditor — review actions", () => {
         : {},
     );
     expect(screen.getByText("1 of 2 signatures collected")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /^draw Sign$/ }));
+    await signThroughDialog(userEvent);
     expect(await screen.findByText("Decision fully signed")).toBeInTheDocument();
     expect(screen.getByText(/This decision was signed on/)).toBeInTheDocument();
   });
 
   it("records a signature that still leaves others pending", async () => {
     await renderLoaded(IN_REVIEW, () => ({ ...IN_REVIEW, signatories: IN_REVIEW.signatories }));
-    await userEvent.click(screen.getByRole("button", { name: /^draw Sign$/ }));
+    await signThroughDialog(userEvent);
     expect(await screen.findByText("Signature recorded")).toBeInTheDocument();
   });
 
   it("reports a failed signature", async () => {
     await renderLoaded(IN_REVIEW, () => new Error("x"));
-    await userEvent.click(screen.getByRole("button", { name: /^draw Sign$/ }));
+    await signThroughDialog(userEvent);
     expect(await screen.findByText("Failed to sign")).toBeInTheDocument();
   });
 
@@ -1079,5 +1098,81 @@ describe("ADREditor — decision register", () => {
     await renderLoaded({ ...base, decision_makers: [ADA] });
     await userEvent.click(screen.getByRole("button", { name: /Request Signatures/ }));
     expect(screen.getByTestId("sign-dialog")).toHaveAttribute("data-makers", "Ada");
+  });
+});
+
+describe("ADREditor — discussion and review notes", () => {
+  it("mounts the side panel on a saved decision with its owner, status and sections", async () => {
+    sidePanel.props.length = 0;
+    await renderLoaded({ ...base, open_thread_count: 3, updated_at: "2026-11-01T00:00:00Z" });
+    const props = sidePanel.props[sidePanel.props.length - 1];
+    expect(props.owner).toEqual({ kind: "adr", id: "adr-1" });
+    expect(props.status).toBe("draft");
+    expect(props.openThreadCount).toBe(3);
+    expect(props.refreshKey).toBe("2026-11-01T00:00:00Z");
+    expect((props.sections as { key: string }[]).map((s) => s.key)).toEqual([
+      "general",
+      "context",
+      "decision",
+      "alternatives_considered",
+      "consequences",
+    ]);
+    expect((props.isDirty as () => boolean)()).toBe(false);
+  });
+
+  it("gives a new decision no side panel owner", async () => {
+    sidePanel.props.length = 0;
+    serve(base);
+    renderAt("/ea-delivery/adr/new");
+    expect(await screen.findByText("New Architecture Decision")).toBeInTheDocument();
+    expect(sidePanel.props[sidePanel.props.length - 1].owner).toBeNull();
+  });
+
+  it("applies a restored version through the same path as a save", async () => {
+    sidePanel.props.length = 0;
+    await renderLoaded(base);
+    const onRestored = sidePanel.props[sidePanel.props.length - 1].onRestored as (a: ArchitectureDecision) => void;
+    await waitFor(() => onRestored({ ...base, title: "Restored title" }));
+    expect(await screen.findByDisplayValue("Restored title")).toBeInTheDocument();
+  });
+
+  it("signs with a note sent as the comment, and warns about open threads", async () => {
+    await renderLoaded({ ...IN_REVIEW, open_thread_count: 2 }, () => ({ ...IN_REVIEW, open_thread_count: 2 }));
+    await userEvent.click(screen.getByRole("button", { name: /^draw Sign$/ }));
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(dialog.getByText("Sign Decision")).toBeInTheDocument();
+    expect(dialog.getByTestId("open-threads-warning")).toHaveTextContent("2 open discussion threads on this document.");
+    await userEvent.type(dialog.getByLabelText("Note (optional)"), "  Agreed  ");
+    await userEvent.click(dialog.getByRole("button", { name: "Sign" }));
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith("/adr/adr-1/sign", { comment: "Agreed" }));
+  });
+
+  it("shows no warning without open threads, and the side panel's live count once it reports", async () => {
+    sidePanel.props.length = 0;
+    await renderLoaded({ ...IN_REVIEW, open_thread_count: 0 });
+    await userEvent.click(screen.getByRole("button", { name: /^draw Sign$/ }));
+    expect(within(await screen.findByRole("dialog")).queryByTestId("open-threads-warning")).toBeNull();
+    const report = sidePanel.props[sidePanel.props.length - 1].onOpenCountChange as (n: number) => void;
+    await waitFor(() => report(1));
+    expect(await screen.findByText("1 open discussion thread on this document.")).toBeInTheDocument();
+  });
+
+  it("warns in the reject dialog and refuses a reason over 4000 characters", async () => {
+    await renderLoaded({ ...IN_REVIEW, open_thread_count: 1 });
+    await userEvent.click(screen.getByRole("button", { name: /^block Reject$/ }));
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(dialog.getByTestId("open-threads-warning")).toHaveTextContent("1 open discussion thread on this document.");
+    const field = dialog.getByLabelText("Reason for rejection");
+    fireEvent.change(field, { target: { value: "x".repeat(4001) } });
+    expect(dialog.getByRole("button", { name: "Reject" })).toBeDisabled();
+    expect(dialog.getByText("4001 / 4000")).toBeInTheDocument();
+    fireEvent.change(field, { target: { value: "x".repeat(4000) } });
+    expect(dialog.getByRole("button", { name: "Reject" })).toBeEnabled();
+  });
+
+  it("hands the open-thread count to the signature request dialog", async () => {
+    await renderLoaded({ ...base, open_thread_count: 4 });
+    await userEvent.click(screen.getByRole("button", { name: /Request Signatures/ }));
+    expect(await screen.findByTestId("sign-dialog")).toHaveAttribute("data-open-threads", "4");
   });
 });

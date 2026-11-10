@@ -4,6 +4,20 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useNavigate } from "react-router";
 import type { ArchitectureDecision } from "@/types";
 
+// The discussion and history side panel has its own tests: here the page
+// renders alone, and the props it hands the panel are recorded.
+const sidePanel = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
+vi.mock("./collab/DocumentSidePanel", () => ({
+  default: (props: { children: unknown }) => {
+    sidePanel.props.push(props);
+    return props.children;
+  },
+}));
+vi.mock("./collab/MentionedInList", () => ({
+  default: ({ target }: { target: { kind: string; id: string } }) => (
+    <div data-testid="mentioned-in-stub">{`${target.kind}:${target.id}`}</div>
+  ),
+}));
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() },
   ApiError: class ApiError extends Error {},
@@ -625,5 +639,35 @@ describe("ADRPreview — mentions", () => {
     expect(screen.queryByTestId("card-page")).not.toBeInTheDocument();
     expect(screen.queryByTestId("decision-page")).not.toBeInTheDocument();
     expect(screen.getByText("@SAP ERP")).toBeInTheDocument();
+  });
+});
+
+describe("ADRPreview — discussion and mentions", () => {
+  it("mounts the side panel for the decision and lists what mentions it", async () => {
+    sidePanel.props.length = 0;
+    serve({ ...adr, status: "in_review", open_thread_count: 2 });
+    renderPreview();
+    expect(await screen.findByTestId("mentioned-in-stub")).toHaveTextContent("decision:adr-1");
+    const props = sidePanel.props[sidePanel.props.length - 1];
+    expect(props.owner).toEqual({ kind: "adr", id: "adr-1" });
+    expect(props.status).toBe("in_review");
+    expect(props.openThreadCount).toBe(2);
+    expect((props.sections as { key: string }[]).map((s) => s.key)).toEqual([
+      "general",
+      "context",
+      "decision",
+      "alternatives_considered",
+      "consequences",
+    ]);
+  });
+
+  it("shows a restored version the panel hands back", async () => {
+    sidePanel.props.length = 0;
+    serve(adr);
+    renderPreview();
+    await screen.findByTestId("mentioned-in-stub");
+    const onRestored = sidePanel.props[sidePanel.props.length - 1].onRestored as (a: ArchitectureDecision) => void;
+    await waitFor(() => onRestored({ ...adr, title: "Restored decision title" }));
+    expect((await screen.findAllByText("Restored decision title")).length).toBeGreaterThan(0);
   });
 });

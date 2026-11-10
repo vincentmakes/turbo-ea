@@ -540,3 +540,50 @@ describe("NotificationBell decision standing", () => {
     expect(glyph).toHaveStyle({ color: RAG_COLORS.amber });
   });
 });
+
+describe("NotificationBell document discussion", () => {
+  const row = (type: string, title: string, link: string) => ({
+    id: `${type}-1`,
+    user_id: "u1",
+    type,
+    title,
+    message: "",
+    link,
+    is_read: true,
+    created_at: new Date().toISOString(),
+  });
+
+  async function openWith(item: ReturnType<typeof row>) {
+    navigate.mockClear();
+    vi.mocked(api.get).mockReset();
+    vi.mocked(api.get).mockImplementation(async (path: string) =>
+      path.startsWith("/notifications?") ? { items: [item], total: 1, page: 1, page_size: 20 } : { count: 0 },
+    );
+    const user = userEvent.setup();
+    render(<NotificationBell userId="u1" />);
+    await user.click(bellButton());
+    const text = await screen.findByText(item.title);
+    return { user, text, li: text.closest(".MuiListItemButton-root") as HTMLElement };
+  }
+
+  const glyphOf = (li: HTMLElement, icon: string) =>
+    [...li.querySelectorAll(".material-symbols-outlined")].find((el) => el.textContent === icon);
+
+  it("shows a comment with the forum glyph in the green token and follows its thread link", async () => {
+    const { user, text, li } = await openWith(
+      row("document_comment", "New comment on ADR-012", "/ea-delivery/adr/a1/preview?thread=c9"),
+    );
+    expect(glyphOf(li, "forum")).toHaveStyle({ color: RAG_COLORS.green });
+    await user.click(text);
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/ea-delivery/adr/a1/preview?thread=c9"));
+  });
+
+  it("shows a mention with the @ glyph in the brand token and follows its thread link", async () => {
+    const { user, text, li } = await openWith(
+      row("document_mention", "You were mentioned on a SoAW", "/ea-delivery/soaw/s1/preview?thread=c2"),
+    );
+    expect(glyphOf(li, "alternate_email")).toHaveStyle({ color: brand.primary });
+    await user.click(text);
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/ea-delivery/soaw/s1/preview?thread=c2"));
+  });
+});

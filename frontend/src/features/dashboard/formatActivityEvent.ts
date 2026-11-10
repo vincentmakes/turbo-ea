@@ -148,17 +148,44 @@ function asString(v: unknown): string | null {
   return typeof v === "string" && v.length > 0 ? v : null;
 }
 
+/** What a document row reads when its payload carries no name (a comment event). */
+const DOCUMENT_FALLBACK_KEYS = {
+  adr: "dashboard.activity.document.adr",
+  soaw: "dashboard.activity.document.soaw",
+} as const;
+
+/**
+ * The decision or SoAW a card-less `adr.*` / `soaw.*` row is about: its name
+ * (a decision's payload carries `title`, a SoAW's `name`; a comment event
+ * neither, so it reads "a decision" / "a SoAW") and its preview page. Null
+ * for any other row, and for a document row that names a card (`adr.linked`,
+ * `adr.unlinked`), which links to that card.
+ */
+export function documentTarget(
+  e: Pick<EventEntry, "event_type" | "card_id" | "data">,
+  t: TFunction<"common">,
+): { name: string; link: string | null } | null {
+  const kind = e.event_type.startsWith("adr.") ? "adr" : e.event_type.startsWith("soaw.") ? "soaw" : null;
+  if (!kind || e.card_id) return null;
+  const data = (e.data ?? {}) as Record<string, unknown>;
+  const docId = asString(data.id) ?? asString(data.adr_id);
+  const name = asString(kind === "adr" ? data.title : data.name) ?? (t(DOCUMENT_FALLBACK_KEYS[kind]) as string);
+  return { name, link: docId ? `/ea-delivery/${kind}/${docId}/preview` : null };
+}
+
 export function formatActivityEvent(
   e: EventEntry,
   t: TFunction<"common">,
 ): FormattedActivity {
   const category = categorize(e.event_type);
   const data = (e.data ?? {}) as Record<string, unknown>;
+  const document = documentTarget(e, t);
   const cardId = e.card_id ?? asString(data.id);
-  const cardLink = cardId ? `/cards/${cardId}` : null;
+  // A card-less decision or SoAW row links to the document, not to a card.
+  const cardLink = document ? document.link : cardId ? `/cards/${cardId}` : null;
   // Prefer the server-resolved name (set on every event with a card_id),
   // then the legacy in-payload name, then null.
-  const cardName = asString(e.card_name) ?? asString(data.name);
+  const cardName = document ? document.name : (asString(e.card_name) ?? asString(data.name));
 
   // The i18n config has `returnEmptyString: false`, which causes a missing
   // key to be returned verbatim instead of honouring `defaultValue`. We

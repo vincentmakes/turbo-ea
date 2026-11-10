@@ -11,6 +11,16 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter, Route, Routes, useNavigate } from "react-router";
 import type { ArchitectureDecision } from "@/types";
 
+// The discussion and history side panel has its own tests: here the page
+// renders alone, and the props it hands the panel are recorded.
+const sidePanel = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
+vi.mock("./collab/DocumentSidePanel", () => ({
+  default: (props: { children: unknown }) => {
+    sidePanel.props.push(props);
+    return props.children;
+  },
+}));
+vi.mock("./collab/MentionedInList", () => ({ default: () => null }));
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() },
   ApiError: class ApiError extends Error {},
