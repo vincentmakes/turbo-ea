@@ -2094,6 +2094,73 @@ describe("InventoryFilterSidebar — query views", () => {
     );
   });
 
+  it("ends a query view's path with its condition count", async () => {
+    const EOL_VIEW = makeBookmark({
+      id: "bm-eol",
+      name: "Apps at or near end of life",
+      query: { type: "Application", where: { eol_status: ["eol", "approaching"], subtype: ["x"] } },
+    });
+    mockApi.on("get", "/bookmarks", [QUERY_VIEW, EOL_VIEW, SHARED_QUERY_VIEW]);
+    await renderSidebar({ relationTypes: QUERY_REL_TYPES });
+    openTab("Views");
+    const secondary = (name: RegExp) =>
+      screen.getByRole("button", { name }).querySelector(".MuiListItemText-secondary")!.textContent;
+    expect(secondary(/Apps at or near end of life/)).toBe("Application · 2 conditions");
+    expect(secondary(/Apps on live tech/)).toBe("Application › uses IT Component +1 · 1 condition");
+    expect(secondary(/Team query/)).toBe("Application › uses IT Component");
+  });
+
+  it("reads a stacked query view as its lines joined by AND and OR, its icon by its start types", async () => {
+    const STACK_VIEW = makeBookmark({
+      id: "bm-s",
+      name: "Stacked",
+      query: {
+        any_of: [
+          { all_of: [{ type: "Application" }, { type: "Application" }] },
+          { type: "BusinessCapability" },
+        ],
+      },
+      filters: { types: ["Application", "BusinessCapability"] },
+    });
+    const ONE_TYPE_VIEW = makeBookmark({
+      id: "bm-a",
+      name: "Anded",
+      query: { all_of: [{ type: "Application" }, { type: "Application" }] },
+      filters: {},
+    });
+    mockApi.on("get", "/bookmarks", [STACK_VIEW, ONE_TYPE_VIEW]);
+    await renderSidebar({ relationTypes: QUERY_REL_TYPES });
+    openTab("Views");
+    const row = screen.getByRole("button", { name: /Stacked/ });
+    expect(row).toHaveTextContent("Application AND Application +1");
+    // Two start types: no one type's icon.
+    expect(row.querySelector(".MuiListItemIcon-root")).toHaveTextContent(/^bookmark$/);
+    const anded = screen.getByRole("button", { name: /Anded/ });
+    expect(anded).toHaveTextContent("Application AND Application");
+    expect(anded).not.toHaveTextContent("+1");
+    expect(anded.querySelector(".MuiListItemIcon-root")).toHaveTextContent(/^apps$/);
+  });
+
+  it("saves a stacked query from the strip with both start types and no card type", async () => {
+    const BUILT = { any_of: [{ type: "Application" }, { type: "BusinessCapability" }] };
+    mockApi.on("post", "/bookmarks", (_path, body) => ({
+      ...makeBookmark({ id: "bm-built", name: "Built" }),
+      ...(body as object),
+      created_via: "web",
+    }));
+    const props = { initialFilters: { types: ["Application", "BusinessCapability"] } };
+    const { rerender } = await renderSidebar(props);
+    rerender(<Harness {...props} pendingSave={BUILT} />);
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("View name"), { target: { value: "Built" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(mockApi.callsOf("post")).toHaveLength(1));
+    const body = mockApi.callsOf("post")[0].body as Record<string, unknown>;
+    expect(body.query).toEqual(BUILT);
+    expect(body.card_type).toBeUndefined();
+    expect((body.filters as { types: string[] }).types).toEqual(["Application", "BusinessCapability"]);
+  });
+
   it("edits a query view's name, sharing, OData and layout, never its facets or query", async () => {
     mockApi.on("get", "/bookmarks", [QUERY_VIEW]);
     mockApi.on("patch", "/bookmarks/bm-q", { ...QUERY_VIEW, name: "Renamed" });

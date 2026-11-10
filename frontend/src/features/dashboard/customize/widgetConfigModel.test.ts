@@ -67,6 +67,8 @@ const draft = (patch: Partial<ConfigDraft> = {}): ConfigDraft => ({
   format: "number",
   maxRows: "12",
   activityFilter: "all",
+  viewsFilter: "all",
+  viewsQueryOnly: false,
   rankBy: "average_quality",
   minCards: "3",
   leaderboardTypes: [],
@@ -90,6 +92,7 @@ describe("configKind", () => {
     expect(configKind(widget("chart"))).toBe("chart");
     expect(configKind(widget("recent_activity"))).toBe("activity");
     expect(configKind(widget("quality_leaderboard"))).toBe("leaderboard");
+    expect(configKind(widget("inventory_views"))).toBe("views");
     expect(configKind(widget("my_todos"))).toBeNull();
     expect(configKind(widget("browse_by_type"))).toBeNull();
   });
@@ -262,6 +265,22 @@ describe("draftFromWidget", () => {
     });
   });
 
+  it("reads an inventory views config, a refused value as its default", () => {
+    expect(draftFromWidget(widget("inventory_views", { filter: "shared", query_only: true }))).toMatchObject({
+      viewsFilter: "shared",
+      viewsQueryOnly: true,
+    });
+    expect(draftFromWidget(widget("inventory_views", { filter: "my" }))).toMatchObject({
+      viewsFilter: "my",
+      viewsQueryOnly: false,
+    });
+    expect(draftFromWidget(widget("inventory_views", { filter: "public", query_only: "yes" }))).toMatchObject({
+      viewsFilter: "all",
+      viewsQueryOnly: false,
+    });
+    expect(draftFromWidget(widget("inventory_views"))).toMatchObject({ viewsFilter: "all", viewsQueryOnly: false });
+  });
+
   it("reads a leaderboard without a config as the catalogue default", () => {
     expect(draftFromWidget(widget("quality_leaderboard"))).toMatchObject({
       rankBy: "average_quality",
@@ -408,6 +427,12 @@ describe("draftProblem", () => {
     expect(draftProblem("leaderboard", draft({ maxRows: "10", query: { group_by: "nope" } }))).toBeNull();
   });
 
+  it("accepts any inventory views draft but a long title", () => {
+    expect(draftProblem("views", draft({ viewsFilter: "shared", viewsQueryOnly: true, maxRows: "0" }))).toBeNull();
+    expect(draftProblem("views", draft({ query: { group_by: "nope" } }))).toBeNull();
+    expect(draftProblem("views", draft({ title: "x".repeat(121) }))).toBe("titleTooLong");
+  });
+
   it("needs a relation type for a sankey", () => {
     expect(draftProblem("chart", draft({ chart: "sankey", query: {} }))).toBe("relationTypeRequired");
     expect(draftProblem("chart", draft({ chart: "sankey", query: { relation_type: "r" } }))).toBeNull();
@@ -549,6 +574,19 @@ describe("widgetFromDraft", () => {
       counting_roles_only: true,
       max_rows: 10,
     });
+  });
+
+  it("saves exactly the inventory views keys, whatever the widget held", () => {
+    const out = widgetFromDraft(
+      widget("inventory_views", { filter: "all", query_only: false, stray: 1 }),
+      "views",
+      draft({ title: " Mine ", viewsFilter: "my", viewsQueryOnly: true }),
+    );
+    expect(out.title).toBe("Mine");
+    expect(out.config).toEqual({ filter: "my", query_only: true });
+    const plain = widgetFromDraft(widget("inventory_views"), "views", draft());
+    expect(plain.title).toBeNull();
+    expect(plain.config).toEqual({ filter: "all", query_only: false });
   });
 
   it("copies the leaderboard's key lists", () => {

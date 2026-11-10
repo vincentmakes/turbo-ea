@@ -7,11 +7,12 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Popover from "@mui/material/Popover";
 import Switch from "@mui/material/Switch";
 import CardMultiPicker, { type PickedCard } from "@/components/CardMultiPicker";
-import FilterSelect from "@/components/FilterSelect";
+import FilterSelect, { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import TagPicker from "@/components/TagPicker";
 import { useFieldLabel, useOptionLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
 import { DATA_QUALITY_BANDS } from "@/lib/dataQualityBands";
+import { EOL_STATUSES, EOL_STATUS_COLORS, EOL_STATUS_LABEL_KEYS } from "@/lib/eol";
 import { facetOptions } from "@/lib/fieldFacets";
 import type { CardType, FieldDef, TagGroup } from "@/types";
 import { APPROVAL_STATUS_OPTIONS, LIFECYCLE_PHASES } from "./InventoryFilterSidebar";
@@ -47,7 +48,7 @@ function fieldOf(type: CardType | undefined, key: string): FieldDef | undefined 
 /**
  * The value editor of one condition chip in the query builder: the same
  * controls the inventory's facets use — a `FilterSelect` for lifecycle,
- * subtype, approval status, data quality and select / boolean fields, the `TagPicker` for
+ * subtype, approval status, data quality, end of life and select / boolean fields, the `TagPicker` for
  * tags — so a condition is picked exactly like a filter. Specific cards are
  * picked in the shared `CardMultiPicker`, opened from the popover.
  */
@@ -104,7 +105,7 @@ function Editor({
   onIncludeDescendantsChange,
   onChange,
 }: Omit<Props, "anchorEl" | "onClose">) {
-  const { t } = useTranslation(["inventory", "common", "cards"]);
+  const { t } = useTranslation(["inventory", "common", "cards", "reports"]);
   const stLabel = useSubtypeLabel();
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
@@ -175,6 +176,27 @@ function Editor({
           label: t(`inventory:${b.tKey}`),
           color: b.color,
         }))}
+        value={values}
+        onChange={onChange}
+      />
+    );
+  }
+  if (kind === "eol_status") {
+    // The inventory EOL facet's vocabulary, labels and colours, with its
+    // "(empty)" chip — the cards with no end of life recorded (`__empty__`) —
+    // first, where every other editor here offers it.
+    return (
+      <FilterSelect
+        label={t("inventory:filter.eol")}
+        allowEmpty={false}
+        options={[
+          { key: EMPTY_FILTER_KEY, label: t("inventory:filter.emptyValue") },
+          ...EOL_STATUSES.map((s) => ({
+            key: s,
+            label: t(`reports:${EOL_STATUS_LABEL_KEYS[s]}`),
+            color: EOL_STATUS_COLORS[s],
+          })),
+        ]}
         value={values}
         onChange={onChange}
       />

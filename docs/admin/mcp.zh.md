@@ -328,16 +328,30 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
               subtype?: [subtype key],
               approval_status?: [status],
               data_quality_band?: [complete | partial | minimal],
+              eol_status?: [eol | approaching | supported | unknown | __empty__],
               attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] },
               tags?: [tag id],
               cards?: [card id],
               include_descendants?: true|false }
 ```
 
+查询也可以**堆叠**，使一个视图组合多个完整的查询：
+
+```text
+Query = CardQuery | { all_of: [CardQuery, …] } | { any_of: [Group, …] }
+Group = CardQuery | { all_of: [CardQuery, …] }
+```
+
+- `all_of`（**且**）：只有当卡片匹配列表中的每个查询时才会被列出。其中所有查询都从同一卡片类型开始（否则返回 `all_of_type_mismatch`），并且至少需要两个（`all_of_needs_two`）。
+- `any_of`（**或**）：只要卡片匹配任一分组即被列出，每个分组是一个普通查询或一个 `all_of`。至少需要两个分组（`any_of_needs_two`）。各分组可以从不同的卡片类型开始，因此**一个视图可以列出多种卡片类型**；这样的视图会在所有这些类型上打开，表格显示它们共有的列。
+- `any_of` 不能放在另一个 `any_of` 或 `all_of` 之内，而 `all_of` 只包含普通查询（`invalid_query`）。
+- `all_of` 的各个查询仅在起始卡片处汇合：「使用即将淘汰的 IT 组件」且「受到某个举措影响」可以指两张不同的相关卡片。若要对**同一**张相关卡片提出两项要求，请把两跳放在同一行，并排置于其下。
+
 - 当该类型的**任意一张**相关卡片满足其 `where`（及其自身嵌套的跳）时，该跳即匹配。`negate: true` 会将其变为「**没有**这样的卡片」。
 - 同一层级并列的跳必须全部匹配（与）；同一列表中的值是备选项（或）。
 - `<key>__out` 和 `<key>__in` 用于选择把某卡片类型与自身相连的关系类型的一侧（该卡片是源或目标）。其他情况下使用普通键即可。
 - `data_quality_band` 按档位匹配卡片的数据质量得分，与清单的数据质量筛选器一致：`complete`（80 及以上）、`partial`（40 起至 80 之前，不含 80）或 `minimal`（低于 40）。任何其他值都会被拒绝，并返回 `unknown_band`。
+- `eol_status` 匹配卡片的生命周期终止状态，与清单的“生命周期终止”列所显示的一致，由 endoflife.date 或自定义 EOL 产品计算得出：`eol`、`approaching`、`supported`、`unknown`，或 `__empty__`（表示没有 EOL 关联且没有手动生命周期终止的卡片）。任何其他值都会被拒绝并返回 `unknown_eol_status`；不跟踪生命周期终止的卡片类型则返回 `eol_not_tracked`。此类条件需要查看 EOL 数据的权限：没有该权限时，保存、预览和打开包含它的视图会被拒绝（`eol_view_required`），运行查询同样如此。
 - `tags` 接受来自 `list_tag_groups` 的标签 id，并按标签组分组：卡片必须在所列出的**每个**标签组中至少带有其中一个标签（组内为备选，组间为与）。若某标签所属的标签组不适用于该跳的卡片类型，会被拒绝并返回 `tag_not_for_type`；未知 id 则返回 `unknown_tag`。
 - `cards` 将该节点固定到所列卡片（备选项）：其 id 取自 `search_cards` 或 `resolve_card_refs`。每张应为该节点自身类型的卡片。运行查询时不会检查这些选择：不对应任何卡片的 id、其他类型的卡片，或用户无权读取的卡片，只是不匹配任何内容。保存视图时则会检查，并以 `unknown_card` 拒绝这样的选择。已归档的卡片在跳中不匹配任何内容。`include_descendants: true` 会通过父级链接把每个选择扩展到其下的所有卡片（子能力、下级组织）；未设置 `cards` 时设置它会被 `descendants_without_cards` 拒绝，在没有层级的卡片类型上则被 `descendants_without_hierarchy` 拒绝。查询中其他任何位置出现的卡片 id 或标签 id 都会被 `query_holds_an_id` 拒绝。
 - 相关卡片仅在处于活动状态且用户有权读取时才计入：用户看不到的卡片会使链断开，与网页界面中的行为完全一致。保存视图时，有写入权限的用户无法固定对其隐藏的卡片（`unknown_card`）；编辑他人共享给自己的视图的协作者会保留其中已有的选择，即使其无权读取。读者打开一个所选卡片中包含对其隐藏的卡片的视图时不会被拒绝——被隐藏的选择只是不匹配任何内容。
@@ -364,11 +378,44 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
 }
 ```
 
-在清单中，以这种方式保存的视图会在网格上方以可读路径显示其链，并附有说明其通过 MCP 创建的提示。其查询可在清单中更改（路径条上的铅笔图标），也可通过 `save_inventory_view` 更改（将 `list_inventory_views` 返回的视图 id 作为 `view_id` 传入；更新会替换名称和查询，仅在传入时更改可见性和列，并保留在网页界面中设置的分组和布局——除非新查询从另一种卡片类型开始，此时视图的筛选条件和分组会被重置，因为它们属于旧类型；无法编辑的视图会被拒绝，并返回 `view_not_found` 或 `view_not_editable`；您无权进行的可见性更改（只有所有者可以更改，且设为公开或共享需要 `bookmarks.share` 权限）会被拒绝，并返回 `visibility_not_allowed`）；在网页界面中，其所有者也可重命名、更改共享和 OData 设置、调整列布局或删除它。
+示例——受某个举措影响、运行在老化技术上的活跃应用程序，**或**使用某个应用程序的组织（一个列出两种卡片类型的视图）：
+
+```json
+{
+  "any_of": [
+    {
+      "all_of": [
+        {
+          "type": "Application",
+          "where": { "lifecycle_phase": ["active"] },
+          "related": [
+            {
+              "relation": "relAppToITC",
+              "type": "ITComponent",
+              "where": { "lifecycle_phase": ["phaseOut", "endOfLife"] }
+            }
+          ]
+        },
+        {
+          "type": "Application",
+          "related": [{ "relation": "relInitiativeToApp", "type": "Initiative" }]
+        }
+      ]
+    },
+    {
+      "type": "Organization",
+      "related": [{ "relation": "relOrgToApp", "type": "Application" }]
+    }
+  ]
+}
+```
+
+在清单中，以这种方式保存的视图会在网格上方以可读路径显示其链，并附有说明其通过 MCP 创建的提示。其查询可在清单中更改（路径条上的铅笔图标），也可通过 `save_inventory_view` 更改（将 `list_inventory_views` 返回的视图 id 作为 `view_id` 传入；更新会替换名称和查询，仅在传入时更改可见性和列，并保留在网页界面中设置的分组和布局——除非新查询从其他卡片类型开始，此时视图的筛选条件和分组会被重置，因为它们属于旧类型；无法编辑的视图会被拒绝，并返回 `view_not_found` 或 `view_not_editable`；您无权进行的可见性更改（只有所有者可以更改，且设为公开或共享需要 `bookmarks.share` 权限）会被拒绝，并返回 `visibility_not_allowed`）；在网页界面中，其所有者也可重命名、更改共享和 OData 设置、调整列布局或删除它。
 
 限制：
 
-- `related` 最多 **3 层**，同一层级最多并列 10 个跳，整个查询最多 **12 个跳**（并列与嵌套合计）。更长的查询会被拒绝，并返回 `too_many_hops`。
+- 一个堆叠最多 **6 个查询**（`too_many_lines`）；`all_of` 中的查询共用同一个起始卡片类型，而 `any_of` 的各分组可以列出多种。
+- 每个查询的 `related` 最多 **3 层**，同一层级最多并列 10 个跳，整个查询最多 **12 个跳**（并列、嵌套以及堆叠中所有查询合计）。更长的查询会被拒绝，并返回 `too_many_hops`。
 - 每个条件最多选择 **50** 张卡片。
 - 文本属性与其值**完全**匹配——不支持部分匹配或不区分大小写的匹配。
 - **`rollback_batch` 无法撤销已保存的视图。** 保存视图会记录一个变更批次，但不会发布可供回滚撤销的事件；请在清单的「已保存视图」中删除不需要的视图。

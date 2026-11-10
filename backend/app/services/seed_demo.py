@@ -2451,6 +2451,14 @@ IT_COMPONENTS = [
             "costTotalAnnual": 0,
             "licenseType": "MIT",
         },
+        # Always phasing out, whenever the demo is seeded: the aging runtime
+        # the "Active apps on aging tech" query view finds under Opcenter.
+        lifecycle={
+            "phaseIn": _in_years(-4, 6, 1),
+            "active": _in_years(-3, 6, 1),
+            "phaseOut": _in_months(-3),
+            "endOfLife": _in_months(9),
+        },
     ),
     _fs(
         "itc_react",
@@ -4501,6 +4509,7 @@ RELATIONS = [
     _rel("relInitiativeToObjective", "init_portal_redesign", "obj_cx"),
     _rel("relInitiativeToObjective", "init_zero_trust", "obj_cybersec"),
     # ── Initiative → Application (relInitiativeToApp) ────────────
+    _rel("relInitiativeToApp", "init_mfg_excellence", "app_opcenter"),
     _rel("relInitiativeToApp", "init_sap_migration", "app_sap_s4"),
     _rel("relInitiativeToApp", "init_sap_migration", "app_ptc_windchill"),
     _rel("relInitiativeToApp", "init_iot_modern", "app_nexacloud"),

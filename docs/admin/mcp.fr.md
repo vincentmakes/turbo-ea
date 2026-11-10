@@ -328,16 +328,30 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
               subtype?: [subtype key],
               approval_status?: [status],
               data_quality_band?: [complete | partial | minimal],
+              eol_status?: [eol | approaching | supported | unknown | __empty__],
               attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] },
               tags?: [tag id],
               cards?: [card id],
               include_descendants?: true|false }
 ```
 
+Les requêtes peuvent aussi être **empilées** : une même vue combine alors plusieurs requêtes complètes :
+
+```text
+Query = CardQuery | { all_of: [CardQuery, …] } | { any_of: [Group, …] }
+Group = CardQuery | { all_of: [CardQuery, …] }
+```
+
+- `all_of` (**ET**) : une fiche n'est listée que si elle correspond à chaque requête de la liste. Ses requêtes partent toutes du même type de fiche (sinon `all_of_type_mismatch`), et il en faut au moins deux (`all_of_needs_two`).
+- `any_of` (**OU**) : une fiche est listée si elle correspond à l'un des groupes, chacun étant une requête simple ou un `all_of`. Il faut au moins deux groupes (`any_of_needs_two`). Les groupes peuvent partir de types de fiche différents : **une même vue peut donc lister plusieurs types de fiche** ; une telle vue s'ouvre sur tous ces types, et la grille affiche les colonnes qu'ils ont en commun.
+- Un `any_of` ne peut pas figurer dans un autre `any_of` ni dans un `all_of`, et un `all_of` ne contient que des requêtes simples (`invalid_query`).
+- Les requêtes d'un `all_of` ne se rejoignent que sur la fiche de départ : « utilise un Composant IT en fin de vie » ET « est affectée par une Initiative » peuvent désigner deux fiches liées différentes. Pour exiger deux choses de la **même** fiche liée, placez les deux sauts sur une seule ligne, côte à côte en dessous.
+
 - Un saut correspond lorsque **n'importe quelle** fiche liée de ce type satisfait son `where` (et ses propres sauts imbriqués). `negate: true` le transforme en « n'a **aucune** fiche de ce type ».
 - Les sauts côte à côte à un même niveau doivent tous correspondre (ET) ; les valeurs d'une même liste sont des alternatives (OU).
 - `<key>__out` et `<key>__in` choisissent un côté d'un type de relation qui relie un type de fiche à lui-même (la fiche est la source, ou la cible). Sinon, la clé simple suffit.
 - `data_quality_band` fait correspondre le score de qualité des données d'une fiche par tranche, comme le filtre Qualité des données de l'inventaire : `complete` (80 et plus), `partial` (de 40 inclus à 80 exclu) ou `minimal` (moins de 40). Toute autre valeur est refusée avec `unknown_band`.
+- `eol_status` correspond au statut de fin de vie d’une fiche tel que l’affiche la colonne Fin de vie de l’inventaire, calculé à partir d’endoflife.date ou d’un produit de fin de vie personnalisé : `eol`, `approaching`, `supported`, `unknown`, ou `__empty__` pour une fiche sans lien de fin de vie et sans fin de vie manuelle. Toute autre valeur est refusée avec `unknown_eol_status`, et un type de fiche qui ne suit pas la fin de vie avec `eol_not_tracked`. Une telle condition exige la permission de consulter les données de fin de vie : l’enregistrement, l’aperçu et l’ouverture d’une vue qui en contient une sont refusés sans elle (`eol_view_required`), tout comme l’exécution de la requête.
 - `tags` prend des identifiants de tag issus de `list_tag_groups`, regroupés par groupe de tags : une fiche doit porter au moins un des tags listés de **chaque** groupe nommé (alternatives au sein d'un groupe, ET entre les groupes). Un tag dont le groupe ne s'applique pas au type de fiche de ce saut est refusé avec `tag_not_for_type` ; un identifiant inconnu avec `unknown_tag`.
 - `cards` épingle ce nœud aux fiches listées (alternatives) : prenez leurs identifiants dans `search_cards` ou `resolve_card_refs`. Chacune doit être une fiche du type propre au nœud. L'exécution d'une requête ne vérifie pas ces choix : un identifiant qui ne désigne aucune fiche, une fiche d'un autre type ou une fiche que l'utilisateur ne peut pas lire ne correspond simplement à rien. L'enregistrement d'une vue les vérifie, lui, et refuse un tel choix avec `unknown_card`. Une fiche archivée ne correspond à rien à un saut. `include_descendants: true` étend chaque choix à toutes les fiches situées en dessous par le lien parent (sous-capacités, organisations enfants) ; défini sans `cards`, il est refusé avec `descendants_without_cards`, et sur un type de fiche sans hiérarchie avec `descendants_without_hierarchy`. Un identifiant de fiche ou de tag ailleurs dans la requête est refusé avec `query_holds_an_id`.
 - Les fiches liées ne comptent que si elles sont actives et que l'utilisateur peut les lire : une fiche que l'utilisateur ne peut pas voir rompt la chaîne, exactement comme dans l'interface web. Lors de l'enregistrement d'une vue, un rédacteur ne peut pas épingler une fiche qui lui est masquée (`unknown_card`) ; un collaborateur qui modifie une vue partagée avec lui conserve les choix qu'elle contient déjà, même ceux qu'il ne peut pas lire. Un lecteur qui ouvre une vue dont les choix incluent une fiche qui lui est masquée n'est pas refusé — les choix masqués ne correspondent simplement à rien.
@@ -364,11 +378,44 @@ Exemple — Organisations qui utilisent une Application active affectée par une
 }
 ```
 
-Dans l'inventaire, une vue enregistrée ainsi affiche sa chaîne sous forme de chemin lisible au-dessus de la grille avec une note indiquant qu'elle a été créée via MCP. Sa requête peut être modifiée dans l'inventaire (le crayon de la bande de chemin) ou par `save_inventory_view` (transmettez l'identifiant de la vue, obtenu avec `list_inventory_views`, comme `view_id` ; la mise à jour remplace le nom et la requête, ne change la visibilité et les colonnes que si elles sont transmises, et conserve le regroupement et la disposition définis dans l'interface web — sauf si la nouvelle requête part d'un autre type de fiche, ce qui réinitialise les filtres et le regroupement de la vue, car ils appartenaient à l'ancien type ; une vue que vous ne pouvez pas modifier est refusée avec `view_not_found` ou `view_not_editable` ; un changement de visibilité qui ne vous est pas permis (seul le propriétaire peut la modifier, et publique ou partagée exige `bookmarks.share`) est refusé avec `visibility_not_allowed`) ; dans l'interface web, son propriétaire peut aussi la renommer, modifier son partage et son réglage OData, ajuster la disposition des colonnes ou la supprimer.
+Exemple — les Applications actives sur une technologie vieillissante qu'une Initiative affecte, **ou** les Organisations qui utilisent une Application (une vue listant deux types de fiche) :
+
+```json
+{
+  "any_of": [
+    {
+      "all_of": [
+        {
+          "type": "Application",
+          "where": { "lifecycle_phase": ["active"] },
+          "related": [
+            {
+              "relation": "relAppToITC",
+              "type": "ITComponent",
+              "where": { "lifecycle_phase": ["phaseOut", "endOfLife"] }
+            }
+          ]
+        },
+        {
+          "type": "Application",
+          "related": [{ "relation": "relInitiativeToApp", "type": "Initiative" }]
+        }
+      ]
+    },
+    {
+      "type": "Organization",
+      "related": [{ "relation": "relOrgToApp", "type": "Application" }]
+    }
+  ]
+}
+```
+
+Dans l'inventaire, une vue enregistrée ainsi affiche sa chaîne sous forme de chemin lisible au-dessus de la grille avec une note indiquant qu'elle a été créée via MCP. Sa requête peut être modifiée dans l'inventaire (le crayon de la bande de chemin) ou par `save_inventory_view` (transmettez l'identifiant de la vue, obtenu avec `list_inventory_views`, comme `view_id` ; la mise à jour remplace le nom et la requête, ne change la visibilité et les colonnes que si elles sont transmises, et conserve le regroupement et la disposition définis dans l'interface web — sauf si la nouvelle requête part d'autres types de fiche, ce qui réinitialise les filtres et le regroupement de la vue, car ils appartenaient aux anciens types ; une vue que vous ne pouvez pas modifier est refusée avec `view_not_found` ou `view_not_editable` ; un changement de visibilité qui ne vous est pas permis (seul le propriétaire peut la modifier, et publique ou partagée exige `bookmarks.share`) est refusé avec `visibility_not_allowed`) ; dans l'interface web, son propriétaire peut aussi la renommer, modifier son partage et son réglage OData, ajuster la disposition des colonnes ou la supprimer.
 
 Limites :
 
-- Au plus **3 niveaux** de `related`, au plus 10 sauts côte à côte à un même niveau, et au plus **12 sauts dans l'ensemble de la requête** (côte à côte et imbriqués confondus). Une requête plus longue est refusée avec `too_many_hops`.
+- Au plus **6 requêtes** dans une pile (`too_many_lines`) ; les requêtes d'un `all_of` partagent un même type de fiche de départ, tandis que les groupes d'un `any_of` peuvent en lister plusieurs.
+- Au plus **3 niveaux** de `related` dans chaque requête, au plus 10 sauts côte à côte à un même niveau, et au plus **12 sauts dans l'ensemble de la requête** (côte à côte, imbriqués et sur toutes les requêtes d'une pile confondus). Une requête plus longue est refusée avec `too_many_hops`.
 - Au plus **50** fiches choisies par condition.
 - Un attribut texte correspond à sa valeur **exactement** — il n'y a pas de correspondance partielle ni insensible à la casse.
 - **`rollback_batch` ne peut pas annuler une vue enregistrée.** L'enregistrement d'une vue crée un lot de modifications mais ne publie aucun événement que l'annulation pourrait inverser ; supprimez une vue indésirable depuis les Vues enregistrées de l'inventaire.

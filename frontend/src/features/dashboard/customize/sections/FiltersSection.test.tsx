@@ -26,6 +26,8 @@ const base: ConfigDraft = {
   format: "number",
   maxRows: "12",
   activityFilter: "all",
+  viewsFilter: "all",
+  viewsQueryOnly: false,
   rankBy: "average_quality",
   minCards: "3",
   leaderboardTypes: [],

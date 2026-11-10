@@ -1292,3 +1292,146 @@ def test_stakeholder_answers_in_survey_responses_are_left_as_they_are():
     assert kw["responses"]["sh:observer"] == {"current_value": people, "new_value": people}
     assert kw["responses"]["relAppToOrg"] == {"new_value": [NEW_A]}
     assert tally.counts == {rm.REMAPPED: 1}
+
+
+def test_a_stacked_query_is_rewritten_on_every_line():
+    """``all_of`` / ``any_of``: every line under the per-line rules — ids
+    remapped, unknown ones dropped, a negated hop whose picks all vanished
+    removed (on the second line) — and no line ever removed."""
+    query = {
+        "any_of": [
+            {
+                "all_of": [
+                    {"type": "Application", "where": {"cards": [OLD_A], "tags": [OLD_TAG]}},
+                    {
+                        "type": "Application",
+                        "related": [
+                            {
+                                "relation": "relAppToITC",
+                                "type": "ITComponent",
+                                "where": {"cards": [OLD_C]},
+                                "negate": True,
+                            },
+                            {
+                                "relation": "relAppToITC",
+                                "type": "ITComponent",
+                                "where": {"subtype": ["saas"]},
+                            },
+                        ],
+                    },
+                ]
+            },
+            {
+                "type": "Organization",
+                "related": [
+                    {
+                        "relation": "relOrgToApp",
+                        "type": "Application",
+                        "where": {"cards": [OLD_B, OLD_C], "tags": [UNKNOWN_TAG]},
+                    }
+                ],
+            },
+            {"type": "Initiative", "where": {"cards": [OLD_C], "include_descendants": True}},
+        ]
+    }
+    kw = {"name": "x", "query": query}
+    tally = rm.rewrite_bookmark_row(kw, _ctx())
+    # OLD_A, OLD_TAG, OLD_B remapped; OLD_C three times and UNKNOWN_TAG unresolved.
+    assert tally.counts == {rm.REMAPPED: 3, rm.UNRESOLVED: 4}
+    assert kw == {
+        "name": "x",
+        "query": {
+            "any_of": [
+                {
+                    "all_of": [
+                        {"type": "Application", "where": {"cards": [NEW_A], "tags": [NEW_TAG]}},
+                        {
+                            "type": "Application",
+                            "related": [
+                                {
+                                    "relation": "relAppToITC",
+                                    "type": "ITComponent",
+                                    "where": {"subtype": ["saas"]},
+                                }
+                            ],
+                        },
+                    ]
+                },
+                {
+                    "type": "Organization",
+                    "related": [
+                        {
+                            "relation": "relOrgToApp",
+                            "type": "Application",
+                            "where": {"cards": [NEW_B]},
+                        }
+                    ],
+                },
+                {"type": "Initiative"},
+            ]
+        },
+    }
+    assert query["any_of"][0]["all_of"][0]["where"]["cards"] == [OLD_A]
+
+
+def test_a_top_level_all_of_is_rewritten_line_by_line():
+    tally = rm.RewriteTally()
+    out = rm.rewrite_card_query_ids(
+        {
+            "all_of": [
+                {"type": "A", "where": {"cards": [OLD_B]}},
+                {
+                    "type": "A",
+                    "related": [
+                        {"relation": "r", "type": "B", "where": {"cards": [OLD_C]}, "negate": True}
+                    ],
+                },
+            ]
+        },
+        _ids(),
+        tally,
+    )
+    # The negated hop goes with its only pick; its line stays, hop-less.
+    assert out == {"all_of": [{"type": "A", "where": {"cards": [NEW_B]}}, {"type": "A"}]}
+    assert tally.counts == {rm.REMAPPED: 1, rm.UNRESOLVED: 1}
+
+
+def test_a_malformed_stack_is_untouched():
+    for value in (
+        {"all_of": "junk"},
+        {"any_of": ["junk", None]},
+        {"any_of": [{"all_of": "junk"}, {"type": "A"}]},
+    ):
+        tally = rm.RewriteTally()
+        assert rm.rewrite_card_query_ids(value, _ids(), tally) == value
+        assert tally.counts == {}
+
+
+def test_an_or_group_whose_start_picks_all_vanish_lists_its_whole_type():
+    """Deliberate: the line keeps its place without the condition, so the
+    ``any_of`` widens by every card of that type; the tally says why."""
+    tally = rm.RewriteTally()
+    out = rm.rewrite_card_query_ids(
+        {
+            "any_of": [
+                {"type": "Application", "where": {"cards": [OLD_A]}},
+                {
+                    "type": "Organization",
+                    "where": {"cards": [OLD_C], "include_descendants": True},
+                    "related": [{"relation": "relOrgToApp", "type": "Application"}],
+                },
+            ]
+        },
+        _ids(),
+        tally,
+    )
+    assert out == {
+        "any_of": [
+            {"type": "Application", "where": {"cards": [NEW_A]}},
+            {
+                "type": "Organization",
+                "related": [{"relation": "relOrgToApp", "type": "Application"}],
+            },
+        ]
+    }
+    assert tally.counts == {rm.REMAPPED: 1, rm.UNRESOLVED: 1}

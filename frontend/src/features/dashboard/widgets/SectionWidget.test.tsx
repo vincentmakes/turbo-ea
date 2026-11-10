@@ -11,6 +11,7 @@ function stub(name: string) {
 }
 vi.mock("../workspace/MyFavoritesSection", () => stub("my_favorites"));
 vi.mock("../workspace/MySavedReportsSection", () => stub("my_saved_reports"));
+vi.mock("../workspace/InventoryViewsSection", () => stub("inventory_views"));
 vi.mock("../workspace/MyRolesSection", () => stub("my_roles"));
 vi.mock("../workspace/MyTodosSection", () => stub("my_todos"));
 vi.mock("../workspace/MyPendingSurveysSection", () => stub("my_pending_surveys"));
@@ -97,6 +98,13 @@ describe("SectionWidget", () => {
     for (const id of ["my_favorites", "my_saved_reports", "my_roles", "my_todos", "my_pending_surveys", "my_cards_activity"]) {
       expect(props(id)).toEqual({});
     }
+    expect(mockApi.calls).toHaveLength(0);
+  });
+
+  it("hands the Inventory views section its widget, settings and all", () => {
+    const widget: DashboardWidget = { ...w("inventory_views"), title: "Mine", config: { filter: "my", query_only: true } };
+    renderWithProviders(<SectionWidget widget={widget} />);
+    expect(props("inventory_views")).toEqual({ widget });
     expect(mockApi.calls).toHaveLength(0);
   });
 

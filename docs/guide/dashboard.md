@@ -78,6 +78,16 @@ The **My Workspace** dashboard pulls together everything assigned to you: favori
 
 That last section groups cards by the stakeholder role you hold (Application Owner, Business Owner, etc.) and lists the cards under each. If your role grants the `stakeholders.view` permission (admin, member and viewer roles by default), a small **person search** icon next to the section title lets you point it at **someone else** — pick a user from the autocomplete and the section refetches and re-renders with that user's roles and cards. The section title flips to "Roles held by {name}". Click the small close icon to return to your own roles. Useful for answering "what does this person own?" in one click.
 
+### Inventory views
+
+The **Inventory views** widget lists your saved [inventory views](inventory.md#saved-views-bookmarks) on a dashboard. It is on none of the built-in dashboards: add it from the **Add widget** drawer (see [Adding and restoring widgets](#adding-and-restoring-widgets)), where it sits with the **My Workspace** widgets.
+
+It shows up to six views, newest first. Each row carries the view's card type icon, its name and, on a second line, its card type — or, for a [query view](inventory.md#query-views), its path followed by the number of its conditions. A cube marks a query view, or a robot when an AI assistant created it, and a globe or group icon marks a public or shared view. Click a row to open the view in the Inventory; **View all** opens the Inventory.
+
+![Inventory views widget](../assets/img/en/04b_dashboard_inventory_views.png)
+
+Its gear button sets **Views to list** — **All views I can open**, **My views** or **Views shared with me** — and a **Query views only** switch, with a live preview of the result. A dashboard can hold the widget more than once, for example **My views** next to **Views shared with me**. A role that cannot open saved views sees a short message instead of the list.
+
 ## Admin tab — Stakeholder directory
 
 The **Admin** dashboard is shown to roles with `admin.users`. Next to its KPI tiles (active users, cards without stakeholders, overdue todos, approvals stuck, overall quality) and its lists (top contributors, stakeholder coverage, idle users, approval pipeline, system activity, unassigned todos), it ends with a **Stakeholder directory** widget. It lists every card type that has at least one stakeholder, with the count of distinct holders for each. Expand a card type to see its roles, and inside each role the users who hold it together with the number of cards they cover. Click a user chip to expand its card list inline — each card name is itself a link to the card detail page. The whole tree (card type → role → user → cards) comes back in a single round-trip, so navigation is instant.
@@ -99,14 +109,14 @@ Click **Customize** next to the dashboard tabs to edit the current dashboard. Th
 - **Move** a widget by dragging its handle; the grid is 12 columns wide and the other widgets make room.
 - **Resize** a widget from its right edge, its bottom edge or the corner, by mouse or by touch (on a phone or a tablet held upright the layout is read-only). The widget beside it adjusts as you drag: it narrows when its neighbour grows and widens back when it shrinks; if it cannot narrow any further, it moves to the next row. Rows below move down and back up on their own. The widget snaps to the grid as you drag, and in customize mode the page keeps four empty rows under the last widget, so the bottom row can be dragged taller; scroll until the handle sits well inside the window first.
 - **Remove** a widget with its close button.
-- **Configure** a KPI tile, a chart, the activity feed or a data quality leaderboard with its gear button.
+- **Configure** a KPI tile, a chart, the activity feed, a data quality leaderboard or an [Inventory views](#inventory-views) widget with its gear button.
 - **Undo** and **Redo** step through the changes made since Customize was opened, one move, resize, addition, removal or configuration at a time — with the two toolbar buttons or Ctrl+Z / Ctrl+Shift+Z (⌘ on a Mac). **Discard** still drops them all at once.
 
 Click **Save** to keep the changes for everyone, or **Discard** to return to the dashboard as it was.
 
 ### Adding and restoring widgets
 
-**Add widget** opens a drawer listing every widget, grouped as **KPIs**, **Charts**, **Overview**, **My Workspace** and **Admin**. Click one to add it to the dashboard; a KPI tile or a chart opens its configuration first. Every built-in widget stays in the catalogue, so a widget removed by mistake — **Recent activity**, say — is restored by adding it again. Widgets that can appear only once on a dashboard are greyed out and marked as already added when they are there.
+**Add widget** opens a drawer listing every widget, grouped as **KPIs**, **Charts**, **Overview**, **My Workspace** and **Admin**. Click one to add it to the dashboard; a KPI tile or a chart opens its configuration first. Some widgets are in the catalogue only and on no built-in dashboard — the [Inventory views](#inventory-views) list, for one. Every built-in widget stays in the catalogue, so a widget removed by mistake — **Recent activity**, say — is restored by adding it again. Widgets that can appear only once on a dashboard are greyed out and marked as already added when they are there.
 
 A widget keeps its own permission wherever it is placed: an Admin widget added to the Overview dashboard is still shown only to users with `admin.users`.
 

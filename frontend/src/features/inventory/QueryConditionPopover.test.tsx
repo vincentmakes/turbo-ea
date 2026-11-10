@@ -8,6 +8,7 @@ import {
   RISK_GROUP,
   TAG_GROUPS,
 } from "@/test/fixtures/metamodel";
+import { EOL_STATUS_COLORS } from "@/lib/eol";
 import type { CardType } from "@/types";
 import type { CardNameEntry } from "./useCardNames";
 
@@ -129,6 +130,34 @@ describe("QueryConditionPopover", () => {
     expect(openOptions()).toEqual(["Complete (≥80%)", "Partial (40-79%)", "Minimal (<40%)"]);
     fireEvent.click(screen.getByRole("option", { name: "Minimal (<40%)" }));
     expect(onChange).toHaveBeenLastCalledWith(["complete", "minimal"]);
+  });
+
+  it("offers the four EOL statuses plus (empty) and emits their keys", () => {
+    const { onChange } = renderEditor("eol_status", ["eol"]);
+    const popover = screen.getByTestId("query-condition-popover");
+    expect(within(popover).getByText("End of life", { selector: "label" })).toBeInTheDocument();
+    expect(openOptions()).toEqual([
+      "(empty)",
+      "End of Life",
+      "Approaching EOL",
+      "Supported",
+      "Unknown",
+    ]);
+    fireEvent.click(screen.getByRole("option", { name: "Approaching EOL" }));
+    expect(onChange).toHaveBeenLastCalledWith(["eol", "approaching"]);
+    fireEvent.click(screen.getByRole("option", { name: "(empty)" }));
+    expect(onChange).toHaveBeenLastCalledWith(["eol", "__empty__"]);
+  });
+
+  it("shows picked EOL statuses in their status colours and (empty) by its label", () => {
+    renderEditor("eol_status", ["eol", "supported", "unknown", "__empty__"]);
+    const popover = screen.getByTestId("query-condition-popover");
+    const chip = (label: string) =>
+      within(popover).getByText(label, { selector: ".MuiChip-label" }).closest(".MuiChip-root");
+    expect(chip("End of Life")).toHaveStyle({ backgroundColor: EOL_STATUS_COLORS.eol });
+    expect(chip("Supported")).toHaveStyle({ backgroundColor: EOL_STATUS_COLORS.supported });
+    expect(chip("Unknown")).toHaveStyle({ backgroundColor: EOL_STATUS_COLORS.unknown });
+    expect(chip("(empty)")).toBeInTheDocument();
   });
 
   it("offers Yes / No / (empty) for a boolean field and emits their keys", () => {

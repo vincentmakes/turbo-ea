@@ -24,6 +24,11 @@ import {
   relationOfDimension,
   toQueryString,
 } from "../dashboardQuery";
+import {
+  inventoryViewsConfigOf,
+  readInventoryViewsConfig,
+  type InventoryViewsFilter,
+} from "../widgets/inventoryViewsConfig";
 import { kpiPreset } from "../widgets/kpiPresets";
 import {
   LEADERBOARD_MAX_ROWS,
@@ -41,7 +46,7 @@ import {
 import { isModuleSource, seriesShape } from "../widgets/sourceSeries";
 
 /** Which form a widget's configure button opens, or null for none. */
-export type ConfigKind = "title" | "kpi" | "chart" | "activity" | "source" | "leaderboard";
+export type ConfigKind = "title" | "kpi" | "chart" | "activity" | "source" | "leaderboard" | "views";
 
 export function configKind(widget: Pick<DashboardWidget, "type" | "config">): ConfigKind | null {
   switch (widget.type) {
@@ -54,6 +59,8 @@ export function configKind(widget: Pick<DashboardWidget, "type" | "config">): Co
       return "activity";
     case "quality_leaderboard":
       return "leaderboard";
+    case "inventory_views":
+      return "views";
     default:
       return null;
   }
@@ -378,6 +385,10 @@ export interface ConfigDraft {
   /** Count only the roles that fill the data-quality stakeholder slot. */
   countingRolesOnly: boolean;
   activityFilter: (typeof ACTIVITY_FILTERS)[number];
+  /** Whose saved inventory views the Inventory views widget lists. */
+  viewsFilter: InventoryViewsFilter;
+  /** List the query views alone. */
+  viewsQueryOnly: boolean;
   /** Flags other than the relation-presence one. */
   flags: string[];
   relationPresence: RelationPresence;
@@ -421,6 +432,7 @@ export function draftFromWidget(widget: DashboardWidget): ConfigDraft {
   delete query.flags;
   const leaderboard = readLeaderboardConfig(config);
   const defaultRows = widget.type === "quality_leaderboard" ? leaderboard.maxRows : 12;
+  const views = readInventoryViewsConfig(config);
   return {
     title: widget.title ?? "",
     query,
@@ -439,6 +451,8 @@ export function draftFromWidget(widget: DashboardWidget): ConfigDraft {
     leaderboardRoles: leaderboard.roles,
     countingRolesOnly: leaderboard.countingRolesOnly,
     activityFilter: filter,
+    viewsFilter: views.filter,
+    viewsQueryOnly: views.queryOnly,
     flags,
     relationPresence,
     sparkline: config.sparkline === true,
@@ -710,6 +724,8 @@ export function draftProblem(
     return Number.isInteger(rows) && rows >= 1 && rows <= MAX_ACTIVITY_ROWS ? null : "maxRowsRange";
   }
   if (kind === "leaderboard") return leaderboardProblem(draft);
+  // Both settings are picked from fixed choices: nothing to get wrong.
+  if (kind === "views") return null;
   if (kind === "source") {
     const series = typeof widget?.config?.series === "string" ? widget.config.series : "";
     if (widget?.type === "chart") {
@@ -797,6 +813,10 @@ export function widgetFromDraft(
       };
       if (draft.leaderboardTypes.length > 0) config.card_types = [...draft.leaderboardTypes];
       if (draft.leaderboardRoles.length > 0) config.roles = [...draft.leaderboardRoles];
+      break;
+    case "views":
+      // Exactly the two keys the backend accepts.
+      config = inventoryViewsConfigOf({ filter: draft.viewsFilter, queryOnly: draft.viewsQueryOnly });
       break;
     case "source":
       config = { ...base };

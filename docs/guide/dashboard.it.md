@@ -78,6 +78,16 @@ La dashboard **Il mio spazio** riunisce tutto ciò che ti è assegnato: preferit
 
 Quest'ultima sezione raggruppa le card in base al ruolo di stakeholder che ricopri (Application Owner, Business Owner, ecc.) ed elenca le card sotto ciascun ruolo. Se il tuo ruolo concede il permesso `stakeholders.view` (ruoli admin, member e viewer per impostazione predefinita), una piccola icona di **ricerca persona** accanto al titolo della sezione ti permette di puntarla su **qualcun altro**: scegli un utente dall'autocompletamento e la sezione si ricarica con i ruoli e le card di quell'utente. Il titolo diventa «Ruoli ricoperti da {name}». Fai clic sulla piccola icona di chiusura per tornare ai tuoi ruoli. Utile per rispondere a «di cosa è responsabile questa persona?» con un clic.
 
+### Viste dell'inventario
+
+Il widget **Viste dell'inventario** elenca in una dashboard le tue [viste dell'inventario](inventory.md) salvate. Non è presente in nessuna dashboard integrata: aggiungilo dal pannello **Aggiungi widget** (vedi [Aggiungere e ripristinare i widget](#aggiungere-e-ripristinare-i-widget)), dove si trova insieme ai widget di **Il mio spazio**.
+
+Mostra fino a sei viste, le più recenti per prime. Ogni riga riporta l'icona del tipo di card della vista, il suo nome e, su una seconda riga, il suo tipo di card — oppure, per una [vista di query](inventory.md#query-views), il suo percorso seguito dal numero delle sue condizioni. Un cubo contrassegna una vista di query, o un robot quando l'ha creata un assistente IA, e un'icona a globo o a gruppo contrassegna una vista pubblica o condivisa. Fai clic su una riga per aprire la vista nell'inventario; **Vedi tutto** apre l'inventario.
+
+![Widget Viste dell'inventario](../assets/img/it/04b_dashboard_viste_inventario.png)
+
+Il suo pulsante a forma di ingranaggio imposta **Viste da elencare** — **Tutte le viste che posso aprire**, **Le mie viste** o **Viste condivise con me** — e un interruttore **Solo viste di query**, con un'anteprima in tempo reale del risultato. Una dashboard può contenere il widget più di una volta, per esempio **Le mie viste** accanto a **Viste condivise con me**. Un ruolo che non può aprire le viste salvate vede un breve messaggio al posto dell'elenco.
+
 ## Scheda «Amministrazione» — Directory degli stakeholder { #admin-tab-stakeholder-directory }
 
 La dashboard **Amministrazione** è mostrata ai ruoli con `admin.users`. Oltre ai suoi tile KPI (utenti attivi, card senza stakeholder, attività scadute, approvazioni bloccate, qualità complessiva) e alle sue liste (principali collaboratori, copertura degli stakeholder, utenti inattivi, pipeline di approvazione, attività di sistema, attività non assegnate), si chiude con un widget **Directory degli stakeholder**. Elenca ogni tipo di card che ha almeno uno stakeholder, con il numero di titolari distinti. Espandi un tipo di card per vederne i ruoli e, all'interno di ciascun ruolo, gli utenti che lo ricoprono insieme al numero di card che coprono. Fai clic sul chip di un utente per espandere in linea il suo elenco di card — ogni nome di card è a sua volta un link alla pagina di dettaglio della card. L'intero albero (tipo di card → ruolo → utente → card) arriva in un'unica richiesta, quindi la navigazione è istantanea.
@@ -99,14 +109,14 @@ Fai clic su **Personalizza** accanto alle schede delle dashboard per modificare 
 - **Sposta** un widget trascinandolo per la sua maniglia; la griglia è larga 12 colonne e gli altri widget gli fanno spazio.
 - **Ridimensiona** un widget dal suo bordo destro, dal bordo inferiore o dall'angolo, con il mouse o con il tocco (su uno smartphone o un tablet tenuto in verticale il layout è di sola lettura). Il widget accanto si adatta mentre trascini: si restringe quando il vicino cresce e si allarga di nuovo quando questo si riduce; se non può restringersi ulteriormente, passa alla riga successiva. Le righe sottostanti scendono e risalgono da sole. Il widget si aggancia alla griglia durante il trascinamento e, in modalità di personalizzazione, la pagina lascia quattro righe vuote sotto l'ultimo widget, così l'ultima riga può essere allungata; scorri prima finché la maniglia è ben all'interno della finestra.
 - **Rimuovi** un widget con il suo pulsante di chiusura.
-- **Configura** un tile KPI, un grafico, il feed delle attività o una classifica della qualità dei dati con il suo pulsante a forma di ingranaggio.
+- **Configura** un tile KPI, un grafico, il feed delle attività o una classifica della qualità dei dati o un widget [Viste dell'inventario](#viste-dellinventario) con il suo pulsante a forma di ingranaggio.
 - **Annulla** e **ripeti** le modifiche: **Annulla** e **Ripeti** scorrono passo dopo passo le modifiche fatte da quando è stato aperto Personalizza (uno spostamento, ridimensionamento, aggiunta, rimozione o configurazione alla volta) — con i due pulsanti della barra degli strumenti o con Ctrl+Z / Ctrl+Maiusc+Z (⌘ su Mac). **Scarta** continua ad annullarle tutte in una volta.
 
 Fai clic su **Salva** per mantenere le modifiche per tutti, oppure su **Annulla modifiche** per tornare alla dashboard com'era.
 
 ### Aggiungere e ripristinare i widget
 
-**Aggiungi widget** apre un pannello che elenca tutti i widget, raggruppati in **KPI**, **Grafici**, **Panoramica**, **Il mio spazio** e **Amministrazione**. Fai clic su uno per aggiungerlo alla dashboard; un tile KPI o un grafico apre prima la sua configurazione. Ogni widget integrato resta nel catalogo, quindi un widget rimosso per errore — **Attività recente**, per esempio — si ripristina aggiungendolo di nuovo. I widget che possono comparire una sola volta in una dashboard sono in grigio e contrassegnati come già aggiunti quando sono presenti.
+**Aggiungi widget** apre un pannello che elenca tutti i widget, raggruppati in **KPI**, **Grafici**, **Panoramica**, **Il mio spazio** e **Amministrazione**. Fai clic su uno per aggiungerlo alla dashboard; un tile KPI o un grafico apre prima la sua configurazione. Alcuni widget sono presenti solo nel catalogo e in nessuna dashboard integrata — l'elenco [Viste dell'inventario](#viste-dellinventario), per esempio. Ogni widget integrato resta nel catalogo, quindi un widget rimosso per errore — **Attività recente**, per esempio — si ripristina aggiungendolo di nuovo. I widget che possono comparire una sola volta in una dashboard sono in grigio e contrassegnati come già aggiunti quando sono presenti.
 
 Un widget mantiene il proprio permesso ovunque sia collocato: un widget di Amministrazione aggiunto alla dashboard Panoramica è comunque mostrato solo agli utenti con `admin.users`.
 

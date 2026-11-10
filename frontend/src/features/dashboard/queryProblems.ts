@@ -47,6 +47,9 @@ export const BACKEND_PROBLEMS: Record<string, string> = {
   leaderboard_min_cards: "leaderboardMinCards",
   leaderboard_max_rows: "leaderboardMaxRows",
   leaderboard_filter_type: "leaderboardFilterType",
+  inventory_views_unknown_key: "inventoryViewsConfig",
+  inventory_views_filter: "inventoryViewsConfig",
+  inventory_views_query_only: "inventoryViewsConfig",
 };
 
 // Longest first, so a code that contains another is matched whole.

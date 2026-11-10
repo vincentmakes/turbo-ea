@@ -745,6 +745,77 @@ async def test_bookmark_query_cards_follow_the_card_and_an_unknown_one_is_droppe
     }
 
 
+async def test_a_stacked_bookmark_query_follows_the_cards_on_every_line(db):
+    """An ``any_of`` view over two card types round-trips with the picks of
+    every line on the cards' *new* ids, an unknown pick dropped and its
+    negated hop removed, every line kept."""
+    from app.models.bookmark import Bookmark
+
+    user = await create_user(db, email="bm-qs@test.com", role="admin")
+    await create_card_type(db, key="Organization", label="Organization")
+    await create_card_type(db, key="Application", label="Application")
+    org = await create_card(db, card_type="Organization", name="Stack Org QS", user_id=user.id)
+    app = await create_card(db, card_type="Application", name="Stack App QS", user_id=user.id)
+    unknown = "12345678-1234-4234-8234-123456789abe"
+    bm = Bookmark(
+        user_id=user.id,
+        name="Stacked Query View",
+        card_type=None,
+        filters={"types": ["Application", "Organization"]},
+        query={
+            "any_of": [
+                {
+                    "all_of": [
+                        {"type": "Application", "where": {"cards": [str(app.id)]}},
+                        {
+                            "type": "Application",
+                            "related": [
+                                {
+                                    "relation": "relOrgToApp",
+                                    "type": "Organization",
+                                    "where": {"cards": [unknown]},
+                                    "negate": True,
+                                }
+                            ],
+                        },
+                    ]
+                },
+                {"type": "Organization", "where": {"cards": [str(org.id), unknown]}},
+            ]
+        },
+    )
+    db.add(bm)
+    await db.flush()
+    bm_id, old_ids = bm.id, {org.id, app.id}
+
+    raw = await build_bundle(db)
+
+    await db.execute(delete(Bookmark).where(Bookmark.id == bm_id))
+    await db.execute(delete(Card).where(Card.id.in_(old_ids)))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    new_org = (await db.execute(select(Card).where(Card.name == "Stack Org QS"))).scalar_one()
+    new_app = (await db.execute(select(Card).where(Card.name == "Stack App QS"))).scalar_one()
+    assert {new_org.id, new_app.id}.isdisjoint(old_ids)
+    restored = (await db.execute(select(Bookmark).where(Bookmark.id == bm_id))).scalar_one()
+    assert restored.card_type is None
+    assert restored.filters == {"types": ["Application", "Organization"]}
+    assert restored.query == {
+        "any_of": [
+            {
+                "all_of": [
+                    {"type": "Application", "where": {"cards": [str(new_app.id)]}},
+                    {"type": "Application"},
+                ]
+            },
+            {"type": "Organization", "where": {"cards": [str(new_org.id)]}},
+        ]
+    }
+
+
 async def test_resource_types_roundtrip(db):
     """A custom link type / file category survives an export → delete →
     import round-trip, keyed by (kind, key)."""

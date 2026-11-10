@@ -104,6 +104,10 @@ export const BOOKMARK_LOOKUPS = {
   // Public view carrying a multi-hop query, marked as saved through MCP —
   // seed_demo_extras.py. The 98d shot shows its path strip above the grid.
   mcpQueryView: "Organizations using active apps in flight",
+  // Public view carrying a stacked query (an Application AND group, OR an
+  // Organization line) — seed_demo_extras.py. The 98f shot opens it in the
+  // query builder.
+  stackedQueryView: "Active apps on aging tech, and the organizations using apps",
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -385,6 +389,46 @@ export const DOC_PAGES: PageDef[] = [
       pt: "04_painel_classificacao_qualidade",
       zh: "04_dashboard_quality_leaderboard",
       ru: "04_panel_reyting_kachestva",
+    },
+  },
+  {
+    // The Inventory views widget is on no shipped dashboard, so it is added to
+    // the Workspace dashboard in Customize mode and captured as an unsaved
+    // draft: nothing is saved, the next page load discards it, and the run is
+    // idempotent on any instance.
+    id: "04b_dashboard_inventory_views",
+    route: "/?tab=workspace",
+    waitFor: ".react-grid-item",
+    actions: [
+      { type: "wait", ms: 800 },
+      {
+        type: "click",
+        selector: [
+          buttonSelector(...i18nLabels("common:dashboard.customize.customize")),
+          ariaSelector("button", ...i18nLabels("common:dashboard.customize.customize")),
+        ].join(", "),
+      },
+      { type: "wait", ms: 500 },
+      {
+        type: "click",
+        selector: buttonSelector(...i18nLabels("common:dashboard.customize.addWidget")),
+      },
+      { type: "wait", ms: 500 },
+      { type: "click", selector: '[data-testid="catalogue-inventory_views"]' },
+      { type: "waitFor", selector: '[data-testid="inventory-views"]' },
+      { type: "scroll", target: '[data-testid="inventory-views"]' },
+      { type: "wait", ms: 600 },
+    ],
+    clipSelector: '.react-grid-item:has([data-testid="inventory-views"])',
+    filenames: {
+      en: "04b_dashboard_inventory_views",
+      de: "04b_dashboard_inventarsichten",
+      fr: "04b_tableau_de_bord_vues_inventaire",
+      es: "04b_panel_vistas_inventario",
+      it: "04b_dashboard_viste_inventario",
+      pt: "04b_painel_vistas_inventario",
+      zh: "04b_dashboard_inventory_views",
+      ru: "04b_panel_predstavleniya_inventarya",
     },
   },
 
@@ -2658,6 +2702,32 @@ export const DOC_PAGES: PageDef[] = [
       pt: "98e_inventario_editor_consulta",
       zh: "98e_inventory_query_builder",
       ru: "98e_inventarizatsiya_konstruktor_zaprosa",
+    },
+  },
+  {
+    id: "98f_inventory_query_stack",
+    // A view stacking several query lines (an Application AND group, OR an
+    // Organization group), opened in the query builder via the pencil so the
+    // AND markers, the OR divider and the per-group plus are shown.
+    route: "/inventory?view={{bookmarkId:stackedQueryView}}",
+    waitFor: '[data-testid="query-path-strip"]',
+    actions: [
+      { type: "click", selector: '[data-testid="query-path-edit"]' },
+      { type: "wait", ms: 800 },
+      // Sort by Type so the one matching Application is listed above the
+      // Organizations instead of below the fold (the view sorts by name).
+      { type: "click", selector: '.ag-header-cell[col-id="core_type"] .ag-header-cell-label' },
+      { type: "wait", ms: 800 },
+    ],
+    filenames: {
+      en: "98f_inventory_query_stack",
+      de: "98f_inventar_abfragen_kombiniert",
+      fr: "98f_inventaire_requetes_combinees",
+      es: "98f_inventario_consultas_combinadas",
+      it: "98f_inventario_query_combinate",
+      pt: "98f_inventario_consultas_combinadas",
+      zh: "98f_inventory_query_stack",
+      ru: "98f_inventarizatsiya_kombinirovannye_zaprosy",
     },
   },
 

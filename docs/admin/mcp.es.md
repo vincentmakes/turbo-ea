@@ -328,16 +328,30 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
               subtype?: [subtype key],
               approval_status?: [status],
               data_quality_band?: [complete | partial | minimal],
+              eol_status?: [eol | approaching | supported | unknown | __empty__],
               attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] },
               tags?: [tag id],
               cards?: [card id],
               include_descendants?: true|false }
 ```
 
+Las consultas también pueden **apilarse**, de modo que una vista combine varias consultas completas:
+
+```text
+Query = CardQuery | { all_of: [CardQuery, …] } | { any_of: [Group, …] }
+Group = CardQuery | { all_of: [CardQuery, …] }
+```
+
+- `all_of` (**Y**): una ficha se lista solo cuando cumple todas las consultas de la lista. Todas parten del mismo tipo de ficha (si no, `all_of_type_mismatch`), y hacen falta al menos dos (`all_of_needs_two`).
+- `any_of` (**O**): una ficha se lista cuando cumple cualquiera de los grupos, cada uno una consulta simple o un `all_of`. Hacen falta al menos dos grupos (`any_of_needs_two`). Los grupos pueden partir de tipos de ficha distintos, así que **una vista puede listar varios tipos de ficha**; una vista así se abre con todos ellos, y la cuadrícula muestra las columnas que tienen en común.
+- Un `any_of` no puede ir dentro de otro `any_of` ni de un `all_of`, y un `all_of` contiene solo consultas simples (`invalid_query`).
+- Las consultas de un `all_of` coinciden solo en la ficha inicial: «usa un Componente de TI en retirada» Y «es afectada por una Iniciativa» pueden ser dos fichas relacionadas distintas. Para exigir dos cosas de la **misma** ficha relacionada, ponga ambos saltos en una línea, uno junto a otro debajo de ella.
+
 - Un salto coincide cuando **cualquier** ficha relacionada de ese tipo cumple su `where` (y sus propios saltos anidados). `negate: true` lo convierte en «**no** tiene ninguna ficha así».
 - Los saltos en paralelo en un mismo nivel deben coincidir todos (Y); los valores dentro de una lista son alternativas (O).
 - `<key>__out` y `<key>__in` eligen un lado de un tipo de relación que enlaza un tipo de ficha consigo mismo (la ficha es el origen o el destino). En los demás casos basta la clave simple.
 - `data_quality_band` hace coincidir la puntuación de calidad de datos de una ficha por banda, como el filtro Calidad de datos del inventario: `complete` (80 o más), `partial` (de 40 inclusive hasta 80 sin incluir) o `minimal` (menos de 40). Cualquier otro valor se rechaza con `unknown_band`.
+- `eol_status` coincide con el estado de fin de vida de una ficha tal como lo muestra la columna Fin de vida del inventario, calculado a partir de endoflife.date o de un producto EOL personalizado: `eol`, `approaching`, `supported`, `unknown`, o `__empty__` para una ficha sin vínculo EOL y sin fin de vida manual. Cualquier otro valor se rechaza con `unknown_eol_status`, y un tipo de ficha que no registra el fin de vida con `eol_not_tracked`. Una condición así requiere el permiso para ver los datos de EOL: guardar, previsualizar y abrir una vista que contenga una se rechaza sin él (`eol_view_required`), igual que ejecutar la consulta.
 - `tags` recibe ids de etiqueta de `list_tag_groups`, agrupados por grupo de etiquetas: una ficha debe llevar al menos una de las etiquetas indicadas de **cada** grupo mencionado (alternativas dentro de un grupo, Y entre grupos). Una etiqueta cuyo grupo no se aplica al tipo de ficha de ese salto se rechaza con `tag_not_for_type`; un id desconocido, con `unknown_tag`.
 - `cards` fija ese nodo a las fichas indicadas (alternativas): tome sus ids de `search_cards` o `resolve_card_refs`. Cada una debería ser una ficha del tipo propio del nodo. Ejecutar una consulta no comprueba las selecciones: un id que no nombra ninguna ficha, una ficha de otro tipo o una ficha que el usuario no puede leer simplemente no coincide con nada. Guardar una vista sí las comprueba y rechaza una selección así con `unknown_card`. Una ficha archivada no coincide con nada en un salto. `include_descendants: true` amplía cada selección a todas las fichas que cuelgan de ella mediante el vínculo de padre (subcapacidades, organizaciones hijas); si se indica sin `cards`, se rechaza con `descendants_without_cards`, y en un tipo de ficha sin jerarquía con `descendants_without_hierarchy`. Un id de ficha o de etiqueta en cualquier otro lugar de la consulta se rechaza con `query_holds_an_id`.
 - Las fichas relacionadas solo cuentan si están activas y el usuario puede leerlas: una ficha que el usuario no puede ver rompe la cadena, exactamente como en la interfaz web. Al guardar una vista, un usuario con permiso de escritura no puede fijar una ficha que le está oculta (`unknown_card`); un colaborador que edita una vista compartida con él conserva las selecciones que ya contiene, incluso las que no puede leer. Un lector que abre una vista cuyas selecciones incluyen una ficha que le está oculta no es rechazado: las selecciones ocultas simplemente no coinciden con nada.
@@ -364,11 +378,44 @@ Ejemplo — Organizaciones que usan una Aplicación activa a la que afecta una I
 }
 ```
 
-En el inventario, una vista guardada así muestra su cadena como una ruta legible sobre la cuadrícula con una nota de que se creó mediante MCP. Su consulta puede cambiarse en el inventario (el lápiz de la tira de ruta) o con `save_inventory_view` (pase el id de la vista obtenido de `list_inventory_views` como `view_id`; la actualización sustituye el nombre y la consulta, cambia la visibilidad y las columnas solo cuando se indican, y conserva la agrupación y el diseño definidos en la interfaz web — salvo que la nueva consulta parta de otro tipo de ficha, lo que restablece los filtros y la agrupación de la vista, porque pertenecían al tipo anterior; una vista que no puede editar se rechaza con `view_not_found` o `view_not_editable`; un cambio de visibilidad que no le está permitido (solo el propietario puede cambiarla, y pública o compartida requiere `bookmarks.share`) se rechaza con `visibility_not_allowed`); en la interfaz web su propietario también puede renombrarla, cambiar su uso compartido y su ajuste OData, modificar el diseño de columnas o eliminarla.
+Ejemplo — Aplicaciones activas sobre tecnología envejecida que afecta una Iniciativa, **o** las Organizaciones que usan una Aplicación (una vista que lista dos tipos de ficha):
+
+```json
+{
+  "any_of": [
+    {
+      "all_of": [
+        {
+          "type": "Application",
+          "where": { "lifecycle_phase": ["active"] },
+          "related": [
+            {
+              "relation": "relAppToITC",
+              "type": "ITComponent",
+              "where": { "lifecycle_phase": ["phaseOut", "endOfLife"] }
+            }
+          ]
+        },
+        {
+          "type": "Application",
+          "related": [{ "relation": "relInitiativeToApp", "type": "Initiative" }]
+        }
+      ]
+    },
+    {
+      "type": "Organization",
+      "related": [{ "relation": "relOrgToApp", "type": "Application" }]
+    }
+  ]
+}
+```
+
+En el inventario, una vista guardada así muestra su cadena como una ruta legible sobre la cuadrícula con una nota de que se creó mediante MCP. Su consulta puede cambiarse en el inventario (el lápiz de la tira de ruta) o con `save_inventory_view` (pase el id de la vista obtenido de `list_inventory_views` como `view_id`; la actualización sustituye el nombre y la consulta, cambia la visibilidad y las columnas solo cuando se indican, y conserva la agrupación y el diseño definidos en la interfaz web — salvo que la nueva consulta parta de otros tipos de ficha, lo que restablece los filtros y la agrupación de la vista, porque pertenecían a los anteriores; una vista que no puede editar se rechaza con `view_not_found` o `view_not_editable`; un cambio de visibilidad que no le está permitido (solo el propietario puede cambiarla, y pública o compartida requiere `bookmarks.share`) se rechaza con `visibility_not_allowed`); en la interfaz web su propietario también puede renombrarla, cambiar su uso compartido y su ajuste OData, modificar el diseño de columnas o eliminarla.
 
 Limitaciones:
 
-- Como máximo **3 niveles** de `related`, como máximo 10 saltos en paralelo en un nivel y como máximo **12 saltos en toda la consulta** (en paralelo y anidados en conjunto). Una consulta más larga se rechaza con `too_many_hops`.
+- Como máximo **6 consultas** en una pila (`too_many_lines`); las consultas de un `all_of` comparten un mismo tipo de ficha inicial, mientras que los grupos de un `any_of` pueden listar varios.
+- Como máximo **3 niveles** de `related` en cada consulta, como máximo 10 saltos en paralelo en un nivel y como máximo **12 saltos en toda la consulta** (en paralelo, anidados y sobre todas las consultas de una pila en conjunto). Una consulta más larga se rechaza con `too_many_hops`.
 - Como máximo **50** fichas seleccionadas por condición.
 - Un atributo de texto coincide **exactamente** con su valor — no hay coincidencia parcial ni insensible a mayúsculas.
 - **`rollback_batch` no puede deshacer una vista guardada.** Guardar una vista registra un lote de mutaciones pero no publica ningún evento que la reversión pueda deshacer; elimine una vista no deseada desde las Vistas guardadas del inventario.

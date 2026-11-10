@@ -328,16 +328,30 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
               subtype?: [subtype key],
               approval_status?: [status],
               data_quality_band?: [complete | partial | minimal],
+              eol_status?: [eol | approaching | supported | unknown | __empty__],
               attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] },
               tags?: [tag id],
               cards?: [card id],
               include_descendants?: true|false }
 ```
 
+Forespørgsler kan også **stables**, så én visning kombinerer flere komplette forespørgsler:
+
+```text
+Query = CardQuery | { all_of: [CardQuery, …] } | { any_of: [Group, …] }
+Group = CardQuery | { all_of: [CardQuery, …] }
+```
+
+- `all_of` (**OG**): Et kort vises kun, når det matcher alle forespørgsler på listen. Alle dens forespørgsler starter fra samme korttype (ellers `all_of_type_mismatch`), og der skal være mindst to (`all_of_needs_two`).
+- `any_of` (**ELLER**): Et kort vises, når det matcher en af grupperne, hver en almindelig forespørgsel eller et `all_of`. Der skal være mindst to grupper (`any_of_needs_two`). Grupperne kan starte fra forskellige korttyper, så **én visning kan liste flere korttyper**; en sådan visning åbner på dem alle, og gitteret viser de kolonner, de har til fælles.
+- Et `any_of` kan ikke ligge inde i et andet `any_of` eller et `all_of`, og et `all_of` rummer kun almindelige forespørgsler (`invalid_query`).
+- Forespørgslerne i et `all_of` mødes kun ved startkortet: »bruger en IT-komponent under udfasning« OG »er berørt af et initiativ« kan være to forskellige relaterede kort. For at stille to krav til **det samme** relaterede kort skal du lægge begge led på én linje, side om side under den.
+
 - Et led matcher, når **et vilkårligt** relateret kort af den type opfylder sit `where` (og sine egne indlejrede led). `negate: true` gør det til «har **intet** sådant kort».
 - Led side om side på samme niveau skal alle matche (OG); værdierne i én liste er alternativer (ELLER).
 - `<key>__out` og `<key>__in` vælger en side af en relationstype, der forbinder en korttype med sig selv (kortet er kilden eller målet). Ellers er den almindelige nøgle nok.
 - `data_quality_band` matcher et korts datakvalitetsscore efter bånd, som filteret Datakvalitet i inventaret: `complete` (80 og derover), `partial` (fra og med 40 til, men ikke med, 80) eller `minimal` (under 40). Enhver anden værdi afvises med `unknown_band`.
+- `eol_status` matcher et korts End-of-Life-status, som inventarets kolonne End of life viser den, beregnet ud fra endoflife.date eller et brugerdefineret EOL-produkt: `eol`, `approaching`, `supported`, `unknown` eller `__empty__` for et kort uden EOL-link og uden manuelt End of Life. Enhver anden værdi afvises med `unknown_eol_status`, og en korttype, der ikke sporer End of Life, med `eol_not_tracked`. En sådan betingelse kræver tilladelsen til at se EOL-data: Lagring, forhåndsvisning og åbning af en visning, der indeholder en, afvises uden den (`eol_view_required`), ligesom kørsel af forespørgslen.
 - `tags` tager tag-id'er fra `list_tag_groups`, grupperet efter taggruppe: Et kort skal bære mindst ét af de anførte tags fra **hver** nævnt gruppe (alternativer inden for en gruppe, OG på tværs af grupper). Et tag, hvis gruppe ikke gælder for ledets korttype, afvises med `tag_not_for_type`; et ukendt id med `unknown_tag`.
 - `cards` fastlåser den node til de anførte kort (alternativer): tag deres id'er fra `search_cards` eller `resolve_card_refs`. Hvert skal være et kort af nodens egen type. Kørsel af en forespørgsel kontrollerer ikke valgene: et id, der ikke navngiver noget kort, et kort af en anden type eller et kort, brugeren ikke må læse, matcher blot ingenting. Gemning af en visning kontrollerer dem og afviser et sådant valg med `unknown_card`. Et arkiveret kort matcher ingenting i et led. `include_descendants: true` udvider hvert valg til alle kort under det via forælderlinket (underkapabiliteter, underordnede organisationer); sat uden `cards` afvises det med `descendants_without_cards`, og på en korttype uden hierarki med `descendants_without_hierarchy`. Et kort- eller tag-id andre steder i forespørgslen afvises med `query_holds_an_id`.
 - Relaterede kort tæller kun med, når de er aktive, og brugeren må læse dem: Et kort, brugeren ikke kan se, bryder kæden, præcis som i webgrænsefladen. Når en visning gemmes, kan en skriver ikke fastlåse et kort, der er skjult for vedkommende (`unknown_card`); en samarbejdspartner, der redigerer en visning delt med vedkommende, beholder de valg, den allerede rummer, også dem vedkommende ikke kan læse. En læser, der åbner en visning, hvis valg inkluderer et kort skjult for vedkommende, afvises ikke — de skjulte valg matcher blot ingenting.
@@ -364,11 +378,44 @@ Eksempel — Organisationer, der bruger en aktiv Applikation, som berøres af et
 }
 ```
 
-I inventaret viser en visning, der er gemt på denne måde, sin kæde som en læsbar sti over gitteret med en note om, at den er oprettet via MCP. Dens forespørgsel kan ændres i inventaret (blyanten på stistrimlen) eller via `save_inventory_view` (angiv visningens id fra `list_inventory_views` som `view_id`; opdateringen erstatter navn og forespørgsel, ændrer synlighed og kolonner kun når de angives, og bevarer den gruppering og det layout, der er sat i webgrænsefladen — medmindre den nye forespørgsel starter fra en anden korttype, hvilket nulstiller visningens filtre og gruppering, da de hørte til den gamle type; en visning, du ikke kan redigere, afvises med `view_not_found` eller `view_not_editable`; en ændring af synlighed, som du ikke må foretage (kun ejeren kan ændre den, og offentlig eller delt kræver `bookmarks.share`), afvises med `visibility_not_allowed`); i webgrænsefladen kan dens ejer også omdøbe den, ændre dens deling og OData-indstilling, justere kolonnelayoutet eller slette den.
+Eksempel — aktive applikationer på aldrende teknologi, som et initiativ berører, **eller** de organisationer, der bruger en applikation (en visning, der lister to korttyper):
+
+```json
+{
+  "any_of": [
+    {
+      "all_of": [
+        {
+          "type": "Application",
+          "where": { "lifecycle_phase": ["active"] },
+          "related": [
+            {
+              "relation": "relAppToITC",
+              "type": "ITComponent",
+              "where": { "lifecycle_phase": ["phaseOut", "endOfLife"] }
+            }
+          ]
+        },
+        {
+          "type": "Application",
+          "related": [{ "relation": "relInitiativeToApp", "type": "Initiative" }]
+        }
+      ]
+    },
+    {
+      "type": "Organization",
+      "related": [{ "relation": "relOrgToApp", "type": "Application" }]
+    }
+  ]
+}
+```
+
+I inventaret viser en visning, der er gemt på denne måde, sin kæde som en læsbar sti over gitteret med en note om, at den er oprettet via MCP. Dens forespørgsel kan ændres i inventaret (blyanten på stistrimlen) eller via `save_inventory_view` (angiv visningens id fra `list_inventory_views` som `view_id`; opdateringen erstatter navn og forespørgsel, ændrer synlighed og kolonner kun når de angives, og bevarer den gruppering og det layout, der er sat i webgrænsefladen — medmindre den nye forespørgsel starter fra andre korttyper, hvilket nulstiller visningens filtre og gruppering, da de hørte til de gamle typer; en visning, du ikke kan redigere, afvises med `view_not_found` eller `view_not_editable`; en ændring af synlighed, som du ikke må foretage (kun ejeren kan ændre den, og offentlig eller delt kræver `bookmarks.share`), afvises med `visibility_not_allowed`); i webgrænsefladen kan dens ejer også omdøbe den, ændre dens deling og OData-indstilling, justere kolonnelayoutet eller slette den.
 
 Begrænsninger:
 
-- Højst **3 niveauer** af `related`, højst 10 led side om side på ét niveau og højst **12 led i hele forespørgslen** (side om side og indlejrede tilsammen). En længere forespørgsel afvises med `too_many_hops`.
+- Højst **6 forespørgsler** i en stak (`too_many_lines`); forespørgslerne i et `all_of` deler én starttype for kort, mens grupperne i et `any_of` kan liste flere.
+- Højst **3 niveauer** af `related` i hver forespørgsel, højst 10 led side om side på ét niveau og højst **12 led i hele forespørgslen** (side om side, indlejrede og over alle forespørgslerne i en stak tilsammen). En længere forespørgsel afvises med `too_many_hops`.
 - Højst **50** valgte kort pr. betingelse.
 - En tekstattribut matcher sin værdi **præcist** — der er ingen delvis eller store/små-bogstavs-uafhængig matchning.
 - **`rollback_batch` kan ikke fortryde en gemt visning.** Når en visning gemmes, registreres en mutationsbatch, men der udsendes ingen hændelse, som tilbagerulningen kan vende; slet en uønsket visning fra inventarets Gemte visninger i stedet.

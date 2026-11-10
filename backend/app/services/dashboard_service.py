@@ -37,6 +37,8 @@ from app.services.dashboard_defaults import (
     CHART_KINDS,
     DEFAULT_DASHBOARDS,
     GRID_COLUMNS,
+    INVENTORY_VIEWS_DEFAULT_CONFIG,
+    INVENTORY_VIEWS_FILTERS,
     KPI_PRESETS,
     LEADERBOARD_DEFAULT_CONFIG,
     LEADERBOARD_MAX_ROWS,
@@ -293,6 +295,20 @@ def _leaderboard_problem(config: Mapping[str, Any]) -> str | None:
     return None
 
 
+def _inventory_views_problem(config: Mapping[str, Any]) -> str | None:
+    """The inventory views list takes ``filter`` (one of
+    ``INVENTORY_VIEWS_FILTERS``) and ``query_only`` (a bool), both optional,
+    and nothing else."""
+    defaults = INVENTORY_VIEWS_DEFAULT_CONFIG
+    if set(config) - set(defaults):
+        return "inventory_views_unknown_key"
+    if config.get("filter", defaults["filter"]) not in INVENTORY_VIEWS_FILTERS:
+        return "inventory_views_filter"
+    if not isinstance(config.get("query_only", defaults["query_only"]), bool):
+        return "inventory_views_query_only"
+    return None
+
+
 def widget_config_problem(widget_type: str, config: Any) -> str | None:
     """The first rule a widget's ``config`` breaks, or ``None``."""
     if widget_type not in WIDGET_TYPES:
@@ -311,6 +327,8 @@ def widget_config_problem(widget_type: str, config: Any) -> str | None:
         return _recent_activity_problem(config)
     if widget_type == "quality_leaderboard":
         return _leaderboard_problem(config)
+    if widget_type == "inventory_views":
+        return _inventory_views_problem(config)
     return None
 
 

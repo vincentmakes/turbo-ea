@@ -537,6 +537,36 @@ class TestQueryCards:
         }
 
     @pytest.mark.asyncio
+    async def test_a_stack_is_sent_as_compact_json(self, fake_token):
+        stack = {"any_of": [{"type": "Application"}, {"all_of": [_CHAIN, _CHAIN]}]}
+        patcher, mock = _patched_get({"items": [], "total": 0, "page": 1, "page_size": 20})
+        with patcher:
+            out = _parse(await server.query_cards(query=stack))
+        _assert_called_with(
+            mock,
+            "/cards",
+            params={
+                "query": json.dumps(stack, separators=(",", ":")),
+                "page": 1,
+                "page_size": 20,
+            },
+        )
+        assert out == {"total": 0, "page": 1, "page_size": 20, "items": []}
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "code", ["all_of_needs_two", "all_of_type_mismatch", "any_of_needs_two", "too_many_lines"]
+    )
+    async def test_a_rejected_stack_returns_its_code(self, fake_token, code):
+        mock = AsyncMock(side_effect=_status_error(400, {"detail": code}))
+        with patch.object(server.TurboEAClient, "get", mock):
+            out = _parse(await server.query_cards(query={"any_of": [_CHAIN]}))
+        assert out == {
+            "error": code,
+            "hint": "Check the keys with list_card_types and get_relation_types.",
+        }
+
+    @pytest.mark.asyncio
     async def test_a_detail_object_yields_its_code(self, fake_token):
         body = {"detail": {"code": "too_deep", "message": "x"}}
         mock = AsyncMock(side_effect=_status_error(400, body))
@@ -575,6 +605,53 @@ class TestQueryCards:
         with patch.object(server.TurboEAClient, "get", mock):
             with pytest.raises(httpx.HTTPStatusError):
                 await server.query_cards(query=_CHAIN)
+
+    @pytest.mark.asyncio
+    async def test_an_eol_condition_without_the_permission_is_explained(self, fake_token):
+        mock = AsyncMock(side_effect=_status_error(403, {"detail": "eol_view_required"}))
+        with patch.object(server.TurboEAClient, "get", mock):
+            out = _parse(await server.query_cards(query=_CHAIN))
+        assert out == {
+            "error": "eol_view_required",
+            "hint": (
+                "This query filters on end-of-life status (where.eol_status), which needs "
+                "the EOL view permission (eol.view). Remove the eol_status condition, or "
+                "ask an administrator for that permission."
+            ),
+        }
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "response",
+        [
+            httpx.Response(403, text="Forbidden"),
+            httpx.Response(403, json=["eol_view_required"]),
+            httpx.Response(403, json={"detail": "Not enough permissions"}),
+        ],
+        ids=["not-json", "json-list", "other-detail"],
+    )
+    async def test_any_other_403_is_raised(self, fake_token, response):
+        request = httpx.Request("GET", "http://backend/api/v1/cards")
+        response.request = request
+        error = httpx.HTTPStatusError("403 Forbidden", request=request, response=response)
+        mock = AsyncMock(side_effect=error)
+        with patch.object(server.TurboEAClient, "get", mock):
+            with pytest.raises(httpx.HTTPStatusError):
+                await server.query_cards(query=_CHAIN)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("code", ["unknown_eol_status", "eol_not_tracked"])
+    async def test_a_rejected_eol_condition_returns_its_code(self, fake_token, code):
+        mock = AsyncMock(side_effect=_status_error(400, {"detail": code}))
+        with patch.object(server.TurboEAClient, "get", mock):
+            out = _parse(await server.query_cards(query=_CHAIN))
+        assert out == {"error": code, "hint": server._QUERY_HINT}
+
+    def test_the_grammar_documents_eol_status(self):
+        doc = server.query_cards.__doc__ or ""
+        assert "eol_status?: [eol|approaching|supported|unknown|__empty__]" in doc
+        for code in ("unknown_eol_status", "eol_not_tracked", "eol_view_required"):
+            assert code in doc
 
     def test_requires_auth(self, monkeypatch):
         import asyncio

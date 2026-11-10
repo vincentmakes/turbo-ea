@@ -328,16 +328,30 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
               subtype?: [subtype key],
               approval_status?: [status],
               data_quality_band?: [complete | partial | minimal],
+              eol_status?: [eol | approaching | supported | unknown | __empty__],
               attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] },
               tags?: [tag id],
               cards?: [card id],
               include_descendants?: true|false }
 ```
 
+Le query possono anche essere **impilate**, così una vista combina più query complete:
+
+```text
+Query = CardQuery | { all_of: [CardQuery, …] } | { any_of: [Group, …] }
+Group = CardQuery | { all_of: [CardQuery, …] }
+```
+
+- `all_of` (**E**): una card viene elencata solo se corrisponde a ogni query dell'elenco. Le sue query partono tutte dallo stesso tipo di card (altrimenti `all_of_type_mismatch`) e ne servono almeno due (`all_of_needs_two`).
+- `any_of` (**O**): una card viene elencata se corrisponde a uno qualsiasi dei gruppi, ciascuno una query semplice o un `all_of`. Servono almeno due gruppi (`any_of_needs_two`). I gruppi possono partire da tipi di card diversi, quindi **una vista può elencare più tipi di card**; una vista così si apre su tutti, e la griglia mostra le colonne che hanno in comune.
+- Un `any_of` non può stare dentro un altro `any_of` né dentro un `all_of`, e un `all_of` contiene solo query semplici (`invalid_query`).
+- Le query di un `all_of` si incontrano solo sulla card iniziale: «usa un Componente IT in dismissione» E «è interessata da un'Iniziativa» possono riguardare due card collegate diverse. Per richiedere due cose alla **stessa** card collegata, metti entrambi i salti sulla stessa riga, affiancati sotto di essa.
+
 - Un salto corrisponde quando **una qualsiasi** card correlata di quel tipo soddisfa il suo `where` (e i suoi salti annidati). `negate: true` lo trasforma in «**non** ha nessuna card di questo tipo».
 - I salti affiancati allo stesso livello devono corrispondere tutti (AND); i valori all'interno di un elenco sono alternative (OR).
 - `<key>__out` e `<key>__in` scelgono un lato di un tipo di relazione che collega un tipo di card a sé stesso (la card è l'origine o la destinazione). Altrimenti basta la chiave semplice.
 - `data_quality_band` fa corrispondere il punteggio di qualità dei dati di una card per fascia, come il filtro Qualità dei dati dell'inventario: `complete` (80 e oltre), `partial` (da 40 incluso a 80 escluso) o `minimal` (sotto 40). Qualsiasi altro valore viene rifiutato con `unknown_band`.
+- `eol_status` corrisponde allo stato di fine vita di una card come lo mostra la colonna Fine vita dell'inventario, calcolato da endoflife.date o da un prodotto EOL personalizzato: `eol`, `approaching`, `supported`, `unknown`, oppure `__empty__` per una card senza collegamento EOL e senza fine vita manuale. Qualsiasi altro valore è rifiutato con `unknown_eol_status`, e un tipo di card che non tiene traccia della fine vita con `eol_not_tracked`. Una tale condizione richiede il permesso di visualizzare i dati EOL: salvare, visualizzare in anteprima e aprire una vista che ne contiene una sono rifiutati senza di esso (`eol_view_required`), così come l'esecuzione della query.
 - `tags` accetta id di tag da `list_tag_groups`, raggruppati per gruppo di tag: una card deve avere almeno uno dei tag elencati di **ogni** gruppo indicato (alternative all'interno di un gruppo, AND tra i gruppi). Un tag il cui gruppo non si applica al tipo di card di quel salto viene rifiutato con `tag_not_for_type`; un id sconosciuto con `unknown_tag`.
 - `cards` vincola quel nodo alle card elencate (alternative): prendi i loro id da `search_cards` o `resolve_card_refs`. Ognuna dovrebbe essere una card del tipo proprio del nodo. L'esecuzione di una query non verifica le scelte: un id che non indica alcuna card, una card di un altro tipo o una card che l'utente non può leggere semplicemente non corrisponde a nulla. Il salvataggio di una vista le verifica e rifiuta una scelta simile con `unknown_card`. Una card archiviata non corrisponde a nulla in un salto. `include_descendants: true` estende ogni scelta a tutte le card sottostanti tramite il legame di parentela (sotto-capacità, organizzazioni figlie); impostato senza `cards` viene rifiutato con `descendants_without_cards`, e su un tipo di card senza gerarchia con `descendants_without_hierarchy`. Un id di card o di tag in qualsiasi altro punto della query viene rifiutato con `query_holds_an_id`.
 - Le card correlate contano solo se sono attive e l'utente può leggerle: una card che l'utente non può vedere interrompe la catena, esattamente come nell'interfaccia web. Quando una vista viene salvata, chi scrive non può vincolare una card che gli è nascosta (`unknown_card`); un collaboratore che modifica una vista condivisa con lui mantiene le scelte che contiene già, anche quelle che non può leggere. Un lettore che apre una vista le cui scelte includono una card a lui nascosta non viene rifiutato: le scelte nascoste semplicemente non corrispondono a nulla.
@@ -364,11 +378,44 @@ Esempio — Organizzazioni che usano un'Applicazione attiva influenzata da un'In
 }
 ```
 
-Nell'inventario, una vista salvata in questo modo mostra la sua catena come percorso leggibile sopra la griglia con una nota che indica che è stata creata tramite MCP. La sua query può essere modificata nell'inventario (la matita nella striscia del percorso) o tramite `save_inventory_view` (passa l'id della vista ottenuto da `list_inventory_views` come `view_id`; l'aggiornamento sostituisce nome e query, modifica visibilità e colonne solo se passate e mantiene il raggruppamento e il layout impostati nell'interfaccia web — a meno che la nuova query non parta da un altro tipo di card, il che reimposta i filtri e il raggruppamento della vista, perché appartenevano al tipo precedente; una vista che non puoi modificare viene rifiutata con `view_not_found` o `view_not_editable`; una modifica della visibilità che non ti è consentita (solo il proprietario può cambiarla, e pubblica o condivisa richiede `bookmarks.share`) viene rifiutata con `visibility_not_allowed`); nell'interfaccia web il suo proprietario può anche rinominarla, cambiarne la condivisione e l'impostazione OData, regolare il layout delle colonne o eliminarla.
+Esempio — Applicazioni attive su tecnologia obsoleta interessate da un'Iniziativa, **oppure** le Organizzazioni che usano un'Applicazione (una vista che elenca due tipi di card):
+
+```json
+{
+  "any_of": [
+    {
+      "all_of": [
+        {
+          "type": "Application",
+          "where": { "lifecycle_phase": ["active"] },
+          "related": [
+            {
+              "relation": "relAppToITC",
+              "type": "ITComponent",
+              "where": { "lifecycle_phase": ["phaseOut", "endOfLife"] }
+            }
+          ]
+        },
+        {
+          "type": "Application",
+          "related": [{ "relation": "relInitiativeToApp", "type": "Initiative" }]
+        }
+      ]
+    },
+    {
+      "type": "Organization",
+      "related": [{ "relation": "relOrgToApp", "type": "Application" }]
+    }
+  ]
+}
+```
+
+Nell'inventario, una vista salvata in questo modo mostra la sua catena come percorso leggibile sopra la griglia con una nota che indica che è stata creata tramite MCP. La sua query può essere modificata nell'inventario (la matita nella striscia del percorso) o tramite `save_inventory_view` (passa l'id della vista ottenuto da `list_inventory_views` come `view_id`; l'aggiornamento sostituisce nome e query, modifica visibilità e colonne solo se passate e mantiene il raggruppamento e il layout impostati nell'interfaccia web — a meno che la nuova query non parta da altri tipi di card, il che reimposta i filtri e il raggruppamento della vista, perché appartenevano ai precedenti; una vista che non puoi modificare viene rifiutata con `view_not_found` o `view_not_editable`; una modifica della visibilità che non ti è consentita (solo il proprietario può cambiarla, e pubblica o condivisa richiede `bookmarks.share`) viene rifiutata con `visibility_not_allowed`); nell'interfaccia web il suo proprietario può anche rinominarla, cambiarne la condivisione e l'impostazione OData, regolare il layout delle colonne o eliminarla.
 
 Limitazioni:
 
-- Al massimo **3 livelli** di `related`, al massimo 10 salti affiancati a un livello e al massimo **12 salti nell'intera query** (affiancati e annidati insieme). Una query più lunga viene rifiutata con `too_many_hops`.
+- Al massimo **6 query** in una pila (`too_many_lines`); le query di un `all_of` condividono un solo tipo di card iniziale, mentre i gruppi di un `any_of` possono elencarne diversi.
+- Al massimo **3 livelli** di `related` in ogni query, al massimo 10 salti affiancati a un livello e al massimo **12 salti nell'intera query** (affiancati, annidati e su tutte le query di una pila insieme). Una query più lunga viene rifiutata con `too_many_hops`.
 - Al massimo **50** card scelte per condizione.
 - Un attributo di testo corrisponde al suo valore **esattamente** — non esiste corrispondenza parziale né senza distinzione tra maiuscole e minuscole.
 - **`rollback_batch` non può annullare una vista salvata.** Salvare una vista registra un batch di mutazioni ma non pubblica alcun evento che il rollback possa invertire; elimina una vista indesiderata dalle Viste salvate dell'inventario.

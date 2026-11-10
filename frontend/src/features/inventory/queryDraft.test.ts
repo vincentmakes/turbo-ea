@@ -244,6 +244,11 @@ describe("draftProblem", () => {
     ).toBe("empty_values");
     expect(draftProblem({ type: "A", where: { data_quality_band: [] } })).toBe("empty_values");
     expect(draftProblem({ type: "A", where: { data_quality_band: ["complete"] } })).toBeNull();
+    expect(draftProblem({ type: "A", where: { eol_status: [] } })).toBe("empty_values");
+    expect(draftProblem({ type: "A", where: { eol_status: ["supported"] } })).toBeNull();
+    expect(
+      draftProblem({ type: "A", related: [{ relation: "r", type: "B", where: { eol_status: [] } }] }),
+    ).toBe("empty_values");
     expect(draftProblem({ type: "A", related: [{ relation: "r", type: "" }] })).toBe("empty_values");
     expect(draftProblem(CHAIN)).toBeNull();
     expect(draftProblem(BRANCHED)).toBeNull();
@@ -278,6 +283,23 @@ describe("sendableQuery", () => {
         related: [{ relation: "r", type: "B", where: { data_quality_band: [] } }],
       }),
     ).toEqual({ type: "A", related: [{ relation: "r", type: "B" }] });
+  });
+
+  it("keeps a filled EOL status condition and drops an empty one", () => {
+    expect(
+      sendableQuery({
+        type: "A",
+        where: { eol_status: ["eol", "__empty__"], data_quality_band: [] },
+      }),
+    ).toEqual({ type: "A", where: { eol_status: ["eol", "__empty__"] } });
+    expect(
+      sendableQuery({
+        type: "A",
+        where: { subtype: ["s1"] },
+        related: [{ relation: "r", type: "B", where: { eol_status: [] } }],
+      }),
+    ).toEqual({ type: "A", where: { subtype: ["s1"] }, related: [{ relation: "r", type: "B" }] });
+    expect(sendableQuery({ type: "A", where: { eol_status: [] } })).toEqual({ type: "A" });
   });
 
   it("drops a where and an attributes map left with nothing", () => {
@@ -431,6 +453,26 @@ describe("cards condition", () => {
     });
     const alone: CardQuery = { type: "Application", where: { data_quality_band: ["minimal"] } };
     expect(removeCondition(alone, 0, "data_quality_band")).toEqual({ type: "Application" });
+  });
+
+  it("sets, reads and removes an EOL status condition, keeping the others", () => {
+    const q = setCondition(
+      { type: "Application", where: { approval_status: ["APPROVED"] } },
+      0,
+      "eol_status",
+      ["eol", "__empty__"],
+    );
+    expect(q).toEqual({
+      type: "Application",
+      where: { approval_status: ["APPROVED"], eol_status: ["eol", "__empty__"] },
+    });
+    expect(conditionValues(q.where, "eol_status")).toEqual(["eol", "__empty__"]);
+    expect(removeCondition(q, 0, "eol_status")).toEqual({
+      type: "Application",
+      where: { approval_status: ["APPROVED"] },
+    });
+    const alone: CardQuery = { type: "ITComponent", where: { eol_status: ["approaching"] } };
+    expect(removeCondition(alone, 0, "eol_status")).toEqual({ type: "ITComponent" });
   });
 
   it("drops Include sub-cards with the cards it qualifies", () => {

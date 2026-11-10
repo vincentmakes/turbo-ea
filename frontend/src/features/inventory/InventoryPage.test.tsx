@@ -3312,10 +3312,8 @@ describe("InventoryPage query builder", () => {
     fireEvent.click(screen.getByTestId("query-path-save"));
 
     await waitFor(() => expect(api.patch).toHaveBeenCalledTimes(1));
-    expect(api.patch).toHaveBeenCalledWith("/bookmarks/bm-q", {
-      query: NEW_QUERY,
-      card_type: "Application",
-    });
+    // Only the query: the server derives the view's type fields from it.
+    expect(api.patch).toHaveBeenCalledWith("/bookmarks/bm-q", { query: NEW_QUERY });
     expect(await screen.findByText("Renamed")).toBeInTheDocument();
     expect(screen.queryByText("Edit query view")).not.toBeInTheDocument();
     await waitFor(() => expect(lastQuery()).toEqual(NEW_QUERY));
@@ -3628,6 +3626,376 @@ describe("InventoryPage query builder", () => {
       expect(prefs().columnFilterModel).toEqual(COLUMN_MODEL);
       fireEvent.click(screen.getByTestId("query-path-cancel"));
       expect(prefs().filters).toEqual(FACETED);
+    });
+  });
+
+  describe("stacked lines", () => {
+    /** Adds a line under the group the `n`-th plus belongs to. */
+    function addLine(connective: "AND" | "OR", n = 0) {
+      fireEvent.click(screen.getAllByTestId("query-add-line")[n]);
+      pickMenu(connective);
+    }
+
+    it("a draft over two start types pins both and sends the whole query without a type", async () => {
+      renderPage();
+      await startDraftOn("Application");
+      addLine("OR");
+      // The OR line has no type yet: it is left out of the preview.
+      expect(JSON.parse(sidebar().getAttribute("data-draft-query")!)).toEqual({
+        any_of: [{ type: "Application" }, { type: "" }],
+      });
+      expect(screen.getByTestId("query-path-save")).toBeDisabled();
+      await waitFor(() => expect(lastQuery()).toEqual({ type: "Application" }));
+      expect(lastCards().get("type")).toBe("Application");
+
+      fireEvent.click(screen.getAllByTestId("query-path-start-type")[1]);
+      pickMenu("Objective");
+      await waitFor(() =>
+        expect(lastQuery()).toEqual({ any_of: [{ type: "Application" }, { type: "Objective" }] }),
+      );
+      expect(lastCards().has("type")).toBe(false);
+      await waitFor(() => expect(prefs().filters.types).toEqual(["Application", "Objective"]));
+      expect(screen.getByTestId("query-path-save")).toBeEnabled();
+      // Still building: two types selected do not leave the draft.
+      expect(screen.getByText("New query view")).toBeInTheDocument();
+
+      // Removing the OR line pins the one type left.
+      fireEvent.click(screen.getAllByTestId("query-line-remove")[1]);
+      await waitFor(() => expect(lastQuery()).toEqual({ type: "Application" }));
+      expect(lastCards().get("type")).toBe("Application");
+      await waitFor(() => expect(prefs().filters.types).toEqual(["Application"]));
+    });
+
+    it("removing the draft's only typed line clears the selected type and sends no query", async () => {
+      renderPage();
+      await startDraftOn("Application");
+      addLine("OR");
+      await waitFor(() => expect(prefs().filters.types).toEqual(["Application"]));
+      const before = cardUrls().length;
+      fireEvent.click(screen.getAllByTestId("query-line-remove")[0]);
+      expect(JSON.parse(sidebar().getAttribute("data-draft-query")!)).toEqual({ type: "" });
+      expect(await screen.findByText("Choose a type")).toBeInTheDocument();
+      await waitFor(() => expect(prefs().filters.types).toEqual([]));
+      await waitFor(() => expect(cardUrls().length).toBeGreaterThan(before));
+      expect(lastCards().has("type")).toBe(false);
+      expect(lastCards().has("query")).toBe(false);
+      // The single-type facets went with the type.
+      expect(prefs().filters).toMatchObject({ subtypes: [], attributes: {}, relations: {} });
+    });
+
+    it("a query over two start types sends no type, whatever type the filters still hold", async () => {
+      renderPage();
+      await startDraftOn("Application");
+      addLine("OR");
+      fireEvent.click(screen.getAllByTestId("query-path-start-type")[1]);
+      pickMenu("Objective");
+      await waitFor(() => expect(prefs().filters.types).toEqual(["Application", "Objective"]));
+      // A type selection from elsewhere that has not caught up with the draft.
+      fireEvent.click(screen.getByTestId("select-application"));
+      await waitFor(() => expect(prefs().filters.types).toEqual(["Application"]));
+      await waitFor(() =>
+        expect(lastQuery()).toEqual({ any_of: [{ type: "Application" }, { type: "Objective" }] }),
+      );
+      expect(lastCards().has("type")).toBe(false);
+      expect(screen.getByText("New query view")).toBeInTheDocument();
+    });
+
+    it("a single-type AND group sends its type", async () => {
+      renderPage();
+      await startDraftOn("Application");
+      addLine("AND");
+      await waitFor(() =>
+        expect(lastQuery()).toEqual({ all_of: [{ type: "Application" }, { type: "Application" }] }),
+      );
+      expect(lastCards().get("type")).toBe("Application");
+      expect(prefs().filters.types).toEqual(["Application"]);
+    });
+
+    it("hands a new stacked view to the sidebar's save dialog as it is", async () => {
+      renderPage();
+      await startDraftOn("Application");
+      addLine("OR");
+      fireEvent.click(screen.getAllByTestId("query-path-start-type")[1]);
+      pickMenu("Objective");
+      fireEvent.click(screen.getByTestId("query-path-save"));
+      expect(JSON.parse(sidebar().getAttribute("data-pending-save")!)).toEqual({
+        any_of: [{ type: "Application" }, { type: "Objective" }],
+      });
+      expect(api.patch).not.toHaveBeenCalled();
+    });
+
+    it("saves an edited view's stack as its query only", async () => {
+      persistActiveView();
+      const STACKED = { any_of: [QUERY, { type: "Objective" }] };
+      vi.mocked(api.patch).mockResolvedValue(
+        queryBookmark({ query: STACKED, filters: { types: ["Application", "Objective"] } }),
+      );
+      renderPage();
+      fireEvent.click(await screen.findByTestId("query-path-edit"));
+      addLine("OR");
+      fireEvent.click(screen.getAllByTestId("query-path-start-type")[1]);
+      pickMenu("Objective");
+      fireEvent.click(screen.getByTestId("query-path-save"));
+      await waitFor(() => expect(api.patch).toHaveBeenCalledTimes(1));
+      expect(api.patch).toHaveBeenCalledWith("/bookmarks/bm-q", { query: STACKED });
+      await waitFor(() => expect(screen.queryByText("Edit query view")).not.toBeInTheDocument());
+      await waitFor(() => expect(lastQuery()).toEqual(STACKED));
+      expect(lastCards().has("type")).toBe(false);
+      expect(prefs().filters.types).toEqual(["Application", "Objective"]);
+    });
+
+    it("reopens a stored view over two types with both types selected", async () => {
+      const STACKED = { any_of: [{ all_of: [QUERY, { type: "Application" }] }, { type: "Objective" }] };
+      mockBookmarks([queryBookmark({ query: STACKED, filters: { types: ["Application"] } })]);
+      renderPage("/inventory?view=bm-q");
+      await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+      // No request goes out before the view is applied, and none with a type.
+      for (const url of cardUrls()) {
+        expect(JSON.parse(paramsOf(url).get("query")!)).toEqual(STACKED);
+        expect(paramsOf(url).has("type")).toBe(false);
+      }
+      await waitFor(() => expect(prefs().filters.types).toEqual(["Application", "Objective"]));
+      expect(prefs().activeQuery.query).toEqual(STACKED);
+      expect(screen.getAllByTestId("query-line")).toHaveLength(3);
+    });
+
+    it("keeps a persisted stacked view whose two types are still selected, in any order", async () => {
+      const STACKED = { any_of: [QUERY, { type: "Objective" }] };
+      mockBookmarks([queryBookmark({ query: STACKED })]);
+      localStorage.setItem(
+        "turboea_inventory",
+        JSON.stringify({
+          filters: { ...EMPTY_FILTERS, types: ["Objective", "Application"] },
+          activeQuery: { ...ACTIVE, query: STACKED },
+        }),
+      );
+      renderPage();
+      await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+      expect(JSON.parse(paramsOf(cardUrls()[0]).get("query")!)).toEqual(STACKED);
+      expect(await screen.findByTestId("query-path-strip")).toBeInTheDocument();
+      expect(prefs().activeQuery.query).toEqual(STACKED);
+      expect(prefs().filters.types).toEqual(["Objective", "Application"]);
+    });
+
+    it("re-applies a persisted view's filters when it was re-saved over other start types", async () => {
+      const STACKED = { any_of: [QUERY, { type: "Objective" }] };
+      mockBookmarks([
+        queryBookmark({ query: STACKED, filters: { types: ["Application", "Objective"] } }),
+      ]);
+      persistActiveView();
+      renderPage();
+      await waitFor(() => expect(prefs().activeQuery?.query).toEqual(STACKED));
+      await waitFor(() => expect(prefs().filters.types).toEqual(["Application", "Objective"]));
+      await waitFor(() => expect(lastQuery()).toEqual(STACKED));
+      expect(lastCards().has("type")).toBe(false);
+    });
+  });
+
+  describe("an EOL status condition", () => {
+    const EOL_QUERY = { type: "Application", where: { eol_status: ["eol"] } };
+    const EOL_VIEW = { ...ACTIVE, query: EOL_QUERY };
+
+    function asUser(permissions: Record<string, boolean>) {
+      vi.mocked(useAuth).mockReturnValue({
+        user: { id: "u1", email: "m@test.com", display_name: "M", role: "member", permissions },
+        loading: false,
+        login: vi.fn(),
+        register: vi.fn(),
+        logout: vi.fn(),
+        ssoCallback: vi.fn(),
+        setPassword: vi.fn(),
+      } as unknown as ReturnType<typeof useAuth>);
+    }
+
+    /** `/cards` refuses any query naming `eol_status` with 403 `eol_view_required`. */
+    function mockEolRefusal() {
+      vi.mocked(api.get).mockImplementation((path: string) => {
+        if (path.startsWith("/cards")) {
+          const query = new URLSearchParams(path.split("?")[1]).get("query");
+          if (query?.includes("eol_status")) {
+            return Promise.reject(
+              Object.assign(new Error("Forbidden"), { status: 403, detail: "eol_view_required" }),
+            );
+          }
+          return Promise.resolve(MOCK_CARDS);
+        }
+        if (path.startsWith("/relations")) return Promise.resolve([]);
+        if (path.startsWith("/bookmarks")) {
+          return Promise.resolve([queryBookmark({ query: EOL_QUERY })]);
+        }
+        if (path.startsWith("/tag-groups")) return Promise.resolve([]);
+        return Promise.resolve({});
+      });
+    }
+
+    function persistEolView() {
+      localStorage.setItem(
+        "turboea_inventory",
+        JSON.stringify({ filters: { types: ["Application"] }, activeQuery: EOL_VIEW }),
+      );
+    }
+
+    it("a 403 eol_view_required names the refusal under the strip and lists nothing", async () => {
+      asUser({ "inventory.view": true });
+      mockEolRefusal();
+      persistEolView();
+      renderPage();
+      const alert = await within(await screen.findByTestId("query-path-strip")).findByRole("alert");
+      expect(alert).toHaveTextContent(
+        "This view filters on end-of-life status, which your role cannot see.",
+      );
+      expect(JSON.parse(lastCards().get("query")!)).toEqual(EOL_QUERY);
+      expect(screen.getByTestId("ag-grid")).toHaveAttribute("data-row-count", "0");
+      // A refusal, not a failed load: no retry alert over the grid.
+      expect(screen.queryByText("An error occurred")).not.toBeInTheDocument();
+    });
+
+    it("a refused draft empties a grid that was listing rows", async () => {
+      mockEolRefusal();
+      renderPage();
+      await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+      await startDraftOn("Application");
+      await waitFor(() =>
+        expect(screen.getByTestId("ag-grid")).toHaveAttribute("data-row-count", "2"),
+      );
+      fireEvent.click(screen.getAllByTestId("query-path-add-condition")[0]);
+      pickMenu("End of life");
+      const popover = await screen.findByTestId("query-condition-popover");
+      fireEvent.mouseDown(within(popover).getByRole("combobox"));
+      fireEvent.click(screen.getByRole("option", { name: "End of Life" }));
+      await waitFor(() => expect(lastQuery()).toEqual(EOL_QUERY));
+      fireEvent.keyDown(popover, { key: "Escape" });
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "This view filters on end-of-life status, which your role cannot see.",
+      );
+      await waitFor(() =>
+        expect(screen.getByTestId("ag-grid")).toHaveAttribute("data-row-count", "0"),
+      );
+    });
+
+    it("clears the refusal once the query no longer filters on end of life", async () => {
+      asUser({ "inventory.view": true, "bookmarks.manage": true });
+      mockEolRefusal();
+      persistEolView();
+      renderPage();
+      fireEvent.click(await screen.findByTestId("query-path-edit"));
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "This view filters on end-of-life status, which your role cannot see.",
+      );
+      const chip = screen.getByText("End of life: End of Life").closest(".MuiChip-root")!;
+      fireEvent.click(chip.querySelector(".MuiChip-deleteIcon")!);
+      await waitFor(() => expect(lastQuery()).toEqual({ type: "Application" }));
+      await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+      await waitFor(() =>
+        expect(screen.getByTestId("ag-grid")).toHaveAttribute("data-row-count", "2"),
+      );
+    });
+
+    it("shows the End of life column while the query filters on it, without saving that choice", async () => {
+      // The user's own column choice leaves End of life out.
+      const columns = ["core_type", "core_name", "core_lifecycle", "core_tags"];
+      localStorage.setItem(
+        "turboea_inventory",
+        JSON.stringify({
+          filters: { types: ["Application"] },
+          activeQuery: EOL_VIEW,
+          columns,
+          coreTagsMerged: true,
+        }),
+      );
+      mockBookmarks([queryBookmark({ query: EOL_QUERY })]);
+      renderPage();
+      await waitFor(() => expect(lastQuery()).toEqual(EOL_QUERY));
+      await waitFor(() => expect(col("core_eol")?.hide).toBe(false));
+      expect(col("core_eol")?.headerName).toBe("End of life");
+      // Shown, not chosen: the saved preferences keep the user's columns.
+      await waitFor(() => expect(prefs().activeQuery).toEqual(EOL_VIEW));
+      expect(prefs().columns).toEqual(columns);
+
+      // Remove the condition in the editor: the user's own choice applies again.
+      fireEvent.click(await screen.findByTestId("query-path-edit"));
+      const chip = screen.getByText("End of life: End of Life").closest(".MuiChip-root")!;
+      fireEvent.click(chip.querySelector(".MuiChip-deleteIcon")!);
+      await waitFor(() => expect(lastQuery()).toEqual({ type: "Application" }));
+      await waitFor(() => expect(col("core_eol")?.hide).toBe(true));
+      expect(prefs().columns).toEqual(columns);
+    });
+
+    it("leaves the column to the picker for a condition on a hop", async () => {
+      const atHop = {
+        type: "Application",
+        related: [{ relation: "relAppToITC", type: "ITComponent", where: { eol_status: ["eol"] } }],
+      };
+      localStorage.setItem(
+        "turboea_inventory",
+        JSON.stringify({
+          filters: { types: ["Application"] },
+          activeQuery: { ...ACTIVE, query: atHop },
+          columns: ["core_type", "core_name"],
+          coreTagsMerged: true,
+        }),
+      );
+      mockBookmarks([queryBookmark({ query: atHop })]);
+      renderPage();
+      await waitFor(() => expect(lastQuery()).toEqual(atHop));
+      await waitFor(() => expect(col("core_eol")).toBeDefined());
+      expect(col("core_eol")?.hide).toBe(true);
+    });
+
+    it("never shows the column without eol.view, condition or not", async () => {
+      asUser({ "inventory.view": true });
+      mockEolRefusal();
+      persistEolView();
+      renderPage();
+      await waitFor(() => expect(lastQuery()).toEqual(EOL_QUERY));
+      await waitFor(() => expect(col("core_name")).toBeDefined());
+      expect(col("core_eol")).toBeUndefined();
+    });
+
+    it("any other failure of a query stays a failed load, not a refusal", async () => {
+      vi.mocked(api.get).mockImplementation((path: string) => {
+        if (path.startsWith("/cards")) {
+          return Promise.reject(
+            Object.assign(new Error("Forbidden"), { status: 403, detail: "something_else" }),
+          );
+        }
+        if (path.startsWith("/bookmarks")) {
+          return Promise.resolve([queryBookmark({ query: EOL_QUERY })]);
+        }
+        return Promise.resolve([]);
+      });
+      persistEolView();
+      renderPage();
+      expect(await screen.findByText("An error occurred")).toBeInTheDocument();
+      expect(within(screen.getByTestId("query-path-strip")).queryByRole("alert")).toBeNull();
+    });
+
+    it("offers the EOL condition in the builder with eol.view", async () => {
+      renderPage();
+      await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+      await startDraftOn("Application");
+      fireEvent.click(screen.getAllByTestId("query-path-add-condition")[0]);
+      expect(within(screen.getByRole("menu")).getByText("End of life")).toBeInTheDocument();
+    });
+
+    it("does not offer the EOL condition without eol.view", async () => {
+      asUser({ "inventory.view": true, "bookmarks.manage": true });
+      renderPage();
+      await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+      await startDraftOn("Application");
+      fireEvent.click(screen.getAllByTestId("query-path-add-condition")[0]);
+      const menu = screen.getByRole("menu");
+      expect(within(menu).getByText("Data Quality")).toBeInTheDocument();
+      expect(within(menu).queryByText("End of life")).not.toBeInTheDocument();
+    });
+
+    it("offers the EOL condition to a member granted eol.view", async () => {
+      asUser({ "inventory.view": true, "bookmarks.manage": true, "eol.view": true });
+      renderPage();
+      await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+      await startDraftOn("Application");
+      fireEvent.click(screen.getAllByTestId("query-path-add-condition")[0]);
+      expect(within(screen.getByRole("menu")).getByText("End of life")).toBeInTheDocument();
     });
   });
 });

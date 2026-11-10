@@ -206,12 +206,29 @@ _QUERY_ITEM_KEYS = (
     "data_quality",
 )
 _QUERY_HINT = "Check the keys with list_card_types and get_relation_types."
+#: The one 403 a card query answers for the query itself: an ``eol_status``
+#: condition, evaluated for a role without the EOL view permission.
+_EOL_VIEW_REQUIRED = "eol_view_required"
+_EOL_VIEW_HINT = (
+    "This query filters on end-of-life status (where.eol_status), which needs "
+    "the EOL view permission (eol.view). Remove the eol_status condition, or "
+    "ask an administrator for that permission."
+)
 
 
 def _compact_json(query: dict) -> str:
     """The ``query=`` parameter as the backend takes it: compact JSON, so a
     deep chain stays well under the backend's length cap and the URL limit."""
     return json.dumps(query, separators=(",", ":"))
+
+
+def _detail(exc: httpx.HTTPStatusError) -> object:
+    """The ``detail`` of an error response, ``None`` when it has none."""
+    try:
+        body = exc.response.json()
+    except Exception:  # noqa: BLE001 — a non-JSON body has no detail
+        return None
+    return body.get("detail") if isinstance(body, dict) else None
 
 
 def _query_rejection(exc: httpx.HTTPStatusError) -> dict | None:
@@ -224,10 +241,15 @@ def _query_rejection(exc: httpx.HTTPStatusError) -> dict | None:
     input to fix, not a server fault, so the tools hand the code back with a
     hint instead of raising. A ``{"code": ...}`` detail is tolerated too. A
     422 is FastAPI's own request validation (``detail`` a list of errors) —
-    still a bad input, answered as ``invalid_query``."""
+    still a bad input, answered as ``invalid_query``. A 403
+    ``eol_view_required`` is a query with an ``eol_status`` condition the
+    caller's role may not evaluate: answered with its own hint; any other
+    403 is raised."""
     status = exc.response.status_code
     if status == 422:
         return {"error": "invalid_query", "hint": _QUERY_HINT}
+    if status == 403 and _detail(exc) == _EOL_VIEW_REQUIRED:
+        return {"error": _EOL_VIEW_REQUIRED, "hint": _EOL_VIEW_HINT}
     if status != 400:
         return None
     try:
@@ -298,10 +320,28 @@ async def query_cards(query: dict, page: int = 1, page_size: int = 20) -> str:
         Where     = {lifecycle_phase?: [plan|phaseIn|active|phaseOut|endOfLife|none],
                      subtype?: [subtypeKey], approval_status?: [status],
                      data_quality_band?: [complete|partial|minimal],
+                     eol_status?: [eol|approaching|supported|unknown|__empty__],
                      attributes?: {fieldKey: [optionKey | "true" | "false"
                                               | text | "__empty__"]},
                      tags?: [tag id],
                      cards?: [card id], include_descendants?: bool}
+
+    Queries stack (at most 6 lines in all, the 12-hop cap counted over every
+    line)::
+
+        Query = CardQuery | {all_of: [CardQuery, ...]} | {any_of: [Group, ...]}
+        Group = CardQuery | {all_of: [CardQuery, ...]}
+
+    ``all_of`` (AND): a card is listed only when it matches every query; two
+    or more queries, all starting from the same card type
+    (``all_of_needs_two``, ``all_of_type_mismatch``). ``any_of`` (OR): a card
+    is listed when it matches any group; two or more groups
+    (``any_of_needs_two``), which may start from different card types, so one
+    answer can list several types. More than 6 lines is ``too_many_lines``;
+    ``any_of`` nests in nothing and ``all_of`` holds plain queries only
+    (``invalid_query``). Lines meet on the start card only: two ``all_of``
+    lines may reach different related cards (sibling hops in one query say
+    "the same card").
 
     A hop matches when ANY related card of that type passes its ``where``
     (and its own nested hops); ``negate: true`` means NO such card. Sibling
@@ -313,7 +353,13 @@ async def query_cards(query: dict, page: int = 1, page_size: int = 20) -> str:
     simply matches nothing. ``data_quality_band`` is the data quality score
     band (complete >= 80, partial 40 up to, but excluding, 80, minimal
     < 40); any other value is
-    refused ``unknown_band``. ``tags`` are grouped by tag group: a card needs
+    refused ``unknown_band``. ``eol_status`` is the card's end-of-life status
+    as the inventory's End of life column shows it, computed from
+    endoflife.date or a custom EOL product (``__empty__``: no EOL link and no
+    manual end of life); any other value is refused ``unknown_eol_status``,
+    a card type that does not track End of Life ``eol_not_tracked``, and a
+    role without the EOL view permission gets ``eol_view_required``.
+    ``tags`` are grouped by tag group: a card needs
     at least one of the listed tags from every group named (OR within a
     group, AND across groups); a tag whose group does not apply to the
     hop's card type is refused ``tag_not_for_type``, an unknown id
@@ -344,8 +390,19 @@ async def query_cards(query: dict, page: int = 1, page_size: int = 20) -> str:
                                    "where": {"attributes":
                                              {"initiativeStatus": ["onTrack"]}}}]}]}
 
+    Example — active Applications that an Initiative affects, OR the
+    Organizations using any Application (two card types in one answer)::
+
+        {"any_of": [
+            {"all_of": [
+                {"type": "Application", "where": {"lifecycle_phase": ["active"]}},
+                {"type": "Application",
+                 "related": [{"relation": "relInitiativeToApp", "type": "Initiative"}]}]},
+            {"type": "Organization",
+             "related": [{"relation": "relOrgToApp", "type": "Application"}]}]}
+
     Args:
-        query: The CardQuery object above.
+        query: A CardQuery, or an ``all_of`` / ``any_of`` stack of them.
         page: Page number (default 1).
         page_size: Results per page (default 20, max 100).
 
@@ -3943,6 +4000,20 @@ async def create_diagram(
 _VIEW_VISIBILITIES = ("private", "public", "shared")
 
 
+def _query_start(query: object) -> str | None:
+    """A plain query's start card type, else None."""
+    start = query.get("type") if isinstance(query, dict) else None
+    return start if isinstance(start, str) else None
+
+
+def _is_query_stack(query: object) -> bool:
+    """Whether ``query`` is an ``all_of`` / ``any_of`` stack (its lines are
+    the backend's to check)."""
+    return isinstance(query, dict) and any(
+        isinstance(query.get(key), list) for key in ("all_of", "any_of")
+    )
+
+
 @mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
 async def save_inventory_view(
     name: str,
@@ -3962,20 +4033,29 @@ async def save_inventory_view(
 
     Args:
         name: The view's name.
-        query: A CardQuery (see ``query_cards``). Its ``type`` becomes the
-            view's card type. A ``where.cards`` pick that names no card, a
+        query: A CardQuery, or an ``all_of`` / ``any_of`` stack of them (see
+            ``query_cards``: ``all_of`` lines are AND-ed and share one start
+            type, ``any_of`` groups are OR-ed and may start from different
+            types). The start types become the view's card types: a plain
+            query's ``type`` is its card type; for a stack the backend derives
+            them (one start type pins it, several leave the view on all of
+            them). A ``where.cards`` pick on any line that names no card, a
             card of another type or a card you cannot read is refused
             ``unknown_card``, so nobody saves a view naming a card hidden from
             them. Editing a view shared with you keeps the picks it already
-            holds even when you cannot read them.
+            holds even when you cannot read them. An ``eol_status``
+            condition (end-of-life status, on a card type that tracks End of
+            Life) needs the EOL view permission: saving, previewing and
+            opening a view that holds one are refused without it
+            (``eol_view_required``).
         view_id: Update this existing view (from ``list_inventory_views``)
             instead of creating a new one — only one ``list_inventory_views``
             shows with ``can_edit`` true (else ``view_not_found`` /
             ``view_not_editable``). Only the name and query are always
             replaced; visibility and columns change only when you pass them,
             and the owner's grouping and layout are kept — unless the query's
-            start type changes, which resets the view's filters and grouping
-            (they belonged to the old type).
+            start types change, which resets the view's filters and grouping
+            (they belonged to the old types).
         visibility: "private", "public" (needs the ``bookmarks.share``
             permission) or "shared"; on an update only the owner may change
             it (else ``visibility_not_allowed``: call again without it).
@@ -4005,21 +4085,29 @@ async def save_inventory_view(
                 "received": visibility,
             }
         )
-    if not isinstance(query, dict) or not isinstance(query.get("type"), str):
+    start = _query_start(query)
+    if start is None and not _is_query_stack(query):
         return _fmt(
             {
                 "error": "invalid_query",
-                "message": "query must be an object with a string 'type' (a card type key).",
+                "message": (
+                    "query must be an object with a string 'type' (a card type key), "
+                    "or an 'all_of' / 'any_of' list of such queries."
+                ),
                 "hint": _QUERY_HINT,
             }
         )
-    start = query["type"]
-    # An update sends only what the caller asked to change: the backend
-    # re-derives ``filters.types`` from the query, and leaving ``filters``
-    # out keeps the grouping the owner stored on the view.
-    payload: dict = {"name": name, "card_type": start, "query": query}
+    # A plain query names its one start type; a stack's start types are the
+    # backend's to derive (``card_type`` / ``filters.types``), and the stack
+    # itself is checked there. An update sends only what the caller asked to
+    # change: the backend re-derives ``filters.types`` from the query, and
+    # leaving ``filters`` out keeps the grouping the owner stored on the view.
+    payload: dict = {"name": name, "query": query}
+    if start is not None:
+        payload["card_type"] = start
     if not view_id:
-        payload["filters"] = {"types": [start]}
+        if start is not None:
+            payload["filters"] = {"types": [start]}
         payload["visibility"] = visibility or "private"
     elif visibility:
         payload["visibility"] = visibility

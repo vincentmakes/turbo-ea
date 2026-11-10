@@ -47,6 +47,7 @@ WIDGET_TYPES: frozenset[str] = frozenset(
         "unassigned_todos",
         "stakeholder_directory",
         "quality_leaderboard",
+        "inventory_views",
     }
 )
 
@@ -60,6 +61,16 @@ LEADERBOARD_MIN_CARDS = (1, 100)
 LEADERBOARD_MAX_ROWS = (3, 50)
 LEADERBOARD_DEFAULT_CONFIG: Mapping[str, Any] = MappingProxyType(
     {"rank_by": "average_quality", "min_cards": 3, "counting_roles_only": True, "max_rows": 10}
+)
+
+# An ``inventory_views`` widget lists the saved inventory views the reader can
+# open, read from ``GET /bookmarks?filter=…``: every one they can open
+# (``all``), their own (``my``) or those shared with them (``shared``);
+# ``query_only`` keeps the query views alone. It lists views by that rule,
+# never by pinned ids (no id may sit in a widget config).
+INVENTORY_VIEWS_FILTERS: tuple[str, ...] = ("all", "my", "shared")
+INVENTORY_VIEWS_DEFAULT_CONFIG: Mapping[str, Any] = MappingProxyType(
+    {"filter": "all", "query_only": False}
 )
 
 # A ``kpi`` widget shows one of these preset metrics (read from the existing

@@ -82,6 +82,16 @@ describe("CATALOGUE", () => {
       single: false,
     });
     expect(entry("my_todos").config).toEqual({});
+    // The inventory views list starts from INVENTORY_VIEWS_DEFAULT_CONFIG.
+    expect(entry("inventory_views").config).toEqual({ filter: "all", query_only: false });
+    expect(entry("inventory_views")).toMatchObject({
+      type: "inventory_views",
+      family: "workspace",
+      labelKey: "dashboard.widgets.inventoryViews",
+      icon: "view_list",
+      needsConfig: false,
+      single: false,
+    });
   });
 });
 
@@ -163,6 +173,14 @@ describe("isAlreadyAdded", () => {
   it("never greys the leaderboard: a dashboard may hold several", () => {
     expect(isAlreadyAdded(entry("quality_leaderboard"), [w("quality_leaderboard")])).toBe(false);
   });
+
+  it("never greys the inventory views list: My views may sit beside Shared with me", () => {
+    const mine = w("inventory_views", { filter: "my", query_only: false });
+    expect(isAlreadyAdded(entry("inventory_views"), [mine])).toBe(false);
+    expect(isAlreadyAdded(entry("inventory_views"), [mine, w("inventory_views")])).toBe(false);
+    // Control: a single section is still greyed once on the dashboard.
+    expect(isAlreadyAdded(entry("my_saved_reports"), [w("my_saved_reports")])).toBe(true);
+  });
 });
 
 describe("catalogueFor", () => {
@@ -213,6 +231,7 @@ describe("catalogueFor", () => {
   it("offers only the workspace family without permissions", () => {
     const out = ids({});
     expect(out).toContain("my_todos");
+    expect(out).toContain("inventory_views");
     expect(out).toContain("kpi:favorites");
     expect(out).not.toContain("kpi");
     expect(out).not.toContain("chart");

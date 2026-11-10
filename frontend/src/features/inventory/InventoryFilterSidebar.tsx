@@ -50,10 +50,10 @@ import {
   isQueryView,
 } from "./viewApply";
 import { compactPath } from "./queryPath";
-import { draftProblem } from "./queryDraft";
+import { setProblem, startTypes } from "./querySet";
 import type {
   ActiveQuery,
-  CardQuery,
+  CardQuerySet,
   CardType,
   Bookmark,
   ColumnLayoutItem,
@@ -224,13 +224,13 @@ interface Props {
    * sidebar opens its save dialog with the query attached, then reports back
    * through `onPendingSaveHandled`.
    */
-  pendingSave?: CardQuery | null;
+  pendingSave?: CardQuerySet | null;
   onPendingSaveHandled?: () => void;
   /**
    * The query open in the path strip, if any: "Save current" saves it (a
    * draft still missing a type or a value disables the save buttons).
    */
-  draftQuery?: CardQuery | null;
+  draftQuery?: CardQuerySet | null;
   /**
    * Locks the Types facet: a query draft is open, and its start type is
    * changed in the strip, never by the facet (which would drop the draft).
@@ -569,7 +569,7 @@ export default function InventoryFilterSidebar({
   const [allUsers, setAllUsers] = useState<User[]>([]);
 
   // A query from the path strip that the open save dialog will attach.
-  const [pendingQuery, setPendingQuery] = useState<CardQuery | null>(null);
+  const [pendingQuery, setPendingQuery] = useState<CardQuerySet | null>(null);
 
   // Load bookmarks (and hand the list to the page, through a ref so a new
   // callback identity never refetches).
@@ -791,7 +791,7 @@ export default function InventoryFilterSidebar({
   // a copy of it, query included.
   // A draft in the strip that cannot be saved yet (no type, or a condition
   // without values): "Save current" would save it, so it waits.
-  const draftUnfinished = draftQuery != null && draftProblem(draftQuery) != null;
+  const draftUnfinished = draftQuery != null && setProblem(draftQuery) != null;
 
   const activeQueryView = useMemo(
     () =>
@@ -803,7 +803,7 @@ export default function InventoryFilterSidebar({
 
   /* ---- Views actions ---- */
 
-  const openCreateDialog = (query: CardQuery | null = null) => {
+  const openCreateDialog = (query: CardQuerySet | null = null) => {
     setPendingQuery(query);
     setEditingBookmark(null);
     setViewName("");
@@ -868,7 +868,9 @@ export default function InventoryFilterSidebar({
     const query = editingBookmark
       ? null
       : pendingQuery ?? draftQuery ?? activeQueryView?.query ?? null;
-    const viewTypes = query ? [query.type] : filters.types;
+    // A query is evaluated against its start types (an OR may hold several);
+    // `card_type` names the one there is, else none.
+    const viewTypes = query ? startTypes(query) : filters.types;
     const payload: Record<string, unknown> = {
       name: viewName.trim(),
       card_type: viewTypes.length === 1 ? viewTypes[0] : undefined,
@@ -2496,7 +2498,8 @@ function BookmarkListItem({
   const { t, i18n } = useTranslation(["inventory", "common"]);
   const typeLabel = useTypeLabel();
   const bmFilters = bm.filters as Record<string, unknown> | undefined;
-  const bmTypes = (bmFilters?.types as string[]) || [];
+  // A query view is about its start types, whatever its stored facets say.
+  const bmTypes = bm.query ? startTypes(bm.query) : (bmFilters?.types as string[]) || [];
   const matchedType = bmTypes.length === 1 ? types.find((t) => t.key === bmTypes[0]) : null;
 
   const visIcon = bm.visibility === "public" ? "public" : bm.visibility === "shared" ? "group" : null;
@@ -2552,6 +2555,9 @@ function BookmarkListItem({
                   relationTypes,
                   locale: i18n.language,
                   hasNo: t("inventory:queryView.hasNo"),
+                  and: t("inventory:queryView.connectiveAnd"),
+                  or: t("inventory:queryView.connectiveOr"),
+                  conditions: (count) => t("inventory:queryView.conditionCount", { count }),
                 })}
               </span>
             </Tooltip>

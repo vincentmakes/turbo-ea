@@ -86,10 +86,11 @@ describe("WIDGET_REGISTRY", () => {
     expect(WIDGET_REGISTRY.quality_leaderboard.Component).toBe(QualityLeaderboardWidget);
     expect(WIDGET_REGISTRY.my_todos.Component).toBe(SectionWidget);
     expect(WIDGET_REGISTRY.stakeholder_directory.Component).toBe(SectionWidget);
+    expect(WIDGET_REGISTRY.inventory_views.Component).toBe(SectionWidget);
   });
 
-  it("allows many KPIs, charts and leaderboards but one of every section", () => {
-    const many: WidgetType[] = ["kpi", "chart", "quality_leaderboard"];
+  it("allows many KPIs, charts, leaderboards and views lists but one of every other section", () => {
+    const many: WidgetType[] = ["kpi", "chart", "quality_leaderboard", "inventory_views"];
     for (const type of WIDGET_TYPE_KEYS) {
       expect(WIDGET_META[type].single, type).toBe(!many.includes(type));
     }
@@ -97,8 +98,9 @@ describe("WIDGET_REGISTRY", () => {
     expect(WIDGET_META.chart.configurable).toBe("chart");
     expect(WIDGET_META.recent_activity.configurable).toBe("activity");
     expect(WIDGET_META.quality_leaderboard.configurable).toBe("leaderboard");
+    expect(WIDGET_META.inventory_views.configurable).toBe("views");
     const configurable = WIDGET_TYPE_KEYS.filter((type) => WIDGET_META[type].configurable !== undefined);
-    expect(configurable.sort()).toEqual(["chart", "kpi", "quality_leaderboard", "recent_activity"]);
+    expect(configurable.sort()).toEqual(["chart", "inventory_views", "kpi", "quality_leaderboard", "recent_activity"]);
   });
 
   it("describes the Data quality leaderboard", () => {
@@ -119,6 +121,28 @@ describe("WIDGET_REGISTRY", () => {
     expect(widgetSources(w("quality_leaderboard"))).toEqual([]);
     expect(widgetTitle(w("quality_leaderboard"), t)).toBe("Data quality leaderboard");
     expect(widgetTitle(w("quality_leaderboard", {}, "Who keeps it tidy"), t)).toBe("Who keeps it tidy");
+  });
+
+  it("describes the Inventory views list", () => {
+    expect(WIDGET_META.inventory_views).toEqual({
+      type: "inventory_views",
+      labelKey: "dashboard.widgets.inventoryViews",
+      icon: "view_list",
+      family: "workspace",
+      defaultLayout: { w: 6, h: 6, minW: 3, minH: 3 },
+      permission: undefined,
+      sources: [],
+      single: false,
+      configurable: "views",
+      chrome: "self",
+    });
+    expect(t(WIDGET_META.inventory_views.labelKey)).toBe("Inventory views");
+    expect(WIDGET_META.inventory_views.defaultLayout).toEqual(WIDGET_META.my_saved_reports.defaultLayout);
+    expect(widgetPermission(w("inventory_views"))).toBeUndefined();
+    expect(widgetSources(w("inventory_views"))).toEqual([]);
+    expect(widgetTitle(w("inventory_views"), t)).toBe("Inventory views");
+    expect(widgetTitle(w("inventory_views", {}, "Team views"), t)).toBe("Team views");
+    expect(visibleWidgets([w("inventory_views")], {}).map((x) => x.type)).toEqual(["inventory_views"]);
   });
 
   it("gates the overview family on the EA dashboard, admin on admin.users, workspace on nothing", () => {

@@ -40,7 +40,7 @@ import CreateCardDialog from "@/components/CreateCardDialog";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import QueryPathStrip from "./QueryPathStrip";
-import { draftProblem, sendableQuery } from "./queryDraft";
+import { sameTypeSet, sendableQuerySet, setProblem, startFiltersOnEol, startTypes } from "./querySet";
 import {
   activeQueryFromBookmark,
   bookmarkFilters,
@@ -212,7 +212,7 @@ import TagsCellEditor from "@/features/inventory/TagsCellEditor";
 import MultiSelectCellEditor from "@/features/inventory/MultiSelectCellEditor";
 import ParentCellEditor from "@/features/inventory/ParentCellEditor";
 import StakeholdersCellEditor from "@/features/inventory/StakeholdersCellEditor";
-import type { ActiveQuery, Bookmark, Card, CardQuery, QueryDraft, CardListResponse, EolCardStatus, EolCardStatusResponse, CardType, ColumnLayoutItem, FieldDef, FieldOption, RelatedCardRef, Relation, RelationType, StakeholderRef, StakeholderRoleOption, TagGroup, TagRef } from "@/types";
+import type { ActiveQuery, Bookmark, Card, CardQuerySet, QueryDraft, CardListResponse, EolCardStatus, EolCardStatusResponse, CardType, ColumnLayoutItem, FieldDef, FieldOption, RelatedCardRef, Relation, RelationType, StakeholderRef, StakeholderRoleOption, TagGroup, TagRef } from "@/types";
 import { gridThemeDark, gridThemeLight } from "@/lib/agGridSetup";
 
 const DEFAULT_SIDEBAR_WIDTH = 300;
@@ -463,6 +463,16 @@ function TreeNameFrame({
       <Box sx={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center" }}>{children}</Box>
     </Box>
   );
+}
+
+/**
+ * The refusal code of a `GET /cards?query=` the server will not evaluate for
+ * this reader, or null for any other failure: a 403 `eol_view_required` (the
+ * query filters on end-of-life status, which the reader's role cannot see).
+ */
+function queryRefusalCode(err: unknown): string | null {
+  const { status, detail } = (err ?? {}) as { status?: unknown; detail?: unknown };
+  return status === 403 && detail === "eol_view_required" ? detail : null;
 }
 
 /** True when the URL carries filter state (a deep-link) — it then wins over
@@ -1065,7 +1075,7 @@ export default function InventoryPage() {
     if (!queryDraft) draftRestoreRef.current = null;
   }, [queryDraft]);
   // A new draft's query handed to the sidebar, whose save dialog names it.
-  const [pendingSave, setPendingSave] = useState<CardQuery | null>(null);
+  const [pendingSave, setPendingSave] = useState<CardQuerySet | null>(null);
   // Bumped after the page saved a view itself, so the sidebar reloads its list.
   const [bookmarksRevision, setBookmarksRevision] = useState(0);
   // The saved views the user can read, by id — from the page's own lookup and
@@ -1083,16 +1093,25 @@ export default function InventoryPage() {
   // any condition still waiting for its values — that one narrows nothing
   // yet, and dropping the whole query would widen the preview to every card
   // of the type. A draft without a type sends no query (the grid keeps
-  // loading on the ordinary filters). Saving still needs `draftProblem` clear.
+  // loading on the ordinary filters); so does a line still without a type,
+  // the rest of the stack previews. Saving still needs `setProblem` clear.
   const draftQuery = queryDraft?.query;
-  const sentDraft = useMemo(() => (draftQuery ? sendableQuery(draftQuery) : null), [draftQuery]);
-  const sentQuery: CardQuery | null = queryDraft ? sentDraft : (activeQuery?.query ?? null);
-  // A query is evaluated against its start type, so it only holds while that
-  // type is the one selected; any other type selection leaves the view (and
-  // cancels a draft). A draft without a type yet pins nothing.
-  const pinnedType = queryDraft?.query.type || activeQuery?.query.type;
-  const queryMatchesTypes =
-    !pinnedType || (filters.types.length === 1 && filters.types[0] === pinnedType);
+  const sentDraft = useMemo(
+    () => (draftQuery ? sendableQuerySet(draftQuery) : null),
+    [draftQuery],
+  );
+  const sentQuery: CardQuerySet | null = queryDraft ? sentDraft : (activeQuery?.query ?? null);
+  // A query is evaluated against its start types (an OR may start from
+  // several), so it only holds while exactly those types are selected; any
+  // other type selection leaves the view (and cancels a draft). A draft
+  // without a type yet pins nothing of its own.
+  const draftTypes = useMemo(() => (draftQuery ? startTypes(draftQuery) : []), [draftQuery]);
+  const activeTypes = useMemo(
+    () => (activeQuery ? startTypes(activeQuery.query) : []),
+    [activeQuery],
+  );
+  const pinnedTypes = draftTypes.length > 0 ? draftTypes : activeTypes;
+  const queryMatchesTypes = pinnedTypes.length === 0 || sameTypeSet(filters.types, pinnedTypes);
 
   // Sort model for AG Grid persistence
   const [sortModel, setSortModel] = useState<{ colId: string; sort: string }[]>(
@@ -1146,6 +1165,10 @@ export default function InventoryPage() {
   const [, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  // The code `GET /cards` refused the query with (the view in force or the
+  // draft): `eol_view_required` when it filters on end-of-life status and the
+  // reader lacks `eol.view`. The strip reads it out; the grid lists nothing.
+  const [queryRefusal, setQueryRefusal] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [gridEditMode, setGridEditMode] = useState(false);
@@ -1503,6 +1526,13 @@ export default function InventoryPage() {
   // Same rule the column picker and the facet use, so all three appear and
   // disappear together.
   const eolColumnAvailable = canViewEol && eolColumnApplies(types, filters.types);
+  // A query (the draft, else the view's) that picks its rows by end-of-life
+  // status shows the column whatever the picker says, so the status it filters
+  // on is on screen. Only the colDef reads this: `selectedColumns` — and so the
+  // saved column preferences — keep the user's own choice, which applies
+  // again once the condition is gone.
+  const eolColumnForced =
+    eolColumnAvailable && startFiltersOnEol(queryDraft ? queryDraft.query : activeQuery?.query);
 
   // --- Hierarchy link labels (#1100) -----------------------------------------
   // The vocabulary a parent link is labelled from, and whether the column is
@@ -1818,12 +1848,18 @@ export default function InventoryPage() {
       try {
         const params = new URLSearchParams();
         if (filters.types.length === 1) params.set("type", filters.types[0]);
-        // A query is evaluated by the server against its start type, which
-        // stays pinned while a draft's condition is still being filled in
-        // (the draft without a type yet pins nothing).
-        const startType = queryDraft ? queryDraft.query.type : sentQuery?.type;
-        if (startType) params.set("type", startType);
-        if (sentQuery) params.set("query", JSON.stringify(sentQuery));
+        // A query is evaluated by the server against its start types, which
+        // stay pinned while a draft's condition is still being filled in (the
+        // draft without a type yet pins nothing). `type` names one type only:
+        // a query over several sends none and the server lists them all.
+        // While a query is sent, `type` comes from it alone, never from a
+        // type selection that has not caught up with it yet.
+        if (sentQuery) {
+          const queryTypes = startTypes(sentQuery);
+          if (queryTypes.length === 1) params.set("type", queryTypes[0]);
+          else params.delete("type");
+          params.set("query", JSON.stringify(sentQuery));
+        }
         if (debouncedSearch) params.set("search", debouncedSearch);
         if (filters.approvalStatuses.length > 0) {
           params.set("approval_status", filters.approvalStatuses.join(","));
@@ -1853,8 +1889,20 @@ export default function InventoryPage() {
         setData(res.items);
         setTotal(res.total);
         setLoadError(false);
+        setQueryRefusal(null);
       } catch (err) {
         if (!isCurrent() || isAbortError(err)) return;
+        const refusal = sentQuery ? queryRefusalCode(err) : null;
+        if (refusal) {
+          // Not a failed load: the query is refused for this reader, so it
+          // matches nothing they may see — no stale rows behind the message.
+          setData([]);
+          setTotal(0);
+          setLoadError(false);
+          setQueryRefusal(refusal);
+          return;
+        }
+        setQueryRefusal(null);
         setLoadError(true);
       } finally {
         // Only the winner clears the spinner. An aborted predecessor rejecting
@@ -1921,7 +1969,7 @@ export default function InventoryPage() {
         const fresh = saved && bookmarks ? refreshActiveQuery(saved, bookmarks) : saved;
         setActiveQuery(fresh);
         if (!fresh) setDeepLinkedViewId(null);
-        if (fresh && saved && fresh.query.type !== saved.query.type) {
+        if (fresh && saved && !sameTypeSet(startTypes(fresh.query), startTypes(saved.query))) {
           const bm = bookmarks?.find((b) => b.id === fresh.viewId);
           const nextFilters = bm ? bookmarkFilters(bm) : null;
           if (nextFilters) setFilters(nextFilters);
@@ -1999,13 +2047,16 @@ export default function InventoryPage() {
 
   // --- Query builder (the path strip in edit mode) ---------------------------
 
-  // Only the start type selected, the type-specific facets reset (as the
-  // sidebar's type toggle does) unless it already was.
-  const pinStartType = useCallback((type: string) => {
+  // Only the start types selected, the type-specific facets reset (as the
+  // sidebar's type toggle does) unless they already were. Several types are
+  // ticked as the toggle ticks them one by one: the facets of a single type
+  // go, the ones every type shares stay. No type left (the draft's last typed
+  // line removed) clears the selection, as un-ticking the last type does.
+  const pinStartTypes = useCallback((types: string[]) => {
     setFilters((f) =>
-      f.types.length === 1 && f.types[0] === type
+      sameTypeSet(f.types, types)
         ? f
-        : filtersAfterTypeToggle({ ...f, types: [] }, type),
+        : { ...filtersAfterTypeToggle({ ...f, types: [] }, ""), types: [...types] },
     );
   }, []);
 
@@ -2051,15 +2102,16 @@ export default function InventoryPage() {
 
   const changeDraft = useCallback(
     (next: QueryDraft) => {
-      // A new start type is selected in the same render, so the draft never
-      // looks like it left its type.
-      if (next.query.type && next.query.type !== queryDraft?.query.type) {
-        pinStartType(next.query.type);
+      // New start types are selected in the same render, so the draft never
+      // looks like it left its types.
+      const nextTypes = startTypes(next.query);
+      if (!sameTypeSet(nextTypes, queryDraft ? startTypes(queryDraft.query) : [])) {
+        pinStartTypes(nextTypes);
       }
       setQueryDraft(next);
       setDraftError(null);
     },
-    [queryDraft, pinStartType],
+    [queryDraft, pinStartTypes],
   );
 
   const cancelDraft = useCallback(() => {
@@ -2073,12 +2125,12 @@ export default function InventoryPage() {
     setQueryDraft(null);
     setDraftError(null);
     setPendingSave(null);
-    // Back to the view in force, on its own start type.
-    if (activeQuery) pinStartType(activeQuery.query.type);
-  }, [queryDraft, activeQuery, pinStartType, applyColumnFilters]);
+    // Back to the view in force, on its own start types.
+    if (activeQuery) pinStartTypes(startTypes(activeQuery.query));
+  }, [queryDraft, activeQuery, pinStartTypes, applyColumnFilters]);
 
   const saveDraft = useCallback(async () => {
-    if (!queryDraft || draftProblem(queryDraft.query)) return;
+    if (!queryDraft || setProblem(queryDraft.query)) return;
     const { query, viewId } = queryDraft;
     if (!viewId) {
       // A new view is named and shared in the sidebar's save dialog, which
@@ -2091,13 +2143,12 @@ export default function InventoryPage() {
     setDraftSaving(true);
     setDraftError(null);
     try {
-      const saved = await api.patch<Bookmark>(`/bookmarks/${viewId}`, {
-        query,
-        card_type: query.type,
-      });
+      // The server derives `card_type` and `filters.types` from the query's
+      // start types, so only the query is sent.
+      const saved = await api.patch<Bookmark>(`/bookmarks/${viewId}`, { query });
       setBookmarkIndex((prev) => new Map(prev).set(saved.id, saved));
-      // A new start type reset the view's stored facets on the server: apply
-      // them as saved, so no facet of the old type lingers.
+      // New start types reset the view's stored facets on the server: apply
+      // them as saved, so no facet of the old types lingers.
       const nextFilters = bookmarkFilters(saved);
       if (nextFilters) setFilters(nextFilters);
       const grouping = bookmarkGrouping(saved);
@@ -3795,7 +3846,7 @@ export default function InventoryPage() {
               colId: EOL_COLUMN_KEY,
               headerName: t("columns.eol"),
               width: 160,
-              hide: !selectedColumns.has(EOL_COLUMN_KEY),
+              hide: !eolColumnForced && !selectedColumns.has(EOL_COLUMN_KEY),
               ...dateColumnFilterDef,
               valueGetter: (p: { data?: Card }) =>
                 (p.data ? eolOf(p.data)?.eol_date : null) ?? "",
@@ -4328,7 +4379,7 @@ export default function InventoryPage() {
       : cols.filter((c) => c.colId !== LOGO_COLUMN_KEY);
 
     return gridColumnOrder.applyOrder(columnFreeze.applyFrozen(applicable));
-  }, [columnFreeze, gridColumnOrder, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeObjGroupMap, relatedRefsOf, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, i18n.language, formatDate, formatDateTime, originLabel, canViewCostsGlobally, canManageStakeholders, canEditLogos, logoColumnAvailable, openLogoMenu, tagGroups, stakeholderRoles, typeLabel, fieldHelp, roleDescription, eolColumnAvailable, eolOf, eolLoading, tReports, calculatedKeys, treeActive]);
+  }, [columnFreeze, gridColumnOrder, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeObjGroupMap, relatedRefsOf, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, i18n.language, formatDate, formatDateTime, originLabel, canViewCostsGlobally, canManageStakeholders, canEditLogos, logoColumnAvailable, openLogoMenu, tagGroups, stakeholderRoles, typeLabel, fieldHelp, roleDescription, eolColumnAvailable, eolColumnForced, eolOf, eolLoading, tReports, calculatedKeys, treeActive]);
 
   // Feeds the Columns tab's "Column order" section: only the columns actually
   // on screen, built from the grid's own defs. On this page that matters twice
@@ -5040,6 +5091,8 @@ export default function InventoryPage() {
           onCancel={cancelDraft}
           saving={draftSaving}
           error={draftError}
+          queryError={queryRefusal}
+          canViewEol={canViewEol}
         />
 
         <Dialog

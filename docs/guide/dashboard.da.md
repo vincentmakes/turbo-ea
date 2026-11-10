@@ -78,6 +78,16 @@ Dashboardet **Mit arbejdsområde** samler alt, der er tildelt dig: favoritter, g
 
 Den sidste sektion grupperer kort efter den interessentrolle, du har (Application Owner, Business Owner osv.), og viser kortene under hver rolle. Hvis din rolle giver tilladelsen `stakeholders.view` (roller som admin, member og viewer som standard), lader et lille **personsøgnings**-ikon ved siden af sektionens titel dig pege den mod **en anden** — vælg en bruger i autofuldførelsen, og sektionen genindlæses med den brugers roller og kort. Titlen skifter til «Roller, som {name} har». Klik på det lille lukkeikon for at vende tilbage til dine egne roller. Nyttigt til at besvare «hvad ejer den person?» med ét klik.
 
+### Inventarvisninger
+
+Widgetten **Inventarvisninger** viser dine gemte [inventarvisninger](inventory.md) på et dashboard. Den findes på ingen af de indbyggede dashboards: Tilføj den fra skuffen **Tilføj widget** (se [Tilføjelse og gendannelse af widgets](#tilfjelse-og-gendannelse-af-widgets)), hvor den ligger sammen med widgets under **Mit arbejdsområde**.
+
+Den viser op til seks visninger, de nyeste først. Hver række har visningens korttype-ikon, dens navn og på en anden linje dens korttype — eller for en [forespørgselsvisning](inventory.md#query-views) dens sti efterfulgt af antallet af dens betingelser. En terning markerer en forespørgselsvisning, eller en robot, når en AI-assistent har oprettet den, og et globus- eller gruppeikon markerer en offentlig eller delt visning. Klik på en række for at åbne visningen i inventaret; **Vis alle** åbner inventaret.
+
+![Widgetten Inventarvisninger](../assets/img/da/04b_dashboard_inventory_views.png)
+
+Dens tandhjulsknap indstiller **Visninger, der skal vises** — **Alle visninger, jeg kan åbne**, **Mine visninger** eller **Visninger delt med mig** — og en kontakt **Kun forespørgselsvisninger** med en live-forhåndsvisning af resultatet. Et dashboard kan indeholde widgetten mere end én gang, for eksempel **Mine visninger** ved siden af **Visninger delt med mig**. En rolle, der ikke kan åbne gemte visninger, ser en kort besked i stedet for listen.
+
 ## Admin-fane — interessentkatalog { #admin-tab-stakeholder-directory }
 
 Dashboardet **Administration** vises for roller med `admin.users`. Ud over sine KPI-felter (aktive brugere, kort uden interessenter, forfaldne opgaver, fastlåste godkendelser, samlet kvalitet) og lister (de mest aktive bidragydere, interessentdækning, inaktive brugere, godkendelsespipeline, systemaktivitet, ikke-tildelte opgaver) slutter det med en widget, **Interessentkatalog**. Den viser hver korttype, der har mindst én interessent, med antallet af forskellige indehavere. Udvid en korttype for at se dens roller, og inde i hver rolle de brugere, der har den, sammen med antallet af kort, de dækker. Klik på en brugers chip for at udvide dennes kortliste direkte — hvert kortnavn er selv et link til kortets detaljeside. Hele træet (korttype → rolle → bruger → kort) hentes i ét enkelt kald, så navigationen er øjeblikkelig.
@@ -99,14 +109,14 @@ Klik på **Tilpas** ved siden af dashboardfanerne for at redigere det aktuelle d
 - **Flyt** en widget ved at trække i dens håndtag; gitteret er 12 kolonner bredt, og de andre widgets giver plads.
 - **Tilpas størrelsen** på en widget fra dens højre kant, nederste kant eller hjørnet, med mus eller berøring (på en telefon eller tablet holdt lodret er layoutet skrivebeskyttet). Widgetten ved siden af tilpasser sig, mens du trækker: den bliver smallere, når naboen vokser, og bredere igen, når naboen skrumper; kan den ikke blive smallere, flyttes den til næste række. Rækkerne nedenunder flytter sig ned og op igen af sig selv. Widgetten flugter med gitteret, mens du trækker, og i tilpasningstilstand holder siden fire tomme rækker fri under den sidste widget, så den nederste række kan trækkes højere; rul først, indtil håndtaget sidder godt inde i vinduet.
 - **Fjern** en widget med dens lukkeknap.
-- **Konfigurer** et KPI-felt, et diagram, aktivitetsfeedet eller en rangliste over datakvalitet med tandhjulsknappen.
+- **Konfigurer** et KPI-felt, et diagram, aktivitetsfeedet eller en rangliste over datakvalitet eller en widget med [Inventarvisninger](#inventarvisninger) med tandhjulsknappen.
 - **Fortryd** og **gentag** ændringer: **Fortryd** og **Gentag** gennemgår trin for trin de ændringer, der er foretaget, siden Tilpas blev åbnet (ét flyt, én størrelsesændring, tilføjelse, fjernelse eller konfiguration ad gangen) — med de to knapper på værktøjslinjen eller med Ctrl+Z / Ctrl+Shift+Z (⌘ på Mac). **Kassér** fjerner stadig alle på én gang.
 
 Klik på **Gem** for at beholde ændringerne for alle, eller **Kassér ændringer** for at vende tilbage til dashboardet, som det var.
 
 ### Tilføjelse og gendannelse af widgets
 
-**Tilføj widget** åbner en skuffe med alle widgets, grupperet som **KPI'er**, **Diagrammer**, **Oversigt**, **Mit arbejdsområde** og **Administration**. Klik på en for at tilføje den til dashboardet; et KPI-felt eller et diagram åbner først sin konfiguration. Hver indbygget widget forbliver i kataloget, så en widget, der er fjernet ved en fejl — for eksempel **Seneste aktivitet** — gendannes ved at tilføje den igen. Widgets, der kun kan forekomme én gang på et dashboard, er nedtonede og markeret som allerede tilføjet, når de er der.
+**Tilføj widget** åbner en skuffe med alle widgets, grupperet som **KPI'er**, **Diagrammer**, **Oversigt**, **Mit arbejdsområde** og **Administration**. Klik på en for at tilføje den til dashboardet; et KPI-felt eller et diagram åbner først sin konfiguration. Nogle widgets findes kun i kataloget og på intet indbygget dashboard — listen med [Inventarvisninger](#inventarvisninger), for eksempel. Hver indbygget widget forbliver i kataloget, så en widget, der er fjernet ved en fejl — for eksempel **Seneste aktivitet** — gendannes ved at tilføje den igen. Widgets, der kun kan forekomme én gang på et dashboard, er nedtonede og markeret som allerede tilføjet, når de er der.
 
 En widget beholder sin egen tilladelse, uanset hvor den placeres: En admin-widget, der er tilføjet til dashboardet Oversigt, vises stadig kun for brugere med `admin.users`.
 

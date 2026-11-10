@@ -60,7 +60,7 @@ export interface WidgetMeta {
   sources: SourceName[];
   /** At most one per dashboard. */
   single: boolean;
-  configurable?: "kpi" | "chart" | "activity" | "leaderboard";
+  configurable?: "kpi" | "chart" | "activity" | "leaderboard" | "views";
   chrome: WidgetChrome;
 }
 
@@ -161,6 +161,13 @@ export const WIDGET_META: Record<WidgetType, WidgetMeta> = {
   ),
   my_favorites: section("my_favorites", "workspace", "dashboard.workspace.myFavorites", "star"),
   my_saved_reports: section("my_saved_reports", "workspace", "dashboard.workspace.mySavedReports", "bookmark"),
+  // Its whole config is which list it shows, so "My views" beside "Shared
+  // with me" is a real layout: the one section a dashboard may hold twice.
+  inventory_views: {
+    ...section("inventory_views", "workspace", "dashboard.widgets.inventoryViews", "view_list"),
+    single: false,
+    configurable: "views",
+  },
   my_roles: section("my_roles", "workspace", "dashboard.workspace.myRoles", "badge"),
   my_todos: section("my_todos", "workspace", "dashboard.workspace.myTodos", "task_alt"),
   my_pending_surveys: section("my_pending_surveys", "workspace", "dashboard.workspace.myPendingSurveys", "poll"),

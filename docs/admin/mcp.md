@@ -328,16 +328,30 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
               subtype?: [subtype key],
               approval_status?: [status],
               data_quality_band?: [complete | partial | minimal],
+              eol_status?: [eol | approaching | supported | unknown | __empty__],
               attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] },
               tags?: [tag id],
               cards?: [card id],
               include_descendants?: true|false }
 ```
 
+Queries can also be **stacked**, so one view combines several complete queries:
+
+```text
+Query = CardQuery | { all_of: [CardQuery, …] } | { any_of: [Group, …] }
+Group = CardQuery | { all_of: [CardQuery, …] }
+```
+
+- `all_of` (**AND**): a card is listed only when it matches every query in the list. Its queries all start from the same card type (`all_of_type_mismatch` otherwise), and it needs at least two (`all_of_needs_two`).
+- `any_of` (**OR**): a card is listed when it matches any of the groups, each a plain query or an `all_of`. It needs at least two groups (`any_of_needs_two`). The groups may start from different card types, so **one view can list several card types**; such a view opens on all of them, and the grid shows the columns they have in common.
+- An `any_of` cannot sit inside another `any_of` or an `all_of`, and an `all_of` holds plain queries only (`invalid_query`).
+- The queries of an `all_of` meet on the start card only: "uses an IT Component that is phasing out" AND "is affected by an Initiative" may be two different related cards. To require two things of the **same** related card, put both hops on one line, side by side under it.
+
 - A hop matches when **any** related card of that type meets its `where` (and its own nested hops). `negate: true` turns it into "has **no** such card".
 - Hops side by side at one level must all match (AND); the values inside one list are alternatives (OR).
 - `<key>__out` and `<key>__in` pick a side of a relation type that links a card type to itself (the card is the source, or the target). Otherwise the plain key is enough.
 - `data_quality_band` matches a card's data quality score by band, as the inventory's Data Quality filter does: `complete` (80 and above), `partial` (40 up to, but excluding, 80) or `minimal` (below 40). Any other value is refused with `unknown_band`.
+- `eol_status` matches a card's end-of-life status as the inventory's End of life column shows it, computed from endoflife.date or a custom EOL product: `eol`, `approaching`, `supported`, `unknown`, or `__empty__` for a card with no EOL link and no manual end of life. Any other value is refused with `unknown_eol_status`, and a card type that does not track End of Life with `eol_not_tracked`. Such a condition needs the EOL view permission: saving, previewing and opening a view that holds one are refused without it (`eol_view_required`), as is running the query.
 - `tags` takes tag ids from `list_tag_groups`, grouped by tag group: a card must carry at least one of the listed tags from **every** group named (alternatives within a group, AND across groups). A tag whose group does not apply to that hop's card type is refused with `tag_not_for_type`; an unknown id with `unknown_tag`.
 - `cards` pins that node to the listed cards (alternatives): take their ids from `search_cards` or `resolve_card_refs`. Each should be a card of the node's own type. Running a query does not check the picks: an id that names no card, a card of another type or a card the user cannot read simply matches nothing. Saving a view does check them, and refuses such a pick with `unknown_card`. An archived card matches nothing at a hop. `include_descendants: true` widens each pick to every card beneath it through the parent link (sub-capabilities, child organizations); set without `cards` it is refused with `descendants_without_cards`, and on a card type that has no hierarchy with `descendants_without_hierarchy`. A card or tag id anywhere else in the query is refused with `query_holds_an_id`.
 - Related cards count only when they are active and the user may read them: a card the user cannot see breaks the chain, exactly as it does in the web UI. When a view is saved, a writer cannot pin a card hidden from them (`unknown_card`); a collaborator editing a view shared with them keeps the picks it already holds, even ones they cannot read. A reader opening a view whose picks include a card hidden from them is not refused — the hidden picks simply match nothing.
@@ -364,11 +378,44 @@ Example — Organizations using an active Application that an Initiative with st
 }
 ```
 
-In the inventory, a view saved this way shows its chain as a readable path above the grid, with a note that it was created via MCP. Its query can be changed in the inventory (the pencil on the path strip) or through `save_inventory_view` (pass the view's id from `list_inventory_views` as `view_id`; the update replaces the name and the query, changes visibility and columns only when they are passed, and keeps the grouping and layout set in the web UI — unless the new query starts from another card type, which resets the view's filters and grouping, since they belonged to the old type; a view you cannot edit is refused with `view_not_found` or `view_not_editable`; a visibility change you may not make (only the owner can change it, and public or shared needs `bookmarks.share`) is refused with `visibility_not_allowed`); in the web UI its owner can also rename it, change its sharing and OData setting, adjust the column layout, or delete it.
+Example — active Applications on aging technology that an Initiative affects, **or** the Organizations using an Application (a view listing two card types):
+
+```json
+{
+  "any_of": [
+    {
+      "all_of": [
+        {
+          "type": "Application",
+          "where": { "lifecycle_phase": ["active"] },
+          "related": [
+            {
+              "relation": "relAppToITC",
+              "type": "ITComponent",
+              "where": { "lifecycle_phase": ["phaseOut", "endOfLife"] }
+            }
+          ]
+        },
+        {
+          "type": "Application",
+          "related": [{ "relation": "relInitiativeToApp", "type": "Initiative" }]
+        }
+      ]
+    },
+    {
+      "type": "Organization",
+      "related": [{ "relation": "relOrgToApp", "type": "Application" }]
+    }
+  ]
+}
+```
+
+In the inventory, a view saved this way shows its chain as a readable path above the grid, with a note that it was created via MCP. Its query can be changed in the inventory (the pencil on the path strip) or through `save_inventory_view` (pass the view's id from `list_inventory_views` as `view_id`; the update replaces the name and the query, changes visibility and columns only when they are passed, and keeps the grouping and layout set in the web UI — unless the new query starts from other card types, which resets the view's filters and grouping, since they belonged to the old ones; a view you cannot edit is refused with `view_not_found` or `view_not_editable`; a visibility change you may not make (only the owner can change it, and public or shared needs `bookmarks.share`) is refused with `visibility_not_allowed`); in the web UI its owner can also rename it, change its sharing and OData setting, adjust the column layout, or delete it.
 
 Limitations:
 
-- At most **3 levels** of `related`, at most 10 hops side by side at one level, and at most **12 hops in the whole query** (side by side and nested together). A longer query is refused with `too_many_hops`.
+- At most **6 queries** in a stack (`too_many_lines`); the queries of an `all_of` share one start card type, while the groups of an `any_of` may list several.
+- At most **3 levels** of `related` in each query, at most 10 hops side by side at one level, and at most **12 hops in the whole query** (side by side, nested and over every query of a stack together). A longer query is refused with `too_many_hops`.
 - At most **50** picked cards per condition.
 - A text attribute matches its value **exactly** — there is no partial or case-insensitive match.
 - **`rollback_batch` cannot undo a saved view.** Saving a view records a mutation batch but publishes no event for the rollback to reverse; delete an unwanted view from the inventory's Saved Views instead.

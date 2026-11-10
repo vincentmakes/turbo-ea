@@ -328,16 +328,30 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
               subtype?: [subtype key],
               approval_status?: [status],
               data_quality_band?: [complete | partial | minimal],
+              eol_status?: [eol | approaching | supported | unknown | __empty__],
               attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] },
               tags?: [tag id],
               cards?: [card id],
               include_descendants?: true|false }
 ```
 
+Abfragen lassen sich auch **stapeln**, sodass eine Ansicht mehrere vollständige Abfragen kombiniert:
+
+```text
+Query = CardQuery | { all_of: [CardQuery, …] } | { any_of: [Group, …] }
+Group = CardQuery | { all_of: [CardQuery, …] }
+```
+
+- `all_of` (**UND**): Eine Karte wird nur aufgelistet, wenn sie jede Abfrage der Liste erfüllt. Alle Abfragen beginnen beim selben Kartentyp (sonst `all_of_type_mismatch`), und es braucht mindestens zwei (`all_of_needs_two`).
+- `any_of` (**ODER**): Eine Karte wird aufgelistet, wenn sie irgendeine der Gruppen erfüllt, jeweils eine einfache Abfrage oder ein `all_of`. Es braucht mindestens zwei Gruppen (`any_of_needs_two`). Die Gruppen dürfen bei verschiedenen Kartentypen beginnen, sodass **eine Ansicht mehrere Kartentypen auflisten kann**; eine solche Ansicht öffnet sich mit allen davon, und das Raster zeigt die Spalten, die sie gemeinsam haben.
+- Ein `any_of` darf nicht in einem anderen `any_of` oder einem `all_of` stehen, und ein `all_of` enthält nur einfache Abfragen (`invalid_query`).
+- Die Abfragen eines `all_of` treffen sich nur an der Startkarte: „nutzt eine auslaufende IT-Komponente" UND „ist von einer Initiative betroffen" können zwei verschiedene verbundene Karten sein. Um zwei Dinge von **derselben** verbundenen Karte zu verlangen, setzen Sie beide Schritte auf eine Zeile, nebeneinander darunter.
+
 - Ein Schritt trifft zu, wenn **irgendeine** verbundene Karte dieses Typs ihr `where` erfüllt (und ihre eigenen verschachtelten Schritte). `negate: true` macht daraus „hat **keine** solche Karte".
 - Schritte nebeneinander auf einer Ebene müssen alle zutreffen (UND); die Werte innerhalb einer Liste sind Alternativen (ODER).
 - `<key>__out` und `<key>__in` wählen eine Seite eines Beziehungstyps, der einen Kartentyp mit sich selbst verbindet (die Karte ist Quelle oder Ziel). Sonst genügt der einfache Schlüssel.
 - `data_quality_band` gleicht den Datenqualitäts-Score einer Karte nach Band ab, wie der Filter Datenqualität im Inventar: `complete` (80 und mehr), `partial` (ab 40 bis ausschließlich 80) oder `minimal` (unter 40). Jeder andere Wert wird mit `unknown_band` abgelehnt.
+- `eol_status` entspricht dem End-of-Life-Status einer Karte, wie ihn die Spalte „End of Life“ des Inventars zeigt, berechnet aus endoflife.date oder einem benutzerdefinierten EOL-Produkt: `eol`, `approaching`, `supported`, `unknown` oder `__empty__` für eine Karte ohne EOL-Verknüpfung und ohne manuelles End of Life. Jeder andere Wert wird mit `unknown_eol_status` abgelehnt, ein Kartentyp, der End of Life nicht erfasst, mit `eol_not_tracked`. Eine solche Bedingung erfordert die Berechtigung zum Anzeigen von EOL-Daten: Das Speichern, Vorschauen und Öffnen einer Ansicht, die eine enthält, wird ohne sie abgelehnt (`eol_view_required`), ebenso das Ausführen der Abfrage.
 - `tags` nimmt Tag-IDs aus `list_tag_groups`, nach Tag-Gruppe gruppiert: Eine Karte muss aus **jeder** genannten Gruppe mindestens eines der aufgeführten Tags tragen (Alternativen innerhalb einer Gruppe, UND über Gruppen hinweg). Ein Tag, dessen Gruppe für den Kartentyp dieses Schritts nicht gilt, wird mit `tag_not_for_type` abgelehnt; eine unbekannte ID mit `unknown_tag`.
 - `cards` legt diesen Knoten auf die aufgeführten Karten fest (Alternativen): Ihre IDs stammen aus `search_cards` oder `resolve_card_refs`. Jede sollte eine Karte des eigenen Typs des Knotens sein. Das Ausführen einer Abfrage prüft die Auswahl nicht: Eine ID, die keine Karte benennt, eine Karte eines anderen Typs oder eine Karte, die der Benutzer nicht lesen darf, trifft schlicht nichts. Das Speichern einer Ansicht prüft sie dagegen und lehnt eine solche Auswahl mit `unknown_card` ab. Eine archivierte Karte trifft bei einem Schritt nichts. `include_descendants: true` weitet jede Auswahl auf alle Karten darunter über die Eltern-Verknüpfung aus (Unter-Fähigkeiten, untergeordnete Organisationen); ohne `cards` gesetzt wird es mit `descendants_without_cards` abgelehnt, bei einem Kartentyp ohne Hierarchie mit `descendants_without_hierarchy`. Eine Karten- oder Tag-ID an jeder anderen Stelle der Abfrage wird mit `query_holds_an_id` abgelehnt.
 - Verbundene Karten zählen nur, wenn sie aktiv sind und der Benutzer sie lesen darf: Eine Karte, die der Benutzer nicht sehen darf, unterbricht die Kette — genau wie in der Weboberfläche. Beim Speichern einer Ansicht kann ein Schreibender keine Karte festlegen, die für ihn verborgen ist (`unknown_card`); ein Mitarbeitender, der eine mit ihm geteilte Ansicht bearbeitet, behält die bereits enthaltenen Auswahlen, auch solche, die er nicht lesen kann. Ein Lesender, der eine Ansicht öffnet, deren Auswahl eine für ihn verborgene Karte enthält, wird nicht abgelehnt — die verborgenen Auswahlen treffen schlicht nichts.
@@ -364,11 +378,44 @@ Beispiel — Organisationen, die eine aktive Anwendung nutzen, von der eine Init
 }
 ```
 
-Im Inventar zeigt eine so gespeicherte Ansicht ihre Kette als lesbaren Pfad über dem Raster mit einem Hinweis, dass sie über MCP erstellt wurde. Ihre Abfrage lässt sich im Inventar (der Stift im Pfadstreifen) oder über `save_inventory_view` ändern (die ID der Ansicht aus `list_inventory_views` als `view_id` übergeben; die Aktualisierung ersetzt Name und Abfrage, ändert Sichtbarkeit und Spalten nur, wenn sie übergeben werden, und behält die in der Weboberfläche festgelegte Gruppierung und das Layout — es sei denn, die neue Abfrage beginnt bei einem anderen Kartentyp: Dann werden Filter und Gruppierung der Ansicht zurückgesetzt, da sie zum alten Typ gehörten; eine Ansicht, die Sie nicht bearbeiten dürfen, wird mit `view_not_found` oder `view_not_editable` abgelehnt; eine Sichtbarkeitsänderung, die Ihnen nicht zusteht (nur der Eigentümer kann sie ändern, und öffentlich oder geteilt erfordert `bookmarks.share`), wird mit `visibility_not_allowed` abgelehnt); in der Weboberfläche kann ihr Eigentümer sie auch umbenennen, Freigabe und OData-Einstellung ändern, das Spaltenlayout anpassen oder sie löschen.
+Beispiel — aktive Anwendungen auf alternder Technologie, von denen eine Initiative betroffen ist, **oder** die Organisationen, die eine Anwendung nutzen (eine Ansicht, die zwei Kartentypen auflistet):
+
+```json
+{
+  "any_of": [
+    {
+      "all_of": [
+        {
+          "type": "Application",
+          "where": { "lifecycle_phase": ["active"] },
+          "related": [
+            {
+              "relation": "relAppToITC",
+              "type": "ITComponent",
+              "where": { "lifecycle_phase": ["phaseOut", "endOfLife"] }
+            }
+          ]
+        },
+        {
+          "type": "Application",
+          "related": [{ "relation": "relInitiativeToApp", "type": "Initiative" }]
+        }
+      ]
+    },
+    {
+      "type": "Organization",
+      "related": [{ "relation": "relOrgToApp", "type": "Application" }]
+    }
+  ]
+}
+```
+
+Im Inventar zeigt eine so gespeicherte Ansicht ihre Kette als lesbaren Pfad über dem Raster mit einem Hinweis, dass sie über MCP erstellt wurde. Ihre Abfrage lässt sich im Inventar (der Stift im Pfadstreifen) oder über `save_inventory_view` ändern (die ID der Ansicht aus `list_inventory_views` als `view_id` übergeben; die Aktualisierung ersetzt Name und Abfrage, ändert Sichtbarkeit und Spalten nur, wenn sie übergeben werden, und behält die in der Weboberfläche festgelegte Gruppierung und das Layout — es sei denn, die neue Abfrage beginnt bei anderen Kartentypen: Dann werden Filter und Gruppierung der Ansicht zurückgesetzt, da sie zu den alten gehörten; eine Ansicht, die Sie nicht bearbeiten dürfen, wird mit `view_not_found` oder `view_not_editable` abgelehnt; eine Sichtbarkeitsänderung, die Ihnen nicht zusteht (nur der Eigentümer kann sie ändern, und öffentlich oder geteilt erfordert `bookmarks.share`), wird mit `visibility_not_allowed` abgelehnt); in der Weboberfläche kann ihr Eigentümer sie auch umbenennen, Freigabe und OData-Einstellung ändern, das Spaltenlayout anpassen oder sie löschen.
 
 Einschränkungen:
 
-- Höchstens **3 Ebenen** von `related`, höchstens 10 Schritte nebeneinander auf einer Ebene und höchstens **12 Schritte in der gesamten Abfrage** (nebeneinander und verschachtelt zusammen). Eine längere Abfrage wird mit `too_many_hops` abgelehnt.
+- Höchstens **6 Abfragen** in einem Stapel (`too_many_lines`); die Abfragen eines `all_of` teilen sich einen Start-Kartentyp, die Gruppen eines `any_of` dürfen mehrere auflisten.
+- Höchstens **3 Ebenen** von `related` in jeder Abfrage, höchstens 10 Schritte nebeneinander auf einer Ebene und höchstens **12 Schritte in der gesamten Abfrage** (nebeneinander, verschachtelt und über alle Abfragen eines Stapels zusammen). Eine längere Abfrage wird mit `too_many_hops` abgelehnt.
 - Höchstens **50** ausgewählte Karten pro Bedingung.
 - Ein Textattribut stimmt **exakt** mit seinem Wert überein — es gibt keinen Teil- oder Groß-/Kleinschreibung-unabhängigen Abgleich.
 - **`rollback_batch` kann eine gespeicherte Ansicht nicht rückgängig machen.** Das Speichern einer Ansicht erfasst einen Mutations-Batch, veröffentlicht aber kein Ereignis, das der Rollback umkehren könnte; löschen Sie eine unerwünschte Ansicht stattdessen unter „Gespeicherte Ansichten" im Inventar.

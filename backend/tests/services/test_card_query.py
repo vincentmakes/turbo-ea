@@ -25,13 +25,18 @@ from app.services.card_query import (
     MAX_QUERY_CHARS,
     MAX_TOTAL_HOPS,
     CardQuery,
+    CardQueryAll,
+    CardQueryAny,
     CardQueryError,
     base_view_filters,
     compile_card_query,
     names_cards,
     parse_card_query,
+    query_groups,
+    query_lines,
     query_problem,
     resolve_card_query,
+    start_types,
     stored_card_ids,
     stored_query,
     view_fields_for_query,
@@ -115,6 +120,11 @@ async def _names(db, raw: dict, scope: CardReadScope | None = None) -> set[str]:
     clauses = await compile_card_query(db, query, scope or CardReadScope.everything())
     rows = await db.execute(select(Card.name).where(Card.status == "ACTIVE", *clauses))
     return set(rows.scalars().all())
+
+
+async def _resolve_root(db, query, **kwargs):
+    """The start node of a plain query: ``resolve_card_query``'s ``[[node]]``."""
+    return (await resolve_card_query(db, query, **kwargs))[0][0]
 
 
 async def _code(db, raw: dict) -> str:
@@ -666,7 +676,7 @@ class TestResolve:
                 },
             ),
         )
-        root = await resolve_card_query(db, parse_card_query(raw))
+        root = await _resolve_root(db, parse_card_query(raw))
         assert root.type == "Organization"
         app = root.hops[0]
         assert (app.side.relation_type, app.side.card_is_source) == (USES, True)
@@ -681,7 +691,7 @@ class TestResolve:
         # query built past it is checked against the metamodel only.
         raw = _q("Organization", where={"lifecycle_phase": []})
         assert _parse_code(raw) == "empty_values"
-        root = await resolve_card_query(db, CardQuery.model_validate(raw))
+        root = await _resolve_root(db, CardQuery.model_validate(raw))
         assert root.type == "Organization"
 
     async def test_unknown_start_type(self, db, land):
@@ -760,7 +770,7 @@ class TestResolve:
             ),
             where={"tags": _tags(land, "Hq", "Any")},
         )
-        root = await resolve_card_query(db, parse_card_query(raw))
+        root = await _resolve_root(db, parse_card_query(raw))
         t, g = land["tags"], land["groups"]
         assert root.tag_groups == {g["OrgOnly"].id: [t["Hq"].id], g["Open"].id: [t["Any"].id]}
         assert root.hops[0].node.tag_groups == {
@@ -770,7 +780,7 @@ class TestResolve:
 
     async def test_a_node_without_tags_has_no_tag_groups(self, db, land):
         raw = _q("Organization", _hop(USES, "Application", where={"tags": _tags(land, "Gold")}))
-        root = await resolve_card_query(db, parse_card_query(raw))
+        root = await _resolve_root(db, parse_card_query(raw))
         assert root.tag_groups == {}
         assert root.hops[0].node.tag_groups == {
             land["groups"]["Tier"].id: [land["tags"]["Gold"].id]
@@ -778,7 +788,7 @@ class TestResolve:
 
     async def test_an_upper_case_tag_id_resolves(self, db, land):
         raw = _q("Organization", where={"tags": [str(land["tags"]["Hq"].id).upper()]})
-        root = await resolve_card_query(db, parse_card_query(raw))
+        root = await _resolve_root(db, parse_card_query(raw))
         assert root.tag_groups == {land["groups"]["OrgOnly"].id: [land["tags"]["Hq"].id]}
 
     async def test_unknown_tag(self, db, land):
@@ -807,7 +817,7 @@ class TestResolve:
     async def test_an_open_or_empty_restriction_is_every_type(self, db, land):
         for type_key in ("Organization", "Application", "Initiative"):
             raw = _q(type_key, where={"tags": _tags(land, "Finance", "Any")})
-            root = await resolve_card_query(db, parse_card_query(raw))
+            root = await _resolve_root(db, parse_card_query(raw))
             assert len(root.tag_groups) == 2
 
     async def _statements(self, db, monkeypatch, raw) -> list[str]:
@@ -1247,7 +1257,7 @@ class TestDataQualityBand:
 
     async def test_resolves_without_a_metamodel_lookup(self, db, scores):
         raw = _q("Application", where={"data_quality_band": ["complete"]})
-        resolved = await resolve_card_query(db, parse_card_query(raw))
+        resolved = await _resolve_root(db, parse_card_query(raw))
         assert resolved.where.data_quality_band == ["complete"]
 
 
@@ -1417,7 +1427,7 @@ class TestCardPickResolve:
             ),
             where={"cards": [picks["Corp"]]},
         )
-        root = await resolve_card_query(db, parse_card_query(raw))
+        root = await _resolve_root(db, parse_card_query(raw))
         assert root.card_ids == [uuid.UUID(picks["Corp"])]
         assert root.include_descendants is False
         app = root.hops[0].node
@@ -1425,13 +1435,13 @@ class TestCardPickResolve:
         assert app.include_descendants is True
 
     async def test_a_node_without_cards_has_none(self, db, picks):
-        root = await resolve_card_query(db, parse_card_query(_q("Organization")))
+        root = await _resolve_root(db, parse_card_query(_q("Organization")))
         assert root.card_ids == []
         assert root.include_descendants is False
 
     async def test_an_archived_pick_resolves(self, db, picks):
         raw = _q("Organization", _hop(USES, "Application", where={"cards": [picks["Old"]]}))
-        root = await resolve_card_query(db, parse_card_query(raw))
+        root = await _resolve_root(db, parse_card_query(raw))
         assert root.hops[0].node.card_ids == [uuid.UUID(picks["Old"])]
 
     async def test_a_card_that_does_not_exist(self, db, picks):
@@ -1462,13 +1472,13 @@ class TestCardPickResolve:
             await resolve_card_query(db, query, read_scope=scope)
         assert exc.value.code == "unknown_card"
         # Without a scope — the evaluation paths — the same query resolves.
-        root = await resolve_card_query(db, query)
+        root = await _resolve_root(db, query)
         assert root.hops[0].node.card_ids == [uuid.UUID(picks["Alpha"])]
 
     async def test_a_card_readable_by_the_writer_resolves_with_their_scope(self, db, picks):
         scope = await _reader_scope(db, "Application")
         raw = _q("Organization", where={"cards": [picks["Corp"], picks["Team"]]})
-        root = await resolve_card_query(db, parse_card_query(raw), read_scope=scope)
+        root = await _resolve_root(db, parse_card_query(raw), read_scope=scope)
         assert root.card_ids == [uuid.UUID(picks["Corp"]), uuid.UUID(picks["Team"])]
 
     async def test_a_stakeholder_reads_a_card_of_a_denied_type(self, db, picks):
@@ -1477,7 +1487,7 @@ class TestCardPickResolve:
             stakeholder_card_ids=frozenset({uuid.UUID(picks["Alpha"])}),
         )
         ok = _q("Organization", _hop(USES, "Application", where={"cards": [picks["Alpha"]]}))
-        root = await resolve_card_query(db, parse_card_query(ok), read_scope=scope)
+        root = await _resolve_root(db, parse_card_query(ok), read_scope=scope)
         assert root.hops[0].node.card_ids == [uuid.UUID(picks["Alpha"])]
         hidden = _q("Organization", _hop(USES, "Application", where={"cards": [picks["Beta"]]}))
         with pytest.raises(CardQueryError) as exc:
@@ -1532,7 +1542,7 @@ class TestCardPickResolve:
         is SQL that matches nothing."""
         value = {"missing": CARD_1, "not-a-uuid": "Alpha"}.get(pick) or picks[pick]
         raw = _q("Organization", _hop(USES, "Application", where={"cards": [value]}))
-        root = await resolve_card_query(db, parse_card_query(raw))
+        root = await _resolve_root(db, parse_card_query(raw))
         expected = [] if pick == "not-a-uuid" else [uuid.UUID(value)]
         assert root.hops[0].node.card_ids == expected
 
@@ -1542,7 +1552,7 @@ class TestCardPickResolve:
         raw = _q("Organization", where={"cards": [picks["Corp"]]})
         assert MODULE_ONLY.readable(uuid.UUID(picks["Corp"]), "Organization", mode="module")
         assert await _write_code(db, raw, MODULE_ONLY) == "unknown_card"
-        resolved = await resolve_card_query(
+        resolved = await _resolve_root(
             db, parse_card_query(raw), read_scope=CardReadScope.everything()
         )
         assert resolved.card_ids == [uuid.UUID(picks["Corp"])]
@@ -1551,7 +1561,7 @@ class TestCardPickResolve:
         scope = await _reader_scope(db, "Application")
         alpha = uuid.UUID(picks["Alpha"])
         raw = _q("Organization", _hop(USES, "Application", where={"cards": [picks["Alpha"]]}))
-        root = await resolve_card_query(
+        root = await _resolve_root(
             db, parse_card_query(raw), read_scope=scope, trusted_card_ids=[alpha]
         )
         assert root.hops[0].node.card_ids == [alpha]
@@ -1604,7 +1614,7 @@ class TestDescendantsNeedAHierarchy:
         assert await _code(db, raw) == "descendants_without_hierarchy"
         # Without the flag the same pick resolves.
         off = _q("Organization", _hop(USES, "Application", where={"cards": [picks["Suite"]]}))
-        root = await resolve_card_query(db, parse_card_query(off))
+        root = await _resolve_root(db, parse_card_query(off))
         assert root.hops[0].node.card_ids == [uuid.UUID(picks["Suite"])]
 
     async def test_on_the_start_card(self, db, picks):
@@ -1616,7 +1626,7 @@ class TestDescendantsNeedAHierarchy:
 
     async def test_on_a_hierarchical_type_resolves(self, db, picks):
         raw = _q("Organization", where={"cards": [picks["Corp"]], "include_descendants": True})
-        root = await resolve_card_query(db, parse_card_query(raw))
+        root = await _resolve_root(db, parse_card_query(raw))
         assert root.include_descendants is True
         assert root.card_ids == [uuid.UUID(picks["Corp"])]
 
@@ -1970,3 +1980,957 @@ class TestViewPatch:
             "card_type": "Organization",
             "filters": {"types": ["Organization"], "groupBy": "subtype"},
         }
+
+
+# ---------------------------------------------------------------------------
+# Stacked queries: all_of (AND) / any_of (OR)
+# ---------------------------------------------------------------------------
+
+ORG_LINE = _q("Organization", _hop(USES, "Application"))
+APP_ACTIVE = _q("Application", where={"lifecycle_phase": ["active"]})
+APP_AFFECTED = _q("Application", _hop(AFFECTS, "Initiative"))
+
+
+def _all(*lines: dict) -> dict:
+    return {"all_of": list(lines)}
+
+
+def _any(*groups: dict) -> dict:
+    return {"any_of": list(groups)}
+
+
+def _wide(n: int) -> dict:
+    """An Organization line of ``n`` sibling hops."""
+    return _q("Organization", *[_hop(USES, "Application")] * n)
+
+
+class TestStackStructure:
+    @pytest.mark.parametrize(
+        "raw, code",
+        [
+            (_all(APP_ACTIVE), "all_of_needs_two"),
+            (_all(), "all_of_needs_two"),
+            (_any(ORG_LINE), "any_of_needs_two"),
+            (_any(), "any_of_needs_two"),
+            (_any(_all(APP_ACTIVE), ORG_LINE), "all_of_needs_two"),
+            (_all(ORG_LINE, APP_ACTIVE), "all_of_type_mismatch"),
+            (_any(ORG_LINE, _all(APP_ACTIVE, ORG_LINE)), "all_of_type_mismatch"),
+            # The stack's own rules come before any line's.
+            (_any(_q("A", where={"lifecycle_phase": ["soon"]})), "any_of_needs_two"),
+        ],
+    )
+    def test_stack_codes(self, raw, code):
+        assert _parse_code(raw) == code
+
+    @pytest.mark.parametrize(
+        "raw",
+        [
+            {"foo": 1},
+            {"type": "Organization", "any_of": [ORG_LINE, ORG_LINE]},
+            {"all_of": [ORG_LINE, ORG_LINE], "any_of": [ORG_LINE, ORG_LINE]},
+            {"all_of": [ORG_LINE, ORG_LINE], "extra": 1},
+            _any(_any(ORG_LINE, ORG_LINE), ORG_LINE),
+            _all(_any(ORG_LINE, ORG_LINE), ORG_LINE),
+            _all(_all(ORG_LINE, ORG_LINE), ORG_LINE),
+            _any(_all(_any(ORG_LINE, ORG_LINE), ORG_LINE), ORG_LINE),
+            {"all_of": ORG_LINE},
+        ],
+    )
+    def test_nesting_beyond_the_grammar_is_a_shape_error(self, raw):
+        assert _parse_code(raw) == "invalid_query"
+
+    def test_six_lines_are_accepted(self):
+        raw = _any(_all(APP_ACTIVE, APP_ACTIVE), _all(ORG_LINE, ORG_LINE), _all(ORG_LINE, ORG_LINE))
+        assert len(parse_card_query(raw).any_of) == 3
+
+    def test_seven_lines_are_refused(self):
+        raw = _any(
+            _all(APP_ACTIVE, APP_ACTIVE),
+            _all(ORG_LINE, ORG_LINE),
+            _all(ORG_LINE, ORG_LINE),
+            ORG_LINE,
+        )
+        assert _parse_code(raw) == "too_many_lines"
+
+    def test_seven_lines_in_one_all_of_are_refused(self):
+        assert _parse_code(_all(*[ORG_LINE] * 7)) == "too_many_lines"
+        assert parse_card_query(_all(*[ORG_LINE] * 6)) is not None
+
+    def test_hops_count_over_every_line(self):
+        assert parse_card_query(_any(_wide(6), _wide(6))) is not None
+        assert _parse_code(_any(_wide(6), _wide(7))) == "too_many_hops"
+        assert _parse_code(_all(_wide(7), _wide(6))) == "too_many_hops"
+        assert _parse_code(_any(_all(_wide(5), _wide(5)), _wide(3))) == "too_many_hops"
+
+    @pytest.mark.parametrize(
+        "line, code",
+        [
+            (_q("Organization", where={"lifecycle_phase": ["soon"]}), "unknown_phase"),
+            (
+                _q("Organization", _hop("r", "B", _hop("r", "C", _hop("r", "D", _hop("r", "E"))))),
+                "too_deep",
+            ),
+            (_q("Organization", where={"subtype": [TAG_1]}), "query_holds_an_id"),
+            (_q("Organization", where={"subtype": []}), "empty_values"),
+        ],
+    )
+    def test_a_line_problem_is_found_on_a_later_line(self, line, code):
+        assert _parse_code(_all(ORG_LINE, line)) == code
+        assert _parse_code(_any(APP_ACTIVE, line)) == code
+        assert _parse_code(_any(APP_ACTIVE, _all(ORG_LINE, line))) == code
+
+    def test_the_first_failing_line_answers(self):
+        bad_phase = _q("Organization", where={"lifecycle_phase": ["soon"]})
+        bad_band = _q("Organization", where={"data_quality_band": ["great"]})
+        assert _parse_code(_all(bad_band, bad_phase)) == "unknown_band"
+        assert _parse_code(_all(bad_phase, bad_band)) == "unknown_phase"
+
+    def test_query_problem_on_a_valid_stack(self):
+        stack = parse_card_query(_any(_all(APP_ACTIVE, APP_AFFECTED), ORG_LINE))
+        assert query_problem(stack) is None
+
+    def test_a_plain_query_parses_as_a_card_query(self):
+        assert isinstance(parse_card_query(ORG_LINE), CardQuery)
+        assert isinstance(parse_card_query(_all(ORG_LINE, ORG_LINE)), CardQueryAll)
+        assert isinstance(parse_card_query(_any(ORG_LINE, APP_ACTIVE)), CardQueryAny)
+
+    def test_text_and_object_parse_alike(self):
+        raw = _any(_all(APP_ACTIVE, APP_AFFECTED), ORG_LINE)
+        assert parse_card_query(json.dumps(raw)) == parse_card_query(raw)
+
+    def test_a_long_stack_is_too_long(self):
+        line = _q("Organization", where={"attributes": {"code": ["x" * 199] * 25}})
+        assert _parse_code(_all(line, line)) == "query_too_long"
+
+
+class TestStackHelpers:
+    STACK = _any(_all(APP_ACTIVE, APP_AFFECTED), ORG_LINE)
+
+    def test_groups_lines_and_start_types(self):
+        stack = parse_card_query(self.STACK)
+        assert [[stored_query(line) for line in g] for g in query_groups(stack)] == [
+            [APP_ACTIVE, APP_AFFECTED],
+            [ORG_LINE],
+        ]
+        assert [stored_query(line) for line in query_lines(stack)] == [
+            APP_ACTIVE,
+            APP_AFFECTED,
+            ORG_LINE,
+        ]
+        assert start_types(stack) == ["Application", "Organization"]
+
+    def test_a_plain_query_is_one_group_of_one_line(self):
+        query = parse_card_query(ORG_LINE)
+        assert query_groups(query) == [[query]]
+        assert query_lines(query) == [query]
+        assert start_types(query) == ["Organization"]
+
+    def test_an_all_of_is_one_group(self):
+        stack = parse_card_query(_all(APP_ACTIVE, APP_AFFECTED))
+        assert [[stored_query(line) for line in g] for g in query_groups(stack)] == [
+            [APP_ACTIVE, APP_AFFECTED]
+        ]
+        assert start_types(stack) == ["Application"]
+
+    def test_start_types_keep_the_first_order(self):
+        stack = parse_card_query(_any(ORG_LINE, APP_ACTIVE, ORG_LINE))
+        assert start_types(stack) == ["Organization", "Application"]
+
+    def test_stored_query_keeps_the_shape_and_leaves_defaults_out(self):
+        raw = _any(
+            _all(APP_ACTIVE, _q("Application", _hop(AFFECTS, "Initiative", negate=False))),
+            _q("Organization", _hop(USES, "Application", negate=True)),
+        )
+        assert stored_query(parse_card_query(raw)) == {
+            "any_of": [
+                {
+                    "all_of": [
+                        {"type": "Application", "where": {"lifecycle_phase": ["active"]}},
+                        {
+                            "type": "Application",
+                            "related": [{"relation": AFFECTS, "type": "Initiative"}],
+                        },
+                    ]
+                },
+                {
+                    "type": "Organization",
+                    "related": [{"relation": USES, "type": "Application", "negate": True}],
+                },
+            ]
+        }
+        assert stored_query(parse_card_query(_all(ORG_LINE, ORG_LINE))) == {
+            "all_of": [ORG_LINE, ORG_LINE]
+        }
+
+    def test_names_cards_on_a_later_line(self):
+        picked = _q("Organization", _hop(USES, "Application", where={"cards": [CARD_1]}))
+        assert names_cards(parse_card_query(_any(APP_ACTIVE, picked))) is True
+        assert names_cards(parse_card_query(_any(APP_ACTIVE, _all(ORG_LINE, picked)))) is True
+        assert names_cards(parse_card_query(_any(APP_ACTIVE, ORG_LINE))) is False
+
+    def test_stored_card_ids_walk_every_line(self):
+        one, two, three = (str(uuid.UUID(int=i)) for i in (1, 2, 3))
+        stored = _any(
+            _all(
+                _q("Application", where={"cards": [one]}),
+                _q("Application", _hop(AFFECTS, "Initiative", where={"cards": [two]})),
+            ),
+            _q("Organization", _hop(USES, "Application", where={"cards": [three]})),
+        )
+        assert stored_card_ids(stored) == {uuid.UUID(v) for v in (one, two, three)}
+        assert stored_card_ids(_all(stored["any_of"][1], {"where": "x"}, 5)) == {uuid.UUID(three)}
+
+
+class TestStackResolve:
+    async def test_every_line_resolves_in_the_stack_shape(self, db, land):
+        stack = parse_card_query(_any(_all(APP_ACTIVE, APP_AFFECTED), ORG_LINE))
+        groups = await resolve_card_query(db, stack)
+        assert [[node.type for node in group] for group in groups] == [
+            ["Application", "Application"],
+            ["Organization"],
+        ]
+        assert [h.node.type for h in groups[0][1].hops] == ["Initiative"]
+        assert [h.node.type for h in groups[1][0].hops] == ["Application"]
+
+    async def test_an_all_of_resolves_as_one_group(self, db, land):
+        groups = await resolve_card_query(db, parse_card_query(_all(APP_ACTIVE, APP_AFFECTED)))
+        assert [[node.type for node in group] for group in groups] == [
+            ["Application", "Application"]
+        ]
+
+    @pytest.mark.parametrize(
+        "line, code",
+        [
+            (_q("Nope"), "unknown_card_type"),
+            (_q("Ghost"), "unknown_card_type"),
+            (_q("Organization", _hop("nope", "Application")), "unknown_relation_type"),
+            (_q("Organization", _hop(AFFECTS, "Application")), "unknown_relation_type"),
+            (_q("Application", _hop(AFFECTS, "Organization")), "hop_type_mismatch"),
+            (_q("Organization", where={"subtype": ["nope"]}), "unknown_subtype"),
+        ],
+    )
+    async def test_a_metamodel_problem_on_a_later_line(self, db, land, line, code):
+        assert await _code(db, _any(ORG_LINE, line)) == code
+        assert await _code(db, _any(ORG_LINE, _all(line, line))) == code
+
+    async def test_a_later_line_of_an_all_of(self, db, land):
+        bad = _q("Application", where={"attributes": {"criticality": ["mid"]}})
+        assert await _code(db, _all(APP_ACTIVE, bad)) == "unknown_option"
+
+    async def _statements(self, db, monkeypatch, raw, scope=None) -> list[str]:
+        seen: list[str] = []
+        execute = db.execute
+
+        async def spy(statement, *args, **kwargs):
+            seen.append(str(statement))
+            return await execute(statement, *args, **kwargs)
+
+        monkeypatch.setattr(db, "execute", spy)
+        await resolve_card_query(db, parse_card_query(raw), read_scope=scope)
+        return seen
+
+    async def test_one_tag_load_and_one_card_load_for_the_whole_stack(self, db, land, monkeypatch):
+        alpha, corp = str(land["alpha"].id), str(land["orgs"]["Corp"].id)
+        raw = _any(
+            _all(
+                _q("Application", where={"tags": _tags(land, "Gold"), "cards": [alpha]}),
+                _q("Application", where={"tags": _tags(land, "Finance")}),
+            ),
+            _q("Organization", where={"tags": _tags(land, "Hq"), "cards": [corp]}),
+        )
+        seen = await self._statements(db, monkeypatch, raw, CardReadScope.everything())
+        assert len(seen) == 4
+        assert len([s for s in seen if "tag_groups" in s]) == 1
+        assert len([s for s in seen if "FROM cards" in s]) == 1
+
+    async def test_nothing_named_loads_neither(self, db, land, monkeypatch):
+        raw = _any(_all(APP_ACTIVE, APP_AFFECTED), ORG_LINE)
+        seen = await self._statements(db, monkeypatch, raw, CardReadScope.everything())
+        assert len(seen) == 2
+        assert not [s for s in seen if "tag" in s or "FROM cards" in s]
+
+    async def test_the_tags_of_every_line_resolve(self, db, land):
+        raw = _any(
+            _q("Application", where={"tags": _tags(land, "Gold")}),
+            _q("Organization", where={"tags": _tags(land, "Hq")}),
+        )
+        groups = await resolve_card_query(db, parse_card_query(raw))
+        assert groups[0][0].tag_groups == {land["groups"]["Tier"].id: [land["tags"]["Gold"].id]}
+        assert groups[1][0].tag_groups == {land["groups"]["OrgOnly"].id: [land["tags"]["Hq"].id]}
+
+    async def test_a_tag_not_for_a_later_lines_type(self, db, land):
+        raw = _any(APP_ACTIVE, _q("Organization", where={"tags": _tags(land, "Gold")}))
+        assert await _code(db, raw) == "tag_not_for_type"
+
+    async def test_a_bad_pick_on_a_later_line_is_refused_on_write(self, db, land):
+        corp, alpha = str(land["orgs"]["Corp"].id), str(land["alpha"].id)
+        good = _q("Organization", where={"cards": [corp]})
+        wrong_type = _q("Organization", _hop(USES, "Application", where={"cards": [corp]}))
+        assert await _write_code(db, _any(good, wrong_type)) == "unknown_card"
+        assert await _write_code(db, _all(good, _q("Organization", where={"cards": [CARD_1]}))) == (
+            "unknown_card"
+        )
+        ok = _any(good, _q("Organization", _hop(USES, "Application", where={"cards": [alpha]})))
+        groups = await resolve_card_query(
+            db, parse_card_query(ok), read_scope=CardReadScope.everything()
+        )
+        assert groups[1][0].hops[0].node.card_ids == [land["alpha"].id]
+
+    async def test_a_hidden_pick_on_a_later_line_is_refused_unless_trusted(self, db, land):
+        scope = await _reader_scope(db, "Application")
+        alpha = land["alpha"].id
+        raw = _any(
+            _q("Organization"),
+            _q("Organization", _hop(USES, "Application", where={"cards": [str(alpha)]})),
+        )
+        assert await _write_code(db, raw, scope) == "unknown_card"
+        groups = await resolve_card_query(
+            db, parse_card_query(raw), read_scope=scope, trusted_card_ids=[alpha]
+        )
+        assert groups[1][0].hops[0].node.card_ids == [alpha]
+
+
+async def _scoped_names(db, raw: dict, scope: CardReadScope, card=Card) -> set[str]:
+    """``_names`` with the start card's own read scope added, as every card
+    list adds it."""
+    clauses = await compile_card_query(db, parse_card_query(raw), scope, card)
+    rows = await db.execute(
+        select(card.name).where(
+            card.status == "ACTIVE", *scope.where(card, mode="inventory"), *clauses
+        )
+    )
+    return set(rows.scalars().all())
+
+
+class TestStackSemantics:
+    async def test_an_all_of_keeps_the_intersection(self, db, land):
+        assert await _names(db, APP_ACTIVE) == {"Alpha", "Gamma"}
+        assert await _names(db, APP_AFFECTED) == {"Alpha", "Beta"}
+        assert await _names(db, _all(APP_ACTIVE, APP_AFFECTED)) == {"Alpha"}
+
+    async def test_an_all_of_of_disjoint_lines_is_empty(self, db, land):
+        beta_only = _q("Application", where={"subtype": ["micro"]})
+        assert await _names(db, _all(APP_ACTIVE, beta_only)) == set()
+
+    async def test_an_any_of_over_two_card_types_is_the_union(self, db, land):
+        team = _q("Organization", _hop(USES, "Application", where={"subtype": ["micro"]}))
+        assert await _names(db, team) == {"Team"}
+        assert await _names(db, _any(APP_ACTIVE, team)) == {"Alpha", "Gamma", "Team"}
+
+    async def test_a_group_keeps_to_its_own_card_type(self, db, land):
+        """An Organization that matches no Application line is not listed by
+        it, and an Application never by the Organization line."""
+        rows = await db.execute(
+            select(Card.type, Card.name).where(
+                Card.status == "ACTIVE",
+                *await compile_card_query(
+                    db,
+                    parse_card_query(_any(APP_ACTIVE, ORG_LINE)),
+                    CardReadScope.everything(),
+                ),
+            )
+        )
+        assert set(rows.all()) == {
+            ("Application", "Alpha"),
+            ("Application", "Gamma"),
+            ("Organization", "Corp"),
+            ("Organization", "Team"),
+            ("Organization", "Lone"),
+        }
+
+    async def test_an_and_group_inside_an_or(self, db, land):
+        raw = _any(_all(APP_ACTIVE, APP_AFFECTED), ORG_LINE)
+        assert await _names(db, raw) == {"Alpha", "Corp", "Team", "Lone"}
+
+    async def test_a_negated_line_in_an_and_group(self, db, land):
+        unaffected = _q("Application", _hop(AFFECTS, "Initiative", negate=True))
+        assert await _names(db, _all(APP_ACTIVE, unaffected)) == {"Gamma"}
+
+    async def test_a_reader_denied_one_groups_start_type(self, db, land):
+        raw = _any(APP_ACTIVE, ORG_LINE)
+        everything = CardReadScope.everything()
+        assert await _scoped_names(db, raw, everything) == {
+            "Alpha",
+            "Gamma",
+            "Corp",
+            "Team",
+            "Lone",
+        }
+        scope = await _reader_scope(db, "Organization")
+        assert await _scoped_names(db, raw, scope) == {"Alpha", "Gamma"}
+
+    async def test_a_reader_denied_a_hop_type_inside_one_line(self, db, land):
+        on_track = _q("Initiative", where={"attributes": {"initiativeStatus": ["onTrack"]}})
+        raw = _any(ORG_LINE, on_track)
+        assert await _scoped_names(db, raw, CardReadScope.everything()) == {
+            "Corp",
+            "Team",
+            "Lone",
+            "Rocket",
+        }
+        scope = await _reader_scope(db, "Application")
+        assert await _scoped_names(db, raw, scope) == {"Rocket"}
+
+    async def test_a_pinned_today_reaches_every_line(self, db, land):
+        """Sixty days ago Alpha read as ``plan``. The ``plan`` conditions sit on
+        the second line of the AND group and on the second group only, so
+        ``today`` must reach past the first line and the first group."""
+        early = TODAY - timedelta(days=60)
+        app_plan = _q("Application", where={"lifecycle_phase": ["plan"]})
+        org_plan = _q(
+            "Organization", _hop(USES, "Application", where={"lifecycle_phase": ["plan"]})
+        )
+        raw = _any(_all(APP_AFFECTED, app_plan), org_plan)
+        assert await _names_on(db, raw, early) == {"Alpha", "Beta", "Corp", "Team"}
+        assert await _names(db, raw) == {"Beta", "Team"}
+        assert await _names_on(db, _all(APP_AFFECTED, app_plan), early) == {"Alpha", "Beta"}
+
+    async def test_compiles_against_an_alias(self, db, land):
+        start = aliased(Card)
+        raw = _any(_all(APP_ACTIVE, APP_AFFECTED), ORG_LINE)
+        assert await _scoped_names(db, raw, CardReadScope.everything(), start) == {
+            "Alpha",
+            "Corp",
+            "Team",
+            "Lone",
+        }
+
+    async def test_every_query_compiles_to_one_clause(self, db, land):
+        for raw in (_any(APP_ACTIVE, ORG_LINE), _all(APP_ACTIVE, APP_AFFECTED), ORG_LINE):
+            clauses = await compile_card_query(
+                db, parse_card_query(raw), CardReadScope.everything()
+            )
+            assert len(clauses) == 1
+
+    async def test_a_plain_query_resolves_as_one_group_of_one_line(self, db, land):
+        groups = await resolve_card_query(db, parse_card_query(ORG_LINE))
+        assert [[node.type for node in group] for group in groups] == [["Organization"]]
+        assert [h.node.type for h in groups[0][0].hops] == ["Application"]
+
+
+TWO_TYPES = _any(APP_ACTIVE, ORG_LINE)
+
+
+class TestViewFieldsOnTypeSets:
+    def test_one_start_type_sets_the_card_type(self):
+        query = parse_card_query(_all(APP_ACTIVE, APP_AFFECTED))
+        assert view_fields_for_query(query, None, None) == (
+            "Application",
+            {"types": ["Application"]},
+        )
+        assert view_fields_for_query(query, "Application", {"types": ["Application"]}) == (
+            "Application",
+            {"types": ["Application"]},
+        )
+
+    def test_two_start_types_set_no_card_type(self):
+        query = parse_card_query(TWO_TYPES)
+        assert view_fields_for_query(query, None, {"groupBy": "x"}) == (
+            None,
+            {"types": ["Application", "Organization"], "groupBy": "x"},
+        )
+
+    def test_the_same_types_in_another_order_are_no_mismatch(self):
+        query = parse_card_query(TWO_TYPES)
+        filters = {"types": ["Organization", "Application"]}
+        assert view_fields_for_query(query, None, filters) == (
+            None,
+            {"types": ["Application", "Organization"]},
+        )
+
+    @pytest.mark.parametrize(
+        "card_type, filters",
+        [
+            ("Application", None),
+            ("Organization", None),
+            (None, {"types": ["Application"]}),
+            (None, {"types": ["Application", "Organization", "Initiative"]}),
+            (None, {"types": ["Application", "Initiative"]}),
+            (None, {"types": "Application"}),
+            (None, {"types": [["Application"], "Organization"]}),
+        ],
+    )
+    def test_a_contradiction_is_a_mismatch(self, card_type, filters):
+        query = parse_card_query(TWO_TYPES)
+        _mismatch(lambda: view_fields_for_query(query, card_type, filters))
+
+    def test_base_view_filters_on_several_types(self):
+        assert base_view_filters(["Application", "Organization"]) == {
+            **base_view_filters("Application"),
+            "types": ["Application", "Organization"],
+        }
+        assert base_view_filters(("Initiative",))["types"] == ["Initiative"]
+
+
+class TestViewPatchOnTypeSets:
+    def test_one_type_to_two_resets_the_facets(self):
+        new = parse_card_query(TWO_TYPES)
+        out = view_patch(
+            {"query": TWO_TYPES},
+            new_query=new,
+            current_query=ORG_QUERY,
+            current_filters={"types": ["Organization"], "groupBy": "subtype"},
+            current_card_type="Organization",
+        )
+        assert out == {
+            "query": stored_query(new),
+            "card_type": None,
+            "filters": base_view_filters(["Application", "Organization"]),
+        }
+
+    def test_two_types_to_one_resets_the_facets(self):
+        new = parse_card_query(ORG_QUERY)
+        out = view_patch(
+            {"query": ORG_QUERY},
+            new_query=new,
+            current_query=TWO_TYPES,
+            current_filters={"types": ["Application", "Organization"], "groupBy": "x"},
+        )
+        assert out == {
+            "query": stored_query(new),
+            "card_type": "Organization",
+            "filters": base_view_filters("Organization"),
+        }
+
+    def test_the_same_type_set_keeps_the_facets(self):
+        other = _any(ORG_LINE, _q("Application", where={"subtype": ["micro"]}))
+        new = parse_card_query(other)
+        out = view_patch(
+            {"query": other},
+            new_query=new,
+            current_query=TWO_TYPES,
+            current_filters={"types": ["Application", "Organization"], "groupBy": "x"},
+        )
+        assert out == {
+            "query": stored_query(new),
+            "card_type": None,
+            "filters": {"types": ["Organization", "Application"], "groupBy": "x"},
+        }
+
+    def test_a_rename_keeps_a_two_type_view_in_sync(self):
+        out = view_patch(
+            {"name": "n"},
+            new_query=None,
+            current_query=TWO_TYPES,
+            current_filters={"types": ["Application", "Organization"], "groupBy": "x"},
+        )
+        assert out == {
+            "name": "n",
+            "card_type": None,
+            "filters": {"types": ["Application", "Organization"], "groupBy": "x"},
+        }
+
+    def test_a_card_type_on_a_two_type_view_is_a_mismatch(self):
+        _mismatch(
+            lambda: view_patch(
+                {"card_type": "Application"},
+                new_query=None,
+                current_query=TWO_TYPES,
+                current_filters={"types": ["Application", "Organization"]},
+            )
+        )
+
+    def test_a_plain_multi_type_view_gaining_a_query_keeps_its_facets(self):
+        """A view with no query was on no single type: nothing to reset, as
+        before stacks."""
+        new = parse_card_query(TWO_TYPES)
+        out = view_patch(
+            {"query": TWO_TYPES},
+            new_query=new,
+            current_query=None,
+            current_filters={"types": ["Application", "Initiative"], "groupBy": "x"},
+        )
+        assert out["filters"] == {"types": ["Application", "Organization"], "groupBy": "x"}
+
+
+# ---------------------------------------------------------------------------
+# End-of-life status (``where.eol_status``)
+# ---------------------------------------------------------------------------
+
+#: Upstream cycles the EOL tests answer from: 1.0 is past its end of life,
+#: 1.3 is supported.
+EOL_UPSTREAM = {
+    "nginx": [
+        {"cycle": "1.0", "eol": PAST, "support": PAST},
+        {"cycle": "1.3", "eol": (TODAY + timedelta(days=400)).isoformat(), "support": FUTURE},
+    ]
+}
+NEAR_EOL = (TODAY + timedelta(days=60)).isoformat()
+#: ``where_conditions``' error for an ``eol_status`` compiled unprepared, whole.
+EOL_UNPREPARED = r"^an eol_status condition needs prepared pair statuses$"
+#: A day by which Retiring's manual end of life (``NEAR_EOL``) has passed.
+LATER = TODAY + timedelta(days=90)
+
+
+@pytest.fixture
+def eol_upstream(monkeypatch):
+    """``fetch_cycles_for_products`` answering from ``EOL_UPSTREAM``."""
+    from app.services import eol_service
+
+    async def fake(products):
+        return {p: EOL_UPSTREAM[p] for p in products if p in EOL_UPSTREAM}
+
+    monkeypatch.setattr(eol_service, "fetch_cycles_for_products", fake)
+
+
+@pytest.fixture
+async def eol_chain(db):
+    """Organizations using Applications in each EOL status:
+
+    - UsesDead → Dead (linked, end of life; lifecycle active);
+    - UsesFresh → Fresh (linked, supported; lifecycle active);
+    - UsesPlain → Plain (nothing recorded; lifecycle plan);
+    - UsesRetiring → Retiring (manual end of life in 60 days; active);
+    - UsesNothing uses nothing. Organization does not track EOL.
+    """
+    await create_role(db, key="admin", label="Admin", permissions={"*": True})
+    admin = await create_user(db, email="eol-admin@test.com", role="admin")
+    await create_card_type(db, key="Organization")
+    await create_card_type(db, key="Application")
+    await create_relation_type(
+        db, key=USES, source_type_key="Organization", target_type_key="Application"
+    )
+    apps = {
+        "Dead": ({"eol_product": "nginx", "eol_cycle": "1.0"}, {"active": PAST}),
+        "Fresh": ({"eol_product": "nginx", "eol_cycle": "1.3"}, {"active": PAST}),
+        "Plain": ({}, {"plan": FUTURE}),
+        "Retiring": ({}, {"active": PAST, "endOfLife": NEAR_EOL}),
+    }
+    for name, (attributes, lifecycle) in apps.items():
+        app = await create_card(db, name=name, attributes=attributes, lifecycle=lifecycle)
+        org = await create_card(db, card_type="Organization", name=f"Uses{name}")
+        await create_relation(db, type_key=USES, source_id=org.id, target_id=app.id)
+    await create_card(db, card_type="Organization", name="UsesNothing")
+    return admin
+
+
+async def _eol_names(db, user, raw: dict) -> set[str]:
+    """The start cards ``raw`` keeps, through the routes' prepare / compile."""
+    from app.services.card_query import prepare_card_query
+
+    prepared = await prepare_card_query(db, user, parse_card_query(raw))
+    clauses = await prepared.compile(CardReadScope.everything())
+    rows = await db.execute(select(Card.name).where(Card.status == "ACTIVE", *clauses))
+    return set(rows.scalars().all())
+
+
+class TestEolStatusStructure:
+    def test_an_empty_list_is_refused(self):
+        assert _parse_code(_q("A", where={"eol_status": []})) == "empty_values"
+
+    @pytest.mark.parametrize("value", ["retired", "EOL", "none", ""])
+    def test_an_unknown_status_is_refused(self, value):
+        raw = _q("A", _hop("r", "B", where={"eol_status": ["eol", value]}))
+        assert _parse_code(raw) == "unknown_eol_status"
+
+    def test_every_status_parses_and_is_stored_verbatim(self):
+        raw = _q(
+            "A",
+            where={"eol_status": ["eol", "approaching", "supported", "unknown", "__empty__"]},
+        )
+        assert stored_query(parse_card_query(raw)) == raw
+
+    def test_at_most_fifty_values(self):
+        assert _parse_code(_q("A", where={"eol_status": ["eol"] * 51})) == "invalid_query"
+        assert parse_card_query(_q("A", where={"eol_status": ["eol"] * 50})).where
+
+
+class TestEolStatusResolve:
+    async def test_a_type_that_does_not_track_eol_is_refused(self, db, eol_chain):
+        assert await _code(db, _q("Organization", where={"eol_status": ["eol"]})) == (
+            "eol_not_tracked"
+        )
+        hop = _q("Application", where={"eol_status": ["eol"]})
+        assert (await _resolve_root(db, parse_card_query(hop))).eol_status == ("eol",)
+
+    async def test_hiding_the_eol_section_takes_the_type_out(self, db):
+        await create_card_type(db, key="Application", section_config={"eol": {"hidden": True}})
+        await create_card_type(db, key="Widget", section_config={"eol": {"hidden": False}})
+        await create_relation_type(
+            db, key="appToWidget", source_type_key="Application", target_type_key="Widget"
+        )
+        raw = _q("Application", where={"eol_status": ["eol"]})
+        assert await _code(db, raw) == "eol_not_tracked"
+        at_hop = _q("Application", _hop("appToWidget", "Widget", where={"eol_status": ["eol"]}))
+        root = await _resolve_root(db, parse_card_query(at_hop))
+        assert root.eol_status == ()
+        assert root.hops[0].node.eol_status == ("eol",)
+
+    async def test_values_are_deduplicated_in_order(self, db, eol_chain):
+        raw = _q("Application", where={"eol_status": ["unknown", "eol", "unknown"]})
+        root = await _resolve_root(db, parse_card_query(raw))
+        assert root.eol_status == ("unknown", "eol")
+
+    async def test_a_node_without_where_has_none(self, db, eol_chain):
+        root = await _resolve_root(db, parse_card_query(_q("Application")))
+        assert root.eol_status == ()
+
+
+class TestEolStatusSemantics:
+    async def test_at_the_start_card(self, db, eol_chain, eol_upstream):
+        assert await _eol_names(
+            db, eol_chain, _q("Application", where={"eol_status": ["eol"]})
+        ) == {"Dead"}
+        empty = _q("Application", where={"eol_status": ["__empty__"]})
+        assert await _eol_names(db, eol_chain, empty) == {"Plain"}
+
+    async def test_at_a_hop(self, db, eol_chain, eol_upstream):
+        hop = _hop(USES, "Application", where={"eol_status": ["eol", "approaching"]})
+        assert await _eol_names(db, eol_chain, _q("Organization", hop)) == {
+            "UsesDead",
+            "UsesRetiring",
+        }
+        negated = _hop(USES, "Application", where={"eol_status": ["supported"]}, negate=True)
+        assert await _eol_names(db, eol_chain, _q("Organization", negated)) == {
+            "UsesDead",
+            "UsesPlain",
+            "UsesRetiring",
+            "UsesNothing",
+        }
+
+    async def test_inside_an_or_group_of_a_stack(self, db, eol_chain, eol_upstream):
+        raw = {
+            "any_of": [
+                _q("Application", where={"eol_status": ["eol"]}),
+                {
+                    "all_of": [
+                        _q(
+                            "Organization",
+                            _hop(USES, "Application", where={"eol_status": ["__empty__"]}),
+                        ),
+                        _q("Organization", _hop(USES, "Application")),
+                    ]
+                },
+            ]
+        }
+        assert await _eol_names(db, eol_chain, raw) == {"Dead", "UsesPlain"}
+
+    @pytest.mark.parametrize(
+        ("where", "expected"),
+        [
+            ({"eol_status": ["eol"], "lifecycle_phase": ["active"]}, {"Dead"}),
+            ({"eol_status": ["approaching"], "lifecycle_phase": ["active"]}, {"Retiring"}),
+            ({"eol_status": ["eol"], "lifecycle_phase": ["endOfLife"]}, set()),
+            ({"eol_status": ["__empty__"], "lifecycle_phase": ["plan"]}, {"Plain"}),
+        ],
+    )
+    async def test_independent_of_the_lifecycle(self, db, eol_chain, eol_upstream, where, expected):
+        """A card's EOL status and its own lifecycle phase are two facts: an
+        Application can be active while its component is end of life."""
+        assert await _eol_names(db, eol_chain, _q("Application", where=where)) == expected
+
+    async def test_compiling_without_prepared_statuses_raises(self, db, eol_chain):
+        raw = _q("Organization", _hop(USES, "Application", where={"eol_status": ["eol"]}))
+        with pytest.raises(RuntimeError, match=EOL_UNPREPARED):
+            await compile_card_query(db, parse_card_query(raw), CardReadScope.everything())
+
+    async def test_compiling_empty_alone_needs_no_statuses(self, db, eol_chain):
+        raw = _q("Organization", _hop(USES, "Application", where={"eol_status": ["__empty__"]}))
+        clauses = await compile_card_query(db, parse_card_query(raw), CardReadScope.everything())
+        rows = await db.execute(select(Card.name).where(Card.status == "ACTIVE", *clauses))
+        assert set(rows.scalars().all()) == {"UsesPlain"}
+
+    async def test_compile_card_query_takes_prepared_statuses(self, db, eol_chain):
+        raw = _q("Application", where={"eol_status": ["supported"]})
+        clauses = await compile_card_query(
+            db,
+            parse_card_query(raw),
+            CardReadScope.everything(),
+            pair_statuses={("nginx", "1.0"): "supported", ("nginx", "1.3"): "eol"},
+        )
+        rows = await db.execute(select(Card.name).where(Card.status == "ACTIVE", *clauses))
+        assert set(rows.scalars().all()) == {"Dead"}
+
+
+class TestEolCompileInputs:
+    """What ``compile`` is handed reaches the end-of-life condition: the
+    pinned ``today``, the card (or alias) the clauses are over, and the
+    custom products' cycles."""
+
+    @pytest.mark.parametrize(
+        ("today", "eol", "approaching"),
+        [(TODAY, {"Dead"}, {"Retiring"}), (LATER, {"Dead", "Retiring"}, set())],
+    )
+    async def test_compile_card_query_pins_today(self, db, eol_chain, today, eol, approaching):
+        """Retiring's manual end of life is 60 days out: ``approaching`` today,
+        ``eol`` 90 days on — so the pinned day reaches the manual branch."""
+        statuses = {("nginx", "1.0"): "eol", ("nginx", "1.3"): "supported"}
+        for values, expected in ((["eol"], eol), (["approaching"], approaching)):
+            raw = _q("Application", where={"eol_status": values})
+            clauses = await compile_card_query(
+                db,
+                parse_card_query(raw),
+                CardReadScope.everything(),
+                today=today,
+                pair_statuses=statuses,
+            )
+            rows = await db.execute(select(Card.name).where(Card.status == "ACTIVE", *clauses))
+            assert set(rows.scalars().all()) == expected
+
+    @pytest.mark.parametrize(
+        ("today", "eol", "approaching"),
+        [(TODAY, {"Dead"}, {"Retiring"}), (LATER, {"Dead", "Retiring"}, set())],
+    )
+    async def test_prepared_compile_pins_today(
+        self, db, eol_chain, eol_upstream, today, eol, approaching
+    ):
+        from app.services.card_query import prepare_card_query
+
+        for values, expected in ((["eol"], eol), (["approaching"], approaching)):
+            raw = _q("Application", where={"eol_status": values})
+            prepared = await prepare_card_query(db, eol_chain, parse_card_query(raw))
+            clauses = await prepared.compile(CardReadScope.everything(), today=today)
+            rows = await db.execute(select(Card.name).where(Card.status == "ACTIVE", *clauses))
+            assert set(rows.scalars().all()) == expected
+
+    async def test_prepared_compile_is_over_the_card_it_is_given(self, db, eol_chain, eol_upstream):
+        """Compiled against an alias, the clauses are over the alias: selecting
+        from it alone keeps exactly the matching cards."""
+        from app.services.card_query import prepare_card_query
+
+        raw = _q("Application", where={"eol_status": ["eol"]})
+        prepared = await prepare_card_query(db, eol_chain, parse_card_query(raw))
+        other = aliased(Card)
+        clauses = await prepared.compile(CardReadScope.everything(), other, today=LATER)
+        rows = await db.execute(select(other.name).where(other.status == "ACTIVE", *clauses))
+        assert set(rows.scalars().all()) == {"Dead", "Retiring"}
+
+    async def test_prepared_compile_reads_the_custom_cycles(self, db, eol_chain, monkeypatch):
+        """With upstream answering nothing, only the custom product's own cycle
+        row can make Acme ``eol`` — and the nginx links read ``unknown``."""
+        from app.models.eol_custom_cycle import EolCustomCycle
+        from app.models.eol_custom_product import EolCustomProduct
+        from app.services import eol_service
+        from app.services.card_query import prepare_card_query
+
+        async def nothing(products):
+            return {}
+
+        monkeypatch.setattr(eol_service, "fetch_cycles_for_products", nothing)
+        db.add(EolCustomProduct(key="acme", title="Acme"))
+        await db.flush()
+        db.add(EolCustomCycle(product_key="acme", cycle="7", eol=PAST, support=False))
+        await create_card(
+            db, name="Acme", attributes={"eol_product": "custom:acme", "eol_cycle": "7"}
+        )
+        for values, expected in ((["eol"], {"Acme"}), (["unknown"], {"Dead", "Fresh"})):
+            raw = _q("Application", where={"eol_status": values})
+            prepared = await prepare_card_query(db, eol_chain, parse_card_query(raw))
+            clauses = await prepared.compile(CardReadScope.everything())
+            rows = await db.execute(select(Card.name).where(Card.status == "ACTIVE", *clauses))
+            assert set(rows.scalars().all()) == expected
+
+    async def test_prepared_without_eol_inputs_raises_for_a_status(self, db, eol_chain):
+        """A ``PreparedCardQuery`` holding a status condition but no EOL inputs
+        is a programming error: ``compile`` raises rather than dropping the
+        condition."""
+        from app.services.card_query import PreparedCardQuery
+
+        raw = _q("Application", where={"eol_status": ["eol"]})
+        groups = await resolve_card_query(db, parse_card_query(raw))
+        with pytest.raises(RuntimeError, match=EOL_UNPREPARED):
+            await PreparedCardQuery(groups).compile(CardReadScope.everything())
+
+
+class TestPrepareCardQuery:
+    async def test_a_query_without_eol_reads_nothing_more(self, db, eol_chain):
+        from app.services.card_query import prepare_card_query
+
+        prepared = await prepare_card_query(db, eol_chain, parse_card_query(_q("Application")))
+        assert prepared.eol is None
+        assert prepared.needs_release is False
+
+    async def test_an_eol_query_reads_the_pairs_first(self, db, eol_chain):
+        from app.models.eol_custom_cycle import EolCustomCycle
+        from app.models.eol_custom_product import EolCustomProduct
+        from app.services.card_query import prepare_card_query
+
+        db.add(EolCustomProduct(key="acme", title="Acme"))
+        await db.flush()
+        db.add(EolCustomCycle(product_key="acme", cycle="7", eol=PAST, support=False))
+        await create_card(
+            db, name="Acme", attributes={"eol_product": "custom:acme", "eol_cycle": "7"}
+        )
+        raw = _q("Organization", _hop(USES, "Application", where={"eol_status": ["eol"]}))
+        prepared = await prepare_card_query(db, eol_chain, parse_card_query(raw))
+        assert prepared.needs_release is True
+        assert prepared.eol is not None
+        assert prepared.eol.pairs == {("nginx", "1.0"), ("nginx", "1.3"), ("custom:acme", "7")}
+        assert list(prepared.eol.custom_cycles) == ["custom:acme"]
+        assert [c["cycle"] for c in prepared.eol.custom_cycles["custom:acme"]] == ["7"]
+
+    async def test_needs_eol_view(self, db, eol_chain):
+        from app.services.card_query import prepare_card_query
+
+        await create_role(db, key="no_eol", label="No EOL", permissions={"inventory.view": True})
+        reader = await create_user(db, email="no-eol@test.com", role="no_eol")
+        raw = _q("Application", where={"eol_status": ["eol"]})
+        with pytest.raises(CardQueryError) as exc:
+            await prepare_card_query(db, reader, parse_card_query(raw))
+        assert (exc.value.code, exc.value.status) == ("eol_view_required", 403)
+        # Without the condition the same reader is not asked for it.
+        plain = await prepare_card_query(db, reader, parse_card_query(_q("Application")))
+        assert plain.eol is None
+
+    async def test_empty_alone_reads_no_pair_and_fetches_nothing(self, db, eol_chain, monkeypatch):
+        """``__empty__`` is pure SQL: no pair read, no custom cycles, no
+        commit and no outbound fetch — and the answer is still exact."""
+        from app.services import card_query, eol_service
+        from app.services.card_query import prepare_card_query
+
+        async def refuse(*args, **kwargs):
+            raise AssertionError("an __empty__-only query must not read or fetch")
+
+        monkeypatch.setattr(eol_service, "fetch_cycles_for_products", refuse)
+        monkeypatch.setattr(card_query, "eol_pairs_for_types", refuse)
+        monkeypatch.setattr(card_query, "load_custom_cycles", refuse)
+        monkeypatch.setattr(db, "commit", refuse)
+        raw = _q("Organization", _hop(USES, "Application", where={"eol_status": ["__empty__"]}))
+        prepared = await prepare_card_query(db, eol_chain, parse_card_query(raw))
+        assert prepared.eol is None
+        assert prepared.needs_release is False
+        assert await _eol_names(db, eol_chain, raw) == {"UsesPlain"}
+        at_start = _q("Application", where={"eol_status": ["__empty__", "__empty__"]})
+        assert await _eol_names(db, eol_chain, at_start) == {"Plain"}
+
+    async def test_only_the_nodes_asking_a_status_read_pairs(self, db, eol_chain, monkeypatch):
+        from app.services import card_query
+        from app.services.card_query import prepare_card_query
+
+        asked: list[set[str]] = []
+        real = card_query.eol_pairs_for_types
+
+        async def record(db_, types):
+            asked.append(set(types))
+            return await real(db_, types)
+
+        monkeypatch.setattr(card_query, "eol_pairs_for_types", record)
+        await create_card_type(db, key="ITComponent")
+        await create_relation_type(
+            db, key="appUsesItc", source_type_key="Application", target_type_key="ITComponent"
+        )
+        raw = _q(
+            "Organization",
+            _hop(
+                USES,
+                "Application",
+                _hop("appUsesItc", "ITComponent", where={"eol_status": ["unknown"]}),
+                where={"eol_status": ["__empty__"]},
+            ),
+        )
+        prepared = await prepare_card_query(db, eol_chain, parse_card_query(raw))
+        assert asked == [{"ITComponent"}]
+        assert prepared.needs_release is True
+
+    async def test_empty_alone_still_needs_eol_view(self, db, eol_chain):
+        from app.services.card_query import prepare_card_query
+
+        await create_role(db, key="no_eol", label="No EOL", permissions={"inventory.view": True})
+        reader = await create_user(db, email="no-eol@test.com", role="no_eol")
+        raw = _q("Application", where={"eol_status": ["__empty__"]})
+        with pytest.raises(CardQueryError) as exc:
+            await prepare_card_query(db, reader, parse_card_query(raw))
+        assert (exc.value.code, exc.value.status) == ("eol_view_required", 403)
+
+    def test_a_query_error_is_a_400_by_default(self):
+        assert CardQueryError("unknown_band").status == 400

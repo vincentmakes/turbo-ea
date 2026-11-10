@@ -19,6 +19,9 @@ describe("queryProblems", () => {
     expect(problemOfError({ message: "x", detail: { code: "relation_type_conflict" } })).toBe("relationTypeConflict");
     expect(problemOfError({ message: "", detail: "unknown_phase" })).toBe("unknownPhase");
     expect(problemOfError({ message: "x", detail: { code: "invalid_show_values" } })).toBe("invalidShowValues");
+    expect(problemOfError(new Error("Value error, inventory_views_filter"))).toBe("inventoryViewsConfig");
+    expect(problemOfError(new Error("Value error, inventory_views_unknown_key"))).toBe("inventoryViewsConfig");
+    expect(problemOfError(new Error("Value error, inventory_views_query_only"))).toBe("inventoryViewsConfig");
     // A code is matched whole, never inside a longer word.
     expect(problemOfError(new Error("my_unknown_flags"))).toBeNull();
     expect(problemOfError(null)).toBeNull();

@@ -52,11 +52,11 @@ class Bookmark(Base, UUIDMixin, TimestampMixin, ProvenanceMixin):
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
     visibility: Mapped[str] = mapped_column(String(20), nullable=False, server_default="private")
     odata_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
-    # A multi-hop card query (``app/services/card_query.py``, ``CardQuery``)
-    # evaluated server-side on every open and by the OData feed. Keys only —
-    # card type, relation type, field and option keys, never a card id — so
-    # the view transfers between workspaces verbatim. Authored through the MCP
-    # server; NULL is a plain view.
+    # A multi-hop card query, or an ``all_of`` / ``any_of`` stack of them
+    # (``app/services/card_query.py``, ``CardQuerySet``), evaluated server-side
+    # on every open and by the OData feed. Metamodel keys plus tag and card
+    # ids, which a workspace transfer rewrites through its id maps
+    # (``workspace_io.remap.rewrite_card_query_ids``). NULL is a plain view.
     query: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     shared_with_users = relationship("User", secondary=bookmark_shares, lazy="noload")

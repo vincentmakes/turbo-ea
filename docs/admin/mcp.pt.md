@@ -328,16 +328,30 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
               subtype?: [subtype key],
               approval_status?: [status],
               data_quality_band?: [complete | partial | minimal],
+              eol_status?: [eol | approaching | supported | unknown | __empty__],
               attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] },
               tags?: [tag id],
               cards?: [card id],
               include_descendants?: true|false }
 ```
 
+As consultas também podem ser **empilhadas**, de modo que uma visualização combine várias consultas completas:
+
+```text
+Query = CardQuery | { all_of: [CardQuery, …] } | { any_of: [Group, …] }
+Group = CardQuery | { all_of: [CardQuery, …] }
+```
+
+- `all_of` (**E**): um card só é listado quando corresponde a todas as consultas da lista. Todas partem do mesmo tipo de card (caso contrário, `all_of_type_mismatch`), e são necessárias pelo menos duas (`all_of_needs_two`).
+- `any_of` (**OU**): um card é listado quando corresponde a qualquer um dos grupos, cada um uma consulta simples ou um `all_of`. São necessários pelo menos dois grupos (`any_of_needs_two`). Os grupos podem partir de tipos de card diferentes, então **uma visualização pode listar vários tipos de card**; uma visualização assim abre com todos eles, e a grade mostra as colunas que têm em comum.
+- Um `any_of` não pode ficar dentro de outro `any_of` nem de um `all_of`, e um `all_of` contém apenas consultas simples (`invalid_query`).
+- As consultas de um `all_of` encontram-se apenas no card inicial: «usa um Componente de TI em descontinuação» E «é afetada por uma Iniciativa» podem ser dois cards relacionados diferentes. Para exigir duas coisas do **mesmo** card relacionado, coloque os dois saltos numa só linha, lado a lado abaixo dela.
+
 - Um salto corresponde quando **qualquer** card relacionado desse tipo atende ao seu `where` (e aos seus próprios saltos aninhados). `negate: true` o transforma em «**não** tem nenhum card assim».
 - Saltos lado a lado no mesmo nível devem corresponder todos (E); os valores dentro de uma lista são alternativas (OU).
 - `<key>__out` e `<key>__in` escolhem um lado de um tipo de relação que liga um tipo de card a ele mesmo (o card é a origem ou o destino). Caso contrário, basta a chave simples.
 - `data_quality_band` faz corresponder a pontuação de qualidade dos dados de um card por faixa, como o filtro Qualidade dos dados do inventário: `complete` (80 ou mais), `partial` (de 40 inclusive até 80 exclusive) ou `minimal` (abaixo de 40). Qualquer outro valor é recusado com `unknown_band`.
+- `eol_status` corresponde ao estado de fim de vida de um card tal como a coluna Fim de vida do inventário o mostra, calculado a partir do endoflife.date ou de um produto EOL personalizado: `eol`, `approaching`, `supported`, `unknown`, ou `__empty__` para um card sem ligação EOL e sem fim de vida manual. Qualquer outro valor é recusado com `unknown_eol_status`, e um tipo de card que não acompanha o fim de vida com `eol_not_tracked`. Uma condição destas exige a permissão para ver os dados de EOL: guardar, pré-visualizar e abrir uma visualização que contenha uma são recusados sem ela (`eol_view_required`), tal como executar a consulta.
 - `tags` recebe ids de tag de `list_tag_groups`, agrupados por grupo de tags: um card deve ter pelo menos uma das tags listadas de **cada** grupo citado (alternativas dentro de um grupo, E entre grupos). Uma tag cujo grupo não se aplica ao tipo de card desse salto é recusada com `tag_not_for_type`; um id desconhecido, com `unknown_tag`.
 - `cards` fixa esse nó nos cards listados (alternativas): obtenha os ids em `search_cards` ou `resolve_card_refs`. Cada um deve ser um card do tipo próprio do nó. Executar uma consulta não verifica as escolhas: um id que não nomeia nenhum card, um card de outro tipo ou um card que o usuário não pode ler simplesmente não corresponde a nada. Salvar uma visualização as verifica e recusa uma escolha assim com `unknown_card`. Um card arquivado não corresponde a nada em um salto. `include_descendants: true` amplia cada escolha a todos os cards abaixo dela pelo vínculo de pai (subcapacidades, organizações filhas); definido sem `cards`, é recusado com `descendants_without_cards`, e em um tipo de card sem hierarquia com `descendants_without_hierarchy`. Um id de card ou de tag em qualquer outro lugar da consulta é recusado com `query_holds_an_id`.
 - Os cards relacionados só contam se estiverem ativos e o usuário puder lê-los: um card que o usuário não pode ver interrompe a cadeia, exatamente como na interface web. Ao salvar uma visualização, quem escreve não pode fixar um card oculto para si (`unknown_card`); um colaborador que edita uma visualização compartilhada com ele mantém as escolhas que ela já contém, mesmo as que não pode ler. Um leitor que abre uma visualização cujas escolhas incluem um card oculto para ele não é recusado: as escolhas ocultas simplesmente não correspondem a nada.
@@ -364,11 +378,44 @@ Exemplo — Organizações que usam uma Aplicação ativa afetada por uma Inicia
 }
 ```
 
-No inventário, uma visualização salva dessa forma mostra a sua cadeia como um caminho legível acima da grade com uma nota de que foi criada via MCP. A sua consulta pode ser alterada no inventário (o lápis na faixa do caminho) ou por `save_inventory_view` (passe o id da visualização obtido em `list_inventory_views` como `view_id`; a atualização substitui o nome e a consulta, altera a visibilidade e as colunas apenas quando informadas e mantém o agrupamento e o layout definidos na interface web — a menos que a nova consulta parta de outro tipo de card, o que redefine os filtros e o agrupamento da visualização, pois pertenciam ao tipo anterior; uma visualização que você não pode editar é recusada com `view_not_found` ou `view_not_editable`; uma alteração de visibilidade que você não pode fazer (só o proprietário pode alterá-la, e pública ou compartilhada exige `bookmarks.share`) é recusada com `visibility_not_allowed`); na interface web, o seu proprietário também pode renomeá-la, alterar o compartilhamento e a configuração OData, ajustar o layout de colunas ou excluí-la.
+Exemplo — Aplicações ativas em tecnologia envelhecida afetadas por uma Iniciativa, **ou** as Organizações que usam uma Aplicação (uma visualização que lista dois tipos de card):
+
+```json
+{
+  "any_of": [
+    {
+      "all_of": [
+        {
+          "type": "Application",
+          "where": { "lifecycle_phase": ["active"] },
+          "related": [
+            {
+              "relation": "relAppToITC",
+              "type": "ITComponent",
+              "where": { "lifecycle_phase": ["phaseOut", "endOfLife"] }
+            }
+          ]
+        },
+        {
+          "type": "Application",
+          "related": [{ "relation": "relInitiativeToApp", "type": "Initiative" }]
+        }
+      ]
+    },
+    {
+      "type": "Organization",
+      "related": [{ "relation": "relOrgToApp", "type": "Application" }]
+    }
+  ]
+}
+```
+
+No inventário, uma visualização salva dessa forma mostra a sua cadeia como um caminho legível acima da grade com uma nota de que foi criada via MCP. A sua consulta pode ser alterada no inventário (o lápis na faixa do caminho) ou por `save_inventory_view` (passe o id da visualização obtido em `list_inventory_views` como `view_id`; a atualização substitui o nome e a consulta, altera a visibilidade e as colunas apenas quando informadas e mantém o agrupamento e o layout definidos na interface web — a menos que a nova consulta parta de outros tipos de card, o que redefine os filtros e o agrupamento da visualização, pois pertenciam aos anteriores; uma visualização que você não pode editar é recusada com `view_not_found` ou `view_not_editable`; uma alteração de visibilidade que você não pode fazer (só o proprietário pode alterá-la, e pública ou compartilhada exige `bookmarks.share`) é recusada com `visibility_not_allowed`); na interface web, o seu proprietário também pode renomeá-la, alterar o compartilhamento e a configuração OData, ajustar o layout de colunas ou excluí-la.
 
 Limitações:
 
-- No máximo **3 níveis** de `related`, no máximo 10 saltos lado a lado em um nível e no máximo **12 saltos em toda a consulta** (lado a lado e aninhados em conjunto). Uma consulta mais longa é recusada com `too_many_hops`.
+- No máximo **6 consultas** numa pilha (`too_many_lines`); as consultas de um `all_of` partilham um só tipo de card inicial, enquanto os grupos de um `any_of` podem listar vários.
+- No máximo **3 níveis** de `related` em cada consulta, no máximo 10 saltos lado a lado em um nível e no máximo **12 saltos em toda a consulta** (lado a lado, aninhados e em todas as consultas de uma pilha em conjunto). Uma consulta mais longa é recusada com `too_many_hops`.
 - No máximo **50** cards escolhidos por condição.
 - Um atributo de texto corresponde ao seu valor **exatamente** — não há correspondência parcial nem sem distinção de maiúsculas e minúsculas.
 - **`rollback_batch` não pode desfazer uma visualização salva.** Salvar uma visualização registra um lote de mutações, mas não publica nenhum evento que a reversão possa desfazer; exclua uma visualização indesejada em Visualizações salvas do inventário.
