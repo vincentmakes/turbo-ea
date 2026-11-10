@@ -123,7 +123,7 @@ const RELATIONS = [
   },
 ];
 
-function mount(relationTypes: RelationType[]) {
+function mount(relationTypes: RelationType[], isSource?: boolean) {
   const onRelationsChanged = vi.fn();
   render(
     <RelationCellPopover
@@ -132,6 +132,7 @@ function mount(relationTypes: RelationType[]) {
       cardId={ORG_ID}
       cardName="Finance"
       relationTypes={relationTypes}
+      isSource={isSource}
       selectedType="Organization"
       onRelationsChanged={onRelationsChanged}
     />,
@@ -287,6 +288,38 @@ describe("RelationCellPopover — self-referencing relation type", () => {
     expect(text.indexOf("has site")).toBeLessThan(text.indexOf("INCHN"));
     expect(text.indexOf("INCHN")).toBeLessThan(text.indexOf("is site of"));
     expect(text.indexOf("is site of")).toBeLessThan(text.indexOf("Palfinger Group"));
+  });
+
+  it("opens only the incoming section from the incoming column, titled by its verb", async () => {
+    mount([HAS_SITE], false);
+    expect(await screen.findByText("Palfinger Group")).toBeInTheDocument();
+    // The outgoing row belongs to the other column.
+    expect(screen.queryByText("INCHN")).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("card-picker")).toHaveLength(1);
+    // One section, so the verb moves into the title and no section heading repeats it.
+    const title = screen.getByRole("heading", { name: /Finance/ });
+    expect(title).toHaveTextContent("is site of →");
+    expect(title).not.toHaveTextContent("has site");
+    expect(document.body.textContent?.match(/is site of/g)).toHaveLength(1);
+
+    await userEvent.click(screen.getByTestId("card-picker"));
+    await userEvent.click(screen.getByRole("button", { name: /^Add$/ }));
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    expect(api.post).toHaveBeenCalledWith("/relations", {
+      type: "orgToOrg",
+      source_id: "app-new",
+      target_id: ORG_ID,
+    });
+  });
+
+  it("opens only the outgoing section from the outgoing column", async () => {
+    mount([HAS_SITE], true);
+    expect(await screen.findByText("INCHN")).toBeInTheDocument();
+    expect(screen.queryByText("Palfinger Group")).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("card-picker")).toHaveLength(1);
+    const title = screen.getByRole("heading", { name: /Finance/ });
+    expect(title).toHaveTextContent("has site →");
+    expect(title).not.toHaveTextContent("is site of");
   });
 
   it("creates an INCOMING relation from the second section", async () => {

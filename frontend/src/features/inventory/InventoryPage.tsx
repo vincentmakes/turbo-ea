@@ -115,6 +115,16 @@ import { exportToExcel, exportCurrentViewToExcel } from "./excelExport";
 import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
 import { booleanColumnDef } from "./booleanColumn";
 import RelationCellPopover from "./RelationCellPopover";
+import {
+  migrateLegacyRelationColumnIds,
+  migrateLegacyRelationColumnState,
+  migrateLegacyRelationFilterModel,
+  migrateLegacyRelationSortModel,
+  relationColumnSides,
+  relationSideLabel,
+  relationSideOfColumn,
+  type RelationColumnSide,
+} from "./relationColumns";
 import ExtFieldCell from "./ExtFieldCell";
 import LinkifiedText from "@/components/LinkifiedText";
 import MuiLink from "@mui/material/Link";
@@ -582,7 +592,7 @@ const CHIP_CELL_MAX = 3;
  *
  *   core_name    → the row's own card
  *   core_parent  → its immediate parent
- *   rel_<type>   → every related card behind the cell
+ *   rel_<side>   → every related card behind the cell (one relation-type side)
  *   via:<node>   → the matched cards the cell lists (a query view's step)
  *
  * Every other column names none: `core_path` is a joined ancestor chain rather
@@ -598,7 +608,10 @@ const CHIP_CELL_MAX = 3;
 export function inventoryPreviewTargets(
   ctx: CellMenuContext<InventoryRow>,
   deps: {
-    relatedRefsOf: (cardId: string | undefined, otherTypeKey: string) => RelatedCardRef[];
+    /** The grid's relation columns; a `rel_` id outside them names no card. */
+    relationSides: RelationColumnSide[];
+    /** The cards on one relation-type side (`sideKey`) of a card. */
+    relatedRefsOnSide: (cardId: string | undefined, sideKey: string) => RelatedCardRef[];
     /** Metamodel lookup — a row wears its card type's icon and colour. */
     typeGlyph: (typeKey: string) => { icon?: string; color?: string };
     locale: string;
@@ -625,11 +638,11 @@ export function inventoryPreviewTargets(
     if (!card.parent_id || !ctx.displayValue) return [];
     return [target(card.parent_id, ctx.displayValue, card.type)];
   }
-  if (ctx.colId.startsWith("rel_")) {
-    const otherTypeKey = ctx.colId.slice("rel_".length);
+  const side = relationSideOfColumn(ctx.colId, deps.relationSides);
+  if (side) {
     const seen = new Set<string>();
     const unique: RelatedCardRef[] = [];
-    for (const ref of deps.relatedRefsOf(card.id, otherTypeKey)) {
+    for (const ref of deps.relatedRefsOnSide(card.id, side.sideKey)) {
       if (seen.has(ref.id)) continue;
       seen.add(ref.id);
       unique.push(ref);
@@ -637,7 +650,7 @@ export function inventoryPreviewTargets(
     return unique
       .sort((a, b) => a.name.localeCompare(b.name, deps.locale, { sensitivity: "base" }))
       .slice(0, MAX_SPLIT_VALUES)
-      .map((ref) => target(ref.id, ref.name, ref.type || otherTypeKey));
+      .map((ref) => target(ref.id, ref.name, ref.type || side.otherTypeKey));
   }
   if (isViaColumnId(ctx.colId)) {
     // Already distinct and in the cell's order (by name, then id).
@@ -1621,9 +1634,10 @@ export default function InventoryPage() {
   const [relEditOpen, setRelEditOpen] = useState(false);
   const [relEditFsId, setRelEditFsId] = useState("");
   const [relEditFsName, setRelEditFsName] = useState("");
-  // Every relation type the clicked column stands for — a column is keyed by the
-  // related card type, and several relation types may share that pair.
+  // The relation type behind the clicked column (a column is one relation-type
+  // side), and that side (`relEditIsSource`), so the dialog edits it alone.
   const [relEditRelTypes, setRelEditRelTypes] = useState<RelationType[]>([]);
+  const [relEditIsSource, setRelEditIsSource] = useState<boolean | undefined>(undefined);
 
   // Exactly one faceted type drives the per-type affordances below.
   const facetedType = filters.types.length === 1 ? filters.types[0] : "";
@@ -1891,23 +1905,70 @@ export default function InventoryPage() {
     );
   }, [selectedType, relationTypes, visibleTypeKeys]);
 
-  // One grid column per *related card type*, so relation types sharing a pair
-  // collapse to a single column here. The cell merges their data (`relatedRefsOf`)
-  // and the editor opens a section per type (`relTypeObjGroupMap`) — the column is
-  // the union, never just the first type.
-  const relevantRelTypes = useMemo(() => {
-    const seenOtherKeys = new Set<string>();
-    return allRelevantRelTypes.filter((rt) => {
-      const otherKey =
-        rt.source_type_key === selectedType ? rt.target_type_key : rt.source_type_key;
-      if (seenOtherKeys.has(otherKey)) return false;
-      seenOtherKeys.add(otherKey);
-      return true;
+  // One grid column per relation-type SIDE (`rel_<sideKey>`), headed
+  // "<verb> <Card type>": two relation types on one card-type pair are two
+  // columns, and a self-referencing type is an outgoing and an incoming one.
+  // Same-target columns sit together. The grid, the default column set and the
+  // sidebar's Columns tab all read this one list.
+  const relationSides = useMemo(
+    () => relationColumnSides(allRelevantRelTypes, selectedType),
+    [allRelevantRelTypes, selectedType],
+  );
+
+  // Layouts, column selections, column filters and sorts saved before the
+  // per-side columns (prefs and server-stored views alike) name a relation
+  // column `rel_<CardType>`, which meant "the <CardType> column" on every card
+  // type related to it. The prefs loader and both view-apply paths write these
+  // same states, so this one effect covers all three. The slices every card
+  // type shares (selection, order, freeze, widths) are translated
+  // metamodel-wide as soon as the relation types are loaded; the sort and the
+  // column filters describe the grid on screen and resolve against the
+  // selected type's own sides. Each helper hands back its input when there is
+  // nothing to translate, so the setters bail out and nothing loops.
+  useEffect(() => {
+    if (relationTypes.length === 0) return;
+    setSelectedColumns((prev) => {
+      const ids = [...prev];
+      const next = migrateLegacyRelationColumnIds(ids, relationTypes);
+      return next === ids ? prev : new Set(next);
     });
-  }, [allRelevantRelTypes, selectedType]);
+    setColumnOrder((prev) => migrateLegacyRelationColumnIds(prev, relationTypes));
+    setFrozenColumns((prev) => migrateLegacyRelationColumnIds(prev, relationTypes));
+    setSortModel((prev) => migrateLegacyRelationSortModel(prev, relationSides));
+    // The layout and filter restore effects read these refs, and they run
+    // after this effect in the same commit whenever a legacy id can arrive
+    // (the relation columns appearing, a view's `applyColumnLayout` /
+    // `applyColumnFilters` nonce), so updating the refs here is what makes
+    // the grid receive the translated state rather than the stale one.
+    const state = columnStateRef.current;
+    if (state) {
+      const nextState = migrateLegacyRelationColumnState(state, relationTypes, relationSides);
+      if (nextState !== state) {
+        columnStateRef.current = nextState;
+        setColumnState(nextState);
+      }
+    }
+    const model = columnFilterModelRef.current;
+    const nextModel = migrateLegacyRelationFilterModel(model, relationSides);
+    if (nextModel !== model) {
+      columnFilterModelRef.current = nextModel;
+      setColumnFilterModel(nextModel);
+    }
+  }, [
+    relationTypes,
+    relationSides,
+    selectedColumns,
+    columnOrder,
+    frozenColumns,
+    sortModel,
+    columnState,
+    columnFilterModel,
+  ]);
 
   // Map from other-end type key to the matching relation types (objects), and the
-  // same grouping reduced to keys (for merging fetched relation data).
+  // same grouping reduced to keys (for merging fetched relation data). This is
+  // the relation FILTER vocabulary (`rel_<CardType>=` deep links, the
+  // card-type filter key) and the fetch list — not the columns.
   const relTypeObjGroupMap = useMemo(() => {
     const map = new Map<string, RelationType[]>();
     for (const rt of allRelevantRelTypes) {
@@ -1971,16 +2032,14 @@ export default function InventoryPage() {
         cols.add(`attr_${f.key}`);
       }
     }
-    for (const rt of relevantRelTypes) {
-      const otherKey =
-        rt.source_type_key === selectedType ? rt.target_type_key : rt.source_type_key;
-      cols.add(`rel_${otherKey}`);
+    for (const side of relationSides) {
+      cols.add(side.colId);
     }
     for (const role of stakeholderRoles) {
       cols.add(`stakeholder_${role.key}`);
     }
     return cols;
-  }, [typeConfig, commonFields, relevantRelTypes, selectedType, stakeholderRoles]);
+  }, [typeConfig, commonFields, relationSides, stakeholderRoles]);
 
   // Auto-populate columns with all-checked defaults when type changes (and not yet initialized)
   useEffect(() => {
@@ -2425,13 +2484,10 @@ export default function InventoryPage() {
   }, [relTypeGroupMap]);
 
   /**
-   * Every card behind one relation cell, merged across the relation types
-   * that connect the selected type to `otherTypeKey` (a relation column is
-   * keyed by the *other end's type*, so several relation types can feed it).
-   *
-   * The cell's valueGetter and the context menu's Preview list both go
-   * through here: they used to be two separate merges, which is exactly how a
-   * cell's text and its menu drift apart.
+   * Every card related to `cardId` through any relation type that connects
+   * the selected type to `otherTypeKey`, merged — the relation FILTER's
+   * card-type vocabulary (`rel_<CardType>=` deep links). The grid's columns
+   * read one side each through `relatedRefsOnSide` instead.
    */
   const relatedRefsOf = useCallback(
     (cardId: string | undefined, otherTypeKey: string): RelatedCardRef[] => {
@@ -2444,6 +2500,18 @@ export default function InventoryPage() {
       return out;
     },
     [relTypeGroupMap, relationsMap],
+  );
+
+  /**
+   * The cards behind one relation cell: one relation-type side (`sideKey`),
+   * read from its own `relationsMap` entry. The cell's valueGetter and the
+   * context menu's Preview list both go through here, so a cell's text and
+   * its menu cannot drift apart.
+   */
+  const relatedRefsOnSide = useCallback(
+    (cardId: string | undefined, side: string): RelatedCardRef[] =>
+      (cardId && relationsMap.get(side)?.get(cardId)) || [],
+    [relationsMap],
   );
 
   // True while the relation request is in flight. Relation cells render a
@@ -2850,7 +2918,8 @@ export default function InventoryPage() {
   const previewTargets = useCallback(
     (ctx: CellMenuContext<InventoryRow>): CellPickTarget[] =>
       inventoryPreviewTargets(ctx, {
-        relatedRefsOf,
+        relationSides,
+        relatedRefsOnSide,
         typeGlyph: (typeKey) => {
           const ct = types.find((ty) => ty.key === typeKey);
           return { icon: ct?.icon, color: ct?.color };
@@ -2862,7 +2931,7 @@ export default function InventoryPage() {
           return cell && node ? { cell, typeKey: node.type } : null;
         },
       }),
-    [relatedRefsOf, types, i18n.language, viaMatches, activeViaNodes],
+    [relationSides, relatedRefsOnSide, types, i18n.language, viaMatches, activeViaNodes],
   );
 
   const cellMenu = useCellContextMenu<InventoryRow>(gridRef, {
@@ -4514,16 +4583,16 @@ export default function InventoryPage() {
       }
     }
 
-    // Add relation columns (one per other-end type, merging grouped relation types)
-    for (const rt of relevantRelTypes) {
-      const isSource = rt.source_type_key === selectedType;
-      const otherTypeKey = isSource ? rt.target_type_key : rt.source_type_key;
+    // Relation columns: one per relation-type side, headed "<verb> <Card type>".
+    for (const side of relationSides) {
+      const { rt, isSource, otherTypeKey, sideKey: relSideKey, colId: colKey } = side;
       const otherType = types.find((t) => t.key === otherTypeKey);
-      const headerName = otherType ? typeLabel(otherType) : otherTypeKey;
-      // Edit every relation type behind this column, not just the one that
-      // survived the dedup above.
-      const relTypesRef = relTypeObjGroupMap.get(otherTypeKey) ?? [rt];
-      const colKey = `rel_${otherTypeKey}`;
+      const headerName = relationSideLabel(
+        rt,
+        isSource,
+        otherType ? typeLabel(otherType) : otherTypeKey,
+        i18n.language,
+      );
 
       cols.push({
         field: colKey,
@@ -4535,7 +4604,7 @@ export default function InventoryPage() {
           // consistently and AG Grid's own sort on this column is sane. Names,
           // not ids: two related cards sharing a name read as one value here,
           // exactly as they always have.
-          [...new Set(relatedRefsOf(p.data?.id, otherTypeKey).map((r) => r.name))]
+          [...new Set(relatedRefsOnSide(p.data?.id, relSideKey).map((r) => r.name))]
             .sort((a, b) => a.localeCompare(b, i18n.language, { sensitivity: "base" }))
             .join(NAMES_SEPARATOR),
         cellRenderer: (p: { value: string; data: Card }) => {
@@ -4548,7 +4617,10 @@ export default function InventoryPage() {
                   setRelEditOpen(true);
                   setRelEditFsId(p.data.id);
                   setRelEditFsName(p.data.name);
-                  setRelEditRelTypes(relTypesRef);
+                  // This column's one relation type, and its side: a
+                  // self-pair's "in" column edits the incoming rows only.
+                  setRelEditRelTypes([rt]);
+                  setRelEditIsSource(isSource);
                 }}
                 sx={{
                   display: "flex",
@@ -4772,7 +4844,7 @@ export default function InventoryPage() {
     const out = ordered.slice();
     out.splice(at + 1, 0, ...columnFreeze.applyFrozen(viaCols));
     return out;
-  }, [viaColumnInfo, viaMatches, viaLoading, viaFailed, columnFreeze, gridColumnOrder, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeObjGroupMap, relatedRefsOf, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, i18n.language, formatDate, formatDateTime, originLabel, canViewCostsGlobally, canManageStakeholders, canEditLogos, logoColumnAvailable, openLogoMenu, tagGroups, stakeholderRoles, typeLabel, fieldHelp, roleDescription, eolColumnAvailable, eolColumnForced, eolOf, eolLoading, tReports, calculatedKeys, treeActive]);
+  }, [viaColumnInfo, viaMatches, viaLoading, viaFailed, columnFreeze, gridColumnOrder, types, typeConfig, commonFields, gridEditMode, relationSides, relatedRefsOnSide, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, i18n.language, formatDate, formatDateTime, originLabel, canViewCostsGlobally, canManageStakeholders, canEditLogos, logoColumnAvailable, openLogoMenu, tagGroups, stakeholderRoles, typeLabel, fieldHelp, roleDescription, eolColumnAvailable, eolColumnForced, eolOf, eolLoading, tReports, calculatedKeys, treeActive]);
 
   // Feeds the Columns tab's "Column order" section: only the columns actually
   // on screen, built from the grid's own defs. On this page that matters twice
@@ -5108,7 +5180,7 @@ export default function InventoryPage() {
             onToggleCollapse={() => setFilterDrawerOpen(false)}
             width={300}
             onWidthChange={() => {}}
-            relevantRelTypes={relevantRelTypes}
+            relationSides={relationSides}
             allRelevantRelTypes={allRelevantRelTypes}
             stakeholderRoles={stakeholderRoles}
             relationsMap={relationsMap}
@@ -5163,7 +5235,7 @@ export default function InventoryPage() {
           onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
           width={sidebarWidth}
           onWidthChange={setSidebarWidth}
-          relevantRelTypes={relevantRelTypes}
+          relationSides={relationSides}
           allRelevantRelTypes={allRelevantRelTypes}
           stakeholderRoles={stakeholderRoles}
           relationsMap={relationsMap}
@@ -5877,10 +5949,11 @@ export default function InventoryPage() {
       {relEditRelTypes.length > 0 && (
         <RelationCellPopover
           open={relEditOpen}
-          onClose={() => { setRelEditOpen(false); setRelEditFsId(""); setRelEditFsName(""); setRelEditRelTypes([]); }}
+          onClose={() => { setRelEditOpen(false); setRelEditFsId(""); setRelEditFsName(""); setRelEditRelTypes([]); setRelEditIsSource(undefined); }}
           cardId={relEditFsId}
           cardName={relEditFsName}
           relationTypes={relEditRelTypes}
+          isSource={relEditIsSource}
           selectedType={selectedType}
           onRelationsChanged={handleRelationsChanged}
         />

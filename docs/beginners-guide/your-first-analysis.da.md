@@ -12,7 +12,7 @@ Den enkelt mest værdifulde relation i hele metamodellen er **Applikation → Fo
 ### Massevej: redigeringstilstand i lageret
 
 1. Gå til **Lager**, filtrér efter Type = `Application`.
-2. Sørg for, at relationskolonnen **Forretningskompetence** er synlig (fanen Kolonner → Relationer).
+2. Sørg for, at relationskolonnen **understøtter Forretningskompetence** er synlig (fanen Kolonner → Relationer).
 3. Slå **Gitterredigering**-tilstand til i værktøjslinjen.
 4. Klik på kompetencecellen på hver række, og vælg en eller flere kompetencer. Hver ændring gemmes, så snart du foretager den.
 

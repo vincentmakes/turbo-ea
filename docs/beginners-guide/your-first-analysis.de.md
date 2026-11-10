@@ -12,7 +12,7 @@ Die wertvollste Einzelbeziehung im gesamten Metamodell ist **Application → Bus
 ### Massen-Pfad: Inventar-Bearbeitungsmodus
 
 1. Gehen Sie zu **Inventar**, filtern Sie nach Type = `Application`.
-2. Stellen Sie sicher, dass die Beziehungsspalte **Business Capability** sichtbar ist (Tab Columns → Relations).
+2. Stellen Sie sicher, dass die Beziehungsspalte **unterstützt Geschäftsfähigkeit** sichtbar ist (Tab Columns → Relations).
 3. Schalten Sie den Modus **Grid Edit** in der Symbolleiste um.
 4. Klicken Sie in jeder Zeile auf die Capability-Zelle und wählen Sie eine oder mehrere Capabilities aus. Jede Änderung wird sofort gespeichert.
 

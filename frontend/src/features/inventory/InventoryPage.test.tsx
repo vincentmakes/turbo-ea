@@ -14,6 +14,8 @@ import InventoryPage, {
 import { invalidateCalculatedFields } from "@/hooks/useCalculatedFields";
 import { MAX_SPLIT_VALUES } from "@/components/grid/useCellContextMenu";
 import type { RelatedCardRef } from "@/types";
+import { makeRelationType } from "@/test/fixtures/metamodel";
+import { relationColumnSides } from "./relationColumns";
 import MultiSelectCellEditor from "./MultiSelectCellEditor";
 import { CORE_COLUMN_KEYS, EMPTY_VALUE, type Filters } from "./InventoryFilterSidebar";
 
@@ -1434,15 +1436,16 @@ describe("InventoryPage cell context menu — Preview", () => {
   }
 
   it("previews the related card a relation cell names", async () => {
-    renderInventory("/inventory?type=Application&col=rel_ITComponent");
+    renderInventory("/inventory?type=Application");
     await waitFor(() => expect(screen.getByTestId("ag-grid")).toBeInTheDocument());
     // Wait for the relations to reach state — until they do the cell names
-    // nothing and there is legitimately no Preview to offer.
+    // nothing and there is legitimately no Preview to offer. The column is
+    // the relation type's side (`rel_<key>`), not the related card type.
     await waitFor(async () =>
-      expect(await cellText("rel_ITComponent")).toBe("PostgreSQL; Redis"),
+      expect(await cellText("rel_app_to_itc__out")).toBe("PostgreSQL; Redis"),
     );
 
-    const menu = await rightClick("rel_ITComponent");
+    const menu = await rightClick("rel_app_to_itc__out");
     await userEvent.click(menu.getByText("Preview card"));
 
     // Two related cards, so a pick stage — listed alphabetically, matching
@@ -1524,7 +1527,7 @@ describe("splitInventoryCellValues", () => {
     ]);
     expect(
       splitInventoryCellValues(
-        ctx({ colId: "rel_ITComponent", displayValue: "PostgreSQL; Redis" }),
+        ctx({ colId: "rel_relAppToITC__out", displayValue: "PostgreSQL; Redis" }),
       ),
     ).toEqual([
       { label: "PostgreSQL", filter: "PostgreSQL" },
@@ -1570,8 +1573,29 @@ describe("inventoryPreviewTargets", () => {
   /** Every type resolves to a distinguishable glyph so icon/colour is asserted. */
   const typeGlyph = (typeKey: string) => ({ icon: `icon-${typeKey}`, color: "#123456" });
 
-  const deps = (refs: RelatedCardRef[] = []) => ({
-    relatedRefsOf: () => refs,
+  /** Two columns: Application → IT Component, and an Application self-pair's in side. */
+  const SIDES = relationColumnSides(
+    [
+      makeRelationType({
+        key: "relAppToITC",
+        source_type_key: "Application",
+        target_type_key: "ITComponent",
+      }),
+      makeRelationType({
+        key: "relAppToApp",
+        source_type_key: "Application",
+        target_type_key: "Application",
+      }),
+    ],
+    "Application",
+  );
+
+  const deps = (refs: RelatedCardRef[] = [], onSide?: (sideKey: string) => void) => ({
+    relationSides: SIDES,
+    relatedRefsOnSide: (_cardId: string | undefined, sideKey: string) => {
+      onSide?.(sideKey);
+      return refs;
+    },
     typeGlyph,
     locale: "en",
   });
@@ -1609,22 +1633,52 @@ describe("inventoryPreviewTargets", () => {
   });
 
   it("sorts related cards by name, matching the order the cell text lists them", () => {
+    const asked: string[] = [];
     const targets = inventoryPreviewTargets(
-      ctx({ colId: "rel_ITComponent", displayValue: "PostgreSQL; Redis" }),
-      deps([
-        { id: "c-redis", name: "Redis", type: "ITComponent" },
-        { id: "c-pg", name: "PostgreSQL", type: "ITComponent" },
-      ]),
+      ctx({ colId: "rel_relAppToITC__out", displayValue: "PostgreSQL; Redis" }),
+      deps(
+        [
+          { id: "c-redis", name: "Redis", type: "ITComponent" },
+          { id: "c-pg", name: "PostgreSQL", type: "ITComponent" },
+        ],
+        (key) => asked.push(key),
+      ),
     );
     expect(targets.map((t) => t.label)).toEqual(["PostgreSQL", "Redis"]);
     expect(targets[0]).toMatchObject({ key: "c-pg", icon: "icon-ITComponent" });
+    // The column's own side, nothing merged in.
+    expect(asked).toEqual(["relAppToITC"]);
   });
 
-  it("dedupes by id across merged relation types, but keeps two same-named cards", () => {
+  it("reads one side of a self-referencing type, glyphing a typeless ref by the side's other type", () => {
+    const asked: string[] = [];
     const targets = inventoryPreviewTargets(
-      ctx({ colId: "rel_Application" }),
-      // The same card reached through two relation types, plus a genuinely
-      // different card that happens to share a name.
+      ctx({ colId: "rel_relAppToApp__in" }),
+      deps([{ id: "c-9", name: "Billing", type: "" }], (key) => asked.push(key)),
+    );
+    expect(asked).toEqual(["relAppToApp__in"]);
+    expect(targets).toEqual([
+      { key: "c-9", label: "Billing", icon: "icon-Application", color: "#123456" },
+    ]);
+  });
+
+  it("names no card on a legacy per-card-type id or an unknown relation column", () => {
+    const asked: string[] = [];
+    const refs = [{ id: "c-1", name: "Payments", type: "Application" }];
+    // The other end's column of a relation on screen is not one of this grid's.
+    for (const colId of ["rel_ITComponent", "rel_relGone", "rel_relAppToITC__in"]) {
+      expect(
+        inventoryPreviewTargets(ctx({ colId }), deps(refs, (key) => asked.push(key))),
+      ).toEqual([]);
+    }
+    expect(asked).toEqual([]);
+  });
+
+  it("dedupes by id, but keeps two same-named cards", () => {
+    const targets = inventoryPreviewTargets(
+      ctx({ colId: "rel_relAppToApp__out" }),
+      // The same card listed twice, plus a genuinely different card that
+      // happens to share a name.
       deps([
         { id: "c-1", name: "Payments", type: "Application" },
         { id: "c-1", name: "Payments", type: "Application" },
@@ -1641,7 +1695,7 @@ describe("inventoryPreviewTargets", () => {
       name: `Card ${String(MAX_SPLIT_VALUES + 4 - i).padStart(2, "0")}`,
       type: "Application",
     }));
-    const targets = inventoryPreviewTargets(ctx({ colId: "rel_Application" }), deps(refs));
+    const targets = inventoryPreviewTargets(ctx({ colId: "rel_relAppToApp__out" }), deps(refs));
     expect(targets).toHaveLength(MAX_SPLIT_VALUES);
     expect(targets[0].label).toBe("Card 01");
   });

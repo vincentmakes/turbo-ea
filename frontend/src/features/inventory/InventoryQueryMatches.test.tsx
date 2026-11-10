@@ -587,7 +587,7 @@ describe("matched-cards requests", () => {
     await waitFor(() => expect(gridStub.colDef("core_name").editable).toBe(true));
     render(
       <MemoryRouter>
-        {gridStub.colDef("rel_ITComponent").cellRenderer({ value: "", data: CRM })}
+        {gridStub.colDef("rel_relAppToITC__out").cellRenderer({ value: "", data: CRM })}
       </MemoryRouter>,
     );
     await user.click(screen.getByText("Click to edit"));
@@ -905,7 +905,8 @@ describe("via: in the cell dispatches", () => {
 
   it("previews the matched cards in the step's type", () => {
     const deps = {
-      relatedRefsOf: () => [],
+      relationSides: [],
+      relatedRefsOnSide: () => [],
       typeGlyph: (typeKey: string) => ({ icon: `${typeKey}-icon`, color: "c" }),
       locale: "en",
       viaCellOf: (cardId: string, key: string) =>

@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.198.0] - 2026-11-10
+
+### Changed
+- Inventory relation columns are now one per relationship, headed by its verb and card type (*uses IT Component*), so two relation types between the same card types, or the two directions of a self-referencing one, each get their own column; saved views and layouts keep their relation columns.
+
 ## [2.197.0] - 2026-11-10
 
 ### Added

@@ -12,7 +12,7 @@ The single most valuable relation in the entire metamodel is **Application → B
 ### Bulk path: inventory edit mode
 
 1. Go to **Inventory**, filter by Type = `Application`.
-2. Make sure the relation column **Business Capability** is visible (Columns tab → Relations).
+2. Make sure the relation column **supports Business Capability** is visible (Columns tab → Relations).
 3. Toggle **Grid Edit** mode in the toolbar.
 4. Click the capability cell on each row and pick one or more capabilities. Each change is saved as soon as you make it.
 

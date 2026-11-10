@@ -12,7 +12,7 @@ La relation la plus précieuse de tout le métamodèle est **Application → Cap
 ### Chemin en masse : mode édition de l'inventaire
 
 1. Allez dans **Inventaire**, filtrez par Type = `Application`.
-2. Assurez-vous que la colonne de relation **Capacité métier** est visible (onglet Colonnes → Relations).
+2. Assurez-vous que la colonne de relation **prend en charge Capacité métier** est visible (onglet Colonnes → Relations).
 3. Activez le mode **Grid Edit** dans la barre d'outils.
 4. Cliquez sur la cellule de capacité de chaque ligne et choisissez une ou plusieurs capacités. Chaque modification est enregistrée dès que vous la faites.
 
