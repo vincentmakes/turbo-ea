@@ -18,6 +18,7 @@ import {
   sendableQuerySet,
   setProblem,
   startTypes,
+  startFiltersOnEol,
   updateLine,
 } from "./querySet";
 
@@ -335,5 +336,27 @@ describe("isSetLevelProblem", () => {
     expect(isSetLevelProblem("empty_type")).toBe(false);
     expect(isSetLevelProblem("empty_values")).toBe(false);
     expect(isSetLevelProblem(null)).toBe(false);
+  });
+});
+
+describe("startFiltersOnEol", () => {
+  const eolApp: CardQuery = { type: "Application", where: { eol_status: ["eol"] } };
+
+  it("is true when a line's start card filters on end-of-life status", () => {
+    expect(startFiltersOnEol(eolApp)).toBe(true);
+    expect(startFiltersOnEol({ any_of: [{ type: "Organization" }, eolApp] })).toBe(true);
+    expect(startFiltersOnEol({ all_of: [{ type: "Application" }, eolApp] })).toBe(true);
+  });
+
+  it("is false for a condition on a hop, another condition, an empty list or no query", () => {
+    const atHop: CardQuery = {
+      type: "Organization",
+      related: [{ relation: "r", type: "Application", where: { eol_status: ["eol"] } }],
+    };
+    expect(startFiltersOnEol(atHop)).toBe(false);
+    expect(startFiltersOnEol({ type: "Application", where: { lifecycle_phase: ["active"] } })).toBe(false);
+    expect(startFiltersOnEol({ type: "Application", where: { eol_status: [] } })).toBe(false);
+    expect(startFiltersOnEol(null)).toBe(false);
+    expect(startFiltersOnEol(undefined)).toBe(false);
   });
 });

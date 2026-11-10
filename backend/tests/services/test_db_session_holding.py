@@ -216,6 +216,40 @@ def test_eol_card_status_releases_the_request_session_first():
 
 
 @pytest.mark.source_scan
+@pytest.mark.parametrize(
+    ("module", "func"),
+    [("app/api/v1/cards.py", "list_cards"), ("app/api/v1/bookmarks.py", "bookmark_odata_feed")],
+)
+def test_an_eol_card_query_releases_the_request_session_first(module, func):
+    """``GET /cards?query=`` and the OData feed evaluate a card query, and a
+    ``where.eol_status`` condition fetches cycles from endoflife.date while
+    compiling (``PreparedCardQuery.compile``). Every database read it needs
+    happens in ``prepare_card_query``; the route must commit between the two,
+    or the inventory would pin a connection per open view for an upstream
+    round-trip. ``tests/api/test_cards.py::TestQueryParam::test_eol_status``
+    checks the same at runtime."""
+    body = _function_source(module, func)
+    prepare_at = body.find("await prepare_card_query(")
+    compile_at = body.find("await prepared.compile(")
+    assert -1 < prepare_at < compile_at, f"{func} must prepare, then compile the query"
+    commit_at = body.rfind("await db.commit()", 0, compile_at)
+    assert commit_at > prepare_at, (
+        f"{func} must `await db.commit()` between prepare_card_query and "
+        "prepared.compile — the compile fetches from endoflife.date, and get_db "
+        "would otherwise pin the connection for the whole round-trip."
+    )
+
+
+@pytest.mark.source_scan
+@pytest.mark.parametrize("module", ["app/services/card_query.py", "app/services/eol_query.py"])
+def test_the_card_query_helpers_never_commit(module):
+    """``prepare_card_query`` and the EOL helpers are handed the route's
+    session: the route commits, they never do."""
+    assert "commit()" not in _source(module)
+    assert "rollback()" not in _source(module)
+
+
+@pytest.mark.source_scan
 def test_audit_log_export_builds_the_csv_off_the_loop_after_the_commit():
     """``GET /admin/audit-log/export`` renders up to 50k rows as CSV.
 

@@ -340,6 +340,38 @@ describe("QueryPathStrip — view mode", () => {
     expect(screen.queryByTestId("query-path-hop")).not.toBeInTheDocument();
   });
 
+  it("labels an EOL status condition, (empty) by the facet's label and an unknown value raw", () => {
+    const view: ActiveQuery = {
+      ...VIEW,
+      query: {
+        type: "Application",
+        where: { eol_status: ["eol", "approaching", "__empty__", "missing"] },
+        related: [
+          { relation: "relAppToApp", type: "Application", where: { eol_status: ["supported", "unknown"] } },
+        ],
+      },
+    };
+    render(<QueryPathStrip view={view} onLeave={() => {}} />);
+    expect(
+      screen.getByText("End of life: End of Life, Approaching EOL, (empty), missing"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("End of life: Supported, Unknown")).toBeInTheDocument();
+  });
+
+  it("reads out a refused query under the lines, by its code", () => {
+    const view: ActiveQuery = {
+      ...VIEW,
+      query: { type: "Application", where: { eol_status: ["eol"] } },
+    };
+    const { rerender } = render(<QueryPathStrip view={view} onLeave={() => {}} />);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    rerender(<QueryPathStrip view={view} onLeave={() => {}} queryError="eol_view_required" />);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "This view filters on end-of-life status, which your role cannot see.",
+    );
+    expect(screen.getByRole("alert")).toHaveAttribute("data-testid", "query-path-error");
+  });
+
   it("shows tags as one chip per group, and an unknown tag as such", () => {
     const view: ActiveQuery = {
       ...VIEW,
@@ -640,6 +672,83 @@ describe("QueryPathStrip — edit mode", () => {
     fireEvent.click(screen.getByText("Business Criticality: Mission critical"));
     chooseOption("Nice to have");
     expect(last().query.where).toEqual({ attributes: { criticality: ["high", "low"] } });
+  });
+
+  it("offers End of life after Data Quality on a type that tracks it, with eol.view", () => {
+    const { last } = renderEditor({ query: { type: "Application" }, viewId: null }, { canViewEol: true });
+    fireEvent.click(screen.getByTestId("query-path-add-condition"));
+    expect(menuLabels()).toEqual([
+      "Specific cards",
+      "Lifecycle",
+      "Approval Status",
+      "Data Quality",
+      "End of life",
+      "Tags",
+      "Business Criticality",
+      "Cloud hosted",
+    ]);
+    pick("End of life");
+    expect(last().query.where).toEqual({ eol_status: [] });
+    expect(screen.getByTestId("query-path-save")).toBeDisabled();
+    chooseOption("Approaching EOL");
+    chooseOption("(empty)");
+    expect(last().query.where).toEqual({ eol_status: ["approaching", "__empty__"] });
+    expect(screen.getByText("End of life: Approaching EOL, (empty)")).toBeInTheDocument();
+    expect(screen.getByTestId("query-path-save")).toBeEnabled();
+    fireEvent.keyDown(screen.getByTestId("query-condition-popover"), { key: "Escape" });
+    fireEvent.click(screen.getByTestId("query-path-add-condition"));
+    expect(menuLabels()).not.toContain("End of life");
+  });
+
+  it("does not offer End of life without eol.view", () => {
+    renderEditor({ query: { type: "Application" }, viewId: null });
+    fireEvent.click(screen.getByTestId("query-path-add-condition"));
+    expect(menuLabels()).not.toContain("End of life");
+    expect(menuLabels()).toContain("Data Quality");
+  });
+
+  it("offers End of life only where the type's End of Life section is shown", () => {
+    withMetamodel(
+      [
+        { ...APP, section_config: { eol: { hidden: true } } },
+        { ...ORG, section_config: { eol: { hidden: false } } },
+        INIT,
+      ],
+      [REL_ORG_TO_APP, REL_INIT_TO_APP],
+    );
+    const { unmount } = renderEditor(
+      { query: { type: "Application" }, viewId: null },
+      { canViewEol: true },
+    );
+    fireEvent.click(screen.getByTestId("query-path-add-condition"));
+    expect(menuLabels()).not.toContain("End of life");
+    unmount();
+
+    renderEditor({ query: { type: "Organization" }, viewId: null }, { canViewEol: true });
+    fireEvent.click(screen.getByTestId("query-path-add-condition"));
+    expect(menuLabels()).toContain("End of life");
+  });
+
+  it("does not offer End of life on a type that does not track it by default", () => {
+    renderEditor({ query: { type: "Initiative" }, viewId: null }, { canViewEol: true });
+    fireEvent.click(screen.getByTestId("query-path-add-condition"));
+    expect(menuLabels()).not.toContain("End of life");
+  });
+
+  it("shows a refused query in edit mode, a refused save first", () => {
+    const { unmount } = renderEditor(
+      { query: { type: "Application", where: { eol_status: ["eol"] } }, viewId: null },
+      { queryError: "eol_view_required" },
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "This view filters on end-of-life status, which your role cannot see.",
+    );
+    unmount();
+    renderEditor(
+      { query: { type: "Application", where: { eol_status: ["eol"] } }, viewId: null },
+      { queryError: "eol_view_required", error: "eol_not_tracked" },
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("This card type does not track end of life.");
   });
 
   it("states why a save was refused, by its code", () => {

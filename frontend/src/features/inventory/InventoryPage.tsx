@@ -40,7 +40,7 @@ import CreateCardDialog from "@/components/CreateCardDialog";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import QueryPathStrip from "./QueryPathStrip";
-import { sameTypeSet, sendableQuerySet, setProblem, startTypes } from "./querySet";
+import { sameTypeSet, sendableQuerySet, setProblem, startFiltersOnEol, startTypes } from "./querySet";
 import {
   activeQueryFromBookmark,
   bookmarkFilters,
@@ -463,6 +463,16 @@ function TreeNameFrame({
       <Box sx={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center" }}>{children}</Box>
     </Box>
   );
+}
+
+/**
+ * The refusal code of a `GET /cards?query=` the server will not evaluate for
+ * this reader, or null for any other failure: a 403 `eol_view_required` (the
+ * query filters on end-of-life status, which the reader's role cannot see).
+ */
+function queryRefusalCode(err: unknown): string | null {
+  const { status, detail } = (err ?? {}) as { status?: unknown; detail?: unknown };
+  return status === 403 && detail === "eol_view_required" ? detail : null;
 }
 
 /** True when the URL carries filter state (a deep-link) — it then wins over
@@ -1155,6 +1165,10 @@ export default function InventoryPage() {
   const [, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  // The code `GET /cards` refused the query with (the view in force or the
+  // draft): `eol_view_required` when it filters on end-of-life status and the
+  // reader lacks `eol.view`. The strip reads it out; the grid lists nothing.
+  const [queryRefusal, setQueryRefusal] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [gridEditMode, setGridEditMode] = useState(false);
@@ -1512,6 +1526,13 @@ export default function InventoryPage() {
   // Same rule the column picker and the facet use, so all three appear and
   // disappear together.
   const eolColumnAvailable = canViewEol && eolColumnApplies(types, filters.types);
+  // A query (the draft, else the view's) that picks its rows by end-of-life
+  // status shows the column whatever the picker says, so the status it filters
+  // on is on screen. Only the colDef reads this: `selectedColumns` — and so the
+  // saved column preferences — keep the user's own choice, which applies
+  // again once the condition is gone.
+  const eolColumnForced =
+    eolColumnAvailable && startFiltersOnEol(queryDraft ? queryDraft.query : activeQuery?.query);
 
   // --- Hierarchy link labels (#1100) -----------------------------------------
   // The vocabulary a parent link is labelled from, and whether the column is
@@ -1868,8 +1889,20 @@ export default function InventoryPage() {
         setData(res.items);
         setTotal(res.total);
         setLoadError(false);
+        setQueryRefusal(null);
       } catch (err) {
         if (!isCurrent() || isAbortError(err)) return;
+        const refusal = sentQuery ? queryRefusalCode(err) : null;
+        if (refusal) {
+          // Not a failed load: the query is refused for this reader, so it
+          // matches nothing they may see — no stale rows behind the message.
+          setData([]);
+          setTotal(0);
+          setLoadError(false);
+          setQueryRefusal(refusal);
+          return;
+        }
+        setQueryRefusal(null);
         setLoadError(true);
       } finally {
         // Only the winner clears the spinner. An aborted predecessor rejecting
@@ -3813,7 +3846,7 @@ export default function InventoryPage() {
               colId: EOL_COLUMN_KEY,
               headerName: t("columns.eol"),
               width: 160,
-              hide: !selectedColumns.has(EOL_COLUMN_KEY),
+              hide: !eolColumnForced && !selectedColumns.has(EOL_COLUMN_KEY),
               ...dateColumnFilterDef,
               valueGetter: (p: { data?: Card }) =>
                 (p.data ? eolOf(p.data)?.eol_date : null) ?? "",
@@ -4346,7 +4379,7 @@ export default function InventoryPage() {
       : cols.filter((c) => c.colId !== LOGO_COLUMN_KEY);
 
     return gridColumnOrder.applyOrder(columnFreeze.applyFrozen(applicable));
-  }, [columnFreeze, gridColumnOrder, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeObjGroupMap, relatedRefsOf, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, i18n.language, formatDate, formatDateTime, originLabel, canViewCostsGlobally, canManageStakeholders, canEditLogos, logoColumnAvailable, openLogoMenu, tagGroups, stakeholderRoles, typeLabel, fieldHelp, roleDescription, eolColumnAvailable, eolOf, eolLoading, tReports, calculatedKeys, treeActive]);
+  }, [columnFreeze, gridColumnOrder, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeObjGroupMap, relatedRefsOf, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, i18n.language, formatDate, formatDateTime, originLabel, canViewCostsGlobally, canManageStakeholders, canEditLogos, logoColumnAvailable, openLogoMenu, tagGroups, stakeholderRoles, typeLabel, fieldHelp, roleDescription, eolColumnAvailable, eolColumnForced, eolOf, eolLoading, tReports, calculatedKeys, treeActive]);
 
   // Feeds the Columns tab's "Column order" section: only the columns actually
   // on screen, built from the grid's own defs. On this page that matters twice
@@ -5058,6 +5091,8 @@ export default function InventoryPage() {
           onCancel={cancelDraft}
           saving={draftSaving}
           error={draftError}
+          queryError={queryRefusal}
+          canViewEol={canViewEol}
         />
 
         <Dialog

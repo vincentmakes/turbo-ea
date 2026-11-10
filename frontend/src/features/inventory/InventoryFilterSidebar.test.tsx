@@ -2094,6 +2094,22 @@ describe("InventoryFilterSidebar — query views", () => {
     );
   });
 
+  it("ends a query view's path with its condition count", async () => {
+    const EOL_VIEW = makeBookmark({
+      id: "bm-eol",
+      name: "Apps at or near end of life",
+      query: { type: "Application", where: { eol_status: ["eol", "approaching"], subtype: ["x"] } },
+    });
+    mockApi.on("get", "/bookmarks", [QUERY_VIEW, EOL_VIEW, SHARED_QUERY_VIEW]);
+    await renderSidebar({ relationTypes: QUERY_REL_TYPES });
+    openTab("Views");
+    const secondary = (name: RegExp) =>
+      screen.getByRole("button", { name }).querySelector(".MuiListItemText-secondary")!.textContent;
+    expect(secondary(/Apps at or near end of life/)).toBe("Application · 2 conditions");
+    expect(secondary(/Apps on live tech/)).toBe("Application › uses IT Component +1 · 1 condition");
+    expect(secondary(/Team query/)).toBe("Application › uses IT Component");
+  });
+
   it("reads a stacked query view as its lines joined by AND and OR, its icon by its start types", async () => {
     const STACK_VIEW = makeBookmark({
       id: "bm-s",

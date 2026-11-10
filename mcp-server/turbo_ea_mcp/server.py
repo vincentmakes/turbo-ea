@@ -206,12 +206,29 @@ _QUERY_ITEM_KEYS = (
     "data_quality",
 )
 _QUERY_HINT = "Check the keys with list_card_types and get_relation_types."
+#: The one 403 a card query answers for the query itself: an ``eol_status``
+#: condition, evaluated for a role without the EOL view permission.
+_EOL_VIEW_REQUIRED = "eol_view_required"
+_EOL_VIEW_HINT = (
+    "This query filters on end-of-life status (where.eol_status), which needs "
+    "the EOL view permission (eol.view). Remove the eol_status condition, or "
+    "ask an administrator for that permission."
+)
 
 
 def _compact_json(query: dict) -> str:
     """The ``query=`` parameter as the backend takes it: compact JSON, so a
     deep chain stays well under the backend's length cap and the URL limit."""
     return json.dumps(query, separators=(",", ":"))
+
+
+def _detail(exc: httpx.HTTPStatusError) -> object:
+    """The ``detail`` of an error response, ``None`` when it has none."""
+    try:
+        body = exc.response.json()
+    except Exception:  # noqa: BLE001 — a non-JSON body has no detail
+        return None
+    return body.get("detail") if isinstance(body, dict) else None
 
 
 def _query_rejection(exc: httpx.HTTPStatusError) -> dict | None:
@@ -224,10 +241,15 @@ def _query_rejection(exc: httpx.HTTPStatusError) -> dict | None:
     input to fix, not a server fault, so the tools hand the code back with a
     hint instead of raising. A ``{"code": ...}`` detail is tolerated too. A
     422 is FastAPI's own request validation (``detail`` a list of errors) —
-    still a bad input, answered as ``invalid_query``."""
+    still a bad input, answered as ``invalid_query``. A 403
+    ``eol_view_required`` is a query with an ``eol_status`` condition the
+    caller's role may not evaluate: answered with its own hint; any other
+    403 is raised."""
     status = exc.response.status_code
     if status == 422:
         return {"error": "invalid_query", "hint": _QUERY_HINT}
+    if status == 403 and _detail(exc) == _EOL_VIEW_REQUIRED:
+        return {"error": _EOL_VIEW_REQUIRED, "hint": _EOL_VIEW_HINT}
     if status != 400:
         return None
     try:
@@ -298,6 +320,7 @@ async def query_cards(query: dict, page: int = 1, page_size: int = 20) -> str:
         Where     = {lifecycle_phase?: [plan|phaseIn|active|phaseOut|endOfLife|none],
                      subtype?: [subtypeKey], approval_status?: [status],
                      data_quality_band?: [complete|partial|minimal],
+                     eol_status?: [eol|approaching|supported|unknown|__empty__],
                      attributes?: {fieldKey: [optionKey | "true" | "false"
                                               | text | "__empty__"]},
                      tags?: [tag id],
@@ -330,7 +353,13 @@ async def query_cards(query: dict, page: int = 1, page_size: int = 20) -> str:
     simply matches nothing. ``data_quality_band`` is the data quality score
     band (complete >= 80, partial 40 up to, but excluding, 80, minimal
     < 40); any other value is
-    refused ``unknown_band``. ``tags`` are grouped by tag group: a card needs
+    refused ``unknown_band``. ``eol_status`` is the card's end-of-life status
+    as the inventory's End of life column shows it, computed from
+    endoflife.date or a custom EOL product (``__empty__``: no EOL link and no
+    manual end of life); any other value is refused ``unknown_eol_status``,
+    a card type that does not track End of Life ``eol_not_tracked``, and a
+    role without the EOL view permission gets ``eol_view_required``.
+    ``tags`` are grouped by tag group: a card needs
     at least one of the listed tags from every group named (OR within a
     group, AND across groups); a tag whose group does not apply to the
     hop's card type is refused ``tag_not_for_type``, an unknown id
@@ -4014,7 +4043,11 @@ async def save_inventory_view(
             card of another type or a card you cannot read is refused
             ``unknown_card``, so nobody saves a view naming a card hidden from
             them. Editing a view shared with you keeps the picks it already
-            holds even when you cannot read them.
+            holds even when you cannot read them. An ``eol_status``
+            condition (end-of-life status, on a card type that tracks End of
+            Life) needs the EOL view permission: saving, previewing and
+            opening a view that holds one are refused without it
+            (``eol_view_required``).
         view_id: Update this existing view (from ``list_inventory_views``)
             instead of creating a new one — only one ``list_inventory_views``
             shows with ``can_edit`` true (else ``view_not_found`` /

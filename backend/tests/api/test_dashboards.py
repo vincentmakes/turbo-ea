@@ -42,6 +42,12 @@ KPI_WIDGET = {
     "layout": {"x": 0, "y": 0, "w": 3, "h": 2},
 }
 TODO_WIDGET = {"id": "todos", "type": "my_todos", "layout": {"x": 3, "y": 0, "w": 6, "h": 6}}
+VIEWS_WIDGET = {
+    "id": "views",
+    "type": "inventory_views",
+    "config": {"filter": "shared", "query_only": True},
+    "layout": {"x": 0, "y": 6, "w": 6, "h": 6},
+}
 
 
 @pytest.fixture
@@ -238,6 +244,54 @@ class TestCreate:
     async def test_an_invalid_widget_is_422(self, client, env, widget):
         r = await _create(client, env["admin"], widgets=[widget])
         assert r.status_code == 422
+
+    async def test_an_inventory_views_widget_keeps_its_config(self, client, db, env):
+        workspace = await _by_key(db, "workspace")
+        r = await client.patch(
+            f"{BASE}/{workspace.id}",
+            json={"widgets": [*workspace.widgets, VIEWS_WIDGET]},
+            headers=auth_headers(env["admin"]),
+        )
+        assert r.status_code == 200, r.text
+        saved = r.json()["widgets"][-1]
+        assert (saved["id"], saved["type"]) == ("views", "inventory_views")
+        assert saved["config"] == {"filter": "shared", "query_only": True}
+
+    async def test_two_inventory_views_widgets_on_one_dashboard(self, client, db, env):
+        """Its config is which list it shows, so "My views" beside "Shared
+        with me" is a real layout: the type may appear more than once."""
+        mine = {
+            **VIEWS_WIDGET,
+            "id": "views-mine",
+            "config": {"filter": "my", "query_only": False},
+            "layout": {"x": 6, "y": 6, "w": 6, "h": 6},
+        }
+        r = await _create(client, env["admin"], widgets=[VIEWS_WIDGET, mine])
+        assert r.status_code == 201, r.text
+        saved = r.json()["widgets"]
+        assert [(w["id"], w["type"], w["config"]) for w in saved] == [
+            ("views", "inventory_views", {"filter": "shared", "query_only": True}),
+            ("views-mine", "inventory_views", {"filter": "my", "query_only": False}),
+        ]
+        stored = (await db.execute(select(Dashboard).where(Dashboard.name == "Sales"))).scalar_one()
+        assert [w["id"] for w in stored.widgets] == ["views", "views-mine"]
+
+    @pytest.mark.parametrize(
+        ("config", "code"),
+        [
+            ({"filter": "public"}, "inventory_views_filter"),
+            ({"filter": "my", "query_only": "yes"}, "inventory_views_query_only"),
+            ({"filter": "my", "max_rows": 6}, "inventory_views_unknown_key"),
+            ({"view_id": "0b8e1c5e-8f7a-4c1b-9d3e-2f6a7b8c9d0e"}, "config_holds_an_id"),
+        ],
+    )
+    async def test_an_invalid_inventory_views_config_is_422(self, client, db, env, config, code):
+        r = await _create(client, env["admin"], widgets=[{**VIEWS_WIDGET, "config": config}])
+        assert r.status_code == 422
+        assert code in r.text
+        assert (
+            await db.execute(select(Dashboard).where(Dashboard.name == "Sales"))
+        ).first() is None
 
 
 class TestUpdate:

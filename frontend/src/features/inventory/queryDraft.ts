@@ -34,6 +34,7 @@ export type ConditionKind =
   | "subtype"
   | "approval_status"
   | "data_quality_band"
+  | "eol_status"
   | "tags"
   | "cards"
   | { attribute: string };
@@ -214,6 +215,7 @@ function whereHasEmptyList(where: CardQueryWhere | undefined): boolean {
     where.subtype,
     where.approval_status,
     where.data_quality_band,
+    where.eol_status,
     where.tags,
     where.cards,
     ...Object.values(where.attributes ?? {}),
@@ -243,6 +245,7 @@ function sendableWhere(where: CardQueryWhere | undefined): CardQueryWhere | unde
     "subtype",
     "approval_status",
     "data_quality_band",
+    "eol_status",
     "tags",
     "cards",
   ] as const;

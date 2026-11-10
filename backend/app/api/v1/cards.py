@@ -86,8 +86,8 @@ from app.services.card_flags import orphaned_condition, stale_condition
 from app.services.card_logo_service import logo_updated_map
 from app.services.card_query import (
     CardQueryError,
-    compile_card_query,
     parse_card_query,
+    prepare_card_query,
 )
 from app.services.card_read_scope import (
     CardReadScope,
@@ -331,8 +331,12 @@ async def list_cards(
             '<relation type, `__out` / `__in` on a self-referencing one>, "type": '
             '<card type>, "where"?: {...}, "negate"?: bool, "related"?: [...]}]}`, '
             "where `where` takes `lifecycle_phase`, `subtype`, `approval_status`, "
-            "`attributes` value lists and `tags` (tag ids: any tag of a group, every "
-            "group named). Keeps the cards of the start type with a "
+            "`data_quality_band`, `eol_status` (`eol`, `approaching`, `supported`, "
+            "`unknown`, `__empty__` for no EOL data; computed from endoflife.date or a "
+            "custom EOL product, on a card type that tracks End of Life, and needs "
+            "`eol.view`: 403 `eol_view_required` otherwise), `attributes` value lists, "
+            "`tags` (tag ids: any tag of a group, every group named) and `cards` (card "
+            "ids). Keeps the cards of the start type with a "
             "related card matching every hop (`negate`: with none); a related card "
             "must be ACTIVE and readable by the caller. Queries stack: "
             '`{"all_of": [<query>, …]}` keeps the cards matching every query (AND; '
@@ -447,9 +451,14 @@ async def list_cards(
         count_q = count_q.where(Card.created_via == created_via)
     if query:
         try:
-            clauses = await compile_card_query(db, parse_card_query(query), read_scope)
+            prepared = await prepare_card_query(db, user, parse_card_query(query))
+            if prepared.needs_release:
+                # An EOL condition fetches cycles from endoflife.date: hand the
+                # connection back first (get_db would pin it for the round-trip).
+                await db.commit()
+            clauses = await prepared.compile(read_scope)
         except CardQueryError as exc:
-            raise HTTPException(400, exc.code) from exc
+            raise HTTPException(exc.status, exc.code) from exc
         q = q.where(*clauses)
         count_q = count_q.where(*clauses)
 

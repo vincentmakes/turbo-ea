@@ -606,6 +606,53 @@ class TestQueryCards:
             with pytest.raises(httpx.HTTPStatusError):
                 await server.query_cards(query=_CHAIN)
 
+    @pytest.mark.asyncio
+    async def test_an_eol_condition_without_the_permission_is_explained(self, fake_token):
+        mock = AsyncMock(side_effect=_status_error(403, {"detail": "eol_view_required"}))
+        with patch.object(server.TurboEAClient, "get", mock):
+            out = _parse(await server.query_cards(query=_CHAIN))
+        assert out == {
+            "error": "eol_view_required",
+            "hint": (
+                "This query filters on end-of-life status (where.eol_status), which needs "
+                "the EOL view permission (eol.view). Remove the eol_status condition, or "
+                "ask an administrator for that permission."
+            ),
+        }
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "response",
+        [
+            httpx.Response(403, text="Forbidden"),
+            httpx.Response(403, json=["eol_view_required"]),
+            httpx.Response(403, json={"detail": "Not enough permissions"}),
+        ],
+        ids=["not-json", "json-list", "other-detail"],
+    )
+    async def test_any_other_403_is_raised(self, fake_token, response):
+        request = httpx.Request("GET", "http://backend/api/v1/cards")
+        response.request = request
+        error = httpx.HTTPStatusError("403 Forbidden", request=request, response=response)
+        mock = AsyncMock(side_effect=error)
+        with patch.object(server.TurboEAClient, "get", mock):
+            with pytest.raises(httpx.HTTPStatusError):
+                await server.query_cards(query=_CHAIN)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("code", ["unknown_eol_status", "eol_not_tracked"])
+    async def test_a_rejected_eol_condition_returns_its_code(self, fake_token, code):
+        mock = AsyncMock(side_effect=_status_error(400, {"detail": code}))
+        with patch.object(server.TurboEAClient, "get", mock):
+            out = _parse(await server.query_cards(query=_CHAIN))
+        assert out == {"error": code, "hint": server._QUERY_HINT}
+
+    def test_the_grammar_documents_eol_status(self):
+        doc = server.query_cards.__doc__ or ""
+        assert "eol_status?: [eol|approaching|supported|unknown|__empty__]" in doc
+        for code in ("unknown_eol_status", "eol_not_tracked", "eol_view_required"):
+            assert code in doc
+
     def test_requires_auth(self, monkeypatch):
         import asyncio
 

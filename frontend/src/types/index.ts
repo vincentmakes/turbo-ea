@@ -790,6 +790,9 @@ export interface CardQueryWhere {
   approval_status?: string[];
   /** Data-quality bands (`complete` / `partial` / `minimal`, as `DATA_QUALITY_BANDS`). */
   data_quality_band?: string[];
+  /** End-of-life statuses (`eol` / `approaching` / `supported` / `unknown`, as
+   *  `EOL_STATUSES`), or `"__empty__"` for no EOL data recorded. Needs `eol.view`. */
+  eol_status?: string[];
   /** Field key → option keys / `"true"` / `"false"` / text / `"__empty__"`. */
   attributes?: Record<string, string[]>;
   /** Tag ids: any tag of one tag group (OR), every group named (AND). */
@@ -931,7 +934,8 @@ export type WidgetType =
   | "system_activity"
   | "unassigned_todos"
   | "stakeholder_directory"
-  | "quality_leaderboard";
+  | "quality_leaderboard"
+  | "inventory_views";
 
 /** How the Data quality leaderboard ranks people. */
 export type LeaderboardRankBy = "average_quality" | "card_count";

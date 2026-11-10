@@ -605,6 +605,174 @@ class TestQueryViews:
         assert resp.json()["detail"] == "unknown_relation_type"
 
 
+EOL_QUERY = {
+    "type": "Organization",
+    "related": [
+        {"relation": "orgUsesApp", "type": "Application", "where": {"eol_status": ["eol"]}}
+    ],
+}
+
+
+class TestQueryViewEol:
+    """A view filtering on end-of-life status (``where.eol_status``)."""
+
+    @pytest.fixture
+    async def eol_env(self, db, query_env, monkeypatch):
+        """Alpha is linked to an end-of-life nginx cycle; the upstream fetch
+        answers from a fixed list and records whether the request's session
+        was still in a transaction."""
+        from app.services import eol_service
+
+        alpha = (await db.execute(select(Card).where(Card.name == "Alpha"))).scalar_one()
+        alpha.attributes = {"eol_product": "nginx", "eol_cycle": "1.0"}
+        await db.flush()
+        held: list[bool] = []
+
+        async def fake(products):
+            held.append(db.in_transaction())
+            cycles = {"nginx": [{"cycle": "1.0", "eol": True}]}
+            return {p: cycles[p] for p in products if p in cycles}
+
+        monkeypatch.setattr(eol_service, "fetch_cycles_for_products", fake)
+        return {**query_env, "held": held}
+
+    async def test_create_stores_the_condition_verbatim(self, client, db, eol_env):
+        resp = await _create(client, eol_env["admin"], query=EOL_QUERY)
+        assert resp.status_code == 201
+        assert resp.json()["query"] == EOL_QUERY
+        assert resp.json()["card_type"] == "Organization"
+        # Saving evaluates nothing: no fetch.
+        assert eol_env["held"] == []
+
+    async def test_create_refuses_a_type_that_does_not_track_eol(self, client, db, eol_env):
+        query = {"type": "Organization", "where": {"eol_status": ["eol"]}}
+        resp = await _create(client, eol_env["admin"], query=query)
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "eol_not_tracked"
+
+    async def test_odata_feed_applies_the_condition(self, client, db, eol_env):
+        admin = eol_env["admin"]
+        bm_id = (await _create(client, admin, query=EOL_QUERY, odata_enabled=True)).json()["id"]
+        resp = await client.get(f"/api/v1/bookmarks/{bm_id}/odata", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        assert [row["name"] for row in resp.json()["value"]] == ["Corp"]
+        assert resp.json()["@odata.count"] == 1
+        # The connection was handed back before the outbound fetch.
+        assert eol_env["held"] == [False]
+
+    async def test_odata_feed_needs_eol_view(self, client, db, eol_env):
+        admin = eol_env["admin"]
+        body = {"query": EOL_QUERY, "odata_enabled": True, "visibility": "public"}
+        bm_id = (await _create(client, admin, **body)).json()["id"]
+        await create_role(
+            db, key="no_eol", label="No EOL", permissions={**VIEWER_PERMISSIONS, "eol.view": False}
+        )
+        reader = await create_user(db, email="no-eol@test.com", role="no_eol")
+        resp = await client.get(f"/api/v1/bookmarks/{bm_id}/odata", headers=auth_headers(reader))
+        assert resp.status_code == 403
+        assert resp.json()["detail"] == "eol_view_required"
+        assert eol_env["held"] == []
+        # Control: the viewer role, which holds eol.view, reads the feed.
+        viewer = eol_env["viewer"]
+        ok = await client.get(f"/api/v1/bookmarks/{bm_id}/odata", headers=auth_headers(viewer))
+        assert ok.status_code == 200
+        assert [row["name"] for row in ok.json()["value"]] == ["Corp"]
+
+
+class TestQueryViewEolWrite:
+    """Saving a view that holds an ``eol_status`` condition needs ``eol.view``,
+    the permission evaluating it needs: create, patch, and a collaborator's
+    edit of a shared view that already holds it."""
+
+    @pytest.fixture
+    async def no_eol(self, db, query_env):
+        """A viewer-like role without ``eol.view``; the plain ``viewer`` role
+        (which holds it) is the control."""
+        await create_role(
+            db,
+            key="no_eol",
+            label="No EOL",
+            # bookmarks.share: a collaborator's edit of a shared view needs it.
+            permissions={**VIEWER_PERMISSIONS, "eol.view": False, "bookmarks.share": True},
+        )
+        return await create_user(db, email="no-eol-writer@test.com", role="no_eol")
+
+    async def test_create_is_refused_without_eol_view(self, client, db, query_env, no_eol):
+        resp = await _create(client, no_eol, query=EOL_QUERY)
+        assert resp.status_code == 403
+        assert resp.json()["detail"] == "eol_view_required"
+        assert (await db.execute(select(Bookmark))).scalars().all() == []
+
+    async def test_empty_alone_is_refused_too(self, client, db, query_env, no_eol):
+        hop = {**EOL_QUERY["related"][0], "where": {"eol_status": ["__empty__"]}}
+        resp = await _create(client, no_eol, query={**EOL_QUERY, "related": [hop]})
+        assert resp.status_code == 403
+        assert resp.json()["detail"] == "eol_view_required"
+
+    async def test_create_is_allowed_with_eol_view(self, client, db, query_env, no_eol):
+        resp = await _create(client, query_env["viewer"], query=EOL_QUERY)
+        assert resp.status_code == 201
+        assert resp.json()["query"] == EOL_QUERY
+        # The same writer without the permission saves a query without it.
+        plain = await _create(client, no_eol, query=QUERY_WITHOUT_EOL)
+        assert plain.status_code == 201
+
+    async def test_patch_is_refused_without_eol_view(self, client, db, query_env, no_eol):
+        bm_id = (await _create(client, no_eol, query=QUERY_WITHOUT_EOL)).json()["id"]
+        resp = await client.patch(
+            f"/api/v1/bookmarks/{bm_id}", json={"query": EOL_QUERY}, headers=auth_headers(no_eol)
+        )
+        assert resp.status_code == 403
+        assert resp.json()["detail"] == "eol_view_required"
+        stored = await db.get(Bookmark, uuid.UUID(bm_id))
+        await db.refresh(stored)
+        assert stored.query == QUERY_WITHOUT_EOL
+
+    async def test_patch_is_allowed_with_eol_view(self, client, db, query_env, no_eol):
+        viewer = query_env["viewer"]
+        bm_id = (await _create(client, viewer, query=QUERY_WITHOUT_EOL)).json()["id"]
+        resp = await client.patch(
+            f"/api/v1/bookmarks/{bm_id}", json={"query": EOL_QUERY}, headers=auth_headers(viewer)
+        )
+        assert resp.status_code == 200
+        assert resp.json()["query"] == EOL_QUERY
+
+    async def test_a_collaborator_editing_a_shared_eol_view_needs_it(
+        self, client, db, query_env, no_eol
+    ):
+        """The stored query grants nothing: unlike an owner's pick, the
+        condition already in the view does not exempt the collaborator."""
+        resp = await _create(
+            client,
+            query_env["admin"],
+            query=EOL_QUERY,
+            visibility="shared",
+            shared_with=[{"user_id": str(no_eol.id), "can_edit": True}],
+        )
+        assert resp.status_code == 201, resp.text
+        bm_id = resp.json()["id"]
+        refused = await client.patch(
+            f"/api/v1/bookmarks/{bm_id}", json={"query": EOL_QUERY}, headers=auth_headers(no_eol)
+        )
+        assert refused.status_code == 403
+        assert refused.json()["detail"] == "eol_view_required"
+        # Control: the same collaborator may take the condition out.
+        edited = await client.patch(
+            f"/api/v1/bookmarks/{bm_id}",
+            json={"query": QUERY_WITHOUT_EOL},
+            headers=auth_headers(no_eol),
+        )
+        assert edited.status_code == 200, edited.text
+        assert edited.json()["query"] == QUERY_WITHOUT_EOL
+
+
+#: ``EOL_QUERY`` without its condition.
+QUERY_WITHOUT_EOL = {
+    "type": "Organization",
+    "related": [{"relation": "orgUsesApp", "type": "Application"}],
+}
+
+
 @pytest.fixture
 async def tag_env(db, query_env):
     """On top of ``query_env``: Alpha carries Gold, Beta carries Silver (group

@@ -26,6 +26,7 @@ import {
   useTypeLabel,
 } from "@/hooks/useResolveLabel";
 import { DATA_QUALITY_BANDS } from "@/lib/dataQualityBands";
+import { EOL_STATUSES, EOL_STATUS_LABEL_KEYS, typeTracksEol } from "@/lib/eol";
 import { getPhaseLabels } from "@/lib/lifecyclePhases";
 import { pickFacetFields } from "@/lib/fieldFacets";
 import type {
@@ -94,6 +95,11 @@ interface Props {
   saving?: boolean;
   /** The code of a refused save (`unknown_tag`, …). */
   error?: string | null;
+  /** The code the card list refused the query in force (or the draft) with
+   *  (`eol_view_required`); shown under the lines in both modes. */
+  queryError?: string | null;
+  /** May the user see end-of-life status (`eol.view`)? Offers the EOL condition. */
+  canViewEol?: boolean;
 }
 
 const NOOP = () => {};
@@ -118,6 +124,8 @@ export default function QueryPathStrip({
   onCancel = NOOP,
   saving = false,
   error = null,
+  queryError = null,
+  canViewEol = false,
 }: Props) {
   // Picked cards are named once for the whole strip, every line and node at once.
   const cardNames = useCardNames(pickedCardIdsOf(draft?.query ?? view?.query ?? { type: "" }));
@@ -132,7 +140,8 @@ export default function QueryPathStrip({
         onSave={onSave}
         onCancel={onCancel}
         saving={saving}
-        error={error}
+        error={error ?? queryError}
+        canViewEol={canViewEol}
       />
     );
   }
@@ -145,6 +154,7 @@ export default function QueryPathStrip({
       cardNames={cardNames}
       onLeave={onLeave}
       onEdit={onEdit}
+      error={queryError}
     />
   );
 }
@@ -216,6 +226,7 @@ function ViewStrip({
   cardNames,
   onLeave,
   onEdit,
+  error,
 }: {
   view: ActiveQuery;
   canEdit: boolean;
@@ -223,6 +234,7 @@ function ViewStrip({
   cardNames: Map<string, CardNameEntry>;
   onLeave: () => void;
   onEdit: () => void;
+  error: string | null;
 }) {
   const { t } = useTranslation(["inventory", "common"]);
   const { types, relationTypes } = useMetamodel();
@@ -274,7 +286,18 @@ function ViewStrip({
           />
         )}
       />
+      {error && <StripError code={error} />}
     </Paper>
+  );
+}
+
+/** A refusal code read out under the lines (`queryView.error.<code>`). */
+function StripError({ code }: { code: string }) {
+  const { t } = useTranslation("inventory");
+  return (
+    <Typography variant="caption" color="error" role="alert" data-testid="query-path-error">
+      {t(`queryView.error.${code}`, { defaultValue: code })}
+    </Typography>
   );
 }
 
@@ -406,6 +429,8 @@ interface ConditionItem {
   tagIds?: string[];
 }
 
+const isEolStatus = (k: string) => (EOL_STATUSES as readonly string[]).includes(k);
+
 /** The condition chips of a node: `label: value, value` (`label` alone while still empty). */
 function useConditionItems(
   type: CardType | undefined,
@@ -413,7 +438,7 @@ function useConditionItems(
   tagGroups: TagGroup[],
   cardNames: Map<string, CardNameEntry>,
 ): ConditionItem[] {
-  const { t } = useTranslation(["inventory", "common"]);
+  const { t } = useTranslation(["inventory", "common", "reports"]);
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
   const stLabel = useSubtypeLabel();
@@ -460,6 +485,18 @@ function useConditionItems(
       key: "dataQuality",
       kind: "data_quality_band",
       label: labelOf(t("inventory:filter.dataQuality"), values),
+    });
+  }
+  if (where.eol_status) {
+    const values = where.eol_status.map((k) => {
+      if (k === EMPTY_VALUE) return empty;
+      // Only the four statuses the grammar takes; anything else reads as it is.
+      return isEolStatus(k) ? t(`reports:${EOL_STATUS_LABEL_KEYS[k]}`) : k;
+    });
+    items.push({
+      key: "eol",
+      kind: "eol_status",
+      label: labelOf(t("inventory:filter.eol"), values),
     });
   }
   if (where.tags) {
@@ -518,6 +555,7 @@ function EditStrip({
   onCancel,
   saving,
   error,
+  canViewEol,
 }: {
   draft: QueryDraft;
   viewName: string | null;
@@ -528,6 +566,7 @@ function EditStrip({
   onCancel: () => void;
   saving: boolean;
   error: string | null;
+  canViewEol: boolean;
 }) {
   const { t } = useTranslation(["inventory", "common"]);
   const problem = setProblem(draft.query);
@@ -576,6 +615,7 @@ function EditStrip({
             canAddHop={hopsLeft}
             tagGroups={tagGroups}
             cardNames={cardNames}
+            canViewEol={canViewEol}
             onChange={(q) => onChange(updateLine(set, l.group, l.line, q))}
           />
         )}
@@ -611,11 +651,7 @@ function EditStrip({
           )
         }
       />
-      {shownError && (
-        <Typography variant="caption" color="error" role="alert">
-          {t(`inventory:queryView.error.${shownError}`, { defaultValue: shownError })}
-        </Typography>
-      )}
+      {shownError && <StripError code={shownError} />}
     </Paper>
   );
 }
@@ -703,6 +739,7 @@ function EditChain({
   canAddHop: hopsLeft,
   tagGroups,
   cardNames,
+  canViewEol,
   onChange,
 }: {
   query: CardQuery;
@@ -711,6 +748,7 @@ function EditChain({
   canAddHop: boolean;
   tagGroups: TagGroup[];
   cardNames: Map<string, CardNameEntry>;
+  canViewEol: boolean;
   onChange: (query: CardQuery) => void;
 }) {
   const { i18n } = useTranslation();
@@ -765,6 +803,7 @@ function EditChain({
                 where={node.where}
                 tagGroups={tagGroups}
                 cardNames={cardNames}
+                canViewEol={canViewEol}
                 onOpen={(anchor, kind) => setOpen({ anchor, index: i, kind })}
                 onRemove={(kind) => onChange(removeCondition(query, i, kind))}
                 onSetTags={(ids) =>
@@ -1023,6 +1062,7 @@ function EditConditions({
   where,
   tagGroups,
   cardNames,
+  canViewEol,
   onOpen,
   onRemove,
   onSetTags,
@@ -1033,6 +1073,8 @@ function EditConditions({
   where: CardQueryWhere | undefined;
   tagGroups: TagGroup[];
   cardNames: Map<string, CardNameEntry>;
+  /** The user has `eol.view`: the EOL condition may be offered. */
+  canViewEol: boolean;
   onOpen: (anchor: HTMLElement, kind: ConditionKind) => void;
   onRemove: (kind: ConditionKind) => void;
   onSetTags: (ids: string[]) => void;
@@ -1056,6 +1098,9 @@ function EditConditions({
   if ((type?.subtypes ?? []).length > 0) offer("subtype", t("common:labels.subtype"));
   offer("approval_status", t("inventory:columns.approvalStatus"));
   offer("data_quality_band", t("inventory:filter.dataQuality"));
+  // End of life only where the type tracks it and the reader may see it —
+  // the server refuses the condition otherwise.
+  if (canViewEol && typeTracksEol(type)) offer("eol_status", t("inventory:filter.eol"));
   if (tagGroups.some((g) => g.tags.length > 0 && tagGroupApplies(g, typeKey))) {
     offer("tags", t("inventory:filter.tags"));
   }

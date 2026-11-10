@@ -11,6 +11,8 @@ from app.services.dashboard_defaults import (
     CHART_KINDS,
     DEFAULT_DASHBOARDS,
     GRID_COLUMNS,
+    INVENTORY_VIEWS_DEFAULT_CONFIG,
+    INVENTORY_VIEWS_FILTERS,
     KPI_PRESETS,
     LEADERBOARD_DEFAULT_CONFIG,
     LEADERBOARD_MAX_ROWS,
@@ -34,13 +36,14 @@ ALL_WIDGETS = [
 
 
 def test_the_widget_vocabulary():
-    assert len(WIDGET_TYPES) == 20
+    assert len(WIDGET_TYPES) == 21
     assert {
         "kpi",
         "chart",
         "recent_activity",
         "stakeholder_directory",
         "quality_leaderboard",
+        "inventory_views",
     } <= WIDGET_TYPES
     assert len(KPI_PRESETS) == 13
 
@@ -149,6 +152,16 @@ def test_the_leaderboard_vocabulary():
     assert LEADERBOARD_MAX_ROWS == (3, 50)
     with pytest.raises(TypeError):
         LEADERBOARD_DEFAULT_CONFIG["rank_by"] = "card_count"  # type: ignore[index]
+
+
+def test_the_inventory_views_vocabulary():
+    assert INVENTORY_VIEWS_FILTERS == ("all", "my", "shared")
+    assert dict(INVENTORY_VIEWS_DEFAULT_CONFIG) == {"filter": "all", "query_only": False}
+    with pytest.raises(TypeError):
+        INVENTORY_VIEWS_DEFAULT_CONFIG["filter"] = "my"  # type: ignore[index]
+    # Added from the drawer, not shipped on a built-in dashboard.
+    for spec in DEFAULT_DASHBOARDS.values():
+        assert "inventory_views" not in [w["type"] for w in spec["widgets"]]
 
 
 def test_the_workspace_and_admin_tabs():

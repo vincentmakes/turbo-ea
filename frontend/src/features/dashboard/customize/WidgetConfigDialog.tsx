@@ -4,7 +4,7 @@
  * and sides (`SankeySection`), the card type / grouping / measure
  * (`QuerySection`), the filters (`FiltersSection`), and the presentation
  * (`PresentationSection`); a module widget gets `SourceForm`, the Data quality
- * leaderboard `LeaderboardSection`. A live preview
+ * leaderboard `LeaderboardSection`, the Inventory views list `ViewsSection`. A live preview
  * renders the real widget with the draft, so what the admin sees is what the
  * dashboard will show. Save is offered only for a draft the backend accepts
  * (`widgetConfigModel.draftProblem`).
@@ -37,6 +37,7 @@ import QuerySection from "./sections/QuerySection";
 import SankeySection from "./sections/SankeySection";
 import SelectField from "./sections/SelectField";
 import SourceForm from "./sections/SourceForm";
+import ViewsSection from "./sections/ViewsSection";
 import {
   ACTIVITY_FILTERS,
   MAX_ACTIVITY_ROWS,
@@ -174,7 +175,7 @@ function ConfigForm({
   const percent = isGauge && gaugeIsPercent(kind, draft, { types });
 
   const showQuery = kind === "kpi" || isChart;
-  const showPreview = showQuery || kind === "source" || kind === "leaderboard";
+  const showPreview = showQuery || kind === "source" || kind === "leaderboard" || kind === "views";
   const secondaryAvailable = kind === "kpi" && secondaryApplies(cleanQuery(draftQuery(draft), "kpi", draft.chart));
   // A relation-presence filter is a flag on a type; a sankey keeps the
   // static flags only.
@@ -238,6 +239,8 @@ function ConfigForm({
             )}
 
             {kind === "leaderboard" && <LeaderboardSection draft={draft} set={set} cardTypes={cardTypes} />}
+
+            {kind === "views" && <ViewsSection draft={draft} set={set} />}
 
             {kind === "activity" && (
               <>

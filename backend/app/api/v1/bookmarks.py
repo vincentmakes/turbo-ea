@@ -17,9 +17,10 @@ from app.schemas.common import BookmarkCreate, BookmarkUpdate
 from app.services.card_query import (
     CardQueryError,
     CardQuerySet,
-    compile_card_query,
     names_cards,
     parse_card_query,
+    prepare_card_query,
+    require_eol_view,
     resolve_card_query,
     stored_card_ids,
     stored_query,
@@ -60,6 +61,12 @@ async def _checked_query(
     query the metamodel can answer, every line checked; 400 with the code if
     not.
 
+    A query with an ``eol_status`` condition anywhere needs the writer to
+    hold ``eol.view`` (403 ``eol_view_required``, ``require_eol_view`` — the
+    check evaluating one makes), so nobody saves a view they could not open.
+    Unlike a pick, the stored query grants nothing: a collaborator editing a
+    shared view that already holds the condition needs it too.
+
     A card picked on any line of the query must exist, be of its node's type and be one
     the writer can read (``unknown_card`` otherwise), so nobody pins a hidden
     card. The picks already in ``stored`` — the view's current query, on an
@@ -69,16 +76,17 @@ async def _checked_query(
     try:
         query = parse_card_query(raw)
         if names_cards(query):
-            await resolve_card_query(
+            groups = await resolve_card_query(
                 db,
                 query,
                 read_scope=await CardReadScope.load(db, user),
                 trusted_card_ids=stored_card_ids(stored),
             )
         else:
-            await resolve_card_query(db, query)
+            groups = await resolve_card_query(db, query)
+        await require_eol_view(db, user, groups)
     except CardQueryError as exc:
-        raise HTTPException(400, exc.code) from exc
+        raise HTTPException(exc.status, exc.code) from exc
     return query
 
 
@@ -530,9 +538,14 @@ async def bookmark_odata_feed(
     # group of its own type.
     if bm.query is not None:
         try:
-            clauses = await compile_card_query(db, parse_card_query(bm.query), read_scope)
+            prepared = await prepare_card_query(db, user, parse_card_query(bm.query))
+            if prepared.needs_release:
+                # An EOL condition fetches cycles from endoflife.date: hand the
+                # connection back first (get_db would pin it for the round-trip).
+                await db.commit()
+            clauses = await prepared.compile(read_scope)
         except CardQueryError as exc:
-            raise HTTPException(400, exc.code) from exc
+            raise HTTPException(exc.status, exc.code) from exc
         q = q.where(*clauses)
 
     # Sorting from bookmark

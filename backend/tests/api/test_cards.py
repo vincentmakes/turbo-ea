@@ -1510,5 +1510,138 @@ class TestQueryParam:
         admin_resp = await self._get(client, chain["admin"], query)
         assert [item["name"] for item in admin_resp.json()["items"]] == ["Corp"]
 
+    # -- where.eol_status ---------------------------------------------------
+
+    @pytest.fixture
+    async def eol_chain(self, db, chain, monkeypatch):
+        """``chain`` with Alpha linked to an end-of-life nginx cycle and Beta
+        recording nothing; the upstream fetch answers from a fixed list and
+        records whether the request's session was still in a transaction."""
+        from app.services import eol_service
+
+        alpha = (await db.execute(select(Card).where(Card.name == "Alpha"))).scalar_one()
+        alpha.attributes = {"eol_product": "nginx", "eol_cycle": "1.0"}
+        await db.flush()
+        held: list[bool] = []
+
+        async def fake(products):
+            held.append(db.in_transaction())
+            cycles = {"nginx": [{"cycle": "1.0", "eol": "2020-01-01", "support": False}]}
+            return {p: cycles[p] for p in products if p in cycles}
+
+        monkeypatch.setattr(eol_service, "fetch_cycles_for_products", fake)
+        return {**chain, "held": held}
+
+    @staticmethod
+    def _eol_query(*values: str) -> dict:
+        hop = {**CHAIN_HOP, "where": {"eol_status": list(values)}}
+        return {"type": "Organization", "related": [hop]}
+
+    @pytest.mark.parametrize(
+        ("values", "names", "held"),
+        [
+            (["eol"], ["Corp"], [False]),
+            (["supported", "unknown"], [], [False]),
+            # Pure SQL: no fetch at all, so nothing to release for.
+            (["__empty__"], ["Team"], []),
+        ],
+    )
+    async def test_eol_status(self, client, db, eol_chain, values, names, held):
+        resp = await self._get(client, eol_chain["admin"], self._eol_query(*values))
+        assert resp.status_code == 200
+        assert [item["name"] for item in resp.json()["items"]] == names
+        assert resp.json()["total"] == len(names)
+        # The connection was handed back before the outbound fetch.
+        assert eol_chain["held"] == held
+
+    @pytest.fixture
+    async def archived_eol(self, db, cards_env, monkeypatch):
+        """Archived Applications: Relic linked to a cycle no active card
+        uses (end of life), Fossil recording nothing, Ruin with a far manual
+        end of life; Live, active, linked to a supported cycle."""
+        from app.services import eol_service
+
+        far = (datetime.now(timezone.utc).date() + timedelta(days=400)).isoformat()
+        await create_card(
+            db,
+            name="Relic",
+            status="ARCHIVED",
+            attributes={"eol_product": "nginx", "eol_cycle": "0.9"},
+        )
+        await create_card(db, name="Fossil", status="ARCHIVED")
+        await create_card(db, name="Ruin", status="ARCHIVED", lifecycle={"endOfLife": far})
+        await create_card(db, name="Live", attributes={"eol_product": "nginx", "eol_cycle": "1.3"})
+
+        async def fake(products):
+            cycles = {
+                "nginx": [
+                    {"cycle": "0.9", "eol": "2019-01-01", "support": False},
+                    {"cycle": "1.3", "eol": far, "support": far},
+                ]
+            }
+            return {p: cycles[p] for p in products if p in cycles}
+
+        monkeypatch.setattr(eol_service, "fetch_cycles_for_products", fake)
+        return cards_env
+
+    @pytest.mark.parametrize(
+        ("value", "names"),
+        [
+            ("eol", ["Relic"]),
+            ("approaching", []),
+            ("supported", ["Ruin"]),
+            ("unknown", []),
+            ("__empty__", ["Fossil"]),
+        ],
+    )
+    async def test_an_archived_card_matches_its_status(
+        self, client, db, archived_eol, value, names
+    ):
+        """``status=ARCHIVED`` (the inventory's "Show archived"): Relic's
+        pair is on no active card, yet it reads ``eol``. The five values
+        partition the archived cards."""
+        query = {"type": "Application", "where": {"eol_status": [value]}}
+        resp = await self._get(client, archived_eol["admin"], query, "status=ARCHIVED")
+        assert resp.status_code == 200
+        assert [item["name"] for item in resp.json()["items"]] == names
+
+    async def test_the_values_together_list_every_archived_card(self, client, db, archived_eol):
+        values = ["eol", "approaching", "supported", "unknown", "__empty__"]
+        query = {"type": "Application", "where": {"eol_status": values}}
+        resp = await self._get(client, archived_eol["admin"], query, "status=ARCHIVED")
+        assert sorted(item["name"] for item in resp.json()["items"]) == ["Fossil", "Relic", "Ruin"]
+        active = await self._get(client, archived_eol["admin"], query)
+        assert [item["name"] for item in active.json()["items"]] == ["Live"]
+
+    async def test_a_query_without_eol_neither_fetches_nor_commits(self, client, db, eol_chain):
+        resp = await self._get(client, eol_chain["admin"], self.CHAIN)
+        assert [item["name"] for item in resp.json()["items"]] == ["Corp"]
+        assert eol_chain["held"] == []
+
+    async def test_eol_status_needs_eol_view(self, client, db, eol_chain):
+        await create_role(
+            db, key="no_eol", label="No EOL", permissions={**MEMBER_PERMISSIONS, "eol.view": False}
+        )
+        reader = await create_user(db, email="no-eol@test.com", role="no_eol")
+        resp = await self._get(client, reader, self._eol_query("eol"))
+        assert resp.status_code == 403
+        assert resp.json()["detail"] == "eol_view_required"
+        assert eol_chain["held"] == []
+        # The same reader runs a query without the condition.
+        assert (await self._get(client, reader, self.CHAIN)).status_code == 200
+
+    @pytest.mark.parametrize(
+        ("query", "code"),
+        [
+            ({"type": "Application", "where": {"eol_status": []}}, "empty_values"),
+            ({"type": "Application", "where": {"eol_status": ["retired"]}}, "unknown_eol_status"),
+            ({"type": "Organization", "where": {"eol_status": ["eol"]}}, "eol_not_tracked"),
+        ],
+    )
+    async def test_rejected_eol_queries(self, client, db, eol_chain, query, code):
+        resp = await self._get(client, eol_chain["admin"], query)
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == code
+
 
 CHAIN_HOP = {"relation": "orgUsesApp", "type": "Application"}

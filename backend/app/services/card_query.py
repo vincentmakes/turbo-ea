@@ -53,6 +53,17 @@ Semantics, decided once here and nowhere else:
   excluding, 80, ``minimal`` < 40; OR among them), the report's and the
   inventory facet's vocabulary. A card never scored holds 0; any other band
   is ``unknown_band``.
+- ``where.eol_status`` lists end-of-life statuses (``eol``, ``approaching``,
+  ``supported``, ``unknown``; OR among them) plus ``__empty__`` for a card
+  with neither an EOL link nor a manual end of life — the inventory's End of
+  life column, computed from endoflife.date or a custom EOL product
+  (``eol_query``). Any other value is ``unknown_eol_status``; the node's card
+  type must track End of Life (``eol_not_tracked``), and evaluating such a
+  query or saving a view holding one needs ``eol.view`` (403
+  ``eol_view_required``, ``require_eol_view``). Status is never stored, so
+  for a condition asking a status the routes read the links' ``(product,
+  cycle)`` pairs, release their session, fetch the cycles and compile the
+  condition from the per-pair statuses; ``__empty__`` alone is pure SQL.
 - ``where.cards`` pins the node to specific cards (OR among them), each of the
   node's card type. With ``include_descendants`` a pick also covers every card
   beneath it through ``parent_id``, any depth (the reports' "Include
@@ -83,8 +94,8 @@ Limits: at most ``MAX_LINES`` (6) lines in a stack (``too_many_lines``),
 ``MAX_DEPTH`` (3) hops below the start card of each line, ``MAX_HOPS``
 (10) sibling hops at one level, ``MAX_TOTAL_HOPS`` (12) hops over all the
 lines, ``MAX_QUERY_CHARS`` (8000) characters of compact JSON, 50 values in
-any one condition list (``tags``, ``cards`` and ``data_quality_band``
-included). A UUID anywhere but in a ``where.tags`` or ``where.cards`` list is
+any one condition list (``tags``, ``cards``, ``data_quality_band`` and
+``eol_status`` included). A UUID anywhere but in a ``where.tags`` or ``where.cards`` list is
 refused (``query_holds_an_id``), so an id never hides in a key, a subtype or a
 field value.
 
@@ -113,6 +124,8 @@ from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.relation_type import RelationType
 from app.models.tag import Tag, TagGroup
+from app.models.user import User
+from app.services.card_flags import type_tracks_eol
 from app.services.card_read_scope import CardReadScope
 from app.services.dashboard_query import (
     DashboardQueryError,
@@ -123,7 +136,19 @@ from app.services.dashboard_query import (
 )
 from app.services.dashboard_service import contains_uuid
 from app.services.data_quality_bands import DQ_BAND_BOUNDS, dq_band_condition
+from app.services.eol_custom_service import load_custom_cycles
+from app.services.eol_query import (
+    EOL_STATUS_VALUES,
+    EolPair,
+    asks_eol_status,
+    eol_condition_types,
+    eol_pairs_for_types,
+    eol_status_condition,
+    has_eol_condition,
+    load_eol_pair_statuses,
+)
 from app.services.lifecycle import PHASE_CHRONOLOGICAL, current_lifecycle_phase_sql
+from app.services.permission_service import PermissionService
 from app.services.portal_card_filters import (
     EMPTY_KEY,
     attribute_condition,
@@ -173,6 +198,7 @@ class CardWhere(BaseModel):
     subtype: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
     approval_status: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
     data_quality_band: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
+    eol_status: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
     attributes: dict[_Value, list[_Value]] | None = Field(None, max_length=20)
     tags: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
     cards: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
@@ -232,11 +258,14 @@ _SET_MODELS: tuple[tuple[str, type[BaseModel]], ...] = (
 
 
 class CardQueryError(ValueError):
-    """A query that cannot be answered. ``code`` is the 400 ``detail``."""
+    """A query that cannot be answered. ``code`` is the ``detail`` of the
+    answer, ``status`` its HTTP status: 400 for a query to fix, 403 for one
+    the caller may not evaluate (``eol_view_required``)."""
 
-    def __init__(self, code: str):
+    def __init__(self, code: str, *, status: int = 400):
         super().__init__(code)
         self.code = code
+        self.status = status
 
 
 # ---------------------------------------------------------------------------
@@ -360,7 +389,7 @@ def stored_card_ids(stored: Any) -> set[uuid.UUID]:
 
 def _where_problem(where: CardWhere) -> str | None:
     lists = [where.lifecycle_phase, where.subtype, where.approval_status, where.tags]
-    lists.extend((where.cards, where.data_quality_band))
+    lists.extend((where.cards, where.data_quality_band, where.eol_status))
     lists.extend((where.attributes or {}).values())
     if any(values is not None and not values for values in lists):
         return "empty_values"
@@ -370,6 +399,8 @@ def _where_problem(where: CardWhere) -> str | None:
         return "unknown_phase"
     if any(b not in DQ_BAND_BOUNDS for b in where.data_quality_band or []):
         return "unknown_band"
+    if any(s not in EOL_STATUS_VALUES for s in where.eol_status or []):
+        return "unknown_eol_status"
     return None
 
 
@@ -434,7 +465,8 @@ def query_problem(query: CardQuerySet) -> str | None:
     ``descendants_without_cards`` for ``include_descendants`` with no
     ``cards``; ``unknown_phase`` for a lifecycle phase outside
     ``LIFECYCLE_PHASES``; ``unknown_band`` for a data-quality band outside
-    ``DQ_BAND_BOUNDS``.
+    ``DQ_BAND_BOUNDS``; ``unknown_eol_status`` for an end-of-life status
+    outside ``EOL_STATUS_VALUES``.
     """
     problem = _stack_problem(query)
     if problem:
@@ -480,6 +512,8 @@ class ResolvedNode:
     card_ids: list[uuid.UUID] = field(default_factory=list)
     #: ``where.include_descendants``.
     include_descendants: bool = False
+    #: ``where.eol_status``, deduplicated in order (empty for none).
+    eol_status: tuple[str, ...] = ()
 
 
 @dataclass
@@ -495,10 +529,15 @@ def _other_end(rel: RelationType, side: RelationSide) -> str:
 
 
 def _check_where(where: CardWhere | None, card_type: Any) -> dict[str, str]:
-    """``where`` against ``card_type``; its ``{field key: field type}``."""
+    """``where`` against ``card_type``; its ``{field key: field type}``.
+
+    ``eol_not_tracked`` for an ``eol_status`` condition on a card type that
+    does not track End of Life (``type_tracks_eol``)."""
     types = field_types(card_type.fields_schema)
     if where is None:
         return types
+    if where.eol_status and not type_tracks_eol(card_type.key, card_type.section_config):
+        raise CardQueryError("eol_not_tracked")
     if where.subtype:
         known = {s.get("key") for s in card_type.subtypes or [] if isinstance(s, dict)}
         if any(v != EMPTY_KEY and v not in known for v in where.subtype):
@@ -611,6 +650,7 @@ def _resolve_node(
         raise CardQueryError("descendants_without_hierarchy")
     node.tag_groups = _tag_groups(where, type_key, tags)
     node.card_ids = _card_ids(where, type_key, check)
+    node.eol_status = tuple(dict.fromkeys(where.eol_status or [])) if where is not None else ()
     for hop in hops or []:
         try:
             side = resolve_side(
@@ -684,7 +724,9 @@ async def resolve_card_query(
     ``unknown_field``, ``unknown_option``, ``unknown_tag`` and
     ``tag_not_for_type`` (see ``_tag_groups``), ``descendants_without_hierarchy``
     (``include_descendants`` on a card type without ``has_hierarchy``),
-    ``unknown_card`` (see ``_card_ids``; write paths only).
+    ``unknown_card`` (see ``_card_ids``; write paths only), ``eol_not_tracked``
+    (an ``eol_status`` condition on a card type that does not track End of
+    Life).
 
     ``read_scope`` is the *writer's* scope, given only when a view is saved:
     then, and only then, the picks are checked — each must exist, be of its
@@ -720,8 +762,23 @@ async def resolve_card_query(
 # ---------------------------------------------------------------------------
 
 
-def where_conditions(card: Any, node: ResolvedNode, *, today: date | None = None) -> list[Any]:
-    """``node.where`` as conditions over ``card`` (``Card`` or an alias)."""
+#: Each EOL link's status, as ``load_eol_pair_statuses`` prepared it.
+PairStatuses = Mapping[EolPair, str]
+
+
+def where_conditions(
+    card: Any,
+    node: ResolvedNode,
+    *,
+    today: date | None = None,
+    pair_statuses: PairStatuses | None = None,
+) -> list[Any]:
+    """``node.where`` as conditions over ``card`` (``Card`` or an alias).
+
+    An ``eol_status`` condition asking a status needs ``pair_statuses``
+    (``PreparedCardQuery`` loads them); compiling one without is a
+    programming error and raises ``RuntimeError``, never a silently dropped
+    condition. One asking only ``__empty__`` is pure SQL and needs none."""
     where = node.where
     if where is None:
         return []
@@ -753,6 +810,14 @@ def where_conditions(card: Any, node: ResolvedNode, *, today: date | None = None
             picked = or_(picked, card.id.in_(select(below.c.id)))
         clauses.append(picked)
     clauses.extend(tag_conditions(node.tag_groups, card=card))
+    if node.eol_status:
+        if pair_statuses is None and asks_eol_status(node.eol_status):
+            raise RuntimeError("an eol_status condition needs prepared pair statuses")
+        clauses.append(
+            eol_status_condition(
+                card, node.eol_status, pair_statuses or {}, eol_types=(node.type,), today=today
+            )
+        )
     return clauses
 
 
@@ -765,7 +830,11 @@ def _inventory_scope(read_scope: CardReadScope, card: Any) -> tuple[Any, ...]:
 
 
 def _hop_condition(
-    near: Any, hop: ResolvedHop, read_scope: CardReadScope, today: date | None
+    near: Any,
+    hop: ResolvedHop,
+    read_scope: CardReadScope,
+    today: date | None,
+    pair_statuses: PairStatuses | None,
 ) -> Any:
     """``EXISTS`` (``NOT EXISTS`` when negated) a relation on ``hop.side``
     from ``near`` to a live, readable card matching the hop — a fresh alias
@@ -778,29 +847,57 @@ def _hop_condition(
         other.type == hop.node.type,
         other.status == "ACTIVE",
         *_inventory_scope(read_scope, other),
-        *_node_conditions(other, hop.node, read_scope, today),
+        *_node_conditions(other, hop.node, read_scope, today, pair_statuses),
     )
     return not_(condition) if hop.negate else condition
 
 
 def _node_conditions(
-    card: Any, node: ResolvedNode, read_scope: CardReadScope, today: date | None
+    card: Any,
+    node: ResolvedNode,
+    read_scope: CardReadScope,
+    today: date | None,
+    pair_statuses: PairStatuses | None,
 ) -> list[Any]:
     return [
-        *where_conditions(card, node, today=today),
-        *(_hop_condition(card, hop, read_scope, today) for hop in node.hops),
+        *where_conditions(card, node, today=today, pair_statuses=pair_statuses),
+        *(_hop_condition(card, hop, read_scope, today, pair_statuses) for hop in node.hops),
     ]
 
 
 def _group_condition(
-    card: Any, group: list[ResolvedNode], read_scope: CardReadScope, today: date | None
+    card: Any,
+    group: list[ResolvedNode],
+    read_scope: CardReadScope,
+    today: date | None,
+    pair_statuses: PairStatuses | None,
 ) -> Any:
     """One AND group over ``card``: the group's start type, then every
     line's condition and hops."""
     return and_(
         card.type == group[0].type,
-        *(c for node in group for c in _node_conditions(card, node, read_scope, today)),
+        *(
+            c
+            for node in group
+            for c in _node_conditions(card, node, read_scope, today, pair_statuses)
+        ),
     )
+
+
+def compile_groups(
+    groups: list[list[ResolvedNode]],
+    read_scope: CardReadScope,
+    card: Any = Card,
+    *,
+    today: date | None = None,
+    pair_statuses: PairStatuses | None = None,
+) -> list[Any]:
+    """``compile_card_query`` over groups ``resolve_card_query`` already
+    resolved: no database access."""
+    conditions = [
+        _group_condition(card, group, read_scope, today, pair_statuses) for group in groups
+    ]
+    return conditions if len(conditions) == 1 else [or_(*conditions)]
 
 
 async def compile_card_query(
@@ -810,6 +907,7 @@ async def compile_card_query(
     card: Any = Card,
     *,
     today: date | None = None,
+    pair_statuses: PairStatuses | None = None,
 ) -> list[Any]:
     """The conditions ``query`` (as ``parse_card_query`` returned it, so its
     structure is not re-checked) puts on ``card``, to splat into
@@ -818,10 +916,87 @@ async def compile_card_query(
     ``all_of``, an ``OR`` over those groups for an ``any_of``. The caller adds
     the start card's own status, hidden-type and read-scope rules, as every
     card list already does. Raises ``CardQueryError`` (see
-    ``resolve_card_query``)."""
+    ``resolve_card_query``). A query with an ``eol_status`` condition needs
+    ``pair_statuses`` (see ``where_conditions``); the routes go through
+    ``prepare_card_query`` instead."""
     groups = await resolve_card_query(db, query)
-    conditions = [_group_condition(card, group, read_scope, today) for group in groups]
-    return conditions if len(conditions) == 1 else [or_(*conditions)]
+    return compile_groups(groups, read_scope, card, today=today, pair_statuses=pair_statuses)
+
+
+@dataclass(frozen=True)
+class EolInputs:
+    """What a query's ``eol_status`` conditions need from the database, read
+    before the route releases its session: the links on the condition's
+    card types and the custom products' cycles."""
+
+    pairs: frozenset[EolPair]
+    custom_cycles: Mapping[str, list[dict]]
+
+
+@dataclass(frozen=True)
+class PreparedCardQuery:
+    """A query resolved for one reader, ready to compile.
+
+    ``eol`` is set when the query asks an end-of-life status other than
+    ``__empty__``: compiling it then fetches cycles from endoflife.date, so
+    the route commits its session first (``needs_release``) — this object
+    never touches it."""
+
+    groups: list[list[ResolvedNode]]
+    eol: EolInputs | None = None
+
+    @property
+    def needs_release(self) -> bool:
+        """Whether ``compile`` makes an outbound call, before which the
+        route must hand its database connection back."""
+        return self.eol is not None
+
+    async def compile(
+        self, read_scope: CardReadScope, card: Any = Card, *, today: date | None = None
+    ) -> list[Any]:
+        """The query's conditions (``compile_card_query``), the EOL pair
+        statuses fetched first when needed. No database access."""
+        pair_statuses = None
+        if self.eol is not None:
+            pair_statuses = await load_eol_pair_statuses(self.eol.pairs, self.eol.custom_cycles)
+        return compile_groups(
+            self.groups, read_scope, card, today=today, pair_statuses=pair_statuses
+        )
+
+
+async def require_eol_view(db: AsyncSession, user: User, groups: list[list[ResolvedNode]]) -> None:
+    """``CardQueryError`` ``eol_view_required`` (status 403) when any node of
+    ``groups`` carries an ``eol_status`` condition — ``__empty__`` alone
+    included — and ``user`` lacks ``eol.view``, as the inventory's End of
+    life column does. The one check for evaluating such a query
+    (``prepare_card_query``) and for saving a view holding one
+    (``bookmarks._checked_query``). Never commits."""
+    if has_eol_condition(groups) and not await PermissionService.check_permission(
+        db, user, "eol.view"
+    ):
+        raise CardQueryError("eol_view_required", status=403)
+
+
+async def prepare_card_query(
+    db: AsyncSession, user: User, query: CardQuerySet
+) -> PreparedCardQuery:
+    """``query`` resolved for ``user`` with every database read it needs —
+    the route-level step ``GET /cards?query=`` and the OData feed share.
+
+    The routes then commit when ``needs_release`` (outbound HTTP follows) and
+    ``compile``. A query with an ``eol_status`` condition needs ``eol.view``
+    (``require_eol_view``). Only a condition asking a status other than
+    ``__empty__`` reads the links' pairs and the custom cycles; any other
+    query reads nothing more than ``resolve_card_query`` and the permission.
+    Never commits."""
+    groups = await resolve_card_query(db, query)
+    await require_eol_view(db, user, groups)
+    types = eol_condition_types(groups)
+    if not types:
+        return PreparedCardQuery(groups)
+    pairs = await eol_pairs_for_types(db, types)
+    custom_cycles = await load_custom_cycles(db, {product for product, _ in pairs})
+    return PreparedCardQuery(groups, EolInputs(frozenset(pairs), custom_cycles))
 
 
 # ---------------------------------------------------------------------------

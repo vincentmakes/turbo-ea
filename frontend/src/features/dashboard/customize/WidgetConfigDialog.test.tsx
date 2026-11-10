@@ -611,6 +611,62 @@ describe("WidgetConfigDialog — data quality leaderboard", () => {
   });
 });
 
+describe("WidgetConfigDialog — inventory views", () => {
+  const VIEWS = widget("inventory_views", { filter: "all", query_only: false });
+  const bookmark = (id: string, name: string, query: unknown = null) => ({
+    id,
+    name,
+    is_default: false,
+    visibility: "private",
+    odata_enabled: false,
+    owner_id: "u1",
+    is_owner: true,
+    can_edit: true,
+    filters: { types: ["Application"] },
+    query,
+  });
+
+  it("previews the real list and saves whose views and query views only", async () => {
+    mockApi.on("get", "/bookmarks?filter=all", [bookmark("b1", "All apps"), bookmark("b2", "Apps path", { type: "Application" })]);
+    mockApi.on("get", "/bookmarks?filter=shared", [bookmark("b3", "Shared plain"), bookmark("b4", "Shared path", { type: "Application" })]);
+    const { user, onSave } = renderDialog(VIEWS, { mode: "edit" });
+    const preview = screen.getByTestId("config-preview");
+    expect(await within(preview).findByText("All apps")).toBeInTheDocument();
+    expect(within(preview).getByText(tc("dashboard.widgets.inventoryViews"))).toBeInTheDocument();
+
+    const radios = within(screen.getByRole("radiogroup", { name: tc("dashboard.inventoryViews.filter") }));
+    expect(radios.getByRole("radio", { name: tc("dashboard.inventoryViews.filterAll") })).toBeChecked();
+    await user.click(radios.getByRole("radio", { name: tc("dashboard.inventoryViews.filterShared") }));
+    expect(await within(preview).findByText("Shared plain")).toBeInTheDocument();
+
+    const queryOnly = screen.getByRole("checkbox", { name: tc("dashboard.inventoryViews.queryOnly") });
+    expect(queryOnly).not.toBeChecked();
+    await user.click(queryOnly);
+    await waitFor(() => expect(within(preview).queryByText("Shared plain")).not.toBeInTheDocument());
+    expect(within(preview).getByText("Shared path")).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(tc("dashboard.config.title")), "Team views");
+    expect(problem()).toBeNull();
+    await user.click(saveButton("edit"));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const saved = onSave.mock.calls[0][0];
+    expect(saved.title).toBe("Team views");
+    expect(saved.config).toEqual({ filter: "shared", query_only: true });
+  });
+
+  it("starts from the widget's settings and shows no query or row settings", () => {
+    mockApi.on("get", "/bookmarks?filter=my", []);
+    renderDialog(widget("inventory_views", { filter: "my", query_only: true }), { mode: "edit" });
+    expect(screen.getByTestId("config-views")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: tc("dashboard.inventoryViews.filterMy") })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: tc("dashboard.inventoryViews.queryOnly") })).toBeChecked();
+    expect(screen.queryByTestId("config-filters")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("config-card-type")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("config-max-rows")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("config-leaderboard")).not.toBeInTheDocument();
+  });
+});
+
 it("renders nothing without a widget", () => {
   renderWithProviders(<WidgetConfigDialog open widget={null} mode="edit" onClose={() => {}} onSave={() => {}} />);
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

@@ -207,3 +207,15 @@ export function pickedCardIdsOf(query: CardQuerySet): string[] {
   for (const { query: q } of linesOf(query)) for (const id of pickedCardIds(q)) seen.add(id);
   return [...seen];
 }
+
+/**
+ * Whether the start card of any line filters on end-of-life status
+ * (`where.eol_status`): the grid then lists cards chosen by their status, so
+ * the inventory shows its End of life column whatever the column picker says.
+ * A condition on a hop is about the related card, not the rows, and does not
+ * count.
+ */
+export function startFiltersOnEol(query: CardQuerySet | null | undefined): boolean {
+  if (!query) return false;
+  return linesOf(query).some(({ query: q }) => (q.where?.eol_status?.length ?? 0) > 0);
+}

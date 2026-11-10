@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 - Query views can combine several query lines — AND within a group, OR between groups — so one view can list several card types, such as Applications and Organizations together; add a line with the plus in the inventory query builder, or through the MCP server with `all_of` / `any_of`.
+- Query views can filter on end-of-life status — End of Life, Approaching EOL, Supported, Unknown or none — at the start card or at any relation step, such as *Applications that use an IT Component at End of Life*; the Views list shows how many conditions a query view has.
+- An **Inventory views** dashboard widget lists your saved inventory views — all you can open, your own or those shared with you, optionally query views only — and opens one in a click.
 
 ## [2.195.0] - 2026-11-09
 

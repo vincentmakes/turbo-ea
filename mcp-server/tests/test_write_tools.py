@@ -1254,6 +1254,46 @@ class TestSaveInventoryView:
         )
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("view_id", ["", "v-7"])
+    async def test_saving_an_eol_view_without_the_permission_is_explained(
+        self, fake_token, view_id
+    ):
+        """The backend refuses the save itself (``POST`` / ``PATCH
+        /bookmarks``) with 403 ``eol_view_required``: answered with the same
+        hint as a refused preview, not raised."""
+        refusal = _http_error(403, "eol_view_required")
+        backend = _ViewBackend(error=refusal, patch_error=refusal)
+        out = await backend.run(name="Orgs", query=_VIEW_QUERY, view_id=view_id, dry_run=False)
+        assert out == {
+            "error": "eol_view_required",
+            "hint": (
+                "This query filters on end-of-life status (where.eol_status), which needs "
+                "the EOL view permission (eol.view). Remove the eol_status condition, or "
+                "ask an administrator for that permission."
+            ),
+            "batch_id": "B-1",
+        }
+        assert backend.calls[-1] == (
+            "post",
+            "/mutation-batches/B-1/commit",
+            {"summary": {"status": "rejected", "error": "eol_view_required"}},
+        )
+
+    def test_the_eol_refusal_reads_the_same_in_the_docstring_and_the_manual(self):
+        """``save_inventory_view`` and ``docs/admin/mcp.md`` state the same
+        rule in the same words."""
+        import pathlib
+        import re
+
+        sentence = "saving, previewing and opening a view that holds one are refused without it"
+        doc = re.sub(r"\s+", " ", server.save_inventory_view.__doc__ or "")
+        manual = pathlib.Path(__file__).resolve().parents[2] / "docs" / "admin" / "mcp.md"
+        assert f"needs the EOL view permission: {sentence} (``eol_view_required``)" in doc
+        assert f"needs the EOL view permission: {sentence} (`eol_view_required`)" in (
+            manual.read_text(encoding="utf-8")
+        )
+
+    @pytest.mark.asyncio
     async def test_commit_posts_the_exact_payload(self, fake_token, monkeypatch):
         monkeypatch.setattr(server, "TURBO_EA_PUBLIC_URL", "https://ea.example.com/")
         backend = _ViewBackend()

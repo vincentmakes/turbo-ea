@@ -2541,3 +2541,302 @@ class TestViewPatchOnTypeSets:
             current_filters={"types": ["Application", "Initiative"], "groupBy": "x"},
         )
         assert out["filters"] == {"types": ["Application", "Organization"], "groupBy": "x"}
+
+
+# ---------------------------------------------------------------------------
+# End-of-life status (``where.eol_status``)
+# ---------------------------------------------------------------------------
+
+#: Upstream cycles the EOL tests answer from: 1.0 is past its end of life,
+#: 1.3 is supported.
+EOL_UPSTREAM = {
+    "nginx": [
+        {"cycle": "1.0", "eol": PAST, "support": PAST},
+        {"cycle": "1.3", "eol": (TODAY + timedelta(days=400)).isoformat(), "support": FUTURE},
+    ]
+}
+NEAR_EOL = (TODAY + timedelta(days=60)).isoformat()
+
+
+@pytest.fixture
+def eol_upstream(monkeypatch):
+    """``fetch_cycles_for_products`` answering from ``EOL_UPSTREAM``."""
+    from app.services import eol_service
+
+    async def fake(products):
+        return {p: EOL_UPSTREAM[p] for p in products if p in EOL_UPSTREAM}
+
+    monkeypatch.setattr(eol_service, "fetch_cycles_for_products", fake)
+
+
+@pytest.fixture
+async def eol_chain(db):
+    """Organizations using Applications in each EOL status:
+
+    - UsesDead → Dead (linked, end of life; lifecycle active);
+    - UsesFresh → Fresh (linked, supported; lifecycle active);
+    - UsesPlain → Plain (nothing recorded; lifecycle plan);
+    - UsesRetiring → Retiring (manual end of life in 60 days; active);
+    - UsesNothing uses nothing. Organization does not track EOL.
+    """
+    await create_role(db, key="admin", label="Admin", permissions={"*": True})
+    admin = await create_user(db, email="eol-admin@test.com", role="admin")
+    await create_card_type(db, key="Organization")
+    await create_card_type(db, key="Application")
+    await create_relation_type(
+        db, key=USES, source_type_key="Organization", target_type_key="Application"
+    )
+    apps = {
+        "Dead": ({"eol_product": "nginx", "eol_cycle": "1.0"}, {"active": PAST}),
+        "Fresh": ({"eol_product": "nginx", "eol_cycle": "1.3"}, {"active": PAST}),
+        "Plain": ({}, {"plan": FUTURE}),
+        "Retiring": ({}, {"active": PAST, "endOfLife": NEAR_EOL}),
+    }
+    for name, (attributes, lifecycle) in apps.items():
+        app = await create_card(db, name=name, attributes=attributes, lifecycle=lifecycle)
+        org = await create_card(db, card_type="Organization", name=f"Uses{name}")
+        await create_relation(db, type_key=USES, source_id=org.id, target_id=app.id)
+    await create_card(db, card_type="Organization", name="UsesNothing")
+    return admin
+
+
+async def _eol_names(db, user, raw: dict) -> set[str]:
+    """The start cards ``raw`` keeps, through the routes' prepare / compile."""
+    from app.services.card_query import prepare_card_query
+
+    prepared = await prepare_card_query(db, user, parse_card_query(raw))
+    clauses = await prepared.compile(CardReadScope.everything())
+    rows = await db.execute(select(Card.name).where(Card.status == "ACTIVE", *clauses))
+    return set(rows.scalars().all())
+
+
+class TestEolStatusStructure:
+    def test_an_empty_list_is_refused(self):
+        assert _parse_code(_q("A", where={"eol_status": []})) == "empty_values"
+
+    @pytest.mark.parametrize("value", ["retired", "EOL", "none", ""])
+    def test_an_unknown_status_is_refused(self, value):
+        raw = _q("A", _hop("r", "B", where={"eol_status": ["eol", value]}))
+        assert _parse_code(raw) == "unknown_eol_status"
+
+    def test_every_status_parses_and_is_stored_verbatim(self):
+        raw = _q(
+            "A",
+            where={"eol_status": ["eol", "approaching", "supported", "unknown", "__empty__"]},
+        )
+        assert stored_query(parse_card_query(raw)) == raw
+
+    def test_at_most_fifty_values(self):
+        assert _parse_code(_q("A", where={"eol_status": ["eol"] * 51})) == "invalid_query"
+        assert parse_card_query(_q("A", where={"eol_status": ["eol"] * 50})).where
+
+
+class TestEolStatusResolve:
+    async def test_a_type_that_does_not_track_eol_is_refused(self, db, eol_chain):
+        assert await _code(db, _q("Organization", where={"eol_status": ["eol"]})) == (
+            "eol_not_tracked"
+        )
+        hop = _q("Application", where={"eol_status": ["eol"]})
+        assert (await _resolve_root(db, parse_card_query(hop))).eol_status == ("eol",)
+
+    async def test_hiding_the_eol_section_takes_the_type_out(self, db):
+        await create_card_type(db, key="Application", section_config={"eol": {"hidden": True}})
+        await create_card_type(db, key="Widget", section_config={"eol": {"hidden": False}})
+        await create_relation_type(
+            db, key="appToWidget", source_type_key="Application", target_type_key="Widget"
+        )
+        raw = _q("Application", where={"eol_status": ["eol"]})
+        assert await _code(db, raw) == "eol_not_tracked"
+        at_hop = _q("Application", _hop("appToWidget", "Widget", where={"eol_status": ["eol"]}))
+        root = await _resolve_root(db, parse_card_query(at_hop))
+        assert root.eol_status == ()
+        assert root.hops[0].node.eol_status == ("eol",)
+
+    async def test_values_are_deduplicated_in_order(self, db, eol_chain):
+        raw = _q("Application", where={"eol_status": ["unknown", "eol", "unknown"]})
+        root = await _resolve_root(db, parse_card_query(raw))
+        assert root.eol_status == ("unknown", "eol")
+
+    async def test_a_node_without_where_has_none(self, db, eol_chain):
+        root = await _resolve_root(db, parse_card_query(_q("Application")))
+        assert root.eol_status == ()
+
+
+class TestEolStatusSemantics:
+    async def test_at_the_start_card(self, db, eol_chain, eol_upstream):
+        assert await _eol_names(
+            db, eol_chain, _q("Application", where={"eol_status": ["eol"]})
+        ) == {"Dead"}
+        empty = _q("Application", where={"eol_status": ["__empty__"]})
+        assert await _eol_names(db, eol_chain, empty) == {"Plain"}
+
+    async def test_at_a_hop(self, db, eol_chain, eol_upstream):
+        hop = _hop(USES, "Application", where={"eol_status": ["eol", "approaching"]})
+        assert await _eol_names(db, eol_chain, _q("Organization", hop)) == {
+            "UsesDead",
+            "UsesRetiring",
+        }
+        negated = _hop(USES, "Application", where={"eol_status": ["supported"]}, negate=True)
+        assert await _eol_names(db, eol_chain, _q("Organization", negated)) == {
+            "UsesDead",
+            "UsesPlain",
+            "UsesRetiring",
+            "UsesNothing",
+        }
+
+    async def test_inside_an_or_group_of_a_stack(self, db, eol_chain, eol_upstream):
+        raw = {
+            "any_of": [
+                _q("Application", where={"eol_status": ["eol"]}),
+                {
+                    "all_of": [
+                        _q(
+                            "Organization",
+                            _hop(USES, "Application", where={"eol_status": ["__empty__"]}),
+                        ),
+                        _q("Organization", _hop(USES, "Application")),
+                    ]
+                },
+            ]
+        }
+        assert await _eol_names(db, eol_chain, raw) == {"Dead", "UsesPlain"}
+
+    @pytest.mark.parametrize(
+        ("where", "expected"),
+        [
+            ({"eol_status": ["eol"], "lifecycle_phase": ["active"]}, {"Dead"}),
+            ({"eol_status": ["approaching"], "lifecycle_phase": ["active"]}, {"Retiring"}),
+            ({"eol_status": ["eol"], "lifecycle_phase": ["endOfLife"]}, set()),
+            ({"eol_status": ["__empty__"], "lifecycle_phase": ["plan"]}, {"Plain"}),
+        ],
+    )
+    async def test_independent_of_the_lifecycle(self, db, eol_chain, eol_upstream, where, expected):
+        """A card's EOL status and its own lifecycle phase are two facts: an
+        Application can be active while its component is end of life."""
+        assert await _eol_names(db, eol_chain, _q("Application", where=where)) == expected
+
+    async def test_compiling_without_prepared_statuses_raises(self, db, eol_chain):
+        raw = _q("Organization", _hop(USES, "Application", where={"eol_status": ["eol"]}))
+        with pytest.raises(RuntimeError, match="prepared pair statuses"):
+            await compile_card_query(db, parse_card_query(raw), CardReadScope.everything())
+
+    async def test_compiling_empty_alone_needs_no_statuses(self, db, eol_chain):
+        raw = _q("Organization", _hop(USES, "Application", where={"eol_status": ["__empty__"]}))
+        clauses = await compile_card_query(db, parse_card_query(raw), CardReadScope.everything())
+        rows = await db.execute(select(Card.name).where(Card.status == "ACTIVE", *clauses))
+        assert set(rows.scalars().all()) == {"UsesPlain"}
+
+    async def test_compile_card_query_takes_prepared_statuses(self, db, eol_chain):
+        raw = _q("Application", where={"eol_status": ["supported"]})
+        clauses = await compile_card_query(
+            db,
+            parse_card_query(raw),
+            CardReadScope.everything(),
+            pair_statuses={("nginx", "1.0"): "supported", ("nginx", "1.3"): "eol"},
+        )
+        rows = await db.execute(select(Card.name).where(Card.status == "ACTIVE", *clauses))
+        assert set(rows.scalars().all()) == {"Dead"}
+
+
+class TestPrepareCardQuery:
+    async def test_a_query_without_eol_reads_nothing_more(self, db, eol_chain):
+        from app.services.card_query import prepare_card_query
+
+        prepared = await prepare_card_query(db, eol_chain, parse_card_query(_q("Application")))
+        assert prepared.eol is None
+        assert prepared.needs_release is False
+
+    async def test_an_eol_query_reads_the_pairs_first(self, db, eol_chain):
+        from app.models.eol_custom_cycle import EolCustomCycle
+        from app.models.eol_custom_product import EolCustomProduct
+        from app.services.card_query import prepare_card_query
+
+        db.add(EolCustomProduct(key="acme", title="Acme"))
+        await db.flush()
+        db.add(EolCustomCycle(product_key="acme", cycle="7", eol=PAST, support=False))
+        await create_card(
+            db, name="Acme", attributes={"eol_product": "custom:acme", "eol_cycle": "7"}
+        )
+        raw = _q("Organization", _hop(USES, "Application", where={"eol_status": ["eol"]}))
+        prepared = await prepare_card_query(db, eol_chain, parse_card_query(raw))
+        assert prepared.needs_release is True
+        assert prepared.eol is not None
+        assert prepared.eol.pairs == {("nginx", "1.0"), ("nginx", "1.3"), ("custom:acme", "7")}
+        assert list(prepared.eol.custom_cycles) == ["custom:acme"]
+        assert [c["cycle"] for c in prepared.eol.custom_cycles["custom:acme"]] == ["7"]
+
+    async def test_needs_eol_view(self, db, eol_chain):
+        from app.services.card_query import prepare_card_query
+
+        await create_role(db, key="no_eol", label="No EOL", permissions={"inventory.view": True})
+        reader = await create_user(db, email="no-eol@test.com", role="no_eol")
+        raw = _q("Application", where={"eol_status": ["eol"]})
+        with pytest.raises(CardQueryError) as exc:
+            await prepare_card_query(db, reader, parse_card_query(raw))
+        assert (exc.value.code, exc.value.status) == ("eol_view_required", 403)
+        # Without the condition the same reader is not asked for it.
+        plain = await prepare_card_query(db, reader, parse_card_query(_q("Application")))
+        assert plain.eol is None
+
+    async def test_empty_alone_reads_no_pair_and_fetches_nothing(self, db, eol_chain, monkeypatch):
+        """``__empty__`` is pure SQL: no pair read, no custom cycles, no
+        commit and no outbound fetch — and the answer is still exact."""
+        from app.services import card_query, eol_service
+        from app.services.card_query import prepare_card_query
+
+        async def refuse(*args, **kwargs):
+            raise AssertionError("an __empty__-only query must not read or fetch")
+
+        monkeypatch.setattr(eol_service, "fetch_cycles_for_products", refuse)
+        monkeypatch.setattr(card_query, "eol_pairs_for_types", refuse)
+        monkeypatch.setattr(card_query, "load_custom_cycles", refuse)
+        monkeypatch.setattr(db, "commit", refuse)
+        raw = _q("Organization", _hop(USES, "Application", where={"eol_status": ["__empty__"]}))
+        prepared = await prepare_card_query(db, eol_chain, parse_card_query(raw))
+        assert prepared.eol is None
+        assert prepared.needs_release is False
+        assert await _eol_names(db, eol_chain, raw) == {"UsesPlain"}
+        at_start = _q("Application", where={"eol_status": ["__empty__", "__empty__"]})
+        assert await _eol_names(db, eol_chain, at_start) == {"Plain"}
+
+    async def test_only_the_nodes_asking_a_status_read_pairs(self, db, eol_chain, monkeypatch):
+        from app.services import card_query
+        from app.services.card_query import prepare_card_query
+
+        asked: list[set[str]] = []
+        real = card_query.eol_pairs_for_types
+
+        async def record(db_, types):
+            asked.append(set(types))
+            return await real(db_, types)
+
+        monkeypatch.setattr(card_query, "eol_pairs_for_types", record)
+        await create_card_type(db, key="ITComponent")
+        await create_relation_type(
+            db, key="appUsesItc", source_type_key="Application", target_type_key="ITComponent"
+        )
+        raw = _q(
+            "Organization",
+            _hop(
+                USES,
+                "Application",
+                _hop("appUsesItc", "ITComponent", where={"eol_status": ["unknown"]}),
+                where={"eol_status": ["__empty__"]},
+            ),
+        )
+        prepared = await prepare_card_query(db, eol_chain, parse_card_query(raw))
+        assert asked == [{"ITComponent"}]
+        assert prepared.needs_release is True
+
+    async def test_empty_alone_still_needs_eol_view(self, db, eol_chain):
+        from app.services.card_query import prepare_card_query
+
+        await create_role(db, key="no_eol", label="No EOL", permissions={"inventory.view": True})
+        reader = await create_user(db, email="no-eol@test.com", role="no_eol")
+        raw = _q("Application", where={"eol_status": ["__empty__"]})
+        with pytest.raises(CardQueryError) as exc:
+            await prepare_card_query(db, reader, parse_card_query(raw))
+        assert (exc.value.code, exc.value.status) == ("eol_view_required", 403)
+
+    def test_a_query_error_is_a_400_by_default(self):
+        assert CardQueryError("unknown_band").status == 400

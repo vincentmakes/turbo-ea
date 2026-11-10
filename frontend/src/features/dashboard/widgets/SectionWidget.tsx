@@ -8,6 +8,7 @@ import type { WidgetType } from "@/types";
 import { useDashboardSource } from "../DashboardSources";
 import MyFavoritesSection from "../workspace/MyFavoritesSection";
 import MySavedReportsSection from "../workspace/MySavedReportsSection";
+import InventoryViewsSection from "../workspace/InventoryViewsSection";
 import MyRolesSection from "../workspace/MyRolesSection";
 import MyTodosSection from "../workspace/MyTodosSection";
 import MyPendingSurveysSection from "../workspace/MyPendingSurveysSection";
@@ -102,6 +103,8 @@ export default function SectionWidget({ widget }: WidgetProps) {
       return <MyFavoritesSection />;
     case "my_saved_reports":
       return <MySavedReportsSection />;
+    case "inventory_views":
+      return <InventoryViewsSection widget={widget} />;
     case "my_roles":
       return <MyRolesSection />;
     case "my_todos":

@@ -7,6 +7,7 @@
  */
 import { hasPermission } from "@/components/RequirePermission";
 import type { CardType, DashboardWidget, RelationType, WidgetType } from "@/types";
+import { INVENTORY_VIEWS_DEFAULTS, inventoryViewsConfigOf } from "../widgets/inventoryViewsConfig";
 import { KPI_PRESETS, KPI_PRESET_KEYS } from "../widgets/kpiPresets";
 import { seriesLabelKey, type ModuleSourceName } from "../widgets/sourceSeries";
 import {
@@ -241,6 +242,7 @@ function defaultConfig(type: WidgetType): Record<string, unknown> {
   if (type === "quality_leaderboard") {
     return { rank_by: "average_quality", min_cards: 3, counting_roles_only: true, max_rows: 10 };
   }
+  if (type === "inventory_views") return inventoryViewsConfigOf(INVENTORY_VIEWS_DEFAULTS);
   return {};
 }
 

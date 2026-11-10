@@ -2557,6 +2557,7 @@ function BookmarkListItem({
                   hasNo: t("inventory:queryView.hasNo"),
                   and: t("inventory:queryView.connectiveAnd"),
                   or: t("inventory:queryView.connectiveOr"),
+                  conditions: (count) => t("inventory:queryView.conditionCount", { count }),
                 })}
               </span>
             </Tooltip>

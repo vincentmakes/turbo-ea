@@ -78,6 +78,16 @@ O painel **Meu espaço** reúne tudo o que lhe foi atribuído: favoritos, relat�
 
 Esta última secção agrupa os cards pelo papel de parte interessada que desempenha (Application Owner, Business Owner, etc.) e lista os cards sob cada papel. Se o seu papel conceder a permissão `stakeholders.view` (papéis admin, member e viewer por predefinição), um pequeno ícone de **pesquisa de pessoa** junto ao título da secção permite apontá-la para **outra pessoa**: escolha um utilizador no preenchimento automático e a secção é recarregada com os papéis e os cards desse utilizador. O título muda para «Papéis de {name}». Clique no pequeno ícone de fechar para voltar aos seus próprios papéis. Útil para responder a «pelo que é responsável esta pessoa?» com um clique.
 
+### Visualizações do inventário
+
+O widget **Visualizações do inventário** lista num painel as suas [visualizações do inventário](inventory.md) guardadas. Não está em nenhum dos painéis integrados: adicione-o a partir da gaveta **Adicionar widget** (ver [Adicionar e restaurar widgets](#adicionar-e-restaurar-widgets)), onde se encontra com os widgets de **Meu espaço**.
+
+Mostra até seis visualizações, as mais recentes primeiro. Cada linha inclui o ícone do tipo de card da visualização, o seu nome e, numa segunda linha, o seu tipo de card — ou, no caso de uma [visualização de consulta](inventory.md#query-views), o seu caminho seguido do número das suas condições. Um cubo assinala uma visualização de consulta, ou um robô quando foi criada por um assistente de IA, e um ícone de globo ou de grupo assinala uma visualização pública ou partilhada. Clique numa linha para abrir a visualização no inventário; **Ver tudo** abre o inventário.
+
+![Widget Visualizações do inventário](../assets/img/pt/04b_painel_vistas_inventario.png)
+
+O seu botão de engrenagem define **Visualizações a listar** — **Todas as visualizações que posso abrir**, **As minhas visualizações** ou **Visualizações partilhadas comigo** — e um interruptor **Apenas visualizações de consulta**, com uma pré-visualização em direto do resultado. Um painel pode conter o widget mais de uma vez, por exemplo **As minhas visualizações** ao lado de **Visualizações partilhadas comigo**. Uma função que não pode abrir visualizações guardadas vê uma mensagem curta em vez da lista.
+
 ## Aba «Administração» — Diretório de partes interessadas { #admin-tab-stakeholder-directory }
 
 O painel **Administração** é mostrado aos papéis com `admin.users`. Além dos seus blocos de KPI (utilizadores ativos, cards sem partes interessadas, tarefas em atraso, aprovações bloqueadas, qualidade geral) e das suas listas (principais colaboradores, cobertura de partes interessadas, utilizadores inativos, pipeline de aprovação, atividade do sistema, tarefas não atribuídas), termina com um widget **Diretório de partes interessadas**. Lista cada tipo de card que tem pelo menos uma parte interessada, com o número de titulares distintos. Expanda um tipo de card para ver os seus papéis e, dentro de cada papel, os utilizadores que o ocupam, juntamente com o número de cards que cobrem. Clique no chip de um utilizador para expandir a sua lista de cards no próprio local — cada nome de card é ele próprio um link para a página de detalhe do card. Toda a árvore (tipo de card → papel → utilizador → cards) chega numa única chamada, pelo que a navegação é instantânea.
@@ -99,14 +109,14 @@ Clique em **Personalizar**, junto às abas dos painéis, para editar o painel at
 - **Mova** um widget arrastando-o pela sua pega; a grelha tem 12 colunas de largura e os outros widgets abrem espaço.
 - **Redimensione** um widget a partir do seu limite direito, do limite inferior ou do canto, com o rato ou por toque (num telemóvel ou tablet na vertical, o layout é só de leitura). O widget ao lado ajusta-se enquanto arrasta: estreita quando o vizinho cresce e volta a alargar quando este diminui; se já não puder estreitar mais, passa para a linha seguinte. As linhas abaixo descem e voltam a subir por si próprias. O widget ajusta-se à grelha enquanto o arrasta e, no modo de personalização, a página mantém quatro linhas vazias abaixo do último widget, para que a última linha possa ser esticada; desloque-se primeiro até a pega ficar bem dentro da janela.
 - **Remova** um widget com o seu botão de fechar.
-- **Configure** um bloco de KPI, um gráfico, o feed de atividade ou uma classificação da qualidade dos dados com o seu botão de engrenagem.
+- **Configure** um bloco de KPI, um gráfico, o feed de atividade ou uma classificação da qualidade dos dados ou um widget de [Visualizações do inventário](#visualizacoes-do-inventario) com o seu botão de engrenagem.
 - **Desfaça** e **refaça** as alterações: **Desfazer** e **Refazer** percorrem passo a passo as alterações feitas desde que Personalizar foi aberto (um movimento, redimensionamento, adição, remoção ou configuração de cada vez) — com os dois botões da barra de ferramentas ou com Ctrl+Z / Ctrl+Shift+Z (⌘ num Mac). **Descartar** continua a eliminá-las todas de uma só vez.
 
 Clique em **Salvar** para manter as alterações para todos, ou em **Descartar** para voltar ao painel como estava.
 
 ### Adicionar e restaurar widgets
 
-**Adicionar widget** abre uma gaveta com todos os widgets, agrupados em **KPIs**, **Gráficos**, **Visão geral**, **Meu espaço** e **Administração**. Clique num para o adicionar ao painel; um bloco de KPI ou um gráfico abre primeiro a sua configuração. Todos os widgets integrados permanecem no catálogo, pelo que um widget removido por engano — **Atividade recente**, por exemplo — é restaurado adicionando-o novamente. Os widgets que só podem aparecer uma vez num painel ficam a cinzento e marcados como já adicionados quando estão presentes.
+**Adicionar widget** abre uma gaveta com todos os widgets, agrupados em **KPIs**, **Gráficos**, **Visão geral**, **Meu espaço** e **Administração**. Clique num para o adicionar ao painel; um bloco de KPI ou um gráfico abre primeiro a sua configuração. Alguns widgets estão apenas no catálogo e em nenhum painel integrado — a lista de [Visualizações do inventário](#visualizacoes-do-inventario), por exemplo. Todos os widgets integrados permanecem no catálogo, pelo que um widget removido por engano — **Atividade recente**, por exemplo — é restaurado adicionando-o novamente. Os widgets que só podem aparecer uma vez num painel ficam a cinzento e marcados como já adicionados quando estão presentes.
 
 Um widget mantém a sua própria permissão onde quer que seja colocado: um widget de Administração adicionado ao painel Visão geral continua a ser mostrado apenas aos utilizadores com `admin.users`.
 
