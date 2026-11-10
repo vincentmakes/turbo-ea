@@ -58,7 +58,7 @@ from datetime import date, datetime, timezone
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from sqlalchemy import case, exists, func, not_, select
+from sqlalchemy import and_, case, exists, func, not_, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
@@ -943,11 +943,25 @@ def _visible(card: Any, resolved: ResolvedQuery, read_scope: CardReadScope) -> l
     return clauses
 
 
-def _side_columns(side: RelationSide) -> tuple[Any, Any]:
-    """``(the counted card's end, the other end)`` of a relation row."""
+def _side_columns(side: RelationSide, relation: Any = Relation) -> tuple[Any, Any]:
+    """``(the counted card's end, the other end)`` of a relation row —
+    ``relation`` being ``Relation`` or an ``aliased(Relation)``."""
     if side.card_is_source:
-        return Relation.source_id, Relation.target_id
-    return Relation.target_id, Relation.source_id
+        return relation.source_id, relation.target_id
+    return relation.target_id, relation.source_id
+
+
+def relation_join(statement: Any, near_card: Any, side: RelationSide, other: Any) -> Any:
+    """``statement`` joined from ``near_card`` through a relation on ``side``
+    (a fresh ``aliased(Relation)``, keyed by relation type, never by card-type
+    pair) to ``other`` (a fresh ``aliased(Card)``): one row per relation.
+    The join twin of ``relation_exists``, for a caller that needs the far
+    card itself rather than its existence (``card_query_matches``)."""
+    relation = aliased(Relation)
+    mine, theirs = _side_columns(side, relation)
+    return statement.join(
+        relation, and_(relation.type == side.relation_type, mine == near_card.id)
+    ).join(other, other.id == theirs)
 
 
 def relation_exists(near_card: Any, side: RelationSide, other: Any, *conditions: Any) -> Any:

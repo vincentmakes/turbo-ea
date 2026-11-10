@@ -4062,7 +4062,16 @@ async def save_inventory_view(
             Empty (default) means "private" for a
             new view and "keep as is" for an update.
         columns: Optional grid column keys to show (omitted: unchanged on
-            an update).
+            an update). A key ``via:<line>:<hop path>`` adds a column with,
+            per row, the cards at one step of the query that made the row
+            match: ``line`` is the zero-based line among all the query's
+            lines in order, ``hop path`` the dot-joined zero-based indices
+            into ``related`` from the line's first card (``via:0:0`` the
+            first hop's cards, ``via:0:0.1`` the second hop below it). The
+            first card and negated hops have none. Matches are shown in the
+            web UI only; no tool reads them yet. Updating a view's ``query``
+            without sending ``columns`` keeps its stored ``via:`` keys as
+            they are, so send ``columns`` when the steps change.
         dry_run: When True (default), runs the query to validate it and
             returns the payload, the match count and a few sample names;
             nothing is saved. Call again with dry_run=False to save.

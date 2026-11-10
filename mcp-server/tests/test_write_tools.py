@@ -1293,6 +1293,29 @@ class TestSaveInventoryView:
             manual.read_text(encoding="utf-8")
         )
 
+    def test_matched_column_keys_are_documented_in_the_docstring_and_the_manual(self):
+        """``save_inventory_view`` and ``docs/admin/mcp.md`` both explain the
+        ``via:<line>:<hop path>`` column keys, say no tool reads them, and say
+        a ``query`` update without ``columns`` keeps the stored keys."""
+        import pathlib
+        import re
+
+        doc = re.sub(r"\s+", " ", server.save_inventory_view.__doc__ or "")
+        manual = pathlib.Path(__file__).resolve().parents[2] / "docs" / "admin" / "mcp.md"
+        text = manual.read_text(encoding="utf-8")
+        assert "A key ``via:<line>:<hop path>`` adds a column" in doc
+        assert "(``via:0:0`` the first hop's cards, ``via:0:0.1`` the second hop" in doc
+        assert "Matches are shown in the web UI only; no tool reads them yet." in doc
+        assert "**matched columns**, `via:<line>:<hop path>`" in text
+        assert "`via:0:0` is the first hop of the first line" in text
+        assert "no MCP tool reads them yet" in text
+        keeps = (
+            "Updating a view's {0}query{0} without sending {0}columns{0} keeps its stored "
+            "{0}via:{0} keys as they are, so send {0}columns{0} when the steps change."
+        )
+        assert keeps.format("``") in doc
+        assert keeps.format("`") in text
+
     @pytest.mark.asyncio
     async def test_commit_posts_the_exact_payload(self, fake_token, monkeypatch):
         monkeypatch.setattr(server, "TURBO_EA_PUBLIC_URL", "https://ea.example.com/")

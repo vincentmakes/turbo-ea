@@ -108,6 +108,10 @@ export const BOOKMARK_LOOKUPS = {
   // Organization line) — seed_demo_extras.py. The 98f shot opens it in the
   // query builder.
   stackedQueryView: "Active apps on aging tech, and the organizations using apps",
+  // Public view saved with its two matched-cards columns on (Applications and
+  // IT Components behind each Organization) — seed_demo_extras.py. The 98g
+  // shot shows the filled pills and the columns after Name.
+  matchedColumnsView: "Organizations on applications with components at or near end of life",
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -2728,6 +2732,29 @@ export const DOC_PAGES: PageDef[] = [
       pt: "98f_inventario_consultas_combinadas",
       zh: "98f_inventory_query_stack",
       ru: "98f_inventarizatsiya_kombinirovannye_zaprosy",
+    },
+  },
+  {
+    id: "98g_inventory_query_matches",
+    // A query view saved with matched-cards columns: clicking a card type in
+    // the query string adds a column after Name listing the cards at that
+    // step that made each row match. The demo view opens with both on, so
+    // the pills are filled and no click is needed.
+    route: "/inventory?view={{bookmarkId:matchedColumnsView}}",
+    waitFor: '[data-testid="query-path-match-switch"][aria-pressed="true"]',
+    actions: [
+      { type: "waitFor", selector: '.ag-header-cell[col-id="via:0:0.0"]', timeout: 15000 },
+      { type: "wait", ms: 1500 },
+    ],
+    filenames: {
+      en: "98g_inventory_query_matches",
+      de: "98g_inventar_abfrage_treffer",
+      fr: "98g_inventaire_correspondances_requete",
+      es: "98g_inventario_coincidencias_consulta",
+      it: "98g_inventario_corrispondenze_query",
+      pt: "98g_inventario_correspondencias_consulta",
+      zh: "98g_inventory_query_matches",
+      ru: "98g_inventarizatsiya_sovpadeniya_zaprosa",
     },
   },
 

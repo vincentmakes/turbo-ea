@@ -884,6 +884,13 @@ def _group_condition(
     )
 
 
+#: The per-node builders ``card_query_matches`` composes into a join along a
+#: line, so a node's condition there is the one the list compiles.
+inventory_scope = _inventory_scope
+hop_condition = _hop_condition
+group_condition = _group_condition
+
+
 def compile_groups(
     groups: list[list[ResolvedNode]],
     read_scope: CardReadScope,
@@ -956,12 +963,18 @@ class PreparedCardQuery:
     ) -> list[Any]:
         """The query's conditions (``compile_card_query``), the EOL pair
         statuses fetched first when needed. No database access."""
-        pair_statuses = None
-        if self.eol is not None:
-            pair_statuses = await load_eol_pair_statuses(self.eol.pairs, self.eol.custom_cycles)
+        pair_statuses = await self.pair_statuses()
         return compile_groups(
             self.groups, read_scope, card, today=today, pair_statuses=pair_statuses
         )
+
+    async def pair_statuses(self) -> PairStatuses | None:
+        """Each EOL link's status, fetched from endoflife.date (the route has
+        released its session first, ``needs_release``); ``None`` when the
+        query asks no status. No database access."""
+        if self.eol is None:
+            return None
+        return await load_eol_pair_statuses(self.eol.pairs, self.eol.custom_cycles)
 
 
 async def require_eol_view(db: AsyncSession, user: User, groups: list[list[ResolvedNode]]) -> None:

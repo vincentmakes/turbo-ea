@@ -30,6 +30,7 @@ from app.models.stakeholder import Stakeholder
 from app.models.survey import Survey, SurveyResponse
 from app.models.todo import Todo
 from app.models.user import User
+from app.services.card_query import base_view_filters
 from app.services.principle_service import ensure_principle_references
 from app.services.principles_catalogue_service import get_catalogue_principle
 from app.services.seed_markers import demo_seed_completed, mark_demo_seed_completed
@@ -859,6 +860,39 @@ BOOKMARK_DEFS: list[dict] = [
             ]
         },
         "columns": ["core_type", "core_name", "core_path", "core_subtype", "core_lifecycle"],
+        "sort": {"field": "name", "direction": "asc"},
+        "visibility": "public",
+    },
+    {
+        # The cards behind a match: ``via:<line>:<hop path>`` columns show,
+        # per Organization, the Applications (``0:0``) and the IT Components
+        # at or near end of life (``0:0.0``) through which it matches
+        # (``card_query_matches``). End-of-life status rather than lifecycle
+        # phase: on the demo data a phase condition finds two Organizations,
+        # the status three (Sales & Marketing's components past end of life,
+        # Manufacturing's .NET 8 phasing out, Engineering's Windchill File
+        # Vault Server six months from it), and the demo cards carry no
+        # endoflife.date link, so nothing is fetched.
+        "name": "Organizations on applications with components at or near end of life",
+        "card_type": "Organization",
+        "filters": base_view_filters("Organization"),
+        "query": {
+            "type": "Organization",
+            "related": [
+                {
+                    "relation": "relOrgToApp",
+                    "type": "Application",
+                    "related": [
+                        {
+                            "relation": "relAppToITC",
+                            "type": "ITComponent",
+                            "where": {"eol_status": ["eol", "approaching"]},
+                        }
+                    ],
+                }
+            ],
+        },
+        "columns": ["core_type", "core_name", "via:0:0", "via:0:0.0", "core_path"],
         "sort": {"field": "name", "direction": "asc"},
         "visibility": "public",
     },

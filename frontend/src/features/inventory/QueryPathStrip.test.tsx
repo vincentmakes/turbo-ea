@@ -1235,3 +1235,97 @@ describe("QueryPathStrip — stacked lines", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
+
+describe("QueryPathStrip — matched-cards switches", () => {
+  const switches = () => screen.queryAllByTestId("query-path-match-switch");
+
+  it("offers no switch without a toggle handler", () => {
+    render(<QueryPathStrip view={VIEW} onLeave={() => {}} />);
+    expect(switches()).toHaveLength(0);
+    expect(screen.queryByRole("button", { pressed: false })).toBeNull();
+  });
+
+  it("makes every pill after the first a switch, but none behind 'has no'", () => {
+    render(<QueryPathStrip view={VIEW} onLeave={() => {}} onToggleMatched={vi.fn()} />);
+    expect(switches().map((s) => s.getAttribute("data-match-key"))).toEqual(["0:0", "0:0.0"]);
+    // The start card and the negated Application stay plain pills.
+    expect(screen.getByText("Org Unit").closest("[data-testid]")).not.toHaveAttribute(
+      "data-testid",
+      "query-path-match-switch",
+    );
+    const apps = screen.getAllByText("Business App").map((el) => el.closest(".MuiChip-root"));
+    expect(apps[0]).toHaveAttribute("data-testid", "query-path-match-switch");
+    expect(apps[1]).not.toHaveAttribute("data-testid", "query-path-match-switch");
+  });
+
+  it("reads off as outlined with a show label, on as filled with a hide label", () => {
+    render(
+      <QueryPathStrip view={VIEW} onLeave={() => {}} matchedKeys={["0:0.0"]} onToggleMatched={vi.fn()} />,
+    );
+    const off = screen.getByRole("button", {
+      name: "Show the matched Business App cards in a column",
+    });
+    expect(off).toHaveAttribute("aria-pressed", "false");
+    expect(off).toHaveAttribute("data-pressed", "false");
+    expect(off).toHaveClass("MuiChip-outlined");
+    expect(off).toHaveAccessibleDescription("Show these in a column");
+    expect(within(off).queryByText("view_column")).toBeNull();
+
+    const on = screen.getByRole("button", { name: "Hide the matched Change Initiative column" });
+    expect(on).toHaveAttribute("aria-pressed", "true");
+    expect(on).toHaveAttribute("data-pressed", "true");
+    expect(on).toHaveClass("MuiChip-filled");
+    expect(on).toHaveAccessibleDescription("Hide the column");
+    expect(within(on).getByText("view_column")).toBeInTheDocument();
+    // Filled in its type colour, with contrast text.
+    expect(on).toHaveStyle({ backgroundColor: "#0f7eb5", color: "#ffffff" });
+  });
+
+  it("calls the handler with the step's key on a click and from the keyboard", () => {
+    const onToggle = vi.fn();
+    render(<QueryPathStrip view={VIEW} onLeave={() => {}} onToggleMatched={onToggle} />);
+    fireEvent.click(screen.getByRole("button", { name: /matched Change Initiative/ }));
+    expect(onToggle).toHaveBeenLastCalledWith("0:0.0");
+    const app = screen.getByRole("button", { name: /matched Business App/ });
+    app.focus();
+    fireEvent.keyDown(app, { key: "Enter" });
+    expect(onToggle).toHaveBeenLastCalledWith("0:0");
+    expect(onToggle).toHaveBeenCalledTimes(2);
+    fireEvent.keyUp(app, { key: " " });
+    expect(onToggle).toHaveBeenCalledTimes(3);
+    expect(onToggle).toHaveBeenLastCalledWith("0:0");
+  });
+
+  it("offers no switch in edit mode", () => {
+    renderEditor({ query: VIEW.query, viewId: "bm-q" }, { onToggleMatched: vi.fn() });
+    expect(switches()).toHaveLength(0);
+  });
+
+  it("numbers every line of a stacked view, AND and OR alike", () => {
+    const stacked: ActiveQuery = {
+      ...VIEW,
+      query: {
+        any_of: [
+          {
+            all_of: [
+              { type: "Application", related: [{ relation: "relInitiativeToApp", type: "Initiative" }] },
+              { type: "Application", related: [{ relation: "relAppToApp__out", type: "Application" }] },
+            ],
+          },
+          { type: "Organization", related: [{ relation: "relOrgToApp", type: "Application" }] },
+        ],
+      },
+    };
+    const onToggle = vi.fn();
+    render(
+      <QueryPathStrip view={stacked} onLeave={() => {}} matchedKeys={["2:0"]} onToggleMatched={onToggle} />,
+    );
+    expect(switches().map((s) => [s.getAttribute("data-match-key"), s.getAttribute("aria-pressed")])).toEqual([
+      ["0:0", "false"],
+      ["1:0", "false"],
+      ["2:0", "true"],
+    ]);
+    fireEvent.click(switches()[1]);
+    expect(onToggle).toHaveBeenCalledWith("1:0");
+  });
+});

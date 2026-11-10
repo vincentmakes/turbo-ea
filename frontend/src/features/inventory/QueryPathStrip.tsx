@@ -13,6 +13,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import { alpha, darken } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import OriginChip from "@/components/OriginChip";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -29,6 +30,7 @@ import { DATA_QUALITY_BANDS } from "@/lib/dataQualityBands";
 import { EOL_STATUSES, EOL_STATUS_LABEL_KEYS, typeTracksEol } from "@/lib/eol";
 import { getPhaseLabels } from "@/lib/lifecyclePhases";
 import { pickFacetFields } from "@/lib/fieldFacets";
+import { readableTextColor } from "@/lib/color";
 import type {
   ActiveQuery,
   CardQuery,
@@ -67,6 +69,7 @@ import {
   isSetLevelProblem,
   lineCount,
   linesOf,
+  matchKeyAt,
   pickedCardIdsOf,
   removeLine,
   setProblem,
@@ -100,9 +103,29 @@ interface Props {
   queryError?: string | null;
   /** May the user see end-of-life status (`eol.view`)? Offers the EOL condition. */
   canViewEol?: boolean;
+  /** View mode: the steps (`matchNodes` keys) whose matched cards show in a column. */
+  matchedKeys?: readonly string[];
+  /**
+   * View mode: switches a step's matched-cards column on or off. Given, every
+   * card type pill after the first of its line (and not behind "has no")
+   * becomes a toggle; edit mode never offers it.
+   */
+  onToggleMatched?: (key: string) => void;
+}
+
+/** The pills of one line of a view that switch a matched-cards column. */
+interface PillSwitches {
+  /** The line's place among all the query's lines. */
+  line: number;
+  /** The key of the node at a place in the line (`matchKeyAt`), null for none. */
+  keyAt: (line: number, indices: readonly number[]) => string | null;
+  pressed: readonly string[];
+  onToggle: (key: string) => void;
 }
 
 const NOOP = () => {};
+const NO_KEYS: readonly string[] = [];
+const NO_INDICES: readonly number[] = [];
 
 /**
  * The strip above the inventory grid while a query view is applied or being
@@ -126,6 +149,8 @@ export default function QueryPathStrip({
   error = null,
   queryError = null,
   canViewEol = false,
+  matchedKeys = NO_KEYS,
+  onToggleMatched,
 }: Props) {
   // Picked cards are named once for the whole strip, every line and node at once.
   const cardNames = useCardNames(pickedCardIdsOf(draft?.query ?? view?.query ?? { type: "" }));
@@ -155,6 +180,8 @@ export default function QueryPathStrip({
       onLeave={onLeave}
       onEdit={onEdit}
       error={queryError}
+      matchedKeys={matchedKeys}
+      onToggleMatched={onToggleMatched}
     />
   );
 }
@@ -187,7 +214,8 @@ function LineStack({
   query: CardQuerySet;
   /** A stable key per line, in reading order (edit mode); else lines are keyed by place. */
   lineKeys?: string[];
-  renderLine: (line: QueryLine) => ReactNode;
+  /** One line's chips; `index` is the line's place among all lines. */
+  renderLine: (line: QueryLine, index: number) => ReactNode;
   /** Beside the line, outside its wrapping chips (edit mode's ×). */
   lineEnd?: (line: QueryLine) => ReactNode;
   groupEnd?: (group: number) => ReactNode;
@@ -209,7 +237,7 @@ function LineStack({
             </Divider>
           )}
           <Box data-testid="query-line" sx={{ display: "flex", alignItems: "flex-start", gap: 0.5 }}>
-            <Box sx={{ ...ROW_SX, flex: 1, minWidth: 0 }}>{renderLine(l)}</Box>
+            <Box sx={{ ...ROW_SX, flex: 1, minWidth: 0 }}>{renderLine(l, k)}</Box>
             {lineEnd?.(l)}
           </Box>
           {groupEnd && lines[k + 1]?.group !== l.group && groupEnd(l.group)}
@@ -227,6 +255,8 @@ function ViewStrip({
   onLeave,
   onEdit,
   error,
+  matchedKeys,
+  onToggleMatched,
 }: {
   view: ActiveQuery;
   canEdit: boolean;
@@ -235,9 +265,14 @@ function ViewStrip({
   onLeave: () => void;
   onEdit: () => void;
   error: string | null;
+  matchedKeys: readonly string[];
+  onToggleMatched?: (key: string) => void;
 }) {
   const { t } = useTranslation(["inventory", "common"]);
   const { types, relationTypes } = useMetamodel();
+  // Every pill's key comes from `matchNodes`, the numbering the page and the
+  // server use, never from a count kept here.
+  const keyAt = useMemo(() => matchKeyAt(view.query), [view.query]);
   return (
     <Paper variant="outlined" data-testid="query-path-strip" sx={STRIP_SX}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
@@ -274,7 +309,7 @@ function ViewStrip({
       </Box>
       <LineStack
         query={view.query}
-        renderLine={({ query }) => (
+        renderLine={({ query }, index) => (
           <QueryNode
             typeKey={query.type}
             where={query.where}
@@ -283,6 +318,12 @@ function ViewStrip({
             relationTypes={relationTypes}
             tagGroups={tagGroups}
             cardNames={cardNames}
+            switches={
+              onToggleMatched
+                ? { line: index, keyAt, pressed: matchedKeys, onToggle: onToggleMatched }
+                : undefined
+            }
+            indices={NO_INDICES}
           />
         )}
       />
@@ -316,16 +357,88 @@ function Arrow() {
   );
 }
 
-function TypeChip({ type, typeKey }: { type: CardType | undefined; typeKey: string }) {
+function TypeChip({
+  type,
+  typeKey,
+  switchKey = null,
+  pressed = false,
+  onToggle,
+}: {
+  type: CardType | undefined;
+  typeKey: string;
+  /** The step's `matchNodes` key when the pill switches its matched-cards column. */
+  switchKey?: string | null;
+  pressed?: boolean;
+  onToggle?: (key: string) => void;
+}) {
+  const { t } = useTranslation("inventory");
   const typeLabel = useTypeLabel();
+  const label = typeLabel(type) || typeKey;
+  if (!switchKey || !onToggle) {
+    return (
+      <Chip
+        size="small"
+        variant="outlined"
+        label={label}
+        icon={type ? <MaterialSymbol icon={type.icon} size={16} color={type.color} /> : undefined}
+        sx={{ fontWeight: 600, borderColor: type?.color, "& .MuiChip-icon": { ml: 0.5 } }}
+      />
+    );
+  }
+  // A switch: outlined as any pill while off (with a pointer and a hover
+  // tint), filled in its type colour with a column icon while on. The name
+  // is explicit so the icons' ligature text never enters it.
+  const color = type?.color;
+  const contrast = color ? readableTextColor(color) : undefined;
+  const hover = pressed
+    ? { bgcolor: color ? darken(color, 0.12) : "action.selected" }
+    : { bgcolor: color ? alpha(color, 0.12) : "action.hover" };
   return (
-    <Chip
-      size="small"
-      variant="outlined"
-      label={typeLabel(type) || typeKey}
-      icon={type ? <MaterialSymbol icon={type.icon} size={16} color={type.color} /> : undefined}
-      sx={{ fontWeight: 600, borderColor: type?.color, "& .MuiChip-icon": { ml: 0.5 } }}
-    />
+    <Tooltip
+      title={pressed ? t("queryMatches.pillHideHint") : t("queryMatches.pillShowHint")}
+      describeChild
+    >
+      <Chip
+        size="small"
+        variant={pressed ? "filled" : "outlined"}
+        clickable
+        onClick={() => onToggle(switchKey)}
+        aria-pressed={pressed}
+        aria-label={
+          pressed
+            ? t("queryMatches.pillHideLabel", { type: label })
+            : t("queryMatches.pillShowLabel", { type: label })
+        }
+        data-testid="query-path-match-switch"
+        data-match-key={switchKey}
+        data-pressed={String(pressed)}
+        label={
+          pressed ? (
+            <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+              {label}
+              <MaterialSymbol icon="view_column" size={14} />
+            </Box>
+          ) : (
+            label
+          )
+        }
+        icon={
+          type ? (
+            <MaterialSymbol icon={type.icon} size={16} color={pressed ? contrast : type.color} />
+          ) : undefined
+        }
+        sx={{
+          fontWeight: 600,
+          cursor: "pointer",
+          border: 1,
+          borderColor: color ?? "divider",
+          ...(pressed ? { bgcolor: color, color: contrast } : {}),
+          "& .MuiChip-icon": { ml: 0.5, ...(pressed ? { color: contrast } : {}) },
+          "&:hover, &.MuiChip-clickable:hover": hover,
+          "&.Mui-focusVisible": hover,
+        }}
+      />
+    </Tooltip>
   );
 }
 
@@ -337,6 +450,8 @@ function QueryNode({
   relationTypes,
   tagGroups,
   cardNames,
+  switches,
+  indices,
 }: {
   typeKey: string;
   where?: CardQueryWhere;
@@ -345,12 +460,24 @@ function QueryNode({
   relationTypes: RelationType[];
   tagGroups: TagGroup[];
   cardNames: Map<string, CardNameEntry>;
+  /** The line's pill switches (view mode only). */
+  switches?: PillSwitches;
+  /** The node's place in its line (`[]` for the line's first card); its
+   *  key, if any, comes from `switches.keyAt`. */
+  indices?: readonly number[];
 }) {
   const type = types.find((ct) => ct.key === typeKey);
   const items = useConditionItems(type, where, tagGroups, cardNames);
+  const switchKey = switches && indices ? switches.keyAt(switches.line, indices) : null;
   return (
     <>
-      <TypeChip type={type} typeKey={typeKey} />
+      <TypeChip
+        type={type}
+        typeKey={typeKey}
+        switchKey={switchKey}
+        pressed={switchKey != null && !!switches?.pressed.includes(switchKey)}
+        onToggle={switches?.onToggle}
+      />
       {items.map((c) => (
         <Chip key={c.key} size="small" variant="outlined" label={c.label} />
       ))}
@@ -361,6 +488,8 @@ function QueryNode({
         relationTypes={relationTypes}
         tagGroups={tagGroups}
         cardNames={cardNames}
+        switches={switches}
+        parentIndices={indices}
       />
     </>
   );
@@ -375,6 +504,8 @@ function ReadOnlyHops({
   tagGroups,
   cardNames,
   leadingAnd = false,
+  switches,
+  parentIndices,
 }: {
   fromType: string;
   hops: CardQueryHop[];
@@ -384,6 +515,10 @@ function ReadOnlyHops({
   cardNames: Map<string, CardNameEntry>;
   /** Join the first hop with "and" too (hops beside a chain hop). */
   leadingAnd?: boolean;
+  /** The line's pill switches (view mode only). */
+  switches?: PillSwitches;
+  /** The place of the node these hops leave (`[]` for the line's first card). */
+  parentIndices?: readonly number[];
 }) {
   const { t, i18n } = useTranslation(["inventory", "common"]);
   return (
@@ -411,6 +546,8 @@ function ReadOnlyHops({
                 relationTypes={relationTypes}
                 tagGroups={tagGroups}
                 cardNames={cardNames}
+                switches={switches}
+                indices={parentIndices && [...parentIndices, i]}
               />
             </Box>
           </Fragment>

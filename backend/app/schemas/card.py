@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
+
+from app.services.card_query_matches import MAX_IDS, MAX_KEY_CHARS, MAX_NODES
 
 # M-1: Limits for JSONB dict fields to prevent memory exhaustion
 _MAX_DICT_KEYS = 200
@@ -574,3 +576,52 @@ class CardRefResolveRequest(BaseModel):
 
 class CardRefResolveResponse(BaseModel):
     results: list[CardRefResolveResult]
+
+
+class CardQueryMatchesRequest(BaseModel):
+    """``POST /cards/query/matches``: the cards behind a match, per row."""
+
+    query: dict[str, Any] = Field(
+        ...,
+        description=(
+            "The card query, in the grammar of `GET /cards?query=` (a plain query, "
+            "`all_of` or `any_of`)."
+        ),
+    )
+    nodes: list[Annotated[str, Field(max_length=MAX_KEY_CHARS)]] = Field(
+        ...,
+        min_length=1,
+        max_length=MAX_NODES,
+        description=(
+            "Node keys `<line>:<hop path>`: the zero-based line among every line of "
+            "the query in document order, then the dot-joined zero-based indices into "
+            "`related` from the line's first card down to the node (`0:0`, `0:0.1`, "
+            "`2:0`). The first card of a line, a negated hop and a hop below one "
+            "have no key (400 `unknown_node`)."
+        ),
+    )
+    ids: list[uuid.UUID] = Field(
+        ...,
+        min_length=1,
+        max_length=MAX_IDS,
+        description="The rows (cards the query lists) to answer for.",
+    )
+
+
+class CardQueryMatchCard(BaseModel):
+    id: str
+    name: str
+
+
+class CardQueryMatchCell(BaseModel):
+    cards: list[CardQueryMatchCard]
+    more: bool = Field(description="True when cards past the first 100 exist.")
+
+
+class CardQueryMatchesResponse(BaseModel):
+    rows: dict[str, dict[str, CardQueryMatchCell]] = Field(
+        description=(
+            "`{row card id: {node key: cell}}`; only non-empty cells, and a row "
+            "with none is absent."
+        )
+    )

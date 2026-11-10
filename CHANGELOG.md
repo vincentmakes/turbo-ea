@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.197.0] - 2026-11-10
+
+### Added
+- In a query view, click a card type in the query string to add a column after Name listing, for each row, the cards at that step that made it match — such as the Applications and the end-of-life IT Components behind each Organization; click it again to remove the column, and the choice is saved with the view.
+
 ## [2.196.0] - 2026-11-10
 
 ### Added

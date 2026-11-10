@@ -219,3 +219,108 @@ export function startFiltersOnEol(query: CardQuerySet | null | undefined): boole
   if (!query) return false;
   return linesOf(query).some(({ query: q }) => (q.where?.eol_status?.length ?? 0) > 0);
 }
+
+/** One hop on the way from a line's first card to a matched node. */
+export interface MatchNodeStep {
+  /** The hop's relation key (`<key>__out` / `<key>__in` on a self-reference). */
+  relation: string;
+  /** The card type the hop reaches. */
+  type: string;
+}
+
+/**
+ * A step of the query whose matched cards can be shown in a column: every
+ * card of a line but its first (its cards are the rows), and none at or below
+ * a "has no" hop (it stands for an absence).
+ */
+export interface MatchNode {
+  /** `"<line>:<hop path>"`: the line's place among all lines (reading order),
+   *  then the dot-joined indices into the `related` arrays down to the node. */
+  key: string;
+  /** Zero-based place of the line among all the query's lines. */
+  line: number;
+  /** The node's card type. */
+  type: string;
+  /** The relation of the hop that reaches the node. */
+  relation: string;
+  /** The card type of the line's first card (the row's type). */
+  startType: string;
+  /** Every hop from the line's first card down to the node, the node's own last. */
+  path: MatchNodeStep[];
+  /** The node's place in its line: the indices into the `related` arrays
+   *  from the line's first card down to it (what the key's hop path spells). */
+  indices: number[];
+}
+
+/**
+ * Every step of `query` whose matched cards a column can show, in reading
+ * order (line by line, each node before the hops below it). Keys are those the
+ * matches endpoint expects, so compute them on exactly the query the list is
+ * sent.
+ */
+export function matchNodes(query: CardQuerySet | null | undefined): MatchNode[] {
+  if (!query) return [];
+  const out: MatchNode[] = [];
+  linesOf(query).forEach(({ query: q }, line) => {
+    const walk = (hops: CardQueryHop[] | undefined, at: number[], path: MatchNodeStep[]) => {
+      (hops ?? []).forEach((hop, i) => {
+        if (hop.negate) return;
+        const indices = [...at, i];
+        const steps = [...path, { relation: hop.relation, type: hop.type }];
+        out.push({
+          key: `${line}:${indices.join(".")}`,
+          line,
+          type: hop.type,
+          relation: hop.relation,
+          startType: q.type,
+          path: steps,
+          indices,
+        });
+        walk(hop.related, indices, steps);
+      });
+    };
+    walk(q.related, [], []);
+  });
+  return out;
+}
+
+/** The chain a node stands at the end of: start type, then every hop's relation and type. */
+/**
+ * The key `matchNodes` gives the node on line `line` at `indices` (its place,
+ * as `MatchNode.indices`), or null where there is none: the line's first card
+ * (no indices), a "has no" hop or any hop below one. The one numbering of
+ * keys, for a renderer that walks the query itself (the path strip's pills).
+ */
+export function matchKeyAt(
+  query: CardQuerySet | null | undefined,
+): (line: number, indices: readonly number[]) => string | null {
+  const byPlace = new Map(matchNodes(query).map((n) => [`${n.line}|${n.indices.join(".")}`, n.key]));
+  return (line, indices) => byPlace.get(`${line}|${indices.join(".")}`) ?? null;
+}
+
+function nodeSignature(node: MatchNode): string {
+  return JSON.stringify([node.startType, node.path.map((s) => [s.relation, s.type])]);
+}
+
+/**
+ * The switched-on keys that still mean the same step once `prev` became
+ * `next`: a key is kept while `next` holds a node at that key reached through
+ * the same chain (start type, and each hop's relation and card type) as in
+ * `prev`. A condition changed anywhere keeps it; a step removed, moved or
+ * re-typed drops it. Order is kept, duplicates dropped.
+ */
+export function pruneViaKeys(
+  keys: readonly string[],
+  prev: CardQuerySet | null | undefined,
+  next: CardQuerySet | null | undefined,
+): string[] {
+  if (keys.length === 0) return [];
+  const before = new Map(matchNodes(prev).map((n) => [n.key, nodeSignature(n)]));
+  const after = new Map(matchNodes(next).map((n) => [n.key, nodeSignature(n)]));
+  const kept: string[] = [];
+  for (const key of keys) {
+    const sig = after.get(key);
+    if (sig !== undefined && sig === before.get(key) && !kept.includes(key)) kept.push(key);
+  }
+  return kept;
+}
