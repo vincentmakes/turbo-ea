@@ -1826,6 +1826,6 @@ class TestListAndEventHelpers:
         ghost = uuid.uuid4()
         with db.no_autoflush:
             adr.recorded_by = ghost
-            detail = await adr_api._adr_to_dict(db, adr, register)
+            detail = await adr_api._adr_to_dict(db, adr, register, adr_env["admin"])
         assert detail["recorded_by"] == {"user_id": str(ghost), "display_name": None}
         adr.recorded_by = None
