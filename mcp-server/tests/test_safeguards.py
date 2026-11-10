@@ -659,6 +659,7 @@ _NOT_A_BATCH = {"rollback_batch": "the backend records a rollback as its own bat
 
 _BATCH_TOOLS_EXPECTED = [
     "add_card_comment",
+    "add_document_comment",
     "archive_cards",
     "assign_stakeholders",
     "clear_card_logos",
@@ -717,6 +718,12 @@ _BATCH_TOOL_CALLS = {
     ),
     "add_card_comment": lambda dry_run: server.add_card_comment(
         card_id="c1", body="hi", dry_run=dry_run
+    ),
+    "add_document_comment": lambda dry_run: server.add_document_comment(
+        document_type="adr",
+        document_id="00000000-0000-0000-0000-0000000000a1",
+        body="hi",
+        dry_run=dry_run,
     ),
     "sign_adr": lambda dry_run: server.sign_adr(adr_id="a1", dry_run=dry_run),
     "save_inventory_view": lambda dry_run: server.save_inventory_view(
