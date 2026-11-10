@@ -22,8 +22,6 @@ from app.models.card import Card
 from app.models.card_type import CardType
 from app.services.card_query import (
     LIFECYCLE_PHASES,
-    MAX_DEPTH,
-    MAX_HOPS,
     MAX_QUERY_CHARS,
     MAX_TOTAL_HOPS,
     CardQuery,
@@ -92,30 +90,16 @@ SUBTYPES = [{"key": "business"}, {"key": "micro"}]
 # ---------------------------------------------------------------------------
 
 
-def _q(
-    start: str = "Organization",
-    *hops: dict,
-    where: dict | None = None,
-    any_: list[dict] | None = None,
-) -> dict:
+def _q(start: str = "Organization", *hops: dict, where: dict | None = None) -> dict:
     out: dict = {"type": start}
     if where is not None:
         out["where"] = where
     if hops:
         out["related"] = list(hops)
-    if any_ is not None:
-        out["related_any"] = any_
     return out
 
 
-def _hop(
-    relation: str,
-    type_: str,
-    *hops: dict,
-    where=None,
-    negate=False,
-    any_: list[dict] | None = None,
-) -> dict:
+def _hop(relation: str, type_: str, *hops: dict, where=None, negate=False) -> dict:
     out: dict = {"relation": relation, "type": type_}
     if where is not None:
         out["where"] = where
@@ -123,8 +107,6 @@ def _hop(
         out["negate"] = True
     if hops:
         out["related"] = list(hops)
-    if any_ is not None:
-        out["related_any"] = any_
     return out
 
 
@@ -1772,296 +1754,6 @@ class TestCardPickSemantics:
         )
         rows = await db.execute(select(start.name).where(start.status == "ACTIVE", *clauses))
         assert set(rows.scalars().all()) == {"Team", "Grand"}
-
-
-# ---------------------------------------------------------------------------
-# OR branches (``related_any``)
-# ---------------------------------------------------------------------------
-
-ON_TRACK = {"attributes": {"initiativeStatus": ["onTrack"]}}
-AT_RISK = {"attributes": {"initiativeStatus": ["atRisk"]}}
-
-
-class TestOrStructure:
-    def _problem(self, raw: dict) -> str | None:
-        return query_problem(CardQuery.model_validate(raw))
-
-    def test_one_branch_at_the_start(self):
-        raw = _q("A", any_=[_hop("r", "B")])
-        assert self._problem(raw) == "or_needs_two"
-        assert _parse_code(raw) == "or_needs_two"
-
-    def test_no_branch_at_the_start(self):
-        assert _parse_code(_q("A", any_=[])) == "or_needs_two"
-
-    def test_one_branch_at_a_hop(self):
-        raw = _q("A", _hop("r", "B", any_=[_hop("s", "C")]))
-        assert self._problem(raw) == "or_needs_two"
-        assert _parse_code(raw) == "or_needs_two"
-
-    def test_one_branch_under_an_or_branch(self):
-        inner = _hop("r", "B", any_=[_hop("s", "C")])
-        assert self._problem(_q("A", any_=[inner, _hop("r", "X")])) == "or_needs_two"
-
-    def test_two_branches_are_fine(self):
-        raw = _q("A", _hop("r", "B", any_=[_hop("s", "C"), _hop("t", "D")]))
-        assert self._problem(raw) is None
-        assert self._problem(_q("A", any_=[_hop("r", "B"), _hop("s", "C")])) is None
-
-    def test_absent_is_fine(self):
-        assert self._problem(_q("A", _hop("r", "B"))) is None
-
-    def test_both_lists_count_toward_the_total(self):
-        assert MAX_TOTAL_HOPS == 12
-        ten = [_hop("r", "B")] * 10
-        assert self._problem(_q("A", *ten, any_=[_hop("r", "C")] * 2)) is None
-        raw = _q("A", *ten, any_=[_hop("r", "C")] * 3)
-        assert self._problem(raw) == "too_many_hops"
-        assert _parse_code(raw) == "too_many_hops"
-
-    def test_nested_or_branches_count_toward_the_total(self):
-        branch = _hop("r", "B", any_=[_hop("s", "C"), _hop("s", "D")])
-        assert self._problem(_q("A", *[branch] * 4)) is None
-        assert self._problem(_q("A", *[branch] * 4, _hop("r", "X"))) == "too_many_hops"
-
-    def test_ten_branches_are_accepted(self):
-        query = parse_card_query(_q("A", any_=[_hop("r", "B")] * MAX_HOPS))
-        assert len(query.related_any or []) == 10
-
-    def test_one_list_past_max_hops_is_a_shape_error(self):
-        assert MAX_HOPS == 10
-        assert _parse_code(_q("A", any_=[_hop("r", "B")] * 11)) == "invalid_query"
-        nested = _q("A", _hop("r", "B", any_=[_hop("s", "C")] * 11))
-        assert _parse_code(nested) == "invalid_query"
-
-    def test_depth_counts_through_an_or_branch(self):
-        assert MAX_DEPTH == 3
-        three = _hop("r", "B", _hop("r", "C", _hop("r", "D")))
-        assert self._problem(_q("A", any_=[three, _hop("r", "X")])) is None
-        four = _hop("r", "B", _hop("r", "C", _hop("r", "D", _hop("r", "E"))))
-        raw = _q("A", any_=[_hop("r", "X"), four])
-        assert self._problem(raw) == "too_deep"
-        assert _parse_code(raw) == "too_deep"
-
-    def test_depth_counts_an_or_under_a_hop(self):
-        deep = _hop("r", "C", _hop("r", "D", _hop("r", "E")))
-        raw = _q("A", _hop("r", "B", any_=[_hop("r", "X"), deep]))
-        assert self._problem(raw) == "too_deep"
-
-    def test_ids_inside_an_or_branch(self):
-        branch = _hop("r", "B", where={"tags": [TAG_1], "cards": [CARD_1]})
-        assert self._problem(_q("A", any_=[branch, _hop("r", "C")])) is None
-        bad = _hop("r", "B", where={"attributes": {"code": [TAG_2]}})
-        assert self._problem(_q("A", any_=[_hop("r", "C"), bad])) == "query_holds_an_id"
-
-    def test_where_rules_reach_an_or_branch(self):
-        bad = _hop("r", "B", where={"lifecycle_phase": ["later"]})
-        assert self._problem(_q("A", any_=[_hop("r", "C"), bad])) == "unknown_phase"
-
-    def test_stored_query_keeps_or_branches(self):
-        raw = _q(
-            "A",
-            _hop("r", "B", any_=[_hop("s", "C", negate=True), _hop("t", "D")]),
-            any_=[_hop("r", "E"), _hop("r", "F", where={"tags": [TAG_1]})],
-        )
-        assert stored_query(parse_card_query(raw)) == raw
-
-    def test_names_cards_in_an_or_branch(self):
-        raw = _q("A", any_=[_hop("r", "B"), _hop("r", "C", where={"cards": [CARD_1]})])
-        assert names_cards(parse_card_query(raw)) is True
-
-    def test_stored_card_ids_walk_or_branches(self):
-        stored = _q(
-            "A",
-            _hop("r", "B", any_=[_hop("s", "C", where={"cards": [CARD_2]}), "junk"]),
-            any_=[{"where": {"cards": [CARD_1]}}, None],
-        )
-        assert stored_card_ids(stored) == {uuid.UUID(CARD_1), uuid.UUID(CARD_2)}
-        assert stored_card_ids({"type": "A", "related_any": "junk"}) == set()
-
-
-class TestOrResolve:
-    async def test_or_branches_resolve_beside_the_and_hops(self, db, land):
-        raw = _q(
-            "Application",
-            _hop(USES, "Organization"),
-            any_=[
-                _hop(AFFECTS, "Initiative", negate=True),
-                _hop("appCallsApp__out", "Application"),
-            ],
-        )
-        root = await resolve_card_query(db, parse_card_query(raw))
-        assert [(h.side.relation_type, h.side.card_is_source, h.node.type) for h in root.hops] == [
-            (USES, False, "Organization")
-        ]
-        assert [
-            (h.side.relation_type, h.side.card_is_source, h.negate, h.node.type)
-            for h in root.any_hops
-        ] == [(AFFECTS, False, True, "Initiative"), ("appCallsApp", True, False, "Application")]
-        assert root.hops[0].node.any_hops == []
-
-    async def test_or_branches_at_a_hop(self, db, land):
-        raw = _q(
-            "Organization",
-            _hop(
-                USES,
-                "Application",
-                any_=[_hop(AFFECTS, "Initiative"), _hop("appCallsApp__in", "Application")],
-            ),
-        )
-        root = await resolve_card_query(db, parse_card_query(raw))
-        assert root.any_hops == []
-        app = root.hops[0].node
-        assert app.hops == []
-        assert [(h.side.relation_type, h.side.card_is_source) for h in app.any_hops] == [
-            (AFFECTS, False),
-            ("appCallsApp", False),
-        ]
-
-    async def test_no_or_branch_resolves_to_none(self, db, land):
-        root = await resolve_card_query(db, parse_card_query(_q("Organization")))
-        assert root.any_hops == []
-
-    async def test_an_unknown_relation_in_an_or_branch(self, db, land):
-        raw = _q("Organization", any_=[_hop(USES, "Application"), _hop("nope", "Application")])
-        assert await _code(db, raw) == "unknown_relation_type"
-
-    async def test_a_hop_type_mismatch_in_an_or_branch(self, db, land):
-        raw = _q("Organization", any_=[_hop(USES, "Application"), _hop(USES, "Initiative")])
-        assert await _code(db, raw) == "hop_type_mismatch"
-
-    async def test_a_hidden_type_in_an_or_branch(self, db, land):
-        raw = _q("Organization", any_=[_hop(USES, "Application"), _hop("orgToGhost", "Ghost")])
-        assert await _code(db, raw) == "unknown_card_type"
-
-    async def test_a_tag_in_an_or_branch_resolves(self, db, land):
-        raw = _q(
-            "Organization",
-            any_=[
-                _hop(USES, "Application", where={"tags": _tags(land, "Finance")}),
-                _hop(USES, "Application", where={"tags": _tags(land, "Sales")}),
-            ],
-        )
-        root = await resolve_card_query(db, parse_card_query(raw))
-        domain = land["groups"]["Domain"].id
-        assert [h.node.tag_groups for h in root.any_hops] == [
-            {domain: [land["tags"]["Finance"].id]},
-            {domain: [land["tags"]["Sales"].id]},
-        ]
-
-    async def test_a_pick_in_an_or_branch_is_checked_on_write(self, db, land):
-        raw = _q(
-            "Organization",
-            any_=[_hop(USES, "Application"), _hop(USES, "Application", where={"cards": [CARD_1]})],
-        )
-        assert await _write_code(db, raw) == "unknown_card"
-
-    async def test_one_or_clause_per_node(self, db, land):
-        plain = await compile_card_query(
-            db, parse_card_query(_q("Organization")), CardReadScope.everything()
-        )
-        assert len(plain) == 1
-        raw = _q(
-            "Organization",
-            any_=[_hop(USES, "Application"), _hop(USES, "Application", negate=True)],
-        )
-        with_or = await compile_card_query(db, parse_card_query(raw), CardReadScope.everything())
-        assert len(with_or) == 2
-
-
-class TestOrSemantics:
-    async def test_or_at_the_start_is_the_union(self, db, land):
-        affected = _hop(AFFECTS, "Initiative", where=ON_TRACK)
-        called = _hop("appCallsApp__in", "Application")
-        assert await _names(db, _q("Application", affected)) == {"Alpha"}
-        assert await _names(db, _q("Application", called)) == {"Beta"}
-        assert await _names(db, _q("Application", any_=[affected, called])) == {"Alpha", "Beta"}
-
-    async def test_and_hops_hold_beside_the_or(self, db, land):
-        """``A AND (B OR C)``: the OR alone keeps Alpha and Beta, the AND hop
-        (an on-track initiative) only Alpha; Gamma matches neither."""
-        on_track = _hop(AFFECTS, "Initiative", where=ON_TRACK)
-        either = [_hop("appCallsApp__out", "Application"), _hop("appCallsApp__in", "Application")]
-        assert await _names(db, _q("Application", any_=either)) == {"Alpha", "Beta"}
-        assert await _names(db, _q("Application", on_track, any_=either)) == {"Alpha"}
-        beta_only = [
-            _hop("appCallsApp__in", "Application"),
-            _hop(AFFECTS, "Initiative", where=AT_RISK),
-        ]
-        assert await _names(db, _q("Application", on_track, any_=beta_only)) == set()
-
-    async def test_or_at_a_hop_two_levels_down(self, db, land):
-        """Corp uses Alpha, which calls Beta, which the at-risk Drag affects."""
-
-        def raw(branches: list[dict]) -> dict:
-            calls = _hop("appCallsApp__out", "Application", any_=branches)
-            return _q("Organization", _hop(USES, "Application", calls))
-
-        at_risk = _hop(AFFECTS, "Initiative", where=AT_RISK)
-        on_track = _hop(AFFECTS, "Initiative", where=ON_TRACK)
-        calls_on = _hop("appCallsApp__out", "Application")
-        assert await _names(db, raw([on_track, at_risk])) == {"Corp"}
-        assert await _names(db, raw([at_risk, calls_on])) == {"Corp"}
-        assert await _names(db, raw([on_track, calls_on])) == set()
-
-    async def test_an_explicit_today_reaches_every_branch_of_an_or(self, db, land):
-        """Sixty days ago Alpha (Corp's app) read as ``plan``; today it is
-        ``active``. The OR's other branch (a micro app: Team's Beta) does not
-        depend on the date. With the dated branch first and then last, only a
-        ``today`` that reaches every branch keeps Corp on the earlier day."""
-        early = TODAY - timedelta(days=60)
-        planned = _hop(USES, "Application", where={"lifecycle_phase": ["plan"]})
-        micro = _hop(USES, "Application", where={"subtype": ["micro"]})
-        for branches in ([planned, micro], [micro, planned]):
-            raw = _q("Organization", any_=branches)
-            assert await _names_on(db, raw, early) == {"Corp", "Team"}
-            assert await _names(db, raw) == {"Team"}
-
-    async def test_negate_inside_an_or(self, db, land):
-        none = _hop(USES, "Application", negate=True)
-        micro = _hop(USES, "Application", where={"subtype": ["micro"]})
-        assert await _names(db, _q("Organization", any_=[none, micro])) == {"Zed", "Solo", "Team"}
-
-    async def test_a_tag_in_each_branch(self, db, land):
-        raw = _q(
-            "Organization",
-            any_=[
-                _hop(USES, "Application", where={"tags": _tags(land, "Finance")}),
-                _hop(USES, "Application", where={"tags": _tags(land, "Sales")}),
-            ],
-        )
-        assert await _names(db, raw) == {"Corp", "Team"}
-
-    async def test_a_denied_type_in_one_branch_leaves_the_other(self, db, land):
-        """A reader denied Initiatives keeps only the branch it can read:
-        Beta (called by Alpha), not Alpha (affected by Rocket)."""
-        await create_role(db, key="admin", label="Admin", permissions={"*": True})
-        admin = await create_user(db, email="a@t.com", role="admin")
-        reader = await _reader_scope(db, "Initiative")
-        raw = _q(
-            "Application",
-            any_=[
-                _hop(AFFECTS, "Initiative", where=ON_TRACK),
-                _hop("appCallsApp__in", "Application"),
-            ],
-        )
-        assert await _names(db, raw, await CardReadScope.load(db, admin)) == {"Alpha", "Beta"}
-        assert await _names(db, raw, reader) == {"Beta"}
-
-    async def test_compiles_against_an_alias(self, db, land):
-        start = aliased(Card)
-        raw = _q(
-            "Application",
-            any_=[
-                _hop(AFFECTS, "Initiative", where=ON_TRACK),
-                _hop("appCallsApp__in", "Application"),
-            ],
-        )
-        clauses = await compile_card_query(
-            db, parse_card_query(raw), CardReadScope.everything(), start
-        )
-        rows = await db.execute(select(start.name).where(start.status == "ACTIVE", *clauses))
-        assert set(rows.scalars().all()) == {"Alpha", "Beta"}
 
 
 # ---------------------------------------------------------------------------

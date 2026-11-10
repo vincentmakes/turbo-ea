@@ -321,9 +321,9 @@ The server exposes 20 write tools, each annotated as **additive** (creates or ex
 A query is a small JSON object made of **keys only** — card type, relation type, field and option keys as `list_card_types` and `get_relation_types` return them; card ids only under `where.cards` and tag ids only under `where.tags`; never labels:
 
 ```text
-CardQuery = { type, where?, related?: [Hop], related_any?: [Hop] }
+CardQuery = { type, where?, related?: [Hop] }
 Hop       = { relation: "<relation type key>" | "<key>__out" | "<key>__in",
-              type, where?, negate?: true|false, related?: [Hop], related_any?: [Hop] }
+              type, where?, negate?: true|false, related?: [Hop] }
 Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife | none],
               subtype?: [subtype key],
               approval_status?: [status],
@@ -335,8 +335,7 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
 ```
 
 - A hop matches when **any** related card of that type meets its `where` (and its own nested hops). `negate: true` turns it into "has **no** such card".
-- Hops side by side in `related` must all match (AND); the values inside one list are alternatives (OR).
-- Hops in `related_any` are alternatives: at least one of them must match, on top of every hop in `related` beside it — `A and B and (C or D)`. `negate` works inside `related_any` too. A `related_any` needs at least two hops; one with fewer is refused with `or_needs_two`.
+- Hops side by side at one level must all match (AND); the values inside one list are alternatives (OR).
 - `<key>__out` and `<key>__in` pick a side of a relation type that links a card type to itself (the card is the source, or the target). Otherwise the plain key is enough.
 - `data_quality_band` matches a card's data quality score by band, as the inventory's Data Quality filter does: `complete` (80 and above), `partial` (40 up to, but excluding, 80) or `minimal` (below 40). Any other value is refused with `unknown_band`.
 - `tags` takes tag ids from `list_tag_groups`, grouped by tag group: a card must carry at least one of the listed tags from **every** group named (alternatives within a group, AND across groups). A tag whose group does not apply to that hop's card type is refused with `tag_not_for_type`; an unknown id with `unknown_tag`.
@@ -365,24 +364,11 @@ Example — Organizations using an active Application that an Initiative with st
 }
 ```
 
-Example — Applications that an Organization uses **or** an Initiative affects (Application is the target of both relation types):
-
-```json
-{
-  "type": "Application",
-  "related_any": [
-    { "relation": "relOrgToApp", "type": "Organization" },
-    { "relation": "relInitiativeToApp", "type": "Initiative" }
-  ]
-}
-```
-
 In the inventory, a view saved this way shows its chain as a readable path above the grid, with a note that it was created via MCP. Its query can be changed in the inventory (the pencil on the path strip) or through `save_inventory_view` (pass the view's id from `list_inventory_views` as `view_id`; the update replaces the name and the query, changes visibility and columns only when they are passed, and keeps the grouping and layout set in the web UI — unless the new query starts from another card type, which resets the view's filters and grouping, since they belonged to the old type; a view you cannot edit is refused with `view_not_found` or `view_not_editable`; a visibility change you may not make (only the owner can change it, and public or shared needs `bookmarks.share`) is refused with `visibility_not_allowed`); in the web UI its owner can also rename it, change its sharing and OData setting, adjust the column layout, or delete it.
 
 Limitations:
 
-- At most **3 levels** of hops (through `related` and `related_any` alike), at most 10 hops in one `related` or one `related_any` list, and at most **12 hops in the whole query** (both lists, side by side and nested together). A longer query is refused with `too_many_hops`.
-- One group of alternatives per card: `(A or B) and (C or D)` under the same card cannot be expressed — `related_any` holds a single OR group beside the AND hops.
+- At most **3 levels** of `related`, at most 10 hops side by side at one level, and at most **12 hops in the whole query** (side by side and nested together). A longer query is refused with `too_many_hops`.
 - At most **50** picked cards per condition.
 - A text attribute matches its value **exactly** — there is no partial or case-insensitive match.
 - **`rollback_batch` cannot undo a saved view.** Saving a view records a mutation batch but publishes no event for the rollback to reverse; delete an unwanted view from the inventory's Saved Views instead.

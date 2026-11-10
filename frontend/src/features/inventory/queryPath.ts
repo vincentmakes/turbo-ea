@@ -51,42 +51,29 @@ export interface CompactPathOptions {
   locale?: string;
   /** Prefix for a negated hop (`inventory:queryView.hasNo`). */
   hasNo?: string;
-  /** The word joining OR alternatives, in capitals (`inventory:queryView.connectiveOr`). */
-  or: string;
 }
 
 /**
  * One line naming the chain: "Organization › uses Application › is affected
- * by Initiative". Each level shows the hop its row continues with (the first
- * of an OR group, else the first hop). AND hops beside it add "+N"; an OR
- * group of two reads "uses Application OR is affected by Initiative", a
- * larger one "+N (OR)" — the word the strip's connector shows. A type or
- * relation type missing from the metamodel shows the query's own key — the
- * only name there is for it.
+ * by Initiative". Each level shows its first hop; a level with several hops
+ * adds "+N" for the others. A type or relation type missing from the
+ * metamodel shows the query's own key — the only name there is for it.
  */
 export function compactPath(query: CardQuery, opts: CompactPathOptions): string {
-  const { types, relationTypes, locale, hasNo, or } = opts;
+  const { types, relationTypes, locale, hasNo } = opts;
   const nameOf = (key: string) => typeLabel(types.find((t) => t.key === key), locale) || key;
-  const step = (hop: CardQueryHop, fromType: string) => {
-    const rt = hopRelationType(hop, relationTypes);
-    const verb = hopVerb(rt, fromType, locale, hop.relation) || hop.relation;
-    const prefix = hop.negate && hasNo ? `${hasNo} ` : "";
-    return `${prefix}${verb} ${nameOf(hop.type)}`;
-  };
   const parts = [nameOf(query.type)];
-  let node: CardQuery | CardQueryHop = query;
-  for (;;) {
-    const any: CardQueryHop[] = node.related_any ?? [];
-    const related: CardQueryHop[] = node.related ?? [];
-    const hop = any[0] ?? related[0];
-    if (!hop) break;
-    let part = step(hop, node.type);
-    if (any.length === 2) part += ` ${or} ${step(any[1], node.type)}`;
-    else if (any.length > 2) part += ` +${any.length - 1} (${or})`;
-    const ands = any.length > 0 ? related.length : related.length - 1;
-    if (ands > 0) part += ` +${ands}`;
-    parts.push(part);
-    node = hop;
+  let nodeType = query.type;
+  let hops = query.related ?? [];
+  while (hops.length > 0) {
+    const hop = hops[0];
+    const rt = hopRelationType(hop, relationTypes);
+    const verb = hopVerb(rt, nodeType, locale, hop.relation) || hop.relation;
+    const prefix = hop.negate && hasNo ? `${hasNo} ` : "";
+    const more = hops.length > 1 ? ` +${hops.length - 1}` : "";
+    parts.push(`${prefix}${verb} ${nameOf(hop.type)}${more}`);
+    nodeType = hop.type;
+    hops = hop.related ?? [];
   }
   return parts.join(PATH_SEPARATOR);
 }

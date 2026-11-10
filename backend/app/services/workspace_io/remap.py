@@ -770,21 +770,14 @@ def rewrite_card_query_ids(node: Any, ids: IdMap, tally: RewriteTally) -> Any:
     positive hop (or the start card) only loosens that node's condition,
     while a **negated** hop whose ``cards`` lose every pick is removed whole,
     subtree included — left in place it would read "has no card of that type
-    at all", far narrower than "has none of these cards". The OR branches
-    under ``related_any`` are walked the same way, with the same rule; an OR
-    left with a single hop is folded into ``related`` (an OR of one is that
-    hop — and ``card_query`` refuses it as ``or_needs_two``), one left with
-    none is removed. Not ``replace_mapped_ids``: that walk can neither count
-    an unknown id nor drop it. Anything malformed comes back untouched.
+    at all", far narrower than "has none of these cards". Not
+    ``replace_mapped_ids``: that walk can neither count an unknown id nor
+    drop it. Anything malformed comes back untouched.
     """
     return _rewrite_query_node(node, ids, tally)
 
 
-#: A hop ``_rewrite_query_node`` removes from its parent's ``related`` (or
-#: ``related_any``: a negated OR branch that lost every pick would read "has no
-#: card of that type at all" and satisfy the OR far more often than authored,
-#: so it goes too — the OR then needs one of the remaining branches; an OR left
-#: with one branch folds into ``related``, in front).
+#: A hop ``_rewrite_query_node`` removes from its parent's ``related``.
 _DROP = object()
 
 
@@ -815,32 +808,13 @@ def _rewrite_query_node(node: Any, ids: IdMap, tally: RewriteTally, *, is_hop: b
             del out["where"]
     related = out.get("related")
     if isinstance(related, list):
-        kept_hops = _rewrite_hops(related, ids, tally)
+        hops = [_rewrite_query_node(hop, ids, tally, is_hop=True) for hop in related]
+        kept_hops = [hop for hop in hops if hop is not _DROP]
         if kept_hops or not related:
             out["related"] = kept_hops
         else:
             del out["related"]
-    related_any = out.get("related_any")
-    if isinstance(related_any, list):
-        branches = _rewrite_hops(related_any, ids, tally)
-        if len(branches) >= 2:
-            out["related_any"] = branches
-        else:
-            del out["related_any"]
-            if branches:
-                # An OR of one is that hop: fold it into ``related``, in front —
-                # it stays the continuation the inventory's path strip reads
-                # (``related[0]``). The frontend's ``normalizeHops``
-                # (``features/inventory/queryDraft.ts``) applies the same rule.
-                siblings = out.get("related")
-                out["related"] = [*branches, *(siblings if isinstance(siblings, list) else [])]
     return out
-
-
-def _rewrite_hops(hops: list[Any], ids: IdMap, tally: RewriteTally) -> list[Any]:
-    """``hops`` rewritten, without the ones ``_rewrite_query_node`` drops."""
-    rewritten = [_rewrite_query_node(hop, ids, tally, is_hop=True) for hop in hops]
-    return [hop for hop in rewritten if hop is not _DROP]
 
 
 def rewrite_bookmark_row(kwargs: dict[str, Any], ctx: RemapContext) -> RewriteTally:

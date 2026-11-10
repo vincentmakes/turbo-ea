@@ -1,43 +1,29 @@
 import { describe, expect, it } from "vitest";
 import { makeRelationType, makeTag, makeTagGroup } from "@/test/fixtures/metamodel";
-import type { CardQuery, CardQueryHop } from "@/types";
+import type { CardQuery } from "@/types";
 import type { CardNameEntry } from "./useCardNames";
 import {
   MAX_CHAIN_DEPTH,
-  MAX_HOPS_PER_LIST,
-  MAX_HOPS_TOTAL,
-  addBranch,
-  appendHopAt,
-  canAppend,
-  canBranch,
+  appendHop,
   cardNameLabel,
   cardsChipLabel,
+  chainNodes,
   conditionValues,
   draftProblem,
   facetToLifecycle,
-  hopCount,
   lifecycleToFacet,
-  nodeAt,
-  normalizeHops,
   pickedCardIds,
+  rebuildChain,
   relationChoices,
   removeCondition,
   removeHopAt,
-  rows,
   sendableQuery,
   setCondition,
   setIncludeDescendants,
   setStartType,
   tagChipsByGroup,
   toggleNegate,
-  type NodePath,
 } from "./queryDraft";
-
-/** Steps down the tree: the `i`-th hop of `related` (R) or of `related_any` (O). */
-const R = (index = 0) => ({ list: "related" as const, index });
-const O = (index = 0) => ({ list: "related_any" as const, index });
-const P1: NodePath = [R()];
-const P2: NodePath = [R(), R()];
 
 const CHAIN: CardQuery = {
   type: "Organization",
@@ -52,15 +38,6 @@ const CHAIN: CardQuery = {
   ],
 };
 
-/** An OR group under the start card: either relation will do. */
-const OR_QUERY: CardQuery = {
-  type: "Organization",
-  related_any: [
-    { relation: "relOrgToApp", type: "Application" },
-    { relation: "relOrgToBC", type: "BusinessCapability" },
-  ],
-};
-
 /** A branch beside the chain (as an MCP assistant may write it). */
 const BRANCHED: CardQuery = {
   type: "Organization",
@@ -70,204 +47,37 @@ const BRANCHED: CardQuery = {
   ],
 };
 
-describe("nodeAt", () => {
-  it("follows a path through both lists, undefined past the tree", () => {
-    expect(nodeAt(CHAIN, [])).toBe(CHAIN);
-    expect(nodeAt(CHAIN, P1)).toBe(CHAIN.related![0]);
-    expect(nodeAt(CHAIN, P2)).toEqual({
-      relation: "relInitiativeToApp",
-      type: "Initiative",
-      negate: true,
+describe("chainNodes / rebuildChain", () => {
+  it("reads the first hop of each level as the chain", () => {
+    expect(chainNodes(CHAIN)).toEqual([
+      { type: "Organization", where: { approval_status: ["APPROVED"] } },
+      { relation: "relOrgToApp", type: "Application", where: { lifecycle_phase: ["active"] } },
+      { relation: "relInitiativeToApp", type: "Initiative", negate: true },
+    ]);
+  });
+
+  it("keeps hops beside the chain on the node they hang from", () => {
+    expect(chainNodes(BRANCHED)).toEqual([
+      {
+        type: "Organization",
+        extra: [{ relation: "relOrgToBC", type: "BusinessCapability", negate: true }],
+      },
+      { relation: "relOrgToApp", type: "Application" },
+    ]);
+  });
+
+  it("round-trips a chain and a branched query exactly", () => {
+    expect(rebuildChain(chainNodes(CHAIN))).toEqual(CHAIN);
+    expect(rebuildChain(chainNodes(BRANCHED))).toEqual(BRANCHED);
+    expect(rebuildChain(chainNodes({ type: "Application" }))).toEqual({ type: "Application" });
+  });
+
+  it("writes a bare start node and an empty list as nothing", () => {
+    expect(rebuildChain([])).toEqual({ type: "" });
+    expect(rebuildChain([{ type: "A" }, { relation: "r", type: "B", negate: false }])).toEqual({
+      type: "A",
+      related: [{ relation: "r", type: "B" }],
     });
-    expect(nodeAt(OR_QUERY, [O(1)])).toEqual({ relation: "relOrgToBC", type: "BusinessCapability" });
-    expect(nodeAt(CHAIN, [R(1)])).toBeUndefined();
-    expect(nodeAt(CHAIN, [O()])).toBeUndefined();
-    expect(nodeAt(CHAIN, [R(), R(), R()])).toBeUndefined();
-  });
-});
-
-describe("rows", () => {
-  it("reads a linear chain as one row", () => {
-    expect(rows(CHAIN)).toEqual([
-      {
-        parentPath: null,
-        connective: null,
-        nodes: [
-          { path: [], hop: null },
-          { path: P1, hop: CHAIN.related![0] },
-          { path: P2, hop: CHAIN.related![0].related![0] },
-        ],
-      },
-    ]);
-    expect(rows({ type: "" })).toEqual([
-      { parentPath: null, connective: null, nodes: [{ path: [], hop: null }] },
-    ]);
-  });
-
-  it("opens an and row under the start card for A and B", () => {
-    expect(rows(BRANCHED)).toEqual([
-      {
-        parentPath: null,
-        connective: null,
-        nodes: [
-          { path: [], hop: null },
-          { path: [R(0)], hop: { relation: "relOrgToApp", type: "Application" } },
-        ],
-      },
-      {
-        parentPath: [],
-        connective: "and",
-        nodes: [
-          {
-            path: [R(1)],
-            hop: { relation: "relOrgToBC", type: "BusinessCapability", negate: true },
-          },
-        ],
-      },
-    ]);
-  });
-
-  it("continues with the first OR hop and opens an or row for the second", () => {
-    expect(rows(OR_QUERY)).toEqual([
-      {
-        parentPath: null,
-        connective: null,
-        nodes: [
-          { path: [], hop: null },
-          { path: [O(0)], hop: { relation: "relOrgToApp", type: "Application" } },
-        ],
-      },
-      {
-        parentPath: [],
-        connective: "or",
-        nodes: [{ path: [O(1)], hop: { relation: "relOrgToBC", type: "BusinessCapability" } }],
-      },
-    ]);
-  });
-
-  it("lists or rows before and rows, every AND hop opening a row beside an OR group", () => {
-    const q: CardQuery = {
-      type: "A",
-      related: [{ relation: "a", type: "X" }],
-      related_any: [
-        { relation: "b", type: "Y" },
-        { relation: "c", type: "Z" },
-      ],
-    };
-    expect(
-      rows(q).map((r) => [r.connective, r.nodes.map((n) => n.hop?.type ?? "start")]),
-    ).toEqual([
-      [null, ["start", "Y"]],
-      ["or", ["Z"]],
-      ["and", ["X"]],
-    ]);
-  });
-
-  it("hangs a branch two levels down from its node, its own chain on its row", () => {
-    const q: CardQuery = {
-      type: "Organization",
-      related: [
-        {
-          relation: "relOrgToApp",
-          type: "Application",
-          related: [
-            { relation: "relInitiativeToApp", type: "Initiative" },
-            {
-              relation: "relAppToITC",
-              type: "ITComponent",
-              related: [{ relation: "relItc", type: "Platform" }],
-            },
-          ],
-        },
-        { relation: "relOrgToBC", type: "BusinessCapability" },
-      ],
-    };
-    expect(
-      rows(q).map(({ parentPath, connective, nodes }) => ({
-        parentPath,
-        connective,
-        paths: nodes.map((n) => n.path),
-      })),
-    ).toEqual([
-      { parentPath: null, connective: null, paths: [[], [R()], [R(), R()]] },
-      // The last node's branches come first, so a row sits right below its parent.
-      {
-        parentPath: [R()],
-        connective: "and",
-        paths: [
-          [R(), R(1)],
-          [R(), R(1), R()],
-        ],
-      },
-      { parentPath: [], connective: "and", paths: [[R(1)]] },
-    ]);
-  });
-
-  it("reads a builder-made stack as one line per branch, each with the next below it", () => {
-    // Organization → Application, OR a second Application under it, AND an
-    // Initiative under that one's Application: three lines, a straight stack.
-    const q: CardQuery = {
-      type: "Organization",
-      related: [
-        {
-          relation: "relOrgToApp",
-          type: "Application",
-          related_any: [
-            { relation: "relInitiativeToApp", type: "Initiative" },
-            {
-              relation: "relAppToITC",
-              type: "ITComponent",
-              related: [
-                { relation: "relItc", type: "Platform" },
-                { relation: "relItc2", type: "Server" },
-              ],
-            },
-          ],
-        },
-      ],
-    };
-    expect(
-      rows(q).map((r) => ({
-        parentPath: r.parentPath,
-        connective: r.connective,
-        types: r.nodes.map((n) => n.hop?.type ?? "start"),
-      })),
-    ).toEqual([
-      {
-        parentPath: null,
-        connective: null,
-        types: ["start", "Application", "Initiative"],
-      },
-      {
-        parentPath: [R()],
-        connective: "or",
-        types: ["ITComponent", "Platform"],
-      },
-      { parentPath: [R(), O(1)], connective: "and", types: ["Server"] },
-    ]);
-  });
-
-  it("lists every branch from one card in order, one line each, siblings last-added last", () => {
-    const q: CardQuery = {
-      type: "A",
-      related: [
-        { relation: "a", type: "X" },
-        { relation: "b", type: "Y" },
-        { relation: "c", type: "Z" },
-      ],
-    };
-    expect(rows(q).map((r) => [r.parentPath, r.connective, r.nodes[0].hop?.type ?? "start"])).toEqual([
-      [null, null, "start"],
-      [[], "and", "Y"],
-      [[], "and", "Z"],
-    ]);
-    // Three OR alternatives: the first continues the line, the others below in order.
-    const or: CardQuery = { type: "A", related_any: q.related };
-    expect(rows(or).map((r) => [r.parentPath, r.connective, r.nodes[r.nodes.length - 1].hop?.type])).toEqual([
-      [null, null, "X"],
-      [[], "or", "Y"],
-      [[], "or", "Z"],
-    ]);
   });
 });
 
@@ -278,84 +88,45 @@ describe("setStartType", () => {
   });
 });
 
-describe("appendHopAt / removeHopAt / toggleNegate", () => {
-  it("appends a hop to the node's related list", () => {
-    expect(appendHopAt({ type: "Organization" }, [], "relOrgToApp", "Application")).toEqual({
+describe("appendHop / removeHopAt / toggleNegate", () => {
+  it("appends a hop after the last node", () => {
+    expect(appendHop({ type: "Organization" }, "relOrgToApp", "Application")).toEqual({
       type: "Organization",
       related: [{ relation: "relOrgToApp", type: "Application" }],
     });
-    expect(appendHopAt(CHAIN, P2, "relX", "Objective").related![0].related![0].related).toEqual([
+    expect(appendHop(CHAIN, "relX", "Objective").related![0].related![0].related).toEqual([
       { relation: "relX", type: "Objective" },
     ]);
-    expect(appendHopAt(CHAIN, [R(4)], "relX", "Objective")).toBe(CHAIN);
   });
 
   it("stops at MAX_CHAIN_DEPTH hops", () => {
     expect(MAX_CHAIN_DEPTH).toBe(3);
-    const three = appendHopAt(CHAIN, P2, "relX", "Objective");
-    expect(nodeAt(three, [R(), R(), R()])).toEqual({ relation: "relX", type: "Objective" });
-    expect(appendHopAt(three, [R(), R(), R()], "relY", "Platform")).toBe(three);
+    const three = appendHop(CHAIN, "relX", "Objective");
+    expect(chainNodes(three)).toHaveLength(4);
+    expect(appendHop(three, "relY", "Platform")).toBe(three);
   });
 
   it("removes a hop and everything after it", () => {
-    expect(removeHopAt(CHAIN, P1)).toEqual({
+    expect(removeHopAt(CHAIN, 1)).toEqual({
       type: "Organization",
       where: { approval_status: ["APPROVED"] },
     });
-    expect(removeHopAt(CHAIN, P2)).toEqual({
+    expect(removeHopAt(CHAIN, 2)).toEqual({
       type: "Organization",
       where: { approval_status: ["APPROVED"] },
       related: [
         { relation: "relOrgToApp", type: "Application", where: { lifecycle_phase: ["active"] } },
       ],
     });
-    expect(removeHopAt(BRANCHED, [R(0)])).toEqual({
-      type: "Organization",
-      related: [{ relation: "relOrgToBC", type: "BusinessCapability", negate: true }],
-    });
   });
 
   it("never removes the start node or a hop that is not there", () => {
-    expect(removeHopAt(CHAIN, [])).toBe(CHAIN);
-    expect(removeHopAt(CHAIN, [R(), R(), R()])).toBe(CHAIN);
-    expect(removeHopAt(CHAIN, [O()])).toBe(CHAIN);
-  });
-
-  it("folds an OR group left with one hop into related, in front", () => {
-    const q: CardQuery = {
-      type: "Organization",
-      related: [{ relation: "relOrgToObj", type: "Objective" }],
-      related_any: [
-        { relation: "relOrgToApp", type: "Application" },
-        { relation: "relOrgToBC", type: "BusinessCapability", negate: true },
-      ],
-    };
-    expect(removeHopAt(q, [O(1)])).toEqual({
-      type: "Organization",
-      related: [
-        { relation: "relOrgToApp", type: "Application" },
-        { relation: "relOrgToObj", type: "Objective" },
-      ],
-    });
-    expect(removeHopAt(OR_QUERY, [O(0)])).toEqual({
-      type: "Organization",
-      related: [{ relation: "relOrgToBC", type: "BusinessCapability" }],
-    });
-    const three: CardQuery = {
-      ...OR_QUERY,
-      related_any: [...OR_QUERY.related_any!, { relation: "relOrgToObj", type: "Objective" }],
-    };
-    expect(removeHopAt(three, [O(1)])).toEqual({
-      type: "Organization",
-      related_any: [
-        { relation: "relOrgToApp", type: "Application" },
-        { relation: "relOrgToObj", type: "Objective" },
-      ],
-    });
+    expect(removeHopAt(CHAIN, 0)).toBe(CHAIN);
+    expect(removeHopAt(CHAIN, 3)).toBe(CHAIN);
   });
 
   it("flips has / has no on a hop, never on the start", () => {
-    const on = toggleNegate(CHAIN, P1);
+    const on = toggleNegate(CHAIN, 1);
     expect(on.related![0]).toEqual({
       relation: "relOrgToApp",
       type: "Application",
@@ -363,247 +134,34 @@ describe("appendHopAt / removeHopAt / toggleNegate", () => {
       negate: true,
       related: [{ relation: "relInitiativeToApp", type: "Initiative", negate: true }],
     });
-    expect(toggleNegate(CHAIN, P2).related![0].related).toEqual([
+    expect(toggleNegate(CHAIN, 2).related![0].related).toEqual([
       { relation: "relInitiativeToApp", type: "Initiative" },
     ]);
-    expect(toggleNegate(OR_QUERY, [O(1)]).related_any![1]).toEqual({
-      relation: "relOrgToBC",
-      type: "BusinessCapability",
-      negate: true,
-    });
-    expect(toggleNegate(CHAIN, [])).toBe(CHAIN);
-    expect(toggleNegate(CHAIN, [R(7)])).toBe(CHAIN);
-  });
-});
-
-describe("addBranch", () => {
-  it("appends an AND branch to the node's related list", () => {
-    expect(addBranch(BRANCHED, [], "and", "relOrgToObj", "Objective")).toEqual({
-      type: "Organization",
-      related: [
-        { relation: "relOrgToApp", type: "Application" },
-        { relation: "relOrgToBC", type: "BusinessCapability", negate: true },
-        { relation: "relOrgToObj", type: "Objective" },
-      ],
-    });
-  });
-
-  it("moves the continuation hop into related_any with the first OR branch", () => {
-    expect(addBranch(CHAIN, [], "or", "relOrgToBC", "BusinessCapability")).toEqual({
-      type: "Organization",
-      where: { approval_status: ["APPROVED"] },
-      related_any: [
-        {
-          relation: "relOrgToApp",
-          type: "Application",
-          where: { lifecycle_phase: ["active"] },
-          related: [{ relation: "relInitiativeToApp", type: "Initiative", negate: true }],
-        },
-        { relation: "relOrgToBC", type: "BusinessCapability" },
-      ],
-    });
-    // The AND hops after the continuation stay in related.
-    expect(addBranch(BRANCHED, [], "or", "relOrgToObj", "Objective")).toEqual({
-      type: "Organization",
-      related: [{ relation: "relOrgToBC", type: "BusinessCapability", negate: true }],
-      related_any: [
-        { relation: "relOrgToApp", type: "Application" },
-        { relation: "relOrgToObj", type: "Objective" },
-      ],
-    });
-  });
-
-  it("joins a later OR branch to related_any", () => {
-    expect(addBranch(OR_QUERY, [], "or", "relOrgToObj", "Objective")).toEqual({
-      type: "Organization",
-      related_any: [
-        { relation: "relOrgToApp", type: "Application" },
-        { relation: "relOrgToBC", type: "BusinessCapability" },
-        { relation: "relOrgToObj", type: "Objective" },
-      ],
-    });
-  });
-
-  it("takes no branch under a node with no hop; its first hop is appendHopAt's", () => {
-    expect(addBranch(CHAIN, P2, "or", "r", "X")).toBe(CHAIN);
-    expect(addBranch(CHAIN, P2, "and", "r", "X")).toBe(CHAIN);
-    const expected: CardQuery = {
-      ...CHAIN,
-      related: [
-        {
-          ...CHAIN.related![0],
-          related: [
-            {
-              relation: "relInitiativeToApp",
-              type: "Initiative",
-              negate: true,
-              related: [{ relation: "r", type: "X" }],
-            },
-          ],
-        },
-      ],
-    };
-    expect(appendHopAt(CHAIN, P2, "r", "X")).toEqual(expected);
-  });
-
-  it("branches under a hop inside an OR group", () => {
-    const withHop = appendHopAt(OR_QUERY, [O(1)], "relBcToApp", "Application");
-    expect(addBranch(withHop, [O(1)], "and", "relBcToObj", "Objective").related_any![1]).toEqual({
-      relation: "relOrgToBC",
-      type: "BusinessCapability",
-      related: [
-        { relation: "relBcToApp", type: "Application" },
-        { relation: "relBcToObj", type: "Objective" },
-      ],
-    });
-  });
-
-  it("changes nothing where it cannot branch", () => {
-    expect(addBranch(CHAIN, [R(3)], "and", "r", "X")).toBe(CHAIN);
-    expect(addBranch(CHAIN, [R(3)], "or", "r", "X")).toBe(CHAIN);
-    const full: CardQuery = { type: "A", related_any: hops(MAX_HOPS_PER_LIST) };
-    expect(addBranch(full, [], "or", "r", "X")).toBe(full);
-  });
-});
-
-/** `n` plain hops `h0`, `h1`, … to cards of type B. */
-function hops(n: number): CardQueryHop[] {
-  return Array.from({ length: n }, (_, i) => ({ relation: `h${i}`, type: "B" }));
-}
-
-describe("canBranch", () => {
-  it("allows a branch under a typed node within every cap", () => {
-    expect(canBranch(CHAIN, [])).toBe(true);
-    expect(canBranch(CHAIN, P1)).toBe(true);
-    expect(canBranch(CHAIN, [], "and")).toBe(true);
-    expect(canBranch(CHAIN, [], "or")).toBe(true);
-  });
-
-  it("is false under a node with no hop yet, whichever connective: nothing to combine with", () => {
-    expect(canBranch(CHAIN, P2)).toBe(false);
-    expect(canBranch(CHAIN, P2, "and")).toBe(false);
-    expect(canBranch(CHAIN, P2, "or")).toBe(false);
-    expect(canBranch({ type: "A" }, [])).toBe(false);
-    // The `+ relation` chip still takes the first hop there.
-    expect(canAppend(CHAIN, P2)).toBe(true);
-    expect(canAppend({ type: "A" }, [])).toBe(true);
-  });
-
-  it("is false without a type or a node", () => {
-    expect(canBranch({ type: "" }, [])).toBe(false);
-    expect(canBranch(CHAIN, [R(5)])).toBe(false);
-  });
-
-  it("is false at depth 3", () => {
-    const three = appendHopAt(CHAIN, P2, "relX", "Objective");
-    expect(canBranch(three, [R(), R(), R()])).toBe(false);
-    expect(canBranch(three, P2)).toBe(true);
-  });
-
-  it("is false for a list holding 10 hops, the other list still open", () => {
-    expect(MAX_HOPS_PER_LIST).toBe(10);
-    const and10: CardQuery = { type: "A", related: hops(10) };
-    expect(canBranch(and10, [], "and")).toBe(false);
-    expect(canBranch(and10, [], "or")).toBe(true);
-    expect(canBranch(and10, [])).toBe(true);
-    const or10: CardQuery = { type: "A", related_any: hops(10) };
-    expect(canBranch(or10, [], "or")).toBe(false);
-    expect(canBranch(or10, [], "and")).toBe(true);
-    expect(canBranch({ type: "A", related: hops(9) }, [], "and")).toBe(true);
-    expect(canBranch({ type: "A", related_any: hops(9) }, [], "or")).toBe(true);
-  });
-
-  it("is false with 12 hops in the tree, both lists counted", () => {
-    expect(MAX_HOPS_TOTAL).toBe(12);
-    const twelve: CardQuery = {
-      type: "A",
-      related: [{ relation: "x", type: "B", related: hops(5) }, ...hops(1)],
-      related_any: hops(5),
-    };
-    expect(canBranch(twelve, [])).toBe(false);
-    expect(canBranch(twelve, [R(0)])).toBe(false);
-    const eleven: CardQuery = { ...twelve, related_any: hops(4) };
-    expect(canBranch(eleven, [])).toBe(true);
-    expect(canBranch(eleven, [R(0)], "and")).toBe(true);
-  });
-});
-
-describe("canAppend", () => {
-  it("allows a hop on a typed node within the depth, tree and related caps", () => {
-    expect(canAppend({ type: "" }, [])).toBe(false);
-    expect(canAppend(CHAIN, [R(5)])).toBe(false);
-    const three = appendHopAt(CHAIN, P2, "relX", "Objective");
-    expect(canAppend(three, [R(), R(), R()])).toBe(false);
-    expect(canAppend({ type: "A", related: hops(10) }, [])).toBe(false);
-    expect(canAppend({ type: "A", related: hops(9) }, [])).toBe(true);
-    // A full OR group does not stop the AND list.
-    expect(canAppend({ type: "A", related_any: hops(10) }, [])).toBe(true);
-    const twelve: CardQuery = { type: "A", related: hops(6), related_any: hops(6) };
-    expect(canAppend(twelve, [])).toBe(false);
-    expect(canAppend({ ...twelve, related_any: hops(5) }, [])).toBe(true);
-  });
-});
-
-describe("hopCount", () => {
-  it("counts the hops right under a node, both lists, not deeper ones", () => {
-    expect(hopCount(undefined)).toBe(0);
-    expect(hopCount({ type: "A" })).toBe(0);
-    expect(hopCount(CHAIN)).toBe(1);
-    expect(hopCount({ type: "A", related: hops(2), related_any: hops(3) })).toBe(5);
-  });
-});
-
-describe("normalizeHops", () => {
-  const a: CardQueryHop = { relation: "a", type: "A" };
-  const b: CardQueryHop = { relation: "b", type: "B" };
-  const c: CardQueryHop = { relation: "c", type: "C" };
-
-  it("folds an OR group of one into related, in front", () => {
-    expect(normalizeHops({ type: "X", related: [b, c], related_any: [a] })).toEqual({
-      type: "X",
-      related: [a, b, c],
-    });
-    expect(normalizeHops({ type: "X", related_any: [a] })).toEqual({ type: "X", related: [a] });
-  });
-
-  it("leaves a node without a one-hop OR group as it is", () => {
-    const two: CardQuery = { type: "X", related: [c], related_any: [a, b] };
-    expect(normalizeHops(two)).toBe(two);
-    const none: CardQuery = { type: "X", related: [a] };
-    expect(normalizeHops(none)).toBe(none);
-  });
-
-  it("is the one rule: removing an OR hop and sending a one-hop OR group give the same query", () => {
-    const query: CardQuery = { type: "X", related: [c], related_any: [a, b] };
-    const removed = removeHopAt(query, [O(1)]);
-    const sent = sendableQuery({ ...query, related_any: [a, { relation: "b", type: "" }] });
-    const folded = { type: "X", related: [a, c] };
-    expect(removed).toEqual(folded);
-    expect(sent).toEqual(folded);
-    expect(removed).toEqual(sent);
+    expect(toggleNegate(CHAIN, 0)).toBe(CHAIN);
+    expect(toggleNegate(CHAIN, 7)).toBe(CHAIN);
   });
 });
 
 describe("setCondition / removeCondition / conditionValues", () => {
   it("sets each kind of condition on the node it names", () => {
     const q = { type: "Application" };
-    expect(setCondition(q, [], "lifecycle_phase", ["active"])).toEqual({
+    expect(setCondition(q, 0, "lifecycle_phase", ["active"])).toEqual({
       type: "Application",
       where: { lifecycle_phase: ["active"] },
     });
-    expect(setCondition(q, [], "subtype", ["bizApp"]).where).toEqual({ subtype: ["bizApp"] });
-    expect(setCondition(q, [], "approval_status", ["DRAFT"]).where).toEqual({
+    expect(setCondition(q, 0, "subtype", ["bizApp"]).where).toEqual({ subtype: ["bizApp"] });
+    expect(setCondition(q, 0, "approval_status", ["DRAFT"]).where).toEqual({
       approval_status: ["DRAFT"],
     });
-    expect(setCondition(q, [], "data_quality_band", ["partial", "minimal"])).toEqual({
+    expect(setCondition(q, 0, "data_quality_band", ["partial", "minimal"])).toEqual({
       type: "Application",
       where: { data_quality_band: ["partial", "minimal"] },
     });
-    expect(setCondition(q, [], "tags", ["t1"]).where).toEqual({ tags: ["t1"] });
-    expect(setCondition(q, [], { attribute: "criticality" }, ["high"]).where).toEqual({
+    expect(setCondition(q, 0, "tags", ["t1"]).where).toEqual({ tags: ["t1"] });
+    expect(setCondition(q, 0, { attribute: "criticality" }, ["high"]).where).toEqual({
       attributes: { criticality: ["high"] },
     });
-    expect(setCondition(CHAIN, P2, "subtype", ["proj"]).related![0].related![0]).toEqual({
+    expect(setCondition(CHAIN, 2, "subtype", ["proj"]).related![0].related![0]).toEqual({
       relation: "relInitiativeToApp",
       type: "Initiative",
       negate: true,
@@ -612,7 +170,7 @@ describe("setCondition / removeCondition / conditionValues", () => {
   });
 
   it("keeps an empty list as a condition still being filled in", () => {
-    expect(setCondition({ type: "A" }, [], "lifecycle_phase", [])).toEqual({
+    expect(setCondition({ type: "A" }, 0, "lifecycle_phase", [])).toEqual({
       type: "A",
       where: { lifecycle_phase: [] },
     });
@@ -620,7 +178,7 @@ describe("setCondition / removeCondition / conditionValues", () => {
 
   it("does not share the caller's array", () => {
     const values = ["active"];
-    const q = setCondition({ type: "A" }, [], "lifecycle_phase", values);
+    const q = setCondition({ type: "A" }, 0, "lifecycle_phase", values);
     values.push("plan");
     expect(q.where).toEqual({ lifecycle_phase: ["active"] });
   });
@@ -630,25 +188,23 @@ describe("setCondition / removeCondition / conditionValues", () => {
       type: "A",
       where: { lifecycle_phase: ["active"], attributes: { a: ["x"], b: ["y"] } },
     };
-    expect(removeCondition(q, [], { attribute: "a" })).toEqual({
+    expect(removeCondition(q, 0, { attribute: "a" })).toEqual({
       type: "A",
       where: { lifecycle_phase: ["active"], attributes: { b: ["y"] } },
     });
-    const noAttrs = removeCondition(removeCondition(q, [], { attribute: "a" }), [], {
-      attribute: "b",
-    });
+    const noAttrs = removeCondition(removeCondition(q, 0, { attribute: "a" }), 0, { attribute: "b" });
     expect(noAttrs).toEqual({ type: "A", where: { lifecycle_phase: ["active"] } });
-    expect(removeCondition(noAttrs, [], "lifecycle_phase")).toEqual({ type: "A" });
-    expect(removeCondition(CHAIN, P1, "lifecycle_phase").related![0]).toEqual({
+    expect(removeCondition(noAttrs, 0, "lifecycle_phase")).toEqual({ type: "A" });
+    expect(removeCondition(CHAIN, 1, "lifecycle_phase").related![0]).toEqual({
       relation: "relOrgToApp",
       type: "Application",
       related: [{ relation: "relInitiativeToApp", type: "Initiative", negate: true }],
     });
   });
 
-  it("ignores a node that is not in the tree", () => {
-    expect(setCondition(CHAIN, [R(5)], "subtype", ["x"])).toBe(CHAIN);
-    expect(setCondition(CHAIN, [O()], "subtype", ["x"])).toBe(CHAIN);
+  it("ignores a node that is not in the chain", () => {
+    expect(setCondition(CHAIN, 5, "subtype", ["x"])).toBe(CHAIN);
+    expect(setCondition(CHAIN, -1, "subtype", ["x"])).toBe(CHAIN);
   });
 
   it("reads a condition's values", () => {
@@ -688,41 +244,9 @@ describe("draftProblem", () => {
     ).toBe("empty_values");
     expect(draftProblem({ type: "A", where: { data_quality_band: [] } })).toBe("empty_values");
     expect(draftProblem({ type: "A", where: { data_quality_band: ["complete"] } })).toBeNull();
-    expect(draftProblem({ type: "A", related: [{ relation: "r", type: "" }] })).toBe("empty_type");
+    expect(draftProblem({ type: "A", related: [{ relation: "r", type: "" }] })).toBe("empty_values");
     expect(draftProblem(CHAIN)).toBeNull();
     expect(draftProblem(BRANCHED)).toBeNull();
-    expect(draftProblem(OR_QUERY)).toBeNull();
-  });
-
-  it("names a branch without a type, in either list and below one, before an empty condition", () => {
-    expect(
-      draftProblem({
-        type: "A",
-        where: { subtype: [] },
-        related_any: [
-          { relation: "r", type: "B" },
-          { relation: "s", type: "" },
-        ],
-      }),
-    ).toBe("empty_type");
-    expect(
-      draftProblem({
-        type: "A",
-        related: [
-          { relation: "r", type: "B" },
-          { relation: "s", type: "C", related: [{ relation: "t", type: "" }] },
-        ],
-      }),
-    ).toBe("empty_type");
-    expect(
-      draftProblem({
-        type: "A",
-        related_any: [
-          { relation: "r", type: "B", where: { tags: [] } },
-          { relation: "s", type: "C" },
-        ],
-      }),
-    ).toBe("empty_values");
   });
 });
 
@@ -818,55 +342,6 @@ describe("sendableQuery", () => {
     });
   });
 
-  it("drops a branch without a type, in either list", () => {
-    expect(
-      sendableQuery({
-        type: "A",
-        related: [
-          { relation: "r", type: "B", related: [{ relation: "t", type: "" }] },
-          { relation: "s", type: "" },
-        ],
-        related_any: [
-          { relation: "u", type: "C" },
-          { relation: "v", type: "D" },
-          { relation: "w", type: "" },
-        ],
-      }),
-    ).toEqual({
-      type: "A",
-      related: [{ relation: "r", type: "B", related: [] }],
-      related_any: [
-        { relation: "u", type: "C" },
-        { relation: "v", type: "D" },
-      ],
-    });
-  });
-
-  it("sends an OR group of one hop as a plain hop in front of related", () => {
-    expect(
-      sendableQuery({
-        type: "A",
-        related: [{ relation: "r", type: "B" }],
-        related_any: [
-          { relation: "s", type: "C", where: { subtype: [] }, negate: true },
-          { relation: "t", type: "" },
-        ],
-      }),
-    ).toEqual({
-      type: "A",
-      related: [
-        { relation: "s", type: "C", negate: true },
-        { relation: "r", type: "B" },
-      ],
-    });
-    expect(sendableQuery({ type: "A", related_any: [{ relation: "s", type: "C" }] })).toEqual({
-      type: "A",
-      related: [{ relation: "s", type: "C" }],
-    });
-    expect(sendableQuery({ type: "A", related_any: [] })).toEqual({ type: "A" });
-    expect(sendableQuery(OR_QUERY)).toEqual(OR_QUERY);
-  });
-
   it("is null without a start type", () => {
     expect(sendableQuery({ type: "" })).toBeNull();
     expect(sendableQuery({ type: "", where: { subtype: ["x"] } })).toBeNull();
@@ -938,7 +413,7 @@ describe("tagChipsByGroup", () => {
 
 describe("cards condition", () => {
   it("sets picked cards on a node and reads them back", () => {
-    const q = setCondition(CHAIN, P1, "cards", ["a1", "a2"]);
+    const q = setCondition(CHAIN, 1, "cards", ["a1", "a2"]);
     expect(q.related![0].where).toEqual({ lifecycle_phase: ["active"], cards: ["a1", "a2"] });
     expect(conditionValues(q.related![0].where, "cards")).toEqual(["a1", "a2"]);
     expect(q.where).toEqual(CHAIN.where);
@@ -950,12 +425,12 @@ describe("cards condition", () => {
       where: { data_quality_band: ["complete"], approval_status: ["APPROVED"] },
     };
     expect(conditionValues(q.where, "data_quality_band")).toEqual(["complete"]);
-    expect(removeCondition(q, [], "data_quality_band")).toEqual({
+    expect(removeCondition(q, 0, "data_quality_band")).toEqual({
       type: "Application",
       where: { approval_status: ["APPROVED"] },
     });
     const alone: CardQuery = { type: "Application", where: { data_quality_band: ["minimal"] } };
-    expect(removeCondition(alone, [], "data_quality_band")).toEqual({ type: "Application" });
+    expect(removeCondition(alone, 0, "data_quality_band")).toEqual({ type: "Application" });
   });
 
   it("drops Include sub-cards with the cards it qualifies", () => {
@@ -963,32 +438,32 @@ describe("cards condition", () => {
       type: "Organization",
       where: { approval_status: ["APPROVED"], cards: ["o1"], include_descendants: true },
     };
-    expect(removeCondition(q, [], "cards").where).toEqual({ approval_status: ["APPROVED"] });
+    expect(removeCondition(q, 0, "cards").where).toEqual({ approval_status: ["APPROVED"] });
     const alone: CardQuery = { type: "Organization", where: { cards: ["o1"], include_descendants: true } };
-    expect(removeCondition(alone, [], "cards")).toEqual({ type: "Organization" });
+    expect(removeCondition(alone, 0, "cards")).toEqual({ type: "Organization" });
     // Another condition's removal leaves the flag alone.
-    expect(removeCondition(q, [], "approval_status").where).toEqual({
+    expect(removeCondition(q, 0, "approval_status").where).toEqual({
       cards: ["o1"],
       include_descendants: true,
     });
   });
 
   it("turns Include sub-cards on and off, only where cards are picked", () => {
-    const picked = setCondition(CHAIN, P1, "cards", ["a1"]);
-    const on = setIncludeDescendants(picked, P1, true);
+    const picked = setCondition(CHAIN, 1, "cards", ["a1"]);
+    const on = setIncludeDescendants(picked, 1, true);
     expect(on.related![0].where).toEqual({
       lifecycle_phase: ["active"],
       cards: ["a1"],
       include_descendants: true,
     });
     expect(on.related![0].related).toEqual(CHAIN.related![0].related);
-    const off = setIncludeDescendants(on, P1, false);
+    const off = setIncludeDescendants(on, 1, false);
     expect(off.related![0].where).toEqual({ lifecycle_phase: ["active"], cards: ["a1"] });
     expect(off).toEqual(picked);
     // No picked cards on the node (or no such node): nothing changes.
-    expect(setIncludeDescendants(CHAIN, P1, true)).toBe(CHAIN);
-    expect(setIncludeDescendants(CHAIN, [], true)).toBe(CHAIN);
-    expect(setIncludeDescendants(picked, [R(5)], true)).toBe(picked);
+    expect(setIncludeDescendants(CHAIN, 1, true)).toBe(CHAIN);
+    expect(setIncludeDescendants(CHAIN, 0, true)).toBe(CHAIN);
+    expect(setIncludeDescendants(picked, 5, true)).toBe(picked);
   });
 
   it("collects the picked ids of every node, branches included, deduped in order", () => {
@@ -1006,23 +481,6 @@ describe("cards condition", () => {
       ],
     };
     expect(pickedCardIds(q)).toEqual(["o1", "o2", "a1", "i1", "b1"]);
-    const or: CardQuery = {
-      type: "Organization",
-      related: [{ relation: "relOrgToObj", type: "Objective", where: { cards: ["j1"] } }],
-      related_any: [
-        {
-          relation: "relOrgToApp",
-          type: "Application",
-          where: { cards: ["a1"] },
-          related_any: [
-            { relation: "x", type: "X", where: { cards: ["x1"] } },
-            { relation: "y", type: "Y", where: { cards: ["y1", "j1"] } },
-          ],
-        },
-        { relation: "relOrgToBC", type: "BusinessCapability", where: { cards: ["b1"] } },
-      ],
-    };
-    expect(pickedCardIds(or)).toEqual(["j1", "a1", "x1", "y1", "b1"]);
     expect(pickedCardIds(CHAIN)).toEqual([]);
     expect(pickedCardIds({ type: "" })).toEqual([]);
   });

@@ -90,20 +90,20 @@ const CHAIN: CardQuery = {
 describe("compactPath", () => {
   it("reads a chain as type › verb type › verb type", () => {
     expect(PATH_SEPARATOR).toBe(" › ");
-    expect(compactPath(CHAIN, { types: TYPES, relationTypes: REL_TYPES, or: "OR", locale: "en" })).toBe(
+    expect(compactPath(CHAIN, { types: TYPES, relationTypes: REL_TYPES, locale: "en" })).toBe(
       "Organization › uses Application › is affected by Initiative",
     );
   });
 
   it("resolves type and verb labels in the locale", () => {
-    expect(compactPath(CHAIN, { types: TYPES, relationTypes: REL_TYPES, or: "OR", locale: "de" })).toBe(
+    expect(compactPath(CHAIN, { types: TYPES, relationTypes: REL_TYPES, locale: "de" })).toBe(
       "Organisation › nutzt Application › is affected by Initiative",
     );
   });
 
   it("is just the start type for a query without hops", () => {
     expect(
-      compactPath({ type: "Application" }, { types: TYPES, relationTypes: REL_TYPES, or: "OR" }),
+      compactPath({ type: "Application" }, { types: TYPES, relationTypes: REL_TYPES }),
     ).toBe("Application");
   });
 
@@ -116,7 +116,7 @@ describe("compactPath", () => {
         { relation: "relInitiativeToApp", type: "Initiative" },
       ],
     };
-    expect(compactPath(branched, { types: TYPES, relationTypes: REL_TYPES, or: "OR", locale: "en" })).toBe(
+    expect(compactPath(branched, { types: TYPES, relationTypes: REL_TYPES, locale: "en" })).toBe(
       "Application › is called by Application +2",
     );
   });
@@ -126,7 +126,7 @@ describe("compactPath", () => {
       type: "Application",
       related: [{ relation: "relInitiativeToApp", type: "Initiative", negate: true }],
     };
-    const opts = { types: TYPES, relationTypes: REL_TYPES, or: "OR", locale: "en" };
+    const opts = { types: TYPES, relationTypes: REL_TYPES, locale: "en" };
     expect(compactPath(negated, { ...opts, hasNo: "has no" })).toBe(
       "Application › has no is affected by Initiative",
     );
@@ -138,49 +138,8 @@ describe("compactPath", () => {
       type: "Ghost",
       related: [{ relation: "relGone", type: "Phantom" }],
     };
-    expect(compactPath(unknown, { types: TYPES, relationTypes: REL_TYPES, or: "OR" })).toBe(
+    expect(compactPath(unknown, { types: TYPES, relationTypes: REL_TYPES })).toBe(
       "Ghost › relGone Phantom",
     );
-  });
-
-  it("reads an OR group of two as one step, verb A OR verb B, continuing with the first", () => {
-    const or: CardQuery = {
-      type: "Application",
-      related_any: [
-        {
-          relation: "relOrgToApp",
-          type: "Organization",
-          related: [{ relation: "relOrgToApp", type: "Application" }],
-        },
-        { relation: "relInitiativeToApp", type: "Initiative", negate: true },
-      ],
-    };
-    const opts = { types: TYPES, relationTypes: REL_TYPES, or: "OR", locale: "en", hasNo: "has no" };
-    expect(compactPath(or, opts)).toBe(
-      "Application › is used by Organization OR has no is affected by Initiative › uses Application",
-    );
-    expect(compactPath(or, { ...opts, or: "ODER" })).toBe(
-      "Application › is used by Organization ODER has no is affected by Initiative › uses Application",
-    );
-  });
-
-  it("shows a larger OR group as +N (OR), and the AND hops beside it as +N", () => {
-    const or: CardQuery = {
-      type: "Application",
-      related: [{ relation: "relAppToApp__out", type: "Application" }],
-      related_any: [
-        { relation: "relOrgToApp", type: "Organization" },
-        { relation: "relInitiativeToApp", type: "Initiative" },
-        { relation: "relAppToApp__in", type: "Application" },
-      ],
-    };
-    const opts = { types: TYPES, relationTypes: REL_TYPES, or: "OR", locale: "en" };
-    expect(compactPath(or, opts)).toBe("Application › is used by Organization +2 (OR) +1");
-    expect(compactPath(or, { ...opts, or: "OU" })).toBe(
-      "Application › is used by Organization +2 (OU) +1",
-    );
-    expect(
-      compactPath({ ...or, related_any: or.related_any!.slice(0, 2) }, opts),
-    ).toBe("Application › is used by Organization OR is affected by Initiative +1");
   });
 });

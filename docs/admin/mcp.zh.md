@@ -321,9 +321,9 @@ MCP 服务器提供 **55 个工具**，分为两组：**35 个读取工具** 用
 查询是一个**仅由键**组成的小型 JSON 对象——卡片类型、关系类型、字段和选项的键，与 `list_card_types` 和 `get_relation_types` 返回的一致；卡片 id 仅可出现在 `where.cards` 下，标签 id 仅可出现在 `where.tags` 下；绝不使用标签文本：
 
 ```text
-CardQuery = { type, where?, related?: [Hop], related_any?: [Hop] }
+CardQuery = { type, where?, related?: [Hop] }
 Hop       = { relation: "<relation type key>" | "<key>__out" | "<key>__in",
-              type, where?, negate?: true|false, related?: [Hop], related_any?: [Hop] }
+              type, where?, negate?: true|false, related?: [Hop] }
 Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife | none],
               subtype?: [subtype key],
               approval_status?: [status],
@@ -335,8 +335,7 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
 ```
 
 - 当该类型的**任意一张**相关卡片满足其 `where`（及其自身嵌套的跳）时，该跳即匹配。`negate: true` 会将其变为「**没有**这样的卡片」。
-- `related` 中并列的跳必须全部匹配（与）；同一列表中的值是备选项（或）。
-- `related_any` 中的跳是备选项：除了与其并列的 `related` 中的每个跳之外，其中至少有一个必须匹配——`A 且 B 且 (C 或 D)`。`negate` 在 `related_any` 中同样有效。`related_any` 至少需要两个跳；少于两个会被拒绝，并返回 `or_needs_two`。
+- 同一层级并列的跳必须全部匹配（与）；同一列表中的值是备选项（或）。
 - `<key>__out` 和 `<key>__in` 用于选择把某卡片类型与自身相连的关系类型的一侧（该卡片是源或目标）。其他情况下使用普通键即可。
 - `data_quality_band` 按档位匹配卡片的数据质量得分，与清单的数据质量筛选器一致：`complete`（80 及以上）、`partial`（40 起至 80 之前，不含 80）或 `minimal`（低于 40）。任何其他值都会被拒绝，并返回 `unknown_band`。
 - `tags` 接受来自 `list_tag_groups` 的标签 id，并按标签组分组：卡片必须在所列出的**每个**标签组中至少带有其中一个标签（组内为备选，组间为与）。若某标签所属的标签组不适用于该跳的卡片类型，会被拒绝并返回 `tag_not_for_type`；未知 id 则返回 `unknown_tag`。
@@ -365,24 +364,11 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
 }
 ```
 
-示例——某个组织使用**或**某个举措影响的应用（应用是这两种关系类型的目标）：
-
-```json
-{
-  "type": "Application",
-  "related_any": [
-    { "relation": "relOrgToApp", "type": "Organization" },
-    { "relation": "relInitiativeToApp", "type": "Initiative" }
-  ]
-}
-```
-
 在清单中，以这种方式保存的视图会在网格上方以可读路径显示其链，并附有说明其通过 MCP 创建的提示。其查询可在清单中更改（路径条上的铅笔图标），也可通过 `save_inventory_view` 更改（将 `list_inventory_views` 返回的视图 id 作为 `view_id` 传入；更新会替换名称和查询，仅在传入时更改可见性和列，并保留在网页界面中设置的分组和布局——除非新查询从另一种卡片类型开始，此时视图的筛选条件和分组会被重置，因为它们属于旧类型；无法编辑的视图会被拒绝，并返回 `view_not_found` 或 `view_not_editable`；您无权进行的可见性更改（只有所有者可以更改，且设为公开或共享需要 `bookmarks.share` 权限）会被拒绝，并返回 `visibility_not_allowed`）；在网页界面中，其所有者也可重命名、更改共享和 OData 设置、调整列布局或删除它。
 
 限制：
 
-- 跳最多 **3 层**（`related` 与 `related_any` 合计），一个 `related` 或 `related_any` 列表中最多 10 个跳，整个查询最多 **12 个跳**（两个列表、并列与嵌套合计）。更长的查询会被拒绝，并返回 `too_many_hops`。
-- 每张卡片只能有一组备选项：同一张卡片下的 `(A 或 B) 且 (C 或 D)` 无法表达——`related_any` 在与之并列的“与”跳旁只容纳一个“或”组。
+- `related` 最多 **3 层**，同一层级最多并列 10 个跳，整个查询最多 **12 个跳**（并列与嵌套合计）。更长的查询会被拒绝，并返回 `too_many_hops`。
 - 每个条件最多选择 **50** 张卡片。
 - 文本属性与其值**完全**匹配——不支持部分匹配或不区分大小写的匹配。
 - **`rollback_batch` 无法撤销已保存的视图。** 保存视图会记录一个变更批次，但不会发布可供回滚撤销的事件；请在清单的「已保存视图」中删除不需要的视图。

@@ -289,13 +289,12 @@ async def query_cards(query: dict, page: int = 1, page_size: int = 20) -> str:
     ``list_card_types`` / ``get_relation_types``; card ids only under
     ``where.cards``, tag ids only under ``where.tags``; never a label.
 
-    Grammar (at most 3 levels of hops, 10 hops per ``related`` or
-    ``related_any`` list, 12 hops in the whole tree, both lists counted)::
+    Grammar (at most 3 levels of ``related``, 10 hops per level, 12 hops in
+    the whole tree)::
 
-        CardQuery = {type, where?, related?: [Hop], related_any?: [Hop]}
+        CardQuery = {type, where?, related?: [Hop]}
         Hop       = {relation: "<rtKey>" | "<rtKey>__out" | "<rtKey>__in",
-                     type, where?, negate?: bool, related?: [Hop],
-                     related_any?: [Hop]}
+                     type, where?, negate?: bool, related?: [Hop]}
         Where     = {lifecycle_phase?: [plan|phaseIn|active|phaseOut|endOfLife|none],
                      subtype?: [subtypeKey], approval_status?: [status],
                      data_quality_band?: [complete|partial|minimal],
@@ -306,10 +305,7 @@ async def query_cards(query: dict, page: int = 1, page_size: int = 20) -> str:
 
     A hop matches when ANY related card of that type passes its ``where``
     (and its own nested hops); ``negate: true`` means NO such card. Sibling
-    hops in ``related`` are AND; ``related_any`` is OR — at least one of its
-    hops must match, on top of every ``related`` hop (``a AND b AND (c OR
-    d)``; ``negate`` works inside it too), and it needs at least two hops,
-    else ``or_needs_two``. Values inside one list are OR. Use
+    hops at one level are AND; values inside one list are OR. Use
     ``<rtKey>__out`` / ``<rtKey>__in`` only when a relation type joins a card
     type to itself (the card is the source / the target). Related cards must
     be active and readable by you; one you cannot read breaks the chain.
@@ -3962,9 +3958,7 @@ async def save_inventory_view(
     every open, so the list stays current. In the web UI it shows the chain
     as a readable path; its query can be changed here or in the inventory's
     query builder. Write and test the query with ``query_cards`` first — the
-    grammar is documented there. ``related_any?: [Hop]`` beside ``related``
-    on any node is an OR: at least one of its hops must match, on top of
-    every ``related`` hop; fewer than two hops is refused ``or_needs_two``.
+    grammar is documented there.
 
     Args:
         name: The view's name.

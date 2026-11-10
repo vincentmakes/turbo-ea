@@ -2660,37 +2660,6 @@ export const DOC_PAGES: PageDef[] = [
       ru: "98e_inventarizatsiya_konstruktor_zaprosa",
     },
   },
-  {
-    id: "98f_inventory_query_branch",
-    // The same query view in the builder, with an OR branch added under the
-    // start card: the circled plus, OR, then the first relation offered. The
-    // branch shows as a new line below, joined by a connector from the arrow
-    // after the card and carrying the OR badge.
-    route: "/inventory?view={{bookmarkId:mcpQueryView}}",
-    waitFor: '[data-testid="query-path-strip"]',
-    actions: [
-      { type: "click", selector: '[data-testid="query-path-edit"]' },
-      { type: "wait", ms: 800 },
-      { type: "click", selector: '[data-testid="query-path-branch"]' },
-      { type: "wait", ms: 400 },
-      { type: "click", selector: menuItemSelector(...i18nLabels("inventory:queryView.connectiveOr")) },
-      { type: "wait", ms: 400 },
-      // The relation menu's items carry the target type's icon; the
-      // And/Or menu's do not.
-      { type: "click", selector: "li[role='menuitem']:has(.MuiListItemIcon-root)" },
-      { type: "wait", ms: 1000 },
-    ],
-    filenames: {
-      en: "98f_inventory_query_branch",
-      de: "98f_inventar_abfrage_zweig",
-      fr: "98f_inventaire_branche_requete",
-      es: "98f_inventario_rama_consulta",
-      it: "98f_inventario_ramo_query",
-      pt: "98f_inventario_ramo_consulta",
-      zh: "98f_inventory_query_branch",
-      ru: "98f_inventarizatsiya_vetv_zaprosa",
-    },
-  },
 
   // ── Diagram editor, sync drawer, view mode with legend ──────────────────
   // These need DrawIO served same-origin at /drawio/ (the nginx image does;

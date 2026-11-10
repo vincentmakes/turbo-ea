@@ -17,12 +17,7 @@ stays dynamic.
 Semantics, decided once here and nowhere else:
 
 - A hop is ``EXISTS`` (any related card matching), ``negate`` is ``NOT
-  EXISTS``; sibling hops in ``related`` are AND. ``related_any`` holds OR
-  branches: at least one of its hops must hold, beside every hop in
-  ``related`` — ``h1 AND h2 AND (h3 OR h4)``. ``negate`` stays per hop, inside
-  ``related_any`` too; an OR of fewer than two hops is refused
-  (``or_needs_two``). One OR group per card: ``(A OR B) AND (C OR D)`` under
-  the same card is not expressible.
+  EXISTS``; sibling hops at one level are AND.
 - The related card at a hop must be ACTIVE, of the hop's card type (which
   ``resolve_card_query`` has checked is visible, i.e. not ``is_hidden``), and
   **readable by the caller in inventory mode** (``CardReadScope``). Inventory
@@ -65,16 +60,9 @@ Semantics, decided once here and nowhere else:
   view that names a card hidden from them gets the view narrowed by the hop's
   read scope, not a 400.
 
-Grammar (keys only, plus the ids under ``where.tags`` / ``where.cards``)::
-
-    CardQuery = {type, where?, related?: [CardHop], related_any?: [CardHop]}
-    CardHop   = {relation, type, where?, negate?, related?: [CardHop],
-                 related_any?: [CardHop]}
-
-Limits: at most ``MAX_DEPTH`` (3) hops below the start card (through
-``related`` and ``related_any`` alike), ``MAX_HOPS`` (10) hops in one
-``related`` or one ``related_any`` list, ``MAX_TOTAL_HOPS`` (12) hops in the
-whole tree, both lists counted, ``MAX_QUERY_CHARS`` (8000) characters of compact JSON, 50 values in
+Limits: at most ``MAX_DEPTH`` (3) hops below the start card, ``MAX_HOPS``
+(10) sibling hops at one level, ``MAX_TOTAL_HOPS`` (12) hops in the whole
+tree, ``MAX_QUERY_CHARS`` (8000) characters of compact JSON, 50 values in
 any one condition list (``tags``, ``cards`` and ``data_quality_band``
 included). A UUID anywhere but in a ``where.tags`` or ``where.cards`` list is
 refused (``query_holds_an_id``), so an id never hides in a key, a subtype or a
@@ -131,10 +119,10 @@ from app.services.portal_card_filters import (
 MAX_QUERY_CHARS = 8000
 #: Hops below the start card, at most.
 MAX_DEPTH = 3
-#: Hops in one ``related`` (or one ``related_any``) list, at most.
+#: Sibling hops at one level, at most.
 MAX_HOPS = 10
-#: Hops in the whole tree (siblings and nested, ``related`` and
-#: ``related_any`` alike), at most — each is one correlated ``EXISTS``.
+#: Hops in the whole tree (siblings and nested), at most — each is one
+#: correlated ``EXISTS``.
 MAX_TOTAL_HOPS = 12
 #: The lifecycle "phase" of a card with no phase.
 NO_PHASE = "none"
@@ -170,9 +158,7 @@ class CardWhere(BaseModel):
 
 
 class CardHop(BaseModel):
-    """A related card: one side of ``relation``, of card type ``type``.
-
-    ``related`` hops from it must all hold; of ``related_any``, at least one."""
+    """A related card: one side of ``relation``, of card type ``type``."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -181,22 +167,19 @@ class CardHop(BaseModel):
     where: CardWhere | None = None
     negate: bool = False
     related: list[CardHop] | None = Field(None, max_length=MAX_HOPS)
-    related_any: list[CardHop] | None = Field(None, max_length=MAX_HOPS)
 
 
 CardHop.model_rebuild()
 
 
 class CardQuery(BaseModel):
-    """The start card type, its condition and the hops from it: every hop in
-    ``related`` and, when given, at least one in ``related_any``."""
+    """The start card type, its condition and the hops from it."""
 
     model_config = ConfigDict(extra="forbid")
 
     type: str = Field(min_length=1, max_length=_KEY_CHARS)
     where: CardWhere | None = None
     related: list[CardHop] | None = Field(None, max_length=MAX_HOPS)
-    related_any: list[CardHop] | None = Field(None, max_length=MAX_HOPS)
 
 
 class CardQueryError(ValueError):
@@ -240,32 +223,23 @@ def parse_card_query(raw: str | Mapping[str, Any]) -> CardQuery:
     return query
 
 
-def _children(node: CardQuery | CardHop) -> list[CardHop]:
-    """Every hop from ``node``: its ``related`` and its ``related_any``."""
-    return [*(node.related or []), *(node.related_any or [])]
+def _depth(hops: list[CardHop] | None) -> int:
+    return max((1 + _depth(h.related) for h in hops or []), default=0)
 
 
-def _depth(node: CardQuery | CardHop) -> int:
-    return max((1 + _depth(h) for h in _children(node)), default=0)
-
-
-def _hop_count(node: CardQuery | CardHop) -> int:
-    return sum(1 + _hop_count(h) for h in _children(node))
-
-
-def _nodes(query: CardQuery) -> list[CardQuery | CardHop]:
-    """Every node of ``query``: the start card and every hop, both lists."""
-    out: list[CardQuery | CardHop] = []
-    pending: list[CardQuery | CardHop] = [query]
-    while pending:
-        node = pending.pop()
-        out.append(node)
-        pending.extend(_children(node))
-    return out
+def _hop_count(hops: list[CardHop] | None) -> int:
+    return sum(1 + _hop_count(h.related) for h in hops or [])
 
 
 def _wheres(query: CardQuery) -> list[CardWhere]:
-    return [node.where for node in _nodes(query) if node.where is not None]
+    out: list[CardWhere] = []
+    pending: list[CardQuery | CardHop] = [query]
+    while pending:
+        node = pending.pop()
+        if node.where is not None:
+            out.append(node.where)
+        pending.extend(node.related or [])
+    return out
 
 
 def names_cards(query: CardQuery) -> bool:
@@ -287,10 +261,9 @@ def stored_card_ids(stored: Any) -> set[uuid.UUID]:
         cards = where.get("cards") if isinstance(where, Mapping) else None
         if isinstance(cards, list):
             out.update(uuids(cards))
-        for key in ("related", "related_any"):
-            hops = node.get(key)
-            if isinstance(hops, list):
-                pending.extend(hops)
+        related = node.get("related")
+        if isinstance(related, list):
+            pending.extend(related)
     return out
 
 
@@ -320,10 +293,9 @@ def _without_ids(node: Mapping[str, Any]) -> dict[str, Any]:
     where = out.get("where")
     if isinstance(where, Mapping):
         out["where"] = {k: v for k, v in where.items() if k not in _ID_KEYS}
-    for key in ("related", "related_any"):
-        hops = out.get(key)
-        if isinstance(hops, list):
-            out[key] = [_without_ids(h) for h in hops]
+    related = out.get("related")
+    if isinstance(related, list):
+        out["related"] = [_without_ids(h) for h in related]
     return out
 
 
@@ -331,10 +303,7 @@ def query_problem(query: CardQuery) -> str | None:
     """A structural problem with ``query``, as a 400 code, or ``None``.
 
     ``too_deep`` past ``MAX_DEPTH`` hops; ``too_many_hops`` past
-    ``MAX_TOTAL_HOPS`` hops in the whole tree (both lists counted);
-    ``or_needs_two`` for a ``related_any`` of fewer than two hops (an OR of
-    one is an AND hop in disguise, of none a condition that can never hold);
-    ``query_holds_an_id`` for a UUID
+    ``MAX_TOTAL_HOPS`` hops in the whole tree; ``query_holds_an_id`` for a UUID
     anywhere but a ``where.tags`` or ``where.cards`` list (only those ids have
     a transfer map); ``empty_values`` for an empty value list (a condition
     that can match nothing is a mistake, not a filter);
@@ -343,12 +312,10 @@ def query_problem(query: CardQuery) -> str | None:
     ``LIFECYCLE_PHASES``; ``unknown_band`` for a data-quality band outside
     ``DQ_BAND_BOUNDS``.
     """
-    if _depth(query) > MAX_DEPTH:
+    if _depth(query.related) > MAX_DEPTH:
         return "too_deep"
-    if _hop_count(query) > MAX_TOTAL_HOPS:
+    if _hop_count(query.related) > MAX_TOTAL_HOPS:
         return "too_many_hops"
-    if any(n.related_any is not None and len(n.related_any) < 2 for n in _nodes(query)):
-        return "or_needs_two"
     if contains_uuid(_without_ids(query.model_dump())):
         return "query_holds_an_id"
     for where in _wheres(query):
@@ -370,10 +337,7 @@ class ResolvedNode:
     type: str
     where: CardWhere | None
     field_types: dict[str, str]
-    #: ``related``: every one must hold.
     hops: list[ResolvedHop] = field(default_factory=list)
-    #: ``related_any``: at least one must hold (none given: no condition).
-    any_hops: list[ResolvedHop] = field(default_factory=list)
     #: ``where.tags`` as ``{tag group id: [tag id, ...]}``.
     tag_groups: dict[uuid.UUID, list[uuid.UUID]] = field(default_factory=dict)
     #: ``where.cards`` as parsed ids, deduplicated in order.
@@ -493,39 +457,15 @@ def _card_ids(where: CardWhere | None, type_key: str, check: _CardCheck | None) 
     return out
 
 
-def _resolve_hops(
+def _resolve_node(
     type_key: str,
+    where: CardWhere | None,
     hops: list[CardHop] | None,
     types: Mapping[str, Any],
     relation_types: Mapping[str, Any],
     tags: Mapping[uuid.UUID, _TagInfo],
     check: _CardCheck | None,
-) -> list[ResolvedHop]:
-    """The hops ``hops`` from a card of ``type_key``, each resolved."""
-    out: list[ResolvedHop] = []
-    for hop in hops or []:
-        try:
-            side = resolve_side(
-                hop.relation, type_key, relation_types, bad_suffix="unknown_relation_type"
-            )
-        except DashboardQueryError as exc:
-            raise CardQueryError(exc.code) from exc
-        if _other_end(relation_types[side.relation_type], side) != hop.type:
-            raise CardQueryError("hop_type_mismatch")
-        child = _resolve_node(hop, types, relation_types, tags, check)
-        out.append(ResolvedHop(side, hop.negate, child))
-    return out
-
-
-def _resolve_node(
-    spec: CardQuery | CardHop,
-    types: Mapping[str, Any],
-    relation_types: Mapping[str, Any],
-    tags: Mapping[uuid.UUID, _TagInfo],
-    check: _CardCheck | None,
 ) -> ResolvedNode:
-    """The start card or a hop's far card ``spec``, with every hop from it."""
-    type_key, where = spec.type, spec.where
     card_type = types.get(type_key)
     if card_type is None or card_type.is_hidden:
         raise CardQueryError("unknown_card_type")
@@ -535,8 +475,17 @@ def _resolve_node(
         raise CardQueryError("descendants_without_hierarchy")
     node.tag_groups = _tag_groups(where, type_key, tags)
     node.card_ids = _card_ids(where, type_key, check)
-    node.hops = _resolve_hops(type_key, spec.related, types, relation_types, tags, check)
-    node.any_hops = _resolve_hops(type_key, spec.related_any, types, relation_types, tags, check)
+    for hop in hops or []:
+        try:
+            side = resolve_side(
+                hop.relation, type_key, relation_types, bad_suffix="unknown_relation_type"
+            )
+        except DashboardQueryError as exc:
+            raise CardQueryError(exc.code) from exc
+        if _other_end(relation_types[side.relation_type], side) != hop.type:
+            raise CardQueryError("hop_type_mismatch")
+        child = _resolve_node(hop.type, hop.where, hop.related, types, relation_types, tags, check)
+        node.hops.append(ResolvedHop(side, hop.negate, child))
     return node
 
 
@@ -604,7 +553,7 @@ async def resolve_card_query(
         card_ids = uuids(v for where in _wheres(query) for v in where.cards or [])
         cards = await _load_card_types(db, card_ids)
         check = _CardCheck(cards, read_scope, frozenset(trusted_card_ids))
-    return _resolve_node(query, types, relation_types, tags, check)
+    return _resolve_node(query.type, query.where, query.related, types, relation_types, tags, check)
 
 
 # ---------------------------------------------------------------------------
@@ -678,15 +627,10 @@ def _hop_condition(
 def _node_conditions(
     card: Any, node: ResolvedNode, read_scope: CardReadScope, today: date | None
 ) -> list[Any]:
-    """``node``'s own condition, one ``EXISTS`` per ``hops`` entry and, when
-    ``any_hops`` is given, one ``OR`` over theirs."""
-    clauses = [
+    return [
         *where_conditions(card, node, today=today),
         *(_hop_condition(card, hop, read_scope, today) for hop in node.hops),
     ]
-    if node.any_hops:
-        clauses.append(or_(*(_hop_condition(card, h, read_scope, today) for h in node.any_hops)))
-    return clauses
 
 
 async def compile_card_query(

@@ -321,9 +321,9 @@ Der Server stellt 20 Schreib-Werkzeuge bereit, jedes annotiert als **additiv** (
 Eine Abfrage ist ein kleines JSON-Objekt, das **ausschließlich aus Schlüsseln** besteht — Kartentyp-, Beziehungstyp-, Feld- und Optionsschlüssel, wie `list_card_types` und `get_relation_types` sie liefern; Karten-IDs nur unter `where.cards` und Tag-IDs nur unter `where.tags`; niemals Bezeichnungen:
 
 ```text
-CardQuery = { type, where?, related?: [Hop], related_any?: [Hop] }
+CardQuery = { type, where?, related?: [Hop] }
 Hop       = { relation: "<relation type key>" | "<key>__out" | "<key>__in",
-              type, where?, negate?: true|false, related?: [Hop], related_any?: [Hop] }
+              type, where?, negate?: true|false, related?: [Hop] }
 Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife | none],
               subtype?: [subtype key],
               approval_status?: [status],
@@ -335,8 +335,7 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
 ```
 
 - Ein Schritt trifft zu, wenn **irgendeine** verbundene Karte dieses Typs ihr `where` erfüllt (und ihre eigenen verschachtelten Schritte). `negate: true` macht daraus „hat **keine** solche Karte".
-- Schritte nebeneinander in `related` müssen alle zutreffen (UND); die Werte innerhalb einer Liste sind Alternativen (ODER).
-- Schritte in `related_any` sind Alternativen: Mindestens einer von ihnen muss zutreffen, zusätzlich zu jedem Schritt in `related` daneben — `A und B und (C oder D)`. `negate` funktioniert auch innerhalb von `related_any`. Ein `related_any` braucht mindestens zwei Schritte; eines mit weniger wird mit `or_needs_two` abgelehnt.
+- Schritte nebeneinander auf einer Ebene müssen alle zutreffen (UND); die Werte innerhalb einer Liste sind Alternativen (ODER).
 - `<key>__out` und `<key>__in` wählen eine Seite eines Beziehungstyps, der einen Kartentyp mit sich selbst verbindet (die Karte ist Quelle oder Ziel). Sonst genügt der einfache Schlüssel.
 - `data_quality_band` gleicht den Datenqualitäts-Score einer Karte nach Band ab, wie der Filter Datenqualität im Inventar: `complete` (80 und mehr), `partial` (ab 40 bis ausschließlich 80) oder `minimal` (unter 40). Jeder andere Wert wird mit `unknown_band` abgelehnt.
 - `tags` nimmt Tag-IDs aus `list_tag_groups`, nach Tag-Gruppe gruppiert: Eine Karte muss aus **jeder** genannten Gruppe mindestens eines der aufgeführten Tags tragen (Alternativen innerhalb einer Gruppe, UND über Gruppen hinweg). Ein Tag, dessen Gruppe für den Kartentyp dieses Schritts nicht gilt, wird mit `tag_not_for_type` abgelehnt; eine unbekannte ID mit `unknown_tag`.
@@ -365,24 +364,11 @@ Beispiel — Organisationen, die eine aktive Anwendung nutzen, von der eine Init
 }
 ```
 
-Beispiel — Anwendungen, die eine Organisation nutzt **oder** von denen eine Initiative betroffen ist (die Anwendung ist bei beiden Beziehungstypen das Ziel):
-
-```json
-{
-  "type": "Application",
-  "related_any": [
-    { "relation": "relOrgToApp", "type": "Organization" },
-    { "relation": "relInitiativeToApp", "type": "Initiative" }
-  ]
-}
-```
-
 Im Inventar zeigt eine so gespeicherte Ansicht ihre Kette als lesbaren Pfad über dem Raster mit einem Hinweis, dass sie über MCP erstellt wurde. Ihre Abfrage lässt sich im Inventar (der Stift im Pfadstreifen) oder über `save_inventory_view` ändern (die ID der Ansicht aus `list_inventory_views` als `view_id` übergeben; die Aktualisierung ersetzt Name und Abfrage, ändert Sichtbarkeit und Spalten nur, wenn sie übergeben werden, und behält die in der Weboberfläche festgelegte Gruppierung und das Layout — es sei denn, die neue Abfrage beginnt bei einem anderen Kartentyp: Dann werden Filter und Gruppierung der Ansicht zurückgesetzt, da sie zum alten Typ gehörten; eine Ansicht, die Sie nicht bearbeiten dürfen, wird mit `view_not_found` oder `view_not_editable` abgelehnt; eine Sichtbarkeitsänderung, die Ihnen nicht zusteht (nur der Eigentümer kann sie ändern, und öffentlich oder geteilt erfordert `bookmarks.share`), wird mit `visibility_not_allowed` abgelehnt); in der Weboberfläche kann ihr Eigentümer sie auch umbenennen, Freigabe und OData-Einstellung ändern, das Spaltenlayout anpassen oder sie löschen.
 
 Einschränkungen:
 
-- Höchstens **3 Ebenen** von Schritten (über `related` und `related_any` zusammen), höchstens 10 Schritte in einer `related`- oder einer `related_any`-Liste und höchstens **12 Schritte in der gesamten Abfrage** (beide Listen, nebeneinander und verschachtelt zusammen). Eine längere Abfrage wird mit `too_many_hops` abgelehnt.
-- Eine Gruppe von Alternativen pro Karte: `(A oder B) und (C oder D)` unter derselben Karte lässt sich nicht ausdrücken — `related_any` enthält neben den UND-Schritten genau eine ODER-Gruppe.
+- Höchstens **3 Ebenen** von `related`, höchstens 10 Schritte nebeneinander auf einer Ebene und höchstens **12 Schritte in der gesamten Abfrage** (nebeneinander und verschachtelt zusammen). Eine längere Abfrage wird mit `too_many_hops` abgelehnt.
 - Höchstens **50** ausgewählte Karten pro Bedingung.
 - Ein Textattribut stimmt **exakt** mit seinem Wert überein — es gibt keinen Teil- oder Groß-/Kleinschreibung-unabhängigen Abgleich.
 - **`rollback_batch` kann eine gespeicherte Ansicht nicht rückgängig machen.** Das Speichern einer Ansicht erfasst einen Mutations-Batch, veröffentlicht aber kein Ereignis, das der Rollback umkehren könnte; löschen Sie eine unerwünschte Ansicht stattdessen unter „Gespeicherte Ansichten" im Inventar.

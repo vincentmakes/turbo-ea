@@ -321,9 +321,9 @@ Il server espone 20 strumenti di scrittura, ciascuno annotato come **additivo** 
 Una query è un piccolo oggetto JSON composto **solo da chiavi** — chiavi di tipo di card, di tipo di relazione, di campo e di opzione così come le restituiscono `list_card_types` e `get_relation_types`; id di card solo sotto `where.cards` e id di tag solo sotto `where.tags`; mai etichette:
 
 ```text
-CardQuery = { type, where?, related?: [Hop], related_any?: [Hop] }
+CardQuery = { type, where?, related?: [Hop] }
 Hop       = { relation: "<relation type key>" | "<key>__out" | "<key>__in",
-              type, where?, negate?: true|false, related?: [Hop], related_any?: [Hop] }
+              type, where?, negate?: true|false, related?: [Hop] }
 Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife | none],
               subtype?: [subtype key],
               approval_status?: [status],
@@ -335,8 +335,7 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
 ```
 
 - Un salto corrisponde quando **una qualsiasi** card correlata di quel tipo soddisfa il suo `where` (e i suoi salti annidati). `negate: true` lo trasforma in «**non** ha nessuna card di questo tipo».
-- I passaggi affiancati in `related` devono corrispondere tutti (E); i valori all'interno di una lista sono alternative (O).
-- I passaggi in `related_any` sono alternative: almeno uno di essi deve corrispondere, in aggiunta a ogni passaggio di `related` accanto — `A e B e (C o D)`. `negate` funziona anche dentro `related_any`. Un `related_any` richiede almeno due passaggi; uno con meno passaggi viene rifiutato con `or_needs_two`.
+- I salti affiancati allo stesso livello devono corrispondere tutti (AND); i valori all'interno di un elenco sono alternative (OR).
 - `<key>__out` e `<key>__in` scelgono un lato di un tipo di relazione che collega un tipo di card a sé stesso (la card è l'origine o la destinazione). Altrimenti basta la chiave semplice.
 - `data_quality_band` fa corrispondere il punteggio di qualità dei dati di una card per fascia, come il filtro Qualità dei dati dell'inventario: `complete` (80 e oltre), `partial` (da 40 incluso a 80 escluso) o `minimal` (sotto 40). Qualsiasi altro valore viene rifiutato con `unknown_band`.
 - `tags` accetta id di tag da `list_tag_groups`, raggruppati per gruppo di tag: una card deve avere almeno uno dei tag elencati di **ogni** gruppo indicato (alternative all'interno di un gruppo, AND tra i gruppi). Un tag il cui gruppo non si applica al tipo di card di quel salto viene rifiutato con `tag_not_for_type`; un id sconosciuto con `unknown_tag`.
@@ -365,24 +364,11 @@ Esempio — Organizzazioni che usano un'Applicazione attiva influenzata da un'In
 }
 ```
 
-Esempio — Applicazioni che un'Organizzazione usa **oppure** che un'Iniziativa interessa (l'Applicazione è la destinazione di entrambi i tipi di relazione):
-
-```json
-{
-  "type": "Application",
-  "related_any": [
-    { "relation": "relOrgToApp", "type": "Organization" },
-    { "relation": "relInitiativeToApp", "type": "Initiative" }
-  ]
-}
-```
-
 Nell'inventario, una vista salvata in questo modo mostra la sua catena come percorso leggibile sopra la griglia con una nota che indica che è stata creata tramite MCP. La sua query può essere modificata nell'inventario (la matita nella striscia del percorso) o tramite `save_inventory_view` (passa l'id della vista ottenuto da `list_inventory_views` come `view_id`; l'aggiornamento sostituisce nome e query, modifica visibilità e colonne solo se passate e mantiene il raggruppamento e il layout impostati nell'interfaccia web — a meno che la nuova query non parta da un altro tipo di card, il che reimposta i filtri e il raggruppamento della vista, perché appartenevano al tipo precedente; una vista che non puoi modificare viene rifiutata con `view_not_found` o `view_not_editable`; una modifica della visibilità che non ti è consentita (solo il proprietario può cambiarla, e pubblica o condivisa richiede `bookmarks.share`) viene rifiutata con `visibility_not_allowed`); nell'interfaccia web il suo proprietario può anche rinominarla, cambiarne la condivisione e l'impostazione OData, regolare il layout delle colonne o eliminarla.
 
 Limitazioni:
 
-- Al massimo **3 livelli** di passaggi (sia con `related` sia con `related_any`), al massimo 10 passaggi in una lista `related` o `related_any` e al massimo **12 passaggi nell'intera query** (entrambe le liste, affiancati e annidati insieme). Una query più lunga viene rifiutata con `too_many_hops`.
-- Un solo gruppo di alternative per scheda: `(A o B) e (C o D)` sotto la stessa scheda non si può esprimere — `related_any` contiene un solo gruppo O accanto ai passaggi E.
+- Al massimo **3 livelli** di `related`, al massimo 10 salti affiancati a un livello e al massimo **12 salti nell'intera query** (affiancati e annidati insieme). Una query più lunga viene rifiutata con `too_many_hops`.
 - Al massimo **50** card scelte per condizione.
 - Un attributo di testo corrisponde al suo valore **esattamente** — non esiste corrispondenza parziale né senza distinzione tra maiuscole e minuscole.
 - **`rollback_batch` non può annullare una vista salvata.** Salvare una vista registra un batch di mutazioni ma non pubblica alcun evento che il rollback possa invertire; elimina una vista indesiderata dalle Viste salvate dell'inventario.

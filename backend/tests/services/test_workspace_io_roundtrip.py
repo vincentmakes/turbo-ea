@@ -745,68 +745,6 @@ async def test_bookmark_query_cards_follow_the_card_and_an_unknown_one_is_droppe
     }
 
 
-async def test_bookmark_query_or_branches_follow_the_card_and_fold_when_one_is_left(db):
-    """A query view's OR branches (``related_any``) carry card ids like any
-    hop: a kept pick lands on the card's *new* id, a negated branch whose
-    every pick the bundle does not carry is dropped, and the one branch left
-    folds into ``related``."""
-    from app.models.bookmark import Bookmark
-
-    user = await create_user(db, email="bm-or@test.com", role="admin")
-    await create_card_type(db, key="Organization", label="Organization")
-    await create_card_type(db, key="Application", label="Application")
-    app = await create_card(db, card_type="Application", name="Picked App OR", user_id=user.id)
-    unknown = "12345678-1234-4234-8234-123456789abe"
-    bm = Bookmark(
-        user_id=user.id,
-        name="Or Query View",
-        card_type="Organization",
-        filters={"types": ["Organization"]},
-        query={
-            "type": "Organization",
-            "related_any": [
-                {
-                    "relation": "relOrgToApp",
-                    "type": "Application",
-                    "negate": True,
-                    "where": {"cards": [unknown]},
-                },
-                {
-                    "relation": "relOrgToApp",
-                    "type": "Application",
-                    "where": {"cards": [str(app.id)]},
-                },
-            ],
-        },
-    )
-    db.add(bm)
-    await db.flush()
-    bm_id, old_id = bm.id, app.id
-
-    raw = await build_bundle(db)
-
-    await db.execute(delete(Bookmark).where(Bookmark.id == bm_id))
-    await db.execute(delete(Card).where(Card.id == old_id))
-    await db.flush()
-
-    result = await apply_bundle(db, parse_bundle(raw), user)
-    assert result.total_failed == 0, result.as_dict()
-
-    new_app = (await db.execute(select(Card).where(Card.name == "Picked App OR"))).scalar_one()
-    assert new_app.id != old_id
-    restored = (await db.execute(select(Bookmark).where(Bookmark.id == bm_id))).scalar_one()
-    assert restored.query == {
-        "type": "Organization",
-        "related": [
-            {
-                "relation": "relOrgToApp",
-                "type": "Application",
-                "where": {"cards": [str(new_app.id)]},
-            }
-        ],
-    }
-
-
 async def test_resource_types_roundtrip(db):
     """A custom link type / file category survives an export → delete →
     import round-trip, keyed by (kind, key)."""

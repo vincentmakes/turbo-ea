@@ -321,9 +321,9 @@ El servidor expone 20 herramientas de escritura, cada una anotada como **aditiva
 Una consulta es un pequeño objeto JSON formado **solo por claves** — claves de tipo de ficha, de tipo de relación, de campo y de opción tal como las devuelven `list_card_types` y `get_relation_types`; ids de ficha solo bajo `where.cards` e ids de etiqueta solo bajo `where.tags`; nunca etiquetas de texto:
 
 ```text
-CardQuery = { type, where?, related?: [Hop], related_any?: [Hop] }
+CardQuery = { type, where?, related?: [Hop] }
 Hop       = { relation: "<relation type key>" | "<key>__out" | "<key>__in",
-              type, where?, negate?: true|false, related?: [Hop], related_any?: [Hop] }
+              type, where?, negate?: true|false, related?: [Hop] }
 Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife | none],
               subtype?: [subtype key],
               approval_status?: [status],
@@ -335,8 +335,7 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
 ```
 
 - Un salto coincide cuando **cualquier** ficha relacionada de ese tipo cumple su `where` (y sus propios saltos anidados). `negate: true` lo convierte en «**no** tiene ninguna ficha así».
-- Los saltos en paralelo dentro de `related` deben cumplirse todos (Y); los valores dentro de una lista son alternativas (O).
-- Los saltos de `related_any` son alternativas: debe cumplirse al menos uno de ellos, además de cada salto de `related` a su lado — `A y B y (C o D)`. `negate` también funciona dentro de `related_any`. Un `related_any` necesita al menos dos saltos; uno con menos se rechaza con `or_needs_two`.
+- Los saltos en paralelo en un mismo nivel deben coincidir todos (Y); los valores dentro de una lista son alternativas (O).
 - `<key>__out` y `<key>__in` eligen un lado de un tipo de relación que enlaza un tipo de ficha consigo mismo (la ficha es el origen o el destino). En los demás casos basta la clave simple.
 - `data_quality_band` hace coincidir la puntuación de calidad de datos de una ficha por banda, como el filtro Calidad de datos del inventario: `complete` (80 o más), `partial` (de 40 inclusive hasta 80 sin incluir) o `minimal` (menos de 40). Cualquier otro valor se rechaza con `unknown_band`.
 - `tags` recibe ids de etiqueta de `list_tag_groups`, agrupados por grupo de etiquetas: una ficha debe llevar al menos una de las etiquetas indicadas de **cada** grupo mencionado (alternativas dentro de un grupo, Y entre grupos). Una etiqueta cuyo grupo no se aplica al tipo de ficha de ese salto se rechaza con `tag_not_for_type`; un id desconocido, con `unknown_tag`.
@@ -365,24 +364,11 @@ Ejemplo — Organizaciones que usan una Aplicación activa a la que afecta una I
 }
 ```
 
-Ejemplo — Aplicaciones que usa una Organización **o** a las que afecta una Iniciativa (la Aplicación es el destino de ambos tipos de relación):
-
-```json
-{
-  "type": "Application",
-  "related_any": [
-    { "relation": "relOrgToApp", "type": "Organization" },
-    { "relation": "relInitiativeToApp", "type": "Initiative" }
-  ]
-}
-```
-
 En el inventario, una vista guardada así muestra su cadena como una ruta legible sobre la cuadrícula con una nota de que se creó mediante MCP. Su consulta puede cambiarse en el inventario (el lápiz de la tira de ruta) o con `save_inventory_view` (pase el id de la vista obtenido de `list_inventory_views` como `view_id`; la actualización sustituye el nombre y la consulta, cambia la visibilidad y las columnas solo cuando se indican, y conserva la agrupación y el diseño definidos en la interfaz web — salvo que la nueva consulta parta de otro tipo de ficha, lo que restablece los filtros y la agrupación de la vista, porque pertenecían al tipo anterior; una vista que no puede editar se rechaza con `view_not_found` o `view_not_editable`; un cambio de visibilidad que no le está permitido (solo el propietario puede cambiarla, y pública o compartida requiere `bookmarks.share`) se rechaza con `visibility_not_allowed`); en la interfaz web su propietario también puede renombrarla, cambiar su uso compartido y su ajuste OData, modificar el diseño de columnas o eliminarla.
 
 Limitaciones:
 
-- Como máximo **3 niveles** de saltos (tanto con `related` como con `related_any`), como máximo 10 saltos en una lista `related` o `related_any`, y como máximo **12 saltos en toda la consulta** (ambas listas, en paralelo y anidados en conjunto). Una consulta más larga se rechaza con `too_many_hops`.
-- Un solo grupo de alternativas por ficha: `(A o B) y (C o D)` bajo la misma ficha no se puede expresar — `related_any` contiene un único grupo O junto a los saltos Y.
+- Como máximo **3 niveles** de `related`, como máximo 10 saltos en paralelo en un nivel y como máximo **12 saltos en toda la consulta** (en paralelo y anidados en conjunto). Una consulta más larga se rechaza con `too_many_hops`.
 - Como máximo **50** fichas seleccionadas por condición.
 - Un atributo de texto coincide **exactamente** con su valor — no hay coincidencia parcial ni insensible a mayúsculas.
 - **`rollback_batch` no puede deshacer una vista guardada.** Guardar una vista registra un lote de mutaciones pero no publica ningún evento que la reversión pueda deshacer; elimine una vista no deseada desde las Vistas guardadas del inventario.

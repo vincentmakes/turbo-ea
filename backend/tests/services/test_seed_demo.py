@@ -806,7 +806,9 @@ class TestExtrasDemoData:
         assert [bm["name"] for bm in query_views] == ["Organizations using active apps in flight"]
         for bm in query_views:
             query = parse_card_query(bm["query"])
-            root = _resolve_node(query, types, relation_types, {}, None)
+            root = _resolve_node(
+                query.type, query.where, query.related, types, relation_types, {}, None
+            )
             assert root.type == bm["card_type"]
             assert view_fields_for_query(query, bm["card_type"], bm["filters"]) == (
                 bm["card_type"],

@@ -801,26 +801,20 @@ export interface CardQueryWhere {
 
 /** One hop of a `CardQuery`: an EXISTS (or, with `negate`, NOT EXISTS) over a
  *  relation type to cards of `type` that satisfy `where`. `relation` is a
- *  relation type key, or `<key>__out` / `<key>__in` on a self-referencing type.
- *  Its own `related` hops must all hold (AND); of `related_any`, at least one
- *  (OR, two hops or more). */
+ *  relation type key, or `<key>__out` / `<key>__in` on a self-referencing type. */
 export interface CardQueryHop {
   relation: string;
   type: string;
   where?: CardQueryWhere;
   negate?: boolean;
   related?: CardQueryHop[];
-  related_any?: CardQueryHop[];
 }
 
-/** A server-evaluated multi-hop inventory condition (`GET /cards?query=`):
- *  every hop in `related` holds (AND) and, when present, at least one hop in
- *  `related_any` (OR, two hops or more). */
+/** A server-evaluated multi-hop inventory condition (`GET /cards?query=`). */
 export interface CardQuery {
   type: string;
   where?: CardQueryWhere;
   related?: CardQueryHop[];
-  related_any?: CardQueryHop[];
 }
 
 /** The query view currently applied in the inventory. */

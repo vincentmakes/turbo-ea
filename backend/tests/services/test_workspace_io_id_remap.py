@@ -316,20 +316,6 @@ async def _seed_every_blob(db, user):
                             "where": {"tags": [str(tag.id)], "cards": [str(org.id)]},
                         }
                     ],
-                    # OR branches carry ids too.
-                    "related_any": [
-                        {
-                            "relation": "relAppToOrg",
-                            "type": "Organization",
-                            "where": {"cards": [str(org.id)]},
-                        },
-                        {
-                            "relation": "relAppToOrg",
-                            "type": "Organization",
-                            "negate": True,
-                            "where": {"tags": [str(tag.id)]},
-                        },
-                    ],
                 },
             ),
             Todo(description="Review", card_id=crm.id, link=f"/cards/{crm.id}"),
@@ -416,19 +402,6 @@ async def test_no_source_id_survives_a_cross_instance_import(db):
                 "type": "Organization",
                 "where": {"tags": [str(new_tag.id)], "cards": [str(new_org.id)]},
             }
-        ],
-        "related_any": [
-            {
-                "relation": "relAppToOrg",
-                "type": "Organization",
-                "where": {"cards": [str(new_org.id)]},
-            },
-            {
-                "relation": "relAppToOrg",
-                "type": "Organization",
-                "negate": True,
-                "where": {"tags": [str(new_tag.id)]},
-            },
         ],
     }
 

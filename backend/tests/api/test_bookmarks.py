@@ -433,30 +433,6 @@ class TestQueryViews:
         listed = await client.get("/api/v1/bookmarks", headers=auth_headers(query_env["admin"]))
         assert [bm["query"] for bm in listed.json()] == [query]
 
-    async def test_create_stores_or_branches_verbatim(self, client, db, query_env):
-        query = {
-            "type": "Organization",
-            "related": [
-                {
-                    "relation": "orgUsesApp",
-                    "type": "Application",
-                    "related_any": [
-                        {"relation": "initAffectsApp", "type": "Initiative"},
-                        {"relation": "initAffectsApp", "type": "Initiative", "negate": True},
-                    ],
-                }
-            ],
-            "related_any": [
-                {"relation": "orgUsesApp", "type": "Application", "negate": True},
-                {"relation": "orgUsesApp", "type": "Application"},
-            ],
-        }
-        resp = await _create(client, query_env["admin"], query=query)
-        assert resp.status_code == 201
-        assert resp.json()["query"] == query
-        listed = await client.get("/api/v1/bookmarks", headers=auth_headers(query_env["admin"]))
-        assert [bm["query"] for bm in listed.json()] == [query]
-
     async def test_a_plain_view_has_no_query(self, client, db, query_env):
         resp = await _create(client, query_env["admin"], card_type="Application")
         assert resp.status_code == 201
@@ -501,13 +477,6 @@ class TestQueryViews:
                 "query_holds_an_id",
             ),
             ({"type": "Organization", "where": {"data_quality_band": ["good"]}}, "unknown_band"),
-            (
-                {
-                    "type": "Organization",
-                    "related_any": [{"relation": "orgUsesApp", "type": "Application"}],
-                },
-                "or_needs_two",
-            ),
         ],
     )
     async def test_a_bad_query_is_refused(self, client, db, query_env, query, code):
