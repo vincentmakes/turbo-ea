@@ -143,6 +143,8 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 | `architecture_decision_links` | `ArchitectureDecisionLink` | Typed links between decisions: `source_id`, `target_id` (CASCADE), `kind` (`replaces`, `amends`, `revokes`, `relates`, `consolidates`), optional `note`; unique `(source_id, target_id)`, never self. Effects act on the target's whole revision chain once the source is signed and effective |
 | `architecture_decision_people` | `ArchitectureDecisionPerson` | Decision makers and participants (`part`), each a user (`user_id`, SET NULL) or a free-text name; `name` is always stored as a snapshot; `position` orders them |
 | `architecture_decision_files` | `ArchitectureDecisionFile` | Files on a decision (name, mime_type, size, created_by); points at a content row so a revision copies pointers, not bytes |
+| `document_comments` | `DocumentComment` | The discussion of a decision or SoAW (migration 169). Exactly one owner, `architecture_decision_id` or `soaw_id` (CASCADE; `ck_document_comments_one_owner`): the revision the thread was started on. `parent_id` (self, CASCADE) for replies, one level deep; `author_id` (SET NULL) + `author_name` snapshot; `body` (restricted HTML with canonical mention spans, ≤ 20,000 chars); `section` (a decision section key, a SoAW section key or `general`); `kind` (`comment`, `rejection`, `sign_note`); `resolved_at` / `resolved_by`; `edited_at`; `deleted_at` (soft delete, body blanked); `created_via` (no `ProvenanceMixin`). Rules in `services/document_discussion_service.py` |
+| `document_history` | `DocumentHistoryEntry` | The timeline of a decision or SoAW (migration 169): same owner pair (`ck_document_history_one_owner`), `kind` (content steps `created`, `baseline`, `save`, `restored`, `revised`; workflow steps `sent_for_review`, `signature`, `signed`, `rejected`, `recalled`, `recorded`), `actor_id` (SET NULL) + `actor_name`, `note` (a rejection reason, a signing note, a restore's source), `content` JSONB (a version's snapshot, content steps only), `signatories` JSONB (`[{user_id, display_name}]`, `sent_for_review` only, no e-mail), `via`. Ordered by `seq` (identity); `created_at` from `clock_timestamp()` for display. Migration 171 backfilled existing documents' timelines (`via="migration:171"`). Rules in `services/document_history_service.py` |
 | `architecture_decision_file_contents` | `ArchitectureDecisionFileContent` | The file bytes (`data` LargeBinary, deferred), shared by the file rows of every revision; deleted when no file row points at them |
 | `ea_principles` | `EAPrinciple` | EA principles (statement, rationale, implications, sort_order, optional `catalogue_id` linking back to the bundled Principles Catalogue) — exposed via `/metamodel/principles`; the curated reference set is browsable at `/principles-catalogue` |
 | `kpi_snapshots` | `KpiSnapshot` | Daily KPI snapshots powering the dashboard trend charts |
@@ -176,7 +178,7 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 
 ### Migrations
 
-Located in `backend/alembic/versions/` (168 migration files, sequentially numbered `001_` through `168_`). The app auto-runs Alembic on startup:
+Located in `backend/alembic/versions/` (171 migration files, sequentially numbered `001_` through `171_`). The app auto-runs Alembic on startup:
 - Fresh DB: `create_all` + stamp head
 - Existing DB without Alembic: stamp head
 - Normal: `upgrade head` (run pending migrations)
@@ -368,6 +370,37 @@ TOGAF-aligned Risk Register mounted at `/api/v1/risks`, plus a card sub-route fo
 | GET | `/risks/mitigation-tasks/export` | `risks.view` | Flat list of every mitigation task on every risk matching the same filter shape as `GET /risks` (status / category / level / owner / source_type / search / overdue / card_id). Used by the Risk Register's two-sheet `.xlsx` export so sheet 2 always matches what the user has on screen. |
 
 Owner assignment on create / patch / promote auto-creates a single `is_system` Todo on the owner's Todos page (description `[Risk R-xxxxxx] title`, link back to the risk, due-date mirrors `target_resolution_date`, auto-done when the risk reaches mitigated / monitoring / accepted / closed) and fires a `risk_assigned` in-app + email-capable notification whenever the owner actually changes (including self-assignment — `risk_assigned` is whitelisted in `notification_service.allow_self_types`).
+
+
+### Decision and SoAW collaboration (`/adr/{id}/…`, `/soaw/{id}/…`, `/mentions`)
+
+Discussion, mentions and edit history of decisions (`adr`) and Statements of Architecture Work (`soaw`), one shared layer keyed on the document kind. Every writer and serialiser of the two documents calls the hooks of `services/document_collab.py` — `before_save` (mentions checked and canonicalised), `after_save` (a draft's save recorded as a version), `on_workflow` (the timeline row of a review step, in the caller's transaction; a rejection opens a `rejection` thread, a signing note becomes a `sign_note` comment) and `render_doc` (mentions resolved for the reader, one batch per response).
+
+| Service | Role |
+|---------|------|
+| `mention_markup.py` | The one canonical mention span grammar (`<span data-type="mention" data-kind="card\|decision\|user" data-id="…"></span>`, no label stored): `MENTION_SPAN_RE`, `canonical_span`, `iter_mentions`, `map_ids`. Shared by the mention service and the workspace-transfer rewriter |
+| `mention_service.py` | Mentions in decision and SoAW text and in comments: canonicalise on write (a new mention must be readable by the writer, 404 otherwise; a mention the writer cannot see is kept through an HMAC token), resolve per reader on read (`restricted` with no id or name for a hidden card or, without `adr.view`, a decision; `missing` for a deleted target), "Mentioned in" lookups |
+| `document_collab.py` | The four hooks above, `load_document`, the owner-column helpers |
+| `document_discussion_service.py` | Threads, replies, resolve / reopen, edit / soft delete, the comment HTML allowlist, the signatory rule (current signatories or any `sent_for_review` row of that revision), open-thread count, `document_comment` / `document_mention` notifications, the persisted `adr.comment_added` / `soaw.comment_added` events (no body) |
+| `document_history_service.py` | Version snapshots, change detection on canonical content, the `baseline` row on a legacy document's first save, the paginated timeline, version view and forward-only restore (draft only; text, dates and people, never links) |
+| `document_event_scope.py` | Drops `adr.*` events for readers without `adr.view` and `soaw.*` events without `soaw.view` from `/reports/dashboard`, `/reports/admin-dashboard`, `/events/my-cards` and card history. Every decision and SoAW review event is published before the commit, so it is persisted (guard `tests/services/test_publish_before_commit.py`) |
+
+| Method | Path | Permission | Description |
+|--------|------|------------|-------------|
+| GET | `/adr/{id}/comments?scope=document\|chain` | `adr.view` | Threads with replies, `can`, `open_count`; `chain` adds the earlier revisions' threads |
+| POST | `/adr/{id}/comments` | `adr.comment` **or** a signatory | New thread or reply (`{body, section?, parent_id?}`); returns `unnotified_mentions` |
+| PATCH | `/adr/{id}/comments/{comment_id}` | author | Edit a plain comment (not a rejection or a signing note) |
+| DELETE | `/adr/{id}/comments/{comment_id}` | author **or** `adr.manage` | Soft delete; a rejection is resolved, not deleted, by a moderator |
+| POST | `/adr/{id}/comments/{comment_id}/resolve` · `/reopen` | `adr.comment` **or** a signatory | Resolve or reopen a thread |
+| GET | `/adr/{id}/history?page=&page_size=` | `adr.view` | The timeline, newest first, with `can_view_versions` / `can_restore` |
+| GET | `/adr/{id}/history/{entry_id}` | `adr.manage` **or** a signatory | One version's content, mentions resolved for the reader |
+| POST | `/adr/{id}/history/{entry_id}/restore` | `adr.manage` | Restore a version onto a draft (409 `not_draft` otherwise) |
+| GET | `/mentions/cards/{card_id}` | card readable (module mode) | Decisions and SoAWs whose text or discussion mention the card, filtered by `adr.view` / `soaw.view` |
+| GET | `/mentions/decisions/{adr_id}` | `adr.view` | The same for a decision (any revision of its chain) |
+
+The `/soaw/{id}/…` routes mirror the `/adr/{id}/…` ones with `soaw.view`, `soaw.comment` and `soaw.manage`. `POST /soaw/{id}/sign` takes an optional `{note}`, and a SoAW signatory holding `soaw.sign` (or `soaw.manage`) may reject.
+
+Notification types (`NOTIFICATION_TYPE_SPECS`): `document_comment` (to the creator, the signatories, the decision makers and participants who are users and earlier commenters, minus the actor and anyone mentioned; each filtered by the view permission) and `document_mention` (a person mentioned in a comment who can open the document; one who cannot is returned to the poster instead). Neither carries comment text. Permission keys: `adr.comment`, `soaw.comment` (Admin, BPM Admin and Member by default, not Viewer; migration 170 granted them to stored roles holding the matching `manage` or `sign`).
 
 ## Security
 

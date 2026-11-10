@@ -25,6 +25,8 @@ Click any notification to navigate directly to the relevant card or document. No
 | **SoAW sign requested** | You are asked to sign a Statement of Architecture Work |
 | **SoAW signed** | A SoAW you are tracking receives a signature |
 | **ADR standing changed** | A signed decision replaces, amends or revokes a decision you wrote |
+| **Comments on decisions and SoAWs** | Someone comments in the discussion of a decision or SoAW you wrote, were asked to sign, are a decision maker or participant of, or commented on before |
+| **Mentions in discussions** | Someone mentions you with **@** in a comment on a decision or SoAW you can open |
 | **Survey request** | A survey is sent that requires your response |
 
 **Approval status changed** also covers the automatic case. An approved card
@@ -33,6 +35,13 @@ moves it in the hierarchy — you are told either way, and the change is recorde
 on the card's **History** tab. Where one action breaks several of your cards at
 once, such as a mass edit, you receive a single summary rather than one
 notification per card.
+
+The two discussion notifications carry no comment text: click one to open the
+document with its discussion on that thread. You never hear of your own
+comments, and a mention replaces the comment notification for the same
+comment. Someone mentioned who cannot open the document is not notified — the
+person who posted is told instead. See
+[Discussion](grc.md#decision-discussion).
 
 
 ## Real-Time Delivery

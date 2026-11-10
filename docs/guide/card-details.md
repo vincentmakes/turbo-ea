@@ -233,6 +233,8 @@ Every card carries an **ADRs** tab listing the [Architecture Decision Records](d
 
 If you are allowed to manage ADR links, the tab also offers **Link ADR** to attach an existing decision and **Create ADR** to start a new one that is pre-linked to this card, plus an unlink action on every row. On cards with no linked decisions the tab is hidden unless you hold that permission, so read-only users never see an empty tab.
 
+Below the list, **Mentioned in** lists the decisions and Statements of Architecture Work whose text mentions this card, and those whose discussion mentions it (marked *in the discussion*), with each document's reference or revision and its standing or status. A mention does not link the card to the decision; it only shows here. The list shows only the documents you can open and is left out when there are none. See [Mentions](grc.md#decision-mentions).
+
 ## Risks Tab (GRC enabled, when present)
 
 When the [GRC module](grc.md) is enabled **and** the card has at least one linked risk, a **Risks** tab appears listing every risk linked to the card with a one-click path back to the [Risk Register](risks.md). The tab is auto-hidden when no risk is linked, so cards with no GRC activity don't carry an empty tab.
