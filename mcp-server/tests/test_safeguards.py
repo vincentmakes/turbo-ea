@@ -668,6 +668,7 @@ _BATCH_TOOLS_EXPECTED = [
     "create_risks",
     "create_soaw",
     "import_bpmn",
+    "revise_adr",
     "save_inventory_view",
     "set_card_logos",
     "sign_adr",
@@ -725,6 +726,9 @@ _BATCH_TOOL_CALLS = {
         title="t", sections=[{"heading": "Context", "body": "b"}], dry_run=dry_run
     ),
     "update_adr": lambda dry_run: server.update_adr(adr_id="a1", title="t", dry_run=dry_run),
+    "revise_adr": lambda dry_run: server.revise_adr(
+        adr_id="00000000-0000-0000-0000-0000000000a1", dry_run=dry_run
+    ),
     "create_soaw": lambda dry_run: server.create_soaw(
         initiative_id="i1",
         title="t",

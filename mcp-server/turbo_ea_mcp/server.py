@@ -16,7 +16,8 @@ import os
 import re
 import textwrap
 import threading
-from datetime import datetime, timezone
+import uuid
+from datetime import date, datetime, timezone
 from urllib.parse import urlparse
 
 import httpx
@@ -132,6 +133,14 @@ mcp = FastMCP(
         For a question that chains relations with a condition at each hop,
         use query_cards; save_inventory_view keeps such a query as an
         inventory view people can open.
+
+        Architecture decisions (ADRs) have a status (draft, in_review,
+        signed) and, once signed, a derived standing (scheduled, in_force,
+        amended, superseded, revoked, expired). list_adrs shows the current
+        revision of each decision; the ones in force are
+        standing="in_force,amended". revise_adr starts a signed decision's
+        next revision; replacing or revoking one is a new decision
+        (create_adr) with a replaces / revokes link, signed in the web UI.
 
         Write tools default to dry_run=True: they validate and return a
         preview without persisting. Surface the preview to the user, then
@@ -784,24 +793,91 @@ async def list_principles() -> str:
     return _fmt(data)
 
 
+#: The standings a signed decision can have, derived by the backend and never
+#: set by hand (``decision_standing.STANDINGS``).
+_ADR_STANDINGS = ("scheduled", "in_force", "amended", "superseded", "revoked", "expired")
+
+
+def _bool_param(value: bool) -> str:
+    """A boolean query parameter as the backend reads it, always sent."""
+    return "true" if value else "false"
+
+
+def _adr_standing_filter(standing: str) -> tuple[str | None, dict | None]:
+    """``standing`` as the backend's comma-separated filter, or an error.
+
+    Returns ``(value, error)``: ``value`` is ``None`` when nothing is
+    filtered; ``error`` names the unknown values and lists the allowed ones,
+    as the backend's 400 ``unknown_standing`` would.
+    """
+    wanted = [part.strip() for part in standing.split(",") if part.strip()]
+    unknown = [part for part in wanted if part not in _ADR_STANDINGS]
+    if unknown:
+        return None, {
+            "error": "unknown_standing",
+            "values": unknown,
+            "allowed": list(_ADR_STANDINGS),
+            "message": (
+                "standing takes one value or a comma-separated list of: "
+                + ", ".join(_ADR_STANDINGS)
+                + '. For the decisions in force use standing="in_force,amended".'
+            ),
+        }
+    return (",".join(wanted) or None), None
+
+
 @mcp.tool(annotations=_READ_ANNOT)
 async def list_adrs(
     initiative_id: str = "",
     card_id: str = "",
     status: str = "",
     search: str = "",
+    standing: str = "",
+    include_earlier: bool = False,
 ) -> str:
     """List Architecture Decision Records (ADRs).
+
+    A decision has two separate states. ``status`` is the workflow:
+    ``draft`` → ``in_review`` (signatures requested; locked) → ``signed``.
+    ``standing`` is derived for signed decisions only (``null`` for drafts
+    and decisions in review) and is never set by hand: ``scheduled`` (signed,
+    not effective yet), ``in_force``, ``amended`` (in force, with an amending
+    decision not consolidated yet), ``superseded`` (by a later revision or a
+    replacing decision), ``revoked``, ``expired`` (past ``valid_until``).
+    "Which decisions are in force?" is ``standing="in_force,amended"``.
+
+    A decision can have revisions: they share its reference (``ADR-012``)
+    and carry ``revision_number`` 1, 2, … By default this tool lists only
+    the current revision of each decision and any revision being drafted;
+    set ``include_earlier=True`` to list the earlier revisions too.
+
+    Each row carries pointer fields:
+    ``is_current`` (this revision is the one that counts in its chain;
+    exactly one per decision), ``is_earlier_revision``, ``superseded_by``
+    (the chain's current revision for an earlier revision, else the decision
+    that replaced this one), ``revoked_by`` (the decision that revoked it),
+    ``amended_by`` (amending decisions still open), ``open_revision`` (a
+    revision of this decision being drafted), ``upcoming`` (changes signed
+    but not effective yet: ``{kind, by, effective_from}``). Every pointer is
+    ``{id, reference_number, revision_number, title}``. Rows also carry
+    ``decided_on``, ``effective_from``, ``valid_until``, ``recorded_at`` and
+    ``decision_makers``.
 
     Args:
         initiative_id: Filter to ADRs linked to a specific Initiative UUID.
         card_id: Filter to ADRs linked to a specific card UUID.
         status: 'draft', 'in_review', or 'signed'.
         search: Free-text search across title, reference and section content.
+        standing: One standing or a comma-separated list of: scheduled,
+            in_force, amended, superseded, revoked, expired.
+        include_earlier: Also list earlier revisions (default False).
     """
     token = await _get_current_token()
     if not token:
         return "Error: Not authenticated. Please reconnect."
+    standing_value, standing_err = _adr_standing_filter(standing)
+    if standing_err is not None:
+        return _fmt(standing_err)
     client = TurboEAClient(token)
     data = await client.get(
         "/adr",
@@ -811,6 +887,8 @@ async def list_adrs(
                 "card_id": card_id,
                 "status": status,
                 "search": search,
+                "standing": standing_value,
+                "include_earlier": _bool_param(include_earlier),
             }
         ),
     )
@@ -819,11 +897,31 @@ async def list_adrs(
 
 @mcp.tool(annotations=_READ_ANNOT)
 async def get_adr(adr_id: str) -> str:
-    """Get full detail of a single ADR including all section content,
-    linked cards, related decisions, and signature trail.
+    """Get full detail of a single ADR revision: section content, linked
+    cards, signature trail, standing and the decision register fields.
+
+    A reference such as "ADR-012" names every revision of a decision; the
+    id names one revision. Find the ids with ``list_adrs`` (search the
+    reference, ``include_earlier=True`` for every revision) or read
+    ``revisions`` here.
+
+    Besides the list fields (see ``list_adrs``), the detail carries:
+    ``links.outgoing`` / ``links.incoming``: typed links to and from other
+    decisions, each ``{id, kind, note, decision}`` with ``kind`` one of
+    ``replaces``, ``amends``, ``revokes``, ``relates``, ``consolidates``
+    (``decision`` is the other decision, with ``current`` when that
+    decision has a newer current revision); ``decision_makers`` and
+    ``participants`` (a user or a plain name each); ``decided_on``,
+    ``effective_from``, ``valid_until`` (ISO dates); ``revisions`` (the
+    whole chain in order, each with status and standing);
+    ``change_summary`` (what this revision changed); ``recorded_at`` /
+    ``recorded_by`` (set when an admin recorded a past decision as decided
+    in the web UI, instead of collecting signatures); ``files`` (attached
+    file metadata: name, type, size; the content is not returned).
+    ``related_decisions`` lists the ids of the outgoing ``relates`` links.
 
     Args:
-        adr_id: The ADR's UUID.
+        adr_id: The ADR revision's UUID.
     """
     token = await _get_current_token()
     if not token:
@@ -834,11 +932,22 @@ async def get_adr(adr_id: str) -> str:
 
 
 @mcp.tool(annotations=_READ_ANNOT)
-async def list_soaws(initiative_id: str = "") -> str:
+async def list_soaws(initiative_id: str = "", include_earlier: bool = False) -> str:
     """List Statements of Architecture Work (SoAW).
+
+    A signed SoAW is revised in the web UI: the revision is a new draft with
+    the same name and the next ``revision_number``. By default this tool
+    lists only the current revision of each SoAW and any revision being
+    drafted; each row carries ``is_current``, ``is_earlier_revision``,
+    ``superseded_by`` (on an earlier revision: the current one) and
+    ``open_revision`` (on the current revision: the draft in progress).
+    A SoAW sent for signature (``in_review``) is locked until the signature
+    requests are recalled, and only drafts can be deleted. A rejection sends
+    the document back without changing its revision number.
 
     Args:
         initiative_id: Filter to SoAWs linked to a specific Initiative UUID.
+        include_earlier: Also list earlier revisions (default False).
     """
     token = await _get_current_token()
     if not token:
@@ -846,7 +955,9 @@ async def list_soaws(initiative_id: str = "") -> str:
     client = TurboEAClient(token)
     data = await client.get(
         "/soaw",
-        params=_compact({"initiative_id": initiative_id}),
+        params=_compact(
+            {"initiative_id": initiative_id, "include_earlier": _bool_param(include_earlier)}
+        ),
     )
     return _fmt(data)
 
@@ -3414,7 +3525,11 @@ def _translate_adr_sections(sections: list[dict]) -> tuple[dict, dict | None]:
 
 
 def _adr_status_error(status: str, *, create: bool) -> dict | None:
-    """Reject workflow statuses that must not be set directly."""
+    """Reject workflow statuses that must not be set directly.
+
+    A decision has three statuses (draft, in_review, signed). What a signed
+    decision means today (in force, superseded, revoked, …) is its
+    ``standing``, derived by the backend and never a status."""
     if not status or status == "draft":
         return None
     if status == "signed":
@@ -3439,7 +3554,242 @@ def _adr_status_error(status: str, *, create: bool) -> dict | None:
         "message": (
             'ADR statuses are "draft", "in_review", and "signed". '
             + ('New ADRs always land in "draft".' if create else 'Only "draft" can be set here.')
+            + " Standing (in force, superseded, revoked, …) is derived from signed "
+            "decisions and their links, never set."
         ),
+    }
+
+
+# ── Decision register fields (links, people, dates) ──────────────────────────
+#
+# The wrapper checks kinds and shapes itself so a dry-run preview fails the
+# same way the commit would; what needs the register (does the target exist,
+# is it another decision's chain) is left to the backend.
+
+#: Link kinds an agent may author on a decision. ``consolidates`` is created
+#: by ``revise_adr`` and may only be re-sent on a revision (``update_adr``).
+_ADR_LINK_KINDS = ("replaces", "amends", "revokes", "relates")
+_ADR_REVISION_LINK_KINDS = (*_ADR_LINK_KINDS, "consolidates")
+_ADR_LINK_KEYS = frozenset({"adr_id", "kind", "note"})
+_ADR_PERSON_KEYS = frozenset({"user_id", "name"})
+_ADR_REF_MAX = 100  # ADRLinkIn.decision_id
+_ADR_NOTE_MAX = 1000  # ADRLinkIn.note
+_ADR_NAME_MAX = 255  # ADRPersonIn.name
+_ADR_SUMMARY_MAX = 2000  # change_summary
+_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _adr_target_key(value: str) -> str:
+    """How two link targets are compared here: an id, or a reference with
+    case and surrounding spaces ignored (as the backend resolves them)."""
+    return value.strip().upper()
+
+
+def _translate_adr_links(links: list, kinds: tuple[str, ...]) -> tuple[list[dict], dict | None]:
+    """Map MCP ``[{adr_id, kind, note?}]`` onto the backend's
+    ``[{decision_id, kind, note?}]``.
+
+    Returns ``(links, error)`` — exactly one is populated.
+    """
+    out: list[dict] = []
+    seen: set[str] = set()
+    for idx, link in enumerate(links):
+        if not isinstance(link, dict):
+            return [], {
+                "error": "invalid_link",
+                "index": idx,
+                "message": "Each link must be an {adr_id, kind, note?} dict.",
+            }
+        unknown = sorted(set(link) - _ADR_LINK_KEYS)
+        if unknown:
+            return [], {
+                "error": "unknown_link_field",
+                "index": idx,
+                "fields": unknown,
+                "message": "A link takes adr_id, kind and an optional note.",
+            }
+        target = link.get("adr_id")
+        if not isinstance(target, str) or not target.strip() or len(target) > _ADR_REF_MAX:
+            return [], {
+                "error": "invalid_link_target",
+                "index": idx,
+                "message": (
+                    "adr_id must be a decision id or a reference such as "
+                    f'"ADR-012" (at most {_ADR_REF_MAX} characters).'
+                ),
+            }
+        kind = link.get("kind")
+        if kind not in kinds:
+            return [], {
+                "error": "unknown_kind",
+                "index": idx,
+                "kind": kind,
+                "allowed": list(kinds),
+                "message": "Link kinds are " + ", ".join(kinds) + ".",
+            }
+        note = link.get("note")
+        if note is not None and (not isinstance(note, str) or len(note) > _ADR_NOTE_MAX):
+            return [], {
+                "error": "invalid_link_note",
+                "index": idx,
+                "message": f"note must be a string of at most {_ADR_NOTE_MAX} characters.",
+            }
+        key = _adr_target_key(target)
+        if key in seen:
+            return [], {
+                "error": "duplicate_target",
+                "index": idx,
+                "adr_id": target,
+                "message": "A decision can be linked to another decision only once.",
+            }
+        seen.add(key)
+        entry = {"decision_id": target.strip(), "kind": kind}
+        if note is not None:
+            entry["note"] = note
+        out.append(entry)
+    return out, None
+
+
+def _translate_adr_people(people: list, part: str) -> tuple[list[dict], dict | None]:
+    """Check ``[{user_id} | {name}]`` for ``decision_makers`` / ``participants``.
+
+    Returns ``(people, error)`` — exactly one is populated.
+    """
+    out: list[dict] = []
+    for idx, person in enumerate(people):
+        message = f"Each entry of {part} is {{user_id}} (a user of Turbo EA) or {{name}}."
+        if not isinstance(person, dict) or set(person) - _ADR_PERSON_KEYS or len(person) != 1:
+            return [], {"error": "invalid_person", "part": part, "index": idx, "message": message}
+        key, value = next(iter(person.items()))
+        if not isinstance(value, str) or not value.strip():
+            return [], {"error": "invalid_person", "part": part, "index": idx, "message": message}
+        if key == "name" and len(value) > _ADR_NAME_MAX:
+            return [], {
+                "error": "invalid_person",
+                "part": part,
+                "index": idx,
+                "message": f"A name is at most {_ADR_NAME_MAX} characters.",
+            }
+        out.append({key: value.strip()})
+    return out, None
+
+
+def _adr_date_errors(dates: dict[str, str]) -> dict | None:
+    """Check ``decided_on`` / ``effective_from`` / ``valid_until`` (``""`` =
+    not given): ISO dates, and ``valid_until`` not before ``effective_from``
+    when both are given here (the backend's ``valid_until_before_effective``)."""
+    parsed: dict[str, date] = {}
+    for field, value in dates.items():
+        if not value:
+            continue
+        try:
+            parsed[field] = date.fromisoformat(value if _ISO_DATE.match(value) else "")
+        except ValueError:
+            return {
+                "error": "invalid_date",
+                "field": field,
+                "value": value,
+                "message": f"{field} must be an ISO date (YYYY-MM-DD).",
+            }
+    start, end = parsed.get("effective_from"), parsed.get("valid_until")
+    if start is not None and end is not None and end < start:
+        return {
+            "error": "valid_until_before_effective",
+            "message": "valid_until cannot be before effective_from.",
+        }
+    return None
+
+
+def _adr_register_fields(
+    *,
+    links: list | None,
+    link_kinds: tuple[str, ...],
+    decision_makers: list | None,
+    participants: list | None,
+    decided_on: str,
+    effective_from: str,
+    valid_until: str,
+    change_summary: str,
+) -> tuple[dict, dict | None]:
+    """The decision register part of a create / update payload, or an error.
+
+    ``None`` lists and ``""`` strings are left out (unchanged on an update);
+    an empty list is sent, so it clears the set on an update.
+    """
+    fields: dict = {}
+    if links is not None:
+        translated, err = _translate_adr_links(links, link_kinds)
+        if err is not None:
+            return {}, err
+        fields["links"] = translated
+    for part, people in (("decision_makers", decision_makers), ("participants", participants)):
+        if people is None:
+            continue
+        translated, err = _translate_adr_people(people, part)
+        if err is not None:
+            return {}, err
+        fields[part] = translated
+    dates = {
+        "decided_on": decided_on,
+        "effective_from": effective_from,
+        "valid_until": valid_until,
+    }
+    if (err := _adr_date_errors(dates)) is not None:
+        return {}, err
+    fields.update({k: v for k, v in dates.items() if v})
+    if len(change_summary) > _ADR_SUMMARY_MAX:
+        return {}, {
+            "error": "change_summary_too_long",
+            "message": f"change_summary is at most {_ADR_SUMMARY_MAX} characters.",
+        }
+    if change_summary:
+        fields["change_summary"] = change_summary
+    return fields, None
+
+
+def _adr_ref_label(ref: object) -> str | None:
+    """``ADR-012 · Rev 2`` for a ``{reference_number, revision_number}``
+    pointer (the revision shown only past the first), else None."""
+    if not isinstance(ref, dict) or not ref.get("reference_number"):
+        return None
+    rev = ref.get("revision_number")
+    label = str(ref["reference_number"])
+    return f"{label} · Rev {rev}" if isinstance(rev, int) and rev > 1 else label
+
+
+def _adr_edit_refusal(exc: httpx.HTTPStatusError) -> dict | None:
+    """The answer to a 403 from ``PATCH /adr/{id}``, else None.
+
+    The backend refuses any edit of a signed decision and any edit but the
+    linked cards of a decision in review; any other 403 is the caller's
+    missing ``adr.manage`` permission."""
+    if exc.response.status_code != 403:
+        return None
+    detail = _detail(exc)
+    text = detail if isinstance(detail, str) else ""
+    if "signed decision" in text:
+        return {
+            "error": "decision_signed",
+            "detail": text,
+            "message": (
+                "A signed decision cannot be edited. Start its next revision "
+                "with revise_adr and edit that draft."
+            ),
+        }
+    if "in review" in text:
+        return {
+            "error": "decision_in_review",
+            "detail": text,
+            "message": (
+                "A decision sent for signature is locked: only linked_card_ids "
+                "can change. Recall the signature requests in the web UI to "
+                "edit it."
+            ),
+        }
+    return {
+        "error": "forbidden",
+        "detail": detail,
+        "message": "Editing a decision needs the adr.manage permission.",
     }
 
 
@@ -3450,6 +3800,13 @@ async def create_adr(
     status: str = "draft",
     linked_card_ids: list[str] | None = None,
     related_adr_ids: list[str] | None = None,
+    links: list[dict] | None = None,
+    decision_makers: list[dict] | None = None,
+    participants: list[dict] | None = None,
+    decided_on: str = "",
+    effective_from: str = "",
+    valid_until: str = "",
+    change_summary: str = "",
     dry_run: bool = True,
 ) -> str:
     """Create an Architecture Decision Record.
@@ -3457,6 +3814,15 @@ async def create_adr(
     ADRs always land in ``draft``. Use ``sign_adr`` (or the
     request-signatures flow in the UI) to advance the workflow once the
     decision is ready for signature.
+
+    To replace or revoke an existing decision, create the new decision with
+    a ``replaces`` / ``revokes`` link to it: the old one becomes superseded /
+    revoked once the new one is signed and effective. An ``amends`` link
+    marks the target as amended (still in force) until a revision of it
+    consolidates the amendment (``revise_adr(consolidates=...)``). When the
+    decision is sent for signature, every linked decision must already be
+    signed. Recording a decision taken in the past as decided (without
+    signatures) is only possible in the web UI.
 
     Args:
         title: ADR title.
@@ -3473,13 +3839,35 @@ async def create_adr(
             statuses are reached through the signing workflow.
         linked_card_ids: Cards the ADR affects (M:N link). Persisted
             with the ADR in the same transaction.
-        related_adr_ids: Other ADRs this one supersedes / references
-            (stored as the ADR's related-decisions list).
+        related_adr_ids: Other decisions (ids or references such as
+            "ADR-012") this one relates to, recorded as plain ``relates``
+            links. Use ``links`` for replaces / amends / revokes. A target
+            named in both keeps its ``links`` kind.
+        links: Typed links to other decisions, ``[{adr_id, kind, note?}]``.
+            ``adr_id`` is a decision id (that exact revision) or a
+            reference such as "ADR-012" (its current revision). ``kind`` is
+            ``replaces``, ``amends``, ``revokes`` or ``relates``; ``note``
+            is optional text (at most 1000 characters). One link per target.
+        decision_makers: Who took the decision, ``[{user_id}]`` for a
+            Turbo EA user or ``[{name}]`` for anyone else. Separate from
+            the signatories.
+        participants: Who took part, same shape as ``decision_makers``.
+        decided_on: When the decision was taken (YYYY-MM-DD). Defaults to
+            the signing date when left empty.
+        effective_from: When it takes effect (YYYY-MM-DD). Defaults to the
+            signing date; a later date makes the signed decision
+            ``scheduled`` until then.
+        valid_until: Last day it is in force (YYYY-MM-DD), for a time-boxed
+            decision; afterwards it is ``expired``. Not before
+            ``effective_from``.
+        change_summary: Optional note on what changed (at most 2000
+            characters); mostly used on revisions.
         dry_run: When True (default), validate and translate without
             persisting. The preview shows the exact backend payload a
-            commit would send, so heading typos surface here. The ADR
-            route has no dry run, so the preview is built here and
-            recorded as a dry-run batch.
+            commit would send, so heading typos, unknown link kinds and
+            malformed dates surface here. The ADR route has no dry run, so
+            the preview is built here and recorded as a dry-run batch;
+            whether a linked decision exists is checked on commit.
     """
     token = await _get_current_token()
     if not token:
@@ -3491,11 +3879,28 @@ async def create_adr(
     fields, section_err = _translate_adr_sections(sections)
     if section_err is not None:
         return _fmt(section_err)
+    register_fields, register_err = _adr_register_fields(
+        links=links,
+        link_kinds=_ADR_LINK_KINDS,
+        decision_makers=decision_makers,
+        participants=participants,
+        decided_on=decided_on,
+        effective_from=effective_from,
+        valid_until=valid_until,
+        change_summary=change_summary,
+    )
+    if register_err is not None:
+        return _fmt(register_err)
     payload: dict = {"title": title, **fields}
     if linked_card_ids:
         payload["linked_card_ids"] = list(linked_card_ids)
-    if related_adr_ids:
-        payload["related_decisions"] = list(related_adr_ids)
+    # A target named in ``links`` too keeps its typed link (the backend skips
+    # it as well; this only makes the preview show what will be stored).
+    typed = {_adr_target_key(link["decision_id"]) for link in register_fields.get("links", [])}
+    related = [r for r in related_adr_ids or [] if _adr_target_key(r) not in typed]
+    if related:
+        payload["related_decisions"] = related
+    payload.update(register_fields)
 
     if dry_run:
         async with mutation_batch(
@@ -3539,14 +3944,29 @@ async def update_adr(
     sections: list[dict] | None = None,
     status: str = "",
     linked_card_ids: list[str] | None = None,
+    links: list[dict] | None = None,
+    decision_makers: list[dict] | None = None,
+    participants: list[dict] | None = None,
+    decided_on: str = "",
+    effective_from: str = "",
+    valid_until: str = "",
+    change_summary: str = "",
     dry_run: bool = True,
 ) -> str:
     """Update an existing Architecture Decision Record.
 
     Only fields you pass non-empty values for are updated. Sections you
     include replace the matching stored section; sections you omit stay
-    unchanged (this tool cannot clear a section — edit through the UI
-    instead).
+    unchanged (this tool cannot clear a section, a date or the change
+    summary — edit through the UI instead).
+
+    Only a draft can be edited. A decision in review (signatures
+    requested) is locked: only ``linked_card_ids`` can change until the
+    signature requests are recalled in the web UI. A signed decision is
+    never edited: start its next revision with ``revise_adr`` and edit that
+    draft. The backend's refusal comes back as ``decision_in_review`` /
+    ``decision_signed``; a missing ``adr.manage`` permission as
+    ``forbidden``.
 
     Args:
         adr_id: ADR UUID.
@@ -3559,9 +3979,24 @@ async def update_adr(
         linked_card_ids: Replacement link list (M:N) — the full desired
             set. Pass ``[]`` to remove all links; omit to leave links
             unchanged.
+        links: The FULL set of typed links to other decisions, ``relates``
+            included, as ``[{adr_id, kind, note?}]`` (see ``create_adr``).
+            Links you leave out are removed: read ``links.outgoing`` with
+            ``get_adr`` first and re-send the ones to keep. Pass ``[]`` to
+            remove every link; omit to leave them unchanged. On a revision,
+            ``consolidates`` links (created by ``revise_adr``) are accepted
+            too and must be re-sent to be kept.
+        decision_makers: Full replacement list, ``[{user_id}]`` or
+            ``[{name}]``; ``[]`` clears it, omit to leave it unchanged.
+        participants: Same as ``decision_makers``.
+        decided_on: New date the decision was taken (YYYY-MM-DD).
+        effective_from: New date it takes effect (YYYY-MM-DD).
+        valid_until: New last day in force (YYYY-MM-DD).
+        change_summary: New note on what this revision changed.
         dry_run: When True (default), validate and translate without
             persisting. The preview shows the exact backend payload a
-            commit would send.
+            commit would send; the decision's status and the linked
+            decisions are checked on commit.
     """
     token = await _get_current_token()
     if not token:
@@ -3582,6 +4017,19 @@ async def update_adr(
         payload["status"] = status
     if linked_card_ids is not None:
         payload["linked_card_ids"] = list(linked_card_ids)
+    register_fields, register_err = _adr_register_fields(
+        links=links,
+        link_kinds=_ADR_REVISION_LINK_KINDS,
+        decision_makers=decision_makers,
+        participants=participants,
+        decided_on=decided_on,
+        effective_from=effective_from,
+        valid_until=valid_until,
+        change_summary=change_summary,
+    )
+    if register_err is not None:
+        return _fmt(register_err)
+    payload.update(register_fields)
 
     if dry_run:
         async with mutation_batch(
@@ -3607,7 +4055,13 @@ async def update_adr(
         dry_run=False,
     ) as batch:
         client = batch.client()
-        data = await client.patch(f"/adr/{adr_id}", json=payload)
+        try:
+            data = await client.patch(f"/adr/{adr_id}", json=payload)
+        except httpx.HTTPStatusError as exc:
+            if (refusal := _adr_edit_refusal(exc)) is None:
+                raise
+            batch.summary = {"adr_id": adr_id, "status": "refused", "error": refusal["error"]}
+            return _fmt({**refusal, "adr_id": adr_id, "batch_id": batch.batch_id})
         if isinstance(data, dict):
             data["batch_id"] = batch.batch_id
             batch.summary = {"adr_id": adr_id}
@@ -3679,6 +4133,224 @@ async def sign_adr(adr_id: str, comment: str = "", dry_run: bool = True) -> str:
                     }
                 )
             raise
+
+
+_ADR_NOT_SIGNED_MESSAGE = (
+    "Only a signed decision can be revised. A draft is edited in place with "
+    "update_adr; a decision in review is edited after its signature requests "
+    "are recalled in the web UI."
+)
+_ADR_CONSOLIDATES_MAX = 100  # ADRReviseRequest.consolidates
+
+
+def _adr_open_revision_refusal(revision_id: object) -> dict:
+    return {
+        "error": "open_revision_exists",
+        "revision_id": revision_id,
+        "message": (
+            "This decision already has a revision being drafted. Edit that "
+            "draft (revision_id) with update_adr instead of starting another."
+        ),
+    }
+
+
+_ADR_NOT_LATEST_REFUSAL = {
+    "error": "not_revisable",
+    "reason": "not_latest",
+    "message": (
+        "A later revision of this decision is already signed. Revise the "
+        "latest revision (see revisions in get_adr)."
+    ),
+}
+
+
+def _adr_closed_refusal(by: object) -> dict:
+    label = _adr_ref_label(by) or "another decision"
+    return {
+        "error": "not_revisable",
+        "by": by,
+        "message": (
+            f"This decision was revoked or replaced by {label}, so it can no "
+            "longer be revised. To change the outcome, create a new decision "
+            "with create_adr."
+        ),
+    }
+
+
+def _adr_revise_refusal(status_code: int, detail: object) -> dict | None:
+    """The answer to a refused ``POST /adr/{id}/revise``, else None.
+
+    409 ``open_revision_exists`` (with ``revision_id``), 409
+    ``not_revisable`` with ``reason: not_latest`` or ``by`` (the revoking or
+    replacing decision), 400 for a decision that is not signed, 403 for a
+    missing ``adr.manage`` permission."""
+    if status_code == 400:
+        return {"error": "not_signed", "message": _ADR_NOT_SIGNED_MESSAGE}
+    if status_code == 403:
+        return {
+            "error": "forbidden",
+            "detail": detail,
+            "message": "Revising a decision needs the adr.manage permission.",
+        }
+    if status_code != 409 or not isinstance(detail, dict):
+        return None
+    if detail.get("error") == "open_revision_exists":
+        return _adr_open_revision_refusal(detail.get("revision_id"))
+    if detail.get("error") != "not_revisable":
+        return None
+    if detail.get("reason") == "not_latest":
+        return dict(_ADR_NOT_LATEST_REFUSAL)
+    return _adr_closed_refusal(detail.get("by"))
+
+
+def _adr_revise_preview(adr: dict, adr_id: str) -> dict:
+    """What ``POST /adr/{adr_id}/revise`` would do, read from the decision's
+    detail: the refusal the backend would answer, in its order, or the
+    revision it would create."""
+    revisions = [r for r in adr.get("revisions") or [] if isinstance(r, dict)]
+    if adr.get("status") != "signed":
+        return {"would_refuse": {"error": "not_signed", "message": _ADR_NOT_SIGNED_MESSAGE}}
+    drafts = [r for r in revisions if r.get("status") != "signed" and r.get("id") != adr_id]
+    open_revision = adr.get("open_revision")
+    if drafts or isinstance(open_revision, dict):
+        revision_id = drafts[-1].get("id") if drafts else open_revision.get("id")
+        return {"would_refuse": _adr_open_revision_refusal(revision_id)}
+    ids = [r.get("id") for r in revisions]
+    later = revisions[ids.index(adr_id) + 1 :] if adr_id in ids else []
+    if any(r.get("status") == "signed" for r in later):
+        return {"would_refuse": dict(_ADR_NOT_LATEST_REFUSAL)}
+    if adr.get("standing") == "revoked":
+        return {"would_refuse": _adr_closed_refusal(adr.get("revoked_by"))}
+    if adr.get("standing") == "superseded" and not adr.get("is_earlier_revision"):
+        return {"would_refuse": _adr_closed_refusal(adr.get("superseded_by"))}
+    numbers = [r.get("revision_number") for r in revisions] + [adr.get("revision_number")]
+    highest = max((n for n in numbers if isinstance(n, int)), default=0)
+    return {
+        "would_create": {
+            "revision_of": adr_id,
+            "reference_number": adr.get("reference_number"),
+            "revision_number": highest + 1,
+        }
+    }
+
+
+@mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
+async def revise_adr(
+    adr_id: str,
+    change_summary: str = "",
+    consolidates: list[str] | None = None,
+    dry_run: bool = True,
+) -> str:
+    """Start the next revision of a signed Architecture Decision Record.
+
+    The revision is a new draft with the same reference (``ADR-012``) and
+    the next revision number. It copies the text, linked cards, ``relates``
+    links, decision makers, participants, files and ``valid_until``; not the
+    dates, the signatures or the replaces / amends / revokes links (those
+    stay with the revision that made them). Edit the draft with
+    ``update_adr``, then send it for signature; once signed and effective it
+    supersedes the earlier revision.
+
+    Refused when the decision is not signed (``not_signed``), when a
+    revision is already being drafted (``open_revision_exists``, with its
+    ``revision_id``: edit that one), when a later revision is signed
+    (``not_revisable`` / ``not_latest``) and when another decision revoked
+    or replaced it (``not_revisable`` with ``by``). Expired and amended
+    decisions can be revised.
+
+    Replacing or revoking a decision is not a revision: create a new
+    decision with ``create_adr`` and a ``replaces`` / ``revokes`` link to
+    it, and get that one signed. Recording a past decision as decided is
+    only possible in the web UI.
+
+    Args:
+        adr_id: UUID of the signed revision to revise (the latest one).
+        change_summary: What this revision changes (at most 2000
+            characters); can also be set later with ``update_adr``.
+        consolidates: Ids or references of the decisions that amend this
+            one and whose amendments the new revision folds in; each
+            becomes a ``consolidates`` link, closing the amendment once the
+            revision is signed and effective.
+        dry_run: When True (default), read the decision and report the
+            revision that would be created, or the refusal the backend
+            would answer, without creating anything. The revise route has
+            no dry run; the preview is recorded as a dry-run batch.
+    """
+    token = await _get_current_token()
+    if not token:
+        return "Error: Not authenticated. Please reconnect."
+    if (disabled := _writes_disabled_message()) is not None:
+        return disabled
+    try:
+        uuid.UUID(adr_id)
+    except ValueError:
+        return _fmt(
+            {
+                "error": "invalid_adr_id",
+                "adr_id": adr_id,
+                "message": (
+                    "adr_id must be the UUID of a decision revision; find it "
+                    "with list_adrs (search the reference)."
+                ),
+            }
+        )
+    if len(change_summary) > _ADR_SUMMARY_MAX:
+        return _fmt(
+            {
+                "error": "change_summary_too_long",
+                "message": f"change_summary is at most {_ADR_SUMMARY_MAX} characters.",
+            }
+        )
+    targets = list(consolidates or [])
+    if len(targets) > _ADR_CONSOLIDATES_MAX or not all(
+        isinstance(t, str) and t.strip() for t in targets
+    ):
+        return _fmt(
+            {
+                "error": "invalid_consolidates",
+                "message": (
+                    f"consolidates takes up to {_ADR_CONSOLIDATES_MAX} decision ids or references."
+                ),
+            }
+        )
+    body: dict = {}
+    if targets:
+        body["consolidates"] = [t.strip() for t in targets]
+    if change_summary:
+        body["change_summary"] = change_summary
+
+    if dry_run:
+        adr = await TurboEAClient(token).get(f"/adr/{adr_id}")
+        preview = _adr_revise_preview(adr if isinstance(adr, dict) else {}, adr_id)
+        async with mutation_batch(
+            token,
+            tool_name="revise_adr",
+            row_count=1,
+            dry_run=True,
+        ) as batch:
+            batch.summary = {"adr_id": adr_id, "status": "previewed"}
+            if "would_create" in preview:
+                preview["would_create"]["body"] = body
+            return _fmt({"dry_run": True, "adr_id": adr_id, **preview, **_preview_fields(batch)})
+
+    async with mutation_batch(
+        token,
+        tool_name="revise_adr",
+        row_count=1,
+        dry_run=False,
+    ) as batch:
+        try:
+            data = await batch.client().post(f"/adr/{adr_id}/revise", json=body)
+        except httpx.HTTPStatusError as exc:
+            refusal = _adr_revise_refusal(exc.response.status_code, _detail(exc))
+            if refusal is None:
+                raise
+            batch.summary = {"adr_id": adr_id, "status": "refused", "error": refusal["error"]}
+            return _fmt({**refusal, "adr_id": adr_id, "batch_id": batch.batch_id})
+        if isinstance(data, dict):
+            data["batch_id"] = batch.batch_id
+            batch.summary = {"adr_id": adr_id, "revision_id": data.get("id")}
+        return _fmt(data)
 
 
 @mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
