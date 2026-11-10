@@ -24,6 +24,7 @@ Click any notification to navigate directly to the relevant card or document. No
 | **Approval status changed** | A card's approval status changes (approved, rejected, broken) |
 | **SoAW sign requested** | You are asked to sign a Statement of Architecture Work |
 | **SoAW signed** | A SoAW you are tracking receives a signature |
+| **ADR standing changed** | A signed decision replaces, amends or revokes a decision you wrote |
 | **Survey request** | A survey is sent that requires your response |
 
 **Approval status changed** also covers the automatic case. An approved card

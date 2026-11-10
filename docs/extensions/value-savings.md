@@ -167,7 +167,7 @@ they can be hidden or frozen from the column chooser.
 | Permission | Grants |
 |---|---|
 | `adr.view` (core) | See the panels, the grid columns and the dashboard |
-| `adr.manage` (core) | Add, edit and delete claims on an unsigned decision |
+| `adr.manage` (core) | Add, edit and delete claims on a draft decision |
 | `ext.value-savings.record` | Record a realization against an approved claim |
 | `ext.value-savings.approve` | Approve or reject a realization — **and** be the person named as its approver |
 

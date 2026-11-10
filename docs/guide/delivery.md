@@ -54,13 +54,21 @@ The editor provides:
 | Status | Meaning |
 |--------|---------|
 | **Draft** | Being written, not yet ready for review |
-| **In Review** | Submitted for stakeholder review |
+| **In Review** | Sent for signature — locked until the signatures are recalled |
 | **Approved** | Reviewed and accepted |
 | **Signed** | Formally signed off |
 
 ### Sign-off Workflow
 
-Once a SoAW is approved, you can request sign-offs from stakeholders. Click **Request Signatures**, then use the search field to find and add signatories by name or email. The system tracks who has signed and sends notifications to pending signers.
+From a draft or an approved SoAW, you can request sign-offs from stakeholders. Click **Request Signatures**, then use the search field to find and add signatories by name or email. The system tracks who has signed and sends notifications to pending signers.
+
+A SoAW in review is **locked**, so signatories sign exactly what they were sent: only its initiative can still change. To edit the content, click **Recall Signatures**, which returns it to draft. A signatory who clicks **Reject** also returns it to draft, under the same revision number. Only a draft SoAW can be deleted.
+
+### Revisions
+
+A signed SoAW is read-only. Click **New Revision** to start a new draft from it, under the same name with the next revision number. There is one open revision at a time: while a revision is being drafted, the signed SoAW says so and offers **Open the revision** instead of starting another. Only the latest revision can be revised, and a rejection does not change the revision number.
+
+An earlier revision shows a banner linking to the current one, and the **Revisions** strip on every revision lists them all. Lists of SoAWs — the initiative's deliverables, the SoAW tab, the EA Delivery report — show the current revision of each document and any revision being drafted.
 
 ### Preview and Export
 
@@ -72,7 +80,7 @@ Once a SoAW is approved, you can request sign-offs from stakeholders. Click **Re
 
 ![Initiative card — SoAW tab](../assets/img/en/55_initiative_soaw_tab.png)
 
-Initiatives also expose a dedicated **SoAW** tab directly on their card detail page. The tab lists every SoAW linked to that initiative (title, status chip, revision number, last-modified date) with a **+ New SoAW** button that pre-selects the current initiative — so you can author or jump to a SoAW without leaving the card you're working on. Creation reuses the same dialog as the EA Delivery page, and the new document appears in both places. Visibility of the tab follows the standard card permission rules.
+Initiatives also expose a dedicated **SoAW** tab directly on their card detail page. The tab lists the current revision of every SoAW linked to that initiative, plus any revision being drafted (title, status chip, revision number, last-modified date) with a **+ New SoAW** button that pre-selects the current initiative — so you can author or jump to a SoAW without leaving the card you're working on. Creation reuses the same dialog as the EA Delivery page, and the new document appears in both places. Visibility of the tab follows the standard card permission rules.
 
 ## Architecture Decision Records (ADR)
 

@@ -229,7 +229,7 @@ Everything that moves the card's **Modified** date appears here — an edit by h
 
 ## ADRs Tab
 
-Every card carries an **ADRs** tab listing the [Architecture Decision Records](delivery.md) linked to it, showing each decision's reference, title, status, all of its linked cards, and when it was last modified. Click a row to open the decision.
+Every card carries an **ADRs** tab listing the [Architecture Decision Records](delivery.md) linked to it — the current revision of each decision, plus any revision being drafted — showing each decision's reference, title, standing (or its status while it is not signed yet), all of its linked cards, and when it was last modified. Click a row to open the decision; earlier revisions are reached from it.
 
 If you are allowed to manage ADR links, the tab also offers **Link ADR** to attach an existing decision and **Create ADR** to start a new one that is pre-linked to this card, plus an unlink action on every row. On cards with no linked decisions the tab is hidden unless you hold that permission, so read-only users never see an empty tab.
 

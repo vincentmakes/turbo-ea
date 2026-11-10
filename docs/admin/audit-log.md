@@ -43,7 +43,7 @@ The **Security & admin** sub-tab lists one entry per security-relevant action, n
 - account lockouts after repeated failures;
 - registrations, and passwords being set, reset or changed;
 - role impersonation — an administrator starting and stopping **View as role…**;
-- administrative actions — changes to users, roles, settings, the metamodel, tags, calculations, extensions, imports, integrations, public portals and published diagrams, surveys and operator access (see [Administrative actions](#administrative-actions));
+- administrative actions — changes to users, roles, settings, the metamodel, tags, calculations, extensions, imports, integrations, public portals and published diagrams, surveys, decisions recorded as decided and operator access (see [Administrative actions](#administrative-actions));
 - data exports — the card CSV and JSON exports, workspace exports and exports for another EA platform (see [Data exports](#data-exports)) — and exports of this log itself.
 
 ### Columns
@@ -156,6 +156,7 @@ A save that changes nothing is not recorded, and neither is a user editing their
 | **Public exposure** | `admin.web_portal.created`, `.updated`, `.deleted`; `admin.diagram.published`, `.unpublished` | [Web portals](web-portals.md) and published diagrams — everything that makes data reachable without an account |
 | **Homepage dashboards** | `admin.dashboard.created`, `.updated`, `.deleted`, `.duplicated`, `.reset` | [Dashboards](../guide/dashboard.md#customizing-dashboards) created, edited, deleted, duplicated or reset to their default, with the changed name, description, icon, visibility, order and access roles; each widget added or removed is listed by name (moving or resizing a widget is not recorded) |
 | **Surveys** | `admin.survey.sent`, `admin.survey.closed` | A survey sent to its recipients, or closed |
+| **Architecture decisions** | `admin.adr.recorded` | A decision taken outside Turbo EA [recorded as decided](../guide/grc.md#recording-a-past-decision) without signatures, with its decided-on and effective-from dates and its decision makers |
 | **Operator access** | `admin.ops.rescue_access.granted`, `.revoked` | Rescue access granted or revoked through the [operations API](ops-api.md), recorded alongside the existing `ops.*` events |
 
 ### Data exports
