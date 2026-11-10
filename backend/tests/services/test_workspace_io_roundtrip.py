@@ -2911,3 +2911,182 @@ async def test_an_older_bundle_keeps_dates_already_set_and_links_only_what_it_cr
     ).scalar_one()
     assert (arrived.decided_on, arrived.effective_from) == (date(2026, 1, 1), date(2026, 5, 6))
     assert arrived.signed_at == datetime(2026, 5, 6, 8, tzinfo=timezone.utc)
+
+
+def _legacy_adr_row(sections, adr_id, ref, status, related, signed_at=None):
+    """One ``Adrs`` row of an older bundle (every current column blank)."""
+    return {c: None for c in sections["Adrs"].header()} | {
+        "id": adr_id,
+        "reference_number": ref,
+        "title": f"Legacy {ref}",
+        "status": status,
+        "revision_number": 1,
+        "attributes": {},
+        "signatories": [],
+        "signed_at": signed_at,
+        "related_decisions": related,
+    }
+
+
+async def test_a_selective_apply_of_an_older_adrs_sheet_files_its_links_on_a_new_section(db):
+    """Applying only the ``Adrs`` sheet of an older bundle still turns
+    ``related_decisions`` into links, and counts them on an ``AdrLinks``
+    section the run adds, since no ``AdrLinks`` section ran."""
+    from app.models.architecture_decision_link import ArchitectureDecisionLink
+    from app.services.workspace_io.applier import apply_selected
+    from app.services.workspace_io.sections import ENTITY_SECTIONS
+
+    importer = await create_user(db, email="legacy-selective@test.com", role="admin")
+    sections = {s.sheet: s for s in ENTITY_SECTIONS}
+    a_id = "8a1c2f34-0000-4000-8000-0000000000e1"
+    b_id = "8a1c2f34-0000-4000-8000-0000000000e2"
+    raw = _legacy_adr_bundle(
+        sections,
+        [
+            _legacy_adr_row(sections, a_id, "ADR-821", "draft", ["ADR-822"]),
+            _legacy_adr_row(sections, b_id, "ADR-822", "draft", None),
+        ],
+    )
+
+    result = await apply_selected(db, parse_bundle(raw), importer, sheets={"Adrs"}, dry_run=False)
+
+    assert result.total_failed == 0, result.as_dict()
+    assert [s.sheet for s in result.sections] == ["Adrs", "AdrLinks"]
+    assert result.sections[1].created == 1
+    links = (
+        await db.execute(
+            select(
+                ArchitectureDecisionLink.source_id,
+                ArchitectureDecisionLink.target_id,
+                ArchitectureDecisionLink.kind,
+            )
+        )
+    ).all()
+    assert [(str(s), str(t), k) for s, t, k in links] == [(a_id, b_id, "relates")]
+
+
+async def test_an_older_bundle_does_not_relink_a_pair_its_links_sheet_already_created(db):
+    """A bundle carrying both an ``AdrLinks`` sheet and ``related_decisions``:
+    a pair the sheet already linked keeps the sheet's link and kind, and the
+    legacy column adds only the pair the sheet did not."""
+    from app.models.architecture_decision_link import ArchitectureDecisionLink
+    from app.services.workspace_io.sections import ENTITY_SECTIONS
+
+    importer = await create_user(db, email="legacy-both@test.com", role="admin")
+    sections = {s.sheet: s for s in ENTITY_SECTIONS}
+    a_id = "8a1c2f34-0000-4000-8000-0000000000f1"
+    b_id = "8a1c2f34-0000-4000-8000-0000000000f2"
+    c_id = "8a1c2f34-0000-4000-8000-0000000000f3"
+    adr_header = tuple(sections["Adrs"].header()) + ("related_decisions",)
+    link_header = tuple(sections["AdrLinks"].header())
+    link_row = {c: None for c in link_header} | {
+        "id": "8a1c2f34-0000-4000-8000-0000000000f9",
+        "source_id": a_id,
+        "target_id": b_id,
+        "kind": "amends",
+    }
+    raw = _make_bundle(
+        {
+            "Adrs": (
+                adr_header,
+                frozenset({"related_decisions", "attributes", "signatories"}),
+                [
+                    _legacy_adr_row(sections, a_id, "ADR-831", "draft", ["ADR-832", "ADR-833"]),
+                    _legacy_adr_row(sections, b_id, "ADR-832", "draft", None),
+                    _legacy_adr_row(sections, c_id, "ADR-833", "draft", None),
+                ],
+            ),
+            "AdrLinks": (link_header, frozenset(), [link_row]),
+        }
+    )
+
+    result = await apply_bundle(db, parse_bundle(raw), importer)
+
+    assert result.total_failed == 0, result.as_dict()
+    links_sr = next(s for s in result.sections if s.sheet == "AdrLinks")
+    assert links_sr.created == 2
+    links = (
+        await db.execute(
+            select(
+                ArchitectureDecisionLink.source_id,
+                ArchitectureDecisionLink.target_id,
+                ArchitectureDecisionLink.kind,
+            )
+        )
+    ).all()
+    assert sorted((str(s), str(t), k) for s, t, k in links) == [
+        (a_id, b_id, "amends"),
+        (a_id, c_id, "relates"),
+    ]
+
+
+async def test_an_older_bundle_dates_only_the_signed_decisions_it_created_in_utc(db):
+    """Only a decision the import created, signed, with a ``signed_at`` takes
+    its dates, and the date is the UTC one whatever the server's zone: a
+    decision already here, a draft with a ``signed_at`` and a signed one
+    without it keep their empty dates."""
+    import os
+    import time
+    from datetime import date, datetime, timezone
+
+    from app.models.architecture_decision import ArchitectureDecision
+    from app.services.workspace_io.sections import ENTITY_SECTIONS
+
+    importer = await create_user(db, email="legacy-dates@test.com", role="admin")
+    sections = {s.sheet: s for s in ENTITY_SECTIONS}
+    here = ArchitectureDecision(
+        reference_number="ADR-840",
+        title="Signed here",
+        status="signed",
+        signed_at=datetime(2026, 2, 2, 9, tzinfo=timezone.utc),
+    )
+    db.add(here)
+    await db.flush()
+    raw = _legacy_adr_bundle(
+        sections,
+        [
+            _legacy_adr_row(
+                sections,
+                "8a1c2f34-0000-4000-8000-0000000000a1",
+                "ADR-841",
+                "signed",
+                None,
+                signed_at="2026-03-04T23:30:00+00:00",
+            ),
+            _legacy_adr_row(
+                sections,
+                "8a1c2f34-0000-4000-8000-0000000000a2",
+                "ADR-842",
+                "draft",
+                None,
+                signed_at="2026-03-04T10:00:00+00:00",
+            ),
+            _legacy_adr_row(
+                sections, "8a1c2f34-0000-4000-8000-0000000000a3", "ADR-843", "signed", None
+            ),
+        ],
+    )
+
+    saved_tz = os.environ.get("TZ")
+    os.environ["TZ"] = "Asia/Tokyo"
+    time.tzset()
+    try:
+        result = await apply_bundle(db, parse_bundle(raw), importer)
+    finally:
+        if saved_tz is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = saved_tz
+        time.tzset()
+
+    assert result.total_failed == 0, result.as_dict()
+    by_ref = {
+        r.reference_number: (r.decided_on, r.effective_from)
+        for r in (await db.execute(select(ArchitectureDecision))).scalars().all()
+    }
+    assert by_ref == {
+        "ADR-840": (None, None),
+        "ADR-841": (date(2026, 3, 4), date(2026, 3, 4)),
+        "ADR-842": (None, None),
+        "ADR-843": (None, None),
+    }

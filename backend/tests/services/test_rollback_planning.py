@@ -342,6 +342,11 @@ def test_adr_created():
     }
     assert plan("adr.created", {"id": "a-2"})["adr_id"] == "a-2"
     assert plan("adr.created", {"id": "a-2"})["detail"] == ""
+    # A revision is named from Rev 2 on, but never without its reference.
+    assert plan("adr.created", {"id": "a-3", "reference_number": "ADR-7", "revision_number": 2})[
+        "detail"
+    ] == ("ADR-7 · Rev 2")
+    assert plan("adr.created", {"id": "a-3", "revision_number": 2})["detail"] == ""
     assert plan("adr.created", {}) == unsupported(
         "adr.created", "adr.created carries no decision id"
     )

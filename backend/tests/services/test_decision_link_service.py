@@ -92,6 +92,27 @@ class TestLoadRegister:
         assert register[old.id].standing == ds.SUPERSEDED
         assert register[old.id].superseded_by.id == new.id
 
+    async def test_rows_and_links_carry_their_stored_created_at(self, db):
+        """The creation times reach the register: they order a forked chain
+        and break a tie between two closing links."""
+        made = datetime(2025, 6, 7, 8, 9, tzinfo=timezone.utc)
+        linked = datetime(2025, 7, 8, 9, 10, tzinfo=timezone.utc)
+        old = await _decision(db, "ADR-001")
+        old.created_at = made
+        new = await _decision(db, "ADR-002")
+        db.add(
+            ArchitectureDecisionLink(
+                source_id=new.id, target_id=old.id, kind="relates", created_at=linked
+            )
+        )
+        await db.flush()
+
+        register = await ds.load_register(db, today=TODAY)
+
+        assert register.row(old.id).created_at == made
+        [link] = register.links
+        assert link.created_at == linked
+
 
 # ---------------------------------------------------------------------------
 # replace_links
@@ -460,3 +481,117 @@ class TestCopyRelatesLinks:
         assert [(t, k, n) for _, t, k, n in await _links(db, new.id)] == [(a.id, "relates", "n")]
         # The source keeps its own links.
         assert len(await _links(db, src.id)) == 3
+
+
+# ---------------------------------------------------------------------------
+# edges the mutation gate found
+# ---------------------------------------------------------------------------
+
+
+class TestLinkErrorMessage:
+    def test_an_unlisted_code_is_its_own_message(self):
+        detail = svc.link_error(["odd_problem", "other"], "t-1").detail
+        assert detail == {
+            "error": "odd_problem",
+            "problems": ["odd_problem", "other"],
+            "target_id": "t-1",
+            "message": "odd_problem (t-1)",
+        }
+
+
+class TestReferenceCaseFolding:
+    def test_a_reference_matches_under_full_upper_case_folding(self):
+        """``ß`` upper-cases to ``SS``: the reference is compared upper-cased."""
+        register = ds.build_register([_row(1, "ADR-STRASSE")], [], today=TODAY)
+        assert svc.resolve_in_register(register, "adr-straße") == uuid.UUID(int=1)
+
+
+class TestWantedLinksFromObjects:
+    def test_an_entry_object_without_a_note_attribute_has_no_note(self):
+        from types import SimpleNamespace
+
+        register = ds.build_register([_row(1, "ADR-001"), _row(2, "ADR-002")], [], today=TODAY)
+        wanted = svc.wanted_links(
+            register,
+            uuid.UUID(int=2),
+            links=[SimpleNamespace(decision_id="ADR-001", kind="relates")],
+        )
+        assert wanted == [WantedLink(uuid.UUID(int=1), "relates", None)]
+
+
+class TestLinksPayloadEdges:
+    def test_a_missing_decision_listed_first_does_not_hide_the_next(self):
+        rows = [_row(5, "ADR-005"), _row(9, "ADR-009")]
+        links = [
+            ds.LinkRow(uuid.UUID(int=9), uuid.UUID(int=1), "relates"),
+            ds.LinkRow(uuid.UUID(int=9), uuid.UUID(int=5), "relates"),
+        ]
+        register = ds.build_register(rows, links, today=TODAY)
+        out = svc.links_payload(register, uuid.UUID(int=9))["outgoing"]
+        assert [e["decision"]["id"] for e in out] == [str(uuid.UUID(int=5))]
+
+    def test_two_links_to_one_decision_keep_their_order(self):
+        """Only the other decision orders the entries: two links to the same
+        decision stay in register order, their payloads never compared."""
+        rows = [_row(1, "ADR-001"), _row(9, "ADR-009")]
+        links = [
+            ds.LinkRow(uuid.UUID(int=9), uuid.UUID(int=1), "relates"),
+            ds.LinkRow(uuid.UUID(int=9), uuid.UUID(int=1), "amends"),
+        ]
+        register = ds.build_register(rows, links, today=TODAY)
+        out = svc.links_payload(register, uuid.UUID(int=9))["outgoing"]
+        assert [e["kind"] for e in out] == ["amends", "relates"]
+
+
+class TestRevisionNotYetInTheRegister:
+    """A revision created after the register was loaded is read as a revision
+    of its parent: a link into the parent's chain is refused."""
+
+    async def _setup(self, db):
+        root = await _decision(db, "ADR-001")
+        register = await ds.load_register(db)
+        rev = await _decision(db, "ADR-001", status="draft", rev=2, parent=root)
+        return root, rev, register
+
+    async def test_replace_links_refuses_the_parent_chain(self, db):
+        root, rev, register = await self._setup(db)
+        with pytest.raises(HTTPException) as exc:
+            await svc.replace_links(db, rev, [WantedLink(root.id, "relates")], register=register)
+        assert exc.value.detail["error"] == ds.SAME_CHAIN
+        assert await _links(db, rev.id) == []
+
+    async def test_add_relates_links_drops_the_parent_chain(self, db):
+        root, rev, register = await self._setup(db)
+        assert await svc.add_relates_links(db, rev, [str(root.id)], register=register) == []
+        assert await _links(db, rev.id) == []
+
+
+class TestAddRelatesLinksOwnChain:
+    async def test_a_later_revision_of_the_decision_itself_is_dropped_not_the_rest(self, db):
+        root = await _decision(db, "ADR-001")
+        rev = await _decision(db, "ADR-001", status="draft", rev=2, parent=root)
+        other = await _decision(db, "ADR-002")
+
+        added = await svc.add_relates_links(
+            db, root, [str(rev.id), str(other.id)], register=await ds.load_register(db)
+        )
+
+        assert added == [other.id]
+        assert [(t, k) for _, t, k, _ in await _links(db, root.id)] == [(other.id, "relates")]
+
+
+class TestCopyRelatesLinksCount:
+    async def test_counts_every_link_copied(self, db):
+        a = await _decision(db, "ADR-001")
+        b = await _decision(db, "ADR-002")
+        src = await _decision(db, "ADR-003")
+        new = await _decision(db, "ADR-004", status="draft")
+        db.add_all(
+            [
+                ArchitectureDecisionLink(source_id=src.id, target_id=a.id, kind="relates"),
+                ArchitectureDecisionLink(source_id=src.id, target_id=b.id, kind="relates"),
+            ]
+        )
+        await db.flush()
+
+        assert await svc.copy_relates_links(db, src.id, new.id) == 2

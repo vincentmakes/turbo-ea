@@ -1687,3 +1687,145 @@ class TestReferenceSequence:
         second = await _create_adr(client, admin, title="Two")
         assert first.json()["reference_number"] == "ADR-001"
         assert second.json()["reference_number"] == "ADR-002"
+
+
+class TestListAndEventHelpers:
+    """The list-row, detail and card-event helpers of ``app/api/v1/adr.py``,
+    called directly so each field is pinned without the route around it."""
+
+    async def _decision_with_card(self, db, *, creator=None, card_type="Application"):
+        from app.models.architecture_decision_card import ArchitectureDecisionCard
+
+        card = await create_card(db, card_type=card_type, name=f"{card_type} card")
+        adr = ArchitectureDecision(
+            reference_number=f"ADR-{uuid.uuid4().hex[:6]}",
+            title="Listed",
+            created_by=creator.id if creator else None,
+        )
+        db.add(adr)
+        await db.flush()
+        db.add(ArchitectureDecisionCard(architecture_decision_id=adr.id, card_id=card.id))
+        await db.flush()
+        return adr, card
+
+    async def test_summaries_carry_cards_and_creator_names_by_default(self, db, adr_env):
+        from app.api.v1 import adr as adr_api
+        from app.services import decision_standing as ds
+
+        admin = adr_env["admin"]
+        creator = await create_user(db, email="lister@test.com", display_name="Lister")
+        adr, card = await self._decision_with_card(db, creator=creator)
+        # A card on a decision not asked for must not reach the rows.
+        await self._decision_with_card(db)
+        anonymous = ArchitectureDecision(reference_number="ADR-ANON", title="Nobody's")
+        db.add(anonymous)
+        await db.flush()
+        register = await ds.load_register(db)
+
+        rows = await adr_api._summaries(db, [adr, anonymous], register, admin)
+
+        assert [r["id"] for r in rows] == [str(adr.id), str(anonymous.id)]
+        assert rows[0]["linked_cards"] == [
+            {"id": str(card.id), "name": "Application card", "type": "Application"}
+        ]
+        assert rows[0]["creator_name"] == "Lister"
+        assert (rows[1]["linked_cards"], rows[1]["creator_name"]) == ([], None)
+        assert "participants" not in rows[0]
+
+    async def test_summaries_without_creators_name_nobody(self, db, adr_env):
+        from app.api.v1 import adr as adr_api
+        from app.services import decision_standing as ds
+
+        creator = await create_user(db, email="unnamed@test.com", display_name="Unnamed")
+        adr, _ = await self._decision_with_card(db, creator=creator)
+        rows = await adr_api._summaries(
+            db, [adr], await ds.load_register(db), adr_env["admin"], with_creators=False
+        )
+        assert rows[0]["creator_name"] is None
+        assert rows[0]["created_by"] == str(creator.id)
+
+    async def test_a_module_only_reader_sees_the_linked_cards(self, db, adr_env):
+        """A role with ``adr.view`` but not ``inventory.view`` reads the list in
+        module mode: every linked card is shown."""
+        from app.api.v1 import adr as adr_api
+        from app.services import decision_standing as ds
+
+        await create_role(db, key="adr_only", label="ADR only", permissions={"adr.view": True})
+        reader = await create_user(db, email="adr-only@test.com", role="adr_only")
+        adr, card = await self._decision_with_card(db)
+
+        rows = await adr_api._summaries(db, [adr], await ds.load_register(db), reader)
+
+        assert [c["id"] for c in rows[0]["linked_cards"]] == [str(card.id)]
+
+    async def test_a_card_of_a_hidden_type_is_left_out_of_rows_and_detail(self, db, adr_env):
+        from app.api.v1 import adr as adr_api
+        from app.models.card_type import CardType
+        from app.services import decision_standing as ds
+        from app.services.permission_service import PermissionService
+
+        await create_card_type(db, key="Initiative", label="Initiative")
+        adr, _secret = await self._decision_with_card(db, card_type="Initiative")
+        ct = (await db.execute(select(CardType).where(CardType.key == "Initiative"))).scalar_one()
+        ct.role_permissions = {"member": {"inventory.view": False}}
+        await db.flush()
+        PermissionService.invalidate_type_permission_cache()
+        member = adr_env["member"]
+
+        rows = await adr_api._summaries(db, [adr], await ds.load_register(db), member)
+        detail = await adr_api._detail(db, adr, member)
+
+        assert rows[0]["linked_cards"] == []
+        assert detail["linked_cards"] == []
+
+    async def test_a_summary_without_people_has_empty_lists(self, db, adr_env):
+        from app.api.v1 import adr as adr_api
+        from app.services import decision_standing as ds
+
+        adr = ArchitectureDecision(id=uuid.uuid4(), reference_number="ADR-P", title="No people")
+        register = ds.build_register([], [], today=date(2026, 1, 1))
+
+        plain = adr_api._adr_to_summary(adr, register=register, people={})
+        full = adr_api._adr_to_summary(adr, register=register, people={}, with_participants=True)
+
+        assert plain["decision_makers"] == []
+        assert "participants" not in plain
+        assert (full["decision_makers"], full["participants"]) == ([], [])
+
+    async def test_the_card_event_names_the_revision_and_links_the_decision(self, db, adr_env):
+        from app.api.v1 import adr as adr_api
+        from app.services import adr_service
+
+        adr, card = await self._decision_with_card(db)
+        adr.revision_number = 3
+        await db.flush()
+
+        await adr_api._publish_adr_card_event(
+            db, adr, "adr.linked", card.id, actor_id=adr_env["admin"].id
+        )
+
+        event = (
+            await db.execute(select(Event).where(Event.event_type == "adr.linked"))
+        ).scalar_one()
+        assert event.data == {
+            "adr_id": str(adr.id),
+            "reference_number": adr.reference_number,
+            "revision_number": 3,
+            "title": "Listed",
+            "status": "draft",
+            "link": adr_service.decision_link(adr.id),
+        }
+        assert (event.card_id, event.user_id) == (card.id, adr_env["admin"].id)
+
+    async def test_a_recorder_no_longer_found_has_no_name(self, db, adr_env):
+        from app.api.v1 import adr as adr_api
+        from app.services import decision_standing as ds
+
+        adr, _ = await self._decision_with_card(db)
+        register = await ds.load_register(db)
+        ghost = uuid.uuid4()
+        with db.no_autoflush:
+            adr.recorded_by = ghost
+            detail = await adr_api._adr_to_dict(db, adr, register)
+        assert detail["recorded_by"] == {"user_id": str(ghost), "display_name": None}
+        adr.recorded_by = None
