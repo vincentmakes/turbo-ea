@@ -208,6 +208,31 @@ def test_resolve_truth_table(kind, reply, deleted, may_comment, expected):
     assert svc.may_resolve(comment, may_comment=may_comment) is (expected is None)
 
 
+# (thread top deleted, may_comment) → refusal
+REPLY_TABLE = [
+    (False, True, None),
+    (True, True, (409, "This thread's first comment was deleted")),
+    (False, False, (403, "You may not comment on this document")),
+    # The comment right is checked first, closed thread or not.
+    (True, False, (403, "You may not comment on this document")),
+]
+
+
+@pytest.mark.parametrize("deleted, may_comment, expected", REPLY_TABLE)
+def test_reply_truth_table(deleted, may_comment, expected):
+    top = _c(deleted=NOW if deleted else None)
+    assert svc.reply_refusal(top, may_comment=may_comment) == expected
+
+
+def test_the_closed_message():
+    assert svc.THREAD_CLOSED == "This thread's first comment was deleted"
+
+
+def test_thread_closed():
+    assert svc.thread_closed(_c()) is False
+    assert svc.thread_closed(_c(deleted=NOW)) is True
+
+
 def test_comment_can():
     mine = _c(author=U1)
     assert svc.comment_can(mine, U1, may_comment=True, moderate=False) == {
@@ -613,6 +638,25 @@ class TestPayload:
         assert threads[1]["can"] == {"edit": False, "delete": False, "resolve": False}
         assert "replies" not in threads[0]["replies"][0]
         assert threads[0]["replies"][0]["can"] == {"edit": False, "delete": False, "resolve": False}
+
+
+def test_build_threads_keeps_a_deleted_thread():
+    closed = _c(cid=U1, deleted=NOW, body="")
+    gone_reply = _c(parent=U1, deleted=NOW, body="")
+    bare = _c(cid=U2, deleted=NOW, body="")
+    threads = svc.build_threads(
+        [closed, gone_reply, bare],
+        user_id=U1,
+        revision_numbers={str(DOC): 1},
+        may_comment={str(DOC): True},
+        moderate=True,
+        names={},
+        render=lambda c: c.body,
+    )
+    assert [(t["id"], t["deleted"], len(t["replies"])) for t in threads] == [
+        (str(U1), True, 1),
+        (str(U2), True, 0),
+    ]
 
 
 def test_token_scope_is_the_comment():

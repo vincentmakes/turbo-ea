@@ -1084,7 +1084,9 @@ async def get_document_discussion(
     signatory left when signing), ``section`` (the part of the document it
     is about, or null), ``revision_id`` / ``revision_number`` (the revision
     it was started on), ``author``, ``created_at``, ``edited_at``,
-    ``deleted`` (a deleted comment keeps its place, with an empty body),
+    ``deleted`` (a deleted comment keeps its place, with an empty body; a
+    thread whose first comment is deleted is closed: no reply, resolve or
+    reopen),
     ``resolved_at`` / ``resolved_by`` and ``replies`` (one level deep).
     ``open_count`` counts the open threads of this revision; ``can.comment``
     says whether you may post here (``add_document_comment``).
@@ -1244,6 +1246,13 @@ def _comment_problem(
     return None, html
 
 
+#: Why a reply to a thread whose first comment is deleted is refused.
+THREAD_CLOSED_MESSAGE = (
+    "This thread's first comment was deleted: the thread is closed and takes no reply. "
+    "Start a new thread instead."
+)
+
+
 def _comment_preview(
     discussion: object, document_type: str, parent_id: str
 ) -> tuple[dict | None, dict]:
@@ -1264,7 +1273,14 @@ def _comment_preview(
     if parent_id:
         wanted = str(uuid.UUID(parent_id))
         threads = [t for t in data.get("threads") or [] if isinstance(t, dict)]
-        if not any(str(t.get("id")) == wanted for t in threads):
+        parent = next((t for t in threads if str(t.get("id")) == wanted), None)
+        if parent is not None and parent.get("deleted") is True:
+            return {
+                "error": "thread_closed",
+                "parent_id": parent_id,
+                "message": THREAD_CLOSED_MESSAGE,
+            }, rights
+        if parent is None:
             return {
                 "error": "invalid_parent",
                 "parent_id": parent_id,
@@ -1278,10 +1294,12 @@ def _comment_preview(
 
 
 def _comment_refusal(exc: httpx.HTTPStatusError, document_type: str) -> dict | None:
-    """The answer to a 400 / 403 / 404 from ``POST …/comments``, else None."""
+    """The answer to a 400 / 403 / 404 / 409 from ``POST …/comments``, else None."""
     status = exc.response.status_code
     detail = _detail(exc)
     text = detail if isinstance(detail, str) else ""
+    if status == 409 and text == "This thread's first comment was deleted":
+        return {"error": "thread_closed", "detail": text, "message": THREAD_CLOSED_MESSAGE}
     if status == 403:
         if text == "You may not comment on this document":
             perm = _DOCUMENT_PERMISSIONS[document_type]

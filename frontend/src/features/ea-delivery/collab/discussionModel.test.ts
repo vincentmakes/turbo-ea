@@ -16,7 +16,9 @@ import {
   discussionPath,
   groupThreads,
   isBlankHtml,
+  hasLiveComment,
   isOpenThread,
+  threadClosed,
   markDeleted,
   markerUnfoldsResolved,
   newCommentBody,
@@ -232,6 +234,47 @@ describe("applyThread", () => {
   });
 });
 
+describe("threadClosed / hasLiveComment", () => {
+  it("closes a thread whose first comment is deleted, and only that one", () => {
+    expect(threadClosed(thread({ deleted: true }))).toBe(true);
+    expect(threadClosed(thread({ deleted: false, replies: [comment({ id: "r", deleted: true })] }))).toBe(false);
+  });
+  it("finds a live comment in the thread's first comment or any reply", () => {
+    expect(hasLiveComment(thread())).toBe(true);
+    expect(hasLiveComment(thread({ replies: [comment({ id: "r", deleted: true })] }))).toBe(true);
+    expect(hasLiveComment(thread({ deleted: true }))).toBe(false);
+    expect(hasLiveComment(thread({ deleted: true, replies: [comment({ id: "r", deleted: true })] }))).toBe(false);
+    expect(
+      hasLiveComment(
+        thread({ deleted: true, replies: [comment({ id: "r", deleted: true }), comment({ id: "s" })] }),
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("a deleted thread in the counts and the filter", () => {
+  const sections = [{ key: "context", label: "Context" }];
+  const t = (k: string) => k;
+  const dead = thread({ id: "d", section: "context", deleted: true });
+  const closed = thread({ id: "c", section: "context", deleted: true, replies: [comment({ id: "r" })] });
+  it("never counts as open, nor in a section marker", () => {
+    expect(isOpenThread(dead)).toBe(false);
+    expect(isOpenThread(closed)).toBe(false);
+    expect(openCount([dead, closed], dead.revision_id)).toBe(0);
+    expect(sectionThreadCounts([dead, closed], dead.revision_id, sections)).toEqual({});
+  });
+  it("stays listed and filterable under its section", () => {
+    expect(sectionFilterChips([dead, closed, thread({ id: "g", section: null })], sections, [], t)).toEqual([
+      { key: "general", label: "collab.discussion.section.general", count: 1, active: false },
+      { key: "context", label: "Context", count: 2, active: false },
+    ]);
+    expect(applySectionFilter([dead, closed, thread({ id: "g", section: null })], ["context"]).map((x) => x.id)).toEqual([
+      "d",
+      "c",
+    ]);
+  });
+});
+
 describe("markDeleted", () => {
   it("blanks a deleted thread and keeps its replies", () => {
     const reply = comment({ id: "r" });
@@ -256,6 +299,12 @@ describe("markDeleted", () => {
       can: { edit: false, delete: false, resolve: false },
     });
     expect(out[0].replies[1]).toBe(keep);
+  });
+  it("keeps a thread in place once its last live reply is deleted", () => {
+    const out = markDeleted([thread({ id: "t", deleted: true, replies: [comment({ id: "r" })] })], "r");
+    expect(out.map((th) => th.id)).toEqual(["t"]);
+    expect(out[0].deleted).toBe(true);
+    expect(out[0].replies[0].deleted).toBe(true);
   });
   it("leaves the list alone for an id it does not hold", () => {
     const th = thread({ id: "t" });

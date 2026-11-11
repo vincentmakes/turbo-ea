@@ -231,6 +231,19 @@ export function isOpenThread(thread: DocumentThread): boolean {
   return thread.resolved_at === null && !thread.deleted && thread.kind !== "sign_note";
 }
 
+/**
+ * A thread whose first comment is deleted is closed: its replies stay, but it
+ * takes no reply and cannot be resolved or reopened (the server answers 409).
+ */
+export function threadClosed(thread: Pick<DocumentThread, "deleted">): boolean {
+  return thread.deleted;
+}
+
+/** Whether a thread still has a comment that is not deleted (its first or a reply). */
+export function hasLiveComment(thread: Pick<DocumentThread, "deleted" | "replies">): boolean {
+  return !thread.deleted || thread.replies.some((reply) => !reply.deleted);
+}
+
 /** The open threads of the revision on screen (the panel's badge). */
 export function openCount(threads: readonly DocumentThread[], currentDocId: string): number {
   return threads.filter((th) => th.revision_id === currentDocId && isOpenThread(th)).length;

@@ -5,7 +5,8 @@ without it, then 404 for an unknown document). Posting, replying, resolving
 and reopening take the comment permission (``adr.comment`` / ``soaw.comment``)
 or being a signatory of the revision; editing is the author's; deleting is
 the author's, or an editor's (``adr.manage`` / ``soaw.manage``) for a plain
-comment. A comment of another document is 404 on every mutating route.
+comment. A reply to a thread whose first comment is deleted is 409. A comment
+of another document is 404 on every mutating route.
 
 The handlers are thin: the rules live in
 :mod:`app.services.document_discussion_service`, which flushes, publishes the
@@ -176,7 +177,8 @@ async def delete_adr_comment(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Delete a comment (it stays as a placeholder)."""
+    """Delete a comment (it stays as a placeholder; a deleted thread start
+    closes the thread to replies)."""
     await _delete(db, user, collab.ADR, adr_id, comment_id)
 
 
@@ -250,7 +252,8 @@ async def delete_soaw_comment(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Delete a comment (it stays as a placeholder)."""
+    """Delete a comment (it stays as a placeholder; a deleted thread start
+    closes the thread to replies)."""
     await _delete(db, user, collab.SOAW, soaw_id, comment_id)
 
 

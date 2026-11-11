@@ -317,6 +317,38 @@ describe("DiscussionPanel", () => {
     expect(screen.getByText("A reply")).toBeInTheDocument();
   });
 
+  it("keeps a thread whose last live reply is deleted as one small line, with nothing to act on", async () => {
+    const closed = thread({
+      body: "",
+      deleted: true,
+      can: { edit: false, delete: false, resolve: false },
+      replies: [comment({ id: "r1", body: "<p>A reply</p>" })],
+    });
+    serve({ can, open_count: 0, threads: [closed, thread({ id: "t2", body: "<p>Other</p>" })] });
+    mockApi.on("delete", "/adr/a2/comments/r1", undefined);
+    const { user } = renderPanel();
+    const t1 = within(await screen.findByTestId("thread-t1"));
+    expect(t1.queryByRole("button", { name: "Reply" })).toBeNull();
+    expect(t1.queryByRole("button", { name: "Resolve" })).toBeNull();
+    await user.click(t1.getByRole("button", { name: "Delete" }));
+    discussion = {
+      ...discussion,
+      threads: [
+        { ...closed, replies: [comment({ id: "r1", body: "", deleted: true })] },
+        thread({ id: "t2", body: "<p>Other</p>" }),
+      ],
+    };
+    const confirmRow = t1.getByText("Delete this comment?").parentElement as HTMLElement;
+    await user.click(within(confirmRow).getByRole("button", { name: "Delete" }));
+    await waitFor(() =>
+      expect(mockApi.callsOf("delete")).toEqual([{ method: "delete", path: "/adr/a2/comments/r1", body: undefined }]),
+    );
+    await waitFor(() => expect(screen.getByTestId("thread-t1")).toHaveAttribute("data-compact", "true"));
+    expect(within(screen.getByTestId("thread-t1")).queryByRole("button")).toBeNull();
+    expect(screen.queryByText("A reply")).toBeNull();
+    expect(screen.getByText("Other")).toBeInTheDocument();
+  });
+
   it("marks a rejection reason, gives an empty one its fallback and offers no edit or delete on it", async () => {
     serve({
       can,
