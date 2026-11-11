@@ -119,6 +119,8 @@ En todos los casos puede buscar y vincular tarjetas adicionales durante la creac
 El editor proporciona:
 
 - Edición de texto enriquecido para cada sección (Contexto, Decisión, Consecuencias, Alternativas Consideradas)
+- **Menciones** — escriba **@** en una sección para mencionar una ficha u otra decisión (consulte [Menciones](#decision-mentions))
+- **Discusión e historial** — un panel junto al documento con su discusión y su historial (consulte [Discusión](#decision-discussion) e [Historial](#decision-history))
 - Vinculación de tarjetas — conecte el ADR a tarjetas relevantes (aplicaciones, componentes TI, iniciativas, …). Las iniciativas se vinculan a través de la vinculación estándar de tarjetas, no por un campo dedicado, lo que permite que un ADR referencie múltiples iniciativas
 - **Fechas** — *Decidida el*, *Vigente desde* y un *Válida hasta* opcional (consulte [Fechas](#decision-dates))
 - **Personas** — los *Responsables de la decisión* y los *Participantes* (consulte [Personas](#decision-people))
@@ -205,6 +207,48 @@ Haga clic en el icono de vista previa para ver una versión de solo lectura y fo
 
 Desde la vista previa, haga clic en **PDF** para abrir una copia lista para imprimir en una pestaña nueva — metadatos y fechas, las cuatro secciones, personas, tarjetas vinculadas, vínculos con otras decisiones, nombres de archivo, secciones de extensiones y el bloque de firmas (o la línea de registro), con el aprobador y la fecha de impresión en el pie. El editor tiene el mismo botón **PDF** más **Word**, que descarga la decisión como `.docx` mientras no esté firmada; ambos exportan el estado actual del editor, incluidos los cambios sin guardar.
 
+#### Discusión {: #decision-discussion }
+
+Cada decisión tiene su propia **Discusión**, de modo que una decisión puede resolverse en Turbo EA en lugar de en un hilo de chat aparte. Ábrala con el botón **Discusión e historial** del editor o de la vista previa de la decisión: en una pantalla ancha se abre como un panel junto al documento, en una más estrecha como un cajón lateral. El panel tiene dos pestañas, **Discusión** e [Historial](#decision-history), y la pestaña Discusión muestra cuántos hilos están abiertos.
+
+- **Hilos y respuestas.** Escriba en el cuadro de la parte superior de la pestaña y haga clic en **Publicar** (o pulse Ctrl+Intro, Cmd+Intro en Mac) para iniciar un hilo. Elija de qué trata en **Sobre** — *General*, *Contexto*, *Decisión*, *Consecuencias* o *Alternativas Consideradas* — para asociarlo a una sección. Cada hilo admite respuestas, con un solo nivel de profundidad.
+- **Resolver y reabrir.** Haga clic en **Resolver** cuando un hilo esté zanjado y en **Reabrir** si no lo está. Los hilos resueltos quedan plegados tras **Mostrar N hilos resueltos**.
+- **Quién puede publicar.** La lectura de la discusión sigue a quién puede abrir la decisión (`adr.view`). Publicar, responder, resolver y reabrir requieren el permiso `adr.comment`, que los miembros y administradores tienen por defecto y los visores no; un administrador puede cambiarlo por rol. Los firmantes de la decisión siempre pueden comentarla, incluidas las personas a las que se pidió firmarla en una ronda de revisión anterior que se retiró o se rechazó.
+- **Durante la revisión y tras la firma.** El [bloqueo de revisión](#flujo-de-firma) afecta al contenido, no a la conversación: la discusión sigue abierta mientras la decisión está en revisión y después de firmarse.
+- **Notas de revisión.** Cuando un firmante rechaza una decisión, el motivo abre un hilo marcado como **Motivo del rechazo** (*No se indicó ningún motivo* si el firmante lo dejó vacío), que se responde y se resuelve como cualquier otro. Un firmante puede añadir una nota opcional al firmar; aparece en la discusión como **Nota de firma**. Ninguno de los dos se pierde ya cuando se retiran las firmas, y ambos se muestran también en la pestaña [Historial](#decision-history).
+- **Hilos abiertos antes de la revisión.** **Solicitar firmas**, **Firmar** y **Rechazar** advierten cuando la decisión aún tiene hilos abiertos (*2 hilos de discusión abiertos en este documento.*). Es solo una advertencia: no se bloquea nada.
+- **Notificaciones.** Un comentario nuevo notifica al autor de la decisión, a sus firmantes, a sus responsables de la decisión y participantes que sean usuarios de Turbo EA, y a las personas que comentaron antes; nunca a quien lo publicó. Escriba **@** en un comentario para mencionar a un colega: recibirá una notificación de mención en su lugar. Una persona mencionada que no puede abrir la decisión no recibe notificación, y el panel se lo indica (*… no fue notificado: no puede abrir este documento.*). Las notificaciones no incluyen el texto del comentario, y al hacer clic en una se abre la vista previa de la decisión con el panel en ese hilo. Consulte [Notificaciones](notifications.md#tipos-de-notificaciones).
+- **Editar y eliminar.** Puede editar sus propios comentarios; un comentario editado se marca como *(editado)*. Puede eliminar sus propios comentarios, y cualquiera que pueda editar la decisión (`adr.manage`) puede eliminar cualquier comentario; un comentario eliminado deja *Este comentario fue eliminado.* en su lugar y conserva sus respuestas. Un motivo de rechazo y una nota de firma no se pueden editar ni eliminar: un rechazo se resuelve en su lugar.
+- **Revisiones anteriores.** Un hilo pertenece a la revisión en la que se inició. Active **Mostrar la discusión de revisiones anteriores** para leer los hilos de las revisiones anteriores de la decisión, agrupados por revisión.
+
+#### Menciones {: #decision-mentions }
+
+Mientras redacta una decisión, escriba **@** en cualquiera de sus cuatro secciones para mencionar una **ficha** u otra **decisión**. Una ventana emergente muestra las fichas y decisiones que coinciden a medida que escribe; use las flechas e Intro (o haga clic) para elegir una, y Escape para cerrarla. En un comentario, **@** también ofrece **personas**. Una mención aparece como una etiqueta (chip) con el nombre actual de aquello a lo que apunta —el nombre de una ficha, la referencia y el título de una decisión—, de modo que renombrar una ficha nunca cambia el texto. Haga clic en una etiqueta de ficha o de decisión para abrirla.
+
+- Un lector que no puede ver una ficha mencionada ve **Ficha restringida** en lugar de su nombre en todas partes: el editor, la vista previa, las exportaciones a PDF y Word, la cuadrícula, el historial y la discusión. Un lector que no puede abrir decisiones ve **Decisión restringida**. Al guardar el texto, esas menciones se conservan tal cual, aunque quien guarda no pueda verlas.
+- Una ficha mencionada que se ha eliminado después aparece como **Ficha eliminada** (una decisión eliminada, **Decisión eliminada**), ya que el texto no almacena nombres.
+- Una mención no vincula la ficha. Cuando el texto menciona fichas que no están vinculadas, el editor las enumera bajo *Fichas mencionadas en el texto pero no vinculadas:*, cada una con un botón **Vincular esta ficha**. Vincular fichas en el editor usa el mismo selector de fichas que el resto de Turbo EA.
+- **Mencionado en.** La [pestaña ADR](card-details.md#pestana-de-adr) de una ficha y la vista previa de una decisión enumeran, bajo **Mencionado en**, las decisiones y SoAW cuyo texto menciona esa ficha o decisión, y aquellos cuya discusión la menciona (marcados *en la discusión*). La lista solo muestra los documentos que puede abrir.
+
+#### Historial {: #decision-history }
+
+La pestaña **Historial** del mismo panel registra lo que le ha ocurrido a la decisión, de lo más reciente a lo más antiguo: creada, guardada, enviada a revisión, cada firma (con su nota), rechazada (con el motivo), firmas retiradas, completamente firmada, registrada como decidida, una revisión iniciada, una versión anterior restaurada. Todos los que pueden abrir la decisión ven esta cronología. Los eventos de revisión —enviada a revisión, firmada, retirada, rechazada— se conservan a partir de la versión 2.200.0; antes se mostraban en vivo pero nunca se almacenaban. Las decisiones que existían antes de esa versión empiezan con una cronología reconstruida a partir de lo almacenado: creada, revisada, enviada a revisión (para una decisión en revisión en el momento de la actualización, con los firmantes a los que se envió), cada firma, firmada y registrada.
+
+La pestaña Historial no es la tabla **Historial de Versiones del Documento**, mantenida a mano, de una [Declaración de Trabajo de Arquitectura](delivery.md#el-editor-de-soaw), que registra lo que los autores deciden escribir en ella.
+
+- **Versiones.** Se conserva una versión cada vez que se guarda un borrador con cambios. Contiene el título, las cuatro secciones, las fechas, el resumen de cambios y las personas; los vínculos, las fichas vinculadas y los archivos no forman parte de una versión. Una versión puede abrirse con **Ver** por las personas que pueden editar la decisión y por sus firmantes; los demás lectores ven la cronología sin las versiones (*Las versiones guardadas solo se muestran a editores y firmantes.*).
+- **Comparar.** **Comparar** muestra qué cambió entre una versión y la anterior, palabra por palabra en cada sección, junto con las fechas y personas que cambiaron; elija cualquier otra **Versión más antigua** y **Versión más reciente** en el cuadro de diálogo. Un cambio solo de formato se indica como *Solo formato: las palabras son las mismas.*
+- **Restaurar.** En un borrador, alguien que pueda editar la decisión puede **Restaurar** una versión anterior. Restaurar solo avanza: el texto, las fechas y las personas de la versión sustituyen a los del borrador y se conservan como una nueva versión, y el estado del borrador antes de la restauración permanece en el historial. Los vínculos, las fichas vinculadas y los archivos no se restauran. Si el editor tiene ediciones sin guardar, la confirmación advierte de que se descartarán. Una decisión en revisión o firmada no se puede restaurar.
+
+#### Limitaciones conocidas {: #collaboration-limits }
+
+- Una ficha eliminada aparece como **Ficha eliminada** dondequiera que se mencionara: el texto no almacena nombres, por lo que no se puede mostrar el nombre anterior.
+- Dos personas que guardan el mismo borrador siguen sobrescribiéndose: gana el último guardado. El historial conserva ambos guardados, así que la redacción sobrescrita puede encontrarse y restaurarse.
+- La discusión no forma parte de las exportaciones a PDF, Word u hoja de cálculo, ni de la copia impresa.
+- Un rol que puede abrir decisiones pero no tiene acceso al inventario no puede buscar fichas en la ventana de menciones (*Su rol no puede buscar fichas; aún puede mencionar decisiones.*).
+- El texto copiado de un documento a otro pierde sus etiquetas **Restringido**: una mención restringida solo puede conservarse en el documento en el que se escribió.
+- No se puede reconstruir a quién se pidió firmar en una ronda de revisión rechazada o retirada antes de la versión 2.200.0, por lo que esas personas no cuentan como firmantes de esa revisión. Una ronda aún abierta en el momento de la actualización conserva sus firmantes.
+
 ## Riesgo
 
 ![GRC — Registro de riesgos](../assets/img/es/53_grc_registro_riesgos.png)
@@ -228,6 +272,7 @@ La misma pestaña Cumplimiento también aparece en el Detalle de la ficha (auto-
 | `grc.manage` | admin, bpm_admin, member |
 | `adr.view` / `adr.manage` / `adr.sign` | `adr.view`: admin, bpm_admin, member, viewer; `adr.manage` y `adr.sign`: admin, bpm_admin, member |
 | `adr.record` | admin — [registrar una decisión pasada como decidida](#recording-a-past-decision) |
+| `adr.comment` | admin, bpm_admin, member — publicar en la [discusión](#decision-discussion) de una decisión; los firmantes de una decisión siempre pueden comentarla |
 | `risks.view` / `risks.manage` | ver [Registro de riesgos § Permisos](risks.md) |
 | `compliance.view` / `compliance.manage` | ver [TurboLens § Security & Compliance](turbolens.md) |
 

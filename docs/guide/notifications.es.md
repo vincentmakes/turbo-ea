@@ -25,6 +25,8 @@ Haga clic en cualquier notificación para navegar directamente a la ficha o docu
 | **Solicitud de firma SoAW** | Se le solicita firmar una Declaración de Trabajo de Arquitectura |
 | **SoAW firmado** | Un SoAW que está siguiendo recibe una firma |
 | **Vigencia de ADR cambiada** | Una decisión firmada sustituye, modifica o revoca una decisión que usted redactó |
+| **Comentarios en decisiones y SoAW** | Alguien comenta en la discusión de una decisión o SoAW que usted redactó, que se le pidió firmar, del que es responsable de la decisión o participante, o que ya comentó antes |
+| **Menciones en discusiones** | Alguien le menciona con **@** en un comentario sobre una decisión o SoAW que puede abrir |
 | **Solicitud de encuesta** | Se envía una encuesta que requiere su respuesta |
 
 **Estado de aprobación cambiado** también cubre el caso automático. Una ficha
@@ -33,6 +35,14 @@ principal la desplaza en la jerarquía: se le notifica en ambos casos y el cambi
 queda registrado en la pestaña **Historial** de la ficha. Cuando una sola acción
 rompe varias de sus fichas a la vez, como una edición masiva, recibe un único
 resumen en lugar de una notificación por ficha.
+
+Las dos notificaciones de discusión no incluyen el texto del comentario: haga
+clic en una para abrir el documento con su discusión en ese hilo. Nunca se le
+notifican sus propios comentarios, y una mención sustituye a la notificación de
+comentario para el mismo comentario. Una persona mencionada que no puede abrir
+el documento no recibe notificación; en su lugar se avisa a quien publicó el
+comentario. Véase
+[Discusión](grc.md#decision-discussion).
 
 
 ## Entrega en Tiempo Real

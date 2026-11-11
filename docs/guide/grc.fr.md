@@ -119,6 +119,8 @@ Dans tous les cas, vous pouvez rechercher et lier des fiches supplémentaires lo
 L'éditeur offre :
 
 - Édition de texte riche pour chaque section (Contexte, Décision, Conséquences, Alternatives envisagées)
+- **Mentions** — tapez **@** dans une section pour mentionner une fiche ou une autre décision (voir [Mentions](#decision-mentions))
+- **Discussion et historique** — un panneau à côté du document avec sa discussion et son historique (voir [Discussion](#decision-discussion) et [Historique](#decision-history))
 - Liaison de fiches — connectez l'ADR aux fiches pertinentes (applications, composants IT, initiatives, …). Les initiatives sont liées via la fonctionnalité standard de liaison de fiches, et non via un champ dédié, ce qui permet à un ADR de référencer plusieurs initiatives
 - **Dates** — *Décidée le*, *En vigueur à partir du* et un *Valable jusqu'au* facultatif (voir [Dates](#decision-dates))
 - **Personnes** — les *Décideurs* et les *Participants* (voir [Personnes](#decision-people))
@@ -205,6 +207,48 @@ Cliquez sur l'icône d'aperçu pour afficher une version en lecture seule et for
 
 Depuis l'aperçu, cliquez sur **PDF** pour ouvrir une copie prête à imprimer dans un nouvel onglet — métadonnées et dates, les quatre sections, personnes, fiches liées, liens vers d'autres décisions, noms de fichiers, sections d'extension et bloc de signatures (ou la mention d'enregistrement), avec l'approbateur et la date d'impression en pied de page. L'éditeur propose le même bouton **PDF** ainsi que **Word**, qui télécharge la décision au format `.docx` tant qu'elle n'est pas signée ; les deux exportent l'état courant de l'éditeur, modifications non enregistrées comprises.
 
+#### Discussion {: #decision-discussion }
+
+Chaque décision a sa propre **Discussion**, de sorte qu'une décision peut être tranchée dans Turbo EA plutôt que dans un fil de messagerie séparé. Ouvrez-la avec le bouton **Discussion et historique** de l'éditeur ou de l'aperçu de la décision : sur un écran large, elle s'ouvre dans un panneau à côté du document, sur un écran plus étroit dans un tiroir. Le panneau a deux onglets, **Discussion** et [Historique](#decision-history), et l'onglet Discussion indique combien de fils sont ouverts.
+
+- **Fils et réponses.** Saisissez votre texte dans la zone en haut de l'onglet et cliquez sur **Publier** (ou appuyez sur Ctrl+Entrée, Cmd+Entrée sur Mac) pour lancer un fil. Choisissez ce qu'il **Concerne** — *Général*, *Contexte*, *Décision*, *Conséquences* ou *Alternatives envisagées* — pour le rattacher à une section. Chaque fil accepte des réponses, sur un seul niveau.
+- **Résoudre et rouvrir.** Cliquez sur **Résoudre** une fois un fil réglé et sur **Rouvrir** s'il ne l'est pas. Les fils résolus sont repliés derrière **Afficher N fils résolus**.
+- **Qui peut publier.** La lecture de la discussion suit le droit d'ouvrir la décision (`adr.view`). Publier, répondre, résoudre et rouvrir requièrent la permission `adr.comment`, que les membres et les administrateurs détiennent par défaut et les lecteurs non ; un administrateur peut la modifier pour chaque rôle. Les signataires de la décision peuvent toujours la commenter, y compris les personnes invitées à la signer lors d'un cycle de revue antérieur qui a été rappelé ou rejeté.
+- **Pendant la revue et après la signature.** Le [verrouillage de revue](#workflow-de-signature) porte sur le contenu, pas sur la conversation : la discussion reste ouverte pendant que la décision est en revue et après sa signature.
+- **Notes de revue.** Lorsqu'un signataire rejette une décision, le motif ouvre un fil marqué **Motif du rejet** (*Aucun motif indiqué* si le signataire l'a laissé vide), auquel on répond et que l'on résout comme n'importe quel autre. Un signataire peut ajouter une note facultative en signant ; elle apparaît dans la discussion comme **Note de signature**. Ni l'un ni l'autre ne sont plus perdus lorsque les signatures sont rappelées, et tous deux figurent aussi dans l'onglet [Historique](#decision-history).
+- **Fils ouverts avant la revue.** **Demander des signatures**, **Signer** et **Rejeter** avertissent lorsque la décision a encore des fils ouverts (*2 fils de discussion ouverts sur ce document.*). Ce n'est qu'un avertissement : rien n'est bloqué.
+- **Notifications.** Un nouveau commentaire notifie l'auteur de la décision, ses signataires, ses décideurs et participants qui sont utilisateurs de Turbo EA, et les personnes qui ont déjà commenté — jamais la personne qui l'a publié. Tapez **@** dans un commentaire pour mentionner un collègue : il reçoit alors une notification de mention à la place. Une personne que vous mentionnez et qui ne peut pas ouvrir la décision n'est pas notifiée, et le panneau vous le signale (*… n'a pas été notifié : cette personne ne peut pas ouvrir ce document.*). Les notifications ne contiennent aucun texte de commentaire, et un clic sur l'une d'elles ouvre l'aperçu de la décision avec le panneau sur ce fil. Voir [Notifications](notifications.md#types-de-notifications).
+- **Modifier et supprimer.** Vous pouvez modifier vos propres commentaires ; un commentaire modifié est marqué *(modifié)*. Vous pouvez supprimer vos propres commentaires, et toute personne pouvant modifier la décision (`adr.manage`) peut supprimer n'importe quel commentaire ; un commentaire supprimé laisse *Ce commentaire a été supprimé.* à sa place et conserve ses réponses. Un motif de rejet et une note de signature ne peuvent être ni modifiés ni supprimés : un rejet se résout à la place.
+- **Révisions antérieures.** Un fil appartient à la révision sur laquelle il a été lancé. Activez **Afficher la discussion des révisions antérieures** pour lire les fils des révisions antérieures de la décision, regroupés par révision.
+
+#### Mentions {: #decision-mentions }
+
+Pendant la rédaction d'une décision, tapez **@** dans l'une de ses quatre sections pour mentionner une **fiche** ou une autre **décision**. Une fenêtre contextuelle liste les fiches et décisions correspondantes au fil de la frappe ; utilisez les flèches et Entrée (ou cliquez) pour en choisir une, et Échap pour la fermer. Dans un commentaire, **@** propose aussi des **personnes**. Une mention apparaît comme une puce portant le nom actuel de ce qu'elle désigne — le nom d'une fiche, la référence et le titre d'une décision —, si bien que renommer une fiche ne change jamais le texte. Cliquez sur une puce de fiche ou de décision pour l'ouvrir.
+
+- Un lecteur qui n'a pas le droit de voir une fiche mentionnée voit **Fiche à accès restreint** au lieu de son nom, partout — l'éditeur, l'aperçu, les exports PDF et Word, la grille, l'historique et la discussion. Un lecteur qui ne peut pas ouvrir les décisions voit **Décision à accès restreint**. L'enregistrement du texte conserve ces mentions telles quelles, même lorsque la personne qui enregistre ne peut pas les voir.
+- Une fiche mentionnée qui a été supprimée depuis s'affiche **Fiche supprimée** (une décision supprimée, **Décision supprimée**), car le texte ne stocke aucun nom.
+- Une mention ne lie pas la fiche. Lorsque le texte mentionne des fiches qui ne sont pas liées, l'éditeur les liste sous *Fiches mentionnées dans le texte mais non liées :*, chacune avec un bouton **Lier cette fiche**. La liaison de fiches dans l'éditeur utilise le même sélecteur de fiches que le reste de Turbo EA.
+- **Mentionné dans.** L'[onglet ADR](card-details.md#onglet-adr) d'une fiche et l'aperçu d'une décision listent, sous **Mentionné dans**, les décisions et les SoAW dont le texte mentionne cette fiche ou cette décision, ainsi que ceux dont la discussion la mentionne (signalés *dans la discussion*). La liste ne montre que les documents que vous pouvez ouvrir.
+
+#### Historique {: #decision-history }
+
+L'onglet **Historique** du même panneau consigne ce qui est arrivé à la décision, du plus récent au plus ancien : création, enregistrement, envoi pour revue, chaque signature (avec sa note), rejet (avec le motif), rappel des signatures, signature complète, enregistrement comme décidée, début d'une révision, restauration d'une version antérieure. Toute personne pouvant ouvrir la décision voit cette chronologie. Les événements de revue — envoi pour revue, signature, rappel, rejet — sont conservés à partir de la version 2.200.0 ; auparavant, ils étaient affichés en direct mais jamais stockés. Les décisions qui existaient avant cette version commencent par une chronologie reconstituée à partir de ce qui était stocké : création, révision, envoi pour revue (pour une décision en revue au moment de la mise à niveau, avec les signataires auxquels elle a été envoyée), chaque signature, signature complète et enregistrement.
+
+L'onglet Historique n'est pas le tableau **Historique des versions du document**, tenu à la main, d'un [Statement of Architecture Work](delivery.md#lediteur-soaw), qui consigne ce que les auteurs choisissent d'y écrire.
+
+- **Versions.** Une version est conservée chaque fois qu'un brouillon est enregistré avec des modifications. Elle contient le titre, les quatre sections, les dates, le résumé des modifications et les personnes ; les liens, les fiches liées et les fichiers ne font pas partie d'une version. Une version peut être ouverte avec **Voir** par les personnes qui peuvent modifier la décision et par ses signataires ; les autres lecteurs voient la chronologie sans les versions (*Les versions enregistrées ne sont visibles que par les éditeurs et les signataires.*).
+- **Comparer.** **Comparer** montre ce qui a changé entre une version et la précédente, mot par mot et section par section, ainsi que les dates et les personnes modifiées ; choisissez n'importe quelle autre **Version la plus ancienne** et **Version la plus récente** dans la boîte de dialogue. Un simple changement de mise en forme est signalé par *Mise en forme uniquement : les mots sont identiques.*
+- **Restaurer.** Sur un brouillon, une personne pouvant modifier la décision peut **Restaurer** une version antérieure. La restauration va uniquement de l'avant : le texte, les dates et les personnes de la version remplacent ceux du brouillon et sont conservés comme nouvelle version, et l'état du brouillon avant la restauration reste dans l'historique. Les liens, les fiches liées et les fichiers ne sont pas restaurés. Lorsque l'éditeur contient des modifications non enregistrées, la confirmation indique qu'elles seront perdues. Une décision en revue ou signée ne peut pas être restaurée.
+
+#### Limites connues {: #collaboration-limits }
+
+- Une fiche supprimée s'affiche **Fiche supprimée** partout où elle était mentionnée : le texte ne stocke aucun nom, l'ancien nom ne peut donc pas être affiché.
+- Deux personnes qui enregistrent le même brouillon s'écrasent toujours mutuellement : le dernier enregistrement l'emporte. L'historique conserve les deux enregistrements, de sorte que la formulation écrasée peut être retrouvée et restaurée.
+- La discussion ne fait pas partie des exports PDF, Word ou tableur, ni de la copie imprimée.
+- Un rôle qui peut ouvrir les décisions mais n'a pas accès à l'inventaire ne peut pas rechercher de fiches dans la fenêtre de mention (*Votre rôle ne permet pas de rechercher des fiches ; vous pouvez toujours mentionner des décisions.*).
+- Un texte copié d'un document vers un autre perd ses puces **Accès restreint** : une mention restreinte ne peut être conservée que dans le document où elle a été écrite.
+- Les personnes invitées à signer lors d'un cycle de revue rejeté ou rappelé avant la version 2.200.0 ne peuvent pas être reconstituées ; elles ne comptent donc pas comme signataires de cette révision. Un cycle encore ouvert au moment de la mise à niveau conserve ses signataires.
+
 ## Risque
 
 ![GRC — Registre des risques](../assets/img/fr/53_grc_registre_risques.png)
@@ -228,6 +272,7 @@ Le même onglet Conformité apparaît aussi sur le Détail de la fiche (auto-mas
 | `grc.manage` | admin, bpm_admin, member |
 | `adr.view` / `adr.manage` / `adr.sign` | `adr.view` : admin, bpm_admin, member, viewer ; `adr.manage` et `adr.sign` : admin, bpm_admin, member |
 | `adr.record` | admin — [enregistrer une décision passée comme décidée](#recording-a-past-decision) |
+| `adr.comment` | admin, bpm_admin, member — publier dans la [discussion](#decision-discussion) d'une décision ; les signataires d'une décision peuvent toujours la commenter |
 | `risks.view` / `risks.manage` | voir [Registre des risques § Permissions](risks.md) |
 | `compliance.view` / `compliance.manage` | voir [TurboLens § Security & Compliance](turbolens.md) |
 

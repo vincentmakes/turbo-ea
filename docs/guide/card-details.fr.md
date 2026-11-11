@@ -233,6 +233,8 @@ Chaque fiche dispose d'un onglet **ADR** qui répertorie les [décisions d'archi
 
 Si vous êtes autorisé à gérer les liens ADR, l'onglet propose également **Lier une ADR** pour rattacher une décision existante et **Créer une ADR** pour en créer une déjà liée à cette fiche, ainsi qu'une action de dissociation sur chaque ligne. Sur les fiches sans décision liée, l'onglet est masqué sauf si vous disposez de cette permission : les utilisateurs en lecture seule ne voient donc jamais d'onglet vide.
 
+Sous la liste, **Mentionné dans** répertorie les décisions et les Statements of Architecture Work dont le texte mentionne cette fiche, ainsi que ceux dont la discussion la mentionne (signalés *dans la discussion*), avec la référence ou la révision de chaque document et sa validité ou son statut. Une mention ne lie pas la fiche à la décision ; elle s'affiche seulement ici. La liste ne montre que les documents que vous pouvez ouvrir et n'apparaît pas lorsqu'il n'y en a aucun. Voir [Mentions](grc.md#decision-mentions).
+
 ## Onglet Risques (GRC activé, le cas échéant)
 
 Quand le [module GRC](grc.md) est activé **et** que la fiche a au moins un risque lié, un onglet **Risques** apparaît, listant chaque risque lié à la fiche avec un chemin en un clic vers le [Registre des risques](risks.md). L'onglet est masqué automatiquement quand aucun risque n'est lié, de sorte que les fiches sans activité GRC ne traînent pas d'onglet vide.

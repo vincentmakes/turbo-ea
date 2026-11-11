@@ -232,6 +232,8 @@ Cada card possui uma aba **ADR** que lista as [decisões de arquitetura](deliver
 
 Se você tiver permissão para gerenciar vínculos de ADR, a aba também oferece **Vincular ADR** para anexar uma decisão existente e **Criar ADR** para criar uma nova já vinculada a este card, além de uma ação de desvinculação em cada linha. Em cards sem decisões vinculadas a aba fica oculta, a menos que você tenha essa permissão, de modo que usuários somente leitura nunca veem uma aba vazia.
 
+Abaixo da lista, **Mencionado em** lista as decisões e os Statements of Architecture Work cujo texto menciona este card, e aqueles cuja discussão o menciona (assinalados *na discussão*), com a referência ou revisão de cada documento e a sua vigência ou status. Uma menção não vincula o card à decisão; apenas aparece aqui. A lista mostra apenas os documentos que você pode abrir e não aparece quando não há nenhum. Ver [Menções](grc.md#decision-mentions).
+
 ## Aba de Riscos (GRC habilitado, quando presente)
 
 Quando o [módulo GRC](grc.md) está habilitado **e** o card tem pelo menos um risco vinculado, aparece uma aba **Riscos** que lista cada risco vinculado ao card com um caminho de um clique de volta ao [Registro de Riscos](risks.md). A aba é auto-ocultada quando não há risco vinculado, de modo que cards sem atividade GRC não carregam uma aba vazia.

@@ -49,6 +49,8 @@ O editor oferece:
 - **Links** — Uma URL digitada ou colada torna-se um link enquanto você escreve, e todo link em um documento abre em uma nova aba. Endereços em documentos escritos antes do suporte a links são convertidos em links ao serem exibidos
 - **Templates de seções** — Seções predefinidas seguindo os padrões TOGAF (ex.: Descrição do Problema, Objetivos, Abordagem, Partes Interessadas, Restrições, Plano de Trabalho)
 - **Tabelas editáveis inline** — Adicione e edite tabelas dentro de qualquer seção
+- **Menções** — escreva **@** no texto de uma seção para mencionar um card ou uma decisão (ver [Discussão, menções e histórico](#soaw-collaboration))
+- **Histórico de versões do documento** — uma tabela que os autores preenchem à mão (versão, data, revisado por, descrição). Faz parte do documento e não é a aba [Histórico](#soaw-collaboration)
 - **Fluxo de status** — Documentos progridem através de estágios definidos:
 
 | Status | Significado |
@@ -69,6 +71,16 @@ Um SoAW em revisão fica **bloqueado**, para que os signatários assinem exatame
 Um SoAW assinado é somente leitura. Clique em **Nova revisão** para iniciar um novo rascunho a partir dele, com o mesmo nome e o número de revisão seguinte. Existe uma única revisão aberta de cada vez: enquanto uma revisão está a ser redigida, o SoAW assinado indica-o e oferece **Abrir a revisão** em vez de iniciar outra. Só a revisão mais recente pode ser revisada, e uma rejeição não altera o número de revisão.
 
 Uma revisão anterior mostra um banner com uma ligação para a revisão atual, e a faixa **Revisões** em cada revisão lista-as todas. As listas de SoAW — os entregáveis da iniciativa, a aba SoAW, o relatório de Entregas de EA — mostram a revisão atual de cada documento e qualquer revisão em redação.
+
+### Discussão, menções e histórico {: #soaw-collaboration }
+
+Um SoAW tem a mesma discussão, as mesmas menções e o mesmo histórico que uma decisão, no painel **Discussão e histórico** do seu editor e da sua pré-visualização. O comportamento comum é descrito uma única vez, no guia de GRC: [Discussão](grc.md#decision-discussion), [Menções](grc.md#decision-mentions), [Histórico](grc.md#decision-history) e [Limitações conhecidas](grc.md#collaboration-limits). O que muda num SoAW:
+
+- **Quem pode publicar.** Publicar, responder, resolver e reabrir exigem a permissão `soaw.comment`, que os membros e administradores têm por predefinição e os visualizadores não; a leitura da discussão segue `soaw.view`. Os signatários do SoAW podem sempre comentá-lo. Quem pode editar SoAW (`soaw.manage`) pode eliminar qualquer comentário.
+- **Seções.** Um tópico é associado a uma das seções próprias do SoAW, ou a *Geral*. Um tópico associado a uma seção personalizada entretanto removida mostra *Seção removida*.
+- **Rejeição.** Qualquer signatário que tenha a permissão de assinar (`soaw.sign`) — ou a permissão de edição — pode rejeitar um SoAW, tal como nas decisões; até agora, rejeitar exigia a permissão de edição. O motivo abre um tópico **Motivo da rejeição** na discussão.
+- **Nota de assinatura.** **Assinar** abre agora uma caixa de diálogo onde o signatário pode acrescentar uma nota opcional; esta aparece na discussão como **Nota de assinatura** e na aba Histórico.
+- **Histórico.** Uma versão contém o nome do SoAW, as suas informações de documento, a sua tabela Histórico de versões do documento e todas as seções; a iniciativa não faz parte de uma versão. A aba Histórico regista o que acontece ao documento; a tabela Histórico de versões do documento, no documento, só regista o que os seus autores nela escrevem. Um SoAW com o status **Aprovado** ainda pode ser editado, por isso, tal como num rascunho, as suas gravações são guardadas como versões e uma versão anterior pode ser restaurada nele.
 
 ### Pré-visualização e Exportação
 

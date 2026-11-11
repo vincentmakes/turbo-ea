@@ -49,6 +49,8 @@ L'éditeur offre :
 - **Liens** -- Une URL saisie ou collée devient un lien au fil de la frappe, et chaque lien d'un document s'ouvre dans un nouvel onglet. Les adresses des documents rédigés avant la prise en charge des liens sont converties en liens à l'affichage
 - **Modèles de sections** -- Sections prédéfinies suivant les standards TOGAF (par ex. Description du problème, Objectifs, Approche, Parties prenantes, Contraintes, Plan de travail)
 - **Tableaux éditables en ligne** -- Ajoutez et éditez des tableaux dans n'importe quelle section
+- **Mentions** -- tapez **@** dans le texte d'une section pour mentionner une fiche ou une décision (voir [Discussion, mentions et historique](#soaw-collaboration))
+- **Historique des versions du document** -- un tableau que les auteurs remplissent à la main (version, date, révisé par, description). Il fait partie du document et n'est pas l'onglet [Historique](#soaw-collaboration)
 - **Workflow de statut** -- Les documents progressent à travers des étapes définies :
 
 | Statut | Signification |
@@ -69,6 +71,16 @@ Un SoAW en revue est **verrouillé**, afin que les signataires signent exactemen
 Un SoAW signé est en lecture seule. Cliquez sur **Nouvelle révision** pour démarrer un nouveau brouillon à partir de celui-ci, sous le même nom avec le numéro de révision suivant. Il n'y a qu'une révision ouverte à la fois : tant qu'une révision est en cours de rédaction, le SoAW signé l'indique et propose **Ouvrir la révision** au lieu d'en démarrer une autre. Seule la dernière révision peut être révisée, et un rejet ne change pas le numéro de révision.
 
 Une révision antérieure affiche un bandeau avec un lien vers la révision actuelle, et la barre **Révisions** de chaque révision les liste toutes. Les listes de SoAW — les livrables de l'initiative, l'onglet SoAW, le rapport EA Delivery — affichent la révision actuelle de chaque document et toute révision en cours de rédaction.
+
+### Discussion, mentions et historique {: #soaw-collaboration }
+
+Un SoAW dispose de la même discussion, des mêmes mentions et du même historique qu'une décision, dans le panneau **Discussion et historique** de son éditeur et de son aperçu. Le comportement commun est décrit une seule fois, dans le guide GRC : [Discussion](grc.md#decision-discussion), [Mentions](grc.md#decision-mentions), [Historique](grc.md#decision-history) et [Limites connues](grc.md#collaboration-limits). Ce qui diffère pour un SoAW :
+
+- **Qui peut publier.** Publier, répondre, résoudre et rouvrir requièrent la permission `soaw.comment`, que les membres et les administrateurs détiennent par défaut et les lecteurs non ; la lecture de la discussion suit `soaw.view`. Les signataires du SoAW peuvent toujours le commenter. Toute personne pouvant modifier les SoAW (`soaw.manage`) peut supprimer n'importe quel commentaire.
+- **Sections.** Un fil est rattaché à l'une des sections propres au SoAW, ou à *Général*. Un fil rattaché à une section personnalisée supprimée depuis affiche *Section supprimée*.
+- **Rejet.** Tout signataire qui détient la permission de signer (`soaw.sign`) — ou la permission de modification — peut rejeter un SoAW, comme pour les décisions ; jusqu'ici, rejeter nécessitait la permission de modification. Le motif ouvre un fil **Motif du rejet** dans la discussion.
+- **Note de signature.** **Signer** ouvre désormais une boîte de dialogue où le signataire peut ajouter une note facultative ; elle apparaît dans la discussion comme **Note de signature** et dans l'onglet Historique.
+- **Historique.** Une version contient le nom du SoAW, ses informations de document, son tableau Historique des versions du document et chaque section ; l'initiative ne fait pas partie d'une version. L'onglet Historique consigne ce qui arrive au document ; le tableau Historique des versions du document, dans le document, ne consigne que ce que ses auteurs y écrivent. Un SoAW au statut **Approuvé** peut encore être modifié : comme pour un brouillon, ses enregistrements sont donc conservés comme versions et une version antérieure peut y être restaurée.
 
 ### Aperçu et export
 

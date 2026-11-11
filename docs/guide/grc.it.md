@@ -119,6 +119,8 @@ In tutti i casi potete cercare e collegare card aggiuntive durante la creazione.
 L'editor fornisce:
 
 - Editing di testo ricco per ogni sezione (Contesto, Decisione, Conseguenze, Alternative considerate)
+- **Menzioni** — digitate **@** in una sezione per menzionare una card o un'altra decisione (vedere [Menzioni](#decision-mentions))
+- **Discussione e cronologia** — un pannello accanto al documento con la sua discussione e la sua cronologia (vedere [Discussione](#decision-discussion) e [Cronologia](#decision-history))
 - Collegamento di card — collegate l'ADR alle card pertinenti (applicazioni, componenti IT, iniziative, …). Le iniziative sono collegate tramite la funzionalità standard di collegamento di card, non tramite un campo dedicato, consentendo a un ADR di fare riferimento a più iniziative
 - **Date** — *Decisa il*, *In vigore dal* e un *Valida fino al* facoltativo (vedere [Date](#decision-dates))
 - **Persone** — i *Decisori* e i *Partecipanti* (vedere [Persone](#decision-people))
@@ -205,6 +207,48 @@ Cliccate sull'icona di anteprima per visualizzare una versione in sola lettura e
 
 Dall'anteprima, fate clic su **PDF** per aprire una copia pronta per la stampa in una nuova scheda — metadati e date, le quattro sezioni, persone, schede collegate, collegamenti ad altre decisioni, nomi dei file, sezioni delle estensioni e blocco firme (o la riga di registrazione), con approvatore e data di stampa a piè di pagina. L'editor ha lo stesso pulsante **PDF** più **Word**, che scarica la decisione come `.docx` finché non è firmata; entrambi esportano lo stato corrente dell'editor, modifiche non salvate comprese.
 
+#### Discussione {: #decision-discussion }
+
+Ogni decisione ha la propria **Discussione**, così una decisione può essere definita in Turbo EA anziché in una chat separata. Apritela con il pulsante **Discussione e cronologia** nell'editor o nell'anteprima della decisione: su uno schermo largo si apre come pannello accanto al documento, su uno più stretto come pannello a scomparsa. Il pannello ha due schede, **Discussione** e [Cronologia](#decision-history), e la scheda Discussione mostra quanti thread sono aperti.
+
+- **Thread e risposte.** Scrivete nella casella in cima alla scheda e fate clic su **Pubblica** (oppure premete Ctrl+Invio, Cmd+Invio su un Mac) per avviare un thread. Scegliete a cosa si riferisce in **Riguardo a** — *Generale*, *Contesto*, *Decisione*, *Conseguenze* o *Alternative considerate* — per associarlo a una sezione. Ogni thread accetta risposte, su un solo livello.
+- **Risolvere e riaprire.** Fate clic su **Risolvi** quando un thread è definito e su **Riapri** se non lo è. I thread risolti vengono raccolti dietro **Mostra N thread risolti**.
+- **Chi può pubblicare.** La lettura della discussione segue chi può aprire la decisione (`adr.view`). Pubblicare, rispondere, risolvere e riaprire richiedono il permesso `adr.comment`, che membri e amministratori hanno per impostazione predefinita e i visualizzatori no; un amministratore può modificarlo per ruolo. I firmatari della decisione possono sempre commentarla, comprese le persone a cui è stato chiesto di firmarla in un precedente giro di revisione ritirato o rifiutato.
+- **Durante la revisione e dopo la firma.** Il [blocco durante la revisione](#workflow-di-firma) riguarda il contenuto, non la conversazione: la discussione resta aperta mentre la decisione è in revisione e dopo che è stata firmata.
+- **Note di revisione.** Quando un firmatario rifiuta una decisione, il motivo apre un thread contrassegnato **Motivo del rifiuto** (*Nessun motivo indicato* se il firmatario lo ha lasciato vuoto), a cui si risponde e che si risolve come qualsiasi altro. Un firmatario può aggiungere una nota facoltativa al momento della firma; compare nella discussione come **Nota di firma**. Nessuna delle due va più persa quando le firme vengono ritirate, ed entrambe sono mostrate anche nella scheda [Cronologia](#decision-history).
+- **Thread aperti prima della revisione.** **Richiedi firme**, **Firma** e **Rifiutare** avvisano quando la decisione ha ancora thread aperti (*2 thread di discussione aperti su questo documento.*). È solo un avviso: nulla viene bloccato.
+- **Notifiche.** Un nuovo commento notifica l'autore della decisione, i suoi firmatari, i suoi decisori e partecipanti che sono utenti di Turbo EA e le persone che hanno già commentato — mai chi lo ha pubblicato. Digitate **@** in un commento per menzionare un collega: riceverà invece una notifica di menzione. Una persona menzionata che non può aprire la decisione non viene avvisata, e il pannello ve lo segnala (*… non sono stati notificati: non possono aprire questo documento.*). Le notifiche non contengono il testo del commento, e un clic su una di esse apre l'anteprima della decisione con il pannello su quel thread. Vedere [Notifiche](notifications.md#tipi-di-notifica).
+- **Modifica ed eliminazione.** Potete modificare i vostri commenti; un commento modificato è contrassegnato *(modificato)*. Potete eliminare i vostri commenti, e chiunque possa modificare la decisione (`adr.manage`) può eliminare qualsiasi commento; un commento eliminato lascia al suo posto *Questo commento è stato eliminato.* e conserva le sue risposte. Un motivo di rifiuto e una nota di firma non possono essere modificati né eliminati: un rifiuto viene invece risolto.
+- **Revisioni precedenti.** Un thread appartiene alla revisione su cui è stato avviato. Attivate **Mostra la discussione sulle revisioni precedenti** per leggere i thread delle revisioni precedenti della decisione, raggruppati per revisione.
+
+#### Menzioni {: #decision-mentions }
+
+Mentre scrivete una decisione, digitate **@** in una qualsiasi delle sue quattro sezioni per menzionare una **card** o un'altra **decisione**. Un popup elenca le card e le decisioni corrispondenti mentre digitate; usate i tasti freccia e Invio (o fate clic) per sceglierne una, ed Esc per chiuderlo. In un commento, **@** propone anche **persone**. Una menzione compare come chip con il nome attuale di ciò a cui rimanda — il nome di una card, il riferimento e il titolo di una decisione — così rinominare una card non cambia mai il testo. Fate clic su un chip di card o di decisione per aprirla.
+
+- Un lettore che non può vedere una card menzionata vede **Scheda riservata** al posto del suo nome, ovunque: nell'editor, nell'anteprima, negli export PDF e Word, nella tabella, nella cronologia e nella discussione. Un lettore che non può aprire le decisioni vede **Decisione riservata**. Il salvataggio del testo conserva tali menzioni così come sono, anche quando chi salva non può vederle.
+- Una card menzionata che è stata poi eliminata appare come **Scheda eliminata** (una decisione eliminata, **Decisione eliminata**), perché il testo non memorizza nomi.
+- Una menzione non collega la card. Quando il testo menziona card non collegate, l'editor le elenca sotto *Menzionate nel testo ma non collegate:*, ciascuna con un pulsante **Collega questa scheda**. Il collegamento delle card nell'editor usa lo stesso selettore di card del resto di Turbo EA.
+- **Menzionata in.** La [scheda ADR](card-details.md#scheda-adr) di una card e l'anteprima di una decisione elencano, sotto **Menzionata in**, le decisioni e i SoAW il cui testo menziona quella card o decisione, e quelli la cui discussione lo fa (contrassegnati *nella discussione*). L'elenco mostra solo i documenti che potete aprire.
+
+#### Cronologia {: #decision-history }
+
+La scheda **Cronologia** dello stesso pannello registra ciò che è accaduto alla decisione, dal più recente: creata, salvata, inviata per la revisione, ogni firma (con la sua nota), rifiutata (con il motivo), firme ritirate, completamente firmata, registrata come decisa, una revisione avviata, una versione precedente ripristinata. Chiunque possa aprire la decisione vede questa cronologia. Gli eventi di revisione — inviata per la revisione, firmata, ritirata, rifiutata — sono conservati a partire dalla versione 2.200.0; prima venivano mostrati in tempo reale ma mai memorizzati. Le decisioni esistenti prima di quella versione iniziano con una cronologia ricostruita da ciò che era memorizzato: creata, revisionata, inviata per la revisione (per una decisione in revisione al momento dell'aggiornamento, con i firmatari a cui era stata inviata), ogni firma, firmata e registrata.
+
+La scheda Cronologia non è la tabella **Cronologia versioni del documento** compilata a mano di uno [Statement of Architecture Work](delivery.md#leditor-soaw), che registra ciò che gli autori scelgono di scriverci.
+
+- **Versioni.** Una versione viene conservata ogni volta che una bozza viene salvata con modifiche. Contiene il titolo, le quattro sezioni, le date, il riepilogo delle modifiche e le persone; link, card collegate e file non fanno parte di una versione. Una versione può essere aperta con **Visualizza** dalle persone che possono modificare la decisione e dai suoi firmatari; gli altri lettori vedono la cronologia senza le versioni (*Le versioni salvate sono visibili solo a editor e firmatari.*).
+- **Confronta.** **Confronta** mostra cosa è cambiato tra una versione e quella precedente, parola per parola per sezione, insieme alle date e alle persone modificate; scegliete qualsiasi altra **Versione precedente** e **Versione più recente** nella finestra di dialogo. Una modifica della sola formattazione viene segnalata come *Solo formattazione: le parole sono le stesse.*
+- **Ripristina.** Su una bozza, chi può modificare la decisione può ripristinare una versione precedente con **Ripristina**. Il ripristino procede solo in avanti: il testo, le date e le persone della versione sostituiscono quelli della bozza e sono conservati come nuova versione, e lo stato della bozza prima del ripristino resta nella cronologia. Link, card collegate e file non vengono ripristinati. Quando l'editor contiene modifiche non salvate, la conferma avvisa che andranno perse. Una decisione in revisione o firmata non può essere ripristinata.
+
+#### Limiti noti {: #collaboration-limits }
+
+- Una card eliminata appare come **Scheda eliminata** ovunque fosse menzionata: il testo non memorizza nomi, quindi il vecchio nome non può essere mostrato.
+- Due persone che salvano la stessa bozza si sovrascrivono ancora a vicenda: vince l'ultimo salvataggio. La cronologia conserva entrambi i salvataggi, così la formulazione sovrascritta può essere ritrovata e ripristinata.
+- La discussione non fa parte degli export PDF, Word o foglio di calcolo, né della copia stampata.
+- Un ruolo che può aprire le decisioni ma non ha accesso all'inventario non può cercare card nel popup delle menzioni (*Il tuo ruolo non può cercare schede; puoi comunque menzionare le decisioni.*).
+- Il testo copiato da un documento a un altro perde i suoi chip **Riservato**: una menzione riservata può essere conservata solo nel documento in cui è stata scritta.
+- Chi è stato invitato a firmare in un giro di revisione rifiutato o ritirato prima della versione 2.200.0 non può essere ricostruito, quindi quelle persone non contano come firmatari di quella revisione. Un giro ancora aperto al momento dell'aggiornamento conserva i suoi firmatari.
+
 ## Rischio
 
 ![GRC — Registro dei rischi](../assets/img/it/53_grc_registro_rischi.png)
@@ -228,6 +272,7 @@ La stessa scheda Conformità appare anche nel Dettaglio della card (auto-nascost
 | `grc.manage` | admin, bpm_admin, member |
 | `adr.view` / `adr.manage` / `adr.sign` | `adr.view`: admin, bpm_admin, member, viewer; `adr.manage` e `adr.sign`: admin, bpm_admin, member |
 | `adr.record` | admin — [registrare una decisione passata come presa](#recording-a-past-decision) |
+| `adr.comment` | admin, bpm_admin, member — pubblicare nella [discussione](#decision-discussion) di una decisione; i firmatari di una decisione possono sempre commentarla |
 | `risks.view` / `risks.manage` | vedi [Registro dei rischi § Permessi](risks.md) |
 | `compliance.view` / `compliance.manage` | vedi [TurboLens § Security & Compliance](turbolens.md) |
 

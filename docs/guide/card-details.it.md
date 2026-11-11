@@ -233,6 +233,8 @@ Ogni card dispone di una scheda **ADR** che elenca le [decisioni architetturali]
 
 Se si è autorizzati a gestire i collegamenti ADR, la scheda offre anche **Collega ADR** per allegare una decisione esistente e **Crea ADR** per crearne una già collegata a questa card, oltre a un'azione di scollegamento su ogni riga. Sulle card prive di decisioni collegate la scheda resta nascosta a meno che non si disponga di tale autorizzazione, così gli utenti in sola lettura non vedono mai una scheda vuota.
 
+Sotto l'elenco, **Menzionata in** elenca le decisioni e gli Statement of Architecture Work il cui testo menziona questa card, e quelli la cui discussione la menziona (contrassegnati *nella discussione*), con il riferimento o la revisione di ciascun documento e la sua vigenza o il suo stato. Una menzione non collega la card alla decisione; compare soltanto qui. L'elenco mostra solo i documenti che si possono aprire e viene omesso quando non ce ne sono. Vedere [Menzioni](grc.md#decision-mentions).
+
 ## Scheda Rischi (GRC abilitato, quando presente)
 
 Quando il [modulo GRC](grc.md) è abilitato **e** la card ha almeno un rischio collegato, appare una scheda **Rischi** che elenca ogni rischio collegato alla card con un percorso a un clic verso il [Registro dei rischi](risks.md). La scheda viene nascosta automaticamente quando non ci sono rischi collegati, così le card senza attività GRC non si portano dietro una scheda vuota.

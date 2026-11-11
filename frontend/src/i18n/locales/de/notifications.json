@@ -42,6 +42,8 @@
   "preferences.adrSignRecalled": "ADR-Signatur zurückgezogen",
   "preferences.adrRejected": "ADR abgelehnt",
   "preferences.adrStandingChanged": "ADR-Geltung geändert",
+  "preferences.documentComment": "Kommentare zu Entscheidungen und SoAWs",
+  "preferences.documentMention": "Erwähnungen in Diskussionen",
   "preferences.processFlowApprovalRequested": "Freigabe des Prozessablaufs angefordert",
   "preferences.processFlowApproved": "Prozessablauf freigegeben",
   "preferences.processFlowRejected": "Prozessablauf abgelehnt",

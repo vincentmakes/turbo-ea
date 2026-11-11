@@ -183,20 +183,20 @@ pip install ./mcp-server
 
 ## 可用功能
 
-MCP 服务器提供 **56 个工具**，分为两组：**35 个读取工具** 用于查询 EA 数据，**21 个写入工具**（16 个增量型、5 个破坏型）用于创建和维护卡片、关系、图表、风险、ADR、已保存的清单视图等——包括将 AI 工具上下文中的工件（电子表格、BPMN XML、DrawIO XML、文档、图像）转换为结构化的 EA 数据。每个工具都带有 MCP `ToolAnnotations`（只读 / 破坏性 / 幂等提示），以便连接器在其界面中呈现破坏性程度。
+MCP 服务器提供 **59 个工具**，分为两组：**37 个读取工具** 用于查询 EA 数据，**22 个写入工具**（17 个增量型、5 个破坏型）用于创建和维护卡片、关系、图表、风险、ADR、已保存的清单视图等——包括将 AI 工具上下文中的工件（电子表格、BPMN XML、DrawIO XML、文档、图像）转换为结构化的 EA 数据。每个工具都带有 MCP `ToolAnnotations`（只读 / 破坏性 / 幂等提示），以便连接器在其界面中呈现破坏性程度。
 
 ### 写入操作的演练安全机制
 
 每个写入工具默认使用 **`dry_run=true`**，在 AI 工具以 `dry_run=false` 再次调用之前不会持久化任何内容——而它只应在用户查看预览并确认之后才这样做。这可以防止过于热心的代理在解读错误的电子表格基础上悄悄创建数百张卡片。预览分为两种：
 
 - **由后端验证。** 当底层端点支持演练时，后端会运行每一个校验器和解析器——权限、卡片 id、用户可读取的内容——构建完整结果，然后**回滚事务**。这涵盖卡片（`create_cards_bulk`、`update_cards_bulk`）、关系（`upsert_relations_bulk`）和图表（`create_diagram`、`update_diagram`）。图表预览会返回后端接受的卡片链接；对于更新，则返回确切的变更：重命名的字段、新增和移除的卡片链接，以及画布是否发生变化。
-- **由 MCP 服务器构建。** 当端点没有演练功能时，工具会校验并转换其输入，并展示提交将发送的确切负载，而不会调用写入端点：`import_bpmn`（草稿 → 提交 → 批准流程；其流程节点数量只是估算，预览会显示 `verified: false`）、`create_adr`、`update_adr`、`sign_adr`、`revise_adr`（读取该决策并报告将创建的修订号，或后端会拒绝的原因）、`create_soaw`、`add_card_comment`、`transition_card_lifecycle`、`save_inventory_view`（运行查询并报告匹配的卡片数量及若干示例名称）、`assign_stakeholders`、`create_risks`、`update_risks`、`archive_cards`（会显示每张卡片的归档影响），以及 `set_card_logos` / `clear_card_logos`（会查询每张卡片的类型和当前徽标，并获取每个 `image_url`）。
+- **由 MCP 服务器构建。** 当端点没有演练功能时，工具会校验并转换其输入，并展示提交将发送的确切负载，而不会调用写入端点：`import_bpmn`（草稿 → 提交 → 批准流程；其流程节点数量只是估算，预览会显示 `verified: false`）、`create_adr`、`update_adr`、`sign_adr`、`revise_adr`（读取该决策并报告将创建的修订号，或后端会拒绝的原因）、`create_soaw`、`add_card_comment`、`add_document_comment`（读取讨论并报告您是否可以评论，以及您回复的主题是否属于该文档）、`transition_card_lifecycle`、`save_inventory_view`（运行查询并报告匹配的卡片数量及若干示例名称）、`assign_stakeholders`、`create_risks`、`update_risks`、`archive_cards`（会显示每张卡片的归档影响），以及 `set_card_logos` / `clear_card_logos`（会查询每张卡片的类型和当前徽标，并获取每个 `image_url`）。
 
 无论哪种方式，预览都会作为演练批次记录在审计日志中，因此管理员既能看到代理提议了什么，也能看到它提交了什么。
 
 ### 读取工具
 
-服务器以九个集群提供 35 个读取工具。
+服务器以九个集群提供 37 个读取工具。
 
 **卡片与元模型**
 
@@ -245,6 +245,8 @@ MCP 服务器提供 **56 个工具**，分为两组：**35 个读取工具** 用
 | `list_adrs` | 架构决策记录，可按举措、状态和效力状态筛选（`standing="in_force,amended"` 列出生效中的决策）。显示每项决策的当前修订版；`include_earlier` 会加入早期修订版 |
 | `get_adr` | 单个 ADR 修订版，含章节、关联卡片、签署记录、效力状态、指向其他决策的类型化关联、决策者和参与者、日期、修订版以及文件名 |
 | `list_soaws` | 某项举措的架构工作说明书（当前修订版；`include_earlier` 会加入早期修订版） |
+| `get_document_discussion` | 决策或 SoAW 的讨论：各个主题及其回复、章节、作者和解决状态，包括拒绝原因和签署备注。每条评论同时以 HTML 和纯文本提供，提及写作 `@Name`，您无权查看的卡片则写作 `[restricted]`；`include_earlier_revisions` 会加入早期修订版的主题 |
+| `get_document_history` | 决策或 SoAW 的时间线（创建、保存、提交审核、签署、拒绝、恢复……），逐页返回。打开、比较和恢复已保存的版本仍需在 Web 界面中进行 |
 
 **报告**
 
@@ -282,9 +284,9 @@ MCP 服务器提供 **56 个工具**，分为两组：**35 个读取工具** 用
 
 ### 写入工具
 
-服务器提供 21 个写入工具，每个都标注为**增量型**（创建或扩展数据）或**破坏型**（修改或删除现有数据），以便连接器给出相应的警示。
+服务器提供 22 个写入工具，每个都标注为**增量型**（创建或扩展数据）或**破坏型**（修改或删除现有数据），以便连接器给出相应的警示。
 
-**增量型（16 个）**
+**增量型（17 个）**
 
 | 工具 | 描述 |
 |------|------|
@@ -293,6 +295,7 @@ MCP 服务器提供 **56 个工具**，分为两组：**35 个读取工具** 用
 | `create_risks` | 在 EA 风险登记册中创建条目。 |
 | `update_risks` | 更新风险登记册条目（字段、关联卡片）。 |
 | `add_card_comment` | 在卡片上发表评论——一种非破坏性、可审阅的备注，而不是直接修改字段。 |
+| `add_document_comment` | 在决策或 SoAW 上发表评论：新的主题（可选择关联到某个章节），或对某个主题的回复。评论为纯文本；提及只能在 Web 界面中进行。需要 `adr.comment` / `soaw.comment` 权限，或是该文档的签署人。已发表的评论无法通过 `rollback_batch` 撤销；请在 Web 界面的讨论中将其删除。 |
 | `create_soaw` | 为某项举措创建架构工作说明书。 |
 | `assign_stakeholders` | 在卡片上分配或移除干系人角色。 |
 | `update_cards_bulk` | 在一次调用中对多张卡片进行字段级修补。 |
@@ -441,10 +444,10 @@ Group = CardQuery | { all_of: [CardQuery, …] }
 
 - **每次调用的大小上限。** MCP 写入工具强制施加比底层 Excel 导入端点小得多的上限：`create_cards_bulk` 为 200 行，`upsert_relations_bulk` 为 500 次操作。足以应对任何实际的单一工件上传，又小到可以快速扫描演练预览。
 - **默认不允许删除关系。** `upsert_relations_bulk` 拒绝 `action: "delete"` 操作——若要删除关系，请使用 Web 界面，那里的操作会以用户身份被记录。运营者可通过设置 `MCP_ALLOW_RELATION_DELETE=true` 启用此功能。
-- **紧急开关。** `MCP_WRITES_ENABLED=false` 可在无需重新部署代码的情况下关闭全部 21 个写入工具。35 个读取工具继续工作。
+- **紧急开关。** `MCP_WRITES_ENABLED=false` 可在无需重新部署代码的情况下关闭全部 22 个写入工具。37 个读取工具继续工作。
 - **徽标下载仅限白名单主机。** 内置图标包无法覆盖客户使用的每一款产品，而助手往往运行在无法访问外网的沙箱里，因此 `set_card_logos` 接受 `image_url`，由 MCP 服务器代为下载。仅限 `https`、仅限 `MCP_LOGO_FETCH_HOSTS` 中的主机、仅限公网地址，最多两次重定向（每次重新校验），最多以流式读取 1 MB，且字节必须带有真实的 PNG/JPEG/WebP/GIF 签名。下载发生在 MCP 边缘而非后端，随后图片经普通通道上传 —— 由大模型选定的 URL 永远不会抵达持有数据库的进程。`MCP_LOGO_FETCH_ENABLED=false` 可将其关闭。
 - **审计来源标记。** 来自 MCP 服务器的每个后端请求都携带 `X-Turbo-EA-Origin: mcp` 头。从这些请求发出的事件在审计日志载荷中被标记为 `origin: "mcp"`，以便管理员可以将 MCP 驱动的写入与 Web 界面操作分别从时间线中筛选出来。
-- **变更批次。** 每次 MCP 写入调用——无论是预览还是提交——都是审计日志中的一个变更批次，在任何写入发生之前打开；调用期间发出的每个事件都会被标记上批次 id，每个写入工具都会返回该 `batch_id`。管理员（或 `get_change_history` 工具）可以凭一个 id 重建某次提交的完整逐事件差异，而 `rollback_batch` 可以将其撤销——包括删除由 `create_diagram` 创建的图表，除非此后有人已将其发布。图表更新会被报告为不可撤销，因为之前的画布不会被保留。超过 `MCP_BATCH_CONFIRMATION_THRESHOLD` 行的提交必须回传先前演练返回的一次性 `confirm_token`。后端在提交的批次打开时、任何写入发生之前校验它：它必须来自同一用户在 15 分钟内对同一工具执行的演练，并且只能授权一次提交。所有批量写入工具都遵循这一「预览 → 确认」流程：`create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`。
+- **变更批次。** 每次 MCP 写入调用——无论是预览还是提交——都是审计日志中的一个变更批次，在任何写入发生之前打开；调用期间发出的每个事件都会被标记上批次 id，每个写入工具都会返回该 `batch_id`。管理员（或 `get_change_history` 工具）可以凭一个 id 重建某次提交的完整逐事件差异，而 `rollback_batch` 可以将其撤销——包括删除由 `create_diagram` 创建的图表，除非此后有人已将其发布。图表更新会被报告为不可撤销，因为之前的画布不会被保留。在决策或 SoAW 上发表的评论同样不可撤销：它可能已经被人阅读，因此应改为在讨论中将其删除。超过 `MCP_BATCH_CONFIRMATION_THRESHOLD` 行的提交必须回传先前演练返回的一次性 `confirm_token`。后端在提交的批次打开时、任何写入发生之前校验它：它必须来自同一用户在 15 分钟内对同一工具执行的演练，并且只能授权一次提交。所有批量写入工具都遵循这一「预览 → 确认」流程：`create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`。
 - **没有硬删除。** 工具集刻意省略了卡片的永久删除。`archive_cards` 和 `update_cards_bulk` *确实*已暴露，但归档是可恢复的软删除（30 天还原窗口），且两者都带有破坏性标注并受演练机制约束。添加任何执行不可逆变更的工具（硬删除、强制清除）都需要进行明确的设计评审。
 
 MCP 容器上的六个防护栏环境变量：
@@ -484,7 +487,7 @@ MCP 容器上的六个防护栏环境变量：
 | 角色 | 访问权限 |
 |------|----------|
 | **管理员** | 配置 MCP 设置（`admin.mcp` 权限）。通过 MCP 拥有完整的读取 + 写入访问。 |
-| **所有已认证用户** | 读取访问由其现有 RBAC 控制。写入工具需要相应的后端权限——`inventory.create` / `inventory.edit` / `inventory.archive`（卡片）、`relations.manage`（关系）、`diagrams.manage`（图表）、`bpm.edit`（BPMN）、`risks.manage`（风险登记册）、`comments.create`（评论）、`stakeholders.manage`（干系人）、`soaw.create`（SoAW）、`adr.manage` / `adr.sign`（ADR）、`bookmarks.manage` / `bookmarks.share`（已保存的清单视图）。 |
+| **所有已认证用户** | 读取访问由其现有 RBAC 控制。写入工具需要相应的后端权限——`inventory.create` / `inventory.edit` / `inventory.archive`（卡片）、`relations.manage`（关系）、`diagrams.manage`（图表）、`bpm.edit`（BPMN）、`risks.manage`（风险登记册）、`comments.create`（评论）、`stakeholders.manage`（干系人）、`soaw.create`（SoAW）、`adr.manage` / `adr.sign`（ADR）、`adr.comment` / `soaw.comment`（决策和 SoAW 的讨论）、`bookmarks.manage` / `bookmarks.share`（已保存的清单视图）。 |
 
 `admin.mcp` 权限控制谁可以管理 MCP 设置。默认情况下仅对管理员角色可用。可以通过角色管理页面向自定义角色授予此权限。
 

@@ -42,6 +42,8 @@
   "preferences.adrSignRecalled": "تم سحب طلب توقيع ADR",
   "preferences.adrRejected": "تم رفض ADR",
   "preferences.adrStandingChanged": "تغيّرت حالة سريان ADR",
+  "preferences.documentComment": "التعليقات على القرارات وSoAW",
+  "preferences.documentMention": "الإشارات في النقاشات",
   "preferences.processFlowApprovalRequested": "طُلبت الموافقة على مسار العملية",
   "preferences.processFlowApproved": "تمت الموافقة على مسار العملية",
   "preferences.processFlowRejected": "تم رفض مسار العملية",

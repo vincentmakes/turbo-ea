@@ -49,6 +49,8 @@ L'editor fornisce:
 - **Link** — Un URL digitato o incollato diventa un link mentre scrivi, e ogni link di un documento si apre in una nuova scheda. Gli indirizzi nei documenti scritti prima del supporto ai link vengono collegati al momento della visualizzazione
 - **Template di sezioni** — Sezioni predefinite seguendo gli standard TOGAF (es. Descrizione del problema, Obiettivi, Approccio, Stakeholder, Vincoli, Piano di lavoro)
 - **Tabelle modificabili in linea** — Aggiungete e modificate tabelle all'interno di qualsiasi sezione
+- **Menzioni** — digitate **@** nel testo di una sezione per menzionare una card o una decisione (vedere [Discussione, menzioni e cronologia](#soaw-collaboration))
+- **Cronologia versioni del documento** — una tabella che gli autori compilano a mano (versione, data, revisionato da, descrizione). Fa parte del documento e non è la scheda [Cronologia](#soaw-collaboration)
 - **Workflow degli stati** — I documenti progrediscono attraverso fasi definite:
 
 | Stato | Significato |
@@ -69,6 +71,16 @@ Un SoAW in revisione è **bloccato**, così i firmatari firmano esattamente ciò
 Un SoAW firmato è in sola lettura. Cliccate su **Nuova revisione** per avviare una nuova bozza a partire da esso, con lo stesso nome e il numero di revisione successivo. Esiste una sola revisione aperta alla volta: mentre una revisione è in fase di redazione, il SoAW firmato lo segnala e offre **Apri la revisione** invece di avviarne un'altra. Solo l'ultima revisione può essere revisionata, e un rifiuto non cambia il numero di revisione.
 
 Una revisione precedente mostra un banner con un collegamento a quella corrente, e la striscia **Revisioni** su ogni revisione le elenca tutte. Gli elenchi di SoAW — i deliverable dell'iniziativa, la scheda SoAW, il report EA Delivery — mostrano la revisione corrente di ogni documento e l'eventuale revisione in fase di redazione.
+
+### Discussione, menzioni e cronologia {: #soaw-collaboration }
+
+Un SoAW ha la stessa discussione, le stesse menzioni e la stessa cronologia di una decisione, nel pannello **Discussione e cronologia** del suo editor e della sua anteprima. Il comportamento comune è descritto una sola volta, nella guida GRC: [Discussione](grc.md#decision-discussion), [Menzioni](grc.md#decision-mentions), [Cronologia](grc.md#decision-history) e [Limiti noti](grc.md#collaboration-limits). Ciò che cambia per un SoAW:
+
+- **Chi può pubblicare.** Pubblicare, rispondere, risolvere e riaprire richiedono il permesso `soaw.comment`, che membri e amministratori hanno per impostazione predefinita e i visualizzatori no; la lettura della discussione segue `soaw.view`. I firmatari del SoAW possono sempre commentarlo. Chiunque possa modificare i SoAW (`soaw.manage`) può eliminare qualsiasi commento.
+- **Sezioni.** Un thread è associato a una delle sezioni proprie del SoAW, oppure a *Generale*. Un thread associato a una sezione personalizzata poi rimossa mostra *Sezione rimossa*.
+- **Rifiuto.** Qualsiasi firmatario che abbia il permesso di firma (`soaw.sign`) — o il permesso di modifica — può rifiutare un SoAW, come per le decisioni; finora il rifiuto richiedeva il permesso di modifica. Il motivo apre nella discussione un thread **Motivo del rifiuto**.
+- **Nota di firma.** **Firma** apre ora una finestra di dialogo in cui il firmatario può aggiungere una nota facoltativa; compare nella discussione come **Nota di firma** e nella scheda Cronologia.
+- **Cronologia.** Una versione contiene il nome del SoAW, le sue informazioni sul documento, la sua tabella Cronologia versioni del documento e ogni sezione; l'iniziativa non fa parte di una versione. La scheda Cronologia registra ciò che accade al documento; la tabella Cronologia versioni del documento contiene solo ciò che gli autori vi scrivono. Un SoAW nello stato **Approvato** può ancora essere modificato, quindi, come per una bozza, i suoi salvataggi sono conservati come versioni e una versione precedente può esservi ripristinata.
 
 ### Anteprima ed esportazione
 

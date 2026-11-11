@@ -60,6 +60,8 @@ Under felterne viser dashboardet Oversigt:
 - **Seneste aktivitet**: Et feed med de seneste ændringer — hvem der redigerede hvad og hvornår
 - **Rangliste over datakvalitet**: De personer, der holder deres kort fuldstændige (se nedenfor)
 
+**Seneste aktivitet** viser også, hvad der sker med beslutninger og Statements of Architecture Work — en beslutning oprettet eller tilknyttet et kort, underskrifter anmodet, underskrevet, tilbagekaldt eller afvist, en kommentar sendt — for læsere, der må åbne dem: beslutningshændelser kræver `adr.view` og SoAW-hændelser `soaw.view`. Gennemgangshændelser gemmes fra version 2.200.0; tidligere blev de aldrig gemt.
+
 Et klik på en søjle eller et udsnit i et diagram åbner det, der ligger bag: [Inventar](inventory.md) filtreret til de kort for en korttype eller en godkendelsesstatus, livscyklusrapporten for en livscyklusfase og datakvalitetsrapporten for et fuldstændighedsinterval.
 
 ### Rangliste over datakvalitet

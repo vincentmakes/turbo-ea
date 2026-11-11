@@ -42,6 +42,8 @@
   "preferences.adrSignRecalled": "已撤回 ADR 签署请求",
   "preferences.adrRejected": "ADR 已拒绝",
   "preferences.adrStandingChanged": "ADR 效力状态已变更",
+  "preferences.documentComment": "决策和 SoAW 的评论",
+  "preferences.documentMention": "讨论中的提及",
   "preferences.processFlowApprovalRequested": "请求流程审批",
   "preferences.processFlowApproved": "流程已批准",
   "preferences.processFlowRejected": "流程已拒绝",

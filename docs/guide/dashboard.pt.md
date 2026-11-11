@@ -60,6 +60,8 @@ Abaixo dos blocos, o painel Visão geral mostra:
 - **Atividade recente**: um feed das últimas alterações — quem editou o quê e quando
 - **Classificação da qualidade dos dados**: as pessoas que mantêm os seus cards completos (ver abaixo)
 
+**Atividade recente** também lista o que acontece às decisões e aos Statements of Architecture Work — uma decisão criada ou vinculada a um card, assinaturas solicitadas, assinadas, recolhidas ou rejeitadas, um comentário publicado — aos leitores que os podem abrir: os eventos de decisões exigem `adr.view` e os de SoAW `soaw.view`. Os eventos de revisão são guardados a partir da versão 2.200.0; os anteriores nunca foram armazenados.
+
 Clicar numa barra ou numa fatia de um gráfico abre o que está por trás: o [Inventário](inventory.md) filtrado por esses cards para um tipo de card ou um status de aprovação, o relatório de Ciclo de vida para uma fase do ciclo de vida, o relatório de Qualidade de dados para uma faixa de completude.
 
 ### Classificação da qualidade dos dados

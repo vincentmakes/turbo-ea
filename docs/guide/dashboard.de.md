@@ -60,6 +60,8 @@ Unterhalb der Kacheln zeigt das Dashboard «Übersicht»:
 - **Letzte Aktivitäten**: Ein Feed der neuesten Änderungen — wer hat was wann bearbeitet
 - **Rangliste der Datenqualität**: Die Personen, die ihre Karten vollständig pflegen (siehe unten)
 
+**Letzte Aktivitäten** listet auch, was mit Entscheidungen und Statements of Architecture Work geschieht — eine Entscheidung erstellt oder mit einer Karte verknüpft, Unterschriften angefordert, unterzeichnet, zurückgerufen oder abgelehnt, ein Kommentar gepostet —, und zwar für Leser, die sie öffnen dürfen: Entscheidungsereignisse erfordern `adr.view`, SoAW-Ereignisse `soaw.view`. Prüfungsereignisse werden ab Version 2.200.0 aufbewahrt; frühere wurden nie gespeichert.
+
 Ein Klick auf einen Balken oder ein Segment eines Diagramms öffnet, was dahintersteht: das [Inventar](inventory.md), gefiltert auf diese Karten, bei einem Kartentyp oder einem Genehmigungsstatus, den Lebenszyklusbericht bei einer Lebenszyklusphase, den Datenqualitätsbericht bei einer Vollständigkeitsstufe.
 
 ### Rangliste der Datenqualität

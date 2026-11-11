@@ -235,6 +235,8 @@ Jede Karte besitzt einen **ADRs**-Tab, der die mit ihr verknüpften [Architektur
 
 Wenn Sie ADR-Verknüpfungen verwalten dürfen, bietet der Tab zusätzlich **ADR verknüpfen**, um eine bestehende Entscheidung anzuhängen, und **ADR erstellen**, um eine neue anzulegen, die bereits mit dieser Karte verknüpft ist — sowie eine Aktion zum Aufheben der Verknüpfung in jeder Zeile. Auf Karten ohne verknüpfte Entscheidungen ist der Tab ausgeblendet, sofern Sie diese Berechtigung nicht besitzen; Benutzer mit reinem Lesezugriff sehen also nie einen leeren Tab.
 
+Unter der Liste führt **Erwähnt in** die Entscheidungen und Statements of Architecture Work auf, deren Text diese Karte erwähnt, sowie jene, deren Diskussion sie erwähnt (markiert mit *in der Diskussion*), jeweils mit der Referenz oder Revision des Dokuments und seiner Geltung oder seinem Status. Eine Erwähnung verknüpft die Karte nicht mit der Entscheidung; sie erscheint nur hier. Die Liste zeigt nur Dokumente, die Sie öffnen können, und entfällt, wenn es keine gibt. Siehe [Erwähnungen](grc.md#decision-mentions).
+
 ## Risiken-Tab (GRC aktiviert, falls vorhanden)
 
 Wenn das [GRC-Modul](grc.md) aktiviert ist **und** die Karte mindestens ein verknüpftes Risiko hat, erscheint ein **Risiken**-Tab, der jedes mit der Karte verknüpfte Risiko mit einem Ein-Klick-Pfad zurück zum [Risikoregister](risks.md) auflistet. Der Tab wird automatisch ausgeblendet, wenn kein Risiko verknüpft ist, sodass Karten ohne GRC-Aktivität keinen leeren Tab mitschleppen.
