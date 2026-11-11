@@ -129,7 +129,6 @@ export default function SoAWPreview() {
   const versionHistory = soaw.version_history ?? [];
   // On screen the section headings carry their key, for the discussion markers.
   const bodyHtml = buildPreviewBody(soaw.name, docInfo, versionHistory, templateSections, customSections, soaw.revision_number, soaw.signatories, soaw.signed_at, { sectionAnchors: true });
-  const previewHtml = sanitizeRichHtml(bodyHtml);
 
   const handleExportPdf = () =>
     exportToPdf(soaw.name, docInfo, versionHistory, templateSections, customSections, soaw.revision_number, soaw.signatories, soaw.signed_at);
@@ -255,9 +254,9 @@ export default function SoAWPreview() {
           ref={previewRef}
           className="soaw-preview"
           sx={{ maxWidth: 800, mx: "auto", px: { xs: 1, sm: 0 } }}
-          dangerouslySetInnerHTML={{ __html: previewHtml }}
+          dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(bodyHtml) }}
         />
-        <HtmlSectionMarkers containerRef={previewRef} html={previewHtml} />
+        <HtmlSectionMarkers containerRef={previewRef} html={bodyHtml} />
       </MentionContainer>
 
       {/* Signature Block */}
