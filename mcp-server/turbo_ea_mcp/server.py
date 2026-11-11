@@ -1126,7 +1126,8 @@ async def get_document_history(
     """Read the timeline of a decision or a SoAW: what happened, by whom, when.
 
     Each entry is ``{id, kind, actor, actor_name, note, created_at,
-    has_content}``, in the order they happened. ``kind`` says what happened: ``created``,
+    has_content}``, NEWEST FIRST: page 1 starts with the latest step, so read
+    the list backwards to tell the story in order. ``kind`` says what happened: ``created``,
     ``revised`` (started as the next revision), ``save`` (a draft saved with
     changes; ``baseline`` is the state before the first recorded save),
     ``sent_for_review``, ``signature``, ``signed``, ``rejected`` (``note`` is

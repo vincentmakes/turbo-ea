@@ -435,6 +435,12 @@ class TestGetDocumentHistory:
         assert "timeline only" in doc
         assert "web UI" in doc
 
+    def test_the_docstring_gives_the_order_the_api_returns(self):
+        # The history route orders by ``seq`` descending: newest first.
+        doc = server.get_document_history.__doc__
+        assert "NEWEST FIRST" in doc
+        assert "in the order they happened" not in doc
+
 
 # ── add_document_comment: the body ──────────────────────────────────────────
 
