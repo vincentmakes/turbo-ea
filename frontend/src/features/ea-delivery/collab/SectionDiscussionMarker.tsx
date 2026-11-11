@@ -3,13 +3,13 @@
  * miniature of the page's chat button. With open threads it is the `forum`
  * icon under a small warning badge carrying the open-thread count; once every
  * thread on the section is resolved, the same icon muted and without a badge;
- * and, on a section with no thread, a muted `add_comment` icon for a reader
- * who may comment only (nothing for one who may not). Nothing outside a saved
+ * and, on a section with no thread, a muted `add_comment` icon (weighted and
+ * mirrored, `ADD_GLYPH`) for a reader who may comment only (nothing for one who may not). Nothing outside a saved
  * document's side panel. Clicking it, in every state, opens the Discussion
  * filtered to the section with the section chosen for a new thread. Screen
  * only: never printed, and the export builders never see it.
  */
-import { useContext } from "react";
+import { useContext, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import Badge from "@mui/material/Badge";
 import IconButton from "@mui/material/IconButton";
@@ -17,6 +17,14 @@ import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { iconSize } from "@/theme/tokens";
 import { SectionDiscussionContext } from "./sectionDiscussionContext";
+
+/**
+ * The "add a comment" glyph as people know it: a firm stroke and the bubble's
+ * tail at the bottom right. Material Symbols draws `add_comment` thin with
+ * the tail on the left, so it is weighted and mirrored (the plus is
+ * symmetric); beside a heading the thin one read as a small box.
+ */
+const ADD_GLYPH: CSSProperties = { fontVariationSettings: "'wght' 600", transform: "scaleX(-1)" };
 
 interface Props {
   /** The section's key, as the discussion tags threads (`sectionOptions`). */
@@ -36,7 +44,11 @@ export default function SectionDiscussionMarker({ section }: Props) {
     : threads
       ? t("collab.marker.resolved")
       : t("collab.marker.add");
-  const icon = <MaterialSymbol icon={threads ? "forum" : "add_comment"} size={iconSize.md} />;
+  const icon = threads ? (
+    <MaterialSymbol icon="forum" size={iconSize.md} />
+  ) : (
+    <MaterialSymbol icon="add_comment" size={iconSize.md} style={ADD_GLYPH} />
+  );
   return (
     <Tooltip title={label}>
       <IconButton

@@ -16,6 +16,7 @@ function renderMarker(section: string, ctx: SectionDiscussion | null) {
 }
 
 const glyph = (button: HTMLElement) => button.querySelector(".material-symbols-outlined");
+const glyphStyle = (button: HTMLElement) => (glyph(button) as HTMLElement).style;
 const badge = (button: HTMLElement) => button.querySelector(".MuiBadge-badge");
 
 describe("SectionDiscussionMarker", () => {
@@ -74,6 +75,9 @@ describe("SectionDiscussionMarker", () => {
     expect(button).toHaveClass("MuiIconButton-root", "no-print");
     expect(glyph(button)).toHaveTextContent(/^add_comment$/);
     expect(glyph(button)).toHaveStyle({ fontSize: "20px" });
+    // Weighted and mirrored: the tail of the bubble sits at the bottom right.
+    expect(glyphStyle(button).transform).toBe("scaleX(-1)");
+    expect(glyphStyle(button).fontVariationSettings).toBe("'wght' 600");
     expect(badge(button)).toBeNull();
     expect(button).toHaveTextContent(/^add_comment$/);
     expect(button).toHaveStyle({ color: MUTED });
@@ -93,6 +97,9 @@ describe("SectionDiscussionMarker", () => {
     renderMarker("context", { counts: { context: { open: 1, total: 1 } }, canComment: true, openSection: vi.fn() });
     const button = screen.getByRole("button", { name: "1 open thread on this section" });
     expect(glyph(button)).toHaveTextContent(/^forum$/);
+    // The forum icon is the app's own, as drawn: neither weighted nor mirrored.
+    expect(glyphStyle(button).transform).toBe("");
+    expect(glyphStyle(button).fontVariationSettings).toBe("");
     expect(badge(button)).toHaveTextContent(/^1$/);
   });
 
