@@ -285,6 +285,28 @@ class TestMigrateAndSeed:
         assert "[seed_collab] Skipped: demo decisions not found" in out
         assert "[seed_collab] Seeded" not in out
 
+    async def test_a_collaboration_skip_without_a_reason_says_unknown(self, boot, capsys):
+        _engine(boot.mp, has_alembic=True, version="head123")
+        boot.mp.setattr(main.settings, "SEED_DEMO", True)
+        for target in (
+            "app.services.seed_demo.seed_demo_data",
+            "app.services.seed_demo_bpm.seed_bpm_demo_data",
+            "app.services.seed_demo_ppm.seed_ppm_demo_data",
+            "app.services.seed_demo_extras.seed_extras_demo_data",
+            "app.services.seed_demo_security.seed_security_demo_data",
+            "app.services.seed_demo_logos.seed_logo_demo_data",
+            "app.services.seed_demo_workspace.seed_workspace_demo_data",
+        ):
+            boot.mp.setattr(target, AsyncMock(return_value={"skipped": True, "reason": "done"}))
+        collab = AsyncMock(return_value={"skipped": True})
+        boot.mp.setattr("app.services.seed_demo_collab.seed_collab_demo_data", collab)
+        boot.session.rows = [None, "an-admin-id"]
+        await main._migrate_and_seed(None)
+        # the seeder runs on the boot's own session
+        assert collab.await_args.args == (boot.session,)
+        out = capsys.readouterr().out
+        assert "[seed_collab] Skipped: unknown\n" in out
+
 
 # ── lifespan ──────────────────────────────────────────────────────────────
 
