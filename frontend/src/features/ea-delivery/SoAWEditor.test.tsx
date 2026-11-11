@@ -725,7 +725,14 @@ describe("SoAWEditor — signatures", () => {
     await waitForLoaded();
 
     const signDialog = await signThroughDialog();
-    expect(await screen.findByText("POST /soaw/s1/sign failed")).toBeInTheDocument();
+    // Inside the dialog, which stays open with its Sign button usable.
+    expect(await within(signDialog).findByTestId("review-dialog-error")).toHaveTextContent(
+      "POST /soaw/s1/sign failed",
+    );
+    expect(screen.getAllByText("POST /soaw/s1/sign failed")).toHaveLength(1);
+    await waitFor(() =>
+      expect(within(signDialog).getByText(t("collab.sign.confirm"), { selector: "button" })).toBeEnabled(),
+    );
     fireEvent.click(within(signDialog).getByText(tc("actions.cancel"), { selector: "button" }));
     await waitFor(() => expect(signDialog).not.toBeInTheDocument());
 
@@ -733,7 +740,17 @@ describe("SoAWEditor — signatures", () => {
     const dialog = await dialogTitled(t("editor.rejectDialog.title"));
     setValue(within(dialog).getByLabelText(new RegExp(`^${t("editor.rejectDialog.commentLabel")}`)), "No");
     fireEvent.click(within(dialog).getByText(t("editor.reject"), { selector: "button" }));
-    expect(await screen.findByText("POST /soaw/s1/reject failed")).toBeInTheDocument();
+    expect(await within(dialog).findByTestId("review-dialog-error")).toHaveTextContent("POST /soaw/s1/reject failed");
+    expect(within(dialog).getByLabelText(new RegExp(`^${t("editor.rejectDialog.commentLabel")}`))).toHaveValue("No");
+  });
+
+  it("opens the sign dialog from ?action=sign for a pending signatory", async () => {
+    mockApi.on("get", "/auth/me", { id: "u2" });
+    mockApi.on("get", "/soaw/s1", { ...SOAW, status: "in_review", signatories: [PENDING_U2] });
+    renderEdit("?action=sign");
+    await waitForLoaded();
+    expect(await dialogTitled(t("collab.sign.soawTitle"))).toBeInTheDocument();
+    expect(screen.queryByLabelText(t("editor.signDialog.title"))).toBeNull();
   });
 
   it("opens the reject dialog from a ?action=reject deep link", async () => {

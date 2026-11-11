@@ -59,6 +59,7 @@ import {
 import { hasUnsavedEdits } from "./editorDirty";
 import DocumentSidePanel from "./collab/DocumentSidePanel";
 import { RejectDocumentDialog, SignDocumentDialog } from "./collab/ReviewDialogs";
+import { deepLinkDialog } from "./collab/reviewDeepLink";
 import { sectionOptions, signBody, soawSectionOptions } from "./collab/discussionModel";
 import type { MentionKind } from "@/lib/mentionHtml";
 import { api } from "@/api/client";
@@ -140,21 +141,35 @@ export default function SoAWEditor() {
   const [createdVia, setCreatedVia] = useState<string | null>(null);
   const [signDialogOpen, setSignDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
-  // Sign, with an optional note.
+  // Sign, with an optional note. A refused sign or reject is shown in its
+  // dialog, which stays open.
   const [signOpen, setSignOpen] = useState(false);
+  const [signError, setSignError] = useState("");
+  const [rejectError, setRejectError] = useState("");
+  const openSign = () => {
+    setSignError("");
+    setSignOpen(true);
+  };
+  const openReject = () => {
+    setRejectError("");
+    setRejectDialogOpen(true);
+  };
   // Open discussion threads on this revision: the detail's count, then the
   // side panel's live one. Shown as a warning by the review dialogs.
   const [openThreads, setOpenThreads] = useState<number | undefined>(undefined);
   const [currentUserId, setCurrentUserId] = useState<string>("");
+  // The answer (or failure) of `/auth/me` is in.
+  const [meLoaded, setMeLoaded] = useState(false);
 
   // Deep-link from the MCP `pending` workflow: /ea-delivery/soaw/:id?action=sign|reject
-  // opens the matching dialog so the human can finish in one click.
+  // opens the matching dialog so the human can finish in one click, once the
+  // document and the reader are known (`deepLinkDialog`).
+  const [deepLink, setDeepLink] = useState<string | null>(null);
   useEffect(() => {
     if (!id) return;
     const action = searchParams.get("action");
     if (!action) return;
-    if (action === "sign") setSignDialogOpen(true);
-    else if (action === "reject") setRejectDialogOpen(true);
+    setDeepLink(action);
     setSearchParams({}, { replace: true });
   }, [id, searchParams, setSearchParams]);
   const isSigned = status === "signed";
@@ -180,6 +195,8 @@ export default function SoAWEditor() {
         setCurrentUserId(res.id);
       } catch {
         /* non-critical */
+      } finally {
+        setMeLoaded(true);
       }
     };
     loadInitiatives();
@@ -394,7 +411,7 @@ export default function SoAWEditor() {
       setSignOpen(false);
       setSnack(data.status === "signed" ? t("editor.documentFullySigned") : t("editor.signatureRecorded"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("editor.error.signFailed"));
+      setSignError(e instanceof Error && e.message ? e.message : t("editor.error.signFailed"));
     } finally {
       setSaving(false);
     }
@@ -432,9 +449,7 @@ export default function SoAWEditor() {
       setRejectDialogOpen(false);
       setSnack(t("editor.documentRejected"));
     } catch (e) {
-      setError(
-        e instanceof Error ? e.message : t("editor.error.rejectFailed"),
-      );
+      setRejectError(e instanceof Error && e.message ? e.message : t("editor.error.rejectFailed"));
     } finally {
       setSaving(false);
     }
@@ -467,6 +482,22 @@ export default function SoAWEditor() {
   const currentUserIsSignatory = signatories.some(
     (s) => s.user_id === currentUserId && s.status === "pending"
   );
+
+  // A deep link's dialog, once this document and the reader are known.
+  const deepLinkReady = deepLink !== null && meLoaded && detail !== null && detail.id === id;
+  useEffect(() => {
+    if (!deepLinkReady || deepLink === null) return;
+    setDeepLink(null);
+    const dialog = deepLinkDialog(deepLink, currentUserIsSignatory);
+    if (dialog === "sign") {
+      setSignError("");
+      setSignOpen(true);
+    } else if (dialog === "request-signatures") setSignDialogOpen(true);
+    else if (dialog === "reject") {
+      setRejectError("");
+      setRejectDialogOpen(true);
+    }
+  }, [deepLinkReady, deepLink, currentUserIsSignatory]);
 
   // ── version history helpers ────────────────────────────────────────────
 
@@ -673,7 +704,7 @@ export default function SoAWEditor() {
               startIcon={<MaterialSymbol icon="task_alt" size={18} />}
               sx={{ textTransform: "none" }}
               disabled={saving}
-              onClick={() => setSignOpen(true)}
+              onClick={openSign}
             >
               {t("editor.sign")}
             </Button>
@@ -684,7 +715,7 @@ export default function SoAWEditor() {
               startIcon={<MaterialSymbol icon="block" size={18} />}
               sx={{ textTransform: "none" }}
               disabled={saving}
-              onClick={() => setRejectDialogOpen(true)}
+              onClick={openReject}
             >
               {t("editor.reject")}
             </Button>
@@ -1342,6 +1373,8 @@ export default function SoAWEditor() {
         description={t("collab.sign.soawDescription")}
         openThreadCount={openThreads}
         busy={saving}
+        error={signError}
+        onDismissError={() => setSignError("")}
       />
       <RejectDocumentDialog
         open={rejectDialogOpen}
@@ -1353,6 +1386,8 @@ export default function SoAWEditor() {
         submitLabel={t("editor.reject")}
         openThreadCount={openThreads}
         busy={saving}
+        error={rejectError}
+        onDismissError={() => setRejectError("")}
       />
 
       {/* Snackbar */}

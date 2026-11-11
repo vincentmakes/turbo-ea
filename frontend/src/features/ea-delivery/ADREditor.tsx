@@ -51,6 +51,7 @@ import {
 import { hasUnsavedEdits } from "./editorDirty";
 import DocumentSidePanel from "./collab/DocumentSidePanel";
 import { RejectDocumentDialog, SignDocumentDialog } from "./collab/ReviewDialogs";
+import { deepLinkDialog } from "./collab/reviewDeepLink";
 import { sectionOptions, signBody } from "./collab/discussionModel";
 import { unlinkedMentionedCards } from "./mentions/mentionModel";
 import type { MentionKind } from "@/lib/mentionHtml";
@@ -151,9 +152,20 @@ export default function ADREditor() {
   // Record-as-decided dialog
   const [recordOpen, setRecordOpen] = useState(false);
 
-  // Sign (with an optional note) and reject dialogs
+  // Sign (with an optional note) and reject dialogs, and why the last
+  // attempt from each was refused (shown inside the dialog).
   const [signOpen, setSignOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [signError, setSignError] = useState("");
+  const [rejectError, setRejectError] = useState("");
+  const openSign = () => {
+    setSignError("");
+    setSignOpen(true);
+  };
+  const openReject = () => {
+    setRejectError("");
+    setRejectDialogOpen(true);
+  };
   // Open discussion threads on this revision: the detail's count, then the
   // side panel's live one. Shown as a warning by the review dialogs.
   const [openThreads, setOpenThreads] = useState<number | undefined>(undefined);
@@ -162,18 +174,20 @@ export default function ADREditor() {
   // with `deep_link: /ea-delivery/adr/{id}?action=sign|reject|request-
   // signatures`, the user clicks it and lands here. Auto-open the
   // matching dialog so the human can finish the workflow in one click.
-  // The param is consumed (cleared) so a refresh doesn't re-open.
+  // The param is consumed (cleared) so a refresh doesn't re-open; the dialog
+  // opens once the decision and the reader are known (`deepLinkDialog`).
+  const [deepLink, setDeepLink] = useState<string | null>(null);
   useEffect(() => {
     if (isNew) return;
     const action = searchParams.get("action");
     if (!action) return;
-    if (action === "sign") setSignDialogOpen(true);
-    else if (action === "reject") setRejectDialogOpen(true);
+    setDeepLink(action);
     setSearchParams({}, { replace: true });
   }, [isNew, searchParams, setSearchParams]);
 
-  // Current user
+  // Current user (`meLoaded` once the answer, or its failure, is in)
   const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [meLoaded, setMeLoaded] = useState(false);
 
   // Card link dialog
   const [cardLinkOpen, setCardLinkOpen] = useState(false);
@@ -189,7 +203,8 @@ export default function ADREditor() {
     api
       .get<{ id: string }>("/auth/me")
       .then((res) => setCurrentUserId(res.id))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setMeLoaded(true));
   }, []);
 
   // Every field from a decision as the server returned it. The ONE path for
@@ -439,8 +454,9 @@ export default function ADREditor() {
             ? t("adr.editor.documentFullySigned")
             : t("adr.editor.signatureRecorded"),
         );
-      } catch {
-        setError(t("adr.editor.error.signFailed"));
+      } catch (err) {
+        // Shown in the dialog, which stays open (the page's alert is behind it).
+        setSignError(problemMessage(err, t) ?? t("adr.editor.error.signFailed"));
       }
     });
 
@@ -474,8 +490,8 @@ export default function ADREditor() {
       applyReply(updated);
       setRejectDialogOpen(false);
       setSnackbar(t("adr.editor.documentRejected"));
-    } catch {
-      setError(t("adr.editor.error.rejectFailed"));
+    } catch (err) {
+      setRejectError(problemMessage(err, t) ?? t("adr.editor.error.rejectFailed"));
     } finally {
       setSaving(false);
     }
@@ -519,6 +535,22 @@ export default function ADREditor() {
     (s) => s.user_id === currentUserId && s.status === "pending",
   );
   const signedCount = signatories.filter((s) => s.status === "signed").length;
+
+  // A deep link's dialog, once this decision and the reader are known.
+  const deepLinkReady = deepLink !== null && meLoaded && detail !== null && detail.id === id;
+  useEffect(() => {
+    if (!deepLinkReady || deepLink === null) return;
+    setDeepLink(null);
+    const dialog = deepLinkDialog(deepLink, status === "in_review" && currentUserIsSignatory);
+    if (dialog === "sign") {
+      setSignError("");
+      setSignOpen(true);
+    } else if (dialog === "request-signatures") setSignDialogOpen(true);
+    else if (dialog === "reject") {
+      setRejectError("");
+      setRejectDialogOpen(true);
+    }
+  }, [deepLinkReady, deepLink, status, currentUserIsSignatory]);
 
   // Save (on a new decision), Duplicate and New Revision navigate to another
   // decision and confirm in the same breath, so the page goes from the old
@@ -741,7 +773,7 @@ export default function ADREditor() {
               variant="contained"
               color="success"
               startIcon={<MaterialSymbol icon="draw" size={18} />}
-              onClick={() => setSignOpen(true)}
+              onClick={openSign}
               disabled={action.busy}
               sx={{ textTransform: "none" }}
             >
@@ -751,7 +783,7 @@ export default function ADREditor() {
               variant="outlined"
               color="error"
               startIcon={<MaterialSymbol icon="block" size={18} />}
-              onClick={() => setRejectDialogOpen(true)}
+              onClick={openReject}
               disabled={saving}
               sx={{ textTransform: "none" }}
             >
@@ -1251,6 +1283,8 @@ export default function ADREditor() {
         description={t("collab.sign.adrDescription")}
         openThreadCount={openThreads}
         busy={action.busy}
+        error={signError}
+        onDismissError={() => setSignError("")}
       />
       <RejectDocumentDialog
         open={rejectDialogOpen}
@@ -1262,6 +1296,8 @@ export default function ADREditor() {
         submitLabel={t("adr.editor.reject")}
         openThreadCount={openThreads}
         busy={saving}
+        error={rejectError}
+        onDismissError={() => setRejectError("")}
       />
 
     </Box>

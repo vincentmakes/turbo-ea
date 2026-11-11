@@ -6,6 +6,9 @@
  * - Sign: an optional note, kept as a signing note in the discussion.
  * - Reject: a reason is required (at most `REJECT_REASON_MAX` characters);
  *   it opens a thread to resolve.
+ *
+ * A refusal (`error`) is shown inside the dialog, which stays open with what
+ * was typed, so the signer can read why and try again or cancel.
  */
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -40,9 +43,32 @@ interface SignProps {
   description: string;
   openThreadCount?: number;
   busy?: boolean;
+  /** Why the last attempt was refused; shown in the dialog. */
+  error?: string;
+  onDismissError?: () => void;
 }
 
-export function SignDocumentDialog({ open, onClose, onSign, title, description, openThreadCount, busy }: SignProps) {
+/** A refusal inside a review dialog. */
+function DialogError({ error, onDismiss }: { error?: string; onDismiss?: () => void }) {
+  if (!error) return null;
+  return (
+    <Alert severity="error" onClose={onDismiss} data-testid="review-dialog-error">
+      {error}
+    </Alert>
+  );
+}
+
+export function SignDocumentDialog({
+  open,
+  onClose,
+  onSign,
+  title,
+  description,
+  openThreadCount,
+  busy,
+  error,
+  onDismissError,
+}: SignProps) {
   const { t } = useTranslation(["delivery", "common"]);
   const [note, setNote] = useState("");
   const tooLong = note.length > SIGN_NOTE_MAX;
@@ -58,6 +84,7 @@ export function SignDocumentDialog({ open, onClose, onSign, title, description, 
       <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
         <Typography variant="body2">{description}</Typography>
         <OpenThreadsWarning count={openThreadCount} />
+        <DialogError error={error} onDismiss={onDismissError} />
         <TextField
           label={t("collab.sign.noteLabel")}
           fullWidth
@@ -95,6 +122,9 @@ interface RejectProps {
   submitLabel: string;
   openThreadCount?: number;
   busy?: boolean;
+  /** Why the last attempt was refused; shown in the dialog. */
+  error?: string;
+  onDismissError?: () => void;
 }
 
 export function RejectDocumentDialog({
@@ -107,6 +137,8 @@ export function RejectDocumentDialog({
   submitLabel,
   openThreadCount,
   busy,
+  error,
+  onDismissError,
 }: RejectProps) {
   const { t } = useTranslation(["delivery", "common"]);
   const [reason, setReason] = useState("");
@@ -125,6 +157,7 @@ export function RejectDocumentDialog({
           {description}
         </Typography>
         <OpenThreadsWarning count={openThreadCount} />
+        <DialogError error={error} onDismiss={onDismissError} />
         <TextField
           autoFocus
           label={label}

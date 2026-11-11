@@ -423,10 +423,35 @@ describe("ADREditor — review actions", () => {
     expect(await screen.findByText("Signature recorded")).toBeInTheDocument();
   });
 
-  it("reports a failed signature", async () => {
+  it("reports a failed signature inside the sign dialog, which stays open and can try again", async () => {
+    let refuse = true;
+    await renderLoaded(IN_REVIEW, (path) =>
+      path === "/adr/adr-1/sign" ? (refuse ? new Error("x") : { ...IN_REVIEW, status: "signed" }) : {},
+    );
+    await signThroughDialog(userEvent);
+    const dialog = await screen.findByRole("dialog", { name: "Sign Decision" });
+    expect(await within(dialog).findByTestId("review-dialog-error")).toHaveTextContent("Failed to sign");
+    // Not (only) on the page behind the backdrop.
+    expect(screen.getAllByText("Failed to sign")).toHaveLength(1);
+    const confirm = within(dialog).getByRole("button", { name: "Sign" });
+    await waitFor(() => expect(confirm).toBeEnabled());
+
+    refuse = false;
+    await userEvent.click(confirm);
+    expect(await screen.findByText("Decision fully signed")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Sign Decision" })).toBeNull());
+  });
+
+  it("opens the sign dialog afresh, without the last refusal", async () => {
     await renderLoaded(IN_REVIEW, () => new Error("x"));
     await signThroughDialog(userEvent);
-    expect(await screen.findByText("Failed to sign")).toBeInTheDocument();
+    const dialog = await screen.findByRole("dialog", { name: "Sign Decision" });
+    await within(dialog).findByTestId("review-dialog-error");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await userEvent.click(screen.getByRole("button", { name: /^draw Sign$/ }));
+    const again = await screen.findByRole("dialog", { name: "Sign Decision" });
+    expect(within(again).queryByTestId("review-dialog-error")).toBeNull();
   });
 
   it("rejects with a comment, back to a draft that keeps its revision number", async () => {
@@ -455,7 +480,12 @@ describe("ADREditor — review actions", () => {
     const dialog = within(await screen.findByRole("dialog"));
     await userEvent.type(dialog.getByLabelText("Reason for rejection"), "No");
     await userEvent.click(dialog.getByRole("button", { name: "Reject" }));
-    expect(await screen.findByText("Failed to reject decision", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await dialog.findByTestId("review-dialog-error", undefined, { timeout: 3000 })).toHaveTextContent(
+      "Failed to reject decision",
+    );
+    // The reason typed is still there, and Reject can be pressed again.
+    expect(dialog.getByLabelText("Reason for rejection")).toHaveValue("No");
+    await waitFor(() => expect(dialog.getByRole("button", { name: "Reject" })).toBeEnabled());
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
@@ -479,14 +509,22 @@ describe("ADREditor — review actions", () => {
     expect(screen.getByRole("button", { name: /Recall Signatures$/ })).toBeInTheDocument();
   });
 
-  it("opens the sign or the reject dialog from a deep link", async () => {
+  it("opens the sign dialog from ?action=sign for a pending signatory, and the reject dialog from ?action=reject", async () => {
     serve(IN_REVIEW);
     const { unmount } = renderAt("/ea-delivery/adr/adr-1?action=sign");
-    expect(await screen.findByTestId("sign-dialog")).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Sign Decision" })).toBeInTheDocument();
+    expect(screen.queryByTestId("sign-dialog")).toBeNull();
     unmount();
 
     renderAt("/ea-delivery/adr/adr-1?action=reject");
     expect(await screen.findByText("Reject Decision")).toBeInTheDocument();
+  });
+
+  it("opens the signature request dialog from ?action=sign for anyone not a pending signatory", async () => {
+    serve({ ...IN_REVIEW, signatories: [IN_REVIEW.signatories[1]] });
+    renderAt("/ea-delivery/adr/adr-1?action=sign");
+    expect(await screen.findByTestId("sign-dialog")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Sign Decision" })).toBeNull();
   });
 });
 

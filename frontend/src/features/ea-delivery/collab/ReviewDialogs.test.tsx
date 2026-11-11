@@ -101,3 +101,55 @@ describe("RejectDocumentDialog", () => {
     expect(screen.getByRole("button", { name: "Reject" })).toBeDisabled();
   });
 });
+
+describe("review dialogs show a refusal inside", () => {
+  it("the sign dialog shows the error, keeps the note and its buttons, and lets it be dismissed", async () => {
+    const onSign = vi.fn();
+    const onDismissError = vi.fn();
+    const { rerender } = render(
+      <SignDocumentDialog open onClose={vi.fn()} onSign={onSign} title="Sign it" description="Desc" />,
+    );
+    expect(screen.queryByTestId("review-dialog-error")).toBeNull();
+    await userEvent.type(screen.getByLabelText("Note (optional)"), "ok");
+    rerender(
+      <SignDocumentDialog
+        open
+        onClose={vi.fn()}
+        onSign={onSign}
+        title="Sign it"
+        description="Desc"
+        error="Already signed elsewhere"
+        onDismissError={onDismissError}
+      />,
+    );
+    const alert = screen.getByTestId("review-dialog-error");
+    expect(alert).toHaveTextContent("Already signed elsewhere");
+    expect(screen.getByLabelText("Note (optional)")).toHaveValue("ok");
+    expect(screen.getByRole("button", { name: "Sign" })).toBeEnabled();
+    await userEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(onDismissError).toHaveBeenCalledTimes(1);
+    await userEvent.click(screen.getByRole("button", { name: "Sign" }));
+    expect(onSign).toHaveBeenCalledWith("ok");
+  });
+
+  it("the reject dialog shows the error and keeps the reason", async () => {
+    const onReject = vi.fn();
+    const props = {
+      open: true,
+      onClose: vi.fn(),
+      onReject,
+      title: "Reject it",
+      description: "Desc",
+      label: "Reason",
+      submitLabel: "Reject",
+    };
+    const { rerender } = render(<RejectDocumentDialog {...props} />);
+    expect(screen.queryByTestId("review-dialog-error")).toBeNull();
+    await userEvent.type(screen.getByLabelText(/^Reason/), "Too costly");
+    rerender(<RejectDocumentDialog {...props} error="Recalled meanwhile" />);
+    expect(screen.getByTestId("review-dialog-error")).toHaveTextContent("Recalled meanwhile");
+    expect(screen.getByLabelText(/^Reason/)).toHaveValue("Too costly");
+    await userEvent.click(screen.getByRole("button", { name: "Reject" }));
+    expect(onReject).toHaveBeenCalledWith("Too costly");
+  });
+});

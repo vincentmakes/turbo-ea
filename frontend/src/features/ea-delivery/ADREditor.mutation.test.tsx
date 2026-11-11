@@ -866,8 +866,8 @@ describe("ADREditor — deep links", () => {
   });
 
   it("the consumed action replaces its history entry, so Back leaves the editor", async () => {
-    await renderLoaded(IN_REVIEW, {}, "/ea-delivery/adr/adr-1?action=sign");
-    expect(screen.getByTestId("sign-dialog")).toBeInTheDocument();
+    await renderLoaded({ ...IN_REVIEW, signatories: [GRACE_SIGNED] }, {}, "/ea-delivery/adr/adr-1?action=sign");
+    expect(await screen.findByTestId("sign-dialog")).toBeInTheDocument();
     await waitFor(() => expect(location()).toBe("/ea-delivery/adr/adr-1"));
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "close-sign-dialog" }));
