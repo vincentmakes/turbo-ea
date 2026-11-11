@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 - **History of decisions and SoAWs** opens from a **History** button at the top of the page, in one view with the timeline and the selected version (or what changed in it) side by side; the side panel now holds the discussion only.
-- **Mentions**: the **@** list shows more about each entry, lists the decision's linked cards and its signatories first, and offers **Browse** to pick from the standard pickers.
+- **Mentions**: the **@** list shows each card's type, icon and subtype and each decision's reference, title and standing, lists the decision's linked cards and the document's signatories, decision makers and participants first, and a **Browse…** entry and a **Mention…** toolbar button open the standard pickers to insert several mentions at once.
 
 ## [2.200.1] - 2026-11-11
 
