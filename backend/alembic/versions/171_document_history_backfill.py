@@ -6,6 +6,13 @@ rows already record is enough for the outline of each one:
 
 * ``created`` (a document with no parent) or ``revised`` (a revision) at its
   ``created_at``, by ``created_by``;
+* for a document IN REVIEW, ``sent_for_review`` carrying the signatories it
+  stores as ``[{user_id, display_name}]`` (never an e-mail, a status or a
+  note), so the people asked to sign keep their access to the discussion
+  and the versions after a recall or a rejection. It is dated at the
+  earliest of the document's ``updated_at`` and its signatures (a round is
+  sent before anyone signs it), never before ``created_at``, with no actor
+  (who sent it is not stored);
 * one ``signature`` per signed entry of ``signatories``, at that entry's
   ``signed_at``, naming the signer by the display name stored on the entry
   (the actor id only when it is a user that still exists; an e-mail is never
@@ -45,8 +52,17 @@ SOAW = "soaw"
 OWNER_COLUMN = {ADR: "architecture_decision_id", SOAW: "soaw_id"}
 
 # Where a step sorts against another step of the same document at the same
-# instant: the document exists before it is signed, signed before recorded.
-_STEP_RANK = {"created": 0, "revised": 0, "signature": 1, "signed": 2, "recorded": 3}
+# instant: the document exists before it is sent for review, sent before it
+# is signed, signed before recorded.
+_STEP_RANK = {
+    "created": 0,
+    "revised": 0,
+    "sent_for_review": 1,
+    "signature": 2,
+    "signed": 3,
+    "recorded": 4,
+}
+IN_REVIEW = "in_review"
 
 
 # --- Pure planner -----------------------------------------------------------------
@@ -109,18 +125,44 @@ def _signature_steps(
     return steps
 
 
+def _review_signatories(signatories: Any) -> list[dict[str, Any]]:
+    """``[{user_id, display_name}]`` of a document's signatory entries, as a
+    ``sent_for_review`` row keeps them."""
+    if not isinstance(signatories, list):
+        return []
+    return [
+        {"user_id": entry.get("user_id"), "display_name": entry.get("display_name")}
+        for entry in signatories
+        if isinstance(entry, dict)
+    ]
+
+
+def _sent_at(
+    created_at: datetime | None, updated_at: datetime | None, signed: Iterable[datetime]
+) -> datetime | None:
+    """When an open review round was sent: the earliest of the last update and
+    the signatures given so far, never before the document was created."""
+    candidates = [t for t in (updated_at, *signed) if t is not None]
+    if not candidates:
+        return created_at
+    sent = min(candidates)
+    return max(sent, created_at) if created_at is not None else sent
+
+
 def plan_history_rows(
     rows: Iterable[Mapping[str, Any]], users: Mapping[uuid.UUID, str]
 ) -> list[dict[str, Any]]:
     """The timeline rows to insert, in chronological order.
 
     ``rows`` are documents: ``kind`` (``"adr"`` or ``"soaw"``), ``id``,
-    ``parent_id``, ``created_at``, ``created_by``, ``signatories``,
-    ``signed_at`` and, for a decision, ``recorded_at`` / ``recorded_by``.
-    ``users`` maps every existing user id to its display name. Each planned
-    row is ``{owner column: id, kind, actor_id, actor_name, created_at, via}``.
-    Ties sort by step (created before a signature before signed before
-    recorded), then by the order the documents came in.
+    ``parent_id``, ``status``, ``created_at``, ``updated_at``, ``created_by``,
+    ``signatories``, ``signed_at`` and, for a decision, ``recorded_at`` /
+    ``recorded_by``. ``users`` maps every existing user id to its display
+    name. Each planned row is ``{owner column: id, kind, actor_id,
+    actor_name, created_at, via, signatories}`` (``signatories`` set on a
+    ``sent_for_review`` row only). Ties sort by step (created before sent for
+    review before a signature before signed before recorded), then by the
+    order the documents came in.
     """
     keyed: list[tuple[datetime, int, int, int, dict[str, Any]]] = []
     for doc_index, doc in enumerate(rows):
@@ -130,7 +172,14 @@ def plan_history_rows(
         if created_at is not None:
             kind = "revised" if doc.get("parent_id") is not None else "created"
             steps.append((created_at, kind, *_actor(doc.get("created_by"), users)))
-        steps.extend(_signature_steps(doc.get("signatories"), users))
+        signatures = _signature_steps(doc.get("signatories"), users)
+        if doc.get("status") == IN_REVIEW:
+            sent_at = _sent_at(
+                created_at, _as_time(doc.get("updated_at")), (s[0] for s in signatures)
+            )
+            if sent_at is not None:
+                steps.append((sent_at, "sent_for_review", None, None))
+        steps.extend(signatures)
         signed_at = _as_time(doc.get("signed_at"))
         if signed_at is not None:
             steps.append((signed_at, "signed", None, None))
@@ -151,6 +200,11 @@ def plan_history_rows(
                         "actor_name": actor_name,
                         "created_at": at,
                         "via": VIA,
+                        "signatories": (
+                            _review_signatories(doc.get("signatories"))
+                            if kind == "sent_for_review"
+                            else None
+                        ),
                     },
                 )
             )
@@ -171,6 +225,8 @@ def _history() -> sa.TableClause:
         sa.column("actor_id", postgresql.UUID(as_uuid=True)),
         sa.column("actor_name", sa.String),
         sa.column("via", sa.String),
+        # SQL NULL, not JSON null, on every row that is not a review request.
+        sa.column("signatories", postgresql.JSONB(none_as_null=True)),
         sa.column("created_at", sa.DateTime(timezone=True)),
     )
 
@@ -191,8 +247,9 @@ def upgrade() -> None:
         ),
         *(
             sa.column(name, sa.DateTime(timezone=True))
-            for name in ("created_at", "signed_at", "recorded_at")
+            for name in ("created_at", "updated_at", "signed_at", "recorded_at")
         ),
+        sa.column("status", sa.String),
         sa.column("signatories", postgresql.JSONB),
     )
     soaws = sa.table(
@@ -200,7 +257,9 @@ def upgrade() -> None:
         *(sa.column(name, postgresql.UUID(as_uuid=True)) for name in ("id", "parent_id")),
         sa.column("created_by", postgresql.UUID(as_uuid=True)),
         sa.column("created_at", sa.DateTime(timezone=True)),
+        sa.column("updated_at", sa.DateTime(timezone=True)),
         sa.column("signed_at", sa.DateTime(timezone=True)),
+        sa.column("status", sa.String),
         sa.column("signatories", postgresql.JSONB),
     )
 
@@ -235,6 +294,7 @@ def upgrade() -> None:
                     "actor_id": values["actor_id"],
                     "actor_name": values["actor_name"],
                     "via": values["via"],
+                    "signatories": values["signatories"],
                     "created_at": values["created_at"],
                 }
                 for values in planned[start : start + 500]

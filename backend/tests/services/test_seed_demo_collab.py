@@ -157,6 +157,18 @@ async def _timeline(db, doc_id) -> list[DocumentHistoryEntry]:
     )
 
 
+async def _count_backfilled(db) -> int:
+    return int(
+        (
+            await db.execute(
+                select(func.count())
+                .select_from(DocumentHistoryEntry)
+                .where(DocumentHistoryEntry.via == "migration:171")
+            )
+        ).scalar_one()
+    )
+
+
 async def _count(db, model) -> int:
     return int((await db.execute(select(func.count()).select_from(model))).scalar_one())
 
@@ -227,8 +239,11 @@ async def test_the_rejection_thread_and_its_timeline_row(db):
     assert reply.created_at == _ago(6)
     assert await discussion.open_thread_count(db, "adr", doc.id) == 1
 
-    assert [s.kind for s in steps] == ["sent_for_review", "rejected", "baseline", "save"]
-    sent, rejected, baseline, save = steps
+    assert [s.kind for s in steps] == ["created", "sent_for_review", "rejected", "baseline", "save"]
+    created, sent, rejected, baseline, save = steps
+    # The timeline the base seed's plain row is given first (as migration 171
+    # gives an upgraded install's).
+    assert (created.via, created.content, created.actor_id) == ("migration:171", None, admin.id)
     assert (sent.actor_id, sent.created_at) == (admin.id, _ago(10))
     assert sent.signatories == [
         {"user_id": "demo-sig-enterprise-architect", "display_name": "Enterprise Architect"},
@@ -254,13 +269,21 @@ async def test_three_versions_of_the_draft_in_order(db):
     final = seeded["decision"] + sap_mention_sentence(sap.id, gateway.id)
     assert doc.status == "draft"
     assert (doc.title, doc.decision) == (seeded["title"], final)
-    assert [s.kind for s in steps] == ["created", "save", "save"]
-    assert [s.content["title"] for s in steps] == [SAP_V1_TITLE, seeded["title"], seeded["title"]]
-    assert [s.content["decision"] for s in steps] == [SAP_V1_DECISION, SAP_V2_DECISION, final]
-    assert [s.created_at for s in steps] == [_ago(14), _ago(8), _ago(3)]
-    assert {s.actor_id for s in steps} == {admin.id}
+    # A fresh install reads like an upgraded one: the backfilled ``created``
+    # row (no content), then version 1 as the baseline and two saves.
+    assert [s.kind for s in steps] == ["created", "baseline", "save", "save"]
+    assert (steps[0].via, steps[0].content) == ("migration:171", None)
+    versions = steps[1:]
+    assert [s.content["title"] for s in versions] == [
+        SAP_V1_TITLE,
+        seeded["title"],
+        seeded["title"],
+    ]
+    assert [s.content["decision"] for s in versions] == [SAP_V1_DECISION, SAP_V2_DECISION, final]
+    assert [s.created_at for s in versions] == [_ago(14), _ago(8), _ago(3)]
+    assert [s.actor_id for s in versions] == [None, admin.id, admin.id]
     # The other sections are the seeded text in every version.
-    assert {s.content["context"] for s in steps} == {seeded["context"]}
+    assert {s.content["context"] for s in versions} == {seeded["context"]}
 
 
 async def test_the_mentions_in_the_text(db):
@@ -332,7 +355,9 @@ async def test_seeding_twice_changes_nothing(db):
     again = await seed_collab_demo_data(db, now=NOW)
 
     assert again == {"skipped": True, "reason": "already seeded"}
-    assert (comments, steps) == (7, 7)
+    backfilled = await _count_backfilled(db)
+    assert (comments, steps - backfilled) == (7, 7)
+    assert backfilled > 0
     assert await _count(db, DocumentComment) == comments
     assert await _count(db, DocumentHistoryEntry) == steps
     assert (await _decision(db, "ADR-003")).decision == sap_text
@@ -441,7 +466,8 @@ async def test_each_part_skips_on_its_own_natural_key(db):
     # ADR-001 and the SoAW get their threads, ADR-007 its amended text only.
     assert result == {"threads": 2, "replies": 1, "mentions": 2, "versions": 0}
     assert iter_mentions(sap.decision) == []
-    assert await _timeline(db, sap.id) == []
+    # ADR-003 in review: its backfilled timeline only, no version.
+    assert [s.kind for s in await _timeline(db, sap.id)] == ["created", "sent_for_review"]
     assert [
         c.kind for c in await _comments(db, DocumentComment.architecture_decision_id, container.id)
     ] == []
@@ -458,5 +484,43 @@ async def test_a_signed_container_decision_is_left_alone(db):
     result = await seed_collab_demo_data(db, now=NOW)
 
     assert result == {"threads": 3, "replies": 2, "mentions": 2, "versions": 3}
-    assert await _timeline(db, container.id) == []
+    assert [(s.kind, s.via) for s in await _timeline(db, container.id)] == [
+        ("created", "migration:171")
+    ]
     assert container.decision == _seeded("ADR-007")["decision"]
+
+
+async def test_every_demo_document_gets_the_timeline_of_an_upgraded_install(db):
+    """The base seed inserts the decisions and SoAWs as plain rows after
+    migration 171 ran; the seeder gives each the rows the migration would
+    have written, the review request of a document in review included."""
+    await _seed_demo(db)
+    await seed_collab_demo_data(db, now=NOW)
+
+    decisions = (await db.execute(select(ArchitectureDecision))).scalars().all()
+    soaws = (await db.execute(select(SoAW))).scalars().all()
+    for doc in decisions:
+        opening = [
+            (s.kind, s.via) for s in await _timeline(db, doc.id) if s.kind in ("created", "revised")
+        ]
+        expected = "revised" if doc.parent_id else "created"
+        assert opening == [(expected, "migration:171")], doc.reference_number
+    for soaw in soaws:
+        opening = (
+            await db.execute(
+                select(DocumentHistoryEntry.kind, DocumentHistoryEntry.via).where(
+                    DocumentHistoryEntry.soaw_id == soaw.id,
+                    DocumentHistoryEntry.kind.in_(("created", "revised")),
+                )
+            )
+        ).all()
+        assert [tuple(r) for r in opening] == [("created", "migration:171")], soaw.name
+
+    warehouse = await _decision(db, "ADR-006")
+    steps = await _timeline(db, warehouse.id)
+    assert [s.kind for s in steps] == ["created", "sent_for_review"]
+    assert steps[1].signatories == [
+        {"user_id": s["user_id"], "display_name": s["display_name"]}
+        for s in _seeded("ADR-006")["signatories"]
+    ]
+    assert all("email" not in entry for entry in steps[1].signatories)

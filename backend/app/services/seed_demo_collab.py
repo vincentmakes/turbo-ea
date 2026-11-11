@@ -13,8 +13,11 @@ plausible footprint to the decisions and the SoAW the base seeder creates:
   (signed); a rejection of ADR-007 with its reason, the matching ``rejected``
   timeline row and the author's answer; an open thread on the SAP S/4HANA
   Migration SoAW;
-* **history** — three versions of ADR-003 (a draft) with visibly different
-  wording, oldest first.
+* **history** — first, every demo document without a timeline gets the one
+  migration 171 gives the documents of an upgraded install
+  (``document_history_service.backfill_timelines``: created or revised, sent
+  for review with its signatories, signatures, signed, recorded); then three
+  versions of ADR-003 (a draft) with visibly different wording, oldest first.
 
 Everything is written through the collaboration services
 (``document_collab``, ``document_discussion_service``,
@@ -583,6 +586,12 @@ async def seed_collab_demo_data(db: AsyncSession, *, now: datetime | None = None
         await mark_demo_seed_completed(db, SEEDER_KEY)
         await db.commit()
         return {"skipped": True, "reason": "demo decisions not found"}
+
+    # The base seeder inserts the demo decisions and SoAWs as plain rows, after
+    # migration 171 ran: give them the timeline that migration gives the
+    # documents of an upgraded install first, so both read the same (on
+    # ADR-003 the first version below is then the baseline after ``created``).
+    await history.backfill_timelines(db)
 
     clock = _Clock(now or datetime.now(timezone.utc))
     sap_card = await _card_id(db, CARD_SAP_S4)

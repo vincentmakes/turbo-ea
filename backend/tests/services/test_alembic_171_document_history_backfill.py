@@ -51,7 +51,15 @@ def adr(**fields):
     }
 
 
-def row(owner, kind, when, actor=None, name=None, column="architecture_decision_id"):
+def row(
+    owner,
+    kind,
+    when,
+    actor=None,
+    name=None,
+    column="architecture_decision_id",
+    signatories=None,
+):
     return {
         column: owner,
         "kind": kind,
@@ -59,6 +67,7 @@ def row(owner, kind, when, actor=None, name=None, column="architecture_decision_
         "actor_name": name,
         "created_at": when,
         "via": "migration:171",
+        "signatories": signatories,
     }
 
 
@@ -223,3 +232,114 @@ def test_naive_datetimes_are_utc():
 
 def test_nothing_in_nothing_out():
     assert mig.plan_history_rows([], USERS) == []
+
+
+# --- a review round open at the upgrade ---------------------------------------------
+
+PENDING_BOB = {
+    "user_id": str(BOB),
+    "display_name": "Bob (then)",
+    "email": "bob@example.com",
+    "status": "pending",
+    "signed_at": None,
+    "note": "secret note",
+}
+SIGNED_ADA = {
+    "user_id": str(ADA),
+    "display_name": "Ada",
+    "email": "ada@example.com",
+    "status": "signed",
+    "signed_at": "2026-03-03T10:00:00+00:00",
+}
+REVIEW_SIGNATORIES = [
+    {"user_id": str(BOB), "display_name": "Bob (then)"},
+    {"user_id": str(ADA), "display_name": "Ada"},
+]
+
+
+def test_a_document_in_review_gets_its_review_request_with_its_signatories():
+    """The past-signatory rule reads ``sent_for_review`` rows: without one, the
+    people asked to sign lose their access at the first recall or rejection."""
+    doc = adr(status="in_review", updated_at=at(2), signatories=[PENDING_BOB])
+    assert mig.plan_history_rows([doc], USERS) == [
+        row(D1, "created", at(1), ADA, "Ada Lovelace"),
+        row(D1, "sent_for_review", at(2), signatories=[REVIEW_SIGNATORIES[0]]),
+    ]
+
+
+def test_the_request_is_sent_before_the_first_signature_and_keeps_no_email():
+    doc = adr(
+        status="in_review",
+        updated_at=at(4),
+        signatories=[PENDING_BOB, SIGNED_ADA, "junk", None],
+    )
+    planned = mig.plan_history_rows([doc], USERS)
+    assert planned == [
+        row(D1, "created", at(1), ADA, "Ada Lovelace"),
+        row(D1, "sent_for_review", at(3, 10), signatories=REVIEW_SIGNATORIES),
+        row(D1, "signature", at(3, 10), ADA, "Ada"),
+    ]
+    assert "example.com" not in str(planned) and "secret" not in str(planned)
+
+
+def test_the_request_is_never_dated_before_the_document():
+    doc = adr(status="in_review", updated_at=at(1, 8), signatories=[PENDING_BOB])
+    assert mig.plan_history_rows([doc], USERS)[1] == row(
+        D1, "sent_for_review", at(1), signatories=[REVIEW_SIGNATORIES[0]]
+    )
+    without_update = adr(status="in_review", signatories=[PENDING_BOB])
+    assert mig.plan_history_rows([without_update], USERS)[1] == row(
+        D1, "sent_for_review", at(1), signatories=[REVIEW_SIGNATORIES[0]]
+    )
+    nothing = adr(status="in_review", created_at=None, signatories=[PENDING_BOB])
+    assert mig.plan_history_rows([nothing], USERS) == []
+
+
+def test_a_document_in_review_without_a_creation_time_is_dated_at_its_update():
+    doc = adr(status="in_review", created_at=None, updated_at=at(2), signatories="bad")
+    assert mig.plan_history_rows([doc], USERS) == [
+        row(D1, "sent_for_review", at(2), signatories=[])
+    ]
+
+
+def test_a_soaw_in_review():
+    soaw = {
+        "kind": "soaw",
+        "id": S1,
+        "parent_id": None,
+        "status": "in_review",
+        "created_at": at(5),
+        "updated_at": at(6),
+        "created_by": BOB,
+        "signatories": [PENDING_BOB],
+        "signed_at": None,
+    }
+    assert mig.plan_history_rows([soaw], USERS) == [
+        row(S1, "created", at(5), BOB, "Bob Builder", column="soaw_id"),
+        row(
+            S1,
+            "sent_for_review",
+            at(6),
+            column="soaw_id",
+            signatories=[REVIEW_SIGNATORIES[0]],
+        ),
+    ]
+
+
+def test_only_a_document_in_review_gets_a_review_request():
+    for status in ("draft", "signed", "approved", None):
+        doc = adr(status=status, updated_at=at(2), signatories=[PENDING_BOB])
+        assert [r["kind"] for r in mig.plan_history_rows([doc], USERS)] == ["created"], status
+
+
+def test_a_review_request_sorts_between_creation_and_signature_at_one_instant():
+    doc = adr(
+        status="in_review",
+        updated_at=at(1),
+        signatories=[{**SIGNED_ADA, "signed_at": at(1).isoformat()}],
+    )
+    assert [r["kind"] for r in mig.plan_history_rows([doc], USERS)] == [
+        "created",
+        "sent_for_review",
+        "signature",
+    ]

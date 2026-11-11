@@ -236,7 +236,7 @@ While writing a decision, type **@** in any of its four sections to mention a **
 
 #### History {: #decision-history }
 
-The **History** tab of the same panel records what happened to the decision, newest first: created, saved, sent for review, each signature (with its note), rejected (with the reason), signatures recalled, fully signed, recorded as decided, a revision started, an earlier version restored. Everyone who can open the decision sees this timeline. Review events — sent for review, signed, recalled, rejected — are kept from version 2.200.0 on; before, they were shown live but never stored. Decisions that existed before that version start with a timeline rebuilt from what was stored: created, revised, each signature, signed and recorded.
+The **History** tab of the same panel records what happened to the decision, newest first: created, saved, sent for review, each signature (with its note), rejected (with the reason), signatures recalled, fully signed, recorded as decided, a revision started, an earlier version restored. Everyone who can open the decision sees this timeline. Review events — sent for review, signed, recalled, rejected — are kept from version 2.200.0 on; before, they were shown live but never stored. Decisions that existed before that version start with a timeline rebuilt from what was stored: created, revised, sent for review (for a decision in review at the upgrade, with the signatories it was sent to), each signature, signed and recorded.
 
 The History tab is not the hand-kept **Document Version History** table of a [Statement of Architecture Work](delivery.md#the-soaw-editor), which records what the authors choose to write in it.
 
@@ -251,7 +251,7 @@ The History tab is not the hand-kept **Document Version History** table of a [St
 - The discussion is not part of the PDF, Word or spreadsheet exports, nor of the printed copy.
 - A role that can open decisions but has no inventory access cannot search cards in the mention popup (*Your role cannot search cards; you can still mention decisions.*).
 - Text copied from one document into another loses its **Restricted** chips: a restricted mention can only be kept in the document it was written in.
-- Who was asked to sign in a review round rejected before version 2.200.0 cannot be reconstructed, so those people do not count as signatories of that revision.
+- Who was asked to sign in a review round rejected or recalled before version 2.200.0 cannot be reconstructed, so those people do not count as signatories of that revision. A round still open at the upgrade keeps its signatories.
 
 ## Risk
 

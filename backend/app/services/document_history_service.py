@@ -46,7 +46,9 @@ from fastapi import HTTPException
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.architecture_decision import ArchitectureDecision
 from app.models.document_history import DocumentHistoryEntry
+from app.models.soaw import SoAW
 from app.models.user import User
 from app.services import (
     adr_service,
@@ -271,6 +273,168 @@ def people_entries(
     ]
 
 
+# --- a timeline rebuilt from what a document stores (pure) --------------------------
+
+#: The ``via`` of a timeline row rebuilt from a document's stored columns —
+#: by migration 171 on an upgraded install, by :func:`backfill_timelines` for
+#: the documents the demo seeder inserts as plain rows — so the two read the
+#: same and migration 171's downgrade removes both.
+BACKFILL_VIA = "migration:171"
+
+# Where a step sorts against another step of the same document at the same
+# instant: created, sent for review, a signature, signed, recorded.
+_BACKFILL_RANK = {
+    "created": 0,
+    "revised": 0,
+    "sent_for_review": 1,
+    "signature": 2,
+    "signed": 3,
+    "recorded": 4,
+}
+
+_Step = tuple[datetime, str, "uuid.UUID | None", "str | None"]
+
+
+def _stored_uuid(value: Any) -> uuid.UUID | None:
+    if isinstance(value, uuid.UUID):
+        return value
+    if not isinstance(value, str):
+        return None
+    try:
+        return uuid.UUID(value.strip())
+    except ValueError:
+        return None
+
+
+def _stored_time(value: Any) -> datetime | None:
+    """A timezone-aware instant from a datetime or an ISO string (naive = UTC)."""
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value.strip())
+        except ValueError:
+            return None
+    if not isinstance(value, datetime):
+        return None
+    return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+
+
+def _stored_actor(
+    value: Any, users: Mapping[uuid.UUID, str]
+) -> tuple[uuid.UUID | None, str | None]:
+    uid = _stored_uuid(value)
+    if uid is None or uid not in users:
+        return None, None
+    return uid, users[uid]
+
+
+def _stored_signatures(signatories: Any, users: Mapping[uuid.UUID, str]) -> list[_Step]:
+    """One ``signature`` step per signed entry with a readable ``signed_at``,
+    named by the entry's display name (the actor only when the user exists)."""
+    steps: list[_Step] = []
+    if not isinstance(signatories, list):
+        return steps
+    for entry in signatories:
+        if not isinstance(entry, dict) or entry.get("status") != "signed":
+            continue
+        at = _stored_time(entry.get("signed_at"))
+        if at is None:
+            continue
+        uid = _stored_uuid(entry.get("user_id"))
+        name = entry.get("display_name")
+        steps.append(
+            (
+                at,
+                "signature",
+                uid if uid in users else None,
+                name if isinstance(name, str) and name.strip() else None,
+            )
+        )
+    return steps
+
+
+def _sent_at(
+    created_at: datetime | None, updated_at: datetime | None, signed: Iterable[datetime]
+) -> datetime | None:
+    """When an open review round was sent: the earliest of the last update and
+    the signatures given so far, never before the document was created."""
+    candidates = [t for t in (updated_at, *signed) if t is not None]
+    if not candidates:
+        return created_at
+    sent = min(candidates)
+    return max(sent, created_at) if created_at is not None else sent
+
+
+def plan_backfill(
+    rows: Iterable[Mapping[str, Any]], users: Mapping[uuid.UUID, str]
+) -> list[dict[str, Any]]:
+    """The timeline rows a document gets from what it stores, in chronological
+    order — exactly what migration 171's ``plan_history_rows`` plans (it keeps
+    its own frozen copy; ``test_document_history_backfill`` holds the two
+    together).
+
+    ``rows`` are documents: ``kind`` (``"adr"`` or ``"soaw"``), ``id``,
+    ``parent_id``, ``status``, ``created_at``, ``updated_at``, ``created_by``,
+    ``signatories``, ``signed_at`` and, for a decision, ``recorded_at`` /
+    ``recorded_by``; ``users`` maps every existing user id to its display
+    name. Steps: ``created`` / ``revised`` at ``created_at``; for a document
+    in review, ``sent_for_review`` with its signatories as
+    ``[{user_id, display_name}]`` (:func:`_sent_at`, no actor); one
+    ``signature`` per signed entry; ``signed``; ``recorded`` (decisions).
+    Each planned row is ``{owner column: id, kind, actor_id, actor_name,
+    created_at, via, signatories}``; ties sort by step, then by input order.
+    """
+    keyed: list[tuple[datetime, int, int, int, dict[str, Any]]] = []
+    for doc_index, doc in enumerate(rows):
+        owner = document_collab.owner_fields(doc["kind"], doc["id"])
+        steps: list[_Step] = []
+        created_at = _stored_time(doc.get("created_at"))
+        if created_at is not None:
+            kind = "revised" if doc.get("parent_id") is not None else "created"
+            steps.append((created_at, kind, *_stored_actor(doc.get("created_by"), users)))
+        signatures = _stored_signatures(doc.get("signatories"), users)
+        if doc.get("status") == soaw_service.IN_REVIEW:
+            sent_at = _sent_at(
+                created_at, _stored_time(doc.get("updated_at")), (s[0] for s in signatures)
+            )
+            if sent_at is not None:
+                steps.append((sent_at, "sent_for_review", None, None))
+        steps.extend(signatures)
+        signed_at = _stored_time(doc.get("signed_at"))
+        if signed_at is not None:
+            steps.append((signed_at, "signed", None, None))
+        recorded_at = (
+            _stored_time(doc.get("recorded_at")) if doc["kind"] == document_collab.ADR else None
+        )
+        if recorded_at is not None:
+            steps.append((recorded_at, "recorded", *_stored_actor(doc.get("recorded_by"), users)))
+        for step_index, (at, kind, actor_id, actor_name) in enumerate(steps):
+            signatories = None
+            if kind == "sent_for_review":
+                raw = doc.get("signatories")
+                signatories = document_collab.history_signatories(
+                    raw if isinstance(raw, list) else None
+                )
+            keyed.append(
+                (
+                    at,
+                    _BACKFILL_RANK[kind],
+                    doc_index,
+                    step_index,
+                    {
+                        **owner,
+                        "kind": kind,
+                        "actor_id": actor_id,
+                        "actor_name": actor_name,
+                        "created_at": at,
+                        "via": BACKFILL_VIA,
+                        "signatories": signatories,
+                    },
+                )
+            )
+    keyed.sort(key=lambda item: item[:4])
+    return [item[4] for item in keyed]
+
+
 # --- the session side ---------------------------------------------------------------
 
 
@@ -310,6 +474,68 @@ async def latest_version(
             .limit(1)
         )
     ).scalar_one_or_none()
+
+
+async def backfill_timelines(db: AsyncSession) -> int:
+    """Give every decision and SoAW that has no timeline row at all the
+    timeline migration 171 would have given it (:func:`plan_backfill`);
+    returns the number of rows written. Flushed, not committed.
+
+    For documents written as plain rows after the migration ran — the demo
+    seeder's — so a fresh demo install reads like an upgraded one. A
+    document with any timeline row is left alone, so a second call writes
+    nothing."""
+    owned = {
+        owner_id
+        for pair in (
+            await db.execute(
+                select(DocumentHistoryEntry.architecture_decision_id, DocumentHistoryEntry.soaw_id)
+            )
+        ).all()
+        for owner_id in pair
+        if owner_id is not None
+    }
+    users = {uid: name for uid, name in (await db.execute(select(User.id, User.display_name)))}
+    adr_columns = (
+        ArchitectureDecision.id,
+        ArchitectureDecision.parent_id,
+        ArchitectureDecision.status,
+        ArchitectureDecision.created_at,
+        ArchitectureDecision.updated_at,
+        ArchitectureDecision.created_by,
+        ArchitectureDecision.signatories,
+        ArchitectureDecision.signed_at,
+        ArchitectureDecision.recorded_at,
+        ArchitectureDecision.recorded_by,
+    )
+    soaw_columns = (
+        SoAW.id,
+        SoAW.parent_id,
+        SoAW.status,
+        SoAW.created_at,
+        SoAW.updated_at,
+        SoAW.created_by,
+        SoAW.signatories,
+        SoAW.signed_at,
+    )
+    docs: list[dict[str, Any]] = []
+    for kind, columns, order in (
+        (
+            document_collab.ADR,
+            adr_columns,
+            (ArchitectureDecision.created_at, ArchitectureDecision.id),
+        ),
+        (document_collab.SOAW, soaw_columns, (SoAW.created_at, SoAW.id)),
+    ):
+        for row in (await db.execute(select(*columns).order_by(*order))).mappings():
+            if row["id"] not in owned:
+                docs.append({**row, "kind": kind})
+    planned = plan_backfill(docs, users)
+    for values in planned:
+        fields = {k: v for k, v in values.items() if k != "signatories" or v is not None}
+        db.add(DocumentHistoryEntry(**fields))
+    await db.flush()
+    return len(planned)
 
 
 async def _write(
