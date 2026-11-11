@@ -297,7 +297,10 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         id_bearing_columns=("sections", "signatories"),
     ),
     # The discussion and the timeline of decisions and SoAWs, after both
-    # owners. A reply's parent is a preserved PK, placed before it.
+    # owners. A reply's parent is a preserved PK, placed before it. Both carry
+    # ``created_at`` (threads and replies are ordered by it; it is a timeline
+    # row's date) and keep an empty ``body`` (a deleted comment, a rejection
+    # without a reason) as ``""``.
     EntitySection(
         "DocumentComments",
         DocumentComment,
@@ -305,6 +308,8 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         self_parent_column="parent_id",
         rewrite=remap.rewrite_document_comment_row,
         id_bearing_columns=("body",),
+        carry_timestamps=("created_at",),
+        keep_empty_text=True,
     ),
     # ``seq`` is an identity the target assigns: never carried. Exported in
     # ``seq`` order and inserted in sheet order, so the timeline keeps it.
@@ -316,6 +321,8 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         export_order_by=(DocumentHistoryEntry.seq,),
         rewrite=remap.rewrite_document_history_row,
         id_bearing_columns=("content", "signatories"),
+        carry_timestamps=("created_at",),
+        keep_empty_text=True,
     ),
     # --- Saved views + surveys -------------------------------------------
     # Report scopes and filters, survey targets, portal and bookmark tag

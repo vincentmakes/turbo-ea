@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import openpyxl
@@ -448,3 +449,53 @@ def test_a_card_matches_its_source_id_only_within_its_own_type():
     assert applier._card_by_source_id(here, "Application", None) is None
     assert applier._card_by_source_id(here, "Application", "not-an-id") is None
     assert applier._card_by_source_id({}, "Application", cid) is None
+
+
+# ---------------------------------------------------------------------------
+# The discussion and timeline sections: carried dates, kept empty text
+# ---------------------------------------------------------------------------
+
+
+def _entity_section(sheet: str):
+    from app.services.workspace_io.sections import ENTITY_SECTIONS
+
+    return next(s for s in ENTITY_SECTIONS if s.sheet == sheet)
+
+
+def test_only_the_discussion_and_the_timeline_carry_a_timestamp():
+    from app.services.workspace_io.sections import ENTITY_SECTIONS
+
+    carried = {s.sheet: s.carry_timestamps for s in ENTITY_SECTIONS if s.carry_timestamps}
+    assert carried == {
+        "DocumentComments": ("created_at",),
+        "DocumentHistory": ("created_at",),
+    }
+    comments = _entity_section("DocumentComments")
+    assert "created_at" in comments.value_columns()
+    assert "updated_at" not in comments.value_columns()
+    assert "created_at" in _entity_section("DocumentHistory").value_columns()
+    assert "created_at" not in _entity_section("Adrs").value_columns()
+
+
+def test_empty_text_is_kept_for_the_not_null_text_columns_of_those_two_sections():
+    from app.services.workspace_io.sections import ENTITY_SECTIONS
+
+    kept = {s.sheet: s.empty_text_columns() for s in ENTITY_SECTIONS if s.empty_text_columns()}
+    assert kept == {
+        "DocumentComments": frozenset({"author_name", "body", "kind"}),
+        "DocumentHistory": frozenset({"kind"}),
+    }
+
+
+def test_import_value_reads_an_empty_cell_as_empty_text_only_where_kept():
+    from app.models.document_comment import DocumentComment
+
+    kept = frozenset({"body"})
+    assert entities.import_value(DocumentComment, "body", None, kept) == ""
+    assert entities.import_value(DocumentComment, "body", "", kept) == ""
+    assert entities.import_value(DocumentComment, "body", "<p>x</p>", kept) == "<p>x</p>"
+    assert entities.import_value(DocumentComment, "section", None, kept) is None
+    assert entities.import_value(DocumentComment, "body", None, frozenset()) is None
+    assert entities.import_value(
+        DocumentComment, "created_at", "2026-03-02T09:00:00+00:00", kept
+    ) == datetime(2026, 3, 2, 9, 0, tzinfo=timezone.utc)

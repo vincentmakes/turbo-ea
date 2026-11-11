@@ -101,6 +101,17 @@ class EntitySection:
     # ``test_workspace_io_id_bearing_columns`` requires every JSON / text /
     # asset column to be listed here or allowlisted with a reason.
     id_bearing_columns: tuple[str, ...] = ()
+    # Timestamp columns this section carries although every other section
+    # leaves ``created_at`` / ``updated_at`` to the target: a discussion is
+    # ordered by its comments' ``created_at`` and a timeline row's
+    # ``created_at`` is its date. Read back as a datetime; an empty cell
+    # leaves the column to its server default.
+    carry_timestamps: tuple[str, ...] = ()
+    # Whether an empty cell in a NOT NULL text column is the empty string
+    # rather than ``None``. The workbook reads ``""`` back as an empty cell,
+    # and a deleted comment or a rejection without a reason is stored with
+    # ``body == ""``: without this the row would reach the flush as NULL.
+    keep_empty_text: bool = False
 
     def value_columns(self) -> list[str]:
         managed = (
@@ -109,9 +120,21 @@ class EntitySection:
             | {a[0] for a in self.asset_columns}
             | {a[0] for a in self.json_asset_columns}
             | set(self.exclude_columns)
-            | _TIMESTAMP_COLUMNS
+            | (_TIMESTAMP_COLUMNS - set(self.carry_timestamps))
         )
         return [c.name for c in self.model.__table__.columns if c.name not in managed]
+
+    def empty_text_columns(self) -> frozenset[str]:
+        """The value columns whose empty cell reads back as ``""``: the NOT
+        NULL string columns, when the section keeps empty text."""
+        if not self.keep_empty_text:
+            return frozenset()
+        values = set(self.value_columns())
+        return frozenset(
+            col.name
+            for col in self.model.__table__.columns
+            if col.name in values and not col.nullable and isinstance(col.type, sa.String)
+        )
 
     def pk_columns(self) -> list[str]:
         return [c.name for c in self.model.__table__.primary_key.columns]
@@ -176,6 +199,16 @@ def _from_cell(value: Any, kind: str) -> Any:
         return value if isinstance(value, date) else date.fromisoformat(str(value))
     if kind == "json":
         return json.loads(value) if isinstance(value, str) else value
+    return value
+
+
+def import_value(model: Any, col: str, cell: Any, empty_text: frozenset[str]) -> Any:
+    """One value column's import value: :func:`_from_cell`, except that an
+    empty cell of a column in ``empty_text`` is ``""``
+    (:meth:`EntitySection.empty_text_columns`)."""
+    value = _from_cell(cell, _kind(model, col))
+    if value is None and col in empty_text:
+        return ""
     return value
 
 
@@ -388,6 +421,7 @@ async def apply_entity_section(
     model = section.model
     pk_cols = section.pk_columns()
     value_cols = section.value_columns()
+    empty_text = section.empty_text_columns()
     rewrite = section.rewrite if remap is not None else None
 
     existing_by_pk: dict[tuple, Any] = {}
@@ -401,7 +435,11 @@ async def apply_entity_section(
         # the card reference is resolved.
         kwargs: dict[str, Any] = {}
         for col in value_cols:
-            kwargs[col] = _from_cell(row.get(col), _kind(model, col))
+            kwargs[col] = import_value(model, col, row.get(col), empty_text)
+        for col in section.carry_timestamps:
+            # An empty cell must not insert NULL: the server default dates it.
+            if kwargs.get(col) is None:
+                kwargs.pop(col, None)
 
         unresolved: str | None = None
         for col in section.card_fk_columns:

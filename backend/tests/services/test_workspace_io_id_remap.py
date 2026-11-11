@@ -1104,3 +1104,199 @@ async def test_an_older_bundle_without_user_ids_leaves_user_mentions_alone(db):
     )
     assert decision.signatories[0]["user_id"] == str(old_ada)
     assert _section(result, "Adrs").references == {"remapped": 1, "unresolved": 2}
+
+
+# ── blank bodies and dates of the discussion and the timeline ──────────────
+
+
+async def _seed_dated_discussion(db, admin):
+    """A decision whose discussion holds a deleted comment (body ``""``) with
+    a live reply, a rejection without a reason (body ``""``) and a plain
+    thread, and whose timeline has four dated rows — all dates fixed and
+    deliberately out of id order."""
+    from datetime import datetime, timezone
+
+    from app.models.architecture_decision import ArchitectureDecision
+    from app.models.document_comment import DocumentComment
+    from app.models.document_history import DocumentHistoryEntry
+
+    def at(day: int, hour: int = 9) -> datetime:
+        return datetime(2026, 3, day, hour, 0, tzinfo=timezone.utc)
+
+    decision = ArchitectureDecision(reference_number="ADR-042", title="Dated", created_by=admin.id)
+    db.add(decision)
+    await db.flush()
+    owner = {"architecture_decision_id": decision.id}
+    ids = sorted((uuid.uuid4() for _ in range(4)), reverse=True)
+    deleted = DocumentComment(
+        id=ids[0],
+        **owner,
+        author_id=admin.id,
+        author_name="Admin",
+        body="",
+        created_at=at(2),
+        deleted_at=at(3),
+    )
+    rejection = DocumentComment(
+        id=ids[1],
+        **owner,
+        author_id=admin.id,
+        author_name="Admin",
+        body="",
+        kind="rejection",
+        created_at=at(4),
+    )
+    plain = DocumentComment(
+        id=ids[2],
+        **owner,
+        author_id=admin.id,
+        author_name="Admin",
+        body="<p>Q</p>",
+        created_at=at(5),
+    )
+    db.add_all([deleted, rejection, plain])
+    await db.flush()
+    db.add(
+        DocumentComment(
+            id=ids[3],
+            **owner,
+            parent_id=deleted.id,
+            author_id=admin.id,
+            author_name="Admin",
+            body="<p>Still here</p>",
+            created_at=at(2, 10),
+        )
+    )
+    for kind, when in (("created", at(1)), ("sent_for_review", at(3)), ("rejected", at(4))):
+        db.add(DocumentHistoryEntry(**owner, kind=kind, created_at=when))
+        await db.flush()
+    await db.flush()
+    return decision.id, ids, at
+
+
+async def _comment_rows(db, decision_id):
+    from app.models.document_comment import DocumentComment
+
+    return (
+        (
+            await db.execute(
+                select(DocumentComment)
+                .where(DocumentComment.architecture_decision_id == decision_id)
+                .order_by(DocumentComment.created_at, DocumentComment.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+
+async def _export_and_wipe_dated(db, admin):
+    from app.models.architecture_decision import ArchitectureDecision
+    from app.models.document_comment import DocumentComment
+    from app.models.document_history import DocumentHistoryEntry
+
+    decision_id, ids, at = await _seed_dated_discussion(db, admin)
+    raw = await build_bundle(db)
+    for model in (DocumentHistoryEntry, DocumentComment, ArchitectureDecision):
+        await db.execute(delete(model))
+    await db.flush()
+    return raw, decision_id, ids, at
+
+
+async def test_blank_bodies_survive_a_transfer(db):
+    """A deleted comment and a rejection without a reason are stored with
+    ``body == ""``; the workbook reads that back as an empty cell, which used
+    to reach the NOT NULL flush as ``None`` and fail the whole import, its dry
+    run included."""
+    admin = await create_user(db, email="blank@test.com", role="admin", display_name="Admin")
+    raw, decision_id, ids, at = await _export_and_wipe_dated(db, admin)
+    rows = {r["id"]: r for r in parse_bundle(raw).rows("DocumentComments")}
+    assert (rows[str(ids[0])]["body"], rows[str(ids[1])]["body"]) == (None, None)
+
+    preview = await diff_bundle(db, parse_bundle(raw), admin)
+    assert preview.total_failed == 0 and preview.total_conflict == 0, preview.as_dict()
+    assert _section(preview, "DocumentComments").created == 4
+    assert _section(preview, "DocumentHistory").created == 3
+    assert await _comment_rows(db, decision_id) == []
+
+    result = await apply_bundle(db, parse_bundle(raw), admin)
+    assert result.total_failed == 0 and result.total_conflict == 0, result.as_dict()
+    assert _section(result, "DocumentComments").created == 4
+    comments = {c.id: c for c in await _comment_rows(db, decision_id)}
+    assert [(comments[i].body, comments[i].kind) for i in ids] == [
+        ("", "comment"),
+        ("", "rejection"),
+        ("<p>Q</p>", "comment"),
+        ("<p>Still here</p>", "comment"),
+    ]
+    assert comments[ids[0]].deleted_at == at(3)
+    assert comments[ids[3]].parent_id == ids[0]
+    assert comments[ids[0]].author_name == "Admin"
+
+    again = await apply_bundle(db, parse_bundle(raw), admin)
+    assert _section(again, "DocumentComments").skip_reasons == {"already_present": 4}
+    assert _section(again, "DocumentHistory").skip_reasons == {"already_present": 3}
+
+
+async def test_threads_replies_and_timeline_rows_keep_their_dates(db):
+    """``created_at`` used to be left to the target: every thread, reply and
+    timeline row was dated at the import, and the discussion (ordered by
+    ``created_at``) came back in id order."""
+    from app.models.document_history import DocumentHistoryEntry
+
+    admin = await create_user(db, email="dates@test.com", role="admin", display_name="Admin")
+    raw, decision_id, ids, at = await _export_and_wipe_dated(db, admin)
+    rows = {r["id"]: r for r in parse_bundle(raw).rows("DocumentComments")}
+    assert rows[str(ids[0])]["created_at"] == at(2).isoformat()
+
+    result = await apply_bundle(db, parse_bundle(raw), admin)
+    assert result.total_failed == 0 and result.total_conflict == 0, result.as_dict()
+
+    comments = await _comment_rows(db, decision_id)
+    assert [(c.id, c.created_at) for c in comments] == [
+        (ids[0], at(2)),
+        (ids[3], at(2, 10)),
+        (ids[1], at(4)),
+        (ids[2], at(5)),
+    ]
+    history = (
+        (
+            await db.execute(
+                select(DocumentHistoryEntry)
+                .where(DocumentHistoryEntry.architecture_decision_id == decision_id)
+                .order_by(DocumentHistoryEntry.seq)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert [(h.kind, h.created_at) for h in history] == [
+        ("created", at(1)),
+        ("sent_for_review", at(3)),
+        ("rejected", at(4)),
+    ]
+
+
+async def test_a_timeline_row_without_a_date_takes_the_import_time(db):
+    """An empty ``created_at`` cell is never inserted as NULL: the column's
+    server default dates the row."""
+    from app.models.architecture_decision import ArchitectureDecision
+    from app.models.document_history import DocumentHistoryEntry
+
+    admin = await create_user(db, email="nodate@test.com", role="admin")
+    decision = ArchitectureDecision(reference_number="ADR-043", title="No date")
+    db.add(decision)
+    await db.flush()
+    db.add(DocumentHistoryEntry(architecture_decision_id=decision.id, kind="created"))
+    await db.flush()
+    bundle = parse_bundle(await build_bundle(db))
+    for row in bundle.rows("DocumentHistory"):
+        row["created_at"] = None
+    await db.execute(delete(DocumentHistoryEntry))
+    await db.flush()
+
+    result = await apply_bundle(db, bundle, admin)
+
+    assert _section(result, "DocumentHistory").created == 1
+    entry = (await db.execute(select(DocumentHistoryEntry))).scalar_one()
+    assert entry.created_at is not None
