@@ -10,6 +10,7 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime, timezone
 
+import pytest
 from sqlalchemy import select
 
 from app.models.architecture_decision import ArchitectureDecision
@@ -459,3 +460,29 @@ def test_a_reference_shared_on_one_revision_number_maps_to_the_lowest_id():
         [_lone(5, "ADR-007", 1), _lone(3, "ADR-007", 1)], [], today=date(2026, 6, 1)
     )
     assert svc.existing_references(register) == {"ADR-007": uuid.UUID(int=3)}
+
+
+async def test_the_importers_read_scope_reaches_the_decision_it_creates(monkeypatch):
+    """No database: the register is empty and ``create_decision`` is a spy."""
+
+    class _CreatedError(Exception):
+        pass
+
+    async def empty_register(db, **_kw):
+        return build_register([], [])
+
+    seen: dict = {}
+
+    async def spy(db, **kwargs):
+        seen.update(kwargs)
+        raise _CreatedError
+
+    monkeypatch.setattr(svc.ds, "load_register", empty_register)
+    monkeypatch.setattr(svc.adr_service, "create_decision", spy)
+    scope = object()
+    with pytest.raises(_CreatedError):
+        await svc.import_decision_rows(
+            object(), [Row(row_index=0, title="T")], created_by=None, read_scope=scope
+        )
+    assert seen["read_scope"] is scope
+    assert seen["title"] == "T"
