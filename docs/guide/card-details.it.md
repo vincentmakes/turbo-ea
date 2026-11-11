@@ -213,9 +213,9 @@ Dove un ruolo ha una **descrizione**, accanto al suo nome compare un'icona infor
 
 Scegli uno stakeholder tramite l'**autocomplete ricercabile** — inizia a digitare e il menu a tendina filtra sia per nome che per e-mail (l'e-mail appare come riga secondaria, così due utenti con lo stesso nome possono essere distinti a colpo d'occhio).
 
-Se l'e-mail che digiti non corrisponde a un utente esistente, alla fine del menu a tendina appare un'opzione **«Invita «email» come nuovo utente»**. Selezionandola si espande un mini-modulo inline proprio dentro il selettore — scegli un ruolo (Member o Viewer per default), modifica facoltativamente il nome visualizzato e invia. Il nuovo utente viene invitato tramite l'e-mail di invito standard **e** assegnato al ruolo di stakeholder scelto sulla card in un'unica azione, così non devi mai lasciare la card per onboardare un collaboratore.
+Se l'e-mail che digiti non corrisponde a un utente esistente, alla fine del menu a tendina appare un'opzione **«Invita «email» come nuovo utente»**. Selezionandola si espande un mini-modulo inline proprio dentro il selettore — modifica facoltativamente il nome visualizzato e invia. Il nuovo utente riceve il **ruolo predefinito** impostato in [Utenti e ruoli](../admin/users.md#ruoli). Il nuovo utente viene invitato tramite l'e-mail di invito standard **e** assegnato al ruolo di stakeholder scelto sulla card in un'unica azione, così non devi mai lasciare la card per onboardare un collaboratore.
 
-Il percorso di invito richiede il permesso **`users.invite`**, una forma delegata di `admin.users` che gli admin possono concedere a membri di fiducia. Una salvaguardia anti-escalation di privilegi impedisce ai non-admin di invitare utenti in ruoli admin — il menu a tendina dei ruoli filtra silenziosamente sui ruoli che l'invitante è autorizzato a delegare.
+Il percorso di invito richiede il permesso **`users.invite`**, una forma delegata di `admin.users` che gli admin possono concedere a membri di fiducia. Una salvaguardia anti-escalation di privilegi impedisce ai non-admin di invitare utenti in qualsiasi altro ruolo: senza `admin.users`, un utente invitato può ricevere solo il ruolo predefinito, Member o Viewer.
 
 ## Scheda Cronologia
 

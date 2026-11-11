@@ -38,7 +38,7 @@ El estado del filtro, las columnas visibles, el ancho de la barra lateral y su e
    - **Nombre** (obligatorio): El nombre completo del usuario
    - **Correo electrónico** (obligatorio): La dirección de correo que utilizará para iniciar sesión
    - **Contraseña** (opcional): Déjela en blanco para que el usuario elija su propia contraseña en el primer inicio de sesión. Si SSO está habilitado, un usuario sin contraseña puede iniciar sesión a través de su proveedor SSO en su lugar
-   - **Rol**: Seleccione el rol a asignar (Administrador, Miembro, Visor o cualquier rol personalizado)
+   - **Rol**: Seleccione el rol a asignar (Administrador, Miembro, Visor o cualquier rol personalizado). El rol marcado como **Predeterminado** en la pestaña **Roles** aparece preseleccionado.
    - **Enviar correo de invitación**: Marque esta opción para enviar un correo de notificación al usuario con instrucciones de acceso
 3. Haga clic en **Crear usuario** para crear la cuenta.
 
@@ -121,6 +121,8 @@ La pestaña **Roles** permite gestionar los roles a nivel de aplicación. Cada r
 | **Visor** | Acceso de solo lectura en todas las áreas |
 
 Se pueden crear roles personalizados con control granular de permisos sobre inventario, relaciones, partes interesadas, comentarios, documentos, diagramas, BPM, informes y más.
+
+Un rol puede marcarse como rol **predeterminado**. Toda cuenta nueva empieza con él: los usuarios que se registran o inician sesión por primera vez mediante SSO, los usuarios invitados desde la pestaña **Partes interesadas** de una ficha y el rol preseleccionado en el diálogo **Crear usuario**. Un rol con acceso administrativo completo no puede ser el predeterminado.
 
 **Comentar decisiones de arquitectura** (`adr.comment`) y **Comentar documentos SoAW** (`soaw.comment`) permiten a un rol publicar, responder, resolver y reabrir hilos en la discusión de una decisión o de una Declaración de Trabajo de Arquitectura. Ambos están activados para los roles Administrador, BPM Admin y Miembro, y desactivados para Visor; en una instalación actualizada, todos los roles existentes que ya podían editar o firmar esos documentos los recibieron. Los firmantes de un documento siempre pueden comentarlo, sea cual sea su rol. Véase [Discusión](../guide/grc.md#decision-discussion).
 

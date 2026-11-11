@@ -38,7 +38,7 @@ Filtertilstand, synlige kolonner, sidebarens bredde og dens sammenklappede tilst
    - **Visningsnavn** (påkrævet): Brugerens fulde navn
    - **E-mail** (påkrævet): E-mailadressen, de vil bruge til at logge ind
    - **Adgangskode** (valgfrit): Lad feltet være tomt, så brugeren selv vælger sin adgangskode ved første login. Hvis SSO er aktiveret, kan en bruger uden adgangskode i stedet logge ind via deres SSO-udbyder
-   - **Rolle**: Vælg den rolle, der skal tildeles (Admin, Member, Viewer eller en hvilken som helst brugerdefineret rolle)
+   - **Rolle**: Vælg den rolle, der skal tildeles (Admin, Member, Viewer eller en hvilken som helst brugerdefineret rolle). Rollen markeret som **Standard** på fanen **Roller** er forvalgt.
    - **Send invitationsmail**: Sæt flueben her for at sende en e-mailnotifikation til brugeren med login-instruktioner
 3. Klik på **Opret bruger** for at oprette kontoen.
 
@@ -121,6 +121,8 @@ Fanebladet **Roller** giver mulighed for at administrere applikationsroller. Hve
 | **Viewer** | Skrivebeskyttet adgang på tværs af alle områder |
 
 Brugerdefinerede roller kan oprettes med granulær tilladelseskontrol over lager, relationer, interessenter, kommentarer, dokumenter, diagrammer, BPM, rapporter og mere.
+
+Én rolle kan markeres som **standardrolle**. Alle nye konti starter på den: brugere, der registrerer sig eller logger ind første gang via SSO, brugere inviteret fra et korts fane **Interessenter**, og den forvalgte rolle i dialogen **Opret bruger**. En rolle med fuld administrativ adgang kan ikke være standardrollen.
 
 **Kommentér arkitekturbeslutninger** (`adr.comment`) og **Kommentér SoAW-dokumenter** (`soaw.comment`) lader en rolle oprette, besvare, løse og genåbne tråde i diskussionen om en beslutning eller en Statement of Architecture Work. Begge er slået til for rollerne Admin, BPM Admin og Member og slået fra for Viewer; på en opgraderet installation har hver eksisterende rolle, der allerede kunne redigere eller underskrive disse dokumenter, fået dem. Et dokuments underskrivere kan altid kommentere det, uanset deres rolle. Se [Diskussion](../guide/grc.md#decision-discussion).
 

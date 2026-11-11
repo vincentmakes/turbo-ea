@@ -313,6 +313,132 @@ class TestInviteUser:
 
 
 # -------------------------------------------------------------------
+# POST /users  (default role when none is given, #1388)
+# -------------------------------------------------------------------
+
+
+class TestCreateUserDefaultRole:
+    """A user created without a role lands on the admin-configured default
+    role, the one self-registration and SSO provisioning already use."""
+
+    @staticmethod
+    def _payload(email, **extra):
+        return {"email": email, "display_name": "New", "password": "Pass1234", **extra}
+
+    async def test_omitted_role_gets_the_default_role(self, client, db, users_env):
+        await create_role(
+            db,
+            key="architect",
+            label="Architect",
+            permissions=MEMBER_PERMISSIONS,
+            is_default=True,
+        )
+        resp = await client.post(
+            "/api/v1/users",
+            json=self._payload("default1@test.com"),
+            headers=auth_headers(users_env["admin"]),
+        )
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["role"] == "architect"
+
+    async def test_null_role_gets_the_default_role(self, client, db, users_env):
+        await create_role(db, key="architect", label="Architect", permissions={}, is_default=True)
+        resp = await client.post(
+            "/api/v1/users",
+            json=self._payload("default2@test.com", role=None),
+            headers=auth_headers(users_env["admin"]),
+        )
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["role"] == "architect"
+
+    async def test_omitted_role_is_member_when_no_default_is_flagged(self, client, db, users_env):
+        resp = await client.post(
+            "/api/v1/users",
+            json=self._payload("default3@test.com"),
+            headers=auth_headers(users_env["admin"]),
+        )
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["role"] == "member"
+
+    async def test_explicit_role_wins_over_the_default(self, client, db, users_env):
+        await create_role(db, key="architect", label="Architect", permissions={}, is_default=True)
+        resp = await client.post(
+            "/api/v1/users",
+            json=self._payload("default4@test.com", role="viewer"),
+            headers=auth_headers(users_env["admin"]),
+        )
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["role"] == "viewer"
+
+    async def test_invited_user_carries_the_default_role_on_the_invitation(
+        self, client, db, users_env
+    ):
+        from sqlalchemy import select
+
+        from app.models.sso_invitation import SsoInvitation
+
+        await create_role(db, key="architect", label="Architect", permissions={}, is_default=True)
+        resp = await client.post(
+            "/api/v1/users",
+            json=self._payload("default5@test.com", send_email=True),
+            headers=auth_headers(users_env["admin"]),
+        )
+        assert resp.status_code == 201, resp.text
+        inv = (
+            await db.execute(
+                select(SsoInvitation).where(SsoInvitation.email == "default5@test.com")
+            )
+        ).scalar_one()
+        assert inv.role == "architect"
+
+    async def test_unknown_role_is_still_rejected(self, client, db, users_env):
+        resp = await client.post(
+            "/api/v1/users",
+            json=self._payload("default6@test.com", role="nope"),
+            headers=auth_headers(users_env["admin"]),
+        )
+        assert resp.status_code == 400
+        assert "nope" in resp.json()["detail"]
+
+    async def _inviter(self, db, email):
+        await create_role(
+            db,
+            key="inviter",
+            label="Inviter",
+            permissions={**MEMBER_PERMISSIONS, "users.invite": True},
+        )
+        return await create_user(db, email=email, role="inviter")
+
+    async def test_delegated_inviter_gets_a_custom_default_role(self, client, db, users_env):
+        """The stakeholder invite sends no role; a custom default must not 403."""
+        await create_role(db, key="architect", label="Architect", permissions={}, is_default=True)
+        inviter = await self._inviter(db, "inviter-d1@test.com")
+        resp = await client.post(
+            "/api/v1/users",
+            json=self._payload("default7@test.com"),
+            headers=auth_headers(inviter),
+        )
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["role"] == "architect"
+
+    async def test_delegated_inviter_still_blocked_from_other_custom_roles(
+        self, client, db, users_env
+    ):
+        await create_role(db, key="architect", label="Architect", permissions={}, is_default=True)
+        await create_role(db, key="lead", label="Lead", permissions={})
+        inviter = await self._inviter(db, "inviter-d2@test.com")
+        resp = await client.post(
+            "/api/v1/users",
+            json=self._payload("default8@test.com", role="lead"),
+            headers=auth_headers(inviter),
+        )
+        assert resp.status_code == 403
+        detail = resp.json()["detail"]
+        assert "'lead'" in detail
+        assert "['architect', 'member', 'viewer']" in detail
+
+
+# -------------------------------------------------------------------
 # PATCH /users/{id}  (update)
 # -------------------------------------------------------------------
 

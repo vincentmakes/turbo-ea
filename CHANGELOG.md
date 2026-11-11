@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.201.2] - 2026-11-11
+
+### Fixed
+- The role marked as default in Users & Roles is now applied when a user is created from the application: the Create user dialog opens with it selected, and a user invited from a card's Stakeholders tab receives it instead of always becoming a Member ([#1388](https://github.com/vincentmakes/turbo-ea/issues/1388)).
+
 ## [2.201.1] - 2026-11-11
 
 ### Fixed

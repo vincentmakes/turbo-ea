@@ -215,9 +215,9 @@ Cuando un rol tiene una **descripción**, aparece un icono de información junto
 
 Elige a una parte interesada mediante el **autocompletar buscable** — empieza a escribir y el desplegable filtra tanto por nombre como por correo (el correo aparece como línea secundaria, de modo que dos usuarios con el mismo nombre puedan distinguirse de un vistazo).
 
-Si el correo que escribes no coincide con un usuario existente, aparece una opción **«Invitar a «email» como nuevo usuario»** al final del desplegable. Al seleccionarla se expande un mini-formulario en línea dentro del propio selector — elige un rol (Miembro o Visualizador por defecto), edita opcionalmente el nombre mostrado y envía. El nuevo usuario es invitado mediante el correo de invitación estándar **y** asignado al rol de parte interesada elegido en la ficha en una sola acción, así nunca tienes que abandonar la ficha para incorporar a un colaborador.
+Si el correo que escribes no coincide con un usuario existente, aparece una opción **«Invitar a «email» como nuevo usuario»** al final del desplegable. Al seleccionarla se expande un mini-formulario en línea dentro del propio selector — edita opcionalmente el nombre mostrado y envía. El nuevo usuario recibe el **rol predeterminado** definido en [Usuarios y Roles](../admin/users.md#roles). El nuevo usuario es invitado mediante el correo de invitación estándar **y** asignado al rol de parte interesada elegido en la ficha en una sola acción, así nunca tienes que abandonar la ficha para incorporar a un colaborador.
 
-La ruta de invitación requiere el permiso **`users.invite`**, una forma delegada de `admin.users` que los administradores pueden conceder a miembros de confianza. Un guardián anti-escalada de privilegios impide que los no administradores inviten usuarios a roles de administrador — el desplegable de roles filtra silenciosamente a los roles que el invitador tiene permitido delegar.
+La ruta de invitación requiere el permiso **`users.invite`**, una forma delegada de `admin.users` que los administradores pueden conceder a miembros de confianza. Un guardián anti-escalada de privilegios impide que los no administradores inviten usuarios a cualquier otro rol: sin `admin.users`, un usuario invitado solo puede recibir el rol predeterminado, Miembro o Visor.
 
 ## Pestaña de Historial
 

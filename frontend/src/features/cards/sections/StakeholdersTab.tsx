@@ -158,7 +158,7 @@ function StakeholdersTab({
       }>("/users", {
         email: inviteEmail,
         display_name: inviteDisplayName.trim(),
-        role: "member",
+        // No role: the server applies the admin-configured default role.
         send_email: inviteSendEmail,
       });
       await api.post(`/cards/${card.id}/stakeholders`, {
