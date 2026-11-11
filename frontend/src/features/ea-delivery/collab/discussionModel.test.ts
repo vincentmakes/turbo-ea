@@ -267,10 +267,33 @@ describe("isBlankHtml", () => {
     expect(isBlankHtml("")).toBe(true);
     expect(isBlankHtml("<p></p>")).toBe(true);
     expect(isBlankHtml("<p> &nbsp; </p>")).toBe(true);
+    expect(isBlankHtml("<p>\u00a0</p><p> \n\t</p>")).toBe(true);
   });
   it("is not blank with text or a mention", () => {
     expect(isBlankHtml("<p>a</p>")).toBe(false);
+    expect(isBlankHtml("<p> &nbsp;a </p>")).toBe(false);
     expect(isBlankHtml('<p><span data-type="mention" data-kind="card" data-id="x"></span></p>')).toBe(false);
+  });
+  it("reads the text a browser would show, not what a tag pattern leaves", () => {
+    // Markup is never text, however it is broken or nested.
+    expect(isBlankHtml("<p")).toBe(true);
+    expect(isBlankHtml('<p><img src="x" alt="y"></p>')).toBe(true);
+    expect(isBlankHtml("<p><!-- a note --></p>")).toBe(true);
+    expect(isBlankHtml("<div><p><strong><em></em></strong></p></div>")).toBe(true);
+    // Text is text, including what a single pass of a tag pattern would mangle.
+    expect(isBlankHtml("<scr<script>ipt>")).toBe(false);
+    expect(isBlankHtml("<<p>></p>")).toBe(false);
+    expect(isBlankHtml("<p>&lt;p&gt;</p>")).toBe(false);
+    expect(isBlankHtml("<p>a &lt; b</p>")).toBe(false);
+  });
+  it("runs nothing and loads nothing while it reads", () => {
+    const w = window as unknown as { __blankProbe?: number };
+    delete w.__blankProbe;
+    const image = '<img src="x" onerror="window.__blankProbe = 1">';
+    expect(isBlankHtml(image)).toBe(true);
+    // A script's source is text to the parser, and it is never run.
+    expect(isBlankHtml(`${image}<script>window.__blankProbe = 2</script>`)).toBe(false);
+    expect(w.__blankProbe).toBeUndefined();
   });
 });
 

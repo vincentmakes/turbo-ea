@@ -350,10 +350,20 @@ export function plainListTags(html: string): string {
   return html.replace(/<ol\b[^>]*>/g, "<ol>");
 }
 
-/** Whether a comment's body is empty (no text and no mention), after tags are dropped. */
+/**
+ * Whether a comment's body is empty (no text and no mention).
+ *
+ * The text is read from an inert parsed document, never by stripping tags
+ * with a regular expression: one pass of a tag pattern can leave markup
+ * behind (`<scr<script>ipt>`), and what is left would be unsafe the day it is
+ * reused as a string. A document from `DOMParser` runs no script and loads
+ * nothing. An element's `textContent` is never null and `trim()` drops the
+ * non-breaking space with the rest of the white space.
+ */
 export function isBlankHtml(html: string): boolean {
   if (html.includes('data-type="mention"')) return false;
-  return html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim() === "";
+  const { body } = new DOMParser().parseFromString(html, "text/html");
+  return (body.textContent as string).trim() === "";
 }
 
 /**
