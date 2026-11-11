@@ -116,7 +116,9 @@ class TestDiscussionRoute:
         resp = await client.get(f"{ADR}/{adr['id']}/comments", headers=env["h"]["blind"])
         assert resp.status_code == 403
 
-    @pytest.mark.parametrize("doc_id", [str(uuid.uuid4()), "not-a-uuid"])
+    @pytest.mark.parametrize(
+        "doc_id", [str(uuid.uuid4()), "not-a-uuid"], ids=["unknown", "malformed"]
+    )
     async def test_unknown_decision_is_404(self, client, env, doc_id):
         resp = await client.get(f"{ADR}/{doc_id}/comments", headers=env["h"]["admin"])
         assert (resp.status_code, resp.json()["detail"]) == (

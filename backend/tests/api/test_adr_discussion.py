@@ -169,7 +169,9 @@ class TestPostAndRead:
             resp = await _call(client, env, method, path, who="blind", json=json, status=403)
             assert _detail(resp) == "Insufficient permissions"
 
-    @pytest.mark.parametrize("doc_id", [str(uuid.uuid4()), "not-a-uuid"])
+    @pytest.mark.parametrize(
+        "doc_id", [str(uuid.uuid4()), "not-a-uuid"], ids=["unknown", "malformed"]
+    )
     async def test_an_unknown_decision_is_404(self, client, env, doc_id):
         for method, path, json in (
             ("GET", f"{ADR}/{doc_id}/comments", None),
