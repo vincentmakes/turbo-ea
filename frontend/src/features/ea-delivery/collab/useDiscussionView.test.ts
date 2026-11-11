@@ -65,4 +65,35 @@ describe("useDiscussionView", () => {
     rerender({ owner: { kind: "adr", id: "b2" }, refreshKey: "v2", focusThreadId: "t7" });
     expect(result.current.showResolved).toBe(false);
   });
+
+  it("numbers each request for the composer anew, the same section twice included, and clears it", () => {
+    const { result } = renderHook(() => useDiscussionView({ kind: "adr", id: "a1" }, {}));
+    expect(result.current.composeSection).toBeNull();
+    act(() => result.current.requestComposeSection("context"));
+    expect(result.current.composeSection).toEqual({ section: "context", request: 1 });
+    act(() => result.current.requestComposeSection("context"));
+    expect(result.current.composeSection).toEqual({ section: "context", request: 2 });
+    const clear = result.current.clearComposeSection;
+    act(() => clear());
+    expect(result.current.composeSection).toBeNull();
+    // The same function on every render (the composer calls it from an effect).
+    expect(result.current.clearComposeSection).toBe(clear);
+    act(() => result.current.requestComposeSection("decision"));
+    expect(result.current.composeSection).toEqual({ section: "decision", request: 3 });
+  });
+
+  it("drops a pending request for the composer with the document, and keeps numbering after it", () => {
+    const { result, rerender } = renderHook((args: Args) => useDiscussionView(args.owner, args), {
+      initialProps: { owner: { kind: "adr", id: "a1" } } as Args,
+    });
+    act(() => result.current.requestComposeSection("context"));
+    rerender({ owner: { kind: "adr", id: "a1" }, refreshKey: "v2" });
+    expect(result.current.composeSection).toEqual({ section: "context", request: 1 });
+    rerender({ owner: { kind: "adr", id: "b2" }, refreshKey: "v2" });
+    expect(result.current.composeSection).toBeNull();
+    act(() => result.current.requestComposeSection("context"));
+    expect(result.current.composeSection).toEqual({ section: "context", request: 2 });
+    rerender({ owner: { kind: "adr", id: "b2" }, refreshKey: "v2", focusThreadId: "t7" });
+    expect(result.current.composeSection).toBeNull();
+  });
 });

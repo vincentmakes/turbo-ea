@@ -13,6 +13,7 @@ const sidePanel = vi.hoisted(() => ({
   mounts: 0,
   sections: null as null | {
     counts: Record<string, { open: number; total: number }>;
+    canComment: boolean;
     openSection: (section: string) => void;
   },
 }));
@@ -1241,6 +1242,7 @@ describe("ADREditor — discussion and review notes", () => {
     const openSection = vi.fn();
     sidePanel.sections = {
       counts: { alternatives_considered: { open: 2, total: 3 }, consequences: { open: 0, total: 1 } },
+      canComment: false,
       openSection,
     };
     try {
@@ -1253,6 +1255,23 @@ describe("ADREditor — discussion and review notes", () => {
       expect(within(done.parentElement!).getByRole("heading", { name: "Consequences" })).toBeInTheDocument();
       await userEvent.click(open);
       expect(openSection).toHaveBeenCalledWith("alternatives_considered");
+    } finally {
+      sidePanel.sections = null;
+    }
+  });
+
+  it("marks every section for a reader who may comment, and opens the discussion on a quiet one", async () => {
+    const openSection = vi.fn();
+    sidePanel.sections = { counts: { context: { open: 1, total: 1 } }, canComment: true, openSection };
+    try {
+      await renderLoaded(base);
+      const markers = screen.getAllByTestId(/^section-marker-/).map((m) => m.dataset.testid);
+      expect(markers).toContain("section-marker-context");
+      expect(markers).toContain("section-marker-consequences");
+      const add = screen.getByTestId("section-marker-consequences");
+      expect(add).toHaveAccessibleName("Comment on this section");
+      await userEvent.click(add);
+      expect(openSection).toHaveBeenCalledWith("consequences");
     } finally {
       sidePanel.sections = null;
     }

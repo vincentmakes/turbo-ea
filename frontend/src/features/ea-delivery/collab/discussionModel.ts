@@ -108,6 +108,20 @@ export function composerSectionChips(
   return { chips: taggable.filter(shown), more: taggable.filter((s) => !shown(s)) };
 }
 
+/**
+ * Whether the filter is one section that none of `threads` (every thread
+ * read, any revision, resolved or not) is tagged to: the list then says the
+ * section has no discussion yet rather than that nothing matches.
+ */
+export function sectionWithoutThreads(
+  threads: readonly Pick<DocumentThread, "section">[],
+  active: readonly string[],
+): boolean {
+  if (active.length !== 1) return false;
+  const [key] = active;
+  return !threads.some((thread) => threadSectionKey(thread) === key);
+}
+
 /** One chip of the discussion's filter row. */
 export interface SectionFilterChip {
   key: string;

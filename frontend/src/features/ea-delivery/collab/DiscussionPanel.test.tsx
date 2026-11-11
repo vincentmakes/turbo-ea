@@ -591,14 +591,83 @@ describe("DiscussionPanel section filter", () => {
     expect(listedIds()).toEqual(["e1"]);
     expect(screen.queryByText("No thread matches this filter.")).toBeNull();
     await user.click(earlier);
-    // The chip that is on stays, at 0, and the line says why the list is empty.
+    // The chip that is on stays, at 0, and the line says why the list is
+    // empty: no thread read carries the section any more.
     await waitFor(() => expect(listedIds()).toEqual([]));
     expect(chipNames()).toEqual(["Context (0)", "Decision (1)"]);
-    expect(screen.getByText("No thread matches this filter.")).toBeInTheDocument();
+    expect(screen.getByText("No discussion on this section yet.")).toBeInTheDocument();
+    expect(screen.queryByText("No thread matches this filter.")).toBeNull();
     expect(screen.getAllByRole("button", { name: "Clear" })).toHaveLength(1);
     await user.click(screen.getByRole("button", { name: "Clear" }));
     expect(listedIds()).toEqual(["a"]);
+    expect(screen.queryByText("No discussion on this section yet.")).toBeNull();
+  });
+
+  /** The panel and two buttons doing what a section marker does to the shared view. */
+  function WiredWithMarker() {
+    const owner: DocumentOwner = { kind: "adr", id: "a2" };
+    const view = useDiscussionView(owner, {});
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => {
+            view.setFilter(["decision"]);
+            view.requestComposeSection("decision");
+          }}
+        >
+          marker decision
+        </button>
+        <button type="button" onClick={() => view.setFilter(["decision", "consequences"])}>
+          two sections
+        </button>
+        <DiscussionPanel owner={owner} sections={SECTIONS} view={view} />
+      </>
+    );
+  }
+
+  it("filters on a section with no thread yet: its chip pressed at 0, says so, and the composer has it chosen", async () => {
+    serve({ can, open_count: 1, threads: [thread({ id: "c", section: "context" })] });
+    const { user } = renderWithProviders(<WiredWithMarker />);
+    await screen.findByTestId("thread-c");
+    await user.click(screen.getByRole("button", { name: "marker decision" }));
+    expect(chipNames()).toEqual(["Context (1)", "Decision (0)"]);
+    expect(filterRow().getByRole("button", { name: "Decision (0)" })).toHaveAttribute("aria-pressed", "true");
+    expect(filterRow().getByRole("button", { name: "Context (1)" })).toHaveAttribute("aria-pressed", "false");
+    expect(listedIds()).toEqual([]);
+    expect(screen.getByText("No discussion on this section yet.")).toBeInTheDocument();
     expect(screen.queryByText("No thread matches this filter.")).toBeNull();
+    expect(screen.queryByText("No discussion yet.")).toBeNull();
+    const composer = within(screen.getByRole("group", { name: "Section" }));
+    expect(composer.getByRole("button", { name: "Decision" })).toHaveAttribute("aria-pressed", "true");
+    expect(editorProps.last?.focusRequest).toBe(1);
+
+    await user.click(screen.getByRole("button", { name: "Clear" }));
+    expect(chipNames()).toEqual(["Context (1)"]);
+    expect(listedIds()).toEqual(["c"]);
+    expect(screen.queryByText("No discussion on this section yet.")).toBeNull();
+    // The composer keeps the section chosen for the thread being written.
+    expect(composer.getByRole("button", { name: "Decision" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("says nothing matches when several sections are on and none has a thread", async () => {
+    serve({ can, open_count: 1, threads: [thread({ id: "c", section: "context" })] });
+    const { user } = renderWithProviders(<WiredWithMarker />);
+    await screen.findByTestId("thread-c");
+    await user.click(screen.getByRole("button", { name: "two sections" }));
+    expect(chipNames()).toEqual(["Context (1)", "Decision (0)", "Consequences (0)"]);
+    expect(screen.getByText("No thread matches this filter.")).toBeInTheDocument();
+    expect(screen.queryByText("No discussion on this section yet.")).toBeNull();
+  });
+
+  it("says a section has no discussion yet on a document with no thread at all, once", async () => {
+    serve({ can, open_count: 0, threads: [] });
+    const { user } = renderWithProviders(<WiredWithMarker />);
+    expect(await screen.findByText("No discussion yet.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "marker decision" }));
+    expect(chipNames()).toEqual(["Decision (0)"]);
+    expect(screen.getByText("No discussion on this section yet.")).toBeInTheDocument();
+    expect(screen.queryByText("No discussion yet.")).toBeNull();
   });
 
   it("keeps a resolved match behind the fold rather than saying nothing matches", async () => {

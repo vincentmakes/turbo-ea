@@ -9,6 +9,7 @@ const sidePanel = vi.hoisted(() => ({
   props: [] as Record<string, unknown>[],
   sections: null as null | {
     counts: Record<string, { open: number; total: number }>;
+    canComment: boolean;
     openSection: (section: string) => void;
   },
 }));
@@ -1087,6 +1088,7 @@ describe("SoAWEditor — discussion and review notes", () => {
     const openSection = vi.fn();
     sidePanel.sections = {
       counts: { "2.1": { open: 3, total: 3 }, custom_7: { open: 0, total: 1 } },
+      canComment: false,
       openSection,
     };
     try {

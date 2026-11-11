@@ -1,12 +1,36 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { useState } from "react";
 
 // TipTap has no place in jsdom: a textarea carries the same contract.
-vi.mock("../RichTextEditor", () => ({
-  default: (props: { content: string; onChange: (v: string) => void; placeholder?: string }) => (
-    <textarea aria-label={props.placeholder} value={props.content} onChange={(e) => props.onChange(e.target.value)} />
-  ),
-}));
+// It takes the focus on each new `focusRequest`, as the real editor does
+// (`RichTextEditor.test.tsx` covers that half).
+vi.mock("../RichTextEditor", async () => {
+  const { useEffect, useRef } = await import("react");
+  return {
+    default: function Editor(props: {
+      content: string;
+      onChange: (v: string) => void;
+      placeholder?: string;
+      focusRequest?: number;
+    }) {
+      const ref = useRef<HTMLTextAreaElement | null>(null);
+      const focusRequest = props.focusRequest ?? 0;
+      useEffect(() => {
+        if (focusRequest > 0) ref.current?.focus();
+      }, [focusRequest]);
+      return (
+        <textarea
+          ref={ref}
+          aria-label={props.placeholder}
+          data-focus-request={focusRequest}
+          value={props.content}
+          onChange={(e) => props.onChange(e.target.value)}
+        />
+      );
+    },
+  };
+});
 
 import { renderWithProviders } from "@/test/render";
 import CommentComposer from "./CommentComposer";
@@ -162,3 +186,132 @@ describe("CommentComposer section chips", () => {
     expect(group().queryByRole("button", { pressed: true })).toBeNull();
   });
 });
+
+describe("CommentComposer section request (a section marker)", () => {
+  type Request = { section: string; request: number } | null;
+
+  /** The composer with buttons that send requests, as the shared view does. */
+  function Harness(props: Partial<React.ComponentProps<typeof CommentComposer>> & { onApplied?: () => void }) {
+    const { onApplied, ...rest } = props;
+    const [req, setReq] = useState<Request>(null);
+    const [n, setN] = useState(0);
+    const ask = (section: string) => {
+      setN(n + 1);
+      setReq({ section, request: n + 1 });
+    };
+    return (
+      <>
+        <button type="button" onClick={() => ask("decision")}>
+          ask decision
+        </button>
+        <button type="button" onClick={() => ask("s6")}>
+          ask s6
+        </button>
+        <button type="button" onClick={() => ask("gone")}>
+          ask gone
+        </button>
+        <button type="button" onClick={() => ask(GENERAL_SECTION)}>
+          ask general
+        </button>
+        <CommentComposer
+          placeholder="Start a thread"
+          submitLabel="Post"
+          onSubmit={async () => undefined}
+          sectionRequest={req}
+          onSectionRequestApplied={() => {
+            onApplied?.();
+            setReq(null);
+          }}
+          {...rest}
+        />
+      </>
+    );
+  }
+
+  const editor = () => screen.getByRole("textbox", { name: "Start a thread" });
+
+  it("chooses the section, keeps the text typed, writes the draft and takes the focus", async () => {
+    const onApplied = vi.fn();
+    const { user } = renderWithProviders(
+      <Harness sections={SHORT} draftKey="adr:a1:new" onApplied={onApplied} />,
+    );
+    fireEvent.change(editor(), { target: { value: "<p>Half</p>" } });
+    expect(editor()).not.toHaveFocus();
+    await user.click(screen.getByRole("button", { name: "ask decision" }));
+    expect(pressed("Decision")).toBe("true");
+    expect(pressed("Context")).toBe("false");
+    expect(editor()).toHaveValue("<p>Half</p>");
+    expect(readDraft("adr:a1:new")).toEqual({ body: "<p>Half</p>", section: "decision" });
+    await waitFor(() => expect(editor()).toHaveFocus());
+    expect(editor()).toHaveAttribute("data-focus-request", "1");
+    expect(onApplied).toHaveBeenCalledTimes(1);
+  });
+
+  it("applies the same section asked twice, over a chip the reader changed in between", async () => {
+    const { user } = renderWithProviders(<Harness sections={SHORT} />);
+    await user.click(screen.getByRole("button", { name: "ask decision" }));
+    expect(pressed("Decision")).toBe("true");
+    await user.click(group().getByRole("button", { name: "Context" }));
+    expect(pressed("Context")).toBe("true");
+    await user.click(screen.getByRole("button", { name: "ask decision" }));
+    expect(pressed("Decision")).toBe("true");
+    expect(pressed("Context")).toBe("false");
+    expect(editor()).toHaveAttribute("data-focus-request", "2");
+  });
+
+  it("leaves a chip the reader picks after a request alone on later renders", async () => {
+    const onApplied = vi.fn();
+    const { user } = renderWithProviders(<Harness sections={SHORT} onApplied={onApplied} />);
+    await user.click(screen.getByRole("button", { name: "ask decision" }));
+    await user.click(group().getByRole("button", { name: "Context" }));
+    fireEvent.change(editor(), { target: { value: "<p>Typed</p>" } });
+    expect(pressed("Context")).toBe("true");
+    expect(pressed("Decision")).toBe("false");
+    expect(onApplied).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores a section the document does not offer, and General", async () => {
+    const onApplied = vi.fn();
+    const { user } = renderWithProviders(<Harness sections={SHORT} draftKey="k9" onApplied={onApplied} />);
+    await user.click(group().getByRole("button", { name: "Context" }));
+    await user.click(screen.getByRole("button", { name: "ask gone" }));
+    expect(pressed("Context")).toBe("true");
+    await user.click(screen.getByRole("button", { name: "ask general" }));
+    expect(pressed("Context")).toBe("true");
+    expect(readDraft("k9")).toEqual({ body: "", section: "context" });
+    expect(editor()).toHaveAttribute("data-focus-request", "0");
+    expect(editor()).not.toHaveFocus();
+    // Each request is still answered, so it is cleared.
+    expect(onApplied).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows the chosen section's chip, pressed, in a long list", async () => {
+    const { user } = renderWithProviders(<Harness sections={LONG} usedSections={["s4"]} />);
+    expect(chipNames()).toEqual(["2.2 Constraints", "More…"]);
+    await user.click(screen.getByRole("button", { name: "ask s6" }));
+    expect(chipNames()).toEqual(["2.2 Constraints", "4.1 Baseline", "More…"]);
+    expect(pressed("4.1 Baseline")).toBe("true");
+  });
+
+  it("posts the thread with the section asked for, and does not ask the fresh editor for the focus", async () => {
+    const onSubmit = vi.fn(async () => undefined);
+    const { user } = renderWithProviders(<Harness sections={SHORT} onSubmit={onSubmit} />);
+    await user.click(screen.getByRole("button", { name: "ask decision" }));
+    fireEvent.change(editor(), { target: { value: "<p>Why?</p>" } });
+    await user.click(screen.getByRole("button", { name: "Post" }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith("<p>Why?</p>", "decision"));
+    await waitFor(() => expect(editor()).toHaveValue(""));
+    expect(editor()).toHaveAttribute("data-focus-request", "0");
+  });
+
+  it("does nothing on a reply or an edit (no sections)", async () => {
+    const onApplied = vi.fn();
+    const { user } = renderWithProviders(<Harness initialBody="<p>x</p>" draftKey="r1" onApplied={onApplied} />);
+    await user.click(screen.getByRole("button", { name: "ask decision" }));
+    expect(screen.queryByRole("group", { name: "Section" })).toBeNull();
+    expect(editor()).toHaveAttribute("data-focus-request", "0");
+    expect(readDraft("r1")).toBeUndefined();
+    expect(onApplied).not.toHaveBeenCalled();
+  });
+});
+

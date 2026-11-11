@@ -100,6 +100,23 @@ describe("RichTextEditor", () => {
     expect(a).toHaveAttribute("rel", "noopener noreferrer");
   });
 
+  it("takes the focus on each new focus request, and not without one", async () => {
+    const { container, rerender } = render(
+      <RichTextEditor variant="comment" content="<p>Half</p>" onChange={() => {}} />,
+    );
+    await screen.findByText("Half");
+    const editable = container.querySelector(".tiptap") as HTMLElement;
+    expect(editable).not.toHaveFocus();
+    rerender(<RichTextEditor variant="comment" content="<p>Half</p>" onChange={() => {}} focusRequest={0} />);
+    expect(editable).not.toHaveFocus();
+    rerender(<RichTextEditor variant="comment" content="<p>Half</p>" onChange={() => {}} focusRequest={1} />);
+    await waitFor(() => expect(editable).toHaveFocus());
+    editable.blur();
+    expect(editable).not.toHaveFocus();
+    rerender(<RichTextEditor variant="comment" content="<p>Half</p>" onChange={() => {}} focusRequest={2} />);
+    await waitFor(() => expect(editable).toHaveFocus());
+  });
+
   it("refuses a javascript: link", async () => {
     const { container } = render(
       <RichTextEditor content='<p><a href="javascript:alert(1)">x</a></p>' onChange={() => {}} />,

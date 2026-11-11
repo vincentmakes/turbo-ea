@@ -10,6 +10,7 @@ const sidePanel = vi.hoisted(() => ({
   props: [] as Record<string, unknown>[],
   sections: null as null | {
     counts: Record<string, { open: number; total: number }>;
+    canComment: boolean;
     openSection: (section: string) => void;
   },
 }));
@@ -571,6 +572,7 @@ describe("SoAWPreview — section markers", () => {
     const openSection = vi.fn();
     sidePanel.sections = {
       counts: { "1.1": { open: 2, total: 2 }, custom_7: { open: 0, total: 1 }, "1.2": { open: 1, total: 1 } },
+      canComment: false,
       openSection,
     };
     try {
@@ -592,7 +594,7 @@ describe("SoAWPreview — section markers", () => {
   });
 
   it("keeps the body and its markers when the page re-renders (Copy link)", async () => {
-    sidePanel.sections = { counts: { "1.1": { open: 1, total: 1 } }, openSection: vi.fn() };
+    sidePanel.sections = { counts: { "1.1": { open: 1, total: 1 } }, canComment: false, openSection: vi.fn() };
     try {
       const { user } = renderPreview();
       await screen.findByRole("heading", { name: SOAW.name });
@@ -608,6 +610,28 @@ describe("SoAWPreview — section markers", () => {
       expect(screen.getByTestId("section-marker-1.1").closest("[data-section]")).toBe(heading);
       expect(screen.getAllByTestId(/^section-marker-/)).toHaveLength(1);
       expect(previewBody().querySelectorAll("span.no-print")).toHaveLength(1);
+    } finally {
+      sidePanel.sections = null;
+    }
+  });
+
+  it("marks every anchored heading for a reader who may comment, a quiet one included", async () => {
+    const openSection = vi.fn();
+    sidePanel.sections = { counts: { "1.1": { open: 1, total: 1 } }, canComment: true, openSection };
+    try {
+      const { user } = renderPreview();
+      await screen.findByRole("heading", { name: SOAW.name });
+      await screen.findByTestId("section-marker-1.1");
+      const anchored = Array.from(previewBody().querySelectorAll("[data-section]")).map((h) =>
+        h.getAttribute("data-section"),
+      );
+      expect(anchored).toContain("custom_7");
+      const marked = screen.getAllByTestId(/^section-marker-/).map((m) => m.closest("[data-section]")?.getAttribute("data-section"));
+      expect(marked).toEqual(anchored);
+      const add = screen.getByTestId("section-marker-custom_7");
+      expect(add).toHaveAccessibleName("Comment on this section");
+      await user.click(add);
+      expect(openSection).toHaveBeenCalledWith("custom_7");
     } finally {
       sidePanel.sections = null;
     }

@@ -51,6 +51,8 @@ interface Props {
    * (in comments) its people come first.
    */
   mentionContext?: MentionContext;
+  /** Each new non-zero value puts the caret at the end of the text. */
+  focusRequest?: number;
 }
 
 /**
@@ -112,6 +114,7 @@ export default function RichTextEditor({
   variant = "document",
   onSubmit,
   mentionContext,
+  focusRequest = 0,
 }: Props) {
   const { t } = useTranslation("delivery");
   const isComment = variant === "comment";
@@ -166,6 +169,10 @@ export default function RichTextEditor({
       store.takeDismissed();
     },
   });
+
+  useEffect(() => {
+    if (focusRequest > 0 && editor && !editor.isDestroyed) editor.commands.focus("end");
+  }, [editor, focusRequest]);
 
   // An editor going away takes its "@" popup with it.
   useEffect(() => () => store.close(), [store]);

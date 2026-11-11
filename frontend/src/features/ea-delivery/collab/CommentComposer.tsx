@@ -9,9 +9,12 @@
  * the button submits; nothing submits while a post is in flight. A refusal
  * is shown under the editor. With a `draftKey`, the unsent text (and the
  * section picked) is kept in memory until it is posted or cancelled, so it
- * comes back when the composer is shown again.
+ * comes back when the composer is shown again. A section marker on the page
+ * asks for a section through `sectionRequest`: each new request chooses that
+ * section (kept in the draft, the text typed stays) and puts the caret in the
+ * editor; a chip the reader picks afterwards is theirs.
  */
-import { useContext, useId, useRef, useState } from "react";
+import { useContext, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -23,6 +26,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import type { DocumentThreadWrite } from "@/types";
+import type { ComposeSectionRequest } from "./useDiscussionView";
 import RichTextEditor from "../RichTextEditor";
 import { DocumentMentionContext } from "../mentions/documentMentionContext";
 import { clearDraft, readDraft, writeDraft } from "./commentDrafts";
@@ -49,6 +53,10 @@ interface Props {
   onCancel?: () => void;
   /** Where the unsent text is kept (`commentDrafts.draftKey`); none: not kept. */
   draftKey?: string;
+  /** New thread: a section to choose, applied once per request number (a section marker). */
+  sectionRequest?: ComposeSectionRequest | null;
+  /** Called once a `sectionRequest` has been applied, so it can be cleared. */
+  onSectionRequestApplied?: () => void;
 }
 
 export default function CommentComposer({
@@ -60,6 +68,8 @@ export default function CommentComposer({
   onSubmit,
   onCancel,
   draftKey,
+  sectionRequest,
+  onSectionRequestApplied,
 }: Props) {
   const { t } = useTranslation(["delivery", "common"]);
   const mentionContext = useContext(DocumentMentionContext);
@@ -103,6 +113,29 @@ export default function CommentComposer({
   const keep = (next: { body: string; section: string }) => {
     if (draftKey) writeDraft(draftKey, sections ? next : { body: next.body });
   };
+
+  // A section marker's request, applied once per request number while
+  // rendering (a chip changed afterwards is not overridden on a re-render);
+  // a section this document does not offer is ignored.
+  const [appliedRequest, setAppliedRequest] = useState<number | null>(null);
+  // Bumped to put the caret in the editor.
+  const [focusRequest, setFocusRequest] = useState(0);
+  if (sections && sectionRequest && sectionRequest.request !== appliedRequest) {
+    setAppliedRequest(sectionRequest.request);
+    const wanted = sectionRequest.section;
+    if (wanted !== GENERAL_SECTION && sections.some((s) => s.key === wanted)) {
+      setSection(wanted);
+      keep({ body, section: wanted });
+      setFocusRequest((n) => n + 1);
+    }
+  }
+  // Reported once per request, whatever else re-renders.
+  const reportedRequest = useRef<number | null>(null);
+  useEffect(() => {
+    if (appliedRequest === null || reportedRequest.current === appliedRequest) return;
+    reportedRequest.current = appliedRequest;
+    onSectionRequestApplied?.();
+  }, [appliedRequest, onSectionRequestApplied]);
   const changeBody = (next: string) => {
     setBody(next);
     keep({ body: next, section });
@@ -126,6 +159,8 @@ export default function CommentComposer({
       if (!onCancel) {
         setBody("");
         setEditorKey((k) => k + 1);
+        // The fresh editor is not asked for the caret again.
+        setFocusRequest(0);
       }
     } catch (err) {
       setError(writeErrorMessage(err, t("collab.discussion.error.postFailed")));
@@ -217,6 +252,7 @@ export default function CommentComposer({
         onChange={changeBody}
         onSubmit={() => void submit()}
         placeholder={placeholder}
+        focusRequest={focusRequest}
       />
       {error && (
         <Alert severity="error" onClose={() => setError("")}>

@@ -25,6 +25,7 @@ import {
   sectionLabel,
   sectionOptions,
   sectionThreadCounts,
+  sectionWithoutThreads,
   signBody,
   soawSectionOptions,
   splitResolved,
@@ -413,6 +414,50 @@ describe("sectionFilterChips", () => {
       { key: "context", label: "Context", count: 1, active: false },
       { key: "decision", label: "Decision", count: 0, active: true },
     ]);
+  });
+});
+
+describe("sectionFilterChips on a section with no thread (a section marker)", () => {
+  it("shows the one section that is on, pressed at 0, even with no thread at all", () => {
+    const sections = [
+      { key: GENERAL_SECTION, label: "General" },
+      { key: "context", label: "Context" },
+    ];
+    expect(sectionFilterChips([], sections, ["context"], t)).toEqual([
+      { key: "context", label: "Context", count: 0, active: true },
+    ]);
+  });
+});
+
+describe("sectionWithoutThreads", () => {
+  const threads = [{ section: "context" }, { section: null }];
+
+  it("is true for one section no thread carries", () => {
+    expect(sectionWithoutThreads(threads, ["decision"])).toBe(true);
+    expect(sectionWithoutThreads([], ["decision"])).toBe(true);
+  });
+
+  it("is false for a section a thread carries, General included", () => {
+    expect(sectionWithoutThreads(threads, ["context"])).toBe(false);
+    expect(sectionWithoutThreads(threads, [GENERAL_SECTION])).toBe(false);
+  });
+
+  it("is false with no filter or several sections", () => {
+    expect(sectionWithoutThreads(threads, [])).toBe(false);
+    expect(sectionWithoutThreads(threads, ["decision", "consequences"])).toBe(false);
+    expect(sectionWithoutThreads([], ["decision", "consequences"])).toBe(false);
+  });
+});
+
+describe("composerSectionChips with a section a marker chose", () => {
+  it("shows the chosen section's chip in a long list, in document order", () => {
+    const opts = [
+      { key: GENERAL_SECTION, label: "General" },
+      ...Array.from({ length: SECTION_CHIPS_ALL_MAX + 1 }, (_, i) => ({ key: `s${i + 1}`, label: `S${i + 1}` })),
+    ];
+    const { chips, more } = composerSectionChips(opts, ["s5"], "s2");
+    expect(chips.map((c) => c.key)).toEqual(["s2", "s5"]);
+    expect(more.map((c) => c.key)).not.toContain("s2");
   });
 });
 

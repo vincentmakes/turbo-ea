@@ -15,7 +15,12 @@ vi.mock("./DiscussionPanel", async () => {
   return {
   default: (props: {
     focusThreadId?: string | null;
-    view: { filter: string[]; showResolved: boolean; discussion: { threads: { id: string }[] } };
+    view: {
+      filter: string[];
+      showResolved: boolean;
+      composeSection: { section: string; request: number } | null;
+      discussion: { threads: { id: string }[] };
+    };
   }) => {
     tabs.discussion.push(props);
     // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -26,6 +31,7 @@ vi.mock("./DiscussionPanel", async () => {
         focus:{String(props.focusThreadId)}
         <span data-testid="panel-filter">{JSON.stringify(props.view.filter)}</span>
         <span data-testid="panel-unfolded">{String(props.view.showResolved)}</span>
+        <span data-testid="panel-compose">{JSON.stringify(props.view.composeSection)}</span>
         <span data-testid="panel-threads">{props.view.discussion.threads.map((th) => th.id).join(",")}</span>
       </div>
     );
@@ -455,8 +461,11 @@ describe("DocumentSidePanel section markers", () => {
     expect(await screen.findByTestId("section-marker-context")).toHaveTextContent("2");
     serve([thread({ id: "a", section: "context", resolved_at: "2026-11-03T00:00:00Z" })]);
     fireEvent(window, new Event("focus"));
-    await waitFor(() => expect(screen.queryByTestId("section-marker-decision")).toBeNull());
-    expect(screen.getByRole("button", { name: "Resolved discussion on this section" })).toBeInTheDocument();
+    // The decision's thread is gone: its marker now offers to start one.
+    await waitFor(() =>
+      expect(screen.getByTestId("section-marker-decision")).toHaveAccessibleName("Comment on this section"),
+    );
+    expect(screen.getByTestId("section-marker-context")).toHaveAccessibleName("Resolved discussion on this section");
   });
 
   it("shows no marker, and reads nothing, for a document not saved yet", async () => {
@@ -465,5 +474,56 @@ describe("DocumentSidePanel section markers", () => {
     await act(async () => {});
     expect(screen.queryByTestId("section-marker-context")).toBeNull();
     expect(mockApi.callsOf("get")).toHaveLength(0);
+  });
+
+  it("asks the composer for the marker's section on every click, the same section twice included", async () => {
+    window.localStorage.setItem(PANEL_STATE_KEY, JSON.stringify({ open: false }));
+    serve(MARKED);
+    const { user } = renderMarked();
+    const marker = await screen.findByRole("button", { name: "2 open threads on this section" });
+    await user.click(marker);
+    const aside = screen.getByRole("complementary", { name: "Discussion" });
+    expect(within(aside).getByTestId("panel-compose")).toHaveTextContent('{"section":"context","request":1}');
+    await user.click(marker);
+    expect(within(aside).getByTestId("panel-compose")).toHaveTextContent('{"section":"context","request":2}');
+    await user.click(screen.getByRole("button", { name: "Resolved discussion on this section" }));
+    expect(within(aside).getByTestId("panel-compose")).toHaveTextContent('{"section":"decision","request":3}');
+  });
+
+  it("puts a marker on a section with no thread for a reader who may comment, and opens the panel on it", async () => {
+    window.localStorage.setItem(PANEL_STATE_KEY, JSON.stringify({ open: false }));
+    serve([thread({ id: "a", section: "context" })]);
+    const { user } = renderMarked();
+    const add = await screen.findByRole("button", { name: "Comment on this section" });
+    expect(add).toHaveAttribute("data-testid", "section-marker-decision");
+    await user.click(add);
+    const aside = screen.getByRole("complementary", { name: "Discussion" });
+    expect(within(aside).getByTestId("panel-filter")).toHaveTextContent('["decision"]');
+    expect(within(aside).getByTestId("panel-unfolded")).toHaveTextContent("false");
+    expect(within(aside).getByTestId("panel-compose")).toHaveTextContent('{"section":"decision","request":1}');
+  });
+
+  it("below lg, opens the drawer from a marker on a section with no thread", async () => {
+    act(() => setViewportWidth(800));
+    serve([]);
+    const { user } = renderMarked();
+    await user.click(await screen.findByTestId("section-marker-context"));
+    expect(await screen.findByTestId("panel-filter")).toHaveTextContent('["context"]');
+    expect(screen.getByTestId("panel-compose")).toHaveTextContent('{"section":"context","request":1}');
+  });
+
+  it("gives a reader who may not comment no marker on a quiet section, and no composer request", async () => {
+    window.localStorage.setItem(PANEL_STATE_KEY, JSON.stringify({ open: false }));
+    mockApi.on("get", "/adr/a1/comments", () => ({
+      can: { comment: false, moderate: false },
+      open_count: 1,
+      threads: [thread({ id: "a", section: "context" })],
+    }));
+    const { user } = renderMarked();
+    await user.click(await screen.findByRole("button", { name: "1 open thread on this section" }));
+    expect(screen.queryByTestId("section-marker-decision")).toBeNull();
+    const aside = screen.getByRole("complementary", { name: "Discussion" });
+    expect(within(aside).getByTestId("panel-filter")).toHaveTextContent('["context"]');
+    expect(within(aside).getByTestId("panel-compose")).toHaveTextContent("null");
   });
 });

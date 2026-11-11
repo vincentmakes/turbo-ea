@@ -11,6 +11,7 @@ const sidePanel = vi.hoisted(() => ({
   props: [] as Record<string, unknown>[],
   sections: null as null | {
     counts: Record<string, { open: number; total: number }>;
+    canComment: boolean;
     openSection: (section: string) => void;
   },
 }));
@@ -733,6 +734,7 @@ describe("ADRPreview — section markers", () => {
     const openSection = vi.fn();
     sidePanel.sections = {
       counts: { context: { open: 1, total: 1 }, alternatives_considered: { open: 0, total: 2 } },
+      canComment: false,
       openSection,
     };
     try {

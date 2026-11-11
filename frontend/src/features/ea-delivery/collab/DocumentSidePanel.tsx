@@ -18,7 +18,10 @@
  * beside the page's headings (`SectionDiscussionContext`, read by
  * `SectionDiscussionMarker`) all come from that one read. It is re-read with
  * `refreshKey` (a save or a review action) and after every write. A marker
- * opens the panel with the filter set to its section alone.
+ * opens the panel with the filter set to its section alone and, for a reader
+ * who may comment, that section chosen in the new-thread composer, which
+ * takes the focus. Such a reader sees a marker on every section, one with no
+ * thread yet included.
  */
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
@@ -115,11 +118,14 @@ export default function DocumentSidePanel({
   };
 
   const counts = owner ? sectionThreadCounts(threads, owner.id, sections) : null;
+  const canComment = payload?.can?.comment ?? false;
   const sectionDiscussion: SectionDiscussion | null = counts
     ? {
         counts,
+        canComment,
         openSection: (section) => {
           view.setFilter([section]);
+          if (canComment) view.requestComposeSection(section);
           // A muted marker promised a resolved discussion: show it unfolded.
           if (markerUnfoldsResolved(counts[section])) view.setShowResolved(true);
           if (wide) update({ open: true });

@@ -12,7 +12,10 @@
  * filter and the fold come from `view` (`useDiscussionView`), which `DocumentSidePanel`
  * holds so the page's section markers share the same read; it re-reads on
  * the page's refresh signal, and arriving on a notification's thread or
- * another document starts with no filter.
+ * another document starts with no filter. A section marker's request to
+ * start a thread on its section (`view.composeSection`) goes to the
+ * new-thread composer. Filtered to one section that has no thread yet, the
+ * list says so ("No discussion on this section yet.").
  */
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -35,6 +38,7 @@ import {
   groupThreads,
   sectionFilterChips,
   sectionLabel,
+  sectionWithoutThreads,
   splitResolved,
   toggleFilterKey,
   type SectionOption,
@@ -53,7 +57,17 @@ interface Props {
 
 export default function DiscussionPanel({ owner, sections, focusThreadId, view }: Props) {
   const { t } = useTranslation(["delivery", "common"]);
-  const { discussion, scope, setScope, filter, setFilter, showResolved, setShowResolved } = view;
+  const {
+    discussion,
+    scope,
+    setScope,
+    filter,
+    setFilter,
+    showResolved,
+    setShowResolved,
+    composeSection,
+    clearComposeSection,
+  } = view;
   const [unnotified, setUnnotified] = useState<DocumentUserRef[]>([]);
   const { threads } = discussion;
   const loaded = discussion.discussion !== undefined;
@@ -115,6 +129,8 @@ export default function DiscussionPanel({ owner, sections, focusThreadId, view }
     .map((group) => ({ ...group, threads: applySectionFilter(group.threads, filter, focusThreadId) }))
     .filter((group) => group.threads.length > 0);
   const nothingMatches = filtering && shownF.length === 0 && resolvedF.length === 0 && earlierF.length === 0;
+  // Filtered to one section no thread carries (a marker on a quiet section).
+  const quietSection = nothingMatches && sectionWithoutThreads(threads, filter);
   const clearFilter = (
     <Button size="small" onClick={() => setFilter([])}>
       {t("collab.discussion.filter.clear")}
@@ -162,6 +178,8 @@ export default function DiscussionPanel({ owner, sections, focusThreadId, view }
           draftKey={draftKey(owner, { kind: "new" })}
           sections={sections}
           usedSections={threads.map((th) => th.section)}
+          sectionRequest={composeSection}
+          onSectionRequestApplied={clearComposeSection}
           placeholder={t("collab.discussion.newPlaceholder")}
           submitLabel={t("collab.discussion.post")}
           onSubmit={async (body, section) => noteUnnotified(await discussion.post(body, { section }))}
@@ -177,7 +195,7 @@ export default function DiscussionPanel({ owner, sections, focusThreadId, view }
         </Alert>
       )}
 
-      {shown.length === 0 && resolved.length === 0 && (
+      {!quietSection && shown.length === 0 && resolved.length === 0 && (
         <Typography variant="body2" color="text.secondary">
           {t("collab.discussion.empty")}
         </Typography>
@@ -185,7 +203,7 @@ export default function DiscussionPanel({ owner, sections, focusThreadId, view }
       {nothingMatches && (
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Typography variant="body2" color="text.secondary">
-            {t("collab.discussion.filter.noMatch")}
+            {quietSection ? t("collab.discussion.filter.emptySection") : t("collab.discussion.filter.noMatch")}
           </Typography>
           {clearFilter}
         </Box>
