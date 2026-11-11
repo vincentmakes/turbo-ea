@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { useState } from "react";
 import type { DocumentHistoryEntry, DocumentHistoryPage } from "@/types";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -9,9 +10,12 @@ vi.mock("./VersionViewDialog", () => ({
   default: ({ entry }: { entry: { id: string } }) => <div role="dialog">view:{entry.id}</div>,
 }));
 vi.mock("./VersionCompareDialog", () => ({
-  default: ({ initial }: { initial: { from: string; to: string } }) => (
+  default: ({ initial, entries }: { initial: { from: string; to: string }; entries: { id: string }[] }) => (
     <div role="dialog">
-      compare:{initial.from}→{initial.to}
+      <span>
+        compare:{initial.from}→{initial.to}
+      </span>
+      <span data-testid="compare-entries">{entries.map((e) => e.id).join(",")}</span>
     </div>
   ),
 }));
@@ -178,5 +182,89 @@ describe("HistoryPanel", () => {
     mockApi.fail("get", FIRST, 403, "Insufficient permissions");
     renderPanel();
     expect(await screen.findByText(`GET ${FIRST} failed`)).toBeInTheDocument();
+  });
+
+  describe("a re-read of the first page", () => {
+    const older = entry({ id: "old", kind: "baseline", created_at: "2026-09-01T09:00:00Z" });
+    const SECOND = "/adr/a1/history?page=2&page_size=20";
+    const refocus = () => fireEvent(window, new Event("focus"));
+
+    it("keeps the pages loaded when nothing was added, and the open comparison's choices", async () => {
+      mockApi.on("get", FIRST, () => page({ total: 7 }));
+      mockApi.on("get", SECOND, () => page({ total: 7, entries: [older] }));
+      const { user } = renderPanel();
+      await user.click(await screen.findByRole("button", { name: "Load more" }));
+      await screen.findByTestId("history-old");
+      await user.click(within(screen.getByTestId("history-v2")).getByRole("button", { name: "Compare" }));
+      expect(await screen.findByTestId("compare-entries")).toHaveTextContent("rs,sg,rj,v2,v1,c,old");
+
+      refocus();
+      await waitFor(() => expect(mockApi.callsOf("get", FIRST)).toHaveLength(2));
+      expect(screen.getByTestId("history-old")).toBeInTheDocument();
+      expect(screen.getByTestId("compare-entries")).toHaveTextContent("rs,sg,rj,v2,v1,c,old");
+      expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
+      expect(mockApi.callsOf("get", SECOND)).toHaveLength(1);
+    });
+
+    it("reads the loaded pages again when rows were added, keeping the held ones meanwhile", async () => {
+      mockApi.on("get", FIRST, () => page({ total: 7 }));
+      mockApi.on("get", SECOND, () => page({ total: 7, entries: [older] }));
+      const { user } = renderPanel();
+      await user.click(await screen.findByRole("button", { name: "Load more" }));
+      await screen.findByTestId("history-old");
+
+      // A save landed meanwhile: a new first row, "created" moves to page 2.
+      const fresh = entry({ id: "new", created_at: "2026-10-07T09:00:00Z" });
+      let answerSecond: (p: DocumentHistoryPage) => void = () => {};
+      mockApi.on("get", FIRST, () => page({ total: 8, entries: [fresh, restored, signature, rejected, v2, v1] }));
+      mockApi.on(
+        "get",
+        SECOND,
+        () =>
+          new Promise<DocumentHistoryPage>((resolve) => {
+            answerSecond = resolve;
+          }),
+      );
+      refocus();
+      expect(await screen.findByTestId("history-new")).toBeInTheDocument();
+      await waitFor(() => expect(mockApi.callsOf("get", SECOND)).toHaveLength(2));
+      // Still on screen while page 2 is read again.
+      expect(screen.getByTestId("history-old")).toBeInTheDocument();
+      answerSecond(page({ total: 8, entries: [created, older] }));
+      await waitFor(() => expect(screen.getAllByTestId(/^history-/).map((el) => el.dataset.testid)).toEqual([
+        "history-new",
+        "history-rs",
+        "history-sg",
+        "history-rj",
+        "history-v2",
+        "history-v1",
+        "history-c",
+        "history-old",
+      ]));
+      expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
+    });
+
+    it("drops another document's pages", async () => {
+      mockApi.on("get", FIRST, () => page({ total: 7 }));
+      mockApi.on("get", SECOND, () => page({ total: 7, entries: [older] }));
+      mockApi.on("get", "/adr/b2/history?page=1&page_size=20", () => page({ total: 1, entries: [entry({ id: "b-only" })] }));
+      function Switch() {
+        const [id, setId] = useState("a1");
+        return (
+          <>
+            <button type="button" onClick={() => setId("b2")}>
+              other
+            </button>
+            <HistoryPanel owner={{ kind: "adr", id }} status="draft" />
+          </>
+        );
+      }
+      const { user } = renderWithProviders(<Switch />);
+      await user.click(await screen.findByRole("button", { name: "Load more" }));
+      await screen.findByTestId("history-old");
+      await user.click(screen.getByRole("button", { name: "other" }));
+      expect(await screen.findByTestId("history-b-only")).toBeInTheDocument();
+      expect(screen.queryByTestId("history-old")).toBeNull();
+    });
   });
 });

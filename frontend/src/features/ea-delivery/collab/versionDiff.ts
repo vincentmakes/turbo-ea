@@ -4,15 +4,19 @@
  * the `diff` package stays out of the main bundle; import `diff` nowhere else).
  *
  * Each text field or section is reduced to plain text — mentions read as their
- * labels (`fillMentionLabels`, then `htmlToPlainText`) — and compared word by
- * word. Before that, both sides are compared in the form the server stores
+ * labels (`fillMentionLabels`, then `htmlToPlainText`) — and compared block
+ * by block (a paragraph, a list item: a line of the plain text), then word by
+ * word inside the blocks that changed. The word diff is bounded, so a long
+ * section rewritten wholesale cannot freeze the page: a changed block too
+ * large (or too different) to diff in time reads as removed, then added.
+ * Before that, both sides are compared in the form the server stores
  * (mention spans without their names): a field whose stored form is equal is
  * unchanged even when a mentioned card was renamed in between. A field whose
  * plain text is equal but whose HTML is not changed its formatting only.
  * Dates, the change summary, names and people are shown as old → new.
  * Unchanged fields are left out.
  */
-import { diffWordsWithSpace } from "diff";
+import { diffArrays, diffWordsWithSpace } from "diff";
 
 import { canonicalMentionHtml, type MentionLabels } from "@/lib/mentionHtml";
 import { htmlToPlainText } from "@/lib/richTextCell";
@@ -47,14 +51,89 @@ export interface DiffOptions {
   formatDate: (iso: string) => string;
 }
 
-/** Word-level segments turning `before` into `after`. */
-export function wordSegments(before: string, after: string): DiffSegment[] {
-  return diffWordsWithSpace(before, after).map((change) => {
+/** Above this many words and spaces (both sides together) a changed block is not word-diffed. */
+export const WORD_DIFF_MAX_TOKENS = 12_000;
+/** The word diff's work budget: tokens × edit length. */
+const WORD_DIFF_BUDGET = 3_000_000;
+
+function tokenCount(text: string): number {
+  return text.match(/\S+|\s+/g)?.length ?? 0;
+}
+
+/** A text split into blocks (lines), each keeping its line break. */
+function blocks(text: string): string[] {
+  return text ? text.split(/(?<=\n)/) : [];
+}
+
+/** The old block shown removed and the new one added, whole. */
+function replaced(before: string, after: string): DiffSegment[] {
+  const out: DiffSegment[] = [];
+  if (before) out.push({ text: before, removed: true });
+  if (after) out.push({ text: after, added: true });
+  return out;
+}
+
+/** Word segments for one changed run of blocks, or the run replaced whole when that would take too long. */
+function blockSegments(before: string, after: string): DiffSegment[] {
+  if (!before || !after) return replaced(before, after);
+  const tokens = tokenCount(before) + tokenCount(after);
+  if (tokens > WORD_DIFF_MAX_TOKENS) return replaced(before, after);
+  const changes = diffWordsWithSpace(before, after, {
+    maxEditLength: Math.max(64, Math.floor(WORD_DIFF_BUDGET / tokens)),
+  });
+  if (!changes) return replaced(before, after);
+  return changes.map((change) => {
     const segment: DiffSegment = { text: change.value };
     if (change.added) segment.added = true;
     if (change.removed) segment.removed = true;
     return segment;
   });
+}
+
+/** Neighbouring segments of the same kind joined into one. */
+function merged(segments: DiffSegment[]): DiffSegment[] {
+  const out: DiffSegment[] = [];
+  for (const s of segments) {
+    const last = out[out.length - 1];
+    if (last && Boolean(last.added) === Boolean(s.added) && Boolean(last.removed) === Boolean(s.removed)) {
+      out[out.length - 1] = { ...last, text: last.text + s.text };
+    } else {
+      out.push(s);
+    }
+  }
+  return out;
+}
+
+/**
+ * Segments turning `before` into `after`: blocks (lines) first, then words
+ * inside each run of changed blocks, within a bounded amount of work.
+ */
+export function wordSegments(before: string, after: string): DiffSegment[] {
+  const out: DiffSegment[] = [];
+  let removed = "";
+  let added = "";
+  const flush = () => {
+    if (removed || added) out.push(...blockSegments(removed, added));
+    removed = "";
+    added = "";
+  };
+  const a = blocks(before);
+  const b = blocks(after);
+  const lines = a.length + b.length;
+  const changes = diffArrays(a, b, { maxEditLength: Math.max(64, Math.floor(WORD_DIFF_BUDGET / Math.max(lines, 1))) });
+  // Too many blocks moved to line up in time: the whole text, replaced.
+  if (!changes) return replaced(before, after);
+  for (const change of changes) {
+    const text = change.value.join("");
+    if (change.removed) removed += text;
+    else if (change.added) added += text;
+    else {
+      flush();
+      out.push({ text });
+    }
+  }
+  flush();
+  return merged(out);
 }
 
 /** A rich-text field's row, or null when it did not change. */

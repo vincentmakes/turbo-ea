@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MentionLabels } from "@/lib/mentionHtml";
 import type { DecisionVersionContent, SoawVersionContent } from "@/types";
-import { decisionDiff, sectionText, soawDiff, textRow, valueRow, wordSegments } from "./versionDiff";
+import { WORD_DIFF_MAX_TOKENS, decisionDiff, sectionText, soawDiff, textRow, valueRow, wordSegments } from "./versionDiff";
 
 const labels: MentionLabels = {
   restricted: { card: "Restricted card", decision: "Restricted decision", user: "Restricted", other: "Restricted" },
@@ -43,6 +43,84 @@ describe("wordSegments", () => {
   it("marks a word only added or only removed", () => {
     expect(wordSegments("a b", "a b c")).toEqual([{ text: "a b" }, { text: " c", added: true }]);
     expect(wordSegments("a b c", "a c")).toEqual([{ text: "a " }, { text: "b ", removed: true }, { text: "c" }]);
+  });
+
+  it("compares block by block, keeping unchanged paragraphs whole", () => {
+    expect(wordSegments("Intro\nUse Kafka now\nOutro", "Intro\nUse Pulsar now\nOutro")).toEqual([
+      { text: "Intro\nUse " },
+      { text: "Kafka", removed: true },
+      { text: "Pulsar", added: true },
+      { text: " now\nOutro" },
+    ]);
+    expect(wordSegments("A\nB", "A\nNew\nB")).toEqual([{ text: "A\n" }, { text: "New\n", added: true }, { text: "B" }]);
+    expect(wordSegments("A\nOld\nB", "A\nB")).toEqual([{ text: "A\n" }, { text: "Old\n", removed: true }, { text: "B" }]);
+    expect(wordSegments("", "x\ny")).toEqual([{ text: "x\ny", added: true }]);
+    expect(wordSegments("x\ny", "")).toEqual([{ text: "x\ny", removed: true }]);
+    expect(wordSegments("", "")).toEqual([]);
+  });
+
+  it("reads a small edit in a long paragraph word by word", () => {
+    const words = Array.from({ length: 3000 }, (_, i) => `w${i}`);
+    const before = words.join(" ");
+    const after = [...words.slice(0, 1500), "CHANGED", ...words.slice(1501)].join(" ");
+    const segments = wordSegments(before, after);
+    expect(segments.filter((s) => s.removed)).toEqual([{ text: "w1500", removed: true }]);
+    expect(segments.filter((s) => s.added)).toEqual([{ text: "CHANGED", added: true }]);
+    expect(segments.map((s) => s.text).filter((_, i) => !segments[i].removed).join("")).toBe(after);
+  });
+
+  it("shows a 10,000-word section rewritten wholesale as removed then added, at once", () => {
+    const old = Array.from({ length: 10_000 }, (_, i) => `old${i}`).join(" ");
+    const rewritten = Array.from({ length: 10_000 }, (_, i) => `new${i}`).join(" ");
+    const started = performance.now();
+    const one = wordSegments(old, rewritten);
+    // Over several paragraphs, too.
+    const para = (prefix: string) =>
+      Array.from({ length: 20 }, (_, p) => Array.from({ length: 500 }, (_, i) => `${prefix}${p}x${i}`).join(" ")).join("\n");
+    const many = wordSegments(para("a"), para("b"));
+    const elapsed = performance.now() - started;
+    expect(one).toEqual([
+      { text: old, removed: true },
+      { text: rewritten, added: true },
+    ]);
+    expect(many.map((s) => s.text).filter((_, i) => !many[i].added).join("")).toBe(para("a"));
+    expect(many.map((s) => s.text).filter((_, i) => !many[i].removed).join("")).toBe(para("b"));
+    expect(many.every((s) => s.added || s.removed)).toBe(true);
+    // Unbounded, the first of these takes about 19 s; bounded, well under one.
+    expect(elapsed).toBeLessThan(3000);
+  });
+
+  it("replaces a block whole when it differs too much to diff in time", () => {
+    const a = Array.from({ length: 2000 }, (_, i) => `a${i}`).join(" ");
+    const b = Array.from({ length: 2000 }, (_, i) => `b${i}`).join(" ");
+    const started = performance.now();
+    expect(wordSegments(a, b)).toEqual([
+      { text: a, removed: true },
+      { text: b, added: true },
+    ]);
+    // Unbounded this takes about a second.
+    expect(performance.now() - started).toBeLessThan(1500);
+    // A few words changed in the same block are still read word by word.
+    const edited = b.replace("b7 ", "zz ");
+    expect(wordSegments(b, edited).filter((s) => s.added || s.removed)).toEqual([
+      { text: "b7", removed: true },
+      { text: "zz", added: true },
+    ]);
+  });
+
+  it("word-diffs a changed block up to the size limit, and replaces it whole above", () => {
+    const side = (n: number, w: string) => Array.from({ length: n }, () => w).join(" ");
+    // Each side, n words then " x", is 2n + 1 tokens: 4n + 2 together.
+    const atLimit = Math.floor((WORD_DIFF_MAX_TOKENS - 2) / 4);
+    expect(4 * atLimit + 2).toBeLessThanOrEqual(WORD_DIFF_MAX_TOKENS);
+    expect(4 * (atLimit + 1) + 2).toBeGreaterThan(WORD_DIFF_MAX_TOKENS);
+    const under = wordSegments(`${side(atLimit, "a")} x`, `${side(atLimit, "a")} y`);
+    expect(under.filter((s) => s.added)).toEqual([{ text: "y", added: true }]);
+    const over = wordSegments(`${side(atLimit + 1, "a")} x`, `${side(atLimit + 1, "a")} y`);
+    expect(over).toEqual([
+      { text: `${side(atLimit + 1, "a")} x`, removed: true },
+      { text: `${side(atLimit + 1, "a")} y`, added: true },
+    ]);
   });
 });
 
