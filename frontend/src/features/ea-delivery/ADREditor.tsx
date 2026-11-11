@@ -140,7 +140,9 @@ export default function ADREditor() {
   const [changeSummary, setChangeSummary] = useState("");
 
   // UI state
-  const [loading, setLoading] = useState(false);
+  // Loading from the first render for a saved decision: the page (and the
+  // discussion panel, which reads on mount) is not mounted before the load.
+  const [loading, setLoading] = useState(Boolean(id));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [snackbar, setSnackbar] = useState("");

@@ -9,6 +9,8 @@ import type { ArchitectureDecision } from "@/types";
 // It provides the section markers' data the test sets (`sidePanel.sections`).
 const sidePanel = vi.hoisted(() => ({
   props: [] as Record<string, unknown>[],
+  /** How many times the panel was mounted (it reads the discussion on mount). */
+  mounts: 0,
   sections: null as null | {
     counts: Record<string, { open: number; total: number }>;
     openSection: (section: string) => void;
@@ -16,9 +18,12 @@ const sidePanel = vi.hoisted(() => ({
 }));
 vi.mock("./collab/DocumentSidePanel", async () => {
   const { SectionDiscussionContext } = await import("./collab/sectionDiscussionContext");
+  const { useState } = await import("react");
   return {
     default: (props: { children: React.ReactNode }) => {
       sidePanel.props.push(props);
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      useState(() => (sidePanel.mounts += 1));
       return (
         <SectionDiscussionContext.Provider value={sidePanel.sections}>{props.children}</SectionDiscussionContext.Provider>
       );
@@ -204,6 +209,19 @@ describe("ADREditor — what the '@' list knows", () => {
     await screen.findByDisplayValue("Adopt event bus");
     expect(sidePanel.props.at(-1)?.mentionContext).toEqual({ linkedCardIds: [], priorityUserIds: [] });
     expect(richText.contexts.at(-1)).toEqual({ linkedCardIds: [] });
+  });
+});
+
+describe("ADREditor — the discussion is read once", () => {
+  it("mounts the side panel once for a saved decision, after it has loaded", async () => {
+    sidePanel.mounts = 0;
+    sidePanel.props = [];
+    mockLoad(base);
+    renderEditor();
+    await screen.findByDisplayValue("Adopt event bus");
+    expect(sidePanel.mounts).toBe(1);
+    // Never mounted before the load: every render it got carried the decision.
+    expect(sidePanel.props.every((p) => (p.owner as { id?: string } | null)?.id === base.id)).toBe(true);
   });
 });
 
