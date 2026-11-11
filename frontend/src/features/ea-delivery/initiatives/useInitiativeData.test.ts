@@ -112,3 +112,21 @@ describe("useInitiativeData", () => {
     );
   });
 });
+
+describe("useInitiativeData — revisions", () => {
+  beforeEach(() => {
+    vi.mocked(api.get).mockReset();
+    localStorage.clear();
+  });
+
+  it("lists SoAWs and decisions without their earlier revisions", async () => {
+    mockApi([ACTIVE]);
+    const { result } = renderHook(() => useInitiativeData());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const urls = vi.mocked(api.get).mock.calls.map((c) => c[0]);
+    expect(urls).toContain("/soaw?include_earlier=false");
+    expect(urls).toContain("/adr?include_earlier=false");
+    expect(urls).not.toContain("/soaw");
+    expect(urls).not.toContain("/adr");
+  });
+});

@@ -177,8 +177,10 @@ export function useInitiativeData(): UseInitiativeDataResult {
           "/cards?type=Initiative&page_size=500&status=ACTIVE,ARCHIVED",
         ),
         api.get<DiagramSummary[]>("/diagrams"),
-        api.get<SoAW[]>("/soaw"),
-        api.get<ArchitectureDecision[]>("/adr"),
+        // Current and open revisions only: an earlier revision is reached
+        // from its successor's page, never listed beside it.
+        api.get<SoAW[]>("/soaw?include_earlier=false"),
+        api.get<ArchitectureDecision[]>("/adr?include_earlier=false"),
       ]);
       setInitiatives(initRes.items);
       setDiagrams(diagRes);

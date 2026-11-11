@@ -183,20 +183,20 @@ In diesem Modus authentifiziert sich der Server mit E-Mail/Passwort und erneuert
 
 ## Verfügbare Funktionen
 
-Der MCP-Server stellt **55 Werkzeuge** in zwei Gruppen bereit: **35 Lese-Werkzeuge** zur Abfrage von EA-Daten und **20 Schreib-Werkzeuge** (15 additiv, 5 destruktiv), die Karten, Beziehungen, Diagramme, Risiken, ADRs, gespeicherte Inventaransichten und mehr erstellen und pflegen — einschließlich der Umwandlung von Artefakten, die ein KI-Werkzeug in seinem eigenen Kontext hat (Tabellen, BPMN-XML, DrawIO-XML, Dokumente, Bilder), in strukturierte EA-Daten. Jedes Werkzeug trägt MCP-`ToolAnnotations` (Hinweise auf schreibgeschützt / destruktiv / idempotent), sodass Konnektoren die Destruktivität in ihrer Oberfläche anzeigen können.
+Der MCP-Server stellt **56 Werkzeuge** in zwei Gruppen bereit: **35 Lese-Werkzeuge** zur Abfrage von EA-Daten und **21 Schreib-Werkzeuge** (16 additiv, 5 destruktiv), die Karten, Beziehungen, Diagramme, Risiken, ADRs, gespeicherte Inventaransichten und mehr erstellen und pflegen — einschließlich der Umwandlung von Artefakten, die ein KI-Werkzeug in seinem eigenen Kontext hat (Tabellen, BPMN-XML, DrawIO-XML, Dokumente, Bilder), in strukturierte EA-Daten. Jedes Werkzeug trägt MCP-`ToolAnnotations` (Hinweise auf schreibgeschützt / destruktiv / idempotent), sodass Konnektoren die Destruktivität in ihrer Oberfläche anzeigen können.
 
 ### Sicherheit beim Schreiben durch Trockenlauf
 
 Jedes Schreib-Werkzeug verwendet standardmäßig **`dry_run=true`**, und nichts wird gespeichert, bis das KI-Werkzeug es erneut mit `dry_run=false` aufruft — was es erst tun sollte, nachdem der Benutzer die Vorschau gesehen und bestätigt hat. Dies verhindert, dass ein übereifriger Agent leise Hunderte von Karten auf Grundlage einer falsch interpretierten Tabelle anlegt. Die Vorschau gibt es in zwei Arten:
 
 - **Vom Backend verifiziert.** Wo der zugrunde liegende Endpunkt einen Trockenlauf unterstützt, führt das Backend jeden Validator und Resolver aus — Berechtigungen, Karten-IDs, was der Benutzer lesen darf —, erstellt das vollständige Ergebnis und **macht die Transaktion dann rückgängig**. Das gilt für Karten (`create_cards_bulk`, `update_cards_bulk`), Beziehungen (`upsert_relations_bulk`) und Diagramme (`create_diagram`, `update_diagram`). Eine Diagramm-Vorschau liefert die vom Backend akzeptierten Kartenverknüpfungen, bei einer Aktualisierung die genaue Änderung: umbenannte Felder, hinzugefügte und entfernte Kartenverknüpfungen und ob sich die Zeichenfläche geändert hat.
-- **Vom MCP-Server erstellt.** Wo der Endpunkt keinen Trockenlauf kennt, validiert und übersetzt das Werkzeug seine Eingabe und zeigt die exakte Nutzlast, die ein Commit senden würde, ohne den Schreib-Endpunkt aufzurufen: `import_bpmn` (der Durchlauf Entwurf → Einreichen → Genehmigen; die Zahl der Flussknoten ist eine Schätzung, und die Vorschau meldet `verified: false`), `create_adr`, `update_adr`, `sign_adr`, `create_soaw`, `add_card_comment`, `transition_card_lifecycle`, `save_inventory_view` (führt die Abfrage aus und meldet, wie viele Karten passen, mit einigen Beispielnamen), `assign_stakeholders`, `create_risks`, `update_risks`, `archive_cards` (zeigt die Archivierungsfolgen jeder Karte) sowie `set_card_logos` / `clear_card_logos` (die Typ und aktuelles Logo jeder Karte nachschlagen und jede `image_url` abrufen).
+- **Vom MCP-Server erstellt.** Wo der Endpunkt keinen Trockenlauf kennt, validiert und übersetzt das Werkzeug seine Eingabe und zeigt die exakte Nutzlast, die ein Commit senden würde, ohne den Schreib-Endpunkt aufzurufen: `import_bpmn` (der Durchlauf Entwurf → Einreichen → Genehmigen; die Zahl der Flussknoten ist eine Schätzung, und die Vorschau meldet `verified: false`), `create_adr`, `update_adr`, `sign_adr`, `revise_adr` (liest die Entscheidung und meldet die Revisionsnummer, die es anlegen würde, oder warum das Backend ablehnen würde), `create_soaw`, `add_card_comment`, `transition_card_lifecycle`, `save_inventory_view` (führt die Abfrage aus und meldet, wie viele Karten passen, mit einigen Beispielnamen), `assign_stakeholders`, `create_risks`, `update_risks`, `archive_cards` (zeigt die Archivierungsfolgen jeder Karte) sowie `set_card_logos` / `clear_card_logos` (die Typ und aktuelles Logo jeder Karte nachschlagen und jede `image_url` abrufen).
 
 In beiden Fällen wird die Vorschau im Audit-Log als Trockenlauf-Batch aufgezeichnet, sodass ein Administrator sehen kann, was ein Agent vorgeschlagen hat und was er übernommen hat.
 
 ### Lese-Werkzeuge
 
-Der Server stellt 35 Lese-Werkzeuge in acht Gruppen bereit.
+Der Server stellt 35 Lese-Werkzeuge in neun Gruppen bereit.
 
 **Karten & Metamodell**
 
@@ -242,9 +242,9 @@ Der Server stellt 35 Lese-Werkzeuge in acht Gruppen bereit.
 | Werkzeug | Beschreibung |
 |----------|-------------|
 | `list_principles` | Veröffentlichte EA-Prinzipien (Aussage, Begründung, Auswirkungen) |
-| `list_adrs` | Architekturentscheidungen (ADRs), gefiltert nach Initiative / Status |
-| `get_adr` | Einzelnes ADR mit Abschnitten, verknüpften Karten und Unterschriftspfad |
-| `list_soaws` | Statements of Architecture Work einer Initiative |
+| `list_adrs` | Architekturentscheidungen (ADRs), filterbar nach Initiative, Status und Geltung (`standing="in_force,amended"` listet die geltenden Entscheidungen). Zeigt die aktuelle Revision jeder Entscheidung; `include_earlier` fügt die früheren Revisionen hinzu |
+| `get_adr` | Einzelne ADR-Revision mit Abschnitten, verknüpften Karten, Unterschriftspfad, Geltung, typisierten Verknüpfungen zu anderen Entscheidungen, Entscheidungsträgern und Beteiligten, Daten, Revisionen und Dateinamen |
+| `list_soaws` | Statements of Architecture Work einer Initiative (aktuelle Revisionen; `include_earlier` fügt die früheren hinzu) |
 
 **Berichte**
 
@@ -282,9 +282,9 @@ Alle Werkzeuge respektieren das RBAC des authentifizierten Nutzers — eine View
 
 ### Schreib-Werkzeuge
 
-Der Server stellt 20 Schreib-Werkzeuge bereit, jedes annotiert als **additiv** (erstellt oder erweitert Daten) oder **destruktiv** (verändert oder entfernt bestehende Daten), damit Konnektoren entsprechend warnen können.
+Der Server stellt 21 Schreib-Werkzeuge bereit, jedes annotiert als **additiv** (erstellt oder erweitert Daten) oder **destruktiv** (verändert oder entfernt bestehende Daten), damit Konnektoren entsprechend warnen können.
 
-**Additiv (15)**
+**Additiv (16)**
 
 | Werkzeug | Beschreibung |
 |----------|--------------|
@@ -296,9 +296,10 @@ Der Server stellt 20 Schreib-Werkzeuge bereit, jedes annotiert als **additiv** (
 | `create_soaw` | Erstellt ein Statement of Architecture Work für eine Initiative. |
 | `assign_stakeholders` | Weist Stakeholder-Rollen an Karten zu oder entfernt sie. |
 | `update_cards_bulk` | Feldweise Patches an vielen Karten in einem Aufruf. |
-| `create_adr` | Erstellt ein Architecture Decision Record. |
-| `update_adr` | Aktualisiert ein ADR (Titel, Abschnitte, Status, verknüpfte Karten). |
+| `create_adr` | Erstellt ein Architecture Decision Record, mit typisierten Verknüpfungen zu anderen Entscheidungen (`replaces`, `amends`, `revokes`, `relates`), Entscheidungsträgern, Beteiligten und Daten. Eine Entscheidung wird auf diese Weise ersetzt oder widerrufen: durch eine neue Entscheidung mit einer Verknüpfung `replaces` / `revokes`, die wirksam wird, sobald sie unterzeichnet ist. |
+| `update_adr` | Aktualisiert ein ADR im Entwurf (Titel, Abschnitte, verknüpfte Karten, typisierte Verknüpfungen, Personen, Daten, Änderungszusammenfassung). Eine Entscheidung in Prüfung akzeptiert nur Änderungen an verknüpften Karten, und eine unterzeichnete wird nie bearbeitet. |
 | `sign_adr` | Unterschreibt ein ADR (erfordert die Berechtigung `adr.sign`; andernfalls wird ein UI-Deep-Link zum Unterschreiben im Browser zurückgegeben). |
+| `revise_adr` | Beginnt die nächste Revision eines unterzeichneten ADR: einen Entwurf mit derselben Referenz und der nächsten Revisionsnummer, optional unter Konsolidierung ändernder Entscheidungen. Abgelehnt, wenn bereits eine Revision entworfen wird, eine spätere Revision unterzeichnet ist oder die Entscheidung widerrufen oder ersetzt wurde. Das Erfassen einer vergangenen Entscheidung als entschieden bleibt der Weboberfläche vorbehalten. |
 | `create_diagram` | Erstellt ein frei gestaltetes DrawIO-Diagramm mit optionalen Verknüpfungen zu bestehenden Karten. |
 | `save_inventory_view` | Speichert eine mehrstufige Kartenabfrage als Inventaransicht (neu oder, über `view_id`, als Ersatz der Abfrage einer bestehenden). Das Inventar führt die Abfrage bei jedem Öffnen der Ansicht erneut aus; die Antwort enthält einen Link, der sie öffnet. Eine Aktualisierung ändert nur Name und Abfrage sowie Sichtbarkeit und Spalten, wenn sie übergeben werden; Gruppierung und Layout der Ansicht bleiben erhalten. |
 | `import_bpmn` | Speichert ein BPMN-2.0-XML-Diagramm an einer **bestehenden** Geschäftsprozess-Karte. Existiert keine Karte mit dem angegebenen Namen, liefert das Werkzeug einen `card_not_found`-Fehler, der den Agenten an `create_cards_bulk` verweist — so muss die Karte zuerst explizit mit Beschreibung, Subtyp und Attributen angelegt werden, statt auf eine Abkürzung auszuweichen, die eine spärliche Karte erzeugt. |
@@ -440,7 +441,7 @@ Verteidigung in der Tiefe zusätzlich zum Trockenlauf, damit ein Fehlverhalten d
 
 - **Größenbegrenzung pro Aufruf.** Die MCP-Schreib-Werkzeuge erzwingen eine wesentlich kleinere Obergrenze als die zugrunde liegenden Excel-Import-Endpunkte: 200 Zeilen für `create_cards_bulk`, 500 Operationen für `upsert_relations_bulk`. Groß genug für jeden realistischen Einzel-Artefakt-Upload, klein genug, dass eine Trockenlauf-Vorschau überprüfbar bleibt.
 - **Standardmäßig keine Löschung von Beziehungen.** `upsert_relations_bulk` lehnt `action: "delete"`-Operationen ab — um Beziehungen zu entfernen, ist die Weboberfläche zu verwenden, wo die Aktion unter der Identität des Benutzers erfasst wird. Operatoren können dies aktivieren, indem sie `MCP_ALLOW_RELATION_DELETE=true` setzen.
-- **Notausschalter.** `MCP_WRITES_ENABLED=false` schaltet alle 20 Schreib-Werkzeuge aus, ohne dass Code neu bereitgestellt werden muss. Die 35 Lese-Werkzeuge funktionieren weiter.
+- **Notausschalter.** `MCP_WRITES_ENABLED=false` schaltet alle 21 Schreib-Werkzeuge aus, ohne dass Code neu bereitgestellt werden muss. Die 35 Lese-Werkzeuge funktionieren weiter.
 - **Logo-Abruf nur von erlaubten Hosts.** Die mitgelieferten Icon-Pakete können nicht jedes Produkt abdecken, und ein Assistent hat oft keinen Zugang zum Web, daher akzeptiert `set_card_logos` eine `image_url`, die der MCP-Server abruft. Nur `https`, nur Hosts aus `MCP_LOGO_FETCH_HOSTS`, nur öffentliche Adressen, höchstens zwei Weiterleitungen (jede erneut geprüft), höchstens 1 MB als Stream gelesen, und die Bytes müssen eine echte PNG/JPEG/WebP/GIF-Signatur tragen. Der Abruf erfolgt am MCP-Rand, nie im Backend, und das Bild wird anschließend über den normalen Weg hochgeladen — eine von einem LLM gewählte URL erreicht also nie den Prozess mit der Datenbank. `MCP_LOGO_FETCH_ENABLED=false` schaltet dies ab.
 - **Audit-Herkunfts-Marker.** Jede Backend-Anfrage vom MCP-Server trägt einen `X-Turbo-EA-Origin: mcp`-Header. Ereignisse, die aus diesen Anfragen emittiert werden, werden im Audit-Log-Payload mit `origin: "mcp"` markiert, sodass Administratoren MCP-gesteuerte Schreibvorgänge getrennt von Web-UI-Aktionen aus der Zeitleiste filtern können.
 - **Mutations-Batches.** Jeder MCP-Schreibaufruf — die Vorschau ebenso wie der Commit — ist ein Mutations-Batch im Audit-Log und wird geöffnet, bevor etwas geschrieben wird; jedes während des Aufrufs emittierte Ereignis wird mit der Batch-ID gestempelt, und jedes Schreibwerkzeug gibt diese `batch_id` zurück. Administratoren (oder das Werkzeug `get_change_history`) können aus einer einzigen ID den vollständigen Ereignis-Diff eines Commits rekonstruieren, und `rollback_batch` kann ihn rückgängig machen — auch das Löschen eines Diagramms, das `create_diagram` angelegt hat, sofern es inzwischen niemand veröffentlicht hat. Eine Diagrammaktualisierung wird als nicht umkehrbar gemeldet, weil die vorherige Zeichenfläche nicht aufbewahrt wird. Commits oberhalb von `MCP_BATCH_CONFIRMATION_THRESHOLD` Zeilen müssen das einmalige `confirm_token` zurückgeben, das der vorherige Trockenlauf geliefert hat. Das Backend prüft es beim Öffnen des Commit-Batches, bevor etwas geschrieben wird: Es muss von einem Trockenlauf desselben Werkzeugs durch denselben Benutzer stammen, höchstens 15 Minuten alt sein, und es gibt genau einen Commit frei. Jedes Bulk-Schreibwerkzeug folgt diesem Zyklus aus Vorschau und Bestätigung: `create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`.
@@ -483,7 +484,7 @@ Die sechs Umgebungsvariablen für Schutzmechanismen auf dem MCP-Container:
 | Rolle | Zugriff |
 |-------|---------|
 | **Administrator** | MCP-Einstellungen konfigurieren (Berechtigung `admin.mcp`). Vollständiger Lese- + Schreibzugriff über MCP. |
-| **Alle authentifizierten Benutzer** | Lesezugriff gemäß ihrem bestehenden RBAC. Schreib-Werkzeuge erfordern die entsprechenden Backend-Berechtigungen — `inventory.create` / `inventory.edit` / `inventory.archive` (Karten), `relations.manage` (Beziehungen), `diagrams.manage` (Diagramme), `bpm.edit` (BPMN), `risks.manage` (Risikoregister), `comments.create` (Kommentare), `stakeholders.manage` (Stakeholder), `soaw.create` (SoAW), `adr.create` / `adr.sign` (ADRs), `bookmarks.manage` / `bookmarks.share` (gespeicherte Inventaransichten). |
+| **Alle authentifizierten Benutzer** | Lesezugriff gemäß ihrem bestehenden RBAC. Schreib-Werkzeuge erfordern die entsprechenden Backend-Berechtigungen — `inventory.create` / `inventory.edit` / `inventory.archive` (Karten), `relations.manage` (Beziehungen), `diagrams.manage` (Diagramme), `bpm.edit` (BPMN), `risks.manage` (Risikoregister), `comments.create` (Kommentare), `stakeholders.manage` (Stakeholder), `soaw.create` (SoAW), `adr.manage` / `adr.sign` (ADRs), `bookmarks.manage` / `bookmarks.share` (gespeicherte Inventaransichten). |
 
 Die Berechtigung `admin.mcp` steuert, wer MCP-Einstellungen verwalten kann. Sie ist standardmäßig nur für die Admin-Rolle verfügbar. Benutzerdefinierten Rollen kann diese Berechtigung über die Rollenverwaltungsseite gewährt werden.
 

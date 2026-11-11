@@ -353,7 +353,7 @@ describe("EaDeliveryReport — the SoAW context menu", () => {
   async function openMenu() {
     const anchor = document.createElement("div");
     document.body.appendChild(anchor);
-    await call("InitiativesTab", "onSoawContextMenu", anchor, { id: "soaw-1" });
+    await call("InitiativesTab", "onSoawContextMenu", anchor, { id: "soaw-1", status: "draft" });
     return screen.findByRole("menu");
   }
 

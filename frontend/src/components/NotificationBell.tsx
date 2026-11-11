@@ -67,6 +67,11 @@ const NOTIFICATION_ICONS: Record<string, { icon: string; color: string }> = {
   adr_signed: { icon: "task_alt", color: NOTIFICATION_TYPE_COLORS.adr_signed },
   adr_sign_recalled: { icon: "undo", color: NOTIFICATION_TYPE_COLORS.adr_sign_recalled },
   adr_rejected: { icon: "cancel", color: NOTIFICATION_TYPE_COLORS.adr_rejected },
+  // A decision the user authored was replaced, amended or revoked.
+  adr_standing_changed: {
+    icon: "published_with_changes",
+    color: NOTIFICATION_TYPE_COLORS.adr_standing_changed,
+  },
   process_flow_approval_requested: {
     icon: "rule",
     color: NOTIFICATION_TYPE_COLORS.process_flow_approval_requested,

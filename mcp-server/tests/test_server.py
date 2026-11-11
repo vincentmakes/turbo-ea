@@ -285,7 +285,7 @@ class TestGovernanceTools:
         _assert_called_with(
             mock,
             "/adr",
-            params={"initiative_id": "i-1", "status": "signed"},
+            params={"initiative_id": "i-1", "status": "signed", "include_earlier": "false"},
         )
 
     @pytest.mark.asyncio
@@ -301,7 +301,9 @@ class TestGovernanceTools:
         patcher, mock = _patched_get([])
         with patcher:
             await server.list_soaws(initiative_id="i-1")
-        _assert_called_with(mock, "/soaw", params={"initiative_id": "i-1"})
+        _assert_called_with(
+            mock, "/soaw", params={"initiative_id": "i-1", "include_earlier": "false"}
+        )
 
 
 class TestReportTools:

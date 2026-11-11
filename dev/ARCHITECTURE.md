@@ -130,7 +130,7 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 | `diagram_groups` | `DiagramGroup` | Named folders that organise diagrams in the gallery |
 | `diagram_favorites` | `DiagramFavorite` | Per-user favorited diagrams (M:N user × diagram) |
 | `resource_types` | `ResourceType` | Admin-managed resource-type catalogue used by the metamodel |
-| `statement_of_architecture_works` | `SoAW` | TOGAF SoAW documents linked to initiatives |
+| `statement_of_architecture_works` | `SoAW` | TOGAF SoAW documents linked to initiatives; revisions chain through `parent_id` (`services/revision_chain.py`, `services/soaw_service.py`) |
 | `app_settings` | `AppSettings` | Singleton row: email_settings, general_settings (incl. AI config), custom_logo, custom_favicon |
 | `surveys` | `Survey` | Data-maintenance surveys with target_type, filters, actions |
 | `survey_responses` | `SurveyResponse` | Per card + user responses |
@@ -138,8 +138,12 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 | `web_portals` | `WebPortal` | Public portals with slug-based URLs |
 | `saved_reports` | `SavedReport` | Persisted report configurations with thumbnails |
 | `sso_invitations` | `SsoInvitation` | Pre-assigned SSO invitations |
-| `architecture_decisions` | `ArchitectureDecision` | ADR records (status, context, decision, alternatives, consequences) |
+| `architecture_decisions` | `ArchitectureDecision` | ADR records (status, context, decision, alternatives, consequences, attributes JSONB). One row per revision: `reference_number` + `revision_number` are unique together (`uq_adr_reference_revision`; a revision keeps its decision's reference, `parent_id` chains revisions). `decided_on`, `effective_from`, `valid_until` (Date), `change_summary`, `recorded_by` (FK users, SET NULL) / `recorded_at` (record-as-decided: `status='signed'`, no `signed_at`). Standing is never stored — derived by `services/decision_standing.py`; chains by `services/revision_chain.py`. The old `related_decisions` JSONB column is gone (now `relates` links) |
 | `architecture_decision_cards` | `ArchitectureDecisionCard` | M:N junction between ADRs and cards |
+| `architecture_decision_links` | `ArchitectureDecisionLink` | Typed links between decisions: `source_id`, `target_id` (CASCADE), `kind` (`replaces`, `amends`, `revokes`, `relates`, `consolidates`), optional `note`; unique `(source_id, target_id)`, never self. Effects act on the target's whole revision chain once the source is signed and effective |
+| `architecture_decision_people` | `ArchitectureDecisionPerson` | Decision makers and participants (`part`), each a user (`user_id`, SET NULL) or a free-text name; `name` is always stored as a snapshot; `position` orders them |
+| `architecture_decision_files` | `ArchitectureDecisionFile` | Files on a decision (name, mime_type, size, created_by); points at a content row so a revision copies pointers, not bytes |
+| `architecture_decision_file_contents` | `ArchitectureDecisionFileContent` | The file bytes (`data` LargeBinary, deferred), shared by the file rows of every revision; deleted when no file row points at them |
 | `ea_principles` | `EAPrinciple` | EA principles (statement, rationale, implications, sort_order, optional `catalogue_id` linking back to the bundled Principles Catalogue) — exposed via `/metamodel/principles`; the curated reference set is browsable at `/principles-catalogue` |
 | `kpi_snapshots` | `KpiSnapshot` | Daily KPI snapshots powering the dashboard trend charts |
 | `user_favorites` | `UserFavorite` | Per-user favorited cards (M:N user × card) |
@@ -172,7 +176,7 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 
 ### Migrations
 
-Located in `backend/alembic/versions/` (116 migration files, sequentially numbered `001_` through `116_`). The app auto-runs Alembic on startup:
+Located in `backend/alembic/versions/` (168 migration files, sequentially numbered `001_` through `168_`). The app auto-runs Alembic on startup:
 - Fresh DB: `create_all` + stamp head
 - Existing DB without Alembic: stamp head
 - Normal: `upgrade head` (run pending migrations)

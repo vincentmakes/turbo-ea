@@ -87,6 +87,12 @@ describe("exportAdrsToDocx — extension sections", () => {
     });
   });
 
+  it("names a later revision 'ADR-0001 · Rev 2' on the cover", () => {
+    expect(adrDocxCover([adr({ revision_number: 2 })]).subtitle).toBe(
+      "ADR-0001 · Rev 2 — Adopt event bus",
+    );
+  });
+
   it("several decisions keep the collection cover with the count and date", () => {
     const cover = adrDocxCover([adr(), adr({ id: "adr-2", reference_number: "ADR-0002" })]);
     expect(cover.title).toBe("Architecture Decision Records");
@@ -98,5 +104,52 @@ describe("exportAdrsToDocx — extension sections", () => {
     await exportAdrsToDocx([adr()]);
     const filename = String(mockSaveAs.mock.calls[0][1]);
     expect(filename).toMatch(/^ADR-0001_\d{4}-\d{2}-\d{2}_\d{4}\.docx$/);
+  });
+
+  it("names a later revision's file after its reference and revision", async () => {
+    await exportAdrsToDocx([adr({ revision_number: 3 })]);
+    const filename = String(mockSaveAs.mock.calls[0][1]);
+    expect(filename).toMatch(/^ADR-0001-rev3_\d{4}-\d{2}-\d{2}_\d{4}\.docx$/);
+  });
+
+  it("exports a recorded decision, links, files and no signatories without failing", async () => {
+    const build = vi.fn(() => []);
+    registerExtension("daaf", {
+      key: "daaf",
+      sdkVersion: UI_SDK_VERSION,
+      adrExportSections: [{ id: "savings", build }],
+    });
+    const recorded = adr({
+      recorded_at: "2026-05-01T00:00:00Z",
+      recorded_by: { user_id: "u1", display_name: "Ada" },
+      decided_on: "2026-04-30",
+      decision_makers: [{ user_id: "u1", display_name: "Ada" }],
+      change_summary: "One\nTwo",
+      links: {
+        outgoing: [
+          {
+            id: "l1",
+            kind: "revokes",
+            note: null,
+            decision: {
+              id: "b",
+              reference_number: "ADR-0002",
+              revision_number: 1,
+              title: "Old",
+              status: "signed",
+              standing: "revoked",
+            },
+          },
+        ],
+        incoming: [],
+      },
+      files: [
+        { id: "f", name: "a.pdf", mime_type: "application/pdf", size: 1, created_at: null, created_by: null },
+      ],
+    });
+    await exportAdrsToDocx([recorded, adr({ id: "adr-2", status: "draft", signatories: [] })]);
+    expect(build).toHaveBeenCalledTimes(2);
+    expect(mockSaveAs).toHaveBeenCalledTimes(1);
+    expect(String(mockSaveAs.mock.calls[0][1])).toMatch(/^ADRs_/);
   });
 });

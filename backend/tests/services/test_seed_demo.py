@@ -35,6 +35,8 @@ from app.services.seed_demo import (
     BUSINESS_CONTEXTS,
     DATA_OBJECTS,
     DEMO_ADR_EXTRA_CARD_LINKS,
+    DEMO_ADR_REGISTER,
+    DEMO_ADR_REGISTER_CARD_LINKS,
     DEMO_ADRS_EXTRA,
     DEMO_SOAWS,
     INITIATIVES,
@@ -353,6 +355,36 @@ class TestDemoTagGroupsMatchMetamodel:
                     errors.append(f"tag group '{tg['name']}': unknown type '{type_key}'")
         assert not errors, "\n".join(errors)
 
+    def test_related_references_resolve_to_demo_decisions(self):
+        """Related decisions are seeded as ``relates`` links, so every reference
+        must name a demo decision, and none may reach the decision constructor."""
+        from app.services.seed_demo import DEMO_ADRS, demo_relates_links
+
+        adrs = DEMO_ADRS + DEMO_ADRS_EXTRA
+        refs = {a["reference_number"] for a in adrs}
+        assert not any("related_decisions" in a for a in adrs)
+        for a in adrs:
+            assert set(a.get("related_references", [])) <= refs, a["reference_number"]
+        by_ref = {a["reference_number"]: a["id"] for a in adrs}
+        pairs = demo_relates_links(adrs)
+        assert (by_ref["ADR-002"], by_ref["ADR-001"]) in pairs
+        assert (by_ref["ADR-003"], by_ref["ADR-002"]) in pairs
+        assert len(pairs) == sum(len(a.get("related_references", [])) for a in adrs)
+
+    def test_demo_relates_links_skip_unknown_self_and_repeated_references(self):
+        from app.services.seed_demo import demo_relates_links
+
+        one, two = _id("adr_test_one"), _id("adr_test_two")
+        adrs = [
+            {"id": one, "reference_number": "ADR-901"},
+            {
+                "id": two,
+                "reference_number": "ADR-902",
+                "related_references": ["ADR-901", "ADR-901", "ADR-902", "ADR-999"],
+            },
+        ]
+        assert demo_relates_links(adrs) == [(two, one)]
+
 
 # ===========================================================================
 # Tests — BPM demo data (seed_demo_bpm.py)
@@ -524,13 +556,19 @@ class TestExtraAdrsDemoData:
     def test_extra_adr_card_links_valid(self):
         """All card refs in DEMO_ADR_EXTRA_CARD_LINKS must exist in the demo data."""
         errors = []
-        for link in DEMO_ADR_EXTRA_CARD_LINKS:
+        for link in DEMO_ADR_EXTRA_CARD_LINKS + DEMO_ADR_REGISTER_CARD_LINKS:
             card_id = _id(link["card_ref"])
             if card_id not in _all_card_ids:
                 errors.append(
                     f"ADR card link: card_ref '{link['card_ref']}' not found in demo cards"
                 )
         assert not errors, "\n".join(errors)
+
+    def test_register_adrs_all_have_card_links(self):
+        """Every register decision is filed against at least one card."""
+        register_ids = {_id(d["ref"]) for d in DEMO_ADR_REGISTER}
+        linked = {_id(lnk["adr_ref"]) for lnk in DEMO_ADR_REGISTER_CARD_LINKS}
+        assert linked == register_ids
 
     def test_extra_adr_refs_match_links(self):
         """All extra ADR IDs must be referenced in the card links."""
@@ -550,11 +588,14 @@ class TestExtraAdrsDemoData:
         UI's signer chips and the signed-by filter facet) and each persona
         (display_name) must reuse the same id across all documents so the
         signed-by facet dedups to one entry per persona."""
-        from app.services.seed_demo import DEMO_ADRS
+        from datetime import date
 
+        from app.services.seed_demo import DEMO_ADRS, demo_register_decisions
+
+        register = demo_register_decisions(date(2026, 11, 10))
         persona_ids: dict[str, str] = {}
         errors = []
-        for doc in DEMO_ADRS + DEMO_ADRS_EXTRA + DEMO_SOAWS:
+        for doc in DEMO_ADRS + DEMO_ADRS_EXTRA + register + DEMO_SOAWS:
             ref = doc.get("reference_number") or doc.get("title")
             sigs = doc.get("signatories", [])
             ids = [s["user_id"] for s in sigs]

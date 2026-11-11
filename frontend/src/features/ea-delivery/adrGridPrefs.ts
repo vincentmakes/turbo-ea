@@ -34,7 +34,28 @@ export const ADR_COLUMN_DEFS: { key: string; tKey: string }[] = [
   { key: "lastModified", tKey: "adr.grid.lastModified" },
   { key: "signed", tKey: "adr.grid.signed" },
   { key: "signedBy", tKey: "adr.grid.signedBy" },
+  // Decision register (#1376): where a signed decision stands, its own dates
+  // and who took it. Headers reuse the editor's labels for the same facts.
+  { key: "standing", tKey: "adr.grid.standing" },
+  { key: "decidedOn", tKey: "adr.dates.decidedOn" },
+  { key: "effectiveFrom", tKey: "adr.dates.effectiveFrom" },
+  { key: "validUntil", tKey: "adr.dates.validUntil" },
+  { key: "decisionMakers", tKey: "adr.people.decisionMakers" },
 ];
+
+/** The axes the grid can group by. */
+export const ADR_GROUP_BY_KEYS = ["status", "standing"] as const;
+export type AdrGroupBy = (typeof ADR_GROUP_BY_KEYS)[number];
+
+/**
+ * A stored group-by value as one the grid knows, else null: a pref written
+ * by another version (or by hand) never selects an axis that is not there.
+ */
+export function adrGroupByOf(value: unknown): AdrGroupBy | null {
+  return (ADR_GROUP_BY_KEYS as readonly unknown[]).includes(value)
+    ? (value as AdrGroupBy)
+    : null;
+}
 
 export interface AdrGridPrefs {
   /** colIds the user unchecked in the column chooser. Absent = all visible. */
@@ -56,8 +77,9 @@ export interface AdrGridPrefs {
   columnState?: ColumnState[];
   /** AG Grid getFilterModel() snapshot — active per-column filters. */
   columnFilterModel?: Record<string, unknown>;
-  /** Active group-by axis key (currently only "status"), or null. */
-  groupBy?: string | null;
+  /** Active group-by axis key ("status" or "standing"), or null. Read it
+   *  through `adrGroupByOf`. */
+  groupBy?: AdrGroupBy | null;
 }
 
 export function loadAdrGridPrefs(): AdrGridPrefs | null {

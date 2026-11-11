@@ -174,7 +174,7 @@ e possono essere nascoste o bloccate dal selettore di colonne.
 | Permesso | Consente |
 |---|---|
 | `adr.view` (nucleo) | Vedere i pannelli, le colonne e il cruscotto |
-| `adr.manage` (nucleo) | Aggiungere, modificare ed eliminare dichiarazioni su una decisione non firmata |
+| `adr.manage` (nucleo) | Aggiungere, modificare ed eliminare dichiarazioni su una decisione in bozza |
 | `ext.value-savings.record` | Registrare una realizzazione a fronte di una dichiarazione approvata |
 | `ext.value-savings.approve` | Approvare o rifiutare una realizzazione — **ed** essere la persona indicata come approvatrice |
 

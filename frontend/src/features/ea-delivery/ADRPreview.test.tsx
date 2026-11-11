@@ -1,12 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { MemoryRouter, Route, Routes, useNavigate } from "react-router";
 import type { ArchitectureDecision } from "@/types";
 
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() },
   ApiError: class ApiError extends Error {},
+  isAbortError: () => false,
 }));
 // The signed-in user's permissions gate extension panels and slots; `null`
 // (the default) is the signed-out shape the export test was written against.
@@ -170,7 +171,8 @@ describe("ADRPreview — content", () => {
   it("renders a signed revision with signatories, linked cards and the fully-signed chip", async () => {
     serve(SIGNED_ADR);
     renderPreview();
-    expect(await screen.findByText("Revision 3")).toBeInTheDocument();
+    // The reference carries the revision, in the toolbar chip and the heading.
+    expect(await screen.findAllByText("ADR-0002 · Rev 3")).toHaveLength(2);
     expect(screen.getByText("Signed")).toBeInTheDocument();
     expect(screen.getByText("Cheaper")).toBeInTheDocument();
     expect(screen.getByText("Fully Signed")).toBeInTheDocument();
@@ -184,14 +186,15 @@ describe("ADRPreview — content", () => {
     expect(screen.getAllByText(/^Signed: /)).toHaveLength(2);
   });
 
-  it("shows an unknown status verbatim and an in-review signature block", async () => {
+  it("labels an unknown status as a draft and shows an in-review signature block", async () => {
     serve({
       ...adr,
       status: "superseded",
       signatories: [{ user_id: "u3", display_name: "Carol", email: "", status: "pending", signed_at: null }],
     });
     renderPreview();
-    expect(await screen.findByText("superseded")).toBeInTheDocument();
+    expect(await screen.findByText("Draft")).toBeInTheDocument();
+    expect(screen.queryByText("superseded")).toBeNull();
     expect(screen.getByText("Signatures")).toBeInTheDocument();
     expect(screen.queryByText("Fully Signed")).toBeNull();
   });
@@ -323,5 +326,228 @@ describe("ADRPreview — extension points", () => {
     authState.user = { id: "u1", permissions: { "ext.vs.view": true } };
     renderPreview();
     await waitFor(() => expect(screen.getByTestId("gated")).toBeInTheDocument());
+  });
+});
+
+describe("ADRPreview — decision register", () => {
+  beforeEach(() => {
+    resetExtensionHost();
+    authState.user = null;
+  });
+  afterEach(() => resetExtensionHost());
+
+  const FULL: ArchitectureDecision = {
+    ...SIGNED_ADR,
+    revision_number: 2,
+    standing: "in_force",
+    is_current: true,
+    decided_on: "2026-05-01",
+    effective_from: "2026-06-01",
+    valid_until: null,
+    decision_makers: [{ user_id: "u1", display_name: "Ada" }],
+    participants: [{ user_id: null, display_name: "Vendor rep" }],
+    change_summary: "Scope narrowed to orders",
+    links: {
+      outgoing: [
+        {
+          id: "l1",
+          kind: "revokes",
+          note: null,
+          decision: {
+            id: "adr-7",
+            reference_number: "ADR-0007",
+            revision_number: 1,
+            title: "Old",
+            status: "signed",
+            standing: "revoked",
+          },
+        },
+      ],
+      incoming: [
+        {
+          id: "l2",
+          kind: "relates",
+          note: "see also",
+          decision: {
+            id: "adr-8",
+            reference_number: "ADR-0008",
+            revision_number: 1,
+            title: "Other",
+            status: "signed",
+            standing: "in_force",
+          },
+        },
+      ],
+    },
+    files: [
+      {
+        id: "f1",
+        name: "minutes.pdf",
+        mime_type: "application/pdf",
+        size: 100,
+        created_at: "2026-05-02T00:00:00Z",
+        created_by: null,
+      },
+    ],
+    revisions: [
+      { id: "adr-1", reference_number: "ADR-0002", revision_number: 1, title: "x", status: "signed", standing: "superseded" },
+      { id: "adr-2", reference_number: "ADR-0002", revision_number: 2, title: "x", status: "signed", standing: "in_force" },
+    ],
+    open_revision: { id: "adr-3", reference_number: "ADR-0002", revision_number: 3, title: "x" },
+  };
+
+  it("renders the dates, people, links both ways, change summary, files, standing and chain", async () => {
+    serve(FULL);
+    renderPreview();
+    expect(await screen.findByText("Scope narrowed to orders")).toBeInTheDocument();
+    // The decision's own standing chip, and the incoming link's.
+    expect(screen.getAllByText("In force")).toHaveLength(2);
+    const dates = within(screen.getByTestId("preview-dates"));
+    expect(dates.getByText("Decided on")).toBeInTheDocument();
+    expect(dates.getByText("2026-05-01")).toBeInTheDocument();
+    expect(dates.getByText("2026-06-01")).toBeInTheDocument();
+    expect(dates.queryByText("Valid until")).toBeNull();
+    expect(screen.getByText("Ada")).toBeInTheDocument();
+    expect(screen.getByText("Vendor rep")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Revokes ADR-0007" })).toHaveAttribute("href", "/ea-delivery/adr/adr-7");
+    expect(screen.getByRole("link", { name: "Related to ADR-0008" })).toBeInTheDocument();
+    expect(screen.getByText("minutes.pdf")).toBeInTheDocument();
+    // Shown from the detail, not fetched again.
+    expect(vi.mocked(api.get).mock.calls.some(([p]) => String(p).endsWith("/files"))).toBe(false);
+    // The banner and the strip point at previews.
+    expect(screen.getByText("A revision is being drafted: ADR-0002 · Rev 3.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute("href", "/ea-delivery/adr/adr-3/preview");
+    expect(screen.getByTestId("revision-adr-1")).toHaveAttribute("href", "/ea-delivery/adr/adr-1/preview");
+  });
+
+  it("leaves out the empty register blocks", async () => {
+    renderPreview();
+    await screen.findByText("ctx");
+    expect(screen.queryByTestId("preview-dates")).toBeNull();
+    expect(screen.queryByText("People")).toBeNull();
+    expect(screen.queryByText("This decision…")).toBeNull();
+    expect(screen.queryByText("Change summary")).toBeNull();
+    expect(screen.queryByText("Files")).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "Revisions" })).toBeNull();
+  });
+
+  it("shows no review-lock hint in review: that belongs to the editor", async () => {
+    serve({ ...adr, status: "in_review" });
+    renderPreview();
+    expect(await screen.findByText("In Review")).toBeInTheDocument();
+    expect(screen.queryByText(/Recall the signatures to edit it/)).toBeNull();
+  });
+
+  it("renders a recorded decision without a signature block", async () => {
+    serve({
+      ...adr,
+      status: "signed",
+      signatories: [],
+      recorded_at: "2026-06-05T08:00:00Z",
+      recorded_by: { user_id: "u9", display_name: null },
+    });
+    renderPreview();
+    expect(await screen.findByText("Recorded")).toBeInTheDocument();
+    expect(screen.getByText("Recorded on 2026-06-05, not signed in Turbo EA.")).toBeInTheDocument();
+    expect(screen.queryByText("Signatures")).toBeNull();
+    expect(screen.queryByText("Fully Signed")).toBeNull();
+  });
+
+  it("hands panels and slots the standing, isCurrent and a read-only header", async () => {
+    registerExtension("vs", {
+      key: "vs",
+      sdkVersion: UI_SDK_VERSION,
+      adrPanels: [
+        {
+          id: "p",
+          component: (p: { readOnly: boolean; standing?: unknown; isCurrent?: unknown }) => (
+            <div data-testid="panel">{`${p.readOnly}|${String(p.standing)}|${String(p.isCurrent)}`}</div>
+          ),
+        },
+      ],
+      slots: [
+        {
+          slot: "adr.header",
+          id: "h",
+          component: (ctx: Record<string, unknown>) => (
+            <span data-testid="hdr">{`${String(ctx.readOnly)}|${String(ctx.standing)}|${String(ctx.isCurrent)}`}</span>
+          ),
+        },
+        {
+          slot: "adr.signature.footer",
+          id: "f",
+          component: (ctx: Record<string, unknown>) => (
+            <span data-testid="ftr">{`${String(ctx.standing)}|${String(ctx.isCurrent)}`}</span>
+          ),
+        },
+      ],
+    });
+    serve(FULL);
+    renderPreview();
+    expect(await screen.findByTestId("panel")).toHaveTextContent("true|in_force|true");
+    expect(screen.getByTestId("hdr")).toHaveTextContent("true|in_force|true");
+    expect(screen.getByTestId("ftr")).toHaveTextContent("in_force|true");
+  });
+});
+
+describe("ADRPreview — revision navigation race", () => {
+  function GoTo({ to }: { to: string }) {
+    const navigate = useNavigate();
+    return (
+      <button type="button" onClick={() => navigate(to)}>
+        go
+      </button>
+    );
+  }
+
+  function deferred<T>() {
+    let resolve!: (v: T) => void;
+    let reject!: (e: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  }
+
+  function renderRace(first: Promise<unknown>, second: Promise<unknown>) {
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === "/adr/adr-1") return (await first) as never;
+      if (path === "/adr/adr-2") return (await second) as never;
+      return {} as never;
+    });
+    render(
+      <MemoryRouter initialEntries={["/ea-delivery/adr/adr-1/preview"]}>
+        <Routes>
+          <Route path="/ea-delivery/adr/:id/preview" element={<ADRPreview />} />
+        </Routes>
+        <GoTo to="/ea-delivery/adr/adr-2/preview" />
+      </MemoryRouter>,
+    );
+  }
+
+  it("a late reply for the revision just left is ignored", async () => {
+    const first = deferred<ArchitectureDecision>();
+    const second = deferred<ArchitectureDecision>();
+    renderRace(first.promise, second.promise);
+    await userEvent.click(screen.getByRole("button", { name: "go" }));
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/adr/adr-2", expect.anything()));
+    second.resolve({ ...adr, id: "adr-2", title: "Revision two" });
+    expect((await screen.findAllByText("Revision two")).length).toBeGreaterThan(0);
+    first.resolve({ ...adr, title: "Revision one (late)" });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(screen.getAllByText("Revision two").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Revision one (late)")).toBeNull();
+  });
+
+  it("a late failure for the revision just left shows no error", async () => {
+    const first = deferred<ArchitectureDecision>();
+    renderRace(first.promise, Promise.resolve({ ...adr, id: "adr-2", title: "Revision two" }));
+    await userEvent.click(screen.getByRole("button", { name: "go" }));
+    expect((await screen.findAllByText("Revision two")).length).toBeGreaterThan(0);
+    first.reject(new Error("gone"));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(screen.queryByText("gone")).toBeNull();
+    expect(screen.getAllByText("Revision two").length).toBeGreaterThan(0);
   });
 });

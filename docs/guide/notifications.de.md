@@ -24,6 +24,7 @@ Klicken Sie auf eine beliebige Benachrichtigung, um direkt zur relevanten Karte 
 | **Genehmigungsstatus geändert** | Der Genehmigungsstatus einer Karte ändert sich (genehmigt, abgelehnt, ungültig) |
 | **SoAW-Unterschrift angefordert** | Sie werden gebeten, ein Statement of Architecture Work zu unterschreiben |
 | **SoAW unterschrieben** | Ein SoAW, das Sie verfolgen, erhält eine Unterschrift |
+| **ADR-Geltung geändert** | Eine unterzeichnete Entscheidung ersetzt, ändert oder widerruft eine Entscheidung, die Sie verfasst haben |
 | **Umfrageanfrage** | Eine Umfrage wurde gesendet, die Ihre Antwort erfordert |
 
 **Genehmigungsstatus geändert** deckt auch den automatischen Fall ab. Eine

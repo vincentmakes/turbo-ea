@@ -27,7 +27,11 @@ export interface UserOption {
 let _cache: UserOption[] | null = null;
 let _inflight: Promise<UserOption[]> | null = null;
 
-function fetchUsers(): Promise<UserOption[]> {
+/**
+ * The cached user list. Shared with other user pickers (the decision people
+ * field) so every picker on a page rides one request and one cache.
+ */
+export function fetchUserOptions(): Promise<UserOption[]> {
   if (_cache) return Promise.resolve(_cache);
   if (_inflight) return _inflight;
   _inflight = api
@@ -40,6 +44,11 @@ function fetchUsers(): Promise<UserOption[]> {
       _inflight = null;
     });
   return _inflight;
+}
+
+/** The cached user list, or null before the first fetch settles. */
+export function cachedUserOptions(): UserOption[] | null {
+  return _cache;
 }
 
 /** Test helper / cache bust after user admin changes. */
@@ -79,7 +88,7 @@ export default function UserMultiSelect({
     if (!open || _cache) return;
     let cancelled = false;
     setLoading(true);
-    fetchUsers()
+    fetchUserOptions()
       .then((users) => {
         if (!cancelled) setOptions(users);
       })

@@ -171,7 +171,7 @@ funcionan — y pueden ocultarse o fijarse desde el selector de columnas.
 | Permiso | Permite |
 |---|---|
 | `adr.view` (núcleo) | Ver los paneles, las columnas y el panel de valor |
-| `adr.manage` (núcleo) | Añadir, editar y eliminar declaraciones en una decisión sin firmar |
+| `adr.manage` (núcleo) | Añadir, editar y eliminar declaraciones en una decisión en borrador |
 | `ext.value-savings.record` | Registrar una realización frente a una declaración aprobada |
 | `ext.value-savings.approve` | Aprobar o rechazar una realización — **y** ser la persona designada como aprobadora |
 

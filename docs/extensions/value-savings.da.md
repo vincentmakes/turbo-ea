@@ -165,7 +165,7 @@ og kan skjules eller fastlåses fra kolonnevælgeren.
 | Rettighed | Tillader |
 |---|---|
 | `adr.view` (kerne) | At se panelerne, kolonnerne og dashboardet |
-| `adr.manage` (kerne) | At tilføje, redigere og slette anmeldelser på en usigneret beslutning |
+| `adr.manage` (kerne) | At tilføje, redigere og slette anmeldelser på en beslutning i kladde |
 | `ext.value-savings.record` | At registrere en realisering over for en godkendt anmeldelse |
 | `ext.value-savings.approve` | At godkende eller afvise en realisering — **og** være den person, der er udpeget som godkender |
 

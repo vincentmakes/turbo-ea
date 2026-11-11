@@ -41,6 +41,7 @@
   "preferences.adrSigned": "ADR Signed",
   "preferences.adrSignRecalled": "ADR Signature Recalled",
   "preferences.adrRejected": "ADR Rejected",
+  "preferences.adrStandingChanged": "ADR Standing Changed",
   "preferences.processFlowApprovalRequested": "Process Flow Approval Requested",
   "preferences.processFlowApproved": "Process Flow Approved",
   "preferences.processFlowRejected": "Process Flow Rejected",

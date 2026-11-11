@@ -43,7 +43,7 @@ A subaba **Segurança e administração** lista uma entrada para cada ação rel
 - bloqueios de conta após falhas repetidas;
 - cadastros, e senhas definidas, redefinidas ou alteradas;
 - personificação de papel — um administrador que inicia e encerra **Ver como papel…**;
-- ações administrativas — alterações em usuários, papéis, configurações, metamodelo, tags, cálculos, extensões, importações, integrações, portais públicos e diagramas publicados, pesquisas e acesso do operador (veja [Ações administrativas](#administrative-actions));
+- ações administrativas — alterações em usuários, papéis, configurações, metamodelo, tags, cálculos, extensões, importações, integrações, portais públicos e diagramas publicados, pesquisas, decisões registadas como tomadas e acesso do operador (veja [Ações administrativas](#administrative-actions));
 - exportações de dados — as exportações CSV e JSON de cards, as exportações do workspace e as exportações para outra plataforma de EA (veja [Exportações de dados](#data-exports)) — e as exportações deste próprio registro.
 
 ### Colunas
@@ -156,6 +156,7 @@ Uma gravação que não altera nada não é registrada, nem um usuário que edit
 | **Exposição pública** | `admin.web_portal.created`, `.updated`, `.deleted`; `admin.diagram.published`, `.unpublished` | [Portais web](web-portals.md) e diagramas publicados — tudo o que torna os dados acessíveis sem uma conta |
 | **Painéis da página inicial** | `admin.dashboard.created`, `.updated`, `.deleted`, `.duplicated`, `.reset` | [Painéis](../guide/dashboard.md#customizing-dashboards) criados, editados, eliminados, duplicados ou repostos para o padrão, com o nome, a descrição, o ícone, a visibilidade, a ordem e os papéis de acesso alterados; cada widget adicionado ou removido é listado pelo nome (mover ou redimensionar um widget não é registado) |
 | **Pesquisas** | `admin.survey.sent`, `admin.survey.closed` | Uma pesquisa enviada aos destinatários, ou encerrada |
+| **Decisões de arquitetura** | `admin.adr.recorded` | Uma decisão tomada fora do Turbo EA e [registada como tomada](../guide/grc.md#recording-a-past-decision) sem assinaturas, com as datas «Decidida em» e «Em vigor desde» e os seus decisores |
 | **Acesso do operador** | `admin.ops.rescue_access.granted`, `.revoked` | Acesso de resgate concedido ou revogado pela [API de operações](ops-api.md), registrado junto aos eventos `ops.*` existentes |
 
 ### Exportações de dados { #data-exports }

@@ -79,6 +79,9 @@ NOTIFICATION_TYPE_SPECS: tuple[NotificationTypeSpec, ...] = (
     NotificationTypeSpec("adr_signed"),
     NotificationTypeSpec("adr_sign_recalled"),
     NotificationTypeSpec("adr_rejected"),
+    # A decision you wrote was replaced, amended or revoked by another one
+    # that has just been signed or recorded.
+    NotificationTypeSpec("adr_standing_changed"),
     # --- process flow approvals ---
     NotificationTypeSpec("process_flow_approval_requested"),
     NotificationTypeSpec("process_flow_approved"),

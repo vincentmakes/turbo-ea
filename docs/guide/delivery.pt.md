@@ -54,13 +54,21 @@ O editor oferece:
 | Status | Significado |
 |--------|-------------|
 | **Rascunho** | Sendo escrito, ainda não pronto para revisão |
-| **Em Revisão** | Submetido para revisão das partes interessadas |
+| **Em Revisão** | Enviado para assinatura — bloqueado até que as assinaturas sejam recolhidas |
 | **Aprovado** | Revisado e aceito |
 | **Assinado** | Formalmente assinado |
 
 ### Fluxo de Assinatura
 
-Uma vez que um SoAW é aprovado, você pode solicitar assinaturas das partes interessadas. Clique em **Solicitar Assinaturas** e use o campo de pesquisa para encontrar e adicionar signatários por nome ou e-mail. O sistema rastreia quem assinou e envia notificações para os signatários pendentes.
+A partir de um SoAW em rascunho ou aprovado, você pode solicitar assinaturas das partes interessadas. Clique em **Solicitar Assinaturas** e use o campo de pesquisa para encontrar e adicionar signatários por nome ou e-mail. O sistema rastreia quem assinou e envia notificações para os signatários pendentes.
+
+Um SoAW em revisão fica **bloqueado**, para que os signatários assinem exatamente o que lhes foi enviado: apenas a sua iniciativa ainda pode mudar. Para editar o conteúdo, clique em **Recolher assinaturas**, o que o devolve a rascunho. Um signatário que clique em **Rejeitar** também o devolve a rascunho, com o mesmo número de revisão. Só um SoAW em rascunho pode ser eliminado.
+
+### Revisões
+
+Um SoAW assinado é somente leitura. Clique em **Nova revisão** para iniciar um novo rascunho a partir dele, com o mesmo nome e o número de revisão seguinte. Existe uma única revisão aberta de cada vez: enquanto uma revisão está a ser redigida, o SoAW assinado indica-o e oferece **Abrir a revisão** em vez de iniciar outra. Só a revisão mais recente pode ser revisada, e uma rejeição não altera o número de revisão.
+
+Uma revisão anterior mostra um banner com uma ligação para a revisão atual, e a faixa **Revisões** em cada revisão lista-as todas. As listas de SoAW — os entregáveis da iniciativa, a aba SoAW, o relatório de Entregas de EA — mostram a revisão atual de cada documento e qualquer revisão em redação.
 
 ### Pré-visualização e Exportação
 
@@ -72,7 +80,7 @@ Uma vez que um SoAW é aprovado, você pode solicitar assinaturas das partes int
 
 ![Card de iniciativa — aba SoAW](../assets/img/pt/55_iniciativa_soaw_tab.png)
 
-As iniciativas também expõem uma aba **SoAW** dedicada diretamente na sua página de detalhe. A aba lista cada SoAW vinculado àquela iniciativa (título, chip de status, número de revisão, data da última modificação) com um botão **+ Novo SoAW** que pré-seleciona a iniciativa atual — para que você possa redigir ou abrir um SoAW sem sair do card no qual está trabalhando. A criação reutiliza o mesmo diálogo da página Entregas de EA, e o novo documento aparece em ambos os lugares. A visibilidade da aba segue as regras padrão de permissão dos cards.
+As iniciativas também expõem uma aba **SoAW** dedicada diretamente na sua página de detalhe. A aba lista a revisão atual de cada SoAW vinculado àquela iniciativa, mais qualquer revisão em redação (título, chip de status, número de revisão, data da última modificação) com um botão **+ Novo SoAW** que pré-seleciona a iniciativa atual — para que você possa redigir ou abrir um SoAW sem sair do card no qual está trabalhando. A criação reutiliza o mesmo diálogo da página Entregas de EA, e o novo documento aparece em ambos os lugares. A visibilidade da aba segue as regras padrão de permissão dos cards.
 
 ## Registros de Decisões de Arquitetura (ADR)
 

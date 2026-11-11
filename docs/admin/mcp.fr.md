@@ -183,20 +183,20 @@ Dans ce mode, le serveur s'authentifie avec email/mot de passe et renouvelle le 
 
 ## Capacités disponibles
 
-Le serveur MCP expose **55 outils** répartis en deux groupes : **35 outils de lecture** qui interrogent les données EA et **20 outils d'écriture** (15 additifs, 5 destructifs) qui créent et maintiennent fiches, relations, diagrammes, risques, ADRs, vues d'inventaire enregistrées et plus encore — y compris la transformation des artefacts qu'un outil d'IA a dans son propre contexte (tableurs, BPMN XML, DrawIO XML, documents, images) en données EA structurées. Chaque outil porte des `ToolAnnotations` MCP (indications lecture seule / destructif / idempotent) afin que les connecteurs puissent afficher la destructivité dans leur interface.
+Le serveur MCP expose **56 outils** répartis en deux groupes : **35 outils de lecture** qui interrogent les données EA et **21 outils d'écriture** (16 additifs, 5 destructifs) qui créent et maintiennent fiches, relations, diagrammes, risques, ADRs, vues d'inventaire enregistrées et plus encore — y compris la transformation des artefacts qu'un outil d'IA a dans son propre contexte (tableurs, BPMN XML, DrawIO XML, documents, images) en données EA structurées. Chaque outil porte des `ToolAnnotations` MCP (indications lecture seule / destructif / idempotent) afin que les connecteurs puissent afficher la destructivité dans leur interface.
 
 ### Sécurité par exécution à blanc lors des écritures
 
 Chaque outil d'écriture utilise par défaut **`dry_run=true`**, et rien n'est persisté tant que l'outil d'IA ne le rappelle pas avec `dry_run=false` — ce qu'il ne doit faire qu'une fois que l'utilisateur a vu l'aperçu et confirmé. Cela empêche un agent trop zélé d'introduire silencieusement des centaines de fiches à partir d'un tableur mal interprété. L'aperçu existe en deux variantes :
 
 - **Vérifié par le backend.** Lorsque l'endpoint sous-jacent prend en charge une exécution à blanc, le backend exécute chaque validateur et résolveur — permissions, ids de fiches, ce que l'utilisateur peut lire —, construit le résultat complet, puis **annule la transaction**. Cela couvre les fiches (`create_cards_bulk`, `update_cards_bulk`), les relations (`upsert_relations_bulk`) et les diagrammes (`create_diagram`, `update_diagram`). L'aperçu d'un diagramme renvoie les liens vers des fiches acceptés par le backend et, pour une mise à jour, la modification exacte : champs renommés, liens vers des fiches ajoutés et retirés, et indication si le canevas a changé.
-- **Construit par le serveur MCP.** Lorsque l'endpoint n'offre pas d'exécution à blanc, l'outil valide et traduit son entrée puis affiche la charge utile exacte qu'enverrait un commit, sans appeler l'endpoint d'écriture : `import_bpmn` (le parcours brouillon → soumission → approbation ; ses décomptes de nœuds de flux sont une estimation et l'aperçu indique `verified: false`), `create_adr`, `update_adr`, `sign_adr`, `create_soaw`, `add_card_comment`, `transition_card_lifecycle`, `save_inventory_view` (qui exécute la requête et indique combien de fiches correspondent, avec quelques noms d'exemple), `assign_stakeholders`, `create_risks`, `update_risks`, `archive_cards` (qui montre l'impact de l'archivage de chaque fiche) et `set_card_logos` / `clear_card_logos` (qui recherchent le type et le logo actuel de chaque fiche et récupèrent chaque `image_url`).
+- **Construit par le serveur MCP.** Lorsque l'endpoint n'offre pas d'exécution à blanc, l'outil valide et traduit son entrée puis affiche la charge utile exacte qu'enverrait un commit, sans appeler l'endpoint d'écriture : `import_bpmn` (le parcours brouillon → soumission → approbation ; ses décomptes de nœuds de flux sont une estimation et l'aperçu indique `verified: false`), `create_adr`, `update_adr`, `sign_adr`, `revise_adr` (qui lit la décision et indique le numéro de révision qu'il créerait, ou pourquoi le backend refuserait), `create_soaw`, `add_card_comment`, `transition_card_lifecycle`, `save_inventory_view` (qui exécute la requête et indique combien de fiches correspondent, avec quelques noms d'exemple), `assign_stakeholders`, `create_risks`, `update_risks`, `archive_cards` (qui montre l'impact de l'archivage de chaque fiche) et `set_card_logos` / `clear_card_logos` (qui recherchent le type et le logo actuel de chaque fiche et récupèrent chaque `image_url`).
 
 Dans les deux cas, l'aperçu est consigné dans le journal d'audit comme un lot d'exécution à blanc, afin qu'un administrateur voie ce qu'un agent a proposé comme ce qu'il a validé.
 
 ### Outils de lecture
 
-Le serveur expose 35 outils de lecture, regroupés en huit clusters.
+Le serveur expose 35 outils de lecture, regroupés en neuf clusters.
 
 **Fiches & métamodèle**
 
@@ -242,9 +242,9 @@ Le serveur expose 35 outils de lecture, regroupés en huit clusters.
 | Outil | Description |
 |-------|-------------|
 | `list_principles` | Principes EA publiés (énoncé, justification, implications) |
-| `list_adrs` | Architecture Decision Records, filtrables par initiative / statut |
-| `get_adr` | ADR unique avec sections, fiches liées et piste de signature |
-| `list_soaws` | Statements of Architecture Work d'une initiative |
+| `list_adrs` | Architecture Decision Records, filtrables par initiative, statut et validité (`standing="in_force,amended"` liste les décisions en vigueur). Affiche la révision actuelle de chaque décision ; `include_earlier` ajoute les révisions antérieures |
+| `get_adr` | Révision unique d'un ADR avec sections, fiches liées, piste de signature, validité, liens typés vers d'autres décisions, décideurs et participants, dates, révisions et noms de fichiers |
+| `list_soaws` | Statements of Architecture Work d'une initiative (révisions actuelles ; `include_earlier` ajoute les révisions antérieures) |
 
 **Rapports**
 
@@ -282,9 +282,9 @@ Tous les outils respectent le RBAC de l'utilisateur authentifié — un visualis
 
 ### Outils d'écriture
 
-Le serveur expose 20 outils d'écriture, chacun annoté comme **additif** (crée ou étend des données) ou **destructif** (modifie ou supprime des données existantes) afin que les connecteurs puissent avertir en conséquence.
+Le serveur expose 21 outils d'écriture, chacun annoté comme **additif** (crée ou étend des données) ou **destructif** (modifie ou supprime des données existantes) afin que les connecteurs puissent avertir en conséquence.
 
-**Additifs (15)**
+**Additifs (16)**
 
 | Outil | Description |
 |-------|-------------|
@@ -296,9 +296,10 @@ Le serveur expose 20 outils d'écriture, chacun annoté comme **additif** (crée
 | `create_soaw` | Crée un Statement of Architecture Work pour une initiative. |
 | `assign_stakeholders` | Affecte ou retire des rôles de parties prenantes sur des fiches. |
 | `update_cards_bulk` | Correctifs au niveau des champs sur plusieurs fiches en un seul appel. |
-| `create_adr` | Crée un Architecture Decision Record. |
-| `update_adr` | Met à jour un ADR (titre, sections, statut, fiches liées). |
+| `create_adr` | Crée un Architecture Decision Record, avec des liens typés vers d'autres décisions (`replaces`, `amends`, `revokes`, `relates`), des décideurs, des participants et des dates. C'est ainsi qu'on remplace ou révoque une décision : par une nouvelle décision portant un lien `replaces` / `revokes`, qui prend effet une fois signée. |
+| `update_adr` | Met à jour un ADR en brouillon (titre, sections, fiches liées, liens typés, personnes, dates, résumé des modifications). Une décision en revue n'accepte que les modifications des fiches liées, et une décision signée n'est jamais modifiée. |
 | `sign_adr` | Signe un ADR (nécessite la permission `adr.sign` ; sinon renvoie un lien profond vers l'interface pour signer dans le navigateur). |
+| `revise_adr` | Démarre la révision suivante d'un ADR signé : un brouillon avec la même référence et le numéro de révision suivant, en consolidant éventuellement les décisions modificatrices. Refusé lorsqu'une révision est déjà en cours de rédaction, qu'une révision ultérieure est signée, ou que la décision a été révoquée ou remplacée. L'enregistrement d'une décision passée comme décidée reste dans l'interface web. |
 | `create_diagram` | Crée un diagramme DrawIO libre avec des liens optionnels vers des fiches existantes. |
 | `save_inventory_view` | Enregistre une requête de fiches à plusieurs sauts comme vue d'inventaire (nouvelle, ou remplaçant la requête d'une vue existante indiquée par `view_id`). L'inventaire réexécute la requête à chaque ouverture de la vue ; la réponse contient un lien qui l'ouvre. Une mise à jour ne change que le nom et la requête, ainsi que la visibilité et les colonnes lorsqu'elles sont transmises ; le regroupement et la disposition de la vue sont conservés. |
 | `import_bpmn` | Enregistre un diagramme XML BPMN 2.0 sur une fiche Processus métier **existante**. Si aucune fiche ne correspond au nom fourni, l'outil renvoie une erreur `card_not_found` qui renvoie l'agent vers `create_cards_bulk` — cela force la création explicite de la fiche avec description, sous-type et attributs au préalable, plutôt qu'un raccourci qui crée une fiche pauvre. |
@@ -440,7 +441,7 @@ Défense en profondeur en plus de l'exécution à blanc, afin qu'une mauvaise in
 
 - **Plafond de taille par appel.** Les outils d'écriture MCP appliquent un plafond beaucoup plus petit que les endpoints sous-jacents de l'importateur Excel : 200 lignes pour `create_cards_bulk`, 500 opérations pour `upsert_relations_bulk`. Suffisamment grand pour tout téléversement d'artefact unique réaliste, suffisamment petit pour qu'une prévisualisation d'exécution à blanc reste scannable.
 - **Pas de suppression de relation par défaut.** `upsert_relations_bulk` refuse les opérations `action: "delete"` — pour supprimer des relations, utilisez l'interface web où l'action est consignée sous l'identité de l'utilisateur. Les opérateurs peuvent activer cette possibilité en définissant `MCP_ALLOW_RELATION_DELETE=true`.
-- **Interrupteur d'arrêt.** `MCP_WRITES_ENABLED=false` désactive les 20 outils d'écriture sans redéployer de code. Les 35 outils de lecture continuent de fonctionner.
+- **Interrupteur d'arrêt.** `MCP_WRITES_ENABLED=false` désactive les 21 outils d'écriture sans redéployer de code. Les 35 outils de lecture continuent de fonctionner.
 - **Le téléchargement de logos passe par une liste d'hôtes autorisés.** Les jeux d'icônes fournis ne peuvent pas couvrir tous les produits d'un client, et un assistant est souvent isolé sans accès au web ; `set_card_logos` accepte donc une `image_url` que le serveur MCP va chercher. Uniquement `https`, uniquement les hôtes de `MCP_LOGO_FETCH_HOSTS`, uniquement une adresse publique, au plus deux redirections (revérifiées à chaque fois), au plus 1 Mo lu en flux, et les octets doivent porter une véritable signature PNG/JPEG/WebP/GIF. Le téléchargement a lieu à la périphérie MCP, jamais dans le backend, puis l'image est envoyée par la voie habituelle : une URL choisie par un LLM n'atteint jamais le processus qui détient la base de données. `MCP_LOGO_FETCH_ENABLED=false` désactive le tout.
 - **Étiquette d'origine d'audit.** Chaque requête backend du serveur MCP transporte un en-tête `X-Turbo-EA-Origin: mcp`. Les événements émis depuis ces requêtes sont étiquetés `origin: "mcp"` dans le payload du journal d'audit, ce qui permet aux administrateurs de filtrer les écritures pilotées par MCP hors de la chronologie, séparément des actions de l'interface web.
 - **Lots de mutation.** Chaque appel d'écriture MCP — l'aperçu comme le commit — constitue un lot de mutation dans le journal d'audit, ouvert avant toute écriture ; chaque événement émis pendant l'appel est estampillé avec l'id du lot, et chaque outil d'écriture renvoie ce `batch_id`. Les administrateurs (ou l'outil `get_change_history`) peuvent reconstruire le diff complet, événement par événement, d'un commit à partir d'un seul id, et `rollback_batch` peut l'annuler — y compris en supprimant un diagramme créé par `create_diagram`, sauf si quelqu'un l'a publié depuis. Une mise à jour de diagramme est signalée comme non réversible, car le canevas précédent n'est pas conservé. Les commits dépassant `MCP_BATCH_CONFIRMATION_THRESHOLD` lignes doivent renvoyer le `confirm_token` à usage unique retourné par l'exécution à blanc précédente. Le backend le vérifie à l'ouverture du lot du commit, avant toute écriture : il doit provenir d'une exécution à blanc du même outil, par le même utilisateur, il y a moins de 15 minutes, et il n'autorise qu'un seul commit. Chaque outil d'écriture en masse suit ce cycle aperçu → confirmation : `create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`.
@@ -483,7 +484,7 @@ Les six variables d'environnement de garde-fou sur le conteneur MCP :
 | Rôle | Accès |
 |------|-------|
 | **Administrateur** | Configurer les paramètres MCP (permission `admin.mcp`). Accès complet en lecture + écriture via MCP. |
-| **Tous les utilisateurs authentifiés** | Accès en lecture régi par leur RBAC existant. Les outils d'écriture exigent les permissions backend correspondantes — `inventory.create` / `inventory.edit` / `inventory.archive` (fiches), `relations.manage` (relations), `diagrams.manage` (diagrammes), `bpm.edit` (BPMN), `risks.manage` (registre des risques), `comments.create` (commentaires), `stakeholders.manage` (parties prenantes), `soaw.create` (SoAW), `adr.create` / `adr.sign` (ADRs), `bookmarks.manage` / `bookmarks.share` (vues d'inventaire enregistrées). |
+| **Tous les utilisateurs authentifiés** | Accès en lecture régi par leur RBAC existant. Les outils d'écriture exigent les permissions backend correspondantes — `inventory.create` / `inventory.edit` / `inventory.archive` (fiches), `relations.manage` (relations), `diagrams.manage` (diagrammes), `bpm.edit` (BPMN), `risks.manage` (registre des risques), `comments.create` (commentaires), `stakeholders.manage` (parties prenantes), `soaw.create` (SoAW), `adr.manage` / `adr.sign` (ADRs), `bookmarks.manage` / `bookmarks.share` (vues d'inventaire enregistrées). |
 
 La permission `admin.mcp` contrôle qui peut gérer les paramètres MCP. Elle n'est disponible que pour le rôle Administrateur par défaut. Les rôles personnalisés peuvent recevoir cette permission via la page d'administration des Rôles.
 

@@ -509,7 +509,7 @@ describe("extensionHost", () => {
   });
 
   it("pins the current UI SDK version", () => {
-    expect(UI_SDK_VERSION).toBe("1.33");
+    expect(UI_SDK_VERSION).toBe("1.34");
   });
 
   it("whitelists the nav groups an extension route may request", () => {

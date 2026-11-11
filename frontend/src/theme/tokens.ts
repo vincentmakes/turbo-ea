@@ -316,6 +316,9 @@ export const NOTIFICATION_TYPE_COLORS = {
   adr_signed: RAG_COLORS.green, // #2e7d32
   adr_sign_recalled: "#795548", // brown 500
   adr_rejected: RAG_COLORS.red, // #d32f2f
+  // A decision's standing moved (replaced, amended, revoked): informational,
+  // the decision family's amber rather than an alarm.
+  adr_standing_changed: RAG_COLORS.amber, // #f57c00
   process_flow_approval_requested: RAG_COLORS.amber, // #f57c00
   process_flow_approved: RAG_COLORS.green, // #2e7d32
   process_flow_rejected: RAG_COLORS.red, // #d32f2f

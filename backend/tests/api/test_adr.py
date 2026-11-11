@@ -6,10 +6,19 @@ These tests require a PostgreSQL test database and an HTTP test client.
 from __future__ import annotations
 
 import uuid
+from datetime import date
 
 import pytest
+from sqlalchemy import select
 
 from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
+from app.models.architecture_decision import ArchitectureDecision
+from app.models.architecture_decision_file import (
+    ArchitectureDecisionFile,
+    ArchitectureDecisionFileContent,
+)
+from app.models.event import Event
+from app.models.todo import Todo
 from tests.conftest import (
     auth_headers,
     create_card,
@@ -406,10 +415,52 @@ class TestDuplicateADR:
         data = resp.json()
         assert data["title"] == "Original ADR (copy)"
         assert data["status"] == "draft"
-        assert data["reference_number"] != original["reference_number"]
+        assert original["reference_number"] == "ADR-001"
+        assert (data["reference_number"], data["revision_number"], data["parent_id"]) == (
+            "ADR-002",
+            1,
+            None,
+        )
         assert data["context"] == "Some context"
         assert data["decision"] == "Some decision"
         assert data["id"] != original["id"]
+        events = (
+            (await db.execute(select(Event).where(Event.event_type == "adr.created")))
+            .scalars()
+            .all()
+        )
+        dup_events = [e for e in events if e.data["adr_id"] == data["id"]]
+        assert len(dup_events) == 1
+        assert (dup_events[0].data["reference_number"], dup_events[0].user_id) == (
+            "ADR-002",
+            admin.id,
+        )
+        assert "revision_of" not in dup_events[0].data
+
+    async def test_duplicate_of_a_signed_revision_drops_dates_and_hard_links(
+        self, client, db, adr_env
+    ):
+        admin = adr_env["admin"]
+        target = (await _create_adr(client, admin, title="Target")).json()
+        await _sign_adr(client, admin, [admin], target["id"])
+        source = (
+            await _create_adr(
+                client,
+                admin,
+                title="Source",
+                decided_on="2026-01-02",
+                links=[{"decision_id": target["id"], "kind": "amends"}],
+            )
+        ).json()
+        await _sign_adr(client, admin, [admin], source["id"])
+
+        resp = await client.post(
+            f"/api/v1/adr/{source['id']}/duplicate", headers=auth_headers(admin)
+        )
+
+        dup = resp.json()
+        assert (dup["decided_on"], dup["effective_from"], dup["signatories"]) == (None, None, [])
+        assert dup["links"]["outgoing"] == []
 
     async def test_viewer_cannot_duplicate(self, client, db, adr_env):
         admin = adr_env["admin"]
@@ -571,6 +622,7 @@ class TestSignWorkflow:
             headers=auth_headers(admin),
         )
         assert resp.status_code == 400
+        assert resp.json()["detail"] == "Decision is already signed"
 
 
 # -------------------------------------------------------------------
@@ -590,10 +642,11 @@ class TestReviseADR:
             context="v1 context",
         )
         adr_id = create_resp.json()["id"]
+        reference = create_resp.json()["reference_number"]
 
         await _sign_adr(client, admin, [member], adr_id)
 
-        # Revise
+        # Revise (no body at all keeps working)
         resp = await client.post(
             f"/api/v1/adr/{adr_id}/revise",
             headers=auth_headers(admin),
@@ -604,6 +657,10 @@ class TestReviseADR:
         assert data["revision_number"] == 2
         assert data["parent_id"] == adr_id
         assert data["context"] == "v1 context"
+        # A revision keeps the decision's reference.
+        assert data["reference_number"] == reference
+        assert data["change_summary"] is None
+        assert data["signatories"] == []
 
     async def test_cannot_revise_non_signed(self, client, db, adr_env):
         admin = adr_env["admin"]
@@ -615,6 +672,312 @@ class TestReviseADR:
             headers=auth_headers(admin),
         )
         assert resp.status_code == 400
+
+    async def test_viewer_cannot_revise(self, client, db, adr_env):
+        admin = adr_env["admin"]
+        adr_id = (await _create_adr(client, admin, title="Viewer")).json()["id"]
+        await _sign_adr(client, admin, [admin], adr_id)
+        resp = await client.post(
+            f"/api/v1/adr/{adr_id}/revise", headers=auth_headers(adr_env["viewer"])
+        )
+        assert resp.status_code == 403
+
+    async def test_unknown_body_field_is_422(self, client, db, adr_env):
+        admin = adr_env["admin"]
+        adr_id = (await _create_adr(client, admin, title="Strict")).json()["id"]
+        await _sign_adr(client, admin, [admin], adr_id)
+        resp = await client.post(
+            f"/api/v1/adr/{adr_id}/revise",
+            json={"summary": "wrong key"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 422
+
+    async def test_number_is_the_chain_maximum_plus_one(self, client, db, adr_env):
+        """A chain with a gap (an old rejection bump) continues after its highest."""
+        admin = adr_env["admin"]
+        first = ArchitectureDecision(reference_number="ADR-050", title="Gap", status="signed")
+        db.add(first)
+        await db.flush()
+        third = ArchitectureDecision(
+            reference_number="ADR-050",
+            title="Gap",
+            status="signed",
+            revision_number=3,
+            parent_id=first.id,
+        )
+        db.add(third)
+        await db.flush()
+
+        resp = await client.post(
+            f"/api/v1/adr/{third.id}/revise",
+            json={"change_summary": "Tighten §2"},
+            headers=auth_headers(admin),
+        )
+
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert (data["reference_number"], data["revision_number"], data["parent_id"]) == (
+            "ADR-050",
+            4,
+            str(third.id),
+        )
+        assert data["change_summary"] == "Tighten §2"
+        assert [(r["reference_number"], r["revision_number"]) for r in data["revisions"]] == [
+            ("ADR-050", 1),
+            ("ADR-050", 3),
+            ("ADR-050", 4),
+        ]
+
+    async def test_a_second_revise_names_the_open_revision(self, client, db, adr_env):
+        admin = adr_env["admin"]
+        adr_id = (await _create_adr(client, admin, title="Twice")).json()["id"]
+        await _sign_adr(client, admin, [admin], adr_id)
+        first = await client.post(f"/api/v1/adr/{adr_id}/revise", headers=auth_headers(admin))
+        assert first.status_code == 200
+
+        again = await client.post(f"/api/v1/adr/{adr_id}/revise", headers=auth_headers(admin))
+
+        assert again.status_code == 409
+        assert again.json()["detail"] == {
+            "error": "open_revision_exists",
+            "revision_id": first.json()["id"],
+        }
+        count = await db.execute(
+            select(ArchitectureDecision).where(ArchitectureDecision.parent_id == uuid.UUID(adr_id))
+        )
+        assert len(count.scalars().all()) == 1
+
+    async def test_a_superseded_revision_is_not_the_latest(self, client, db, adr_env):
+        admin = adr_env["admin"]
+        adr_id = (await _create_adr(client, admin, title="Old")).json()["id"]
+        await _sign_adr(client, admin, [admin], adr_id)
+        rev2 = await client.post(f"/api/v1/adr/{adr_id}/revise", headers=auth_headers(admin))
+        await _sign_adr(client, admin, [admin], rev2.json()["id"])
+
+        resp = await client.post(f"/api/v1/adr/{adr_id}/revise", headers=auth_headers(admin))
+
+        assert resp.status_code == 409
+        assert resp.json()["detail"] == {"error": "not_revisable", "reason": "not_latest"}
+        # The latest revision itself stays revisable.
+        resp = await client.post(
+            f"/api/v1/adr/{rev2.json()['id']}/revise", headers=auth_headers(admin)
+        )
+        assert resp.status_code == 200
+        assert resp.json()["revision_number"] == 3
+
+    async def test_a_revoked_decision_is_not_revisable(self, client, db, adr_env):
+        admin = adr_env["admin"]
+        target = (await _create_adr(client, admin, title="Target")).json()
+        await _sign_adr(client, admin, [admin], target["id"])
+        revoker = (
+            await _create_adr(
+                client,
+                admin,
+                title="Revoker",
+                links=[{"decision_id": target["id"], "kind": "revokes"}],
+            )
+        ).json()
+        await _sign_adr(client, admin, [admin], revoker["id"])
+
+        resp = await client.post(f"/api/v1/adr/{target['id']}/revise", headers=auth_headers(admin))
+
+        assert resp.status_code == 409
+        assert resp.json()["detail"] == {
+            "error": "not_revisable",
+            "by": {
+                "id": revoker["id"],
+                "reference_number": revoker["reference_number"],
+                "revision_number": 1,
+                "title": "Revoker",
+            },
+        }
+
+    async def test_an_expired_decision_stays_revisable(self, client, db, adr_env):
+        admin = adr_env["admin"]
+        row = ArchitectureDecision(
+            reference_number="ADR-060",
+            title="Waiver",
+            status="signed",
+            valid_until=date(2020, 1, 31),
+            effective_from=date(2020, 1, 1),
+        )
+        db.add(row)
+        await db.flush()
+        resp = await client.post(f"/api/v1/adr/{row.id}/revise", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        assert resp.json()["valid_until"] == "2020-01-31"
+
+    async def test_carries_content_but_not_dates_signatures_or_hard_links(
+        self, client, db, adr_env
+    ):
+        admin, member = adr_env["admin"], adr_env["member"]
+        related = (await _create_adr(client, admin, title="Related")).json()
+        await _sign_adr(client, admin, [admin], related["id"])
+        replaced = (await _create_adr(client, admin, title="Replaced")).json()
+        await _sign_adr(client, admin, [admin], replaced["id"])
+        source = (
+            await _create_adr(
+                client,
+                admin,
+                title="Source",
+                decided_on="2026-01-02",
+                valid_until="2099-12-31",
+                change_summary="Original wording",
+                related_decisions=[related["id"]],
+                links=[{"decision_id": replaced["id"], "kind": "replaces", "note": "all"}],
+                decision_makers=[{"name": "Board"}],
+                participants=[{"user_id": str(member.id)}],
+            )
+        ).json()
+        await _sign_adr(client, admin, [member], source["id"])
+        blob = b"%PDF-1.7 minutes"
+        content = ArchitectureDecisionFileContent(size=len(blob), data=blob)
+        db.add(content)
+        await db.flush()
+        db.add(
+            ArchitectureDecisionFile(
+                architecture_decision_id=uuid.UUID(source["id"]),
+                content_id=content.id,
+                name="minutes.pdf",
+                mime_type="application/pdf",
+                size=len(blob),
+                created_by=member.id,
+            )
+        )
+        await db.flush()
+
+        resp = await client.post(f"/api/v1/adr/{source['id']}/revise", headers=auth_headers(admin))
+
+        assert resp.status_code == 200, resp.text
+        rev = resp.json()
+        assert [(e["kind"], e["decision"]["id"]) for e in rev["links"]["outgoing"]] == [
+            ("relates", related["id"])
+        ]
+        assert rev["decision_makers"] == [{"user_id": None, "display_name": "Board"}]
+        assert rev["participants"] == [
+            {"user_id": str(member.id), "display_name": member.display_name}
+        ]
+        assert rev["valid_until"] == "2099-12-31"
+        assert (rev["decided_on"], rev["effective_from"], rev["recorded_at"]) == (
+            None,
+            None,
+            None,
+        )
+        assert rev["change_summary"] is None
+        assert rev["signatories"] == []
+        assert rev["signed_at"] is None
+        files = (
+            (
+                await db.execute(
+                    select(ArchitectureDecisionFile).where(
+                        ArchitectureDecisionFile.architecture_decision_id == uuid.UUID(rev["id"])
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert [(f.content_id, f.name, f.mime_type, f.size, f.created_by) for f in files] == [
+            (content.id, "minutes.pdf", "application/pdf", len(blob), member.id)
+        ]
+
+    async def test_consolidates_names_the_amending_decision(self, client, db, adr_env):
+        admin = adr_env["admin"]
+        target = (await _create_adr(client, admin, title="Amended")).json()
+        await _sign_adr(client, admin, [admin], target["id"])
+        amender = (
+            await _create_adr(
+                client,
+                admin,
+                title="Amender",
+                links=[{"decision_id": target["id"], "kind": "amends"}],
+            )
+        ).json()
+        await _sign_adr(client, admin, [admin], amender["id"])
+        assert (
+            await client.get(f"/api/v1/adr/{target['id']}", headers=auth_headers(admin))
+        ).json()["standing"] == "amended"
+
+        resp = await client.post(
+            f"/api/v1/adr/{target['id']}/revise",
+            json={"consolidates": [amender["reference_number"]], "change_summary": "Fold in"},
+            headers=auth_headers(admin),
+        )
+
+        assert resp.status_code == 200, resp.text
+        rev = resp.json()
+        assert [(e["kind"], e["decision"]["id"]) for e in rev["links"]["outgoing"]] == [
+            ("consolidates", amender["id"])
+        ]
+        assert rev["change_summary"] == "Fold in"
+
+    async def test_consolidating_a_decision_that_does_not_amend_is_400(self, client, db, adr_env):
+        admin = adr_env["admin"]
+        target = (await _create_adr(client, admin, title="Plain")).json()
+        await _sign_adr(client, admin, [admin], target["id"])
+        other = (await _create_adr(client, admin, title="Other")).json()
+        await _sign_adr(client, admin, [admin], other["id"])
+
+        resp = await client.post(
+            f"/api/v1/adr/{target['id']}/revise",
+            json={"consolidates": [other["id"]]},
+            headers=auth_headers(admin),
+        )
+
+        assert resp.status_code == 400
+        detail = resp.json()["detail"]
+        assert (detail["error"], detail["problems"], detail["target_id"]) == (
+            "consolidates_not_amender",
+            ["consolidates_not_amender"],
+            other["id"],
+        )
+        # Nothing was created.
+        children = await db.execute(
+            select(ArchitectureDecision).where(
+                ArchitectureDecision.parent_id == uuid.UUID(target["id"])
+            )
+        )
+        assert children.scalars().all() == []
+
+    async def test_consolidating_an_unknown_reference_is_404(self, client, db, adr_env):
+        admin = adr_env["admin"]
+        target = (await _create_adr(client, admin, title="Plain")).json()
+        await _sign_adr(client, admin, [admin], target["id"])
+        resp = await client.post(
+            f"/api/v1/adr/{target['id']}/revise",
+            json={"consolidates": ["ADR-404"]},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 404
+        assert resp.json()["detail"]["error"] == "decision_not_found"
+
+    async def test_publishes_adr_created_with_revision_of(self, client, db, adr_env):
+        admin = adr_env["admin"]
+        adr_id = (await _create_adr(client, admin, title="Evented")).json()["id"]
+        await _sign_adr(client, admin, [admin], adr_id)
+
+        rev = (
+            await client.post(f"/api/v1/adr/{adr_id}/revise", headers=auth_headers(admin))
+        ).json()
+
+        events = (
+            (await db.execute(select(Event).where(Event.event_type == "adr.created")))
+            .scalars()
+            .all()
+        )
+        created = [e for e in events if e.data["adr_id"] == rev["id"]]
+        assert len(created) == 1
+        assert created[0].user_id == admin.id
+        assert {
+            k: created[0].data[k]
+            for k in ("reference_number", "revision_number", "status", "revision_of")
+        } == {
+            "reference_number": rev["reference_number"],
+            "revision_number": 2,
+            "status": "draft",
+            "revision_of": adr_id,
+        }
 
     async def test_revisions_list(self, client, db, adr_env):
         admin = adr_env["admin"]
@@ -638,9 +1001,223 @@ class TestReviseADR:
         )
         assert resp.status_code == 200
         revisions = resp.json()
-        assert len(revisions) == 2
-        assert revisions[0]["id"] == adr_id
-        assert revisions[1]["id"] == new_id
+        assert [(r["id"], r["revision_number"], r["standing"]) for r in revisions] == [
+            (adr_id, 1, "in_force"),
+            (new_id, 2, None),
+        ]
+        assert revisions[0]["open_revision"]["id"] == new_id
+
+    async def test_revisions_of_a_legacy_fork_list_every_branch_once(self, client, db, adr_env):
+        """Two children of one parent (a legacy double revise) used to break the
+        listing; the chain is read from the register, in chain order."""
+        admin = adr_env["admin"]
+        root = ArchitectureDecision(reference_number="ADR-070", title="Fork", status="signed")
+        db.add(root)
+        await db.flush()
+        left = ArchitectureDecision(
+            reference_number="ADR-071",
+            title="Fork",
+            status="signed",
+            revision_number=2,
+            parent_id=root.id,
+        )
+        right = ArchitectureDecision(
+            reference_number="ADR-072",
+            title="Fork",
+            status="draft",
+            revision_number=3,
+            parent_id=root.id,
+        )
+        db.add_all([left, right])
+        await db.flush()
+
+        for start in (root, left, right):
+            resp = await client.get(
+                f"/api/v1/adr/{start.id}/revisions", headers=auth_headers(admin)
+            )
+            assert resp.status_code == 200
+            assert [(r["id"], r["revision_number"]) for r in resp.json()] == [
+                (str(root.id), 1),
+                (str(left.id), 2),
+                (str(right.id), 3),
+            ]
+
+    async def test_revisions_of_an_unknown_decision_is_404(self, client, db, adr_env):
+        resp = await client.get(
+            f"/api/v1/adr/{uuid.uuid4()}/revisions", headers=auth_headers(adr_env["admin"])
+        )
+        assert resp.status_code == 404
+
+
+# -------------------------------------------------------------------
+# POST /adr/{id}/reject
+# -------------------------------------------------------------------
+
+
+class TestRejectADR:
+    async def test_reject_resets_to_draft_without_a_revision_bump(self, client, db, adr_env):
+        admin, member = adr_env["admin"], adr_env["member"]
+        adr_id = (await _create_adr(client, admin, title="Rejectable")).json()["id"]
+        await client.post(
+            f"/api/v1/adr/{adr_id}/request-signatures",
+            json={"user_ids": [str(member.id)]},
+            headers=auth_headers(admin),
+        )
+
+        resp = await client.post(
+            f"/api/v1/adr/{adr_id}/reject",
+            json={"comment": "Needs numbers"},
+            headers=auth_headers(member),
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert (data["status"], data["revision_number"], data["signatories"]) == (
+            "draft",
+            1,
+            [],
+        )
+        event = (
+            await db.execute(select(Event).where(Event.event_type == "adr.rejected"))
+        ).scalar_one()
+        assert event.data["revision_number"] == 1
+
+    async def test_a_rejected_revision_keeps_its_number(self, client, db, adr_env):
+        admin, member = adr_env["admin"], adr_env["member"]
+        adr_id = (await _create_adr(client, admin, title="Chain")).json()["id"]
+        await _sign_adr(client, admin, [admin], adr_id)
+        rev = (
+            await client.post(f"/api/v1/adr/{adr_id}/revise", headers=auth_headers(admin))
+        ).json()
+        await client.post(
+            f"/api/v1/adr/{rev['id']}/request-signatures",
+            json={"user_ids": [str(member.id)]},
+            headers=auth_headers(admin),
+        )
+
+        resp = await client.post(
+            f"/api/v1/adr/{rev['id']}/reject",
+            json={"comment": "No"},
+            headers=auth_headers(member),
+        )
+
+        assert resp.status_code == 200
+        assert (resp.json()["status"], resp.json()["revision_number"]) == ("draft", 2)
+
+    async def test_a_non_signatory_cannot_reject(self, client, db, adr_env):
+        admin, member = adr_env["admin"], adr_env["member"]
+        adr_id = (await _create_adr(client, admin, title="Mine")).json()["id"]
+        await client.post(
+            f"/api/v1/adr/{adr_id}/request-signatures",
+            json={"user_ids": [str(member.id)]},
+            headers=auth_headers(admin),
+        )
+        resp = await client.post(
+            f"/api/v1/adr/{adr_id}/reject", json={"comment": "x"}, headers=auth_headers(admin)
+        )
+        assert resp.status_code == 403
+
+
+# -------------------------------------------------------------------
+# The review lock (PATCH and request-signatures)
+# -------------------------------------------------------------------
+
+
+class TestReviewLock:
+    @pytest.fixture
+    async def in_review(self, client, db, adr_env):
+        admin, member = adr_env["admin"], adr_env["member"]
+        await create_card_type(db, key="Application", label="Application")
+        card = await create_card(db, card_type="Application", name="Billing")
+        adr = (await _create_adr(client, admin, title="Under review")).json()
+        resp = await client.post(
+            f"/api/v1/adr/{adr['id']}/request-signatures",
+            json={"user_ids": [str(member.id)]},
+            headers=auth_headers(admin),
+        )
+        assert resp.json()["status"] == "in_review"
+        return {**adr_env, "adr": adr, "card": card}
+
+    async def test_linked_cards_stay_editable_in_review(self, client, db, in_review):
+        admin, adr, card = in_review["admin"], in_review["adr"], in_review["card"]
+        resp = await client.patch(
+            f"/api/v1/adr/{adr['id']}",
+            json={"linked_card_ids": [str(card.id)]},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert [c["id"] for c in resp.json()["linked_cards"]] == [str(card.id)]
+        assert resp.json()["status"] == "in_review"
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {"title": "Changed"},
+            {"context": "<p>new</p>"},
+            {"decided_on": "2026-01-01"},
+            {"valid_until": None},
+            {"links": []},
+            {"related_decisions": []},
+            {"decision_makers": [{"name": "Board"}]},
+            {"participants": []},
+            {"attributes": {"ext.x": 1}},
+            {"change_summary": "x"},
+            {"status": "archived"},
+            {"linked_card_ids": [], "title": "Sneaky"},
+        ],
+    )
+    async def test_content_is_locked_in_review(self, client, db, in_review, body):
+        admin, adr = in_review["admin"], in_review["adr"]
+        resp = await client.patch(
+            f"/api/v1/adr/{adr['id']}", json=body, headers=auth_headers(admin)
+        )
+        assert resp.status_code == 403
+        assert resp.json()["detail"] == (
+            "Cannot edit a decision in review. Recall the signatures to edit it."
+        )
+        row = await db.get(ArchitectureDecision, uuid.UUID(adr["id"]))
+        await db.refresh(row)
+        assert (row.title, row.status) == ("Under review", "in_review")
+
+    async def test_a_workflow_status_keeps_its_400_in_review(self, client, db, in_review):
+        admin, adr = in_review["admin"], in_review["adr"]
+        resp = await client.patch(
+            f"/api/v1/adr/{adr['id']}",
+            json={"status": "draft", "title": "x"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Use the recall-signatures endpoint to reset to draft"
+
+    async def test_recall_unlocks_editing(self, client, db, in_review):
+        admin, adr = in_review["admin"], in_review["adr"]
+        resp = await client.post(
+            f"/api/v1/adr/{adr['id']}/recall-signatures", headers=auth_headers(admin)
+        )
+        assert resp.json()["status"] == "draft"
+        resp = await client.patch(
+            f"/api/v1/adr/{adr['id']}", json={"title": "Edited"}, headers=auth_headers(admin)
+        )
+        assert resp.status_code == 200
+        assert resp.json()["title"] == "Edited"
+
+    async def test_request_signatures_again_in_review_is_409(self, client, db, in_review):
+        admin, member, adr = in_review["admin"], in_review["member"], in_review["adr"]
+        resp = await client.post(
+            f"/api/v1/adr/{adr['id']}/request-signatures",
+            json={"user_ids": [str(admin.id)]},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 409
+        assert resp.json()["detail"] == {"error": "not_draft"}
+        got = (await client.get(f"/api/v1/adr/{adr['id']}", headers=auth_headers(admin))).json()
+        assert [s["user_id"] for s in got["signatories"]] == [str(member.id)]
+        todos = (
+            (await db.execute(select(Todo).where(Todo.link == f"/ea-delivery/adr/{adr['id']}")))
+            .scalars()
+            .all()
+        )
+        assert len(todos) == 1
 
 
 # -------------------------------------------------------------------
@@ -1078,6 +1655,16 @@ async def test_search_wildcards_are_literal(client, db, adr_env):
 
 
 class TestReferenceSequence:
+    async def test_a_reference_shared_by_a_chain_counts_once(self, client, db, adr_env):
+        """Revisions share their reference; the next decision still gets max+1."""
+        admin = adr_env["admin"]
+        adr_id = (await _create_adr(client, admin, title="One")).json()["id"]
+        await _sign_adr(client, admin, [admin], adr_id)
+        rev = await client.post(f"/api/v1/adr/{adr_id}/revise", headers=auth_headers(admin))
+        assert rev.json()["reference_number"] == "ADR-001"
+        nxt = await _create_adr(client, admin, title="Two")
+        assert nxt.json()["reference_number"] == "ADR-002"
+
     async def test_consecutive_creates_get_consecutive_reference_numbers(self, client, db, adr_env):
         # The route goes through the shared adr_service generator — the same
         # sequence the analysis commit flow and the extension bridge draw from.
@@ -1086,3 +1673,145 @@ class TestReferenceSequence:
         second = await _create_adr(client, admin, title="Two")
         assert first.json()["reference_number"] == "ADR-001"
         assert second.json()["reference_number"] == "ADR-002"
+
+
+class TestListAndEventHelpers:
+    """The list-row, detail and card-event helpers of ``app/api/v1/adr.py``,
+    called directly so each field is pinned without the route around it."""
+
+    async def _decision_with_card(self, db, *, creator=None, card_type="Application"):
+        from app.models.architecture_decision_card import ArchitectureDecisionCard
+
+        card = await create_card(db, card_type=card_type, name=f"{card_type} card")
+        adr = ArchitectureDecision(
+            reference_number=f"ADR-{uuid.uuid4().hex[:6]}",
+            title="Listed",
+            created_by=creator.id if creator else None,
+        )
+        db.add(adr)
+        await db.flush()
+        db.add(ArchitectureDecisionCard(architecture_decision_id=adr.id, card_id=card.id))
+        await db.flush()
+        return adr, card
+
+    async def test_summaries_carry_cards_and_creator_names_by_default(self, db, adr_env):
+        from app.api.v1 import adr as adr_api
+        from app.services import decision_standing as ds
+
+        admin = adr_env["admin"]
+        creator = await create_user(db, email="lister@test.com", display_name="Lister")
+        adr, card = await self._decision_with_card(db, creator=creator)
+        # A card on a decision not asked for must not reach the rows.
+        await self._decision_with_card(db)
+        anonymous = ArchitectureDecision(reference_number="ADR-ANON", title="Nobody's")
+        db.add(anonymous)
+        await db.flush()
+        register = await ds.load_register(db)
+
+        rows = await adr_api._summaries(db, [adr, anonymous], register, admin)
+
+        assert [r["id"] for r in rows] == [str(adr.id), str(anonymous.id)]
+        assert rows[0]["linked_cards"] == [
+            {"id": str(card.id), "name": "Application card", "type": "Application"}
+        ]
+        assert rows[0]["creator_name"] == "Lister"
+        assert (rows[1]["linked_cards"], rows[1]["creator_name"]) == ([], None)
+        assert "participants" not in rows[0]
+
+    async def test_summaries_without_creators_name_nobody(self, db, adr_env):
+        from app.api.v1 import adr as adr_api
+        from app.services import decision_standing as ds
+
+        creator = await create_user(db, email="unnamed@test.com", display_name="Unnamed")
+        adr, _ = await self._decision_with_card(db, creator=creator)
+        rows = await adr_api._summaries(
+            db, [adr], await ds.load_register(db), adr_env["admin"], with_creators=False
+        )
+        assert rows[0]["creator_name"] is None
+        assert rows[0]["created_by"] == str(creator.id)
+
+    async def test_a_module_only_reader_sees_the_linked_cards(self, db, adr_env):
+        """A role with ``adr.view`` but not ``inventory.view`` reads the list in
+        module mode: every linked card is shown."""
+        from app.api.v1 import adr as adr_api
+        from app.services import decision_standing as ds
+
+        await create_role(db, key="adr_only", label="ADR only", permissions={"adr.view": True})
+        reader = await create_user(db, email="adr-only@test.com", role="adr_only")
+        adr, card = await self._decision_with_card(db)
+
+        rows = await adr_api._summaries(db, [adr], await ds.load_register(db), reader)
+
+        assert [c["id"] for c in rows[0]["linked_cards"]] == [str(card.id)]
+
+    async def test_a_card_of_a_hidden_type_is_left_out_of_rows_and_detail(self, db, adr_env):
+        from app.api.v1 import adr as adr_api
+        from app.models.card_type import CardType
+        from app.services import decision_standing as ds
+        from app.services.permission_service import PermissionService
+
+        await create_card_type(db, key="Initiative", label="Initiative")
+        adr, _secret = await self._decision_with_card(db, card_type="Initiative")
+        ct = (await db.execute(select(CardType).where(CardType.key == "Initiative"))).scalar_one()
+        ct.role_permissions = {"member": {"inventory.view": False}}
+        await db.flush()
+        PermissionService.invalidate_type_permission_cache()
+        member = adr_env["member"]
+
+        rows = await adr_api._summaries(db, [adr], await ds.load_register(db), member)
+        detail = await adr_api._detail(db, adr, member)
+
+        assert rows[0]["linked_cards"] == []
+        assert detail["linked_cards"] == []
+
+    async def test_a_summary_without_people_has_empty_lists(self, db, adr_env):
+        from app.api.v1 import adr as adr_api
+        from app.services import decision_standing as ds
+
+        adr = ArchitectureDecision(id=uuid.uuid4(), reference_number="ADR-P", title="No people")
+        register = ds.build_register([], [], today=date(2026, 1, 1))
+
+        plain = adr_api._adr_to_summary(adr, register=register, people={})
+        full = adr_api._adr_to_summary(adr, register=register, people={}, with_participants=True)
+
+        assert plain["decision_makers"] == []
+        assert "participants" not in plain
+        assert (full["decision_makers"], full["participants"]) == ([], [])
+
+    async def test_the_card_event_names_the_revision_and_links_the_decision(self, db, adr_env):
+        from app.api.v1 import adr as adr_api
+        from app.services import adr_service
+
+        adr, card = await self._decision_with_card(db)
+        adr.revision_number = 3
+        await db.flush()
+
+        await adr_api._publish_adr_card_event(
+            db, adr, "adr.linked", card.id, actor_id=adr_env["admin"].id
+        )
+
+        event = (
+            await db.execute(select(Event).where(Event.event_type == "adr.linked"))
+        ).scalar_one()
+        assert event.data == {
+            "adr_id": str(adr.id),
+            "reference_number": adr.reference_number,
+            "revision_number": 3,
+            "title": "Listed",
+            "status": "draft",
+            "link": adr_service.decision_link(adr.id),
+        }
+        assert (event.card_id, event.user_id) == (card.id, adr_env["admin"].id)
+
+    async def test_a_recorder_no_longer_found_has_no_name(self, db, adr_env):
+        from app.api.v1 import adr as adr_api
+        from app.services import decision_standing as ds
+
+        adr, _ = await self._decision_with_card(db)
+        register = await ds.load_register(db)
+        ghost = uuid.uuid4()
+        with db.no_autoflush:
+            adr.recorded_by = ghost
+            detail = await adr_api._adr_to_dict(db, adr, register)
+        assert detail["recorded_by"] == {"user_id": str(ghost), "display_name": None}
+        adr.recorded_by = None

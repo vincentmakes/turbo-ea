@@ -349,7 +349,10 @@ class TestAdrStatusError:
         assert server._adr_status_error("approved", create=create) == {
             "error": "unknown_status",
             "status": "approved",
-            "message": 'ADR statuses are "draft", "in_review", and "signed". ' + tail,
+            "message": 'ADR statuses are "draft", "in_review", and "signed". '
+            + tail
+            + " Standing (in force, superseded, revoked, …) is derived from signed "
+            "decisions and their links, never set.",
         }
 
 

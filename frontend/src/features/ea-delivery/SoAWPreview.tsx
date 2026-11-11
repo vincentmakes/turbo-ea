@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router";
 import { sanitizeRichHtml } from "@/lib/richHtml";
@@ -16,11 +16,18 @@ import { alpha, useTheme } from "@mui/material/styles";
 import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { buildPreviewBody, exportToPdf, PREVIEW_CSS } from "./soawExport";
+import { SoawBanners } from "./DecisionBanners";
+import RevisionStrip, { soawRevisionItems } from "./RevisionStrip";
+import { soawCurrentRevisionId } from "./soawEditorState";
 import { api } from "@/api/client";
+import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { usePageSubject } from "@/hooks/usePageTitle";
 import type { SoAW, SoAWSectionData } from "@/types";
 import { DELIVERABLE_COLORS, RAG_COLORS, WARNING_STRONG_COLOR } from "@/theme/tokens";
+
+/** A revision pointer from the preview stays in the preview. */
+const previewHref = (soawId: string) => `/ea-delivery/soaw/${soawId}/preview`;
 
 const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> = {
   draft: "default",
@@ -50,21 +57,24 @@ export default function SoAWPreview() {
   const [error, setError] = useState("");
   const [snack, setSnack] = useState("");
 
-  useEffect(() => {
-    if (!id) return;
-    const load = async () => {
+  // Re-keyed on in-page revision navigation: only the latest load may fill
+  // the page, so a late reply for the revision just left is dropped.
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      if (!id) return;
       setLoading(true);
+      setError("");
       try {
-        const data = await api.get<SoAW>(`/soaw/${id}`);
-        setSoaw(data);
+        const data = await api.get<SoAW>(`/soaw/${id}`, { signal });
+        if (isCurrent()) setSoaw(data);
       } catch (e) {
-        setError(e instanceof Error ? e.message : t("editor.error.loadFailed"));
+        if (isCurrent()) setError(e instanceof Error ? e.message : t("editor.error.loadFailed"));
       } finally {
-        setLoading(false);
+        if (isCurrent()) setLoading(false);
       }
-    };
-    load();
-  }, [id]);
+    },
+    [id],
+  );
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href).then(
@@ -185,6 +195,20 @@ export default function SoAWPreview() {
             {t("common:actions.edit")}
           </Button>
         )}
+      </Box>
+
+      {/* Chain pointers and the revision strip (links open the preview). */}
+      <Box
+        className="no-print"
+        sx={{ maxWidth: 960, mx: "auto", mb: 2, display: "flex", flexDirection: "column", gap: 1 }}
+      >
+        <SoawBanners soaw={soaw} mode="preview" hrefFor={previewHref} />
+        <RevisionStrip
+          items={soawRevisionItems(soaw.revisions ?? [], t)}
+          activeId={soaw.id}
+          currentId={soawCurrentRevisionId(soaw)}
+          hrefFor={previewHref}
+        />
       </Box>
 
       {/* Styled preview content */}

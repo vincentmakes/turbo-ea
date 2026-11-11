@@ -299,7 +299,18 @@ async def require_card_permission(
 #   grant (``core.surveys.write`` implies it); archived cards are left out,
 #   matching the data bridge's default.
 
-SDK_VERSION = "1.16"
+# 1.17: decision standing on ``ExtDecision``. Six trailing fields, all with
+#   defaults so a positional eight-argument construction still works:
+#   ``standing`` (``scheduled`` / ``in_force`` / ``amended`` / ``superseded`` /
+#   ``revoked`` / ``expired``, ``None`` while unsigned), ``is_current`` (the
+#   revision its chain counts as current — a revision now keeps its decision's
+#   reference, so a reference can name several rows), the ISO dates
+#   ``decided_on`` / ``effective_from`` / ``valid_until`` and ``recorded`` (a
+#   decision recorded as already decided rather than signed in the app).
+#   ``status`` keeps its three values. ``create_draft(related_decisions=)``
+#   is unchanged; its entries are now stored as ``relates`` links.
+
+SDK_VERSION = "1.17"
 
 
 @dataclass(frozen=True)
@@ -563,7 +574,13 @@ class ExtEolStatus:
 @dataclass(frozen=True)
 class ExtDecision:
     """Read model returned by the decisions bridge (SDK 1.8). Wire-shaped:
-    string ids, ISO timestamps, a plain ``attributes`` dict copy."""
+    string ids, ISO timestamps and dates, a plain ``attributes`` dict copy.
+
+    The trailing fields (SDK 1.17) are derived by core's decision register:
+    ``standing`` is ``None`` for a decision that is not signed; ``is_current``
+    is True for exactly one revision of each decision; ``recorded`` marks a
+    decision recorded as already decided instead of signed in the app.
+    """
 
     id: str
     reference_number: str
@@ -573,6 +590,12 @@ class ExtDecision:
     linked_card_ids: tuple[str, ...]
     attributes: dict[str, Any]
     created_at: str | None
+    standing: str | None = None
+    is_current: bool = True
+    decided_on: str | None = None
+    effective_from: str | None = None
+    valid_until: str | None = None
+    recorded: bool = False
 
 
 class DecisionsBridge(Protocol):

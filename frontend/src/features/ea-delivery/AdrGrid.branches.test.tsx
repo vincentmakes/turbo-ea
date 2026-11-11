@@ -150,16 +150,24 @@ describe("AdrGrid cell renderers", () => {
     expect(container.querySelector("[aria-label='Signed']")).not.toBeNull();
   });
 
-  it("falls back to the raw status for an unknown one", () => {
+  it("reads an unknown status as the vocabulary's draft", () => {
     renderGrid();
     const odd = adr({ status: "archived" as ArchitectureDecision["status"] });
     const { container } = renderCell("reference", odd)!;
-    expect(container.querySelector("[aria-label='archived']")).not.toBeNull();
+    expect(container.querySelector("[aria-label='Draft']")).not.toBeNull();
     const statusGetter = gridStub.colDef("status").valueGetter;
-    expect(statusGetter({ data: odd })).toBe("archived");
+    expect(statusGetter({ data: odd })).toBe("Draft");
     expect(statusGetter({ data: undefined })).toBe("");
     const { getByText } = renderCell("status", odd)!;
-    expect(getByText("archived")).toBeInTheDocument();
+    expect(getByText("Draft")).toBeInTheDocument();
+  });
+
+  it("reads a recorded decision's status as Recorded", () => {
+    renderGrid();
+    const recorded = adr({ status: "signed", recorded_at: "2026-03-01T10:00:00Z" });
+    expect(gridStub.colDef("status").valueGetter({ data: recorded })).toBe("Recorded");
+    const { getByText } = renderCell("status", recorded)!;
+    expect(getByText("Recorded")).toBeInTheDocument();
   });
 
   it("renders a translated status chip and nothing without data", () => {

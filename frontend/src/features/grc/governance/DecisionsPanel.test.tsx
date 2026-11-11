@@ -106,6 +106,12 @@ vi.mock("@/features/ea-delivery/AdrGrid", () => ({
       ))}
       <button type="button" data-testid="export-all" onClick={() => onExport(adrs)} />
       <button type="button" data-testid="export-none" onClick={() => onExport([])} />
+      {/* A selection holding a row the filters no longer show. */}
+      <button
+        type="button"
+        data-testid="export-with-hidden"
+        onClick={() => onExport([...adrs, { id: "hidden-row" } as ArchitectureDecision])}
+      />
       <button type="button" data-testid="quick" onClick={() => onQuickFilterChange("sso")} />
       <button type="button" data-testid="grid-freeze" onClick={() => onFrozenColumnsChange?.(["title"])} />
     </div>
@@ -116,7 +122,7 @@ vi.mock("@/features/ea-delivery/AdrFilterSidebar", async () => {
   const actual = await vi.importActual<typeof import("@/features/ea-delivery/AdrFilterSidebar")>(
     "@/features/ea-delivery/AdrFilterSidebar",
   );
-  type Filters = import("@/features/ea-delivery/AdrFilterSidebar").AdrFilters;
+  type Filters = import("@/features/ea-delivery/adrRegisterFilters").AdrFilters;
   return {
     ...actual,
     default: ({
@@ -161,6 +167,7 @@ vi.mock("@/features/ea-delivery/AdrFilterSidebar", async () => {
         data-types={JSON.stringify(availableCardTypes)}
         data-cards={JSON.stringify(availableLinkedCards)}
         data-signatories={JSON.stringify(availableSignatories)}
+        data-filters={JSON.stringify(filters)}
         data-hidden={[...hiddenColumns].join(",")}
         data-frozen={[...frozenColumns].join(",")}
         data-order={columnOrder.join(",")}
@@ -687,6 +694,7 @@ describe("DecisionsPanel — date bounds", () => {
       created_at: "2026-04-01",
       updated_at: "2026-04-02",
       signed_at: "2026-04-03",
+      decided_on: "2025-11-20",
     }),
     makeAdr({
       id: "b2",
@@ -694,11 +702,23 @@ describe("DecisionsPanel — date bounds", () => {
       created_at: "2026-04-10T23:59:59",
       updated_at: "2026-04-11T23:59:59",
       signed_at: "2026-04-12T23:59:59",
+      decided_on: "2026-04-12",
     }),
   ];
 
   beforeEach(() => {
     mockApi.on("get", "/adr", BOUNDARY);
+  });
+
+  it("filters on the decided date, both bounds inclusive", async () => {
+    const { user } = renderPanel();
+    await waitFor(() => expect(gridIds()).toBe("b1,b2"));
+    await applyFilters(user, { dateDecidedFrom: "2025-11-21" });
+    expect(gridIds()).toBe("b2");
+    await applyFilters(user, { dateDecidedFrom: "", dateDecidedTo: "2025-11-20" });
+    expect(gridIds()).toBe("b1");
+    await applyFilters(user, { dateDecidedFrom: "2026-04-12", dateDecidedTo: "2026-04-12" });
+    expect(gridIds()).toBe("b2");
   });
 
   it("includes a decision stamped exactly on a From date", async () => {
@@ -814,7 +834,7 @@ describe("DecisionsPanel — failures that are not API errors", () => {
 });
 
 describe("DecisionsPanel — spreadsheet export and import", () => {
-  const FULL = "/adr?include_content=true";
+  const FULL = "/adr?include_content=true&include_earlier=false";
 
   it("exports the rows the filters show, with their content, in on-screen order", async () => {
     mockApi.on(
@@ -899,3 +919,83 @@ describe("DecisionsPanel — spreadsheet export and import", () => {
     expect(screen.queryByTestId("import-dialog")).not.toBeInTheDocument();
   });
 });
+
+describe("DecisionsPanel — decision register", () => {
+  const REGISTER: ArchitectureDecision[] = [
+    makeAdr({ id: "r1", status: "signed", standing: "superseded", is_earlier_revision: true }),
+    makeAdr({ id: "r2", status: "signed", standing: "in_force", is_current: true }),
+    makeAdr({ id: "r3", status: "draft", standing: null }),
+    makeAdr({ id: "r4", status: "signed", standing: "amended" }),
+    makeAdr({ id: "r5", status: "signed", standing: "revoked" }),
+  ];
+
+  beforeEach(() => {
+    mockApi.on("get", "/adr", REGISTER);
+  });
+
+  it("loads the register once and starts with earlier revisions hidden", async () => {
+    renderPanel();
+    await waitFor(() => expect(gridIds()).toBe("r2,r3,r4,r5"));
+    expect(mockApi.callsOf("get", "/adr")).toHaveLength(1);
+    expect(JSON.parse(sidebar().getAttribute("data-filters")!)).toMatchObject({
+      standings: [],
+      showEarlierRevisions: false,
+    });
+  });
+
+  it("shows the earlier revisions when the switch is on, without fetching again", async () => {
+    const { user } = renderPanel();
+    await waitFor(() => expect(gridIds()).toBe("r2,r3,r4,r5"));
+    await applyFilters(user, { showEarlierRevisions: true });
+    expect(gridIds()).toBe("r1,r2,r3,r4,r5");
+    await applyFilters(user, { showEarlierRevisions: false });
+    expect(gridIds()).toBe("r2,r3,r4,r5");
+    expect(mockApi.callsOf("get", "/adr")).toHaveLength(1);
+  });
+
+  it("filters on standing, the In force preset and unsigned decisions", async () => {
+    const { user } = renderPanel();
+    await waitFor(() => expect(gridIds()).toBe("r2,r3,r4,r5"));
+    await applyFilters(user, { standings: ["in_force", "amended"] });
+    expect(gridIds()).toBe("r2,r4");
+    await applyFilters(user, { standings: ["none"] });
+    expect(gridIds()).toBe("r3");
+    await applyFilters(user, { standings: ["superseded"] });
+    expect(gridIds()).toBe("");
+    await applyFilters(user, { standings: ["superseded"], showEarlierRevisions: true });
+    expect(gridIds()).toBe("r1");
+  });
+
+  it("exports the sheet with the earlier revisions only when they are shown", async () => {
+    const withEarlier = "/adr?include_content=true&include_earlier=true";
+    const withoutEarlier = "/adr?include_content=true&include_earlier=false";
+    mockApi.on("get", withEarlier, REGISTER);
+    mockApi.on("get", withoutEarlier, REGISTER.slice(1));
+    const { user } = renderPanel();
+    await waitFor(() => expect(gridIds()).toBe("r2,r3,r4,r5"));
+
+    await user.click(screen.getByRole("button", { name: /^download Export$/ }));
+    await waitFor(() => expect(exportAdrsToXlsx).toHaveBeenCalledTimes(1));
+    expect(mockApi.callsOf("get", withoutEarlier)).toHaveLength(1);
+    expect(mockApi.callsOf("get", withEarlier)).toHaveLength(0);
+
+    await applyFilters(user, { showEarlierRevisions: true });
+    await user.click(screen.getByRole("button", { name: /^download Export$/ }));
+    await waitFor(() => expect(exportAdrsToXlsx).toHaveBeenCalledTimes(2));
+    expect(mockApi.callsOf("get", withEarlier)).toHaveLength(1);
+    const exported = vi.mocked(exportAdrsToXlsx).mock.calls[1][0];
+    expect(exported.map((a) => a.id)).toEqual(["r1", "r2", "r3", "r4", "r5"]);
+  });
+
+  it("exports to Word only the selected rows the filters still show", async () => {
+    mockApi.on("get", /^\/adr\/r\d$/, (p) => REGISTER.find((a) => p.endsWith(a.id)));
+    const { user } = renderPanel();
+    await waitFor(() => expect(gridIds()).toBe("r2,r3,r4,r5"));
+    await user.click(screen.getByTestId("export-with-hidden"));
+    await waitFor(() => expect(exportAdrsToDocx).toHaveBeenCalledTimes(1));
+    const exported = vi.mocked(exportAdrsToDocx).mock.calls[0][0];
+    expect(exported.map((a) => a.id)).toEqual(["r2", "r3", "r4", "r5"]);
+    expect(mockApi.callsOf("get", "/adr/hidden-row")).toHaveLength(0);
+  });
+});
+

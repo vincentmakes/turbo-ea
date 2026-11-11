@@ -302,15 +302,18 @@ export default function EaDeliveryReport() {
           </ListItemIcon>
           <ListItemText>{t("menu.edit")}</ListItemText>
         </MenuItem>
-        <MenuItem
-          onClick={() => ctxMenu && handleDeleteSoaw(ctxMenu.soaw.id)}
-          sx={{ color: "error.main" }}
-        >
-          <ListItemIcon>
-            <MaterialSymbol icon="delete" size={18} color={RAG_COLORS.red} />
-          </ListItemIcon>
-          <ListItemText>{t("menu.delete")}</ListItemText>
-        </MenuItem>
+        {/* Only a draft can be deleted (the API refuses anything else). */}
+        {ctxMenu?.soaw.status === "draft" && (
+          <MenuItem
+            onClick={() => ctxMenu && handleDeleteSoaw(ctxMenu.soaw.id)}
+            sx={{ color: "error.main" }}
+          >
+            <ListItemIcon>
+              <MaterialSymbol icon="delete" size={18} color={RAG_COLORS.red} />
+            </ListItemIcon>
+            <ListItemText>{t("menu.delete")}</ListItemText>
+          </MenuItem>
+        )}
       </Menu>
 
       {/* SoAW create dialog (lifted to features/ea-delivery/CreateSoAWDialog) */}

@@ -24,6 +24,7 @@ Clique em qualquer notificação para navegar diretamente até o card ou documen
 | **Status de aprovação alterado** | O status de aprovação de um card muda (aprovado, rejeitado, quebrado) |
 | **Assinatura de SoAW solicitada** | Você é solicitado a assinar um Statement of Architecture Work |
 | **SoAW assinado** | Um SoAW que você acompanha recebe uma assinatura |
+| **Vigência de ADR alterada** | Uma decisão assinada substitui, altera ou revoga uma decisão que você escreveu |
 | **Solicitação de pesquisa** | Uma pesquisa é enviada que requer sua resposta |
 
 **Status de aprovação alterado** também abrange o caso automático. Um card

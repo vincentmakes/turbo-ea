@@ -85,7 +85,68 @@ describe("adrRow", () => {
       "2026-10-02",
       "2026-09-30",
       "2026-10-01",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
     ]);
+  });
+
+  it("writes the register facts after the existing columns", () => {
+    const row = adrRow({
+      ...ADR,
+      standing: "amended",
+      decided_on: "2026-10-01",
+      effective_from: "2026-10-05",
+      valid_until: "2027-10-01",
+      decision_makers: [
+        { user_id: "u2", display_name: "Bob" },
+        { user_id: null, display_name: "The Board" },
+      ],
+      participants: [{ user_id: "u3", display_name: "Cy" }],
+      link_references: {
+        replaces: ["ADR-003"],
+        amends: ["ADR-004", "ADR-005"],
+        revokes: [],
+        consolidates: ["ADR-006"],
+      },
+    });
+    const at = (col: (typeof ADR_COLUMNS)[number]) => row[ADR_COLUMNS.indexOf(col)];
+    expect(ADR_COLUMNS.slice(15)).toEqual([
+      "standing",
+      "decided_on",
+      "effective_from",
+      "valid_until",
+      "decision_makers",
+      "participants",
+      "replaces",
+      "amends",
+      "revokes",
+      "consolidates",
+    ]);
+    expect(at("related_decisions")).toBe("ADR-001; ADR-002");
+    expect(at("standing")).toBe("amended");
+    expect(at("decided_on")).toBe("2026-10-01");
+    expect(at("effective_from")).toBe("2026-10-05");
+    expect(at("valid_until")).toBe("2027-10-01");
+    expect(at("decision_makers")).toBe("Bob; The Board");
+    expect(at("participants")).toBe("Cy");
+    expect(at("replaces")).toBe("ADR-003");
+    expect(at("amends")).toBe("ADR-004; ADR-005");
+    expect(at("revokes")).toBe("");
+    expect(at("consolidates")).toBe("ADR-006");
+    expect(row).toHaveLength(ADR_COLUMNS.length);
+  });
+
+  it("leaves a link kind blank when the row carries no link references", () => {
+    const row = adrRow({ ...ADR, link_references: { replaces: ["ADR-003"] } });
+    expect(row.slice(-4)).toEqual(["ADR-003", "", "", ""]);
   });
 
   it("leaves optional facts blank", () => {
@@ -115,12 +176,14 @@ describe("exportAdrsToXlsx", () => {
     const header = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets.Decisions, { header: 1 })[0];
     expect(header).toEqual([...ADR_COLUMNS]);
 
+    // The register columns are export-only: the importer ignores them.
     expect(parseAdrWorkbook(bytes(wb))).toEqual([
       {
         row_index: 1,
         reference_number: "ADR-007",
         title: "Adopt Kafka",
         status: "signed",
+        revision_number: "2",
         context: "<p>Batch is slow</p>",
         decision: "<p>Stream events</p>",
         consequences: "<ul><li>Faster</li><li>New platform</li></ul>",
@@ -132,6 +195,38 @@ describe("exportAdrsToXlsx", () => {
 });
 
 describe("parseAdrWorkbook", () => {
+  it("sends a row's revision number, so the backend imports the latest of a reference", () => {
+    const items = parseAdrWorkbook(
+      sheetBuffer([
+        ["reference_number", "title", "revision_number"],
+        ["ADR-012", "Rev one", "1"],
+        ["ADR-012", "Rev two", "2"],
+        ["ADR-013", "No revision", ""],
+      ]),
+    );
+    expect(items).toEqual([
+      { row_index: 1, reference_number: "ADR-012", title: "Rev one", revision_number: "1", card_names: [], related_references: [] },
+      { row_index: 2, reference_number: "ADR-012", title: "Rev two", revision_number: "2", card_names: [], related_references: [] },
+      { row_index: 3, reference_number: "ADR-013", title: "No revision", card_names: [], related_references: [] },
+    ]);
+    expect("revision_number" in items[2]).toBe(false);
+  });
+
+  it("ignores the register columns: an import creates drafts only", () => {
+    const [item] = parseAdrWorkbook(
+      sheetBuffer([
+        ["title", "standing", "decided_on", "decision_makers", "replaces", "related_decisions"],
+        ["Use Postgres", "in_force", "2026-01-01", "Bob", "ADR-003", "ADR-009"],
+      ]),
+    );
+    expect(item).toEqual({
+      row_index: 1,
+      title: "Use Postgres",
+      card_names: [],
+      related_references: ["ADR-009"],
+    });
+  });
+
   it("reads a minimal sheet and leaves blank sections out", () => {
     expect(
       parseAdrWorkbook(

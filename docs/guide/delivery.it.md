@@ -54,13 +54,21 @@ L'editor fornisce:
 | Stato | Significato |
 |-------|-------------|
 | **Draft** | In fase di scrittura, non ancora pronto per la revisione |
-| **In Review** | Inviato per la revisione degli stakeholder |
+| **In Review** | Inviato per la firma — bloccato finché le firme non vengono ritirate |
 | **Approved** | Revisionato e accettato |
 | **Signed** | Formalmente firmato |
 
 ### Workflow di firma
 
-Una volta approvato un SoAW, potete richiedere le firme dagli stakeholder. Cliccate su **Richiedi firme** e utilizzate il campo di ricerca per trovare e aggiungere firmatari per nome o e-mail. Il sistema traccia chi ha firmato e invia notifiche ai firmatari in attesa.
+Da un SoAW in bozza o approvato, potete richiedere le firme dagli stakeholder. Cliccate su **Richiedi firme** e utilizzate il campo di ricerca per trovare e aggiungere firmatari per nome o e-mail. Il sistema traccia chi ha firmato e invia notifiche ai firmatari in attesa.
+
+Un SoAW in revisione è **bloccato**, così i firmatari firmano esattamente ciò che è stato loro inviato: solo la sua iniziativa può ancora cambiare. Per modificarne il contenuto, cliccate su **Ritirare le firme**, che lo riporta in bozza. Anche un firmatario che clicca su **Rifiutare** lo riporta in bozza, con lo stesso numero di revisione. Solo un SoAW in bozza può essere eliminato.
+
+### Revisioni
+
+Un SoAW firmato è in sola lettura. Cliccate su **Nuova revisione** per avviare una nuova bozza a partire da esso, con lo stesso nome e il numero di revisione successivo. Esiste una sola revisione aperta alla volta: mentre una revisione è in fase di redazione, il SoAW firmato lo segnala e offre **Apri la revisione** invece di avviarne un'altra. Solo l'ultima revisione può essere revisionata, e un rifiuto non cambia il numero di revisione.
+
+Una revisione precedente mostra un banner con un collegamento a quella corrente, e la striscia **Revisioni** su ogni revisione le elenca tutte. Gli elenchi di SoAW — i deliverable dell'iniziativa, la scheda SoAW, il report EA Delivery — mostrano la revisione corrente di ogni documento e l'eventuale revisione in fase di redazione.
 
 ### Anteprima ed esportazione
 
@@ -72,7 +80,7 @@ Una volta approvato un SoAW, potete richiedere le firme dagli stakeholder. Clicc
 
 ![Card iniziativa — scheda SoAW](../assets/img/it/55_iniziativa_soaw_tab.png)
 
-Le iniziative espongono inoltre una scheda **SoAW** dedicata direttamente nella loro pagina di dettaglio. La scheda elenca ogni SoAW collegato a quell'iniziativa (titolo, chip di stato, numero di revisione, data dell'ultima modifica) con un pulsante **+ Nuovo SoAW** che preseleziona l'iniziativa corrente — così è possibile redigere o saltare a un SoAW senza lasciare la card su cui si sta lavorando. La creazione riutilizza lo stesso dialogo della pagina EA Delivery, e il nuovo documento compare in entrambi i posti. La visibilità della scheda segue le regole standard di permesso sulle card.
+Le iniziative espongono inoltre una scheda **SoAW** dedicata direttamente nella loro pagina di dettaglio. La scheda elenca la revisione corrente di ogni SoAW collegato a quell'iniziativa, più l'eventuale revisione in fase di redazione (titolo, chip di stato, numero di revisione, data dell'ultima modifica) con un pulsante **+ Nuovo SoAW** che preseleziona l'iniziativa corrente — così è possibile redigere o saltare a un SoAW senza lasciare la card su cui si sta lavorando. La creazione riutilizza lo stesso dialogo della pagina EA Delivery, e il nuovo documento compare in entrambi i posti. La visibilità della scheda segue le regole standard di permesso sulle card.
 
 ## Architecture Decision Records (ADR)
 

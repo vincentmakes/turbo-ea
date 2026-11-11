@@ -43,7 +43,7 @@ La subpestaña **Seguridad y administración** muestra una entrada por cada acci
 - bloqueos de cuenta tras fallos repetidos;
 - registros de cuentas, y contraseñas establecidas, restablecidas o cambiadas;
 - suplantación de rol — un administrador que inicia y detiene **Ver como rol…**;
-- acciones administrativas — cambios en usuarios, roles, ajustes, el metamodelo, etiquetas, cálculos, extensiones, importaciones, integraciones, portales públicos y diagramas publicados, encuestas y el acceso de operador (consulte [Acciones administrativas](#administrative-actions));
+- acciones administrativas — cambios en usuarios, roles, ajustes, el metamodelo, etiquetas, cálculos, extensiones, importaciones, integraciones, portales públicos y diagramas publicados, encuestas, decisiones registradas como decididas y el acceso de operador (consulte [Acciones administrativas](#administrative-actions));
 - exportaciones de datos — las exportaciones CSV y JSON de fichas, las exportaciones del espacio de trabajo y las exportaciones para otra plataforma de EA (consulte [Exportaciones de datos](#data-exports)) — y las exportaciones de este mismo registro.
 
 ### Columnas
@@ -156,6 +156,7 @@ Un guardado que no cambia nada no se registra, como tampoco un usuario que edita
 | **Exposición pública** | `admin.web_portal.created`, `.updated`, `.deleted`; `admin.diagram.published`, `.unpublished` | [Portales web](web-portals.md) y diagramas publicados — todo lo que hace que los datos sean accesibles sin una cuenta |
 | **Paneles de la página de inicio** | `admin.dashboard.created`, `.updated`, `.deleted`, `.duplicated`, `.reset` | [Paneles](../guide/dashboard.md#customizing-dashboards) creados, editados, eliminados, duplicados o restablecidos a los valores predeterminados, con el nombre, la descripción, el icono, la visibilidad, el orden y los roles de acceso modificados; cada widget añadido o eliminado se enumera por su nombre (mover o cambiar el tamaño de un widget no se registra) |
 | **Encuestas** | `admin.survey.sent`, `admin.survey.closed` | Una encuesta enviada a sus destinatarios, o cerrada |
+| **Decisiones de arquitectura** | `admin.adr.recorded` | Una decisión tomada fuera de Turbo EA y [registrada como decidida](../guide/grc.md#recording-a-past-decision) sin firmas, con sus fechas «Decidida el» y «Vigente desde» y sus responsables de la decisión |
 | **Acceso de operador** | `admin.ops.rescue_access.granted`, `.revoked` | Acceso de rescate concedido o revocado a través de la [API de operaciones](ops-api.md), registrado junto a los eventos `ops.*` existentes |
 
 ### Exportaciones de datos { #data-exports }

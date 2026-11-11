@@ -2,8 +2,10 @@
  * Print / PDF view of a single Architecture Decision Record.
  *
  * Builds the same content, in the same order, as the Word export in
- * `adrExport.ts` (metadata, the four sections, linked cards, extension
- * sections, signatures) as an HTML body for the shared pop-up print path in
+ * `adrExport.ts` (facts, change summary, the four sections, linked decisions,
+ * files, linked cards, extension sections, signatures or the recorded line)
+ * from the shared `adrDocumentFacts.ts`, as an HTML body for the shared
+ * pop-up print path in
  * `@/lib/printDocument`. Kept free of `docx` so the preview and editor chunks
  * can import it statically.
  */
@@ -23,56 +25,35 @@ import {
   section,
   signatureBlock,
   tableHtml,
+  textBlock,
   writePrintDocument,
   type PrintDocumentOptions,
 } from "@/lib/printDocument";
 import type { ArchitectureDecision } from "@/types";
+import {
+  adrFactRows,
+  adrFileNames,
+  adrHeading,
+  adrLinkHeaders,
+  adrLinkRows,
+  adrRecordedLine,
+  type ExportableDecision,
+} from "./adrDocumentFacts";
 
 const t = (key: string, opts?: Record<string, unknown>) =>
   String(i18n.t(`delivery:${key}`, opts as never));
 
-function statusLabel(status: string): string {
-  if (status === "draft") return t("status.draft");
-  if (status === "in_review") return t("status.inReview");
-  if (status === "signed") return t("status.signed");
-  return status;
-}
-
 /** The inner HTML body for one ADR. Pure; exported for tests. */
-export function buildAdrPrintBody(adr: ArchitectureDecision): string {
+export function buildAdrPrintBody(adr: ExportableDecision): string {
   const fmt = getCachedDateFormat();
   const date = (iso: string | null | undefined) => (iso ? formatDateWith(fmt, iso) : "");
   const dateTime = (iso: string) => formatDateTimeWith(fmt, iso);
 
-  // The SoAW cover: document type, then the record's name and revision.
-  const revLabel =
-    adr.revision_number && adr.revision_number > 1
-      ? t("export.revision", { number: adr.revision_number })
-      : "";
-  let html = documentHeader(
-    t("adr.export.documentTitle"),
-    `${adr.reference_number} — ${adr.title}${revLabel}`,
-  );
+  // The SoAW cover: document type, then "ADR-012 · Rev 2 — title".
+  let html = documentHeader(t("adr.export.documentTitle"), adrHeading(adr, t));
 
-  const signedNames = (adr.signatories ?? [])
-    .filter((s) => s.status === "signed")
-    .map((s) => s.display_name)
-    .filter(Boolean);
-  html += section(
-    t("export.documentInfo"),
-    metaTable([
-      [t("adr.grid.status"), statusLabel(adr.status)],
-      [t("adr.grid.createdBy"), adr.creator_name ?? ""],
-      [t("adr.grid.created"), date(adr.created_at)],
-      [t("adr.grid.lastModified"), date(adr.updated_at)],
-      [t("adr.grid.signed"), date(adr.signed_at)],
-      [
-        t("adr.export.revisionLabel"),
-        adr.revision_number && adr.revision_number > 1 ? String(adr.revision_number) : "",
-      ],
-      [t("adr.grid.signedBy"), signedNames.join(", ")],
-    ]),
-  );
+  html += section(t("export.documentInfo"), metaTable(adrFactRows(adr, t, date)));
+  html += section(t("adr.export.changeSummary"), textBlock(adr.change_summary));
 
   const rich = (title: string, content: string | null) =>
     htmlIsEmpty(content) ? "" : section(title, content ?? "");
@@ -80,6 +61,15 @@ export function buildAdrPrintBody(adr: ArchitectureDecision): string {
   html += rich(t("adr.decision"), adr.decision);
   html += rich(t("adr.consequences"), adr.consequences);
   html += rich(t("adr.alternativesConsidered"), adr.alternatives_considered);
+
+  html += section(t("adr.export.links"), tableHtml(adrLinkHeaders(t), adrLinkRows(adr, t)));
+  html += section(
+    t("adr.export.files"),
+    tableHtml(
+      [t("adr.export.fileName")],
+      adrFileNames(adr).map((name) => [name]),
+    ),
+  );
 
   const linked = adr.linked_cards ?? [];
   html += section(
@@ -106,6 +96,13 @@ export function buildAdrPrintBody(adr: ArchitectureDecision): string {
       if (s.table && s.table.headers.length > 0) inner += tableHtml(s.table.headers, s.table.rows);
       html += section(s.heading, inner || "<p></p>");
     }
+  }
+
+  // A recorded decision was not signed here: one line replaces the block.
+  const recorded = adrRecordedLine(adr, t, date);
+  if (recorded) {
+    html += section(t("export.signatures"), `<p>${escapeHtml(recorded)}</p>`);
+    return html;
   }
 
   html += signatureBlock(
@@ -138,7 +135,7 @@ export function adrPrintDocument(adr: ArchitectureDecision): PrintDocumentOption
     parts.push(t("export.printed", { date: formatDateWith(fmt, new Date()) }));
   }
   return {
-    title: `${adr.reference_number} — ${adr.title}`,
+    title: adrHeading(adr, t),
     bodyHtml: buildAdrPrintBody(adr),
     footerParts: parts,
   };

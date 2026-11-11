@@ -26,6 +26,7 @@ from __future__ import annotations
 import functools
 import uuid
 from dataclasses import dataclass, field
+from datetime import timezone
 from typing import Any
 
 from sqlalchemy import exists, or_, select
@@ -36,6 +37,8 @@ from app.core.permissions import (
     strip_legacy_card_permissions,
 )
 from app.models.app_settings import AppSettings
+from app.models.architecture_decision import ArchitectureDecision
+from app.models.architecture_decision_link import ArchitectureDecisionLink
 from app.models.bookmark import Bookmark, bookmark_shares
 from app.models.card import Card
 from app.models.card_type import CardType
@@ -48,7 +51,7 @@ from app.models.role import Role
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
-from app.services import card_reference, card_type_categories
+from app.services import card_reference, card_type_categories, decision_links_legacy
 from app.services.card_resolver import CardResolver
 from app.services.email_backends.runtime import apply_email_settings_to_runtime
 from app.services.principle_service import ensure_principle_references
@@ -292,10 +295,16 @@ async def _run(
             remap_ctx = await _load_remap_context(
                 db, bundle, id_map, ent_resolver, wanted_entity_sections
             )
+        # An older bundle's decisions carry ``related_decisions``: note which
+        # decisions exist before the entity pass, so only the ones it creates
+        # are given their links and dates afterwards.
+        adr_ids_before = await _legacy_adr_baseline(db, bundle) if _wanted(SHEET_ADRS) else None
         for ent in wanted_entity_sections:
             sr = SectionResult(sheet=ent.sheet)
             result.sections.append(sr)
             await apply_entity_section(db, ent, bundle, sr, ent_resolver, email_to_id, remap_ctx)
+        if adr_ids_before is not None:
+            await _apply_legacy_decisions(db, bundle, result, adr_ids_before)
 
         if _wanted(SHEET_DIAGRAM_CARDS):
             sr = SectionResult(sheet=SHEET_DIAGRAM_CARDS)
@@ -344,6 +353,85 @@ async def _run(
         PermissionService.invalidate_srd_cache()
         PermissionService.invalidate_type_permission_cache()
     return result
+
+
+SHEET_ADRS = "Adrs"
+SHEET_ADR_LINKS = "AdrLinks"
+
+
+async def _legacy_adr_baseline(db: AsyncSession, bundle: WorkspaceBundle) -> set[uuid.UUID] | None:
+    """The decision ids already on this instance, when ``bundle`` is an older
+    one whose ``Adrs`` sheet still carries ``related_decisions``; else ``None``."""
+    rows = bundle.rows(SHEET_ADRS)
+    if not any(decision_links_legacy.LEGACY_COLUMN in row for row in rows):
+        return None
+    return set((await db.execute(select(ArchitectureDecision.id))).scalars().all())
+
+
+async def _apply_legacy_decisions(
+    db: AsyncSession,
+    bundle: WorkspaceBundle,
+    result: ApplyResult,
+    ids_before: set[uuid.UUID],
+) -> None:
+    """Bring the decisions an older bundle just created up to the register.
+
+    Each ``related_decisions`` entry that names a decision of the bundle
+    becomes a ``relates`` link (``decision_links_legacy.plan_bundle_links``:
+    self links, missing targets and pairs already linked are skipped), counted
+    as created on the ``AdrLinks`` section; and a signed decision's empty
+    ``decided_on`` / ``effective_from`` take the UTC date of ``signed_at``, as
+    migration 167 did for the decisions already stored (not counted: those
+    rows are counted as created by the ``Adrs`` section). Only decisions this
+    import created are touched, so a re-import changes nothing. Runs in the
+    dry run too: the preview's savepoint rolls it back.
+    """
+    present = set((await db.execute(select(ArchitectureDecision.id))).scalars().all())
+    created = present - ids_before
+    if not created:
+        return
+    existing = (
+        await db.execute(
+            select(ArchitectureDecisionLink.source_id, ArchitectureDecisionLink.target_id).where(
+                ArchitectureDecisionLink.source_id.in_(created)
+            )
+        )
+    ).all()
+    pairs = decision_links_legacy.plan_bundle_links(
+        bundle.rows(SHEET_ADRS),
+        created_ids=created,
+        present_ids=present,
+        existing_pairs=[(row[0], row[1]) for row in existing],
+    )
+    if pairs:
+        sr = next((s for s in result.sections if s.sheet == SHEET_ADR_LINKS), None)
+        if sr is None:
+            sr = SectionResult(sheet=SHEET_ADR_LINKS)
+            result.sections.append(sr)
+        for source, target in pairs:
+            db.add(ArchitectureDecisionLink(source_id=source, target_id=target, kind="relates"))
+            sr.created += 1
+
+    signed = (
+        (
+            await db.execute(
+                select(ArchitectureDecision).where(
+                    ArchitectureDecision.id.in_(created),
+                    ArchitectureDecision.status == "signed",
+                    ArchitectureDecision.signed_at.is_not(None),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for adr in signed:
+        signed_on = adr.signed_at.astimezone(timezone.utc).date()
+        if adr.decided_on is None:
+            adr.decided_on = signed_on
+        if adr.effective_from is None:
+            adr.effective_from = signed_on
+    await db.flush()
 
 
 async def _load_entity_context(db) -> tuple[CardResolver, dict[str, uuid.UUID]]:

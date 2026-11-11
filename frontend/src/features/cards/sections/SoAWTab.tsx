@@ -51,7 +51,10 @@ export default function SoAWTab({ initiativeId, canManage }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const rows = await api.get<SoAW[]>(`/soaw?initiative_id=${initiativeId}`);
+      // Current and open revisions only; earlier ones are reached from them.
+      const rows = await api.get<SoAW[]>(
+        `/soaw?initiative_id=${initiativeId}&include_earlier=false`,
+      );
       setSoaws(rows);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -184,7 +187,8 @@ export default function SoAWTab({ initiativeId, canManage }: Props) {
                           <MaterialSymbol icon="open_in_new" size={18} />
                         </IconButton>
                       </Tooltip>
-                      {canManage && (
+                      {/* Only a draft can be deleted (the API refuses the rest). */}
+                      {canManage && s.status === "draft" && (
                         <Tooltip title={t("soaw.actions.delete")}>
                           <IconButton size="small" color="error" onClick={() => handleDelete(s)}>
                             <MaterialSymbol icon="delete" size={18} />

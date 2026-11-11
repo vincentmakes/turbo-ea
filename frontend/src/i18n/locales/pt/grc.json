@@ -25,7 +25,7 @@
       "import": {
         "title": "Importar decisões de arquitetura",
         "intro": "Carregue um ficheiro .xlsx para criar decisões em massa. Cada linha torna-se uma nova decisão em rascunho com a sua própria referência ADR; as linhas cuja referência já pertence a uma decisão são ignoradas, pelo que reimportar uma exportação não altera nada. As fichas são associadas pelo nome exato e as decisões relacionadas pela referência. O estado e as assinaturas não são importados.",
-        "skippedHint": "Estas linhas correspondem a uma decisão existente pela referência e são ignoradas; a importação nunca altera uma decisão existente."
+        "skippedHint": "Estas linhas são ignoradas: correspondem a uma decisão existente pela referência (a importação nunca altera uma decisão existente) ou são uma revisão anterior de uma decisão cuja revisão posterior está no mesmo ficheiro."
       }
     }
   },

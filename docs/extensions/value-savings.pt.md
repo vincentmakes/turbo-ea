@@ -169,7 +169,7 @@ podem ser ocultadas ou fixadas a partir do seletor de colunas.
 | Permissão | Permite |
 |---|---|
 | `adr.view` (núcleo) | Ver os painéis, as colunas e o painel de valor |
-| `adr.manage` (núcleo) | Acrescentar, editar e eliminar declarações numa decisão não assinada |
+| `adr.manage` (núcleo) | Acrescentar, editar e eliminar declarações numa decisão em rascunho |
 | `ext.value-savings.record` | Registar uma realização face a uma declaração aprovada |
 | `ext.value-savings.approve` | Aprovar ou rejeitar uma realização — **e** ser a pessoa designada como aprovadora |
 

@@ -12,12 +12,17 @@ Cards are linked best-effort by exact name among the ACTIVE cards the importer
 may read, looked up once for the whole file; a missing, ambiguous, archived or
 hidden card is a warning, never a failure.
 Related decisions are resolved in a second pass, once every row exists, so a
-row may name a decision that appears later in the same file. Nothing here
-commits — the route owns the transaction and the dry-run rollback.
+row may name a decision that appears later in the same file, and are saved as
+``relates`` links. A reference already in the database names its chain's
+current revision. An exported register carries one row per revision, so a
+file may repeat a reference: the row with the highest ``revision_number`` is
+imported (a tie or an absent number: the last row) and every other row of that
+reference is skipped with a warning (:func:`chosen_rows`); a reference already
+in the database skips all its rows. Nothing here commits — the route owns the transaction and
+the dry-run rollback.
 
-``related_reference_labels`` is the export side: ``related_decisions`` holds
-decision ids (the MCP and the import write ids; the demo seed writes
-references), and a spreadsheet shows references.
+``related_reference_labels`` is the export side: a decision's ``relates``
+links as the reference numbers a spreadsheet shows.
 """
 
 from __future__ import annotations
@@ -31,8 +36,10 @@ from sqlalchemy import ColumnElement, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.architecture_decision import ArchitectureDecision
+from app.models.architecture_decision_link import ArchitectureDecisionLink
 from app.models.card import Card
 from app.services import adr_service
+from app.services import decision_standing as ds
 
 TITLE_MAX_LENGTH = 500
 
@@ -49,6 +56,7 @@ class DecisionImportRow:
     card_names: list[str] = field(default_factory=list)
     related_references: list[str] = field(default_factory=list)
     status: str | None = None
+    revision_number: int | str | None = None
 
 
 @dataclass
@@ -69,6 +77,49 @@ def _text(value: str | None) -> str | None:
     if value is None:
         return None
     return value.strip() or None
+
+
+def revision_of(value: int | str | None) -> int:
+    """A row's ``revision_number`` cell as a number; 0 when absent or unreadable."""
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return max(value, 0)
+    text = (value or "").strip()
+    return int(text) if text.isascii() and text.isdigit() else 0
+
+
+def chosen_rows(rows: Sequence[DecisionImportRow], skip: Iterable[str] = ()) -> set[int]:
+    """Positions (in ``rows``) of the row imported for each reference the file repeats.
+
+    An export carries one row per revision, so a reference can appear several
+    times: the row with the highest ``revision_number`` is imported, a tie or
+    an absent number going to the last row. A row without a reference, or
+    whose reference is in ``skip`` (already on the instance), is always kept
+    here; the caller skips the latter.
+    """
+    skipped = set(skip)
+    best: dict[str, tuple[int, int]] = {}
+    for position, row in enumerate(rows):
+        reference = _norm_ref(row.reference_number)
+        if not reference or reference in skipped:
+            continue
+        rank = (revision_of(row.revision_number), position)
+        if reference not in best or rank > best[reference]:
+            best[reference] = rank
+    keep = {position for _rank, position in best.values()}
+    return {
+        position
+        for position, row in enumerate(rows)
+        if position in keep
+        or not _norm_ref(row.reference_number)
+        or _norm_ref(row.reference_number) in skipped
+    }
+
+
+def earlier_revision_warning(reference: str) -> str:
+    """The warning on a row left out because the file has a later row for its reference."""
+    return f"Earlier revision of {reference} skipped"
 
 
 def _unique(values: Iterable[str]) -> list[str]:
@@ -121,12 +172,7 @@ async def import_decision_rows(
     publish: bool = True,
 ) -> list[DecisionImportOutcome]:
     """Create a draft decision per new row (see the module doc)."""
-    existing = {
-        ref.upper(): adr_id
-        for adr_id, ref in (
-            await db.execute(select(ArchitectureDecision.id, ArchitectureDecision.reference_number))
-        ).all()
-    }
+    existing = existing_references(await ds.load_register(db))
 
     cards = await _cards_by_name(
         db, {name for row in rows for name in _unique(row.card_names)}, readable_cards
@@ -135,11 +181,13 @@ async def import_decision_rows(
     outcomes: list[DecisionImportOutcome] = []
     created: list[tuple[DecisionImportOutcome, ArchitectureDecision, DecisionImportRow]] = []
     # The file's own references, mapped to the decision each row created —
-    # what a later row repeating one collides with, and what related
-    # references between rows resolve against.
+    # what related references between rows resolve against.
     file_refs: dict[str, uuid.UUID] = {}
+    # One row per reference is imported; the others are earlier revisions.
+    imported = chosen_rows(rows, existing)
+    earlier: list[DecisionImportOutcome] = []
 
-    for row in rows:
+    for position, row in enumerate(rows):
         reference = _norm_ref(row.reference_number)
         if reference in existing:
             outcomes.append(
@@ -151,6 +199,16 @@ async def import_decision_rows(
                 )
             )
             continue
+        if position not in imported:
+            outcome = DecisionImportOutcome(
+                row_index=row.row_index,
+                status="skipped",
+                reference_number=reference,
+                warnings=[earlier_revision_warning(reference)],
+            )
+            outcomes.append(outcome)
+            earlier.append(outcome)
+            continue
 
         title = row.title.strip()
         error: str | None = None
@@ -158,8 +216,6 @@ async def import_decision_rows(
             error = "Title is required"
         elif len(title) > TITLE_MAX_LENGTH:
             error = f"Title is longer than {TITLE_MAX_LENGTH} characters"
-        elif reference in file_refs:
-            error = f"Reference {reference} appears more than once in the file"
         if error is not None:
             outcomes.append(
                 DecisionImportOutcome(row_index=row.row_index, status="failed", error=error)
@@ -194,70 +250,49 @@ async def import_decision_rows(
         outcomes.append(outcome)
         created.append((outcome, adr, row))
 
+    # A skipped earlier revision points at the decision its reference became.
+    for outcome in earlier:
+        target = file_refs.get(outcome.reference_number or "")
+        outcome.id = str(target) if target is not None else None
+
     # Second pass: every row now exists, so a reference to a later row resolves.
     for outcome, adr, row in created:
-        related: list[str] = []
+        linked: set[uuid.UUID] = set()
         for ref in _unique(row.related_references):
             key = ref.upper()
             target = file_refs.get(key) or existing.get(key)
             if target is None:
                 outcome.warnings.append(f"Related decision not found: {ref}")
-            elif target != adr.id and str(target) not in related:
-                related.append(str(target))
-        adr.related_decisions = related
+            elif target != adr.id and target not in linked:
+                linked.add(target)
+                db.add(
+                    ArchitectureDecisionLink(source_id=adr.id, target_id=target, kind=ds.RELATES)
+                )
     await db.flush()
 
     return outcomes
 
 
-async def related_reference_labels(
-    db: AsyncSession, decisions: Sequence[ArchitectureDecision]
-) -> dict[uuid.UUID, list[str]]:
-    """Each decision's ``related_decisions`` as reference numbers.
+def existing_references(register: ds.Register) -> dict[str, Any]:
+    """Each reference number (upper case) mapped to its chain's current revision.
 
-    An entry may be a decision id (MCP, import) or already a reference (the
-    demo seed); anything else — a dict link to an assessment, a dangling id —
-    is left out, since a spreadsheet column of references cannot express it.
+    A reference carried by rows of two different chains maps to the current
+    revision of the first chain in reference, revision order.
     """
-    candidates: set[str] = set()
-    for adr in decisions:
-        candidates.update(_string_entries(adr.related_decisions))
-    if not candidates:
-        return {adr.id: [] for adr in decisions}
-
-    ids = [uuid.UUID(c) for c in candidates if _is_uuid(c)]
-    refs = [c.upper() for c in candidates if not _is_uuid(c)]
-    found = (
-        await db.execute(
-            select(ArchitectureDecision.id, ArchitectureDecision.reference_number).where(
-                ArchitectureDecision.id.in_(ids) | ArchitectureDecision.reference_number.in_(refs)
-            )
-        )
-    ).all()
-    by_id = {str(adr_id): ref for adr_id, ref in found}
-    known_refs = {ref for _, ref in found}
-
-    labels: dict[uuid.UUID, list[str]] = {}
-    for adr in decisions:
-        out: list[str] = []
-        for entry in _string_entries(adr.related_decisions):
-            if _is_uuid(entry):
-                label = by_id.get(entry)
-            else:
-                label = entry.upper() if entry.upper() in known_refs else None
-            if label is not None and label not in out:
-                out.append(label)
-        labels[adr.id] = out
-    return labels
+    out: dict[str, Any] = {}
+    for row_id in sorted(register.ids(), key=lambda rid: _row_order(register, rid)):
+        key = register.row(row_id).reference_number.upper()
+        out.setdefault(key, register.chain(row_id).current.id)
+    return out
 
 
-def _string_entries(values: Any) -> list[str]:
-    return [v.strip() for v in (values or []) if isinstance(v, str) and v.strip()]
+def _row_order(register: ds.Register, row_id: Any) -> tuple[int, str]:
+    row = register.row(row_id)
+    return (row.revision_number, str(row.id))
 
 
-def _is_uuid(value: str) -> bool:
-    try:
-        uuid.UUID(value)
-    except ValueError:
-        return False
-    return True
+def related_reference_labels(register: ds.Register, decision_id: Any) -> list[str]:
+    """The decision's ``relates`` links as reference numbers, deduplicated."""
+    return adr_service.reference_labels(
+        register, adr_service.outgoing_targets(register, decision_id, ds.RELATES)
+    )

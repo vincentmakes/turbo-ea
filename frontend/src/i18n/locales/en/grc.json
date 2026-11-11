@@ -25,7 +25,7 @@
       "import": {
         "title": "Import architecture decisions",
         "intro": "Upload an .xlsx file to create decision records in bulk. Each row becomes a new draft decision with its own ADR reference; rows whose reference already belongs to a decision are skipped, so re-importing an export changes nothing. Cards are linked by exact name, and related decisions by reference. Status and signatures are not imported.",
-        "skippedHint": "These rows match an existing decision by reference and are skipped; the importer never changes an existing decision."
+        "skippedHint": "These rows are skipped: they match an existing decision by reference (the importer never changes an existing decision), or they are an earlier revision of a decision whose later revision is in the same file."
       }
     }
   },

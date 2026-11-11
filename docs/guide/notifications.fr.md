@@ -24,6 +24,7 @@ Cliquez sur n'importe quelle notification pour naviguer directement vers la fich
 | **Statut d'approbation modifié** | Le statut d'approbation d'une fiche change (approuvé, rejeté, cassé) |
 | **Demande de signature SoAW** | On vous demande de signer un Statement of Architecture Work |
 | **SoAW signé** | Un SoAW que vous suivez reçoit une signature |
+| **Validité d'ADR modifiée** | Une décision signée remplace, modifie ou révoque une décision que vous avez rédigée |
 | **Demande d'enquête** | Une enquête vous est envoyée et nécessite votre réponse |
 
 **Statut d'approbation modifié** couvre également le cas automatique. Une fiche

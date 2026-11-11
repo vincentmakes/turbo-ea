@@ -37,9 +37,9 @@ afterEach(() => vi.restoreAllMocks());
 describe("buildAdrPrintBody", () => {
   it("renders the metadata, sections, linked cards and signatures in document order", () => {
     const html = buildAdrPrintBody(adr());
-    // The SoAW cover: document type, then "reference — title — Revision n".
+    // The SoAW cover: document type, then "ADR-0001 · Rev 2 — title".
     expect(html).toContain('<h1 style="text-align:center;border:none;">Architecture Decision Record</h1>');
-    expect(html).toContain(">ADR-0001 — Adopt event bus — Revision 2</p>");
+    expect(html).toContain(">ADR-0001 · Rev 2 — Adopt event bus</p>");
     expect(html).toContain("<h2>Document Information</h2>");
     expect(html).toContain("Signed");
     expect(html).toContain("Ada Lovelace");
@@ -98,10 +98,120 @@ describe("buildAdrPrintBody", () => {
   });
 });
 
+describe("buildAdrPrintBody — decision register", () => {
+  const REGISTERED = adr({
+    standing: "in_force",
+    decided_on: "2026-06-01",
+    effective_from: "2026-06-03",
+    valid_until: "2027-06-01",
+    decision_makers: [{ user_id: "u1", display_name: "Ada Lovelace" }],
+    participants: [{ user_id: null, display_name: "Architecture Board" }],
+    change_summary: "Narrowed to §3\nDropped the pilot",
+    links: {
+      outgoing: [
+        {
+          id: "l1",
+          kind: "replaces",
+          note: "§3 only",
+          decision: {
+            id: "b",
+            reference_number: "ADR-0003",
+            revision_number: 1,
+            title: "Use RabbitMQ",
+            status: "signed",
+            standing: "superseded",
+          },
+        },
+      ],
+      incoming: [
+        {
+          id: null,
+          kind: "relates",
+          note: null,
+          decision: {
+            id: "c",
+            reference_number: "ADR-0009",
+            revision_number: 1,
+            title: "Event naming",
+            status: "signed",
+            standing: "in_force",
+          },
+        },
+      ],
+    },
+    files: [
+      {
+        id: "f1",
+        name: "board-minutes.pdf",
+        mime_type: "application/pdf",
+        size: 10,
+        created_at: null,
+        created_by: null,
+      },
+    ],
+  });
+
+  it("lists the standing, the dates and the people in the facts table", () => {
+    const html = buildAdrPrintBody(REGISTERED);
+    expect(html).toContain('<td class="meta-label">Standing</td><td class="pre">In force</td>');
+    expect(html).toContain('<td class="meta-label">Decided on</td>');
+    expect(html).toContain('<td class="meta-label">Effective from</td>');
+    expect(html).toContain('<td class="meta-label">Valid until</td>');
+    expect(html).toContain(
+      '<td class="meta-label">Decision makers</td><td class="pre">Ada Lovelace</td>',
+    );
+    expect(html).toContain(
+      '<td class="meta-label">Participants</td><td class="pre">Architecture Board</td>',
+    );
+  });
+
+  it("prints the change summary, both link directions with notes, and the file names", () => {
+    const html = buildAdrPrintBody(REGISTERED);
+    expect(html).toContain('<h2>Change summary</h2><p class="pre">Narrowed to §3\nDropped the pilot</p>');
+    expect(html).toContain("<h2>Linked decisions</h2>");
+    expect(html).toContain("<th>Relation</th><th>Decision</th><th>Note</th>");
+    expect(html).toContain("<td>Replaces</td><td>ADR-0003 — Use RabbitMQ</td><td>§3 only</td>");
+    expect(html).toContain("<td>Related to</td><td>ADR-0009 — Event naming</td><td></td>");
+    expect(html).toContain("<h2>Files</h2>");
+    expect(html).toContain("<td>board-minutes.pdf</td>");
+    expect(html.indexOf("<h2>Linked decisions</h2>")).toBeLessThan(html.indexOf("<h2>Files</h2>"));
+  });
+
+  it("leaves out the empty register blocks", () => {
+    const html = buildAdrPrintBody(adr());
+    expect(html).not.toContain("Change summary");
+    expect(html).not.toContain("Linked decisions");
+    expect(html).not.toContain("<h2>Files</h2>");
+    expect(html).not.toContain("Standing");
+  });
+
+  it("replaces the signatures with one line for a recorded decision", () => {
+    const html = buildAdrPrintBody(
+      adr({
+        signatories: [],
+        signed_at: null,
+        recorded_at: "2026-05-01T08:00:00Z",
+        recorded_by: { user_id: "u9", display_name: "Grace Hopper" },
+      }),
+    );
+    expect(html).toContain('<td class="meta-label">Status</td><td class="pre">Recorded</td>');
+    expect(html).toMatch(
+      /<h2>Signatures<\/h2><p>Recorded by Grace Hopper on .+, not signed in Turbo EA\.<\/p>/,
+    );
+    expect(html).not.toContain("doc-signatures");
+  });
+
+  it("handles a signed decision with no signatories", () => {
+    const html = buildAdrPrintBody(adr({ signatories: [] }));
+    expect(html).not.toContain("doc-signatures");
+    expect(adrPrintDocument(adr({ signatories: [] })).footerParts).toEqual([]);
+  });
+});
+
 describe("adrPrintDocument / printAdr", () => {
   it("names the document by reference and carries approver, approval date and print date in the footer", () => {
     const doc = adrPrintDocument(adr());
-    expect(doc.title).toBe("ADR-0001 — Adopt event bus");
+    expect(doc.title).toBe("ADR-0001 · Rev 2 — Adopt event bus");
     expect(doc.footerParts?.[0]).toBe("Approved by: Grace Hopper");
     expect(doc.footerParts?.[1]).toMatch(/^Date of approval: /);
     expect(doc.footerParts?.[2]).toMatch(/^Printed: /);

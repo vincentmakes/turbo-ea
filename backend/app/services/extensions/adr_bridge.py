@@ -29,6 +29,13 @@ Design invariants (mirroring ``todos_bridge`` and ``data_service``):
   stamping a user would lie about who decided. Honours the instance-wide
   ``EXTENSION_WRITES_ENABLED`` kill switch. No event is published on
   create, matching ``POST /adr``.
+* **Tolerant related decisions.** ``related_decisions`` entries that are a
+  decision id or a reference number become ``relates`` links; anything else
+  (a dict, an unknown id) is dropped silently, so an extension written
+  before the decision register keeps working.
+* **Standing on reads (SDK 1.17).** ``get`` derives ``standing`` and
+  ``is_current`` from the decision register (``decision_standing``), the one
+  definition every core surface uses; a filed draft has no standing.
 * **One writer.** The row itself comes from ``app.services.adr_service`` —
   the same generator and insert the REST route and the analysis commit flow
   use, so every path shares one reference-number sequence.
@@ -50,6 +57,7 @@ from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.card import Card
 from app.services import adr_service, mutation_batch_service
+from app.services import decision_standing as ds
 from app.services.event_bus import request_batch_id, request_origin
 from app.services.extensions import data_service
 from app.services.extensions.registry import extension_registry
@@ -68,7 +76,17 @@ MAX_TITLE_LENGTH = 500  # mirrors ADRCreate.title
 _T = TypeVar("_T")
 
 
-def _to_ext_decision(adr: ArchitectureDecision, linked: Sequence[uuid.UUID]) -> ExtDecision:
+def _iso(value: Any) -> str | None:
+    return value.isoformat() if value is not None else None
+
+
+def _to_ext_decision(
+    adr: ArchitectureDecision,
+    linked: Sequence[uuid.UUID],
+    standing: ds.Standing | None = None,
+) -> ExtDecision:
+    """The wire shape of ``adr``; ``standing`` from the register (``None`` for a
+    row the register does not hold yet: an unsigned, current draft)."""
     return ExtDecision(
         id=str(adr.id),
         reference_number=adr.reference_number,
@@ -78,6 +96,12 @@ def _to_ext_decision(adr: ArchitectureDecision, linked: Sequence[uuid.UUID]) -> 
         linked_card_ids=tuple(str(cid) for cid in linked),
         attributes=dict(adr.attributes or {}),
         created_at=adr.created_at.isoformat() if adr.created_at else None,
+        standing=standing.standing if standing is not None else None,
+        is_current=standing.is_current if standing is not None else True,
+        decided_on=_iso(adr.decided_on),
+        effective_from=_iso(adr.effective_from),
+        valid_until=_iso(adr.valid_until),
+        recorded=adr.recorded_at is not None,
     )
 
 
@@ -178,7 +202,8 @@ class ExtensionDecisions(DecisionsBridge):
             ).scalar_one_or_none()
             if adr is None:
                 return None
-            return _to_ext_decision(adr, await _linked_ids(db, adr.id))
+            register = await ds.load_register(db)
+            return _to_ext_decision(adr, await _linked_ids(db, adr.id), register.get(adr.id))
 
     # -- writes ------------------------------------------------------------
 

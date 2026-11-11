@@ -18,6 +18,7 @@ from sqlalchemy import select
 
 from app.config import settings
 from app.models.architecture_decision import ArchitectureDecision
+from app.models.architecture_decision_link import ArchitectureDecisionLink
 from app.models.event import Event
 from app.models.mutation_batch import MutationBatch
 from app.services.extensions import adr_bridge as bridge_mod
@@ -150,6 +151,15 @@ class TestCreateDraft:
         assert out.linked_card_ids == (str(env["active"].id),)
         assert out.attributes == {}
         assert isinstance(out.created_at, str)
+        # SDK 1.17: a filed draft has no standing and is its chain's current row.
+        assert (
+            out.standing,
+            out.is_current,
+            out.decided_on,
+            out.effective_from,
+            out.valid_until,
+            out.recorded,
+        ) == (None, True, None, None, None, False)
         row = (
             await db.execute(
                 select(ArchitectureDecision).where(ArchitectureDecision.id == uuid.UUID(out.id))
@@ -247,17 +257,49 @@ class TestCreateDraft:
         assert events[0].card_id is None
         assert events[0].data["adr_id"] == out.id
 
-    async def test_related_decisions_passthrough(self, db, env):
+    async def test_related_decisions_become_relates_links_tolerantly(self, db, env):
+        """Resolvable strings become ``relates`` links; dicts and unknown ids are
+        dropped without failing the filing (SDK callers written before the
+        decision register keep working)."""
+        load_registry(grants=["core.adr.write"])
+        first = ArchitectureDecision(reference_number="ADR-001", title="First")
+        second = ArchitectureDecision(reference_number="ADR-002", title="Second")
+        db.add_all([first, second])
+        await db.flush()
+        out = await ExtensionDecisions(KEY).create_draft(
+            title="Related",
+            related_decisions=[
+                {"type": "scenario", "id": "s1"},
+                "adr-001",
+                str(second.id),
+                str(uuid.uuid4()),
+                "ADR-404",
+            ],
+        )
+        links = (
+            await db.execute(
+                select(ArchitectureDecisionLink.target_id, ArchitectureDecisionLink.kind).where(
+                    ArchitectureDecisionLink.source_id == uuid.UUID(out.id)
+                )
+            )
+        ).all()
+        assert sorted(links, key=lambda r: str(r[0])) == sorted(
+            [(first.id, "relates"), (second.id, "relates")], key=lambda r: str(r[0])
+        )
+
+    async def test_only_unresolvable_related_decisions_file_no_link(self, db, env):
         load_registry(grants=["core.adr.write"])
         out = await ExtensionDecisions(KEY).create_draft(
-            title="Related", related_decisions=[{"type": "scenario", "id": "s1"}]
+            title="Related", related_decisions=[{"type": "scenario", "id": "s1"}, "ADR-404"]
         )
-        row = (
+        links = (
             await db.execute(
-                select(ArchitectureDecision).where(ArchitectureDecision.id == uuid.UUID(out.id))
+                select(ArchitectureDecisionLink).where(
+                    ArchitectureDecisionLink.source_id == uuid.UUID(out.id)
+                )
             )
-        ).scalar_one()
-        assert row.related_decisions == [{"type": "scenario", "id": "s1"}]
+        ).all()
+        assert links == []
 
 
 class TestGet:
@@ -285,6 +327,66 @@ class TestGet:
         await db.flush()
         got = await ExtensionDecisions(KEY).get(str(row.id))
         assert got is not None and got.reference_number == "ADR-009"
+
+    async def test_standing_dates_and_recorded_come_from_the_register(self, db, env):
+        """SDK 1.17: ``get`` carries the register's standing for each revision."""
+        load_registry(grants=["core.adr.read"])
+        signed_on = datetime(2026, 1, 5, tzinfo=timezone.utc)
+        first = ArchitectureDecision(
+            reference_number="ADR-010",
+            title="Chain",
+            status="signed",
+            signed_at=signed_on,
+            decided_on=signed_on.date(),
+            effective_from=signed_on.date(),
+            valid_until=(NOW + timedelta(days=365)).date(),
+        )
+        db.add(first)
+        await db.flush()
+        second = ArchitectureDecision(
+            reference_number="ADR-010",
+            title="Chain",
+            status="signed",
+            revision_number=2,
+            parent_id=first.id,
+            decided_on=signed_on.date(),
+            effective_from=signed_on.date(),
+            recorded_at=signed_on,
+        )
+        draft = ArchitectureDecision(
+            reference_number="ADR-010",
+            title="Chain",
+            revision_number=3,
+            parent_id=None,
+        )
+        db.add(second)
+        await db.flush()
+        draft.parent_id = second.id
+        db.add(draft)
+        await db.flush()
+        bridge = ExtensionDecisions(KEY)
+
+        earlier = await bridge.get(str(first.id))
+        current = await bridge.get(str(second.id))
+        open_draft = await bridge.get(str(draft.id))
+
+        assert (earlier.standing, earlier.is_current, earlier.recorded) == (
+            "superseded",
+            False,
+            False,
+        )
+        assert (earlier.decided_on, earlier.effective_from, earlier.valid_until) == (
+            "2026-01-05",
+            "2026-01-05",
+            (NOW + timedelta(days=365)).date().isoformat(),
+        )
+        assert (current.standing, current.is_current, current.recorded) == (
+            "in_force",
+            True,
+            True,
+        )
+        assert current.valid_until is None
+        assert (open_draft.standing, open_draft.is_current) == (None, False)
 
 
 class TestSessionDiscipline:

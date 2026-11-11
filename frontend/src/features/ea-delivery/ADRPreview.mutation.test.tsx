@@ -14,6 +14,7 @@ import type { ArchitectureDecision } from "@/types";
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() },
   ApiError: class ApiError extends Error {},
+  isAbortError: () => false,
 }));
 const authState = vi.hoisted(() => ({
   user: null as { id: string; permissions: Record<string, boolean> } | null,

@@ -1285,11 +1285,115 @@ export interface SoAW {
   parent_id: string | null;
   signatories: SoAWSignatory[];
   signed_at: string | null;
+  /** Exactly one revision per chain is current (the last signed one, else the first). */
+  is_current?: boolean;
+  /** True on a revision that a later signed revision of the chain supersedes. */
+  is_earlier_revision?: boolean;
+  /** On an earlier revision: the chain's current revision. */
+  superseded_by?: SoAWRef | null;
+  /** On the current revision: the unsigned revision being worked on after it. */
+  open_revision?: (SoAWRef & { status: SoAW["status"] }) | null;
+  /** `GET /soaw/{id}` only: the whole chain in order. */
+  revisions?: SoAWRevision[];
+}
+
+/** A pointer to another revision of a SoAW chain. */
+export interface SoAWRef {
+  id: string;
+  name: string;
+  revision_number: number;
+}
+
+export interface SoAWRevision extends SoAWRef {
+  status: SoAW["status"];
+  signed_at?: string | null;
 }
 
 // ---------------------------------------------------------------------------
 // Architecture Decision Records
 // ---------------------------------------------------------------------------
+
+/**
+ * Where a signed decision stands today, derived by the backend
+ * (`services/decision_standing.py`); `null` on a decision that is not signed.
+ */
+export type DecisionStanding =
+  | "scheduled"
+  | "in_force"
+  | "amended"
+  | "superseded"
+  | "revoked"
+  | "expired";
+
+/** A pointer to one decision revision. */
+export interface DecisionRef {
+  id: string;
+  reference_number: string;
+  revision_number: number;
+  title: string;
+}
+
+export type DecisionLinkKind = "replaces" | "amends" | "revokes" | "relates" | "consolidates";
+
+/** The other decision of a link: the exact revision linked, plus its chain's
+ *  current revision when that is another one. */
+export interface DecisionLinkDecision extends DecisionRef {
+  status: ArchitectureDecision["status"];
+  standing: DecisionStanding | null;
+  current?: { id: string; reference_number: string; revision_number: number };
+}
+
+export interface DecisionLinkEntry {
+  id: string | null;
+  kind: DecisionLinkKind;
+  note: string | null;
+  /** The target of an outgoing link, the source of an incoming one. */
+  decision: DecisionLinkDecision;
+}
+
+export interface DecisionLinks {
+  outgoing: DecisionLinkEntry[];
+  incoming: DecisionLinkEntry[];
+}
+
+/** A link as written on `POST /adr` / `PATCH /adr/{id}` (replace-set). */
+export interface DecisionLinkInput {
+  decision_id: string;
+  kind: DecisionLinkKind;
+  note?: string | null;
+}
+
+/** A decision maker or participant: a Turbo EA user, or a free-text name
+ *  (`user_id` null). `display_name` is the stored name snapshot. */
+export interface DecisionPerson {
+  user_id: string | null;
+  display_name: string;
+}
+
+/** A person as written on `POST /adr` / `PATCH /adr/{id}`. */
+export type DecisionPersonInput = { user_id: string } | { name: string };
+
+/** A signed change to the chain that has not taken effect yet. */
+export interface DecisionUpcoming {
+  kind: "revision" | "replaces" | "revokes";
+  by: DecisionRef;
+  effective_from: string | null;
+}
+
+/** A file attached to a decision (`GET /adr/{id}/files`, `files` on the detail). */
+export interface DecisionFile {
+  id: string;
+  name: string;
+  mime_type: string;
+  size: number;
+  created_at: string | null;
+  created_by: { user_id: string; display_name: string | null } | null;
+}
+
+export interface DecisionRevision extends DecisionRef {
+  status: ArchitectureDecision["status"];
+  standing: DecisionStanding | null;
+}
 
 export interface ArchitectureDecision {
   id: string;
@@ -1318,6 +1422,38 @@ export interface ArchitectureDecision {
   updated_at: string | null;
   /** `GET /adr?include_content=true` only: `related_decisions` as reference numbers. */
   related_references?: string[];
+  /** `GET /adr?include_content=true` only: each hard link kind's targets as
+   *  reference numbers (`relates` stays in `related_references`). */
+  link_references?: Partial<Record<"replaces" | "amends" | "revokes" | "consolidates", string[]>>;
+  // --- Decision register (derived by the backend; optional so older fixtures
+  // and payloads still type-check) ---
+  standing?: DecisionStanding | null;
+  is_current?: boolean;
+  is_earlier_revision?: boolean;
+  /** On an earlier revision: the chain's current revision; on a replaced
+   *  decision: the decision that replaced it. */
+  superseded_by?: DecisionRef | null;
+  revoked_by?: DecisionRef | null;
+  amended_by?: DecisionRef[];
+  /** On the current revision: the unsigned revision being drafted after it. */
+  open_revision?: DecisionRef | null;
+  upcoming?: DecisionUpcoming[];
+  /** On an amending decision: the revision that consolidated its amendment. */
+  consolidated_into?: DecisionRef | null;
+  /** ISO dates (`YYYY-MM-DD`). */
+  decided_on?: string | null;
+  effective_from?: string | null;
+  valid_until?: string | null;
+  /** Set on a decision recorded as decided outside Turbo EA (no signatures). */
+  recorded_at?: string | null;
+  decision_makers?: DecisionPerson[];
+  // --- `GET /adr/{id}` only ---
+  links?: DecisionLinks;
+  participants?: DecisionPerson[];
+  revisions?: DecisionRevision[];
+  change_summary?: string | null;
+  recorded_by?: { user_id: string; display_name: string | null } | null;
+  files?: DecisionFile[];
 }
 
 export interface FileAttachment {
@@ -2854,6 +2990,8 @@ export interface AdrImportItem {
   card_names: string[];
   related_references: string[];
   status?: string;
+  /** Picks among several rows of one reference: the highest is imported. */
+  revision_number?: number | string;
 }
 
 export type RecurrenceUnit = "none" | "days" | "weeks" | "months" | "years";

@@ -12,10 +12,14 @@ import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import SpreadsheetImportDialog from "@/components/SpreadsheetImportDialog";
 import AdrGrid from "@/features/ea-delivery/AdrGrid";
-import AdrFilterSidebar, {
-  type AdrFilters,
+import AdrFilterSidebar from "@/features/ea-delivery/AdrFilterSidebar";
+import {
   EMPTY_ADR_FILTERS,
-} from "@/features/ea-delivery/AdrFilterSidebar";
+  adrExportPath,
+  filterAdrs,
+  visibleSelection,
+  type AdrFilters,
+} from "@/features/ea-delivery/adrRegisterFilters";
 import { exportAdrsToDocx } from "@/features/ea-delivery/adrExport";
 import {
   downloadAdrTemplate,
@@ -31,25 +35,7 @@ import { useAuthContext } from "@/hooks/AuthContext";
 import { useExtensionAdrGridColumns } from "@/lib/extensionHost";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
-import { toIsoDate, toLocalDate } from "@/lib/dates";
 import type { ArchitectureDecision } from "@/types";
-
-/**
- * A timestamp's local calendar day as `YYYY-MM-DD` — the day the grid shows
- * it on. The From / To filters compare on this, so both days are inclusive
- * whatever offset or fraction the stored timestamp carries.
- */
-function dayOf(value: string | null | undefined): string | null {
-  const d = toLocalDate(value);
-  return d ? toIsoDate(d) : null;
-}
-
-/** Whether `value` falls on or after `from` and on or before `to` (empty = unbounded). */
-function inDayRange(value: string | null | undefined, from: string, to: string): boolean {
-  const day = dayOf(value);
-  if (!day) return false;
-  return (!from || day >= from) && (!to || day <= to);
-}
 
 export default function DecisionsPanel() {
   const { t } = useTranslation(["grc", "delivery", "common"]);
@@ -172,8 +158,18 @@ export default function DecisionsPanel() {
     [navigate, t],
   );
 
+  // ── ADR filter helpers ───────────────────────────────────────────
+  // One `GET /adr` (earlier revisions included) feeds the grid; the
+  // "Show earlier revisions" switch, the "In force" preset and every other
+  // filter narrow the loaded rows here.
+
+  const filteredAdrs = useMemo(() => filterAdrs(adrs, adrFilters), [adrs, adrFilters]);
+
   const handleExport = useCallback(
-    async (selected: ArchitectureDecision[]) => {
+    async (picked: ArchitectureDecision[]) => {
+      // Only rows the filters still show: a selection made before a filter
+      // change never exports a row that is no longer on screen.
+      const selected = visibleSelection(picked, filteredAdrs);
       if (selected.length === 0) return;
       try {
         // List endpoint returns a summary — fetch full ADRs to get rich-text fields.
@@ -185,7 +181,7 @@ export default function DecisionsPanel() {
         setError(e instanceof Error ? e.message : t("delivery:adr.export.error"));
       }
     },
-    [t],
+    [t, filteredAdrs],
   );
 
   // Spreadsheet export of what the filters show. The list rows are summaries,
@@ -195,7 +191,9 @@ export default function DecisionsPanel() {
     async (visible: ArchitectureDecision[]) => {
       setExporting(true);
       try {
-        const full = await api.get<ArchitectureDecision[]>("/adr?include_content=true");
+        const full = await api.get<ArchitectureDecision[]>(
+          adrExportPath(adrFilters.showEarlierRevisions),
+        );
         const byId = new Map(full.map((a) => [a.id, a]));
         exportAdrsToXlsx(visible.map((a) => byId.get(a.id) ?? a));
       } catch (e) {
@@ -204,46 +202,8 @@ export default function DecisionsPanel() {
         setExporting(false);
       }
     },
-    [t],
+    [t, adrFilters.showEarlierRevisions],
   );
-
-  // ── ADR filter helpers ───────────────────────────────────────────
-
-  const filteredAdrs = useMemo(() => {
-    let list = adrs;
-    if (adrFilters.statuses.length > 0) {
-      list = list.filter((a) => adrFilters.statuses.includes(a.status));
-    }
-    if (adrFilters.cardTypes.length > 0) {
-      list = list.filter((a) =>
-        (a.linked_cards ?? []).some((c) => adrFilters.cardTypes.includes(c.type)),
-      );
-    }
-    if (adrFilters.linkedCards.length > 0) {
-      list = list.filter((a) =>
-        (a.linked_cards ?? []).some((c) => adrFilters.linkedCards.includes(c.id)),
-      );
-    }
-    const { dateCreatedFrom, dateCreatedTo, dateModifiedFrom, dateModifiedTo } = adrFilters;
-    const { dateSignedFrom, dateSignedTo } = adrFilters;
-    if (dateCreatedFrom || dateCreatedTo) {
-      list = list.filter((a) => inDayRange(a.created_at, dateCreatedFrom, dateCreatedTo));
-    }
-    if (dateModifiedFrom || dateModifiedTo) {
-      list = list.filter((a) => inDayRange(a.updated_at, dateModifiedFrom, dateModifiedTo));
-    }
-    if (dateSignedFrom || dateSignedTo) {
-      list = list.filter((a) => inDayRange(a.signed_at, dateSignedFrom, dateSignedTo));
-    }
-    if (adrFilters.signedBy.length > 0) {
-      list = list.filter((a) =>
-        a.signatories.some(
-          (s) => s.status === "signed" && adrFilters.signedBy.includes(s.user_id),
-        ),
-      );
-    }
-    return list;
-  }, [adrs, adrFilters]);
 
   const availableCardTypes = useMemo(() => {
     const typeKeys = new Set<string>();

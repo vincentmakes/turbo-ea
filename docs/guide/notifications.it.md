@@ -24,6 +24,7 @@ Cliccate su qualsiasi notifica per navigare direttamente alla card o al document
 | **Stato di approvazione modificato** | Lo stato di approvazione di una card cambia (approvato, rifiutato, interrotto) |
 | **Firma SoAW richiesta** | Vi viene chiesto di firmare uno Statement of Architecture Work |
 | **SoAW firmato** | Un SoAW che state seguendo riceve una firma |
+| **Vigenza ADR modificata** | Una decisione firmata sostituisce, modifica o revoca una decisione che avete scritto |
 | **Richiesta sondaggio** | Un sondaggio che richiede la vostra risposta viene inviato |
 
 **Stato di approvazione modificato** copre anche il caso automatico. Una card

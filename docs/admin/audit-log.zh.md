@@ -43,7 +43,7 @@ AI 工具通过 MCP 服务器发出的每一次调用在这里都是一个批次
 - 多次失败后的账户锁定；
 - 注册，以及密码的设置、重置和修改；
 - 角色模拟——管理员开始和结束「以角色查看…」；
-- 管理操作——对用户、角色、设置、元模型、标签、计算、扩展、导入、集成、公开门户和已发布图表、调查以及运维访问的更改（参见[管理操作](#administrative-actions)）；
+- 管理操作——对用户、角色、设置、元模型、标签、计算、扩展、导入、集成、公开门户和已发布图表、调查、登记为已决定的决策以及运维访问的更改（参见[管理操作](#administrative-actions)）；
 - 数据导出——卡片的 CSV 和 JSON 导出、工作区导出以及面向其他 EA 平台的导出（参见[数据导出](#data-exports)）——以及对本日志本身的导出。
 
 ### 列
@@ -156,6 +156,7 @@ AI 工具通过 MCP 服务器发出的每一次调用在这里都是一个批次
 | **公开暴露** | `admin.web_portal.created`, `.updated`, `.deleted`; `admin.diagram.published`, `.unpublished` | [Web 门户](web-portals.md)和已发布的图表——所有让数据无需账户即可访问的内容 |
 | **主页仪表盘** | `admin.dashboard.created`, `.updated`, `.deleted`, `.duplicated`, `.reset` | [仪表盘](../guide/dashboard.md#customizing-dashboards)的创建、编辑、删除、复制或重置为默认，并记录更改的名称、描述、图标、可见性、顺序和访问角色；每个添加或移除的小部件都按名称列出（移动或调整小部件大小不会被记录） |
 | **调查** | `admin.survey.sent`, `admin.survey.closed` | 发送给收件人或已关闭的调查 |
+| **架构决策** | `admin.adr.recorded` | 在 Turbo EA 之外做出、未经签名即[登记为已决定](../guide/grc.md#recording-a-past-decision)的决策，附带其决定日期、生效日期和决策者 |
 | **运维访问** | `admin.ops.rescue_access.granted`, `.revoked` | 通过[运维 API](ops-api.md) 授予或撤销的救援访问，与现有的 `ops.*` 事件一同记录 |
 
 ### 数据导出 { #data-exports }

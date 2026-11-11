@@ -14,7 +14,7 @@ import {
   VIEWER_USER,
   INACTIVE_USER,
 } from "@/test/fixtures/metamodel";
-import SignatureRequestDialog from "./SignatureRequestDialog";
+import SignatureRequestDialog, { addableDecisionMakers } from "./SignatureRequestDialog";
 
 function renderDialog(props: Partial<React.ComponentProps<typeof SignatureRequestDialog>> = {}) {
   const onClose = vi.fn();
@@ -206,5 +206,47 @@ describe("SignatureRequestDialog", () => {
     // The prompt stays in the results area; nothing is reported as missing.
     expect(screen.getByText("Search users...", { selector: "p" })).toBeInTheDocument();
     expect(screen.queryByText("No users found")).not.toBeInTheDocument();
+  });
+});
+
+describe("SignatureRequestDialog — decision makers shortcut", () => {
+  it("lists the active, unselected users among the makers, once each and in order", () => {
+    const people = [
+      { user_id: MEMBER_USER.id, display_name: "M" },
+      { user_id: null, display_name: "Board" },
+      { user_id: INACTIVE_USER.id, display_name: "I" },
+      { user_id: "nobody", display_name: "Gone" },
+      { user_id: ADMIN_USER.id, display_name: "A" },
+      { user_id: MEMBER_USER.id, display_name: "M again" },
+    ];
+    const active = USERS.filter((u) => u.is_active);
+    expect(addableDecisionMakers(people, active, new Map())).toEqual([MEMBER_USER, ADMIN_USER]);
+    expect(addableDecisionMakers(people, active, new Map([[ADMIN_USER.id, ADMIN_USER]]))).toEqual([
+      MEMBER_USER,
+    ]);
+    expect(addableDecisionMakers(undefined, active, new Map())).toEqual([]);
+  });
+
+  it("is not offered without decision makers who are users (the SoAW editor's case)", async () => {
+    renderDialog({ decisionMakers: [{ user_id: null, display_name: "Board" }] });
+    await waitFor(() => expect(mockApi.callsOf("get", "/users")).toHaveLength(1));
+    expect(screen.queryByRole("button", { name: /Add decision makers/ })).toBeNull();
+  });
+
+  it("adds the decision makers who are users, then has nothing left to add", async () => {
+    const user = userEvent.setup();
+    const { onRequest } = renderDialog({
+      decisionMakers: [
+        { user_id: MEMBER_USER.id, display_name: MEMBER_USER.display_name },
+        { user_id: null, display_name: "Board" },
+        { user_id: INACTIVE_USER.id, display_name: INACTIVE_USER.display_name },
+      ],
+    });
+    const add = await screen.findByRole("button", { name: /Add decision makers/ });
+    await waitFor(() => expect(add).toBeEnabled());
+    await user.click(add);
+    expect(screen.getByRole("button", { name: /Add decision makers/ })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Request 1 Signature" }));
+    expect(onRequest).toHaveBeenCalledWith([MEMBER_USER.id]);
   });
 });

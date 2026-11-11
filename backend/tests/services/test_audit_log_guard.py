@@ -69,6 +69,9 @@ MIXED_MODULES = {
     "diagrams.py": ("publish_diagram", "unpublish_diagram"),
     "surveys.py": ("send_survey", "close_survey"),
     "ops.py": ("create_rescue_access", "revoke_rescue_access"),
+    # Recording a decision as already decided skips the signatures, so who did
+    # it is on the log (``admin.adr.recorded``).
+    "adr.py": ("record_adr",),
 }
 
 # ``<module>::<handler>`` → why it writes nothing to the audit log.
@@ -258,6 +261,9 @@ KNOWN_BULK_EXPORTS = frozenset(
 
 # ``<module>::<handler>`` → why it is a download but not a bulk export.
 NOT_A_BULK_EXPORT = {
+    "adr.py::download_adr_file": (
+        "one file someone attached to a decision, gated on adr.view like the decision itself"
+    ),
     "bpm.py::export_bpmn": (
         "one process diagram the caller is already viewing, gated per card like the viewer"
     ),

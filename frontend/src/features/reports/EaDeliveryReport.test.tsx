@@ -338,12 +338,25 @@ describe("EaDeliveryReport", () => {
   });
 
   describe("the SoAW context menu", () => {
-    async function openMenu() {
+    async function openMenu(status = "draft") {
       const anchor = document.createElement("div");
       document.body.appendChild(anchor);
-      await call("InitiativesTab", "onSoawContextMenu", anchor, { id: "soaw-1" });
+      await call("InitiativesTab", "onSoawContextMenu", anchor, { id: "soaw-1", status });
       return screen.findByRole("menu");
     }
+
+    it("offers Delete on a draft only", async () => {
+      renderPage();
+      for (const status of ["in_review", "approved", "signed"]) {
+        await openMenu(status);
+        expect(screen.getByRole("menuitem", { name: /preview/i })).toBeInTheDocument();
+        expect(screen.queryByRole("menuitem", { name: /delete/i })).not.toBeInTheDocument();
+        await userEvent.setup().keyboard("{Escape}");
+        await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+      }
+      await openMenu("draft");
+      expect(screen.getByRole("menuitem", { name: /delete/i })).toBeInTheDocument();
+    });
 
     it("navigates to the preview", async () => {
       const user = userEvent.setup();

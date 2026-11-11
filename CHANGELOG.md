@@ -5,6 +5,41 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.199.0] - 2026-11-10
+
+### Added
+- **The decision register shows what is in force** ([#1376](https://github.com/vincentmakes/turbo-ea/discussions/1376)): every signed decision has a standing — Scheduled, In force, In force (amended), Superseded, Revoked or Expired — worked out from its dates, its revisions and the decisions that act on it, never set by hand; the register gains a Standing column, filter and grouping, and an **In force** preset.
+- Decisions link to each other by kind — **Replaces**, **Amends**, **Revokes** or **Relates to**, with an optional note for partial cases — shown on both decisions and taking effect once the acting decision is signed and effective.
+- A signed decision is revoked or replaced through a new signed decision: **Revise → Replace with a new decision** or **Revoke** opens a pre-filled draft.
+- An amended decision offers **Create consolidated revision**, a revision that folds the amendment in, names the amending decision and carries a change summary.
+- Decisions carry a **Decided on**, an **Effective from** and an optional **Valid until** date: a decision not yet effective is Scheduled, one past its date is Expired.
+- Decisions record their **decision makers** and **participants**, as users or plain names, separately from the signatories; **Add decision makers** adds them as signatories in one click.
+- Files can be attached to a draft decision, with the same formats and 20 MB limit as card attachments; they lock with the decision and carry into its revisions.
+- **Record as decided** enters a decision taken outside Turbo EA without signatures, labelled Recorded; it needs the new `adr.record` permission (Admin role by default) and is logged in the Security & admin log.
+- The author of a decision is notified when a signed decision replaces, amends or revokes it (**ADR Standing Changed**).
+- The register has Decided on, Effective from, Valid until and Decision makers columns, and a **Show earlier revisions** switch.
+- The decisions spreadsheet export adds the standing, the three dates, decision makers, participants and the replaces / amends / revokes / consolidates links; the Word and PDF exports show the dates, people, linked decisions, file names and the recorded line.
+- Statements of Architecture Work follow the same revision rules as decisions: one open revision at a time, a banner on an earlier revision pointing to the current one, and a revisions strip.
+- MCP: a `revise_adr` tool starts the next revision of a signed decision; `list_adrs` filters by standing; `create_adr` and `update_adr` take typed links, dates, decision makers and participants.
+- Extension SDK 1.17: decisions read through the decisions bridge carry their standing, whether they are the current revision, their decided-on / effective-from / valid-until dates and whether they were recorded rather than signed.
+- UI SDK 1.34: decision panels and the `adr.header` slot receive the decision's standing and whether it is the current revision.
+
+### Changed
+- A revision keeps its decision's number, shown as *ADR-012 · Rev 2*; decisions revised earlier keep the numbers they were issued and read as one decision.
+- The register, a card's ADRs tab and the initiative views list the current revision of each decision (and a revision being drafted); earlier revisions show a banner pointing to the current one.
+- A decision or SoAW sent for review can no longer be edited: recall the signatures first. Only its linked cards (a SoAW's initiative) can still change.
+- Extension panels on a decision are read-only whenever it is not a draft (UI SDK 1.34).
+- Signatures can only be requested from a draft decision, and from a draft or approved SoAW.
+- A rejection returns a decision or SoAW to draft without changing its revision number.
+- Only draft SoAWs can be deleted.
+- MCP `list_adrs` and `list_soaws` hide earlier revisions by default (`include_earlier` adds them).
+- Related decisions on a decision are shown as **Relates to** links; TurboLens assessment references on decisions are no longer stored.
+
+### Fixed
+- A signed decision or SoAW could be revised twice in parallel, after which its revision list failed to load.
+- Related decisions were stored but never shown.
+- Signing, recalling or rejecting one decision or SoAW could close the signature to-dos of another with the same name or reference.
+
 ## [2.198.2] - 2026-11-10
 
 ### Fixed

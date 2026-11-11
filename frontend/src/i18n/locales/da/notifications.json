@@ -41,6 +41,7 @@
   "preferences.adrSigned": "ADR underskrevet",
   "preferences.adrSignRecalled": "ADR-underskrift trukket tilbage",
   "preferences.adrRejected": "ADR afvist",
+  "preferences.adrStandingChanged": "ADR-gyldighed ændret",
   "preferences.processFlowApprovalRequested": "Godkendelse af procesflow anmodet",
   "preferences.processFlowApproved": "Procesflow godkendt",
   "preferences.processFlowRejected": "Procesflow afvist",

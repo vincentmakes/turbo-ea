@@ -510,6 +510,7 @@
   "dashboard.activity.action.adr.signed": "signed an ADR",
   "dashboard.activity.action.adr.rejected": "rejected an ADR",
   "dashboard.activity.action.adr.signatures_recalled": "recalled ADR signatures",
+  "dashboard.activity.action.adr.recorded": "recorded an ADR as decided",
   "dashboard.activity.action.soaw.signatures_requested": "requested signatures on a SoAW",
   "dashboard.activity.action.soaw.signed": "signed a SoAW",
   "dashboard.activity.action.soaw.rejected": "rejected a SoAW",

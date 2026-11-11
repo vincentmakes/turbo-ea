@@ -345,6 +345,31 @@ class TestDecisionRollback:
         remaining = (await db.execute(select(ArchitectureDecision.id))).scalars().all()
         assert remaining == [signed.id]
 
+    async def test_a_created_revision_is_deleted_like_a_draft(self, db, actor):
+        from app.services import decision_standing as ds
+
+        source = await adr_service.create_decision(db, title="Signed", publish=False)
+        source.status = "signed"
+        await db.flush()
+        batch = await _open_batch(db, actor)
+        with _InBatch(batch):
+            revision = await adr_service.create_revision(
+                db, source, created_by=actor.id, register=await ds.load_register(db)
+            )
+        revision_id = revision.id
+        [event] = await _events(db, batch, "adr.created")
+        assert event.data["revision_of"] == str(source.id)
+
+        plan = await plan_rollback(db, batch)
+        assert plan["unsupported_events"] == []
+        assert [(o["op"], o["adr_id"], o["detail"]) for o in plan["operations"]] == [
+            ("delete_adr", str(revision_id), f"{source.reference_number} · Rev 2")
+        ]
+        result = await execute_rollback(db, batch, actor.id)
+        assert _ops(result, "delete_adr")[0]["status"] == "ok"
+        remaining = (await db.execute(select(ArchitectureDecision.id))).scalars().all()
+        assert remaining == [source.id]
+
 
 class TestDiagramRollback:
     async def test_created_diagram_is_deleted_and_a_published_one_is_left(self, db, actor):

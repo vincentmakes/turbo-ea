@@ -28,6 +28,18 @@
             ],
             "title": "Alternatives Considered"
           },
+          "change_summary": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Summary"
+          },
           "consequences": {
             "anyOf": [
               {
@@ -50,6 +62,18 @@
             ],
             "title": "Context"
           },
+          "decided_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided On"
+          },
           "decision": {
             "anyOf": [
               {
@@ -60,6 +84,33 @@
               }
             ],
             "title": "Decision"
+          },
+          "decision_makers": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ADRPersonIn"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Makers"
+          },
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
           },
           "linked_card_ids": {
             "anyOf": [
@@ -75,6 +126,36 @@
             ],
             "title": "Linked Card Ids"
           },
+          "links": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ADRLinkIn"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Links"
+          },
+          "participants": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ADRPersonIn"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Participants"
+          },
           "related_decisions": {
             "default": [],
             "items": {
@@ -88,6 +169,18 @@
             "minLength": 1,
             "title": "Title",
             "type": "string"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
           }
         },
         "required": [
@@ -170,6 +263,21 @@
             "maxItems": 500,
             "title": "Related References",
             "type": "array"
+          },
+          "revision_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision Number"
           },
           "row_index": {
             "title": "Row Index",
@@ -322,6 +430,101 @@
         "title": "ADRImportResult",
         "type": "object"
       },
+      "ADRLinkIn": {
+        "additionalProperties": false,
+        "description": "One typed link from the decision being saved to another decision.",
+        "properties": {
+          "decision_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Decision Id",
+            "type": "string"
+          },
+          "kind": {
+            "maxLength": 20,
+            "minLength": 1,
+            "title": "Kind",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "required": [
+          "decision_id",
+          "kind"
+        ],
+        "title": "ADRLinkIn",
+        "type": "object"
+      },
+      "ADRPersonIn": {
+        "additionalProperties": false,
+        "description": "A decision maker or participant: a user of this instance, or a name.",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "title": "ADRPersonIn",
+        "type": "object"
+      },
+      "ADRRecordRequest": {
+        "additionalProperties": false,
+        "description": "Body of ``POST /adr/{id}/record``: when a decision taken outside Turbo EA was made.",
+        "properties": {
+          "decided_on": {
+            "format": "date",
+            "title": "Decided On",
+            "type": "string"
+          },
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
+          }
+        },
+        "required": [
+          "decided_on"
+        ],
+        "title": "ADRRecordRequest",
+        "type": "object"
+      },
       "ADRRejectRequest": {
         "properties": {
           "comment": {
@@ -333,6 +536,34 @@
           "comment"
         ],
         "title": "ADRRejectRequest",
+        "type": "object"
+      },
+      "ADRReviseRequest": {
+        "additionalProperties": false,
+        "description": "Optional body of ``POST /adr/{id}/revise``.",
+        "properties": {
+          "change_summary": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Summary"
+          },
+          "consolidates": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Consolidates",
+            "type": "array"
+          }
+        },
+        "title": "ADRReviseRequest",
         "type": "object"
       },
       "ADRSignRequest": {
@@ -408,6 +639,18 @@
             ],
             "title": "Attributes"
           },
+          "change_summary": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Summary"
+          },
           "consequences": {
             "anyOf": [
               {
@@ -430,6 +673,18 @@
             ],
             "title": "Context"
           },
+          "decided_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided On"
+          },
           "decision": {
             "anyOf": [
               {
@@ -440,6 +695,33 @@
               }
             ],
             "title": "Decision"
+          },
+          "decision_makers": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ADRPersonIn"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Makers"
+          },
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
           },
           "linked_card_ids": {
             "anyOf": [
@@ -454,6 +736,36 @@
               }
             ],
             "title": "Linked Card Ids"
+          },
+          "links": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ADRLinkIn"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Links"
+          },
+          "participants": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ADRPersonIn"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Participants"
           },
           "related_decisions": {
             "anyOf": [
@@ -492,6 +804,18 @@
               }
             ],
             "title": "Title"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
           }
         },
         "title": "ADRUpdate",
@@ -1271,6 +1595,20 @@
           "file"
         ],
         "title": "Body_replace_file_attachment_api_v1_file_attachments__attachment_id__content_put",
+        "type": "object"
+      },
+      "Body_upload_adr_file_api_v1_adr__adr_id__files_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_adr_file_api_v1_adr__adr_id__files_post",
         "type": "object"
       },
       "Body_upload_bundle_api_v1_admin_extensions_install_post": {
@@ -20859,6 +21197,44 @@
             }
           },
           {
+            "description": "Only decisions decided on or after this date (signed or recorded)",
+            "in": "query",
+            "name": "decided_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only decisions decided on or after this date (signed or recorded)",
+              "title": "Decided From"
+            }
+          },
+          {
+            "description": "Only decisions decided on or before this date (signed or recorded)",
+            "in": "query",
+            "name": "decided_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only decisions decided on or before this date (signed or recorded)",
+              "title": "Decided To"
+            }
+          },
+          {
             "description": "Also return every section's text and related decision references (the spreadsheet export)",
             "in": "query",
             "name": "include_content",
@@ -20868,6 +21244,36 @@
               "description": "Also return every section's text and related decision references (the spreadsheet export)",
               "title": "Include Content",
               "type": "boolean"
+            }
+          },
+          {
+            "description": "Also list earlier revisions superseded inside their own chain",
+            "in": "query",
+            "name": "include_earlier",
+            "required": false,
+            "schema": {
+              "default": true,
+              "description": "Also list earlier revisions superseded inside their own chain",
+              "title": "Include Earlier",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Only decisions with this standing (comma-separated allowed)",
+            "in": "query",
+            "name": "standing",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only decisions with this standing (comma-separated allowed)",
+              "title": "Standing"
             }
           }
         ],
@@ -20988,6 +21394,36 @@
             "schema": {
               "title": "Card Id",
               "type": "string"
+            }
+          },
+          {
+            "description": "Also list earlier revisions superseded inside their own chain",
+            "in": "query",
+            "name": "include_earlier",
+            "required": false,
+            "schema": {
+              "default": true,
+              "description": "Also list earlier revisions superseded inside their own chain",
+              "title": "Include Earlier",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Only decisions with this standing (comma-separated allowed)",
+            "in": "query",
+            "name": "standing",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only decisions with this standing (comma-separated allowed)",
+              "title": "Standing"
             }
           }
         ],
@@ -21275,6 +21711,191 @@
         ]
       }
     },
+    "/api/v1/adr/{adr_id}/files": {
+      "get": {
+        "description": "The files on a decision, oldest first.",
+        "operationId": "list_adr_files_api_v1_adr__adr_id__files_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Adr Files",
+        "tags": [
+          "adr"
+        ]
+      },
+      "post": {
+        "description": "Attach a file to a draft decision. Same checks as a card attachment.",
+        "operationId": "upload_adr_file_api_v1_adr__adr_id__files_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_adr_file_api_v1_adr__adr_id__files_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Adr File",
+        "tags": [
+          "adr"
+        ]
+      }
+    },
+    "/api/v1/adr/{adr_id}/files/{attachment_id}": {
+      "delete": {
+        "description": "Remove a file from a draft decision; its bytes go once no decision shares them.\n\nAllowed while file uploads are switched off, like a card attachment's\ndelete: otherwise a file could not leave a draft and would be signed with it.",
+        "operationId": "delete_adr_file_api_v1_adr__adr_id__files__attachment_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "attachment_id",
+            "required": true,
+            "schema": {
+              "title": "Attachment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Adr File",
+        "tags": [
+          "adr"
+        ]
+      }
+    },
+    "/api/v1/adr/{adr_id}/files/{attachment_id}/download": {
+      "get": {
+        "description": "One file of a decision, as a download.",
+        "operationId": "download_adr_file_api_v1_adr__adr_id__files__attachment_id__download_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "attachment_id",
+            "required": true,
+            "schema": {
+              "title": "Attachment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download Adr File",
+        "tags": [
+          "adr"
+        ]
+      }
+    },
     "/api/v1/adr/{adr_id}/recall-signatures": {
       "post": {
         "description": "Recall all pending signature requests. Resets status to draft and\nclears signatories.",
@@ -21316,9 +21937,60 @@
         ]
       }
     },
+    "/api/v1/adr/{adr_id}/record": {
+      "post": {
+        "description": "Record a draft as a decision already taken outside Turbo EA.\n\nThe decision locks like a signed one (``status`` ``signed``) with\n``recorded_at`` / ``recorded_by`` set instead of signatures. Draft only\n(409 ``not_draft``); at least one decision maker, ``decided_on`` not in\nthe future and, on a revision, not before the revised decision's date\n(400 ``invalid_record``); then the same lock checks as a request for\nsignatures (409).",
+        "operationId": "record_adr_api_v1_adr__adr_id__record_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ADRRecordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Adr",
+        "tags": [
+          "adr"
+        ]
+      }
+    },
     "/api/v1/adr/{adr_id}/reject": {
       "post": {
-        "description": "Reject the ADR as a signatory. Resets to draft, increments revision\nnumber, clears all signatories, and notifies the creator.",
+        "description": "Reject the ADR as a signatory. Resets to draft (the revision number\nstays: revisions count signed versions), clears all signatories, and\nnotifies the creator.",
         "operationId": "reject_adr_api_v1_adr__adr_id__reject_post",
         "parameters": [
           {
@@ -21420,7 +22092,7 @@
     },
     "/api/v1/adr/{adr_id}/revise": {
       "post": {
-        "description": "Create a new revision of a signed ADR.",
+        "description": "Create the next revision of a signed ADR: same reference, next number.\n\n409 when the chain already has a revision being drafted, when a later\nrevision is signed, or when another decision revoked or replaced it.",
         "operationId": "revise_adr_api_v1_adr__adr_id__revise_post",
         "parameters": [
           {
@@ -21433,6 +22105,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ADRReviseRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -21461,7 +22150,7 @@
     },
     "/api/v1/adr/{adr_id}/revisions": {
       "get": {
-        "description": "List all revisions in the chain for this ADR.",
+        "description": "List all revisions in the chain for this ADR, in chain order.",
         "operationId": "list_revisions_api_v1_adr__adr_id__revisions_get",
         "parameters": [
           {
@@ -42772,6 +43461,16 @@
               ],
               "title": "Initiative Id"
             }
+          },
+          {
+            "in": "query",
+            "name": "include_earlier",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Include Earlier",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -43001,7 +43700,7 @@
     },
     "/api/v1/soaw/{soaw_id}/reject": {
       "post": {
-        "description": "Reject the SoAW as a signatory. Resets to draft, increments revision\nnumber, clears all signatories, and notifies the creator.",
+        "description": "Reject the SoAW as a signatory. Resets to draft (the revision number\nstays: revisions count signed versions), clears all signatories, and\nnotifies the creator.",
         "operationId": "reject_soaw_api_v1_soaw__soaw_id__reject_post",
         "parameters": [
           {
@@ -43103,7 +43802,7 @@
     },
     "/api/v1/soaw/{soaw_id}/revise": {
       "post": {
-        "description": "Create a new revision of a signed SoAW. Copies the document content\ninto a new draft linked to the same initiative, with an incremented\nrevision number and parent_id pointing to the original.",
+        "description": "Create a new revision of a signed SoAW. Copies the document content\ninto a new draft linked to the same initiative, numbered after the chain's\nhighest revision, with parent_id pointing to the original. Refused (409)\nwhile the chain already has an unsigned revision, and on a signed revision\nthat a later signed revision superseded.",
         "operationId": "revise_soaw_api_v1_soaw__soaw_id__revise_post",
         "parameters": [
           {
@@ -43144,7 +43843,7 @@
     },
     "/api/v1/soaw/{soaw_id}/revisions": {
       "get": {
-        "description": "List all revisions in the chain for this SoAW (traverses parent_id).",
+        "description": "List all revisions in the chain for this SoAW, in chain order (fork-safe;\na dangling parent is a root).",
         "operationId": "list_revisions_api_v1_soaw__soaw_id__revisions_get",
         "parameters": [
           {

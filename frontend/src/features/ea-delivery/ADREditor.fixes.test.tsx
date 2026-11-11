@@ -13,8 +13,11 @@ import type { ArchitectureDecision, SoAWSignatory } from "@/types";
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
   ApiError: class ApiError extends Error {},
+  isAbortError: () => false,
 }));
-vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ user: { id: "u1", permissions: {} } }) }));
+vi.mock("@/hooks/useAuth", () => ({
+  useAuth: () => ({ user: { id: "u1", permissions: { "adr.manage": true } } }),
+}));
 vi.mock("@/hooks/AuthContext", () => ({
   useOptionalAuthUser: () => null,
   useAuthContext: () => ({ user: { id: "u1", permissions: {} }, refreshUser: async () => {} }),
@@ -190,7 +193,7 @@ describe("ADREditor — one request per workflow action, however often it is cli
     expect(postsTo("/adr/adr-1/duplicate")).toHaveLength(2);
   });
 
-  it("creates one revision on a double click, and can retry once the first attempt failed", async () => {
+  it("creates one revision while the menu is busy, and can retry once the first attempt failed", async () => {
     const first = deferred();
     let calls = 0;
     await renderLoaded(SIGNED, () => {
@@ -198,14 +201,20 @@ describe("ADREditor — one request per workflow action, however often it is cli
       return calls === 1 ? first.promise : { ...SIGNED, id: "adr-rev" };
     });
     const user = userEvent.setup();
+    const reviseButton = () => screen.getByRole("button", { name: /Revise/ });
 
-    await user.dblClick(screen.getByRole("button", { name: /New Revision/ }));
+    await user.click(reviseButton());
+    await user.dblClick(screen.getByRole("menuitem", { name: /Revise this decision/ }));
     expect(postsTo("/adr/adr-1/revise")).toHaveLength(1);
+    // The menu cannot be reopened while the revise is in flight.
+    expect(reviseButton()).toBeDisabled();
 
     first.reject(new Error("down"));
     expect(await screen.findByText("Failed to create revision")).toBeInTheDocument();
     expect(location()).toBe("/ea-delivery/adr/adr-1");
-    await user.click(screen.getByRole("button", { name: /New Revision/ }));
+    expect(reviseButton()).toBeEnabled();
+    await user.click(reviseButton());
+    await user.click(screen.getByRole("menuitem", { name: /Revise this decision/ }));
     await waitFor(() => expect(location()).toBe("/ea-delivery/adr/adr-rev"));
     expect(postsTo("/adr/adr-1/revise")).toHaveLength(2);
   });

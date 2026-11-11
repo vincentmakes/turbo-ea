@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { alpha } from "@mui/material/styles";
-import { brand } from "@/theme/tokens";
+import { RAG_COLORS, brand } from "@/theme/tokens";
 import NotificationBell from "./NotificationBell";
 
 const navigate = vi.fn();
@@ -501,5 +501,42 @@ describe("NotificationBell row colours", () => {
       backgroundColor: alpha(brand.primary, 0.04),
       borderLeft: `3px solid ${brand.primary}`,
     });
+  });
+});
+
+describe("NotificationBell decision standing", () => {
+  it("shows a changed standing with its own glyph in the amber token", async () => {
+    vi.mocked(api.get).mockReset();
+    vi.mocked(api.get).mockImplementation(async (path: string) =>
+      path.startsWith("/notifications?")
+        ? {
+            items: [
+              {
+                id: "s1",
+                user_id: "u1",
+                type: "adr_standing_changed",
+                title: "ADR-012 · Rev 2 — Use Kafka was revoked",
+                message: "",
+                link: "/ea-delivery/adr/a1",
+                is_read: false,
+                created_at: new Date().toISOString(),
+              },
+            ],
+            total: 1,
+            page: 1,
+            page_size: 20,
+          }
+        : { count: 1 },
+    );
+    render(<NotificationBell userId="u1" />);
+    await userEvent.setup().click(bellButton());
+    const row = (await screen.findByText("ADR-012 · Rev 2 — Use Kafka was revoked")).closest(
+      ".MuiListItemButton-root",
+    ) as HTMLElement;
+    const glyph = [...row.querySelectorAll(".material-symbols-outlined")].find(
+      (el) => el.textContent === "published_with_changes",
+    );
+    expect(glyph).toBeDefined();
+    expect(glyph).toHaveStyle({ color: RAG_COLORS.amber });
   });
 });

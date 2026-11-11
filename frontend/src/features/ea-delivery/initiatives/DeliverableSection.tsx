@@ -10,6 +10,8 @@ import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { DELIVERABLE_COLORS } from "@/theme/tokens";
 import { SOAW_STATUS_COLORS } from "./constants";
+import { DecisionStateChip } from "../DecisionStandingChip";
+import { decisionRefLabel } from "../decisionStanding";
 import type {
   ArchitectureDecision,
   DiagramSummary,
@@ -299,18 +301,13 @@ export default function DeliverableSection(props: Props) {
   }
 
   function AdrRow({ adr, color }: { adr: ArchitectureDecision; color: string }) {
-    const statusLabels: Record<string, string> = {
-      draft: t("status.draft"),
-      in_review: t("status.inReview"),
-      signed: t("status.signed"),
-    };
     return (
       <CompactRow
         icon={<MaterialSymbol icon="gavel" size={18} color={color} />}
         onClick={() => navigate(`/ea-delivery/adr/${adr.id}`)}
       >
         <Chip
-          label={adr.reference_number}
+          label={decisionRefLabel(adr, t)}
           size="small"
           variant="outlined"
           sx={{ fontFamily: "monospace", fontSize: "0.7rem", height: 22 }}
@@ -318,12 +315,7 @@ export default function DeliverableSection(props: Props) {
         <Typography sx={{ fontSize: "0.9rem", flex: 1, minWidth: 0 }} noWrap>
           {adr.title}
         </Typography>
-        <Chip
-          label={statusLabels[adr.status] ?? adr.status}
-          size="small"
-          color={SOAW_STATUS_COLORS[adr.status] ?? "default"}
-          sx={{ height: 22 }}
-        />
+        <DecisionStateChip adr={adr} sx={{ height: 22, flexShrink: 0 }} />
       </CompactRow>
     );
   }

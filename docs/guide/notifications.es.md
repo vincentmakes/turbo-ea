@@ -24,6 +24,7 @@ Haga clic en cualquier notificación para navegar directamente a la ficha o docu
 | **Estado de aprobación cambiado** | Cambia el estado de aprobación de una ficha (aprobada, rechazada, rota) |
 | **Solicitud de firma SoAW** | Se le solicita firmar una Declaración de Trabajo de Arquitectura |
 | **SoAW firmado** | Un SoAW que está siguiendo recibe una firma |
+| **Vigencia de ADR cambiada** | Una decisión firmada sustituye, modifica o revoca una decisión que usted redactó |
 | **Solicitud de encuesta** | Se envía una encuesta que requiere su respuesta |
 
 **Estado de aprobación cambiado** también cubre el caso automático. Una ficha

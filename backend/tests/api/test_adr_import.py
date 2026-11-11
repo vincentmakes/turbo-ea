@@ -6,12 +6,15 @@ DB-backed: skipped locally without PostgreSQL, run in CI.
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
 from sqlalchemy import select
 
 from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
+from app.models.architecture_decision_link import ArchitectureDecisionLink
 from app.models.card_type import CardType
 from app.models.event import Event
 from app.services.permission_service import PermissionService
@@ -165,16 +168,80 @@ class TestBulkImport:
             [
                 {"row_index": 0, "title": ""},
                 {"row_index": 1, "title": "x" * 501},
-                {"row_index": 2, "reference_number": "ADR-900", "title": "First"},
-                {"row_index": 3, "reference_number": "adr-900", "title": "Second"},
             ],
         )
 
         results = resp.json()["results"]
-        assert [r["status"] for r in results] == ["failed", "failed", "created", "failed"]
+        assert [r["status"] for r in results] == ["failed", "failed"]
         assert results[0]["error"] == "Title is required"
         assert results[1]["error"] == "Title is longer than 500 characters"
-        assert results[3]["error"] == "Reference ADR-900 appears more than once in the file"
+
+    @pytest.mark.parametrize("rev2_first", [False, True])
+    async def test_an_exported_chain_imports_its_latest_revision_only(
+        self, client, db, env, rev2_first
+    ):
+        rev1 = {
+            "row_index": 2,
+            "reference_number": "OLD-7",
+            "title": "Rev one",
+            "revision_number": 1,
+        }
+        rev2 = {
+            "row_index": 3,
+            "reference_number": "old-7",
+            "title": "Rev two",
+            "revision_number": "2",
+        }
+        rows = [rev2, rev1] if rev2_first else [rev1, rev2]
+        rows.append({"row_index": 4, "title": "Points at it", "related_references": ["OLD-7"]})
+
+        resp = await _import(client, env["member"], rows)
+
+        body = resp.json()
+        by_row = {r["row_index"]: r for r in body["results"]}
+        assert (body["created"], body["skipped"], body["failed"]) == (2, 1, 0)
+        assert by_row[2] == {
+            "row_index": 2,
+            "status": "skipped",
+            "id": by_row[3]["id"],
+            "reference_number": "OLD-7",
+            "error": None,
+            "warnings": ["Earlier revision of OLD-7 skipped"],
+        }
+        assert (by_row[3]["status"], by_row[3]["warnings"]) == ("created", [])
+        await db.rollback()
+        titles = sorted(d.title for d in await _decisions(db))
+        assert titles == ["Points at it", "Rev two"]
+        links = (
+            (
+                await db.execute(
+                    select(ArchitectureDecisionLink.target_id).where(
+                        ArchitectureDecisionLink.source_id == uuid.UUID(by_row[4]["id"])
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert [str(t) for t in links] == [by_row[3]["id"]]
+
+    async def test_reimporting_an_exported_chain_changes_nothing(self, client, db, env):
+        rows = [
+            {"row_index": 0, "reference_number": "OLD-8", "title": "A", "revision_number": 1},
+            {"row_index": 1, "reference_number": "OLD-8", "title": "B", "revision_number": 2},
+        ]
+        first = (await _import(client, env["member"], rows)).json()
+        assert (first["created"], first["skipped"]) == (1, 1)
+        created_ref = next(r for r in first["results"] if r["status"] == "created")[
+            "reference_number"
+        ]
+
+        rows = [{**r, "reference_number": created_ref} for r in rows]
+        again = (await _import(client, env["member"], rows)).json()
+        assert (again["created"], again["skipped"], again["failed"]) == (0, 2, 0)
+        assert [r["warnings"] for r in again["results"]] == [[], []]
+        await db.rollback()
+        assert [d.title for d in await _decisions(db)] == ["B"]
 
     async def test_related_decisions_resolve_against_the_file_and_the_database(
         self, client, db, env
@@ -204,18 +271,24 @@ class TestBulkImport:
         assert first["warnings"] == ["Related decision not found: ADR-404"]
         await db.rollback()
         rows = {d.reference_number: d for d in await _decisions(db)}
-        assert rows[first["reference_number"]].related_decisions == [
-            second["id"],
-            existing_id,
-        ]
+        links = (
+            await db.execute(
+                select(ArchitectureDecisionLink.target_id, ArchitectureDecisionLink.kind).where(
+                    ArchitectureDecisionLink.source_id == rows[first["reference_number"]].id
+                )
+            )
+        ).all()
+        assert sorted((str(t), k) for t, k in links) == sorted(
+            [(second["id"], "relates"), (existing_id, "relates")]
+        )
 
         listed = await client.get(
             "/api/v1/adr?include_content=true", headers=auth_headers(env["admin"])
         )
         by_ref = {a["reference_number"]: a for a in listed.json()}
         assert by_ref[first["reference_number"]]["related_references"] == [
-            second["reference_number"],
             "ADR-001",
+            second["reference_number"],
         ]
 
     async def test_a_hidden_card_reads_as_not_found(self, client, db, env):
@@ -255,6 +328,7 @@ class TestBulkImport:
 class TestIncludeContent:
     async def test_list_carries_sections_only_when_asked(self, client, env):
         headers = auth_headers(env["admin"])
+        first = (await client.post("/api/v1/adr", json={"title": "Target"}, headers=headers)).json()
         await client.post(
             "/api/v1/adr",
             json={
@@ -263,22 +337,39 @@ class TestIncludeContent:
                 "decision": "<p>d</p>",
                 "consequences": "<p>q</p>",
                 "alternatives_considered": "<p>a</p>",
-                "related_decisions": ["ADR-001", "not-a-decision"],
+                "related_decisions": ["ADR-001"],
             },
             headers=headers,
         )
 
-        plain = (await client.get("/api/v1/adr", headers=headers)).json()[0]
-        assert "context" not in plain
-        assert "related_references" not in plain
+        plain = {a["title"]: a for a in (await client.get("/api/v1/adr", headers=headers)).json()}
+        assert "context" not in plain["With content"]
+        assert "related_references" not in plain["With content"]
+        assert "link_references" not in plain["With content"]
 
-        full = (await client.get("/api/v1/adr?include_content=true", headers=headers)).json()[0]
+        listed = (await client.get("/api/v1/adr?include_content=true", headers=headers)).json()
+        full = {a["title"]: a for a in listed}["With content"]
         assert full["context"] == "<p>c</p>"
         assert full["decision"] == "<p>d</p>"
         assert full["consequences"] == "<p>q</p>"
         assert full["alternatives_considered"] == "<p>a</p>"
-        # A reference the decision itself holds resolves; an unknown entry is dropped.
-        assert full["related_references"] == ["ADR-001"]
+        assert full["related_references"] == [first["reference_number"]]
+        assert full["link_references"] == {
+            "replaces": [],
+            "amends": [],
+            "revokes": [],
+            "consolidates": [],
+        }
+
+    async def test_an_unknown_related_decision_is_a_404(self, client, env):
+        resp = await client.post(
+            "/api/v1/adr",
+            json={"title": "Dangling", "related_decisions": ["not-a-decision"]},
+            headers=auth_headers(env["admin"]),
+        )
+        assert resp.status_code == 404
+        assert resp.json()["detail"]["error"] == "decision_not_found"
+        assert resp.json()["detail"]["value"] == "not-a-decision"
 
     async def test_hidden_linked_cards_stay_out(self, client, db, env):
         secret = await create_card(db, card_type="Initiative", name="Secret programme")

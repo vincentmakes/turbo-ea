@@ -1,6 +1,12 @@
 from app.models.app_settings import AppSettings
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
+from app.models.architecture_decision_file import (
+    ArchitectureDecisionFile,
+    ArchitectureDecisionFileContent,
+)
+from app.models.architecture_decision_link import ArchitectureDecisionLink
+from app.models.architecture_decision_person import ArchitectureDecisionPerson
 from app.models.audit_log import AuditLogEntry
 from app.models.base import Base
 from app.models.bookmark import Bookmark
@@ -94,6 +100,10 @@ __all__ = [
     "TurboLensVendorHierarchy",
     "ArchitectureDecision",
     "ArchitectureDecisionCard",
+    "ArchitectureDecisionFile",
+    "ArchitectureDecisionFileContent",
+    "ArchitectureDecisionLink",
+    "ArchitectureDecisionPerson",
     "Base",
     "FileAttachment",
     "User",

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
 from fastapi.responses import Response
@@ -11,21 +10,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.models.app_settings import AppSettings
 from app.models.file_attachment import FileAttachment
 from app.models.user import User
 from app.schemas.common import FileAttachmentUpdate
-from app.services.attachment_validation import (
-    MAX_ATTACHMENT_BYTES,
-    MAX_ATTACHMENT_MB,
-    SNIFF_BYTES,
-    AttachmentFormat,
-    InvalidAttachmentError,
-    extension_of,
-    extensions_for_mime,
-    resolve_format,
-    validate_content,
+from app.services.attachment_upload import (
+    content_disposition,
+    read_validated_upload,
+    require_uploads_enabled,
 )
+from app.services.attachment_validation import extension_of, extensions_for_mime
 from app.services.card_read_scope import require_card_readable
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
@@ -66,37 +59,6 @@ async def _load_for_manage(db: AsyncSession, user: User, attachment_id: str) -> 
     ):
         raise HTTPException(403, "Not enough permissions")
     return attachment
-
-
-async def _require_uploads_enabled(db: AsyncSession) -> None:
-    settings_result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
-    settings_row = settings_result.scalar_one_or_none()
-    general = (settings_row.general_settings if settings_row else None) or {}
-    if not general.get("fileUploadsEnabled", True):
-        raise HTTPException(403, "File uploads are disabled by the administrator")
-
-
-async def _read_validated_upload(file: UploadFile) -> tuple[AttachmentFormat, bytes]:
-    """Read an upload the way every write path must: the extension picks the
-    format, the size is bounded before trusting Content-Length, and the bytes
-    prove the format. The declared content type decides nothing."""
-    # Resolving first costs nothing and refuses a bad name before any read.
-    try:
-        fmt = resolve_format(file.filename or "")
-    except InvalidAttachmentError as exc:
-        raise HTTPException(400, str(exc)) from exc
-
-    # One byte past the cap is enough to know it was exceeded, and bounds what
-    # a single request can pull into memory without trusting Content-Length.
-    data = await file.read(MAX_ATTACHMENT_BYTES + 1)
-    if len(data) > MAX_ATTACHMENT_BYTES:
-        raise HTTPException(400, f"File exceeds maximum size of {MAX_ATTACHMENT_MB} MB")
-
-    try:
-        validate_content(fmt, data[:SNIFF_BYTES])
-    except InvalidAttachmentError as exc:
-        raise HTTPException(400, str(exc)) from exc
-    return fmt, data
 
 
 @router.get("/cards/{card_id}/file-attachments")
@@ -141,8 +103,8 @@ async def upload_file_attachment(
     ):
         raise HTTPException(403, "Not enough permissions")
 
-    await _require_uploads_enabled(db)
-    fmt, data = await _read_validated_upload(file)
+    await require_uploads_enabled(db)
+    fmt, data = await read_validated_upload(file)
 
     attachment = FileAttachment(
         card_id=card_uuid,
@@ -195,8 +157,8 @@ async def replace_file_attachment(
     while uploads are switched off.
     """
     attachment = await _load_for_manage(db, user, attachment_id)
-    await _require_uploads_enabled(db)
-    fmt, data = await _read_validated_upload(file)
+    await require_uploads_enabled(db)
+    fmt, data = await read_validated_upload(file)
 
     previous = {
         "name": attachment.name,
@@ -308,18 +270,10 @@ async def download_file_attachment(
     # An attachment of a card hidden from the caller does not exist for them.
     await require_card_readable(db, user, attachment.card_id, mode="module")
 
-    # RFC 6266 / RFC 5987: HTTP header values must be Latin-1 encodable, so a
-    # raw filename with non-Latin-1 characters (Cyrillic, CJK, emoji, ...) would
-    # crash the response serializer with UnicodeEncodeError. Emit an ASCII
-    # fallback plus a percent-encoded UTF-8 form that modern browsers prefer.
-    ascii_fallback = attachment.name.encode("ascii", "replace").decode("ascii")
-    ascii_fallback = ascii_fallback.replace("\\", "_").replace('"', "_")
-    encoded_name = quote(attachment.name, safe="")
-    disposition = f"attachment; filename=\"{ascii_fallback}\"; filename*=UTF-8''{encoded_name}"
     return Response(
         content=attachment.data,
         media_type=attachment.mime_type,
-        headers={"Content-Disposition": disposition},
+        headers={"Content-Disposition": content_disposition(attachment.name)},
     )
 
 

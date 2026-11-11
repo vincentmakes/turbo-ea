@@ -23,7 +23,6 @@ PICTURE = "a rendered picture; regenerated on the next save"
 KEYS = "metamodel keys (types, fields, roles, options), not ids"
 BINARY = "uploaded file bytes"
 USER_IDS = "user ids, not card / relation / tag ids (signatures stay a separate concern)"
-MODULE_IDS = "ids of module rows, which keep their primary keys on import"
 ENUM = "a fixed status / category value stored as text"
 
 ID_FREE_COLUMNS: dict[tuple[str, str], str] = {
@@ -80,9 +79,9 @@ ID_FREE_COLUMNS: dict[tuple[str, str], str] = {
     ("Adrs", "decision"): PROSE,
     ("Adrs", "consequences"): PROSE,
     ("Adrs", "alternatives_considered"): PROSE,
-    ("Adrs", "related_decisions"): MODULE_IDS,
     ("Adrs", "attributes"): "an extension's own ext.<key>.* bag; core cannot know its shape",
     ("Adrs", "signatories"): USER_IDS,
+    ("AdrFileContents", "data"): BINARY,
     ("Soaws", "document_info"): PROSE,
     ("Soaws", "version_history"): PROSE,
     ("Soaws", "sections"): PROSE,
