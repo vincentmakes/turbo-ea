@@ -1,12 +1,15 @@
 """The mention span grammar (``app/services/mention_markup.py``), no database.
 
-Canonical markup is double-quoted: a span written with single quotes, unquoted
-or valueless attributes, an unknown attribute or a repeated one is not a
-mention, and ``map_ids`` leaves it byte for byte.
+Canonical markup is double-quoted, and ``map_ids`` leaves any other span byte
+for byte. A span a browser would still read as a mention (single quotes,
+unquoted values, upper case) is read through ``normalise``: a valid one is
+its canonical mention, anything else its escaped text. Every pattern runs in
+linear time on hostile input.
 """
 
 from __future__ import annotations
 
+import time
 import uuid
 
 import pytest
@@ -119,7 +122,6 @@ def test_reader_state_attributes_are_known():
 @pytest.mark.parametrize(
     "html",
     [
-        f"<span data-type='mention' data-kind='card' data-id='{CARD}'></span>",
         span("card", CARD, extra=' class="chip"'),
         span("card", CARD, extra=' onclick="x()"'),
         span("tag", CARD),
@@ -239,3 +241,147 @@ def test_map_ids_never_calls_the_mapping_without_a_span():
 
     html = "<p>data-type=&quot;mention&quot;</p>"
     assert mm.map_ids(html, boom) == (html, 0, 0)
+
+
+# --- spans outside the grammar: normalise ----------------------------------------------
+
+OUTSIDE = [
+    f"<span data-type='mention' data-kind='card' data-id='{CARD}'>@Fake</span>",
+    f"<SPAN DATA-TYPE=mention data-kind=card data-id={CARD}>@Fake</SPAN>",
+    f'<span data-id="{CARD}" data-kind="CARD" data-type="MENTION"><b>@Fake</b></span>',
+    f'<span data-type="mention" data-kind="card" data-id="{CARD}" />@Fake</span>',
+    f'<span data-type="&#109;ention" data-kind="card" data-id="{CARD}">@Fake</span>',
+]
+
+
+@pytest.mark.parametrize("html", OUTSIDE, ids=[f"outside-{i}" for i in range(len(OUTSIDE))])
+def test_a_valid_span_outside_the_grammar_becomes_its_canonical_span(html):
+    assert mm.normalise(f"<p>a {html} b</p>") == f"<p>a {span('card', CARD)} b</p>"
+    assert mm.iter_mentions(html) == [("card", CARD)]
+
+
+INVALID = [
+    f"<span data-type='mention' data-kind='team' data-id='{CARD}'>@A &amp; <b>B</b></span>",
+    "<span data-type='mention' data-kind='card' data-id='nope'>@A &amp; <b>B</b></span>",
+    f"<span data-type='mention' data-kind='card' data-id='{CARD}' class=x>@A &amp; <b>B</b></span>",
+    f"<span data-type=mention data-kind=card data-id={CARD} data-id={USER}>"
+    "@A &amp; <b>B</b></span>",
+    "<span data-type=mention data-kind=card data-id>@A &amp; <b>B</b></span>",
+    "<span data-type='mention' data-kind='card' data-token='abc'>@A &amp; <b>B</b></span>",
+]
+
+
+@pytest.mark.parametrize("html", INVALID, ids=[f"invalid-{i}" for i in range(len(INVALID))])
+def test_an_invalid_mention_like_span_becomes_its_escaped_text(html):
+    assert mm.normalise(f"<p>{html}!</p>") == "<p>@A &amp; B!</p>"
+    assert mm.iter_mentions(html) == []
+
+
+def test_normalise_only_allows_the_given_kinds():
+    html = f"<p><span data-type='mention' data-kind='user' data-id='{USER}'>@Ada</span></p>"
+    assert mm.normalise(html, ("card", "decision")) == "<p>@Ada</p>"
+    assert mm.normalise(html) == f"<p>{span('user', USER)}</p>"
+
+
+def test_normalise_keeps_every_other_byte():
+    html = (
+        '<p class="x">a &amp; b <span class="other">c</span> <!-- n --> &#169;</p>\n'
+        f"<ul><li>{span('card', CARD)}</li></ul>"
+    )
+    assert mm.normalise(html) is html
+    plain = "<p>no hint here</p>"
+    assert mm.normalise(plain) is plain
+    assert mm.normalise(None) is None
+
+
+def test_a_nested_span_belongs_to_the_label_of_the_outer_mention():
+    html = (
+        f'<p><span data-type="mention" data-kind="card" data-id="{CARD}">@A'
+        f"<span data-type='mention' data-kind='user' data-id='{USER}'>@B</span>"
+        "<span>c</span></span>!</p>"
+    )
+    assert mm.normalise(html) == f"<p>{span('card', CARD)}!</p>"
+    assert mm.iter_mentions(html) == [("card", CARD)]
+
+
+def test_a_mention_span_never_closed_keeps_only_the_text_after_it():
+    html = f"<p>a</p><span data-type='mention' data-kind='card' data-id='{CARD}'><p>b &amp; c</p>"
+    assert mm.normalise(html) == "<p>a</p>b &amp; c"
+    assert mm.iter_mentions(html) == []
+
+
+def test_a_span_hidden_in_script_content_is_found_too():
+    html = f"<script><span data-type='mention' data-kind='card' data-id='{CARD}'>@X</span></script>"
+    assert mm.normalise(html) == f"<script>{span('card', CARD)}</script>"
+
+
+def test_normalise_reaches_a_fixed_point_on_a_span_assembled_from_a_collapsed_one():
+    # Collapsing the inner span leaves "<sp" + "an data-type=..." behind: a new span.
+    assembled = (
+        '<p><sp<span data-type="mention" data-kind="zz"></span>an data-type="mention" '
+        f'data-kind="card" data-id="{CARD}" data-archived="true">Fake name</span></p>'
+    )
+    once = mm.normalise(assembled)
+    assert mm.normalise(once) == once
+    assert "Fake name" not in once
+    assert mm.iter_mentions(once) == mm.iter_mentions(assembled)
+
+
+def test_markup_that_never_settles_keeps_its_text_only(monkeypatch):
+    monkeypatch.setattr(mm, "MAX_PASSES", 1)
+    assembled = (
+        '<p><sp<span data-type="mention" data-kind="zz"></span>an data-type="mention" '
+        f'data-kind="card" data-id="{CARD}">Fake</span></p>'
+    )
+    assert mm.normalise(assembled) == "Fake"
+
+
+def test_grammar_clean():
+    assert mm.grammar_clean(f"<p>{span('card', CARD, text='@CRM')}</p>") is True
+    assert mm.grammar_clean("<p>plain</p>") is True
+    # a data-type outside any matched span, a matched span that is not a mention
+    assert mm.grammar_clean(f"<p data-type='x'>{span('card', CARD)}</p>") is False
+    assert mm.grammar_clean(span("card", CARD, extra=' class="x"')) is False
+    assert mm.grammar_clean(OUTSIDE[0]) is False
+
+
+def test_has_hint_and_text_of():
+    assert mm.has_hint("<p DATA-Type=x>") is True
+    assert mm.has_hint("<p>nothing</p>") is False
+    assert mm.has_hint(None) is False
+    assert mm.text_of("@<i>A</i> &lt;b&gt; &amp; a < b") == "@A &lt;b&gt; &amp; a &lt; b"
+
+
+# --- linear time on hostile input ---------------------------------------------------------
+
+#: Far above what a linear scan of these inputs takes (milliseconds) and far
+#: below what the quadratic patterns took (seconds to minutes).
+BUDGET = 2.0
+
+HOSTILE = {
+    "span-100k": "<span" * 20000 + ' data-type="mention" ',
+    "spaced-span-100k": "<span " * 16666 + 'data-type="mention"',
+    "lt-100k": "<" * 100000,
+    "open-mention-100k": '<span data-type="mention">' * 4000,
+    "attributes-in-one-tag": "<span " + 'data-type="mention" ' * 5000,
+    "spaces-in-one-tag": "<span" + " " * 100000 + 'x data-type="mention">',
+    "span-300k": "<span" * 60000 + ' data-type="mention" ',
+}
+
+
+@pytest.mark.parametrize("html", HOSTILE.values(), ids=list(HOSTILE))
+def test_reading_hostile_markup_takes_linear_time(html):
+    started = time.perf_counter()
+    mm.iter_mentions(html)
+    mm.normalise(html)
+    mm.map_ids(html, lambda kind, mention_id: mention_id)
+    mm.parse_attributes(" " * 100000 + "x")
+    assert time.perf_counter() - started < BUDGET
+
+
+def test_ordinary_spans_parse_exactly_as_before():
+    tiptap = f'<span data-id="{CARD}" data-kind="card" data-type="mention">@CRM</span>'
+    html = f"<p>{span('card', CARD, text='<b>@CRM</b>')} and {tiptap}</p>"
+    assert [m.group(2) for m in mm.MENTION_SPAN_RE.finditer(html)] == ["<b>@CRM</b>", "@CRM"]
+    assert mm.iter_mentions(html) == [("card", CARD), ("card", CARD)]
+    assert mm.normalise(html) == f"<p>{span('card', CARD)} and {span('card', CARD)}</p>"

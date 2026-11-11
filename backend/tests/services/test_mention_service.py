@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import re
+import time
 
 import pytest
 
@@ -103,8 +104,6 @@ def test_canonicalise_collapses_a_person_in_a_document_to_text():
     [
         # unknown kind
         f'<span data-type="mention" data-kind="team" data-id="{CARD}">@A &amp; <b>B</b></span>',
-        # single-quoted attribute
-        f'<span data-type="mention" data-kind="card" data-id=\'{CARD}\'>@A &amp; <b>B</b></span>',
         # unknown attribute
         f'<span data-type="mention" data-kind="card" data-id="{CARD}" class="x">@A &amp; '
         "<b>B</b></span>",
@@ -246,7 +245,7 @@ def test_render_escapes_the_label():
 
 
 def test_render_collapses_a_malformed_span_and_leaves_plain_text():
-    bad = f'<span data-type="mention" data-kind="card" data-id=\'{CARD}\'>@Secret</span>'
+    bad = f'<span data-type="mention" data-kind="card" data-id="{CARD}" class="x">@Secret</span>'
     assert ms.render(f"<p>{bad}</p>", _resolver({})) == "<p>@Secret</p>"
     plain = "<p>none</p>"
     assert ms.render(plain, _resolver({})) is plain
@@ -337,3 +336,49 @@ def test_stored_mentions():
 
     assert ms.stored_mentions("adr", Row()) == {("card", CARD), ("decision", OTHER)}
     assert ms.stored_mentions("adr", None) == set()
+
+
+# --- spans outside the grammar: canonical on write, never the writer's label on read ---
+
+
+def test_canonicalise_turns_a_span_outside_the_grammar_into_its_mention():
+    sq = f"<p><span data-type='mention' data-kind='card' data-id='{CARD}'>@A</span></p>"
+    assert ms.canonicalise(sq, ms.DOCUMENT_KINDS) == f"<p>{span('card', CARD)}</p>"
+
+
+def test_canonicalising_twice_stores_identical_text():
+    assembled = (
+        '<p><sp<span data-type="mention" data-kind="zz"></span>an data-type="mention" '
+        f'data-kind="card" data-id="{CARD}" data-archived="true">Fake name</span></p>'
+    )
+    once = ms.canonicalise(assembled, ms.DOCUMENT_KINDS)
+    assert ms.canonicalise(once, ms.DOCUMENT_KINDS) == once
+    assert "Fake name" not in once
+    # Reading the raw text never splices the label back into a span either.
+    read = ms.render(assembled, _resolver({("card", CARD): ms.restricted("ab12cd34")}))
+    assert read == (
+        '<p><span data-type="mention" data-kind="card" data-restricted="true" '
+        'data-token="ab12cd34"></span></p>'
+    )
+
+
+def test_render_never_returns_the_writers_label_for_a_span_outside_the_grammar():
+    sq = f"<p><SPAN data-type='mention' data-kind='card' data-id='{CARD}'>@Fake</SPAN></p>"
+    out = ms.render(sq, _resolver({("card", CARD): ms.resolved("@CRM")}))
+    assert out == f'<p><span data-type="mention" data-kind="card" data-id="{CARD}">@CRM</span></p>'
+    hidden = ms.render(sq, _resolver({("card", CARD): ms.restricted("ab12cd34")}))
+    assert hidden == (
+        '<p><span data-type="mention" data-kind="card" data-restricted="true" '
+        'data-token="ab12cd34"></span></p>'
+    )
+    assert ms.mentions_of("adr", {"context": sq}) == {("card", CARD)}
+    assert ms.has_marker("adr", {"context": sq}) is True
+
+
+def test_canonicalise_and_render_take_linear_time_on_hostile_markup():
+    started = time.perf_counter()
+    ms.canonicalise("<span" * 60000 + ' data-type="mention" ', ms.DOCUMENT_KINDS)
+    ms.canonicalise("<span " * 50000 + 'data-type="mention"', ms.DOCUMENT_KINDS)
+    ms.render('<span data-type="mention">' * 4000, _resolver({}))
+    ms.escaped_text("<" * 100000)
+    assert time.perf_counter() - started < 2.0

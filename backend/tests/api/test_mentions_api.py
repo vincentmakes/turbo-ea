@@ -46,6 +46,13 @@ def restricted(doc_id, kind: str, mention_id) -> str:
     )
 
 
+@pytest.fixture(autouse=True)
+def _deliveries_stay_in_the_test_session(patched_async_session):
+    """A comment's notifications are delivered after the commit by
+    ``deliver_notification_batch``, which opens its own session: hand it the
+    test's, so it never reaches the real database."""
+
+
 @pytest.fixture
 async def env(db):
     await create_role(db, key="admin", label="Admin", permissions={"*": True})
@@ -573,6 +580,149 @@ class TestMentionedIn:
             f"/api/v1/mentions/decisions/{uuid.uuid4()}", headers=env["h"]["admin"]
         )
         assert resp.status_code == 404
+
+
+async def _sign(client, env, kind_path, doc_id):
+    """Request the admin's signature on a draft and sign it."""
+    h = env["h"]["admin"]
+    me = [str(env["users"]["admin"].id)]
+    resp = await client.post(
+        f"{kind_path}/{doc_id}/request-signatures", json={"user_ids": me}, headers=h
+    )
+    assert resp.status_code == 200, resp.text
+    resp = await client.post(f"{kind_path}/{doc_id}/sign", headers=h)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "signed"
+
+
+async def _revise(client, env, kind_path, doc_id) -> dict:
+    resp = await client.post(f"{kind_path}/{doc_id}/revise", headers=env["h"]["admin"])
+    assert resp.status_code in (200, 201), resp.text
+    return resp.json()
+
+
+class TestMentionedInIsParsed:
+    """A ``LIKE`` hit is only a candidate (B4); only a chain's current or open
+    revision counts, named as the revision that holds the mention (B5); a
+    SoAW whose sections are not a JSON object is skipped (B8)."""
+
+    async def test_plain_text_holding_the_marker_lists_nothing(self, client, env, db):
+        hid = env["hidden"].id
+        marker = f'data-kind="card" data-id="{hid}"'
+        # The restricted reader may not mention the hidden card, but may type
+        # these characters anywhere.
+        adr = await _adr(client, env, who="reader", decision=f"<p>{marker}</p>")
+        assert marker in await _stored(db, ArchitectureDecision, adr["id"], "decision")
+        resp = await client.post(
+            f"{ADR}/{adr['id']}/comments",
+            json={"body": f"<p>{marker}</p>"},
+            headers=env["h"]["reader"],
+        )
+        assert resp.status_code == 201, resp.text
+        soaw = await _soaw(client, env, f"<p>{marker}</p>", who="reader")
+        assert marker in (await _stored(db, SoAW, soaw["id"], "sections"))["1.1"]["content"]
+
+        resp = await client.get(f"/api/v1/mentions/cards/{hid}", headers=env["h"]["admin"])
+        assert resp.status_code == 200, resp.text
+        assert resp.json() == {"decisions": [], "soaws": []}
+
+    async def test_a_mention_only_in_an_earlier_revision_lists_nothing(self, client, env, db):
+        vid = env["visible"].id
+        h = env["h"]["admin"]
+        rev1 = await _adr(client, env, title="Moves", consequences=f"<p>{span('card', vid)}</p>")
+        await _sign(client, env, ADR, rev1["id"])
+        rev2 = await _revise(client, env, ADR, rev1["id"])
+        resp = await client.patch(
+            f"{ADR}/{rev2['id']}", json={"consequences": "<p>No longer</p>"}, headers=h
+        )
+        assert resp.status_code == 200, resp.text
+        await _sign(client, env, ADR, rev2["id"])
+        db.add(
+            DocumentComment(
+                architecture_decision_id=uuid.UUID(rev1["id"]),
+                author_name="Ada",
+                body=f"<p>{span('card', vid)}</p>",
+            )
+        )
+        await db.commit()
+
+        resp = await client.get(f"/api/v1/mentions/cards/{vid}", headers=h)
+        assert resp.json() == {"decisions": [], "soaws": []}
+
+        # The open draft mentions it again: the entry is that draft.
+        rev3 = await _revise(client, env, ADR, rev2["id"])
+        resp = await client.patch(
+            f"{ADR}/{rev3['id']}", json={"context": f"<p>{span('card', vid)}</p>"}, headers=h
+        )
+        assert resp.status_code == 200, resp.text
+        resp = await client.get(f"/api/v1/mentions/cards/{vid}", headers=h)
+        assert resp.json()["decisions"] == [
+            {
+                "id": rev3["id"],
+                "reference_number": rev1["reference_number"],
+                "revision_number": 3,
+                "title": "Moves",
+                "status": "draft",
+                "standing": None,
+                "via": "text",
+            }
+        ]
+
+    async def test_a_comment_on_the_open_draft_counts_and_names_the_draft(self, client, env, db):
+        vid = env["visible"].id
+        rev1 = await _adr(client, env, title="Talked")
+        await _sign(client, env, ADR, rev1["id"])
+        rev2 = await _revise(client, env, ADR, rev1["id"])
+        db.add(
+            DocumentComment(
+                architecture_decision_id=uuid.UUID(rev2["id"]),
+                author_name="Ada",
+                body=f"<p>{span('card', vid)}</p>",
+            )
+        )
+        await db.commit()
+        resp = await client.get(f"/api/v1/mentions/cards/{vid}", headers=env["h"]["admin"])
+        assert [(d["id"], d["revision_number"], d["via"]) for d in resp.json()["decisions"]] == [
+            (rev2["id"], 2, "comment")
+        ]
+
+    async def test_a_soaw_chain_is_listed_once_as_the_revision_holding_it(self, client, env):
+        vid = env["visible"].id
+        h = env["h"]["admin"]
+        rev1 = await _soaw(client, env, f"<p>{span('card', vid)}</p>")
+        await _sign(client, env, SOAW, rev1["id"])
+        rev2 = await _revise(client, env, SOAW, rev1["id"])
+        await _sign(client, env, SOAW, rev2["id"])
+        rev3 = await _revise(client, env, SOAW, rev2["id"])
+
+        resp = await client.get(f"/api/v1/mentions/cards/{vid}", headers=h)
+        assert resp.json()["soaws"] == [
+            {"id": rev2["id"], "name": "Plan", "revision_number": 2, "status": "signed"}
+        ]
+
+        # Clearing the open draft changes nothing: the current one holds it.
+        resp = await client.patch(
+            f"{SOAW}/{rev3['id']}",
+            json={"sections": {"1.1": {"content": "<p>gone</p>"}}},
+            headers=h,
+        )
+        assert resp.status_code == 200, resp.text
+        resp = await client.get(f"/api/v1/mentions/cards/{vid}", headers=h)
+        assert [s["id"] for s in resp.json()["soaws"]] == [rev2["id"]]
+
+    async def test_a_soaw_whose_sections_are_not_an_object_is_skipped(self, client, env, db):
+        vid = env["visible"].id
+        soaw = await _soaw(client, env, f"<p>{span('card', vid)}</p>")
+        for odd in (None, ["x"], "x"):
+            other = await _soaw(client, env, "<p>other</p>")
+            row = await db.get(SoAW, uuid.UUID(other["id"]))
+            row.sections = odd
+        await db.commit()
+        for path in (f"cards/{vid}", f"decisions/{(await _adr(client, env))['id']}"):
+            resp = await client.get(f"/api/v1/mentions/{path}", headers=env["h"]["admin"])
+            assert resp.status_code == 200, resp.text
+        resp = await client.get(f"/api/v1/mentions/cards/{vid}", headers=env["h"]["admin"])
+        assert [s["id"] for s in resp.json()["soaws"]] == [soaw["id"]]
 
 
 # ---------------------------------------------------------------------------

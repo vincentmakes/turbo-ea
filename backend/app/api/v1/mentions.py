@@ -1,12 +1,15 @@
 """Where a card or a decision is mentioned ("Mentioned in").
 
 Both routes answer ``{decisions: [...], soaws: [...]}``: the decisions
-(``{id, reference_number, revision_number, title, status, standing, via}``,
-each once, as its chain's current revision; ``via`` is ``text`` or
-``comment``) and the SoAWs (``{id, name, revision_number, status}``) whose
-text or discussion mentions the target, limited to what the reader may open
-(decisions with ``adr.view``, SoAWs with ``soaw.view``). The search runs over
-the stored canonical marker (:mod:`app.services.mention_service`).
+(``{id, reference_number, revision_number, title, status, standing, via}``;
+``via`` is ``text`` or ``comment``) and the SoAWs (``{id, name,
+revision_number, status}``) whose text or discussion mentions the target,
+limited to what the reader may open (decisions with ``adr.view``, SoAWs with
+``soaw.view``). Each revision chain is listed once, when the mention is in its
+current revision or its open draft, and the entry is the revision that holds
+it; a mention left only in an earlier revision lists nothing. The search runs
+over the stored canonical marker and parses every hit before it counts
+(:mod:`app.services.mention_service`).
 
 * ``GET /mentions/cards/{card_id}`` — the card must be readable in module
   mode: a hidden or unknown card is 404.

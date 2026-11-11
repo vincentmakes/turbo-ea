@@ -42,7 +42,12 @@ editor's ``renderHTML`` (``mentionSpanAttributes``), so a load/save round
 trip is byte-stable.
 
 "Mentioned in" (:func:`mentioned_in_card`, :func:`mentioned_in_decision`)
-searches the stored canonical marker with the ORM — no index table.
+searches the stored canonical marker with the ORM — no index table — and
+parses every row it finds before it counts, so text that merely contains the
+marker's characters lists nothing. A decision or SoAW is listed once per
+revision chain, when the mention is in the chain's CURRENT revision or in its
+open draft, and the entry names the revision that holds it; a mention left
+only in an earlier revision lists nothing.
 """
 
 from __future__ import annotations
@@ -58,7 +63,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy import Text, column, exists, func, literal, or_, select
+from sqlalchemy import Text, case, cast, column, exists, func, literal, or_, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -68,19 +73,23 @@ from app.models.card import Card
 from app.models.document_comment import DocumentComment
 from app.models.soaw import SoAW
 from app.models.user import User
-from app.services import adr_service
+from app.services import adr_service, soaw_service
 from app.services import decision_standing as ds
 from app.services.card_read_scope import CardReadScope
 from app.services.mention_markup import (
     MENTION_SPAN_RE,
     canonical_span,
+    for_reading,
+    has_hint,
     iter_mentions,
     mention_of,
+    normalise,
     parse_attributes,
+    text_of,
 )
 from app.services.permission_service import PermissionService
 
-#: The substring every mention span carries: its absence is the fast path.
+#: The substring every canonical mention span carries.
 MARKER = 'data-type="mention"'
 
 #: What a decision or SoAW text may mention (people are mentioned in comments only).
@@ -144,32 +153,23 @@ def token_for(scope_id: Any, kind: str, target_id: Any) -> str:
     return hmac.new(settings.SECRET_KEY.encode(), message, hashlib.sha256).hexdigest()[:16]
 
 
-_TAG_RE = re.compile(r"<[^>]*>")
-
-
 def escaped_text(inner_html: str) -> str:
     """The text of a span's content, escaped: tags dropped, entities read."""
-    return html_lib.escape(html_lib.unescape(_TAG_RE.sub("", inner_html)), quote=False)
+    return text_of(inner_html)
 
 
 def canonicalise(html: Any, allowed_kinds: Iterable[str]) -> Any:
     """Every mention span in its stored form: no label, no reader flag.
 
-    A span that is malformed, of an unknown kind or of a kind not in
-    ``allowed_kinds`` (a person in a document) collapses to its escaped text.
-    Anything that is not a string, or holds no mention, comes back as it is.
+    Every span a browser would read as a mention (any case, quoting or
+    attribute order: :func:`~app.services.mention_markup.normalise`) becomes
+    the canonical nameless span when it names a valid kind and id; one that is
+    malformed, of an unknown kind or of a kind not in ``allowed_kinds`` (a
+    person in a document) collapses to its escaped text. A fixed point:
+    canonicalising the result again changes nothing. Anything that is not a
+    string, or holds no ``data-type`` at all, comes back as it is.
     """
-    if not isinstance(html, str) or MARKER not in html:
-        return html
-    allowed = frozenset(allowed_kinds)
-
-    def _sub(match: re.Match[str]) -> str:
-        mention = mention_of(match.group(1))
-        if mention is None or mention[0] not in allowed:
-            return escaped_text(match.group(2))
-        return canonical_span(*mention)
-
-    return MENTION_SPAN_RE.sub(_sub, html)
+    return normalise(html, allowed_kinds)
 
 
 def restore_tokens(
@@ -215,9 +215,11 @@ def render(html: Any, resolve: Callable[[str, str], MentionState]) -> Any:
     """``html`` with every mention rendered through ``resolve(kind, id)``.
 
     A malformed span collapses to its escaped text (its attributes, whatever
-    they name, never reach the reader).
+    they name, never reach the reader), and a span outside the grammar is
+    read through :func:`~app.services.mention_markup.normalise` first, so no
+    label a writer typed is ever returned for a mention.
     """
-    if not isinstance(html, str) or MARKER not in html:
+    if not has_hint(html):
         return html
 
     def _sub(match: re.Match[str]) -> str:
@@ -227,7 +229,7 @@ def render(html: Any, resolve: Callable[[str, str], MentionState]) -> Any:
         kind, mention_id = mention
         return render_span(kind, mention_id, resolve(kind, mention_id))
 
-    return MENTION_SPAN_RE.sub(_sub, html)
+    return MENTION_SPAN_RE.sub(_sub, for_reading(html))
 
 
 def walk_soaw_sections(sections: Any, fn: Callable[[str], Any]) -> Any:
@@ -266,9 +268,9 @@ def map_field(doc_kind: str, value: Any, fn: Callable[[str], Any]) -> Any:
 
 
 def has_marker(doc_kind: str, values: Mapping[str, Any]) -> bool:
-    """Whether any text field in ``values`` holds a mention span (cheap)."""
+    """Whether any text field in ``values`` may hold a mention span (cheap)."""
     return any(
-        MARKER in text
+        has_hint(text)
         for field in text_fields_of(doc_kind)
         if field in values
         for text in field_texts(doc_kind, field, values[field])
@@ -513,11 +515,46 @@ _DECISION_TEXT_COLUMNS = (
     ArchitectureDecision.alternatives_considered,
 )
 
+TEXT = "text"
+COMMENT = "comment"
+
+
+def mentions_any(texts: Iterable[Any], wanted: set[Mention]) -> bool:
+    """Whether one of ``texts`` holds a real mention (parsed, not a substring)
+    of one of ``wanted``: the confirmation of a ``LIKE`` hit."""
+    return any(mention in wanted for text in texts for mention in iter_mentions(text))
+
+
+def pick_revision(
+    current: Any, open_revision: Any, hits: Mapping[str, set[Any]]
+) -> tuple[Any, str] | None:
+    """The revision of one chain a "Mentioned in" entry names, and how.
+
+    Only the chain's ``current`` revision and its ``open_revision`` (the draft
+    being written) count: a mention left only in an earlier revision is gone
+    from the document. Text before comment, then current before open; ``None``
+    when neither holds the mention.
+    """
+    for how in (TEXT, COMMENT):
+        for revision in (current, open_revision):
+            if revision is not None and revision in hits[how]:
+                return revision, how
+    return None
+
+
+def _sections_of(sections: Any):
+    """``SoAW.sections`` when it is a JSON object, else an empty one, so
+    ``jsonb_each`` never meets a ``null``, an array or a scalar."""
+    return case(
+        (func.jsonb_typeof(sections) == "object", sections),
+        else_=cast(literal("{}"), JSONB),
+    )
+
 
 def _section_mentions(needle: str):
     """``EXISTS`` a SoAW section whose ``content`` holds ``needle`` (searched
     per section: the JSON text of ``sections`` escapes the quotes)."""
-    section = func.jsonb_each(SoAW.sections).table_valued(
+    section = func.jsonb_each(_sections_of(SoAW.sections)).table_valued(
         column("key", Text), column("value", JSONB)
     )
     return exists(
@@ -527,48 +564,60 @@ def _section_mentions(needle: str):
     )
 
 
+async def _comment_hits(
+    db: AsyncSession, owner: Any, needles: list[str], wanted: set[Mention]
+) -> set[Any]:
+    """The documents (by ``owner`` column) whose live comments mention ``wanted``."""
+    rows = await db.execute(
+        select(owner, DocumentComment.body).where(
+            owner.is_not(None),
+            DocumentComment.deleted_at.is_(None),
+            or_(*(DocumentComment.body.contains(n, autoescape=True) for n in needles)),
+        )
+    )
+    return {doc_id for doc_id, body in rows.all() if mentions_any([body], wanted)}
+
+
 async def _decisions_mentioning(
-    db: AsyncSession, needles: list[str], register: ds.Register, *, skip: set[Any]
+    db: AsyncSession,
+    needles: list[str],
+    wanted: set[Mention],
+    register: ds.Register,
+    *,
+    skip: set[Any],
 ) -> list[dict[str, Any]]:
-    """Each decision whose text or discussion holds a needle, once (its
-    chain's current revision), ``via`` ``text`` before ``comment``."""
-    text_hits = (
-        (
-            await db.execute(
-                select(ArchitectureDecision.id).where(
-                    or_(
-                        *(
-                            col.contains(needle, autoescape=True)
-                            for col in _DECISION_TEXT_COLUMNS
-                            for needle in needles
-                        )
-                    )
+    """Each decision chain whose current or open revision mentions
+    ``wanted`` in its text or discussion, once, naming that revision
+    (:func:`pick_revision`). ``needles`` only narrow the search: every hit is
+    parsed before it counts."""
+    rows = await db.execute(
+        select(ArchitectureDecision.id, *_DECISION_TEXT_COLUMNS).where(
+            or_(
+                *(
+                    col.contains(needle, autoescape=True)
+                    for col in _DECISION_TEXT_COLUMNS
+                    for needle in needles
                 )
             )
         )
-        .scalars()
-        .all()
     )
-    comment_hits = (
-        (
-            await db.execute(
-                select(DocumentComment.architecture_decision_id).where(
-                    DocumentComment.architecture_decision_id.is_not(None),
-                    DocumentComment.deleted_at.is_(None),
-                    or_(*(DocumentComment.body.contains(n, autoescape=True) for n in needles)),
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
+    hits = {
+        TEXT: {row[0] for row in rows.all() if mentions_any(row[1:], wanted)},
+        COMMENT: await _comment_hits(db, DocumentComment.architecture_decision_id, needles, wanted),
+    }
     via: dict[Any, str] = {}
-    for hits, how in ((text_hits, "text"), (comment_hits, "comment")):
-        for hit in hits:
-            if hit not in register or hit in skip:
-                continue
-            current = register.chain(hit).current.id
-            via.setdefault(current, how)
+    seen: set[Any] = set()
+    for hit in sorted(hits[TEXT] | hits[COMMENT], key=str):
+        if hit not in register or hit in skip:
+            continue
+        chain = register.chain(hit)
+        if chain.current.id in seen:
+            continue
+        seen.add(chain.current.id)
+        open_id = chain.open_revision.id if chain.open_revision is not None else None
+        picked = pick_revision(chain.current.id, open_id, hits)
+        if picked is not None:
+            via[picked[0]] = picked[1]
     return mentioned_decision_rows(register, via)
 
 
@@ -592,40 +641,58 @@ def mentioned_decision_rows(register: ds.Register, via: Mapping[Any, str]) -> li
     return sorted(rows, key=lambda r: (r["reference_number"], r["revision_number"]))
 
 
-async def _soaws_mentioning(db: AsyncSession, needles: list[str]) -> list[dict[str, Any]]:
-    """Each SoAW revision whose sections or discussion hold a needle."""
-    in_comments = select(DocumentComment.soaw_id).where(
-        DocumentComment.soaw_id.is_not(None),
-        DocumentComment.deleted_at.is_(None),
-        or_(*(DocumentComment.body.contains(n, autoescape=True) for n in needles)),
+async def _soaws_mentioning(
+    db: AsyncSession, needles: list[str], wanted: set[Mention]
+) -> list[dict[str, Any]]:
+    """Each SoAW chain whose current or open revision mentions ``wanted`` in
+    its sections or discussion, once, naming that revision. ``needles`` only
+    narrow the search: every hit is parsed before it counts."""
+    rows = await db.execute(
+        select(SoAW.id, SoAW.sections).where(or_(*(_section_mentions(n) for n in needles)))
     )
-    result = await db.execute(
-        select(SoAW.id, SoAW.name, SoAW.revision_number, SoAW.status)
-        .where(or_(*(_section_mentions(n) for n in needles), SoAW.id.in_(in_comments)))
-        .order_by(SoAW.name, SoAW.revision_number)
-    )
+    hits = {
+        TEXT: {
+            soaw_id
+            for soaw_id, sections in rows.all()
+            if mentions_any(field_texts("soaw", "sections", sections), wanted)
+        },
+        COMMENT: await _comment_hits(db, DocumentComment.soaw_id, needles, wanted),
+    }
+    if not hits[TEXT] and not hits[COMMENT]:
+        return []
+    chains = await soaw_service.load_chains(db)
+    picked_rows: dict[Any, Any] = {}
+    for hit in hits[TEXT] | hits[COMMENT]:
+        chain = chains.chain(hit)
+        if chain is None:
+            continue
+        open_id = chain.open_revision.id if chain.open_revision is not None else None
+        picked = pick_revision(chain.current.id, open_id, hits)
+        if picked is not None:
+            picked_rows[picked[0]] = chains.rows[picked[0]]
     return [
         {"id": str(r.id), "name": r.name, "revision_number": r.revision_number, "status": r.status}
-        for r in result.all()
+        for r in sorted(picked_rows.values(), key=lambda r: (r.name, r.revision_number, str(r.id)))
     ]
 
 
 async def _mentioned_in(
     db: AsyncSession,
-    needles: list[str],
+    wanted: set[Mention],
     *,
     user: User,
     may_view_decisions: bool,
     register: ds.Register | None = None,
     skip: Iterable[Any] = (),
 ) -> dict[str, list[dict[str, Any]]]:
+    needles = sorted(marker_of(kind, target) for kind, target in wanted)
     decisions: list[dict[str, Any]] = []
     if may_view_decisions:
         reg = register if register is not None else await ds.load_register(db)
-        decisions = await _decisions_mentioning(db, needles, reg, skip=set(skip))
+        decisions = await _decisions_mentioning(db, needles, wanted, reg, skip=set(skip))
     soaws: list[dict[str, Any]] = []
     if await PermissionService.check_permission(db, user, "soaw.view"):
-        soaws = await _soaws_mentioning(db, needles)
+        soaws = await _soaws_mentioning(db, needles, wanted)
     return {"decisions": decisions, "soaws": soaws}
 
 
@@ -636,7 +703,7 @@ async def mentioned_in_card(
     mention the card. The caller has checked the card is readable."""
     return await _mentioned_in(
         db,
-        [marker_of("card", card_id)],
+        {("card", str(card_id).lower())},
         user=user,
         may_view_decisions=await PermissionService.check_permission(db, user, "adr.view"),
     )
@@ -651,7 +718,7 @@ async def mentioned_in_decision(
     chain_ids = [node.id for node in register.chain(decision_id).nodes]
     return await _mentioned_in(
         db,
-        [marker_of("decision", rid) for rid in chain_ids],
+        {("decision", str(rid).lower()) for rid in chain_ids},
         user=user,
         may_view_decisions=True,
         register=register,
