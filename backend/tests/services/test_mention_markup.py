@@ -385,3 +385,57 @@ def test_ordinary_spans_parse_exactly_as_before():
     assert [m.group(2) for m in mm.MENTION_SPAN_RE.finditer(html)] == ["<b>@CRM</b>", "@CRM"]
     assert mm.iter_mentions(html) == [("card", CARD), ("card", CARD)]
     assert mm.normalise(html) == f"<p>{span('card', CARD)} and {span('card', CARD)}</p>"
+
+
+# --- exact answers the mutation run left open --------------------------------------
+
+
+def test_canonical_span_names_what_it_refuses():
+    with pytest.raises(ValueError, match=r"^Unknown mention kind 'x'$"):
+        mm.canonical_span("x", CARD)
+    with pytest.raises(ValueError, match=r"^Not a UUID: 'nope'$"):
+        mm.canonical_span("card", "nope")
+
+
+def test_a_clean_labelled_span_is_read_as_it_is():
+    html = "<p>" + span("card", CARD, "@CRM") + "</p>"
+    assert mm.for_reading(html) is html
+    assert "@CRM" in mm.for_reading(html)
+
+
+def test_two_clean_spans_are_grammar_clean():
+    assert mm.grammar_clean(span("card", CARD) + span("user", USER)) is True
+    assert mm.grammar_clean(span("card", CARD) + " data-type") is False
+
+
+def test_a_malformed_span_beside_a_remapped_one_stays_byte_for_byte():
+    bad = f'<span data-type="mention" data-kind="bogus" data-id="{CARD}">@Bad</span>'
+    html = bad + span("card", CARD, "@CRM")
+    out, remapped, unresolved = mm.map_ids(html, lambda kind, mid: NEW_CARD)
+    assert out == bad + span("card", NEW_CARD, "@CRM")
+    assert (remapped, unresolved) == (1, 0)
+
+
+def test_a_span_carrying_every_known_attribute_is_still_a_mention():
+    attrs = (
+        f' data-type="mention" data-kind="card" data-id="{CARD}" data-token="t"'
+        ' data-restricted="true" data-missing="true" data-archived="true"'
+    )
+    assert mm.mention_of(attrs) == ("card", CARD)
+
+
+def test_parsed_attributes_without_a_type_or_a_kind_are_no_mention():
+    no_type = [("data-kind", "card"), ("data-id", CARD)]
+    no_kind = [("data-type", "mention"), ("data-id", CARD)]
+    assert mm.mention_of_parsed(no_type, mm.MENTION_KINDS) is None
+    assert mm.mention_of_parsed(no_kind, mm.MENTION_KINDS) is None
+
+
+def test_a_span_whose_other_attribute_says_mention_is_not_rewritten():
+    html = '<span title="mention">a</span> data-type'
+    assert mm.normalise(html) == html
+
+
+def test_nested_spans_inside_a_mention_close_at_the_outer_span():
+    html = span("card", CARD, "<span><span>x</span></span>y") + "tail"
+    assert mm.normalise(html) == mm.canonical_span("card", CARD) + "tail"
