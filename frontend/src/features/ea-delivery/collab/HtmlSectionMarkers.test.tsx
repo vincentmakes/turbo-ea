@@ -11,10 +11,14 @@ const HTML_B = '<h2 data-section="2.1">Objectives</h2>';
 function Page({ ctx, initialHtml = HTML_A }: { ctx: SectionDiscussion | null; initialHtml?: string }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [html, setHtml] = useState(initialHtml);
+  const [renders, setRenders] = useState(0);
   return (
     <SectionDiscussionContext.Provider value={ctx}>
       <button type="button" onClick={() => setHtml(HTML_B)}>
         swap
+      </button>
+      <button type="button" onClick={() => setRenders((n) => n + 1)}>
+        rerender {renders}
       </button>
       <div ref={ref} data-testid="doc" dangerouslySetInnerHTML={{ __html: html }} />
       <HtmlSectionMarkers containerRef={ref} html={html} />
@@ -62,6 +66,21 @@ describe("HtmlSectionMarkers", () => {
     expect(marker.closest("h2")).toHaveTextContent("Objectives");
     expect(screen.queryByTestId("section-marker-1.1")).toBeNull();
     expect(screen.getByTestId("doc").querySelectorAll("span.no-print")).toHaveLength(1);
+  });
+
+  it("places the markers again when a re-render with the same HTML rebuilt the DOM", async () => {
+    const { user } = renderWithProviders(
+      <Page ctx={ctxWith({ "1.1": { open: 1, total: 1 }, custom_7: { open: 0, total: 2 } })} />,
+    );
+    expect(await screen.findByTestId("section-marker-1.1")).toBeInTheDocument();
+    for (let i = 0; i < 2; i += 1) {
+      await user.click(screen.getByRole("button", { name: /^rerender/ }));
+      const marker = await screen.findByTestId("section-marker-1.1");
+      expect(marker.closest("h2")).toHaveAttribute("data-section", "1.1");
+      expect(screen.getByTestId("section-marker-custom_7").closest("h3")).toHaveAttribute("data-section", "custom_7");
+      expect(screen.getAllByTestId(/^section-marker-/)).toHaveLength(2);
+      expect(screen.getByTestId("doc").querySelectorAll("span.no-print")).toHaveLength(2);
+    }
   });
 
   it("removes a host when its section's threads are gone", async () => {

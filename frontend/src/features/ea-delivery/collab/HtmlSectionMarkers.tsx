@@ -7,8 +7,13 @@
  * portals a `SectionDiscussionMarker` into it. The hosts are removed again
  * when the HTML or the sections change. Nothing is added to the HTML string
  * itself, so a print or export built from it never carries a marker.
+ *
+ * React 19 reassigns `innerHTML` whenever the `dangerouslySetInnerHTML`
+ * object is a new one, even with the same string, which drops the hosts out
+ * of the document. After every render the hosts are checked, and when one is
+ * no longer connected they are all placed again.
  */
-import { useContext, useLayoutEffect, useState, type RefObject } from "react";
+import { useContext, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import SectionDiscussionMarker from "./SectionDiscussionMarker";
 import { SectionDiscussionContext } from "./sectionDiscussionContext";
@@ -28,6 +33,10 @@ interface Host {
 export default function HtmlSectionMarkers({ containerRef, html }: Props) {
   const ctx = useContext(SectionDiscussionContext);
   const [hosts, setHosts] = useState<Host[]>([]);
+  // Bumped when a host has been dropped from the document, to place them again.
+  const [placement, setPlacement] = useState(0);
+  // The hosts placed last, read by the check below (state lags one render).
+  const placed = useRef<Host[]>([]);
   // The sections with threads, as a stable string: a re-read that changes
   // only the counts re-renders the markers without moving their hosts.
   const sections = ctx ? Object.keys(ctx.counts).sort().join("\n") : "";
@@ -46,11 +55,17 @@ export default function HtmlSectionMarkers({ containerRef, html }: Props) {
         created.push({ section, el });
       }
     }
+    placed.current = created;
     setHosts(created);
     return () => {
       for (const host of created) host.el.remove();
     };
-  }, [containerRef, html, sections]);
+  }, [containerRef, html, sections, placement]);
+
+  // No dependency list on purpose: whatever re-rendered, check the hosts.
+  useLayoutEffect(() => {
+    if (placed.current.some((host) => !host.el.isConnected)) setPlacement((n) => n + 1);
+  });
 
   return <>{hosts.map((host) => createPortal(<SectionDiscussionMarker section={host.section} />, host.el, host.section))}</>;
 }

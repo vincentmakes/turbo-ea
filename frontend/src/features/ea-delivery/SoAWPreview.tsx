@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { memo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router";
 import { sanitizeRichHtml } from "@/lib/richHtml";
@@ -43,6 +43,27 @@ const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> 
   signed: "info",
 };
 
+/**
+ * The document body, rendered from its HTML string. Memoised on that string:
+ * React 19 reassigns `innerHTML` on every render that passes a new
+ * `dangerouslySetInnerHTML` object, which would rebuild the body (and drop
+ * the section markers' hosts) whenever anything else on the page re-renders.
+ */
+const PreviewBody = memo(function PreviewBody({ html }: { html: string }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  return (
+    <MentionContainer>
+      <Box
+        ref={ref}
+        className="soaw-preview"
+        sx={{ maxWidth: 800, mx: "auto", px: { xs: 1, sm: 0 } }}
+        dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(html) }}
+      />
+      <HtmlSectionMarkers containerRef={ref} html={html} />
+    </MentionContainer>
+  );
+});
+
 export default function SoAWPreview() {
   const { t } = useTranslation(["delivery", "common"]);
   const { id } = useParams<{ id: string }>();
@@ -63,7 +84,6 @@ export default function SoAWPreview() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [snack, setSnack] = useState("");
-  const previewRef = useRef<HTMLDivElement | null>(null);
 
   // Re-keyed on in-page revision navigation: only the latest load may fill
   // the page, so a late reply for the revision just left is dropped.
@@ -249,15 +269,7 @@ export default function SoAWPreview() {
 
       {/* Styled preview content */}
       <style>{PREVIEW_CSS}</style>
-      <MentionContainer>
-        <Box
-          ref={previewRef}
-          className="soaw-preview"
-          sx={{ maxWidth: 800, mx: "auto", px: { xs: 1, sm: 0 } }}
-          dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(bodyHtml) }}
-        />
-        <HtmlSectionMarkers containerRef={previewRef} html={bodyHtml} />
-      </MentionContainer>
+      <PreviewBody html={bodyHtml} />
 
       {/* Signature Block */}
       {(soaw.signatories ?? []).length > 0 && (

@@ -591,6 +591,28 @@ describe("SoAWPreview — section markers", () => {
     }
   });
 
+  it("keeps the body and its markers when the page re-renders (Copy link)", async () => {
+    sidePanel.sections = { counts: { "1.1": { open: 1, total: 1 } }, openSection: vi.fn() };
+    try {
+      const { user } = renderPreview();
+      await screen.findByRole("heading", { name: SOAW.name });
+      const heading = previewBody().querySelector('[data-section="1.1"]');
+      expect(await screen.findByTestId("section-marker-1.1")).toBeInTheDocument();
+      const writeText = vi.spyOn(navigator.clipboard, "writeText");
+      await user.click(screen.getByRole("button", { name: t("preview.copyLink") }));
+      expect(await screen.findByText(t("preview.linkCopied"))).toBeInTheDocument();
+      writeText.mockRestore();
+      // The body was not rebuilt: the same heading node, still in the page.
+      expect(heading?.isConnected).toBe(true);
+      expect(previewBody().querySelector('[data-section="1.1"]')).toBe(heading);
+      expect(screen.getByTestId("section-marker-1.1").closest("[data-section]")).toBe(heading);
+      expect(screen.getAllByTestId(/^section-marker-/)).toHaveLength(1);
+      expect(previewBody().querySelectorAll("span.no-print")).toHaveLength(1);
+    } finally {
+      sidePanel.sections = null;
+    }
+  });
+
   it("anchors the on-screen headings by section and shows no marker without threads", async () => {
     renderPreview();
     await screen.findByRole("heading", { name: SOAW.name });
