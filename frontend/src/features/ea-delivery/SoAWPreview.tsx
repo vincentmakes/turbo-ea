@@ -22,6 +22,7 @@ import { soawCurrentRevisionId } from "./soawEditorState";
 import MentionContainer from "./mentions/MentionContainer";
 import DocumentHistoryButton from "./collab/DocumentHistoryButton";
 import DocumentSidePanel from "./collab/DocumentSidePanel";
+import { documentPeopleIds } from "./mentions/mentionModel";
 import { sectionOptions, soawSectionOptions } from "./collab/discussionModel";
 import { getTemplateSections } from "./soawTemplate";
 import { api } from "@/api/client";
@@ -150,6 +151,7 @@ export default function SoAWPreview() {
         sections={sectionOptions("soaw", t, soawSectionOptions(getTemplateSections(), soaw.sections))}
         openThreadCount={soaw.open_thread_count}
         refreshKey={soaw.updated_at}
+        mentionContext={{ priorityUserIds: documentPeopleIds(soaw) }}
       >
       {/* Toolbar (hidden when printing) */}
       <Box

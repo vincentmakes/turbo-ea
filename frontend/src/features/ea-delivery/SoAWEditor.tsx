@@ -59,6 +59,7 @@ import {
 import { hasUnsavedEdits } from "./editorDirty";
 import DocumentHistoryButton from "./collab/DocumentHistoryButton";
 import DocumentSidePanel from "./collab/DocumentSidePanel";
+import { documentPeopleIds } from "./mentions/mentionModel";
 import { RejectDocumentDialog, SignDocumentDialog } from "./collab/ReviewDialogs";
 import { deepLinkDialog } from "./collab/reviewDeepLink";
 import { sectionOptions, signBody, soawSectionOptions } from "./collab/discussionModel";
@@ -612,6 +613,7 @@ export default function SoAWEditor() {
       openThreadCount={detail?.open_thread_count}
       onOpenCountChange={setOpenThreads}
       refreshKey={detail?.updated_at}
+      mentionContext={{ priorityUserIds: documentPeopleIds({ signatories }) }}
     >
     <Box sx={{ maxWidth: 960, mx: "auto" }}>
       {/* Top bar */}

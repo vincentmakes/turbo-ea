@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useNavigate, useSearchParams } from "react-router";
 import Box from "@mui/material/Box";
@@ -54,7 +54,11 @@ import DocumentSidePanel from "./collab/DocumentSidePanel";
 import { RejectDocumentDialog, SignDocumentDialog } from "./collab/ReviewDialogs";
 import { deepLinkDialog } from "./collab/reviewDeepLink";
 import { sectionOptions, signBody } from "./collab/discussionModel";
-import { unlinkedMentionedCards } from "./mentions/mentionModel";
+import {
+  documentPeopleIds,
+  unlinkedMentionedCards,
+  type MentionContext,
+} from "./mentions/mentionModel";
 import type { MentionKind } from "@/lib/mentionHtml";
 import { api, ApiError } from "@/api/client";
 import { useSubmitOnce } from "@/hooks/useSubmitOnce";
@@ -532,6 +536,26 @@ export default function ADREditor() {
     linkedCards.map((c) => c.id),
   );
 
+  // The "@" list's order: linked cards first in the text, and the
+  // decision's people first in its comments.
+  const linkedKey = linkedCards.map((c) => c.id).join(",");
+  const peopleKey = documentPeopleIds({
+    signatories,
+    decision_makers: decisionMakers,
+    participants,
+  }).join(",");
+  const textMentionContext = useMemo<MentionContext>(
+    () => ({ linkedCardIds: linkedKey ? linkedKey.split(",") : [] }),
+    [linkedKey],
+  );
+  const commentMentionContext = useMemo<MentionContext>(
+    () => ({
+      linkedCardIds: linkedKey ? linkedKey.split(",") : [],
+      priorityUserIds: peopleKey ? peopleKey.split(",") : [],
+    }),
+    [linkedKey, peopleKey],
+  );
+
   const currentUserIsSignatory = signatories.some(
     (s) => s.user_id === currentUserId && s.status === "pending",
   );
@@ -616,6 +640,7 @@ export default function ADREditor() {
       openThreadCount={detail?.open_thread_count}
       onOpenCountChange={setOpenThreads}
       refreshKey={detail?.updated_at ?? undefined}
+      mentionContext={commentMentionContext}
     >
     <Box sx={{ maxWidth: 900, mx: "auto", p: 2 }}>
       {/* ── Header ── */}
@@ -894,6 +919,7 @@ export default function ADREditor() {
         </Typography>
         <RichTextEditor
           mentions={DOCUMENT_MENTIONS}
+          mentionContext={textMentionContext}
           content={context}
           onChange={setContext}
           readOnly={locked}
@@ -911,6 +937,7 @@ export default function ADREditor() {
         </Typography>
         <RichTextEditor
           mentions={DOCUMENT_MENTIONS}
+          mentionContext={textMentionContext}
           content={decision}
           onChange={setDecision}
           readOnly={locked}
@@ -928,6 +955,7 @@ export default function ADREditor() {
         </Typography>
         <RichTextEditor
           mentions={DOCUMENT_MENTIONS}
+          mentionContext={textMentionContext}
           content={alternatives}
           onChange={setAlternatives}
           readOnly={locked}
@@ -945,6 +973,7 @@ export default function ADREditor() {
         </Typography>
         <RichTextEditor
           mentions={DOCUMENT_MENTIONS}
+          mentionContext={textMentionContext}
           content={consequences}
           onChange={setConsequences}
           readOnly={locked}

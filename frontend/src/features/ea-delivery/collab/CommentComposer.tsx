@@ -8,7 +8,7 @@
  * section picked) is kept in memory until it is posted or cancelled, so it
  * comes back when the composer is shown again.
  */
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -17,6 +17,7 @@ import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
 import type { DocumentThreadWrite } from "@/types";
 import RichTextEditor from "../RichTextEditor";
+import { DocumentMentionContext } from "../mentions/documentMentionContext";
 import { clearDraft, readDraft, writeDraft } from "./commentDrafts";
 import { isBlankHtml, writeErrorMessage, type SectionOption } from "./discussionModel";
 
@@ -45,6 +46,7 @@ export default function CommentComposer({
   draftKey,
 }: Props) {
   const { t } = useTranslation(["delivery", "common"]);
+  const mentionContext = useContext(DocumentMentionContext);
   const [draft] = useState(() => (draftKey ? readDraft(draftKey) : undefined));
   const [body, setBody] = useState(draft?.body ?? initialBody);
   // Bumped after a post to give the editor a fresh, empty document.
@@ -113,6 +115,7 @@ export default function CommentComposer({
         key={editorKey}
         variant="comment"
         mentions={COMMENT_MENTIONS}
+        mentionContext={mentionContext}
         content={body}
         onChange={changeBody}
         onSubmit={() => void submit()}

@@ -4,12 +4,18 @@
  *
  * - Cards: the app-wide `useCardSearch` engine (a sanctioned direct user, see
  *   `.claude/rules/frontend-patterns.md`), the server query debounced, the
- *   loaded page re-ranked on the raw query. A role that may not search cards
- *   gets a 403: the group is hidden and one line says why.
+ *   loaded page re-ranked on the raw query. The document's linked cards
+ *   (`context.linkedCardIds`, fetched by id) come first with an empty query
+ *   and first within their rank tier with one. A row shows the type's colour
+ *   and icon, its type and subtype. A role that may not search cards gets a
+ *   403: the group is hidden and one line says why.
  * - Decisions: the decision pickers' shared register list
- *   (`fetchDecisionOptions`), filtered and ranked on the raw query.
+ *   (`fetchDecisionOptions`), filtered and ranked on the raw query; a row
+ *   shows the reference, the title and the standing.
  * - People: the shared user list, only where users may be mentioned
- *   (comments).
+ *   (comments); the document's people (`context.priorityUserIds`) first.
+ * - A last "Browse…" row (and the editor's toolbar button) opens the standard
+ *   pickers (`MentionBrowseDialog`) through the store.
  *
  * Focus never leaves the editor: the suggestion plugin hands the keys over
  * through the store (ArrowUp / ArrowDown wrap, Enter / Tab pick; Escape is the
@@ -25,15 +31,19 @@ import List from "@mui/material/List";
 import ListSubheader from "@mui/material/ListSubheader";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemText from "@mui/material/ListItemText";
+import ListItemIcon from "@mui/material/ListItemIcon";
 import Typography from "@mui/material/Typography";
 
+import { fetchCardsByIds } from "@/api/cardsByIds";
 import { fetchDecisionOptions } from "@/components/DecisionPicker";
+import MaterialSymbol from "@/components/MaterialSymbol";
 import { fetchUserOptions, type UserOption } from "@/components/UserMultiSelect";
 import { useCardSearch } from "@/hooks/useCardSearch";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import type { MentionKind } from "@/lib/mentionHtml";
-import type { ArchitectureDecision } from "@/types";
+import type { ArchitectureDecision, Card } from "@/types";
+import MentionRow from "./MentionRow";
 import {
   MENTION_GROUP_LIMIT,
   cardMentionItems,
@@ -41,7 +51,9 @@ import {
   flattenGroups,
   groupMentionItems,
   nextIndex,
+  resolveActive,
   userMentionItems,
+  type MentionContext,
   type MentionItem,
 } from "./mentionModel";
 import { useMentionSuggestion, type MentionSuggestionStore } from "./mentionSuggestionStore";
@@ -58,9 +70,13 @@ interface Props {
   store: MentionSuggestionStore;
   /** What may be mentioned here. */
   kinds: MentionKind[];
+  /** What the document knows: its linked cards and its people come first. */
+  context?: MentionContext;
 }
 
-export default function MentionPopup({ store, kinds }: Props) {
+const NONE: string[] = [];
+
+export default function MentionPopup({ store, kinds, context }: Props) {
   const { t } = useTranslation("delivery");
   const listId = useId();
   const state = useMentionSuggestion(store);
@@ -88,6 +104,28 @@ export default function MentionPopup({ store, kinds }: Props) {
     answeredRows.current = cards.items;
     setCardsAnsweredFor(debounced);
   }, [cards.items, debounced]);
+
+  // The document's linked cards, by id, once per opening; a card the reader
+  // may not see is simply absent. null until loaded.
+  const linkedIds = context?.linkedCardIds ?? NONE;
+  const linkedKey = linkedIds.join(",");
+  const wantLinked = wantCards && linkedIds.length > 0;
+  const [linked, setLinked] = useState<Card[] | null>(null);
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      if (!wantLinked) {
+        setLinked(null);
+        return;
+      }
+      try {
+        const rows = await fetchCardsByIds(linkedKey.split(","), { signal });
+        if (isCurrent()) setLinked(rows.filter((c) => !c.archived_at));
+      } catch {
+        if (isCurrent()) setLinked([]);
+      }
+    },
+    [wantLinked, linkedKey],
+  );
 
   // null until loaded.
   const [decisions, setDecisions] = useState<ArchitectureDecision[] | null>(null);
@@ -120,9 +158,9 @@ export default function MentionPopup({ store, kinds }: Props) {
   );
 
   const groups = groupMentionItems({
-    card: wantCards && !cardsForbidden ? cardMentionItems(cards.items, query) : [],
+    card: wantCards && !cardsForbidden ? cardMentionItems(cards.items, query, linked ?? []) : [],
     decision: wantDecisions ? decisionMentionItems(decisions ?? [], query, t) : [],
-    user: wantUsers ? userMentionItems(users ?? [], query) : [],
+    user: wantUsers ? userMentionItems(users ?? [], query, context?.priorityUserIds) : [],
   });
   const flat = flattenGroups(groups);
   const searching = wantCards && !cardsForbidden && (cards.loading || pending);
@@ -132,6 +170,7 @@ export default function MentionPopup({ store, kinds }: Props) {
   const settled =
     (!wantCards || cardsAnsweredFor === query) &&
     !searching &&
+    (!wantLinked || linked !== null) &&
     (!wantDecisions || decisions !== null) &&
     (!wantUsers || users !== null);
   const nothingFound = open && settled && flat.length === 0;
@@ -141,21 +180,28 @@ export default function MentionPopup({ store, kinds }: Props) {
     if (nothingFound && query.trim()) store.reportNoResults(query);
   }, [nothingFound, query, store]);
 
-  const [active, setActive] = useState(0);
+  // -1: the default row (the first item, or none). The rows are the items
+  // and a last "Browse…" row at index `flat.length`.
+  const [active, setActive] = useState(-1);
   useEffect(() => {
-    setActive(0);
+    setActive(-1);
   }, [query, open]);
-  const activeIndex = flat.length > 0 ? Math.min(active, flat.length - 1) : -1;
+  const activeIndex = resolveActive(active, flat.length);
+  const browseIndex = flat.length;
 
   const pick = (item: MentionItem) => command?.({ kind: item.kind, id: item.id, label: item.label });
 
   useEffect(() => {
     store.setKeyHandler((event) => {
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-        setActive(nextIndex(activeIndex, flat.length, event.key));
+        setActive(nextIndex(activeIndex, flat.length + 1, event.key));
         return true;
       }
       if (event.key === "Enter" || event.key === "Tab") {
+        if (activeIndex === browseIndex) {
+          store.browse();
+          return true;
+        }
         const item = flat[activeIndex];
         if (!item) return false;
         pick(item);
@@ -215,19 +261,42 @@ export default function MentionPopup({ store, kinds }: Props) {
                       onMouseEnter={() => setActive(i)}
                       onClick={() => pick(item)}
                     >
-                      <ListItemText primary={item.label} secondary={item.secondary} />
+                      <MentionRow item={item} />
                     </ListItemButton>
                   );
                 })}
               </ul>
             </li>
           ))}
+          {flat.length === 0 && (
+            <Typography
+              component="li"
+              role="presentation"
+              variant="body2"
+              color="text.secondary"
+              sx={{ px: 2, py: 1 }}
+            >
+              {searching ? t("mention.searching") : t("mention.noMatches")}
+            </Typography>
+          )}
+          <ListItemButton
+            component="li"
+            id={optionId(browseIndex)}
+            role="option"
+            aria-selected={activeIndex === browseIndex}
+            selected={activeIndex === browseIndex}
+            sx={{ borderTop: 1, borderColor: "divider" }}
+            onMouseDown={(e) => e.preventDefault()}
+            onMouseEnter={() => setActive(browseIndex)}
+            onClick={() => store.browse()}
+            data-testid="mention-browse"
+          >
+            <ListItemIcon sx={{ minWidth: 32 }}>
+              <MaterialSymbol icon="manage_search" size={18} />
+            </ListItemIcon>
+            <ListItemText primary={t("mention.browse")} />
+          </ListItemButton>
         </List>
-        {flat.length === 0 && (
-          <Typography variant="body2" color="text.secondary" sx={{ px: 2, pb: 1.5 }}>
-            {searching ? t("mention.searching") : t("mention.noMatches")}
-          </Typography>
-        )}
         {cardsForbidden && (
           <Typography
             variant="caption"

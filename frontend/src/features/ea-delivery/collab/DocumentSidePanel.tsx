@@ -27,6 +27,8 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import type { DocumentOwner } from "@/types";
+import { DocumentMentionContext } from "../mentions/documentMentionContext";
+import type { MentionContext } from "../mentions/mentionModel";
 import DiscussionPanel from "./DiscussionPanel";
 import type { SectionOption } from "./discussionModel";
 import { initialPanelState, writePanelState, type PanelState } from "./panelState";
@@ -45,6 +47,8 @@ interface Props {
   onOpenCountChange?: (count: number) => void;
   /** Re-read the discussion when this changes (the page saved). */
   refreshKey?: string | number;
+  /** What a comment's "@" lists first: the document's linked cards and people. */
+  mentionContext?: MentionContext;
   /** The document itself. */
   children: ReactNode;
 }
@@ -55,6 +59,7 @@ export default function DocumentSidePanel({
   openThreadCount,
   onOpenCountChange,
   refreshKey,
+  mentionContext,
   children,
 }: Props) {
   const { t } = useTranslation("delivery");
@@ -119,13 +124,15 @@ export default function DocumentSidePanel({
         </Tooltip>
       </Box>
       <Box sx={{ flex: 1, overflowY: "auto", p: 1.5 }}>
-        <DiscussionPanel
-          owner={owner}
-          sections={sections}
-          focusThreadId={focusThreadId}
-          onOpenCountChange={handleCount}
-          refreshKey={refreshKey}
-        />
+        <DocumentMentionContext.Provider value={mentionContext}>
+          <DiscussionPanel
+            owner={owner}
+            sections={sections}
+            focusThreadId={focusThreadId}
+            onOpenCountChange={handleCount}
+            refreshKey={refreshKey}
+          />
+        </DocumentMentionContext.Provider>
       </Box>
     </Box>
   );

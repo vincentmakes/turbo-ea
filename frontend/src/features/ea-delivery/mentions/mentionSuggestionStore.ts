@@ -16,6 +16,9 @@
  * suggestion (`shouldShow`) after two spaces in a row, or once the user keeps
  * typing past a query the popup found nothing for. `close()` dismisses the
  * suggestion (the editor lost focus); one store at a time is open on a page.
+ * `browse()` (the popup's "Browse…" row) closes the suggestion and hands the
+ * "@query" range to the editor, which opens the browse dialog and later
+ * replaces that text with what was picked.
  */
 import { useSyncExternalStore } from "react";
 import type { Editor, Range } from "@tiptap/core";
@@ -61,6 +64,10 @@ export interface MentionSuggestionStore {
   reportNoResults: (query: string) => void;
   /** Dismiss the open suggestion (the editor lost focus). */
   close: () => void;
+  /** Who opens the browse dialog (the editor), given the "@query" range. */
+  setBrowseHandler: (handler: ((range: Range | null) => void) | null) => void;
+  /** Close the suggestion and open the browse dialog in place of "@query". */
+  browse: () => void;
 }
 
 const CLOSED: MentionSuggestionState = {
@@ -92,6 +99,8 @@ export function createMentionSuggestionStore(): MentionSuggestionStore {
   let keyHandler: ((event: KeyboardEvent) => boolean) | null = null;
   let editor: Editor | null = null;
   let from = -1;
+  let range: Range | null = null;
+  let browseHandler: ((range: Range | null) => void) | null = null;
   let noResults: { from: number; query: string } | null = null;
   const listeners = new Set<() => void>();
   const pluginKey = new PluginKey("documentMention");
@@ -108,7 +117,10 @@ export function createMentionSuggestionStore(): MentionSuggestionStore {
   });
   const track = (props: Props) => {
     editor = props.editor ?? null;
-    if (props.range) from = props.range.from;
+    if (props.range) {
+      from = props.range.from;
+      range = props.range;
+    }
   };
 
   const store: MentionSuggestionStore = {
@@ -136,10 +148,20 @@ export function createMentionSuggestionStore(): MentionSuggestionStore {
       if (openStore === store) openStore = null;
       if (state.open) set(CLOSED);
     },
+    setBrowseHandler: (handler) => {
+      browseHandler = handler;
+    },
+    browse: () => {
+      if (!state.open) return;
+      const at = range;
+      store.close();
+      browseHandler?.(at);
+    },
     render: () => ({
       onStart: (props) => {
         if (openStore && openStore !== store) openStore.close();
         openStore = store;
+        range = null;
         track(props);
         if (noResults && noResults.from !== from) noResults = null;
         set(fromProps(props));

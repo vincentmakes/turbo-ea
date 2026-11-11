@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Extension, type AnyExtension } from "@tiptap/core";
+import { Extension, type AnyExtension, type Range } from "@tiptap/core";
 import { Plugin } from "@tiptap/pm/state";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -13,9 +13,11 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import type { MentionKind } from "@/lib/mentionHtml";
 import { plainListTags } from "./collab/discussionModel";
 import { MENTION_CHIP_SX } from "./mentions/MentionContainer";
+import MentionBrowseDialog from "./mentions/MentionBrowseDialog";
 import MentionPopup from "./mentions/MentionPopup";
 import { createMentionExtension } from "./mentions/mentionExtension";
 import { useMentionLabels } from "./mentions/mentionLabels";
+import { mentionInsertContent, type MentionContext, type MentionPick } from "./mentions/mentionModel";
 import {
   createMentionSuggestionStore,
   type MentionSuggestionStore,
@@ -38,6 +40,11 @@ interface Props {
   variant?: "document" | "comment";
   /** Comment variant: Ctrl/Cmd+Enter. Not called while the "@" popup is open. */
   onSubmit?: () => void;
+  /**
+   * What the document knows, for the "@" list's order: its linked cards and
+   * (in comments) its people come first.
+   */
+  mentionContext?: MentionContext;
 }
 
 /**
@@ -98,6 +105,7 @@ export default function RichTextEditor({
   mentions,
   variant = "document",
   onSubmit,
+  mentionContext,
 }: Props) {
   const { t } = useTranslation("delivery");
   const isComment = variant === "comment";
@@ -150,6 +158,26 @@ export default function RichTextEditor({
 
   // An editor going away takes its "@" popup with it.
   useEffect(() => () => store.close(), [store]);
+
+  // The browse dialog, and the "@query" text it replaces (null: at the caret).
+  const [browse, setBrowse] = useState<{ range: Range | null } | null>(null);
+  useEffect(() => {
+    store.setBrowseHandler((range) => setBrowse({ range }));
+    return () => store.setBrowseHandler(null);
+  }, [store]);
+  const closeBrowse = (picks: MentionPick[]) => {
+    const range = browse?.range ?? null;
+    setBrowse(null);
+    if (!editor || editor.isDestroyed) return;
+    const chain = editor.chain().focus();
+    if (picks.length === 0) {
+      // Cancel changes nothing: the caret goes back after the "@query".
+      (range ? chain.setTextSelection(range.to) : chain).run();
+      return;
+    }
+    const content = mentionInsertContent(picks);
+    (range ? chain.insertContentAt(range, content) : chain.insertContent(content)).run();
+  };
 
   // Sync editable state when readOnly changes. No update is emitted: an
   // untouched document must not report its own re-serialisation as an edit.
@@ -277,6 +305,16 @@ export default function RichTextEditor({
 
         <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
+        {hasMentions && (
+          <>
+            {btn("alternate_email", t("richText.mention"), () => {
+              store.close();
+              setBrowse({ range: null });
+            })}
+            <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+          </>
+        )}
+
         {btn("undo", t("richText.undo"), () => editor.chain().focus().undo().run())}
         {btn("redo", t("richText.redo"), () => editor.chain().focus().redo().run())}
       </Box>}
@@ -317,7 +355,17 @@ export default function RichTextEditor({
       >
         <EditorContent editor={editor} />
       </Box>
-      {hasMentions && <MentionPopup store={store} kinds={mentions ?? []} />}
+      {hasMentions && !browse && (
+        <MentionPopup store={store} kinds={mentions ?? []} context={mentionContext} />
+      )}
+      {hasMentions && (
+        <MentionBrowseDialog
+          open={Boolean(browse)}
+          kinds={mentions ?? []}
+          onCancel={() => closeBrowse([])}
+          onInsert={closeBrowse}
+        />
+      )}
     </Box>
   );
 }

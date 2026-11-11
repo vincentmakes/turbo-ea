@@ -37,6 +37,7 @@ import MentionContainer from "./mentions/MentionContainer";
 import { useMentionLabels } from "./mentions/mentionLabels";
 import DocumentHistoryButton from "./collab/DocumentHistoryButton";
 import DocumentSidePanel from "./collab/DocumentSidePanel";
+import { documentPeopleIds } from "./mentions/mentionModel";
 import MentionedInList from "./collab/MentionedInList";
 import { sectionOptions } from "./collab/discussionModel";
 import type { ArchitectureDecision } from "@/types";
@@ -134,6 +135,10 @@ export default function ADRPreview() {
         sections={sectionOptions("adr", t)}
         openThreadCount={adr.open_thread_count}
         refreshKey={adr.updated_at ?? undefined}
+        mentionContext={{
+          linkedCardIds: (adr.linked_cards ?? []).map((c) => c.id),
+          priorityUserIds: documentPeopleIds(adr),
+        }}
       >
       {/* Toolbar */}
       <Box
