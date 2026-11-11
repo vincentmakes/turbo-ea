@@ -195,6 +195,14 @@ def revise_refusal(chains: SoAWChains, soaw_id: Any) -> tuple[int, Any] | None:
     return None
 
 
+def content_editable(status: str) -> bool:
+    """Whether a SoAW in ``status`` may have its content edited: every status
+    but in review and signed (a draft, and the legacy ``approved``). The one
+    predicate behind the PATCH lock (:func:`update_refusal`), whether a save
+    is recorded as a version and whether a version may be restored."""
+    return status not in (IN_REVIEW, SIGNED)
+
+
 def update_refusal(
     current_status: str, new_status: str | None, fields_set: Iterable[str]
 ) -> tuple[int, str] | None:
@@ -212,7 +220,7 @@ def update_refusal(
             return 400, "Use the request-signatures endpoint to send for review"
         if new_status == DRAFT and current_status == IN_REVIEW:
             return 400, "Use the recall-signatures endpoint to reset to draft"
-    if current_status == IN_REVIEW and set(fields_set) - REVIEW_EDITABLE_FIELDS:
+    if not content_editable(current_status) and set(fields_set) - REVIEW_EDITABLE_FIELDS:
         return 403, ("A document in review is locked. Recall the signature requests to edit it.")
     return None
 

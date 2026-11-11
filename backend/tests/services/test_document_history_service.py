@@ -395,10 +395,17 @@ class TestRestoreFields:
             {"name": "Free"},
         ]
 
-    def test_only_a_draft_is_restored(self):
-        assert history.restore_refusal("draft") is None
+    def test_only_a_draft_decision_is_restored(self):
+        assert history.restore_refusal("adr", "draft") is None
+        for status in ("in_review", "signed", "approved", "superseded"):
+            assert history.restore_refusal("adr", status) == (409, {"error": "not_draft"})
+
+    def test_a_soaw_is_restored_whenever_its_content_may_be_edited(self):
+        """A legacy ``approved`` SoAW can be edited, so it can be restored."""
+        assert history.restore_refusal("soaw", "draft") is None
+        assert history.restore_refusal("soaw", "approved") is None
         for status in ("in_review", "signed"):
-            assert history.restore_refusal(status) == (409, {"error": "not_draft"})
+            assert history.restore_refusal("soaw", status) == (409, {"error": "not_draft"})
 
     def test_source_id(self):
         sid = uuid.uuid4()
@@ -757,6 +764,79 @@ class TestTimelineAndVersion:
         assert [(e["kind"], e["actor"]) for e in rest] == [
             ("created", {"id": str(user.id), "display_name": "Ada"})
         ]
+
+    def test_the_timeline_query_never_selects_the_snapshot(self):
+        stmt = history.timeline_query("soaw", uuid.uuid4(), page=2, page_size=5)
+        assert [c.key for c in stmt.selected_columns] == [
+            "id",
+            "kind",
+            "actor_id",
+            "actor_name",
+            "note",
+            "created_at",
+            "has_content",
+            "display_name",
+        ]
+        assert all(c is not DocumentHistoryEntry.__table__.c.content for c in stmt.selected_columns)
+        sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
+        assert "document_history.content AS" not in sql
+        assert "document_history.content," not in sql
+        assert "jsonb_typeof(document_history.content)" in sql
+        assert "document_history.soaw_id" in sql
+        assert "ORDER BY document_history.seq DESC" in sql
+        assert "LIMIT 5 OFFSET 5" in sql
+
+    async def test_the_timeline_reads_no_snapshot_and_still_says_which_rows_have_one(self, db):
+        """The page is read without ``content``; ``has_content`` is true for a
+        snapshot (even an empty one) and false for SQL NULL and JSON null."""
+        from sqlalchemy import event
+
+        adr = ArchitectureDecision(reference_number="ADR-077", title="T")
+        db.add(adr)
+        await db.flush()
+        owner = {"architecture_decision_id": adr.id}
+        db.add(DocumentHistoryEntry(**owner, kind="created", content={"title": "T"}))
+        await db.flush()
+        db.add(DocumentHistoryEntry(**owner, kind="save", content={}))
+        await db.flush()
+        db.add(DocumentHistoryEntry(**owner, kind="sent_for_review"))
+        await db.flush()
+        # An explicit ``None`` is stored as JSON null (what an import writes).
+        db.add(DocumentHistoryEntry(**owner, kind="recalled", content=None))
+        await db.flush()
+
+        statements: list[str] = []
+
+        def spy(conn, cursor, statement, *args):
+            statements.append(statement)
+
+        engine = db.bind.sync_engine
+        event.listen(engine, "before_cursor_execute", spy)
+        try:
+            total, entries = await history.timeline(db, "adr", adr.id, page=1, page_size=10)
+        finally:
+            event.remove(engine, "before_cursor_execute", spy)
+
+        stored_null = (
+            await db.execute(
+                select(DocumentHistoryEntry.kind, DocumentHistoryEntry.content.is_(None))
+                .where(DocumentHistoryEntry.architecture_decision_id == adr.id)
+                .where(DocumentHistoryEntry.kind.in_(("sent_for_review", "recalled")))
+                .order_by(DocumentHistoryEntry.seq)
+            )
+        ).all()
+        assert [tuple(r) for r in stored_null] == [("sent_for_review", True), ("recalled", False)]
+        assert total == 4
+        assert [(e["kind"], e["has_content"]) for e in entries] == [
+            ("recalled", False),
+            ("sent_for_review", False),
+            ("save", True),
+            ("created", True),
+        ]
+        page_sql = [s for s in statements if "ORDER BY document_history.seq DESC" in s]
+        assert len(page_sql) == 1
+        assert "document_history.content AS" not in page_sql[0]
+        assert "document_history.content," not in page_sql[0]
 
     async def test_a_version_is_rendered_for_the_reader(self, db):
         await create_card_type(db, key="Application", label="Application")

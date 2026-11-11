@@ -55,7 +55,7 @@ async def _timeline(
     total, entries = await history.timeline(db, doc_kind, doc.id, page=page, page_size=page_size)
     return {
         "can_view_versions": can_view,
-        "can_restore": holds_manage and history.restore_refusal(doc.status) is None,
+        "can_restore": holds_manage and history.restore_refusal(doc_kind, doc.status) is None,
         "total": total,
         "entries": entries,
     }

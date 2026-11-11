@@ -205,6 +205,13 @@ class TestReviseRefusal:
         assert svc.revise_refusal(chains, "b") is None
 
 
+def test_content_is_editable_in_every_status_but_in_review_and_signed():
+    for status in ("draft", "approved", "anything"):
+        assert svc.content_editable(status) is True
+    for status in ("in_review", "signed"):
+        assert svc.content_editable(status) is False
+
+
 class TestUpdateRefusal:
     LOCKED = (403, "A document in review is locked. Recall the signature requests to edit it.")
 

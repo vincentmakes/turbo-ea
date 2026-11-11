@@ -230,9 +230,10 @@ async def update_soaw(
     # Signed: no edit at all. Status moves with their own endpoint: 400. In
     # review: only the initiative (filing) may change.
     _refuse(soaw_service.update_refusal(s.status, body.status, body.model_fields_set))
-    was_draft = s.status == soaw_service.DRAFT
-    # The content before this save touches the row: a draft's first recorded
-    # save keeps it as the baseline version.
+    # Whether this save may change content: a draft, or a legacy approved SoAW.
+    was_draft = soaw_service.content_editable(s.status)
+    # The content before this save touches the row: the first recorded save
+    # keeps it as the baseline version.
     before = history.snapshot_of(document_collab.SOAW, s) if was_draft else None
 
     if body.name is not None:

@@ -186,6 +186,37 @@ async def test_on_workflow_blank_note_is_none(db):
     assert row.note is None
 
 
+async def test_a_whitespace_signing_note_is_no_note(db):
+    """A note of only spaces and line breaks writes no ``sign_note`` comment
+    and no note on the ``signature`` row; a real note keeps its text."""
+    from app.models.document_comment import DocumentComment
+
+    user = await create_user(db, display_name="Ada")
+    adr = await _decision(db)
+    await collab.on_workflow(db, "adr", adr, "signature", user=user, note=" \n\t ")
+    await collab.on_workflow(db, "adr", adr, "signature", user=user, note=" Fine ")
+    rows = await _rows(db)
+    assert [r.note for r in rows] == [None, " Fine "]
+    comments = (await db.execute(select(DocumentComment))).scalars().all()
+    assert [(c.kind, c.body) for c in comments] == [("sign_note", "<p> Fine </p>")]
+
+
+async def test_a_whitespace_rejection_reason_is_no_reason(db):
+    """A rejection still opens its thread (empty, read as no reason given);
+    the timeline row carries no note of spaces."""
+    from app.models.document_comment import DocumentComment
+
+    user = await create_user(db, display_name="Ada")
+    soaw = SoAW(name="Plan")
+    db.add(soaw)
+    await db.flush()
+    await collab.on_workflow(db, "soaw", soaw, "rejected", user=user, note="   ")
+    (row,) = await _rows(db)
+    assert (row.kind, row.note) == ("rejected", None)
+    comments = (await db.execute(select(DocumentComment))).scalars().all()
+    assert [(c.kind, c.body, c.soaw_id) for c in comments] == [("rejection", "", soaw.id)]
+
+
 async def test_on_workflow_refuses_an_unknown_step(db):
     adr = await _decision(db)
     with pytest.raises(ValueError):

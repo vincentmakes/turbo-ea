@@ -146,7 +146,9 @@ async def after_save(
     before: dict[str, Any] | None,
 ) -> None:
     """Called once an update of ``doc`` has been applied (flushed or not).
-    ``was_draft`` is whether the document was a draft before the update;
+    ``was_draft`` is whether the document's content could be edited before
+    the update (a draft; for a SoAW ``soaw_service.content_editable``, which
+    also admits a legacy ``approved`` one);
     ``before`` its content snapshot taken BEFORE the update touched the row
     (``document_history_service.current_snapshot``; the caller captures it
     for a draft). A draft's save is recorded as a version when its content
@@ -183,6 +185,10 @@ async def on_workflow(
     on a recall.
     """
     check_step(doc_kind, step)
+    if note is not None and not note.strip():
+        # A note of nothing but whitespace is no note: no blank ``sign_note``
+        # comment, no note of spaces on the timeline row.
+        note = None
     actor_id, actor_name = await _actor(db, user)
     content: dict[str, Any] = {}
     if step in CONTENT_STEPS:
@@ -265,9 +271,18 @@ async def load_document(db: AsyncSession, doc_kind: str, doc_id: str) -> Documen
     return doc
 
 
-def history_entry_payload(entry: DocumentHistoryEntry, actor_display_name: str | None) -> dict:
+def history_entry_payload(
+    entry: Any, actor_display_name: str | None, *, has_content: bool | None = None
+) -> dict:
     """One timeline row as the History tab reads it. ``actor`` is the user as
-    they are named now (``None`` once deleted); ``actor_name`` the snapshot."""
+    they are named now (``None`` once deleted); ``actor_name`` the snapshot.
+
+    ``entry`` is a row or any object with its columns. ``has_content`` is
+    given by a caller that did not load the snapshot (the timeline selects
+    whether there is one, never the content itself); otherwise it is read
+    from ``entry.content``."""
+    if has_content is None:
+        has_content = entry.content is not None
     actor = None
     if entry.actor_id is not None and actor_display_name is not None:
         actor = {"id": str(entry.actor_id), "display_name": actor_display_name}
@@ -278,5 +293,5 @@ def history_entry_payload(entry: DocumentHistoryEntry, actor_display_name: str |
         "actor_name": entry.actor_name,
         "note": entry.note,
         "created_at": entry.created_at.isoformat() if entry.created_at else None,
-        "has_content": entry.content is not None,
+        "has_content": bool(has_content),
     }

@@ -80,7 +80,7 @@ A SoAW has the same discussion, mentions and history as a decision, in the **Dis
 - **Sections.** A thread is tagged to one of the SoAW's own sections, or to *General*. A thread tagged to a custom section that has since been removed shows *Removed section*.
 - **Rejecting.** Any signatory who holds the sign permission (`soaw.sign`) — or the edit permission — may reject a SoAW, as for decisions; until now rejecting needed the edit permission. The reason opens a **Rejection reason** thread in the discussion.
 - **Signing note.** **Sign** now opens a dialog where the signatory can add an optional note; it appears in the discussion as a **Signing note** and on the History tab.
-- **History.** A version holds the SoAW's name, its document information, its Document Version History table and every section; the initiative is not part of a version. The History tab records what happens to the document; the Document Version History table in the document records only what its authors write in it.
+- **History.** A version holds the SoAW's name, its document information, its Document Version History table and every section; the initiative is not part of a version. The History tab records what happens to the document; the Document Version History table in the document records only what its authors write in it. A SoAW in the **Approved** status can still be edited, so, as for a draft, its saves are kept as versions and an earlier version can be restored into it.
 
 ### Preview and Export
 

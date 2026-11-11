@@ -20,10 +20,11 @@ When rows are written:
 * ``created`` / ``revised`` — by the shared writers through
   ``document_collab.on_workflow``, carrying the initial content;
 * ``save`` — :func:`record_save`, from ``document_collab.after_save``, when a
-  DRAFT was saved and its content differs (:func:`differs`) from the latest
-  version. A document that has no version yet (its ``created`` row was
-  backfilled by migration 171, without content) first gets a ``baseline``
-  row holding the state captured BEFORE the save;
+  DRAFT (for a SoAW, any status whose content may be edited, see
+  ``soaw_service.content_editable``) was saved and its content differs
+  (:func:`differs`) from the latest version. A document that has no version
+  yet (its ``created`` row was backfilled by migration 171, without content)
+  first gets a ``baseline`` row holding the state captured BEFORE the save;
 * ``restored`` — :func:`restore`, forward only: the restored content becomes
   a new version whose ``note`` is the id of the version it came from.
 
@@ -42,12 +43,18 @@ from datetime import date, datetime, timezone
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document_history import DocumentHistoryEntry
 from app.models.user import User
-from app.services import adr_service, decision_people_service, document_collab, mention_service
+from app.services import (
+    adr_service,
+    decision_people_service,
+    document_collab,
+    mention_service,
+    soaw_service,
+)
 from app.services.card_read_scope import CardReadScope
 
 #: Timeline kinds that may carry a snapshot.
@@ -360,30 +367,56 @@ async def record_save(
 # --- the timeline -------------------------------------------------------------------
 
 
+#: The columns a timeline row is read with: everything its payload names, and
+#: whether a snapshot is there — never the snapshot itself (a SoAW version is
+#: a full copy of the document). A JSON ``null`` counts as no snapshot, as it
+#: reads ``None`` on a loaded row.
+TIMELINE_COLUMNS: tuple[Any, ...] = (
+    DocumentHistoryEntry.id,
+    DocumentHistoryEntry.kind,
+    DocumentHistoryEntry.actor_id,
+    DocumentHistoryEntry.actor_name,
+    DocumentHistoryEntry.note,
+    DocumentHistoryEntry.created_at,
+    (func.coalesce(func.jsonb_typeof(DocumentHistoryEntry.content), "null") != "null").label(
+        "has_content"
+    ),
+)
+
+
+def timeline_query(doc_kind: str, doc_id: uuid.UUID, *, page: int, page_size: int) -> Select:
+    """One page of the document's timeline rows, newest first, with each
+    actor's current name (:data:`TIMELINE_COLUMNS` + ``display_name``)."""
+    return (
+        select(*TIMELINE_COLUMNS, User.display_name)
+        .outerjoin(User, User.id == DocumentHistoryEntry.actor_id)
+        .where(_owner(doc_kind) == doc_id)
+        .order_by(DocumentHistoryEntry.seq.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+
+
 async def timeline(
     db: AsyncSession, doc_kind: str, doc_id: uuid.UUID, *, page: int, page_size: int
 ) -> tuple[int, list[dict[str, Any]]]:
     """``(total, entries)``: one page of the document's timeline, NEWEST FIRST
     (the order of a card's history), each entry with its actor's current name
     and, on a ``restored`` row, ``restored_from`` — the source version's
-    ``{id, kind, created_at}`` (``None`` once it is gone)."""
+    ``{id, kind, created_at}`` (``None`` once it is gone). No snapshot is
+    loaded (:func:`timeline_query`)."""
     total = (
         await db.execute(
             select(func.count()).select_from(DocumentHistoryEntry).where(_owner(doc_kind) == doc_id)
         )
     ).scalar_one()
     rows = (
-        await db.execute(
-            select(DocumentHistoryEntry, User.display_name)
-            .outerjoin(User, User.id == DocumentHistoryEntry.actor_id)
-            .where(_owner(doc_kind) == doc_id)
-            .order_by(DocumentHistoryEntry.seq.desc())
-            .offset((page - 1) * page_size)
-            .limit(page_size)
-        )
+        await db.execute(timeline_query(doc_kind, doc_id, page=page, page_size=page_size))
     ).all()
-    sources = await _sources(db, doc_kind, doc_id, [entry for entry, _ in rows])
-    return total, [entry_payload(entry, name, sources) for entry, name in rows]
+    sources = await _sources(db, doc_kind, doc_id, rows)
+    return total, [
+        entry_payload(row, row.display_name, sources, has_content=row.has_content) for row in rows
+    ]
 
 
 def source_id(entry: Any) -> uuid.UUID | None:
@@ -414,13 +447,17 @@ async def _sources(
 
 
 def entry_payload(
-    entry: Any, actor_display_name: str | None, sources: Mapping[uuid.UUID, dict[str, Any]]
+    entry: Any,
+    actor_display_name: str | None,
+    sources: Mapping[uuid.UUID, dict[str, Any]],
+    *,
+    has_content: bool | None = None,
 ) -> dict[str, Any]:
     """One timeline row: :func:`document_collab.history_entry_payload` plus
     ``restored_from``."""
     sid = source_id(entry)
     return {
-        **document_collab.history_entry_payload(entry, actor_display_name),
+        **document_collab.history_entry_payload(entry, actor_display_name, has_content=has_content),
         "restored_from": sources.get(sid) if sid is not None else None,
     }
 
@@ -496,9 +533,16 @@ async def _live_user_ids(db: AsyncSession, fields: Mapping[str, Any]) -> set[str
     return {str(uid) for uid in found}
 
 
-def restore_refusal(status: str) -> tuple[int, Any] | None:
-    """Only a draft can be restored: 409 ``not_draft`` otherwise."""
-    if status != "draft":
+def restore_refusal(doc_kind: str, status: str) -> tuple[int, Any] | None:
+    """Only a document whose content may be edited can be restored: 409
+    ``not_draft`` otherwise. A decision: a draft. A SoAW: what
+    ``soaw_service.content_editable`` allows (a draft, a legacy approved
+    SoAW), the same rule as its saves."""
+    if doc_kind == document_collab.SOAW:
+        editable = soaw_service.content_editable(status)
+    else:
+        editable = status == "draft"
+    if not editable:
         return 409, {"error": "not_draft"}
     return None
 
@@ -524,7 +568,7 @@ async def restore(
     whose user no longer exists comes back as the stored name. Links, linked
     cards, the initiative, files and attributes are never touched.
     """
-    refusal = restore_refusal(doc.status)
+    refusal = restore_refusal(doc_kind, doc.status)
     if refusal is not None:
         raise HTTPException(refusal[0], refusal[1])
     entry = await load_version(db, doc_kind, doc, entry_id)

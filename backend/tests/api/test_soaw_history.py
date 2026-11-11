@@ -241,6 +241,30 @@ class TestRestore:
         )
         assert resp["detail"] == {"error": "not_draft"}
 
+    async def test_an_approved_soaw_is_versioned_and_restored_like_a_draft(self, client, env):
+        """A SoAW in the legacy ``approved`` status can be edited, so its saves
+        are recorded as versions and a version can be restored into it."""
+        soaw = await _soaw(client, env)
+        base = f"{SOAW}/{soaw['id']}"
+        await _save(client, env, soaw["id"], status="approved")
+        await _save(client, env, soaw["id"], sections=_sections("v2"))
+        body = await _history(client, env, soaw["id"])
+        assert body["can_restore"] is True
+        entries = body["entries"]
+        assert [(e["kind"], e["has_content"]) for e in entries] == [
+            ("save", True),
+            ("created", True),
+        ]
+        save = await _call(client, env, "GET", f"{base}/history/{entries[0]['id']}")
+        assert save["content"]["sections"] == {"1.1": {"content": "<p>v2</p>"}}
+        detail = await _call(client, env, "POST", f"{base}/history/{entries[1]['id']}/restore")
+        assert (detail["status"], detail["sections"]) == (
+            "approved",
+            {"1.1": {"content": "<p>v1</p>"}},
+        )
+        kinds = [e["kind"] for e in (await _history(client, env, soaw["id"]))["entries"]]
+        assert kinds == ["restored", "save", "created"]
+
     async def test_a_revision_opens_with_its_content(self, client, env):
         soaw = await _soaw(client, env)
         base = f"{SOAW}/{soaw['id']}"
