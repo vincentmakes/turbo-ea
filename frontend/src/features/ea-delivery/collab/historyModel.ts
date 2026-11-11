@@ -184,6 +184,35 @@ export function comparePairFor(
   return defaultComparePair(selectedId, entries);
 }
 
+/** What "Changes" shows for the selected version. */
+export type ChangesView =
+  | { kind: "pair"; pair: ComparePair }
+  /** The selected version is the oldest loaded one and earlier rows are on pages not read yet. */
+  | { kind: "earlierNotLoaded" }
+  /** No other version exists. */
+  | { kind: "onlyOne" };
+
+/**
+ * What "Changes" shows for the selected version (`comparePairFor`), knowing
+ * whether earlier rows exist that are not loaded yet (`hasMore`): the oldest
+ * loaded version is compared with the one after it only once the whole
+ * timeline is loaded, never while the version before it may be on a page not
+ * read yet; and "the only saved version" is said only when there is nothing
+ * earlier to load. A version picked to compare with is always honoured.
+ */
+export function changesView(
+  selectedId: string,
+  compareWith: string | null,
+  entries: readonly DocumentHistoryEntry[],
+  hasMore: boolean,
+): ChangesView {
+  const picked = compareWith !== null && compareOptions(selectedId, entries).some((e) => e.id === compareWith);
+  const oldest = newestFirst(contentEntries(entries)).pop();
+  if (!picked && hasMore && oldest?.id === selectedId) return { kind: "earlierNotLoaded" };
+  const pair = comparePairFor(selectedId, compareWith, entries);
+  return pair ? { kind: "pair", pair } : { kind: "onlyOne" };
+}
+
 /** The other version of a pair: what the "Compare with" picker shows for the selected one. */
 export function otherSide(selectedId: string, pair: ComparePair): string {
   return pair.from === selectedId ? pair.to : pair.from;

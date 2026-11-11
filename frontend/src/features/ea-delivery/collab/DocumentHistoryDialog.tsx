@@ -46,7 +46,7 @@ import type { DocumentHistoryEntry, DocumentOwner } from "@/types";
 import {
   actorName,
   canRestore,
-  comparePairFor,
+  changesView,
   compareOptions,
   entryNote,
   entryTitle,
@@ -102,6 +102,8 @@ export default function DocumentHistoryDialog<D>({
   const theme = useTheme();
   const narrow = useMediaQuery(theme.breakpoints.down("md"));
   const history = useDocumentHistory(owner, refreshKey);
+  // The version on the right, pinned once chosen (the newest when the first
+  // page arrives) so a re-read of the timeline never moves it.
   const [pickedId, setPickedId] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>("version");
   const [compareWith, setCompareWith] = useState<string | null>(null);
@@ -115,7 +117,13 @@ export default function DocumentHistoryDialog<D>({
   const entries = newestFirst(history.entries);
   const canView = page?.can_view_versions ?? false;
   const selected = canView ? selectedVersion(pickedId, history.entries) : null;
-  const pair = selected ? comparePairFor(selected.id, compareWith, history.entries) : null;
+  if (selected && selected.id !== pickedId) {
+    // First page arrived (pin the newest), or the pinned version is no longer
+    // listed (fall back to the newest, quietly).
+    setPickedId(selected.id);
+    if (pickedId !== null) setCompareWith(null);
+  }
+  const changes = selected ? changesView(selected.id, compareWith, history.entries, history.hasMore) : null;
 
   const pick = (entry: DocumentHistoryEntry) => {
     setPickedId(entry.id);
@@ -139,6 +147,21 @@ export default function DocumentHistoryDialog<D>({
       setBusy(false);
     }
   };
+
+  const loadMore = (
+    <Button size="small" onClick={history.loadMore} disabled={history.loadingMore}>
+      {history.loadingMore ? t("collab.history.loading") : t("collab.history.loadMore")}
+    </Button>
+  );
+  // Said wherever only the loaded versions can be compared.
+  const earlierNotLoaded = (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }} data-testid="earlier-not-loaded">
+      <Typography variant="body2" color="text.secondary">
+        {t("collab.compare.earlierNotLoaded")}
+      </Typography>
+      {loadMore}
+    </Box>
+  );
 
   const timeline = !page ? (
     history.error ? (
@@ -206,11 +229,7 @@ export default function DocumentHistoryDialog<D>({
         })}
       </List>
       {history.hasMore && (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 1 }}>
-          <Button size="small" onClick={history.loadMore} disabled={history.loadingMore}>
-            {history.loadingMore ? t("collab.history.loading") : t("collab.history.loadMore")}
-          </Button>
-        </Box>
+        <Box sx={{ display: "flex", justifyContent: "center", py: 1 }}>{loadMore}</Box>
       )}
     </>
   );
@@ -269,7 +288,9 @@ export default function DocumentHistoryDialog<D>({
       </Box>
       {mode === "version" ? (
         <VersionViewPane owner={owner} entryId={selected.id} />
-      ) : !pair ? (
+      ) : changes?.kind === "earlierNotLoaded" ? (
+        earlierNotLoaded
+      ) : changes?.kind !== "pair" ? (
         <Typography variant="body2" color="text.secondary">
           {t("collab.compare.onlyOne")}
         </Typography>
@@ -279,7 +300,7 @@ export default function DocumentHistoryDialog<D>({
             select
             size="small"
             label={t("collab.compare.with")}
-            value={otherSide(selected.id, pair)}
+            value={otherSide(selected.id, changes.pair)}
             onChange={(e) => setCompareWith(e.target.value)}
             sx={{ maxWidth: 420 }}
           >
@@ -289,8 +310,9 @@ export default function DocumentHistoryDialog<D>({
               </MenuItem>
             ))}
           </TextField>
+          {history.hasMore && earlierNotLoaded}
           <Suspense fallback={<Centered />}>
-            <VersionChangesPane owner={owner} pair={pair} />
+            <VersionChangesPane owner={owner} pair={changes.pair} />
           </Suspense>
         </>
       )}
@@ -324,6 +346,16 @@ export default function DocumentHistoryDialog<D>({
               borderColor: { md: "divider" },
             }}
           >
+            {narrow && page && !canView && (
+              <Typography variant="body2" color="text.secondary" sx={{ p: 1 }}>
+                {t("collab.history.versionsHidden")}
+              </Typography>
+            )}
+            {narrow && page && canView && !selected && entries.length > 0 && (
+              <Typography variant="body2" color="text.secondary" sx={{ p: 1 }}>
+                {t("collab.history.noVersions")}
+              </Typography>
+            )}
             {timeline}
           </Box>
         )}

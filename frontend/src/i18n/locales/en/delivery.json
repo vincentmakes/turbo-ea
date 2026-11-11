@@ -653,6 +653,7 @@
   "collab.history.noVersions": "No version of this document has been saved yet.",
   "collab.compare.with": "Compare with",
   "collab.compare.onlyOne": "This is the only saved version: there is nothing to compare it with.",
+  "collab.compare.earlierNotLoaded": "Earlier versions are not loaded yet: only the loaded ones can be compared.",
   "collab.compare.formattingOnly": "Formatting only: the words are the same.",
   "collab.compare.noChanges": "No differences between these versions.",
   "collab.compare.hiddenSection": "[Section hidden]",

@@ -5,6 +5,7 @@ import {
   actorName,
   appendPage,
   canRestore,
+  changesView,
   comparePairFor,
   compareOptions,
   contentEntries,
@@ -258,6 +259,23 @@ describe("the History view's selection and comparison", () => {
     expect(comparePairFor("v3", "s", rows)).toEqual({ from: "v2", to: "v3" });
     expect(comparePairFor("v3", "gone", rows)).toEqual({ from: "v2", to: "v3" });
     expect(comparePairFor("v1", null, [v1, sent])).toBeNull();
+  });
+
+  it("never compares the oldest loaded version with a newer one while earlier rows are not loaded", () => {
+    // Fully loaded: the oldest against the one after it, the others against the one before.
+    expect(changesView("v1", null, rows, false)).toEqual({ kind: "pair", pair: { from: "v1", to: "v2" } });
+    expect(changesView("v3", null, rows, false)).toEqual({ kind: "pair", pair: { from: "v2", to: "v3" } });
+    // Earlier rows on a page not read yet: the oldest loaded version waits for them.
+    expect(changesView("v1", null, rows, true)).toEqual({ kind: "earlierNotLoaded" });
+    expect(changesView("v2", null, rows, true)).toEqual({ kind: "pair", pair: { from: "v1", to: "v2" } });
+    // A version picked to compare with is honoured, loaded or not loaded earlier rows.
+    expect(changesView("v1", "v3", rows, true)).toEqual({ kind: "pair", pair: { from: "v1", to: "v3" } });
+    // A pick that is no longer offered does not count as one.
+    expect(changesView("v1", "gone", rows, true)).toEqual({ kind: "earlierNotLoaded" });
+    expect(changesView("v1", "v1", rows, true)).toEqual({ kind: "earlierNotLoaded" });
+    // One loaded version: "the only one" only when nothing earlier is left to load.
+    expect(changesView("v1", null, [v1, sent], true)).toEqual({ kind: "earlierNotLoaded" });
+    expect(changesView("v1", null, [v1, sent], false)).toEqual({ kind: "onlyOne" });
   });
 
   it("names the other side of a pair", () => {

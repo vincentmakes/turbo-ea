@@ -338,4 +338,121 @@ describe("DocumentHistoryDialog", () => {
     expect(screen.queryByRole("button", { name: /Back$/ })).toBeNull();
     expect(screen.getByRole("dialog").className).not.toMatch(/paperFullScreen/);
   });
+
+  it("does not compare the oldest loaded version with a newer one while earlier versions are not loaded", async () => {
+    const SECOND = "/adr/a1/history?page=2&page_size=20";
+    const v0 = entry({ id: "v0", created_at: "2026-09-01T09:00:00Z" });
+    mockApi.on("get", FIRST, page({ total: 8 }));
+    mockApi.on("get", SECOND, page({ total: 8, entries: [v0, entry({ id: "b", kind: "baseline", has_content: false, created_at: "2026-08-01T09:00:00Z" })] }));
+    const { user } = renderDialog();
+    await user.click(within(await screen.findByTestId("history-v1")).getByRole("button"));
+    await user.click(screen.getByRole("button", { name: "Changes" }));
+    const line = await versionPane().findByTestId("earlier-not-loaded");
+    expect(line).toHaveTextContent("Earlier versions are not loaded yet: only the loaded ones can be compared.");
+    expect(screen.queryByTestId("changes-pane")).toBeNull();
+    expect(screen.queryByText("This is the only saved version: there is nothing to compare it with.")).toBeNull();
+    expect(screen.queryByRole("combobox", { name: "Compare with" })).toBeNull();
+    await user.click(within(line).getByRole("button", { name: "Load more" }));
+    expect(await screen.findByTestId("changes-pane")).toHaveTextContent("changes:v0→v1");
+    expect(screen.queryByTestId("earlier-not-loaded")).toBeNull();
+    expect(mockApi.callsOf("get", SECOND)).toHaveLength(1);
+  });
+
+  it("says beside the Compare with picker that only loaded versions are offered while more can be loaded", async () => {
+    mockApi.on("get", FIRST, page({ total: 8 }));
+    const { user } = renderDialog();
+    await user.click(within(await screen.findByTestId("history-v2")).getByRole("button"));
+    await user.click(screen.getByRole("button", { name: "Changes" }));
+    expect(await screen.findByTestId("changes-pane")).toHaveTextContent("changes:v1→v2");
+    expect(screen.getByRole("combobox", { name: "Compare with" })).toBeInTheDocument();
+    expect(versionPane().getByTestId("earlier-not-loaded")).toHaveTextContent("Earlier versions are not loaded yet");
+  });
+
+  it("does not call a version the only one while earlier rows are left to load", async () => {
+    mockApi.on("get", FIRST, page({ total: 5, entries: [v1, created] }));
+    const { user } = renderDialog();
+    await screen.findByTestId("version-pane");
+    await user.click(screen.getByRole("button", { name: "Changes" }));
+    expect(await versionPane().findByTestId("earlier-not-loaded")).toBeInTheDocument();
+    expect(screen.queryByText("This is the only saved version: there is nothing to compare it with.")).toBeNull();
+  });
+
+  it("keeps the version on screen when the timeline is read again with a newer one", async () => {
+    const newer = entry({ id: "v9", created_at: "2026-10-09T09:00:00Z" });
+    let reads = 0;
+    mockApi.on("get", FIRST, () => {
+      reads += 1;
+      return reads === 1 ? page() : page({ total: 7, entries: [newer, restored, signature, rejected, v2, v1, created] });
+    });
+    function Page() {
+      const [key, setKey] = useState("k1");
+      return (
+        <>
+          <button type="button" onClick={() => setKey("k2")}>
+            saved
+          </button>
+          <DocumentHistoryDialog owner={{ kind: "adr", id: "a1" }} label="L" status="draft" refreshKey={key} onClose={vi.fn()} />
+        </>
+      );
+    }
+    renderWithProviders(<Page />);
+    expect(await versionPane().findByTestId("version-pane")).toHaveTextContent("view:rs");
+    fireEvent.click(screen.getByRole("button", { name: "saved", hidden: true }));
+    expect(await screen.findByTestId("history-v9")).toBeInTheDocument();
+    expect(versionPane().getByTestId("version-pane")).toHaveTextContent("view:rs");
+    expect(within(screen.getByTestId("history-rs")).getByRole("button")).toHaveAttribute("aria-current", "true");
+    expect(within(screen.getByTestId("history-v9")).getByRole("button")).not.toHaveAttribute("aria-current");
+  });
+
+  it("falls back to the newest version when the pinned one is no longer listed", async () => {
+    let reads = 0;
+    mockApi.on("get", FIRST, () => {
+      reads += 1;
+      return reads === 1 ? page() : page({ total: 5, entries: [restored, signature, rejected, v2, created] });
+    });
+    function Page() {
+      const [key, setKey] = useState("k1");
+      return (
+        <>
+          <button type="button" onClick={() => setKey("k2")}>
+            saved
+          </button>
+          <DocumentHistoryDialog owner={{ kind: "adr", id: "a1" }} label="L" status="draft" refreshKey={key} onClose={vi.fn()} />
+        </>
+      );
+    }
+    const { user } = renderWithProviders(<Page />);
+    await user.click(within(await screen.findByTestId("history-v1")).getByRole("button"));
+    expect(versionPane().getByTestId("version-pane")).toHaveTextContent("view:v1");
+    fireEvent.click(screen.getByRole("button", { name: "saved", hidden: true }));
+    await waitFor(() => expect(screen.queryByTestId("history-v1")).toBeNull());
+    expect(versionPane().getByTestId("version-pane")).toHaveTextContent("view:rs");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("below md, tells a reader who may not see versions why none opens, above the timeline", async () => {
+    act(() => setViewportWidth(700));
+    mockApi.on("get", FIRST, page({ can_view_versions: false, can_restore: false }));
+    renderDialog();
+    await screen.findByTestId("history-v1");
+    expect(screen.queryByTestId("history-version")).toBeNull();
+    const note = timeline().getByText("Saved versions are shown to editors and signatories only.");
+    const firstRow = screen.getByTestId("history-rs");
+    expect(note.compareDocumentPosition(firstRow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("below md, says above the timeline when no version has been saved yet", async () => {
+    act(() => setViewportWidth(700));
+    mockApi.on("get", FIRST, page({ total: 1, entries: [created] }));
+    renderDialog();
+    expect(await timeline().findByText("No version of this document has been saved yet.")).toBeInTheDocument();
+  });
+
+  it("from md up, says it in the version pane only", async () => {
+    mockApi.on("get", FIRST, page({ can_view_versions: false, can_restore: false }));
+    renderDialog();
+    await screen.findByTestId("history-v1");
+    expect(timeline().queryByText("Saved versions are shown to editors and signatories only.")).toBeNull();
+    expect(versionPane().getByText("Saved versions are shown to editors and signatories only.")).toBeInTheDocument();
+  });
 });
