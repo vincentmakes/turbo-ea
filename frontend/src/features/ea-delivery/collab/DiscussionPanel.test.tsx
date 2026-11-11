@@ -113,8 +113,16 @@ describe("DiscussionPanel", () => {
     expect(await screen.findByText("No discussion yet.")).toBeInTheDocument();
     expect(editorProps.last).toMatchObject({ variant: "comment", mentions: ["card", "decision", "user"] });
 
-    await user.click(screen.getByRole("combobox", { name: "About" }));
-    await user.click(await screen.findByRole("option", { name: "Decision" }));
+    const chips = within(screen.getByRole("group", { name: "Section" }));
+    expect(chips.getAllByRole("button").map((b) => b.textContent)).toEqual([
+      "Context",
+      "Decision",
+      "Alternatives Considered",
+      "Consequences",
+    ]);
+    await user.click(chips.getByRole("button", { name: "Decision" }));
+    expect(chips.getByRole("button", { name: "Decision" })).toHaveAttribute("aria-pressed", "true");
+    expect(chips.getByRole("button", { name: "Context" })).toHaveAttribute("aria-pressed", "false");
     fireEvent.change(screen.getByRole("textbox", { name: /Start a thread/ }), {
       target: { value: "<p>Why now?</p>" },
     });
@@ -440,8 +448,7 @@ describe("DiscussionPanel", () => {
     serve({ can, open_count: 1, threads: [thread({ id: "t1" }), thread({ id: "t2", body: "<p>Mine</p>" })] });
     const first = renderPanel();
     const { user } = first;
-    await user.click(await screen.findByRole("combobox", { name: "About" }));
-    await user.click(await screen.findByRole("option", { name: "Decision" }));
+    await user.click(within(await screen.findByRole("group", { name: "Section" })).getByRole("button", { name: "Decision" }));
     fireEvent.change(screen.getByRole("textbox", { name: /Start a thread/ }), { target: { value: "<p>Half a th</p>" } });
     const t1 = within(screen.getByTestId("thread-t1"));
     await user.click(t1.getByRole("button", { name: "Reply" }));
@@ -453,7 +460,9 @@ describe("DiscussionPanel", () => {
 
     renderPanel();
     expect(await screen.findByRole("textbox", { name: /Start a thread/ })).toHaveValue("<p>Half a th</p>");
-    expect(screen.getByRole("combobox", { name: "About" })).toHaveTextContent("Decision");
+    expect(
+      within(screen.getByRole("group", { name: "Section" })).getByRole("button", { name: "Decision" }),
+    ).toHaveAttribute("aria-pressed", "true");
     expect(within(screen.getByTestId("thread-t1")).getByRole("textbox", { name: /Reply/ })).toHaveValue(
       "<p>Half a reply</p>",
     );
@@ -483,5 +492,193 @@ describe("DiscussionPanel", () => {
     mockApi.on("get", "/adr/b7/comments", { can, open_count: 0, threads: [] });
     renderWithProviders(<DiscussionPanel owner={{ kind: "adr", id: "b7" }} sections={SECTIONS} />);
     expect(await screen.findByRole("textbox", { name: /Start a thread/ })).toHaveValue("");
+  });
+});
+
+describe("DiscussionPanel section filter", () => {
+  const filterRow = () => within(screen.getByRole("group", { name: "Filter the discussion by section" }));
+  const chipNames = () =>
+    filterRow()
+      .getAllByRole("button")
+      .map((b) => b.textContent);
+  const listedIds = () =>
+    screen.queryAllByTestId(/^thread-/).map((el) => el.getAttribute("data-testid")?.slice("thread-".length));
+
+  const MIXED = [
+    thread({ id: "a", section: "decision" }),
+    thread({ id: "b", section: null }),
+    thread({ id: "c", section: "context" }),
+    thread({ id: "d", section: "decision" }),
+  ];
+
+  it("shows one chip per section with its count, in the document's order, and General when both kinds exist", async () => {
+    serve({ can, open_count: 4, threads: MIXED });
+    renderPanel();
+    await screen.findByTestId("thread-a");
+    expect(chipNames()).toEqual(["General (1)", "Context (1)", "Decision (2)"]);
+    expect(filterRow().getByRole("button", { name: "Decision (2)" })).toHaveAttribute("aria-pressed", "false");
+    expect(filterRow().queryByRole("button", { name: "Clear" })).toBeNull();
+  });
+
+  it("shows no filter row when no thread has a section", async () => {
+    serve({ can, open_count: 1, threads: [thread({ id: "a", section: null })] });
+    renderPanel();
+    await screen.findByTestId("thread-a");
+    expect(screen.queryByRole("group", { name: "Filter the discussion by section" })).toBeNull();
+  });
+
+  it("filters on one or several chips, turns one off on a second click, and clears", async () => {
+    serve({ can, open_count: 4, threads: MIXED });
+    const { user } = renderPanel();
+    await screen.findByTestId("thread-a");
+
+    await user.click(filterRow().getByRole("button", { name: "Decision (2)" }));
+    expect(listedIds()).toEqual(["a", "d"]);
+    expect(filterRow().getByRole("button", { name: "Decision (2)" })).toHaveAttribute("aria-pressed", "true");
+
+    await user.click(filterRow().getByRole("button", { name: "General (1)" }));
+    expect(listedIds()).toEqual(["a", "b", "d"]);
+
+    await user.click(filterRow().getByRole("button", { name: "Decision (2)" }));
+    expect(listedIds()).toEqual(["b"]);
+
+    await user.click(filterRow().getByRole("button", { name: "Clear" }));
+    expect(listedIds()).toEqual(["a", "b", "c", "d"]);
+    expect(filterRow().queryByRole("button", { name: "Clear" })).toBeNull();
+  });
+
+  it("turns a section's filter on from a thread's own section chip", async () => {
+    serve({ can, open_count: 4, threads: MIXED });
+    const { user } = renderPanel();
+    await user.click(within(await screen.findByTestId("thread-c")).getByRole("button", { name: "Context" }));
+    expect(listedIds()).toEqual(["c"]);
+    // A second click keeps it on.
+    await user.click(within(screen.getByTestId("thread-c")).getByRole("button", { name: "Context" }));
+    expect(listedIds()).toEqual(["c"]);
+    expect(filterRow().getByRole("button", { name: "Context (1)" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("counts what the resolved toggle lists, and filters the resolved threads too", async () => {
+    serve({
+      can,
+      open_count: 1,
+      threads: [
+        thread({ id: "a", section: "decision" }),
+        thread({ id: "r1", section: "decision", resolved_at: "2026-11-02T00:00:00Z" }),
+        thread({ id: "r2", section: "context", resolved_at: "2026-11-02T00:00:00Z" }),
+      ],
+    });
+    const { user } = renderPanel();
+    await screen.findByTestId("thread-a");
+    expect(chipNames()).toEqual(["Decision (1)"]);
+    await user.click(screen.getByRole("button", { name: "Show 2 resolved threads" }));
+    expect(chipNames()).toEqual(["Context (1)", "Decision (2)"]);
+
+    await user.click(filterRow().getByRole("button", { name: "Decision (2)" }));
+    expect(listedIds()).toEqual(["a", "r1"]);
+    await user.click(screen.getByRole("button", { name: "Hide resolved threads" }));
+    expect(screen.getByRole("button", { name: "Show 1 resolved thread" })).toBeInTheDocument();
+    expect(chipNames()).toEqual(["Decision (1)", "Clear"]);
+  });
+
+  it("says when the filter leaves nothing, and clears from there", async () => {
+    const chain = {
+      can,
+      open_count: 1,
+      threads: [
+        thread({ id: "a", section: "decision" }),
+        thread({ id: "e1", section: "context", revision_id: "a1", revision_number: 1 }),
+      ],
+    };
+    serve({ can, open_count: 1, threads: [thread({ id: "a", section: "decision" })] }, chain);
+    const { user } = renderPanel();
+    await screen.findByTestId("thread-a");
+    const earlier = screen.getByRole("checkbox", { name: "Show discussion on earlier revisions" });
+    await user.click(earlier);
+    await screen.findByTestId("thread-e1");
+    await user.click(filterRow().getByRole("button", { name: "Context (1)" }));
+    expect(listedIds()).toEqual(["e1"]);
+    expect(screen.queryByText("No thread matches this filter.")).toBeNull();
+    await user.click(earlier);
+    // The chip that is on stays, at 0, and the line says why the list is empty.
+    await waitFor(() => expect(listedIds()).toEqual([]));
+    expect(chipNames()).toEqual(["Context (0)", "Decision (1)"]);
+    expect(screen.getByText("No thread matches this filter.")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Clear" })).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "Clear" }));
+    expect(listedIds()).toEqual(["a"]);
+    expect(screen.queryByText("No thread matches this filter.")).toBeNull();
+  });
+
+  it("keeps a resolved match behind the fold rather than saying nothing matches", async () => {
+    serve({
+      can,
+      open_count: 1,
+      threads: [thread({ id: "a", section: "decision" }), thread({ id: "r", section: "context", resolved_at: "x" })],
+    });
+    const { user } = renderPanel();
+    await screen.findByTestId("thread-a");
+    await user.click(screen.getByRole("button", { name: "Show 1 resolved thread" }));
+    await user.click(filterRow().getByRole("button", { name: "Context (1)" }));
+    await user.click(screen.getByRole("button", { name: "Hide resolved threads" }));
+    expect(listedIds()).toEqual([]);
+    expect(screen.getByRole("button", { name: "Show 1 resolved thread" })).toBeInTheDocument();
+    expect(screen.queryByText("No thread matches this filter.")).toBeNull();
+    expect(chipNames()).toEqual(["Context (0)", "Decision (1)", "Clear"]);
+  });
+
+  it("keeps a notification's thread through the filter, and starts with no filter when one is opened", async () => {
+    serve({ can, open_count: 4, threads: MIXED });
+    const { change } = renderHarness({});
+    await screen.findByTestId("thread-a");
+    fireEvent.click(filterRow().getByRole("button", { name: "Context (1)" }));
+    expect(listedIds()).toEqual(["c"]);
+    change({ focusThreadId: "b" });
+    expect(listedIds()).toEqual(["a", "b", "c", "d"]);
+    fireEvent.click(filterRow().getByRole("button", { name: "Context (1)" }));
+    expect(listedIds()).toEqual(["b", "c"]);
+  });
+
+  it("filters the earlier revisions' groups and leaves out a group with nothing left", async () => {
+    const chain = {
+      can,
+      open_count: 1,
+      threads: [
+        thread({ id: "a", section: "decision" }),
+        thread({ id: "e1", section: "context", revision_id: "a1", revision_number: 1 }),
+        thread({ id: "e0", section: "decision", revision_id: "a0", revision_number: 0 }),
+      ],
+    };
+    serve({ can, open_count: 1, threads: [thread({ id: "a", section: "decision" })] }, chain);
+    const { user } = renderPanel();
+    await screen.findByTestId("thread-a");
+    await user.click(screen.getByRole("checkbox", { name: "Show discussion on earlier revisions" }));
+    await screen.findByTestId("thread-e1");
+    expect(chipNames()).toEqual(["Context (1)", "Decision (2)"]);
+    expect(screen.getByText("Rev 1")).toBeInTheDocument();
+
+    await user.click(filterRow().getByRole("button", { name: "Decision (2)" }));
+    expect(listedIds()).toEqual(["a", "e0"]);
+    expect(screen.queryByText("Rev 1")).toBeNull();
+  });
+
+  it("offers a long list's used sections as composer chips", async () => {
+    const long = sectionOptions("soaw", tId, [
+      { key: "1.1", label: "Scope" },
+      { key: "1.2", label: "Vision" },
+      { key: "2.1", label: "Objectives" },
+      { key: "2.2", label: "Constraints" },
+      { key: "3.1", label: "Process" },
+      { key: "4.1", label: "Baseline" },
+      { key: "4.2", label: "Target" },
+    ]);
+    serve({ can, open_count: 1, threads: [thread({ id: "a", section: "2.1" })] });
+    renderPanel({ sections: long });
+    await screen.findByTestId("thread-a");
+    const composer = within(screen.getByRole("group", { name: "Section" }));
+    expect(composer.getAllByRole("button").map((b) => b.querySelector(".MuiChip-label")?.textContent)).toEqual([
+      "Objectives",
+      "More…",
+    ]);
   });
 });

@@ -82,6 +82,103 @@ export function sectionLabel(
   return found ? found.label : t("collab.discussion.section.removed");
 }
 
+/** The key a thread is filtered under: its section, or General when it has none. */
+export function threadSectionKey(thread: Pick<DocumentThread, "section">): string {
+  return thread.section || GENERAL_SECTION;
+}
+
+/** Up to this many sections, the composer shows every one as a chip (a decision's four). */
+export const SECTION_CHIPS_ALL_MAX = 6;
+
+/**
+ * The chips a new thread's composer offers, General left out (no chip chosen
+ * is a general thread). A short list is shown whole; a long one (a SoAW's)
+ * shows the sections already used in this discussion and the chosen one, in
+ * document order, and keeps the rest behind "More…".
+ */
+export function composerSectionChips(
+  sections: readonly SectionOption[],
+  used: readonly (string | null)[],
+  chosen: string,
+): { chips: SectionOption[]; more: SectionOption[] } {
+  const taggable = sections.filter((s) => s.key !== GENERAL_SECTION);
+  if (taggable.length <= SECTION_CHIPS_ALL_MAX) return { chips: taggable, more: [] };
+  const usedKeys = new Set(used);
+  const shown = (s: SectionOption) => usedKeys.has(s.key) || s.key === chosen;
+  return { chips: taggable.filter(shown), more: taggable.filter((s) => !shown(s)) };
+}
+
+/** One chip of the discussion's filter row. */
+export interface SectionFilterChip {
+  key: string;
+  label: string;
+  /** The threads listed under it. */
+  count: number;
+  active: boolean;
+}
+
+/**
+ * The filter row over the threads listed (`threads`: every revision shown,
+ * resolved ones only while they are unfolded): one chip per section with a
+ * thread, in the document's section order, then sections the document no
+ * longer has ("Removed section"); a General chip when untagged and tagged
+ * threads are both listed. No chip at all when no listed thread has a
+ * section. A chip that is on stays, at 0, so it can be turned off.
+ */
+export function sectionFilterChips(
+  threads: readonly Pick<DocumentThread, "section">[],
+  sections: readonly SectionOption[],
+  active: readonly string[],
+  t: Translate,
+): SectionFilterChip[] {
+  const counts = new Map<string, number>();
+  for (const thread of threads) {
+    const key = threadSectionKey(thread);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const general = counts.get(GENERAL_SECTION) ?? 0;
+  const tagged = threads.length - general;
+  const on = new Set(active);
+  const keys = new Set([GENERAL_SECTION, ...sections.map((s) => s.key), ...counts.keys(), ...active]);
+  const chips: SectionFilterChip[] = [];
+  for (const key of keys) {
+    const count = counts.get(key) ?? 0;
+    const listed = key === GENERAL_SECTION ? general > 0 && tagged > 0 : count > 0;
+    if (!listed && !on.has(key)) continue;
+    const label =
+      key === GENERAL_SECTION
+        ? t("collab.discussion.section.general")
+        : (sections.find((s) => s.key === key)?.label ?? t("collab.discussion.section.removed"));
+    chips.push({ key, label, count, active: on.has(key) });
+  }
+  return chips;
+}
+
+/** The filter with `key` turned on, or off when it was on. */
+export function toggleFilterKey(active: readonly string[], key: string): string[] {
+  return active.includes(key) ? active.filter((k) => k !== key) : [...active, key];
+}
+
+/** The filter with `key` turned on (a thread's own section chip). */
+export function addFilterKey(active: readonly string[], key: string): string[] {
+  return active.includes(key) ? [...active] : [...active, key];
+}
+
+/**
+ * The threads the filter lets through: all of them with no filter, else those
+ * whose section is on (any of them), and always the thread a notification
+ * points at (`keepId`).
+ */
+export function applySectionFilter<T extends Pick<DocumentThread, "id" | "section">>(
+  threads: readonly T[],
+  active: readonly string[],
+  keepId?: string | null,
+): T[] {
+  if (active.length === 0) return [...threads];
+  const on = new Set(active);
+  return threads.filter((th) => on.has(threadSectionKey(th)) || (keepId != null && th.id === keepId));
+}
+
 /** Threads of one earlier revision, under a "Rev N" header. */
 export interface RevisionGroup {
   revisionId: string;

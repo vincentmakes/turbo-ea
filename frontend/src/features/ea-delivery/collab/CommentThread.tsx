@@ -3,7 +3,8 @@
  * the server allows on each (`can.*`). A rejection reason is marked as one
  * (an empty reason reads "No reason given"); a signing note is marked as one
  * and has nothing to resolve; neither is ever offered for edit or delete
- * here. A deleted comment leaves a placeholder and keeps its replies. A
+ * here. Its section chip, when it has one, can be clicked (the discussion
+ * filters on it). A deleted comment leaves a placeholder and keeps its replies. A
  * reply or an edit left unsent is kept (`commentDrafts`) and reopens with
  * the thread.
  */
@@ -39,6 +40,8 @@ interface Props extends ThreadActions {
   thread: DocumentThread;
   /** The thread's section tag, already labelled; null when untagged. */
   sectionLabel: string | null;
+  /** A click on the section chip (the discussion turns that section's filter on). */
+  onSectionClick?: () => void;
   /** The reader may post (and so reply). */
   canComment: boolean;
   /** Opened from a notification: drawn out. */
@@ -59,6 +62,7 @@ function deletable(comment: DocumentComment): boolean {
 export default function CommentThread({
   thread,
   sectionLabel,
+  onSectionClick,
   canComment,
   highlighted = false,
   owner,
@@ -223,7 +227,9 @@ export default function CommentThread({
               label={t("collab.discussion.signNote")}
             />
           )}
-          {sectionLabel && <Chip size="small" variant="outlined" label={sectionLabel} />}
+          {sectionLabel && (
+            <Chip size="small" variant="outlined" label={sectionLabel} onClick={onSectionClick} />
+          )}
           {resolved && (
             <Chip
               size="small"
