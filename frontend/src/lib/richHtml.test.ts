@@ -175,6 +175,19 @@ describe("sanitizeRichHtml mention spans", () => {
     );
   });
 
+  it("treats only a span as a mention, whatever another element claims", () => {
+    expect(sanitizeRichHtml(`<p data-type="mention" data-kind="card" data-id="${ID}">x</p>`)).toBe(
+      `<p data-type="mention" data-kind="card" data-id="${ID}">x</p>`,
+    );
+    expect(
+      sanitizeRichHtml(
+        `<a data-type="mention" data-kind="card" data-id="${ID}" href="https://example.com/a">x</a>`,
+      ),
+    ).toBe(
+      `<a data-type="mention" data-kind="card" data-id="${ID}" href="https://example.com/a" target="_blank" rel="noopener noreferrer">x</a>`,
+    );
+  });
+
   it("does not touch the role of other spans, nor a mention with no kind", () => {
     expect(sanitizeRichHtml('<span role="note">n</span>')).toBe('<span role="note">n</span>');
     expect(sanitizeRichHtml(`<span data-type="mention" data-id="${ID}" role="link">x</span>`)).toBe(
