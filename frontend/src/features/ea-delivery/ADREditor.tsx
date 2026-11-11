@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useNavigate, useSearchParams } from "react-router";
 import Box from "@mui/material/Box";
@@ -29,7 +29,7 @@ import { DateField } from "@/components/DateField";
 import RichTextEditor from "./RichTextEditor";
 import SignatureRequestDialog from "./SignatureRequestDialog";
 import DecisionBanners from "./DecisionBanners";
-import RevisionStrip, { decisionRevisionItems } from "./RevisionStrip";
+import RevisionStrip, { decisionRevisionItems, showsRevisionStrip } from "./RevisionStrip";
 import DecisionPeopleField from "./DecisionPeopleField";
 import DecisionLinksBlock from "./DecisionLinksBlock";
 import DecisionFilesSection from "./DecisionFilesSection";
@@ -49,11 +49,17 @@ import {
   type SavePayload,
 } from "./adrEditorModel";
 import { hasUnsavedEdits } from "./editorDirty";
+import DocumentHistoryButton from "./collab/DocumentHistoryButton";
 import DocumentSidePanel from "./collab/DocumentSidePanel";
+import SectionDiscussionMarker from "./collab/SectionDiscussionMarker";
 import { RejectDocumentDialog, SignDocumentDialog } from "./collab/ReviewDialogs";
 import { deepLinkDialog } from "./collab/reviewDeepLink";
 import { sectionOptions, signBody } from "./collab/discussionModel";
-import { unlinkedMentionedCards } from "./mentions/mentionModel";
+import {
+  documentPeopleIds,
+  unlinkedMentionedCards,
+  type MentionContext,
+} from "./mentions/mentionModel";
 import type { MentionKind } from "@/lib/mentionHtml";
 import { api, ApiError } from "@/api/client";
 import { useSubmitOnce } from "@/hooks/useSubmitOnce";
@@ -134,7 +140,9 @@ export default function ADREditor() {
   const [changeSummary, setChangeSummary] = useState("");
 
   // UI state
-  const [loading, setLoading] = useState(false);
+  // Loading from the first render for a saved decision: the page (and the
+  // discussion panel, which reads on mount) is not mounted before the load.
+  const [loading, setLoading] = useState(Boolean(id));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [snackbar, setSnackbar] = useState("");
@@ -531,6 +539,26 @@ export default function ADREditor() {
     linkedCards.map((c) => c.id),
   );
 
+  // The "@" list's order: linked cards first in the text, and the
+  // decision's people first in its comments.
+  const linkedKey = linkedCards.map((c) => c.id).join(",");
+  const peopleKey = documentPeopleIds({
+    signatories,
+    decision_makers: decisionMakers,
+    participants,
+  }).join(",");
+  const textMentionContext = useMemo<MentionContext>(
+    () => ({ linkedCardIds: linkedKey ? linkedKey.split(",") : [] }),
+    [linkedKey],
+  );
+  const commentMentionContext = useMemo<MentionContext>(
+    () => ({
+      linkedCardIds: linkedKey ? linkedKey.split(",") : [],
+      priorityUserIds: peopleKey ? peopleKey.split(",") : [],
+    }),
+    [linkedKey, peopleKey],
+  );
+
   const currentUserIsSignatory = signatories.some(
     (s) => s.user_id === currentUserId && s.status === "pending",
   );
@@ -585,17 +613,37 @@ export default function ADREditor() {
     );
   }
 
+  const stripItems = detail ? decisionRevisionItems(detail.revisions ?? [], t) : [];
+  const stripShown = showsRevisionStrip(stripItems);
+  const historyButton = (placeCompact: boolean) =>
+    !isNew && id ? (
+      <DocumentHistoryButton<ArchitectureDecision>
+        owner={{ kind: "adr", id }}
+        label={[
+          referenceNumber
+            ? decisionRefLabel({ reference_number: referenceNumber, revision_number: revisionNumber }, t)
+            : "",
+          title || t("adr.editor.untitled"),
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+        status={status}
+        refreshKey={detail?.updated_at ?? undefined}
+        isDirty={hasEdits}
+        onRestored={(adr) => applyReply(adr)}
+        compact={placeCompact}
+      />
+    ) : null;
+
   return (
     <>
     <DocumentSidePanel
       owner={!isNew && id ? { kind: "adr", id } : null}
-      status={status}
       sections={sectionOptions("adr", t)}
       openThreadCount={detail?.open_thread_count}
       onOpenCountChange={setOpenThreads}
       refreshKey={detail?.updated_at ?? undefined}
-      isDirty={hasEdits}
-      onRestored={(adr: ArchitectureDecision) => applyReply(adr)}
+      mentionContext={commentMentionContext}
     >
     <Box sx={{ maxWidth: 900, mx: "auto", p: 2 }}>
       {/* ── Header ── */}
@@ -632,6 +680,9 @@ export default function ADREditor() {
 
         <DecisionStatusChip adr={{ status: status as ArchitectureDecision["status"], recorded_at: detail?.recorded_at }} />
         <DecisionStandingChip standing={detail?.standing} />
+
+        {/* History sits beside the revision strip when one is shown. */}
+        {!stripShown && historyButton(compact)}
 
         {/* Preview / PDF / Word — the SoAW editor's export trio, same shape. */}
         {!isNew &&
@@ -694,12 +745,17 @@ export default function ADREditor() {
             mode="editor"
             onCreateConsolidatedRevision={canManage ? handleConsolidate : undefined}
           />
-          <RevisionStrip
-            items={decisionRevisionItems(detail.revisions ?? [], t)}
-            activeId={detail.id}
-            currentId={currentRevisionId(detail)}
-            hrefFor={(rid) => `/ea-delivery/adr/${rid}`}
-          />
+          {stripShown && (
+            <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
+              <RevisionStrip
+                items={stripItems}
+                activeId={detail.id}
+                currentId={currentRevisionId(detail)}
+                hrefFor={(rid) => `/ea-delivery/adr/${rid}`}
+              />
+              {historyButton(false)}
+            </Box>
+          )}
         </Box>
       )}
 
@@ -858,14 +914,16 @@ export default function ADREditor() {
 
       {/* ── Context ── */}
       <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" sx={{ mb: 1 }}>
-          {t("adr.context")}
-        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+          <Typography variant="h6">{t("adr.context")}</Typography>
+          <SectionDiscussionMarker section="context" />
+        </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t("adr.contextHint")}
         </Typography>
         <RichTextEditor
           mentions={DOCUMENT_MENTIONS}
+          mentionContext={textMentionContext}
           content={context}
           onChange={setContext}
           readOnly={locked}
@@ -875,14 +933,16 @@ export default function ADREditor() {
 
       {/* ── Decision ── */}
       <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" sx={{ mb: 1 }}>
-          {t("adr.decision")}
-        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+          <Typography variant="h6">{t("adr.decision")}</Typography>
+          <SectionDiscussionMarker section="decision" />
+        </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t("adr.decisionHint")}
         </Typography>
         <RichTextEditor
           mentions={DOCUMENT_MENTIONS}
+          mentionContext={textMentionContext}
           content={decision}
           onChange={setDecision}
           readOnly={locked}
@@ -892,14 +952,16 @@ export default function ADREditor() {
 
       {/* ── Alternatives Considered ── */}
       <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" sx={{ mb: 1 }}>
-          {t("adr.alternativesConsidered")}
-        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+          <Typography variant="h6">{t("adr.alternativesConsidered")}</Typography>
+          <SectionDiscussionMarker section="alternatives_considered" />
+        </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t("adr.alternativesHint")}
         </Typography>
         <RichTextEditor
           mentions={DOCUMENT_MENTIONS}
+          mentionContext={textMentionContext}
           content={alternatives}
           onChange={setAlternatives}
           readOnly={locked}
@@ -909,14 +971,16 @@ export default function ADREditor() {
 
       {/* ── Consequences ── */}
       <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" sx={{ mb: 1 }}>
-          {t("adr.consequences")}
-        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+          <Typography variant="h6">{t("adr.consequences")}</Typography>
+          <SectionDiscussionMarker section="consequences" />
+        </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t("adr.consequencesHint")}
         </Typography>
         <RichTextEditor
           mentions={DOCUMENT_MENTIONS}
+          mentionContext={textMentionContext}
           content={consequences}
           onChange={setConsequences}
           readOnly={locked}

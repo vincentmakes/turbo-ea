@@ -6,11 +6,39 @@ import type { ArchitectureDecision } from "@/types";
 
 // The discussion and history side panel has its own tests: here the page
 // renders alone, and the props it hands the panel are recorded.
-const sidePanel = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
-vi.mock("./collab/DocumentSidePanel", () => ({
-  default: (props: { children: unknown }) => {
-    sidePanel.props.push(props);
-    return props.children;
+// It provides the section markers' data the test sets (`sidePanel.sections`).
+const sidePanel = vi.hoisted(() => ({
+  props: [] as Record<string, unknown>[],
+  sections: null as null | {
+    counts: Record<string, { open: number; total: number }>;
+    canComment: boolean;
+    openSection: (section: string) => void;
+  },
+}));
+vi.mock("./collab/DocumentSidePanel", async () => {
+  const { SectionDiscussionContext } = await import("./collab/sectionDiscussionContext");
+  return {
+    default: (props: { children: React.ReactNode }) => {
+      sidePanel.props.push(props);
+      return (
+        <SectionDiscussionContext.Provider value={sidePanel.sections}>{props.children}</SectionDiscussionContext.Provider>
+      );
+    },
+  };
+});
+// The History view has its own tests: here it records what the page hands
+// it, and hands back the document a restore returns.
+const historyView = vi.hoisted(() => ({ props: [] as Record<string, unknown>[], restored: null as unknown }));
+vi.mock("./collab/DocumentHistoryDialog", () => ({
+  default: (props: { onRestored?: (d: unknown) => void }) => {
+    historyView.props.push(props);
+    return (
+      <div role="dialog" aria-label="history-view">
+        <button type="button" onClick={() => props.onRestored?.(historyView.restored)}>
+          restore-it
+        </button>
+      </div>
+    );
   },
 }));
 vi.mock("./collab/MentionedInList", () => ({
@@ -426,6 +454,10 @@ describe("ADRPreview — decision register", () => {
     expect(screen.getByRole("link", { name: "Revokes ADR-0007" })).toHaveAttribute("href", "/ea-delivery/adr/adr-7");
     expect(screen.getByRole("link", { name: "Related to ADR-0008" })).toBeInTheDocument();
     expect(screen.getByText("minutes.pdf")).toBeInTheDocument();
+    // History sits beside the revision strip, once.
+    const strip = screen.getByRole("navigation", { name: "Revisions" });
+    expect(within(strip.parentElement as HTMLElement).getByRole("button", { name: /History$/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /History$/ })).toHaveLength(1);
     // Shown from the detail, not fetched again.
     expect(vi.mocked(api.get).mock.calls.some(([p]) => String(p).endsWith("/files"))).toBe(false);
     // The banner and the strip point at previews.
@@ -645,13 +677,24 @@ describe("ADRPreview — mentions", () => {
 describe("ADRPreview — discussion and mentions", () => {
   it("mounts the side panel for the decision and lists what mentions it", async () => {
     sidePanel.props.length = 0;
-    serve({ ...adr, status: "in_review", open_thread_count: 2 });
+    serve({
+      ...adr,
+      status: "in_review",
+      open_thread_count: 2,
+      linked_cards: [{ id: "c9", name: "SAP", type: "Application" }],
+      signatories: [{ user_id: "s1", display_name: "S", status: "pending", signed_at: null }],
+      decision_makers: [{ user_id: null, display_name: "Ext" }, { user_id: "m1", display_name: "M" }],
+      participants: [],
+    });
     renderPreview();
     expect(await screen.findByTestId("mentioned-in-stub")).toHaveTextContent("decision:adr-1");
     const props = sidePanel.props[sidePanel.props.length - 1];
     expect(props.owner).toEqual({ kind: "adr", id: "adr-1" });
-    expect(props.status).toBe("in_review");
+    expect(props).not.toHaveProperty("status");
+    expect(props).not.toHaveProperty("onRestored");
     expect(props.openThreadCount).toBe(2);
+    // A comment's "@" lists the linked cards and the decision's people first.
+    expect(props.mentionContext).toEqual({ linkedCardIds: ["c9"], priorityUserIds: ["s1", "m1"] });
     expect((props.sections as { key: string }[]).map((s) => s.key)).toEqual([
       "general",
       "context",
@@ -661,13 +704,53 @@ describe("ADRPreview — discussion and mentions", () => {
     ]);
   });
 
-  it("shows a restored version the panel hands back", async () => {
-    sidePanel.props.length = 0;
+  it("shows History in the header and opens it for the decision", async () => {
+    historyView.props.length = 0;
+    serve({ ...adr, status: "in_review" });
+    renderPreview();
+    await screen.findByTestId("mentioned-in-stub");
+    await userEvent.click(screen.getByRole("button", { name: /History$/ }));
+    expect(screen.getByRole("dialog", { name: "history-view" })).toBeInTheDocument();
+    expect(historyView.props[historyView.props.length - 1]).toMatchObject({
+      owner: { kind: "adr", id: "adr-1" },
+      status: "in_review",
+      label: expect.stringContaining(adr.title),
+    });
+  });
+
+  it("shows a restored version the History view hands back", async () => {
     serve(adr);
     renderPreview();
     await screen.findByTestId("mentioned-in-stub");
-    const onRestored = sidePanel.props[sidePanel.props.length - 1].onRestored as (a: ArchitectureDecision) => void;
-    await waitFor(() => onRestored({ ...adr, title: "Restored decision title" }));
+    historyView.restored = { ...adr, title: "Restored decision title" };
+    await userEvent.click(screen.getByRole("button", { name: /History$/ }));
+    await userEvent.click(screen.getByRole("button", { name: "restore-it" }));
     expect((await screen.findAllByText("Restored decision title")).length).toBeGreaterThan(0);
+  });
+});
+
+describe("ADRPreview — section markers", () => {
+  it("marks the sections that have threads beside their headings, and opens the discussion on one", async () => {
+    const openSection = vi.fn();
+    sidePanel.sections = {
+      counts: { context: { open: 1, total: 1 }, alternatives_considered: { open: 0, total: 2 } },
+      canComment: false,
+      openSection,
+    };
+    try {
+      renderPreview();
+      await screen.findByText("ctx");
+      const markers = screen.getAllByTestId(/^section-marker-/).map((m) => m.dataset.testid);
+      expect(markers).toEqual(["section-marker-context", "section-marker-alternatives_considered"]);
+      const open = screen.getByRole("button", { name: "1 open thread on this section" });
+      expect(within(open.parentElement!).getByRole("heading", { name: "Context" })).toBeInTheDocument();
+      const done = screen.getByRole("button", { name: "Resolved discussion on this section" });
+      expect(within(done.parentElement!).getByRole("heading", { name: "Alternatives Considered" })).toBeInTheDocument();
+      expect(open).toHaveClass("no-print");
+      await userEvent.click(done);
+      expect(openSection).toHaveBeenCalledWith("alternatives_considered");
+    } finally {
+      sidePanel.sections = null;
+    }
   });
 });

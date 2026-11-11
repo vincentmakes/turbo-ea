@@ -411,6 +411,37 @@ describe("buildPreviewBody — signatures", () => {
   });
 });
 
+describe("buildPreviewBody — section anchors", () => {
+  const sections = { "1.1": rich("<p>Background</p>"), "4.1": rich("<p>Baseline</p>") };
+  const custom: CustomSection[] = [
+    { id: "custom_a", title: "Appendix A", content: "<p>A</p>", insertAfter: "1.1" },
+    { id: "custom_b", title: "Appendix B", content: "<p>B</p>", insertAfter: "" },
+  ];
+  const build = (anchors?: { sectionAnchors?: boolean }) =>
+    buildPreviewBody("Cloud Migration", EMPTY_INFO, [], sections, custom, 1, [], null, anchors);
+
+  it("keys each section heading by its section on screen", () => {
+    const html = build({ sectionAnchors: true });
+    expect(html).toContain(`<h3 data-section="1.1">${def("1.1").title}</h3>`);
+    expect(html).toContain(`<h3 data-section="4.1">${def("4.1").title}</h3>`);
+    expect(html).toContain('<h3 data-section="custom_a"><span class="custom-badge">');
+    expect(html).toContain('<h3 data-section="custom_b"><span class="custom-badge">');
+    expect(count(html, "data-section=")).toBe(4);
+  });
+
+  it("leaves the export's HTML exactly as before: no anchor unless asked", () => {
+    expect(build()).not.toContain("data-section");
+    expect(build({ sectionAnchors: false })).toBe(build());
+    expect(build({})).toBe(build());
+    expect(build({ sectionAnchors: true }).replace(/ data-section="[^"]*"/g, "")).toBe(build());
+  });
+
+  it("never lets an anchor reach the PDF export", () => {
+    exportToPdf("Cloud Migration", EMPTY_INFO, [], sections, custom, 1, [], null);
+    expect(mockPrintDocument.mock.calls.at(-1)?.[0].bodyHtml).not.toContain("data-section");
+  });
+});
+
 // ─── exportToPdf ─────────────────────────────────────────────────────────────
 
 describe("exportToPdf", () => {

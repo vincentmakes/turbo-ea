@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router";
 import { sanitizeRichHtml } from "@/lib/richHtml";
@@ -17,10 +17,13 @@ import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { buildPreviewBody, exportToPdf, PREVIEW_CSS } from "./soawExport";
 import { SoawBanners } from "./DecisionBanners";
-import RevisionStrip, { soawRevisionItems } from "./RevisionStrip";
+import RevisionStrip, { showsRevisionStrip, soawRevisionItems } from "./RevisionStrip";
 import { soawCurrentRevisionId } from "./soawEditorState";
 import MentionContainer from "./mentions/MentionContainer";
+import DocumentHistoryButton from "./collab/DocumentHistoryButton";
 import DocumentSidePanel from "./collab/DocumentSidePanel";
+import HtmlSectionMarkers from "./collab/HtmlSectionMarkers";
+import { documentPeopleIds } from "./mentions/mentionModel";
 import { sectionOptions, soawSectionOptions } from "./collab/discussionModel";
 import { getTemplateSections } from "./soawTemplate";
 import { api } from "@/api/client";
@@ -39,6 +42,27 @@ const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> 
   approved: "success",
   signed: "info",
 };
+
+/**
+ * The document body, rendered from its HTML string. Memoised on that string:
+ * React 19 reassigns `innerHTML` on every render that passes a new
+ * `dangerouslySetInnerHTML` object, which would rebuild the body (and drop
+ * the section markers' hosts) whenever anything else on the page re-renders.
+ */
+const PreviewBody = memo(function PreviewBody({ html }: { html: string }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  return (
+    <MentionContainer>
+      <Box
+        ref={ref}
+        className="soaw-preview"
+        sx={{ maxWidth: 800, mx: "auto", px: { xs: 1, sm: 0 } }}
+        dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(html) }}
+      />
+      <HtmlSectionMarkers containerRef={ref} html={html} />
+    </MentionContainer>
+  );
+});
 
 export default function SoAWPreview() {
   const { t } = useTranslation(["delivery", "common"]);
@@ -123,20 +147,34 @@ export default function SoAWPreview() {
 
   const docInfo = soaw.document_info ?? { prepared_by: "", reviewed_by: "", review_date: "" };
   const versionHistory = soaw.version_history ?? [];
-  const bodyHtml = buildPreviewBody(soaw.name, docInfo, versionHistory, templateSections, customSections, soaw.revision_number, soaw.signatories, soaw.signed_at);
+  // On screen the section headings carry their key, for the discussion markers.
+  const bodyHtml = buildPreviewBody(soaw.name, docInfo, versionHistory, templateSections, customSections, soaw.revision_number, soaw.signatories, soaw.signed_at, { sectionAnchors: true });
 
   const handleExportPdf = () =>
     exportToPdf(soaw.name, docInfo, versionHistory, templateSections, customSections, soaw.revision_number, soaw.signatories, soaw.signed_at);
+
+  const stripItems = soawRevisionItems(soaw.revisions ?? [], t);
+  const stripShown = showsRevisionStrip(stripItems);
+  const historyButton = (placeCompact: boolean) =>
+    id ? (
+      <DocumentHistoryButton<SoAW>
+        owner={{ kind: "soaw", id }}
+        label={soaw.name}
+        status={soaw.status}
+        refreshKey={soaw.updated_at}
+        onRestored={(restored) => setSoaw(restored)}
+        compact={placeCompact}
+      />
+    ) : null;
 
   return (
     <>
       <DocumentSidePanel
         owner={id ? { kind: "soaw", id } : null}
-        status={soaw.status}
         sections={sectionOptions("soaw", t, soawSectionOptions(getTemplateSections(), soaw.sections))}
         openThreadCount={soaw.open_thread_count}
         refreshKey={soaw.updated_at}
-        onRestored={(restored: SoAW) => setSoaw(restored)}
+        mentionContext={{ priorityUserIds: documentPeopleIds(soaw) }}
       >
       {/* Toolbar (hidden when printing) */}
       <Box
@@ -169,6 +207,7 @@ export default function SoAWPreview() {
           size="small"
           color={STATUS_COLORS[soaw.status] ?? "default"}
         />
+        {!stripShown && historyButton(compact)}
         <Tooltip title={t("preview.copyLink")}>
           <IconButton onClick={handleCopyLink}>
             <MaterialSymbol icon="link" size={20} />
@@ -215,23 +254,22 @@ export default function SoAWPreview() {
         sx={{ maxWidth: 960, mx: "auto", mb: 2, display: "flex", flexDirection: "column", gap: 1 }}
       >
         <SoawBanners soaw={soaw} mode="preview" hrefFor={previewHref} />
-        <RevisionStrip
-          items={soawRevisionItems(soaw.revisions ?? [], t)}
-          activeId={soaw.id}
-          currentId={soawCurrentRevisionId(soaw)}
-          hrefFor={previewHref}
-        />
+        {stripShown && (
+          <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
+            <RevisionStrip
+              items={stripItems}
+              activeId={soaw.id}
+              currentId={soawCurrentRevisionId(soaw)}
+              hrefFor={previewHref}
+            />
+            {historyButton(false)}
+          </Box>
+        )}
       </Box>
 
       {/* Styled preview content */}
       <style>{PREVIEW_CSS}</style>
-      <MentionContainer>
-        <Box
-          className="soaw-preview"
-          sx={{ maxWidth: 800, mx: "auto", px: { xs: 1, sm: 0 } }}
-          dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(bodyHtml) }}
-        />
-      </MentionContainer>
+      <PreviewBody html={bodyHtml} />
 
       {/* Signature Block */}
       {(soaw.signatories ?? []).length > 0 && (

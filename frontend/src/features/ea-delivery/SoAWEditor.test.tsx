@@ -4,11 +4,39 @@ import type { SoAW, SoAWSectionData } from "@/types";
 
 // The discussion and history side panel has its own tests: here the page
 // renders alone, and the props it hands the panel are recorded.
-const sidePanel = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
-vi.mock("./collab/DocumentSidePanel", () => ({
-  default: (props: { children: unknown }) => {
-    sidePanel.props.push(props);
-    return props.children;
+// It provides the section markers' data the test sets (`sidePanel.sections`).
+const sidePanel = vi.hoisted(() => ({
+  props: [] as Record<string, unknown>[],
+  sections: null as null | {
+    counts: Record<string, { open: number; total: number }>;
+    canComment: boolean;
+    openSection: (section: string) => void;
+  },
+}));
+vi.mock("./collab/DocumentSidePanel", async () => {
+  const { SectionDiscussionContext } = await import("./collab/sectionDiscussionContext");
+  return {
+    default: (props: { children: React.ReactNode }) => {
+      sidePanel.props.push(props);
+      return (
+        <SectionDiscussionContext.Provider value={sidePanel.sections}>{props.children}</SectionDiscussionContext.Provider>
+      );
+    },
+  };
+});
+// The History view has its own tests: here it records what the page hands
+// it, and hands back the document a restore returns.
+const historyView = vi.hoisted(() => ({ props: [] as Record<string, unknown>[], restored: null as unknown }));
+vi.mock("./collab/DocumentHistoryDialog", () => ({
+  default: (props: { onRestored?: (d: unknown) => void }) => {
+    historyView.props.push(props);
+    return (
+      <div role="dialog" aria-label="history-view">
+        <button type="button" onClick={() => props.onRestored?.(historyView.restored)}>
+          restore-it
+        </button>
+      </div>
+    );
   },
 }));
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -1008,6 +1036,10 @@ describe("SoAWEditor — revisions", () => {
     // The strip lists the chain; the page's own revision is not a link.
     expect(screen.getByTestId("revision-s1")).toHaveAttribute("aria-current", "page");
     expect(screen.getByTestId("revision-s2")).toHaveAttribute("href", "/ea-delivery/soaw/s2");
+    // History sits beside the strip, once.
+    const strip = screen.getByRole("navigation", { name: t("adr.revision.strip") });
+    expect(within(strip.parentElement as HTMLElement).getByRole("button", { name: /History$/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /History$/ })).toHaveLength(1);
   });
 
   it("points the current revision to the revision being drafted", async () => {
@@ -1052,6 +1084,28 @@ describe("SoAWEditor — colours", () => {
 });
 
 describe("SoAWEditor — discussion and review notes", () => {
+  it("marks the sections that have threads beside their titles, custom ones included, and opens the discussion on one", async () => {
+    const openSection = vi.fn();
+    sidePanel.sections = {
+      counts: { "2.1": { open: 3, total: 3 }, custom_7: { open: 0, total: 1 } },
+      canComment: false,
+      openSection,
+    };
+    try {
+      const { user } = renderEdit();
+      await waitForLoaded();
+      const markers = screen.getAllByTestId(/^section-marker-/).map((m) => m.dataset.testid);
+      expect(markers.sort()).toEqual(["section-marker-2.1", "section-marker-custom_7"]);
+      expect(within(sectionPaper(SECTION_2_1.title)).getByRole("button", { name: "3 open threads on this section" })).toBeInTheDocument();
+      const done = within(sectionPaper("Appendix A")).getByRole("button", { name: "Resolved discussion on this section" });
+      expect(within(sectionPaper(SECTION_1_1.title)).queryByTestId(/^section-marker-/)).toBeNull();
+      await user.click(done);
+      expect(openSection).toHaveBeenCalledWith("custom_7");
+    } finally {
+      sidePanel.sections = null;
+    }
+  });
+
   it("mounts the side panel on a saved document with its sections, its own custom section included", async () => {
     mockApi.on("get", "/soaw/s1", { ...SOAW, open_thread_count: 2, updated_at: "2026-11-02T00:00:00Z" });
     sidePanel.props.length = 0;
@@ -1059,22 +1113,55 @@ describe("SoAWEditor — discussion and review notes", () => {
     await waitForLoaded();
     const props = sidePanel.props[sidePanel.props.length - 1];
     expect(props.owner).toEqual({ kind: "soaw", id: "s1" });
-    expect(props.status).toBe("draft");
+    // History is not the side panel's: it opens from the header.
+    expect(props).not.toHaveProperty("status");
+    expect(props).not.toHaveProperty("onRestored");
+    expect(props).not.toHaveProperty("isDirty");
     expect(props.openThreadCount).toBe(2);
     expect(props.refreshKey).toBe("2026-11-02T00:00:00Z");
+    // No signatories yet: nobody to list first in a comment's "@".
+    expect(props.mentionContext).toEqual({ priorityUserIds: [] });
     const sections = props.sections as { key: string; label: string }[];
     expect(sections[0]).toEqual({ key: "general", label: t("collab.discussion.section.general") });
     expect(sections.slice(1, -1).map((s) => s.key)).toEqual(getTemplateSections().map((d) => d.id));
     expect(sections[sections.length - 1]).toEqual({ key: "custom_7", label: "Appendix A" });
   });
 
-  it("applies a restored version through the same path as a load", async () => {
+  it("lists the signatories first in a comment's '@'", async () => {
+    mockApi.on("get", "/soaw/s1", { ...SOAW, status: "in_review", signatories: [PENDING_U2] });
     sidePanel.props.length = 0;
     renderEdit();
     await waitForLoaded();
-    const onRestored = sidePanel.props[sidePanel.props.length - 1].onRestored as (d: SoAW) => void;
-    act(() => onRestored({ ...SOAW, name: "Restored SoAW" }));
+    await waitFor(() =>
+      expect(sidePanel.props[sidePanel.props.length - 1].mentionContext).toEqual({ priorityUserIds: ["u2"] }),
+    );
+  });
+
+  it("applies a restored version through the same path as a load", async () => {
+    renderEdit();
+    await waitForLoaded();
+    historyView.restored = { ...SOAW, name: "Restored SoAW" };
+    fireEvent.click(screen.getByRole("button", { name: /History$/ }));
+    fireEvent.click(screen.getByRole("button", { name: "restore-it" }));
     expect(await screen.findByDisplayValue("Restored SoAW")).toBeInTheDocument();
+    expect(await screen.findByText(t("collab.history.restored"))).toBeInTheDocument();
+  });
+
+  it("shows History in the header of a saved document and opens it with what a restore needs", async () => {
+    mockApi.on("get", "/soaw/s1", { ...SOAW, updated_at: "2026-11-02T00:00:00Z" });
+    historyView.props.length = 0;
+    renderEdit();
+    await waitForLoaded();
+    fireEvent.click(screen.getByRole("button", { name: /History$/ }));
+    expect(screen.getByRole("dialog", { name: "history-view" })).toBeInTheDocument();
+    const props = historyView.props[historyView.props.length - 1];
+    expect(props).toMatchObject({
+      owner: { kind: "soaw", id: "s1" },
+      label: SOAW.name,
+      status: "draft",
+      refreshKey: "2026-11-02T00:00:00Z",
+    });
+    expect((props.isDirty as () => boolean)()).toBe(false);
   });
 
   it("warns about open threads when signing and rejecting", async () => {

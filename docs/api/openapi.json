@@ -21850,7 +21850,7 @@
     },
     "/api/v1/adr/{adr_id}/comments/{comment_id}": {
       "delete": {
-        "description": "Delete a comment (it stays as a placeholder).",
+        "description": "Delete a comment (it stays as a placeholder; a deleted thread start\ncloses the thread to replies).",
         "operationId": "delete_adr_comment_api_v1_adr__adr_id__comments__comment_id__delete",
         "parameters": [
           {
@@ -44390,7 +44390,7 @@
     },
     "/api/v1/soaw/{soaw_id}/comments/{comment_id}": {
       "delete": {
-        "description": "Delete a comment (it stays as a placeholder).",
+        "description": "Delete a comment (it stays as a placeholder; a deleted thread start\ncloses the thread to replies).",
         "operationId": "delete_soaw_comment_api_v1_soaw__soaw_id__comments__comment_id__delete",
         "parameters": [
           {

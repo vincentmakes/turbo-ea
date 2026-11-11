@@ -471,6 +471,104 @@ class TestDelete:
         await _call(client, env, "DELETE", path, who="one")
 
 
+class TestDeletedThreads:
+    """A thread whose first comment is deleted is closed to replies, resolve
+    and reopen; it stays listed, in either scope, and never counts as open."""
+
+    async def _delete(self, client, env, adr_id, comment_id, who="admin"):
+        await _call(client, env, "DELETE", f"{ADR}/{adr_id}/comments/{comment_id}", who=who)
+
+    async def test_a_reply_to_a_closed_thread_is_409(self, client, env):
+        adr = await _adr(client, env)
+        top = await _post(client, env, adr["id"])
+        await _post(client, env, adr["id"], who="two", parent_id=top["id"])
+        await self._delete(client, env, adr["id"], top["id"], who="one")
+        resp = await _post(client, env, adr["id"], who="two", parent_id=top["id"], status=409)
+        assert _detail(resp) == "This thread's first comment was deleted"
+        # The comment right is still checked first.
+        resp = await _post(client, env, adr["id"], who="viewer", parent_id=top["id"], status=403)
+        assert _detail(resp) == "You may not comment on this document"
+        (thread,) = (await _list(client, env, adr["id"]))["threads"]
+        assert len(thread["replies"]) == 1
+        # Resolving or reopening a closed thread stays refused.
+        for action in ("resolve", "reopen"):
+            resp = await _call(
+                client,
+                env,
+                "POST",
+                f"{ADR}/{adr['id']}/comments/{top['id']}/{action}",
+                status=409,
+            )
+            assert _detail(resp) == "This comment has been deleted"
+
+    async def test_a_reply_to_a_live_thread_still_posts(self, client, env):
+        adr = await _adr(client, env)
+        top = await _post(client, env, adr["id"])
+        thread = await _post(client, env, adr["id"], who="two", parent_id=top["id"])
+        assert (thread["deleted"], len(thread["replies"])) == (False, 1)
+
+    async def test_a_closed_thread_keeps_its_live_reply(self, client, env):
+        adr = await _adr(client, env)
+        top = await _post(client, env, adr["id"], section="decision")
+        reply = await _post(
+            client, env, adr["id"], body="<p>Still here</p>", who="two", parent_id=top["id"]
+        )
+        await self._delete(client, env, adr["id"], top["id"], who="one")
+        listing = await _list(client, env, adr["id"])
+        (thread,) = listing["threads"]
+        assert (thread["id"], thread["deleted"], thread["body"], thread["section"]) == (
+            top["id"],
+            True,
+            "",
+            "decision",
+        )
+        assert [(r["body"], r["deleted"]) for r in thread["replies"]] == [
+            ("<p>Still here</p>", False)
+        ]
+        assert listing["open_count"] == 0
+        # The author of the live reply still edits it inside the closed thread.
+        reply_id = reply["replies"][0]["id"]
+        edited = await _call(
+            client,
+            env,
+            "PATCH",
+            f"{ADR}/{adr['id']}/comments/{reply_id}",
+            who="two",
+            json={"body": "<p>Edited</p>"},
+        )
+        assert edited["replies"][0]["body"] == "<p>Edited</p>"
+
+    async def test_a_thread_with_nothing_live_stays_listed(self, client, env):
+        adr = await _adr(client, env)
+        alone = await _post(client, env, adr["id"], body="<p>alone</p>")
+        top = await _post(client, env, adr["id"], body="<p>top</p>")
+        reply = await _post(client, env, adr["id"], who="two", parent_id=top["id"])
+        kept = await _post(client, env, adr["id"], body="<p>kept</p>")
+        await self._delete(client, env, adr["id"], alone["id"], who="one")
+        await self._delete(client, env, adr["id"], top["id"], who="one")
+        await self._delete(client, env, adr["id"], reply["replies"][0]["id"], who="two")
+        for scope in ("document", "chain"):
+            listing = await _list(client, env, adr["id"], scope=scope)
+            assert [
+                (t["id"], t["deleted"], t["body"], [r["deleted"] for r in t["replies"]])
+                for t in listing["threads"]
+            ] == [
+                (alone["id"], True, "", []),
+                (top["id"], True, "", [True]),
+                (kept["id"], False, "<p>kept</p>", []),
+            ]
+            assert listing["open_count"] == 1
+        detail = await _call(client, env, "GET", f"{ADR}/{adr['id']}")
+        assert detail["open_thread_count"] == 1
+
+    async def test_reading_still_needs_adr_view(self, client, env):
+        adr = await _adr(client, env)
+        resp = await _call(
+            client, env, "GET", f"{ADR}/{adr['id']}/comments", who="blind", status=403
+        )
+        assert "detail" in resp
+
+
 class TestResolve:
     async def test_resolve_and_reopen(self, client, env):
         adr = await _adr(client, env)

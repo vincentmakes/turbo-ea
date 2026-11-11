@@ -26,7 +26,7 @@ import { hasPermission } from "@/components/RequirePermission";
 import { ExtensionBoundary, ExtensionSlot, useExtensionAdrPanels } from "@/lib/extensionHost";
 import { printAdr } from "./adrPrint";
 import DecisionBanners from "./DecisionBanners";
-import RevisionStrip, { decisionRevisionItems } from "./RevisionStrip";
+import RevisionStrip, { decisionRevisionItems, showsRevisionStrip } from "./RevisionStrip";
 import DecisionPeopleField from "./DecisionPeopleField";
 import DecisionLinksBlock from "./DecisionLinksBlock";
 import DecisionFilesSection from "./DecisionFilesSection";
@@ -35,7 +35,10 @@ import { DATE_LABEL_KEYS, decisionRefLabel } from "./decisionStanding";
 import { currentRevisionId } from "./adrEditorModel";
 import MentionContainer from "./mentions/MentionContainer";
 import { useMentionLabels } from "./mentions/mentionLabels";
+import DocumentHistoryButton from "./collab/DocumentHistoryButton";
 import DocumentSidePanel from "./collab/DocumentSidePanel";
+import SectionDiscussionMarker from "./collab/SectionDiscussionMarker";
+import { documentPeopleIds } from "./mentions/mentionModel";
 import MentionedInList from "./collab/MentionedInList";
 import { sectionOptions } from "./collab/discussionModel";
 import type { ArchitectureDecision } from "@/types";
@@ -108,19 +111,35 @@ export default function ADRPreview() {
   const sections = [
     { key: "context", label: t("adr.context"), content: adr.context },
     { key: "decision", label: t("adr.decision"), content: adr.decision },
-    { key: "alternatives", label: t("adr.alternativesConsidered"), content: adr.alternatives_considered },
+    { key: "alternatives_considered", label: t("adr.alternativesConsidered"), content: adr.alternatives_considered },
     { key: "consequences", label: t("adr.consequences"), content: adr.consequences },
   ];
+
+  const stripItems = decisionRevisionItems(adr.revisions ?? [], t);
+  const stripShown = showsRevisionStrip(stripItems);
+  const historyButton = (placeCompact: boolean) =>
+    id ? (
+      <DocumentHistoryButton<ArchitectureDecision>
+        owner={{ kind: "adr", id }}
+        label={`${decisionRefLabel(adr, t)} · ${adr.title}`}
+        status={adr.status}
+        refreshKey={adr.updated_at ?? undefined}
+        onRestored={(restored) => setAdr(restored)}
+        compact={placeCompact}
+      />
+    ) : null;
 
   return (
     <>
       <DocumentSidePanel
         owner={id ? { kind: "adr", id } : null}
-        status={adr.status}
         sections={sectionOptions("adr", t)}
         openThreadCount={adr.open_thread_count}
         refreshKey={adr.updated_at ?? undefined}
-        onRestored={(restored: ArchitectureDecision) => setAdr(restored)}
+        mentionContext={{
+          linkedCardIds: (adr.linked_cards ?? []).map((c) => c.id),
+          priorityUserIds: documentPeopleIds(adr),
+        }}
       >
       {/* Toolbar */}
       <Box
@@ -170,6 +189,7 @@ export default function ADRPreview() {
             }}
           />
         )}
+        {!stripShown && historyButton(compact)}
         <Tooltip title={t("preview.copyLink")}>
           <IconButton onClick={handleCopyLink}>
             <MaterialSymbol icon="link" size={20} />
@@ -215,12 +235,17 @@ export default function ADRPreview() {
         {/* Where the decision stands, and its chain */}
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mb: 2, "&:empty": { display: "none" } }}>
           <DecisionBanners adr={adr} mode="preview" hrefFor={previewHref} />
-          <RevisionStrip
-            items={decisionRevisionItems(adr.revisions ?? [], t)}
-            activeId={adr.id}
-            currentId={currentRevisionId(adr)}
-            hrefFor={previewHref}
-          />
+          {stripShown && (
+            <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
+              <RevisionStrip
+                items={stripItems}
+                activeId={adr.id}
+                currentId={currentRevisionId(adr)}
+                hrefFor={previewHref}
+              />
+              {historyButton(false)}
+            </Box>
+          )}
         </Box>
 
         {/* Reference (with its revision) */}
@@ -238,9 +263,12 @@ export default function ADRPreview() {
         <MentionContainer>
           {sections.map(({ key, label, content }) => (
             <Box key={key} sx={{ mb: 4 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-                {label}
-              </Typography>
+              <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                  {label}
+                </Typography>
+                <SectionDiscussionMarker section={key} />
+              </Box>
               {content ? (
                 <Box
                   dangerouslySetInnerHTML={{

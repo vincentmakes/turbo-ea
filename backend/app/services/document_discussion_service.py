@@ -17,6 +17,10 @@ Who may do what (pure rules below, evaluated on the comment's own revision):
   the edit permission (``adr.manage`` / ``soaw.manage``) on a plain
   ``comment``; a ``rejection`` is resolved, never deleted by a moderator.
 
+A thread whose top-level comment is deleted is *closed*: it stays listed with
+its replies, but nobody replies to it (409, :func:`reply_refusal`), resolves it
+or reopens it.
+
 Three kinds: ``comment`` (written by a person), ``rejection`` (opened by a
 rejection, carrying the reason) and ``sign_note`` (a signer's note, never
 open). A thread is open when it is top-level, unresolved, not deleted and of
@@ -122,6 +126,7 @@ ADDED_EVENTS: dict[str, str] = {
 
 NOT_FOUND = "Comment not found"
 MAY_NOT_COMMENT = "You may not comment on this document"
+THREAD_CLOSED = "This thread's first comment was deleted"
 
 
 def _now() -> datetime:
@@ -180,6 +185,22 @@ def post_refusal(*, may_comment: bool) -> tuple[int, str] | None:
     if not may_comment:
         return 403, MAY_NOT_COMMENT
     return None
+
+
+def reply_refusal(parent: Any, *, may_comment: bool) -> tuple[int, str] | None:
+    """``(status, message)`` when a reply to the thread ``parent`` (its
+    top-level comment) is refused, else ``None``: the comment right first,
+    then a closed thread (its first comment deleted) is 409."""
+    if not may_comment:
+        return 403, MAY_NOT_COMMENT
+    if thread_closed(parent):
+        return 409, THREAD_CLOSED
+    return None
+
+
+def thread_closed(top: Any) -> bool:
+    """Whether a thread is closed: its top-level comment is deleted."""
+    return top.deleted_at is not None
 
 
 def edit_refusal(comment: Any, user_id: Any, *, may_comment: bool) -> tuple[int, str] | None:
@@ -1060,6 +1081,8 @@ async def add_comment(
     deliver after the commit. Flushed."""
     _refuse(post_refusal(may_comment=acc.comment))
     parent = await _parent(db, doc_kind, doc, parent_id) if parent_id is not None else None
+    if parent is not None:
+        _refuse(reply_refusal(parent, may_comment=acc.comment))
     section = parent.section if parent is not None else validate_section(doc_kind, section)
     html = comment_html(body)
     await _check_mentions(db, None, html, user=user, read_scope=read_scope)
@@ -1156,7 +1179,8 @@ async def edit_comment(
 async def delete_comment(
     db: AsyncSession, comment: DocumentComment, *, user: User, acc: Access
 ) -> None:
-    """Soft delete: ``deleted_at`` set and the body blanked; replies stay."""
+    """Soft delete: ``deleted_at`` set and the body blanked; replies stay.
+    Deleting a thread's top closes it to replies (:func:`reply_refusal`)."""
     _refuse(delete_refusal(comment, user.id, moderate=acc.moderate))
     comment.deleted_at = _now()
     comment.body = ""

@@ -1,7 +1,8 @@
 /**
  * What changed between two saved versions of a decision or a SoAW, for the
- * compare dialog (`VersionCompareDialog`, which loads this module on demand so
- * the `diff` package stays out of the main bundle; import `diff` nowhere else).
+ * History view's Changes pane (`VersionChangesPane`, which loads this module
+ * on demand so the `diff` package stays out of the main bundle; import `diff`
+ * nowhere else).
  *
  * Each text field or section is reduced to plain text — mentions read as their
  * labels (`fillMentionLabels`, then `htmlToPlainText`) — and compared block

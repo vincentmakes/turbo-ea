@@ -3,11 +3,15 @@
  * the server allows on each (`can.*`). A rejection reason is marked as one
  * (an empty reason reads "No reason given"); a signing note is marked as one
  * and has nothing to resolve; neither is ever offered for edit or delete
- * here. A deleted comment leaves a placeholder and keeps its replies. A
- * reply or an edit left unsent is kept (`commentDrafts`) and reopens with
- * the thread.
+ * here. Its section chip, when it has one, can be clicked (the discussion
+ * filters on it). A deleted comment shrinks to one small muted line (its
+ * author, its date, "Comment deleted"). A thread whose first comment
+ * is deleted is closed: its replies stay, but it offers no reply, resolve or
+ * reopen (a reply draft kept for it is dropped); with nothing live left it is
+ * that one line alone, without the card. A reply or an edit left unsent is
+ * kept (`commentDrafts`) and reopens with the thread.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -24,8 +28,14 @@ import type { DocumentComment, DocumentOwner, DocumentThread, DocumentThreadWrit
 import MentionContainer from "../mentions/MentionContainer";
 import { useMentionLabels } from "../mentions/mentionLabels";
 import CommentComposer from "./CommentComposer";
-import { draftKey, readDraft } from "./commentDrafts";
-import { authorName, rejectionBodyOrFallback, writeErrorMessage } from "./discussionModel";
+import { clearDraft, draftKey, readDraft } from "./commentDrafts";
+import {
+  authorName,
+  hasLiveComment,
+  rejectionBodyOrFallback,
+  threadClosed,
+  writeErrorMessage,
+} from "./discussionModel";
 
 export interface ThreadActions {
   onReply: (thread: DocumentThread, body: string) => Promise<DocumentThreadWrite>;
@@ -39,6 +49,8 @@ interface Props extends ThreadActions {
   thread: DocumentThread;
   /** The thread's section tag, already labelled; null when untagged. */
   sectionLabel: string | null;
+  /** A click on the section chip (the discussion turns that section's filter on). */
+  onSectionClick?: () => void;
   /** The reader may post (and so reply). */
   canComment: boolean;
   /** Opened from a notification: drawn out. */
@@ -56,9 +68,13 @@ function deletable(comment: DocumentComment): boolean {
   return comment.kind === "comment" && !comment.deleted && comment.can.delete;
 }
 
+/** What separates the parts of a deleted comment's line. */
+const DOT = " · ";
+
 export default function CommentThread({
   thread,
   sectionLabel,
+  onSectionClick,
   canComment,
   highlighted = false,
   owner,
@@ -79,14 +95,21 @@ export default function CommentThread({
     () => [thread, ...thread.replies].find((c) => editable(c) && hasDraft(editKey(c.id)))?.id ?? null,
   );
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-  const [replying, setReplying] = useState(() => hasDraft(replyKey));
+  const closed = threadClosed(thread);
+  const [replying, setReplying] = useState(() => !closed && hasDraft(replyKey));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   const isRejection = thread.kind === "rejection";
   const isSignNote = thread.kind === "sign_note";
   const resolved = thread.resolved_at !== null;
-  const canResolve = thread.can.resolve && !isSignNote;
+  const canResolve = thread.can.resolve && !isSignNote && !closed;
+  const canReply = canComment && !closed;
+
+  // A closed thread takes no reply: a draft kept for it is dropped, not reopened.
+  useEffect(() => {
+    if (closed && replyKey) clearDraft(replyKey);
+  }, [closed, replyKey]);
 
   const act = async (fn: () => Promise<unknown>, fallback: string) => {
     setBusy(true);
@@ -100,8 +123,41 @@ export default function CommentThread({
     }
   };
 
-  const renderComment = (comment: DocumentComment, isReply: boolean) => (
-    <Box key={comment.id} sx={{ pl: isReply ? 2 : 0, borderLeft: isReply ? "2px solid" : "none", borderColor: "divider" }}>
+  const indent = (isReply: boolean) => ({
+    pl: isReply ? 2 : 0,
+    borderLeft: isReply ? "2px solid" : "none",
+    borderColor: "divider",
+  });
+
+  /**
+   * A deleted comment: one small muted line, its author and date, nothing to
+   * act on. It is running text, not a row of boxes, so it stays on one line
+   * in the panel and breaks between words on a narrower one.
+   */
+  const renderDeleted = (comment: DocumentComment, isReply: boolean) => (
+    <Typography
+      key={comment.id}
+      data-testid={`deleted-${comment.id}`}
+      variant="caption"
+      color="text.secondary"
+      component="div"
+      sx={{ ...indent(isReply), lineHeight: 1.5 }}
+    >
+      {authorName(comment, t("collab.unknownPerson"))}
+      {DOT}
+      {formatDateTime(comment.created_at)}
+      {DOT}
+      <Box component="span" sx={{ fontStyle: "italic" }}>
+        {t("collab.discussion.deleted")}
+      </Box>
+    </Typography>
+  );
+
+  const renderComment = (comment: DocumentComment, isReply: boolean) =>
+    comment.deleted ? renderDeleted(comment, isReply) : renderLive(comment, isReply);
+
+  const renderLive = (comment: DocumentComment, isReply: boolean) => (
+    <Box key={comment.id} sx={indent(isReply)}>
       <Box sx={{ display: "flex", alignItems: "baseline", gap: 1, flexWrap: "wrap" }}>
         <Typography variant="subtitle2" component="span">
           {authorName(comment, t("collab.unknownPerson"))}
@@ -109,7 +165,7 @@ export default function CommentThread({
         <Typography variant="caption" color="text.secondary" component="span">
           {formatDateTime(comment.created_at)}
         </Typography>
-        {comment.edited_at && !comment.deleted && (
+        {comment.edited_at && (
           <Typography variant="caption" color="text.secondary" component="span">
             {t("collab.discussion.edited")}
           </Typography>
@@ -130,11 +186,7 @@ export default function CommentThread({
           </Tooltip>
         )}
       </Box>
-      {comment.deleted ? (
-        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
-          {t("collab.discussion.deleted")}
-        </Typography>
-      ) : editing === comment.id ? (
+      {editing === comment.id ? (
         <CommentComposer
           initialBody={comment.body}
           draftKey={editKey(comment.id)}
@@ -185,6 +237,20 @@ export default function CommentThread({
     </Box>
   );
 
+  // Nothing live left: the one small line alone, no card.
+  if (!hasLiveComment(thread)) {
+    return (
+      <Box
+        id={`thread-${thread.id}`}
+        data-testid={`thread-${thread.id}`}
+        data-compact="true"
+        sx={{ px: 0.5, bgcolor: highlighted ? "action.selected" : undefined, borderRadius: 1 }}
+      >
+        {renderDeleted(thread, false)}
+      </Box>
+    );
+  }
+
   return (
     <Box
       id={`thread-${thread.id}`}
@@ -223,7 +289,9 @@ export default function CommentThread({
               label={t("collab.discussion.signNote")}
             />
           )}
-          {sectionLabel && <Chip size="small" variant="outlined" label={sectionLabel} />}
+          {sectionLabel && (
+            <Chip size="small" variant="outlined" label={sectionLabel} onClick={onSectionClick} />
+          )}
           {resolved && (
             <Chip
               size="small"
@@ -247,7 +315,7 @@ export default function CommentThread({
         </Alert>
       )}
 
-      {replying ? (
+      {replying && !closed ? (
         <CommentComposer
           draftKey={replyKey}
           placeholder={t("collab.discussion.replyPlaceholder")}
@@ -260,9 +328,9 @@ export default function CommentThread({
           onCancel={() => setReplying(false)}
         />
       ) : (
-        (canComment || canResolve) && (
+        (canReply || canResolve) && (
           <Box sx={{ display: "flex", gap: 1 }}>
-            {canComment && (
+            {canReply && (
               <Button size="small" onClick={() => setReplying(true)} disabled={busy}>
                 {t("collab.discussion.reply")}
               </Button>

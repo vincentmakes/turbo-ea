@@ -6,11 +6,44 @@ import type { ArchitectureDecision } from "@/types";
 
 // The discussion and history side panel has its own tests: here the page
 // renders alone, and the props it hands the panel are recorded.
-const sidePanel = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
-vi.mock("./collab/DocumentSidePanel", () => ({
-  default: (props: { children: unknown }) => {
-    sidePanel.props.push(props);
-    return props.children;
+// It provides the section markers' data the test sets (`sidePanel.sections`).
+const sidePanel = vi.hoisted(() => ({
+  props: [] as Record<string, unknown>[],
+  /** How many times the panel was mounted (it reads the discussion on mount). */
+  mounts: 0,
+  sections: null as null | {
+    counts: Record<string, { open: number; total: number }>;
+    canComment: boolean;
+    openSection: (section: string) => void;
+  },
+}));
+vi.mock("./collab/DocumentSidePanel", async () => {
+  const { SectionDiscussionContext } = await import("./collab/sectionDiscussionContext");
+  const { useState } = await import("react");
+  return {
+    default: (props: { children: React.ReactNode }) => {
+      sidePanel.props.push(props);
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      useState(() => (sidePanel.mounts += 1));
+      return (
+        <SectionDiscussionContext.Provider value={sidePanel.sections}>{props.children}</SectionDiscussionContext.Provider>
+      );
+    },
+  };
+});
+// The History view has its own tests: here it records what the page hands
+// it, and hands back the document a restore returns.
+const historyView = vi.hoisted(() => ({ props: [] as Record<string, unknown>[], restored: null as unknown }));
+vi.mock("./collab/DocumentHistoryDialog", () => ({
+  default: (props: { onRestored?: (d: unknown) => void }) => {
+    historyView.props.push(props);
+    return (
+      <div role="dialog" aria-label="history-view">
+        <button type="button" onClick={() => props.onRestored?.(historyView.restored)}>
+          restore-it
+        </button>
+      </div>
+    );
   },
 }));
 vi.mock("@/api/client", () => ({
@@ -29,11 +62,22 @@ vi.mock("@/hooks/AuthContext", () => ({
   useAuthContext: () => ({ user: authState.user, refreshUser: async () => {} }),
 }));
 vi.mock("./adrPrint", () => ({ printAdr: vi.fn() }));
-// TipTap has no place in jsdom; a textarea carries the same value/onChange contract.
+// TipTap has no place in jsdom; a textarea carries the same value/onChange
+// contract, and each editor's mention context is recorded.
+const richText = vi.hoisted(() => ({ contexts: [] as unknown[] }));
 vi.mock("./RichTextEditor", () => ({
-  default: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
-    <textarea value={value} onChange={(e) => onChange(e.target.value)} />
-  ),
+  default: ({
+    value,
+    onChange,
+    mentionContext,
+  }: {
+    value: string;
+    onChange: (v: string) => void;
+    mentionContext?: unknown;
+  }) => {
+    richText.contexts.push(mentionContext);
+    return <textarea value={value} onChange={(e) => onChange(e.target.value)} />;
+  },
 }));
 // The picker has its own tests; the stub hands back a fixed pick (or none).
 vi.mock("./SignatureRequestDialog", () => ({
@@ -134,6 +178,53 @@ async function signThroughDialog(u: { click: (el: Element) => Promise<void> }) {
   await u.click(screen.getByRole("button", { name: /^draw Sign$/ }));
   await u.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Sign" }));
 }
+
+describe("ADREditor — what the '@' list knows", () => {
+  it("hands its text editors the linked cards, and its comments the decision's people too", async () => {
+    sidePanel.props = [];
+    richText.contexts = [];
+    mockLoad({
+      ...base,
+      linked_cards: [{ id: "c1", name: "SAP", type: "Application" }],
+      signatories: [{ user_id: "s1", display_name: "S", status: "pending", signed_at: null }],
+      decision_makers: [{ user_id: "m1", display_name: "M" }, { user_id: null, display_name: "Ext" }],
+      participants: [{ user_id: "p1", display_name: "P" }, { user_id: "s1", display_name: "S" }],
+    });
+    renderEditor();
+    await screen.findByDisplayValue("Adopt event bus");
+    await waitFor(() =>
+      expect(sidePanel.props.at(-1)?.mentionContext).toEqual({
+        linkedCardIds: ["c1"],
+        priorityUserIds: ["s1", "m1", "p1"],
+      }),
+    );
+    const last = richText.contexts.slice(-4);
+    expect(last).toEqual(Array(4).fill({ linkedCardIds: ["c1"] }));
+  });
+
+  it("hands empty lists for a decision with no links or people", async () => {
+    sidePanel.props = [];
+    richText.contexts = [];
+    mockLoad(base);
+    renderEditor();
+    await screen.findByDisplayValue("Adopt event bus");
+    expect(sidePanel.props.at(-1)?.mentionContext).toEqual({ linkedCardIds: [], priorityUserIds: [] });
+    expect(richText.contexts.at(-1)).toEqual({ linkedCardIds: [] });
+  });
+});
+
+describe("ADREditor — the discussion is read once", () => {
+  it("mounts the side panel once for a saved decision, after it has loaded", async () => {
+    sidePanel.mounts = 0;
+    sidePanel.props = [];
+    mockLoad(base);
+    renderEditor();
+    await screen.findByDisplayValue("Adopt event bus");
+    expect(sidePanel.mounts).toBe(1);
+    // Never mounted before the load: every render it got carried the decision.
+    expect(sidePanel.props.every((p) => (p.owner as { id?: string } | null)?.id === base.id)).toBe(true);
+  });
+});
 
 describe("ADREditor — export trio in the title bar", () => {
   it("a draft offers Preview, PDF and Word, and PDF prints the live editor state", async () => {
@@ -998,6 +1089,13 @@ describe("ADREditor — decision register", () => {
       "/ea-delivery/adr/adr-2",
     );
     expect(screen.getByRole("navigation", { name: "Revisions" })).toBeInTheDocument();
+    // History sits beside the strip, not among the header actions.
+    expect(
+      within(screen.getByRole("navigation", { name: "Revisions" }).parentElement as HTMLElement).getByRole("button", {
+        name: /History$/,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /History$/ })).toHaveLength(1);
     expect(screen.getByTestId("revision-adr-2")).toHaveTextContent("Rev 2· Current");
   });
 
@@ -1140,12 +1238,54 @@ describe("ADREditor — decision register", () => {
 });
 
 describe("ADREditor — discussion and review notes", () => {
+  it("marks the sections that have threads beside their headings, and opens the discussion on one", async () => {
+    const openSection = vi.fn();
+    sidePanel.sections = {
+      counts: { alternatives_considered: { open: 2, total: 3 }, consequences: { open: 0, total: 1 } },
+      canComment: false,
+      openSection,
+    };
+    try {
+      await renderLoaded(base);
+      const markers = screen.getAllByTestId(/^section-marker-/).map((m) => m.dataset.testid);
+      expect(markers).toEqual(["section-marker-alternatives_considered", "section-marker-consequences"]);
+      const open = screen.getByRole("button", { name: "2 open threads on this section" });
+      expect(within(open.parentElement!).getByRole("heading", { name: "Alternatives Considered" })).toBeInTheDocument();
+      const done = screen.getByRole("button", { name: "Resolved discussion on this section" });
+      expect(within(done.parentElement!).getByRole("heading", { name: "Consequences" })).toBeInTheDocument();
+      await userEvent.click(open);
+      expect(openSection).toHaveBeenCalledWith("alternatives_considered");
+    } finally {
+      sidePanel.sections = null;
+    }
+  });
+
+  it("marks every section for a reader who may comment, and opens the discussion on a quiet one", async () => {
+    const openSection = vi.fn();
+    sidePanel.sections = { counts: { context: { open: 1, total: 1 } }, canComment: true, openSection };
+    try {
+      await renderLoaded(base);
+      const markers = screen.getAllByTestId(/^section-marker-/).map((m) => m.dataset.testid);
+      expect(markers).toContain("section-marker-context");
+      expect(markers).toContain("section-marker-consequences");
+      const add = screen.getByTestId("section-marker-consequences");
+      expect(add).toHaveAccessibleName("Comment on this section");
+      await userEvent.click(add);
+      expect(openSection).toHaveBeenCalledWith("consequences");
+    } finally {
+      sidePanel.sections = null;
+    }
+  });
+
   it("mounts the side panel on a saved decision with its owner, status and sections", async () => {
     sidePanel.props.length = 0;
     await renderLoaded({ ...base, open_thread_count: 3, updated_at: "2026-11-01T00:00:00Z" });
     const props = sidePanel.props[sidePanel.props.length - 1];
     expect(props.owner).toEqual({ kind: "adr", id: "adr-1" });
-    expect(props.status).toBe("draft");
+    // History is not the side panel's: it opens from the header.
+    expect(props).not.toHaveProperty("status");
+    expect(props).not.toHaveProperty("onRestored");
+    expect(props).not.toHaveProperty("isDirty");
     expect(props.openThreadCount).toBe(3);
     expect(props.refreshKey).toBe("2026-11-01T00:00:00Z");
     expect((props.sections as { key: string }[]).map((s) => s.key)).toEqual([
@@ -1155,6 +1295,20 @@ describe("ADREditor — discussion and review notes", () => {
       "alternatives_considered",
       "consequences",
     ]);
+  });
+
+  it("shows History in the header of a saved decision and opens it with what a restore needs", async () => {
+    historyView.props.length = 0;
+    await renderLoaded({ ...base, updated_at: "2026-11-01T00:00:00Z" });
+    await userEvent.click(screen.getByRole("button", { name: /History$/ }));
+    expect(screen.getByRole("dialog", { name: "history-view" })).toBeInTheDocument();
+    const props = historyView.props[historyView.props.length - 1];
+    expect(props).toMatchObject({
+      owner: { kind: "adr", id: "adr-1" },
+      status: "draft",
+      refreshKey: "2026-11-01T00:00:00Z",
+    });
+    expect(props.label).toMatch(/ · /);
     expect((props.isDirty as () => boolean)()).toBe(false);
   });
 
@@ -1164,14 +1318,16 @@ describe("ADREditor — discussion and review notes", () => {
     renderAt("/ea-delivery/adr/new");
     expect(await screen.findByText("New Architecture Decision")).toBeInTheDocument();
     expect(sidePanel.props[sidePanel.props.length - 1].owner).toBeNull();
+    expect(screen.queryByRole("button", { name: /History$/ })).toBeNull();
   });
 
   it("applies a restored version through the same path as a save", async () => {
-    sidePanel.props.length = 0;
     await renderLoaded(base);
-    const onRestored = sidePanel.props[sidePanel.props.length - 1].onRestored as (a: ArchitectureDecision) => void;
-    await waitFor(() => onRestored({ ...base, title: "Restored title" }));
+    historyView.restored = { ...base, title: "Restored title" };
+    await userEvent.click(screen.getByRole("button", { name: /History$/ }));
+    await userEvent.click(screen.getByRole("button", { name: "restore-it" }));
     expect(await screen.findByDisplayValue("Restored title")).toBeInTheDocument();
+    expect(await screen.findByText("Version restored")).toBeInTheDocument();
   });
 
   it("signs with a note sent as the comment, and warns about open threads", async () => {

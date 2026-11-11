@@ -5,11 +5,39 @@ import type { SoAW, SoAWSectionData } from "@/types";
 
 // The discussion and history side panel has its own tests: here the page
 // renders alone, and the props it hands the panel are recorded.
-const sidePanel = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
-vi.mock("./collab/DocumentSidePanel", () => ({
-  default: (props: { children: unknown }) => {
-    sidePanel.props.push(props);
-    return props.children;
+// It provides the section markers' data the test sets (`sidePanel.sections`).
+const sidePanel = vi.hoisted(() => ({
+  props: [] as Record<string, unknown>[],
+  sections: null as null | {
+    counts: Record<string, { open: number; total: number }>;
+    canComment: boolean;
+    openSection: (section: string) => void;
+  },
+}));
+vi.mock("./collab/DocumentSidePanel", async () => {
+  const { SectionDiscussionContext } = await import("./collab/sectionDiscussionContext");
+  return {
+    default: (props: { children: React.ReactNode }) => {
+      sidePanel.props.push(props);
+      return (
+        <SectionDiscussionContext.Provider value={sidePanel.sections}>{props.children}</SectionDiscussionContext.Provider>
+      );
+    },
+  };
+});
+// The History view has its own tests: here it records what the page hands
+// it, and hands back the document a restore returns.
+const historyView = vi.hoisted(() => ({ props: [] as Record<string, unknown>[], restored: null as unknown }));
+vi.mock("./collab/DocumentHistoryDialog", () => ({
+  default: (props: { onRestored?: (d: unknown) => void }) => {
+    historyView.props.push(props);
+    return (
+      <div role="dialog" aria-label="history-view">
+        <button type="button" onClick={() => props.onRestored?.(historyView.restored)}>
+          restore-it
+        </button>
+      </div>
+    );
   },
 }));
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -187,6 +215,10 @@ describe("SoAWPreview — revisions", () => {
     );
     expect(screen.getByTestId("revision-s1")).toHaveAttribute("aria-current", "page");
     expect(screen.getByTestId("revision-s2")).toHaveAttribute("href", "/ea-delivery/soaw/s2/preview");
+    // History sits beside the strip, once.
+    const strip = screen.getByRole("navigation", { name: t("adr.revision.strip") });
+    expect(within(strip.parentElement as HTMLElement).getByRole("button", { name: /History$/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /History$/ })).toHaveLength(1);
   });
 
   it("shows no review-lock hint in the preview and no strip for a single revision", async () => {
@@ -500,13 +532,116 @@ describe("SoAWPreview — mentions", () => {
 describe("SoAWPreview — discussion", () => {
   it("mounts the side panel for the document with its sections", async () => {
     sidePanel.props.length = 0;
-    mockApi.on("get", "/soaw/s1", { ...SOAW, open_thread_count: 1 });
+    mockApi.on("get", "/soaw/s1", {
+      ...SOAW,
+      open_thread_count: 1,
+      signatories: [{ user_id: "s1", display_name: "S", status: "pending", signed_at: null }],
+    });
     renderPreview();
     await waitFor(() => expect(sidePanel.props.length).toBeGreaterThan(0));
     const props = sidePanel.props[sidePanel.props.length - 1];
     expect(props.owner).toEqual({ kind: "soaw", id: "s1" });
-    expect(props.status).toBe(SOAW.status);
+    expect(props).not.toHaveProperty("status");
+    expect(props).not.toHaveProperty("onRestored");
     expect(props.openThreadCount).toBe(1);
+    // A comment's "@" lists the signatories first.
+    expect(props.mentionContext).toEqual({ priorityUserIds: ["s1"] });
     expect((props.sections as { key: string }[])[0].key).toBe("general");
+  });
+
+  it("shows History in the header, opens it for the document and shows a restored version", async () => {
+    historyView.props.length = 0;
+    mockApi.on("get", "/soaw/s1", { ...SOAW, revisions: [] });
+    const { user } = renderPreview();
+    await screen.findByRole("heading", { name: SOAW.name });
+    await user.click(screen.getByRole("button", { name: /History$/ }));
+    expect(screen.getByRole("dialog", { name: "history-view" })).toBeInTheDocument();
+    expect(historyView.props[historyView.props.length - 1]).toMatchObject({
+      owner: { kind: "soaw", id: "s1" },
+      label: SOAW.name,
+      status: SOAW.status,
+    });
+    historyView.restored = { ...SOAW, name: "Restored SoAW name" };
+    await user.click(screen.getByRole("button", { name: "restore-it" }));
+    expect(await screen.findByRole("heading", { name: "Restored SoAW name" })).toBeInTheDocument();
+  });
+});
+
+describe("SoAWPreview — section markers", () => {
+  it("marks the section headings that have threads, custom ones included, and opens the discussion on one", async () => {
+    const openSection = vi.fn();
+    sidePanel.sections = {
+      counts: { "1.1": { open: 2, total: 2 }, custom_7: { open: 0, total: 1 }, "1.2": { open: 1, total: 1 } },
+      canComment: false,
+      openSection,
+    };
+    try {
+      const { user } = renderPreview();
+      await screen.findByRole("heading", { name: SOAW.name });
+      const open = await screen.findByRole("button", { name: "2 open threads on this section" });
+      expect(open.closest("[data-section]")).toHaveAttribute("data-section", "1.1");
+      expect(open.closest(".soaw-preview")).toBe(previewBody());
+      expect(open.parentElement).toHaveClass("no-print");
+      const done = screen.getByRole("button", { name: "Resolved discussion on this section" });
+      expect(done.closest("[data-section]")).toHaveAttribute("data-section", "custom_7");
+      // 1.2 is hidden from the preview: no heading, so no marker.
+      expect(screen.getAllByTestId(/^section-marker-/)).toHaveLength(2);
+      await user.click(done);
+      expect(openSection).toHaveBeenCalledWith("custom_7");
+    } finally {
+      sidePanel.sections = null;
+    }
+  });
+
+  it("keeps the body and its markers when the page re-renders (Copy link)", async () => {
+    sidePanel.sections = { counts: { "1.1": { open: 1, total: 1 } }, canComment: false, openSection: vi.fn() };
+    try {
+      const { user } = renderPreview();
+      await screen.findByRole("heading", { name: SOAW.name });
+      const heading = previewBody().querySelector('[data-section="1.1"]');
+      expect(await screen.findByTestId("section-marker-1.1")).toBeInTheDocument();
+      const writeText = vi.spyOn(navigator.clipboard, "writeText");
+      await user.click(screen.getByRole("button", { name: t("preview.copyLink") }));
+      expect(await screen.findByText(t("preview.linkCopied"))).toBeInTheDocument();
+      writeText.mockRestore();
+      // The body was not rebuilt: the same heading node, still in the page.
+      expect(heading?.isConnected).toBe(true);
+      expect(previewBody().querySelector('[data-section="1.1"]')).toBe(heading);
+      expect(screen.getByTestId("section-marker-1.1").closest("[data-section]")).toBe(heading);
+      expect(screen.getAllByTestId(/^section-marker-/)).toHaveLength(1);
+      expect(previewBody().querySelectorAll("span.no-print")).toHaveLength(1);
+    } finally {
+      sidePanel.sections = null;
+    }
+  });
+
+  it("marks every anchored heading for a reader who may comment, a quiet one included", async () => {
+    const openSection = vi.fn();
+    sidePanel.sections = { counts: { "1.1": { open: 1, total: 1 } }, canComment: true, openSection };
+    try {
+      const { user } = renderPreview();
+      await screen.findByRole("heading", { name: SOAW.name });
+      await screen.findByTestId("section-marker-1.1");
+      const anchored = Array.from(previewBody().querySelectorAll("[data-section]")).map((h) =>
+        h.getAttribute("data-section"),
+      );
+      expect(anchored).toContain("custom_7");
+      const marked = screen.getAllByTestId(/^section-marker-/).map((m) => m.closest("[data-section]")?.getAttribute("data-section"));
+      expect(marked).toEqual(anchored);
+      const add = screen.getByTestId("section-marker-custom_7");
+      expect(add).toHaveAccessibleName("Comment on this section");
+      await user.click(add);
+      expect(openSection).toHaveBeenCalledWith("custom_7");
+    } finally {
+      sidePanel.sections = null;
+    }
+  });
+
+  it("anchors the on-screen headings by section and shows no marker without threads", async () => {
+    renderPreview();
+    await screen.findByRole("heading", { name: SOAW.name });
+    expect(previewBody().querySelector('[data-section="1.1"]')).not.toBeNull();
+    expect(previewBody().querySelector('[data-section="custom_7"]')).not.toBeNull();
+    expect(screen.queryAllByTestId(/^section-marker-/)).toHaveLength(0);
   });
 });

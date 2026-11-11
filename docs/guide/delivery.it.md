@@ -50,7 +50,7 @@ L'editor fornisce:
 - **Template di sezioni** — Sezioni predefinite seguendo gli standard TOGAF (es. Descrizione del problema, Obiettivi, Approccio, Stakeholder, Vincoli, Piano di lavoro)
 - **Tabelle modificabili in linea** — Aggiungete e modificate tabelle all'interno di qualsiasi sezione
 - **Menzioni** — digitate **@** nel testo di una sezione per menzionare una card o una decisione (vedere [Discussione, menzioni e cronologia](#soaw-collaboration))
-- **Cronologia versioni del documento** — una tabella che gli autori compilano a mano (versione, data, revisionato da, descrizione). Fa parte del documento e non è la scheda [Cronologia](#soaw-collaboration)
+- **Cronologia versioni del documento** — una tabella che gli autori compilano a mano (versione, data, revisionato da, descrizione). Fa parte del documento e non è la vista [Cronologia](#soaw-collaboration)
 - **Workflow degli stati** — I documenti progrediscono attraverso fasi definite:
 
 | Stato | Significato |
@@ -74,13 +74,14 @@ Una revisione precedente mostra un banner con un collegamento a quella corrente,
 
 ### Discussione, menzioni e cronologia {: #soaw-collaboration }
 
-Un SoAW ha la stessa discussione, le stesse menzioni e la stessa cronologia di una decisione, nel pannello **Discussione e cronologia** del suo editor e della sua anteprima. Il comportamento comune è descritto una sola volta, nella guida GRC: [Discussione](grc.md#decision-discussion), [Menzioni](grc.md#decision-mentions), [Cronologia](grc.md#decision-history) e [Limiti noti](grc.md#collaboration-limits). Ciò che cambia per un SoAW:
+Un SoAW ha la stessa discussione, le stesse menzioni e la stessa cronologia di una decisione: la discussione in un pannello accanto al suo editor e alla sua anteprima, la cronologia dietro il pulsante **Cronologia** in cima alla pagina. Il comportamento comune è descritto una sola volta, nella guida GRC: [Discussione](grc.md#decision-discussion), [Menzioni](grc.md#decision-mentions), [Cronologia](grc.md#decision-history) e [Limiti noti](grc.md#collaboration-limits). Ciò che cambia per un SoAW:
 
 - **Chi può pubblicare.** Pubblicare, rispondere, risolvere e riaprire richiedono il permesso `soaw.comment`, che membri e amministratori hanno per impostazione predefinita e i visualizzatori no; la lettura della discussione segue `soaw.view`. I firmatari del SoAW possono sempre commentarlo. Chiunque possa modificare i SoAW (`soaw.manage`) può eliminare qualsiasi commento.
-- **Sezioni.** Un thread è associato a una delle sezioni proprie del SoAW, oppure a *Generale*. Un thread associato a una sezione personalizzata poi rimossa mostra *Sezione rimossa*.
+- **Sezioni.** Un thread è associato con un chip di sezione a una delle sezioni proprie del SoAW, oppure a nessuna (un thread generale). Un SoAW ha molte sezioni, quindi il riquadro di scrittura mostra un chip per ogni sezione già discussa e per quella scelta; **Altre…** apre un elenco ricercabile delle altre. I chip in cima alla discussione la filtrano per sezione, come per una decisione. Un thread associato a una sezione personalizzata poi rimossa mostra *Sezione rimossa*. Ogni sezione porta accanto alla sua intestazione la stessa icona di chat di una decisione, nell'editor e nell'anteprima, con il numero di thread aperti quando c'è una discussione; fate clic su di essa per aprire la discussione su quella sezione con la sezione già selezionata per un nuovo commento.
 - **Rifiuto.** Qualsiasi firmatario che abbia il permesso di firma (`soaw.sign`) — o il permesso di modifica — può rifiutare un SoAW, come per le decisioni; finora il rifiuto richiedeva il permesso di modifica. Il motivo apre nella discussione un thread **Motivo del rifiuto**.
-- **Nota di firma.** **Firma** apre ora una finestra di dialogo in cui il firmatario può aggiungere una nota facoltativa; compare nella discussione come **Nota di firma** e nella scheda Cronologia.
-- **Cronologia.** Una versione contiene il nome del SoAW, le sue informazioni sul documento, la sua tabella Cronologia versioni del documento e ogni sezione; l'iniziativa non fa parte di una versione. La scheda Cronologia registra ciò che accade al documento; la tabella Cronologia versioni del documento contiene solo ciò che gli autori vi scrivono. Un SoAW nello stato **Approvato** può ancora essere modificato, quindi, come per una bozza, i suoi salvataggi sono conservati come versioni e una versione precedente può esservi ripristinata.
+- **Menzioni.** Un SoAW non ha card collegate, quindi quando dopo **@** non è stato digitato nulla le card sono elencate in ordine alfabetico; in un commento, tra le persone vengono prima i firmatari del SoAW. **Sfoglia…** funziona come per una decisione.
+- **Nota di firma.** **Firma** apre ora una finestra di dialogo in cui il firmatario può aggiungere una nota facoltativa; compare nella discussione come **Nota di firma** e nella Cronologia.
+- **Cronologia.** Una versione contiene il nome del SoAW, le sue informazioni sul documento, la sua tabella Cronologia versioni del documento e ogni sezione; l'iniziativa non fa parte di una versione. La Cronologia registra ciò che accade al documento; la tabella Cronologia versioni del documento contiene solo ciò che gli autori vi scrivono. Un SoAW nello stato **Approvato** può ancora essere modificato, quindi, come per una bozza, i suoi salvataggi sono conservati come versioni e una versione precedente può esservi ripristinata.
 
 ### Anteprima ed esportazione
 

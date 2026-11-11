@@ -1461,7 +1461,7 @@ export interface ArchitectureDecision {
 }
 
 // ---------------------------------------------------------------------------
-// Discussion and history of a decision or SoAW (the document side panel)
+// Discussion and history of a decision or SoAW (the side panel and the History view)
 // ---------------------------------------------------------------------------
 
 /** What a discussion or a history belongs to. */

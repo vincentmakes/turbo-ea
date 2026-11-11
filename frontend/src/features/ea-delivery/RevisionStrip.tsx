@@ -61,6 +61,11 @@ export function soawRevisionItems(revisions: SoAWRevision[], t: Translate): Revi
   }));
 }
 
+/** Whether the strip shows at all: a chain of one has nothing to show. */
+export function showsRevisionStrip(items: readonly RevisionStripItem[]): boolean {
+  return items.length > 1;
+}
+
 export interface RevisionStripProps {
   items: RevisionStripItem[];
   /** The revision on screen: highlighted, not a link. */
@@ -82,7 +87,7 @@ export default function RevisionStrip({
 }: RevisionStripProps) {
   const { t } = useTranslation("delivery");
   const { formatDate } = useDateFormat();
-  if (items.length < 2) return null;
+  if (!showsRevisionStrip(items)) return null;
 
   return (
     <Box

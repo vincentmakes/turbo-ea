@@ -8,6 +8,7 @@ vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useD
 import i18n from "@/i18n";
 import RevisionStrip, {
   decisionRevisionItems,
+  showsRevisionStrip,
   soawRevisionItems,
   type RevisionStripItem,
 } from "./RevisionStrip";
@@ -67,6 +68,15 @@ describe("RevisionStrip", () => {
     expect(await screen.findByRole("tooltip")).toHaveTextContent(
       "Signed · In force · Signed on 2026-03-04",
     );
+  });
+});
+
+describe("showsRevisionStrip", () => {
+  it("is true for a chain of two or more only", () => {
+    expect(showsRevisionStrip([])).toBe(false);
+    expect(showsRevisionStrip([ITEMS[0]])).toBe(false);
+    expect(showsRevisionStrip(ITEMS.slice(0, 2))).toBe(true);
+    expect(showsRevisionStrip(ITEMS)).toBe(true);
   });
 });
 

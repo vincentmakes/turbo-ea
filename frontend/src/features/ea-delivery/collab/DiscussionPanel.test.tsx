@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { useState } from "react";
-import type { DocumentComment, DocumentDiscussion, DocumentThread } from "@/types";
+import type { DocumentComment, DocumentDiscussion, DocumentOwner, DocumentThread } from "@/types";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useDateFormatModule()));
@@ -29,9 +29,11 @@ vi.mock("../RichTextEditor", () => ({
 
 import { mockApi } from "@/test/apiMock";
 import { renderWithProviders } from "@/test/render";
+import { DocumentMentionContext } from "../mentions/documentMentionContext";
 import { clearAllDrafts } from "./commentDrafts";
 import DiscussionPanel from "./DiscussionPanel";
-import { sectionOptions } from "./discussionModel";
+import { sectionOptions, type SectionOption } from "./discussionModel";
+import { useDiscussionView } from "./useDiscussionView";
 
 const tId = (k: string) => k;
 const SECTIONS = sectionOptions("adr", (k) =>
@@ -76,22 +78,32 @@ function serve(d: DocumentDiscussion, chain?: DocumentDiscussion) {
   mockApi.on("get", "/adr/a2/comments?scope=chain", () => chain ?? discussion);
 }
 
-function renderPanel(props: Partial<React.ComponentProps<typeof DiscussionPanel>> = {}) {
-  return renderWithProviders(
-    <DiscussionPanel owner={{ kind: "adr", id: "a2" }} sections={SECTIONS} {...props} />,
-  );
+interface PanelProps {
+  owner?: DocumentOwner;
+  sections?: SectionOption[];
+  focusThreadId?: string | null;
+  refreshKey?: string | number;
+}
+
+/** The panel wired as `DocumentSidePanel` wires it: the shared view holds the read and the filter. */
+function Wired({ owner = { kind: "adr", id: "a2" }, sections = SECTIONS, focusThreadId, refreshKey }: PanelProps) {
+  const view = useDiscussionView(owner, { focusThreadId, refreshKey });
+  return <DiscussionPanel owner={owner} sections={sections} focusThreadId={focusThreadId} view={view} />;
+}
+
+function renderPanel(props: PanelProps = {}) {
+  return renderWithProviders(<Wired {...props} />);
 }
 
 const can = { comment: true, moderate: false };
 
-type PanelProps = Partial<React.ComponentProps<typeof DiscussionPanel>>;
 /** Renders the panel with props a test can change later (`set(...)`), inside the providers. */
 function renderHarness(initial: PanelProps) {
   let set: (next: PanelProps) => void = () => {};
   function Harness() {
     const [props, setProps] = useState(initial);
     set = (next) => setProps((p) => ({ ...p, ...next }));
-    return <DiscussionPanel owner={{ kind: "adr", id: "a2" }} sections={SECTIONS} {...props} />;
+    return <Wired {...props} />;
   }
   renderWithProviders(<Harness />);
   return { change: (next: PanelProps) => act(() => set(next)) };
@@ -112,8 +124,16 @@ describe("DiscussionPanel", () => {
     expect(await screen.findByText("No discussion yet.")).toBeInTheDocument();
     expect(editorProps.last).toMatchObject({ variant: "comment", mentions: ["card", "decision", "user"] });
 
-    await user.click(screen.getByRole("combobox", { name: "About" }));
-    await user.click(await screen.findByRole("option", { name: "Decision" }));
+    const chips = within(screen.getByRole("group", { name: "Section" }));
+    expect(chips.getAllByRole("button").map((b) => b.textContent)).toEqual([
+      "Context",
+      "Decision",
+      "Alternatives Considered",
+      "Consequences",
+    ]);
+    await user.click(chips.getByRole("button", { name: "Decision" }));
+    expect(chips.getByRole("button", { name: "Decision" })).toHaveAttribute("aria-pressed", "true");
+    expect(chips.getByRole("button", { name: "Context" })).toHaveAttribute("aria-pressed", "false");
     fireEvent.change(screen.getByRole("textbox", { name: /Start a thread/ }), {
       target: { value: "<p>Why now?</p>" },
     });
@@ -127,6 +147,22 @@ describe("DiscussionPanel", () => {
     });
     expect(await screen.findByText("Why now?")).toBeInTheDocument();
     await waitFor(() => expect(mockApi.callsOf("get", "/adr/a2/comments")).toHaveLength(2));
+  });
+
+  it("hands the composer the document's mention context, none outside a document", async () => {
+    serve({ can, open_count: 0, threads: [] });
+    const ctx = { linkedCardIds: ["c1"], priorityUserIds: ["u7"] };
+    const { unmount } = renderWithProviders(
+      <DocumentMentionContext.Provider value={ctx}>
+        <Wired />
+      </DocumentMentionContext.Provider>,
+    );
+    await screen.findByText("No discussion yet.");
+    expect(editorProps.last?.mentionContext).toBe(ctx);
+    unmount();
+    renderPanel();
+    await screen.findByText("No discussion yet.");
+    expect(editorProps.last?.mentionContext).toBeUndefined();
   });
 
   it("keeps Post disabled for an empty comment and posts General without a section", async () => {
@@ -277,8 +313,40 @@ describe("DiscussionPanel", () => {
     await waitFor(() =>
       expect(mockApi.callsOf("delete")).toEqual([{ method: "delete", path: "/adr/a2/comments/t1", body: undefined }]),
     );
-    expect(await screen.findByText("This comment was deleted.")).toBeInTheDocument();
+    expect(await screen.findByText("Comment deleted")).toBeInTheDocument();
     expect(screen.getByText("A reply")).toBeInTheDocument();
+  });
+
+  it("keeps a thread whose last live reply is deleted as one small line, with nothing to act on", async () => {
+    const closed = thread({
+      body: "",
+      deleted: true,
+      can: { edit: false, delete: false, resolve: false },
+      replies: [comment({ id: "r1", body: "<p>A reply</p>" })],
+    });
+    serve({ can, open_count: 0, threads: [closed, thread({ id: "t2", body: "<p>Other</p>" })] });
+    mockApi.on("delete", "/adr/a2/comments/r1", undefined);
+    const { user } = renderPanel();
+    const t1 = within(await screen.findByTestId("thread-t1"));
+    expect(t1.queryByRole("button", { name: "Reply" })).toBeNull();
+    expect(t1.queryByRole("button", { name: "Resolve" })).toBeNull();
+    await user.click(t1.getByRole("button", { name: "Delete" }));
+    discussion = {
+      ...discussion,
+      threads: [
+        { ...closed, replies: [comment({ id: "r1", body: "", deleted: true })] },
+        thread({ id: "t2", body: "<p>Other</p>" }),
+      ],
+    };
+    const confirmRow = t1.getByText("Delete this comment?").parentElement as HTMLElement;
+    await user.click(within(confirmRow).getByRole("button", { name: "Delete" }));
+    await waitFor(() =>
+      expect(mockApi.callsOf("delete")).toEqual([{ method: "delete", path: "/adr/a2/comments/r1", body: undefined }]),
+    );
+    await waitFor(() => expect(screen.getByTestId("thread-t1")).toHaveAttribute("data-compact", "true"));
+    expect(within(screen.getByTestId("thread-t1")).queryByRole("button")).toBeNull();
+    expect(screen.queryByText("A reply")).toBeNull();
+    expect(screen.getByText("Other")).toBeInTheDocument();
   });
 
   it("marks a rejection reason, gives an empty one its fallback and offers no edit or delete on it", async () => {
@@ -339,17 +407,6 @@ describe("DiscussionPanel", () => {
     expect(screen.queryByRole("button", { name: "Post" })).toBeNull();
   });
 
-  it("reports this revision's open-thread count", async () => {
-    serve({
-      can,
-      open_count: 2,
-      threads: [thread({ id: "a" }), thread({ id: "b", kind: "rejection" }), thread({ id: "c", resolved_at: "x" })],
-    });
-    const onOpenCountChange = vi.fn();
-    renderPanel({ onOpenCountChange });
-    await waitFor(() => expect(onOpenCountChange).toHaveBeenLastCalledWith(2));
-  });
-
   it("draws out a notification's thread, unfolding it when resolved", async () => {
     serve({ can, open_count: 0, threads: [thread({ id: "t7", resolved_at: "2026-11-02T00:00:00Z" })] });
     renderPanel({ focusThreadId: "t7" });
@@ -364,11 +421,10 @@ describe("DiscussionPanel", () => {
     expect(await screen.findByText("GET /adr/a2/comments failed")).toBeInTheDocument();
   });
 
-  it("reads the discussion again when the page's refresh key changes, and reports the count after each read", async () => {
+  it("reads the discussion again when the page's refresh key changes", async () => {
     serve({ can, open_count: 1, threads: [thread({ id: "a" })] });
-    const onOpenCountChange = vi.fn();
-    const { change } = renderHarness({ onOpenCountChange, refreshKey: "v1" });
-    await waitFor(() => expect(onOpenCountChange).toHaveBeenCalledWith(1));
+    const { change } = renderHarness({ refreshKey: "v1" });
+    await screen.findByTestId("thread-a");
     expect(mockApi.callsOf("get", "/adr/a2/comments")).toHaveLength(1);
 
     // A rejection opened a thread on the server.
@@ -376,14 +432,6 @@ describe("DiscussionPanel", () => {
     change({ refreshKey: "v2" });
     expect(await screen.findByTestId("thread-r")).toBeInTheDocument();
     expect(mockApi.callsOf("get", "/adr/a2/comments")).toHaveLength(2);
-    await waitFor(() => expect(onOpenCountChange).toHaveBeenLastCalledWith(2));
-
-    // The same count read again is still reported (the page's own count may have moved).
-    const before = onOpenCountChange.mock.calls.length;
-    serve({ can, open_count: 2, threads: [thread({ id: "a" }), thread({ id: "r", kind: "rejection", body: "<p>No</p>" })] });
-    change({ refreshKey: "v3" });
-    await waitFor(() => expect(onOpenCountChange.mock.calls.length).toBe(before + 1));
-    expect(onOpenCountChange).toHaveBeenLastCalledWith(2);
   });
 
   it("scrolls a notification's thread into view once, not on every read", async () => {
@@ -423,8 +471,7 @@ describe("DiscussionPanel", () => {
     serve({ can, open_count: 1, threads: [thread({ id: "t1" }), thread({ id: "t2", body: "<p>Mine</p>" })] });
     const first = renderPanel();
     const { user } = first;
-    await user.click(await screen.findByRole("combobox", { name: "About" }));
-    await user.click(await screen.findByRole("option", { name: "Decision" }));
+    await user.click(within(await screen.findByRole("group", { name: "Section" })).getByRole("button", { name: "Decision" }));
     fireEvent.change(screen.getByRole("textbox", { name: /Start a thread/ }), { target: { value: "<p>Half a th</p>" } });
     const t1 = within(screen.getByTestId("thread-t1"));
     await user.click(t1.getByRole("button", { name: "Reply" }));
@@ -436,7 +483,9 @@ describe("DiscussionPanel", () => {
 
     renderPanel();
     expect(await screen.findByRole("textbox", { name: /Start a thread/ })).toHaveValue("<p>Half a th</p>");
-    expect(screen.getByRole("combobox", { name: "About" })).toHaveTextContent("Decision");
+    expect(
+      within(screen.getByRole("group", { name: "Section" })).getByRole("button", { name: "Decision" }),
+    ).toHaveAttribute("aria-pressed", "true");
     expect(within(screen.getByTestId("thread-t1")).getByRole("textbox", { name: /Reply/ })).toHaveValue(
       "<p>Half a reply</p>",
     );
@@ -464,7 +513,264 @@ describe("DiscussionPanel", () => {
     second.unmount();
 
     mockApi.on("get", "/adr/b7/comments", { can, open_count: 0, threads: [] });
-    renderWithProviders(<DiscussionPanel owner={{ kind: "adr", id: "b7" }} sections={SECTIONS} />);
+    renderWithProviders(<Wired owner={{ kind: "adr", id: "b7" }} />);
     expect(await screen.findByRole("textbox", { name: /Start a thread/ })).toHaveValue("");
+  });
+});
+
+describe("DiscussionPanel section filter", () => {
+  const filterRow = () => within(screen.getByRole("group", { name: "Filter the discussion by section" }));
+  const chipNames = () =>
+    filterRow()
+      .getAllByRole("button")
+      .map((b) => b.textContent);
+  const listedIds = () =>
+    screen.queryAllByTestId(/^thread-/).map((el) => el.getAttribute("data-testid")?.slice("thread-".length));
+
+  const MIXED = [
+    thread({ id: "a", section: "decision" }),
+    thread({ id: "b", section: null }),
+    thread({ id: "c", section: "context" }),
+    thread({ id: "d", section: "decision" }),
+  ];
+
+  it("shows one chip per section with its count, in the document's order, and General when both kinds exist", async () => {
+    serve({ can, open_count: 4, threads: MIXED });
+    renderPanel();
+    await screen.findByTestId("thread-a");
+    expect(chipNames()).toEqual(["General (1)", "Context (1)", "Decision (2)"]);
+    expect(filterRow().getByRole("button", { name: "Decision (2)" })).toHaveAttribute("aria-pressed", "false");
+    expect(filterRow().queryByRole("button", { name: "Clear" })).toBeNull();
+  });
+
+  it("shows no filter row when no thread has a section", async () => {
+    serve({ can, open_count: 1, threads: [thread({ id: "a", section: null })] });
+    renderPanel();
+    await screen.findByTestId("thread-a");
+    expect(screen.queryByRole("group", { name: "Filter the discussion by section" })).toBeNull();
+  });
+
+  it("filters on one or several chips, turns one off on a second click, and clears", async () => {
+    serve({ can, open_count: 4, threads: MIXED });
+    const { user } = renderPanel();
+    await screen.findByTestId("thread-a");
+
+    await user.click(filterRow().getByRole("button", { name: "Decision (2)" }));
+    expect(listedIds()).toEqual(["a", "d"]);
+    expect(filterRow().getByRole("button", { name: "Decision (2)" })).toHaveAttribute("aria-pressed", "true");
+
+    await user.click(filterRow().getByRole("button", { name: "General (1)" }));
+    expect(listedIds()).toEqual(["a", "b", "d"]);
+
+    await user.click(filterRow().getByRole("button", { name: "Decision (2)" }));
+    expect(listedIds()).toEqual(["b"]);
+
+    await user.click(filterRow().getByRole("button", { name: "Clear" }));
+    expect(listedIds()).toEqual(["a", "b", "c", "d"]);
+    expect(filterRow().queryByRole("button", { name: "Clear" })).toBeNull();
+  });
+
+  it("turns a section's filter on from a thread's own section chip", async () => {
+    serve({ can, open_count: 4, threads: MIXED });
+    const { user } = renderPanel();
+    await user.click(within(await screen.findByTestId("thread-c")).getByRole("button", { name: "Context" }));
+    expect(listedIds()).toEqual(["c"]);
+    // A second click keeps it on.
+    await user.click(within(screen.getByTestId("thread-c")).getByRole("button", { name: "Context" }));
+    expect(listedIds()).toEqual(["c"]);
+    expect(filterRow().getByRole("button", { name: "Context (1)" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("counts what the resolved toggle lists, and filters the resolved threads too", async () => {
+    serve({
+      can,
+      open_count: 1,
+      threads: [
+        thread({ id: "a", section: "decision" }),
+        thread({ id: "r1", section: "decision", resolved_at: "2026-11-02T00:00:00Z" }),
+        thread({ id: "r2", section: "context", resolved_at: "2026-11-02T00:00:00Z" }),
+      ],
+    });
+    const { user } = renderPanel();
+    await screen.findByTestId("thread-a");
+    expect(chipNames()).toEqual(["Decision (1)"]);
+    await user.click(screen.getByRole("button", { name: "Show 2 resolved threads" }));
+    expect(chipNames()).toEqual(["Context (1)", "Decision (2)"]);
+
+    await user.click(filterRow().getByRole("button", { name: "Decision (2)" }));
+    expect(listedIds()).toEqual(["a", "r1"]);
+    await user.click(screen.getByRole("button", { name: "Hide resolved threads" }));
+    expect(screen.getByRole("button", { name: "Show 1 resolved thread" })).toBeInTheDocument();
+    expect(chipNames()).toEqual(["Decision (1)", "Clear"]);
+  });
+
+  it("says when the filter leaves nothing, and clears from there", async () => {
+    const chain = {
+      can,
+      open_count: 1,
+      threads: [
+        thread({ id: "a", section: "decision" }),
+        thread({ id: "e1", section: "context", revision_id: "a1", revision_number: 1 }),
+      ],
+    };
+    serve({ can, open_count: 1, threads: [thread({ id: "a", section: "decision" })] }, chain);
+    const { user } = renderPanel();
+    await screen.findByTestId("thread-a");
+    const earlier = screen.getByRole("checkbox", { name: "Show discussion on earlier revisions" });
+    await user.click(earlier);
+    await screen.findByTestId("thread-e1");
+    await user.click(filterRow().getByRole("button", { name: "Context (1)" }));
+    expect(listedIds()).toEqual(["e1"]);
+    expect(screen.queryByText("No thread matches this filter.")).toBeNull();
+    await user.click(earlier);
+    // The chip that is on stays, at 0, and the line says why the list is
+    // empty: no thread read carries the section any more.
+    await waitFor(() => expect(listedIds()).toEqual([]));
+    expect(chipNames()).toEqual(["Context (0)", "Decision (1)"]);
+    expect(screen.getByText("No discussion on this section yet.")).toBeInTheDocument();
+    expect(screen.queryByText("No thread matches this filter.")).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Clear" })).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "Clear" }));
+    expect(listedIds()).toEqual(["a"]);
+    expect(screen.queryByText("No discussion on this section yet.")).toBeNull();
+  });
+
+  /** The panel and two buttons doing what a section marker does to the shared view. */
+  function WiredWithMarker() {
+    const owner: DocumentOwner = { kind: "adr", id: "a2" };
+    const view = useDiscussionView(owner, {});
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => {
+            view.setFilter(["decision"]);
+            view.requestComposeSection("decision");
+          }}
+        >
+          marker decision
+        </button>
+        <button type="button" onClick={() => view.setFilter(["decision", "consequences"])}>
+          two sections
+        </button>
+        <DiscussionPanel owner={owner} sections={SECTIONS} view={view} />
+      </>
+    );
+  }
+
+  it("filters on a section with no thread yet: its chip pressed at 0, says so, and the composer has it chosen", async () => {
+    serve({ can, open_count: 1, threads: [thread({ id: "c", section: "context" })] });
+    const { user } = renderWithProviders(<WiredWithMarker />);
+    await screen.findByTestId("thread-c");
+    await user.click(screen.getByRole("button", { name: "marker decision" }));
+    expect(chipNames()).toEqual(["Context (1)", "Decision (0)"]);
+    expect(filterRow().getByRole("button", { name: "Decision (0)" })).toHaveAttribute("aria-pressed", "true");
+    expect(filterRow().getByRole("button", { name: "Context (1)" })).toHaveAttribute("aria-pressed", "false");
+    expect(listedIds()).toEqual([]);
+    expect(screen.getByText("No discussion on this section yet.")).toBeInTheDocument();
+    expect(screen.queryByText("No thread matches this filter.")).toBeNull();
+    expect(screen.queryByText("No discussion yet.")).toBeNull();
+    const composer = within(screen.getByRole("group", { name: "Section" }));
+    expect(composer.getByRole("button", { name: "Decision" })).toHaveAttribute("aria-pressed", "true");
+    expect(editorProps.last?.focusRequest).toBe(1);
+
+    await user.click(screen.getByRole("button", { name: "Clear" }));
+    expect(chipNames()).toEqual(["Context (1)"]);
+    expect(listedIds()).toEqual(["c"]);
+    expect(screen.queryByText("No discussion on this section yet.")).toBeNull();
+    // The composer keeps the section chosen for the thread being written.
+    expect(composer.getByRole("button", { name: "Decision" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("says nothing matches when several sections are on and none has a thread", async () => {
+    serve({ can, open_count: 1, threads: [thread({ id: "c", section: "context" })] });
+    const { user } = renderWithProviders(<WiredWithMarker />);
+    await screen.findByTestId("thread-c");
+    await user.click(screen.getByRole("button", { name: "two sections" }));
+    expect(chipNames()).toEqual(["Context (1)", "Decision (0)", "Consequences (0)"]);
+    expect(screen.getByText("No thread matches this filter.")).toBeInTheDocument();
+    expect(screen.queryByText("No discussion on this section yet.")).toBeNull();
+  });
+
+  it("says a section has no discussion yet on a document with no thread at all, once", async () => {
+    serve({ can, open_count: 0, threads: [] });
+    const { user } = renderWithProviders(<WiredWithMarker />);
+    expect(await screen.findByText("No discussion yet.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "marker decision" }));
+    expect(chipNames()).toEqual(["Decision (0)"]);
+    expect(screen.getByText("No discussion on this section yet.")).toBeInTheDocument();
+    expect(screen.queryByText("No discussion yet.")).toBeNull();
+  });
+
+  it("keeps a resolved match behind the fold rather than saying nothing matches", async () => {
+    serve({
+      can,
+      open_count: 1,
+      threads: [thread({ id: "a", section: "decision" }), thread({ id: "r", section: "context", resolved_at: "x" })],
+    });
+    const { user } = renderPanel();
+    await screen.findByTestId("thread-a");
+    await user.click(screen.getByRole("button", { name: "Show 1 resolved thread" }));
+    await user.click(filterRow().getByRole("button", { name: "Context (1)" }));
+    await user.click(screen.getByRole("button", { name: "Hide resolved threads" }));
+    expect(listedIds()).toEqual([]);
+    expect(screen.getByRole("button", { name: "Show 1 resolved thread" })).toBeInTheDocument();
+    expect(screen.queryByText("No thread matches this filter.")).toBeNull();
+    expect(chipNames()).toEqual(["Context (0)", "Decision (1)", "Clear"]);
+  });
+
+  it("keeps a notification's thread through the filter, and starts with no filter when one is opened", async () => {
+    serve({ can, open_count: 4, threads: MIXED });
+    const { change } = renderHarness({});
+    await screen.findByTestId("thread-a");
+    fireEvent.click(filterRow().getByRole("button", { name: "Context (1)" }));
+    expect(listedIds()).toEqual(["c"]);
+    change({ focusThreadId: "b" });
+    expect(listedIds()).toEqual(["a", "b", "c", "d"]);
+    fireEvent.click(filterRow().getByRole("button", { name: "Context (1)" }));
+    expect(listedIds()).toEqual(["b", "c"]);
+  });
+
+  it("filters the earlier revisions' groups and leaves out a group with nothing left", async () => {
+    const chain = {
+      can,
+      open_count: 1,
+      threads: [
+        thread({ id: "a", section: "decision" }),
+        thread({ id: "e1", section: "context", revision_id: "a1", revision_number: 1 }),
+        thread({ id: "e0", section: "decision", revision_id: "a0", revision_number: 0 }),
+      ],
+    };
+    serve({ can, open_count: 1, threads: [thread({ id: "a", section: "decision" })] }, chain);
+    const { user } = renderPanel();
+    await screen.findByTestId("thread-a");
+    await user.click(screen.getByRole("checkbox", { name: "Show discussion on earlier revisions" }));
+    await screen.findByTestId("thread-e1");
+    expect(chipNames()).toEqual(["Context (1)", "Decision (2)"]);
+    expect(screen.getByText("Rev 1")).toBeInTheDocument();
+
+    await user.click(filterRow().getByRole("button", { name: "Decision (2)" }));
+    expect(listedIds()).toEqual(["a", "e0"]);
+    expect(screen.queryByText("Rev 1")).toBeNull();
+  });
+
+  it("offers a long list's used sections as composer chips", async () => {
+    const long = sectionOptions("soaw", tId, [
+      { key: "1.1", label: "Scope" },
+      { key: "1.2", label: "Vision" },
+      { key: "2.1", label: "Objectives" },
+      { key: "2.2", label: "Constraints" },
+      { key: "3.1", label: "Process" },
+      { key: "4.1", label: "Baseline" },
+      { key: "4.2", label: "Target" },
+    ]);
+    serve({ can, open_count: 1, threads: [thread({ id: "a", section: "2.1" })] });
+    renderPanel({ sections: long });
+    await screen.findByTestId("thread-a");
+    const composer = within(screen.getByRole("group", { name: "Section" }));
+    expect(composer.getAllByRole("button").map((b) => b.querySelector(".MuiChip-label")?.textContent)).toEqual([
+      "Objectives",
+      "More…",
+    ]);
   });
 });

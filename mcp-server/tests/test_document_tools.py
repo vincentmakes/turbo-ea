@@ -814,6 +814,21 @@ class TestDocumentHelperAnswers:
             ),
         }
 
+    def test_a_reply_to_a_closed_thread(self):
+        exc = _http_error(409, "This thread's first comment was deleted")
+        assert server._comment_refusal(exc, "adr") == {
+            "error": "thread_closed",
+            "detail": "This thread's first comment was deleted",
+            "message": (
+                "This thread's first comment was deleted: the thread is closed and takes "
+                "no reply. Start a new thread instead."
+            ),
+        }
+
+    def test_another_conflict_is_not_answered(self):
+        exc = _http_error(409, "Something else")
+        assert server._comment_refusal(exc, "adr") is None
+
     def test_leading_spaces_and_x_of_a_block_are_kept(self):
         assert server._plain_comment_html("  a\nb  ") == "<p>  a<br>b  </p>"
         assert server._plain_comment_html("XML\nnoteX") == "<p>XML<br>noteX</p>"
@@ -913,6 +928,33 @@ class TestCommentPreview:
         assert server._comment_preview(discussion, "adr", "") == (
             None,
             {"comment": True, "moderate": True},
+        )
+
+    def test_a_reply_to_a_closed_thread(self):
+        discussion = {
+            "can": {"comment": True},
+            "threads": [{"id": THREAD_ID, "deleted": True}],
+        }
+        assert server._comment_preview(discussion, "adr", THREAD_ID) == (
+            {
+                "error": "thread_closed",
+                "parent_id": THREAD_ID,
+                "message": (
+                    "This thread's first comment was deleted: the thread is closed and "
+                    "takes no reply. Start a new thread instead."
+                ),
+            },
+            {"comment": True, "moderate": False},
+        )
+
+    def test_a_reply_to_a_live_thread(self):
+        discussion = {
+            "can": {"comment": True},
+            "threads": [{"id": THREAD_ID, "deleted": False}],
+        }
+        assert server._comment_preview(discussion, "adr", THREAD_ID) == (
+            None,
+            {"comment": True, "moderate": False},
         )
 
     def test_a_reply_to_no_thread_here(self):
