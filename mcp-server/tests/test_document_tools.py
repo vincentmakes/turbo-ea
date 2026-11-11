@@ -767,3 +767,165 @@ class TestDocstrings:
         assert "open_thread_count" in server.get_adr.__doc__
         assert "404" in server.update_adr.__doc__
         assert "get_document_discussion" in server.list_soaws.__doc__
+
+
+# ── the helpers' exact answers ──────────────────────────────────────────────
+
+
+class TestDocumentHelperAnswers:
+    def test_an_unknown_document_type(self):
+        assert server._document_problem("risk", DOC_ID) == {
+            "error": "unknown_document_type",
+            "document_type": "risk",
+            "allowed": ["adr", "soaw"],
+            "message": (
+                'document_type is "adr" (an architecture decision) or "soaw" '
+                "(a Statement of Architecture Work)."
+            ),
+        }
+
+    def test_a_forbidden_read(self):
+        exc = _http_error(403, "Insufficient permissions")
+        assert server._document_read_refusal(exc, "soaw") == {
+            "error": "forbidden",
+            "detail": "Insufficient permissions",
+            "message": "Reading a Statement of Architecture Work needs the soaw.view permission.",
+        }
+
+    def test_a_refused_comment_on_a_soaw(self):
+        exc = _http_error(403, "You may not comment on this document")
+        assert server._comment_refusal(exc, "soaw") == {
+            "error": "cannot_comment",
+            "detail": "You may not comment on this document",
+            "message": (
+                "You may not comment on this Statement of Architecture Work: it takes the "
+                "soaw.comment permission or being a signatory of this revision."
+            ),
+        }
+
+    def test_a_refused_mention(self):
+        exc = _http_error(404, "User not found")
+        assert server._comment_refusal(exc, "adr") == {
+            "error": "mention_refused",
+            "detail": "User not found",
+            "message": (
+                "The comment mentions something you cannot read or that does not exist, "
+                "so it was not posted."
+            ),
+        }
+
+    def test_leading_spaces_and_x_of_a_block_are_kept(self):
+        assert server._plain_comment_html("  a\nb  ") == "<p>  a<br>b  </p>"
+        assert server._plain_comment_html("XML\nnoteX") == "<p>XML<br>noteX</p>"
+
+
+class TestCommentProblem:
+    def test_a_document_problem_comes_without_a_body(self):
+        problem, html = server._comment_problem("risk", DOC_ID, "hi", "", "")
+        assert problem is not None and problem["error"] == "unknown_document_type"
+        assert html == ""
+
+    def test_an_empty_body(self):
+        assert server._comment_problem("adr", DOC_ID, " \n ", "", "") == (
+            {"error": "empty_body", "message": "A comment needs some text."},
+            "",
+        )
+
+    def test_a_body_that_is_not_text_is_empty(self):
+        assert server._comment_problem("adr", DOC_ID, None, "", "") == (
+            {"error": "empty_body", "message": "A comment needs some text."},
+            "",
+        )
+
+    def test_a_body_too_long(self):
+        problem, html = server._comment_problem("adr", DOC_ID, "<" * 5000, "", "")
+        assert problem["message"] == (
+            "The comment is 20007 characters once converted to HTML; "
+            "the limit is 20000. Shorten it or split it into replies."
+        )
+        assert html == ""
+
+    def test_a_malformed_parent(self):
+        assert server._comment_problem("adr", DOC_ID, "hi", "", "nope") == (
+            {
+                "error": "invalid_parent_id",
+                "parent_id": "nope",
+                "message": "parent_id must be the UUID of a thread (see get_document_discussion).",
+            },
+            "",
+        )
+
+    def test_a_section_on_a_reply(self):
+        assert server._comment_problem("adr", DOC_ID, "hi", "context", THREAD_ID) == (
+            {
+                "error": "section_on_reply",
+                "message": "A reply takes its thread's section: leave section empty.",
+            },
+            "",
+        )
+
+    def test_an_unknown_decision_section(self):
+        assert server._comment_problem("adr", DOC_ID, "hi", "risks", "") == (
+            {
+                "error": "unknown_section",
+                "section": "risks",
+                "allowed": [
+                    "general",
+                    "context",
+                    "decision",
+                    "consequences",
+                    "alternatives_considered",
+                ],
+                "message": (
+                    "A decision's thread is tagged to one of: general, context, decision, "
+                    "consequences, alternatives_considered."
+                ),
+            },
+            "",
+        )
+
+    def test_an_unknown_soaw_section(self):
+        assert server._comment_problem("soaw", DOC_ID, "hi", "Intro", "") == (
+            {
+                "error": "unknown_section",
+                "section": "Intro",
+                "message": (
+                    "A SoAW's thread is tagged to a section key such as 1.1 or "
+                    "custom_3 (lower-case letters, digits, '_' and '.', at most 64), "
+                    "or general."
+                ),
+            },
+            "",
+        )
+
+    def test_a_valid_comment_comes_with_its_body(self):
+        assert server._comment_problem("soaw", DOC_ID, "hi", "1.1", "") == (None, "<p>hi</p>")
+
+
+class TestCommentPreview:
+    def test_a_discussion_that_is_not_an_object_grants_nothing(self):
+        refusal, rights = server._comment_preview(None, "adr", "")
+        assert refusal["error"] == "cannot_comment"
+        assert rights == {"comment": False, "moderate": False}
+
+    def test_the_moderate_right_is_read(self):
+        discussion = {"can": {"comment": True, "moderate": True}, "threads": []}
+        assert server._comment_preview(discussion, "adr", "") == (
+            None,
+            {"comment": True, "moderate": True},
+        )
+
+    def test_a_reply_to_no_thread_here(self):
+        discussion = {"can": {"comment": True}, "threads": [{"id": THREAD_ID}]}
+        assert server._comment_preview(discussion, "adr", REPLY_ID) == (
+            {
+                "error": "invalid_parent",
+                "parent_id": REPLY_ID,
+                "message": (
+                    "A reply must answer a thread of this document: parent_id is not "
+                    "a top-level thread of this revision (a reply cannot be answered; "
+                    "a thread of an earlier revision is answered on that revision's id)."
+                ),
+            },
+            {"comment": True, "moderate": False},
+        )
