@@ -925,7 +925,7 @@ class ExtensionData:
 
     async def archive_card(self, card_id: str, *, cascade_children: bool = False) -> None:
         """Archive (soft-delete) a card — the bridge's only removal; there is
-        no hard delete. A card with children requires ``cascade_children=True``
+        no hard delete. A card with active children requires ``cascade_children=True``
         (peer relations are never cascaded from the bridge)."""
         cid = _parse_uuid(card_id, "card id")
 
@@ -936,9 +936,10 @@ class ExtensionData:
             if card.status == "ARCHIVED":
                 raise ExtensionDataError(f"Card {card_id} is already archived")
             direct_children = await card_lifecycle.direct_children(db, card.id)
-            if direct_children and not cascade_children:
+            active_children = card_lifecycle.active_children(direct_children)
+            if active_children and not cascade_children:
                 raise ExtensionDataError(
-                    f"Card {card_id} has {len(direct_children)} child card(s); "
+                    f"Card {card_id} has {len(active_children)} child card(s); "
                     "pass cascade_children=True to archive the subtree"
                 )
             strategy: card_lifecycle.ChildStrategy | None = (

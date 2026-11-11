@@ -97,6 +97,17 @@ async def direct_children(db: AsyncSession, parent_id: uuid.UUID) -> list[Card]:
     return list(res.scalars().all())
 
 
+def active_children(children: list[Card]) -> list[Card]:
+    """The children a caller must decide about before archiving or deleting the parent.
+
+    Only an ACTIVE child raises the question "archive it too, detach it, or move
+    it up?". An archived child is already out of the landscape, and the dialog
+    never lists it, so demanding a strategy for it left the user with a refusal
+    and nothing to pick (#1382).
+    """
+    return [c for c in children if c.status == "ACTIVE"]
+
+
 async def apply_child_strategy(
     db: AsyncSession,
     primary: Card,

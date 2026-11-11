@@ -26694,7 +26694,7 @@
     },
     "/api/v1/cards/{card_id}": {
       "delete": {
-        "description": "Permanently delete a card plus optional descendants and related peer cards.\n\nMirrors `archive_card`'s body shape and rules. The primary is always deleted;\ndescendants are deleted leaves-first to satisfy the self-FK on `parent_id`.\nRelated cards are processed single-hop only.\n\nReturns 409 if the primary has direct children and `child_strategy` is None.",
+        "description": "Permanently delete a card plus optional descendants and related peer cards.\n\nMirrors `archive_card`'s body shape and rules. The primary is always deleted;\ndescendants are deleted leaves-first to satisfy the self-FK on `parent_id`.\nRelated cards are processed single-hop only.\n\nReturns 409 if the primary has active direct children and `child_strategy` is\nNone. Archived children need no decision: they are detached, not deleted.",
         "operationId": "delete_card_api_v1_cards__card_id__delete",
         "parameters": [
           {
@@ -26886,7 +26886,7 @@
     },
     "/api/v1/cards/{card_id}/archive": {
       "post": {
-        "description": "Archive a card (soft delete) plus optional descendants and related peer cards.\n\nBody shape:\n  - `child_strategy`: `cascade` | `disconnect` | `reparent` (required if the\n    primary card has direct children \u2014 otherwise 409).\n  - `related_card_ids`: peer cards (capped at 200) to also archive in the\n    same operation. Single-hop only \u2014 the related cards' own peer relations\n    are NOT recursed.\n  - `cascade_all_related`: bulk-mode shortcut that resolves all direct\n    relations of the primary on the server side.\n\nPermission check runs against every affected card; first denial aborts.",
+        "description": "Archive a card (soft delete) plus optional descendants and related peer cards.\n\nBody shape:\n  - `child_strategy`: `cascade` | `disconnect` | `reparent` (required if the\n    primary card has active direct children \u2014 otherwise 409). Archived\n    children need no decision and are left as they are.\n  - `related_card_ids`: peer cards (capped at 200) to also archive in the\n    same operation. Single-hop only \u2014 the related cards' own peer relations\n    are NOT recursed.\n  - `cascade_all_related`: bulk-mode shortcut that resolves all direct\n    relations of the primary on the server side.\n\nPermission check runs against every affected card; first denial aborts.",
         "operationId": "archive_card_api_v1_cards__card_id__archive_post",
         "parameters": [
           {

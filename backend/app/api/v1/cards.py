@@ -2112,7 +2112,9 @@ async def bulk_archive_cards(
     # single-card endpoint, just told once instead of N times.
     if body.child_strategy is None:
         for p in primaries:
-            children = await card_lifecycle.direct_children(db, p.id)
+            children = card_lifecycle.active_children(
+                await card_lifecycle.direct_children(db, p.id)
+            )
             if children:
                 raise HTTPException(
                     status_code=409,
@@ -2274,7 +2276,9 @@ async def bulk_delete_cards(
 
     if body.child_strategy is None:
         for p in primaries:
-            children = await card_lifecycle.direct_children(db, p.id)
+            children = card_lifecycle.active_children(
+                await card_lifecycle.direct_children(db, p.id)
+            )
             if children:
                 raise HTTPException(
                     status_code=409,
@@ -2312,11 +2316,17 @@ async def bulk_delete_cards(
         db, user, full_affected, app_perm="inventory.delete", card_perm="card.delete"
     )
 
+    # No strategy means every remaining child is archived (an active one was
+    # refused above): detach those so the self-FK lets the primary go, rather
+    # than deleting cards nobody was asked about.
+    detach_strategy: card_lifecycle.ChildStrategy | None = (
+        "disconnect" if body.child_strategy is None else body.child_strategy
+    )
     child_results: list[card_lifecycle.ChildStrategyResult] = []
-    if body.child_strategy in ("disconnect", "reparent"):
+    if detach_strategy in ("disconnect", "reparent"):
         for p in primaries:
             child_results.append(
-                await card_lifecycle.apply_child_strategy(db, p, body.child_strategy, user.id)
+                await card_lifecycle.apply_child_strategy(db, p, detach_strategy, user.id)
             )
     for rid in related_set:
         rel_res = await db.execute(select(Card).where(Card.id == rid))
@@ -2734,7 +2744,8 @@ async def archive_card(
 
     Body shape:
       - `child_strategy`: `cascade` | `disconnect` | `reparent` (required if the
-        primary card has direct children — otherwise 409).
+        primary card has active direct children — otherwise 409). Archived
+        children need no decision and are left as they are.
       - `related_card_ids`: peer cards (capped at 200) to also archive in the
         same operation. Single-hop only — the related cards' own peer relations
         are NOT recursed.
@@ -2756,12 +2767,13 @@ async def archive_card(
         raise HTTPException(400, "Card is already archived")
 
     direct_children = await card_lifecycle.direct_children(db, primary.id)
-    if direct_children and body.child_strategy is None:
+    active_children = card_lifecycle.active_children(direct_children)
+    if active_children and body.child_strategy is None:
         raise HTTPException(
             status_code=409,
             detail={
                 "error": "children_present",
-                "child_count": len(direct_children),
+                "child_count": len(active_children),
             },
         )
 
@@ -2946,7 +2958,8 @@ async def delete_card(
     descendants are deleted leaves-first to satisfy the self-FK on `parent_id`.
     Related cards are processed single-hop only.
 
-    Returns 409 if the primary has direct children and `child_strategy` is None.
+    Returns 409 if the primary has active direct children and `child_strategy` is
+    None. Archived children need no decision: they are detached, not deleted.
     """
     card_uuid = uuid.UUID(card_id)
     if not await PermissionService.check_permission(
@@ -2961,12 +2974,13 @@ async def delete_card(
         raise HTTPException(404, "Card not found")
 
     direct_children = await card_lifecycle.direct_children(db, primary.id)
-    if direct_children and body.child_strategy is None:
+    active_children = card_lifecycle.active_children(direct_children)
+    if active_children and body.child_strategy is None:
         raise HTTPException(
             status_code=409,
             detail={
                 "error": "children_present",
-                "child_count": len(direct_children),
+                "child_count": len(active_children),
             },
         )
 
@@ -2983,10 +2997,17 @@ async def delete_card(
     )
 
     # For disconnect/reparent, mutate the primary's children before deletion.
+    # With no strategy the only children left are archived ones (an active child
+    # was refused above). Nobody is asked about those, but the self-FK on
+    # `parent_id` still has to let go of the primary, so they are detached —
+    # never deleted on the quiet.
+    detach_strategy: card_lifecycle.ChildStrategy | None = (
+        "disconnect" if body.child_strategy is None else body.child_strategy
+    )
     child_results: list[card_lifecycle.ChildStrategyResult] = []
-    if direct_children and body.child_strategy in ("disconnect", "reparent"):
+    if direct_children and detach_strategy in ("disconnect", "reparent"):
         child_results.append(
-            await card_lifecycle.apply_child_strategy(db, primary, body.child_strategy, user.id)
+            await card_lifecycle.apply_child_strategy(db, primary, detach_strategy, user.id)
         )
     # Single-hop: any ticked related card's children get disconnected before
     # the related card is deleted, so the FK on `cards.parent_id` doesn't trip.

@@ -103,6 +103,10 @@ export default function ArchiveDeleteDialog(props: Props) {
   const [typedName, setTypedName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  // The server refused for want of a child strategy although the impact
+  // listed no children — ones the caller cannot see, or one added since the
+  // dialog opened. Show the choice the refusal asks for (#1382).
+  const [strategyRequired, setStrategyRequired] = useState(false);
 
   // Reset on open/close.
   useEffect(() => {
@@ -114,6 +118,7 @@ export default function ArchiveDeleteDialog(props: Props) {
       setCascadeAllRelated(false);
       setTypedName("");
       setSubmitError("");
+      setStrategyRequired(false);
       return;
     }
     if (scope === "single") {
@@ -140,7 +145,7 @@ export default function ArchiveDeleteDialog(props: Props) {
   );
 
   const showChildrenSection =
-    scope === "bulk" || (impact && impact.child_count > 0);
+    scope === "bulk" || strategyRequired || (impact && impact.child_count > 0);
   const showRelatedSection =
     scope === "single" && impact && impact.related_cards.length > 0;
   const hasGrandparent =
@@ -226,6 +231,7 @@ export default function ArchiveDeleteDialog(props: Props) {
       }
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
+        setStrategyRequired(true);
         setSubmitError(t("cards:detail.dialogs.children.serverError409"));
       } else {
         setSubmitError(e instanceof Error ? e.message : String(e));

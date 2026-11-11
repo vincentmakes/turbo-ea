@@ -265,6 +265,29 @@ class TestArchive:
         await db.refresh(parent)
         assert parent.status == "ARCHIVED"
 
+    async def test_archived_children_do_not_gate_the_archive(self, db, env):
+        """#1382: only an active child needs ``cascade_children``."""
+        load_registry(grants=["core.cards.write"])
+        parent = await create_card(db, card_type="Application", name="Parent")
+        child = await create_card(
+            db, card_type="Application", name="Child", parent_id=parent.id, status="ARCHIVED"
+        )
+        await ExtensionData(KEY).archive_card(str(parent.id))
+        await db.refresh(parent)
+        await db.refresh(child)
+        assert parent.status == "ARCHIVED"
+        assert child.parent_id == parent.id
+
+    async def test_the_refusal_counts_active_children_only(self, db, env):
+        load_registry(grants=["core.cards.write"])
+        parent = await create_card(db, card_type="Application", name="Parent")
+        await create_card(
+            db, card_type="Application", name="Gone", parent_id=parent.id, status="ARCHIVED"
+        )
+        await create_card(db, card_type="Application", name="Live", parent_id=parent.id)
+        with pytest.raises(ExtensionDataError, match=r"has 1 child card\(s\)"):
+            await ExtensionData(KEY).archive_card(str(parent.id))
+
     async def test_no_hard_delete_surface(self, db, env):
         bridge = ExtensionData(KEY)
         assert not hasattr(bridge, "delete_card")

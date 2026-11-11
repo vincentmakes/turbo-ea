@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.200.1] - 2026-11-11
+
+### Fixed
+- A card whose children are all archived can be archived or deleted again: the dialog no longer asks for a child strategy it does not offer. Archived children stay under an archived parent, so restoring both brings the hierarchy back, and are detached — never deleted — when the parent is deleted ([#1382](https://github.com/vincentmakes/turbo-ea/issues/1382)).
+- When a card has children the dialog cannot list, such as cards of a type you may not view, the archive and delete dialog now shows the child strategy choices instead of only an error.
+
 ## [2.200.0] - 2026-11-10
 
 ### Added
