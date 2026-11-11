@@ -679,6 +679,44 @@ describe("UsersAdmin — create user", () => {
     expect(mockApi.callsOf("get", "/users/invitations")).toHaveLength(2);
   });
 
+  async function createWithUntouchedRole(roles: AppRole[]) {
+    mockApi.on("get", "/roles", roles);
+    mockApi.on("post", "/users", (_p, body) => ({
+      id: "00000000-0000-4000-8000-00000000a997",
+      ...(body as object),
+      is_active: true,
+    }));
+    const { user } = renderPage();
+    await loaded();
+    const dialog = await openCreate(user);
+    const shown = within(dialog).getByRole("combobox").textContent;
+
+    await user.type(within(dialog).getByLabelText(/Display Name/), "Default Person");
+    await user.type(within(dialog).getByLabelText(/^Email/), "default@test.local");
+    await user.click(within(dialog).getByRole("button", { name: named(t("admin:users.createUser")) }));
+    await waitFor(() => expect(mockApi.callsOf("post", "/users")).toHaveLength(1));
+    return { shown, body: mockApi.callsOf("post", "/users")[0].body as { role: string } };
+  }
+
+  it("pre-selects the role flagged as default and posts it (#1388)", async () => {
+    const { shown, body } = await createWithUntouchedRole([
+      role({ key: "admin", label: "Admin", is_system: true }),
+      role({ key: "member", label: "Member" }),
+      role({ key: "viewer", label: "Viewer", is_default: true }),
+    ]);
+    expect(shown).toBe("Viewer");
+    expect(body.role).toBe("viewer");
+  });
+
+  it("pre-selects member when no role is flagged as default", async () => {
+    const { shown, body } = await createWithUntouchedRole([
+      role({ key: "member", label: "Member" }),
+      role({ key: "viewer", label: "Viewer" }),
+    ]);
+    expect(shown).toBe("Member");
+    expect(body.role).toBe("member");
+  });
+
   it("sends a null password and no email when the boxes are left blank / unticked", async () => {
     mockApi.on("post", "/users", (_p, body) => ({
       id: "00000000-0000-4000-8000-00000000a998",

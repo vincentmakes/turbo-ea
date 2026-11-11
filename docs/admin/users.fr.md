@@ -38,7 +38,7 @@ L'état des filtres, les colonnes visibles, la largeur de la barre latérale et 
    - **Nom d'affichage** (obligatoire) : Le nom complet de l'utilisateur
    - **E-mail** (obligatoire) : L'adresse e-mail qu'il utilisera pour se connecter
    - **Mot de passe** (optionnel) : Laissez vide pour que l'utilisateur choisisse son propre mot de passe à la première connexion. Si le SSO est activé, un utilisateur sans mot de passe peut se connecter via son fournisseur SSO à la place
-   - **Rôle** : Sélectionnez le rôle à attribuer (Admin, Membre, Lecteur, ou tout rôle personnalisé)
+   - **Rôle** : Sélectionnez le rôle à attribuer (Admin, Membre, Lecteur, ou tout rôle personnalisé). Le rôle marqué **Par défaut** dans l'onglet **Rôles** est présélectionné.
    - **Envoyer un e-mail d'invitation** : Cochez cette case pour envoyer une notification par e-mail à l'utilisateur avec les instructions de connexion
 3. Cliquez sur **Créer un utilisateur** pour créer le compte.
 
@@ -121,6 +121,8 @@ L'onglet **Rôles** permet de gérer les rôles au niveau de l'application. Chaq
 | **Lecteur** | Accès en lecture seule dans tous les domaines |
 
 Des rôles personnalisés peuvent être créés avec un contrôle granulaire des permissions sur l'inventaire, les relations, les parties prenantes, les commentaires, les documents, les diagrammes, le BPM, les rapports, et plus encore.
+
+Un rôle peut être marqué comme rôle **par défaut**. Tout nouveau compte démarre avec lui : les utilisateurs qui s'inscrivent ou se connectent pour la première fois via SSO, ceux invités depuis l'onglet **Parties prenantes** d'une fiche, et le rôle présélectionné dans la boîte de dialogue **Créer un utilisateur**. Un rôle disposant de tous les droits d'administration ne peut pas être le rôle par défaut.
 
 **Commenter les décisions d'architecture** (`adr.comment`) et **Commenter les documents SoAW** (`soaw.comment`) permettent à un rôle de publier, répondre, résoudre et rouvrir des fils dans la discussion d'une décision ou d'un Statement of Architecture Work. Les deux sont activées pour les rôles Admin, BPM Admin et Membre, et désactivées pour Lecteur ; lors d'une mise à niveau, chaque rôle existant qui pouvait déjà modifier ou signer ces documents les a reçues. Les signataires d'un document peuvent toujours le commenter, quel que soit leur rôle. Voir [Discussion](../guide/grc.md#decision-discussion).
 

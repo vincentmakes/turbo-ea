@@ -62,6 +62,7 @@ import {
   excludeSelfFromBulkDeactivate,
 } from "./users/userSelfGuards";
 import { isLocked } from "./users/userLockout";
+import { defaultRoleKey } from "./users/defaultRole";
 import { WARNING_STRONG_COLOR } from "@/theme/tokens";
 
 interface CreateUserFormState {
@@ -441,7 +442,8 @@ export default function UsersAdmin() {
 
   // --- Create-user dialog ---
   const openCreateUser = () => {
-    setCreateUserForm(EMPTY_CREATE_USER);
+    // Start on the role the admin flagged as default, not a fixed one (#1388).
+    setCreateUserForm({ ...EMPTY_CREATE_USER, role: defaultRoleKey(roles) });
     setCreateUserError(null);
     setCreateUserOpen(true);
   };

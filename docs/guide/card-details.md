@@ -213,9 +213,9 @@ Where a role has a **description**, an info icon appears beside its name: hover 
 
 Pick a stakeholder via the **searchable autocomplete** — start typing and the dropdown filters on both name and email (email appears as the secondary line so two users with the same name can be told apart at a glance).
 
-If the email you type doesn't match an existing user, an **"Invite «email» as a new user"** option appears at the end of the dropdown. Selecting it expands an inline mini-form right inside the picker — pick a role (Member or Viewer by default), optionally edit the display name, and submit. The new user is invited via the standard invitation email **and** assigned the chosen stakeholder role on the card in a single action, so you never have to leave the card to onboard a contributor.
+If the email you type doesn't match an existing user, an **"Invite «email» as a new user"** option appears at the end of the dropdown. Selecting it expands an inline mini-form right inside the picker — optionally edit the display name, and submit. The new user receives the **default role** set in [Users & Roles](../admin/users.md#roles). The new user is invited via the standard invitation email **and** assigned the chosen stakeholder role on the card in a single action, so you never have to leave the card to onboard a contributor.
 
-The invite path requires the **`users.invite`** permission, a delegated form of `admin.users` that admins can grant to trusted members. A privilege-escalation guard prevents non-admins from inviting users into admin roles — the role dropdown silently filters to roles the inviter is allowed to delegate.
+The invite path requires the **`users.invite`** permission, a delegated form of `admin.users` that admins can grant to trusted members. A privilege-escalation guard prevents non-admins from inviting users into any other role: without `admin.users`, an invited user can only receive the default role, Member or Viewer.
 
 ## History Tab
 

@@ -38,7 +38,7 @@ O estado do filtro, colunas visíveis, largura da barra lateral e seu estado rec
    - **Nome de Exibição** (obrigatório): O nome completo do usuário
    - **E-mail** (obrigatório): O endereço de e-mail que eles usarão para fazer login
    - **Senha** (opcional): Deixe em branco para que o usuário escolha a própria senha no primeiro login. Se o SSO estiver habilitado, um usuário sem senha pode entrar pelo provedor SSO
-   - **Papel**: Selecione o papel a atribuir (Admin, Membro, Visualizador ou qualquer papel personalizado)
+   - **Papel**: Selecione o papel a atribuir (Admin, Membro, Visualizador ou qualquer papel personalizado). O papel marcado como **Padrão** na aba **Papéis** vem pré-selecionado.
    - **Enviar e-mail de convite**: Marque para enviar uma notificação por e-mail ao usuário com instruções de login
 3. Clique em **Criar usuário** para criar a conta.
 
@@ -121,6 +121,8 @@ A aba de **Papéis** permite gerenciar papéis em nível de aplicação. Cada pa
 | **Visualizador** | Acesso somente leitura em todas as áreas |
 
 Papéis personalizados podem ser criados com controle granular de permissões sobre inventário, relacionamentos, partes interessadas, comentários, documentos, diagramas, BPM, relatórios e mais.
+
+Um papel pode ser marcado como papel **padrão**. Toda conta nova começa com ele: usuários que se registram ou entram pela primeira vez via SSO, usuários convidados a partir da aba **Partes interessadas** de um card e o papel pré-selecionado no diálogo **Criar usuário**. Um papel com acesso administrativo total não pode ser o padrão.
 
 **Comentar decisões de arquitetura** (`adr.comment`) e **Comentar documentos SoAW** (`soaw.comment`) permitem a um papel publicar, responder, resolver e reabrir tópicos na discussão de uma decisão ou de um Statement of Architecture Work. Ambas estão ativadas para os papéis Admin, BPM Admin e Membro e desativadas para Visualizador; numa instalação atualizada, todos os papéis existentes que já podiam editar ou assinar esses documentos receberam-nas. Os signatários de um documento podem sempre comentá-lo, seja qual for o seu papel. Ver [Discussão](../guide/grc.md#decision-discussion).
 

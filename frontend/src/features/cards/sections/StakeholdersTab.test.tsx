@@ -246,7 +246,6 @@ describe("StakeholdersTab", () => {
       expect(api.post).toHaveBeenCalledWith("/users", {
         email: "newhire@nexatech.com",
         display_name: "New Hire",
-        role: "member",
         send_email: false,
       });
     });

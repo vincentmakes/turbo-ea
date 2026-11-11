@@ -38,7 +38,7 @@ Filter state, visible columns, the sidebar width and its collapsed state are per
    - **Display Name** (required): The user's full name
    - **Email** (required): The email address they will use to log in
    - **Password** (optional): Leave it blank to let the user choose their own password on first login. If SSO is enabled, a password-less user can sign in via their SSO provider instead
-   - **Role**: Select the role to assign (Admin, Member, Viewer, or any custom role)
+   - **Role**: Select the role to assign (Admin, Member, Viewer, or any custom role). The role marked as **Default** on the **Roles** tab is pre-selected
    - **Send invitation email**: Check this to email the user their set-password link. When left unchecked, no email is sent — the account is still created, and the user sets their password on first login via the **Forgot password** link on the login page
 3. Click **Create user** to create the account.
 
@@ -121,6 +121,8 @@ The **Roles** tab allows managing application-level roles. Each role defines a s
 | **Viewer** | Read-only access across all areas |
 
 Custom roles can be created with granular permission control over inventory, relations, stakeholders, comments, documents, diagrams, BPM, reports, and more.
+
+One role can be marked as the **Default** role. Every new account starts on it: users who register or first sign in through SSO, users invited from a card's **Stakeholders** tab, and the pre-selected role in the **Create user** dialog. A role with full administrative access cannot be the default.
 
 **Comment on architecture decisions** (`adr.comment`) and **Comment on SoAW documents** (`soaw.comment`) let a role post, reply, resolve and reopen threads in the discussion of a decision or a Statement of Architecture Work. Both are on for the Admin, BPM Admin and Member roles and off for Viewer; on an upgraded install, every existing role that could already edit or sign those documents received them. A document's signatories can always comment on it, whatever their role. See [Discussion](../guide/grc.md#decision-discussion).
 

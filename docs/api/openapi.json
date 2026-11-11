@@ -18656,9 +18656,15 @@
             "title": "Password"
           },
           "role": {
-            "default": "member",
-            "title": "Role",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
           },
           "send_email": {
             "default": false,

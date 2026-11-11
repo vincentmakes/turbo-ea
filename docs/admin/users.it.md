@@ -38,7 +38,7 @@ Lo stato dei filtri, le colonne visibili, la larghezza della barra laterale e il
    - **Nome visualizzato** (obbligatorio): Il nome completo dell'utente
    - **Email** (obbligatorio): L'indirizzo email che utilizzeranno per il login
    - **Password** (opzionale): Lasciala vuota per consentire all'utente di scegliere la propria password al primo accesso. Se SSO è abilitato, un utente senza password può accedere tramite il proprio provider SSO
-   - **Ruolo**: Selezionate il ruolo da assegnare (Admin, Member, Viewer o qualsiasi ruolo personalizzato)
+   - **Ruolo**: Selezionate il ruolo da assegnare (Admin, Member, Viewer o qualsiasi ruolo personalizzato). Il ruolo contrassegnato come **Predefinito** nella scheda **Ruoli** è preselezionato.
    - **Invia email di invito**: Spuntate per inviare una notifica email all'utente con le istruzioni per il login
 3. Cliccate su **Crea utente** per creare l'account.
 
@@ -121,6 +121,8 @@ La scheda **Ruoli** consente di gestire i ruoli a livello di applicazione. Ogni 
 | **Viewer** | Accesso di sola lettura in tutte le aree |
 
 I ruoli personalizzati possono essere creati con controllo granulare dei permessi su inventario, relazioni, stakeholder, commenti, documenti, diagrammi, BPM, report e altro.
+
+Un ruolo può essere contrassegnato come ruolo **predefinito**. Ogni nuovo account parte da esso: gli utenti che si registrano o accedono per la prima volta tramite SSO, gli utenti invitati dalla scheda **Stakeholder** di una card e il ruolo preselezionato nella finestra **Crea utente**. Un ruolo con accesso amministrativo completo non può essere quello predefinito.
 
 **Commentare le decisioni architetturali** (`adr.comment`) e **Commentare i documenti SoAW** (`soaw.comment`) consentono a un ruolo di avviare, rispondere, risolvere e riaprire thread nella discussione di una decisione o di uno Statement of Architecture Work. Entrambi sono attivi per i ruoli Admin, BPM Admin e Member e disattivati per Viewer; in un'installazione aggiornata, ogni ruolo esistente che poteva già modificare o firmare questi documenti li ha ricevuti. I firmatari di un documento possono sempre commentarlo, qualunque sia il loro ruolo. Vedere [Discussione](../guide/grc.md#decision-discussion).
 
