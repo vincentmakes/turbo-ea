@@ -17,7 +17,7 @@ import { invalidateDecisionOptions } from "@/components/DecisionPicker";
 import { invalidateUserOptions } from "@/components/UserMultiSelect";
 import type { MentionKind } from "@/lib/mentionHtml";
 import MentionPopup from "./MentionPopup";
-import { createMentionSuggestionStore, type MentionSuggestionStore } from "./mentionSuggestionStore";
+import { createMentionSuggestionStore, queryRanOn, type MentionSuggestionStore } from "./mentionSuggestionStore";
 
 const CARDS = [
   { id: "c1", name: "SAP ERP", type: "Application" },
@@ -216,5 +216,112 @@ describe("createMentionSuggestionStore", () => {
     unsubscribe();
     renderer.onStart({ query: "", command } as never);
     expect(listener).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("queryRanOn", () => {
+  it("ends a query at two spaces in a row", () => {
+    expect(queryRanOn("Customer Portal", 4, null)).toBe(false);
+    expect(queryRanOn("Customer  ", 4, null)).toBe(true);
+    expect(queryRanOn("a  b", 4, { from: 9, query: "zz" })).toBe(true);
+  });
+
+  it("ends a query typed on past one that found nothing at the same '@'", () => {
+    const none = { from: 4, query: "zz" };
+    expect(queryRanOn("zz", 4, none)).toBe(false);
+    expect(queryRanOn("z", 4, none)).toBe(false);
+    expect(queryRanOn("zz ", 4, none)).toBe(true);
+    expect(queryRanOn("zzq", 4, none)).toBe(true);
+    expect(queryRanOn("zzq", 5, none)).toBe(false);
+    expect(queryRanOn("zaq", 4, none)).toBe(false);
+  });
+});
+
+describe("createMentionSuggestionStore lifetime", () => {
+  const props = (query: string, from = 4) =>
+    ({ query, range: { from, to: from + query.length + 1 }, command: vi.fn() }) as never;
+
+  it("remembers a query that found nothing only while it is the open one", () => {
+    const store = createMentionSuggestionStore();
+    const renderer = store.render();
+    store.reportNoResults("zz");
+    expect(store.shouldShow({ range: { from: 4, to: 7 }, query: "zzz" })).toBe(true);
+
+    renderer.onStart(props("zz"));
+    store.reportNoResults("z");
+    expect(store.shouldShow({ range: { from: 4, to: 7 }, query: "zzz" })).toBe(true);
+    store.reportNoResults("zz");
+    expect(store.shouldShow({ range: { from: 4, to: 7 }, query: "zzz" })).toBe(false);
+    expect(store.shouldShow({ range: { from: 4, to: 6 }, query: "zz" })).toBe(true);
+    // Another "@" starts afresh.
+    renderer.onExit();
+    renderer.onStart(props("zz", 20));
+    expect(store.shouldShow({ range: { from: 4, to: 7 }, query: "zzz" })).toBe(true);
+    expect(store.shouldShow({ range: { from: 20, to: 24 }, query: "zzz" })).toBe(true);
+  });
+
+  it("stops Escape where it is, and passes other keys on", () => {
+    const store = createMentionSuggestionStore();
+    const renderer = store.render();
+    store.setKeyHandler(() => false);
+    const escape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true });
+    const stop = vi.spyOn(escape, "stopPropagation");
+    expect(renderer.onKeyDown({ event: escape } as never)).toBe(false);
+    expect(stop).not.toHaveBeenCalled();
+
+    renderer.onStart(props(""));
+    expect(renderer.onKeyDown({ event: escape } as never)).toBe(true);
+    expect(stop).toHaveBeenCalledTimes(1);
+    const other = new KeyboardEvent("keydown", { key: "x" });
+    const otherStop = vi.spyOn(other, "stopPropagation");
+    expect(renderer.onKeyDown({ event: other } as never)).toBe(false);
+    expect(otherStop).not.toHaveBeenCalled();
+  });
+
+  it("closes on request, and one store at a time is open", () => {
+    const a = createMentionSuggestionStore();
+    const b = createMentionSuggestionStore();
+    const ra = a.render();
+    const rb = b.render();
+    a.close();
+    expect(a.isOpen()).toBe(false);
+    ra.onStart(props("s"));
+    expect(a.isOpen()).toBe(true);
+    rb.onStart(props("t"));
+    expect(a.isOpen()).toBe(false);
+    expect(b.isOpen()).toBe(true);
+    const listener = vi.fn();
+    b.subscribe(listener);
+    b.close();
+    expect(b.isOpen()).toBe(false);
+    expect(b.getSnapshot()).toEqual({ open: false, query: "", clientRect: null, command: null });
+    expect(listener).toHaveBeenCalledTimes(1);
+    // A closed store no longer counts as the open one.
+    ra.onStart(props("s"));
+    expect(b.isOpen()).toBe(false);
+    expect(a.isOpen()).toBe(true);
+  });
+});
+
+describe("MentionPopup and an empty result", () => {
+  it("reports a settled empty result for a typed query, not before", async () => {
+    let answer: (v: unknown) => void = () => {};
+    vi.mocked(api.get).mockImplementation(
+      (path: string) =>
+        path.startsWith("/cards?")
+          ? new Promise((resolve) => {
+              answer = resolve;
+            })
+          : Promise.resolve([]),
+    );
+    const { store, start } = setup(["card"]);
+    const report = vi.spyOn(store, "reportNoResults");
+    start("zz");
+    await waitFor(() =>
+      expect(vi.mocked(api.get).mock.calls.some(([p]) => String(p).includes("search=zz"))).toBe(true),
+    );
+    expect(report).not.toHaveBeenCalled();
+    await act(async () => answer({ items: [], total: 0 }));
+    await waitFor(() => expect(report).toHaveBeenCalledWith("zz"));
   });
 });

@@ -12,7 +12,9 @@
  * - The chip is a React node view (`MentionNodeView`).
  * - "@" opens the suggestion popup through `store`; the suggestion's default
  *   `allowedPrefixes: [" "]` is kept, so typing an e-mail address opens
- *   nothing.
+ *   nothing. The query may hold spaces (`@Customer Portal`); the store's
+ *   `shouldShow` ends it after two spaces in a row or once the user types on
+ *   past a query that found nothing.
  */
 import Mention, { type MentionOptions } from "@tiptap/extension-mention";
 import { ReactNodeViewRenderer } from "@tiptap/react";
@@ -100,6 +102,9 @@ export function createMentionExtension(store: MentionSuggestionStore, labels: Me
     labels,
     suggestion: {
       char: "@",
+      pluginKey: store.pluginKey,
+      allowSpaces: true,
+      shouldShow: store.shouldShow,
       // The popup fetches and ranks its own rows (cards, decisions, people).
       items: () => [],
       render: store.render,

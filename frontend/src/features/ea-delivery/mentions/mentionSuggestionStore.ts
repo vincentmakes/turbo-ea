@@ -8,10 +8,19 @@
  * while the popup is open reach the plugin first; it hands them to
  * `onKeyDown`, which the store forwards to whatever handler the popup
  * registered (the popup owns the rows and the highlighted one). Escape is
- * handled by the plugin itself: it exits, which closes the store.
+ * handled by the plugin itself: it exits, which closes the store; the store
+ * stops the key there, so it closes the popup only (never a drawer or dialog
+ * around the editor).
+ *
+ * The query may contain spaces (`@Customer Portal`). It stops being a
+ * suggestion (`shouldShow`) after two spaces in a row, or once the user keeps
+ * typing past a query the popup found nothing for. `close()` dismisses the
+ * suggestion (the editor lost focus); one store at a time is open on a page.
  */
 import { useSyncExternalStore } from "react";
-import type { SuggestionKeyDownProps, SuggestionProps } from "@tiptap/suggestion";
+import type { Editor, Range } from "@tiptap/core";
+import { PluginKey } from "@tiptap/pm/state";
+import { exitSuggestion, type SuggestionKeyDownProps, type SuggestionProps } from "@tiptap/suggestion";
 
 import type { MentionItem } from "./mentionModel";
 
@@ -26,9 +35,11 @@ export interface MentionSuggestionState {
   command: ((item: Pick<MentionItem, "kind" | "id" | "label">) => void) | null;
 }
 
+type Props = SuggestionProps<MentionItem, Pick<MentionItem, "kind" | "id" | "label">>;
+
 type Renderer = {
-  onStart: (props: SuggestionProps<MentionItem, Pick<MentionItem, "kind" | "id" | "label">>) => void;
-  onUpdate: (props: SuggestionProps<MentionItem, Pick<MentionItem, "kind" | "id" | "label">>) => void;
+  onStart: (props: Props) => void;
+  onUpdate: (props: Props) => void;
   onExit: () => void;
   onKeyDown: (props: SuggestionKeyDownProps) => boolean;
 };
@@ -42,6 +53,14 @@ export interface MentionSuggestionStore {
   setKeyHandler: (handler: ((event: KeyboardEvent) => boolean) | null) => void;
   /** The suggestion option `render`. */
   render: () => Renderer;
+  /** The suggestion plugin's key (one per editor). */
+  pluginKey: PluginKey;
+  /** The suggestion option `shouldShow`: false once the query has run on too far. */
+  shouldShow: (props: { range: Range; query: string }) => boolean;
+  /** The popup found nothing for the open query (its searches have settled). */
+  reportNoResults: (query: string) => void;
+  /** Dismiss the open suggestion (the editor lost focus). */
+  close: () => void;
 }
 
 const CLOSED: MentionSuggestionState = {
@@ -51,25 +70,48 @@ const CLOSED: MentionSuggestionState = {
   command: null,
 };
 
+/**
+ * Whether a query has run on past a mention: two spaces in a row, or more
+ * typed after a query that found nothing at the same "@".
+ */
+export function queryRanOn(
+  query: string,
+  from: number,
+  noResults: { from: number; query: string } | null,
+): boolean {
+  if (query.includes("  ")) return true;
+  if (!noResults || noResults.from !== from) return false;
+  return query.length > noResults.query.length && query.startsWith(noResults.query);
+}
+
+/** The store whose popup is open on the page, if any: opening another closes it. */
+let openStore: MentionSuggestionStore | null = null;
+
 export function createMentionSuggestionStore(): MentionSuggestionStore {
   let state = CLOSED;
   let keyHandler: ((event: KeyboardEvent) => boolean) | null = null;
+  let editor: Editor | null = null;
+  let from = -1;
+  let noResults: { from: number; query: string } | null = null;
   const listeners = new Set<() => void>();
+  const pluginKey = new PluginKey("documentMention");
 
   const set = (next: MentionSuggestionState) => {
     state = next;
     listeners.forEach((l) => l());
   };
-  const fromProps = (
-    props: SuggestionProps<MentionItem, Pick<MentionItem, "kind" | "id" | "label">>,
-  ): MentionSuggestionState => ({
+  const fromProps = (props: Props): MentionSuggestionState => ({
     open: true,
     query: props.query,
     clientRect: props.clientRect ?? null,
     command: props.command,
   });
+  const track = (props: Props) => {
+    editor = props.editor ?? null;
+    if (props.range) from = props.range.from;
+  };
 
-  return {
+  const store: MentionSuggestionStore = {
     subscribe: (listener) => {
       listeners.add(listener);
       return () => {
@@ -81,13 +123,48 @@ export function createMentionSuggestionStore(): MentionSuggestionStore {
     setKeyHandler: (handler) => {
       keyHandler = handler;
     },
+    pluginKey,
+    shouldShow: ({ range, query }) => !queryRanOn(query, range.from, noResults),
+    reportNoResults: (query) => {
+      if (state.open && state.query === query) noResults = { from, query };
+    },
+    close: () => {
+      if (!state.open) return;
+      const view = editor && !editor.isDestroyed ? editor.view : null;
+      if (view) exitSuggestion(view, pluginKey);
+      // The plugin's exit calls `onExit`; without a live view, close here.
+      if (openStore === store) openStore = null;
+      if (state.open) set(CLOSED);
+    },
     render: () => ({
-      onStart: (props) => set(fromProps(props)),
-      onUpdate: (props) => set(fromProps(props)),
-      onExit: () => set(CLOSED),
-      onKeyDown: ({ event }) => (state.open && keyHandler ? keyHandler(event) : false),
+      onStart: (props) => {
+        if (openStore && openStore !== store) openStore.close();
+        openStore = store;
+        track(props);
+        if (noResults && noResults.from !== from) noResults = null;
+        set(fromProps(props));
+      },
+      onUpdate: (props) => {
+        track(props);
+        set(fromProps(props));
+      },
+      onExit: () => {
+        if (openStore === store) openStore = null;
+        set(CLOSED);
+      },
+      onKeyDown: ({ event }) => {
+        if (!state.open) return false;
+        // Escape closes the popup only: the plugin exits on it, and nothing
+        // around the editor (a drawer, a dialog) may take it as its own.
+        if (event.key === "Escape" || event.key === "Esc") {
+          event.stopPropagation();
+          return true;
+        }
+        return keyHandler ? keyHandler(event) : false;
+      },
     }),
   };
+  return store;
 }
 
 /** The store's state for a component. */

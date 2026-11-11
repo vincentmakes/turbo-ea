@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Extension, type AnyExtension } from "@tiptap/core";
+import { Plugin } from "@tiptap/pm/state";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -58,6 +59,41 @@ function submitShortcut(store: MentionSuggestionStore, submit: () => void): AnyE
   });
 }
 
+/**
+ * The server keeps attribute-less tags only in a comment and escapes any
+ * other, so a comment's lists carry no `start` / `type`: a list typed as
+ * "3. " or pasted as a lettered list is a plain numbered list. This plugin
+ * resets the two attributes on every change (typed, pasted, loaded), and
+ * `plainListTags` strips them from what is sent, whatever the editor holds.
+ */
+function plainCommentLists(): AnyExtension {
+  return Extension.create({
+    name: "plainCommentLists",
+    addProseMirrorPlugins() {
+      return [
+        new Plugin({
+          appendTransaction: (transactions, _old, state) => {
+            if (!transactions.some((tr) => tr.docChanged)) return null;
+            const tr = state.tr;
+            state.doc.descendants((node, pos) => {
+              if (node.type.name !== "orderedList") return;
+              if (node.attrs.start !== 1 || node.attrs.type != null) {
+                tr.setNodeMarkup(pos, undefined, { ...node.attrs, start: 1, type: null });
+              }
+            });
+            return tr.docChanged ? tr : null;
+          },
+        }),
+      ];
+    },
+  });
+}
+
+/** A comment's HTML with every `<ol>` tag bare (the server escapes any attribute on it). */
+export function plainListTags(html: string): string {
+  return html.replace(/<ol\b[^>]*>/g, "<ol>");
+}
+
 export default function RichTextEditor({
   content,
   onChange,
@@ -103,19 +139,30 @@ export default function RichTextEditor({
       }),
       Placeholder.configure({ placeholder: placeholder ?? t("richText.startTyping") }),
       ...(hasMentions ? [createMentionExtension(store, mentionLabels)] : []),
-      ...(isComment ? [submitShortcut(store, () => onSubmitRef.current?.())] : []),
+      ...(isComment ? [submitShortcut(store, () => onSubmitRef.current?.()), plainCommentLists()] : []),
     ],
     content,
     editable: !readOnly,
     onUpdate: ({ editor: e }) => {
-      onChange(e.getHTML());
+      const html = e.getHTML();
+      onChange(isComment ? plainListTags(html) : html);
     },
+    // The "@" popup belongs to the focused editor: leaving it (another field,
+    // a click outside) dismisses it. A click on a row does not blur.
+    onBlur: () => store.close(),
   });
 
-  // Sync editable state when readOnly changes
+  // An editor going away takes its "@" popup with it.
+  useEffect(() => () => store.close(), [store]);
+
+  // Sync editable state when readOnly changes. No update is emitted: an
+  // untouched document must not report its own re-serialisation as an edit.
+  // The empty transaction tells node views (mention chips) to re-read
+  // whether the editor is editable.
   useEffect(() => {
-    if (editor) {
-      editor.setEditable(!readOnly);
+    if (editor && !editor.isDestroyed && editor.isEditable !== !readOnly) {
+      editor.setEditable(!readOnly, false);
+      editor.view.dispatch(editor.state.tr.setMeta("editableChanged", true));
     }
   }, [editor, readOnly]);
 

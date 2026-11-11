@@ -13,9 +13,11 @@
  *
  * Focus never leaves the editor: the suggestion plugin hands the keys over
  * through the store (ArrowUp / ArrowDown wrap, Enter / Tab pick; Escape is the
- * plugin's own exit), and a click on a row does not blur the editor.
+ * plugin's own exit), and a click on a row does not blur the editor. Once
+ * every group has answered with nothing, the popup tells the store, which ends
+ * the suggestion if the user types on.
  */
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Paper from "@mui/material/Paper";
 import Popper from "@mui/material/Popper";
@@ -76,8 +78,19 @@ export default function MentionPopup({ store, kinds }: Props) {
     pageSize: MENTION_GROUP_LIMIT,
   });
   const cardsForbidden = wantCards && cards.errorStatus === 403;
+  // The query the card search last answered: its rows are replaced (a new
+  // array, empty or not, refusal included) only by the reply to the current
+  // search; a superseded reply is dropped.
+  const answeredRows = useRef(cards.items);
+  const [cardsAnsweredFor, setCardsAnsweredFor] = useState<string | null>(null);
+  useEffect(() => {
+    if (cards.items === answeredRows.current) return;
+    answeredRows.current = cards.items;
+    setCardsAnsweredFor(debounced);
+  }, [cards.items, debounced]);
 
-  const [decisions, setDecisions] = useState<ArchitectureDecision[]>([]);
+  // null until loaded.
+  const [decisions, setDecisions] = useState<ArchitectureDecision[] | null>(null);
   useAbortableEffect(
     async ({ isCurrent }) => {
       if (!wantDecisions) return;
@@ -92,7 +105,7 @@ export default function MentionPopup({ store, kinds }: Props) {
     [wantDecisions],
   );
 
-  const [users, setUsers] = useState<UserOption[]>([]);
+  const [users, setUsers] = useState<UserOption[] | null>(null);
   useAbortableEffect(
     async ({ isCurrent }) => {
       if (!wantUsers) return;
@@ -108,10 +121,25 @@ export default function MentionPopup({ store, kinds }: Props) {
 
   const groups = groupMentionItems({
     card: wantCards && !cardsForbidden ? cardMentionItems(cards.items, query) : [],
-    decision: wantDecisions ? decisionMentionItems(decisions, query, t) : [],
-    user: wantUsers ? userMentionItems(users, query) : [],
+    decision: wantDecisions ? decisionMentionItems(decisions ?? [], query, t) : [],
+    user: wantUsers ? userMentionItems(users ?? [], query) : [],
   });
   const flat = flattenGroups(groups);
+  const searching = wantCards && !cardsForbidden && (cards.loading || pending);
+  // Every group has answered for this very query: the card search has
+  // finished a request for it (not merely "not loading" between a keystroke
+  // and the request it starts), and the decision and people lists are in.
+  const settled =
+    (!wantCards || cardsAnsweredFor === query) &&
+    !searching &&
+    (!wantDecisions || decisions !== null) &&
+    (!wantUsers || users !== null);
+  const nothingFound = open && settled && flat.length === 0;
+
+  // Tell the store, so typing on past a query that found nothing ends the suggestion.
+  useEffect(() => {
+    if (nothingFound && query.trim()) store.reportNoResults(query);
+  }, [nothingFound, query, store]);
 
   const [active, setActive] = useState(0);
   useEffect(() => {
@@ -147,7 +175,6 @@ export default function MentionPopup({ store, kinds }: Props) {
 
   if (!open) return null;
 
-  const searching = wantCards && !cardsForbidden && (cards.loading || pending);
   const optionId = (i: number) => `${listId}-option-${i}`;
   let index = -1;
 
