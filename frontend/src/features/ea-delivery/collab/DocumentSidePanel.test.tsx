@@ -383,7 +383,7 @@ describe("DocumentSidePanel section markers", () => {
   it("reads the discussion once for the panel and the markers together", async () => {
     serve(MARKED);
     renderMarked();
-    expect(await screen.findByTestId("section-marker-context")).toHaveTextContent("2");
+    expect((await screen.findByTestId("section-marker-context")).querySelector(".MuiBadge-badge")).toHaveTextContent(/^2$/);
     expect(screen.getByTestId("panel-threads")).toHaveTextContent("a,b,c");
     expect(mockApi.callsOf("get")).toHaveLength(1);
     expect(mockApi.callsOf("get", "/adr/a1/comments")).toHaveLength(1);
@@ -394,7 +394,7 @@ describe("DocumentSidePanel section markers", () => {
     serve(MARKED);
     renderMarked();
     expect(screen.queryByRole("complementary")).toBeNull();
-    expect(await screen.findByTestId("section-marker-context")).toHaveTextContent("2");
+    expect((await screen.findByTestId("section-marker-context")).querySelector(".MuiBadge-badge")).toHaveTextContent(/^2$/);
     expect(screen.getByTestId("section-marker-decision")).toBeInTheDocument();
   });
 
@@ -458,7 +458,7 @@ describe("DocumentSidePanel section markers", () => {
   it("updates a marker when the discussion is read again", async () => {
     serve(MARKED);
     renderMarked();
-    expect(await screen.findByTestId("section-marker-context")).toHaveTextContent("2");
+    expect((await screen.findByTestId("section-marker-context")).querySelector(".MuiBadge-badge")).toHaveTextContent(/^2$/);
     serve([thread({ id: "a", section: "context", resolved_at: "2026-11-03T00:00:00Z" })]);
     fireEvent(window, new Event("focus"));
     // The decision's thread is gone: its marker now offers to start one.

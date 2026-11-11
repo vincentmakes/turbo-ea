@@ -1,18 +1,21 @@
 /**
- * The marker beside a section's heading: a small chip with the open-thread
- * count in the warning colour (the panel badge's); muted and without a number
- * once every thread on it is resolved; and, on a section with no thread, a
- * muted "add comment" chip of the same size, for a reader who may comment
- * only (nothing for one who may not). Nothing outside a saved document's side
- * panel. Clicking it, in every state, opens the Discussion filtered to the
- * section with the section chosen for a new thread. Screen only: never
- * printed, and the export builders never see it.
+ * The marker beside a section's heading: a small icon button, drawn like a
+ * miniature of the page's chat button. With open threads it is the `forum`
+ * icon under a small warning badge carrying the open-thread count; once every
+ * thread on the section is resolved, the same icon muted and without a badge;
+ * and, on a section with no thread, a muted `add_comment` icon for a reader
+ * who may comment only (nothing for one who may not). Nothing outside a saved
+ * document's side panel. Clicking it, in every state, opens the Discussion
+ * filtered to the section with the section chosen for a new thread. Screen
+ * only: never printed, and the export builders never see it.
  */
 import { useContext } from "react";
 import { useTranslation } from "react-i18next";
-import Chip from "@mui/material/Chip";
+import Badge from "@mui/material/Badge";
+import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { iconSize } from "@/theme/tokens";
 import { SectionDiscussionContext } from "./sectionDiscussionContext";
 
 interface Props {
@@ -33,27 +36,35 @@ export default function SectionDiscussionMarker({ section }: Props) {
     : threads
       ? t("collab.marker.resolved")
       : t("collab.marker.add");
+  const icon = <MaterialSymbol icon={threads ? "forum" : "add_comment"} size={iconSize.md} />;
   return (
     <Tooltip title={label}>
-      <Chip
+      <IconButton
         className="no-print"
         data-testid={`section-marker-${section}`}
         size="small"
-        variant={open ? "filled" : "outlined"}
-        color={open ? "warning" : "default"}
-        icon={<MaterialSymbol icon={threads ? "forum" : "add_comment"} size={16} />}
-        label={open ? entry.open : undefined}
         aria-label={label}
         onClick={() => ctx.openSection(section)}
         sx={{
-          ml: 1,
+          ml: 0.5,
           verticalAlign: "middle",
           color: open ? undefined : "text.secondary",
-          "& .MuiChip-label": open ? undefined : { display: "none" },
-          "& .MuiChip-icon": open ? undefined : { mx: 0.5, color: "text.secondary" },
           "@media print": { display: "none" },
         }}
-      />
+      >
+        {open ? (
+          <Badge
+            badgeContent={entry.open}
+            color="warning"
+            overlap="circular"
+            sx={{ "& .MuiBadge-badge": { height: 16, minWidth: 16, px: 0.5, fontSize: "0.625rem" } }}
+          >
+            {icon}
+          </Badge>
+        ) : (
+          icon
+        )}
+      </IconButton>
     </Tooltip>
   );
 }
