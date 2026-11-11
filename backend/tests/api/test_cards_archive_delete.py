@@ -112,6 +112,74 @@ class TestStrategyRequired:
         assert resp.json()["detail"]["error"] == "children_present"
 
 
+class TestArchivedChildrenNeedNoStrategy:
+    """#1382: the dialog lists only active children, so a parent whose children
+    are all archived is offered no strategy — and must not be asked for one."""
+
+    async def test_archive_parent_of_archived_children(self, client, db, env):
+        admin = env["admin"]
+        parent = await create_card(db, name="Parent", user_id=admin.id)
+        child = await create_card(
+            db, name="Child", parent_id=parent.id, user_id=admin.id, status="ARCHIVED"
+        )
+
+        impact = await client.get(
+            f"/api/v1/cards/{parent.id}/archive-impact", headers=auth_headers(admin)
+        )
+        assert impact.json()["child_count"] == 0
+
+        resp = await client.post(f"/api/v1/cards/{parent.id}/archive", headers=auth_headers(admin))
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["primary"]["status"] == "ARCHIVED"
+
+        # The archived child keeps its place, so restoring both restores the tree.
+        row = (
+            await db.execute(
+                select(Card).where(Card.id == child.id).execution_options(populate_existing=True)
+            )
+        ).scalar_one()
+        assert row.parent_id == parent.id
+        assert row.status == "ARCHIVED"
+
+    async def test_delete_parent_of_archived_children_detaches_them(self, client, db, env):
+        admin = env["admin"]
+        parent = await create_card(db, name="Parent", user_id=admin.id)
+        child = await create_card(
+            db, name="Child", parent_id=parent.id, user_id=admin.id, status="ARCHIVED"
+        )
+
+        resp = await client.delete(f"/api/v1/cards/{parent.id}", headers=auth_headers(admin))
+        assert resp.status_code == 200, resp.text
+
+        gone = (await db.execute(select(Card).where(Card.id == parent.id))).scalar_one_or_none()
+        assert gone is None
+        # Detached, never deleted on the quiet.
+        row = (
+            await db.execute(
+                select(Card).where(Card.id == child.id).execution_options(populate_existing=True)
+            )
+        ).scalar_one()
+        assert row.parent_id is None
+        assert row.status == "ARCHIVED"
+
+    @pytest.mark.parametrize("method", ["archive", "delete"])
+    async def test_an_active_child_still_requires_a_strategy(self, client, db, env, method):
+        admin = env["admin"]
+        parent = await create_card(db, name="Parent", user_id=admin.id)
+        await create_card(db, name="Gone", parent_id=parent.id, user_id=admin.id, status="ARCHIVED")
+        await create_card(db, name="Live", parent_id=parent.id, user_id=admin.id)
+
+        if method == "archive":
+            resp = await client.post(
+                f"/api/v1/cards/{parent.id}/archive", headers=auth_headers(admin)
+            )
+        else:
+            resp = await client.delete(f"/api/v1/cards/{parent.id}", headers=auth_headers(admin))
+        assert resp.status_code == 409
+        # Counts what the dialog lists: the active child only.
+        assert resp.json()["detail"] == {"error": "children_present", "child_count": 1}
+
+
 # ---------------------------------------------------------------------------
 # Cascade strategy
 # ---------------------------------------------------------------------------

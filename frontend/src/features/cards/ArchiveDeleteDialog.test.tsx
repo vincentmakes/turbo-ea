@@ -256,6 +256,72 @@ describe("ArchiveDeleteDialog", () => {
     expect(onConfirmed).toHaveBeenCalled();
   });
 
+  it("offers the strategies when the server asks for one the impact did not announce", async () => {
+    const user = userEvent.setup();
+    // No children the dialog can list, yet the server finds some (#1382).
+    vi.mocked(api.get).mockResolvedValueOnce(baseImpact);
+    const { ApiError } = await import("@/api/client");
+    // An earlier test queues a response it never consumes; start clean.
+    vi.mocked(api.post)
+      .mockReset()
+      .mockRejectedValueOnce(
+        new ApiError("Conflict", 409, { error: "children_present", child_count: 1 }),
+      )
+      .mockResolvedValueOnce({});
+    const onConfirmed = vi.fn();
+    render(
+      <ArchiveDeleteDialog
+        open
+        mode="archive"
+        scope="single"
+        cardId="card-1"
+        cardName="App"
+        onClose={() => {}}
+        onConfirmed={onConfirmed}
+      />,
+    );
+    const confirm = await screen.findByRole("button", { name: /^archive$/i });
+    expect(screen.queryByLabelText(/keep children/i)).not.toBeInTheDocument();
+    await user.click(confirm);
+
+    expect(await screen.findByText(/please pick a strategy below/i)).toBeInTheDocument();
+    expect(api.post).toHaveBeenLastCalledWith("/cards/card-1/archive", {});
+    expect(onConfirmed).not.toHaveBeenCalled();
+    // The choice the message points at is now on screen, and required.
+    expect(confirm).toBeDisabled();
+    await user.click(screen.getByLabelText(/keep children/i));
+    expect(confirm).toBeEnabled();
+    await user.click(confirm);
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenLastCalledWith("/cards/card-1/archive", {
+        child_strategy: "disconnect",
+      });
+    });
+    expect(onConfirmed).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not offer strategies for an error that is not about children", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.get).mockResolvedValueOnce(baseImpact);
+    const { ApiError } = await import("@/api/client");
+    vi.mocked(api.post).mockReset().mockRejectedValueOnce(new ApiError("Forbidden", 403, null));
+    render(
+      <ArchiveDeleteDialog
+        open
+        mode="archive"
+        scope="single"
+        cardId="card-1"
+        cardName="App"
+        onClose={() => {}}
+        onConfirmed={() => {}}
+      />,
+    );
+    await user.click(await screen.findByRole("button", { name: /^archive$/i }));
+    expect(await screen.findByText("Forbidden")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/keep children/i)).not.toBeInTheDocument();
+  });
+
   it("bulk mode skips impact fetch and offers cascade-related toggle", async () => {
     const user = userEvent.setup();
     vi.mocked(api.post).mockResolvedValue({});
