@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { useState } from "react";
-import type { DocumentComment, DocumentDiscussion, DocumentThread } from "@/types";
+import type { DocumentComment, DocumentDiscussion, DocumentOwner, DocumentThread } from "@/types";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useDateFormatModule()));
@@ -32,7 +32,8 @@ import { renderWithProviders } from "@/test/render";
 import { DocumentMentionContext } from "../mentions/documentMentionContext";
 import { clearAllDrafts } from "./commentDrafts";
 import DiscussionPanel from "./DiscussionPanel";
-import { sectionOptions } from "./discussionModel";
+import { sectionOptions, type SectionOption } from "./discussionModel";
+import { useDiscussionView } from "./useDiscussionView";
 
 const tId = (k: string) => k;
 const SECTIONS = sectionOptions("adr", (k) =>
@@ -77,22 +78,32 @@ function serve(d: DocumentDiscussion, chain?: DocumentDiscussion) {
   mockApi.on("get", "/adr/a2/comments?scope=chain", () => chain ?? discussion);
 }
 
-function renderPanel(props: Partial<React.ComponentProps<typeof DiscussionPanel>> = {}) {
-  return renderWithProviders(
-    <DiscussionPanel owner={{ kind: "adr", id: "a2" }} sections={SECTIONS} {...props} />,
-  );
+interface PanelProps {
+  owner?: DocumentOwner;
+  sections?: SectionOption[];
+  focusThreadId?: string | null;
+  refreshKey?: string | number;
+}
+
+/** The panel wired as `DocumentSidePanel` wires it: the shared view holds the read and the filter. */
+function Wired({ owner = { kind: "adr", id: "a2" }, sections = SECTIONS, focusThreadId, refreshKey }: PanelProps) {
+  const view = useDiscussionView(owner, { focusThreadId, refreshKey });
+  return <DiscussionPanel owner={owner} sections={sections} focusThreadId={focusThreadId} view={view} />;
+}
+
+function renderPanel(props: PanelProps = {}) {
+  return renderWithProviders(<Wired {...props} />);
 }
 
 const can = { comment: true, moderate: false };
 
-type PanelProps = Partial<React.ComponentProps<typeof DiscussionPanel>>;
 /** Renders the panel with props a test can change later (`set(...)`), inside the providers. */
 function renderHarness(initial: PanelProps) {
   let set: (next: PanelProps) => void = () => {};
   function Harness() {
     const [props, setProps] = useState(initial);
     set = (next) => setProps((p) => ({ ...p, ...next }));
-    return <DiscussionPanel owner={{ kind: "adr", id: "a2" }} sections={SECTIONS} {...props} />;
+    return <Wired {...props} />;
   }
   renderWithProviders(<Harness />);
   return { change: (next: PanelProps) => act(() => set(next)) };
@@ -143,7 +154,7 @@ describe("DiscussionPanel", () => {
     const ctx = { linkedCardIds: ["c1"], priorityUserIds: ["u7"] };
     const { unmount } = renderWithProviders(
       <DocumentMentionContext.Provider value={ctx}>
-        <DiscussionPanel owner={{ kind: "adr", id: "a2" }} sections={SECTIONS} />
+        <Wired />
       </DocumentMentionContext.Provider>,
     );
     await screen.findByText("No discussion yet.");
@@ -364,17 +375,6 @@ describe("DiscussionPanel", () => {
     expect(screen.queryByRole("button", { name: "Post" })).toBeNull();
   });
 
-  it("reports this revision's open-thread count", async () => {
-    serve({
-      can,
-      open_count: 2,
-      threads: [thread({ id: "a" }), thread({ id: "b", kind: "rejection" }), thread({ id: "c", resolved_at: "x" })],
-    });
-    const onOpenCountChange = vi.fn();
-    renderPanel({ onOpenCountChange });
-    await waitFor(() => expect(onOpenCountChange).toHaveBeenLastCalledWith(2));
-  });
-
   it("draws out a notification's thread, unfolding it when resolved", async () => {
     serve({ can, open_count: 0, threads: [thread({ id: "t7", resolved_at: "2026-11-02T00:00:00Z" })] });
     renderPanel({ focusThreadId: "t7" });
@@ -389,11 +389,10 @@ describe("DiscussionPanel", () => {
     expect(await screen.findByText("GET /adr/a2/comments failed")).toBeInTheDocument();
   });
 
-  it("reads the discussion again when the page's refresh key changes, and reports the count after each read", async () => {
+  it("reads the discussion again when the page's refresh key changes", async () => {
     serve({ can, open_count: 1, threads: [thread({ id: "a" })] });
-    const onOpenCountChange = vi.fn();
-    const { change } = renderHarness({ onOpenCountChange, refreshKey: "v1" });
-    await waitFor(() => expect(onOpenCountChange).toHaveBeenCalledWith(1));
+    const { change } = renderHarness({ refreshKey: "v1" });
+    await screen.findByTestId("thread-a");
     expect(mockApi.callsOf("get", "/adr/a2/comments")).toHaveLength(1);
 
     // A rejection opened a thread on the server.
@@ -401,14 +400,6 @@ describe("DiscussionPanel", () => {
     change({ refreshKey: "v2" });
     expect(await screen.findByTestId("thread-r")).toBeInTheDocument();
     expect(mockApi.callsOf("get", "/adr/a2/comments")).toHaveLength(2);
-    await waitFor(() => expect(onOpenCountChange).toHaveBeenLastCalledWith(2));
-
-    // The same count read again is still reported (the page's own count may have moved).
-    const before = onOpenCountChange.mock.calls.length;
-    serve({ can, open_count: 2, threads: [thread({ id: "a" }), thread({ id: "r", kind: "rejection", body: "<p>No</p>" })] });
-    change({ refreshKey: "v3" });
-    await waitFor(() => expect(onOpenCountChange.mock.calls.length).toBe(before + 1));
-    expect(onOpenCountChange).toHaveBeenLastCalledWith(2);
   });
 
   it("scrolls a notification's thread into view once, not on every read", async () => {
@@ -490,7 +481,7 @@ describe("DiscussionPanel", () => {
     second.unmount();
 
     mockApi.on("get", "/adr/b7/comments", { can, open_count: 0, threads: [] });
-    renderWithProviders(<DiscussionPanel owner={{ kind: "adr", id: "b7" }} sections={SECTIONS} />);
+    renderWithProviders(<Wired owner={{ kind: "adr", id: "b7" }} />);
     expect(await screen.findByRole("textbox", { name: /Start a thread/ })).toHaveValue("");
   });
 });

@@ -3,14 +3,15 @@
  * with a chip), reply, resolve and reopen, edit and delete your own comments.
  * A row of section chips at the top, each with its thread count, filters the
  * list (any chip that is on lets its threads through; a thread's own section
- * chip turns its filter on). The filter is the panel's for the open document,
- * composes with the resolved fold, and never hides a notification's thread;
- * arriving on one starts with no filter.
+ * chip turns its filter on). The filter composes with the resolved fold and
+ * never hides a notification's thread.
  * Resolved threads fold behind a toggle; earlier revisions' threads load on
  * request (`scope=chain`) and sit under "Rev N" headers. A viewer without
- * the comment right reads only. Read again when the page's `refreshKey`
- * changes (a review action: reject, sign, recall, request signatures,
- * restore), so a rejection's thread or a signing note shows at once.
+ * the comment right reads only. The discussion, the revisions read and the
+ * filter come from `view` (`useDiscussionView`), which `DocumentSidePanel`
+ * holds so the page's section markers share the same read; it re-reads on
+ * the page's refresh signal, and arriving on a notification's thread or
+ * another document starts with no filter.
  */
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -31,15 +32,13 @@ import {
   addFilterKey,
   applySectionFilter,
   groupThreads,
-  openCount,
   sectionFilterChips,
   sectionLabel,
   splitResolved,
   toggleFilterKey,
-  type DiscussionScope,
   type SectionOption,
 } from "./discussionModel";
-import { useDocumentDiscussion } from "./useDocumentDiscussion";
+import type { DiscussionView } from "./useDiscussionView";
 
 interface Props {
   owner: DocumentOwner;
@@ -47,38 +46,17 @@ interface Props {
   sections: SectionOption[];
   /** A thread to bring into view (a notification's `?thread=`). */
   focusThreadId?: string | null;
-  /** The open-thread count of this revision, after every read and each time the list changes. */
-  onOpenCountChange?: (count: number) => void;
-  /** Read the discussion again when this changes (a review action on the page). */
-  refreshKey?: string | number;
+  /** The shared read of the discussion, the revisions read and the section filter. */
+  view: DiscussionView;
 }
 
-export default function DiscussionPanel({ owner, sections, focusThreadId, onOpenCountChange, refreshKey }: Props) {
+export default function DiscussionPanel({ owner, sections, focusThreadId, view }: Props) {
   const { t } = useTranslation(["delivery", "common"]);
-  const [scope, setScope] = useState<DiscussionScope>("document");
-  const discussion = useDocumentDiscussion(owner, { scope, refetchKey: refreshKey });
+  const { discussion, scope, setScope, filter, setFilter } = view;
   const [showResolved, setShowResolved] = useState(false);
   const [unnotified, setUnnotified] = useState<DocumentUserRef[]>([]);
   const { threads } = discussion;
-  const payload = discussion.discussion;
-  const loaded = payload !== undefined;
-  const count = openCount(threads, owner.id);
-
-  // The section filter: the panel's for this document, emptied when another
-  // document or another notification's thread is opened.
-  const [filter, setFilter] = useState<string[]>([]);
-  const filterScope = `${owner.kind}:${owner.id}:${focusThreadId ?? ""}`;
-  const [filterFor, setFilterFor] = useState(filterScope);
-  if (filterFor !== filterScope) {
-    setFilterFor(filterScope);
-    setFilter([]);
-  }
-
-  // Reported after every read, not only when the number moves: the page's
-  // own count may have changed meanwhile (a review action's reply).
-  useEffect(() => {
-    if (payload !== undefined) onOpenCountChange?.(count);
-  }, [payload, count, onOpenCountChange]);
+  const loaded = discussion.discussion !== undefined;
 
   // A notification's thread: drawn out, unfolded once if it is resolved (the
   // toggle is the reader's after that), and scrolled into view once.

@@ -10,10 +10,17 @@
  *
  * The document (`children`) sits at the same place in the React tree at
  * every width, so crossing `lg` re-lays the page out without remounting it
- * (a dialog's typed text, editor undo history survive). The discussion is
- * re-read with `refreshKey` (a save or a review action).
+ * (a dialog's typed text, editor undo history survive).
+ *
+ * The discussion is read here, once, whether the panel is open or not
+ * (`useDiscussionView`): the panel, its badge, the open count the page's sign
+ * and request dialogs warn with (`onOpenCountChange`) and the section markers
+ * beside the page's headings (`SectionDiscussionContext`, read by
+ * `SectionDiscussionMarker`) all come from that one read. It is re-read with
+ * `refreshKey` (a save or a review action) and after every write. A marker
+ * opens the panel with the filter set to its section alone.
  */
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
 import Badge from "@mui/material/Badge";
@@ -30,8 +37,10 @@ import type { DocumentOwner } from "@/types";
 import { DocumentMentionContext } from "../mentions/documentMentionContext";
 import type { MentionContext } from "../mentions/mentionModel";
 import DiscussionPanel from "./DiscussionPanel";
-import type { SectionOption } from "./discussionModel";
+import { openCount, sectionThreadCounts, type SectionOption } from "./discussionModel";
 import { initialPanelState, writePanelState, type PanelState } from "./panelState";
+import { SectionDiscussionContext, type SectionDiscussion } from "./sectionDiscussionContext";
+import { useDiscussionView } from "./useDiscussionView";
 
 /** The aside's width from `lg` up. */
 const ASIDE_WIDTH = 380;
@@ -80,31 +89,42 @@ export default function DocumentSidePanel({
       setDrawerOpen(true);
     }
   }
+  const view = useDiscussionView(owner, { focusThreadId, refreshKey });
+  const payload = view.discussion.discussion;
+  const { threads } = view.discussion;
+  const liveCount = owner ? openCount(threads, owner.id) : 0;
+
   // The discussion's live count, held against the detail's count it was read
   // after: a newer detail (a review action's reply) wins until the
-  // discussion has been read again.
-  const [live, setLive] = useState<{ count: number; basis: number | undefined } | null>(null);
+  // discussion has been read again or its list changes.
+  const [seen, setSeen] = useState({ payload, count: liveCount, basis: openThreadCount });
+  if (seen.payload !== payload || seen.count !== liveCount) {
+    setSeen({ payload, count: liveCount, basis: openThreadCount });
+  }
+  const count = (payload !== undefined && seen.basis === openThreadCount ? liveCount : openThreadCount) ?? 0;
+
+  // Reported after every read, not only when the number moves: the page's
+  // own count may have changed meanwhile (a review action's reply).
+  useEffect(() => {
+    if (payload !== undefined) onOpenCountChange?.(liveCount);
+  }, [payload, liveCount, onOpenCountChange]);
 
   const update = (next: PanelState) => {
     setState(next);
     writePanelState(next);
   };
 
-  // Read through a ref: the callback keeps its identity when the detail's
-  // count changes, so the discussion does not report its old count again.
-  const basisRef = useRef(openThreadCount);
-  useEffect(() => {
-    basisRef.current = openThreadCount;
-  }, [openThreadCount]);
-  const handleCount = useCallback(
-    (count: number) => {
-      setLive({ count, basis: basisRef.current });
-      onOpenCountChange?.(count);
-    },
-    [onOpenCountChange],
-  );
+  const sectionDiscussion: SectionDiscussion | null = owner
+    ? {
+        counts: sectionThreadCounts(threads, owner.id, sections),
+        openSection: (section) => {
+          view.setFilter([section]);
+          if (wide) update({ open: true });
+          else setDrawerOpen(true);
+        },
+      }
+    : null;
 
-  const count = (live && live.basis === openThreadCount ? live.count : openThreadCount) ?? 0;
   const panel = (owner: DocumentOwner, onClose: () => void) => (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
       <Box
@@ -129,8 +149,7 @@ export default function DocumentSidePanel({
             owner={owner}
             sections={sections}
             focusThreadId={focusThreadId}
-            onOpenCountChange={handleCount}
-            refreshKey={refreshKey}
+            view={view}
           />
         </DocumentMentionContext.Provider>
       </Box>
@@ -143,7 +162,9 @@ export default function DocumentSidePanel({
   // same Box, only what sits beside it changes.
   return (
     <Box sx={wide ? { display: "flex", alignItems: "flex-start", gap: 2 } : undefined}>
-      <Box sx={{ flex: 1, minWidth: 0 }}>{children}</Box>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <SectionDiscussionContext.Provider value={sectionDiscussion}>{children}</SectionDiscussionContext.Provider>
+      </Box>
       {owner && wide && (
         state.open ? (
           <Box
