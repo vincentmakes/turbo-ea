@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 - **History of decisions and SoAWs** opens from a **History** button at the top of the page, in one view with the timeline and the selected version (or what changed in it) side by side; the side panel now holds the discussion only.
 - **Mentions**: the **@** list shows each card's type, icon, subtype and parent and each decision's reference, title and standing, lists the decision's linked cards and the document's signatories, decision makers and participants first, and a **Browse…** entry and a **Mention…** toolbar button open the standard pickers to insert several mentions at once.
-- **Discussion sections**: a thread is tagged to a section with a chip instead of the *About* dropdown, and chips at the top of the discussion, each with its thread count, filter the threads by section.
+- **Discussion sections**: a thread is tagged to a section with a chip instead of the *About* dropdown, and chips at the top of the discussion, each with its thread count, filter the threads by section; a section with threads shows a marker beside its heading (its open-thread count, or muted once all are resolved) that opens the discussion on it.
 
 ## [2.200.1] - 2026-11-11
 
