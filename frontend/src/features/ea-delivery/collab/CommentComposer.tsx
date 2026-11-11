@@ -11,7 +11,7 @@
  * section picked) is kept in memory until it is posted or cancelled, so it
  * comes back when the composer is shown again.
  */
-import { useContext, useId, useState } from "react";
+import { useContext, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -73,6 +73,26 @@ export default function CommentComposer({
     return kept && kept !== GENERAL_SECTION && sections?.some((s) => s.key === kept) ? kept : "";
   });
   const [moreAnchor, setMoreAnchor] = useState<HTMLElement | null>(null);
+  // Where focus goes once the More… list has closed: the chip of the section
+  // just chosen, else (Escape, a click away) the More… chip.
+  const chipGroup = useRef<HTMLDivElement | null>(null);
+  const moreChip = useRef<HTMLDivElement | null>(null);
+  const focusAfterMore = useRef<string | null>(null);
+  const closeMore = (chosen: string | null) => {
+    focusAfterMore.current = chosen;
+    setMoreAnchor(null);
+  };
+  const restoreFocusAfterMore = () => {
+    const chosen = focusAfterMore.current;
+    focusAfterMore.current = null;
+    const chip = chosen
+      ? Array.from(chipGroup.current?.querySelectorAll<HTMLElement>("[data-section-chip]") ?? []).find(
+          (el) => el.getAttribute("data-section-chip") === chosen,
+        )
+      : undefined;
+    const target = chip ?? moreChip.current;
+    if (target?.isConnected) target.focus();
+  };
   const groupLabelId = useId();
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState("");
@@ -118,6 +138,7 @@ export default function CommentComposer({
     <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
       {(chips.length > 0 || more.length > 0) && (
         <Box
+          ref={chipGroup}
           role="group"
           aria-labelledby={groupLabelId}
           sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 0.5 }}
@@ -135,12 +156,14 @@ export default function CommentComposer({
                 color={chosen ? "primary" : "default"}
                 variant={chosen ? "filled" : "outlined"}
                 aria-pressed={chosen}
+                data-section-chip={s.key}
                 onClick={() => changeSection(chosen ? "" : s.key)}
               />
             );
           })}
           {more.length > 0 && (
             <Chip
+              ref={moreChip}
               size="small"
               variant="outlined"
               icon={<MaterialSymbol icon="add" size={16} />}
@@ -154,9 +177,11 @@ export default function CommentComposer({
       <Popover
         open={moreAnchor !== null}
         anchorEl={moreAnchor}
-        onClose={() => setMoreAnchor(null)}
+        onClose={() => closeMore(null)}
         anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+        // Focus is put back by hand once the list has gone (see closeMore).
         disableRestoreFocus
+        slotProps={{ transition: { onExited: restoreFocusAfterMore } }}
       >
         <Box sx={{ p: 1.5, width: 300, minHeight: 300 }}>
           <Autocomplete
@@ -167,10 +192,15 @@ export default function CommentComposer({
             getOptionLabel={(o) => o.label}
             isOptionEqualToValue={(a, b) => a.key === b.key}
             value={null}
+            // The list is always open, so MUI keeps Escape to itself: it is
+            // the way out without picking.
+            onClose={(_e, reason) => {
+              if (reason === "escape") closeMore(null);
+            }}
             onChange={(_e, picked) => {
               if (!picked) return;
               changeSection(picked.key);
-              setMoreAnchor(null);
+              closeMore(picked.key);
             }}
             renderInput={(params) => (
               <TextField {...params} autoFocus size="small" label={t("collab.discussion.findSection")} />

@@ -107,6 +107,39 @@ describe("CommentComposer section chips", () => {
     expect(pressed("4.2 Target")).toBe("true");
   });
 
+  it("closes the More… list on Escape without picking, and puts focus back on More…", async () => {
+    const { user } = renderComposer({ sections: LONG, usedSections: ["s4"] });
+    await user.click(group().getByRole("button", { name: /More…/ }));
+    const search = await screen.findByRole("combobox", { name: "Find a section" });
+    expect(search).toHaveFocus();
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("combobox", { name: "Find a section" })).toBeNull());
+    expect(chipNames()).toEqual(["2.2 Constraints", "More…"]);
+    expect(pressed("2.2 Constraints")).toBe("false");
+    await waitFor(() => expect(group().getByRole("button", { name: /More…/ })).toHaveFocus());
+  });
+
+  it("closes the More… list on a click away, and puts focus back on More…", async () => {
+    const { user } = renderComposer({ sections: LONG, usedSections: ["s4"] });
+    await user.click(group().getByRole("button", { name: /More…/ }));
+    await screen.findByRole("combobox", { name: "Find a section" });
+    const backdrop = document.querySelector(".MuiPopover-root .MuiBackdrop-root") as HTMLElement;
+    await user.click(backdrop);
+    await waitFor(() => expect(screen.queryByRole("combobox", { name: "Find a section" })).toBeNull());
+    await waitFor(() => expect(group().getByRole("button", { name: /More…/ })).toHaveFocus());
+  });
+
+  it("puts focus on the chip of the section just chosen from More…", async () => {
+    const { user } = renderComposer({ sections: LONG, usedSections: ["s4"] });
+    await user.click(group().getByRole("button", { name: /More…/ }));
+    const search = await screen.findByRole("combobox", { name: "Find a section" });
+    await user.type(search, "scope");
+    await user.keyboard("{ArrowDown}{Enter}");
+    await waitFor(() => expect(screen.queryByRole("combobox", { name: "Find a section" })).toBeNull());
+    expect(pressed("1.1 Scope")).toBe("true");
+    await waitFor(() => expect(group().getByRole("button", { name: "1.1 Scope" })).toHaveFocus());
+  });
+
   it("keeps the chosen section in the draft and restores it", async () => {
     const first = renderComposer({ sections: SHORT, draftKey: "adr:a1:new" });
     await first.user.click(group().getByRole("button", { name: "Decision" }));
