@@ -519,7 +519,11 @@ describe("SoAWPreview — mentions", () => {
 describe("SoAWPreview — discussion", () => {
   it("mounts the side panel for the document with its sections", async () => {
     sidePanel.props.length = 0;
-    mockApi.on("get", "/soaw/s1", { ...SOAW, open_thread_count: 1 });
+    mockApi.on("get", "/soaw/s1", {
+      ...SOAW,
+      open_thread_count: 1,
+      signatories: [{ user_id: "s1", display_name: "S", status: "pending", signed_at: null }],
+    });
     renderPreview();
     await waitFor(() => expect(sidePanel.props.length).toBeGreaterThan(0));
     const props = sidePanel.props[sidePanel.props.length - 1];
@@ -527,6 +531,8 @@ describe("SoAWPreview — discussion", () => {
     expect(props).not.toHaveProperty("status");
     expect(props).not.toHaveProperty("onRestored");
     expect(props.openThreadCount).toBe(1);
+    // A comment's "@" lists the signatories first.
+    expect(props.mentionContext).toEqual({ priorityUserIds: ["s1"] });
     expect((props.sections as { key: string }[])[0].key).toBe("general");
   });
 

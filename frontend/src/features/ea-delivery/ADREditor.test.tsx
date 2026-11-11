@@ -44,11 +44,22 @@ vi.mock("@/hooks/AuthContext", () => ({
   useAuthContext: () => ({ user: authState.user, refreshUser: async () => {} }),
 }));
 vi.mock("./adrPrint", () => ({ printAdr: vi.fn() }));
-// TipTap has no place in jsdom; a textarea carries the same value/onChange contract.
+// TipTap has no place in jsdom; a textarea carries the same value/onChange
+// contract, and each editor's mention context is recorded.
+const richText = vi.hoisted(() => ({ contexts: [] as unknown[] }));
 vi.mock("./RichTextEditor", () => ({
-  default: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
-    <textarea value={value} onChange={(e) => onChange(e.target.value)} />
-  ),
+  default: ({
+    value,
+    onChange,
+    mentionContext,
+  }: {
+    value: string;
+    onChange: (v: string) => void;
+    mentionContext?: unknown;
+  }) => {
+    richText.contexts.push(mentionContext);
+    return <textarea value={value} onChange={(e) => onChange(e.target.value)} />;
+  },
 }));
 // The picker has its own tests; the stub hands back a fixed pick (or none).
 vi.mock("./SignatureRequestDialog", () => ({
@@ -149,6 +160,40 @@ async function signThroughDialog(u: { click: (el: Element) => Promise<void> }) {
   await u.click(screen.getByRole("button", { name: /^draw Sign$/ }));
   await u.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Sign" }));
 }
+
+describe("ADREditor — what the '@' list knows", () => {
+  it("hands its text editors the linked cards, and its comments the decision's people too", async () => {
+    sidePanel.props = [];
+    richText.contexts = [];
+    mockLoad({
+      ...base,
+      linked_cards: [{ id: "c1", name: "SAP", type: "Application" }],
+      signatories: [{ user_id: "s1", display_name: "S", status: "pending", signed_at: null }],
+      decision_makers: [{ user_id: "m1", display_name: "M" }, { user_id: null, display_name: "Ext" }],
+      participants: [{ user_id: "p1", display_name: "P" }, { user_id: "s1", display_name: "S" }],
+    });
+    renderEditor();
+    await screen.findByDisplayValue("Adopt event bus");
+    await waitFor(() =>
+      expect(sidePanel.props.at(-1)?.mentionContext).toEqual({
+        linkedCardIds: ["c1"],
+        priorityUserIds: ["s1", "m1", "p1"],
+      }),
+    );
+    const last = richText.contexts.slice(-4);
+    expect(last).toEqual(Array(4).fill({ linkedCardIds: ["c1"] }));
+  });
+
+  it("hands empty lists for a decision with no links or people", async () => {
+    sidePanel.props = [];
+    richText.contexts = [];
+    mockLoad(base);
+    renderEditor();
+    await screen.findByDisplayValue("Adopt event bus");
+    expect(sidePanel.props.at(-1)?.mentionContext).toEqual({ linkedCardIds: [], priorityUserIds: [] });
+    expect(richText.contexts.at(-1)).toEqual({ linkedCardIds: [] });
+  });
+});
 
 describe("ADREditor — export trio in the title bar", () => {
   it("a draft offers Preview, PDF and Word, and PDF prints the live editor state", async () => {

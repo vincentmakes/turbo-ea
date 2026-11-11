@@ -6,11 +6,17 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 const tabs = vi.hoisted(() => ({
   discussion: [] as Record<string, unknown>[],
 }));
-vi.mock("./DiscussionPanel", () => ({
+vi.mock("./DiscussionPanel", async () => {
+  const { useContext } = await import("react");
+  const { DocumentMentionContext } = await import("../mentions/documentMentionContext");
+  return {
   default: (props: { focusThreadId?: string | null; onOpenCountChange?: (n: number) => void }) => {
     tabs.discussion.push(props);
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const mentionContext = useContext(DocumentMentionContext);
     return (
       <div data-testid="discussion-tab">
+        <span data-testid="mention-context">{JSON.stringify(mentionContext ?? null)}</span>
         focus:{String(props.focusThreadId)}
         <button type="button" onClick={() => props.onOpenCountChange?.(5)}>
           report-five
@@ -18,7 +24,8 @@ vi.mock("./DiscussionPanel", () => ({
       </div>
     );
   },
-}));
+  };
+});
 
 import { useState } from "react";
 import { useNavigate } from "react-router";
@@ -49,6 +56,20 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
   setViewportWidth(1280);
+});
+
+describe("DocumentSidePanel mention context", () => {
+  it("gives the discussion's comment editors the document's mention context", async () => {
+    renderPanel({ mentionContext: { linkedCardIds: ["c1"], priorityUserIds: ["u1"] } });
+    expect(await screen.findByTestId("mention-context")).toHaveTextContent(
+      '{"linkedCardIds":["c1"],"priorityUserIds":["u1"]}',
+    );
+  });
+
+  it("gives none when the page passes none", async () => {
+    renderPanel();
+    expect(await screen.findByTestId("mention-context")).toHaveTextContent("null");
+  });
 });
 
 describe("DocumentSidePanel", () => {

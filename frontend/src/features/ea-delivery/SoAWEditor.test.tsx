@@ -1084,10 +1084,22 @@ describe("SoAWEditor — discussion and review notes", () => {
     expect(props).not.toHaveProperty("isDirty");
     expect(props.openThreadCount).toBe(2);
     expect(props.refreshKey).toBe("2026-11-02T00:00:00Z");
+    // No signatories yet: nobody to list first in a comment's "@".
+    expect(props.mentionContext).toEqual({ priorityUserIds: [] });
     const sections = props.sections as { key: string; label: string }[];
     expect(sections[0]).toEqual({ key: "general", label: t("collab.discussion.section.general") });
     expect(sections.slice(1, -1).map((s) => s.key)).toEqual(getTemplateSections().map((d) => d.id));
     expect(sections[sections.length - 1]).toEqual({ key: "custom_7", label: "Appendix A" });
+  });
+
+  it("lists the signatories first in a comment's '@'", async () => {
+    mockApi.on("get", "/soaw/s1", { ...SOAW, status: "in_review", signatories: [PENDING_U2] });
+    sidePanel.props.length = 0;
+    renderEdit();
+    await waitForLoaded();
+    await waitFor(() =>
+      expect(sidePanel.props[sidePanel.props.length - 1].mentionContext).toEqual({ priorityUserIds: ["u2"] }),
+    );
   });
 
   it("applies a restored version through the same path as a load", async () => {

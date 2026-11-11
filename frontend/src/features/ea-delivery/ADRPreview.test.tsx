@@ -664,7 +664,15 @@ describe("ADRPreview — mentions", () => {
 describe("ADRPreview — discussion and mentions", () => {
   it("mounts the side panel for the decision and lists what mentions it", async () => {
     sidePanel.props.length = 0;
-    serve({ ...adr, status: "in_review", open_thread_count: 2 });
+    serve({
+      ...adr,
+      status: "in_review",
+      open_thread_count: 2,
+      linked_cards: [{ id: "c9", name: "SAP", type: "Application" }],
+      signatories: [{ user_id: "s1", display_name: "S", status: "pending", signed_at: null }],
+      decision_makers: [{ user_id: null, display_name: "Ext" }, { user_id: "m1", display_name: "M" }],
+      participants: [],
+    });
     renderPreview();
     expect(await screen.findByTestId("mentioned-in-stub")).toHaveTextContent("decision:adr-1");
     const props = sidePanel.props[sidePanel.props.length - 1];
@@ -672,6 +680,8 @@ describe("ADRPreview — discussion and mentions", () => {
     expect(props).not.toHaveProperty("status");
     expect(props).not.toHaveProperty("onRestored");
     expect(props.openThreadCount).toBe(2);
+    // A comment's "@" lists the linked cards and the decision's people first.
+    expect(props.mentionContext).toEqual({ linkedCardIds: ["c9"], priorityUserIds: ["s1", "m1"] });
     expect((props.sections as { key: string }[]).map((s) => s.key)).toEqual([
       "general",
       "context",

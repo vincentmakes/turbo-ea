@@ -29,6 +29,7 @@ vi.mock("../RichTextEditor", () => ({
 
 import { mockApi } from "@/test/apiMock";
 import { renderWithProviders } from "@/test/render";
+import { DocumentMentionContext } from "../mentions/documentMentionContext";
 import { clearAllDrafts } from "./commentDrafts";
 import DiscussionPanel from "./DiscussionPanel";
 import { sectionOptions } from "./discussionModel";
@@ -127,6 +128,22 @@ describe("DiscussionPanel", () => {
     });
     expect(await screen.findByText("Why now?")).toBeInTheDocument();
     await waitFor(() => expect(mockApi.callsOf("get", "/adr/a2/comments")).toHaveLength(2));
+  });
+
+  it("hands the composer the document's mention context, none outside a document", async () => {
+    serve({ can, open_count: 0, threads: [] });
+    const ctx = { linkedCardIds: ["c1"], priorityUserIds: ["u7"] };
+    const { unmount } = renderWithProviders(
+      <DocumentMentionContext.Provider value={ctx}>
+        <DiscussionPanel owner={{ kind: "adr", id: "a2" }} sections={SECTIONS} />
+      </DocumentMentionContext.Provider>,
+    );
+    await screen.findByText("No discussion yet.");
+    expect(editorProps.last?.mentionContext).toBe(ctx);
+    unmount();
+    renderPanel();
+    await screen.findByText("No discussion yet.");
+    expect(editorProps.last?.mentionContext).toBeUndefined();
   });
 
   it("keeps Post disabled for an empty comment and posts General without a section", async () => {
