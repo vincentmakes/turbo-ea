@@ -5,6 +5,8 @@ import {
   actorName,
   appendPage,
   canRestore,
+  comparePairFor,
+  compareOptions,
   contentEntries,
   defaultComparePair,
   entryNote,
@@ -12,10 +14,12 @@ import {
   historyPath,
   newestFirst,
   orderPair,
+  otherSide,
   peopleLine,
   restoreErrorMessage,
   restorePath,
   restoredSource,
+  selectedVersion,
   splitSoawSections,
   timelineIcon,
   timelineLabelKey,
@@ -219,5 +223,45 @@ describe("splitSoawSections and peopleLine", () => {
       ]),
     ).toBe("Ada, Grace");
     expect(peopleLine(null)).toBe("");
+  });
+});
+
+describe("the History view's selection and comparison", () => {
+  const v1 = entry({ id: "v1", created_at: "2026-10-01T09:00:00Z" });
+  const sent = entry({ id: "s", kind: "sent_for_review", has_content: false, created_at: "2026-10-04T09:00:00Z" });
+  const v2 = entry({ id: "v2", created_at: "2026-10-02T09:00:00Z" });
+  const v3 = entry({ id: "v3", created_at: "2026-10-03T09:00:00Z" });
+  const rows = [v1, sent, v3, v2];
+
+  it("selects the picked version, else the newest one, never a step without a version", () => {
+    expect(selectedVersion(null, rows)).toBe(v3);
+    expect(selectedVersion("v1", rows)).toBe(v1);
+    expect(selectedVersion("s", rows)).toBe(v3);
+    expect(selectedVersion("gone", rows)).toBe(v3);
+    expect(selectedVersion(null, [sent])).toBeNull();
+    expect(selectedVersion(null, [])).toBeNull();
+  });
+
+  it("offers every other version to compare with, newest first", () => {
+    expect(compareOptions("v2", rows).map((e) => e.id)).toEqual(["v3", "v1"]);
+    expect(compareOptions("v3", rows).map((e) => e.id)).toEqual(["v2", "v1"]);
+    expect(compareOptions("v1", [v1, sent])).toEqual([]);
+  });
+
+  it("compares with the version before by default, and with the picked one in time order", () => {
+    expect(comparePairFor("v3", null, rows)).toEqual({ from: "v2", to: "v3" });
+    expect(comparePairFor("v1", null, rows)).toEqual({ from: "v1", to: "v2" });
+    expect(comparePairFor("v3", "v1", rows)).toEqual({ from: "v1", to: "v3" });
+    expect(comparePairFor("v1", "v3", rows)).toEqual({ from: "v1", to: "v3" });
+    // A pick that is the selection itself, not a version, or no longer loaded: the default.
+    expect(comparePairFor("v3", "v3", rows)).toEqual({ from: "v2", to: "v3" });
+    expect(comparePairFor("v3", "s", rows)).toEqual({ from: "v2", to: "v3" });
+    expect(comparePairFor("v3", "gone", rows)).toEqual({ from: "v2", to: "v3" });
+    expect(comparePairFor("v1", null, [v1, sent])).toBeNull();
+  });
+
+  it("names the other side of a pair", () => {
+    expect(otherSide("v3", { from: "v2", to: "v3" })).toBe("v2");
+    expect(otherSide("v1", { from: "v1", to: "v2" })).toBe("v2");
   });
 });

@@ -1,18 +1,13 @@
 /**
- * One saved version of a decision or SoAW, read-only: a decision's sections,
- * dates, people and change summary; a SoAW rendered as its preview renders
- * it. Links, linked cards and files are filing, not content, and are not
+ * One saved version of a decision or SoAW, read-only, as the History view's
+ * "Version" pane shows it: a decision's sections, dates, people and change
+ * summary; a SoAW rendered as its preview renders it. Links, linked cards and files are filing, not content, and are not
  * part of a version.
  */
 import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
 import Typography from "@mui/material/Typography";
 import LinkifiedText from "@/components/LinkifiedText";
 import { useApiQuery } from "@/hooks/useApiQuery";
@@ -21,7 +16,6 @@ import { fillMentionLabels } from "@/lib/mentionHtml";
 import { sanitizeRichHtml } from "@/lib/richHtml";
 import type {
   DecisionVersionContent,
-  DocumentHistoryEntry,
   DocumentOwner,
   DocumentVersion,
   SoawVersionContent,
@@ -30,7 +24,7 @@ import { DATE_LABEL_KEYS } from "../decisionStanding";
 import MentionContainer from "../mentions/MentionContainer";
 import { useMentionLabels } from "../mentions/mentionLabels";
 import { buildPreviewBody, PREVIEW_CSS } from "../soawExport";
-import { entryTitle, peopleLine, splitSoawSections, versionPath } from "./historyModel";
+import { peopleLine, splitSoawSections, versionPath } from "./historyModel";
 
 const DATE_FIELDS = ["decided_on", "effective_from", "valid_until"] as const;
 
@@ -129,34 +123,28 @@ function SoawVersion({ content }: { content: SoawVersionContent }) {
 
 interface Props {
   owner: DocumentOwner;
-  entry: DocumentHistoryEntry;
-  onClose: () => void;
+  /** The timeline row holding the version. */
+  entryId: string;
 }
 
-export default function VersionViewDialog({ owner, entry, onClose }: Props) {
-  const { t } = useTranslation(["delivery", "common"]);
-  const { formatDateTime } = useDateFormat();
-  const { data, error } = useApiQuery<DocumentVersion>(versionPath(owner, entry.id));
+export default function VersionViewPane({ owner, entryId }: Props) {
+  const { t } = useTranslation("delivery");
+  // Not the version just left while the next one loads.
+  const { data: current, error } = useApiQuery<DocumentVersion>(versionPath(owner, entryId), {
+    keepPreviousData: false,
+  });
 
-  return (
-    <Dialog open onClose={onClose} maxWidth="md" fullWidth disableRestoreFocus>
-      <DialogTitle>{entryTitle(entry, t, formatDateTime)}</DialogTitle>
-      <DialogContent dividers>
-        {error ? (
-          <Alert severity="error">{error.message || t("collab.history.versionFailed")}</Alert>
-        ) : !data ? (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <CircularProgress size={24} />
-          </Box>
-        ) : owner.kind === "soaw" ? (
-          <SoawVersion content={data.content as SoawVersionContent} />
-        ) : (
-          <DecisionVersion content={data.content as DecisionVersionContent} />
-        )}
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>{t("common:actions.close")}</Button>
-      </DialogActions>
-    </Dialog>
+  if (error) return <Alert severity="error">{error.message || t("collab.history.versionFailed")}</Alert>;
+  if (!current) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+        <CircularProgress size={24} />
+      </Box>
+    );
+  }
+  return owner.kind === "soaw" ? (
+    <SoawVersion content={current.content as SoawVersionContent} />
+  ) : (
+    <DecisionVersion content={current.content as DecisionVersionContent} />
   );
 }

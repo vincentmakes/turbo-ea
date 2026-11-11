@@ -1,8 +1,8 @@
 /**
- * Pure rules behind a document's History tab (`HistoryPanel`): how each
- * timeline step reads and which icon it carries, which steps hold a saved
- * version, what a restore names as its source, and which two versions a
- * comparison opens on. Kept out of the components so each rule has a direct
+ * Pure rules behind a document's History view (`DocumentHistoryDialog`): how
+ * each timeline step reads and which icon it carries, which steps hold a
+ * saved version, which version is selected, what a restore names as its
+ * source, and which two versions a comparison shows. Kept out of the components so each rule has a direct
  * test.
  */
 import type {
@@ -144,6 +144,49 @@ export function defaultComparePair(
   if (at === -1) return null;
   if (at === 0) return { from: versions[0].id, to: versions[1].id };
   return { from: versions[at - 1].id, to: versions[at].id };
+}
+
+/**
+ * The version the History view shows: the one picked in the timeline while it
+ * is still loaded and holds a version, else the newest version. Null when no
+ * loaded row holds one.
+ */
+export function selectedVersion(
+  pickedId: string | null,
+  entries: readonly DocumentHistoryEntry[],
+): DocumentHistoryEntry | null {
+  const versions = newestFirst(contentEntries(entries));
+  return versions.find((e) => e.id === pickedId) ?? versions[0] ?? null;
+}
+
+/** The versions the selected one can be compared with, newest first (itself left out). */
+export function compareOptions(
+  selectedId: string,
+  entries: readonly DocumentHistoryEntry[],
+): DocumentHistoryEntry[] {
+  return newestFirst(contentEntries(entries)).filter((e) => e.id !== selectedId);
+}
+
+/**
+ * The two versions "Changes" shows for the selected one: against the version
+ * picked to compare with (older to newer, whichever is which) while it is
+ * still offered, else against the default (`defaultComparePair`). Null when
+ * there is nothing to compare with.
+ */
+export function comparePairFor(
+  selectedId: string,
+  compareWith: string | null,
+  entries: readonly DocumentHistoryEntry[],
+): ComparePair | null {
+  if (compareWith && compareOptions(selectedId, entries).some((e) => e.id === compareWith)) {
+    return orderPair(selectedId, compareWith, entries);
+  }
+  return defaultComparePair(selectedId, entries);
+}
+
+/** The other version of a pair: what the "Compare with" picker shows for the selected one. */
+export function otherSide(selectedId: string, pair: ComparePair): string {
+  return pair.from === selectedId ? pair.to : pair.from;
 }
 
 /** Two picked versions in time order, whichever was picked first. */

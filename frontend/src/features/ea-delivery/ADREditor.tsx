@@ -29,7 +29,7 @@ import { DateField } from "@/components/DateField";
 import RichTextEditor from "./RichTextEditor";
 import SignatureRequestDialog from "./SignatureRequestDialog";
 import DecisionBanners from "./DecisionBanners";
-import RevisionStrip, { decisionRevisionItems } from "./RevisionStrip";
+import RevisionStrip, { decisionRevisionItems, showsRevisionStrip } from "./RevisionStrip";
 import DecisionPeopleField from "./DecisionPeopleField";
 import DecisionLinksBlock from "./DecisionLinksBlock";
 import DecisionFilesSection from "./DecisionFilesSection";
@@ -49,6 +49,7 @@ import {
   type SavePayload,
 } from "./adrEditorModel";
 import { hasUnsavedEdits } from "./editorDirty";
+import DocumentHistoryButton from "./collab/DocumentHistoryButton";
 import DocumentSidePanel from "./collab/DocumentSidePanel";
 import { RejectDocumentDialog, SignDocumentDialog } from "./collab/ReviewDialogs";
 import { deepLinkDialog } from "./collab/reviewDeepLink";
@@ -585,17 +586,36 @@ export default function ADREditor() {
     );
   }
 
+  const stripItems = detail ? decisionRevisionItems(detail.revisions ?? [], t) : [];
+  const stripShown = showsRevisionStrip(stripItems);
+  const historyButton = (placeCompact: boolean) =>
+    !isNew && id ? (
+      <DocumentHistoryButton<ArchitectureDecision>
+        owner={{ kind: "adr", id }}
+        label={[
+          referenceNumber
+            ? decisionRefLabel({ reference_number: referenceNumber, revision_number: revisionNumber }, t)
+            : "",
+          title || t("adr.editor.untitled"),
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+        status={status}
+        refreshKey={detail?.updated_at ?? undefined}
+        isDirty={hasEdits}
+        onRestored={(adr) => applyReply(adr)}
+        compact={placeCompact}
+      />
+    ) : null;
+
   return (
     <>
     <DocumentSidePanel
       owner={!isNew && id ? { kind: "adr", id } : null}
-      status={status}
       sections={sectionOptions("adr", t)}
       openThreadCount={detail?.open_thread_count}
       onOpenCountChange={setOpenThreads}
       refreshKey={detail?.updated_at ?? undefined}
-      isDirty={hasEdits}
-      onRestored={(adr: ArchitectureDecision) => applyReply(adr)}
     >
     <Box sx={{ maxWidth: 900, mx: "auto", p: 2 }}>
       {/* ── Header ── */}
@@ -632,6 +652,9 @@ export default function ADREditor() {
 
         <DecisionStatusChip adr={{ status: status as ArchitectureDecision["status"], recorded_at: detail?.recorded_at }} />
         <DecisionStandingChip standing={detail?.standing} />
+
+        {/* History sits beside the revision strip when one is shown. */}
+        {!stripShown && historyButton(compact)}
 
         {/* Preview / PDF / Word — the SoAW editor's export trio, same shape. */}
         {!isNew &&
@@ -694,12 +717,17 @@ export default function ADREditor() {
             mode="editor"
             onCreateConsolidatedRevision={canManage ? handleConsolidate : undefined}
           />
-          <RevisionStrip
-            items={decisionRevisionItems(detail.revisions ?? [], t)}
-            activeId={detail.id}
-            currentId={currentRevisionId(detail)}
-            hrefFor={(rid) => `/ea-delivery/adr/${rid}`}
-          />
+          {stripShown && (
+            <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
+              <RevisionStrip
+                items={stripItems}
+                activeId={detail.id}
+                currentId={currentRevisionId(detail)}
+                hrefFor={(rid) => `/ea-delivery/adr/${rid}`}
+              />
+              {historyButton(false)}
+            </Box>
+          )}
         </Box>
       )}
 

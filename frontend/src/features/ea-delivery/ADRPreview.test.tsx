@@ -13,6 +13,21 @@ vi.mock("./collab/DocumentSidePanel", () => ({
     return props.children;
   },
 }));
+// The History view has its own tests: here it records what the page hands
+// it, and hands back the document a restore returns.
+const historyView = vi.hoisted(() => ({ props: [] as Record<string, unknown>[], restored: null as unknown }));
+vi.mock("./collab/DocumentHistoryDialog", () => ({
+  default: (props: { onRestored?: (d: unknown) => void }) => {
+    historyView.props.push(props);
+    return (
+      <div role="dialog" aria-label="history-view">
+        <button type="button" onClick={() => props.onRestored?.(historyView.restored)}>
+          restore-it
+        </button>
+      </div>
+    );
+  },
+}));
 vi.mock("./collab/MentionedInList", () => ({
   default: ({ target }: { target: { kind: string; id: string } }) => (
     <div data-testid="mentioned-in-stub">{`${target.kind}:${target.id}`}</div>
@@ -426,6 +441,10 @@ describe("ADRPreview — decision register", () => {
     expect(screen.getByRole("link", { name: "Revokes ADR-0007" })).toHaveAttribute("href", "/ea-delivery/adr/adr-7");
     expect(screen.getByRole("link", { name: "Related to ADR-0008" })).toBeInTheDocument();
     expect(screen.getByText("minutes.pdf")).toBeInTheDocument();
+    // History sits beside the revision strip, once.
+    const strip = screen.getByRole("navigation", { name: "Revisions" });
+    expect(within(strip.parentElement as HTMLElement).getByRole("button", { name: /History$/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /History$/ })).toHaveLength(1);
     // Shown from the detail, not fetched again.
     expect(vi.mocked(api.get).mock.calls.some(([p]) => String(p).endsWith("/files"))).toBe(false);
     // The banner and the strip point at previews.
@@ -650,7 +669,8 @@ describe("ADRPreview — discussion and mentions", () => {
     expect(await screen.findByTestId("mentioned-in-stub")).toHaveTextContent("decision:adr-1");
     const props = sidePanel.props[sidePanel.props.length - 1];
     expect(props.owner).toEqual({ kind: "adr", id: "adr-1" });
-    expect(props.status).toBe("in_review");
+    expect(props).not.toHaveProperty("status");
+    expect(props).not.toHaveProperty("onRestored");
     expect(props.openThreadCount).toBe(2);
     expect((props.sections as { key: string }[]).map((s) => s.key)).toEqual([
       "general",
@@ -661,13 +681,27 @@ describe("ADRPreview — discussion and mentions", () => {
     ]);
   });
 
-  it("shows a restored version the panel hands back", async () => {
-    sidePanel.props.length = 0;
+  it("shows History in the header and opens it for the decision", async () => {
+    historyView.props.length = 0;
+    serve({ ...adr, status: "in_review" });
+    renderPreview();
+    await screen.findByTestId("mentioned-in-stub");
+    await userEvent.click(screen.getByRole("button", { name: /History$/ }));
+    expect(screen.getByRole("dialog", { name: "history-view" })).toBeInTheDocument();
+    expect(historyView.props[historyView.props.length - 1]).toMatchObject({
+      owner: { kind: "adr", id: "adr-1" },
+      status: "in_review",
+      label: expect.stringContaining(adr.title),
+    });
+  });
+
+  it("shows a restored version the History view hands back", async () => {
     serve(adr);
     renderPreview();
     await screen.findByTestId("mentioned-in-stub");
-    const onRestored = sidePanel.props[sidePanel.props.length - 1].onRestored as (a: ArchitectureDecision) => void;
-    await waitFor(() => onRestored({ ...adr, title: "Restored decision title" }));
+    historyView.restored = { ...adr, title: "Restored decision title" };
+    await userEvent.click(screen.getByRole("button", { name: /History$/ }));
+    await userEvent.click(screen.getByRole("button", { name: "restore-it" }));
     expect((await screen.findAllByText("Restored decision title")).length).toBeGreaterThan(0);
   });
 });

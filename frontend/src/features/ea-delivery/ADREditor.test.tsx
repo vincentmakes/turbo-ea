@@ -13,6 +13,21 @@ vi.mock("./collab/DocumentSidePanel", () => ({
     return props.children;
   },
 }));
+// The History view has its own tests: here it records what the page hands
+// it, and hands back the document a restore returns.
+const historyView = vi.hoisted(() => ({ props: [] as Record<string, unknown>[], restored: null as unknown }));
+vi.mock("./collab/DocumentHistoryDialog", () => ({
+  default: (props: { onRestored?: (d: unknown) => void }) => {
+    historyView.props.push(props);
+    return (
+      <div role="dialog" aria-label="history-view">
+        <button type="button" onClick={() => props.onRestored?.(historyView.restored)}>
+          restore-it
+        </button>
+      </div>
+    );
+  },
+}));
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
   ApiError: class ApiError extends Error {},
@@ -998,6 +1013,13 @@ describe("ADREditor — decision register", () => {
       "/ea-delivery/adr/adr-2",
     );
     expect(screen.getByRole("navigation", { name: "Revisions" })).toBeInTheDocument();
+    // History sits beside the strip, not among the header actions.
+    expect(
+      within(screen.getByRole("navigation", { name: "Revisions" }).parentElement as HTMLElement).getByRole("button", {
+        name: /History$/,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /History$/ })).toHaveLength(1);
     expect(screen.getByTestId("revision-adr-2")).toHaveTextContent("Rev 2· Current");
   });
 
@@ -1145,7 +1167,10 @@ describe("ADREditor — discussion and review notes", () => {
     await renderLoaded({ ...base, open_thread_count: 3, updated_at: "2026-11-01T00:00:00Z" });
     const props = sidePanel.props[sidePanel.props.length - 1];
     expect(props.owner).toEqual({ kind: "adr", id: "adr-1" });
-    expect(props.status).toBe("draft");
+    // History is not the side panel's: it opens from the header.
+    expect(props).not.toHaveProperty("status");
+    expect(props).not.toHaveProperty("onRestored");
+    expect(props).not.toHaveProperty("isDirty");
     expect(props.openThreadCount).toBe(3);
     expect(props.refreshKey).toBe("2026-11-01T00:00:00Z");
     expect((props.sections as { key: string }[]).map((s) => s.key)).toEqual([
@@ -1155,6 +1180,20 @@ describe("ADREditor — discussion and review notes", () => {
       "alternatives_considered",
       "consequences",
     ]);
+  });
+
+  it("shows History in the header of a saved decision and opens it with what a restore needs", async () => {
+    historyView.props.length = 0;
+    await renderLoaded({ ...base, updated_at: "2026-11-01T00:00:00Z" });
+    await userEvent.click(screen.getByRole("button", { name: /History$/ }));
+    expect(screen.getByRole("dialog", { name: "history-view" })).toBeInTheDocument();
+    const props = historyView.props[historyView.props.length - 1];
+    expect(props).toMatchObject({
+      owner: { kind: "adr", id: "adr-1" },
+      status: "draft",
+      refreshKey: "2026-11-01T00:00:00Z",
+    });
+    expect(props.label).toMatch(/ · /);
     expect((props.isDirty as () => boolean)()).toBe(false);
   });
 
@@ -1164,14 +1203,16 @@ describe("ADREditor — discussion and review notes", () => {
     renderAt("/ea-delivery/adr/new");
     expect(await screen.findByText("New Architecture Decision")).toBeInTheDocument();
     expect(sidePanel.props[sidePanel.props.length - 1].owner).toBeNull();
+    expect(screen.queryByRole("button", { name: /History$/ })).toBeNull();
   });
 
   it("applies a restored version through the same path as a save", async () => {
-    sidePanel.props.length = 0;
     await renderLoaded(base);
-    const onRestored = sidePanel.props[sidePanel.props.length - 1].onRestored as (a: ArchitectureDecision) => void;
-    await waitFor(() => onRestored({ ...base, title: "Restored title" }));
+    historyView.restored = { ...base, title: "Restored title" };
+    await userEvent.click(screen.getByRole("button", { name: /History$/ }));
+    await userEvent.click(screen.getByRole("button", { name: "restore-it" }));
     expect(await screen.findByDisplayValue("Restored title")).toBeInTheDocument();
+    expect(await screen.findByText("Version restored")).toBeInTheDocument();
   });
 
   it("signs with a note sent as the comment, and warns about open threads", async () => {

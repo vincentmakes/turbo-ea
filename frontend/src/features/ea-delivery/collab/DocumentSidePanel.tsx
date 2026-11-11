@@ -1,16 +1,17 @@
 /**
- * The Discussion and History panel beside a saved decision or SoAW, on its
- * editor and on its preview. From `lg` up it is an aside in the page's flex
- * row (not a persistent Drawer: that is fixed-position and would cover the
- * app bar); below `lg` a button opens it in a temporary Drawer. Whether it
- * is open, and on which tab, is remembered per viewer. A notification's
- * `?thread=<id>` opens it on Discussion with that thread in view, on arrival
- * and whenever the parameter changes while the document is open.
+ * The Discussion panel beside a saved decision or SoAW, on its editor and on
+ * its preview. From `lg` up it is an aside in the page's flex row (not a
+ * persistent Drawer: that is fixed-position and would cover the app bar);
+ * below `lg` a button opens it in a temporary Drawer. Whether it is open is
+ * remembered per viewer. A notification's `?thread=<id>` opens it with that
+ * thread in view, on arrival and whenever the parameter changes while the
+ * document is open. The document's History is not here: it opens from the
+ * History button at the top of the page (`DocumentHistoryButton`).
  *
  * The document (`children`) sits at the same place in the React tree at
  * every width, so crossing `lg` re-lays the page out without remounting it
- * (a dialog's typed text, editor undo history survive). The Discussion and
- * History tabs are re-read with `refreshKey` (a save or a review action).
+ * (a dialog's typed text, editor undo history survive). The discussion is
+ * re-read with `refreshKey` (a save or a review action).
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
@@ -20,51 +21,42 @@ import Box from "@mui/material/Box";
 import Drawer from "@mui/material/Drawer";
 import Fab from "@mui/material/Fab";
 import IconButton from "@mui/material/IconButton";
-import Tab from "@mui/material/Tab";
-import Tabs from "@mui/material/Tabs";
 import Tooltip from "@mui/material/Tooltip";
+import Typography from "@mui/material/Typography";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import type { DocumentOwner } from "@/types";
 import DiscussionPanel from "./DiscussionPanel";
-import HistoryPanel from "./HistoryPanel";
 import type { SectionOption } from "./discussionModel";
-import { initialPanelState, writePanelState, type PanelState, type PanelTab } from "./panelState";
+import { initialPanelState, writePanelState, type PanelState } from "./panelState";
 
 /** The aside's width from `lg` up. */
 const ASIDE_WIDTH = 380;
 
-interface Props<D> {
+interface Props {
   /** The saved document; null (a new one) renders the page alone. */
   owner: DocumentOwner | null;
-  /** The document's status (restore is offered on a draft only). */
-  status: string;
   /** What a new thread can be tagged to (`sectionOptions`). */
   sections: SectionOption[];
   /** The count the document's detail carries, until the discussion has loaded. */
   openThreadCount?: number;
   /** The live open-thread count (for the sign / request dialogs' warnings). */
   onOpenCountChange?: (count: number) => void;
-  /** Re-read the history when this changes (the page saved). */
+  /** Re-read the discussion when this changes (the page saved). */
   refreshKey?: string | number;
-  isDirty?: () => boolean;
-  onRestored?: (detail: D) => void;
   /** The document itself. */
   children: ReactNode;
 }
 
-export default function DocumentSidePanel<D>({
+export default function DocumentSidePanel({
   owner,
-  status,
   sections,
   openThreadCount,
   onOpenCountChange,
   refreshKey,
-  isDirty,
-  onRestored,
   children,
-}: Props<D>) {
+}: Props) {
   const { t } = useTranslation("delivery");
   const theme = useTheme();
   const wide = useMediaQuery(theme.breakpoints.up("lg"));
@@ -74,12 +66,12 @@ export default function DocumentSidePanel<D>({
   // Below `lg` the drawer opens on request (or for a notification's thread) only.
   const [drawerOpen, setDrawerOpen] = useState(Boolean(focusThreadId));
   // A notification for this same document while it is open: only the query
-  // string changes, so open the panel on Discussion here.
+  // string changes, so open the panel here.
   const [seenThread, setSeenThread] = useState(focusThreadId);
   if (focusThreadId !== seenThread) {
     setSeenThread(focusThreadId);
     if (focusThreadId) {
-      setState((prev) => ({ ...prev, open: true, tab: "discussion" }));
+      setState({ open: true });
       setDrawerOpen(true);
     }
   }
@@ -88,10 +80,9 @@ export default function DocumentSidePanel<D>({
   // discussion has been read again.
   const [live, setLive] = useState<{ count: number; basis: number | undefined } | null>(null);
 
-  const update = (next: Partial<PanelState>) => {
-    const merged = { ...state, ...next };
-    setState(merged);
-    writePanelState(merged);
+  const update = (next: PanelState) => {
+    setState(next);
+    writePanelState(next);
   };
 
   // Read through a ref: the callback keeps its identity when the detail's
@@ -109,52 +100,32 @@ export default function DocumentSidePanel<D>({
   );
 
   const count = (live && live.basis === openThreadCount ? live.count : openThreadCount) ?? 0;
-  const tabLabel = (key: string, icon: string, badge?: number) => (
-    <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
-      <MaterialSymbol icon={icon} size={18} />
-      {t(key)}
-      {badge !== undefined && badge > 0 && (
-        <Badge badgeContent={badge} color="warning" sx={{ ml: 1.5 }} data-testid="open-thread-badge" />
-      )}
-    </Box>
-  );
-
   const panel = (owner: DocumentOwner, onClose: () => void) => (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
-      <Box sx={{ display: "flex", alignItems: "center", borderBottom: 1, borderColor: "divider" }}>
-        <Tabs
-          value={state.tab}
-          onChange={(_e, tab: PanelTab) => update({ tab })}
-          sx={{ flex: 1, minHeight: 44, "& .MuiTab-root": { minHeight: 44, textTransform: "none" } }}
-        >
-          <Tab value="discussion" label={tabLabel("collab.panel.discussion", "forum", count)} />
-          <Tab value="history" label={tabLabel("collab.panel.history", "history")} />
-        </Tabs>
+      <Box
+        sx={{ display: "flex", alignItems: "center", gap: 1, px: 1.5, minHeight: 44, borderBottom: 1, borderColor: "divider" }}
+      >
+        <MaterialSymbol icon="forum" size={18} />
+        <Typography variant="subtitle2" component="h2" sx={{ flex: 1, display: "flex", alignItems: "center" }}>
+          {t("collab.panel.discussion")}
+          {count > 0 && (
+            <Badge badgeContent={count} color="warning" sx={{ ml: 2 }} data-testid="open-thread-badge" />
+          )}
+        </Typography>
         <Tooltip title={t("collab.panel.close")}>
-          <IconButton size="small" onClick={onClose} sx={{ mr: 0.5 }}>
+          <IconButton size="small" onClick={onClose}>
             <MaterialSymbol icon="close" size={18} />
           </IconButton>
         </Tooltip>
       </Box>
       <Box sx={{ flex: 1, overflowY: "auto", p: 1.5 }}>
-        <Box sx={{ display: state.tab === "discussion" ? "block" : "none" }}>
-          <DiscussionPanel
-            owner={owner}
-            sections={sections}
-            focusThreadId={focusThreadId}
-            onOpenCountChange={handleCount}
-            refreshKey={refreshKey}
-          />
-        </Box>
-        {state.tab === "history" && (
-          <HistoryPanel<D>
-            owner={owner}
-            status={status}
-            refreshKey={refreshKey}
-            isDirty={isDirty}
-            onRestored={onRestored}
-          />
-        )}
+        <DiscussionPanel
+          owner={owner}
+          sections={sections}
+          focusThreadId={focusThreadId}
+          onOpenCountChange={handleCount}
+          refreshKey={refreshKey}
+        />
       </Box>
     </Box>
   );
@@ -170,7 +141,7 @@ export default function DocumentSidePanel<D>({
         state.open ? (
           <Box
             component="aside"
-            aria-label={openLabel}
+            aria-label={t("collab.panel.discussion")}
             className="no-print"
             sx={{
               width: ASIDE_WIDTH,

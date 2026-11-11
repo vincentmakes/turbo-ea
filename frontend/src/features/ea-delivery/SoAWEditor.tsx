@@ -40,7 +40,7 @@ import {
 } from "./soawTemplate";
 import { exportToDocx, exportToPdf } from "./soawExport";
 import { SoawBanners, soawHref } from "./DecisionBanners";
-import RevisionStrip, { soawRevisionItems } from "./RevisionStrip";
+import RevisionStrip, { showsRevisionStrip, soawRevisionItems } from "./RevisionStrip";
 import { isLocked } from "./decisionStanding";
 import {
   EMPTY_DOC_INFO,
@@ -57,6 +57,7 @@ import {
   type SoawEditorFields,
 } from "./soawEditorState";
 import { hasUnsavedEdits } from "./editorDirty";
+import DocumentHistoryButton from "./collab/DocumentHistoryButton";
 import DocumentSidePanel from "./collab/DocumentSidePanel";
 import { RejectDocumentDialog, SignDocumentDialog } from "./collab/ReviewDialogs";
 import { deepLinkDialog } from "./collab/reviewDeepLink";
@@ -582,10 +583,24 @@ export default function SoAWEditor() {
     );
   }
 
+  const stripItems = detail ? soawRevisionItems(detail.revisions ?? [], t) : [];
+  const stripShown = showsRevisionStrip(stripItems);
+  const historyButton = (placeCompact: boolean) =>
+    !isNew && id ? (
+      <DocumentHistoryButton<SoAW>
+        owner={{ kind: "soaw", id }}
+        label={name || t("editor.untitled")}
+        status={status}
+        refreshKey={detail?.updated_at}
+        isDirty={hasEdits}
+        onRestored={(data) => applyReply(data)}
+        compact={placeCompact}
+      />
+    ) : null;
+
   return (
     <DocumentSidePanel
       owner={!isNew && id ? { kind: "soaw", id } : null}
-      status={status}
       sections={sectionOptions(
         "soaw",
         t,
@@ -597,8 +612,6 @@ export default function SoAWEditor() {
       openThreadCount={detail?.open_thread_count}
       onOpenCountChange={setOpenThreads}
       refreshKey={detail?.updated_at}
-      isDirty={hasEdits}
-      onRestored={(data: SoAW) => applyReply(data)}
     >
     <Box sx={{ maxWidth: 960, mx: "auto" }}>
       {/* Top bar */}
@@ -616,6 +629,7 @@ export default function SoAWEditor() {
         >
           {isNew ? t("editor.newTitle") : name || t("editor.untitled")}
         </Typography>
+        {!stripShown && historyButton(compact)}
         {!isNew && (
           compact ? (
             <Tooltip title={t("editor.preview")}>
@@ -766,12 +780,17 @@ export default function SoAWEditor() {
       {detail && !isNew && (
         <Box sx={{ mb: 2, display: "flex", flexDirection: "column", gap: 1 }}>
           <SoawBanners soaw={{ ...detail, status: status as SoAW["status"] }} mode="editor" />
-          <RevisionStrip
-            items={soawRevisionItems(detail.revisions ?? [], t)}
-            activeId={detail.id}
-            currentId={soawCurrentRevisionId(detail)}
-            hrefFor={soawHref}
-          />
+          {stripShown && (
+            <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
+              <RevisionStrip
+                items={stripItems}
+                activeId={detail.id}
+                currentId={soawCurrentRevisionId(detail)}
+                hrefFor={soawHref}
+              />
+              {historyButton(false)}
+            </Box>
+          )}
         </Box>
       )}
 

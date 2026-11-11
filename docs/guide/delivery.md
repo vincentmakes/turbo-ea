@@ -50,7 +50,7 @@ The editor provides:
 - **Section templates** — Pre-defined sections following TOGAF standards (e.g., Problem Description, Objectives, Approach, Stakeholders, Constraints, Work Plan)
 - **Inline editable tables** — Add and edit tables within any section
 - **Mentions** — type **@** in a section's text to mention a card or a decision (see [Discussion, mentions and history](#soaw-collaboration))
-- **Document Version History** — a table the authors fill in by hand (version, date, revised by, description). It is part of the document and is not the [History](#soaw-collaboration) tab
+- **Document Version History** — a table the authors fill in by hand (version, date, revised by, description). It is part of the document and is not the [History](#soaw-collaboration) view
 - **Status workflow** — Documents progress through defined stages:
 
 | Status | Meaning |
@@ -74,13 +74,13 @@ An earlier revision shows a banner linking to the current one, and the **Revisio
 
 ### Discussion, mentions and history {: #soaw-collaboration }
 
-A SoAW has the same discussion, mentions and history as a decision, in the **Discussion and history** panel of its editor and preview. The behaviour they share is described once, in the GRC guide: [Discussion](grc.md#decision-discussion), [Mentions](grc.md#decision-mentions), [History](grc.md#decision-history) and [Known limits](grc.md#collaboration-limits). What differs for a SoAW:
+A SoAW has the same discussion, mentions and history as a decision: the discussion in a panel beside its editor and preview, the history behind the **History** button at the top of the page. The behaviour they share is described once, in the GRC guide: [Discussion](grc.md#decision-discussion), [Mentions](grc.md#decision-mentions), [History](grc.md#decision-history) and [Known limits](grc.md#collaboration-limits). What differs for a SoAW:
 
 - **Who can post.** Posting, replying, resolving and reopening need the `soaw.comment` permission, which members and admins hold by default and viewers do not; reading the discussion follows `soaw.view`. The SoAW's signatories can always comment on it. Anyone who can edit SoAWs (`soaw.manage`) can delete any comment.
 - **Sections.** A thread is tagged to one of the SoAW's own sections, or to *General*. A thread tagged to a custom section that has since been removed shows *Removed section*.
 - **Rejecting.** Any signatory who holds the sign permission (`soaw.sign`) — or the edit permission — may reject a SoAW, as for decisions; until now rejecting needed the edit permission. The reason opens a **Rejection reason** thread in the discussion.
-- **Signing note.** **Sign** now opens a dialog where the signatory can add an optional note; it appears in the discussion as a **Signing note** and on the History tab.
-- **History.** A version holds the SoAW's name, its document information, its Document Version History table and every section; the initiative is not part of a version. The History tab records what happens to the document; the Document Version History table in the document records only what its authors write in it. A SoAW in the **Approved** status can still be edited, so, as for a draft, its saves are kept as versions and an earlier version can be restored into it.
+- **Signing note.** **Sign** now opens a dialog where the signatory can add an optional note; it appears in the discussion as a **Signing note** and in the History.
+- **History.** A version holds the SoAW's name, its document information, its Document Version History table and every section; the initiative is not part of a version. The History records what happens to the document; the Document Version History table in the document records only what its authors write in it. A SoAW in the **Approved** status can still be edited, so, as for a draft, its saves are kept as versions and an earlier version can be restored into it.
 
 ### Preview and Export
 

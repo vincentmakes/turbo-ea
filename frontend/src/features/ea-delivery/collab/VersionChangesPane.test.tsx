@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
+import { useState } from "react";
 import type { DecisionVersionContent, DocumentHistoryEntry, SoawVersionContent } from "@/types";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -7,7 +8,7 @@ vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useD
 
 import { mockApi } from "@/test/apiMock";
 import { renderWithProviders } from "@/test/render";
-import VersionCompareDialog from "./VersionCompareDialog";
+import VersionChangesPane from "./VersionChangesPane";
 
 function entry(id: string, created_at: string, has_content = true): DocumentHistoryEntry {
   return {
@@ -23,8 +24,6 @@ function entry(id: string, created_at: string, has_content = true): DocumentHist
 
 const v1 = entry("v1", "2026-10-01T09:00:00Z");
 const v2 = entry("v2", "2026-10-02T09:00:00Z");
-const v3 = entry("v3", "2026-10-03T09:00:00Z");
-const sent = entry("s", "2026-10-02T12:00:00Z", false);
 
 function decision(overrides: Partial<DecisionVersionContent>): DecisionVersionContent {
   return {
@@ -57,18 +56,14 @@ beforeEach(() => {
   });
 });
 
-function renderDialog(initial = { from: "v1", to: "v2" }, onClose = vi.fn()) {
-  return {
-    onClose,
-    ...renderWithProviders(
-      <VersionCompareDialog owner={{ kind: "adr", id: "a1" }} entries={[v3, sent, v2, v1]} initial={initial} onClose={onClose} />,
-    ),
-  };
+function renderPane(pair = { from: "v1", to: "v2" }) {
+  return renderWithProviders(<VersionChangesPane owner={{ kind: "adr", id: "a1" }} pair={pair} />);
 }
 
-describe("VersionCompareDialog", () => {
+describe("VersionChangesPane", () => {
   it("loads both versions and shows the words removed and added, and a formatting-only change", async () => {
-    renderDialog();
+    renderPane();
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
     const decisionRow = await screen.findByTestId("diff-decision");
     expect(within(decisionRow).getByText("Decision")).toBeInTheDocument();
     const removed = decisionRow.querySelector('[data-diff="removed"]');
@@ -89,22 +84,33 @@ describe("VersionCompareDialog", () => {
     expect(mockApi.callsOf("get").map((c) => c.path).sort()).toEqual(["/adr/a1/history/v1", "/adr/a1/history/v2"]);
   });
 
-  it("offers the saved versions only, and compares a newly picked pair from older to newer", async () => {
-    const { user } = renderDialog();
+  it("compares another pair when the dialog picks one, never showing the previous pair's rows", async () => {
+    function Switch() {
+      const [pair, setPair] = useState({ from: "v1", to: "v2" });
+      return (
+        <>
+          <button type="button" onClick={() => setPair({ from: "v2", to: "v3" })}>
+            other
+          </button>
+          <VersionChangesPane owner={{ kind: "adr", id: "a1" }} pair={pair} />
+        </>
+      );
+    }
+    const { user } = renderWithProviders(<Switch />);
     await screen.findByTestId("diff-decision");
-    await user.click(screen.getByRole("combobox", { name: "Older version" }));
-    const options = await screen.findAllByRole("option");
-    expect(options).toHaveLength(3);
-    await user.click(options[0]); // v3, the newest: now picked as "older"
+    await user.click(screen.getByRole("button", { name: "other" }));
     const title = await screen.findByTestId("diff-title");
-    // v3 vs v2 is read from v2 to v3, whichever select holds which.
     expect(title.querySelector('[data-diff="removed"]')).toHaveTextContent("Adopt Kafka");
     expect(title.querySelector('[data-diff="added"]')).toHaveTextContent("Adopt Pulsar");
-    await waitFor(() => expect(screen.queryByTestId("diff-decision")).toBeNull());
+    expect(screen.queryByTestId("diff-decision")).toBeNull();
+    expect(mockApi.callsOf("get").map((c) => c.path).slice(2).sort()).toEqual([
+      "/adr/a1/history/v2",
+      "/adr/a1/history/v3",
+    ]);
   });
 
   it("says when two versions do not differ", async () => {
-    renderDialog({ from: "v2", to: "v2" });
+    renderPane({ from: "v2", to: "v2" });
     expect(await screen.findByText("No differences between these versions.")).toBeInTheDocument();
   });
 
@@ -119,7 +125,7 @@ describe("VersionCompareDialog", () => {
     mockApi.on("get", "/soaw/s1/history/v1", { entry: v1, content: soaw("<p>Low risk</p>") });
     mockApi.on("get", "/soaw/s1/history/v2", { entry: v2, content: soaw("<p>High risk</p>", "Billing SoAW 2") });
     renderWithProviders(
-      <VersionCompareDialog owner={{ kind: "soaw", id: "s1" }} entries={[v1, v2]} initial={{ from: "v1", to: "v2" }} onClose={vi.fn()} />,
+      <VersionChangesPane owner={{ kind: "soaw", id: "s1" }} pair={{ from: "v1", to: "v2" }} />,
     );
     const risks = await screen.findByTestId("diff-custom_1");
     expect(within(risks).getByText("Risks")).toBeInTheDocument();
@@ -128,11 +134,10 @@ describe("VersionCompareDialog", () => {
     expect(screen.getByTestId("diff-name")).toHaveTextContent("Billing SoAW→Billing SoAW 2");
   });
 
-  it("shows a refused version inline and closes", async () => {
+  it("shows a refused version inline", async () => {
     mockApi.fail("get", "/adr/a1/history/v2", 403, "Insufficient permissions");
-    const { user, onClose } = renderDialog();
+    renderPane();
     expect(await screen.findByText("GET /adr/a1/history/v2 failed")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Close" }));
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("progressbar")).toBeNull();
   });
 });

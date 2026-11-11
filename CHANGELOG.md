@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.201.0] - 2026-11-11
+
+### Changed
+- **History of decisions and SoAWs** opens from a **History** button at the top of the page, in one view with the timeline and the selected version (or what changed in it) side by side; the side panel now holds the discussion only.
+- **Mentions**: the **@** list shows more about each entry, lists the decision's linked cards and its signatories first, and offers **Browse** to pick from the standard pickers.
+
 ## [2.200.1] - 2026-11-11
 
 ### Fixed

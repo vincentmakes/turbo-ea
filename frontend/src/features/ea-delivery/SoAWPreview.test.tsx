@@ -12,6 +12,21 @@ vi.mock("./collab/DocumentSidePanel", () => ({
     return props.children;
   },
 }));
+// The History view has its own tests: here it records what the page hands
+// it, and hands back the document a restore returns.
+const historyView = vi.hoisted(() => ({ props: [] as Record<string, unknown>[], restored: null as unknown }));
+vi.mock("./collab/DocumentHistoryDialog", () => ({
+  default: (props: { onRestored?: (d: unknown) => void }) => {
+    historyView.props.push(props);
+    return (
+      <div role="dialog" aria-label="history-view">
+        <button type="button" onClick={() => props.onRestored?.(historyView.restored)}>
+          restore-it
+        </button>
+      </div>
+    );
+  },
+}));
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useDateFormatModule()));
 // The preview builds its body with the real `buildPreviewBody`; the print
@@ -187,6 +202,10 @@ describe("SoAWPreview — revisions", () => {
     );
     expect(screen.getByTestId("revision-s1")).toHaveAttribute("aria-current", "page");
     expect(screen.getByTestId("revision-s2")).toHaveAttribute("href", "/ea-delivery/soaw/s2/preview");
+    // History sits beside the strip, once.
+    const strip = screen.getByRole("navigation", { name: t("adr.revision.strip") });
+    expect(within(strip.parentElement as HTMLElement).getByRole("button", { name: /History$/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /History$/ })).toHaveLength(1);
   });
 
   it("shows no review-lock hint in the preview and no strip for a single revision", async () => {
@@ -505,8 +524,26 @@ describe("SoAWPreview — discussion", () => {
     await waitFor(() => expect(sidePanel.props.length).toBeGreaterThan(0));
     const props = sidePanel.props[sidePanel.props.length - 1];
     expect(props.owner).toEqual({ kind: "soaw", id: "s1" });
-    expect(props.status).toBe(SOAW.status);
+    expect(props).not.toHaveProperty("status");
+    expect(props).not.toHaveProperty("onRestored");
     expect(props.openThreadCount).toBe(1);
     expect((props.sections as { key: string }[])[0].key).toBe("general");
+  });
+
+  it("shows History in the header, opens it for the document and shows a restored version", async () => {
+    historyView.props.length = 0;
+    mockApi.on("get", "/soaw/s1", { ...SOAW, revisions: [] });
+    const { user } = renderPreview();
+    await screen.findByRole("heading", { name: SOAW.name });
+    await user.click(screen.getByRole("button", { name: /History$/ }));
+    expect(screen.getByRole("dialog", { name: "history-view" })).toBeInTheDocument();
+    expect(historyView.props[historyView.props.length - 1]).toMatchObject({
+      owner: { kind: "soaw", id: "s1" },
+      label: SOAW.name,
+      status: SOAW.status,
+    });
+    historyView.restored = { ...SOAW, name: "Restored SoAW name" };
+    await user.click(screen.getByRole("button", { name: "restore-it" }));
+    expect(await screen.findByRole("heading", { name: "Restored SoAW name" })).toBeInTheDocument();
   });
 });

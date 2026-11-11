@@ -17,9 +17,10 @@ import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { buildPreviewBody, exportToPdf, PREVIEW_CSS } from "./soawExport";
 import { SoawBanners } from "./DecisionBanners";
-import RevisionStrip, { soawRevisionItems } from "./RevisionStrip";
+import RevisionStrip, { showsRevisionStrip, soawRevisionItems } from "./RevisionStrip";
 import { soawCurrentRevisionId } from "./soawEditorState";
 import MentionContainer from "./mentions/MentionContainer";
+import DocumentHistoryButton from "./collab/DocumentHistoryButton";
 import DocumentSidePanel from "./collab/DocumentSidePanel";
 import { sectionOptions, soawSectionOptions } from "./collab/discussionModel";
 import { getTemplateSections } from "./soawTemplate";
@@ -128,15 +129,27 @@ export default function SoAWPreview() {
   const handleExportPdf = () =>
     exportToPdf(soaw.name, docInfo, versionHistory, templateSections, customSections, soaw.revision_number, soaw.signatories, soaw.signed_at);
 
+  const stripItems = soawRevisionItems(soaw.revisions ?? [], t);
+  const stripShown = showsRevisionStrip(stripItems);
+  const historyButton = (placeCompact: boolean) =>
+    id ? (
+      <DocumentHistoryButton<SoAW>
+        owner={{ kind: "soaw", id }}
+        label={soaw.name}
+        status={soaw.status}
+        refreshKey={soaw.updated_at}
+        onRestored={(restored) => setSoaw(restored)}
+        compact={placeCompact}
+      />
+    ) : null;
+
   return (
     <>
       <DocumentSidePanel
         owner={id ? { kind: "soaw", id } : null}
-        status={soaw.status}
         sections={sectionOptions("soaw", t, soawSectionOptions(getTemplateSections(), soaw.sections))}
         openThreadCount={soaw.open_thread_count}
         refreshKey={soaw.updated_at}
-        onRestored={(restored: SoAW) => setSoaw(restored)}
       >
       {/* Toolbar (hidden when printing) */}
       <Box
@@ -169,6 +182,7 @@ export default function SoAWPreview() {
           size="small"
           color={STATUS_COLORS[soaw.status] ?? "default"}
         />
+        {!stripShown && historyButton(compact)}
         <Tooltip title={t("preview.copyLink")}>
           <IconButton onClick={handleCopyLink}>
             <MaterialSymbol icon="link" size={20} />
@@ -215,12 +229,17 @@ export default function SoAWPreview() {
         sx={{ maxWidth: 960, mx: "auto", mb: 2, display: "flex", flexDirection: "column", gap: 1 }}
       >
         <SoawBanners soaw={soaw} mode="preview" hrefFor={previewHref} />
-        <RevisionStrip
-          items={soawRevisionItems(soaw.revisions ?? [], t)}
-          activeId={soaw.id}
-          currentId={soawCurrentRevisionId(soaw)}
-          hrefFor={previewHref}
-        />
+        {stripShown && (
+          <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
+            <RevisionStrip
+              items={stripItems}
+              activeId={soaw.id}
+              currentId={soawCurrentRevisionId(soaw)}
+              hrefFor={previewHref}
+            />
+            {historyButton(false)}
+          </Box>
+        )}
       </Box>
 
       {/* Styled preview content */}
