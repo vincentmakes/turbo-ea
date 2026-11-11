@@ -241,6 +241,12 @@ async def post_chat(
     return resp
 
 
+def error_code(resp: httpx.Response) -> str | None:
+    """The ``error.code`` of a failed response, when the provider sent one as text."""
+    code = _error_object(_json_or_none(resp)).get("code")
+    return code if isinstance(code, str) else None
+
+
 def error_detail(resp: httpx.Response) -> str:
     """The provider's own reason for a failed response, for logs and errors.
 

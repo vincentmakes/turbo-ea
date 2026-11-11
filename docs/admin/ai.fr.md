@@ -36,12 +36,21 @@ Le résultat est affiché à l'utilisateur avec :
 | **Ollama** | Auto-hébergé | URL du fournisseur (par ex. `http://ollama:11434`) + nom du modèle |
 | **OpenAI** | Commercial | Clé API + nom du modèle (par ex. `gpt-4o`) |
 | **Google Gemini** | Commercial | Clé API + nom du modèle |
-| **Azure Hosted OpenAI** | Commercial | Clé API + point de terminaison de la ressource Azure + nom du déploiement + version de l'API (par défaut `2025-01-01`) |
+| **Azure Hosted OpenAI** | Commercial | Clé API + point de terminaison Azure + nom du déploiement + version de l'API (par défaut `2025-01-01` ; non utilisée avec un point de terminaison se terminant par `/openai/v1/`) |
 | **OpenRouter** | Commercial | Clé API + nom du modèle |
 | **Anthropic Claude** | Commercial | Clé API + nom du modèle |
 | **Amazon Bedrock** | Votre compte AWS | Région AWS + ID de modèle ou de profil d'inférence ; rôle IAM, ou clé d'accès facultative |
 
 Les fournisseurs commerciaux nécessitent une clé API, qui est stockée chiffrée dans la base de données en utilisant le chiffrement symétrique Fernet. Amazon Bedrock fait exception : l'authentification utilise par défaut le rôle IAM du conteneur, il n'y a donc aucune clé à stocker ni à renouveler.
+
+### Points de terminaison Azure Hosted OpenAI
+
+Azure affiche deux points de terminaison différents selon la page d'où vous copiez, et l'**URL du fournisseur** accepte les deux :
+
+- **Le point de terminaison de la ressource**, par exemple `https://your-resource.openai.azure.com`. Turbo EA appelle votre déploiement avec la **version de l'API** saisie. Il s'agit de la version de l'API Azure OpenAI, par exemple `2024-10-21`, et non de la version du modèle (`2025-08-07` pour GPT-5, par exemple).
+- **Le point de terminaison v1**, se terminant par `/openai/v1/`. Il n'accepte aucune version d'API ; le champ **Version de l'API** est donc désactivé. Azure AI Foundry n'affiche que ce point de terminaison pour un déploiement, et aucune version d'API nulle part : collez-le tel quel.
+
+Dans les deux cas, **Modèle** est le nom de votre déploiement.
 
 ### Serveurs et passerelles compatibles OpenAI
 
@@ -261,6 +270,7 @@ Les clés de permission sont `ai.suggest` et `ai.portfolio_insights`. Les rôles
 | Scores de confiance faibles | Le LLM peut ne pas trouver suffisamment d'informations pertinentes via la recherche web. Essayez un nom de fiche plus spécifique, ou envisagez d'utiliser Google Custom Search pour de meilleurs résultats. |
 | Le test de connexion échoue | Vérifiez que l'URL du fournisseur est accessible depuis le conteneur backend. Pour les configurations Docker, assurez-vous que les deux conteneurs sont sur le même réseau. |
 | Le test de connexion indique que le fournisseur n'accepte pas `response_format` ou `temperature` | Rien à corriger : le fournisseur fonctionne. Turbo EA omet ce paramètre de chaque requête qui lui est adressée. Sans `response_format`, la réponse dépend du respect par le modèle de la consigne de répondre en JSON ; si les suggestions reviennent vides, essayez un modèle plus performant. |
+| Le test de connexion Azure répond 404 | Azure répond 404 pour trois erreurs différentes. « Deployment not found » signifie que le champ **Modèle** ne correspond à aucun nom de déploiement. Sinon, le message indique le chemin appelé : vérifiez que l'**URL du fournisseur** est le point de terminaison de votre ressource ou se termine par `/openai/v1/`, et que la **version de l'API** contient une version de l'API Azure OpenAI et non la version du modèle. Si votre portail n'affiche aucune version d'API, utilisez le point de terminaison se terminant par `/openai/v1/`, qui n'en a pas besoin. |
 | «Le fournisseur d'IA a rejeté la requête» | Le fournisseur a été joint mais a refusé la requête, et le message en indique la raison (avec un 401 ou un 403, vérifiez la clé API et l'accès au modèle). Corrigez le nom du modèle ou le paramètre du fournisseur indiqué, puis cliquez sur Tester la connexion : le test envoie la même requête qu'une suggestion et échoue ou réussit donc désormais de la même façon. |
 | Bedrock renvoie «AccessDeniedException» | Deux causes possibles : le rôle IAM n'a pas la permission `bedrock:InvokeModel`, ou l'accès au modèle n'a pas été activé dans la console Bedrock. Vérifiez les deux. |
 | Bedrock indique que le débit à la demande n'est pas pris en charge | Le modèle n'est accessible que via un profil d'inférence régional. Lancez le test de connexion et choisissez un ID préfixé `eu.`, `us.` ou `apac.`. |

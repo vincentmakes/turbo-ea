@@ -169,10 +169,12 @@ class TestCallAiAzure:
         assert out == {"text": "hello", "truncated": False}
 
         args, kwargs = mock_client.post.call_args
-        url = args[0]
-        # Deployment name in the path, api-version query param present
-        assert "/openai/deployments/my-gpt4o-deployment/chat/completions" in url
-        assert "api-version=2024-10-21" in url
+        # Deployment name in the path, api-version as a query parameter
+        assert args == (
+            "https://my-resource.openai.azure.com"
+            "/openai/deployments/my-gpt4o-deployment/chat/completions",
+        )
+        assert kwargs["params"] == {"api-version": "2024-10-21"}
         # Azure auth header, not Bearer; model NOT in body
         assert kwargs["headers"]["api-key"] == "azure-key"
         assert "Authorization" not in kwargs["headers"]
@@ -180,6 +182,112 @@ class TestCallAiAzure:
         # System prompt threaded as a system message
         assert kwargs["json"]["messages"][0] == {"role": "system", "content": "be nice"}
         assert kwargs["json"]["max_completion_tokens"] == 512
+
+    @pytest.mark.asyncio
+    async def test_the_v1_endpoint_of_issue_1386_is_called_as_the_v1_api(self):
+        """TurboLens builds its Azure request from the same rule as card
+        suggestions: the portal's ``…/openai/v1/`` is the v1 API."""
+        session_factory = _fake_session_factory(
+            {
+                "providerType": "azure_openai",
+                "apiKey": "enc:x",
+                "providerUrl": "https://my-resource.openai.azure.com/openai/v1/",
+                "model": "gpt-5",
+                "apiVersion": "2025-08-07",
+            }
+        )
+        mock_resp = MagicMock()
+        mock_resp.is_success = True
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "choices": [{"message": {"content": "hello"}, "finish_reason": "stop"}]
+        }
+
+        with (
+            patch("app.services.turbolens_ai.decrypt_value", return_value="azure-key"),
+            patch("app.services.turbolens_ai.async_session", session_factory),
+            patch("app.services.turbolens_ai._get_llm_client") as mock_get,
+        ):
+            mock_client = AsyncMock()
+            mock_get.return_value = mock_client
+            mock_client.post = AsyncMock(return_value=mock_resp)
+
+            out = await call_ai("prompt text", max_tokens=512)
+
+        assert out == {"text": "hello", "truncated": False}
+        args, kwargs = mock_client.post.call_args
+        assert args == ("https://my-resource.openai.azure.com/openai/v1/chat/completions",)
+        assert kwargs == {
+            "json": {
+                "model": "gpt-5",
+                "messages": [{"role": "user", "content": "prompt text"}],
+                "max_completion_tokens": 512,
+            },
+            "headers": {"Content-Type": "application/json", "api-key": "azure-key"},
+        }
+
+    @pytest.mark.asyncio
+    async def test_an_empty_azure_provider_url_puts_nothing_in_front_of_the_path(self):
+        session_factory = _fake_session_factory(
+            {
+                "providerType": "azure_openai",
+                "apiKey": "enc:x",
+                "providerUrl": "",
+                "model": "my-deployment",
+                "apiVersion": "2024-10-21",
+            }
+        )
+        mock_resp = MagicMock()
+        mock_resp.is_success = True
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "choices": [{"message": {"content": "hello"}, "finish_reason": "stop"}]
+        }
+
+        with (
+            patch("app.services.turbolens_ai.decrypt_value", return_value="azure-key"),
+            patch("app.services.turbolens_ai.async_session", session_factory),
+            patch("app.services.turbolens_ai._get_llm_client") as mock_get,
+        ):
+            mock_client = AsyncMock()
+            mock_get.return_value = mock_client
+            mock_client.post = AsyncMock(return_value=mock_resp)
+
+            await call_ai("prompt text")
+
+        args, kwargs = mock_client.post.call_args
+        assert args == ("/openai/deployments/my-deployment/chat/completions",)
+        assert kwargs["params"] == {"api-version": "2024-10-21"}
+
+    @pytest.mark.asyncio
+    async def test_an_openai_request_carries_no_query_parameters(self):
+        session_factory = _fake_session_factory(
+            {
+                "providerType": "openai",
+                "apiKey": "enc:x",
+                "providerUrl": "https://api.openai.com",
+                "model": "gpt-4o",
+            }
+        )
+        mock_resp = MagicMock()
+        mock_resp.is_success = True
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "choices": [{"message": {"content": "hello"}, "finish_reason": "stop"}]
+        }
+
+        with (
+            patch("app.services.turbolens_ai.decrypt_value", return_value="sk"),
+            patch("app.services.turbolens_ai.async_session", session_factory),
+            patch("app.services.turbolens_ai._get_llm_client") as mock_get,
+        ):
+            mock_client = AsyncMock()
+            mock_get.return_value = mock_client
+            mock_client.post = AsyncMock(return_value=mock_resp)
+
+            await call_ai("prompt text")
+
+        assert "params" not in mock_client.post.call_args.kwargs
 
 
 # ---------------------------------------------------------------------------

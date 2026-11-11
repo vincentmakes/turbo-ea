@@ -1,6 +1,44 @@
 import { describe, it, expect } from "vitest";
 import enAdmin from "@/i18n/locales/en/admin.json";
-import { AI_PROVIDER_TYPES, providerUi } from "./aiProviderUi";
+import { AI_PROVIDER_TYPES, azureUsesV1, providerUi } from "./aiProviderUi";
+
+describe("azureUsesV1", () => {
+  const ROOT = "https://my-resource.openai.azure.com";
+
+  // The same cases as TestChatTargetV1 in backend/tests/services/test_azure_openai.py.
+  it.each([
+    `${ROOT}/openai/v1/`,
+    `${ROOT}/openai/v1`,
+    `${ROOT}/openai/v1///`,
+    `  ${ROOT}/openai/v1/  `,
+    `${ROOT}/OpenAI/V1/`,
+    `${ROOT}/openai/v1/chat/completions`,
+    `${ROOT}/openai/v1/Chat/Completions/`,
+    `${ROOT}/openai/v1/?api-version=preview`,
+    `${ROOT}/openai/v1#section`,
+    "https://gw.example.com/ai/team-a/openai/v1/",
+    // Nothing has to precede the path (test_a_bare_v1_path_is_the_v1_endpoint_too).
+    "/openai/v1",
+  ])("is true for the v1 endpoint written as %s", (url) => {
+    expect(azureUsesV1(url)).toBe(true);
+  });
+
+  it.each([
+    "",
+    ROOT,
+    `${ROOT}/`,
+    `${ROOT}/openai`,
+    `${ROOT}/openai/deployments/gpt-5/chat/completions?api-version=2024-10-21`,
+    `${ROOT}/openai/v1beta`,
+    `${ROOT}/openai/v1/responses`,
+    `${ROOT}/xopenai/v1`,
+    `${ROOT}/v1`,
+    `${ROOT}?next=/openai/v1`,
+    "https://openai/v1",
+  ])("is false for %s", (url) => {
+    expect(azureUsesV1(url)).toBe(false);
+  });
+});
 
 describe("providerUi", () => {
   it("offers every provider the backend accepts", () => {

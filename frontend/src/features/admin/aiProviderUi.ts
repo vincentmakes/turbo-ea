@@ -122,6 +122,19 @@ const PROVIDERS: Record<AiProviderType, AiProviderUi> = {
   },
 };
 
+/** Whether an Azure Provider URL is the v1 endpoint (`…/openai/v1/`), which
+ *  takes no API version. Mirrors `chat_target` in
+ *  backend/app/services/azure_openai.py: the query string, fragment and
+ *  trailing slashes do not count, and `/chat/completions` may follow. */
+export function azureUsesV1(providerUrl: string): boolean {
+  const endpoint = providerUrl
+    .trim()
+    .split(/[?#]/)[0]
+    .replace(/\/+$/, "");
+  // "(^|[^/])" rather than a lookbehind, which older Safari cannot parse.
+  return /(^|[^/])\/openai\/v1(?:\/chat\/completions)?$/i.test(endpoint);
+}
+
 /** Presentation for a provider; unknown values fall back to Ollama, the default. */
 export function providerUi(providerType: string): AiProviderUi {
   return PROVIDERS[providerType as AiProviderType] ?? PROVIDERS.ollama;

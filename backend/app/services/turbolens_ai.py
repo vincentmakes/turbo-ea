@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.encryption import decrypt_value
 from app.database import async_session
 from app.models.app_settings import AppSettings
-from app.services import bedrock, openai_chat
+from app.services import azure_openai, bedrock, openai_chat
 from app.services.ai_service import DEFAULT_AZURE_API_VERSION
 
 logger = logging.getLogger("turboea.turbolens.ai")
@@ -186,6 +186,7 @@ async def call_ai(
     url: str
     headers: dict[str, str]
     body: dict[str, Any]
+    params: dict[str, str] | None = None
 
     if provider == "claude":
         url = "https://api.anthropic.com/v1/messages"
@@ -208,16 +209,17 @@ async def call_ai(
         # falls back to ``max_tokens`` for a compatible server that wants it.
         body = openai_chat.build_chat_payload(model or "gpt-4o", msgs, max_tokens=max_tokens)
     elif provider == "azure":
-        # Azure Hosted OpenAI: deployment name goes in the URL (not the body),
-        # auth is the `api-key` header, and an api-version query param is required.
-        base_url = (provider_url or "").rstrip("/")
+        # Azure Hosted OpenAI: auth is the `api-key` header. The URL, the
+        # api-version and where the deployment is named depend on the endpoint
+        # that was entered — the same rule card suggestions use (#1386).
         api_version = config.get("api_version") or DEFAULT_AZURE_API_VERSION
-        url = f"{base_url}/openai/deployments/{model}/chat/completions?api-version={api_version}"
+        target = azure_openai.chat_target(provider_url or "", model, api_version)
+        url, params = target.url, target.params
         headers = {"api-key": api_key}
         msgs = (
             [{"role": "system", "content": system_prompt}, *messages] if system_prompt else messages
         )
-        body = openai_chat.build_chat_payload(None, msgs, max_tokens=max_tokens)
+        body = openai_chat.build_chat_payload(target.model, msgs, max_tokens=max_tokens)
     elif provider == "deepseek":
         url = "https://api.deepseek.com/v1/chat/completions"
         headers = {"Authorization": f"Bearer {api_key}"}
@@ -258,7 +260,9 @@ async def call_ai(
     client = await _get_llm_client()
     all_headers = {"Content-Type": "application/json", **headers}
     if provider in ("openai", "azure"):
-        resp = await openai_chat.post_chat(client, url, headers=all_headers, payload=body)
+        resp = await openai_chat.post_chat(
+            client, url, headers=all_headers, payload=body, params=params
+        )
     else:
         resp = await client.post(url, json=body, headers=all_headers)
 
