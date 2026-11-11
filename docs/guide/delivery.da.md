@@ -50,7 +50,7 @@ Editoren tilbyder:
 - **Sektions­skabeloner** — Foruddefinerede sektioner, der følger TOGAF-standarder (f.eks. Problembeskrivelse, Mål, Tilgang, Interessenter, Begrænsninger, Arbejdsplan)
 - **Indlejret redigerbare tabeller** — Tilføj og rediger tabeller inden for en sektion
 - **Omtaler** — skriv **@** i en sektions tekst for at omtale et kort eller en beslutning (se [Diskussion, omtaler og historik](#soaw-collaboration))
-- **Dokumentets versionshistorik** — en tabel, som forfatterne udfylder i hånden (version, dato, revideret af, beskrivelse). Den er en del af dokumentet og er ikke fanen [Historik](#soaw-collaboration)
+- **Dokumentets versionshistorik** — en tabel, som forfatterne udfylder i hånden (version, dato, revideret af, beskrivelse). Den er en del af dokumentet og er ikke visningen [Historik](#soaw-collaboration)
 - **Status­arbejdsproces** — Dokumenter bevæger sig gennem definerede stadier:
 
 | Status | Betydning |
@@ -74,13 +74,14 @@ En tidligere revision viser et banner med et link til den aktuelle, og **Revisio
 
 ### Diskussion, omtaler og historik {: #soaw-collaboration }
 
-En SoAW har samme diskussion, omtaler og historik som en beslutning, i panelet **Diskussion og historik** i dens editor og forhåndsvisning. Den fælles adfærd er beskrevet ét sted, i GRC-vejledningen: [Diskussion](grc.md#decision-discussion), [Omtaler](grc.md#decision-mentions), [Historik](grc.md#decision-history) og [Kendte begrænsninger](grc.md#collaboration-limits). Det, der er anderledes for en SoAW:
+En SoAW har samme diskussion, omtaler og historik som en beslutning: diskussionen i et panel ved siden af dens editor og forhåndsvisning, historikken bag knappen **Historik** øverst på siden. Den fælles adfærd er beskrevet ét sted, i GRC-vejledningen: [Diskussion](grc.md#decision-discussion), [Omtaler](grc.md#decision-mentions), [Historik](grc.md#decision-history) og [Kendte begrænsninger](grc.md#collaboration-limits). Det, der er anderledes for en SoAW:
 
 - **Hvem der kan skrive.** At skrive, svare, løse og genåbne kræver tilladelsen `soaw.comment`, som medlemmer og administratorer har som standard, og læsere ikke har; læsning af diskussionen følger `soaw.view`. SoAW'ens underskrivere kan altid kommentere den. Alle, der kan redigere SoAW'er (`soaw.manage`), kan slette enhver kommentar.
-- **Sektioner.** En tråd knyttes til en af SoAW'ens egne sektioner eller til *Generelt*. En tråd knyttet til en brugerdefineret sektion, der siden er fjernet, viser *Fjernet afsnit*.
+- **Sektioner.** En tråd knyttes med en sektionschip til en af SoAW'ens egne sektioner eller til ingen (en generel tråd). En SoAW har mange sektioner, så indtastningsfeltet viser en chip for hver sektion, der allerede er diskuteret, og for den valgte; **Flere…** åbner en søgbar liste over de øvrige. Chipsene øverst i diskussionen filtrerer den efter sektion, som for en beslutning. En tråd knyttet til en brugerdefineret sektion, der siden er fjernet, viser *Fjernet afsnit*. En sektion med tråde viser den samme diskussionsmarkør ved siden af sin overskrift som en beslutnings, i editoren og forhåndsvisningen; klik på den for at åbne diskussionen om den sektion.
 - **Afvisning.** Enhver underskriver med underskriftstilladelsen (`soaw.sign`) — eller redigeringstilladelsen — kan afvise en SoAW, som for beslutninger; hidtil krævede afvisning redigeringstilladelsen. Begrundelsen åbner en tråd **Begrundelse for afvisning** i diskussionen.
-- **Note til underskrift.** **Underskriv** åbner nu en dialog, hvor underskriveren kan tilføje en valgfri note; den vises i diskussionen som en **Note til underskrift** og på fanen Historik.
-- **Historik.** En version indeholder SoAW'ens navn, dens dokumentoplysninger, dens tabel Dokumentets versionshistorik og hver sektion; initiativet er ikke en del af en version. Fanen Historik registrerer, hvad der sker med dokumentet; tabellen Dokumentets versionshistorik i dokumentet indeholder kun det, forfatterne skriver i den. En SoAW med status **Godkendt** kan stadig redigeres, så ligesom for en kladde gemmes dens lagringer som versioner, og en tidligere version kan gendannes i den.
+- **Omtaler.** En SoAW har ingen tilknyttede kort, så når der ikke er skrevet noget efter **@**, vises kortene alfabetisk; i en kommentar kommer SoAW'ens underskrivere først blandt personerne. **Gennemse…** virker som for en beslutning.
+- **Note til underskrift.** **Underskriv** åbner nu en dialog, hvor underskriveren kan tilføje en valgfri note; den vises i diskussionen som en **Note til underskrift** og i historikken.
+- **Historik.** En version indeholder SoAW'ens navn, dens dokumentoplysninger, dens tabel Dokumentets versionshistorik og hver sektion; initiativet er ikke en del af en version. Historikken registrerer, hvad der sker med dokumentet; tabellen Dokumentets versionshistorik i dokumentet indeholder kun det, forfatterne skriver i den. En SoAW med status **Godkendt** kan stadig redigeres, så ligesom for en kladde gemmes dens lagringer som versioner, og en tidligere version kan gendannes i den.
 
 ### Preview og eksport
 

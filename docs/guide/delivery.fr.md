@@ -50,7 +50,7 @@ L'éditeur offre :
 - **Modèles de sections** -- Sections prédéfinies suivant les standards TOGAF (par ex. Description du problème, Objectifs, Approche, Parties prenantes, Contraintes, Plan de travail)
 - **Tableaux éditables en ligne** -- Ajoutez et éditez des tableaux dans n'importe quelle section
 - **Mentions** -- tapez **@** dans le texte d'une section pour mentionner une fiche ou une décision (voir [Discussion, mentions et historique](#soaw-collaboration))
-- **Historique des versions du document** -- un tableau que les auteurs remplissent à la main (version, date, révisé par, description). Il fait partie du document et n'est pas l'onglet [Historique](#soaw-collaboration)
+- **Historique des versions du document** -- un tableau que les auteurs remplissent à la main (version, date, révisé par, description). Il fait partie du document et n'est pas la vue [Historique](#soaw-collaboration)
 - **Workflow de statut** -- Les documents progressent à travers des étapes définies :
 
 | Statut | Signification |
@@ -74,13 +74,14 @@ Une révision antérieure affiche un bandeau avec un lien vers la révision actu
 
 ### Discussion, mentions et historique {: #soaw-collaboration }
 
-Un SoAW dispose de la même discussion, des mêmes mentions et du même historique qu'une décision, dans le panneau **Discussion et historique** de son éditeur et de son aperçu. Le comportement commun est décrit une seule fois, dans le guide GRC : [Discussion](grc.md#decision-discussion), [Mentions](grc.md#decision-mentions), [Historique](grc.md#decision-history) et [Limites connues](grc.md#collaboration-limits). Ce qui diffère pour un SoAW :
+Un SoAW dispose de la même discussion, des mêmes mentions et du même historique qu'une décision : la discussion dans un panneau à côté de son éditeur et de son aperçu, l'historique derrière le bouton **Historique** en haut de la page. Le comportement commun est décrit une seule fois, dans le guide GRC : [Discussion](grc.md#decision-discussion), [Mentions](grc.md#decision-mentions), [Historique](grc.md#decision-history) et [Limites connues](grc.md#collaboration-limits). Ce qui diffère pour un SoAW :
 
 - **Qui peut publier.** Publier, répondre, résoudre et rouvrir requièrent la permission `soaw.comment`, que les membres et les administrateurs détiennent par défaut et les lecteurs non ; la lecture de la discussion suit `soaw.view`. Les signataires du SoAW peuvent toujours le commenter. Toute personne pouvant modifier les SoAW (`soaw.manage`) peut supprimer n'importe quel commentaire.
-- **Sections.** Un fil est rattaché à l'une des sections propres au SoAW, ou à *Général*. Un fil rattaché à une section personnalisée supprimée depuis affiche *Section supprimée*.
+- **Sections.** Un fil est rattaché à l'une des sections propres au SoAW par une puce de section, ou à aucune (un fil général). Un SoAW a de nombreuses sections : la zone de saisie affiche donc une puce pour chaque section déjà discutée et pour celle qui est choisie ; **Plus…** ouvre une liste des autres avec recherche. Les puces en haut de la discussion la filtrent par section, comme pour une décision. Un fil rattaché à une section personnalisée supprimée depuis affiche *Section supprimée*. Une section qui a des fils affiche à côté de son titre le même marqueur de discussion que celle d'une décision, dans l'éditeur et dans l'aperçu ; cliquez dessus pour ouvrir la discussion sur cette section.
 - **Rejet.** Tout signataire qui détient la permission de signer (`soaw.sign`) — ou la permission de modification — peut rejeter un SoAW, comme pour les décisions ; jusqu'ici, rejeter nécessitait la permission de modification. Le motif ouvre un fil **Motif du rejet** dans la discussion.
-- **Note de signature.** **Signer** ouvre désormais une boîte de dialogue où le signataire peut ajouter une note facultative ; elle apparaît dans la discussion comme **Note de signature** et dans l'onglet Historique.
-- **Historique.** Une version contient le nom du SoAW, ses informations de document, son tableau Historique des versions du document et chaque section ; l'initiative ne fait pas partie d'une version. L'onglet Historique consigne ce qui arrive au document ; le tableau Historique des versions du document, dans le document, ne consigne que ce que ses auteurs y écrivent. Un SoAW au statut **Approuvé** peut encore être modifié : comme pour un brouillon, ses enregistrements sont donc conservés comme versions et une version antérieure peut y être restaurée.
+- **Mentions.** Un SoAW n'a pas de fiches liées : lorsque rien n'est saisi après **@**, les fiches sont donc listées par ordre alphabétique ; dans un commentaire, les signataires du SoAW viennent en premier parmi les personnes. **Parcourir…** fonctionne comme pour une décision.
+- **Note de signature.** **Signer** ouvre désormais une boîte de dialogue où le signataire peut ajouter une note facultative ; elle apparaît dans la discussion comme **Note de signature** et dans l'Historique.
+- **Historique.** Une version contient le nom du SoAW, ses informations de document, son tableau Historique des versions du document et chaque section ; l'initiative ne fait pas partie d'une version. L'Historique consigne ce qui arrive au document ; le tableau Historique des versions du document, dans le document, ne consigne que ce que ses auteurs y écrivent. Un SoAW au statut **Approuvé** peut encore être modifié : comme pour un brouillon, ses enregistrements sont donc conservés comme versions et une version antérieure peut y être restaurée.
 
 ### Aperçu et export
 
