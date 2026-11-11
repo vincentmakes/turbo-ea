@@ -16,6 +16,7 @@ from app.services.openai_chat import (
     MAX_ADAPTATIONS,
     adapt_payload,
     build_chat_payload,
+    error_code,
     error_detail,
     post_chat,
     post_chat_traced,
@@ -485,6 +486,30 @@ class TestPostChat:
         assert (
             "Chat Completions refused 'temperature' for model gpt-6.1-sol; retrying" in caplog.text
         )
+
+
+class TestErrorCode:
+    def test_the_code_of_an_error_object(self):
+        assert error_code(_refusal("temperature", "unsupported_value")) == "unsupported_value"
+        assert error_code(_resp(404, {"error": {"code": "DeploymentNotFound"}})) == (
+            "DeploymentNotFound"
+        )
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            ValueError("not json"),
+            None,
+            {},
+            {"error": "bare string"},
+            {"error": {"message": "no code"}},
+            {"error": {"code": 404}},
+            {"error": {"code": None}},
+            {"code": "top-level"},
+        ],
+    )
+    def test_no_code_when_the_provider_sent_none_as_text(self, body):
+        assert error_code(_resp(404, body)) is None
 
 
 class TestErrorDetail:

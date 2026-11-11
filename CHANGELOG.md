@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.201.1] - 2026-11-11
+
+### Fixed
+- Azure Hosted OpenAI works with the endpoint the Azure portal shows for newer deployments, the one ending in `/openai/v1/`: Test Connection, AI suggestions and TurboLens no longer fail with 404, and the API Version field is switched off for it because that endpoint takes none ([#1386](https://github.com/vincentmakes/turbo-ea/issues/1386)).
+- A Provider URL pasted with a trailing `/openai` or as a deployment's full target URI is accepted.
+- An Azure 404 in Test Connection says what to check — the Provider URL and whether API Version holds an API version rather than the model's version — instead of always reporting a missing deployment.
+
 ## [2.201.0] - 2026-11-11
 
 ### Changed

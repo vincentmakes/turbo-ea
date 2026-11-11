@@ -36,12 +36,21 @@ AI 建议流程有两个步骤：
 | **Ollama** | 自托管 | 提供商 URL（例如 `http://ollama:11434`）+ 模型名称 |
 | **OpenAI** | 商业 | API 密钥 + 模型名称（例如 `gpt-4o`） |
 | **Google Gemini** | 商业 | API 密钥 + 模型名称 |
-| **Azure 托管的 OpenAI** | 商业 | API 密钥 + Azure 资源端点 + 部署名称 + API 版本（默认 `2025-01-01`） |
+| **Azure 托管的 OpenAI** | 商业 | API 密钥 + Azure 端点 + 部署名称 + API 版本（默认 `2025-01-01`；使用以 `/openai/v1/` 结尾的端点时不使用） |
 | **OpenRouter** | 商业 | API 密钥 + 模型名称 |
 | **Anthropic Claude** | 商业 | API 密钥 + 模型名称 |
 | **Amazon Bedrock** | 您的 AWS 账户 | AWS 区域 + 模型 ID 或推理配置文件 ID；IAM 角色，或可选的访问密钥 |
 
 商业提供商需要 API 密钥，该密钥使用 Fernet 对称加密存储在数据库中。Amazon Bedrock 是例外：默认使用容器的 IAM 角色进行身份验证，因此无需存储或轮换密钥。
+
+### Azure Hosted OpenAI 端点
+
+根据您复制的页面不同，Azure 会显示两种不同的端点，**提供商 URL** 两种都接受：
+
+- **资源端点**，例如 `https://your-resource.openai.azure.com`。Turbo EA 使用您输入的 **API 版本** 调用您的部署。这是 Azure OpenAI API 的版本，例如 `2024-10-21`，而不是模型的版本（例如 GPT-5 的 `2025-08-07`）。
+- **v1 端点**，以 `/openai/v1/` 结尾。它不需要 API 版本，因此 **API 版本** 字段被禁用。
+
+两种情况下，**模型** 都是您的部署名称。
 
 ### 兼容 OpenAI 的服务器和网关
 
@@ -261,6 +270,7 @@ AI_MODEL=gemma3:4b          # 或 mistral、llama3:8b 等
 | 置信度评分低 | LLM 可能无法通过网络搜索找到足够的相关信息。尝试使用更具体的卡片名称，或考虑使用 Google Custom Search 获取更好的结果。 |
 | 连接测试失败 | 验证提供商 URL 是否可从后端容器访问。对于 Docker 设置，确保两个容器在同一网络上。 |
 | 测试连接提示提供商不接受 `response_format` 或 `temperature` | 无需修复：提供商工作正常。Turbo EA 会在发往它的每个请求中省略该参数。没有 `response_format` 时，答复取决于模型是否遵循以 JSON 回复的指令；如果建议返回为空，请尝试能力更强的模型。 |
+| Azure 测试连接返回 404 | Azure 对三种不同的错误都会返回 404。「Deployment not found」表示 **模型** 字段与任何部署名称都不匹配。否则，消息会指出所调用的路径：请检查 **提供商 URL** 是您的资源端点或以 `/openai/v1/` 结尾，并检查 **API 版本** 填写的是 Azure OpenAI API 版本，而不是模型的版本。 |
 | 「AI 提供商拒绝了请求」 | 已连接到提供商，但其拒绝了该请求，消息中会给出原因（遇到 401 或 403 时，请检查 API 密钥和模型访问权限）。请更正消息中指明的模型名称或提供商设置，然后点击测试连接：它发送的请求与建议相同，因此现在的失败或通过情况与建议一致。 |
 | Bedrock 返回「AccessDeniedException」 | 有两种可能原因：IAM 角色缺少 `bedrock:InvokeModel` 权限，或未在 Bedrock 控制台中为该模型启用访问权限。请检查这两项。 |
 | Bedrock 提示不支持按需吞吐量 | 该模型只能通过区域推理配置文件访问。运行测试连接，并选择前缀为 `eu.`、`us.` 或 `apac.` 的 ID。 |

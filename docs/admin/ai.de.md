@@ -36,12 +36,21 @@ Das Ergebnis wird dem Benutzer präsentiert mit:
 | **Ollama** | Selbst gehostet | Anbieter-URL (z.B. `http://ollama:11434`) + Modellname |
 | **OpenAI** | Kommerziell | API-Schlüssel + Modellname (z.B. `gpt-4o`) |
 | **Google Gemini** | Kommerziell | API-Schlüssel + Modellname |
-| **Azure Hosted OpenAI** | Kommerziell | API-Schlüssel + Azure-Ressourcen-Endpunkt + Deployment-Name + API-Version (Standard `2025-01-01`) |
+| **Azure Hosted OpenAI** | Kommerziell | API-Schlüssel + Azure-Endpunkt + Deployment-Name + API-Version (Standard `2025-01-01`; nicht verwendet bei einem Endpunkt, der auf `/openai/v1/` endet) |
 | **OpenRouter** | Kommerziell | API-Schlüssel + Modellname |
 | **Anthropic Claude** | Kommerziell | API-Schlüssel + Modellname |
 | **Amazon Bedrock** | Ihr AWS-Konto | AWS-Region + Modell- oder Inferenzprofil-ID; IAM-Rolle oder optionaler Zugriffsschlüssel |
 
 Kommerzielle Anbieter erfordern einen API-Schlüssel, der mit Fernet symmetrischer Verschlüsselung in der Datenbank verschlüsselt gespeichert wird. Amazon Bedrock ist die Ausnahme: Die Authentifizierung erfolgt standardmäßig über die IAM-Rolle des Containers, es muss also kein Schlüssel gespeichert oder rotiert werden.
+
+### Endpunkte für Azure Hosted OpenAI
+
+Azure zeigt je nach Seite, von der Sie kopieren, zwei verschiedene Endpunkte an, und die **Anbieter-URL** akzeptiert beide:
+
+- **Der Ressourcen-Endpunkt**, etwa `https://your-resource.openai.azure.com`. Turbo EA ruft Ihr Deployment mit der eingegebenen **API-Version** auf. Das ist die Version der Azure-OpenAI-API, etwa `2024-10-21`, nicht die Version des Modells (zum Beispiel `2025-08-07` für GPT-5).
+- **Der v1-Endpunkt**, der auf `/openai/v1/` endet. Er benötigt keine API-Version, daher ist das Feld **API-Version** deaktiviert.
+
+In beiden Fällen ist **Modell** der Name Ihres Deployments.
 
 ### OpenAI-kompatible Server und Gateways
 
@@ -261,6 +270,7 @@ Die Berechtigungsschlüssel sind `ai.suggest` und `ai.portfolio_insights`. Benut
 | Niedrige Konfidenzwerte | Das LLM findet möglicherweise nicht genügend relevante Informationen über die Websuche. Versuchen Sie einen spezifischeren Kartennamen oder erwägen Sie die Verwendung von Google Custom Search für bessere Ergebnisse. |
 | Verbindungstest schlägt fehl | Überprüfen Sie, ob die Anbieter-URL vom Backend-Container aus erreichbar ist. Bei Docker-Setups stellen Sie sicher, dass beide Container im selben Netzwerk sind. |
 | Der Verbindungstest meldet, dass der Anbieter `response_format` oder `temperature` nicht akzeptiert | Nichts zu beheben: Der Anbieter funktioniert. Turbo EA lässt diesen Parameter in jeder Anfrage an ihn weg. Ohne `response_format` hängt die Antwort davon ab, dass das Modell der Anweisung folgt, in JSON zu antworten; wenn Vorschläge leer zurückkommen, versuchen Sie ein leistungsfähigeres Modell. |
+| Der Azure-Verbindungstest antwortet mit 404 | Azure antwortet bei drei verschiedenen Fehlern mit 404. „Deployment not found“ bedeutet, dass das Feld **Modell** keinem Deployment-Namen entspricht. Andernfalls nennt die Meldung den aufgerufenen Pfad: Prüfen Sie, ob die **Anbieter-URL** Ihr Ressourcen-Endpunkt ist oder auf `/openai/v1/` endet und ob **API-Version** eine Azure-OpenAI-API-Version enthält und nicht die Version des Modells. |
 | «Der KI-Anbieter hat die Anfrage abgelehnt» | Der Anbieter wurde erreicht, hat die Anfrage aber abgelehnt, und die Meldung nennt seinen Grund (bei 401 oder 403 prüfen Sie den API-Schlüssel und den Modellzugriff). Korrigieren Sie den genannten Modellnamen oder die genannte Anbietereinstellung und klicken Sie dann auf Verbindung testen: Der Test sendet dieselbe Anfrage wie ein Vorschlag und schlägt daher jetzt genauso fehl oder gelingt genauso. |
 | Bedrock meldet «AccessDeniedException» | Zwei mögliche Ursachen: Der IAM-Rolle fehlt die Berechtigung `bedrock:InvokeModel`, oder der Modellzugriff wurde für dieses Modell in der Bedrock-Konsole nicht aktiviert. Prüfen Sie beides. |
 | Bedrock meldet, dass On-Demand-Durchsatz nicht unterstützt wird | Das Modell ist nur über ein regionales Inferenzprofil erreichbar. Führen Sie den Verbindungstest aus und wählen Sie eine ID mit dem Präfix `eu.`, `us.` oder `apac.`. |

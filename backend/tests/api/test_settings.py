@@ -1344,6 +1344,94 @@ class TestAIConnectionTestOpenAICompatible:
 
 
 # -------------------------------------------------------------------
+# POST /settings/ai/test — Azure Hosted OpenAI (#1386)
+# -------------------------------------------------------------------
+
+
+class TestAIConnectionTestAzure:
+    """The connection test accepts the endpoint the Azure portal shows."""
+
+    # The reporter's settings: the v1 endpoint, and the model's version
+    # entered as the API version.
+    PAYLOAD = {
+        "enabled": True,
+        "provider_type": "azure_openai",
+        "provider_url": "https://my-resource.openai.azure.com/openai/v1/",
+        "api_key": "azure-key",
+        "model": "gpt-5",
+        "api_version": "2025-08-07",
+        "enabled_types": [],
+        "portfolio_insights_enabled": False,
+    }
+
+    @staticmethod
+    def _azure(monkeypatch, status, body):
+        from app.services import ai_service
+
+        llm = AsyncMock()
+        llm.post = AsyncMock(
+            return_value=httpx.Response(
+                status, json=body, request=httpx.Request("POST", "https://azure.test")
+            )
+        )
+        monkeypatch.setattr(ai_service, "_get_llm_client", AsyncMock(return_value=llm))
+        return llm
+
+    async def test_the_v1_endpoint_passes(self, client, db, settings_env, monkeypatch):
+        admin = settings_env["admin"]
+        await client.patch("/api/v1/settings/ai", json=self.PAYLOAD, headers=auth_headers(admin))
+        llm = self._azure(monkeypatch, 200, {"choices": [{"message": {"content": "{}"}}]})
+
+        resp = await client.post("/api/v1/settings/ai/test", headers=auth_headers(admin))
+
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "ok": True,
+            "available_models": [],
+            "model_found": True,
+            "adjusted": [],
+        }
+        args, kwargs = llm.post.call_args
+        assert args == ("https://my-resource.openai.azure.com/openai/v1/chat/completions",)
+        assert "params" not in kwargs
+        assert kwargs["json"]["model"] == "gpt-5"
+        assert kwargs["headers"]["api-key"] == "azure-key"
+
+    async def test_a_404_on_the_resource_endpoint_says_what_to_check(
+        self, client, db, settings_env, monkeypatch
+    ):
+        admin = settings_env["admin"]
+        payload = {**self.PAYLOAD, "provider_url": "https://my-resource.openai.azure.com"}
+        await client.patch("/api/v1/settings/ai", json=payload, headers=auth_headers(admin))
+        llm = self._azure(
+            monkeypatch, 404, {"error": {"code": "404", "message": "Resource not found"}}
+        )
+
+        resp = await client.post("/api/v1/settings/ai/test", headers=auth_headers(admin))
+
+        assert resp.status_code == 502
+        assert resp.json()["detail"] == (
+            "Azure OpenAI answered 404 for /openai/deployments/gpt-5/chat/completions: "
+            "check the Provider URL (the resource endpoint, such as "
+            "https://your-resource.openai.azure.com) and the API version '2025-08-07', "
+            "which must be an Azure OpenAI API version, not the version of the model"
+        )
+        assert llm.post.call_args.kwargs["params"] == {"api-version": "2025-08-07"}
+
+    async def test_an_unknown_deployment_is_still_named(
+        self, client, db, settings_env, monkeypatch
+    ):
+        admin = settings_env["admin"]
+        await client.patch("/api/v1/settings/ai", json=self.PAYLOAD, headers=auth_headers(admin))
+        self._azure(monkeypatch, 404, {"error": {"code": "DeploymentNotFound", "message": "x"}})
+
+        resp = await client.post("/api/v1/settings/ai/test", headers=auth_headers(admin))
+
+        assert resp.status_code == 502
+        assert resp.json()["detail"] == "Azure OpenAI deployment 'gpt-5' not found"
+
+
+# -------------------------------------------------------------------
 # PATCH /settings/ai + POST /settings/ai/test — Amazon Bedrock (#1120)
 # -------------------------------------------------------------------
 

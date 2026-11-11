@@ -7,7 +7,7 @@ Two-step pipeline:
 Supports multiple LLM providers:
   - Ollama (self-hosted, /api/chat)
   - OpenAI-compatible (OpenAI, Gemini, OpenRouter, LM Studio, vLLM)
-  - Azure Hosted OpenAI (/openai/deployments/{deployment}/chat/completions)
+  - Azure Hosted OpenAI (deployment API or v1 API — see services/azure_openai.py)
   - Anthropic Claude (/v1/messages)
   - Amazon Bedrock (Converse API via boto3 — see services/bedrock.py)
 """
@@ -22,7 +22,7 @@ from typing import Any
 
 import httpx
 
-from app.services import bedrock, openai_chat
+from app.services import azure_openai, bedrock, openai_chat
 
 logger = logging.getLogger("turboea.ai")
 
@@ -517,12 +517,13 @@ async def _call_azure_openai(
     messages: list[dict[str, str]],
     api_version: str = DEFAULT_AZURE_API_VERSION,
 ) -> dict[str, Any]:
-    """Call an Azure Hosted OpenAI deployment endpoint.
+    """Call an Azure Hosted OpenAI deployment.
 
-    Azure uses a different URL structure, authentication header (api-key instead
-    of Authorization: Bearer), requires an api-version query parameter, and the
-    model/deployment name is embedded in the URL rather than the request body.
-    URL format: {endpoint}/openai/deployments/{deployment}/chat/completions
+    Azure authenticates with an ``api-key`` header instead of
+    ``Authorization: Bearer``. Which URL is called, whether an ``api-version``
+    goes with it and whether the deployment is named in the URL or as the
+    body's ``model`` depend on the endpoint that was entered
+    (``azure_openai.chat_target``, #1386).
 
     Payload mirrors `_call_openai_compatible` — and is posted through the same
     `openai_chat.post_chat`, so a reasoning deployment that refuses the
@@ -533,21 +534,23 @@ async def _call_azure_openai(
     which is Azure's hard requirement for the `json_object` response format.
     """
     client = await _get_llm_client()
-    url = f"{provider_url.rstrip('/')}/openai/deployments/{model}/chat/completions"
+    target = azure_openai.chat_target(provider_url, model, api_version)
 
     headers = {
         "api-key": api_key,
         "Content-Type": "application/json",
     }
-    payload = openai_chat.build_chat_payload(None, messages, temperature=0.1, json_mode=True)
+    payload = openai_chat.build_chat_payload(
+        target.model, messages, temperature=0.1, json_mode=True
+    )
 
     try:
         resp = await openai_chat.post_chat(
             client,
-            url,
+            target.url,
             headers=headers,
             payload=payload,
-            params={"api-version": api_version},
+            params=target.params,
         )
         resp.raise_for_status()
     except httpx.HTTPStatusError as exc:
@@ -849,15 +852,15 @@ async def check_provider_connection(
         # against the configured deployment.
         if not model:
             raise httpx.HTTPError("Deployment name (model) is required for Azure OpenAI")
-        url = f"{provider_url.rstrip('/')}/openai/deployments/{model}/chat/completions"
+        target = azure_openai.chat_target(provider_url, model, api_version)
         headers = {"api-key": api_key, "Content-Type": "application/json"}
         try:
             resp, dropped = await openai_chat.post_chat_traced(
                 client,
-                url,
+                target.url,
                 headers=headers,
-                payload=_probe_chat_payload(None),
-                params={"api-version": api_version},
+                payload=_probe_chat_payload(target.model),
+                params=target.params,
                 timeout=30.0,
             )
         except httpx.HTTPError as exc:
@@ -865,7 +868,7 @@ async def check_provider_connection(
         if resp.status_code == 401:
             raise httpx.HTTPError("Invalid Azure OpenAI API key")
         if resp.status_code == 404:
-            raise httpx.HTTPError(f"Azure OpenAI deployment '{model}' not found")
+            raise httpx.HTTPError(azure_openai.not_found_detail(resp, target, model))
         if not resp.is_success:
             raise httpx.HTTPError(
                 f"Deployment '{model}' refused the test request "

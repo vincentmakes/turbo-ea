@@ -216,4 +216,47 @@ describe("AiAdmin keeps the other providers working", () => {
 
     expect(screen.getByLabelText("API Version")).toBeInTheDocument();
   });
+
+  it("asks for an API version with the Azure resource endpoint", async () => {
+    await renderLoaded({
+      provider_type: "azure_openai",
+      provider_url: "https://my-resource.openai.azure.com",
+    });
+
+    expect(screen.getByLabelText("API Version")).toBeEnabled();
+    expect(
+      screen.getByText(
+        "Azure OpenAI API version (e.g. 2025-01-01). This is the version of the API, " +
+          "not of the model. Check the Azure portal for supported versions.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/takes no API version/)).not.toBeInTheDocument();
+  });
+
+  it("switches the API version off for the Azure v1 endpoint", async () => {
+    await renderLoaded({
+      provider_type: "azure_openai",
+      provider_url: "https://my-resource.openai.azure.com/openai/v1/",
+      api_version: "2025-08-07",
+    });
+
+    expect(screen.getByLabelText("API Version")).toBeDisabled();
+    expect(
+      screen.getByText("Not used: an endpoint ending in /openai/v1/ takes no API version."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/This is the version of the API/)).not.toBeInTheDocument();
+  });
+
+  it("follows the Provider URL as it is typed", async () => {
+    const user = userEvent.setup();
+    await renderLoaded({
+      provider_type: "azure_openai",
+      provider_url: "https://my-resource.openai.azure.com",
+    });
+    expect(screen.getByLabelText("API Version")).toBeEnabled();
+
+    await user.type(screen.getByLabelText("Provider URL"), "/openai/v1/");
+
+    expect(screen.getByLabelText("API Version")).toBeDisabled();
+  });
 });

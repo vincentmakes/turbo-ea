@@ -36,12 +36,21 @@ O resultado é exibido ao usuário com:
 | **Ollama** | Auto-hospedado | URL do provedor (ex.: `http://ollama:11434`) + nome do modelo |
 | **OpenAI** | Comercial | Chave API + nome do modelo (ex.: `gpt-4o`) |
 | **Google Gemini** | Comercial | Chave API + nome do modelo |
-| **Azure Hosted OpenAI** | Comercial | Chave API + endpoint do recurso Azure + nome do deployment + versão da API (padrão `2025-01-01`) |
+| **Azure Hosted OpenAI** | Comercial | Chave API + endpoint do Azure + nome do deployment + versão da API (padrão `2025-01-01`; não usada com um endpoint que termina em `/openai/v1/`) |
 | **OpenRouter** | Comercial | Chave API + nome do modelo |
 | **Anthropic Claude** | Comercial | Chave API + nome do modelo |
 | **Amazon Bedrock** | A sua conta AWS | Região AWS + ID de modelo ou de perfil de inferência; papel IAM, ou uma chave de acesso opcional |
 
 Provedores comerciais requerem uma chave API, que é armazenada criptografada no banco de dados usando criptografia simétrica Fernet. O Amazon Bedrock é a exceção: autentica-se por padrão com o papel IAM do contentor, portanto não há chave a armazenar nem a rodar.
+
+### Endpoints do Azure Hosted OpenAI
+
+O Azure mostra dois endpoints diferentes consoante a página de onde copia, e o **URL do fornecedor** aceita ambos:
+
+- **O endpoint do recurso**, como `https://your-resource.openai.azure.com`. O Turbo EA chama o seu deployment com a **versão da API** que introduzir. É a versão da API Azure OpenAI, como `2024-10-21`, e não a versão do modelo (`2025-08-07` para o GPT-5, por exemplo).
+- **O endpoint v1**, que termina em `/openai/v1/`. Não aceita versão da API, por isso o campo **Versão da API** fica desativado.
+
+Em ambos os casos, **Modelo** é o nome do seu deployment.
 
 ### Servidores e gateways compatíveis com OpenAI
 
@@ -261,6 +270,7 @@ As chaves de permissão são `ai.suggest` e `ai.portfolio_insights`. Papéis per
 | Pontuações de confiança baixas | O LLM pode não encontrar informações relevantes suficientes via busca web. Tente um nome de card mais específico, ou considere usar Google Custom Search para melhores resultados. |
 | Teste de conexão falha | Verifique se a URL do provedor é acessível a partir do contêiner do backend. Para configurações Docker, certifique-se de que ambos os contêineres estão na mesma rede. |
 | Testar ligação indica que o fornecedor não aceita `response_format` ou `temperature` | Nada a corrigir: o fornecedor está a funcionar. O Turbo EA omite esse parâmetro de todos os pedidos que lhe envia. Sem `response_format`, a resposta depende de o modelo seguir a instrução de responder em JSON; se as sugestões vierem vazias, experimente um modelo mais capaz. |
+| O teste de ligação do Azure responde 404 | O Azure responde 404 para três erros diferentes. «Deployment not found» significa que o campo **Modelo** não corresponde a nenhum nome de deployment. Caso contrário, a mensagem indica o caminho chamado: verifique se o **URL do fornecedor** é o endpoint do seu recurso ou termina em `/openai/v1/`, e se a **versão da API** contém uma versão da API Azure OpenAI e não a versão do modelo. |
 | «O fornecedor de IA rejeitou o pedido» | O fornecedor foi contactado mas recusou o pedido, e a mensagem indica o motivo (com um 401 ou 403, verifique a chave de API e o acesso ao modelo). Corrija o nome do modelo ou a definição do fornecedor indicada e clique em Testar Conexão: envia o mesmo pedido que uma sugestão, pelo que agora falha ou passa da mesma forma. |
 | O Bedrock devolve «AccessDeniedException» | Duas causas possíveis: falta ao papel IAM a permissão `bedrock:InvokeModel`, ou o acesso àquele modelo não foi ativado na consola do Bedrock. Verifique ambas. |
 | O Bedrock diz que o throughput on-demand não é suportado | O modelo só é acessível através de um perfil de inferência regional. Execute o teste de ligação e escolha um ID com prefixo `eu.`, `us.` ou `apac.`. |

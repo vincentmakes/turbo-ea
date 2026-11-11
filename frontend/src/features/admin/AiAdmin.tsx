@@ -17,7 +17,7 @@ import Chip from "@mui/material/Chip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { AI_PROVIDER_TYPES, providerUi } from "./aiProviderUi";
+import { AI_PROVIDER_TYPES, azureUsesV1, providerUi } from "./aiProviderUi";
 import { useTheme } from "@mui/material/styles";
 
 /** `POST /settings/ai/test`. `adjusted` lists the optional request parameters
@@ -194,6 +194,8 @@ export default function AiAdmin() {
   const showProviderUrl = ui.showProviderUrl;
   const showApiKey = ui.showApiKey;
   const showApiVersion = ui.showApiVersion;
+  // Azure's v1 endpoint takes no API version, so the field is not sent there.
+  const apiVersionUnused = showApiVersion && azureUsesV1(aiProviderUrl);
   const hasApiKeySet = aiApiKey === AI_KEY_MASK;
 
   const providerUrlPlaceholder = ui.urlPlaceholder;
@@ -289,7 +291,10 @@ export default function AiAdmin() {
             value={aiApiVersion}
             onChange={(e) => setAiApiVersion(e.target.value)}
             placeholder="2025-01-01"
-            helperText={t("settings.ai.apiVersionHelper")}
+            disabled={apiVersionUnused}
+            helperText={t(
+              apiVersionUnused ? "settings.ai.apiVersionHelperV1" : "settings.ai.apiVersionHelper",
+            )}
             sx={{ mb: 2 }}
           />
         )}

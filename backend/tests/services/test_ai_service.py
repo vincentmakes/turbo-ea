@@ -1651,6 +1651,64 @@ class TestCallAzureOpenAI:
             assert result == {"description": {"value": "A tool"}}
 
     @pytest.mark.asyncio
+    async def test_the_v1_endpoint_of_issue_1386_is_called_as_the_v1_api(self):
+        """#1386: with the portal's ``…/openai/v1/`` as Provider URL every
+        call went to ``…/openai/v1/openai/deployments/gpt-5/…`` and was a 404.
+        The v1 API takes the deployment as ``model`` and no api-version."""
+        request = httpx.Request("POST", "https://r.openai.azure.com/openai/v1/chat/completions")
+        answered = httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": '{"description": {"value": "A tool"}}'}}]},
+            request=request,
+        )
+        client = AsyncMock()
+        client.post = AsyncMock(return_value=answered)
+        with patch("app.services.ai_service._get_llm_client", AsyncMock(return_value=client)):
+            result = await _call_azure_openai(
+                "https://r.openai.azure.com/openai/v1/",
+                "azure-key",
+                "gpt-5",
+                [{"role": "user", "content": "test"}],
+                "2025-08-07",
+            )
+        assert result == {"description": {"value": "A tool"}}
+        args, kwargs = client.post.call_args
+        assert args == ("https://r.openai.azure.com/openai/v1/chat/completions",)
+        assert kwargs == {
+            "json": {
+                "model": "gpt-5",
+                "messages": [{"role": "user", "content": "test"}],
+                "temperature": 0.1,
+                "response_format": {"type": "json_object"},
+            },
+            "headers": {"api-key": "azure-key", "Content-Type": "application/json"},
+        }
+
+    @pytest.mark.asyncio
+    async def test_the_resource_endpoint_is_called_as_the_deployment_api(self):
+        request = httpx.Request("POST", "https://r.openai.azure.com")
+        client = AsyncMock()
+        client.post = AsyncMock(
+            return_value=httpx.Response(
+                200, json={"choices": [{"message": {"content": "{}"}}]}, request=request
+            )
+        )
+        with patch("app.services.ai_service._get_llm_client", AsyncMock(return_value=client)):
+            await _call_azure_openai(
+                "https://r.openai.azure.com/openai/",
+                "azure-key",
+                "my-deployment",
+                [{"role": "user", "content": "test"}],
+                "2024-10-21",
+            )
+        args, kwargs = client.post.call_args
+        assert args == (
+            "https://r.openai.azure.com/openai/deployments/my-deployment/chat/completions",
+        )
+        assert kwargs["params"] == {"api-version": "2024-10-21"}
+        assert "model" not in kwargs["json"]
+
+    @pytest.mark.asyncio
     async def test_uses_api_key_header_not_bearer(self):
         """Azure uses 'api-key' header, NOT 'Authorization: Bearer'."""
         mock_resp = MagicMock()
@@ -1870,6 +1928,72 @@ class TestProviderConnectionAzure:
             assert kwargs["timeout"] == 30.0
 
     @pytest.mark.asyncio
+    async def test_azure_v1_endpoint_of_issue_1386_passes(self):
+        """The reporter's exact settings: the v1 endpoint, and the model's
+        version typed into API Version, which the v1 API never receives."""
+        request = httpx.Request("POST", "https://r.openai.azure.com/openai/v1/chat/completions")
+        client = AsyncMock()
+        client.post = AsyncMock(return_value=httpx.Response(200, json={}, request=request))
+        with patch("app.services.ai_service._get_llm_client", AsyncMock(return_value=client)):
+            result = await check_provider_connection(
+                "https://r.openai.azure.com/openai/v1/",
+                provider_type="azure_openai",
+                api_key="azure-key",
+                model="gpt-5",
+                api_version="2025-08-07",
+            )
+        assert result == {
+            "ok": True,
+            "available_models": [],
+            "model_found": True,
+            "adjusted": [],
+        }
+        args, kwargs = client.post.call_args
+        assert args == ("https://r.openai.azure.com/openai/v1/chat/completions",)
+        assert kwargs == {
+            "json": {
+                "model": "gpt-5",
+                "messages": [
+                    {"role": "user", "content": 'Reply with this JSON object: {"ok": true}'}
+                ],
+                "max_completion_tokens": 16,
+                "temperature": 0.1,
+                "response_format": {"type": "json_object"},
+            },
+            "headers": {"api-key": "azure-key", "Content-Type": "application/json"},
+            "timeout": 30.0,
+        }
+
+    @pytest.mark.asyncio
+    async def test_azure_404_that_is_not_a_missing_deployment_says_what_to_check(self):
+        """#1386: a wrong path or an unknown api-version is a 404 too, and
+        was reported as a deployment that does not exist."""
+        response = httpx.Response(
+            404,
+            json={"error": {"code": "404", "message": "Resource not found"}},
+            request=httpx.Request("POST", "https://x"),
+        )
+        client = AsyncMock()
+        client.post = AsyncMock(return_value=response)
+        with (
+            patch("app.services.ai_service._get_llm_client", AsyncMock(return_value=client)),
+            pytest.raises(httpx.HTTPError) as exc,
+        ):
+            await check_provider_connection(
+                "https://r.openai.azure.com",
+                provider_type="azure_openai",
+                api_key="azure-key",
+                model="gpt-5",
+                api_version="2025-08-07",
+            )
+        assert str(exc.value) == (
+            "Azure OpenAI answered 404 for /openai/deployments/gpt-5/chat/completions: "
+            "check the Provider URL (the resource endpoint, such as "
+            "https://your-resource.openai.azure.com) and the API version '2025-08-07', "
+            "which must be an Azure OpenAI API version, not the version of the model"
+        )
+
+    @pytest.mark.asyncio
     async def test_azure_reports_what_the_deployment_refused(self):
         request = httpx.Request("POST", "https://my-resource.openai.azure.com")
         refused = httpx.Response(
@@ -2022,7 +2146,9 @@ class TestProviderConnectionAzure:
             mock_get.return_value = mock_client
             mock_client.post = AsyncMock(
                 return_value=httpx.Response(
-                    404, json={}, request=httpx.Request("POST", "https://x")
+                    404,
+                    json={"error": {"code": "DeploymentNotFound", "message": "does not exist"}},
+                    request=httpx.Request("POST", "https://x"),
                 )
             )
 
