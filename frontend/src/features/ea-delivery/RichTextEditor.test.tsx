@@ -14,7 +14,8 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type { Editor } from "@tiptap/core";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
-import RichTextEditor, { plainListTags } from "./RichTextEditor";
+import RichTextEditor from "./RichTextEditor";
+import { plainListTags } from "./collab/discussionModel";
 import { api } from "@/api/client";
 
 vi.mock("@/api/client", () => ({

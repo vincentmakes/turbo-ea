@@ -11,6 +11,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import type { MentionKind } from "@/lib/mentionHtml";
+import { plainListTags } from "./collab/discussionModel";
 import { MENTION_CHIP_SX } from "./mentions/MentionContainer";
 import MentionPopup from "./mentions/MentionPopup";
 import { createMentionExtension } from "./mentions/mentionExtension";
@@ -87,11 +88,6 @@ function plainCommentLists(): AnyExtension {
       ];
     },
   });
-}
-
-/** A comment's HTML with every `<ol>` tag bare (the server escapes any attribute on it). */
-export function plainListTags(html: string): string {
-  return html.replace(/<ol\b[^>]*>/g, "<ol>");
 }
 
 export default function RichTextEditor({

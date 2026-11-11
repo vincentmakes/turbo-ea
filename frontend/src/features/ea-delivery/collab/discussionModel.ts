@@ -206,6 +206,11 @@ export function markDeleted(threads: readonly DocumentThread[], commentId: strin
   });
 }
 
+/** A comment's HTML with every `<ol>` tag bare (the server escapes any attribute on it). */
+export function plainListTags(html: string): string {
+  return html.replace(/<ol\b[^>]*>/g, "<ol>");
+}
+
 /** Whether a comment's body is empty (no text and no mention), after tags are dropped. */
 export function isBlankHtml(html: string): boolean {
   if (html.includes('data-type="mention"')) return false;
