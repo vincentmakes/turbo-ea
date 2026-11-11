@@ -3,9 +3,11 @@
  * section), reply, resolve and reopen, edit and delete your own comments.
  * Resolved threads fold behind a toggle; earlier revisions' threads load on
  * request (`scope=chain`) and sit under "Rev N" headers. A viewer without
- * the comment right reads only.
+ * the comment right reads only. Read again when the page's `refreshKey`
+ * changes (a review action: reject, sign, recall, request signatures,
+ * restore), so a rejection's thread or a signing note shows at once.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -18,6 +20,7 @@ import type { DocumentOwner, DocumentThread, DocumentThreadWrite, DocumentUserRe
 import { revisionLabel } from "../decisionStanding";
 import CommentComposer from "./CommentComposer";
 import CommentThread, { type ThreadActions } from "./CommentThread";
+import { draftKey } from "./commentDrafts";
 import {
   groupThreads,
   openCount,
@@ -34,32 +37,46 @@ interface Props {
   sections: SectionOption[];
   /** A thread to bring into view (a notification's `?thread=`). */
   focusThreadId?: string | null;
-  /** The open-thread count of this revision, each time the list changes. */
+  /** The open-thread count of this revision, after every read and each time the list changes. */
   onOpenCountChange?: (count: number) => void;
+  /** Read the discussion again when this changes (a review action on the page). */
+  refreshKey?: string | number;
 }
 
-export default function DiscussionPanel({ owner, sections, focusThreadId, onOpenCountChange }: Props) {
+export default function DiscussionPanel({ owner, sections, focusThreadId, onOpenCountChange, refreshKey }: Props) {
   const { t } = useTranslation(["delivery", "common"]);
   const [scope, setScope] = useState<DiscussionScope>("document");
-  const discussion = useDocumentDiscussion(owner, { scope });
+  const discussion = useDocumentDiscussion(owner, { scope, refetchKey: refreshKey });
   const [showResolved, setShowResolved] = useState(false);
   const [unnotified, setUnnotified] = useState<DocumentUserRef[]>([]);
   const { threads } = discussion;
-  const loaded = discussion.discussion !== undefined;
+  const payload = discussion.discussion;
+  const loaded = payload !== undefined;
   const count = openCount(threads, owner.id);
 
+  // Reported after every read, not only when the number moves: the page's
+  // own count may have changed meanwhile (a review action's reply).
   useEffect(() => {
-    if (loaded) onOpenCountChange?.(count);
-  }, [loaded, count, onOpenCountChange]);
+    if (payload !== undefined) onOpenCountChange?.(count);
+  }, [payload, count, onOpenCountChange]);
 
-  // A notification's thread: in view and drawn out once it is loaded; a
-  // resolved one is unfolded first.
+  // A notification's thread: drawn out, unfolded once if it is resolved (the
+  // toggle is the reader's after that), and scrolled into view once.
   const focused = focusThreadId ? threads.find((th) => th.id === focusThreadId) : undefined;
-  const focusResolved = focused?.resolved_at != null;
+  const focusedId = focused?.id;
+  const [unfoldedFor, setUnfoldedFor] = useState<string | undefined>(undefined);
+  if (focused && focused.id !== unfoldedFor) {
+    setUnfoldedFor(focused.id);
+    if (focused.resolved_at != null) setShowResolved(true);
+  }
+  const scrolledTo = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (!focused) return;
-    document.getElementById(`thread-${focused.id}`)?.scrollIntoView?.({ block: "center" });
-  }, [focused, focusResolved, showResolved]);
+    if (!focusedId || scrolledTo.current === focusedId) return;
+    const el = document.getElementById(`thread-${focusedId}`);
+    if (!el) return;
+    scrolledTo.current = focusedId;
+    el.scrollIntoView?.({ block: "center" });
+  }, [focusedId, showResolved]);
 
   const noteUnnotified = (reply: DocumentThreadWrite) => {
     setUnnotified(reply.unnotified_mentions ?? []);
@@ -88,7 +105,6 @@ export default function DiscussionPanel({ owner, sections, focusThreadId, onOpen
   const canComment = discussion.discussion?.can?.comment ?? false;
   const grouped = groupThreads(threads, owner.id);
   const { shown, resolved } = splitResolved(grouped.current);
-  const resolvedOpen = showResolved || focusResolved;
 
   const renderThread = (thread: DocumentThread) => (
     <CommentThread
@@ -97,6 +113,7 @@ export default function DiscussionPanel({ owner, sections, focusThreadId, onOpen
       sectionLabel={sectionLabel(thread.section, sections, t)}
       canComment={canComment}
       highlighted={thread.id === focusThreadId}
+      owner={owner}
       {...actions}
     />
   );
@@ -105,6 +122,7 @@ export default function DiscussionPanel({ owner, sections, focusThreadId, onOpen
     <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
       {canComment && (
         <CommentComposer
+          draftKey={draftKey(owner, { kind: "new" })}
           sections={sections}
           placeholder={t("collab.discussion.newPlaceholder")}
           submitLabel={t("collab.discussion.post")}
@@ -129,13 +147,13 @@ export default function DiscussionPanel({ owner, sections, focusThreadId, onOpen
       {shown.map(renderThread)}
 
       {resolved.length > 0 && (
-        <Button size="small" sx={{ alignSelf: "flex-start" }} onClick={() => setShowResolved(!resolvedOpen)}>
-          {resolvedOpen
+        <Button size="small" sx={{ alignSelf: "flex-start" }} onClick={() => setShowResolved(!showResolved)}>
+          {showResolved
             ? t("collab.discussion.hideResolved")
             : t("collab.discussion.showResolved", { count: resolved.length })}
         </Button>
       )}
-      {resolvedOpen && resolved.map(renderThread)}
+      {showResolved && resolved.map(renderThread)}
 
       <FormControlLabel
         control={

@@ -3,7 +3,9 @@
  * the server allows on each (`can.*`). A rejection reason is marked as one
  * (an empty reason reads "No reason given"); a signing note is marked as one
  * and has nothing to resolve; neither is ever offered for edit or delete
- * here. A deleted comment leaves a placeholder and keeps its replies.
+ * here. A deleted comment leaves a placeholder and keeps its replies. A
+ * reply or an edit left unsent is kept (`commentDrafts`) and reopens with
+ * the thread.
  */
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -18,10 +20,11 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { fillMentionLabels } from "@/lib/mentionHtml";
 import { sanitizeRichHtml } from "@/lib/richHtml";
-import type { DocumentComment, DocumentThread, DocumentThreadWrite } from "@/types";
+import type { DocumentComment, DocumentOwner, DocumentThread, DocumentThreadWrite } from "@/types";
 import MentionContainer from "../mentions/MentionContainer";
 import { useMentionLabels } from "../mentions/mentionLabels";
 import CommentComposer from "./CommentComposer";
+import { draftKey, readDraft } from "./commentDrafts";
 import { authorName, rejectionBodyOrFallback, writeErrorMessage } from "./discussionModel";
 
 export interface ThreadActions {
@@ -40,6 +43,8 @@ interface Props extends ThreadActions {
   canComment: boolean;
   /** Opened from a notification: drawn out. */
   highlighted?: boolean;
+  /** The document, to keep unsent replies and edits per document. */
+  owner?: DocumentOwner;
 }
 
 /** Edit and delete are for plain comments only, as the server allows. */
@@ -56,6 +61,7 @@ export default function CommentThread({
   sectionLabel,
   canComment,
   highlighted = false,
+  owner,
   onReply,
   onEdit,
   onDelete,
@@ -65,9 +71,15 @@ export default function CommentThread({
   const { t } = useTranslation(["delivery", "common"]);
   const { formatDateTime } = useDateFormat();
   const labels = useMentionLabels();
-  const [editing, setEditing] = useState<string | null>(null);
+  const replyKey = owner ? draftKey(owner, { kind: "reply", threadId: thread.id }) : undefined;
+  const editKey = (commentId: string) => (owner ? draftKey(owner, { kind: "edit", commentId }) : undefined);
+  const hasDraft = (key: string | undefined) => key !== undefined && readDraft(key) !== undefined;
+  // An edit or a reply left unsent reopens where it was.
+  const [editing, setEditing] = useState<string | null>(
+    () => [thread, ...thread.replies].find((c) => editable(c) && hasDraft(editKey(c.id)))?.id ?? null,
+  );
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-  const [replying, setReplying] = useState(false);
+  const [replying, setReplying] = useState(() => hasDraft(replyKey));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -125,6 +137,7 @@ export default function CommentThread({
       ) : editing === comment.id ? (
         <CommentComposer
           initialBody={comment.body}
+          draftKey={editKey(comment.id)}
           placeholder={t("collab.discussion.editPlaceholder")}
           submitLabel={t("common:actions.save")}
           onSubmit={async (body) => {
@@ -236,6 +249,7 @@ export default function CommentThread({
 
       {replying ? (
         <CommentComposer
+          draftKey={replyKey}
           placeholder={t("collab.discussion.replyPlaceholder")}
           submitLabel={t("collab.discussion.reply")}
           onSubmit={async (body) => {

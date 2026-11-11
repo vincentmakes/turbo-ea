@@ -4,9 +4,15 @@
  * row (not a persistent Drawer: that is fixed-position and would cover the
  * app bar); below `lg` a button opens it in a temporary Drawer. Whether it
  * is open, and on which tab, is remembered per viewer. A notification's
- * `?thread=<id>` opens it on Discussion with that thread in view.
+ * `?thread=<id>` opens it on Discussion with that thread in view, on arrival
+ * and whenever the parameter changes while the document is open.
+ *
+ * The document (`children`) sits at the same place in the React tree at
+ * every width, so crossing `lg` re-lays the page out without remounting it
+ * (a dialog's typed text, editor undo history survive). The Discussion and
+ * History tabs are re-read with `refreshKey` (a save or a review action).
  */
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
 import Badge from "@mui/material/Badge";
@@ -67,7 +73,20 @@ export default function DocumentSidePanel<D>({
   const [state, setState] = useState<PanelState>(() => initialPanelState(focusThreadId));
   // Below `lg` the drawer opens on request (or for a notification's thread) only.
   const [drawerOpen, setDrawerOpen] = useState(Boolean(focusThreadId));
-  const [liveCount, setLiveCount] = useState<number | null>(null);
+  // A notification for this same document while it is open: only the query
+  // string changes, so open the panel on Discussion here.
+  const [seenThread, setSeenThread] = useState(focusThreadId);
+  if (focusThreadId !== seenThread) {
+    setSeenThread(focusThreadId);
+    if (focusThreadId) {
+      setState((prev) => ({ ...prev, open: true, tab: "discussion" }));
+      setDrawerOpen(true);
+    }
+  }
+  // The discussion's live count, held against the detail's count it was read
+  // after: a newer detail (a review action's reply) wins until the
+  // discussion has been read again.
+  const [live, setLive] = useState<{ count: number; basis: number | undefined } | null>(null);
 
   const update = (next: Partial<PanelState>) => {
     const merged = { ...state, ...next };
@@ -75,17 +94,21 @@ export default function DocumentSidePanel<D>({
     writePanelState(merged);
   };
 
+  // Read through a ref: the callback keeps its identity when the detail's
+  // count changes, so the discussion does not report its old count again.
+  const basisRef = useRef(openThreadCount);
+  useEffect(() => {
+    basisRef.current = openThreadCount;
+  }, [openThreadCount]);
   const handleCount = useCallback(
     (count: number) => {
-      setLiveCount(count);
+      setLive({ count, basis: basisRef.current });
       onOpenCountChange?.(count);
     },
     [onOpenCountChange],
   );
 
-  if (!owner) return <>{children}</>;
-
-  const count = liveCount ?? openThreadCount ?? 0;
+  const count = (live && live.basis === openThreadCount ? live.count : openThreadCount) ?? 0;
   const tabLabel = (key: string, icon: string, badge?: number) => (
     <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
       <MaterialSymbol icon={icon} size={18} />
@@ -96,7 +119,7 @@ export default function DocumentSidePanel<D>({
     </Box>
   );
 
-  const panel = (onClose: () => void) => (
+  const panel = (owner: DocumentOwner, onClose: () => void) => (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
       <Box sx={{ display: "flex", alignItems: "center", borderBottom: 1, borderColor: "divider" }}>
         <Tabs
@@ -120,6 +143,7 @@ export default function DocumentSidePanel<D>({
             sections={sections}
             focusThreadId={focusThreadId}
             onOpenCountChange={handleCount}
+            refreshKey={refreshKey}
           />
         </Box>
         {state.tab === "history" && (
@@ -137,11 +161,13 @@ export default function DocumentSidePanel<D>({
 
   const openLabel = t("collab.panel.open");
 
-  if (wide) {
-    return (
-      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
-        <Box sx={{ flex: 1, minWidth: 0 }}>{children}</Box>
-        {state.open ? (
+  // One tree for every width: the document is always the first child of the
+  // same Box, only what sits beside it changes.
+  return (
+    <Box sx={wide ? { display: "flex", alignItems: "flex-start", gap: 2 } : undefined}>
+      <Box sx={{ flex: 1, minWidth: 0 }}>{children}</Box>
+      {owner && wide && (
+        state.open ? (
           <Box
             component="aside"
             aria-label={openLabel}
@@ -159,7 +185,7 @@ export default function DocumentSidePanel<D>({
               overflow: "hidden",
             }}
           >
-            {panel(() => update({ open: false }))}
+            {panel(owner, () => update({ open: false }))}
           </Box>
         ) : (
           <Box className="no-print" sx={{ position: "sticky", top: 80, flexShrink: 0 }}>
@@ -171,34 +197,32 @@ export default function DocumentSidePanel<D>({
               </IconButton>
             </Tooltip>
           </Box>
-        )}
-      </Box>
-    );
-  }
-
-  return (
-    <>
-      {children}
-      <Fab
-        color="primary"
-        size="medium"
-        aria-label={openLabel}
-        className="no-print"
-        onClick={() => setDrawerOpen(true)}
-        sx={{ position: "fixed", right: 24, bottom: 24, zIndex: (th) => th.zIndex.speedDial }}
-      >
-        <Badge badgeContent={count} color="warning">
-          <MaterialSymbol icon="forum" size={22} />
-        </Badge>
-      </Fab>
-      <Drawer
-        anchor="right"
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        PaperProps={{ sx: { width: { xs: "100%", sm: ASIDE_WIDTH + 40 } } }}
-      >
-        {panel(() => setDrawerOpen(false))}
-      </Drawer>
-    </>
+        )
+      )}
+      {owner && !wide && (
+        <>
+          <Fab
+            color="primary"
+            size="medium"
+            aria-label={openLabel}
+            className="no-print"
+            onClick={() => setDrawerOpen(true)}
+            sx={{ position: "fixed", right: 24, bottom: 24, zIndex: (th) => th.zIndex.speedDial }}
+          >
+            <Badge badgeContent={count} color="warning">
+              <MaterialSymbol icon="forum" size={22} />
+            </Badge>
+          </Fab>
+          <Drawer
+            anchor="right"
+            open={drawerOpen}
+            onClose={() => setDrawerOpen(false)}
+            PaperProps={{ sx: { width: { xs: "100%", sm: ASIDE_WIDTH + 40 } } }}
+          >
+            {panel(owner, () => setDrawerOpen(false))}
+          </Drawer>
+        </>
+      )}
+    </Box>
   );
 }

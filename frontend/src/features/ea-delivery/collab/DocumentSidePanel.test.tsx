@@ -27,6 +27,8 @@ vi.mock("./HistoryPanel", () => ({
   },
 }));
 
+import { useState } from "react";
+import { useNavigate } from "react-router";
 import { setViewportWidth } from "@/test/matchMedia";
 import { renderWithProviders } from "@/test/render";
 import DocumentSidePanel from "./DocumentSidePanel";
@@ -145,5 +147,111 @@ describe("DocumentSidePanel", () => {
     act(() => setViewportWidth(800));
     renderPanel({}, "/ea-delivery/adr/a1/preview?thread=t2");
     expect(await screen.findByTestId("discussion-tab")).toHaveTextContent("focus:t2");
+  });
+
+  it("hands the discussion the refresh key, so a review action re-reads it", () => {
+    renderPanel({ refreshKey: "2026-11-11T10:00:00Z" });
+    expect(tabs.discussion.at(-1)).toMatchObject({ refreshKey: "2026-11-11T10:00:00Z" });
+  });
+
+  it("shows a newer detail's count over an older live one, until the discussion reports again", async () => {
+    const onOpenCountChange = vi.fn();
+    function Page() {
+      const [detailCount, setDetailCount] = useState(2);
+      return (
+        <DocumentSidePanel
+          owner={{ kind: "adr", id: "a1" }}
+          status="draft"
+          sections={SECTIONS}
+          openThreadCount={detailCount}
+          onOpenCountChange={onOpenCountChange}
+        >
+          <button type="button" onClick={() => setDetailCount(3)}>
+            reject
+          </button>
+        </DocumentSidePanel>
+      );
+    }
+    const { user } = renderWithProviders(<Page />);
+    const badge = () => within(screen.getByRole("complementary")).getByTestId("open-thread-badge");
+    await user.click(screen.getByRole("button", { name: "report-five" }));
+    expect(badge()).toHaveTextContent("5");
+    // A review action's reply: the detail now says 3.
+    await user.click(screen.getByRole("button", { name: "reject" }));
+    expect(badge()).toHaveTextContent("3");
+    // The discussion's callback kept its identity: it is not re-reported.
+    expect(new Set(tabs.discussion.map((p) => p.onOpenCountChange)).size).toBe(1);
+    await user.click(screen.getByRole("button", { name: "report-five" }));
+    expect(badge()).toHaveTextContent("5");
+    expect(onOpenCountChange).toHaveBeenCalledTimes(2);
+  });
+
+  it("opens on Discussion when a notification for the open document arrives", async () => {
+    function GoToThread() {
+      const navigate = useNavigate();
+      return (
+        <button type="button" onClick={() => navigate("/ea-delivery/adr/a1/preview?thread=t9")}>
+          bell
+        </button>
+      );
+    }
+    window.localStorage.setItem(PANEL_STATE_KEY, JSON.stringify({ open: false, tab: "history" }));
+    const { user } = renderWithProviders(
+      <DocumentSidePanel owner={{ kind: "adr", id: "a1" }} status="draft" sections={SECTIONS}>
+        <GoToThread />
+      </DocumentSidePanel>,
+      { route: "/ea-delivery/adr/a1/preview" },
+    );
+    expect(screen.queryByRole("complementary")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "bell" }));
+    const aside = await screen.findByRole("complementary", { name: "Discussion and history" });
+    expect(within(aside).getByRole("tab", { name: /Discussion/, selected: true })).toBeInTheDocument();
+    expect(within(aside).getByTestId("discussion-tab")).toHaveTextContent("focus:t9");
+  });
+
+  it("below lg, opens the drawer when a notification for the open document arrives", async () => {
+    act(() => setViewportWidth(800));
+    function GoToThread() {
+      const navigate = useNavigate();
+      return (
+        <button type="button" onClick={() => navigate("?thread=t4")}>
+          bell
+        </button>
+      );
+    }
+    const { user } = renderWithProviders(
+      <DocumentSidePanel owner={{ kind: "adr", id: "a1" }} status="draft" sections={SECTIONS}>
+        <GoToThread />
+      </DocumentSidePanel>,
+      { route: "/ea-delivery/adr/a1/preview" },
+    );
+    expect(screen.queryByRole("tab")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "bell" }));
+    expect(await screen.findByTestId("discussion-tab")).toHaveTextContent("focus:t4");
+  });
+
+  it("keeps the document mounted, and its state, when the width crosses lg", async () => {
+    const mounts = vi.fn();
+    function Typed() {
+      const [value, setValue] = useState("");
+      useState(() => mounts());
+      return <input aria-label="reason" value={value} onChange={(e) => setValue(e.target.value)} />;
+    }
+    for (const owner of [{ kind: "adr" as const, id: "a1" }, null]) {
+      mounts.mockClear();
+      act(() => setViewportWidth(1280));
+      const { user, unmount } = renderWithProviders(
+        <DocumentSidePanel owner={owner} status="draft" sections={SECTIONS}>
+          <Typed />
+        </DocumentSidePanel>,
+      );
+      await user.type(screen.getByLabelText("reason"), "Too costly");
+      act(() => setViewportWidth(800));
+      expect(screen.getByLabelText("reason")).toHaveValue("Too costly");
+      act(() => setViewportWidth(1280));
+      expect(screen.getByLabelText("reason")).toHaveValue("Too costly");
+      expect(mounts).toHaveBeenCalledTimes(1);
+      unmount();
+    }
   });
 });

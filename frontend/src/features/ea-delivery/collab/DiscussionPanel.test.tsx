@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { useState } from "react";
 import type { DocumentComment, DocumentDiscussion, DocumentThread } from "@/types";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -28,6 +29,7 @@ vi.mock("../RichTextEditor", () => ({
 
 import { mockApi } from "@/test/apiMock";
 import { renderWithProviders } from "@/test/render";
+import { clearAllDrafts } from "./commentDrafts";
 import DiscussionPanel from "./DiscussionPanel";
 import { sectionOptions } from "./discussionModel";
 
@@ -82,9 +84,23 @@ function renderPanel(props: Partial<React.ComponentProps<typeof DiscussionPanel>
 
 const can = { comment: true, moderate: false };
 
+type PanelProps = Partial<React.ComponentProps<typeof DiscussionPanel>>;
+/** Renders the panel with props a test can change later (`set(...)`), inside the providers. */
+function renderHarness(initial: PanelProps) {
+  let set: (next: PanelProps) => void = () => {};
+  function Harness() {
+    const [props, setProps] = useState(initial);
+    set = (next) => setProps((p) => ({ ...p, ...next }));
+    return <DiscussionPanel owner={{ kind: "adr", id: "a2" }} sections={SECTIONS} {...props} />;
+  }
+  renderWithProviders(<Harness />);
+  return { change: (next: PanelProps) => act(() => set(next)) };
+}
+
 beforeEach(() => {
   mockApi.reset();
   editorProps.last = null;
+  clearAllDrafts();
 });
 
 describe("DiscussionPanel", () => {
@@ -346,5 +362,109 @@ describe("DiscussionPanel", () => {
     mockApi.fail("get", "/adr/a2/comments", 403, "Insufficient permissions");
     renderPanel();
     expect(await screen.findByText("GET /adr/a2/comments failed")).toBeInTheDocument();
+  });
+
+  it("reads the discussion again when the page's refresh key changes, and reports the count after each read", async () => {
+    serve({ can, open_count: 1, threads: [thread({ id: "a" })] });
+    const onOpenCountChange = vi.fn();
+    const { change } = renderHarness({ onOpenCountChange, refreshKey: "v1" });
+    await waitFor(() => expect(onOpenCountChange).toHaveBeenCalledWith(1));
+    expect(mockApi.callsOf("get", "/adr/a2/comments")).toHaveLength(1);
+
+    // A rejection opened a thread on the server.
+    serve({ can, open_count: 2, threads: [thread({ id: "a" }), thread({ id: "r", kind: "rejection", body: "<p>No</p>" })] });
+    change({ refreshKey: "v2" });
+    expect(await screen.findByTestId("thread-r")).toBeInTheDocument();
+    expect(mockApi.callsOf("get", "/adr/a2/comments")).toHaveLength(2);
+    await waitFor(() => expect(onOpenCountChange).toHaveBeenLastCalledWith(2));
+
+    // The same count read again is still reported (the page's own count may have moved).
+    const before = onOpenCountChange.mock.calls.length;
+    serve({ can, open_count: 2, threads: [thread({ id: "a" }), thread({ id: "r", kind: "rejection", body: "<p>No</p>" })] });
+    change({ refreshKey: "v3" });
+    await waitFor(() => expect(onOpenCountChange.mock.calls.length).toBe(before + 1));
+    expect(onOpenCountChange).toHaveBeenLastCalledWith(2);
+  });
+
+  it("scrolls a notification's thread into view once, not on every read", async () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    serve({ can, open_count: 1, threads: [thread({ id: "t7" }), thread({ id: "t8" })] });
+    const { change } = renderHarness({ focusThreadId: "t7", refreshKey: 1 });
+    await screen.findByTestId("thread-t7");
+    await waitFor(() => expect(scroll).toHaveBeenCalledTimes(1));
+    expect(scroll.mock.contexts[0]).toBe(screen.getByTestId("thread-t7"));
+    change({ refreshKey: 2 });
+    await waitFor(() => expect(mockApi.callsOf("get", "/adr/a2/comments")).toHaveLength(2));
+    fireEvent(window, new Event("focus"));
+    await waitFor(() => expect(mockApi.callsOf("get", "/adr/a2/comments")).toHaveLength(3));
+    expect(scroll).toHaveBeenCalledTimes(1);
+    // Another notification's thread is brought into view in its turn.
+    change({ focusThreadId: "t8" });
+    await waitFor(() => expect(scroll).toHaveBeenCalledTimes(2));
+    expect(scroll.mock.contexts[1]).toBe(screen.getByTestId("thread-t8"));
+    delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+  });
+
+  it("lets the reader fold a notification's resolved thread away like any other", async () => {
+    serve({ can, open_count: 0, threads: [thread({ id: "t7", resolved_at: "2026-11-02T00:00:00Z" })] });
+    const { user } = renderPanel({ focusThreadId: "t7" });
+    await screen.findByTestId("thread-t7");
+    await user.click(screen.getByRole("button", { name: "Hide resolved threads" }));
+    expect(screen.queryByTestId("thread-t7")).toBeNull();
+    expect(screen.getByRole("button", { name: "Show 1 resolved thread" })).toBeInTheDocument();
+    // A re-read does not unfold it again.
+    fireEvent(window, new Event("focus"));
+    await waitFor(() => expect(mockApi.callsOf("get", "/adr/a2/comments")).toHaveLength(2));
+    expect(screen.queryByTestId("thread-t7")).toBeNull();
+  });
+
+  it("keeps an unsent comment, reply and edit, and the section picked, across a close and reopen", async () => {
+    serve({ can, open_count: 1, threads: [thread({ id: "t1" }), thread({ id: "t2", body: "<p>Mine</p>" })] });
+    const first = renderPanel();
+    const { user } = first;
+    await user.click(await screen.findByRole("combobox", { name: "About" }));
+    await user.click(await screen.findByRole("option", { name: "Decision" }));
+    fireEvent.change(screen.getByRole("textbox", { name: /Start a thread/ }), { target: { value: "<p>Half a th</p>" } });
+    const t1 = within(screen.getByTestId("thread-t1"));
+    await user.click(t1.getByRole("button", { name: "Reply" }));
+    fireEvent.change(t1.getByRole("textbox", { name: /Reply/ }), { target: { value: "<p>Half a reply</p>" } });
+    const t2 = within(screen.getByTestId("thread-t2"));
+    await user.click(t2.getByRole("button", { name: "Edit" }));
+    fireEvent.change(t2.getByRole("textbox"), { target: { value: "<p>Mine, edited</p>" } });
+    first.unmount();
+
+    renderPanel();
+    expect(await screen.findByRole("textbox", { name: /Start a thread/ })).toHaveValue("<p>Half a th</p>");
+    expect(screen.getByRole("combobox", { name: "About" })).toHaveTextContent("Decision");
+    expect(within(screen.getByTestId("thread-t1")).getByRole("textbox", { name: /Reply/ })).toHaveValue(
+      "<p>Half a reply</p>",
+    );
+    expect(within(screen.getByTestId("thread-t2")).getByRole("textbox")).toHaveValue("<p>Mine, edited</p>");
+  });
+
+  it("drops a draft once it is posted or cancelled, and keeps drafts per document", async () => {
+    serve({ can, open_count: 1, threads: [thread({ id: "t1" })] });
+    mockApi.on("post", "/adr/a2/comments", () => ({ ...thread({ id: "t9" }), unnotified_mentions: [] }));
+    const first = renderPanel();
+    const { user } = first;
+    fireEvent.change(await screen.findByRole("textbox", { name: /Start a thread/ }), { target: { value: "<p>Sent</p>" } });
+    await user.click(screen.getByRole("button", { name: "Post" }));
+    await waitFor(() => expect(mockApi.callsOf("post")).toHaveLength(1));
+    const t1 = within(screen.getByTestId("thread-t1"));
+    await user.click(t1.getByRole("button", { name: "Reply" }));
+    fireEvent.change(t1.getByRole("textbox", { name: /Reply/ }), { target: { value: "<p>Never mind</p>" } });
+    await user.click(t1.getByRole("button", { name: "Cancel" }));
+    first.unmount();
+
+    const second = renderPanel();
+    expect(await screen.findByRole("textbox", { name: /Start a thread/ })).toHaveValue("");
+    expect(within(screen.getByTestId("thread-t1")).queryByRole("textbox")).toBeNull();
+    fireEvent.change(screen.getByRole("textbox", { name: /Start a thread/ }), { target: { value: "<p>For a2</p>" } });
+    second.unmount();
+
+    mockApi.on("get", "/adr/b7/comments", { can, open_count: 0, threads: [] });
+    renderWithProviders(<DiscussionPanel owner={{ kind: "adr", id: "b7" }} sections={SECTIONS} />);
+    expect(await screen.findByRole("textbox", { name: /Start a thread/ })).toHaveValue("");
   });
 });

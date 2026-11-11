@@ -1,6 +1,7 @@
 /**
  * A document's discussion: the threads (`GET /{adr|soaw}/{id}/comments`), read
- * again when the window regains focus and after every write, and the writes
+ * again when the window regains focus, when `refetchKey` changes (a review
+ * action on the page) and after every write, and the writes
  * themselves. Each write applies the server's reply to the list at once (so
  * the change shows before the re-read lands) through the pure helpers of
  * `discussionModel`.
@@ -44,9 +45,9 @@ export interface DiscussionApi {
 
 export function useDocumentDiscussion(
   owner: DocumentOwner | null,
-  { scope }: { scope: DiscussionScope },
+  { scope, refetchKey }: { scope: DiscussionScope; refetchKey?: string | number },
 ): DiscussionApi {
-  const query = useApiQuery<DocumentDiscussion>(owner ? discussionPath(owner, scope) : null);
+  const query = useApiQuery<DocumentDiscussion>(owner ? discussionPath(owner, scope) : null, { refetchKey });
   const { data, refetch } = query;
   // Writes applied on top of the payload they were made against; a newer
   // payload (the re-read after the write) replaces them.
