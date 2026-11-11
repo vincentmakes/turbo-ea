@@ -5,8 +5,11 @@
  * - Cards: the app-wide `useCardSearch` engine (a sanctioned direct user, see
  *   `.claude/rules/frontend-patterns.md`), the server query debounced, the
  *   loaded page re-ranked on the raw query. The document's linked cards
- *   (`context.linkedCardIds`, fetched by id) come first with an empty query
- *   and first within their rank tier with one. A row shows the type's colour
+ *   (`context.linkedCardIds`, fetched by id once while the editor lives and
+ *   again only when that list changes) come first with an empty query and
+ *   first within their rank tier with one. Card rows never shift once shown:
+ *   none is shown before the linked cards have answered, nor, on an empty
+ *   query, before the search page has (`cardRowsReady`). A row shows the type's colour
  *   and icon, its type and subtype, and its parent's name: the parents of the
  *   rows offered are fetched by id, each once while the popup lives, and the
  *   name appears when it arrives (a withheld or failed parent shows nothing;
@@ -18,7 +21,12 @@
  * - People: the shared user list, only where users may be mentioned
  *   (comments); the document's people (`context.priorityUserIds`) first.
  * - A last "Browse…" row (and the editor's toolbar button) opens the standard
- *   pickers (`MentionBrowseDialog`) through the store.
+ *   pickers (`MentionBrowseDialog`) through the store. It is pinned below the
+ *   scrolling groups, so it is always in sight, and is still the last option
+ *   of the listbox.
+ *
+ * The highlight follows the row, not its place (`resolveActive`), and a row
+ * highlighted by key is scrolled into view.
  *
  * Focus never leaves the editor: the suggestion plugin hands the keys over
  * through the store (ArrowUp / ArrowDown wrap, Enter / Tab pick; Escape is the
@@ -28,6 +36,7 @@
  */
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Popper from "@mui/material/Popper";
 import List from "@mui/material/List";
@@ -48,17 +57,21 @@ import type { MentionKind } from "@/lib/mentionHtml";
 import type { ArchitectureDecision, Card } from "@/types";
 import MentionRow from "./MentionRow";
 import {
+  BROWSE_HIGHLIGHT,
   MENTION_GROUP_LIMIT,
   cardMentionItems,
+  cardRowsReady,
   decisionMentionItems,
   flattenGroups,
   groupMentionItems,
-  nextIndex,
+  highlightAfterKey,
+  mentionItemKey,
   parentIdsToFetch,
   resolveActive,
   userMentionItems,
   withParentNames,
   type MentionContext,
+  type MentionHighlight,
   type MentionItem,
 } from "./mentionModel";
 import { useMentionSuggestion, type MentionSuggestionStore } from "./mentionSuggestionStore";
@@ -77,15 +90,20 @@ interface Props {
   kinds: MentionKind[];
   /** What the document knows: its linked cards and its people come first. */
   context?: MentionContext;
+  /**
+   * The browse dialog is open: the popup shows nothing and takes no key, but
+   * keeps what it has read (it lives as long as the editor).
+   */
+  hidden?: boolean;
 }
 
 const NONE: string[] = [];
 
-export default function MentionPopup({ store, kinds, context }: Props) {
+export default function MentionPopup({ store, kinds, context, hidden = false }: Props) {
   const { t } = useTranslation("delivery");
-  const listId = useId();
   const state = useMentionSuggestion(store);
-  const { open, query, clientRect, command } = state;
+  const { query, clientRect, command } = state;
+  const open = state.open && !hidden;
 
   const wantCards = open && kinds.includes("card");
   const wantDecisions = open && kinds.includes("decision");
@@ -99,37 +117,39 @@ export default function MentionPopup({ store, kinds, context }: Props) {
     pageSize: MENTION_GROUP_LIMIT,
   });
   const cardsForbidden = wantCards && cards.errorStatus === 403;
-  // The query the card search last answered: its rows are replaced (a new
-  // array, empty or not, refusal included) only by the reply to the current
-  // search; a superseded reply is dropped.
+  // The query the card search last answered in this opening: its rows are
+  // replaced (a new array, empty or not, refusal included) only by the reply
+  // to the current search; a superseded reply is dropped. Closing clears the
+  // rows, which is no answer.
   const answeredRows = useRef(cards.items);
   const [cardsAnsweredFor, setCardsAnsweredFor] = useState<string | null>(null);
   useEffect(() => {
     if (cards.items === answeredRows.current) return;
     answeredRows.current = cards.items;
-    setCardsAnsweredFor(debounced);
-  }, [cards.items, debounced]);
+    setCardsAnsweredFor(wantCards ? debounced : null);
+  }, [cards.items, debounced, wantCards]);
 
-  // The document's linked cards, by id, once per opening; a card the reader
-  // may not see is simply absent. null until loaded.
+  // The document's linked cards, by id: read once while the editor lives, and
+  // again when the list of ids changes; a card the reader may not see is
+  // simply absent. Kept with the ids they answer.
   const linkedIds = context?.linkedCardIds ?? NONE;
   const linkedKey = linkedIds.join(",");
   const wantLinked = wantCards && linkedIds.length > 0;
-  const [linked, setLinked] = useState<Card[] | null>(null);
+  const [linkedRead, setLinkedRead] = useState<{ key: string; cards: Card[] } | null>(null);
+  const linked = linkedRead?.key === linkedKey ? linkedRead.cards : null;
+  const readLinked = wantLinked && linked === null;
   useAbortableEffect(
     async ({ signal, isCurrent }) => {
-      if (!wantLinked) {
-        setLinked(null);
-        return;
-      }
+      if (!readLinked) return;
+      let rows: Card[] = [];
       try {
-        const rows = await fetchCardsByIds(linkedKey.split(","), { signal });
-        if (isCurrent()) setLinked(rows.filter((c) => !c.archived_at));
+        rows = (await fetchCardsByIds(linkedKey.split(","), { signal })).filter((c) => !c.archived_at);
       } catch {
-        if (isCurrent()) setLinked([]);
+        // Nothing to list first.
       }
+      if (isCurrent()) setLinkedRead({ key: linkedKey, cards: rows });
     },
-    [wantLinked, linkedKey],
+    [readLinked, linkedKey],
   );
 
   // null until loaded.
@@ -162,7 +182,15 @@ export default function MentionPopup({ store, kinds, context }: Props) {
     [wantUsers],
   );
 
-  const cardItems = wantCards && !cardsForbidden ? cardMentionItems(cards.items, query, linked ?? []) : [];
+  const cardsReady = cardRowsReady({
+    query,
+    answeredFor: cardsAnsweredFor,
+    pending,
+    wantLinked,
+    linkedLoaded: linked !== null,
+  });
+  const cardItems =
+    wantCards && !cardsForbidden && cardsReady ? cardMentionItems(cards.items, query, linked ?? []) : [];
 
   // The parents' names of the card rows offered: id → name, or null when the
   // parent is withheld or failed to load. Kept while the popup lives, so a
@@ -195,7 +223,7 @@ export default function MentionPopup({ store, kinds, context }: Props) {
     user: wantUsers ? userMentionItems(users ?? [], query, context?.priorityUserIds) : [],
   });
   const flat = flattenGroups(groups);
-  const searching = wantCards && !cardsForbidden && (cards.loading || pending);
+  const searching = wantCards && !cardsForbidden && (cards.loading || pending || !cardsReady);
   // Every group has answered for this very query: the card search has
   // finished a request for it (not merely "not loading" between a keystroke
   // and the request it starts), and the decision and people lists are in.
@@ -212,21 +240,37 @@ export default function MentionPopup({ store, kinds, context }: Props) {
     if (nothingFound && query.trim()) store.reportNoResults(query);
   }, [nothingFound, query, store]);
 
-  // -1: the default row (the first item, or none). The rows are the items
-  // and a last "Browse…" row at index `flat.length`.
-  const [active, setActive] = useState(-1);
+  // The highlighted row by identity (null: the default, the first item).
+  // The rows are the items and a last "Browse…" row at index `flat.length`.
+  const [highlight, setHighlight] = useState<MentionHighlight>(null);
   useEffect(() => {
-    setActive(-1);
+    setHighlight(null);
   }, [query, open]);
-  const activeIndex = resolveActive(active, flat.length);
+  const keys = flat.map(mentionItemKey);
+  const activeIndex = resolveActive(highlight, keys);
   const browseIndex = flat.length;
+
+  // A row highlighted by key is scrolled into view (not one under the mouse).
+  const listId = useId();
+  const optionId = (i: number) => `${listId}-option-${i}`;
+  const activeId = activeIndex >= 0 ? optionId(activeIndex) : null;
+  const scrollOnKey = useRef(false);
+  useEffect(() => {
+    if (!scrollOnKey.current || !activeId) return;
+    scrollOnKey.current = false;
+    const row = document.getElementById(activeId);
+    // jsdom has no layout, hence no scrollIntoView.
+    if (typeof row?.scrollIntoView === "function") row.scrollIntoView({ block: "nearest" });
+  }, [activeId, highlight]);
 
   const pick = (item: MentionItem) => command?.({ kind: item.kind, id: item.id, label: item.label });
 
   useEffect(() => {
     store.setKeyHandler((event) => {
+      if (!open) return false;
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-        setActive(nextIndex(activeIndex, flat.length + 1, event.key));
+        scrollOnKey.current = true;
+        setHighlight(highlightAfterKey(highlight, keys, event.key));
         return true;
       }
       if (event.key === "Enter" || event.key === "Tab") {
@@ -253,7 +297,6 @@ export default function MentionPopup({ store, kinds, context }: Props) {
 
   if (!open) return null;
 
-  const optionId = (i: number) => `${listId}-option-${i}`;
   let index = -1;
 
   return (
@@ -263,63 +306,75 @@ export default function MentionPopup({ store, kinds, context }: Props) {
       placement="bottom-start"
       sx={{ zIndex: (theme) => theme.zIndex.modal + 1 }}
     >
-      <Paper elevation={6} sx={{ width: 320, maxHeight: 360, overflowY: "auto" }}>
+      <Paper elevation={6} sx={{ width: 320 }}>
         <List
           dense
           id={listId}
           role="listbox"
           aria-label={t("mention.listLabel")}
-          aria-activedescendant={activeIndex >= 0 ? optionId(activeIndex) : undefined}
+          aria-activedescendant={activeId ?? undefined}
+          sx={{ display: "flex", flexDirection: "column", maxHeight: 360, py: 0 }}
         >
-          {groups.map((group) => (
-            <li key={group.kind} role="presentation">
-              <ul role="group" aria-label={t(GROUP_TITLE_KEYS[group.kind])} style={{ padding: 0 }}>
-                <ListSubheader role="presentation" sx={{ lineHeight: 2.5 }}>
-                  {t(GROUP_TITLE_KEYS[group.kind])}
-                </ListSubheader>
-                {group.items.map((item) => {
-                  index += 1;
-                  const i = index;
-                  return (
-                    <ListItemButton
-                      component="li"
-                      key={`${item.kind}:${item.id}`}
-                      id={optionId(i)}
-                      role="option"
-                      aria-selected={i === activeIndex}
-                      selected={i === activeIndex}
-                      // Keep the caret in the editor: picking must not blur it.
-                      onMouseDown={(e) => e.preventDefault()}
-                      onMouseEnter={() => setActive(i)}
-                      onClick={() => pick(item)}
-                    >
-                      <MentionRow item={item} />
-                    </ListItemButton>
-                  );
-                })}
-              </ul>
-            </li>
-          ))}
-          {flat.length === 0 && (
-            <Typography
-              component="li"
-              role="presentation"
-              variant="body2"
-              color="text.secondary"
-              sx={{ px: 2, py: 1 }}
-            >
-              {searching ? t("mention.searching") : t("mention.noMatches")}
-            </Typography>
-          )}
+          {/* The groups scroll; the "Browse…" row below them stays in sight. */}
+          <Box
+            component="li"
+            role="presentation"
+            data-testid="mention-scroll"
+            sx={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", py: 1 }}
+          >
+            <Box component="ul" role="presentation" sx={{ m: 0, p: 0, listStyle: "none" }}>
+              {groups.map((group) => (
+                <li key={group.kind} role="presentation">
+                  <ul role="group" aria-label={t(GROUP_TITLE_KEYS[group.kind])} style={{ padding: 0 }}>
+                    <ListSubheader role="presentation" sx={{ lineHeight: 2.5 }}>
+                      {t(GROUP_TITLE_KEYS[group.kind])}
+                    </ListSubheader>
+                    {group.items.map((item) => {
+                      index += 1;
+                      const i = index;
+                      const key = mentionItemKey(item);
+                      return (
+                        <ListItemButton
+                          component="li"
+                          key={key}
+                          id={optionId(i)}
+                          role="option"
+                          aria-selected={i === activeIndex}
+                          selected={i === activeIndex}
+                          // Keep the caret in the editor: picking must not blur it.
+                          onMouseDown={(e) => e.preventDefault()}
+                          onMouseEnter={() => setHighlight(key)}
+                          onClick={() => pick(item)}
+                        >
+                          <MentionRow item={item} />
+                        </ListItemButton>
+                      );
+                    })}
+                  </ul>
+                </li>
+              ))}
+              {flat.length === 0 && (
+                <Typography
+                  component="li"
+                  role="presentation"
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ px: 2, py: 1 }}
+                >
+                  {searching ? t("mention.searching") : t("mention.noMatches")}
+                </Typography>
+              )}
+            </Box>
+          </Box>
           <ListItemButton
             component="li"
             id={optionId(browseIndex)}
             role="option"
             aria-selected={activeIndex === browseIndex}
             selected={activeIndex === browseIndex}
-            sx={{ borderTop: 1, borderColor: "divider" }}
+            sx={{ flexShrink: 0, borderTop: 1, borderColor: "divider" }}
             onMouseDown={(e) => e.preventDefault()}
-            onMouseEnter={() => setActive(browseIndex)}
+            onMouseEnter={() => setHighlight(BROWSE_HIGHLIGHT)}
             onClick={() => store.browse()}
             data-testid="mention-browse"
           >

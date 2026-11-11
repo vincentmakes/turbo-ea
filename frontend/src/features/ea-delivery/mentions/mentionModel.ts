@@ -358,15 +358,64 @@ export function nextIndex(current: number, count: number, key: string): number {
   return Math.min(Math.max(current, 0), count - 1);
 }
 
+/** The highlight on the popup's last "Browse…" row. */
+export const BROWSE_HIGHLIGHT = "browse";
+
 /**
- * The highlighted row of the popup, whose rows are the items and a last
- * "Browse…" row (index `itemCount`). `active` -1 is the default: the first
- * item, or nothing when there is none, so Enter on a query that found nothing
- * still reaches the editor; the arrows reach Browse from there.
+ * The popup's highlight, by the row's identity rather than its place: an
+ * item's `mentionItemKey`, `BROWSE_HIGHLIGHT`, or null for the default (the
+ * first item). Rows arriving or leaving under it never move it onto another row.
  */
-export function resolveActive(active: number, itemCount: number): number {
-  if (active < 0) return itemCount > 0 ? 0 : -1;
-  return Math.min(active, itemCount);
+export type MentionHighlight = string | null;
+
+/** A row's identity in the popup ("card:<id>", …; never "browse"). */
+export function mentionItemKey(item: Pick<MentionItem, "kind" | "id">): string {
+  return `${item.kind}:${item.id}`;
+}
+
+/**
+ * The index of the highlighted row, whose rows are the items (`keys`, in
+ * display order) and a last "Browse…" row (index `keys.length`). A
+ * highlighted item that is still there stays highlighted wherever it moved;
+ * one that is gone, and the default, fall back to the first item, never to
+ * Browse; with no items nothing is highlighted, so Enter on a query that
+ * found nothing still reaches the editor. Browse is highlighted only when the
+ * user put the highlight there.
+ */
+export function resolveActive(highlight: MentionHighlight, keys: readonly string[]): number {
+  if (highlight === BROWSE_HIGHLIGHT) return keys.length;
+  const at = highlight === null ? -1 : keys.indexOf(highlight);
+  if (at >= 0) return at;
+  return keys.length > 0 ? 0 : -1;
+}
+
+/** The highlight after an arrow key: the rows (items, then Browse) wrap around. */
+export function highlightAfterKey(highlight: MentionHighlight, keys: readonly string[], key: string): MentionHighlight {
+  const next = nextIndex(resolveActive(highlight, keys), keys.length + 1, key);
+  return next === keys.length ? BROWSE_HIGHLIGHT : (keys[next] ?? null);
+}
+
+/**
+ * Whether the card group may be shown. Its rows must never shift once shown:
+ * the document's linked cards are listed first, so nothing is shown before
+ * they have answered; and on an empty query (just "@") the search page must
+ * have answered for it too, so the linked cards and the page appear together.
+ * With a typed query the loaded page is filtered at once, as before.
+ */
+export function cardRowsReady(state: {
+  query: string;
+  /** The query the card search last answered (null: none in this opening). */
+  answeredFor: string | null;
+  /** The query is still being debounced. */
+  pending: boolean;
+  /** The document has linked cards to list first. */
+  wantLinked: boolean;
+  /** They have been read (or failed). */
+  linkedLoaded: boolean;
+}): boolean {
+  if (state.wantLinked && !state.linkedLoaded) return false;
+  if (state.query.trim() !== "") return true;
+  return !state.pending && state.answeredFor === state.query;
 }
 
 // --- browse ------------------------------------------------------------------
@@ -401,6 +450,23 @@ export function mentionInsertContent(picks: MentionPick[]) {
     },
     { type: "text", text: " " },
   ]);
+}
+
+/**
+ * Whether a range saved before the browse dialog opened still lies inside the
+ * document (a reply may have replaced the text meanwhile).
+ */
+export function rangeFits(range: { from: number; to: number }, docSize: number): boolean {
+  return range.from >= 0 && range.from <= range.to && range.to <= docSize;
+}
+
+/**
+ * Where Insert writes: the target range, widened over the space that follows
+ * it (`after`, the next character), as a pick in the popup is. Each mention
+ * carries its own trailing space, so a space already there would make two.
+ */
+export function overFollowingSpace<R extends { from: number; to: number }>(target: R, after: string): R {
+  return after === " " ? { ...target, to: target.to + 1 } : target;
 }
 
 // --- link offers -------------------------------------------------------------

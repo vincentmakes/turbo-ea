@@ -670,6 +670,147 @@ describe("RichTextEditor Browse", () => {
     expect(onChange.mock.calls.at(-1)?.[0]).toBe(`<p>see @Ado ${span(DECISION_ID, "ADR-001 Adopt Kafka")} </p>`);
   });
 
+  const mentionButton = () => screen.getByText("alternate_email").closest("button")!;
+
+  it("replaces the '@query' when the toolbar button is pressed while it is being typed", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    const { container } = render(
+      <RichTextEditor content="<p>see</p>" onChange={onChange} mentions={["decision"]} />,
+    );
+    await screen.findByText("see");
+    const editor = editorOf(container);
+    act(() => {
+      editor.chain().focus("end").insertContent(" @Ado").run();
+    });
+    await screen.findByRole("option", { name: /ADR-001/ });
+    await user.click(mentionButton());
+    await screen.findByRole("dialog", { name: "Mention" });
+    await user.click(await screen.findByRole("checkbox", { name: "ADR-001 Adopt Kafka" }));
+    await user.click(screen.getByRole("button", { name: "Insert" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(onChange.mock.calls.at(-1)?.[0]).toBe(`<p>see ${span(DECISION_ID, "ADR-001 Adopt Kafka")} </p>`);
+  });
+
+  it("replaces the '@query' a blur closed, until the editor is focused again", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <RichTextEditor content="<p>see</p>" onChange={() => {}} mentions={["decision"]} />,
+    );
+    await screen.findByText("see");
+    const editor = editorOf(container);
+    act(() => {
+      editor.chain().focus("end").insertContent(" @Ado").run();
+    });
+    await screen.findByRole("option", { name: /ADR-001/ });
+    // The toolbar's own press: the editor loses focus first.
+    act(() => {
+      fireEvent.blur(editor.view.dom);
+    });
+    await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+    await user.click(mentionButton());
+    await user.click(await screen.findByRole("checkbox", { name: "ADR-001 Adopt Kafka" }));
+    await user.click(screen.getByRole("button", { name: "Insert" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(editor.getHTML()).toBe(`<p>see ${span(DECISION_ID, "ADR-001 Adopt Kafka")} </p>`);
+
+    // Blurred, then back in the editor: the toolbar inserts at the caret again.
+    act(() => {
+      editor.chain().focus("end").insertContent("@Ado").run();
+    });
+    await screen.findByRole("option", { name: /ADR-001/ });
+    act(() => {
+      fireEvent.blur(editor.view.dom);
+    });
+    await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+    act(() => {
+      fireEvent.focus(editor.view.dom);
+    });
+    await user.click(mentionButton());
+    await user.click(await screen.findByRole("checkbox", { name: "ADR-002 Pick a CRM" }));
+    await user.click(screen.getByRole("button", { name: "Insert" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(editor.getHTML()).toBe(
+      `<p>see ${span(DECISION_ID, "ADR-001 Adopt Kafka")} @Ado${span(CARD_ID, "ADR-002 Pick a CRM")} </p>`,
+    );
+  });
+
+  it("leaves one space after the last mention when a space already follows", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <RichTextEditor content="<p>ask and</p>" onChange={() => {}} mentions={["decision"]} />,
+    );
+    await screen.findByText("ask and");
+    const editor = editorOf(container);
+    // From the toolbar, the caret right after "ask".
+    act(() => {
+      editor.chain().focus().setTextSelection(4).run();
+    });
+    await user.click(mentionButton());
+    await user.click(await screen.findByRole("checkbox", { name: "ADR-001 Adopt Kafka" }));
+    await user.click(screen.getByRole("button", { name: "Insert" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(editor.getHTML()).toBe(`<p>ask${span(DECISION_ID, "ADR-001 Adopt Kafka")} and</p>`);
+
+    // From the popup's Browse row, in place of "@Ad" typed before a space.
+    act(() => {
+      editor.commands.setContent("<p>ask and</p>", { emitUpdate: false });
+      editor.chain().focus().setTextSelection(4).insertContent(" @Ad").run();
+    });
+    await screen.findByRole("option", { name: /ADR-001/ });
+    await userEvent.click(screen.getByTestId("mention-browse"));
+    await user.click(await screen.findByRole("checkbox", { name: "ADR-002 Pick a CRM" }));
+    await user.click(screen.getByRole("button", { name: "Insert" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(editor.getHTML()).toBe(`<p>ask ${span(CARD_ID, "ADR-002 Pick a CRM")} and</p>`);
+  });
+
+  it("inserts nothing once the editor has turned read-only under the dialog", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    const ui = (readOnly: boolean) => (
+      <RichTextEditor content="<p>see</p>" onChange={onChange} mentions={["decision"]} readOnly={readOnly} />
+    );
+    const { container, rerender } = render(ui(false));
+    await screen.findByText("see");
+    act(() => {
+      editorOf(container).commands.focus("end");
+    });
+    await user.click(mentionButton());
+    await user.click(await screen.findByRole("checkbox", { name: "ADR-001 Adopt Kafka" }));
+    rerender(ui(true));
+    await user.click(screen.getByRole("button", { name: "Insert" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(editorOf(container).getHTML()).toBe("<p>see</p>");
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("inserts at the caret when the text under the dialog was replaced and the '@query' is gone", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    const ui = (content: string) => (
+      <RichTextEditor content={content} onChange={onChange} mentions={["decision"]} />
+    );
+    const { container, rerender } = render(ui("<p>see the long text here</p>"));
+    await screen.findByText("see the long text here");
+    const editor = editorOf(container);
+    act(() => {
+      editor.chain().focus("end").insertContent(" @Ado").run();
+    });
+    await screen.findByRole("option", { name: /ADR-001/ });
+    await userEvent.click(screen.getByTestId("mention-browse"));
+    await user.click(await screen.findByRole("checkbox", { name: "ADR-001 Adopt Kafka" }));
+    // A save reply replaces the text with a shorter one.
+    rerender(ui("<p>x</p>"));
+    await screen.findByText("x");
+    act(() => {
+      editor.commands.setTextSelection(2);
+    });
+    await user.click(screen.getByRole("button", { name: "Insert" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(editor.getHTML()).toBe(`<p>x${span(DECISION_ID, "ADR-001 Adopt Kafka")} </p>`);
+  });
+
   it("passes the document's context to the popup's order", async () => {
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path.startsWith("/cards?ids=")) {

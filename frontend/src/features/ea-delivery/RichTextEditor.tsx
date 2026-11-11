@@ -17,7 +17,13 @@ import MentionBrowseDialog from "./mentions/MentionBrowseDialog";
 import MentionPopup from "./mentions/MentionPopup";
 import { createMentionExtension } from "./mentions/mentionExtension";
 import { useMentionLabels } from "./mentions/mentionLabels";
-import { mentionInsertContent, type MentionContext, type MentionPick } from "./mentions/mentionModel";
+import {
+  mentionInsertContent,
+  overFollowingSpace,
+  rangeFits,
+  type MentionContext,
+  type MentionPick,
+} from "./mentions/mentionModel";
 import {
   createMentionSuggestionStore,
   type MentionSuggestionStore,
@@ -152,8 +158,13 @@ export default function RichTextEditor({
       onChange(isComment ? plainListTags(html) : html);
     },
     // The "@" popup belongs to the focused editor: leaving it (another field,
-    // a click outside) dismisses it. A click on a row does not blur.
-    onBlur: () => store.close(),
+    // a click outside, the toolbar) dismisses it. A click on a row does not
+    // blur. The toolbar's "Mention…" button reads back what was dismissed;
+    // coming back into the editor forgets it.
+    onBlur: () => store.dismiss(),
+    onFocus: () => {
+      store.takeDismissed();
+    },
   });
 
   // An editor going away takes its "@" popup with it.
@@ -165,18 +176,28 @@ export default function RichTextEditor({
     store.setBrowseHandler((range) => setBrowse({ range }));
     return () => store.setBrowseHandler(null);
   }, [store]);
+  // The dialog is modal, but a reply to a request started before it opened
+  // can still lock the page or replace the text under it: an editor no longer
+  // editable takes nothing, and a saved "@query" range that no longer fits
+  // the document gives way to the caret.
   const closeBrowse = (picks: MentionPick[]) => {
-    const range = browse?.range ?? null;
+    const saved = browse?.range ?? null;
     setBrowse(null);
-    if (!editor || editor.isDestroyed) return;
+    if (!editor || editor.isDestroyed || !editor.isEditable) return;
+    const { doc, selection } = editor.state;
+    const size = doc.content.size;
+    const range = saved && rangeFits(saved, size) ? saved : null;
     const chain = editor.chain().focus();
     if (picks.length === 0) {
       // Cancel changes nothing: the caret goes back after the "@query".
       (range ? chain.setTextSelection(range.to) : chain).run();
       return;
     }
-    const content = mentionInsertContent(picks);
-    (range ? chain.insertContentAt(range, content) : chain.insertContent(content)).run();
+    // One space after each mention, never two: a space already there is
+    // taken over, as a pick in the popup does.
+    const at = range ?? { from: selection.from, to: selection.to };
+    const target = overFollowingSpace(at, doc.textBetween(at.to, Math.min(at.to + 1, size)));
+    chain.insertContentAt(target, mentionInsertContent(picks)).run();
   };
 
   // Sync editable state when readOnly changes. No update is emitted: an
@@ -308,8 +329,10 @@ export default function RichTextEditor({
         {hasMentions && (
           <>
             {btn("alternate_email", t("richText.mention"), () => {
-              store.close();
-              setBrowse({ range: null });
+              // Pressed while "@query" is being typed, it replaces that text
+              // as the popup's "Browse…" row does; else it inserts at the caret.
+              if (store.isOpen()) store.browse();
+              else setBrowse({ range: store.takeDismissed() });
             })}
             <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
           </>
@@ -355,8 +378,13 @@ export default function RichTextEditor({
       >
         <EditorContent editor={editor} />
       </Box>
-      {hasMentions && !browse && (
-        <MentionPopup store={store} kinds={mentions ?? []} context={mentionContext} />
+      {hasMentions && (
+        <MentionPopup
+          store={store}
+          kinds={mentions ?? []}
+          context={mentionContext}
+          hidden={Boolean(browse)}
+        />
       )}
       {hasMentions && (
         <MentionBrowseDialog

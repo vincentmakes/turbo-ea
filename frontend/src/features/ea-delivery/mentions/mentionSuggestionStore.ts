@@ -19,6 +19,12 @@
  * `browse()` (the popup's "Browse…" row) closes the suggestion and hands the
  * "@query" range to the editor, which opens the browse dialog and later
  * replaces that text with what was picked.
+ *
+ * `dismiss()` is the editor's blur: it closes like `close()` and remembers the
+ * "@query" range, so the toolbar's "Mention…" button (whose press blurs the
+ * editor first) can replace that text as the "Browse…" row does
+ * (`takeDismissed()`). The memory ends at the next "@", when the editor takes
+ * focus again, or once the text there is no longer that "@query".
  */
 import { useSyncExternalStore } from "react";
 import type { Editor, Range } from "@tiptap/core";
@@ -62,8 +68,15 @@ export interface MentionSuggestionStore {
   shouldShow: (props: { range: Range; query: string }) => boolean;
   /** The popup found nothing for the open query (its searches have settled). */
   reportNoResults: (query: string) => void;
-  /** Dismiss the open suggestion (the editor lost focus). */
+  /** Close the open suggestion. */
   close: () => void;
+  /** The editor lost focus: close, and remember the "@query" range for `takeDismissed`. */
+  dismiss: () => void;
+  /**
+   * The "@query" range the last `dismiss()` closed, when that text is still
+   * there; null otherwise. Forgets it either way.
+   */
+  takeDismissed: () => Range | null;
   /** Who opens the browse dialog (the editor), given the "@query" range. */
   setBrowseHandler: (handler: ((range: Range | null) => void) | null) => void;
   /** Close the suggestion and open the browse dialog in place of "@query". */
@@ -102,6 +115,7 @@ export function createMentionSuggestionStore(): MentionSuggestionStore {
   let range: Range | null = null;
   let browseHandler: ((range: Range | null) => void) | null = null;
   let noResults: { from: number; query: string } | null = null;
+  let dismissed: { range: Range; text: string } | null = null;
   const listeners = new Set<() => void>();
   const pluginKey = new PluginKey("documentMention");
 
@@ -148,6 +162,19 @@ export function createMentionSuggestionStore(): MentionSuggestionStore {
       if (openStore === store) openStore = null;
       if (state.open) set(CLOSED);
     },
+    dismiss: () => {
+      // A second blur (nothing open any more) keeps what the first remembered.
+      if (state.open && range) dismissed = { range, text: `@${state.query}` };
+      store.close();
+    },
+    takeDismissed: () => {
+      const last = dismissed;
+      dismissed = null;
+      if (!last || !editor || editor.isDestroyed) return null;
+      const { doc } = editor.state;
+      if (last.range.to > doc.content.size) return null;
+      return doc.textBetween(last.range.from, last.range.to) === last.text ? last.range : null;
+    },
     setBrowseHandler: (handler) => {
       browseHandler = handler;
     },
@@ -162,6 +189,7 @@ export function createMentionSuggestionStore(): MentionSuggestionStore {
         if (openStore && openStore !== store) openStore.close();
         openStore = store;
         range = null;
+        dismissed = null;
         track(props);
         if (noResults && noResults.from !== from) noResults = null;
         set(fromProps(props));

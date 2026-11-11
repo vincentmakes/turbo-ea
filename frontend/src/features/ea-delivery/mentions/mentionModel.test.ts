@@ -3,8 +3,14 @@ import { describe, expect, it } from "vitest";
 import type { MentionLabels } from "@/lib/mentionHtml";
 import type { ArchitectureDecision } from "@/types";
 import {
+  BROWSE_HIGHLIGHT,
   MENTION_GROUP_LIMIT,
   cardMentionItems,
+  cardRowsReady,
+  highlightAfterKey,
+  mentionItemKey,
+  overFollowingSpace,
+  rangeFits,
   cardRowMeta,
   parentIdsToFetch,
   withParentNames,
@@ -425,13 +431,50 @@ describe("card rows", () => {
 });
 
 describe("the popup's rows and the browse picks", () => {
-  it("highlights the first item by default, nothing when there is none, and clamps to Browse", () => {
-    expect(resolveActive(-1, 3)).toBe(0);
-    expect(resolveActive(-1, 0)).toBe(-1);
-    expect(resolveActive(2, 3)).toBe(2);
-    expect(resolveActive(3, 3)).toBe(3);
-    expect(resolveActive(7, 3)).toBe(3);
-    expect(resolveActive(0, 0)).toBe(0);
+  it("follows the highlighted row by identity, falling back to the first item, never to Browse", () => {
+    const keys = ["card:c1", "decision:d1", "user:u1"];
+    expect(resolveActive(null, keys)).toBe(0);
+    expect(resolveActive(null, [])).toBe(-1);
+    expect(resolveActive("user:u1", keys)).toBe(2);
+    expect(resolveActive(BROWSE_HIGHLIGHT, keys)).toBe(3);
+    expect(resolveActive(BROWSE_HIGHLIGHT, [])).toBe(0);
+    // Rows arriving above the highlighted one: it stays highlighted where it moved.
+    expect(resolveActive("decision:d1", ["card:c9", "card:c8", ...keys])).toBe(3);
+    // Browse stays Browse when rows arrive under it.
+    expect(resolveActive(BROWSE_HIGHLIGHT, ["card:c9", ...keys])).toBe(4);
+    // A highlighted row that is gone: the first item, not Browse; nothing without items.
+    expect(resolveActive("card:gone", ["card:c1"])).toBe(0);
+    expect(resolveActive("card:gone", [])).toBe(-1);
+  });
+
+  it("walks the items and Browse with the arrow keys, wrapping", () => {
+    const keys = ["card:c1", "card:c2"];
+    expect(highlightAfterKey(null, keys, "ArrowDown")).toBe("card:c2");
+    expect(highlightAfterKey(null, keys, "ArrowUp")).toBe(BROWSE_HIGHLIGHT);
+    expect(highlightAfterKey("card:c2", keys, "ArrowDown")).toBe(BROWSE_HIGHLIGHT);
+    expect(highlightAfterKey(BROWSE_HIGHLIGHT, keys, "ArrowDown")).toBe("card:c1");
+    expect(highlightAfterKey(BROWSE_HIGHLIGHT, keys, "ArrowUp")).toBe("card:c2");
+    expect(highlightAfterKey("card:c1", keys, "ArrowUp")).toBe(BROWSE_HIGHLIGHT);
+    expect(highlightAfterKey(null, [], "ArrowDown")).toBe(BROWSE_HIGHLIGHT);
+    expect(highlightAfterKey(null, [], "ArrowUp")).toBe(BROWSE_HIGHLIGHT);
+    expect(mentionItemKey({ kind: "decision", id: "d1" })).toBe("decision:d1");
+  });
+
+  it("shows the card group only once its rows can no longer shift", () => {
+    const base = { query: "", answeredFor: "", pending: false, wantLinked: true, linkedLoaded: true };
+    expect(cardRowsReady(base)).toBe(true);
+    // The linked cards have not answered: never, typed query or not.
+    expect(cardRowsReady({ ...base, linkedLoaded: false })).toBe(false);
+    expect(cardRowsReady({ ...base, query: "sa", linkedLoaded: false })).toBe(false);
+    expect(cardRowsReady({ ...base, wantLinked: false, linkedLoaded: false })).toBe(true);
+    // On an empty query the search page must have answered for it.
+    expect(cardRowsReady({ ...base, answeredFor: null })).toBe(false);
+    expect(cardRowsReady({ ...base, answeredFor: "sa" })).toBe(false);
+    expect(cardRowsReady({ ...base, pending: true })).toBe(false);
+    expect(cardRowsReady({ ...base, query: " ", answeredFor: " " })).toBe(true);
+    expect(cardRowsReady({ ...base, query: " ", answeredFor: "" })).toBe(false);
+    // A typed query filters the loaded page at once.
+    expect(cardRowsReady({ ...base, query: "sa", answeredFor: null, pending: true })).toBe(true);
   });
 
   const c1 = { kind: "card" as const, id: "c1", label: "C1" };
@@ -460,6 +503,23 @@ describe("the popup's rows and the browse picks", () => {
       { type: "text", text: " " },
     ]);
     expect(mentionInsertContent([])).toEqual([]);
+  });
+
+  it("takes over a space that already follows the insertion point", () => {
+    expect(overFollowingSpace({ from: 4, to: 8 }, " ")).toEqual({ from: 4, to: 9 });
+    expect(overFollowingSpace({ from: 4, to: 4 }, " ")).toEqual({ from: 4, to: 5 });
+    expect(overFollowingSpace({ from: 4, to: 8 }, "x")).toEqual({ from: 4, to: 8 });
+    expect(overFollowingSpace({ from: 4, to: 8 }, "")).toEqual({ from: 4, to: 8 });
+  });
+
+  it("keeps a saved range only while it lies inside the document", () => {
+    expect(rangeFits({ from: 4, to: 8 }, 10)).toBe(true);
+    expect(rangeFits({ from: 4, to: 10 }, 10)).toBe(true);
+    expect(rangeFits({ from: 0, to: 0 }, 0)).toBe(true);
+    expect(rangeFits({ from: 4, to: 11 }, 10)).toBe(false);
+    expect(rangeFits({ from: 11, to: 12 }, 10)).toBe(false);
+    expect(rangeFits({ from: -1, to: 2 }, 10)).toBe(false);
+    expect(rangeFits({ from: 5, to: 4 }, 10)).toBe(false);
   });
 });
 

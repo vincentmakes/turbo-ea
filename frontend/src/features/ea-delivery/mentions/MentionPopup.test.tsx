@@ -5,7 +5,7 @@
  * path ("@" typed in a document) is covered in `RichTextEditor.test.tsx`.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("@/api/client", () => ({
@@ -544,5 +544,260 @@ describe("MentionPopup and an empty result", () => {
     expect(report).not.toHaveBeenCalled();
     await act(async () => answer({ items: [], total: 0 }));
     await waitFor(() => expect(report).toHaveBeenCalledWith("zz"));
+  });
+});
+
+describe("MentionPopup review fixes", () => {
+  it("pins Browse below the scrolling groups, still the listbox's last option", async () => {
+    mockApi();
+    const { start } = setup(["card", "decision"]);
+    start();
+    await screen.findByRole("option", { name: /CRM/ });
+    const list = screen.getByRole("listbox");
+    const scroll = screen.getByTestId("mention-scroll");
+    const browse = screen.getByTestId("mention-browse");
+    expect(scroll).toContainElement(screen.getByRole("option", { name: /CRM/ }));
+    expect(scroll).not.toContainElement(browse);
+    expect(list).toContainElement(browse);
+    expect(within(list).getAllByRole("option").at(-1)).toBe(browse);
+    expect(getComputedStyle(scroll).overflowY).toBe("auto");
+    expect(getComputedStyle(list).overflowY).not.toBe("auto");
+  });
+
+  it("scrolls a row highlighted by key into view, not one under the mouse", async () => {
+    const scrolled = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrolled;
+    try {
+      mockApi();
+      const { start, key } = setup(["card"]);
+      start();
+      await screen.findByRole("option", { name: /CRM/ });
+      expect(scrolled).not.toHaveBeenCalled();
+      key("ArrowUp");
+      expect(scrolled).toHaveBeenCalledTimes(1);
+      expect(scrolled).toHaveBeenCalledWith({ block: "nearest" });
+      expect(scrolled.mock.contexts[0]).toBe(screen.getByTestId("mention-browse"));
+      key("ArrowDown");
+      expect(scrolled).toHaveBeenCalledTimes(2);
+      expect(scrolled.mock.contexts[1]).toBe(screen.getByRole("option", { name: /SAP ERP/ }));
+      fireEvent.mouseEnter(screen.getByRole("option", { name: /CRM/ }));
+      expect(screen.getByRole("option", { name: /CRM/ })).toHaveAttribute("aria-selected", "true");
+      expect(scrolled).toHaveBeenCalledTimes(2);
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+
+  it("keeps Browse highlighted when rows arrive under it", async () => {
+    let release = () => {};
+    const hold = new Promise<void>((r) => (release = r));
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.startsWith("/cards?")) {
+        await hold;
+        return { items: CARDS, total: CARDS.length };
+      }
+      if (path === "/adr?include_earlier=false") return DECISIONS;
+      throw new Error(`unexpected ${path}`);
+    });
+    const { start, key, command, onBrowse } = setup(["card", "decision"]);
+    start();
+    await screen.findByRole("option", { name: /ADR-001/ });
+    key("ArrowUp");
+    expect(screen.getByTestId("mention-browse")).toHaveAttribute("aria-selected", "true");
+    await act(async () => release());
+    await screen.findByRole("option", { name: /CRM/ });
+    expect(screen.getByTestId("mention-browse")).toHaveAttribute("aria-selected", "true");
+    expect(key("Enter")).toBe(true);
+    expect(onBrowse).toHaveBeenCalledTimes(1);
+    expect(command).not.toHaveBeenCalled();
+  });
+
+  it("keeps a highlighted row highlighted wherever arriving rows move it", async () => {
+    let release = () => {};
+    const hold = new Promise<void>((r) => (release = r));
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.startsWith("/cards?")) {
+        await hold;
+        return { items: CARDS, total: CARDS.length };
+      }
+      if (path === "/users") return USERS;
+      throw new Error(`unexpected ${path}`);
+    });
+    const { start, key, command } = setup(["card", "user"]);
+    start();
+    await screen.findByRole("option", { name: /Bob Ray/ });
+    key("ArrowDown");
+    expect(screen.getByRole("option", { name: /Bob Ray/ })).toHaveAttribute("aria-selected", "true");
+    await act(async () => release());
+    await screen.findByRole("option", { name: /CRM/ });
+    expect(screen.getByRole("option", { name: /Bob Ray/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("option", { name: /CRM/ })).toHaveAttribute("aria-selected", "false");
+    key("Enter");
+    expect(command).toHaveBeenCalledWith({ kind: "user", id: "u2", label: "Bob Ray" });
+  });
+
+  it("does not fall onto Browse when the highlighted row leaves, so Enter on nothing reaches the editor", async () => {
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.startsWith("/cards?")) {
+        const search = new URLSearchParams(path.split("?")[1]).get("search");
+        return search ? { items: [], total: 0 } : { items: CARDS, total: CARDS.length };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    const { start, key, onBrowse, command } = setup(["card"]);
+    start();
+    await screen.findByRole("option", { name: /CRM/ });
+    start("cr");
+    const crm = await screen.findByRole("option", { name: /CRM/ });
+    fireEvent.mouseEnter(crm);
+    expect(crm).toHaveAttribute("aria-selected", "true");
+    // The server's answer for "cr" leaves no row.
+    expect(await screen.findByText("No matches")).toBeInTheDocument();
+    expect(screen.getByTestId("mention-browse")).toHaveAttribute("aria-selected", "false");
+    expect(key("Enter")).toBe(false);
+    expect(onBrowse).not.toHaveBeenCalled();
+    expect(command).not.toHaveBeenCalled();
+  });
+
+  it("shows no card row before the linked cards have answered on an empty query", async () => {
+    let release = () => {};
+    const hold = new Promise<void>((r) => (release = r));
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.startsWith("/cards?ids=")) {
+        await hold;
+        return { items: LINKED, total: LINKED.length };
+      }
+      if (path.startsWith("/cards?")) return { items: CARDS, total: CARDS.length };
+      if (path === "/adr?include_earlier=false") return DECISIONS;
+      throw new Error(`unexpected ${path}`);
+    });
+    const { start } = setup(["card", "decision"], { linkedCardIds: ["l1"] });
+    start();
+    await screen.findByRole("option", { name: /ADR-001/ });
+    await waitFor(() => expect(vi.mocked(api.get).mock.calls.some(([p]) => p === "/cards?page=1&page_size=8")).toBe(true));
+    await act(async () => {});
+    expect(screen.queryByRole("group", { name: "Cards" })).not.toBeInTheDocument();
+    await act(async () => release());
+    await waitFor(() =>
+      expect(itemTexts()).toEqual([
+        "appsZebra HubApplication",
+        "appsSAP ERPApplication · Microservice",
+        "appsCRMApplication",
+        "ADR-001Adopt KafkaDraft",
+      ]),
+    );
+  });
+
+  it("shows no card row before the search page has answered an empty query", async () => {
+    let release = () => {};
+    const hold = new Promise<void>((r) => (release = r));
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.startsWith("/cards?ids=")) return { items: LINKED, total: LINKED.length };
+      if (path.startsWith("/cards?")) {
+        await hold;
+        return { items: CARDS, total: CARDS.length };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    const { start } = setup(["card"], { linkedCardIds: ["l1"] });
+    start();
+    await waitFor(() =>
+      expect(vi.mocked(api.get).mock.calls.some(([p]) => String(p).startsWith("/cards?ids="))).toBe(true),
+    );
+    await act(async () => {});
+    expect(screen.queryByRole("group", { name: "Cards" })).not.toBeInTheDocument();
+    expect(screen.getByText("Searching…")).toBeInTheDocument();
+    await act(async () => release());
+    await waitFor(() =>
+      expect(itemTexts()).toEqual([
+        "appsZebra HubApplication",
+        "appsSAP ERPApplication · Microservice",
+        "appsCRMApplication",
+      ]),
+    );
+  });
+
+  it("reads the linked cards once while it lives, and again when the list changes", async () => {
+    mockApi();
+    const store = createMentionSuggestionStore();
+    const renderer = store.render();
+    const ui = (ids: string[], hidden = false) => (
+      <MentionPopup store={store} kinds={["card"]} context={{ linkedCardIds: ids }} hidden={hidden} />
+    );
+    const { rerender } = render(ui(["l1"]));
+    const open = () =>
+      act(() => {
+        renderer.onStart({ query: "", clientRect: () => new DOMRect(), command: vi.fn() } as never);
+      });
+    const linkedCalls = () =>
+      vi.mocked(api.get).mock.calls.filter(([p]) => String(p).startsWith("/cards?ids=")).map(([p]) => p);
+    open();
+    await screen.findByRole("option", { name: /Zebra Hub/ });
+    act(() => renderer.onExit());
+    open();
+    await screen.findByRole("option", { name: /Zebra Hub/ });
+    // Hidden while the browse dialog is open: nothing shown, no key taken, nothing forgotten.
+    rerender(ui(["l1"], true));
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(renderer.onKeyDown({ event: new KeyboardEvent("keydown", { key: "ArrowDown" }) } as never)).toBe(false);
+    rerender(ui(["l1"]));
+    await screen.findByRole("option", { name: /Zebra Hub/ });
+    expect(linkedCalls()).toEqual([`/cards?ids=${encodeURIComponent("l1")}`]);
+    rerender(ui(["l1", "l2"]));
+    await waitFor(() => expect(linkedCalls()).toHaveLength(2));
+    expect(linkedCalls()[1]).toBe(`/cards?ids=${encodeURIComponent("l1,l2")}`);
+  });
+});
+
+describe("createMentionSuggestionStore dismiss", () => {
+  it("remembers the '@query' a blur closed while its text is still there, once", () => {
+    let text = "@sa";
+    const editor = {
+      isDestroyed: false,
+      state: { doc: { content: { size: 20 }, textBetween: vi.fn(() => text) } },
+    };
+    const store = createMentionSuggestionStore();
+    const renderer = store.render();
+    // Nothing open: nothing remembered.
+    store.dismiss();
+    expect(store.takeDismissed()).toBeNull();
+
+    renderer.onStart({ query: "sa", range: { from: 4, to: 7 }, editor, command: vi.fn() } as never);
+    store.dismiss();
+    expect(store.isOpen()).toBe(false);
+    // A second blur, with nothing open, keeps it.
+    store.dismiss();
+    expect(store.takeDismissed()).toEqual({ from: 4, to: 7 });
+    expect(editor.state.doc.textBetween).toHaveBeenCalledWith(4, 7);
+    expect(store.takeDismissed()).toBeNull();
+
+    // The text there changed: forgotten.
+    renderer.onStart({ query: "sa", range: { from: 4, to: 7 }, editor, command: vi.fn() } as never);
+    store.dismiss();
+    text = "@sx";
+    expect(store.takeDismissed()).toBeNull();
+
+    // The range runs past a shorter document: forgotten, the text not even read.
+    text = "@sa";
+    renderer.onStart({ query: "sa", range: { from: 18, to: 21 }, editor, command: vi.fn() } as never);
+    store.dismiss();
+    editor.state.doc.textBetween.mockClear();
+    expect(store.takeDismissed()).toBeNull();
+    expect(editor.state.doc.textBetween).not.toHaveBeenCalled();
+
+    // A new "@" forgets the last one; so does close() by itself.
+    renderer.onStart({ query: "sa", range: { from: 4, to: 7 }, editor, command: vi.fn() } as never);
+    store.dismiss();
+    renderer.onStart({ query: "", range: { from: 9, to: 10 }, editor, command: vi.fn() } as never);
+    expect(store.takeDismissed()).toBeNull();
+    store.close();
+    expect(store.takeDismissed()).toBeNull();
+
+    // A destroyed editor: nothing.
+    renderer.onStart({ query: "sa", range: { from: 4, to: 7 }, editor, command: vi.fn() } as never);
+    store.dismiss();
+    editor.isDestroyed = true;
+    expect(store.takeDismissed()).toBeNull();
   });
 });
