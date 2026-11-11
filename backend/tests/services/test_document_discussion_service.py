@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+import time
 import uuid
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -21,7 +22,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.services import document_discussion_service as svc
-from app.services import mention_service
+from app.services import mention_service, notification_service
 
 U1 = uuid.UUID("00000000-0000-4000-8000-000000000001")
 U2 = uuid.UUID("00000000-0000-4000-8000-000000000002")
@@ -396,10 +397,11 @@ class TestCommentHtml:
         assert svc.comment_html(body) == "@CRM"
 
     def test_nested_mention_spans_leave_no_markup(self):
+        # The inner span is part of the outer one's label, which is dropped.
         inner = span("card", CARD, "@CRM")
         body = f'<span data-type="mention" data-kind="user" data-id="{U2}">{inner}</span>'
         assert svc.comment_html(body) == (
-            f'<span data-type="mention" data-kind="user" data-id="{U2}"></span>&lt;/span&gt;'
+            f'<span data-type="mention" data-kind="user" data-id="{U2}"></span>'
         )
 
     def test_a_plain_span_is_text(self):
@@ -620,3 +622,105 @@ def test_token_scope_is_the_comment():
     assert mention_service.token_for(comment_id, "card", CARD) != mention_service.token_for(
         doc_id, "card", CARD
     )
+
+
+# --- hostile bodies: the raw cap first, every pattern linear ------------------------
+
+HOSTILE_BODIES = {
+    "span-100k": "<span" * 20000 + ' data-type="mention" ',
+    "spaced-span-100k": "<span " * 16666 + 'data-type="mention"',
+    "lt-100k": "<" * 100000,
+}
+
+
+@pytest.mark.parametrize("body", HOSTILE_BODIES.values(), ids=list(HOSTILE_BODIES))
+def test_an_over_long_body_is_refused_before_it_is_read(body, monkeypatch):
+    def boom(*args, **kwargs):
+        raise AssertionError("the body was read")
+
+    monkeypatch.setattr(mention_service, "canonicalise", boom)
+    started = time.perf_counter()
+    with pytest.raises(HTTPException) as refused:
+        svc.comment_html(body)
+    assert (refused.value.status_code, refused.value.detail) == (
+        400,
+        "A comment is longer than 20000 characters",
+    )
+    assert time.perf_counter() - started < 2.0
+
+
+def test_the_raw_cap_is_twice_the_stored_one():
+    assert (svc.BODY_MAX_LENGTH, svc.RAW_BODY_MAX_LENGTH) == (20_000, 40_000)
+    svc.check_raw_length("x" * 40_000)
+    with pytest.raises(HTTPException):
+        svc.check_raw_length("x" * 40_001)
+
+
+def test_hostile_markup_under_the_cap_is_read_in_linear_time():
+    started = time.perf_counter()
+    assert svc.is_blank("<" * 100000) is False
+    assert svc._markup("<" * 100000, svc._Links()) == "&lt;" * 100000
+    assert svc.safe_href(" " * 30000 + '"') is None
+    for body in ("<span" * 7999 + ' data-type="mention" ', '<span data-type="mention">' * 1500):
+        with pytest.raises(HTTPException):
+            svc.comment_html(body)
+    assert time.perf_counter() - started < 2.0
+
+
+def test_a_mention_span_outside_the_grammar_is_stored_canonical():
+    body = f"<p><SPAN data-type='mention' data-kind='card' data-id='{CARD}'>@Fake</SPAN></p>"
+    assert svc.comment_html(body) == f"<p>{span('card', CARD)}</p>"
+    assert svc.comment_html(svc.comment_html(body)) == svc.comment_html(body)
+
+
+# --- notifications are batches delivered after the commit ----------------------------
+
+
+def test_deliveries_for_builds_one_batch_per_type_with_someone_to_tell():
+    texts = {"document_mention": ("Tm", "Mm"), "document_comment": ("Tc", "Mc")}
+    data = {"doc_kind": "adr", "doc_id": "d"}
+    out = svc.deliveries_for(
+        mentioned=[str(U2), str(U1)],
+        audience={str(U4), str(U3)},
+        texts=texts,
+        link="/l",
+        data=data,
+    )
+
+    def row(user, title, message):
+        return {"user_id": user, "title": title, "message": message, "link": "/l", "data": data}
+
+    assert out == (
+        svc.Delivery("document_mention", (row(U2, "Tm", "Mm"), row(U1, "Tm", "Mm"))),
+        svc.Delivery("document_comment", (row(U3, "Tc", "Mc"), row(U4, "Tc", "Mc"))),
+    )
+    only_comment = svc.deliveries_for(
+        mentioned=[], audience={str(U1)}, texts=texts, link="/l", data=data
+    )
+    assert [d.notif_type for d in only_comment] == ["document_comment"]
+    assert svc.deliveries_for(mentioned=[], audience=set(), texts=texts, link="/l", data={}) == ()
+
+
+def test_schedule_deliveries_hands_each_batch_to_the_batch_helper():
+    class Tasks:
+        def __init__(self):
+            self.added = []
+
+        def add_task(self, fn, *args, **kwargs):
+            self.added.append((fn, args, kwargs))
+
+    tasks = Tasks()
+    recipient = {"user_id": U2, "title": "T", "message": "M", "link": "/l", "data": {}}
+    svc.schedule_deliveries(
+        tasks,
+        (
+            svc.Delivery("document_mention", (recipient,)),
+            svc.Delivery("document_comment", (recipient, recipient)),
+        ),
+        actor_id=U1,
+    )
+    helper = notification_service.deliver_notification_batch
+    assert tasks.added == [
+        (helper, ([recipient],), {"notif_type": "document_mention", "actor_id": U1}),
+        (helper, ([recipient, recipient],), {"notif_type": "document_comment", "actor_id": U1}),
+    ]

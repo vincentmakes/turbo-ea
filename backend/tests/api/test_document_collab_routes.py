@@ -29,6 +29,13 @@ ADR = "/api/v1/adr"
 SOAW = "/api/v1/soaw"
 
 
+@pytest.fixture(autouse=True)
+def _deliveries_stay_in_the_test_session(patched_async_session):
+    """A comment's notifications are delivered after the commit by
+    ``deliver_notification_batch``, which opens its own session: hand it the
+    test's, so it never reaches the real database."""
+
+
 @pytest.fixture
 async def env(db):
     await create_role(db, key="admin", label="Admin", permissions={"*": True})

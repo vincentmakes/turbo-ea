@@ -26,10 +26,41 @@ from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
 from app.models.document_comment import DocumentComment
 from app.models.event import Event
 from app.models.notification import Notification
-from app.services import rollback_service
+from app.services import mention_service, notification_service, rollback_service
 from tests.conftest import auth_headers, create_card, create_card_type, create_role, create_user
 
 ADR = "/api/v1/adr"
+
+
+@pytest.fixture(autouse=True)
+def deliveries(db, monkeypatch):
+    """Stand in for the batch delivery a comment schedules after its commit.
+
+    The real ``deliver_notification_batch`` opens its own session outside the
+    test's transaction and would find no committed users; this one writes the
+    bell rows it would write into the test session (no event, no e-mail) and
+    records each call as ``(notif_type, recipients, actor_id)``.
+    """
+    calls: list[tuple[str, list[dict], object]] = []
+
+    async def fake_deliver(recipients, *, notif_type, actor_id=None):
+        calls.append((notif_type, recipients, actor_id))
+        for r in recipients:
+            db.add(
+                Notification(
+                    user_id=r["user_id"],
+                    type=notif_type,
+                    title=r["title"],
+                    message=r["message"],
+                    link=r.get("link"),
+                    data=r.get("data") or {},
+                    actor_id=actor_id,
+                )
+            )
+        await db.flush()
+
+    monkeypatch.setattr(notification_service, "deliver_notification_batch", fake_deliver)
+    return calls
 
 
 @pytest.fixture
@@ -734,6 +765,59 @@ class TestNotifications:
             [env["ids"]["viewer"], env["ids"]["one"]]
         )
         assert len(await _notes(db, "document_comment")) == before
+
+    async def test_delivered_after_the_commit_never_inline(
+        self, client, env, publish_commit_log, monkeypatch
+    ):
+        adr, _ = await self._setup(client, env)
+        calls = []
+
+        async def fake_deliver(recipients, *, notif_type, actor_id=None):
+            ids = sorted(str(r["user_id"]) for r in recipients)
+            calls.append((notif_type, publish_commit_log[-1], ids, actor_id))
+
+        inline = []
+
+        async def no_inline(*args, **kwargs):
+            inline.append(kwargs.get("notif_type"))
+
+        monkeypatch.setattr(notification_service, "deliver_notification_batch", fake_deliver)
+        monkeypatch.setattr(notification_service, "create_notification", no_inline)
+        publish_commit_log.clear()
+        await _post(
+            client, env, adr["id"], body=f"<p>{_mention(env['ids']['viewer'])}</p>", who="two"
+        )
+        two = env["users"]["two"].id
+        assert inline == []
+        assert calls == [
+            ("document_mention", ("commit",), [env["ids"]["viewer"]], two),
+            (
+                "document_comment",
+                ("commit",),
+                sorted(env["ids"][k] for k in ("admin", "signer", "one", "three")),
+                two,
+            ),
+        ]
+
+    async def test_an_over_long_body_is_refused_before_it_is_read(self, client, env, monkeypatch):
+        adr = await _adr(client, env)
+        thread = await _post(client, env, adr["id"])
+
+        def boom(*args, **kwargs):
+            raise AssertionError("the body was read")
+
+        monkeypatch.setattr(mention_service, "restore_tokens", boom)
+        monkeypatch.setattr(mention_service, "canonicalise", boom)
+        long = _mention(env["ids"]["viewer"]) * 600
+        assert 40_000 < len(long) <= 100_000
+        for method, path in (
+            ("POST", f"{ADR}/{adr['id']}/comments"),
+            ("PATCH", f"{ADR}/{adr['id']}/comments/{thread['id']}"),
+        ):
+            resp = await _call(
+                client, env, method, path, who="one", json={"body": long}, status=400
+            )
+            assert _detail(resp) == "A comment is longer than 20000 characters"
 
     async def test_a_mention_of_an_unknown_person_is_refused(self, client, env):
         adr = await _adr(client, env)

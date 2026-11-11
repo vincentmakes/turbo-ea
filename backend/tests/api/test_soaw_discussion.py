@@ -20,10 +20,41 @@ from sqlalchemy import select
 from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
 from app.models.event import Event
 from app.models.notification import Notification
-from app.services import rollback_service
+from app.services import notification_service, rollback_service
 from tests.conftest import auth_headers, create_role, create_user
 
 SOAW = "/api/v1/soaw"
+
+
+@pytest.fixture(autouse=True)
+def deliveries(db, monkeypatch):
+    """Stand in for the batch delivery a comment schedules after its commit.
+
+    The real ``deliver_notification_batch`` opens its own session outside the
+    test's transaction and would find no committed users; this one writes the
+    bell rows it would write into the test session (no event, no e-mail) and
+    records each call as ``(notif_type, recipients, actor_id)``.
+    """
+    calls: list[tuple[str, list[dict], object]] = []
+
+    async def fake_deliver(recipients, *, notif_type, actor_id=None):
+        calls.append((notif_type, recipients, actor_id))
+        for r in recipients:
+            db.add(
+                Notification(
+                    user_id=r["user_id"],
+                    type=notif_type,
+                    title=r["title"],
+                    message=r["message"],
+                    link=r.get("link"),
+                    data=r.get("data") or {},
+                    actor_id=actor_id,
+                )
+            )
+        await db.flush()
+
+    monkeypatch.setattr(notification_service, "deliver_notification_batch", fake_deliver)
+    return calls
 
 
 @pytest.fixture

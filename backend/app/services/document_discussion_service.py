@@ -30,6 +30,14 @@ a save restores tokens only against that comment's stored body (a new comment
 restores nothing).
 
 Every function flushes and never commits: the route owns the transaction.
+Notifications are not created here: a write returns them as
+:class:`Delivery` batches, which the route hands to
+``notification_service.deliver_notification_batch`` once it has committed
+(:func:`schedule_deliveries`), so no SMTP round-trip runs inside the request's
+transaction and nothing is announced for a comment that was not stored.
+
+Every pattern that reads a body runs in linear time, and the raw body's
+length is checked before any of them runs.
 """
 
 from __future__ import annotations
@@ -42,7 +50,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import HTTPException
+from fastapi import BackgroundTasks, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -83,6 +91,11 @@ SOAW_SECTION_RE = re.compile(r"[a-z0-9_.]{1,64}")
 
 #: The longest stored body a person may write.
 BODY_MAX_LENGTH = 20_000
+#: The longest body a write accepts BEFORE anything reads it: the stored cap
+#: plus room for the labels the editor writes inside mention spans (stripped
+#: on save). Checked first, so no pattern ever runs over more than this.
+RAW_BODY_MAX_LENGTH = 2 * BODY_MAX_LENGTH
+TOO_LONG = f"A comment is longer than {BODY_MAX_LENGTH} characters"
 
 DOCUMENT = "document"
 CHAIN = "chain"
@@ -255,7 +268,7 @@ def validate_section(doc_kind: str, section: str | None) -> str | None:
 PLAIN_TAGS: frozenset[str] = frozenset(
     {"p", "br", "strong", "em", "s", "code", "ul", "ol", "li", "blockquote"}
 )
-_TAG_RE = re.compile(r"<[^>]*>")
+_TAG_RE = re.compile(r"<[^<>]*+>")
 _SIMPLE_TAG_RE = re.compile(r"<(/?)([A-Za-z][A-Za-z0-9]*)\s*(/?)>")
 _LINK_OPEN_RE = re.compile(r"<a(\s[^>]*)>", re.IGNORECASE)
 _LINK_ATTRIBUTE_RE = re.compile(
@@ -276,9 +289,9 @@ def safe_href(attrs: str) -> str | None:
     repeated ``href``)."""
     href: str | None = None
     pos = 0
-    for match in _LINK_ATTRIBUTE_RE.finditer(attrs):
-        if match.start() != pos:
-            return None
+    # One pair at a time from where the last one ended (never searched for:
+    # a search would rescan the rest of the string from every position).
+    while (match := _LINK_ATTRIBUTE_RE.match(attrs, pos)) is not None:
         pos = match.end()
         if match.group(1).lower() != "href":
             continue
@@ -337,12 +350,23 @@ def is_blank(html: str) -> bool:
     return not html_lib.unescape(_TAG_RE.sub("", html)).strip()
 
 
+def check_raw_length(body: str) -> None:
+    """400 for a raw body over :data:`RAW_BODY_MAX_LENGTH`: run before any
+    pattern reads the body."""
+    if len(body) > RAW_BODY_MAX_LENGTH:
+        raise HTTPException(400, TOO_LONG)
+
+
 def comment_html(body: str, *, allow_empty: bool = False) -> str:
     """A comment body as stored (R8): every tag escaped except attribute-less
     :data:`PLAIN_TAGS`, ``<a>`` with an http(s)/mailto ``href`` (its other
     attributes dropped) and canonical mention spans of a card, a decision or a
-    person (no label). 400 when longer than :data:`BODY_MAX_LENGTH` or, unless
-    ``allow_empty``, blank."""
+    person (no label; a span a browser reads as a mention in any case or
+    quoting is first made canonical or reduced to its text). 400 when the raw
+    body is over :data:`RAW_BODY_MAX_LENGTH` (before anything reads it), the
+    stored one over :data:`BODY_MAX_LENGTH` or, unless ``allow_empty``, blank."""
+    check_raw_length(body)
+    body = mention_service.canonicalise(body, MENTION_KINDS)
     links = _Links()
     out: list[str] = []
     pos = 0
@@ -354,7 +378,7 @@ def comment_html(body: str, *, allow_empty: bool = False) -> str:
     out.append("</a>" * links.open)
     html = "".join(out)
     if len(html) > BODY_MAX_LENGTH:
-        raise HTTPException(400, f"A comment is longer than {BODY_MAX_LENGTH} characters")
+        raise HTTPException(400, TOO_LONG)
     if not allow_empty and is_blank(html):
         raise HTTPException(400, "A comment needs some text")
     return html
@@ -900,6 +924,63 @@ async def _audience(db: AsyncSession, doc_kind: str, doc: Any, *, exclude: Any) 
     }
 
 
+@dataclass(frozen=True)
+class Delivery:
+    """One batch of notifications of one type, for
+    ``notification_service.deliver_notification_batch`` after the commit."""
+
+    notif_type: str
+    recipients: tuple[dict[str, Any], ...]
+
+
+def deliveries_for(
+    *,
+    mentioned: Sequence[str],
+    audience: Iterable[str],
+    texts: Mapping[str, tuple[str, str]],
+    link: str,
+    data: Mapping[str, str],
+) -> tuple[Delivery, ...]:
+    """The ``document_mention`` batch (``mentioned``, in order) and the
+    ``document_comment`` batch (``audience``, sorted); a type with nobody to
+    tell is left out. ``texts`` maps each type to its ``(title, message)``."""
+    batches = (("document_mention", list(mentioned)), ("document_comment", sorted(audience)))
+    return tuple(
+        Delivery(
+            notif_type=notif_type,
+            recipients=tuple(
+                {
+                    "user_id": uuid.UUID(recipient),
+                    "title": texts[notif_type][0],
+                    "message": texts[notif_type][1],
+                    "link": link,
+                    "data": dict(data),
+                }
+                for recipient in recipients
+            ),
+        )
+        for notif_type, recipients in batches
+        if recipients
+    )
+
+
+def schedule_deliveries(
+    background_tasks: BackgroundTasks, deliveries: Iterable[Delivery], *, actor_id: Any
+) -> None:
+    """Hand each batch to ``deliver_notification_batch`` as a background task:
+    Starlette runs it only after the response, i.e. after the route's commit,
+    and the helper sends the e-mails with no database session held. Call it
+    after ``db.commit()``. Referenced through the module so tests can stand in
+    for the delivery."""
+    for delivery in deliveries:
+        background_tasks.add_task(
+            notification_service.deliver_notification_batch,
+            list(delivery.recipients),
+            notif_type=delivery.notif_type,
+            actor_id=actor_id,
+        )
+
+
 async def _notify(
     db: AsyncSession,
     doc_kind: str,
@@ -909,15 +990,15 @@ async def _notify(
     user: User,
     mentioned: list[str],
     announce: bool,
-) -> list[dict[str, str]]:
-    """Send ``document_mention`` to each person in ``mentioned`` who can view
-    the document and, when ``announce``, ``document_comment`` to the rest of
-    the audience. Returns the mentioned people who were NOT notified (they
-    cannot open the document): ``[{id, display_name}]``."""
+) -> tuple[list[dict[str, str]], tuple[Delivery, ...]]:
+    """Who hears of ``comment``: ``document_mention`` for each person in
+    ``mentioned`` who can view the document and, when ``announce``,
+    ``document_comment`` for the rest of the audience. Returns the mentioned
+    people who will NOT be notified (they cannot open the document):
+    ``[{id, display_name}]``, and the batches to deliver after the commit."""
     thread_id = comment.parent_id or comment.id
     label = document_label(doc_kind, doc)
     reply = comment.parent_id is not None
-    link = thread_link(doc_kind, doc.id, thread_id)
     data = {
         "doc_kind": doc_kind,
         "doc_id": str(doc.id),
@@ -929,50 +1010,37 @@ async def _notify(
     unnotified = [
         {"id": m, "display_name": names.get(m, "")} for m in mentioned if m not in viewers
     ]
-    title, message = notification_texts(
-        "document_mention", doc_label=label, actor_name=user.display_name, reply=reply
-    )
-    for recipient in notified:
-        await notification_service.create_notification(
-            db,
-            user_id=uuid.UUID(recipient),
-            actor_id=user.id,
-            notif_type="document_mention",
-            title=title,
-            message=message,
-            link=link,
-            data=data,
+    audience: set[str] = set()
+    if announce:
+        inputs = await _audience(db, doc_kind, doc, exclude=comment.id)
+        candidates = comment_recipients(**inputs, actor_id=user.id, mentioned=notified)
+        audience, _ = await _viewers(db, doc_kind, candidates)
+    texts = {
+        notif_type: notification_texts(
+            notif_type, doc_label=label, actor_name=user.display_name, reply=reply
         )
-    if not announce:
-        return unnotified
-    audience = await _audience(db, doc_kind, doc, exclude=comment.id)
-    candidates = comment_recipients(**audience, actor_id=user.id, mentioned=notified)
-    allowed, _ = await _viewers(db, doc_kind, candidates)
-    title, message = notification_texts(
-        "document_comment", doc_label=label, actor_name=user.display_name, reply=reply
+        for notif_type in ("document_mention", "document_comment")
+    }
+    deliveries = deliveries_for(
+        mentioned=notified,
+        audience=audience,
+        texts=texts,
+        link=thread_link(doc_kind, doc.id, thread_id),
+        data=data,
     )
-    for recipient in sorted(allowed):
-        await notification_service.create_notification(
-            db,
-            user_id=uuid.UUID(recipient),
-            actor_id=user.id,
-            notif_type="document_comment",
-            title=title,
-            message=message,
-            link=link,
-            data=data,
-        )
-    return unnotified
+    return unnotified, deliveries
 
 
 @dataclass(frozen=True)
 class Written:
-    """A write's outcome: the comment touched, its thread's top comment, and
-    the mentioned people who were not notified."""
+    """A write's outcome: the comment touched, its thread's top comment, the
+    mentioned people who were not notified, and the notification batches to
+    deliver once the route has committed (:func:`schedule_deliveries`)."""
 
     comment: DocumentComment
     top: DocumentComment
     unnotified: list[dict[str, str]]
+    deliveries: tuple[Delivery, ...] = ()
 
 
 async def add_comment(
@@ -987,8 +1055,9 @@ async def add_comment(
     parent_id: str | None = None,
     read_scope: CardReadScope | None = None,
 ) -> Written:
-    """A new comment or reply by ``user``; notifies and publishes the
-    persisted ``<kind>.comment_added`` event (no body). Flushed."""
+    """A new comment or reply by ``user``; publishes the persisted
+    ``<kind>.comment_added`` event (no body) and returns the notifications to
+    deliver after the commit. Flushed."""
     _refuse(post_refusal(may_comment=acc.comment))
     parent = await _parent(db, doc_kind, doc, parent_id) if parent_id is not None else None
     section = parent.section if parent is not None else validate_section(doc_kind, section)
@@ -1006,7 +1075,7 @@ async def add_comment(
     )
     db.add(comment)
     await db.flush()
-    unnotified = await _notify(
+    unnotified, deliveries = await _notify(
         db,
         doc_kind,
         doc,
@@ -1027,7 +1096,9 @@ async def add_comment(
         db=db,
         user_id=user.id,
     )
-    return Written(comment=comment, top=parent or comment, unnotified=unnotified)
+    return Written(
+        comment=comment, top=parent or comment, unnotified=unnotified, deliveries=deliveries
+    )
 
 
 async def _top(db: AsyncSession, comment: DocumentComment) -> DocumentComment:
@@ -1051,8 +1122,9 @@ async def edit_comment(
 ) -> Written:
     """The author's new body: restricted chips restored against THIS
     comment's stored mentions (R4), new mentions checked, newly mentioned
-    people notified. Flushed."""
+    people returned to notify after the commit. Flushed."""
     _refuse(edit_refusal(comment, user.id, may_comment=acc.comment))
+    check_raw_length(body)
     stored = comment.body
 
     def token_of(kind: str, mention_id: str) -> str:
@@ -1064,7 +1136,7 @@ async def edit_comment(
     comment.body = html
     comment.edited_at = _now()
     await db.flush()
-    unnotified = await _notify(
+    unnotified, deliveries = await _notify(
         db,
         doc_kind,
         doc,
@@ -1073,7 +1145,12 @@ async def edit_comment(
         mentioned=new_user_mentions(stored, html, actor_id=user.id),
         announce=False,
     )
-    return Written(comment=comment, top=await _top(db, comment), unnotified=unnotified)
+    return Written(
+        comment=comment,
+        top=await _top(db, comment),
+        unnotified=unnotified,
+        deliveries=deliveries,
+    )
 
 
 async def delete_comment(

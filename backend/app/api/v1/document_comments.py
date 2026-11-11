@@ -9,15 +9,17 @@ comment. A comment of another document is 404 on every mutating route.
 
 The handlers are thin: the rules live in
 :mod:`app.services.document_discussion_service`, which flushes, publishes the
-persisted ``*.comment_added`` event and sends the notifications; the handler
-commits last.
+persisted ``*.comment_added`` event and returns the notifications to send; the
+handler commits last, then schedules their delivery
+(``deliver_notification_batch`` runs after the response, with no database
+session held across the e-mails).
 """
 
 from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,8 +31,9 @@ from app.services import document_discussion_service as discussion
 
 router = APIRouter(tags=["document-collaboration"])
 
-#: Generous on the way in: labels inside mention spans are stripped before the
-#: stored body is held to its own 20,000-character cap.
+#: The schema's ceiling. The service refuses anything over
+#: ``RAW_BODY_MAX_LENGTH`` before reading it, then holds the stored body (labels
+#: inside mention spans stripped) to its own 20,000-character cap.
 _RAW_BODY_MAX = 100_000
 
 
@@ -59,7 +62,14 @@ async def _list(db: AsyncSession, user: User, kind: str, doc_id: str, scope: str
     return await discussion.list_threads(db, kind, doc, user=user, acc=acc, scope=scope)
 
 
-async def _create(db: AsyncSession, user: User, kind: str, doc_id: str, body: CommentCreate):
+async def _create(
+    db: AsyncSession,
+    user: User,
+    kind: str,
+    doc_id: str,
+    body: CommentCreate,
+    background_tasks: BackgroundTasks,
+):
     doc, acc = await discussion.open_document(db, kind, doc_id, user)
     written = await discussion.add_comment(
         db,
@@ -73,11 +83,18 @@ async def _create(db: AsyncSession, user: User, kind: str, doc_id: str, body: Co
     )
     thread = await discussion.thread_payload(db, kind, doc, written.top, user=user, acc=acc)
     await db.commit()
+    discussion.schedule_deliveries(background_tasks, written.deliveries, actor_id=user.id)
     return {**thread, "unnotified_mentions": written.unnotified}
 
 
 async def _update(
-    db: AsyncSession, user: User, kind: str, doc_id: str, comment_id: str, body: CommentUpdate
+    db: AsyncSession,
+    user: User,
+    kind: str,
+    doc_id: str,
+    comment_id: str,
+    body: CommentUpdate,
+    background_tasks: BackgroundTasks,
 ):
     doc, acc = await discussion.open_document(db, kind, doc_id, user)
     comment = await discussion.load_comment(db, kind, doc, comment_id)
@@ -86,6 +103,7 @@ async def _update(
     )
     thread = await discussion.thread_payload(db, kind, doc, written.top, user=user, acc=acc)
     await db.commit()
+    discussion.schedule_deliveries(background_tasks, written.deliveries, actor_id=user.id)
     return {**thread, "unnotified_mentions": written.unnotified}
 
 
@@ -129,12 +147,13 @@ async def list_adr_comments(
 async def create_adr_comment(
     adr_id: str,
     body: CommentCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     """Start a thread or reply to one; the thread comes back with
     ``unnotified_mentions``."""
-    return await _create(db, user, collab.ADR, adr_id, body)
+    return await _create(db, user, collab.ADR, adr_id, body, background_tasks)
 
 
 @router.patch("/adr/{adr_id}/comments/{comment_id}")
@@ -142,11 +161,12 @@ async def update_adr_comment(
     adr_id: str,
     comment_id: str,
     body: CommentUpdate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     """Edit your own comment; the thread comes back with ``unnotified_mentions``."""
-    return await _update(db, user, collab.ADR, adr_id, comment_id, body)
+    return await _update(db, user, collab.ADR, adr_id, comment_id, body, background_tasks)
 
 
 @router.delete("/adr/{adr_id}/comments/{comment_id}", status_code=204)
@@ -201,12 +221,13 @@ async def list_soaw_comments(
 async def create_soaw_comment(
     soaw_id: str,
     body: CommentCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     """Start a thread or reply to one; the thread comes back with
     ``unnotified_mentions``."""
-    return await _create(db, user, collab.SOAW, soaw_id, body)
+    return await _create(db, user, collab.SOAW, soaw_id, body, background_tasks)
 
 
 @router.patch("/soaw/{soaw_id}/comments/{comment_id}")
@@ -214,11 +235,12 @@ async def update_soaw_comment(
     soaw_id: str,
     comment_id: str,
     body: CommentUpdate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     """Edit your own comment; the thread comes back with ``unnotified_mentions``."""
-    return await _update(db, user, collab.SOAW, soaw_id, comment_id, body)
+    return await _update(db, user, collab.SOAW, soaw_id, comment_id, body, background_tasks)
 
 
 @router.delete("/soaw/{soaw_id}/comments/{comment_id}", status_code=204)
