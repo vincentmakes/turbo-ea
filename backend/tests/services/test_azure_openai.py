@@ -45,6 +45,12 @@ class TestChatTargetV1:
             url=V1_URL, params=None, model="gpt-5"
         )
 
+    def test_a_bare_v1_path_is_the_v1_endpoint_too(self):
+        """Mirrored in aiProviderUi.test.ts: nothing has to precede the path."""
+        assert chat_target("/openai/v1", "d", "v") == ChatTarget(
+            url="/openai/v1/chat/completions", params=None, model="d"
+        )
+
     def test_a_gateway_path_in_front_of_it_is_kept(self):
         target = chat_target("https://gw.example.com/ai/team-a/openai/v1/", "d", "v")
         assert target.url == "https://gw.example.com/ai/team-a/openai/v1/chat/completions"
@@ -95,6 +101,10 @@ class TestChatTargetDeploymentApi:
         assert chat_target(entered, "gpt-5", "2024-10-21") == ChatTarget(
             url=DEPLOYMENT_URL, params={"api-version": "2024-10-21"}, model=None
         )
+
+    def test_only_slashes_are_trimmed_from_the_end(self):
+        target = chat_target("https://gw.example.com/PROXYX//", "d", "v")
+        assert target.url == "https://gw.example.com/PROXYX/openai/deployments/d/chat/completions"
 
     def test_a_gateway_path_is_kept(self):
         target = chat_target("https://gw.example.com/ai/team-a/openai", "d", "v")

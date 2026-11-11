@@ -227,6 +227,39 @@ class TestCallAiAzure:
         }
 
     @pytest.mark.asyncio
+    async def test_an_empty_azure_provider_url_puts_nothing_in_front_of_the_path(self):
+        session_factory = _fake_session_factory(
+            {
+                "providerType": "azure_openai",
+                "apiKey": "enc:x",
+                "providerUrl": "",
+                "model": "my-deployment",
+                "apiVersion": "2024-10-21",
+            }
+        )
+        mock_resp = MagicMock()
+        mock_resp.is_success = True
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "choices": [{"message": {"content": "hello"}, "finish_reason": "stop"}]
+        }
+
+        with (
+            patch("app.services.turbolens_ai.decrypt_value", return_value="azure-key"),
+            patch("app.services.turbolens_ai.async_session", session_factory),
+            patch("app.services.turbolens_ai._get_llm_client") as mock_get,
+        ):
+            mock_client = AsyncMock()
+            mock_get.return_value = mock_client
+            mock_client.post = AsyncMock(return_value=mock_resp)
+
+            await call_ai("prompt text")
+
+        args, kwargs = mock_client.post.call_args
+        assert args == ("/openai/deployments/my-deployment/chat/completions",)
+        assert kwargs["params"] == {"api-version": "2024-10-21"}
+
+    @pytest.mark.asyncio
     async def test_an_openai_request_carries_no_query_parameters(self):
         session_factory = _fake_session_factory(
             {

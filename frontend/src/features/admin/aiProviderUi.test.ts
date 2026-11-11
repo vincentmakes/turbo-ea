@@ -17,6 +17,8 @@ describe("azureUsesV1", () => {
     `${ROOT}/openai/v1/?api-version=preview`,
     `${ROOT}/openai/v1#section`,
     "https://gw.example.com/ai/team-a/openai/v1/",
+    // Nothing has to precede the path (test_a_bare_v1_path_is_the_v1_endpoint_too).
+    "/openai/v1",
   ])("is true for the v1 endpoint written as %s", (url) => {
     expect(azureUsesV1(url)).toBe(true);
   });
