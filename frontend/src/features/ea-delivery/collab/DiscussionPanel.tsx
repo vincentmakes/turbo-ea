@@ -5,10 +5,11 @@
  * list (any chip that is on lets its threads through; a thread's own section
  * chip turns its filter on). The filter composes with the resolved fold and
  * never hides a notification's thread.
- * Resolved threads fold behind a toggle; earlier revisions' threads load on
+ * Resolved threads fold behind a toggle (a marker on a section whose threads
+ * are all resolved opens it unfolded); earlier revisions' threads load on
  * request (`scope=chain`) and sit under "Rev N" headers. A viewer without
- * the comment right reads only. The discussion, the revisions read and the
- * filter come from `view` (`useDiscussionView`), which `DocumentSidePanel`
+ * the comment right reads only. The discussion, the revisions read, the
+ * filter and the fold come from `view` (`useDiscussionView`), which `DocumentSidePanel`
  * holds so the page's section markers share the same read; it re-reads on
  * the page's refresh signal, and arriving on a notification's thread or
  * another document starts with no filter.
@@ -52,8 +53,7 @@ interface Props {
 
 export default function DiscussionPanel({ owner, sections, focusThreadId, view }: Props) {
   const { t } = useTranslation(["delivery", "common"]);
-  const { discussion, scope, setScope, filter, setFilter } = view;
-  const [showResolved, setShowResolved] = useState(false);
+  const { discussion, scope, setScope, filter, setFilter, showResolved, setShowResolved } = view;
   const [unnotified, setUnnotified] = useState<DocumentUserRef[]>([]);
   const { threads } = discussion;
   const loaded = discussion.discussion !== undefined;

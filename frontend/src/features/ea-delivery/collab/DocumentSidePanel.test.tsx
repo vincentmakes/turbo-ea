@@ -15,7 +15,7 @@ vi.mock("./DiscussionPanel", async () => {
   return {
   default: (props: {
     focusThreadId?: string | null;
-    view: { filter: string[]; discussion: { threads: { id: string }[] } };
+    view: { filter: string[]; showResolved: boolean; discussion: { threads: { id: string }[] } };
   }) => {
     tabs.discussion.push(props);
     // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -25,6 +25,7 @@ vi.mock("./DiscussionPanel", async () => {
         <span data-testid="mention-context">{JSON.stringify(mentionContext ?? null)}</span>
         focus:{String(props.focusThreadId)}
         <span data-testid="panel-filter">{JSON.stringify(props.view.filter)}</span>
+        <span data-testid="panel-unfolded">{String(props.view.showResolved)}</span>
         <span data-testid="panel-threads">{props.view.discussion.threads.map((th) => th.id).join(",")}</span>
       </div>
     );
@@ -402,6 +403,18 @@ describe("DocumentSidePanel section markers", () => {
     // Another marker replaces the filter, it does not add to it.
     await user.click(screen.getByRole("button", { name: "Resolved discussion on this section" }));
     expect(within(aside).getByTestId("panel-filter")).toHaveTextContent('["decision"]');
+  });
+
+  it("unfolds the resolved threads from a muted marker only, never from one with open threads", async () => {
+    window.localStorage.setItem(PANEL_STATE_KEY, JSON.stringify({ open: false }));
+    serve(MARKED);
+    const { user } = renderMarked();
+    await user.click(await screen.findByRole("button", { name: "2 open threads on this section" }));
+    const aside = screen.getByRole("complementary", { name: "Discussion" });
+    expect(within(aside).getByTestId("panel-unfolded")).toHaveTextContent("false");
+    await user.click(screen.getByRole("button", { name: "Resolved discussion on this section" }));
+    expect(within(aside).getByTestId("panel-filter")).toHaveTextContent('["decision"]');
+    expect(within(aside).getByTestId("panel-unfolded")).toHaveTextContent("true");
   });
 
   it("below lg, opens the drawer filtered to the marker's section", async () => {

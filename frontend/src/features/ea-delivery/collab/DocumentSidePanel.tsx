@@ -37,7 +37,7 @@ import type { DocumentOwner } from "@/types";
 import { DocumentMentionContext } from "../mentions/documentMentionContext";
 import type { MentionContext } from "../mentions/mentionModel";
 import DiscussionPanel from "./DiscussionPanel";
-import { openCount, sectionThreadCounts, type SectionOption } from "./discussionModel";
+import { markerUnfoldsResolved, openCount, sectionThreadCounts, type SectionOption } from "./discussionModel";
 import { initialPanelState, writePanelState, type PanelState } from "./panelState";
 import { SectionDiscussionContext, type SectionDiscussion } from "./sectionDiscussionContext";
 import { useDiscussionView } from "./useDiscussionView";
@@ -114,11 +114,14 @@ export default function DocumentSidePanel({
     writePanelState(next);
   };
 
-  const sectionDiscussion: SectionDiscussion | null = owner
+  const counts = owner ? sectionThreadCounts(threads, owner.id, sections) : null;
+  const sectionDiscussion: SectionDiscussion | null = counts
     ? {
-        counts: sectionThreadCounts(threads, owner.id, sections),
+        counts,
         openSection: (section) => {
           view.setFilter([section]);
+          // A muted marker promised a resolved discussion: show it unfolded.
+          if (markerUnfoldsResolved(counts[section])) view.setShowResolved(true);
           if (wide) update({ open: true });
           else setDrawerOpen(true);
         },

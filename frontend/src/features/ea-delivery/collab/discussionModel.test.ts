@@ -18,6 +18,7 @@ import {
   isBlankHtml,
   isOpenThread,
   markDeleted,
+  markerUnfoldsResolved,
   newCommentBody,
   openCount,
   rejectionBodyOrFallback,
@@ -487,5 +488,14 @@ describe("sectionThreadCounts", () => {
       [{ key: "constructor", label: "Odd" }],
     );
     expect(counts.constructor).toEqual({ open: 2, total: 2 });
+  });
+});
+
+describe("markerUnfoldsResolved", () => {
+  it("unfolds for a section whose threads are all resolved, never for one with an open thread or none", () => {
+    expect(markerUnfoldsResolved({ open: 0, total: 2 })).toBe(true);
+    expect(markerUnfoldsResolved({ open: 1, total: 2 })).toBe(false);
+    expect(markerUnfoldsResolved({ open: 0, total: 0 })).toBe(false);
+    expect(markerUnfoldsResolved(undefined)).toBe(false);
   });
 });

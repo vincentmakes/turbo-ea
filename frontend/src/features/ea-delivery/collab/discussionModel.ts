@@ -229,6 +229,15 @@ export interface SectionThreadCount {
 }
 
 /**
+ * Whether opening the Discussion from a section's marker unfolds the
+ * resolved threads: when the section has threads and none is open (the muted
+ * marker), so the reader sees the discussion the marker announced.
+ */
+export function markerUnfoldsResolved(count: SectionThreadCount | undefined): boolean {
+  return count !== undefined && count.total > 0 && count.open === 0;
+}
+
+/**
  * The section markers' counts: for each of the document's sections (`sections`)
  * that has a thread on the revision shown (`currentDocId`), its open threads
  * and all its threads. Earlier revisions' threads, General (untagged) threads,

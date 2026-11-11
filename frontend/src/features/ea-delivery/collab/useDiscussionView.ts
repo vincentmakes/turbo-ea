@@ -3,10 +3,11 @@
  * held by `DocumentSidePanel` so the Discussion panel and the section
  * markers on the page share them: which revisions are read (`scope`), the
  * threads (`useDocumentDiscussion`, re-read on `refreshKey`, on focus and
- * after every write), and the section filter. The filter is the view's for
- * the open document: it empties when another document or another
- * notification's thread (`focusThreadId`) is opened. It lives here, not in
- * the panel, so a section marker can set it while the panel is closed.
+ * after every write), the section filter and whether resolved threads are
+ * unfolded. Both are the view's for the open document: they reset when
+ * another document or another notification's thread (`focusThreadId`) is
+ * opened. They live here, not in the panel, so a section marker can set them
+ * while the panel is closed.
  */
 import { useState, type Dispatch, type SetStateAction } from "react";
 
@@ -21,6 +22,9 @@ export interface DiscussionView {
   /** The section keys the list is filtered to; empty is no filter. */
   filter: string[];
   setFilter: Dispatch<SetStateAction<string[]>>;
+  /** Whether the resolved threads of the revision shown are unfolded. */
+  showResolved: boolean;
+  setShowResolved: Dispatch<SetStateAction<boolean>>;
 }
 
 export function useDiscussionView(
@@ -31,12 +35,14 @@ export function useDiscussionView(
   const discussion = useDocumentDiscussion(owner, { scope, refetchKey: refreshKey });
 
   const [filter, setFilter] = useState<string[]>([]);
+  const [showResolved, setShowResolved] = useState(false);
   const filterScope = `${owner?.kind}:${owner?.id}:${focusThreadId ?? ""}`;
   const [filterFor, setFilterFor] = useState(filterScope);
   if (filterFor !== filterScope) {
     setFilterFor(filterScope);
     setFilter([]);
+    setShowResolved(false);
   }
 
-  return { discussion, scope, setScope, filter, setFilter };
+  return { discussion, scope, setScope, filter, setFilter, showResolved, setShowResolved };
 }

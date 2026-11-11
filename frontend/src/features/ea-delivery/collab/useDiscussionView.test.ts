@@ -50,4 +50,19 @@ describe("useDiscussionView", () => {
     rerender({ owner: { kind: "soaw", id: "b2" }, refreshKey: "v2", focusThreadId: "t7" });
     expect(result.current.filter).toEqual([]);
   });
+
+  it("keeps the resolved threads unfolded for the document, and folds them for another one", () => {
+    const { result, rerender } = renderHook((args: Args) => useDiscussionView(args.owner, args), {
+      initialProps: { owner: { kind: "adr", id: "a1" } } as Args,
+    });
+    expect(result.current.showResolved).toBe(false);
+    act(() => result.current.setShowResolved(true));
+    rerender({ owner: { kind: "adr", id: "a1" }, refreshKey: "v2" });
+    expect(result.current.showResolved).toBe(true);
+    rerender({ owner: { kind: "adr", id: "b2" }, refreshKey: "v2" });
+    expect(result.current.showResolved).toBe(false);
+    act(() => result.current.setShowResolved(true));
+    rerender({ owner: { kind: "adr", id: "b2" }, refreshKey: "v2", focusThreadId: "t7" });
+    expect(result.current.showResolved).toBe(false);
+  });
 });
