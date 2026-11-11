@@ -218,9 +218,7 @@ def test_render_an_archived_card():
 
 
 def test_render_a_restricted_mention_carries_no_id_and_no_text():
-    out = ms.render(
-        span("card", CARD), _resolver({("card", CARD): ms.restricted("ab12cd34")})
-    )
+    out = ms.render(span("card", CARD), _resolver({("card", CARD): ms.restricted("ab12cd34")}))
     assert out == (
         '<span data-type="mention" data-kind="card" data-restricted="true" '
         'data-token="ab12cd34"></span>'
