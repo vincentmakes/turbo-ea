@@ -660,6 +660,39 @@ describe("MentionPopup review fixes", () => {
     expect(command).not.toHaveBeenCalled();
   });
 
+  it("gives Enter to the editor at the very moment the rows leave", async () => {
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.startsWith("/cards?")) {
+        const search = new URLSearchParams(path.split("?")[1]).get("search");
+        return search ? { items: [], total: 0 } : { items: CARDS, total: CARDS.length };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    const { start, renderer, onBrowse, command } = setup(["card"]);
+    start();
+    await screen.findByRole("option", { name: /CRM/ });
+    start("cr");
+    await screen.findByRole("option", { name: /CRM/ });
+    // Enter is pressed from inside the commit that takes the rows away, before
+    // any passive effect of that render has run: the key handler the editor
+    // reaches must already be the one of the rows on the page.
+    const used: boolean[] = [];
+    const observer = new MutationObserver(() => {
+      if (used.length > 0 || !screen.queryByText("No matches")) return;
+      used.push(renderer.onKeyDown({ event: new KeyboardEvent("keydown", { key: "Enter" }) } as never));
+    });
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    try {
+      await screen.findByText("No matches");
+      await waitFor(() => expect(used).toHaveLength(1));
+    } finally {
+      observer.disconnect();
+    }
+    expect(used).toEqual([false]);
+    expect(command).not.toHaveBeenCalled();
+    expect(onBrowse).not.toHaveBeenCalled();
+  });
+
   it("shows no card row before the linked cards have answered on an empty query", async () => {
     let release = () => {};
     const hold = new Promise<void>((r) => (release = r));

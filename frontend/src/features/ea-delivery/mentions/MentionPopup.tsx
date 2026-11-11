@@ -34,7 +34,7 @@
  * every group has answered with nothing, the popup tells the store, which ends
  * the suggestion if the user types on.
  */
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
@@ -265,7 +265,12 @@ export default function MentionPopup({ store, kinds, context, hidden = false }: 
 
   const pick = (item: MentionItem) => command?.({ kind: item.kind, id: item.id, label: item.label });
 
-  useEffect(() => {
+  // The editor's keys arrive through a native listener, outside React, so
+  // they can land between a commit and its passive effects. The handler is
+  // therefore set in a layout effect, inside the commit: it always acts on
+  // the rows on the page, never on the rows of the render before (a row the
+  // server's answer has just taken away must not be picked by Enter).
+  useLayoutEffect(() => {
     store.setKeyHandler((event) => {
       if (!open) return false;
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
