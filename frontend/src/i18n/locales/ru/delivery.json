@@ -623,7 +623,7 @@
   "collab.discussion.resolved": "Решено",
   "collab.discussion.resolvedBy": "Решено пользователем {{name}}",
   "collab.discussion.edited": "(изменено)",
-  "collab.discussion.deleted": "Этот комментарий был удалён.",
+  "collab.discussion.deleted": "Комментарий удалён",
   "collab.discussion.confirmDelete": "Удалить этот комментарий?",
   "collab.discussion.noReason": "Причина не указана",
   "collab.discussion.rejectionReason": "Причина отклонения",

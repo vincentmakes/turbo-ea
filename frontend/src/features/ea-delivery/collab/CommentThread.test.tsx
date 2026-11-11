@@ -84,7 +84,7 @@ describe("CommentThread — a deleted comment", () => {
       }),
     );
     const line = screen.getByTestId("deleted-r1");
-    expect(line.textContent).toBe(`Bo${DATE}This comment was deleted.`);
+    expect(line.textContent).toBe(`Bo · ${DATE} · Comment deleted`);
     expect(line.className).toMatch(/MuiTypography-caption/);
     expect(within(line).queryByRole("button")).toBeNull();
     expect(screen.queryByText("(edited)")).toBeNull();
@@ -96,7 +96,7 @@ describe("CommentThread — a deleted comment", () => {
 
   it("falls back to the author's stored name", () => {
     renderThread(thread({ replies: [deleted({ id: "r1", author: null, author_name: "Gone" }), comment({ id: "r2" })] }));
-    expect(screen.getByTestId("deleted-r1").textContent).toBe(`Gone${DATE}This comment was deleted.`);
+    expect(screen.getByTestId("deleted-r1").textContent).toBe(`Gone · ${DATE} · Comment deleted`);
   });
 
   it("keeps a live thread's Reply and Resolve when only a reply is deleted", () => {
@@ -121,7 +121,7 @@ describe("CommentThread — a closed thread (first comment deleted)", () => {
     renderThread(closed());
     const card = screen.getByTestId("thread-t1");
     expect(card).not.toHaveAttribute("data-compact");
-    expect(screen.getByTestId("deleted-t1").textContent).toBe(`Ada Lovelace${DATE}This comment was deleted.`);
+    expect(screen.getByTestId("deleted-t1").textContent).toBe(`Ada Lovelace · ${DATE} · Comment deleted`);
     expect(screen.getByText("Still here")).toBeInTheDocument();
     expect(screen.getByText("Context")).toBeInTheDocument();
     expect(screen.getByText("Resolved by Cy")).toBeInTheDocument();
@@ -162,7 +162,7 @@ describe("CommentThread — a thread with nothing live left", () => {
     const row = screen.getByTestId("thread-t1");
     expect(row).toHaveAttribute("id", "thread-t1");
     expect(row).toHaveAttribute("data-compact", "true");
-    expect(row.textContent).toBe(`Ada Lovelace${DATE}This comment was deleted.`);
+    expect(row.textContent).toBe(`Ada Lovelace · ${DATE} · Comment deleted`);
     expect(within(row).queryByRole("button")).toBeNull();
     expect(screen.queryByText("Context")).toBeNull();
     expect(screen.queryByTestId("deleted-r1")).toBeNull();

@@ -587,7 +587,7 @@
   "collab.discussion.resolved": "已解决",
   "collab.discussion.resolvedBy": "由 {{name}} 解决",
   "collab.discussion.edited": "（已编辑）",
-  "collab.discussion.deleted": "此评论已被删除。",
+  "collab.discussion.deleted": "评论已删除",
   "collab.discussion.confirmDelete": "删除此评论？",
   "collab.discussion.noReason": "未提供原因",
   "collab.discussion.rejectionReason": "拒绝原因",

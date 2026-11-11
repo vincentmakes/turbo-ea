@@ -5,7 +5,7 @@
  * and has nothing to resolve; neither is ever offered for edit or delete
  * here. Its section chip, when it has one, can be clicked (the discussion
  * filters on it). A deleted comment shrinks to one small muted line (its
- * author, its date, "This comment was deleted."). A thread whose first comment
+ * author, its date, "Comment deleted"). A thread whose first comment
  * is deleted is closed: its replies stay, but it offers no reply, resolve or
  * reopen (a reply draft kept for it is dropped); with nothing live left it is
  * that one line alone, without the card. A reply or an edit left unsent is
@@ -68,6 +68,9 @@ function deletable(comment: DocumentComment): boolean {
   return comment.kind === "comment" && !comment.deleted && comment.can.delete;
 }
 
+/** What separates the parts of a deleted comment's line. */
+const DOT = " · ";
+
 export default function CommentThread({
   thread,
   sectionLabel,
@@ -126,7 +129,11 @@ export default function CommentThread({
     borderColor: "divider",
   });
 
-  /** A deleted comment: one small muted line, its author and date, nothing to act on. */
+  /**
+   * A deleted comment: one small muted line, its author and date, nothing to
+   * act on. It is running text, not a row of boxes, so it stays on one line
+   * in the panel and breaks between words on a narrower one.
+   */
   const renderDeleted = (comment: DocumentComment, isReply: boolean) => (
     <Typography
       key={comment.id}
@@ -134,10 +141,12 @@ export default function CommentThread({
       variant="caption"
       color="text.secondary"
       component="div"
-      sx={{ ...indent(isReply), display: "flex", flexWrap: "wrap", columnGap: 1, lineHeight: 1.5 }}
+      sx={{ ...indent(isReply), lineHeight: 1.5 }}
     >
-      <span>{authorName(comment, t("collab.unknownPerson"))}</span>
-      <span>{formatDateTime(comment.created_at)}</span>
+      {authorName(comment, t("collab.unknownPerson"))}
+      {DOT}
+      {formatDateTime(comment.created_at)}
+      {DOT}
       <Box component="span" sx={{ fontStyle: "italic" }}>
         {t("collab.discussion.deleted")}
       </Box>

@@ -587,7 +587,7 @@
   "collab.discussion.resolved": "Resuelto",
   "collab.discussion.resolvedBy": "Resuelto por {{name}}",
   "collab.discussion.edited": "(editado)",
-  "collab.discussion.deleted": "Este comentario fue eliminado.",
+  "collab.discussion.deleted": "Comentario eliminado",
   "collab.discussion.confirmDelete": "¿Eliminar este comentario?",
   "collab.discussion.noReason": "No se indicó ningún motivo",
   "collab.discussion.rejectionReason": "Motivo del rechazo",

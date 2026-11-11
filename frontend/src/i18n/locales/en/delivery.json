@@ -587,7 +587,7 @@
   "collab.discussion.resolved": "Resolved",
   "collab.discussion.resolvedBy": "Resolved by {{name}}",
   "collab.discussion.edited": "(edited)",
-  "collab.discussion.deleted": "This comment was deleted.",
+  "collab.discussion.deleted": "Comment deleted",
   "collab.discussion.confirmDelete": "Delete this comment?",
   "collab.discussion.noReason": "No reason given",
   "collab.discussion.rejectionReason": "Rejection reason",

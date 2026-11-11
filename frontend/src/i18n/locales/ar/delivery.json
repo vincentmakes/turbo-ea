@@ -659,7 +659,7 @@
   "collab.discussion.resolved": "محلول",
   "collab.discussion.resolvedBy": "حلّه {{name}}",
   "collab.discussion.edited": "(معدّل)",
-  "collab.discussion.deleted": "تم حذف هذا التعليق.",
+  "collab.discussion.deleted": "تم حذف التعليق",
   "collab.discussion.confirmDelete": "حذف هذا التعليق؟",
   "collab.discussion.noReason": "لم يُذكر سبب",
   "collab.discussion.rejectionReason": "سبب الرفض",

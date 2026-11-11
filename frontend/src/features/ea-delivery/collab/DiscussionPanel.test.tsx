@@ -313,7 +313,7 @@ describe("DiscussionPanel", () => {
     await waitFor(() =>
       expect(mockApi.callsOf("delete")).toEqual([{ method: "delete", path: "/adr/a2/comments/t1", body: undefined }]),
     );
-    expect(await screen.findByText("This comment was deleted.")).toBeInTheDocument();
+    expect(await screen.findByText("Comment deleted")).toBeInTheDocument();
     expect(screen.getByText("A reply")).toBeInTheDocument();
   });
 

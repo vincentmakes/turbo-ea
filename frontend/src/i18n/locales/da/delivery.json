@@ -587,7 +587,7 @@
   "collab.discussion.resolved": "Løst",
   "collab.discussion.resolvedBy": "Løst af {{name}}",
   "collab.discussion.edited": "(redigeret)",
-  "collab.discussion.deleted": "Denne kommentar blev slettet.",
+  "collab.discussion.deleted": "Kommentar slettet",
   "collab.discussion.confirmDelete": "Slet denne kommentar?",
   "collab.discussion.noReason": "Ingen begrundelse angivet",
   "collab.discussion.rejectionReason": "Begrundelse for afvisning",
