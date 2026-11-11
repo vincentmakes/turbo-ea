@@ -51,6 +51,7 @@ import {
 import { hasUnsavedEdits } from "./editorDirty";
 import DocumentHistoryButton from "./collab/DocumentHistoryButton";
 import DocumentSidePanel from "./collab/DocumentSidePanel";
+import SectionDiscussionMarker from "./collab/SectionDiscussionMarker";
 import { RejectDocumentDialog, SignDocumentDialog } from "./collab/ReviewDialogs";
 import { deepLinkDialog } from "./collab/reviewDeepLink";
 import { sectionOptions, signBody } from "./collab/discussionModel";
@@ -911,9 +912,10 @@ export default function ADREditor() {
 
       {/* ── Context ── */}
       <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" sx={{ mb: 1 }}>
-          {t("adr.context")}
-        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+          <Typography variant="h6">{t("adr.context")}</Typography>
+          <SectionDiscussionMarker section="context" />
+        </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t("adr.contextHint")}
         </Typography>
@@ -929,9 +931,10 @@ export default function ADREditor() {
 
       {/* ── Decision ── */}
       <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" sx={{ mb: 1 }}>
-          {t("adr.decision")}
-        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+          <Typography variant="h6">{t("adr.decision")}</Typography>
+          <SectionDiscussionMarker section="decision" />
+        </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t("adr.decisionHint")}
         </Typography>
@@ -947,9 +950,10 @@ export default function ADREditor() {
 
       {/* ── Alternatives Considered ── */}
       <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" sx={{ mb: 1 }}>
-          {t("adr.alternativesConsidered")}
-        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+          <Typography variant="h6">{t("adr.alternativesConsidered")}</Typography>
+          <SectionDiscussionMarker section="alternatives_considered" />
+        </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t("adr.alternativesHint")}
         </Typography>
@@ -965,9 +969,10 @@ export default function ADREditor() {
 
       {/* ── Consequences ── */}
       <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" sx={{ mb: 1 }}>
-          {t("adr.consequences")}
-        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+          <Typography variant="h6">{t("adr.consequences")}</Typography>
+          <SectionDiscussionMarker section="consequences" />
+        </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t("adr.consequencesHint")}
         </Typography>

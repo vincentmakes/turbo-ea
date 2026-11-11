@@ -4,13 +4,25 @@ import type { SoAW, SoAWSectionData } from "@/types";
 
 // The discussion and history side panel has its own tests: here the page
 // renders alone, and the props it hands the panel are recorded.
-const sidePanel = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
-vi.mock("./collab/DocumentSidePanel", () => ({
-  default: (props: { children: unknown }) => {
-    sidePanel.props.push(props);
-    return props.children;
+// It provides the section markers' data the test sets (`sidePanel.sections`).
+const sidePanel = vi.hoisted(() => ({
+  props: [] as Record<string, unknown>[],
+  sections: null as null | {
+    counts: Record<string, { open: number; total: number }>;
+    openSection: (section: string) => void;
   },
 }));
+vi.mock("./collab/DocumentSidePanel", async () => {
+  const { SectionDiscussionContext } = await import("./collab/sectionDiscussionContext");
+  return {
+    default: (props: { children: React.ReactNode }) => {
+      sidePanel.props.push(props);
+      return (
+        <SectionDiscussionContext.Provider value={sidePanel.sections}>{props.children}</SectionDiscussionContext.Provider>
+      );
+    },
+  };
+});
 // The History view has its own tests: here it records what the page hands
 // it, and hands back the document a restore returns.
 const historyView = vi.hoisted(() => ({ props: [] as Record<string, unknown>[], restored: null as unknown }));
@@ -1071,6 +1083,27 @@ describe("SoAWEditor — colours", () => {
 });
 
 describe("SoAWEditor — discussion and review notes", () => {
+  it("marks the sections that have threads beside their titles, custom ones included, and opens the discussion on one", async () => {
+    const openSection = vi.fn();
+    sidePanel.sections = {
+      counts: { "2.1": { open: 3, total: 3 }, custom_7: { open: 0, total: 1 } },
+      openSection,
+    };
+    try {
+      const { user } = renderEdit();
+      await waitForLoaded();
+      const markers = screen.getAllByTestId(/^section-marker-/).map((m) => m.dataset.testid);
+      expect(markers.sort()).toEqual(["section-marker-2.1", "section-marker-custom_7"]);
+      expect(within(sectionPaper(SECTION_2_1.title)).getByRole("button", { name: "3 open threads on this section" })).toBeInTheDocument();
+      const done = within(sectionPaper("Appendix A")).getByRole("button", { name: "Resolved discussion on this section" });
+      expect(within(sectionPaper(SECTION_1_1.title)).queryByTestId(/^section-marker-/)).toBeNull();
+      await user.click(done);
+      expect(openSection).toHaveBeenCalledWith("custom_7");
+    } finally {
+      sidePanel.sections = null;
+    }
+  });
+
   it("mounts the side panel on a saved document with its sections, its own custom section included", async () => {
     mockApi.on("get", "/soaw/s1", { ...SOAW, open_thread_count: 2, updated_at: "2026-11-02T00:00:00Z" });
     sidePanel.props.length = 0;

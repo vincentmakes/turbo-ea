@@ -59,6 +59,7 @@ import {
 import { hasUnsavedEdits } from "./editorDirty";
 import DocumentHistoryButton from "./collab/DocumentHistoryButton";
 import DocumentSidePanel from "./collab/DocumentSidePanel";
+import SectionDiscussionMarker from "./collab/SectionDiscussionMarker";
 import { documentPeopleIds } from "./mentions/mentionModel";
 import { RejectDocumentDialog, SignDocumentDialog } from "./collab/ReviewDialogs";
 import { deepLinkDialog } from "./collab/reviewDeepLink";
@@ -1028,9 +1029,10 @@ export default function SoAWEditor() {
             <Paper key={cs.id} sx={{ p: 3, mb: 2, borderLeft: `4px solid ${brand.primary}` }}>
               <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
                 <Chip label={t("editor.customLabel")} size="small" color="primary" sx={{ mr: 1 }} />
-                <Typography sx={{ fontWeight: 600, flex: 1 }}>
-                  {cs.title}
-                </Typography>
+                <Box sx={{ flex: 1, display: "flex", alignItems: "center", minWidth: 0 }}>
+                  <Typography sx={{ fontWeight: 600 }}>{cs.title}</Typography>
+                  <SectionDiscussionMarker section={cs.id} />
+                </Box>
                 {!locked && (
                   <Tooltip title={t("editor.removeCustomSection")}>
                     <IconButton
@@ -1081,16 +1083,18 @@ export default function SoAWEditor() {
                   size={20}
                 />
               </IconButton>
-              <Typography
-                sx={{
-                  fontWeight: 600,
-                  flex: 1,
-                  fontSize: def.level === 2 ? "1.1rem" : "0.95rem",
-                  textDecoration: isHidden ? "line-through" : "none",
-                }}
-              >
-                {def.title}
-              </Typography>
+              <Box sx={{ flex: 1, display: "flex", alignItems: "center", minWidth: 0 }}>
+                <Typography
+                  sx={{
+                    fontWeight: 600,
+                    fontSize: def.level === 2 ? "1.1rem" : "0.95rem",
+                    textDecoration: isHidden ? "line-through" : "none",
+                  }}
+                >
+                  {def.title}
+                </Typography>
+                <SectionDiscussionMarker section={def.id} />
+              </Box>
               {!locked && (
                 <Tooltip title={isHidden ? t("editor.showSection") : t("editor.hideSection")}>
                   <IconButton

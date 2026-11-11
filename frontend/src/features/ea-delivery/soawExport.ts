@@ -608,7 +608,12 @@ function isSectionEmpty(def: TemplateSectionDef, data: SoAWSectionData): boolean
   return false;
 }
 
-/** Build the inner HTML body content for preview and PDF export. */
+/**
+ * Build the inner HTML body content for preview and PDF export. With
+ * `sectionAnchors` (the on-screen preview only) each section heading carries
+ * `data-section="<key>"` so the page can place its discussion marker there;
+ * the export never asks for it, so its HTML is unchanged.
+ */
 export function buildPreviewBody(
   name: string,
   docInfo: SoAWDocumentInfo,
@@ -618,8 +623,10 @@ export function buildPreviewBody(
   revisionNumber?: number,
   signatories?: SoAWSignatory[],
   signedAt?: string | null,
+  { sectionAnchors = false }: { sectionAnchors?: boolean } = {},
 ): string {
   const t = (key: string, opts?: Record<string, unknown>) => String(i18n.t(`delivery:${key}`, opts as never));
+  const anchor = (key: string) => (sectionAnchors ? ` data-section="${escapeHtml(key)}"` : "");
   let html = "";
 
   // Title
@@ -676,7 +683,7 @@ export function buildPreviewBody(
     }
 
     const tag = def.level === 2 ? "h2" : "h3";
-    html += `<${tag}>${def.title}</${tag}>`;
+    html += `<${tag}${anchor(def.id)}>${def.title}</${tag}>`;
 
     if (def.preamble) {
       html += `<p class="preamble">${def.preamble}</p>`;
@@ -709,7 +716,7 @@ export function buildPreviewBody(
     const customBadge = t("export.custom");
     for (const cs of customSections) {
       if (cs.insertAfter === def.id) {
-        html += `<h3><span class="custom-badge">${customBadge}</span>${escapeHtml(cs.title)}</h3>`;
+        html += `<h3${anchor(cs.id)}><span class="custom-badge">${customBadge}</span>${escapeHtml(cs.title)}</h3>`;
         html += fillMentionLabelsI18n(cs.content || "");
       }
     }
@@ -723,7 +730,7 @@ export function buildPreviewBody(
   const trailingCustomBadge = t("export.custom");
   for (const cs of customSections) {
     if (!cs.insertAfter || !getTemplateSections().some((d) => d.id === cs.insertAfter)) {
-      html += `<h3><span class="custom-badge">${trailingCustomBadge}</span>${escapeHtml(cs.title)}</h3>`;
+      html += `<h3${anchor(cs.id)}><span class="custom-badge">${trailingCustomBadge}</span>${escapeHtml(cs.title)}</h3>`;
       html += fillMentionLabelsI18n(cs.content || "");
     }
   }

@@ -37,6 +37,7 @@ import MentionContainer from "./mentions/MentionContainer";
 import { useMentionLabels } from "./mentions/mentionLabels";
 import DocumentHistoryButton from "./collab/DocumentHistoryButton";
 import DocumentSidePanel from "./collab/DocumentSidePanel";
+import SectionDiscussionMarker from "./collab/SectionDiscussionMarker";
 import { documentPeopleIds } from "./mentions/mentionModel";
 import MentionedInList from "./collab/MentionedInList";
 import { sectionOptions } from "./collab/discussionModel";
@@ -110,7 +111,7 @@ export default function ADRPreview() {
   const sections = [
     { key: "context", label: t("adr.context"), content: adr.context },
     { key: "decision", label: t("adr.decision"), content: adr.decision },
-    { key: "alternatives", label: t("adr.alternativesConsidered"), content: adr.alternatives_considered },
+    { key: "alternatives_considered", label: t("adr.alternativesConsidered"), content: adr.alternatives_considered },
     { key: "consequences", label: t("adr.consequences"), content: adr.consequences },
   ];
 
@@ -262,9 +263,12 @@ export default function ADRPreview() {
         <MentionContainer>
           {sections.map(({ key, label, content }) => (
             <Box key={key} sx={{ mb: 4 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-                {label}
-              </Typography>
+              <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                  {label}
+                </Typography>
+                <SectionDiscussionMarker section={key} />
+              </Box>
               {content ? (
                 <Box
                   dangerouslySetInnerHTML={{

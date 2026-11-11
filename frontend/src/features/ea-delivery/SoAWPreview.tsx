@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router";
 import { sanitizeRichHtml } from "@/lib/richHtml";
@@ -22,6 +22,7 @@ import { soawCurrentRevisionId } from "./soawEditorState";
 import MentionContainer from "./mentions/MentionContainer";
 import DocumentHistoryButton from "./collab/DocumentHistoryButton";
 import DocumentSidePanel from "./collab/DocumentSidePanel";
+import HtmlSectionMarkers from "./collab/HtmlSectionMarkers";
 import { documentPeopleIds } from "./mentions/mentionModel";
 import { sectionOptions, soawSectionOptions } from "./collab/discussionModel";
 import { getTemplateSections } from "./soawTemplate";
@@ -62,6 +63,7 @@ export default function SoAWPreview() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [snack, setSnack] = useState("");
+  const previewRef = useRef<HTMLDivElement | null>(null);
 
   // Re-keyed on in-page revision navigation: only the latest load may fill
   // the page, so a late reply for the revision just left is dropped.
@@ -125,7 +127,9 @@ export default function SoAWPreview() {
 
   const docInfo = soaw.document_info ?? { prepared_by: "", reviewed_by: "", review_date: "" };
   const versionHistory = soaw.version_history ?? [];
-  const bodyHtml = buildPreviewBody(soaw.name, docInfo, versionHistory, templateSections, customSections, soaw.revision_number, soaw.signatories, soaw.signed_at);
+  // On screen the section headings carry their key, for the discussion markers.
+  const bodyHtml = buildPreviewBody(soaw.name, docInfo, versionHistory, templateSections, customSections, soaw.revision_number, soaw.signatories, soaw.signed_at, { sectionAnchors: true });
+  const previewHtml = sanitizeRichHtml(bodyHtml);
 
   const handleExportPdf = () =>
     exportToPdf(soaw.name, docInfo, versionHistory, templateSections, customSections, soaw.revision_number, soaw.signatories, soaw.signed_at);
@@ -248,10 +252,12 @@ export default function SoAWPreview() {
       <style>{PREVIEW_CSS}</style>
       <MentionContainer>
         <Box
+          ref={previewRef}
           className="soaw-preview"
           sx={{ maxWidth: 800, mx: "auto", px: { xs: 1, sm: 0 } }}
-          dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(bodyHtml) }}
+          dangerouslySetInnerHTML={{ __html: previewHtml }}
         />
+        <HtmlSectionMarkers containerRef={previewRef} html={previewHtml} />
       </MentionContainer>
 
       {/* Signature Block */}

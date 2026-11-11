@@ -5,13 +5,25 @@ import type { SoAW, SoAWSectionData } from "@/types";
 
 // The discussion and history side panel has its own tests: here the page
 // renders alone, and the props it hands the panel are recorded.
-const sidePanel = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
-vi.mock("./collab/DocumentSidePanel", () => ({
-  default: (props: { children: unknown }) => {
-    sidePanel.props.push(props);
-    return props.children;
+// It provides the section markers' data the test sets (`sidePanel.sections`).
+const sidePanel = vi.hoisted(() => ({
+  props: [] as Record<string, unknown>[],
+  sections: null as null | {
+    counts: Record<string, { open: number; total: number }>;
+    openSection: (section: string) => void;
   },
 }));
+vi.mock("./collab/DocumentSidePanel", async () => {
+  const { SectionDiscussionContext } = await import("./collab/sectionDiscussionContext");
+  return {
+    default: (props: { children: React.ReactNode }) => {
+      sidePanel.props.push(props);
+      return (
+        <SectionDiscussionContext.Provider value={sidePanel.sections}>{props.children}</SectionDiscussionContext.Provider>
+      );
+    },
+  };
+});
 // The History view has its own tests: here it records what the page hands
 // it, and hands back the document a restore returns.
 const historyView = vi.hoisted(() => ({ props: [] as Record<string, unknown>[], restored: null as unknown }));
@@ -551,5 +563,39 @@ describe("SoAWPreview — discussion", () => {
     historyView.restored = { ...SOAW, name: "Restored SoAW name" };
     await user.click(screen.getByRole("button", { name: "restore-it" }));
     expect(await screen.findByRole("heading", { name: "Restored SoAW name" })).toBeInTheDocument();
+  });
+});
+
+describe("SoAWPreview — section markers", () => {
+  it("marks the section headings that have threads, custom ones included, and opens the discussion on one", async () => {
+    const openSection = vi.fn();
+    sidePanel.sections = {
+      counts: { "1.1": { open: 2, total: 2 }, custom_7: { open: 0, total: 1 }, "1.2": { open: 1, total: 1 } },
+      openSection,
+    };
+    try {
+      const { user } = renderPreview();
+      await screen.findByRole("heading", { name: SOAW.name });
+      const open = await screen.findByRole("button", { name: "2 open threads on this section" });
+      expect(open.closest("[data-section]")).toHaveAttribute("data-section", "1.1");
+      expect(open.closest(".soaw-preview")).toBe(previewBody());
+      expect(open.parentElement).toHaveClass("no-print");
+      const done = screen.getByRole("button", { name: "Resolved discussion on this section" });
+      expect(done.closest("[data-section]")).toHaveAttribute("data-section", "custom_7");
+      // 1.2 is hidden from the preview: no heading, so no marker.
+      expect(screen.getAllByTestId(/^section-marker-/)).toHaveLength(2);
+      await user.click(done);
+      expect(openSection).toHaveBeenCalledWith("custom_7");
+    } finally {
+      sidePanel.sections = null;
+    }
+  });
+
+  it("anchors the on-screen headings by section and shows no marker without threads", async () => {
+    renderPreview();
+    await screen.findByRole("heading", { name: SOAW.name });
+    expect(previewBody().querySelector('[data-section="1.1"]')).not.toBeNull();
+    expect(previewBody().querySelector('[data-section="custom_7"]')).not.toBeNull();
+    expect(screen.queryAllByTestId(/^section-marker-/)).toHaveLength(0);
   });
 });

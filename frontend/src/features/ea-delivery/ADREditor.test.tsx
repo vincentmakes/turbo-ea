@@ -6,13 +6,25 @@ import type { ArchitectureDecision } from "@/types";
 
 // The discussion and history side panel has its own tests: here the page
 // renders alone, and the props it hands the panel are recorded.
-const sidePanel = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
-vi.mock("./collab/DocumentSidePanel", () => ({
-  default: (props: { children: unknown }) => {
-    sidePanel.props.push(props);
-    return props.children;
+// It provides the section markers' data the test sets (`sidePanel.sections`).
+const sidePanel = vi.hoisted(() => ({
+  props: [] as Record<string, unknown>[],
+  sections: null as null | {
+    counts: Record<string, { open: number; total: number }>;
+    openSection: (section: string) => void;
   },
 }));
+vi.mock("./collab/DocumentSidePanel", async () => {
+  const { SectionDiscussionContext } = await import("./collab/sectionDiscussionContext");
+  return {
+    default: (props: { children: React.ReactNode }) => {
+      sidePanel.props.push(props);
+      return (
+        <SectionDiscussionContext.Provider value={sidePanel.sections}>{props.children}</SectionDiscussionContext.Provider>
+      );
+    },
+  };
+});
 // The History view has its own tests: here it records what the page hands
 // it, and hands back the document a restore returns.
 const historyView = vi.hoisted(() => ({ props: [] as Record<string, unknown>[], restored: null as unknown }));
@@ -1207,6 +1219,27 @@ describe("ADREditor — decision register", () => {
 });
 
 describe("ADREditor — discussion and review notes", () => {
+  it("marks the sections that have threads beside their headings, and opens the discussion on one", async () => {
+    const openSection = vi.fn();
+    sidePanel.sections = {
+      counts: { alternatives_considered: { open: 2, total: 3 }, consequences: { open: 0, total: 1 } },
+      openSection,
+    };
+    try {
+      await renderLoaded(base);
+      const markers = screen.getAllByTestId(/^section-marker-/).map((m) => m.dataset.testid);
+      expect(markers).toEqual(["section-marker-alternatives_considered", "section-marker-consequences"]);
+      const open = screen.getByRole("button", { name: "2 open threads on this section" });
+      expect(within(open.parentElement!).getByRole("heading", { name: "Alternatives Considered" })).toBeInTheDocument();
+      const done = screen.getByRole("button", { name: "Resolved discussion on this section" });
+      expect(within(done.parentElement!).getByRole("heading", { name: "Consequences" })).toBeInTheDocument();
+      await userEvent.click(open);
+      expect(openSection).toHaveBeenCalledWith("alternatives_considered");
+    } finally {
+      sidePanel.sections = null;
+    }
+  });
+
   it("mounts the side panel on a saved decision with its owner, status and sections", async () => {
     sidePanel.props.length = 0;
     await renderLoaded({ ...base, open_thread_count: 3, updated_at: "2026-11-01T00:00:00Z" });
