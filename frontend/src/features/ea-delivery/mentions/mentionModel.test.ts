@@ -5,7 +5,10 @@ import type { ArchitectureDecision } from "@/types";
 import {
   MENTION_GROUP_LIMIT,
   cardMentionItems,
+  cardRowMeta,
+  comparePreferred,
   decisionMentionItems,
+  documentPeopleIds,
   flattenGroups,
   groupMentionItems,
   mentionAttrsFromElement,
@@ -13,8 +16,12 @@ import {
   mentionHref,
   mentionHrefFromTarget,
   mentionSpanAttributes,
+  mentionInsertContent,
   mentionText,
   nextIndex,
+  reconcilePicks,
+  resolveActive,
+  togglePick,
   unlinkedMentionedCards,
   userMentionItems,
   type MentionAttrs,
@@ -171,10 +178,14 @@ describe("popup items", () => {
 
   it("ranks cards on the raw query, exact first, alias included, non-matches dropped", () => {
     expect(cardMentionItems(cards, " portal ")).toEqual([
-      { kind: "card", id: "c2", label: "Portal", secondary: "Application" },
-      { kind: "card", id: "c3", label: "CRM", secondary: "Application" },
-      { kind: "card", id: "c1", label: "Billing Portal", secondary: "Application" },
+      { kind: "card", id: "c2", label: "Portal", card: { type: "Application", subtype: null } },
+      { kind: "card", id: "c3", label: "CRM", card: { type: "Application", subtype: null } },
+      { kind: "card", id: "c1", label: "Billing Portal", card: { type: "Application", subtype: null } },
     ]);
+    expect(cardMentionItems([{ id: "s", name: "S", type: "T", subtype: "web" }], "")[0].card).toEqual({
+      type: "T",
+      subtype: "web",
+    });
   });
 
   it("keeps the server's order with an empty query and caps every group", () => {
@@ -188,14 +199,44 @@ describe("popup items", () => {
 
   it("labels decisions as the server does and ranks on title and reference", () => {
     const rows = [
-      { id: "d1", reference_number: "ADR-002", title: "Pick a CRM", revision_number: 2 },
-      { id: "d2", reference_number: "ADR-001", title: "Adopt Kafka", revision_number: 1 },
+      {
+        id: "d1",
+        reference_number: "ADR-002",
+        title: "Pick a CRM",
+        revision_number: 2,
+        status: "signed",
+        standing: "in_force",
+        recorded_at: "2026-01-02",
+      },
+      { id: "d2", reference_number: "ADR-001", title: "Adopt Kafka", revision_number: 1, status: "draft" },
     ] as ArchitectureDecision[];
     const t = (key: string, opts?: Record<string, unknown>) =>
       key === "adr.revision.reference" ? `${opts?.reference} · Rev ${opts?.number}` : key;
     expect(decisionMentionItems(rows, "", t)).toEqual([
-      { kind: "decision", id: "d1", label: "ADR-002 · Rev 2 Pick a CRM" },
-      { kind: "decision", id: "d2", label: "ADR-001 Adopt Kafka" },
+      {
+        kind: "decision",
+        id: "d1",
+        label: "ADR-002 · Rev 2 Pick a CRM",
+        decision: {
+          reference: "ADR-002 · Rev 2",
+          title: "Pick a CRM",
+          status: "signed",
+          standing: "in_force",
+          recorded_at: "2026-01-02",
+        },
+      },
+      {
+        kind: "decision",
+        id: "d2",
+        label: "ADR-001 Adopt Kafka",
+        decision: {
+          reference: "ADR-001",
+          title: "Adopt Kafka",
+          status: "draft",
+          standing: null,
+          recorded_at: null,
+        },
+      },
     ]);
     expect(decisionMentionItems(rows, "kafka", t).map((i) => i.id)).toEqual(["d2"]);
     expect(decisionMentionItems(rows, "ADR-002", t).map((i) => i.id)).toEqual(["d1"]);
@@ -209,7 +250,9 @@ describe("popup items", () => {
       { id: "u4", display_name: "Carl", email: "carl@x.io" },
     ];
     expect(userMentionItems(users, "ann").map((u) => u.id)).toEqual(["u2", "u3", "u1"]);
-    expect(userMentionItems(users, "")[0]).toEqual({
+    // An empty query lists everyone alphabetically.
+    expect(userMentionItems(users, "").map((u) => u.id)).toEqual(["u2", "u3", "u4", "u1"]);
+    expect(userMentionItems(users, "")[3]).toEqual({
       kind: "user",
       id: "u1",
       label: "Zoe Ann",
@@ -251,6 +294,147 @@ describe("nextIndex", () => {
     expect(nextIndex(0, 0, "ArrowDown")).toBe(-1);
     expect(nextIndex(0, -1, "ArrowUp")).toBe(-1);
     expect(nextIndex(0, 1, "ArrowDown")).toBe(0);
+  });
+});
+
+describe("ordering that knows the document", () => {
+  const page = [
+    { id: "a", name: "Alpha", type: "T" },
+    { id: "b", name: "Beta Portal", type: "T" },
+    { id: "p", name: "Portal", type: "T" },
+    { id: "z", name: "Zeta", type: "T" },
+  ];
+  const linked = [
+    { id: "y", name: "Ypsilon Portal", type: "T" },
+    { id: "z", name: "Zeta", type: "T" },
+    { id: "m", name: "Mu", type: "T" },
+  ];
+
+  it("lists linked cards first on an empty query, then the page in its order without them", () => {
+    expect(cardMentionItems(page, "", linked).map((i) => i.id)).toEqual(["m", "y", "z", "a", "b", "p"]);
+    expect(cardMentionItems(page, "  ", []).map((i) => i.id)).toEqual(["a", "b", "p", "z"]);
+  });
+
+  it("puts a linked card first within its tier, never across tiers", () => {
+    // "Portal" is exact (tier 0); "Beta Portal" and the linked "Ypsilon Portal"
+    // both start a word (tier 2): the linked one leads that tier only.
+    expect(cardMentionItems(page, "portal", linked).map((i) => i.id)).toEqual(["p", "y", "b"]);
+    // A linked card that does not match is dropped.
+    expect(cardMentionItems(page, "zz", linked)).toEqual([]);
+  });
+
+  it("caps the group, linked cards included", () => {
+    const many = Array.from({ length: 10 }, (_, i) => ({ id: `l${i}`, name: `L${i}`, type: "T" }));
+    const items = cardMentionItems(page, "", many);
+    expect(items).toHaveLength(MENTION_GROUP_LIMIT);
+    expect(items.every((i) => i.id.startsWith("l"))).toBe(true);
+  });
+
+  it("puts the document's people first, by tier, then alphabetical", () => {
+    const users = [
+      { id: "u1", display_name: "Ann Zed", email: "az@x.io" },
+      { id: "u2", display_name: "Bob", email: "ann.b@x.io" },
+      { id: "u3", display_name: "Ann", email: "a@x.io" },
+      { id: "u4", display_name: "Carl", email: "c@x.io" },
+    ];
+    expect(userMentionItems(users, "", ["u4", "u2"]).map((u) => u.id)).toEqual(["u2", "u4", "u3", "u1"]);
+    // Exact "Ann" stays ahead of the priority person who only starts with it.
+    expect(userMentionItems(users, "ann", ["u1", "u2"]).map((u) => u.id)).toEqual(["u3", "u1", "u2"]);
+    expect(userMentionItems(users, "ann", new Set(["u2"])).map((u) => u.id)).toEqual(["u3", "u2", "u1"]);
+  });
+
+  it("compares by tier, then preference, then name", () => {
+    const cmp = comparePreferred<{ name: string; pick?: boolean }>("ab", (r) => r, (r) => Boolean(r.pick));
+    expect(cmp({ name: "ab" }, { name: "abc", pick: true })).toBeLessThan(0);
+    expect(cmp({ name: "abd" }, { name: "abc", pick: true })).toBeGreaterThan(0);
+    expect(cmp({ name: "abc", pick: true }, { name: "abd" })).toBeLessThan(0);
+    expect(cmp({ name: "abd" }, { name: "abc" })).toBeGreaterThan(0);
+    expect(cmp({ name: "ABC" }, { name: "abc" })).toBe(0);
+    expect(cmp({ name: "zz" }, { name: "x ab" })).toBeGreaterThan(0);
+    expect(cmp({ name: "zz" }, { name: "yy" })).toBeGreaterThan(0);
+  });
+
+  it("names the document's people: signatories, then user decision makers and participants, once", () => {
+    expect(
+      documentPeopleIds({
+        signatories: [{ user_id: "s1" }, { user_id: "p1" }],
+        decision_makers: [{ user_id: null }, { user_id: "d1" }],
+        participants: [{ user_id: "p1" }, { user_id: "p2" }],
+      }),
+    ).toEqual(["s1", "p1", "d1", "p2"]);
+    expect(documentPeopleIds({})).toEqual([]);
+    expect(documentPeopleIds({ signatories: null, decision_makers: null, participants: null })).toEqual([]);
+  });
+});
+
+describe("card rows", () => {
+  const type = {
+    key: "Application",
+    label: "Application",
+    color: "#0f7eb5",
+    icon: "apps",
+    subtypes: [{ key: "web", label: "Web app" }],
+  };
+  const typeLabel = (t: { label: string }) => `T:${t.label}`;
+  const subLabel = (s: { label: string }) => `S:${s.label}`;
+
+  it("shows the type's colour and icon, the type and the subtype it defines", () => {
+    expect(cardRowMeta({ type: "Application", subtype: "web" }, type, typeLabel, subLabel)).toEqual({
+      color: "#0f7eb5",
+      icon: "apps",
+      detail: "T:Application · S:Web app",
+    });
+    expect(cardRowMeta({ type: "Application", subtype: "gone" }, type, typeLabel, subLabel).detail).toBe(
+      "T:Application",
+    );
+    expect(cardRowMeta({ type: "Application" }, type, typeLabel, subLabel).detail).toBe("T:Application");
+  });
+
+  it("shows nothing for a type the metamodel does not offer, never its key", () => {
+    expect(cardRowMeta({ type: "Hidden", subtype: "web" }, undefined, typeLabel, subLabel)).toEqual({
+      color: null,
+      icon: null,
+      detail: "",
+    });
+  });
+});
+
+describe("the popup's rows and the browse picks", () => {
+  it("highlights the first item by default, nothing when there is none, and clamps to Browse", () => {
+    expect(resolveActive(-1, 3)).toBe(0);
+    expect(resolveActive(-1, 0)).toBe(-1);
+    expect(resolveActive(2, 3)).toBe(2);
+    expect(resolveActive(3, 3)).toBe(3);
+    expect(resolveActive(7, 3)).toBe(3);
+    expect(resolveActive(0, 0)).toBe(0);
+  });
+
+  const c1 = { kind: "card" as const, id: "c1", label: "C1" };
+  const c2 = { kind: "card" as const, id: "c2", label: "C2" };
+  const d1 = { kind: "decision" as const, id: "d1", label: "D1" };
+  const u1 = { kind: "user" as const, id: "u1", label: "U1" };
+
+  it("keeps pick order across pickers when one changes its selection", () => {
+    let picks = reconcilePicks([], "card", [c1]);
+    picks = togglePick(picks, d1);
+    picks = reconcilePicks(picks, "card", [c1, c2]);
+    picks = reconcilePicks(picks, "user", [u1]);
+    expect(picks).toEqual([c1, d1, c2, u1]);
+    expect(reconcilePicks(picks, "card", [c2])).toEqual([d1, c2, u1]);
+    expect(reconcilePicks(picks, "card", [])).toEqual([d1, u1]);
+    expect(togglePick(picks, d1)).toEqual([c1, c2, u1]);
+    // Same id, other kind: a separate pick.
+    expect(togglePick([c1], { kind: "decision", id: "c1", label: "X" })).toHaveLength(2);
+  });
+
+  it("inserts one mention per pick, in order, each followed by a space", () => {
+    expect(mentionInsertContent([c1, d1])).toEqual([
+      { type: "mention", attrs: { kind: "card", id: "c1", label: "C1", mentionSuggestionChar: "@" } },
+      { type: "text", text: " " },
+      { type: "mention", attrs: { kind: "decision", id: "d1", label: "D1", mentionSuggestionChar: "@" } },
+      { type: "text", text: " " },
+    ]);
+    expect(mentionInsertContent([])).toEqual([]);
   });
 });
 

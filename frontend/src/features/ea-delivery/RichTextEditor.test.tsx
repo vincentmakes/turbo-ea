@@ -17,6 +17,7 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import RichTextEditor from "./RichTextEditor";
 import { plainListTags } from "./collab/discussionModel";
 import { api } from "@/api/client";
+import { invalidateDecisionOptions } from "@/components/DecisionPicker";
 
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn().mockResolvedValue([]) },
@@ -535,7 +536,9 @@ describe("RichTextEditor '@' popup lifetime", () => {
     const editor = editorOf(container);
     type(editor, " @Customer Po");
     const option = await screen.findByRole("option", { name: /Customer Portal/ });
-    await waitFor(() => expect(screen.getAllByRole("option")).toEqual([option]));
+    await waitFor(() =>
+      expect(screen.getAllByRole("option").filter((o) => o.dataset.testid !== "mention-browse")).toEqual([option]),
+    );
     fireEvent.keyDown(editor.view.dom, { key: "Enter" });
     await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
     expect(onChange.mock.calls.at(-1)?.[0]).toBe(
@@ -572,5 +575,131 @@ describe("RichTextEditor '@' popup lifetime", () => {
     type(editor, " top");
     await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
     expect(editor.getHTML()).toBe("<p>see @zz top</p>");
+  });
+});
+
+describe("RichTextEditor Browse", () => {
+  const ADR = {
+    id: DECISION_ID,
+    reference_number: "ADR-001",
+    title: "Adopt Kafka",
+    revision_number: 1,
+    status: "draft",
+  };
+  const ADR2 = { ...ADR, id: CARD_ID, reference_number: "ADR-002", title: "Pick a CRM" };
+  beforeEach(() => {
+    invalidateDecisionOptions();
+    vi.mocked(api.get).mockImplementation(async (path: string) =>
+      path === "/adr?include_earlier=false" ? [ADR, ADR2] : [],
+    );
+  });
+
+  const span = (id: string, text: string) =>
+    `<span data-type="mention" data-kind="decision" data-id="${id}">${text}</span>`;
+
+  it("offers the Mention button only in an editable editor with mentions", async () => {
+    const { unmount } = render(<RichTextEditor content="<p>a</p>" onChange={() => {}} />);
+    await screen.findByText("a");
+    expect(screen.queryByText("alternate_email")).not.toBeInTheDocument();
+    unmount();
+    const second = render(
+      <RichTextEditor content="<p>a</p>" onChange={() => {}} mentions={["decision"]} readOnly />,
+    );
+    await screen.findByText("a");
+    expect(screen.queryByText("alternate_email")).not.toBeInTheDocument();
+    second.unmount();
+    render(<RichTextEditor content="<p>a</p>" onChange={() => {}} mentions={["decision"]} />);
+    await screen.findByText("a");
+    expect(screen.getByText("alternate_email").closest("button")).toHaveAttribute("aria-label", "Mention…");
+  });
+
+  it("inserts the picks at the caret from the toolbar, in pick order, spaced", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    const { container } = render(
+      <RichTextEditor content="<p>see</p>" onChange={onChange} mentions={["decision"]} />,
+    );
+    await screen.findByText("see");
+    act(() => {
+      editorOf(container).commands.focus("end");
+    });
+    await user.click(screen.getByText("alternate_email").closest("button")!);
+    const dialog = await screen.findByRole("dialog", { name: "Mention" });
+    expect(screen.getByRole("button", { name: "Insert" })).toBeDisabled();
+    await user.click(await screen.findByRole("checkbox", { name: "ADR-002 Pick a CRM" }));
+    await user.click(screen.getByRole("checkbox", { name: "ADR-001 Adopt Kafka" }));
+    await user.click(screen.getByRole("button", { name: "Insert" }));
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    expect(onChange.mock.calls.at(-1)?.[0]).toBe(
+      `<p>see${span(CARD_ID, "ADR-002 Pick a CRM")} ${span(DECISION_ID, "ADR-001 Adopt Kafka")} </p>`,
+    );
+    expect(editorOf(container).isFocused).toBe(true);
+  });
+
+  it("replaces the '@query' when opened from the popup, and Cancel leaves it as it was", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    const { container } = render(
+      <RichTextEditor content="<p>see</p>" onChange={onChange} mentions={["decision"]} />,
+    );
+    await screen.findByText("see");
+    const editor = editorOf(container);
+    act(() => {
+      editor.chain().focus("end").insertContent(" @Ado").run();
+    });
+    await screen.findByRole("option", { name: /ADR-001/ });
+    fireEvent.keyDown(editor.view.dom, { key: "ArrowDown" });
+    fireEvent.keyDown(editor.view.dom, { key: "Enter" });
+    expect(await screen.findByRole("dialog", { name: "Mention" })).toBeInTheDocument();
+    // The popup is closed while the dialog is open.
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    const calls = onChange.mock.calls.length;
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(onChange.mock.calls.length).toBe(calls);
+    expect(editor.getHTML()).toBe("<p>see @Ado</p>");
+    expect(editor.state.selection.from).toBe(9);
+
+    act(() => {
+      editor.chain().focus("end").insertContent(" @Ad").run();
+    });
+    await userEvent.click(await screen.findByTestId("mention-browse"));
+    await user.click(await screen.findByRole("checkbox", { name: "ADR-001 Adopt Kafka" }));
+    await user.click(screen.getByRole("button", { name: "Insert" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(onChange.mock.calls.at(-1)?.[0]).toBe(`<p>see @Ado ${span(DECISION_ID, "ADR-001 Adopt Kafka")} </p>`);
+  });
+
+  it("passes the document's context to the popup's order", async () => {
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.startsWith("/cards?ids=")) {
+        return { items: [{ id: CARD_ID, name: "Zed", type: "Application" }], total: 1 };
+      }
+      if (path.startsWith("/cards?")) {
+        return { items: [{ id: DECISION_ID, name: "Alpha", type: "Application" }], total: 1 };
+      }
+      return [];
+    });
+    const { container } = render(
+      <RichTextEditor
+        content="<p>see</p>"
+        onChange={() => {}}
+        mentions={["card"]}
+        mentionContext={{ linkedCardIds: [CARD_ID] }}
+      />,
+    );
+    await screen.findByText("see");
+    act(() => {
+      editorOf(container).chain().focus("end").insertContent(" @").run();
+    });
+    await screen.findByRole("option", { name: /Alpha/ });
+    await waitFor(() =>
+      expect(
+        screen
+          .getAllByRole("option")
+          .filter((o) => o.dataset.testid !== "mention-browse")
+          .map((o) => o.textContent),
+      ).toEqual(["Zed", "Alpha"]),
+    );
   });
 });

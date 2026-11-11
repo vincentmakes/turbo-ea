@@ -11,23 +11,40 @@ import userEvent from "@testing-library/user-event";
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn() },
 }));
+vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
 
 import { api } from "@/api/client";
 import { invalidateDecisionOptions } from "@/components/DecisionPicker";
 import { invalidateUserOptions } from "@/components/UserMultiSelect";
 import type { MentionKind } from "@/lib/mentionHtml";
+import { CARD_TYPES } from "@/test/fixtures/metamodel";
+import { withMetamodel } from "@/test/hooks";
 import MentionPopup from "./MentionPopup";
+import type { MentionContext } from "./mentionModel";
 import { createMentionSuggestionStore, queryRanOn, type MentionSuggestionStore } from "./mentionSuggestionStore";
 
 const CARDS = [
-  { id: "c1", name: "SAP ERP", type: "Application" },
+  { id: "c1", name: "SAP ERP", type: "Application", subtype: "microservice" },
   { id: "c2", name: "CRM", type: "Application" },
 ];
-const DECISIONS = [{ id: "d1", reference_number: "ADR-001", title: "Adopt Kafka", revision_number: 1 }];
-const USERS = [{ id: "u1", display_name: "Ann Lee", email: "ann@x.io" }];
+const LINKED = [
+  { id: "l1", name: "Zebra Hub", type: "Application" },
+  { id: "l2", name: "Old Hub", type: "Application", archived_at: "2026-01-01" },
+];
+const DECISIONS = [
+  { id: "d1", reference_number: "ADR-001", title: "Adopt Kafka", revision_number: 1, status: "draft" },
+];
+const USERS = [
+  { id: "u1", display_name: "Ann Lee", email: "ann@x.io" },
+  { id: "u2", display_name: "Bob Ray", email: "bob@x.io" },
+];
 
-function mockApi({ cardsStatus }: { cardsStatus?: number } = {}) {
+function mockApi({ cardsStatus, linkedFails }: { cardsStatus?: number; linkedFails?: boolean } = {}) {
   vi.mocked(api.get).mockImplementation(async (path: string) => {
+    if (path.startsWith("/cards?ids=")) {
+      if (linkedFails) throw new Error("refused");
+      return { items: LINKED, total: LINKED.length };
+    }
     if (path.startsWith("/cards?")) {
       if (cardsStatus) throw Object.assign(new Error("refused"), { status: cardsStatus });
       return { items: CARDS, total: CARDS.length };
@@ -38,11 +55,13 @@ function mockApi({ cardsStatus }: { cardsStatus?: number } = {}) {
   });
 }
 
-function setup(kinds: MentionKind[]) {
+function setup(kinds: MentionKind[], context?: MentionContext) {
   const store = createMentionSuggestionStore();
   const renderer = store.render();
   const command = vi.fn();
-  render(<MentionPopup store={store} kinds={kinds} />);
+  const onBrowse = vi.fn();
+  store.setBrowseHandler(onBrowse);
+  render(<MentionPopup store={store} kinds={kinds} context={context} />);
   const start = (query = "") =>
     act(() => {
       renderer.onStart({
@@ -58,10 +77,18 @@ function setup(kinds: MentionKind[]) {
     });
     return used;
   };
-  return { store, renderer, command, start, key };
+  return { store, renderer, command, start, key, onBrowse };
 }
 
+/** The item rows, without the last "Browse…" row. */
+const itemTexts = () =>
+  screen
+    .getAllByRole("option")
+    .filter((o) => o.getAttribute("data-testid") !== "mention-browse")
+    .map((o) => o.textContent);
+
 beforeEach(() => {
+  withMetamodel(CARD_TYPES, []);
   vi.mocked(api.get).mockReset();
   invalidateDecisionOptions();
   invalidateUserOptions();
@@ -106,9 +133,7 @@ describe("MentionPopup", () => {
     start();
     await screen.findByRole("option", { name: /CRM/ });
     start("kafka");
-    await waitFor(() =>
-      expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["ADR-001 Adopt Kafka"]),
-    );
+    await waitFor(() => expect(itemTexts()).toEqual(["ADR-001Adopt KafkaDraft"]));
   });
 
   it("walks the rows with the arrow keys, wrapping, and picks with Enter or Tab", async () => {
@@ -121,15 +146,16 @@ describe("MentionPopup", () => {
     const list = screen.getByRole("listbox");
     const options = () => screen.getAllByRole("option");
     expect(options().map((o) => o.textContent)).toEqual([
-      "SAP ERPApplication",
-      "CRMApplication",
-      "ADR-001 Adopt Kafka",
+      "appsSAP ERPApplication · Microservice",
+      "appsCRMApplication",
+      "ADR-001Adopt KafkaDraft",
+      "manage_searchBrowse…",
     ]);
     expect(list).toHaveAttribute("aria-activedescendant", options()[0].id);
     expect(options()[0]).toHaveAttribute("aria-selected", "true");
 
     expect(key("ArrowUp")).toBe(true);
-    expect(list).toHaveAttribute("aria-activedescendant", options()[2].id);
+    expect(list).toHaveAttribute("aria-activedescendant", options()[3].id);
     expect(key("ArrowDown")).toBe(true);
     expect(list).toHaveAttribute("aria-activedescendant", options()[0].id);
     expect(key("ArrowDown")).toBe(true);
@@ -142,6 +168,83 @@ describe("MentionPopup", () => {
     expect(key("Tab")).toBe(true);
     expect(command).toHaveBeenLastCalledWith({ kind: "decision", id: "d1", label: "ADR-001 Adopt Kafka" });
     expect(key("a")).toBe(false);
+  });
+
+  it("shows the type's icon on a card row and the standing on a decision row", async () => {
+    mockApi();
+    const { start } = setup(["card", "decision"]);
+    start();
+    const row = await screen.findByRole("option", { name: /SAP ERP/ });
+    expect(within(row).getByTestId("mention-type-icon")).toBeInTheDocument();
+    expect(within(row).getByText("Application · Microservice")).toBeInTheDocument();
+    const decision = await screen.findByRole("option", { name: /ADR-001/ });
+    expect(within(decision).getByText("ADR-001")).toBeInTheDocument();
+    expect(within(decision).getByText("Adopt Kafka")).toBeInTheDocument();
+    expect(within(decision).getByText("Draft")).toBeInTheDocument();
+  });
+
+  it("opens Browse from its row by keyboard and by click", async () => {
+    mockApi();
+    const { start, key, onBrowse, store, command } = setup(["decision"]);
+    start();
+    await screen.findByRole("option", { name: /ADR-001/ });
+    expect(key("ArrowDown")).toBe(true);
+    expect(screen.getByTestId("mention-browse")).toHaveAttribute("aria-selected", "true");
+    expect(key("Enter")).toBe(true);
+    expect(onBrowse).toHaveBeenCalledTimes(1);
+    expect(store.isOpen()).toBe(false);
+    expect(command).not.toHaveBeenCalled();
+
+    start("ka");
+    await userEvent.click(await screen.findByTestId("mention-browse"));
+    expect(onBrowse).toHaveBeenCalledTimes(2);
+    expect(store.isOpen()).toBe(false);
+  });
+
+  it("highlights nothing when nothing matched, so Enter still reaches the editor", async () => {
+    mockApi();
+    const { start, key, onBrowse } = setup(["decision"]);
+    start("zzz");
+    expect(await screen.findByText("No matches")).toBeInTheDocument();
+    expect(screen.getByRole("listbox")).not.toHaveAttribute("aria-activedescendant");
+    expect(key("Enter")).toBe(false);
+    expect(onBrowse).not.toHaveBeenCalled();
+    expect(key("ArrowDown")).toBe(true);
+    expect(key("Tab")).toBe(true);
+    expect(onBrowse).toHaveBeenCalledTimes(1);
+  });
+
+  it("lists the document's linked cards first, without archived ones", async () => {
+    mockApi();
+    const { start } = setup(["card"], { linkedCardIds: ["l1", "l2"] });
+    start();
+    await screen.findByRole("option", { name: /CRM/ });
+    await waitFor(() =>
+      expect(itemTexts()).toEqual([
+        "appsZebra HubApplication",
+        "appsSAP ERPApplication · Microservice",
+        "appsCRMApplication",
+      ]),
+    );
+    expect(vi.mocked(api.get).mock.calls.map((c) => c[0])).toContain(
+      `/cards?ids=${encodeURIComponent("l1,l2")}`,
+    );
+  });
+
+  it("goes on without the linked cards when they cannot be read", async () => {
+    mockApi({ linkedFails: true });
+    const { start } = setup(["card"], { linkedCardIds: ["l1"] });
+    start();
+    await screen.findByRole("option", { name: /CRM/ });
+    await waitFor(() => expect(itemTexts()).toEqual(["appsSAP ERPApplication · Microservice", "appsCRMApplication"]));
+  });
+
+  it("lists the document's people first in a comment", async () => {
+    mockApi();
+    const { start } = setup(["user"], { priorityUserIds: ["u2"] });
+    start();
+    await screen.findByRole("option", { name: /Ann Lee/ });
+    expect(itemTexts()).toEqual(["Bob Raybob@x.io", "Ann Leeann@x.io"]);
   });
 
   it("picks a row on click", async () => {
@@ -300,6 +403,35 @@ describe("createMentionSuggestionStore lifetime", () => {
     ra.onStart(props("s"));
     expect(b.isOpen()).toBe(false);
     expect(a.isOpen()).toBe(true);
+  });
+});
+
+describe("createMentionSuggestionStore browse", () => {
+  it("closes the suggestion and hands the current '@query' range to the browse handler", () => {
+    const store = createMentionSuggestionStore();
+    const renderer = store.render();
+    const handler = vi.fn();
+    store.browse();
+    store.setBrowseHandler(handler);
+    store.browse();
+    expect(handler).not.toHaveBeenCalled();
+
+    renderer.onStart({ query: "s", range: { from: 4, to: 6 }, command: vi.fn() } as never);
+    renderer.onUpdate({ query: "sa", range: { from: 4, to: 7 }, command: vi.fn() } as never);
+    store.browse();
+    expect(handler).toHaveBeenCalledWith({ from: 4, to: 7 });
+    expect(store.isOpen()).toBe(false);
+
+    // A new "@" without a range of its own does not reuse the last one.
+    renderer.onStart({ query: "", command: vi.fn() } as never);
+    store.browse();
+    expect(handler).toHaveBeenLastCalledWith(null);
+
+    store.setBrowseHandler(null);
+    renderer.onStart({ query: "", command: vi.fn() } as never);
+    store.browse();
+    expect(handler).toHaveBeenCalledTimes(2);
+    expect(store.isOpen()).toBe(false);
   });
 });
 
