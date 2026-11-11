@@ -222,6 +222,39 @@ export function openCount(threads: readonly DocumentThread[], currentDocId: stri
   return threads.filter((th) => th.revision_id === currentDocId && isOpenThread(th)).length;
 }
 
+/** How many threads a section has on the document shown, and how many of them are open. */
+export interface SectionThreadCount {
+  open: number;
+  total: number;
+}
+
+/**
+ * The section markers' counts: for each of the document's sections (`sections`)
+ * that has a thread on the revision shown (`currentDocId`), its open threads
+ * and all its threads. Earlier revisions' threads, General (untagged) threads,
+ * deleted threads and signing notes are not counted, and a tag naming a
+ * section the document no longer has gets no entry.
+ */
+export function sectionThreadCounts(
+  threads: readonly DocumentThread[],
+  currentDocId: string,
+  sections: readonly SectionOption[],
+): Record<string, SectionThreadCount> {
+  const known = new Set(sections.map((s) => s.key));
+  known.delete(GENERAL_SECTION);
+  // No prototype: a section key can never land on an inherited property.
+  const counts: Record<string, SectionThreadCount> = Object.create(null);
+  for (const thread of threads) {
+    if (thread.revision_id !== currentDocId || thread.deleted || thread.kind === "sign_note") continue;
+    const key = thread.section;
+    if (!key || !known.has(key)) continue;
+    const entry = (counts[key] ??= { open: 0, total: 0 });
+    entry.total += 1;
+    if (isOpenThread(thread)) entry.open += 1;
+  }
+  return counts;
+}
+
 /**
  * Split a revision's threads: those shown at once, and the resolved ones kept
  * behind a toggle. A signing note is never hidden (it has nothing to resolve).

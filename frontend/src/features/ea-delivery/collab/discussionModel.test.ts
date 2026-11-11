@@ -23,6 +23,7 @@ import {
   rejectionBodyOrFallback,
   sectionLabel,
   sectionOptions,
+  sectionThreadCounts,
   signBody,
   soawSectionOptions,
   splitResolved,
@@ -428,5 +429,63 @@ describe("applySectionFilter", () => {
   it("always keeps the thread a notification points at", () => {
     expect(applySectionFilter(threads, ["context"], "3").map((th) => th.id)).toEqual(["1", "3"]);
     expect(applySectionFilter(threads, ["context"], null).map((th) => th.id)).toEqual(["1"]);
+  });
+});
+
+describe("sectionThreadCounts", () => {
+  const SECTIONS = [
+    { key: GENERAL_SECTION, label: "General" },
+    { key: "context", label: "Context" },
+    { key: "decision", label: "Decision" },
+    { key: "consequences", label: "Consequences" },
+  ];
+
+  it("counts each section's open threads and all its threads, on the document shown only", () => {
+    const counts = sectionThreadCounts(
+      [
+        thread({ id: "a", section: "context" }),
+        thread({ id: "b", section: "context", resolved_at: "2026-11-02T00:00:00Z" }),
+        thread({ id: "c", section: "context", kind: "rejection" }),
+        thread({ id: "d", section: "decision", resolved_at: "2026-11-02T00:00:00Z" }),
+        // An earlier revision's thread is that revision's.
+        thread({ id: "e", section: "consequences", revision_id: "doc-1", revision_number: 1 }),
+      ],
+      "doc-2",
+      SECTIONS,
+    );
+    expect({ ...counts }).toEqual({
+      context: { open: 2, total: 3 },
+      decision: { open: 0, total: 1 },
+    });
+  });
+
+  it("leaves out General threads, deleted threads, signing notes and removed sections", () => {
+    const counts = sectionThreadCounts(
+      [
+        thread({ id: "g", section: null }),
+        thread({ id: "g2", section: GENERAL_SECTION }),
+        thread({ id: "x", section: "context", deleted: true }),
+        thread({ id: "s", section: "decision", kind: "sign_note" }),
+        thread({ id: "r", section: "custom_gone" }),
+      ],
+      "doc-2",
+      SECTIONS,
+    );
+    expect({ ...counts }).toEqual({});
+  });
+
+  it("gives an inherited property name no entry of its own", () => {
+    const counts = sectionThreadCounts([thread({ id: "a", section: "context" })], "doc-2", SECTIONS);
+    expect(counts.toString).toBeUndefined();
+    expect(counts.context).toEqual({ open: 1, total: 1 });
+  });
+
+  it("counts a section key that happens to name an object property like any other", () => {
+    const counts = sectionThreadCounts(
+      [thread({ id: "a", section: "constructor" }), thread({ id: "b", section: "constructor" })],
+      "doc-2",
+      [{ key: "constructor", label: "Odd" }],
+    );
+    expect(counts.constructor).toEqual({ open: 2, total: 2 });
   });
 });
