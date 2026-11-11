@@ -62,7 +62,10 @@ export default function HtmlSectionMarkers({ containerRef, html }: Props) {
     };
   }, [containerRef, html, sections, placement]);
 
-  // No dependency list on purpose: whatever re-rendered, check the hosts.
+  // No dependency list on purpose: whatever re-rendered, check the hosts. It
+  // only sets state when a host is detached, and the hosts placed then are
+  // attached, so it cannot loop.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs after every render on purpose
   useLayoutEffect(() => {
     if (placed.current.some((host) => !host.el.isConnected)) setPlacement((n) => n + 1);
   });

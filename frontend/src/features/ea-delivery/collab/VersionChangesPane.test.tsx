@@ -140,4 +140,38 @@ describe("VersionChangesPane", () => {
     expect(await screen.findByText("GET /adr/a1/history/v2 failed")).toBeInTheDocument();
     expect(screen.queryByRole("progressbar")).toBeNull();
   });
+
+  it("drops a failed read once the same pair has been read again successfully", async () => {
+    let failures = 1;
+    mockApi.on("get", /^\/adr\/a1\/history\/v\d$/, (path: string) => {
+      const id = path.split("/").pop() as string;
+      if (id === "v1" && failures > 0) {
+        failures -= 1;
+        throw new Error("Temporarily unavailable");
+      }
+      return { entry: entry(id, "2026-10-01T09:00:00Z"), content: CONTENT[id] };
+    });
+    function Switch() {
+      const [pair, setPair] = useState({ from: "v1", to: "v2" });
+      return (
+        <>
+          <button type="button" onClick={() => setPair({ from: "v2", to: "v3" })}>
+            other
+          </button>
+          <button type="button" onClick={() => setPair({ from: "v1", to: "v2" })}>
+            back
+          </button>
+          <VersionChangesPane owner={{ kind: "adr", id: "a1" }} pair={pair} />
+        </>
+      );
+    }
+    const { user } = renderWithProviders(<Switch />);
+    expect(await screen.findByText("Temporarily unavailable")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "other" }));
+    expect(await screen.findByTestId("diff-title")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "back" }));
+    expect(await screen.findByTestId("diff-decision")).toBeInTheDocument();
+    expect(screen.queryByText("Temporarily unavailable")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
 });

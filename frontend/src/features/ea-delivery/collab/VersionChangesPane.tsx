@@ -112,6 +112,8 @@ export default function VersionChangesPane({ owner, pair }: Props) {
   useAbortableEffect(
     async ({ signal, isCurrent }) => {
       const asked = { from: pair.from, to: pair.to };
+      // A failure belongs to the read that failed: a new read starts clean.
+      if (isCurrent()) setError(null);
       try {
         const [from, to] = await Promise.all([
           api.get<DocumentVersion>(versionPath(owner, asked.from), { signal }),
