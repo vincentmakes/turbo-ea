@@ -15,6 +15,7 @@
  *   formatting (it is sanitised on render like every stored section).
  */
 import { escapeHtml } from "@/lib/escapeHtml";
+import { fillMentionLabels, type MentionLabels } from "@/lib/mentionHtml";
 
 const BLOCK_TAGS = new Set([
   "P",
@@ -71,10 +72,18 @@ function walk(node: Node, out: string[]): void {
   if (block) out.push("\n\n");
 }
 
-/** Stored section HTML → the plain text a spreadsheet cell shows. */
-export function htmlToPlainText(html: string | null | undefined): string {
+/**
+ * Stored section HTML → the plain text a spreadsheet cell shows. With
+ * `labels`, a restricted or deleted mention (an empty span) reads as the
+ * reader's words; a resolved one is its "@Name" text either way.
+ */
+export function htmlToPlainText(
+  html: string | null | undefined,
+  labels?: MentionLabels,
+): string {
   if (!html) return "";
-  const doc = new DOMParser().parseFromString(html, "text/html");
+  const filled = labels ? fillMentionLabels(html, labels) : html;
+  const doc = new DOMParser().parseFromString(filled, "text/html");
   const out: string[] = [];
   doc.body.childNodes.forEach((child) => walk(child, out));
   return out

@@ -5,6 +5,28 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.200.0] - 2026-11-10
+
+### Added
+- **Discussion on decisions and SoAWs** ([#1376](https://github.com/vincentmakes/turbo-ea/discussions/1376)): threads with replies, tagged to a section, resolved and reopened in a panel beside the document; the discussion stays open in review and after signing, and requesting signatures, signing or rejecting warns about open threads.
+- **Mentions**: type **@** in a decision or SoAW to mention a card or another decision, and in a comment to mention a colleague; a card the reader may not see reads *Restricted card* everywhere.
+- **Mentioned in** lists, on a card's ADRs tab and on a decision's preview, the decisions and SoAWs that mention them; the decision editor offers **Link this card** for a mentioned card that is not linked.
+- **History** of decisions and SoAWs: a timeline of everything that happened to the document, a version each time a draft is saved with changes, word-by-word comparison of two versions, and restoring an earlier version onto a draft.
+- Two notification types: **Comments on decisions and SoAWs** and **Mentions in discussions**.
+- Permissions `adr.comment` and `soaw.comment` (on for members and admins, off for viewers); a document's signatories can always comment on it.
+- MCP: `get_document_discussion`, `get_document_history` and `add_document_comment` read and post the discussion and read the timeline of a decision or SoAW.
+- The demo dataset (`SEED_DEMO=true`) shows open, resolved and rejection threads, mentions and three versions of a draft on its decisions, and an open thread on a SoAW; an existing demo install gets them once on its next start.
+
+### Changed
+- Review events of decisions and SoAWs (sent for review, signed, recalled, rejected) are now kept, and recent activity shows them to readers who may open the document.
+- A rejection reason opens a thread in the discussion and a signing note becomes a comment, so neither is lost when signatures are recalled; signing a SoAW can now carry a note.
+- Any signatory holding the sign permission may reject a SoAW, as for decisions.
+- The decision editor links cards through the standard card picker.
+
+### Fixed
+- Review events of decisions and SoAWs were shown live but never stored.
+- A signer's note was wiped when signatures were recalled.
+
 ## [2.199.0] - 2026-11-10
 
 ### Added

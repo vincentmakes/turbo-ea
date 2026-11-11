@@ -25,6 +25,8 @@ Cliquez sur n'importe quelle notification pour naviguer directement vers la fich
 | **Demande de signature SoAW** | On vous demande de signer un Statement of Architecture Work |
 | **SoAW signé** | Un SoAW que vous suivez reçoit une signature |
 | **Validité d'ADR modifiée** | Une décision signée remplace, modifie ou révoque une décision que vous avez rédigée |
+| **Commentaires sur les décisions et les SoAW** | Quelqu'un commente dans la discussion d'une décision ou d'un SoAW que vous avez rédigé, que l'on vous a demandé de signer, dont vous êtes décideur ou participant, ou que vous avez déjà commenté |
+| **Mentions dans les discussions** | Quelqu'un vous mentionne avec **@** dans un commentaire sur une décision ou un SoAW que vous pouvez ouvrir |
 | **Demande d'enquête** | Une enquête vous est envoyée et nécessite votre réponse |
 
 **Statut d'approbation modifié** couvre également le cas automatique. Une fiche
@@ -34,6 +36,14 @@ cas, et le changement est consigné dans l'onglet **Historique** de la fiche.
 Lorsqu'une seule action casse plusieurs de vos fiches à la fois, comme une
 modification en masse, vous recevez un récapitulatif unique plutôt qu'une
 notification par fiche.
+
+Les deux notifications de discussion ne contiennent aucun texte de commentaire :
+cliquez sur l'une d'elles pour ouvrir le document avec sa discussion sur ce fil.
+Vous n'êtes jamais averti de vos propres commentaires, et une mention remplace
+la notification de commentaire pour le même commentaire. Une personne mentionnée
+qui ne peut pas ouvrir le document n'est pas avertie — c'est l'auteur du
+commentaire qui en est informé. Voir
+[Discussion](grc.md#decision-discussion).
 
 
 ## Livraison en temps réel

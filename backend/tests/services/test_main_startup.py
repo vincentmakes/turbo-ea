@@ -216,6 +216,12 @@ class TestMigrateAndSeed:
                 "card_favorites": 4,
                 "diagram_favorites": 5,
             },
+            "app.services.seed_demo_collab.seed_collab_demo_data": {
+                "threads": 4,
+                "replies": 3,
+                "mentions": 2,
+                "versions": 1,
+            },
         }
         mocks = {t: AsyncMock(return_value=r) for t, r in seeders.items()}
         for target, mock in mocks.items():
@@ -236,6 +242,7 @@ class TestMigrateAndSeed:
         assert "[seed_ppm] Enabled PPM module" in out
         assert "[seed] Created demo admin user" in out
         assert "[seed_workspace] Seeded 1 web portals" in out
+        assert "[seed_collab] Seeded 4 discussion threads, 3 replies, 2 mentions, 1 versions" in out
 
     async def test_bpm_only_seeding_keeps_an_existing_admin(self, boot, capsys):
         _engine(boot.mp, has_alembic=True, version="head123")
@@ -254,6 +261,51 @@ class TestMigrateAndSeed:
         await main._migrate_and_seed(None)
         assert bpm.await_count == 1 and boot.session.added == []
         assert "[seed_bpm] Seeded 1 processes" in capsys.readouterr().out
+
+    async def test_a_skipped_collaboration_seed_says_why(self, boot, capsys):
+        _engine(boot.mp, has_alembic=True, version="head123")
+        boot.mp.setattr(main.settings, "SEED_DEMO", True)
+        skipped = {"skipped": True, "reason": "demo decisions not found"}
+        for target in (
+            "app.services.seed_demo.seed_demo_data",
+            "app.services.seed_demo_bpm.seed_bpm_demo_data",
+            "app.services.seed_demo_ppm.seed_ppm_demo_data",
+            "app.services.seed_demo_extras.seed_extras_demo_data",
+            "app.services.seed_demo_security.seed_security_demo_data",
+            "app.services.seed_demo_logos.seed_logo_demo_data",
+            "app.services.seed_demo_workspace.seed_workspace_demo_data",
+        ):
+            boot.mp.setattr(target, AsyncMock(return_value={"skipped": True, "reason": "done"}))
+        collab = AsyncMock(return_value=skipped)
+        boot.mp.setattr("app.services.seed_demo_collab.seed_collab_demo_data", collab)
+        boot.session.rows = [None, "an-admin-id"]
+        await main._migrate_and_seed(None)
+        assert collab.await_count == 1
+        out = capsys.readouterr().out
+        assert "[seed_collab] Skipped: demo decisions not found" in out
+        assert "[seed_collab] Seeded" not in out
+
+    async def test_a_collaboration_skip_without_a_reason_says_unknown(self, boot, capsys):
+        _engine(boot.mp, has_alembic=True, version="head123")
+        boot.mp.setattr(main.settings, "SEED_DEMO", True)
+        for target in (
+            "app.services.seed_demo.seed_demo_data",
+            "app.services.seed_demo_bpm.seed_bpm_demo_data",
+            "app.services.seed_demo_ppm.seed_ppm_demo_data",
+            "app.services.seed_demo_extras.seed_extras_demo_data",
+            "app.services.seed_demo_security.seed_security_demo_data",
+            "app.services.seed_demo_logos.seed_logo_demo_data",
+            "app.services.seed_demo_workspace.seed_workspace_demo_data",
+        ):
+            boot.mp.setattr(target, AsyncMock(return_value={"skipped": True, "reason": "done"}))
+        collab = AsyncMock(return_value={"skipped": True})
+        boot.mp.setattr("app.services.seed_demo_collab.seed_collab_demo_data", collab)
+        boot.session.rows = [None, "an-admin-id"]
+        await main._migrate_and_seed(None)
+        # the seeder runs on the boot's own session
+        assert collab.await_args.args == (boot.session,)
+        out = capsys.readouterr().out
+        assert "[seed_collab] Skipped: unknown\n" in out
 
 
 # ── lifespan ──────────────────────────────────────────────────────────────

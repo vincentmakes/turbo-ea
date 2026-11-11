@@ -60,6 +60,8 @@ Sous les tuiles, le tableau de bord « Vue d’ensemble » affiche :
 - **Activité récente** : un fil des dernières modifications — qui a modifié quoi et quand
 - **Classement de la qualité des données** : les personnes qui maintiennent leurs fiches complètes (voir ci-dessous)
 
+L'**Activité récente** répertorie aussi ce qui arrive aux décisions et aux Statements of Architecture Work — une décision créée ou liée à une fiche, des signatures demandées, signées, rappelées ou rejetées, un commentaire publié — pour les lecteurs autorisés à les ouvrir : les événements de décision exigent `adr.view` et ceux des SoAW `soaw.view`. Les événements de revue sont conservés à partir de la version 2.200.0 ; les précédents n'ont jamais été stockés.
+
 Cliquer sur une barre ou une portion de graphique ouvre ce qui se cache derrière : l’[Inventaire](inventory.md) filtré sur ces fiches pour un type de fiche ou un statut d’approbation, le rapport Cycle de vie pour une phase du cycle de vie, le rapport Qualité des données pour une tranche de complétude.
 
 ### Classement de la qualité des données

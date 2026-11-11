@@ -16,6 +16,7 @@ import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import type { DecisionPerson, User } from "@/types";
+import { OpenThreadsWarning } from "./collab/ReviewDialogs";
 
 /**
  * The decision makers the shortcut can add: the active users among them, in
@@ -44,6 +45,8 @@ interface SignatureRequestDialogProps {
   requesting: boolean;
   /** A decision's makers: offers "Add decision makers" for those who are users. */
   decisionMakers?: DecisionPerson[];
+  /** Open discussion threads: a warning, never a block. */
+  openThreadCount?: number;
 }
 
 export default function SignatureRequestDialog({
@@ -54,6 +57,7 @@ export default function SignatureRequestDialog({
   description,
   requesting,
   decisionMakers,
+  openThreadCount,
 }: SignatureRequestDialogProps) {
   const { t } = useTranslation(["delivery", "common"]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
@@ -118,6 +122,7 @@ export default function SignatureRequestDialog({
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {description}
         </Typography>
+        <OpenThreadsWarning count={openThreadCount} sx={{ mb: 2 }} />
 
         {hasMakerUsers && (
           <Button

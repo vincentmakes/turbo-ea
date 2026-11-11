@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from app.models.document_history import DocumentHistoryEntry
 from app.models.soaw import SoAW
 from app.services import soaw_service as svc
 from app.services.soaw_service import SoAWRow
@@ -204,6 +205,13 @@ class TestReviseRefusal:
         assert svc.revise_refusal(chains, "b") is None
 
 
+def test_content_is_editable_in_every_status_but_in_review_and_signed():
+    for status in ("draft", "approved", "anything"):
+        assert svc.content_editable(status) is True
+    for status in ("in_review", "signed"):
+        assert svc.content_editable(status) is False
+
+
 class TestUpdateRefusal:
     LOCKED = (403, "A document in review is locked. Recall the signature requests to edit it.")
 
@@ -277,6 +285,10 @@ class _Session:
     async def flush(self):
         self.flushed += 1
 
+    async def get(self, model, key):
+        # The timeline row looks its actor up; no user is stored here.
+        return None
+
 
 class TestCreateRevision:
     def _source(self, sid: uuid.UUID, rev: int) -> SoAW:
@@ -302,7 +314,15 @@ class TestCreateRevision:
 
         new = await svc.create_revision(db, source, created_by=author, chains=chains)
 
-        assert db.added == [new] and db.flushed == 1
+        # The revision, then its timeline's first row (document_collab.on_workflow).
+        assert db.added[0] is new and len(db.added) == 2 and db.flushed == 2
+        entry = db.added[1]
+        assert isinstance(entry, DocumentHistoryEntry)
+        assert (entry.kind, entry.soaw_id, entry.architecture_decision_id) == (
+            "revised",
+            new.id,
+            None,
+        )
         assert new.revision_number == 4
         assert new.parent_id == tip
         assert new.status == "draft"

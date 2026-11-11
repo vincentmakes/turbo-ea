@@ -3,6 +3,15 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { useNavigate } from "react-router";
 import type { SoAW, SoAWSectionData } from "@/types";
 
+// The discussion and history side panel has its own tests: here the page
+// renders alone, and the props it hands the panel are recorded.
+const sidePanel = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
+vi.mock("./collab/DocumentSidePanel", () => ({
+  default: (props: { children: unknown }) => {
+    sidePanel.props.push(props);
+    return props.children;
+  },
+}));
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useDateFormatModule()));
 // The preview builds its body with the real `buildPreviewBody`; the print
@@ -434,5 +443,70 @@ describe("SoAWPreview — revision navigation race", () => {
     await new Promise((r) => setTimeout(r, 10));
     expect(screen.queryByText("gone")).toBeNull();
     expect(screen.getAllByText("Revision two").length).toBeGreaterThan(0);
+  });
+});
+
+describe("SoAWPreview — mentions", () => {
+  const CARD = "0b0e5b1e-6a0e-4c43-9b8e-2d1c4a5f7e01";
+  const WITH_MENTIONS: SoAW = {
+    ...SOAW,
+    sections: {
+      "1.1": {
+        content:
+          `<p>scope: <span data-type="mention" data-kind="card" data-id="${CARD}">@SAP ERP</span> ` +
+          '<span data-type="mention" data-kind="decision" data-restricted="true" data-token="ab12cd34"></span></p>',
+        hidden: false,
+      },
+      custom_7: {
+        content: `<p><span data-type="mention" data-kind="card" data-id="${CARD}" data-missing="true"></span></p>`,
+        hidden: false,
+        title: "Appendix A",
+        insertAfter: "1.1",
+      } as CustomSection,
+    },
+  };
+
+  function renderRouted() {
+    mockApi.on("get", "/soaw/s1", WITH_MENTIONS);
+    return renderWithProviders(<SoAWPreview />, {
+      route: "/ea-delivery/soaw/s1/preview",
+      routes: [
+        { path: "/ea-delivery/soaw/:id/preview" },
+        { path: "/cards/:id", element: <div>card page</div> },
+      ],
+    });
+  }
+
+  it("fills the restricted and deleted labels, in template and custom sections", async () => {
+    renderRouted();
+    const card = await within(await waitFor(previewBody)).findByText("@SAP ERP");
+    expect(card).toHaveAttribute("role", "link");
+    const restricted = within(previewBody()).getByText("Restricted decision");
+    expect(restricted).not.toHaveAttribute("role");
+    const deleted = within(previewBody()).getByText("Deleted card");
+    expect(deleted).toHaveAttribute("data-missing", "true");
+    expect(deleted).not.toHaveAttribute("role");
+  });
+
+  it("navigates from a card chip, not from a restricted one", async () => {
+    const { user } = renderRouted();
+    await user.click(await screen.findByText("Restricted decision"));
+    expect(screen.queryByText("card page")).not.toBeInTheDocument();
+    await user.click(screen.getByText("@SAP ERP"));
+    expect(await screen.findByText("card page")).toBeInTheDocument();
+  });
+});
+
+describe("SoAWPreview — discussion", () => {
+  it("mounts the side panel for the document with its sections", async () => {
+    sidePanel.props.length = 0;
+    mockApi.on("get", "/soaw/s1", { ...SOAW, open_thread_count: 1 });
+    renderPreview();
+    await waitFor(() => expect(sidePanel.props.length).toBeGreaterThan(0));
+    const props = sidePanel.props[sidePanel.props.length - 1];
+    expect(props.owner).toEqual({ kind: "soaw", id: "s1" });
+    expect(props.status).toBe(SOAW.status);
+    expect(props.openThreadCount).toBe(1);
+    expect((props.sections as { key: string }[])[0].key).toBe("general");
   });
 });

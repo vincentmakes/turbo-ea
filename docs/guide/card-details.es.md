@@ -235,6 +235,8 @@ Cada ficha cuenta con una pestaña **ADR** que enumera las [decisiones de arquit
 
 Si tiene permiso para gestionar vínculos de ADR, la pestaña también ofrece **Vincular ADR** para adjuntar una decisión existente y **Crear ADR** para crear una nueva ya vinculada a esta ficha, además de una acción de desvinculación en cada fila. En las fichas sin decisiones vinculadas la pestaña permanece oculta salvo que tenga ese permiso, de modo que los usuarios de solo lectura nunca ven una pestaña vacía.
 
+Debajo de la lista, **Mencionado en** enumera las decisiones y Declaraciones de Trabajo de Arquitectura cuyo texto menciona esta ficha, y aquellas cuya discusión la menciona (marcadas *en la discusión*), con la referencia o revisión de cada documento y su vigencia o estado. Una mención no vincula la ficha a la decisión; solo se muestra aquí. La lista solo muestra los documentos que puede abrir y no aparece cuando no hay ninguno. Véase [Menciones](grc.md#decision-mentions).
+
 ## Pestaña de Riesgos (GRC activado, cuando aplique)
 
 Cuando el [módulo GRC](grc.md) está habilitado **y** la ficha tiene al menos un riesgo vinculado, aparece una pestaña **Riesgos** que lista todos los riesgos vinculados a la ficha con una ruta de un clic de vuelta al [Registro de riesgos](risks.md). La pestaña se oculta automáticamente cuando no hay riesgos vinculados, de modo que las fichas sin actividad GRC no arrastran una pestaña vacía.

@@ -60,6 +60,8 @@ Below the tiles, the Overview dashboard shows:
 - **Recent activity**: A feed of the latest changes — who edited what and when
 - **Data quality leaderboard**: The people who keep their cards complete (see below)
 
+**Recent activity** also lists what happens to decisions and Statements of Architecture Work — a decision created or linked to a card, signatures requested, signed, recalled or rejected, a comment posted — to readers who may open them: decision events need `adr.view` and SoAW events `soaw.view`. Review events are kept from version 2.200.0 on; earlier ones were never stored.
+
 Clicking a bar or a slice of a chart opens what is behind it: the [Inventory](inventory.md) filtered to those cards for a card type or an approval status, the Lifecycle report for a lifecycle phase, the Data Quality report for a completion bucket.
 
 ### Data quality leaderboard

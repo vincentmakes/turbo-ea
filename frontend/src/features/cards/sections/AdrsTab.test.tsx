@@ -262,3 +262,51 @@ describe("AdrsTab", () => {
     expect(screen.getByTestId("create-adr-dialog")).toBeInTheDocument();
   });
 });
+
+describe("AdrsTab — mentioned in", () => {
+  it("lists the decisions and SoAWs that mention the card under the linked decisions", async () => {
+    vi.mocked(api.get).mockImplementation((url: string) => {
+      if (url === BY_CARD) return Promise.resolve(mockAdrs);
+      if (url === `/mentions/cards/${CARD_ID}`) {
+        return Promise.resolve({
+          decisions: [
+            {
+              id: "adr-9",
+              reference_number: "ADR-009",
+              revision_number: 1,
+              title: "Move billing to SaaS",
+              status: "draft",
+              standing: null,
+              via: "comment",
+            },
+          ],
+          soaws: [{ id: "s1", name: "Billing SoAW", revision_number: 1, status: "draft" }],
+        });
+      }
+      return Promise.reject(new Error(`no mock for ${url}`));
+    });
+    renderTab();
+    const block = await screen.findByTestId("mentioned-in");
+    expect(block).toHaveTextContent("Mentioned in");
+    expect(screen.getByRole("link", { name: "ADR-009 Move billing to SaaS" })).toHaveAttribute(
+      "href",
+      "/ea-delivery/adr/adr-9/preview",
+    );
+    expect(screen.getByRole("link", { name: "Billing SoAW" })).toHaveAttribute("href", "/ea-delivery/soaw/s1/preview");
+    expect(screen.getByText("in the discussion")).toBeInTheDocument();
+    // Below the decisions table.
+    expect(screen.getByRole("table").compareDocumentPosition(block) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("shows no Mentioned in block when nothing mentions the card", async () => {
+    vi.mocked(api.get).mockImplementation((url: string) => {
+      if (url === BY_CARD) return Promise.resolve(mockAdrs);
+      if (url === `/mentions/cards/${CARD_ID}`) return Promise.resolve({ decisions: [], soaws: [] });
+      return Promise.reject(new Error(`no mock for ${url}`));
+    });
+    renderTab();
+    await screen.findByText("ADR-001");
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith(`/mentions/cards/${CARD_ID}`, expect.anything()));
+    expect(screen.queryByTestId("mentioned-in")).toBeNull();
+  });
+});

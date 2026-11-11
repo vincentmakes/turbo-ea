@@ -42,6 +42,8 @@
   "preferences.adrSignRecalled": "Запрос подписи ADR отозван",
   "preferences.adrRejected": "ADR отклонён",
   "preferences.adrStandingChanged": "Изменён статус действия ADR",
+  "preferences.documentComment": "Комментарии к решениям и SoAW",
+  "preferences.documentMention": "Упоминания в обсуждениях",
   "preferences.processFlowApprovalRequested": "Запрошено согласование процесса",
   "preferences.processFlowApproved": "Процесс согласован",
   "preferences.processFlowRejected": "Процесс отклонён",

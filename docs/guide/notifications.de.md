@@ -25,6 +25,8 @@ Klicken Sie auf eine beliebige Benachrichtigung, um direkt zur relevanten Karte 
 | **SoAW-Unterschrift angefordert** | Sie werden gebeten, ein Statement of Architecture Work zu unterschreiben |
 | **SoAW unterschrieben** | Ein SoAW, das Sie verfolgen, erhält eine Unterschrift |
 | **ADR-Geltung geändert** | Eine unterzeichnete Entscheidung ersetzt, ändert oder widerruft eine Entscheidung, die Sie verfasst haben |
+| **Kommentare zu Entscheidungen und SoAWs** | Jemand kommentiert in der Diskussion einer Entscheidung oder eines SoAW, das Sie verfasst haben, zu dessen Unterzeichnung Sie aufgefordert wurden, bei dem Sie Entscheidungsträger oder Beteiligter sind oder das Sie bereits kommentiert haben |
+| **Erwähnungen in Diskussionen** | Jemand erwähnt Sie mit **@** in einem Kommentar zu einer Entscheidung oder einem SoAW, das Sie öffnen können |
 | **Umfrageanfrage** | Eine Umfrage wurde gesendet, die Ihre Antwort erfordert |
 
 **Genehmigungsstatus geändert** deckt auch den automatischen Fall ab. Eine
@@ -34,6 +36,14 @@ wenn das Archivieren ihrer übergeordneten Karte sie in der Hierarchie verschieb
 **Verlauf** der Karte festgehalten. Wenn eine Aktion mehrere Ihrer Karten
 gleichzeitig betrifft, etwa eine Massenbearbeitung, erhalten Sie eine einzige
 Zusammenfassung statt einer Benachrichtigung pro Karte.
+
+Die beiden Diskussionsbenachrichtigungen enthalten keinen Kommentartext: Klicken Sie
+auf eine, um das Dokument mit seiner Diskussion bei diesem Diskussionsstrang zu öffnen.
+Über Ihre eigenen Kommentare werden Sie nie benachrichtigt, und eine Erwähnung ersetzt
+die Kommentarbenachrichtigung für denselben Kommentar. Wer erwähnt wird, das Dokument
+aber nicht öffnen kann, wird nicht benachrichtigt — stattdessen wird die Person
+informiert, die den Kommentar gepostet hat. Siehe
+[Diskussion](grc.md#decision-discussion).
 
 
 ## Echtzeit-Zustellung

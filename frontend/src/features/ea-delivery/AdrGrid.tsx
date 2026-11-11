@@ -43,6 +43,7 @@ import {
   statusLabelKey,
 } from "./decisionStanding";
 import { DecisionStandingChip, DecisionStatusChip } from "./DecisionStandingChip";
+import { fillMentionLabelsI18n } from "./mentions/mentionLabels";
 import {
   EARLIER_REVISION_ROW_CLASS,
   decisionMakerNames,
@@ -53,10 +54,13 @@ import {
   statusGroupVocab,
 } from "./adrGridModel";
 
-/** Extract plain text from HTML using the browser's DOM parser */
+/**
+ * Extract plain text from HTML using the browser's DOM parser. A restricted
+ * or deleted mention (an empty span) reads as the reader's words.
+ */
 function stripHtml(html: string | null | undefined): string {
   if (!html) return "";
-  const doc = new DOMParser().parseFromString(html, "text/html");
+  const doc = new DOMParser().parseFromString(fillMentionLabelsI18n(html), "text/html");
   return (doc.body.textContent ?? "").trim();
 }
 

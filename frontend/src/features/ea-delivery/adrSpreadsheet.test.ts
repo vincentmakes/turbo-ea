@@ -98,6 +98,26 @@ describe("adrRow", () => {
     ]);
   });
 
+  it("writes a restricted or deleted mention as the reader's words, a resolved one as its name", () => {
+    const row = adrRow({
+      ...ADR,
+      context:
+        '<p>uses <span data-type="mention" data-kind="card" data-id="0b0e5b1e-6a0e-4c43-9b8e-2d1c4a5f7e01">@SAP ERP</span> and ' +
+        '<span data-type="mention" data-kind="card" data-restricted="true" data-token="ab12cd34"></span></p>',
+      decision: "",
+      consequences:
+        '<p><span data-type="mention" data-kind="decision" data-id="1c1f6c2f-7b1f-4d54-8c9f-3e2d5b6a8f02" data-missing="true"></span></p>',
+      alternatives_considered:
+        '<p><span data-type="mention" data-kind="decision" data-restricted="true" data-token="ab12cd34"></span></p>',
+    });
+    expect(row.slice(4, 8)).toEqual([
+      "uses @SAP ERP and Restricted card",
+      "",
+      "Deleted decision",
+      "Restricted decision",
+    ]);
+  });
+
   it("writes the register facts after the existing columns", () => {
     const row = adrRow({
       ...ADR,

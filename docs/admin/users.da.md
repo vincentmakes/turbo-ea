@@ -122,6 +122,8 @@ Fanebladet **Roller** giver mulighed for at administrere applikationsroller. Hve
 
 Brugerdefinerede roller kan oprettes med granulær tilladelseskontrol over lager, relationer, interessenter, kommentarer, dokumenter, diagrammer, BPM, rapporter og mere.
 
+**Kommentér arkitekturbeslutninger** (`adr.comment`) og **Kommentér SoAW-dokumenter** (`soaw.comment`) lader en rolle oprette, besvare, løse og genåbne tråde i diskussionen om en beslutning eller en Statement of Architecture Work. Begge er slået til for rollerne Admin, BPM Admin og Member og slået fra for Viewer; på en opgraderet installation har hver eksisterende rolle, der allerede kunne redigere eller underskrive disse dokumenter, fået dem. Et dokuments underskrivere kan altid kommentere det, uanset deres rolle. Se [Diskussion](../guide/grc.md#decision-discussion).
+
 Tilladelsen **Administrer dashboards på startsiden** (`admin.dashboards`, som standard givet til Admin-rollen) lader en rolle tilpasse startsiden: redigere widgets og layout for alle dashboards, oprette, duplikere, skjule, omarrangere, nulstille og slette dashboards og vælge, hvilke roller der ser hvert enkelt. At se et dashboard kræver ingen særlig tilladelse — hver widget på det kræver stadig sin egen (for eksempel `reports.ea_dashboard` for diagrammerne i Oversigt). Se [Tilpasning af dashboards](../guide/dashboard.md#customizing-dashboards).
 
 Tilladelser gælder for adresselinjen såvel som for menuen. En side, som en rolle ikke må åbne, viser meddelelsen **Adgang nægtet** med et link tilbage til dashboardet — uanset om den nås fra navigationen, et bogmærke eller et delt link. At skjule et menupunkt og at blokere siden er dermed altid den samme beslutning.

@@ -38,8 +38,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_link import ArchitectureDecisionLink
 from app.models.card import Card
-from app.services import adr_service
+from app.models.user import User
+from app.services import adr_service, mention_service
 from app.services import decision_standing as ds
+from app.services.card_read_scope import CardReadScope
 
 TITLE_MAX_LENGTH = 500
 
@@ -170,8 +172,15 @@ async def import_decision_rows(
     created_by: uuid.UUID | None,
     readable_cards: Sequence[ColumnElement[bool]] = (),
     publish: bool = True,
+    user: User | None = None,
+    read_scope: CardReadScope | None = None,
 ) -> list[DecisionImportOutcome]:
-    """Create a draft decision per new row (see the module doc)."""
+    """Create a draft decision per new row (see the module doc).
+
+    ``user`` / ``read_scope`` are the importing user's: a mention in a row's
+    text is checked as theirs, and one they may not make (an unknown or hidden
+    card, a decision without ``adr.view``) fails that row, not the file.
+    """
     existing = existing_references(await ds.load_register(db))
 
     cards = await _cards_by_name(
@@ -227,17 +236,30 @@ async def import_decision_rows(
         if status and status.lower() != "draft":
             warnings.append(f"Status {status!r} is not imported; created as a draft")
 
-        adr = await adr_service.create_decision(
-            db,
-            title=title,
-            context=_text(row.context),
-            decision=_text(row.decision),
-            consequences=_text(row.consequences),
-            alternatives_considered=_text(row.alternatives_considered),
-            linked_card_ids=card_ids,
-            created_by=created_by,
-            publish=publish,
-        )
+        try:
+            adr = await adr_service.create_decision(
+                db,
+                title=title,
+                context=_text(row.context),
+                decision=_text(row.decision),
+                consequences=_text(row.consequences),
+                alternatives_considered=_text(row.alternatives_considered),
+                linked_card_ids=card_ids,
+                created_by=created_by,
+                publish=publish,
+                user=user,
+                read_scope=read_scope,
+            )
+        except mention_service.MentionRefused as refused:
+            # Raised before anything is written: the other rows go on.
+            outcomes.append(
+                DecisionImportOutcome(
+                    row_index=row.row_index,
+                    status="failed",
+                    error=mention_error(str(refused.detail)),
+                )
+            )
+            continue
         if reference:
             file_refs[reference] = adr.id
         outcome = DecisionImportOutcome(
@@ -271,6 +293,11 @@ async def import_decision_rows(
     await db.flush()
 
     return outcomes
+
+
+def mention_error(detail: str) -> str:
+    """The error of a row whose text mentions something the importer may not."""
+    return f"Mention refused: {detail}"
 
 
 def existing_references(register: ds.Register) -> dict[str, Any]:

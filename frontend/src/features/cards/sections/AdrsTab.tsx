@@ -37,6 +37,7 @@ import type { ArchitectureDecision } from "@/types";
 import CreateAdrDialog from "@/features/ea-delivery/CreateAdrDialog";
 import { DecisionStateChip } from "@/features/ea-delivery/DecisionStandingChip";
 import { decisionRefLabel } from "@/features/ea-delivery/decisionStanding";
+import MentionedInList from "@/features/ea-delivery/collab/MentionedInList";
 import { STATUS_COLORS as STATUS_HUES } from "@/theme/tokens";
 
 /** The decisions listed on a card: current and open revisions only. */
@@ -249,6 +250,11 @@ export default function AdrsTab({
           </TableBody>
         </Table>
       )}
+
+      {/* Decisions and SoAWs whose text or discussion mention this card. */}
+      <Box sx={{ mt: 3, "&:empty": { display: "none" } }}>
+        <MentionedInList target={{ kind: "card", id: cardId }} />
+      </Box>
 
       {/* ── Link existing ADR ── */}
       {/* `md` rather than `sm`: decision titles are long sentences, and at

@@ -319,6 +319,10 @@ export const NOTIFICATION_TYPE_COLORS = {
   // A decision's standing moved (replaced, amended, revoked): informational,
   // the decision family's amber rather than an alarm.
   adr_standing_changed: RAG_COLORS.amber, // #f57c00
+  // Discussion on a decision or SoAW: the card-comment green for a comment,
+  // the primary blue for being named in one.
+  document_comment: RAG_COLORS.green, // #2e7d32
+  document_mention: brand.primary, // #1976d2
   process_flow_approval_requested: RAG_COLORS.amber, // #f57c00
   process_flow_approved: RAG_COLORS.green, // #2e7d32
   process_flow_rejected: RAG_COLORS.red, // #d32f2f

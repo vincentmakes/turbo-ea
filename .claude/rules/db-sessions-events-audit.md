@@ -3,6 +3,9 @@ paths:
   - "backend/app/database.py"
   - "backend/app/api/deps.py"
   - "backend/app/api/v1/events.py"
+  - "backend/app/api/v1/adr.py"
+  - "backend/app/api/v1/soaw.py"
+  - "backend/app/api/v1/document_*.py"
   - "backend/app/services/event_bus.py"
   - "backend/app/services/derived_writes.py"
   - "backend/app/services/audit_log.py"
@@ -34,3 +37,5 @@ paths:
   - **It is pure derived-value maintenance** — a data-quality rescore, a bulk calculated-field re-run, a hierarchy-level or card-reference backfill, with no per-card user intent — → run it inside `derived_maintenance(db)` (`backend/app/services/derived_writes.py`), which pins `updated_at` to its stored value so the column keeps meaning "content last changed". Emitting an event per card instead is not the answer: one field-weight change rescores *every* card of the type.
   
   A same-value assignment is already free — SQLAlchemy compares by equality and drops the column from the UPDATE — so the bug is never "I re-assigned an unchanged value"; it is a genuine write nobody recorded, or `flag_modified` forcing a write that did not happen. What this codifies: an Excel import that only synced **tags** (`POST /cards/{id}/tags` published nothing while rescoring `data_quality`), a platform-migration apply (zero `event_bus` references under `services/migration/`, plus an unconditional `updated_by`), a ServiceNow pull (published, but without `db=`), a bulk edit re-dating the cards it left alone, and an admin moving one field weight each re-dated cards whose history was empty ([#995](https://github.com/vincentmakes/turbo-ea/discussions/995), fixed in 2.87.0). Guard tests: `backend/tests/services/test_updated_at_invariant.py`.
+
+- **A persisted event is published before the commit that carries it.** `event_bus.publish(..., db=db)` only adds the `Event` row to the session; nothing commits after a route handler's last `await db.commit()`, so a publish placed after it is rolled back when the request's session closes — live listeners see it, the activity feed, card history and rollback never do (every decision and SoAW review event had that shape until 2.200.0). The order is `mutate → publish(..., db=db) → commit()`. An API test cannot see the loss on its own, because the test session is shared with the request: the `publish_commit_log` fixture (`backend/tests/conftest.py`) records commits and publishes in call order. Guard test: `backend/tests/services/test_publish_before_commit.py` (AST scan of the route modules in its `MODULES`, no allowlist — add a module there when it gains a publishing route).

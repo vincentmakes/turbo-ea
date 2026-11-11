@@ -670,3 +670,46 @@ describe("exportToDocx — document content", () => {
     expect(exportToDocx.length).toBe(5);
   });
 });
+
+// ─── mentions ────────────────────────────────────────────────────────────────
+
+describe("restricted and deleted mentions", () => {
+  const RESTRICTED =
+    '<span data-type="mention" data-kind="card" data-restricted="true" data-token="ab12cd34"></span>';
+  const MISSING =
+    '<span data-type="mention" data-kind="decision" data-id="1c1f6c2f-7b1f-4d54-8c9f-3e2d5b6a8f02" data-missing="true"></span>';
+  const RESOLVED =
+    '<span data-type="mention" data-kind="card" data-id="0b0e5b1e-6a0e-4c43-9b8e-2d1c4a5f7e01">@SAP ERP</span>';
+
+  it("the preview body fills them in template, anchored and trailing custom sections", () => {
+    const html = body({ "1.1": rich(`<p>a ${RESTRICTED} b ${RESOLVED}</p>`) }, [
+      { id: "custom_1", title: "Anchored", content: `<p>${MISSING}</p>`, insertAfter: "1.1" },
+      { id: "custom_2", title: "Trailing", content: `<p>${RESTRICTED}</p>`, insertAfter: "" },
+    ]);
+    expect(html).toContain(
+      '<p>a <span data-type="mention" data-kind="card" data-restricted="true" data-token="ab12cd34">Restricted card</span> b ' +
+        `${RESOLVED}</p>`,
+    );
+    expect(html).toContain(
+      '<p><span data-type="mention" data-kind="decision" data-id="1c1f6c2f-7b1f-4d54-8c9f-3e2d5b6a8f02" data-missing="true">Deleted decision</span></p>',
+    );
+    expect(count(html, ">Restricted card</span>")).toBe(2);
+  });
+
+  it("keeps a section that holds nothing but a restricted mention", async () => {
+    const html = body({ "1.1": rich(`<p>${RESTRICTED}</p>`) });
+    expect(html).toContain(`<h3>${def("1.1").title}</h3>`);
+    expect(html).toContain(">Restricted card</span></p>");
+    expect(texts(await docx({ "1.1": rich(`<p>${RESTRICTED}</p>`) }))).toContain("Restricted card");
+  });
+
+  it("the Word export writes the labels into the text", async () => {
+    const xml = await docx({ "1.1": rich(`<p>a ${RESTRICTED} b ${RESOLVED}</p>`) }, [
+      { id: "custom_1", title: "Anchored", content: `<p>${MISSING}</p>`, insertAfter: "1.1" },
+    ]);
+    const all = texts(xml);
+    expect(all).toContain("Restricted card");
+    expect(all).toContain("@SAP ERP");
+    expect(all).toContain("Deleted decision");
+  });
+});

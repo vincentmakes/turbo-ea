@@ -17,6 +17,7 @@ import type { AdrImportItem, ArchitectureDecision, DecisionPerson } from "@/type
 import { toIsoDate, toLocalDate } from "@/lib/dates";
 import { htmlToPlainText, plainTextToHtml } from "@/lib/richTextCell";
 import { downloadSheet, exportTimestamp, listCell, readSheetRows } from "@/lib/sheetRows";
+import { i18nMentionLabels } from "./mentions/mentionLabels";
 
 export const ADR_SHEET = "Decisions";
 
@@ -69,15 +70,17 @@ function names(people: DecisionPerson[] | undefined): string {
 
 /** One decision as a sheet row, in `ADR_COLUMNS` order. */
 export function adrRow(adr: ArchitectureDecision): (string | number)[] {
+  // Restricted / deleted mentions read as the reader's words in a cell.
+  const labels = i18nMentionLabels();
   return [
     adr.reference_number,
     adr.title,
     adr.status,
     adr.revision_number,
-    htmlToPlainText(adr.context),
-    htmlToPlainText(adr.decision),
-    htmlToPlainText(adr.consequences),
-    htmlToPlainText(adr.alternatives_considered),
+    htmlToPlainText(adr.context, labels),
+    htmlToPlainText(adr.decision, labels),
+    htmlToPlainText(adr.consequences, labels),
+    htmlToPlainText(adr.alternatives_considered, labels),
     (adr.linked_cards ?? []).map((c) => c.name).join("; "),
     (adr.related_references ?? []).join("; "),
     adr.creator_name ?? "",

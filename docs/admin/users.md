@@ -122,6 +122,8 @@ The **Roles** tab allows managing application-level roles. Each role defines a s
 
 Custom roles can be created with granular permission control over inventory, relations, stakeholders, comments, documents, diagrams, BPM, reports, and more.
 
+**Comment on architecture decisions** (`adr.comment`) and **Comment on SoAW documents** (`soaw.comment`) let a role post, reply, resolve and reopen threads in the discussion of a decision or a Statement of Architecture Work. Both are on for the Admin, BPM Admin and Member roles and off for Viewer; on an upgraded install, every existing role that could already edit or sign those documents received them. A document's signatories can always comment on it, whatever their role. See [Discussion](../guide/grc.md#decision-discussion).
+
 The **Manage homepage dashboards** permission (`admin.dashboards`, granted to the Admin role by default) lets a role customize the homepage: edit the widgets and layout of every dashboard, create, duplicate, hide, reorder, reset and delete dashboards, and choose which roles see each one. Seeing a dashboard needs no special permission — each widget on it still requires its own (for example `reports.ea_dashboard` for the Overview charts). See [Customizing dashboards](../guide/dashboard.md#customizing-dashboards).
 
 Permissions apply to the address bar as well as the menu. A page a role cannot open shows an **Access denied** notice with a link back to the dashboard, whether it is reached from the navigation, a bookmark, or a link someone shared — so hiding a menu entry and blocking the page are always the same decision.

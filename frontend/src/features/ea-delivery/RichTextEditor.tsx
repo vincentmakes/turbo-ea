@@ -1,5 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Extension, type AnyExtension } from "@tiptap/core";
+import { Plugin } from "@tiptap/pm/state";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -8,20 +10,114 @@ import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import type { MentionKind } from "@/lib/mentionHtml";
+import { plainListTags } from "./collab/discussionModel";
+import { MENTION_CHIP_SX } from "./mentions/MentionContainer";
+import MentionPopup from "./mentions/MentionPopup";
+import { createMentionExtension } from "./mentions/mentionExtension";
+import { useMentionLabels } from "./mentions/mentionLabels";
+import {
+  createMentionSuggestionStore,
+  type MentionSuggestionStore,
+} from "./mentions/mentionSuggestionStore";
 
 interface Props {
   content: string;
   onChange: (html: string) => void;
   placeholder?: string;
   readOnly?: boolean;
+  /**
+   * What "@" may mention here. Absent: no mention support at all. Documents
+   * pass `["card", "decision"]`; people (`"user"`) belong in comments only.
+   */
+  mentions?: MentionKind[];
+  /**
+   * `"comment"`: the comment grammar (no headings, rules, code blocks or
+   * underline) and Ctrl/Cmd+Enter calls `onSubmit`. Defaults to `"document"`.
+   */
+  variant?: "document" | "comment";
+  /** Comment variant: Ctrl/Cmd+Enter. Not called while the "@" popup is open. */
+  onSubmit?: () => void;
 }
 
-export default function RichTextEditor({ content, onChange, placeholder, readOnly }: Props) {
+/**
+ * Ctrl/Cmd+Enter submits a comment. Its priority is above StarterKit's
+ * HardBreak, which binds `Mod-Enter` to a line break; while the "@" popup is
+ * open the key is swallowed (neither a submit nor a line break).
+ */
+function submitShortcut(store: MentionSuggestionStore, submit: () => void): AnyExtension {
+  return Extension.create({
+    name: "commentSubmit",
+    priority: 1000,
+    addKeyboardShortcuts() {
+      return {
+        "Mod-Enter": () => {
+          if (!store.isOpen()) submit();
+          return true;
+        },
+      };
+    },
+  });
+}
+
+/**
+ * The server keeps attribute-less tags only in a comment and escapes any
+ * other, so a comment's lists carry no `start` / `type`: a list typed as
+ * "3. " or pasted as a lettered list is a plain numbered list. This plugin
+ * resets the two attributes on every change (typed, pasted, loaded), and
+ * `plainListTags` strips them from what is sent, whatever the editor holds.
+ */
+function plainCommentLists(): AnyExtension {
+  return Extension.create({
+    name: "plainCommentLists",
+    addProseMirrorPlugins() {
+      return [
+        new Plugin({
+          appendTransaction: (transactions, _old, state) => {
+            if (!transactions.some((tr) => tr.docChanged)) return null;
+            const tr = state.tr;
+            state.doc.descendants((node, pos) => {
+              if (node.type.name !== "orderedList") return;
+              if (node.attrs.start !== 1 || node.attrs.type != null) {
+                tr.setNodeMarkup(pos, undefined, { ...node.attrs, start: 1, type: null });
+              }
+            });
+            return tr.docChanged ? tr : null;
+          },
+        }),
+      ];
+    },
+  });
+}
+
+export default function RichTextEditor({
+  content,
+  onChange,
+  placeholder,
+  readOnly,
+  mentions,
+  variant = "document",
+  onSubmit,
+}: Props) {
   const { t } = useTranslation("delivery");
+  const isComment = variant === "comment";
+  const [store] = useState(createMentionSuggestionStore);
+  const mentionLabels = useMentionLabels();
+  // The editor is built once; the latest submit callback is read through a ref.
+  const onSubmitRef = useRef(onSubmit);
+  useEffect(() => {
+    onSubmitRef.current = onSubmit;
+  }, [onSubmit]);
+  const hasMentions = Boolean(mentions && mentions.length > 0);
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        heading: { levels: [3, 4] },
+        // The comment grammar keeps p, br, strong, em, s, code, lists,
+        // blockquote and links only.
+        heading: isComment ? false : { levels: [3, 4] },
+        horizontalRule: isComment ? false : undefined,
+        codeBlock: isComment ? false : undefined,
+        underline: isComment ? false : undefined,
         // StarterKit bundles the Link extension. A URL typed or pasted becomes
         // a link as you type, stored with the attributes every outbound link
         // in the app carries; `whenNotEditable` keeps a click in edit mode as
@@ -38,18 +134,31 @@ export default function RichTextEditor({ content, onChange, placeholder, readOnl
         },
       }),
       Placeholder.configure({ placeholder: placeholder ?? t("richText.startTyping") }),
+      ...(hasMentions ? [createMentionExtension(store, mentionLabels)] : []),
+      ...(isComment ? [submitShortcut(store, () => onSubmitRef.current?.()), plainCommentLists()] : []),
     ],
     content,
     editable: !readOnly,
     onUpdate: ({ editor: e }) => {
-      onChange(e.getHTML());
+      const html = e.getHTML();
+      onChange(isComment ? plainListTags(html) : html);
     },
+    // The "@" popup belongs to the focused editor: leaving it (another field,
+    // a click outside) dismisses it. A click on a row does not blur.
+    onBlur: () => store.close(),
   });
 
-  // Sync editable state when readOnly changes
+  // An editor going away takes its "@" popup with it.
+  useEffect(() => () => store.close(), [store]);
+
+  // Sync editable state when readOnly changes. No update is emitted: an
+  // untouched document must not report its own re-serialisation as an edit.
+  // The empty transaction tells node views (mention chips) to re-read
+  // whether the editor is editable.
   useEffect(() => {
-    if (editor) {
-      editor.setEditable(!readOnly);
+    if (editor && !editor.isDestroyed && editor.isEditable !== !readOnly) {
+      editor.setEditable(!readOnly, false);
+      editor.view.dispatch(editor.state.tr.setMeta("editableChanged", true));
     }
   }, [editor, readOnly]);
 
@@ -119,12 +228,13 @@ export default function RichTextEditor({ content, onChange, placeholder, readOnl
           () => editor.chain().focus().toggleItalic().run(),
           editor.isActive("italic"),
         )}
-        {btn(
-          "format_underlined",
-          t("richText.underline"),
-          () => editor.chain().focus().toggleUnderline().run(),
-          editor.isActive("underline"),
-        )}
+        {!isComment &&
+          btn(
+            "format_underlined",
+            t("richText.underline"),
+            () => editor.chain().focus().toggleUnderline().run(),
+            editor.isActive("underline"),
+          )}
         {btn(
           "format_strikethrough",
           t("richText.strikethrough"),
@@ -134,12 +244,13 @@ export default function RichTextEditor({ content, onChange, placeholder, readOnl
 
         <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
-        {btn(
-          "title",
-          t("richText.heading"),
-          () => editor.chain().focus().toggleHeading({ level: 3 }).run(),
-          editor.isActive("heading", { level: 3 }),
-        )}
+        {!isComment &&
+          btn(
+            "title",
+            t("richText.heading"),
+            () => editor.chain().focus().toggleHeading({ level: 3 }).run(),
+            editor.isActive("heading", { level: 3 }),
+          )}
         {btn(
           "format_list_bulleted",
           t("richText.bulletList"),
@@ -159,9 +270,10 @@ export default function RichTextEditor({ content, onChange, placeholder, readOnl
           editor.chain().focus().toggleBlockquote().run(),
           editor.isActive("blockquote"),
         )}
-        {btn("horizontal_rule", t("richText.divider"), () =>
-          editor.chain().focus().setHorizontalRule().run(),
-        )}
+        {!isComment &&
+          btn("horizontal_rule", t("richText.divider"), () =>
+            editor.chain().focus().setHorizontalRule().run(),
+          )}
 
         <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
@@ -171,7 +283,9 @@ export default function RichTextEditor({ content, onChange, placeholder, readOnl
 
       {/* Editor content */}
       <Box
-        sx={{
+        sx={[
+          MENTION_CHIP_SX,
+          {
           "& .tiptap": {
             minHeight: 120,
             px: 2,
@@ -198,10 +312,12 @@ export default function RichTextEditor({ content, onChange, placeholder, readOnl
               color: "text.secondary",
             },
           },
-        }}
+          },
+        ]}
       >
         <EditorContent editor={editor} />
       </Box>
+      {hasMentions && <MentionPopup store={store} kinds={mentions ?? []} />}
     </Box>
   );
 }

@@ -119,6 +119,8 @@ Em todos os casos você pode pesquisar e vincular cards adicionais durante a cri
 O editor oferece:
 
 - Edição de texto rico para cada seção (Contexto, Decisão, Consequências, Alternativas Consideradas)
+- **Menções** — escreva **@** numa seção para mencionar um card ou outra decisão (ver [Menções](#decision-mentions))
+- **Discussão e histórico** — um painel ao lado do documento com a sua discussão e o seu histórico (ver [Discussão](#decision-discussion) e [Histórico](#decision-history))
 - Vinculação de cards — conecte o ADR a cards relevantes (aplicações, componentes de TI, iniciativas, …). As iniciativas são vinculadas através da vinculação padrão de cards, não por um campo dedicado, permitindo que um ADR referencie múltiplas iniciativas
 - **Datas** — *Decidida em*, *Em vigor desde* e um *Válida até* opcional (ver [Datas](#decision-dates))
 - **Pessoas** — os *Decisores* e os *Participantes* (ver [Pessoas](#decision-people))
@@ -205,6 +207,48 @@ Clique no ícone de pré-visualização para ver uma versão somente leitura e f
 
 Na pré-visualização, clique em **PDF** para abrir uma cópia pronta para impressão em uma nova aba — metadados e datas, as quatro seções, pessoas, cartões vinculados, ligações a outras decisões, nomes dos ficheiros, seções de extensões e o bloco de assinaturas (ou a linha de registo), com o aprovador e a data de impressão no rodapé. O editor tem o mesmo botão **PDF** mais **Word**, que baixa a decisão como `.docx` enquanto ela não estiver assinada; ambos exportam o estado atual do editor, incluindo alterações não salvas.
 
+#### Discussão {: #decision-discussion }
+
+Cada decisão tem a sua própria **Discussão**, para que uma decisão possa ser resolvida no Turbo EA em vez de num tópico de chat à parte. Abra-a com o botão **Discussão e histórico** no editor ou na pré-visualização da decisão: num ecrã largo abre-se como um painel ao lado do documento, num mais estreito como uma gaveta lateral. O painel tem duas abas, **Discussão** e [Histórico](#decision-history), e a aba Discussão mostra quantos tópicos estão abertos.
+
+- **Tópicos e respostas.** Escreva na caixa no topo da aba e clique em **Publicar** (ou prima Ctrl+Enter, Cmd+Enter num Mac) para iniciar um tópico. Escolha de que trata em **Sobre** — *Geral*, *Contexto*, *Decisão*, *Consequências* ou *Alternativas Consideradas* — para o associar a uma seção. Cada tópico aceita respostas, com um só nível de profundidade.
+- **Resolver e reabrir.** Clique em **Resolver** quando um tópico estiver encerrado e em **Reabrir** se não estiver. Os tópicos resolvidos ficam recolhidos atrás de **Mostrar N tópicos resolvidos**.
+- **Quem pode publicar.** A leitura da discussão segue quem pode abrir a decisão (`adr.view`). Publicar, responder, resolver e reabrir exigem a permissão `adr.comment`, que os membros e administradores têm por predefinição e os visualizadores não; um administrador pode alterá-la por papel. Os signatários da decisão podem sempre comentá-la, incluindo as pessoas a quem foi pedido que a assinassem numa ronda de revisão anterior que foi recolhida ou rejeitada.
+- **Durante a revisão e após a assinatura.** O [bloqueio de revisão](#fluxo-de-assinatura) abrange o conteúdo, não a conversa: a discussão continua aberta enquanto a decisão está em revisão e depois de assinada.
+- **Notas de revisão.** Quando um signatário rejeita uma decisão, o motivo abre um tópico marcado como **Motivo da rejeição** (*Nenhum motivo indicado* quando o signatário o deixou vazio), que se responde e resolve como qualquer outro. Um signatário pode acrescentar uma nota opcional ao assinar; esta aparece na discussão como **Nota de assinatura**. Nenhum dos dois se perde já quando as assinaturas são recolhidas, e ambos aparecem também na aba [Histórico](#decision-history).
+- **Tópicos abertos antes da revisão.** **Solicitar assinaturas**, **Assinar** e **Rejeitar** avisam quando a decisão ainda tem tópicos abertos (*2 tópicos de discussão abertos neste documento.*). É apenas um aviso: nada é bloqueado.
+- **Notificações.** Um novo comentário notifica o autor da decisão, os seus signatários, os seus decisores e participantes que sejam utilizadores do Turbo EA, e as pessoas que comentaram antes — nunca quem o publicou. Escreva **@** num comentário para mencionar um colega: este recebe uma notificação de menção em vez disso. Alguém que mencione e que não possa abrir a decisão não é notificado, e o painel indica-o (*… não foi notificado: não pode abrir este documento.*). As notificações não trazem o texto do comentário, e clicar numa abre a pré-visualização da decisão com o painel nesse tópico. Ver [Notificações](notifications.md#tipos-de-notificacao).
+- **Editar e eliminar.** Pode editar os seus próprios comentários; um comentário editado é marcado como *(editado)*. Pode eliminar os seus próprios comentários, e quem pode editar a decisão (`adr.manage`) pode eliminar qualquer comentário; um comentário eliminado deixa *Este comentário foi eliminado.* no seu lugar e mantém as suas respostas. Um motivo de rejeição e uma nota de assinatura não podem ser editados nem eliminados: uma rejeição é resolvida em vez disso.
+- **Revisões anteriores.** Um tópico pertence à revisão em que foi iniciado. Ative **Mostrar a discussão de revisões anteriores** para ler os tópicos das revisões anteriores da decisão, agrupados por revisão.
+
+#### Menções {: #decision-mentions }
+
+Ao redigir uma decisão, escreva **@** em qualquer uma das suas quatro seções para mencionar um **card** ou outra **decisão**. Uma janela pop-up lista os cards e as decisões correspondentes à medida que escreve; use as setas e Enter (ou clique) para escolher um, e Escape para a fechar. Num comentário, **@** também oferece **pessoas**. Uma menção aparece como uma etiqueta (chip) com o nome atual daquilo para que aponta — o nome de um card, a referência e o título de uma decisão —, pelo que mudar o nome de um card nunca altera o texto. Clique numa etiqueta de card ou de decisão para a abrir.
+
+- Um leitor que não pode ver um card mencionado vê **Ficha restrita** em vez do seu nome, em todo o lado — o editor, a pré-visualização, as exportações PDF e Word, a grelha, o histórico e a discussão. Um leitor que não pode abrir decisões vê **Decisão restrita**. Guardar o texto mantém essas menções como estão, mesmo quando quem guarda não as pode ver.
+- Um card mencionado que entretanto foi eliminado aparece como **Ficha eliminada** (uma decisão eliminada, **Decisão eliminada**), uma vez que o texto não armazena nomes.
+- Uma menção não vincula o card. Quando o texto menciona cards que não estão vinculados, o editor lista-os em *Fichas mencionadas no texto mas não vinculadas:*, cada um com um botão **Vincular esta ficha**. Vincular cards no editor usa o mesmo seletor de cards que o resto do Turbo EA.
+- **Mencionado em.** A [aba ADR](card-details.md#aba-de-adr) de um card e a pré-visualização de uma decisão listam, em **Mencionado em**, as decisões e os SoAW cujo texto menciona esse card ou essa decisão, e aqueles cuja discussão o faz (assinalados *na discussão*). A lista só mostra os documentos que pode abrir.
+
+#### Histórico {: #decision-history }
+
+A aba **Histórico** do mesmo painel regista o que aconteceu à decisão, do mais recente para o mais antigo: criada, guardada, enviada para revisão, cada assinatura (com a sua nota), rejeitada (com o motivo), assinaturas recolhidas, totalmente assinada, registada como decidida, uma revisão iniciada, uma versão anterior restaurada. Todos os que podem abrir a decisão veem esta cronologia. Os eventos de revisão — enviada para revisão, assinada, recolhida, rejeitada — são guardados a partir da versão 2.200.0; antes, eram mostrados em direto mas nunca armazenados. As decisões que existiam antes dessa versão começam com uma cronologia reconstruída a partir do que estava armazenado: criada, revista, enviada para revisão (para uma decisão em revisão no momento da atualização, com os signatários a quem foi enviada), cada assinatura, assinada e registada.
+
+A aba Histórico não é a tabela **Histórico de versões do documento**, mantida à mão, de um [Statement of Architecture Work](delivery.md#o-editor-de-soaw), que regista o que os autores decidem escrever nela.
+
+- **Versões.** É guardada uma versão sempre que um rascunho é guardado com alterações. Contém o título, as quatro seções, as datas, o resumo das alterações e as pessoas; as ligações, os cards vinculados e os ficheiros não fazem parte de uma versão. Uma versão pode ser aberta com **Ver** pelas pessoas que podem editar a decisão e pelos seus signatários; os outros leitores veem a cronologia sem as versões (*As versões guardadas só são mostradas a editores e signatários.*).
+- **Comparar.** **Comparar** mostra o que mudou entre uma versão e a anterior, palavra a palavra em cada seção, juntamente com as datas e as pessoas que mudaram; escolha qualquer outra **Versão mais antiga** e **Versão mais recente** na caixa de diálogo. Uma alteração apenas de formatação é indicada como *Apenas formatação: as palavras são as mesmas.*
+- **Restaurar.** Num rascunho, quem pode editar a decisão pode **Restaurar** uma versão anterior. O restauro só avança: o texto, as datas e as pessoas da versão substituem os do rascunho e são guardados como uma nova versão, e o estado do rascunho antes do restauro fica no histórico. As ligações, os cards vinculados e os ficheiros não são restaurados. Quando o editor tem edições não guardadas, a confirmação avisa que serão descartadas. Uma decisão em revisão ou assinada não pode ser restaurada.
+
+#### Limitações conhecidas {: #collaboration-limits }
+
+- Um card eliminado aparece como **Ficha eliminada** onde quer que tenha sido mencionado: o texto não armazena nomes, pelo que o nome antigo não pode ser mostrado.
+- Duas pessoas que guardam o mesmo rascunho continuam a sobrepor-se: ganha a última gravação. O histórico mantém ambas as gravações, pelo que a redação sobreposta pode ser encontrada e restaurada.
+- A discussão não faz parte das exportações PDF, Word ou de folha de cálculo, nem da cópia impressa.
+- Um papel que pode abrir decisões mas não tem acesso ao inventário não pode pesquisar cards na janela de menções (*O seu papel não pode pesquisar fichas; ainda pode mencionar decisões.*).
+- O texto copiado de um documento para outro perde as suas etiquetas **Restrito**: uma menção restrita só pode ser mantida no documento em que foi escrita.
+- Quem foi chamado a assinar numa ronda de revisão rejeitada ou recolhida antes da versão 2.200.0 não pode ser reconstruído, pelo que essas pessoas não contam como signatárias dessa revisão. Uma ronda ainda aberta no momento da atualização mantém os seus signatários.
+
 ## Risco
 
 ![GRC — Registro de riscos](../assets/img/pt/53_grc_registo_riscos.png)
@@ -228,6 +272,7 @@ A mesma aba Conformidade também aparece no Detalhe do card (auto-ocultada quand
 | `grc.manage` | admin, bpm_admin, member |
 | `adr.view` / `adr.manage` / `adr.sign` | `adr.view`: admin, bpm_admin, member, viewer; `adr.manage` e `adr.sign`: admin, bpm_admin, member |
 | `adr.record` | admin — [registar uma decisão passada como decidida](#recording-a-past-decision) |
+| `adr.comment` | admin, bpm_admin, member — publicar na [discussão](#decision-discussion) de uma decisão; os signatários de uma decisão podem sempre comentá-la |
 | `risks.view` / `risks.manage` | ver [Registro de riscos § Permissões](risks.md) |
 | `compliance.view` / `compliance.manage` | ver [TurboLens § Security & Compliance](turbolens.md) |
 

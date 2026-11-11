@@ -122,6 +122,8 @@ La pestaña **Roles** permite gestionar los roles a nivel de aplicación. Cada r
 
 Se pueden crear roles personalizados con control granular de permisos sobre inventario, relaciones, partes interesadas, comentarios, documentos, diagramas, BPM, informes y más.
 
+**Comentar decisiones de arquitectura** (`adr.comment`) y **Comentar documentos SoAW** (`soaw.comment`) permiten a un rol publicar, responder, resolver y reabrir hilos en la discusión de una decisión o de una Declaración de Trabajo de Arquitectura. Ambos están activados para los roles Administrador, BPM Admin y Miembro, y desactivados para Visor; en una instalación actualizada, todos los roles existentes que ya podían editar o firmar esos documentos los recibieron. Los firmantes de un documento siempre pueden comentarlo, sea cual sea su rol. Véase [Discusión](../guide/grc.md#decision-discussion).
+
 El permiso **Gestionar los paneles de la página de inicio** (`admin.dashboards`, concedido por defecto al rol Admin) permite a un rol personalizar la página de inicio: editar los widgets y el diseño de cada panel; crear, duplicar, ocultar, reordenar, restablecer y eliminar paneles, y elegir qué roles ven cada uno. Ver un panel no requiere ningún permiso especial: cada widget que contiene sigue exigiendo el suyo (por ejemplo, `reports.ea_dashboard` para los gráficos de Resumen). Véase [Personalizar paneles](../guide/dashboard.md#customizing-dashboards).
 
 Los permisos se aplican tanto a la barra de direcciones como al menú. Una página que un rol no puede abrir muestra el aviso **Acceso denegado** con un enlace de vuelta al panel, tanto si se llega desde la navegación como desde un marcador o un enlace compartido: ocultar una entrada de menú y bloquear la página son siempre la misma decisión.

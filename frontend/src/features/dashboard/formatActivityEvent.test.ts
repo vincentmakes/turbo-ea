@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { TFunction } from "i18next";
 import {
+  documentTarget,
   formatActivityEvent,
   groupConsecutive,
   matchesFilter,
@@ -273,5 +274,102 @@ describe("relativeTime", () => {
   it("uses hour granularity under one day", () => {
     const iso = new Date(Date.now() - 3 * 60 * 60_000).toISOString();
     expect(relativeTime(iso, t)).toBe("dashboard.activity.time.hoursAgo:3");
+  });
+});
+
+describe("formatActivityEvent — decision and SoAW rows", () => {
+  const realT = async () => {
+    const i18n = (await import("@/i18n")).default;
+    return i18n.getFixedT("en", "common") as TFunction<"common">;
+  };
+  const doc = (event_type: string, data: Record<string, unknown>, card_id?: string): EventEntry => ({
+    id: "e",
+    user_display_name: "Ada",
+    event_type,
+    data,
+    card_id,
+    created_at: "2026-11-01T10:00:00Z",
+  });
+
+  it("links a card-less decision row to the decision's preview under its title", async () => {
+    const out = formatActivityEvent(
+      doc("adr.signed", { id: "adr-7", title: "Use Kafka", reference_number: "ADR-007" }),
+      await realT(),
+    );
+    expect(out.cardLink).toBe("/ea-delivery/adr/adr-7/preview");
+    expect(out.cardName).toBe("Use Kafka");
+    expect(out.actionText).toBe("signed an ADR");
+  });
+
+  it("reads a created decision's id from adr_id", async () => {
+    const out = formatActivityEvent(doc("adr.created", { adr_id: "adr-8", title: "New one" }), await realT());
+    expect(out.cardLink).toBe("/ea-delivery/adr/adr-8/preview");
+    expect(out.cardName).toBe("New one");
+    expect(out.actionText).toBe("created an ADR");
+  });
+
+  it("links a SoAW row to the SoAW's preview under its name", async () => {
+    const out = formatActivityEvent(doc("soaw.signatures_requested", { id: "s1", name: "Billing SoAW" }), await realT());
+    expect(out.cardLink).toBe("/ea-delivery/soaw/s1/preview");
+    expect(out.cardName).toBe("Billing SoAW");
+    expect(out.actionText).toBe("requested signatures on a SoAW");
+  });
+
+  it("names a comment's document generically, its payload carrying no name", async () => {
+    const tReal = await realT();
+    const adr = formatActivityEvent(doc("adr.comment_added", { id: "adr-7", comment_id: "c1", kind: "comment" }), tReal);
+    expect([adr.actionText, adr.cardName, adr.cardLink]).toEqual([
+      "commented on",
+      "a decision",
+      "/ea-delivery/adr/adr-7/preview",
+    ]);
+    const soaw = formatActivityEvent(doc("soaw.comment_added", { id: "s1", comment_id: "c2" }), tReal);
+    expect([soaw.actionText, soaw.cardName, soaw.cardLink]).toEqual(["commented on", "a SoAW", "/ea-delivery/soaw/s1/preview"]);
+  });
+
+  it("keeps a link row on the card it names", async () => {
+    const tReal = await realT();
+    const linked = formatActivityEvent(
+      { ...doc("adr.linked", { adr_id: "adr-7", title: "Use Kafka" }, "card-1"), card_name: "NexaCore ERP" },
+      tReal,
+    );
+    expect([linked.actionText, linked.cardName, linked.cardLink]).toEqual(["linked an ADR to", "NexaCore ERP", "/cards/card-1"]);
+    const unlinked = formatActivityEvent(
+      { ...doc("adr.unlinked", { adr_id: "adr-7" }, "card-1"), card_name: "NexaCore ERP" },
+      tReal,
+    );
+    expect(unlinked.actionText).toBe("unlinked an ADR from");
+  });
+
+  it("labels every persisted decision and SoAW event", async () => {
+    const tReal = await realT();
+    const labels = [
+      "adr.created",
+      "adr.linked",
+      "adr.unlinked",
+      "adr.signatures_requested",
+      "adr.signed",
+      "adr.signatures_recalled",
+      "adr.rejected",
+      "adr.recorded",
+      "adr.comment_added",
+      "soaw.signatures_requested",
+      "soaw.signed",
+      "soaw.signatures_recalled",
+      "soaw.rejected",
+      "soaw.comment_added",
+    ].map((type) => formatActivityEvent(doc(type, { id: "x" }), tReal).actionText);
+    expect(labels.some((l) => l.startsWith("performed "))).toBe(false);
+  });
+
+  it("documentTarget: none for a row about another family, or with no id to link", async () => {
+    const tReal = await realT();
+    expect(documentTarget(doc("card.updated", { id: "x" }), tReal)).toBeNull();
+    expect(documentTarget(doc("adr.signed", { title: "T" }), tReal)).toEqual({ name: "T", link: null });
+    expect(documentTarget(doc("soaw.signed", {}), tReal)).toEqual({ name: "a SoAW", link: null });
+    expect(documentTarget({ event_type: "adr.signed", card_id: undefined, data: undefined }, tReal)).toEqual({
+      name: "a decision",
+      link: null,
+    });
   });
 });

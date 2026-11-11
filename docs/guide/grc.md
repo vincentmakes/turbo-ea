@@ -123,6 +123,8 @@ In every case, you can search and link additional cards during creation. Initiat
 The editor provides:
 
 - Rich-text editing for each section (Context, Decision, Consequences, Alternatives Considered)
+- **Mentions** — type **@** in a section to mention a card or another decision (see [Mentions](#decision-mentions))
+- **Discussion and history** — a panel beside the document with its discussion and its history (see [Discussion](#decision-discussion) and [History](#decision-history))
 - Card linking — connect the ADR to relevant cards (applications, IT components, initiatives, …). Initiatives are linked via the standard card-linking feature, not a dedicated field, so an ADR can reference multiple initiatives
 - **Dates** — *Decided on*, *Effective from* and an optional *Valid until* (see [Dates](#decision-dates))
 - **People** — the *Decision makers* and *Participants* (see [People](#decision-people))
@@ -209,6 +211,48 @@ Click the preview icon to view a read-only, formatted version of the ADR — use
 
 From the preview click **PDF** to open a print-ready copy in a new tab — metadata and dates, the four sections, people, linked cards, links to other decisions, file names, extension sections and the signature block (or the recorded line), with the approver and print date in the footer. The editor has the same **PDF** button plus **Word**, which downloads the decision as a `.docx` until it is signed; both export what is currently in the editor, unsaved edits included.
 
+#### Discussion {: #decision-discussion }
+
+Every decision has its own **Discussion**, so a decision can be settled in Turbo EA instead of in a separate chat thread. Open it with the **Discussion and history** button on the decision's editor or preview: on a wide screen it opens as a panel beside the document, on a narrower one as a drawer. The panel has two tabs, **Discussion** and [History](#decision-history), and the Discussion tab shows how many threads are open.
+
+- **Threads and replies.** Type in the box at the top of the tab and click **Post** (or press Ctrl+Enter, Cmd+Enter on a Mac) to start a thread. Pick what it is **About** — *General*, *Context*, *Decision*, *Consequences* or *Alternatives Considered* — to tag it to a section. Each thread takes replies, one level deep.
+- **Resolve and reopen.** Click **Resolve** once a thread is settled and **Reopen** if it is not. Resolved threads fold away behind **Show N resolved threads**.
+- **Who can post.** Reading the discussion follows who can open the decision (`adr.view`). Posting, replying, resolving and reopening need the `adr.comment` permission, which members and admins hold by default and viewers do not; an administrator can change it per role. The decision's signatories can always comment on it, including the people asked to sign it in an earlier review round that was recalled or rejected.
+- **During review and after signing.** The [review lock](#sign-off-workflow) covers the content, not the conversation: the discussion stays open while the decision is in review and after it is signed.
+- **Review notes.** When a signatory rejects a decision, the reason opens a thread marked **Rejection reason** (*No reason given* when the signatory left it empty), to be answered and resolved like any other. A signatory can add an optional note when signing; it appears in the discussion as a **Signing note**. Neither is lost any more when signatures are recalled, and both are also shown on the [History](#decision-history) tab.
+- **Open threads before review.** **Request Signatures**, **Sign** and **Reject** warn when the decision still has open threads (*2 open discussion threads on this document.*). It is a warning only: nothing is blocked.
+- **Notifications.** A new comment notifies the decision's author, its signatories, its decision makers and participants who are Turbo EA users, and the people who commented before — never the person who posted it. Type **@** in a comment to mention a colleague: they receive a mention notification instead. Someone you mention who cannot open the decision is not notified, and the panel tells you so (*… was not notified: they cannot open this document.*). Notifications carry no comment text, and clicking one opens the decision's preview with the panel on that thread. See [Notifications](notifications.md#notification-types).
+- **Editing and deleting.** You can edit your own comments; an edited comment is marked *(edited)*. You can delete your own comments, and anyone who can edit the decision (`adr.manage`) can delete any comment; a deleted comment leaves *This comment was deleted.* in its place and keeps its replies. A rejection reason and a signing note cannot be edited or deleted: a rejection is resolved instead.
+- **Earlier revisions.** A thread belongs to the revision it was started on. Switch on **Show discussion on earlier revisions** to read the threads of the decision's earlier revisions, grouped by revision.
+
+#### Mentions {: #decision-mentions }
+
+While writing a decision, type **@** in any of its four sections to mention a **card** or another **decision**. A popup lists matching cards and decisions as you type; use the arrow keys and Enter (or click) to pick one, and Escape to close it. In a comment, **@** also offers **people**. A mention appears as a chip carrying the current name of what it points to — a card's name, a decision's reference and title — so renaming a card never changes the text. Click a card or decision chip to open it.
+
+- A reader who may not see a mentioned card sees **Restricted card** instead of its name, on every surface — the editor, the preview, the PDF and Word exports, the grid, the history and the discussion. A reader who cannot open decisions sees **Restricted decision**. Saving the text keeps such mentions as they are, even when the person saving cannot see them.
+- A mentioned card that has since been deleted reads **Deleted card** (a deleted decision, **Deleted decision**), since the text stores no names.
+- A mention does not link the card. When the text mentions cards that are not linked, the editor lists them under *Mentioned in the text but not linked:*, each with a **Link this card** button. Linking cards in the editor uses the same card picker as the rest of Turbo EA.
+- **Mentioned in.** A card's [ADRs tab](card-details.md#adrs-tab) and a decision's preview list, under **Mentioned in**, the decisions and SoAWs whose text mentions that card or decision, and those whose discussion does (marked *in the discussion*). The list only shows documents you can open.
+
+#### History {: #decision-history }
+
+The **History** tab of the same panel records what happened to the decision, newest first: created, saved, sent for review, each signature (with its note), rejected (with the reason), signatures recalled, fully signed, recorded as decided, a revision started, an earlier version restored. Everyone who can open the decision sees this timeline. Review events — sent for review, signed, recalled, rejected — are kept from version 2.200.0 on; before, they were shown live but never stored. Decisions that existed before that version start with a timeline rebuilt from what was stored: created, revised, sent for review (for a decision in review at the upgrade, with the signatories it was sent to), each signature, signed and recorded.
+
+The History tab is not the hand-kept **Document Version History** table of a [Statement of Architecture Work](delivery.md#the-soaw-editor), which records what the authors choose to write in it.
+
+- **Versions.** A version is kept each time a draft is saved with changes. It holds the title, the four sections, the dates, the change summary and the people; links, linked cards and files are not part of a version. A version can be opened with **View** by the people who can edit the decision and by its signatories; other readers see the timeline without the versions (*Saved versions are shown to editors and signatories only.*).
+- **Compare.** **Compare** shows what changed between a version and the one before it, word by word per section, together with the dates and people that changed; pick any other **Older version** and **Newer version** in the dialog. A change of formatting alone is reported as *Formatting only: the words are the same.*
+- **Restore.** On a draft, someone who can edit the decision can **Restore** an earlier version. Restoring is forward only: the version's text, dates and people replace the draft's and are kept as a new version, and the draft's state before the restore stays in the history. Links, linked cards and files are not restored. When the editor holds unsaved edits, the confirmation says they will be discarded. A decision in review or signed cannot be restored.
+
+#### Known limits {: #collaboration-limits }
+
+- A deleted card reads **Deleted card** wherever it was mentioned: the text stores no names, so the old name cannot be shown.
+- Two people saving the same draft still overwrite each other: the last save wins. The history keeps both saves, so the overwritten wording can be found and restored.
+- The discussion is not part of the PDF, Word or spreadsheet exports, nor of the printed copy.
+- A role that can open decisions but has no inventory access cannot search cards in the mention popup (*Your role cannot search cards; you can still mention decisions.*).
+- Text copied from one document into another loses its **Restricted** chips: a restricted mention can only be kept in the document it was written in.
+- Who was asked to sign in a review round rejected or recalled before version 2.200.0 cannot be reconstructed, so those people do not count as signatories of that revision. A round still open at the upgrade keeps its signatories.
+
 ## Risk
 
 ![GRC — Risk Register](../assets/img/en/53_grc_risk_register.png)
@@ -235,6 +279,7 @@ The same Compliance tab also appears on Card Detail (auto-hides when the card ha
 | `grc.manage` | admin, bpm_admin, member |
 | `adr.view` / `adr.manage` / `adr.sign` | `adr.view`: admin, bpm_admin, member, viewer; `adr.manage` and `adr.sign`: admin, bpm_admin, member |
 | `adr.record` | admin — [record a past decision as decided](#recording-a-past-decision) |
+| `adr.comment` | admin, bpm_admin, member — post in a decision's [discussion](#decision-discussion); a decision's signatories can always comment on it |
 | `risks.view` / `risks.manage` | see [Risk Register § Permissions](risks.md) |
 | `compliance.view` / `compliance.manage` | see [TurboLens § Security & Compliance](turbolens.md) |
 

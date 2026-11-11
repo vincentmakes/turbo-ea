@@ -60,6 +60,8 @@ Sotto i tile, la dashboard Panoramica mostra:
 - **Attività recente**: un feed delle ultime modifiche — chi ha modificato cosa e quando
 - **Classifica della qualità dei dati**: le persone che mantengono complete le proprie card (vedi sotto)
 
+**Attività recente** elenca anche ciò che accade a decisioni e Statement of Architecture Work — una decisione creata o collegata a una card, firme richieste, firmate, ritirate o rifiutate, un commento pubblicato — ai lettori che possono aprirli: gli eventi delle decisioni richiedono `adr.view` e quelli dei SoAW `soaw.view`. Gli eventi di revisione sono conservati a partire dalla versione 2.200.0; quelli precedenti non sono mai stati memorizzati.
+
 Facendo clic su una barra o su una fetta di un grafico si apre ciò che c'è dietro: l'[Inventario](inventory.md) filtrato su quelle card per un tipo di card o uno stato di approvazione, il report Ciclo di vita per una fase del ciclo di vita, il report Qualità dei dati per una fascia di completezza.
 
 ### Classifica della qualità dei dati

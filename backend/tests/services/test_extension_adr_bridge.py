@@ -168,6 +168,20 @@ class TestCreateDraft:
         assert row.created_by is None
         assert row.context == "Two billing systems"
 
+    async def test_a_mention_of_an_existing_card_is_kept(self, db, env):
+        """The bridge is a system writer: a mentioned card must exist, nothing more."""
+        load_registry(grants=["core.adr.write"])
+        card_id = env["active"].id
+        mention = f'<span data-type="mention" data-kind="card" data-id="{card_id}">@x</span>'
+        out = await ExtensionDecisions(KEY).create_draft(title="Mentions", decision=mention)
+        stored = await db.get(ArchitectureDecision, uuid.UUID(out.id))
+        assert stored.decision == (
+            f'<span data-type="mention" data-kind="card" data-id="{card_id}"></span>'
+        )
+        unknown = f'<span data-type="mention" data-kind="card" data-id="{uuid.uuid4()}"></span>'
+        with pytest.raises(ExtensionDataError, match="Card not found"):
+            await ExtensionDecisions(KEY).create_draft(title="Unknown", decision=unknown)
+
     async def test_status_is_never_a_parameter(self, db, env):
         load_registry(grants=["core.adr.write"])
         with pytest.raises(TypeError):
@@ -394,3 +408,39 @@ class TestSessionDiscipline:
         src = Path(bridge_mod.__file__).read_text(encoding="utf-8")
         assert "async with async_session() as db" in src
         assert "Depends(" not in src
+
+
+class TestTimeline:
+    async def test_a_filed_draft_opens_its_timeline(self, db, env):
+        from app.models.document_history import DocumentHistoryEntry
+
+        load_registry(grants=["core.adr.write"])
+        out = await ExtensionDecisions(KEY).create_draft(title="Timeline")
+        rows = (
+            (
+                await db.execute(
+                    select(DocumentHistoryEntry).where(
+                        DocumentHistoryEntry.architecture_decision_id == uuid.UUID(out.id)
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert [(r.kind, r.actor_id, r.actor_name, r.via) for r in rows] == [
+            ("created", None, None, "ext")
+        ]
+        # The ``created`` row carries the filed draft's content.
+        assert rows[0].content == {
+            "title": "Timeline",
+            "context": None,
+            "decision": None,
+            "consequences": None,
+            "alternatives_considered": None,
+            "decided_on": None,
+            "effective_from": None,
+            "valid_until": None,
+            "change_summary": None,
+            "decision_makers": [],
+            "participants": [],
+        }

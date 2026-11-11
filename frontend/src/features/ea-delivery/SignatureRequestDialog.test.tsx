@@ -250,3 +250,25 @@ describe("SignatureRequestDialog — decision makers shortcut", () => {
     expect(onRequest).toHaveBeenCalledWith([MEMBER_USER.id]);
   });
 });
+
+describe("SignatureRequestDialog — open discussion threads", () => {
+  it("warns about open threads without blocking the request", async () => {
+    const user = userEvent.setup();
+    const { onRequest } = renderDialog({ openThreadCount: 2 });
+    expect(screen.getByTestId("open-threads-warning")).toHaveTextContent(
+      "2 open discussion threads on this document.",
+    );
+    await waitFor(() => expect(mockApi.callsOf("get", "/users")).toHaveLength(1));
+    await user.type(screen.getByPlaceholderText("Search users..."), ADMIN_USER.display_name);
+    await user.click(await screen.findByText(ADMIN_USER.display_name));
+    await user.click(screen.getByRole("button", { name: "Request 1 Signature" }));
+    expect(onRequest).toHaveBeenCalledWith([ADMIN_USER.id]);
+  });
+
+  it("shows no warning without open threads", () => {
+    renderDialog({ openThreadCount: 0 });
+    expect(screen.queryByTestId("open-threads-warning")).toBeNull();
+    renderDialog();
+    expect(screen.queryByTestId("open-threads-warning")).toBeNull();
+  });
+});

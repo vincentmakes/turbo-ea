@@ -1295,6 +1295,8 @@ export interface SoAW {
   open_revision?: (SoAWRef & { status: SoAW["status"] }) | null;
   /** `GET /soaw/{id}` only: the whole chain in order. */
   revisions?: SoAWRevision[];
+  /** Detail only: unresolved discussion threads on this revision. */
+  open_thread_count?: number;
 }
 
 /** A pointer to another revision of a SoAW chain. */
@@ -1454,6 +1456,159 @@ export interface ArchitectureDecision {
   change_summary?: string | null;
   recorded_by?: { user_id: string; display_name: string | null } | null;
   files?: DecisionFile[];
+  /** Detail only: unresolved discussion threads on this revision. */
+  open_thread_count?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Discussion and history of a decision or SoAW (the document side panel)
+// ---------------------------------------------------------------------------
+
+/** What a discussion or a history belongs to. */
+export type DocumentKind = "adr" | "soaw";
+
+export interface DocumentOwner {
+  kind: DocumentKind;
+  id: string;
+}
+
+/** A person as the collaboration routes name one. */
+export interface DocumentUserRef {
+  id: string;
+  display_name: string;
+}
+
+/** `rejection`: a review was rejected with this reason; `sign_note`: a signer's note. */
+export type DocumentCommentKind = "comment" | "rejection" | "sign_note";
+
+/** One comment, top-level or a reply (`GET /{adr|soaw}/{id}/comments`). */
+export interface DocumentComment {
+  id: string;
+  kind: DocumentCommentKind;
+  section: string | null;
+  /** The revision the thread was started on: replies and resolves go there. */
+  revision_id: string;
+  revision_number: number;
+  author: DocumentUserRef | null;
+  /** The name kept when the author's account is gone. */
+  author_name: string | null;
+  /** HTML; `""` once deleted. */
+  body: string;
+  created_at: string;
+  edited_at: string | null;
+  deleted: boolean;
+  resolved_at: string | null;
+  resolved_by: DocumentUserRef | null;
+  can: { edit: boolean; delete: boolean; resolve: boolean };
+}
+
+export interface DocumentThread extends DocumentComment {
+  replies: DocumentComment[];
+}
+
+export interface DocumentDiscussion {
+  can: { comment: boolean; moderate: boolean };
+  /** Unresolved, undeleted threads of the path document only. */
+  open_count: number;
+  threads: DocumentThread[];
+}
+
+/** A POST / PATCH reply: the thread, and who a mention could not notify. */
+export interface DocumentThreadWrite extends DocumentThread {
+  unnotified_mentions?: DocumentUserRef[];
+}
+
+export type DocumentHistoryKind =
+  | "created"
+  | "baseline"
+  | "save"
+  | "restored"
+  | "revised"
+  | "sent_for_review"
+  | "signature"
+  | "signed"
+  | "rejected"
+  | "recalled"
+  | "recorded";
+
+/** One timeline row (`GET /{adr|soaw}/{id}/history`). */
+export interface DocumentHistoryEntry {
+  id: string;
+  kind: DocumentHistoryKind;
+  actor: DocumentUserRef | null;
+  actor_name: string | null;
+  /** A rejection's reason, a signing note, or (on `restored`) the source entry's id. */
+  note: string | null;
+  created_at: string;
+  /** A saved version that can be viewed and compared. */
+  has_content: boolean;
+  /** On a `restored` row: the version it brought back (null once that is gone). */
+  restored_from?: { id: string; kind: DocumentHistoryKind; created_at: string } | null;
+}
+
+export interface DocumentHistoryPage {
+  can_view_versions: boolean;
+  can_restore: boolean;
+  total: number;
+  entries: DocumentHistoryEntry[];
+}
+
+/** A person in a saved decision version. */
+export interface VersionPerson {
+  user_id: string | null;
+  display_name: string;
+}
+
+/** What a saved decision version holds (HTML with mentions resolved for the reader). */
+export interface DecisionVersionContent {
+  title: string;
+  context: string | null;
+  decision: string | null;
+  consequences: string | null;
+  alternatives_considered: string | null;
+  decided_on: string | null;
+  effective_from: string | null;
+  valid_until: string | null;
+  change_summary: string | null;
+  decision_makers: VersionPerson[] | null;
+  participants: VersionPerson[] | null;
+}
+
+/** A SoAW section as a version stores it (custom sections carry their title). */
+export type SoawVersionSection = SoAWSectionData & { title?: string; insertAfter?: string };
+
+/** What a saved SoAW version holds. */
+export interface SoawVersionContent {
+  name: string;
+  document_info: SoAWDocumentInfo | null;
+  version_history: SoAWVersionEntry[] | null;
+  sections: Record<string, SoawVersionSection> | null;
+}
+
+/** `GET /{adr|soaw}/{id}/history/{entry_id}`. */
+export interface DocumentVersion {
+  entry: DocumentHistoryEntry;
+  content: DecisionVersionContent | SoawVersionContent;
+}
+
+/** `GET /mentions/cards/{id}` and `/mentions/decisions/{id}`. */
+export interface MentionedIn {
+  decisions: {
+    id: string;
+    reference_number: string;
+    revision_number: number;
+    title: string;
+    status: ArchitectureDecision["status"];
+    standing: DecisionStanding | null;
+    via: "text" | "comment";
+  }[];
+  soaws: {
+    id: string;
+    name: string;
+    revision_number: number;
+    status: SoAW["status"];
+    via?: "text" | "comment";
+  }[];
 }
 
 export interface FileAttachment {

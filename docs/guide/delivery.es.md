@@ -49,6 +49,8 @@ El editor proporciona:
 - **Enlaces** — Una URL escrita o pegada se convierte en enlace mientras escribe, y todos los enlaces de un documento se abren en una pestaña nueva. Las direcciones de los documentos redactados antes de que se admitieran los enlaces se convierten en enlaces al mostrarse
 - **Plantillas de secciones** — Secciones predefinidas siguiendo estándares TOGAF (ej., Descripción del Problema, Objetivos, Enfoque, Partes Interesadas, Restricciones, Plan de Trabajo)
 - **Tablas editables en línea** — Agregue y edite tablas dentro de cualquier sección
+- **Menciones** — escriba **@** en el texto de una sección para mencionar una ficha o una decisión (consulte [Discusión, menciones e historial](#soaw-collaboration))
+- **Historial de Versiones del Documento** — una tabla que los autores rellenan a mano (versión, fecha, revisado por, descripción). Forma parte del documento y no es la pestaña [Historial](#soaw-collaboration)
 - **Flujo de estados** — Los documentos progresan a través de etapas definidas:
 
 | Estado | Significado |
@@ -69,6 +71,16 @@ Un SoAW en revisión está **bloqueado**, para que los firmantes firmen exactame
 Un SoAW firmado es de solo lectura. Haga clic en **Nueva Revisión** para iniciar un nuevo borrador a partir de él, con el mismo nombre y el siguiente número de revisión. Solo hay una revisión abierta a la vez: mientras se redacta una revisión, el SoAW firmado lo indica y ofrece **Abrir la revisión** en lugar de iniciar otra. Solo se puede revisar la última revisión, y un rechazo no cambia el número de revisión.
 
 Una revisión anterior muestra un banner con un enlace a la actual, y la franja **Revisiones** de cada revisión las enumera todas. Las listas de SoAW — los entregables de la iniciativa, la pestaña SoAW, el informe de Entrega EA — muestran la revisión actual de cada documento y cualquier revisión en redacción.
+
+### Discusión, menciones e historial {: #soaw-collaboration }
+
+Un SoAW tiene la misma discusión, las mismas menciones y el mismo historial que una decisión, en el panel **Discusión e historial** de su editor y de su vista previa. El comportamiento común se describe una sola vez, en la guía de GRC: [Discusión](grc.md#decision-discussion), [Menciones](grc.md#decision-mentions), [Historial](grc.md#decision-history) y [Limitaciones conocidas](grc.md#collaboration-limits). Lo que cambia en un SoAW:
+
+- **Quién puede publicar.** Publicar, responder, resolver y reabrir requieren el permiso `soaw.comment`, que los miembros y administradores tienen por defecto y los visores no; la lectura de la discusión sigue a `soaw.view`. Los firmantes del SoAW siempre pueden comentarlo. Cualquiera que pueda editar SoAW (`soaw.manage`) puede eliminar cualquier comentario.
+- **Secciones.** Un hilo se asocia a una de las secciones propias del SoAW, o a *General*. Un hilo asociado a una sección personalizada que se ha eliminado después muestra *Sección eliminada*.
+- **Rechazo.** Cualquier firmante que tenga el permiso de firma (`soaw.sign`) —o el permiso de edición— puede rechazar un SoAW, como ocurre con las decisiones; hasta ahora, rechazar requería el permiso de edición. El motivo abre un hilo **Motivo del rechazo** en la discusión.
+- **Nota de firma.** **Firmar** abre ahora un cuadro de diálogo en el que el firmante puede añadir una nota opcional; aparece en la discusión como **Nota de firma** y en la pestaña Historial.
+- **Historial.** Una versión contiene el nombre del SoAW, su información de documento, su tabla Historial de Versiones del Documento y todas las secciones; la iniciativa no forma parte de una versión. La pestaña Historial registra lo que le ocurre al documento; la tabla Historial de Versiones del Documento, dentro del documento, solo registra lo que sus autores escriben en ella. Un SoAW en estado **Aprobado** todavía puede editarse, así que, igual que con un borrador, sus guardados se conservan como versiones y se puede restaurar en él una versión anterior.
 
 ### Vista Previa y Exportación
 

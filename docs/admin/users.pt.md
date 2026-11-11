@@ -122,6 +122,8 @@ A aba de **Papéis** permite gerenciar papéis em nível de aplicação. Cada pa
 
 Papéis personalizados podem ser criados com controle granular de permissões sobre inventário, relacionamentos, partes interessadas, comentários, documentos, diagramas, BPM, relatórios e mais.
 
+**Comentar decisões de arquitetura** (`adr.comment`) e **Comentar documentos SoAW** (`soaw.comment`) permitem a um papel publicar, responder, resolver e reabrir tópicos na discussão de uma decisão ou de um Statement of Architecture Work. Ambas estão ativadas para os papéis Admin, BPM Admin e Membro e desativadas para Visualizador; numa instalação atualizada, todos os papéis existentes que já podiam editar ou assinar esses documentos receberam-nas. Os signatários de um documento podem sempre comentá-lo, seja qual for o seu papel. Ver [Discussão](../guide/grc.md#decision-discussion).
+
 A permissão **Gerir os painéis da página inicial** (`admin.dashboards`, concedida por predefinição ao papel Admin) permite a um papel personalizar a página inicial: editar os widgets e o esquema de todos os painéis; criar, duplicar, ocultar, reordenar, repor e eliminar painéis; e escolher que papéis veem cada um. Ver um painel não exige nenhuma permissão especial — cada widget nele continua a exigir a sua (por exemplo, `reports.ea_dashboard` para os gráficos da Visão geral). Ver [Personalizar painéis](../guide/dashboard.md#customizing-dashboards).
 
 As permissões aplicam-se à barra de endereços tanto quanto ao menu. Uma página que uma função não pode abrir mostra o aviso **Acesso negado** com uma ligação de volta ao painel, quer se chegue pela navegação, por um marcador ou por uma ligação partilhada — ocultar uma entrada de menu e bloquear a página são sempre a mesma decisão.

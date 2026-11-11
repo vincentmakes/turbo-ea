@@ -60,6 +60,8 @@ Bajo las tarjetas, el panel Resumen muestra:
 - **Actividad reciente**: un feed de los últimos cambios: quién editó qué y cuándo
 - **Clasificación de calidad de datos**: las personas que mantienen sus fichas completas (véase más abajo)
 
+**Actividad reciente** también muestra lo que ocurre con las decisiones y las Declaraciones de Trabajo de Arquitectura —una decisión creada o vinculada a una ficha, firmas solicitadas, firmadas, retiradas o rechazadas, un comentario publicado— a los lectores que pueden abrirlas: los eventos de decisiones requieren `adr.view` y los de SoAW, `soaw.view`. Los eventos de revisión se conservan a partir de la versión 2.200.0; los anteriores nunca se almacenaron.
+
 Al hacer clic en una barra o en un sector de un gráfico se abre lo que hay detrás: el [Inventario](inventory.md) filtrado por esas fichas para un tipo de ficha o un estado de aprobación, el informe de Ciclo de vida para una fase del ciclo de vida y el informe de Calidad de datos para un tramo de completitud.
 
 ### Clasificación de calidad de datos

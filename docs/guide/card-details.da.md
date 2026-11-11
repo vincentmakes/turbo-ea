@@ -230,6 +230,8 @@ Hvert kort har en **ADRs**-fane, der viser de [arkitekturbeslutninger](delivery.
 
 Hvis du må administrere ADR-tilknytninger, tilbyder fanen desuden **Tilknyt ADR** til at vedhæfte en eksisterende beslutning og **Opret ADR** til at oprette en ny, der på forhånd er tilknyttet dette kort, samt en frakoblingshandling på hver række. På kort uden tilknyttede beslutninger er fanen skjult, medmindre du har den tilladelse, så brugere med skrivebeskyttet adgang aldrig ser en tom fane.
 
+Under listen viser **Omtalt i** de beslutninger og Statements of Architecture Work, hvis tekst omtaler dette kort, og dem, hvis diskussion omtaler det (markeret *i diskussionen*), med hvert dokuments reference eller revision og dets gyldighed eller status. En omtale tilknytter ikke kortet til beslutningen; den vises kun her. Listen viser kun de dokumenter, du kan åbne, og udelades, når der ingen er. Se [Omtaler](grc.md#decision-mentions).
+
 ## Risks-fane (GRC aktiveret, når til stede)
 
 Når [GRC-modulet](grc.md) er aktiveret **og** kortet har mindst én linket risiko, vises en **Risks**-fane, der viser hver risiko linket til kortet med en ét-klik-vej tilbage til [Risikoregistret](risks.md). Fanen er auto-skjult, når ingen risiko er linket, så kort uden GRC-aktivitet ikke bærer en tom fane.

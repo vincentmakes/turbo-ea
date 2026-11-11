@@ -11,6 +11,10 @@ The static scan (``tests/services/test_card_read_scope_guard.py``) proves a
 module considered the read scope; this proves the queries inside it apply it.
 A route whose path parameter this file cannot fill must be listed in
 ``UNMAPPED_PARAMS`` or skipped with a reason, so a new route forces a decision.
+The sentinel is also MENTIONED in the decision's text, in a SoAW section and
+in a comment in the discussion of each (``EXTRA_CALLS`` adds the list calls
+whose optional query parameters add text fields), so a serialiser that
+forgets to resolve mentions leaks it.
 
 Two controls keep the sweep honest: as admin the sentinel must show up on a
 good number of routes (so an empty sweep cannot pass vacuously), and a second
@@ -61,7 +65,6 @@ UNMAPPED_PARAMS = {
     "role_key": "metamodel config",
     "run_id": "analysis runs — none seeded",
     "slug": "public publications are out of scope by design",
-    "soaw_id": "SoAW — none seeded",
     "survey_id": "surveys are addressed by an admin — out of scope",
     "table": "ServiceNow admin",
     "task_id": "none seeded",
@@ -97,6 +100,15 @@ def _get_paths(app) -> list[tuple[str, list[dict]]]:
         if "get" in ops:
             out.append((path, ops["get"].get("parameters", [])))
     return out
+
+
+async def _latest_version(client, headers, kind: str, doc_id: str) -> str:
+    """The id of the newest timeline row of a document (a ``save``)."""
+    resp = await client.get(f"/api/v1/{kind}/{doc_id}/history", headers=headers)
+    assert resp.status_code == 200, resp.text
+    newest = resp.json()["entries"][0]
+    assert newest["kind"] == "save", newest
+    return newest["id"]
 
 
 @pytest.fixture
@@ -140,10 +152,34 @@ async def world(db, client):
         f"/api/v1/cards/{held['id']}/stakeholders",
         {"user_id": str(reader.id), "role": "responsible"},
     )
+    # A mention of the sentinel in the decision's text and in a SoAW section:
+    # each reader gets it resolved for them, a restricted one as a bare token.
+    mention = f'<span data-type="mention" data-kind="card" data-id="{sentinel["id"]}"></span>'
     adr = await post(
         "/api/v1/adr",
-        {"title": "Decision", "linked_card_ids": [anchor["id"], sentinel["id"]]},
+        {
+            "title": "Decision",
+            "linked_card_ids": [anchor["id"], sentinel["id"]],
+            "context": f"<p>Because of {mention}</p>",
+            "decision": f"<p>Retire {mention} and keep it in mind.</p>",
+        },
     )
+    soaw = await post(
+        "/api/v1/soaw",
+        {"name": "Plan", "sections": {"1.1": {"content": f"<p>Scope: {mention}</p>"}}},
+    )
+    # One saved version of each holds the mention too: the version GET resolves
+    # it per reader (the restricted reader may view versions: it holds
+    # ``adr.manage`` / ``soaw.manage``).
+    resp = await client.patch(f"/api/v1/adr/{adr['id']}", json={"title": "Decision v2"}, headers=ah)
+    assert resp.status_code == 200, resp.text
+    resp = await client.patch(f"/api/v1/soaw/{soaw['id']}", json={"name": "Plan v2"}, headers=ah)
+    assert resp.status_code == 200, resp.text
+    adr_version = await _latest_version(client, ah, "adr", adr["id"])
+    soaw_version = await _latest_version(client, ah, "soaw", soaw["id"])
+    # The discussion of each mentions it too: the comments GET resolves it per reader.
+    comment = await post(f"/api/v1/adr/{adr['id']}/comments", {"body": f"<p>{mention}</p>"})
+    await post(f"/api/v1/soaw/{soaw['id']}/comments", {"body": f"<p>On {mention}</p>"})
     risk = await post(
         "/api/v1/risks", {"title": "Risk", "card_ids": [anchor["id"], sentinel["id"]]}
     )
@@ -182,6 +218,11 @@ async def world(db, client):
         "ids": {
             "card_id": anchor["id"],
             "adr_id": adr["id"],
+            "soaw_id": soaw["id"],
+            "comment_id": comment["id"],
+            # The decision's version; the SoAW's is reached through EXTRA_CALLS.
+            "entry_id": adr_version,
+            "soaw_entry_id": soaw_version,
             "risk_id": risk["id"],
             "diagram_id": diagram["id"],
             "bm_id": bookmark["id"],
@@ -192,6 +233,16 @@ async def world(db, client):
         "held_id": held["id"],
     }
 
+
+# GET calls the route walk cannot make on its own: an optional query
+# parameter that adds payload fields (the spreadsheet export's text), and the
+# SoAW's saved version (``entry_id`` is the decision's). ``{name}`` is filled
+# from the world's ids.
+EXTRA_CALLS: tuple[tuple[str, dict[str, str]], ...] = (
+    ("/api/v1/adr", {"include_content": "true"}),
+    ("/api/v1/soaw", {"include_earlier": "true"}),
+    ("/api/v1/soaw/{soaw_id}/history/{soaw_entry_id}", {}),
+)
 
 QUERY_FILL = {
     "types": "Application,Secret",
@@ -230,6 +281,10 @@ async def _sweep(app, client, db, user, ids) -> tuple[dict[str, str], list[str]]
             await db.rollback()
             continue
         bodies[path] = resp.text
+    for path, query in EXTRA_CALLS:
+        resp = await client.get(path.format(**ids), params=query, headers=headers)
+        assert resp.status_code == 200, (path, resp.text)
+        bodies[f"{path}?{'&'.join(f'{k}={v}' for k, v in query.items())}"] = resp.text
     return bodies, errors
 
 
@@ -255,3 +310,23 @@ async def test_the_sweep_is_not_vacuous(app, client, db, world):
     bodies, _ = await _sweep(app, client, db, world["admin"], world["ids"])
     seen = [path for path, body in bodies.items() if SENTINEL in body]
     assert len(seen) >= 20, seen
+
+
+async def test_a_saved_version_reads_the_mention_restricted(client, world):
+    """The restricted reader may view versions, and sees the hidden card as a
+    restricted chip in each one — no id, no name."""
+    ids = world["ids"]
+    headers = auth_headers(world["reader"])
+    for path in (
+        f"/api/v1/adr/{ids['adr_id']}/history/{ids['entry_id']}",
+        f"/api/v1/soaw/{ids['soaw_id']}/history/{ids['soaw_entry_id']}",
+    ):
+        resp = await client.get(path, headers=headers)
+        assert resp.status_code == 200, resp.text
+        assert 'data-kind="card" data-restricted="true" data-token="' in str(resp.json()["content"])
+        assert SENTINEL not in resp.text and world["sentinel_id"] not in resp.text
+    admin = await client.get(
+        f"/api/v1/adr/{ids['adr_id']}/history/{ids['entry_id']}",
+        headers=auth_headers(world["admin"]),
+    )
+    assert f"@{SENTINEL}" in admin.json()["content"]["decision"]

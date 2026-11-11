@@ -25,6 +25,8 @@ Clique em qualquer notificação para navegar diretamente até o card ou documen
 | **Assinatura de SoAW solicitada** | Você é solicitado a assinar um Statement of Architecture Work |
 | **SoAW assinado** | Um SoAW que você acompanha recebe uma assinatura |
 | **Vigência de ADR alterada** | Uma decisão assinada substitui, altera ou revoga uma decisão que você escreveu |
+| **Comentários em decisões e SoAW** | Alguém comenta na discussão de uma decisão ou SoAW que você escreveu, que lhe pediram para assinar, de que é decisor ou participante, ou que já comentou antes |
+| **Menções em discussões** | Alguém menciona você com **@** num comentário sobre uma decisão ou SoAW que você pode abrir |
 | **Solicitação de pesquisa** | Uma pesquisa é enviada que requer sua resposta |
 
 **Status de aprovação alterado** também abrange o caso automático. Um card
@@ -33,6 +35,13 @@ pai o desloca na hierarquia — você é notificado nos dois casos, e a alteraç
 registada na aba **Histórico** do card. Quando uma única ação quebra vários dos
 seus cards de uma vez, como uma edição em massa, você recebe um único resumo em
 vez de uma notificação por card.
+
+As duas notificações de discussão não trazem o texto do comentário: clique numa
+para abrir o documento com a sua discussão nesse tópico. Nunca é notificado dos
+seus próprios comentários, e uma menção substitui a notificação de comentário
+para o mesmo comentário. Alguém mencionado que não pode abrir o documento não é
+notificado — quem publicou o comentário é avisado em vez disso. Ver
+[Discussão](grc.md#decision-discussion).
 
 
 ## Entrega em Tempo Real

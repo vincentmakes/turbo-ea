@@ -123,6 +123,8 @@ I alle tilfælde kan du søge og linke yderligere kort under oprettelsen. Initia
 Editoren tilbyder:
 
 - Rich text-redigering for hver sektion (Context, Decision, Consequences, Alternatives Considered)
+- **Omtaler** — skriv **@** i en sektion for at omtale et kort eller en anden beslutning (se [Omtaler](#decision-mentions))
+- **Diskussion og historik** — et panel ved siden af dokumentet med dets diskussion og dets historik (se [Diskussion](#decision-discussion) og [Historik](#decision-history))
 - Kort-linking — forbind ADR'en til relevante kort (applikationer, IT-komponenter, initiativer, …). Initiativer linkes via standard kort-linking-funktionen, ikke et dedikeret felt, så en ADR kan referere til flere initiativer
 - **Datoer** — *Truffet den*, *Gældende fra* og en valgfri *Gyldig indtil* (se [Datoer](#decision-dates))
 - **Personer** — *Beslutningstagere* og *Deltagere* (se [Personer](#decision-people))
@@ -209,6 +211,48 @@ Klik på preview-ikonet for at se en skrivebeskyttet, formateret version af ADR'
 
 Fra forhåndsvisningen klik på **PDF** for at åbne en printklar kopi i en ny fane — metadata og datoer, de fire sektioner, personer, tilknyttede kort, tilknytninger til andre beslutninger, filnavne, udvidelsessektioner og signaturblokken (eller registreringslinjen), med godkender og udskriftsdato i sidefoden. Editoren har den samme **PDF**-knap samt **Word**, der downloader beslutningen som `.docx`, indtil den er underskrevet; begge eksporterer editorens aktuelle tilstand, ugemte ændringer inklusive.
 
+#### Diskussion {: #decision-discussion }
+
+Hver beslutning har sin egen **Diskussion**, så en beslutning kan afklares i Turbo EA i stedet for i en separat chattråd. Åbn den med knappen **Diskussion og historik** i beslutningens editor eller forhåndsvisning: på en bred skærm åbnes den som et panel ved siden af dokumentet, på en smallere som en skuffe. Panelet har to faner, **Diskussion** og [Historik](#decision-history), og fanen Diskussion viser, hvor mange tråde der er åbne.
+
+- **Tråde og svar.** Skriv i feltet øverst på fanen, og klik på **Send** (eller tryk Ctrl+Enter, Cmd+Enter på en Mac) for at starte en tråd. Vælg, hvad den handler **Om** — *Generelt*, *Kontekst*, *Beslutning*, *Konsekvenser* eller *Overvejede alternativer* — for at knytte den til en sektion. Hver tråd kan modtage svar, ét niveau dybt.
+- **Løs og genåbn.** Klik på **Løs**, når en tråd er afklaret, og på **Genåbn**, hvis den ikke er. Løste tråde foldes sammen bag **Vis N løste tråde**.
+- **Hvem der kan skrive.** Læsning af diskussionen følger, hvem der kan åbne beslutningen (`adr.view`). At skrive, svare, løse og genåbne kræver tilladelsen `adr.comment`, som medlemmer og administratorer har som standard, og læsere ikke har; en administrator kan ændre den pr. rolle. Beslutningens underskrivere kan altid kommentere den, herunder de personer, der blev bedt om at underskrive den i en tidligere gennemgangsrunde, som blev tilbagekaldt eller afvist.
+- **Under gennemgang og efter underskrift.** [Låsen under gennemgang](#underskriftsarbejdsproces) omfatter indholdet, ikke samtalen: diskussionen forbliver åben, mens beslutningen er under gennemgang, og efter at den er underskrevet.
+- **Gennemgangsnoter.** Når en underskriver afviser en beslutning, åbner begrundelsen en tråd markeret **Begrundelse for afvisning** (*Ingen begrundelse angivet*, når underskriveren lod den stå tom), som besvares og løses som enhver anden. En underskriver kan tilføje en valgfri note ved underskrift; den vises i diskussionen som en **Note til underskrift**. Ingen af dem går længere tabt, når underskrifter tilbagekaldes, og begge vises også på fanen [Historik](#decision-history).
+- **Åbne tråde før gennemgang.** **Anmod om underskrifter**, **Underskriv** og **Afvis** advarer, når beslutningen stadig har åbne tråde (*2 åbne diskussionstråde på dette dokument.*). Det er kun en advarsel: intet blokeres.
+- **Notifikationer.** En ny kommentar giver besked til beslutningens forfatter, dens underskrivere, dens beslutningstagere og deltagere, der er Turbo EA-brugere, og de personer, der har kommenteret før — aldrig til den, der skrev den. Skriv **@** i en kommentar for at omtale en kollega: vedkommende modtager i stedet en notifikation om omtalen. En person, du omtaler, og som ikke kan åbne beslutningen, får ikke besked, og panelet fortæller dig det (*… fik ikke besked: de kan ikke åbne dette dokument.*). Notifikationer indeholder ingen kommentartekst, og et klik på en åbner beslutningens forhåndsvisning med panelet ved den pågældende tråd. Se [Notifikationer](notifications.md#notifikationstyper).
+- **Redigering og sletning.** Du kan redigere dine egne kommentarer; en redigeret kommentar markeres *(redigeret)*. Du kan slette dine egne kommentarer, og alle, der kan redigere beslutningen (`adr.manage`), kan slette enhver kommentar; en slettet kommentar efterlader *Denne kommentar blev slettet.* på sin plads og beholder sine svar. En begrundelse for afvisning og en note til underskrift kan ikke redigeres eller slettes: en afvisning løses i stedet.
+- **Tidligere revisioner.** En tråd hører til den revision, den blev startet på. Slå **Vis diskussion om tidligere revisioner** til for at læse trådene fra beslutningens tidligere revisioner, grupperet efter revision.
+
+#### Omtaler {: #decision-mentions }
+
+Mens du skriver en beslutning, kan du skrive **@** i en af dens fire sektioner for at omtale et **kort** eller en anden **beslutning**. Et popup viser matchende kort og beslutninger, mens du skriver; brug piletasterne og Enter (eller klik) for at vælge et, og Escape for at lukke det. I en kommentar tilbyder **@** også **personer**. En omtale vises som en chip med det aktuelle navn på det, den peger på — et korts navn, en beslutnings reference og titel — så omdøbning af et kort aldrig ændrer teksten. Klik på en kort- eller beslutningschip for at åbne den.
+
+- En læser, der ikke må se et omtalt kort, ser **Begrænset kort** i stedet for dets navn, overalt — i editoren, forhåndsvisningen, PDF- og Word-eksporterne, gitteret, historikken og diskussionen. En læser, der ikke kan åbne beslutninger, ser **Begrænset beslutning**. Når teksten gemmes, bevares sådanne omtaler, som de er, selv når den, der gemmer, ikke kan se dem.
+- Et omtalt kort, der siden er slettet, vises som **Slettet kort** (en slettet beslutning som **Slettet beslutning**), da teksten ikke gemmer navne.
+- En omtale tilknytter ikke kortet. Når teksten omtaler kort, der ikke er tilknyttet, viser editoren dem under *Omtalt i teksten, men ikke tilknyttet:*, hver med en knap **Tilknyt dette kort**. Tilknytning af kort i editoren bruger samme kortvælger som resten af Turbo EA.
+- **Omtalt i.** Et korts [ADRs-fane](card-details.md#adrs-fane) og en beslutnings forhåndsvisning viser under **Omtalt i** de beslutninger og SoAW'er, hvis tekst omtaler det kort eller den beslutning, og dem, hvis diskussion gør det (markeret *i diskussionen*). Listen viser kun dokumenter, du kan åbne.
+
+#### Historik {: #decision-history }
+
+Fanen **Historik** i samme panel registrerer, hvad der er sket med beslutningen, nyeste først: oprettet, gemt, sendt til gennemgang, hver underskrift (med dens note), afvist (med begrundelsen), underskrifter tilbagekaldt, fuldt underskrevet, registreret som truffet, en revision påbegyndt, en tidligere version gendannet. Alle, der kan åbne beslutningen, ser denne tidslinje. Gennemgangshændelser — sendt til gennemgang, underskrevet, tilbagekaldt, afvist — gemmes fra version 2.200.0; før blev de vist live, men aldrig gemt. Beslutninger, der fandtes før den version, starter med en tidslinje genopbygget ud fra det, der var gemt: oprettet, revideret, sendt til gennemgang (for en beslutning, der var under gennemgang ved opgraderingen, med de underskrivere, den blev sendt til), hver underskrift, underskrevet og registreret.
+
+Fanen Historik er ikke den håndførte tabel **Dokumentets versionshistorik** i en [Statement of Architecture Work](delivery.md#soaw-editoren), som registrerer det, forfatterne vælger at skrive i den.
+
+- **Versioner.** En version gemmes, hver gang en kladde gemmes med ændringer. Den indeholder titlen, de fire sektioner, datoerne, ændringsresuméet og personerne; links, tilknyttede kort og filer er ikke en del af en version. En version kan åbnes med **Vis** af de personer, der kan redigere beslutningen, og af dens underskrivere; andre læsere ser tidslinjen uden versionerne (*Gemte versioner vises kun for redaktører og underskrivere.*).
+- **Sammenlign.** **Sammenlign** viser, hvad der er ændret mellem en version og den forrige, ord for ord pr. sektion, sammen med de datoer og personer, der er ændret; vælg en vilkårlig anden **Ældre version** og **Nyere version** i dialogen. En ændring alene af formatering rapporteres som *Kun formatering: ordene er de samme.*
+- **Gendan.** På en kladde kan en person, der kan redigere beslutningen, gendanne en tidligere version med **Gendan**. Gendannelse virker kun fremad: versionens tekst, datoer og personer erstatter kladdens og gemmes som en ny version, og kladdens tilstand før gendannelsen forbliver i historikken. Links, tilknyttede kort og filer gendannes ikke. Når editoren har ikke-gemte ændringer, siger bekræftelsen, at de vil blive kasseret. En beslutning under gennemgang eller en underskrevet beslutning kan ikke gendannes.
+
+#### Kendte begrænsninger {: #collaboration-limits }
+
+- Et slettet kort vises som **Slettet kort** overalt, hvor det blev omtalt: teksten gemmer ingen navne, så det gamle navn kan ikke vises.
+- To personer, der gemmer den samme kladde, overskriver stadig hinanden: den sidste lagring vinder. Historikken bevarer begge lagringer, så den overskrevne formulering kan findes og gendannes.
+- Diskussionen er ikke en del af PDF-, Word- eller regnearkseksporterne og heller ikke af den udskrevne kopi.
+- En rolle, der kan åbne beslutninger, men ikke har adgang til inventaret, kan ikke søge efter kort i omtale-popuppet (*Din rolle kan ikke søge i kort; du kan stadig omtale beslutninger.*).
+- Tekst kopieret fra ét dokument til et andet mister sine **Begrænset**-chips: en begrænset omtale kan kun bevares i det dokument, den blev skrevet i.
+- Hvem der blev bedt om at underskrive i en gennemgangsrunde, der blev afvist eller tilbagekaldt før version 2.200.0, kan ikke rekonstrueres, så disse personer tæller ikke som underskrivere af den revision. En runde, der stadig var åben ved opgraderingen, beholder sine underskrivere.
+
 ## Risk
 
 ![GRC — Risikoregister](../assets/img/da/53_grc_risk_register.png)
@@ -235,6 +279,7 @@ Den samme Compliance-fane vises også på Kortdetalje (auto-skjules, når kortet
 | `grc.manage` | admin, bpm_admin, member |
 | `adr.view` / `adr.manage` / `adr.sign` | `adr.view`: admin, bpm_admin, member, viewer; `adr.manage` og `adr.sign`: admin, bpm_admin, member |
 | `adr.record` | admin — [registrér en tidligere beslutning som truffet](#recording-a-past-decision) |
+| `adr.comment` | admin, bpm_admin, member — skriv i en beslutnings [diskussion](#decision-discussion); en beslutnings underskrivere kan altid kommentere den |
 | `risks.view` / `risks.manage` | se [Risikoregister § Tilladelser](risks.md) |
 | `compliance.view` / `compliance.manage` | se [TurboLens § Security & Compliance](turbolens.md) |
 

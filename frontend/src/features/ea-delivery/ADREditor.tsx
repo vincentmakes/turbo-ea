@@ -18,13 +18,13 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
-import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Link from "@mui/material/Link";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import CardPicker from "@/components/CardPicker";
 import { DateField } from "@/components/DateField";
 import RichTextEditor from "./RichTextEditor";
 import SignatureRequestDialog from "./SignatureRequestDialog";
@@ -49,6 +49,12 @@ import {
   type SavePayload,
 } from "./adrEditorModel";
 import { hasUnsavedEdits } from "./editorDirty";
+import DocumentSidePanel from "./collab/DocumentSidePanel";
+import { RejectDocumentDialog, SignDocumentDialog } from "./collab/ReviewDialogs";
+import { deepLinkDialog } from "./collab/reviewDeepLink";
+import { sectionOptions, signBody } from "./collab/discussionModel";
+import { unlinkedMentionedCards } from "./mentions/mentionModel";
+import type { MentionKind } from "@/lib/mentionHtml";
 import { api, ApiError } from "@/api/client";
 import { useSubmitOnce } from "@/hooks/useSubmitOnce";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
@@ -59,7 +65,6 @@ import { hasPermission } from "@/components/RequirePermission";
 import { ExtensionBoundary, ExtensionSlot, useExtensionAdrPanels } from "@/lib/extensionHost";
 import { printAdr } from "./adrPrint";
 import type {
-  Card,
   ArchitectureDecision,
   DecisionLinkInput,
   DecisionPerson,
@@ -68,6 +73,8 @@ import type {
 import { STATUS_COLORS as STATUS_HUES } from "@/theme/tokens";
 
 const CHANGE_SUMMARY_MAX = 2000;
+/** What "@" offers in a decision's text. */
+const DOCUMENT_MENTIONS: MentionKind[] = ["card", "decision"];
 
 export default function ADREditor() {
   const { t } = useTranslation(["delivery", "common"]);
@@ -145,31 +152,45 @@ export default function ADREditor() {
   // Record-as-decided dialog
   const [recordOpen, setRecordOpen] = useState(false);
 
-  // Reject dialog
+  // Sign (with an optional note) and reject dialogs, and why the last
+  // attempt from each was refused (shown inside the dialog).
+  const [signOpen, setSignOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
-  const [rejectComment, setRejectComment] = useState("");
+  const [signError, setSignError] = useState("");
+  const [rejectError, setRejectError] = useState("");
+  const openSign = () => {
+    setSignError("");
+    setSignOpen(true);
+  };
+  const openReject = () => {
+    setRejectError("");
+    setRejectDialogOpen(true);
+  };
+  // Open discussion threads on this revision: the detail's count, then the
+  // side panel's live one. Shown as a warning by the review dialogs.
+  const [openThreads, setOpenThreads] = useState<number | undefined>(undefined);
 
   // Deep-link handler: when the MCP server returns a `pending` response
   // with `deep_link: /ea-delivery/adr/{id}?action=sign|reject|request-
   // signatures`, the user clicks it and lands here. Auto-open the
   // matching dialog so the human can finish the workflow in one click.
-  // The param is consumed (cleared) so a refresh doesn't re-open.
+  // The param is consumed (cleared) so a refresh doesn't re-open; the dialog
+  // opens once the decision and the reader are known (`deepLinkDialog`).
+  const [deepLink, setDeepLink] = useState<string | null>(null);
   useEffect(() => {
     if (isNew) return;
     const action = searchParams.get("action");
     if (!action) return;
-    if (action === "sign") setSignDialogOpen(true);
-    else if (action === "reject") setRejectDialogOpen(true);
+    setDeepLink(action);
     setSearchParams({}, { replace: true });
   }, [isNew, searchParams, setSearchParams]);
 
-  // Current user
+  // Current user (`meLoaded` once the answer, or its failure, is in)
   const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [meLoaded, setMeLoaded] = useState(false);
 
   // Card link dialog
   const [cardLinkOpen, setCardLinkOpen] = useState(false);
-  const [cardSearch, setCardSearch] = useState("");
-  const [searchResults, setSearchResults] = useState<Card[]>([]);
 
   const isSigned = status === "signed";
   const access = editorAccess(status, isNew);
@@ -182,7 +203,8 @@ export default function ADREditor() {
     api
       .get<{ id: string }>("/auth/me")
       .then((res) => setCurrentUserId(res.id))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setMeLoaded(true));
   }, []);
 
   // Every field from a decision as the server returned it. The ONE path for
@@ -213,6 +235,7 @@ export default function ADREditor() {
     setParticipants(content.participants);
     setLinks(content.links);
     setChangeSummary(content.changeSummary);
+    setOpenThreads(adr.open_thread_count);
   }, []);
 
   // An action's reply, applied only while the page still shows that decision.
@@ -415,23 +438,25 @@ export default function ADREditor() {
     }
   };
 
-  // Sign
-  const handleSign = () =>
+  // Sign, with the note (if any) the dialog collected
+  const handleSign = (note: string) =>
     action.run(async () => {
       if (!id) return;
       try {
         const updated = await api.post<ArchitectureDecision>(
           `/adr/${id}/sign`,
-          {},
+          signBody("adr", note),
         );
         applyReply(updated);
+        setSignOpen(false);
         setSnackbar(
           updated.status === "signed"
             ? t("adr.editor.documentFullySigned")
             : t("adr.editor.signatureRecorded"),
         );
-      } catch {
-        setError(t("adr.editor.error.signFailed"));
+      } catch (err) {
+        // Shown in the dialog, which stays open (the page's alert is behind it).
+        setSignError(problemMessage(err, t) ?? t("adr.editor.error.signFailed"));
       }
     });
 
@@ -454,47 +479,26 @@ export default function ADREditor() {
   };
 
   // Reject
-  const handleReject = async () => {
-    if (!id || !rejectComment.trim()) return;
+  const handleReject = async (reason: string) => {
+    if (!id || !reason) return;
     setSaving(true);
     try {
       const updated = await api.post<ArchitectureDecision>(
         `/adr/${id}/reject`,
-        { comment: rejectComment.trim() },
+        { comment: reason },
       );
       applyReply(updated);
       setRejectDialogOpen(false);
-      setRejectComment("");
       setSnackbar(t("adr.editor.documentRejected"));
-    } catch {
-      setError(t("adr.editor.error.rejectFailed"));
+    } catch (err) {
+      setRejectError(problemMessage(err, t) ?? t("adr.editor.error.rejectFailed"));
     } finally {
       setSaving(false);
     }
   };
 
   // Card linking
-  const openCardLink = () => {
-    setCardLinkOpen(true);
-    setCardSearch("");
-    setSearchResults([]);
-  };
-
-  const searchCards = async (q: string) => {
-    setCardSearch(q);
-    if (!q.trim()) {
-      setSearchResults([]);
-      return;
-    }
-    try {
-      const res = await api.get<{ items: Card[] }>(
-        `/cards?search=${encodeURIComponent(q)}&page_size=20`,
-      );
-      setSearchResults(res.items);
-    } catch {
-      /* ignore */
-    }
-  };
+  const openCardLink = () => setCardLinkOpen(true);
 
   const handleLinkCard = (cardId: string) =>
     action.run(async () => {
@@ -521,10 +525,32 @@ export default function ADREditor() {
     }
   };
 
+  // Cards the text mentions that are not linked: offered one click each.
+  const mentionedUnlinked = unlinkedMentionedCards(
+    [context, decision, consequences, alternatives].join(""),
+    linkedCards.map((c) => c.id),
+  );
+
   const currentUserIsSignatory = signatories.some(
     (s) => s.user_id === currentUserId && s.status === "pending",
   );
   const signedCount = signatories.filter((s) => s.status === "signed").length;
+
+  // A deep link's dialog, once this decision and the reader are known.
+  const deepLinkReady = deepLink !== null && meLoaded && detail !== null && detail.id === id;
+  useEffect(() => {
+    if (!deepLinkReady || deepLink === null) return;
+    setDeepLink(null);
+    const dialog = deepLinkDialog(deepLink, status === "in_review" && currentUserIsSignatory);
+    if (dialog === "sign") {
+      setSignError("");
+      setSignOpen(true);
+    } else if (dialog === "request-signatures") setSignDialogOpen(true);
+    else if (dialog === "reject") {
+      setRejectError("");
+      setRejectDialogOpen(true);
+    }
+  }, [deepLinkReady, deepLink, status, currentUserIsSignatory]);
 
   // Save (on a new decision), Duplicate and New Revision navigate to another
   // decision and confirm in the same breath, so the page goes from the old
@@ -561,6 +587,16 @@ export default function ADREditor() {
 
   return (
     <>
+    <DocumentSidePanel
+      owner={!isNew && id ? { kind: "adr", id } : null}
+      status={status}
+      sections={sectionOptions("adr", t)}
+      openThreadCount={detail?.open_thread_count}
+      onOpenCountChange={setOpenThreads}
+      refreshKey={detail?.updated_at ?? undefined}
+      isDirty={hasEdits}
+      onRestored={(adr: ArchitectureDecision) => applyReply(adr)}
+    >
     <Box sx={{ maxWidth: 900, mx: "auto", p: 2 }}>
       {/* ── Header ── */}
       <Box
@@ -737,7 +773,7 @@ export default function ADREditor() {
               variant="contained"
               color="success"
               startIcon={<MaterialSymbol icon="draw" size={18} />}
-              onClick={handleSign}
+              onClick={openSign}
               disabled={action.busy}
               sx={{ textTransform: "none" }}
             >
@@ -747,7 +783,7 @@ export default function ADREditor() {
               variant="outlined"
               color="error"
               startIcon={<MaterialSymbol icon="block" size={18} />}
-              onClick={() => setRejectDialogOpen(true)}
+              onClick={openReject}
               disabled={saving}
               sx={{ textTransform: "none" }}
             >
@@ -829,6 +865,7 @@ export default function ADREditor() {
           {t("adr.contextHint")}
         </Typography>
         <RichTextEditor
+          mentions={DOCUMENT_MENTIONS}
           content={context}
           onChange={setContext}
           readOnly={locked}
@@ -845,6 +882,7 @@ export default function ADREditor() {
           {t("adr.decisionHint")}
         </Typography>
         <RichTextEditor
+          mentions={DOCUMENT_MENTIONS}
           content={decision}
           onChange={setDecision}
           readOnly={locked}
@@ -861,6 +899,7 @@ export default function ADREditor() {
           {t("adr.alternativesHint")}
         </Typography>
         <RichTextEditor
+          mentions={DOCUMENT_MENTIONS}
           content={alternatives}
           onChange={setAlternatives}
           readOnly={locked}
@@ -877,6 +916,7 @@ export default function ADREditor() {
           {t("adr.consequencesHint")}
         </Typography>
         <RichTextEditor
+          mentions={DOCUMENT_MENTIONS}
           content={consequences}
           onChange={setConsequences}
           readOnly={locked}
@@ -1058,6 +1098,30 @@ export default function ADREditor() {
               ))}
             </List>
           )}
+          {access.cardsEditable && canManage && mentionedUnlinked.length > 0 && (
+            <Box sx={{ mt: 2 }} data-testid="mentioned-unlinked">
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                {t("adr.editor.mentionedNotLinked")}
+              </Typography>
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                {mentionedUnlinked.map((card) => (
+                  // describeChild: the card's name stays the button's name.
+                  <Tooltip key={card.id} title={t("adr.editor.linkThisCard")} describeChild>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<MaterialSymbol icon="add_link" size={18} />}
+                      onClick={() => handleLinkCard(card.id)}
+                      disabled={action.busy}
+                      sx={{ textTransform: "none" }}
+                    >
+                      {card.label}
+                    </Button>
+                  </Tooltip>
+                ))}
+              </Box>
+            </Box>
+          )}
         </Paper>
       )}
 
@@ -1152,6 +1216,7 @@ export default function ADREditor() {
         description={t("adr.editor.signDialog.description")}
         requesting={requestingSignatures}
         decisionMakers={decisionMakers}
+        openThreadCount={openThreads}
       />
 
       {/* ── Record as decided ── */}
@@ -1175,39 +1240,32 @@ export default function ADREditor() {
       >
         <DialogTitle>{t("adr.editor.linkCard")}</DialogTitle>
         <DialogContent>
-          <TextField
+          <CardPicker
+            value={null}
+            onChange={(card) => {
+              if (card) handleLinkCard(card.id);
+            }}
+            excludeIds={linkedCards.map((c) => c.id)}
+            enabled={cardLinkOpen}
             autoFocus
-            placeholder={t("adr.editor.searchCards")}
             fullWidth
             size="small"
-            value={cardSearch}
-            onChange={(e) => searchCards(e.target.value)}
-            sx={{ mt: 1, mb: 2 }}
+            placeholder={t("adr.editor.searchCards")}
+            disabled={action.busy}
+            sx={{ mt: 1 }}
           />
-          <List dense>
-            {searchResults.map((card) => {
-              const alreadyLinked = linkedCards.some((lc) => lc.id === card.id);
-              return (
-                <ListItemButton
-                  key={card.id}
-                  onClick={() => !alreadyLinked && handleLinkCard(card.id)}
-                  disabled={alreadyLinked}
-                >
-                  <ListItemText
-                    primary={card.name}
-                    secondary={card.type}
-                  />
-                  {alreadyLinked && (
-                    <Chip
-                      label={t("adr.editor.alreadyLinked")}
-                      size="small"
-                      variant="outlined"
-                    />
-                  )}
-                </ListItemButton>
-              );
-            })}
-          </List>
+          {linkedCards.length > 0 && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 0.5 }}>
+                {t("adr.editor.alreadyLinked")}
+              </Typography>
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                {linkedCards.map((card) => (
+                  <Chip key={card.id} label={card.name} size="small" variant="outlined" />
+                ))}
+              </Box>
+            </Box>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCardLinkOpen(false)}>
@@ -1216,45 +1274,34 @@ export default function ADREditor() {
         </DialogActions>
       </Dialog>
 
-      {/* ── Reject Dialog ── */}
-      <Dialog
+      {/* ── Sign and Reject Dialogs ── */}
+      <SignDocumentDialog
+        open={signOpen}
+        onClose={() => setSignOpen(false)}
+        onSign={handleSign}
+        title={t("collab.sign.adrTitle")}
+        description={t("collab.sign.adrDescription")}
+        openThreadCount={openThreads}
+        busy={action.busy}
+        error={signError}
+        onDismissError={() => setSignError("")}
+      />
+      <RejectDocumentDialog
         open={rejectDialogOpen}
         onClose={() => setRejectDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>{t("adr.editor.rejectDialog.title")}</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" sx={{ mb: 2 }}>
-            {t("adr.editor.rejectDialog.description")}
-          </Typography>
-          <TextField
-            autoFocus
-            label={t("adr.editor.rejectDialog.commentLabel")}
-            fullWidth
-            multiline
-            minRows={3}
-            value={rejectComment}
-            onChange={(e) => setRejectComment(e.target.value)}
-            sx={{ mt: 1 }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setRejectDialogOpen(false)}>
-            {t("common:actions.cancel")}
-          </Button>
-          <Button
-            variant="contained"
-            color="error"
-            disabled={!rejectComment.trim() || saving}
-            onClick={handleReject}
-          >
-            {t("adr.editor.reject")}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onReject={handleReject}
+        title={t("adr.editor.rejectDialog.title")}
+        description={t("adr.editor.rejectDialog.description")}
+        label={t("adr.editor.rejectDialog.commentLabel")}
+        submitLabel={t("adr.editor.reject")}
+        openThreadCount={openThreads}
+        busy={saving}
+        error={rejectError}
+        onDismissError={() => setRejectError("")}
+      />
 
     </Box>
+    </DocumentSidePanel>
     {/* ── Snackbar ── */}
     {snackbarEl}
     </>

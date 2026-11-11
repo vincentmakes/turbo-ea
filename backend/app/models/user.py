@@ -82,6 +82,12 @@ NOTIFICATION_TYPE_SPECS: tuple[NotificationTypeSpec, ...] = (
     # A decision you wrote was replaced, amended or revoked by another one
     # that has just been signed or recorded.
     NotificationTypeSpec("adr_standing_changed"),
+    # --- discussions of decisions and SoAWs ---
+    # A new comment or reply on a decision or SoAW you created, sign(ed), are
+    # named on, or discussed before; and being @mentioned in one. Neither
+    # carries the comment's text.
+    NotificationTypeSpec("document_comment"),
+    NotificationTypeSpec("document_mention"),
     # --- process flow approvals ---
     NotificationTypeSpec("process_flow_approval_requested"),
     NotificationTypeSpec("process_flow_approved"),

@@ -135,3 +135,63 @@ describe("sanitizeRichHtml", () => {
     expect(a.hasAttribute("target")).toBe(false);
   });
 });
+
+describe("sanitizeRichHtml mention spans", () => {
+  const ID = "0b0e5b1e-6a0e-4c43-9b8e-2d1c4a5f7e01";
+
+  it("makes a card mention a focusable link and keeps its data attributes", () => {
+    expect(
+      sanitizeRichHtml(`<p><span data-type="mention" data-kind="card" data-id="${ID}">@SAP</span></p>`),
+    ).toBe(
+      `<p><span data-type="mention" data-kind="card" data-id="${ID}" role="link" tabindex="0">@SAP</span></p>`,
+    );
+  });
+
+  it("makes a decision mention a focusable link", () => {
+    expect(
+      sanitizeRichHtml(`<span data-type="mention" data-kind="decision" data-id="${ID}">ADR-1 T</span>`),
+    ).toBe(
+      `<span data-type="mention" data-kind="decision" data-id="${ID}" role="link" tabindex="0">ADR-1 T</span>`,
+    );
+  });
+
+  it("gives a person, a restricted and a missing mention no link role, even a forged one", () => {
+    const user = `<span data-type="mention" data-kind="user" data-id="${ID}" role="link" tabindex="0">@Ann</span>`;
+    const restricted =
+      '<span data-type="mention" data-kind="card" data-restricted="true" data-token="ab12cd34" role="link">Restricted card</span>';
+    const missing = `<span data-type="mention" data-kind="card" data-id="${ID}" data-missing="true" tabindex="0">Deleted card</span>`;
+    const forgedRestricted = `<span data-type="mention" data-kind="card" data-id="${ID}" data-restricted="true">x</span>`;
+    expect(sanitizeRichHtml(user)).toBe(
+      `<span data-type="mention" data-kind="user" data-id="${ID}">@Ann</span>`,
+    );
+    expect(sanitizeRichHtml(restricted)).toBe(
+      '<span data-type="mention" data-kind="card" data-restricted="true" data-token="ab12cd34">Restricted card</span>',
+    );
+    expect(sanitizeRichHtml(missing)).toBe(
+      `<span data-type="mention" data-kind="card" data-id="${ID}" data-missing="true">Deleted card</span>`,
+    );
+    expect(sanitizeRichHtml(forgedRestricted)).toBe(
+      `<span data-type="mention" data-kind="card" data-id="${ID}" data-restricted="true">x</span>`,
+    );
+  });
+
+  it("treats only a span as a mention, whatever another element claims", () => {
+    expect(sanitizeRichHtml(`<p data-type="mention" data-kind="card" data-id="${ID}">x</p>`)).toBe(
+      `<p data-type="mention" data-kind="card" data-id="${ID}">x</p>`,
+    );
+    expect(
+      sanitizeRichHtml(
+        `<a data-type="mention" data-kind="card" data-id="${ID}" href="https://example.com/a">x</a>`,
+      ),
+    ).toBe(
+      `<a data-type="mention" data-kind="card" data-id="${ID}" href="https://example.com/a" target="_blank" rel="noopener noreferrer">x</a>`,
+    );
+  });
+
+  it("does not touch the role of other spans, nor a mention with no kind", () => {
+    expect(sanitizeRichHtml('<span role="note">n</span>')).toBe('<span role="note">n</span>');
+    expect(sanitizeRichHtml(`<span data-type="mention" data-id="${ID}" role="link">x</span>`)).toBe(
+      `<span data-type="mention" data-id="${ID}">x</span>`,
+    );
+  });
+});

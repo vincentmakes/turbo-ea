@@ -24,6 +24,9 @@ async def reports_env(db):
         permissions={
             "reports.ea_dashboard": True,
             "inventory.view": True,
+            # A SoAW event in Recent Activity is shown to SoAW readers only
+            # (``test_document_event_feeds.py``).
+            "soaw.view": True,
         },
     )
     await create_role(

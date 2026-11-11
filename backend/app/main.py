@@ -1030,6 +1030,24 @@ async def _migrate_and_seed(extension_load_report) -> list[asyncio.Task]:
             else:
                 print(f"[seed_workspace] Skipped: {result.get('reason', 'unknown')}")
 
+    # Seed the discussion, mentions and edit history of the demo decisions and
+    # SoAW. After the base seeder (its decisions) and the admin user (the
+    # services run as a person); its own marker, so an existing demo install
+    # gets it once on its next start.
+    if settings.SEED_DEMO:
+        from app.services.seed_demo_collab import seed_collab_demo_data
+
+        async with async_session() as db:
+            result = await seed_collab_demo_data(db)
+            if not result.get("skipped"):
+                print(
+                    f"[seed_collab] Seeded {result['threads']} discussion threads, "
+                    f"{result['replies']} replies, {result['mentions']} mentions, "
+                    f"{result['versions']} versions"
+                )
+            else:
+                print(f"[seed_collab] Skipped: {result.get('reason', 'unknown')}")
+
     # ── Extension Store: mint/load the instance ID (licensing identity —
     # must exist before the registry evaluates license binding), then
     # reconcile statuses, load license/registry, run per-extension

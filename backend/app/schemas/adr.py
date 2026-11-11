@@ -90,8 +90,8 @@ class ADRSignatureRequest(BaseModel):
 
 
 class ADRSignRequest(BaseModel):
-    # Optional note stored on the signer's signatory entry. Previously the
-    # MCP sign_adr tool sent this to a body-less endpoint and it was dropped.
+    # Optional signing note: it becomes a ``sign_note`` comment in the
+    # decision's discussion and the note of the ``signature`` timeline row.
     comment: str | None = Field(default=None, max_length=2000)
 
     model_config = {"extra": "forbid"}
@@ -119,7 +119,8 @@ class ADRRecordRequest(BaseModel):
 
 
 class ADRRejectRequest(BaseModel):
-    comment: str
+    # The reason, which also opens the rejection thread (and the history row's note).
+    comment: str = Field(max_length=4000)
 
 
 class ADRCardLink(BaseModel):

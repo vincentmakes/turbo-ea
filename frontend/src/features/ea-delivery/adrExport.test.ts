@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("file-saver", () => ({ saveAs: vi.fn() }));
 
+import JSZip from "jszip";
+import { Packer } from "docx";
 import { saveAs } from "file-saver";
 import { registerExtension, resetExtensionHost, UI_SDK_VERSION } from "@/lib/extensionHost";
 import type { ArchitectureDecision } from "@/types";
@@ -151,5 +153,36 @@ describe("exportAdrsToDocx — extension sections", () => {
     expect(build).toHaveBeenCalledTimes(2);
     expect(mockSaveAs).toHaveBeenCalledTimes(1);
     expect(String(mockSaveAs.mock.calls[0][1])).toMatch(/^ADRs_/);
+  });
+});
+
+describe("exportAdrsToDocx — mentions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetExtensionHost();
+  });
+
+  it("writes the restricted and deleted labels and the resolved name into the text", async () => {
+    let captured: Parameters<typeof Packer.toBlob>[0] | null = null;
+    const spy = vi.spyOn(Packer, "toBlob").mockImplementation(async (file) => {
+      captured = file;
+      return new Blob(["docx"]);
+    });
+    await exportAdrsToDocx([
+      adr({
+        context:
+          '<p>a <span data-type="mention" data-kind="card" data-restricted="true" data-token="ab12cd34"></span> ' +
+          '<span data-type="mention" data-kind="card" data-id="0b0e5b1e-6a0e-4c43-9b8e-2d1c4a5f7e01">@SAP ERP</span></p>',
+        consequences:
+          '<ul><li><span data-type="mention" data-kind="decision" data-id="1c1f6c2f-7b1f-4d54-8c9f-3e2d5b6a8f02" data-missing="true"></span></li></ul>',
+      }),
+    ]);
+    spy.mockRestore();
+    const zip = await JSZip.loadAsync(await Packer.toBuffer(captured!));
+    const xml = await zip.file("word/document.xml")!.async("string");
+    const texts = Array.from(xml.matchAll(/<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g), (m) => m[1]);
+    expect(texts).toContain("Restricted card");
+    expect(texts).toContain("@SAP ERP");
+    expect(texts.some((x) => x.endsWith("Deleted decision"))).toBe(true);
   });
 });

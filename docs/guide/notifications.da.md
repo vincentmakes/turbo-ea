@@ -25,6 +25,8 @@ Klik på en hvilken som helst notifikation for at navigere direkte til det relev
 | **SoAW-signatur anmodet** | Du bliver bedt om at underskrive en Statement of Architecture Work |
 | **SoAW underskrevet** | En SoAW, du sporer, modtager en underskrift |
 | **ADR-gyldighed ændret** | En underskrevet beslutning erstatter, ændrer eller ophæver en beslutning, du har skrevet |
+| **Kommentarer til beslutninger og SoAW'er** | Nogen kommenterer i diskussionen om en beslutning eller SoAW, som du har skrevet, er blevet bedt om at underskrive, er beslutningstager eller deltager i, eller tidligere har kommenteret |
+| **Omtaler i diskussioner** | Nogen omtaler dig med **@** i en kommentar på en beslutning eller SoAW, du kan åbne |
 | **Undersøgelsesanmodning** | En undersøgelse sendes, der kræver dit svar |
 
 **Godkendelsesstatus ændret** dækker også det automatiske tilfælde. Et godkendt
@@ -33,6 +35,13 @@ dets overordnede kort flytter det i hierarkiet — du får besked i begge tilfæ
 og ændringen registreres på kortets fane **Historik**. Når én handling bryder
 flere af dine kort på én gang, for eksempel en masseredigering, modtager du én
 samlet besked i stedet for én pr. kort.
+
+De to diskussionsnotifikationer indeholder ingen kommentartekst: klik på en for at
+åbne dokumentet med dets diskussion ved den pågældende tråd. Du får aldrig besked om
+dine egne kommentarer, og en omtale erstatter kommentarnotifikationen for den samme
+kommentar. En omtalt person, der ikke kan åbne dokumentet, får ikke besked — i
+stedet får den, der skrev kommentaren, det at vide. Se
+[Diskussion](grc.md#decision-discussion).
 
 
 ## Levering i realtid

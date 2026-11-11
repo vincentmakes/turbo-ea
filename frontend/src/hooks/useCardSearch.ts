@@ -21,6 +21,12 @@ interface State {
   hasMore: boolean;
   /** Fetch the next page and append to items. No-op while loading or when hasMore is false. */
   loadMore: () => void;
+  /**
+   * HTTP status of the last failed first-page request (403 when the caller's
+   * role may not search cards), null after a success. The mention popup reads
+   * it to say why it offers no cards.
+   */
+  errorStatus: number | null;
 }
 
 /**
@@ -41,6 +47,7 @@ export function useCardSearch({ types, search, enabled, pageSize = 1000 }: Optio
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
   // Token guards against stale responses landing after a filter change.
   const requestToken = useRef(0);
   const inflight = useRef(false);
@@ -70,6 +77,7 @@ export function useCardSearch({ types, search, enabled, pageSize = 1000 }: Optio
         const response = await api.get<CardListResponse>(`/cards?${params.toString()}`);
         if (token !== requestToken.current) return; // stale
         const respItems = response.items ?? [];
+        setErrorStatus(null);
         setTotal(response.total ?? respItems.length);
         setItems((prev) => {
           if (!append) return respItems;
@@ -79,11 +87,14 @@ export function useCardSearch({ types, search, enabled, pageSize = 1000 }: Optio
           const fresh = respItems.filter((c) => !seen.has(c.id));
           return prev.concat(fresh);
         });
-      } catch {
+      } catch (err) {
         if (token !== requestToken.current) return;
         if (!append) {
           setItems([]);
           setTotal(0);
+          // Read off the ApiError shape (tests mock the client without the class).
+          const status = (err as { status?: unknown } | null)?.status;
+          setErrorStatus(typeof status === "number" ? status : 0);
         }
       } finally {
         // Only the winner owns the flags — a superseded request settling first
@@ -105,6 +116,7 @@ export function useCardSearch({ types, search, enabled, pageSize = 1000 }: Optio
       setTotal(0);
       setPage(1);
       setLoading(false);
+      setErrorStatus(null);
       return;
     }
     setPage(1);
@@ -120,7 +132,7 @@ export function useCardSearch({ types, search, enabled, pageSize = 1000 }: Optio
     fetchPage(next, true);
   }, [enabled, loading, hasMore, page, fetchPage]);
 
-  return { items, total, loading, hasMore, loadMore };
+  return { items, total, loading, hasMore, loadMore, errorStatus };
 }
 
 /** Keep paging until at least this many pickable rows are on offer. */

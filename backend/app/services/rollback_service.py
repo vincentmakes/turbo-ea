@@ -298,13 +298,21 @@ _INVERSES: dict[str, Callable[[Event, dict], dict[str, Any]]] = {
 }
 
 # Event families that are never reversed, with the reason the plan reports.
+# ``adr.comment_`` / ``soaw.comment_`` cover the discussion events
+# (``adr.comment_added`` …): a comment others have read cannot be unsaid.
 _DECLINED: dict[str, str] = {
     "todo.": "Todos are requests to people; reopening or deleting one is not an undo.",
     "notification.": "A notification has already been delivered.",
     "risk.removed": "A deleted risk cannot be rebuilt — no snapshot is recorded.",
     "diagram.updated": "The previous canvas is not snapshotted.",
     "diagram.deleted": "A deleted diagram cannot be rebuilt — no snapshot is recorded.",
+    "adr.comment_": "A posted comment has been read; delete it from the discussion.",
+    "soaw.comment_": "A posted comment has been read; delete it from the discussion.",
 }
+
+# A ``_DECLINED`` key ending in one of these is a family prefix; any other key
+# names one event type.
+_FAMILY_PREFIX_ENDINGS = (".", "_")
 
 # Ops whose events repeat per linked card or per relation end: one reversal.
 _DEDUPE_KEYS: dict[str, tuple[str, ...]] = {
@@ -328,7 +336,7 @@ def _plan_inverse(event: Event) -> dict[str, Any]:
     # decides per event (extension-written or not), so the decline never runs.
     if planner is None or not et.startswith("todo."):
         for prefix, reason in _DECLINED.items():
-            if et == prefix or (prefix.endswith(".") and et.startswith(prefix)):
+            if et == prefix or (prefix.endswith(_FAMILY_PREFIX_ENDINGS) and et.startswith(prefix)):
                 return _unsupported(event, f"{et} is not reversed: {reason}")
     if planner is None:
         return _unsupported(event)

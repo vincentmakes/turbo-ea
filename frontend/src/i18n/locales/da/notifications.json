@@ -42,6 +42,8 @@
   "preferences.adrSignRecalled": "ADR-underskrift trukket tilbage",
   "preferences.adrRejected": "ADR afvist",
   "preferences.adrStandingChanged": "ADR-gyldighed ændret",
+  "preferences.documentComment": "Kommentarer til beslutninger og SoAW'er",
+  "preferences.documentMention": "Omtaler i diskussioner",
   "preferences.processFlowApprovalRequested": "Godkendelse af procesflow anmodet",
   "preferences.processFlowApproved": "Procesflow godkendt",
   "preferences.processFlowRejected": "Procesflow afvist",

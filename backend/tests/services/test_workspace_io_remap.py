@@ -71,10 +71,12 @@ def test_an_id_map_keeps_one_table_per_kind():
     assert ids.table(rm.CARDS) is ids.cards
     assert ids.table(rm.RELATIONS) is ids.relations
     assert ids.table(rm.TAGS) is ids.tags
+    assert ids.table(rm.USERS) is ids.users
+    assert rm.USERS == "users"
     assert ids.lookup(rm.RELATIONS, OLD_A) is None
     assert ids.lookup(rm.TAGS, OLD_TAG) == NEW_TAG
     with pytest.raises(ValueError):
-        ids.table("users")
+        ids.table("documents")
 
 
 # ── RewriteTally ────────────────────────────────────────────────────────────
@@ -1520,3 +1522,189 @@ def test_without_via_columns_leaves_anything_but_a_list():
     assert rm.without_via_columns(None) is None
     assert rm.without_via_columns({"via:0:0": 1}) == {"via:0:0": 1}
     assert rm.without_via_columns(["via:0:0", "VIA:0:0", "x via:0:0"]) == ["VIA:0:0", "x via:0:0"]
+
+
+# ── Decisions, SoAWs, their discussion and history: mention spans ───────────
+
+OLD_USER = "12121212-0000-0000-0000-000000000001"
+NEW_USER = "34343434-0000-0000-0000-000000000001"
+DECISION = "56565656-0000-0000-0000-000000000001"
+
+
+def _mention(kind: str, mention_id: str, text: str = "") -> str:
+    return f'<span data-type="mention" data-kind="{kind}" data-id="{mention_id}">{text}</span>'
+
+
+def _user_ids() -> rm.IdMap:
+    ids = _ids()
+    ids.record(rm.USERS, OLD_USER, NEW_USER)
+    return ids
+
+
+def test_mention_html_maps_cards_and_users_and_keeps_decisions():
+    tally = rm.RewriteTally()
+    html = (
+        f"<p>{_mention('card', OLD_A, '@CRM')} {_mention('user', OLD_USER)} "
+        f"{_mention('decision', DECISION)}</p>"
+    )
+    out = rm.rewrite_mention_html(html, _user_ids(), tally)
+    assert out == (
+        f"<p>{_mention('card', NEW_A, '@CRM')} {_mention('user', NEW_USER)} "
+        f"{_mention('decision', DECISION)}</p>"
+    )
+    assert tally.counts == {"remapped": 2}
+
+
+def test_mention_html_counts_unknown_cards_and_users_unresolved():
+    tally = rm.RewriteTally()
+    html = _mention("card", OLD_C) + _mention("user", OLD_USER)
+    out = rm.rewrite_mention_html(html, _ids(), tally)
+    assert out is html
+    assert tally.counts == {"unresolved": 2}
+
+
+@pytest.mark.parametrize("value", [None, 5, {"a": 1}, "<p>plain</p>"])
+def test_mention_html_leaves_what_has_no_span(value):
+    tally = rm.RewriteTally()
+    assert rm.rewrite_mention_html(value, _ids(), tally) is value
+    assert tally.counts == {}
+
+
+def test_signatories_map_user_ids_and_keep_the_rest():
+    tally = rm.RewriteTally()
+    sigs = [
+        {"user_id": OLD_USER, "display_name": "Ada", "status": "signed"},
+        {"user_id": "demo-signer", "display_name": "Demo"},
+        {"display_name": "No id"},
+        "junk",
+    ]
+    assert rm.rewrite_signatories(sigs, _user_ids(), tally) == [
+        {"user_id": NEW_USER, "display_name": "Ada", "status": "signed"},
+        {"user_id": "demo-signer", "display_name": "Demo"},
+        {"display_name": "No id"},
+        "junk",
+    ]
+    assert tally.counts == {"remapped": 1}
+    assert sigs[0]["user_id"] == OLD_USER
+
+
+@pytest.mark.parametrize("value", [None, {"user_id": OLD_USER}, "x"])
+def test_signatories_that_are_not_a_list_stay(value):
+    assert rm.rewrite_signatories(value, _user_ids(), rm.RewriteTally()) is value
+
+
+def test_rewrite_adr_row_covers_the_four_texts_and_the_signatories():
+    kw = {
+        "title": _mention("card", OLD_A),
+        "context": _mention("card", OLD_A),
+        "decision": f"<p>{_mention('user', OLD_USER)}</p>",
+        "consequences": _mention("card", OLD_B),
+        "alternatives_considered": None,
+        "signatories": [{"user_id": OLD_USER, "display_name": "Ada"}],
+    }
+    tally = rm.rewrite_adr_row(kw, _ctx(ids=_user_ids()))
+    assert kw == {
+        "title": _mention("card", OLD_A),
+        "context": _mention("card", NEW_A),
+        "decision": f"<p>{_mention('user', NEW_USER)}</p>",
+        "consequences": _mention("card", NEW_B),
+        "alternatives_considered": None,
+        "signatories": [{"user_id": NEW_USER, "display_name": "Ada"}],
+    }
+    assert tally.counts == {"remapped": 4}
+
+
+def test_rewrite_adr_row_without_the_columns_adds_none():
+    kw = {"title": "x"}
+    assert rm.rewrite_adr_row(kw, _ctx()).counts == {}
+    assert kw == {"title": "x"}
+
+
+def test_rewrite_soaw_row_walks_each_section_content():
+    kw = {
+        "sections": {
+            "1.1": {"content": _mention("card", OLD_A), "hidden": False},
+            "custom_1": {"content": _mention("card", OLD_B), "title": "Mine"},
+            "3.2": {"content": [[_mention("card", OLD_A)]]},
+            "4.1": {"rows": [_mention("card", OLD_A)]},
+            "5": "loose",
+        },
+        "signatories": [{"user_id": OLD_USER}],
+    }
+    tally = rm.rewrite_soaw_row(kw, _ctx(ids=_user_ids()))
+    assert kw == {
+        "sections": {
+            "1.1": {"content": _mention("card", NEW_A), "hidden": False},
+            "custom_1": {"content": _mention("card", NEW_B), "title": "Mine"},
+            "3.2": {"content": [[_mention("card", OLD_A)]]},
+            "4.1": {"rows": [_mention("card", OLD_A)]},
+            "5": "loose",
+        },
+        "signatories": [{"user_id": NEW_USER}],
+    }
+    assert tally.counts == {"remapped": 3}
+
+
+def test_soaw_sections_that_are_not_a_map_stay():
+    assert rm.rewrite_soaw_sections(None, _ids(), rm.RewriteTally()) is None
+    assert rm.rewrite_soaw_sections(["x"], _ids(), rm.RewriteTally()) == ["x"]
+
+
+def test_rewrite_document_comment_row():
+    kw = {"body": f"<p>{_mention('card', OLD_A)} {_mention('user', OLD_USER)}</p>"}
+    tally = rm.rewrite_document_comment_row(kw, _ctx(ids=_user_ids()))
+    assert kw == {"body": f"<p>{_mention('card', NEW_A)} {_mention('user', NEW_USER)}</p>"}
+    assert tally.counts == {"remapped": 2}
+    assert rm.rewrite_document_comment_row({}, _ctx()).counts == {}
+
+
+def test_rewrite_document_history_row_walks_content_people_and_signatories():
+    kw = {
+        "content": {
+            "title": "T",
+            "decision": _mention("card", OLD_A),
+            "sections": {"1.1": {"content": _mention("user", OLD_USER)}},
+            "decision_makers": [{"user_id": OLD_USER, "name": "Ada"}, {"name": "Free"}],
+            "participants": [{"user_id": None, "name": "Nobody"}],
+        },
+        "signatories": [{"user_id": OLD_USER, "display_name": "Ada"}],
+    }
+    tally = rm.rewrite_document_history_row(kw, _ctx(ids=_user_ids()))
+    assert kw == {
+        "content": {
+            "title": "T",
+            "decision": _mention("card", NEW_A),
+            "sections": {"1.1": {"content": _mention("user", NEW_USER)}},
+            "decision_makers": [{"user_id": NEW_USER, "name": "Ada"}, {"name": "Free"}],
+            "participants": [{"user_id": None, "name": "Nobody"}],
+        },
+        "signatories": [{"user_id": NEW_USER, "display_name": "Ada"}],
+    }
+    assert tally.counts == {"remapped": 4}
+
+
+def test_history_people_lists_map_users_and_keep_the_rest():
+    out = rm.rewrite_history_content(
+        {"participants": [{"user_id": OLD_USER, "name": "A"}, "x"], "n": 1},
+        _user_ids(),
+        rm.RewriteTally(),
+    )
+    assert out == {"participants": [{"user_id": NEW_USER, "name": "A"}, "x"], "n": 1}
+    assert rm.rewrite_history_content(
+        {"decision_makers": "odd"}, _user_ids(), rm.RewriteTally()
+    ) == {"decision_makers": "odd"}
+    # A ``user_id`` outside the people lists is not a person: left as it is.
+    other = {"people": [{"user_id": OLD_USER}]}
+    assert rm.rewrite_history_content(other, _user_ids(), rm.RewriteTally()) == other
+
+
+@pytest.mark.parametrize("value", [None, [], "x"])
+def test_history_content_that_is_not_a_map_stays(value):
+    assert rm.rewrite_history_content(value, _ids(), rm.RewriteTally()) is value
+
+
+def test_users_are_backfilled_like_any_kind():
+    ids = rm.IdMap()
+    rows = [{"source_id": OLD_USER, "email": "a@x"}, {"source_id": None, "email": "b@x"}]
+    rm.backfill(rows, ids, rm.USERS, lambda row: NEW_USER if row["email"] == "a@x" else None)
+    assert ids.users == {OLD_USER: NEW_USER}

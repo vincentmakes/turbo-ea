@@ -42,6 +42,8 @@
   "preferences.adrSignRecalled": "Signature d'ADR retirée",
   "preferences.adrRejected": "ADR rejeté",
   "preferences.adrStandingChanged": "Validité d’ADR modifiée",
+  "preferences.documentComment": "Commentaires sur les décisions et les SoAW",
+  "preferences.documentMention": "Mentions dans les discussions",
   "preferences.processFlowApprovalRequested": "Approbation de flux de processus demandée",
   "preferences.processFlowApproved": "Flux de processus approuvé",
   "preferences.processFlowRejected": "Flux de processus rejeté",
