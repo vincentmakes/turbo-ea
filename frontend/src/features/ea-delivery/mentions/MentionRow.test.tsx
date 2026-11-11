@@ -21,6 +21,20 @@ describe("MentionRow", () => {
     expect(screen.getByTestId("mention-type-icon")).toHaveTextContent("apps");
   });
 
+  it("adds the parent's name once it is known", () => {
+    render(
+      <MentionRow
+        item={{
+          kind: "card",
+          id: "c",
+          label: "SAP",
+          card: { type: "Application", subtype: "microservice", parentId: "p", parentName: "ERP Suite" },
+        }}
+      />,
+    );
+    expect(screen.getByText("Application · Microservice · in ERP Suite")).toBeInTheDocument();
+  });
+
   it("shows no icon and no key for a type the metamodel does not offer", () => {
     const { container } = render(
       <MentionRow item={{ kind: "card", id: "c", label: "SAP", card: { type: "NoSuchType", subtype: "x" } }} />,

@@ -194,6 +194,7 @@
   "mention.searching": "Searching…",
   "mention.noMatches": "No matches",
   "mention.cardsForbidden": "Your role cannot search cards; you can still mention decisions.",
+  "mention.inParent": "in {{name}}",
   "mention.browse": "Browse…",
   "mention.browseDialog.title": "Mention",
   "mention.browseDialog.chooseCards": "Choose cards…",

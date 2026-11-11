@@ -7,7 +7,10 @@
  *   loaded page re-ranked on the raw query. The document's linked cards
  *   (`context.linkedCardIds`, fetched by id) come first with an empty query
  *   and first within their rank tier with one. A row shows the type's colour
- *   and icon, its type and subtype. A role that may not search cards gets a
+ *   and icon, its type and subtype, and its parent's name: the parents of the
+ *   rows offered are fetched by id, each once while the popup lives, and the
+ *   name appears when it arrives (a withheld or failed parent shows nothing;
+ *   the order never depends on it). A role that may not search cards gets a
  *   403: the group is hidden and one line says why.
  * - Decisions: the decision pickers' shared register list
  *   (`fetchDecisionOptions`), filtered and ranked on the raw query; a row
@@ -51,8 +54,10 @@ import {
   flattenGroups,
   groupMentionItems,
   nextIndex,
+  parentIdsToFetch,
   resolveActive,
   userMentionItems,
+  withParentNames,
   type MentionContext,
   type MentionItem,
 } from "./mentionModel";
@@ -157,8 +162,35 @@ export default function MentionPopup({ store, kinds, context }: Props) {
     [wantUsers],
   );
 
+  const cardItems = wantCards && !cardsForbidden ? cardMentionItems(cards.items, query, linked ?? []) : [];
+
+  // The parents' names of the card rows offered: id → name, or null when the
+  // parent is withheld or failed to load. Kept while the popup lives, so a
+  // parent is asked for once.
+  const [parents, setParents] = useState<ReadonlyMap<string, string | null>>(() => new Map());
+  const missingParents = parentIdsToFetch(cardItems, parents).join(",");
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      if (!missingParents) return;
+      const ids = missingParents.split(",");
+      let found: Card[] = [];
+      try {
+        found = await fetchCardsByIds(ids, { signal });
+      } catch {
+        // Nothing to show: the row keeps its type and subtype.
+      }
+      if (!isCurrent()) return;
+      setParents((prev) => {
+        const next = new Map(prev);
+        for (const id of ids) next.set(id, found.find((c) => c.id === id)?.name ?? null);
+        return next;
+      });
+    },
+    [missingParents],
+  );
+
   const groups = groupMentionItems({
-    card: wantCards && !cardsForbidden ? cardMentionItems(cards.items, query, linked ?? []) : [],
+    card: withParentNames(cardItems, parents),
     decision: wantDecisions ? decisionMentionItems(decisions ?? [], query, t) : [],
     user: wantUsers ? userMentionItems(users ?? [], query, context?.priorityUserIds) : [],
   });

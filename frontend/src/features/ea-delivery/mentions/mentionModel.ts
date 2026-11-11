@@ -41,8 +41,11 @@ export interface MentionItem {
   label: string;
   /** A second line: a person's e-mail. */
   secondary?: string;
-  /** A card row: its type and subtype keys (resolved to labels at render). */
-  card?: { type: string; subtype?: string | null };
+  /**
+   * A card row: its type and subtype keys (resolved to labels at render), its
+   * parent's id, and the parent's name once it is known (`withParentNames`).
+   */
+  card?: { type: string; subtype?: string | null; parentId?: string | null; parentName?: string };
   /** A decision row: its reference, its title and what its state chip shows. */
   decision?: {
     reference: string;
@@ -176,7 +179,14 @@ export function comparePreferred<T>(
   };
 }
 
-type CardRow = { id: string; name: string; type: string; alias?: string | null; subtype?: string | null };
+type CardRow = {
+  id: string;
+  name: string;
+  type: string;
+  alias?: string | null;
+  subtype?: string | null;
+  parent_id?: string | null;
+};
 
 /**
  * Cards ranked on the raw query (name and alias, as `CardPicker` ranks them).
@@ -208,7 +218,7 @@ export function cardMentionItems(
     kind: "card",
     id: c.id,
     label: c.name,
-    card: { type: c.type, subtype: c.subtype ?? null },
+    card: { type: c.type, subtype: c.subtype ?? null, parentId: c.parent_id ?? null },
   }));
 }
 
@@ -268,18 +278,42 @@ export function userMentionItems(
  * type the metamodel does not offer shows nothing: never its key.
  */
 export function cardRowMeta(
-  card: { type: string; subtype?: string | null },
+  card: { type: string; subtype?: string | null; parentName?: string },
   type: Pick<CardType, "key" | "label" | "color" | "icon" | "subtypes"> | undefined,
   typeLabel: (type: Pick<CardType, "key" | "label" | "color" | "icon" | "subtypes">) => string,
   subtypeLabel: (subtype: SubtypeDef) => string,
+  inParent: (name: string) => string = (name) => name,
 ): { color: string | null; icon: string | null; detail: string } {
-  if (!type) return { color: null, icon: null, detail: "" };
+  const parent = card.parentName ? inParent(card.parentName) : "";
+  if (!type) return { color: null, icon: null, detail: parent };
   const sub = card.subtype ? type.subtypes?.find((s) => s.key === card.subtype) : undefined;
   return {
     color: type.color,
     icon: type.icon,
-    detail: [typeLabel(type), sub ? subtypeLabel(sub) : ""].filter(Boolean).join(" · "),
+    detail: [typeLabel(type), sub ? subtypeLabel(sub) : "", parent].filter(Boolean).join(" · "),
   };
+}
+
+/**
+ * The parents the card rows name and whose names are not known yet
+ * (`known` holds a name, or null for a parent that is withheld or failed to
+ * load), each once, in row order.
+ */
+export function parentIdsToFetch(items: readonly MentionItem[], known: ReadonlyMap<string, string | null>): string[] {
+  const ids: string[] = [];
+  for (const item of items) {
+    const id = item.card?.parentId;
+    if (id && !known.has(id) && !ids.includes(id)) ids.push(id);
+  }
+  return ids;
+}
+
+/** The rows with each card's parent name filled in where it is known; nothing else moves. */
+export function withParentNames(items: readonly MentionItem[], known: ReadonlyMap<string, string | null>): MentionItem[] {
+  return items.map((item) => {
+    const name = item.card?.parentId ? known.get(item.card.parentId) : undefined;
+    return name && item.card ? { ...item, card: { ...item.card, parentName: name } } : item;
+  });
 }
 
 /**

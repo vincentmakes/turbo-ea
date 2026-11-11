@@ -1,12 +1,14 @@
 /**
  * What one row of the "@" popup (and of the browse dialog's decision list)
  * shows:
- * - a card: its type's colour and icon, its name, and "Type · Subtype" under
- *   it (labels resolved for the reader's language, never a key);
+ * - a card: its type's colour and icon, its name, and "Type · Subtype · in
+ *   Parent" under it (labels resolved for the reader's language, never a
+ *   key; the parent once its name has arrived);
  * - a decision: its reference ("ADR-012 · Rev 2"), its title and the chip of
  *   its standing (its workflow status before it is signed);
  * - a person: name and e-mail.
  */
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 
@@ -23,7 +25,10 @@ function CardMentionRow({ name, card }: { name: string; card: NonNullable<Mentio
   const { getType } = useMetamodel();
   const typeLabel = useTypeLabel();
   const subtypeLabel = useSubtypeLabel();
-  const meta = cardRowMeta(card, getType(card.type), typeLabel, subtypeLabel);
+  const { t } = useTranslation("delivery");
+  const meta = cardRowMeta(card, getType(card.type), typeLabel, subtypeLabel, (parent) =>
+    t("mention.inParent", { name: parent }),
+  );
   return (
     <>
       {meta.color && meta.icon ? (

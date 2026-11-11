@@ -288,6 +288,95 @@ describe("MentionPopup", () => {
   });
 });
 
+describe("MentionPopup parent names", () => {
+  const SEARCHED = [
+    { id: "c1", name: "Billing", type: "Application", subtype: "microservice", parent_id: "p1" },
+    { id: "c2", name: "CRM", type: "Application", parent_id: "p2" },
+    { id: "c3", name: "Ledger", type: "Application", parent_id: "p1" },
+    { id: "c4", name: "Mail", type: "Application" },
+  ];
+  const LINKED_CHILD = [{ id: "l1", name: "Zebra Hub", type: "Application", parent_id: "p3" }];
+
+  /** p1 is readable, p2 is withheld (absent from the reply), p3 is readable. */
+  function serveParents({ fail = false, hold }: { fail?: boolean; hold?: Promise<void> } = {}) {
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === `/cards?ids=${encodeURIComponent("l1")}`) return { items: LINKED_CHILD, total: 1 };
+      if (path.startsWith("/cards?ids=")) {
+        if (hold) await hold;
+        if (fail) throw new Error("refused");
+        return {
+          items: [
+            { id: "p1", name: "Finance Suite", type: "Application" },
+            { id: "p3", name: "Hub Platform", type: "Application" },
+          ],
+          total: 2,
+        };
+      }
+      if (path.startsWith("/cards?")) return { items: SEARCHED, total: SEARCHED.length };
+      throw new Error(`unexpected ${path}`);
+    });
+  }
+  const parentCalls = () =>
+    vi
+      .mocked(api.get)
+      .mock.calls.map((c) => c[0] as string)
+      .filter((p) => p.startsWith("/cards?ids=") && p !== `/cards?ids=${encodeURIComponent("l1")}`);
+
+  it("adds each parent's name once it arrives, asking for each parent once, and keeps the order", async () => {
+    let release = () => {};
+    const hold = new Promise<void>((r) => (release = r));
+    serveParents({ hold });
+    const { start } = setup(["card"]);
+    start();
+    await screen.findByRole("option", { name: /Mail/ });
+    // Before the parents arrive: type and subtype only, in the same order.
+    expect(itemTexts()).toEqual([
+      "appsBillingApplication · Microservice",
+      "appsCRMApplication",
+      "appsLedgerApplication",
+      "appsMailApplication",
+    ]);
+    await act(async () => release());
+    await waitFor(() =>
+      expect(itemTexts()).toEqual([
+        "appsBillingApplication · Microservice · in Finance Suite",
+        "appsCRMApplication",
+        "appsLedgerApplication · in Finance Suite",
+        "appsMailApplication",
+      ]),
+    );
+    expect(parentCalls()).toEqual([`/cards?ids=${encodeURIComponent("p1,p2")}`]);
+
+    // Another query over the same rows asks for nothing again, the withheld parent included.
+    start("l");
+    await waitFor(() => expect(itemTexts()[0]).toBe("appsLedgerApplication · in Finance Suite"));
+    start("");
+    await screen.findByRole("option", { name: /Mail/ });
+    expect(parentCalls()).toHaveLength(1);
+  });
+
+  it("names the parent of a linked card listed first", async () => {
+    serveParents();
+    const { start } = setup(["card"], { linkedCardIds: ["l1"] });
+    start();
+    await waitFor(() => expect(itemTexts()[0]).toBe("appsZebra HubApplication · in Hub Platform"));
+  });
+
+  it("shows no parent when the parents cannot be read, and does not ask again", async () => {
+    serveParents({ fail: true });
+    const { start } = setup(["card"]);
+    start();
+    await screen.findByRole("option", { name: /Mail/ });
+    await waitFor(() => expect(parentCalls()).toHaveLength(1));
+    start("b");
+    await waitFor(() => expect(itemTexts()).toEqual(["appsBillingApplication · Microservice"]));
+    start("");
+    await screen.findByRole("option", { name: /Mail/ });
+    expect(itemTexts()[0]).toBe("appsBillingApplication · Microservice");
+    expect(parentCalls()).toHaveLength(1);
+  });
+});
+
 describe("createMentionSuggestionStore", () => {
   it("tracks the suggestion and forwards keys only while open with a handler", () => {
     const store: MentionSuggestionStore = createMentionSuggestionStore();

@@ -6,6 +6,8 @@ import {
   MENTION_GROUP_LIMIT,
   cardMentionItems,
   cardRowMeta,
+  parentIdsToFetch,
+  withParentNames,
   comparePreferred,
   decisionMentionItems,
   documentPeopleIds,
@@ -178,13 +180,14 @@ describe("popup items", () => {
 
   it("ranks cards on the raw query, exact first, alias included, non-matches dropped", () => {
     expect(cardMentionItems(cards, " portal ")).toEqual([
-      { kind: "card", id: "c2", label: "Portal", card: { type: "Application", subtype: null } },
-      { kind: "card", id: "c3", label: "CRM", card: { type: "Application", subtype: null } },
-      { kind: "card", id: "c1", label: "Billing Portal", card: { type: "Application", subtype: null } },
+      { kind: "card", id: "c2", label: "Portal", card: { type: "Application", subtype: null, parentId: null } },
+      { kind: "card", id: "c3", label: "CRM", card: { type: "Application", subtype: null, parentId: null } },
+      { kind: "card", id: "c1", label: "Billing Portal", card: { type: "Application", subtype: null, parentId: null } },
     ]);
-    expect(cardMentionItems([{ id: "s", name: "S", type: "T", subtype: "web" }], "")[0].card).toEqual({
+    expect(cardMentionItems([{ id: "s", name: "S", type: "T", subtype: "web", parent_id: "p1" }], "")[0].card).toEqual({
       type: "T",
       subtype: "web",
+      parentId: "p1",
     });
   });
 
@@ -390,6 +393,28 @@ describe("card rows", () => {
     expect(cardRowMeta({ type: "Application" }, type, typeLabel, subLabel).detail).toBe("T:Application");
   });
 
+  it("adds the parent's name last, once it is known, through the reader's wording", () => {
+    const inParent = (name: string) => `in ${name}`;
+    expect(
+      cardRowMeta({ type: "Application", subtype: "web", parentName: "ERP" }, type, typeLabel, subLabel, inParent)
+        .detail,
+    ).toBe("T:Application · S:Web app · in ERP");
+    expect(cardRowMeta({ type: "Application", parentName: "ERP" }, type, typeLabel, subLabel, inParent).detail).toBe(
+      "T:Application · in ERP",
+    );
+    expect(cardRowMeta({ type: "Application", parentName: "" }, type, typeLabel, subLabel, inParent).detail).toBe(
+      "T:Application",
+    );
+    expect(cardRowMeta({ type: "Application", parentName: "ERP" }, type, typeLabel, subLabel).detail).toBe(
+      "T:Application · ERP",
+    );
+    expect(cardRowMeta({ type: "Hidden", parentName: "ERP" }, undefined, typeLabel, subLabel, inParent)).toEqual({
+      color: null,
+      icon: null,
+      detail: "in ERP",
+    });
+  });
+
   it("shows nothing for a type the metamodel does not offer, never its key", () => {
     expect(cardRowMeta({ type: "Hidden", subtype: "web" }, undefined, typeLabel, subLabel)).toEqual({
       color: null,
@@ -449,5 +474,39 @@ describe("unlinkedMentionedCards", () => {
     expect(unlinkedMentionedCards(html, [ID2])).toEqual([{ id: ID, label: "SAP" }]);
     expect(unlinkedMentionedCards(html, new Set([ID, ID2]))).toEqual([]);
     expect(unlinkedMentionedCards("<p>none</p>", [])).toEqual([]);
+  });
+});
+
+describe("parent names on card rows", () => {
+  const card = (id: string, parentId?: string | null) => ({
+    kind: "card" as const,
+    id,
+    label: id.toUpperCase(),
+    card: { type: "Application", subtype: null, parentId },
+  });
+  const person = { kind: "user" as const, id: "u1", label: "Ann" };
+
+  it("asks for each unknown parent once, in row order", () => {
+    const items = [card("a", "p2"), person, card("b", null), card("c", "p1"), card("d", "p2"), card("e", "p3")];
+    const known = new Map<string, string | null>([["p3", null]]);
+    expect(parentIdsToFetch(items, known)).toEqual(["p2", "p1"]);
+    expect(parentIdsToFetch(items, new Map([["p1", "X"], ["p2", null], ["p3", "Y"]]))).toEqual([]);
+    expect(parentIdsToFetch([card("x")], new Map())).toEqual([]);
+  });
+
+  it("fills a known name in, leaves withheld and unknown parents and other rows alone, and never reorders", () => {
+    const items = [card("a", "p1"), person, card("b", "p2"), card("c", "p3"), card("d")];
+    const known = new Map<string, string | null>([
+      ["p1", "ERP"],
+      ["p2", null],
+    ]);
+    const out = withParentNames(items, known);
+    expect(out.map((i) => i.id)).toEqual(["a", "u1", "b", "c", "d"]);
+    expect(out[0].card).toEqual({ type: "Application", subtype: null, parentId: "p1", parentName: "ERP" });
+    expect(items[0].card).not.toHaveProperty("parentName");
+    expect(out[1]).toBe(person);
+    expect(out[2]).toBe(items[2]);
+    expect(out[3]).toBe(items[3]);
+    expect(out[4]).toBe(items[4]);
   });
 });
