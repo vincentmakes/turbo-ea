@@ -695,7 +695,7 @@
   "settings.ai.modelPickerHelper": "Seleccione un modelo de su proveedor. Use «Probar conexión» para actualizar la lista.",
   "settings.ai.selectModel": "Seleccionar un modelo…",
   "settings.ai.apiVersion": "Versión de la API",
-  "settings.ai.apiVersionHelper": "Versión de la API de Azure OpenAI (p. ej. 2025-01-01). Es la versión de la API, no la del modelo. Consulta el portal de Azure para las versiones admitidas.",
+  "settings.ai.apiVersionHelper": "Versión de la API de Azure OpenAI (p. ej. 2025-01-01). Es la versión de la API, no la del modelo. Si tu portal de Azure solo muestra un endpoint que termina en /openai/v1/, introdúcelo en su lugar como URL del proveedor: no necesita versión de API.",
   "settings.ai.apiVersionHelperV1": "No se usa: un endpoint que termina en /openai/v1/ no admite versión de API.",
   "settings.ai.testNoModels": "Conectado a Ollama, pero no hay modelos instalados. Ejecute «ollama pull gemma3:4b» para instalar uno.",
   "settings.ai.savedSuccess": "Configuración de IA guardada",

@@ -696,7 +696,7 @@
   "settings.ai.selectModel": "Select a model...",
   "settings.ai.testNoModels": "Connected to Ollama, but no models are installed. Run «ollama pull gemma3:4b» to install one.",
   "settings.ai.apiVersion": "API Version",
-  "settings.ai.apiVersionHelper": "Azure OpenAI API version (e.g. 2025-01-01). This is the version of the API, not of the model. Check the Azure portal for supported versions.",
+  "settings.ai.apiVersionHelper": "Azure OpenAI API version (e.g. 2025-01-01). This is the version of the API, not of the model. If your Azure portal shows only an endpoint ending in /openai/v1/, enter that as the Provider URL instead: it needs no API version.",
   "settings.ai.apiVersionHelperV1": "Not used: an endpoint ending in /openai/v1/ takes no API version.",
   "settings.ai.savedSuccess": "AI settings saved",
   "settings.ai.sectionProvider": "AI Provider",

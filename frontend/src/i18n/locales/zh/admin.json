@@ -695,7 +695,7 @@
   "settings.ai.modelPickerHelper": "从您的提供商选择一个模型。使用「测试连接」刷新列表。",
   "settings.ai.selectModel": "选择模型…",
   "settings.ai.apiVersion": "API 版本",
-  "settings.ai.apiVersionHelper": "Azure OpenAI API 版本（例如 2025-01-01）。这是 API 的版本，而不是模型的版本。请在 Azure 门户查看支持的版本。",
+  "settings.ai.apiVersionHelper": "Azure OpenAI API 版本（例如 2025-01-01）。这是 API 的版本，而不是模型的版本。如果您的 Azure 门户只显示以 /openai/v1/ 结尾的端点，请改为将其填入提供商 URL：它不需要 API 版本。",
   "settings.ai.apiVersionHelperV1": "未使用：以 /openai/v1/ 结尾的端点不需要 API 版本。",
   "settings.ai.testNoModels": "已连接到 Ollama，但未安装任何模型。运行「ollama pull gemma3:4b」以安装一个。",
   "settings.ai.savedSuccess": "AI 设置已保存",

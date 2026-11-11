@@ -84,7 +84,8 @@ def not_found_detail(resp: httpx.Response, target: ChatTarget, deployment: str) 
     Azure answers 404 for three different mistakes. Only an unknown deployment
     says so in its error code; a wrong path and an ``api-version`` Azure does
     not know both read "Resource not found", so those name the path that was
-    called and what to check.
+    called and what to check. Azure AI Foundry shows no API version at all
+    (#1386), so the deployment-API hint also points at the v1 endpoint.
     """
     if openai_chat.error_code(resp) == _DEPLOYMENT_NOT_FOUND:
         return f"Azure OpenAI deployment '{deployment}' not found"
@@ -96,6 +97,7 @@ def not_found_detail(resp: httpx.Response, target: ChatTarget, deployment: str) 
         hint = (
             "check the Provider URL (the resource endpoint, such as "
             f"https://your-resource.openai.azure.com) and the API version '{version}', "
-            "which must be an Azure OpenAI API version, not the version of the model"
+            "which must be an Azure OpenAI API version, not the version of the model. "
+            "An endpoint ending in /openai/v1/ needs no API version"
         )
     return f"Azure OpenAI answered 404 for {path}: {hint}"

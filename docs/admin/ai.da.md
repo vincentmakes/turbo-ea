@@ -48,7 +48,7 @@ Kommercielle udbydere kræver en API-nøgle, som gemmes krypteret i databasen ve
 Azure viser to forskellige endpoints afhængigt af den side, du kopierer fra, og **Udbyder-URL** accepterer begge:
 
 - **Ressourcens endpoint**, f.eks. `https://your-resource.openai.azure.com`. Turbo EA kalder dit deployment med den **API-version**, du angiver. Det er versionen af Azure OpenAI API'et, f.eks. `2024-10-21`, ikke modellens version (f.eks. `2025-08-07` for GPT-5).
-- **v1-endpointet**, der slutter på `/openai/v1/`. Det tager ingen API-version, så feltet **API-version** er slået fra.
+- **v1-endpointet**, der slutter på `/openai/v1/`. Det tager ingen API-version, så feltet **API-version** er slået fra. Azure AI Foundry viser kun dette endpoint for et deployment og ingen API-version noget sted: indsæt det, som det er.
 
 I begge tilfælde er **Model** navnet på dit deployment.
 
@@ -284,7 +284,7 @@ Brugerdefinerede roller kan tildeles disse tilladelser gennem Roller-administrat
 | Lave confidence-scores | LLM'en kan muligvis ikke finde nok relevant information via websøgning. Prøv et mere specifikt kortnavn, eller overvej at bruge Google Custom Search for bedre resultater. |
 | Forbindelsestest mislykkes | Bekræft, at udbyder-URL'en er tilgængelig fra backend-containeren. For Docker-opsætninger skal du sikre dig, at begge containere er på samme netværk. |
 | Test forbindelse siger, at udbyderen ikke accepterer `response_format` eller `temperature` | Intet at rette: udbyderen fungerer. Turbo EA udelader den parameter i alle forespørgsler til den. Uden `response_format` afhænger svaret af, at modellen følger instruktionen om at svare i JSON; hvis forslag kommer tilbage tomme, så prøv en mere kapabel model. |
-| Azure-forbindelsestest svarer 404 | Azure svarer 404 ved tre forskellige fejl. «Deployment not found» betyder, at feltet **Model** ikke matcher et deployment-navn. Ellers nævner meddelelsen den sti, der blev kaldt: kontrollér, at **Udbyder-URL** er din ressources endpoint eller slutter på `/openai/v1/`, og at **API-version** indeholder en Azure OpenAI API-version og ikke modellens version. |
+| Azure-forbindelsestest svarer 404 | Azure svarer 404 ved tre forskellige fejl. «Deployment not found» betyder, at feltet **Model** ikke matcher et deployment-navn. Ellers nævner meddelelsen den sti, der blev kaldt: kontrollér, at **Udbyder-URL** er din ressources endpoint eller slutter på `/openai/v1/`, og at **API-version** indeholder en Azure OpenAI API-version og ikke modellens version. Hvis din portal ikke viser nogen API-version, så brug endpointet, der slutter på `/openai/v1/`, som ikke har brug for nogen. |
 | «AI-udbyderen afviste anmodningen» | Udbyderen blev kontaktet, men afviste anmodningen, og meddelelsen angiver årsagen (ved 401 eller 403 skal du kontrollere API-nøglen og modeladgangen). Ret det modelnavn eller den udbyderindstilling, der nævnes, og klik derefter på Test forbindelse: den sender samme anmodning som et forslag og fejler eller lykkes derfor nu på samme måde. |
 | Bedrock returnerer «AccessDeniedException» | To mulige årsager: IAM-rollen mangler rettigheden `bedrock:InvokeModel`, eller modeladgang er ikke aktiveret for den model i Bedrock-konsollen. Tjek begge. |
 | Bedrock siger, at on-demand-gennemløb ikke understøttes | Modellen kan kun nås via en regional inferensprofil. Kør forbindelsestesten, og vælg et ID med præfikset `eu.`, `us.` eller `apac.`. |

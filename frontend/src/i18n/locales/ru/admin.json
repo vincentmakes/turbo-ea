@@ -753,7 +753,7 @@
   "settings.ai.modelPickerHelper": "Выберите модель от вашего провайдера. Нажмите «Проверить соединение» для обновления списка.",
   "settings.ai.selectModel": "Выберите модель...",
   "settings.ai.apiVersion": "Версия API",
-  "settings.ai.apiVersionHelper": "Версия API Azure OpenAI (например, 2025-01-01). Это версия API, а не модели. Поддерживаемые версии указаны в портале Azure.",
+  "settings.ai.apiVersionHelper": "Версия API Azure OpenAI (например, 2025-01-01). Это версия API, а не модели. Если портал Azure показывает только endpoint, оканчивающийся на /openai/v1/, введите его как URL провайдера: версия API ему не нужна.",
   "settings.ai.apiVersionHelperV1": "Не используется: endpoint, оканчивающийся на /openai/v1/, не принимает версию API.",
   "settings.ai.testNoModels": "Подключено к Ollama, но модели не установлены. Выполните «olama pull gemma3:4b» для установки.",
   "settings.ai.savedSuccess": "Настройки ИИ сохранены",

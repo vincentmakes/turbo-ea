@@ -695,7 +695,7 @@
   "settings.ai.modelPickerHelper": "Vælg en model fra din udbyder. Brug «Test forbindelse» for at opdatere listen.",
   "settings.ai.selectModel": "Vælg en model...",
   "settings.ai.apiVersion": "API-version",
-  "settings.ai.apiVersionHelper": "Azure OpenAI API-version (f.eks. 2025-01-01). Dette er versionen af API'et, ikke af modellen. Tjek Azure-portalen for understøttede versioner.",
+  "settings.ai.apiVersionHelper": "Azure OpenAI API-version (f.eks. 2025-01-01). Dette er versionen af API'et, ikke af modellen. Hvis din Azure-portal kun viser et endpoint, der slutter på /openai/v1/, så indtast det som Udbyder-URL i stedet: det kræver ingen API-version.",
   "settings.ai.apiVersionHelperV1": "Bruges ikke: et endpoint, der slutter på /openai/v1/, tager ikke en API-version.",
   "settings.ai.testNoModels": "Forbundet til Ollama, men ingen modeller er installeret. Kør «ollama pull gemma3:4b» for at installere en.",
   "settings.ai.savedSuccess": "AI-indstillinger gemt",

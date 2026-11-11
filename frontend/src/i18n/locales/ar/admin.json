@@ -812,7 +812,7 @@
   "settings.ai.selectModel": "اختر نموذجًا...",
   "settings.ai.testNoModels": "تم الاتصال بـ Ollama، لكن لا توجد نماذج مثبّتة. شغّل «ollama pull gemma3:4b» لتثبيت واحد.",
   "settings.ai.apiVersion": "إصدار API",
-  "settings.ai.apiVersionHelper": "إصدار واجهة برمجة تطبيقات Azure OpenAI (مثل 2025-01-01). هذا هو إصدار واجهة البرمجة وليس إصدار النموذج. راجع بوابة Azure للإصدارات المدعومة.",
+  "settings.ai.apiVersionHelper": "إصدار واجهة برمجة تطبيقات Azure OpenAI (مثل 2025-01-01). هذا هو إصدار واجهة البرمجة وليس إصدار النموذج. إذا كانت بوابة Azure لديك تعرض فقط نقطة نهاية تنتهي بـ /openai/v1/، فأدخلها بدلًا من ذلك في عنوان URL للمزوّد: فهي لا تحتاج إلى إصدار API.",
   "settings.ai.apiVersionHelperV1": "غير مستخدم: نقطة النهاية التي تنتهي بـ /openai/v1/ لا تقبل إصدار واجهة برمجة.",
   "settings.ai.savedSuccess": "تم حفظ إعدادات الذكاء الاصطناعي",
   "settings.ai.sectionProvider": "موفّر الذكاء الاصطناعي",

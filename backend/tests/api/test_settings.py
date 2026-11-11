@@ -1414,7 +1414,8 @@ class TestAIConnectionTestAzure:
             "Azure OpenAI answered 404 for /openai/deployments/gpt-5/chat/completions: "
             "check the Provider URL (the resource endpoint, such as "
             "https://your-resource.openai.azure.com) and the API version '2025-08-07', "
-            "which must be an Azure OpenAI API version, not the version of the model"
+            "which must be an Azure OpenAI API version, not the version of the model. "
+            "An endpoint ending in /openai/v1/ needs no API version"
         )
         assert llm.post.call_args.kwargs["params"] == {"api-version": "2025-08-07"}
 

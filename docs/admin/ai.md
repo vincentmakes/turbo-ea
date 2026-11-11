@@ -48,7 +48,7 @@ Commercial providers require an API key, which is stored encrypted in the databa
 Azure shows two different endpoints depending on the page you copy from, and the **Provider URL** accepts either:
 
 - **The resource endpoint**, such as `https://your-resource.openai.azure.com`. Turbo EA calls your deployment with the **API Version** you enter. That is the version of the Azure OpenAI API, such as `2024-10-21`, not the version of the model (`2025-08-07` for GPT-5, for example).
-- **The v1 endpoint**, ending in `/openai/v1/`. It takes no API version, so the **API Version** field is switched off.
+- **The v1 endpoint**, ending in `/openai/v1/`. It takes no API version, so the **API Version** field is switched off. Azure AI Foundry shows only this endpoint for a deployment, and no API version anywhere: paste it as it is.
 
 In both cases **Model** is the name of your deployment.
 
@@ -287,7 +287,7 @@ Custom roles can be granted these permissions through the Roles administration p
 | Bedrock returns "AccessDeniedException" | Two different causes: the IAM role is missing the `bedrock:InvokeModel` permission, or model access has not been enabled for that model in the Bedrock console. Check both. |
 | Bedrock says on-demand throughput is not supported | The model is only reachable through a regional inference profile. Run Test Connection and pick an ID prefixed `eu.`, `us.` or `apac.`. |
 | Test Connection says the provider does not accept `response_format` or `temperature` | Nothing to fix: the provider is working. Turbo EA leaves that parameter out of every request to it. Without `response_format` the answer depends on the model following the instruction to reply in JSON, so if suggestions come back empty, try a more capable model. |
-| Azure Test Connection answers 404 | Azure answers 404 for three different mistakes. "Deployment not found" means the **Model** field does not match a deployment name. Otherwise the message names the path that was called: check that the **Provider URL** is your resource endpoint or ends in `/openai/v1/`, and that **API Version** holds an Azure OpenAI API version rather than the version of the model. |
+| Azure Test Connection answers 404 | Azure answers 404 for three different mistakes. "Deployment not found" means the **Model** field does not match a deployment name. Otherwise the message names the path that was called: check that the **Provider URL** is your resource endpoint or ends in `/openai/v1/`, and that **API Version** holds an Azure OpenAI API version rather than the version of the model. If your portal shows no API version, use the endpoint ending in `/openai/v1/`, which needs none. |
 | OpenAI refuses a model with 403 | The key is valid, but the OpenAI project may not call that model. Test Connection sends a short request to the configured model and shows OpenAI's own reason. Grant the project access to the model (or complete organization verification) in the OpenAI dashboard, or pick another model. |
 
 ---

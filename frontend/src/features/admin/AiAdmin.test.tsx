@@ -227,7 +227,8 @@ describe("AiAdmin keeps the other providers working", () => {
     expect(
       screen.getByText(
         "Azure OpenAI API version (e.g. 2025-01-01). This is the version of the API, " +
-          "not of the model. Check the Azure portal for supported versions.",
+          "not of the model. If your Azure portal shows only an endpoint ending in " +
+          "/openai/v1/, enter that as the Provider URL instead: it needs no API version.",
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/takes no API version/)).not.toBeInTheDocument();
