@@ -6341,8 +6341,12 @@ async def link_process_flow_elements(
     call this tool again with the old value or an empty one.
 
     Requires the permission the web UI's draft editor needs (``bpm.edit``,
-    or a stakeholder role granting ``card.edit`` on the process); a card the
-    user may not see is refused as not found.
+    or a stakeholder role granting ``card.edit`` on the process). Each link
+    takes an active card of its own type (Application, DataObject,
+    ITComponent, BusinessProcess, Organization): the backend refuses a card
+    of another type with a 400 that names both types, and a card that does
+    not exist, is archived or is hidden from the user as not found (404).
+    Such a refusal stops the run like any other, listing what was applied.
 
     Args:
         business_process_id: The BusinessProcess card UUID.

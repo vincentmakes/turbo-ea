@@ -196,7 +196,7 @@ In entrambi i casi l'anteprima viene registrata nel registro di audit come batch
 
 ### Strumenti di lettura
 
-Il server espone 39 strumenti di lettura raggruppati in dieci cluster.
+Il server espone 40 strumenti di lettura raggruppati in dieci cluster.
 
 **Card & metamodello**
 

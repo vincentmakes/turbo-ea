@@ -731,6 +731,39 @@ class TestLinkCommit:
         }
 
     @pytest.mark.asyncio
+    async def test_a_card_of_the_wrong_type_comes_back_as_the_backends_400(
+        self, fake_token, public_url
+    ):
+        """The backend checks each link's card type; the tool passes its
+        refusal through with what was and was not applied."""
+        detail = "it_component_id takes a card of type ITComponent, not Application"
+        refused = _put("Gateway%2E2")
+        backend = _backend(writes={refused: _flow_http_error(400, detail, "PUT", refused)})
+        data = await backend.run(_link(_LINKS, dry_run=False))
+        assert data == {
+            "error": "link_refused",
+            "status_code": 400,
+            "detail": detail,
+            "business_process_id": _PROCESS,
+            "version_id": _DRAFT,
+            "drafts_tab_url": _DRAFTS_TAB,
+            "bpmn_element_id": "Gateway.2",
+            "applied": ["Activity_1"],
+            "not_applied": ["Gateway.2"],
+            "batch_id": "B-1",
+        }
+
+    def test_the_docstring_says_how_a_wrong_card_type_answers(self):
+        text = " ".join(
+            server.mcp._tool_manager._tools["link_process_flow_elements"].description.split()
+        )
+        assert (
+            "the backend refuses a card of another type with a 400 that names both types, "
+            "and a card that does not exist, is archived or is hidden from the user as "
+            "not found (404)."
+        ) in text
+
+    @pytest.mark.asyncio
     async def test_a_server_error_closes_the_batch_as_errored_and_is_raised(self, fake_token):
         refused = _put("Activity_1")
         backend = _backend(writes={refused: _flow_http_error(500, "boom", "PUT", refused)})

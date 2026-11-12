@@ -37,8 +37,11 @@ from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 from app.services.process_element_sync import (
     as_card_uuid,
+    normalise_draft_link_body,
+    stored_link_ids,
     sync_process_elements,
     sync_process_message_flows,
+    validate_link_cards,
     validate_process_link,
 )
 
@@ -1265,6 +1268,10 @@ async def update_draft_element_link(
     links = dict(version.draft_element_links or {})
     existing = links.get(bpmn_element_id, {})
 
+    # A value that is not a card id is a 400 before anything is looked up; the
+    # body now carries canonical id strings.
+    named = normalise_draft_link_body(body)
+
     # Read scope: linking a card hidden from the caller is a 404 (it does not
     # exist for them); clearing or replacing links they were never shown
     # keeps those links.
@@ -1299,11 +1306,20 @@ async def update_draft_element_link(
         before = {o for o in (existing.get("organization_ids") or []) if o}
         body["organization_ids"] = sorted(wanted | await _hidden(before))
 
+    # Every NEW link is checked at write time: an ACTIVE card of the type its
+    # slot takes. A value the step already holds is not re-checked — a draft
+    # whose linked card was archived since stays editable, and publishing
+    # drops such a link with a warning, as it always has — and neither is a
+    # hidden link kept for the caller above (it is a stored value too).
+    new_links = {key: ids - stored_link_ids(existing, key) for key, ids in named.items()}
+    process_link = new_links.pop("business_process_id", set())
+    await validate_link_cards(db, new_links)
+
     # The process link is validated at write time — the picker is the only
     # sanctioned source, so a bad id here is a client bug, not stale data.
     # An element the *saved* XML does not carry is accepted: the modeler links
     # a shape the moment it is placed, before its 5s autosave lands.
-    if body.get("business_process_id"):
+    if process_link:
         types = {
             e.bpmn_element_id: e.element_type for e in parse_bpmn(version.bpmn_xml or "").elements
         }

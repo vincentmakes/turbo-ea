@@ -196,7 +196,7 @@ In beiden Fällen wird die Vorschau im Audit-Log als Trockenlauf-Batch aufgezeic
 
 ### Lese-Werkzeuge
 
-Der Server stellt 39 Lese-Werkzeuge in zehn Gruppen bereit.
+Der Server stellt 40 Lese-Werkzeuge in zehn Gruppen bereit.
 
 **Karten & Metamodell**
 

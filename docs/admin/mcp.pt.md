@@ -196,7 +196,7 @@ Nos dois casos, a prévia fica registrada no registro de auditoria como um lote 
 
 ### Ferramentas de leitura
 
-O servidor expõe 39 ferramentas de leitura agrupadas em dez clusters.
+O servidor expõe 40 ferramentas de leitura agrupadas em dez clusters.
 
 **Cards & metamodelo**
 

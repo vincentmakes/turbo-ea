@@ -127,26 +127,74 @@ class TestParseHosts:
 
 
 class TestPublicAppUrl:
-    """The base of every link a tool hands back. The localhost default is the
-    last resort: a compose install reached over OAuth sets only
-    ``MCP_PUBLIC_URL``, and its links pointed at localhost:8920."""
+    """The base of every link a tool hands back. A localhost value is the last
+    resort: a compose install reached over OAuth sets ``MCP_PUBLIC_URL`` to its
+    public address, and either leaves ``TURBO_EA_PUBLIC_URL`` unset or keeps
+    the ``http://localhost`` that ``.env.example`` ships."""
 
-    def test_an_explicit_value_wins(self):
+    @pytest.mark.parametrize(
+        "mcp_url", [None, "", "https://mcp.example.com/mcp", "http://localhost:8920/mcp"]
+    )
+    def test_an_explicit_real_host_always_wins(self, mcp_url):
         assert (
-            config.public_app_url("https://app.example.com/ea", "https://mcp.example.com/mcp")
+            config.public_app_url("https://app.example.com/ea", mcp_url)
             == "https://app.example.com/ea"
         )
 
-    @pytest.mark.parametrize("explicit", [None, ""])
-    def test_unset_falls_back_to_the_origin_of_the_mcp_url(self, explicit):
+    @pytest.mark.parametrize(
+        "explicit",
+        [
+            "http://localhost",
+            "http://localhost:8920",
+            "http://LOCALHOST:80/",
+            "https://127.0.0.1:8443",
+            "http://[::1]",
+            "http://[::1]:8920",
+        ],
+    )
+    def test_an_explicit_loopback_loses_to_a_real_mcp_host(self, explicit):
         assert (
             config.public_app_url(explicit, "https://ea.example.com:8443/mcp/x?y=1")
             == "https://ea.example.com:8443"
         )
 
+    @pytest.mark.parametrize(
+        "mcp_url",
+        [
+            "http://localhost:8920/mcp",
+            "http://127.0.0.1/mcp",
+            "http://[::1]:8001/mcp",
+            None,
+            "",
+            "https:",
+            "//ea.example.com/mcp",
+        ],
+    )
+    def test_an_explicit_loopback_stands_when_mcp_names_no_real_host(self, mcp_url):
+        assert config.public_app_url("http://localhost", mcp_url) == "http://localhost"
+
+    @pytest.mark.parametrize(
+        "explicit", ["http://127.0.0.2", "http://localhost.example.com", "http://[::2]"]
+    )
+    def test_only_the_three_loopback_names_count_as_loopback(self, explicit):
+        assert config.public_app_url(explicit, "https://ea.example.com/mcp") == explicit
+
+    @pytest.mark.parametrize("explicit", [None, ""])
+    @pytest.mark.parametrize(
+        ("mcp_url", "expected"),
+        [
+            ("https://ea.example.com:8443/mcp/x?y=1", "https://ea.example.com:8443"),
+            ("http://localhost:8920/mcp", "http://localhost:8920"),
+            ("http://[::1]:9000/mcp", "http://[::1]:9000"),
+        ],
+    )
+    def test_unset_falls_back_to_the_origin_of_the_mcp_url(self, explicit, mcp_url, expected):
+        assert config.public_app_url(explicit, mcp_url) == expected
+
+    @pytest.mark.parametrize("explicit", [None, ""])
     @pytest.mark.parametrize("mcp_url", [None, "", "https:", "//ea.example.com/mcp", "ea/mcp"])
-    def test_with_no_usable_mcp_url_it_is_the_localhost_default(self, mcp_url):
-        assert config.public_app_url(None, mcp_url) == "http://localhost:8920"
+    def test_with_nothing_usable_it_is_the_localhost_default(self, explicit, mcp_url):
+        assert config.public_app_url(explicit, mcp_url) == "http://localhost:8920"
 
     def test_the_module_reads_the_raw_variables(self, monkeypatch):
         import importlib
@@ -155,6 +203,9 @@ class TestPublicAppUrl:
         monkeypatch.delenv("MCP_PORT", raising=False)
         monkeypatch.setenv("MCP_PUBLIC_URL", "https://ea.example.com/mcp")
         try:
+            assert importlib.reload(config).TURBO_EA_PUBLIC_URL == "https://ea.example.com"
+            # The value .env.example ships gives way to the real MCP host.
+            monkeypatch.setenv("TURBO_EA_PUBLIC_URL", "http://localhost")
             assert importlib.reload(config).TURBO_EA_PUBLIC_URL == "https://ea.example.com"
             monkeypatch.setenv("TURBO_EA_PUBLIC_URL", "")
             monkeypatch.delenv("MCP_PUBLIC_URL")

@@ -25,22 +25,44 @@ TURBO_EA_URL: str = os.environ.get("TURBO_EA_URL", "http://localhost:8000")
 
 _DEFAULT_TURBO_EA_PUBLIC_URL = "http://localhost:8920"
 
+#: Host names that only ever mean "this machine": a link on one opens nothing
+#: for anyone else. ``urlparse`` lower-cases a host and strips IPv6 brackets.
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def _origin(url: str | None) -> str:
+    """``scheme://host[:port]`` of ``url``, or ``""`` when it has neither."""
+    parsed = urlparse(url or "")
+    if parsed.scheme and parsed.netloc:
+        return f"{parsed.scheme}://{parsed.netloc}"
+    return ""
+
+
+def _is_loopback(url: str) -> bool:
+    return urlparse(url).hostname in _LOOPBACK_HOSTS
+
 
 def public_app_url(explicit: str | None, mcp_public_url: str | None) -> str:
     """The address people open the Turbo EA web app at.
 
-    Every link an MCP tool hands back is built on it, so the localhost default
-    is the last resort, not the first: ``TURBO_EA_PUBLIC_URL`` when it is set
-    (an empty value counts as unset — compose passes one through), else the
-    origin of ``MCP_PUBLIC_URL`` (scheme and host, path dropped: the bundled
-    stack serves MCP at ``/mcp`` on the app's own host, and an OAuth install
-    has to set that variable to work at all), else ``localhost:8920``."""
-    if explicit:
+    Every link an MCP tool hands back is built on it, so a localhost value is
+    the last resort, not the first:
+
+    - ``TURBO_EA_PUBLIC_URL`` on a real host always wins;
+    - set to a loopback host (``localhost``, ``127.0.0.1``, ``[::1]``, any
+      port) — ``.env.example`` ships ``http://localhost``, which the bundled
+      nginx also reads — it loses to the origin of ``MCP_PUBLIC_URL`` when
+      that names a real host, since an OAuth install has to set that variable
+      to the public address to work at all;
+    - unset (or empty: compose passes one through), the origin of
+      ``MCP_PUBLIC_URL`` (scheme and host, path dropped: the bundled stack
+      serves MCP at ``/mcp`` on the app's own host);
+    - else ``http://localhost:8920``."""
+    mcp_origin = _origin(mcp_public_url)
+    mcp_is_real = bool(mcp_origin) and not _is_loopback(mcp_origin)
+    if explicit and (not mcp_is_real or not _is_loopback(explicit)):
         return explicit
-    parsed = urlparse(mcp_public_url or "")
-    if parsed.scheme and parsed.netloc:
-        return f"{parsed.scheme}://{parsed.netloc}"
-    return _DEFAULT_TURBO_EA_PUBLIC_URL
+    return mcp_origin or _DEFAULT_TURBO_EA_PUBLIC_URL
 
 
 # Public URL of the Turbo EA instance: the base of every link a tool returns,

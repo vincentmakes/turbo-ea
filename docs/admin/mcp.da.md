@@ -196,7 +196,7 @@ Uanset hvad registreres forhåndsvisningen i auditloggen som en dry-run-batch, s
 
 ### Læseværktøjer
 
-Serveren eksponerer 39 læseværktøjer grupperet i ti klynger.
+Serveren eksponerer 40 læseværktøjer grupperet i ti klynger.
 
 **Kort og metamodel**
 

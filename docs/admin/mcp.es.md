@@ -196,7 +196,7 @@ En ambos casos, la vista previa queda registrada en el registro de auditoría co
 
 ### Herramientas de lectura
 
-El servidor expone 39 herramientas de lectura agrupadas en diez clusters.
+El servidor expone 40 herramientas de lectura agrupadas en diez clusters.
 
 **Fichas y metamodelo**
 

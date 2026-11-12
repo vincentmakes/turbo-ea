@@ -196,7 +196,7 @@ Dans les deux cas, l'aperçu est consigné dans le journal d'audit comme un lot 
 
 ### Outils de lecture
 
-Le serveur expose 39 outils de lecture, regroupés en dix clusters.
+Le serveur expose 40 outils de lecture, regroupés en dix clusters.
 
 **Fiches & métamodèle**
 

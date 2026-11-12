@@ -78,27 +78,102 @@ async def resolve_process_references(
     return {bid: cid for bid, cid in candidates.items() if cid in active}
 
 
+#: The card type each step link takes. The four single links are the target
+#: type of the relation each one mints (``ELEMENT_LINK_RELATION_MAP`` in
+#: ``element_relation_sync``: relProcessToApp → Application, relProcessToDataObj
+#: → DataObject, relProcessToITC → ITComponent, relProcessCalls →
+#: BusinessProcess, as seeded); the informative M:N link takes Organization,
+#: as the published element table has always checked it. The modeler's
+#: pickers offer the same types (``LINK_KIND_TYPE``, ``calledProcess.ts``).
+#: Pinned against the seeded relation types by
+#: ``tests/services/test_process_element_sync.py``.
+ELEMENT_LINK_CARD_TYPES: dict[str, str] = {
+    "application_id": "Application",
+    "data_object_id": "DataObject",
+    "it_component_id": "ITComponent",
+    "business_process_id": "BusinessProcess",
+    "organization_ids": "Organization",
+}
+
+
+def _link_card_id(key: str, value: object) -> uuid.UUID:
+    """``value`` as a card id for the ``key`` link, or a 400."""
+    if isinstance(value, str):
+        try:
+            return uuid.UUID(value)
+        except ValueError:
+            pass
+    raise HTTPException(400, f"{key} must be a card id (UUID)")
+
+
+def normalise_draft_link_body(body: dict) -> dict[str, set[uuid.UUID]]:
+    """The card ids a draft-link body names, per link; a 400 for any value
+    that is not a card id, before anything is looked up or stored.
+
+    ``body`` is rewritten in place to the canonical id strings, the form every
+    reader compares against (``get_draft_elements``' name map, publishing's set
+    of valid ids), so an id sent in another spelling is not dropped later. An
+    empty single link (``None`` / ``""``) and an empty or ``None``
+    ``organization_ids`` name nothing: they are clears, or "say nothing"."""
+    named: dict[str, set[uuid.UUID]] = {}
+    for key in ("application_id", "data_object_id", "it_component_id", "business_process_id"):
+        value = body.get(key)
+        if value in (None, ""):
+            continue
+        card_id = _link_card_id(key, value)
+        body[key] = str(card_id)
+        named[key] = {card_id}
+    orgs = body.get("organization_ids")
+    if orgs is not None:
+        if not isinstance(orgs, list):
+            raise HTTPException(400, "organization_ids must be a list of card ids")
+        card_ids = [_link_card_id("organization_ids", org) for org in orgs if org]
+        body["organization_ids"] = [str(card_id) for card_id in card_ids]
+        named["organization_ids"] = set(card_ids)
+    return named
+
+
+async def validate_link_cards(db: AsyncSession, named: dict[str, set[uuid.UUID]]) -> None:
+    """Every id in ``named`` must be an ACTIVE card of the type its link takes
+    (``ELEMENT_LINK_CARD_TYPES``): a card that does not exist or is archived
+    answers 404 — publishing drops such a link anyway — and a card of another
+    type 400. The caller has already turned away cards hidden from the user
+    with a 404, so naming the type here reveals nothing they cannot read."""
+    ids = set().union(*named.values())
+    if not ids:
+        return
+    rows = await db.execute(select(Card.id, Card.type, Card.status).where(Card.id.in_(ids)))
+    found = {card_id: (card_type, status) for card_id, card_type, status in rows.all()}
+    for key, key_ids in named.items():
+        wanted = ELEMENT_LINK_CARD_TYPES[key]
+        for card_id in key_ids:
+            card_type, status = found.get(card_id, (None, None))
+            if status != "ACTIVE":
+                raise HTTPException(404, "Card not found")
+            if card_type != wanted:
+                raise HTTPException(400, f"{key} takes a card of type {wanted}, not {card_type}")
+
+
+def stored_link_ids(link: dict, key: str) -> set[uuid.UUID]:
+    """The card ids a stored draft link already holds under ``key``."""
+    values = link.get(key) if key == "organization_ids" else [link.get(key)]
+    return {card_id for value in values or [] if (card_id := as_card_uuid(value))}
+
+
 async def validate_process_link(db: AsyncSession, process_id: uuid.UUID, value: str) -> uuid.UUID:
     """The card id a manual process link may point at, or an HTTP error.
 
     Shared by the published element table and the draft pre-link route so the
-    two cannot disagree: an ACTIVE BusinessProcess card (404 otherwise) that is
-    not the process itself (400).
+    two cannot disagree: an ACTIVE BusinessProcess card (404 when missing or
+    archived, 400 when it is another type of card) that is not the process
+    itself (400).
     """
     target = as_card_uuid(value)
     if target is None:
         raise HTTPException(400, "Invalid business process id")
     if target == process_id:
         raise HTTPException(400, "A process cannot call itself")
-    found = await db.execute(
-        select(Card.id).where(
-            Card.id == target,
-            Card.type == "BusinessProcess",
-            Card.status == "ACTIVE",
-        )
-    )
-    if found.scalar_one_or_none() is None:
-        raise HTTPException(404, "Business process card not found")
+    await validate_link_cards(db, {"business_process_id": {target}})
     return target
 
 
