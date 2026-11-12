@@ -5,6 +5,18 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.203.0] - 2026-11-12
+
+### Added
+- **MCP step links on process flows**: two new tools let an AI assistant read the steps of a draft process flow with their linked cards (`get_process_flow_elements`) and link them to Applications, Data Objects, IT Components, Organizations and called Business Processes (`link_process_flow_elements`), with the usual dry-run preview ([#1390](https://github.com/vincentmakes/turbo-ea/discussions/1390)).
+
+### Changed
+- MCP tools refuse an argument they do not take, naming it and listing the valid ones, instead of silently ignoring it.
+
+### Fixed
+- Links returned by MCP tools open the address the instance is reached at when `MCP_PUBLIC_URL` names it and `TURBO_EA_PUBLIC_URL` is unset or left at a local address such as the `http://localhost` that `.env.example` ships, instead of pointing at localhost.
+- Linking a step of a draft process flow refuses a card of the wrong type for that link (an IT Component as the step's Application, for example), a value that is not a card id, and an archived card, instead of storing them; such a link could make approving the draft fail. A draft that already links a card archived since stays editable and approvable.
+
 ## [2.202.0] - 2026-11-12
 
 ### Changed

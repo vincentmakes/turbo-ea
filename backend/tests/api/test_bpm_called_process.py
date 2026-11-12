@@ -141,11 +141,15 @@ class TestElementTable:
         call_url = f"/api/v1/bpm/processes/{pid}/elements/{elems['call_credit']['id']}"
         task_url = f"/api/v1/bpm/processes/{pid}/elements/{elems['task_quote']['id']}"
 
-        # Not a process card.
+        # Not a process card: a card of another type is a 400 that says so
+        # (it was a 404 until the draft links learnt to check every slot's type).
         resp = await client.put(
             call_url, json={"business_process_id": str(env["app"].id)}, headers=headers
         )
-        assert resp.status_code == 404
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == (
+            "business_process_id takes a card of type BusinessProcess, not Application"
+        )
         # The process itself.
         resp = await client.put(call_url, json={"business_process_id": str(pid)}, headers=headers)
         assert resp.status_code == 400
@@ -232,7 +236,7 @@ class TestDraftPreLink:
             json={"business_process_id": str(env["app"].id)},
             headers=headers,
         )
-        assert resp.status_code == 404
+        assert resp.status_code == 400
 
         resp = await client.put(
             f"{base}/draft-elements/call_credit",

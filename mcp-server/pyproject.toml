@@ -14,7 +14,12 @@ dependencies = [
     # unbounded floor let `pip install .` resolve to 2.0.0, breaking both the
     # CI test job and the mcp-server image (the Dockerfile installs unpinned).
     # Lift the cap only together with a port off FastMCP.
-    "mcp>=1.9.0,<2",
+    # Floored at the first release this server runs on whatever pydantic 2.x
+    # pip picks: 1.9.x has no `mcp.server.transport_security` (server.py does
+    # not import), and 1.10-1.21 import pydantic's private
+    # `eval_type_backport`, which pydantic 2.14 removed — so they fail on a
+    # fresh install even though their own pydantic pin allows it.
+    "mcp>=1.22.0,<2",
     "httpx>=0.28.0",
     # Floored for the same reason as the backend: GHSA-6q48-6c7w-9gw2
     # (compromised emSign roots in certifi 2026.10.18).

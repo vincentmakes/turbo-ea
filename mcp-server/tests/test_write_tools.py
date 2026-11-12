@@ -825,8 +825,18 @@ class TestImportBpmn:
             "batch_id": "B-1",
             "based_on_revision": 3,
         }
-        assert "draft_version_id='00000000-0000-4000-8000-0000000000d4'" in data["next_action"]
-        assert "submit_process_flow" in data["next_action"]
+        assert data["next_action"] == (
+            "The diagram is saved as a DRAFT; it is not submitted or "
+            "published. Ask the user to review it at draft_url. To change "
+            "it, call import_bpmn again with "
+            "draft_version_id='00000000-0000-4000-8000-0000000000d4' "
+            "(same revision); the links of steps whose ids it keeps stay. "
+            "To link the steps to cards, call get_process_flow_elements "
+            "for their ids, then link_process_flow_elements. When the user "
+            "wants it approved, call submit_process_flow; "
+            "approve_process_flow then publishes it, for someone allowed "
+            "to approve."
+        )
 
     @pytest.mark.asyncio
     async def test_commit_without_a_published_flow_creates_an_unbased_draft(
@@ -1781,6 +1791,22 @@ def _flow_id_calls(dry_run):
         ("get_process_flow_version", "version_id"): lambda bad: (
             lambda: server.get_process_flow_version(business_process_id=bp, version_id=bad)
         ),
+        ("get_process_flow_elements", "business_process_id"): lambda bad: (
+            lambda: server.get_process_flow_elements(business_process_id=bad, version_id=_GOOD)
+        ),
+        ("get_process_flow_elements", "version_id"): lambda bad: (
+            lambda: server.get_process_flow_elements(business_process_id=bp, version_id=bad)
+        ),
+        ("link_process_flow_elements", "business_process_id"): lambda bad: (
+            lambda: server.link_process_flow_elements(
+                business_process_id=bad, version_id=_GOOD, links=[], dry_run=dry_run
+            )
+        ),
+        ("link_process_flow_elements", "version_id"): lambda bad: (
+            lambda: server.link_process_flow_elements(
+                business_process_id=bp, version_id=bad, links=[], dry_run=dry_run
+            )
+        ),
     }
 
 
@@ -1991,6 +2017,9 @@ class TestGuardrails:
                 ),
                 await server.submit_process_flow(business_process_id="bp-1", version_id="v-1"),
                 await server.approve_process_flow(business_process_id="bp-1", version_id="v-1"),
+                await server.link_process_flow_elements(
+                    business_process_id="bp-1", version_id="v-1", links=[], dry_run=False
+                ),
             ]:
                 assert _parse(out)["error"] == "writes_disabled"
         post_mock.assert_not_called()
