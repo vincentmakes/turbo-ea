@@ -326,6 +326,8 @@ Su ogni foglio di schede, le colonne `stakeholder:<chiave_ruolo>` contengono gli
     Le chiavi dei ruoli stakeholder seguono la stessa convenzione camelCase di ogni altra chiave del metamodello. Un foglio esportato prima di quel cambiamento contiene intestazioni come `stakeholder:technical_application_owner`; vengono comunque importate — l'intestazione viene associata al ruolo camelCase quando nessun ruolo corrisponde letteralmente. I fogli esportati ora usano la forma camelCase.
 
 
+**Celle di data del ciclo di vita** — le colonne `lifecycle_<phase>` (`lifecycle_plan`, `lifecycle_phaseIn`, `lifecycle_active`, `lifecycle_phaseOut`, `lifecycle_endOfLife`) seguono la stessa regola, una data per colonna: **svuotare una cella rimuove quella data** dalla scheda, e omettere del tutto la colonna lascia la data invariata. Le celle di valore semplice funzionano al contrario: una cella vuota di descrizione, sottotipo, alias, ID esterno, etichetta del genitore o attributo (`attr_<field>`) lascia invariato il valore memorizzato; cancellali invece sulla scheda o nella griglia dell'Inventario.
+
 ### Foglio `Relations`
 
 Una relazione può portare valori propri — un *tipo di utilizzo* su un collegamento `Organization` → `Application`, un costo annuo, o una descrizione libera. Una cella `rel:` è un elenco di nomi senza spazio per questi valori, che vivono quindi sul foglio `Relations`, una riga per relazione, con le colonne `relation_type`, `source_type`, `source_ref`, `target_type`, `target_ref`, `attr_<campo>` e `description`.

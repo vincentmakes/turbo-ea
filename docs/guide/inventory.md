@@ -354,6 +354,8 @@ The **email address is the only accepted user reference** — display names can 
 
 Like relation cells, stakeholder cells are **declarative per role**: the users listed in the cell become the complete assignment set for that role after import. Removing a user from the list unassigns them; emptying the cell clears the role; omitting the column entirely leaves that role's assignments untouched. Entries that don't match any user produce a warning and are skipped — they never block the import.
 
+**Lifecycle date cells** — the `lifecycle_<phase>` columns (`lifecycle_plan`, `lifecycle_phaseIn`, `lifecycle_active`, `lifecycle_phaseOut`, `lifecycle_endOfLife`) follow the same rule, one date per column: **emptying a cell removes that date** from the card, and omitting the column entirely leaves that date untouched. Plain value cells work the other way round: an empty description, subtype, alias, external ID, parent label or attribute (`attr_<field>`) cell leaves the stored value unchanged; clear those on the card or in the Inventory grid instead.
+
 ### Relations sheet
 
 A relation can carry values of its own — a *Usage Type* on an `Organization` → `Application` link, an annual cost on an `Application` → `IT Component` link, or a free-text description. A `rel:` cell on a card sheet is a list of card names with nowhere to put them, so those values live on the `Relations` sheet, one row per relation:

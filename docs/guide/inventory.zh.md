@@ -326,6 +326,8 @@ Turbo EA 可以使用 **AI 为任何卡片生成描述**。此功能适用于创
     干系人角色键与其他所有元模型键一样使用驼峰式约定。在此变更之前导出的工作表包含 `stakeholder:technical_application_owner` 这样的列标题；它们仍可导入 —— 当没有角色与列标题完全匹配时，会将其匹配到对应的驼峰式角色。新导出的工作表使用驼峰式形式。
 
 
+**生命周期日期单元格** — `lifecycle_<phase>` 列（`lifecycle_plan`, `lifecycle_phaseIn`, `lifecycle_active`, `lifecycle_phaseOut`, `lifecycle_endOfLife`）遵循相同的规则，每列一个日期：**清空单元格会从卡片中移除该日期**，完全省略该列则保持该日期不变。普通值单元格则相反：描述、子类型、别名、外部 ID、父级标签或属性（`attr_<field>`）的空单元格会保持已存储的值不变；如需清除这些值，请在卡片上或在清单网格中操作。
+
 ### `Relations` 工作表
 
 关系可以携带自身的值 —— `Organization` → `Application` 关联上的*使用类型*、年度成本，或自由描述。`rel:` 单元格是一串名称，放不下这些值，因此它们位于 `Relations` 工作表，每条关系一行，列为：`relation_type`、`source_type`、`source_ref`、`target_type`、`target_ref`、`attr_<字段>` 以及 `description`。

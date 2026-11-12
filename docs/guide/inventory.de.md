@@ -326,6 +326,8 @@ Auf jedem Kartenblatt enthalten `stakeholder:<rollen_key>`-Spalten die den Stake
     Stakeholder-Rollenschlüssel folgen derselben camelCase-Konvention wie alle anderen Metamodell-Schlüssel. Eine zuvor exportierte Tabelle enthält Spalten wie `stakeholder:technical_application_owner`; diese lassen sich weiterhin importieren — der Spaltenkopf wird der camelCase-Rolle zugeordnet, wenn keine Rolle wörtlich passt. Neu exportierte Tabellen verwenden die camelCase-Form.
 
 
+**Lebenszyklus-Datumszellen** — die Spalten `lifecycle_<phase>` (`lifecycle_plan`, `lifecycle_phaseIn`, `lifecycle_active`, `lifecycle_phaseOut`, `lifecycle_endOfLife`) folgen derselben Regel, ein Datum pro Spalte: **Eine leere Zelle entfernt dieses Datum** von der Karte, und wird die Spalte ganz weggelassen, bleibt das Datum unverändert. Bei einfachen Wertzellen ist es umgekehrt: Eine leere Zelle bei Beschreibung, Untertyp, Alias, externer ID, Eltern-Label oder Attribut (`attr_<field>`) lässt den gespeicherten Wert unverändert; löschen Sie diese stattdessen auf der Karte oder im Inventar-Raster.
+
 ### `Relations`-Blatt
 
 Eine Beziehung kann eigene Werte tragen — einen *Nutzungstyp* an einer `Organization` → `Application`-Verknüpfung, jährliche Kosten oder eine freie Beschreibung. Eine `rel:`-Zelle ist eine Namensliste ohne Platz dafür, also stehen diese Werte auf dem `Relations`-Blatt, eine Zeile je Beziehung, mit den Spalten `relation_type`, `source_type`, `source_ref`, `target_type`, `target_ref`, `attr_<feld>` und `description`.
