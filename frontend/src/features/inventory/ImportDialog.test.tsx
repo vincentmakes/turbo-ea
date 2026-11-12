@@ -279,8 +279,8 @@ describe("ImportDialog — report and import", () => {
     await uploadAndReport(
       workbook({
         Application: [
-          // An export-shaped row: every lifecycle column present, one of
-          // them newly filled (a partial lifecycle would clear the others).
+          // An export-shaped row: lifecycle columns present, one of them
+          // newly filled (an absent column would leave its date untouched).
           erp({
             attr_businessCriticality: "businessCritical",
             attr_regions: "emea",
@@ -320,6 +320,40 @@ describe("ImportDialog — report and import", () => {
       lifecycle: expect.objectContaining({ phaseIn: "2019-06-01" }),
     });
     expect(screen.getByText("1 updated")).toBeInTheDocument();
+  });
+
+  it("previews emptied lifecycle cells as cleared dates and patches them away (#1393)", async () => {
+    const { user } = renderDialog();
+    await uploadAndReport(
+      workbook({
+        Application: [
+          erp({
+            lifecycle_plan: "",
+            lifecycle_phaseIn: "",
+            lifecycle_active: "",
+            lifecycle_phaseOut: "",
+            lifecycle_endOfLife: "",
+          }),
+        ],
+      }),
+    );
+    expect(screen.getByText("1 to update")).toBeInTheDocument();
+
+    await user.click(screen.getByText("Changes to review (1)"));
+    const table = screen.getByRole("table");
+    const rows = within(table).getAllByRole("row").slice(1);
+    const fields = rows.map((r) => within(r).getAllByRole("cell").map((c) => c.textContent));
+    expect(fields).toEqual([
+      ["ERP Core", "lifecycle: plan", "2019-01-01", "(empty)"],
+      ["lifecycle: active", "2020-06-01", "(empty)"],
+      ["lifecycle: endOfLife", "2030-12-31", "(empty)"],
+    ]);
+
+    await user.click(screen.getByRole("button", { name: /Import 1 row\(s\)/ }));
+    expect(await screen.findByText("Import Complete")).toBeInTheDocument();
+    expect(mockApi.callsOf("patch", `/cards/${CARD_IDS.erp}`).map((c) => c.body)).toEqual([
+      { lifecycle: {} },
+    ]);
   });
 
   it("blocks the import on validation errors and lets the user start over", async () => {

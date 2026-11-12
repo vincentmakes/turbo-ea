@@ -262,6 +262,27 @@ describe("executeImport — updates", () => {
     expect(mockApi.callsOf("post")).toEqual([]);
   });
 
+  it("PATCHes an empty lifecycle when every lifecycle date was cleared (#1393)", async () => {
+    mockApi.on("patch", /^\/cards\/[^/]+$/, {});
+    const rep = validated([
+      erp({
+        lifecycle_plan: "",
+        lifecycle_phaseIn: "",
+        lifecycle_active: "",
+        lifecycle_phaseOut: "",
+        lifecycle_endOfLife: "",
+      }),
+    ]);
+
+    const result = await executeImport(rep);
+
+    expect(result).toMatchObject({ created: 0, updated: 1, failed: 0 });
+    expect(mockApi.callsOf("patch")).toEqual([
+      { method: "patch", path: `/cards/${CARD_IDS.erp}`, body: { lifecycle: {} } },
+    ]);
+    expect(mockApi.callsOf("post")).toEqual([]);
+  });
+
   it("syncs tags as adds and removes, without a PATCH when only tags changed", async () => {
     mockApi.on("post", /^\/cards\/[^/]+\/tags$/, {});
     mockApi.on("delete", /^\/cards\/[^/]+\/tags\/[^/]+$/, {});

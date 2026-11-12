@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.203.1] - 2026-11-12
+
+### Fixed
+- Excel import clears a lifecycle date whose cell was emptied, even when the row is left with no lifecycle date at all, and leaves a date untouched when the sheet omits its `lifecycle_` column instead of clearing it ([#1393](https://github.com/vincentmakes/turbo-ea/issues/1393)).
+
 ## [2.203.0] - 2026-11-12
 
 ### Added
