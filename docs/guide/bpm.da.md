@@ -114,7 +114,11 @@ Procesflowdiagrammer følger en versionsstyret godkendelsesproces:
 | **Arkiveret** | Tidligere publiceret version, afløst af en nyere godkendelse |
 | **Tilbagetrukket** | Tidligere publiceret version, bevidst afpubliceret |
 
-Når en kladde indsendes, oprettes et versionsøjebliksbillede. Godkendere kan godkende (publicere) eller afvise indsendelsen.
+Når en kladde indsendes, oprettes et versionsøjebliksbillede. Godkendere kan godkende (publicere) eller afvise indsendelsen. Den notifikation og opgave, der sendes ved hvert trin, åbner kortets fane **Procesflow** på den rette underfane.
+
+#### Diagrammer importeret af en AI-assistent
+
+Et BPMN-diagram, som en AI-assistent importerer via [MCP-integrationen](../admin/mcp.md), lander som en **kladde**, aldrig som det publicerede flow. Når processen allerede har et publiceret flow, bygger kladden på det, så de kortlinks, der allerede er lavet på dets trin, følger med; selve det publicerede flow forbliver uændret. Gennemgå kladden i editoren (assistenten giver dig et link til den), og bed assistenten om ændringer: den opdaterer den samme kladde i stedet for at oprette en ny. Indsendelse og godkendelse er separate trin, som assistenten kun tager, når du beder om det, med de samme tilladelser som i web-UI'et — eller du indsender og godkender selv kladden fra underfanen **Kladder**.
 
 #### Hvem kan godkende
 

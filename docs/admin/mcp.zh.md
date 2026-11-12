@@ -183,20 +183,20 @@ pip install ./mcp-server
 
 ## 可用功能
 
-MCP 服务器提供 **59 个工具**，分为两组：**37 个读取工具** 用于查询 EA 数据，**22 个写入工具**（17 个增量型、5 个破坏型）用于创建和维护卡片、关系、图表、风险、ADR、已保存的清单视图等——包括将 AI 工具上下文中的工件（电子表格、BPMN XML、DrawIO XML、文档、图像）转换为结构化的 EA 数据。每个工具都带有 MCP `ToolAnnotations`（只读 / 破坏性 / 幂等提示），以便连接器在其界面中呈现破坏性程度。
+MCP 服务器提供 **63 个工具**，分为两组：**39 个读取工具** 用于查询 EA 数据，**24 个写入工具**（19 个增量型、5 个破坏型）用于创建和维护卡片、关系、图表、风险、ADR、已保存的清单视图等——包括将 AI 工具上下文中的工件（电子表格、BPMN XML、DrawIO XML、文档、图像）转换为结构化的 EA 数据。每个工具都带有 MCP `ToolAnnotations`（只读 / 破坏性 / 幂等提示），以便连接器在其界面中呈现破坏性程度。
 
 ### 写入操作的演练安全机制
 
 每个写入工具默认使用 **`dry_run=true`**，在 AI 工具以 `dry_run=false` 再次调用之前不会持久化任何内容——而它只应在用户查看预览并确认之后才这样做。这可以防止过于热心的代理在解读错误的电子表格基础上悄悄创建数百张卡片。预览分为两种：
 
 - **由后端验证。** 当底层端点支持演练时，后端会运行每一个校验器和解析器——权限、卡片 id、用户可读取的内容——构建完整结果，然后**回滚事务**。这涵盖卡片（`create_cards_bulk`、`update_cards_bulk`）、关系（`upsert_relations_bulk`）和图表（`create_diagram`、`update_diagram`）。图表预览会返回后端接受的卡片链接；对于更新，则返回确切的变更：重命名的字段、新增和移除的卡片链接，以及画布是否发生变化。
-- **由 MCP 服务器构建。** 当端点没有演练功能时，工具会校验并转换其输入，并展示提交将发送的确切负载，而不会调用写入端点：`import_bpmn`（草稿 → 提交 → 批准流程；其流程节点数量只是估算，预览会显示 `verified: false`）、`create_adr`、`update_adr`、`sign_adr`、`revise_adr`（读取该决策并报告将创建的修订号，或后端会拒绝的原因）、`create_soaw`、`add_card_comment`、`add_document_comment`（读取讨论并报告您是否可以评论，以及您回复的主题是否属于该文档）、`transition_card_lifecycle`、`save_inventory_view`（运行查询并报告匹配的卡片数量及若干示例名称）、`assign_stakeholders`、`create_risks`、`update_risks`、`archive_cards`（会显示每张卡片的归档影响），以及 `set_card_logos` / `clear_card_logos`（会查询每张卡片的类型和当前徽标，并获取每个 `image_url`）。
+- **由 MCP 服务器构建。** 当端点没有演练功能时，工具会校验并转换其输入，并展示提交将发送的确切负载，而不会调用写入端点：`import_bpmn`（查找提交时将保存到的草稿；其流程节点数量只是估算，因此预览会显示 `verified: false`）、`submit_process_flow` 和 `approve_process_flow`（读取该版本并报告状态变化，或说明为何无法进行）、`create_adr`、`update_adr`、`sign_adr`、`revise_adr`（读取该决策并报告将创建的修订号，或后端会拒绝的原因）、`create_soaw`、`add_card_comment`、`add_document_comment`（读取讨论并报告您是否可以评论，以及您回复的主题是否属于该文档）、`transition_card_lifecycle`、`save_inventory_view`（运行查询并报告匹配的卡片数量及若干示例名称）、`assign_stakeholders`、`create_risks`、`update_risks`、`archive_cards`（会显示每张卡片的归档影响），以及 `set_card_logos` / `clear_card_logos`（会查询每张卡片的类型和当前徽标，并获取每个 `image_url`）。
 
 无论哪种方式，预览都会作为演练批次记录在审计日志中，因此管理员既能看到代理提议了什么，也能看到它提交了什么。
 
 ### 读取工具
 
-服务器以九个集群提供 37 个读取工具。
+服务器以十个集群提供 39 个读取工具。
 
 **卡片与元模型**
 
@@ -274,6 +274,13 @@ MCP 服务器提供 **59 个工具**，分为两组：**37 个读取工具** 用
 | `list_diagrams` | 列出自由绘制的（DrawIO）图表，可选按某一卡片筛选 |
 | `get_diagram` | 按 id 获取单个图表，包含其 DrawIO XML |
 
+**流程图**
+
+| 工具 | 描述 |
+|------|------|
+| `list_process_flow_versions` | 列出某个业务流程的流程图版本——已发布的版本，以及对有权查看的用户而言的草稿和待审批版本——每个版本附带 id、修订号、状态、所基于的版本，以及在编辑器中打开草稿的链接。不含 BPMN XML。 |
+| `get_process_flow_version` | 读取单个流程图版本（包括其 BPMN XML），以便代理修订草稿并通过 `import_bpmn` 保存回去。 |
+
 **审计与变更历史**
 
 | 工具 | 描述 |
@@ -284,9 +291,9 @@ MCP 服务器提供 **59 个工具**，分为两组：**37 个读取工具** 用
 
 ### 写入工具
 
-服务器提供 22 个写入工具，每个都标注为**增量型**（创建或扩展数据）或**破坏型**（修改或删除现有数据），以便连接器给出相应的警示。
+服务器提供 24 个写入工具，每个都标注为**增量型**（创建或扩展数据）或**破坏型**（修改或删除现有数据），以便连接器给出相应的警示。
 
-**增量型（17 个）**
+**增量型（19 个）**
 
 | 工具 | 描述 |
 |------|------|
@@ -305,7 +312,9 @@ MCP 服务器提供 **59 个工具**，分为两组：**37 个读取工具** 用
 | `revise_adr` | 为已签署的 ADR 开始下一个修订版：一份沿用相同编号、采用下一个修订号的草稿，可选择整合修正它的决策。如果已有修订版正在起草、更新的修订版已签署，或该决策已被撤销或取代，则会被拒绝。将过去的决策登记为已决定仍需在 Web 界面中完成。 |
 | `create_diagram` | 创建一个自由形式的 DrawIO 图，可选链接到已有卡片。 |
 | `save_inventory_view` | 将多跳卡片查询保存为清单视图（新建，或通过 `view_id` 指定已有视图并替换其查询）。每次打开该视图时，清单都会重新运行查询；响应中附带一个可打开该视图的链接。更新只会更改名称和查询，以及在传入时更改可见性和列；视图的分组和布局保持不变。 |
-| `import_bpmn` | 将 BPMN 2.0 XML 图保存到**已存在**的业务流程卡片上。如果没有匹配指定名称的卡片，工具会返回 `card_not_found` 错误，引导代理使用 `create_cards_bulk` — 这迫使先以完整的描述、子类型和属性显式创建卡片，而不是走捷径生成一张内容稀薄的卡片。 |
+| `import_bpmn` | 将 BPMN 2.0 XML 图保存为**已存在**的业务流程卡片的流程图**草稿**。它从不提交或发布该草稿。默认情况下，它基于已发布的流程图新建草稿，因此已建立的元素链接会保留；`based_on_version_id` 改为基于另一个版本新建，`draft_version_id` 则替换现有草稿的图（修订号不变，不新建草稿）。响应包含草稿的 id、修订号和状态，以及在编辑器中打开它的链接。如果没有匹配指定名称的卡片，工具会返回 `card_not_found` 错误，引导代理使用 `create_cards_bulk` — 这迫使先以完整的描述、子类型和属性显式创建卡片，而不是走捷径生成一张内容稀薄的卡片。已保存的草稿无法通过 `rollback_batch` 撤销；请在卡片的「流程图 → 草稿」子标签页中将其删除。 |
+| `submit_process_flow` | 将流程图草稿提交审批（草稿 → 待审批），效果与 Web 界面中的 **提交审批** 按钮相同。流程负责人会收到通知和一项审批待办事项。需要 `bpm.edit`。无法通过 `rollback_batch` 撤销：审批人在 Web 界面中驳回该修订即可将其退回草稿。 |
+| `approve_process_flow` | 批准待审批的流程图，从而将其发布并归档先前发布的修订。需要审批权限（`bpm.approve_flows`，或流程负责人这一利益相关者角色），并遵循要求由另一位审批人审批的设置。被拒绝时会返回后端给出的原因。无法通过 `rollback_batch` 撤销：误发布的修订应在 Web 界面中撤回，它会保留记录并新开一个草稿。 |
 | `set_card_logos` | Set the custom logo on many cards at once — the bulk way to put product marks on an Application inventory. Three ways to supply the image, one per row: a built-in `icon_slug` (resolved server-side, nothing transferred), an `image_url` the MCP server downloads for you from an allowlisted icon host, or `image_base64` from the agent's own context. The packs are a shortcut, not the source of truth — a dry run lists the slugs they do not carry under `unknown_icon_slugs` **and** fetches every `image_url`, so a missing brand or a dead link is reported before anything is written rather than left as a logo nobody could set. `mime` is optional and sniffed from the bytes. PNG/JPEG/WebP/GIF only, 1 MB each. Each row echoes a sha256 so the caller can prove what landed. Use `clear_card_logos` to remove one. |
 
 **破坏型（5 个）**
@@ -438,16 +447,23 @@ Group = CardQuery | { all_of: [CardQuery, …] }
 4. 用户确认后，代理再以 `dry_run=False` 调用一次以提交。
 5. 如果存在关系列，代理随后以相同的 演练 / 确认 循环调用 `upsert_relations_bulk`。
 
+BPMN 图与在 Web 界面中绘制的图走相同的审批工作流，每次一个明确的步骤：
+
+1. `import_bpmn` 将图保存为**草稿**并返回其链接。不会发布任何内容。
+2. 用户审阅草稿。如需修改，代理使用 `get_process_flow_version` 读取草稿，编辑 XML，并带上 `draft_version_id` 再次调用 `import_bpmn`，从而更新同一份草稿，而不是新建一份。
+3. 在用户要求时，`submit_process_flow` 将草稿提交审批。
+4. `approve_process_flow` 将其发布——仅限有权审批流程图的用户。其他人则在 Web 界面中，从卡片的 **流程图 → 草稿** 子标签页进行审批。
+
 ### 写入工具防护栏
 
 在演练之上的纵深防御，以确保 LLM 失误不会造成大规模损害：
 
 - **每次调用的大小上限。** MCP 写入工具强制施加比底层 Excel 导入端点小得多的上限：`create_cards_bulk` 为 200 行，`upsert_relations_bulk` 为 500 次操作。足以应对任何实际的单一工件上传，又小到可以快速扫描演练预览。
 - **默认不允许删除关系。** `upsert_relations_bulk` 拒绝 `action: "delete"` 操作——若要删除关系，请使用 Web 界面，那里的操作会以用户身份被记录。运营者可通过设置 `MCP_ALLOW_RELATION_DELETE=true` 启用此功能。
-- **紧急开关。** `MCP_WRITES_ENABLED=false` 可在无需重新部署代码的情况下关闭全部 22 个写入工具。37 个读取工具继续工作。
+- **紧急开关。** `MCP_WRITES_ENABLED=false` 可在无需重新部署代码的情况下关闭全部 24 个写入工具。39 个读取工具继续工作。
 - **徽标下载仅限白名单主机。** 内置图标包无法覆盖客户使用的每一款产品，而助手往往运行在无法访问外网的沙箱里，因此 `set_card_logos` 接受 `image_url`，由 MCP 服务器代为下载。仅限 `https`、仅限 `MCP_LOGO_FETCH_HOSTS` 中的主机、仅限公网地址，最多两次重定向（每次重新校验），最多以流式读取 1 MB，且字节必须带有真实的 PNG/JPEG/WebP/GIF 签名。下载发生在 MCP 边缘而非后端，随后图片经普通通道上传 —— 由大模型选定的 URL 永远不会抵达持有数据库的进程。`MCP_LOGO_FETCH_ENABLED=false` 可将其关闭。
 - **审计来源标记。** 来自 MCP 服务器的每个后端请求都携带 `X-Turbo-EA-Origin: mcp` 头。从这些请求发出的事件在审计日志载荷中被标记为 `origin: "mcp"`，以便管理员可以将 MCP 驱动的写入与 Web 界面操作分别从时间线中筛选出来。
-- **变更批次。** 每次 MCP 写入调用——无论是预览还是提交——都是审计日志中的一个变更批次，在任何写入发生之前打开；调用期间发出的每个事件都会被标记上批次 id，每个写入工具都会返回该 `batch_id`。管理员（或 `get_change_history` 工具）可以凭一个 id 重建某次提交的完整逐事件差异，而 `rollback_batch` 可以将其撤销——包括删除由 `create_diagram` 创建的图表，除非此后有人已将其发布。图表更新会被报告为不可撤销，因为之前的画布不会被保留。在决策或 SoAW 上发表的评论同样不可撤销：它可能已经被人阅读，因此应改为在讨论中将其删除。超过 `MCP_BATCH_CONFIRMATION_THRESHOLD` 行的提交必须回传先前演练返回的一次性 `confirm_token`。后端在提交的批次打开时、任何写入发生之前校验它：它必须来自同一用户在 15 分钟内对同一工具执行的演练，并且只能授权一次提交。所有批量写入工具都遵循这一「预览 → 确认」流程：`create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`。
+- **变更批次。** 每次 MCP 写入调用——无论是预览还是提交——都是审计日志中的一个变更批次，在任何写入发生之前打开；调用期间发出的每个事件都会被标记上批次 id，每个写入工具都会返回该 `batch_id`。管理员（或 `get_change_history` 工具）可以凭一个 id 重建某次提交的完整逐事件差异，而 `rollback_batch` 可以将其撤销——包括删除由 `create_diagram` 创建的图表，除非此后有人已将其发布。图表更新会被报告为不可撤销，因为之前的画布不会被保留。在决策或 SoAW 上发表的评论同样不可撤销：它可能已经被人阅读，因此应改为在讨论中将其删除。流程图的各个步骤同样如此：`rollback_batch` 会将提交或批准报告为不可撤销，且不做任何更改——待审批的修订由审批人驳回，已发布的修订则被撤回，两者都在 Web 界面中完成。由 `import_bpmn` 保存的草稿不可撤销，因为它不记录任何事件；应在「草稿」子标签页中将其删除。超过 `MCP_BATCH_CONFIRMATION_THRESHOLD` 行的提交必须回传先前演练返回的一次性 `confirm_token`。后端在提交的批次打开时、任何写入发生之前校验它：它必须来自同一用户在 15 分钟内对同一工具执行的演练，并且只能授权一次提交。所有批量写入工具都遵循这一「预览 → 确认」流程：`create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`。
 - **没有硬删除。** 工具集刻意省略了卡片的永久删除。`archive_cards` 和 `update_cards_bulk` *确实*已暴露，但归档是可恢复的软删除（30 天还原窗口），且两者都带有破坏性标注并受演练机制约束。添加任何执行不可逆变更的工具（硬删除、强制清除）都需要进行明确的设计评审。
 
 MCP 容器上的六个防护栏环境变量：
@@ -487,7 +503,7 @@ MCP 容器上的六个防护栏环境变量：
 | 角色 | 访问权限 |
 |------|----------|
 | **管理员** | 配置 MCP 设置（`admin.mcp` 权限）。通过 MCP 拥有完整的读取 + 写入访问。 |
-| **所有已认证用户** | 读取访问由其现有 RBAC 控制。写入工具需要相应的后端权限——`inventory.create` / `inventory.edit` / `inventory.archive`（卡片）、`relations.manage`（关系）、`diagrams.manage`（图表）、`bpm.edit`（BPMN）、`risks.manage`（风险登记册）、`comments.create`（评论）、`stakeholders.manage`（干系人）、`soaw.create`（SoAW）、`adr.manage` / `adr.sign`（ADR）、`adr.comment` / `soaw.comment`（决策和 SoAW 的讨论）、`bookmarks.manage` / `bookmarks.share`（已保存的清单视图）。 |
+| **所有已认证用户** | 读取访问由其现有 RBAC 控制。写入工具需要相应的后端权限——`inventory.create` / `inventory.edit` / `inventory.archive`（卡片）、`relations.manage`（关系）、`diagrams.manage`（图表）、`bpm.edit`（BPMN 草稿及其提交）、`bpm.approve_flows`（批准流程图）、`risks.manage`（风险登记册）、`comments.create`（评论）、`stakeholders.manage`（干系人）、`soaw.create`（SoAW）、`adr.manage` / `adr.sign`（ADR）、`adr.comment` / `soaw.comment`（决策和 SoAW 的讨论）、`bookmarks.manage` / `bookmarks.share`（已保存的清单视图）。 |
 
 `admin.mcp` 权限控制谁可以管理 MCP 设置。默认情况下仅对管理员角色可用。可以通过角色管理页面向自定义角色授予此权限。
 

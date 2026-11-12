@@ -114,7 +114,11 @@ Les diagrammes de flux de processus suivent un workflow d'approbation versionné
 | **Archivé** | Version publiée précédemment, remplacée par une approbation plus récente |
 | **Retiré** | Version publiée précédemment, dépubliée volontairement |
 
-Soumettre un brouillon crée un instantané de version. Les approbateurs peuvent approuver (publier) ou rejeter la soumission.
+Soumettre un brouillon crée un instantané de version. Les approbateurs peuvent approuver (publier) ou rejeter la soumission. La notification et la tâche envoyées à chaque étape ouvrent l'onglet **Flux de processus** de la fiche sur le bon sous-onglet.
+
+#### Diagrammes importés par un assistant IA
+
+Un diagramme BPMN qu'un assistant IA importe via l'[intégration MCP](../admin/mcp.md) arrive comme **brouillon**, jamais comme flux publié. Lorsque le processus a déjà un flux publié, le brouillon en est issu, de sorte que les liens vers des fiches déjà établis sur ses étapes sont conservés ; le flux publié lui-même reste inchangé. Relisez le brouillon dans l'éditeur (l'assistant vous en donne le lien) et demandez des modifications à l'assistant : il met à jour le même brouillon au lieu d'en créer un autre. La soumission et l'approbation sont des étapes distinctes que l'assistant n'effectue que si vous le demandez, avec les mêmes permissions que dans l'interface web — ou vous soumettez et approuvez vous-même le brouillon depuis le sous-onglet **Brouillons**.
 
 #### Qui peut approuver
 
