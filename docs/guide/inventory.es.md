@@ -326,6 +326,8 @@ En cada hoja de fichas, las columnas `stakeholder:<clave_de_rol>` llevan los usu
     Las claves de los roles de partes interesadas siguen la misma convención camelCase que cualquier otra clave del metamodelo. Una hoja exportada antes de ese cambio contiene encabezados como `stakeholder:technical_application_owner`; siguen importándose — el encabezado se asocia a su rol en camelCase cuando ningún rol coincide literalmente. Las hojas nuevas usan la forma camelCase.
 
 
+**Celdas de fecha de ciclo de vida** — las columnas `lifecycle_<phase>` (`lifecycle_plan`, `lifecycle_phaseIn`, `lifecycle_active`, `lifecycle_phaseOut`, `lifecycle_endOfLife`) siguen la misma regla, una fecha por columna: **vaciar una celda elimina esa fecha** de la ficha, y omitir la columna por completo deja esa fecha sin cambios. Las celdas de valor simple funcionan al revés: una celda vacía de descripción, subtipo, alias, ID externo, etiqueta del padre o atributo (`attr_<field>`) deja el valor almacenado sin cambios; bórrelos en la ficha o en la cuadrícula del Inventario.
+
 ### Hoja `Relations`
 
 Una relación puede llevar valores propios — un *tipo de uso* en un enlace `Organization` → `Application`, un coste anual, o una descripción libre. Una celda `rel:` es una lista de nombres sin sitio para ellos, así que esos valores viven en la hoja `Relations`, una fila por relación, con las columnas `relation_type`, `source_type`, `source_ref`, `target_type`, `target_ref`, `attr_<campo>` y `description`.

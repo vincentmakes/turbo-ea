@@ -326,6 +326,8 @@ Em cada planilha de fichas, as colunas `stakeholder:<chave_do_papel>` carregam o
     As chaves dos papéis de partes interessadas seguem a mesma convenção camelCase de qualquer outra chave do metamodelo. Uma folha exportada antes dessa mudança contém cabeçalhos como `stakeholder:technical_application_owner`; continuam a ser importados — o cabeçalho é associado ao papel em camelCase quando nenhum papel corresponde literalmente. As folhas novas usam a forma camelCase.
 
 
+**Células de data do ciclo de vida** — as colunas `lifecycle_<phase>` (`lifecycle_plan`, `lifecycle_phaseIn`, `lifecycle_active`, `lifecycle_phaseOut`, `lifecycle_endOfLife`) seguem a mesma regra, uma data por coluna: **esvaziar uma célula remove essa data** do cartão, e omitir a coluna por completo deixa essa data inalterada. As células de valor simples funcionam ao contrário: uma célula vazia de descrição, subtipo, alias, ID externo, rótulo do pai ou atributo (`attr_<field>`) deixa o valor armazenado inalterado; limpe-os no cartão ou na grelha do Inventário.
+
 ### Planilha `Relations`
 
 Uma relação pode ter valores próprios — um *tipo de utilização* numa ligação `Organization` → `Application`, um custo anual, ou uma descrição livre. Uma célula `rel:` é uma lista de nomes sem lugar para eles, por isso esses valores vivem na planilha `Relations`, uma linha por relação, com as colunas `relation_type`, `source_type`, `source_ref`, `target_type`, `target_ref`, `attr_<campo>` e `description`.

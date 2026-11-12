@@ -343,6 +343,8 @@ På hvert kort-ark bærer `stakeholder:<role_key>`-kolonner de brugere, der er t
     Interessentrollenøgler følger samme camelCase-konvention som alle andre metamodelnøgler. Et ark eksporteret før den ændring har kolonneoverskrifter som `stakeholder:technical_application_owner`; de kan stadig importeres — overskriften matches til sin camelCase-rolle, når ingen rolle matcher bogstaveligt. Nyeksporterede ark bruger camelCase-formen.
 
 
+**Livscyklus-datoceller** — kolonnerne `lifecycle_<phase>` (`lifecycle_plan`, `lifecycle_phaseIn`, `lifecycle_active`, `lifecycle_phaseOut`, `lifecycle_endOfLife`) følger samme regel, én dato pr. kolonne: **at tømme en celle fjerner datoen** fra kortet, og udelades kolonnen helt, forbliver datoen uændret. Almindelige værdiceller virker omvendt: en tom celle for beskrivelse, undertype, alias, eksternt ID, overordnet label eller attribut (`attr_<field>`) lader den gemte værdi stå uændret; ryd dem i stedet på kortet eller i Inventar-gitteret.
+
 ### Relations-ark
 
 En relation kan bære sine egne værdier — en *brugstype* på en `Organization` → `Application`-forbindelse, en årlig omkostning eller en fritekstbeskrivelse. En `rel:`-celle er en navneliste uden plads til dem, så værdierne bor på `Relations`-arket, én række pr. relation, med kolonnerne `relation_type`, `source_type`, `source_ref`, `target_type`, `target_ref`, `attr_<felt>` og `description`.

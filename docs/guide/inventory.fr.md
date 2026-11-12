@@ -326,6 +326,8 @@ Sur chaque feuille de fiches, les colonnes `stakeholder:<clé_de_rôle>` portent
     Les clés des rôles de parties prenantes suivent la même convention camelCase que toute autre clé du métamodèle. Une feuille exportée avant ce changement contient des en-têtes comme `stakeholder:technical_application_owner` ; ils s'importent toujours — l'en-tête est associé à son rôle camelCase lorsqu'aucun rôle ne correspond littéralement. Les feuilles nouvellement exportées utilisent la forme camelCase.
 
 
+**Cellules de date de cycle de vie** — les colonnes `lifecycle_<phase>` (`lifecycle_plan`, `lifecycle_phaseIn`, `lifecycle_active`, `lifecycle_phaseOut`, `lifecycle_endOfLife`) suivent la même règle, une date par colonne : **vider une cellule supprime cette date** de la fiche, et omettre complètement la colonne laisse cette date inchangée. Les cellules de valeur simple fonctionnent à l'inverse : une cellule vide de description, de sous-type, d'alias, d'ID externe, de libellé parent ou d'attribut (`attr_<field>`) laisse la valeur enregistrée inchangée ; effacez-les plutôt sur la fiche ou dans la grille de l'inventaire.
+
 ### Feuille `Relations`
 
 Une relation peut porter ses propres valeurs — un *type d'usage* sur un lien `Organization` → `Application`, un coût annuel, ou une description libre. Une cellule `rel:` est une liste de noms sans place pour cela : ces valeurs vivent sur la feuille `Relations`, une ligne par relation, avec les colonnes `relation_type`, `source_type`, `source_ref`, `target_type`, `target_ref`, `attr_<champ>` et `description`.
