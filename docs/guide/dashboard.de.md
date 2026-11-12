@@ -132,7 +132,7 @@ Eine KPI-Kachel zeigt entweder eine der integrierten Kennzahlen (Karten gesamt, 
 - **Sparkline**: zeichnet die letzten 30 Tageswerte der Kachel unter die Zahl.
 - **Zweite Kennzahl**: zeigt bei einer eingegrenzten Anzahl **von N** (die ungefilterte Anzahl) oder den **Anteil am Gesamten** neben der Zahl.
 
-Eine neue KPI-Kachel erfasst ihren ersten Wert, sobald das Dashboard gespeichert wird; ihr Trend beginnt daher am nächsten Tag. Eine Summe oder ein Durchschnitt eines Kostenfelds wird nur Benutzern angezeigt, die Kosten sehen dürfen, zählt nur die Karten, die im aktuellen Geschäftsjahr live sind (die Regel des Kostenberichts), und nennt dieses Jahr unter dem Wert.
+Eine neue KPI-Kachel erfasst ihren ersten Wert, sobald das Dashboard gespeichert wird; ihr Trend beginnt daher am nächsten Tag. Eine Summe oder ein Durchschnitt eines Kostenfelds wird nur Benutzern angezeigt, die Kosten sehen dürfen, zählt nur die Karten, die im aktuellen Geschäftsjahr live sind (die Regel des Kostenberichts), und nennt dieses Jahr unter dem Wert. Budget oder Ist-Kosten einer Initiative zählen, sofern sie PPM-Positionen hat, nur mit den Positionen dieses Jahres, wie im [Kostenbericht](reports.md). Der Verlauf einer solchen Kachel wurde mit dieser Änderung (Version 2.203.2) einmalig neu gestartet: Die auf die alte Weise erfassten Verlaufsdaten wurden entfernt, sodass die Kachel keinen Verlauf zeigt, bis ein neuer Vergleichspunkt erfasst wurde.
 
 Kacheln, die aus einem Modulbericht gespeist werden (offene Risiken, überfällige Risiken, Compliance-Score, gefährdete Initiativen, Prozesse ohne Diagramm), erscheinen im Katalog, wenn das Modul aktiviert ist und Sie dessen Berechtigung besitzen; sie zeigen keinen Trend, weil die Modulberichte keinen Verlauf speichern.
 
@@ -158,7 +158,7 @@ Das Dimensionsmenü ist gruppiert: **Karte**, **Daten**, **Felder**, **Verknüpf
 
 #### Kennzahlen
 
-Die Messgröße ist **Anzahl der Karten**, die **Summe** bzw. der **Durchschnitt** eines Zahlen-, Kosten- oder Prozentfelds oder einer dieser Kennzahlen: die **Beziehungen eines Typs** an jeder Karte (wie viele IT-Komponenten eine Anwendung nutzt) oder ihr **Datenqualitäts**-Score. **Anteil** zeigt je Gruppe die eingegrenzte Anzahl als Prozentsatz der ungefilterten. Angeboten werden nur Kartentypen, die Sie lesen können, und Kostenfelder nur Benutzern, die Kosten sehen dürfen; Kosten zählen nur die Karten, die im aktuellen Geschäftsjahr live sind, und das Diagramm nennt dieses Jahr.
+Die Messgröße ist **Anzahl der Karten**, die **Summe** bzw. der **Durchschnitt** eines Zahlen-, Kosten- oder Prozentfelds oder einer dieser Kennzahlen: die **Beziehungen eines Typs** an jeder Karte (wie viele IT-Komponenten eine Anwendung nutzt) oder ihr **Datenqualitäts**-Score. **Anteil** zeigt je Gruppe die eingegrenzte Anzahl als Prozentsatz der ungefilterten. Angeboten werden nur Kartentypen, die Sie lesen können, und Kostenfelder nur Benutzern, die Kosten sehen dürfen; Kosten zählen nur die Karten, die im aktuellen Geschäftsjahr live sind, und das Diagramm nennt dieses Jahr. Budget oder Ist-Kosten einer Initiative zählen, sofern sie PPM-Positionen hat, nur mit den Positionen dieses Jahres.
 
 #### Filter
 

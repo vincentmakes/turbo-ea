@@ -129,6 +129,8 @@ Die Wurzel `ppm` macht die Daten des PPM-Moduls für Formeln zugänglich: die Bu
 | `ppm.reportCount`, `ppm.reportDate` | Wie viele Statusberichte es gibt, und das Datum des letzten (`None`, solange keiner vorliegt) |
 | `ppm.scheduleHealth`, `ppm.costHealth`, `ppm.scopeHealth` | Die Gesundheitsindikatoren des letzten Statusberichts: `onTrack`, `atRisk` oder `offTrack` (`None`, solange keiner vorliegt) |
 
+`data.costBudget` / `data.costActual` und `ppm.totalBudget` sind Summen über alle Geschäftsjahre. Ein berechnetes Kostenfeld, das den Wert eines einzelnen Jahres darstellen soll, sollte dieses Jahr aus `ppm.byYear` lesen und dafür `ppm.currentFiscalYear` verwenden statt eines in die Formel getippten Jahres, das beim Jahreswechsel veraltet. Der Kostenbericht und das Dashboard zählen Budget und Ist-Kosten einer Initiative selbst bereits nur für das aktuelle Geschäftsjahr.
+
 `byYear` ist eine Liste statt eines nach Jahr indizierten Objekts, damit die gewohnten Funktionen `FILTER` und `PLUCK` darauf arbeiten:
 
 ```

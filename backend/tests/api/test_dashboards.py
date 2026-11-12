@@ -24,8 +24,10 @@ from app.services.dashboard_service import seed_dashboards
 from app.services.permission_service import PermissionService
 from tests.conftest import (
     auth_headers,
+    create_budget_line,
     create_card,
     create_card_type,
+    create_cost_line,
     create_relation,
     create_relation_type,
     create_role,
@@ -86,6 +88,23 @@ async def env(db):
         "viewer": await create_user(db, email="viewer@dash.test", role="viewer"),
         "curator": await create_user(db, email="curator@dash.test", role="curator"),
     }
+
+
+async def _initiative_type(db) -> None:
+    await create_card_type(
+        db,
+        key="Initiative",
+        label="Initiative",
+        fields_schema=[
+            {
+                "section": "Cost",
+                "fields": [
+                    {"key": "costBudget", "type": "cost"},
+                    {"key": "costActual", "type": "cost"},
+                ],
+            }
+        ],
+    )
 
 
 async def _audit(db, action: str) -> list[AuditLogEntry]:
@@ -595,6 +614,95 @@ class TestQuery:
         assert body["labels"].keys() == {body["rows"][0]["key"]}
         assert body["total"] == 15
         assert body["fiscal_year"] == TODAY.year
+
+    async def test_an_initiative_budget_sum_counts_this_fiscal_years_ppm_lines(
+        self, client, db, env
+    ):
+        """#1362: 25 000 budgeted this year and 25 000 next counts 25 000 in
+        the year the tile names; a hand-entered budget is kept as typed."""
+        fy = TODAY.year  # January start by default
+        await _initiative_type(db)
+        programme = await create_card(
+            db,
+            card_type="Initiative",
+            name="Programme",
+            attributes={"costBudget": 50_000, "costActual": 700},
+        )
+        await create_budget_line(db, initiative_id=programme.id, fiscal_year=fy, amount=25_000)
+        await create_budget_line(db, initiative_id=programme.id, fiscal_year=fy + 1, amount=25_000)
+        await create_cost_line(db, initiative_id=programme.id, actual=300, date=TODAY)
+        await create_cost_line(db, initiative_id=programme.id, actual=400, date=None)
+        await create_card(
+            db, card_type="Initiative", name="Typed", attributes={"costBudget": 4_000}
+        )
+        headers = auth_headers(env["member"])
+
+        budget = {"card_type": "Initiative", "metric": "sum", "metric_field": "costBudget"}
+        r = await client.get(f"{BASE}/query", params=budget, headers=headers)
+        assert r.status_code == 200, r.text
+        assert r.json()["total"] == 29_000
+        assert r.json()["fiscal_year"] == fy
+        r = await client.get(f"{BASE}/query", params={**budget, "metric": "avg"}, headers=headers)
+        assert r.json()["total"] == 14_500
+        per_card = {**budget, "group_by": "card"}
+        body = (await client.get(f"{BASE}/query", params=per_card, headers=headers)).json()
+        assert {body["labels"][row["key"]]: row["value"] for row in body["rows"]} == {
+            "Programme": 25_000,
+            "Typed": 4_000,
+        }
+        # Actuals by line date; the undated line counts in no year.
+        actual = {**budget, "metric_field": "costActual"}
+        r = await client.get(f"{BASE}/query", params=actual, headers=headers)
+        assert r.json()["total"] == 300
+        # The KPI path reads the same slice.
+        r = await client.get(f"{BASE}/kpi", params=budget, headers=headers)
+        assert r.status_code == 200, r.text
+        assert r.json()["value"] == 29_000
+
+    async def test_an_initiative_with_no_lines_this_year_has_no_figure_this_year(
+        self, client, db, env
+    ):
+        """A's 25 000 is this year's; B's lines are all next year, so B has no
+        figure this year and stays out of the average's denominator, as the
+        Cost report drops it."""
+        fy = TODAY.year
+        await _initiative_type(db)
+        a = await create_card(
+            db, card_type="Initiative", name="A", attributes={"costBudget": 25_000}
+        )
+        b = await create_card(
+            db, card_type="Initiative", name="B", attributes={"costBudget": 40_000}
+        )
+        await create_budget_line(db, initiative_id=a.id, fiscal_year=fy, amount=25_000)
+        await create_budget_line(db, initiative_id=b.id, fiscal_year=fy + 1, amount=40_000)
+        headers = auth_headers(env["member"])
+        budget = {"card_type": "Initiative", "metric": "sum", "metric_field": "costBudget"}
+
+        r = await client.get(f"{BASE}/query", params=budget, headers=headers)
+        assert r.status_code == 200, r.text
+        assert r.json()["total"] == 25_000
+        r = await client.get(f"{BASE}/query", params={**budget, "metric": "avg"}, headers=headers)
+        assert r.json()["total"] == 25_000
+        # Per card, B reads like a card with no value at all: a zero row.
+        body = (
+            await client.get(
+                f"{BASE}/query", params={**budget, "group_by": "card"}, headers=headers
+            )
+        ).json()
+        assert {body["labels"][row["key"]]: row["value"] for row in body["rows"]} == {
+            "A": 25_000,
+            "B": 0,
+        }
+        r = await client.get(
+            f"{BASE}/query",
+            params={**budget, "metric": "avg", "group_by": "card"},
+            headers=headers,
+        )
+        assert {row["key"]: row["value"] for row in r.json()["rows"]} == {
+            str(a.id): 25_000,
+            str(b.id): 0,
+        }
+        assert r.json()["total"] == 25_000
 
     async def test_folded_says_how_many_cards_top_left_out(self, client, db, env):
         for n in range(3, 6):

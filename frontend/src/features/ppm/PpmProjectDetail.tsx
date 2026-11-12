@@ -21,6 +21,7 @@ import PpmRiskTab from "./PpmRiskTab";
 import PpmTaskBoard from "./PpmTaskBoard";
 import PpmGanttTab from "./PpmGanttTab";
 import CardDetailContent from "@/features/cards/CardDetailContent";
+import { PPM_ACTUAL_FIELD, PPM_BUDGET_FIELD } from "@/lib/ppmCostFields";
 import type {
   Card,
   CardEffectivePermissions,
@@ -189,8 +190,8 @@ export default function PpmProjectDetail() {
   // When PPM has budget/cost lines, mark card cost fields as auto-computed
   const ppmAutoFieldKeys = useMemo(() => {
     const keys: string[] = [];
-    if (budgetLines.length > 0) keys.push("costBudget");
-    if (costLines.length > 0) keys.push("costActual");
+    if (budgetLines.length > 0) keys.push(PPM_BUDGET_FIELD);
+    if (costLines.length > 0) keys.push(PPM_ACTUAL_FIELD);
     return keys;
   }, [budgetLines.length, costLines.length]);
 

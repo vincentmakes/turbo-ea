@@ -121,6 +121,8 @@ COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.in
 | `ppm.reportCount`, `ppm.reportDate` | 状态报告的数量，以及最新一份的日期（尚无报告时为 `None`） |
 | `ppm.scheduleHealth`, `ppm.costHealth`, `ppm.scopeHealth` | 最新状态报告的健康标记：`onTrack`、`atRisk` 或 `offTrack`（尚无报告时为 `None`） |
 
+`data.costBudget` / `data.costActual` 和 `ppm.totalBudget` 是所有财年的合计。若计算成本字段要表示某一年的数字，应从 `ppm.byYear` 读取该年，并使用 `ppm.currentFiscalYear`，而不是在公式中手写年份，否则财年更替后就会过时。成本报告和仪表板已只按当前财年计入举措自身的预算和实际成本。
+
 `byYear` 是列表而非以年份为键的对象，因此常规的 `FILTER` 和 `PLUCK` 函数可直接作用于它：
 
 ```

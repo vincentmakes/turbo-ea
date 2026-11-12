@@ -44,7 +44,9 @@ Card ids appear in a *response* only (``labels`` and the keys of card-keyed
 rows), always resolved through the caller's read scope; a widget config never
 holds one. A sum or average of a cost field counts only the cards
 ``is_live_in_fiscal_year`` keeps for the current fiscal year, like the Cost
-report, and names that year in the response.
+report, and names that year in the response; an Initiative's PPM-owned
+``costBudget`` / ``costActual`` count only that year's PPM lines when it has
+lines of that kind (``ppm_fiscal_costs``), as in the Cost report.
 """
 
 from __future__ import annotations
@@ -86,6 +88,8 @@ from app.services.lifecycle import (
     is_live_in_fiscal_year,
     parse_lifecycle_date,
 )
+from app.services.ppm_fiscal_costs import EMPTY as EMPTY_FISCAL_COSTS
+from app.services.ppm_fiscal_costs import FiscalCosts, load_fiscal_costs
 
 STATIC_DIMENSIONS: frozenset[str] = frozenset(
     {
@@ -1260,7 +1264,8 @@ async def _card_records(
     the dates), the phase months, the card itself, related cards, ``@``
     measures, and sums /
     averages read through ``cost_value``. A cost counts only for the cards
-    ``is_live_in_fiscal_year`` keeps in the current fiscal year."""
+    ``is_live_in_fiscal_year`` keeps in the current fiscal year, and an
+    Initiative's PPM-owned cost field only for that year's PPM lines."""
     q = resolved.query
     dims = (q.group_by, q.group_by_2)
     columns: list[Any] = []
@@ -1291,11 +1296,9 @@ async def _card_records(
     if q.subtype:
         stmt = stmt.where(Card.subtype == q.subtype)
 
-    out = Records([])
-    per_card: dict[Any, tuple[Any, ...]] = {}
-    for card_id, raw_1, raw_2, raw_metric, lifecycle, name_1, name_2 in (
-        await db.execute(stmt)
-    ).all():
+    rows = []
+    for row in (await db.execute(stmt)).all():
+        lifecycle = row[4]
         if q.lifecycle_phase and lifecycle_key(lifecycle) != q.lifecycle_phase:
             continue
         if window.fiscal is not None:
@@ -1303,6 +1306,12 @@ async def _card_records(
             lc = lifecycle if isinstance(lifecycle, dict) else None
             if not is_live_in_fiscal_year(lc, fiscal_year, start_month):
                 continue
+        rows.append(row)
+    fiscal_costs = await _fiscal_costs_for(db, resolved, window, [r[0] for r in rows])
+
+    out = Records([])
+    per_card: dict[Any, tuple[Any, ...]] = {}
+    for card_id, raw_1, raw_2, raw_metric, lifecycle, name_1, name_2 in rows:
         keys: list[str | None] = []
         for dimension, raw in zip(dims, (raw_1, raw_2)):
             keys.append(
@@ -1319,6 +1328,9 @@ async def _card_records(
         if any(d and k is None for d, k in zip(dims, keys)):
             continue
         metric = measure_value(q.metric_field, raw_metric, window.today)
+        if q.metric_field and fiscal_costs.is_sliced(card_id, q.metric_field):
+            # An Initiative's PPM-owned field: this fiscal year's lines only.
+            metric = sliced_metric(fiscal_costs.value(card_id, q.metric_field, None))
         out.records.append((keys[0], keys[1], metric))
         per_card.setdefault(card_id, (None, None, metric))
         for dimension, raw, name in zip(dims, (raw_1, raw_2), (name_1, name_2)):
@@ -1327,6 +1339,34 @@ async def _card_records(
     if any(related_spec(d) is not None for d in dims):
         out.totals = list(per_card.values())
     return out
+
+
+def sliced_metric(year_value: float) -> float | None:
+    """The metric of a card whose cost is the year's slice of its PPM lines:
+    ``None`` (no figure this year) when nothing falls in the year, so the card
+    leaves the sum and an average's denominator alike — as the Cost report
+    drops a zero-cost item — rather than counting as a zero."""
+    return year_value if year_value else None
+
+
+async def _fiscal_costs_for(
+    db: AsyncSession, resolved: ResolvedQuery, window: Window, card_ids: list[Any]
+) -> FiscalCosts:
+    """The current fiscal year's slice of an Initiative's PPM-owned cost
+    field (``ppm_fiscal_costs``) when the query sums or averages one, else
+    the empty slice — loaded with no query at all."""
+    q = resolved.query
+    if not resolved.metric_is_cost or window.fiscal is None or not q.metric_field:
+        return EMPTY_FISCAL_COSTS
+    fiscal_year, start_month = window.fiscal
+    return await load_fiscal_costs(
+        db,
+        card_type=q.card_type,
+        field_keys=[q.metric_field],
+        initiative_ids=list(dict.fromkeys(card_ids)),
+        fiscal_year=fiscal_year,
+        start_month=start_month,
+    )
 
 
 async def fiscal_year_keys(

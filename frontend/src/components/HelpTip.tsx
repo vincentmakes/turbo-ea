@@ -1,5 +1,5 @@
 /**
- * Admin-written help: a small info icon that shows the help text on hover or
+ * Help and inline notes: a small icon that shows the text on hover or
  * keyboard focus, and toggles it on a tap or click (Enter / Space from the
  * keyboard); a second tap, a tap anywhere else or Escape closes it. It is the
  * one shape help takes, beside a label while a card is read and inside the
@@ -27,9 +27,20 @@ export interface HelpTipProps {
   text: string | null | undefined;
   /** Icon size in px (default 14, the caption size). */
   size?: number;
+  /**
+   * Material Symbol to show (default `"help"`). A note mark beside a value —
+   * `"info"`, `"link"` — takes the same tap-to-open behaviour.
+   */
+  icon?: string;
+  /** `data-testid` of the icon (default `"help-tip"`). */
+  testId?: string;
 }
 
-export default function HelpTip({ text, size = 14 }: HelpTipProps) {
+function stopInside(e: MouseEvent) {
+  e.stopPropagation();
+}
+
+export default function HelpTip({ text, size = 14, icon = "help", testId = "help-tip" }: HelpTipProps) {
   // Two reasons to show the tooltip: hover / keyboard focus (MUI's own
   // listeners) and an explicit tap or click. MUI's long-press touch listener is
   // off: on a touch device a plain tap opens it. MUI still marks a touch start
@@ -91,6 +102,12 @@ export default function HelpTip({ text, size = 14 }: HelpTipProps) {
         onOpen={() => setHoverOpen(true)}
         onClose={handleClose}
         disableTouchListener
+        // The tooltip is portaled out of the icon's DOM subtree, but React's
+        // synthetic events still bubble through the component tree: a tap on
+        // the open bubble (to dismiss it, or to select its text) would reach
+        // the icon's clickable parent — a table row opening its card. Stopped
+        // here, never prevented, so a link inside the text still navigates.
+        slotProps={{ popper: { onClick: stopInside } }}
         title={
           <Typography variant="caption" component="span" sx={{ whiteSpace: "pre-wrap" }}>
             <LinkifiedText text={trimmed} linkProps={{ color: "inherit" }} />
@@ -103,7 +120,7 @@ export default function HelpTip({ text, size = 14 }: HelpTipProps) {
           role="button"
           aria-label={trimmed}
           aria-expanded={open}
-          data-testid="help-tip"
+          data-testid={testId}
           // Keeps focus on a field being edited instead of moving it here.
           onMouseDown={(e: MouseEvent) => e.preventDefault()}
           onClick={handleClick}
@@ -118,7 +135,7 @@ export default function HelpTip({ text, size = 14 }: HelpTipProps) {
             "&:focus-visible": { outline: 2, outlineColor: "primary.main", outlineStyle: "solid" },
           }}
         >
-          <MaterialSymbol icon="help" size={size} />
+          <MaterialSymbol icon={icon} size={size} />
         </Box>
       </Tooltip>
     </ClickAwayListener>

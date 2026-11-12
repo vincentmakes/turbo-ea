@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.203.2] - 2026-11-12
+
+### Fixed
+- The Cost report counts an Initiative's Budget and Actual Cost for the current fiscal year only — its PPM budget lines for that year and its cost lines dated in it — instead of the total across all years, and dashboard tiles summing an Initiative's Budget or Actual Cost now show the year's figure too ([#1362](https://github.com/vincentmakes/turbo-ea/discussions/1362)).
+- The Cost report's help icons open on a tap, so they work on an iPad and other touch screens, and tapping a note beside a card's name shows the note instead of opening the card.
+- With the PPM module on, the Cost report marks an Initiative whose Budget or Actual Cost is a figure typed on the card (it has no PPM lines) and therefore counts in full; a calculated figure is taken as it is.
+- With the PPM module on, the Cost report labels an Initiative's Budget and Actual Cost "(PPM)" where a cost field or cost source is picked.
+- Dashboard trends of tiles summing or averaging an Initiative's Budget or Actual Cost restart once, instead of showing a drop that never happened.
+
 ## [2.203.1] - 2026-11-12
 
 ### Fixed

@@ -1589,6 +1589,15 @@ async def get_cost_treemap(
     end-of-life date falls in. Cards retired in an earlier fiscal year are left
     out. The response names the fiscal year (`fiscal_year`, named after the
     calendar year it ends in) and its start month (`fiscal_year_start`).
+    An Initiative's Budget / Actual Cost (`costBudget` / `costActual`) count
+    only its PPM budget lines of the current fiscal year / cost lines dated in
+    it when it has such lines. When some of its lines fall outside the year,
+    the item carries `lifetime_cost`, the all-years total of those lines
+    (absent when the year's figure is the whole; in a Split drill, the
+    tile's share of it). Outside an aggregate, such an item also carries
+    `cost_basis`: 'ppm_lines' (read from its PPM lines) or 'card_value'
+    (no lines of that kind: the card's stored field, counted as it is,
+    whether typed, imported or calculated).
 
     Args:
         type: Card type to aggregate (default 'Application').

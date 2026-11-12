@@ -432,9 +432,12 @@ describe("CostReport fiscal year", () => {
     await waitFor(() => expect(chip()).toHaveTextContent("Current fiscal year: FY 2027"));
   });
 
-  it("explains the year on hover", async () => {
+  it("explains the year on hover over the help beside the chip", async () => {
     renderCost();
-    fireEvent.mouseOver(await screen.findByTestId("cost-fiscal-year"));
+    const chipEl = await screen.findByTestId("cost-fiscal-year");
+    const help = chipEl.parentElement?.querySelector('[data-testid="help-tip"]');
+    expect(help).not.toBeNull();
+    fireEvent.mouseOver(help as Element);
     expect(await screen.findByRole("tooltip")).toHaveTextContent(
       /Annual costs of the cards live in this fiscal year/,
     );

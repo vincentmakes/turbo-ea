@@ -132,7 +132,7 @@ Una tarjeta KPI muestra una de las métricas integradas (total de fichas, calida
 - **Minigráfico**: dibuja bajo la cifra los últimos 30 valores diarios de la tarjeta.
 - **Cifra secundaria**: para un recuento acotado, muestra **de N** (el recuento sin filtrar) o el **porcentaje del total** junto a la cifra.
 
-Una nueva tarjeta KPI registra su primer valor en cuanto se guarda el panel, por lo que su tendencia empieza al día siguiente. Una suma o media de un campo de coste solo se muestra a los usuarios que pueden ver los costes, cuenta únicamente las fichas activas en el ejercicio fiscal en curso (la regla que usa el informe de costes) e indica ese ejercicio bajo el valor.
+Una nueva tarjeta KPI registra su primer valor en cuanto se guarda el panel, por lo que su tendencia empieza al día siguiente. Una suma o media de un campo de coste solo se muestra a los usuarios que pueden ver los costes, cuenta únicamente las fichas activas en el ejercicio fiscal en curso (la regla que usa el informe de costes) e indica ese ejercicio bajo el valor. El presupuesto o el coste real de una iniciativa cuenta solo sus líneas de PPM de ese año cuando tiene tales líneas, como en el [informe de costes](reports.md). La tendencia de una tarjeta así se reinició una vez con ese cambio (versión 2.203.2): se eliminó el historial registrado de la forma anterior, por lo que la tarjeta no muestra tendencia hasta que se haya capturado un nuevo punto de comparación.
 
 Las tarjetas alimentadas por un informe de módulo (riesgos abiertos, riesgos vencidos, puntuación de cumplimiento, iniciativas en riesgo, procesos sin diagrama) aparecen en el catálogo cuando el módulo está activado y usted tiene su permiso; no muestran tendencia, porque los informes de módulo no conservan historial.
 
@@ -158,7 +158,7 @@ El menú de dimensiones está agrupado: **Ficha**, **Fechas**, **Campos**, **Fic
 
 #### Indicadores
 
-La medida es el **Número de fichas**, la **Suma** o la **Media** de un campo numérico, de coste o de porcentaje, o de uno de estos indicadores: las **relaciones de un tipo** de cada ficha (cuántos componentes de TI utiliza una aplicación) o su puntuación de **calidad de los datos**. **Porcentaje** muestra, por grupo, el recuento acotado como porcentaje del recuento sin filtrar. Solo se ofrecen los tipos de ficha que usted puede leer, y los campos de coste únicamente a los usuarios que pueden ver los costes; un coste cuenta solo las fichas activas en el ejercicio fiscal en curso, y el gráfico indica ese ejercicio.
+La medida es el **Número de fichas**, la **Suma** o la **Media** de un campo numérico, de coste o de porcentaje, o de uno de estos indicadores: las **relaciones de un tipo** de cada ficha (cuántos componentes de TI utiliza una aplicación) o su puntuación de **calidad de los datos**. **Porcentaje** muestra, por grupo, el recuento acotado como porcentaje del recuento sin filtrar. Solo se ofrecen los tipos de ficha que usted puede leer, y los campos de coste únicamente a los usuarios que pueden ver los costes; un coste cuenta solo las fichas activas en el ejercicio fiscal en curso, y el gráfico indica ese ejercicio. El presupuesto o el coste real de una iniciativa cuenta solo sus líneas de PPM de ese año cuando tiene tales líneas.
 
 #### Filtros
 

@@ -106,7 +106,7 @@ Beide Tabellen sind nach Geschäftsjahr gruppiert. Jedes Jahr hat eine Kopfzeile
 
 Hat die Initiative **keine eigenen Budgetzeilen**, zeigt die Budgettabelle anstelle ihres leeren Zustands das Budget der Initiativen darunter: Eine Beschriftung nennt, aus wie vielen Initiativen es stammt, je Geschäftsjahr gibt eine schreibgeschützte Zeile CapEx, OpEx und Gesamt kursiv an, und die Zeile **Gesamt, alle Geschäftsjahre** addiert sie. Die Kostentabelle tut dasselbe mit deren Ist-Kosten, wenn die Initiative **keine eigenen Kostenzeilen** hat, mit einer Zeile **Ohne Datum** für deren Kostenzeilen ohne Datum. Die Übersichtsleiste kennzeichnet diese Werte kursiv, mit einem Tooltip. Jede Tabelle entscheidet für sich, nichts wird gespeichert oder zu den eigenen Werten der Initiative addiert, und es zählen nur die Initiativen, die Sie sehen dürfen. Die erste eigene Zeile über **Budgetzeile hinzufügen** oder **Kostenposition hinzufügen** schaltet diese Tabelle auf die eigenen Zeilen der Initiative zurück; die Ausgabendiagramme zeigen stets die eigenen Zeilen der Initiative.
 
-Budget- und Kostensummen werden automatisch in die `costBudget`- und `costActual`-Attribute der Initiativ-Karte hochgerechnet.
+Budget- und Kostensummen werden automatisch in die `costBudget`- und `costActual`-Attribute der Initiativ-Karte hochgerechnet. Diese Kartenfelder sind **Summen über alle Geschäftsjahre**. Der [Kostenbericht](reports.md) und die Kosten-Kacheln des Dashboards, die das aktuelle Geschäftsjahr zeigen, zählen nur die Budgetpositionen des laufenden Jahres und die darin datierten Kostenpositionen; Kostenpositionen ohne Datum zählen in keinem Jahr.
 
 #### Ausgaben im Zeitverlauf
 

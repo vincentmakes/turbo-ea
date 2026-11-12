@@ -106,7 +106,7 @@ Both tables are grouped by fiscal year. Each year has a header row with its CapE
 
 When the initiative has **no budget lines of its own**, the budget table shows the budget of the initiatives beneath it in place of its empty state: a caption names how many initiatives it comes from, one read-only row per fiscal year gives the CapEx, OpEx and total in italic, and the **Total, all fiscal years** row adds them up. The cost table does the same with their actuals when the initiative has **no cost lines of its own**, with an **Undated** row for their cost lines without a date. The summary bar marks those figures in italic, with a tooltip. Each table decides on its own, nothing is stored or added to the initiative's own figures, and only the initiatives you can see count. Recording a first line with **Add Budget Line** or **Add Cost Item** switches that table back to the initiative's own lines; the spend charts always show the initiative's own lines.
 
-Budget and cost totals automatically roll up to the Initiative card's `costBudget` and `costActual` attributes. When PPM cost lines exist, these card fields are marked as auto-computed and become read-only in the card detail view.
+Budget and cost totals automatically roll up to the Initiative card's `costBudget` and `costActual` attributes. When PPM cost lines exist, these card fields are marked as auto-computed and become read-only in the card detail view. These card fields are **totals across all fiscal years**. The [Cost report](reports.md#fiscal-year) and dashboard cost tiles, which show the current fiscal year, count only the current year's budget lines and the cost lines dated in it; undated cost lines count in no year.
 
 #### Spend Over Time
 

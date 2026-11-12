@@ -128,6 +128,8 @@ La radice `ppm` espone alle formule i dati del modulo PPM: le righe di budget e 
 | `ppm.reportCount`, `ppm.reportDate` | Quanti report di stato esistono e la data del più recente (`None` finché non ce n'è uno) |
 | `ppm.scheduleHealth`, `ppm.costHealth`, `ppm.scopeHealth` | Gli indicatori di salute dell'ultimo report di stato: `onTrack`, `atRisk` o `offTrack` (`None` finché non ce n'è uno) |
 
+`data.costBudget` / `data.costActual` e `ppm.totalBudget` sono totali su tutti gli esercizi. Un campo di costo calcolato pensato come cifra di un solo anno dovrebbe leggere quell'anno da `ppm.byYear`, usando `ppm.currentFiscalYear` anziché un anno scritto nella formula, che diventerebbe obsoleto al cambio dell'esercizio. Il report Costi e la dashboard contano già il budget e il costo effettivo propri di un'iniziativa solo per l'esercizio corrente.
+
 `byYear` è un elenco e non un oggetto indicizzato per anno, così le consuete funzioni `FILTER` e `PLUCK` vi funzionano sopra:
 
 ```

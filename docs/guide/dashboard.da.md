@@ -132,7 +132,7 @@ Et KPI-felt viser enten en af de indbyggede målinger (kort i alt, datakvalitet,
 - **Sparkline**: tegner feltets seneste 30 daglige værdier under tallet.
 - **Sekundært tal**: for et indsnævret antal vises **af N** (det ufiltrerede antal) eller **andelen af det samlede** ved siden af tallet.
 
-Et nyt KPI-felt registrerer sin første værdi i det øjeblik, dashboardet gemmes, så dets tendens starter den følgende dag. En sum eller et gennemsnit af et omkostningsfelt vises kun for brugere, der må se omkostninger, tæller kun de kort, der er aktive i det nuværende regnskabsår (reglen i omkostningsrapporten), og nævner det år under værdien.
+Et nyt KPI-felt registrerer sin første værdi i det øjeblik, dashboardet gemmes, så dets tendens starter den følgende dag. En sum eller et gennemsnit af et omkostningsfelt vises kun for brugere, der må se omkostninger, tæller kun de kort, der er aktive i det nuværende regnskabsår (reglen i omkostningsrapporten), og nævner det år under værdien. Et initiativs budget eller realiserede omkostning tæller kun dets PPM-linjer for det år, når det har sådanne linjer, som i [omkostningsrapporten](reports.md). Tendensen for en sådan flise blev genstartet én gang med den ændring (version 2.203.2): historik, der var registreret på den gamle måde, blev fjernet, så flisen viser ingen tendens, før et nyt sammenligningspunkt er registreret.
 
 Felter, der får data fra en modulrapport (åbne risici, forfaldne risici, compliancescore, initiativer i fare, processer uden diagram), står i kataloget, når modulet er aktiveret, og du har dets tilladelse; de viser ingen tendens, fordi modulrapporterne ikke gemmer nogen historik.
 
@@ -158,7 +158,7 @@ Dimensionsmenuen er grupperet: **Kort**, **Datoer**, **Felter**, **Relaterede ko
 
 #### Mål
 
-Målingen er **Antal kort**, **Sum** eller **Gennemsnit** af et tal-, omkostnings- eller procentfelt eller af et af disse mål: **relationer af en type** på hvert kort (hvor mange IT-komponenter en applikation bruger) eller dets **datakvalitets**score. **Andel** viser det indsnævrede antal som procent af det ufiltrerede pr. gruppe. Kun de korttyper, du kan læse, tilbydes, og omkostningsfelter kun til brugere, der må se omkostninger; en omkostning tæller kun de kort, der er aktive i det nuværende regnskabsår, og diagrammet nævner det år.
+Målingen er **Antal kort**, **Sum** eller **Gennemsnit** af et tal-, omkostnings- eller procentfelt eller af et af disse mål: **relationer af en type** på hvert kort (hvor mange IT-komponenter en applikation bruger) eller dets **datakvalitets**score. **Andel** viser det indsnævrede antal som procent af det ufiltrerede pr. gruppe. Kun de korttyper, du kan læse, tilbydes, og omkostningsfelter kun til brugere, der må se omkostninger; en omkostning tæller kun de kort, der er aktive i det nuværende regnskabsår, og diagrammet nævner det år. Et initiativs budget eller realiserede omkostning tæller kun dets PPM-linjer for det år, når det har sådanne linjer.
 
 #### Filtre
 

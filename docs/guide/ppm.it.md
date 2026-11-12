@@ -106,7 +106,7 @@ Entrambe le tabelle sono raggruppate per anno fiscale. Ogni anno ha una riga di 
 
 Quando l'iniziativa **non ha righe di budget proprie**, la tabella del budget mostra, al posto del suo stato vuoto, il budget delle iniziative sottostanti: una didascalia indica da quante iniziative proviene, una riga di sola lettura per anno fiscale riporta CapEx, OpEx e totale in corsivo, e la riga **Totale, tutti gli anni fiscali** li somma. La tabella dei costi fa lo stesso con il loro consuntivo quando l'iniziativa **non ha righe di costo proprie**, con una riga **Senza data** per le loro righe di costo senza data. La barra di riepilogo segnala quegli importi in corsivo, con un tooltip. Ogni tabella decide da sé, nulla viene salvato né sommato agli importi propri dell'iniziativa, e contano solo le iniziative che potete vedere. La registrazione di una prima riga con **Aggiungi riga di budget** o **Aggiungi voce di costo** riporta quella tabella alle righe proprie dell'iniziativa; i grafici della spesa mostrano sempre le righe proprie dell'iniziativa.
 
-I totali di budget e costi vengono automaticamente aggregati negli attributi `costBudget` e `costActual` della card Iniziativa.
+I totali di budget e costi vengono automaticamente aggregati negli attributi `costBudget` e `costActual` della card Iniziativa. Questi campi della scheda sono **totali su tutti gli esercizi**. Il [report Costi](reports.md) e i riquadri dei costi della dashboard, che mostrano l'esercizio corrente, contano solo le voci di budget dell'anno in corso e le voci di costo datate al suo interno; le voci di costo senza data non contano in nessun anno.
 
 #### Spesa nel tempo
 
