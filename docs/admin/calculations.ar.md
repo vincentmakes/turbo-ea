@@ -124,6 +124,8 @@ COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.in
 | `ppm.reportCount`, `ppm.reportDate` | عدد تقارير الحالة الموجودة، وتاريخ أحدثها (`None` ما لم يوجد تقرير) |
 | `ppm.scheduleHealth`, `ppm.costHealth`, `ppm.scopeHealth` | مؤشرات الصحة في أحدث تقرير حالة: `onTrack` أو `atRisk` أو `offTrack` (`None` ما لم يوجد تقرير) |
 
+`data.costBudget` / `data.costActual` و`ppm.totalBudget` هي إجماليات عبر جميع السنوات المالية. أما حقل التكلفة المحسوب الذي يُقصد به رقم سنة واحدة فينبغي أن يقرأ تلك السنة من `ppm.byYear` باستخدام `ppm.currentFiscalYear` بدلًا من سنة تُكتب في الصيغة، إذ تصبح قديمة عند تبدّل السنة المالية. يحتسب تقرير التكلفة ولوحة المعلومات بالفعل ميزانية المبادرة وتكلفتها الفعلية الخاصتين بها للسنة المالية الحالية فقط.
+
 `byYear` قائمة وليست كائنًا مفهرسًا بالسنة، حتى تعمل عليها دالّتا `FILTER` و`PLUCK` المعتادتان:
 
 ```

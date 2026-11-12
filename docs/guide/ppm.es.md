@@ -106,7 +106,7 @@ Ambas tablas se agrupan por año fiscal. Cada año tiene una fila de encabezado 
 
 Cuando la iniciativa **no tiene líneas de presupuesto propias**, la tabla de presupuesto muestra, en lugar de su estado vacío, el presupuesto de las iniciativas que tiene por debajo: un rótulo indica de cuántas iniciativas procede, una fila de solo lectura por año fiscal da el CapEx, el OpEx y el total en cursiva, y la fila **Total, todos los años fiscales** los suma. La tabla de costes hace lo mismo con su gasto real cuando la iniciativa **no tiene líneas de coste propias**, con una fila **Sin fecha** para sus líneas de coste sin fecha. La barra de resumen marca esas cifras en cursiva, con una información sobre herramientas. Cada tabla decide por sí misma, nada se guarda ni se suma a las cifras propias de la iniciativa, y solo cuentan las iniciativas que usted puede ver. Registrar una primera línea con **Añadir línea de presupuesto** o **Agregar elemento de costo** devuelve esa tabla a las líneas propias de la iniciativa; los gráficos de gasto muestran siempre las líneas propias de la iniciativa.
 
-Los totales de presupuesto y costos se acumulan automáticamente en los atributos `costBudget` y `costActual` de la tarjeta de Iniciativa.
+Los totales de presupuesto y costos se acumulan automáticamente en los atributos `costBudget` y `costActual` de la tarjeta de Iniciativa. Estos campos de la tarjeta son **totales de todos los ejercicios fiscales**. El [informe de costes](reports.md) y los mosaicos de costes del panel, que muestran el ejercicio fiscal actual, cuentan solo las líneas de presupuesto del año en curso y las líneas de coste fechadas en él; las líneas de coste sin fecha no cuentan en ningún año.
 
 #### Gasto a lo largo del tiempo
 

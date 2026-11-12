@@ -132,7 +132,7 @@ A KPI tile shows either one of the built-in metrics (total cards, data quality, 
 - **Sparkline**: draws the tile's last 30 daily values under the number.
 - **Secondary figure**: for a narrowed count, shows **of N** (the unfiltered count) or the **share of total** next to the number.
 
-A new KPI tile records its first value the moment the dashboard is saved, so its trend starts the next day. A sum or average of a cost field is shown only to users who may see costs, counts only the cards live in the current fiscal year (the rule the Cost report uses) and names that year under the value.
+A new KPI tile records its first value the moment the dashboard is saved, so its trend starts the next day. A sum or average of a cost field is shown only to users who may see costs, counts only the cards live in the current fiscal year (the rule the Cost report uses) and names that year under the value. An Initiative's Budget or Actual Cost counts only its PPM lines for that year when it has such lines, as in the [Cost report](reports.md#fiscal-year).
 
 Tiles fed by a module report (open risks, overdue risks, compliance score, initiatives at risk, processes without a diagram) are listed in the catalogue when the module is enabled and you hold its permission; they show no trend, because the module reports keep no history.
 
@@ -158,7 +158,7 @@ The dimension menu is grouped: **Card**, **Dates**, **Fields**, **Related cards*
 
 #### Measures
 
-The metric is **Number of cards**, the **Sum** or **Average** of a number, cost or percentage field, or of one of these measures: **relations of a type** on each card (how many IT Components an Application uses) or its **data quality** score. **Share** shows the narrowed count as a percentage of the unfiltered one, per group. Only the card types you can read are offered, and cost fields only to users who may see costs; a cost counts only the cards live in the current fiscal year, and the chart names that year.
+The metric is **Number of cards**, the **Sum** or **Average** of a number, cost or percentage field, or of one of these measures: **relations of a type** on each card (how many IT Components an Application uses) or its **data quality** score. **Share** shows the narrowed count as a percentage of the unfiltered one, per group. Only the card types you can read are offered, and cost fields only to users who may see costs; a cost counts only the cards live in the current fiscal year, and the chart names that year. An Initiative's Budget or Actual Cost counts only its PPM lines for that year when it has such lines.
 
 #### Filters
 

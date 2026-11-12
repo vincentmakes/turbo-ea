@@ -132,7 +132,7 @@ Une tuile KPI affiche soit l’une des mesures intégrées (total des fiches, qu
 - **Courbe de tendance** : trace les 30 dernières valeurs quotidiennes de la tuile sous le chiffre.
 - **Chiffre secondaire** : pour un nombre restreint, affiche **sur N** (le nombre non filtré) ou la **part du total** à côté du chiffre.
 
-Une nouvelle tuile KPI enregistre sa première valeur dès que le tableau de bord est enregistré ; sa tendance démarre donc le lendemain. Une somme ou une moyenne d’un champ de coût n’est affichée qu’aux utilisateurs autorisés à voir les coûts, ne compte que les fiches actives pendant l’exercice fiscal en cours (la règle du rapport de coûts) et nomme cet exercice sous la valeur.
+Une nouvelle tuile KPI enregistre sa première valeur dès que le tableau de bord est enregistré ; sa tendance démarre donc le lendemain. Une somme ou une moyenne d’un champ de coût n’est affichée qu’aux utilisateurs autorisés à voir les coûts, ne compte que les fiches actives pendant l’exercice fiscal en cours (la règle du rapport de coûts) et nomme cet exercice sous la valeur. Le budget ou le coût réel d'une initiative ne compte que ses lignes PPM de cet exercice lorsqu'elle en possède, comme dans le [rapport Coûts](reports.md).
 
 Les tuiles alimentées par un rapport de module (risques ouverts, risques en retard, score de conformité, initiatives à risque, processus sans diagramme) figurent au catalogue lorsque le module est activé et que vous en détenez la permission ; elles n’affichent pas de tendance, car les rapports de module ne conservent aucun historique.
 
@@ -158,7 +158,7 @@ Le menu des dimensions est groupé : **Fiche**, **Dates**, **Champs**, **Fiches 
 
 #### Indicateurs
 
-La mesure est le **Nombre de fiches**, la **Somme** ou la **Moyenne** d’un champ numérique, de coût ou de pourcentage, ou de l’un de ces indicateurs : les **relations d’un type** sur chaque fiche (combien de composants IT une application utilise) ou son score de **qualité des données**. **Part** affiche, pour chaque groupe, le nombre restreint en pourcentage du nombre non filtré. Seuls les types de fiche que vous pouvez lire sont proposés, et les champs de coût uniquement aux utilisateurs autorisés à voir les coûts ; un coût ne compte que les fiches actives pendant l’exercice fiscal en cours, et le graphique nomme cet exercice.
+La mesure est le **Nombre de fiches**, la **Somme** ou la **Moyenne** d’un champ numérique, de coût ou de pourcentage, ou de l’un de ces indicateurs : les **relations d’un type** sur chaque fiche (combien de composants IT une application utilise) ou son score de **qualité des données**. **Part** affiche, pour chaque groupe, le nombre restreint en pourcentage du nombre non filtré. Seuls les types de fiche que vous pouvez lire sont proposés, et les champs de coût uniquement aux utilisateurs autorisés à voir les coûts ; un coût ne compte que les fiches actives pendant l’exercice fiscal en cours, et le graphique nomme cet exercice. Le budget ou le coût réel d'une initiative ne compte que ses lignes PPM de cet exercice lorsqu'elle en possède.
 
 #### Filtres
 

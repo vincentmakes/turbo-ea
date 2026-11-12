@@ -106,7 +106,7 @@ Les deux tableaux sont regroupés par exercice. Chaque exercice a une ligne d'en
 
 Lorsque l'initiative n'a **aucune ligne de budget propre**, le tableau du budget affiche, à la place de son état vide, le budget des initiatives situées en dessous : une légende indique de combien d'initiatives il provient, une ligne en lecture seule par exercice donne le CapEx, l'OpEx et le total en italique, et la ligne **Total, tous les exercices** les additionne. Le tableau des coûts fait de même avec leur réel lorsque l'initiative n'a **aucune ligne de coût propre**, avec une ligne **Sans date** pour leurs lignes de coût sans date. La barre de synthèse signale ces montants en italique, avec une infobulle. Chaque tableau décide pour lui-même, rien n'est enregistré ni ajouté aux montants propres de l'initiative, et seules comptent les initiatives que vous pouvez voir. La saisie d'une première ligne avec **Ajouter une ligne budgétaire** ou **Ajouter un poste de coût** fait revenir ce tableau aux lignes propres de l'initiative ; les graphiques de dépense affichent toujours les lignes propres de l'initiative.
 
-Les totaux de budget et de coûts sont automatiquement agrégés dans les attributs `costBudget` et `costActual` de la fiche Initiative.
+Les totaux de budget et de coûts sont automatiquement agrégés dans les attributs `costBudget` et `costActual` de la fiche Initiative. Ces champs de la fiche sont des **totaux sur tous les exercices**. Le [rapport Coûts](reports.md) et les tuiles de coûts du tableau de bord, qui affichent l'exercice en cours, ne comptent que les lignes budgétaires de l'exercice en cours et les lignes de coût qui y sont datées ; les lignes de coût sans date ne comptent dans aucun exercice.
 
 #### Dépenses dans le temps
 

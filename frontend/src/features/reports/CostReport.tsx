@@ -56,6 +56,12 @@ interface CostItem {
   attributes?: Record<string, unknown>;
   /** Aggregate mode: the related cards whose costs make up `cost`. */
   source_ids?: string[];
+  /**
+   * The all-years total of an Initiative's PPM lines when `cost` counts only
+   * the current fiscal year's and some lines lie outside it; absent when
+   * `cost` is the whole. In a Split drill, this tile's share of it.
+   */
+  lifetime_cost?: number;
 }
 
 interface CostTreemapResponse {
@@ -177,6 +183,8 @@ interface CostTreemapPanelProps {
   onTileClick: (p: EChartClickParams) => void;
   /** The tooltip line of a tile with shared sources. */
   sharedNote?: (n: number) => string;
+  /** The tooltip line of a tile counting one fiscal year of a larger figure. */
+  fiscalSliceNote?: (lifetime: number) => string;
 }
 
 /**
@@ -197,6 +205,7 @@ function CostTreemapPanel({
   fmt,
   onTileClick,
   sharedNote,
+  fiscalSliceNote,
 }: CostTreemapPanelProps) {
   const { t } = useTranslation(["reports", "common"]);
   const chartRef = useRef<ECharts | null>(null);
@@ -222,8 +231,9 @@ function CostTreemapPanel({
         clickable,
         tileRect,
         sharedNote,
+        fiscalSliceNote,
       }),
-    [data, chrome, fmt, tileTotal, t, clickable, tileRect, sharedNote],
+    [data, chrome, fmt, tileTotal, t, clickable, tileRect, sharedNote, fiscalSliceNote],
   );
 
   return (
@@ -702,7 +712,14 @@ export default function CostReport() {
     const data = p.items
       .filter((d) => d.cost > 0)
       .sort((a, b) => b.cost - a.cost)
-      .map((d, i) => ({ name: d.name, cost: d.cost, id: d.id, index: i, shared: p.shared.get(d.id) ?? 0 }));
+      .map((d, i) => ({
+        name: d.name,
+        cost: d.cost,
+        id: d.id,
+        index: i,
+        shared: p.shared.get(d.id) ?? 0,
+        lifetime: d.lifetime_cost,
+      }));
     return { source: p.source, total: p.total, tileTotal: p.tileTotal, data };
   }), [panelsWithTotals]);
 
@@ -718,25 +735,55 @@ export default function CostReport() {
     [t, rootTypeLabel],
   );
 
-  /** A table row's name, marked when some of its sources sit on other rows too. */
-  const nameWithShared = (d: CostItem) =>
-    sharedById.has(d.id) ? (
+  // An Initiative's figure that counts only this fiscal year's PPM lines
+  // names the year and the all-years figure it is a share of.
+  const fiscalSliceNote = useCallback(
+    (lifetime: number) =>
+      t("cost.fiscalSliceNote", {
+        year: fiscalYear ? fiscalYearLabel(fiscalYear.year, fiscalYear.start, t) : "",
+        total: fmt.format(lifetime),
+      }),
+    [t, fiscalYear, fmt],
+  );
+
+  /**
+   * A table row's name, marked when some of its sources sit on other rows too,
+   * and when its cost is one fiscal year of a larger all-years figure.
+   */
+  const nameWithShared = (d: CostItem) => {
+    const shared = sharedById.has(d.id);
+    const sliced = d.lifetime_cost != null;
+    if (!shared && !sliced) return d.name;
+    return (
       <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
         {d.name}
-        <Tooltip title={t("cost.sharedSources")} arrow>
-          <Box
-            component="span"
-            aria-label={t("cost.sharedSources")}
-            data-testid="cost-shared-source"
-            sx={{ display: "inline-flex", color: "text.secondary" }}
-          >
-            <MaterialSymbol icon="link" size={16} />
-          </Box>
-        </Tooltip>
+        {shared && (
+          <Tooltip title={t("cost.sharedSources")} arrow>
+            <Box
+              component="span"
+              aria-label={t("cost.sharedSources")}
+              data-testid="cost-shared-source"
+              sx={{ display: "inline-flex", color: "text.secondary" }}
+            >
+              <MaterialSymbol icon="link" size={16} />
+            </Box>
+          </Tooltip>
+        )}
+        {sliced && (
+          <Tooltip title={fiscalSliceNote(d.lifetime_cost as number)} arrow>
+            <Box
+              component="span"
+              aria-label={fiscalSliceNote(d.lifetime_cost as number)}
+              data-testid="cost-fiscal-slice"
+              sx={{ display: "inline-flex", color: "text.secondary" }}
+            >
+              <MaterialSymbol icon="info" size={16} />
+            </Box>
+          </Tooltip>
+        )}
       </Box>
-    ) : (
-      d.name
     );
+  };
 
   if (!canViewCostsGlobally) {
     return (
@@ -1012,6 +1059,7 @@ export default function CostReport() {
                 fmt={fmt}
                 onTileClick={handleTileClick}
                 sharedNote={sharedNote}
+                fiscalSliceNote={fiscalSliceNote}
               />
             ))}
           </Box>

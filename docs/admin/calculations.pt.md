@@ -128,6 +128,8 @@ A raiz `ppm` expõe às fórmulas os dados do módulo PPM: as linhas de orçamen
 | `ppm.reportCount`, `ppm.reportDate` | Quantos relatórios de status existem e a data do mais recente (`None` até que exista um) |
 | `ppm.scheduleHealth`, `ppm.costHealth`, `ppm.scopeHealth` | Os indicadores de saúde do último relatório de status: `onTrack`, `atRisk` ou `offTrack` (`None` até que exista um) |
 
+`data.costBudget` / `data.costActual` e `ppm.totalBudget` são totais de todos os exercícios fiscais. Um campo de custo calculado que se destine a refletir o valor de um só ano deve ler esse ano de `ppm.byYear`, usando `ppm.currentFiscalYear` em vez de um ano escrito na fórmula, que ficaria desatualizado na mudança de exercício. O relatório de custos e o painel já contam o orçamento e o custo real próprios de uma iniciativa apenas para o exercício fiscal atual.
+
 `byYear` é uma lista e não um objeto indexado por ano, de modo que as funções habituais `FILTER` e `PLUCK` funcionam sobre ela:
 
 ```

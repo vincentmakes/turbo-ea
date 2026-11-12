@@ -133,6 +133,7 @@ const COST_ITEMS = [
 ];
 
 let fyStart = 1;
+let costItems: Record<string, unknown>[] = COST_ITEMS;
 
 let consumedConfig: Record<string, unknown> | null = { view: "table" };
 
@@ -140,6 +141,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   consumedConfig = { view: "table" };
   fyStart = 1;
+  costItems = COST_ITEMS;
 
   aggregateResponse = {
     items: SHARED_ITEMS,
@@ -163,7 +165,7 @@ beforeEach(() => {
     }
     if (path.startsWith("/reports/cost-treemap")) {
       return Promise.resolve({
-        items: COST_ITEMS,
+        items: costItems,
         total: 620,
         fiscal_year: 2026,
         fiscal_year_start: fyStart,
@@ -285,6 +287,46 @@ describe("CostReport fiscal year", () => {
     renderCost();
     await waitFor(() => expect(indicator()).not.toBeNull());
     expect(document.querySelector(".MuiSlider-root")).toBeNull();
+  });
+});
+
+describe("CostReport fiscal-year slice of an Initiative's PPM lines (#1362)", () => {
+  const marks = () => document.querySelectorAll('[data-testid="cost-fiscal-slice"]');
+  const rowOf = (name: string) =>
+    within(chart())
+      .getAllByText(name)
+      .map((el) => el.closest("tr"))
+      .find((tr): tr is HTMLTableRowElement => tr != null) as HTMLElement;
+
+  it("marks a row whose cost is this fiscal year's share of a larger total", async () => {
+    costItems = [{ ...COST_ITEMS[2], lifetime_cost: 1500 }, COST_ITEMS[0], COST_ITEMS[1]];
+    renderCost();
+    await waitFor(() => expect(marks()).toHaveLength(1));
+    const erpRow = rowOf("ERP");
+    const mark = erpRow.querySelector('[data-testid="cost-fiscal-slice"]');
+    expect(mark).toHaveAttribute("aria-label", "Counts FY 2026 only · $1500 across all years");
+    // The row still shows the year's figure, not the total.
+    expect(within(erpRow).getByText("$500")).toBeInTheDocument();
+    const crmRow = rowOf("CRM");
+    expect(crmRow.querySelector('[data-testid="cost-fiscal-slice"]')).toBeNull();
+    expect(erpRow.querySelector('[data-testid="cost-shared-source"]')).toBeNull();
+  });
+
+  it("names a straddling fiscal year by both calendar years", async () => {
+    fyStart = 10;
+    costItems = [{ ...COST_ITEMS[2], lifetime_cost: 1200 }];
+    renderCost();
+    await waitFor(() => expect(marks()).toHaveLength(1));
+    expect(marks()[0]).toHaveAttribute(
+      "aria-label",
+      "Counts FY 2025–2026 only · $1200 across all years",
+    );
+  });
+
+  it("marks nothing when no item carries a lifetime cost", async () => {
+    renderCost();
+    await waitFor(() => expect(within(chart()).getAllByText("ERP").length).toBeGreaterThan(0));
+    expect(marks()).toHaveLength(0);
   });
 });
 

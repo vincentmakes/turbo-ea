@@ -133,6 +133,8 @@ ses tâches et ses risques, et le dernier rapport de statut.
 | `ppm.reportCount`, `ppm.reportDate` | Nombre de rapports de statut, et date du plus récent (`None` tant qu'il n'y en a aucun) |
 | `ppm.scheduleHealth`, `ppm.costHealth`, `ppm.scopeHealth` | Les indicateurs de santé du dernier rapport de statut : `onTrack`, `atRisk` ou `offTrack` (`None` tant qu'il n'y en a aucun) |
 
+`data.costBudget` / `data.costActual` et `ppm.totalBudget` sont des totaux sur tous les exercices. Un champ de coût calculé censé représenter le chiffre d'un seul exercice doit lire cet exercice dans `ppm.byYear`, en utilisant `ppm.currentFiscalYear` plutôt qu'une année saisie dans la formule, qui deviendrait obsolète au changement d'exercice. Le rapport Coûts et le tableau de bord ne comptent déjà que le budget et le coût réel propres à une initiative pour l'exercice en cours.
+
 `byYear` est une liste et non un objet indexé par année, afin que les fonctions `FILTER` et
 `PLUCK` habituelles fonctionnent dessus :
 

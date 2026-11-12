@@ -142,6 +142,58 @@ describe("shared sources", () => {
   });
 });
 
+describe("fiscal-year slice", () => {
+  const fiscalSliceNote = (lifetime: number) => `of ${lifetime} in all`;
+
+  it("names the all-years figure a tile's cost is one fiscal year of", () => {
+    expect(
+      costTooltipHtml({ name: "Programme", cost: 25, lifetime: 50 }, opts({ panelTotal: 0, fiscalSliceNote })),
+    ).toBe(
+      '<div style="font-weight:700">Programme</div>' +
+        '<div style="font-size:12px">$25</div>' +
+        '<div style="font-size:12px;opacity:.7">of 50 in all</div>',
+    );
+    // The server sends a lifetime only when it exceeds the year's figure.
+    expect(
+      costTooltipHtml({ name: "P", cost: 5, lifetime: 12 }, opts({ panelTotal: 0, fiscalSliceNote })),
+    ).toContain("of 12 in all");
+    // After the shared line when a tile has both.
+    expect(
+      costTooltipHtml(
+        { name: "P", cost: 5, shared: 1, lifetime: 9 },
+        opts({ panelTotal: 0, fiscalSliceNote, sharedNote: (n) => `${n} shared` }),
+      ),
+    ).toMatch(/1 shared<\/div><div style="font-size:12px;opacity:\.7">of 9 in all<\/div>$/);
+    // The datum carries the figure to the tooltip.
+    const option = build([{ id: "p", name: "Programme", cost: 25, index: 0, lifetime: 50 }], {
+      fiscalSliceNote,
+    });
+    const datum = seriesOf(option).data[0];
+    expect(datum.lifetime).toBe(50);
+    expect(option.tooltip.formatter({ data: datum })).toContain("of 50 in all");
+  });
+
+  it("says nothing for a tile whose cost is the whole", () => {
+    const note = vi.fn(fiscalSliceNote);
+    expect(costTooltipHtml({ name: "App", cost: 10 }, opts({ panelTotal: 0, fiscalSliceNote: note }))).toBe(
+      '<div style="font-weight:700">App</div><div style="font-size:12px">$10</div>',
+    );
+    expect(note).not.toHaveBeenCalled();
+    // A lifetime without a note function says nothing either.
+    expect(costTooltipHtml({ name: "App", cost: 10, lifetime: 30 }, opts({ panelTotal: 0 }))).toBe(
+      '<div style="font-weight:700">App</div><div style="font-size:12px">$10</div>',
+    );
+    const datum = seriesOf(build([{ id: "a", name: "App", cost: 10, index: 0 }])).data[0];
+    expect("lifetime" in datum).toBe(false);
+  });
+
+  it("escapes the note", () => {
+    expect(
+      costTooltipHtml({ name: "P", cost: 1, lifetime: 2 }, opts({ panelTotal: 0, fiscalSliceNote: () => "<b>" })),
+    ).toContain("&lt;b&gt;");
+  });
+});
+
 describe("buildCostTreemapOption", () => {
   it("keeps the chrome's root: transparent, aria on, a 300 ms animation, the theme font", () => {
     const option = build();

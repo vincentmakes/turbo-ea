@@ -136,6 +136,12 @@ report.
 | `ppm.reportCount`, `ppm.reportDate` | How many status reports exist, and the date of the latest one (`None` until there is one) |
 | `ppm.scheduleHealth`, `ppm.costHealth`, `ppm.scopeHealth` | The latest status report's health flags: `onTrack`, `atRisk` or `offTrack` (`None` until there is one) |
 
+`data.costBudget` / `data.costActual` and `ppm.totalBudget` are totals across all fiscal years. A
+calculated cost field meant as one year's figure should read that year from `ppm.byYear`, using
+`ppm.currentFiscalYear` rather than a year typed into the formula, which would go stale when the
+fiscal year turns. The Cost report and the dashboard already count an Initiative's own Budget and
+Actual Cost for the current fiscal year only.
+
 `byYear` is a list rather than a year-keyed object so the ordinary `FILTER` and `PLUCK`
 functions work on it:
 

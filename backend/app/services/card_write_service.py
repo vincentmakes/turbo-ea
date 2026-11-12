@@ -55,10 +55,12 @@ from app.services.cost_value import is_numeric_text
 from app.services.data_quality import calc_data_quality
 from app.services.event_bus import event_bus
 from app.services.hierarchy import HIERARCHY_LEVEL_KEY
+from app.services.ppm_fiscal_costs import ACTUAL_FIELD, BUDGET_FIELD, PPM_COST_FIELDS
 from app.services.relation_orientation import orient_endpoints
 
 # Fields that PPM budget/cost lines manage — calculations must not overwrite these.
-_PPM_MANAGED_FIELDS = {"costBudget", "costActual"}
+# One definition, shared with the fiscal-year slice the cost reports read.
+_PPM_MANAGED_FIELDS = PPM_COST_FIELDS
 
 _ALLOWED_URL_SCHEMES = ("http://", "https://", "mailto:")
 
@@ -100,9 +102,9 @@ async def _get_ppm_exclusions(db: AsyncSession, card: Card) -> set[str]:
     has_costs = await db.scalar(select(exists().where(PpmCostLine.initiative_id == card.id)))
     excluded: set[str] = set()
     if has_budget:
-        excluded.add("costBudget")
+        excluded.add(BUDGET_FIELD)
     if has_costs:
-        excluded.add("costActual")
+        excluded.add(ACTUAL_FIELD)
     return excluded
 
 

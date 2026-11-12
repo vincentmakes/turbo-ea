@@ -77,6 +77,7 @@ from app.services.portfolio_payload import (
     has_timeline_dates,
     roadmap_from_portfolio,
 )
+from app.services.ppm_fiscal_costs import load_fiscal_costs
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -1376,7 +1377,13 @@ async def cost_report(
     """Cost aggregation report for the current fiscal year.
 
     Only cards live in the current fiscal year count, by the same rule as
-    ``GET /reports/cost-treemap``.
+    ``GET /reports/cost-treemap``. An Initiative's ``costBudget`` /
+    ``costActual`` count only its PPM lines in the current fiscal year when it
+    has lines of that kind (``app.services.ppm_fiscal_costs``). An item whose
+    lines also fall outside the current fiscal year carries ``lifetime_cost``,
+    the all-years total of those lines (summed over the type's cost fields,
+    a field without such lines adding its year's figure); it is absent when
+    the year's figure is already the whole.
     """
     # `costs.view` is the whole gate here, not an add-on. Elsewhere a report
     # carries its own base permission and adds `costs.view` only when the
@@ -1407,15 +1414,24 @@ async def cost_report(
     sheets = [
         c for c in result.scalars().all() if is_live_in_fiscal_year(c.lifecycle, fy, fy_start)
     ]
+    # An Initiative's PPM-owned fields count this year's lines only.
+    fiscal_costs = await load_fiscal_costs(
+        db,
+        card_type=type,
+        field_keys=cost_field_keys,
+        initiative_ids=[c.id for c in sheets],
+        fiscal_year=fy,
+        start_month=fy_start,
+    )
     items = []
     total = 0
     for card in sheets:
-        attrs = card.attributes or {}
-        cost = 0
-        for ck in cost_field_keys:
-            cost += cost_value(attrs.get(ck))
+        cost, lifetime = fiscal_costs.total(card.id, cost_field_keys, card.attributes)
         if cost:
-            items.append({"id": str(card.id), "name": card.name, "cost": cost})
+            item: dict = {"id": str(card.id), "name": card.name, "cost": cost}
+            if lifetime is not None:
+                item["lifetime_cost"] = lifetime
+            items.append(item)
             total += cost
     items.sort(key=lambda x: x["cost"], reverse=True)
     return {"items": items, "total": total, "fiscal_year": fy, "fiscal_year_start": fy_start}
@@ -1444,6 +1460,18 @@ async def cost_treemap(
     cards being summed, so a retired IT Component stops adding to its
     Application's total. The response names the fiscal year (``fiscal_year``)
     and the workspace's start month (``fiscal_year_start``).
+
+    An Initiative's PPM-owned fields (``costBudget``, ``costActual``) store the
+    all-years total of its PPM lines, so wherever they are read here — as
+    ``cost_field`` or as an ``aggregate`` source — an Initiative that has
+    budget lines counts only those of the current fiscal year, and one that
+    has cost lines counts only the actuals dated in it (an undated line counts
+    in no year). An Initiative without lines of that kind keeps its stored
+    figure. Outside ``aggregate`` mode, an item whose lines also fall outside
+    the current fiscal year carries ``lifetime_cost``: the all-years total of
+    its PPM lines, absent when it equals the year's figure; in a ``split``
+    drill (``parent_card_id`` set) it is shared by the same count as ``cost``,
+    so both are this tile's share (``app.services.ppm_fiscal_costs``).
 
     When ``aggregate`` is non-empty, each entry is a ``"<typeKey>:<costFieldKey>"``
     pair identifying a cost field on a related card type. The endpoint sums that
@@ -1600,8 +1628,17 @@ async def cost_treemap(
                 for c in rel_result.scalars().all()
                 if is_live_in_fiscal_year(c.lifecycle, fy, fy_start)
             ]
+            # An Initiative's PPM-owned field counts this year's lines only.
+            related_costs = await load_fiscal_costs(
+                db,
+                card_type=type_key,
+                field_keys=[field_key],
+                initiative_ids=[c.id for c in related_cards],
+                fiscal_year=fy,
+                start_month=fy_start,
+            )
             related_cost_by_id = {
-                str(c.id): cost_value((c.attributes or {}).get(field_key)) for c in related_cards
+                str(c.id): related_costs.value(c.id, field_key, c.attributes) for c in related_cards
             }
             related_id_set = {str(c.id) for c in related_cards}
             related_ids = [c.id for c in related_cards]
@@ -1675,21 +1712,38 @@ async def cost_treemap(
             parent_links = await _parent_type_link_counts(
                 db, read_scope, parent.type, [c.id for c in sheets], fy, fy_start
             )
+        # An Initiative's PPM-owned field counts this year's lines only, before
+        # any split, so Split equally divides the year's figure.
+        fiscal_costs = await load_fiscal_costs(
+            db,
+            card_type=type,
+            field_keys=[cost_field],
+            initiative_ids=[c.id for c in sheets],
+            fiscal_year=fy,
+            start_month=fy_start,
+        )
         for card in sheets:
-            cost = cost_value((card.attributes or {}).get(cost_field))
+            cost = fiscal_costs.value(card.id, cost_field, card.attributes)
+            lifetime = fiscal_costs.lifetime(card.id, cost_field)
             if parent is not None and attribution == SPLIT:
-                cost = split_share(cost, parent_links.get(str(card.id), 0))
+                # The all-years figure is shared the same way, so the note
+                # compares the tile's share of the year with its share of all.
+                count = parent_links.get(str(card.id), 0)
+                cost = split_share(cost, count)
+                if lifetime is not None:
+                    lifetime = split_share(lifetime, count)
             if not cost:
                 continue
-            items.append(
-                {
-                    "id": str(card.id),
-                    "name": card.name,
-                    "cost": cost,
-                    "lifecycle": card.lifecycle,
-                    "attributes": card.attributes,
-                }
-            )
+            out_item: dict = {
+                "id": str(card.id),
+                "name": card.name,
+                "cost": cost,
+                "lifecycle": card.lifecycle,
+                "attributes": card.attributes,
+            }
+            if lifetime is not None:
+                out_item["lifetime_cost"] = lifetime
+            items.append(out_item)
             total += cost
     items.sort(key=lambda x: x["cost"], reverse=True)
 

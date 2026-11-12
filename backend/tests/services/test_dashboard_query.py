@@ -18,6 +18,7 @@ from app.models.stakeholder import Stakeholder
 from app.services.card_read_scope import CardReadScope
 from app.services.dashboard_query import (
     OTHER_KEY,
+    Accumulator,
     DashboardQuery,
     DashboardQueryError,
     RelationSide,
@@ -56,6 +57,7 @@ from app.services.dashboard_query import (
     row_keys,
     run_query,
     share_rows,
+    sliced_metric,
     split_side,
     tidy_number,
     value_key,
@@ -612,6 +614,19 @@ class TestNewPureHelpers:
         assert measure_value("@data_quality", 55.5, today) == 55.5
         assert measure_value("cost", "12", today) == "12"
         assert measure_value(None, 3, today) is None
+
+    def test_sliced_metric_drops_a_year_with_nothing(self):
+        """An Initiative whose PPM lines all fall in other years has no figure
+        this year: it leaves the sum and the average's denominator."""
+        assert sliced_metric(25_000.0) == 25_000.0
+        assert sliced_metric(0.5) == 0.5
+        assert sliced_metric(0.0) is None
+        acc = Accumulator()
+        acc.add(sliced_metric(25_000.0))
+        acc.add(sliced_metric(0.0))
+        assert acc.value("avg") == 25_000
+        assert acc.value("sum") == 25_000
+        assert acc.value("count") == 2
 
     def test_new_dimension_keys(self):
         TYPES = ("Application", "ITComponent")  # noqa: N806

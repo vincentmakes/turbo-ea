@@ -106,7 +106,7 @@ As duas tabelas são agrupadas por ano fiscal. Cada ano tem uma linha de cabeça
 
 Quando a iniciativa **não tem linhas de orçamento próprias**, a tabela de orçamento mostra, no lugar do estado vazio, o orçamento das iniciativas abaixo dela: uma legenda indica de quantas iniciativas ele vem, uma linha somente leitura por ano fiscal apresenta CapEx, OpEx e total em itálico, e a linha **Total, todos os anos fiscais** os soma. A tabela de custos faz o mesmo com o realizado delas quando a iniciativa **não tem linhas de custo próprias**, com uma linha **Sem data** para as linhas de custo sem data. A barra de resumo marca esses valores em itálico, com uma dica de ferramenta. Cada tabela decide por si, nada é armazenado nem somado aos valores próprios da iniciativa, e só contam as iniciativas que você pode ver. Registrar uma primeira linha com **Adicionar linha de orçamento** ou **Adicionar item de custo** faz essa tabela voltar às linhas próprias da iniciativa; os gráficos de gasto mostram sempre as linhas próprias da iniciativa.
 
-Os totais de orçamento e custos são automaticamente acumulados nos atributos `costBudget` e `costActual` do card de Iniciativa.
+Os totais de orçamento e custos são automaticamente acumulados nos atributos `costBudget` e `costActual` do card de Iniciativa. Estes campos do cartão são **totais de todos os exercícios fiscais**. O [relatório de custos](reports.md) e os mosaicos de custos do painel, que mostram o exercício fiscal atual, contam apenas as linhas de orçamento do ano em curso e as linhas de custo datadas nele; as linhas de custo sem data não contam em nenhum ano.
 
 #### Gastos ao longo do tempo
 

@@ -50,6 +50,12 @@ export interface CostTreemapItem {
   index: number;
   /** How many of its sources are shared with other tiles (Full attribution); absent or 0 for none. */
   shared?: number;
+  /**
+   * The all-years total of an Initiative's PPM lines when `cost` is only the
+   * current fiscal year's part of it; absent when `cost` is the whole. In a
+   * Split drill, this tile's share of it.
+   */
+  lifetime?: number;
 }
 
 export interface CostTreemapOptions {
@@ -71,6 +77,8 @@ export interface CostTreemapOptions {
   tileRect?: (dataIndex: number) => { width: number; height: number } | undefined;
   /** The tooltip line for a tile with `n` (> 0) shared sources; absent, nothing is said. */
   sharedNote?: (n: number) => string;
+  /** The tooltip line for a tile counting one fiscal year of `lifetime`; absent, nothing is said. */
+  fiscalSliceNote?: (lifetime: number) => string;
 }
 
 /**
@@ -166,17 +174,22 @@ export interface CostTreemapDatum {
   id?: string;
   index: number;
   shared?: number;
+  lifetime?: number;
   itemStyle: { color: string };
 }
 
 /**
  * The hover tooltip of one tile: its name, its cost and, against a non-zero
  * total, its share — then, for a tile whose sources are shared with other
- * tiles, how many are.
+ * tiles, how many are, and for a tile counting one fiscal year of a larger
+ * all-years figure, that figure.
  */
 export function costTooltipHtml(
-  d: { name: string; cost: number; shared?: number },
-  o: Pick<CostTreemapOptions, "format" | "panelTotal" | "percentOfTotal" | "sharedNote">,
+  d: { name: string; cost: number; shared?: number; lifetime?: number },
+  o: Pick<
+    CostTreemapOptions,
+    "format" | "panelTotal" | "percentOfTotal" | "sharedNote" | "fiscalSliceNote"
+  >,
 ): string {
   let html =
     `<div style="font-weight:700">${escapeHtml(d.name)}</div>` +
@@ -187,6 +200,9 @@ export function costTooltipHtml(
   }
   if (o.sharedNote && d.shared && d.shared > 0) {
     html += `<div style="font-size:12px;opacity:.7">${escapeHtml(o.sharedNote(d.shared))}</div>`;
+  }
+  if (o.fiscalSliceNote && d.lifetime != null) {
+    html += `<div style="font-size:12px;opacity:.7">${escapeHtml(o.fiscalSliceNote(d.lifetime))}</div>`;
   }
   return html;
 }
@@ -201,6 +217,7 @@ export function buildCostTreemapOption(items: CostTreemapItem[], o: CostTreemapO
     id: d.id,
     index: d.index,
     ...(d.shared ? { shared: d.shared } : {}),
+    ...(d.lifetime != null ? { lifetime: d.lifetime } : {}),
     itemStyle: { color: treemapColor(d.index) },
   }));
   return {
@@ -209,7 +226,10 @@ export function buildCostTreemapOption(items: CostTreemapItem[], o: CostTreemapO
       trigger: "item",
       formatter: (p: { data?: CostTreemapDatum } | undefined) => {
         const d = p?.data;
-        return d ? costTooltipHtml({ name: d.name, cost: d.value, shared: d.shared }, o) : "";
+        return d ? costTooltipHtml(
+              { name: d.name, cost: d.value, shared: d.shared, lifetime: d.lifetime },
+              o,
+            ) : "";
       },
     }),
     series: [

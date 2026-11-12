@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.203.2] - 2026-11-12
+
+### Fixed
+- The Cost report counts an Initiative's Budget and Actual Cost for the current fiscal year only — its PPM budget lines for that year and its cost lines dated in it — instead of the total across all years, and dashboard tiles summing an Initiative's Budget or Actual Cost now show the year's figure too ([#1362](https://github.com/vincentmakes/turbo-ea/discussions/1362)).
+
 ## [2.203.1] - 2026-11-12
 
 ### Fixed

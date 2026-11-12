@@ -132,7 +132,7 @@ Un tile KPI mostra una delle metriche integrate (card totali, qualità dei dati,
 - **Sparkline**: disegna sotto il numero gli ultimi 30 valori giornalieri del tile.
 - **Valore secondario**: per un conteggio ristretto, mostra accanto al numero **di N** (il conteggio non filtrato) o la **quota sul totale**.
 
-Un nuovo tile KPI registra il suo primo valore nel momento in cui la dashboard viene salvata, perciò la sua tendenza parte il giorno dopo. Una somma o una media di un campo di costo è mostrata solo agli utenti che possono vedere i costi, conta solo le card attive nell'anno fiscale corrente (la regola usata dal report dei costi) e indica quell'anno sotto il valore.
+Un nuovo tile KPI registra il suo primo valore nel momento in cui la dashboard viene salvata, perciò la sua tendenza parte il giorno dopo. Una somma o una media di un campo di costo è mostrata solo agli utenti che possono vedere i costi, conta solo le card attive nell'anno fiscale corrente (la regola usata dal report dei costi) e indica quell'anno sotto il valore. Il budget o il costo effettivo di un'iniziativa conta solo le sue voci PPM di quell'anno quando ne ha, come nel [report Costi](reports.md).
 
 I tile alimentati da un report di modulo (rischi aperti, rischi scaduti, punteggio di conformità, iniziative a rischio, processi senza diagramma) compaiono nel catalogo quando il modulo è abilitato e hai il relativo permesso; non mostrano una tendenza, perché i report dei moduli non conservano uno storico.
 
@@ -158,7 +158,7 @@ Il menu delle dimensioni è raggruppato: **Scheda**, **Date**, **Campi**, **Sche
 
 #### Indicatori
 
-La misura è il **Numero di card**, la **Somma** o la **Media** di un campo numerico, di costo o percentuale, oppure di uno di questi indicatori: le **relazioni di un tipo** su ciascuna card (quanti componenti IT usa un'applicazione) o il suo punteggio di **qualità dei dati**. **Quota** mostra, per ogni gruppo, il conteggio ristretto come percentuale di quello non filtrato. Sono offerti solo i tipi di card che puoi leggere, e i campi di costo solo agli utenti che possono vedere i costi; un costo conta solo le card attive nell'anno fiscale corrente e il grafico indica quell'anno.
+La misura è il **Numero di card**, la **Somma** o la **Media** di un campo numerico, di costo o percentuale, oppure di uno di questi indicatori: le **relazioni di un tipo** su ciascuna card (quanti componenti IT usa un'applicazione) o il suo punteggio di **qualità dei dati**. **Quota** mostra, per ogni gruppo, il conteggio ristretto come percentuale di quello non filtrato. Sono offerti solo i tipi di card che puoi leggere, e i campi di costo solo agli utenti che possono vedere i costi; un costo conta solo le card attive nell'anno fiscale corrente e il grafico indica quell'anno. Il budget o il costo effettivo di un'iniziativa conta solo le sue voci PPM di quell'anno quando ne ha.
 
 #### Filtri
 

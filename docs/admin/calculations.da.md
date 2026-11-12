@@ -127,6 +127,8 @@ Roden `ppm` gør PPM-modulets data tilgængelige for formler: budget- og omkostn
 | `ppm.reportCount`, `ppm.reportDate` | Hvor mange statusrapporter der findes, og datoen for den seneste (`None`, indtil der findes én) |
 | `ppm.scheduleHealth`, `ppm.costHealth`, `ppm.scopeHealth` | Den seneste statusrapports sundhedsflag: `onTrack`, `atRisk` eller `offTrack` (`None`, indtil der findes én) |
 
+`data.costBudget` / `data.costActual` og `ppm.totalBudget` er totaler på tværs af alle regnskabsår. Et beregnet omkostningsfelt, der skal være ét års tal, bør læse det år fra `ppm.byYear` med `ppm.currentFiscalYear` i stedet for et årstal skrevet i formlen, som bliver forældet, når regnskabsåret skifter. Omkostningsrapporten og dashboardet tæller allerede et initiativs eget budget og realiserede omkostning kun for det aktuelle regnskabsår.
+
 `byYear` er en liste og ikke et objekt indekseret efter år, så de sædvanlige funktioner `FILTER` og `PLUCK` virker på den:
 
 ```
