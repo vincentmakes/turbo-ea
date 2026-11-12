@@ -40,6 +40,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
+from typing import Any
 
 from sqlalchemy import extract, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -55,6 +56,12 @@ ACTUAL_FIELD = "costActual"
 # calculation must not (``card_write_service``), and a fiscal-year surface
 # slices them here.
 PPM_COST_FIELDS: frozenset[str] = frozenset({BUDGET_FIELD, ACTUAL_FIELD})
+# What :meth:`FiscalCosts.basis` answers: the figure is read from the PPM lines,
+# or it is the card's stored field value (no lines of that kind). The second
+# says nothing about how the value got there: typed by hand, imported, or
+# written by a calculation, which may take the field when there are no lines.
+BASIS_PPM_LINES = "ppm_lines"
+BASIS_CARD_VALUE = "card_value"
 
 
 @dataclass(frozen=True)
@@ -143,6 +150,30 @@ class FiscalCosts:
             return None
         return sums.all_lines
 
+    def basis(
+        self,
+        card_type: str | None,
+        card_id: object,
+        field_key: str,
+        attributes: Mapping | None,
+    ) -> str | None:
+        """Where the year's figure for ``field_key`` comes from, when the reader
+        should be told: ``"ppm_lines"`` when it is read from the card's PPM
+        lines; ``"card_value"`` when the card is an Initiative, the field is
+        PPM-owned, it has no lines of that kind and the stored value is not
+        zero — the card's stored field, counted as it is (typed, imported or
+        calculated: this does not say which); else ``None`` (any other card,
+        field or an empty value says nothing)."""
+        if self.is_sliced(card_id, field_key):
+            return BASIS_PPM_LINES
+        if (
+            card_type == INITIATIVE_TYPE
+            and field_key in PPM_COST_FIELDS
+            and cost_value((attributes or {}).get(field_key))
+        ):
+            return BASIS_CARD_VALUE
+        return None
+
     def total(
         self, card_id: object, field_keys: Iterable[str], attributes: Mapping | None
     ) -> tuple[float, float | None]:
@@ -175,6 +206,50 @@ def applies(card_type: str | None, field_keys: Iterable[str]) -> bool:
     return card_type == INITIATIVE_TYPE and any(k in PPM_COST_FIELDS for k in field_keys)
 
 
+async def budget_line_rows(db: AsyncSession, initiative_ids: Iterable[object]) -> list[Any]:
+    """``(initiative_id, fiscal_year, category, amount)`` for the budget lines of
+    ``initiative_ids``, summed per initiative, fiscal year and lower-cased
+    category. The one read of the budget money: ``build_ppm_map`` (the
+    ``ppm.*`` formula context) and :func:`load_fiscal_costs` both use it."""
+    category = func.lower(PpmBudgetLine.category)
+    rows = await db.execute(
+        select(
+            PpmBudgetLine.initiative_id,
+            PpmBudgetLine.fiscal_year,
+            category,
+            func.coalesce(func.sum(PpmBudgetLine.amount), 0),
+        )
+        .where(PpmBudgetLine.initiative_id.in_(list(initiative_ids)))
+        .group_by(PpmBudgetLine.initiative_id, PpmBudgetLine.fiscal_year, category)
+    )
+    return list(rows.all())
+
+
+async def cost_line_rows(db: AsyncSession, initiative_ids: Iterable[object]) -> list[Any]:
+    """``(initiative_id, year, month, category, planned, actual)`` for the cost
+    lines of ``initiative_ids``, summed per initiative, calendar month of the
+    line's date (``None`` / ``None`` for an undated line) and lower-cased
+    category — bounded by 12 × years × categories rather than one row per
+    transaction. The one read of the cost money, shared like
+    :func:`budget_line_rows`; the fiscal year is derived in Python."""
+    year_col = extract("year", PpmCostLine.date)
+    month_col = extract("month", PpmCostLine.date)
+    category = func.lower(PpmCostLine.category)
+    rows = await db.execute(
+        select(
+            PpmCostLine.initiative_id,
+            year_col,
+            month_col,
+            category,
+            func.coalesce(func.sum(PpmCostLine.planned), 0),
+            func.coalesce(func.sum(PpmCostLine.actual), 0),
+        )
+        .where(PpmCostLine.initiative_id.in_(list(initiative_ids)))
+        .group_by(PpmCostLine.initiative_id, year_col, month_col, category)
+    )
+    return list(rows.all())
+
+
 async def load_fiscal_costs(
     db: AsyncSession,
     *,
@@ -188,8 +263,9 @@ async def load_fiscal_costs(
 
     Issues no query at all unless ``card_type`` is ``Initiative`` and a field is
     PPM-owned, so every other report runs exactly the SQL it ran before; then
-    at most one grouped query per field kind, restricted to ``initiative_ids``
-    (the caller's already read-scoped cards). Never commits or rolls back.
+    at most one grouped query per field kind (:func:`budget_line_rows`,
+    :func:`cost_line_rows`), restricted to ``initiative_ids`` (the caller's
+    already read-scoped cards). Never commits or rolls back.
     """
     keys = set(field_keys)
     ids = list(initiative_ids)
@@ -197,28 +273,15 @@ async def load_fiscal_costs(
         return EMPTY
     by_field: dict[str, dict[str, LineSums]] = {}
     if BUDGET_FIELD in keys:
-        budget_rows = await db.execute(
-            select(
-                PpmBudgetLine.initiative_id,
-                PpmBudgetLine.fiscal_year,
-                func.coalesce(func.sum(PpmBudgetLine.amount), 0),
-            )
-            .where(PpmBudgetLine.initiative_id.in_(ids))
-            .group_by(PpmBudgetLine.initiative_id, PpmBudgetLine.fiscal_year)
+        budget = await budget_line_rows(db, ids)
+        by_field[BUDGET_FIELD] = budget_in_year(
+            ((i, year, amount) for i, year, _category, amount in budget), fiscal_year
         )
-        by_field[BUDGET_FIELD] = budget_in_year(budget_rows.all(), fiscal_year)
     if ACTUAL_FIELD in keys:
-        year_col = extract("year", PpmCostLine.date)
-        month_col = extract("month", PpmCostLine.date)
-        cost_rows = await db.execute(
-            select(
-                PpmCostLine.initiative_id,
-                year_col,
-                month_col,
-                func.coalesce(func.sum(PpmCostLine.actual), 0),
-            )
-            .where(PpmCostLine.initiative_id.in_(ids))
-            .group_by(PpmCostLine.initiative_id, year_col, month_col)
+        costs = await cost_line_rows(db, ids)
+        by_field[ACTUAL_FIELD] = actual_in_year(
+            ((i, year, month, actual) for i, year, month, _c, _planned, actual in costs),
+            fiscal_year,
+            start_month,
         )
-        by_field[ACTUAL_FIELD] = actual_in_year(cost_rows.all(), fiscal_year, start_month)
     return FiscalCosts(by_field=by_field)

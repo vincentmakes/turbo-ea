@@ -18,6 +18,8 @@ from app.services import card_write_service
 from app.services.calculation_ppm import build_ppm_map
 from app.services.ppm_fiscal_costs import (
     ACTUAL_FIELD,
+    BASIS_CARD_VALUE,
+    BASIS_PPM_LINES,
     BUDGET_FIELD,
     EMPTY,
     PPM_COST_FIELDS,
@@ -26,6 +28,8 @@ from app.services.ppm_fiscal_costs import (
     actual_in_year,
     applies,
     budget_in_year,
+    budget_line_rows,
+    cost_line_rows,
     load_fiscal_costs,
 )
 from tests.conftest import create_budget_line, create_card, create_card_type, create_cost_line
@@ -175,6 +179,34 @@ class TestFiscalCosts:
         assert EMPTY.lifetime("a", BUDGET_FIELD) is None
 
 
+class TestBasis:
+    costs = FiscalCosts(by_field={BUDGET_FIELD: {"lines": S(0.0, 10.0)}})
+
+    def test_a_field_read_from_lines(self):
+        assert BASIS_PPM_LINES == "ppm_lines"
+        # Whatever the attribute holds, and with nothing in the year.
+        for attrs in (None, {}, {"costBudget": 7}):
+            assert self.costs.basis("Initiative", "lines", BUDGET_FIELD, attrs) == "ppm_lines"
+
+    def test_a_stored_figure_on_an_initiative_without_lines(self):
+        assert BASIS_CARD_VALUE == "card_value"
+        for value in (7, 0.5, "1200", -3):
+            attrs = {"costBudget": value, "costActual": value}
+            assert self.costs.basis("Initiative", "x", BUDGET_FIELD, attrs) == "card_value"
+            # Budget lines do not make a stored actual into PPM lines.
+            assert self.costs.basis("Initiative", "lines", ACTUAL_FIELD, attrs) == "card_value"
+
+    def test_a_zero_or_missing_or_unreadable_stored_figure_says_nothing(self):
+        for attrs in (None, {}, {"costBudget": 0}, {"costBudget": None}, {"costBudget": "abc"}):
+            assert self.costs.basis("Initiative", "x", BUDGET_FIELD, attrs) is None
+
+    def test_another_type_or_field_says_nothing(self):
+        attrs = {"costBudget": 7, "costTotalAnnual": 7}
+        assert self.costs.basis("Application", "x", BUDGET_FIELD, attrs) is None
+        assert self.costs.basis(None, "x", BUDGET_FIELD, attrs) is None
+        assert self.costs.basis("Initiative", "x", "costTotalAnnual", attrs) is None
+
+
 @pytest.mark.parametrize(
     "card_type, fields, expected",
     [
@@ -225,6 +257,56 @@ async def test_the_loader_issues_no_query_off_the_initiative_fields(card_type, f
 
 
 class TestLoader:
+    async def test_the_shared_row_reads(self, db):
+        """The one read of the money rows ``build_ppm_map`` and the report share:
+        grouped per initiative, year (or year and month) and lower-cased
+        category, restricted to the ids asked for."""
+        await create_card_type(db, key="Initiative", label="Initiative")
+        a = await create_card(db, card_type="Initiative", name="A")
+        b = await create_card(db, card_type="Initiative", name="B")
+        await create_budget_line(db, initiative_id=a.id, fiscal_year=2026, amount=1.0)
+        await create_budget_line(
+            db, initiative_id=a.id, fiscal_year=2026, category="CAPEX", amount=2.0
+        )
+        await create_budget_line(
+            db, initiative_id=a.id, fiscal_year=2026, category="opex", amount=4.0
+        )
+        await create_budget_line(db, initiative_id=b.id, fiscal_year=2027, amount=8.0)
+        await create_cost_line(
+            db, initiative_id=a.id, planned=1.0, actual=10.0, date=date(2026, 3, 1)
+        )
+        await create_cost_line(
+            db,
+            initiative_id=a.id,
+            category="Capex",
+            planned=2.0,
+            actual=20.0,
+            date=date(2026, 3, 31),
+        )
+        await create_cost_line(db, initiative_id=a.id, planned=4.0, actual=40.0, date=None)
+        await create_cost_line(db, initiative_id=b.id, actual=80.0, date=date(2026, 3, 1))
+
+        budget = sorted(
+            (str(i), int(y), c, float(v)) for i, y, c, v in await budget_line_rows(db, [a.id])
+        )
+        assert budget == [(str(a.id), 2026, "capex", 3.0), (str(a.id), 2026, "opex", 4.0)]
+        costs = {
+            (
+                str(i),
+                None if y is None else int(y),
+                None if m is None else int(m),
+                c,
+                float(p),
+                float(v),
+            )
+            for i, y, m, c, p, v in await cost_line_rows(db, [a.id])
+        }
+        assert costs == {
+            (str(a.id), 2026, 3, "capex", 3.0, 30.0),
+            (str(a.id), None, None, "capex", 4.0, 40.0),
+        }
+        assert await budget_line_rows(db, []) == []
+
     async def _two_initiatives(self, db):
         await create_card_type(db, key="Initiative", label="Initiative")
         a = await create_card(db, card_type="Initiative", name="A")

@@ -194,6 +194,41 @@ describe("fiscal-year slice", () => {
   });
 });
 
+describe("typed-total note", () => {
+  const typedTotalNote = "Typed on the card";
+
+  it("says a tile's cost is an all-years figure typed on the card", () => {
+    expect(
+      costTooltipHtml({ name: "Typed", cost: 4, typedTotal: true }, opts({ panelTotal: 0, typedTotalNote })),
+    ).toBe(
+      '<div style="font-weight:700">Typed</div>' +
+        '<div style="font-size:12px">$4</div>' +
+        '<div style="font-size:12px;opacity:.7">Typed on the card</div>',
+    );
+    const option = build([{ id: "t", name: "Typed", cost: 4, index: 0, typedTotal: true }], { typedTotalNote });
+    const datum = seriesOf(option).data[0];
+    expect(datum.typedTotal).toBe(true);
+    expect(option.tooltip.formatter({ data: datum })).toContain("Typed on the card");
+  });
+
+  it("says nothing for any other tile, or without the note", () => {
+    const plain = '<div style="font-weight:700">App</div><div style="font-size:12px">$4</div>';
+    expect(costTooltipHtml({ name: "App", cost: 4 }, opts({ panelTotal: 0, typedTotalNote }))).toBe(plain);
+    expect(
+      costTooltipHtml({ name: "App", cost: 4, typedTotal: false }, opts({ panelTotal: 0, typedTotalNote })),
+    ).toBe(plain);
+    expect(costTooltipHtml({ name: "App", cost: 4, typedTotal: true }, opts({ panelTotal: 0 }))).toBe(plain);
+    const datum = seriesOf(build([{ id: "a", name: "App", cost: 4, index: 0, typedTotal: false }])).data[0];
+    expect("typedTotal" in datum).toBe(false);
+  });
+
+  it("escapes the note", () => {
+    expect(
+      costTooltipHtml({ name: "P", cost: 1, typedTotal: true }, opts({ panelTotal: 0, typedTotalNote: "<i>" })),
+    ).toContain("&lt;i&gt;");
+  });
+});
+
 describe("buildCostTreemapOption", () => {
   it("keeps the chrome's root: transparent, aria on, a 300 ms animation, the theme font", () => {
     const option = build();

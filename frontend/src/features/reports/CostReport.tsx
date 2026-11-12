@@ -17,7 +17,6 @@ import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TableSortLabel from "@mui/material/TableSortLabel";
-import Tooltip from "@mui/material/Tooltip";
 import type { ECharts } from "echarts/core";
 import EChart, { EXPORT_DPR, type EChartClickParams } from "@/components/charts/EChart";
 import { useEChartsTheme, type EChartsThemeValue } from "@/components/charts/echartsTheme";
@@ -36,6 +35,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTypeLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import HelpTip from "@/components/HelpTip";
+import { usePpmEnabled } from "@/hooks/usePpmEnabled";
+import { useCalculatedFields } from "@/hooks/useCalculatedFields";
+import { isPpmCostField } from "@/lib/ppmCostFields";
 import { RAG_COLORS, REPORT_ICON_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
@@ -62,7 +65,15 @@ interface CostItem {
    * `cost` is the whole. In a Split drill, this tile's share of it.
    */
   lifetime_cost?: number;
+  /**
+   * Where the figure of an Initiative's PPM-owned field comes from:
+   * `ppm_lines` (its PPM lines) or `card_value` (no lines of that kind: the
+   * card's stored field, counted as it is — typed, imported or calculated).
+   */
+  cost_basis?: CostBasis;
 }
+
+type CostBasis = "ppm_lines" | "card_value";
 
 interface CostTreemapResponse {
   items: CostItem[];
@@ -185,6 +196,8 @@ interface CostTreemapPanelProps {
   sharedNote?: (n: number) => string;
   /** The tooltip line of a tile counting one fiscal year of a larger figure. */
   fiscalSliceNote?: (lifetime: number) => string;
+  /** The tooltip line of a tile whose figure is an all-years total typed on the card. */
+  typedTotalNote?: string;
 }
 
 /**
@@ -206,6 +219,7 @@ function CostTreemapPanel({
   onTileClick,
   sharedNote,
   fiscalSliceNote,
+  typedTotalNote,
 }: CostTreemapPanelProps) {
   const { t } = useTranslation(["reports", "common"]);
   const chartRef = useRef<ECharts | null>(null);
@@ -232,8 +246,9 @@ function CostTreemapPanel({
         tileRect,
         sharedNote,
         fiscalSliceNote,
+        typedTotalNote,
       }),
-    [data, chrome, fmt, tileTotal, t, clickable, tileRect, sharedNote, fiscalSliceNote],
+    [data, chrome, fmt, tileTotal, t, clickable, tileRect, sharedNote, fiscalSliceNote, typedTotalNote],
   );
 
   return (
@@ -349,10 +364,21 @@ export default function CostReport() {
   );
 
   const typeDef = useMemo(() => types.find((t) => t.key === cardTypeKey), [types, cardTypeKey]);
+  // An Initiative's Budget and Actual Cost are fed by its PPM lines: with the
+  // module on, the field says so where it is picked.
+  const { ppmEnabled } = usePpmEnabled();
+  const costFieldLabel = useCallback(
+    (typeKey: string, f: FieldDef) => {
+      const label = fieldLabel(f);
+      return ppmEnabled && isPpmCostField(typeKey, f.key) ? t("cost.ppmField", { field: label }) : label;
+    },
+    [fieldLabel, ppmEnabled, t],
+  );
+
   const costFields = useMemo(() => {
     const raw = typeDef ? pickCostFields(typeDef.fields_schema) : [];
-    return raw.map((f) => ({ ...f, label: fieldLabel(f) }));
-  }, [typeDef, fieldLabel]);
+    return raw.map((f) => ({ ...f, label: costFieldLabel(cardTypeKey, f) }));
+  }, [typeDef, cardTypeKey, costFieldLabel]);
 
   // Auto-select cost field when card type changes — only when the current one
   // is not on the type, so a restored field the type does carry is kept.
@@ -471,7 +497,7 @@ export default function CostReport() {
       if (!otherType) continue;
       const otherTypeLabel = typeLabel(otherType);
       for (const f of pickCostFields(otherType.fields_schema)) {
-        const otherFieldLabel = fieldLabel(f);
+        const otherFieldLabel = costFieldLabel(otherKey, f);
         out.push({
           value: `${otherKey}:${f.key}`,
           label: t("cost.costSourceItem", { type: otherTypeLabel, field: otherFieldLabel }),
@@ -484,7 +510,7 @@ export default function CostReport() {
     }
     out.sort((a, b) => a.label.localeCompare(b.label));
     return out;
-  }, [typeDef, readableTypes, relationTypes, cardTypeKey, typeLabel, fieldLabel, t]);
+  }, [typeDef, readableTypes, relationTypes, cardTypeKey, typeLabel, costFieldLabel, t]);
 
   // Drop any selected pair that's no longer offered (e.g. after switching card
   // type, or restored from a saved config) — once the metamodel says what is.
@@ -586,6 +612,25 @@ export default function CostReport() {
       };
     });
   }, [panels, attribution, rawSourceCosts]);
+
+  // A `card_value` item's figure is the card's stored field. It is told as
+  // "typed on the card" only when that is what it can be: the PPM module is on
+  // (so PPM lines are an option at all) and no calculation writes the field on
+  // that type — a calculated figure (a roll-up, a `ppm.byYear` formula) is
+  // taken as it is, with no note. Each panel reads its own type and field: the
+  // drilled source, or the root type and Cost Field.
+  const { isCalculated } = useCalculatedFields();
+  const typedTotalIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (!ppmEnabled) return ids;
+    for (const p of panelsWithTotals) {
+      const typeKey = p.source?.typeKey ?? cardTypeKey;
+      const fieldKey = p.source?.fieldKey ?? costField;
+      if (isCalculated(typeKey, fieldKey)) continue;
+      for (const item of p.items) if (item.cost_basis === "card_value") ids.add(item.id);
+    }
+    return ids;
+  }, [panelsWithTotals, ppmEnabled, isCalculated, cardTypeKey, costField]);
 
   const { items, total, tileTotal, sharedById } = useMemo(() => {
     const flat = panelsWithTotals.flatMap((p) => p.items);
@@ -719,9 +764,10 @@ export default function CostReport() {
         index: i,
         shared: p.shared.get(d.id) ?? 0,
         lifetime: d.lifetime_cost,
+        typedTotal: typedTotalIds.has(d.id),
       }));
     return { source: p.source, total: p.total, tileTotal: p.tileTotal, data };
-  }), [panelsWithTotals]);
+  }), [panelsWithTotals, typedTotalIds]);
 
   const rootTypeLabel = useMemo(() => {
     const tp = types.find((tp) => tp.key === cardTypeKey);
@@ -736,7 +782,7 @@ export default function CostReport() {
   );
 
   // An Initiative's figure that counts only this fiscal year's PPM lines
-  // names the year and the all-years figure it is a share of.
+  // names its origin, the year and the all-years total it is part of.
   const fiscalSliceNote = useCallback(
     (lifetime: number) =>
       t("cost.fiscalSliceNote", {
@@ -745,42 +791,34 @@ export default function CostReport() {
       }),
     [t, fiscalYear, fmt],
   );
+  const typedTotalNote = t("cost.typedTotalNote");
 
   /**
-   * A table row's name, marked when some of its sources sit on other rows too,
-   * and when its cost is one fiscal year of a larger all-years figure.
+   * A table row's name, with a mark when some of its sources sit on other rows
+   * too, when its cost is one fiscal year of a larger all-years total of PPM
+   * lines, and when it is an all-years figure typed on the card. Each mark is a
+   * `HelpTip`, so a tap shows its note (and does not open the row's card).
    */
   const nameWithShared = (d: CostItem) => {
     const shared = sharedById.has(d.id);
     const sliced = d.lifetime_cost != null;
-    if (!shared && !sliced) return d.name;
+    const typed = typedTotalIds.has(d.id);
+    if (!shared && !sliced && !typed) return d.name;
     return (
       <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
         {d.name}
         {shared && (
-          <Tooltip title={t("cost.sharedSources")} arrow>
-            <Box
-              component="span"
-              aria-label={t("cost.sharedSources")}
-              data-testid="cost-shared-source"
-              sx={{ display: "inline-flex", color: "text.secondary" }}
-            >
-              <MaterialSymbol icon="link" size={16} />
-            </Box>
-          </Tooltip>
+          <HelpTip text={t("cost.sharedSources")} icon="link" size={16} testId="cost-shared-source" />
         )}
         {sliced && (
-          <Tooltip title={fiscalSliceNote(d.lifetime_cost as number)} arrow>
-            <Box
-              component="span"
-              aria-label={fiscalSliceNote(d.lifetime_cost as number)}
-              data-testid="cost-fiscal-slice"
-              sx={{ display: "inline-flex", color: "text.secondary" }}
-            >
-              <MaterialSymbol icon="info" size={16} />
-            </Box>
-          </Tooltip>
+          <HelpTip
+            text={fiscalSliceNote(d.lifetime_cost as number)}
+            icon="info"
+            size={16}
+            testId="cost-fiscal-slice"
+          />
         )}
+        {typed && <HelpTip text={typedTotalNote} icon="info" size={16} testId="cost-typed-total" />}
       </Box>
     );
   };
@@ -884,21 +922,7 @@ export default function CostReport() {
                   </MenuItem>
                 ))}
               </TextField>
-              <Tooltip title={t("cost.costSourceHelp")} arrow placement="bottom">
-                <Box
-                  component="span"
-                  tabIndex={0}
-                  aria-label={t("cost.costSourceHelp")}
-                  sx={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    color: "text.secondary",
-                    cursor: "help",
-                  }}
-                >
-                  <MaterialSymbol icon="help" size={18} />
-                </Box>
-              </Tooltip>
+              <HelpTip text={t("cost.costSourceHelp")} size={18} />
             </Box>
           )}
           {/* Only an aggregate (or a drill into one) has related cards to
@@ -920,21 +944,7 @@ export default function CostReport() {
                 <MenuItem value="full">{t("cost.attributionFull")}</MenuItem>
                 <MenuItem value="split">{t("cost.attributionSplit")}</MenuItem>
               </TextField>
-              <Tooltip title={t("cost.attributionHelp")} arrow placement="bottom">
-                <Box
-                  component="span"
-                  tabIndex={0}
-                  aria-label={t("cost.attributionHelp")}
-                  sx={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    color: "text.secondary",
-                    cursor: "help",
-                  }}
-                >
-                  <MaterialSymbol icon="help" size={18} />
-                </Box>
-              </Tooltip>
+              <HelpTip text={t("cost.attributionHelp")} size={18} />
             </Box>
           )}
           {activeAggregates.length === 0 && costFields.length > 1 && (
@@ -950,8 +960,11 @@ export default function CostReport() {
             </TextField>
           )}
 
+          {/* The help sits beside the chip, not on it: a hover-only tooltip
+              on the chip never opened on a tap, and this help is where the
+              Initiative rule is explained. */}
           {fiscalYear && (
-            <Tooltip title={t("cost.fiscalYearHelp")} arrow placement="bottom">
+            <Box sx={{ display: "inline-flex", alignItems: "center" }}>
               <Chip
                 variant="outlined"
                 icon={<MaterialSymbol icon="calendar_month" size={18} />}
@@ -960,7 +973,8 @@ export default function CostReport() {
                 })}
                 data-testid="cost-fiscal-year"
               />
-            </Tooltip>
+              <HelpTip text={t("cost.fiscalYearHelp")} size={18} />
+            </Box>
           )}
         </>
       }
@@ -1060,6 +1074,7 @@ export default function CostReport() {
                 onTileClick={handleTileClick}
                 sharedNote={sharedNote}
                 fiscalSliceNote={fiscalSliceNote}
+                typedTotalNote={typedTotalNote}
               />
             ))}
           </Box>

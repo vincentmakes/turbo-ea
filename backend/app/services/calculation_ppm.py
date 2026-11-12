@@ -36,10 +36,9 @@ from datetime import date as date_type
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import case, extract, func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
 from app.models.ppm_risk import PpmRisk
 from app.models.ppm_status_report import PpmStatusReport
 from app.models.ppm_task import PpmTask
@@ -53,6 +52,7 @@ from app.services.fiscal_year import (  # noqa: F401
     fiscal_year_for,
     get_fiscal_year_start,
 )
+from app.services.ppm_fiscal_costs import budget_line_rows, cost_line_rows
 from app.services.ppm_portfolio_service import latest_reports
 
 INITIATIVE_TYPE = "Initiative"
@@ -292,21 +292,9 @@ async def build_ppm_map(
         return per_year.setdefault(initiative_id, {}).setdefault(year, _zero_measures())
 
     # Budget lines carry their fiscal year as a stored column — nothing to derive.
-    budget_rows = await db.execute(
-        select(
-            PpmBudgetLine.initiative_id,
-            PpmBudgetLine.fiscal_year,
-            func.lower(PpmBudgetLine.category),
-            func.coalesce(func.sum(PpmBudgetLine.amount), 0),
-        )
-        .where(PpmBudgetLine.initiative_id.in_(initiative_ids))
-        .group_by(
-            PpmBudgetLine.initiative_id,
-            PpmBudgetLine.fiscal_year,
-            func.lower(PpmBudgetLine.category),
-        )
-    )
-    for initiative_id, fiscal_year, category, amount in budget_rows.all():
+    # The money rows are read through ``ppm_fiscal_costs`` — the one definition
+    # the cost reports' fiscal-year slice reads too.
+    for initiative_id, fiscal_year, category, amount in await budget_line_rows(db, initiative_ids):
         key = str(initiative_id)
         bucket = _bucket_for(category)
         value = float(amount or 0)
@@ -319,21 +307,9 @@ async def build_ppm_map(
     # row per transaction, but keep the fiscal-year *semantics* in the pure
     # helper above — one definition of the convention, unit-testable without a
     # database.
-    year_col = extract("year", PpmCostLine.date)
-    month_col = extract("month", PpmCostLine.date)
-    cost_rows = await db.execute(
-        select(
-            PpmCostLine.initiative_id,
-            year_col,
-            month_col,
-            func.lower(PpmCostLine.category),
-            func.coalesce(func.sum(PpmCostLine.planned), 0),
-            func.coalesce(func.sum(PpmCostLine.actual), 0),
-        )
-        .where(PpmCostLine.initiative_id.in_(initiative_ids))
-        .group_by(PpmCostLine.initiative_id, year_col, month_col, func.lower(PpmCostLine.category))
-    )
-    for initiative_id, year, month, category, planned, actual in cost_rows.all():
+    for initiative_id, year, month, category, planned, actual in await cost_line_rows(
+        db, initiative_ids
+    ):
         key = str(initiative_id)
         bucket = _bucket_for(category)
         fiscal_year = None if year is None else _fiscal_year(int(year), int(month), start_month)

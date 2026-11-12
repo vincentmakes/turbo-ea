@@ -56,6 +56,8 @@ export interface CostTreemapItem {
    * Split drill, this tile's share of it.
    */
   lifetime?: number;
+  /** Whether `cost` is an all-years figure typed on the card (no PPM lines). */
+  typedTotal?: boolean;
 }
 
 export interface CostTreemapOptions {
@@ -79,6 +81,8 @@ export interface CostTreemapOptions {
   sharedNote?: (n: number) => string;
   /** The tooltip line for a tile counting one fiscal year of `lifetime`; absent, nothing is said. */
   fiscalSliceNote?: (lifetime: number) => string;
+  /** The tooltip line for a tile whose cost is an all-years figure typed on the card. */
+  typedTotalNote?: string;
 }
 
 /**
@@ -175,20 +179,22 @@ export interface CostTreemapDatum {
   index: number;
   shared?: number;
   lifetime?: number;
+  typedTotal?: boolean;
   itemStyle: { color: string };
 }
 
 /**
  * The hover tooltip of one tile: its name, its cost and, against a non-zero
  * total, its share — then, for a tile whose sources are shared with other
- * tiles, how many are, and for a tile counting one fiscal year of a larger
- * all-years figure, that figure.
+ * tiles, how many are, for a tile counting one fiscal year of a larger
+ * all-years figure, that figure, and for one whose cost is an all-years figure
+ * typed on the card, that it is.
  */
 export function costTooltipHtml(
-  d: { name: string; cost: number; shared?: number; lifetime?: number },
+  d: { name: string; cost: number; shared?: number; lifetime?: number; typedTotal?: boolean },
   o: Pick<
     CostTreemapOptions,
-    "format" | "panelTotal" | "percentOfTotal" | "sharedNote" | "fiscalSliceNote"
+    "format" | "panelTotal" | "percentOfTotal" | "sharedNote" | "fiscalSliceNote" | "typedTotalNote"
   >,
 ): string {
   let html =
@@ -204,6 +210,9 @@ export function costTooltipHtml(
   if (o.fiscalSliceNote && d.lifetime != null) {
     html += `<div style="font-size:12px;opacity:.7">${escapeHtml(o.fiscalSliceNote(d.lifetime))}</div>`;
   }
+  if (o.typedTotalNote && d.typedTotal) {
+    html += `<div style="font-size:12px;opacity:.7">${escapeHtml(o.typedTotalNote)}</div>`;
+  }
   return html;
 }
 
@@ -218,6 +227,7 @@ export function buildCostTreemapOption(items: CostTreemapItem[], o: CostTreemapO
     index: d.index,
     ...(d.shared ? { shared: d.shared } : {}),
     ...(d.lifetime != null ? { lifetime: d.lifetime } : {}),
+    ...(d.typedTotal ? { typedTotal: true } : {}),
     itemStyle: { color: treemapColor(d.index) },
   }));
   return {
@@ -227,7 +237,13 @@ export function buildCostTreemapOption(items: CostTreemapItem[], o: CostTreemapO
       formatter: (p: { data?: CostTreemapDatum } | undefined) => {
         const d = p?.data;
         return d ? costTooltipHtml(
-              { name: d.name, cost: d.value, shared: d.shared, lifetime: d.lifetime },
+              {
+                name: d.name,
+                cost: d.value,
+                shared: d.shared,
+                lifetime: d.lifetime,
+                typedTotal: d.typedTotal,
+              },
               o,
             ) : "";
       },

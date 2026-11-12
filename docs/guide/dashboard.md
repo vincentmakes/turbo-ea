@@ -132,7 +132,7 @@ A KPI tile shows either one of the built-in metrics (total cards, data quality, 
 - **Sparkline**: draws the tile's last 30 daily values under the number.
 - **Secondary figure**: for a narrowed count, shows **of N** (the unfiltered count) or the **share of total** next to the number.
 
-A new KPI tile records its first value the moment the dashboard is saved, so its trend starts the next day. A sum or average of a cost field is shown only to users who may see costs, counts only the cards live in the current fiscal year (the rule the Cost report uses) and names that year under the value. An Initiative's Budget or Actual Cost counts only its PPM lines for that year when it has such lines, as in the [Cost report](reports.md#fiscal-year).
+A new KPI tile records its first value the moment the dashboard is saved, so its trend starts the next day. A sum or average of a cost field is shown only to users who may see costs, counts only the cards live in the current fiscal year (the rule the Cost report uses) and names that year under the value. An Initiative's Budget or Actual Cost counts only its PPM lines for that year when it has such lines, as in the [Cost report](reports.md#fiscal-year). The trend of such a tile restarted once with that change (version 2.203.2): history recorded the old way was removed, so the tile shows no trend until a new comparison point has been captured.
 
 Tiles fed by a module report (open risks, overdue risks, compliance score, initiatives at risk, processes without a diagram) are listed in the catalogue when the module is enabled and you hold its permission; they show no trend, because the module reports keep no history.
 

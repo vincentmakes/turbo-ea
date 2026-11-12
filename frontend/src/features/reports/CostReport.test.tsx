@@ -39,11 +39,17 @@ vi.mock("@/hooks/useCurrency", () => ({
   }),
 }));
 vi.mock("./SaveReportDialog", () => ({ default: () => null }));
+vi.mock("@/hooks/usePpmEnabled", () => ({ usePpmEnabled: vi.fn() }));
+vi.mock("@/hooks/useCalculatedFields", () => ({ useCalculatedFields: vi.fn() }));
 // The report hides everything behind `costs.view`.
 vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => ({ user: { permissions: { "costs.view": true } } }),
 }));
-vi.mock("@/components/CardDetailSidePanel", () => ({ default: () => null }));
+// Renders the card it is open on, so a test can tell whether a tap opened it.
+vi.mock("@/components/CardDetailSidePanel", () => ({
+  default: ({ cardId, open }: { cardId: string | null; open: boolean }) =>
+    open ? <div data-testid="side-panel">{cardId}</div> : null,
+}));
 // Reset switches to the chart view; jsdom has no canvas for ECharts to draw on.
 vi.mock("@/components/charts/EChart", async () => ({
   ...(await vi.importActual<object>("@/components/charts/EChart")),
@@ -54,6 +60,8 @@ import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
+import { usePpmEnabled } from "@/hooks/usePpmEnabled";
+import { useCalculatedFields } from "@/hooks/useCalculatedFields";
 
 const APP_TYPE = {
   key: "Application",
@@ -86,7 +94,10 @@ const INIT_TYPE = {
   fields_schema: [
     {
       section: "Costs",
-      fields: [{ key: "costBudget", label: "Budget", type: "cost" }],
+      fields: [
+        { key: "costBudget", label: "Budget", type: "cost" },
+        { key: "costActual", label: "Actual Cost", type: "cost" },
+      ],
     },
   ],
 };
@@ -133,6 +144,7 @@ const COST_ITEMS = [
 ];
 
 let fyStart = 1;
+let calculated: Record<string, string[]> = {};
 let costItems: Record<string, unknown>[] = COST_ITEMS;
 
 let consumedConfig: Record<string, unknown> | null = { view: "table" };
@@ -197,6 +209,21 @@ beforeEach(() => {
     resetAll: vi.fn(),
     reportType: "cost",
   } as never);
+
+  vi.mocked(usePpmEnabled).mockReturnValue({
+    ppmEnabled: false,
+    ppmLoaded: true,
+    invalidatePpm: vi.fn(),
+  });
+
+  // No field is written by a calculation unless a test says so.
+  calculated = {};
+  vi.mocked(useCalculatedFields).mockImplementation(() => ({
+    calculatedFields: calculated,
+    loading: false,
+    isCalculated: (typeKey: string, fieldKey: string) =>
+      (calculated[typeKey] ?? []).includes(fieldKey),
+  }));
 
   vi.mocked(useThumbnailCapture).mockReturnValue({
     chartRef: createRef(),
@@ -304,7 +331,7 @@ describe("CostReport fiscal-year slice of an Initiative's PPM lines (#1362)", ()
     await waitFor(() => expect(marks()).toHaveLength(1));
     const erpRow = rowOf("ERP");
     const mark = erpRow.querySelector('[data-testid="cost-fiscal-slice"]');
-    expect(mark).toHaveAttribute("aria-label", "Counts FY 2026 only · $1500 across all years");
+    expect(mark).toHaveAttribute("aria-label", "From PPM lines · counts FY 2026 only · $1500 across all years");
     // The row still shows the year's figure, not the total.
     expect(within(erpRow).getByText("$500")).toBeInTheDocument();
     const crmRow = rowOf("CRM");
@@ -319,7 +346,7 @@ describe("CostReport fiscal-year slice of an Initiative's PPM lines (#1362)", ()
     await waitFor(() => expect(marks()).toHaveLength(1));
     expect(marks()[0]).toHaveAttribute(
       "aria-label",
-      "Counts FY 2025–2026 only · $1200 across all years",
+      "From PPM lines · counts FY 2025–2026 only · $1200 across all years",
     );
   });
 
@@ -327,6 +354,177 @@ describe("CostReport fiscal-year slice of an Initiative's PPM lines (#1362)", ()
     renderCost();
     await waitFor(() => expect(within(chart()).getAllByText("ERP").length).toBeGreaterThan(0));
     expect(marks()).toHaveLength(0);
+    expect(document.querySelector('[data-testid="cost-typed-total"]')).toBeNull();
+  });
+
+  /** An Initiative root showing Budget, its rows: ERP's figure is the card's stored value. */
+  const initiativeRoot = () => {
+    consumedConfig = { view: "table", cardTypeKey: "Initiative", costField: "costBudget" };
+    costItems = [
+      { ...COST_ITEMS[2], cost_basis: "card_value" },
+      { ...COST_ITEMS[0], cost_basis: "ppm_lines" },
+      COST_ITEMS[1],
+    ];
+  };
+  const ppmOn = (on: boolean) =>
+    vi.mocked(usePpmEnabled).mockReturnValue({ ppmEnabled: on, ppmLoaded: true, invalidatePpm: vi.fn() });
+  const typedNote = "All-years figure typed on the card. Add PPM lines to count it per fiscal year.";
+
+  it("marks an Initiative whose figure is typed on the card, with PPM on", async () => {
+    ppmOn(true);
+    initiativeRoot();
+    renderCost();
+    const typed = await waitFor(() => {
+      const el = rowOf("ERP").querySelector('[data-testid="cost-typed-total"]');
+      expect(el).not.toBeNull();
+      return el as Element;
+    });
+    expect(typed).toHaveAttribute("aria-label", typedNote);
+    expect(document.querySelectorAll('[data-testid="cost-typed-total"]')).toHaveLength(1);
+    // PPM lines with nothing outside the year: no mark at all.
+    expect(rowOf("CRM").querySelector('[data-testid="cost-fiscal-slice"]')).toBeNull();
+    tap(typed);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(typedNote);
+    expect(screen.queryByTestId("side-panel")).toBeNull();
+  });
+
+  it("says nothing of a stored figure with the PPM module off", async () => {
+    ppmOn(false);
+    initiativeRoot();
+    renderCost();
+    await waitFor(() => expect(within(chart()).getAllByText("ERP").length).toBeGreaterThan(0));
+    expect(document.querySelector('[data-testid="cost-typed-total"]')).toBeNull();
+    expect(document.body.textContent).not.toContain(typedNote);
+  });
+
+  it("says nothing of a stored figure a calculation writes", async () => {
+    ppmOn(true);
+    calculated = { Initiative: ["costBudget"] };
+    initiativeRoot();
+    renderCost();
+    await waitFor(() => expect(within(chart()).getAllByText("ERP").length).toBeGreaterThan(0));
+    expect(document.querySelector('[data-testid="cost-typed-total"]')).toBeNull();
+  });
+
+  it("marks it when a calculation writes only another field of the type", async () => {
+    ppmOn(true);
+    calculated = { Initiative: ["costActual"], Application: ["costBudget"] };
+    initiativeRoot();
+    renderCost();
+    await waitFor(() =>
+      expect(rowOf("ERP").querySelector('[data-testid="cost-typed-total"]')).not.toBeNull(),
+    );
+  });
+});
+
+describe("CostReport PPM-fed fields", () => {
+  const ppm = (on: boolean) =>
+    vi.mocked(usePpmEnabled).mockReturnValue({
+      ppmEnabled: on,
+      ppmLoaded: true,
+      invalidatePpm: vi.fn(),
+    });
+
+  it("labels an Initiative's Budget and Actual Cost (PPM) when the module is on", async () => {
+    ppm(true);
+    consumedConfig = { view: "table", cardTypeKey: "Initiative", costField: "costActual" };
+    renderCost();
+    const select = await waitFor(() => within(toolbar()).getByText("Actual Cost (PPM)"));
+    fireEvent.mouseDown(select);
+    const listbox = await screen.findByRole("listbox");
+    expect(within(listbox).getByText("Budget (PPM)")).toBeInTheDocument();
+    expect(within(listbox).getByText("Actual Cost (PPM)")).toBeInTheDocument();
+  });
+
+  it("labels the Cost Source option (PPM) when the module is on", async () => {
+    ppm(true);
+    consumedConfig = { view: "table", costSources: [SOURCE] };
+    renderCost();
+    await waitFor(() =>
+      expect(within(toolbar()).getByText("Initiative · Budget (PPM)")).toBeInTheDocument(),
+    );
+  });
+
+  it("keeps the plain labels with the module off, and on other types", async () => {
+    consumedConfig = { view: "table", costSources: [SOURCE] };
+    renderCost();
+    await waitFor(() => expect(within(toolbar()).getByText("Initiative · Budget")).toBeInTheDocument());
+    expect(within(toolbar()).queryByText(/\(PPM\)/)).toBeNull();
+  });
+
+  it("marks no field of another type, even with the module on", async () => {
+    ppm(true);
+    renderCost();
+    await waitFor(() => expect(within(chart()).getAllByText("ERP").length).toBeGreaterThan(0));
+    expect(document.body.textContent).not.toContain("(PPM)");
+  });
+});
+
+/**
+ * A tap as iOS delivers it: touch events, then the emulated mouse events and
+ * the click. A hover-only tooltip never opens on it (MUI's touch listener
+ * waits for a long press), which is the iPad bug.
+ */
+function tap(el: Element) {
+  fireEvent.touchStart(el);
+  fireEvent.touchEnd(el);
+  fireEvent.mouseOver(el);
+  fireEvent.mouseDown(el);
+  fireEvent.mouseUp(el);
+  fireEvent.click(el);
+}
+
+const COST_SOURCE_HELP =
+  "Sum costs from related cards. Within one tile each related card counts once, however many relations link it. A card linked to several tiles counts on each of them; choose an Attribution to decide how.";
+const ATTRIBUTION_HELP =
+  "Full puts the whole cost of a related card on every card it links to, and the total counts it once. Split equally divides it by the number of cards it links to, so the tiles add up to the total.";
+
+describe("CostReport help opens on a tap (iPad)", () => {
+  it("shows the Cost Source help on a tap", async () => {
+    renderCost();
+    await waitFor(() => expect(within(chart()).getAllByText("ERP").length).toBeGreaterThan(0));
+    tap(within(toolbar()).getByLabelText(COST_SOURCE_HELP));
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(COST_SOURCE_HELP);
+  });
+
+  it("shows the Attribution help on a tap", async () => {
+    consumedConfig = { view: "table", costSources: [SOURCE] };
+    renderCost();
+    await waitFor(() => expect(within(chart()).getAllByText("HR").length).toBeGreaterThan(0));
+    tap(within(toolbar()).getByLabelText(ATTRIBUTION_HELP));
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(ATTRIBUTION_HELP);
+  });
+
+  it("shows the fiscal-year help, Initiative rule included, on a tap", async () => {
+    renderCost();
+    await waitFor(() => expect(document.querySelector('[data-testid="cost-fiscal-year"]')).not.toBeNull());
+    const help = within(toolbar()).getByRole("button", { name: /^Annual costs of the cards live/ });
+    tap(help);
+    const tooltip = await screen.findByRole("tooltip");
+    expect(tooltip).toHaveTextContent("Annual costs of the cards live in this fiscal year");
+    expect(tooltip).toHaveTextContent("PPM budget lines");
+  });
+
+  it("shows a row mark's note on a tap without opening the side panel", async () => {
+    costItems = [{ ...COST_ITEMS[2], lifetime_cost: 1500, cost_basis: "ppm_lines" }];
+    renderCost();
+    const mark = await waitFor(() => {
+      const el = document.querySelector('[data-testid="cost-fiscal-slice"]');
+      expect(el).not.toBeNull();
+      return el as Element;
+    });
+    tap(mark);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(
+      "From PPM lines · counts FY 2026 only · $1500 across all years",
+    );
+    expect(screen.queryByTestId("side-panel")).toBeNull();
+    // A tap on the open note (to dismiss it, or to select its text) does not
+    // reach the row through React's tree either.
+    fireEvent.click(within(await screen.findByRole("tooltip")).getByText(/From PPM lines/));
+    expect(screen.queryByTestId("side-panel")).toBeNull();
+    // A tap on the row itself still opens it.
+    fireEvent.click(screen.getAllByText("ERP").find((el) => el.closest("tr")) as Element);
+    expect(screen.getByTestId("side-panel")).toHaveTextContent("erp");
   });
 });
 

@@ -1471,7 +1471,13 @@ async def cost_treemap(
     the current fiscal year carries ``lifetime_cost``: the all-years total of
     its PPM lines, absent when it equals the year's figure; in a ``split``
     drill (``parent_card_id`` set) it is shared by the same count as ``cost``,
-    so both are this tile's share (``app.services.ppm_fiscal_costs``).
+    so both are this tile's share (``app.services.ppm_fiscal_costs``). Such an
+    item also says where its figure comes from in ``cost_basis``:
+    ``"ppm_lines"`` when it is read from the Initiative's PPM lines, or
+    ``"card_value"`` when the Initiative has no lines of that kind and the
+    figure is the card's stored field, counted as it is (typed, imported or
+    written by a calculation — the value does not say which); absent for any
+    other card or field.
 
     When ``aggregate`` is non-empty, each entry is a ``"<typeKey>:<costFieldKey>"``
     pair identifying a cost field on a related card type. The endpoint sums that
@@ -1743,6 +1749,9 @@ async def cost_treemap(
             }
             if lifetime is not None:
                 out_item["lifetime_cost"] = lifetime
+            basis = fiscal_costs.basis(type, card.id, cost_field, card.attributes)
+            if basis is not None:
+                out_item["cost_basis"] = basis
             items.append(out_item)
             total += cost
     items.sort(key=lambda x: x["cost"], reverse=True)

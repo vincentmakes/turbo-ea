@@ -25,6 +25,18 @@ describe("HelpTip", () => {
     expect(icon).toHaveTextContent("help");
   });
 
+  it("shows the given icon under the given test id, and opens on a tap", async () => {
+    render(<HelpTip text="A note" icon="info" testId="note-mark" />);
+    expect(screen.queryByTestId("help-tip")).toBeNull();
+    const mark = screen.getByTestId("note-mark");
+    expect(mark).toHaveTextContent("info");
+    expect(mark).not.toHaveTextContent("help");
+    fireEvent.click(mark);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("A note");
+    fireEvent.click(mark);
+    await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
+  });
+
   it("uses the given icon size", () => {
     render(<HelpTip text="x" size={18} />);
     const symbol = screen.getByTestId("help-tip").querySelector(".material-symbols-outlined");
@@ -55,6 +67,26 @@ describe("HelpTip", () => {
       </div>,
     );
     fireEvent.click(screen.getByTestId("help-tip"));
+    expect(onParent).not.toHaveBeenCalled();
+  });
+
+  it("keeps a click inside the open tooltip from reaching a clickable parent", async () => {
+    // The tooltip is portaled out of the DOM subtree, but React's synthetic
+    // events still bubble through the component tree to the parent.
+    const onParent = vi.fn();
+    render(
+      <div onClick={onParent}>
+        <HelpTip text="Read https://example.com/policy first" />
+      </div>,
+    );
+    fireEvent.click(screen.getByTestId("help-tip"));
+    const tooltip = await screen.findByRole("tooltip");
+    fireEvent.click(within(tooltip).getByText(/Read/));
+    expect(onParent).not.toHaveBeenCalled();
+    // A link in the text still works: its default is not prevented.
+    const link = within(tooltip).getByRole("link", { name: "https://example.com/policy" });
+    const notPrevented = fireEvent.click(link);
+    expect(notPrevented).toBe(true);
     expect(onParent).not.toHaveBeenCalled();
   });
 

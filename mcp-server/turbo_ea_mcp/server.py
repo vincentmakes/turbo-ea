@@ -1594,7 +1594,10 @@ async def get_cost_treemap(
     it when it has such lines. When some of its lines fall outside the year,
     the item carries `lifetime_cost`, the all-years total of those lines
     (absent when the year's figure is the whole; in a Split drill, the
-    tile's share of it).
+    tile's share of it). Outside an aggregate, such an item also carries
+    `cost_basis`: 'ppm_lines' (read from its PPM lines) or 'card_value'
+    (no lines of that kind: the card's stored field, counted as it is,
+    whether typed, imported or calculated).
 
     Args:
         type: Card type to aggregate (default 'Application').

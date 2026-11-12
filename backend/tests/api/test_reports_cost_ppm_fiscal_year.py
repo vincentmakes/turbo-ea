@@ -190,6 +190,52 @@ class TestDirect:
         assert data["items"] == []
 
 
+class TestCostBasis:
+    async def test_each_item_says_where_its_figure_comes_from(self, client, db, env):
+        await _two_year_init(db, "Two years")
+        single = await _init(db, "Single year", costBudget=8_000)
+        await create_budget_line(db, initiative_id=single.id, fiscal_year=THIS_YEAR, amount=8_000)
+        await _init(db, "Typed", costBudget=4_000)
+        await _init(db, "Typed zero", costBudget=0)
+        data = await _treemap(client, env["admin"], type="Initiative", cost_field="costBudget")
+        by = {i["name"]: i for i in data["items"]}
+        assert by["Two years"]["cost_basis"] == "ppm_lines"
+        assert by["Single year"]["cost_basis"] == "ppm_lines"
+        assert "lifetime_cost" not in by["Single year"]
+        # The card's stored figure, counted as it is: said so.
+        assert by["Typed"]["cost_basis"] == "card_value"
+        assert by["Typed"]["cost"] == 4_000
+        assert "lifetime_cost" not in by["Typed"]
+        # A zero figure has no tile, so nothing to say.
+        assert "Typed zero" not in by
+
+    async def test_a_stored_actual_next_to_budget_lines_is_the_card_value(self, client, db, env):
+        init = await _two_year_init(db)
+        init.attributes = {**init.attributes, "costActual": 9_000}
+        await db.flush()
+        data = await _treemap(client, env["admin"], type="Initiative", cost_field="costActual")
+        assert data["items"][0]["cost_basis"] == "card_value"
+
+    async def test_another_card_type_carries_no_basis(self, client, db, env):
+        await create_card_type(
+            db,
+            key="Application",
+            fields_schema=[{"section": "Cost", "fields": [{"key": "costBudget", "type": "cost"}]}],
+        )
+        await create_card(db, card_type="Application", name="App", attributes={"costBudget": 3_000})
+        data = await _treemap(client, env["admin"], type="Application", cost_field="costBudget")
+        assert data["items"][0]["cost"] == 3_000
+        assert "cost_basis" not in data["items"][0]
+        assert "lifetime_cost" not in data["items"][0]
+
+    async def test_aggregate_tiles_carry_no_basis(self, client, db, env):
+        cap = await _cap(db, "Cap A")
+        await _link(db, await _init(db, "Typed", costBudget=4_000), cap)
+        data = await _treemap(client, env["admin"], type="BusinessCapability", aggregate=AGG)
+        assert data["items"][0]["cost"] == 4_000
+        assert "cost_basis" not in data["items"][0]
+
+
 class TestAggregate:
     @pytest.fixture
     async def shared(self, db, env):

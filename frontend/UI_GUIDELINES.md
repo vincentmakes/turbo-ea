@@ -910,6 +910,12 @@ control's `<label>` it never activates or focuses the field.
   a required field MUI appends the asterisk after the label's children, so it
   reads "Label (i) *".
 - **Grids** use AG Grid's native `headerTooltip` on the column with the same text.
+- **Help beside a control and notes beside a value** (a report toolbar's question
+  mark, a mark on a table row) are `HelpTip`s too; a note mark passes `icon`
+  (`"info"`, `"link"`) and keeps its own `testId`. `HelpTip` stops the click, so
+  a tap on a mark inside a clickable row shows the note and does not open the
+  row. Never a hover-only `Tooltip` for information a touch user needs: MUI's
+  tooltip opens on touch only after a long press, so on an iPad it never opens.
 
 ✅ Do
 - Resolve the text with its localizing resolver (`useFieldHelp`,
@@ -919,7 +925,8 @@ control's `<label>` it never activates or focuses the field.
   edit mode.
 
 ❌ Don't
-- Don't hand-roll a `Tooltip` + icon for help text, don't add a second shape
+- Don't hand-roll a `Tooltip` + icon for help text or a note (the Cost report's
+  question marks did, and did nothing on a tap), don't add a second shape
   (a collapsible, an always-visible caption), and don't show the same help twice.
 - Don't pass the icon to the notch label, and don't pin `shrink` / `notched` to
   make room for it (§3.5): the spacer sizes the gap.

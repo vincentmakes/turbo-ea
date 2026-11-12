@@ -47,6 +47,7 @@ import { useSaveOrigin, useScoreGain } from "@/features/cards/gamification/useSc
 import { DataQualityBreakdownHost } from "@/features/cards/sections/DataQualityBreakdownHost";
 import { DATA_QUALITY_PANEL_WIDTH } from "@/features/cards/sections/DataQualityBreakdownPanel";
 import { useDataQualityPanelOpen } from "@/lib/dataQualityPanel";
+import { PPM_ACTUAL_FIELD, PPM_BUDGET_FIELD } from "@/lib/ppmCostFields";
 import {
   SECTION_SCROLL_MARGIN_TOP,
   SECTION_SCROLL_MARGIN_VAR,
@@ -336,8 +337,8 @@ export default function CardDetail() {
 
   const ppmAutoFieldKeys = useMemo(() => {
     const keys: string[] = [];
-    if (ppmHasBudget) keys.push("costBudget");
-    if (ppmHasCosts) keys.push("costActual");
+    if (ppmHasBudget) keys.push(PPM_BUDGET_FIELD);
+    if (ppmHasCosts) keys.push(PPM_ACTUAL_FIELD);
     return keys;
   }, [ppmHasBudget, ppmHasCosts]);
 
