@@ -124,3 +124,44 @@ class TestParseHosts:
     @pytest.mark.parametrize("raw", ["", " ", ",", " , ", "/", " / ,"])
     def test_nothing_set_is_no_host(self, raw):
         assert config.parse_hosts(raw) == []
+
+
+class TestPublicAppUrl:
+    """The base of every link a tool hands back. The localhost default is the
+    last resort: a compose install reached over OAuth sets only
+    ``MCP_PUBLIC_URL``, and its links pointed at localhost:8920."""
+
+    def test_an_explicit_value_wins(self):
+        assert (
+            config.public_app_url("https://app.example.com/ea", "https://mcp.example.com/mcp")
+            == "https://app.example.com/ea"
+        )
+
+    @pytest.mark.parametrize("explicit", [None, ""])
+    def test_unset_falls_back_to_the_origin_of_the_mcp_url(self, explicit):
+        assert (
+            config.public_app_url(explicit, "https://ea.example.com:8443/mcp/x?y=1")
+            == "https://ea.example.com:8443"
+        )
+
+    @pytest.mark.parametrize("mcp_url", [None, "", "https:", "//ea.example.com/mcp", "ea/mcp"])
+    def test_with_no_usable_mcp_url_it_is_the_localhost_default(self, mcp_url):
+        assert config.public_app_url(None, mcp_url) == "http://localhost:8920"
+
+    def test_the_module_reads_the_raw_variables(self, monkeypatch):
+        import importlib
+
+        monkeypatch.delenv("TURBO_EA_PUBLIC_URL", raising=False)
+        monkeypatch.delenv("MCP_PORT", raising=False)
+        monkeypatch.setenv("MCP_PUBLIC_URL", "https://ea.example.com/mcp")
+        try:
+            assert importlib.reload(config).TURBO_EA_PUBLIC_URL == "https://ea.example.com"
+            monkeypatch.setenv("TURBO_EA_PUBLIC_URL", "")
+            monkeypatch.delenv("MCP_PUBLIC_URL")
+            # MCP_PUBLIC_URL's own code default is this server's port, never a link base.
+            reloaded = importlib.reload(config)
+            assert reloaded.TURBO_EA_PUBLIC_URL == "http://localhost:8920"
+            assert reloaded.MCP_PUBLIC_URL == "http://localhost:8001"
+        finally:
+            monkeypatch.undo()
+            importlib.reload(config)

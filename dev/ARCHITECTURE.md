@@ -41,7 +41,7 @@
 | `AI_AUTO_CONFIGURE` | `false` | Auto-enable AI on startup if provider is reachable |
 | `OLLAMA_MEMORY_LIMIT` | `4G` | Memory limit for bundled Ollama container (Docker `--profile ai`) |
 | `TURBO_EA_URL` | `http://localhost:8000` | (MCP server) Internal backend URL |
-| `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | Public-facing Turbo EA URL for OAuth redirects and bundled nginx hostname/proto derivation |
+| `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | Public-facing Turbo EA URL for OAuth redirects and bundled nginx hostname/proto derivation; the MCP server builds its links on it and, when it is unset or empty, on the origin of `MCP_PUBLIC_URL` |
 | `MCP_PUBLIC_URL` | `http://localhost:8001` | (MCP server) Public URL for OAuth metadata |
 | `MCP_PORT` | `8001` | (MCP server) Bind port |
 | `MCP_WRITES_ENABLED` | `true` | (MCP server) Kill switch for all 19 write tools — set to `false` to put the MCP server into read-only mode without a code redeploy. Read tools keep working. |

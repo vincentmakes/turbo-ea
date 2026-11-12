@@ -6,6 +6,7 @@ import hashlib
 import hmac
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 
 def _read_version() -> str:
@@ -22,8 +23,32 @@ def _read_version() -> str:
 # Internal backend URL (Docker: http://backend:8000)
 TURBO_EA_URL: str = os.environ.get("TURBO_EA_URL", "http://localhost:8000")
 
-# Public URL of the Turbo EA instance (used for OAuth redirect URIs)
-TURBO_EA_PUBLIC_URL: str = os.environ.get("TURBO_EA_PUBLIC_URL", "http://localhost:8920")
+_DEFAULT_TURBO_EA_PUBLIC_URL = "http://localhost:8920"
+
+
+def public_app_url(explicit: str | None, mcp_public_url: str | None) -> str:
+    """The address people open the Turbo EA web app at.
+
+    Every link an MCP tool hands back is built on it, so the localhost default
+    is the last resort, not the first: ``TURBO_EA_PUBLIC_URL`` when it is set
+    (an empty value counts as unset — compose passes one through), else the
+    origin of ``MCP_PUBLIC_URL`` (scheme and host, path dropped: the bundled
+    stack serves MCP at ``/mcp`` on the app's own host, and an OAuth install
+    has to set that variable to work at all), else ``localhost:8920``."""
+    if explicit:
+        return explicit
+    parsed = urlparse(mcp_public_url or "")
+    if parsed.scheme and parsed.netloc:
+        return f"{parsed.scheme}://{parsed.netloc}"
+    return _DEFAULT_TURBO_EA_PUBLIC_URL
+
+
+# Public URL of the Turbo EA instance: the base of every link a tool returns,
+# and a host the DNS-rebinding guard admits. Read from the raw variables, not
+# from MCP_PUBLIC_URL below, whose code default is this server's own port.
+TURBO_EA_PUBLIC_URL: str = public_app_url(
+    os.environ.get("TURBO_EA_PUBLIC_URL"), os.environ.get("MCP_PUBLIC_URL")
+)
 
 # Port for the MCP server
 MCP_PORT: int = int(os.environ.get("MCP_PORT", "8001"))

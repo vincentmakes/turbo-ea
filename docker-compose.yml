@@ -134,7 +134,9 @@ services:
           memory: ${MCP_MEMORY_LIMIT:-256M}
     environment:
       TURBO_EA_URL: ${TURBO_EA_URL:-http://backend:8000}
-      TURBO_EA_PUBLIC_URL: ${TURBO_EA_PUBLIC_URL:-http://localhost:8920}
+      # Empty when unset, never a localhost default: the MCP server then builds
+      # the links it returns on the origin of MCP_PUBLIC_URL instead.
+      TURBO_EA_PUBLIC_URL: ${TURBO_EA_PUBLIC_URL:-}
       MCP_PORT: ${MCP_PORT:-8001}
       MCP_PUBLIC_URL: ${MCP_PUBLIC_URL:-http://localhost:8920/mcp}
       # Signs the OAuth client ids the MCP server registers, so a client that
