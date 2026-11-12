@@ -597,6 +597,16 @@ class TestToolAnnotations:
         assert tool.annotations is not None
         assert tool.annotations.readOnlyHint is True
 
+    @pytest.mark.parametrize("name", ["list_process_flow_versions", "get_process_flow_version"])
+    def test_process_flow_reads_are_read_only(self, name):
+        assert server.mcp._tool_manager._tools[name].annotations == server._READ_ANNOT
+
+    @pytest.mark.parametrize("name", ["submit_process_flow", "approve_process_flow"])
+    def test_process_flow_steps_are_additive_writes(self, name):
+        """Additive, not destructive: a step moves a version forward and the
+        previous published revision is archived, never deleted."""
+        assert server.mcp._tool_manager._tools[name].annotations == server._WRITE_ADDITIVE_ANNOT
+
     def test_create_cards_bulk_is_not_read_only(self):
         tool = server.mcp._tool_manager._tools["create_cards_bulk"]
         assert tool.annotations is not None
@@ -660,6 +670,7 @@ _NOT_A_BATCH = {"rollback_batch": "the backend records a rollback as its own bat
 _BATCH_TOOLS_EXPECTED = [
     "add_card_comment",
     "add_document_comment",
+    "approve_process_flow",
     "archive_cards",
     "assign_stakeholders",
     "clear_card_logos",
@@ -673,6 +684,7 @@ _BATCH_TOOLS_EXPECTED = [
     "save_inventory_view",
     "set_card_logos",
     "sign_adr",
+    "submit_process_flow",
     "transition_card_lifecycle",
     "update_adr",
     "update_cards_bulk",
@@ -690,6 +702,13 @@ def _batch_write_tools() -> list[str]:
         if tool.annotations in write_annots and name not in _NOT_A_BATCH
     )
 
+
+# The flow-step tools take UUIDs; the version's id decides the status its
+# preview reads, so submit sees a draft and approve a pending revision.
+_FLOW_PROCESS = "00000000-0000-4000-8000-0000000000b1"
+_FLOW_DRAFT = "00000000-0000-4000-8000-0000000000d1"
+_FLOW_PENDING = "00000000-0000-4000-8000-0000000000e1"
+_FLOW_STATUS = {_FLOW_DRAFT: "draft", _FLOW_PENDING: "pending"}
 
 # One minimal, valid call per write tool, as ``(dry_run) -> coroutine``.
 _BATCH_TOOL_CALLS = {
@@ -712,6 +731,12 @@ _BATCH_TOOL_CALLS = {
     ),
     "import_bpmn": lambda dry_run: server.import_bpmn(
         business_process_name="P", bpmn_xml="<bpmn:definitions/>", dry_run=dry_run
+    ),
+    "submit_process_flow": lambda dry_run: server.submit_process_flow(
+        business_process_id=_FLOW_PROCESS, version_id=_FLOW_DRAFT, dry_run=dry_run
+    ),
+    "approve_process_flow": lambda dry_run: server.approve_process_flow(
+        business_process_id=_FLOW_PROCESS, version_id=_FLOW_PENDING, dry_run=dry_run
     ),
     "transition_card_lifecycle": lambda dry_run: server.transition_card_lifecycle(
         card_id="c1", target="approve", dry_run=dry_run
@@ -757,6 +782,10 @@ class _BatchRecorder(_Backend):
         if path == "/cards" and "search" in (params or {}):
             # import_bpmn's lookup of the BusinessProcess card by name.
             return {"items": [{"id": "bp-1", "name": params["search"], "parent_id": None}]}
+        if path.startswith(f"/bpm/processes/{_FLOW_PROCESS}/flow/versions/"):
+            # The flow-step previews read the version first.
+            vid = path.rsplit("/", 1)[1]
+            return {"id": vid, "status": _FLOW_STATUS[vid]}
         return await super().get(path, params)
 
     async def post_multipart(self, path, data=None, **kwargs):

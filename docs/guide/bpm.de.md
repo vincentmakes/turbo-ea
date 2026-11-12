@@ -114,7 +114,11 @@ Prozessablaufdiagramme folgen einem versionierten Genehmigungsworkflow:
 | **Archiviert** | Zuvor veröffentlichte Version, durch eine neuere Freigabe ersetzt |
 | **Zurückgezogen** | Zuvor veröffentlichte Version, bewusst zurückgezogen |
 
-Beim Einreichen eines Entwurfs wird ein Versionsstand erzeugt. Genehmigende können die Einreichung freigeben (veröffentlichen) oder ablehnen.
+Beim Einreichen eines Entwurfs wird ein Versionsstand erzeugt. Genehmigende können die Einreichung freigeben (veröffentlichen) oder ablehnen. Die bei jedem Schritt gesendete Benachrichtigung und Aufgabe öffnen den Reiter **Prozessablauf** der Karte im passenden Unterreiter.
+
+#### Von einem KI-Assistenten importierte Diagramme
+
+Ein BPMN-Diagramm, das ein KI-Assistent über die [MCP-Integration](../admin/mcp.md) importiert, landet als **Entwurf**, nie als veröffentlichter Ablauf. Hat der Prozess bereits einen veröffentlichten Ablauf, basiert der Entwurf darauf, sodass die an seinen Schritten bereits gesetzten Kartenverknüpfungen erhalten bleiben; der veröffentlichte Ablauf selbst bleibt unverändert. Prüfen Sie den Entwurf im Editor (der Assistent gibt Ihnen einen Link darauf) und bitten Sie den Assistenten um Änderungen: Er aktualisiert denselben Entwurf, statt einen weiteren anzulegen. Einreichen und Genehmigen sind getrennte Schritte, die der Assistent nur auf Ihre Bitte hin ausführt, mit denselben Berechtigungen wie in der Weboberfläche — oder Sie reichen den Entwurf selbst im Unterreiter **Entwürfe** ein und genehmigen ihn dort.
 
 #### Wer freigeben darf
 

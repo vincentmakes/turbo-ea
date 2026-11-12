@@ -114,7 +114,11 @@ I diagrammi di flusso di processo seguono un workflow di approvazione con versio
 | **Archiviata** | Versione pubblicata in precedenza, sostituita da un'approvazione più recente |
 | **Ritirata** | Versione pubblicata in precedenza, ritirata intenzionalmente |
 
-L'invio di una bozza crea uno snapshot di versione. Gli approvatori possono approvare (pubblicare) o rifiutare l'invio.
+L'invio di una bozza crea uno snapshot di versione. Gli approvatori possono approvare (pubblicare) o rifiutare l'invio. La notifica e l'attività inviate a ogni passaggio aprono la scheda **Flusso di processo** della card sulla sotto-scheda giusta.
+
+#### Diagrammi importati da un assistente IA
+
+Un diagramma BPMN che un assistente IA importa tramite l'[integrazione MCP](../admin/mcp.md) arriva come **bozza**, mai come flusso pubblicato. Quando il processo ha già un flusso pubblicato, la bozza si basa su di esso, così i collegamenti alle card già creati sui suoi passi vengono mantenuti; il flusso pubblicato resta invariato. Rivedete la bozza nell'editor (l'assistente vi fornisce un link) e chiedete modifiche all'assistente: aggiorna la stessa bozza invece di crearne un'altra. Invio e approvazione sono passaggi separati che l'assistente compie solo su vostra richiesta, con gli stessi permessi dell'interfaccia web — oppure inviate e approvate voi stessi la bozza dalla sotto-scheda **Bozze**.
 
 #### Chi può approvare
 

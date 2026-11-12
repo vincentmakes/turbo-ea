@@ -183,20 +183,20 @@ In this mode, the server authenticates with email/password and refreshes the tok
 
 ## Available Capabilities
 
-The MCP server exposes **59 tools** across two groups: **37 read tools** that query EA data and **22 write tools** (17 additive, 5 destructive) that create and maintain cards, relations, diagrams, risks, ADRs, saved inventory views and more — including turning artifacts an AI tool has in its own context (spreadsheets, BPMN XML, DrawIO XML, documents, images) into structured EA data. Every tool carries MCP `ToolAnnotations` (read-only / destructive / idempotent hints) so connectors can surface destructiveness in their UI.
+The MCP server exposes **63 tools** across two groups: **39 read tools** that query EA data and **24 write tools** (19 additive, 5 destructive) that create and maintain cards, relations, diagrams, risks, ADRs, saved inventory views and more — including turning artifacts an AI tool has in its own context (spreadsheets, BPMN XML, DrawIO XML, documents, images) into structured EA data. Every tool carries MCP `ToolAnnotations` (read-only / destructive / idempotent hints) so connectors can surface destructiveness in their UI.
 
 ### Dry-run safety on writes
 
 Every write tool defaults to **`dry_run=true`**, and nothing is persisted until the AI tool calls it again with `dry_run=false` — which it should only do after the user has seen the preview and confirmed. This prevents an enthusiastic agent from quietly seeding hundreds of cards on a misinterpreted spreadsheet. The preview comes in one of two kinds:
 
 - **Verified by the backend.** Where the underlying endpoint supports a dry run, the backend runs every validator and resolver — permissions, card ids, what the user may read — builds the complete result, then **rolls the transaction back**. This covers cards (`create_cards_bulk`, `update_cards_bulk`), relations (`upsert_relations_bulk`) and diagrams (`create_diagram`, `update_diagram`). A diagram preview returns the card links the backend accepted, and for an update the exact change: renamed fields, card links added and removed, and whether the canvas changed.
-- **Built by the MCP server.** Where the endpoint has no dry run, the tool validates and translates its input and shows the exact payload a commit would send, without calling the write endpoint: `import_bpmn` (the draft → submit → approve walk; its flow-node counts are an estimate and the preview says `verified: false`), `create_adr`, `update_adr`, `sign_adr`, `revise_adr` (which reads the decision and reports the revision number it would create, or why the backend would refuse), `create_soaw`, `add_card_comment`, `add_document_comment` (which reads the discussion and reports whether you may comment and whether the thread you answer belongs to that document), `transition_card_lifecycle`, `save_inventory_view` (which runs the query and reports how many cards match, with a few sample names), `assign_stakeholders`, `create_risks`, `update_risks`, `archive_cards` (which shows each card's archive impact), and `set_card_logos` / `clear_card_logos` (which look up each card's type and current logo, and fetch every `image_url`).
+- **Built by the MCP server.** Where the endpoint has no dry run, the tool validates and translates its input and shows the exact payload a commit would send, without calling the write endpoint: `import_bpmn` (which finds the draft a commit would save to, and its flow-node counts are an estimate, so the preview says `verified: false`), `submit_process_flow` and `approve_process_flow` (which read the version and report the status change, or why it is not possible), `create_adr`, `update_adr`, `sign_adr`, `revise_adr` (which reads the decision and reports the revision number it would create, or why the backend would refuse), `create_soaw`, `add_card_comment`, `add_document_comment` (which reads the discussion and reports whether you may comment and whether the thread you answer belongs to that document), `transition_card_lifecycle`, `save_inventory_view` (which runs the query and reports how many cards match, with a few sample names), `assign_stakeholders`, `create_risks`, `update_risks`, `archive_cards` (which shows each card's archive impact), and `set_card_logos` / `clear_card_logos` (which look up each card's type and current logo, and fetch every `image_url`).
 
 Either way, the preview is recorded in the audit log as a dry-run batch, so an administrator can see what an agent proposed as well as what it committed.
 
 ### Read tools
 
-The server exposes 37 read tools grouped into nine clusters.
+The server exposes 39 read tools grouped into ten clusters.
 
 **Cards & metamodel**
 
@@ -274,6 +274,13 @@ The server exposes 37 read tools grouped into nine clusters.
 | `list_diagrams` | List free-draw (DrawIO) diagrams, optionally filtered to one card |
 | `get_diagram` | Fetch a single diagram by id, including its DrawIO XML |
 
+**Process flows**
+
+| Tool | Description |
+|------|-------------|
+| `list_process_flow_versions` | List a Business Process's flow versions — the published one, and the drafts and pending ones for a user who may see them — with each one's id, revision, status, the version it was based on, and a link that opens a draft in the editor. No BPMN XML. |
+| `get_process_flow_version` | Read one flow version, including its BPMN XML, so an agent can revise a draft and save it back with `import_bpmn`. |
+
 **Audit & change history**
 
 | Tool | Description |
@@ -284,9 +291,9 @@ All tools are bound by the authenticated user's RBAC — a viewer will simply ge
 
 ### Write tools
 
-The server exposes 22 write tools, each annotated as **additive** (creates or extends data) or **destructive** (modifies or removes existing data) so connectors can warn accordingly.
+The server exposes 24 write tools, each annotated as **additive** (creates or extends data) or **destructive** (modifies or removes existing data) so connectors can warn accordingly.
 
-**Additive (17)**
+**Additive (19)**
 
 | Tool | Description |
 |------|-------------|
@@ -305,7 +312,9 @@ The server exposes 22 write tools, each annotated as **additive** (creates or ex
 | `revise_adr` | Start the next revision of a signed ADR: a draft with the same reference and the next revision number, optionally consolidating amending decisions. Refused when a revision is already being drafted, a later revision is signed, or the decision was revoked or replaced. Recording a past decision as decided stays in the web UI. |
 | `create_diagram` | Create a free-form DrawIO diagram with optional links to existing cards. |
 | `save_inventory_view` | Save a multi-hop card query as an inventory view (new, or replacing the query of one given by `view_id`). The inventory re-runs the query every time the view is opened; the response carries a link that opens it. An update changes only the name and the query, plus the visibility and columns when they are passed; the view's grouping and layout are kept. |
-| `import_bpmn` | Save a BPMN 2.0 XML diagram against an **existing** Business Process card. If no card matches the given name, the tool returns a `card_not_found` error pointing the agent at `create_cards_bulk` — this forces the agent to create the card explicitly with description, subtype and attributes first, instead of taking a shortcut that lands a sparse card. |
+| `import_bpmn` | Save a BPMN 2.0 XML diagram as a **draft** process flow of an **existing** Business Process card. It never submits or publishes the draft. By default it starts a new draft based on the published flow, so the element links already made carry over; `based_on_version_id` starts it from another version instead, and `draft_version_id` replaces the diagram of an existing draft (same revision, no new draft). The response carries the draft's id, revision and status and a link that opens it in the editor. If no card matches the given name, the tool returns a `card_not_found` error pointing the agent at `create_cards_bulk` — this forces the agent to create the card explicitly with description, subtype and attributes first, instead of taking a shortcut that lands a sparse card. A saved draft cannot be undone with `rollback_batch`; delete it from the card's Process Flow → Drafts sub-tab. |
+| `submit_process_flow` | Submit a draft process flow for approval (draft → pending), as the **Submit** button in the web UI does. The process owners are notified and get an approval to-do. Takes `bpm.edit`. Not reversible with `rollback_batch`: an approver rejects the revision in the web UI to send it back to draft. |
+| `approve_process_flow` | Approve a pending process flow, which publishes it and archives the previously published revision. Takes approval authority (`bpm.approve_flows`, or the process owner's stakeholder role), and honours the setting that requires a separate approver. A refusal returns the reason the backend gave. Not reversible with `rollback_batch`: a revision published by mistake is withdrawn in the web UI, which keeps it on record and opens a new draft. |
 | `set_card_logos` | Set the custom logo on many cards at once — the bulk way to put product marks on an Application inventory. Three ways to supply the image, one per row: a built-in `icon_slug` (resolved server-side, nothing transferred), an `image_url` the MCP server downloads for you from an allowlisted icon host, or `image_base64` from the agent's own context. The packs are a shortcut, not the source of truth — a dry run lists the slugs they do not carry under `unknown_icon_slugs` **and** fetches every `image_url`, so a missing brand or a dead link is reported before anything is written rather than left as a logo nobody could set. `mime` is optional and sniffed from the bytes. PNG/JPEG/WebP/GIF only, 1 MB each. Each row echoes a sha256 so the caller can prove what landed. Use `clear_card_logos` to remove one. |
 
 **Destructive (5)**
@@ -438,16 +447,23 @@ Typical workflow when a user shares a spreadsheet with the AI agent:
 4. The user confirms; the agent calls again with `dry_run=False` to commit.
 5. If relation columns are present, the agent then calls `upsert_relations_bulk` with the same dry-run / confirm cycle.
 
+A BPMN diagram goes through the same approval workflow as one drawn in the web UI, one explicit step at a time:
+
+1. `import_bpmn` saves the diagram as a **draft** and returns a link to it. Nothing is published.
+2. The user reviews the draft. To change it, the agent reads it with `get_process_flow_version`, edits the XML and calls `import_bpmn` again with `draft_version_id`, which updates the same draft instead of starting another one.
+3. When the user asks, `submit_process_flow` sends the draft for approval.
+4. `approve_process_flow` publishes it — only for a user allowed to approve process flows. Anyone else approves it in the web UI, from the card's **Process Flow → Drafts** sub-tab.
+
 ### Write-tool guardrails
 
 Defense in depth on top of dry-run, so an LLM mishap can't cause mass damage:
 
 - **Per-call size caps.** The MCP write tools enforce a much smaller cap than the underlying Excel-importer endpoints: 200 rows for `create_cards_bulk`, 500 ops for `upsert_relations_bulk`. Big enough for any realistic single artifact upload, small enough that a dry-run preview is still scannable.
 - **No relation deletion by default.** `upsert_relations_bulk` refuses `action: "delete"` ops — to remove relations, use the web UI where the action is captured under the user's identity. Operators can opt in by setting `MCP_ALLOW_RELATION_DELETE=true`.
-- **Kill switch.** `MCP_WRITES_ENABLED=false` turns off all 22 write tools without redeploying code. The 37 read tools keep working.
+- **Kill switch.** `MCP_WRITES_ENABLED=false` turns off all 24 write tools without redeploying code. The 39 read tools keep working.
 - **Logo fetching is allowlisted.** The built-in icon packs cannot cover every product a customer runs, and an assistant is often sandboxed with no route to the web, so `set_card_logos` accepts an `image_url` and the MCP server fetches it. Only `https`, only the hosts in `MCP_LOGO_FETCH_HOSTS`, only a public address, at most two redirects (each re-checked), at most 1 MB read as a stream, and the bytes must carry a real PNG/JPEG/WebP/GIF signature. The fetch happens at the MCP edge, never in the backend, and the image is then uploaded through the ordinary route — so a URL chosen by an LLM never reaches the process holding the database. `MCP_LOGO_FETCH_ENABLED=false` switches it off.
 - **Audit origin tag.** Every backend request from the MCP server carries an `X-Turbo-EA-Origin: mcp` header. Events emitted from those requests are tagged `origin: "mcp"` in the audit-log payload, so admins can filter MCP-driven writes out of the timeline distinct from web-UI actions.
-- **Mutation batches.** Every MCP write call — the preview as well as the commit — is one mutation batch in the audit log, opened before anything is written; every event emitted during the call is stamped with the batch id, and every write tool returns that `batch_id`. Admins (or the `get_change_history` tool) can reconstruct the full per-event diff of a commit from one id, and `rollback_batch` can reverse it — including deleting a diagram that `create_diagram` made, unless someone has published it since. A diagram update is reported as not reversible, because the previous canvas is not kept. A comment posted on a decision or a SoAW is not reversible either: it may already have been read, so it is deleted from the discussion instead. Commits above `MCP_BATCH_CONFIRMATION_THRESHOLD` rows must pass back the one-shot `confirm_token` the prior dry-run returned. The backend checks it when the commit's batch opens, before anything is written: it must come from a dry-run of the same tool by the same user less than 15 minutes earlier, and it authorises a single commit. Every bulk write tool follows this preview → confirm cycle: `create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`.
+- **Mutation batches.** Every MCP write call — the preview as well as the commit — is one mutation batch in the audit log, opened before anything is written; every event emitted during the call is stamped with the batch id, and every write tool returns that `batch_id`. Admins (or the `get_change_history` tool) can reconstruct the full per-event diff of a commit from one id, and `rollback_batch` can reverse it — including deleting a diagram that `create_diagram` made, unless someone has published it since. A diagram update is reported as not reversible, because the previous canvas is not kept. A comment posted on a decision or a SoAW is not reversible either: it may already have been read, so it is deleted from the discussion instead. Nor are the process-flow steps: `rollback_batch` reports a submission or an approval as not reversible and changes nothing — an approver rejects a pending revision, and a published one is withdrawn, both in the web UI. A draft saved by `import_bpmn` is not reversible because it records no event; it is deleted from the Drafts sub-tab. Commits above `MCP_BATCH_CONFIRMATION_THRESHOLD` rows must pass back the one-shot `confirm_token` the prior dry-run returned. The backend checks it when the commit's batch opens, before anything is written: it must come from a dry-run of the same tool by the same user less than 15 minutes earlier, and it authorises a single commit. Every bulk write tool follows this preview → confirm cycle: `create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`.
 - **No hard delete.** The toolset deliberately omits permanent card deletion. `archive_cards` and `update_cards_bulk` *are* exposed, but archiving is a recoverable soft-delete (30-day restore window) and both are destructiveness-annotated and dry-run-gated. Adding any tool that performs an irreversible mutation (hard delete, force-purge) would require an explicit design review.
 
 The six guardrail environment variables on the MCP container:
@@ -487,7 +503,7 @@ The six guardrail environment variables on the MCP container:
 | Role | Access |
 |------|--------|
 | **Admin** | Configure MCP settings (`admin.mcp` permission). Full read + write through MCP. |
-| **All authenticated users** | Read access governed by their existing RBAC. Write tools require the matching backend permissions — `inventory.create` / `inventory.edit` / `inventory.archive` (cards), `relations.manage` (relations), `diagrams.manage` (diagrams), `bpm.edit` (BPMN), `risks.manage` (Risk Register), `comments.create` (comments), `stakeholders.manage` (stakeholders), `soaw.create` (SoAW), `adr.manage` / `adr.sign` (ADRs), `adr.comment` / `soaw.comment` (discussion of decisions and SoAWs), `bookmarks.manage` / `bookmarks.share` (saved inventory views). |
+| **All authenticated users** | Read access governed by their existing RBAC. Write tools require the matching backend permissions — `inventory.create` / `inventory.edit` / `inventory.archive` (cards), `relations.manage` (relations), `diagrams.manage` (diagrams), `bpm.edit` (BPMN drafts and submitting them), `bpm.approve_flows` (approving a process flow), `risks.manage` (Risk Register), `comments.create` (comments), `stakeholders.manage` (stakeholders), `soaw.create` (SoAW), `adr.manage` / `adr.sign` (ADRs), `adr.comment` / `soaw.comment` (discussion of decisions and SoAWs), `bookmarks.manage` / `bookmarks.share` (saved inventory views). |
 
 The `admin.mcp` permission controls who can manage MCP settings. It is only available to the Admin role by default. Custom roles can be granted this permission through the Roles administration page.
 

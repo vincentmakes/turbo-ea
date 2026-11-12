@@ -114,7 +114,11 @@ Los diagramas de flujo de proceso siguen un flujo de aprobación con control de 
 | **Archivado** | Versión publicada anteriormente, sustituida por una aprobación más reciente |
 | **Retirado** | Versión publicada anteriormente, despublicada de forma deliberada |
 
-Enviar un borrador crea una instantánea de versión. Los aprobadores pueden aprobar (publicar) o rechazar el envío.
+Enviar un borrador crea una instantánea de versión. Los aprobadores pueden aprobar (publicar) o rechazar el envío. La notificación y la tarea enviadas en cada paso abren la pestaña **Flujo de proceso** de la ficha en la subpestaña adecuada.
+
+#### Diagramas importados por un asistente de IA
+
+Un diagrama BPMN que un asistente de IA importa a través de la [integración MCP](../admin/mcp.md) llega como **borrador**, nunca como el flujo publicado. Cuando el proceso ya tiene un flujo publicado, el borrador se basa en él, de modo que se conservan los vínculos a fichas ya establecidos en sus pasos; el flujo publicado en sí no se modifica. Revise el borrador en el editor (el asistente le da un enlace) y pida cambios al asistente: actualiza el mismo borrador en lugar de crear otro. Enviar y aprobar son pasos separados que el asistente solo da cuando usted lo pide, con los mismos permisos que en la interfaz web — o puede enviar y aprobar el borrador usted mismo desde la subpestaña **Borradores**.
 
 #### Quién puede aprobar
 

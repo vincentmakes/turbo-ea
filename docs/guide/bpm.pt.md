@@ -114,7 +114,11 @@ Os diagramas de fluxo de processo seguem um fluxo de aprovação com controlo de
 | **Arquivado** | Versão publicada anteriormente, substituída por uma aprovação mais recente |
 | **Retirado** | Versão publicada anteriormente, despublicada intencionalmente |
 
-Submeter um rascunho cria um instantâneo de versão. Os aprovadores podem aprovar (publicar) ou rejeitar a submissão.
+Submeter um rascunho cria um instantâneo de versão. Os aprovadores podem aprovar (publicar) ou rejeitar a submissão. A notificação e a tarefa enviadas em cada passo abrem a aba **Fluxo de processo** do card na subaba certa.
+
+#### Diagramas importados por um assistente de IA
+
+Um diagrama BPMN que um assistente de IA importa através da [integração MCP](../admin/mcp.md) chega como **rascunho**, nunca como o fluxo publicado. Quando o processo já tem um fluxo publicado, o rascunho baseia-se nele, para que as ligações a cards já feitas nos seus passos se mantenham; o próprio fluxo publicado não é alterado. Reveja o rascunho no editor (o assistente dá-lhe um link para ele) e peça alterações ao assistente: ele atualiza o mesmo rascunho em vez de criar outro. Submeter e aprovar são passos separados que o assistente só dá quando o pede, com as mesmas permissões que na interface web — ou submeta e aprove o rascunho você mesmo na subaba **Rascunhos**.
 
 #### Quem pode aprovar
 

@@ -462,6 +462,92 @@ def _bpmn_batch_post():
 
 
 PREVIEW_BATCH_PATHS = ["/mutation-batches?row_count=1", "/mutation-batches/B-1/commit"]
+COMMIT_OPEN = "/mutation-batches?row_count=1"
+COMMIT_CLOSE = "/mutation-batches/B-1/commit"
+_CARD_SEARCH = {
+    "items": [
+        {"id": "00000000-0000-4000-8000-0000000000b1", "name": "Order to Cash", "parent_id": None}
+    ],
+    "total": 1,
+}
+_PUBLIC = "https://ea.example.com"
+
+
+def _flow_http_error(status: int, detail: object = None, method: str = "POST", path: str = "/x"):
+    import httpx
+
+    req = httpx.Request(method, "http://backend" + path)
+    body = {"detail": detail} if detail is not None else None
+    resp = httpx.Response(status, json=body, request=req)
+    return httpx.HTTPStatusError(f"{status}", request=req, response=resp)
+
+
+class _FlowBackend:
+    """A backend for the process-flow tools: answers the card search, the
+    flow reads and the batch open / close, records every call in order, and
+    answers each flow write from ``writes`` (a value, or an exception)."""
+
+    def __init__(self, *, reads: dict | None = None, writes: dict | None = None):
+        self.reads = reads or {}
+        self.writes = writes or {}
+        self.calls: list[tuple[str, str, object]] = []
+
+    async def get(self, path, params=None):
+        self.calls.append(("get", path, params))
+        if path == "/cards":
+            return _CARD_SEARCH
+        answer = self.reads[path]
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    async def _write(self, method, path, json):
+        self.calls.append((method, path, json))
+        if path == COMMIT_CLOSE:
+            return {"id": "B-1", "committed_at": "now"}
+        if path.startswith("/mutation-batches"):
+            return {"id": "B-1", "dry_run": (json or {}).get("dry_run")}
+        answer = self.writes[path]
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    async def post(self, path, json=None):
+        return await self._write("post", path, json)
+
+    async def patch(self, path, json=None):
+        return await self._write("patch", path, json)
+
+    def patched(self):
+        return (
+            patch.object(server.TurboEAClient, "get", AsyncMock(side_effect=self.get)),
+            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=self.post)),
+            patch.object(server.TurboEAClient, "patch", AsyncMock(side_effect=self.patch)),
+        )
+
+    def paths(self, *methods: str) -> list[tuple[str, str]]:
+        return [(m, p) for m, p, _ in self.calls if not methods or m in methods]
+
+    def body(self, method: str, path: str):
+        return next(b for m, p, b in self.calls if m == method and p == path)
+
+    async def run(self, coro_fn):
+        g, p, pa = self.patched()
+        with g, p, pa:
+            return _parse(await coro_fn())
+
+
+_FLOW = "/bpm/processes/00000000-0000-4000-8000-0000000000b1/flow"
+_DRAFT_URL = (
+    _PUBLIC + "/bpm/processes/00000000-0000-4000-8000-0000000000b1/flow?versionId={}&returnSubTab=1"
+)
+_DRAFTS_TAB = _PUBLIC + "/cards/00000000-0000-4000-8000-0000000000b1?tab=processFlow&subtab=1"
+_PUBLISHED_TAB = _PUBLIC + "/cards/00000000-0000-4000-8000-0000000000b1?tab=processFlow&subtab=0"
+
+
+@pytest.fixture
+def public_url(monkeypatch):
+    monkeypatch.setattr(server, "TURBO_EA_PUBLIC_URL", _PUBLIC + "/")
 
 
 class TestImportBpmn:
@@ -469,39 +555,44 @@ class TestImportBpmn:
     async def test_find_existing_dry_run_does_not_hit_flow_endpoints(self, fake_token):
         """Dry-run against an existing card: the tool returns a preview
         (estimated flow-node count + byte size) without calling any flow
-        endpoint. No draft, no submit, no approve."""
-        get_mock = AsyncMock(
-            return_value={
-                "items": [{"id": "bp-1", "name": "Order to Cash", "parent_id": None}],
-                "total": 1,
+        write. No draft, no submit, no approve."""
+        backend = _FlowBackend(
+            reads={
+                f"{_FLOW}/published": {
+                    "id": "00000000-0000-4000-8000-0000000000a1",
+                    "revision": 3,
+                    "status": "published",
+                }
             }
         )
-        post_mock, posted = _bpmn_batch_post()
-        with (
-            patch.object(server.TurboEAClient, "get", get_mock),
-            patch.object(server.TurboEAClient, "post", post_mock),
-        ):
-            bpmn = (
-                "<bpmn:definitions>"
-                '<bpmn:process id="P"><bpmn:startEvent id="s"/>'
-                '<bpmn:task id="t"/><bpmn:endEvent id="e"/></bpmn:process>'
-                "</bpmn:definitions>"
-            )
-            out = await server.import_bpmn(business_process_name="Order to Cash", bpmn_xml=bpmn)
+        bpmn = (
+            "<bpmn:definitions>"
+            '<bpmn:process id="P"><bpmn:startEvent id="s"/>'
+            '<bpmn:task id="t"/><bpmn:endEvent id="e"/></bpmn:process>'
+            "</bpmn:definitions>"
+        )
+        data = await backend.run(
+            lambda: server.import_bpmn(business_process_name="Order to Cash", bpmn_xml=bpmn)
+        )
         # Only the preview's own dry-run batch — no draft, submit or approve.
-        assert posted == PREVIEW_BATCH_PATHS
-        assert post_mock.call_args_list[0].kwargs["json"] == {
-            "tool_name": "import_bpmn",
-            "dry_run": True,
+        assert backend.paths("post", "patch") == [
+            ("post", COMMIT_OPEN),
+            ("post", COMMIT_CLOSE),
+        ]
+        assert backend.body("post", COMMIT_OPEN) == {"tool_name": "import_bpmn", "dry_run": True}
+        assert backend.body("post", COMMIT_CLOSE) == {
+            "summary": {"status": "previewed", "verified": False, "action": "create_draft"}
         }
-        assert post_mock.call_args_list[1].kwargs["json"] == {
-            "summary": {"status": "previewed", "verified": False}
-        }
-        data = _parse(out)
         assert data == {
             "dry_run": True,
             "committed": False,
-            "business_process_id": "bp-1",
+            "business_process_id": "00000000-0000-4000-8000-0000000000b1",
+            "would": {
+                "action": "create_draft",
+                "based_on_version_id": "00000000-0000-4000-8000-0000000000a1",
+                "based_on_revision": 3,
+                "based_on_status": "published",
+            },
             "diagram_preview": {
                 "flow_nodes_estimated": 3,
                 "message_flows_estimated": 0,
@@ -511,75 +602,100 @@ class TestImportBpmn:
             "verified": False,
             "batch_id": "B-1",
         }
+        assert "NOTHING HAS BEEN SAVED" in data["next_action"]
+        assert "never submits or publishes" in data["next_action"]
 
     @pytest.mark.asyncio
     async def test_dry_run_counts_unprefixed_bpmn(self, fake_token):
         """BPMN that declares the spec as the *default* namespace carries no
         `bpmn:` prefix. The backend parser handles it; the dry-run preview must
         not report zero flow nodes for a diagram it is about to import fine."""
-        get_mock = AsyncMock(
-            return_value={
-                "items": [{"id": "bp-1", "name": "Order to Cash", "parent_id": None}],
-                "total": 1,
-            }
+        backend = _FlowBackend(reads={f"{_FLOW}/published": None})
+        bpmn = (
+            '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">'
+            '<process id="P"><startEvent id="s"/>'
+            '<userTask id="t"/><endEvent id="e"/></process>'
+            "</definitions>"
         )
-        post_mock, posted = _bpmn_batch_post()
-        with (
-            patch.object(server.TurboEAClient, "get", get_mock),
-            patch.object(server.TurboEAClient, "post", post_mock),
-        ):
-            bpmn = (
-                '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">'
-                '<process id="P"><startEvent id="s"/>'
-                '<userTask id="t"/><endEvent id="e"/></process>'
-                "</definitions>"
-            )
-            out = await server.import_bpmn(business_process_name="Order to Cash", bpmn_xml=bpmn)
-        assert posted == PREVIEW_BATCH_PATHS
-        data = _parse(out)
+        data = await backend.run(
+            lambda: server.import_bpmn(business_process_name="Order to Cash", bpmn_xml=bpmn)
+        )
         assert data["diagram_preview"]["flow_nodes_estimated"] == 3
         assert data["diagram_preview"]["message_flows_estimated"] == 0
+        # No published flow: a commit would start an unbased draft.
+        assert data["would"] == {
+            "action": "create_draft",
+            "based_on_version_id": None,
+            "based_on_revision": None,
+            "based_on_status": None,
+        }
 
     @pytest.mark.asyncio
     async def test_dry_run_counts_artefacts_and_message_flows(self, fake_token):
         """The backend extracts data objects / data stores as elements and the
         message flows into their own table; the preview mirrors both so a
         two-pool diagram is not under-reported."""
-        get_mock = AsyncMock(
-            return_value={
-                "items": [{"id": "bp-1", "name": "Order to Cash", "parent_id": None}],
-                "total": 1,
-            }
+        backend = _FlowBackend(reads={f"{_FLOW}/published": None})
+        bpmn = (
+            "<bpmn:definitions>"
+            '<bpmn:collaboration id="c">'
+            '<bpmn:messageFlow id="mf1" sourceRef="t" targetRef="p2"/>'
+            '<bpmn:messageFlow id="mf2" sourceRef="p2" targetRef="e"/>'
+            "</bpmn:collaboration>"
+            '<bpmn:process id="P"><bpmn:startEvent id="s"/>'
+            '<bpmn:task id="t"/><bpmn:dataObjectReference id="d"/>'
+            '<bpmn:dataStoreReference id="ds"/>'
+            '<bpmn:endEvent id="e"/></bpmn:process>'
+            "</bpmn:definitions>"
         )
-        post_mock, posted = _bpmn_batch_post()
-        with (
-            patch.object(server.TurboEAClient, "get", get_mock),
-            patch.object(server.TurboEAClient, "post", post_mock),
-        ):
-            bpmn = (
-                "<bpmn:definitions>"
-                '<bpmn:collaboration id="c">'
-                '<bpmn:messageFlow id="mf1" sourceRef="t" targetRef="p2"/>'
-                '<bpmn:messageFlow id="mf2" sourceRef="p2" targetRef="e"/>'
-                "</bpmn:collaboration>"
-                '<bpmn:process id="P"><bpmn:startEvent id="s"/>'
-                '<bpmn:task id="t"/><bpmn:dataObjectReference id="d"/>'
-                '<bpmn:dataStoreReference id="ds"/>'
-                '<bpmn:endEvent id="e"/></bpmn:process>'
-                "</bpmn:definitions>"
-            )
-            out = await server.import_bpmn(business_process_name="Order to Cash", bpmn_xml=bpmn)
-        assert posted == PREVIEW_BATCH_PATHS
-        data = _parse(out)
+        data = await backend.run(
+            lambda: server.import_bpmn(business_process_name="Order to Cash", bpmn_xml=bpmn)
+        )
         assert data["diagram_preview"]["flow_nodes_estimated"] == 5
         assert data["diagram_preview"]["message_flows_estimated"] == 2
 
     @pytest.mark.asyncio
+    async def test_dry_run_of_a_draft_update_names_the_draft(self, fake_token):
+        backend = _FlowBackend(
+            reads={
+                f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000d1": {
+                    "id": "00000000-0000-4000-8000-0000000000d1",
+                    "revision": 5,
+                    "status": "draft",
+                    "based_on_id": "00000000-0000-4000-8000-0000000000a1",
+                }
+            }
+        )
+        data = await backend.run(
+            lambda: server.import_bpmn(
+                business_process_name="Order to Cash",
+                bpmn_xml="<bpmn:definitions/>",
+                draft_version_id="00000000-0000-4000-8000-0000000000d1",
+            )
+        )
+        assert data["would"] == {
+            "action": "update_draft",
+            "version_id": "00000000-0000-4000-8000-0000000000d1",
+            "revision": 5,
+            "based_on_version_id": "00000000-0000-4000-8000-0000000000a1",
+        }
+        assert backend.paths("get") == [
+            ("get", "/cards"),
+            ("get", f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000d1"),
+        ]
+        assert backend.paths("post", "patch") == [
+            ("post", COMMIT_OPEN),
+            ("post", COMMIT_CLOSE),
+        ]
+        assert backend.body("post", COMMIT_CLOSE) == {
+            "summary": {"status": "previewed", "verified": False, "action": "update_draft"}
+        }
+
+    @pytest.mark.asyncio
     async def test_missing_card_returns_card_not_found_with_next_action(self, fake_token):
-        """import_bpmn no longer auto-creates a BusinessProcess card —
+        """import_bpmn does not auto-create a BusinessProcess card —
         forcing the agent into the explicit two-step flow (create card
-        with all metadata via create_cards_bulk, then import the BPMN).
-        Tested both with and without an existing match."""
+        with all metadata via create_cards_bulk, then import the BPMN)."""
         get_mock = AsyncMock(return_value={"items": [], "total": 0})
         post_mock = AsyncMock()  # must not be called
         with (
@@ -592,6 +708,7 @@ class TestImportBpmn:
                 dry_run=False,
             )
         post_mock.assert_not_called()
+        get_mock.assert_awaited_once()
         data = _parse(out)
         assert data["error"] == "card_not_found"
         assert data["business_process_name"] == "Brand New Process"
@@ -601,32 +718,7 @@ class TestImportBpmn:
         assert "type='BusinessProcess'" in data["next_action"]
 
     @pytest.mark.asyncio
-    async def test_dry_run_response_signals_not_committed(self, fake_token):
-        get_mock = AsyncMock(
-            return_value={
-                "items": [{"id": "bp-1", "name": "X", "parent_id": None}],
-                "total": 1,
-            }
-        )
-        post_mock, posted = _bpmn_batch_post()
-        with (
-            patch.object(server.TurboEAClient, "get", get_mock),
-            patch.object(server.TurboEAClient, "post", post_mock),
-        ):
-            out = await server.import_bpmn(
-                business_process_name="X", bpmn_xml="<bpmn:definitions/>"
-            )
-        assert posted == PREVIEW_BATCH_PATHS
-        data = _parse(out)
-        assert data["committed"] is False
-        assert data["verified"] is False
-        assert data["batch_id"] == "B-1"
-        assert "NOT" in data["next_action"]
-
-    @pytest.mark.asyncio
     async def test_missing_card_returns_card_not_found_in_dry_run_too(self, fake_token):
-        # dry_run defaults to True — verify the same card_not_found
-        # error path fires in dry-run so the agent gets the same signal.
         get_mock = AsyncMock(return_value={"items": [], "total": 0})
         post_mock = AsyncMock()
         with (
@@ -638,8 +730,7 @@ class TestImportBpmn:
                 bpmn_xml="<bpmn:definitions/>",
             )
         post_mock.assert_not_called()
-        data = _parse(out)
-        assert data["error"] == "card_not_found"
+        assert _parse(out)["error"] == "card_not_found"
 
     @pytest.mark.asyncio
     async def test_multi_match_refuses(self, fake_token):
@@ -652,154 +743,1127 @@ class TestImportBpmn:
                 "total": 2,
             }
         )
-        with patch.object(server.TurboEAClient, "get", get_mock):
+        post_mock = AsyncMock()
+        with (
+            patch.object(server.TurboEAClient, "get", get_mock),
+            patch.object(server.TurboEAClient, "post", post_mock),
+        ):
             out = await server.import_bpmn(
                 business_process_name="Order to Cash",
                 bpmn_xml="<bpmn:definitions/>",
+                dry_run=False,
             )
+        post_mock.assert_not_called()
         data = _parse(out)
         assert data["error"] == "ambiguous_business_process"
         assert len(data["candidates"]) == 2
 
     @pytest.mark.asyncio
-    async def test_commit_walks_draft_submit_approve(self, fake_token):
-        """Commit path against an existing card: POST /flow/drafts ->
-        /submit -> /approve. The diagram has to be `published` to render
-        in the Process Flow tab; landing only as a draft would explain
-        «agent says success, editor shows blank»."""
-        get_mock = AsyncMock(
-            return_value={
-                "items": [{"id": "bp-1", "name": "Order to Cash", "parent_id": None}],
-                "total": 1,
-            }
+    async def test_commit_creates_a_draft_based_on_the_published_flow(self, fake_token, public_url):
+        """The default commit saves a new draft based on the published flow,
+        so its element links carry over — and stops there: no submit, no
+        approve (discussion 1390)."""
+        backend = _FlowBackend(
+            reads={
+                f"{_FLOW}/published": {
+                    "id": "00000000-0000-4000-8000-0000000000a1",
+                    "revision": 3,
+                    "status": "published",
+                }
+            },
+            writes={
+                f"{_FLOW}/drafts": {
+                    "id": "00000000-0000-4000-8000-0000000000d4",
+                    "revision": 4,
+                    "status": "draft",
+                    "based_on_id": "00000000-0000-4000-8000-0000000000a1",
+                }
+            },
         )
+        data = await backend.run(
+            lambda: server.import_bpmn(
+                business_process_name="Order to Cash",
+                bpmn_xml="<bpmn:definitions/>",
+                svg_thumbnail="<svg/>",
+                dry_run=False,
+            )
+        )
+        assert backend.paths() == [
+            ("get", "/cards"),
+            ("get", f"{_FLOW}/published"),
+            ("post", COMMIT_OPEN),
+            ("post", f"{_FLOW}/drafts"),
+            ("post", COMMIT_CLOSE),
+        ]
+        assert not any(p.endswith(("/submit", "/approve")) for _, p in backend.paths())
+        assert backend.body("post", COMMIT_OPEN) == {"tool_name": "import_bpmn", "dry_run": False}
+        assert backend.body("post", f"{_FLOW}/drafts") == {
+            "bpmn_xml": "<bpmn:definitions/>",
+            "svg_thumbnail": "<svg/>",
+            "based_on_id": "00000000-0000-4000-8000-0000000000a1",
+        }
+        assert backend.body("post", COMMIT_CLOSE) == {
+            "summary": {
+                "business_process_id": "00000000-0000-4000-8000-0000000000b1",
+                "version_id": "00000000-0000-4000-8000-0000000000d4",
+                "revision": 4,
+                "action": "created",
+            }
+        }
+        assert data == {
+            "dry_run": False,
+            "committed": True,
+            "business_process_id": "00000000-0000-4000-8000-0000000000b1",
+            "version_id": "00000000-0000-4000-8000-0000000000d4",
+            "revision": 4,
+            "status": "draft",
+            "based_on_version_id": "00000000-0000-4000-8000-0000000000a1",
+            "action": "created",
+            "draft_url": _DRAFT_URL.format("00000000-0000-4000-8000-0000000000d4"),
+            "drafts_tab_url": _DRAFTS_TAB,
+            "next_action": data["next_action"],
+            "batch_id": "B-1",
+            "based_on_revision": 3,
+        }
+        assert "draft_version_id='00000000-0000-4000-8000-0000000000d4'" in data["next_action"]
+        assert "submit_process_flow" in data["next_action"]
 
-        post_calls: list[tuple[str, dict]] = []
-
-        async def _post(path, json=None):
-            post_calls.append((path, json or {}))
-            if path == "/mutation-batches/B-1/commit":
-                return {"id": "B-1", "committed_at": "now"}
-            if path.startswith("/mutation-batches"):
-                return {"id": "B-1", "dry_run": False}
-            if path == "/bpm/processes/bp-1/flow/drafts":
-                return {"id": "draft-1", "status": "draft", "revision": 1}
-            if path.endswith("/submit"):
-                return {"id": "draft-1", "status": "pending", "revision": 1}
-            if path.endswith("/approve"):
-                return {"id": "draft-1", "status": "published", "revision": 1}
-            raise AssertionError(f"unexpected POST {path}")
-
-        with (
-            patch.object(server.TurboEAClient, "get", get_mock),
-            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=_post)),
-        ):
-            out = await server.import_bpmn(
+    @pytest.mark.asyncio
+    async def test_commit_without_a_published_flow_creates_an_unbased_draft(
+        self, fake_token, public_url
+    ):
+        backend = _FlowBackend(
+            reads={f"{_FLOW}/published": None},
+            writes={
+                f"{_FLOW}/drafts": {
+                    "id": "00000000-0000-4000-8000-0000000000d1",
+                    "revision": 1,
+                    "status": "draft",
+                    "based_on_id": None,
+                }
+            },
+        )
+        data = await backend.run(
+            lambda: server.import_bpmn(
                 business_process_name="Order to Cash",
                 bpmn_xml="<bpmn:definitions/>",
                 dry_run=False,
             )
-        paths = [p for p, _ in post_calls]
-        assert paths == [
-            "/mutation-batches?row_count=1",
-            "/bpm/processes/bp-1/flow/drafts",
-            "/bpm/processes/bp-1/flow/versions/draft-1/submit",
-            "/bpm/processes/bp-1/flow/versions/draft-1/approve",
-            "/mutation-batches/B-1/commit",
-        ]
-        assert post_calls[0][1] == {"tool_name": "import_bpmn", "dry_run": False}
-        assert post_calls[-1][1] == {
-            "summary": {
-                "business_process_id": "bp-1",
-                "draft_id": "draft-1",
-                "workflow_state": "published",
-            }
-        }
-        data = _parse(out)
-        assert data["batch_id"] == "B-1"
-        assert data["committed"] is True
-        assert data["workflow_state"] == "published"
-        assert data["draft_id"] == "draft-1"
-        assert data["verify_urls"]["flow_published"] == (
-            "/api/v1/bpm/processes/bp-1/flow/published"
         )
+        assert backend.body("post", f"{_FLOW}/drafts") == {
+            "bpmn_xml": "<bpmn:definitions/>",
+            "svg_thumbnail": None,
+            "based_on_id": None,
+        }
+        assert data["based_on_version_id"] is None
+        assert data["based_on_revision"] is None
+        assert data["revision"] == 1
+        assert data["action"] == "created"
 
     @pytest.mark.asyncio
-    async def test_commit_degrades_gracefully_when_approve_denied(self, fake_token):
-        """If the user can create+submit but the approve step is denied
-        (e.g. they're not a process owner), the tool returns a clear
-        warning instead of silently leaving the diagram as a pending
-        draft the user can't see in the published view."""
-        get_mock = AsyncMock(
-            return_value={
-                "items": [{"id": "bp-1", "name": "P", "parent_id": None}],
-                "total": 1,
-            }
+    async def test_commit_based_on_a_named_version(self, fake_token, public_url):
+        """``based_on_version_id`` starts the draft from that version, and the
+        published flow is not even read."""
+        backend = _FlowBackend(
+            reads={
+                f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000e2": {
+                    "id": "00000000-0000-4000-8000-0000000000e2",
+                    "revision": 2,
+                    "status": "archived",
+                }
+            },
+            writes={
+                f"{_FLOW}/drafts": {
+                    "id": "00000000-0000-4000-8000-0000000000d6",
+                    "revision": 6,
+                    "status": "draft",
+                    "based_on_id": "00000000-0000-4000-8000-0000000000e2",
+                }
+            },
         )
-        import httpx
-
-        async def _post(path, json=None):
-            if path.startswith("/mutation-batches"):
-                return {"id": "B-1"}
-            if path.endswith("/flow/drafts"):
-                return {"id": "draft-1", "status": "draft"}
-            if path.endswith("/submit"):
-                return {"id": "draft-1", "status": "pending"}
-            if path.endswith("/approve"):
-                req = httpx.Request("POST", "http://x" + path)
-                resp = httpx.Response(403, request=req)
-                raise httpx.HTTPStatusError("forbidden", request=req, response=resp)
-            raise AssertionError(path)
-
-        with (
-            patch.object(server.TurboEAClient, "get", get_mock),
-            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=_post)),
-        ):
-            out = await server.import_bpmn(
-                business_process_name="P",
-                bpmn_xml="<bpmn:definitions/>",
+        data = await backend.run(
+            lambda: server.import_bpmn(
+                business_process_name="Order to Cash",
+                bpmn_xml="<x/>",
+                based_on_version_id="00000000-0000-4000-8000-0000000000e2",
                 dry_run=False,
             )
-        data = _parse(out)
-        assert data["committed"] is True
-        assert data["workflow_state"] == "pending"
-        assert data["batch_id"] == "B-1"
-        assert "warning" in data
-        assert "processOwner" in data["warning"]
+        )
+        assert backend.paths("get") == [
+            ("get", "/cards"),
+            ("get", f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000e2"),
+        ]
+        assert backend.body("post", f"{_FLOW}/drafts") == {
+            "bpmn_xml": "<x/>",
+            "svg_thumbnail": None,
+            "based_on_id": "00000000-0000-4000-8000-0000000000e2",
+        }
+        assert data["version_id"] == "00000000-0000-4000-8000-0000000000d6"
+        assert data["based_on_version_id"] == "00000000-0000-4000-8000-0000000000e2"
+        assert data["based_on_revision"] == 2
 
     @pytest.mark.asyncio
-    async def test_a_draft_that_was_not_created_closes_the_batch_as_failed(self, fake_token):
-        get_mock = AsyncMock(
-            return_value={"items": [{"id": "bp-1", "name": "P", "parent_id": None}]}
+    async def test_commit_updates_an_existing_draft_in_place(self, fake_token, public_url):
+        """``draft_version_id`` PATCHes that draft: same version, same
+        revision, no new draft and no submit."""
+        backend = _FlowBackend(
+            reads={
+                f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000d1": {
+                    "id": "00000000-0000-4000-8000-0000000000d1",
+                    "revision": 5,
+                    "status": "draft",
+                    "based_on_id": "00000000-0000-4000-8000-0000000000a1",
+                }
+            },
+            writes={
+                f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000d1": {
+                    "id": "00000000-0000-4000-8000-0000000000d1",
+                    "revision": 5,
+                    "status": "draft",
+                    "based_on_id": "00000000-0000-4000-8000-0000000000a1",
+                }
+            },
         )
-        calls: list = []
-
-        async def _post(path, json=None):
-            calls.append((path, json))
-            if path.startswith("/mutation-batches"):
-                return {"id": "B-1"}
-            return {"detail": "nope"}  # no draft id
-
-        with (
-            patch.object(server.TurboEAClient, "get", get_mock),
-            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=_post)),
-        ):
-            out = await server.import_bpmn(
-                business_process_name="P", bpmn_xml="<bpmn:definitions/>", dry_run=False
+        data = await backend.run(
+            lambda: server.import_bpmn(
+                business_process_name="Order to Cash",
+                bpmn_xml="<new/>",
+                draft_version_id="00000000-0000-4000-8000-0000000000d1",
+                dry_run=False,
             )
-        assert _parse(out) == {
-            "error": "draft_create_failed",
-            "draft_response": {"detail": "nope"},
+        )
+        assert backend.paths() == [
+            ("get", "/cards"),
+            ("get", f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000d1"),
+            ("post", COMMIT_OPEN),
+            ("patch", f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000d1"),
+            ("post", COMMIT_CLOSE),
+        ]
+        # No thumbnail given: the stored one is left alone.
+        assert backend.body("patch", f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000d1") == {
+            "bpmn_xml": "<new/>"
+        }
+        assert backend.body("post", COMMIT_CLOSE) == {
+            "summary": {
+                "business_process_id": "00000000-0000-4000-8000-0000000000b1",
+                "version_id": "00000000-0000-4000-8000-0000000000d1",
+                "revision": 5,
+                "action": "updated",
+            }
+        }
+        assert data == {
+            "dry_run": False,
+            "committed": True,
+            "business_process_id": "00000000-0000-4000-8000-0000000000b1",
+            "version_id": "00000000-0000-4000-8000-0000000000d1",
+            "revision": 5,
+            "status": "draft",
+            "based_on_version_id": "00000000-0000-4000-8000-0000000000a1",
+            "action": "updated",
+            "draft_url": _DRAFT_URL.format("00000000-0000-4000-8000-0000000000d1"),
+            "drafts_tab_url": _DRAFTS_TAB,
+            "next_action": data["next_action"],
             "batch_id": "B-1",
         }
-        assert [p for p, _ in calls] == [
-            "/mutation-batches?row_count=1",
-            "/bpm/processes/bp-1/flow/drafts",
-            "/mutation-batches/B-1/commit",
-        ]
-        assert calls[-1][1] == {
-            "summary": {"status": "draft_create_failed", "business_process_id": "bp-1"}
+
+    @pytest.mark.asyncio
+    async def test_a_draft_update_sends_a_given_thumbnail(self, fake_token, public_url):
+        draft = {
+            "id": "00000000-0000-4000-8000-0000000000d1",
+            "revision": 5,
+            "status": "draft",
+            "based_on_id": None,
         }
+        backend = _FlowBackend(
+            reads={f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000d1": draft},
+            writes={f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000d1": draft},
+        )
+        await backend.run(
+            lambda: server.import_bpmn(
+                business_process_name="Order to Cash",
+                bpmn_xml="<new/>",
+                draft_version_id="00000000-0000-4000-8000-0000000000d1",
+                svg_thumbnail="<svg/>",
+                dry_run=False,
+            )
+        )
+        assert backend.body("patch", f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000d1") == {
+            "bpmn_xml": "<new/>",
+            "svg_thumbnail": "<svg/>",
+        }
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("dry_run", [True, False])
+    async def test_both_version_ids_are_refused_before_any_call(self, fake_token, dry_run):
+        backend = _FlowBackend()
+        data = await backend.run(
+            lambda: server.import_bpmn(
+                business_process_name="Order to Cash",
+                bpmn_xml="<x/>",
+                draft_version_id="00000000-0000-4000-8000-0000000000d1",
+                based_on_version_id="00000000-0000-4000-8000-0000000000e2",
+                dry_run=dry_run,
+            )
+        )
+        assert backend.calls == []
+        assert data["error"] == "conflicting_versions"
+        assert "not both" in data["message"]
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("dry_run", [True, False])
+    @pytest.mark.parametrize("status", ["pending", "published", "archived"])
+    async def test_a_target_that_is_not_a_draft_is_refused(
+        self, fake_token, public_url, dry_run, status
+    ):
+        backend = _FlowBackend(
+            reads={
+                f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000e9": {
+                    "id": "00000000-0000-4000-8000-0000000000e9",
+                    "revision": 9,
+                    "status": status,
+                }
+            }
+        )
+        data = await backend.run(
+            lambda: server.import_bpmn(
+                business_process_name="Order to Cash",
+                bpmn_xml="<x/>",
+                draft_version_id="00000000-0000-4000-8000-0000000000e9",
+                dry_run=dry_run,
+            )
+        )
+        # Refused before the batch opens: nothing is written.
+        assert backend.paths("post", "patch") == []
+        assert data == {
+            "error": "wrong_status",
+            "status": status,
+            "expected_status": "draft",
+            "business_process_id": "00000000-0000-4000-8000-0000000000b1",
+            "version_id": "00000000-0000-4000-8000-0000000000e9",
+            "revision": 9,
+            "message": server._NOT_A_DRAFT_MESSAGE,
+            "drafts_tab_url": _DRAFTS_TAB,
+        }
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("status_code", [403, 404])
+    @pytest.mark.parametrize("arg", ["draft_version_id", "based_on_version_id"])
+    async def test_an_unreadable_version_is_refused_with_the_backend_detail(
+        self, fake_token, public_url, status_code, arg
+    ):
+        backend = _FlowBackend(
+            reads={
+                f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000e9": _flow_http_error(
+                    status_code, "Version not found", "GET"
+                )
+            }
+        )
+        data = await backend.run(
+            lambda: server.import_bpmn(
+                business_process_name="Order to Cash",
+                bpmn_xml="<x/>",
+                dry_run=False,
+                **{arg: "00000000-0000-4000-8000-0000000000e9"},
+            )
+        )
+        assert backend.paths("post", "patch") == []
+        assert data == {
+            "error": "version_unavailable",
+            "status_code": status_code,
+            "detail": "Version not found",
+            "business_process_id": "00000000-0000-4000-8000-0000000000b1",
+            "version_id": "00000000-0000-4000-8000-0000000000e9",
+            "drafts_tab_url": _DRAFTS_TAB,
+        }
+
+    @pytest.mark.asyncio
+    async def test_an_unreadable_published_flow_is_refused(self, fake_token, public_url):
+        backend = _FlowBackend(
+            reads={f"{_FLOW}/published": _flow_http_error(403, "Not enough permissions", "GET")}
+        )
+        data = await backend.run(
+            lambda: server.import_bpmn(
+                business_process_name="Order to Cash", bpmn_xml="<x/>", dry_run=False
+            )
+        )
+        assert backend.paths("post", "patch") == []
+        assert data["error"] == "version_unavailable"
+        assert data["status_code"] == 403
+        assert data["detail"] == "Not enough permissions"
+        assert data["version_id"] is None
+
+    @pytest.mark.asyncio
+    async def test_a_server_error_on_a_read_is_not_dressed_up_as_a_refusal(self, fake_token):
+        import httpx
+
+        backend = _FlowBackend(reads={f"{_FLOW}/published": _flow_http_error(500, "boom", "GET")})
+        with pytest.raises(httpx.HTTPStatusError):
+            await backend.run(
+                lambda: server.import_bpmn(
+                    business_process_name="Order to Cash", bpmn_xml="<x/>", dry_run=False
+                )
+            )
+        assert backend.paths("post", "patch") == []
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("status_code", [400, 403, 404])
+    async def test_a_refused_save_closes_the_batch_and_carries_the_detail(
+        self, fake_token, public_url, status_code
+    ):
+        backend = _FlowBackend(
+            reads={f"{_FLOW}/published": None},
+            writes={f"{_FLOW}/drafts": _flow_http_error(status_code, "Insufficient permissions")},
+        )
+        data = await backend.run(
+            lambda: server.import_bpmn(
+                business_process_name="Order to Cash", bpmn_xml="<x/>", dry_run=False
+            )
+        )
+        assert backend.paths("post") == [
+            ("post", COMMIT_OPEN),
+            ("post", f"{_FLOW}/drafts"),
+            ("post", COMMIT_CLOSE),
+        ]
+        assert backend.body("post", COMMIT_CLOSE) == {
+            "summary": {
+                "status": "refused",
+                "business_process_id": "00000000-0000-4000-8000-0000000000b1",
+                "error": "draft_save_refused",
+            }
+        }
+        assert data == {
+            "error": "draft_save_refused",
+            "status_code": status_code,
+            "detail": "Insufficient permissions",
+            "business_process_id": "00000000-0000-4000-8000-0000000000b1",
+            "version_id": None,
+            "drafts_tab_url": _DRAFTS_TAB,
+            "batch_id": "B-1",
+        }
+
+    @pytest.mark.asyncio
+    async def test_a_server_error_on_the_save_is_raised(self, fake_token):
+        import httpx
+
+        backend = _FlowBackend(
+            reads={f"{_FLOW}/published": None},
+            writes={f"{_FLOW}/drafts": _flow_http_error(500, "boom")},
+        )
+        with pytest.raises(httpx.HTTPStatusError):
+            await backend.run(
+                lambda: server.import_bpmn(
+                    business_process_name="Order to Cash", bpmn_xml="<x/>", dry_run=False
+                )
+            )
+
+    @pytest.mark.asyncio
+    async def test_a_draft_that_was_not_saved_closes_the_batch_as_failed(self, fake_token):
+        backend = _FlowBackend(
+            reads={f"{_FLOW}/published": None},
+            writes={f"{_FLOW}/drafts": {"detail": "nope"}},  # no draft id
+        )
+        data = await backend.run(
+            lambda: server.import_bpmn(
+                business_process_name="Order to Cash", bpmn_xml="<x/>", dry_run=False
+            )
+        )
+        assert data == {
+            "error": "draft_save_failed",
+            "response": {"detail": "nope"},
+            "batch_id": "B-1",
+        }
+        assert backend.paths("post") == [
+            ("post", COMMIT_OPEN),
+            ("post", f"{_FLOW}/drafts"),
+            ("post", COMMIT_CLOSE),
+        ]
+        assert backend.body("post", COMMIT_CLOSE) == {
+            "summary": {
+                "status": "draft_save_failed",
+                "business_process_id": "00000000-0000-4000-8000-0000000000b1",
+            }
+        }
+
+
+# ── process-flow versions: list / get ──────────────────────────────────────
+
+
+_PUBLISHED_ROW = {
+    "id": "00000000-0000-4000-8000-0000000000a1",
+    "process_id": "00000000-0000-4000-8000-0000000000b1",
+    "revision": 3,
+    "status": "published",
+    "based_on_id": "00000000-0000-4000-8000-0000000000e2",
+    "bpmn_xml": "<published/>",
+    "svg_thumbnail": "<svg/>",
+    "created_at": "c3",
+    "created_by_name": "Ann",
+    "submitted_at": "s3",
+    "submitted_by_name": "Ann",
+    "approved_at": "a3",
+    "approved_by_name": "Bob",
+    "draft_element_links": None,
+}
+
+
+def _summary(**fields):
+    keys = server._FLOW_VERSION_SUMMARY_KEYS
+    return {k: fields.get(k) for k in keys}
+
+
+class TestAppUrl:
+    def test_only_trailing_slashes_are_stripped(self, monkeypatch):
+        """The public URL keeps every other character, even one it ends in
+        before the slash."""
+        monkeypatch.setattr(server, "TURBO_EA_PUBLIC_URL", "https://ea.example.com/X//")
+        assert server._app_url("/cards/1") == "https://ea.example.com/X/cards/1"
+
+
+class TestListProcessFlowVersions:
+    @pytest.mark.asyncio
+    async def test_lists_the_published_flow_and_the_drafts(self, fake_token, public_url):
+        backend = _FlowBackend(
+            reads={
+                f"{_FLOW}/published": _PUBLISHED_ROW,
+                f"{_FLOW}/drafts": [
+                    {
+                        "id": "00000000-0000-4000-8000-0000000000d5",
+                        "revision": 5,
+                        "status": "draft",
+                        "based_on_id": "00000000-0000-4000-8000-0000000000a1",
+                    },
+                    {
+                        "id": "00000000-0000-4000-8000-0000000000f4",
+                        "revision": 4,
+                        "status": "pending",
+                        "submitted_at": "s4",
+                    },
+                ],
+            }
+        )
+        data = await backend.run(
+            lambda: server.list_process_flow_versions(
+                business_process_id="00000000-0000-4000-8000-0000000000b1"
+            )
+        )
+        assert backend.paths() == [("get", f"{_FLOW}/published"), ("get", f"{_FLOW}/drafts")]
+        assert data == {
+            "business_process_id": "00000000-0000-4000-8000-0000000000b1",
+            "published": {
+                **_summary(**_PUBLISHED_ROW),
+                "url": _PUBLISHED_TAB,
+            },
+            "drafts": [
+                {
+                    **_summary(
+                        id="00000000-0000-4000-8000-0000000000d5",
+                        revision=5,
+                        status="draft",
+                        based_on_id="00000000-0000-4000-8000-0000000000a1",
+                    ),
+                    "draft_url": _DRAFT_URL.format("00000000-0000-4000-8000-0000000000d5"),
+                },
+                # A pending version is not edited, so it has no editor link.
+                _summary(
+                    id="00000000-0000-4000-8000-0000000000f4",
+                    revision=4,
+                    status="pending",
+                    submitted_at="s4",
+                ),
+            ],
+            "drafts_visible": True,
+            "drafts_tab_url": _DRAFTS_TAB,
+        }
+        # No XML and no thumbnail in a listing.
+        assert "bpmn_xml" not in data["published"]
+        assert "svg_thumbnail" not in data["published"]
+
+    @pytest.mark.asyncio
+    async def test_no_published_flow_and_drafts_hidden_from_the_reader(
+        self, fake_token, public_url
+    ):
+        backend = _FlowBackend(
+            reads={
+                f"{_FLOW}/published": None,
+                f"{_FLOW}/drafts": _flow_http_error(403, "Insufficient permissions", "GET"),
+            }
+        )
+        data = await backend.run(
+            lambda: server.list_process_flow_versions(
+                business_process_id="00000000-0000-4000-8000-0000000000b1"
+            )
+        )
+        assert data == {
+            "business_process_id": "00000000-0000-4000-8000-0000000000b1",
+            "published": None,
+            "drafts": [],
+            "drafts_visible": False,
+            "drafts_tab_url": _DRAFTS_TAB,
+        }
+
+    @pytest.mark.asyncio
+    async def test_an_unknown_process_is_a_structured_refusal(self, fake_token, public_url):
+        backend = _FlowBackend(
+            reads={f"{_FLOW}/published": _flow_http_error(404, "Business process not found", "GET")}
+        )
+        data = await backend.run(
+            lambda: server.list_process_flow_versions(
+                business_process_id="00000000-0000-4000-8000-0000000000b1"
+            )
+        )
+        assert backend.paths() == [("get", f"{_FLOW}/published")]
+        assert data == {
+            "error": "process_flow_unavailable",
+            "status_code": 404,
+            "detail": "Business process not found",
+            "business_process_id": "00000000-0000-4000-8000-0000000000b1",
+            "version_id": None,
+            "drafts_tab_url": _DRAFTS_TAB,
+        }
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("path", ["/published", "/drafts"])
+    async def test_a_server_error_is_raised(self, fake_token, path):
+        import httpx
+
+        reads = {f"{_FLOW}/published": None, f"{_FLOW}/drafts": []}
+        reads[f"{_FLOW}{path}"] = _flow_http_error(500, "boom", "GET")
+        backend = _FlowBackend(reads=reads)
+        with pytest.raises(httpx.HTTPStatusError):
+            await backend.run(
+                lambda: server.list_process_flow_versions(
+                    business_process_id="00000000-0000-4000-8000-0000000000b1"
+                )
+            )
+
+
+class TestGetProcessFlowVersion:
+    @pytest.mark.asyncio
+    async def test_an_answer_that_is_not_an_object_reads_as_empty(self, fake_token, public_url):
+        backend = _FlowBackend(reads={f"{_FLOW}/versions/{_STEP_VERSION}": None})
+        data = await backend.run(
+            lambda: server.get_process_flow_version(
+                business_process_id=_STEP_PROCESS, version_id=_STEP_VERSION
+            )
+        )
+        assert data == {"drafts_tab_url": _DRAFTS_TAB}
+
+    @pytest.mark.asyncio
+    async def test_a_server_error_is_raised(self, fake_token):
+        import httpx
+
+        backend = _FlowBackend(
+            reads={
+                f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000d5": _flow_http_error(
+                    500, "boom", "GET"
+                )
+            }
+        )
+        with pytest.raises(httpx.HTTPStatusError):
+            await backend.run(
+                lambda: server.get_process_flow_version(
+                    business_process_id="00000000-0000-4000-8000-0000000000b1",
+                    version_id="00000000-0000-4000-8000-0000000000d5",
+                )
+            )
+
+    @pytest.mark.asyncio
+    async def test_a_draft_carries_its_xml_and_editor_link(self, fake_token, public_url):
+        row = {
+            **_PUBLISHED_ROW,
+            "id": "00000000-0000-4000-8000-0000000000d5",
+            "status": "draft",
+            "bpmn_xml": "<draft/>",
+        }
+        backend = _FlowBackend(
+            reads={f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000d5": row}
+        )
+        data = await backend.run(
+            lambda: server.get_process_flow_version(
+                business_process_id="00000000-0000-4000-8000-0000000000b1",
+                version_id="00000000-0000-4000-8000-0000000000d5",
+            )
+        )
+        assert backend.paths() == [
+            ("get", f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000d5")
+        ]
+        expected = {k: v for k, v in row.items() if k != "svg_thumbnail"}
+        assert data == {
+            **expected,
+            "draft_url": _DRAFT_URL.format("00000000-0000-4000-8000-0000000000d5"),
+            "drafts_tab_url": _DRAFTS_TAB,
+        }
+
+    @pytest.mark.asyncio
+    async def test_a_published_version_has_no_editor_link(self, fake_token, public_url):
+        backend = _FlowBackend(
+            reads={f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000a1": _PUBLISHED_ROW}
+        )
+        data = await backend.run(
+            lambda: server.get_process_flow_version(
+                business_process_id="00000000-0000-4000-8000-0000000000b1",
+                version_id="00000000-0000-4000-8000-0000000000a1",
+            )
+        )
+        assert data["bpmn_xml"] == "<published/>"
+        assert "draft_url" not in data
+        assert "svg_thumbnail" not in data
+        assert data["drafts_tab_url"] == _DRAFTS_TAB
+
+    @pytest.mark.asyncio
+    async def test_a_hidden_version_is_a_structured_refusal(self, fake_token, public_url):
+        backend = _FlowBackend(
+            reads={
+                f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000d5": _flow_http_error(
+                    403, "Insufficient permissions", "GET"
+                )
+            }
+        )
+        data = await backend.run(
+            lambda: server.get_process_flow_version(
+                business_process_id="00000000-0000-4000-8000-0000000000b1",
+                version_id="00000000-0000-4000-8000-0000000000d5",
+            )
+        )
+        assert data == {
+            "error": "version_unavailable",
+            "status_code": 403,
+            "detail": "Insufficient permissions",
+            "business_process_id": "00000000-0000-4000-8000-0000000000b1",
+            "version_id": "00000000-0000-4000-8000-0000000000d5",
+            "drafts_tab_url": _DRAFTS_TAB,
+        }
+
+
+# ── submit_process_flow / approve_process_flow ─────────────────────────────
+
+
+_STEP_CASES = {
+    "submit": ("submit_process_flow", "draft", "pending", "drafts_tab_url", _DRAFTS_TAB),
+    "approve": ("approve_process_flow", "pending", "published", "published_url", _PUBLISHED_TAB),
+}
+
+
+_STEP_PROCESS = "00000000-0000-4000-8000-0000000000b1"
+_STEP_VERSION = "00000000-0000-4000-8000-0000000000e1"
+
+
+def _step_call(step, dry_run=True, version_id="00000000-0000-4000-8000-0000000000e1"):
+    tool = getattr(server, _STEP_CASES[step][0])
+    return lambda: tool(
+        business_process_id="00000000-0000-4000-8000-0000000000b1",
+        version_id=version_id,
+        dry_run=dry_run,
+    )
+
+
+@pytest.mark.parametrize("step", ["submit", "approve"])
+class TestProcessFlowSteps:
+    @pytest.mark.asyncio
+    async def test_commit_posts_the_step_inside_one_batch(self, fake_token, public_url, step):
+        tool, _, to_status, url_key, url = _STEP_CASES[step]
+        backend = _FlowBackend(
+            writes={
+                f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000e1/{step}": {
+                    "id": "00000000-0000-4000-8000-0000000000e1",
+                    "revision": 4,
+                    "status": to_status,
+                }
+            }
+        )
+        data = await backend.run(_step_call(step, dry_run=False))
+        # No read on a commit: the backend checks the status itself.
+        assert backend.paths() == [
+            ("post", COMMIT_OPEN),
+            ("post", f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000e1/{step}"),
+            ("post", COMMIT_CLOSE),
+        ]
+        assert backend.body("post", COMMIT_OPEN) == {"tool_name": tool, "dry_run": False}
+        assert (
+            backend.body("post", f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000e1/{step}")
+            == {}
+        )
+        assert backend.body("post", COMMIT_CLOSE) == {
+            "summary": {
+                "business_process_id": "00000000-0000-4000-8000-0000000000b1",
+                "version_id": "00000000-0000-4000-8000-0000000000e1",
+                "status": to_status,
+            }
+        }
+        assert data == {
+            "business_process_id": "00000000-0000-4000-8000-0000000000b1",
+            "version_id": "00000000-0000-4000-8000-0000000000e1",
+            "revision": 4,
+            "status": to_status,
+            url_key: url,
+            "next_action": server._FLOW_STEPS[step]["next_action"],
+            "batch_id": "B-1",
+        }
+
+    @pytest.mark.asyncio
+    async def test_dry_run_reads_the_version_and_writes_nothing(self, fake_token, public_url, step):
+        tool, from_status, to_status, _, _ = _STEP_CASES[step]
+        backend = _FlowBackend(
+            reads={
+                f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000e1": {
+                    "id": "00000000-0000-4000-8000-0000000000e1",
+                    "revision": 4,
+                    "status": from_status,
+                }
+            }
+        )
+        data = await backend.run(_step_call(step))
+        assert backend.paths() == [
+            ("get", f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000e1"),
+            ("post", COMMIT_OPEN),
+            ("post", COMMIT_CLOSE),
+        ]
+        assert backend.body("post", COMMIT_OPEN) == {"tool_name": tool, "dry_run": True}
+        assert backend.body("post", COMMIT_CLOSE) == {
+            "summary": {
+                "status": "previewed",
+                "business_process_id": "00000000-0000-4000-8000-0000000000b1",
+                "version_id": "00000000-0000-4000-8000-0000000000e1",
+            }
+        }
+        assert data == {
+            "dry_run": True,
+            f"would_{step}": {
+                "business_process_id": "00000000-0000-4000-8000-0000000000b1",
+                "version_id": "00000000-0000-4000-8000-0000000000e1",
+                "revision": 4,
+                "from_status": from_status,
+                "to_status": to_status,
+            },
+            "note": data["note"],
+            "batch_id": "B-1",
+        }
+        assert data["note"] == (
+            "Preview built by the MCP server: the route has no dry run, so the "
+            f"version was read and nothing was changed. Call again with "
+            f"dry_run=False to {step} it."
+        )
+
+    @pytest.mark.asyncio
+    async def test_every_call_carries_the_callers_token(self, fake_token, step):
+        """The preview's version read and both batch calls are made as the
+        caller — no call goes out without their token."""
+        tokens: list = []
+        backend = _FlowBackend(
+            reads={
+                f"{_FLOW}/versions/{_STEP_VERSION}": {
+                    "id": _STEP_VERSION,
+                    "revision": 4,
+                    "status": _STEP_CASES[step][1],
+                }
+            }
+        )
+
+        async def get(client, path, params=None):
+            tokens.append(client._token)
+            return await backend.get(path, params)
+
+        async def post(client, path, json=None):
+            tokens.append(client._token)
+            return await backend.post(path, json)
+
+        with (
+            patch.object(server.TurboEAClient, "get", autospec=True, side_effect=get),
+            patch.object(server.TurboEAClient, "post", autospec=True, side_effect=post),
+        ):
+            await _step_call(step)()
+        assert [p for _, p in backend.paths()] == [
+            f"{_FLOW}/versions/{_STEP_VERSION}",
+            COMMIT_OPEN,
+            COMMIT_CLOSE,
+        ]
+        assert tokens == ["test-token", "test-token", "test-token"]
+
+    @pytest.mark.asyncio
+    async def test_dry_run_of_an_unreadable_shape_is_refused(self, fake_token, public_url, step):
+        """A version read that is not an object is read as no version: the
+        preview refuses it rather than failing on it."""
+        backend = _FlowBackend(reads={f"{_FLOW}/versions/{_STEP_VERSION}": ["not", "a", "dict"]})
+        data = await backend.run(_step_call(step))
+        assert backend.paths("post") == []
+        assert data["error"] == "wrong_status"
+        assert data["status"] is None
+        assert data["revision"] is None
+
+    @pytest.mark.asyncio
+    async def test_a_commit_answer_that_is_not_an_object(self, fake_token, public_url, step):
+        _, _, _, url_key, url = _STEP_CASES[step]
+        backend = _FlowBackend(writes={f"{_FLOW}/versions/{_STEP_VERSION}/{step}": ["odd"]})
+        data = await backend.run(_step_call(step, dry_run=False))
+        assert backend.body("post", COMMIT_CLOSE) == {
+            "summary": {
+                "business_process_id": _STEP_PROCESS,
+                "version_id": _STEP_VERSION,
+                "status": None,
+            }
+        }
+        assert data == {
+            "business_process_id": _STEP_PROCESS,
+            "version_id": _STEP_VERSION,
+            "revision": None,
+            "status": None,
+            url_key: url,
+            "next_action": server._FLOW_STEPS[step]["next_action"],
+            "batch_id": "B-1",
+        }
+
+    @pytest.mark.asyncio
+    async def test_dry_run_refuses_a_version_in_the_wrong_status(
+        self, fake_token, public_url, step
+    ):
+        backend = _FlowBackend(
+            reads={
+                f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000e1": {
+                    "id": "00000000-0000-4000-8000-0000000000e1",
+                    "revision": 4,
+                    "status": "published",
+                }
+            }
+        )
+        data = await backend.run(_step_call(step))
+        assert backend.paths("post") == []
+        assert data == {
+            "error": "wrong_status",
+            "status": "published",
+            "expected_status": _STEP_CASES[step][1],
+            "business_process_id": "00000000-0000-4000-8000-0000000000b1",
+            "version_id": "00000000-0000-4000-8000-0000000000e1",
+            "revision": 4,
+            "message": server._FLOW_STEPS[step]["wrong_status"],
+            "drafts_tab_url": _DRAFTS_TAB,
+        }
+
+    @pytest.mark.asyncio
+    async def test_dry_run_refuses_a_version_it_cannot_read(self, fake_token, public_url, step):
+        backend = _FlowBackend(
+            reads={
+                f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000e1": _flow_http_error(
+                    404, "Version not found", "GET"
+                )
+            }
+        )
+        data = await backend.run(_step_call(step))
+        assert backend.paths("post") == []
+        assert data["error"] == "version_unavailable"
+        assert data["detail"] == "Version not found"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("status_code", "detail"),
+        [
+            (403, "Only process owners, admins, or BPM admins can approve"),
+            (400, "Only draft versions can be submitted for approval"),
+            (404, "Version not found"),
+        ],
+    )
+    async def test_a_refused_step_carries_the_backend_detail(
+        self, fake_token, public_url, step, status_code, detail
+    ):
+        backend = _FlowBackend(
+            writes={
+                f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000e1/{step}": _flow_http_error(
+                    status_code, detail
+                )
+            }
+        )
+        data = await backend.run(_step_call(step, dry_run=False))
+        assert backend.paths() == [
+            ("post", COMMIT_OPEN),
+            ("post", f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000e1/{step}"),
+            ("post", COMMIT_CLOSE),
+        ]
+        assert backend.body("post", COMMIT_CLOSE) == {
+            "summary": {
+                "status": "refused",
+                "business_process_id": "00000000-0000-4000-8000-0000000000b1",
+                "version_id": "00000000-0000-4000-8000-0000000000e1",
+                "error": f"{step}_refused",
+            }
+        }
+        assert data == {
+            "error": f"{step}_refused",
+            "status_code": status_code,
+            "detail": detail,
+            "business_process_id": "00000000-0000-4000-8000-0000000000b1",
+            "version_id": "00000000-0000-4000-8000-0000000000e1",
+            "drafts_tab_url": _DRAFTS_TAB,
+            "batch_id": "B-1",
+        }
+
+    @pytest.mark.asyncio
+    async def test_a_server_error_is_raised(self, fake_token, step):
+        import httpx
+
+        backend = _FlowBackend(
+            writes={
+                f"{_FLOW}/versions/00000000-0000-4000-8000-0000000000e1/{step}": _flow_http_error(
+                    500, "boom"
+                )
+            }
+        )
+        with pytest.raises(httpx.HTTPStatusError):
+            await backend.run(_step_call(step, dry_run=False))
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("dry_run", [True, False])
+    async def test_kill_switch(self, fake_token, monkeypatch, step, dry_run):
+        monkeypatch.setattr(server, "MCP_WRITES_ENABLED", False)
+        backend = _FlowBackend()
+        data = await backend.run(_step_call(step, dry_run=dry_run))
+        assert data["error"] == "writes_disabled"
+        assert backend.calls == []
+
+    def test_requires_auth(self, monkeypatch, step):
+        monkeypatch.setattr(server, "_stdio_token", None)
+        backend = _FlowBackend()
+        g, p, pa = backend.patched()
+        with g, p, pa:
+            out = asyncio.run(_step_call(step, dry_run=False)())
+        assert out == "Error: Not authenticated. Please reconnect."
+        assert backend.calls == []
+
+
+_GOOD = "00000000-0000-4000-8000-0000000000e1"
+_BAD_IDS = ["not-a-uuid", "x/../../cards/00000000-0000-4000-8000-0000000000c1/archive?"]
+
+
+def _flow_id_calls(dry_run):
+    """Every flow tool, as ``parameter -> (bad id) -> coroutine factory``."""
+    bp = "00000000-0000-4000-8000-0000000000b1"
+    return {
+        ("import_bpmn", "draft_version_id"): lambda bad: (
+            lambda: server.import_bpmn(
+                business_process_name="Order to Cash",
+                bpmn_xml="<x/>",
+                draft_version_id=bad,
+                dry_run=dry_run,
+            )
+        ),
+        ("import_bpmn", "based_on_version_id"): lambda bad: (
+            lambda: server.import_bpmn(
+                business_process_name="Order to Cash",
+                bpmn_xml="<x/>",
+                based_on_version_id=bad,
+                dry_run=dry_run,
+            )
+        ),
+        ("submit_process_flow", "business_process_id"): lambda bad: (
+            lambda: server.submit_process_flow(
+                business_process_id=bad, version_id=_GOOD, dry_run=dry_run
+            )
+        ),
+        ("submit_process_flow", "version_id"): lambda bad: (
+            lambda: server.submit_process_flow(
+                business_process_id=bp, version_id=bad, dry_run=dry_run
+            )
+        ),
+        ("approve_process_flow", "business_process_id"): lambda bad: (
+            lambda: server.approve_process_flow(
+                business_process_id=bad, version_id=_GOOD, dry_run=dry_run
+            )
+        ),
+        ("approve_process_flow", "version_id"): lambda bad: (
+            lambda: server.approve_process_flow(
+                business_process_id=bp, version_id=bad, dry_run=dry_run
+            )
+        ),
+        ("list_process_flow_versions", "business_process_id"): lambda bad: (
+            lambda: server.list_process_flow_versions(business_process_id=bad)
+        ),
+        ("get_process_flow_version", "business_process_id"): lambda bad: (
+            lambda: server.get_process_flow_version(business_process_id=bad, version_id=_GOOD)
+        ),
+        ("get_process_flow_version", "version_id"): lambda bad: (
+            lambda: server.get_process_flow_version(business_process_id=bp, version_id=bad)
+        ),
+    }
+
+
+class TestFlowIdsAreUuids:
+    """An id goes into a backend path, so anything but a UUID is refused
+    before any backend call — a path-shaped value would otherwise aim a
+    batched write at another route."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("bad", _BAD_IDS)
+    @pytest.mark.parametrize("dry_run", [True, False])
+    @pytest.mark.parametrize("case", list(_flow_id_calls(True)))
+    async def test_a_non_uuid_is_refused_with_no_backend_call(self, fake_token, case, dry_run, bad):
+        backend = _FlowBackend()
+        data = await backend.run(_flow_id_calls(dry_run)[case](bad))
+        assert backend.calls == []
+        assert data == {
+            "error": "invalid_id",
+            "parameter": case[1],
+            "message": (
+                f"{case[1]} must be a UUID; list_process_flow_versions lists a "
+                "process's flow versions, and search_cards finds the "
+                "BusinessProcess card."
+            ),
+        }
+
+    @pytest.mark.asyncio
+    async def test_a_valid_id_is_used_in_its_canonical_form(self, fake_token):
+        bp = "00000000-0000-4000-8000-0000000000b1"
+        backend = _FlowBackend(
+            writes={
+                f"/bpm/processes/{bp}/flow/versions/{_GOOD}/submit": {
+                    "id": _GOOD,
+                    "revision": 2,
+                    "status": "pending",
+                }
+            }
+        )
+        data = await backend.run(
+            lambda: server.submit_process_flow(
+                business_process_id="{" + bp.upper() + "}",
+                version_id=_GOOD.replace("-", "").upper(),
+                dry_run=False,
+            )
+        )
+        assert ("post", f"/bpm/processes/{bp}/flow/versions/{_GOOD}/submit") in backend.paths()
+        assert data["business_process_id"] == bp
+        assert data["version_id"] == _GOOD
+
+    @pytest.mark.asyncio
+    async def test_an_empty_optional_id_is_left_out(self, fake_token):
+        """``""`` for an optional id means "not given", as it always has."""
+        backend = _FlowBackend(reads={f"{_FLOW}/published": None})
+        data = await backend.run(
+            lambda: server.import_bpmn(
+                business_process_name="Order to Cash",
+                bpmn_xml="<x/>",
+                draft_version_id="",
+                based_on_version_id="",
+            )
+        )
+        assert data["would"]["action"] == "create_draft"
+
+
+class TestProcessFlowReadsRequireAuth:
+    def test_list_requires_auth(self, monkeypatch):
+        monkeypatch.setattr(server, "_stdio_token", None)
+        out = asyncio.run(
+            server.list_process_flow_versions(
+                business_process_id="00000000-0000-4000-8000-0000000000b1"
+            )
+        )
+        assert "Not authenticated" in out
+
+    def test_get_requires_auth(self, monkeypatch):
+        monkeypatch.setattr(server, "_stdio_token", None)
+        out = asyncio.run(
+            server.get_process_flow_version(
+                business_process_id="00000000-0000-4000-8000-0000000000b1",
+                version_id="00000000-0000-4000-8000-0000000000e1",
+            )
+        )
+        assert "Not authenticated" in out
 
 
 # ── Unauthenticated paths ──────────────────────────────────────────────────
@@ -919,6 +1983,14 @@ class TestGuardrails:
                 await server.upsert_relations_bulk(operations=[]),
                 await server.create_diagram(name="X", drawio_xml="<x/>"),
                 await server.import_bpmn(business_process_name="X", bpmn_xml="<bpmn:definitions/>"),
+                await server.import_bpmn(
+                    business_process_name="X",
+                    bpmn_xml="<bpmn:definitions/>",
+                    draft_version_id="d-1",
+                    dry_run=False,
+                ),
+                await server.submit_process_flow(business_process_id="bp-1", version_id="v-1"),
+                await server.approve_process_flow(business_process_id="bp-1", version_id="v-1"),
             ]:
                 assert _parse(out)["error"] == "writes_disabled"
         post_mock.assert_not_called()
