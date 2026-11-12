@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.202.0] - 2026-11-12
+
+### Changed
+- **MCP BPMN import saves a draft**: `import_bpmn` no longer submits and publishes the diagram it imports; it saves it as a draft, based on the published flow when there is one, and returns the draft's revision and a link that opens it in the editor ([#1390](https://github.com/vincentmakes/turbo-ea/discussions/1390)).
+
+### Added
+- **MCP process-flow tools**: `import_bpmn` can update an existing draft in place (`draft_version_id`) or start a new draft from a chosen version (`based_on_version_id`), and four new tools list and read a process's flow versions (`list_process_flow_versions`, `get_process_flow_version`) and submit or approve a draft as separate steps (`submit_process_flow`, `approve_process_flow`) under the usual BPM permissions.
+
+### Fixed
+- Notifications and to-dos about a process flow being submitted, approved, rejected or withdrawn open the card's Process Flow tab on the Drafts or Published sub-tab instead of the Card tab.
+
 ## [2.201.2] - 2026-11-11
 
 ### Fixed

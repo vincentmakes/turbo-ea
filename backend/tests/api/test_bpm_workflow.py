@@ -852,3 +852,108 @@ class TestEventDefinitionsOnPublish:
         ).json()
         assert flows[0]["id"] == flow_id
         assert flows[0]["interface_id"] == str(iface.id)
+
+
+# ---------------------------------------------------------------------------
+# Notification and to-do links open the Process Flow tab (discussion 1390)
+# ---------------------------------------------------------------------------
+
+
+class TestWorkflowLinks:
+    """Every notification and to-do the workflow creates must open the
+    Process Flow tab on the right sub-tab. The card page reads ``?tab=`` as a
+    tab key and ``?subtab=`` as an index; the old ``?tab=process-flow&
+    subtab=drafts`` matched neither and opened the Card tab."""
+
+    DRAFTS = "?tab=processFlow&subtab=1"
+    PUBLISHED = "?tab=processFlow&subtab=0"
+
+    @staticmethod
+    async def _notifications(db, user_id, notif_type):
+        from sqlalchemy import select
+
+        from app.models.notification import Notification
+
+        rows = await db.execute(
+            select(Notification).where(
+                Notification.user_id == user_id, Notification.type == notif_type
+            )
+        )
+        return list(rows.scalars().all())
+
+    @pytest.fixture
+    async def owner(self, db, wf_env):
+        from app.models.stakeholder import Stakeholder
+
+        owner = await create_user(db, email="owner@test.com", role="admin")
+        db.add(Stakeholder(card_id=wf_env["process"].id, user_id=owner.id, role="processOwner"))
+        await db.commit()
+        return owner
+
+    async def _submit(self, client, process_id, user):
+        vid = (await _create_draft(client, process_id, user)).json()["id"]
+        resp = await client.post(
+            f"/api/v1/bpm/processes/{process_id}/flow/versions/{vid}/submit",
+            headers=auth_headers(user),
+        )
+        assert resp.status_code == 200
+        return vid
+
+    async def test_submit_links_the_drafts_sub_tab(self, client, db, wf_env, owner):
+        from sqlalchemy import select
+
+        from app.models.todo import Todo
+
+        admin, process = wf_env["admin"], wf_env["process"]
+        await self._submit(client, process.id, admin)
+
+        notes = await self._notifications(db, owner.id, "process_flow_approval_requested")
+        assert [n.link for n in notes] == [f"/cards/{process.id}{self.DRAFTS}"]
+        todos = (
+            (await db.execute(select(Todo).where(Todo.card_id == process.id, Todo.is_system)))
+            .scalars()
+            .all()
+        )
+        assert [t.link for t in todos] == [f"/cards/{process.id}{self.DRAFTS}"]
+        assert [t.assigned_to for t in todos] == [owner.id]
+
+    async def test_approve_links_the_published_sub_tab(self, client, db, wf_env, owner):
+        admin, process = wf_env["admin"], wf_env["process"]
+        vid = await self._submit(client, process.id, admin)
+        resp = await client.post(
+            f"/api/v1/bpm/processes/{process.id}/flow/versions/{vid}/approve",
+            headers=auth_headers(owner),
+        )
+        assert resp.status_code == 200
+
+        notes = await self._notifications(db, admin.id, "process_flow_approved")
+        assert [n.link for n in notes] == [f"/cards/{process.id}{self.PUBLISHED}"]
+
+    async def test_reject_links_the_drafts_sub_tab(self, client, db, wf_env, owner):
+        admin, process = wf_env["admin"], wf_env["process"]
+        vid = await self._submit(client, process.id, admin)
+        resp = await client.post(
+            f"/api/v1/bpm/processes/{process.id}/flow/versions/{vid}/reject",
+            headers=auth_headers(owner),
+        )
+        assert resp.status_code == 200
+
+        notes = await self._notifications(db, admin.id, "process_flow_rejected")
+        assert [n.link for n in notes] == [f"/cards/{process.id}{self.DRAFTS}"]
+
+    async def test_withdraw_links_the_drafts_sub_tab(self, client, db, wf_env, owner):
+        admin, process = wf_env["admin"], wf_env["process"]
+        vid = await self._submit(client, process.id, admin)
+        await client.post(
+            f"/api/v1/bpm/processes/{process.id}/flow/versions/{vid}/approve",
+            headers=auth_headers(owner),
+        )
+        resp = await client.post(
+            f"/api/v1/bpm/processes/{process.id}/flow/versions/{vid}/withdraw",
+            json={"reason": "Wrong diagram"},
+            headers=auth_headers(owner),
+        )
+        assert resp.status_code == 200
+
+        notes = await self._notifications(db, admin.id, "process_flow_withdrawn")
+        assert [n.link for n in notes] == [f"/cards/{process.id}{self.DRAFTS}"]

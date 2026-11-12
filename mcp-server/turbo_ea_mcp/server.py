@@ -136,6 +136,13 @@ mcp = FastMCP(
         use query_cards; save_inventory_view keeps such a query as an
         inventory view people can open.
 
+        import_bpmn saves a BPMN diagram as a DRAFT process flow and never
+        publishes it: pass draft_version_id to update that draft in place.
+        Submitting it for approval (submit_process_flow) and publishing it
+        (approve_process_flow) are separate steps; take them only when the
+        user asks. list_process_flow_versions and get_process_flow_version
+        read the versions.
+
         Architecture decisions (ADRs) have a status (draft, in_review,
         signed) and, once signed, a derived standing (scheduled, in_force,
         amended, superseded, revoked, expired). list_adrs shows the current
@@ -173,6 +180,16 @@ def _fmt(data: dict | list) -> str:
 def _compact(params: dict) -> dict:
     """Drop ``None`` and empty-string values so they don't clutter the URL."""
     return {k: v for k, v in params.items() if v not in (None, "")}
+
+
+def _app_url(path: str) -> str:
+    """An absolute link into the Turbo EA web app, for a person to open.
+
+    Built on ``TURBO_EA_PUBLIC_URL`` (the address users reach the app at),
+    never on ``TURBO_EA_URL``, which may be an internal service name. Every
+    link a tool hands back goes through here, so one setting moves them all.
+    """
+    return f"{TURBO_EA_PUBLIC_URL.rstrip('/')}{path}"
 
 
 # ── Tools ───────────────────────────────────────────────────────────────────
@@ -5459,20 +5476,160 @@ async def save_inventory_view(
                 "view_id": saved_id,
                 "batch_id": batch.batch_id,
                 "updated": bool(view_id),
-                "inventory_url": f"{TURBO_EA_PUBLIC_URL.rstrip('/')}/inventory?view={saved_id}",
+                "inventory_url": _app_url(f"/inventory?view={saved_id}"),
             }
         )
+
+
+# ── BPMN process flows ──────────────────────────────────────────────────────
+#
+# A process flow moves draft → pending → published (→ archived). The MCP tools
+# keep those steps apart, as the web UI does: ``import_bpmn`` only ever saves a
+# draft, and ``submit_process_flow`` / ``approve_process_flow`` are separate
+# calls a person asks for, each under the backend's own permission. A first
+# diagram an agent builds usually needs edits, so it is never published as a
+# side effect of saving it (discussion 1390).
+
+#: The card page's Process Flow sub-tabs, by the index ``?subtab=`` takes.
+_PUBLISHED_SUBTAB = 0
+_DRAFTS_SUBTAB = 1
+
+#: What a version listing keeps from each version: enough to pick one and to
+#: say where it came from, without the BPMN XML or the thumbnail.
+_FLOW_VERSION_SUMMARY_KEYS = (
+    "id",
+    "revision",
+    "status",
+    "based_on_id",
+    "created_at",
+    "created_by_name",
+    "submitted_at",
+    "submitted_by_name",
+    "approved_at",
+    "approved_by_name",
+)
+
+
+def _flow_path(process_id: str, tail: str) -> str:
+    return f"/bpm/processes/{process_id}/flow{tail}"
+
+
+def _draft_url(process_id: str, version_id: object) -> str:
+    """The editor for one draft; leaving it returns to the Drafts sub-tab."""
+    return _app_url(f"/bpm/processes/{process_id}/flow?versionId={version_id}&returnSubTab=1")
+
+
+def _flow_tab_url(process_id: str, subtab: int) -> str:
+    """The card's Process Flow tab, opened on one sub-tab."""
+    return _app_url(f"/cards/{process_id}?tab=processFlow&subtab={subtab}")
+
+
+def _flow_version_summary(version: dict) -> dict:
+    return {key: version.get(key) for key in _FLOW_VERSION_SUMMARY_KEYS}
+
+
+def _flow_ids(**ids: str | None) -> tuple[dict[str, str | None], dict | None]:
+    """``(normalised, refusal)`` for the ids a flow tool puts in a backend path.
+
+    Every id is checked as a UUID before any backend call and used from here
+    on in its canonical form: an unchecked value such as
+    ``x/../../cards/<id>/archive?`` would otherwise aim a batched write at
+    another route. ``None`` (an optional id left out) passes through."""
+    normalised: dict[str, str | None] = {}
+    for name, value in ids.items():
+        if value is None:
+            normalised[name] = None
+            continue
+        try:
+            normalised[name] = str(uuid.UUID(value))
+        except (ValueError, TypeError, AttributeError):
+            return {}, {
+                "error": "invalid_id",
+                "parameter": name,
+                "message": (
+                    f"{name} must be a UUID; list_process_flow_versions lists a "
+                    "process's flow versions, and search_cards finds the "
+                    "BusinessProcess card."
+                ),
+            }
+    return normalised, None
+
+
+def _flow_refusal(
+    exc: httpx.HTTPStatusError, error: str, process_id: str, version_id: str | None
+) -> dict | None:
+    """A 400 / 403 / 404 from a flow route as a structured answer, else None.
+
+    The backend's ``detail`` is passed through as it is (a wrong status, a
+    missing permission, the separate-approver rule, a version that is not this
+    process's): it is the reason the user needs, and nothing else is added
+    from the response."""
+    status_code = exc.response.status_code
+    if status_code not in (400, 403, 404):
+        return None
+    return {
+        "error": error,
+        "status_code": status_code,
+        "detail": _detail(exc),
+        "business_process_id": process_id,
+        "version_id": version_id,
+        "drafts_tab_url": _flow_tab_url(process_id, _DRAFTS_SUBTAB),
+    }
+
+
+async def _read_flow_version(
+    client: TurboEAClient, process_id: str, version_id: str
+) -> tuple[dict, dict | None]:
+    """``(version, refusal)``: the version as the backend returns it, or the
+    structured refusal its read answered with."""
+    try:
+        version = await client.get(_flow_path(process_id, f"/versions/{version_id}"))
+    except httpx.HTTPStatusError as exc:
+        refusal = _flow_refusal(exc, "version_unavailable", process_id, version_id)
+        if refusal is None:
+            raise
+        return {}, refusal
+    return (version if isinstance(version, dict) else {}), None
+
+
+def _wrong_status(
+    version: dict, expected: str, process_id: str, version_id: str, message: str
+) -> dict | None:
+    """The refusal for a version that is not in ``expected`` status, else None."""
+    status = version.get("status")
+    if status == expected:
+        return None
+    return {
+        "error": "wrong_status",
+        "status": status,
+        "expected_status": expected,
+        "business_process_id": process_id,
+        "version_id": version_id,
+        "revision": version.get("revision"),
+        "message": message,
+        "drafts_tab_url": _flow_tab_url(process_id, _DRAFTS_SUBTAB),
+    }
+
+
+_NOT_A_DRAFT_MESSAGE = (
+    "Only a draft can be updated. A pending revision goes back to draft when an "
+    "approver rejects it; to change a published one, call import_bpmn without "
+    "draft_version_id, which starts a new draft based on it."
+)
 
 
 @mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
 async def import_bpmn(
     business_process_name: str,
     bpmn_xml: str,
+    draft_version_id: str | None = None,
+    based_on_version_id: str | None = None,
     parent_card: str | None = None,
     svg_thumbnail: str = "",
     dry_run: bool = True,
 ) -> str:
-    """Save a BPMN 2.0 diagram against an existing BusinessProcess card.
+    """Save a BPMN 2.0 diagram as a DRAFT process flow of an existing
+    BusinessProcess card. It never submits or publishes the draft.
 
     This tool deliberately does **not** create cards. If the named
     BusinessProcess card does not exist yet, the tool returns a
@@ -5484,13 +5641,24 @@ async def import_bpmn(
     flow path and forces a deliberate "set up the card properly, then
     attach the diagram" sequence.
 
-    The diagram is saved via the draft → submit → approve workflow so it
-    lands in the `published` flow that the Process Flow tab actually
-    renders. The approve step extracts ProcessElement rows from the BPMN
-    for the EA cross-reference panel. If the caller has `bpm.edit` but
-    not `card.approval_status` (i.e. not a process owner / admin /
-    bpm_admin), the tool stops at `pending` and surfaces a warning with
-    the URL to approve from the UI.
+    Where the diagram goes:
+
+    - ``draft_version_id`` given: that draft's XML is replaced. Same
+      version, same revision. Only a version in ``draft`` status can be
+      updated (``list_process_flow_versions`` shows each one's status).
+    - ``based_on_version_id`` given: a new draft at the next revision,
+      based on that version (its element links are carried over).
+    - neither: a new draft at the next revision, based on the published
+      flow when there is one, so the links users made on it carry over.
+      The published flow itself is never touched.
+
+    The response carries the version's id, revision and status, a
+    ``draft_url`` to open the draft in the editor, and ``drafts_tab_url``.
+    Publishing is separate and explicit: ``submit_process_flow`` sends the
+    draft for approval, ``approve_process_flow`` publishes it — call them
+    only when the user asks. A saved draft publishes no event, so
+    ``rollback_batch`` cannot undo it; an unwanted draft is deleted from
+    the Drafts sub-tab in the web UI.
 
     Args:
         business_process_name: Name of an existing BusinessProcess card.
@@ -5498,22 +5666,45 @@ async def import_bpmn(
         bpmn_xml: BPMN 2.0 XML. Stored verbatim — the backend never
             rewrites the BPMNDI plane or the Collaboration/Participant
             metadata.
+        draft_version_id: Optional id of an existing draft to update in
+            place instead of starting a new draft.
+        based_on_version_id: Optional id of the version a new draft is
+            based on. Not together with ``draft_version_id``.
         parent_card: Optional parent BusinessProcess card name used
             **only** to disambiguate when multiple cards share the same
             name. Not used to create anything.
         svg_thumbnail: Optional SVG snapshot of the diagram.
-        dry_run: When True (default), validate the existing-card lookup
-            and return a flow-node count preview without persisting the
-            diagram. The flow endpoints have no dry run, so the counts are
-            estimated here (``verified: false``); the preview is still
-            recorded as a dry-run batch. Call again with `dry_run=False`
-            to walk the draft → submit → approve workflow.
+        dry_run: When True (default), find the card and the draft a commit
+            would save to, and return a flow-node count preview without
+            saving anything. The flow endpoints have no dry run, so the
+            counts are estimated here (``verified: false``); the preview is
+            still recorded as a dry-run batch. Call again with
+            ``dry_run=False`` to save the draft.
     """
     token = await _get_current_token()
     if not token:
         return "Error: Not authenticated. Please reconnect."
     if (disabled := _writes_disabled_message()) is not None:
         return disabled
+    if draft_version_id and based_on_version_id:
+        return _fmt(
+            {
+                "error": "conflicting_versions",
+                "message": (
+                    "Pass draft_version_id to update an existing draft, or "
+                    "based_on_version_id to start a new draft from a version — "
+                    "not both. An existing draft keeps the base it was made from."
+                ),
+            }
+        )
+    ids, refusal = _flow_ids(
+        draft_version_id=draft_version_id or None,
+        based_on_version_id=based_on_version_id or None,
+    )
+    if refusal is not None:
+        return _fmt(refusal)
+    draft_version_id = ids["draft_version_id"]
+    based_on_version_id = ids["based_on_version_id"]
     client = TurboEAClient(token)
 
     # Step 1: find an existing BusinessProcess card by name.
@@ -5572,17 +5763,49 @@ async def import_bpmn(
             }
         )
 
-    # Step 3: persist the diagram via the flow-version workflow. The card
-    # detail's Process Flow tab reads from
-    #   GET /bpm/processes/{id}/flow/published
-    # not the legacy `/diagram` endpoint, so to land a renderable diagram
-    # we have to walk it through draft -> pending -> published. The
-    # approve step also extracts ProcessElement rows for EA cross-ref.
-    #
-    # Dry-run shortcut: the flow endpoints don't have a dry_run flag and
-    # we don't want to fake one. The card-create step above already
-    # validated the card path; for the flow side, we surface the parsed
-    # element count via a parser-free regex count of *Task / *Event /
+    # Step 2: the draft a commit saves to. These are reads that can refuse the
+    # call (a version that is not a draft, not this process's, or not visible),
+    # so they run before the batch opens, on the preview and the commit alike.
+    base: dict | None = None
+    if draft_version_id:
+        target, refusal = await _read_flow_version(client, process_id, draft_version_id)
+        if refusal is None:
+            refusal = _wrong_status(
+                target, "draft", process_id, draft_version_id, _NOT_A_DRAFT_MESSAGE
+            )
+        if refusal is not None:
+            return _fmt(refusal)
+        plan: dict = {
+            "action": "update_draft",
+            "version_id": draft_version_id,
+            "revision": target.get("revision"),
+            "based_on_version_id": target.get("based_on_id"),
+        }
+    else:
+        if based_on_version_id:
+            base, refusal = await _read_flow_version(client, process_id, based_on_version_id)
+            if refusal is not None:
+                return _fmt(refusal)
+        else:
+            try:
+                published = await client.get(_flow_path(process_id, "/published"))
+            except httpx.HTTPStatusError as exc:
+                refusal = _flow_refusal(exc, "version_unavailable", process_id, None)
+                if refusal is None:
+                    raise
+                return _fmt(refusal)
+            # ``null`` when the process has no published flow yet.
+            base = published if isinstance(published, dict) and published.get("id") else None
+        plan = {
+            "action": "create_draft",
+            "based_on_version_id": based_on_version_id or (base or {}).get("id"),
+            "based_on_revision": (base or {}).get("revision"),
+            "based_on_status": (base or {}).get("status"),
+        }
+
+    # Step 3, the preview. The flow endpoints have no dry_run flag and we
+    # don't fake one: the card and the target draft were found above; for the
+    # diagram we surface a parser-free regex count of *Task / *Event /
     # *Gateway / data artefacts (mirroring the backend's EXTRACTABLE_TYPES)
     # plus the message flows, so the agent can show the user something
     # useful. The namespace prefix is optional: plenty of exports declare
@@ -5608,30 +5831,34 @@ async def import_bpmn(
             row_count=1,
             dry_run=True,
         ) as batch:
-            batch.summary = {"status": "previewed", "verified": False}
-            response: dict = {
-                "dry_run": True,
-                "committed": False,
-                "business_process_id": process_id,
-                "diagram_preview": {
-                    "flow_nodes_estimated": preview_node_count,
-                    "message_flows_estimated": preview_message_flow_count,
-                    "bpmn_xml_bytes": len(bpmn_xml),
-                },
-                "next_action": (
-                    "NOTHING HAS BEEN PERSISTED YET. Surface this preview to "
-                    "the user; on their confirmation, re-call import_bpmn "
-                    "with dry_run=False to create a draft, submit it, and "
-                    "publish it as the active process flow."
-                ),
-                # The flow endpoints have no dry run: these counts are a
-                # regex estimate, not the backend's parse.
-                "verified": False,
-                **_preview_fields(batch),
-            }
-            return _fmt(response)
+            batch.summary = {"status": "previewed", "verified": False, "action": plan["action"]}
+            return _fmt(
+                {
+                    "dry_run": True,
+                    "committed": False,
+                    "business_process_id": process_id,
+                    "would": plan,
+                    "diagram_preview": {
+                        "flow_nodes_estimated": preview_node_count,
+                        "message_flows_estimated": preview_message_flow_count,
+                        "bpmn_xml_bytes": len(bpmn_xml),
+                    },
+                    "next_action": (
+                        "NOTHING HAS BEEN SAVED YET. Surface this preview to the "
+                        "user; on their confirmation, re-call import_bpmn with "
+                        "dry_run=False to save it as a draft. Saving never "
+                        "submits or publishes it."
+                    ),
+                    # The flow endpoints have no dry run: these counts are a
+                    # regex estimate, not the backend's parse. A new draft's
+                    # revision number is assigned by the backend on save.
+                    "verified": False,
+                    **_preview_fields(batch),
+                }
+            )
 
-    # --- Commit path: draft -> submit -> approve ---
+    # Step 4, the commit: save the draft — and nothing else. No submit, no
+    # approve: those are submit_process_flow / approve_process_flow.
     async with mutation_batch(
         token,
         tool_name="import_bpmn",
@@ -5639,85 +5866,353 @@ async def import_bpmn(
         dry_run=False,
     ) as batch:
         client = batch.client()
-        draft = await client.post(
-            f"/bpm/processes/{process_id}/flow/drafts",
-            json={"bpmn_xml": bpmn_xml, "svg_thumbnail": svg_thumbnail or None},
-        )
-        draft_id = draft.get("id") if isinstance(draft, dict) else None
-        if not draft_id:
-            batch.summary = {"status": "draft_create_failed", "business_process_id": process_id}
+        try:
+            if draft_version_id:
+                body: dict = {"bpmn_xml": bpmn_xml}
+                if svg_thumbnail:
+                    body["svg_thumbnail"] = svg_thumbnail
+                saved = await client.patch(
+                    _flow_path(process_id, f"/versions/{draft_version_id}"), json=body
+                )
+            else:
+                saved = await client.post(
+                    _flow_path(process_id, "/drafts"),
+                    json={
+                        "bpmn_xml": bpmn_xml,
+                        "svg_thumbnail": svg_thumbnail or None,
+                        "based_on_id": plan["based_on_version_id"],
+                    },
+                )
+        except httpx.HTTPStatusError as exc:
+            refusal = _flow_refusal(exc, "draft_save_refused", process_id, draft_version_id)
+            if refusal is None:
+                raise
+            batch.summary = {
+                "status": "refused",
+                "business_process_id": process_id,
+                "error": "draft_save_refused",
+            }
+            return _fmt({**refusal, "batch_id": batch.batch_id})
+        saved = saved if isinstance(saved, dict) else {}
+        version_id = saved.get("id")
+        if not version_id:
+            batch.summary = {"status": "draft_save_failed", "business_process_id": process_id}
             return _fmt(
                 {
-                    "error": "draft_create_failed",
-                    "draft_response": draft,
+                    "error": "draft_save_failed",
+                    "response": saved,
                     "batch_id": batch.batch_id,
                 }
             )
-
-        workflow_state = "draft"
-        submit_result: dict | list | None = None
-        approve_result: dict | list | None = None
-        publish_warning: str | None = None
-        try:
-            submit_result = await client.post(
-                f"/bpm/processes/{process_id}/flow/versions/{draft_id}/submit",
-                json={},
-            )
-            workflow_state = "pending"
-            try:
-                approve_result = await client.post(
-                    f"/bpm/processes/{process_id}/flow/versions/{draft_id}/approve",
-                    json={},
-                )
-                workflow_state = "published"
-            except Exception as exc:  # noqa: BLE001 — surface verbatim
-                publish_warning = (
-                    "Diagram submitted for approval but the user does not have "
-                    "permission to publish it (requires the processOwner "
-                    "stakeholder role, admin, or bpm_admin). The pending "
-                    f"draft is visible at /cards/{process_id} under "
-                    f"Process Flow → Drafts. Approve from there to publish. "
-                    f"(Error: {exc})"
-                )
-        except Exception as exc:  # noqa: BLE001
-            publish_warning = (
-                "Draft created but could not be submitted for approval. "
-                f"It is editable at /cards/{process_id}. (Error: {exc})"
-            )
-
-        response = {
+        action = "updated" if draft_version_id else "created"
+        batch.summary = {
+            "business_process_id": process_id,
+            "version_id": version_id,
+            "revision": saved.get("revision"),
+            "action": action,
+        }
+        response: dict = {
             "dry_run": False,
             "committed": True,
             "business_process_id": process_id,
-            "workflow_state": workflow_state,
-            "draft_id": draft_id,
-            "submit_result": submit_result,
-            "approve_result": approve_result,
-            "verify_urls": {
-                # Reads what the editor reads — null until status=published.
-                "flow_published": f"/api/v1/bpm/processes/{process_id}/flow/published",
-                # GET this for the draft view (always available post-create).
-                "flow_draft": (f"/api/v1/bpm/processes/{process_id}/flow/versions/{draft_id}"),
-                # Open in browser — Process Flow tab.
-                "card_detail": f"/cards/{process_id}",
-            },
-            "rendering_note": (
-                "The Process Flow tab in the card detail reads from the "
-                "/flow/published endpoint. If `workflow_state` is "
-                "'published' the diagram should render; if it's 'pending' "
-                "or 'draft', open the card and approve from the Drafts "
-                "sub-tab to make it the published flow."
+            "version_id": version_id,
+            "revision": saved.get("revision"),
+            "status": saved.get("status"),
+            "based_on_version_id": saved.get("based_on_id"),
+            "action": action,
+            "draft_url": _draft_url(process_id, version_id),
+            "drafts_tab_url": _flow_tab_url(process_id, _DRAFTS_SUBTAB),
+            "next_action": (
+                "The diagram is saved as a DRAFT; it is not submitted or "
+                "published. Ask the user to review it at draft_url. To change "
+                f"it, call import_bpmn again with draft_version_id='{version_id}' "
+                "(same revision). When the user wants it approved, call "
+                "submit_process_flow; approve_process_flow then publishes it, "
+                "for someone allowed to approve."
             ),
+            "batch_id": batch.batch_id,
         }
-        if publish_warning:
-            response["warning"] = publish_warning
-        response["batch_id"] = batch.batch_id
+        if action == "created":
+            response["based_on_revision"] = plan["based_on_revision"]
+        return _fmt(response)
+
+
+@mcp.tool(annotations=_READ_ANNOT)
+async def list_process_flow_versions(business_process_id: str) -> str:
+    """List a BusinessProcess's process flow versions: the published one and
+    the drafts and pending ones, without their BPMN XML.
+
+    Each version carries its ``id``, ``revision``, ``status`` (``draft``,
+    ``pending``, ``published``), ``based_on_id`` and who created, submitted
+    and approved it when. A draft also carries ``draft_url``, the editor
+    link. Use it to pick the ``draft_version_id`` for ``import_bpmn`` or the
+    ``version_id`` for ``submit_process_flow`` / ``approve_process_flow``.
+    Drafts are listed only for a user who may view them; otherwise
+    ``drafts_visible`` is false.
+
+    Args:
+        business_process_id: The BusinessProcess card UUID.
+    """
+    token = await _get_current_token()
+    if not token:
+        return "Error: Not authenticated. Please reconnect."
+    ids, refusal = _flow_ids(business_process_id=business_process_id)
+    if refusal is not None:
+        return _fmt(refusal)
+    business_process_id = ids["business_process_id"]
+    client = TurboEAClient(token)
+    try:
+        published = await client.get(_flow_path(business_process_id, "/published"))
+    except httpx.HTTPStatusError as exc:
+        refusal = _flow_refusal(exc, "process_flow_unavailable", business_process_id, None)
+        if refusal is None:
+            raise
+        return _fmt(refusal)
+    try:
+        drafts = await client.get(_flow_path(business_process_id, "/drafts"))
+        drafts_visible = True
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code != 403:
+            raise
+        drafts, drafts_visible = [], False
+    listed = []
+    for draft in drafts if isinstance(drafts, list) else []:
+        entry = _flow_version_summary(draft)
+        if entry["status"] == "draft":
+            entry["draft_url"] = _draft_url(business_process_id, entry["id"])
+        listed.append(entry)
+    has_published = isinstance(published, dict) and bool(published.get("id"))
+    return _fmt(
+        {
+            "business_process_id": business_process_id,
+            "published": (
+                {
+                    **_flow_version_summary(published),
+                    "url": _flow_tab_url(business_process_id, _PUBLISHED_SUBTAB),
+                }
+                if has_published
+                else None
+            ),
+            "drafts": listed,
+            "drafts_visible": drafts_visible,
+            "drafts_tab_url": _flow_tab_url(business_process_id, _DRAFTS_SUBTAB),
+        }
+    )
+
+
+@mcp.tool(annotations=_READ_ANNOT)
+async def get_process_flow_version(business_process_id: str, version_id: str) -> str:
+    """Read one process flow version, its BPMN XML included.
+
+    Use it to revise a draft: read the XML, change it, and save it back with
+    ``import_bpmn(..., draft_version_id=version_id)``. A draft also carries
+    ``draft_url``, the editor link. A draft, pending or archived version is
+    readable only by a user who may view a process's drafts.
+
+    Args:
+        business_process_id: The BusinessProcess card UUID.
+        version_id: The flow version UUID (``list_process_flow_versions``).
+    """
+    token = await _get_current_token()
+    if not token:
+        return "Error: Not authenticated. Please reconnect."
+    ids, refusal = _flow_ids(business_process_id=business_process_id, version_id=version_id)
+    if refusal is not None:
+        return _fmt(refusal)
+    business_process_id, version_id = ids["business_process_id"], ids["version_id"]
+    version, refusal = await _read_flow_version(
+        TurboEAClient(token), business_process_id, version_id
+    )
+    if refusal is not None:
+        return _fmt(refusal)
+    # The thumbnail is an SVG snapshot of the same diagram: bulk, no meaning.
+    version.pop("svg_thumbnail", None)
+    if version.get("status") == "draft":
+        version["draft_url"] = _draft_url(business_process_id, version_id)
+    version["drafts_tab_url"] = _flow_tab_url(business_process_id, _DRAFTS_SUBTAB)
+    return _fmt(version)
+
+
+#: The two workflow steps the MCP server exposes. Reject, withdraw and
+#: deleting a draft stay in the web UI.
+_FLOW_STEPS: dict[str, dict] = {
+    "submit": {
+        "tool": "submit_process_flow",
+        "from": "draft",
+        "to": "pending",
+        "wrong_status": (
+            "Only a draft can be submitted for approval. "
+            "list_process_flow_versions shows each version's status."
+        ),
+        "next_action": (
+            "The revision is pending approval. A process owner, admin or BPM "
+            "admin approves it in the web UI (drafts_tab_url), or call "
+            "approve_process_flow when the user asks to publish it."
+        ),
+        "url_key": "drafts_tab_url",
+        "subtab": _DRAFTS_SUBTAB,
+    },
+    "approve": {
+        "tool": "approve_process_flow",
+        "from": "pending",
+        "to": "published",
+        "wrong_status": (
+            "Only a pending version can be approved: submit the draft first "
+            "with submit_process_flow."
+        ),
+        "next_action": (
+            "The revision is published: it is the flow the Process Flow tab "
+            "shows, and the previously published revision is archived."
+        ),
+        "url_key": "published_url",
+        "subtab": _PUBLISHED_SUBTAB,
+    },
+}
+
+
+async def _flow_step(step: str, process_id: str, version_id: str, dry_run: bool) -> str:
+    """Move one flow version one step (``submit`` or ``approve``), under the
+    batch rule. The routes have no dry run: the preview reads the version and
+    reports the transition a commit would make."""
+    spec = _FLOW_STEPS[step]
+    token = await _get_current_token()
+    if not token:
+        return "Error: Not authenticated. Please reconnect."
+    if (disabled := _writes_disabled_message()) is not None:
+        return disabled
+    ids, refusal = _flow_ids(business_process_id=process_id, version_id=version_id)
+    if refusal is not None:
+        return _fmt(refusal)
+    process_id, version_id = ids["business_process_id"], ids["version_id"]
+    version: dict = {}
+    if dry_run:
+        # A read that can refuse the call, so before the batch opens.
+        version, refusal = await _read_flow_version(TurboEAClient(token), process_id, version_id)
+        if refusal is None:
+            refusal = _wrong_status(
+                version, spec["from"], process_id, version_id, spec["wrong_status"]
+            )
+        if refusal is not None:
+            return _fmt(refusal)
+    async with mutation_batch(
+        token,
+        tool_name=spec["tool"],
+        row_count=1,
+        dry_run=dry_run,
+    ) as batch:
+        if dry_run:
+            batch.summary = {
+                "status": "previewed",
+                "business_process_id": process_id,
+                "version_id": version_id,
+            }
+            return _fmt(
+                {
+                    "dry_run": True,
+                    f"would_{step}": {
+                        "business_process_id": process_id,
+                        "version_id": version_id,
+                        "revision": version.get("revision"),
+                        "from_status": spec["from"],
+                        "to_status": spec["to"],
+                    },
+                    "note": (
+                        "Preview built by the MCP server: the route has no dry "
+                        "run, so the version was read and nothing was changed. "
+                        f"Call again with dry_run=False to {step} it."
+                    ),
+                    **_preview_fields(batch),
+                }
+            )
+        try:
+            data = await batch.client().post(
+                _flow_path(process_id, f"/versions/{version_id}/{step}"), json={}
+            )
+        except httpx.HTTPStatusError as exc:
+            refusal = _flow_refusal(exc, f"{step}_refused", process_id, version_id)
+            if refusal is None:
+                raise
+            batch.summary = {
+                "status": "refused",
+                "business_process_id": process_id,
+                "version_id": version_id,
+                "error": refusal["error"],
+            }
+            return _fmt({**refusal, "batch_id": batch.batch_id})
+        data = data if isinstance(data, dict) else {}
         batch.summary = {
             "business_process_id": process_id,
-            "draft_id": draft_id,
-            "workflow_state": workflow_state,
+            "version_id": version_id,
+            "status": data.get("status"),
         }
-        return _fmt(response)
+        return _fmt(
+            {
+                "business_process_id": process_id,
+                "version_id": version_id,
+                "revision": data.get("revision"),
+                "status": data.get("status"),
+                spec["url_key"]: _flow_tab_url(process_id, spec["subtab"]),
+                "next_action": spec["next_action"],
+                "batch_id": batch.batch_id,
+            }
+        )
+
+
+@mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
+async def submit_process_flow(
+    business_process_id: str, version_id: str, dry_run: bool = True
+) -> str:
+    """Submit a draft process flow for approval (draft → pending).
+
+    Call it only when the user asks for the draft to be reviewed. Requires
+    the same permission as the web UI's Submit (``bpm.edit``, or a
+    stakeholder role granting ``card.edit`` on the process). The process
+    owners are notified and given an approval to-do. A refusal comes back
+    as ``error: submit_refused`` with the backend's ``detail``.
+
+    ``rollback_batch`` cannot undo a submission: it reports the
+    ``process_flow.submitted`` event as not reversible and changes nothing.
+    To take a submitted revision back, an approver rejects it in the web UI,
+    which returns it to draft.
+
+    Args:
+        business_process_id: The BusinessProcess card UUID.
+        version_id: The draft's version UUID (``import_bpmn`` returns it).
+        dry_run: When True (default), read the version and report the
+            transition without submitting (the route has no dry run; the
+            preview is still recorded as a dry-run batch).
+    """
+    return await _flow_step("submit", business_process_id, version_id, dry_run)
+
+
+@mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
+async def approve_process_flow(
+    business_process_id: str, version_id: str, dry_run: bool = True
+) -> str:
+    """Approve a pending process flow, which publishes it (pending →
+    published); the previously published revision is archived.
+
+    Call it only when the user asks for the flow to be published. Requires
+    approval authority (``bpm.approve_flows``, or a stakeholder role granting
+    ``card.bpm_approve`` — out of the box the process owner, admins and BPM
+    admins). When the instance requires a separate approver, whoever
+    submitted the revision cannot approve it. A refusal comes back as
+    ``error: approve_refused`` with the backend's ``detail``; the approver
+    can then approve it in the web UI from ``drafts_tab_url``.
+
+    ``rollback_batch`` cannot undo an approval: it reports the
+    ``process_flow.approved`` event as not reversible and changes nothing.
+    A revision published by mistake is withdrawn in the web UI (it needs the
+    withdraw permission), which keeps it on record and opens a new draft.
+
+    Args:
+        business_process_id: The BusinessProcess card UUID.
+        version_id: The pending version's UUID.
+        dry_run: When True (default), read the version and report the
+            transition without approving (the route has no dry run; the
+            preview is still recorded as a dry-run batch).
+    """
+    return await _flow_step("approve", business_process_id, version_id, dry_run)
 
 
 # ── Resources ───────────────────────────────────────────────────────────────

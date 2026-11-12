@@ -114,7 +114,11 @@ Process flow diagrams follow a version-controlled approval workflow:
 | **Archived** | Previously published version, superseded by a newer approval |
 | **Withdrawn** | Previously published version, unpublished on purpose |
 
-Submitting a draft creates a version snapshot. Approvers can approve (publish) or reject the submission.
+Submitting a draft creates a version snapshot. Approvers can approve (publish) or reject the submission. The notification and to-do sent on each step open the card's **Process Flow** tab on the right sub-tab.
+
+#### Diagrams imported by an AI assistant
+
+A BPMN diagram an AI assistant imports through the [MCP integration](../admin/mcp.md) lands as a **draft**, never as the published flow. When the process already has a published flow, the draft is based on it, so the card links already made on its steps carry over; the published flow itself is left as it is. Review the draft in the editor (the assistant hands you a link to it), and ask the assistant for changes: it updates the same draft rather than starting another one. Submitting and approving are separate steps the assistant takes only when you ask, under the same permissions as in the web UI — or you submit and approve the draft yourself from the **Drafts** sub-tab.
 
 #### Who can approve
 

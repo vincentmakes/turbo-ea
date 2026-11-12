@@ -48,6 +48,22 @@ router = APIRouter(prefix="/bpm", tags=["bpm-workflow"])
 # ── Helpers ─────────────────────────────────────────────────────────────
 
 
+# The Process Flow tab's sub-tabs, by the index the card page reads from
+# ``?subtab=`` (``ProcessFlowTab``: 0 Published, 1 Drafts, 2 Archived).
+_PUBLISHED_SUBTAB = 0
+_DRAFTS_SUBTAB = 1
+
+
+def _flow_tab_link(process_id: str, subtab: int) -> str:
+    """The in-app link to a process's Process Flow tab, on one sub-tab.
+
+    The card page addresses a tab by its key and a sub-tab by its index; the
+    ``?tab=process-flow&subtab=drafts`` these links used to carry matched
+    neither, so a notification or to-do opened the Card tab instead.
+    """
+    return f"/cards/{process_id}?tab=processFlow&subtab={subtab}"
+
+
 async def _get_process_or_404(db: AsyncSession, process_id: uuid.UUID, user: User) -> Card:
     """The ACTIVE BusinessProcess, 404 when missing or hidden from ``user``."""
     result = await db.execute(
@@ -578,7 +594,7 @@ async def submit_for_approval(
             notif_type="process_flow_approval_requested",
             title=f"Process flow approval requested for {process.name}",
             message=f"{user.display_name} submitted revision {version.revision} for approval.",
-            link=f"/cards/{process_id}?tab=process-flow&subtab=drafts",
+            link=_flow_tab_link(process_id, _DRAFTS_SUBTAB),
             card_id=pid,
             actor_id=user.id,
         )
@@ -589,7 +605,7 @@ async def submit_for_approval(
                 f"Review and approve process flow revision {version.revision} for {process.name}"
             ),
             status="open",
-            link=f"/cards/{process_id}?tab=process-flow&subtab=drafts",
+            link=_flow_tab_link(process_id, _DRAFTS_SUBTAB),
             is_system=True,
             assigned_to=sub.user_id,
             created_by=user.id,
@@ -798,7 +814,7 @@ async def approve_version(
             notif_type="process_flow_approved",
             title=f"Process flow approved for {process.name}",
             message=msg,
-            link=f"/cards/{process_id}?tab=process-flow&subtab=published",
+            link=_flow_tab_link(process_id, _PUBLISHED_SUBTAB),
             card_id=pid,
             actor_id=user.id,
         )
@@ -881,7 +897,7 @@ async def reject_version(
             notif_type="process_flow_rejected",
             title=f"Process flow rejected for {process.name}",
             message=f"{user.display_name} rejected revision {version.revision}. Please revise.",
-            link=f"/cards/{process_id}?tab=process-flow&subtab=drafts",
+            link=_flow_tab_link(process_id, _DRAFTS_SUBTAB),
             card_id=pid,
             actor_id=user.id,
         )
@@ -1024,7 +1040,7 @@ async def withdraw_version(
                 f"Reason: {reason} — revision {new_draft_revision} has been opened "
                 f"as a draft so {process.name} can be corrected and re-published."
             ),
-            link=f"/cards/{process_id}?tab=process-flow&subtab=drafts",
+            link=_flow_tab_link(process_id, _DRAFTS_SUBTAB),
             card_id=pid,
             actor_id=user.id,
         )
