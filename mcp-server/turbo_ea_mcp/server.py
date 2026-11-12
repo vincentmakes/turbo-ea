@@ -172,8 +172,8 @@ class _StrictFastMCP(FastMCP):
     published schema on ``parameters``. Guard:
     ``tests/test_safeguards.py::TestUnknownArgumentsAreRefused``."""
 
-    def add_tool(self, fn, *args, **kwargs) -> None:
-        super().add_tool(fn, *args, **kwargs)
+    def add_tool(self, fn, **kwargs) -> None:
+        super().add_tool(fn, **kwargs)
         tool = self._tool_manager.get_tool(kwargs.get("name") or fn.__name__)
         tool.fn_metadata.arg_model = _strict_arguments(tool.fn_metadata.arg_model)
         tool.parameters = tool.fn_metadata.arg_model.model_json_schema()
@@ -6147,9 +6147,11 @@ _NOT_LINKABLE_MESSAGE = (
 
 def _element_segment(element_id: str) -> str:
     """A BPMN element id as ONE path segment. It is not a UUID, so it is
-    encoded whole, dots included: ``..`` must not become a dot-segment that
-    aims the write at another route."""
-    return quote(element_id, safe="").replace(".", "%2E")
+    encoded whole, slashes and dots included: ``..`` must not become a
+    dot-segment that aims the write at another route. ``quote`` leaves ``/``
+    as it is by default and has already turned every ``%`` into ``%25``, so
+    the two replacements cannot double-encode anything."""
+    return quote(element_id).replace("/", "%2F").replace(".", "%2E")
 
 
 def _as_uuid(value: object) -> str | None:

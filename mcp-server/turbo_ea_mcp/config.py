@@ -30,9 +30,9 @@ _DEFAULT_TURBO_EA_PUBLIC_URL = "http://localhost:8920"
 _LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 
 
-def _origin(url: str | None) -> str:
+def _origin(url: str) -> str:
     """``scheme://host[:port]`` of ``url``, or ``""`` when it has neither."""
-    parsed = urlparse(url or "")
+    parsed = urlparse(url)
     if parsed.scheme and parsed.netloc:
         return f"{parsed.scheme}://{parsed.netloc}"
     return ""
@@ -42,7 +42,7 @@ def _is_loopback(url: str) -> bool:
     return urlparse(url).hostname in _LOOPBACK_HOSTS
 
 
-def public_app_url(explicit: str | None, mcp_public_url: str | None) -> str:
+def public_app_url(explicit: str | None, mcp_public_url: str) -> str:
     """The address people open the Turbo EA web app at.
 
     Every link an MCP tool hands back is built on it, so a localhost value is
@@ -69,7 +69,7 @@ def public_app_url(explicit: str | None, mcp_public_url: str | None) -> str:
 # and a host the DNS-rebinding guard admits. Read from the raw variables, not
 # from MCP_PUBLIC_URL below, whose code default is this server's own port.
 TURBO_EA_PUBLIC_URL: str = public_app_url(
-    os.environ.get("TURBO_EA_PUBLIC_URL"), os.environ.get("MCP_PUBLIC_URL")
+    os.environ.get("TURBO_EA_PUBLIC_URL"), os.environ.get("MCP_PUBLIC_URL", "")
 )
 
 # Port for the MCP server

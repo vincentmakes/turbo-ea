@@ -328,6 +328,16 @@ _INVALID_LINKS = {
         [{"bpmn_element_id": "Activity_1", "organization_ids": _ORG}],
         [_problem(0, "organization_ids must be a list of card UUIDs; [] clears them")],
     ),
+    # Not iterated: a number cannot be, and a mapping keyed by card ids would
+    # otherwise pass as its keys.
+    "organizations as a number": (
+        [{"bpmn_element_id": "Activity_1", "organization_ids": 7}],
+        [_problem(0, "organization_ids must be a list of card UUIDs; [] clears them")],
+    ),
+    "organizations as a mapping keyed by card ids": (
+        [{"bpmn_element_id": "Activity_1", "organization_ids": {_ORG: "Sales"}}],
+        [_problem(0, "organization_ids must be a list of card UUIDs; [] clears them")],
+    ),
     "an organization that is not a UUID": (
         [{"bpmn_element_id": "Activity_1", "organization_ids": [_ORG, "Sales"]}],
         [_problem(0, "organization_ids must be a list of card UUIDs; [] clears them")],
