@@ -6084,7 +6084,6 @@ async def _flow_step(step: str, process_id: str, version_id: str, dry_run: bool)
     if refusal is not None:
         return _fmt(refusal)
     process_id, version_id = ids["business_process_id"], ids["version_id"]
-    version: dict = {}
     if dry_run:
         # A read that can refuse the call, so before the batch opens.
         version, refusal = await _read_flow_version(TurboEAClient(token), process_id, version_id)

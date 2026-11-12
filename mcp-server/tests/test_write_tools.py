@@ -1211,6 +1211,14 @@ def _summary(**fields):
     return {k: fields.get(k) for k in keys}
 
 
+class TestAppUrl:
+    def test_only_trailing_slashes_are_stripped(self, monkeypatch):
+        """The public URL keeps every other character, even one it ends in
+        before the slash."""
+        monkeypatch.setattr(server, "TURBO_EA_PUBLIC_URL", "https://ea.example.com/X//")
+        assert server._app_url("/cards/1") == "https://ea.example.com/X/cards/1"
+
+
 class TestListProcessFlowVersions:
     @pytest.mark.asyncio
     async def test_lists_the_published_flow_and_the_drafts(self, fake_token, public_url):
@@ -1331,6 +1339,16 @@ class TestListProcessFlowVersions:
 
 class TestGetProcessFlowVersion:
     @pytest.mark.asyncio
+    async def test_an_answer_that_is_not_an_object_reads_as_empty(self, fake_token, public_url):
+        backend = _FlowBackend(reads={f"{_FLOW}/versions/{_STEP_VERSION}": None})
+        data = await backend.run(
+            lambda: server.get_process_flow_version(
+                business_process_id=_STEP_PROCESS, version_id=_STEP_VERSION
+            )
+        )
+        assert data == {"drafts_tab_url": _DRAFTS_TAB}
+
+    @pytest.mark.asyncio
     async def test_a_server_error_is_raised(self, fake_token):
         import httpx
 
@@ -1426,6 +1444,10 @@ _STEP_CASES = {
 }
 
 
+_STEP_PROCESS = "00000000-0000-4000-8000-0000000000b1"
+_STEP_VERSION = "00000000-0000-4000-8000-0000000000e1"
+
+
 def _step_call(step, dry_run=True, version_id="00000000-0000-4000-8000-0000000000e1"):
     tool = getattr(server, _STEP_CASES[step][0])
     return lambda: tool(
@@ -1516,7 +1538,79 @@ class TestProcessFlowSteps:
             "note": data["note"],
             "batch_id": "B-1",
         }
-        assert f"dry_run=False to {step} it" in data["note"]
+        assert data["note"] == (
+            "Preview built by the MCP server: the route has no dry run, so the "
+            f"version was read and nothing was changed. Call again with "
+            f"dry_run=False to {step} it."
+        )
+
+    @pytest.mark.asyncio
+    async def test_every_call_carries_the_callers_token(self, fake_token, step):
+        """The preview's version read and both batch calls are made as the
+        caller — no call goes out without their token."""
+        tokens: list = []
+        backend = _FlowBackend(
+            reads={
+                f"{_FLOW}/versions/{_STEP_VERSION}": {
+                    "id": _STEP_VERSION,
+                    "revision": 4,
+                    "status": _STEP_CASES[step][1],
+                }
+            }
+        )
+
+        async def get(client, path, params=None):
+            tokens.append(client._token)
+            return await backend.get(path, params)
+
+        async def post(client, path, json=None):
+            tokens.append(client._token)
+            return await backend.post(path, json)
+
+        with (
+            patch.object(server.TurboEAClient, "get", autospec=True, side_effect=get),
+            patch.object(server.TurboEAClient, "post", autospec=True, side_effect=post),
+        ):
+            await _step_call(step)()
+        assert [p for _, p in backend.paths()] == [
+            f"{_FLOW}/versions/{_STEP_VERSION}",
+            COMMIT_OPEN,
+            COMMIT_CLOSE,
+        ]
+        assert tokens == ["test-token", "test-token", "test-token"]
+
+    @pytest.mark.asyncio
+    async def test_dry_run_of_an_unreadable_shape_is_refused(self, fake_token, public_url, step):
+        """A version read that is not an object is read as no version: the
+        preview refuses it rather than failing on it."""
+        backend = _FlowBackend(reads={f"{_FLOW}/versions/{_STEP_VERSION}": ["not", "a", "dict"]})
+        data = await backend.run(_step_call(step))
+        assert backend.paths("post") == []
+        assert data["error"] == "wrong_status"
+        assert data["status"] is None
+        assert data["revision"] is None
+
+    @pytest.mark.asyncio
+    async def test_a_commit_answer_that_is_not_an_object(self, fake_token, public_url, step):
+        _, _, _, url_key, url = _STEP_CASES[step]
+        backend = _FlowBackend(writes={f"{_FLOW}/versions/{_STEP_VERSION}/{step}": ["odd"]})
+        data = await backend.run(_step_call(step, dry_run=False))
+        assert backend.body("post", COMMIT_CLOSE) == {
+            "summary": {
+                "business_process_id": _STEP_PROCESS,
+                "version_id": _STEP_VERSION,
+                "status": None,
+            }
+        }
+        assert data == {
+            "business_process_id": _STEP_PROCESS,
+            "version_id": _STEP_VERSION,
+            "revision": None,
+            "status": None,
+            url_key: url,
+            "next_action": server._FLOW_STEPS[step]["next_action"],
+            "batch_id": "B-1",
+        }
 
     @pytest.mark.asyncio
     async def test_dry_run_refuses_a_version_in_the_wrong_status(
@@ -1630,7 +1724,7 @@ class TestProcessFlowSteps:
         g, p, pa = backend.patched()
         with g, p, pa:
             out = asyncio.run(_step_call(step, dry_run=False)())
-        assert "Not authenticated" in out
+        assert out == "Error: Not authenticated. Please reconnect."
         assert backend.calls == []
 
 
