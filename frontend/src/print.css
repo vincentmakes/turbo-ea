@@ -120,6 +120,17 @@
     max-height: 350px !important;
   }
 
+  /* A chart prints as its flat picture (charts/printCopy.ts): while
+     the copy stands in, the live zrender canvases and the tooltip are not
+     printed. A canvas replayed into the PDF carries alpha soft masks that
+     Apple's viewers draw as white boxes; the copy is a plain image. */
+  .echart-printing > :not(.echart-print-copy) {
+    display: none !important;
+  }
+  .echart-print-copy {
+    display: block !important;
+  }
+
   /* Allow content to flow across pages, but avoid breaks inside cards */
   .report-chart-area {
     break-inside: auto;
@@ -244,6 +255,14 @@
   * {
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
+  }
+}
+
+/* A chart's print copy (see the print block above) never shows on screen,
+   even for the moment between Safari's beforeprint and the print layout. */
+@media not print {
+  .echart-print-copy {
+    display: none !important;
   }
 }
 
