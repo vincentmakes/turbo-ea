@@ -35,7 +35,7 @@ Un **badge con il conteggio dei filtri attivi** mostra quanti filtri sono attual
 
 Fai clic con il tasto destro su una cella qualsiasi della griglia (pressione prolungata sui dispositivi touch) per aprire un menu contestuale con azioni rapide su ciò che si trova sotto il cursore, in stile ServiceNow:
 
-- **Anteprima scheda** — apre la scheda indicata dalla cella nel pannello laterale, senza uscire dalla griglia; il pannello lascia la griglia utilizzabile, così potete continuare a scorrere, filtrare e cliccare altre righe mentre è aperto, e chiuderlo con il suo pulsante di chiusura
+- **Anteprima scheda** — apre la scheda indicata dalla cella nel pannello laterale, senza uscire dalla griglia; il pannello lascia la griglia utilizzabile, così potete continuare a scorrere, filtrare e cliccare altre righe mentre è aperto, e chiuderlo con il suo pulsante di chiusura; se una sezione contiene modifiche non salvate, il pannello chiede conferma prima di scartarle quando visualizzate l'anteprima di un'altra scheda, chiudete il pannello o lasciate la pagina
 - **Mostra corrispondenze** — mantiene solo le righe il cui valore corrisponde a quello della cella selezionata
 - **Escludi** — nasconde le righe il cui valore corrisponde a quello della cella selezionata
 - **Copia valore** — copia il testo della cella negli appunti

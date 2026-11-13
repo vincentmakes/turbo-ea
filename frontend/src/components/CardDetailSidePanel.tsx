@@ -1,4 +1,4 @@
-import { useState, useEffect, type KeyboardEvent } from "react";
+import { useState, useEffect, useRef, type KeyboardEvent } from "react";
 import { useNavigate } from "react-router";
 import Box from "@mui/material/Box";
 import Drawer from "@mui/material/Drawer";
@@ -19,6 +19,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useAiStatus, aiSuggestEnabledFor } from "@/hooks/useAiStatus";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { api } from "@/api/client";
 import { DataQualityPill } from "@/features/cards/sections";
 import { GainFlight } from "@/features/cards/gamification/GainFlight";
@@ -64,9 +65,23 @@ interface Props {
    * keeps the modal drawer.
    */
   nonModal?: boolean;
+  /**
+   * Called when the parent asked for another card (or for the panel to close)
+   * while a section held unsaved edits and the user chose to keep them: the
+   * panel stays on `cardId` and hands it back so the parent can put its own
+   * state back (#1397). The Inventory passes its preview setter; a modal
+   * caller cannot switch cards behind the backdrop and needs nothing.
+   */
+  onKeepCard?: (cardId: string) => void;
 }
 
-export default function CardDetailSidePanel({ cardId, open, onClose, nonModal = false }: Props) {
+export default function CardDetailSidePanel({
+  cardId,
+  open,
+  onClose,
+  nonModal = false,
+  onKeepCard,
+}: Props) {
   const navigate = useNavigate();
   const { t } = useTranslation("common");
   const { getType } = useMetamodel();
@@ -91,24 +106,106 @@ export default function CardDetailSidePanel({ cardId, open, onClose, nonModal = 
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
 
-  // Reset state and fetch when cardId changes
+  // Unsaved edits (#1397). The sections report "any section dirty" through
+  // CardDetailContent, exactly as on the full card page (#843), and report
+  // clean again when they unmount.
+  const [dirty, setDirty] = useState(false);
+  const leaveMessage = t("cards:detail.unsavedLeaveConfirm");
+  // Reload, tab close, the "open full page" button and any other route
+  // change. `pathOnly`: the page beside a non-modal panel keeps working, and
+  // a same-path query-string write of its own is no reason to ask.
+  useUnsavedChangesGuard(dirty, leaveMessage, { pathOnly: true });
+
+  // The card the panel shows. It follows the parent's request (`open ?
+  // cardId : null`) unless that would throw away unsaved edits and the user
+  // says no — then the panel keeps its card, whatever the props say.
+  const [shownId, setShownId] = useState<string | null>(open && cardId ? cardId : null);
+  const shownIdRef = useRef(shownId);
+  const dirtyRef = useRef(dirty);
+  const leaveMessageRef = useRef(leaveMessage);
+  const onKeepCardRef = useRef(onKeepCard);
+  shownIdRef.current = shownId;
+  dirtyRef.current = dirty;
+  leaveMessageRef.current = leaveMessage;
+  onKeepCardRef.current = onKeepCard;
+  // A target the user already answered for, so one request is asked once:
+  // `approved` — the panel's own close was confirmed, so the parent's
+  // resulting `open=false` must not ask again; `declined` — the effect can
+  // run again for the same request (StrictMode, a parent that re-renders
+  // before restoring its state) and must not ask twice.
+  // `undefined` = no answer recorded; `null` is a real target (closed).
+  const approvedRef = useRef<string | null | undefined>(undefined);
+  const declinedRef = useRef<string | null | undefined>(undefined);
+
   useEffect(() => {
-    if (!cardId || !open) return;
+    const target = open && cardId ? cardId : null;
+    const current = shownIdRef.current;
+    if (target === current) {
+      // The parent caught up with the panel (or restored its state after a
+      // decline): nothing to ask, and a later request is a fresh question.
+      approvedRef.current = undefined;
+      declinedRef.current = undefined;
+      return;
+    }
+    if (dirtyRef.current && approvedRef.current !== target) {
+      if (declinedRef.current === target) return;
+      if (!window.confirm(leaveMessageRef.current)) {
+        declinedRef.current = target;
+        if (current) onKeepCardRef.current?.(current);
+        return;
+      }
+    }
+    approvedRef.current = undefined;
+    declinedRef.current = undefined;
+    setShownId(target);
+  }, [cardId, open]);
+
+  // The panel's own ways out — close button, Escape, the modal backdrop.
+  const requestClose = () => {
+    if (dirtyRef.current && !window.confirm(leaveMessageRef.current)) return;
+    approvedRef.current = null;
+    onClose();
+    // A parent already at `open=false` (it closed while the user kept the
+    // edits) re-renders nothing on onClose, so close from here.
+    if (!(open && cardId)) {
+      approvedRef.current = undefined;
+      setShownId(null);
+    }
+  };
+
+  // Reset state and fetch when the shown card changes
+  useEffect(() => {
+    // Whatever was unsaved belonged to the card the user just agreed to leave.
+    dirtyRef.current = false;
+    setDirty(false);
+    if (!shownId) return;
+    let live = true;
     setCard(null);
     setError("");
     setPerms(DEFAULT_PERMISSIONS);
     setAiResponse(null);
     setAiError("");
     setAiLoading(false);
+    // A switch can land before the previous card's responses do; those must
+    // not paint the old card over the new one.
     api
-      .get<Card>(`/cards/${cardId}`)
-      .then(setCard)
-      .catch((e) => setError(e.message));
+      .get<Card>(`/cards/${shownId}`)
+      .then((c) => {
+        if (live) setCard(c);
+      })
+      .catch((e) => {
+        if (live) setError(e.message);
+      });
     api
-      .get<CardEffectivePermissions>(`/cards/${cardId}/my-permissions`)
-      .then((res) => setPerms(res.effective))
+      .get<CardEffectivePermissions>(`/cards/${shownId}/my-permissions`)
+      .then((res) => {
+        if (live) setPerms(res.effective);
+      })
       .catch(() => {});
-  }, [cardId, open]);
+    return () => {
+      live = false;
+    };
+  }, [shownId]);
 
   const typeConfig = card ? getType(card.type) : null;
   // Resolve the subtype key (e.g. "aiModel") to its translated metamodel label
@@ -173,7 +270,7 @@ export default function CardDetailSidePanel({ cardId, open, onClose, nonModal = 
             mb: 1,
           }}
         >
-          <IconButton size="small" onClick={onClose}>
+          <IconButton size="small" onClick={requestClose}>
             <MaterialSymbol icon="close" size={20} />
           </IconButton>
           {card && typeConfig && (
@@ -240,7 +337,7 @@ export default function CardDetailSidePanel({ cardId, open, onClose, nonModal = 
             <IconButton
               size="small"
               onClick={() => {
-                if (cardId) navigate(`/cards/${cardId}`);
+                if (shownId) navigate(`/cards/${shownId}`);
               }}
             >
               <MaterialSymbol icon="open_in_new" size={20} />
@@ -271,6 +368,7 @@ export default function CardDetailSidePanel({ cardId, open, onClose, nonModal = 
             card={card}
             perms={perms}
             onCardUpdate={setCard}
+            onDirtyChange={setDirty}
             onSaveOrigin={reportSaveOrigin}
             showBpmTabs={false}
             onAiSuggest={
@@ -325,14 +423,14 @@ export default function CardDetailSidePanel({ cardId, open, onClose, nonModal = 
         <Drawer
           anchor="right"
           variant="persistent"
-          open={open}
+          open={shownId !== null}
           slotProps={{ transition: { unmountOnExit: true } }}
           PaperProps={{
             // No Modal ⇒ no built-in Escape handling. Only a keydown that
             // started inside the panel reaches here, and a nested dialog, menu
             // or autocomplete that consumed its own Escape stops it first.
             onKeyDown: (e: KeyboardEvent) => {
-              if (e.key === "Escape" && !e.defaultPrevented) onClose();
+              if (e.key === "Escape" && !e.defaultPrevented) requestClose();
             },
             // The persistent variant is flat; give it the modal drawer's lift.
             sx: { ...paperSx, boxShadow: 16 },
@@ -345,7 +443,12 @@ export default function CardDetailSidePanel({ cardId, open, onClose, nonModal = 
   }
 
   return (
-    <Drawer anchor="right" open={open} onClose={onClose} PaperProps={{ sx: paperSx }}>
+    <Drawer
+      anchor="right"
+      open={shownId !== null}
+      onClose={requestClose}
+      PaperProps={{ sx: paperSx }}
+    >
       {content}
     </Drawer>
   );

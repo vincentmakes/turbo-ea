@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.203.3] - 2026-11-13
+
+### Fixed
+- The card preview panel asks before discarding unsaved edits when you preview another card, close the panel or leave the page ([#1397](https://github.com/vincentmakes/turbo-ea/issues/1397)).
+
 ## [2.203.2] - 2026-11-12
 
 ### Fixed
