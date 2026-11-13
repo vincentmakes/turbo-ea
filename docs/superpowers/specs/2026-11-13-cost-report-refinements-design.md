@@ -50,7 +50,12 @@ control like the Application Portfolio's (`/reports/portfolio`), but moving **on
 **green**, placed **between the filter row and the summary tiles** (where the portfolio puts its row).
 
 **Design.**
-- Remove the `Fiscal year` drop-down and the chip. In their place, one full-width row between the toolbar
+- Remove the `Fiscal year` drop-down and the chip. The chip's tooltip text, `cost.fiscalYearHelp` ("Annual
+  costs of the cards live in this fiscal year ... in full and never pro-rated. Cards retired in an earlier
+  fiscal year are left out."), is **kept**: it moves to an info icon with that tooltip next to the Time Travel
+  label (agent's call, so the rule stays explained); the chip's key `cost.fiscalYearIndicator` and its tests
+  (`CostReport.mutation.test.tsx` ~364-391, `CostReport.test.tsx` ~317) are rewritten for the icon. The year
+  named is the one the response served (`fiscalYear.year`), as the chip showed it, not just the request parameter. In their place, one full-width row between the toolbar
   filters and the KPI tiles: a "Time Travel" label with the selected fiscal year's name (the existing
   `costFiscalYearName` text, e.g. `FY26 - Current`), previous / next step buttons, and a track whose steps are
   exactly the fiscal years of `costFiscalYearOptions(...)`, oldest on the left, forecast year on the right, each
@@ -61,12 +66,21 @@ control like the Application Portfolio's (`/reports/portfolio`), but moving **on
   forecast banner/flag (`showForecast`) keep working unchanged.
 - The colour is green (the cost report's accent, the same as its icon and the `Total Cost` tile border): use the
   design token, no hex (`frontend/src/theme/tokens.ts`; the builder picks the matching token).
-- Reuse, do not copy: `components/TimelineSlider.tsx` is date-based (milliseconds, year marks, transition
-  milestones). The builder chooses between a discrete-steps mode on that component or a small dedicated
-  component that reuses its look; either way no behaviour of the portfolio's slider changes (its tests stay
-  green unchanged).
+- Reuse, do not copy (user's decision, 2026-11-13): **`components/TimelineSlider.tsx` is extended**, not
+  duplicated. It is date-based (milliseconds, year marks, transition milestones) and **exposed to extensions
+  through the SDK** (`loadTimeline` in `lib/extensionHost.tsx`), and `UI_SDK_VERSION` is frozen (1.19, never
+  bumped): so the extension is **purely additive**: new optional props (a discrete-steps mode with the list of
+  steps, an accent colour override, a value text for `aria-valuetext`), every default equal to today's behaviour,
+  the portfolio's slider and its tests unchanged, the SDK signature unchanged. The slider picks its colour
+  itself today (amber in the past, purple in the future, `primary` for today): the accent override replaces that
+  for the fiscal-year use (green).
 - Keyboard and screen readers: the track is a slider with arrow-key steps and a text value (`aria-valuetext` =
   the fiscal year name); the step buttons have labels; RTL is honoured through `useIsRtl()` like the existing slider.
+
+**Also the Licensing report (user's decision):** `LicensingReport.tsx` has the same drop-down
+(`costFiscalYearOptions`) and a chip (`licensing.fiscalYearIndicator`); it gets the **same Time Travel row**,
+with the same rules, so the two reports stay alike (`licensing-items.md` says it reuses the cost report's
+fiscal-year picker). Its chip text is handled like `cost.fiscalYearHelp` above.
 
 **Non-goals.** No new data, no change to which years exist, no milestone marks under the track (the portfolio's
 coloured transition marks do not apply to costs), no free date picking.
@@ -102,20 +116,25 @@ a `Box` with `overflow: "hidden"`, ~line 204) and the selected year's cost-item 
   stays in the Time Travel row. Year labels sit at the left of each bar and are the **short form only**
   (`FY27`, `FY26`, ..., no `Forecast` / `Current` suffix: there is little room; the long name stays in the Time
   Travel row). The value of each year's total sits at the right of its bar. Agreed after a mockup on 2026-11-13:
-  the others are dimmed to about 45% opacity; the selected year is emphasised **discreetly**: a very light tint
+  the others are dimmed to about 45% opacity (confirmed by the user: selected year bright, the others dim); the
+  selected year is emphasised **discreetly**: a very light tint
   behind its row (the theme's success tint at low strength, no outline) and a medium-weight label and value, not a
   boxed highlight. An empty year (no items) still shows its row, label and a `0 €` value.
-- Tooltip root cause: the chart is wrapped in `overflow: "hidden"` so the ECharts tooltip is clipped to the wrapper.
-  Fix: render the tooltip outside the wrapper (ECharts `tooltip.appendToBody: true` and a `z-index` above the page
-  chrome) and keep the rounded ends through the series' own `itemStyle.borderRadius` instead of clipping the box;
-  remove the `overflow: hidden`. The same check applies to the licensing bar and to any other chart in a clipped
+- Tooltip root cause, two things (found by the builder check): the chart is wrapped in `overflow: "hidden"`, and
+  `tooltip()` in `components/charts/chrome.ts` (~line 78) sets `confine: true` by default, which keeps the tooltip
+  inside the 14 px chart. Fix: for these bars, `confine: false` and render the tooltip outside the wrapper (ECharts
+  6: `appendTo: "body"`; `appendToBody` is deprecated) with a `z-index` above the page chrome; keep the rounded
+  ends through the series' own `itemStyle.borderRadius` and remove the `overflow: hidden`. The option test checks
+  **both** `confine === false` and the body target. The same check applies to the licensing bar and to any other chart in a clipped
   wrapper in this section.
 - Same Time Travel row component as item 2 above (one component, green accent for costs). Selecting a year still
   loads/edits that year's items exactly as the stepper did (state, fiscal-year parameter and the "confirm this year"
   / "fallback from year" behaviour are unchanged).
 
-**Licensing (agent's call).** The Licensing section gets the **same Time Travel row** in place of its stepper and
-**no per-year bars**: the user asked for the control there and for no horizontal bars. One shared component serves
+**Licensing (agent's call).** The Licensing section gets the **same Time Travel row** (green too, one component)
+in place of its stepper and **no per-year bars**: the user asked for the control there and for no horizontal
+bars. "No bars" means **no per-year bars**: its existing two-row Licensed / Actual chart per metric stays as it is
+(`LicensingSection.tsx` ~305-311), and gets the same tooltip fix. One shared component serves
 both, so the two sections behave alike; each section keeps its own selected year as today (no new coupling). Its
 content (metrics, tiles) is unchanged. Cost: Licensing's tests that click the stepper are rewritten for the new
 control.
@@ -128,7 +147,14 @@ one bar per fiscal year in forecast-to-oldest order, with the right segments and
 items; the selected year is the emphasised one and the others are dimmed, and the emphasis follows a year change;
 the tooltip is configured to render outside the clipping wrapper (option check) and the wrapper no longer clips;
 the Time Travel steps and the existing year-dependent behaviours (confirm, fallback) still work in Costs; the
-Licensing section changes year with the new control and shows no bars.
+the Licensing section changes year with the new control and shows no per-year bars (its Licensed / Actual chart
+is still there).
+
+**Unconfirmed current year (agent's call).** A year that has no confirmed items shows the fallback items of an
+earlier year, already drawn faded (opacity 0.55) today. The two fades **do not multiply**: the lowest opacity
+wins (a not-selected fallback year is 0.45, a selected fallback year keeps 0.55, a confirmed selected year is
+1). Each bar shows the items the server returns for that year, fallback included. The option builder's tests
+cover the three cases.
 
 ## Open list
 
