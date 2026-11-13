@@ -199,6 +199,12 @@
     display: table-row-group;
   }
 
+  /* A fiscal year's row never ends a page with its lines on the next: it
+     goes over with its first line. */
+  .ppm-project-report [data-year-row] {
+    break-after: avoid;
+  }
+
   /* A cost chart keeps its title with it. */
   .ppm-project-report .echart-container {
     break-before: avoid;

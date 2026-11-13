@@ -263,6 +263,13 @@ describe("BudgetTable — read-only and fully expanded", () => {
     ]);
   });
 
+  it("marks each year row, and only those, for print to keep with its first line", () => {
+    render(<BudgetTable groups={BUDGETS} readOnly expandAll />);
+    const marked = bodyRows(budgetTable()).filter((r) => r.hasAttribute("data-year-row"));
+    expect(marked.length).toBe(BUDGETS.length);
+    expect(screen.getByText("Servers").closest("tr")).not.toHaveAttribute("data-year-row");
+  });
+
   it("spans the empty and loading rows across four columns", () => {
     const { rerender } = render(<BudgetTable groups={[]} readOnly />);
     expect(screen.getByText("No budget lines yet").closest("td")).toHaveAttribute("colspan", "4");
@@ -413,6 +420,14 @@ describe("CostTable — read-only and fully expanded", () => {
       expect(row.querySelectorAll("td")).toHaveLength(5);
     }
     expect(footerCells(costTable())).toHaveLength(4);
+  });
+
+  it("marks each year row, and only those, for print to keep with its first line", () => {
+    render(<CostTable groups={COSTS} readOnly expandAll />);
+    const marked = bodyRows(costTable()).filter((r) => r.hasAttribute("data-year-row"));
+    expect(marked.length).toBe(COSTS.length);
+    expect(yearRow("FY 2026")).toHaveAttribute("data-year-row");
+    expect(screen.getByText("Licences").closest("tr")).not.toHaveAttribute("data-year-row");
   });
 
   it("spans the empty row and the derived caption across five columns", () => {
