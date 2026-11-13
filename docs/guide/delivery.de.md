@@ -28,6 +28,18 @@ Jede Baumzeile zeigt:
 
 Die synthetische Zeile **Nicht verknüpfte Artefakte** oben im Baum erscheint, wenn es SoAWs, Diagramme oder ADRs gibt, die noch keiner Initiative zugeordnet sind. Öffnen Sie sie, um sie wieder zu verknüpfen.
 
+### Wer was sieht
+
+EA Delivery öffnet sich für jede Rolle, die **SoAW-Dokumente anzeigen** (`soaw.view`) oder **Architekturentscheidungen anzeigen** (`adr.view`) besitzt. Jede Art von Artefakt folgt dann ihrer eigenen Berechtigung:
+
+| Artefakt | Aufgelistet mit | Erstellt mit |
+|----------|-------------|--------------|
+| **SoAW** | `soaw.view` | `soaw.manage` |
+| **Diagramm** | `diagrams.view` | `diagrams.manage` (auch zum Verknüpfen oder Lösen eines Diagramms erforderlich) |
+| **ADR** | `adr.view` | `adr.manage` |
+
+Eine Gruppe, die Sie nicht sehen dürfen, fehlt im Arbeitsbereich, und **+ Neues Artefakt** sowie **+ Hinzufügen …** bieten nur die Arten an, die Sie erstellen dürfen — eine Rolle, die nur lesen kann, sieht keine der beiden Schaltflächen. Eine Rolle mit nur `adr.view` erhält also die Seite mit den Entscheidungen jeder Initiative und nichts zu SoAWs.
+
 ## Statement of Architecture Work (SoAW)
 
 Ein **Statement of Architecture Work (SoAW)** ist ein formales Dokument, das durch den [TOGAF-Standard](https://pubs.opengroup.org/togaf-standard/) (The Open Group Architecture Framework) definiert wird. Es legt den Umfang, Ansatz, die Ergebnisse und die Governance für ein Architekturvorhaben fest. In TOGAF wird das SoAW während der **Vorbereitungsphase** und **Phase A (Architekturvision)** erstellt und dient als Vereinbarung zwischen dem Architekturteam und seinen Stakeholdern.
@@ -93,7 +105,7 @@ Ein SoAW hat dieselbe Diskussion, dieselben Erwähnungen und denselben Verlauf w
 
 ![Initiative-Karte — SoAW-Reiter](../assets/img/de/55_initiative_soaw_tab.png)
 
-Initiativen zeigen außerdem direkt auf ihrer Karten-Detailseite einen eigenen **SoAW**-Reiter. Der Reiter listet die aktuelle Revision jedes mit dieser Initiative verknüpften SoAW auf, dazu jede Revision, die gerade entworfen wird (Titel, Status-Chip, Revisionsnummer, Datum der letzten Änderung) mit einer **+ Neues SoAW**-Schaltfläche, die die aktuelle Initiative vorauswählt — so kannst du SoAWs erstellen oder öffnen, ohne die Karte zu verlassen. Die Erstellung verwendet denselben Dialog wie die EA-Delivery-Seite, und das neue Dokument erscheint an beiden Stellen. Die Sichtbarkeit des Reiters folgt den Standard-Karten-Berechtigungsregeln.
+Initiativen zeigen außerdem direkt auf ihrer Karten-Detailseite einen eigenen **SoAW**-Reiter. Der Reiter listet die aktuelle Revision jedes mit dieser Initiative verknüpften SoAW auf, dazu jede Revision, die gerade entworfen wird (Titel, Status-Chip, Revisionsnummer, Datum der letzten Änderung) mit einer **+ Neues SoAW**-Schaltfläche, die die aktuelle Initiative vorauswählt — so kannst du SoAWs erstellen oder öffnen, ohne die Karte zu verlassen. Die Erstellung verwendet denselben Dialog wie die EA-Delivery-Seite, und das neue Dokument erscheint an beiden Stellen. Der Reiter wird Rollen angezeigt, die **SoAW-Dokumente anzeigen** (`soaw.view`) besitzen; die Schaltfläche **+ Neues SoAW** und die Lösch-Aktion bei einem Entwurf erfordern **SoAW-Dokumente erstellen und bearbeiten** (`soaw.manage`) — unabhängig davon, ob Sie die Initiative selbst bearbeiten können.
 
 ## Architecture Decision Records (ADR)
 

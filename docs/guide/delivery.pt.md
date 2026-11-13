@@ -28,6 +28,18 @@ Cada linha da árvore mostra:
 
 A linha sintética **Artefatos não vinculados** no topo da árvore aparece quando há SoAWs, diagramas ou ADRs ainda não vinculados a uma iniciativa. Abra-a para os religar.
 
+### Quem vê o quê
+
+As Entregas de EA abrem para qualquer papel que tenha **Ver documentos SoAW** (`soaw.view`) ou **Ver registos de decisões de arquitetura** (`adr.view`). Cada tipo de artefato segue então a sua própria permissão:
+
+| Artefato | Listado com | Criado com |
+|----------|-------------|--------------|
+| **SoAW** | `soaw.view` | `soaw.manage` |
+| **Diagrama** | `diagrams.view` | `diagrams.manage` (também necessário para vincular ou desvincular um diagrama) |
+| **ADR** | `adr.view` | `adr.manage` |
+
+Um grupo que não pode ver fica fora do espaço de trabalho, e **+ Novo artefato** e **+ Adicionar …** oferecem apenas os tipos que pode criar — um papel que só pode ler não vê nenhum dos dois botões. Assim, um papel apenas com `adr.view` obtém a página com as decisões de cada iniciativa e nada sobre SoAW.
+
 ## Statement of Architecture Work (SoAW)
 
 Um **Statement of Architecture Work (SoAW)** é um documento formal definido pelo [padrão TOGAF](https://pubs.opengroup.org/togaf-standard/) (The Open Group Architecture Framework). Ele estabelece o escopo, abordagem, entregáveis e governança para um engajamento de arquitetura. No TOGAF, o SoAW é produzido durante a **Fase Preliminar** e **Fase A (Visão de Arquitetura)** e serve como um acordo entre a equipe de arquitetura e suas partes interessadas.
@@ -93,7 +105,7 @@ Um SoAW tem a mesma discussão, as mesmas menções e o mesmo histórico que uma
 
 ![Card de iniciativa — aba SoAW](../assets/img/pt/55_iniciativa_soaw_tab.png)
 
-As iniciativas também expõem uma aba **SoAW** dedicada diretamente na sua página de detalhe. A aba lista a revisão atual de cada SoAW vinculado àquela iniciativa, mais qualquer revisão em redação (título, chip de status, número de revisão, data da última modificação) com um botão **+ Novo SoAW** que pré-seleciona a iniciativa atual — para que você possa redigir ou abrir um SoAW sem sair do card no qual está trabalhando. A criação reutiliza o mesmo diálogo da página Entregas de EA, e o novo documento aparece em ambos os lugares. A visibilidade da aba segue as regras padrão de permissão dos cards.
+As iniciativas também expõem uma aba **SoAW** dedicada diretamente na sua página de detalhe. A aba lista a revisão atual de cada SoAW vinculado àquela iniciativa, mais qualquer revisão em redação (título, chip de status, número de revisão, data da última modificação) com um botão **+ Novo SoAW** que pré-seleciona a iniciativa atual — para que você possa redigir ou abrir um SoAW sem sair do card no qual está trabalhando. A criação reutiliza o mesmo diálogo da página Entregas de EA, e o novo documento aparece em ambos os lugares. A aba é mostrada aos papéis que têm **Ver documentos SoAW** (`soaw.view`); o botão **+ Novo SoAW** e a ação de excluir um rascunho exigem **Criar e editar documentos SoAW** (`soaw.manage`), quer você possa ou não editar a própria iniciativa.
 
 ## Registros de Decisões de Arquitetura (ADR)
 

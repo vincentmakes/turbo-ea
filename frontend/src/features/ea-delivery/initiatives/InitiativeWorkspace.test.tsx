@@ -23,7 +23,7 @@ vi.mock("@/components/CardDetailSidePanel", () => ({
 
 import i18n from "@/i18n";
 import { hookState, withMetamodel } from "@/test/hooks";
-import { renderWithProviders } from "@/test/render";
+import { renderWithProviders, userWith } from "@/test/render";
 import {
   makeCard,
   makeCardType,
@@ -413,5 +413,145 @@ describe("InitiativeWorkspace — the status chip is coloured from the metamodel
   it("keeps the bundled colour for a built-in status the metamodel lacks", () => {
     withMetamodel([INITIATIVE_TYPE]);
     expect(chipOf("atRisk", "At Risk")).toHaveStyle({ backgroundColor: "#ff9800" });
+  });
+});
+
+// Issue #1400: EA Delivery opens for a role holding one document permission
+// alone, so a section exists only for a kind the role may read and "+ Add"
+// only for one it may create.
+describe("InitiativeWorkspace — what the role may read and create", () => {
+  const SECTIONS = {
+    soaw: "Statements of Architecture Work",
+    diagram: "Diagrams",
+    adr: "Architecture Decisions",
+  };
+  // A section's own "+ Add" (in its header once it has items, else its stub).
+  const SECTION_ADD = /^Add (Statement of Architecture Work|Diagram|Architecture Decision)$/;
+  const shownSections = () =>
+    Object.values(SECTIONS).filter((label) => screen.queryByText(label) !== null);
+
+  function renderAs(selection: Props["selection"], ...permissions: string[]) {
+    const handlers = {
+      onSelectInitiative: vi.fn(),
+      onCreateArtefact: vi.fn(),
+      onLinkDiagrams: vi.fn(),
+      onUnlinkDiagram: vi.fn(),
+      onSoawContextMenu: vi.fn(),
+      isFavorite: vi.fn(() => false),
+      onToggleFavorite: vi.fn(),
+    };
+    const utils = renderWithProviders(<InitiativeWorkspace selection={selection} {...handlers} />, {
+      user: userWith(...permissions),
+    });
+    return { ...utils, ...handlers };
+  }
+
+  const FULL: Props["selection"] = {
+    kind: "initiative",
+    node: node(PROGRAM, { soaws: [A_SOAW], diagrams: [A_DIAGRAM], adrs: [AN_ADR] }),
+  };
+  const EMPTY: Props["selection"] = { kind: "initiative", node: node(PROGRAM) };
+
+  it("shows a decision reader the decisions and nothing else", () => {
+    renderAs(FULL, "adr.view", "adr.comment");
+    expect(shownSections()).toEqual([SECTIONS.adr]);
+    expect(screen.getByText("Adopt event bus")).toBeInTheDocument();
+    expect(screen.queryByText("Migration SoAW")).not.toBeInTheDocument();
+    expect(screen.queryByText("Target landscape")).not.toBeInTheDocument();
+  });
+
+  it("shows a SoAW reader the SoAWs and nothing else", () => {
+    renderAs(FULL, "soaw.view");
+    expect(shownSections()).toEqual([SECTIONS.soaw]);
+    expect(screen.getByText("Migration SoAW")).toBeInTheDocument();
+    expect(screen.queryByText("Adopt event bus")).not.toBeInTheDocument();
+  });
+
+  it("shows the diagrams only with diagrams.view", () => {
+    renderAs(FULL, "soaw.view", "adr.view", "diagrams.view");
+    expect(shownSections()).toEqual(Object.values(SECTIONS));
+    expect(screen.getByText("Target landscape")).toBeInTheDocument();
+  });
+
+  it("applies the same rule to the unlinked artefacts", () => {
+    renderAs(
+      { kind: "unlinked", soaws: [A_SOAW], diagrams: [A_DIAGRAM], adrs: [AN_ADR] },
+      "adr.view",
+    );
+    expect(shownSections()).toEqual([SECTIONS.adr]);
+    expect(screen.queryByText("Migration SoAW")).not.toBeInTheDocument();
+  });
+
+  it("offers a reader nothing to add: no Add menu, no stubs, no diagram linking", () => {
+    renderAs(FULL, "soaw.view", "adr.view", "diagrams.view");
+    // The Add menu, and each section's own "+ Add" (favourites keep theirs).
+    expect(
+      screen.queryByRole("button", { name: /^add Add arrow_drop_down$/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: SECTION_ADD })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Link diagrams to this initiative/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Unlink from this initiative" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("says an empty section is empty to a reader, where a creator gets the Add stub", () => {
+    const reader = renderAs(EMPTY, "soaw.view", "adr.view");
+    expect(screen.getByText("No Statements of Architecture Work yet.")).toBeInTheDocument();
+    expect(screen.getByText("No Architecture Decisions yet.")).toBeInTheDocument();
+    reader.unmount();
+
+    renderAs(EMPTY, "soaw.view", "adr.view", "adr.manage");
+    expect(screen.getByText("No Statements of Architecture Work yet.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Add Architecture Decision$/ })).toBeInTheDocument();
+  });
+
+  it("offers in the Add menu only the kinds the role may create, pre-linked", async () => {
+    const { user, onCreateArtefact } = renderAs(
+      FULL,
+      "soaw.view",
+      "adr.view",
+      "adr.manage",
+      "diagrams.view",
+    );
+    // Each section has items, so its "+ Add" sits in the header: decisions only.
+    expect(
+      screen.getAllByRole("button", { name: SECTION_ADD }).map((b) => b.getAttribute("aria-label")),
+    ).toEqual(["Add Architecture Decision"]);
+    await user.click(screen.getByRole("button", { name: /^add Add arrow_drop_down$/ }));
+    const items = await screen.findAllByRole("menuitem");
+    expect(items.map((item) => item.textContent)).toEqual(["gavelNew Architecture Decision"]);
+    await user.click(items[0]);
+    expect(onCreateArtefact).toHaveBeenCalledWith("adr", "init-1");
+  });
+
+  it("lets a diagram manager link and unlink diagrams", async () => {
+    const { user, onLinkDiagrams, onUnlinkDiagram } = renderAs(
+      FULL,
+      "diagrams.view",
+      "diagrams.manage",
+    );
+    await user.click(screen.getByRole("button", { name: /Link diagrams to this initiative/ }));
+    expect(onLinkDiagrams).toHaveBeenCalledWith("init-1");
+    await user.click(screen.getByRole("button", { name: "Unlink from this initiative" }));
+    expect(onUnlinkDiagram).toHaveBeenCalledWith(expect.objectContaining({ id: "d1" }), "init-1");
+  });
+
+  it("keeps the empty state's New button for a creator and drops it for a reader", async () => {
+    const reader = renderAs(null, "adr.view");
+    expect(screen.getByText("Pick an initiative to start")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /New artefact/ })).not.toBeInTheDocument();
+    reader.unmount();
+
+    const { user, onCreateArtefact } = renderAs(null, "soaw.view", "soaw.manage", "adr.view");
+    await user.click(screen.getByRole("button", { name: /New artefact/ }));
+    const items = await screen.findAllByRole("menuitem");
+    expect(items.map((item) => item.textContent)).toEqual([
+      "descriptionNew Statement of Architecture Work",
+    ]);
+    await user.click(items[0]);
+    expect(onCreateArtefact).toHaveBeenCalledWith("soaw", undefined);
   });
 });

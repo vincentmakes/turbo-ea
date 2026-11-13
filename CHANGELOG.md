@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.203.4] - 2026-11-13
+
+### Fixed
+- An Initiative card no longer shows the SoAW tab to a role that cannot view SoAW documents, and the tab's New SoAW and delete actions follow the SoAW permission instead of the right to edit the card ([#1400](https://github.com/vincentmakes/turbo-ea/issues/1400)).
+- EA Delivery opens for a role that can view architecture decisions but not SoAWs, lists only the kinds of artefact the role may view, and offers to create only the kinds it may create; its tab in PPM follows the same rule instead of opening onto a failed page.
+
 ## [2.203.3] - 2026-11-13
 
 ### Fixed

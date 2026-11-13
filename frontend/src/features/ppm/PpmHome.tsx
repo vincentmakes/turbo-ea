@@ -6,7 +6,9 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useAuthContext } from "@/hooks/AuthContext";
 import { usePageSection } from "@/hooks/usePageTitle";
+import { canAccessPath } from "@/lib/routePermissions";
 
 const PpmPortfolio = lazy(() => import("./PpmPortfolio"));
 const EaDeliveryReport = lazy(() => import("@/features/reports/EaDeliveryReport"));
@@ -37,13 +39,22 @@ function TabFallback() {
  * EA Delivery also keeps its standalone /reports/ea-delivery route so it
  * stays reachable when PPM is disabled. The Reports dropdown re-injects an
  * EA Delivery entry in that case (see AppLayout's nav memo).
+ *
+ * The EA Delivery tab is offered to whoever may open that standalone route —
+ * one gate, in `ROUTE_PERMISSIONS`, so the tab and the URL cannot disagree.
  */
 export default function PpmHome() {
   const { t } = useTranslation("ppm");
   const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useAuthContext();
+  const canOpenDelivery = canAccessPath(user?.permissions, "/reports/ea-delivery");
+  const tabKeys = useMemo<TabKey[]>(
+    () => TAB_KEYS.filter((key) => key !== "ea-delivery" || canOpenDelivery),
+    [canOpenDelivery],
+  );
   const paramTab = searchParams.get("tab") as TabKey | null;
-  const resolvedTab: TabKey =
-    paramTab && (TAB_KEYS as readonly string[]).includes(paramTab) ? paramTab : "portfolio";
+  // A link to a tab this role is not offered opens Portfolio.
+  const resolvedTab: TabKey = paramTab && tabKeys.includes(paramTab) ? paramTab : "portfolio";
   const [tab, setTab] = useState<TabKey>(resolvedTab);
 
   useEffect(() => {
@@ -82,7 +93,7 @@ export default function PpmHome() {
         scrollButtons="auto"
         sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}
       >
-        {TAB_KEYS.map((key) => (
+        {tabKeys.map((key) => (
           <Tab
             key={key}
             value={key}
