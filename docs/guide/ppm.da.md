@@ -263,21 +263,23 @@ Interager med Gantt-diagrammet ved hjælp af:
 
 Den sidste fane viser den fulde kortdetaljevisning, inklusive alle standardsektioner (beskrivelse, livscyklus, egenskaber, relationer, interessenter, kommentarer, historik).
 
-### Eksport af et initiativ som PDF
+### Initiativrapport
 
-Knappen **PDF** i initiativets overskrift, ved siden af undertype-chippen, udskriver initiativet som en designet, visuel rapport — nøgletalsfelter, sundhedsprikker, budgetbjælker, forbrugsdiagrammer, et risikovarmekort og en tidslinje for tidsplanen (på en telefon er knappen et PDF-ikon). Den åbner en dialog med ét afkrydsningsfelt pr. afsnit; første gang er alle markeret, **Vælg alle** og **Fravælg alle** sætter dem på én gang, og det valg, du eksporterer med, huskes i din browser:
+![PPM-initiativrapport](../assets/img/da/103_ppm_initiative_report.png)
 
-| Afsnit | Hvad der udskrives |
-|--------|--------------------|
-| **Oversigt** | Felter for **Samlet budget**, **Samlet realiseret** og **Afvigelse** (grøn inden for budget, rød ved overskridelse); en fuldførelsesring; de tre sundhedsvurderinger fra den seneste statusrapport som farvede prikker (grøn, gul, rød) med deres tekst; budgetbjælker for i alt, CapEx og OpEx, røde ved budgetoverskridelse — tal hentet fra de underliggende initiativer tegnes med omrids og kursive tal og en note om det; start- og slutdato; og beskrivelsen |
-| **Statusrapporter** | Den seneste rapport i sin helhed som et kort med dens sundhedsprikker og derefter de tidligere rapporter som en tabel med dato, rapportør og de tre sundhedsvurderinger som farvede prikker |
-| **Budget og omkostninger** | Felter for samlet budget, realiseret og afvigelse samt for CapEx og OpEx brugt i forhold til deres budget; de to kumulative forbrugsdiagrammer fra fanen Budget og omkostninger — ét regnskabsår fordelt på kategori (det aktuelle, eller det nærmeste år med data, når det aktuelle ikke har nogen) og hele projektet — med CapEx- og OpEx-linjerne mod stiplede budgetlinjer; derefter budgetlinjerne og omkostningsposterne, grupperet efter regnskabsår med subtotaler og totaler. Et diagram uden noget at vise, for eksempel når ingen omkostningslinje er dateret, udelades |
-| **Risikostyring** | Felter for **Risici i alt**, **Åben** og **Høje risici**; et **Risikovarmekort** over sandsynlighed mod konsekvens, der viser, hvor mange risici der ligger i hver celle, farvet efter scoreinterval (Høj 15 eller mere, Mellem 6 til 14, Lav under 6); derefter hver risiko med sin score som en farvet chip (med sandsynlighed × konsekvens), sin status-chip, ejer, fuld beskrivelse og fuld afbødning, højeste score først |
-| **Opgaver og tidsplan** | Arbejdsnedbrydningen med en tidslinje på en skala med år og kvartaler: en bjælke for hver arbejdspakke, udfyldt efter dens fuldførelse, og for hver opgave, farvet efter dens status; en rombe for en milepæl, en prik for et element med kun én dato, en linje for i dag, når den falder inden for intervallet, og en signaturforklaring. Hver række angiver også datoerne, fuldførelse eller status, ejer og, for en opgave, prioritet; hver pakkes opgaver står under den, og opgaverne uden arbejdspakke følger efter. Afhængighedspile tegnes ikke |
+Knappen **Rapport** i initiativets overskrift, ved siden af undertype-chippen (et ikon på en telefon), åbner **Initiativrapport**: én skrivebeskyttet side, der samler det, fanerne viser, opsat som de andre rapporter, med initiativets navn som titel og en tilbagepil til at vende tilbage til initiativet. Chippene **Afsnit** på værktøjslinjen viser eller skjuler hvert afsnit; første gang vises alle, og dit valg huskes i din browser:
 
-**Eksportér PDF** åbner et udskriftsklart dokument i en ny fane sammen med browserens udskriftsdialog; vælg *Gem som PDF* for at beholde det. Tillad pop op-vinduer for dette websted, hvis intet åbner. Forsiden viser initiativets navn med dets undertype og initiativstatus samt dato og klokkeslæt for udskriften; afsnittene følger i rækkefølgen ovenfor, og et markeret afsnit uden indhold viser *Intet registreret.* Hver farve er parret med sin tekst, så rapporten stadig kan læses, når den udskrives i sort-hvid, og farverne udskrives uden at slå browserens indstilling *Baggrundsgrafik* til.
+| Afsnit | Hvad det viser |
+|--------|----------------|
+| **Oversigt** | Felter for **Samlet budget**, **Samlet realiseret**, **Afvigelse** og **Fuldførelse**; **Sundhedsoversigt** med de tre vurderinger fra den seneste statusrapport i farve og i ord; bjælkerne under **Økonomi** for i alt, CapEx og OpEx; kortet **Tidslinje** med start- og slutdato, undertype og initiativstatus; og beskrivelsen. Tal hentet fra de underliggende initiativer er markeret med en note, der forklarer dem |
+| **Statusrapporter** | Den seneste rapport i sin helhed med dens vurderinger og derefter de tidligere rapporter i en tabel med dato, rapportør og sundhedsvurderinger |
+| **Budget og omkostninger** | Felter for samlet budget, realiseret og afvigelse samt for CapEx og OpEx brugt i forhold til deres budget; diagrammerne **Forbrug over tid** for det regnskabsår, der står i deres chip, og for hele projektet; derefter tabellerne **Planlagt budget** og **Omkostningsposter** med alle regnskabsår foldet ud |
+| **Risikostyring** | Felter for **Risici i alt**, **Åben** og **Høje risici**; **Risikovarmekort** over sandsynlighed mod konsekvens, hvor hver celle er farvet efter scoreinterval og viser, hvor mange risici den rummer, ved siden af en optælling **Efter status**; derefter hver risiko med sin score (og sandsynlighed × konsekvens), status, ejer, fuld beskrivelse og fuld afbødning, højeste score først |
+| **Opgaver og tidsplan** | En tabel over arbejdspakker, hver med sine opgaver under sig, og derefter opgaverne uden arbejdspakke, ved siden af en tidslinje på en kvartalsskala: en bjælke for hver arbejdspakke udfyldt efter dens fuldførelse, en bjælke for hver opgave i dens statusfarve, et flag for en milepæl, en prik for et element med kun én dato og en linje for i dag, når den falder inden for intervallet. Hver række viser også sin fremdrift eller status og sin prioritet, og en signaturforklaring forklarer markeringerne |
 
-For at uddele en **risikorapport** skal du kun markere **Risikostyring**.
+For at udskrive rapporten eller gemme den som PDF skal du bruge knappen **Udskriv / gem som PDF** i titellinjen, som på alle rapporter. Siden udskrives i liggende format uden værktøjslinjen og appens navigation, og en linje under titlen angiver undertype, initiativstatus, start- og slutdato og hvornår rapporten blev udskrevet. Et afsnit uden registreringer siger det.
+
+For at uddele en **risikorapport** skal du kun vise **Risikostyring**.
 
 ## Work Breakdown Structure (WBS)
 
