@@ -190,6 +190,15 @@
     break-inside: avoid !important;
   }
 
+  /* A table's total row prints once, after its last row. A <tfoot> repeats
+     at the foot of every page the table spans, as <thead> repeats at the
+     top, so a mid-table page would show the grand total under only part of
+     the rows. As a plain row group it ends the table; the header row still
+     repeats. */
+  .ppm-project-report tfoot {
+    display: table-row-group;
+  }
+
   /* A cost chart keeps its title with it. */
   .ppm-project-report .echart-container {
     break-before: avoid;
