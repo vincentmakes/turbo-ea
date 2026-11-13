@@ -10,6 +10,8 @@ const flags = vi.hoisted(() => ({
   ppmEnabled: false,
   grcEnabled: false,
   counts: { risks: [] as unknown[], compliance: [] as unknown[], adrs: [] as unknown[] },
+  // App-level permissions the signed-in role lacks (everything else is granted).
+  denied: [] as string[],
 }));
 
 vi.mock("@/api/client", () => ({
@@ -44,7 +46,9 @@ vi.mock("@/hooks/AuthContext", () => ({
   useOptionalAuthUser: () => null,
   useAuthContext: () => ({ user: { id: "u1", permissions: { "*": true } } }),
 }));
-vi.mock("@/hooks/usePermissions", () => ({ usePermissions: () => ({ can: () => true }) }));
+vi.mock("@/hooks/usePermissions", () => ({
+  usePermissions: () => ({ can: (permission: string) => !flags.denied.includes(permission) }),
+}));
 
 vi.mock("@/components/EolLinkSection", () => ({ default: () => <div data-testid="sec-eol" /> }));
 vi.mock("@/features/bpm/ProcessFlowTab", () => ({
@@ -54,7 +58,9 @@ vi.mock("@/features/bpm/ProcessAssessmentPanel", () => ({
   default: () => <div data-testid="panel-assessments" />,
 }));
 vi.mock("@/features/cards/sections/SoAWTab", () => ({
-  default: () => <div data-testid="panel-soaw" />,
+  default: ({ canManage }: { canManage: boolean }) => (
+    <div data-testid="panel-soaw" data-can-manage={String(canManage)} />
+  ),
 }));
 
 vi.mock("@/features/cards/sections", () => {
@@ -165,6 +171,7 @@ beforeEach(() => {
   flags.ppmEnabled = false;
   flags.grcEnabled = false;
   flags.counts = { risks: [], compliance: [], adrs: [] };
+  flags.denied = [];
 });
 
 describe("CardDetailContent tab strip", () => {
@@ -282,6 +289,39 @@ describe("CardDetailContent tab strip", () => {
     fireEvent.click(screen.getByRole("tab", { name: "PPM" }));
     expect(await screen.findByTestId("ppm-page")).toBeInTheDocument();
     expect(noteVisit).not.toHaveBeenCalledWith("ppm");
+  });
+
+  it("leaves the SoAW tab off an initiative for a role without soaw.view (#1400)", async () => {
+    flags.denied = ["soaw.view"];
+    useType(typeFor("Initiative"));
+    renderCard(cardOf("Initiative"));
+    await waitFor(() =>
+      expect(tabNames()).toEqual([
+        "Card",
+        "Comments",
+        "Todos",
+        "Stakeholders",
+        "Resources",
+        "History",
+      ]),
+    );
+    // A deep link to the tab opens the Card tab, not a refused SoAW list.
+    expect(selectedTab()).toBe("Card");
+    expect(screen.queryByTestId("panel-soaw")).not.toBeInTheDocument();
+  });
+
+  it("lets the SoAW tab create and delete with soaw.manage, not with card edit", async () => {
+    useType(typeFor("Initiative"));
+    // The card is editable (perms.can_edit) but the role may not manage SoAWs.
+    flags.denied = ["soaw.manage"];
+    const first = renderCard(cardOf("Initiative"), "soaw");
+    expect(await screen.findByTestId("panel-soaw")).toHaveAttribute("data-can-manage", "false");
+    first.unmount();
+
+    // The reverse: a read-only card, a role that manages SoAWs.
+    flags.denied = [];
+    renderCard(cardOf("Initiative"), "soaw", { ...perms, can_edit: false });
+    expect(await screen.findByTestId("panel-soaw")).toHaveAttribute("data-can-manage", "true");
   });
 
   it("switches panels by tab and notes each visit", async () => {

@@ -28,6 +28,18 @@ Chaque ligne de l'arbre affiche :
 
 La ligne synthétique **Artefacts non liés** en haut de l'arbre apparaît s'il existe des SoAWs, diagrammes ou ADRs qui ne sont pas encore liés à une initiative. Ouvrez-la pour les rattacher.
 
+### Qui voit quoi
+
+EA Delivery s'ouvre pour tout rôle qui détient **Voir les documents SoAW** (`soaw.view`) ou **Voir les décisions d'architecture** (`adr.view`). Chaque type d'artefact suit ensuite sa propre permission :
+
+| Artefact | Listé avec | Créé avec |
+|----------|-------------|--------------|
+| **SoAW** | `soaw.view` | `soaw.manage` |
+| **Diagramme** | `diagrams.view` | `diagrams.manage` (également nécessaire pour lier ou délier un diagramme) |
+| **ADR** | `adr.view` | `adr.manage` |
+
+Un groupe que vous n'avez pas le droit de voir est absent de l'espace de travail, et **+ Nouvel artefact** et **+ Ajouter …** ne proposent que les types que vous pouvez créer — un rôle en lecture seule ne voit aucun des deux boutons. Ainsi, un rôle qui n'a que `adr.view` obtient la page avec les décisions de chaque initiative et rien sur les SoAW.
+
 ## Statement of Architecture Work (SoAW)
 
 Un **Statement of Architecture Work (SoAW)** est un document formel défini par le [standard TOGAF](https://pubs.opengroup.org/togaf-standard/) (The Open Group Architecture Framework). Il établit la portée, l'approche, les livrables et la gouvernance d'un engagement d'architecture. Dans TOGAF, le SoAW est produit pendant la **Phase préliminaire** et la **Phase A (Vision de l'architecture)** et sert d'accord entre l'équipe d'architecture et ses parties prenantes.
@@ -93,7 +105,7 @@ Un SoAW dispose de la même discussion, des mêmes mentions et du même historiq
 
 ![Fiche d'initiative — onglet SoAW](../assets/img/fr/55_initiative_soaw_tab.png)
 
-Les initiatives exposent également un onglet **SoAW** dédié directement sur leur page de détail. L'onglet liste la révision actuelle de chaque SoAW lié à cette initiative, plus toute révision en cours de rédaction (titre, puce de statut, numéro de révision, date de dernière modification) avec un bouton **+ Nouveau SoAW** qui pré-sélectionne l'initiative en cours — vous pouvez ainsi rédiger ou ouvrir un SoAW sans quitter la fiche sur laquelle vous travaillez. La création réutilise le même dialogue que la page EA Delivery, et le nouveau document apparaît aux deux endroits. La visibilité de l'onglet suit les règles de permission standard des fiches.
+Les initiatives exposent également un onglet **SoAW** dédié directement sur leur page de détail. L'onglet liste la révision actuelle de chaque SoAW lié à cette initiative, plus toute révision en cours de rédaction (titre, puce de statut, numéro de révision, date de dernière modification) avec un bouton **+ Nouveau SoAW** qui pré-sélectionne l'initiative en cours — vous pouvez ainsi rédiger ou ouvrir un SoAW sans quitter la fiche sur laquelle vous travaillez. La création réutilise le même dialogue que la page EA Delivery, et le nouveau document apparaît aux deux endroits. L'onglet est affiché aux rôles qui détiennent **Voir les documents SoAW** (`soaw.view`) ; le bouton **+ Nouveau SoAW** et l'action de suppression d'un brouillon nécessitent **Créer et modifier les documents SoAW** (`soaw.manage`), que vous puissiez ou non modifier l'initiative elle-même.
 
 ## Architecture Decision Records (ADR)
 

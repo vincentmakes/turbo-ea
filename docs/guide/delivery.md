@@ -28,6 +28,18 @@ Each tree row shows:
 
 The synthetic **Unlinked artefacts** row at the top of the tree appears when there are SoAWs, diagrams, or ADRs that aren't yet linked to an initiative. Open it to relink them.
 
+### Who sees what
+
+EA Delivery opens for any role that holds **View SoAW documents** (`soaw.view`) or **View architecture decision records** (`adr.view`). Each kind of artefact then follows its own permission:
+
+| Artefact | Listed with | Created with |
+|----------|-------------|--------------|
+| **SoAW** | `soaw.view` | `soaw.manage` |
+| **Diagram** | `diagrams.view` | `diagrams.manage` (also needed to link or unlink a diagram) |
+| **ADR** | `adr.view` | `adr.manage` |
+
+A group you may not view is left out of the workspace, and **+ New artefact** and **+ Add …** offer only the kinds you may create — a role that can only read sees neither button. So a role with `adr.view` alone gets the page with the decisions of each initiative and nothing about SoAWs.
+
 ## Statement of Architecture Work (SoAW)
 
 A **Statement of Architecture Work (SoAW)** is a formal document defined by the [TOGAF standard](https://pubs.opengroup.org/togaf-standard/) (The Open Group Architecture Framework). It establishes the scope, approach, deliverables, and governance for an architecture engagement. In TOGAF, the SoAW is produced during the **Preliminary Phase** and **Phase A (Architecture Vision)** and serves as an agreement between the architecture team and its stakeholders.
@@ -93,7 +105,7 @@ A SoAW has the same discussion, mentions and history as a decision: the discussi
 
 ![Initiative card — SoAW tab](../assets/img/en/55_initiative_soaw_tab.png)
 
-Initiatives also expose a dedicated **SoAW** tab directly on their card detail page. The tab lists the current revision of every SoAW linked to that initiative, plus any revision being drafted (title, status chip, revision number, last-modified date) with a **+ New SoAW** button that pre-selects the current initiative — so you can author or jump to a SoAW without leaving the card you're working on. Creation reuses the same dialog as the EA Delivery page, and the new document appears in both places. Visibility of the tab follows the standard card permission rules.
+Initiatives also expose a dedicated **SoAW** tab directly on their card detail page. The tab lists the current revision of every SoAW linked to that initiative, plus any revision being drafted (title, status chip, revision number, last-modified date) with a **+ New SoAW** button that pre-selects the current initiative — so you can author or jump to a SoAW without leaving the card you're working on. Creation reuses the same dialog as the EA Delivery page, and the new document appears in both places. The tab is shown to roles that hold **View SoAW documents** (`soaw.view`); the **+ New SoAW** button and the delete action on a draft need **Create and edit SoAW documents** (`soaw.manage`), whether or not you can edit the initiative itself.
 
 ## Architecture Decision Records (ADR)
 

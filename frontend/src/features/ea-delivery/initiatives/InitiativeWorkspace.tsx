@@ -9,6 +9,7 @@ import LinkifiedText from "@/components/LinkifiedText";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
+import { useDeliveryAccess, type DeliveryAccess } from "@/features/ea-delivery/deliveryAccess";
 import { CARD_TYPE_COLORS, FAVORITE_COLOR, STATUS_COLORS } from "@/theme/tokens";
 import { selectOnKey } from "./selectOnKey";
 import { useInitiativeStatusColor, useInitiativeStatusLabel } from "./useInitiativeStatus";
@@ -65,9 +66,13 @@ export default function InitiativeWorkspace({
   onToggleFavorite,
 }: Props) {
   const { t } = useTranslation(["delivery", "common"]);
+  // A kind the role may not read has no section here; one it may not create
+  // has no "+ Add".
+  const access = useDeliveryAccess();
+  const views = (kind: DeliverableKind) => access.viewable.includes(kind);
 
   if (selection === null) {
-    return <EmptyState onCreate={onCreateArtefact} />;
+    return <EmptyState onCreate={onCreateArtefact} creatable={access.creatable} />;
   }
 
   if (selection.kind === "unlinked") {
@@ -82,13 +87,15 @@ export default function InitiativeWorkspace({
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t("workspace.unlinkedSubtitle")}
         </Typography>
-        <DeliverableSection
-          kind="soaw"
-          items={selection.soaws}
-          onSoawContextMenu={onSoawContextMenu}
-        />
-        <DeliverableSection kind="diagram" items={selection.diagrams} />
-        <DeliverableSection kind="adr" items={selection.adrs} />
+        {views("soaw") && (
+          <DeliverableSection
+            kind="soaw"
+            items={selection.soaws}
+            onSoawContextMenu={onSoawContextMenu}
+          />
+        )}
+        {views("diagram") && <DeliverableSection kind="diagram" items={selection.diagrams} />}
+        {views("adr") && <DeliverableSection kind="adr" items={selection.adrs} />}
       </Box>
     );
   }
@@ -96,6 +103,7 @@ export default function InitiativeWorkspace({
   return (
     <InitiativeView
       node={selection.node}
+      access={access}
       onSelectInitiative={onSelectInitiative}
       onCreateArtefact={onCreateArtefact}
       onLinkDiagrams={onLinkDiagrams}
@@ -111,6 +119,7 @@ export default function InitiativeWorkspace({
 
 function InitiativeView({
   node,
+  access,
   onSelectInitiative,
   onCreateArtefact,
   onLinkDiagrams,
@@ -120,6 +129,7 @@ function InitiativeView({
   onToggleFavorite,
 }: {
   node: InitiativeTreeNode;
+  access: DeliveryAccess;
   onSelectInitiative: (id: string) => void;
   onCreateArtefact: (kind: DeliverableKind, initiativeId?: string) => void;
   onLinkDiagrams: (initiativeId: string) => void;
@@ -135,6 +145,11 @@ function InitiativeView({
   const [previewOpen, setPreviewOpen] = useState(false);
 
   const { initiative, children, soaws, diagrams, adrs } = node;
+  const views = (kind: DeliverableKind) => access.viewable.includes(kind);
+  // "+ Add" inside a section, only for a kind the role may create.
+  const addFor = (kind: DeliverableKind) =>
+    access.creatable.includes(kind) ? onCreateArtefact : undefined;
+  const managesDiagrams = access.creatable.includes("diagram");
   const attrs = (initiative.attributes ?? {}) as Record<string, unknown>;
   const initStatus = attrs.initiativeStatus as string | undefined;
   const isArchived = initiative.status === "ARCHIVED";
@@ -213,34 +228,44 @@ function InitiativeView({
           <Typography variant="h6" fontWeight={600} sx={{ flex: 1 }}>
             {t("workspace.section.deliverables")}
           </Typography>
-          <NewArtefactSplitButton
-            initiativeId={initiative.id}
-            onSelect={onCreateArtefact}
-            variant="text"
-            label={t("common:actions.add")}
-          />
+          {access.creatable.length > 0 && (
+            <NewArtefactSplitButton
+              initiativeId={initiative.id}
+              onSelect={onCreateArtefact}
+              variant="text"
+              label={t("common:actions.add")}
+              kinds={access.creatable}
+            />
+          )}
         </Box>
-        <DeliverableSection
-          kind="soaw"
-          items={soaws}
-          initiativeId={initiative.id}
-          onAdd={onCreateArtefact}
-          onSoawContextMenu={onSoawContextMenu}
-        />
-        <DeliverableSection
-          kind="diagram"
-          items={diagrams}
-          initiativeId={initiative.id}
-          onAdd={onCreateArtefact}
-          onUnlinkDiagram={onUnlinkDiagram}
-          onLinkDiagrams={onLinkDiagrams}
-        />
-        <DeliverableSection
-          kind="adr"
-          items={adrs}
-          initiativeId={initiative.id}
-          onAdd={onCreateArtefact}
-        />
+        {views("soaw") && (
+          <DeliverableSection
+            kind="soaw"
+            items={soaws}
+            initiativeId={initiative.id}
+            onAdd={addFor("soaw")}
+            onSoawContextMenu={onSoawContextMenu}
+          />
+        )}
+        {views("diagram") && (
+          <DeliverableSection
+            kind="diagram"
+            items={diagrams}
+            initiativeId={initiative.id}
+            onAdd={addFor("diagram")}
+            // Linking and unlinking rewrite the diagram: `diagrams.manage`.
+            onUnlinkDiagram={managesDiagrams ? onUnlinkDiagram : undefined}
+            onLinkDiagrams={managesDiagrams ? onLinkDiagrams : undefined}
+          />
+        )}
+        {views("adr") && (
+          <DeliverableSection
+            kind="adr"
+            items={adrs}
+            initiativeId={initiative.id}
+            onAdd={addFor("adr")}
+          />
+        )}
       </Box>
 
       {/* Children section */}
@@ -351,8 +376,10 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 
 function EmptyState({
   onCreate,
+  creatable,
 }: {
   onCreate: (kind: DeliverableKind, initiativeId?: string) => void;
+  creatable: DeliverableKind[];
 }) {
   const { t } = useTranslation(["delivery", "common"]);
   return (
@@ -379,7 +406,9 @@ function EmptyState({
       >
         {t("workspace.empty.subtitle")}
       </Typography>
-      <NewArtefactSplitButton onSelect={onCreate} variant="contained" />
+      {creatable.length > 0 && (
+        <NewArtefactSplitButton onSelect={onCreate} variant="contained" kinds={creatable} />
+      )}
     </Box>
   );
 }

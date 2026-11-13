@@ -69,6 +69,8 @@ export interface CardTabInputs {
   risksCount: number | null;
   canViewCompliance: boolean;
   complianceCount: number | null;
+  /** Initiative: the SoAW tab lists documents only a `soaw.view` holder may read. */
+  canViewSoaw: boolean;
   canViewAdr: boolean;
   adrCount: number | null;
   /** An empty ADR tab stays for someone who can link the first decision. */
@@ -81,7 +83,7 @@ export function cardTabKeys(input: CardTabInputs): CardTabKey[] {
   if (input.showBpmTabs && input.cardType === "BusinessProcess") {
     keys.push("processFlow", "assessments");
   }
-  if (input.cardType === "Initiative") keys.push("soaw");
+  if (input.cardType === "Initiative" && input.canViewSoaw) keys.push("soaw");
   keys.push("comments", "todos", "stakeholders", "resources");
   if (input.canViewAdr && (hasItemsOrLoading(input.adrCount) || input.canManageAdrLinks)) {
     keys.push("adrs");

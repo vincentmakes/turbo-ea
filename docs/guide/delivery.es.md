@@ -28,6 +28,18 @@ Cada fila del árbol muestra:
 
 La fila sintética **Artefactos no vinculados** en la parte superior del árbol aparece cuando hay SoAWs, diagramas o ADRs aún no vinculados a una iniciativa. Ábrala para volver a vincularlos.
 
+### Quién ve qué
+
+Entrega EA se abre para cualquier rol que tenga **Ver documentos SoAW** (`soaw.view`) o **Ver registros de decisiones de arquitectura** (`adr.view`). Cada tipo de artefacto sigue entonces su propio permiso:
+
+| Artefacto | Se lista con | Se crea con |
+|----------|-------------|--------------|
+| **SoAW** | `soaw.view` | `soaw.manage` |
+| **Diagrama** | `diagrams.view` | `diagrams.manage` (también necesario para vincular o desvincular un diagrama) |
+| **ADR** | `adr.view` | `adr.manage` |
+
+Un grupo que no puede ver queda fuera del espacio de trabajo, y **+ Nuevo artefacto** y **+ Añadir …** solo ofrecen los tipos que puede crear — un rol que solo puede leer no ve ninguno de los dos botones. Así, un rol con solo `adr.view` obtiene la página con las decisiones de cada iniciativa y nada sobre SoAW.
+
 ## Declaración de Trabajo de Arquitectura (SoAW)
 
 Una **Declaración de Trabajo de Arquitectura (SoAW)** es un documento formal definido por el [estándar TOGAF](https://pubs.opengroup.org/togaf-standard/) (The Open Group Architecture Framework). Establece el alcance, enfoque, entregables y gobernanza para un compromiso de arquitectura. En TOGAF, el SoAW se produce durante la **Fase Preliminar** y la **Fase A (Visión de Arquitectura)** y sirve como acuerdo entre el equipo de arquitectura y sus partes interesadas.
@@ -93,7 +105,7 @@ Un SoAW tiene la misma discusión, las mismas menciones y el mismo historial que
 
 ![Ficha de iniciativa — pestaña SoAW](../assets/img/es/55_iniciativa_soaw_tab.png)
 
-Las iniciativas también exponen una pestaña **SoAW** dedicada directamente en su página de detalle. La pestaña lista la revisión actual de cada SoAW vinculado a esa iniciativa, más cualquier revisión en redacción (título, chip de estado, número de revisión, fecha de última modificación) con un botón **+ Nuevo SoAW** que preselecciona la iniciativa actual — para que puedas redactar o saltar a un SoAW sin salir de la ficha en la que estás trabajando. La creación reutiliza el mismo diálogo que la página de Entrega EA, y el nuevo documento aparece en ambos lugares. La visibilidad de la pestaña sigue las reglas de permisos estándar de las fichas.
+Las iniciativas también exponen una pestaña **SoAW** dedicada directamente en su página de detalle. La pestaña lista la revisión actual de cada SoAW vinculado a esa iniciativa, más cualquier revisión en redacción (título, chip de estado, número de revisión, fecha de última modificación) con un botón **+ Nuevo SoAW** que preselecciona la iniciativa actual — para que puedas redactar o saltar a un SoAW sin salir de la ficha en la que estás trabajando. La creación reutiliza el mismo diálogo que la página de Entrega EA, y el nuevo documento aparece en ambos lugares. La pestaña se muestra a los roles que tienen **Ver documentos SoAW** (`soaw.view`); el botón **+ Nuevo SoAW** y la acción de eliminar un borrador requieren **Crear y editar documentos SoAW** (`soaw.manage`), pueda o no editar la propia iniciativa.
 
 ## Registros de Decisiones de Arquitectura (ADR)
 

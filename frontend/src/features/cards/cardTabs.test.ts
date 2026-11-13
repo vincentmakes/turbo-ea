@@ -23,6 +23,7 @@ function inputs(over: Partial<CardTabInputs> = {}): CardTabInputs {
     risksCount: 0,
     canViewCompliance: false,
     complianceCount: 0,
+    canViewSoaw: true,
     canViewAdr: false,
     adrCount: 0,
     canManageAdrLinks: false,
@@ -83,6 +84,24 @@ describe("cardTabKeys", () => {
     ]);
     expect(cardTabKeys(inputs({ cardType: "Initiative", showPpmTab: false }))).not.toContain(
       "ppm",
+    );
+  });
+
+  it("gives an initiative no SoAW tab for a role without soaw.view (#1400)", () => {
+    expect(cardTabKeys(inputs({ cardType: "Initiative", canViewSoaw: false }))).toEqual([
+      "card",
+      "comments",
+      "todos",
+      "stakeholders",
+      "resources",
+      "history",
+      "ppm",
+    ]);
+  });
+
+  it("gives no other card type a SoAW tab, whatever the role may view", () => {
+    expect(cardTabKeys(inputs({ cardType: "Application", canViewSoaw: true }))).not.toContain(
+      "soaw",
     );
   });
 
