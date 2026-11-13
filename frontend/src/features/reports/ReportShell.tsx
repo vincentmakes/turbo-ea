@@ -14,6 +14,7 @@ import ListItemText from "@mui/material/ListItemText";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { printPage } from "@/lib/printPage";
 import { brand } from "@/theme/tokens";
 import {
   exportReportToPptx,
@@ -226,7 +227,7 @@ export default function ReportShell({
           )}
 
           <Tooltip title={t("shell.printPdf")}>
-            <IconButton size="small" onClick={() => window.print()}>
+            <IconButton size="small" onClick={printPage}>
               <MaterialSymbol icon="print" size={20} />
             </IconButton>
           </Tooltip>

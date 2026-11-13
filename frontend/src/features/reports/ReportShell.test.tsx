@@ -14,6 +14,9 @@ vi.mock("react-router", async () => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
+const mockPrintPage = vi.fn();
+vi.mock("@/lib/printPage", () => ({ printPage: () => mockPrintPage() }));
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -98,6 +101,16 @@ describe("ReportShell", () => {
   it("renders print button", () => {
     renderShell();
     expect(screen.getByRole("button", { name: /print/i })).toBeInTheDocument();
+  });
+
+  it("prints through printPage, the Safari-safe print call", async () => {
+    const user = userEvent.setup();
+    const print = vi.spyOn(window, "print").mockImplementation(() => {});
+    renderShell();
+    await user.click(screen.getByRole("button", { name: /print/i }));
+    expect(mockPrintPage).toHaveBeenCalledTimes(1);
+    expect(print).not.toHaveBeenCalled();
+    print.mockRestore();
   });
 
   it("renders saved report banner when savedReportName provided", () => {

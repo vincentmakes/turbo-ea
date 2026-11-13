@@ -24,6 +24,8 @@ vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientMo
 vi.mock("@/hooks/useCurrency", () => import("@/test/hooks").then((m) => m.useCurrencyModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
 vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useDateFormatModule()));
+// The print call has its own tests (Safari needs `execCommand`).
+vi.mock("@/lib/printPage", () => ({ printPage: vi.fn() }));
 // The charts have their own tests and draw through ECharts; here they show
 // what the page handed them.
 vi.mock("./PpmCostCharts", () => ({
@@ -35,6 +37,7 @@ vi.mock("./PpmCostCharts", () => ({
 }));
 
 import { mockApi } from "@/test/apiMock";
+import { printPage } from "@/lib/printPage";
 import { hookState, withMetamodel } from "@/test/hooks";
 import { resetFiscalYearStart } from "@/hooks/useFiscalYearStart";
 import { resetPageTitle, usePageTitleSlots } from "@/hooks/usePageTitle";
@@ -261,6 +264,7 @@ async function loaded() {
 }
 
 beforeEach(() => {
+  vi.mocked(printPage).mockClear();
   mockApi.reset();
   hookState.reset();
   resetFiscalYearStart();
@@ -655,13 +659,11 @@ describe("PpmProjectReport — print header and frame", () => {
   });
 
   it("prints with the report print button", async () => {
-    const print = vi.spyOn(window, "print").mockImplementation(() => {});
     const user = userEvent.setup();
     renderPage();
     await loaded();
     await user.click(screen.getByRole("button", { name: "Print / Save as PDF" }));
-    expect(print).toHaveBeenCalledTimes(1);
-    print.mockRestore();
+    expect(printPage).toHaveBeenCalledTimes(1);
   });
 
   it("names the browser tab after the initiative and the report", async () => {
