@@ -4,6 +4,28 @@ import userEvent from "@testing-library/user-event";
 import RiskMatrix, { RiskMatrixSelection } from "./RiskMatrix";
 import { riskLevelBackground, riskLevelSwatch } from "./riskMatrixColors";
 
+/**
+ * The CSS emotion wrote for one element, media queries included: jsdom drops
+ * `grid-template-columns` from computed styles, so it is read from the sheet.
+ */
+function emotionCss(el: Element): string {
+  const classes = [...el.classList].filter((c) => c.startsWith("css-"));
+  const css = [...document.querySelectorAll("style")].map((s) => s.textContent ?? "").join("");
+  return css
+    .split("}")
+    .filter((rule) => classes.some((c) => rule.includes(`.${c}{`)))
+    .join("}");
+}
+
+/** The grid of cells: the matrix root's first child. */
+const gridOf = (container: HTMLElement) => container.firstElementChild!.firstElementChild!;
+
+/** The column captions across the top, in order (the axis caption excluded). */
+const columnCaptions = (container: HTMLElement) =>
+  [...gridOf(container).children]
+    .filter((el) => el.classList.contains("MuiTypography-caption"))
+    .map((el) => el.textContent);
+
 const sample: number[][] = [
   // prob = very_high: critical, high, medium, low
   [3, 1, 0, 0],
@@ -92,6 +114,24 @@ describe("RiskMatrix — default GRC axes, in detail", () => {
     expect(cell(container, "very_high", "critical")).toHaveTextContent("1");
     expect(cell(container, "very_high", "high")).toHaveTextContent("—");
     expect(cell(container, "low", "low")).toHaveTextContent("—");
+    for (const row of ["high", "medium", "low"]) {
+      expect(
+        ["critical", "high", "medium", "low"].map((col) => cell(container, row, col).textContent),
+      ).toEqual(["—", "—", "—", "—"]);
+    }
+  });
+
+  it("captions the columns with the impact levels, most severe first", () => {
+    const { container } = render(<RiskMatrix matrix={sample} />);
+    expect(columnCaptions(container)).toEqual(["Critical", "High", "Medium", "Low"]);
+  });
+
+  it("sizes one grid column per impact after the label column, narrower on phones", () => {
+    const { container } = render(<RiskMatrix matrix={sample} />);
+    const css = emotionCss(gridOf(container));
+    expect(css).toContain("@media (min-width:0px){.");
+    expect(css).toMatch(/min-width:0px\)\{[^{]*\{grid-template-columns:84px repeat\(4, 1fr\);/);
+    expect(css).toMatch(/min-width:600px\)\{[^{]*\{grid-template-columns:130px repeat\(4, 1fr\);/);
   });
 
   it("outlines the highlighted cell only", () => {
@@ -104,6 +144,19 @@ describe("RiskMatrix — default GRC axes, in detail", () => {
     );
     expect(cell(container, "high", "medium")).toHaveStyle({ outline: "2px solid" });
     expect(cell(container, "high", "high")).not.toHaveStyle({ outline: "2px solid" });
+    // Neither the rest of its row nor the rest of its column.
+    const outlined = [...container.querySelectorAll("[data-row]")]
+      .filter((el) => getComputedStyle(el).outline === "2px solid")
+      .map((el) => `${el.getAttribute("data-row")}/${el.getAttribute("data-col")}`);
+    expect(outlined).toEqual(["high/medium"]);
+  });
+
+  it("outlines nothing without a highlight", () => {
+    const { container } = render(<RiskMatrix matrix={sample} onSelect={() => {}} />);
+    const outlined = [...container.querySelectorAll("[data-row]")].filter(
+      (el) => getComputedStyle(el).outline === "2px solid",
+    );
+    expect(outlined).toHaveLength(0);
   });
 
   it("selects a cell by keyboard too", async () => {
@@ -186,6 +239,14 @@ describe("RiskMatrix — custom axes", () => {
     }
     expect(cells[1].querySelector("p")).toHaveStyle({ fontWeight: 700 });
     expect(cells[0].querySelector("p")).toHaveStyle({ fontWeight: 500 });
+  });
+
+  it("sizes one grid column per custom column", () => {
+    const { container } = renderCustom();
+    expect(columnCaptions(container)).toEqual(["Col A", "Col B", "Col C"]);
+    const css = emotionCss(gridOf(container));
+    expect(css).toMatch(/min-width:0px\)\{[^{]*\{grid-template-columns:84px repeat\(3, 1fr\);/);
+    expect(css).toMatch(/min-width:600px\)\{[^{]*\{grid-template-columns:130px repeat\(3, 1fr\);/);
   });
 
   it("closes with its own legend items", () => {

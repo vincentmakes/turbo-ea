@@ -30,7 +30,7 @@ import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { useTheme } from "@mui/material/styles";
+import { useTheme, type SxProps, type Theme } from "@mui/material/styles";
 import LinkifiedText from "@/components/LinkifiedText";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { colIdOf, isOrderableColumn } from "@/components/grid/columnOrder";
@@ -104,6 +104,22 @@ const WRAP_SX = { whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1
 // Stryker disable next-line ObjectLiteral: cell padding is presentation
 const CELL_SX = { py: 0.75 };
 
+// Stryker disable all: layout, spacing and typography are presentation; jsdom lays nothing out
+const SX = {
+  root: { display: "flex", gap: 1.5, alignItems: "flex-start" },
+  sidebarSlot: { alignSelf: "stretch", display: "flex" },
+  main: { flex: 1, minWidth: 0 },
+  toolbar: { mb: 1.5, flexWrap: "wrap", gap: 1 },
+  countChip: { bgcolor: "action.hover", fontWeight: 500 },
+  toolbarButton: { textTransform: "none" },
+  gridBox: { width: "100%", WebkitOverflowScrolling: "touch" },
+  // A wrapped header breaks between words, never inside one.
+  gridHeaderText: { "& .ag-header-cell-text": { wordBreak: "normal", overflowWrap: "normal" } },
+} satisfies Record<string, SxProps<Theme>>;
+/** The phone drawer is as wide as the sidebar it holds (`width={300}` below). */
+const DRAWER_PAPER_PROPS = { sx: { width: 300 } };
+// Stryker restore all
+
 /** The two long-text columns share the flexible width; the rest stay narrow. */
 const LONG_TEXT: Partial<ColDef<Row>> = {
   wrapText: true,
@@ -141,6 +157,7 @@ export default function PpmRiskGrid({
     prefsRef.current = merged;
     setPrefs(merged);
     saveRiskGridPrefs(merged);
+    // Stryker disable next-line ArrayDeclaration: any constant dependency list keeps the callback stable; it reads the latest prefs through prefsRef
   }, []);
   const visibleColumns = useMemo(() => new Set(prefs.visibleColumns), [prefs.visibleColumns]);
 
@@ -193,6 +210,7 @@ export default function PpmRiskGrid({
   });
   const setGroupBy = useCallback(
     (groupBy: string | null) => persist({ groupBy: groupBy as RiskGroupAxis | null }),
+    // Stryker disable next-line ArrayDeclaration: persist never changes identity (its own dependency list is empty), so [] memoises the same callback
     [persist],
   );
 
@@ -201,16 +219,19 @@ export default function PpmRiskGrid({
     () => ({
       status: arrayFacetBinding<Row>({
         // The cell shows the label; the facet keys on the status.
+        // Stryker disable next-line OptionalChaining: the cell menu opens only on a row with data (useCellContextMenu returns early otherwise), so ctx.data is always set
         toFacetValue: (ctx) => ctx.data?.status ?? null,
         get: () => filtersRef.current.statuses,
         set: (v) => setFilters((p) => ({ ...p, statuses: v })),
       }),
       owner_name: arrayFacetBinding<Row>({
+        // Stryker disable next-line OptionalChaining: the cell menu opens only on a row with data (useCellContextMenu returns early otherwise), so ctx.data is always set
         toFacetValue: (ctx) => ctx.data?.owner_id ?? null,
         get: () => filtersRef.current.owners,
         set: (v) => setFilters((p) => ({ ...p, owners: v })),
       }),
     }),
+    // Stryker disable next-line ArrayDeclaration: any constant dependency list builds the bindings once; they read the filters through filtersRef
     [],
   );
   const facetSync = useFacetColumnSync<Row>(gridRef, {
@@ -236,6 +257,7 @@ export default function PpmRiskGrid({
   const handleDragStopped = useCallback(() => {
     columnOrder.syncFromGrid();
     columnFreeze.syncFrozenFromGrid();
+    // Stryker disable next-line ArrayDeclaration: syncFromGrid and syncFrozenFromGrid are stable callbacks (deps [gridRef]) that read state through refs, so a stale closure calls the same functions
   }, [columnOrder, columnFreeze]);
 
   const onSortChanged = useCallback(() => {
@@ -246,6 +268,7 @@ export default function PpmRiskGrid({
       .filter((c) => c.sort === "asc" || c.sort === "desc")
       .map((c) => ({ colId: c.colId, sort: c.sort as "asc" | "desc" }));
     persist({ sortModel });
+    // Stryker disable next-line ArrayDeclaration: persist never changes identity (its own dependency list is empty), so [] memoises the same callback
   }, [persist]);
 
   // ── Columns ──────────────────────────────────────────────────────────
@@ -454,12 +477,12 @@ export default function PpmRiskGrid({
   };
 
   return (
-    <Box sx={{ display: "flex", gap: 1.5, alignItems: "flex-start" }}>
+    <Box sx={SX.root}>
       {isMobile ? (
         <Drawer
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
-          PaperProps={{ sx: { width: 300 } }}
+          PaperProps={DRAWER_PAPER_PROPS}
         >
           <PpmRiskFilterSidebar
             {...sidebarProps}
@@ -470,7 +493,7 @@ export default function PpmRiskGrid({
           />
         </Drawer>
       ) : (
-        <Box sx={{ alignSelf: "stretch", display: "flex" }}>
+        <Box sx={SX.sidebarSlot}>
           <PpmRiskFilterSidebar
             {...sidebarProps}
             collapsed={prefs.filtersCollapsed}
@@ -481,12 +504,12 @@ export default function PpmRiskGrid({
         </Box>
       )}
 
-      <Box sx={{ flex: 1, minWidth: 0 }}>
+      <Box sx={SX.main}>
         <Stack
           direction="row"
           alignItems="center"
           justifyContent="space-between"
-          sx={{ mb: 1.5, flexWrap: "wrap", gap: 1 }}
+          sx={SX.toolbar}
           useFlexGap
         >
           <Stack direction="row" alignItems="center" spacing={1}>
@@ -504,7 +527,7 @@ export default function PpmRiskGrid({
             <Chip
               size="small"
               label={t("riskGridCount", { count: filteredRisks.length })}
-              sx={{ bgcolor: "action.hover", fontWeight: 500 }}
+              sx={SX.countChip}
             />
             <GroupByMenuButton
               axes={groupAxes}
@@ -521,7 +544,7 @@ export default function PpmRiskGrid({
               startIcon={<MaterialSymbol icon="download" size={18} />}
               onClick={() => exportPpmRisks(displayedRisks(), initiativeName ?? "")}
               disabled={filteredRisks.length === 0}
-              sx={{ textTransform: "none" }}
+              sx={SX.toolbarButton}
             >
               {t("common:actions.export")}
             </Button>
@@ -531,7 +554,7 @@ export default function PpmRiskGrid({
               size="small"
               startIcon={<MaterialSymbol icon="upload" size={18} />}
               onClick={onImport}
-              sx={{ textTransform: "none" }}
+              sx={SX.toolbarButton}
             >
               {t("common:actions.import")}
             </Button>
@@ -540,7 +563,7 @@ export default function PpmRiskGrid({
               size="small"
               startIcon={<MaterialSymbol icon="add" size={18} />}
               onClick={onAdd}
-              sx={{ textTransform: "none" }}
+              sx={SX.toolbarButton}
             >
               {t("addRisk")}
             </Button>
@@ -551,19 +574,18 @@ export default function PpmRiskGrid({
           ref={columnFreeze.containerRef}
           {...cellMenu.containerProps}
           sx={{
-            width: "100%",
-            WebkitOverflowScrolling: "touch",
+            ...SX.gridBox,
             ...columnFreeze.sx,
             ...cellMenu.sx,
             ...grouping.sx,
-            // A wrapped header breaks between words, never inside one.
-            "& .ag-header-cell-text": { wordBreak: "normal", overflowWrap: "normal" },
+            ...SX.gridHeaderText,
           }}
         >
           <AgGridReact<Row>
             ref={gridRef}
             theme={mode === "dark" ? gridThemeDark : gridThemeLight}
             // Not "ltr"/"rtl": the sticky group bar beside it is keyed so.
+            // Stryker disable next-line StringLiteral: the key only has to change with the direction and differ from the bar's; "" still does both, so the remount is the same
             key={isRtl ? "grid-rtl" : "grid-ltr"}
             enableRtl={isRtl}
             rowData={grouping.rowData}

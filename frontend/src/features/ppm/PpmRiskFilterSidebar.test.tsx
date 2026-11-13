@@ -2,9 +2,10 @@
  * PpmRiskFilterSidebar — fully controlled, so every test renders it with a
  * state and asserts what it shows and what it asks its parent to change.
  */
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { createTheme } from "@mui/material/styles";
 import { RAG_COLORS } from "@/theme/tokens";
 import PpmRiskFilterSidebar from "./PpmRiskFilterSidebar";
 import {
@@ -20,7 +21,11 @@ const OWNERS = [
   { id: "u2", name: "Grace Hopper" },
 ];
 
-function renderSidebar(over: Partial<React.ComponentProps<typeof PpmRiskFilterSidebar>> = {}) {
+afterEach(() => vi.restoreAllMocks());
+
+type SidebarProps = React.ComponentProps<typeof PpmRiskFilterSidebar>;
+
+function renderSidebar(over: Partial<SidebarProps> = {}) {
   const spies = {
     onFiltersChange: vi.fn(),
     onToggleCollapse: vi.fn(),
@@ -46,8 +51,11 @@ function renderSidebar(over: Partial<React.ComponentProps<typeof PpmRiskFilterSi
     ...over,
   };
   const user = userEvent.setup();
-  render(<PpmRiskFilterSidebar {...props} />);
-  return { ...spies, user };
+  const { rerender } = render(<PpmRiskFilterSidebar {...props} />);
+  /** Render again with some props changed, keeping the rest. */
+  const update = (next: Partial<SidebarProps>) =>
+    rerender(<PpmRiskFilterSidebar {...props} {...next} />);
+  return { ...spies, user, update };
 }
 
 const filters = (f: Partial<PpmRiskFilters>): PpmRiskFilters => ({ ...EMPTY_RISK_FILTERS, ...f });
@@ -68,6 +76,20 @@ describe("rail", () => {
     expect(screen.queryByRole("tab")).not.toBeInTheDocument();
     await user.click(within(rail).getByRole("button", { name: "Show filters" }));
     expect(onToggleCollapse).toHaveBeenCalledTimes(1);
+  });
+
+  it("recounts the rail chip when the filters change", () => {
+    const { update } = renderSidebar({ collapsed: true, filters: filters({ statuses: ["open"] }) });
+    const rail = screen.getByTestId("risk-filter-rail");
+    expect(rail.querySelector(".MuiChip-root")).toHaveTextContent("1");
+    update({ collapsed: true, filters: filters({ statuses: ["open"], bands: ["low", "high"] }) });
+    expect(rail.querySelector(".MuiChip-root")).toHaveTextContent("3");
+  });
+
+  it("names the rail's expand button in a tooltip", async () => {
+    const { user } = renderSidebar({ collapsed: true });
+    await user.hover(screen.getByRole("button", { name: "Show filters" }));
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Show filters");
   });
 
   it("shows no count chip when nothing is filtered", () => {
@@ -125,6 +147,38 @@ describe("filters tab", () => {
     expect(status).toHaveTextContent("chevron_right");
   });
 
+  it("collapses and reopens each section on its own", async () => {
+    const { user } = renderSidebar();
+    const header = (icon: string) =>
+      document.querySelector(`[data-section-icon="${icon}"]`) as HTMLElement;
+    const state = () =>
+      ["search", "traffic", "speed", "person"].map((icon) =>
+        header(icon).getAttribute("aria-expanded"),
+      );
+    expect(state()).toEqual(["true", "true", "true", "true"]);
+    await user.click(header("search"));
+    expect(state()).toEqual(["false", "true", "true", "true"]);
+    await user.click(header("speed"));
+    expect(state()).toEqual(["false", "true", "false", "true"]);
+    await user.click(header("person"));
+    expect(state()).toEqual(["false", "true", "false", "false"]);
+    await user.click(header("search"));
+    await user.click(header("speed"));
+    await user.click(header("person"));
+    expect(state()).toEqual(["true", "true", "true", "true"]);
+  });
+
+  it("does not count a search of only spaces", () => {
+    renderSidebar({ filters: filters({ search: "   " }) });
+    expect(sections()[0]).toEqual(["search", "expand_moresearchSearch"]);
+  });
+
+  it("is as wide as it is told", () => {
+    renderSidebar({ width: 333 });
+    const panel = screen.getByTestId("risk-filter-sidebar").firstElementChild as HTMLElement;
+    expect(panel).toHaveStyle({ width: "333px" });
+  });
+
   it("searches, and clears the search from its end button", async () => {
     const { user, onFiltersChange } = renderSidebar({ filters: filters({ statuses: ["open"] }) });
     expect(screen.queryByRole("button", { name: "Clear search" })).not.toBeInTheDocument();
@@ -163,12 +217,23 @@ describe("filters tab", () => {
     expect(onFiltersChange).toHaveBeenLastCalledWith(filters({ statuses: [] }));
   });
 
+  it("turns off one of several selected statuses, keeping the rest", async () => {
+    const { user, onFiltersChange } = renderSidebar({
+      filters: filters({ statuses: ["open", "closed", "accepted"] }),
+    });
+    await user.click(screen.getByRole("button", { name: "Closed" }));
+    expect(onFiltersChange).toHaveBeenLastCalledWith(filters({ statuses: ["open", "accepted"] }));
+  });
+
   it("offers the score bands as chips in the RAG colours", async () => {
     const { user, onFiltersChange } = renderSidebar({ filters: filters({ bands: ["high"] }) });
     const high = screen.getByRole("button", { name: "High" });
     const medium = screen.getByRole("button", { name: "Medium" });
     const low = screen.getByRole("button", { name: "Low" });
-    expect(high).toHaveStyle({ backgroundColor: RAG_COLORS.red });
+    expect(high).toHaveStyle({
+      backgroundColor: RAG_COLORS.red,
+      color: createTheme().palette.common.white,
+    });
     expect(medium).toHaveStyle({ borderColor: RAG_COLORS.amber, color: RAG_COLORS.amber });
     expect(low).toHaveStyle({ borderColor: RAG_COLORS.green });
     await user.click(low);
@@ -185,6 +250,9 @@ describe("filters tab", () => {
       ["Grace Hopper", true],
       ["No owner", false],
     ]);
+    expect(
+      boxes.map((b) => b.closest(".MuiListItemButton-root")!.textContent),
+    ).toEqual(["personAda Lovelace", "personGrace Hopper", "person_offNo owner"]);
     expect(screen.getByText("No owner")).toHaveStyle({ fontStyle: "italic" });
     expect(screen.getByText("Ada Lovelace")).not.toHaveStyle({ fontStyle: "italic" });
     await user.click(screen.getByText("No owner"));
@@ -307,6 +375,12 @@ describe("columns tab", () => {
     );
     expect(screen.queryByRole("button", { name: /Reset/ })).not.toBeInTheDocument();
     expect(screen.queryAllByTestId("change-dot")).toHaveLength(0);
+    const all = screen.getByRole("checkbox", { name: "Select all" });
+    expect(all).not.toBeChecked();
+    expect(all.closest(".MuiListItemButton-root")).not.toHaveClass("Mui-disabled");
+    expect(document.querySelector('[data-section-icon="view_column"]')).toHaveTextContent(
+      /^expand_moreview_columnVisible columns6$/,
+    );
   });
 
   it("with every column shown, Select all is checked and Reset is offered", async () => {
@@ -315,6 +389,8 @@ describe("columns tab", () => {
     const all = screen.getByRole("checkbox", { name: "Select all" });
     expect(all).toBeChecked();
     expect(all).toHaveAttribute("data-indeterminate", "false");
+    // Nothing left to select.
+    expect(all.closest(".MuiListItemButton-root")).toHaveClass("Mui-disabled");
     expect(screen.getByRole("button", { name: /Reset/ })).toBeInTheDocument();
   });
 
@@ -342,7 +418,8 @@ describe("resize", () => {
   it("drags the width within its bounds", () => {
     const { onWidthChange } = renderSidebar();
     const handle = screen.getByTestId("resize-handle");
-    fireEvent.mouseDown(handle, { clientX: 500 });
+    // The drag owns the gesture: no text selection starts under it.
+    expect(fireEvent.mouseDown(handle, { clientX: 500 })).toBe(false);
     fireEvent.mouseMove(document, { clientX: 540 });
     expect(onWidthChange).toHaveBeenLastCalledWith(300);
     fireEvent.mouseMove(document, { clientX: 100 });
@@ -353,5 +430,16 @@ describe("resize", () => {
     onWidthChange.mockClear();
     fireEvent.mouseMove(document, { clientX: 600 });
     expect(onWidthChange).not.toHaveBeenCalled();
+  });
+
+  it("removes both of its document listeners when the drag ends", () => {
+    renderSidebar();
+    const added = vi.spyOn(document, "addEventListener");
+    const removed = vi.spyOn(document, "removeEventListener");
+    fireEvent.mouseDown(screen.getByTestId("resize-handle"), { clientX: 500 });
+    const mine = added.mock.calls.filter(([type]) => type === "mousemove" || type === "mouseup");
+    expect(mine.map(([type]) => type)).toEqual(["mousemove", "mouseup"]);
+    fireEvent.mouseUp(document);
+    for (const [type, fn] of mine) expect(removed).toHaveBeenCalledWith(type, fn);
   });
 });

@@ -140,6 +140,16 @@ describe("statuses", () => {
     expect(paletteColor(palette, "info.main")).toBeUndefined();
     expect(paletteColor(palette, "mode.x")).toBeUndefined();
   });
+
+  it("resolves only a string shade of an object group", () => {
+    // A string group is not a colour group, even where indexing it would
+    // hand back a character.
+    expect(paletteColor({ mode: "light" }, "mode.0")).toBeUndefined();
+    // A shade that is not a string (an opacity, a nested object) is no colour.
+    const palette = { action: { disabledOpacity: 0.38, nested: { main: "x" } } };
+    expect(paletteColor(palette, "action.disabledOpacity")).toBeUndefined();
+    expect(paletteColor(palette, "action.nested")).toBeUndefined();
+  });
 });
 
 describe("riskSummary", () => {
@@ -210,6 +220,12 @@ describe("filterRisks", () => {
   it("keeps everything with no filter", () => {
     expect(ids({})).toEqual(["ada", "grace", "nobody"]);
     expect(ids({ search: "   " })).toEqual(["ada", "grace", "nobody"]);
+  });
+
+  it("keeps a risk with no text at all when nothing is searched", () => {
+    const blank = risk({ id: "blank", title: "" });
+    expect(filterRisks([blank], EMPTY_RISK_FILTERS)).toEqual([blank]);
+    expect(filterRisks([blank], { ...EMPTY_RISK_FILTERS, search: "x" })).toEqual([]);
   });
 
   it("searches title, description, mitigation and owner, case-insensitively", () => {
@@ -422,6 +438,9 @@ describe("grid prefs", () => {
     expect(load({ sidebarWidth: 900 }).sidebarWidth).toBe(480);
     expect(load({ sidebarWidth: 333 }).sidebarWidth).toBe(333);
     expect(load({ sidebarWidth: null }).sidebarWidth).toBe(260);
+    // JSON can still spell an infinite number; it is not a width.
+    localStorage.setItem(RISK_GRID_PREFS_KEY, '{"sidebarWidth": 1e400}');
+    expect(loadRiskGridPrefs().sidebarWidth).toBe(260);
     expect(load({ filtersCollapsed: true }).filtersCollapsed).toBe(true);
     expect(load({ filtersCollapsed: 1 }).filtersCollapsed).toBe(false);
     for (const axis of ["status", "owner", "band"]) expect(load({ groupBy: axis }).groupBy).toBe(axis);

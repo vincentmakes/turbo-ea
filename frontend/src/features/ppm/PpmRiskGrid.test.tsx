@@ -8,7 +8,7 @@
  * pins) is in `PpmRiskGrid.persistence.test.tsx`.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 
@@ -19,6 +19,7 @@ const exportPpmRisks = vi.hoisted(() => vi.fn());
 vi.mock("./ppmRiskSpreadsheet", () => ({ exportPpmRisks }));
 
 import { createTheme } from "@mui/material/styles";
+import i18n from "@/i18n";
 import { gridStub } from "@/test/agGridStub";
 import { hookState } from "@/test/hooks";
 import { setViewportWidth } from "@/test/matchMedia";
@@ -100,6 +101,43 @@ function cell(colId: string, data: PpmRisk) {
   const def = gridStub.colDef(colId);
   const value = gridStub.cellValue(colId, data);
   return render(def.cellRenderer({ data, value }) as ReactElement);
+}
+
+/** Right-click one cell, as AG Grid reports it, and wait for the menu if one opens. */
+async function rightClick(colId: string, data: PpmRisk) {
+  const props = gridStub.lastProps();
+  const def = { ...props.defaultColDef, ...gridStub.colDef(colId) };
+  const column = { getColId: () => colId, getColDef: () => def };
+  await act(async () => {
+    props.onCellContextMenu({ column, node: { data }, event: { clientX: 10, clientY: 10 } });
+  });
+}
+
+/**
+ * jsdom reports a zero rect for everything, so dnd-kit's keyboard drag never
+ * finds a neighbour. Hand each element a distinct, stacked rect (the trick
+ * `ColumnOrderSection.test.tsx` uses).
+ */
+function stubLayout() {
+  let next = 0;
+  const rects = new WeakMap<Element, number>();
+  return vi
+    .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+    .mockImplementation(function (this: HTMLElement) {
+      if (!rects.has(this)) rects.set(this, (next += 40));
+      const top = rects.get(this)!;
+      return {
+        top,
+        left: 0,
+        bottom: top + 36,
+        right: 200,
+        width: 200,
+        height: 36,
+        x: 0,
+        y: top,
+        toJSON: () => ({}),
+      } as DOMRect;
+    });
 }
 
 const rowIds = () => (gridStub.rows() as PpmRisk[]).map((r) => r.id);
@@ -332,6 +370,7 @@ describe("cells", () => {
     expect(gridStub.colDef("status").valueGetter({})).toBe("");
     expect(gridStub.colDef("owner_name").valueGetter({})).toBe("");
     expect(gridStub.colDef("mitigation").valueGetter({})).toBe("");
+    expect(render(gridStub.colDef("mitigation").cellRenderer({})).container.textContent).toBe("—");
     expect(gridStub.colDef("risk").valueGetter({})).toBe("");
   });
 });
@@ -459,6 +498,52 @@ describe("grid", () => {
     expect(gridStub.colDef("probability").pinned).toBe("left");
   });
 
+  it("positions the sticky group bar against the grid's wrapper", () => {
+    renderGrid();
+    const wrapper = screen.getByTestId("ag-grid").parentElement as HTMLElement;
+    // `position: relative` is the grouping hook's; the wrapper must carry it.
+    expect(wrapper).toHaveStyle({ position: "relative", width: "100%" });
+  });
+
+  it("ignores a sort event once the grid is gone", () => {
+    renderGrid();
+    const before = localStorage.getItem(RISK_GRID_PREFS_KEY);
+    gridStub.lastProps().ref.current = null;
+    expect(() => gridStub.lastProps().onSortChanged()).not.toThrow();
+    expect(localStorage.getItem(RISK_GRID_PREFS_KEY)).toBe(before);
+  });
+
+  it("relabels the columns and the freeze pins when the language changes", async () => {
+    renderGrid();
+    const de = (key: string, ns: string) => i18n.getFixedT("de", ns)(key);
+    expect(de("probability", "ppm")).not.toBe("Probability");
+    expect(de("grid.freezeColumn", "common")).not.toBe("Freeze column");
+    try {
+      await act(async () => {
+        await i18n.changeLanguage("de");
+      });
+      expect(gridStub.colDef("probability").headerName).toBe(de("probability", "ppm"));
+      expect(gridStub.lastProps().defaultColDef.headerComponentParams.template).toContain(
+        de("grid.freezeColumn", "common"),
+      );
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage("en");
+      });
+    }
+  });
+
+  it("draws group headers without a select-all box: the risk grid selects nothing", () => {
+    localStorage.setItem(RISK_GRID_PREFS_KEY, JSON.stringify({ groupBy: "status" }));
+    renderGrid();
+    const p = gridStub.lastProps();
+    const header = (gridStub.rows() as (PpmRisk & { __group?: unknown })[]).find((r) => r.__group);
+    const Renderer = p.fullWidthCellRenderer;
+    const { container } = render(<Renderer data={header} api={gridStub.api()} context={p.context} />);
+    expect(container).toHaveTextContent("Open");
+    expect(within(container).queryByRole("checkbox")).toBeNull();
+  });
+
   it("wires the cell menu and grouping into the grid", () => {
     renderGrid();
     const p = gridStub.lastProps();
@@ -468,6 +553,38 @@ describe("grid", () => {
     expect(typeof p.isFullWidthRow).toBe("function");
     expect(typeof p.onModelUpdated).toBe("function");
     expect(typeof p.onFilterChanged).toBe("function");
+  });
+});
+
+describe("cell menu", () => {
+  it("mirrors Show matching on a status into the sidebar, and clears it from there too", async () => {
+    const { user } = renderGrid();
+    await rightClick("status", BUDGET);
+    await user.click(within(await screen.findByRole("menu")).getByText("Show matching"));
+    expect(rowIds()).toEqual(["r2"]);
+    expect(sidebar().getByRole("button", { name: "Mitigating" })).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+    await rightClick("status", BUDGET);
+    await user.click(within(await screen.findByRole("menu")).getByText("Clear column filter"));
+    expect(rowIds()).toEqual(["r1", "r2", "r3"]);
+    expect(sidebar().getByRole("button", { name: "Mitigating" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("mirrors Show matching on an owner into the sidebar's owner list", async () => {
+    const { user } = renderGrid();
+    await rightClick("owner_name", VENDOR);
+    await user.click(within(await screen.findByRole("menu")).getByText("Show matching"));
+    expect(rowIds()).toEqual(["r1"]);
+    expect(sidebar().getByRole("checkbox", { name: "Ada Lovelace" })).toBeChecked();
+    expect(sidebar().getByRole("checkbox", { name: "Grace Hopper" })).not.toBeChecked();
+  });
+
+  it("opens on a data cell but never on the action buttons", async () => {
+    renderGrid();
+    await rightClick("actions", VENDOR);
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    await rightClick("risk", VENDOR);
+    expect(await screen.findByRole("menu")).toBeInTheDocument();
   });
 });
 
@@ -511,6 +628,30 @@ describe("sidebar", () => {
       .getAllByRole("checkbox")
       .map((c) => c.getAttribute("aria-label"));
     expect(owners).toEqual(["Ada Lovelace", "Grace Hopper", "No owner"]);
+  });
+
+  it("lists an owner who arrives with new risks, and groups by them", async () => {
+    const { rerender, user } = renderGrid();
+    const turing = risk({ id: "r9", title: "Key person", owner_id: "u9", owner_name: "Alan Turing" });
+    rerender(
+      <PpmRiskGrid risks={[...RISKS, turing]} onAdd={vi.fn()} onEdit={vi.fn()} onDelete={vi.fn()} onImport={vi.fn()} />,
+    );
+    expect(sidebar().getByRole("checkbox", { name: "Alan Turing" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Group by/ }));
+    await user.click(screen.getByRole("menuitem", { name: "Owner" }));
+    const labels = (gridStub.rows() as (PpmRisk & { __group?: { label: string } })[])
+      .filter((r) => r.__group)
+      .map((r) => r.__group!.label);
+    expect(labels).toContain("Alan Turing");
+  });
+
+  it("saves the width the sidebar is dragged to", () => {
+    renderGrid();
+    fireEvent.mouseDown(screen.getByTestId("resize-handle"), { clientX: 500 });
+    fireEvent.mouseMove(document, { clientX: 540 });
+    fireEvent.mouseUp(document);
+    expect(stored().sidebarWidth).toBe(300);
+    expect(screen.getByTestId("risk-filter-sidebar").firstElementChild).toHaveStyle({ width: "300px" });
   });
 
   it("collapses to the rail and remembers it", async () => {
@@ -589,6 +730,32 @@ describe("sidebar", () => {
         b.getAttribute("aria-label"),
       ),
     ).toEqual(["Reorder Risk", "Reorder Status", "Reorder Mitigation"]);
+    // Hiding a column takes it off the list at once.
+    await user.click(sidebar().getByRole("checkbox", { name: "Status" }));
+    expect(
+      sidebar()
+        .getAllByRole("button", { name: /^Reorder / })
+        .map((b) => b.getAttribute("aria-label")),
+    ).toEqual(["Reorder Risk", "Reorder Mitigation"]);
+  });
+
+  it("saves the order a keyboard drag in the Columns tab gives", async () => {
+    const layout = stubLayout();
+    try {
+      const { user } = renderGrid();
+      await user.click(sidebar().getByRole("tab", { name: "Columns" }));
+      await user.click(sidebar().getByText("Column order"));
+      const handle = await sidebar().findByRole("button", { name: "Reorder Risk" });
+      handle.focus();
+      await user.keyboard("{ }");
+      await user.keyboard("{ArrowDown}");
+      await user.keyboard("{ }");
+      await waitFor(() => expect(stored()?.columnOrder?.indexOf("risk")).toBeGreaterThan(stored().columnOrder.indexOf("risk_score")));
+      const visible = gridStub.colDefs().filter((d) => !d.hide).map((d) => d.colId);
+      expect(visible.slice(0, 2)).toEqual(["risk_score", "risk"]);
+    } finally {
+      layout.mockRestore();
+    }
   });
 });
 
@@ -621,6 +788,14 @@ describe("toolbar", () => {
       [{ data: open }, { data: VENDOR }, { data: header }, {}, { data: LATE }].forEach(fn);
     await user.click(screen.getByRole("button", { name: /Export/ }));
     expect(exportPpmRisks).toHaveBeenCalledWith([VENDOR, BUDGET, LATE], "ERP move");
+  });
+
+  it("exports the sidebar's rows when the grid cannot be asked", async () => {
+    const { user } = renderGrid();
+    await user.click(sidebar().getByRole("button", { name: "Open" }));
+    gridStub.lastProps().ref.current = null;
+    fireEvent.click(screen.getByRole("button", { name: /Export/ }));
+    expect(exportPpmRisks).toHaveBeenCalledWith([VENDOR], "ERP move");
   });
 
   it("cannot export an empty view, and names the file without an initiative", async () => {
@@ -696,5 +871,22 @@ describe("phones", () => {
     expect(drawer).toBeInTheDocument();
     await user.click(within(drawer).getByRole("button", { name: "Hide filters" }));
     expect(stored()?.filtersCollapsed ?? false).toBe(false);
+    await waitFor(() => expect(screen.queryByTestId("risk-filter-sidebar")).not.toBeInTheDocument());
+  });
+
+  it("closes the drawer with Escape", async () => {
+    setViewportWidth(390);
+    const { user } = renderGrid();
+    await user.click(screen.getByRole("button", { name: "Show filters" }));
+    await screen.findByTestId("risk-filter-sidebar");
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByTestId("risk-filter-sidebar")).not.toBeInTheDocument());
+  });
+
+  it("names the filter button in a tooltip", async () => {
+    setViewportWidth(390);
+    const { user } = renderGrid();
+    await user.hover(screen.getByRole("button", { name: "Show filters" }));
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Show filters");
   });
 });

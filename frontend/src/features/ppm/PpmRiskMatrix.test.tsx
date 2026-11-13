@@ -41,6 +41,14 @@ describe("PpmRiskMatrix", () => {
     expect(cellAt(container, 5, 5)).toHaveTextContent("—");
   });
 
+  it("recounts when the risks change", () => {
+    const { container, rerender } = render(<PpmRiskMatrix risks={[risk(4, 5)]} />);
+    expect(cellAt(container, 4, 5)).toHaveTextContent("1");
+    rerender(<PpmRiskMatrix risks={[risk(4, 5), risk(4, 5), risk(2, 2)]} />);
+    expect(cellAt(container, 4, 5)).toHaveTextContent("2");
+    expect(cellAt(container, 2, 2)).toHaveTextContent("1");
+  });
+
   it("closes with the three score bands, highest first, and is read-only", () => {
     const { container } = render(<PpmRiskMatrix risks={[risk(3, 3)]} />);
     const items = [...container.querySelectorAll("[data-legend-item]")];

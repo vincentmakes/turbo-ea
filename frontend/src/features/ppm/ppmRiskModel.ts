@@ -298,13 +298,18 @@ export const DEFAULT_RISK_GRID_PREFS: Readonly<RiskGridPrefs> = defaultRiskGridP
 
 const idsIn = (v: unknown, known: readonly string[]): string[] =>
   Array.isArray(v)
-    ? v.filter((id): id is string => typeof id === "string" && known.includes(id))
+    ? v.filter(
+        // Stryker disable next-line ConditionalExpression: `known` holds strings only, so includes() already rejects every non-string; the typeof only narrows the type
+        (id): id is string => typeof id === "string" && known.includes(id),
+      )
     : [];
 
 const isSort = (v: unknown): v is RiskGridSort => {
+  // Stryker disable next-line ConditionalExpression: a non-null primitive has no colId, so the colId check below rejects it all the same
   if (!v || typeof v !== "object") return false;
   const s = v as Record<string, unknown>;
   return (
+    // Stryker disable next-line ConditionalExpression: ARRANGEABLE holds strings only, so includes() already rejects a non-string colId
     typeof s.colId === "string" &&
     ARRANGEABLE.includes(s.colId) &&
     (s.sort === "asc" || s.sort === "desc")
@@ -316,14 +321,17 @@ export function loadRiskGridPrefs(): RiskGridPrefs {
   const d = defaultRiskGridPrefs();
   try {
     const raw = localStorage.getItem(RISK_GRID_PREFS_KEY);
+    // Stryker disable next-line ConditionalExpression: a null item parses to null and an empty one throws into the catch; both return the defaults
     if (!raw) return d;
     const p: unknown = JSON.parse(raw);
+    // Stryker disable next-line ConditionalExpression,LogicalOperator: null throws into the catch and a primitive has none of the keys, so every path still yields the defaults
     if (!p || typeof p !== "object") return d;
     const o = p as Record<string, unknown>;
     const visible = idsIn(o.visibleColumns, RISK_GRID_COLUMN_IDS);
     return {
       filtersCollapsed: o.filtersCollapsed === true,
       sidebarWidth:
+        // Stryker disable next-line ConditionalExpression: Number.isFinite is false for every non-number, so the typeof only narrows the type
         typeof o.sidebarWidth === "number" && Number.isFinite(o.sidebarWidth)
           ? Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, o.sidebarWidth))
           : d.sidebarWidth,
