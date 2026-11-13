@@ -35,7 +35,7 @@ Un **badge de nombre de filtres actifs** indique combien de filtres sont actuell
 
 Faites un clic droit sur n'importe quelle cellule de la grille (appui long sur un appareil tactile) pour ouvrir un menu contextuel d'actions rapides sur ce qui se trouve sous le curseur, à la manière de ServiceNow :
 
-- **Aperçu de la fiche** — ouvrir la fiche nommée par la cellule dans le panneau latéral, sans quitter la grille ; le panneau laisse la grille utilisable : vous pouvez continuer à faire défiler, filtrer et cliquer sur d'autres lignes tant qu'il est ouvert, puis le fermer avec son bouton de fermeture
+- **Aperçu de la fiche** — ouvrir la fiche nommée par la cellule dans le panneau latéral, sans quitter la grille ; le panneau laisse la grille utilisable : vous pouvez continuer à faire défiler, filtrer et cliquer sur d'autres lignes tant qu'il est ouvert, puis le fermer avec son bouton de fermeture ; si une section contient des modifications non enregistrées, le panneau demande confirmation avant de les abandonner lorsque vous prévisualisez une autre fiche, fermez le panneau ou quittez la page
 - **Afficher les correspondances** — ne conserver que les lignes dont la valeur est égale à celle de la cellule cliquée
 - **Exclure** — masquer les lignes dont la valeur est égale à celle de la cellule cliquée
 - **Copier la valeur** — copier le texte de la cellule dans le presse-papiers

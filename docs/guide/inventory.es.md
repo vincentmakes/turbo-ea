@@ -35,7 +35,7 @@ Un **contador de filtros activos** muestra cuántos filtros están aplicados act
 
 Haga clic derecho en cualquier celda de la cuadrícula (pulsación larga en dispositivos táctiles) para abrir un menú contextual con acciones rápidas sobre lo que hay bajo el cursor, al estilo de ServiceNow:
 
-- **Vista previa de la ficha** — abrir la ficha que nombra la celda en el panel lateral, sin salir de la cuadrícula; el panel deja la cuadrícula utilizable, de modo que puede seguir desplazándose, filtrando y haciendo clic en otras filas mientras está abierto, y cerrarlo con su botón de cierre
+- **Vista previa de la ficha** — abrir la ficha que nombra la celda en el panel lateral, sin salir de la cuadrícula; el panel deja la cuadrícula utilizable, de modo que puede seguir desplazándose, filtrando y haciendo clic en otras filas mientras está abierto, y cerrarlo con su botón de cierre; si una sección contiene cambios sin guardar, el panel pregunta antes de descartarlos cuando previsualiza otra ficha, cierra el panel o abandona la página
 - **Mostrar coincidencias** — conservar solo las filas cuyo valor coincide con el de la celda pulsada
 - **Excluir** — ocultar las filas cuyo valor coincide con el de la celda pulsada
 - **Copiar valor** — copiar el texto de la celda al portapapeles
