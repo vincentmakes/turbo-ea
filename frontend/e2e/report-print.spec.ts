@@ -78,6 +78,38 @@ test("the Initiative Report prints its spend charts as images without soft masks
   await printAndCheck(page, charts);
 });
 
+test("a dark-theme Initiative Report prints its headings and their icons in ink", async ({ page, demo }) => {
+  // The page prints on white, so text and icons set directly on it in the
+  // dark theme's light colour would vanish (print.css). This test reads
+  // computed colours only, so emulating print media is harmless here.
+  await page.addInitScript(() => localStorage.setItem("turboea-theme-mode", "dark"));
+  await gotoApp(page, `/ppm/${demo.migrationId}/report`);
+  const heading = page.locator(".ppm-report-heading").first();
+  await expect(heading).toBeVisible();
+  const colours = () =>
+    page.evaluate(() => {
+      const colour = (el: Element | null) => (el ? getComputedStyle(el).color : null);
+      const head = document.querySelector(".ppm-report-heading");
+      return {
+        icon: colour(head?.querySelector(".material-symbols-outlined") ?? null),
+        text: colour(head?.querySelector(".MuiTypography-root") ?? null),
+        title: colour(document.querySelector(".report-title")),
+        typeIcon: colour(document.querySelector(".report-title")?.previousElementSibling ?? null),
+      };
+    });
+  const onScreen = await colours();
+  await page.emulateMedia({ media: "print" });
+  const printed = await colours();
+  await page.emulateMedia({ media: null });
+  const ink = "rgb(51, 51, 51)";
+  expect(onScreen.icon, "on screen the dark theme keeps its light heading icon").not.toBe(ink);
+  expect(printed.icon, "a section heading's icon prints in ink").toBe(ink);
+  expect(printed.text, "a section heading prints in ink").toBe(ink);
+  expect(printed.title, "the report title prints in ink").toBe(ink);
+  expect(printed.typeIcon, "the card-type icon keeps its own colour").toBe(onScreen.typeIcon);
+  expect(printed.typeIcon).not.toBe(ink);
+});
+
 test("the Cost report prints its chart as an image without soft masks", async ({ page }) => {
   await gotoApp(page, "/reports/cost");
   const charts = await waitForCharts(page, 1);

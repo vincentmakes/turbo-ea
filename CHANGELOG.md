@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Charts in a report printed or saved as PDF no longer show as white boxes in Apple Preview and on iPhone and iPad, and are no longer cut off.
 - The report **Print / Save as PDF** button now opens the print sheet in Safari on iPhone, iPad and Mac.
 - The PPM Budget & Costs charts no longer draw the labels of two nearly equal budget lines on top of each other.
+- A report printed in the dark theme now shows its title, print parameters and the Initiative Report's section headings and their icons, which printed light on the white page and could not be seen.
 
 ## [2.203.4] - 2026-11-13
 

@@ -258,10 +258,17 @@
      captions and legend. Print those in ink. Text inside a card keeps the
      card's own colours, since the card prints its dark surface. Scoped to the
      shell's title and parameters and to the Initiative Report: other reports
-     draw light text on coloured boxes that are not cards. */
+     draw light text on coloured boxes that are not cards.
+     The Initiative Report's icons on the page (its section headings' glyphs)
+     inherit that light text colour too, so they take the ink as well; an icon
+     given its own colour (an inline `color`, like the shell title's card-type
+     icon) keeps it. */
   .report-container[data-theme-mode="dark"] .report-title,
   .report-container[data-theme-mode="dark"] .report-print-params .MuiTypography-root,
-  .report-container[data-theme-mode="dark"] .ppm-project-report .MuiTypography-root:not(.MuiPaper-root *) {
+  .report-container[data-theme-mode="dark"] .ppm-project-report .MuiTypography-root:not(.MuiPaper-root *),
+  .report-container[data-theme-mode="dark"]
+    .ppm-project-report
+    .material-symbols-outlined:not(.MuiPaper-root *):not([style*="color"]) {
     color: #333 !important;
   }
 
