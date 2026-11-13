@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import * as XLSX from "xlsx";
+import { createTheme } from "@mui/material/styles";
 import type { PpmRisk } from "@/types";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -328,5 +329,146 @@ describe("PpmRiskImportDialog", () => {
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onImported).not.toHaveBeenCalled();
+  });
+
+  describe("what each step shows", () => {
+    const captions = () =>
+      Array.from(document.querySelectorAll(".MuiTypography-caption")).map((e) => e.textContent);
+    const chipLabels = () =>
+      Array.from(document.querySelectorAll(".MuiChip-label")).map((e) => e.textContent);
+    const importButton = () => screen.queryByRole("button", { name: /Import \d+ changes?$/ });
+    // The dialog renders without a ThemeProvider, so it uses MUI's default palette.
+    const palette = createTheme().palette;
+
+    it("starts clean: no file name, no alert and no import button", async () => {
+      renderDialog();
+      await waitFor(() => expect(mockApi.callsOf("get", "/users")).toHaveLength(1));
+      await act(async () => {});
+      expect(captions()).toEqual([]);
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(importButton()).not.toBeInTheDocument();
+    });
+
+    it("opens the file picker from the choose button", async () => {
+      const { user, fileInput } = renderDialog();
+      const click = vi.spyOn(fileInput(), "click");
+      await user.click(screen.getByRole("button", { name: /Choose \.xlsx file/ }));
+      expect(click).toHaveBeenCalledTimes(1);
+    });
+
+    it("shows a rejected file's name as a caption, and cancelling forgets the file and the error", async () => {
+      const { user, fileInput, onClose } = renderDialog();
+      await user.upload(fileInput(), workbookFile([HEADERS]));
+      expect(await screen.findByText("No rows found in the file.")).toBeInTheDocument();
+      expect(screen.getByText("risks.xlsx")).toHaveClass("MuiTypography-caption");
+      expect(fileInput().value).not.toBe("");
+
+      await user.click(screen.getByRole("button", { name: "Cancel" }));
+      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(captions()).toEqual([]);
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(fileInput().value).toBe("");
+    });
+
+    it("going back to the upload step shows no file name and no alert", async () => {
+      const { user, fileInput } = renderDialog();
+      await uploadMixed(user, fileInput());
+      await user.click(screen.getByRole("button", { name: "Back" }));
+      expect(captions()).toEqual([]);
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+
+    it("keeps the error when the picker closes without a file", async () => {
+      const { user, fileInput } = renderDialog();
+      await user.upload(fileInput(), workbookFile([HEADERS]));
+      await screen.findByText("No rows found in the file.");
+      fireEvent.change(fileInput(), { target: { files: [] } });
+      await act(async () => {});
+      expect(screen.getByText("No rows found in the file.")).toBeInTheDocument();
+      expect(screen.getByText("risks.xlsx")).toBeInTheDocument();
+    });
+
+    it("previews a clean file with only the counts that apply and no alert", async () => {
+      const { user, fileInput } = renderDialog();
+      await user.upload(fileInput(), workbookFile([HEADERS]));
+      await screen.findByText("No rows found in the file.");
+      await user.upload(fileInput(), workbookFile([HEADERS, ["", "Only one", "", 1, 1, "", ""]]));
+      await screen.findByText("1 to create");
+
+      expect(chipLabels()).toEqual(["1 to create", "0 to update", "New"]);
+      expect(screen.queryAllByRole("alert")).toEqual([]);
+      const list = screen.getByRole("list", { name: "Import risks" });
+      expect(list).toHaveTextContent("Row 2 · Only one");
+      expect(importButton()).toBeEnabled();
+    });
+
+    it("links the addresses in a row's title, in the preview and in the failures", async () => {
+      mockApi.fail("post", "/ppm/initiatives/i1/risks", 422, "bad");
+      const { user, fileInput } = renderDialog();
+      await user.upload(
+        fileInput(),
+        workbookFile([HEADERS, ["", "See https://example.com/r1", "", 1, 1, "", ""]]),
+      );
+      await screen.findByText("1 to create");
+      expect(screen.getByRole("link", { name: "https://example.com/r1" })).toHaveAttribute(
+        "href",
+        "https://example.com/r1",
+      );
+
+      await user.click(screen.getByRole("button", { name: /Import 1 change$/ }));
+      await screen.findByText("0 created, 0 updated, 1 failed");
+      expect(screen.getByRole("link", { name: "https://example.com/r1" })).toHaveAttribute(
+        "href",
+        "https://example.com/r1",
+      );
+    });
+
+    it("finishes with a success mark and no failure list when every row was written", async () => {
+      const { user, fileInput } = renderDialog();
+      await user.upload(fileInput(), workbookFile([HEADERS, ["", "Only one", "", 1, 1, "", ""]]));
+      await user.click(await screen.findByRole("button", { name: /Import 1 change$/ }));
+      await screen.findByText("1 created, 0 updated, 0 failed");
+
+      expect(screen.getByText("check_circle")).toHaveStyle({ color: palette.success.main });
+      expect(screen.queryByText("warning")).not.toBeInTheDocument();
+      expect(screen.queryByRole("list")).not.toBeInTheDocument();
+      expect(importButton()).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument();
+    });
+
+    it("finishes with a warning mark and the failure list when a row failed", async () => {
+      mockApi.fail("post", "/ppm/initiatives/i1/risks", 422, "bad");
+      const { user, fileInput } = renderDialog();
+      await user.upload(fileInput(), workbookFile([HEADERS, ["", "Only one", "", 1, 1, "", ""]]));
+      await user.click(await screen.findByRole("button", { name: /Import 1 change$/ }));
+      await screen.findByText("0 created, 0 updated, 1 failed");
+
+      expect(screen.getByText("warning")).toHaveStyle({ color: palette.warning.main });
+      expect(screen.queryByText("check_circle")).not.toBeInTheDocument();
+      expect(screen.getByRole("list")).toHaveTextContent("Row 2 · Only one");
+    });
+
+    it("does not raise the users error over a finished import shown again", async () => {
+      const { user, fileInput, view } = renderDialog();
+      await user.upload(fileInput(), workbookFile([HEADERS, ["", "Only one", "", 1, 1, "", ""]]));
+      await user.click(await screen.findByRole("button", { name: /Import 1 change$/ }));
+      await screen.findByText("1 created, 0 updated, 0 failed");
+
+      const props = {
+        initiativeId: "i1",
+        existingRisks: RISKS,
+        onClose: vi.fn(),
+        onImported: vi.fn(),
+      };
+      view.rerender(<PpmRiskImportDialog open={false} {...props} />);
+      mockApi.fail("get", "/users");
+      view.rerender(<PpmRiskImportDialog open {...props} />);
+      await waitFor(() => expect(mockApi.callsOf("get", "/users")).toHaveLength(2));
+      await act(async () => {});
+      expect(await screen.findByText("1 created, 0 updated, 0 failed")).toBeInTheDocument();
+      expect(
+        screen.queryByText("Could not load the users to match owners. Try again later."),
+      ).not.toBeInTheDocument();
+    });
   });
 });

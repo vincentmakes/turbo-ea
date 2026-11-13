@@ -7,7 +7,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as XLSX from "xlsx";
-import "@/i18n";
+import i18n from "@/i18n";
 import type { PpmRisk } from "@/types";
 import {
   PPM_RISK_COLUMNS,
@@ -557,5 +557,201 @@ describe("create vs update", () => {
     const stored = [risk({ title: "Vendor delay ", description: "Supplier late  ", mitigation: " x" })];
     const cells = { id: "r1", title: "Vendor delay", description: "Supplier late", mitigation: "x" };
     expect(planOne(cells, stored)).toMatchObject({ kind: "unchanged" });
+  });
+});
+
+describe("template", () => {
+  it("fills the example row with a complete, readable risk", () => {
+    downloadPpmRiskTemplate();
+    const aoa = aoaOf(writeFile.mock.calls[0][0]);
+    expect(aoa[1]).toEqual([
+      "",
+      "Key supplier misses the go-live date",
+      "The integration partner is behind on the interface build.",
+      4,
+      3,
+      12,
+      "Open",
+      "owner@example.com",
+      "Weekly checkpoint with the supplier; fallback plan by month end",
+    ]);
+  });
+});
+
+describe("header matching", () => {
+  it("still knows the English headers when the interface is in another language", async () => {
+    await i18n.changeLanguage("de");
+    try {
+      const rows = parsePpmRiskWorkbook(
+        bytesOf([
+          ["Risk Title", "Risikotitel", "Status"],
+          ["", "A", "Mitigating"],
+        ]),
+      );
+      // German and English headers both name the title; the first non-blank cell wins.
+      expect(rows[0].cells).toEqual({ title: "A", status: "Mitigating" });
+      const english = parsePpmRiskWorkbook(bytesOf([["Risk Title"], ["B"]]));
+      expect(english[0].cells).toEqual({ title: "B" });
+    } finally {
+      await i18n.changeLanguage("en");
+    }
+  });
+
+  it("matches a translated header that carries extra or repeated spaces", () => {
+    const t = (key: string) =>
+      key === "ppm:riskTitle" ? " Titel " : key === "ppm:riskOwner" ? "Risiko  Inhaber" : key;
+    const rows = parsePpmRiskWorkbook(
+      bytesOf([
+        [" Titel ", "Risiko  Inhaber"],
+        ["A", "Bob Builder"],
+      ]),
+      t,
+    );
+    expect(rows[0].cells).toEqual({ title: "A", owner: "Bob Builder" });
+  });
+
+  it("gives a name two columns share to the earlier column", () => {
+    // A translation of Mitigation that reads like the title's raw key.
+    const t = (key: string) => (key === "ppm:mitigation" ? "Title" : key);
+    const rows = parsePpmRiskWorkbook(bytesOf([["Title"], ["A"]]), t);
+    expect(rows[0].cells).toEqual({ title: "A" });
+  });
+
+  // Any header that names no column is dropped, whatever its text; the last
+  // one is Stryker's sentinel, which a mutated alias fallback would accept.
+  it.each(["Colour", "Notes", "Stryker was here"])("ignores the unknown column %s", (header) => {
+    const rows = parsePpmRiskWorkbook(bytesOf([[header, "title"], ["x", "A"]]));
+    expect(rows[0].cells).toEqual({ title: "A" });
+  });
+
+  // Whatever the later cell says, it fills the earlier blank one.
+  it.each(["bob@example.com", "Stryker was here!"])(
+    "fills a blank cell from a later header naming the same column: %s",
+    (value) => {
+      const rows = parsePpmRiskWorkbook(
+        bytesOf([
+          ["title", "owner_name", "owner_email"],
+          ["A", "", value],
+        ]),
+      );
+      expect(rows[0].cells.owner).toBe(value);
+    },
+  );
+});
+
+describe("status labels", () => {
+  it("accepts the raw key, the translated label and the English label as separate ways in", () => {
+    const en = "ppm:riskStatusMitigated";
+    const original = i18n.getResource("en", "ppm", "riskStatusMitigated") as string;
+    // An English label that is not just the capitalised key, so each way in counts on its own.
+    i18n.addResource("en", "ppm", "riskStatusMitigated", "Mitigated (done)");
+    try {
+      const german: Record<string, string> = { "ppm:riskStatusOpen": "Offen", [en]: "Gemindert" };
+      const t = (key: string) => german[key] ?? key;
+      const status = (cell: string) => {
+        const r = planPpmRiskImport([row({ title: "A", status: cell })], [], USERS, t).rows[0];
+        return r.kind === "create" ? r.body.status : r.kind;
+      };
+      expect(status("Offen")).toBe("open");
+      expect(status("OFFEN")).toBe("open");
+      expect(status("Gemindert")).toBe("mitigated");
+      expect(status("mitigated")).toBe("mitigated");
+      expect(status("Mitigated (done)")).toBe("mitigated");
+      expect(status("MITIGATED (DONE)")).toBe("mitigated");
+      expect(status("Open")).toBe("open");
+      expect(status("Mitigating")).toBe("mitigating");
+      expect(status("Abgeschlossen")).toBe("rejected");
+    } finally {
+      i18n.addResource("en", "ppm", "riskStatusMitigated", original);
+    }
+    expect(ppmRiskRow(risk({ status: "mitigated" }))[6]).toBe("Mitigated");
+  });
+});
+
+describe("cells given with surrounding spaces", () => {
+  it("trims the Risk ID", () => {
+    expect(planOne({ id: " r1 ", title: "Vendor delay" })).toMatchObject({
+      kind: "unchanged",
+      riskId: "r1",
+    });
+  });
+
+  it("trims the status, and treats a blank one as absent", () => {
+    expect(planOne({ title: "A", status: " Done " })).toMatchObject({
+      kind: "rejected",
+      errors: ["Unknown status Done; use one of Open, Mitigating, Mitigated, Closed, Accepted"],
+    });
+    expect(planOne({ title: "A", status: "   " })).toMatchObject({
+      kind: "create",
+      body: { status: "open" },
+    });
+  });
+
+  it("trims the owner, and clears it when the cell holds only spaces", () => {
+    expect(planOne({ title: "A", owner: " Zed " })).toMatchObject({
+      warnings: ["No user matches the owner Zed; the owner is left unchanged"],
+    });
+    expect(planOne({ id: "r1", title: "Vendor delay", owner: "   " })).toMatchObject({
+      kind: "update",
+      body: { owner_id: null },
+      warnings: [],
+    });
+  });
+
+  it("clears the owner when its column is present without a value", () => {
+    expect(planOne({ id: "r1", title: "Vendor delay", owner: undefined })).toEqual({
+      kind: "update",
+      sheetRow: 1,
+      title: "Vendor delay",
+      warnings: [],
+      riskId: "r1",
+      body: { owner_id: null },
+      changed: ["Owner"],
+    });
+  });
+
+  it("ignores spaces around the cell's text when comparing it with the stored text", () => {
+    const cells = { id: "r1", title: "Vendor delay", description: "Supplier late ", mitigation: " Weekly checkpoint" };
+    expect(planOne(cells)).toMatchObject({ kind: "unchanged" });
+  });
+
+  it("matches users whose stored email or name carries spaces", () => {
+    const users: ImportUser[] = [{ id: "u9", display_name: " Carol Chef ", email: " carol@example.com " }];
+    const owner = (cell: string) =>
+      (planPpmRiskImport([row({ title: "A", owner: cell })], [], users).rows[0] as {
+        body: { owner_id?: string };
+      }).body.owner_id;
+    expect(owner("carol@example.com")).toBe("u9");
+    expect(owner("Carol Chef")).toBe("u9");
+  });
+});
+
+describe("owner without an email or a stored name", () => {
+  const users: ImportUser[] = [...USERS, { id: "u5", display_name: "No Mail", email: null }];
+
+  it("matches a user without an email by name", () => {
+    expect(planPpmRiskImport([row({ title: "A", owner: "no mail" })], [], users).rows[0]).toMatchObject({
+      body: { owner_id: "u5" },
+    });
+  });
+
+  it("matches the owner of a risk that has none against the users", () => {
+    expect(
+      planPpmRiskImport([row({ id: "r2", title: "Budget overrun", owner: "Bob Builder" })], RISKS, users).rows[0],
+    ).toMatchObject({ kind: "update", body: { owner_id: "u2" }, changed: ["Owner"] });
+  });
+
+  // Any name nobody has warns, whatever its text; the second is Stryker's
+  // sentinel, which a mutated `?? ""` fallback would turn into a match.
+  it.each(["Zed", "Stryker was here!"])("warns about the unknown owner %s", (name) => {
+    const plan = planPpmRiskImport(
+      [row({ title: "A", owner: name }, 1), row({ id: "r2", title: "Budget overrun", owner: name }, 2)],
+      RISKS,
+      users,
+    );
+    const warning = `No user matches the owner ${name}; the owner is left unchanged`;
+    expect(plan.rows[0]).toMatchObject({ kind: "create", warnings: [warning] });
+    expect((plan.rows[0] as { body: object }).body).not.toHaveProperty("owner_id");
+    expect(plan.rows[1]).toMatchObject({ kind: "unchanged", warnings: [warning] });
   });
 });

@@ -141,6 +141,7 @@ export function downloadPpmRiskTemplate(t: Translate = defaultT): void {
 
 /** Whether the bytes are an `.xlsx` (zip) or legacy `.xls` (OLE2) container. */
 export function isSpreadsheetBytes(buffer: ArrayBuffer): boolean {
+  // Stryker disable next-line MethodExpression: equivalent, only b[0]..b[3] are read, so the whole buffer and its first four bytes give the same answer
   const b = new Uint8Array(buffer.slice(0, 4));
   const zip = b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04;
   const ole = b[0] === 0xd0 && b[1] === 0xcf && b[2] === 0x11 && b[3] === 0xe0;
@@ -188,6 +189,7 @@ export function parsePpmRiskWorkbook(
     for (const [header, value] of Object.entries(raw)) {
       const col = index.get(header);
       if (!col) continue;
+      // Stryker disable next-line ConditionalExpression: equivalent for `value !== ""` -> true, which only adds overwriting a blank cell with a blank one; the other conditions here are pinned by the parse tests
       if (!(col in cells) || (cells[col] === "" && value !== "")) cells[col] = value;
     }
     return { sheetRow, cells };
@@ -242,6 +244,7 @@ function score(value: string | undefined): number | null {
 
 /** A status from its raw key or its label (translated or English), case-insensitive. */
 function parseStatus(value: string, t: Translate): PpmRisk["status"] | undefined {
+  // Stryker disable next-line MethodExpression: equivalent for trim(), the only caller passes an already trimmed cell; lower-casing is pinned by the status tests
   const v = value.trim().toLowerCase();
   const en = englishT();
   return RISK_STATUSES.find(
@@ -255,11 +258,13 @@ function parseStatus(value: string, t: Translate): PpmRisk["status"] | undefined
 type OwnerMatch = { id: string } | { problem: "unknown" | "ambiguous" };
 
 function matchOwner(value: string, users: readonly ImportUser[]): OwnerMatch {
+  // Stryker disable next-line MethodExpression: equivalent for trim(), the only caller passes an already trimmed cell; lower-casing is pinned by the owner tests
   const v = value.trim().toLowerCase();
   const byEmail = users.filter((u) => (u.email ?? "").trim().toLowerCase() === v);
   if (byEmail.length === 1) return { id: byEmail[0].id };
   const byName = users.filter((u) => u.display_name.trim().toLowerCase() === v);
   if (byName.length === 1) return { id: byName[0].id };
+  // Stryker disable next-line EqualityOperator,StringLiteral: equivalent, a total of exactly 1 returned above (> 1 and >= 1 agree here), and "unknown" is only ever compared with "ambiguous"
   return { problem: byEmail.length + byName.length > 1 ? "ambiguous" : "unknown" };
 }
 
@@ -324,6 +329,7 @@ export function planPpmRiskImport(
       const ownerCell = (cells.owner ?? "").trim();
       if (ownerCell === "") {
         ownerId = null;
+        // Stryker disable next-line BlockStatement: equivalent, keeping the current owner_id and leaving the owner undefined both end in "owner unchanged" below
       } else if (current && ownerCell.toLowerCase() === (current.owner_name ?? "").toLowerCase()) {
         ownerId = current.owner_id;
       } else {

@@ -26,7 +26,7 @@ import ListItem from "@mui/material/ListItem";
 import ListItemText from "@mui/material/ListItemText";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { useTheme } from "@mui/material/styles";
+import { useTheme, type SxProps, type Theme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import LinkifiedText from "@/components/LinkifiedText";
 import { api, ApiError } from "@/api/client";
@@ -77,6 +77,19 @@ const KIND_CHIP: Record<
   rejected: { key: "ppm:riskImportKindRejected", color: "error" },
 };
 
+// Stryker disable all: spacing, alignment and text case are presentation; jsdom lays nothing out
+const SX = {
+  alert: { mb: 2 },
+  templateLink: { display: "inline-flex", alignItems: "center", gap: 0.5 },
+  chooseFile: { textTransform: "none", py: 2 },
+  rowChip: { mr: 1, mt: 0.5, minWidth: 88 },
+  done: { py: 2 },
+  failedList: { alignSelf: "stretch" },
+  action: { textTransform: "none" },
+  spacer: { flex: 1 },
+} satisfies Record<string, SxProps<Theme>>;
+// Stryker restore all
+
 /** The detail line under a preview row: its reasons, changes and warnings. */
 function rowDetail(row: PpmRiskImportRow, t: Translate): string {
   const parts: string[] = [];
@@ -93,6 +106,7 @@ export default function PpmRiskImportDialog({
   onClose,
   onImported,
 }: Props) {
+  // Stryker disable next-line ArrayDeclaration,StringLiteral: equivalent, every key below carries its namespace prefix and every namespace is bundled at init
   const { t } = useTranslation(["ppm", "common", "grc"]);
   const theme = useTheme();
   const fullScreen = useFullScreenDialog();
@@ -117,8 +131,10 @@ export default function PpmRiskImportDialog({
   const reset = () => {
     setStep("upload");
     setFileName("");
+    // Stryker disable next-line CallExpression: equivalent, the preview only shows after handleFile has set fresh rows, so stale rows are never read
     setSheetRows(null);
     setErrorKey("");
+    // Stryker disable next-line CallExpression: equivalent, the result only shows on the done step, which handleApply enters with a fresh result
     setResult(null);
     if (fileRef.current) fileRef.current.value = "";
   };
@@ -148,12 +164,14 @@ export default function PpmRiskImportDialog({
   };
 
   const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Stryker disable next-line OptionalChaining: equivalent, a file input's files is a FileList, never null
     const file = e.target.files?.[0];
     if (file) void handleFile(file);
   };
 
   const handleApply = () =>
     submit.run(async () => {
+      // Stryker disable next-line ConditionalExpression: equivalent, Apply is disabled whenever plan is null (writable is 0), so handleApply never runs without a plan
       if (!plan) return;
       const outcome: ImportResult = { created: 0, updated: 0, failed: [] };
       for (const row of plan.rows) {
@@ -187,12 +205,12 @@ export default function PpmRiskImportDialog({
       <DialogTitle>{t("ppm:riskImportTitle")}</DialogTitle>
       <DialogContent dividers>
         {errorKey && (
-          <Alert severity="error" sx={{ mb: 2 }}>
+          <Alert severity="error" sx={SX.alert}>
             {t(errorKey)}
           </Alert>
         )}
         {users.error && step !== "done" && (
-          <Alert severity="error" sx={{ mb: 2 }}>
+          <Alert severity="error" sx={SX.alert}>
             {t("ppm:riskImportUsersError")}
           </Alert>
         )}
@@ -208,7 +226,7 @@ export default function PpmRiskImportDialog({
                 type="button"
                 underline="hover"
                 onClick={() => downloadPpmRiskTemplate(t as Translate)}
-                sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}
+                sx={SX.templateLink}
               >
                 <MaterialSymbol icon="download" size={18} />
                 {t("grc:risks.import.downloadTemplate")}
@@ -217,8 +235,9 @@ export default function PpmRiskImportDialog({
             <Button
               variant="outlined"
               startIcon={<MaterialSymbol icon="upload_file" size={18} />}
+              // Stryker disable next-line OptionalChaining: equivalent, the input renders with this button, so the ref is set whenever it can be clicked
               onClick={() => fileRef.current?.click()}
-              sx={{ textTransform: "none", py: 2 }}
+              sx={SX.chooseFile}
             >
               {t("grc:risks.import.chooseFile")}
             </Button>
@@ -308,7 +327,7 @@ export default function PpmRiskImportDialog({
                           size="small"
                           color={chip.color}
                           label={t(chip.key)}
-                          sx={{ mr: 1, mt: 0.5, minWidth: 88 }}
+                          sx={SX.rowChip}
                         />
                         <ListItemText
                           primary={
@@ -329,52 +348,55 @@ export default function PpmRiskImportDialog({
           </Stack>
         )}
 
-        {step === "done" && result && (
-          <Stack spacing={2} alignItems="center" sx={{ py: 2 }}>
-            <MaterialSymbol
-              icon={result.failed.length > 0 ? "warning" : "check_circle"}
-              size={48}
-              color={
-                result.failed.length > 0 ? theme.palette.warning.main : theme.palette.success.main
-              }
-            />
-            <Typography variant="h6">{t("ppm:riskImportDoneTitle")}</Typography>
-            <Typography variant="body2" color="text.secondary">
-              {t("ppm:riskImportDoneSummary", {
-                created: result.created,
-                updated: result.updated,
-                failed: result.failed.length,
-              })}
-            </Typography>
-            {result.failed.length > 0 && (
-              <List dense disablePadding sx={{ alignSelf: "stretch" }}>
-                {result.failed.map((f) => (
-                  <ListItem key={f.sheetRow} disableGutters>
-                    <ListItemText
-                      primary={
-                        <>
-                          {t("grc:risks.import.rowLabel", { row: f.sheetRow + 1 })}
-                          {f.title && " · "}
-                          {f.title && <LinkifiedText text={f.title} />}
-                        </>
-                      }
-                      secondary={f.message}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            )}
-          </Stack>
-        )}
+        {
+          // Stryker disable next-line ConditionalExpression,LogicalOperator: equivalent, result is non-null only on the done step (handleApply sets both, reset clears both)
+          step === "done" && result && (
+            <Stack spacing={2} alignItems="center" sx={SX.done}>
+              <MaterialSymbol
+                icon={result.failed.length > 0 ? "warning" : "check_circle"}
+                size={48}
+                color={
+                  result.failed.length > 0 ? theme.palette.warning.main : theme.palette.success.main
+                }
+              />
+              <Typography variant="h6">{t("ppm:riskImportDoneTitle")}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {t("ppm:riskImportDoneSummary", {
+                  created: result.created,
+                  updated: result.updated,
+                  failed: result.failed.length,
+                })}
+              </Typography>
+              {result.failed.length > 0 && (
+                <List dense disablePadding sx={SX.failedList}>
+                  {result.failed.map((f) => (
+                    <ListItem key={f.sheetRow} disableGutters>
+                      <ListItemText
+                        primary={
+                          <>
+                            {t("grc:risks.import.rowLabel", { row: f.sheetRow + 1 })}
+                            {f.title && " · "}
+                            {f.title && <LinkifiedText text={f.title} />}
+                          </>
+                        }
+                        secondary={f.message}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              )}
+            </Stack>
+          )
+        }
       </DialogContent>
       <DialogActions>
         {step === "preview" && (
-          <Button onClick={() => reset()} disabled={busy} sx={{ textTransform: "none" }}>
+          <Button onClick={() => reset()} disabled={busy} sx={SX.action}>
             {t("common:actions.back")}
           </Button>
         )}
-        <Box sx={{ flex: 1 }} />
-        <Button onClick={handleClose} disabled={busy} sx={{ textTransform: "none" }}>
+        <Box sx={SX.spacer} />
+        <Button onClick={handleClose} disabled={busy} sx={SX.action}>
           {step === "done" ? t("common:actions.close") : t("common:actions.cancel")}
         </Button>
         {step === "preview" && (
@@ -383,7 +405,7 @@ export default function PpmRiskImportDialog({
             onClick={() => void handleApply()}
             disabled={busy || writable === 0}
             startIcon={<MaterialSymbol icon="upload" size={18} />}
-            sx={{ textTransform: "none" }}
+            sx={SX.action}
           >
             {busy ? t("ppm:riskImportWriting") : t("ppm:riskImportApply", { count: writable })}
           </Button>
