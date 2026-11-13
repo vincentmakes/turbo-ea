@@ -369,7 +369,7 @@ export function BudgetTable({
             const year = g.key as number;
             return (
               <Fragment key={g.key}>
-                <TableRow data-year-row sx={YEAR_ROW_SX}>
+                <TableRow data-year-row data-export-heading sx={YEAR_ROW_SX}>
                   <GroupTitleCell
                     groupKey={g.key}
                     count={g.lines.length}
@@ -494,7 +494,7 @@ export function CostTable({
             const open = expandAll || expanded.has(g.key);
             return (
               <Fragment key={g.key}>
-                <TableRow data-year-row sx={YEAR_ROW_SX}>
+                <TableRow data-year-row data-export-heading sx={YEAR_ROW_SX}>
                   <GroupTitleCell
                     groupKey={g.key}
                     count={g.lines.length}

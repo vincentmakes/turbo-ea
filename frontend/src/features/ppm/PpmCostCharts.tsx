@@ -213,7 +213,8 @@ export default function PpmCostCharts({
   };
 
   return (
-    <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+    // `data-export-row`: the Initiative Report's deck never cuts through the card.
+    <Paper variant="outlined" data-export-row sx={{ p: 2, mb: 3 }}>
       <Box display="flex" alignItems="center" gap={1.5} flexWrap="wrap" mb={expanded ? 2 : 0}>
         <Typography variant="subtitle1" fontWeight={600} id={headingId}>
           {t("spendOverTime")}

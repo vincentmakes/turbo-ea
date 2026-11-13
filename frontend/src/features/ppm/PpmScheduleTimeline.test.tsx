@@ -3,7 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import { alpha, createTheme } from "@mui/material/styles";
 import { PRIORITY_COLORS, RAG_COLORS, brand } from "@/theme/tokens";
 import type { PpmTask, PpmWbs } from "@/types";
-import PpmScheduleTimeline, { COMPACT_QUARTERS_OVER, MILESTONE_ICON } from "./PpmScheduleTimeline";
+import PpmScheduleTimeline, { COMPACT_QUARTERS_OVER, MILESTONE_SIZE } from "./PpmScheduleTimeline";
 
 vi.mock("@/hooks/useDateFormat", () => ({
   useDateFormat: () => ({ formatDate: (s: string) => `D(${s})` }),
@@ -212,7 +212,7 @@ describe("PpmScheduleTimeline", () => {
     expect(within(rowOf("Tsk")).queryByRole("img")).toBeNull();
   });
 
-  it("marks a milestone with the Gantt's flag at its end date, else its start", () => {
+  it("marks a milestone with the Gantt's diamond at its end date, else its start", () => {
     render(
       <PpmScheduleTimeline
         wbs={[
@@ -225,17 +225,29 @@ describe("PpmScheduleTimeline", () => {
         now={AFTER}
       />,
     );
-    expect(MILESTONE_ICON).toBe("flag");
+    expect(MILESTONE_SIZE).toEqual({ lane: 12, title: 9 });
     const m1 = markOf("Go live", "milestone")!;
-    expect(m1).toHaveTextContent("flag");
+    // A shape, not an icon-font glyph: the PowerPoint export drops those.
+    expect(m1.querySelector(".material-symbols-outlined")).toBeNull();
+    expect(m1).toHaveTextContent("");
+    const diamond = m1.querySelector("[data-milestone-diamond]") as HTMLElement;
+    expect(diamond).toHaveStyle({
+      width: "12px",
+      height: "12px",
+      transform: "rotate(45deg)",
+      backgroundColor: brand.primary,
+    });
     expect(pctOf(m1, "inset-inline-start")).toBeCloseTo(30 * DAY, 3);
-    expect(getComputedStyle(m1).marginInlineStart).toBe("-9px");
+    expect(getComputedStyle(m1).marginInlineStart).toBe("-6px");
+    expect(getComputedStyle(m1).marginTop).toBe("-6px");
     expect(markOf("Go live", "bar")).toBeNull();
     expect(pctOf(markOf("Kick-off", "milestone")!, "inset-inline-start")).toBeCloseTo(10 * DAY, 3);
     expect(markOf("Someday", "milestone")).toBeNull();
-    // The title carries the flag too, so the row says it without the lane.
-    expect(within(rowOf("Someday")).getByText("flag")).toBeInTheDocument();
-    expect(within(rowOf("Range")).queryByText("flag")).toBeNull();
+    // The title carries a smaller diamond too, so the row says it without the lane.
+    const titleCell = rowOf("Someday").querySelector("td") as HTMLElement;
+    expect(titleCell.querySelector("[data-milestone-diamond]")).toHaveStyle({ width: "9px", height: "9px" });
+    expect(rowOf("Range").querySelector("[data-milestone-diamond]")).toBeNull();
+    expect(rowOf("Someday").querySelector(".material-symbols-outlined")).toBeNull();
   });
 
   it("gives a one-date item a dot at that date and an undated one no mark", () => {
@@ -356,7 +368,7 @@ describe("PpmScheduleTimeline", () => {
   it("keys every mark the lanes use", () => {
     const { container } = render(<PpmScheduleTimeline wbs={[SPAN]} tasks={[]} now={AFTER} />);
     const items = [...container.querySelectorAll("[data-legend-item]")] as HTMLElement[];
-    expect(items.map((el) => el.textContent?.replace("flag", ""))).toEqual([
+    expect(items.map((el) => el.textContent)).toEqual([
       "Work package (fill shows completion)",
       "Task: To Do",
       "Task: In Progress",
@@ -371,7 +383,11 @@ describe("PpmScheduleTimeline", () => {
     expect(swatch("blocked")).toHaveStyle({ backgroundColor: RAG_COLORS.red });
     expect(swatch("in_progress")).toHaveStyle({ backgroundColor: brand.primary });
     expect(swatch("point")).toHaveStyle({ borderRadius: "50%", width: "10px" });
-    expect(within(items[5]).getByText("flag")).toBeInTheDocument();
+    expect(items[5].querySelector("[data-milestone-diamond]")).toHaveStyle({
+      width: "9px",
+      transform: "rotate(45deg)",
+      backgroundColor: brand.primary,
+    });
   });
 
   it("marks every item row and group heading as an unsplittable print row", () => {
@@ -384,5 +400,9 @@ describe("PpmScheduleTimeline", () => {
     );
     expect(container.querySelectorAll("[data-export-row]")).toHaveLength(5);
     for (const title of ["P", "A", "B"]) expect(rowOf(title)).toHaveAttribute("data-export-row");
+    // The two group headings, and nothing else, never end a slide in the deck.
+    const headings = [...container.querySelectorAll("[data-export-heading]")];
+    expect(headings).toHaveLength(2);
+    for (const h of headings) expect(h).toHaveAttribute("data-group");
   });
 });

@@ -13,7 +13,7 @@
  * showing only Risk Management is the risk report. `print.css` scopes its page
  * break rules to `.ppm-project-report`.
  */
-import { lazy, Suspense, useState, type ReactNode } from "react";
+import { lazy, Suspense, useRef, useState, type ReactNode } from "react";
 import { Link as RouterLink, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
@@ -37,6 +37,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import SectionPaper from "@/features/dashboard/workspace/SectionPaper";
 import MetricCard from "@/features/reports/MetricCard";
 import ReportShell, { type PrintParam } from "@/features/reports/ReportShell";
+import type { ReportExportData, ReportExportSection } from "@/features/reports/reportExport";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -66,7 +67,9 @@ import StatusReportCard, { ReportHealth } from "./StatusReportCard";
 import { useHealthRatingLabel } from "./ppmHealth";
 import { compactAmount } from "./ppmPortfolioFormat";
 import {
+  REPORT_EXPORT_ROWS,
   REPORT_SECTIONS,
+  exportableSections,
   loadReportSections,
   orderedSections,
   riskStatusCounts,
@@ -130,6 +133,8 @@ export default function PpmProjectReport() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [sections, setSections] = useState<ReportSection[]>(loadReportSections);
+  const chartRef = useRef<HTMLDivElement>(null);
+  const theme = useTheme();
 
   usePageSubject(data?.card.name);
   usePageSection(t("pdfDocumentTitle"));
@@ -214,13 +219,50 @@ export default function PpmProjectReport() {
 
   const dateOf = (v: unknown) => (typeof v === "string" && v ? formatDate(v) : "");
 
-  const printParams: PrintParam[] = [
+  // What the initiative is; the print header adds when it was printed, the
+  // deck says when it was generated on its own.
+  const cardParams: PrintParam[] = [
     { label: t("subtype"), value: card.subtype ? subtypeLabel(card.type, card.subtype) : "" },
     { label: t("initiativeStatus"), value: statusLabel(card) },
     { label: t("startDate"), value: dateOf(attrs.startDate) },
     { label: t("endDate"), value: dateOf(attrs.endDate) },
+  ];
+  const printParams: PrintParam[] = [
+    ...cardParams,
     { label: t("reportPrinted"), value: formatDateTime(new Date()) },
   ];
+
+  const deckSections = exportableSections(sections, {
+    reports: data.reports.length,
+    costLines:
+      data.budgetLines.length +
+      data.costLines.length +
+      (data.rollup?.has_budget_lines || data.rollup?.has_cost_lines ? 1 : 0),
+    risks: data.risks.length,
+    scheduleItems: data.wbs && data.tasks ? data.wbs.length + data.tasks.length : null,
+  });
+
+  /**
+   * The PowerPoint deck: a title slide, then each section shown and not empty
+   * on its own slide(s), a picture of the section's body under its name.
+   */
+  const buildExportData = (): ReportExportData => ({
+    title: card.name,
+    filterSummary: cardParams.filter((p) => p.value),
+    sheets: [],
+    // The page's surface behind each picture: in the dark theme its text is light.
+    background: theme.palette.background.paper,
+    // Every section in the deck is on the page: it is shown and not empty.
+    sections: deckSections.map(
+      (s): ReportExportSection => ({
+        title: t(SECTION_META[s].labelKey),
+        node: chartRef.current!.querySelector<HTMLElement>(
+          `[data-report-section="${s}"] > [data-report-section-body]`,
+        )!,
+        paginateRowSelector: REPORT_EXPORT_ROWS,
+      }),
+    ),
+  });
 
   const toggle = (section: ReportSection) => {
     const next = sections.includes(section)
@@ -266,7 +308,9 @@ export default function PpmProjectReport() {
       icon={typeIcon}
       iconColor={typeColor}
       hasTableToggle={false}
-      disableExport
+      chartRef={chartRef}
+      exportFormats={deckSections.length > 0 ? ["pptx"] : []}
+      buildExportData={buildExportData}
       disableSavedReportsLink
       actions={backLink}
       toolbar={toolbar}
@@ -318,7 +362,11 @@ function useInitiativeStatusLabel(): (card: Card) => string {
   };
 }
 
-/** One section: its heading with the section's glyph, then its cards. */
+/**
+ * One section: its heading with the section's glyph, then its body. The deck
+ * pictures the body alone (`data-report-section-body`): its slide is headed
+ * with the section's name already.
+ */
 function Section({ section, children }: { section: ReportSection; children: ReactNode }) {
   const { t } = useTranslation("ppm");
   const meta = SECTION_META[section];
@@ -333,7 +381,7 @@ function Section({ section, children }: { section: ReportSection; children: Reac
           {t(meta.labelKey)}
         </Typography>
       </Box>
-      {children}
+      <Box data-report-section-body>{children}</Box>
     </Box>
   );
 }
@@ -349,10 +397,13 @@ function EmptySection({ text }: { text: string }) {
   );
 }
 
-/** A table's heading above it, as the Budget & Costs tab heads its tables. */
+/**
+ * A table's heading above it, as the Budget & Costs tab heads its tables. In
+ * the deck it never ends a slide (`data-export-heading`).
+ */
 function TableHeading({ children }: { children: ReactNode }) {
   return (
-    <Typography variant="subtitle1" fontWeight={600} mb={1}>
+    <Typography variant="subtitle1" fontWeight={600} mb={1} data-export-heading>
       {children}
     </Typography>
   );
@@ -457,7 +508,7 @@ function OverviewSection({ data }: { data: ReportData }) {
 
   return (
     <Section section="overview">
-      <Box className="ppm-report-tiles" sx={STRIP_SX}>
+      <Box className="ppm-report-tiles" data-export-row sx={STRIP_SX}>
         <MetricCard
           label={t("totalBudget")}
           icon="savings"
@@ -492,7 +543,7 @@ function OverviewSection({ data }: { data: ReportData }) {
           gap: 2,
         }}
       >
-        <SectionPaper icon="monitor_heart" title={t("healthSummary")}>
+        <SectionPaper data-export-row icon="monitor_heart" title={t("healthSummary")}>
           {latest ? (
             <Box display="flex" flexDirection="column" gap={1.5} data-testid="report-health">
               <HealthDot
@@ -521,7 +572,7 @@ function OverviewSection({ data }: { data: ReportData }) {
           )}
         </SectionPaper>
 
-        <SectionPaper icon="account_balance_wallet" title={t("financials")}>
+        <SectionPaper data-export-row icon="account_balance_wallet" title={t("financials")}>
           {bar(t("budgetBarTotal"), totals.budget.total, totals.actual.total)}
           {bar(t("capex"), totals.budget.capex, totals.actual.capex)}
           {bar(t("opex"), totals.budget.opex, totals.actual.opex)}
@@ -553,7 +604,7 @@ function OverviewSection({ data }: { data: ReportData }) {
           )}
         </SectionPaper>
 
-        <SectionPaper icon="event" title={t("timeline")}>
+        <SectionPaper data-export-row icon="event" title={t("timeline")}>
           <Box display="flex" gap={3} mb={2} flexWrap="wrap">
             <Box>
               <Typography variant="caption" color="text.secondary">
@@ -590,7 +641,7 @@ function OverviewSection({ data }: { data: ReportData }) {
         </SectionPaper>
 
         {card.description && (
-          <Box sx={{ gridColumn: { md: "1 / -1" } }}>
+          <Box data-export-row sx={{ gridColumn: { md: "1 / -1" } }}>
             <SectionPaper icon="notes" title={t("common:labels.description")}>
               <Typography variant="body2" sx={FREE_TEXT_SX}>
                 <LinkifiedText text={card.description} />
@@ -619,7 +670,7 @@ function ReportsSection({ reports }: { reports: PpmStatusReport[] }) {
   return (
     <Section section="reports">
       <TableHeading>{t("pdfLatestReport")}</TableHeading>
-      <Box className="ppm-report-latest">
+      <Box className="ppm-report-latest" data-export-keep>
         <StatusReportCard report={latest} variant="outlined" showRatings />
       </Box>
       {earlier.length > 0 && (
@@ -671,7 +722,7 @@ function CostsSection({ data }: { data: ReportData }) {
 
   return (
     <Section section="costs">
-      <Box className="ppm-report-tiles" sx={STRIP_SX}>
+      <Box className="ppm-report-tiles" data-export-row sx={STRIP_SX}>
         <MetricCard
           label={t("totalBudget")}
           icon="savings"
@@ -751,7 +802,7 @@ function RisksSection({ risks }: { risks: PpmRisk[] }) {
   const highColor = summary.high > 0 ? bandColor("high") : undefined;
   return (
     <Section section="risks">
-      <Box className="ppm-report-tiles" sx={STRIP_SX}>
+      <Box className="ppm-report-tiles" data-export-row sx={STRIP_SX}>
         <MetricCard label={t("totalRisks")} icon="shield" value={summary.total} />
         <MetricCard label={t("riskStatusOpen")} icon="pending_actions" value={summary.open} />
         <MetricCard
@@ -772,10 +823,10 @@ function RisksSection({ risks }: { risks: PpmRisk[] }) {
           mb: 2,
         }}
       >
-        <SectionPaper icon="grid_on" title={t("pdfHeatMapTitle")}>
+        <SectionPaper data-export-row icon="grid_on" title={t("pdfHeatMapTitle")}>
           <PpmRiskMatrix risks={risks} />
         </SectionPaper>
-        <SectionPaper icon="traffic" title={t("pdfByStatus")}>
+        <SectionPaper data-export-row icon="traffic" title={t("pdfByStatus")}>
           <Box display="flex" flexDirection="column" gap={1} data-testid="report-risk-status">
             {riskStatusCounts(risks).map(({ status, count }) => (
               <Box key={status} display="flex" alignItems="center" justifyContent="space-between">

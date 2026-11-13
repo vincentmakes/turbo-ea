@@ -62,11 +62,18 @@ vi.mock("pptxgenjs", () => {
 });
 
 import {
+  capturePixelRatio,
   exportReportToPptx,
   exportReportToXlsx,
   extractSheetsFromDOM,
+  headerAt,
+  keepWithNext,
   localeNumberSeparators,
   parseDisplayedNumber,
+  planSectionPages,
+  sectionCuts,
+  textDirection,
+  type TableHeadBox,
 } from "./reportExport";
 import type { ExportSheet, ReportExportData } from "./reportExport";
 
@@ -887,6 +894,525 @@ describe("exportReportToPptx", () => {
       expect(pptxInstances).toHaveLength(1);
       expect(pptxInstances[0].slides).toHaveLength(1);
       expect(pptxInstances[0].slides[0].addImage).toHaveBeenCalledTimes(1);
+    });
+  });
+});
+
+// ─── Section mode ───────────────────────────────────────────────────────────
+
+describe("section mode — the pure helpers", () => {
+  const table = (over: Partial<TableHeadBox> = {}): TableHeadBox => ({
+    top: 100,
+    bottom: 140,
+    left: 0,
+    right: 1000,
+    bodyBottom: 600,
+    boxTop: 99,
+    ...over,
+  });
+
+  it("keeps a heading with the first row whose top is at or below its bottom", () => {
+    const rows = [
+      { top: 0, bottom: 100 },
+      { top: 300, bottom: 380 },
+      { top: 140, bottom: 260 },
+    ];
+    expect(keepWithNext(rows, [{ top: 100, bottom: 140 }])).toEqual([{ top: 100, bottom: 260 }]);
+    // Half a pixel of overlap still counts as "after".
+    expect(keepWithNext(rows, [{ top: 100, bottom: 140.4 }])).toEqual([{ top: 100, bottom: 260 }]);
+    // A heading with nothing after it is kept whole on its own.
+    expect(keepWithNext(rows, [{ top: 400, bottom: 430 }])).toEqual([{ top: 400, bottom: 430 }]);
+    // A heading that is itself a row ends no earlier than itself.
+    expect(keepWithNext([{ top: 0, bottom: 50 }], [{ top: 0, bottom: 50 }])).toEqual([
+      { top: 0, bottom: 50 },
+    ]);
+  });
+
+  it("repeats a header only for a page that starts inside the table's body", () => {
+    const tb = table();
+    expect(headerAt(140, [tb])).toBeNull(); // right under the header row
+    expect(headerAt(140.5, [tb])).toBeNull();
+    expect(headerAt(141, [tb])).toBe(tb);
+    expect(headerAt(600, [tb])).toBeNull(); // at the body's end
+    expect(headerAt(599.6, [tb])).toBeNull();
+    expect(headerAt(599.4, [tb])).toBe(tb);
+    expect(headerAt(50, [tb])).toBeNull(); // above the table
+    expect(headerAt(700, [tb])).toBeNull(); // past it
+    // Inside two tables, the inner (later-starting) one's header wins.
+    const inner = table({ top: 200, bottom: 230, bodyBottom: 500 });
+    expect(headerAt(300, [tb, inner])).toBe(inner);
+    expect(headerAt(300, [inner, tb])).toBe(inner);
+  });
+
+  it("holds a table's header, from the top of its box, to its first row", () => {
+    const rows = [
+      { top: 0, bottom: 90 },
+      { top: 140, bottom: 240 },
+      { top: 240, bottom: 340 },
+    ];
+    // Without the table, 90 and 140 would both be cuts; with it neither 140
+    // nor the header's own top (100) is, only the box top (99) above it.
+    expect(sectionCuts(rows, [], [])).toEqual([0, 90, 140, 240, 340]);
+    expect(sectionCuts(rows, [], [table()])).toEqual([0, 90, 99, 240, 340]);
+    // A marked heading is held the same way; no rows means no cuts at all.
+    expect(sectionCuts(rows, [{ top: 90, bottom: 140 }], [])).toEqual([0, 90, 240, 340]);
+    expect(sectionCuts([], [{ top: 0, bottom: 10 }], [table()])).toEqual([]);
+  });
+
+  it("plans one page for a section that fits, and the whole of it", () => {
+    expect(planSectionPages(400, [0, 200, 400], 400, [])).toEqual([
+      { from: 0, to: 400, header: null },
+    ]);
+    // One pixel over still fits; no safe cut keeps a tall section whole.
+    expect(planSectionPages(401, [0, 401], 400, [])).toEqual([{ from: 0, to: 401, header: null }]);
+    expect(planSectionPages(1000, [], 400, [])).toEqual([{ from: 0, to: 1000, header: null }]);
+  });
+
+  it("cuts greedily, gives an oversized block its own page and merges a tiny tail", () => {
+    // 150 + 600 (oversized) + 100 + 100, the single-picture path's case.
+    expect(planSectionPages(950, [0, 150, 750, 850, 950], 421.6, [])).toEqual([
+      { from: 0, to: 150, header: null },
+      { from: 150, to: 750, header: null },
+      { from: 750, to: 950, header: null },
+    ]);
+    // Eight 100-px rows and a 50-px one: the 50-px page joins the one before.
+    const b = [0, 100, 200, 300, 400, 500, 600, 700, 800, 850];
+    expect(planSectionPages(850, b, 421.6, [])).toEqual([
+      { from: 0, to: 400, header: null },
+      { from: 400, to: 850, header: null },
+    ]);
+  });
+
+  it("takes the repeated header's height off the budget of a page that starts in a table", () => {
+    // A 40-px header, then 110-px rows; a page holds 470 px.
+    const tb = table({ top: 0, bottom: 40, bodyBottom: 1140, boxTop: 0 });
+    const b = [0, 150, 260, 370, 480, 590, 700, 810, 920, 1030, 1140];
+    const pages = planSectionPages(1140, b, 470, [tb]);
+    // Page 2 starts at 370 under the header: 810 - 370 = 440 fits 470 but not
+    // 470 - 40, so it ends at 700. The 110-px tail merges into page 3.
+    expect(pages).toEqual([
+      { from: 0, to: 370, header: null },
+      { from: 370, to: 700, header: tb },
+      { from: 700, to: 1140, header: tb },
+    ]);
+    // Without the table the same rows run on to 810.
+    expect(planSectionPages(1140, b, 470, [])[1]).toEqual({ from: 370, to: 810, header: null });
+  });
+
+  it("caps the pixel ratio at the device's canvas area, never above 2", () => {
+    expect(capturePixelRatio(1200, 800, false)).toBe(2);
+    expect(capturePixelRatio(1200, 800, true)).toBe(2);
+    // 1000 × 8000 at 2× is 32M px: over iOS's 16M, inside the desktop's 64M.
+    expect(capturePixelRatio(1000, 8000, false)).toBe(2);
+    expect(capturePixelRatio(1000, 8000, true)).toBeCloseTo(Math.sqrt(16_000_000 / 8_000_000), 6);
+    expect(capturePixelRatio(1000, 40000, false)).toBeCloseTo(Math.sqrt(64_000_000 / 40_000_000), 6);
+    // Exactly at the limit stays at 2.
+    expect(capturePixelRatio(1000, 4000, true)).toBe(2);
+    expect(capturePixelRatio(0, 0, true)).toBe(2);
+  });
+});
+
+describe("exportReportToPptx — section mode", () => {
+  // Section slides use the continuation geometry: a 1000-px wide section
+  // holds 1000 × (CONT_H / CHART_W) ≈ 470.3 source px a slide.
+  const WIDTH = 1000;
+  const PAGE_MAX = WIDTH * (CONT_H / CHART_W);
+  let canvas: ReturnType<typeof installCanvas>;
+
+  beforeEach(() => {
+    canvas = installCanvas(SLICE_PNG);
+    restores.push(canvas);
+    vi.mocked(toPng).mockResolvedValue(CHART_PNG);
+  });
+
+  const pptx = (): FakePptx => {
+    expect(pptxInstances).toHaveLength(1);
+    return pptxInstances[0];
+  };
+
+  /** Mount sections side by side in the document, each with its own pinned box. */
+  function mountSections(htmls: string[], rects: Record<string, RectLike[]>, heights: number[]) {
+    const root = mount(htmls.map((h, i) => `<div data-sec="${i}">${h}</div>`).join(""));
+    restores.push(
+      stubRectsBySelector({
+        "[data-sec]": heights.map((height) => ({ width: WIDTH, height })),
+        ...rects,
+      }),
+    );
+    return Array.from(root.querySelectorAll<HTMLElement>("[data-sec]"));
+  }
+
+  const headingOf = (slide: FakeSlide) => slide.addText.mock.calls[0][0];
+  const ROWS = "[data-export-row]";
+
+  it("opens with a title slide carrying no picture, then a slide per section headed by its name", async () => {
+    const [a, b] = mountSections(["<p>A</p>", "<p>B</p>"], {}, [200, 300]);
+
+    await exportReportToPptx({
+      title: "ERP Migration",
+      sheets: [],
+      filterSummary: [{ label: "Status", value: "On Track" }],
+      chartNode: a,
+      sections: [
+        { title: "Overview", node: a, paginateRowSelector: ROWS },
+        { title: "Risks", node: b },
+      ],
+    });
+
+    const deck = pptx();
+    expect(deck.slides).toHaveLength(3);
+    const [title, first, second] = deck.slides;
+    expect(title.addImage).not.toHaveBeenCalled();
+    expect(title.addText).toHaveBeenCalledTimes(2);
+    expect(title.addText).toHaveBeenNthCalledWith(
+      1,
+      "ERP Migration",
+      expect.objectContaining({ fontSize: 28, bold: true, color: "0F7EB5" }),
+    );
+    expect(title.addText).toHaveBeenNthCalledWith(
+      2,
+      `${generatedLabel()}    Status: On Track`,
+      expect.objectContaining({ fontSize: 12, color: "607D8B" }),
+    );
+    // Each section, captured once at its own size, never the chart node twice.
+    expect(vi.mocked(toPng).mock.calls.map((c) => c[0])).toEqual([a, b]);
+    expect(vi.mocked(toPng).mock.calls[1][1]).toMatchObject({
+      pixelRatio: 2,
+      backgroundColor: "#ffffff",
+      width: WIDTH,
+      height: 300,
+    });
+    for (const [slide, name, height] of [
+      [first, "Overview", 200],
+      [second, "Risks", 300],
+    ] as const) {
+      expect(slide.background).toEqual({ color: "FFFFFF" });
+      expect(slide.addText).toHaveBeenCalledTimes(1);
+      expect(slide.addText).toHaveBeenCalledWith(
+        name,
+        expect.objectContaining({ x: MARGIN, y: MARGIN, h: 0.5, fontSize: 18, bold: true, color: "0F7EB5" }),
+      );
+      // Width-bound in the continuation box, centred vertically.
+      const h = CHART_W * (height / WIDTH);
+      expect(slide.addImage).toHaveBeenCalledWith({
+        data: CHART_PNG,
+        x: near(MARGIN),
+        y: near(CONT_TOP + (CONT_H - h) / 2),
+        w: near(CHART_W),
+        h: near(h),
+      });
+    }
+    // A section that fits is never decoded or sliced.
+    expect(canvas.context.drawImage).not.toHaveBeenCalled();
+    expect(deck.writeFile).toHaveBeenCalledWith({ fileName: `ERP_Migration_${STAMP}.pptx` });
+  });
+
+  it("numbers the slides of a section only when it spans several", async () => {
+    // Section 0 fits; section 1 is ten 100-px rows: pages of 400, 400 and 200.
+    const rows: RectLike[] = Array.from({ length: 10 }, (_, i) => ({ y: i * 100, width: WIDTH, height: 100 }));
+    const [a, b] = mountSections(
+      ["<p>small</p>", "<div data-export-row></div>".repeat(10)],
+      { [ROWS]: rows },
+      [300, 1000],
+    );
+    restores.push(installImage({ width: 2 * WIDTH, height: 2000 }));
+
+    await exportReportToPptx({
+      title: "T",
+      sheets: [],
+      sections: [
+        { title: "Small", node: a, paginateRowSelector: ROWS },
+        { title: "Tall", node: b, paginateRowSelector: ROWS },
+      ],
+    });
+
+    const deck = pptx();
+    expect(deck.slides.slice(1).map(headingOf)).toEqual([
+      "Small",
+      `Tall — ${pageIndicator(1, 3)}`,
+      `Tall — ${pageIndicator(2, 3)}`,
+      `Tall — ${pageIndicator(3, 3)}`,
+    ]);
+    expect(drawnSlices(canvas.context.drawImage)).toEqual([
+      [0, 0, 2000, 800],
+      [0, 800, 2000, 800],
+      [0, 1600, 2000, 400],
+    ]);
+  });
+
+  it("never ends a slide on a sub-heading: the cut moves above it", async () => {
+    // Four 100-px rows, a 40-px heading at 400, then two rows. Cutting at
+    // 440 would fit (≤ 470.3) but leave the heading last on the slide.
+    const rows: RectLike[] = [0, 100, 200, 300, 440, 540].map((y) => ({ y, width: WIDTH, height: 100 }));
+    const html = `${"<div data-export-row></div>".repeat(4)}<h3 data-export-heading>Earlier</h3>${"<div data-export-row></div>".repeat(2)}`;
+    const [node] = mountSections(
+      [html],
+      { [ROWS]: rows, "[data-export-heading]": [{ y: 400, width: WIDTH, height: 40 }] },
+      [640],
+    );
+    restores.push(installImage({ width: 2 * WIDTH, height: 1280 }));
+    expect(PAGE_MAX).toBeGreaterThan(440);
+    expect(PAGE_MAX).toBeLessThan(540);
+
+    await exportReportToPptx({ title: "T", sheets: [], sections: [{ title: "S", node, paginateRowSelector: ROWS }] });
+
+    expect(drawnSlices(canvas.context.drawImage)).toEqual([
+      [0, 0, 2000, 800],
+      [0, 800, 2000, 480],
+    ]);
+    expect(pptx().slides).toHaveLength(3);
+  });
+
+  it("repeats a continued table's header row above the continuation and counts it in the page", async () => {
+    // A table in an outlined container at y=0: a 40-px header, ten 110-px rows.
+    const body = Array.from({ length: 10 }, (_, i) => ({ y: 40 + i * 110, width: WIDTH, height: 110 }));
+    const html = `<div class="wrap"><table><thead><tr><th>H</th></tr></thead><tbody>${"<tr data-export-row><td>r</td></tr>".repeat(10)}</tbody></table></div>`;
+    const [node] = mountSections(
+      [html],
+      {
+        [ROWS]: body,
+        ".wrap": [{ x: 0, y: 0, width: WIDTH, height: 1140 }],
+        "table": [{ x: 1, y: 1, width: WIDTH - 2, height: 1139 }],
+        "thead": [{ x: 1, y: 1, width: WIDTH - 2, height: 39 }],
+      },
+      [1140],
+    );
+    restores.push(installImage({ width: 2 * WIDTH, height: 2280 }));
+
+    await exportReportToPptx({ title: "T", sheets: [], sections: [{ title: "Costs", node, paginateRowSelector: ROWS }] });
+
+    // Page 1: 0-370. Page 2 starts in the body: the header strip (y 1..40,
+    // across the hugging container, x 0..1000) drawn at the top, then 370-700
+    // below it (810 would fit 470 px, not 470 - 39). Page 3: strip + 700-1140.
+    expect(drawnSlices(canvas.context.drawImage)).toEqual([
+      [0, 0, 2000, 740],
+      [0, 2, 2000, 78],
+      [0, 740, 2000, 660],
+      [0, 2, 2000, 78],
+      [0, 1400, 2000, 880],
+    ]);
+    const draws = canvas.context.drawImage.mock.calls;
+    expect(draws[1].slice(5)).toEqual([0, 0, 2000, 78]); // the strip at the very top
+    expect(draws[2].slice(5)).toEqual([0, 78, 2000, 660]); // the slice under it
+    expect(draws[0].slice(5)).toEqual([0, 0, 2000, 740]);
+    const deck = pptx();
+    expect(deck.slides.slice(1).map(headingOf)).toEqual([
+      `Costs — ${pageIndicator(1, 3)}`,
+      `Costs — ${pageIndicator(2, 3)}`,
+      `Costs — ${pageIndicator(3, 3)}`,
+    ]);
+    // The continuation's picture is the slice plus the strip: 330 + 39 source px.
+    const h2 = CHART_W * ((330 + 39) / WIDTH);
+    expect(deck.slides[2].addImage).toHaveBeenCalledWith(
+      expect.objectContaining({ h: near(h2), y: near(CONT_TOP + (CONT_H - h2) / 2) }),
+    );
+  });
+
+  it("takes the strip's width from the table alone when its container is wider", async () => {
+    const body = Array.from({ length: 10 }, (_, i) => ({ y: 40 + i * 110, width: 600, height: 110 }));
+    const html = `<div class="wrap"><table><thead><tr><th>H</th></tr></thead><tbody>${"<tr data-export-row><td>r</td></tr>".repeat(10)}</tbody></table></div>`;
+    const [node] = mountSections(
+      [html],
+      {
+        [ROWS]: body,
+        ".wrap": [{ x: 0, y: 0, width: WIDTH, height: 1140 }],
+        "table": [{ x: 200, y: 0, width: 600, height: 1140 }],
+        "thead": [{ x: 200, y: 0, width: 600, height: 40 }],
+      },
+      [1140],
+    );
+    restores.push(installImage({ width: 2 * WIDTH, height: 2280 }));
+
+    await exportReportToPptx({ title: "T", sheets: [], sections: [{ title: "S", node, paginateRowSelector: ROWS }] });
+
+    const draws = canvas.context.drawImage.mock.calls;
+    expect(draws[1].slice(1)).toEqual([400, 0, 1200, 80, 400, 0, 1200, 80]);
+  });
+
+  it("opens scroll containers for the capture and leaves overflow: hidden clipping alone", async () => {
+    const [node] = mountSections(
+      [`<div id="scroller" style="overflow-x: auto"></div><div id="clip" style="overflow-x: hidden; overflow-y: hidden"></div><div id="ys" style="overflow-y: scroll"></div>`],
+      {},
+      [200],
+    );
+    const el = (id: string) => node.querySelector(`#${id}`) as HTMLElement;
+    let during: string[] = [];
+    vi.mocked(toPng).mockImplementation(async () => {
+      during = [
+        ...["scroller", "ys"].flatMap((id) => [el(id).style.overflowX, el(id).style.overflowY]),
+        el("clip").style.overflowX,
+        el("clip").style.overflowY,
+      ];
+      return CHART_PNG;
+    });
+
+    await exportReportToPptx({ title: "T", sheets: [], sections: [{ title: "S", node }] });
+
+    // The scroll containers are opened on both axes; the clipping box is untouched.
+    expect(during).toEqual(["visible", "visible", "visible", "visible", "hidden", "hidden"]);
+    expect(el("scroller").style.overflowX).toBe("auto");
+    expect(el("scroller").style.overflowY).toBe("");
+    expect(el("clip").style.overflowX).toBe("hidden");
+    expect(el("ys").style.overflowY).toBe("scroll");
+    expect(el("ys").style.overflowX).toBe("");
+  });
+
+  it("lowers the pixel ratio for a long section on an iPhone", async () => {
+    const ua = vi.spyOn(navigator, "userAgent", "get").mockReturnValue(
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15",
+    );
+    restores.push(() => ua.mockRestore());
+    const [node] = mountSections(["<p>long</p>"], {}, [8000]);
+
+    await exportReportToPptx({ title: "T", sheets: [], sections: [{ title: "S", node }] });
+
+    const ratio = vi.mocked(toPng).mock.calls[0][1]?.pixelRatio ?? 0;
+    expect(ratio).toBeCloseTo(Math.sqrt(16_000_000 / (WIDTH * 8000)), 6);
+    expect(ratio).toBeLessThan(2);
+  });
+
+  it("says a section's picture is unavailable and still exports the others", async () => {
+    const [a, b, c] = mountSections(["<p>a</p>", "<p>b</p>", "<p>c</p>"], {}, [200, 200, 200]);
+    vi.mocked(toPng)
+      .mockResolvedValueOnce(CHART_PNG)
+      .mockRejectedValueOnce(new Error("tainted"))
+      .mockResolvedValueOnce(CHART_PNG);
+
+    await exportReportToPptx({
+      title: "T",
+      sheets: [],
+      sections: [
+        { title: "A", node: a },
+        { title: "B", node: b },
+        { title: "C", node: c },
+      ],
+    });
+
+    const deck = pptx();
+    expect(deck.slides).toHaveLength(4);
+    expect(deck.slides.slice(1).map(headingOf)).toEqual(["A", "B", "C"]);
+    const failed = deck.slides[2];
+    expect(failed.addImage).not.toHaveBeenCalled();
+    expect(failed.addText).toHaveBeenNthCalledWith(
+      2,
+      i18n.t("reports:export.chartUnavailable", { defaultValue: "Chart preview unavailable." }),
+      expect.objectContaining({
+        x: MARGIN,
+        y: near(CONT_TOP),
+        w: near(CHART_W),
+        h: near(CONT_H),
+        italic: true,
+        align: "center",
+        valign: "middle",
+      }),
+    );
+    expect(deck.slides[1].addImage).toHaveBeenCalledTimes(1);
+    expect(deck.slides[3].addImage).toHaveBeenCalledTimes(1);
+    expect(deck.writeFile).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats a section whose picture cannot be decoded for cutting as unavailable", async () => {
+    const rows: RectLike[] = Array.from({ length: 10 }, (_, i) => ({ y: i * 100, width: WIDTH, height: 100 }));
+    const [node] = mountSections(["<div data-export-row></div>".repeat(10)], { [ROWS]: rows }, [1000]);
+    restores.push(installImage({ fail: true }));
+
+    await exportReportToPptx({ title: "T", sheets: [], sections: [{ title: "S", node, paginateRowSelector: ROWS }] });
+
+    const deck = pptx();
+    expect(deck.slides).toHaveLength(2);
+    expect(deck.slides[1].addImage).not.toHaveBeenCalled();
+    expect(deck.slides[1].addText).toHaveBeenCalledTimes(2);
+    expect(deck.writeFile).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to the whole picture when there is no canvas to cut with", async () => {
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    restores.push(() => getContext.mockRestore());
+    const rows: RectLike[] = Array.from({ length: 10 }, (_, i) => ({ y: i * 100, width: WIDTH, height: 100 }));
+    const [node] = mountSections(["<div data-export-row></div>".repeat(10)], { [ROWS]: rows }, [1000]);
+    restores.push(installImage({ width: 2 * WIDTH, height: 2000 }));
+
+    await exportReportToPptx({ title: "T", sheets: [], sections: [{ title: "S", node, paginateRowSelector: ROWS }] });
+
+    const deck = pptx();
+    expect(deck.slides).toHaveLength(2);
+    expect(headingOf(deck.slides[1])).toBe("S");
+    expect(deck.slides[1].addImage).toHaveBeenCalledWith(expect.objectContaining({ data: CHART_PNG }));
+  });
+
+  it("sets the slides' text right to left in Arabic, and only in section mode", async () => {
+    expect(textDirection("ar")).toEqual({ align: "right", rtlMode: true });
+    expect(textDirection("en")).toEqual({});
+    const [a, b] = mountSections(["<p>a</p>", "<p>b</p>"], {}, [200, 200]);
+    vi.mocked(toPng).mockResolvedValueOnce(CHART_PNG).mockRejectedValueOnce(new Error("x"));
+    const previous = i18n.language;
+    await i18n.changeLanguage("ar");
+    try {
+      await exportReportToPptx({
+        title: "T",
+        sheets: [],
+        sections: [
+          { title: "A", node: a },
+          { title: "B", node: b },
+        ],
+      });
+      await exportReportToPptx({ title: "Old", sheets: [] });
+    } finally {
+      await i18n.changeLanguage(previous);
+    }
+    const [deck, old] = pptxInstances;
+    const rtl = { align: "right", rtlMode: true };
+    for (const call of deck.slides[0].addText.mock.calls) expect(call[1]).toMatchObject(rtl);
+    expect(deck.slides[1].addText.mock.calls[0][1]).toMatchObject(rtl);
+    expect(deck.slides[2].addText.mock.calls[0][1]).toMatchObject(rtl);
+    expect(deck.slides[2].addText.mock.calls[1][1]).toMatchObject({ align: "center", rtlMode: true });
+    for (const call of old.slides[0].addText.mock.calls) {
+      expect(call[1]).not.toHaveProperty("rtlMode");
+      expect(call[1]).not.toHaveProperty("align");
+    }
+  });
+
+  it("leaves the text direction alone in a left-to-right language", async () => {
+    const [a] = mountSections(["<p>a</p>"], {}, [200]);
+    await exportReportToPptx({ title: "T", sheets: [], sections: [{ title: "A", node: a }] });
+    for (const slide of pptx().slides) {
+      expect(slide.addText.mock.calls[0][1]).not.toHaveProperty("rtlMode");
+      expect(slide.addText.mock.calls[0][1]).not.toHaveProperty("align");
+    }
+  });
+
+  it("draws each picture, and the canvas it is cut on, on the given background", async () => {
+    const rows: RectLike[] = Array.from({ length: 10 }, (_, i) => ({ y: i * 100, width: WIDTH, height: 100 }));
+    const [node] = mountSections(["<div data-export-row></div>".repeat(10)], { [ROWS]: rows }, [1000]);
+    restores.push(installImage({ width: 2 * WIDTH, height: 2000 }));
+
+    await exportReportToPptx({
+      title: "T",
+      sheets: [],
+      background: "#1e1e1e",
+      sections: [{ title: "S", node, paginateRowSelector: ROWS }],
+    });
+
+    expect(vi.mocked(toPng).mock.calls[0][1]).toMatchObject({ backgroundColor: "#1e1e1e" });
+    expect((canvas.context as unknown as { fillStyle: string }).fillStyle).toBe("#1e1e1e");
+    expect(canvas.context.fillRect).toHaveBeenCalledTimes(3);
+  });
+
+  it("builds the single-picture deck when the section list is empty", async () => {
+    const node = mountChart("<svg></svg>", { width: 400, height: 1000 });
+
+    await exportReportToPptx({ title: "Treemap", sheets: [], chartNode: node, sections: [] });
+
+    const deck = pptx();
+    expect(deck.slides).toHaveLength(1);
+    expect(vi.mocked(toPng).mock.calls[0][0]).toBe(node);
+    const drawW = CHART_H * (400 / 1000);
+    expect(deck.slides[0].addImage).toHaveBeenCalledWith({
+      data: CHART_PNG,
+      x: near(MARGIN + (CHART_W - drawW) / 2),
+      y: near(CHART_TOP),
+      w: near(drawW),
+      h: near(CHART_H),
     });
   });
 });

@@ -59,6 +59,46 @@ export function saveReportSections(sections: Iterable<unknown>): void {
   }
 }
 
+// ─── The PowerPoint export ──────────────────────────────────────────────────
+
+/**
+ * What a section's slides are cut between (`paginateRowSelector`): the
+ * blocks marked `data-export-row` (a tile strip, a card, the chart card, a
+ * schedule row), the latest status report (`data-export-keep`: kept whole on
+ * a slide, though print lets it break across pages) and every table row.
+ */
+export const REPORT_EXPORT_ROWS = "[data-export-row], [data-export-keep], tbody > tr, tfoot > tr";
+
+/** How much each section has to show; `null` where a read failed. */
+export interface ReportSectionContent {
+  reports: number;
+  /** Budget and cost lines, the initiative's own and those beneath it. */
+  costLines: number;
+  risks: number;
+  /** Work packages and tasks together; `null` when either could not be read. */
+  scheduleItems: number | null;
+}
+
+/**
+ * The shown sections that go into the deck, in report order: those with
+ * something to show. A section with nothing recorded (no status report, no
+ * budget or cost line, no risk, no work package or task), or whose read
+ * failed, is left out; the overview always has its figures.
+ */
+export function exportableSections(
+  shown: readonly ReportSection[],
+  content: ReportSectionContent,
+): ReportSection[] {
+  const hasContent: Record<ReportSection, boolean> = {
+    overview: true,
+    reports: content.reports > 0,
+    costs: content.costLines > 0,
+    risks: content.risks > 0,
+    schedule: (content.scheduleItems ?? 0) > 0,
+  };
+  return orderedSections(shown).filter((s) => hasContent[s]);
+}
+
 // ─── Money ──────────────────────────────────────────────────────────────────
 
 /**

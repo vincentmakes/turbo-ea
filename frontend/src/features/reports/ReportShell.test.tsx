@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import ReportShell from "./ReportShell";
@@ -13,6 +13,13 @@ vi.mock("react-router", async () => {
   const actual = await vi.importActual("react-router");
   return { ...actual, useNavigate: () => mockNavigate };
 });
+
+const exportMocks = vi.hoisted(() => ({ pptx: vi.fn(), xlsx: vi.fn() }));
+vi.mock("./reportExport", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./reportExport")>()),
+  exportReportToPptx: exportMocks.pptx,
+  exportReportToXlsx: exportMocks.xlsx,
+}));
 
 const mockPrintPage = vi.fn();
 vi.mock("@/lib/printPage", () => ({ printPage: () => mockPrintPage() }));
@@ -252,5 +259,112 @@ describe("ReportShell", () => {
     // Only "View" should be rendered since "Type" has empty value
     expect(screen.queryByText(/Type:/)).not.toBeInTheDocument();
     expect(screen.getByText(/View:/)).toBeInTheDocument();
+  });
+
+  describe("export formats, progress and failure", () => {
+    const chartRef = () => ({ current: document.createElement("div") });
+    const openMenu = async (user: ReturnType<typeof userEvent.setup>) => {
+      await user.click(screen.getByRole("button", { name: /more actions/i }));
+      await screen.findByText("Copy link");
+    };
+
+    it("offers only the formats exportFormats lists, even with buildExportData", async () => {
+      const user = userEvent.setup();
+      renderShell({
+        chartRef: chartRef(),
+        hasTableToggle: false,
+        exportFormats: ["pptx"],
+        buildExportData: () => ({ title: "T", sheets: [] }),
+      });
+      await openMenu(user);
+      expect(screen.getByText("Export to PowerPoint (.pptx)")).toBeInTheDocument();
+      expect(screen.queryByText("Export to Excel (.xlsx)")).not.toBeInTheDocument();
+    });
+
+    it("drops PowerPoint when exportFormats lists Excel alone", async () => {
+      const user = userEvent.setup();
+      renderShell({
+        chartRef: chartRef(),
+        hasTableToggle: false,
+        exportFormats: ["xlsx"],
+        buildExportData: () => ({ title: "T", sheets: [] }),
+      });
+      await openMenu(user);
+      expect(screen.getByText("Export to Excel (.xlsx)")).toBeInTheDocument();
+      expect(screen.queryByText("Export to PowerPoint (.pptx)")).not.toBeInTheDocument();
+    });
+
+    it("still applies the view rule to a listed format", async () => {
+      // PowerPoint follows the chart view; listing it does not force it on in table view.
+      const user = userEvent.setup();
+      renderShell({
+        chartRef: chartRef(),
+        hasTableToggle: true,
+        view: "table",
+        onViewChange: vi.fn(),
+        exportFormats: ["pptx", "xlsx"],
+      });
+      await openMenu(user);
+      expect(screen.getByText("Export to Excel (.xlsx)")).toBeInTheDocument();
+      expect(screen.queryByText("Export to PowerPoint (.pptx)")).not.toBeInTheDocument();
+    });
+
+    it("shows progress and refuses a second click while an export runs", async () => {
+      let finish: () => void = () => {};
+      exportMocks.pptx.mockImplementation(() => new Promise<void>((r) => (finish = r)));
+      const data = { title: "Deck", sheets: [] };
+      const user = userEvent.setup();
+      renderShell({ chartRef: chartRef(), hasTableToggle: false, buildExportData: () => data });
+      await openMenu(user);
+      await user.click(screen.getByText("Export to PowerPoint (.pptx)"));
+
+      expect(exportMocks.pptx).toHaveBeenCalledTimes(1);
+      expect(exportMocks.pptx).toHaveBeenCalledWith(data);
+      const busy = screen.getByRole("button", { name: "Exporting…" });
+      expect(busy).toBeDisabled();
+      expect(busy).toHaveAttribute("aria-busy", "true");
+      expect(screen.getByTestId("report-export-progress")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /more actions/i })).not.toBeInTheDocument();
+
+      finish();
+      const idle = await screen.findByRole("button", { name: /more actions/i });
+      expect(idle).toBeEnabled();
+      expect(idle).toHaveAttribute("aria-busy", "false");
+      expect(screen.queryByTestId("report-export-progress")).not.toBeInTheDocument();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+
+    it("says so when an export fails, and clears the message on the next try", async () => {
+      exportMocks.xlsx.mockRejectedValueOnce(new Error("disk full"));
+      const user = userEvent.setup();
+      renderShell({
+        chartRef: chartRef(),
+        hasTableToggle: false,
+        buildExportData: () => ({ title: "T", sheets: [] }),
+      });
+      await openMenu(user);
+      await user.click(screen.getByText("Export to Excel (.xlsx)"));
+
+      const alert = await screen.findByRole("alert");
+      expect(alert).toHaveTextContent("The export could not be created. Please try again.");
+      expect(screen.getByRole("button", { name: /more actions/i })).toBeEnabled();
+
+      exportMocks.xlsx.mockResolvedValueOnce(undefined);
+      await openMenu(user);
+      await user.click(screen.getByText("Export to Excel (.xlsx)"));
+      await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+      expect(exportMocks.xlsx).toHaveBeenCalledTimes(2);
+    });
+
+    it("closes the failure message from its close button", async () => {
+      exportMocks.pptx.mockRejectedValueOnce(new Error("boom"));
+      const user = userEvent.setup();
+      renderShell({ chartRef: chartRef(), hasTableToggle: false });
+      await openMenu(user);
+      await user.click(screen.getByText("Export to PowerPoint (.pptx)"));
+      const alert = await screen.findByRole("alert");
+      await user.click(within(alert).getByRole("button", { name: /close/i }));
+      await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    });
   });
 });

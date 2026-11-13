@@ -24,6 +24,12 @@ vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientMo
 vi.mock("@/hooks/useCurrency", () => import("@/test/hooks").then((m) => m.useCurrencyModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
 vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useDateFormatModule()));
+// The deck writer has its own tests; here it records what the page handed it.
+const exportPptx = vi.hoisted(() => vi.fn(async (_data: unknown) => {}));
+vi.mock("@/features/reports/reportExport", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/features/reports/reportExport")>()),
+  exportReportToPptx: exportPptx,
+}));
 // The print call has its own tests (Safari needs `execCommand`).
 vi.mock("@/lib/printPage", () => ({ printPage: vi.fn() }));
 // The charts have their own tests and draw through ECharts; here they show
@@ -41,7 +47,8 @@ import { printPage } from "@/lib/printPage";
 import { hookState, withMetamodel } from "@/test/hooks";
 import { resetFiscalYearStart } from "@/hooks/useFiscalYearStart";
 import { resetPageTitle, usePageTitleSlots } from "@/hooks/usePageTitle";
-import { REPORT_PREFS_KEY } from "./ppmReportModel";
+import type { ReportExportData } from "@/features/reports/reportExport";
+import { REPORT_EXPORT_ROWS, REPORT_PREFS_KEY } from "./ppmReportModel";
 import PpmProjectReport from "./PpmProjectReport";
 
 /** Each section's glyph, as the page heads it. */
@@ -265,6 +272,7 @@ async function loaded() {
 
 beforeEach(() => {
   vi.mocked(printPage).mockClear();
+  exportPptx.mockClear();
   mockApi.reset();
   hookState.reset();
   resetFiscalYearStart();
@@ -672,6 +680,186 @@ describe("PpmProjectReport — print header and frame", () => {
     await waitFor(() =>
       expect(screen.getByTestId("title-probe")).toHaveTextContent("ERP Migration|Initiative Report"),
     );
+  });
+});
+
+describe("PpmProjectReport — PowerPoint export", () => {
+  const openMenu = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await screen.findByText("Copy link");
+  };
+
+  /** Export the deck and return what the page handed the deck writer. */
+  async function exportDeck(): Promise<ReportExportData> {
+    const user = userEvent.setup();
+    await openMenu(user);
+    await user.click(screen.getByText("Export to PowerPoint (.pptx)"));
+    await waitFor(() => expect(exportPptx).toHaveBeenCalledTimes(1));
+    return exportPptx.mock.calls[0][0] as ReportExportData;
+  }
+
+  const bodyOf = (key: string) =>
+    section(key)!.querySelector(":scope > [data-report-section-body]") as HTMLElement;
+
+  it("offers PowerPoint and not Excel", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await loaded();
+    await openMenu(user);
+    expect(screen.getByText("Export to PowerPoint (.pptx)")).toBeInTheDocument();
+    expect(screen.queryByText("Export to Excel (.xlsx)")).not.toBeInTheDocument();
+    expect(screen.queryByText("View all saved reports")).not.toBeInTheDocument();
+  });
+
+  it("hands over one section per section shown, titled, its body without its heading", async () => {
+    renderPage();
+    await loaded();
+    const data = await exportDeck();
+
+    expect(data.title).toBe("ERP Migration");
+    // The page's own surface goes behind the pictures (dark text on a light theme here).
+    expect(data.background).toBe("#fff");
+    expect(data.sheets).toEqual([]);
+    expect(data.chartNode).toBeUndefined();
+    expect(data.sections!.map((s) => s.title)).toEqual([
+      "Overview",
+      "Status Reports",
+      "Budget & Costs",
+      "Risk Management",
+      "Tasks & Schedule",
+    ]);
+    const keys = ["overview", "reports", "costs", "risks", "schedule"];
+    data.sections!.forEach((s, i) => {
+      expect(s.node).toBe(bodyOf(keys[i]));
+      expect(s.paginateRowSelector).toBe(REPORT_EXPORT_ROWS);
+      // The slide names the section, so the picture does not repeat its heading.
+      expect(within(s.node).queryByRole("heading", { level: 2 })).toBeNull();
+    });
+    expect(within(bodyOf("risks")).getByTestId("report-risk-table")).toBeInTheDocument();
+  });
+
+  it("states the initiative's parameters, without when it was printed", async () => {
+    renderPage();
+    await loaded();
+    const data = await exportDeck();
+    expect(data.filterSummary).toEqual([
+      { label: "Subtype", value: "Project" },
+      { label: "Initiative Status", value: "On Track (metamodel)" },
+      { label: "Start Date", value: "2025-01-15" },
+      { label: "End Date", value: "2026-06-30" },
+    ]);
+  });
+
+  it("drops the empty parameters", async () => {
+    mockApi.on("get", "/cards/i1", { ...CARD, subtype: null, attributes: {} });
+    renderPage();
+    await loaded();
+    const data = await exportDeck();
+    expect(data.filterSummary).toEqual([]);
+  });
+
+  it("leaves out a section toggled off", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await loaded();
+    const chips = screen.getByRole("group", { name: "Sections" });
+    await user.click(within(chips).getByText("Status Reports"));
+    await user.click(within(chips).getByText("Risk Management"));
+    const data = await exportDeck();
+    expect(data.sections!.map((s) => s.title)).toEqual([
+      "Overview",
+      "Budget & Costs",
+      "Tasks & Schedule",
+    ]);
+    expect(data.sections![2].node).toBe(bodyOf("schedule"));
+  });
+
+  it("leaves out a section with nothing recorded, and a schedule that could not be read", async () => {
+    mockApi.on("get", `${BASE}/reports`, []);
+    mockApi.on("get", `${BASE}/risks`, []);
+    mockApi.fail("get", `${BASE}/tasks`, 500);
+    renderPage();
+    await loaded();
+    const data = await exportDeck();
+    expect(data.sections!.map((s) => s.title)).toEqual(["Overview", "Budget & Costs"]);
+  });
+
+  it("leaves out costs with no line, but keeps them when the lines are beneath", async () => {
+    mockApi.on("get", `${BASE}/costs`, []);
+    mockApi.on("get", `${BASE}/budgets`, []);
+    const first = renderPage();
+    await loaded();
+    expect((await exportDeck()).sections!.map((s) => s.title)).not.toContain("Budget & Costs");
+    first.unmount();
+
+    for (const beneath of [{ has_cost_lines: true }, { has_budget_lines: true }]) {
+      exportPptx.mockClear();
+      mockApi.on("get", `${BASE}/rollup`, { ...NO_ROLLUP, descendant_count: 1, ...beneath });
+      const view = renderPage();
+      await loaded();
+      expect((await exportDeck()).sections!.map((s) => s.title)).toContain("Budget & Costs");
+      view.unmount();
+    }
+  });
+
+  it("keeps costs with budget lines only, or cost lines only", async () => {
+    mockApi.on("get", `${BASE}/costs`, []);
+    const first = renderPage();
+    await loaded();
+    expect((await exportDeck()).sections!.map((s) => s.title)).toContain("Budget & Costs");
+    first.unmount();
+
+    exportPptx.mockClear();
+    mockApi.on("get", `${BASE}/costs`, COSTS);
+    mockApi.on("get", `${BASE}/budgets`, []);
+    renderPage();
+    await loaded();
+    expect((await exportDeck()).sections!.map((s) => s.title)).toContain("Budget & Costs");
+  });
+
+  it("keeps a schedule with tasks only", async () => {
+    mockApi.on("get", `${BASE}/wbs`, []);
+    renderPage();
+    await loaded();
+    const data = await exportDeck();
+    expect(data.sections!.map((s) => s.title)).toContain("Tasks & Schedule");
+  });
+
+  it("offers no export when no section is shown", async () => {
+    localStorage.setItem(REPORT_PREFS_KEY, JSON.stringify(["risks"]));
+    mockApi.on("get", `${BASE}/risks`, []);
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole("heading", { name: "Risk Management" });
+    await openMenu(user);
+    expect(screen.queryByText("Export to PowerPoint (.pptx)")).not.toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    await user.click(within(screen.getByRole("group", { name: "Sections" })).getByText("Overview"));
+    await openMenu(user);
+    expect(screen.getByText("Export to PowerPoint (.pptx)")).toBeInTheDocument();
+  });
+
+  it("marks the blocks a slide never cuts through and the headings that never end one", async () => {
+    renderPage();
+    await loaded();
+    // Every tile strip and every card of a card grid is one block.
+    for (const strip of document.querySelectorAll(".ppm-report-tiles")) {
+      expect(strip).toHaveAttribute("data-export-row");
+    }
+    for (const card of document.querySelectorAll(".ppm-report-cards > *")) {
+      expect(card).toHaveAttribute("data-export-row");
+    }
+    expect(document.querySelectorAll(".ppm-report-cards > [data-export-row]")).toHaveLength(6);
+    // The latest status report stays whole on a slide, though print may break it.
+    const latest = document.querySelector(".ppm-report-latest")!;
+    expect(latest).toHaveAttribute("data-export-keep");
+    expect(latest).not.toHaveAttribute("data-export-row");
+    // Every table heading is a heading.
+    const headings = [...document.querySelectorAll("h6[data-export-heading], [data-export-heading].MuiTypography-subtitle1")].map(
+      (el) => el.textContent,
+    );
+    expect(headings).toEqual(["Latest report", "Earlier reports", "Planned Budget", "Cost Items"]);
   });
 });
 

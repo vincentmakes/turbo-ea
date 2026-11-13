@@ -7,8 +7,10 @@ import {
   MATRIX_IMPACTS,
   MATRIX_LEGEND_BANDS,
   MATRIX_PROBABILITIES,
+  REPORT_EXPORT_ROWS,
   REPORT_PREFS_KEY,
   REPORT_SECTIONS,
+  exportableSections,
   heatMapCounts,
   loadReportSections,
   milestonePosition,
@@ -127,6 +129,35 @@ describe("sections and the remembered choice", () => {
     });
     expect(() => saveReportSections(["risks"])).not.toThrow();
     expect(loadReportSections()).toEqual(ALL);
+  });
+});
+
+describe("exportableSections", () => {
+  const FULL = { reports: 2, costLines: 4, risks: 1, scheduleItems: 3 };
+
+  it("keeps every shown section with something to show, in report order", () => {
+    expect(exportableSections(["schedule", "overview", "risks", "costs", "reports"], FULL)).toEqual([
+      ...REPORT_SECTIONS,
+    ]);
+    expect(exportableSections(["risks", "costs"], FULL)).toEqual(["costs", "risks"]);
+    expect(exportableSections([], FULL)).toEqual([]);
+  });
+
+  it("leaves out the sections the page shows as nothing recorded or a failed read", () => {
+    const none = { reports: 0, costLines: 0, risks: 0, scheduleItems: 0 };
+    expect(exportableSections([...REPORT_SECTIONS], none)).toEqual(["overview"]);
+    expect(exportableSections(["schedule"], { ...FULL, scheduleItems: null })).toEqual([]);
+    const one = { reports: 1, costLines: 1, risks: 1, scheduleItems: 1 };
+    expect(exportableSections(["reports", "costs", "risks", "schedule"], one)).toEqual([
+      "reports",
+      "costs",
+      "risks",
+      "schedule",
+    ]);
+  });
+
+  it("cuts slides between marked blocks and table rows", () => {
+    expect(REPORT_EXPORT_ROWS).toBe("[data-export-row], [data-export-keep], tbody > tr, tfoot > tr");
   });
 });
 

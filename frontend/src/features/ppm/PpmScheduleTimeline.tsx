@@ -16,12 +16,15 @@
  *   completion reads off a `PercentBar` in the Progress column.
  * - A task's bar is its status colour, its status and priority are the task
  *   board's chips.
- * - A milestone is the Gantt tab's `flag` at its date; an item with one date
- *   gets a small marker there; an item with none gets no bar.
+ * - A milestone is the Gantt chart's diamond at its date, and a smaller one
+ *   before its title; an item with one date gets a small marker there; an
+ *   item with none gets no bar. A shape, not an icon, so it survives the
+ *   PowerPoint export (which drops icon-font glyphs).
  * - When nothing has a date the lane column is left out.
  *
  * Every row is a `<tr>` carrying `data-export-row`, the print stylesheet's
- * "do not split" unit. Positions use logical insets, so the scale runs right to left in a
+ * "do not split" unit; a group heading row also carries `data-export-heading`,
+ * so the deck never ends a slide on it. Positions use logical insets, so the scale runs right to left in a
  * right-to-left language with no second code path.
  */
 import { useMemo, type ReactNode } from "react";
@@ -62,8 +65,8 @@ export interface PpmScheduleTimelineProps {
   now?: Date;
 }
 
-/** The milestone glyph the Gantt tab and its Add menu use. */
-export const MILESTONE_ICON = "flag";
+/** A milestone's diamond: its side, in the lane and before its title. */
+export const MILESTONE_SIZE = { lane: 12, title: 9 } as const;
 
 /** Beyond this many quarters only each year's first quarter is labelled. */
 export const COMPACT_QUARTERS_OVER = 12;
@@ -145,7 +148,9 @@ export default function PpmScheduleTimeline({ wbs, tasks, now }: PpmScheduleTime
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, minWidth: 0 }}>
           {milestone && (
-            <MaterialSymbol icon={MILESTONE_ICON} size={iconSize.xs} color={FILL_COLOR} />
+            <Box sx={{ flexShrink: 0, mx: 0.5 }}>
+              <MilestoneDiamond size={MILESTONE_SIZE.title} />
+            </Box>
           )}
           <Typography variant="body2" fontWeight={depth === 0 ? 600 : 400} sx={{ minWidth: 0 }}>
             {title}
@@ -250,12 +255,12 @@ export default function PpmScheduleTimeline({ wbs, tasks, now }: PpmScheduleTime
             position: "absolute",
             insetInlineStart: pct(at),
             top: "50%",
-            mt: `${-iconSize.sm / 2}px`,
-            marginInlineStart: `${-iconSize.sm / 2}px`,
+            mt: `${-MILESTONE_SIZE.lane / 2}px`,
+            marginInlineStart: `${-MILESTONE_SIZE.lane / 2}px`,
             display: "flex",
           }}
         >
-          <MaterialSymbol icon={MILESTONE_ICON} size={iconSize.sm} color={FILL_COLOR} />
+          <MilestoneDiamond size={MILESTONE_SIZE.lane} />
         </Box>
       );
     }
@@ -319,7 +324,7 @@ export default function PpmScheduleTimeline({ wbs, tasks, now }: PpmScheduleTime
 
   /** A group heading row, as the cost tables head a fiscal year: on `action.hover`. */
   const groupHeader = (icon: string, label: string, count: number) => (
-    <TableRow data-export-row data-group sx={HEAD_ROW_SX}>
+    <TableRow data-export-row data-export-heading data-group sx={HEAD_ROW_SX}>
       <TableCell colSpan={colCount}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <MaterialSymbol icon={icon} size={iconSize.sm} color={theme.palette.action.active} />
@@ -390,6 +395,24 @@ export default function PpmScheduleTimeline({ wbs, tasks, now }: PpmScheduleTime
   );
 }
 
+/**
+ * A milestone as the Gantt chart draws one: a square turned 45°, in the brand
+ * blue. `size` is the square's side, so the diamond spans `size × √2`.
+ */
+export function MilestoneDiamond({ size }: { size: number }) {
+  return (
+    <Box
+      data-milestone-diamond
+      sx={{
+        width: size,
+        height: size,
+        transform: "rotate(45deg)",
+        bgcolor: FILL_COLOR,
+      }}
+    />
+  );
+}
+
 /** What the timeline's marks mean, drawn as the risk matrix's legend is: swatch, then caption. */
 function ScheduleLegend({ today }: { today: boolean }) {
   const { t } = useTranslation("ppm");
@@ -435,7 +458,7 @@ function ScheduleLegend({ today }: { today: boolean }) {
     {
       key: "milestone",
       label: t("milestone"),
-      mark: <MaterialSymbol icon={MILESTONE_ICON} size={iconSize.xs} color={FILL_COLOR} />,
+      mark: <MilestoneDiamond size={MILESTONE_SIZE.title} />,
     },
     {
       key: "point",

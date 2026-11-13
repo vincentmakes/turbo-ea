@@ -12,6 +12,8 @@ interface Props {
   title: string;
   action?: ReactNode;
   children: ReactNode;
+  /** `data-*` attributes for the card's root (an export marker, a test id). */
+  [data: `data-${string}`]: string | boolean | undefined;
 }
 
 /**
@@ -28,10 +30,15 @@ export default function SectionPaper({
   title,
   action,
   children,
+  ...data
 }: Props) {
   const controls = useWidgetControls();
   return (
-    <Paper variant="outlined" sx={{ p: 2, height: "100%", display: "flex", flexDirection: "column" }}>
+    <Paper
+      variant="outlined"
+      {...data}
+      sx={{ p: 2, height: "100%", display: "flex", flexDirection: "column" }}
+    >
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
         <Box
           className={controls ? DRAG_HANDLE_CLASS : undefined}
