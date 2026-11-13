@@ -19,6 +19,7 @@ import {
   PROJECT_PRINT_CSS,
   RISK_COLUMN_WIDTHS,
   SCHEDULE_COLUMN_WIDTHS,
+  SCHEDULE_COLUMN_WIDTHS_NO_TIMELINE,
   printProject,
   projectPrintDocument,
   savePrintSections,
@@ -26,12 +27,33 @@ import {
   type ProjectPrintData,
   type ProjectPrintFormat,
 } from "./ppmProjectPrint";
+import {
+  YEAR_BAND_TINT,
+  budgetBar,
+  chip,
+  completionRing,
+  healthDot,
+  kpiTile,
+  legend,
+  priorityColor,
+  riskHeatMap,
+  riskStatusBreakdown,
+  taskBarColors,
+  tileRow,
+  timelineLane,
+  timelineModel,
+  timelineScale,
+} from "./ppmProjectPrintVisuals";
+import { PRINT_COLORS, RAG_COLORS, STATUS_COLORS, brand } from "@/theme/tokens";
 
 const FMT: ProjectPrintFormat = {
   amount: (n) => `$${n}`,
   date: (iso) => `D(${iso})`,
   dateTime: (v) => `DT(${typeof v === "string" ? v : v.toISOString()})`,
   fiscalYearStart: 1,
+  amountCompact: (n) => `C(${n})`,
+  currency: "USD",
+  isRtl: false,
 };
 
 function card(overrides: Partial<Card> = {}): Card {
@@ -216,8 +238,6 @@ function sectionOf(html: string, heading: string): string {
   return html.slice(start, next < 0 ? undefined : next);
 }
 
-const meta = (label: string, value: string) =>
-  `<tr><td class="meta-label">${label}</td><td class="pre">${value}</td></tr>`;
 
 describe("buildProjectPrintBody — sections", () => {
   it("prints only the header when nothing is ticked", () => {
@@ -259,8 +279,55 @@ describe("buildProjectPrintBody — sections", () => {
   );
 });
 
+describe("cover", () => {
+  it("shows the subtype and status chips and the printed date under the name", () => {
+    const now = new Date("2026-11-13T10:00:00Z");
+    const html = buildProjectPrintBody(data(), [], FMT, now);
+    expect(html).toContain(
+      ">ERP Replacement</p>" +
+        `<div class="pdf-cover-chips">${chip("Project", PRINT_COLORS.inkSecondary, "outlined")}` +
+        `${chip("On Track", PRINT_COLORS.inkSecondary, "outlined")}</div>` +
+        '<p class="pdf-printed">Printed: <bdi>DT(2026-11-13T10:00:00.000Z)</bdi></p>',
+    );
+  });
+
+  it.each([
+    [{ subtypeLabel: null }, ["On Track"], ["Project"]],
+    [{ initiativeStatusLabel: null }, ["Project"], ["On Track"]],
+  ])("prints only the chips it has (%o)", (overrides, present, absent) => {
+    const html = buildProjectPrintBody(data(overrides), [], FMT);
+    for (const p of present) expect(html).toContain(`">${p}</span>`);
+    for (const a of absent) expect(html).not.toContain(`">${a}</span>`);
+  });
+
+  it("draws the status chip in the status's own colour when the dialog resolved one", () => {
+    const html = buildProjectPrintBody(data({ initiativeStatusColor: RAG_COLORS.amber }), [], FMT);
+    expect(html).toContain(chip("On Track", RAG_COLORS.amber, "outlined"));
+    expect(html).not.toContain(chip("On Track", PRINT_COLORS.inkSecondary, "outlined"));
+  });
+
+  it("isolates the printed date so it keeps its order in a right-to-left sentence", () => {
+    const out = buildPrintHtml(projectPrintDocument(data(), [], FMT, new Date("2026-11-13T10:00:00Z")));
+    expect(out).toContain('<p class="pdf-printed">Printed: <bdi>DT(2026-11-13T10:00:00.000Z)</bdi></p>');
+  });
+
+  it("escapes a hostile date format around the isolated date", () => {
+    const html = buildProjectPrintBody(data(), [], { ...FMT, dateTime: () => "<b>x</b>" });
+    expect(html).toContain('<p class="pdf-printed">Printed: <bdi>&lt;b&gt;x&lt;/b&gt;</bdi></p>');
+  });
+
+  it("has no chip row when there is neither", () => {
+    const html = buildProjectPrintBody(
+      data({ subtypeLabel: null, initiativeStatusLabel: null }),
+      [],
+      FMT,
+    );
+    expect(html).not.toContain("pdf-cover-chips");
+  });
+});
+
 describe("overview", () => {
-  it("lists subtype, dates, completion, latest health, financials and description", () => {
+  it("shows the KPI tiles, ring, health dots, budget bars, facts and description", () => {
     const html = buildProjectPrintBody(
       data({
         reports: [report(), report({ id: "r0", schedule_health: "offTrack" })],
@@ -271,78 +338,128 @@ describe("overview", () => {
       ["overview"],
       FMT,
     );
-    expect(html).toContain(meta("Subtype", "Project") + meta("Initiative Status", "On Track"));
-    expect(html).toContain(meta("Start Date", "D(2026-01-01)"));
-    expect(html).toContain(meta("End Date", "D(2026-12-31)"));
-    expect(html).toContain(meta("Completion", "67%"));
-    expect(html).toContain("<h3>Health Summary</h3>");
-    expect(html).toContain(meta("Schedule", "On Track"));
-    expect(html).toContain(meta("Cost", "At Risk"));
-    expect(html).toContain(meta("Scope", "Off Track"));
-    expect(html).toContain("<h3>Financials</h3>");
-    expect(html).toContain(
-'<table><thead><tr><th></th><th class="num">CapEx</th><th class="num">OpEx</th><th class="num">Total</th></tr></thead><tbody>' +
-        '<tr><td>Total Budget</td>',
+    const s = sectionOf(html, HEADINGS.overview);
+    expect(s).toContain(
+      tileRow([
+        kpiTile("Total Budget", "150 USD", { derived: false }),
+        kpiTile("Total Actual", "110 USD", { derived: false }),
+        kpiTile("Variance", "C(40)", { color: STATUS_COLORS.success, derived: false }),
+      ]),
     );
-    expect(html).toContain(
-      '<tr><td>Total Budget</td><td class="num">$100</td><td class="num">$50</td><td class="num">$150</td></tr>',
+    expect(s).toContain(
+      '<div class="pdf-panel"><div class="pdf-panel-title">Completion</div><div class="pdf-ring-row">' +
+        completionRing(66.6, false) +
+        '<span class="pdf-note">Average completion across work packages</span></div></div>',
     );
-    expect(html).toContain(
-      '<tr><td>Total Actual</td><td class="num">$70</td><td class="num">$40</td><td class="num">$110</td></tr>',
+    expect(s).toContain(
+      '<div class="pdf-panel"><div class="pdf-panel-title">Health Summary</div>' +
+        `<div class="pdf-health-row"><span class="pdf-health-caption">Schedule</span>${healthDot("onTrack", "On Track")}</div>` +
+        `<div class="pdf-health-row"><span class="pdf-health-caption">Cost</span>${healthDot("atRisk", "At Risk")}</div>` +
+        `<div class="pdf-health-row"><span class="pdf-health-caption">Scope</span>${healthDot("offTrack", "Off Track")}</div></div>`,
     );
-    expect(html).toContain(
-      '<tr><td>Variance</td><td class="num">$30</td><td class="num">$10</td><td class="num">$40</td></tr>',
+    const bar = (label: string, budgetV: number, actualV: number) =>
+      budgetBar({ label, budget: budgetV, actual: actualV, currency: "USD", derivedBudget: false, derivedActual: false });
+    expect(s).toContain(
+      '<div class="pdf-panels"><div class="pdf-panel"><div class="pdf-panel-title">Financials</div>' +
+        bar("Total", 150, 110) +
+        bar("CapEx", 100, 70) +
+        bar("OpEx", 50, 40) +
+        "</div></div>",
     );
-    expect(html).not.toContain("pdf-note");
-    expect(html).not.toContain('class="derived"');
-    expect(html).toContain("<h3>Description</h3><p class=\"pre\">Replace the ERP.\nSecond line.</p>");
+    expect(s).toContain(
+      '<div class="pdf-facts"><div class="pdf-fact"><div class="pdf-fact-label">Start Date</div><div class="pdf-fact-value"><bdi>D(2026-01-01)</bdi></div></div>' +
+        '<div class="pdf-fact"><div class="pdf-fact-label">End Date</div><div class="pdf-fact-value"><bdi>D(2026-12-31)</bdi></div></div></div>',
+    );
+    expect(s).toContain('<h3>Description</h3><p class="pre">Replace the ERP.\nSecond line.</p>');
+    expect(s).not.toContain("pdf-note\">No ");
+  });
+
+  it("draws the ring right to left when the document reads that way", () => {
+    const html = buildProjectPrintBody(
+      data({ completion: { completion: 50, wbs_count: 1 } }),
+      ["overview"],
+      { ...FMT, isRtl: true },
+    );
+    expect(html).toContain(completionRing(50, true));
+  });
+
+  it("keeps the variance green at exactly zero", () => {
+    const html = buildProjectPrintBody(
+      data({ budgetLines: [budget({ amount: 10 })], costLines: [cost({ actual: 10 })] }),
+      ["overview"],
+      FMT,
+    );
+    expect(html).toContain(kpiTile("Variance", "C(0)", { color: STATUS_COLORS.success, derived: false }));
+  });
+
+  it("skips an empty date attribute", () => {
+    const html = buildProjectPrintBody(
+      data({ card: card({ attributes: { startDate: "", endDate: "" } }) }),
+      ["overview"],
+      FMT,
+    );
+    expect(html).not.toContain("pdf-facts");
+  });
+
+  it("turns the variance red once actuals exceed the budget", () => {
+    const html = buildProjectPrintBody(
+      data({ budgetLines: [budget({ amount: 10 })], costLines: [cost({ actual: 30 })] }),
+      ["overview"],
+      FMT,
+    );
+    expect(html).toContain(kpiTile("Variance", "C(-20)", { color: STATUS_COLORS.error, derived: false }));
   });
 
   it("says 'no report' and 'no work packages' and drops what the card lacks", () => {
     const html = buildProjectPrintBody(
       data({
-        card: card({ subtype: undefined, description: "  ", attributes: {} }),
-        subtypeLabel: null,
-        initiativeStatusLabel: null,
+        card: card({ description: "  ", attributes: {} }),
         completion: { completion: 0, wbs_count: 0 },
       }),
       ["overview"],
       FMT,
     );
-    expect(html).toContain('<h3>Health Summary</h3><p class="pre">No Report</p>');
-    expect(html).toContain(meta("Completion", "No work packages yet"));
-    expect(html).not.toContain("Subtype");
-    expect(html).not.toContain("Initiative Status");
-    expect(html).not.toContain("Start Date");
-    expect(html).not.toContain("End Date");
+    expect(html).toContain(
+      '<div class="pdf-panel-title">Completion</div><p class="pre">No work packages yet</p></div>',
+    );
+    expect(html).toContain('<div class="pdf-panel-title">Health Summary</div><p class="pre">No Report</p></div>');
+    expect(html).not.toContain("pdf-facts");
     expect(html).not.toContain("<h3>Description</h3>");
+    expect(html).not.toContain("<svg");
   });
 
-  it("leaves completion out when it was not read", () => {
-    const html = buildProjectPrintBody(data({ completion: null }), ["overview"], FMT);
+  it("prints only the dates the card has, and leaves completion out when it was not read", () => {
+    const html = buildProjectPrintBody(
+      data({ card: card({ attributes: { endDate: "2026-05-05", startDate: 7 } }), completion: null }),
+      ["overview"],
+      FMT,
+    );
+    expect(html).toContain(
+      '<div class="pdf-facts"><div class="pdf-fact"><div class="pdf-fact-label">End Date</div><div class="pdf-fact-value"><bdi>D(2026-05-05)</bdi></div></div></div>',
+    );
     expect(html).not.toContain(">Completion<");
+    expect(html).not.toContain("Start Date");
   });
 
-  it("marks a side derived from the initiatives beneath and says so", () => {
+  it("outlines and italicises a derived budget and says where it comes from", () => {
     const html = buildProjectPrintBody(
       data({
         costLines: [cost()],
         rollup: rollup({
-          by_year: [
-            { year: 2026, capex_budget: 300, opex_budget: 200, capex_actual: 0, opex_actual: 0 },
-          ],
+          by_year: [{ year: 2026, capex_budget: 300, opex_budget: 200, capex_actual: 0, opex_actual: 0 }],
         }),
       }),
       ["overview"],
       FMT,
     );
+    expect(html).toContain(kpiTile("Total Budget", "500 USD", { derived: true }));
+    expect(html).toContain(kpiTile("Total Actual", "40 USD", { derived: false }));
+    expect(html).toContain(kpiTile("Variance", "C(460)", { color: STATUS_COLORS.success, derived: true }));
     expect(html).toContain(
-      '<tr class="derived"><td>Total Budget</td><td class="num">$300</td><td class="num">$200</td><td class="num">$500</td></tr>',
+      budgetBar({ label: "Total", budget: 500, actual: 40, currency: "USD", derivedBudget: true, derivedActual: false }),
     );
-    expect(html).toContain('<tr><td>Total Actual</td><td class="num">$0</td>');
-    expect(html).toContain('<tr class="derived"><td>Variance</td><td class="num">$300</td>');
     expect(html).toContain(
-      '<p class="pdf-note">No budget lines of its own: budget of the 2 initiatives beneath it</p>',
+      '<p class="pdf-note">No budget lines of its own: budget of the 2 initiatives beneath it</p></div></div>',
     );
     expect(html).not.toContain("No cost lines of its own");
   });
@@ -358,8 +475,11 @@ describe("overview", () => {
       ["overview"],
       FMT,
     );
-    expect(html).toContain('<tr class="derived"><td>Total Actual</td><td class="num">$5</td>');
-    expect(html).toContain('<tr><td>Total Budget</td><td class="num">$100</td>');
+    expect(html).toContain(kpiTile("Total Actual", "5 USD", { derived: true }));
+    expect(html).toContain(kpiTile("Total Budget", "100 USD", { derived: false }));
+    expect(html).toContain(
+      budgetBar({ label: "CapEx", budget: 100, actual: 5, currency: "USD", derivedBudget: false, derivedActual: true }),
+    );
     expect(html).toContain(
       '<p class="pdf-note">No cost lines of its own: actuals of the 2 initiatives beneath it</p>',
     );
@@ -368,18 +488,18 @@ describe("overview", () => {
 });
 
 describe("status reports", () => {
-  it("prints the newest in full and earlier ones only as a list", () => {
+  it("prints the newest as a card and earlier ones only as a health history", () => {
     const html = buildProjectPrintBody(
       data({
         reports: [
-          report(),
+          report({ accomplishments: "Line one\nLine two" }),
           report({
             id: "r0",
             report_date: "2026-02-01",
             reporter: null,
             schedule_health: "atRisk",
             cost_health: "onTrack",
-            scope_health: "onTrack",
+            scope_health: "weird",
             summary: "OLDER SUMMARY",
             accomplishments: "OLDER DONE",
             next_steps: "OLDER NEXT",
@@ -390,33 +510,120 @@ describe("status reports", () => {
       FMT,
     );
     const s = sectionOf(html, HEADINGS.reports);
-    expect(s).toContain("<h3>Latest report</h3>");
-    expect(s).toContain(meta("Report Date", "D(2026-03-01)"));
-    expect(s).toContain(meta("Reporter", "Ada Lovelace"));
-    expect(s).toContain(meta("Schedule", "On Track"));
-    expect(s).toContain(meta("Cost", "At Risk"));
-    expect(s).toContain(meta("Scope", "Off Track"));
-    expect(s).toContain(meta("Summary", "Latest summary text"));
-    expect(s).toContain(meta("Accomplishments", "Did things"));
-    expect(s).toContain(meta("Next Steps", "Do more things"));
-    expect(s).toContain("<h3>Earlier reports</h3>");
+    const rating = (caption: string, value: string, label: string) =>
+      `<span class="pdf-card-rating"><span class="pdf-health-caption">${caption}</span> ${healthDot(value, label)}</span>`;
     expect(s).toContain(
-      "<tr><th>Report Date</th><th>Reporter</th><th>Schedule</th><th>Cost</th><th>Scope</th></tr>" +
-        "<tr><td>D(2026-02-01)</td><td>—</td><td>At Risk</td><td>On Track</td><td>On Track</td></tr>",
+      '<h3>Latest report</h3><div class="pdf-card">' +
+        '<div class="pdf-card-head"><strong><bdi>D(2026-03-01)</bdi></strong> · Reporter: Ada Lovelace</div>' +
+        '<div class="pdf-card-health">' +
+        rating("Schedule", "onTrack", "On Track") +
+        rating("Cost", "atRisk", "At Risk") +
+        rating("Scope", "offTrack", "Off Track") +
+        "</div>" +
+        '<div class="pdf-card-label">Summary</div><p class="pre">Latest summary text</p>' +
+        '<div class="pdf-card-label">Accomplishments</div><p class="pre">Line one\nLine two</p>' +
+        '<div class="pdf-card-label">Next Steps</div><p class="pre">Do more things</p></div>',
+    );
+    expect(s).toContain(
+      "<h3>Earlier reports</h3><table><thead><tr>" +
+        '<th class="date">Report Date</th><th>Reporter</th><th>Schedule</th><th>Cost</th><th>Scope</th></tr></thead><tbody>' +
+        `<tr><td class="date">D(2026-02-01)</td><td>—</td><td>${healthDot("atRisk", "At Risk")}</td>` +
+        `<td>${healthDot("onTrack", "On Track")}</td><td>${healthDot("weird", "weird")}</td></tr></tbody></table>`,
     );
     expect(s).not.toContain("OLDER");
   });
 
-  it("has no earlier list when there is one report, and keeps an unknown rating as typed", () => {
+  it("has no earlier list for one report, and leaves out a missing reporter and empty texts", () => {
     const html = buildProjectPrintBody(
-      data({ reports: [report({ schedule_health: "weird", summary: null, reporter: null })] }),
+      data({ reports: [report({ summary: "  ", accomplishments: null, reporter: null })] }),
       ["reports"],
       FMT,
     );
+    expect(html).toContain('<div class="pdf-card-head"><strong><bdi>D(2026-03-01)</bdi></strong></div>');
     expect(html).not.toContain("Earlier reports");
-    expect(html).not.toContain(">Reporter<");
-    expect(html).toContain(meta("Schedule", "weird"));
     expect(html).not.toContain(">Summary<");
+    expect(html).not.toContain(">Accomplishments<");
+    expect(html).toContain('<div class="pdf-card-label">Next Steps</div>');
+  });
+});
+
+describe("budget & costs visuals", () => {
+  const CHART = (name: string) => ({ src: `data:image/svg+xml;base64,${name}`, title: `${name} chart` });
+
+  it("opens with the five tiles, then the charts, then the tables", () => {
+    const html = buildProjectPrintBody(
+      data({
+        budgetLines: [budget(), budget({ id: "b2", category: "opex", amount: 50 })],
+        costLines: [cost(), cost({ id: "c2", category: "capex", actual: 70 })],
+        charts: { fiscalYear: CHART("FY"), project: CHART("PROJ") },
+      }),
+      ["costs"],
+      FMT,
+    );
+    const s = sectionOf(html, HEADINGS.costs);
+    expect(s).toContain(
+      `${HEADINGS.costs}${tileRow([
+        kpiTile("Total Budget", "150 USD", { derived: false }),
+        kpiTile("Total Actual", "110 USD", { derived: false }),
+        kpiTile("Variance", "C(40)", { color: STATUS_COLORS.success, derived: false }),
+        kpiTile("CapEx", "70 USD", { sub: { html: "of <bdi>100 USD</bdi> budget" }, derived: false }),
+        kpiTile("OpEx", "40 USD", { sub: { html: "of <bdi>50 USD</bdi> budget" }, derived: false }),
+      ])}` +
+        '<figure class="pdf-chart"><figcaption>FY chart</figcaption><img src="data:image/svg+xml;base64,FY" alt="FY chart"></figure>' +
+        '<figure class="pdf-chart"><figcaption>PROJ chart</figcaption><img src="data:image/svg+xml;base64,PROJ" alt="PROJ chart"></figure>' +
+        "<h3>Planned Budget</h3>",
+    );
+  });
+
+  it.each([
+    ["no charts at all", undefined, []],
+    ["only the fiscal year", { fiscalYear: CHART("FY") }, ["FY chart"]],
+    ["only the project", { project: CHART("PROJ") }, ["PROJ chart"]],
+  ])("prints %s without an empty frame", (_label, charts, titles) => {
+    const html = buildProjectPrintBody(
+      data({ costLines: [cost()], charts: charts as ProjectPrintData["charts"] }),
+      ["costs"],
+      FMT,
+    );
+    expect((html.match(/<figure/g) ?? []).length).toBe(titles.length);
+    for (const title of titles) expect(html).toContain(`<figcaption>${title}</figcaption>`);
+  });
+
+  it("marks the derived side's tiles italic and colours an overrun red", () => {
+    const html = buildProjectPrintBody(
+      data({
+        budgetLines: [budget({ amount: 10 })],
+        rollup: rollup({
+          by_year: [{ year: 2026, capex_budget: 0, opex_budget: 0, capex_actual: 30, opex_actual: 0 }],
+        }),
+      }),
+      ["costs"],
+      FMT,
+    );
+    expect(html).toContain(kpiTile("Total Actual", "30 USD", { derived: true }));
+    expect(html).toContain(kpiTile("Variance", "C(-20)", { color: STATUS_COLORS.error, derived: true }));
+    expect(html).toContain(kpiTile("CapEx", "30 USD", { sub: { html: "of <bdi>10 USD</bdi> budget" }, derived: true }));
+  });
+
+  it("escapes a chart's title and source and keeps the image through the sanitiser", () => {
+    const html = buildProjectPrintBody(
+      data({ costLines: [cost()], charts: { project: { src: 'data:image/svg+xml;base64,AB"x', title: "<b>T</b>" } } }),
+      ["costs"],
+      FMT,
+    );
+    expect(html).toContain(
+      '<figcaption>&lt;b&gt;T&lt;/b&gt;</figcaption><img src="data:image/svg+xml;base64,AB&quot;x" alt="&lt;b&gt;T&lt;/b&gt;">',
+    );
+    const out = buildPrintHtml(
+      projectPrintDocument(
+        data({ costLines: [cost()], charts: { project: CHART("PROJ") } }),
+        ["costs"],
+        FMT,
+      ),
+    );
+    expect(out).toContain(
+      '<figure class="pdf-chart"><figcaption>PROJ chart</figcaption><img src="data:image/svg+xml;base64,PROJ" alt="PROJ chart"></figure>',
+    );
   });
 });
 
@@ -551,7 +758,7 @@ describe("budget & costs", () => {
 
 describe("risks", () => {
   const RISKS = () => [
-    risk({ id: "a", title: "Low one", risk_score: 2, status: "closed" }),
+    risk({ id: "a", title: "Low one", risk_score: 2, probability: 1, impact: 2, status: "closed" }),
     risk({
       id: "b",
       title: "Top one",
@@ -563,14 +770,37 @@ describe("risks", () => {
       owner_name: "Ada Lovelace",
       status: "mitigating",
     }),
-    risk({ id: "c", title: "Mid one", risk_score: 16, description: "  " }),
+    risk({ id: "c", title: "Mid one", risk_score: 16, probability: 4, impact: 4, description: "  " }),
   ];
   const LONG = `${"A long description. ".repeat(25)}END-OF-DESCRIPTION\nSecond paragraph`;
+  const HEAT_LABELS = {
+    title: "Risk heat map",
+    probability: "Probability",
+    impact: "Impact",
+    bands: { high: "High", medium: "Medium", low: "Low" },
+  };
 
-  it("prints the summary then a five-column table by score with the full text", () => {
-    const html = buildProjectPrintBody(data({ risks: RISKS() }), ["risks"], FMT);
+  it("sets the heat map beside the tiles and the status breakdown, then a five-column table by score", () => {
+    const risks = RISKS();
+    const html = buildProjectPrintBody(data({ risks }), ["risks"], FMT);
     const s = sectionOf(html, HEADINGS.risks);
-    expect(s).toContain('<p class="pre">Total risks: 3 · Open: 1 · High: 2</p>');
+    expect(s).toContain(
+      `${HEADINGS.risks}<div class="pdf-keep pdf-risk-top">` +
+        riskHeatMap(risks, HEAT_LABELS) +
+        '<div class="pdf-risk-side">' +
+        tileRow(
+          [
+            kpiTile("Total Risks", "3"),
+            kpiTile("Open", "1", { color: STATUS_COLORS.error }),
+            kpiTile("High Risks", "2", { color: RAG_COLORS.red }),
+          ],
+          "Total risks: 3 · Open: 1 · High: 2",
+        ) +
+        riskStatusBreakdown(risks, "By status", (st) =>
+          ({ open: "Open", mitigating: "Mitigating", mitigated: "Mitigated", closed: "Closed", accepted: "Accepted" })[st] ?? st,
+        ) +
+        "</div></div>",
+    );
     const [w1, w2, w3, w4, w5] = RISK_COLUMN_WIDTHS;
     expect(s).toContain(
       '<table class="pdf-fixed"><thead><tr>' +
@@ -580,14 +810,14 @@ describe("risks", () => {
         `<th style="width:${w4}">Owner</th>` +
         `<th class="pre" style="width:${w5}">Mitigation</th></tr></thead><tbody>` +
         `<tr><td><strong>Top one</strong><div class="pre">${LONG}</div></td>` +
-        '<td class="num"><strong>20</strong><div class="pdf-sub">4 × 5</div></td>' +
-        "<td>Mitigating</td><td>Ada Lovelace</td>" +
+        `<td class="num">${chip("20", RAG_COLORS.red)}<div class="pdf-sub"><bdi>4 × 5</bdi></div></td>` +
+        `<td>${chip("Mitigating", STATUS_COLORS.warning, "outlined")}</td><td>Ada Lovelace</td>` +
         '<td class="pre">1. Book a second vendor\n2. Run https://example.com/a/very/long/unbroken/url/path\nTracking: weekly</td></tr>',
     );
     // No description (or a blank one): the title alone; no owner or mitigation: a dash.
     expect(s).toContain(
-      '<tr><td><strong>Low one</strong></td><td class="num"><strong>2</strong><div class="pdf-sub">1 × 1</div></td>' +
-        '<td>Closed</td><td>—</td><td class="pre">—</td></tr>',
+      `<tr><td><strong>Low one</strong></td><td class="num">${chip("2", RAG_COLORS.green)}<div class="pdf-sub"><bdi>1 × 2</bdi></div></td>` +
+        `<td>${chip("Closed", STATUS_COLORS.neutral, "outlined")}</td><td>—</td><td class="pre">—</td></tr>`,
     );
     expect(s).toContain("<tr><td><strong>Mid one</strong></td>");
     const order = ["Top one", "Mid one", "Low one"].map((x) => s.indexOf(`<strong>${x}</strong>`));
@@ -595,17 +825,27 @@ describe("risks", () => {
     expect([...order].sort((a, b) => a - b)).toEqual(order);
   });
 
-  it("keeps the cell markup and the authors' line breaks through the sanitiser", () => {
+  it("leaves the open and high tiles uncoloured at zero", () => {
+    const html = buildProjectPrintBody(data({ risks: [risk({ status: "closed" })] }), ["risks"], FMT);
+    expect(html).toContain(tileRow([kpiTile("Total Risks", "1"), kpiTile("Open", "0"), kpiTile("High Risks", "0")], "Total risks: 1 · Open: 0 · High: 0"));
+  });
+
+  it("keeps the cell markup, the chips, the heat map and the line breaks through the sanitiser", () => {
     const out = buildPrintHtml(projectPrintDocument(data({ risks: RISKS() }), ["risks"], FMT));
-    // The head and body sections survive the sanitiser, so the head repeats per page.
     expect(out).toContain('<table class="pdf-fixed"><thead><tr>');
-    expect(out).toContain("</tr></thead><tbody><tr><td><strong>Top one</strong>");
-    expect(out).toContain("</tr></tbody></table>");
-    expect(out).toContain(`<th style="width:${RISK_COLUMN_WIDTHS[0]}">Risk</th>`);
     expect(out).toContain(`<td><strong>Top one</strong><div class="pre">${LONG}</div></td>`);
-    expect(out).toContain('<td class="num"><strong>20</strong><div class="pdf-sub">4 × 5</div></td>');
+    expect(out).toContain(`<td class="num">${chip("20", RAG_COLORS.red)}<div class="pdf-sub"><bdi>4 × 5</bdi></div></td>`);
     expect(out).toContain('<td class="pre">1. Book a second vendor\n2. Run <a ');
     expect(out).toContain("</a>\nTracking: weekly</td>");
+    expect(out).toContain('<div class="pdf-keep pdf-risk-top"><div class="pdf-heatmap">');
+    expect(out).toContain('<div class="pdf-risk-side"><div class="pdf-tiles" role="group" aria-label="Total risks: 3 · Open: 1 · High: 2">');
+    // One open, one mitigating, one closed: the breakdown counts each.
+    expect(out).toMatch(/Open<\/span><span class="pdf-status-count">1<\/span>/);
+    expect(out).toMatch(/Mitigating<\/span><span class="pdf-status-count">1<\/span>/);
+    expect(out).toMatch(/Closed<\/span><span class="pdf-status-count">1<\/span>/);
+    expect(out).toMatch(/pdf-muted"><span[^>]*>Accepted<\/span><span class="pdf-status-count">0<\/span>/);
+    expect(out).toContain('<td class="pdf-heat-cell" data-p="4" data-i="5" style="background:');
+    expect(out).toContain('<th class="pdf-heat-axis-y" rowspan="5"><span>Probability</span></th>');
   });
 
   it("escapes the title, description, owner and mitigation inside built cells", () => {
@@ -624,58 +864,121 @@ describe("risks", () => {
 });
 
 describe("tasks & schedule", () => {
-  const [c1, c2, c3, c4, c5, c6] = SCHEDULE_COLUMN_WIDTHS;
-  const W_HEAD =
-    `<thead><tr><th style="width:${c1}">Title</th><th class="date" style="width:${c2}">Start Date</th>` +
-    `<th class="date" style="width:${c3}">End / Due</th><th style="width:${c4}">Owner</th>` +
-    `<th style="width:${c5}">Progress</th><th style="width:${c6}">Priority</th></tr></thead><tbody>`;
+  const NOW = new Date(2026, 0, 15);
+  const [c1, c2, c3] = SCHEDULE_COLUMN_WIDTHS;
+  const titleHead = 'Title<div class="pdf-sub">Start Date – End / Due · Owner</div>';
+  const progressHead = 'Progress<div class="pdf-sub">Priority</div>';
   const pad = (depth: number) => ` style="padding-inline-start:${10 + depth * WBS_INDENT_PX}px"`;
-  const pkgRow = (depth: number, cells: string[]) =>
-    `<tr class="pdf-wbs"><td${depth ? pad(depth) : ""}>${cells[0]}</td><td class="date">${cells[1]}</td><td class="date">${cells[2]}</td><td>${cells[3]}</td><td>${cells[4]}</td><td></td></tr>`;
-  const taskRow = (depth: number, cells: string[]) =>
-    `<tr class="pdf-task"><td${depth ? pad(depth) : ""}>${cells[0]}</td><td class="date">${cells[1]}</td><td class="date">${cells[2]}</td><td>${cells[3]}</td><td>${cells[4]}</td><td>${cells[5]}</td></tr>`;
+  const W = () => [
+    wbs({ id: "w2", title: "Second root", sort_order: 2, assignee_name: null, completion: 100, end_date: "2026-05-05" }),
+    wbs({ id: "w1", title: "First root", sort_order: 1 }),
+    wbs({ id: "w1b", parent_id: "w1", title: "Child B", sort_order: 5, start_date: null, end_date: null }),
+    wbs({ id: "w1a", parent_id: "w1", title: "Child A", sort_order: 3, is_milestone: true, start_date: "2026-01-20", end_date: "2026-01-20" }),
+    wbs({ id: "orphan", parent_id: "gone", title: "Orphan", sort_order: 9 }),
+  ];
+  const T = () => [
+    task({ id: "t2", wbs_id: "w1", title: "Task two", sort_order: 2, status: "done", priority: "low" }),
+    task({ id: "t1", wbs_id: "w1", title: "Task one", sort_order: 1 }),
+    task({ id: "t3", wbs_id: "w1a", title: "Deep task", status: "blocked", priority: "critical", assignee_name: null, start_date: null }),
+    task({ id: "t5", wbs_id: null, title: "Loose B", sort_order: 2, status: "todo", priority: "medium" }),
+    task({ id: "t4", wbs_id: "missing", title: "Loose A", sort_order: 1 }),
+  ];
 
-  it("nests packages by depth in sort order with their tasks beneath and unassigned tasks last", () => {
-    const html = buildProjectPrintBody(
-      data({
-        wbs: [
-          wbs({ id: "w2", title: "Second root", sort_order: 2, assignee_name: null, completion: 100 }),
-          wbs({ id: "w1", title: "First root", sort_order: 1 }),
-          wbs({ id: "w1b", parent_id: "w1", title: "Child B", sort_order: 5 }),
-          wbs({ id: "w1a", parent_id: "w1", title: "Child A", sort_order: 3, is_milestone: true }),
-          wbs({ id: "orphan", parent_id: "gone", title: "Orphan", sort_order: 9 }),
-        ],
-        tasks: [
-          task({ id: "t2", wbs_id: "w1", title: "Task two", sort_order: 2, status: "done", priority: "low" }),
-          task({ id: "t1", wbs_id: "w1", title: "Task one", sort_order: 1 }),
-          task({ id: "t3", wbs_id: "w1a", title: "Deep task", status: "blocked", priority: "critical", assignee_name: null, start_date: null }),
-          task({ id: "t5", wbs_id: null, title: "Loose B", sort_order: 2, status: "todo", priority: "medium" }),
-          task({ id: "t4", wbs_id: "missing", title: "Loose A", sort_order: 1 }),
-        ],
-      }),
-      ["schedule"],
-      FMT,
-    );
+  it("draws one timeline row per package and task, nested and in sort order, unassigned tasks last", () => {
+    const wbsList = W();
+    const tasks = T();
+    const html = buildProjectPrintBody(data({ wbs: wbsList, tasks }), ["schedule"], FMT, NOW);
     const s = sectionOf(html, HEADINGS.schedule);
+    const model = timelineModel(
+      [
+        ...wbsList.map((w) => ({ start: w.start_date, end: w.end_date })),
+        ...tasks.map((tk) => ({ start: tk.start_date, end: tk.due_date })),
+      ],
+      NOW,
+    )!;
+    expect(model).not.toBeNull();
+    const head =
+      `<table class="pdf-fixed pdf-schedule"><thead><tr><th style="width:${c1}">${titleHead}</th>` +
+      `<th class="pdf-tl-cell" style="width:${c2}">${timelineScale(model)}</th>` +
+      `<th style="width:${c3}">${progressHead}</th></tr></thead><tbody>`;
+    const ownerLine = (owner: string) =>
+      owner === "—" ? "" : `<div class="pdf-sub">Owner: <bdi>${owner}</bdi></div>`;
+    const pkg = (depth: number, title: string, dates: string, w: ReturnType<typeof wbs>, pct: string, owner: string) =>
+      `<tr class="pdf-wbs"><td${depth ? pad(depth) : ""}>${title}${dates}${ownerLine(owner)}</td>` +
+      `<td class="pdf-tl-cell">${timelineLane(model, { start: w.start_date, end: w.end_date }, { kind: "package", completion: w.completion, milestone: w.is_milestone })}</td>` +
+      `<td><div class="pdf-stack">${chip(pct, brand.primary, "outlined")}</div></td></tr>`;
+    const tsk = (depth: number, tk: ReturnType<typeof task>, dates: string, status: string, owner: string, priority: string) =>
+      `<tr class="pdf-task"><td${depth ? pad(depth) : ""}>${tk.title}${dates}${ownerLine(owner)}</td>` +
+      `<td class="pdf-tl-cell">${timelineLane(model, { start: tk.start_date, end: tk.due_date }, { kind: "task", status: tk.status })}</td>` +
+      `<td><div class="pdf-stack">${chip(status, taskBarColors(tk.status).progress, "outlined")}` +
+      `${chip(priority, priorityColor(tk.priority), "soft")}</div></td></tr>`;
+    const d = (a: string, b: string) => `<div class="pdf-sub"><bdi>${a}</bdi> – <bdi>${b}</bdi></div>`;
+    const by = (id: string) => wbsList.find((w) => w.id === id)!;
+    const tby = (id: string) => tasks.find((x) => x.id === id)!;
     expect(s).toContain(
-      `<h3>Work Breakdown</h3><table class="pdf-fixed pdf-schedule">${W_HEAD}` +
-        pkgRow(0, ["First root", "D(2026-01-05)", "D(2026-02-05)", "Grace Hopper", "42%"]) +
-        taskRow(1, ["Task one", "D(2026-01-10)", "D(2026-01-20)", "Alan Turing", "In Progress", "High"]) +
-        taskRow(1, ["Task two", "D(2026-01-10)", "D(2026-01-20)", "Alan Turing", "Done", "Low"]) +
-        pkgRow(1, ["◆ Child A (Milestone)", "D(2026-01-05)", "D(2026-02-05)", "Grace Hopper", "42%"]) +
-        taskRow(2, ["Deep task", "—", "D(2026-01-20)", "—", "Blocked", "Critical"]) +
-        pkgRow(1, ["Child B", "D(2026-01-05)", "D(2026-02-05)", "Grace Hopper", "42%"]) +
-        pkgRow(0, ["Second root", "D(2026-01-05)", "D(2026-02-05)", "—", "100%"]) +
-        pkgRow(0, ["Orphan", "D(2026-01-05)", "D(2026-02-05)", "Grace Hopper", "42%"]) +
+      `<h3>Work Breakdown</h3>${head}` +
+        pkg(0, "First root", d("D(2026-01-05)", "D(2026-02-05)"), by("w1"), "42%", "Grace Hopper") +
+        tsk(1, tby("t1"), d("D(2026-01-10)", "D(2026-01-20)"), "In Progress", "Alan Turing", "High") +
+        tsk(1, tby("t2"), d("D(2026-01-10)", "D(2026-01-20)"), "Done", "Alan Turing", "Low") +
+        pkg(1, "◆ Child A (Milestone)", d("D(2026-01-20)", "D(2026-01-20)"), by("w1a"), "42%", "Grace Hopper") +
+        tsk(2, tby("t3"), '<div class="pdf-sub">– <bdi>D(2026-01-20)</bdi></div>', "Blocked", "—", "Critical") +
+        pkg(1, "Child B", "", by("w1b"), "42%", "Grace Hopper") +
+        pkg(0, "Second root", d("D(2026-01-05)", "D(2026-05-05)"), by("w2"), "100%", "—") +
+        pkg(0, "Orphan", d("D(2026-01-05)", "D(2026-02-05)"), by("orphan"), "42%", "Grace Hopper") +
         "</tbody></table>",
     );
     expect(s).toContain(
-      `<h3>Unassigned Tasks</h3><table class="pdf-fixed pdf-schedule">${W_HEAD}` +
-        taskRow(0, ["Loose A", "D(2026-01-10)", "D(2026-01-20)", "Alan Turing", "In Progress", "High"]) +
-        taskRow(0, ["Loose B", "D(2026-01-10)", "D(2026-01-20)", "Alan Turing", "To Do", "Medium"]) +
+      `<h3>Unassigned Tasks</h3>${head}` +
+        tsk(0, tby("t4"), d("D(2026-01-10)", "D(2026-01-20)"), "In Progress", "Alan Turing", "High") +
+        tsk(0, tby("t5"), d("D(2026-01-10)", "D(2026-01-20)"), "To Do", "Alan Turing", "Medium") +
         "</tbody></table>",
     );
     expect(s.indexOf("Unassigned Tasks")).toBeGreaterThan(s.indexOf("Orphan"));
+    // Q1 to Q2 2026: one quarter rule runs through each of the 10 rows (8 in the tree, 2 unassigned).
+    expect(model.quarters).toHaveLength(2);
+    expect(s.match(/class="pdf-tl-grid pdf-tl-grid-q"/g)).toHaveLength(10);
+    // The legend closes the section, with the today line since today is on the scale.
+    expect(s.endsWith(
+      legend([
+        { label: "Work package (fill shows completion)", color: brand.primaryLight, fill: brand.primary, shape: "track" },
+        ...(["todo", "in_progress", "done", "blocked"] as const).map((st, i) => ({
+          label: `Task: ${["To Do", "In Progress", "Done", "Blocked"][i]}`,
+          color: taskBarColors(st).bar,
+          fill: taskBarColors(st).progress,
+          shape: "track" as const,
+        })),
+        { label: "Milestone", color: brand.primary, shape: "diamond" },
+        { label: "One date only", color: brand.primary, shape: "dot" },
+        { label: "Today", color: STATUS_COLORS.error, shape: "line" },
+      ]),
+    )).toBe(true);
+  });
+
+  it("leaves the today key out when today is off the scale", () => {
+    const html = buildProjectPrintBody(data({ wbs: [wbs()] }), ["schedule"], FMT, new Date(2030, 0, 1));
+    expect(html).toContain(">One date only</span></div>");
+    expect(html).not.toContain(">Today<");
+  });
+
+  it("prints the rows without a timeline column, or legend, when nothing has a date", () => {
+    const html = buildProjectPrintBody(
+      data({
+        wbs: [wbs({ start_date: null, end_date: null })],
+        tasks: [task({ start_date: null, due_date: null })],
+      }),
+      ["schedule"],
+      FMT,
+      NOW,
+    );
+    const [n1, n2] = SCHEDULE_COLUMN_WIDTHS_NO_TIMELINE;
+    expect(html).toContain(
+      `<h3>Work Breakdown</h3><table class="pdf-fixed pdf-schedule"><thead><tr><th style="width:${n1}">${titleHead}</th>` +
+        `<th style="width:${n2}">${progressHead}</th></tr></thead><tbody>` +
+        '<tr class="pdf-wbs"><td>Package<div class="pdf-sub">Owner: <bdi>Grace Hopper</bdi></div></td>' +
+        `<td><div class="pdf-stack">${chip("42%", brand.primary, "outlined")}</div></td></tr></tbody></table>`,
+    );
+    expect(html).not.toContain("pdf-tl-");
+    expect(html).not.toContain("pdf-legend");
   });
 
   it("prints only the tree when every task has a package, and only tasks when there is no tree", () => {
@@ -702,7 +1005,35 @@ describe("tasks & schedule", () => {
       ["schedule"],
       FMT,
     );
-    expect(html).toContain("<td>parked</td><td>someday</td>");
+    expect(html).toContain(chip("parked", taskBarColors("parked").progress, "outlined"));
+    expect(html).toContain(chip("someday", priorityColor("someday"), "soft"));
+  });
+
+  it("keeps the indent, the scale, the bars and the chips through the sanitiser", () => {
+    const out = buildPrintHtml(
+      projectPrintDocument(
+        data({ wbs: [wbs(), wbs({ id: "w2", parent_id: "w1", title: "Kid" })], tasks: [task({ wbs_id: "w2" })] }),
+        ["schedule"],
+        FMT,
+        NOW,
+      ),
+    );
+    expect(out).toContain(`<tr class="pdf-wbs"><td style="padding-inline-start:${10 + WBS_INDENT_PX}px">Kid<div class="pdf-sub">`);
+    expect(out).toMatch(/<div class="pdf-tl-scale"><div class="pdf-tl-years"><span class="pdf-tl-year" style="inset-inline-start:0%;width:100%">2026<\/span>/);
+    expect(out).toMatch(/<span class="pdf-tl-bar" style="inset-inline-start:[\d.]+%;width:[\d.]+%;background:[^"]+"><span class="pdf-tl-fill" style="width:42.4%;background:/);
+    expect(out).toMatch(/<span class="pdf-tl-today" style="inset-inline-start:[\d.]+%;background:/);
+    expect(out).toContain('<span class="pdf-chip pdf-chip-outlined" style="border-color:');
+    expect(out).toContain('<div class="pdf-stack"><span class="pdf-chip pdf-chip-outlined"');
+    expect(out).toContain('<div class="pdf-sub"><bdi>D(2026-01-05)</bdi> – <bdi>D(2026-02-05)</bdi></div>');
+    expect(out).toContain('<div class="pdf-sub">Owner: <bdi>Grace Hopper</bdi></div>');
+  });
+
+  it("gives the timeline more than half the table and folds the rest into two columns", () => {
+    const [title, timeline, progress] = SCHEDULE_COLUMN_WIDTHS;
+    expect(SCHEDULE_COLUMN_WIDTHS).toHaveLength(3);
+    expect(parseFloat(timeline)).toBeGreaterThanOrEqual(50);
+    expect(parseFloat(title) + parseFloat(timeline) + parseFloat(progress)).toBe(100);
+    expect(SCHEDULE_COLUMN_WIDTHS_NO_TIMELINE.map(parseFloat).reduce((a, b) => a + b, 0)).toBe(100);
   });
 });
 
@@ -723,16 +1054,6 @@ describe("escaping", () => {
     expect(html).not.toContain("<img");
     expect(html.match(/&lt;img src=x onerror=alert\(1\)&gt;/g)!.length).toBeGreaterThanOrEqual(7);
   });
-
-  it("keeps the WBS indent and row classes through the sanitiser", () => {
-    const doc = projectPrintDocument(
-      data({ wbs: [wbs(), wbs({ id: "w2", parent_id: "w1", title: "Kid" })] }),
-      ["schedule"],
-      FMT,
-    );
-    const out = buildPrintHtml(doc);
-    expect(out).toContain(`<tr class="pdf-wbs"><td style="padding-inline-start:${10 + WBS_INDENT_PX}px">Kid</td>`);
-  });
 });
 
 describe("projectPrintDocument / printProject", () => {
@@ -742,30 +1063,45 @@ describe("projectPrintDocument / printProject", () => {
     expect(doc.title).toBe("ERP Replacement");
     expect(doc.footerParts).toBeUndefined();
     expect(doc.bodyHtml).toBe(buildProjectPrintBody(data(), ["risks"], FMT, now));
-    expect(doc.bodyHtml).toContain(
-      '>ERP Replacement</p><p class="pdf-printed">Printed: DT(2026-11-13T10:00:00.000Z)</p>',
-    );
     expect(buildPrintHtml(doc)).not.toContain("doc-print-footer\">");
-    expect(buildPrintHtml(doc)).toContain('<p class="pdf-printed">Printed: DT(2026-11-13T10:00:00.000Z)</p>');
+    expect(buildPrintHtml(doc)).toContain('<p class="pdf-printed">Printed: <bdi>DT(2026-11-13T10:00:00.000Z)</bdi></p>');
     expect(doc.css).toBe(PROJECT_PRINT_CSS);
-    expect(PROJECT_PRINT_CSS).toContain(".doc-print h2, .doc-print h3 { break-after: avoid;");
-    expect(PROJECT_PRINT_CSS).toContain(".doc-print tr { break-inside: avoid;");
-    expect(PROJECT_PRINT_CSS).toContain(".doc-print th, .doc-print td { overflow-wrap: anywhere; }");
-    expect(PROJECT_PRINT_CSS).toContain(".doc-print table.pdf-fixed { table-layout: fixed; }");
-    expect(PROJECT_PRINT_CSS).toContain(".doc-print td.date, .doc-print th.date { white-space: nowrap; }");
-    // `.pre` cells keep line breaks through the shared stylesheet.
-    expect(PROJECT_PRINT_CSS).toContain(".doc-print .pre { white-space: pre-wrap; }");
-    expect(PROJECT_PRINT_CSS).toContain(
-      ".doc-print thead { display: table-header-group; break-inside: avoid; break-after: avoid; page-break-after: avoid; }",
-    );
-    expect(PROJECT_PRINT_CSS).toContain(
-      ".doc-print tbody tr:first-child { break-before: avoid; page-break-before: avoid; }",
-    );
-    expect(PROJECT_PRINT_CSS).toContain(
-      ".doc-print table.pdf-schedule th, .doc-print table.pdf-schedule td { font-size: 9pt; padding: 6px; }",
-    );
-    expect(PROJECT_PRINT_CSS).toMatch(/\.doc-print \.pdf-printed \{ text-align: center; color: #[0-9a-f]{6}; font-size: 10pt; \}/);
     expect(PROJECT_PRINT_CSS.startsWith("\n  @page")).toBe(true);
+  });
+
+  it.each([
+    // Without this the browser drops every background: dots, bars, chips, tiles, heat map.
+    "html, body.doc-print, .doc-print * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }",
+    ".doc-print h2, .doc-print h3 { break-after: avoid; page-break-after: avoid; }",
+    ".doc-print tr { break-inside: avoid; page-break-inside: avoid; }",
+    ".doc-print th, .doc-print td { overflow-wrap: anywhere; }",
+    ".doc-print table.pdf-fixed { table-layout: fixed; }",
+    ".doc-print td.date, .doc-print th.date { white-space: nowrap; }",
+    ".doc-print .pre { white-space: pre-wrap; }",
+    ".doc-print thead { display: table-header-group; break-inside: avoid; break-after: avoid; page-break-after: avoid; }",
+    ".doc-print tbody tr:first-child { break-before: avoid; page-break-before: avoid; }",
+    ".doc-print .pdf-keep { break-inside: avoid; page-break-inside: avoid; }",
+    ".doc-print .pdf-tiles { display: flex; gap: 8px; margin: 10px 0; break-inside: avoid; page-break-inside: avoid; }",
+    ".doc-print .pdf-panels { display: flex; gap: 10px; margin: 10px 0; break-inside: avoid; page-break-inside: avoid; }",
+    ".doc-print figure.pdf-chart { margin: 12px 0; break-inside: avoid; page-break-inside: avoid; }",
+    ".doc-print .pdf-heatmap { margin: 10px 0; break-inside: avoid; page-break-inside: avoid; }",
+    ".doc-print .pdf-tl-lane { position: absolute; top: 0; bottom: 0; inset-inline: 6px; }",
+    ".doc-print .pdf-tl-scale { position: relative; height: 30px; margin: 4px 6px; }",
+    ".doc-print table.pdf-schedule .pdf-tl-cell { position: relative; padding: 0; }",
+    // Bars are 14px tall now, milestones 12px: readable, not slivers.
+    ".doc-print .pdf-tl-bar { position: absolute; top: 6px; height: 14px; min-width: 3px; border-radius: 4px; overflow: hidden; }",
+    ".doc-print .pdf-tl-milestone { position: absolute; top: 7px; width: 12px; height: 12px;",
+    // The scale through every row: year rules darker than quarter rules.
+    ".doc-print .pdf-tl-grid { position: absolute; top: 0; bottom: 0; width: 1px; }",
+    `.doc-print .pdf-tl-grid-y { background: ${PRINT_COLORS.control}; }`,
+    `.doc-print .pdf-tl-grid-q { background: ${PRINT_COLORS.panel}; }`,
+    ".doc-print .pdf-risk-top { display: flex; gap: 16px; align-items: flex-start; margin: 10px 0; }",
+    ".doc-print .pdf-status-rows { display: grid; grid-template-columns: 1fr 1fr; column-gap: 16px; }",
+    // A long report card may break, but never between its head, ratings and a label and its text.
+    ".doc-print .pdf-card-head, .doc-print .pdf-card-health, .doc-print .pdf-card-label { break-after: avoid; page-break-after: avoid; }",
+    `.doc-print tr.pdf-group td { font-weight: 600; background: ${YEAR_BAND_TINT}; }`,
+  ])("the stylesheet holds %s", (rule) => {
+    expect(PROJECT_PRINT_CSS).toContain(rule);
   });
 
   it("defaults the printed date to now", () => {
@@ -773,10 +1109,10 @@ describe("projectPrintDocument / printProject", () => {
     vi.setSystemTime(new Date("2026-05-01T08:00:00Z"));
     try {
       expect(projectPrintDocument(data(), [], FMT).bodyHtml).toContain(
-        '<p class="pdf-printed">Printed: DT(2026-05-01T08:00:00.000Z)</p>',
+        '<p class="pdf-printed">Printed: <bdi>DT(2026-05-01T08:00:00.000Z)</bdi></p>',
       );
       expect(buildProjectPrintBody(data(), [], FMT)).toContain(
-        '<p class="pdf-printed">Printed: DT(2026-05-01T08:00:00.000Z)</p>',
+        '<p class="pdf-printed">Printed: <bdi>DT(2026-05-01T08:00:00.000Z)</bdi></p>',
       );
     } finally {
       vi.useRealTimers();

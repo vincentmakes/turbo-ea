@@ -277,5 +277,12 @@
   "pdfOwner": "Responsable",
   "pdfProgress": "Avancement",
   "pdfRisk": "Risque",
-  "pdfScore": "Score"
+  "pdfScore": "Score",
+  "pdfHeatMapTitle": "Carte thermique des risques",
+  "pdfToday": "Aujourd'hui",
+  "pdfLegendWorkPackage": "Lot de travail (le remplissage indique l'avancement)",
+  "pdfLegendTask": "Tâche",
+  "pdfLegendOneDate": "Une seule date",
+  "pdfOfBudget": "sur un budget de {{amount}}",
+  "pdfByStatus": "Par statut"
 }

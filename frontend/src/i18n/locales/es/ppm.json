@@ -277,5 +277,12 @@
   "pdfOwner": "Responsable",
   "pdfProgress": "Progreso",
   "pdfRisk": "Riesgo",
-  "pdfScore": "Puntuación"
+  "pdfScore": "Puntuación",
+  "pdfHeatMapTitle": "Mapa de calor de riesgos",
+  "pdfToday": "Hoy",
+  "pdfLegendWorkPackage": "Paquete de trabajo (el relleno indica la finalización)",
+  "pdfLegendTask": "Tarea",
+  "pdfLegendOneDate": "Solo una fecha",
+  "pdfOfBudget": "de un presupuesto de {{amount}}",
+  "pdfByStatus": "Por estado"
 }

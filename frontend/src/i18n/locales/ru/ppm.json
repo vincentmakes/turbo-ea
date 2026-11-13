@@ -305,5 +305,12 @@
   "pdfOwner": "Ответственный",
   "pdfProgress": "Прогресс",
   "pdfRisk": "Риск",
-  "pdfScore": "Оценка"
+  "pdfScore": "Оценка",
+  "pdfHeatMapTitle": "Тепловая карта рисков",
+  "pdfToday": "Сегодня",
+  "pdfLegendWorkPackage": "Рабочий пакет (заливка показывает завершение)",
+  "pdfLegendTask": "Задача",
+  "pdfLegendOneDate": "Только одна дата",
+  "pdfOfBudget": "из бюджета {{amount}}",
+  "pdfByStatus": "По статусу"
 }

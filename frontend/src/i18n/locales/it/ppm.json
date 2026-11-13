@@ -277,5 +277,12 @@
   "pdfOwner": "Responsabile",
   "pdfProgress": "Avanzamento",
   "pdfRisk": "Rischio",
-  "pdfScore": "Punteggio"
+  "pdfScore": "Punteggio",
+  "pdfHeatMapTitle": "Mappa di calore dei rischi",
+  "pdfToday": "Oggi",
+  "pdfLegendWorkPackage": "Pacchetto di lavoro (il riempimento indica il completamento)",
+  "pdfLegendTask": "Attività",
+  "pdfLegendOneDate": "Una sola data",
+  "pdfOfBudget": "su un budget di {{amount}}",
+  "pdfByStatus": "Per stato"
 }

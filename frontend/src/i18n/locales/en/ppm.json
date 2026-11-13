@@ -277,5 +277,12 @@
   "pdfOwner": "Owner",
   "pdfProgress": "Progress",
   "pdfRisk": "Risk",
-  "pdfScore": "Score"
+  "pdfScore": "Score",
+  "pdfHeatMapTitle": "Risk heat map",
+  "pdfToday": "Today",
+  "pdfLegendWorkPackage": "Work package (fill shows completion)",
+  "pdfLegendTask": "Task",
+  "pdfLegendOneDate": "One date only",
+  "pdfOfBudget": "of {{amount}} budget",
+  "pdfByStatus": "By status"
 }

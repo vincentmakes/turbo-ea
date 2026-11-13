@@ -277,5 +277,12 @@
   "pdfOwner": "负责人",
   "pdfProgress": "进度",
   "pdfRisk": "风险",
-  "pdfScore": "评分"
+  "pdfScore": "评分",
+  "pdfHeatMapTitle": "风险热力图",
+  "pdfToday": "今天",
+  "pdfLegendWorkPackage": "工作包（填充表示完成度）",
+  "pdfLegendTask": "任务",
+  "pdfLegendOneDate": "仅一个日期",
+  "pdfOfBudget": "预算 {{amount}}",
+  "pdfByStatus": "按状态"
 }

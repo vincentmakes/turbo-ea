@@ -13,8 +13,16 @@ vi.mock("./ppmProjectPrint", async () => {
   return { ...actual, printProject: vi.fn() };
 });
 
+// The chart module the dialog imports on demand. Vitest evaluates a mock
+// factory once per file, so what a test can see is whether it drew.
+const chartsModule = vi.hoisted(() => ({ render: vi.fn() }));
+vi.mock("./ppmProjectCharts", () => ({ renderSpendCharts: chartsModule.render }));
+
+vi.mock("@/hooks/useIsRtl", () => import("@/test/hooks").then((m) => m.useIsRtlModule()));
+
 vi.mock("@/features/ea-delivery/initiatives/useInitiativeStatus", () => ({
   useInitiativeStatusLabel: () => (status: string) => `status ${status} label`,
+  useInitiativeStatusColor: () => (status: string) => `colour-of-${status}`,
 }));
 
 vi.mock("@/hooks/useCardSubtypeLabel", () => ({
@@ -22,6 +30,7 @@ vi.mock("@/hooks/useCardSubtypeLabel", () => ({
 }));
 
 import { mockApi } from "@/test/apiMock";
+import { hookState } from "@/test/hooks";
 import { renderWithProviders } from "@/test/render";
 import { setViewportWidth } from "@/test/matchMedia";
 import { openPrintWindow } from "@/lib/printDocument";
@@ -91,6 +100,9 @@ describe("PpmProjectPdfDialog", () => {
     mockApi.on("get", "/ppm/initiatives/i1/tasks", TASKS);
     openMock.mockReset();
     printMock.mockReset();
+    hookState.reset();
+    chartsModule.render.mockReset();
+    chartsModule.render.mockReturnValue({});
   });
   afterEach(() => localStorage.clear());
 
@@ -171,6 +183,7 @@ describe("PpmProjectPdfDialog", () => {
       card: CARD,
       subtypeLabel: "Initiative/project label",
       initiativeStatusLabel: "status onTrack label",
+      initiativeStatusColor: "colour-of-onTrack",
       reports: REPORTS,
       costLines: COSTS,
       budgetLines: BUDGETS,
@@ -186,6 +199,11 @@ describe("PpmProjectPdfDialog", () => {
     expect(fmt.amount(1200)).toBe("$1,200");
     expect(fmt.date("2026-03-04")).toBe("04 Mar 2026");
     expect(fmt.dateTime(new Date(2026, 2, 4, 9, 5))).toBe("04 Mar 2026 09:05");
+    expect(fmt.amountCompact(1_500_000)).toBe("1.5 MUSD");
+    expect(fmt.amountCompact(2_400)).toBe("2.4 kUSD");
+    expect(fmt.amountCompact(950)).toBe("$950");
+    expect(fmt.currency).toBe("USD");
+    expect(fmt.isRtl).toBe(false);
     expect(win.close).not.toHaveBeenCalled();
     expect(localStorage.getItem(PPM_PDF_PREFS_KEY)).toBe(JSON.stringify([...PPM_PRINT_SECTIONS]));
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -206,6 +224,7 @@ describe("PpmProjectPdfDialog", () => {
     expect(data.tasks).toEqual([]);
     expect(data.subtypeLabel).toBeNull();
     expect(data.initiativeStatusLabel).toBeNull();
+    expect(data.initiativeStatusColor).toBeNull();
   });
 
   it.each([
@@ -219,6 +238,7 @@ describe("PpmProjectPdfDialog", () => {
     await waitFor(() => expect(printMock).toHaveBeenCalledTimes(1));
     const [data] = printMock.mock.calls[0] as unknown as [ProjectPrintData];
     expect(data.initiativeStatusLabel).toBeNull();
+    expect(data.initiativeStatusColor).toBeNull();
   });
 
   it("reads only the schedule when only the schedule is ticked", async () => {
@@ -320,6 +340,82 @@ describe("PpmProjectPdfDialog", () => {
     const { user } = renderDialog();
     await user.click(exportButton());
     expect(await screen.findByRole("alert")).toHaveStyle({ marginTop: "12px" });
+  });
+
+  const CHARTS = {
+    fiscalYear: { src: "data:image/svg+xml;charset=utf-8,%3Csvg%2F%3E", title: "Cumulative spend by category · FY 2026" },
+    project: { src: "data:image/svg+xml;charset=utf-8,%3Csvg%2F%3E", title: "Project to date" },
+  };
+
+  it("draws the spend charts after opening the window and prints them with the data", async () => {
+    chartsModule.render.mockReturnValue(CHARTS);
+    hookState.isRtl = true;
+    localStorage.setItem(PPM_PDF_PREFS_KEY, JSON.stringify(["costs"]));
+    openMock.mockImplementation(() => {
+      expect(chartsModule.render).not.toHaveBeenCalled();
+      return fakeWindow();
+    });
+    const { user } = renderDialog();
+    await user.click(exportButton());
+    await waitFor(() => expect(printMock).toHaveBeenCalledTimes(1));
+
+    expect(chartsModule.render).toHaveBeenCalledTimes(1);
+    expect(openMock.mock.invocationCallOrder[0]).toBeLessThan(
+      chartsModule.render.mock.invocationCallOrder[0],
+    );
+    const [input] = chartsModule.render.mock.calls[0];
+    expect(input).toMatchObject({ costLines: COSTS, budgetLines: BUDGETS, fiscalYearStart: 1, isRtl: true, locale: "en" });
+    expect(input.today).toBeInstanceOf(Date);
+    expect(Math.abs(input.today.getTime() - Date.now())).toBeLessThan(60_000);
+    expect(input.format(1200)).toBe("$1,200");
+    expect(input.formatShort(2500)).toBe("$3k");
+    expect(input.t("projectCumulative")).toBe("Project to date");
+
+    const [data, , fmt] = printMock.mock.calls[0] as unknown as [ProjectPrintData, string[], ProjectPrintFormat];
+    expect(data.charts).toEqual(CHARTS);
+    expect(fmt.isRtl).toBe(true);
+  });
+
+  it("neither loads nor draws the charts when Budget & Costs is not ticked", async () => {
+    chartsModule.render.mockReturnValue(CHARTS);
+    localStorage.setItem(PPM_PDF_PREFS_KEY, JSON.stringify(["overview", "reports", "risks", "schedule"]));
+    openMock.mockReturnValue(fakeWindow());
+    const { user } = renderDialog();
+    await user.click(exportButton());
+    await waitFor(() => expect(printMock).toHaveBeenCalledTimes(1));
+    expect(chartsModule.render).not.toHaveBeenCalled();
+    const [data] = printMock.mock.calls[0] as unknown as [ProjectPrintData];
+    expect(data).not.toHaveProperty("charts");
+  });
+
+  it("prints without charts when there is nothing to chart", async () => {
+    chartsModule.render.mockReturnValue({});
+    localStorage.setItem(PPM_PDF_PREFS_KEY, JSON.stringify(["costs"]));
+    openMock.mockReturnValue(fakeWindow());
+    const { user } = renderDialog();
+    await user.click(exportButton());
+    await waitFor(() => expect(printMock).toHaveBeenCalledTimes(1));
+    expect(chartsModule.render).toHaveBeenCalledTimes(1);
+    const [data] = printMock.mock.calls[0] as unknown as [ProjectPrintData];
+    expect(data).not.toHaveProperty("charts");
+  });
+
+  it("still prints, without charts and without an error, when a chart cannot be drawn", async () => {
+    chartsModule.render.mockImplementation(() => {
+      throw new Error("no canvas");
+    });
+    const win = fakeWindow();
+    openMock.mockReturnValue(win);
+    const { user, onClose } = renderDialog();
+    await user.click(exportButton());
+    await waitFor(() => expect(printMock).toHaveBeenCalledTimes(1));
+    const [data, sections] = printMock.mock.calls[0] as unknown as [ProjectPrintData, string[]];
+    expect(sections).toEqual([...PPM_PRINT_SECTIONS]);
+    expect(data).not.toHaveProperty("charts");
+    expect(data.completion).toEqual(COMPLETION);
+    expect(win.close).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("closes on Cancel without exporting", async () => {

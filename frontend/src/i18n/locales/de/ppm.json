@@ -277,5 +277,12 @@
   "pdfOwner": "Verantwortlicher",
   "pdfProgress": "Fortschritt",
   "pdfRisk": "Risiko",
-  "pdfScore": "Bewertung"
+  "pdfScore": "Bewertung",
+  "pdfHeatMapTitle": "Risiko-Heatmap",
+  "pdfToday": "Heute",
+  "pdfLegendWorkPackage": "Arbeitspaket (Füllung zeigt Fertigstellung)",
+  "pdfLegendTask": "Aufgabe",
+  "pdfLegendOneDate": "Nur ein Datum",
+  "pdfOfBudget": "von {{amount}} Budget",
+  "pdfByStatus": "Nach Status"
 }

@@ -15,12 +15,16 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useIsRtl } from "@/hooks/useIsRtl";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useFiscalYearStart } from "@/hooks/useFiscalYearStart";
 import { useFullScreenDialog } from "@/hooks/useFullScreenDialog";
 import { useSubmitOnce } from "@/hooks/useSubmitOnce";
 import { openPrintWindow } from "@/lib/printDocument";
-import { useInitiativeStatusLabel } from "@/features/ea-delivery/initiatives/useInitiativeStatus";
+import {
+  useInitiativeStatusColor,
+  useInitiativeStatusLabel,
+} from "@/features/ea-delivery/initiatives/useInitiativeStatus";
 import type {
   Card,
   PpmBudgetLine,
@@ -40,9 +44,11 @@ import {
   SECTION_LABEL_KEYS,
   type PpmPrintSection,
   type ProjectCompletion,
+  type ProjectPrintCharts,
   type ProjectPrintData,
   type ProjectPrintFormat,
 } from "./ppmProjectPrint";
+import { compactAmount } from "./ppmPortfolioFormat";
 
 interface Props {
   card: Card;
@@ -68,12 +74,15 @@ export default function PpmProjectPdfDialog({
   rollup,
   onClose,
 }: Props) {
-  const { t } = useTranslation(["ppm", "common", "delivery"]);
+  const { t, i18n } = useTranslation(["ppm", "common", "delivery"]);
   const fullScreen = useFullScreenDialog();
   const subtypeLabel = useCardSubtypeLabel();
   // The same naming the initiative workspace gives the status: the metamodel option first.
   const initiativeStatusLabel = useInitiativeStatusLabel();
-  const { fmt: currencyFmt } = useCurrency();
+  // ... and its colour, resolved the same way (option colour, bundled colour, neutral).
+  const initiativeStatusColor = useInitiativeStatusColor();
+  const { fmt: currencyFmt, fmtShort, currency } = useCurrency();
+  const isRtl = useIsRtl();
   const { formatDate, formatDateTime } = useDateFormat();
   const { month: fiscalYearStart } = useFiscalYearStart();
   const [selected, setSelected] = useState<PpmPrintSection[]>(loadPrintSections);
@@ -82,6 +91,33 @@ export default function PpmProjectPdfDialog({
 
   const toggle = (s: PpmPrintSection) =>
     setSelected((prev) => orderedSections(prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+
+  /**
+   * The Budget & Costs spend charts as SVG images. ECharts is loaded here, on
+   * demand, so it never weighs on the PPM page. A chart that cannot be drawn
+   * costs the PDF its charts, never the PDF itself: `undefined` then, as when
+   * there is nothing to chart.
+   */
+  const spendCharts = async (): Promise<ProjectPrintCharts | undefined> => {
+    try {
+      const { renderSpendCharts } = await import("./ppmProjectCharts");
+      const charts = renderSpendCharts({
+        costLines,
+        budgetLines,
+        fiscalYearStart,
+        today: new Date(),
+        format: (v) => currencyFmt.format(v),
+        formatShort: fmtShort,
+        isRtl,
+        locale: i18n.language,
+        t: i18n.getFixedT(null, "ppm"),
+      });
+      // No dated cost line: nothing to chart, so no `charts` at all.
+      return Object.keys(charts).length > 0 ? charts : undefined;
+    } catch {
+      return undefined;
+    }
+  };
 
   const handleExport = () =>
     run(async () => {
@@ -94,17 +130,19 @@ export default function PpmProjectPdfDialog({
         const raw = card.attributes?.initiativeStatus;
         const status = typeof raw === "string" ? raw : "";
         const wantSchedule = selected.includes("schedule");
-        const [completion, wbs, tasks] = await Promise.all([
+        const [completion, wbs, tasks, charts] = await Promise.all([
           selected.includes("overview")
             ? api.get<ProjectCompletion>(`/ppm/initiatives/${id}/completion`)
             : Promise.resolve(null),
           wantSchedule ? api.get<PpmWbs[]>(`/ppm/initiatives/${id}/wbs`) : Promise.resolve([]),
           wantSchedule ? api.get<PpmTask[]>(`/ppm/initiatives/${id}/tasks`) : Promise.resolve([]),
+          selected.includes("costs") ? spendCharts() : Promise.resolve(undefined),
         ]);
         const data: ProjectPrintData = {
           card,
           subtypeLabel: card.subtype ? subtypeLabel(card.type, card.subtype) : null,
           initiativeStatusLabel: status ? initiativeStatusLabel(status) : null,
+          initiativeStatusColor: status ? initiativeStatusColor(status) : null,
           reports,
           costLines,
           budgetLines,
@@ -113,12 +151,16 @@ export default function PpmProjectPdfDialog({
           completion,
           wbs,
           tasks,
+          ...(charts && { charts }),
         };
         const fmt: ProjectPrintFormat = {
           amount: (n) => currencyFmt.format(n),
           date: formatDate,
           dateTime: formatDateTime,
           fiscalYearStart,
+          amountCompact: (n) => compactAmount(n, currency, (v) => currencyFmt.format(v)),
+          currency,
+          isRtl,
         };
         printProject(data, selected, fmt, win);
         savePrintSections(selected);

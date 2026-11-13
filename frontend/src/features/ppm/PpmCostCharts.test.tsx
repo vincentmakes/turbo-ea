@@ -24,6 +24,8 @@ import { mockApi } from "@/test/apiMock";
 import { hookState } from "@/test/hooks";
 import { echartState } from "@/test/echartMock";
 import { invalidateFiscalYearStart, resetFiscalYearStart } from "@/hooks/useFiscalYearStart";
+import { ThemeProvider, createTheme } from "@mui/material/styles";
+import { PPM_COST_COLORS } from "@/theme/tokens";
 import PpmCostCharts from "./PpmCostCharts";
 
 const PREFS_KEY = "turboea.ppm.costcharts.prefs";
@@ -454,6 +456,40 @@ describe("PpmCostCharts — project chart and chrome", () => {
     expect(option.yAxis.max).toBe(1000);
     expect(labelPositionsOf("Project to date")).toEqual(["insideEndBottom", "insideEndTop"]);
   });
+});
+
+describe("PpmCostCharts — colours", () => {
+  /* eslint-disable @typescript-eslint/no-explicit-any -- the option is plain JSON a test digs into */
+  const colorsOf = (name: string) => {
+    const option = optionOf(name);
+    return {
+      lines: option.series.map((s: any) => [s.lineStyle.color, s.itemStyle.color]),
+      budgets: option.series[0].markLine.data.map((r: any) => [r.lineStyle.color, r.label.color]),
+    };
+  };
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+
+  it.each(["light", "dark"] as const)(
+    "draws CapEx and OpEx, and their budget lines, in the shared cost colours (%s)",
+    (mode) => {
+      const { capex, opex } = PPM_COST_COLORS[mode];
+      render(
+        <ThemeProvider theme={createTheme({ palette: { mode } })}>
+          <PpmCostCharts costLines={COSTS} budgetLines={BUDGETS} />
+        </ThemeProvider>,
+      );
+      expect(colorsOf("Project to date")).toEqual({
+        lines: [
+          [capex, capex],
+          [opex, opex],
+        ],
+        budgets: [
+          [capex, capex],
+          [opex, opex],
+        ],
+      });
+    },
+  );
 });
 
 describe("PpmCostCharts — which fiscal year is current", () => {

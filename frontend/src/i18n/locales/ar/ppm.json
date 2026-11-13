@@ -333,5 +333,12 @@
   "pdfOwner": "المالك",
   "pdfProgress": "التقدم",
   "pdfRisk": "المخاطرة",
-  "pdfScore": "الدرجة"
+  "pdfScore": "الدرجة",
+  "pdfHeatMapTitle": "خريطة حرارية للمخاطر",
+  "pdfToday": "اليوم",
+  "pdfLegendWorkPackage": "حزمة عمل (تُظهر التعبئة نسبة الإنجاز)",
+  "pdfLegendTask": "مهمة",
+  "pdfLegendOneDate": "تاريخ واحد فقط",
+  "pdfOfBudget": "من ميزانية {{amount}}",
+  "pdfByStatus": "حسب الحالة"
 }

@@ -277,5 +277,12 @@
   "pdfOwner": "Ejer",
   "pdfProgress": "Fremdrift",
   "pdfRisk": "Risiko",
-  "pdfScore": "Score"
+  "pdfScore": "Score",
+  "pdfHeatMapTitle": "Risikovarmekort",
+  "pdfToday": "I dag",
+  "pdfLegendWorkPackage": "Arbejdspakke (udfyldningen viser fuldførelse)",
+  "pdfLegendTask": "Opgave",
+  "pdfLegendOneDate": "Kun én dato",
+  "pdfOfBudget": "af et budget på {{amount}}",
+  "pdfByStatus": "Efter status"
 }

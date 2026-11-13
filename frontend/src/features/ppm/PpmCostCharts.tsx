@@ -25,9 +25,9 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import EChart from "@/components/charts/EChart";
 import { useEChartsTheme } from "@/components/charts/echartsTheme";
 import { useCurrency } from "@/hooks/useCurrency";
-import { shortMonth } from "@/hooks/useDateFormat";
 import { useFiscalYearStart } from "@/hooks/useFiscalYearStart";
 import { fiscalYearLabel } from "@/lib/fiscalYear";
+import { PPM_COST_COLORS } from "@/theme/tokens";
 import type { PpmCostLine, PpmBudgetLine } from "@/types";
 import {
   availableFiscalYears,
@@ -48,6 +48,8 @@ import {
 } from "./costChartPrefs";
 import {
   buildCumulativeOption,
+  categoryReferences,
+  monthAxisLabels,
   type BudgetReference,
   type CumulativeLine,
 } from "./cumulativeChartOption";
@@ -133,8 +135,8 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
 
   const undated = useMemo(() => countUndated(costLines), [costLines]);
 
-  const capexColor = theme.palette.primary.main;
-  const opexColor = theme.palette.secondary.main;
+  // One palette with the initiative PDF's charts (`ppmProjectCharts.ts`).
+  const { capex: capexColor, opex: opexColor } = PPM_COST_COLORS[theme.palette.mode];
 
   // Each chart's lines and budget references, memoised: `CumulativeChart`
   // builds its option from them in a `useMemo`, and a fresh array on every
@@ -150,9 +152,13 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
     () => [{ key: "total", name: t("cumulativeSpend"), color: capexColor }],
     [t, capexColor],
   );
+  const budgetNames = useMemo(
+    () => ({ capex: t("capexBudgetLine"), opex: t("opexBudgetLine") }),
+    [t],
+  );
   const fyCategoryReferences = useMemo(
-    () => categoryReferences(fyBudget, t("capexBudgetLine"), t("opexBudgetLine"), capexColor, opexColor),
-    [fyBudget, t, capexColor, opexColor],
+    () => categoryReferences(fyBudget, budgetNames, { capex: capexColor, opex: opexColor }),
+    [fyBudget, budgetNames, capexColor, opexColor],
   );
   const fyTotalReferences = useMemo<BudgetReference[]>(
     () =>
@@ -162,9 +168,8 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
     [fyBudget, t, capexColor],
   );
   const projectReferences = useMemo(
-    () =>
-      categoryReferences(projectBudget, t("capexBudgetLine"), t("opexBudgetLine"), capexColor, opexColor),
-    [projectBudget, t, capexColor, opexColor],
+    () => categoryReferences(projectBudget, budgetNames, { capex: capexColor, opex: opexColor }),
+    [projectBudget, budgetNames, capexColor, opexColor],
   );
 
   // Nothing to plot at all — leave the tab as it was rather than showing an
@@ -266,20 +271,6 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
   );
 }
 
-/** The dotted CapEx and OpEx budget lines, each only when that budget is set. */
-function categoryReferences(
-  budget: { capex: number; opex: number },
-  capexName: string,
-  opexName: string,
-  capexColor: string,
-  opexColor: string,
-): BudgetReference[] {
-  return [
-    ...(budget.capex > 0 ? [{ value: budget.capex, name: capexName, color: capexColor }] : []),
-    ...(budget.opex > 0 ? [{ value: budget.opex, name: opexName, color: opexColor }] : []),
-  ];
-}
-
 /* ── Shared chart body ───────────────────────────────────────────────── */
 
 function CumulativeChart(props: {
@@ -295,22 +286,8 @@ function CumulativeChart(props: {
   const { data, lines, references, labelledBy, fmt, fmtShort, locale, emptyLabel } = props;
   const theme = useEChartsTheme();
 
-  // Append the year whenever the range crosses a calendar boundary, so
-  // "Jan" is never ambiguous on a multi-year axis.
-  const multiYear = useMemo(() => new Set(data.map((d) => d.year)).size > 1, [data]);
-  // `shortMonth` pins the Gregorian calendar (the months are Gregorian ones:
-  // `ar-SA` would otherwise name Hijri months), strips the bidi marks and
-  // survives a bad locale tag — the same month names as every formatted date.
-  const labelFor = useMemo(
-    () => (p: MonthPoint) => {
-      // Day 1 at noon: safe from any timezone rolling the date backwards.
-      const label = shortMonth(new Date(p.year, p.month - 1, 1, 12), locale);
-      return multiYear ? `${label} '${String(p.year).slice(-2)}` : label;
-    },
-    [locale, multiYear],
-  );
-
-  const labels = useMemo(() => data.map(labelFor), [data, labelFor]);
+  // Short month names, year-qualified on a multi-year axis.
+  const labels = useMemo(() => monthAxisLabels(data, locale), [data, locale]);
 
   const option = useMemo(() => {
     const { isRtl, ...chrome } = theme;
