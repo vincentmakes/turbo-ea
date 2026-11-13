@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [2.204.0] - 2026-11-13
 
 ### Added
-- **Initiative PDF**: a **PDF** button in a PPM initiative's header prints the initiative as a visual report — indicator tiles, budget bars, spend charts, a risk heat map and a schedule timeline — with a checkbox for each section, so ticking Risk Management alone gives a risk report ([#1398](https://github.com/vincentmakes/turbo-ea/discussions/1398)).
+- **Initiative Report**: a **Report** button on a PPM initiative opens a report page of its overview, status reports, budget and costs, risks and schedule, with a toggle for each section (Risk Management alone gives a risk report), that prints or saves as PDF like the other reports ([#1398](https://github.com/vincentmakes/turbo-ea/discussions/1398)).
 - The PPM Risk Management tab exports the risks shown to Excel and imports them back: a row with a Risk ID updates that risk, a row without one creates a risk, nothing is ever deleted, and a preview shows every row before anything is written ([#1398](https://github.com/vincentmakes/turbo-ea/discussions/1398)).
 - The PPM Risk Management tab has a filter panel (search, status, score band, owner), grouping by status, owner or score band, and columns you can freeze, reorder, show and hide, remembered in your browser.
 

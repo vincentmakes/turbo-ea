@@ -263,21 +263,23 @@ Interact with the Gantt chart using:
 
 The last tab shows the full card detail view, including all standard sections (description, lifecycle, attributes, relations, stakeholders, comments, history).
 
-### Exporting an initiative as PDF
+### Initiative Report
 
-The **PDF** button in the initiative's header, next to the subtype chip, prints the initiative as a designed, visual report — indicator tiles, health dots, budget bars, spend charts, a risk heat map and a schedule timeline (on a phone the button is a PDF icon). It opens a dialog with one checkbox per section; all are ticked the first time, **Select All** and **Deselect All** set them at once, and the choice you export with is remembered in your browser:
+![PPM Initiative Report](../assets/img/en/103_ppm_initiative_report.png)
 
-| Section | What it prints |
-|---------|----------------|
-| **Overview** | Tiles for **Total Budget**, **Total Actual** and **Variance** (green when within budget, red when over); a completion ring; the three health ratings of the latest status report as coloured dots (green, amber, red) with their text; budget bars for Total, CapEx and OpEx, red when over budget — figures taken from the initiatives beneath are drawn outlined with italic figures and a note saying so; the start and end dates; and the description |
-| **Status Reports** | The latest report in full, as a card with its health dots, then the earlier reports as a table of date, reporter and the three health ratings as coloured dots |
-| **Budget & Costs** | Tiles for the total budget, actual and variance and for CapEx and OpEx spent against their budget; the two cumulative spend charts of the Budget & Costs tab — one fiscal year by category (the current one, or the nearest year with data when the current one has none) and the whole project — with the CapEx and OpEx lines against dashed budget lines; then the budget lines and the cost items, grouped by fiscal year with subtotals and totals. A chart with nothing to plot, for example when no cost line is dated, is left out |
-| **Risk Management** | Tiles for **Total Risks**, **Open** and **High Risks**; a **Risk heat map** of probability against impact showing how many risks sit in each cell, coloured by score band (High 15 or more, Medium 6 to 14, Low below 6); then every risk with its score as a coloured chip (with probability × impact), its status chip, owner, full description and full mitigation, highest score first |
-| **Tasks & Schedule** | The work breakdown with a timeline on a year and quarter scale: a bar for each work package, filled to its completion, and for each task, coloured by its status; a diamond for a milestone, a dot for an item with one date only, a line for today when it falls inside the range, and a legend. Each row also gives the dates, completion or status, owner and, for a task, priority; each package's tasks sit beneath it, and the tasks with no work package follow. Dependency arrows are not drawn |
+The **Report** button in the initiative's header, next to the subtype chip (an icon on a phone), opens the **Initiative Report**: one read-only page that gathers what the tabs show, laid out like the other reports, with the initiative's name as its title and a back arrow to return to the initiative. The **Sections** chips in the toolbar show or hide each section; all are shown the first time, and your choice is remembered in your browser:
 
-**Export PDF** opens a print-ready document in a new tab together with the browser's print dialog; choose *Save as PDF* to keep it. Allow pop-ups for this site if nothing opens. The cover carries the initiative's name with its subtype and initiative status, and the date and time it was printed; the sections follow in the order above, and a ticked section with nothing in it reads *Nothing recorded.* Every colour is paired with its text, so the report still reads when printed in black and white, and the colours print without turning on the browser's *Background graphics* option.
+| Section | What it shows |
+|---------|---------------|
+| **Overview** | Tiles for **Total Budget**, **Total Actual**, **Variance** and **Completion**; the **Health Summary** with the three ratings of the latest status report in colour and in words; the **Financials** bars for Total, CapEx and OpEx; the **Timeline** card with the start and end dates, subtype and initiative status; and the description. Figures taken from the initiatives beneath are marked, with a note explaining them |
+| **Status Reports** | The latest report in full, with its ratings, then the earlier reports in a table of date, reporter and health ratings |
+| **Budget & Costs** | Tiles for the total budget, actual and variance and for CapEx and OpEx spent against their budget; the **Spend over time** charts for the fiscal year named in their chip and for the whole project; then the **Planned Budget** and **Cost Items** tables with every fiscal year expanded |
+| **Risk Management** | Tiles for **Total Risks**, **Open** and **High Risks**; the **Risk heat map** of probability against impact, each cell coloured by score band and showing how many risks it holds, beside a **By status** count; then every risk with its score (and probability × impact), status, owner, full description and full mitigation, highest score first |
+| **Tasks & Schedule** | A table of work packages, each with its tasks beneath it, then the tasks with no work package, alongside a timeline on a quarter scale: a bar for each work package filled to its completion, a bar for each task in its status colour, a flag for a milestone, a dot for an item with only one date, and a line for today when it falls inside the range. Each row also shows its progress or status and its priority, and a legend explains the marks |
 
-To hand out a **risk report**, tick **Risk Management** only.
+To print the report or save it as PDF, use the **Print / Save as PDF** button in the title bar, as on every report. The page prints in landscape without the toolbar and the app's navigation, and a line under the title gives the subtype, initiative status, start and end dates and when the report was printed. A section with nothing recorded says so.
+
+To hand out a **risk report**, show **Risk Management** only.
 
 ## Work Breakdown Structure (WBS)
 
