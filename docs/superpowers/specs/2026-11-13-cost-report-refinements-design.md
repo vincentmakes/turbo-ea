@@ -99,8 +99,12 @@ a `Box` with `overflow: "hidden"`, ~line 204) and the selected year's cost-item 
   year list the Time Travel uses (`costFiscalYearOptions`), forecast first. Each bar's segments are the year's cost
   items with the existing colours and values; a year with no items shows an empty bar (and its label), not a gap.
 - The TCO figure and the tiles below keep showing the **selected** year only, as today; the selected year's name
-  stays in the Time Travel row. Year labels sit at the left of each bar; the selected year's bar and label are
-  emphasised (full opacity, bold label, a subtle accent), the others at reduced opacity.
+  stays in the Time Travel row. Year labels sit at the left of each bar and are the **short form only**
+  (`FY27`, `FY26`, ..., no `Forecast` / `Current` suffix: there is little room; the long name stays in the Time
+  Travel row). The value of each year's total sits at the right of its bar. Agreed after a mockup on 2026-11-13:
+  the others are dimmed to about 45% opacity; the selected year is emphasised **discreetly**: a very light tint
+  behind its row (the theme's success tint at low strength, no outline) and a medium-weight label and value, not a
+  boxed highlight. An empty year (no items) still shows its row, label and a `0 €` value.
 - Tooltip root cause: the chart is wrapped in `overflow: "hidden"` so the ECharts tooltip is clipped to the wrapper.
   Fix: render the tooltip outside the wrapper (ECharts `tooltip.appendToBody: true` and a `z-index` above the page
   chrome) and keep the rounded ends through the series' own `itemStyle.borderRadius` instead of clipping the box;
