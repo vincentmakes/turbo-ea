@@ -72,6 +72,7 @@ import {
   parseDisplayedNumber,
   planSectionPages,
   sectionCuts,
+  slidePalette,
   textDirection,
   type TableHeadBox,
 } from "./reportExport";
@@ -1064,15 +1065,18 @@ describe("exportReportToPptx — section mode", () => {
     const [title, first, second] = deck.slides;
     expect(title.addImage).not.toHaveBeenCalled();
     expect(title.addText).toHaveBeenCalledTimes(2);
+    // The title block (0.7 + 0.45 in) is centred on the slide.
+    const titleTop = (7.5 - 1.15) / 2;
+    expect(title.background).toEqual({ color: "FFFFFF" });
     expect(title.addText).toHaveBeenNthCalledWith(
       1,
       "ERP Migration",
-      expect.objectContaining({ fontSize: 28, bold: true, color: "0F7EB5" }),
+      expect.objectContaining({ fontSize: 28, bold: true, color: "0F7EB5", x: MARGIN, y: near(titleTop), h: 0.7 }),
     );
     expect(title.addText).toHaveBeenNthCalledWith(
       2,
       `${generatedLabel()}    Status: On Track`,
-      expect.objectContaining({ fontSize: 12, color: "607D8B" }),
+      expect.objectContaining({ fontSize: 12, color: "607D8B", y: near(titleTop + 0.7), h: 0.45 }),
     );
     // Each section, captured once at its own size, never the chart node twice.
     expect(vi.mocked(toPng).mock.calls.map((c) => c[0])).toEqual([a, b]);
@@ -1092,12 +1096,12 @@ describe("exportReportToPptx — section mode", () => {
         name,
         expect.objectContaining({ x: MARGIN, y: MARGIN, h: 0.5, fontSize: 18, bold: true, color: "0F7EB5" }),
       );
-      // Width-bound in the continuation box, centred vertically.
+      // Width-bound in the continuation box, right under the heading.
       const h = CHART_W * (height / WIDTH);
       expect(slide.addImage).toHaveBeenCalledWith({
         data: CHART_PNG,
         x: near(MARGIN),
-        y: near(CONT_TOP + (CONT_H - h) / 2),
+        y: near(CONT_TOP),
         w: near(CHART_W),
         h: near(h),
       });
@@ -1204,7 +1208,7 @@ describe("exportReportToPptx — section mode", () => {
     // The continuation's picture is the slice plus the strip: 330 + 39 source px.
     const h2 = CHART_W * ((330 + 39) / WIDTH);
     expect(deck.slides[2].addImage).toHaveBeenCalledWith(
-      expect.objectContaining({ h: near(h2), y: near(CONT_TOP + (CONT_H - h2) / 2) }),
+      expect.objectContaining({ h: near(h2), y: near(CONT_TOP) }),
     );
   });
 
@@ -1396,6 +1400,87 @@ describe("exportReportToPptx — section mode", () => {
     expect(vi.mocked(toPng).mock.calls[0][1]).toMatchObject({ backgroundColor: "#1e1e1e" });
     expect((canvas.context as unknown as { fillStyle: string }).fillStyle).toBe("#1e1e1e");
     expect(canvas.context.fillRect).toHaveBeenCalledTimes(3);
+  });
+
+  it("chooses the slides' colours from the background", () => {
+    const light = { background: "FFFFFF", heading: "0F7EB5", muted: "607D8B" };
+    expect(slidePalette()).toEqual(light);
+    expect(slidePalette("#fff")).toEqual(light);
+    expect(slidePalette("#FFFFFF")).toEqual(light);
+    expect(slidePalette("rgb(255, 255, 255)")).toEqual(light);
+    expect(slidePalette("#fafbfc")).toEqual({ ...light, background: "FAFBFC" });
+    // A dark surface: the light brand blue and a light grey read on it.
+    expect(slidePalette("#1e1e1e")).toEqual({ background: "1E1E1E", heading: "90CAF9", muted: "CCCCCC" });
+    expect(slidePalette("#121")).toEqual({ background: "112211", heading: "90CAF9", muted: "CCCCCC" });
+    // Mid-grey sits on the light side of the 0.5 luminance line, or not.
+    expect(slidePalette("#bcbcbc").heading).toBe("0F7EB5");
+    expect(slidePalette("#b9b9b9").heading).toBe("90CAF9");
+    expect(slidePalette("#1e1e1ef").background).toBe("FFFFFF");
+  });
+
+  it("puts every slide of a dark-surface deck on that surface, with light text", async () => {
+    const [a, b] = mountSections(["<p>a</p>", "<p>b</p>"], {}, [200, 200]);
+    vi.mocked(toPng).mockResolvedValueOnce(CHART_PNG).mockRejectedValueOnce(new Error("x"));
+
+    await exportReportToPptx({
+      title: "T",
+      sheets: [],
+      background: "#1e1e1e",
+      sections: [
+        { title: "A", node: a },
+        { title: "B", node: b },
+      ],
+    });
+
+    const deck = pptx();
+    for (const slide of deck.slides) expect(slide.background).toEqual({ color: "1E1E1E" });
+    const [title, ok, failed] = deck.slides;
+    expect(title.addText.mock.calls[0][1]).toMatchObject({ color: "90CAF9" });
+    expect(title.addText.mock.calls[1][1]).toMatchObject({ color: "CCCCCC" });
+    expect(ok.addText.mock.calls[0][1]).toMatchObject({ color: "90CAF9" });
+    expect(failed.addText.mock.calls[0][1]).toMatchObject({ color: "90CAF9" });
+    expect(failed.addText.mock.calls[1][1]).toMatchObject({ color: "CCCCCC" });
+  });
+
+  it("puts a short picture right under the heading, centred across, not down", async () => {
+    // A tall narrow section: height-bound; a wide short one: width-bound.
+    const [narrow, wide] = mountSections(["<p>n</p>", "<p>w</p>"], {}, [2000, 100]);
+    // The narrow one is 400 px wide (the later stub wins for its selector).
+    restores.push(stubRectsBySelector({ "[data-sec]": [{ width: 400, height: 2000 }, { width: WIDTH, height: 100 }] }));
+
+    await exportReportToPptx({
+      title: "T",
+      sheets: [],
+      sections: [
+        { title: "N", node: narrow },
+        { title: "W", node: wide },
+      ],
+    });
+
+    const deck = pptx();
+    const drawW = CONT_H * (400 / 2000);
+    expect(deck.slides[1].addImage).toHaveBeenCalledWith({
+      data: CHART_PNG,
+      x: near(MARGIN + (CHART_W - drawW) / 2),
+      y: near(CONT_TOP),
+      w: near(drawW),
+      h: near(CONT_H),
+    });
+    expect(deck.slides[2].addImage).toHaveBeenCalledWith({
+      data: CHART_PNG,
+      x: near(MARGIN),
+      y: near(CONT_TOP),
+      w: near(CHART_W),
+      h: near(CHART_W / 10),
+    });
+  });
+
+  it("keeps the single-picture deck's title at the top margin and on white", async () => {
+    await exportReportToPptx({ title: "Old", sheets: [], background: "#1e1e1e" });
+    const [slide] = pptx().slides;
+    expect(slide.background).toEqual({ color: "FFFFFF" });
+    expect(slide.addText.mock.calls[0][1]).toMatchObject({ y: MARGIN, color: "0F7EB5" });
+    expect(slide.addText.mock.calls[1][1]).toMatchObject({ y: MARGIN + 0.7, color: "607D8B" });
   });
 
   it("builds the single-picture deck when the section list is empty", async () => {

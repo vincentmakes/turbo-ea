@@ -15,6 +15,7 @@ import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import Snackbar from "@mui/material/Snackbar";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useSubmitOnce } from "@/hooks/useSubmitOnce";
 import { printPage } from "@/lib/printPage";
@@ -120,6 +121,7 @@ export default function ReportShell({
 }: ReportShellProps) {
   const { t } = useTranslation(["reports", "common"]);
   const navigate = useNavigate();
+  const theme = useTheme();
   const [exportMenu, setExportMenu] = useState<HTMLElement | null>(null);
   const [exportFailed, setExportFailed] = useState(false);
   const exporting = useSubmitOnce();
@@ -181,7 +183,13 @@ export default function ReportShell({
   const showPptxItem = exportEnabled && allows("pptx") && (!hasTableToggle || view === "chart");
 
   return (
-    <Box className="report-container" sx={{ maxWidth, mx: "auto" }}>
+    // `data-theme-mode`: a dark-theme report prints the text set on the page
+    // itself in ink, since the page prints on white paper (print.css).
+    <Box
+      className="report-container"
+      data-theme-mode={theme.palette.mode}
+      sx={{ maxWidth, mx: "auto" }}
+    >
       {/* Saved report banner */}
       {savedReportName && (
         <Alert
@@ -206,7 +214,12 @@ export default function ReportShell({
       {/* Title bar */}
       <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1, flexWrap: "wrap" }}>
         <MaterialSymbol icon={icon} size={26} color={iconColor} />
-        <Typography variant="h5" sx={{ fontWeight: 700, flex: 1, minWidth: 0 }} noWrap>
+        <Typography
+          className="report-title"
+          variant="h5"
+          sx={{ fontWeight: 700, flex: 1, minWidth: 0 }}
+          noWrap
+        >
           {title}
         </Typography>
 

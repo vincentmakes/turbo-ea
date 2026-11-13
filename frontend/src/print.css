@@ -129,6 +129,11 @@
   }
   .echart-print-copy {
     display: block !important;
+    /* Never stretched: if a browser draws the copy before the print layout
+       applies (Safari at beforeprint), its proportions can differ from the
+       printed box; it then letterboxes from the top instead of distorting. */
+    object-fit: contain;
+    object-position: center top;
   }
 
   /* Allow content to flow across pages, but avoid breaks inside cards */
@@ -244,6 +249,20 @@
     white-space: normal !important;
     overflow: visible !important;
     text-overflow: clip !important;
+  }
+
+  /* ---- A dark-theme report on white paper ----
+     The page prints on white (main.app-main-content above), but in the dark
+     theme the text set directly on it is light: the report's title, its print
+     parameters, and the Initiative Report's section and table headings,
+     captions and legend. Print those in ink. Text inside a card keeps the
+     card's own colours, since the card prints its dark surface. Scoped to the
+     shell's title and parameters and to the Initiative Report: other reports
+     draw light text on coloured boxes that are not cards. */
+  .report-container[data-theme-mode="dark"] .report-title,
+  .report-container[data-theme-mode="dark"] .report-print-params .MuiTypography-root,
+  .report-container[data-theme-mode="dark"] .ppm-project-report .MuiTypography-root:not(.MuiPaper-root *) {
+    color: #333 !important;
   }
 
   /* Remove box shadows and unnecessary borders */

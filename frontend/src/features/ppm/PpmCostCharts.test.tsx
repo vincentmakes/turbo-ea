@@ -9,7 +9,7 @@
  * toggle that choose which data that is.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { PpmBudgetLine, PpmCostLine } from "@/types";
 
@@ -456,6 +456,26 @@ describe("PpmCostCharts — project chart and chrome", () => {
     // A mark line runs along the inverted axis, so its end is already the left.
     expect(option.yAxis.max).toBe(1000);
     expect(labelPositionsOf("Project to date")).toEqual(["insideEndBottom", "insideEndTop"]);
+  });
+});
+
+describe("PpmCostCharts — the Initiative Report's deck", () => {
+  it("lets the deck cut the card between its chart rows, its heading held with the first", () => {
+    const { container } = renderCharts();
+    const card = container.querySelector(".MuiPaper-root") as HTMLElement;
+    // The card as a whole is not one block (print still keeps it whole).
+    expect(card).not.toHaveAttribute("data-export-row");
+    expect(container.querySelectorAll("[data-export-row]")).toHaveLength(0);
+    const heading = container.querySelector("[data-export-heading]") as HTMLElement;
+    expect(heading).toHaveTextContent("Spend over time");
+    expect(container.querySelectorAll("[data-export-heading]")).toHaveLength(1);
+    const blocks = [...container.querySelectorAll("[data-export-keep]")] as HTMLElement[];
+    expect(blocks).toHaveLength(2);
+    // The two fiscal-year charts form one block, "Project to date" the other.
+    expect(within(blocks[0]).getByRole("img", { name: "Cumulative spend by category" })).toBeInTheDocument();
+    expect(within(blocks[0]).getByRole("img", { name: "Cumulative total spend" })).toBeInTheDocument();
+    expect(within(blocks[1]).getByRole("img", { name: "Project to date" })).toBeInTheDocument();
+    expect(within(blocks[1]).queryByRole("img", { name: "Cumulative total spend" })).toBeNull();
   });
 });
 

@@ -3,7 +3,7 @@ import { toPng } from "html-to-image";
 import PptxGenJS from "pptxgenjs";
 import i18n, { isRtlLocale } from "@/i18n";
 import { toIsoDate } from "@/lib/dates";
-import { PRINT_COLORS } from "@/theme/tokens";
+import { PRINT_COLORS, brand } from "@/theme/tokens";
 import { canvasMaxArea, isAppleMobileDevice } from "./ldvExportSizing";
 
 export type ExportColumnType = "text" | "number" | "currency" | "date";
@@ -848,18 +848,25 @@ export async function exportReportToPptx(data: ReportExportData): Promise<void> 
   // left; the single-picture deck is left exactly as it was.
   const dir = sectionMode ? textDirection(i18n.language) : {};
 
+  // A section-mode deck sits on the page's own surface, its colours chosen
+  // to read on it; the single-picture deck keeps white and the brand blue.
+  const palette = sectionMode ? slidePalette(data.background) : DEFAULT_SLIDE_PALETTE;
+  // A section-mode title slide carries no picture: its title block is
+  // centred on the slide instead of sitting above an empty chart area.
+  const titleTop = sectionMode ? (slideHeight - TITLE_BLOCK_H) / 2 : margin;
+
   // Slide 1: combined title + chart
   const titleSlide = pptx.addSlide();
-  titleSlide.background = { color: "FFFFFF" };
+  titleSlide.background = { color: palette.background };
 
   titleSlide.addText(data.title, {
     x: margin,
-    y: margin,
+    y: titleTop,
     w: slideWidth - 2 * margin,
     h: 0.7,
     fontSize: 28,
     bold: true,
-    color: PPT_BRAND_COLOR,
+    color: palette.heading,
     fontFace: "Calibri",
     ...dir,
   });
@@ -879,11 +886,11 @@ export async function exportReportToPptx(data: ReportExportData): Promise<void> 
 
   titleSlide.addText(subtitleParts.join("    "), {
     x: margin,
-    y: margin + 0.7,
+    y: titleTop + 0.7,
     w: slideWidth - 2 * margin,
     h: 0.45,
     fontSize: 12,
-    color: PPT_MUTED_COLOR,
+    color: palette.muted,
     fontFace: "Calibri",
     ...dir,
   });
@@ -894,7 +901,7 @@ export async function exportReportToPptx(data: ReportExportData): Promise<void> 
   const chartWidth = slideWidth - 2 * margin;
 
   if (data.sections && sectionMode) {
-    await addSectionSlides(pptx, data.sections, t, dir, data.background ?? PRINT_COLORS.paper);
+    await addSectionSlides(pptx, data.sections, t, dir, data.background ?? PRINT_COLORS.paper, palette);
   } else if (data.chartNode) {
     const captured = await captureChartImage(data.chartNode, data.paginateRowSelector);
     if (captured) {
@@ -993,6 +1000,54 @@ export async function exportReportToPptx(data: ReportExportData): Promise<void> 
 
 type Translate = (key: string, fallback: string, opts?: Record<string, unknown>) => string;
 
+/** A slide's background and the colours of its heading and of its muted text, as hex without `#`. */
+export interface SlidePalette {
+  background: string;
+  heading: string;
+  muted: string;
+}
+
+/** The title + generated line's height on the title slide (0.7 + 0.45 in). */
+const TITLE_BLOCK_H = 1.15;
+
+const DEFAULT_SLIDE_PALETTE: SlidePalette = {
+  background: "FFFFFF",
+  heading: PPT_BRAND_COLOR,
+  muted: PPT_MUTED_COLOR,
+};
+
+const pptHex = (css: string) => css.slice(1).toUpperCase();
+
+/** `#rgb` / `#rrggbb` as six hex digits, or null for anything else. */
+function sixDigitHex(css: string): string | null {
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(css.trim());
+  if (!m) return null;
+  const h = m[1].length === 3 ? [...m[1]].map((c) => c + c).join("") : m[1];
+  return h.toUpperCase();
+}
+
+/** WCAG relative luminance of six hex digits. */
+function luminance(hex: string): number {
+  const [r, g, b] = [0, 2, 4].map((i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/**
+ * The slides' colours on `background` (a CSS hex colour): that background,
+ * and on a dark one the light brand blue and a light grey, which read on it
+ * where the brand blue and the slate grey do not. Without a usable
+ * background, white with the usual colours.
+ */
+export function slidePalette(background?: string): SlidePalette {
+  const hex = background ? sixDigitHex(background) : null;
+  if (!hex) return DEFAULT_SLIDE_PALETTE;
+  if (luminance(hex) >= 0.5) return { ...DEFAULT_SLIDE_PALETTE, background: hex };
+  return { background: hex, heading: pptHex(brand.primaryLight), muted: pptHex(PRINT_COLORS.control) };
+}
+
 /** Text set right to left, aligned to the right. */
 type TextDirection = { align?: "right"; rtlMode?: boolean };
 
@@ -1011,9 +1066,14 @@ const SECTION_W = SLIDE_W - 2 * SLIDE_MARGIN;
 const SECTION_H = SLIDE_H - SECTION_TOP - SLIDE_MARGIN;
 
 /** A slide headed `heading`, in the continuation slides' style. */
-function addHeadedSlide(pptx: PptxGenJS, heading: string, dir: TextDirection): PptxGenJS.Slide {
+function addHeadedSlide(
+  pptx: PptxGenJS,
+  heading: string,
+  dir: TextDirection,
+  palette: SlidePalette,
+): PptxGenJS.Slide {
   const slide = pptx.addSlide();
-  slide.background = { color: "FFFFFF" };
+  slide.background = { color: palette.background };
   slide.addText(heading, {
     x: SLIDE_MARGIN,
     y: SLIDE_MARGIN,
@@ -1021,7 +1081,7 @@ function addHeadedSlide(pptx: PptxGenJS, heading: string, dir: TextDirection): P
     h: 0.5,
     fontSize: 18,
     bold: true,
-    color: PPT_BRAND_COLOR,
+    color: palette.heading,
     fontFace: "Calibri",
     ...dir,
   });
@@ -1055,18 +1115,19 @@ async function addSectionSlides(
   t: Translate,
   dir: TextDirection,
   background: string,
+  palette: SlidePalette,
 ): Promise<void> {
   for (const section of sections) {
     const pages = await sectionPages(section, background);
     if (!pages) {
-      const slide = addHeadedSlide(pptx, section.title, dir);
+      const slide = addHeadedSlide(pptx, section.title, dir, palette);
       slide.addText(t("export.chartUnavailable", "Chart preview unavailable."), {
         x: SLIDE_MARGIN,
         y: SECTION_TOP,
         w: SECTION_W,
         h: SECTION_H,
         fontSize: 14,
-        color: PPT_MUTED_COLOR,
+        color: palette.muted,
         align: "center",
         valign: "middle",
         italic: true,
@@ -1082,7 +1143,7 @@ async function addSectionSlides(
               total: pages.length,
             })}`
           : section.title;
-      const slide = addHeadedSlide(pptx, heading, dir);
+      const slide = addHeadedSlide(pptx, heading, dir, palette);
       const fit = fitImageInBox(
         page.sourceWidth,
         page.sourceHeight,
@@ -1091,7 +1152,9 @@ async function addSectionSlides(
         SLIDE_MARGIN,
         SECTION_TOP,
       );
-      slide.addImage({ data: page.dataUrl, ...fit });
+      // Right under the heading: a short page centred in the box left a gap
+      // under the title.
+      slide.addImage({ data: page.dataUrl, ...fit, y: SECTION_TOP });
     });
   }
 }

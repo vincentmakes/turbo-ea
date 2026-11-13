@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
+import { ThemeProvider, createTheme } from "@mui/material/styles";
 import ReportShell from "./ReportShell";
 
 // ---------------------------------------------------------------------------
@@ -103,6 +104,23 @@ describe("ReportShell", () => {
 
     await user.click(screen.getByRole("button", { name: /reset to defaults/i }));
     expect(onReset).toHaveBeenCalled();
+  });
+
+  it("marks its container with the theme mode and its title for print", () => {
+    renderShell();
+    const container = document.querySelector(".report-container")!;
+    expect(container).toHaveAttribute("data-theme-mode", "light");
+    expect(screen.getByText("Test Report")).toHaveClass("report-title");
+    render(
+      <ThemeProvider theme={createTheme({ palette: { mode: "dark" } })}>
+        <MemoryRouter>
+          <ReportShell title="Dark" icon="bar_chart">
+            <div />
+          </ReportShell>
+        </MemoryRouter>
+      </ThemeProvider>,
+    );
+    expect(screen.getByText("Dark").closest(".report-container")).toHaveAttribute("data-theme-mode", "dark");
   });
 
   it("renders print button", () => {

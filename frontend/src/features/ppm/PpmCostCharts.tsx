@@ -213,9 +213,19 @@ export default function PpmCostCharts({
   };
 
   return (
-    // `data-export-row`: the Initiative Report's deck never cuts through the card.
-    <Paper variant="outlined" data-export-row sx={{ p: 2, mb: 3 }}>
-      <Box display="flex" alignItems="center" gap={1.5} flexWrap="wrap" mb={expanded ? 2 : 0}>
+    // The Initiative Report's deck may cut this card between its chart rows
+    // (`data-export-keep` on each, its heading held with the first by
+    // `data-export-heading`), so the charts stay full width on a slide.
+    // Print keeps the card whole (print.css), and knows neither marker.
+    <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+      <Box
+        data-export-heading
+        display="flex"
+        alignItems="center"
+        gap={1.5}
+        flexWrap="wrap"
+        mb={expanded ? 2 : 0}
+      >
         <Typography variant="subtitle1" fontWeight={600} id={headingId}>
           {t("spendOverTime")}
         </Typography>
@@ -264,7 +274,7 @@ export default function PpmCostCharts({
       </Box>
 
       <Collapse in={expanded} unmountOnExit>
-        <Box display="flex" gap={2} flexWrap="wrap">
+        <Box data-export-keep display="flex" gap={2} flexWrap="wrap">
           {/* ── 1. By category, one fiscal year ── */}
           <Box flex="1 1 380px" minWidth={0}>
             <Typography variant="body2" fontWeight={600} mb={0.5} id={`${headingId}-cat`}>
@@ -295,7 +305,7 @@ export default function PpmCostCharts({
         </Box>
 
         {/* ── 3. Whole project ── */}
-        <Box mt={2}>
+        <Box data-export-keep mt={2}>
           <Typography variant="body2" fontWeight={600} mb={0.5} id={`${headingId}-proj`}>
             {t("projectCumulative")}
           </Typography>
