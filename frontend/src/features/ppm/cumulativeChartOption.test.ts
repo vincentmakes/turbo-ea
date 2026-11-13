@@ -373,6 +373,13 @@ describe("monthAxisLabels", () => {
     ]);
   });
 
+  it("takes the year's last two digits, whatever its length", () => {
+    expect(monthAxisLabels([{ year: 999, month: 12 }, { year: 1000, month: 1 }], "en")).toEqual([
+      "Dec '99",
+      "Jan '00",
+    ]);
+  });
+
   it("names the months in the given locale, as every formatted date does", () => {
     // The ICU spelling ("Mär" / "März") varies by runtime; the shared helper is the reference.
     expect(monthAxisLabels([{ year: 2020, month: 3 }], "de")).toEqual([

@@ -103,6 +103,19 @@ const FILL_COLOR = brand.primary;
 
 const pct = (n: number) => `${n}%`;
 
+// Stryker disable all: static layout of the title cell, the rows, the group headings and the legend (flex, gaps, wrapping, spacing, row height); jsdom does no layout, and the marks' geometry is asserted in PpmScheduleTimeline.test.tsx
+const SX = {
+  titleCell: { py: 0.75, overflowWrap: "anywhere" },
+  titleLine: { display: "flex", alignItems: "center", gap: 0.5, minWidth: 0 },
+  titleDiamond: { flexShrink: 0, mx: 0.5 },
+  titleText: { minWidth: 0 },
+  row: { height: ROW_HEIGHT },
+  heading: { display: "flex", alignItems: "center", gap: 1 },
+  legend: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1.5, mt: 1.5 },
+  legendItem: { display: "flex", alignItems: "center", gap: 0.75 },
+} as const;
+// Stryker restore all
+
 /**
  * A quarter rule: fainter than a year rule (the theme divider, 12 %). Built
  * from the text ink, since `alpha()` of the divider would replace its own
@@ -144,15 +157,15 @@ export default function PpmScheduleTimeline({ wbs, tasks, now }: PpmScheduleTime
     return (
       <TableCell
         data-depth={depth}
-        sx={{ py: 0.75, pl: indentOf(depth), overflowWrap: "anywhere" }}
+        sx={{ ...SX.titleCell, pl: indentOf(depth) }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, minWidth: 0 }}>
+        <Box sx={SX.titleLine}>
           {milestone && (
-            <Box sx={{ flexShrink: 0, mx: 0.5 }}>
+            <Box sx={SX.titleDiamond}>
               <MilestoneDiamond size={MILESTONE_SIZE.title} />
             </Box>
           )}
-          <Typography variant="body2" fontWeight={depth === 0 ? 600 : 400} sx={{ minWidth: 0 }}>
+          <Typography variant="body2" fontWeight={depth === 0 ? 600 : 400} sx={SX.titleText}>
             {title}
           </Typography>
         </Box>
@@ -297,7 +310,7 @@ export default function PpmScheduleTimeline({ wbs, tasks, now }: PpmScheduleTime
     if (row.kind === "wbs") {
       const w = row.item;
       return (
-        <TableRow key={`w-${w.id}`} data-export-row data-kind="wbs" sx={{ height: ROW_HEIGHT }}>
+        <TableRow key={`w-${w.id}`} data-export-row data-kind="wbs" sx={SX.row}>
           {titleCell(w.title, row.depth, wbsSpan(w), w.assignee_name, w.is_milestone)}
           {model && lane(model, wbsMark(model, w))}
           <TableCell>
@@ -309,7 +322,7 @@ export default function PpmScheduleTimeline({ wbs, tasks, now }: PpmScheduleTime
     }
     const task = row.item;
     return (
-      <TableRow key={`t-${task.id}`} data-export-row data-kind="task" sx={{ height: ROW_HEIGHT }}>
+      <TableRow key={`t-${task.id}`} data-export-row data-kind="task" sx={SX.row}>
         {titleCell(task.title, row.depth, taskSpan(task), task.assignee_name, false)}
         {model && lane(model, taskMark(model, task))}
         <TableCell>
@@ -326,7 +339,7 @@ export default function PpmScheduleTimeline({ wbs, tasks, now }: PpmScheduleTime
   const groupHeader = (icon: string, label: string, count: number) => (
     <TableRow data-export-row data-export-heading data-group sx={HEAD_ROW_SX}>
       <TableCell colSpan={colCount}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <Box sx={SX.heading}>
           <MaterialSymbol icon={icon} size={iconSize.sm} color={theme.palette.action.active} />
           <Typography variant="body2" fontWeight={600}>
             {label}
@@ -386,7 +399,10 @@ export default function PpmScheduleTimeline({ wbs, tasks, now }: PpmScheduleTime
             {unassigned.length > 0 &&
               rows.length > 0 &&
               groupHeader("assignment", t("unassigned"), unassigned.length)}
-            {unassigned.map((task) => renderRow({ kind: "task", item: task, depth: 0 }))}
+            {
+              // Stryker disable next-line StringLiteral: equivalent, renderRow branches on `kind === "wbs"` alone, so any other kind renders the task row
+              unassigned.map((task) => renderRow({ kind: "task", item: task, depth: 0 }))
+            }
           </TableBody>
         </Table>
       </TableContainer>
@@ -481,13 +497,13 @@ function ScheduleLegend({ today }: { today: boolean }) {
   return (
     <Box
       data-schedule-legend
-      sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1.5, mt: 1.5 }}
+      sx={SX.legend}
     >
       {items.map((item) => (
         <Box
           key={item.key}
           data-legend-item={item.key}
-          sx={{ display: "flex", alignItems: "center", gap: 0.75 }}
+          sx={SX.legendItem}
         >
           {item.mark}
           <Typography variant="caption" color="text.secondary">

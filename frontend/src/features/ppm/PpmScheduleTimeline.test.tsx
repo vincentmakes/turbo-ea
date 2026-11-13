@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
+import { afterEach } from "vitest";
 import { alpha, createTheme } from "@mui/material/styles";
 import { PRIORITY_COLORS, RAG_COLORS, brand } from "@/theme/tokens";
 import type { PpmTask, PpmWbs } from "@/types";
@@ -404,5 +405,144 @@ describe("PpmScheduleTimeline", () => {
     const headings = [...container.querySelectorAll("[data-export-heading]")];
     expect(headings).toHaveLength(2);
     for (const h of headings) expect(h).toHaveAttribute("data-group");
+  });
+  it("closes an open-ended date line on its dash, and starts an end-only one on it", () => {
+    render(
+      <PpmScheduleTimeline
+        wbs={[wbs({ title: "Open", start_date: "2025-01-11", end_date: null })]}
+        tasks={[task({ title: "Due", start_date: null, due_date: "2025-02-01" })]}
+        now={IN_Q1}
+      />,
+    );
+    // Exact text, not the normalising matcher: no dangling space on either side.
+    const caption = (title: string) =>
+      screen.getByText(title).closest("[data-depth]")!.querySelector(".MuiTypography-caption")!;
+    expect(caption("Open").textContent).toBe("D(2025-01-11) –");
+    expect(caption("Due").textContent).toBe("– D(2025-02-01)");
+  });
+
+  it("puts the small diamond before a package milestone's title only, never a task's", () => {
+    render(
+      <PpmScheduleTimeline
+        wbs={[wbs({ id: "m", title: "Gate", is_milestone: true })]}
+        tasks={[task({ title: "Plain task" }), task({ id: "t2", title: "Loose" })]}
+        now={IN_Q1}
+      />,
+    );
+    expect(rowOf("Gate").querySelector("td [data-milestone-diamond]")).not.toBeNull();
+    expect(rowOf("Plain task").querySelector("[data-milestone-diamond]")).toBeNull();
+    expect(rowOf("Loose").querySelector("[data-milestone-diamond]")).toBeNull();
+  });
+
+  describe("row keys", () => {
+    const errors = vi.spyOn(console, "error");
+    afterEach(() => errors.mockClear());
+
+    it("keys every package and task row on its own id", () => {
+      errors.mockImplementation(() => {});
+      render(
+        <PpmScheduleTimeline
+          wbs={[wbs({ id: "a", title: "A" }), wbs({ id: "b", title: "B" })]}
+          tasks={[
+            task({ id: "x", wbs_id: "a", title: "X" }),
+            task({ id: "y", wbs_id: "a", title: "Y" }),
+            task({ id: "u", title: "U" }),
+            task({ id: "v", title: "V" }),
+          ]}
+          now={IN_Q1}
+        />,
+      );
+      expect(errors.mock.calls.map((c) => String(c[0]))).not.toContainEqual(
+        expect.stringMatching(/same key/),
+      );
+    });
+  });
+
+  it("draws every mark absolutely inside its lane, centred on the lane's middle", () => {
+    const { container } = render(
+      <PpmScheduleTimeline
+        wbs={[
+          wbs({ id: "long", title: "Long", start_date: "2024-11-01", end_date: "2025-05-01" }),
+          wbs({ id: "m", title: "Gate", is_milestone: true, start_date: "2025-01-11", end_date: null }),
+          wbs({ id: "one", title: "One date", start_date: null, end_date: "2025-01-31" }),
+        ]}
+        tasks={[task({ title: "Tsk" })]}
+        now={new Date(2025, 1, 15)}
+      />,
+    );
+    // The lane and scale cells are the marks' containing block, with no padding of their own.
+    for (const cell of container.querySelectorAll("[data-lane], [data-scale]")) {
+      expect(cell).toHaveStyle({ position: "relative", padding: "0px" });
+    }
+    const rule = rowOf("Long").querySelector("[data-rule]") as HTMLElement;
+    expect(rule).toHaveStyle({ position: "absolute", width: "1px", top: "0px", bottom: "0px" });
+    const now = rowOf("Long").querySelector("[data-now-line]") as HTMLElement;
+    expect(now).toHaveStyle({ position: "absolute", pointerEvents: "none" });
+    const bar = markOf("Long", "bar")!;
+    expect(bar).toHaveStyle({ position: "absolute", top: "50%", marginTop: "-8px", overflow: "hidden" });
+    expect(bar.querySelector("[data-fill]")).toHaveStyle({ position: "absolute", top: "0px" });
+    expect(markOf("Tsk", "bar")).toHaveStyle({ marginTop: "-8px" });
+    const dot = markOf("One date", "point")!;
+    expect(dot).toHaveStyle({ position: "absolute", top: "50%", marginTop: "-5px", borderRadius: "50%" });
+    const diamond = markOf("Gate", "milestone")!;
+    expect(diamond).toHaveStyle({ position: "absolute", top: "50%", display: "flex" });
+  });
+
+  it("sizes the table and its fixed columns with a lane, and drops the fixed widths without", () => {
+    const { container, rerender } = render(
+      <PpmScheduleTimeline wbs={[SPAN]} tasks={[]} now={AFTER} />,
+    );
+    expect(screen.getByRole("table")).toHaveStyle({ tableLayout: "fixed", minWidth: "760px" });
+    const headers = () =>
+      within(container.querySelector("[data-schedule-head]") as HTMLElement).getAllByRole(
+        "columnheader",
+      );
+    expect(headers()[0]).toHaveStyle({ width: "30%" });
+    expect(headers()[2]).toHaveStyle({ width: "132px" });
+    expect(headers()[3]).toHaveStyle({ width: "104px" });
+    rerender(
+      <PpmScheduleTimeline wbs={[wbs({ start_date: null, end_date: null })]} tasks={[]} now={AFTER} />,
+    );
+    expect(screen.getByRole("table")).toHaveStyle({ tableLayout: "fixed", minWidth: "480px" });
+    expect(getComputedStyle(headers()[0]).width).not.toBe("30%");
+  });
+
+  it("sets each quarter label at its quarter's start, on one line", () => {
+    const { container } = render(
+      <PpmScheduleTimeline
+        wbs={[wbs({ title: "Long", start_date: "2024-10-01", end_date: "2025-06-30" })]}
+        tasks={[]}
+        now={AFTER}
+      />,
+    );
+    const labels = [...container.querySelectorAll("[data-qlabel]")] as HTMLElement[];
+    expect(labels.map((l) => l.textContent)).toEqual(["Q4'24", "Q1'25", "Q2'25"]);
+    const starts = labels.map((l) => pctOf(l, "inset-inline-start"));
+    expect(starts[0]).toBe(0);
+    expect(starts[1]).toBeGreaterThan(30);
+    expect(starts[1]).toBeLessThan(36);
+    expect(starts[2]).toBeGreaterThan(starts[1]);
+    for (const l of labels) expect(l).toHaveStyle({ position: "absolute", whiteSpace: "nowrap" });
+  });
+
+  it("draws the legend's work-package swatch half filled, and the today key as a thin red line", () => {
+    const { container } = render(<PpmScheduleTimeline wbs={[SPAN]} tasks={[]} now={IN_Q1} />);
+    const swatch = (key: string) =>
+      container.querySelector(`[data-legend-item="${key}"] [data-legend-swatch]`) as HTMLElement;
+    expect(swatch("wbs")).toHaveStyle({ position: "relative", overflow: "hidden" });
+    const half = swatch("wbs").firstElementChild as HTMLElement;
+    expect(half).toHaveStyle({
+      position: "absolute",
+      width: "50%",
+      backgroundColor: brand.primary,
+    });
+    expect(swatch("today")).toHaveStyle({
+      width: "2px",
+      backgroundColor: palette.error.main,
+    });
+    // Each key is named by what it keys, the milestone's too.
+    const milestone = container.querySelector('[data-legend-item="milestone"]') as HTMLElement;
+    expect(milestone).toHaveTextContent("Milestone");
+    expect(milestone.querySelector("[data-milestone-diamond]")).not.toBeNull();
   });
 });

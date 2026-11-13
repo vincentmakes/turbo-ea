@@ -419,9 +419,11 @@ describe("PpmCostCharts — project chart and chrome", () => {
     const { user } = renderCharts();
     const toggle = screen.getByRole("button", { name: "Spend over time" });
     expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(toggle).toHaveTextContent(/^expand_less$/);
 
     await user.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveTextContent(/^expand_more$/);
     expect(screen.queryByRole("combobox", { name: "Fiscal Year" })).not.toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole("img", { name: "Project to date" })).not.toBeInTheDocument());
     await waitFor(() =>
@@ -509,6 +511,29 @@ describe("PpmCostCharts — colours", () => {
           [opex, opex],
         ],
       });
+    },
+  );
+});
+
+describe("PpmCostCharts — colours of one fiscal year", () => {
+  it.each(["light", "dark"] as const)(
+    "draws the year's CapEx and OpEx budget lines in the shared cost colours too (%s)",
+    (mode) => {
+      const { capex, opex } = PPM_COST_COLORS[mode];
+      render(
+        <ThemeProvider theme={createTheme({ palette: { mode } })}>
+          <PpmCostCharts costLines={COSTS} budgetLines={BUDGETS} readOnly fiscalYear={2020} />
+        </ThemeProvider>,
+      );
+      const option = optionOf("Cumulative spend by category");
+      /* eslint-disable @typescript-eslint/no-explicit-any -- the option is plain JSON a test digs into */
+      expect(
+        option.series[0].markLine.data.map((r: any) => [r.name, r.lineStyle.color, r.label.color]),
+      ).toEqual([
+        ["CapEx budget", capex, capex],
+        ["OpEx budget", opex, opex],
+      ]);
+      /* eslint-enable @typescript-eslint/no-explicit-any */
     },
   );
 });

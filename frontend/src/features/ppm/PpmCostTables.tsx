@@ -66,6 +66,12 @@ const DERIVED_FOOTER_CELL_SX = { ...FOOTER_CELL_SX, fontStyle: "italic" } as con
 // Stryker disable next-line ObjectLiteral: layout of the glyph beside the caption is presentation
 const DERIVED_CAPTION_SX = { display: "flex", alignItems: "center", gap: 0.5 } as const;
 
+// Stryker disable all: how a narrow screen scrolls a table sideways (momentum scrolling, a 660 px floor below md) and the gap under the budget table; jsdom does no layout and evaluates no media query
+const BUDGET_CONTAINER_SX = { mb: 3, WebkitOverflowScrolling: "touch" } as const;
+const COST_CONTAINER_SX = { WebkitOverflowScrolling: "touch" } as const;
+const TABLE_SX = { minWidth: { xs: 660, md: "auto" } } as const;
+// Stryker restore all
+
 /** No group is open: the stand-in when the caller passes no `expanded` set. */
 const NONE_OPEN: ReadonlySet<GroupKey | null> = new Set();
 
@@ -258,6 +264,7 @@ function DescriptionCell({ text, full }: { text: string; full: boolean }) {
 
 /** A line's edit and delete buttons. */
 function LineActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
+  // Stryker disable next-line StringLiteral: equivalent, both keys name their namespace ("common:"), so the default namespace is never read
   const { t } = useTranslation("ppm");
   return (
     <TableCell>
@@ -351,9 +358,9 @@ export function BudgetTable({
       data-testid="ppm-budget-table"
       component={Paper}
       variant="outlined"
-      sx={{ mb: 3, WebkitOverflowScrolling: "touch" }}
+      sx={BUDGET_CONTAINER_SX}
     >
-      <Table size="small" sx={{ minWidth: { xs: 660, md: "auto" } }}>
+      <Table size="small" sx={TABLE_SX}>
         <TableHead>
           <TableRow>
             <TableCell>{t("common:labels.description")}</TableCell>
@@ -476,9 +483,9 @@ export function CostTable({
       data-testid="ppm-cost-table"
       component={Paper}
       variant="outlined"
-      sx={{ WebkitOverflowScrolling: "touch" }}
+      sx={COST_CONTAINER_SX}
     >
-      <Table size="small" sx={{ minWidth: { xs: 660, md: "auto" } }}>
+      <Table size="small" sx={TABLE_SX}>
         <TableHead>
           <TableRow>
             <TableCell>{t("common:labels.description")}</TableCell>

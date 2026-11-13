@@ -406,6 +406,29 @@ describe("CostTable — the tab's mode", () => {
   });
 });
 
+describe("CostTable — handlers left out", () => {
+  it("tolerates a click on edit or delete when no handler is given", async () => {
+    const user = userEvent.setup();
+    // React reports a handler that throws on the window; catch it so the test names it.
+    const thrown: unknown[] = [];
+    const onError = (e: ErrorEvent) => {
+      thrown.push(e.error);
+      e.preventDefault();
+    };
+    window.addEventListener("error", onError);
+    try {
+      render(<CostTable groups={COSTS} expanded={new Set([2026])} />);
+      const row = screen.getByText("Licences").closest("tr") as HTMLElement;
+      await user.click(within(row).getByRole("button", { name: "Edit" }));
+      await user.click(within(row).getByRole("button", { name: "Delete" }));
+    } finally {
+      window.removeEventListener("error", onError);
+    }
+    expect(thrown).toEqual([]);
+    expect(screen.getByText("Licences")).toBeInTheDocument();
+  });
+});
+
 describe("CostTable — read-only and fully expanded", () => {
   it("has no button, no actions column, every group open and every description whole", () => {
     render(<CostTable groups={COSTS} readOnly expandAll />);

@@ -412,6 +412,7 @@ export default function PpmCostTab({ initiativeId, costLines, rollup, onRefresh 
       <CostTable
         groups={costGroups}
         derived={
+          // Stryker disable next-line StringLiteral: equivalent, derivedYearGroups reads the budget figures only for side "budget" and the actuals for any other value
           actualDerived ? { rows: derivedYearGroups(rollup, "cost"), totals: totals.actual } : null
         }
         derivedCount={count}

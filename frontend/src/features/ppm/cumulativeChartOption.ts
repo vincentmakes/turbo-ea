@@ -169,6 +169,7 @@ export function budgetLabelPositions(
   references: BudgetReference[],
   axisTop: number,
 ): BudgetLabelPosition[] {
+  // Stryker disable next-line ArrayDeclaration: equivalent, a seeded non-number only ever gives a NaN distance, which is never within the clash band
   const atEnd: number[] = [];
   return references.map((r) => {
     const end = budgetLabelPosition(r.value, axisTop);
