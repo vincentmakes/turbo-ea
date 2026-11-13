@@ -6,6 +6,10 @@ import Tab from "@mui/material/Tab";
 import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
 import Chip from "@mui/material/Chip";
+import Button from "@mui/material/Button";
+import Tooltip from "@mui/material/Tooltip";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
 import IconButton from "@mui/material/IconButton";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
@@ -20,6 +24,7 @@ import PpmCostTab from "./PpmCostTab";
 import PpmRiskTab from "./PpmRiskTab";
 import PpmTaskBoard from "./PpmTaskBoard";
 import PpmGanttTab from "./PpmGanttTab";
+import PpmProjectPdfDialog from "./PpmProjectPdfDialog";
 import CardDetailContent from "@/features/cards/CardDetailContent";
 import { PPM_ACTUAL_FIELD, PPM_BUDGET_FIELD } from "@/lib/ppmCostFields";
 import type {
@@ -68,7 +73,10 @@ export default function PpmProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { t } = useTranslation(["ppm", "common"]);
+  const { t } = useTranslation(["ppm", "common", "delivery"]);
+  const theme = useTheme();
+  const compact = useMediaQuery(theme.breakpoints.down("sm"));
+  const [pdfOpen, setPdfOpen] = useState(false);
 
   const subtypeLabel = useCardSubtypeLabel();
   const initialTab = TAB_KEYS.indexOf(searchParams.get("tab") || "overview");
@@ -243,7 +251,37 @@ export default function PpmProjectDetail() {
             sx={{ marginInlineStart: 1, flexShrink: 0 }}
           />
         )}
+        {compact ? (
+          <Tooltip title={t("delivery:editor.exportPdf")}>
+            <IconButton sx={{ flexShrink: 0 }} onClick={() => setPdfOpen(true)}>
+              <MaterialSymbol icon="picture_as_pdf" size={20} />
+            </IconButton>
+          </Tooltip>
+        ) : (
+          <Tooltip title={t("delivery:editor.exportPdf")}>
+            <Button
+              size="small"
+              startIcon={<MaterialSymbol icon="picture_as_pdf" size={18} />}
+              sx={{ textTransform: "none", flexShrink: 0 }}
+              onClick={() => setPdfOpen(true)}
+            >
+              {t("delivery:editor.pdf")}
+            </Button>
+          </Tooltip>
+        )}
       </Box>
+
+      {pdfOpen && (
+        <PpmProjectPdfDialog
+          card={card}
+          reports={reports}
+          costLines={costLines}
+          budgetLines={budgetLines}
+          risks={risks}
+          rollup={rollup}
+          onClose={() => setPdfOpen(false)}
+        />
+      )}
 
       {/* Tabs */}
       <Tabs
@@ -294,6 +332,7 @@ export default function PpmProjectDetail() {
           initiativeId={id!}
           risks={risks}
           onRefresh={loadData}
+          initiativeName={card?.name}
         />
       )}
       {tab === 4 && <PpmTaskBoard initiativeId={id!} />}

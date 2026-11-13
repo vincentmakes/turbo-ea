@@ -127,17 +127,92 @@ Dois aspetos a ter em conta ao ler os gráficos:
 
 ![Gestão de Riscos PPM](../assets/img/pt/44_ppm_gestao_riscos.png)
 
-O registro de riscos rastreia os riscos do projeto com:
+O registo de riscos acompanha os riscos da iniciativa. Cada risco tem:
 
 | Campo | Descrição |
 |-------|-----------|
 | **Título** | Breve descrição do risco |
+| **Descrição** | O risco por extenso |
 | **Probabilidade** | Pontuação de probabilidade (1–5) |
 | **Impacto** | Pontuação de impacto (1–5) |
-| **Pontuação de risco** | Calculada automaticamente como probabilidade x impacto |
+| **Pontuação de risco** | Calculada automaticamente como probabilidade × impacto |
 | **Status** | Aberto, Mitigando, Mitigado, Fechado ou Aceito |
 | **Mitigação** | Ações de mitigação planejadas |
 | **Responsável** | Usuário responsável pelo gerenciamento do risco |
+
+Uma faixa de resumo acima da grelha conta o **Total de riscos**, os que estão em estado **Aberto** e os **Riscos elevados**.
+
+#### A grelha de riscos
+
+Os riscos são listados numa grelha construída como o [Inventário](inventory.md) e o [Registo de riscos](risks.md#grelha-do-registo). O texto nunca é cortado: cada linha mostra o título do risco a negrito com a sua **descrição completa** por baixo, e a **mitigação completa**, que ocupam tantas linhas quantas forem necessárias. Os endereços web na descrição e na mitigação são clicáveis.
+
+| Coluna | Mostra |
+|--------|--------|
+| **Risco** | O título, com a descrição por baixo |
+| **Pontuação de risco** | A pontuação como chip colorido, com *probabilidade × impacto* ao lado (por exemplo **20** *4 × 5*) |
+| **Estado** | O chip do estado |
+| **Responsável** | O responsável pelo risco, ou um traço |
+| **Mitigação** | A mitigação planeada, ou um traço |
+| *(botões)* | **Editar** e **Excluir** |
+
+**Probabilidade** e **Impacto** também estão disponíveis como colunas separadas; estão ocultas por predefinição — ative-as no separador **Colunas** do painel de filtros.
+
+- **Ordenar** — clique no cabeçalho de uma coluna. Até escolher uma ordenação própria, a pontuação mais alta aparece primeiro.
+- **Filtrar uma coluna** — use os filtros dos cabeçalhos, como nas outras grelhas.
+- **Fixar uma coluna** — clique no pino do respetivo cabeçalho para a manter na margem esquerda enquanto desloca a tabela lateralmente; clique novamente para a libertar.
+- **Reordenar colunas** — arraste o cabeçalho de uma coluna.
+- **Menu da célula** — clique com o botão direito numa célula (toque prolongado num dispositivo tátil) para o mesmo menu de célula das outras grelhas.
+
+#### Painel de filtros
+
+O painel à esquerda tem dois separadores:
+
+- **Filtros**
+    - **Pesquisar** — procura no título, na descrição, na mitigação e no responsável.
+    - **Estado** — assinale um ou mais chips de estado.
+    - **Pontuação de risco** — as faixas de pontuação **Alto** (15 ou mais), **Médio** (de 6 a 14) e **Baixo** (abaixo de 6).
+    - **Responsável** — os responsáveis presentes na lista, mais **Sem responsável**.
+    - **Limpar todos os filtros** repõe todos os filtros de uma só vez.
+- **Colunas** — a lista **Ordem das colunas** (arraste uma linha para mover uma coluna, use o seu pino para a fixar, **Repor ordem** para restaurar a ordem predefinida) e a lista **Colunas visíveis** para mostrar ou ocultar colunas, com **Selecionar tudo** para mostrar todas as colunas. A coluna Risco e os botões são sempre mostrados. Quando as colunas visíveis diferem das predefinidas, **Redefinir** volta a elas: todas as colunas exceto Probabilidade e Impacto.
+
+O painel recolhe-se numa barra estreita, que mostra quantos filtros estão ativos, e a sua margem pode ser arrastada para o redimensionar. Num telemóvel o painel é uma gaveta, aberta com o botão de filtros na barra de ferramentas.
+
+#### Barra de ferramentas
+
+A barra de ferramentas mostra quantos riscos estão listados e oferece:
+
+- **Agrupar por** — agrupa as linhas por **Estado**, **Responsável** ou **Faixa de pontuação**.
+- **Exportar** — transfere os riscos atualmente mostrados como `.xlsx` (ver abaixo).
+- **Importar** — carrega riscos a partir de um `.xlsx` (ver abaixo).
+- **Adicionar risco** — abre a caixa de diálogo para registar um novo risco.
+
+A ordenação, as colunas fixadas, a ordem das colunas, as colunas visíveis, a largura do painel e o agrupamento são memorizados no seu navegador.
+
+#### Exportar riscos para Excel
+
+**Exportar** transfere os riscos que a grelha mostra nesse momento — após os filtros do painel, pela ordem da grelha — como `.xlsx` com uma linha por risco e as colunas **ID do risco**, **Título do risco**, **Descrição**, **Probabilidade**, **Impacto**, **Pontuação de risco**, **Estado**, **Responsável** e **Mitigação**. O ficheiro é também um ficheiro de importação válido: exporte, edite no Excel e importe-o novamente.
+
+#### Importar riscos a partir do Excel {: #importing-risks }
+
+**Importar** carrega um `.xlsx` para adicionar ou atualizar os riscos da iniciativa. **Descarregar modelo** na caixa de diálogo fornece um livro com os cabeçalhos corretos e uma linha de exemplo.
+
+- Uma linha com um **ID do risco** proveniente de uma exportação **atualiza** esse risco, e apenas os campos que mudaram.
+- Uma linha **sem ID do risco** **cria** um novo risco.
+- Um ID do risco que a iniciativa não tem, ou um usado duas vezes no ficheiro, **rejeita** a linha.
+- Os riscos ausentes do ficheiro ficam como estão: **a importação nunca elimina**.
+
+Antes de algo ser escrito, uma pré-visualização lista cada linha como **Novo**, **Atualização** (com os campos que mudam), **Sem alterações** ou **Rejeitado** (com o motivo), e conta os avisos. As linhas rejeitadas são ignoradas; o botão importa as restantes alterações. Um resultado mostra depois quantos riscos foram criados, atualizados e falharam.
+
+| Coluna | Regra |
+|--------|-------|
+| **Título do risco** | Obrigatório |
+| **Probabilidade**, **Impacto** | Um número inteiro de 1 a 5. Vazio significa 3 numa linha nova e deixa o valor inalterado numa atualização |
+| **Estado** | Aberto, Em mitigação, Mitigado, Fechado ou Aceito. Vazio significa Aberto numa linha nova e deixa o estado inalterado numa atualização |
+| **Responsável** | Associado por e-mail e depois por nome. Um responsável que não corresponde a ninguém, ou a várias pessoas, gera um aviso: a linha é importada na mesma e o responsável fica inalterado |
+| **Descrição**, **Mitigação**, **Responsável** | Uma célula vazia limpa o campo numa atualização |
+| **Pontuação de risco**, qualquer outra coluna | Ignorada — a pontuação é sempre calculada |
+
+As colunas são reconhecidas pelo seu cabeçalho no seu idioma ou em inglês. Uma coluna que o ficheiro omite fica inalterada em todos os riscos que atualiza.
 
 ### Aba Tarefas
 
@@ -177,6 +252,22 @@ Interaja com o diagrama de Gantt:
 ### Aba Detalhes do Card
 
 A última aba mostra a visualização completa de detalhes do card, incluindo todas as seções padrão.
+
+### Exportar uma iniciativa como PDF
+
+O botão **PDF** no cabeçalho da iniciativa, ao lado do chip do subtipo, imprime a iniciativa como documento (num telemóvel é um ícone PDF). Abre uma caixa de diálogo com uma caixa de verificação por secção; da primeira vez estão todas assinaladas, **Selecionar tudo** e **Desmarcar tudo** definem-nas de uma só vez, e a sua última escolha é memorizada no navegador:
+
+| Secção | O que imprime |
+|--------|---------------|
+| **Visão geral** | O subtipo, o estado da iniciativa, as datas de início e de fim e a conclusão; os indicadores de saúde do relatório de estado mais recente; orçamento, real e desvio por CapEx, OpEx e total — os valores obtidos das iniciativas subordinadas aparecem em itálico, com uma nota que o indica; e a descrição |
+| **Relatórios de estado** | O relatório mais recente completo e, depois, os relatórios anteriores numa tabela com data, relator e os três indicadores de saúde |
+| **Orçamento e custos** | As linhas de orçamento e os itens de custo, agrupados por ano fiscal com subtotais e totais |
+| **Gestão de riscos** | Uma linha com o total de riscos, os abertos e os elevados e, depois, cada risco com a descrição completa, a pontuação (com probabilidade × impacto), o estado, o responsável e a mitigação completa, da pontuação mais alta para a mais baixa |
+| **Tarefas e cronograma** | A estrutura analítica do trabalho como tabela indentada — pacotes de trabalho com as suas datas, responsável e conclusão, marcos assinalados e, por baixo de cada pacote, as suas tarefas com estado e prioridade — e depois as tarefas sem pacote de trabalho. O gráfico de Gantt propriamente dito não é impresso |
+
+**Exportar PDF** abre um documento pronto a imprimir num novo separador, juntamente com a caixa de diálogo de impressão do navegador; escolha *Guardar como PDF* para o conservar. Se nada abrir, permita janelas pop-up para este site. A capa mostra o nome da iniciativa e a data e hora da impressão, as secções seguem pela ordem acima e uma secção assinalada sem conteúdo indica *Nada registado.*
+
+Para distribuir um **relatório de riscos**, assinale apenas **Gestão de riscos**.
 
 ## Estrutura Analítica do Projeto (EAP / WBS)
 

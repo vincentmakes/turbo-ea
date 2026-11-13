@@ -1,0 +1,331 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { screen, waitFor } from "@testing-library/react";
+
+vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
+
+vi.mock("@/lib/printDocument", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/printDocument")>("@/lib/printDocument");
+  return { ...actual, openPrintWindow: vi.fn() };
+});
+
+vi.mock("./ppmProjectPrint", async () => {
+  const actual = await vi.importActual<typeof import("./ppmProjectPrint")>("./ppmProjectPrint");
+  return { ...actual, printProject: vi.fn() };
+});
+
+vi.mock("@/features/ea-delivery/initiatives/useInitiativeStatus", () => ({
+  useInitiativeStatusLabel: () => (status: string) => `status ${status} label`,
+}));
+
+vi.mock("@/hooks/useCardSubtypeLabel", () => ({
+  useCardSubtypeLabel: () => (type: string, subtype: string) => `${type}/${subtype} label`,
+}));
+
+import { mockApi } from "@/test/apiMock";
+import { renderWithProviders } from "@/test/render";
+import { setViewportWidth } from "@/test/matchMedia";
+import { openPrintWindow } from "@/lib/printDocument";
+import type { Card, PpmBudgetLine, PpmCostLine, PpmRisk, PpmRollupOut, PpmStatusReport } from "@/types";
+import {
+  PPM_PDF_PREFS_KEY,
+  PPM_PRINT_SECTIONS,
+  printProject,
+  type ProjectPrintData,
+  type ProjectPrintFormat,
+} from "./ppmProjectPrint";
+import PpmProjectPdfDialog from "./PpmProjectPdfDialog";
+
+const CARD = {
+  id: "i1",
+  type: "Initiative",
+  name: "ERP Replacement",
+  subtype: "project",
+  description: null,
+  attributes: { initiativeStatus: "onTrack" },
+} as unknown as Card;
+
+const REPORTS = [{ id: "r1" }] as unknown as PpmStatusReport[];
+const COSTS = [{ id: "c1" }] as unknown as PpmCostLine[];
+const BUDGETS = [{ id: "b1" }] as unknown as PpmBudgetLine[];
+const RISKS = [{ id: "k1" }] as unknown as PpmRisk[];
+const ROLLUP = { descendant_count: 3 } as unknown as PpmRollupOut;
+const COMPLETION = { completion: 50, wbs_count: 2 };
+const WBS = [{ id: "w1" }];
+const TASKS = [{ id: "t1" }];
+
+const openMock = vi.mocked(openPrintWindow);
+const printMock = vi.mocked(printProject);
+
+const LABELS = ["Overview", "Status Reports", "Budget & Costs", "Risk Management", "Tasks & Schedule"];
+
+function fakeWindow() {
+  return { close: vi.fn() } as unknown as Window & { close: ReturnType<typeof vi.fn> };
+}
+
+function renderDialog(props: { card?: Card } = {}) {
+  const onClose = vi.fn();
+  const result = renderWithProviders(
+    <PpmProjectPdfDialog
+      card={props.card ?? CARD}
+      reports={REPORTS}
+      costLines={COSTS}
+      budgetLines={BUDGETS}
+      risks={RISKS}
+      rollup={ROLLUP}
+      onClose={onClose}
+    />,
+  );
+  return { ...result, onClose };
+}
+
+const box = (name: string) => screen.getByRole("checkbox", { name });
+const exportButton = () => screen.getByRole("button", { name: /Export PDF/ });
+
+describe("PpmProjectPdfDialog", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    mockApi.reset();
+    mockApi.lenient({});
+    mockApi.on("get", "/ppm/initiatives/i1/completion", COMPLETION);
+    mockApi.on("get", "/ppm/initiatives/i1/wbs", WBS);
+    mockApi.on("get", "/ppm/initiatives/i1/tasks", TASKS);
+    openMock.mockReset();
+    printMock.mockReset();
+  });
+  afterEach(() => localStorage.clear());
+
+  const ppmCalls = () => mockApi.calls.filter((c) => c.path.startsWith("/ppm/")).map((c) => c.path);
+
+  it("ticks every section by default, in print order", () => {
+    renderDialog();
+    expect(screen.getByRole("dialog", { name: "Export initiative as PDF" })).toBeInTheDocument();
+    expect(
+      screen.getByText(/Choose the sections to include/),
+    ).toBeInTheDocument();
+    const boxes = screen.getAllByRole("checkbox");
+    expect(boxes.map((b) => b.closest("label")?.textContent)).toEqual(LABELS);
+    for (const b of boxes) expect(b).toBeChecked();
+    expect(exportButton()).toBeEnabled();
+  });
+
+  it("restores the choice remembered in this browser", () => {
+    localStorage.setItem(PPM_PDF_PREFS_KEY, JSON.stringify(["risks"]));
+    renderDialog();
+    expect(box("Risk Management")).toBeChecked();
+    for (const name of LABELS.filter((l) => l !== "Risk Management")) {
+      expect(box(name)).not.toBeChecked();
+    }
+  });
+
+  it("toggles one section and selects all or none", async () => {
+    const { user } = renderDialog();
+    await user.click(box("Overview"));
+    expect(box("Overview")).not.toBeChecked();
+    expect(box("Status Reports")).toBeChecked();
+    await user.click(box("Overview"));
+    expect(box("Overview")).toBeChecked();
+
+    await user.click(screen.getByRole("button", { name: "Deselect All" }));
+    for (const name of LABELS) expect(box(name)).not.toBeChecked();
+    expect(exportButton()).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Select All" }));
+    for (const name of LABELS) expect(box(name)).toBeChecked();
+    expect(exportButton()).toBeEnabled();
+  });
+
+  it("disables Export when nothing is ticked", async () => {
+    localStorage.setItem(PPM_PDF_PREFS_KEY, JSON.stringify(["costs"]));
+    const { user } = renderDialog();
+    await user.click(box("Budget & Costs"));
+    expect(exportButton()).toBeDisabled();
+  });
+
+  it("opens the window before any fetch, then prints what the page holds plus what it read", async () => {
+    const win = fakeWindow();
+    let callsWhenOpened = -1;
+    openMock.mockImplementation(() => {
+      callsWhenOpened = mockApi.calls.length;
+      return win;
+    });
+    const { user, onClose } = renderDialog();
+    const before = mockApi.calls.length;
+    await user.click(exportButton());
+
+    await waitFor(() => expect(printMock).toHaveBeenCalledTimes(1));
+    expect(openMock).toHaveBeenCalledTimes(1);
+    expect(callsWhenOpened).toBe(before);
+    expect(ppmCalls().sort()).toEqual([
+      "/ppm/initiatives/i1/completion",
+      "/ppm/initiatives/i1/tasks",
+      "/ppm/initiatives/i1/wbs",
+    ]);
+
+    const [data, sections, fmt, target] = printMock.mock.calls[0] as unknown as [
+      ProjectPrintData,
+      string[],
+      ProjectPrintFormat,
+      Window,
+    ];
+    expect(data).toEqual({
+      card: CARD,
+      subtypeLabel: "Initiative/project label",
+      initiativeStatusLabel: "status onTrack label",
+      reports: REPORTS,
+      costLines: COSTS,
+      budgetLines: BUDGETS,
+      risks: RISKS,
+      rollup: ROLLUP,
+      completion: COMPLETION,
+      wbs: WBS,
+      tasks: TASKS,
+    });
+    expect(sections).toEqual([...PPM_PRINT_SECTIONS]);
+    expect(target).toBe(win);
+    expect(fmt.fiscalYearStart).toBe(1);
+    expect(fmt.amount(1200)).toBe("$1,200");
+    expect(fmt.date("2026-03-04")).toBe("04 Mar 2026");
+    expect(fmt.dateTime(new Date(2026, 2, 4, 9, 5))).toBe("04 Mar 2026 09:05");
+    expect(win.close).not.toHaveBeenCalled();
+    expect(localStorage.getItem(PPM_PDF_PREFS_KEY)).toBe(JSON.stringify([...PPM_PRINT_SECTIONS]));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips the schedule and completion reads when those sections are not ticked", async () => {
+    localStorage.setItem(PPM_PDF_PREFS_KEY, JSON.stringify(["risks", "reports"]));
+    openMock.mockReturnValue(fakeWindow());
+    const { user } = renderDialog({ card: { ...CARD, subtype: undefined, attributes: {} } });
+    await user.click(exportButton());
+
+    await waitFor(() => expect(printMock).toHaveBeenCalledTimes(1));
+    expect(ppmCalls()).toEqual([]);
+    const [data, sections] = printMock.mock.calls[0] as unknown as [ProjectPrintData, string[]];
+    expect(sections).toEqual(["reports", "risks"]);
+    expect(data.completion).toBeNull();
+    expect(data.wbs).toEqual([]);
+    expect(data.tasks).toEqual([]);
+    expect(data.subtypeLabel).toBeNull();
+    expect(data.initiativeStatusLabel).toBeNull();
+  });
+
+  it.each([
+    ["a number", { initiativeStatus: 7 }],
+    ["no attributes at all", undefined],
+  ])("leaves the status out when it is %s", async (_label, attributes) => {
+    openMock.mockReturnValue(fakeWindow());
+    localStorage.setItem(PPM_PDF_PREFS_KEY, JSON.stringify(["risks"]));
+    const { user } = renderDialog({ card: { ...CARD, attributes } as unknown as Card });
+    await user.click(exportButton());
+    await waitFor(() => expect(printMock).toHaveBeenCalledTimes(1));
+    const [data] = printMock.mock.calls[0] as unknown as [ProjectPrintData];
+    expect(data.initiativeStatusLabel).toBeNull();
+  });
+
+  it("reads only the schedule when only the schedule is ticked", async () => {
+    localStorage.setItem(PPM_PDF_PREFS_KEY, JSON.stringify(["schedule"]));
+    openMock.mockReturnValue(fakeWindow());
+    const { user } = renderDialog();
+    await user.click(exportButton());
+    await waitFor(() => expect(printMock).toHaveBeenCalledTimes(1));
+    expect(ppmCalls().sort()).toEqual(["/ppm/initiatives/i1/tasks", "/ppm/initiatives/i1/wbs"]);
+  });
+
+  it("closes the window and shows the error when a read fails, and stays open", async () => {
+    const win = fakeWindow();
+    openMock.mockReturnValue(win);
+    mockApi.fail("get", "/ppm/initiatives/i1/wbs", 500);
+    localStorage.setItem(PPM_PDF_PREFS_KEY, JSON.stringify(["risks", "schedule"]));
+    const { user, onClose } = renderDialog();
+    await user.click(exportButton());
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("GET /ppm/initiatives/i1/wbs failed");
+    expect(win.close).toHaveBeenCalledTimes(1);
+    expect(printMock).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(localStorage.getItem(PPM_PDF_PREFS_KEY)).toBe(JSON.stringify(["risks", "schedule"]));
+    expect(exportButton()).toBeEnabled();
+
+    // A retry that succeeds clears the error.
+    mockApi.on("get", "/ppm/initiatives/i1/wbs", WBS);
+    await user.click(exportButton());
+    await waitFor(() => expect(printMock).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("falls back to the generic message when a failure carries none", async () => {
+    const win = fakeWindow();
+    openMock.mockReturnValue(win);
+    printMock.mockImplementation(() => {
+      throw "not an error";
+    });
+    localStorage.setItem(PPM_PDF_PREFS_KEY, JSON.stringify(["risks"]));
+    const { user } = renderDialog();
+    await user.click(exportButton());
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+    expect(win.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets the user dismiss the error", async () => {
+    openMock.mockReturnValue(fakeWindow());
+    mockApi.fail("get", "/ppm/initiatives/i1/completion", 500, "nope");
+    const { user } = renderDialog();
+    await user.click(exportButton());
+    await screen.findByRole("alert");
+    await user.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("writes nothing and reads nothing when the pop-up is blocked", async () => {
+    openMock.mockReturnValue(null);
+    const { user, onClose } = renderDialog();
+    const before = mockApi.calls.length;
+    await user.click(exportButton());
+    await waitFor(() => expect(openMock).toHaveBeenCalledTimes(1));
+    expect(mockApi.calls.length).toBe(before);
+    expect(printMock).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(localStorage.getItem(PPM_PDF_PREFS_KEY)).toBeNull();
+    expect(exportButton()).toBeEnabled();
+  });
+
+  it("exports once on a double click", async () => {
+    const win = fakeWindow();
+    openMock.mockReturnValue(win);
+    let release!: (v: unknown) => void;
+    mockApi.on("get", "/ppm/initiatives/i1/completion", () => new Promise((r) => (release = r)));
+    const { user } = renderDialog();
+    await user.dblClick(exportButton());
+    expect(openMock).toHaveBeenCalledTimes(1);
+    expect(exportButton()).toBeDisabled();
+    release(COMPLETION);
+    await waitFor(() => expect(printMock).toHaveBeenCalledTimes(1));
+  });
+
+  it("is a narrow dialog on a desktop and full screen on a phone", () => {
+    const { unmount } = renderDialog();
+    const paper = screen.getByRole("dialog");
+    expect(paper).toHaveClass("MuiDialog-paperWidthXs", "MuiDialog-paperFullWidth");
+    expect(paper).not.toHaveClass("MuiDialog-paperFullScreen");
+    expect(screen.getByText(/Choose the sections to include/)).toHaveStyle({ marginBottom: "12px" });
+    unmount();
+    setViewportWidth(375);
+    renderDialog();
+    expect(screen.getByRole("dialog")).toHaveClass("MuiDialog-paperFullScreen");
+  });
+
+  it("spaces the error below the sections", async () => {
+    openMock.mockReturnValue(fakeWindow());
+    mockApi.fail("get", "/ppm/initiatives/i1/completion", 500);
+    const { user } = renderDialog();
+    await user.click(exportButton());
+    expect(await screen.findByRole("alert")).toHaveStyle({ marginTop: "12px" });
+  });
+
+  it("closes on Cancel without exporting", async () => {
+    const { user, onClose } = renderDialog();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(openMock).not.toHaveBeenCalled();
+  });
+});

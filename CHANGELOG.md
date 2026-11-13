@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.204.0] - 2026-11-13
+
+### Added
+- **Initiative PDF**: a **PDF** button in a PPM initiative's header prints the initiative as a document, with a checkbox for each section — Overview, Status Reports, Budget & Costs, Risk Management, Tasks & Schedule — so ticking Risk Management alone gives a risk report ([#1398](https://github.com/vincentmakes/turbo-ea/discussions/1398)).
+- The PPM Risk Management tab exports the risks shown to Excel and imports them back: a row with a Risk ID updates that risk, a row without one creates a risk, nothing is ever deleted, and a preview shows every row before anything is written ([#1398](https://github.com/vincentmakes/turbo-ea/discussions/1398)).
+- The PPM Risk Management tab has a filter panel (search, status, score band, owner), grouping by status, owner or score band, and columns you can freeze, reorder, show and hide, remembered in your browser.
+
+### Changed
+- The PPM Risk Management tab shows each risk's description and mitigation in full, wrapping long text instead of cutting it, with clickable web addresses ([#1398](https://github.com/vincentmakes/turbo-ea/discussions/1398)).
+
 ## [2.203.4] - 2026-11-13
 
 ### Fixed

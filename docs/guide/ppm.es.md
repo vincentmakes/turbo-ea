@@ -127,17 +127,92 @@ Dos aspectos a tener en cuenta al leer los gráficos:
 
 ![Pestaña de gestión de riesgos](../assets/img/es/44_ppm_gestion_riesgos.png)
 
-El registro de riesgos rastrea los riesgos del proyecto con:
+El registro de riesgos rastrea los riesgos de la iniciativa. Cada riesgo tiene:
 
 | Campo | Descripción |
 |-------|-------------|
 | **Título** | Breve descripción del riesgo |
+| **Descripción** | El riesgo completo |
 | **Probabilidad** | Puntuación de probabilidad (1–5) |
 | **Impacto** | Puntuación de impacto (1–5) |
-| **Puntuación de riesgo** | Calculado automáticamente como probabilidad x impacto |
-| **Estado** | Abierto, Mitigando, Mitigado, Cerrado o Aceptado |
+| **Puntuación de riesgo** | Calculado automáticamente como probabilidad × impacto |
+| **Estado** | Abierto, En mitigación, Mitigado, Cerrado o Aceptado |
 | **Mitigación** | Acciones de mitigación planificadas |
 | **Responsable** | Usuario responsable de gestionar el riesgo |
+
+Una franja de resumen sobre la cuadrícula muestra el **Total de riesgos**, el número de riesgos en estado **Abierto** y los **Riesgos altos**.
+
+#### La cuadrícula de riesgos
+
+Los riesgos se listan en una cuadrícula construida como el [Inventario](inventory.md) y el [Registro de riesgos](risks.md#cuadricula-del-registro). El texto nunca se corta: cada fila muestra el título del riesgo en negrita con su **descripción completa** debajo, y la **mitigación completa**, ocupando tantas líneas como necesiten. Las direcciones web de la descripción y de la mitigación son clicables.
+
+| Columna | Muestra |
+|---------|---------|
+| **Riesgo** | El título, con la descripción debajo |
+| **Puntuación de riesgo** | La puntuación como chip de color, con *probabilidad × impacto* al lado (por ejemplo **20** *4 × 5*) |
+| **Estado** | El chip de estado |
+| **Responsable** | El responsable del riesgo, o un guion |
+| **Mitigación** | La mitigación planificada, o un guion |
+| *(botones)* | **Editar** y **Eliminar** |
+
+**Probabilidad** e **Impacto** también están disponibles como columnas independientes; están ocultas por defecto: actívelas en la pestaña **Columnas** del panel de filtros.
+
+- **Ordenar** — haga clic en un encabezado de columna. Mientras no elija su propio orden, la puntuación más alta aparece primero.
+- **Filtrar una columna** — use los filtros de los encabezados, como en las demás cuadrículas.
+- **Fijar una columna** — haga clic en la chincheta de su encabezado para mantenerla en el borde izquierdo al desplazarse lateralmente; haga clic de nuevo para liberarla.
+- **Reordenar columnas** — arrastre el encabezado de una columna.
+- **Menú de celda** — haga clic derecho en una celda (pulsación larga en dispositivos táctiles) para abrir el mismo menú contextual que en las demás cuadrículas.
+
+#### Panel de filtros
+
+El panel de la izquierda tiene dos pestañas:
+
+- **Filtros**
+    - **Buscar** — busca en el título, la descripción, la mitigación y el responsable.
+    - **Estado** — marque uno o varios chips de estado.
+    - **Puntuación de riesgo** — los rangos de puntuación **Alto** (15 o más), **Medio** (de 6 a 14) y **Bajo** (menos de 6).
+    - **Responsable** — los responsables presentes en la lista, más **Sin responsable**.
+    - **Borrar todos los filtros** restablece todos los filtros a la vez.
+- **Columnas** — la lista **Orden de columnas** (arrastre una fila para mover una columna, use su chincheta para fijarla, **Restablecer orden** para recuperar el orden predeterminado) y la lista **Columnas visibles** para mostrar u ocultar columnas, con **Seleccionar todo** para mostrar todas las columnas. La columna Riesgo y los botones se muestran siempre. Cuando las columnas visibles difieren de las predeterminadas, **Restablecer** vuelve a ellas: todas las columnas excepto Probabilidad e Impacto.
+
+El panel se contrae en un carril estrecho, que muestra cuántos filtros están activos, y su borde se puede arrastrar para cambiar su tamaño. En un teléfono, el panel es un cajón que se abre con el botón de filtro de la barra de herramientas.
+
+#### Barra de herramientas
+
+La barra de herramientas muestra cuántos riesgos hay en la lista y ofrece:
+
+- **Agrupar por** — agrupa las filas por **Estado**, **Responsable** o **Rango de puntuación**.
+- **Exportar** — descarga los riesgos que se muestran como `.xlsx` (ver más abajo).
+- **Importar** — carga riesgos desde un `.xlsx` (ver más abajo).
+- **Agregar riesgo** — abre el diálogo para registrar un riesgo nuevo.
+
+El orden, las columnas fijadas, el orden de columnas, las columnas visibles, el ancho del panel y la agrupación se recuerdan en su navegador.
+
+#### Exportar riesgos a Excel
+
+**Exportar** descarga los riesgos que la cuadrícula muestra en ese momento —tras los filtros del panel y en el orden de la cuadrícula— como un `.xlsx` con una fila por riesgo y las columnas **ID del riesgo**, **Título del riesgo**, **Descripción**, **Probabilidad**, **Impacto**, **Puntuación de riesgo**, **Estado**, **Responsable** y **Mitigación**. El archivo es también un archivo de importación válido: exporte, edite en Excel y vuelva a importarlo.
+
+#### Importar riesgos desde Excel {: #importing-risks }
+
+**Importar** carga un `.xlsx` para añadir o actualizar los riesgos de la iniciativa. **Descargar plantilla**, en el diálogo, proporciona un libro con los encabezados correctos y una fila de ejemplo.
+
+- Una fila con un **ID del riesgo** procedente de una exportación **actualiza** ese riesgo, y solo los campos que han cambiado.
+- Una fila **sin ID del riesgo** **crea** un riesgo nuevo.
+- Un ID del riesgo que la iniciativa no tiene, o uno usado dos veces en el archivo, provoca el **rechazo** de la fila.
+- Los riesgos que no aparecen en el archivo no se tocan: **la importación nunca elimina nada**.
+
+Antes de escribir nada, una vista previa muestra cada fila como **Nuevo**, **Actualización** (con los campos que cambian), **Sin cambios** o **Rechazado** (con el motivo), y cuenta las advertencias. Las filas rechazadas se omiten; el botón importa los demás cambios. Después, un resultado indica cuántos riesgos se crearon, se actualizaron y fallaron.
+
+| Columna | Regla |
+|---------|-------|
+| **Título del riesgo** | Obligatorio |
+| **Probabilidad**, **Impacto** | Un número entero del 1 al 5. En blanco significa 3 en una fila nueva y deja el valor sin cambios en una actualización |
+| **Estado** | Abierto, En mitigación, Mitigado, Cerrado o Aceptado. En blanco significa Abierto en una fila nueva y deja el estado sin cambios en una actualización |
+| **Responsable** | Se asocia por correo electrónico y luego por nombre. Un responsable que no coincide con nadie, o con varias personas, genera una advertencia: la fila se importa igualmente y el responsable no se modifica |
+| **Descripción**, **Mitigación**, **Responsable** | Una celda en blanco vacía el campo en una actualización |
+| **Puntuación de riesgo**, cualquier otra columna | Se ignora: la puntuación siempre se calcula |
+
+Las columnas se reconocen por su encabezado en su idioma o en inglés. Una columna que el archivo omite queda sin cambios en cada riesgo que se actualiza.
 
 ### Pestaña de tareas
 
@@ -177,6 +252,22 @@ Interactúa con el diagrama de Gantt:
 ### Pestaña de detalles de tarjeta
 
 La última pestaña muestra la vista completa de detalle de la tarjeta, incluyendo todas las secciones estándar.
+
+### Exportar una iniciativa como PDF
+
+El botón **PDF** en la cabecera de la iniciativa, junto al chip del subtipo, imprime la iniciativa como documento (en un teléfono es un icono de PDF). Abre un diálogo con una casilla por sección; la primera vez están todas marcadas, **Seleccionar todo** y **Deseleccionar todo** las cambian a la vez, y su última elección se recuerda en su navegador:
+
+| Sección | Qué imprime |
+|---------|-------------|
+| **Resumen** | El subtipo, el estado de la iniciativa, las fechas de inicio y fin y el grado de avance; las valoraciones de salud del último informe de estado; el presupuesto, el real y la variación por CapEx, OpEx y total —las cifras tomadas de las iniciativas subordinadas aparecen en cursiva, con una nota que lo indica—; y la descripción |
+| **Informes de estado** | El último informe completo y, después, los informes anteriores como una tabla con la fecha, el autor y las tres valoraciones de salud |
+| **Presupuesto y costes** | Las líneas de presupuesto y las partidas de coste, agrupadas por ejercicio fiscal con subtotales y totales |
+| **Gestión de riesgos** | Una línea con el total de riesgos, los abiertos y los altos y, después, cada riesgo con su descripción completa, su puntuación (con probabilidad × impacto), su estado, su responsable y su mitigación completa, con la puntuación más alta primero |
+| **Tareas y cronograma** | La estructura de desglose del trabajo como una tabla sangrada —paquetes de trabajo con sus fechas, responsable y avance, los hitos marcados y las tareas de cada paquete debajo con su estado y prioridad— y, después, las tareas sin paquete de trabajo. El diagrama de Gantt en sí no se imprime |
+
+**Exportar PDF** abre un documento listo para imprimir en una pestaña nueva junto con el diálogo de impresión del navegador; elija *Guardar como PDF* para conservarlo. Permita las ventanas emergentes para este sitio si no se abre nada. La portada lleva el nombre de la iniciativa y la fecha y hora de impresión, las secciones siguen en el orden anterior, y una sección marcada sin contenido muestra *No hay nada registrado.*
+
+Para entregar un **informe de riesgos**, marque solo **Gestión de riesgos**.
 
 ## Estructura de Desglose del Trabajo (WBS)
 
