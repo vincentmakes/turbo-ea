@@ -85,7 +85,11 @@ describe("PpmScheduleTimeline", () => {
         now={IN_Q1}
       />,
     );
-    const rows = [...container.querySelectorAll("[data-export-row]")] as HTMLElement[];
+    // The body's rows, read through the table's roles: the head row is not among them.
+    const [, body] = screen.getAllByRole("rowgroup");
+    const rows = within(body).getAllByRole("row");
+    expect(rows.every((r) => r.hasAttribute("data-export-row"))).toBe(true);
+    expect(container.querySelectorAll("[data-export-row]")).toHaveLength(rows.length);
     expect(
       rows.map((r) => (r.dataset.group !== undefined ? `#${r.textContent}` : `${r.dataset.kind}`)),
     ).toEqual([
@@ -98,6 +102,8 @@ describe("PpmScheduleTimeline", () => {
       "#assignmentUnassigned Tasks1",
       "task",
     ]);
+    // A group heading spans every column.
+    expect(within(rows[0]).getByRole("cell")).toHaveAttribute("colspan", "4");
     expect(rows.filter((r) => r.dataset.kind).map((r) => r.querySelector("p")!.textContent)).toEqual([
       "First root",
       "Root task",
@@ -115,9 +121,11 @@ describe("PpmScheduleTimeline", () => {
       "2",
       "0",
     ]);
-    // Indented as the Portfolio board indents: 12 px, then 16 px a level.
-    expect(screen.getByText("Deep task").closest("[data-depth]")).toHaveStyle({ paddingLeft: "44px" });
-    expect(screen.getByText("First root").closest("[data-depth]")).toHaveStyle({ paddingLeft: "12px" });
+    // The title cell keeps a table cell's own 16 px, then 16 px a level, as the board nests.
+    expect(screen.getByText("Deep task").closest("[data-depth]")).toHaveStyle({ paddingLeft: "48px" });
+    expect(screen.getByText("Root task").closest("[data-depth]")).toHaveStyle({ paddingLeft: "32px" });
+    expect(screen.getByText("First root").closest("[data-depth]")).toHaveStyle({ paddingLeft: "16px" });
+    expect(screen.getByText("Deep task").closest("[data-depth]")!.tagName).toBe("TD");
     // A root package reads bold, anything nested regular.
     expect(screen.getByText("First root")).toHaveStyle({ fontWeight: 600 });
     expect(screen.getByText("Child")).toHaveStyle({ fontWeight: 400 });
@@ -221,6 +229,7 @@ describe("PpmScheduleTimeline", () => {
     const m1 = markOf("Go live", "milestone")!;
     expect(m1).toHaveTextContent("flag");
     expect(pctOf(m1, "inset-inline-start")).toBeCloseTo(30 * DAY, 3);
+    expect(getComputedStyle(m1).marginInlineStart).toBe("-9px");
     expect(markOf("Go live", "bar")).toBeNull();
     expect(pctOf(markOf("Kick-off", "milestone")!, "inset-inline-start")).toBeCloseTo(10 * DAY, 3);
     expect(markOf("Someday", "milestone")).toBeNull();
@@ -243,6 +252,8 @@ describe("PpmScheduleTimeline", () => {
     const pkgDot = markOf("One date", "point")!;
     expect(pctOf(pkgDot, "inset-inline-start")).toBeCloseTo(30 * DAY, 3);
     expect(pkgDot).toHaveStyle({ backgroundColor: brand.primary, width: "10px", height: "10px" });
+    // Centred on its date: pulled back by half its width along the inline axis.
+    expect(getComputedStyle(pkgDot).marginInlineStart).toBe("-5px");
     const taskDot = markOf("Due only", "point")!;
     expect(pctOf(taskDot, "inset-inline-start")).toBeCloseTo(10 * DAY, 3);
     expect(markOf("Due only", "bar")).toBeNull();
@@ -280,11 +291,18 @@ describe("PpmScheduleTimeline", () => {
     );
     const labels = [...container.querySelectorAll("[data-qlabel]")].map((el) => el.textContent);
     expect(labels).toEqual(["Q4'24", "Q1'25", "Q2'25"]);
+    // The scale is the table's header row, inside <thead>, so print repeats it on every page.
     const head = container.querySelector("[data-schedule-head]") as HTMLElement;
+    expect(head.closest("thead")).not.toBeNull();
+    expect(head).toHaveStyle({ backgroundColor: palette.action.hover });
+    const headers = within(head).getAllByRole("columnheader");
+    expect(headers.map((h) => h.textContent)).toEqual(["Title", "Q4'24Q1'25Q2'25", "Progress", "Priority"]);
+    expect(headers[1]).toHaveAttribute("data-scale");
     expect(within(head).getByText("Q1'25")).toHaveClass("MuiTypography-caption");
-    expect(within(head).getByText("Title")).toBeInTheDocument();
-    expect(within(head).getByText("Progress")).toBeInTheDocument();
-    expect(within(head).getByText("Priority")).toBeInTheDocument();
+    expect(screen.getByRole("table")).toHaveClass("MuiTable-root");
+    expect(screen.getByRole("table").closest(".MuiTableContainer-root")).toHaveClass(
+      "MuiPaper-outlined",
+    );
     const rules = [...rowOf("Long").querySelectorAll("[data-rule]")] as HTMLElement[];
     // No rule at the scale's own start edge.
     expect(rules.map((r) => r.dataset.rule)).toEqual(["year", "quarter"]);
@@ -324,6 +342,12 @@ describe("PpmScheduleTimeline", () => {
     expect(container.querySelector("[data-lane]")).toBeNull();
     expect(container.querySelector("[data-qlabel]")).toBeNull();
     expect(container.querySelector("[data-schedule-legend]")).toBeNull();
+    expect(container.querySelector("[data-scale]")).toBeNull();
+    expect(
+      within(container.querySelector("[data-schedule-head]") as HTMLElement)
+        .getAllByRole("columnheader")
+        .map((h) => h.textContent),
+    ).toEqual(["Title", "Progress", "Priority"]);
     expect(rowOf("No dates").children).toHaveLength(3);
     expect(rowOf("Nor this")).toHaveTextContent("In Progress");
     expect(rowOf("Nor this").children).toHaveLength(3);

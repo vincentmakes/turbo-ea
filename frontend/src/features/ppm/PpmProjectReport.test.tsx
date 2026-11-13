@@ -387,6 +387,11 @@ describe("PpmProjectReport — sections", () => {
     const rs = section("reports")!;
     expect(within(rs).getByText("Latest report")).toBeInTheDocument();
     expect(within(rs).getByText("Summary of r3")).toBeInTheDocument();
+    // The latest card spells out each rating (never colour alone, §5).
+    const latest = within(rs).getByText("Summary of r3").closest(".MuiPaper-root") as HTMLElement;
+    expect(latest).toHaveTextContent("ScheduleOn Track");
+    expect(latest).toHaveTextContent("CostAt Risk");
+    expect(latest).toHaveTextContent("ScopeOff Track");
     expect(within(rs).queryByText("Summary of r2")).not.toBeInTheDocument();
     const table = within(rs).getByTestId("report-earlier-table");
     const rows = within(table).getAllByRole("row");

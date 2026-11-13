@@ -213,7 +213,7 @@ export default function PpmScheduleTimeline({ wbs, tasks, now }: PpmScheduleTime
         width: MARK_SIZE,
         height: MARK_SIZE,
         mt: `${-MARK_SIZE / 2}px`,
-        ms: `${-MARK_SIZE / 2}px`,
+        marginInlineStart: `${-MARK_SIZE / 2}px`,
         borderRadius: "50%",
         bgcolor: color,
       }}
@@ -251,7 +251,7 @@ export default function PpmScheduleTimeline({ wbs, tasks, now }: PpmScheduleTime
             insetInlineStart: pct(at),
             top: "50%",
             mt: `${-iconSize.sm / 2}px`,
-            ms: `${-iconSize.sm / 2}px`,
+            marginInlineStart: `${-iconSize.sm / 2}px`,
             display: "flex",
           }}
         >

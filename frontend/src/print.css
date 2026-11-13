@@ -195,6 +195,18 @@
     break-before: avoid;
   }
 
+  /* "Spend over time" prints whole: a card broken between its charts leaves
+     its border running down an empty page end. At the screen's height its
+     three charts are taller than a landscape page, so in print they draw
+     lower (EChart re-lays its canvas on the print media change) and the card
+     fits on one page beside its section's heading and tiles. */
+  .ppm-project-report .MuiBox-root:has(> .echart-container) {
+    height: 190px !important;
+  }
+  .ppm-project-report .MuiPaper-root:has(.echart-container) {
+    break-inside: avoid !important;
+  }
+
   /* A heading never ends a page alone. */
   .ppm-project-report .ppm-report-heading,
   .ppm-project-report .MuiTypography-subtitle1 {
