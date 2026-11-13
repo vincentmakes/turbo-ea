@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
+import { installCanvas } from "@/test/dom";
 import { PRINT_COLORS } from "@/theme/tokens";
 import { isOpaqueColour, printBackground } from "./printCopy";
 
@@ -60,5 +61,39 @@ describe("isOpaqueColour", () => {
     ["", false],
   ])("%s → %s", (value, opaque) => {
     expect(isOpaqueColour(value)).toBe(opaque);
+  });
+});
+
+describe("the print copy's classes, as the module defines them", () => {
+  let restoreCanvas: (() => void) | undefined;
+  afterEach(() => {
+    restoreCanvas?.();
+    restoreCanvas = undefined;
+  });
+
+  it("marks the copy and its chart with the classes print.css hides and shows", async () => {
+    // Loaded fresh inside the test, so the module's own constants are the
+    // ones measured here, not a copy imported before the test ran.
+    vi.resetModules();
+    const fresh = await import("./printCopy");
+    expect(fresh.ECHART_PRINT_COPY_CLASS).toBe("echart-print-copy");
+    expect(fresh.ECHART_PRINTING_CLASS).toBe("echart-printing");
+
+    restoreCanvas = installCanvas();
+    const picture = Object.assign(document.createElement("canvas"), { width: 30, height: 20 });
+    const chart = {
+      isDisposed: () => false,
+      resize: vi.fn(),
+      getZr: () => ({ flush: vi.fn() }),
+      renderToCanvas: vi.fn(() => picture),
+    };
+    const el = document.createElement("div");
+    fresh.drawPrintCopy(el, chart as unknown as Parameters<typeof fresh.drawPrintCopy>[1]);
+    expect(el.className).toBe("echart-printing");
+    expect(el.lastElementChild?.className).toBe("echart-print-copy");
+
+    fresh.removePrintCopy(el);
+    expect(el.className).toBe("");
+    expect(el.children).toHaveLength(0);
   });
 });

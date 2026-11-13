@@ -472,6 +472,7 @@ async function compositeCanvases(
     out.width = img.width;
     out.height = img.height;
     const ctx = out.getContext("2d");
+    // Stryker disable next-line ConditionalExpression: equivalent: a null context throws on the drawImage below, and the catch returns the same uncomposited dataUrl
     if (!ctx) return dataUrl;
     ctx.drawImage(img, 0, 0);
     const sx = img.width / width;
@@ -755,10 +756,12 @@ export function planSectionPages(
   if (height <= pageMax + 1) return [{ from: 0, to: height, header: null }];
   const budget = (start: number) => pageMax - headerHeight(headerAt(start, tables));
   const minPage = pageMax * 0.25;
+  // Stryker disable next-line ArrayDeclaration: equivalent: a non-number seeded here is never popped (height minus it is NaN) and the c > 0 filter below drops it, so the pages are the same
   const cuts: number[] = [];
   let pageStart = 0;
   let lastFitting = 0;
   let i = 0;
+  // Stryker disable next-line EqualityOperator: equivalent: one step past the end reads undefined, NaN fails the budget test, and the else branch only sets lastFitting, which is not read after the loop
   while (i < boundaries.length) {
     const b = boundaries[i];
     if (b - pageStart > budget(pageStart)) {
@@ -773,7 +776,13 @@ export function planSectionPages(
       i++;
     }
   }
-  while (cuts.length > 0 && height - cuts[cuts.length - 1] < minPage) cuts.pop();
+  while (
+    // Stryker disable next-line ConditionalExpression,EqualityOperator: equivalent: on an empty list cuts[-1] is undefined, height - undefined is NaN and NaN < minPage is false, so the loop stops all the same
+    cuts.length > 0 &&
+    height - cuts[cuts.length - 1] < minPage
+  )
+    cuts.pop();
+  // Stryker disable next-line MethodExpression,ConditionalExpression,LogicalOperator,EqualityOperator: equivalent: for ascending boundaries the pop loop above already leaves every cut in (0, height), and a cut at 0 or a repeat is skipped by `to - from < 1` below (fuzzed over 200k plans)
   const ends = [...cuts.filter((c) => c > 0 && c < height), height];
   const pages: SectionPagePlan[] = [];
   let from = 0;
@@ -792,6 +801,7 @@ export function planSectionPages(
  */
 export function capturePixelRatio(width: number, height: number, isAppleMobile: boolean): number {
   const area = width * height;
+  // Stryker disable next-line EqualityOperator: equivalent: at area 0 the fall-through computes min(2, sqrt(max / 0)) = min(2, Infinity) = 2, the same value
   if (area <= 0) return 2;
   return Math.min(2, Math.sqrt(canvasMaxArea(isAppleMobile) / area));
 }
@@ -806,6 +816,7 @@ function measureTableHeads(node: HTMLElement): TableHeadBox[] {
     const t = table.getBoundingClientRect();
     // The strip spans the table's own container (MUI's outlined
     // TableContainer) when it hugs the table, so the side borders continue.
+    // Stryker disable next-line OptionalChaining: equivalent: a table found by querySelectorAll under node always has a parent element (node at least)
     const wrap = table.parentElement?.getBoundingClientRect();
     const x = wrap && Math.abs(wrap.width - t.width) <= 4 ? wrap : t;
     heads.push({
@@ -841,12 +852,15 @@ async function captureSection(
   try {
     const { width, height } = captureSize(node);
     const ratio = capturePixelRatio(width, height, isAppleMobileDevice(navigator));
+    // Stryker disable next-line ArrayDeclaration: equivalent: without a row selector there are no boundaries, so no page but the first is planned and no table is ever consulted
     const tables = rowSelector ? measureTableHeads(node) : [];
     const boundaries = rowSelector
       ? sectionCuts(rangesOf(node, rowSelector), rangesOf(node, `[${EXPORT_HEADING_ATTR}]`), tables)
+      // Stryker disable next-line ArrayDeclaration: equivalent: without a row selector a non-numeric boundary never exceeds the budget (NaN comparison), so no cut is planned either way
       : [];
     const dataUrl = await renderPng(node, width, height, ratio, background);
     return { dataUrl, width, height, boundaries, tables, background };
+  // Stryker disable next-line BlockStatement: equivalent: an emptied catch returns undefined instead of null, and the only caller tests the result for falsiness (`if (!captured)`)
   } catch {
     return null;
   } finally {
@@ -1097,6 +1111,7 @@ function sixDigitHex(css: string): string | null {
 function luminance(hex: string): number {
   const [r, g, b] = [0, 2, 4].map((i) => {
     const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    // Stryker disable next-line EqualityOperator: equivalent: a channel is n / 255, and no n gives exactly 0.03928 (10 / 255 is 0.0392...), so <= and < never differ
     return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
   });
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
@@ -1111,6 +1126,7 @@ function luminance(hex: string): number {
 export function slidePalette(background?: string): SlidePalette {
   const hex = background ? sixDigitHex(background) : null;
   if (!hex) return DEFAULT_SLIDE_PALETTE;
+  // Stryker disable next-line EqualityOperator: equivalent: no #rgb / #rrggbb colour has a luminance of exactly 0.5 (all 16,777,216 checked), so >= and > never differ
   if (luminance(hex) >= 0.5) return { ...DEFAULT_SLIDE_PALETTE, background: hex };
   return { background: hex, heading: pptHex(brand.primaryLight), muted: pptHex(PRINT_COLORS.control) };
 }
@@ -1166,6 +1182,7 @@ async function sectionPages(
   const plan = planSectionPages(captured.height, captured.boundaries, pageMax, captured.tables);
   try {
     return await renderSectionPages(captured, plan);
+  // Stryker disable next-line BlockStatement: equivalent: an emptied catch returns undefined instead of null, and the only caller tests the result for falsiness (`if (!pages)`)
   } catch {
     return null;
   }

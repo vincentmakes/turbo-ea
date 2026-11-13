@@ -123,6 +123,21 @@ describe("ReportShell", () => {
     expect(screen.getByText("Dark").closest(".report-container")).toHaveAttribute("data-theme-mode", "dark");
   });
 
+  it("centres its container at the given width, 1200 px by default, and sets the title in bold", () => {
+    renderShell();
+    const container = document.querySelector(".report-container")!;
+    expect(container).toHaveStyle({ maxWidth: "1200px", marginLeft: "auto", marginRight: "auto" });
+    expect(screen.getByText("Test Report")).toHaveStyle({ fontWeight: "700", minWidth: "0" });
+    render(
+      <MemoryRouter>
+        <ReportShell title="Narrow" icon="bar_chart" maxWidth={640}>
+          <div />
+        </ReportShell>
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("Narrow").closest(".report-container")).toHaveStyle({ maxWidth: "640px" });
+  });
+
   it("renders print button", () => {
     renderShell();
     expect(screen.getByRole("button", { name: /print/i })).toBeInTheDocument();
@@ -372,6 +387,42 @@ describe("ReportShell", () => {
       await user.click(screen.getByText("Export to Excel (.xlsx)"));
       await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
       expect(exportMocks.xlsx).toHaveBeenCalledTimes(2);
+    });
+
+    it("offers PowerPoint, not Excel, in the chart view of a report with a table toggle", async () => {
+      const user = userEvent.setup();
+      renderShell({ chartRef: chartRef(), hasTableToggle: true, view: "chart", onViewChange: vi.fn() });
+      await openMenu(user);
+      expect(screen.getByText("Export to PowerPoint (.pptx)")).toBeInTheDocument();
+      expect(screen.queryByText("Export to Excel (.xlsx)")).not.toBeInTheDocument();
+    });
+
+    it("names the actions button's tooltip after what it does, and says so while exporting", async () => {
+      let finish: () => void = () => {};
+      exportMocks.pptx.mockImplementation(() => new Promise<void>((r) => (finish = r)));
+      const user = userEvent.setup();
+      renderShell({ chartRef: chartRef(), hasTableToggle: false });
+      // The tooltip labels the span that wraps the button (it stays hoverable while disabled).
+      const anchor = () => document.querySelector(".report-actions [aria-busy]")?.parentElement;
+      expect(anchor()).toHaveAttribute("aria-label", "More actions");
+      await openMenu(user);
+      await user.click(screen.getByText("Export to PowerPoint (.pptx)"));
+      expect(anchor()).toHaveAttribute("aria-label", "Exporting…");
+      finish();
+      await screen.findByRole("button", { name: /more actions/i });
+      expect(anchor()).toHaveAttribute("aria-label", "More actions");
+    });
+
+    it("dismisses the failure message on Escape, and shows it at the bottom centre", async () => {
+      exportMocks.pptx.mockRejectedValueOnce(new Error("boom"));
+      const user = userEvent.setup();
+      renderShell({ chartRef: chartRef(), hasTableToggle: false });
+      await openMenu(user);
+      await user.click(screen.getByText("Export to PowerPoint (.pptx)"));
+      const alert = await screen.findByRole("alert");
+      expect(alert.closest(".MuiSnackbar-root")).toHaveClass("MuiSnackbar-anchorOriginBottomCenter");
+      await user.keyboard("{Escape}");
+      await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
     });
 
     it("closes the failure message from its close button", async () => {

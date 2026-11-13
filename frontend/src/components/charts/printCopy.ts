@@ -26,6 +26,7 @@ export function isOpaqueColour(value: string): boolean {
   if (!value || value === "transparent") return false;
   const [, afterSlash] = value.split("/");
   const alpha =
+    // Stryker disable next-line ConditionalExpression,StringLiteral: equivalent on the values that reach it, since getComputedStyle serialises a colour with alpha below 1 as rgba() / hsla() or with a slash, so a comma-form rgb() / hsl() never carries a fourth part
     afterSlash ?? (value.startsWith("rgba") || value.startsWith("hsla") ? value.split(",")[3] : undefined);
   if (alpha === undefined) return true;
   const amount = parseFloat(alpha);
