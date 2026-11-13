@@ -146,6 +146,7 @@ describe("PpmProjectDetail", () => {
     it("is an icon link on a phone", async () => {
       setViewportWidth(375);
       loadAll();
+      const user = userEvent.setup();
       renderWithReport();
       await screen.findByText("ERP Replacement");
       const link = screen.getByRole("link", { name: "Initiative Report" });
@@ -153,6 +154,8 @@ describe("PpmProjectDetail", () => {
       expect(link).not.toHaveTextContent("Report");
       expect(link).toHaveTextContent("analytics");
       expect(link).toHaveStyle({ flexShrink: "0" });
+      await user.hover(link);
+      expect(await screen.findByRole("tooltip")).toHaveTextContent("Initiative Report");
     });
   });
 });

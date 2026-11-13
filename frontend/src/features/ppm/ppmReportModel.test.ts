@@ -212,6 +212,15 @@ describe("risk heat map", () => {
     expect(counts.flat().reduce((a, b) => a + b, 0)).toBe(5);
     expect(counts).toHaveLength(5);
     for (const row of counts) expect(row).toHaveLength(5);
+    // An off-grid impact writes nowhere, not even beside a row's five cells.
+    for (const row of counts) expect(Object.keys(row)).toEqual(["0", "1", "2", "3", "4"]);
+    expect(counts).toStrictEqual([
+      [1, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 2],
+      [0, 1, 0, 0, 1],
+    ]);
     expect(HEAT_STEPS).toEqual([1, 2, 3, 4, 5]);
   });
 

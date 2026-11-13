@@ -52,6 +52,8 @@ describe("HealthDot", () => {
     const { container } = render(<HealthDot value="atRisk" label="Schedule" />);
     expect(screen.getByTestId("health-dot")).toHaveStyle({ backgroundColor: RAG_COLORS.amber });
     expect(container).toHaveTextContent(/^Schedule$/);
+    // No rating: no slot for one either, only the dimension's text.
+    expect(container.querySelectorAll("p")).toHaveLength(1);
   });
 
   it("paints an unknown rating neutral", () => {
@@ -130,6 +132,7 @@ describe("BudgetBar", () => {
   it("keeps the figures secondary when within budget", () => {
     renderBar();
     expect(screen.getByText(/25%/)).not.toHaveStyle({ color: OVER });
+    expect(screen.getByText(/25%/)).toHaveStyle({ color: palette.text.secondary });
   });
 
   it("shows an empty bar and no percentage when there is no budget, whatever is spent", () => {

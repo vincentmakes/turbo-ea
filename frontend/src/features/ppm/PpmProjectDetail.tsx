@@ -255,6 +255,7 @@ export default function PpmProjectDetail() {
               component={RouterLink}
               to={`/ppm/${card.id}/report`}
               aria-label={t("pdfDocumentTitle")}
+              // Stryker disable next-line ObjectLiteral: equivalent: MUI's IconButton root already sets flex: 0 0 auto, so the button never shrinks either way
               sx={{ flexShrink: 0 }}
             >
               <MaterialSymbol icon="analytics" size={20} />
@@ -324,6 +325,7 @@ export default function PpmProjectDetail() {
           initiativeId={id!}
           risks={risks}
           onRefresh={loadData}
+          // Stryker disable next-line OptionalChaining: equivalent: card is non-null here, the page returned the error view above when it is null
           initiativeName={card?.name}
         />
       )}

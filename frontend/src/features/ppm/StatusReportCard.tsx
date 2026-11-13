@@ -22,9 +22,17 @@ const HEALTH_DIMENSIONS = [
   ["scope_health", "health_scope"],
 ] as const;
 
+// Stryker disable all: static layout of the card (responsive padding and gaps, the dot's size and shape, spacing); jsdom lays nothing out and evaluates no media query, so no test can observe it
 /** The card's own padding and the gap below it in a list. */
-// Stryker disable next-line ObjectLiteral: a responsive padding; jsdom evaluates no media query, so no test can read it
 const CARD_SX = { p: { xs: 2, sm: 3 }, mb: 2 } as const;
+/** A health dot's size and shape; its colour is the rating's. */
+const HEALTH_DOT_SX = { width: 12, height: 12, borderRadius: "50%", flexShrink: 0 } as const;
+/** The header's date / health / reporter group: its gap widens from sm. */
+const HEADER_GROUP_GAP = { xs: 1, sm: 2 } as const;
+const HEADER_GROUP_SX = { flex: 1, minWidth: 0, rowGap: 0.75 } as const;
+/** The rule above the accomplishments and next steps. */
+const DIVIDER_SX = { my: 1.5 } as const;
+// Stryker restore all
 
 /** A free-text block's body keeps the author's line breaks and never overflows. */
 const BLOCK_TEXT_SX = { whiteSpace: "pre-wrap", overflowWrap: "anywhere" } as const;
@@ -47,13 +55,7 @@ export function ReportHealth({ report, showRating = false }: ReportHealthProps) 
         return (
           <Box key={key} display="flex" alignItems="center" gap={0.5}>
             <Box
-              sx={{
-                width: 12,
-                height: 12,
-                borderRadius: "50%",
-                flexShrink: 0,
-                bgcolor: healthColor(value),
-              }}
+              sx={{ ...HEALTH_DOT_SX, bgcolor: healthColor(value) }}
               title={statusLabel}
             />
             <Typography variant="caption" color="text.secondary">
@@ -132,9 +134,9 @@ export default function StatusReportCard({
         <Box
           display="flex"
           alignItems="center"
-          gap={{ xs: 1, sm: 2 }}
+          gap={HEADER_GROUP_GAP}
           flexWrap="wrap"
-          sx={{ flex: 1, minWidth: 0, rowGap: 0.75 }}
+          sx={HEADER_GROUP_SX}
         >
           <Typography variant="subtitle1" fontWeight={600}>
             {formatDate(report.report_date)}
@@ -153,7 +155,7 @@ export default function StatusReportCard({
       {report.summary && <ReportBlock title={t("summary")} text={report.summary} mb={2} />}
 
       {/* Accomplishments & Next Steps */}
-      {(report.accomplishments || report.next_steps) && <Divider sx={{ my: 1.5 }} />}
+      {(report.accomplishments || report.next_steps) && <Divider sx={DIVIDER_SX} />}
 
       {report.accomplishments && (
         <ReportBlock title={t("accomplishments")} text={report.accomplishments} mb={1.5} />

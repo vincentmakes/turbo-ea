@@ -315,6 +315,7 @@ export function timelineModel(spans: readonly TimelineSpan[], now: Date): Timeli
   const start = quarterStart(min);
   const lastQ = quarterStart(max);
   const end = new Date(lastQ.getFullYear(), lastQ.getMonth() + 3, 1);
+  // Stryker disable next-line ArithmeticOperator: equivalent: a mutated sum only ever raises the month count, and the q.start < end filter below drops every quarter past the range
   const months = (end.getFullYear() - start.getFullYear()) * 12 + end.getMonth() - start.getMonth();
   const span = dayNumber(end) - dayNumber(start);
   const at = (d: Date) => ((dayNumber(d) - dayNumber(start)) / span) * 100;
@@ -354,6 +355,7 @@ export function timelinePosition(
   const at = (d: Date, plusDays = 0) =>
     ((dayNumber(d) + plusDays - dayNumber(model.start)) / total) * 100;
   if (s && e) {
+    // Stryker disable next-line EqualityOperator: equivalent: when s and e are the same day both orders give the same pair
     const [a, b] = s <= e ? [s, e] : [e, s];
     return { startPct: at(a), widthPct: at(b, 1) - at(a) };
   }

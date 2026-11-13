@@ -11,6 +11,26 @@ import { useTheme } from "@mui/material/styles";
 import { costPair } from "./ppmPortfolioFormat";
 import { healthColor } from "./ppmHealth";
 
+// Stryker disable all: static layout of the dot, the bar row and the ring (sizes, shape, positioning); jsdom lays nothing out, so no test can observe it
+/** The health dot's size and shape; its colour is the rating's. */
+const HEALTH_DOT_SX = { width: 16, height: 16, flexShrink: 0, borderRadius: "50%" } as const;
+/** The gap below one budget bar. */
+const BUDGET_BAR_SX = { mb: 1.5 } as const;
+/** The ring's frame, which the percentage is laid over. */
+const RING_SX = { position: "relative", display: "inline-flex", flexShrink: 0 } as const;
+/** The percentage, centred over the ring. */
+const RING_LABEL_SX = {
+  top: 0,
+  left: 0,
+  bottom: 0,
+  right: 0,
+  position: "absolute",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+} as const;
+// Stryker restore all
+
 /** A derived figure's text reads italic. */
 const DERIVED_TEXT_SX = { fontStyle: "italic" } as const;
 
@@ -42,13 +62,7 @@ export function HealthDot({ value, label, rating }: HealthDotProps) {
     <Box display="flex" alignItems="center" gap={1}>
       <Box
         data-testid="health-dot"
-        sx={{
-          width: 16,
-          height: 16,
-          flexShrink: 0,
-          borderRadius: "50%",
-          bgcolor: healthColor(value),
-        }}
+        sx={{ ...HEALTH_DOT_SX, bgcolor: healthColor(value) }}
       />
       <Typography variant="body2">{label}</Typography>
       {rating !== undefined && (
@@ -92,7 +106,7 @@ export function BudgetBar({
   const { actualText: aVal, plannedText: pVal, unit } = costPair(actual, budget, currency);
 
   return (
-    <Box sx={{ mb: 1.5 }}>
+    <Box sx={BUDGET_BAR_SX}>
       <Box display="flex" justifyContent="space-between" alignItems="baseline" mb={0.25}>
         <Typography variant="body2" fontWeight={500}>
           {label}
@@ -143,13 +157,7 @@ export interface CompletionRingProps {
 export function CompletionRing({ value }: CompletionRingProps) {
   const theme = useTheme();
   return (
-    <Box
-      sx={{
-        position: "relative",
-        display: "inline-flex",
-        flexShrink: 0,
-      }}
-    >
+    <Box sx={RING_SX}>
       <CircularProgress
         variant="determinate"
         value={value}
@@ -164,18 +172,7 @@ export function CompletionRing({ value }: CompletionRingProps) {
                 : theme.palette.error.main,
         }}
       />
-      <Box
-        sx={{
-          top: 0,
-          left: 0,
-          bottom: 0,
-          right: 0,
-          position: "absolute",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
+      <Box sx={RING_LABEL_SX}>
         <Typography
           variant="body2"
           fontWeight={700}

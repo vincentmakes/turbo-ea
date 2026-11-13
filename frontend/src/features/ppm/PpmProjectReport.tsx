@@ -121,8 +121,49 @@ const FREE_TEXT_SX = { whiteSpace: "pre-wrap", overflowWrap: "anywhere" } as con
 /** A strip of `MetricCard`s, as the other reports lay them out. */
 const STRIP_SX = { display: "flex", gap: 2, flexWrap: "wrap", mb: 2 } as const;
 
+// Stryker disable all: the page's static layout (flex rows, grids, spacing, cell widths, responsive columns); jsdom lays nothing out and evaluates no media query, so no test can observe it
+/** The section chips' row. */
+const TOOLBAR_SX = { display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" } as const;
+/** The "no section is shown" line. */
+const NO_SECTIONS_SX = { py: 6 } as const;
+/** One section, and its heading row. */
+const SECTION_SX = { mb: 4 } as const;
+const SECTION_HEADING_SX = { display: "flex", alignItems: "center", gap: 1, mb: 2 } as const;
+/** The outlined card an empty section shows. */
+const EMPTY_SECTION_SX = { p: 3 } as const;
+/** The derived-figure notes under a tile strip, and one note's row. */
+const DERIVED_NOTES_SX = { mt: -1, mb: 2 } as const;
+const DERIVED_NOTE_SX = { display: "flex", alignItems: "center", gap: 0.5 } as const;
+/** The overview's card grid: one column on a phone, three from md. */
+const OVERVIEW_GRID_SX = {
+  display: "grid",
+  gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" },
+  gap: 2,
+} as const;
+/** The "beneath this initiative" block under the budget bars. */
+const BENEATH_SX = { mt: 2, pt: 1.5, borderTop: 1, borderColor: "divider" } as const;
+/** The subtype's column and its chip, which never overflow the card. */
+const SUBTYPE_BOX_SX = { minWidth: 0 } as const;
+const SUBTYPE_CHIP_SX = { maxWidth: "100%" } as const;
+/** A card of the overview's grid that spans the whole row from md. */
+const FULL_ROW_SX = { gridColumn: { md: "1 / -1" } } as const;
+/** A date cell never breaks. */
+const DATE_CELL_SX = { whiteSpace: "nowrap" } as const;
+/** The risks' card grid: one column on a phone, matrix and statuses from md. */
+const RISK_GRID_SX = {
+  display: "grid",
+  gridTemplateColumns: { xs: "1fr", md: "2fr 1fr" },
+  gap: 2,
+  mb: 2,
+} as const;
+/** A risk row's cells align to the top; its two free-text cells share the width. */
+const RISK_ROW_SX = { verticalAlign: "top" } as const;
+const RISK_TEXT_CELL_SX = { width: "34%" } as const;
+// Stryker restore all
+
 export default function PpmProjectReport() {
   const { id } = useParams<{ id: string }>();
+  // Stryker disable next-line StringLiteral: equivalent: every common key here is written "common:…" and all namespaces are bundled at init, so the "common" entry changes no lookup (the "ppm" entry is pinned by every visible-text test)
   const { t } = useTranslation(["ppm", "common"]);
   const { getType } = useMetamodel();
   const subtypeLabel = useCardSubtypeLabel();
@@ -131,6 +172,7 @@ export default function PpmProjectReport() {
 
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
+  // Stryker disable next-line StringLiteral: equivalent: loading starts true and the effect clears error before it can clear loading, so the initial error is never rendered
   const [error, setError] = useState("");
   const [sections, setSections] = useState<ReportSection[]>(loadReportSections);
   const chartRef = useRef<HTMLDivElement>(null);
@@ -174,6 +216,7 @@ export default function PpmProjectReport() {
       } catch (e) {
         if (!isCurrent()) return;
         if (e instanceof ApiError && e.status === 403) setError(t("common:errors.forbidden"));
+        // Stryker disable next-line StringLiteral: equivalent: an empty error falls back to the same "common:errors.notFound" text where it is rendered
         else if (e instanceof ApiError && e.status === 404) setError(t("common:errors.notFound"));
         else setError(e instanceof Error ? e.message : String(e));
       } finally {
@@ -276,7 +319,7 @@ export default function PpmProjectReport() {
     <Box
       role="group"
       aria-label={t("pdfSections")}
-      sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}
+      sx={TOOLBAR_SX}
     >
       <Typography variant="body2" color="text.secondary">
         {t("pdfSections")}
@@ -307,8 +350,10 @@ export default function PpmProjectReport() {
       title={card.name}
       icon={typeIcon}
       iconColor={typeColor}
+      // Stryker disable next-line BooleanLiteral: equivalent: with no onViewChange no toggle is drawn, exportFormats never allows xlsx, and the view stays "chart", so the pptx item shows either way
       hasTableToggle={false}
       chartRef={chartRef}
+      // Stryker disable next-line ArrayDeclaration: equivalent for the empty list: any list without "pptx" or "xlsx" offers no export (the ["pptx"] branch is pinned by the export tests)
       exportFormats={deckSections.length > 0 ? ["pptx"] : []}
       buildExportData={buildExportData}
       disableSavedReportsLink
@@ -322,7 +367,7 @@ export default function PpmProjectReport() {
             variant="body2"
             color="text.secondary"
             align="center"
-            sx={{ py: 6 }}
+            sx={NO_SECTIONS_SX}
             data-testid="report-no-sections"
           >
             {t("reportNoSections")}
@@ -351,7 +396,9 @@ function useInitiativeStatusLabel(): (card: Card) => string {
   return (card) => {
     const value = card.attributes?.initiativeStatus;
     if (!value || typeof value !== "string") return "";
+    // Stryker disable next-line ArrayDeclaration: equivalent: a stand-in section has no fields, so the loop finds nothing, as with no section
     for (const section of getType(card.type)?.fields_schema || []) {
+      // Stryker disable next-line ArrayDeclaration: equivalent: a stand-in field has no key, so it is skipped, as with no field
       for (const field of section.fields || []) {
         if (field.key !== "initiativeStatus") continue;
         const opt = field.options?.find((o) => o.key === value);
@@ -371,11 +418,8 @@ function Section({ section, children }: { section: ReportSection; children: Reac
   const { t } = useTranslation("ppm");
   const meta = SECTION_META[section];
   return (
-    <Box component="section" data-report-section={section} sx={{ mb: 4 }}>
-      <Box
-        className="ppm-report-heading"
-        sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}
-      >
+    <Box component="section" data-report-section={section} sx={SECTION_SX}>
+      <Box className="ppm-report-heading" sx={SECTION_HEADING_SX}>
         <MaterialSymbol icon={meta.icon} size={iconSize.lg} color="primary.main" />
         <Typography variant="h6" component="h2" fontWeight={600}>
           {t(meta.labelKey)}
@@ -389,7 +433,7 @@ function Section({ section, children }: { section: ReportSection; children: Reac
 /** A section with nothing to show says so, in an outlined card. */
 function EmptySection({ text }: { text: string }) {
   return (
-    <Paper variant="outlined" sx={{ p: 3 }}>
+    <Paper variant="outlined" sx={EMPTY_SECTION_SX}>
       <Typography variant="body2" color="text.secondary" align="center">
         {text}
       </Typography>
@@ -445,9 +489,9 @@ function DerivedNotes({ notes }: { notes: (string | undefined)[] }) {
   const shown = notes.filter((n): n is string => !!n);
   if (shown.length === 0) return null;
   return (
-    <Box data-testid="report-derived-notes" sx={{ mt: -1, mb: 2 }}>
+    <Box data-testid="report-derived-notes" sx={DERIVED_NOTES_SX}>
       {shown.map((note) => (
-        <Box key={note} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+        <Box key={note} sx={DERIVED_NOTE_SX}>
           <MaterialSymbol icon="subdirectory_arrow_right" size={iconSize.xs} color="text.secondary" />
           <Typography variant="caption" color="text.secondary">
             {note}
@@ -467,6 +511,7 @@ function useVarianceColor(variance: number): string {
 // ─── Overview ───────────────────────────────────────────────────────────────
 
 function OverviewSection({ data }: { data: ReportData }) {
+  // Stryker disable next-line StringLiteral: equivalent: its one common key is written "common:labels.description" and all namespaces are bundled at init (the "ppm" entry is pinned by the overview tests)
   const { t } = useTranslation(["ppm", "common"]);
   const theme = useTheme();
   const { formatDate } = useDateFormat();
@@ -535,14 +580,7 @@ function OverviewSection({ data }: { data: ReportData }) {
       </Box>
       <DerivedNotes notes={[money.budgetNote, money.actualNote]} />
 
-      <Box
-        className="ppm-report-cards"
-        sx={{
-          display: "grid",
-          gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" },
-          gap: 2,
-        }}
-      >
+      <Box className="ppm-report-cards" sx={OVERVIEW_GRID_SX}>
         <SectionPaper data-export-row icon="monitor_heart" title={t("healthSummary")}>
           {latest ? (
             <Box display="flex" flexDirection="column" gap={1.5} data-testid="report-health">
@@ -577,10 +615,7 @@ function OverviewSection({ data }: { data: ReportData }) {
           {bar(t("capex"), totals.budget.capex, totals.actual.capex)}
           {bar(t("opex"), totals.budget.opex, totals.actual.opex)}
           {showBeneath && (
-            <Box
-              data-testid="report-beneath"
-              sx={{ mt: 2, pt: 1.5, borderTop: 1, borderColor: "divider" }}
-            >
+            <Box data-testid="report-beneath" sx={BENEATH_SX}>
               <Typography variant="body2" fontWeight={600}>
                 {t("beneathThisInitiative", { count: rollup.descendant_count })}
               </Typography>
@@ -619,7 +654,7 @@ function OverviewSection({ data }: { data: ReportData }) {
               <Typography variant="body2">{dateText(attrs.endDate)}</Typography>
             </Box>
             {card.subtype && (
-              <Box sx={{ minWidth: 0 }}>
+              <Box sx={SUBTYPE_BOX_SX}>
                 <Typography variant="caption" color="text.secondary">
                   {t("subtype")}
                 </Typography>
@@ -628,7 +663,7 @@ function OverviewSection({ data }: { data: ReportData }) {
                     label={subtypeLabel(card.type, card.subtype)}
                     size="small"
                     variant="outlined"
-                    sx={{ maxWidth: "100%" }}
+                    sx={SUBTYPE_CHIP_SX}
                   />
                 </Box>
               </Box>
@@ -641,7 +676,7 @@ function OverviewSection({ data }: { data: ReportData }) {
         </SectionPaper>
 
         {card.description && (
-          <Box data-export-row sx={{ gridColumn: { md: "1 / -1" } }}>
+          <Box data-export-row sx={FULL_ROW_SX}>
             <SectionPaper icon="notes" title={t("common:labels.description")}>
               <Typography variant="body2" sx={FREE_TEXT_SX}>
                 <LinkifiedText text={card.description} />
@@ -688,7 +723,7 @@ function ReportsSection({ reports }: { reports: PpmStatusReport[] }) {
               <TableBody>
                 {earlier.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>{formatDate(r.report_date)}</TableCell>
+                    <TableCell sx={DATE_CELL_SX}>{formatDate(r.report_date)}</TableCell>
                     <TableCell>{r.reporter?.display_name ?? "—"}</TableCell>
                     <TableCell>
                       <ReportHealth report={r} showRating />
@@ -778,7 +813,8 @@ function CostsSection({ data }: { data: ReportData }) {
         groups={groupCostLines(costLines, fyStart)}
         derived={
           totals.actual.derived
-            ? { rows: derivedYearGroups(rollup, "cost"), totals: totals.actual }
+            ? // Stryker disable next-line StringLiteral: equivalent: derivedYearGroups reads every side but "budget" as the actuals, so "" reads them too
+              { rows: derivedYearGroups(rollup, "cost"), totals: totals.actual }
             : null
         }
         derivedCount={money.count}
@@ -814,15 +850,7 @@ function RisksSection({ risks }: { risks: PpmRisk[] }) {
         />
       </Box>
 
-      <Box
-        className="ppm-report-cards"
-        sx={{
-          display: "grid",
-          gridTemplateColumns: { xs: "1fr", md: "2fr 1fr" },
-          gap: 2,
-          mb: 2,
-        }}
-      >
+      <Box className="ppm-report-cards" sx={RISK_GRID_SX}>
         <SectionPaper data-export-row icon="grid_on" title={t("pdfHeatMapTitle")}>
           <PpmRiskMatrix risks={risks} />
         </SectionPaper>
@@ -853,8 +881,8 @@ function RisksSection({ risks }: { risks: PpmRisk[] }) {
           </TableHead>
           <TableBody>
             {sortRisksForPrint(risks).map((r) => (
-              <TableRow key={r.id} sx={{ verticalAlign: "top" }}>
-                <TableCell sx={{ width: "34%" }}>
+              <TableRow key={r.id} sx={RISK_ROW_SX}>
+                <TableCell sx={RISK_TEXT_CELL_SX}>
                   <Typography variant="body2" fontWeight={600}>
                     {r.title}
                   </Typography>
@@ -871,7 +899,7 @@ function RisksSection({ risks }: { risks: PpmRisk[] }) {
                   <RiskStatusChip status={r.status} />
                 </TableCell>
                 <TableCell>{r.owner_name || "—"}</TableCell>
-                <TableCell sx={{ width: "34%" }}>
+                <TableCell sx={RISK_TEXT_CELL_SX}>
                   <Typography variant="body2" sx={FREE_TEXT_SX}>
                     {r.mitigation ? <LinkifiedText text={r.mitigation} /> : "—"}
                   </Typography>
@@ -888,6 +916,7 @@ function RisksSection({ risks }: { risks: PpmRisk[] }) {
 // ─── Schedule ───────────────────────────────────────────────────────────────
 
 function ScheduleSection({ wbs, tasks }: { wbs: PpmWbs[] | null; tasks: PpmTask[] | null }) {
+  // Stryker disable next-line StringLiteral: equivalent: its one common key is written "common:errors.generic" and all namespaces are bundled at init (the "ppm" entry is pinned by the schedule tests)
   const { t } = useTranslation(["ppm", "common"]);
   if (wbs === null || tasks === null) {
     return (

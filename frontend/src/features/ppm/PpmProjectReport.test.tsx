@@ -49,6 +49,7 @@ import { resetFiscalYearStart } from "@/hooks/useFiscalYearStart";
 import { resetPageTitle, usePageTitleSlots } from "@/hooks/usePageTitle";
 import type { ReportExportData } from "@/features/reports/reportExport";
 import { REPORT_EXPORT_ROWS, REPORT_PREFS_KEY } from "./ppmReportModel";
+import { bandColor } from "./ppmRiskModel";
 import PpmProjectReport from "./PpmProjectReport";
 
 /** Each section's glyph, as the page heads it. */
@@ -358,6 +359,11 @@ describe("PpmProjectReport — sections", () => {
     expect(tiles).toHaveTextContent("-50 kUSD");
     expect(tiles).toHaveTextContent("42%");
     expect(tiles).toHaveTextContent("Average completion across work packages");
+    expect(tiles).toHaveTextContent("Total Actual");
+    expect(tiles).toHaveTextContent("Variance");
+    // Nothing is derived: no tile is marked, the variance included.
+    expect(tiles.querySelectorAll("[data-derived]")).toHaveLength(0);
+    expect(within(ov).queryByTestId("report-beneath")).not.toBeInTheDocument();
 
     const health = within(ov).getByTestId("report-health");
     expect(health).toHaveTextContent("ScheduleOn Track");
@@ -365,12 +371,22 @@ describe("PpmProjectReport — sections", () => {
     expect(health).toHaveTextContent("ScopeOff Track");
     expect(health).toHaveTextContent("Latest report: 2026-03-01");
 
+    expect(within(ov).getByText("Health Summary")).toBeInTheDocument();
     expect(within(ov).getByText("Financials")).toBeInTheDocument();
+    const financials = within(ov).getByText("Financials").closest(".MuiPaper-root") as HTMLElement;
+    for (const bar of ["Total", "CapEx", "OpEx"]) {
+      expect(within(financials).getByText(bar)).toBeInTheDocument();
+    }
     expect(within(ov).getAllByRole("progressbar")).toHaveLength(3);
     expect(ov).toHaveTextContent("450/400 kUSD (113%)");
 
     expect(ov).toHaveTextContent("2025-01-15");
     expect(ov).toHaveTextContent("2026-06-30");
+    const timeline = within(ov).getByText("Timeline").closest(".MuiPaper-root") as HTMLElement;
+    expect(timeline).toHaveTextContent(
+      "Start Date2025-01-15End Date2026-06-30SubtypeProjectInitiative StatusOn Track (metamodel)",
+    );
+    expect(within(ov).getByText("Description")).toBeInTheDocument();
     expect(within(ov).getByText("Project")).toBeInTheDocument();
     expect(within(ov).getByText("On Track (metamodel)")).toBeInTheDocument();
     expect(within(ov).getByRole("link", { name: "https://erp.example.com" })).toBeInTheDocument();
@@ -408,6 +424,7 @@ describe("PpmProjectReport — sections", () => {
     const table = within(rs).getByTestId("report-earlier-table");
     const rows = within(table).getAllByRole("row");
     expect(rows).toHaveLength(3);
+    expect(rows[0]).toHaveTextContent(/^Report DateReporterHealth Summary$/);
     expect(rows[1]).toHaveTextContent("2026-02-01");
     expect(rows[1]).toHaveTextContent("Reporter r2");
     expect(rows[1]).toHaveTextContent("CostOn Track");
@@ -429,6 +446,9 @@ describe("PpmProjectReport — sections", () => {
     await loaded();
     const cs = section("costs")!;
     const tiles = cs.querySelector(".ppm-report-tiles")!;
+    expect(tiles).toHaveTextContent("Total Budget400 kUSD");
+    expect(tiles).toHaveTextContent("Total Actual450 kUSD");
+    expect(tiles).toHaveTextContent("Variance-50 kUSD");
     expect(tiles).toHaveTextContent("CapEx250 kUSDof 300 kUSD budget");
     expect(tiles).toHaveTextContent("OpEx200 kUSDof 100 kUSD budget");
     expect(within(cs).getByTestId("cost-charts")).toHaveTextContent(
@@ -456,6 +476,7 @@ describe("PpmProjectReport — sections", () => {
     expect(within(rk).getByText("Probability", { exact: false })).toBeInTheDocument();
     const statuses = within(rk).getByTestId("report-risk-status");
     expect(statuses).toHaveTextContent("Open1Mitigating1Mitigated0Closed1Accepted0");
+    expect(statuses.closest(".MuiPaper-root")).toHaveTextContent(/^trafficBy status/);
 
     const rows = within(within(rk).getByTestId("report-risk-table")).getAllByRole("row");
     expect(rows.map((r) => r.querySelector("td")?.textContent ?? "header")).toEqual([
@@ -464,6 +485,7 @@ describe("PpmProjectReport — sections", () => {
       "Medium riskWhy Medium risk",
       "Low riskWhy Low risk",
     ]);
+    expect(rows[0]).toHaveTextContent(/^RiskRisk ScoreStatusOwnerMitigation$/);
     expect(rows[1]).toHaveTextContent("204 × 5");
     expect(rows[1]).toHaveTextContent("Mitigating");
     expect(rows[1]).toHaveTextContent("Owner k3");
@@ -505,6 +527,10 @@ describe("PpmProjectReport — empty and derived", () => {
     await loaded();
     expect(within(section("overview")!).getByText("No status reports yet")).toBeInTheDocument();
     expect(within(section("overview")!).getByText("No work packages yet")).toBeInTheDocument();
+    // No work package: the completion reads as none, not as 0%.
+    expect(
+      within(section("overview")!).getByText("Completion").closest(".MuiPaper-root"),
+    ).toHaveTextContent(/^donut_largeCompletion—No work packages yet$/);
     expect(within(section("reports")!).getByText("No status reports yet")).toBeInTheDocument();
     expect(within(section("risks")!).getByText("No risks yet")).toBeInTheDocument();
     expect(within(section("risks")!).queryByTestId("report-risk-table")).not.toBeInTheDocument();
@@ -619,7 +645,7 @@ describe("PpmProjectReport — section chips", () => {
     await screen.findByRole("heading", { name: "Risk Management" });
     expect(document.querySelectorAll("[data-report-section]")).toHaveLength(1);
     expect(screen.queryByTestId("report-no-sections")).not.toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "Sections" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Sections" })).toHaveTextContent(/^Sections/);
   });
 });
 
@@ -897,7 +923,7 @@ describe("PpmProjectReport — failures", () => {
       /^donut_largeCompletion—$/,
     );
     expect(within(section("risks")!).getByTestId("report-risk-table")).toBeInTheDocument();
-    expect(within(section("schedule")!).getByRole("alert")).toBeInTheDocument();
+    expect(within(section("schedule")!).getByRole("alert")).toHaveTextContent("Something went wrong");
     expect(within(section("schedule")!).queryByText("Build phase")).not.toBeInTheDocument();
   });
 });
@@ -932,5 +958,330 @@ describe("PpmProjectReport — another initiative", () => {
       "href",
       "/ppm/i2",
     );
+  });
+});
+
+describe("PpmProjectReport — reading the initiative", () => {
+  /** A reply the test answers by hand, to order replies across initiatives. */
+  function deferred<T>() {
+    let resolve: (v: T) => void = () => {};
+    let reject: (e: unknown) => void = () => {};
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  }
+
+  /** Script the second initiative's reads, its card answered by `card`. */
+  function scriptOther(card: () => Promise<unknown> | unknown) {
+    const other = "/ppm/initiatives/i2";
+    mockApi.on("get", "/cards/i2", card);
+    for (const [path, value] of [
+      ["reports", []],
+      ["costs", []],
+      ["budgets", []],
+      ["risks", []],
+      ["rollup", NO_ROLLUP],
+      ["completion", { completion: 0, wbs_count: 0 }],
+      ["wbs", []],
+      ["tasks", []],
+    ] as const) {
+      mockApi.on("get", `${other}/${path}`, value);
+    }
+  }
+
+  const spinner = () => document.querySelector(".MuiCircularProgress-root");
+
+  it("waits, and reads nothing, without an initiative in the address", async () => {
+    render(
+      <MemoryRouter initialEntries={["/ppm-report"]}>
+        <Routes>
+          <Route path="/ppm-report" element={<PpmProjectReport />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await new Promise((r) => setTimeout(r, 20));
+    expect(spinner()).not.toBeNull();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(mockApi.callsOf("get", /^\/(cards|ppm)\//)).toEqual([]);
+  });
+
+  it("passes the request's abort signal to every read", async () => {
+    renderPage();
+    await loaded();
+    const reads = vi
+      .mocked(mockApi.api.get)
+      .mock.calls.filter(([path]) => path === "/cards/i1" || path.startsWith(`${BASE}/`));
+    expect(reads.map(([path]) => path).sort()).toEqual(
+      [
+        "/cards/i1",
+        `${BASE}/budgets`,
+        `${BASE}/completion`,
+        `${BASE}/costs`,
+        `${BASE}/reports`,
+        `${BASE}/risks`,
+        `${BASE}/rollup`,
+        `${BASE}/tasks`,
+        `${BASE}/wbs`,
+      ].sort(),
+    );
+    for (const [, opts] of reads) {
+      expect(opts).toEqual({ signal: expect.any(AbortSignal) });
+    }
+  });
+
+  it("forgets the initiative it leaves while the next one loads", async () => {
+    const second = deferred<unknown>();
+    scriptOther(() => second.promise);
+    const user = userEvent.setup();
+    renderPage();
+    await loaded();
+    await waitFor(() =>
+      expect(screen.getByTestId("title-probe")).toHaveTextContent("ERP Migration|Initiative Report"),
+    );
+    await user.click(screen.getByRole("button", { name: "other-initiative" }));
+    expect(spinner()).not.toBeNull();
+    await waitFor(() =>
+      expect(screen.getByTestId("title-probe")).toHaveTextContent(/^\|Initiative Report$/),
+    );
+    second.resolve({ ...CARD, id: "i2", name: "Second Initiative" });
+    await waitFor(() =>
+      expect(screen.getByTestId("title-probe")).toHaveTextContent("Second Initiative|Initiative Report"),
+    );
+  });
+
+  it("keeps waiting for the current initiative when the one left answers first", async () => {
+    const first = deferred<unknown>();
+    const second = deferred<unknown>();
+    mockApi.on("get", "/cards/i1", () => first.promise);
+    scriptOther(() => second.promise);
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: "other-initiative" }));
+    first.resolve(CARD);
+    await new Promise((r) => setTimeout(r, 20));
+    // The reply for the initiative left neither ends the wait nor fails it.
+    expect(spinner()).not.toBeNull();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    second.resolve({ ...CARD, id: "i2", name: "Second Initiative" });
+    expect(await screen.findByText("Second Initiative")).toBeInTheDocument();
+  });
+
+  it("never shows a failure of the initiative the reader has left", async () => {
+    const first = deferred<unknown>();
+    mockApi.on("get", "/cards/i1", () => first.promise);
+    scriptOther({ ...CARD, id: "i2", name: "Second Initiative" });
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: "other-initiative" }));
+    await screen.findByText("Second Initiative");
+    first.reject(new Error("late failure"));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText("late failure")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 5 })[0]).toHaveTextContent("Second Initiative");
+  });
+
+  it("says not found for a failure without a message", async () => {
+    mockApi.on("get", "/cards/i1", () => Promise.reject(new Error("")));
+    renderPage();
+    expect(await screen.findByRole("alert")).toHaveTextContent(/^Not found$/);
+    expect(document.querySelector(".ppm-project-report")).toBeNull();
+  });
+
+  it("names the back link in its tooltip", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await loaded();
+    await user.hover(screen.getByRole("link", { name: "Back to the initiative" }));
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Back to the initiative");
+  });
+});
+
+describe("PpmProjectReport — the initiative's values", () => {
+  it("leaves out a date or a status that is not text", async () => {
+    mockApi.on("get", "/cards/i1", {
+      ...CARD,
+      attributes: { startDate: Date.UTC(2025, 0, 15), endDate: "2026-06-30", initiativeStatus: 7 },
+    });
+    renderPage();
+    await loaded();
+    const params = document.querySelector(".report-print-params")!;
+    expect(params).not.toHaveTextContent("Start Date");
+    expect(params).toHaveTextContent("End Date: 2026-06-30");
+    expect(params).not.toHaveTextContent("Initiative Status");
+    const timeline = within(section("overview")!).getByText("Timeline").closest(".MuiPaper-root");
+    expect(timeline).toHaveTextContent("Start Date—End Date2026-06-30");
+    expect(timeline).toHaveTextContent(/Initiative Status—$/);
+  });
+
+  it("reads a card without attributes", async () => {
+    mockApi.on("get", "/cards/i1", { ...CARD, attributes: null });
+    renderPage();
+    await loaded();
+    expect(document.querySelector(".report-print-params")).not.toHaveTextContent("Initiative Status");
+    expect(
+      within(section("overview")!).getByText("Timeline").closest(".MuiPaper-root"),
+    ).toHaveTextContent(/Initiative Status—$/);
+  });
+
+  it("names the status from the initiativeStatus field only", async () => {
+    withMetamodel([
+      {
+        ...INITIATIVE_TYPE,
+        fields_schema: [
+          {
+            section: "Other",
+            fields: [
+              {
+                key: "phase",
+                label: "Phase",
+                type: "single_select",
+                options: [{ key: "onTrack", label: "Another field's label" }],
+              },
+            ],
+          },
+          ...INITIATIVE_TYPE.fields_schema,
+        ],
+      } as unknown as CardType,
+    ]);
+    renderPage();
+    await loaded();
+    expect(document.querySelector(".report-print-params")).toHaveTextContent(
+      "Initiative Status: On Track (metamodel)",
+    );
+    expect(screen.queryByText("Another field's label")).not.toBeInTheDocument();
+  });
+
+  it("shows the stored status when its field lists no options", async () => {
+    withMetamodel([
+      {
+        ...INITIATIVE_TYPE,
+        fields_schema: [
+          { section: "Status", fields: [{ key: "initiativeStatus", label: "Status", type: "text" }] },
+        ],
+      } as unknown as CardType,
+    ]);
+    renderPage();
+    await loaded();
+    expect(document.querySelector(".report-print-params")).toHaveTextContent(
+      "Initiative Status: onTrack",
+    );
+  });
+});
+
+describe("PpmProjectReport — section chips state", () => {
+  it("fills a shown section's chip and outlines a hidden one", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await loaded();
+    const chip = () => screen.getByRole("button", { name: /Risk Management/ });
+    expect(chip()).toHaveClass("MuiChip-colorPrimary", "MuiChip-filled");
+    expect(chip()).not.toHaveClass("MuiChip-outlined");
+    await user.click(chip());
+    expect(chip()).toHaveClass("MuiChip-colorDefault", "MuiChip-outlined");
+    expect(chip()).not.toHaveClass("MuiChip-filled");
+  });
+});
+
+describe("PpmProjectReport — figures", () => {
+  it("colours a variance of exactly zero as a success", async () => {
+    mockApi.on("get", `${BASE}/costs`, [
+      { ...COSTS[0], actual: 300_000 },
+      { ...COSTS[1], actual: 100_000 },
+    ]);
+    renderPage();
+    await loaded();
+    const variance = within(section("overview")!).getByText("Variance").closest(".MuiPaper-root")!;
+    expect(variance).toHaveTextContent(/^balanceVariance\$0$/);
+    expect(getComputedStyle(variance).borderLeft).toMatch(/rgb\(46, 125, 50\)/);
+  });
+
+  it("explains a variance from two derived sides with both derivations", async () => {
+    mockApi.on("get", `${BASE}/costs`, []);
+    mockApi.on("get", `${BASE}/budgets`, []);
+    mockApi.on("get", `${BASE}/rollup`, ROLLUP_BENEATH);
+    const user = userEvent.setup();
+    renderPage();
+    await loaded();
+    const variance = within(section("overview")!).getByText("Variance").closest(".MuiPaper-root")!;
+    await user.hover(variance.querySelector("[data-derived]")!);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(
+      /^No budget lines of its own: budget of the 2 initiatives beneath it · No cost lines of its own: actuals of the 2 initiatives beneath it$/,
+    );
+  });
+
+  it("lists the derived budget by year from the budgets beneath, not their actuals", async () => {
+    mockApi.on("get", `${BASE}/budgets`, []);
+    mockApi.on("get", `${BASE}/costs`, []);
+    mockApi.on("get", `${BASE}/rollup`, ROLLUP_BENEATH);
+    renderPage();
+    await loaded();
+    const cs = section("costs")!;
+    const budget = within(cs).getByTestId("ppm-budget-table");
+    expect(budget).toHaveTextContent("FY 2025$1500000$500000$2000000");
+    expect(budget).not.toHaveTextContent("$400000");
+    const costs = within(cs).getByTestId("ppm-cost-table");
+    expect(costs).toHaveTextContent("$400000$100000$500000");
+    expect(costs).not.toHaveTextContent("$1500000");
+  });
+
+  it("gives the span beneath with one end open", async () => {
+    mockApi.on("get", `${BASE}/budgets`, []);
+    mockApi.on("get", `${BASE}/rollup`, { ...ROLLUP_BENEATH, end_date: null });
+    renderPage();
+    await loaded();
+    expect(within(section("overview")!).getByTestId("report-beneath")).toHaveTextContent(
+      /From 2024-01-01 to —$/,
+    );
+  });
+
+  it("colours the high-risk tile in the high band's colour", async () => {
+    renderPage();
+    await loaded();
+    const high = within(section("risks")!).getByText("High Risks").closest(".MuiPaper-root")!;
+    const probe = document.createElement("span");
+    probe.style.color = bandColor("high");
+    expect(getComputedStyle(high).borderLeft).toContain(probe.style.color);
+  });
+});
+
+describe("PpmProjectReport — rows", () => {
+  it("shows a dash for an earlier report without a reporter", async () => {
+    mockApi.on("get", `${BASE}/reports`, [REPORTS[0], report("r2", "2026-02-01", { reporter: null })]);
+    renderPage();
+    await loaded();
+    const rows = within(screen.getByTestId("report-earlier-table")).getAllByRole("row");
+    expect(rows[1].querySelectorAll("td")[1]).toHaveTextContent(/^—$/);
+  });
+
+  it("links the addresses in a risk's description", async () => {
+    mockApi.on("get", `${BASE}/risks`, [
+      risk("k1", "Linked risk", 3, 4, { description: "See https://risk.example.com" }),
+    ]);
+    renderPage();
+    await loaded();
+    const table = within(section("risks")!).getByTestId("report-risk-table");
+    expect(within(table).getByRole("link", { name: "https://risk.example.com" })).toHaveAttribute(
+      "href",
+      "https://risk.example.com",
+    );
+  });
+
+  it("draws the schedule with work packages only, or tasks only", async () => {
+    mockApi.on("get", `${BASE}/tasks`, []);
+    const first = renderPage();
+    await loaded();
+    expect(within(section("schedule")!).getByText("Build phase")).toBeInTheDocument();
+    expect(within(section("schedule")!).queryByText("Nothing recorded.")).not.toBeInTheDocument();
+    first.unmount();
+
+    mockApi.on("get", `${BASE}/tasks`, TASKS);
+    mockApi.on("get", `${BASE}/wbs`, []);
+    renderPage();
+    await loaded();
+    expect(within(section("schedule")!).getByText("Configure ledger")).toBeInTheDocument();
+    expect(within(section("schedule")!).queryByText("Nothing recorded.")).not.toBeInTheDocument();
   });
 });
