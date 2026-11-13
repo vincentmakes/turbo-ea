@@ -253,7 +253,7 @@ Interaja com o diagrama de Gantt:
 
 A última aba mostra a visualização completa de detalhes do card, incluindo todas as seções padrão.
 
-### Relatório da iniciativa
+### Relatório da iniciativa { #initiative-report }
 
 ![Relatório da iniciativa PPM](../assets/img/pt/103_ppm_relatorio_iniciativa.png)
 
@@ -265,9 +265,11 @@ O botão **Relatório** no cabeçalho da iniciativa, ao lado do chip do subtipo 
 | **Relatórios de estado** | O relatório mais recente completo, com os seus indicadores, e, depois, os relatórios anteriores numa tabela com data, relator e indicadores de saúde |
 | **Orçamento e custos** | Mosaicos para o orçamento, o real e a variância totais e para a despesa CapEx e OpEx face ao respetivo orçamento; os gráficos **Gastos ao longo do tempo** para o ano fiscal indicado no respetivo chip e para o projeto inteiro; depois, as tabelas **Orçamento planejado** e **Itens de custo** com todos os anos fiscais expandidos |
 | **Gestão de riscos** | Mosaicos para **Total de riscos**, **Aberto** e **Riscos elevados**; o **Mapa de calor dos riscos** de probabilidade face ao impacto, com cada célula colorida por faixa de pontuação e a indicar quantos riscos contém, ao lado de uma contagem **Por estado**; depois, cada risco com a pontuação (e probabilidade × impacto), o estado, o responsável, a descrição completa e a mitigação completa, da pontuação mais alta para a mais baixa |
-| **Tarefas e cronograma** | Uma tabela de pacotes de trabalho, cada um com as suas tarefas por baixo, seguidos das tarefas sem pacote de trabalho, ao lado de uma linha temporal numa escala trimestral: uma barra para cada pacote de trabalho preenchida até à sua conclusão, uma barra para cada tarefa na cor do seu estado, uma bandeira para um marco, um ponto para um item com apenas uma data e uma linha para hoje quando cai dentro do intervalo. Cada linha mostra também o progresso ou o estado e a prioridade, e uma legenda explica os símbolos |
+| **Tarefas e cronograma** | Uma tabela de pacotes de trabalho, cada um com as suas tarefas por baixo, seguidos das tarefas sem pacote de trabalho, ao lado de uma linha temporal numa escala trimestral: uma barra para cada pacote de trabalho preenchida até à sua conclusão, uma barra para cada tarefa na cor do seu estado, um losango para um marco (como no diagrama de Gantt), um ponto para um item com apenas uma data e uma linha para hoje quando cai dentro do intervalo. Cada linha mostra também o progresso ou o estado e a prioridade, e uma legenda explica os símbolos |
 
-Para imprimir o relatório ou guardá-lo como PDF, use o botão **Imprimir / Salvar como PDF** na barra de título, como em todos os relatórios. A página é impressa na horizontal, sem a barra de ferramentas nem a navegação da aplicação, e uma linha por baixo do título indica o subtipo, o estado da iniciativa, as datas de início e de fim e quando o relatório foi impresso. Uma secção sem nada registado indica-o.
+Para imprimir o relatório ou guardá-lo como PDF, use o botão **Imprimir / Salvar como PDF** na barra de título, como em todos os relatórios; abre a caixa de diálogo de impressão do navegador, ou a folha de impressão do Safari num iPhone ou iPad, onde também pode guardar como PDF. A página é impressa na horizontal, sem a barra de ferramentas nem a navegação da aplicação, com os gráficos em tamanho de impressão, e uma linha por baixo do título indica o subtipo, o estado da iniciativa, as datas de início e de fim e quando o relatório foi impresso. Uma secção sem nada registado indica-o.
+
+Para levar o relatório para uma apresentação, escolha **Exportar para PowerPoint (.pptx)** no menu **⋮** da barra de título. A apresentação abre com um diapositivo de título com o nome da iniciativa, a data em que foi gerada e o seu subtipo, estado e datas de início e de fim. Cada secção mostrada na página segue num diapositivo próprio, encabeçado pelo nome da secção, como uma imagem da secção tal como a vê; uma secção longa continua em diapositivos seguintes («Orçamento e custos — Página 2 / 3»), e uma tabela que continua repete a sua linha de cabeçalho. A apresentação segue os chips **Secções**: uma secção que ocultou, ou uma sem nada registado, fica de fora. Enquanto a apresentação é gerada, o botão do menu mostra um indicador de carregamento; se a exportação falhar, uma mensagem indica-o e pode tentar novamente.
 
 Para distribuir um **relatório de riscos**, mostre apenas **Gestão de riscos**.
 

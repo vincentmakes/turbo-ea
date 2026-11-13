@@ -253,7 +253,7 @@ Interagisci con il diagramma di Gantt:
 
 L'ultima scheda mostra la vista completa dei dettagli della card, incluse tutte le sezioni standard.
 
-### Report dell'iniziativa
+### Report dell'iniziativa { #initiative-report }
 
 ![Report dell'iniziativa PPM](../assets/img/it/103_ppm_report_iniziativa.png)
 
@@ -265,9 +265,11 @@ Il pulsante **Report** nell'intestazione dell'iniziativa, accanto al chip del so
 | **Rapporti di stato** | L'ultimo rapporto per intero, con i suoi indicatori, poi i rapporti precedenti in una tabella con data, relatore e indicatori di salute |
 | **Budget e costi** | Riquadri per budget, consuntivo e scostamento totali e per la spesa CapEx e OpEx rispetto al relativo budget; i grafici **Spesa nel tempo** per l'anno fiscale indicato nel loro chip e per l'intero progetto; poi le tabelle **Budget pianificato** e **Voci di costo** con tutti gli anni fiscali espansi |
 | **Gestione dei rischi** | Riquadri per **Totale rischi**, **Aperto** e **Rischi elevati**; la **Mappa di calore dei rischi** di probabilità rispetto a impatto, con ogni cella colorata per fascia di punteggio e il numero di rischi che contiene, accanto a un conteggio **Per stato**; poi ogni rischio con il punteggio (e probabilità × impatto), lo stato, il responsabile, la descrizione completa e la mitigazione completa, dal punteggio più alto |
-| **Attività e pianificazione** | Una tabella dei pacchetti di lavoro, ciascuno con le sue attività sotto, poi le attività senza pacchetto di lavoro, affiancata da una timeline su scala trimestrale: una barra per ogni pacchetto di lavoro riempita fino al suo completamento, una barra per ogni attività nel colore del suo stato, una bandierina per una milestone, un punto per un elemento con una sola data e una linea per oggi quando cade nell'intervallo. Ogni riga mostra anche l'avanzamento o lo stato e la priorità, e una legenda spiega i simboli |
+| **Attività e pianificazione** | Una tabella dei pacchetti di lavoro, ciascuno con le sue attività sotto, poi le attività senza pacchetto di lavoro, affiancata da una timeline su scala trimestrale: una barra per ogni pacchetto di lavoro riempita fino al suo completamento, una barra per ogni attività nel colore del suo stato, un rombo per una milestone (come nel diagramma di Gantt), un punto per un elemento con una sola data e una linea per oggi quando cade nell'intervallo. Ogni riga mostra anche l'avanzamento o lo stato e la priorità, e una legenda spiega i simboli |
 
-Per stampare il report o salvarlo come PDF, usate il pulsante **Stampa / Salva come PDF** nella barra del titolo, come in ogni report. La pagina viene stampata in orizzontale senza la barra degli strumenti e la navigazione dell'applicazione, e una riga sotto il titolo riporta il sottotipo, lo stato dell'iniziativa, le date di inizio e fine e il momento in cui il report è stato stampato. Una sezione senza contenuto lo indica.
+Per stampare il report o salvarlo come PDF, usate il pulsante **Stampa / Salva come PDF** nella barra del titolo, come in ogni report; apre la finestra di stampa del browser, oppure il foglio di stampa di Safari su iPhone o iPad, dove potete anche salvare come PDF. La pagina viene stampata in orizzontale senza la barra degli strumenti e la navigazione dell'applicazione, con i grafici in formato di stampa, e una riga sotto il titolo riporta il sottotipo, lo stato dell'iniziativa, le date di inizio e fine e il momento in cui il report è stato stampato. Una sezione senza contenuto lo indica.
+
+Per portare il report in una presentazione, scegliete **Esporta in PowerPoint (.pptx)** dal menu **⋮** nella barra del titolo. La presentazione si apre con una diapositiva di titolo che riporta il nome dell'iniziativa, la data in cui è stata generata e il suo sottotipo, lo stato e le date di inizio e fine. Ogni sezione mostrata nella pagina segue su una propria diapositiva, intitolata con il nome della sezione, come immagine della sezione così come la vedete; una sezione lunga prosegue su altre diapositive («Budget e costi — Pagina 2 / 3») e una tabella che continua ripete la propria riga di intestazione. La presentazione segue i chip **Sezioni**: una sezione che avete nascosto, o una senza contenuto, viene esclusa. Mentre la presentazione viene creata, il pulsante del menu mostra un indicatore di caricamento; se l'esportazione non riesce, un messaggio lo segnala e potete riprovare.
 
 Per distribuire un **report dei rischi**, mostrate solo **Gestione dei rischi**.
 
