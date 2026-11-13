@@ -76,6 +76,56 @@ in order; selecting a step, the next / previous buttons and the arrow keys chang
 request's `fiscal_year`; the first step disables "previous" and the last disables "next"; a saved report restores
 its year onto the slider; the selected year's name is announced (`aria-valuetext`).
 
+## 3. A card's Costs section: Time Travel row and one bar per fiscal year (larger task)
+
+**Today.** `frontend/src/features/cards/sections/CostsSection.tsx`: a year stepper (`<  FY26 - Current  >`,
+~lines 150-165), the TCO of the selected year, then **one** stacked horizontal bar (an `EChart`, 14 px high, inside
+a `Box` with `overflow: "hidden"`, ~line 204) and the selected year's cost-item tiles below it, then `+ ADD ITEM`.
+`LicensingSection.tsx` (same folder) has the same stepper for the licences of a year.
+
+**Wanted (the user's words, 2026-11-13).**
+1. The Time Travel control of the cost report (item 2 above) in the card's Costs section, in place of the stepper.
+2. All fiscal years at once: **one stacked horizontal bar per fiscal year, one above the other**, the forecast year
+   on top and the oldest at the bottom (instead of a single bar). Each bar is that year's cost items, coloured as the
+   single bar is today.
+3. Choosing a year (Time Travel step, or its buttons) **highlights that year's bar**; the other bars stay visible,
+   dimmed.
+4. **Bug to fix:** hovering a bar shows a tooltip that is cut off and sits behind the cost tiles below it (reproduced
+   on card TeamSystem HR, FY26: the tooltip text is clipped to the 14 px bar). The tooltip must be fully visible and
+   in front of everything.
+
+**Design.**
+- The bars are one chart (or one chart per year: the builder's call) with one category per fiscal year, in the same
+  year list the Time Travel uses (`costFiscalYearOptions`), forecast first. Each bar's segments are the year's cost
+  items with the existing colours and values; a year with no items shows an empty bar (and its label), not a gap.
+- The TCO figure and the tiles below keep showing the **selected** year only, as today; the selected year's name
+  stays in the Time Travel row. Year labels sit at the left of each bar; the selected year's bar and label are
+  emphasised (full opacity, bold label, a subtle accent), the others at reduced opacity.
+- Tooltip root cause: the chart is wrapped in `overflow: "hidden"` so the ECharts tooltip is clipped to the wrapper.
+  Fix: render the tooltip outside the wrapper (ECharts `tooltip.appendToBody: true` and a `z-index` above the page
+  chrome) and keep the rounded ends through the series' own `itemStyle.borderRadius` instead of clipping the box;
+  remove the `overflow: hidden`. The same check applies to the licensing bar and to any other chart in a clipped
+  wrapper in this section.
+- Same Time Travel row component as item 2 above (one component, green accent for costs). Selecting a year still
+  loads/edits that year's items exactly as the stepper did (state, fiscal-year parameter and the "confirm this year"
+  / "fallback from year" behaviour are unchanged).
+
+**Licensing (agent's call).** The Licensing section gets the **same Time Travel row** in place of its stepper and
+**no per-year bars**: the user asked for the control there and for no horizontal bars. One shared component serves
+both, so the two sections behave alike; each section keeps its own selected year as today (no new coupling). Its
+content (metrics, tiles) is unchanged. Cost: Licensing's tests that click the stepper are rewritten for the new
+control.
+
+**Non-goals.** No change to the cost data model, endpoints or permissions; no extra years beyond the existing list;
+no change to the cost report's own chart.
+
+**Tests owed.** Next to the section and the chart option builder (`licensingBarOption.ts` / its cost counterpart):
+one bar per fiscal year in forecast-to-oldest order, with the right segments and an empty bar for a year without
+items; the selected year is the emphasised one and the others are dimmed, and the emphasis follows a year change;
+the tooltip is configured to render outside the clipping wrapper (option check) and the wrapper no longer clips;
+the Time Travel steps and the existing year-dependent behaviours (confirm, fallback) still work in Costs; the
+Licensing section changes year with the new control and shows no bars.
+
 ## Open list
 
 Further refinements go here, one section each, as the user gives them.
