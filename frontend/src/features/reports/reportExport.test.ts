@@ -62,6 +62,7 @@ vi.mock("pptxgenjs", () => {
 });
 
 import {
+  captureFilter,
   capturePixelRatio,
   exportReportToPptx,
   exportReportToXlsx,
@@ -1499,5 +1500,144 @@ describe("exportReportToPptx — section mode", () => {
       w: near(drawW),
       h: near(CHART_H),
     });
+  });
+});
+
+// ─── Chart canvases ─────────────────────────────────────────────────────────
+
+describe("exportReportToPptx — chart canvases drawn onto the capture", () => {
+  let canvas: ReturnType<typeof installCanvas>;
+
+  beforeEach(() => {
+    canvas = installCanvas(SLICE_PNG);
+    restores.push(canvas);
+    vi.mocked(toPng).mockResolvedValue(CHART_PNG);
+  });
+
+  /**
+   * A chart node at (10, 20), 500 × 300, holding: two stacked zrender layers
+   * at (110, 70) 200 × 100, a hidden print copy, a zero-size canvas, a
+   * `display: none` one, an invisible one and one with no backing store.
+   */
+  function mountCharted(): { node: HTMLElement; layers: HTMLCanvasElement[] } {
+    const root = mount(`<div data-chart>
+      <div class="echart-container">
+        <canvas id="l1"></canvas><canvas id="l2"></canvas>
+        <canvas id="copy" class="echart-print-copy" style="display: none"></canvas>
+      </div>
+      <canvas id="empty"></canvas>
+      <canvas id="off" style="display: none"></canvas>
+      <canvas id="ghost" style="visibility: hidden"></canvas>
+      <canvas id="blank" width="0" height="150"></canvas><canvas id="flat" width="300" height="0"></canvas>
+    </div>`);
+    restores.push(
+      stubRectsBySelector({
+        "[data-chart]": [{ x: 10, y: 20, width: 500, height: 300 }],
+        "#l1, #l2, #copy, #off, #ghost, #blank, #flat": [{ x: 110, y: 70, width: 200, height: 100 }],
+      }),
+    );
+    const node = root.querySelector("[data-chart]") as HTMLElement;
+    return { node, layers: [node.querySelector("#l1"), node.querySelector("#l2")] as HTMLCanvasElement[] };
+  }
+
+  it("leaves canvases and icon glyphs out of the clone, and keeps everything else", () => {
+    expect(captureFilter(document.createElement("canvas"))).toBe(false);
+    const icon = document.createElement("span");
+    icon.className = "material-symbols-outlined";
+    expect(captureFilter(icon)).toBe(false);
+    expect(captureFilter(document.createElement("div"))).toBe(true);
+    expect(captureFilter(document.createElement("img"))).toBe(true);
+    expect(captureFilter(document.createTextNode("x"))).toBe(true);
+    // The capture hands html-to-image exactly this filter.
+    const node = mountChart("<svg></svg>", { width: 400, height: 300 });
+    return exportReportToPptx({ title: "T", sheets: [], chartNode: node }).then(() => {
+      expect(vi.mocked(toPng).mock.calls[0][1]?.filter).toBe(captureFilter);
+    });
+  });
+
+  it("draws each visible canvas once, in order, at its rectangle scaled to the picture", async () => {
+    const { node, layers } = mountCharted();
+    Object.defineProperty(node, "scrollTop", { value: 30, configurable: true });
+    Object.defineProperty(node, "scrollLeft", { value: 4, configurable: true });
+    // A 2× capture of the 500 × 300 node.
+    restores.push(installImage({ width: 1000, height: 600 }));
+
+    await exportReportToPptx({ title: "Cost", sheets: [], chartNode: node });
+
+    const draws = canvas.context.drawImage.mock.calls;
+    expect(draws).toHaveLength(3);
+    // The captured picture first, at the origin…
+    expect(draws[0].slice(1)).toEqual([0, 0]);
+    expect(draws[0][0]).not.toBeInstanceOf(HTMLCanvasElement);
+    // …then each layer at ((110 - 10 + 4) × 2, (70 - 20 + 30) × 2), 200 × 100 at 2×.
+    expect(draws[1]).toEqual([layers[0], 208, 160, 400, 200]);
+    expect(draws[2]).toEqual([layers[1], 208, 160, 400, 200]);
+    // The composited picture is the one on the slide.
+    expect(pptxInstances[0].slides[0].addImage).toHaveBeenCalledWith(
+      expect.objectContaining({ data: SLICE_PNG }),
+    );
+  });
+
+  it("scales by the picture's real size when the capture came back smaller", async () => {
+    const { node, layers } = mountCharted();
+    restores.push(installImage({ width: 750, height: 450 }));
+
+    await exportReportToPptx({ title: "Cost", sheets: [], chartNode: node });
+
+    expect(canvas.context.drawImage.mock.calls[1]).toEqual([layers[0], 150, 75, 300, 150]);
+  });
+
+  it("passes a picture with no canvas through untouched", async () => {
+    const node = mountChart("<div>no chart</div>", { width: 400, height: 300 });
+    restores.push(installImage({ width: 800, height: 600 }));
+    const getContext = HTMLCanvasElement.prototype.getContext as unknown as Mock;
+
+    await exportReportToPptx({ title: "T", sheets: [], chartNode: node });
+
+    expect(getContext).not.toHaveBeenCalled();
+    expect(HTMLCanvasElement.prototype.toDataURL).not.toHaveBeenCalled();
+    expect(pptxInstances[0].slides[0].addImage).toHaveBeenCalledWith(
+      expect.objectContaining({ data: CHART_PNG }),
+    );
+  });
+
+  it("keeps the picture as captured when there is no 2D context to composite on", async () => {
+    const { node } = mountCharted();
+    restores.push(installImage({ width: 1000, height: 600 }));
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    restores.push(() => getContext.mockRestore());
+
+    await exportReportToPptx({ title: "T", sheets: [], chartNode: node });
+
+    expect(pptxInstances[0].slides[0].addImage).toHaveBeenCalledWith(
+      expect.objectContaining({ data: CHART_PNG }),
+    );
+  });
+
+  it("keeps the picture as captured when it cannot be decoded for compositing", async () => {
+    const { node } = mountCharted();
+    restores.push(installImage({ fail: true }));
+
+    await exportReportToPptx({ title: "T", sheets: [], chartNode: node });
+
+    expect(canvas.context.drawImage).not.toHaveBeenCalled();
+    expect(pptxInstances[0].slides[0].addImage).toHaveBeenCalledWith(
+      expect.objectContaining({ data: CHART_PNG }),
+    );
+  });
+
+  it("composites in section mode too, before the section is cut", async () => {
+    const { node, layers } = mountCharted();
+    restores.push(installImage({ width: 1000, height: 600 }));
+
+    await exportReportToPptx({ title: "T", sheets: [], sections: [{ title: "Costs", node }] });
+
+    expect(vi.mocked(toPng).mock.calls[0][1]?.filter).toBe(captureFilter);
+    const draws = canvas.context.drawImage.mock.calls;
+    expect(draws.map((d) => d[0]).slice(1)).toEqual(layers);
+    expect(draws[1].slice(1)).toEqual([200, 100, 400, 200]);
+    expect(pptxInstances[0].slides[1].addImage).toHaveBeenCalledWith(
+      expect.objectContaining({ data: SLICE_PNG }),
+    );
   });
 });

@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - The report **Print / Save as PDF** button now opens the print sheet in Safari on iPhone, iPad and Mac.
 - The PPM Budget & Costs charts no longer draw the labels of two nearly equal budget lines on top of each other.
 - A report printed in the dark theme now shows its title, print parameters and the Initiative Report's section headings and their icons, which printed light on the white page and could not be seen.
+- PowerPoint exports of reports with charts (Cost Analysis, Data Quality, the Initiative Report) made in Safari now include the charts, which came out blank.
 
 ## [2.203.4] - 2026-11-13
 

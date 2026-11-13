@@ -393,15 +393,18 @@ function captureSize(node: HTMLElement): { width: number; height: number } {
   };
 }
 
-/** Render `node` to a PNG on `background`. */
-function renderPng(
+/**
+ * Render `node` to a PNG on `background`, its chart canvases drawn in
+ * afterwards (`compositeCanvases`).
+ */
+async function renderPng(
   node: HTMLElement,
   width: number,
   height: number,
   pixelRatio: number,
   background: string = PRINT_COLORS.paper,
 ): Promise<string> {
-  return toPng(node, {
+  const dataUrl = await toPng(node, {
     cacheBust: true,
     pixelRatio,
     backgroundColor: background,
@@ -416,14 +419,78 @@ function renderPng(
     // clone at the canvas origin; core's own chart nodes are static and
     // unaffected.
     style: { position: "static", left: "0", top: "0", margin: "0" },
-    // Skip Material Symbols icon spans — they rely on a font ligature
-    // that html-to-image can't reliably embed, so they otherwise leak
-    // through as raw glyph names ("payments", "trending_up", etc.).
-    filter: (n) => {
-      if (!(n instanceof HTMLElement)) return true;
-      return !n.classList.contains("material-symbols-outlined");
-    },
+    filter: captureFilter,
   });
+  return compositeCanvases(node, dataUrl, width, height);
+}
+
+/**
+ * What html-to-image clones. Left out:
+ * - Material Symbols icon spans: they rely on a font ligature html-to-image
+ *   can't reliably embed, so they leak through as raw glyph names
+ *   ("payments", "trending_up", etc.).
+ * - Canvases (the charts): html-to-image clones one as an `<img>` inside the
+ *   SVG it rasterises, and WebKit does not paint a nested image there on the
+ *   first draw, so every chart came out blank in Safari. They are drawn onto
+ *   the picture afterwards instead, the same way in every browser.
+ */
+export function captureFilter(n: Node): boolean {
+  if (n instanceof HTMLCanvasElement) return false;
+  if (!(n instanceof HTMLElement)) return true;
+  return !n.classList.contains("material-symbols-outlined");
+}
+
+/** The canvases under `node` that show on screen, in document order. */
+function visibleCanvases(node: HTMLElement): HTMLCanvasElement[] {
+  return Array.from(node.querySelectorAll("canvas")).filter((c) => {
+    const r = c.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0 || c.width === 0 || c.height === 0) return false;
+    const cs = window.getComputedStyle(c);
+    return cs.display !== "none" && cs.visibility !== "hidden";
+  });
+}
+
+/**
+ * Draw `node`'s visible canvases onto its captured picture, each at its
+ * rectangle relative to the node (scroll offsets included), scaled to the
+ * picture's pixels, in document order (zrender stacks several in one chart).
+ * A node with no canvas keeps its picture untouched; a picture that cannot be
+ * composited (no 2D context, an undecodable or tainted image) is kept as
+ * captured rather than failing the export.
+ */
+async function compositeCanvases(
+  node: HTMLElement,
+  dataUrl: string,
+  width: number,
+  height: number,
+): Promise<string> {
+  const canvases = visibleCanvases(node);
+  if (canvases.length === 0) return dataUrl;
+  try {
+    const img = await loadImage(dataUrl);
+    const out = document.createElement("canvas");
+    out.width = img.width;
+    out.height = img.height;
+    const ctx = out.getContext("2d");
+    if (!ctx) return dataUrl;
+    ctx.drawImage(img, 0, 0);
+    const sx = img.width / width;
+    const sy = img.height / height;
+    const base = node.getBoundingClientRect();
+    for (const c of canvases) {
+      const r = c.getBoundingClientRect();
+      ctx.drawImage(
+        c,
+        (r.left - base.left + node.scrollLeft) * sx,
+        (r.top - base.top + node.scrollTop) * sy,
+        r.width * sx,
+        r.height * sy,
+      );
+    }
+    return out.toDataURL("image/png");
+  } catch {
+    return dataUrl;
+  }
 }
 
 async function captureChartImage(
