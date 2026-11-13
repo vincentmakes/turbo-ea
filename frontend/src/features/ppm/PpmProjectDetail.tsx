@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router";
+import { Link as RouterLink, useParams, useNavigate, useSearchParams } from "react-router";
 import Box from "@mui/material/Box";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
@@ -24,7 +24,6 @@ import PpmCostTab from "./PpmCostTab";
 import PpmRiskTab from "./PpmRiskTab";
 import PpmTaskBoard from "./PpmTaskBoard";
 import PpmGanttTab from "./PpmGanttTab";
-import PpmProjectPdfDialog from "./PpmProjectPdfDialog";
 import CardDetailContent from "@/features/cards/CardDetailContent";
 import { PPM_ACTUAL_FIELD, PPM_BUDGET_FIELD } from "@/lib/ppmCostFields";
 import type {
@@ -73,10 +72,9 @@ export default function PpmProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { t } = useTranslation(["ppm", "common", "delivery"]);
+  const { t } = useTranslation(["ppm", "common"]);
   const theme = useTheme();
   const compact = useMediaQuery(theme.breakpoints.down("sm"));
-  const [pdfOpen, setPdfOpen] = useState(false);
 
   const subtypeLabel = useCardSubtypeLabel();
   const initialTab = TAB_KEYS.indexOf(searchParams.get("tab") || "overview");
@@ -252,36 +250,30 @@ export default function PpmProjectDetail() {
           />
         )}
         {compact ? (
-          <Tooltip title={t("delivery:editor.exportPdf")}>
-            <IconButton sx={{ flexShrink: 0 }} onClick={() => setPdfOpen(true)}>
-              <MaterialSymbol icon="picture_as_pdf" size={20} />
+          <Tooltip title={t("pdfDocumentTitle")}>
+            <IconButton
+              component={RouterLink}
+              to={`/ppm/${card.id}/report`}
+              aria-label={t("pdfDocumentTitle")}
+              sx={{ flexShrink: 0 }}
+            >
+              <MaterialSymbol icon="analytics" size={20} />
             </IconButton>
           </Tooltip>
         ) : (
-          <Tooltip title={t("delivery:editor.exportPdf")}>
+          <Tooltip title={t("pdfDocumentTitle")}>
             <Button
               size="small"
-              startIcon={<MaterialSymbol icon="picture_as_pdf" size={18} />}
+              component={RouterLink}
+              to={`/ppm/${card.id}/report`}
+              startIcon={<MaterialSymbol icon="analytics" size={18} />}
               sx={{ textTransform: "none", flexShrink: 0 }}
-              onClick={() => setPdfOpen(true)}
             >
-              {t("delivery:editor.pdf")}
+              {t("reportButton")}
             </Button>
           </Tooltip>
         )}
       </Box>
-
-      {pdfOpen && (
-        <PpmProjectPdfDialog
-          card={card}
-          reports={reports}
-          costLines={costLines}
-          budgetLines={budgetLines}
-          risks={risks}
-          rollup={rollup}
-          onClose={() => setPdfOpen(false)}
-        />
-      )}
 
       {/* Tabs */}
       <Tabs

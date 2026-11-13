@@ -73,6 +73,7 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { path: "/bpm/processes/:id/flow", permission: "bpm.view" },
   { path: "/ppm", permission: "ppm.view" },
   { path: "/ppm/:id", permission: "ppm.view" },
+  { path: "/ppm/:id/report", permission: "ppm.view" },
   { path: "/grc", permission: "grc.view" },
   { path: "/grc/risks/:id", permission: "risks.view" },
   { path: "/turbolens", permission: "turbolens.view" },

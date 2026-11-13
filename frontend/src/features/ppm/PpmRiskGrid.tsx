@@ -47,13 +47,13 @@ import { useThemeMode } from "@/hooks/useThemeMode";
 import { gridThemeDark, gridThemeLight } from "@/lib/agGridSetup";
 import type { PpmRisk } from "@/types";
 import PpmRiskFilterSidebar from "./PpmRiskFilterSidebar";
+import { RiskScoreChip, RiskStatusChip } from "./ppmRiskChips";
 import {
   DEFAULT_RISK_SORT,
   EMPTY_RISK_FILTERS,
   RISK_GRID_COLUMNS,
   RISK_SCORE_BANDS,
   RISK_STATUSES,
-  RISK_STATUS_CHIP_COLOR,
   bandColor,
   filterRisks,
   loadRiskGridPrefs,
@@ -65,7 +65,6 @@ import {
   saveRiskGridPrefs,
   scoreBand,
   scoreBandLabel,
-  scoreColor,
   type PpmRiskFilters,
   type RiskGridPrefs,
   type RiskGroupAxis,
@@ -297,28 +296,7 @@ export default function PpmRiskGrid({
         filter: "agNumberColumnFilter",
         // The chip is the score (what sorts and filters); the caption shows
         // its factors, so the Probability and Impact columns can stay hidden.
-        cellRenderer: (p: Params) =>
-          p.data ? (
-            // Inline, like the Status chip beside it: the cell's own line
-            // box places both at the same height. A flex box here would
-            // start at the cell's top edge instead.
-            <Box component="span" sx={{ whiteSpace: "nowrap" }}>
-              <Chip
-                label={p.data.risk_score}
-                size="small"
-                sx={{
-                  bgcolor: scoreColor(p.data.risk_score),
-                  // Stryker disable next-line StringLiteral: the ink is presentation
-                  color: "common.white",
-                  fontWeight: 700,
-                  minWidth: 32,
-                }}
-              />
-              <Typography component="span" variant="caption" color="text.secondary" ml={1}>
-                {`${p.data.probability} \u00d7 ${p.data.impact}`}
-              </Typography>
-            </Box>
-          ) : null,
+        cellRenderer: (p: Params) => (p.data ? <RiskScoreChip risk={p.data} /> : null),
       },
       {
         colId: "status",
@@ -327,15 +305,7 @@ export default function PpmRiskGrid({
         width: 120,
         // Sort and the text filter act on the label the chip shows.
         valueGetter: (p) => (p.data ? riskStatusLabel(p.data.status, t) : ""),
-        cellRenderer: (p: Params) =>
-          p.data ? (
-            <Chip
-              label={p.value as string}
-              size="small"
-              color={RISK_STATUS_CHIP_COLOR[p.data.status] ?? "default"}
-              variant="outlined"
-            />
-          ) : null,
+        cellRenderer: (p: Params) => (p.data ? <RiskStatusChip status={p.data.status} /> : null),
       },
       {
         colId: "owner_name",

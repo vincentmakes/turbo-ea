@@ -167,6 +167,47 @@
     break-inside: avoid !important;
   }
 
+  /* ---- PPM Initiative Report ---- */
+
+  /* One initiative over several pages. The generic rule above keeps every
+     Paper and every box of the chart area whole, so a long card (the cost
+     tables, the risk table, the schedule) would be pushed whole onto the next
+     page and leave a mostly blank one behind, or be clipped. Let the cards
+     and boxes break, and keep only the small units whole: a tile, a card of
+     the Overview or of the risk matrix, a table row, a chart, the head of the
+     latest status report, a timeline row. */
+  .ppm-project-report .MuiPaper-root,
+  .ppm-project-report .MuiBox-root,
+  .ppm-project-report section {
+    break-inside: auto !important;
+  }
+  .ppm-project-report .ppm-report-tiles > .MuiPaper-root,
+  .ppm-project-report .ppm-report-cards > *,
+  .ppm-project-report tr,
+  .ppm-project-report .echart-container,
+  .ppm-project-report [data-export-row],
+  .ppm-project-report .ppm-report-latest > .MuiPaper-root > .MuiBox-root:first-child {
+    break-inside: avoid !important;
+  }
+
+  /* A cost chart keeps its title with it. */
+  .ppm-project-report .echart-container {
+    break-before: avoid;
+  }
+
+  /* A heading never ends a page alone. */
+  .ppm-project-report .ppm-report-heading,
+  .ppm-project-report .MuiTypography-subtitle1 {
+    break-after: avoid;
+  }
+
+  /* The initiative's name wraps rather than being cut with an ellipsis. */
+  .report-container:has(.ppm-project-report) .MuiTypography-h5 {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+
   /* Remove box shadows and unnecessary borders */
   .MuiPaper-root {
     box-shadow: none !important;

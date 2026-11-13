@@ -13,6 +13,7 @@
 import { useMemo, useState, useEffect, useId } from "react";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
+import Chip from "@mui/material/Chip";
 import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
 import Collapse from "@mui/material/Collapse";
@@ -22,7 +23,7 @@ import FormControl from "@mui/material/FormControl";
 import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import EChart from "@/components/charts/EChart";
+import EChart, { EXPORT_DPR } from "@/components/charts/EChart";
 import { useEChartsTheme } from "@/components/charts/echartsTheme";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useFiscalYearStart } from "@/hooks/useFiscalYearStart";
@@ -54,16 +55,33 @@ import {
   type CumulativeLine,
 } from "./cumulativeChartOption";
 
-interface Props {
+export interface PpmCostChartsProps {
   costLines: PpmCostLine[];
   budgetLines: PpmBudgetLine[];
+  /**
+   * For a page that is read, not worked in (the Initiative Report): no
+   * fiscal-year picker, no collapse toggle, always expanded, and the stored
+   * view preference is never written nor read for the collapse.
+   */
+  readOnly?: boolean;
+  /**
+   * With `readOnly`, the fiscal year the first two charts show (default: the
+   * stored choice, resolved as on the tab; a year with no data here falls back
+   * to the current one). Ignored otherwise: the picker decides.
+   */
+  fiscalYear?: FiscalYearChoice;
 }
 
 const CHART_HEIGHT = 260;
 /** Three stacked charts at 260px is most of a phone screen; shrink on xs. */
 const CHART_HEIGHT_SX = { xs: 200, sm: CHART_HEIGHT };
 
-export default function PpmCostCharts({ costLines, budgetLines }: Props) {
+export default function PpmCostCharts({
+  costLines,
+  budgetLines,
+  readOnly = false,
+  fiscalYear,
+}: PpmCostChartsProps) {
   const { t, i18n } = useTranslation("ppm");
   const theme = useTheme();
   const { fmt, fmtShort } = useCurrency();
@@ -71,12 +89,17 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
   const headingId = useId();
 
   const [prefs] = useState(loadCostChartPrefs);
-  const [fyChoice, setFyChoice] = useState<FiscalYearChoice>(prefs.fiscalYear);
-  const [expanded, setExpanded] = useState(prefs.expanded);
+  const [pickedFy, setFyChoice] = useState<FiscalYearChoice>(prefs.fiscalYear);
+  const [toggledOpen, setExpanded] = useState(prefs.expanded);
+  // Read-only: the year handed in (else the stored one), always open.
+  const fyChoice = readOnly ? (fiscalYear ?? pickedFy) : pickedFy;
+  const expanded = readOnly || toggledOpen;
 
   useEffect(() => {
-    saveCostChartPrefs({ fiscalYear: fyChoice, expanded });
-  }, [fyChoice, expanded]);
+    // A read-only view changes nothing, so it records nothing.
+    if (readOnly) return;
+    saveCostChartPrefs({ fiscalYear: pickedFy, expanded: toggledOpen });
+  }, [readOnly, pickedFy, toggledOpen]);
 
   // `today` is read once per render rather than per helper call so every chart
   // on screen agrees on where "now" is.
@@ -135,7 +158,7 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
 
   const undated = useMemo(() => countUndated(costLines), [costLines]);
 
-  // One palette with the initiative PDF's charts (`ppmProjectCharts.ts`).
+  // The two cost categories keep one palette wherever they are drawn (`PPM_COST_COLORS`).
   const { capex: capexColor, opex: opexColor } = PPM_COST_COLORS[theme.palette.mode];
 
   // Each chart's lines and budget references, memoised: `CumulativeChart`
@@ -177,6 +200,17 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
   if (costLines.length === 0 && budgetLines.length === 0) return null;
 
   const yearLabel = (fy: number) => fiscalYearLabel(fy, fyStart, t);
+  // A read-only page is for printing: its charts draw at the export scale so
+  // the PDF stays sharp. The tab keeps the screen's own scale, so it looks
+  // exactly as before (a 2x canvas downsampled on a 1x screen anti-aliases
+  // its lines and labels differently).
+  const chartProps = {
+    fmt,
+    fmtShort,
+    locale: i18n.language,
+    emptyLabel: t("noChartData"),
+    devicePixelRatio: readOnly ? EXPORT_DPR : undefined,
+  };
 
   return (
     <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
@@ -184,8 +218,18 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
         <Typography variant="subtitle1" fontWeight={600} id={headingId}>
           {t("spendOverTime")}
         </Typography>
+        {readOnly && (
+          // No picker on a read-only page: say which year the first two charts show.
+          <Chip
+            data-testid="cost-charts-fiscal-year"
+            size="small"
+            variant="outlined"
+            icon={<MaterialSymbol icon="calendar_month" size={16} />}
+            label={activeFy === "all" ? t("allFiscalYears") : yearLabel(activeFy)}
+          />
+        )}
         <Box flexGrow={1} />
-        {expanded && (
+        {!readOnly && expanded && (
           <FormControl size="small" sx={{ minWidth: { xs: 120, sm: 160 } }}>
             <Select
               value={selectValue}
@@ -206,14 +250,16 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
             </Select>
           </FormControl>
         )}
-        <IconButton
-          size="small"
-          onClick={() => setExpanded((v) => !v)}
-          aria-expanded={expanded}
-          aria-label={t("spendOverTime")}
-        >
-          <MaterialSymbol icon={expanded ? "expand_less" : "expand_more"} size={20} />
-        </IconButton>
+        {!readOnly && (
+          <IconButton
+            size="small"
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+            aria-label={t("spendOverTime")}
+          >
+            <MaterialSymbol icon={expanded ? "expand_less" : "expand_more"} size={20} />
+          </IconButton>
+        )}
       </Box>
 
       <Collapse in={expanded} unmountOnExit>
@@ -228,7 +274,7 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
               labelledBy={`${headingId}-cat`}
               lines={categoryLines}
               references={fyCategoryReferences}
-              {...{ fmt, fmtShort, locale: i18n.language, emptyLabel: t("noChartData") }}
+              {...chartProps}
             />
           </Box>
 
@@ -242,7 +288,7 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
               labelledBy={`${headingId}-total`}
               lines={totalLines}
               references={fyTotalReferences}
-              {...{ fmt, fmtShort, locale: i18n.language, emptyLabel: t("noChartData") }}
+              {...chartProps}
             />
           </Box>
         </Box>
@@ -257,7 +303,7 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
             labelledBy={`${headingId}-proj`}
             lines={categoryLines}
             references={projectReferences}
-            {...{ fmt, fmtShort, locale: i18n.language, emptyLabel: t("noChartData") }}
+            {...chartProps}
           />
         </Box>
 
@@ -282,6 +328,8 @@ function CumulativeChart(props: {
   fmtShort: (v: number) => string;
   locale: string;
   emptyLabel: string;
+  /** The canvas backing-store scale; the screen's when absent. */
+  devicePixelRatio?: number;
 }) {
   const { data, lines, references, labelledBy, fmt, fmtShort, locale, emptyLabel } = props;
   const theme = useEChartsTheme();
@@ -324,7 +372,7 @@ function CumulativeChart(props: {
   return (
     // Stryker disable next-line ObjectLiteral: a responsive height; jsdom evaluates no media query, so no test can read it
     <Box sx={{ height: CHART_HEIGHT_SX }}>
-      <EChart option={option} labelledBy={labelledBy} />
+      <EChart option={option} labelledBy={labelledBy} devicePixelRatio={props.devicePixelRatio} />
     </Box>
   );
 }
