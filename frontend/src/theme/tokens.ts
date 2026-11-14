@@ -593,6 +593,17 @@ export const BPM_ASSESSMENT_COLORS = {
 
 // ── PPM ─────────────────────────────────────────────────────────────────
 
+/** The two cost categories on the PPM Budget & Costs spend charts — the
+ *  cumulative lines and their dashed budget lines, on screen and in the
+ *  initiative PDF. CapEx is the brand blue; OpEx is the purple the charts
+ *  have always drawn, MUI's default `secondary.main` per mode (purple 500 in
+ *  light, purple 200 in dark: the app theme sets only `primary`). The PDF is
+ *  paper, so it always takes `light`. */
+export const PPM_COST_COLORS = {
+  light: { capex: brand.primary, opex: "#9c27b0" },
+  dark: { capex: brand.primary, opex: "#ce93d8" },
+} as const;
+
 /** The PPM Gantt's task bars, one set per task status (`PpmTaskStatus`). Each
  *  status has four shades: `bar` is the bar's remaining (not yet done) part,
  *  `progress` the filled part up to the task's percent complete, and the two

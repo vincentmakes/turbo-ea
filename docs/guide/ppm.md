@@ -127,17 +127,92 @@ Two things to be aware of when reading the charts:
 
 ![PPM Risk Management](../assets/img/en/44_ppm_risk_management.png)
 
-The risk register tracks project risks with:
+The risk register tracks the initiative's risks. Each risk has:
 
 | Field | Description |
 |-------|-------------|
 | **Title** | Brief description of the risk |
+| **Description** | The risk in full |
 | **Probability** | Likelihood score (1–5) |
 | **Impact** | Impact score (1–5) |
-| **Risk Score** | Auto-calculated as probability x impact |
+| **Risk Score** | Auto-calculated as probability × impact |
 | **Status** | Open, Mitigating, Mitigated, Closed, or Accepted |
 | **Mitigation** | Planned mitigation actions |
 | **Owner** | User responsible for managing the risk |
+
+A summary strip above the grid counts the **Total Risks**, the **Open** ones and the **High Risks**.
+
+#### The risk grid
+
+The risks are listed in a grid built like the [Inventory](inventory.md) and the [Risk Register](risks.md#register-grid). Text is never cut: each row shows the risk's title in bold with its **full description** beneath it, and the **full mitigation**, wrapping onto as many lines as they need. Web addresses in the description and the mitigation are clickable.
+
+| Column | Shows |
+|--------|-------|
+| **Risk** | The title, with the description beneath it |
+| **Risk Score** | The score as a coloured chip, with *probability × impact* beside it (for example **20** *4 × 5*) |
+| **Status** | The status chip |
+| **Owner** | The risk owner, or a dash |
+| **Mitigation** | The planned mitigation, or a dash |
+| *(buttons)* | **Edit** and **Delete** |
+
+**Probability** and **Impact** are also available as separate columns; they are hidden by default — switch them on in the **Columns** tab of the filter panel.
+
+- **Sort** — click a column header. Until you pick a sort of your own, the highest score comes first.
+- **Filter a column** — use the header filters, as on the other grids.
+- **Freeze a column** — click the pin on its header to keep it at the left edge while you scroll sideways; click it again to release it.
+- **Reorder columns** — drag a column header.
+- **Cell menu** — right-click a cell (long-press on a touch device) for the same cell menu as on the other grids.
+
+#### Filter panel
+
+The panel on the left has two tabs:
+
+- **Filters**
+    - **Search** — matches the title, description, mitigation and owner.
+    - **Status** — tick one or more status chips.
+    - **Risk Score** — the score bands **High** (15 or more), **Medium** (6 to 14) and **Low** (below 6).
+    - **Owner** — the owners present in the list, plus **No owner**.
+    - **Clear all filters** resets every filter at once.
+- **Columns** — the **Column order** list (drag a row to move a column, use its pin to freeze it, **Reset order** to restore the default order) and the **Visible columns** list to show or hide columns, with **Select all** to show every column. The Risk column and the buttons are always shown. Once the visible columns differ from the default, **Reset** returns to it: every column except Probability and Impact.
+
+The panel collapses to a narrow rail, which shows how many filters are active, and its edge can be dragged to resize it. On a phone the panel is a drawer, opened with the filter button in the toolbar.
+
+#### Toolbar
+
+The toolbar shows how many risks are listed and offers:
+
+- **Group by** — group the rows by **Status**, **Owner** or **Score band**.
+- **Export** — download the risks currently shown as an `.xlsx` (see below).
+- **Import** — load risks from an `.xlsx` (see below).
+- **Add Risk** — open the dialog to record a new risk.
+
+The sort, frozen columns, column order, visible columns, panel width and grouping are remembered in your browser.
+
+#### Exporting risks to Excel
+
+**Export** downloads the risks the grid currently shows — after the panel's filters, in the grid's order — as an `.xlsx` with one row per risk and the columns **Risk ID**, **Risk Title**, **Description**, **Probability**, **Impact**, **Risk Score**, **Status**, **Owner** and **Mitigation**. The file is also a valid import file: export, edit in Excel, and import it again.
+
+#### Importing risks from Excel {: #importing-risks }
+
+**Import** loads an `.xlsx` to add or update the initiative's risks. **Download template** in the dialog gives a workbook with the right headers and an example row.
+
+- A row with a **Risk ID** from an export **updates** that risk, and only the fields that changed.
+- A row with **no Risk ID** **creates** a new risk.
+- A Risk ID the initiative does not have, or one used twice in the file, **rejects** the row.
+- Risks missing from the file are left alone: **the import never deletes**.
+
+Before anything is written, a preview lists each row as **New**, **Update** (with the fields that change), **Unchanged** or **Rejected** (with the reason), and counts the warnings. Rejected rows are skipped; the button imports the other changes. A result then shows how many risks were created, updated and failed.
+
+| Column | Rule |
+|--------|------|
+| **Risk Title** | Required |
+| **Probability**, **Impact** | A whole number from 1 to 5. Blank means 3 on a new row and leaves the value unchanged on an update |
+| **Status** | Open, Mitigating, Mitigated, Closed or Accepted. Blank means Open on a new row and leaves the status unchanged on an update |
+| **Owner** | Matched by email, then by name. An owner that matches nobody, or several people, is a warning: the row still imports and the owner is left unchanged |
+| **Description**, **Mitigation**, **Owner** | A blank cell clears the field on an update |
+| **Risk Score**, any other column | Ignored — the score is always calculated |
+
+Columns are recognised by their header in your language or in English. A column the file leaves out is left unchanged on every risk it updates.
 
 ### Tasks Tab
 
@@ -187,6 +262,26 @@ Interact with the Gantt chart using:
 ### Card Details Tab
 
 The last tab shows the full card detail view, including all standard sections (description, lifecycle, attributes, relations, stakeholders, comments, history).
+
+### Initiative Report
+
+![PPM Initiative Report](../assets/img/en/103_ppm_initiative_report.png)
+
+The **Report** button in the initiative's header, next to the subtype chip (an icon on a phone), opens the **Initiative Report**: one read-only page that gathers what the tabs show, laid out like the other reports, with the initiative's name as its title and a back arrow to return to the initiative. The **Sections** chips in the toolbar show or hide each section; all are shown the first time, and your choice is remembered in your browser:
+
+| Section | What it shows |
+|---------|---------------|
+| **Overview** | Tiles for **Total Budget**, **Total Actual**, **Variance** and **Completion**; the **Health Summary** with the three ratings of the latest status report in colour and in words; the **Financials** bars for Total, CapEx and OpEx; the **Timeline** card with the start and end dates, subtype and initiative status; and the description. Figures taken from the initiatives beneath are marked, with a note explaining them |
+| **Status Reports** | The latest report in full, with its ratings, then the earlier reports in a table of date, reporter and health ratings |
+| **Budget & Costs** | Tiles for the total budget, actual and variance and for CapEx and OpEx spent against their budget; the **Spend over time** charts for the fiscal year named in their chip and for the whole project; then the **Planned Budget** and **Cost Items** tables with every fiscal year expanded |
+| **Risk Management** | Tiles for **Total Risks**, **Open** and **High Risks**; the **Risk heat map** of probability against impact, each cell coloured by score band and showing how many risks it holds, beside a **By status** count; then every risk with its score (and probability × impact), status, owner, full description and full mitigation, highest score first |
+| **Tasks & Schedule** | A table of work packages, each with its tasks beneath it, then the tasks with no work package, alongside a timeline on a quarter scale: a bar for each work package filled to its completion, a bar for each task in its status colour, a diamond for a milestone (as on the Gantt chart), a dot for an item with only one date, and a line for today when it falls inside the range. Each row also shows its progress or status and its priority, and a legend explains the marks |
+
+To print the report or save it as PDF, use the **Print / Save as PDF** button in the title bar, as on every report; it opens the browser's print dialog, or the print sheet in Safari on an iPhone or iPad, where you can also save as PDF. The page prints in landscape without the toolbar and the app's navigation, with its charts at print size, and a line under the title gives the subtype, initiative status, start and end dates and when the report was printed. A section with nothing recorded says so.
+
+To take the report into a presentation, choose **Export to PowerPoint (.pptx)** from the **⋮** menu in the title bar. The deck opens with a title slide giving the initiative's name, the date it was generated and its subtype, status and start and end dates. Each section shown on the page follows on its own slide, headed by the section's name, as a picture of the section as you see it; a long section continues on further slides ("Budget & Costs — Page 2 / 3"), and a table that runs on repeats its header row. The deck follows the **Sections** chips: a section you have hidden, or one with nothing recorded, is left out. While the deck is built the menu button shows a spinner; if the export fails, a message says so and you can try again.
+
+To hand out a **risk report**, show **Risk Management** only.
 
 ## Work Breakdown Structure (WBS)
 

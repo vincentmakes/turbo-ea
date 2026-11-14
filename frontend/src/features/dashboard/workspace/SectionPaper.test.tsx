@@ -37,6 +37,18 @@ function icon(name: string): HTMLElement {
 }
 
 describe("SectionPaper", () => {
+  it("passes data attributes to its card", () => {
+    renderWithProviders(
+      <SectionPaper icon="event" title="Plain" data-export-row data-kind="x">
+        body
+      </SectionPaper>,
+    );
+    const card = screen.getByText("Plain").closest(".MuiPaper-root");
+    expect(card).toHaveAttribute("data-export-row", "true");
+    expect(card).toHaveAttribute("data-kind", "x");
+    expect(card).toHaveClass("MuiPaper-outlined");
+  });
+
   it("in customize mode puts the handle before its icon and the buttons after its own action", async () => {
     const onConfigure = vi.fn();
     const onRemove = vi.fn();

@@ -127,17 +127,92 @@ To ting at være opmærksom på, når diagrammerne læses:
 
 ![PPM Risikostyring](../assets/img/da/44_ppm_risk_management.png)
 
-Risikoregistret sporer projektrisici med:
+Risikoregistret sporer initiativets risici. Hver risiko har:
 
 | Felt | Beskrivelse |
 |------|-------------|
 | **Titel** | Kort beskrivelse af risikoen |
+| **Beskrivelse** | Den fulde beskrivelse af risikoen |
 | **Sandsynlighed** | Sandsynlighedsscore (1–5) |
 | **Virkning** | Virkningsscore (1–5) |
 | **Risikoscore** | Auto-beregnet som sandsynlighed × virkning |
 | **Status** | Open, Mitigating, Mitigated, Closed eller Accepted |
 | **Afhjælpning** | Planlagte afhjælpningshandlinger |
 | **Ejer** | Bruger ansvarlig for at håndtere risikoen |
+
+En oversigtsbjælke over gitteret tæller **Risici i alt**, de risici, der er **Åben**, og **Høje risici**.
+
+#### Risikogitteret
+
+Risiciene vises i et gitter, der er bygget som [Inventory](inventory.md) og [Risikoregistret](risks.md#register-gitter). Tekst bliver aldrig afkortet: hver række viser risikoens titel med fed skrift med dens **fulde beskrivelse** nedenunder samt den **fulde afbødning**, ombrudt over så mange linjer, som der er brug for. Webadresser i beskrivelsen og afbødningen er klikbare.
+
+| Kolonne | Viser |
+|---------|-------|
+| **Risiko** | Titlen med beskrivelsen nedenunder |
+| **Risikoscore** | Scoren som en farvet chip med *sandsynlighed × konsekvens* ved siden af (for eksempel **20** *4 × 5*) |
+| **Status** | Status-chippen |
+| **Ejer** | Risikoejeren eller en tankestreg |
+| **Afbødning** | Den planlagte afbødning eller en tankestreg |
+| *(knapper)* | **Redigér** og **Slet** |
+
+**Sandsynlighed** og **Konsekvens** findes også som separate kolonner; de er skjult som standard — slå dem til i fanen **Kolonner** i filterpanelet.
+
+- **Sortér** — klik på en kolonneoverskrift. Indtil du vælger din egen sortering, kommer den højeste score først.
+- **Filtrér en kolonne** — brug overskriftsfiltrene som i de andre gitre.
+- **Frys en kolonne** — klik på nålen i dens overskrift for at holde den ved venstre kant, mens du ruller til siden; klik igen for at frigive den.
+- **Omarrangér kolonner** — træk en kolonneoverskrift.
+- **Cellemenu** — højreklik på en celle (langt tryk på en berøringsenhed) for den samme cellemenu som i de andre gitre.
+
+#### Filterpanel
+
+Panelet til venstre har to faner:
+
+- **Filtre**
+    - **Søg** — matcher titel, beskrivelse, afbødning og ejer.
+    - **Status** — markér en eller flere status-chips.
+    - **Risikoscore** — scoreniveauerne **Høj** (15 eller derover), **Mellem** (6 til 14) og **Lav** (under 6).
+    - **Ejer** — de ejere, der findes på listen, plus **Ingen ejer**.
+    - **Ryd alle filtre** nulstiller alle filtre på én gang.
+- **Kolonner** — listen **Kolonnerækkefølge** (træk en række for at flytte en kolonne, brug dens nål til at fryse den, **Nulstil rækkefølge** for at gendanne standardrækkefølgen) og listen **Synlige kolonner** til at vise eller skjule kolonner, med **Vælg alle** for at vise alle kolonner. Risiko-kolonnen og knapperne vises altid. Så snart de synlige kolonner afviger fra standarden, vender **Nulstil** tilbage til den: alle kolonner undtagen Sandsynlighed og Konsekvens.
+
+Panelet kan foldes sammen til en smal skinne, der viser, hvor mange filtre der er aktive, og dets kant kan trækkes for at ændre bredden. På en telefon er panelet en skuffe, der åbnes med filterknappen i værktøjslinjen.
+
+#### Værktøjslinje
+
+Værktøjslinjen viser, hvor mange risici der er på listen, og tilbyder:
+
+- **Gruppér efter** — gruppér rækkerne efter **Status**, **Ejer** eller **Scoreniveau**.
+- **Eksportér** — download de risici, der vises lige nu, som en `.xlsx` (se nedenfor).
+- **Importér** — indlæs risici fra en `.xlsx` (se nedenfor).
+- **Tilføj risiko** — åbn dialogen for at registrere en ny risiko.
+
+Sortering, frosne kolonner, kolonnerækkefølge, synlige kolonner, panelbredde og gruppering huskes i din browser.
+
+#### Eksport af risici til Excel
+
+**Eksportér** downloader de risici, gitteret viser lige nu — efter panelets filtre og i gitterets rækkefølge — som en `.xlsx` med én række pr. risiko og kolonnerne **Risiko-ID**, **Risikotitel**, **Beskrivelse**, **Sandsynlighed**, **Konsekvens**, **Risikoscore**, **Status**, **Ejer** og **Afbødning**. Filen er også en gyldig importfil: eksportér, redigér i Excel, og importér den igen.
+
+#### Import af risici fra Excel {: #importing-risks }
+
+**Importér** indlæser en `.xlsx` for at tilføje eller opdatere initiativets risici. **Download skabelon** i dialogen giver en projektmappe med de rigtige overskrifter og en eksempelrække.
+
+- En række med et **Risiko-ID** fra en eksport **opdaterer** den pågældende risiko, og kun de felter, der er ændret.
+- En række **uden Risiko-ID** **opretter** en ny risiko.
+- Et Risiko-ID, som initiativet ikke har, eller et, der bruges to gange i filen, **afviser** rækken.
+- Risici, der mangler i filen, lades i fred: **importen sletter aldrig**.
+
+Før noget skrives, viser en forhåndsvisning hver række som **Ny**, **Opdatering** (med de felter, der ændres), **Uændret** eller **Afvist** (med årsagen) og tæller advarslerne. Afviste rækker springes over; knappen importerer de øvrige ændringer. Et resultat viser derefter, hvor mange risici der blev oprettet, opdateret og mislykkedes.
+
+| Kolonne | Regel |
+|---------|-------|
+| **Risikotitel** | Påkrævet |
+| **Sandsynlighed**, **Konsekvens** | Et heltal fra 1 til 5. Tom betyder 3 på en ny række og lader værdien være uændret ved en opdatering |
+| **Status** | Åben, Under afbødning, Afbødet, Lukket eller Accepteret. Tom betyder Åben på en ny række og lader status være uændret ved en opdatering |
+| **Ejer** | Matches på e-mail og derefter på navn. En ejer, der ikke matcher nogen eller matcher flere personer, giver en advarsel: rækken importeres stadig, og ejeren forbliver uændret |
+| **Beskrivelse**, **Afbødning**, **Ejer** | En tom celle rydder feltet ved en opdatering |
+| **Risikoscore**, enhver anden kolonne | Ignoreres — scoren beregnes altid |
+
+Kolonner genkendes på deres overskrift på dit sprog eller på engelsk. En kolonne, som filen udelader, forbliver uændret på alle de risici, den opdaterer.
 
 ### Tasks-fane
 
@@ -187,6 +262,26 @@ Interager med Gantt-diagrammet ved hjælp af:
 ### Card Details-fane
 
 Den sidste fane viser den fulde kortdetaljevisning, inklusive alle standardsektioner (beskrivelse, livscyklus, egenskaber, relationer, interessenter, kommentarer, historik).
+
+### Initiativrapport
+
+![PPM-initiativrapport](../assets/img/da/103_ppm_initiative_report.png)
+
+Knappen **Rapport** i initiativets overskrift, ved siden af undertype-chippen (et ikon på en telefon), åbner **Initiativrapport**: én skrivebeskyttet side, der samler det, fanerne viser, opsat som de andre rapporter, med initiativets navn som titel og en tilbagepil til at vende tilbage til initiativet. Chippene **Afsnit** på værktøjslinjen viser eller skjuler hvert afsnit; første gang vises alle, og dit valg huskes i din browser:
+
+| Afsnit | Hvad det viser |
+|--------|----------------|
+| **Oversigt** | Felter for **Samlet budget**, **Samlet realiseret**, **Afvigelse** og **Fuldførelse**; **Sundhedsoversigt** med de tre vurderinger fra den seneste statusrapport i farve og i ord; bjælkerne under **Økonomi** for i alt, CapEx og OpEx; kortet **Tidslinje** med start- og slutdato, undertype og initiativstatus; og beskrivelsen. Tal hentet fra de underliggende initiativer er markeret med en note, der forklarer dem |
+| **Statusrapporter** | Den seneste rapport i sin helhed med dens vurderinger og derefter de tidligere rapporter i en tabel med dato, rapportør og sundhedsvurderinger |
+| **Budget og omkostninger** | Felter for samlet budget, realiseret og afvigelse samt for CapEx og OpEx brugt i forhold til deres budget; diagrammerne **Forbrug over tid** for det regnskabsår, der står i deres chip, og for hele projektet; derefter tabellerne **Planlagt budget** og **Omkostningsposter** med alle regnskabsår foldet ud |
+| **Risikostyring** | Felter for **Risici i alt**, **Åben** og **Høje risici**; **Risikovarmekort** over sandsynlighed mod konsekvens, hvor hver celle er farvet efter scoreinterval og viser, hvor mange risici den rummer, ved siden af en optælling **Efter status**; derefter hver risiko med sin score (og sandsynlighed × konsekvens), status, ejer, fuld beskrivelse og fuld afbødning, højeste score først |
+| **Opgaver og tidsplan** | En tabel over arbejdspakker, hver med sine opgaver under sig, og derefter opgaverne uden arbejdspakke, ved siden af en tidslinje på en kvartalsskala: en bjælke for hver arbejdspakke udfyldt efter dens fuldførelse, en bjælke for hver opgave i dens statusfarve, en rombe for en milepæl (som i Gantt-diagrammet), en prik for et element med kun én dato og en linje for i dag, når den falder inden for intervallet. Hver række viser også sin fremdrift eller status og sin prioritet, og en signaturforklaring forklarer markeringerne |
+
+For at udskrive rapporten eller gemme den som PDF skal du bruge knappen **Udskriv / gem som PDF** i titellinjen, som på alle rapporter; den åbner browserens udskriftsdialog eller udskriftsarket i Safari på en iPhone eller iPad, hvor du også kan gemme som PDF. Siden udskrives i liggende format uden værktøjslinjen og appens navigation, med diagrammerne i udskriftsstørrelse, og en linje under titlen angiver undertype, initiativstatus, start- og slutdato og hvornår rapporten blev udskrevet. Et afsnit uden registreringer siger det.
+
+For at bruge rapporten i en præsentation skal du vælge **Eksportér til PowerPoint (.pptx)** i **⋮**-menuen i titellinjen. Præsentationen starter med en titelslide med initiativets navn, datoen for genereringen samt dets undertype, status og start- og slutdato. Derefter følger hvert afsnit, der vises på siden, på sin egen slide med afsnittets navn som overskrift, som et billede af afsnittet, sådan som du ser det; et langt afsnit fortsætter på flere slides (»Budget og omkostninger — Side 2 / 3«), og en tabel, der fortsætter, gentager sin overskriftsrække. Præsentationen følger chippene **Afsnit**: et afsnit, du har skjult, eller et afsnit uden registreringer, udelades. Mens præsentationen bygges, viser menuknappen en spinner; hvis eksporten mislykkes, vises en besked om det, og du kan prøve igen.
+
+For at uddele en **risikorapport** skal du kun vise **Risikostyring**.
 
 ## Work Breakdown Structure (WBS)
 

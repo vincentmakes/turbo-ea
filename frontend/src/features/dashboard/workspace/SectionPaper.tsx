@@ -6,12 +6,18 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { brand } from "@/theme/tokens";
 import { DRAG_HANDLE_CLASS, useWidgetControls } from "../widgets/WidgetFrame";
 
+// Stryker disable all: the card's padding and its full-height column layout; jsdom does no layout, so no test can observe them
+const ROOT_SX = { p: 2, height: "100%", display: "flex", flexDirection: "column" } as const;
+// Stryker restore all
+
 interface Props {
   icon: string;
   iconColor?: string;
   title: string;
   action?: ReactNode;
   children: ReactNode;
+  /** `data-*` attributes for the card's root (an export marker, a test id). */
+  [data: `data-${string}`]: string | boolean | undefined;
 }
 
 /**
@@ -28,10 +34,15 @@ export default function SectionPaper({
   title,
   action,
   children,
+  ...data
 }: Props) {
   const controls = useWidgetControls();
   return (
-    <Paper variant="outlined" sx={{ p: 2, height: "100%", display: "flex", flexDirection: "column" }}>
+    <Paper
+      variant="outlined"
+      {...data}
+      sx={ROOT_SX}
+    >
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
         <Box
           className={controls ? DRAG_HANDLE_CLASS : undefined}

@@ -44,6 +44,9 @@ describe("PpmReportsTab — RAG dots", () => {
     expect(screen.getByTitle("On Track")).toHaveStyle({ backgroundColor: RAG_COLORS.green });
     expect(screen.getByTitle("At Risk")).toHaveStyle({ backgroundColor: RAG_COLORS.amber });
     expect(screen.getByTitle("Off Track")).toHaveStyle({ backgroundColor: RAG_COLORS.red });
+    // The tab keeps its compact header: the ratings are in the dots' titles, not spelled out.
+    expect(screen.queryByText("On Track")).not.toBeInTheDocument();
+    expect(screen.queryByText("Off Track")).not.toBeInTheDocument();
   });
 
   it("shows a health with no value in the neutral status colour", () => {

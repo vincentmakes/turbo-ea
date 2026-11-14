@@ -5,6 +5,25 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.204.0] - 2026-11-13
+
+### Added
+- **Initiative Report**: a **Report** button on a PPM initiative opens a report page of its overview, status reports, budget and costs, risks and schedule, with a toggle for each section (Risk Management alone gives a risk report), that prints or saves as PDF like the other reports ([#1398](https://github.com/vincentmakes/turbo-ea/discussions/1398)).
+- The Initiative Report exports to PowerPoint: a title slide with the initiative's details, then each section shown on its own slides, as it looks on the page.
+- The PPM Risk Management tab exports the risks shown to Excel and imports them back: a row with a Risk ID updates that risk, a row without one creates a risk, nothing is ever deleted, and a preview shows every row before anything is written ([#1398](https://github.com/vincentmakes/turbo-ea/discussions/1398)).
+- The PPM Risk Management tab has a filter panel (search, status, score band, owner), grouping by status, owner or score band, and columns you can freeze, reorder, show and hide, remembered in your browser.
+
+### Changed
+- A report export shows a spinner while it is built and a message if it fails.
+- The PPM Risk Management tab shows each risk's description and mitigation in full, wrapping long text instead of cutting it, with clickable web addresses ([#1398](https://github.com/vincentmakes/turbo-ea/discussions/1398)).
+
+### Fixed
+- Charts in a report printed or saved as PDF no longer show as white boxes in Apple Preview and on iPhone and iPad, and are no longer cut off.
+- The report **Print / Save as PDF** button now opens the print sheet in Safari on iPhone, iPad and Mac.
+- The PPM Budget & Costs charts no longer draw the labels of two nearly equal budget lines on top of each other.
+- A report printed in the dark theme now shows its title, print parameters and the Initiative Report's section headings and their icons, which printed light on the white page and could not be seen.
+- PowerPoint exports of reports with charts (Cost Analysis, Data Quality, the Initiative Report) made in Safari now include the charts, which came out blank.
+
 ## [2.203.4] - 2026-11-13
 
 ### Fixed

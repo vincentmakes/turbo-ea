@@ -1,9 +1,10 @@
 import * as XLSX from "xlsx";
 import { toPng } from "html-to-image";
 import PptxGenJS from "pptxgenjs";
-import i18n from "@/i18n";
+import i18n, { isRtlLocale } from "@/i18n";
 import { toIsoDate } from "@/lib/dates";
-import { PRINT_COLORS } from "@/theme/tokens";
+import { PRINT_COLORS, brand } from "@/theme/tokens";
+import { canvasMaxArea, isAppleMobileDevice } from "./ldvExportSizing";
 
 export type ExportColumnType = "text" | "number" | "currency" | "date";
 
@@ -35,7 +36,35 @@ export interface ReportExportData {
    * heatmaps and network graphs that can't be cut horizontally).
    */
   paginateRowSelector?: string;
+  /**
+   * Section mode (opt-in). When set and non-empty, the deck is a title slide
+   * with no picture, then each section on its own slide(s), headed by the
+   * section's title; `chartNode` and `paginateRowSelector` are not used.
+   * When absent or empty, the deck is built exactly as without it.
+   */
+  sections?: ReportExportSection[];
+  /**
+   * Section mode only: the colour behind each section's picture, the page's
+   * own surface (a dark-theme page's text is light, and would vanish on
+   * white). The print paper when omitted.
+   */
+  background?: string;
 }
+
+/** One section of a section-mode deck: what to capture and how to cut it. */
+export interface ReportExportSection {
+  title: string;
+  node: HTMLElement;
+  /** As `ReportExportData.paginateRowSelector`, for this section's node. */
+  paginateRowSelector?: string;
+}
+
+/**
+ * In section mode, an element carrying this attribute is a sub-heading: it is
+ * kept on a slide with the first row after it, so it never ends a slide
+ * (every table's header row is treated the same way).
+ */
+export const EXPORT_HEADING_ATTR = "data-export-heading";
 
 /**
  * Extract tabular data from any `<table>` elements inside a node so reports
@@ -272,13 +301,32 @@ interface CapturedImage {
  * line are excluded.
  */
 function collectBoundaries(node: HTMLElement, selector: string): number[] {
+  return safeCuts(rangesOf(node, selector));
+}
+
+/** A vertical extent, in source CSS pixels from the captured node's top. */
+export interface YRange {
+  top: number;
+  bottom: number;
+}
+
+/** The extents of `node`'s descendants matching `selector`, collapsed ones left out. */
+function rangesOf(node: HTMLElement, selector: string): YRange[] {
   const baseTop = node.getBoundingClientRect().top;
-  const ranges: { top: number; bottom: number }[] = [];
+  const ranges: YRange[] = [];
   for (const el of node.querySelectorAll<HTMLElement>(selector)) {
     const r = el.getBoundingClientRect();
     if (r.height < 1) continue;
     ranges.push({ top: r.top - baseTop, bottom: r.bottom - baseTop });
   }
+  return ranges;
+}
+
+/**
+ * Every edge of `ranges` that no range straddles, ascending, with edges
+ * within a pixel of each other merged.
+ */
+export function safeCuts(ranges: YRange[]): number[] {
   if (ranges.length === 0) return [];
 
   // Candidate cut Ys: every card's top and bottom edge.
@@ -303,25 +351,19 @@ function collectBoundaries(node: HTMLElement, selector: string): number[] {
   return safe.filter((y, i) => i === 0 || y - safe[i - 1] > 1);
 }
 
-async function captureChartImage(
-  node: HTMLElement,
-  rowSelector?: string,
-): Promise<CapturedImage | null> {
-  // Temporarily disable overflow clipping on every descendant so charts
-  // that scroll horizontally (e.g. Lifecycle gantt timeline, wide
-  // capability heatmaps) capture their full content rather than only
-  // the visible viewport — otherwise the export looks "zoomed in".
+/**
+ * Lift clipping on `node`'s descendants for the capture, so content that
+ * scrolls is captured whole; returns the function that puts it back.
+ * `includeHidden` also lifts `overflow: hidden` (the single-picture path);
+ * without it only scroll containers (`auto` / `scroll`) are opened, and a
+ * rounded bar, a chip or a truncated label keeps its clipping.
+ */
+function releaseOverflow(node: HTMLElement, includeHidden: boolean): () => void {
+  const clipping = includeHidden ? ["auto", "scroll", "hidden"] : ["auto", "scroll"];
   const overflowRestores: (() => void)[] = [];
   for (const el of node.querySelectorAll<HTMLElement>("*")) {
     const cs = window.getComputedStyle(el);
-    const needsOverride =
-      cs.overflowX === "auto" ||
-      cs.overflowX === "scroll" ||
-      cs.overflowX === "hidden" ||
-      cs.overflowY === "auto" ||
-      cs.overflowY === "scroll" ||
-      cs.overflowY === "hidden";
-    if (!needsOverride) continue;
+    if (!clipping.includes(cs.overflowX) && !clipping.includes(cs.overflowY)) continue;
     const saved = {
       overflow: el.style.overflow,
       overflowX: el.style.overflowX,
@@ -337,34 +379,134 @@ async function captureChartImage(
   }
   // Force the layout to settle with the new overflow values.
   void node.offsetWidth;
+  return () => {
+    for (const restore of overflowRestores) restore();
+  };
+}
+
+/** The node's full size, scrolled-out content included. */
+function captureSize(node: HTMLElement): { width: number; height: number } {
+  const rect = node.getBoundingClientRect();
+  return {
+    width: Math.max(rect.width, node.scrollWidth),
+    height: Math.max(rect.height, node.scrollHeight),
+  };
+}
+
+/**
+ * Render `node` to a PNG on `background`, its chart canvases drawn in
+ * afterwards (`compositeCanvases`).
+ */
+async function renderPng(
+  node: HTMLElement,
+  width: number,
+  height: number,
+  pixelRatio: number,
+  background: string = PRINT_COLORS.paper,
+): Promise<string> {
+  const dataUrl = await toPng(node, {
+    cacheBust: true,
+    pixelRatio,
+    backgroundColor: background,
+    width,
+    height,
+    // Neutralise any positioning on the capture root. html-to-image copies
+    // the node's computed cssText onto the clone it renders inside a
+    // foreignObject, so a root parked off-screen (position:absolute with a
+    // large negative left — the usual way to mount an export-only chart
+    // without display:none) lays out entirely outside the canvas and the
+    // PNG comes back blank. options.style is applied last, so this pins the
+    // clone at the canvas origin; core's own chart nodes are static and
+    // unaffected.
+    style: { position: "static", left: "0", top: "0", margin: "0" },
+    filter: captureFilter,
+  });
+  return compositeCanvases(node, dataUrl, width, height);
+}
+
+/**
+ * What html-to-image clones. Left out:
+ * - Material Symbols icon spans: they rely on a font ligature html-to-image
+ *   can't reliably embed, so they leak through as raw glyph names
+ *   ("payments", "trending_up", etc.).
+ * - Canvases (the charts): html-to-image clones one as an `<img>` inside the
+ *   SVG it rasterises, and WebKit does not paint a nested image there on the
+ *   first draw, so every chart came out blank in Safari. They are drawn onto
+ *   the picture afterwards instead, the same way in every browser.
+ */
+export function captureFilter(n: Node): boolean {
+  if (n instanceof HTMLCanvasElement) return false;
+  if (!(n instanceof HTMLElement)) return true;
+  return !n.classList.contains("material-symbols-outlined");
+}
+
+/** The canvases under `node` that show on screen, in document order. */
+function visibleCanvases(node: HTMLElement): HTMLCanvasElement[] {
+  return Array.from(node.querySelectorAll("canvas")).filter((c) => {
+    const r = c.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0 || c.width === 0 || c.height === 0) return false;
+    const cs = window.getComputedStyle(c);
+    return cs.display !== "none" && cs.visibility !== "hidden";
+  });
+}
+
+/**
+ * Draw `node`'s visible canvases onto its captured picture, each at its
+ * rectangle relative to the node (scroll offsets included), scaled to the
+ * picture's pixels, in document order (zrender stacks several in one chart).
+ * A node with no canvas keeps its picture untouched; a picture that cannot be
+ * composited (no 2D context, an undecodable or tainted image) is kept as
+ * captured rather than failing the export.
+ */
+async function compositeCanvases(
+  node: HTMLElement,
+  dataUrl: string,
+  width: number,
+  height: number,
+): Promise<string> {
+  const canvases = visibleCanvases(node);
+  if (canvases.length === 0) return dataUrl;
+  try {
+    const img = await loadImage(dataUrl);
+    const out = document.createElement("canvas");
+    out.width = img.width;
+    out.height = img.height;
+    const ctx = out.getContext("2d");
+    // Stryker disable next-line ConditionalExpression: equivalent: a null context throws on the drawImage below, and the catch returns the same uncomposited dataUrl
+    if (!ctx) return dataUrl;
+    ctx.drawImage(img, 0, 0);
+    const sx = img.width / width;
+    const sy = img.height / height;
+    const base = node.getBoundingClientRect();
+    for (const c of canvases) {
+      const r = c.getBoundingClientRect();
+      ctx.drawImage(
+        c,
+        (r.left - base.left + node.scrollLeft) * sx,
+        (r.top - base.top + node.scrollTop) * sy,
+        r.width * sx,
+        r.height * sy,
+      );
+    }
+    return out.toDataURL("image/png");
+  } catch {
+    return dataUrl;
+  }
+}
+
+async function captureChartImage(
+  node: HTMLElement,
+  rowSelector?: string,
+): Promise<CapturedImage | null> {
+  // Temporarily disable overflow clipping on every descendant so charts
+  // that scroll horizontally (e.g. Lifecycle gantt timeline, wide
+  // capability heatmaps) capture their full content rather than only
+  // the visible viewport — otherwise the export looks "zoomed in".
+  const restoreOverflow = releaseOverflow(node, true);
 
   try {
-    const rect = node.getBoundingClientRect();
-    const captureWidth = Math.max(rect.width, node.scrollWidth);
-    const captureHeight = Math.max(rect.height, node.scrollHeight);
-    const dataUrl = await toPng(node, {
-      cacheBust: true,
-      pixelRatio: 2,
-      backgroundColor: PRINT_COLORS.paper,
-      width: captureWidth,
-      height: captureHeight,
-      // Neutralise any positioning on the capture root. html-to-image copies
-      // the node's computed cssText onto the clone it renders inside a
-      // foreignObject, so a root parked off-screen (position:absolute with a
-      // large negative left — the usual way to mount an export-only chart
-      // without display:none) lays out entirely outside the canvas and the
-      // PNG comes back blank. options.style is applied last, so this pins the
-      // clone at the canvas origin; core's own chart nodes are static and
-      // unaffected.
-      style: { position: "static", left: "0", top: "0", margin: "0" },
-      // Skip Material Symbols icon spans — they rely on a font ligature
-      // that html-to-image can't reliably embed, so they otherwise leak
-      // through as raw glyph names ("payments", "trending_up", etc.).
-      filter: (n) => {
-        if (!(n instanceof HTMLElement)) return true;
-        return !n.classList.contains("material-symbols-outlined");
-      },
-    });
+    const { width: captureWidth, height: captureHeight } = captureSize(node);
+    const dataUrl = await renderPng(node, captureWidth, captureHeight, 2);
     return {
       dataUrl,
       width: captureWidth,
@@ -374,7 +516,7 @@ async function captureChartImage(
   } catch {
     return null;
   } finally {
-    for (const restore of overflowRestores) restore();
+    restoreOverflow();
   }
 }
 
@@ -539,6 +681,237 @@ function fitImageInBox(
   };
 }
 
+// ─── Section mode ───────────────────────────────────────────────────────────
+
+/** Where a table's header row sits, so a slide that starts inside the table can repeat it. */
+export interface TableHeadBox {
+  /** The header row's extent, in source CSS pixels from the captured node's top… */
+  top: number;
+  bottom: number;
+  /** …and from its left. */
+  left: number;
+  right: number;
+  /** Where the table's body ends: a page starting below this is past the table. */
+  bodyBottom: number;
+  /** The top of the table's box (its hugging container, border included). */
+  boxTop: number;
+}
+
+interface SectionCapture extends CapturedImage {
+  tables: TableHeadBox[];
+  background: string;
+}
+
+/** One page of a section: a slice of the capture, under a repeated table header or not. */
+export interface SectionPagePlan {
+  from: number;
+  to: number;
+  header: TableHeadBox | null;
+}
+
+/**
+ * Keep each sub-heading with the first row that follows it: one range from the
+ * heading's top to that row's bottom, so no cut can fall between them. A
+ * heading with no row after it is kept whole on its own.
+ */
+export function keepWithNext(rows: YRange[], headings: YRange[]): YRange[] {
+  return headings.map((h) => {
+    let next: YRange | null = null;
+    for (const r of rows) {
+      if (r.top < h.bottom - 0.5) continue;
+      if (!next || r.top < next.top) next = r;
+    }
+    return { top: h.top, bottom: next ? Math.max(next.bottom, h.bottom) : h.bottom };
+  });
+}
+
+/**
+ * The table header to repeat above a page that starts at `y`: the innermost
+ * table whose body `y` falls inside, past its header row. Null when `y` is not
+ * inside a table body.
+ */
+export function headerAt(y: number, tables: TableHeadBox[]): TableHeadBox | null {
+  let found: TableHeadBox | null = null;
+  for (const tb of tables) {
+    if (y <= tb.bottom + 0.5 || y >= tb.bodyBottom - 0.5) continue;
+    if (!found || tb.top > found.top) found = tb;
+  }
+  return found;
+}
+
+const headerHeight = (h: TableHeadBox | null): number => (h ? h.bottom - h.top : 0);
+
+/**
+ * Plan a section's pages: greedy at the safe `boundaries`, as the single-
+ * picture path cuts, with each page's budget less the height of the table
+ * header repeated above it. A block taller than a page gets a page of its own;
+ * a tiny last page merges into the one before it.
+ */
+export function planSectionPages(
+  height: number,
+  boundaries: number[],
+  pageMax: number,
+  tables: TableHeadBox[],
+): SectionPagePlan[] {
+  if (height <= pageMax + 1) return [{ from: 0, to: height, header: null }];
+  const budget = (start: number) => pageMax - headerHeight(headerAt(start, tables));
+  const minPage = pageMax * 0.25;
+  // Stryker disable next-line ArrayDeclaration: equivalent: a non-number seeded here is never popped (height minus it is NaN) and the c > 0 filter below drops it, so the pages are the same
+  const cuts: number[] = [];
+  let pageStart = 0;
+  let lastFitting = 0;
+  let i = 0;
+  // Stryker disable next-line EqualityOperator: equivalent: one step past the end reads undefined, NaN fails the budget test, and the else branch only sets lastFitting, which is not read after the loop
+  while (i < boundaries.length) {
+    const b = boundaries[i];
+    if (b - pageStart > budget(pageStart)) {
+      const usable = lastFitting > pageStart && lastFitting - pageStart >= minPage;
+      const cutAt = usable ? lastFitting : b;
+      cuts.push(cutAt);
+      pageStart = cutAt;
+      lastFitting = cutAt;
+      if (cutAt >= b) i++;
+    } else {
+      lastFitting = b;
+      i++;
+    }
+  }
+  while (
+    // Stryker disable next-line ConditionalExpression,EqualityOperator: equivalent: on an empty list cuts[-1] is undefined, height - undefined is NaN and NaN < minPage is false, so the loop stops all the same
+    cuts.length > 0 &&
+    height - cuts[cuts.length - 1] < minPage
+  )
+    cuts.pop();
+  // Stryker disable next-line MethodExpression,ConditionalExpression,LogicalOperator,EqualityOperator: equivalent: for ascending boundaries the pop loop above already leaves every cut in (0, height), and a cut at 0 or a repeat is skipped by `to - from < 1` below (fuzzed over 200k plans)
+  const ends = [...cuts.filter((c) => c > 0 && c < height), height];
+  const pages: SectionPagePlan[] = [];
+  let from = 0;
+  for (const to of ends) {
+    if (to - from < 1) continue;
+    pages.push({ from, to, header: from > 0 ? headerAt(from, tables) : null });
+    from = to;
+  }
+  return pages;
+}
+
+/**
+ * The largest pixel ratio, at most 2, at which a `width` × `height` capture
+ * stays inside the device's canvas area; a long section on iOS would
+ * otherwise fail to render.
+ */
+export function capturePixelRatio(width: number, height: number, isAppleMobile: boolean): number {
+  const area = width * height;
+  // Stryker disable next-line EqualityOperator: equivalent: at area 0 the fall-through computes min(2, sqrt(max / 0)) = min(2, Infinity) = 2, the same value
+  if (area <= 0) return 2;
+  return Math.min(2, Math.sqrt(canvasMaxArea(isAppleMobile) / area));
+}
+
+/** Every table header row inside `node`, measured from its top-left. */
+function measureTableHeads(node: HTMLElement): TableHeadBox[] {
+  const base = node.getBoundingClientRect();
+  const heads: TableHeadBox[] = [];
+  for (const table of node.querySelectorAll("table")) {
+    const head = table.tHead?.getBoundingClientRect();
+    if (!head || head.height < 1) continue;
+    const t = table.getBoundingClientRect();
+    // The strip spans the table's own container (MUI's outlined
+    // TableContainer) when it hugs the table, so the side borders continue.
+    // Stryker disable next-line OptionalChaining: equivalent: a table found by querySelectorAll under node always has a parent element (node at least)
+    const wrap = table.parentElement?.getBoundingClientRect();
+    const x = wrap && Math.abs(wrap.width - t.width) <= 4 ? wrap : t;
+    heads.push({
+      top: head.top - base.top,
+      bottom: head.bottom - base.top,
+      left: x.left - base.left,
+      right: x.right - base.left,
+      bodyBottom: t.bottom - base.top,
+      boxTop: Math.min(x.top, head.top) - base.top,
+    });
+  }
+  return heads;
+}
+
+/**
+ * The safe cuts of a section: its rows, each sub-heading held to the row after
+ * it. A table's header row counts as a heading too, from the top of the
+ * table's box (so the box's top border goes with it), and a slide never ends
+ * on a table's header with its first row on the next.
+ */
+export function sectionCuts(rows: YRange[], headings: YRange[], tables: TableHeadBox[]): number[] {
+  if (rows.length === 0) return [];
+  const heads = tables.map((tb) => ({ top: tb.boxTop, bottom: tb.bottom }));
+  return safeCuts([...rows, ...keepWithNext(rows, [...headings, ...heads])]);
+}
+
+async function captureSection(
+  node: HTMLElement,
+  rowSelector: string | undefined,
+  background: string,
+): Promise<SectionCapture | null> {
+  const restoreOverflow = releaseOverflow(node, false);
+  try {
+    const { width, height } = captureSize(node);
+    const ratio = capturePixelRatio(width, height, isAppleMobileDevice(navigator));
+    // Stryker disable next-line ArrayDeclaration: equivalent: without a row selector there are no boundaries, so no page but the first is planned and no table is ever consulted
+    const tables = rowSelector ? measureTableHeads(node) : [];
+    const boundaries = rowSelector
+      ? sectionCuts(rangesOf(node, rowSelector), rangesOf(node, `[${EXPORT_HEADING_ATTR}]`), tables)
+      // Stryker disable next-line ArrayDeclaration: equivalent: without a row selector a non-numeric boundary never exceeds the budget (NaN comparison), so no cut is planned either way
+      : [];
+    const dataUrl = await renderPng(node, width, height, ratio, background);
+    return { dataUrl, width, height, boundaries, tables, background };
+  // Stryker disable next-line BlockStatement: equivalent: an emptied catch returns undefined instead of null, and the only caller tests the result for falsiness (`if (!captured)`)
+  } catch {
+    return null;
+  } finally {
+    restoreOverflow();
+  }
+}
+
+interface SlicedPage {
+  dataUrl: string;
+  sourceWidth: number;
+  sourceHeight: number;
+}
+
+/**
+ * Draw each planned page from the capture: the repeated header strip (when
+ * the page starts inside a table) above the slice. A single page with no
+ * header is the capture itself, with no decoding.
+ */
+async function renderSectionPages(
+  captured: SectionCapture,
+  plan: SectionPagePlan[],
+): Promise<SlicedPage[]> {
+  const whole = { dataUrl: captured.dataUrl, sourceWidth: captured.width, sourceHeight: captured.height };
+  if (plan.length === 1 && !plan[0].header) return [whole];
+  const img = await loadImage(captured.dataUrl);
+  const scale = img.height / captured.height;
+  const px = (n: number) => Math.round(n * scale);
+  const pages: SlicedPage[] = [];
+  for (const { from, to, header } of plan) {
+    const stripH = headerHeight(header);
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = px(to - from + stripH);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return [whole];
+    ctx.fillStyle = captured.background;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (header) {
+      const w = px(header.right - header.left);
+      ctx.drawImage(img, px(header.left), px(header.top), w, px(stripH), px(header.left), 0, w, px(stripH));
+    }
+    ctx.drawImage(img, 0, px(from), img.width, px(to - from), 0, px(stripH), img.width, px(to - from));
+    pages.push({
+      dataUrl: canvas.toDataURL("image/png"),
+      sourceWidth: captured.width,
+      sourceHeight: to - from + stripH,
+    });
+  }
+  return pages;
+}
+
 export async function exportReportToPptx(data: ReportExportData): Promise<void> {
   const t = (key: string, fallback: string, opts?: Record<string, unknown>): string =>
     i18n.t(`reports:${key}`, { defaultValue: fallback, ...opts });
@@ -551,19 +924,32 @@ export async function exportReportToPptx(data: ReportExportData): Promise<void> 
   const slideHeight = 7.5;
   const margin = 0.5;
 
+  const sectionMode = !!data.sections && data.sections.length > 0;
+  // A section-mode deck in a right-to-left language sets its text right to
+  // left; the single-picture deck is left exactly as it was.
+  const dir = sectionMode ? textDirection(i18n.language) : {};
+
+  // A section-mode deck sits on the page's own surface, its colours chosen
+  // to read on it; the single-picture deck keeps white and the brand blue.
+  const palette = sectionMode ? slidePalette(data.background) : DEFAULT_SLIDE_PALETTE;
+  // A section-mode title slide carries no picture: its title block is
+  // centred on the slide instead of sitting above an empty chart area.
+  const titleTop = sectionMode ? (slideHeight - TITLE_BLOCK_H) / 2 : margin;
+
   // Slide 1: combined title + chart
   const titleSlide = pptx.addSlide();
-  titleSlide.background = { color: "FFFFFF" };
+  titleSlide.background = { color: palette.background };
 
   titleSlide.addText(data.title, {
     x: margin,
-    y: margin,
+    y: titleTop,
     w: slideWidth - 2 * margin,
     h: 0.7,
     fontSize: 28,
     bold: true,
-    color: PPT_BRAND_COLOR,
+    color: palette.heading,
     fontFace: "Calibri",
+    ...dir,
   });
 
   const generatedAt = new Date().toLocaleString(i18n.language);
@@ -581,12 +967,13 @@ export async function exportReportToPptx(data: ReportExportData): Promise<void> 
 
   titleSlide.addText(subtitleParts.join("    "), {
     x: margin,
-    y: margin + 0.7,
+    y: titleTop + 0.7,
     w: slideWidth - 2 * margin,
     h: 0.45,
     fontSize: 12,
-    color: PPT_MUTED_COLOR,
+    color: palette.muted,
     fontFace: "Calibri",
+    ...dir,
   });
 
   // Chart area: lower ~70% of the slide
@@ -594,7 +981,9 @@ export async function exportReportToPptx(data: ReportExportData): Promise<void> 
   const chartHeight = slideHeight - chartTop - margin;
   const chartWidth = slideWidth - 2 * margin;
 
-  if (data.chartNode) {
+  if (data.sections && sectionMode) {
+    await addSectionSlides(pptx, data.sections, t, dir, data.background ?? PRINT_COLORS.paper, palette);
+  } else if (data.chartNode) {
     const captured = await captureChartImage(data.chartNode, data.paginateRowSelector);
     if (captured) {
       // Pagination is opt-in via `paginateRowSelector`. Without it we
@@ -688,6 +1077,170 @@ export async function exportReportToPptx(data: ReportExportData): Promise<void> 
 
   const filename = `${sanitizeFilename(data.title)}_${exportTimestamp()}.pptx`;
   await pptx.writeFile({ fileName: filename });
+}
+
+type Translate = (key: string, fallback: string, opts?: Record<string, unknown>) => string;
+
+/** A slide's background and the colours of its heading and of its muted text, as hex without `#`. */
+export interface SlidePalette {
+  background: string;
+  heading: string;
+  muted: string;
+}
+
+/** The title + generated line's height on the title slide (0.7 + 0.45 in). */
+const TITLE_BLOCK_H = 1.15;
+
+const DEFAULT_SLIDE_PALETTE: SlidePalette = {
+  background: "FFFFFF",
+  heading: PPT_BRAND_COLOR,
+  muted: PPT_MUTED_COLOR,
+};
+
+const pptHex = (css: string) => css.slice(1).toUpperCase();
+
+/** `#rgb` / `#rrggbb` as six hex digits, or null for anything else. */
+function sixDigitHex(css: string): string | null {
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(css.trim());
+  if (!m) return null;
+  const h = m[1].length === 3 ? [...m[1]].map((c) => c + c).join("") : m[1];
+  return h.toUpperCase();
+}
+
+/** WCAG relative luminance of six hex digits. */
+function luminance(hex: string): number {
+  const [r, g, b] = [0, 2, 4].map((i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    // Stryker disable next-line EqualityOperator: equivalent: a channel is n / 255, and no n gives exactly 0.03928 (10 / 255 is 0.0392...), so <= and < never differ
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/**
+ * The slides' colours on `background` (a CSS hex colour): that background,
+ * and on a dark one the light brand blue and a light grey, which read on it
+ * where the brand blue and the slate grey do not. Without a usable
+ * background, white with the usual colours.
+ */
+export function slidePalette(background?: string): SlidePalette {
+  const hex = background ? sixDigitHex(background) : null;
+  if (!hex) return DEFAULT_SLIDE_PALETTE;
+  // Stryker disable next-line EqualityOperator: equivalent: no #rgb / #rrggbb colour has a luminance of exactly 0.5 (all 16,777,216 checked), so >= and > never differ
+  if (luminance(hex) >= 0.5) return { ...DEFAULT_SLIDE_PALETTE, background: hex };
+  return { background: hex, heading: pptHex(brand.primaryLight), muted: pptHex(PRINT_COLORS.control) };
+}
+
+/** Text set right to left, aligned to the right. */
+type TextDirection = { align?: "right"; rtlMode?: boolean };
+
+/** How a slide's text runs in `locale`: right to left for Arabic, else the default. */
+export function textDirection(locale: string): TextDirection {
+  return isRtlLocale(locale) ? { align: "right", rtlMode: true } : {};
+}
+
+// Section slides use the continuation slides' geometry: a heading line, then
+// the picture below it.
+const SLIDE_W = 13.333;
+const SLIDE_H = 7.5;
+const SLIDE_MARGIN = 0.5;
+const SECTION_TOP = SLIDE_MARGIN + 0.7;
+const SECTION_W = SLIDE_W - 2 * SLIDE_MARGIN;
+const SECTION_H = SLIDE_H - SECTION_TOP - SLIDE_MARGIN;
+
+/** A slide headed `heading`, in the continuation slides' style. */
+function addHeadedSlide(
+  pptx: PptxGenJS,
+  heading: string,
+  dir: TextDirection,
+  palette: SlidePalette,
+): PptxGenJS.Slide {
+  const slide = pptx.addSlide();
+  slide.background = { color: palette.background };
+  slide.addText(heading, {
+    x: SLIDE_MARGIN,
+    y: SLIDE_MARGIN,
+    w: SECTION_W,
+    h: 0.5,
+    fontSize: 18,
+    bold: true,
+    color: palette.heading,
+    fontFace: "Calibri",
+    ...dir,
+  });
+  return slide;
+}
+
+/** Capture and cut one section; null when its capture or its slicing failed. */
+async function sectionPages(
+  section: ReportExportSection,
+  background: string,
+): Promise<SlicedPage[] | null> {
+  const captured = await captureSection(section.node, section.paginateRowSelector, background);
+  if (!captured) return null;
+  const pageMax = captured.width * (SECTION_H / SECTION_W);
+  const plan = planSectionPages(captured.height, captured.boundaries, pageMax, captured.tables);
+  try {
+    return await renderSectionPages(captured, plan);
+  // Stryker disable next-line BlockStatement: equivalent: an emptied catch returns undefined instead of null, and the only caller tests the result for falsiness (`if (!pages)`)
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Each section on its own slide(s), headed by its title, with ` — n / N` only
+ * when it spans several. A section that cannot be captured says so on its
+ * slide; the others still export.
+ */
+async function addSectionSlides(
+  pptx: PptxGenJS,
+  sections: ReportExportSection[],
+  t: Translate,
+  dir: TextDirection,
+  background: string,
+  palette: SlidePalette,
+): Promise<void> {
+  for (const section of sections) {
+    const pages = await sectionPages(section, background);
+    if (!pages) {
+      const slide = addHeadedSlide(pptx, section.title, dir, palette);
+      slide.addText(t("export.chartUnavailable", "Chart preview unavailable."), {
+        x: SLIDE_MARGIN,
+        y: SECTION_TOP,
+        w: SECTION_W,
+        h: SECTION_H,
+        fontSize: 14,
+        color: palette.muted,
+        align: "center",
+        valign: "middle",
+        italic: true,
+        rtlMode: dir.rtlMode,
+      });
+      continue;
+    }
+    pages.forEach((page, p) => {
+      const heading =
+        pages.length > 1
+          ? `${section.title} — ${t("export.pageIndicator", "{{current}} / {{total}}", {
+              current: p + 1,
+              total: pages.length,
+            })}`
+          : section.title;
+      const slide = addHeadedSlide(pptx, heading, dir, palette);
+      const fit = fitImageInBox(
+        page.sourceWidth,
+        page.sourceHeight,
+        SECTION_W,
+        SECTION_H,
+        SLIDE_MARGIN,
+        SECTION_TOP,
+      );
+      // Right under the heading: a short page centred in the box left a gap
+      // under the title.
+      slide.addImage({ data: page.dataUrl, ...fit, y: SECTION_TOP });
+    });
+  }
 }
 
 function exportTimestamp(now: Date = new Date()): string {

@@ -48,18 +48,10 @@ import { useAuthContext } from "@/hooks/AuthContext";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import PpmTaskCard from "./PpmTaskCard";
 import PpmTaskDialog from "./PpmTaskDialog";
-import { PRIORITY_COLORS, RAG_COLORS, STATUS_COLORS, brand } from "@/theme/tokens";
+import { TASK_STATUS_COLORS, TaskPriorityChip, TaskStatusChip } from "./ppmTaskChips";
 import type { PpmTask, PpmTaskStatus, PpmWbs } from "@/types";
 
 const COLUMNS: PpmTaskStatus[] = ["todo", "in_progress", "done", "blocked"];
-
-/** A task status column's accent: to do grey, in progress blue, done green, blocked red. */
-const TASK_STATUS_COLORS: Record<PpmTaskStatus, string> = {
-  todo: STATUS_COLORS.neutral,
-  in_progress: brand.primary,
-  done: RAG_COLORS.green,
-  blocked: RAG_COLORS.red,
-};
 
 function initials(name: string): string {
   return name
@@ -501,18 +493,7 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
             </Typography>
           </TableCell>
           <TableCell>
-            <Chip
-              label={t(
-                `priority${task.priority.charAt(0).toUpperCase()}${task.priority.slice(1)}`,
-              )}
-              size="small"
-              variant="outlined"
-              sx={{
-                borderColor: PRIORITY_COLORS[task.priority],
-                color: PRIORITY_COLORS[task.priority],
-                fontWeight: 600,
-              }}
-            />
+            <TaskPriorityChip priority={task.priority} />
           </TableCell>
           <TableCell>
             {task.assignee_name ? (
@@ -552,18 +533,7 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
             </Typography>
           </TableCell>
           <TableCell>
-            <Chip
-              label={t(
-                `status${task.status.charAt(0).toUpperCase()}${task.status.slice(1).replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())}`,
-              )}
-              size="small"
-              sx={{
-                bgcolor: TASK_STATUS_COLORS[task.status],
-                color: "common.white",
-                fontWeight: 600,
-                fontSize: "0.7rem",
-              }}
-            />
+            <TaskStatusChip status={task.status} />
           </TableCell>
           <TableCell>
             <Box display="flex" gap={0.5}>

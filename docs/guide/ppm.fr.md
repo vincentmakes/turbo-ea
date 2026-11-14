@@ -127,17 +127,92 @@ Deux points à garder à l'esprit :
 
 ![Gestion des risques PPM](../assets/img/fr/44_ppm_gestion_risques.png)
 
-Le registre des risques suit les risques du projet avec :
+Le registre des risques suit les risques de l'initiative. Chaque risque comporte :
 
 | Champ | Description |
 |-------|-------------|
 | **Titre** | Brève description du risque |
+| **Description** | Le risque dans son intégralité |
 | **Probabilité** | Score de probabilité (1–5) |
 | **Impact** | Score d'impact (1–5) |
-| **Score de risque** | Calculé automatiquement comme probabilité x impact |
+| **Score de risque** | Calculé automatiquement comme probabilité × impact |
 | **Statut** | Ouvert, En atténuation, Atténué, Fermé ou Accepté |
 | **Atténuation** | Actions d'atténuation planifiées |
 | **Responsable** | Utilisateur responsable de la gestion du risque |
+
+Un bandeau de synthèse au-dessus de la grille affiche le **Total des risques**, le nombre de risques au statut **Ouvert** et les **Risques élevés**.
+
+#### La grille des risques
+
+Les risques sont listés dans une grille construite comme l'[Inventaire](inventory.md) et le [Registre des risques](risks.md#grille-du-registre). Le texte n'est jamais tronqué : chaque ligne affiche le titre du risque en gras avec sa **description complète** en dessous, ainsi que l'**atténuation complète**, sur autant de lignes que nécessaire. Les adresses web de la description et de l'atténuation sont cliquables.
+
+| Colonne | Affiche |
+|---------|---------|
+| **Risque** | Le titre, avec la description en dessous |
+| **Score de risque** | Le score sous forme de puce colorée, avec *probabilité × impact* à côté (par exemple **20** *4 × 5*) |
+| **Statut** | La puce de statut |
+| **Responsable** | Le responsable du risque, ou un tiret |
+| **Atténuation** | L'atténuation planifiée, ou un tiret |
+| *(boutons)* | **Modifier** et **Supprimer** |
+
+**Probabilité** et **Impact** sont aussi disponibles en colonnes distinctes ; elles sont masquées par défaut — activez-les dans l'onglet **Colonnes** du panneau de filtres.
+
+- **Trier** — cliquez sur un en-tête de colonne. Tant que vous n'avez pas choisi votre propre tri, le score le plus élevé apparaît en premier.
+- **Filtrer une colonne** — utilisez les filtres des en-têtes, comme sur les autres grilles.
+- **Figer une colonne** — cliquez sur l'épingle de son en-tête pour la maintenir sur le bord gauche lors du défilement horizontal ; cliquez à nouveau pour la libérer.
+- **Réorganiser les colonnes** — faites glisser un en-tête de colonne.
+- **Menu de cellule** — faites un clic droit sur une cellule (appui long sur un appareil tactile) pour ouvrir le même menu contextuel que sur les autres grilles.
+
+#### Panneau de filtres
+
+Le panneau de gauche comporte deux onglets :
+
+- **Filtres**
+    - **Rechercher** — porte sur le titre, la description, l'atténuation et le responsable.
+    - **Statut** — cochez une ou plusieurs puces de statut.
+    - **Score de risque** — les tranches de score **Élevé** (15 ou plus), **Moyen** (6 à 14) et **Faible** (moins de 6).
+    - **Responsable** — les responsables présents dans la liste, plus **Aucun responsable**.
+    - **Effacer tous les filtres** réinitialise tous les filtres d'un coup.
+- **Colonnes** — la liste **Ordre des colonnes** (faites glisser une ligne pour déplacer une colonne, utilisez son épingle pour la figer, **Réinitialiser l'ordre** pour rétablir l'ordre par défaut) et la liste **Colonnes visibles** pour afficher ou masquer des colonnes, avec **Tout sélectionner** pour afficher toutes les colonnes. La colonne Risque et les boutons sont toujours affichés. Dès que les colonnes visibles diffèrent de celles par défaut, **Réinitialiser** y revient : toutes les colonnes sauf Probabilité et Impact.
+
+Le panneau se replie en un rail étroit, qui indique combien de filtres sont actifs, et son bord peut être déplacé pour le redimensionner. Sur un téléphone, le panneau est un tiroir, ouvert avec le bouton de filtre de la barre d'outils.
+
+#### Barre d'outils
+
+La barre d'outils indique combien de risques sont listés et propose :
+
+- **Grouper par** — regroupe les lignes par **Statut**, **Responsable** ou **Tranche de score**.
+- **Exporter** — télécharge les risques actuellement affichés au format `.xlsx` (voir ci-dessous).
+- **Importer** — charge des risques depuis un `.xlsx` (voir ci-dessous).
+- **Ajouter un risque** — ouvre la boîte de dialogue pour enregistrer un nouveau risque.
+
+Le tri, les colonnes figées, l'ordre des colonnes, les colonnes visibles, la largeur du panneau et le regroupement sont mémorisés dans votre navigateur.
+
+#### Exporter les risques vers Excel
+
+**Exporter** télécharge les risques que la grille affiche actuellement — après les filtres du panneau, dans l'ordre de la grille — sous forme de `.xlsx` avec une ligne par risque et les colonnes **ID du risque**, **Titre du risque**, **Description**, **Probabilité**, **Impact**, **Score de risque**, **Statut**, **Responsable** et **Atténuation**. Le fichier est aussi un fichier d'import valide : exportez, modifiez dans Excel, puis réimportez-le.
+
+#### Importer des risques depuis Excel {: #importing-risks }
+
+**Importer** charge un `.xlsx` pour ajouter ou mettre à jour les risques de l'initiative. **Télécharger le modèle**, dans la boîte de dialogue, fournit un classeur avec les bons en-têtes et une ligne d'exemple.
+
+- Une ligne portant un **ID du risque** issu d'un export **met à jour** ce risque, et uniquement les champs modifiés.
+- Une ligne **sans ID du risque** **crée** un nouveau risque.
+- Un ID du risque que l'initiative ne possède pas, ou utilisé deux fois dans le fichier, entraîne le **rejet** de la ligne.
+- Les risques absents du fichier ne sont pas touchés : **l'import ne supprime jamais rien**.
+
+Avant toute écriture, un aperçu classe chaque ligne comme **Nouveau**, **Mise à jour** (avec les champs qui changent), **Inchangé** ou **Rejeté** (avec la raison), et compte les avertissements. Les lignes rejetées sont ignorées ; le bouton importe les autres modifications. Un résultat indique ensuite combien de risques ont été créés, mis à jour ou sont en échec.
+
+| Colonne | Règle |
+|---------|-------|
+| **Titre du risque** | Obligatoire |
+| **Probabilité**, **Impact** | Un nombre entier de 1 à 5. Vide signifie 3 sur une nouvelle ligne et laisse la valeur inchangée lors d'une mise à jour |
+| **Statut** | Ouvert, En atténuation, Atténué, Fermé ou Accepté. Vide signifie Ouvert sur une nouvelle ligne et laisse le statut inchangé lors d'une mise à jour |
+| **Responsable** | Identifié par e-mail, puis par nom. Un responsable qui ne correspond à personne, ou à plusieurs personnes, donne un avertissement : la ligne est tout de même importée et le responsable reste inchangé |
+| **Description**, **Atténuation**, **Responsable** | Une cellule vide efface le champ lors d'une mise à jour |
+| **Score de risque**, toute autre colonne | Ignorée — le score est toujours calculé |
+
+Les colonnes sont reconnues par leur en-tête dans votre langue ou en anglais. Une colonne absente du fichier reste inchangée sur chaque risque mis à jour.
 
 ### Onglet Tâches
 
@@ -177,6 +252,26 @@ Interagir avec le diagramme de Gantt :
 ### Onglet Détails de la Carte
 
 Le dernier onglet affiche la vue complète des détails de la fiche, y compris toutes les sections standard.
+
+### Rapport d'initiative
+
+![Rapport d'initiative PPM](../assets/img/fr/103_ppm_rapport_initiative.png)
+
+Le bouton **Rapport** dans l'en-tête de l'initiative, à côté de la puce du sous-type (une icône sur un téléphone), ouvre le **Rapport d'initiative** : une page en lecture seule qui rassemble ce que montrent les onglets, mise en page comme les autres rapports, avec le nom de l'initiative pour titre et une flèche de retour pour revenir à l'initiative. Les puces **Sections** de la barre d'outils affichent ou masquent chaque section ; toutes sont affichées la première fois, et votre choix est mémorisé dans votre navigateur :
+
+| Section | Ce qui est affiché |
+|---------|--------------------|
+| **Vue d'ensemble** | Des tuiles pour **Budget total**, **Réel total**, **Écart** et **Achèvement** ; le **Résumé de santé** avec les trois indicateurs du dernier rapport de statut, en couleur et en toutes lettres ; les barres **Finances** pour le total, CapEx et OpEx ; l'encadré **Chronologie** avec les dates de début et de fin, le sous-type et le statut d'initiative ; et la description. Les montants issus des initiatives sous-jacentes sont signalés, avec une note qui les explique |
+| **Rapports de statut** | Le dernier rapport en entier, avec ses indicateurs, puis les rapports précédents dans un tableau avec la date, l'auteur et les indicateurs de santé |
+| **Budget et coûts** | Des tuiles pour le budget total, le réel et l'écart, et pour les CapEx et OpEx dépensées par rapport à leur budget ; les graphiques **Dépenses dans le temps** pour l'exercice fiscal indiqué dans leur puce et pour le projet entier ; puis les tableaux **Budget prévu** et **Postes de coûts**, avec chaque exercice fiscal déplié |
+| **Gestion des risques** | Des tuiles pour **Total des risques**, **Ouvert** et **Risques élevés** ; la **Carte thermique des risques** croisant probabilité et impact, chaque cellule colorée selon la tranche de score et indiquant combien de risques elle contient, à côté d'un décompte **Par statut** ; puis chaque risque avec son score (et probabilité × impact), son statut, son responsable, sa description complète et son atténuation complète, le score le plus élevé en premier |
+| **Tâches et planning** | Un tableau des lots de travail, chacun avec ses tâches en dessous, puis les tâches sans lot de travail, à côté d'une frise chronologique sur une échelle trimestrielle : une barre pour chaque lot de travail, remplie selon son achèvement, une barre pour chaque tâche dans la couleur de son statut, un losange pour un jalon (comme sur le diagramme de Gantt), un point pour un élément n'ayant qu'une seule date, et une ligne pour aujourd'hui lorsqu'il se trouve dans la période. Chaque ligne indique aussi son avancement ou son statut et sa priorité, et une légende explique les repères |
+
+Pour imprimer le rapport ou l'enregistrer en PDF, utilisez le bouton **Imprimer / Enregistrer en PDF** de la barre de titre, comme pour tout rapport ; il ouvre la boîte de dialogue d'impression du navigateur, ou la feuille d'impression de Safari sur un iPhone ou un iPad, où vous pouvez aussi enregistrer en PDF. La page s'imprime en paysage, sans la barre d'outils ni la navigation de l'application, avec ses graphiques au format d'impression, et une ligne sous le titre indique le sous-type, le statut d'initiative, les dates de début et de fin et le moment où le rapport a été imprimé. Une section dans laquelle rien n'a été enregistré l'indique.
+
+Pour reprendre le rapport dans une présentation, choisissez **Exporter vers PowerPoint (.pptx)** dans le menu **⋮** de la barre de titre. Le diaporama s'ouvre sur une diapositive de titre indiquant le nom de l'initiative, sa date de génération, ainsi que son sous-type, son statut et ses dates de début et de fin. Chaque section affichée sur la page suit sur sa propre diapositive, titrée du nom de la section, sous forme d'image de la section telle que vous la voyez ; une section longue se poursuit sur d'autres diapositives (« Budget et coûts — Page 2 / 3 »), et un tableau qui continue répète sa ligne d'en-tête. Le diaporama suit les puces **Sections** : une section que vous avez masquée, ou dans laquelle rien n'a été enregistré, est omise. Pendant la création du diaporama, le bouton du menu affiche un indicateur de chargement ; si l'export échoue, un message l'indique et vous pouvez réessayer.
+
+Pour diffuser un **rapport de risques**, affichez uniquement **Gestion des risques**.
 
 ## Structure de Découpage du Travail (WBS)
 

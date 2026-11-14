@@ -127,17 +127,92 @@ Zwei Hinweise zum Lesen der Diagramme:
 
 ![PPM Risikomanagement](../assets/img/de/44_ppm_risikomanagement.png)
 
-Das Risikoregister verfolgt Projektrisiken mit:
+Das Risikoregister verfolgt die Risiken der Initiative. Jedes Risiko hat:
 
 | Feld | Beschreibung |
 |------|--------------|
 | **Titel** | Kurze Beschreibung des Risikos |
+| **Beschreibung** | Das Risiko in vollem Umfang |
 | **Wahrscheinlichkeit** | Wahrscheinlichkeitswert (1–5) |
 | **Auswirkung** | Auswirkungswert (1–5) |
-| **Risikobewertung** | Automatisch berechnet als Wahrscheinlichkeit x Auswirkung |
-| **Status** | Offen, Mindernd, Gemindert, Geschlossen oder Akzeptiert |
-| **Minderung** | Geplante Minderungsmaßnahmen |
+| **Risikobewertung** | Automatisch berechnet als Wahrscheinlichkeit × Auswirkung |
+| **Status** | Offen, In Behandlung, Behandelt, Geschlossen oder Akzeptiert |
+| **Gegenmaßnahme** | Geplante Gegenmaßnahmen |
 | **Verantwortlicher** | Benutzer, der für die Risikoverwaltung verantwortlich ist |
+
+Eine Übersichtsleiste über dem Raster zeigt **Risiken gesamt**, die Anzahl der Risiken mit dem Status **Offen** und **Hohe Risiken**.
+
+#### Das Risikoraster
+
+Die Risiken werden in einem Raster aufgelistet, das wie das [Inventar](inventory.md) und das [Risikoregister](risks.md#register-grid) aufgebaut ist. Text wird nie abgeschnitten: Jede Zeile zeigt den Titel des Risikos fett mit der **vollständigen Beschreibung** darunter sowie die **vollständige Gegenmaßnahme**, jeweils umbrochen auf so viele Zeilen wie nötig. Webadressen in der Beschreibung und der Gegenmaßnahme sind anklickbar.
+
+| Spalte | Zeigt |
+|--------|-------|
+| **Risiko** | Den Titel, mit der Beschreibung darunter |
+| **Risikobewertung** | Die Bewertung als farbiger Chip, daneben *Wahrscheinlichkeit × Auswirkung* (zum Beispiel **20** *4 × 5*) |
+| **Status** | Den Status-Chip |
+| **Verantwortlicher** | Den Verantwortlichen des Risikos oder einen Strich |
+| **Gegenmaßnahme** | Die geplante Gegenmaßnahme oder einen Strich |
+| *(Schaltflächen)* | **Bearbeiten** und **Löschen** |
+
+**Wahrscheinlichkeit** und **Auswirkung** gibt es auch als eigene Spalten; sie sind standardmäßig ausgeblendet — blenden Sie sie im Tab **Spalten** des Filterbereichs ein.
+
+- **Sortieren** — klicken Sie auf eine Spaltenüberschrift. Solange Sie keine eigene Sortierung wählen, steht die höchste Bewertung oben.
+- **Spalte filtern** — verwenden Sie die Filter in den Spaltenüberschriften, wie in den anderen Rastern.
+- **Spalte fixieren** — klicken Sie auf den Pin in der Überschrift, um die Spalte beim seitlichen Scrollen am linken Rand zu halten; ein erneuter Klick löst sie wieder.
+- **Spalten neu anordnen** — ziehen Sie eine Spaltenüberschrift.
+- **Zellenmenü** — klicken Sie mit der rechten Maustaste auf eine Zelle (langes Drücken auf Touch-Geräten), um dasselbe Zellenmenü wie in den anderen Rastern zu öffnen.
+
+#### Filterbereich
+
+Der Bereich auf der linken Seite hat zwei Tabs:
+
+- **Filter**
+    - **Suche** — durchsucht Titel, Beschreibung, Gegenmaßnahme und Verantwortlichen.
+    - **Status** — wählen Sie einen oder mehrere Status-Chips aus.
+    - **Risikobewertung** — die Bewertungsstufen **Hoch** (15 oder mehr), **Mittel** (6 bis 14) und **Niedrig** (unter 6).
+    - **Verantwortlicher** — die in der Liste vorkommenden Verantwortlichen sowie **Kein Verantwortlicher**.
+    - **Alle Filter zurücksetzen** setzt alle Filter auf einmal zurück.
+- **Spalten** — die Liste **Spaltenreihenfolge** (ziehen Sie eine Zeile, um eine Spalte zu verschieben, fixieren Sie sie mit ihrem Pin, **Reihenfolge zurücksetzen** stellt die Standardreihenfolge wieder her) und die Liste **Sichtbare Spalten** zum Ein- und Ausblenden von Spalten, mit **Alle auswählen**, um jede Spalte anzuzeigen. Die Spalte Risiko und die Schaltflächen werden immer angezeigt. Sobald die sichtbaren Spalten vom Standard abweichen, kehrt **Zurücksetzen** zu ihm zurück: alle Spalten außer Wahrscheinlichkeit und Auswirkung.
+
+Der Bereich lässt sich zu einer schmalen Leiste einklappen, die anzeigt, wie viele Filter aktiv sind, und seine Kante lässt sich ziehen, um die Breite anzupassen. Auf dem Smartphone ist der Bereich eine Schublade, die über die Filter-Schaltfläche in der Werkzeugleiste geöffnet wird.
+
+#### Werkzeugleiste
+
+Die Werkzeugleiste zeigt, wie viele Risiken aufgelistet sind, und bietet:
+
+- **Gruppieren nach** — gruppiert die Zeilen nach **Status**, **Verantwortlicher** oder **Bewertungsstufe**.
+- **Exportieren** — lädt die aktuell angezeigten Risiken als `.xlsx` herunter (siehe unten).
+- **Importieren** — lädt Risiken aus einer `.xlsx` (siehe unten).
+- **Risiko hinzufügen** — öffnet den Dialog, um ein neues Risiko zu erfassen.
+
+Sortierung, fixierte Spalten, Spaltenreihenfolge, sichtbare Spalten, Breite des Bereichs und Gruppierung werden in Ihrem Browser gespeichert.
+
+#### Risiken nach Excel exportieren
+
+**Exportieren** lädt die Risiken herunter, die das Raster gerade anzeigt — nach den Filtern des Bereichs, in der Reihenfolge des Rasters — als `.xlsx` mit einer Zeile pro Risiko und den Spalten **Risiko-ID**, **Risikotitel**, **Beschreibung**, **Wahrscheinlichkeit**, **Auswirkung**, **Risikobewertung**, **Status**, **Verantwortlicher** und **Gegenmaßnahme**. Die Datei ist zugleich eine gültige Importdatei: exportieren, in Excel bearbeiten und wieder importieren.
+
+#### Risiken aus Excel importieren {: #importing-risks }
+
+**Importieren** lädt eine `.xlsx`, um Risiken der Initiative hinzuzufügen oder zu aktualisieren. **Vorlage herunterladen** im Dialog liefert eine Arbeitsmappe mit den richtigen Überschriften und einer Beispielzeile.
+
+- Eine Zeile mit einer **Risiko-ID** aus einem Export **aktualisiert** dieses Risiko, und zwar nur die geänderten Felder.
+- Eine Zeile **ohne Risiko-ID** **legt** ein neues Risiko **an**.
+- Eine Risiko-ID, die die Initiative nicht hat, oder eine, die in der Datei doppelt vorkommt, führt zur **Ablehnung** der Zeile.
+- Risiken, die in der Datei fehlen, bleiben unberührt: **Der Import löscht nie**.
+
+Bevor etwas geschrieben wird, listet eine Vorschau jede Zeile als **Neu**, **Aktualisierung** (mit den Feldern, die sich ändern), **Unverändert** oder **Abgelehnt** (mit dem Grund) auf und zählt die Warnungen. Abgelehnte Zeilen werden übersprungen; die Schaltfläche importiert die übrigen Änderungen. Anschließend zeigt ein Ergebnis, wie viele Risiken angelegt, aktualisiert und fehlgeschlagen sind.
+
+| Spalte | Regel |
+|--------|-------|
+| **Risikotitel** | Erforderlich |
+| **Wahrscheinlichkeit**, **Auswirkung** | Eine ganze Zahl von 1 bis 5. Leer bedeutet 3 bei einer neuen Zeile und lässt den Wert bei einer Aktualisierung unverändert |
+| **Status** | Offen, In Behandlung, Behandelt, Geschlossen oder Akzeptiert. Leer bedeutet Offen bei einer neuen Zeile und lässt den Status bei einer Aktualisierung unverändert |
+| **Verantwortlicher** | Zuordnung per E-Mail, dann per Name. Ein Verantwortlicher, der zu niemandem oder zu mehreren Personen passt, ergibt eine Warnung: Die Zeile wird trotzdem importiert und der Verantwortliche bleibt unverändert |
+| **Beschreibung**, **Gegenmaßnahme**, **Verantwortlicher** | Eine leere Zelle leert das Feld bei einer Aktualisierung |
+| **Risikobewertung**, jede andere Spalte | Ignoriert — die Bewertung wird immer berechnet |
+
+Spalten werden anhand ihrer Überschrift in Ihrer Sprache oder auf Englisch erkannt. Eine Spalte, die in der Datei fehlt, bleibt bei jedem aktualisierten Risiko unverändert.
 
 ### Aufgaben-Tab
 
@@ -177,6 +252,26 @@ Interaktion mit dem Gantt-Diagramm:
 ### Kartendetails-Tab
 
 Der letzte Tab zeigt die vollständige Kartendetailansicht mit allen Standardabschnitten.
+
+### Initiativbericht
+
+![PPM-Initiativbericht](../assets/img/de/103_ppm_initiativbericht.png)
+
+Die Schaltfläche **Bericht** in der Kopfzeile der Initiative, neben dem Untertyp-Chip (auf dem Smartphone ein Symbol), öffnet den **Initiativbericht**: eine schreibgeschützte Seite, die zusammenfasst, was die Tabs zeigen, gestaltet wie die anderen Berichte, mit dem Namen der Initiative als Titel und einem Zurück-Pfeil, um zur Initiative zurückzukehren. Die Chips unter **Abschnitte** in der Werkzeugleiste blenden jeden Abschnitt ein oder aus; beim ersten Mal werden alle angezeigt, und Ihre Auswahl wird in Ihrem Browser gespeichert:
+
+| Abschnitt | Was angezeigt wird |
+|-----------|--------------------|
+| **Übersicht** | Kacheln für **Gesamtbudget**, **Ist-Kosten gesamt**, **Abweichung** und **Fertigstellung**; die **Gesundheitsübersicht** mit den drei Bewertungen des neuesten Statusberichts in Farbe und in Worten; die Balken unter **Finanzen** für Gesamt, CapEx und OpEx; der Bereich **Zeitachse** mit Start- und Enddatum, Untertyp und Initiativstatus; und die Beschreibung. Werte, die aus den untergeordneten Initiativen stammen, sind gekennzeichnet, mit einem erläuternden Hinweis |
+| **Statusberichte** | Der neueste Bericht vollständig, mit seinen Bewertungen, dann die früheren Berichte in einer Tabelle mit Datum, Berichterstatter und Gesundheitsbewertungen |
+| **Budget & Kosten** | Kacheln für Gesamtbudget, Ist-Kosten und Abweichung sowie für die CapEx- und OpEx-Ausgaben gegenüber ihrem Budget; die Diagramme **Ausgaben im Zeitverlauf** für das in ihrem Chip genannte Geschäftsjahr und für das gesamte Projekt; dann die Tabellen **Geplantes Budget** und **Kostenpositionen** mit allen Geschäftsjahren aufgeklappt |
+| **Risikomanagement** | Kacheln für **Risiken gesamt**, **Offen** und **Hohe Risiken**; die **Risiko-Heatmap** von Wahrscheinlichkeit gegen Auswirkung, jede Zelle nach Bewertungsstufe gefärbt und mit der Anzahl der Risiken darin, daneben eine Zählung **Nach Status**; dann jedes Risiko mit seiner Bewertung (und Wahrscheinlichkeit × Auswirkung), Status, Verantwortlichem, vollständiger Beschreibung und vollständiger Gegenmaßnahme, die höchste Bewertung zuerst |
+| **Aufgaben & Zeitplan** | Eine Tabelle der Arbeitspakete, jeweils mit ihren Aufgaben darunter, dann die Aufgaben ohne Arbeitspaket, neben einer Zeitleiste auf Quartalsskala: ein Balken für jedes Arbeitspaket, gefüllt entsprechend seiner Fertigstellung, ein Balken für jede Aufgabe in ihrer Statusfarbe, eine Raute für einen Meilenstein (wie im Gantt-Diagramm), ein Punkt für ein Element mit nur einem Datum und eine Linie für heute, wenn es im Zeitraum liegt. Jede Zeile zeigt außerdem ihren Fortschritt oder Status und ihre Priorität, und eine Legende erklärt die Markierungen |
+
+Um den Bericht zu drucken oder als PDF zu speichern, verwenden Sie wie bei jedem Bericht die Schaltfläche **Drucken / Als PDF speichern** in der Titelleiste; sie öffnet den Druckdialog des Browsers bzw. in Safari auf einem iPhone oder iPad das Druckblatt, in dem Sie ebenfalls als PDF speichern können. Die Seite wird im Querformat gedruckt, ohne die Werkzeugleiste und die Navigation der App, mit ihren Diagrammen in Druckgröße, und eine Zeile unter dem Titel nennt Untertyp, Initiativstatus, Start- und Enddatum sowie den Zeitpunkt des Drucks. Ein Abschnitt, in dem nichts erfasst ist, weist darauf hin.
+
+Um den Bericht in eine Präsentation zu übernehmen, wählen Sie **Als PowerPoint exportieren (.pptx)** im **⋮**-Menü der Titelleiste. Die Präsentation beginnt mit einer Titelfolie mit dem Namen der Initiative, dem Erstellungsdatum sowie Untertyp, Status, Start- und Enddatum. Jeder auf der Seite angezeigte Abschnitt folgt auf einer eigenen Folie, überschrieben mit dem Namen des Abschnitts, als Bild des Abschnitts, so wie Sie ihn sehen; ein langer Abschnitt wird auf weiteren Folien fortgesetzt („Budget & Kosten — Seite 2 / 3“), und eine Tabelle, die weiterläuft, wiederholt ihre Kopfzeile. Die Präsentation folgt den Chips unter **Abschnitte**: Ein ausgeblendeter Abschnitt oder einer, in dem nichts erfasst ist, wird weggelassen. Während die Präsentation erstellt wird, zeigt die Menüschaltfläche einen Ladeindikator; schlägt der Export fehl, weist eine Meldung darauf hin, und Sie können es erneut versuchen.
+
+Um einen **Risikobericht** weiterzugeben, zeigen Sie nur **Risikomanagement** an.
 
 ## Projektstrukturplan (PSP / WBS)
 

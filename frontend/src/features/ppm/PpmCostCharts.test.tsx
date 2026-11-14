@@ -9,7 +9,7 @@
  * toggle that choose which data that is.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { PpmBudgetLine, PpmCostLine } from "@/types";
 
@@ -24,7 +24,10 @@ import { mockApi } from "@/test/apiMock";
 import { hookState } from "@/test/hooks";
 import { echartState } from "@/test/echartMock";
 import { invalidateFiscalYearStart, resetFiscalYearStart } from "@/hooks/useFiscalYearStart";
+import { ThemeProvider, createTheme } from "@mui/material/styles";
+import { PPM_COST_COLORS } from "@/theme/tokens";
 import PpmCostCharts from "./PpmCostCharts";
+import type { FiscalYearChoice } from "./costChartData";
 
 const PREFS_KEY = "turboea.ppm.costcharts.prefs";
 
@@ -416,9 +419,11 @@ describe("PpmCostCharts — project chart and chrome", () => {
     const { user } = renderCharts();
     const toggle = screen.getByRole("button", { name: "Spend over time" });
     expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(toggle).toHaveTextContent(/^expand_less$/);
 
     await user.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveTextContent(/^expand_more$/);
     expect(screen.queryByRole("combobox", { name: "Fiscal Year" })).not.toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole("img", { name: "Project to date" })).not.toBeInTheDocument());
     await waitFor(() =>
@@ -454,6 +459,83 @@ describe("PpmCostCharts — project chart and chrome", () => {
     expect(option.yAxis.max).toBe(1000);
     expect(labelPositionsOf("Project to date")).toEqual(["insideEndBottom", "insideEndTop"]);
   });
+});
+
+describe("PpmCostCharts — the Initiative Report's deck", () => {
+  it("lets the deck cut the card between its chart rows, its heading held with the first", () => {
+    const { container } = renderCharts();
+    const card = container.querySelector(".MuiPaper-root") as HTMLElement;
+    // The card as a whole is not one block (print still keeps it whole).
+    expect(card).not.toHaveAttribute("data-export-row");
+    expect(container.querySelectorAll("[data-export-row]")).toHaveLength(0);
+    const heading = container.querySelector("[data-export-heading]") as HTMLElement;
+    expect(heading).toHaveTextContent("Spend over time");
+    expect(container.querySelectorAll("[data-export-heading]")).toHaveLength(1);
+    const blocks = [...container.querySelectorAll("[data-export-keep]")] as HTMLElement[];
+    expect(blocks).toHaveLength(2);
+    // The two fiscal-year charts form one block, "Project to date" the other.
+    expect(within(blocks[0]).getByRole("img", { name: "Cumulative spend by category" })).toBeInTheDocument();
+    expect(within(blocks[0]).getByRole("img", { name: "Cumulative total spend" })).toBeInTheDocument();
+    expect(within(blocks[1]).getByRole("img", { name: "Project to date" })).toBeInTheDocument();
+    expect(within(blocks[1]).queryByRole("img", { name: "Cumulative total spend" })).toBeNull();
+  });
+});
+
+describe("PpmCostCharts — colours", () => {
+  /* eslint-disable @typescript-eslint/no-explicit-any -- the option is plain JSON a test digs into */
+  const colorsOf = (name: string) => {
+    const option = optionOf(name);
+    return {
+      lines: option.series.map((s: any) => [s.lineStyle.color, s.itemStyle.color]),
+      budgets: option.series[0].markLine.data.map((r: any) => [r.lineStyle.color, r.label.color]),
+    };
+  };
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+
+  it.each(["light", "dark"] as const)(
+    "draws CapEx and OpEx, and their budget lines, in the shared cost colours (%s)",
+    (mode) => {
+      const { capex, opex } = PPM_COST_COLORS[mode];
+      render(
+        <ThemeProvider theme={createTheme({ palette: { mode } })}>
+          <PpmCostCharts costLines={COSTS} budgetLines={BUDGETS} />
+        </ThemeProvider>,
+      );
+      expect(colorsOf("Project to date")).toEqual({
+        lines: [
+          [capex, capex],
+          [opex, opex],
+        ],
+        budgets: [
+          [capex, capex],
+          [opex, opex],
+        ],
+      });
+    },
+  );
+});
+
+describe("PpmCostCharts — colours of one fiscal year", () => {
+  it.each(["light", "dark"] as const)(
+    "draws the year's CapEx and OpEx budget lines in the shared cost colours too (%s)",
+    (mode) => {
+      const { capex, opex } = PPM_COST_COLORS[mode];
+      render(
+        <ThemeProvider theme={createTheme({ palette: { mode } })}>
+          <PpmCostCharts costLines={COSTS} budgetLines={BUDGETS} readOnly fiscalYear={2020} />
+        </ThemeProvider>,
+      );
+      const option = optionOf("Cumulative spend by category");
+      /* eslint-disable @typescript-eslint/no-explicit-any -- the option is plain JSON a test digs into */
+      expect(
+        option.series[0].markLine.data.map((r: any) => [r.name, r.lineStyle.color, r.label.color]),
+      ).toEqual([
+        ["CapEx budget", capex, capex],
+        ["OpEx budget", opex, opex],
+      ]);
+      /* eslint-enable @typescript-eslint/no-explicit-any */
+    },
+  );
 });
 
 describe("PpmCostCharts — which fiscal year is current", () => {
@@ -554,5 +636,119 @@ describe("PpmCostCharts — empty charts", () => {
     // Twelve months, none of them reached: nothing to draw in charts 1 and 2.
     expect(screen.getAllByText("No cost data to chart yet")).toHaveLength(3);
     expect(screen.queryByTestId("echart")).not.toBeInTheDocument();
+  });
+});
+
+describe("PpmCostCharts — read-only (the Initiative Report)", () => {
+  const renderReadOnly = (props: { fiscalYear?: FiscalYearChoice } = {}) =>
+    render(<PpmCostCharts costLines={COSTS} budgetLines={BUDGETS} readOnly {...props} />);
+
+  it("draws all three charts with no year picker and no collapse toggle", () => {
+    renderReadOnly();
+    expect(screen.getByText("Spend over time")).toBeInTheDocument();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("echart")).toHaveLength(3);
+  });
+
+  it("stays expanded whatever the stored preference says", () => {
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ fiscalYear: "current", expanded: false }));
+    renderReadOnly();
+    expect(screen.getAllByTestId("echart")).toHaveLength(3);
+    expect(screen.getByRole("img", { name: "Project to date" })).toBeInTheDocument();
+  });
+
+  it("never writes the stored preference", async () => {
+    renderReadOnly({ fiscalYear: 2020 });
+    // Let any effect run before checking nothing was stored.
+    await act(async () => {});
+    expect(localStorage.getItem(PREFS_KEY)).toBeNull();
+
+    const stored = JSON.stringify({ fiscalYear: "all", expanded: false });
+    localStorage.setItem(PREFS_KEY, stored);
+    renderReadOnly({ fiscalYear: 2021 });
+    await act(async () => {});
+    expect(localStorage.getItem(PREFS_KEY)).toBe(stored);
+  });
+
+  it("shows the fiscal year it is given", () => {
+    renderReadOnly({ fiscalYear: 2021 });
+    expect(refsOf("Cumulative spend by category")).toEqual([["CapEx budget", 300]]);
+    expect(pointsOf("Cumulative spend by category")[1]).toEqual({ label: "Feb", capex: 0, opex: 0 });
+  });
+
+  it("spans every year when given 'all'", () => {
+    renderReadOnly({ fiscalYear: "all" });
+    // The dated spend runs February to May 2020, against every year's budget.
+    expect(pointsOf("Cumulative spend by category").map((p) => p.label)).toEqual([
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+    ]);
+    expect(refsOf("Cumulative spend by category")).toEqual([
+      ["CapEx budget", 800],
+      ["OpEx budget", 200],
+    ]);
+  });
+
+  it("without a year, resolves the stored choice as the tab does", () => {
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ fiscalYear: 2020, expanded: false }));
+    renderReadOnly();
+    expect(pointsOf("Cumulative spend by category")[1]).toEqual({ label: "Feb", capex: 100, opex: 0 });
+    expect(refsOf("Cumulative spend by category")).toEqual([
+      ["CapEx budget", 500],
+      ["OpEx budget", 200],
+    ]);
+  });
+
+  it("falls back to the current year for a given year with no data here", () => {
+    renderReadOnly({ fiscalYear: 2015 });
+    const pts = pointsOf("Cumulative spend by category");
+    expect(pts.filter((p) => p.capex !== null)).toHaveLength(new Date().getMonth() + 1);
+  });
+
+  it("names the fiscal year it shows beside its title", () => {
+    renderReadOnly({ fiscalYear: 2021 });
+    const chip = screen.getByTestId("cost-charts-fiscal-year");
+    expect(chip).toHaveTextContent("FY 2021");
+    expect(chip).toHaveTextContent("calendar_month");
+    expect(chip.previousElementSibling).toHaveTextContent("Spend over time");
+  });
+
+  it("names every year when it spans them all", () => {
+    renderReadOnly({ fiscalYear: "all" });
+    expect(screen.getByTestId("cost-charts-fiscal-year")).toHaveTextContent("All fiscal years");
+  });
+
+  it("names the year it fell back to, not the one it was given", () => {
+    renderReadOnly({ fiscalYear: 2015 });
+    expect(screen.getByTestId("cost-charts-fiscal-year")).toHaveTextContent(
+      `FY ${new Date().getFullYear()}`,
+    );
+  });
+
+  it("leaves the year to the picker on the tab", () => {
+    render(<PpmCostCharts costLines={COSTS} budgetLines={BUDGETS} />);
+    expect(screen.queryByTestId("cost-charts-fiscal-year")).not.toBeInTheDocument();
+  });
+
+  it("draws at the export scale so the printed charts stay sharp", () => {
+    renderReadOnly();
+    expect(echartState.props.map((p) => p.devicePixelRatio)).toEqual([2, 2, 2]);
+  });
+
+  it("leaves the tab's charts at the screen's own scale, and its picker in charge of the year", () => {
+    render(<PpmCostCharts costLines={COSTS} budgetLines={BUDGETS} fiscalYear={2020} />);
+    expect(echartState.props.map((p) => p.devicePixelRatio)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    // The year handed in is a read-only setting: the tab still opens on the
+    // current year (nothing stored) and offers its picker and toggle.
+    const currentYear = new Date().getFullYear();
+    expect(screen.getByRole("combobox", { name: "Fiscal Year" })).toHaveTextContent(`FY ${currentYear}`);
+    expect(screen.getByRole("button", { name: "Spend over time" })).toBeInTheDocument();
   });
 });
