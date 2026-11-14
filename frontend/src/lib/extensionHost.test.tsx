@@ -103,6 +103,11 @@ describe("extensionHost", () => {
     // extension's free text and rich text link the way core's do.
     expect(sdk.LinkifiedText).toBeDefined();
     expect(typeof sdk.sanitizeRichHtml).toBe("function");
+    // SDK 1.35 — the same sanitiser keeps a document picture and removes
+    // any other picture.
+    const picture = `<img src="/api/v1/document-images/soaw/0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d" width="40">`;
+    const sanitize = sdk.sanitizeRichHtml as (html: string) => string;
+    expect(sanitize(`${picture}<img src="https://cdn.example.com/x.png">`)).toBe(picture);
     // SDK 1.21 — timeline + dependency-view loaders and the filter-sidebar
     // primitives. Without these an extension timeline/graph/sidebar can only
     // be a drifting lookalike of core's.
@@ -509,7 +514,7 @@ describe("extensionHost", () => {
   });
 
   it("pins the current UI SDK version", () => {
-    expect(UI_SDK_VERSION).toBe("1.34");
+    expect(UI_SDK_VERSION).toBe("1.35");
   });
 
   it("whitelists the nav groups an extension route may request", () => {

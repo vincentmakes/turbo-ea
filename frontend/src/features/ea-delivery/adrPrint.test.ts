@@ -253,3 +253,17 @@ describe("buildAdrPrintBody — mentions", () => {
     );
   });
 });
+
+describe("buildAdrPrintBody — pictures", () => {
+  const PIC = "/api/v1/document-images/adr/0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
+
+  it("prints a section holding only a picture, picture included", () => {
+    const html = buildAdrPrintBody(adr({ consequences: `<img src="${PIC}" width="200">` }));
+    expect(html).toContain(`<h2>Consequences</h2><img src="${PIC}" width="200">`);
+  });
+
+  it("still leaves out a section holding only an external picture", () => {
+    const html = buildAdrPrintBody(adr({ consequences: '<img src="https://cdn.example.com/a.png">' }));
+    expect(html).not.toContain("<h2>Consequences</h2>");
+  });
+});

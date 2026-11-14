@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import JSZip from "jszip";
 import { Packer, type Document } from "docx";
 import { saveAs } from "file-saver";
+import { api } from "@/api/client";
 import i18n from "@/i18n";
 import { printDocument } from "@/lib/printDocument";
 import type { SoAWDocumentInfo, SoAWSectionData, SoAWSignatory, SoAWVersionEntry } from "@/types";
@@ -10,6 +11,8 @@ import { getTemplateSections, getTogafPhases } from "./soawTemplate";
 import { buildPreviewBody, exportToDocx, exportToPdf, PREVIEW_CSS } from "./soawExport";
 
 vi.mock("file-saver", () => ({ saveAs: vi.fn() }));
+// Pictures are fetched through the API client; the tests answer for it.
+vi.mock("@/api/client", () => ({ api: { getRaw: vi.fn() } }));
 // Keep `escapeHtml` real (it is what the body builder escapes with) and only
 // stub the pop-up path, so no window is opened and no print dialog fires.
 vi.mock("@/lib/printDocument", async (importOriginal) => ({
@@ -742,5 +745,73 @@ describe("restricted and deleted mentions", () => {
     expect(all).toContain("Restricted card");
     expect(all).toContain("@SAP ERP");
     expect(all).toContain("Deleted decision");
+  });
+});
+
+// ─── pictures ────────────────────────────────────────────────────────────────
+
+describe("pictures", () => {
+  const ID = "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
+  const PIC = `/api/v1/document-images/soaw/${ID}`;
+  const PNG = Uint8Array.from(
+    atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="),
+    (c) => c.charCodeAt(0),
+  );
+  const first = getTemplateSections().find((d) => d.type === "rich_text")!;
+
+  async function docxPackage(sections: Record<string, SoAWSectionData>, custom: CustomSection[] = []) {
+    const getDoc = captureDocument();
+    await exportToDocx("Cloud Migration", EMPTY_INFO, [], sections, custom);
+    const zip = await JSZip.loadAsync(await Packer.toBuffer(getDoc()));
+    return {
+      xml: await zip.file("word/document.xml")!.async("string"),
+      media: Object.keys(zip.files).filter((f) => f.startsWith("word/media/") && !f.endsWith("/")),
+    };
+  }
+
+  it("the preview / PDF body keeps a section holding only a picture", () => {
+    const html = body({ [first.id]: rich(`<img src="${PIC}" data-align="center">`) });
+    expect(html).toContain(`>${first.title}</h`);
+    expect(html).toContain(`<img src="${PIC}" data-align="center">`);
+  });
+
+  it("the preview / PDF body still drops a section holding only an external picture", () => {
+    const html = body({ [first.id]: rich('<img src="https://cdn.example.com/a.png">') });
+    expect(html).not.toContain(`>${first.title}</h`);
+  });
+
+  it("the Word export writes a picture-only section, and a picture-only custom section, as media", async () => {
+    vi.mocked(api.getRaw).mockResolvedValue({
+      blob: async () => ({ arrayBuffer: async () => PNG.slice().buffer }),
+    } as unknown as Response);
+    const { xml, media } = await docxPackage({ [first.id]: rich(`<img src="${PIC}" width="50" height="40">`) }, [
+      { id: "c1", title: "Appendix", content: `<img src="${PIC}">`, insertAfter: "" },
+    ]);
+    expect(texts(xml)).toContain(first.title);
+    expect(texts(xml)).toContain("Appendix");
+    expect(media.length).toBeGreaterThanOrEqual(1);
+    expect(xml).toContain(`<wp:extent cx="${50 * 9525}" cy="${40 * 9525}"/>`);
+    expect(api.getRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it("the Word export does not fetch the pictures of a hidden section", async () => {
+    await docxPackage({ [first.id]: rich(`<img src="${PIC}">`, true) });
+    expect(api.getRaw).not.toHaveBeenCalled();
+  });
+
+  it("the Word export writes the placeholder when a picture cannot be fetched", async () => {
+    vi.mocked(api.getRaw).mockRejectedValue(new Error("403"));
+    const { xml, media } = await docxPackage({ [first.id]: rich(`<img src="${PIC}">`) });
+    expect(texts(xml)).toContain(first.title);
+    expect(texts(xml)).toContain("[Picture not available]");
+    expect(media).toEqual([]);
+  });
+
+  it("PREVIEW_CSS styles pictures under the preview root and keeps each on one page", () => {
+    expect(PREVIEW_CSS).toContain(".soaw-preview img { max-width: 100%; height: auto; }");
+    expect(PREVIEW_CSS).toContain(
+      '.soaw-preview img[data-align="right"] { display: block; margin-inline-start: auto; }',
+    );
+    expect(PREVIEW_CSS).toContain(".soaw-preview img { break-inside: avoid;");
   });
 });

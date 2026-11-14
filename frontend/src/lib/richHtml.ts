@@ -16,6 +16,13 @@
  *   3. **Stamp every anchor** `target="_blank" rel="noopener noreferrer"` when
  *      its href is http(s)/mailto, and strip the href otherwise. A stored
  *      `javascript:` or relative href never survives.
+ *   4. **Keep a picture only when it is a document picture** — its `src` the
+ *      internal `/api/v1/document-images/{adr|soaw}/{uuid}` route (UI SDK
+ *      1.35) — reduced to the contract attributes in the contract order. Any
+ *      other `<img>` (an external, `data:`, `blob:` or other-path one) is
+ *      removed, so a stored document never calls out from a reader's browser.
+ *      No `loading="lazy"`: the print body goes through here, and a lazy
+ *      picture below the fold prints blank.
  *
  * It runs on a **private** DOMPurify instance: hooks are per instance, and
  * the SVG-thumbnail sanitisers (`ProcessNavigator`, `ProcessFlowTab`) must
@@ -24,6 +31,11 @@
  */
 import createDOMPurify from "dompurify";
 
+import {
+  parseDocumentImageAlign,
+  parseDocumentImageDimension,
+  parseDocumentImageSrc,
+} from "./documentImageMarkup";
 import { isLinkableHref, splitLinks } from "./linkify";
 
 type Purifier = ReturnType<typeof createDOMPurify>;
@@ -53,12 +65,42 @@ function markMentionLink(node: Element): void {
   }
 }
 
+/**
+ * A document picture reduced to `src alt title width height data-align`, in
+ * that order, each kept only when valid; any other picture removed whole.
+ * Rewriting from scratch keeps the output canonical, so a second pass is a
+ * no-op.
+ */
+function keepDocumentImage(node: Element): void {
+  const ref = parseDocumentImageSrc(node.getAttribute("src"));
+  if (!ref) {
+    node.remove();
+    return;
+  }
+  const alt = node.getAttribute("alt");
+  const title = node.getAttribute("title");
+  const width = parseDocumentImageDimension(node.getAttribute("width"));
+  const height = parseDocumentImageDimension(node.getAttribute("height"));
+  const align = parseDocumentImageAlign(node.getAttribute("data-align"));
+  for (const name of node.getAttributeNames()) node.removeAttribute(name);
+  node.setAttribute("src", ref.path);
+  if (alt !== null) node.setAttribute("alt", alt);
+  if (title !== null) node.setAttribute("title", title);
+  if (width !== null) node.setAttribute("width", String(width));
+  if (height !== null) node.setAttribute("height", String(height));
+  if (align !== null) node.setAttribute("data-align", align);
+}
+
 function getPurifier(): Purifier {
   if (purifier) return purifier;
   const p = createDOMPurify(window);
   p.addHook("afterSanitizeAttributes", (node) => {
     if (node.nodeName === "SPAN" && node.getAttribute("data-type") === "mention") {
       markMentionLink(node);
+      return;
+    }
+    if (node.nodeName === "IMG") {
+      keepDocumentImage(node);
       return;
     }
     if (node.nodeName !== "A") return;

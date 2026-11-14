@@ -23,16 +23,27 @@
 import i18n from "@/i18n";
 import { PRINT_COLORS, brand } from "@/theme/tokens";
 import type { SoAWSignatory } from "@/types";
+import { DOCUMENT_IMAGE_PATH_PREFIX, documentImageCss } from "./documentImageMarkup";
 import { escapeHtml } from "./escapeHtml";
 import { sanitizeRichHtml } from "./richHtml";
+import { richHtmlHasContent } from "./richHtmlContent";
 
 export { escapeHtml };
 
-/** True when the HTML has no visible text (empty, whitespace or empty tags). */
+/**
+ * True when the HTML has nothing to show: no visible text and no document
+ * picture (see `richHtmlHasContent`).
+ */
 export function htmlIsEmpty(html: string | null | undefined): boolean {
-  if (!html) return true;
-  const text = (new DOMParser().parseFromString(html, "text/html").body.textContent ?? "").trim();
-  return !text;
+  return !richHtmlHasContent(html);
+}
+
+/**
+ * Picture rules for a printed document under `scope`: the shared document
+ * picture CSS, and a picture is never split across a page break.
+ */
+export function printDocumentImageCss(scope: string): string {
+  return `${documentImageCss(scope)}\n${scope} img { break-inside: avoid; page-break-inside: avoid; }`;
 }
 
 export const DOCUMENT_PRINT_CSS = `
@@ -61,6 +72,7 @@ export const DOCUMENT_PRINT_CSS = `
   .doc-signatures .sig-card .sig-name { font-weight: 600; font-size: 10pt; }
   .doc-signatures .sig-card .sig-detail { font-size: 9pt; color: ${PRINT_COLORS.inkSecondary}; }
   .doc-print-footer { display: none; }
+  ${printDocumentImageCss(".doc-print")}
   @media print {
     body.doc-print { margin: 20px; }
     .no-print { display: none !important; }
@@ -82,8 +94,25 @@ export interface PrintDocumentOptions {
   bodyClass?: string;
   /** Stylesheet; defaults to `DOCUMENT_PRINT_CSS`. */
   css?: string;
-  /** Delay before `print()` so the pop-up has laid out; defaults to 400 ms. */
+  /**
+   * Delay before `print()` so the pop-up has laid out; defaults to 400 ms.
+   * Counted from when every picture has loaded or failed.
+   */
   printDelayMs?: number;
+}
+
+const SANITISED_PICTURE = `<img src="${DOCUMENT_IMAGE_PATH_PREFIX}`;
+
+/**
+ * Every document picture's `src` made absolute against `origin`, so the
+ * `about:blank` pop-up loads it whatever base URL it inherited. Runs on the
+ * sanitiser's output, where a picture always starts `<img src="/api/…` and
+ * the sequence cannot occur anywhere else (text escapes `<`, attribute values
+ * escape `"`). An opaque or missing origin leaves the HTML as it is.
+ */
+export function absoluteDocumentImages(html: string, origin: string): string {
+  if (!origin || origin === "null") return html;
+  return html.split(SANITISED_PICTURE).join(`<img src="${escapeHtml(origin)}${DOCUMENT_IMAGE_PATH_PREFIX}`);
 }
 
 /** Build the complete HTML document written into the pop-up. Pure. */
@@ -95,7 +124,7 @@ export function buildPrintHtml(opts: PrintDocumentOptions): string {
     parts.length > 0
       ? `<div class="doc-print-footer">${parts.map(escapeHtml).join("  &middot;  ")}</div>`
       : "";
-  const body = sanitizeRichHtml(opts.bodyHtml);
+  const body = absoluteDocumentImages(sanitizeRichHtml(opts.bodyHtml), window.location.origin);
   return `<!DOCTYPE html><html lang="${escapeHtml(i18n.language || "en")}" dir="${i18n.dir()}"><head><meta charset="utf-8">
 <title>${escapeHtml(opts.title)}</title>
 <style>${css}</style></head><body class="${escapeHtml(bodyClass)}">${body}${footer}</body></html>`;
@@ -114,12 +143,61 @@ export function openPrintWindow(): Window | null {
   return w;
 }
 
-/** Fill an already-open pop-up and schedule the print dialog. */
+/** The longest the print dialog waits for the pictures, in ms. */
+export const PRINT_IMAGE_WAIT_MS = 10_000;
+
+/** The pictures of `doc` that have neither loaded nor failed yet. */
+export function pendingImages(doc: Document): HTMLImageElement[] {
+  // Stryker disable next-line LogicalOperator: a document always has `images`; the fallback spares hand-made test windows
+  return Array.from(doc.images ?? []).filter((img) => !img.complete);
+}
+
+/**
+ * Resolves once every one of `images` has loaded or failed, or after
+ * `capMs`, whichever comes first. A picture that fails still counts as done:
+ * the print shows its broken frame rather than waiting for ever.
+ */
+export function waitForImages(
+  images: readonly HTMLImageElement[],
+  capMs: number = PRINT_IMAGE_WAIT_MS,
+): Promise<void> {
+  if (images.length === 0) return Promise.resolve();
+  return new Promise((resolve) => {
+    let left = images.length;
+    const timer = setTimeout(resolve, capMs);
+    for (const img of images) {
+      let settled = false;
+      const done = () => {
+        if (settled) return;
+        settled = true;
+        left -= 1;
+        if (left === 0) {
+          clearTimeout(timer);
+          resolve();
+        }
+      };
+      img.addEventListener("load", done);
+      img.addEventListener("error", done);
+    }
+  });
+}
+
+/**
+ * Fill an already-open pop-up and schedule the print dialog: once every
+ * picture has loaded or failed (at most `PRINT_IMAGE_WAIT_MS`), then after
+ * `printDelayMs` so the browser has laid out. With no picture to wait for,
+ * the delay starts at once, exactly as before pictures existed.
+ */
 export function writePrintDocument(win: Window, opts: PrintDocumentOptions): void {
   win.document.write(buildPrintHtml(opts));
   win.document.close();
-  // Give the browser a moment to render, then open print dialog.
-  setTimeout(() => win.print(), opts.printDelayMs ?? 400);
+  const delay = opts.printDelayMs ?? 400;
+  const schedule = () => {
+    setTimeout(() => win.print(), delay);
+  };
+  const pending = pendingImages(win.document);
+  if (pending.length === 0) schedule();
+  else void waitForImages(pending).then(schedule);
 }
 
 /** Open and fill in one go, for a caller that already holds its data. */

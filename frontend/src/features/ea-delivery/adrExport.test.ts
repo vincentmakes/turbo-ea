@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("file-saver", () => ({ saveAs: vi.fn() }));
+// Pictures are fetched through the API client; the tests answer for it.
+vi.mock("@/api/client", () => ({ api: { getRaw: vi.fn() } }));
 
 import JSZip from "jszip";
 import { Packer } from "docx";
 import { saveAs } from "file-saver";
+import { api } from "@/api/client";
 import { registerExtension, resetExtensionHost, UI_SDK_VERSION } from "@/lib/extensionHost";
 import type { ArchitectureDecision } from "@/types";
 
@@ -184,5 +187,62 @@ describe("exportAdrsToDocx — mentions", () => {
     expect(texts).toContain("Restricted card");
     expect(texts).toContain("@SAP ERP");
     expect(texts.some((x) => x.endsWith("Deleted decision"))).toBe(true);
+  });
+});
+
+describe("exportAdrsToDocx — pictures", () => {
+  const ID = "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
+  const PIC = `/api/v1/document-images/adr/${ID}`;
+  // A 1×1 PNG.
+  const PNG = Uint8Array.from(
+    atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="),
+    (c) => c.charCodeAt(0),
+  );
+
+  async function exported(decisions: ArchitectureDecision[]) {
+    let captured: Parameters<typeof Packer.toBlob>[0] | null = null;
+    const spy = vi.spyOn(Packer, "toBlob").mockImplementation(async (d) => {
+      captured = d;
+      return new Blob(["docx"]);
+    });
+    await exportAdrsToDocx(decisions);
+    spy.mockRestore();
+    const zip = await JSZip.loadAsync(await Packer.toBuffer(captured!));
+    const xml = await zip.file("word/document.xml")!.async("string");
+    const media = Object.keys(zip.files).filter((f) => f.startsWith("word/media/") && !f.endsWith("/"));
+    return { xml, media };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetExtensionHost();
+  });
+
+  it("writes a section holding only a picture, with the picture as media, fetched once", async () => {
+    vi.mocked(api.getRaw).mockResolvedValue({
+      blob: async () => ({ arrayBuffer: async () => PNG.slice().buffer }),
+    } as unknown as Response);
+    const { xml, media } = await exported([
+      adr({ consequences: `<img src="${PIC}" width="120" height="60">`, alternatives_considered: `<img src="${PIC}">` }),
+    ]);
+    expect(api.getRaw).toHaveBeenCalledTimes(1);
+    expect(api.getRaw).toHaveBeenCalledWith(`/document-images/adr/${ID}`);
+    expect(xml).toContain(">Consequences</w:t>");
+    expect(xml).toContain(">Alternatives Considered</w:t>");
+    expect(media.length).toBeGreaterThanOrEqual(1);
+    expect(xml).toContain(`<wp:extent cx="${120 * 9525}" cy="${60 * 9525}"/>`);
+  });
+
+  it("writes the placeholder line when the picture cannot be fetched", async () => {
+    vi.mocked(api.getRaw).mockRejectedValue(new Error("403"));
+    const { xml, media } = await exported([adr({ consequences: `<img src="${PIC}">` })]);
+    expect(xml).toContain(">Consequences</w:t>");
+    expect(xml).toContain(">[Picture not available]</w:t>");
+    expect(media).toEqual([]);
+  });
+
+  it("fetches nothing for decisions without pictures", async () => {
+    await exported([adr()]);
+    expect(api.getRaw).not.toHaveBeenCalled();
   });
 });

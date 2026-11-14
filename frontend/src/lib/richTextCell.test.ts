@@ -86,3 +86,34 @@ describe("plainTextToHtml", () => {
     expect(plainTextToHtml(htmlToPlainText(html))).toBe(html);
   });
 });
+
+describe("htmlToPlainText — document pictures", () => {
+  const PIC = "/api/v1/document-images/soaw/0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
+
+  it("leaves no text for a picture by default (spreadsheet cells unchanged)", () => {
+    expect(htmlToPlainText(`<p>a</p><img src="${PIC}"><p>b</p>`)).toBe("a\n\nb");
+  });
+
+  it("reads a document picture as the token on its own line when asked", () => {
+    expect(
+      htmlToPlainText(`<p>a</p><img src="${PIC}" width="20"><p>b</p>`, undefined, {
+        imageToken: "[Picture]",
+      }),
+    ).toBe("a\n\n[Picture]\n\nb");
+    expect(htmlToPlainText(`<img src="${PIC}">`, undefined, { imageToken: "[P]" })).toBe("[P]");
+  });
+
+  it("gives no token for a picture the sanitiser would remove, or for an empty token", () => {
+    expect(
+      htmlToPlainText('<p>a</p><img src="https://cdn.example.com/x.png">', undefined, {
+        imageToken: "[Picture]",
+      }),
+    ).toBe("a");
+    expect(htmlToPlainText(`<p>a</p><img src="${PIC}">`, undefined, { imageToken: "" })).toBe("a");
+  });
+
+  it("trims a token inside a list item to the item line", () => {
+    const img = `<img src="${PIC}">`;
+    expect(htmlToPlainText(`<li>${img}</li>`, undefined, { imageToken: "[P]" })).toBe("- [P]");
+  });
+});

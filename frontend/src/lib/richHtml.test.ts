@@ -195,3 +195,94 @@ describe("sanitizeRichHtml mention spans", () => {
     );
   });
 });
+
+describe("sanitizeRichHtml — document pictures", () => {
+  const ID = "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
+  const ADR = `/api/v1/document-images/adr/${ID}`;
+  const SOAW = `/api/v1/document-images/soaw/${ID}`;
+
+  it("keeps a stored picture of either kind byte for byte", () => {
+    const stored = `<img src="${ADR}" alt="Diagram" title="Flow" width="320" height="200" data-align="center">`;
+    expect(sanitizeRichHtml(stored)).toBe(stored);
+    expect(sanitizeRichHtml(`<img src="${SOAW}" data-align="right">`)).toBe(
+      `<img src="${SOAW}" data-align="right">`,
+    );
+    expect(sanitizeRichHtml(`<img src="${SOAW}">`)).toBe(`<img src="${SOAW}">`);
+  });
+
+  it("canonicalises the src: lower-case id, and the same-origin absolute form made relative", () => {
+    const upper = `/api/v1/document-images/adr/${ID.toUpperCase()}`;
+    expect(sanitizeRichHtml(`<img src="${upper}">`)).toBe(`<img src="${ADR}">`);
+    expect(sanitizeRichHtml(`<img src="${window.location.origin}${ADR}">`)).toBe(`<img src="${ADR}">`);
+  });
+
+  it("reduces a picture to the contract attributes, in the contract order", () => {
+    const messy =
+      `<img data-align="right" height="90" class="x" style="border:1px solid red" ` +
+      `srcset="https://evil.example/a.png 2x" loading="lazy" width="120" title="T" alt="A" ` +
+      `data-track="1" onerror="alert(1)" src="${ADR}">`;
+    expect(sanitizeRichHtml(messy)).toBe(
+      `<img src="${ADR}" alt="A" title="T" width="120" height="90" data-align="right">`,
+    );
+  });
+
+  it.each([
+    ["zero", "0"],
+    ["over 4000", "4001"],
+    ["a decimal", "12.5"],
+    ["a unit", "120px"],
+    ["a negative", "-5"],
+    ["empty", ""],
+  ])("drops a width or height that is %s", (_label, value) => {
+    expect(sanitizeRichHtml(`<img src="${ADR}" width="${value}" height="${value}">`)).toBe(
+      `<img src="${ADR}">`,
+    );
+  });
+
+  it("keeps the bounds 1 and 4000", () => {
+    expect(sanitizeRichHtml(`<img src="${ADR}" width="1" height="4000">`)).toBe(
+      `<img src="${ADR}" width="1" height="4000">`,
+    );
+  });
+
+  it.each(["left", "CENTER", "middle", ""])("drops a data-align of %j", (align) => {
+    expect(sanitizeRichHtml(`<img src="${ADR}" data-align="${align}">`)).toBe(`<img src="${ADR}">`);
+  });
+
+  it("keeps an empty alt (a decorative picture says so)", () => {
+    expect(sanitizeRichHtml(`<img src="${ADR}" alt="">`)).toBe(`<img src="${ADR}" alt="">`);
+  });
+
+  it.each([
+    ["https", `https://cdn.example.com/a.png`],
+    ["http", `http://cdn.example.com/a.png`],
+    ["another origin with the route", `https://evil.example${ADR}`],
+    ["protocol-relative", `//evil.example${ADR}`],
+    ["data:", "data:image/png;base64,iVBORw0KGgo="],
+    ["blob:", `blob:${window.location.origin}/0a1b2c3d`],
+    ["another relative path", "/api/v1/file-attachments/1/download"],
+    ["the route with a query", `${ADR}?x=1`],
+    ["another kind", `/api/v1/document-images/card/${ID}`],
+    ["no src", ""],
+  ])("removes a picture whose src is %s, and keeps the text around it", (_label, src) => {
+    const out = sanitizeRichHtml(`<p>before</p><img src="${src}" alt="x"><p>after</p>`);
+    expect(out).toBe("<p>before</p><p>after</p>");
+    expect(out).not.toContain("<img");
+  });
+
+  it("removes an img with no src attribute at all", () => {
+    expect(sanitizeRichHtml(`<p>a<img alt="x">b</p>`)).toBe("<p>ab</p>");
+  });
+
+  it("never adds lazy loading", () => {
+    expect(sanitizeRichHtml(`<img src="${ADR}">`)).not.toContain("loading");
+  });
+
+  it("is idempotent on a picture", () => {
+    const once = sanitizeRichHtml(
+      `<p>x</p><img title="t" src="${window.location.origin}${ADR}" width="10" data-align="center" class="c"><img src="https://x.example/y.png">`,
+    );
+    expect(sanitizeRichHtml(once)).toBe(once);
+    expect(once).toBe(`<p>x</p><img src="${ADR}" title="t" width="10" data-align="center">`);
+  });
+});

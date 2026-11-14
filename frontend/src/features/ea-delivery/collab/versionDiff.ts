@@ -13,7 +13,10 @@
  * Before that, both sides are compared in the form the server stores
  * (mention spans without their names): a field whose stored form is equal is
  * unchanged even when a mentioned card was renamed in between. A field whose
- * plain text is equal but whose HTML is not changed its formatting only.
+ * plain text is equal but whose HTML is not changed its formatting only. A
+ * picture reads as a translated token on a line of its own (`[Picture]`), so
+ * one added or removed shows as such; resizing or re-aligning one alone is a
+ * formatting change.
  * Dates, the change summary, names and people are shown as old → new.
  * Unchanged fields are left out.
  */
@@ -137,19 +140,20 @@ export function wordSegments(before: string, after: string): DiffSegment[] {
   return merged(out);
 }
 
-/** A rich-text field's row, or null when it did not change. */
+/** A rich-text field's row, or null when it did not change. `imageToken` is what a picture reads as. */
 export function textRow(
   key: string,
   label: string,
   before: string | null | undefined,
   after: string | null | undefined,
   labels: MentionLabels,
+  imageToken?: string,
 ): DiffRow | null {
   const a = before ?? "";
   const b = after ?? "";
   if (canonicalMentionHtml(a) === canonicalMentionHtml(b)) return null;
-  const plainA = htmlToPlainText(a, labels);
-  const plainB = htmlToPlainText(b, labels);
+  const plainA = htmlToPlainText(a, labels, { imageToken });
+  const plainB = htmlToPlainText(b, labels, { imageToken });
   if (plainA === plainB) {
     return { key, label, kind: "text", segments: [{ text: plainB }], formattingOnly: true };
   }
@@ -189,10 +193,11 @@ export function decisionDiff(
   { t, labels, formatDate }: DiffOptions,
 ): DiffRow[] {
   const date = (v: unknown) => (typeof v === "string" && v ? formatDate(v) : "");
+  const picture = t("collab.compare.picture");
   return keep([
     valueRow("title", t("adr.title"), before.title ?? "", after.title ?? ""),
     ...DECISION_TEXT.map(([key, label]) =>
-      textRow(key, t(label), before[key] as string | null, after[key] as string | null, labels),
+      textRow(key, t(label), before[key] as string | null, after[key] as string | null, labels, picture),
     ),
     ...DECISION_DATES.map(([key, label]) => valueRow(key, t(label), date(before[key]), date(after[key]))),
     valueRow("decision_makers", t("adr.people.decisionMakers"), peopleLine(before.decision_makers), peopleLine(after.decision_makers)),
@@ -215,12 +220,20 @@ function versionTableText(rows: SoawVersionContent["version_history"]): string {
     .join("\n");
 }
 
-/** A SoAW section as plain text: its text, table rows and phase notes, and whether it is hidden. */
-export function sectionText(section: SoawVersionSection | undefined, labels: MentionLabels, hiddenLabel: string): string {
+/**
+ * A SoAW section as plain text: its text (a picture as `imageToken`), table
+ * rows and phase notes, and whether it is hidden.
+ */
+export function sectionText(
+  section: SoawVersionSection | undefined,
+  labels: MentionLabels,
+  hiddenLabel: string,
+  imageToken?: string,
+): string {
   if (!section) return "";
   const lines: string[] = [];
   if (section.hidden) lines.push(hiddenLabel);
-  const text = htmlToPlainText(section.content ?? "", labels);
+  const text = htmlToPlainText(section.content ?? "", labels, { imageToken });
   if (text) lines.push(text);
   for (const row of section.table_data?.rows ?? []) lines.push(row.join(" | "));
   for (const [phase, note] of Object.entries(section.togaf_data ?? {})) {
@@ -286,13 +299,14 @@ export function soawDiff(
   const secA = before.sections ?? {};
   const secB = after.sections ?? {};
   const hidden = t("collab.compare.hiddenSection");
+  const picture = t("collab.compare.picture");
   for (const key of sectionKeys(secA, secB, Object.keys(sectionTitles))) {
     const a = secA[key];
     const b = secB[key];
     if (sectionStored(a) === sectionStored(b)) continue;
     const label = sectionTitles[key] ?? b?.title ?? a?.title ?? key;
-    const textA = sectionText(a, labels, hidden);
-    const textB = sectionText(b, labels, hidden);
+    const textA = sectionText(a, labels, hidden, picture);
+    const textB = sectionText(b, labels, hidden, picture);
     rows.push(
       textA === textB
         ? { key, label, kind: "text", segments: [{ text: textB }], formattingOnly: true }

@@ -14,6 +14,7 @@ import { useApiQuery } from "@/hooks/useApiQuery";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { fillMentionLabels } from "@/lib/mentionHtml";
 import { sanitizeRichHtml } from "@/lib/richHtml";
+import { DOCUMENT_IMAGE_SX } from "@/lib/documentImageMarkup";
 import type {
   DecisionVersionContent,
   DocumentOwner,
@@ -51,7 +52,7 @@ function DecisionVersion({ content }: { content: DecisionVersionContent }) {
             </Typography>
             {html ? (
               <Box
-                sx={{ "& p": { mt: 0, mb: 1 }, "& ul, & ol": { pl: 3 }, lineHeight: 1.7 }}
+                sx={{ "& p": { mt: 0, mb: 1 }, "& ul, & ol": { pl: 3 }, lineHeight: 1.7, ...DOCUMENT_IMAGE_SX }}
                 dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(fillMentionLabels(html, labels)) }}
               />
             ) : (

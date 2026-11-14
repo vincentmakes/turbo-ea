@@ -5,16 +5,24 @@ import {
   buildPrintHtml,
   documentHeader,
   escapeHtml,
+  PRINT_IMAGE_WAIT_MS,
+  absoluteDocumentImages,
   htmlIsEmpty,
   metaTable,
   openPrintWindow,
+  pendingImages,
   printDocument,
+  printDocumentImageCss,
   section,
   signatureBlock,
   tableHtml,
   textBlock,
+  waitForImages,
   writePrintDocument,
 } from "./printDocument";
+
+const PIC_ID = "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
+const PIC = `/api/v1/document-images/adr/${PIC_ID}`;
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -91,6 +99,9 @@ describe("printDocument fragment builders", () => {
     expect(htmlIsEmpty(null)).toBe(true);
     expect(htmlIsEmpty("<p>  </p>")).toBe(true);
     expect(htmlIsEmpty("<p>x</p>")).toBe(false);
+    // A section holding only a picture is not empty; an external one is.
+    expect(htmlIsEmpty(`<img src="${PIC}">`)).toBe(false);
+    expect(htmlIsEmpty('<img src="https://cdn.example.com/a.png">')).toBe(true);
   });
 
   it("metaTable skips empty values and renders nothing when every value is empty", () => {
@@ -216,6 +227,150 @@ describe("pop-up window handling", () => {
     expect(openSpy).toHaveBeenCalledWith("", "_blank");
     expect(win.document.write).toHaveBeenCalledTimes(1);
     vi.advanceTimersByTime(10);
+    expect(win.print).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("document pictures in print", () => {
+  it("styles pictures under the print root from the shared rules, and never splits one", () => {
+    expect(printDocumentImageCss(".doc-print")).toBe(
+      [
+        ".doc-print img { max-width: 100%; height: auto; }",
+        '.doc-print img[data-align="center"] { display: block; margin-inline: auto; }',
+        '.doc-print img[data-align="right"] { display: block; margin-inline-start: auto; }',
+        ".doc-print img { break-inside: avoid; page-break-inside: avoid; }",
+      ].join("\n"),
+    );
+    expect(DOCUMENT_PRINT_CSS).toContain(printDocumentImageCss(".doc-print"));
+  });
+
+  it("absoluteDocumentImages prefixes every picture's src with the origin, and nothing else", () => {
+    const html = `<p>see src="/api/v1/document-images/ here</p><img src="${PIC}" width="10"><img src="${PIC}">`;
+    expect(absoluteDocumentImages(html, "https://ea.example.com")).toBe(
+      `<p>see src="/api/v1/document-images/ here</p>` +
+        `<img src="https://ea.example.com${PIC}" width="10"><img src="https://ea.example.com${PIC}">`,
+    );
+  });
+
+  it("absoluteDocumentImages escapes the origin and leaves the HTML alone without a usable one", () => {
+    expect(absoluteDocumentImages(`<img src="${PIC}">`, 'https://a"b')).toBe(
+      `<img src="https://a&quot;b${PIC}">`,
+    );
+    expect(absoluteDocumentImages(`<img src="${PIC}">`, "")).toBe(`<img src="${PIC}">`);
+    expect(absoluteDocumentImages(`<img src="${PIC}">`, "null")).toBe(`<img src="${PIC}">`);
+  });
+
+  it("buildPrintHtml keeps a stored picture, absolute, and drops an external one", () => {
+    const html = buildPrintHtml({
+      title: "t",
+      bodyHtml: `<h2>Context</h2><img src="${PIC}" width="300" data-align="center"><img src="https://cdn.example.com/a.png">`,
+    });
+    expect(html).toContain(
+      `<img src="${window.location.origin}${PIC}" width="300" data-align="center">`,
+    );
+    expect(html).not.toContain("cdn.example.com");
+    expect(html).not.toContain("loading=");
+  });
+});
+
+describe("waiting for pictures before printing", () => {
+  function picture(complete: boolean): HTMLImageElement {
+    const img = document.createElement("img");
+    Object.defineProperty(img, "complete", { value: complete });
+    return img;
+  }
+
+  function windowWith(images: HTMLImageElement[]) {
+    return {
+      document: { write: vi.fn(), close: vi.fn(), images },
+      print: vi.fn(),
+    } as unknown as Window;
+  }
+
+  it("pendingImages lists only pictures not yet loaded or failed", () => {
+    const a = picture(false);
+    const b = picture(true);
+    const c = picture(false);
+    expect(pendingImages({ images: [a, b, c] } as unknown as Document)).toEqual([a, c]);
+  });
+
+  it("waitForImages resolves at once with nothing to wait for", async () => {
+    await expect(waitForImages([])).resolves.toBeUndefined();
+  });
+
+  it("waitForImages resolves when every picture has loaded or failed, each counted once", async () => {
+    vi.useFakeTimers();
+    const a = picture(false);
+    const b = picture(false);
+    let done = false;
+    void waitForImages([a, b]).then(() => {
+      done = true;
+    });
+    a.dispatchEvent(new Event("load"));
+    a.dispatchEvent(new Event("error"));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(done).toBe(false);
+    b.dispatchEvent(new Event("error"));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(done).toBe(true);
+  });
+
+  it("waitForImages gives up after the cap", async () => {
+    vi.useFakeTimers();
+    let done = false;
+    void waitForImages([picture(false)], 500).then(() => {
+      done = true;
+    });
+    await vi.advanceTimersByTimeAsync(499);
+    expect(done).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(done).toBe(true);
+  });
+
+  it("caps the default wait at about ten seconds", async () => {
+    expect(PRINT_IMAGE_WAIT_MS).toBe(10_000);
+    vi.useFakeTimers();
+    let done = false;
+    void waitForImages([picture(false)]).then(() => {
+      done = true;
+    });
+    await vi.advanceTimersByTimeAsync(9_999);
+    expect(done).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(done).toBe(true);
+  });
+
+  it("writePrintDocument prints only after the pictures, then after the delay", async () => {
+    vi.useFakeTimers();
+    const img = picture(false);
+    const win = windowWith([img, picture(true)]);
+    writePrintDocument(win, { title: "t", bodyHtml: `<img src="${PIC}">`, printDelayMs: 50 });
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(win.print).not.toHaveBeenCalled();
+    img.dispatchEvent(new Event("load"));
+    await vi.advanceTimersByTimeAsync(49);
+    expect(win.print).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(win.print).toHaveBeenCalledTimes(1);
+  });
+
+  it("writePrintDocument still prints when a picture never answers", async () => {
+    vi.useFakeTimers();
+    const win = windowWith([picture(false)]);
+    writePrintDocument(win, { title: "t", bodyHtml: "<p>x</p>" });
+    await vi.advanceTimersByTimeAsync(PRINT_IMAGE_WAIT_MS + 399);
+    expect(win.print).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(win.print).toHaveBeenCalledTimes(1);
+  });
+
+  it("writePrintDocument with every picture loaded keeps the plain delay", () => {
+    vi.useFakeTimers();
+    const win = windowWith([picture(true)]);
+    writePrintDocument(win, { title: "t", bodyHtml: "<p>x</p>", printDelayMs: 20 });
+    vi.advanceTimersByTime(19);
+    expect(win.print).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
     expect(win.print).toHaveBeenCalledTimes(1);
   });
 });

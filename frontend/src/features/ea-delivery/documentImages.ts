@@ -10,8 +10,15 @@
 import { api } from "@/api/client";
 import i18n from "@/i18n";
 import { MAX_DOCUMENT_IMAGE_BYTES, MAX_DOCUMENT_IMAGE_MB } from "@/lib/attachmentFormats";
+import {
+  DOCUMENT_IMAGE_CSS,
+  DOCUMENT_IMAGE_PATH_PREFIX,
+  parseDocumentImageSrc,
+  type DocumentImageKind,
+} from "@/lib/documentImageMarkup";
 
-export type DocumentImageKind = "adr" | "soaw";
+export type { DocumentImageKind };
+export { DOCUMENT_IMAGE_CSS };
 
 /** What `POST /document-images/{kind}` answers. */
 export interface DocumentImageUpload {
@@ -32,14 +39,9 @@ export const DOCUMENT_IMAGE_MIME_TYPES: readonly string[] = [
 /** The file input's `accept=` list. */
 export const DOCUMENT_IMAGE_ACCEPT = DOCUMENT_IMAGE_MIME_TYPES.join(",");
 
-const PATH_PREFIX = "/api/v1/document-images/";
-// Upper-case hex is still a UUID; the route prefix and the kind are exact.
-const UUID = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
-const PATH_RE = new RegExp(`^/api/v1/document-images/(adr|soaw)/(${UUID})$`);
-
 /** The relative URL a stored picture is referenced by. */
 export function documentImageSrc(kind: DocumentImageKind, id: string): string {
-  return `${PATH_PREFIX}${kind}/${id}`;
+  return `${DOCUMENT_IMAGE_PATH_PREFIX}${kind}/${id}`;
 }
 
 /**
@@ -48,22 +50,14 @@ export function documentImageSrc(kind: DocumentImageKind, id: string): string {
  * Accepts the relative path, or the same path absolutised by the browser
  * against this page's own origin (pasted HTML carries that form); every
  * other origin, scheme, kind, query string, fragment or trailing path is
- * refused.
+ * refused. The kind-agnostic parser is `parseDocumentImageSrc` in `lib/`.
  */
 export function documentImagePath(
   src: string | null | undefined,
   kind: DocumentImageKind,
 ): string | null {
-  if (typeof src !== "string") return null;
-  let path = src;
-  if (!src.startsWith("/")) {
-    const origin = typeof window === "undefined" ? "" : window.location.origin;
-    if (!origin || origin === "null" || !src.startsWith(`${origin}/`)) return null;
-    path = src.slice(origin.length);
-  }
-  const match = PATH_RE.exec(path);
-  if (!match || match[1] !== kind) return null;
-  return documentImageSrc(kind, match[2].toLowerCase());
+  const ref = parseDocumentImageSrc(src);
+  return ref && ref.kind === kind ? ref.path : null;
 }
 
 /** Whether `src` references a picture of this kind (see `documentImagePath`). */
@@ -107,15 +101,3 @@ export function uploadDocumentImage(
 ): Promise<DocumentImageUpload> {
   return api.upload<DocumentImageUpload>(`/document-images/${kind}`, file, "file");
 }
-
-/**
- * How a picture sits in a document, as plain CSS: never wider than the text,
- * and `data-align` (absent = start) in logical margins so right-to-left
- * locales mirror. The editor applies the same rules in its `sx`; previews,
- * print and export inject this string.
- */
-export const DOCUMENT_IMAGE_CSS = [
-  "img { max-width: 100%; height: auto; }",
-  'img[data-align="center"] { display: block; margin-inline: auto; }',
-  'img[data-align="right"] { display: block; margin-inline-start: auto; }',
-].join("\n");

@@ -14,6 +14,7 @@
  *   HTML tags is passed through as it is, so a hand-made HTML import keeps its
  *   formatting (it is sanitised on render like every stored section).
  */
+import { parseDocumentImageSrc } from "@/lib/documentImageMarkup";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { fillMentionLabels, type MentionLabels } from "@/lib/mentionHtml";
 
@@ -43,7 +44,17 @@ export function looksLikeHtml(text: string): boolean {
   return HTML_TAG_RE.test(text);
 }
 
-function walk(node: Node, out: string[]): void {
+export interface PlainTextOptions {
+  /**
+   * When set, each document picture (a decision or SoAW picture — see
+   * `lib/documentImageMarkup.ts`) reads as this word on a line of its own,
+   * e.g. a translated "[Picture]". Without it pictures leave no text, as a
+   * spreadsheet cell has always shown them. Any other `<img>` never does.
+   */
+  imageToken?: string;
+}
+
+function walk(node: Node, out: string[], opts: PlainTextOptions): void {
   if (node.nodeType === Node.TEXT_NODE) {
     out.push((node.textContent ?? "").replace(/\s+/g, " "));
     return;
@@ -55,6 +66,12 @@ function walk(node: Node, out: string[]): void {
     out.push("\n");
     return;
   }
+  if (tag === "IMG") {
+    if (opts.imageToken && parseDocumentImageSrc(el.getAttribute("src"))) {
+      out.push(`\n\n${opts.imageToken}\n\n`);
+    }
+    return;
+  }
   if (tag === "LI") {
     const parent = el.parentElement;
     const marker =
@@ -62,30 +79,33 @@ function walk(node: Node, out: string[]): void {
         ? `${Array.prototype.indexOf.call(parent.children, el) + 1}. `
         : "- ";
     const inner: string[] = [];
-    el.childNodes.forEach((child) => walk(child, inner));
+    el.childNodes.forEach((child) => walk(child, inner, opts));
     out.push(`\n${marker}${inner.join("").trim()}`);
     return;
   }
   const block = BLOCK_TAGS.has(tag);
   if (block) out.push("\n\n");
-  el.childNodes.forEach((child) => walk(child, out));
+  el.childNodes.forEach((child) => walk(child, out, opts));
   if (block) out.push("\n\n");
 }
 
 /**
  * Stored section HTML → the plain text a spreadsheet cell shows. With
  * `labels`, a restricted or deleted mention (an empty span) reads as the
- * reader's words; a resolved one is its "@Name" text either way.
+ * reader's words; a resolved one is its "@Name" text either way. With
+ * `opts.imageToken`, a document picture reads as that token (opt-in: the
+ * History diff uses it; a spreadsheet cell does not).
  */
 export function htmlToPlainText(
   html: string | null | undefined,
   labels?: MentionLabels,
+  opts: PlainTextOptions = {},
 ): string {
   if (!html) return "";
   const filled = labels ? fillMentionLabels(html, labels) : html;
   const doc = new DOMParser().parseFromString(filled, "text/html");
   const out: string[] = [];
-  doc.body.childNodes.forEach((child) => walk(child, out));
+  doc.body.childNodes.forEach((child) => walk(child, out, opts));
   return out
     .join("")
     .split("\n")

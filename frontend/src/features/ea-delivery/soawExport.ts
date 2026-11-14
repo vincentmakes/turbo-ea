@@ -8,7 +8,6 @@ import {
   TableRow,
   TableCell,
   WidthType,
-  HeadingLevel,
   AlignmentType,
   ShadingType,
   BorderStyle,
@@ -21,40 +20,45 @@ import {
   type TemplateSectionDef,
 } from "./soawTemplate";
 import type { SoAWDocumentInfo, SoAWVersionEntry, SoAWSectionData, SoAWSignatory } from "@/types";
-import { escapeHtml, printDocument } from "@/lib/printDocument";
+import { escapeHtml, printDocument, printDocumentImageCss } from "@/lib/printDocument";
 import { PRINT_COLORS, brand } from "@/theme/tokens";
+import { richHtmlHasContent } from "@/lib/richHtmlContent";
 import { fillMentionLabelsI18n } from "./mentions/mentionLabels";
+import {
+  COLOR_BODY,
+  COLOR_H3,
+  COLOR_PREAMBLE,
+  DOCX_PAGE_MARGIN_TWIP,
+  FONT,
+  LINE_SPACING,
+  SIZE_BODY,
+  SIZE_H3,
+  SPACING_AFTER_DEFAULT,
+  SPACING_H3_BEFORE,
+  htmlToParagraphs,
+  prefetchDocumentImages,
+  type DocxImageMap,
+} from "./docxHtml";
 
 // ─── constants (matching PDF styles) ─────────────────────────────────────────
 
-const FONT = "Segoe UI";
-const COLOR_BODY = "222222"; // body text
 const COLOR_H1 = "1a1a2e"; // h1
 const COLOR_H2 = "333333"; // h2
-const COLOR_H3 = "444444"; // h3
 const COLOR_PART = "1976d2"; // part header (blue)
 const COLOR_SUBTITLE = "555555"; // doc name subtitle
-const COLOR_PREAMBLE = "666666"; // preamble italic text
 const COLOR_BORDER = "cccccc"; // table borders
 
 // Sizes in half-points (PDF pt × 2)
-const SIZE_BODY = 22; // 11pt
 const SIZE_TITLE = 44; // 22pt
 const SIZE_SUBTITLE = 28; // 14pt
 const SIZE_PART = 36; // 18pt
 const SIZE_H2 = 32; // 16pt
-const SIZE_H3 = 26; // 13pt
 const SIZE_TABLE = 20; // 10pt
 
-// Line spacing: 1.6× = 384 (240 = single)
-const LINE_SPACING = 384;
-
 // Spacing in twips
-const SPACING_AFTER_DEFAULT = 160; // ~8pt
 const SPACING_PART_BEFORE = 540; // ~27pt (36px)
 const SPACING_PART_AFTER = 200;
 const SPACING_H2_BEFORE = 420; // ~21pt (28px)
-const SPACING_H3_BEFORE = 300; // ~15pt (20px)
 const SPACING_AFTER_TABLE = 240;
 
 const CELL_BORDER = {
@@ -64,128 +68,6 @@ const CELL_BORDER = {
 };
 
 // ─── helpers ────────────────────────────────────────────────────────────────
-
-/** Parse simple HTML into an array of docx Paragraphs. */
-function htmlToParagraphs(stored: string): Paragraph[] {
-  if (!stored || stored === "<p></p>") return [];
-  // Restricted / deleted mentions arrive empty: the reader's words go in first.
-  const html = fillMentionLabelsI18n(stored);
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  const paragraphs: Paragraph[] = [];
-
-  const processNode = (node: Node) => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      const text = node.textContent?.trim();
-      if (text) {
-        paragraphs.push(
-          new Paragraph({
-            children: [new TextRun({ text, font: FONT, size: SIZE_BODY, color: COLOR_BODY })],
-            spacing: { line: LINE_SPACING, after: SPACING_AFTER_DEFAULT },
-          }),
-        );
-      }
-      return;
-    }
-    if (node.nodeType !== Node.ELEMENT_NODE) return;
-    const el = node as HTMLElement;
-    const tag = el.tagName.toLowerCase();
-
-    if (tag === "p") {
-      const runs = inlineRuns(el);
-      if (runs.length > 0) {
-        paragraphs.push(
-          new Paragraph({
-            children: runs,
-            spacing: { line: LINE_SPACING, after: SPACING_AFTER_DEFAULT },
-          }),
-        );
-      }
-    } else if (tag === "h3" || tag === "h4") {
-      paragraphs.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: el.textContent ?? "",
-              bold: true,
-              font: FONT,
-              size: SIZE_H3,
-              color: COLOR_H3,
-            }),
-          ],
-          heading: tag === "h3" ? HeadingLevel.HEADING_3 : HeadingLevel.HEADING_4,
-          spacing: { before: SPACING_H3_BEFORE, after: SPACING_AFTER_DEFAULT },
-        }),
-      );
-    } else if (tag === "ul" || tag === "ol") {
-      el.querySelectorAll("li").forEach((li, idx) => {
-        const prefix = tag === "ol" ? `${idx + 1}. ` : "\u2022  ";
-        paragraphs.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: prefix + (li.textContent ?? ""),
-                font: FONT,
-                size: SIZE_BODY,
-                color: COLOR_BODY,
-              }),
-            ],
-            indent: { left: 720 },
-            spacing: { line: LINE_SPACING, after: 80 },
-          }),
-        );
-      });
-    } else if (tag === "blockquote") {
-      paragraphs.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: el.textContent ?? "",
-              italics: true,
-              font: FONT,
-              size: SIZE_BODY,
-              color: COLOR_PREAMBLE,
-            }),
-          ],
-          indent: { left: 720 },
-          spacing: { line: LINE_SPACING, after: SPACING_AFTER_DEFAULT },
-        }),
-      );
-    } else {
-      el.childNodes.forEach(processNode);
-    }
-  };
-
-  doc.body.childNodes.forEach(processNode);
-  return paragraphs;
-}
-
-/** Convert inline HTML children to TextRun array. */
-function inlineRuns(el: HTMLElement): TextRun[] {
-  const runs: TextRun[] = [];
-  el.childNodes.forEach((child) => {
-    if (child.nodeType === Node.TEXT_NODE) {
-      const text = child.textContent ?? "";
-      if (text) runs.push(new TextRun({ text, font: FONT, size: SIZE_BODY, color: COLOR_BODY }));
-    } else if (child.nodeType === Node.ELEMENT_NODE) {
-      const c = child as HTMLElement;
-      const tag = c.tagName.toLowerCase();
-      const text = c.textContent ?? "";
-      runs.push(
-        new TextRun({
-          text,
-          font: FONT,
-          size: SIZE_BODY,
-          color: COLOR_BODY,
-          bold: tag === "strong" || tag === "b",
-          italics: tag === "em" || tag === "i",
-          underline: tag === "u" ? {} : undefined,
-          strike: tag === "s" || tag === "del",
-        }),
-      );
-    }
-  });
-  return runs;
-}
 
 /** Build a docx Table with proper borders and styling matching the PDF. */
 function buildDocxTable(columns: string[], rows: string[][]): Table {
@@ -267,6 +149,11 @@ export async function exportToDocx(
 ) {
   const t = (key: string, opts?: Record<string, unknown>) => String(i18n.t(`delivery:${key}`, opts as never));
   const children: (Paragraph | Table)[] = [];
+  // Every picture the document shows, fetched once before building.
+  const images: DocxImageMap = await prefetchDocumentImages([
+    ...Object.values(sections).map((data) => (data.hidden ? "" : data.content)),
+    ...customSections.map((cs) => cs.content),
+  ]);
 
   // ── Title ──
   children.push(
@@ -429,7 +316,7 @@ export async function exportToDocx(
     }
 
     if (def.type === "rich_text" && data.content) {
-      for (const p of htmlToParagraphs(data.content)) {
+      for (const p of htmlToParagraphs(data.content, images)) {
         children.push(p);
       }
     }
@@ -469,7 +356,7 @@ export async function exportToDocx(
             spacing: { before: SPACING_H3_BEFORE, after: SPACING_AFTER_DEFAULT },
           }),
         );
-        for (const p of htmlToParagraphs(cs.content)) {
+        for (const p of htmlToParagraphs(cs.content, images)) {
           children.push(p);
         }
         children.push(new Paragraph({ spacing: { after: SPACING_AFTER_TABLE } }));
@@ -502,7 +389,7 @@ export async function exportToDocx(
           spacing: { before: SPACING_H3_BEFORE, after: SPACING_AFTER_DEFAULT },
         }),
       );
-      for (const p of htmlToParagraphs(cs.content)) {
+      for (const p of htmlToParagraphs(cs.content, images)) {
         children.push(p);
       }
       children.push(new Paragraph({ spacing: { after: SPACING_AFTER_TABLE } }));
@@ -529,10 +416,10 @@ export async function exportToDocx(
         properties: {
           page: {
             margin: {
-              top: 1440,
-              right: 1440,
-              bottom: 1440,
-              left: 1440,
+              top: DOCX_PAGE_MARGIN_TWIP,
+              right: DOCX_PAGE_MARGIN_TWIP,
+              bottom: DOCX_PAGE_MARGIN_TWIP,
+              left: DOCX_PAGE_MARGIN_TWIP,
             },
           },
         },
@@ -554,6 +441,7 @@ function exportTimestamp(now: Date = new Date()): string {
 // ─── Preview / PDF shared HTML ──────────────────────────────────────────────
 
 export const PREVIEW_CSS = `
+  ${printDocumentImageCss(".soaw-preview")}
   body, .soaw-preview { font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 40px auto; color: ${PRINT_COLORS.ink}; line-height: 1.6; font-size: 11pt; }
   .soaw-preview h1 { font-size: 22pt; color: ${PRINT_COLORS.heading}; border-bottom: 2px solid ${brand.primary}; padding-bottom: 8px; }
   .soaw-preview h2 { font-size: 16pt; color: ${PRINT_COLORS.text}; margin-top: 28px; }
@@ -592,10 +480,8 @@ export const PREVIEW_CSS = `
 /** Check if a section has meaningful content worth rendering. */
 function isSectionEmpty(def: TemplateSectionDef, data: SoAWSectionData): boolean {
   if (def.type === "rich_text") {
-    // A section holding only a restricted / deleted mention still has something to say.
-    const html = fillMentionLabelsI18n(data.content ?? "");
-    const c = (new DOMParser().parseFromString(html, "text/html").body.textContent ?? "").trim();
-    return !c;
+    // Text, a picture, or a restricted / deleted mention is something to say.
+    return !richHtmlHasContent(data.content);
   }
   if (def.type === "table") {
     if (!data.table_data || !data.table_data.rows || data.table_data.rows.length === 0) return true;

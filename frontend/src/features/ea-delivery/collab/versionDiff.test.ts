@@ -380,3 +380,75 @@ describe("soawDiff", () => {
     expect(soawDiff(before, after, { ...opts, sectionTitles })).toEqual([]);
   });
 });
+
+describe("pictures in the History diff", () => {
+  const PIC = (kind: string) => `<img src="/api/v1/document-images/${kind}/0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d" width="200">`;
+  const TOKEN = "T(collab.compare.picture)";
+
+  it("a decision field shows a picture added as an inserted token, not formatting", () => {
+    const rows = decisionDiff(
+      decision({ context: "<p>Why</p>" }),
+      decision({ context: `<p>Why</p>${PIC("adr")}` }),
+      opts,
+    );
+    const row = rows.find((r) => r.key === "context");
+    expect(row?.formattingOnly).toBe(false);
+    expect(row?.segments).toEqual([{ text: "Why" }, { text: `\n\n${TOKEN}`, added: true }]);
+  });
+
+  it("a decision field shows a picture removed as a removed token", () => {
+    const rows = decisionDiff(
+      decision({ decision: `${PIC("adr")}<p>Do it</p>` }),
+      decision({ decision: "<p>Do it</p>" }),
+      opts,
+    );
+    const row = rows.find((r) => r.key === "decision");
+    expect(row?.formattingOnly).toBe(false);
+    expect(row?.segments.filter((s) => s.removed).map((s) => s.text).join("")).toContain(TOKEN);
+    expect(row?.segments.some((s) => s.added)).toBe(false);
+  });
+
+  it("resizing a picture alone is a formatting change", () => {
+    const rows = decisionDiff(
+      decision({ context: PIC("adr") }),
+      decision({ context: PIC("adr").replace('width="200"', 'width="120" data-align="center"') }),
+      opts,
+    );
+    expect(rows.find((r) => r.key === "context")).toEqual({
+      key: "context",
+      label: "T(adr.context)",
+      kind: "text",
+      segments: [{ text: TOKEN }],
+      formattingOnly: true,
+    });
+  });
+
+  it("textRow without a token keeps the old reading: a picture alone is formatting", () => {
+    expect(textRow("k", "K", "<p>a</p>", `<p>a</p>${PIC("adr")}`, labels)?.formattingOnly).toBe(true);
+    expect(textRow("k", "K", "<p>a</p>", `<p>a</p>${PIC("adr")}`, labels, "[P]")?.formattingOnly).toBe(
+      false,
+    );
+  });
+
+  it("sectionText reads a SoAW picture as the token", () => {
+    expect(sectionText({ content: `<p>x</p>${PIC("soaw")}`, hidden: false }, labels, "[h]", "[P]")).toBe(
+      "x\n\n[P]",
+    );
+    expect(sectionText({ content: `<p>x</p>${PIC("soaw")}`, hidden: false }, labels, "[h]")).toBe("x");
+  });
+
+  it("a SoAW section shows a picture added as an inserted token", () => {
+    const before = soaw();
+    const after = soaw({
+      sections: {
+        "1.1": { content: `<p>Scope of work</p>${PIC("soaw")}`, hidden: false },
+        "2.1": { content: "<p>Vision</p>", hidden: false },
+      },
+    });
+    const rows = soawDiff(before, after, { ...opts, sectionTitles });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].key).toBe("1.1");
+    expect(rows[0].formattingOnly).toBe(false);
+    expect(rows[0].segments.filter((s) => s.added).map((s) => s.text).join("")).toContain(TOKEN);
+  });
+});

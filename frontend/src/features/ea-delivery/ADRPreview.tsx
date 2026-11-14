@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router";
 import { sanitizeRichHtml } from "@/lib/richHtml";
+import { DOCUMENT_IMAGE_SX } from "@/lib/documentImageMarkup";
 import { fillMentionLabels } from "@/lib/mentionHtml";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -278,6 +279,7 @@ export default function ADRPreview() {
                     "& p": { mt: 0, mb: 1 },
                     "& ul, & ol": { pl: 3 },
                     lineHeight: 1.7,
+                    ...DOCUMENT_IMAGE_SX,
                   }}
                 />
               ) : (

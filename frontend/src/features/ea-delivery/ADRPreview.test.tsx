@@ -754,3 +754,20 @@ describe("ADRPreview — section markers", () => {
     }
   });
 });
+
+describe("ADRPreview — pictures", () => {
+  const PIC = "/api/v1/document-images/adr/0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
+
+  it("shows a stored picture through the sanitiser, sized to the text, and drops an external one", async () => {
+    serve({
+      ...adr,
+      consequences: `<img src="${PIC}" width="240" data-align="center" class="x"><img src="https://cdn.example.com/a.png">`,
+    });
+    const { container } = renderPreview();
+    await screen.findByText("Consequences");
+    const pictures = Array.from(container.querySelectorAll("img"));
+    expect(pictures).toHaveLength(1);
+    expect(pictures[0].outerHTML).toBe(`<img src="${PIC}" width="240" data-align="center">`);
+    expect(pictures[0]).toHaveStyle({ maxWidth: "100%", height: "auto", display: "block" });
+  });
+});
