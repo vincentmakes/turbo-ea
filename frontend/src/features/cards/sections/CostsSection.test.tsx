@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("@/api/client", () => ({
@@ -25,6 +25,7 @@ vi.mock("@/components/charts/EChart", () => import("@/test/echartMock").then((m)
 import { api, ApiError } from "@/api/client";
 import i18n from "@/i18n";
 import { echartState } from "@/test/echartMock";
+import { installResizeObserver } from "@/test/dom";
 import { toIsoDate } from "@/lib/dates";
 import type { CardCostsResponse, YearCosts } from "@/types";
 import CostsSection from "./CostsSection";
@@ -82,14 +83,28 @@ function mockGet(r: CardCostsResponse | Error) {
   );
 }
 const renderSection = () => render(<CostsSection cardId="c1" />);
+const chartOption = () => echartState.byName("Share of each cost item in the TCO").option;
+/** Move the Time Travel slider to a fiscal year, one keyboard step at a time. */
+async function goTo(fy: number) {
+  const slider = screen.getByRole("slider");
+  const now = () => Number(slider.getAttribute("aria-valuenow"));
+  for (let i = 0; i < 6 && now() !== fy; i++) {
+    fireEvent.keyDown(slider, { key: now() < fy ? "ArrowRight" : "ArrowLeft" });
+  }
+  await waitFor(() => expect(now()).toBe(fy));
+}
 
+let restoreRo: ReturnType<typeof installResizeObserver>;
 beforeEach(() => {
+  // the Time Travel slider measures its track with a ResizeObserver
+  restoreRo = installResizeObserver();
   vi.clearAllMocks();
   echartState.reset();
   vi.mocked(api.post).mockResolvedValue({} as never);
   vi.mocked(api.put).mockResolvedValue({} as never);
   vi.mocked(api.delete).mockResolvedValue({} as never);
 });
+afterEach(() => restoreRo());
 
 describe("CostsSection", () => {
   it("shows the current year, its TCO and one tile per line", async () => {
@@ -126,27 +141,93 @@ describe("CostsSection", () => {
     expect(nearOf(far)).toBe("false");
   });
 
-  it("navigates between the six years, disabling the arrows at the ends", async () => {
+  it("drives the selected year from the Time Travel row, over the six years", async () => {
     mockGet(response());
-    const user = userEvent.setup();
     renderSection();
-    await screen.findByText("FY26 - Current");
-    const prev = screen.getByRole("button", { name: "Previous fiscal year" });
-    const next = screen.getByRole("button", { name: "Next fiscal year" });
-    expect(prev).toBeEnabled();
-    await user.click(next);
-    expect(screen.getByText("FY27 - Forecast")).toBeInTheDocument();
-    expect(next).toBeDisabled();
-    for (let i = 0; i < 5; i++) await user.click(prev);
-    expect(screen.getByText("FY22")).toBeInTheDocument();
-    expect(prev).toBeDisabled();
+    const slider = await screen.findByRole("slider", { name: "Fiscal year" });
+    expect(slider).toHaveAttribute("aria-valuemin", "2022");
+    expect(slider).toHaveAttribute("aria-valuemax", "2027");
+    expect(slider).toHaveAttribute("aria-valuetext", "FY26 - Current");
+    await goTo(2027);
+    expect(screen.getByRole("slider")).toHaveAttribute("aria-valuetext", "FY27 - Forecast");
+    await goTo(2022);
+    expect(screen.getByRole("slider")).toHaveAttribute("aria-valuetext", "FY22");
+  });
+
+  it("shows one bar row per fiscal year, forecast on top", async () => {
+    mockGet(response());
+    renderSection();
+    await screen.findByRole("slider");
+    const option = chartOption();
+    expect(option.yAxis.data).toEqual(["FY27", "FY26", "FY25", "FY24", "FY23", "FY22"]);
+    const lic = option.series.find((s: { name: string }) => s.name === "Licences");
+    expect(lic.data.map((d: { value: number }) => d.value)).toEqual([100, 100, 0, 0, 0, 0]);
+    expect(echartState.last().style).toEqual({ height: 6 * 22 });
+  });
+
+  it("keeps a year with no items as a row with its label and a total of 0", async () => {
+    mockGet(response());
+    renderSection();
+    await screen.findByRole("slider");
+    const option = chartOption();
+    expect(option.yAxis.data).toContain("FY23");
+    const total = option.series[option.series.length - 1];
+    expect(total.data[4].label.formatter()).toBe("EUR 0"); // FY23
+  });
+
+  it("highlights the chosen year's bar and dims the others", async () => {
+    mockGet(response());
+    renderSection();
+    await screen.findByRole("slider");
+    const opacities = () =>
+      chartOption().series[0].data.map((d: { itemStyle: { opacity: number } }) => d.itemStyle.opacity);
+    // the default year is the current one, FY26 (row 1)
+    expect(opacities()[1]).toBe(1);
+    expect(opacities().filter((o: number) => o === 1)).toHaveLength(1);
+    await goTo(2025);
+    expect(opacities()[2]).toBe(1);
+    expect(opacities()[1]).toBeLessThan(1);
+    const total = chartOption().series.at(-1);
+    expect(total.markArea.data).toEqual([[{ yAxis: 2 }, { yAxis: 2 }]]);
+  });
+
+  it("shows the TCO and the tiles of the selected year only", async () => {
+    mockGet(response());
+    renderSection();
+    await screen.findByRole("slider");
+    expect(screen.getAllByTestId(/cost-tile-/)).toHaveLength(3);
+    await goTo(2027);
+    expect(screen.getAllByTestId(/cost-tile-/)).toHaveLength(1);
+    expect(screen.getByTestId("cost-tile-lic")).toHaveTextContent("EUR 100");
+    expect(screen.getByText("TCO (from FY26)")).toBeInTheDocument();
+    await goTo(2024);
+    expect(screen.queryAllByTestId(/cost-tile-/)).toHaveLength(0);
+    expect(screen.getByText("No cost items for this year.")).toBeInTheDocument();
+    expect(screen.getByTestId("echart")).toBeInTheDocument(); // the chart stays drawn
+  });
+
+  it("does not clip the chart wrapper", async () => {
+    mockGet(response());
+    renderSection();
+    const chart = await screen.findByTestId("echart");
+    expect(getComputedStyle(chart.parentElement!).overflow).not.toBe("hidden");
+  });
+
+  it("has no previous / next year buttons any more", async () => {
+    mockGet(response());
+    renderSection();
+    await screen.findByRole("slider");
+    // the slider's own arrows are named from common.fiscalYearTimeTravel, never costs.*
+    expect(i18n.exists("costs.previousYear", { ns: "cards" })).toBe(false);
+    expect(i18n.exists("costs.nextYear", { ns: "cards" })).toBe(false);
   });
 
   it("shows the fallback banner of an unconfirmed year and confirms it", async () => {
     mockGet(response());
     const user = userEvent.setup();
     renderSection();
-    await user.click(await screen.findByRole("button", { name: "Next fiscal year" }));
+    await screen.findByRole("slider");
+    await goTo(2027);
     expect(
       screen.getByText("No amounts entered for FY27 yet. Showing the items of FY26, not confirmed."),
     ).toBeInTheDocument();
@@ -189,7 +270,8 @@ describe("CostsSection", () => {
     mockGet(response({ can_edit: false }));
     const user = userEvent.setup();
     renderSection();
-    await user.click(await screen.findByRole("button", { name: "Next fiscal year" }));
+    await screen.findByRole("slider");
+    await goTo(2027);
     expect(screen.queryByRole("button", { name: "+ Add item" })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Confirm/ })).toBeNull();
     await user.click(screen.getByTestId("cost-tile-lic"));
@@ -198,9 +280,9 @@ describe("CostsSection", () => {
 
   it("offers edit controls whenever the server says can_edit", async () => {
     mockGet(response({ can_edit: true }));
-    const user = userEvent.setup();
     renderSection();
-    await user.click(await screen.findByRole("button", { name: "Next fiscal year" }));
+    await screen.findByRole("slider");
+    await goTo(2027);
     expect(screen.getByRole("button", { name: "+ Add item" })).toBeTruthy();
   });
 
@@ -217,14 +299,13 @@ describe("CostsSection", () => {
     expect(await screen.findByText("Could not load the costs of this card.")).toBeInTheDocument();
   });
 
-  it("swaps the year arrows in a right-to-left language", async () => {
+  it("mirrors the bars in a right-to-left language", async () => {
     mockGet(response());
     await i18n.changeLanguage("ar");
     try {
       renderSection();
-      const icons = () =>
-        screen.getAllByRole("button").map((b) => b.textContent).filter((x) => x?.startsWith("chevron"));
-      await waitFor(() => expect(icons()).toEqual(["chevron_right", "chevron_left"]));
+      await screen.findByRole("slider");
+      expect(echartState.last().option.yAxis.position).toBe("right");
     } finally {
       await i18n.changeLanguage("en");
     }

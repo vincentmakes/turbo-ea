@@ -767,8 +767,6 @@
   "costs.title": "Costs",
   "costs.tco": "TCO",
   "costs.tcoFrom": "TCO (from {{year}})",
-  "costs.previousYear": "Previous fiscal year",
-  "costs.nextYear": "Next fiscal year",
   "costs.addItem": "Add item",
   "costs.fallbackBanner": "No amounts entered for {{year}} yet. Showing the items of {{from}}, not confirmed.",
   "costs.confirm": "Confirm {{year}}",
