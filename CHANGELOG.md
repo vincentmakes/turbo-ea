@@ -5,6 +5,18 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.206.0] - 2026-11-14
+
+### Changed
+
+- The Cost Report picks its card type with two toggle buttons, **Application** and **IT Component** (both on for the combined view), instead of a drop-down.
+- The Cost Report and the Licensing Report choose the fiscal year with a green **Time Travel** row between the filters and the summary tiles, replacing the **Fiscal year** drop-down and its chip.
+- A card's **Costs** section shows one stacked bar per fiscal year, the Forecast on top, with the selected year highlighted, and moves between years with the same Time Travel row; the **Licensing** section uses the row too.
+
+### Fixed
+
+- The tooltip on a card's cost and licensing bars is no longer cut off or hidden behind the cost tiles.
+
 ## [2.205.0] - 2026-11-14
 
 Upstream sync (upstream 2.203.1 to 2.204.0). The fork's cost and licensing features are kept as they are: upstream's change that counts an Initiative's PPM lines in the cost report (#1395) is not taken.
