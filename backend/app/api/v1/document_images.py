@@ -29,6 +29,7 @@ from app.services.attachment_upload import require_uploads_enabled
 from app.services.attachment_validation import (
     MAX_DOCUMENT_IMAGE_BYTES,
     MAX_DOCUMENT_IMAGE_MB,
+    RASTER_IMAGE_MIME_TYPES,
     SNIFF_BYTES,
     sniff_raster_image,
 )
@@ -99,7 +100,10 @@ async def get_document_image(
     """One picture of a ``kind`` document, inline."""
     await _require_view(db, user, kind)
     found = await document_image_service.load(db, kind, image_id)
-    if found is None:
+    # The stored type is sent as the response type, so it is trusted only when
+    # it is one of the four raster types: any other row (only an imported
+    # bundle can hold one) is not found, never served inline from our origin.
+    if found is None or found.mime_type not in RASTER_IMAGE_MIME_TYPES:
         raise HTTPException(404, NOT_FOUND)
     # The bytes are in memory: a plain response, nothing streamed while the
     # request's session is open.

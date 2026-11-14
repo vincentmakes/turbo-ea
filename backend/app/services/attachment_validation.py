@@ -278,6 +278,11 @@ _RASTER_IMAGES: tuple[tuple[Callable[[bytes], bool], str], ...] = (
     (_is_webp, "image/webp"),
 )
 
+#: The MIME types a stored document picture may carry, and the only ones its
+#: route serves: a row whose type is anything else (a hand-edited workspace
+#: bundle can carry any value) is answered as not found.
+RASTER_IMAGE_MIME_TYPES: frozenset[str] = frozenset(mime for _sniff, mime in _RASTER_IMAGES)
+
 
 def sniff_raster_image(head: bytes) -> str | None:
     """The canonical MIME of a PNG, JPEG, GIF or WebP from its leading bytes,

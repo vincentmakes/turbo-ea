@@ -15,7 +15,11 @@ from sqlalchemy import select
 
 from app.models.app_settings import AppSettings
 from app.models.document_image import DocumentImage
-from app.services.attachment_validation import MAX_DOCUMENT_IMAGE_BYTES
+from app.services import document_image_service
+from app.services.attachment_validation import (
+    MAX_DOCUMENT_IMAGE_BYTES,
+    RASTER_IMAGE_MIME_TYPES,
+)
 from tests.conftest import auth_headers, create_role, create_user
 
 URL = "/api/v1/document-images"
@@ -196,6 +200,35 @@ class TestFetch:
             assert resp.json()["detail"] == "Picture not found"
         assert (await client.get(f"{URL}/pdf/{body['id']}", headers=admin)).status_code == 422
 
+    @pytest.mark.parametrize(
+        "mime, data",
+        [("text/html", b"<script>alert(1)</script>"), ("image/svg+xml", SVG)],
+        ids=["html", "svg"],
+    )
+    async def test_a_stored_row_of_another_type_is_404(self, client, db, env, mime, data):
+        """Only an imported bundle can store another type: such a row is not
+        served, while a raster row beside it still is."""
+        odd = await document_image_service.store(
+            db, "adr", data, mime_type=mime, created_by=env["admin"].id
+        )
+        good = await document_image_service.store(
+            db, "adr", PNG, mime_type="image/png", created_by=env["admin"].id
+        )
+        reader = auth_headers(env["adr_reader"])
+        resp = await client.get(f"{URL}/adr/{odd.id}", headers=reader)
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "Picture not found"
+        resp = await client.get(f"{URL}/adr/{good.id}", headers=reader)
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "image/png"
+        assert resp.content == PNG
+
     async def test_anonymous_is_refused(self, client, env):
         body = await _uploaded(client, env["adr_editor"])
         assert (await client.get(body["src"])).status_code == 401
+
+
+def test_the_served_types_are_exactly_the_four_raster_types():
+    assert RASTER_IMAGE_MIME_TYPES == frozenset(
+        {"image/png", "image/jpeg", "image/gif", "image/webp"}
+    )
