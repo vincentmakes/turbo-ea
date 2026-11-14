@@ -8,6 +8,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import i18n from "@/i18n";
 import { installResizeObserver } from "@/test/dom";
+import { isHiddenInPrint } from "@/test/hiddenInPrint";
 import LicensingReport from "./LicensingReport";
 
 vi.mock("@/api/client", () => ({ api: { get: vi.fn(), post: vi.fn() }, isAbortError: () => false }));
@@ -177,6 +178,11 @@ describe("LicensingReport", () => {
       await waitFor(() =>
         expect(reportPaths().at(-1)).toBe("/reports/licensing?type=Application&metric=users"),
       );
+    });
+
+    it("the year row is hidden in print (the year is in the print header)", async () => {
+      renderReport();
+      expect(isHiddenInPrint(await slider())).toBe(true);
     });
 
     it("the drop-down and the chip are gone", async () => {

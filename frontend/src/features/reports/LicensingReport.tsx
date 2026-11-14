@@ -753,17 +753,20 @@ export default function LicensingReport() {
       }
     >
       {data && (
-        <FiscalYearTimeTravel
-          // Oldest first; the forecast year is not offered here.
-          years={[...yearOptions].reverse().map((o) => o.value ?? currentFiscalYear)}
-          currentFy={currentFiscalYear}
-          value={fiscalYearParam ?? currentFiscalYear}
-          onChange={(fy) => {
-            restoredYear.current = false;
-            setFiscalYearParam(fy === currentFiscalYear ? null : fy);
-          }}
-          servedYear={data.fiscal_year}
-        />
+        // Hidden in print, like the toolbar it used to sit in: the year is in the print header.
+        <Box sx={{ "@media print": { display: "none" } }}>
+          <FiscalYearTimeTravel
+            // Oldest first; the forecast year is not offered here.
+            years={[...yearOptions].reverse().map((o) => o.value ?? currentFiscalYear)}
+            currentFy={currentFiscalYear}
+            value={fiscalYearParam ?? currentFiscalYear}
+            onChange={(fy) => {
+              restoredYear.current = false;
+              setFiscalYearParam(fy === currentFiscalYear ? null : fy);
+            }}
+            servedYear={data.fiscal_year}
+          />
+        </Box>
       )}
       {error && <Alert severity="error">{t("licensing.loadFailed")}</Alert>}
       {loading && !data && (

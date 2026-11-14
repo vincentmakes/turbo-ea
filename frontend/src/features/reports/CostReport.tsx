@@ -1425,14 +1425,16 @@ export default function CostReport() {
       }
     >
       {fiscalYear && (
-        <FiscalYearTimeTravel
-          // Oldest first; the current year is a step like any other.
-          years={[...fiscalYearOptions].reverse().map((o) => o.value ?? currentFiscalYear)}
-          currentFy={currentFiscalYear}
-          value={fiscalYearParam ?? currentFiscalYear}
-          onChange={(fy) => setFiscalYearParam(fy === currentFiscalYear ? null : fy)}
-          servedYear={fiscalYear.year}
-        />
+        // Hidden in print, like the toolbar it used to sit in: the year is in the print parameters.
+        <Box sx={{ "@media print": { display: "none" } }}>
+          <FiscalYearTimeTravel
+            years={trendYears}
+            currentFy={currentFiscalYear}
+            value={fiscalYearParam ?? currentFiscalYear}
+            onChange={(fy) => setFiscalYearParam(fy === currentFiscalYear ? null : fy)}
+            servedYear={fiscalYear.year}
+          />
+        </Box>
       )}
 
       {/* Summary strip */}

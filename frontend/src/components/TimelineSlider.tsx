@@ -552,7 +552,7 @@ export default function TimelineSlider({
               valueLabelDisplay={isSteps ? "off" : "auto"}
               valueLabelFormat={fmtTip}
               aria-label={ariaLabel}
-              getAriaValueText={isSteps ? () => valueText ?? stepLabel : undefined}
+              getAriaValueText={isSteps ? () => readout : undefined}
               sx={{
                 color: accent,
                 height: 6,

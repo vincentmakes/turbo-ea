@@ -10,6 +10,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { installResizeObserver } from "@/test/dom";
+import { isHiddenInPrint } from "@/test/hiddenInPrint";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
@@ -330,6 +331,13 @@ describe("CostReport fiscal year", () => {
     expect(
       toolbar().compareDocumentPosition(slider) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  it("the year row is hidden in print (the year is in the parameters line)", async () => {
+    renderCost();
+    const slider = await yearSlider();
+    expect(isHiddenInPrint(slider)).toBe(true);
+    expect(isHiddenInPrint(screen.getByText("Total Cost"))).toBe(false);
   });
 
   it("the old drop-down and the chip are gone", async () => {
