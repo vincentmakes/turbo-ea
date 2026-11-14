@@ -438,6 +438,7 @@
   "resources.diagrams": "Diagramme",
   "resources.linkDiagram": "Diagramm verknüpfen",
   "resources.unlinkDiagram": "Verknüpfung lösen",
+  "resources.archimateDiagram": "ArchiMate",
   "resources.emptyDiagrams": "Keine Diagramme mit dieser Karte verknüpft.",
   "resources.confirmUnlinkDiagram": "Diagramm von dieser Karte lösen?",
   "resources.linkDiagramDialog.title": "Diagramm verknüpfen",

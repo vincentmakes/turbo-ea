@@ -144,9 +144,8 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { path: "/admin/metamodel", permission: "admin.metamodel" },
   { path: "/admin/users", permission: "admin.users" },
   { path: "/admin/settings", permission: "admin.settings" },
-  // Architecture Studio's diagram list is opened from the Settings card (admin.settings), and is
-  // also where the editor's Back button lands — so anyone who may view ArchiMate diagrams on
-  // some layer can open it too.
+  // Architecture Studio's diagram list: anyone who may view ArchiMate diagrams on some layer can
+  // open it. The editor's Back returns to the page it was opened from (or to /diagrams).
   { path: "/admin/architectureStudio", permission: ARCHIMATE_STUDIO_LIST },
   // The editor itself (an existing diagram) has no read-only mode, so it needs
   // `manage` on some layer; the backend checks the diagram's own layer span

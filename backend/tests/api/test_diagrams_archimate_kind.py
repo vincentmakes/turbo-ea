@@ -106,7 +106,7 @@ async def test_list_defaults_to_drawio_and_filters_by_kind(client, env):
 
 
 async def test_card_linked_listing_hides_archimate_diagrams_by_default(client, env, db):
-    """The card's Resources tab lists `GET /diagrams?card_id=`: DrawIO only."""
+    """`GET /diagrams?card_id=` with no `kind` lists DrawIO only (Resources tab asks `kind=all`)."""
     h = auth_headers(env["admin"])
     await create_card_type(db, key="Application", label="Application")
     card = await create_card(db, card_type="Application", name="App", user_id=env["admin"].id)
@@ -291,3 +291,102 @@ async def test_patch_refuses_a_new_link_to_a_hidden_card(client, cards_env):
         f"/api/v1/diagrams/{d}", json={"card_ids": [str(cards_env["secret"].id)]}, headers=member_h
     )
     assert r.status_code == 404
+
+
+# ── card link / unlink endpoints ─────────────────────────────────────────────
+
+
+async def _archimate_row(db):
+    from app.models.diagram import Diagram
+
+    db.add(ArchimateViewpoint(key="organization", name="Organization", layer="business"))
+    await db.flush()
+    d = Diagram(name="a", kind="archimate", viewpoint_key="organization", data=AM)
+    db.add(d)
+    await db.flush()
+    return d
+
+
+async def _drawio(client, user):
+    r = await client.post(
+        "/api/v1/diagrams",
+        json={"name": "d", "data": {"xml": "<m/>"}},
+        headers=auth_headers(user),
+    )
+    return r.json()["id"]
+
+
+async def test_link_an_archimate_diagram_is_refused(client, cards_env, db):
+    d = await _archimate_row(db)
+    h = auth_headers(cards_env["admin"])
+    r = await client.post(
+        f"/api/v1/diagrams/{d.id}/cards", json={"card_id": str(cards_env["app"].id)}, headers=h
+    )
+    assert r.status_code == 409
+
+
+async def test_unlink_an_archimate_diagram_is_refused(client, cards_env, db):
+    d = await _archimate_row(db)
+    h = auth_headers(cards_env["admin"])
+    r = await client.delete(f"/api/v1/diagrams/{d.id}/cards/{cards_env['app'].id}", headers=h)
+    assert r.status_code == 409
+
+
+async def test_link_an_archimate_diagram_needs_the_layer_key(client, cards_env, db):
+    d = await _archimate_row(db)
+    await create_role(db, key="dm", label="dm", permissions={"diagrams.manage": True})
+    h = auth_headers(await create_user(db, email="dm@t.com", role="dm"))
+    app = str(cards_env["app"].id)
+    r = await client.post(f"/api/v1/diagrams/{d.id}/cards", json={"card_id": app}, headers=h)
+    assert r.status_code == 403
+    assert (
+        await client.delete(f"/api/v1/diagrams/{d.id}/cards/{app}", headers=h)
+    ).status_code == 403
+
+
+async def test_link_a_hidden_card_and_a_missing_card_answer_the_same(client, cards_env):
+    d = await _drawio(client, cards_env["admin"])
+    h = auth_headers(cards_env["member"])
+    url = f"/api/v1/diagrams/{d}/cards"
+    hidden = await client.post(url, json={"card_id": str(cards_env["secret"].id)}, headers=h)
+    missing = await client.post(url, json={"card_id": str(uuid.uuid4())}, headers=h)
+    assert hidden.status_code == missing.status_code == 404
+    assert hidden.json() == missing.json()
+    hidden = await client.delete(f"{url}/{cards_env['secret'].id}", headers=h)
+    missing = await client.delete(f"{url}/{uuid.uuid4()}", headers=h)
+    assert hidden.status_code == missing.status_code == 404
+    assert hidden.json() == missing.json()
+
+
+async def test_a_caller_cannot_unlink_a_card_it_cannot_read(client, cards_env):
+    d = await _drawio(client, cards_env["admin"])
+    secret = str(cards_env["secret"].id)
+    url = f"/api/v1/diagrams/{d}/cards"
+    admin = auth_headers(cards_env["admin"])
+    assert (await client.post(url, json={"card_id": secret}, headers=admin)).status_code == 201
+    r = await client.delete(f"{url}/{secret}", headers=auth_headers(cards_env["member"]))
+    assert r.status_code == 404 and r.json()["detail"] == "Card not found"
+    r = await client.get(f"/api/v1/diagrams/{d}", headers=admin)
+    assert secret in r.json()["card_ids"]
+
+
+async def test_an_unrestricted_caller_gets_404_for_a_missing_card(client, cards_env):
+    d = await _drawio(client, cards_env["admin"])
+    h = auth_headers(cards_env["admin"])
+    url = f"/api/v1/diagrams/{d}/cards"
+    r = await client.post(url, json={"card_id": str(uuid.uuid4())}, headers=h)
+    assert r.status_code == 404 and r.json()["detail"] == "Card not found"
+    r = await client.delete(f"{url}/{uuid.uuid4()}", headers=h)
+    assert r.status_code == 404 and r.json()["detail"] == "Card not found"
+
+
+async def test_link_and_unlink_a_readable_card_still_work(client, cards_env):
+    d = await _drawio(client, cards_env["admin"])
+    h = auth_headers(cards_env["member"])
+    url = f"/api/v1/diagrams/{d}/cards"
+    app = str(cards_env["app"].id)
+    assert (await client.post(url, json={"card_id": app}, headers=h)).status_code == 201
+    assert (await client.post(url, json={"card_id": app}, headers=h)).status_code == 409
+    assert (await client.delete(f"{url}/{app}", headers=h)).status_code == 204
+    r = await client.delete(f"{url}/{app}", headers=h)
+    assert r.status_code == 404 and r.json()["detail"] == "Link not found"

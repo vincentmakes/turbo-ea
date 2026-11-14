@@ -794,7 +794,6 @@
   "settings.archimate.hidden": "ArchiMate отключён",
   "settings.archimate.enabledSuccess": "Модуль ArchiMate включён",
   "settings.archimate.disabledSuccess": "Модуль ArchiMate отключён",
-  "settings.archimate.openSandbox": "Открыть Architecture Studio",
   "settings.fileUploads.title": "Загрузка файлов",
   "settings.fileUploads.enabled": "Включено",
   "settings.fileUploads.disabled": "Отключено",

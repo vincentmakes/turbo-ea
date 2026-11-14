@@ -30,6 +30,15 @@ vi.mock("@/api/client", () => ({
   },
 }));
 
+// ArchiMate rows open the editor, which needs manage on some layer: the test sets the user.
+const authUser = vi.hoisted(() => ({
+  current: null as { permissions: Record<string, boolean> } | null,
+}));
+vi.mock("@/hooks/AuthContext", async () => ({
+  ...(await vi.importActual<object>("@/hooks/AuthContext")),
+  useOptionalAuthUser: () => authUser.current,
+}));
+
 import { api, ApiError } from "@/api/client";
 import { ATTACHMENT_ACCEPT, MAX_ATTACHMENT_BYTES } from "@/lib/attachmentFormats";
 import { invalidateFileUploadsEnabled } from "@/hooks/useFileUploadsEnabled";
@@ -87,12 +96,22 @@ const mockDiagrams = [
   },
 ];
 
+const archimateDiagram = {
+  id: "diag-2",
+  name: "Layered Model",
+  kind: "archimate",
+  card_ids: [CARD_ID],
+  card_count: 2,
+  updated_at: "2025-11-02T10:00:00Z",
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
+  authUser.current = null;
   vi.mocked(api.get).mockImplementation((url: string) => {
     if (url === `/cards/${CARD_ID}/file-attachments`) return Promise.resolve(mockFiles);
     if (url === `/cards/${CARD_ID}/documents`) return Promise.resolve(mockDocs);
-    if (url === `/diagrams?card_id=${CARD_ID}`) return Promise.resolve(mockDiagrams);
+    if (url === `/diagrams?card_id=${CARD_ID}&kind=all`) return Promise.resolve(mockDiagrams);
     return Promise.reject(new Error(`no mock for ${url}`));
   });
 });
@@ -144,7 +163,7 @@ describe("ResourcesTab", () => {
     await waitFor(() => {
       expect(api.get).toHaveBeenCalledWith(`/cards/${CARD_ID}/file-attachments`);
       expect(api.get).toHaveBeenCalledWith(`/cards/${CARD_ID}/documents`);
-      expect(api.get).toHaveBeenCalledWith(`/diagrams?card_id=${CARD_ID}`);
+      expect(api.get).toHaveBeenCalledWith(`/diagrams?card_id=${CARD_ID}&kind=all`);
     });
   });
 
@@ -476,5 +495,62 @@ describe("ResourcesTab", () => {
     await waitFor(() => expect(screen.getByText("System Overview")).toBeInTheDocument());
     fireEvent.click(screen.getByText("System Overview"));
     expect(navigateMock).toHaveBeenCalledWith("/diagrams/diag-1");
+  });
+
+  describe("ArchiMate diagrams", () => {
+    function withArchimate() {
+      vi.mocked(api.get).mockImplementation((url: string) => {
+        if (url === `/cards/${CARD_ID}/file-attachments`) return Promise.resolve(mockFiles);
+        if (url === `/cards/${CARD_ID}/documents`) return Promise.resolve(mockDocs);
+        if (url === `/diagrams?card_id=${CARD_ID}&kind=all`)
+          return Promise.resolve([...mockDiagrams, archimateDiagram]);
+        return Promise.reject(new Error(`no mock for ${url}`));
+      });
+    }
+
+    it("lists an ArchiMate diagram next to a DrawIO one", async () => {
+      withArchimate();
+      renderTab();
+      expect(await screen.findByText("Layered Model")).toBeInTheDocument();
+      expect(screen.getByText("System Overview")).toBeInTheDocument();
+    });
+
+    it("marks an ArchiMate row", async () => {
+      withArchimate();
+      renderTab();
+      await screen.findByText("Layered Model");
+      expect(screen.getAllByText("ArchiMate")).toHaveLength(1);
+    });
+
+    it("opens an ArchiMate row in the Architecture Studio", async () => {
+      withArchimate();
+      authUser.current = { permissions: { "archimatediagrams.application.manage": true } };
+      renderTab();
+      fireEvent.click(await screen.findByText("Layered Model"));
+      expect(navigateMock).toHaveBeenCalledWith("/admin/architectureStudio/diag-2");
+    });
+
+    it("keeps opening a DrawIO row in the viewer", async () => {
+      withArchimate();
+      authUser.current = { permissions: { "archimatediagrams.application.manage": true } };
+      renderTab();
+      fireEvent.click(await screen.findByText("System Overview"));
+      expect(navigateMock).toHaveBeenCalledWith("/diagrams/diag-1");
+    });
+
+    it("lists but does not open an ArchiMate row without manage on any layer", async () => {
+      withArchimate();
+      authUser.current = { permissions: { "archimatediagrams.application.view": true } };
+      renderTab();
+      fireEvent.click(await screen.findByText("Layered Model"));
+      expect(navigateMock).not.toHaveBeenCalled();
+    });
+
+    it("shows no unlink button on an ArchiMate row", async () => {
+      withArchimate();
+      renderTab({ canManageDiagramLinks: true });
+      await screen.findByText("Layered Model");
+      expect(screen.getAllByRole("button", { name: /^unlink$/i })).toHaveLength(1);
+    });
   });
 });

@@ -15,7 +15,7 @@ La prima riga mostra il nome del diagramma, i colori delle card, i dettagli da m
 
 ## Aprire la sandbox
 
-Finché il modulo è attivo, la scheda mostra il pulsante **Apri la sandbox**. Porta a `/admin/architectureStudio`, l'elenco dei tuoi diagrammi ArchiMate, dove puoi creare, aprire ed eliminare diagrammi. Per aprirla servono il permesso `admin.settings` (che il ruolo Admin ha per impostazione predefinita) e il modulo attivo.
+Finché il modulo è attivo, i diagrammi ArchiMate si creano e si aprono dalla pagina **Diagrammi** e dalla scheda **Risorse** di ogni card che referenziano. `/admin/architectureStudio` resta l'elenco dei tuoi diagrammi ArchiMate, dove puoi crearli, aprirli ed eliminarli; servono un permesso su almeno un livello ArchiMate e il modulo attivo. Nell'editor, **Indietro** riporta alla pagina da cui sei arrivato.
 
 <!-- Planned screenshot (added with the screenshot capture): 102_archimate_sandbox -->
 
@@ -194,7 +194,7 @@ Sulla tavolozza, `Enter` o `Space` su una voce con il focus inserisce quell'elem
 - **Le relazioni tra relazioni** (una Association, Aggregation o Composition che punta a un'altra relazione) vengono lette e scritte e il controllo le accetta, ma non vengono disegnate.
 - **Disegnare una relazione richiede il mouse.** Con la tastiera si possono inserire gli elementi, ma non collegarli.
 - **Gli inserimenti da tastiera si sovrappongono.** Ogni elemento inserito con `Enter` o `Space` finisce al centro dell'area visibile, quindi gli inserimenti successivi si sovrappongono finché non li sposti.
-- **Ancora nessuna pubblicazione.** I diagrammi ArchiMate non possono essere pubblicati né incorporati e non compaiono nel menu **Diagrammi**; si raggiungono dalla sandbox.
+- **Ancora nessuna pubblicazione.** I diagrammi ArchiMate non possono essere pubblicati né incorporati e non compaiono nel menu **Diagrammi**; si raggiungono dall'elenco della sandbox o dalla scheda **Risorse** di una card che li referenzia.
 - **Le giunzioni non hanno etichetta.** Una giunzione And o Or è un semplice punto.
 - La mappatura è in sola lettura (vedi [La mappatura](#mapping)) e le cartelle vengono scartate all'importazione (vedi [Il file Exchange](#exchange-file)).
 

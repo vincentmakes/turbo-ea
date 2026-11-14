@@ -15,7 +15,7 @@ Den øverste række viser diagramnavnet, kortfarver, kortindhold og synkroniseri
 
 ## Åbn sandkassen
 
-Mens modulet er slået til, viser kortet knappen **Åbn sandkassen**. Den fører til `/admin/architectureStudio`, listen over dine ArchiMate-diagrammer, hvor du kan oprette, åbne og slette diagrammer. For at åbne den kræves tilladelsen `admin.settings` (som rollen Admin har som standard) og et slået-til modul.
+Mens modulet er slået til, oprettes og åbnes ArchiMate-diagrammer fra siden **Diagrammer** og fra fanen **Resources** på ethvert kort, de refererer til. `/admin/architectureStudio` er stadig listen over dine ArchiMate-diagrammer, hvor du kan oprette, åbne og slette dem; det kræver en tilladelse på mindst ét ArchiMate-lag og et slået-til modul. I editoren fører **Tilbage** til den side, du kom fra.
 
 <!-- Planned screenshot (added with the screenshot capture): 102_archimate_sandbox -->
 
@@ -194,7 +194,7 @@ På paletten placerer `Enter` eller `Space` på en post med fokus det pågælden
 - **Relationer mellem relationer** (en Association, Aggregation eller Composition, der peger på en anden relation) læses og skrives, og kontrollen accepterer dem, men de tegnes ikke.
 - **Det kræver musen at tegne en relation.** Tastaturet kan placere elementer, men ikke forbinde dem.
 - **Placeringer med tastaturet stables.** Hvert element, der placeres med `Enter` eller `Space`, havner midt i det synlige område, så efterfølgende placeringer overlapper, indtil du flytter dem.
-- **Endnu ingen publicering.** ArchiMate-diagrammer kan ikke publiceres eller indlejres og vises ikke i menuen **Diagrammer**; du når dem fra sandkassen.
+- **Endnu ingen publicering.** ArchiMate-diagrammer kan ikke publiceres eller indlejres og vises ikke i menuen **Diagrammer**; du når dem fra sandkasselisten eller fra fanen **Resources** på et kort, de refererer til.
 - **Samlingspunkter (junctions) har ingen etiket.** Et And- eller Or-samlingspunkt er blot en prik.
 - Mappingen er skrivebeskyttet (se [Mappingen](#mapping)), og mapper kasseres ved import (se [Exchange-filen](#exchange-file)).
 

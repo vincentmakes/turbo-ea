@@ -738,7 +738,6 @@
   "settings.archimate.hidden": "ArchiMate is off",
   "settings.archimate.enabledSuccess": "ArchiMate module enabled",
   "settings.archimate.disabledSuccess": "ArchiMate module disabled",
-  "settings.archimate.openSandbox": "Open Architecture Studio",
   "settings.fileUploads.title": "File Uploads",
   "settings.fileUploads.enabled": "Enabled",
   "settings.fileUploads.disabled": "Disabled",

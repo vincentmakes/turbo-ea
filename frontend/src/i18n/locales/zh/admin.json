@@ -738,7 +738,6 @@
   "settings.archimate.hidden": "ArchiMate 已关闭",
   "settings.archimate.enabledSuccess": "ArchiMate 模块已启用",
   "settings.archimate.disabledSuccess": "ArchiMate 模块已禁用",
-  "settings.archimate.openSandbox": "打开 Architecture Studio",
   "settings.fileUploads.title": "文件上传",
   "settings.fileUploads.enabled": "已启用",
   "settings.fileUploads.disabled": "已禁用",

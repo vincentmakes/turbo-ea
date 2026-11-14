@@ -472,6 +472,7 @@
   "resources.diagrams": "Diagrammer",
   "resources.linkDiagram": "Tilknyt diagram",
   "resources.unlinkDiagram": "Frakobl",
+  "resources.archimateDiagram": "ArchiMate",
   "resources.emptyDiagrams": "Ingen diagrammer tilknyttet dette kort.",
   "resources.confirmUnlinkDiagram": "Frakobl dette diagram fra kortet?",
   "resources.linkDiagramDialog.title": "Tilknyt diagram",

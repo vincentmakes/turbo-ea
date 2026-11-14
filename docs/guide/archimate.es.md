@@ -15,7 +15,7 @@ La primera fila muestra el nombre del diagrama, las opciones de color y contenid
 
 ## Abrir el entorno de pruebas
 
-Mientras el módulo está activado, la tarjeta muestra el botón **Abrir el entorno de pruebas**. Lleva a `/admin/architectureStudio`, la lista de sus diagramas ArchiMate, donde puede crear, abrir y eliminar diagramas. Para abrirlo hace falta el permiso `admin.settings` (que el rol Admin tiene de forma predeterminada) y el módulo activado.
+Mientras el módulo está activado, los diagramas ArchiMate se crean y se abren desde la página **Diagramas** y desde la pestaña **Recursos** de cualquier ficha a la que hagan referencia. `/admin/architectureStudio` sigue siendo la lista de sus diagramas ArchiMate, donde puede crearlos, abrirlos y eliminarlos; hace falta un permiso sobre al menos una capa ArchiMate y el módulo activado. En el editor, **Atrás** vuelve a la página de la que venía.
 
 <!-- Planned screenshot (added with the screenshot capture): 102_archimate_sandbox -->
 
@@ -194,7 +194,7 @@ En la paleta, `Enter` o `Space` sobre una entrada enfocada suelta ese elemento.
 - **Las relaciones entre relaciones** (una Association, Aggregation o Composition que apunta a otra relación) se leen y se escriben, y el comprobador las acepta, pero no se dibujan.
 - **Dibujar una relación requiere el ratón.** El teclado puede soltar elementos, pero no conectarlos.
 - **Las colocaciones con teclado se apilan.** Cada elemento soltado con `Enter` o `Space` cae en el centro del área visible, así que las colocaciones sucesivas se superponen hasta que las mueva.
-- **Todavía no se puede publicar.** Los diagramas ArchiMate no pueden publicarse ni incrustarse y no aparecen en el menú **Diagramas**; se accede a ellos desde el entorno de pruebas.
+- **Todavía no se puede publicar.** Los diagramas ArchiMate no pueden publicarse ni incrustarse y no aparecen en el menú **Diagramas**; se accede a ellos desde la lista del entorno de pruebas o desde la pestaña **Recursos** de una ficha a la que hagan referencia.
 - **Los conectores (junctions) no tienen etiqueta.** Un conector And u Or es un simple punto.
 - La asignación es de solo lectura (consulte [La asignación](#mapping)) y las carpetas se descartan al importar (consulte [El archivo Exchange](#exchange-file)).
 

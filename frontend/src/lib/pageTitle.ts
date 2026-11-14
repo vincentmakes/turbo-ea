@@ -100,7 +100,7 @@ export const ROUTE_TITLES: RouteTitle[] = [
   { path: "/admin/surveys/:id/results", titleKey: "admin.surveys" },
   { path: "/admin/surveys/:id", titleKey: "admin.surveys" },
 
-  // Architecture Studio (the ArchiMate editor) is reached from Admin → Settings, not from a menu;
+  // Architecture Studio (the ArchiMate editor) is reached from the Diagrams page or a card's Resources, not from a menu;
   // its label lives in the feature's own namespace.
   { path: "/admin/architectureStudio", titleKey: "archimate:sandbox.title" },
   { path: "/admin/architectureStudio/:id", titleKey: "archimate:sandbox.title" },

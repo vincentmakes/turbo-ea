@@ -5,6 +5,21 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.204.2] - 2026-11-13
+
+### Fixed
+
+- **ArchiMate diagrams now appear in a card's Resources tab** and open in the Architecture Studio. They were hidden because the tab only asked for DrawIO diagrams.
+- **The ArchiMate editor's Back button returns to the page you came from** (or to the Diagrams page) instead of the Architecture Studio list.
+
+### Removed
+
+- **The "Open Architecture Studio" button on Admin → Settings.** ArchiMate diagrams are opened from the Diagrams page or from a card's Resources tab.
+
+### Security
+
+- **Linking or unlinking cards on an ArchiMate diagram through the diagram-card API is refused**, and a card you cannot read now answers 404 on those routes exactly like a missing one (two low findings of the 2.204.0 audit).
+
 ## [2.204.1] - 2026-11-12
 
 ### Fixed

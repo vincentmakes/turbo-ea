@@ -192,10 +192,10 @@ Voir le [guide GRC](../guide/grc.md) pour la référence complète des fonctionn
 
 La carte **Diagrammes ArchiMate** active ou désactive le module [ArchiMate](../guide/archimate.md). Il est **désactivé par défaut**.
 
-- Lorsqu'il est activé, le bac à sable, à l'adresse `/admin/architectureStudio`, et l'éditeur ArchiMate deviennent disponibles, et la carte affiche un bouton **Ouvrir le bac à sable** qui mène directement à la liste des diagrammes ArchiMate.
+- Lorsqu'il est activé, le bac à sable, à l'adresse `/admin/architectureStudio`, et l'éditeur ArchiMate deviennent disponibles. Cette carte n'a pas de bouton pour eux : ouvrez les diagrammes ArchiMate depuis la page **Diagrammes** ou depuis l'onglet **Ressources** d'une fiche.
 - Lorsqu'il est désactivé, les deux pages sont inaccessibles et affichent l'espace réservé standard « module désactivé » à quiconque suit un lien direct. Les diagrammes déjà enregistrés sont conservés et réapparaissent à l'identique si le module est réactivé.
 
-Pour ouvrir le bac à sable, il faut la permission `admin.settings` (détenue par défaut par le rôle Admin) et le module activé. Le commutateur ne masque que l'interface : l'API REST et les outils MCP (`get_archimate_mapping`, `create_archimate_diagram`, `update_archimate_diagram`) restent appelables lorsque le module est désactivé.
+Pour ouvrir le bac à sable, il faut une permission sur au moins une couche ArchiMate et le module activé. Le commutateur ne masque que l'interface : l'API REST et les outils MCP (`get_archimate_mapping`, `create_archimate_diagram`, `update_archimate_diagram`) restent appelables lorsque le module est désactivé.
 
 Consultez le [guide ArchiMate](../guide/archimate.md) pour savoir comment dessiner et échanger des diagrammes.
 

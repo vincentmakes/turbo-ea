@@ -15,7 +15,7 @@ A primeira linha mostra o nome do diagrama, as opções de cor e conteúdo dos c
 
 ## Abrir a sandbox
 
-Enquanto o módulo estiver ativado, o cartão mostra o botão **Abrir a sandbox**. Leva a `/admin/architectureStudio`, a lista dos seus diagramas ArchiMate, onde pode criar, abrir e eliminar diagramas. Para a abrir é preciso a permissão `admin.settings` (que a função Admin tem por predefinição) e o módulo ativado.
+Enquanto o módulo estiver ativado, os diagramas ArchiMate são criados e abertos a partir da página **Diagramas** e do separador **Recursos** de qualquer card que referenciem. `/admin/architectureStudio` continua a ser a lista dos seus diagramas ArchiMate, onde pode criá-los, abri-los e eliminá-los; é preciso uma permissão em pelo menos uma camada ArchiMate e o módulo ativado. No editor, **Voltar** regressa à página de onde veio.
 
 <!-- Planned screenshot (added with the screenshot capture): 102_archimate_sandbox -->
 
@@ -194,7 +194,7 @@ Na paleta, `Enter` ou `Space` numa entrada com foco larga esse elemento.
 - **As relações entre relações** (uma Association, Aggregation ou Composition que aponta para outra relação) são lidas e escritas e o verificador aceita-as, mas não são desenhadas.
 - **Desenhar uma relação exige o rato.** O teclado pode largar elementos, mas não ligá-los.
 - **As colocações com o teclado empilham-se.** Cada elemento largado com `Enter` ou `Space` fica no centro da área visível, pelo que as colocações sucessivas se sobrepõem até as mover.
-- **Ainda sem publicação.** Os diagramas ArchiMate não podem ser publicados nem incorporados e não aparecem no menu **Diagramas**; chega-se a eles pela sandbox.
+- **Ainda sem publicação.** Os diagramas ArchiMate não podem ser publicados nem incorporados e não aparecem no menu **Diagramas**; chega-se a eles pela lista da sandbox ou pelo separador **Recursos** de um card que os referencie.
 - **As junções (junctions) não têm etiqueta.** Uma junção And ou Or é um simples ponto.
 - O mapeamento é só de leitura (consulte [O mapeamento](#mapping)) e as pastas são descartadas ao importar (consulte [O ficheiro Exchange](#exchange-file)).
 

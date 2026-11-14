@@ -536,6 +536,7 @@
   "resources.diagrams": "المخططات",
   "resources.linkDiagram": "ربط مخطط",
   "resources.unlinkDiagram": "إلغاء الربط",
+  "resources.archimateDiagram": "ArchiMate",
   "resources.emptyDiagrams": "لا توجد مخططات مرتبطة بهذه البطاقة.",
   "resources.confirmUnlinkDiagram": "إلغاء ربط هذا المخطط من البطاقة؟",
   "resources.linkDiagramDialog.title": "ربط مخطط",

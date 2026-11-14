@@ -625,34 +625,14 @@ describe("SettingsAdmin — module toggles", () => {
     expect(card.getByText(t("settings.archimate.enabled"))).toBeInTheDocument();
   });
 
-  it("offers the sandbox only while the ArchiMate module is enabled", async () => {
-    const { user } = await renderGeneral();
-    const card = section(t("settings.archimate.title"));
-    expect(card.queryByRole("button", { name: endsWith(t("settings.archimate.openSandbox")) })).not.toBeInTheDocument();
-
-    mockApi.on("patch", "/settings/archimate-enabled", {});
-    await user.click(card.getByRole("checkbox", { name: t("settings.archimate.hidden") }));
-    expect(await card.findByRole("button", { name: endsWith(t("settings.archimate.openSandbox")) })).toBeInTheDocument();
-
-    await user.click(card.getByRole("checkbox", { name: t("settings.archimate.visible") }));
-    await waitFor(() =>
-      expect(card.queryByRole("button", { name: endsWith(t("settings.archimate.openSandbox")) })).not.toBeInTheDocument(),
-    );
-  });
-
-  it("shows the sandbox button on load when the module is already on, and opens /admin/architectureStudio", async () => {
+  it("does not offer an Architecture Studio button when ArchiMate is enabled", async () => {
     scriptLoad({ bootstrap: { archimate_enabled: true } });
-    const { user } = renderWithProviders(<SettingsAdmin />, {
-      route: "/admin/settings",
-      routes: [
-        { path: "/admin/settings" },
-        { path: "/admin/architectureStudio", element: <div data-testid="sandbox-route" /> },
-      ],
-    });
-    await screen.findByRole("heading", { name: t("settings.currency.title") });
+    await renderGeneral();
     const card = section(t("settings.archimate.title"));
-    await user.click(await card.findByRole("button", { name: endsWith(t("settings.archimate.openSandbox")) }));
-    expect(await screen.findByTestId("sandbox-route")).toBeInTheDocument();
+    expect(card.getByText(t("settings.archimate.enabled"))).toBeInTheDocument();
+    expect(card.getByRole("checkbox", { name: t("settings.archimate.visible") })).toBeChecked();
+    expect(card.queryAllByRole("button")).toHaveLength(0);
+    expect(card.queryByText("Open Architecture Studio")).not.toBeInTheDocument();
   });
 
   it("keeps the ArchiMate switch where it was when the toggle fails", async () => {

@@ -472,6 +472,7 @@
   "resources.diagrams": "Diagrams",
   "resources.linkDiagram": "Link Diagram",
   "resources.unlinkDiagram": "Unlink",
+  "resources.archimateDiagram": "ArchiMate",
   "resources.emptyDiagrams": "No diagrams linked to this card.",
   "resources.confirmUnlinkDiagram": "Unlink this diagram from the card?",
   "resources.linkDiagramDialog.title": "Link Diagram",

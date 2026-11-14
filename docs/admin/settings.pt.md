@@ -192,10 +192,10 @@ Consulte o [guia do GRC](../guide/grc.md) para a referência completa de funcion
 
 O cartão **Diagramas ArchiMate** ativa ou desativa o módulo [ArchiMate](../guide/archimate.md). Está **desativado por predefinição**.
 
-- Quando ativado, ficam disponíveis a sandbox em `/admin/architectureStudio` e o editor ArchiMate, e o cartão mostra um botão **Abrir a sandbox** que leva diretamente à lista de diagramas ArchiMate.
+- Quando ativado, ficam disponíveis a sandbox em `/admin/architectureStudio` e o editor ArchiMate. Este cartão não tem um botão para eles: abra os diagramas ArchiMate a partir da página **Diagramas** ou do separador **Recursos** de um card.
 - Quando desativado, as duas páginas ficam inacessíveis e mostram o marcador padrão «módulo desativado» a quem chegar por um link direto. Os diagramas já guardados são mantidos e reaparecem inalterados se o módulo for reativado.
 
-Para abrir a sandbox é preciso a permissão `admin.settings` (que a função Admin tem por predefinição) e o módulo ativado. O interruptor oculta apenas a interface: a API REST e as ferramentas MCP (`get_archimate_mapping`, `create_archimate_diagram`, `update_archimate_diagram`) continuam invocáveis com o módulo desativado.
+Para abrir a sandbox é preciso uma permissão em pelo menos uma camada ArchiMate e o módulo ativado. O interruptor oculta apenas a interface: a API REST e as ferramentas MCP (`get_archimate_mapping`, `create_archimate_diagram`, `update_archimate_diagram`) continuam invocáveis com o módulo desativado.
 
 Consulte o [guia do ArchiMate](../guide/archimate.md) para saber como desenhar e trocar diagramas.
 

@@ -15,7 +15,7 @@ Die obere Zeile zeigt den Diagrammnamen, Kartenfarben, Karteninhalte und Synchro
 
 ## Die Sandbox öffnen
 
-Solange das Modul aktiv ist, zeigt die Kachel die Schaltfläche **Sandbox öffnen**. Sie führt zu `/admin/architectureStudio`, der Liste Ihrer ArchiMate-Diagramme, in der Sie Diagramme erstellen, öffnen und löschen können. Zum Öffnen sind die Berechtigung `admin.settings` (standardmäßig bei der Rolle Admin) und das aktivierte Modul nötig.
+Solange das Modul aktiv ist, werden ArchiMate-Diagramme über die Seite **Diagramme** und über den Reiter **Ressourcen** jeder Karte erstellt und geöffnet, die sie referenzieren. `/admin/architectureStudio` ist weiterhin die Liste Ihrer ArchiMate-Diagramme, in der Sie sie erstellen, öffnen und löschen können; dafür sind eine Berechtigung auf mindestens einer ArchiMate-Ebene und das aktivierte Modul nötig. Im Editor führt **Zurück** zur Seite, von der Sie gekommen sind.
 
 <!-- Planned screenshot (added with the screenshot capture): 102_archimate_sandbox -->
 
@@ -194,7 +194,7 @@ In der Palette legt `Enter` oder `Space` auf einem fokussierten Eintrag dieses E
 - **Beziehungen zwischen Beziehungen** (eine Association, Aggregation oder Composition, die auf eine andere Beziehung zeigt) werden gelesen und geschrieben, und die Prüfung akzeptiert sie, sie werden aber nicht gezeichnet.
 - **Das Zeichnen einer Beziehung erfordert die Maus.** Mit der Tastatur lassen sich Elemente ablegen, aber nicht verbinden.
 - **Ablegen per Tastatur stapelt.** Jedes mit `Enter` oder `Space` abgelegte Element landet in der Mitte des sichtbaren Bereichs, aufeinanderfolgende Elemente überlagern sich also, bis Sie sie verschieben.
-- **Noch keine Veröffentlichung.** ArchiMate-Diagramme können nicht veröffentlicht oder eingebettet werden und erscheinen nicht im Menü **Diagramme**; Sie erreichen sie über die Sandbox.
+- **Noch keine Veröffentlichung.** ArchiMate-Diagramme können nicht veröffentlicht oder eingebettet werden und erscheinen nicht im Menü **Diagramme**; Sie erreichen sie über die Sandbox-Liste oder über den Reiter **Ressourcen** einer Karte, die sie referenzieren.
 - **Verbindungsknoten (Junctions) haben keine Beschriftung.** Ein And- oder Or-Verbindungsknoten ist ein einfacher Punkt.
 - Die Zuordnung ist schreibgeschützt (siehe [Die Zuordnung](#mapping)), und Ordner werden beim Import verworfen (siehe [Die Exchange-Datei](#exchange-file)).
 

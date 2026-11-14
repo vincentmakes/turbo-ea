@@ -192,10 +192,10 @@ See the [GRC guide](../guide/grc.md) for the full feature reference.
 
 The **ArchiMate diagrams** card toggles the [ArchiMate](../guide/archimate.md) module on or off. It is **off by default**.
 
-- When enabled, the sandbox at `/admin/architectureStudio` and the ArchiMate editor become available, and the card shows an **Open the sandbox** button that leads straight to the list of ArchiMate diagrams.
+- When enabled, the sandbox at `/admin/architectureStudio` and the ArchiMate editor become available. There is no button for them on this card: open ArchiMate diagrams from the **Diagrams** page or from a card's **Resources** tab.
 - When disabled, both pages are unreachable and show the standard "module disabled" placeholder for anyone with a direct link. Diagrams already saved are kept and reappear unchanged if the module is re-enabled.
 
-Opening the sandbox requires the `admin.settings` permission (held by the Admin role by default) and the module switched on. The switch hides the user interface only: the REST API and the MCP tools (`get_archimate_mapping`, `create_archimate_diagram`, `update_archimate_diagram`) stay callable with the module off.
+Opening the sandbox requires a permission on at least one ArchiMate layer and the module switched on. The switch hides the user interface only: the REST API and the MCP tools (`get_archimate_mapping`, `create_archimate_diagram`, `update_archimate_diagram`) stay callable with the module off.
 
 See the [ArchiMate guide](../guide/archimate.md) for how to draw and exchange diagrams.
 

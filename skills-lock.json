@@ -1,6 +1,48 @@
 {
   "version": 2,
   "skills": {
+    "async-python-patterns": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/python-development/skills/async-python-patterns/SKILL.md",
+      "computedHash": "5ed4e3ea95b394323088b0754668d72d8d0f70905826be41bf3b440f71fa9f07"
+    },
+    "material-ui-styling": {
+      "source": "mui/material-ui",
+      "sourceType": "github",
+      "skillPath": "skills/material-ui-styling/SKILL.md",
+      "computedHash": "de001e8b94d49dc4e733fecbaf48dd0755821d04821326a9c069af29df5b0495"
+    },
+    "material-ui-theming": {
+      "source": "mui/material-ui",
+      "sourceType": "github",
+      "skillPath": "skills/material-ui-theming/SKILL.md",
+      "computedHash": "2a469402c1c4b95866e4527eef5dc3389ab88bbc7f6585cac6698de91f2852a4"
+    },
+    "python-anti-patterns": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/python-development/skills/python-anti-patterns/SKILL.md",
+      "computedHash": "9a98a1ddf7517582a43d9d27e3c84c3e3763791bb1f38926f1fe9bf49ad8e33a"
+    },
+    "python-error-handling": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/python-development/skills/python-error-handling/SKILL.md",
+      "computedHash": "1f1da6dd6e89c36d28660728512bcb93b17d4f210ddfa727e1b519147fea20b9"
+    },
+    "python-resource-management": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/python-development/skills/python-resource-management/SKILL.md",
+      "computedHash": "beb4a78c6a5a4e9f43891fa37debcdf9a883cadec4a43c903fef60727c9f57ab"
+    },
+    "python-type-safety": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/python-development/skills/python-type-safety/SKILL.md",
+      "computedHash": "f993e4c721397568ebfa3f40693c768470c10bf5966fc0aa071925eaa3b61918"
+    },
     "security-audit": {
       "source": "cloudflare/security-audit-skill",
       "sourceType": "github",

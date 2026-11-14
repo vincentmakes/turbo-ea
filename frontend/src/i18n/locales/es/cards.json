@@ -438,6 +438,7 @@
   "resources.diagrams": "Diagramas",
   "resources.linkDiagram": "Vincular diagrama",
   "resources.unlinkDiagram": "Desvincular",
+  "resources.archimateDiagram": "ArchiMate",
   "resources.emptyDiagrams": "No hay diagramas vinculados a esta ficha.",
   "resources.confirmUnlinkDiagram": "¿Desvincular este diagrama de la ficha?",
   "resources.linkDiagramDialog.title": "Vincular diagrama",

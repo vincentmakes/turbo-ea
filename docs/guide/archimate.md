@@ -15,7 +15,7 @@ The top row shows the diagram name, **Card colors**, **Show on card** and **Sync
 
 ## Open the sandbox
 
-While the module is on, the card shows an **Open the sandbox** button. It leads to `/admin/architectureStudio`, the list of your ArchiMate diagrams, where you can create, open and delete diagrams. Opening it requires the `admin.settings` permission (held by the Admin role by default) and the module switched on.
+While the module is on, ArchiMate diagrams are created and opened from the **Diagrams** page, and from the **Resources** tab of any card they reference. `/admin/architectureStudio` is still the list of your ArchiMate diagrams, where you can create, open and delete them; it needs a permission on at least one ArchiMate layer and the module switched on. In the editor, **Back** returns to the page you came from.
 
 <!-- Planned screenshot (added with the screenshot capture): 102_archimate_sandbox -->
 
@@ -194,7 +194,7 @@ On the palette, `Enter` or `Space` on a focused entry drops that element.
 - **Relationships between relationships** (an Association, Aggregation or Composition that points at another relationship) are read and written, and the checker accepts them, but they are not drawn.
 - **Drawing a relationship needs the mouse.** The keyboard can drop elements, but not connect them.
 - **Keyboard drops stack.** Every element dropped with `Enter` or `Space` lands at the centre of the visible area, so successive drops overlap until you move them.
-- **No publishing yet.** ArchiMate diagrams cannot be published or embedded, and they do not appear in the **Diagrams** menu; reach them from the sandbox.
+- **No publishing yet.** ArchiMate diagrams cannot be published or embedded, and they do not appear in the **Diagrams** menu; reach them from the sandbox list or from the **Resources** tab of a card they reference.
 - **Junctions have no label.** An And or Or junction is a bare dot.
 - The mapping is read-only (see [The mapping](#mapping)), and folders are dropped on import (see [The Exchange file](#exchange-file)).
 

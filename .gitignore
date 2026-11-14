@@ -123,6 +123,7 @@ archive/
 !.claude/rules/
 !.claude/agents/
 AGENTS.md
+!.claude/skills/**/AGENTS.md
 
 # graphify: output locale dello strumento, non codice del fork
 graphify-out/

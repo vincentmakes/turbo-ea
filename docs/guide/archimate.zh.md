@@ -15,7 +15,7 @@
 
 ## 打开沙盒
 
-模块开启期间，卡片上会显示**打开沙盒**按钮。它通向 `/admin/architectureStudio`，即您的 ArchiMate 图列表，可在其中创建、打开和删除图。打开它需要 `admin.settings` 权限（Admin 角色默认拥有）并且模块已开启。
+模块开启期间，ArchiMate 图可从**图表**页面创建和打开，也可从其所引用的任意卡片的**资源**标签页打开。`/admin/architectureStudio` 仍是您的 ArchiMate 图列表，可在其中创建、打开和删除图；访问它需要至少一个 ArchiMate 层的权限，并且模块已开启。在编辑器中，**返回**会回到您来时的页面。
 
 <!-- Planned screenshot (added with the screenshot capture): 102_archimate_sandbox -->
 
@@ -194,7 +194,7 @@
 - **关系之间的关系**（指向另一个关系的 Association、Aggregation 或 Composition）会被读取和写入，检查器也接受它们，但不会被绘制。
 - **绘制关系需要使用鼠标**。键盘可以放置元素，但不能连接元素。
 - **键盘放置的元素会叠放**。每个用 `Enter` 或 `Space` 放置的元素都落在可见区域的中央，因此连续放置的元素会重叠，直到您移动它们。
-- **暂不支持发布**。ArchiMate 图不能发布或嵌入，也不会出现在**图表**菜单中；请从沙盒进入。
+- **暂不支持发布**。ArchiMate 图不能发布或嵌入，也不会出现在**图表**菜单中；请从沙盒列表，或从其所引用卡片的**资源**标签页进入。
 - **连接点（junction）没有标签**。And 或 Or 连接点只是一个圆点。
 - 映射是只读的（参见[映射](#mapping)），导入时文件夹会被丢弃（参见 [Exchange 文件](#exchange-file)）。
 

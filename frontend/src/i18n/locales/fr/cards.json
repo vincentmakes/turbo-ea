@@ -438,6 +438,7 @@
   "resources.diagrams": "Diagrammes",
   "resources.linkDiagram": "Associer un diagramme",
   "resources.unlinkDiagram": "Dissocier",
+  "resources.archimateDiagram": "ArchiMate",
   "resources.emptyDiagrams": "Aucun diagramme associé à cette fiche.",
   "resources.confirmUnlinkDiagram": "Dissocier ce diagramme de la fiche ?",
   "resources.linkDiagramDialog.title": "Associer un diagramme",

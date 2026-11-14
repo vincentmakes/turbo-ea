@@ -15,7 +15,7 @@ La première ligne affiche le nom du diagramme, les réglages de couleur et de c
 
 ## Ouvrir le bac à sable
 
-Tant que le module est activé, la carte affiche un bouton **Ouvrir le bac à sable**. Il mène à `/admin/architectureStudio`, la liste de vos diagrammes ArchiMate, où vous pouvez créer, ouvrir et supprimer des diagrammes. Pour l'ouvrir, il faut la permission `admin.settings` (détenue par défaut par le rôle Admin) et le module activé.
+Tant que le module est activé, les diagrammes ArchiMate se créent et s'ouvrent depuis la page **Diagrammes** et depuis l'onglet **Ressources** de toute fiche qu'ils référencent. `/admin/architectureStudio` reste la liste de vos diagrammes ArchiMate, où vous pouvez les créer, les ouvrir et les supprimer ; il faut une permission sur au moins une couche ArchiMate et le module activé. Dans l'éditeur, **Retour** ramène à la page d'où vous venez.
 
 <!-- Planned screenshot (added with the screenshot capture): 102_archimate_sandbox -->
 
@@ -194,7 +194,7 @@ Dans la palette, `Enter` ou `Space` sur une entrée ayant le focus dépose cet �
 - **Les relations entre relations** (une Association, Aggregation ou Composition qui pointe vers une autre relation) sont lues et écrites, et le vérificateur les accepte, mais elles ne sont pas dessinées.
 - **Tracer une relation nécessite la souris.** Le clavier permet de déposer des éléments, pas de les relier.
 - **Les dépôts au clavier s'empilent.** Chaque élément déposé avec `Enter` ou `Space` arrive au centre de la zone visible ; les dépôts successifs se superposent donc jusqu'à ce que vous les déplaciez.
-- **Pas encore de publication.** Les diagrammes ArchiMate ne peuvent être ni publiés ni intégrés et n'apparaissent pas dans le menu **Diagrammes** ; on y accède depuis le bac à sable.
+- **Pas encore de publication.** Les diagrammes ArchiMate ne peuvent être ni publiés ni intégrés et n'apparaissent pas dans le menu **Diagrammes** ; on y accède depuis la liste du bac à sable ou depuis l'onglet **Ressources** d'une fiche qui les référence.
 - **Les jonctions (junctions) n'ont pas d'étiquette.** Une jonction And ou Or est un simple point.
 - La correspondance est en lecture seule (voir [La correspondance](#mapping)) et les dossiers sont abandonnés à l'importation (voir [Le fichier Exchange](#exchange-file)).
 

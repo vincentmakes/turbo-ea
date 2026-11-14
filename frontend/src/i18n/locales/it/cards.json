@@ -438,6 +438,7 @@
   "resources.diagrams": "Diagrammi",
   "resources.linkDiagram": "Collega diagramma",
   "resources.unlinkDiagram": "Scollega",
+  "resources.archimateDiagram": "ArchiMate",
   "resources.emptyDiagrams": "Nessun diagramma collegato a questa scheda.",
   "resources.confirmUnlinkDiagram": "Scollegare questo diagramma dalla scheda?",
   "resources.linkDiagramDialog.title": "Collega diagramma",

@@ -205,3 +205,34 @@ async def test_archimate_list_hides_diagrams_of_layers_the_caller_has_no_key_for
     assert [d["name"] for d in r.json()] == ["biz"]
     r = await client.get(url, headers=auth_headers(env["technology_manager"]))
     assert [d["name"] for d in r.json()] == ["tech"]
+
+
+async def test_card_listing_with_kind_all_hides_an_archimate_layer_the_caller_cannot_view(
+    client, env, db
+):
+    from sqlalchemy import insert
+
+    from app.models.diagram import diagram_cards
+    from tests.conftest import create_card, create_card_type
+
+    await create_card_type(db, key="Application", label="Application")
+    card = await create_card(db, card_type="Application", name="App")
+    tech = Diagram(name="t", kind="archimate", viewpoint_key="vp-technology", data=AM)
+    db.add(tech)
+    await db.flush()
+    await db.execute(insert(diagram_cards).values(diagram_id=tech.id, card_id=card.id))
+    users = {}
+    for role, key in (("biz_all", "business"), ("tech_all", "technology")):
+        await create_role(
+            db,
+            key=role,
+            label=role,
+            permissions={"diagrams.view": True, f"archimatediagrams.{key}.view": True},
+        )
+        users[role] = await create_user(db, email=f"{role}@t.com", role=role)
+    url = f"/api/v1/diagrams?card_id={card.id}&kind=all"
+    biz = await client.get(url, headers=auth_headers(users["biz_all"]))
+    techr = await client.get(url, headers=auth_headers(users["tech_all"]))
+    assert biz.status_code == techr.status_code == 200
+    assert biz.json() == []
+    assert {x["id"] for x in techr.json()} == {str(tech.id)}

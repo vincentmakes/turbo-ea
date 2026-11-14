@@ -35,7 +35,7 @@ from app.models.user import User
 from app.services import audit_log
 from app.services.archimate.taxonomy import TAB_LAYERS
 from app.services.archimate.validate import validate_exchange
-from app.services.card_read_scope import CardReadScope
+from app.services.card_read_scope import CardReadScope, require_card_readable
 from app.services.diagram_legend import build_public_legend
 from app.services.drawio_refs import extract_card_refs
 from app.services.event_bus import event_bus
@@ -1227,6 +1227,11 @@ async def unpublish_diagram(
 # ── card link / unlink endpoints ──────────────────────────────────────────────
 
 
+def _refuse_archimate_links(d: Diagram) -> None:
+    if d.kind == "archimate":
+        raise HTTPException(409, "An ArchiMate diagram's card links come from its model")
+
+
 @router.post("/{diagram_id}/cards", status_code=201)
 async def link_card_to_diagram(
     diagram_id: str,
@@ -1235,34 +1240,28 @@ async def link_card_to_diagram(
     user: User = Depends(get_current_user),
 ):
     """Link a card to a diagram."""
-    await PermissionService.require_permission(db, user, "diagrams.manage")
+    d = await _diagram_for(db, user, diagram_id, "manage")
+    _refuse_archimate_links(d)
     card_id = body.get("card_id")
     if not card_id:
         raise HTTPException(400, "card_id is required")
 
-    d_id = uuid.UUID(diagram_id)
     c_id = uuid.UUID(card_id)
-
-    # Check diagram exists
-    result = await db.execute(
-        select(Diagram).where(Diagram.id == d_id, Diagram.kind.in_(DIAGRAM_KINDS))
-    )
-    if not result.scalar_one_or_none():
-        raise HTTPException(404, "Diagram not found")
+    await require_card_readable(db, user, c_id, mode="module")
 
     # Check not already linked
     existing = await db.execute(
         select(diagram_cards).where(
-            diagram_cards.c.diagram_id == d_id,
+            diagram_cards.c.diagram_id == d.id,
             diagram_cards.c.card_id == c_id,
         )
     )
     if existing.first():
         raise HTTPException(409, "Card already linked to this diagram")
 
-    await db.execute(diagram_cards.insert().values(diagram_id=d_id, card_id=c_id))
+    await db.execute(diagram_cards.insert().values(diagram_id=d.id, card_id=c_id))
     await db.commit()
-    return {"diagram_id": str(d_id), "card_id": str(c_id)}
+    return {"diagram_id": str(d.id), "card_id": str(c_id)}
 
 
 @router.delete("/{diagram_id}/cards/{card_id}", status_code=204)
@@ -1273,16 +1272,14 @@ async def unlink_card_from_diagram(
     user: User = Depends(get_current_user),
 ):
     """Unlink a card from a diagram."""
-    await PermissionService.require_permission(db, user, "diagrams.manage")
-    d_id = uuid.UUID(diagram_id)
+    d = await _diagram_for(db, user, diagram_id, "manage")
+    _refuse_archimate_links(d)
     c_id = uuid.UUID(card_id)
+    await require_card_readable(db, user, c_id, mode="module")
 
     result = await db.execute(
         delete(diagram_cards).where(
-            diagram_cards.c.diagram_id.in_(
-                select(Diagram.id).where(Diagram.kind.in_(DIAGRAM_KINDS))
-            ),
-            diagram_cards.c.diagram_id == d_id,
+            diagram_cards.c.diagram_id == d.id,
             diagram_cards.c.card_id == c_id,
         )
     )

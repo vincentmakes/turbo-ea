@@ -438,6 +438,7 @@
   "resources.diagrams": "图表",
   "resources.linkDiagram": "关联图表",
   "resources.unlinkDiagram": "取消关联",
+  "resources.archimateDiagram": "ArchiMate",
   "resources.emptyDiagrams": "此卡片没有关联的图表。",
   "resources.confirmUnlinkDiagram": "确定要取消关联此图表吗？",
   "resources.linkDiagramDialog.title": "关联图表",

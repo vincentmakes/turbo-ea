@@ -468,6 +468,7 @@
   "resources.diagrams": "Диаграммы",
   "resources.linkDiagram": "Привязать диаграмму",
   "resources.unlinkDiagram": "Отвязать",
+  "resources.archimateDiagram": "ArchiMate",
   "resources.emptyDiagrams": "Диаграмм, привязанных к этой карточке, нет.",
   "resources.confirmUnlinkDiagram": "Отвязать эту диаграмму от карточки?",
   "resources.linkDiagramDialog.title": "Привязать диаграмму",

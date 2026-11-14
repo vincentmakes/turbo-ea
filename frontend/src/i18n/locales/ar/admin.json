@@ -850,7 +850,6 @@
   "settings.archimate.hidden": "ArchiMate متوقف",
   "settings.archimate.enabledSuccess": "تم تفعيل وحدة ArchiMate",
   "settings.archimate.disabledSuccess": "تم تعطيل وحدة ArchiMate",
-  "settings.archimate.openSandbox": "افتح Architecture Studio",
   "settings.fileUploads.title": "رفع الملفات",
   "settings.fileUploads.enabled": "مفعّل",
   "settings.fileUploads.disabled": "معطّل",
