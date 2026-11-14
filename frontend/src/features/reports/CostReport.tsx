@@ -16,8 +16,6 @@ import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TableSortLabel from "@mui/material/TableSortLabel";
-import Tooltip from "@mui/material/Tooltip";
-import Chip from "@mui/material/Chip";
 import type { ECharts, EChartsCoreOption } from "echarts/core";
 import EChart, { EXPORT_DPR, type EChartClickParams } from "@/components/charts/EChart";
 import { useEChartsTheme, type EChartsThemeValue } from "@/components/charts/echartsTheme";
@@ -75,6 +73,7 @@ import {
   typeKeysOf,
   typeParam,
 } from "./costReportOptions";
+import FiscalYearTimeTravel from "@/components/FiscalYearTimeTravel";
 import { costFiscalYearName, costFiscalYearOptions } from "@/lib/fiscalYear";
 import { formatFieldValue, EMPTY_VALUE, type FieldMeta } from "@/lib/cardDisplayFields";
 import { costValue } from "@/lib/costValue";
@@ -1422,48 +1421,20 @@ export default function CostReport() {
               ))}
             </TextField>
           )}
-
-          <TextField
-            select
-            size="small"
-            label={t("cost.fiscalYear")}
-            value={fiscalYearParam ?? ""}
-            // "" is the "Current" entry; without this MUI shows it as blank.
-            slotProps={{ select: { displayEmpty: true } }}
-            onChange={(e) =>
-              setFiscalYearParam(
-                e.target.value === "" ? null : Number(e.target.value),
-              )
-            }
-            sx={{ minWidth: 130 }}
-          >
-            {fiscalYearOptions.map((o) => (
-              <MenuItem key={o.label} value={o.value ?? ""}>
-                {o.label}
-              </MenuItem>
-            ))}
-          </TextField>
-
-          {fiscalYear && (
-            // The live-card rule only describes the current year; other years list every card with a recorded cost.
-            <Tooltip
-              title={fiscalYearParam == null ? t("cost.fiscalYearHelp") : ""}
-              arrow
-              placement="bottom"
-            >
-              <Chip
-                variant="outlined"
-                icon={<MaterialSymbol icon="calendar_month" size={18} />}
-                label={t("cost.fiscalYearIndicator", {
-                  fy: costFiscalYearName(fiscalYear.year, currentFiscalYear),
-                })}
-                data-testid="cost-fiscal-year"
-              />
-            </Tooltip>
-          )}
         </>
       }
     >
+      {fiscalYear && (
+        <FiscalYearTimeTravel
+          // Oldest first; the current year is a step like any other.
+          years={[...fiscalYearOptions].reverse().map((o) => o.value ?? currentFiscalYear)}
+          currentFy={currentFiscalYear}
+          value={fiscalYearParam ?? currentFiscalYear}
+          onChange={(fy) => setFiscalYearParam(fy === currentFiscalYear ? null : fy)}
+          servedYear={fiscalYear.year}
+        />
+      )}
+
       {/* Summary strip */}
       <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
         <MetricCard

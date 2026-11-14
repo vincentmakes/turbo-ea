@@ -276,6 +276,8 @@ async function optionsOf(label: RegExp): Promise<string[]> {
 }
 
 beforeEach(() => {
+  // jsdom has no ResizeObserver; the fiscal-year slider measures its track with one.
+  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
   mockApi.reset();
   mockApi.on("get", "/metamodel/cost-item-types", []);
   hookState.reset();
@@ -375,7 +377,7 @@ describe("CostReport loading and requests", () => {
 /* ------------------------------------------------------------------ */
 
 describe("CostReport fiscal year", () => {
-  const chip = () => screen.queryByTestId("cost-fiscal-year");
+  const row = () => screen.queryByRole("slider", { name: "Fiscal year" });
 
   it("names no year when the answer gives the year without its start month", async () => {
     mockApi.on("get", "/reports/cost-treemap*", {
@@ -385,7 +387,7 @@ describe("CostReport fiscal year", () => {
     });
     renderCost();
     await screen.findByTestId("treemap");
-    expect(chip()).toBeNull();
+    expect(row()).toBeNull();
     expect(printParams().map(([l]) => l)).not.toContain("Fiscal year");
   });
 
@@ -397,15 +399,22 @@ describe("CostReport fiscal year", () => {
     });
     renderCost();
     await screen.findByTestId("treemap");
-    expect(chip()).toBeNull();
+    expect(row()).toBeNull();
   });
 
-  it("explains the year on hover", async () => {
+  it("names the year the response served, not the one the row asks for", async () => {
+    saved.config = { view: "chart", fiscalYearParam: 2027 };
+    mockApi.on("get", "/reports/cost-treemap*", {
+      items: ITEMS,
+      total: 700,
+      fiscal_year: 2026,
+      current_fiscal_year: 2026,
+      fiscal_year_start: 1,
+    });
     renderCost();
-    fireEvent.mouseOver(await screen.findByTestId("cost-fiscal-year"));
-    expect(await screen.findByRole("tooltip")).toHaveTextContent(
-      /Annual costs of the cards live in this fiscal year/,
-    );
+    const slider = await screen.findByRole("slider", { name: "Fiscal year" });
+    expect(slider).toHaveAttribute("aria-valuenow", "2027");
+    expect(slider).toHaveAttribute("aria-valuetext", "FY26 - Current");
   });
 });
 

@@ -293,183 +293,155 @@ const treemapPaths = () =>
     .filter((path) => path.startsWith("/reports/cost-treemap"));
 const hasYear = (y: string) => (path: string) => path.includes(`fiscal_year=${y}`);
 
-async function openPicker() {
-  const picker = screen.getAllByRole("combobox", { name: /fiscal year/i })[0];
-  await userEvent.click(picker);
-  return screen.findByRole("listbox");
-}
-async function optionNames() {
-  const listbox = await openPicker();
-  const names = within(listbox)
-    .getAllByRole("option")
-    .map((o) => o.textContent);
-  await userEvent.keyboard("{Escape}");
-  await waitFor(() => expect(screen.queryByRole("listbox")).toBeNull());
-  return names;
-}
-async function pick(name: string) {
-  const listbox = await openPicker();
-  await userEvent.click(within(listbox).getByRole("option", { name }));
-}
+// The fiscal-year row: one slider step per year, oldest first. Previous/Next move one step.
+const yearSlider = () => screen.findByRole("slider", { name: "Fiscal year" });
+const prevYear = () => userEvent.click(screen.getByRole("button", { name: "Previous fiscal year" }));
+const nextYear = () => userEvent.click(screen.getByRole("button", { name: "Next fiscal year" }));
+
+beforeEach(() => {
+  // jsdom has no ResizeObserver; the slider measures its track with one.
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+});
 
 describe("CostReport fiscal year", () => {
-  const indicator = () =>
-    document.querySelector('[data-testid="cost-fiscal-year"]');
-
-  it("explains the live-card rule on the chip only while Current is selected", async () => {
+  it("the steps are the fiscal year options in order", async () => {
     renderCost();
-    await waitFor(() => expect(indicator()).not.toBeNull());
-    await userEvent.hover(indicator() as Element);
-    expect(await screen.findByRole("tooltip")).toHaveTextContent(
-      /Annual costs of the cards live in this fiscal year/,
-    );
-    await userEvent.unhover(indicator() as Element);
-    await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
+    const slider = await yearSlider();
+    expect(slider).toHaveAttribute("aria-valuemin", "2022");
+    expect(slider).toHaveAttribute("aria-valuemax", "2027");
+    for (const label of ["FY22", "FY23", "FY24", "FY25", "FY26", "FY27"])
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+    expect(slider).toHaveAttribute("aria-valuenow", "2026");
+    // Between the toolbar and the summary strip.
+    expect(
+      slider.compareDocumentPosition(screen.getByText("Total Cost")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      toolbar().compareDocumentPosition(slider) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
 
-    await pick("FY25");
-    await waitFor(() => expect(indicator()).toHaveTextContent("FY25"));
-    await userEvent.hover(indicator() as Element);
-    await new Promise((r) => setTimeout(r, 150));
-    expect(screen.queryByRole("tooltip")).toBeNull();
+  it("the old drop-down and the chip are gone", async () => {
+    renderCost();
+    await yearSlider();
+    expect(screen.queryByTestId("cost-fiscal-year")).toBeNull();
+    expect(within(toolbar()).queryByText(/Fiscal year/)).toBeNull(); // the print-only parameters line keeps its own label
+    expect(screen.queryByRole("combobox", { name: /fiscal year/i })).toBeNull();
   });
 
   it("names the current fiscal year the figures are for", async () => {
     renderCost();
-    await waitFor(() => expect(indicator()).not.toBeNull());
-    expect(indicator()).toHaveTextContent("Fiscal year: FY26 - Current");
-    expect(
-      within(toolbar()).getByText("Fiscal year: FY26 - Current"),
-    ).toBeInTheDocument();
-    expect(document.querySelector(".report-print-params")).toHaveTextContent(
-      "FY26 - Current",
-    );
+    expect(await yearSlider()).toHaveAttribute("aria-valuetext", "FY26 - Current");
+    expect(document.querySelector(".report-print-params")).toHaveTextContent("FY26 - Current");
   });
 
   it("names the year the same whatever month the fiscal year starts in", async () => {
     fyStart = 10;
     renderCost();
-    await waitFor(() =>
-      expect(indicator()).toHaveTextContent("Fiscal year: FY26 - Current"),
-    );
+    expect(await yearSlider()).toHaveAttribute("aria-valuetext", "FY26 - Current");
   });
 
-  it("names a picked past year without a suffix, in the chip and the parameters line", async () => {
+  it("names a picked past year without a suffix, on the slider and in the parameters line", async () => {
     renderCost();
-    await waitFor(() => expect(indicator()).not.toBeNull());
-    await pick("FY25");
+    await yearSlider();
+    await prevYear();
     await waitFor(() =>
-      expect(indicator()).toHaveTextContent("Fiscal year: FY25"),
+      expect(screen.getByRole("slider", { name: "Fiscal year" })).toHaveAttribute(
+        "aria-valuetext",
+        "FY25",
+      ),
     );
-    expect(indicator()).not.toHaveTextContent("Current");
     const params = document.querySelector(".report-print-params");
     expect(params).toHaveTextContent("FY25");
     expect(params).not.toHaveTextContent("FY25 - ");
   });
 
-  it("never asks the server for a particular year", async () => {
+  it("never asks the server for a particular year until one is chosen", async () => {
     renderCost();
-    await waitFor(() => expect(indicator()).not.toBeNull());
-    const calls = vi
-      .mocked(api.get)
-      .mock.calls.map(([path]) => String(path))
-      .filter((path) => path.startsWith("/reports/cost-treemap"));
-    expect(calls.length).toBeGreaterThan(0);
-    for (const path of calls) expect(path).not.toContain("fiscal_year");
-  });
-
-  it("offers no year picker", async () => {
-    renderCost();
-    await waitFor(() => expect(indicator()).not.toBeNull());
-    expect(document.querySelector(".MuiSlider-root")).toBeNull();
-  });
-
-  it("offers a fiscal-year picker and re-requests the treemap with it", async () => {
-    renderCost();
-    await waitFor(() =>
-      expect(within(chart()).getAllByText("ERP").length).toBeGreaterThan(0),
-    );
-    await pick("FY25");
-
-    await waitFor(() => expect(treemapPaths().some(hasYear("2025"))).toBe(true));
-  });
-
-  it("offers forecast, current and four past years in that order", async () => {
-    renderCost();
-    await waitFor(() => expect(indicator()).not.toBeNull());
-    expect(await optionNames()).toEqual([
-      "FY27 - Forecast",
-      "FY26 - Current",
-      "FY25",
-      "FY24",
-      "FY23",
-      "FY22",
-    ]);
-  });
-
-  it("selecting the forecast requests fiscal_year=2027", async () => {
-    renderCost();
-    await waitFor(() => expect(indicator()).not.toBeNull());
-    await pick("FY27 - Forecast");
-    await waitFor(() => expect(treemapPaths().some(hasYear("2027"))).toBe(true));
-  });
-
-  it("selecting current requests no fiscal_year", async () => {
-    renderCost();
-    await waitFor(() => expect(indicator()).not.toBeNull());
-    await pick("FY25");
-    await waitFor(() => expect(treemapPaths().some(hasYear("2025"))).toBe(true));
-    vi.mocked(api.get).mockClear();
-    await pick("FY26 - Current");
-    await waitFor(() => expect(treemapPaths().length).toBeGreaterThan(0));
+    await yearSlider();
+    expect(treemapPaths().length).toBeGreaterThan(0);
     for (const path of treemapPaths()) expect(path).not.toContain("fiscal_year");
   });
 
-  it("keeps the list anchored on the current year after picking a past year", async () => {
+  it("choosing a step sets the request fiscal_year", async () => {
     renderCost();
-    await waitFor(() => expect(indicator()).not.toBeNull());
-    const before = await optionNames();
-    await pick("FY24");
+    await yearSlider();
+    await prevYear();
+    await waitFor(() => expect(treemapPaths().some(hasYear("2025"))).toBe(true));
+    vi.mocked(api.get).mockClear();
+    await nextYear(); // back on the current year
+    await waitFor(() => expect(treemapPaths().length).toBeGreaterThan(0));
+    for (const path of treemapPaths()) expect(path).not.toContain("fiscal_year");
+    await nextYear(); // the forecast year
+    await waitFor(() => expect(treemapPaths().some(hasYear("2027"))).toBe(true));
+  });
+
+  it("previous/next and the arrow keys change the year", async () => {
+    renderCost();
+    const slider = await yearSlider();
+    await prevYear();
+    await waitFor(() => expect(treemapPaths().some(hasYear("2025"))).toBe(true));
+    slider.focus();
+    fireEvent.keyDown(slider, { key: "ArrowLeft" });
     await waitFor(() => expect(treemapPaths().some(hasYear("2024"))).toBe(true));
-    await waitFor(() =>
-      expect(indicator()).toHaveTextContent("Fiscal year: FY24"),
-    );
-    expect(await optionNames()).toEqual(before);
+    fireEvent.keyDown(slider, { key: "ArrowRight" });
+    fireEvent.keyDown(slider, { key: "ArrowRight" });
+    // Two steps right of 2024 is the current year: no fiscal_year on the last request.
+    await waitFor(() => expect(slider).toHaveAttribute("aria-valuenow", "2026"));
+    expect(treemapPaths().at(-1)).not.toContain("fiscal_year");
+  });
+
+  it("keeps the steps anchored on the current year after picking a past year", async () => {
+    renderCost();
+    const slider = await yearSlider();
+    await prevYear();
+    await prevYear();
+    await waitFor(() => expect(treemapPaths().some(hasYear("2024"))).toBe(true));
+    expect(slider).toHaveAttribute("aria-valuemin", "2022");
+    expect(slider).toHaveAttribute("aria-valuemax", "2027");
+  });
+
+  it("a saved report restores its year onto the slider", async () => {
+    consumedConfig = { view: "table", fiscalYearParam: 2027 };
+    renderCost();
+    const slider = await yearSlider();
+    await waitFor(() => expect(slider).toHaveAttribute("aria-valuenow", "2027"));
+    expect(slider).toHaveAttribute("aria-valuetext", "FY27 - Forecast");
+    expect(treemapPaths().some(hasYear("2027"))).toBe(true);
   });
 
   it("opens on Current when a saved year equals the current year", async () => {
     consumedConfig = { view: "table", fiscalYearParam: 2026 };
     renderCost();
-    await waitFor(() => expect(indicator()).not.toBeNull());
-    await waitFor(() =>
-      expect(
-        screen.getAllByRole("combobox", { name: /fiscal year/i })[0],
-      ).toHaveTextContent("FY26 - Current"),
-    );
+    const slider = await yearSlider();
+    await waitFor(() => expect(slider).toHaveAttribute("aria-valuenow", "2026"));
     await waitFor(() => expect(treemapPaths().length).toBeGreaterThan(1));
     expect(treemapPaths().at(-1)).not.toContain("fiscal_year");
   });
 
-  it("opens on Current when a saved year is outside the offered years", async () => {
+  it("a saved year older than the steps falls back to current", async () => {
     consumedConfig = { view: "table", fiscalYearParam: 2010 };
     renderCost();
-    await waitFor(() => expect(indicator()).not.toBeNull());
-    await waitFor(() =>
-      expect(
-        screen.getAllByRole("combobox", { name: /fiscal year/i })[0],
-      ).toHaveTextContent("FY26 - Current"),
-    );
+    const slider = await yearSlider();
+    await waitFor(() => expect(slider).toHaveAttribute("aria-valuenow", "2026"));
     expect(treemapPaths().at(-1)).not.toContain("fiscal_year");
   });
 
-  it("keeps a saved year that is among the offered ones", async () => {
-    consumedConfig = { view: "table", fiscalYearParam: 2027 };
+  it("the forecast year shows the forecast banner as before", async () => {
+    consumedConfig = { view: "chart" };
     renderCost();
-    await waitFor(() =>
-      expect(
-        screen.getAllByRole("combobox", { name: /fiscal year/i })[0],
-      ).toHaveTextContent("FY27 - Forecast"),
-    );
-    expect(treemapPaths().some(hasYear("2027"))).toBe(true);
+    await yearSlider();
+    expect(screen.queryByTestId("cost-trend-chart")).toBeNull();
+    await nextYear();
+    expect(await screen.findByTestId("cost-trend-chart")).toBeInTheDocument();
   });
 });
 
@@ -763,18 +735,19 @@ describe("CostReport trend chart", () => {
     renderCost();
     await waitFor(() => expect(within(chart()).getAllByText("ERP").length).toBeGreaterThan(0));
   };
+  // From the current year, one step: the forecast is next, FY25 is previous.
   const pickYear = async (name: string) => {
-    const picker = screen.getAllByRole("combobox", { name: /fiscal year/i })[0];
-    await userEvent.click(picker);
-    await userEvent.click(await screen.findByRole("option", { name }));
+    await yearSlider();
+    await (name.includes("Forecast") ? nextYear() : prevYear());
   };
+  const yearText = () => screen.getByRole("slider", { name: "Fiscal year" });
 
   it("chart hidden on Current and on a past year", async () => {
     await ready();
     expect(screen.queryByTestId("cost-trend-chart")).not.toBeInTheDocument();
     await pickYear("FY25");
     await waitFor(() =>
-      expect(screen.getAllByRole("combobox", { name: /fiscal year/i })[0]).toHaveTextContent("FY25"),
+      expect(yearText()).toHaveAttribute("aria-valuetext", "FY25"),
     );
     expect(screen.queryByTestId("cost-trend-chart")).not.toBeInTheDocument();
   });
@@ -837,7 +810,7 @@ describe("CostReport trend chart", () => {
     await ready();
     await pickYear("FY27 - Forecast");
     await waitFor(() =>
-      expect(screen.getAllByRole("combobox", { name: /fiscal year/i })[0]).toHaveTextContent("Forecast"),
+      expect(yearText()).toHaveAttribute("aria-valuetext", "FY27 - Forecast"),
     );
     expect(screen.queryByTestId("cost-trend-chart")).not.toBeInTheDocument();
   });

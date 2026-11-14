@@ -346,8 +346,6 @@
   "cost.otherCostItem": "Other costs",
   "cost.groupByUnavailable": "No field or relation to group by.",
   "cost.fiscalYear": "Fiscal year",
-  "cost.fiscalYearIndicator": "Fiscal year: {{fy}}",
-  "cost.fiscalYearHelp": "Annual costs of the cards live in this fiscal year — from the year they go Active through the year of their End of Life, in full and never pro-rated. Cards retired in an earlier fiscal year are left out.",
   "cost.attribution": "Attribution",
   "cost.attributionFull": "Full",
   "cost.attributionSplit": "Split equally",

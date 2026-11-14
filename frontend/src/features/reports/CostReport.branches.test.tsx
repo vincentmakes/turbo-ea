@@ -231,6 +231,8 @@ async function pickOption(label: RegExp, option: RegExp) {
 }
 
 beforeEach(() => {
+  // jsdom has no ResizeObserver; the fiscal-year slider measures its track with one.
+  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
   mockApi.reset();
   mockApi.on("get", "/metamodel/cost-item-types", []);
   hookState.reset();
