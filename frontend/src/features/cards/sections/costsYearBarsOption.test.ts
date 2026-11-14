@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { valueLabelInset } from "@/components/charts/chrome";
 import { buildCostsYearBarsOption, type CostYearBar } from "./costsYearBarsOption";
 import type { EChartsChrome } from "@/components/charts/echartsTheme";
 
@@ -35,17 +36,18 @@ const bars: CostYearBar[] = [
 interface Datum {
   value: number;
   itemStyle?: { opacity: number; borderRadius?: number[] };
-  label?: { formatter: () => string; position: string };
+  label?: { formatter: () => string; position: string; fontWeight: number | string };
 }
 interface Out {
-  yAxis: { data: string[]; inverse: boolean; axisLabel: { formatter: (v: string, i: number) => string } };
+  yAxis: { data: string[]; inverse: boolean; position: string; axisLabel: { formatter: (v: string, i: number) => string } };
   xAxis: { inverse: boolean };
+  grid: { left: number; right: number };
   tooltip: { confine: boolean; appendTo: string };
   series: {
     name: string;
     data: Datum[];
     itemStyle?: { color: string };
-    markArea?: { silent: boolean; itemStyle: { color: string }; data: { yAxis: string }[][] };
+    markArea?: { silent: boolean; itemStyle: { color: string }; data: { yAxis: number }[][] };
   }[];
 }
 const build = (selectedFy: number, isRtl = false, list = bars) =>
@@ -95,8 +97,8 @@ describe("buildCostsYearBarsOption", () => {
     const area = (fy: number) => totalSeries(build(fy)).markArea;
     expect(area(2026)?.silent).toBe(true);
     expect(area(2026)?.itemStyle.color).toBe("tint");
-    expect(area(2026)?.data).toEqual([[{ yAxis: "FY26" }, { yAxis: "FY26" }]]);
-    expect(area(2027)?.data).toEqual([[{ yAxis: "FY27" }, { yAxis: "FY27" }]]);
+    expect(area(2026)?.data).toEqual([[{ yAxis: 1 }, { yAxis: 1 }]]);
+    expect(area(2027)?.data).toEqual([[{ yAxis: 0 }, { yAxis: 0 }]]);
     expect(area(1999)?.data).toEqual([]);
   });
 
@@ -134,5 +136,46 @@ describe("buildCostsYearBarsOption", () => {
   it("RTL inverts the value axis", () => {
     expect(build(2026, true).xAxis.inverse).toBe(true);
     expect(build(2026, false).xAxis.inverse).toBe(false);
+  });
+
+  it("RTL puts the category axis on the right", () => {
+    expect(build(2026, true).yAxis.position).toBe("right");
+    expect(build(2026, false).yAxis.position).toBe("left");
+  });
+
+  it("keeps room for the totals on the trailing side", () => {
+    const inset = valueLabelInset([10, 50, 0], (v) => `${v} €`);
+    const ltr = build(2026);
+    expect(ltr.grid.right).toBe(inset);
+    expect(ltr.grid.left).toBe(8);
+    const rtl = build(2026, true);
+    expect(rtl.grid.left).toBe(inset);
+    expect(rtl.grid.right).toBe(8);
+  });
+
+  it("the selected total is semi-bold, the others normal", () => {
+    expect(totalSeries(build(2026)).data.map((d) => d.label?.fontWeight)).toEqual(["normal", 600, "normal"]);
+  });
+
+  it("the total label sits on the left in RTL", () => {
+    expect(totalSeries(build(2026, true)).data[0].label?.position).toBe("left");
+  });
+
+  it("a zero segment has no border radius", () => {
+    expect(build(2026).series[1].data[0].itemStyle?.borderRadius).toBeUndefined();
+  });
+
+  it("a selected year missing from the bars fades all, bolds nothing, tints nothing", () => {
+    const o = build(1999);
+    expect(o.series[0].data.map((d) => d.itemStyle?.opacity)).toEqual([0.45, 0.45, 0.45]);
+    expect(o.yAxis.axisLabel.formatter("FY26", 1)).toBe("FY26");
+    expect(totalSeries(o).markArea?.data).toEqual([]);
+  });
+
+  it("no bars gives an empty chart without throwing", () => {
+    const o = build(2026, false, []);
+    expect(o.yAxis.data).toEqual([]);
+    expect(o.series).toHaveLength(1);
+    expect(totalSeries(o).data).toEqual([]);
   });
 });

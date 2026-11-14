@@ -33,7 +33,12 @@ export function buildLicensingBarOption(
     ...base(ctx),
     animation: false,
     grid: { left: 0, right: 0, top: 0, bottom: 0 },
-    tooltip: tooltip(ctx, { trigger: "item", confine: false, appendTo: "body", zIndex: 2000 }),
+    tooltip: tooltip(ctx, {
+      trigger: "item",
+      confine: false,
+      // Out of the chart's wrapper so it is never clipped; ECharts 6 fixes the z-index itself.
+      appendTo: "body",
+    }),
     xAxis: { type: "value", show: false, inverse: o.isRtl },
     yAxis: { type: "category", show: false, inverse: true, data: [o.licensedLabel, o.actualLabel] },
     series: segments.map((s) => ({

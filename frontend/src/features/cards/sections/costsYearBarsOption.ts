@@ -7,7 +7,14 @@
  */
 import type { EChartsCoreOption } from "echarts/core";
 import type { EChartsChrome } from "@/components/charts/echartsTheme";
-import { base, tooltip, type ChartChromeContext } from "@/components/charts/chrome";
+import {
+  base,
+  grid,
+  tooltip,
+  valueLabelInset,
+  VALUE_LABEL_FONT_SIZE,
+  type ChartChromeContext,
+} from "@/components/charts/chrome";
 
 export interface CostYearBar {
   fiscalYear: number;
@@ -98,7 +105,7 @@ export function buildCostsYearBarsOption(
     markArea: {
       silent: true,
       itemStyle: { color: o.tintColor },
-      data: selectedIdx < 0 ? [] : [[{ yAxis: bars[selectedIdx].label }, { yAxis: bars[selectedIdx].label }]],
+      data: selectedIdx < 0 ? [] : [[{ yAxis: selectedIdx }, { yAxis: selectedIdx }]],
     },
     data: bars.map((b) => ({
       value: 0,
@@ -106,28 +113,36 @@ export function buildCostsYearBarsOption(
         show: true,
         position: o.isRtl ? "left" : "right",
         color: o.chrome.textSecondary,
-        fontSize: 12,
+        fontSize: VALUE_LABEL_FONT_SIZE,
         fontWeight: b.fiscalYear === selectedFy ? 600 : "normal",
         formatter: () => o.format(b.total),
       },
     })),
   };
 
+  // The totals sit past the bar's end, which containLabel does not reserve room for.
+  const plot = { ...grid(ctx, 0, 0) };
+  plot[o.isRtl ? "left" : "right"] = valueLabelInset(
+    bars.map((b) => b.total),
+    o.format,
+  );
+
   return {
     ...base(ctx),
     animation: false,
-    grid: { left: 0, right: 0, top: 0, bottom: 0, containLabel: true },
+    grid: plot,
     tooltip: tooltip(ctx, {
       trigger: "item",
       confine: false,
+      // Out of the chart's wrapper so it is never clipped; ECharts 6 fixes the z-index itself.
       appendTo: "body",
-      zIndex: 2000,
       valueFormatter: (v: unknown) => o.format(Number(v ?? 0)),
     }),
     xAxis: { type: "value", show: false, inverse: o.isRtl },
     yAxis: {
       type: "category",
       inverse: true,
+      position: o.isRtl ? "right" : "left",
       data: bars.map((b) => b.label),
       axisLine: { show: false },
       axisTick: { show: false },
