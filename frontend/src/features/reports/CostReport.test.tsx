@@ -467,7 +467,8 @@ describe("CostReport card type toggle buttons", () => {
 
   it("only IT Component on requests ITComponent", async () => {
     renderCost();
-    await userEvent.click(await screen.findByRole("button", { name: "IT Component" }));
+    await screen.findByRole("group", { name: /card type/i });
+    await userEvent.click(typeButton("IT Component"));
     await userEvent.click(typeButton("Application"));
     await waitFor(() => expect(lastTreemapType()).toBe("ITComponent"));
     expect(typeButton("Application")).toHaveAttribute("aria-pressed", "false");
@@ -475,7 +476,8 @@ describe("CostReport card type toggle buttons", () => {
 
   it("both on requests the combined type, only Application on requests Application", async () => {
     renderCost();
-    await userEvent.click(await screen.findByRole("button", { name: "IT Component" }));
+    await screen.findByRole("group", { name: /card type/i });
+    await userEvent.click(typeButton("IT Component"));
     await waitFor(() => expect(lastTreemapType()).toBe("Application,ITComponent"));
     await userEvent.click(typeButton("IT Component"));
     await waitFor(() => expect(lastTreemapType()).toBe("Application"));
@@ -483,7 +485,8 @@ describe("CostReport card type toggle buttons", () => {
 
   it("the last active button cannot be turned off", async () => {
     renderCost();
-    await userEvent.click(await screen.findByRole("button", { name: "Application" }));
+    await screen.findByRole("group", { name: /card type/i });
+    await userEvent.click(typeButton("Application"));
     expect(typeButton("Application")).toHaveAttribute("aria-pressed", "true");
     expect(typeButton("IT Component")).toHaveAttribute("aria-pressed", "false");
   });

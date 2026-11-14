@@ -736,6 +736,17 @@ describe("CostReport type, cost field and group by selectors", () => {
     expect(await typeButtonNames()).toEqual(["Application"]);
   });
 
+  it("offers one button, on and not switchable off, when only IT Component is readable", async () => {
+    withMetamodel([ITC_G, INITIATIVE_G], []);
+    renderCost();
+    expect(await typeButtonNames()).toEqual(["IT Component"]);
+    const button = (await typeGroup()).getByRole("button", { name: "IT Component" });
+    expect(button).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(button);
+    expect(button).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => expect(lastParams(treemapCalls()).get("type")).toBe("ITComponent"));
+  });
+
   it("both buttons on send type=Application,ITComponent", async () => {
     renderCost();
     await screen.findByTestId("treemap");

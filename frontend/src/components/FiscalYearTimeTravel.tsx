@@ -12,6 +12,7 @@ export default function FiscalYearTimeTravel({
   onChange,
   servedYear,
 }: {
+  /** Fiscal years in ascending order: the first and last set the slider's range. */
   years: number[];
   currentFy: number;
   value: number;

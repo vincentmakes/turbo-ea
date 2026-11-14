@@ -247,8 +247,8 @@ async function pickOption(label: RegExp, option: RegExp) {
   }
 }
 
-const typeButtonNames = () =>
-  within(screen.getByRole("group", { name: /card type/i }))
+const typeButtonNames = async () =>
+  within(await screen.findByRole("group", { name: /card type/i }))
     .getAllByRole("button")
     .map((b) => b.textContent);
 
@@ -966,13 +966,13 @@ describe("CostReport toolbar", () => {
     );
     renderCost();
     await screen.findByTestId("treemap");
-    expect(typeButtonNames()).toEqual(["Application", "IT Component"]);
+    expect(await typeButtonNames()).toEqual(["Application", "IT Component"]);
   });
 
   it("offers Application and IT Component to a reports user who may not browse the inventory", async () => {
     renderWithProviders(<CostReport />, { user: userWith("costs.view") });
     await screen.findByTestId("treemap");
-    expect(typeButtonNames()).toEqual(["Application", "IT Component"]);
+    expect(await typeButtonNames()).toEqual(["Application", "IT Component"]);
   });
 });
 

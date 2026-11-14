@@ -224,12 +224,12 @@ describe("LicensingSection", () => {
   it("no per-year bars are drawn", async () => {
     mockGet(response());
     render(<LicensingSection cardId="c1" />);
-    await screen.findByRole("slider");
     await goTo(2027);
-    const charts = echartState.props.filter((c) => c.ariaLabel);
-    expect(charts.every((c) => c.ariaLabel?.startsWith(BAR_LABEL))).toBe(true);
-    // one chart per metric, never one per year
-    expect(new Set(charts.map((c) => c.ariaLabel)).size).toBeLessThanOrEqual(2);
+    // one chart per metric and nothing else, never one per year
+    expect(echartState.props.map((c) => c.ariaLabel)).toEqual([
+      `${BAR_LABEL}: Users`,
+      `${BAR_LABEL}: Installations`,
+    ]);
   });
 
   it("the Licensed / Actual chart is still there", async () => {
@@ -238,7 +238,7 @@ describe("LicensingSection", () => {
     await screen.findByRole("slider");
     const bar = echartState.props.find((c) => c.ariaLabel?.startsWith(BAR_LABEL));
     expect(bar?.option.series.map((s: { name: string }) => s.name)).toEqual(["Prod", "Dev", "QA"]);
-    expect(bar?.option.series[0].data).toBeDefined();
+    expect(bar?.option.yAxis.data).toEqual(["Licensed", "Actual"]);
   });
 
   const MODEL_FIELD: FieldDef = {

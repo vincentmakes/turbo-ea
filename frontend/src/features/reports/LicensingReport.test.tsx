@@ -218,9 +218,10 @@ describe("LicensingReport", () => {
       await userEvent.click(screen.getByRole("button", { name: "Previous fiscal year" }));
       await screen.findByText("Could not load the licensing report.");
       // Let any fallback effect run: a silent reset to the current year would refetch and clear the error.
-      await act(async () => {
-        await new Promise((r) => setTimeout(r, 50));
-      });
+      const n = reportPaths().length;
+      await act(async () => {});
+      await act(async () => {});
+      expect(reportPaths().length).toBe(n);
       expect(screen.getByText("Could not load the licensing report.")).toBeInTheDocument();
       expect(reportPaths().at(-1)).toContain("fiscal_year=2023");
     });

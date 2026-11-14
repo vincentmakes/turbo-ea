@@ -34,8 +34,11 @@ function setup(value: number, props: Partial<React.ComponentProps<typeof FiscalY
 describe("FiscalYearTimeTravel", () => {
   it("steps are exactly the given years in order", () => {
     setup(2022);
-    const labels = YEARS.map((y) => `FY${String(y).slice(2)}`);
-    for (const l of labels) expect(screen.getAllByText(l).length).toBeGreaterThan(0);
+    // The mark labels only: the current step is also read out beside the slider.
+    const marks = document.querySelectorAll(".MuiSlider-markLabel");
+    expect(Array.from(marks, (el) => el.textContent)).toEqual(
+      YEARS.map((y) => `FY${String(y).slice(2)}`),
+    );
     expect(screen.getAllByRole("slider")).toHaveLength(1);
     const slider = screen.getByRole("slider");
     expect(slider).toHaveAttribute("aria-valuemin", "2022");
