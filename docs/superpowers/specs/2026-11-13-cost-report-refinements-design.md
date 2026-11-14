@@ -50,16 +50,15 @@ control like the Application Portfolio's (`/reports/portfolio`), but moving **on
 **green**, placed **between the filter row and the summary tiles** (where the portfolio puts its row).
 
 **Design.**
-- Remove the `Fiscal year` drop-down and the chip. The chip's tooltip text, `cost.fiscalYearHelp` ("Annual
-  costs of the cards live in this fiscal year ... in full and never pro-rated. Cards retired in an earlier
-  fiscal year are left out."), is **kept**: it moves to an info icon with that tooltip next to the Time Travel
-  label (agent's call, so the rule stays explained); the chip's key `cost.fiscalYearIndicator` and its tests
-  (`CostReport.mutation.test.tsx` ~364-391, `CostReport.test.tsx` ~317) are rewritten for the icon. The year
-  named is the one the response served (`fiscalYear.year`), as the chip showed it, not just the request parameter. In their place, one full-width row between the toolbar
-  filters and the KPI tiles: a "Time Travel" label with the selected fiscal year's name (the existing
-  `costFiscalYearName` text, e.g. `FY26 - Current`), previous / next step buttons, and a track whose steps are
-  exactly the fiscal years of `costFiscalYearOptions(...)`, oldest on the left, forecast year on the right, each
-  step labelled `FYnn`.
+- Remove the `Fiscal year` drop-down and the chip. The chip's tooltip text, `cost.fiscalYearHelp`, is **dropped
+  too, with no replacement** (user's decision, 2026-11-14): remove the key (and its `licensing` counterpart, if
+  there is one) from `en/reports.json` and, through `/translate`, from the other locales, and rewrite the tests
+  that checked the chip and its tooltip (`CostReport.mutation.test.tsx` ~364-391, `CostReport.test.tsx` ~317).
+  In the Time Travel row, one full-width row between the toolbar filters and the KPI tiles: a "Time Travel"
+  label with the selected fiscal year's name (the existing `costFiscalYearName` text, e.g. `FY26 - Current`; the
+  year named is the one the response served, `fiscalYear.year`, as the chip showed it), previous / next step
+  buttons, and a track whose steps are exactly the fiscal years of `costFiscalYearOptions(...)`, oldest on the
+  left, forecast year on the right, each step labelled `FYnn`.
 - Same state, same data: choosing a step sets `fiscalYearParam` through the same path as the drop-down did
   (including the "current year" case that is stored as `null`, if that is how it works today: the builder keeps
   the existing semantics), so saved reports, the print parameters, the `fiscal_year` request parameter and the
@@ -80,7 +79,7 @@ control like the Application Portfolio's (`/reports/portfolio`), but moving **on
 **Also the Licensing report (user's decision):** `LicensingReport.tsx` has the same drop-down
 (`costFiscalYearOptions`) and a chip (`licensing.fiscalYearIndicator`); it gets the **same Time Travel row**,
 with the same rules, so the two reports stay alike (`licensing-items.md` says it reuses the cost report's
-fiscal-year picker). Its chip text is handled like `cost.fiscalYearHelp` above.
+fiscal-year picker). Its chip and the chip's text key (`licensing.fiscalYearIndicator`) are dropped like the cost ones.
 
 **Non-goals.** No new data, no change to which years exist, no milestone marks under the track (the portfolio's
 coloured transition marks do not apply to costs), no free date picking.
