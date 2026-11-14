@@ -14,8 +14,8 @@ L'export capture le workspace complet dans un bundle `.zip` contenant un classeu
 - **Utilisateurs** — e-mail, nom affiché, rôle et indicateur d'activité (utilisés pour re-lier la propriété et les affectations sur la cible). Aucun mot de passe ni identité SSO.
 - **Inventaire** — chaque fiche (avec sa hiérarchie, son cycle de vie et ses attributs), les tags de fiches et les relations.
 - **Contexte de fiche** — parties prenantes, liens vers documents, commentaires, tâches et pièces jointes.
-- **Données des modules** — BPM (diagrammes de processus, éléments, versions de flux, évaluations), PPM (rapports de statut, coûts, budgets, risques, tâches, WBS, dépendances), le registre des risques GRC (risques, tâches d'atténuation et occurrences, liaisons de fiches), les constats de conformité GRC (avec les exécutions d'analyse qu'ils référencent), décisions d'architecture et Statements of Architecture Work, diagrammes en dessin libre, rapports enregistrés, favoris (vues enregistrées de l'inventaire, y compris leurs partages), portails web et enquêtes.
-- **Assets** — les pièces jointes binaires, le XML des diagrammes et BPMN, ainsi que le logo/favicon voyagent sous forme de fichiers séparés dans le dossier `assets/` du bundle.
+- **Données des modules** — BPM (diagrammes de processus, éléments, versions de flux, évaluations), PPM (rapports de statut, coûts, budgets, risques, tâches, WBS, dépendances), le registre des risques GRC (risques, tâches d'atténuation et occurrences, liaisons de fiches), les constats de conformité GRC (avec les exécutions d'analyse qu'ils référencent), décisions d'architecture et Statements of Architecture Work (avec les images de leur texte), diagrammes en dessin libre, rapports enregistrés, favoris (vues enregistrées de l'inventaire, y compris leurs partages), portails web et enquêtes.
+- **Assets** — les pièces jointes binaires, les images du texte des décisions et des SoAW, le XML des diagrammes et BPMN, ainsi que le logo/favicon voyagent sous forme de fichiers séparés dans le dossier `assets/` du bundle.
 
 ## Ce qui n'est jamais inclus
 

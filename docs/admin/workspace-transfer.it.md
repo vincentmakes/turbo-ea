@@ -14,8 +14,8 @@ L'esportazione cattura il workspace completo come bundle `.zip` contenente una c
 - **Utenti** — email, nome visualizzato, ruolo e flag di attività (usati per ricollegare proprietà e assegnazioni sul target). Nessuna password né identità SSO.
 - **Inventario** — ogni carta (con la sua gerarchia, ciclo di vita e attributi), tag delle carte e relazioni.
 - **Contesto delle carte** — stakeholder, collegamenti a documenti, commenti, todo e allegati di file.
-- **Dati dei moduli** — BPM (diagrammi di processo, elementi, versioni di flusso, valutazioni), PPM (report di stato, costi, budget, rischi, attività, WBS, dipendenze), il registro dei rischi GRC (rischi, attività di mitigazione e relative occorrenze, collegamenti alle carte), le rilevazioni di conformità GRC (con le esecuzioni di analisi a cui fanno riferimento), decisioni architetturali e Statement of Architecture Work, diagrammi a mano libera, report salvati, segnalibri (viste salvate dell'inventario, incluse le loro condivisioni), portali web e sondaggi.
-- **Asset** — gli allegati binari, l'XML dei diagrammi e BPMN e il logo/favicon viaggiano come file separati all'interno della cartella `assets/` del bundle.
+- **Dati dei moduli** — BPM (diagrammi di processo, elementi, versioni di flusso, valutazioni), PPM (report di stato, costi, budget, rischi, attività, WBS, dipendenze), il registro dei rischi GRC (rischi, attività di mitigazione e relative occorrenze, collegamenti alle carte), le rilevazioni di conformità GRC (con le esecuzioni di analisi a cui fanno riferimento), decisioni architetturali e Statement of Architecture Work (con le immagini nel loro testo), diagrammi a mano libera, report salvati, segnalibri (viste salvate dell'inventario, incluse le loro condivisioni), portali web e sondaggi.
+- **Asset** — gli allegati binari, le immagini nel testo di decisioni e SoAW, l'XML dei diagrammi e BPMN e il logo/favicon viaggiano come file separati all'interno della cartella `assets/` del bundle.
 
 ## Cosa non è mai incluso
 

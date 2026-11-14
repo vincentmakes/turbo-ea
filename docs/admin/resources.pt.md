@@ -78,9 +78,11 @@ A página reutiliza as mesmas permissões da aba Recursos de um cartão — ela 
 
 A exclusão em massa é verificada **por linha**. Se a sua seleção incluir recursos em cartões que você não pode gerenciar, essas linhas são ignoradas em vez de fazer a operação inteira falhar, e um aviso lista exatamente quais e por quê.
 
-## Quando os envios de arquivos estão desabilitados
+## Quando os envios de arquivos estão desabilitados {: #when-file-uploads-are-disabled }
 
 Desligar **Envio de arquivos** em **Admin → Configurações → Geral** bloqueia apenas os novos envios. Os arquivos existentes continuam listados aqui e permanecem baixáveis e excluíveis, para que você ainda possa auditar e limpar. Enquanto a alternância estiver desligada, um banner informativo aparece na página.
+
+A mesma alternância também oculta os controlos que inserem imagens no texto das [decisões](../guide/grc.md#decision-pictures) e dos [SoAW](../guide/delivery.md#soaw-pictures). As imagens que já estão num documento continuam visíveis.
 
 ## Relacionados
 

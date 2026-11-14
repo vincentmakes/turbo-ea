@@ -14,8 +14,8 @@ A exportação captura o workspace completo como um pacote `.zip` contendo uma p
 - **Usuários** — e-mail, nome de exibição, papel e flag de ativo (usados para revincular propriedade e atribuições no destino). Sem senhas ou identidades SSO.
 - **Inventário** — cada card (com sua hierarquia, ciclo de vida e atributos), tags de card e relações.
 - **Contexto do card** — partes interessadas, links de documentos, comentários, tarefas e anexos de arquivo.
-- **Dados de módulos** — BPM (diagramas de processo, elementos, versões de fluxo, avaliações), PPM (relatórios de status, custos, orçamentos, riscos, tarefas, WBS, dependências), o registro de riscos do GRC (riscos, tarefas de mitigação e ocorrências, vínculos de card), as descobertas de conformidade do GRC (com as execuções de análise que elas referenciam), decisões de arquitetura e Statements of Architecture Work, diagramas de desenho livre, relatórios salvos, marcadores (visualizações salvas do inventário, incluindo seus compartilhamentos), portais web e pesquisas.
-- **Assets** — anexos de arquivo binários, XML de diagramas e BPMN, e o logo/favicon viajam como arquivos separados dentro da pasta `assets/` do pacote.
+- **Dados de módulos** — BPM (diagramas de processo, elementos, versões de fluxo, avaliações), PPM (relatórios de status, custos, orçamentos, riscos, tarefas, WBS, dependências), o registro de riscos do GRC (riscos, tarefas de mitigação e ocorrências, vínculos de card), as descobertas de conformidade do GRC (com as execuções de análise que elas referenciam), decisões de arquitetura e Statements of Architecture Work (com as imagens do seu texto), diagramas de desenho livre, relatórios salvos, marcadores (visualizações salvas do inventário, incluindo seus compartilhamentos), portais web e pesquisas.
+- **Assets** — anexos de arquivo binários, imagens no texto de decisões e SoAW, XML de diagramas e BPMN, e o logo/favicon viajam como arquivos separados dentro da pasta `assets/` do pacote.
 
 ## O que nunca está incluído
 

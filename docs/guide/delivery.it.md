@@ -62,6 +62,7 @@ L'editor fornisce:
 - **Template di sezioni** — Sezioni predefinite seguendo gli standard TOGAF (es. Descrizione del problema, Obiettivi, Approccio, Stakeholder, Vincoli, Piano di lavoro)
 - **Tabelle modificabili in linea** — Aggiungete e modificate tabelle all'interno di qualsiasi sezione
 - **Menzioni** — digitate **@** nel testo di una sezione per menzionare una card o una decisione (vedere [Discussione, menzioni e cronologia](#soaw-collaboration))
+- **Immagini** — inserite uno screenshot o un diagramma nel testo di una sezione (vedere [Immagini](#soaw-pictures))
 - **Cronologia versioni del documento** — una tabella che gli autori compilano a mano (versione, data, revisionato da, descrizione). Fa parte del documento e non è la vista [Cronologia](#soaw-collaboration)
 - **Workflow degli stati** — I documenti progrediscono attraverso fasi definite:
 
@@ -71,6 +72,12 @@ L'editor fornisce:
 | **In Review** | Inviato per la firma — bloccato finché le firme non vengono ritirate |
 | **Approved** | Revisionato e accettato |
 | **Signed** | Formalmente firmato |
+
+### Immagini {: #soaw-pictures }
+
+Il testo di una sezione può contenere immagini, come quello di una decisione. Cliccate su **Inserisci immagine** nella barra degli strumenti della sezione e scegliete un file, incollate un'immagine dagli appunti oppure trascinate un file immagine sulla sezione. Trascinate l'angolo di un'immagine per ridimensionarla (le sue proporzioni vengono mantenute) e selezionatela per allinearla a sinistra, al centro o a destra dalla barra degli strumenti. Sono accettati PNG, JPEG, GIF e WebP, fino a 5 MB per immagine; SVG no.
+
+Le immagini appaiono nell'anteprima, nella copia PDF / stampata e nell'esportazione Word, e nella [Cronologia](#soaw-collaboration), dove **Modifiche** segnala un'immagine aggiunta o rimossa come *[Immagine]*. Una revisione e una versione ripristinata mantengono le loro immagini. Vengono mantenute solo le immagini caricate in un SoAW: un'immagine che rimanda a un altro sito web viene rimossa quando il documento viene salvato. I commenti nella discussione non accettano immagini, e i comandi delle immagini scompaiono quando un amministratore ha [disattivato il caricamento di file](../admin/resources.md#when-file-uploads-are-disabled). La descrizione completa si trova nella guida GRC: [Immagini](grc.md#decision-pictures).
 
 ### Workflow di firma
 

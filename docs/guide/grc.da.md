@@ -124,6 +124,7 @@ Editoren tilbyder:
 
 - Rich text-redigering for hver sektion (Context, Decision, Consequences, Alternatives Considered)
 - **Omtaler** — skriv **@** i en sektion for at omtale et kort eller en anden beslutning (se [Omtaler](#decision-mentions))
+- **Billeder** — indsæt et skærmbillede eller et diagram i en sektion (se [Billeder](#decision-pictures))
 - **Diskussion** — et panel ved siden af dokumentet med dets diskussion (se [Diskussion](#decision-discussion))
 - **Historik** — en knap øverst på siden, der åbner beslutningens tidslinje og dens gemte versioner (se [Historik](#decision-history))
 - Kort-linking — forbind ADR'en til relevante kort (applikationer, IT-komponenter, initiativer, …). Initiativer linkes via standard kort-linking-funktionen, ikke et dedikeret felt, så en ADR kan referere til flere initiativer
@@ -132,6 +133,18 @@ Editoren tilbyder:
 - **Denne beslutning…** — typede tilknytninger til andre beslutninger (se [Tilknytninger mellem beslutninger](#decision-links))
 - **Ændringsoversigt** — kun på en revision: hvad der er ændret i denne revision, og hvorfor
 - **Filer** — dokumenter vedhæftet beslutningen (se [Filer](#decision-files))
+
+#### Billeder {: #decision-pictures }
+
+Hver af de fire sektioner kan indeholde billeder — et skærmbillede, et eksporteret diagram, et foto af en whiteboardtavle. Klik på **Indsæt billede** i sektionens værktøjslinje og vælg en fil, indsæt et billede fra udklipsholderen, eller træk en billedfil hen på sektionen. Billedet uploades, når det indsættes, og vises på sin egen linje.
+
+- **Størrelse.** Træk i et billedes hjørne for at ændre størrelsen: proportionerne bevares.
+- **Justering.** Markér billedet, og klik på **Venstrejustér**, **Centrér** eller **Højrejustér** i værktøjslinjen.
+- **Formater.** PNG, JPEG, GIF og WebP, op til 5 MB pr. billede. Et større billede afvises og bliver ikke formindsket. SVG accepteres ikke.
+- **Hvor det vises.** Billeder vises i [forhåndsvisningen](#preview), i PDF-/printkopien og i Word-eksporten. I [Historik](#decision-history) viser en version sine billeder, og **Ændringer** markerer et tilføjet eller fjernet billede som *[Billede]*. En revision, en kopi og en gendannet version beholder billederne fra den tekst, de stammer fra.
+- **Kun billeder uploadet her.** En beslutning beholder kun billeder, der er uploadet til beslutninger. Et billede, der linker til et andet websted, eller et, der er kopieret fra en SoAW, fjernes, når beslutningen gemmes.
+- **Kommentarer** i [diskussionen](#decision-discussion) kan ikke indeholde billeder.
+- **Når filupload er slået fra.** Knappen **Indsæt billede** samt indsætning og træk-og-slip af billeder forsvinder, når en administrator har [slået filupload fra](../admin/resources.md#when-file-uploads-are-disabled). Billeder, der allerede er i teksten, forbliver synlige.
 
 #### Datoer {: #decision-dates }
 

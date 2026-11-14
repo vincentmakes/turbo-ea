@@ -120,6 +120,7 @@ Der Editor bietet:
 
 - Rich-Text-Bearbeitung für jeden Abschnitt (Kontext, Entscheidung, Konsequenzen, Erwogene Alternativen)
 - **Erwähnungen** — geben Sie **@** in einem Abschnitt ein, um eine Karte oder eine andere Entscheidung zu erwähnen (siehe [Erwähnungen](#decision-mentions))
+- **Bilder** — fügen Sie einen Screenshot oder ein Diagramm in einen Abschnitt ein (siehe [Bilder](#decision-pictures))
 - **Diskussion** — ein Bereich neben dem Dokument mit seiner Diskussion (siehe [Diskussion](#decision-discussion))
 - **Verlauf** — eine Schaltfläche oben auf der Seite, die die Zeitleiste der Entscheidung und ihre gespeicherten Versionen öffnet (siehe [Verlauf](#decision-history))
 - Kartenverknüpfung — verbinde das ADR mit relevanten Karten (Anwendungen, IT-Komponenten, Initiativen, …). Initiativen werden über die Standard-Kartenverknüpfung verknüpft, nicht über ein eigenes Feld, sodass ein ADR mehrere Initiativen referenzieren kann
@@ -128,6 +129,18 @@ Der Editor bietet:
 - **Diese Entscheidung…** — typisierte Verknüpfungen zu anderen Entscheidungen (siehe [Verknüpfungen zwischen Entscheidungen](#decision-links))
 - **Änderungszusammenfassung** — nur bei einer Revision: was sich in dieser Revision geändert hat und warum
 - **Dateien** — an die Entscheidung angehängte Dokumente (siehe [Dateien](#decision-files))
+
+#### Bilder {: #decision-pictures }
+
+Jeder der vier Abschnitte kann Bilder enthalten — einen Screenshot, ein exportiertes Diagramm, ein Foto eines Whiteboards. Klicken Sie in der Symbolleiste des Abschnitts auf **Bild einfügen** und wählen Sie eine Datei, fügen Sie ein Bild aus der Zwischenablage ein oder ziehen Sie eine Bilddatei auf den Abschnitt. Das Bild wird beim Einfügen hochgeladen und erscheint in einer eigenen Zeile.
+
+- **Größe ändern.** Ziehen Sie an der Ecke eines Bildes, um seine Größe zu ändern: Seine Proportionen bleiben erhalten.
+- **Ausrichten.** Wählen Sie das Bild aus und klicken Sie in der Symbolleiste auf **Linksbündig**, **Zentriert** oder **Rechtsbündig**.
+- **Formate.** PNG, JPEG, GIF und WebP, bis zu 5 MB pro Bild. Ein größeres Bild wird abgelehnt, nicht verkleinert. SVG wird nicht akzeptiert.
+- **Wo es erscheint.** Bilder erscheinen in der [Vorschau](#preview), in der PDF-/Druckfassung und im Word-Export. Im [Verlauf](#decision-history) zeigt eine Version ihre Bilder, und **Änderungen** markiert ein hinzugefügtes oder entferntes Bild als *[Bild]*. Eine Revision, ein Duplikat und eine wiederhergestellte Version behalten die Bilder des Textes, aus dem sie stammen.
+- **Nur hier hochgeladene Bilder.** Eine Entscheidung behält nur Bilder, die zu Entscheidungen hochgeladen wurden. Ein Bild, das auf eine andere Website verweist, oder eines, das aus einem SoAW kopiert wurde, wird beim Speichern der Entscheidung entfernt.
+- **Kommentare** in der [Diskussion](#decision-discussion) nehmen keine Bilder auf.
+- **Wenn Datei-Uploads deaktiviert sind.** Die Schaltfläche **Bild einfügen** sowie das Einfügen und Ziehen von Bildern verschwinden, wenn ein Administrator [Datei-Uploads deaktiviert](../admin/resources.md#when-file-uploads-are-disabled) hat. Bilder, die bereits im Text stehen, bleiben sichtbar.
 
 #### Daten {: #decision-dates }
 
@@ -202,7 +215,7 @@ Ein unterschriebenes ADR öffnen und **Überarbeiten → Diese Entscheidung übe
 - **Eine Ablehnung zählt nicht als Revision**: Die Revisionsnummer ändert sich nur, wenn eine neue Revision erstellt wird.
 - Vor Version 2.199.0 überarbeitete Entscheidungen behalten die Referenznummern, unter denen sie ausgegeben wurden, und erscheinen weiterhin als eine Entscheidung mit einer Revisionsleiste.
 
-#### Vorschau
+#### Vorschau {: #preview }
 
 Klick auf das Vorschau-Symbol für eine schreibgeschützte, formatierte Ansicht des ADR — nützlich vor der Unterschrift.
 

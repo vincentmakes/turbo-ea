@@ -62,6 +62,7 @@ L'éditeur offre :
 - **Modèles de sections** -- Sections prédéfinies suivant les standards TOGAF (par ex. Description du problème, Objectifs, Approche, Parties prenantes, Contraintes, Plan de travail)
 - **Tableaux éditables en ligne** -- Ajoutez et éditez des tableaux dans n'importe quelle section
 - **Mentions** -- tapez **@** dans le texte d'une section pour mentionner une fiche ou une décision (voir [Discussion, mentions et historique](#soaw-collaboration))
+- **Images** -- insérez une capture d'écran ou un diagramme dans le texte d'une section (voir [Images](#soaw-pictures))
 - **Historique des versions du document** -- un tableau que les auteurs remplissent à la main (version, date, révisé par, description). Il fait partie du document et n'est pas la vue [Historique](#soaw-collaboration)
 - **Workflow de statut** -- Les documents progressent à travers des étapes définies :
 
@@ -71,6 +72,12 @@ L'éditeur offre :
 | **En revue** | Envoyé pour signature — verrouillé jusqu'au rappel des signatures |
 | **Approuvé** | Examiné et accepté |
 | **Signé** | Formellement validé |
+
+### Images {: #soaw-pictures }
+
+Le texte d'une section peut contenir des images, comme celui d'une décision. Cliquez sur **Insérer une image** dans la barre d'outils de la section et choisissez un fichier, collez une image depuis le presse-papiers ou faites glisser un fichier image sur la section. Faites glisser le coin d'une image pour la redimensionner (ses proportions sont conservées) et sélectionnez-la pour l'aligner à gauche, au centre ou à droite depuis la barre d'outils. PNG, JPEG, GIF et WebP sont acceptés, jusqu'à 5 Mo par image ; SVG ne l'est pas.
+
+Les images apparaissent dans l'aperçu, dans la copie PDF / imprimée et dans l'export Word, ainsi que dans l'[Historique](#soaw-collaboration), où **Modifications** signale une image ajoutée ou supprimée par *[Image]*. Une révision et une version restaurée conservent leurs images. Seules les images téléversées dans un SoAW sont conservées : une image qui pointe vers un autre site web est supprimée à l'enregistrement du document. Les commentaires de la discussion n'acceptent pas d'images, et les commandes d'image disparaissent lorsqu'un administrateur a [désactivé le téléversement de fichiers](../admin/resources.md#when-file-uploads-are-disabled). La description complète se trouve dans le guide GRC : [Images](grc.md#decision-pictures).
 
 ### Workflow de signature
 

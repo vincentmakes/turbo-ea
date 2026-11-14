@@ -120,6 +120,7 @@ El editor proporciona:
 
 - Edición de texto enriquecido para cada sección (Contexto, Decisión, Consecuencias, Alternativas Consideradas)
 - **Menciones** — escriba **@** en una sección para mencionar una ficha u otra decisión (consulte [Menciones](#decision-mentions))
+- **Imágenes** — inserte una captura de pantalla o un diagrama en una sección (consulte [Imágenes](#decision-pictures))
 - **Discusión** — un panel junto al documento con su discusión (consulte [Discusión](#decision-discussion))
 - **Historial** — un botón en la parte superior de la página que abre la cronología de la decisión y sus versiones guardadas (consulte [Historial](#decision-history))
 - Vinculación de tarjetas — conecte el ADR a tarjetas relevantes (aplicaciones, componentes TI, iniciativas, …). Las iniciativas se vinculan a través de la vinculación estándar de tarjetas, no por un campo dedicado, lo que permite que un ADR referencie múltiples iniciativas
@@ -128,6 +129,18 @@ El editor proporciona:
 - **Esta decisión…** — vínculos tipados con otras decisiones (consulte [Vínculos entre decisiones](#decision-links))
 - **Resumen de cambios** — solo en una revisión: qué ha cambiado en esta revisión y por qué
 - **Archivos** — documentos adjuntos a la decisión (consulte [Archivos](#decision-files))
+
+#### Imágenes {: #decision-pictures }
+
+Cada una de las cuatro secciones puede contener imágenes — una captura de pantalla, un diagrama exportado, la foto de una pizarra. Haga clic en **Insertar imagen** en la barra de herramientas de la sección y elija un archivo, pegue una imagen desde el portapapeles o arrastre un archivo de imagen a la sección. La imagen se sube al insertarla y aparece en su propia línea.
+
+- **Cambiar el tamaño.** Arrastre la esquina de una imagen para cambiar su tamaño: se mantienen sus proporciones.
+- **Alinear.** Seleccione la imagen y haga clic en **Alinear a la izquierda**, **Centrar** o **Alinear a la derecha** en la barra de herramientas.
+- **Formatos.** PNG, JPEG, GIF y WebP, hasta 5 MB por imagen. Una imagen más grande se rechaza, no se reduce. SVG no se acepta.
+- **Dónde se muestra.** Las imágenes aparecen en la [vista previa](#preview), en la copia PDF / impresa y en la exportación a Word. En el [Historial](#decision-history), una versión muestra sus imágenes, y **Cambios** marca una imagen añadida o eliminada como *[Imagen]*. Una revisión, un duplicado y una versión restaurada conservan las imágenes del texto del que proceden.
+- **Solo imágenes subidas aquí.** Una decisión solo conserva las imágenes subidas a decisiones. Una imagen que enlaza a otro sitio web, o una copiada de un SoAW, se elimina al guardar la decisión.
+- **Los comentarios** de la [discusión](#decision-discussion) no admiten imágenes.
+- **Cuando la carga de archivos está desactivada.** El botón **Insertar imagen**, así como pegar y arrastrar imágenes, desaparecen cuando un administrador ha [desactivado la carga de archivos](../admin/resources.md#when-file-uploads-are-disabled). Las imágenes que ya están en el texto siguen visibles.
 
 #### Fechas {: #decision-dates }
 
@@ -202,7 +215,7 @@ Abra un ADR firmado y elija **Revisar → Revisar esta decisión** para crear un
 - **Un rechazo no cuenta como revisión**: el número de revisión solo cambia cuando se crea una nueva revisión.
 - Las decisiones revisadas antes de la versión 2.199.0 conservan los números de referencia con que se emitieron, y se siguen leyendo como una sola decisión con una sola franja de revisiones.
 
-#### Vista previa
+#### Vista previa {: #preview }
 
 Haga clic en el icono de vista previa para ver una versión de solo lectura y formateada del ADR — útil para revisión antes de firmar.
 

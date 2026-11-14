@@ -120,6 +120,7 @@ L'éditeur offre :
 
 - Édition de texte riche pour chaque section (Contexte, Décision, Conséquences, Alternatives envisagées)
 - **Mentions** — tapez **@** dans une section pour mentionner une fiche ou une autre décision (voir [Mentions](#decision-mentions))
+- **Images** — insérez une capture d'écran ou un diagramme dans une section (voir [Images](#decision-pictures))
 - **Discussion** — un panneau à côté du document avec sa discussion (voir [Discussion](#decision-discussion))
 - **Historique** — un bouton en haut de la page qui ouvre la chronologie de la décision et ses versions enregistrées (voir [Historique](#decision-history))
 - Liaison de fiches — connectez l'ADR aux fiches pertinentes (applications, composants IT, initiatives, …). Les initiatives sont liées via la fonctionnalité standard de liaison de fiches, et non via un champ dédié, ce qui permet à un ADR de référencer plusieurs initiatives
@@ -128,6 +129,18 @@ L'éditeur offre :
 - **Cette décision…** — des liens typés vers d'autres décisions (voir [Liens entre décisions](#decision-links))
 - **Résumé des modifications** — sur une révision uniquement : ce qui a changé dans cette révision, et pourquoi
 - **Fichiers** — des documents joints à la décision (voir [Fichiers](#decision-files))
+
+#### Images {: #decision-pictures }
+
+Chacune des quatre sections peut contenir des images — une capture d'écran, un diagramme exporté, la photo d'un tableau blanc. Cliquez sur **Insérer une image** dans la barre d'outils de la section et choisissez un fichier, collez une image depuis le presse-papiers ou faites glisser un fichier image sur la section. L'image est téléversée au moment de son insertion et apparaît sur sa propre ligne.
+
+- **Redimensionner.** Faites glisser le coin d'une image pour la redimensionner : ses proportions sont conservées.
+- **Aligner.** Sélectionnez l'image et cliquez sur **Aligner à gauche**, **Centrer** ou **Aligner à droite** dans la barre d'outils.
+- **Formats.** PNG, JPEG, GIF et WebP, jusqu'à 5 Mo par image. Une image plus grande est refusée, pas réduite. SVG n'est pas accepté.
+- **Où elle apparaît.** Les images apparaissent dans l'[aperçu](#preview), dans la copie PDF / imprimée et dans l'export Word. Dans l'[Historique](#decision-history), une version affiche ses images, et **Modifications** signale une image ajoutée ou supprimée par *[Image]*. Une révision, un duplicata et une version restaurée conservent les images du texte dont ils proviennent.
+- **Uniquement les images téléversées ici.** Une décision ne conserve que les images téléversées dans des décisions. Une image qui pointe vers un autre site web, ou copiée depuis un SoAW, est supprimée à l'enregistrement de la décision.
+- **Les commentaires** de la [discussion](#decision-discussion) n'acceptent pas d'images.
+- **Lorsque le téléversement de fichiers est désactivé.** Le bouton **Insérer une image**, le collage et le glisser-déposer d'images disparaissent lorsqu'un administrateur a [désactivé le téléversement de fichiers](../admin/resources.md#when-file-uploads-are-disabled). Les images déjà présentes dans le texte restent visibles.
 
 #### Dates {: #decision-dates }
 
@@ -202,7 +215,7 @@ Ouvrez un ADR signé et choisissez **Réviser → Réviser cette décision** pou
 - **Un rejet ne compte pas comme une révision** : le numéro de révision ne change que lorsqu'une nouvelle révision est créée.
 - Les décisions révisées avant la version 2.199.0 conservent les numéros de référence sous lesquels elles ont été émises, et se lisent toujours comme une seule décision avec une seule barre de révisions.
 
-#### Aperçu
+#### Aperçu {: #preview }
 
 Cliquez sur l'icône d'aperçu pour afficher une version en lecture seule et formatée de l'ADR — utile pour la revue avant signature.
 

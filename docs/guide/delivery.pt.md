@@ -62,6 +62,7 @@ O editor oferece:
 - **Templates de seções** — Seções predefinidas seguindo os padrões TOGAF (ex.: Descrição do Problema, Objetivos, Abordagem, Partes Interessadas, Restrições, Plano de Trabalho)
 - **Tabelas editáveis inline** — Adicione e edite tabelas dentro de qualquer seção
 - **Menções** — escreva **@** no texto de uma seção para mencionar um card ou uma decisão (ver [Discussão, menções e histórico](#soaw-collaboration))
+- **Imagens** — insira uma captura de ecrã ou um diagrama no texto de uma seção (ver [Imagens](#soaw-pictures))
 - **Histórico de versões do documento** — uma tabela que os autores preenchem à mão (versão, data, revisado por, descrição). Faz parte do documento e não é a vista [Histórico](#soaw-collaboration)
 - **Fluxo de status** — Documentos progridem através de estágios definidos:
 
@@ -71,6 +72,12 @@ O editor oferece:
 | **Em Revisão** | Enviado para assinatura — bloqueado até que as assinaturas sejam recolhidas |
 | **Aprovado** | Revisado e aceito |
 | **Assinado** | Formalmente assinado |
+
+### Imagens {: #soaw-pictures }
+
+O texto de uma seção pode conter imagens, tal como o de uma decisão. Clique em **Inserir imagem** na barra de ferramentas da seção e escolha um ficheiro, cole uma imagem da área de transferência ou arraste um ficheiro de imagem para a seção. Arraste o canto de uma imagem para a redimensionar (as suas proporções são mantidas) e selecione-a para a alinhar à esquerda, ao centro ou à direita a partir da barra de ferramentas. São aceites PNG, JPEG, GIF e WebP, até 5 MB por imagem; SVG não.
+
+As imagens aparecem na pré-visualização, na cópia PDF / impressa e na exportação para Word, bem como no [Histórico](#soaw-collaboration), onde **Alterações** assinala uma imagem adicionada ou removida como *[Imagem]*. Uma revisão e uma versão restaurada mantêm as suas imagens. Só são mantidas as imagens carregadas num SoAW: uma imagem que aponta para outro site é removida quando o documento é guardado. Os comentários na discussão não aceitam imagens, e os controlos de imagem desaparecem quando um administrador [desligou o carregamento de ficheiros](../admin/resources.md#when-file-uploads-are-disabled). A descrição completa está no guia de GRC: [Imagens](grc.md#decision-pictures).
 
 ### Fluxo de Assinatura
 

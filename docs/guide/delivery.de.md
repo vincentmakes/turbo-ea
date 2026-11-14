@@ -62,6 +62,7 @@ Der Editor bietet:
 - **Abschnittsvorlagen** — Vordefinierte Abschnitte gemäß TOGAF-Standards (z.B. Problembeschreibung, Ziele, Ansatz, Stakeholder, Einschränkungen, Arbeitsplan)
 - **Inline bearbeitbare Tabellen** — Tabellen in jedem Abschnitt hinzufügen und bearbeiten
 - **Erwähnungen** — geben Sie **@** in den Text eines Abschnitts ein, um eine Karte oder eine Entscheidung zu erwähnen (siehe [Diskussion, Erwähnungen und Verlauf](#soaw-collaboration))
+- **Bilder** — fügen Sie einen Screenshot oder ein Diagramm in den Text eines Abschnitts ein (siehe [Bilder](#soaw-pictures))
 - **Dokumentversionshistorie** — eine Tabelle, die die Autoren von Hand ausfüllen (Version, Datum, überarbeitet von, Beschreibung). Sie ist Teil des Dokuments und nicht die Ansicht [Verlauf](#soaw-collaboration)
 - **Status-Workflow** — Dokumente durchlaufen definierte Phasen:
 
@@ -71,6 +72,12 @@ Der Editor bietet:
 | **In Überprüfung** | Zur Unterschrift gesendet — gesperrt, bis die Unterschriften zurückgerufen werden |
 | **Genehmigt** | Überprüft und akzeptiert |
 | **Unterschrieben** | Formal abgezeichnet |
+
+### Bilder {: #soaw-pictures }
+
+Der Text eines Abschnitts kann Bilder enthalten, wie der einer Entscheidung. Klicken Sie in der Symbolleiste des Abschnitts auf **Bild einfügen** und wählen Sie eine Datei, fügen Sie ein Bild aus der Zwischenablage ein oder ziehen Sie eine Bilddatei auf den Abschnitt. Ziehen Sie an der Ecke eines Bildes, um seine Größe zu ändern (seine Proportionen bleiben erhalten), und wählen Sie es aus, um es über die Symbolleiste links, zentriert oder rechts auszurichten. PNG, JPEG, GIF und WebP werden akzeptiert, bis zu 5 MB pro Bild; SVG nicht.
+
+Bilder erscheinen in der Vorschau, in der PDF-/Druckfassung und im Word-Export sowie im [Verlauf](#soaw-collaboration), wo **Änderungen** ein hinzugefügtes oder entferntes Bild als *[Bild]* markiert. Eine Revision und eine wiederhergestellte Version behalten ihre Bilder. Nur Bilder, die zu einem SoAW hochgeladen wurden, bleiben erhalten: Ein Bild, das auf eine andere Website verweist, wird beim Speichern des Dokuments entfernt. Kommentare in der Diskussion nehmen keine Bilder auf, und die Bild-Steuerelemente verschwinden, wenn ein Administrator [Datei-Uploads deaktiviert](../admin/resources.md#when-file-uploads-are-disabled) hat. Die vollständige Beschreibung steht im GRC-Leitfaden: [Bilder](grc.md#decision-pictures).
 
 ### Abzeichnungsworkflow
 

@@ -14,8 +14,8 @@ Eksporten fanger hele arbejdsområdet som et `.zip`-bundt, der indeholder én Ex
 - **Brugere** — e-mail, visningsnavn, rolle og aktiv-flag (bruges til at genlinke ejerskab og tildelinger på målet). Ingen adgangskoder eller SSO-identiteter.
 - **Inventar** — hvert kort (med dets hierarki, livscyklus og egenskaber), kort-tags og relationer.
 - **Kort-kontekst** — interessenter, dokumentlinks, kommentarer, todos og filvedhæftninger.
-- **Moduldata** — BPM (procesdiagrammer, elementer, flow-versioner, vurderinger), PPM (statusrapporter, omkostninger, budgetter, risici, opgaver, WBS, afhængigheder), GRC-risikoregistret (risici, afhjælpningsopgaver og forekomster, kort-links), GRC-compliance-fund (med de analysekørsler, de refererer til), arkitekturbeslutninger og Statements of Architecture Work, fritegnede diagrammer, gemte rapporter, bogmærker (gemte inventarvisninger, inklusive deres delinger), webportaler og spørgeundersøgelser.
-- **Aktiver** — binære filvedhæftninger, diagram- og BPMN-XML samt logoet/favicon rejser som separate filer inde i bundtets `assets/`-mappe.
+- **Moduldata** — BPM (procesdiagrammer, elementer, flow-versioner, vurderinger), PPM (statusrapporter, omkostninger, budgetter, risici, opgaver, WBS, afhængigheder), GRC-risikoregistret (risici, afhjælpningsopgaver og forekomster, kort-links), GRC-compliance-fund (med de analysekørsler, de refererer til), arkitekturbeslutninger og Statements of Architecture Work (med billederne i deres tekst), fritegnede diagrammer, gemte rapporter, bogmærker (gemte inventarvisninger, inklusive deres delinger), webportaler og spørgeundersøgelser.
+- **Aktiver** — binære filvedhæftninger, billeder i beslutnings- og SoAW-tekst, diagram- og BPMN-XML samt logoet/favicon rejser som separate filer inde i bundtets `assets/`-mappe.
 
 ## Hvad er aldrig inkluderet
 

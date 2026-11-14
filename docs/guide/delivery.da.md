@@ -62,6 +62,7 @@ Editoren tilbyder:
 - **Sektions­skabeloner** — Foruddefinerede sektioner, der følger TOGAF-standarder (f.eks. Problembeskrivelse, Mål, Tilgang, Interessenter, Begrænsninger, Arbejdsplan)
 - **Indlejret redigerbare tabeller** — Tilføj og rediger tabeller inden for en sektion
 - **Omtaler** — skriv **@** i en sektions tekst for at omtale et kort eller en beslutning (se [Diskussion, omtaler og historik](#soaw-collaboration))
+- **Billeder** — indsæt et skærmbillede eller et diagram i en sektions tekst (se [Billeder](#soaw-pictures))
 - **Dokumentets versionshistorik** — en tabel, som forfatterne udfylder i hånden (version, dato, revideret af, beskrivelse). Den er en del af dokumentet og er ikke visningen [Historik](#soaw-collaboration)
 - **Status­arbejdsproces** — Dokumenter bevæger sig gennem definerede stadier:
 
@@ -71,6 +72,12 @@ Editoren tilbyder:
 | **In Review** | Sendt til underskrift — låst, indtil underskrifterne tilbagekaldes |
 | **Approved** | Gennemgået og accepteret |
 | **Signed** | Formelt underskrevet |
+
+### Billeder {: #soaw-pictures }
+
+En sektions tekst kan indeholde billeder, ligesom en beslutnings. Klik på **Indsæt billede** i sektionens værktøjslinje og vælg en fil, indsæt et billede fra udklipsholderen, eller træk en billedfil hen på sektionen. Træk i et billedes hjørne for at ændre størrelsen (proportionerne bevares), og markér det for at venstrejustere, centrere eller højrejustere det fra værktøjslinjen. PNG, JPEG, GIF og WebP accepteres, op til 5 MB pr. billede; SVG accepteres ikke.
+
+Billeder vises i forhåndsvisningen, i PDF-/printkopien og i Word-eksporten samt i [Historik](#soaw-collaboration), hvor **Ændringer** markerer et tilføjet eller fjernet billede som *[Billede]*. En revision og en gendannet version beholder deres billeder. Kun billeder, der er uploadet til en SoAW, bevares: et billede, der linker til et andet websted, fjernes, når dokumentet gemmes. Kommentarer i diskussionen kan ikke indeholde billeder, og billedkontrollerne forsvinder, når en administrator har [slået filupload fra](../admin/resources.md#when-file-uploads-are-disabled). Den fulde beskrivelse findes i GRC-guiden: [Billeder](grc.md#decision-pictures).
 
 ### Underskrifts­arbejdsproces
 

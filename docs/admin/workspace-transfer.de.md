@@ -14,8 +14,8 @@ Der Export erfasst den vollständigen Workspace als `.zip`-Bundle, das eine Exce
 - **Benutzer** — E-Mail, Anzeigename, Rolle und Aktiv-Flag (verwendet, um Eigentümerschaft und Zuweisungen auf dem Ziel neu zu verknüpfen). Keine Passwörter oder SSO-Identitäten.
 - **Inventar** — jede Karte (mit ihrer Hierarchie, ihrem Lifecycle und ihren Attributen), Karten-Tags und Beziehungen.
 - **Karten-Kontext** — Stakeholder, Dokument-Links, Kommentare, Todos und Datei-Anhänge.
-- **Moduldaten** — BPM (Prozessdiagramme, Elemente, Flow-Versionen, Assessments), PPM (Statusberichte, Kosten, Budgets, Risiken, Aufgaben, WBS, Abhängigkeiten), das GRC-Risikoregister (Risiken, Mitigationsaufgaben und -occurrences, Kartenverknüpfungen), GRC-Compliance-Befunde (mit den Analyseläufen, auf die sie verweisen), Architektur-Entscheidungen und Statements of Architecture Work, Freihand-Diagramme, gespeicherte Berichte, Lesezeichen (gespeicherte Inventar-Ansichten, einschließlich ihrer Freigaben), Web-Portale und Umfragen.
-- **Assets** — binäre Datei-Anhänge, Diagramm- und BPMN-XML sowie Logo/Favicon reisen als separate Dateien im `assets/`-Ordner des Bundles.
+- **Moduldaten** — BPM (Prozessdiagramme, Elemente, Flow-Versionen, Assessments), PPM (Statusberichte, Kosten, Budgets, Risiken, Aufgaben, WBS, Abhängigkeiten), das GRC-Risikoregister (Risiken, Mitigationsaufgaben und -occurrences, Kartenverknüpfungen), GRC-Compliance-Befunde (mit den Analyseläufen, auf die sie verweisen), Architektur-Entscheidungen und Statements of Architecture Work (mit den Bildern in ihrem Text), Freihand-Diagramme, gespeicherte Berichte, Lesezeichen (gespeicherte Inventar-Ansichten, einschließlich ihrer Freigaben), Web-Portale und Umfragen.
+- **Assets** — binäre Datei-Anhänge, Bilder im Text von Entscheidungen und SoAWs, Diagramm- und BPMN-XML sowie Logo/Favicon reisen als separate Dateien im `assets/`-Ordner des Bundles.
 
 ## Was niemals enthalten ist
 

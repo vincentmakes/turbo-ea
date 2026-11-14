@@ -62,6 +62,7 @@ El editor proporciona:
 - **Plantillas de secciones** — Secciones predefinidas siguiendo estándares TOGAF (ej., Descripción del Problema, Objetivos, Enfoque, Partes Interesadas, Restricciones, Plan de Trabajo)
 - **Tablas editables en línea** — Agregue y edite tablas dentro de cualquier sección
 - **Menciones** — escriba **@** en el texto de una sección para mencionar una ficha o una decisión (consulte [Discusión, menciones e historial](#soaw-collaboration))
+- **Imágenes** — inserte una captura de pantalla o un diagrama en el texto de una sección (consulte [Imágenes](#soaw-pictures))
 - **Historial de Versiones del Documento** — una tabla que los autores rellenan a mano (versión, fecha, revisado por, descripción). Forma parte del documento y no es la vista [Historial](#soaw-collaboration)
 - **Flujo de estados** — Los documentos progresan a través de etapas definidas:
 
@@ -71,6 +72,12 @@ El editor proporciona:
 | **En Revisión** | Enviado para firma — bloqueado hasta que se retiren las firmas |
 | **Aprobado** | Revisado y aceptado |
 | **Firmado** | Firmado formalmente |
+
+### Imágenes {: #soaw-pictures }
+
+El texto de una sección puede contener imágenes, igual que el de una decisión. Haga clic en **Insertar imagen** en la barra de herramientas de la sección y elija un archivo, pegue una imagen desde el portapapeles o arrastre un archivo de imagen a la sección. Arrastre la esquina de una imagen para cambiar su tamaño (se mantienen sus proporciones) y selecciónela para alinearla a la izquierda, al centro o a la derecha desde la barra de herramientas. Se aceptan PNG, JPEG, GIF y WebP, hasta 5 MB por imagen; SVG no.
+
+Las imágenes aparecen en la vista previa, en la copia PDF / impresa y en la exportación a Word, así como en el [Historial](#soaw-collaboration), donde **Cambios** marca una imagen añadida o eliminada como *[Imagen]*. Una revisión y una versión restaurada conservan sus imágenes. Solo se conservan las imágenes subidas a un SoAW: una imagen que enlaza a otro sitio web se elimina al guardar el documento. Los comentarios de la discusión no admiten imágenes, y los controles de imagen desaparecen cuando un administrador ha [desactivado la carga de archivos](../admin/resources.md#when-file-uploads-are-disabled). La descripción completa está en la guía de GRC: [Imágenes](grc.md#decision-pictures).
 
 ### Flujo de Firma
 

@@ -120,6 +120,7 @@ L'editor fornisce:
 
 - Editing di testo ricco per ogni sezione (Contesto, Decisione, Conseguenze, Alternative considerate)
 - **Menzioni** — digitate **@** in una sezione per menzionare una card o un'altra decisione (vedere [Menzioni](#decision-mentions))
+- **Immagini** — inserite uno screenshot o un diagramma in una sezione (vedere [Immagini](#decision-pictures))
 - **Discussione** — un pannello accanto al documento con la sua discussione (vedere [Discussione](#decision-discussion))
 - **Cronologia** — un pulsante in cima alla pagina che apre la sequenza temporale della decisione e le sue versioni salvate (vedere [Cronologia](#decision-history))
 - Collegamento di card — collegate l'ADR alle card pertinenti (applicazioni, componenti IT, iniziative, …). Le iniziative sono collegate tramite la funzionalità standard di collegamento di card, non tramite un campo dedicato, consentendo a un ADR di fare riferimento a più iniziative
@@ -128,6 +129,18 @@ L'editor fornisce:
 - **Questa decisione…** — collegamenti tipizzati ad altre decisioni (vedere [Collegamenti tra decisioni](#decision-links))
 - **Riepilogo delle modifiche** — solo su una revisione: che cosa è cambiato in questa revisione e perché
 - **File allegati** — documenti allegati alla decisione (vedere [File allegati](#decision-files))
+
+#### Immagini {: #decision-pictures }
+
+Ognuna delle quattro sezioni può contenere immagini — uno screenshot, un diagramma esportato, la foto di una lavagna. Cliccate su **Inserisci immagine** nella barra degli strumenti della sezione e scegliete un file, incollate un'immagine dagli appunti oppure trascinate un file immagine sulla sezione. L'immagine viene caricata al momento dell'inserimento e appare su una riga a sé.
+
+- **Ridimensionare.** Trascinate l'angolo di un'immagine per ridimensionarla: le sue proporzioni vengono mantenute.
+- **Allineare.** Selezionate l'immagine e cliccate su **Allinea a sinistra**, **Allinea al centro** o **Allinea a destra** nella barra degli strumenti.
+- **Formati.** PNG, JPEG, GIF e WebP, fino a 5 MB per immagine. Un'immagine più grande viene rifiutata, non ridotta. SVG non è accettato.
+- **Dove appare.** Le immagini appaiono nell'[anteprima](#preview), nella copia PDF / stampata e nell'esportazione Word. Nella [Cronologia](#decision-history) una versione mostra le sue immagini, e **Modifiche** segnala un'immagine aggiunta o rimossa come *[Immagine]*. Una revisione, un duplicato e una versione ripristinata mantengono le immagini del testo da cui provengono.
+- **Solo immagini caricate qui.** Una decisione mantiene solo le immagini caricate nelle decisioni. Un'immagine che rimanda a un altro sito web, o una copiata da un SoAW, viene rimossa quando la decisione viene salvata.
+- **I commenti** nella [discussione](#decision-discussion) non accettano immagini.
+- **Quando il caricamento di file è disattivato.** Il pulsante **Inserisci immagine**, l'incolla e il trascinamento delle immagini scompaiono quando un amministratore ha [disattivato il caricamento di file](../admin/resources.md#when-file-uploads-are-disabled). Le immagini già presenti nel testo restano visibili.
 
 #### Date {: #decision-dates }
 
@@ -202,7 +215,7 @@ Aprite un ADR firmato e scegliete **Revisiona → Revisiona questa decisione** p
 - **Un rifiuto non conta come revisione**: il numero di revisione cambia solo quando viene creata una nuova revisione.
 - Le decisioni revisionate prima della versione 2.199.0 mantengono i numeri di riferimento con cui sono state emesse, e si leggono comunque come un'unica decisione con un'unica striscia di revisioni.
 
-#### Anteprima
+#### Anteprima {: #preview }
 
 Cliccate sull'icona di anteprima per visualizzare una versione in sola lettura e formattata dell'ADR — utile per la revisione prima della firma.
 
