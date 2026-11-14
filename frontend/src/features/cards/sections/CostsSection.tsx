@@ -112,6 +112,7 @@ export default function CostsSection({
 
   // One bar per fiscal year, the forecast on top; segments in catalogue order so
   // colours and stacking stay the same from one year to the next.
+  const used = new Set(years.flatMap((y) => y.items.map((i) => i.key)));
   const bars: CostYearBar[] = [...years].reverse().map((y) => {
     const amounts = new Map(y.items.map((i) => [i.key, i.amount]));
     return {
@@ -120,7 +121,7 @@ export default function CostsSection({
       confirmed: y.confirmed,
       total: y.tco,
       segments: data.catalogue
-        .filter((c) => amounts.has(c.key))
+        .filter((c) => used.has(c.key))
         .map((c) => ({
           key: c.key,
           label: labelOf(c.key),

@@ -26,6 +26,8 @@ import { api, ApiError } from "@/api/client";
 import i18n from "@/i18n";
 import { echartState } from "@/test/echartMock";
 import { installResizeObserver } from "@/test/dom";
+import { CATEGORICAL_COLORS, RAG_COLORS, STATUS_COLORS } from "@/theme/tokens";
+import { alpha } from "@mui/material/styles";
 import { toIsoDate } from "@/lib/dates";
 import type { CardCostsResponse, YearCosts } from "@/types";
 import CostsSection from "./CostsSection";
@@ -213,13 +215,69 @@ describe("CostsSection", () => {
     expect(getComputedStyle(chart.parentElement!).overflow).not.toBe("hidden");
   });
 
-  it("has no previous / next year buttons any more", async () => {
+  it("has no previous / next year buttons of its own any more", async () => {
     mockGet(response());
     renderSection();
     await screen.findByRole("slider");
-    // the slider's own arrows are named from common.fiscalYearTimeTravel, never costs.*
+    // only the Time Travel slider's two arrows remain
+    expect(screen.queryAllByRole("button", { name: /previous|next/i })).toHaveLength(2);
     expect(i18n.exists("costs.previousYear", { ns: "cards" })).toBe(false);
     expect(i18n.exists("costs.nextYear", { ns: "cards" })).toBe(false);
+  });
+
+  it("prints each year's server TCO at the end of its bar, not the sum of its segments", async () => {
+    mockGet(response());
+    renderSection();
+    await screen.findByRole("slider");
+    const total = chartOption().series.at(-1);
+    expect(total.data[0].label.formatter()).toBe("EUR 150"); // FY27: tco 150, items sum 100
+    expect(total.data[1].label.formatter()).toBe("EUR 180"); // FY26
+  });
+
+  it("draws an unconfirmed selected year at 0.55 and the other years at 0.45", async () => {
+    mockGet(response());
+    renderSection();
+    await screen.findByRole("slider");
+    await goTo(2027);
+    const opacities = chartOption().series[0].data.map(
+      (d: { itemStyle: { opacity: number } }) => d.itemStyle.opacity,
+    );
+    expect(opacities).toEqual([0.55, 0.45, 0.45, 0.45, 0.45, 0.45]);
+  });
+
+  it("stacks the items in catalogue order whatever the year holds", async () => {
+    mockGet(
+      response({
+        catalogue: catalogue().slice(0, 2), // lic, sup
+        years: [2022, 2023, 2024, 2025, 2026, 2027].map((fy) =>
+          fy === FY + 1
+            ? year(fy, { items: [{ key: "sup", amount: 7, renewal_date: null, archived: false }] })
+            : fy === FY
+              ? year(fy, { items: [{ key: "lic", amount: 5, renewal_date: null, archived: false }] })
+              : year(fy),
+        ),
+      }),
+    );
+    renderSection();
+    await screen.findByRole("slider");
+    expect(chartOption().series.map((s: { name: string }) => s.name)).toEqual([
+      "Licences",
+      "Support",
+      "",
+    ]);
+  });
+
+  it("colours the segments, tints the selected row and skips items no year uses", async () => {
+    mockGet(response());
+    renderSection();
+    await screen.findByRole("slider");
+    const { series } = chartOption();
+    const by = (name: string) => series.find((s: { name: string }) => s.name === name);
+    expect(by("Licences").itemStyle.color).toBe(CATEGORICAL_COLORS[0]);
+    expect(by("Support").itemStyle.color).toBe(CATEGORICAL_COLORS[1]);
+    expect(by("Legacy").itemStyle.color).toBe(STATUS_COLORS.neutral); // archived: grey
+    expect(by("Cloud")).toBeUndefined(); // in the catalogue, in no year
+    expect(series.at(-1).markArea.itemStyle.color).toBe(alpha(RAG_COLORS.green, 0.12));
   });
 
   it("shows the fallback banner of an unconfirmed year and confirms it", async () => {
