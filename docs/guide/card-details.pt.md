@@ -121,10 +121,10 @@ Campos marcados como **calculados** mostram um badge e não podem ser editados m
 
 ### Seção de Custos (Aplicação e Componente de TI)
 
-As Aplicações e os Componentes de TI registam o seu custo como uma lista de **itens de custo** (por exemplo licenças, alojamento, suporte), e não como um único número digitado. A seção **Custos** mostra um ano fiscal de cada vez, com um navegador **‹ ›** ao longo de seis anos: os quatro anteriores ao atual, o atual e o **Forecast**.
+As Aplicações e os Componentes de TI registam o seu custo como uma lista de **itens de custo** (por exemplo licenças, alojamento, suporte), e não como um único número digitado. Uma linha verde **Time Travel** no topo da seção **Custos** percorre seis anos fiscais: os quatro anteriores ao atual, o atual e o **Forecast**. Abaixo, uma barra empilhada por ano fiscal mostra como cada ano se divide pelos itens, com o Forecast no topo, o ano mais antigo na base e o total do ano no fim da barra. O ano selecionado fica realçado e os restantes esbatidos.
 
 - **TCO** — O custo total de propriedade do ano é a soma dos seus itens. Nunca é digitado à mão.
-- **Gráfico e blocos** — Uma barra empilhada mostra como o TCO se distribui pelos itens. Cada item tem um bloco com o seu **montante anual** e a **data de renovação**; uma renovação nos próximos 90 dias é mostrada a laranja. Os custos são sempre anuais.
+- **Gráfico e blocos** — Os blocos mostram apenas o ano selecionado. Cada item tem um bloco com o seu **montante anual** e a **data de renovação**; uma renovação nos próximos 90 dias é mostrada a laranja. Os custos são sempre anuais.
 - **Adicionar e editar** — Um item é adicionado, editado ou eliminado numa caixa de diálogo. Os itens vêm do catálogo que um administrador gere em [Metamodelo → Itens de custo](../admin/metamodel.md#itens-de-custo).
 - **Copiar para Forecast** — Copia os itens do ano que está a ver para o ano Forecast, para iniciar um plano a partir dos valores atuais.
 
@@ -136,7 +136,7 @@ O campo **Custo anual total** (`costTotalAnnual`) do card é derivado dos itens 
 
 ### Seção de Licenças (Aplicação e Componente de TI)
 
-A seção **Licenciamento** regista, ano a ano, quantas licenças o card tem contratadas e quantas são realmente usadas. Fica junto dos Custos e tem o mesmo navegador **‹ ›** ao longo de seis anos: os quatro anteriores ao atual, o atual e o **Forecast**. As métricas que o card acompanha (**Utilizadores**, **Instalações**) vêm do seu **Modelo de licenciamento**, mostrado no topo da secção. Quem pode editar o card altera-o com **Editar**: marque **Utilizadores** e/ou **Instalações** e depois **Guardar**. O modelo não aparece entre os restantes campos do card.
+A seção **Licenciamento** regista, ano a ano, quantas licenças o card tem contratadas e quantas são realmente usadas. Fica junto dos Custos e tem a mesma linha verde **Time Travel** ao longo de seis anos: os quatro anteriores ao atual, o atual e o **Forecast**. As métricas que o card acompanha (**Utilizadores**, **Instalações**) vêm do seu **Modelo de licenciamento**, mostrado no topo da secção. Quem pode editar o card altera-o com **Editar**: marque **Utilizadores** e/ou **Instalações** e depois **Guardar**. O modelo não aparece entre os restantes campos do card.
 
 ![Seção de Licenças](../assets/img/en/104_card_licensing.png)
 

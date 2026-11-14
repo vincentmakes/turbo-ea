@@ -165,7 +165,7 @@ El **Informe de Costos** proporciona un análisis financiero de su panorama tecn
 - **Vista de mapa de árbol** — Rectángulos anidados dimensionados por costo, con agrupación opcional (por ejemplo, por organización o capacidad)
 - **Vista de gráfico de barras** — Comparación de costos entre componentes
 - **Vista Sankey** — El mismo informe dibujado como un flujo de costes (véase [Vista Sankey](#sankey-view))
-- **Tipo de tarjeta** — Elija el tipo de tarjeta sobre el que se construye el informe: **Aplicación**, **Componente TI** o **Aplicación + Componente TI** (ambos tipos en un mismo gráfico, cada tarjeta con su propio coste). Las iniciativas ya no forman parte del informe de costes.
+- **Tipo de tarjeta** — Dos botones de alternancia, **Aplicación** y **Componente TI**. Pulse uno para construir el informe en torno a ese tipo, o mantenga ambos pulsados para **Aplicación + Componente TI** (ambos tipos en un mismo gráfico, cada ficha con su propio coste). Siempre queda al menos un botón activo, así que para pasar de un tipo al otro, pulse primero el otro botón y después suelte el primero. No se ofrece un tipo que usted no puede leer. Las iniciativas ya no forman parte del informe de costes.
 - **Tipo de coste** — Elija qué se suma: **TCO** (el total de todas las partidas de coste de cada tarjeta) o cualquier partida de coste individual del catálogo. Para la opción combinada solo se ofrecen los tipos de coste que existen en ambos tipos.
 
 Todas las vistas comparten la misma barra de herramientas, los mismos filtros, el mismo año fiscal y el mismo tipo de coste, de modo que cambiar de vista solo cambia el dibujo.
@@ -189,7 +189,7 @@ Las tarjetas sin valor, o sin tarjeta vinculada, van al grupo **Unspecified**. P
 
 ### Año fiscal
 
-Los costes son anuales, por lo que el informe se elabora para un **año fiscal** cada vez. Un selector **Año fiscal** en la barra de herramientas ofrece seis entradas, la más reciente primero:
+Los costes son anuales, por lo que el informe se elabora para un **año fiscal** cada vez. Una fila verde **Time Travel** entre los filtros y los mosaicos de resumen recorre los años fiscales: arrastre el control, pulse un año en la pista, use las teclas de flecha o los botones anterior y siguiente. Ofrece seis pasos, el más antiguo a la izquierda:
 
 | Entrada | Qué muestra |
 |---|---|
@@ -197,7 +197,7 @@ Los costes son anuales, por lo que el informe se elabora para un **año fiscal**
 | **FY26 - Current** | El año fiscal actual, a partir de los atributos de coste vigentes de las tarjetas. Es el valor predeterminado. |
 | **FY25** … **FY22** | Los cuatro años fiscales anteriores al actual, a partir de los costes registrados para ellos. |
 
-Un año fiscal se llama **FY** más las dos últimas cifras del año en que **termina**, sea cual sea el mes en que empiece su año fiscal: un año fiscal que va de julio de 2025 a junio de 2026 es **FY26**. Un chip en la barra de herramientas repite la selección, por ejemplo **Año fiscal: FY26 - Current**. *Current* y *Forecast* no se traducen.
+Un año fiscal se llama **FY** más las dos últimas cifras del año en que **termina**, sea cual sea el mes en que empiece su año fiscal: un año fiscal que va de julio de 2025 a junio de 2026 es **FY26**. La fila indica el año seleccionado, por ejemplo **FY26 - Current**, y etiqueta cada paso **FY22** … **FY27**. *Current* y *Forecast* no se traducen.
 
 **Los costes de Aplicaciones y Componentes de TI proceden de las partidas de coste de la ficha.** Cada partida del catálogo (incluidas las archivadas) es un componente de coste propio en el mapa de árbol, el Sankey, la tendencia y la tabla, y el Forecast es el año Forecast de la [sección de Costes](card-details.md#sección-de-costes-aplicación-y-componente-de-ti) de la ficha. Para los demás tipos de ficha (Iniciativa, Proveedor), el próximo año fiscal se introduce a mano en el historial de costes de la ficha, lo que requiere el mismo permiso que registrar un año pasado. Cuando ese año pasa a ser el actual, el informe lee en su lugar los atributos en vivo, y la cifra en vivo de la ficha sustituye a la escrita.
 
@@ -270,7 +270,7 @@ El botón de pantalla completa del mapa de árbol y del Sankey hace que el gráf
 
 El **Informe de Licencias** (**Informes → Licencias**) compara, para cada Aplicación o Componente de TI, las licencias contratadas con las realmente usadas, y señala un exceso. Requiere el permiso `licenses.view`. Los datos se introducen en la [sección de Licencias](card-details.md#sección-de-licencias-aplicación-y-componente-de-ti) de cada ficha o se importan desde Excel.
 
-La barra de herramientas elige el **tipo de ficha** (Aplicación o Componente de TI, uno cada vez), la **métrica** (**Usuarios** o **Instalaciones**), el **tipo de licencia** (todos, o una entrada del catálogo), la **agrupación**, el **año fiscal** y el alcance de las fichas. Solo se listan las fichas cuyo campo **Modelo de licencias** incluye la métrica seleccionada. Cuatro mosaicos arriba cuentan las fichas **Conformes**, **Cerca del límite**, **Sobrelicenciadas** o **Sin datos reales** en el año seleccionado.
+La barra de herramientas elige el **tipo de ficha** (Aplicación o Componente de TI, uno cada vez), la **métrica** (**Usuarios** o **Instalaciones**), el **tipo de licencia** (todos, o una entrada del catálogo), la **agrupación** y el alcance de las fichas. El **año fiscal** se elige con la misma fila verde **Time Travel** que en el informe de costes, sin el año Forecast. Solo se listan las fichas cuyo campo **Modelo de licencias** incluye la métrica seleccionada. Cuatro mosaicos arriba cuentan las fichas **Conformes**, **Cerca del límite**, **Sobrelicenciadas** o **Sin datos reales** en el año seleccionado.
 
 **Tendencia** — Sobre la vista, un gráfico muestra las cantidades licenciadas frente a las reales del año actual, los cuatro anteriores y el año **Forecast** (solo licenciado), apiladas por tipo de licencia. Sigue el filtro de tipo de licencia, el alcance y cualquier desglose.
 

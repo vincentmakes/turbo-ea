@@ -165,7 +165,7 @@ Il **Report Costi** fornisce un'analisi finanziaria del vostro panorama tecnolog
 - **Vista treemap** — Rettangoli annidati dimensionati per costo, con raggruppamento opzionale (es. per organizzazione o capability)
 - **Vista grafico a barre** — Confronto dei costi tra componenti
 - **Vista Sankey** — Lo stesso report disegnato come flusso di costo (vedi [Vista Sankey](#sankey-view))
-- **Tipo di scheda** — Scegliete il tipo di scheda su cui costruire il report: **Applicazione**, **Componente IT** o **Applicazione + Componente IT** (entrambi i tipi in un solo grafico, ogni scheda con il proprio costo). Le iniziative non fanno più parte del report dei costi.
+- **Tipo di scheda** — Due pulsanti a commutazione, **Applicazione** e **Componente IT**. Premetene uno per costruire il report attorno a quel tipo, oppure teneteli premuti entrambi per **Applicazione + Componente IT** (entrambi i tipi in un solo grafico, ogni scheda con il proprio costo). Almeno un pulsante resta sempre attivo: per passare da un tipo all'altro, premete prima l'altro pulsante e poi rilasciate il primo. Un tipo che non potete leggere non viene proposto. Le iniziative non fanno più parte del report dei costi.
 - **Tipo di costo** — Scegliete cosa viene sommato: **TCO** (il totale di tutte le voci di costo di ogni scheda) o una qualsiasi singola voce di costo del catalogo. Per l'opzione combinata sono offerti solo i tipi di costo presenti in entrambi i tipi.
 
 Tutte le viste condividono la stessa barra degli strumenti, gli stessi filtri, lo stesso anno fiscale e lo stesso tipo di costo, quindi cambiare vista modifica solo il disegno.
@@ -189,7 +189,7 @@ Le schede senza valore, o senza scheda collegata, vanno nel gruppo **Unspecified
 
 ### Anno fiscale
 
-I costi sono annuali, quindi il report viene costruito per un **anno fiscale** alla volta. Un selettore **Anno fiscale** nella barra degli strumenti offre sei voci, dalla più recente:
+I costi sono annuali, quindi il report viene costruito per un **anno fiscale** alla volta. Una riga verde **Time Travel** tra i filtri e le tessere di riepilogo scorre gli anni fiscali: trascinate il cursore, premete un anno sulla barra, usate i tasti freccia o i pulsanti precedente e successivo. Offre sei passi, dal più vecchio a sinistra:
 
 | Voce | Cosa mostra |
 |---|---|
@@ -197,7 +197,7 @@ I costi sono annuali, quindi il report viene costruito per un **anno fiscale** a
 | **FY26 - Current** | L'anno fiscale corrente, dagli attributi di costo attuali delle schede. È il valore predefinito. |
 | **FY25** … **FY22** | I quattro anni fiscali precedenti quello corrente, dai costi registrati per essi. |
 
-Un anno fiscale si chiama **FY** più le ultime due cifre dell'anno in cui **termina**, qualunque sia il mese in cui inizia il vostro anno fiscale: un anno fiscale da luglio 2025 a giugno 2026 è **FY26**. Un chip nella barra degli strumenti ripete la selezione, ad esempio **Anno fiscale: FY26 - Current**. *Current* e *Forecast* non vengono tradotti.
+Un anno fiscale si chiama **FY** più le ultime due cifre dell'anno in cui **termina**, qualunque sia il mese in cui inizia il vostro anno fiscale: un anno fiscale da luglio 2025 a giugno 2026 è **FY26**. La riga indica l'anno selezionato, ad esempio **FY26 - Current**, ed etichetta ogni passo **FY22** … **FY27**. *Current* e *Forecast* non vengono tradotti.
 
 **I costi di Applicazioni e Componenti IT provengono dalle elementi di costo della card.** Ogni elemento del catalogo (comprese quelle archiviate) è una componente di costo a sé nella treemap, nel Sankey, nel trend e nella tabella, e il Forecast è l'anno Forecast della [sezione Costi](card-details.md#sezione-costi-applicazione-e-componente-it) della card. Per gli altri tipi di card (Iniziativa, Fornitore) l'anno fiscale successivo si inserisce a mano nella cronologia dei costi della card, il che richiede lo stesso permesso della registrazione di un anno passato. Quando quell'anno diventa quello corrente, il report legge invece gli attributi live, e la cifra live della card sostituisce quella digitata.
 
@@ -270,7 +270,7 @@ Il pulsante schermo intero sulla treemap e sul Sankey fa occupare al grafico tut
 
 Il **Report Licenze** (**Report → Licenze**) confronta, per ogni Applicazione o Componente IT, le licenze a contratto con quelle realmente utilizzate e segnala un superamento. Richiede il permesso `licenses.view`. I dati si inseriscono nella [sezione Licenze](card-details.md#sezione-licenze-applicazione-e-componente-it) di ogni scheda o si importano da Excel.
 
-La barra degli strumenti sceglie il **tipo di scheda** (Applicazione o Componente IT, uno alla volta), la **metrica** (**Utenti** o **Installazioni**), il **tipo di licenza** (tutti, o una voce del catalogo), il **raggruppamento**, l'**anno fiscale** e l'ambito delle schede. Sono elencate solo le schede il cui campo **Modello di licenza** include la metrica selezionata. Quattro tessere in alto contano le schede **Conformi**, **Vicine al limite**, **Sovralicenziate** o **Senza dati effettivi** nell'anno selezionato.
+La barra degli strumenti sceglie il **tipo di scheda** (Applicazione o Componente IT, uno alla volta), la **metrica** (**Utenti** o **Installazioni**), il **tipo di licenza** (tutti, o una voce del catalogo), il **raggruppamento** e l'ambito delle schede. L'**anno fiscale** si sceglie con la stessa riga verde **Time Travel** del report dei costi, senza l'anno Forecast. Sono elencate solo le schede il cui campo **Modello di licenza** include la metrica selezionata. Quattro tessere in alto contano le schede **Conformi**, **Vicine al limite**, **Sovralicenziate** o **Senza dati effettivi** nell'anno selezionato.
 
 **Andamento** — Sopra la vista, un grafico mostra le quantità in licenza rispetto a quelle effettive per l'anno corrente, i quattro precedenti e l'anno **Forecast** (solo in licenza), impilate per tipo di licenza. Segue il filtro del tipo di licenza, l'ambito e qualsiasi approfondimento.
 

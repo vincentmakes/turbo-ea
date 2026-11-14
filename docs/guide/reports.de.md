@@ -165,7 +165,7 @@ Der **Kostenbericht** bietet eine finanzielle Analyse Ihrer Technologielandschaf
 - **Treemap-Ansicht** — Verschachtelte Rechtecke, nach Kosten dimensioniert, mit optionaler Gruppierung (z.B. nach Organisation oder Fähigkeit)
 - **Balkendiagramm-Ansicht** — Kostenvergleich über Komponenten hinweg
 - **Sankey-Ansicht** — Derselbe Bericht als Kostenfluss gezeichnet (siehe [Sankey-Ansicht](#sankey-view))
-- **Kartentyp** — Wählen Sie, um welchen Kartentyp der Bericht aufgebaut wird: **Anwendung**, **IT-Komponente** oder **Anwendung + IT-Komponente** (beide Typen in einem Diagramm, jede Karte mit ihren eigenen Kosten). Initiativen sind nicht mehr Teil des Kostenberichts.
+- **Kartentyp** — Zwei Umschalter, **Anwendung** und **IT-Komponente**. Drücken Sie einen, um den Bericht um diesen Typ aufzubauen, oder lassen Sie beide gedrückt für **Anwendung + IT-Komponente** (beide Typen in einem Diagramm, jede Karte mit ihren eigenen Kosten). Mindestens ein Umschalter bleibt immer aktiv: Um von einem Typ zum anderen zu wechseln, drücken Sie zuerst den anderen Umschalter und lösen dann den ersten. Ein Typ, den Sie nicht lesen dürfen, wird nicht angeboten. Initiativen sind nicht mehr Teil des Kostenberichts.
 - **Kostenart** — Wählen Sie, was summiert wird: **TCO** (die Summe aller Kostenelemente jeder Karte) oder ein einzelnes Kostenelement des Katalogs. Für die kombinierte Option werden nur die Kostenarten angeboten, die in beiden Typen vorhanden sind.
 
 Alle Ansichten teilen sich dieselbe Werkzeugleiste, dieselben Filter, dasselbe Geschäftsjahr und dieselbe Kostenart; ein Wechsel der Ansicht ändert also nur die Darstellung.
@@ -189,7 +189,7 @@ Karten ohne Wert oder ohne verknüpfte Karte kommen in die Gruppe **Unspecified*
 
 ### Geschäftsjahr
 
-Kosten sind jährlich, daher wird der Bericht jeweils für ein **Geschäftsjahr** erstellt. Eine Auswahl **Geschäftsjahr** in der Werkzeugleiste bietet sechs Einträge, der neueste zuerst:
+Kosten sind jährlich, daher wird der Bericht jeweils für ein **Geschäftsjahr** erstellt. Eine grüne **Time Travel**-Zeile zwischen den Filtern und den Zusammenfassungskacheln bewegt sich über die Geschäftsjahre: Ziehen Sie den Griff, drücken Sie auf ein Jahr in der Leiste, nutzen Sie die Pfeiltasten oder die Schaltflächen „Zurück“ und „Weiter“. Sie bietet sechs Schritte, der älteste links:
 
 | Eintrag | Was angezeigt wird |
 |---|---|
@@ -197,7 +197,7 @@ Kosten sind jährlich, daher wird der Bericht jeweils für ein **Geschäftsjahr*
 | **FY26 - Current** | Das aktuelle Geschäftsjahr, aus den Live-Kostenattributen der Karten. Das ist die Vorgabe. |
 | **FY25** … **FY22** | Die vier Geschäftsjahre vor dem aktuellen, aus den dafür erfassten Kosten. |
 
-Ein Geschäftsjahr heißt **FY** plus die letzten zwei Ziffern des Jahres, in dem es **endet**, unabhängig davon, in welchem Monat Ihr Geschäftsjahr beginnt: Ein Geschäftsjahr von Juli 2025 bis Juni 2026 ist **FY26**. Ein Chip in der Werkzeugleiste wiederholt die Auswahl, zum Beispiel **Geschäftsjahr: FY26 - Current**. *Current* und *Forecast* werden nicht übersetzt.
+Ein Geschäftsjahr heißt **FY** plus die letzten zwei Ziffern des Jahres, in dem es **endet**, unabhängig davon, in welchem Monat Ihr Geschäftsjahr beginnt: Ein Geschäftsjahr von Juli 2025 bis Juni 2026 ist **FY26**. Die Zeile nennt das gewählte Jahr, zum Beispiel **FY26 - Current**, und beschriftet jeden Schritt mit **FY22** … **FY27**. *Current* und *Forecast* werden nicht übersetzt.
 
 **Die Kosten von Anwendungen und IT-Komponenten stammen aus den Kostenelementen der Karte.** Jedes Katalogelement (auch archivierte) ist im Treemap, im Sankey, im Trend und in der Tabelle eine eigene Kostenkomponente, und das Forecast ist das Forecast-Jahr des [Kostenabschnitts](card-details.md#kostenabschnitt-anwendung-und-it-komponente) der Karte. Für andere Kartentypen (Initiative, Anbieter) wird das nächste Geschäftsjahr von Hand im Kostenverlauf der Karte eingegeben, wofür dieselbe Berechtigung nötig ist wie für ein vergangenes Jahr. Wird dieses Jahr zum aktuellen, liest der Bericht stattdessen die Live-Attribute, und der Live-Wert der Karte ersetzt den eingegebenen.
 
@@ -270,7 +270,7 @@ Die Vollbild-Schaltfläche an der Treemap und am Sankey lässt das Diagramm in B
 
 Der **Lizenzbericht** (**Berichte → Lizenzierung**) vergleicht für jede Anwendung oder IT-Komponente die vertraglich vorhandenen mit den tatsächlich genutzten Lizenzen und meldet eine Überschreitung. Er erfordert die Berechtigung `licenses.view`. Die Daten werden im [Lizenzabschnitt](card-details.md#lizenzabschnitt-anwendung-und-it-komponente) jeder Karte erfasst oder aus Excel importiert.
 
-Die Symbolleiste wählt den **Kartentyp** (Anwendung oder IT-Komponente, jeweils einen), die **Kennzahl** (**Benutzer** oder **Installationen**), den **Lizenztyp** (alle oder ein Eintrag des Katalogs), die **Gruppierung**, das **Geschäftsjahr** und den Kartenumfang. Es werden nur Karten aufgelistet, deren Feld **Lizenzmodell** die gewählte Kennzahl enthält. Vier Kacheln oben zählen die Karten, die im gewählten Jahr **Konform**, **Nahe am Limit**, **Überlizenziert** sind oder **Keine Ist-Daten** haben.
+Die Symbolleiste wählt den **Kartentyp** (Anwendung oder IT-Komponente, jeweils einen), die **Kennzahl** (**Benutzer** oder **Installationen**), den **Lizenztyp** (alle oder ein Eintrag des Katalogs), die **Gruppierung** und den Kartenumfang. Das **Geschäftsjahr** wird mit derselben grünen **Time Travel**-Zeile gewählt wie im Kostenbericht, ohne das Forecast-Jahr. Es werden nur Karten aufgelistet, deren Feld **Lizenzmodell** die gewählte Kennzahl enthält. Vier Kacheln oben zählen die Karten, die im gewählten Jahr **Konform**, **Nahe am Limit**, **Überlizenziert** sind oder **Keine Ist-Daten** haben.
 
 **Trend** — Über der Ansicht zeigt ein Diagramm lizenzierte gegenüber tatsächlichen Mengen für das aktuelle Jahr, die vier davor und das **Forecast**-Jahr (nur lizenziert), nach Lizenztyp gestapelt. Es folgt dem Lizenztypfilter, dem Umfang und jedem Drilldown.
 

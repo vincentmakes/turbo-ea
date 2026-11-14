@@ -165,7 +165,7 @@ Skift til **lagdelt afhængighedsvisning** ved hjælp af view-mode-knapperne i v
 - **Treemap-visning** — Indlejrede rektangler størrelses-justeret efter omkostning, med valgfri gruppering (f.eks. efter organisation eller kompetence)
 - **Bar chart-visning** — Omkostnings­sammenligning på tværs af komponenter
 - **Sankey-visning** — Den samme rapport tegnet som et omkostningsflow (se [Sankey-visning](#sankey-view))
-- **Korttype** — Vælg hvilken korttype rapporten er bygget omkring: **Application**, **IT Component** eller **Application + IT Component** (begge typer i ét diagram, hvert kort med sin egen omkostning). Initiativer er ikke længere en del af omkostningsrapporten.
+- **Korttype** — To skifteknapper, **Application** og **IT Component**. Tryk på én for at bygge rapporten omkring den type, eller hold begge trykket ind for **Application + IT Component** (begge typer i ét diagram, hvert kort med sin egen omkostning). Mindst én knap forbliver altid aktiv, så for at skifte fra én type til den anden skal du først trykke på den anden knap og derefter slippe den første. En type, du ikke må læse, tilbydes ikke. Initiativer er ikke længere en del af omkostningsrapporten.
 - **Omkostningstype** — Vælg hvad der summeres: **TCO** (summen af alle omkostningsposter på hvert kort) eller en enkelt omkostningspost fra kataloget. For den kombinerede mulighed tilbydes kun de omkostningstyper, der findes i begge typer.
 
 Alle visninger deler samme værktøjslinje, filtre, regnskabsår og omkostningstype, så et skift af visning ændrer kun tegningen.
@@ -189,7 +189,7 @@ Kort uden værdi eller uden tilknyttet kort kommer i gruppen **Unspecified**. Fo
 
 ### Regnskabsår
 
-Omkostninger er årlige, så rapporten opbygges for ét **regnskabsår** ad gangen. En **Regnskabsår**-vælger i værktøjslinjen tilbyder seks valg, det nyeste først:
+Omkostninger er årlige, så rapporten opbygges for ét **regnskabsår** ad gangen. En grøn **Time Travel**-række mellem filtrene og oversigtsfliserne bevæger sig på tværs af regnskabsårene: træk i håndtaget, tryk på et år på sporet, brug piletasterne eller knapperne forrige og næste. Den tilbyder seks trin, det ældste til venstre:
 
 | Valg | Hvad det viser |
 |---|---|
@@ -197,7 +197,7 @@ Omkostninger er årlige, så rapporten opbygges for ét **regnskabsår** ad gang
 | **FY26 - Current** | Det indeværende regnskabsår, ud fra kortenes aktuelle omkostningsattributter. Det er standardvalget. |
 | **FY25** … **FY22** | De fire regnskabsår før det indeværende, ud fra de omkostninger, der er registreret for dem. |
 
-Et regnskabsår hedder **FY** plus de sidste to cifre i det år, det **slutter** i, uanset hvilken måned jeres regnskabsår starter i: Et regnskabsår fra juli 2025 til juni 2026 er **FY26**. En chip i værktøjslinjen gentager valget, for eksempel **Regnskabsår: FY26 - Current**. *Current* og *Forecast* oversættes ikke.
+Et regnskabsår hedder **FY** plus de sidste to cifre i det år, det **slutter** i, uanset hvilken måned jeres regnskabsår starter i: Et regnskabsår fra juli 2025 til juni 2026 er **FY26**. Rækken navngiver det valgte år, for eksempel **FY26 - Current**, og mærker hvert trin **FY22** … **FY27**. *Current* og *Forecast* oversættes ikke.
 
 **Omkostninger for applikationer og IT-komponenter kommer fra kortets omkostningsposter.** Hver post i kataloget (også arkiverede) er sin egen omkostningskomponent i trækortet, Sankey-diagrammet, trenden og tabellen, og Forecast er Forecast-året i kortets [omkostningssektion](card-details.md#omkostningssektion-applikation-og-it-komponent). For andre korttyper (Initiative, Udbyder) indtastes det næste regnskabsår i hånden i kortets omkostningshistorik, hvilket kræver samme tilladelse som registrering af et tidligere år. Når det år bliver det nuværende, læser rapporten i stedet de levende attributter, og kortets levende tal erstatter det indtastede.
 
@@ -270,7 +270,7 @@ Fuldskærmsknappen på treemap'et og Sankey får diagrammet til at fylde hele sk
 
 **Licensrapporten** (**Rapporter → Licensering**) sammenligner for hver applikation eller IT-komponent de licenser, der er under kontrakt, med dem, der reelt bruges, og markerer en overskridelse. Den kræver tilladelsen `licenses.view`. Dataene indtastes i [licenssektionen](card-details.md#licenssektion-applikation-og-it-komponent) på hvert kort eller importeres fra Excel.
 
-Værktøjslinjen vælger **korttype** (applikation eller IT-komponent, én ad gangen), **måling** (**Brugere** eller **Installationer**), **licenstype** (alle eller én post i kataloget), **gruppering**, **regnskabsår** og kortomfang. Kun kort, hvis felt **Licensmodel** indeholder den valgte måling, vises. Fire fliser øverst tæller kortene, der er **Kompatible**, **Tæt på grænsen**, **Overlicenserede** eller har **Ingen faktiske data** i det valgte år.
+Værktøjslinjen vælger **korttype** (applikation eller IT-komponent, én ad gangen), **måling** (**Brugere** eller **Installationer**), **licenstype** (alle eller én post i kataloget), **gruppering** og kortomfang. **Regnskabsåret** vælges med den samme grønne **Time Travel**-række som i omkostningsrapporten, uden Forecast-året. Kun kort, hvis felt **Licensmodel** indeholder den valgte måling, vises. Fire fliser øverst tæller kortene, der er **Kompatible**, **Tæt på grænsen**, **Overlicenserede** eller har **Ingen faktiske data** i det valgte år.
 
 **Tendens** — Over visningen viser et diagram licenserede mod faktiske antal for det nuværende år, de fire før og **Forecast**-året (kun licenseret), stablet efter licenstype. Det følger licenstypefilteret, omfanget og enhver nedbrydning.
 
