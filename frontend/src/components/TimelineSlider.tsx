@@ -79,14 +79,16 @@ interface TimelineSliderProps {
    *  how many cards arrive and how many retire. Rendered as two chips in the
    *  label row while travelling forward. Omit to show none. */
   delta?: { arriving: number; retiring: number };
-  /** Discrete mode (length >= 2): the slider moves only between these values,
+  /** Discrete mode (length >= 2, in ascending order: min is the first, max the last,
+   *  and prev/next rely on it): the slider moves only between these values,
    *  every one labelled, and the prev/next buttons walk them. `dateRange` and
    *  `yearMarks` are ignored (pass `{ min: first, max: last }` and `[]`); the
    *  today / past / future chips, transition marks and delta are not rendered. */
   steps?: { value: number; label: string }[];
   /** Replaces the past / future / primary accent. */
   accentColor?: string;
-  /** The read-out and `aria-valuetext`. Steps mode falls back to the step label. */
+  /** The read-out and `aria-valuetext`. Steps mode only (ignored in date mode);
+   *  falls back to the step label. */
   valueText?: string;
   /** Accessible names and tooltips of the step buttons (default: previous / next change). */
   previousLabel?: string;
@@ -244,7 +246,8 @@ export default function TimelineSlider({
   const trackRef = useRef<HTMLDivElement>(null);
   const trackWidth = useMeasuredWidth(trackRef);
   const responsiveMarks = useResponsiveMarks(cappedMarks, cappedRange, trackWidth);
-  const isSteps = (steps?.length ?? 0) >= 2;
+  const stepList = steps && steps.length >= 2 ? steps : [];
+  const isSteps = stepList.length > 0;
   const milestoneClusters = useMilestoneClusters(
     isSteps ? [] : (milestones ?? []),
     cappedRange,
@@ -309,7 +312,7 @@ export default function TimelineSlider({
   // so say the span rather than a single day — a read-out of "Jun 1" beside a
   // view that already includes a 1 September go-live is the same disagreement
   // this mark's tooltip has always avoided.
-  const stepLabel = steps?.find((s) => s.value === value)?.label ?? String(value);
+  const stepLabel = stepList.find((s) => s.value === value)?.label ?? String(value);
   const readout = isSteps
     ? (valueText ?? stepLabel)
     : activeCluster
@@ -317,8 +320,8 @@ export default function TimelineSlider({
       : fmtFull(value);
 
   // Neighbouring steps, by value so an off-step value still has both sides.
-  const prevStep = isSteps ? ([...steps!].reverse().find((s) => s.value < value) ?? null) : null;
-  const nextStep = isSteps ? (steps!.find((s) => s.value > value) ?? null) : null;
+  const prevStep = isSteps ? ([...stepList].reverse().find((s) => s.value < value) ?? null) : null;
+  const nextStep = isSteps ? (stepList.find((s) => s.value > value) ?? null) : null;
 
   // Step-through targets are the marks AS DRAWN — the pixel clusters, not the
   // raw per-date milestones behind them. A merged mark is one thing on screen
@@ -540,11 +543,11 @@ export default function TimelineSlider({
           <Box ref={trackRef}>
             <Slider
               value={thumbValue}
-              min={isSteps ? steps![0].value : cappedRange.min}
-              max={isSteps ? steps![steps!.length - 1].value : cappedRange.max}
+              min={isSteps ? stepList[0].value : cappedRange.min}
+              max={isSteps ? stepList[stepList.length - 1].value : cappedRange.max}
               step={isSteps ? null : ONE_DAY_MS}
               track={false}
-              marks={isSteps ? steps : responsiveMarks}
+              marks={isSteps ? stepList : responsiveMarks}
               onChange={(_, v) => onChange(isSteps ? (v as number) : snapToCluster(v as number))}
               valueLabelDisplay={isSteps ? "off" : "auto"}
               valueLabelFormat={fmtTip}

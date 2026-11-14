@@ -706,15 +706,16 @@ describe("TimelineSlider steps mode", () => {
   });
 
   it("moves only between steps", () => {
-    const { onChange } = renderSteps(2022);
+    // Uneven gaps: a plain step of 1 would land on 2023, not the next step.
+    const uneven = [2022, 2024, 2027].map((y) => ({ value: y, label: `FY${y}` }));
+    const { onChange } = renderSteps(2022, { steps: uneven });
     const slider = screen.getByRole("slider");
     slider.focus();
     fireEvent.keyDown(slider, { key: "ArrowRight" });
-    expect(onChange).toHaveBeenCalledWith(2023);
+    expect(onChange).toHaveBeenCalledWith(2024);
     onChange.mockClear();
     fireEvent.keyDown(slider, { key: "ArrowLeft" });
-    expect(onChange).not.toHaveBeenCalledWith(2021);
-    expect(onChange).not.toHaveBeenCalledWith(2023);
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("step buttons walk the steps and disable at the ends", async () => {
