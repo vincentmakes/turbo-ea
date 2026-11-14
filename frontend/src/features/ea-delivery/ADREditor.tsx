@@ -923,6 +923,7 @@ export default function ADREditor() {
         </Typography>
         <RichTextEditor
           mentions={DOCUMENT_MENTIONS}
+          imageKind="adr"
           mentionContext={textMentionContext}
           content={context}
           onChange={setContext}
@@ -942,6 +943,7 @@ export default function ADREditor() {
         </Typography>
         <RichTextEditor
           mentions={DOCUMENT_MENTIONS}
+          imageKind="adr"
           mentionContext={textMentionContext}
           content={decision}
           onChange={setDecision}
@@ -961,6 +963,7 @@ export default function ADREditor() {
         </Typography>
         <RichTextEditor
           mentions={DOCUMENT_MENTIONS}
+          imageKind="adr"
           mentionContext={textMentionContext}
           content={alternatives}
           onChange={setAlternatives}
@@ -980,6 +983,7 @@ export default function ADREditor() {
         </Typography>
         <RichTextEditor
           mentions={DOCUMENT_MENTIONS}
+          imageKind="adr"
           mentionContext={textMentionContext}
           content={consequences}
           onChange={setConsequences}

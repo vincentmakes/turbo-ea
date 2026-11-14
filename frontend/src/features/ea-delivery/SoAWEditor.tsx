@@ -1046,6 +1046,7 @@ export default function SoAWEditor() {
               </Box>
               <RichTextEditor
                 mentions={DOCUMENT_MENTIONS}
+                imageKind="soaw"
                 content={cs.content}
                 onChange={(html) => updateCustomContent(cs.id, html)}
                 placeholder={t("editor.enterContent")}
@@ -1125,6 +1126,7 @@ export default function SoAWEditor() {
               {def.type === "rich_text" && (
                 <RichTextEditor
                   mentions={DOCUMENT_MENTIONS}
+                  imageKind="soaw"
                   content={data.content}
                   onChange={(html) =>
                     updateSection(def.id, { content: html })

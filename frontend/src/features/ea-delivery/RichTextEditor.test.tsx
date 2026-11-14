@@ -18,9 +18,11 @@ import RichTextEditor from "./RichTextEditor";
 import { plainListTags } from "./collab/discussionModel";
 import { api } from "@/api/client";
 import { invalidateDecisionOptions } from "@/components/DecisionPicker";
+import { invalidateFileUploadsEnabled } from "@/hooks/useFileUploadsEnabled";
+import { MAX_DOCUMENT_IMAGE_BYTES } from "@/lib/attachmentFormats";
 
 vi.mock("@/api/client", () => ({
-  api: { get: vi.fn().mockResolvedValue([]) },
+  api: { get: vi.fn().mockResolvedValue([]), upload: vi.fn() },
 }));
 
 // jsdom ships Range but none of its *layout* methods, and ProseMirror calls
@@ -51,9 +53,13 @@ const TOOLBAR_ICONS = [
   "format_list_numbered",
   "format_quote",
   "horizontal_rule",
+  "image",
   "undo",
   "redo",
 ];
+
+// Shown only while a picture is selected (see "RichTextEditor pictures").
+const ALIGN_ICONS = ["format_align_left", "format_align_center", "format_align_right"];
 
 describe("RichTextEditor", () => {
   it("renders the content it is given", async () => {
@@ -63,7 +69,8 @@ describe("RichTextEditor", () => {
 
   it("keeps every toolbar command StarterKit is expected to provide", async () => {
     const user = userEvent.setup();
-    render(<RichTextEditor content="<p>Existing prose</p>" onChange={() => {}} />);
+    invalidateFileUploadsEnabled(true);
+    render(<RichTextEditor content="<p>Existing prose</p>" onChange={() => {}} imageKind="adr" />);
     await screen.findByText("Existing prose");
 
     // A command dropped by an upgrade makes `.toggleX` undefined, so the click
@@ -859,5 +866,542 @@ describe("RichTextEditor Browse", () => {
           .map((o) => o.textContent),
       ).toEqual(["Zed", "Alpha"]),
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Pictures (decision and SoAW sections)
+// ---------------------------------------------------------------------------
+
+const IMG_ID = "2d2a7d3a-8c2a-4e65-9da0-4f3e6c7b9a03";
+const IMG_ID2 = "3e3b8e4b-9d3b-4f76-8eb1-5a4f7d8cab04";
+const ADR_IMG = `/api/v1/document-images/adr/${IMG_ID}`;
+const ADR_IMG2 = `/api/v1/document-images/adr/${IMG_ID2}`;
+const SOAW_IMG = `/api/v1/document-images/soaw/${IMG_ID}`;
+
+/**
+ * The exact `<img>` strings the editor emits — the server's canonical form is
+ * aligned to these (src, alt, title, width, height, data-align; double
+ * quotes; no self-closing slash). A load with no edit must give them back
+ * byte for byte, or every load counts as an edit.
+ */
+const BARE = `<img src="${ADR_IMG}">`;
+const SIZED = `<img src="${ADR_IMG}" width="320" height="240">`;
+const CENTRED = `<img src="${ADR_IMG}" width="320" height="240" data-align="center">`;
+
+const png = (name = "a.png", type = "image/png") => new File(["png"], name, { type });
+
+function imageEditor(props: Partial<React.ComponentProps<typeof RichTextEditor>> = {}) {
+  const onChange = vi.fn();
+  const utils = render(
+    <RichTextEditor content="<p>text</p>" onChange={onChange} imageKind="adr" {...props} />,
+  );
+  return { ...utils, onChange };
+}
+
+async function mounted(container: HTMLElement): Promise<Editor> {
+  await waitFor(() => expect(container.querySelector(".tiptap")).not.toBeNull());
+  return editorOf(container);
+}
+
+/** A clipboard as ProseMirror reads it on a paste event. */
+function clipboard(files: File[], html = "", text = "") {
+  return {
+    files,
+    types: [...(html ? ["text/html"] : []), ...(text ? ["text/plain"] : []), ...(files.length ? ["Files"] : [])],
+    getData: (type: string) => (type === "text/html" ? html : type === "text/plain" ? text : ""),
+  };
+}
+
+describe("RichTextEditor pictures", () => {
+  beforeEach(() => {
+    invalidateFileUploadsEnabled(true);
+    vi.mocked(api.upload).mockReset();
+    vi.mocked(api.get).mockResolvedValue([]);
+  });
+
+  it.each([
+    ["a bare picture", BARE],
+    ["a sized picture", SIZED],
+    ["a sized, centred picture", CENTRED],
+    ["a right-aligned picture between paragraphs", `<p>a</p><img src="${ADR_IMG}" data-align="right"><p>b</p>`],
+  ])("gives %s back byte for byte, with no edit reported", async (_label, html) => {
+    const { container, onChange } = imageEditor({ content: html });
+    const editor = await mounted(container);
+    expect(editor.getHTML()).toBe(html);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("stores a picture loaded with an upper-case uuid under the lower-case route", async () => {
+    const { container, onChange } = imageEditor({
+      content: `<img src="/api/v1/document-images/adr/${IMG_ID.toUpperCase()}" width="320" height="240">`,
+    });
+    const editor = await mounted(container);
+    // The given string differs from the editor's, so the content sync re-sets
+    // it (adding TipTap's trailing paragraph); nothing is reported as an edit.
+    expect(editor.getHTML()).toBe(`${SIZED}<p></p>`);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("emits a stable string for the three contract shapes", async () => {
+    const { container } = imageEditor({ content: `${BARE}${SIZED}${CENTRED}` });
+    const editor = await mounted(container);
+    expect(editor.getHTML()).toBe(
+      `<img src="${ADR_IMG}">` +
+        `<img src="${ADR_IMG}" width="320" height="240">` +
+        `<img src="${ADR_IMG}" width="320" height="240" data-align="center">`,
+    );
+  });
+
+  it("shows a stored picture through the resize view, its alignment on the container", async () => {
+    const { container } = imageEditor({ content: CENTRED });
+    await mounted(container);
+    const box = container.querySelector(".tiptap [data-resize-container]") as HTMLElement;
+    expect(box).not.toBeNull();
+    expect(box.dataset.align).toBe("center");
+    const img = box.querySelector("img")!;
+    expect(img.getAttribute("src")).toBe(ADR_IMG);
+    expect(img.getAttribute("data-align")).toBe("center");
+    expect(img.style.width).toBe("320px");
+    expect(box.querySelectorAll("[data-resize-handle]")).toHaveLength(4);
+  });
+
+  it("keeps a stored picture in a read-only editor", async () => {
+    const { container } = imageEditor({ content: `<p>a</p>${SIZED}`, readOnly: true });
+    const editor = await mounted(container);
+    expect(editor.getHTML()).toBe(`<p>a</p>${SIZED}`);
+  });
+
+  it("reports no edit from a locked document's own upkeep", async () => {
+    // A final picture makes TipTap append an empty paragraph on the next
+    // transaction: the selection in a read-only editor, or the editor locking.
+    const onChange = vi.fn();
+    const ui = (readOnly: boolean) => (
+      <RichTextEditor content={`<p>a</p>${BARE}`} onChange={onChange} imageKind="adr" readOnly={readOnly} />
+    );
+    const { container, rerender } = render(ui(true));
+    const editor = await mounted(container);
+    act(() => {
+      editor.commands.setNodeSelection(3);
+    });
+    expect(editor.getHTML()).toBe(`<p>a</p>${BARE}<p></p>`);
+    expect(onChange).not.toHaveBeenCalled();
+    rerender(ui(false));
+    await waitFor(() => expect(editor.isEditable).toBe(true));
+    act(() => {
+      editor.commands.insertContentAt(1, "x");
+    });
+    // Editable again, an edit is reported as before.
+    expect(onChange).toHaveBeenLastCalledWith(`<p>xa</p>${BARE}<p></p>`);
+  });
+
+  it("drops a picture without a picture store (no imageKind) and in a comment", async () => {
+    const first = render(<RichTextEditor content={`<p>a</p>${BARE}`} onChange={() => {}} />);
+    expect((await mounted(first.container)).getHTML()).toBe("<p>a</p>");
+    first.unmount();
+    const second = render(
+      <RichTextEditor content={`<p>a</p>${BARE}`} onChange={() => {}} variant="comment" imageKind="adr" />,
+    );
+    expect((await mounted(second.container)).getHTML()).toBe("<p>a</p>");
+  });
+
+  it("drops external, data: and other-kind pictures on setContent, and makes a pasted absolute copy relative", async () => {
+    const { container } = imageEditor();
+    const editor = await mounted(container);
+    act(() => {
+      editor.commands.setContent(
+        '<p>a</p><img src="https://tracker.example/p.png"><img src="data:image/png;base64,AAAA">' +
+          `<img src="${SOAW_IMG}"><img src="${window.location.origin}${ADR_IMG}" width="10">`,
+        { emitUpdate: false },
+      );
+    });
+    // (The trailing empty paragraph is TipTap's own, after a final block.)
+    expect(editor.getHTML()).toBe(`<p>a</p><img src="${ADR_IMG}" width="10"><p></p>`);
+  });
+
+  it("drops external, data: and other-kind pictures in pasted HTML", async () => {
+    const { container, onChange } = imageEditor({ content: "<p>x</p>" });
+    const editor = await mounted(container);
+    act(() => {
+      editor.commands.focus("end");
+    });
+    fireEvent.paste(editor.view.dom, {
+      clipboardData: clipboard(
+        [],
+        '<p>pasted</p><img src="https://tracker.example/p.png"><img src="data:image/png;base64,AAAA">' +
+          `<img src="${SOAW_IMG}"><img src="${ADR_IMG}">`,
+      ),
+    });
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    const html = editor.getHTML();
+    expect(html).toContain("pasted");
+    expect(html.match(/<img/g)).toHaveLength(1);
+    expect(html).toContain(BARE);
+    expect(api.upload).not.toHaveBeenCalled();
+  });
+
+  it("uploads a pasted picture file and inserts it at the caret", async () => {
+    vi.mocked(api.upload).mockResolvedValue({ id: IMG_ID, src: ADR_IMG, mime_type: "image/png", size: 3 });
+    const { container, onChange } = imageEditor({ content: "<p>text</p>" });
+    const editor = await mounted(container);
+    act(() => {
+      editor.commands.focus("end");
+    });
+    const file = png();
+    fireEvent.paste(editor.view.dom, { clipboardData: clipboard([file]) });
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect(api.upload).toHaveBeenCalledWith("/document-images/adr", file, "file");
+    expect(onChange.mock.calls.at(-1)?.[0]).toBe(`<p>text</p>${BARE}<p></p>`);
+  });
+
+  it("uploads to the SoAW store in a SoAW section", async () => {
+    vi.mocked(api.upload).mockResolvedValue({ id: IMG_ID, src: SOAW_IMG, mime_type: "image/png", size: 3 });
+    const { container, onChange } = imageEditor({ imageKind: "soaw" });
+    const editor = await mounted(container);
+    act(() => {
+      editor.commands.focus("end");
+    });
+    fireEvent.paste(editor.view.dom, { clipboardData: clipboard([png()]) });
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect(vi.mocked(api.upload).mock.calls[0][0]).toBe("/document-images/soaw");
+    expect(onChange.mock.calls.at(-1)?.[0]).toContain(`<img src="${SOAW_IMG}">`);
+  });
+
+  it("builds the src from the id when the answer's src is not this kind's route", async () => {
+    vi.mocked(api.upload).mockResolvedValue({
+      id: IMG_ID,
+      src: "https://elsewhere.example/x.png",
+      mime_type: "image/png",
+      size: 3,
+    });
+    const { container, onChange } = imageEditor();
+    const editor = await mounted(container);
+    act(() => {
+      editor.commands.focus("end");
+    });
+    fireEvent.paste(editor.view.dom, { clipboardData: clipboard([png()]) });
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect(onChange.mock.calls.at(-1)?.[0]).toContain(BARE);
+  });
+
+  it("refuses an answer it cannot turn into a route", async () => {
+    vi.mocked(api.upload).mockResolvedValue({ id: "nope", src: "nope", mime_type: "image/png", size: 3 });
+    const { container, onChange } = imageEditor();
+    const editor = await mounted(container);
+    fireEvent.paste(editor.view.dom, { clipboardData: clipboard([png()]) });
+    expect(await screen.findByText("The picture could not be uploaded")).toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("pastes clipboard HTML with text as text, not its rendered picture", async () => {
+    const { container, onChange } = imageEditor({ content: "<p>x</p>" });
+    const editor = await mounted(container);
+    act(() => {
+      editor.commands.focus("end");
+    });
+    fireEvent.paste(editor.view.dom, {
+      clipboardData: clipboard([png()], "<table><tr><td>cell</td></tr></table>", "cell"),
+    });
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect(api.upload).not.toHaveBeenCalled();
+    expect(editor.getHTML()).toContain("cell");
+  });
+
+  it("uploads the file of a browser 'Copy image' (an <img> alone in the HTML)", async () => {
+    vi.mocked(api.upload).mockResolvedValue({ id: IMG_ID, src: ADR_IMG, mime_type: "image/png", size: 3 });
+    const { container, onChange } = imageEditor();
+    const editor = await mounted(container);
+    fireEvent.paste(editor.view.dom, {
+      clipboardData: clipboard([png()], '<meta charset="utf-8"><img src="https://site.example/a.png">'),
+    });
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect(api.upload).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls.at(-1)?.[0]).toContain(BARE);
+    expect(onChange.mock.calls.at(-1)?.[0]).not.toContain("site.example");
+  });
+
+  it.each([
+    ["the wrong type", png("a.svg", "image/svg+xml"), "Only PNG, JPEG, GIF or WebP pictures can be inserted"],
+    [
+      "a picture over 5 MB",
+      Object.defineProperty(png(), "size", { value: MAX_DOCUMENT_IMAGE_BYTES + 1 }),
+      "The picture is larger than 5 MB",
+    ],
+  ])("refuses %s with the reason and uploads nothing", async (_label, file, reason) => {
+    const user = userEvent.setup();
+    const { container, onChange } = imageEditor();
+    const editor = await mounted(container);
+    fireEvent.paste(editor.view.dom, { clipboardData: clipboard([file]) });
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(reason);
+    expect(api.upload).not.toHaveBeenCalled();
+    expect(onChange).not.toHaveBeenCalled();
+    // Dismissible.
+    await user.click(screen.getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+  });
+
+  it("uploads the good files of a mixed paste and names the refused one", async () => {
+    vi.mocked(api.upload).mockResolvedValue({ id: IMG_ID, src: ADR_IMG, mime_type: "image/png", size: 3 });
+    const { container, onChange } = imageEditor();
+    const editor = await mounted(container);
+    fireEvent.paste(editor.view.dom, { clipboardData: clipboard([png("a.svg", "image/svg+xml"), png()]) });
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect(api.upload).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("alert")).toHaveTextContent("Only PNG, JPEG, GIF or WebP pictures can be inserted");
+  });
+
+  it("shows the server's reason for a failed upload, or a generic one", async () => {
+    vi.mocked(api.upload).mockRejectedValueOnce(new Error("File uploads are disabled"));
+    const { container, onChange } = imageEditor();
+    const editor = await mounted(container);
+    fireEvent.paste(editor.view.dom, { clipboardData: clipboard([png()]) });
+    expect(await screen.findByRole("alert")).toHaveTextContent("File uploads are disabled");
+    vi.mocked(api.upload).mockRejectedValueOnce(new Error(""));
+    fireEvent.paste(editor.view.dom, { clipboardData: clipboard([png()]) });
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent("The picture could not be uploaded"),
+    );
+    vi.mocked(api.upload).mockRejectedValueOnce("not an error");
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    });
+    fireEvent.paste(editor.view.dom, { clipboardData: clipboard([png()]) });
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent("The picture could not be uploaded"),
+    );
+    expect(onChange).not.toHaveBeenCalled();
+    expect(editor.getHTML()).toBe("<p>text</p>");
+  });
+
+  it("shows progress while an upload runs", async () => {
+    let resolve!: (v: unknown) => void;
+    vi.mocked(api.upload).mockReturnValue(new Promise((r) => (resolve = r)));
+    const { container, onChange } = imageEditor();
+    const editor = await mounted(container);
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    fireEvent.paste(editor.view.dom, { clipboardData: clipboard([png()]) });
+    expect(await screen.findByRole("progressbar", { name: "Uploading picture…" })).toBeInTheDocument();
+    await act(async () => {
+      resolve({ id: IMG_ID, src: ADR_IMG, mime_type: "image/png", size: 3 });
+    });
+    await waitFor(() => expect(screen.queryByRole("progressbar")).not.toBeInTheDocument());
+    expect(onChange).toHaveBeenCalled();
+  });
+
+  it("inserts nothing when the editor turned read-only while the upload ran", async () => {
+    let resolve!: (v: unknown) => void;
+    vi.mocked(api.upload).mockReturnValue(new Promise((r) => (resolve = r)));
+    const onChange = vi.fn();
+    const ui = (readOnly: boolean) => (
+      <RichTextEditor content="<p>text</p>" onChange={onChange} imageKind="adr" readOnly={readOnly} />
+    );
+    const { container, rerender } = render(ui(false));
+    const editor = await mounted(container);
+    fireEvent.paste(editor.view.dom, { clipboardData: clipboard([png()]) });
+    await waitFor(() => expect(api.upload).toHaveBeenCalled());
+    rerender(ui(true));
+    await waitFor(() => expect(editor.isEditable).toBe(false));
+    await act(async () => {
+      resolve({ id: IMG_ID, src: ADR_IMG, mime_type: "image/png", size: 3 });
+    });
+    await waitFor(() => expect(screen.queryByRole("progressbar")).not.toBeInTheDocument());
+    expect(editor.getHTML()).toBe("<p>text</p>");
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("inserts nothing when the editor was destroyed while the upload ran", async () => {
+    let resolve!: (v: unknown) => void;
+    vi.mocked(api.upload).mockReturnValue(new Promise((r) => (resolve = r)));
+    const { container, onChange } = imageEditor();
+    const editor = await mounted(container);
+    fireEvent.paste(editor.view.dom, { clipboardData: clipboard([png()]) });
+    await waitFor(() => expect(api.upload).toHaveBeenCalled());
+    const insert = vi.spyOn(editor, "chain");
+    act(() => editor.destroy());
+    await act(async () => {
+      resolve({ id: IMG_ID, src: ADR_IMG, mime_type: "image/png", size: 3 });
+    });
+    expect(insert).not.toHaveBeenCalled();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("inserts a picture chosen through the toolbar button", async () => {
+    vi.mocked(api.upload)
+      .mockResolvedValueOnce({ id: IMG_ID, src: ADR_IMG, mime_type: "image/png", size: 3 })
+      .mockResolvedValueOnce({ id: IMG_ID2, src: ADR_IMG2, mime_type: "image/png", size: 3 });
+    const user = userEvent.setup();
+    const { container, onChange } = imageEditor();
+    const editor = await mounted(container);
+    act(() => {
+      editor.commands.focus("end");
+    });
+    const input = screen.getByTestId("rich-text-image-input") as HTMLInputElement;
+    expect(input).toHaveAttribute("type", "file");
+    expect(input).toHaveAttribute("accept", "image/png,image/jpeg,image/gif,image/webp");
+    const click = vi.spyOn(input, "click");
+    await user.click(screen.getByText("image").closest("button")!);
+    expect(click).toHaveBeenCalled();
+    const a = png("a.png");
+    const b = png("b.png");
+    fireEvent.change(input, { target: { files: [a, b] } });
+    await waitFor(() => expect(api.upload).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(onChange.mock.calls.at(-1)?.[0]).toContain(ADR_IMG2));
+    // In the order chosen, one after the other.
+    expect(onChange.mock.calls.at(-1)?.[0]).toBe(
+      `<p>text</p><img src="${ADR_IMG}"><img src="${ADR_IMG2}"><p></p>`,
+    );
+    expect(vi.mocked(api.upload).mock.calls.map((c) => c[1])).toEqual([a, b]);
+    expect(input.value).toBe("");
+  });
+
+  it("ignores an empty pick", async () => {
+    const { container } = imageEditor();
+    await mounted(container);
+    fireEvent.change(screen.getByTestId("rich-text-image-input"), { target: { files: [] } });
+    expect(api.upload).not.toHaveBeenCalled();
+  });
+
+  it("inserts a dropped picture where it was dropped", async () => {
+    vi.mocked(api.upload).mockResolvedValue({ id: IMG_ID, src: ADR_IMG, mime_type: "image/png", size: 3 });
+    const { container, onChange } = imageEditor({ content: "<p>one</p><p>two</p>" });
+    const editor = await mounted(container);
+    // jsdom has no layout: answer the coordinates lookup with "between the
+    // two paragraphs" (position 5).
+    editor.view.posAtCoords = () => ({ pos: 5, inside: -1 });
+    const file = png();
+    fireEvent.drop(editor.view.dom, {
+      clientX: 10,
+      clientY: 10,
+      dataTransfer: { files: [file], types: ["Files"], getData: () => "" },
+    });
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect(api.upload).toHaveBeenCalledWith("/document-images/adr", file, "file");
+    expect(onChange.mock.calls.at(-1)?.[0]).toBe(`<p>one</p>${BARE}<p>two</p>`);
+  });
+
+  it("takes a drop without files as ProseMirror's own", async () => {
+    const { container } = imageEditor({ content: "<p>one</p>" });
+    const editor = await mounted(container);
+    editor.view.posAtCoords = () => ({ pos: 1, inside: -1 });
+    fireEvent.drop(editor.view.dom, {
+      dataTransfer: { files: [], types: ["text/plain"], getData: (t: string) => (t === "text/plain" ? "dropped" : "") },
+    });
+    await waitFor(() => expect(editor.getHTML()).toContain("dropped"));
+    expect(api.upload).not.toHaveBeenCalled();
+  });
+
+  it("sets and clears the alignment of the selected picture", async () => {
+    const user = userEvent.setup();
+    const { container, onChange } = imageEditor({ content: `<p>a</p>${SIZED}` });
+    const editor = await mounted(container);
+    for (const icon of ALIGN_ICONS) expect(screen.queryByText(icon)).not.toBeInTheDocument();
+    act(() => {
+      editor.commands.setNodeSelection(3);
+    });
+    const button = (icon: string) => screen.getByText(icon).closest("button")!;
+    await waitFor(() => expect(screen.getByText("format_align_left")).toBeInTheDocument());
+    // Left (no attribute) is the active one.
+    expect(button("format_align_left")).toHaveAttribute("aria-label", "Align left");
+    const active = (icon: string) => getComputedStyle(button(icon)).backgroundColor;
+    const idle = active("format_align_center");
+    expect(active("format_align_left")).not.toBe(idle);
+
+    await user.click(button("format_align_center"));
+    await waitFor(() =>
+      expect(onChange.mock.calls.at(-1)?.[0]).toBe(
+        `<p>a</p><img src="${ADR_IMG}" width="320" height="240" data-align="center"><p></p>`,
+      ),
+    );
+    expect((container.querySelector("[data-resize-container]") as HTMLElement).dataset.align).toBe("center");
+    await waitFor(() => expect(active("format_align_center")).not.toBe(active("format_align_right")));
+    expect(active("format_align_left")).toBe(active("format_align_right"));
+
+    await user.click(button("format_align_right"));
+    await waitFor(() =>
+      expect(onChange.mock.calls.at(-1)?.[0]).toBe(
+        `<p>a</p><img src="${ADR_IMG}" width="320" height="240" data-align="right"><p></p>`,
+      ),
+    );
+    expect((container.querySelector("[data-resize-container]") as HTMLElement).dataset.align).toBe("right");
+
+    await user.click(button("format_align_left"));
+    await waitFor(() => expect(onChange.mock.calls.at(-1)?.[0]).toBe(`<p>a</p>${SIZED}<p></p>`));
+    expect((container.querySelector("[data-resize-container]") as HTMLElement).dataset.align).toBeUndefined();
+
+    // Moving the selection off the picture hides the buttons again.
+    act(() => {
+      editor.commands.setTextSelection(1);
+    });
+    await waitFor(() => expect(screen.queryByText("format_align_left")).not.toBeInTheDocument());
+  });
+
+  describe("offers no way to insert one", () => {
+    const select = (container: HTMLElement) =>
+      act(() => {
+        editorOf(container).commands.setNodeSelection(3);
+      });
+
+    it("proves the controls exist when everything allows them", async () => {
+      const { container } = imageEditor({ content: `<p>a</p>${BARE}` });
+      await mounted(container);
+      select(container);
+      expect(screen.getByText("image")).toBeInTheDocument();
+      expect(screen.getByTestId("rich-text-image-input")).toBeInTheDocument();
+      expect(await screen.findByText("format_align_center")).toBeInTheDocument();
+    });
+
+    it.each([
+      ["read-only", { readOnly: true }],
+      ["on the comment variant", { variant: "comment" as const }],
+      ["without imageKind", { imageKind: undefined }],
+    ])("%s", async (_label, props) => {
+      const { container, onChange } = imageEditor({ content: `<p>a</p>${BARE}`, ...props });
+      const editor = await mounted(container);
+      if (editor.getHTML().includes("<img")) select(container);
+      expect(screen.queryByText("image")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("rich-text-image-input")).not.toBeInTheDocument();
+      for (const icon of ALIGN_ICONS) expect(screen.queryByText(icon)).not.toBeInTheDocument();
+      fireEvent.paste(editor.view.dom, { clipboardData: clipboard([png()]) });
+      await act(async () => {});
+      expect(api.upload).not.toHaveBeenCalled();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("when file uploads are switched off", async () => {
+      invalidateFileUploadsEnabled(false);
+      const { container, onChange } = imageEditor({ content: `<p>a</p>${BARE}` });
+      const editor = await mounted(container);
+      select(container);
+      expect(screen.getByText("format_bold")).toBeInTheDocument();
+      expect(screen.queryByText("image")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("rich-text-image-input")).not.toBeInTheDocument();
+      editor.view.posAtCoords = () => ({ pos: 1, inside: -1 });
+      fireEvent.paste(editor.view.dom, { clipboardData: clipboard([png()]) });
+      fireEvent.drop(editor.view.dom, {
+        dataTransfer: { files: [png()], types: ["Files"], getData: () => "" },
+      });
+      await act(async () => {});
+      expect(api.upload).not.toHaveBeenCalled();
+      // The stored picture stays, alone (the selection added TipTap's
+      // trailing paragraph, an edit of its own).
+      expect(editor.getHTML()).toBe(`<p>a</p>${BARE}<p></p>`);
+      expect(onChange.mock.calls.every(([html]) => html === `<p>a</p>${BARE}<p></p>`)).toBe(true);
+
+      // Aligning is not an upload: a stored picture can still be aligned.
+      const user = userEvent.setup();
+      act(() => {
+        editor.commands.setNodeSelection(3);
+      });
+      await user.click((await screen.findByText("format_align_center")).closest("button")!);
+      await waitFor(() =>
+        expect(onChange.mock.calls.at(-1)?.[0]).toBe(
+          `<p>a</p><img src="${ADR_IMG}" data-align="center"><p></p>`,
+        ),
+      );
+      expect(screen.getByText("format_align_right")).toBeInTheDocument();
+      expect(screen.getByText("format_align_left")).toBeInTheDocument();
+      expect(api.upload).not.toHaveBeenCalled();
+    });
   });
 });

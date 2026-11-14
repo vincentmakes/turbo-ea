@@ -14,6 +14,13 @@
 export const MAX_ATTACHMENT_MB = 20;
 export const MAX_ATTACHMENT_BYTES = MAX_ATTACHMENT_MB * 1024 * 1024;
 
+/**
+ * A picture inside a decision or SoAW section. Keep in step with
+ * `MAX_DOCUMENT_IMAGE_MB` in `attachment_validation.py`.
+ */
+export const MAX_DOCUMENT_IMAGE_MB = 5;
+export const MAX_DOCUMENT_IMAGE_BYTES = MAX_DOCUMENT_IMAGE_MB * 1024 * 1024;
+
 export interface AttachmentFormat {
   /** Lowercase, leading dot. */
   ext: string;

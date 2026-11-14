@@ -2,16 +2,30 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Extension, type AnyExtension, type Range } from "@tiptap/core";
 import { Plugin } from "@tiptap/pm/state";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, useEditorState, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import Divider from "@mui/material/Divider";
+import type { Theme } from "@mui/material/styles";
+import Alert from "@mui/material/Alert";
+import LinearProgress from "@mui/material/LinearProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useFileUploadsEnabled } from "@/hooks/useFileUploadsEnabled";
 import type { MentionKind } from "@/lib/mentionHtml";
 import { plainListTags } from "./collab/discussionModel";
+import { createDocumentImageExtension, parseAlign, type DocumentImageAlign } from "./documentImageExtension";
+import {
+  DOCUMENT_IMAGE_ACCEPT,
+  clipboardHtmlHasText,
+  documentImagePath,
+  documentImageSrc,
+  imageRefusal,
+  uploadDocumentImage,
+  type DocumentImageKind,
+} from "./documentImages";
 import { MENTION_CHIP_SX } from "./mentions/MentionContainer";
 import MentionBrowseDialog from "./mentions/MentionBrowseDialog";
 import MentionPopup from "./mentions/MentionPopup";
@@ -53,6 +67,13 @@ interface Props {
   mentionContext?: MentionContext;
   /** Each new non-zero value puts the caret at the end of the text. */
   focusRequest?: number;
+  /**
+   * Document variant: the store this section's pictures belong to. A stored
+   * picture is kept (read-only editors included); inserting one by button,
+   * paste or drop is offered while editable and file uploads are on.
+   * Absent: no picture support.
+   */
+  imageKind?: DocumentImageKind;
 }
 
 /**
@@ -105,6 +126,51 @@ function plainCommentLists(): AnyExtension {
   });
 }
 
+/**
+ * Pictures on the editor surface: the rules of `DOCUMENT_IMAGE_CSS` (which the
+ * previews, print and export use), plus the resize view's own wrapper. While
+ * editing, the picture sits in that view's flex container, which carries the
+ * same `data-align`; `flex-end` follows the writing direction, so right-to-left
+ * locales mirror as the logical margins do.
+ */
+const DOCUMENT_IMAGE_SX = {
+  "& img": { maxWidth: "100%", height: "auto" },
+  '& img[data-align="center"]': { display: "block", marginInline: "auto" },
+  '& img[data-align="right"]': { display: "block", marginInlineStart: "auto" },
+  "& [data-resize-container]": { my: 1 },
+  "& [data-resize-wrapper]": { maxWidth: "100%" },
+  // The view writes the committed size as inline px; the height follows the
+  // width so a picture narrowed by `max-width` keeps its proportions.
+  "& [data-resize-wrapper] img": { display: "block", height: "auto !important" },
+  '& [data-resize-container][data-align="center"]': { justifyContent: "center" },
+  '& [data-resize-container][data-align="right"]': { justifyContent: "flex-end" },
+  "& [data-resize-handle]": {
+    width: 10,
+    height: 10,
+    bgcolor: "primary.main",
+    border: "1px solid",
+    borderColor: "background.paper",
+    borderRadius: "2px",
+    opacity: 0,
+    zIndex: 1,
+  },
+  '& [data-resize-handle="top-left"], & [data-resize-handle="bottom-right"]': {
+    cursor: "nwse-resize",
+  },
+  '& [data-resize-handle="top-right"], & [data-resize-handle="bottom-left"]': {
+    cursor: "nesw-resize",
+  },
+  "& [data-resize-container]:hover [data-resize-handle], & .ProseMirror-selectednode [data-resize-handle], & [data-resize-state='true'] [data-resize-handle]":
+    { opacity: 1 },
+  "& .ProseMirror-selectednode img": {
+    outline: "2px solid",
+    outlineColor: (theme: Theme) => theme.palette.primary.main,
+  },
+  // A read-only document cannot be resized (the view only drops its handles
+  // on a document change, not when the editor locks).
+  '&[contenteditable="false"] [data-resize-handle]': { display: "none" },
+};
+
 export default function RichTextEditor({
   content,
   onChange,
@@ -115,6 +181,7 @@ export default function RichTextEditor({
   onSubmit,
   mentionContext,
   focusRequest = 0,
+  imageKind,
 }: Props) {
   const { t } = useTranslation("delivery");
   const isComment = variant === "comment";
@@ -126,6 +193,20 @@ export default function RichTextEditor({
     onSubmitRef.current = onSubmit;
   }, [onSubmit]);
   const hasMentions = Boolean(mentions && mentions.length > 0);
+  // The node is registered whenever the document has a picture store, even
+  // read-only: without it a stored picture would vanish on the next save.
+  const hasImages = Boolean(imageKind) && !isComment;
+  const { fileUploadsEnabled } = useFileUploadsEnabled();
+  const canInsertImages = hasImages && !readOnly && fileUploadsEnabled;
+  // The editor is built once; its paste / drop handlers read these refs.
+  const canInsertImagesRef = useRef(canInsertImages);
+  useEffect(() => {
+    canInsertImagesRef.current = canInsertImages;
+  }, [canInsertImages]);
+  const insertImagesRef = useRef<(files: File[], at: number | null) => void>(() => {});
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(0);
+  const [imageError, setImageError] = useState("");
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -153,10 +234,44 @@ export default function RichTextEditor({
       Placeholder.configure({ placeholder: placeholder ?? t("richText.startTyping") }),
       ...(hasMentions ? [createMentionExtension(store, mentionLabels)] : []),
       ...(isComment ? [submitShortcut(store, () => onSubmitRef.current?.()), plainCommentLists()] : []),
+      ...(hasImages && imageKind ? [createDocumentImageExtension(imageKind)] : []),
     ],
     content,
     editable: !readOnly,
+    editorProps: {
+      // A pasted picture FILE is uploaded. Clipboard HTML with text in it
+      // (a copy from Word or Excel also carries a rendered picture of the
+      // selection) is pasted as text instead.
+      handlePaste: (_view, event) => {
+        const data = event.clipboardData;
+        const files = Array.from(data?.files ?? []);
+        if (files.length === 0 || !canInsertImagesRef.current) return false;
+        if (clipboardHtmlHasText(data?.getData("text/html") ?? "")) return false;
+        insertImagesRef.current(files, null);
+        return true;
+      },
+      // Dropped files land where they were dropped; a drag inside the
+      // document (`moved`) is ProseMirror's own.
+      handleDrop: (view, event, _slice, moved) => {
+        if (moved || !canInsertImagesRef.current) return false;
+        const files = Array.from(event.dataTransfer?.files ?? []);
+        if (files.length === 0) return false;
+        let at: number | null = null;
+        try {
+          at = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos ?? null;
+        } catch {
+          // No layout to measure against: insert at the caret.
+        }
+        event.preventDefault();
+        insertImagesRef.current(files, at);
+        return true;
+      },
+    },
     onUpdate: ({ editor: e }) => {
+      // A locked document reports no edit: what changes it there is the
+      // editor's own upkeep (the empty paragraph TipTap keeps after a final
+      // picture, list or rule appears on the first selection change).
+      if (!e.isEditable) return;
       const html = e.getHTML();
       onChange(isComment ? plainListTags(html) : html);
     },
@@ -207,6 +322,60 @@ export default function RichTextEditor({
     chain.insertContentAt(target, mentionInsertContent(picks)).run();
   };
 
+  // Each file in turn: refused with a reason, or uploaded and inserted. The
+  // first lands at `at` (a drop) or the caret, each next one after it. As in
+  // `closeBrowse`, an editor destroyed or locked while the upload ran takes
+  // nothing.
+  const insertImages = async (files: File[], at: number | null) => {
+    if (!imageKind) return;
+    let target = at;
+    for (const file of files) {
+      const refusal = imageRefusal(file);
+      if (refusal) {
+        setImageError(refusal);
+        continue;
+      }
+      setUploading((n) => n + 1);
+      try {
+        const stored = await uploadDocumentImage(imageKind, file);
+        const src =
+          documentImagePath(stored.src, imageKind) ??
+          documentImagePath(documentImageSrc(imageKind, stored.id), imageKind);
+        if (!src) throw new Error("");
+        if (!editor || editor.isDestroyed || !editor.isEditable) continue;
+        const node = { type: "image", attrs: { src } };
+        const chain = editor.chain().focus();
+        if (target !== null && target <= editor.state.doc.content.size) {
+          chain.insertContentAt(target, node).run();
+        } else {
+          chain.insertContent(node).run();
+        }
+        // The next file goes after this one, not over it (an inserted
+        // picture may be left selected).
+        target = editor.state.selection.to;
+      } catch (err) {
+        // The detail names the real reason (wrong bytes, uploads switched off).
+        const detail = err instanceof Error ? err.message : "";
+        setImageError(detail || t("richText.imageUploadFailed"));
+      } finally {
+        setUploading((n) => n - 1);
+      }
+    }
+  };
+  useEffect(() => {
+    insertImagesRef.current = (files, at) => void insertImages(files, at);
+  });
+
+  // The picture selected, for the alignment buttons (selection changes do
+  // not re-render the editor on their own).
+  const selectedImage = useEditorState({
+    editor,
+    selector: ({ editor: e }): { align: DocumentImageAlign | null } | null =>
+      e && hasImages && e.isActive("image")
+        ? { align: parseAlign(e.getAttributes("image").align as string | null) }
+        : null,
+  });
+
   // Sync editable state when readOnly changes. No update is emitted: an
   // untouched document must not report its own re-serialisation as an edit.
   // The empty transaction tells node views (mention chips) to re-read
@@ -228,6 +397,9 @@ export default function RichTextEditor({
   }, [content]);
 
   if (!editor) return null;
+
+  const setAlign = (align: DocumentImageAlign | null) =>
+    editor.chain().focus().updateAttributes("image", { align }).run();
 
   const btn = (
     icon: string,
@@ -345,9 +517,48 @@ export default function RichTextEditor({
           </>
         )}
 
+        {canInsertImages &&
+          btn("image", t("richText.insertImage"), () => fileInputRef.current?.click())}
+        {canInsertImages && (
+          <input
+            ref={fileInputRef}
+            type="file"
+            hidden
+            multiple
+            accept={DOCUMENT_IMAGE_ACCEPT}
+            data-testid="rich-text-image-input"
+            onChange={(e) => {
+              const files = Array.from(e.target.files ?? []);
+              // Picking the same file again must fire onChange again.
+              e.target.value = "";
+              if (files.length > 0) void insertImages(files, null);
+            }}
+          />
+        )}
+        {/* Aligning is an edit of the text, not an upload: offered whatever
+            the upload setting. */}
+        {selectedImage && (
+          <>
+            {btn("format_align_left", t("richText.alignLeft"), () => setAlign(null), selectedImage.align === null)}
+            {btn("format_align_center", t("richText.alignCenter"), () => setAlign("center"), selectedImage.align === "center")}
+            {btn("format_align_right", t("richText.alignRight"), () => setAlign("right"), selectedImage.align === "right")}
+          </>
+        )}
+        {(canInsertImages || selectedImage) && (
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+        )}
+
         {btn("undo", t("richText.undo"), () => editor.chain().focus().undo().run())}
         {btn("redo", t("richText.redo"), () => editor.chain().focus().redo().run())}
       </Box>}
+      {hasImages && uploading > 0 && (
+        <LinearProgress aria-label={t("richText.imageUploading")} sx={{ height: 2 }} />
+      )}
+      {hasImages && imageError && (
+        <Alert severity="error" onClose={() => setImageError("")} sx={{ borderRadius: 0 }}>
+          {imageError}
+        </Alert>
+      )}
 
       {/* Editor content */}
       <Box
@@ -379,6 +590,7 @@ export default function RichTextEditor({
               ml: 0,
               color: "text.secondary",
             },
+            ...DOCUMENT_IMAGE_SX,
           },
           },
         ]}
