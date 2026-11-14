@@ -625,7 +625,6 @@
   "licensing.metric_installations": "Installations",
   "licensing.licenseType": "License type",
   "licensing.allLicenseTypes": "All license types",
-  "licensing.fiscalYearIndicator": "Fiscal year: {{fy}}",
   "licensing.statusCompliant": "Compliant",
   "licensing.statusApproaching": "Approaching",
   "licensing.statusOver": "Over-licensed",
