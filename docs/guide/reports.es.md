@@ -393,10 +393,12 @@ Guarde cualquier configuración de informe para acceso rápido. Los informes gua
 
 ## Exportar Informes
 
-Todos los informes admiten **Exportar a Excel (.xlsx)** y **Exportar a PowerPoint (.pptx)** desde el menú **⋮** de la barra de título (junto a Imprimir y Copiar enlace).
+Todos los informes admiten **Exportar a Excel (.xlsx)** y **Exportar a PowerPoint (.pptx)** desde el menú **⋮** de la barra de título (junto a Imprimir y Copiar enlace); el [Informe de la iniciativa](ppm.md#informe-de-la-iniciativa) solo ofrece PowerPoint.
 
 - **Excel** — Genera una hoja por cada tabla de datos visible, con columnas dimensionadas automáticamente y formato de moneda / número preservado. Cambie a la **vista de tabla** antes de exportar para capturar las filas subyacentes.
-- **PowerPoint** — Crea una presentación cuya primera diapositiva combina el título del informe, la marca de tiempo de generación, el resumen de filtros activos y el gráfico en vivo con calidad de presentación. Las diapositivas siguientes paginan las tablas para entregables compartibles.
+- **PowerPoint** — Crea una presentación cuya primera diapositiva combina el título del informe, la marca de tiempo de generación, el resumen de filtros activos y el gráfico en vivo con calidad de presentación. En los informes con gráficos largos (como los informes de Portafolio, Mapa de Capacidades, Ciclo de Vida y Calidad de Datos), un gráfico que no cabe en una diapositiva continúa en las siguientes, dividido entre filas; las tablas de datos en sí van a la exportación a Excel.
+
+Mientras se genera una exportación, el botón **⋮** muestra un indicador de carga; si falla, un mensaje lo indica y puede volver a intentarlo.
 
 Los filtros y agrupaciones activos en el momento de la exportación se registran en la diapositiva de título o en la cabecera, manteniendo las exportaciones autoexplicativas.
 

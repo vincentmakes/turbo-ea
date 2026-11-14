@@ -251,6 +251,19 @@ describe("AppLayout — module toggles reshape the bar", () => {
     expect(delivery.compareDocumentPosition(diagrams) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  // Issue #1400: EA Delivery lists SoAWs and decisions, so its entry follows
+  // either read permission, never `soaw.view` alone.
+  it.each([
+    ["adr.view", true],
+    ["soaw.view", true],
+    ["inventory.view", false],
+  ])("with PPM off, a role holding only %s sees the EA Delivery entry: %s", (permission, shown) => {
+    hookState.ppm = { ppmEnabled: false, ppmLoaded: true };
+    renderLayout({ ...viewerUser, permissions: { [permission]: true } });
+
+    expect(screen.queryAllByRole("link", { name: /EA Delivery/ })).toHaveLength(shown ? 1 : 0);
+  });
+
   it("appends TurboLens to the Reports dropdown, after a divider, when AI is ready", async () => {
     hookState.turboLens = { ...hookState.turboLens, turboLensReady: true };
     const user = userEvent.setup();

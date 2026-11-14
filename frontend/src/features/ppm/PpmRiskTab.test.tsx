@@ -1,17 +1,73 @@
 /**
- * PpmRiskTab — the initiative risk register (summary, table, create/edit
- * dialog). Pins the counts, the score colouring, the description truncation
- * and the exact bodies sent to `/ppm/initiatives/{id}/risks` and
- * `/ppm/risks/{id}`.
+ * PpmRiskTab — the initiative risk register (summary, grid, create/edit
+ * dialog). Pins the counts, that risk text is shown in full, and the exact
+ * bodies sent to `/ppm/initiatives/{id}/risks` and `/ppm/risks/{id}`.
+ *
+ * AG Grid cannot lay out under jsdom, so the grid is the shared stub plus a
+ * plain table that renders every row through the page's own cell renderers:
+ * the rows' buttons are the real ones. The grid's columns, sort and freeze
+ * are pinned in `PpmRiskGrid.test.tsx`.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { createElement, type ComponentType } from "react";
 import userEvent from "@testing-library/user-event";
 import type { PpmRisk } from "@/types";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
+vi.mock("@/hooks/useThemeMode", () => import("@/test/hooks").then((m) => m.useThemeModeModule()));
+vi.mock("@/hooks/useIsRtl", () => import("@/test/hooks").then((m) => m.useIsRtlModule()));
+const exportPpmRisks = vi.hoisted(() => vi.fn());
+vi.mock("./ppmRiskSpreadsheet", () => ({ exportPpmRisks }));
+/** The import dialog has its own suite; here it only shows what it was handed. */
+vi.mock("./PpmRiskImportDialog", () => ({
+  default: (p: {
+    open: boolean;
+    initiativeId: string;
+    existingRisks: { id: string }[];
+    onClose: () => void;
+    onImported: () => void;
+  }) =>
+    p.open ? (
+      <div data-testid="import-dialog">
+        <span>{`${p.initiativeId}:${p.existingRisks.map((r) => r.id).join(",")}`}</span>
+        <button onClick={p.onImported}>imported</button>
+        <button onClick={p.onClose}>close import</button>
+      </div>
+    ) : null,
+}));
+vi.mock("ag-grid-react", async () => {
+  const m = await import("@/test/agGridStub");
+  type Def = { colId: string; cellRenderer?: ComponentType<Record<string, unknown>> };
+  return {
+    AgGridReact: (props: { rowData: PpmRisk[]; columnDefs: Def[] }) => (
+      <>
+        {m.AgGridReactStub(props)}
+        <table>
+          <tbody>
+            {props.rowData.map((data) => (
+              <tr key={data.id}>
+                {props.columnDefs.map((def) => (
+                  <td key={def.colId}>
+                    {def.cellRenderer
+                      ? createElement(def.cellRenderer, {
+                          data,
+                          value: m.gridStub.cellValue(def.colId, data),
+                        })
+                      : String(m.gridStub.cellValue(def.colId, data, { formatted: true }) ?? "")}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </>
+    ),
+  };
+});
 
 import { mockApi } from "@/test/apiMock";
+import { gridStub } from "@/test/agGridStub";
 import { RAG_COLORS } from "@/theme/tokens";
 import i18n from "@/i18n";
 import PpmRiskTab from "./PpmRiskTab";
@@ -38,7 +94,7 @@ function risk(overrides: Partial<PpmRisk> & { id: string; title: string }): PpmR
   };
 }
 
-const LONG = "A".repeat(90);
+const LONG = `${"Long description ".repeat(18)}`.slice(0, 299) + "!";
 
 const RISKS: PpmRisk[] = [
   risk({
@@ -59,10 +115,17 @@ const RISKS: PpmRisk[] = [
 
 const createPath = "/ppm/initiatives/i1/risks";
 
-function renderTab(risks: PpmRisk[] = RISKS) {
+function renderTab(risks: PpmRisk[] = RISKS, initiativeName?: string) {
   const onRefresh = vi.fn();
   const user = userEvent.setup();
-  render(<PpmRiskTab initiativeId="i1" risks={risks} onRefresh={onRefresh} />);
+  render(
+    <PpmRiskTab
+      initiativeId="i1"
+      risks={risks}
+      onRefresh={onRefresh}
+      initiativeName={initiativeName}
+    />,
+  );
   return { user, onRefresh };
 }
 
@@ -72,6 +135,9 @@ const kpi = (caption: string) =>
 const rowOf = (title: string) => screen.getByText(title).closest("tr") as HTMLElement;
 
 beforeEach(() => {
+  localStorage.clear();
+  exportPpmRisks.mockReset();
+  gridStub.reset();
   mockApi.reset();
   mockApi.on("get", "/users", USERS);
   mockApi.on("post", createPath, {});
@@ -79,7 +145,7 @@ beforeEach(() => {
   mockApi.on("delete", /^\/ppm\/risks\//, null);
 });
 
-describe("PpmRiskTab — summary and table", () => {
+describe("PpmRiskTab — summary and grid", () => {
   it("counts all, open and high (score ≥ 15) risks", () => {
     renderTab();
     expect(kpi("Total Risks")).toBe("3");
@@ -109,17 +175,22 @@ describe("PpmRiskTab — summary and table", () => {
     // White text on every band (palette.common.white).
   });
 
-  it("truncates a long description and shows dashes for a missing owner or mitigation", () => {
+  it("shows a long description in full and dashes for a missing owner or mitigation", () => {
     renderTab();
     const row = rowOf("Budget overrun");
-    expect(within(row).getByText(`${"A".repeat(80)}...`)).toBeInTheDocument();
+    expect(LONG).toHaveLength(300);
+    expect(within(row).getByText(LONG)).toBeInTheDocument();
+    expect(within(row).queryByText(/\.\.\.$/)).not.toBeInTheDocument();
     expect(within(row).getAllByText("—")).toHaveLength(2);
   });
 
-  it("shows the empty state", () => {
+  it("hands the grid no rows, and counts nothing, when there are no risks", () => {
     renderTab([]);
-    expect(screen.getByText("No risks yet")).toBeInTheDocument();
+    expect(screen.getByTestId("ag-grid")).toHaveAttribute("data-row-count", "0");
+    expect(gridStub.lastProps().overlayNoRowsTemplate).toBe("<span>No risks yet</span>");
     expect(kpi("Total Risks")).toBe("0");
+    expect(kpi("Open")).toBe("0");
+    expect(kpi("High Risks")).toBe("0");
   });
 });
 
@@ -222,19 +293,10 @@ describe("PpmRiskTab — create, edit, delete", () => {
 });
 
 describe("PpmRiskTab — labels and bands", () => {
-  it("names every column and hides the empty state when there are risks", () => {
+  it("hands the grid every risk", () => {
     renderTab();
-    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
-      "Risk Title",
-      "Probability",
-      "Impact",
-      "Risk Score",
-      "Status",
-      "Owner",
-      "Mitigation",
-      "",
-    ]);
-    expect(screen.queryByText("No risks yet")).not.toBeInTheDocument();
+    expect(screen.getByTestId("ag-grid")).toHaveAttribute("data-row-count", "3");
+    expect(gridStub.rows()).toEqual(RISKS);
   });
 
   it("puts a score of exactly 15 in the high band and exactly 6 in the medium one", () => {
@@ -249,11 +311,11 @@ describe("PpmRiskTab — labels and bands", () => {
     expect(chipOf("Six", "6")).toHaveStyle({ backgroundColor: RAG_COLORS.amber });
   });
 
-  it("shows a description of exactly 80 characters in full", () => {
-    const eighty = "B".repeat(80);
-    renderTab([risk({ id: "d1", title: "Exact", description: eighty })]);
-    expect(within(rowOf("Exact")).getByText(eighty)).toBeInTheDocument();
-    expect(within(rowOf("Exact")).queryByText(/\.\.\.$/)).not.toBeInTheDocument();
+  it("shows a multi-line mitigation in full", () => {
+    const plan = "Dual-source the platform.\nReview every quarter with procurement and legal.";
+    renderTab([risk({ id: "d1", title: "Exact", mitigation: plan })]);
+    const text = within(rowOf("Exact")).getByText((_, el) => el?.textContent === plan && el.tagName === "P");
+    expect(text).toHaveStyle({ whiteSpace: "pre-wrap" });
   });
 });
 
@@ -504,5 +566,44 @@ describe("PpmRiskTab — accessible names", () => {
         await i18n.changeLanguage("en");
       });
     }
+  });
+});
+
+describe("PpmRiskTab — toolbar", () => {
+  it("opens the import dialog for this initiative and its risks", async () => {
+    const { user, onRefresh } = renderTab();
+    expect(screen.queryByTestId("import-dialog")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Import/ }));
+    const dialog = screen.getByTestId("import-dialog");
+    expect(dialog).toHaveTextContent("i1:r1,r2,r3");
+    expect(onRefresh).not.toHaveBeenCalled();
+  });
+
+  it("reloads the risks once an import has written, keeping the dialog open on its summary", async () => {
+    const { user, onRefresh } = renderTab();
+    await user.click(screen.getByRole("button", { name: /Import/ }));
+    await user.click(screen.getByRole("button", { name: "imported" }));
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("import-dialog")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "close import" }));
+    expect(screen.queryByTestId("import-dialog")).not.toBeInTheDocument();
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("names the export after the initiative", async () => {
+    const { user } = renderTab(RISKS, "ERP move");
+    await user.click(screen.getByRole("button", { name: /Export/ }));
+    expect(exportPpmRisks).toHaveBeenCalledTimes(1);
+    expect(exportPpmRisks.mock.calls[0][1]).toBe("ERP move");
+    expect(exportPpmRisks.mock.calls[0][0].map((r: PpmRisk) => r.id).sort()).toEqual(["r1", "r2", "r3"]);
+  });
+
+  it("keeps counting every risk while the sidebar narrows the grid", async () => {
+    const { user } = renderTab();
+    await user.click(screen.getByRole("button", { name: "Accepted" }));
+    expect(screen.getByTestId("ag-grid")).toHaveAttribute("data-row-count", "1");
+    expect(kpi("Total Risks")).toBe("3");
+    expect(kpi("Open")).toBe("1");
+    expect(kpi("High Risks")).toBe("1");
   });
 });

@@ -53,6 +53,12 @@ vi.mock("@/features/ea-delivery/CreateAdrDialog", () => dialogStub("CreateAdrDia
 vi.mock("@/features/ea-delivery/LinkDiagramsDialog", () => dialogStub("LinkDiagramsDialog"));
 vi.mock("@/features/diagrams/CreateDiagramDialog", () => dialogStub("CreateDiagramDialog"));
 
+// The signed-in role's app-level permissions; the wildcard unless a test narrows it.
+const auth = vi.hoisted(() => ({ permissions: { "*": true } as Record<string, boolean> }));
+vi.mock("@/hooks/AuthContext", () => ({
+  useAuthContext: () => ({ user: { id: "u1", permissions: auth.permissions } }),
+}));
+
 import EaDeliveryReport from "./EaDeliveryReport";
 
 type Fn = (...args: unknown[]) => unknown;
@@ -123,6 +129,7 @@ function collectErrors() {
 }
 
 beforeEach(() => {
+  auth.permissions = { "*": true };
   mockApi.reset();
   mockApi.lenient([]);
   for (const k of Object.keys(captured)) delete captured[k];

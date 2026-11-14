@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
+import { useDeliveryAccess } from "@/features/ea-delivery/deliveryAccess";
 import type { Card, SoAW, DiagramSummary, ArchitectureDecision } from "@/types";
 
 export interface InitiativeGroup {
@@ -129,6 +130,12 @@ export function flattenTree(nodes: InitiativeTreeNode[]): InitiativeTreeNode[] {
 
 export function useInitiativeData(): UseInitiativeDataResult {
   const { t } = useTranslation("delivery");
+  // A kind the role may not read is not requested: one refused list would
+  // otherwise fail the whole page for a role that holds only the others.
+  const { viewable } = useDeliveryAccess();
+  const canViewDiagrams = viewable.includes("diagram");
+  const canViewSoaws = viewable.includes("soaw");
+  const canViewAdrs = viewable.includes("adr");
 
   const [initiatives, setInitiatives] = useState<Card[]>([]);
   const [diagrams, setDiagrams] = useState<DiagramSummary[]>([]);
@@ -176,11 +183,11 @@ export function useInitiativeData(): UseInitiativeDataResult {
         api.get<{ items: Card[] }>(
           "/cards?type=Initiative&page_size=500&status=ACTIVE,ARCHIVED",
         ),
-        api.get<DiagramSummary[]>("/diagrams"),
+        canViewDiagrams ? api.get<DiagramSummary[]>("/diagrams") : [],
         // Current and open revisions only: an earlier revision is reached
         // from its successor's page, never listed beside it.
-        api.get<SoAW[]>("/soaw?include_earlier=false"),
-        api.get<ArchitectureDecision[]>("/adr?include_earlier=false"),
+        canViewSoaws ? api.get<SoAW[]>("/soaw?include_earlier=false") : [],
+        canViewAdrs ? api.get<ArchitectureDecision[]>("/adr?include_earlier=false") : [],
       ]);
       setInitiatives(initRes.items);
       setDiagrams(diagRes);
@@ -192,7 +199,7 @@ export function useInitiativeData(): UseInitiativeDataResult {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [canViewDiagrams, canViewSoaws, canViewAdrs]);
 
   useEffect(() => {
     fetchAll();

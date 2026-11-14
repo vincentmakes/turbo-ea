@@ -393,10 +393,12 @@ Sauvegardez n'importe quelle configuration de rapport pour un accès rapide ult�
 
 ## Exporter les rapports
 
-Chaque rapport prend en charge **Exporter vers Excel (.xlsx)** et **Exporter vers PowerPoint (.pptx)** depuis le menu **⋮** de la barre de titre (à côté de Imprimer et Copier le lien).
+Chaque rapport prend en charge **Exporter vers Excel (.xlsx)** et **Exporter vers PowerPoint (.pptx)** depuis le menu **⋮** de la barre de titre (à côté de Imprimer et Copier le lien) ; le [Rapport d'initiative](ppm.md#rapport-dinitiative) ne propose que PowerPoint.
 
 - **Excel** — Produit une feuille par tableau de données actuellement affiché, avec des colonnes dimensionnées automatiquement et le formatage des devises / nombres préservé. Basculez en **vue Tableau** avant l'export pour capturer les lignes sous-jacentes.
-- **PowerPoint** — Génère un diaporama dont la première diapositive combine le titre du rapport, l'horodatage de génération, le résumé des filtres actifs et le graphique en direct en qualité de présentation. Les diapositives suivantes paginent les tableaux pour des supports partageables.
+- **PowerPoint** — Génère un diaporama dont la première diapositive combine le titre du rapport, l'horodatage de génération, le résumé des filtres actifs et le graphique en direct en qualité de présentation. Sur les rapports aux graphiques longs (comme les rapports Portefeuille, Carte de capacités, Cycle de vie et Qualité des données), un graphique qui ne tient pas sur une diapositive se poursuit sur les suivantes, découpé entre les lignes ; les tableaux de données eux-mêmes vont dans l'export Excel.
+
+Pendant la création d'un export, le bouton **⋮** affiche un indicateur de chargement ; en cas d'échec, un message l'indique et vous pouvez réessayer.
 
 Les filtres et options de regroupement actifs au moment de l'export sont consignés sur la diapositive de titre ou dans l'en-tête, pour que les exports restent explicites.
 

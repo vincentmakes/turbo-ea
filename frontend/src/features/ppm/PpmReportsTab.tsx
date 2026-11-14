@@ -3,23 +3,14 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
-import LinkifiedText from "@/components/LinkifiedText";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
-import Divider from "@mui/material/Divider";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
-import { useDateFormat } from "@/hooks/useDateFormat";
-import { RAG_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import StatusReportDialog from "./StatusReportDialog";
+import StatusReportCard from "./StatusReportCard";
 import type { PpmStatusReport } from "@/types";
-
-const HEALTH_DOT_COLORS: Record<string, string> = {
-  onTrack: RAG_COLORS.green,
-  atRisk: RAG_COLORS.amber,
-  offTrack: RAG_COLORS.red,
-};
 
 interface Props {
   initiativeId: string;
@@ -29,7 +20,6 @@ interface Props {
 
 export default function PpmReportsTab({ initiativeId, reports, onRefresh }: Props) {
   const { t } = useTranslation("ppm");
-  const { formatDate } = useDateFormat();
   const [reportDialog, setReportDialog] = useState<{
     open: boolean;
     report?: PpmStatusReport;
@@ -74,74 +64,11 @@ export default function PpmReportsTab({ initiativeId, reports, onRefresh }: Prop
         </Paper>
       ) : (
         reports.map((report) => (
-          <Paper key={report.id} sx={{ p: { xs: 2, sm: 3 }, mb: 2 }}>
-            {/* Header */}
-            <Box
-              display="flex"
-              justifyContent="space-between"
-              alignItems="center"
-              flexWrap="wrap"
-              gap={1}
-              mb={2}
-            >
-              {/* Own flex/minWidth/wrap: as a single unshrinkable flex item this
-                  block ignored the parent's wrap and pushed the actions off. */}
-              <Box
-                display="flex"
-                alignItems="center"
-                gap={{ xs: 1, sm: 2 }}
-                flexWrap="wrap"
-                sx={{ flex: 1, minWidth: 0, rowGap: 0.75 }}
-              >
-                <Typography variant="subtitle1" fontWeight={600}>
-                  {formatDate(report.report_date)}
-                </Typography>
-                <Box display="flex" gap={1.5} flexWrap="wrap">
-                  {(
-                    [
-                      ["schedule_health", t("health_schedule")],
-                      ["cost_health", t("health_cost")],
-                      ["scope_health", t("health_scope")],
-                    ] as const
-                  ).map(([key, label]) => {
-                    const value = report[key as keyof PpmStatusReport] as
-                      | string
-                      | undefined;
-                    const statusLabel = value
-                      ? t(`health_${value}`, { defaultValue: value })
-                      : t("health_noReport");
-                    return (
-                      <Box
-                        key={key}
-                        display="flex"
-                        alignItems="center"
-                        gap={0.5}
-                      >
-                        <Box
-                          sx={{
-                            width: 12,
-                            height: 12,
-                            borderRadius: "50%",
-                            flexShrink: 0,
-                            // Stryker disable next-line StringLiteral: no health is keyed by the empty string, nor by any other filler
-          bgcolor: HEALTH_DOT_COLORS[value || ""] || STATUS_COLORS.neutral,
-                          }}
-                          title={statusLabel}
-                        />
-                        <Typography variant="caption" color="text.secondary">
-                          {label}
-                        </Typography>
-                      </Box>
-                    );
-                  })}
-                </Box>
-                {report.reporter && (
-                  <Typography variant="caption" color="text.secondary">
-                    {report.reporter.display_name}
-                  </Typography>
-                )}
-              </Box>
-              <Box sx={{ flexShrink: 0 }}>
+          <StatusReportCard
+            key={report.id}
+            report={report}
+            actions={
+              <>
                 <IconButton
                   size="small"
                   aria-label={t("editReport")}
@@ -156,64 +83,9 @@ export default function PpmReportsTab({ initiativeId, reports, onRefresh }: Prop
                 >
                   <MaterialSymbol icon="delete" size={18} />
                 </IconButton>
-              </Box>
-            </Box>
-
-            {/* Summary */}
-            {report.summary && (
-              <Box mb={2}>
-                <Typography
-                  variant="caption"
-                  fontWeight={600}
-                  color="text.secondary"
-                  display="block"
-                  mb={0.5}
-                >
-                  {t("summary")}
-                </Typography>
-                <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
-                  <LinkifiedText text={report.summary} />
-                </Typography>
-              </Box>
-            )}
-
-            {/* Accomplishments & Next Steps */}
-            {(report.accomplishments || report.next_steps) && <Divider sx={{ my: 1.5 }} />}
-
-            {report.accomplishments && (
-              <Box mb={1.5}>
-                <Typography
-                  variant="caption"
-                  fontWeight={600}
-                  color="text.secondary"
-                  display="block"
-                  mb={0.5}
-                >
-                  {t("accomplishments")}
-                </Typography>
-                <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
-                  <LinkifiedText text={report.accomplishments} />
-                </Typography>
-              </Box>
-            )}
-
-            {report.next_steps && (
-              <Box>
-                <Typography
-                  variant="caption"
-                  fontWeight={600}
-                  color="text.secondary"
-                  display="block"
-                  mb={0.5}
-                >
-                  {t("nextSteps")}
-                </Typography>
-                <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
-                  <LinkifiedText text={report.next_steps} />
-                </Typography>
-              </Box>
-            )}
-          </Paper>
+              </>
+            }
+          />
         ))
       )}
 

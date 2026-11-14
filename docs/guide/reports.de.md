@@ -393,10 +393,12 @@ Speichern Sie jede Berichtskonfiguration für schnellen späteren Zugriff. Gespe
 
 ## Berichte exportieren
 
-Jeder Bericht unterstützt **Als Excel exportieren (.xlsx)** und **Als PowerPoint exportieren (.pptx)** über das **⋮**-Menü in der Titelleiste (neben Drucken und Link kopieren).
+Jeder Bericht unterstützt **Als Excel exportieren (.xlsx)** und **Als PowerPoint exportieren (.pptx)** über das **⋮**-Menü in der Titelleiste (neben Drucken und Link kopieren); der [Initiativbericht](ppm.md#initiativbericht) bietet nur PowerPoint.
 
 - **Excel** — Erzeugt ein Arbeitsblatt pro aktuell angezeigter Datentabelle, mit automatisch dimensionierten Spalten sowie erhaltener Währungs- und Zahlenformatierung. Wechseln Sie vor dem Export zur **Tabellenansicht**, um die zugrunde liegenden Zeilen zu erfassen.
-- **PowerPoint** — Erstellt eine Präsentation, deren erste Folie Berichtstitel, Erstellungszeitpunkt, aktiven Filterüberblick und das Live-Diagramm in Präsentationsqualität kombiniert. Folgefolien paginieren die Datentabellen für teilbare Handouts.
+- **PowerPoint** — Erstellt eine Präsentation, deren erste Folie Berichtstitel, Erstellungszeitpunkt, aktiven Filterüberblick und das Live-Diagramm in Präsentationsqualität kombiniert. Bei Berichten mit langen Diagrammen (etwa Portfoliobericht, Fähigkeitskarte, Lebenszyklus-Bericht und Datenqualitätsbericht) wird ein Diagramm, das nicht auf eine Folie passt, auf weiteren Folien fortgesetzt, zwischen Zeilen aufgeteilt; die Datentabellen selbst gehen in den Excel-Export.
+
+Während ein Export erstellt wird, zeigt die **⋮**-Schaltfläche einen Ladeindikator; schlägt er fehl, weist eine Meldung darauf hin, und Sie können es erneut versuchen.
 
 Beim Export aktive Filter- und Gruppierungseinstellungen werden auf der Titelfolie bzw. in der Kopfzeile festgehalten, sodass Exporte selbsterklärend bleiben.
 

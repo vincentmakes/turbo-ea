@@ -84,6 +84,8 @@
   "shell.viewingSavedReport": "Affichage du rapport enregistré : <strong>{{name}}</strong>",
   "shell.exportXlsx": "Exporter vers Excel (.xlsx)",
   "shell.exportPptx": "Exporter vers PowerPoint (.pptx)",
+  "shell.exporting": "Exportation…",
+  "shell.exportFailed": "L’export n’a pas pu être créé. Veuillez réessayer.",
   "export.titleSlide": "Généré le {{date}}",
   "export.chartUnavailable": "Aperçu du graphique indisponible.",
   "export.summarySheet": "Résumé",

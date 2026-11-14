@@ -393,10 +393,12 @@ Save any report configuration for quick access later. Saved reports include a th
 
 ## Exporting Reports
 
-Every report supports **Export to Excel (.xlsx)** and **Export to PowerPoint (.pptx)** from the **⋮** menu in the title bar (alongside Print and Copy link).
+Every report supports **Export to Excel (.xlsx)** and **Export to PowerPoint (.pptx)** from the **⋮** menu in the title bar (alongside Print and Copy link); the [Initiative Report](ppm.md#initiative-report) offers PowerPoint only.
 
 - **Excel** — Produces one sheet per data table currently rendered, with auto-sized columns and currency / number formatting preserved. Switch to the **Table view** before exporting to capture the underlying rows.
-- **PowerPoint** — Generates a deck whose first slide combines the report title, generation timestamp, active filter summary, and the live chart at presentation quality. Subsequent slides paginate the data tables for share-ready handouts.
+- **PowerPoint** — Generates a deck whose first slide combines the report title, generation timestamp, active filter summary, and the live chart at presentation quality. On reports with long charts (such as the Portfolio, Capability Map, Lifecycle and Data Quality reports) a chart that does not fit continues on further slides, split between rows; the data tables themselves go to the Excel export.
+
+While an export is being built, the **⋮** button shows a spinner; if it fails, a message says so and you can try again.
 
 Active filters and grouping options applied at the moment of export are recorded on the title slide / header row, so exports stay self-explanatory.
 

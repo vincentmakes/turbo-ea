@@ -28,6 +28,18 @@ Ogni riga dell'albero mostra:
 
 La riga sintetica **Artefatti non collegati** in cima all'albero compare quando ci sono SoAW, diagrammi o ADR non ancora collegati a un'iniziativa. Aprila per ricollegarli.
 
+### Chi vede cosa
+
+EA Delivery si apre per qualsiasi ruolo che abbia **Visualizzare i documenti SoAW** (`soaw.view`) o **Visualizzare i registri delle decisioni di architettura** (`adr.view`). Ogni tipo di artefatto segue poi il proprio permesso:
+
+| Artefatto | Elencato con | Creato con |
+|----------|-------------|--------------|
+| **SoAW** | `soaw.view` | `soaw.manage` |
+| **Diagramma** | `diagrams.view` | `diagrams.manage` (necessario anche per collegare o scollegare un diagramma) |
+| **ADR** | `adr.view` | `adr.manage` |
+
+Un gruppo che non si può visualizzare è escluso dall'area di lavoro, e **+ Nuovo artefatto** e **+ Aggiungi …** offrono solo i tipi che si possono creare — un ruolo che può solo leggere non vede nessuno dei due pulsanti. Così un ruolo con solo `adr.view` ottiene la pagina con le decisioni di ogni iniziativa e nulla sui SoAW.
+
 ## Statement of Architecture Work (SoAW)
 
 Uno **Statement of Architecture Work (SoAW)** è un documento formale definito dallo [standard TOGAF](https://pubs.opengroup.org/togaf-standard/) (The Open Group Architecture Framework). Stabilisce l'ambito, l'approccio, i deliverable e la governance per un impegno architetturale. In TOGAF, il SoAW viene prodotto durante la **Fase preliminare** e la **Fase A (Visione dell'architettura)** e serve come accordo tra il team di architettura e i suoi stakeholder.
@@ -93,7 +105,7 @@ Un SoAW ha la stessa discussione, le stesse menzioni e la stessa cronologia di u
 
 ![Card iniziativa — scheda SoAW](../assets/img/it/55_iniziativa_soaw_tab.png)
 
-Le iniziative espongono inoltre una scheda **SoAW** dedicata direttamente nella loro pagina di dettaglio. La scheda elenca la revisione corrente di ogni SoAW collegato a quell'iniziativa, più l'eventuale revisione in fase di redazione (titolo, chip di stato, numero di revisione, data dell'ultima modifica) con un pulsante **+ Nuovo SoAW** che preseleziona l'iniziativa corrente — così è possibile redigere o saltare a un SoAW senza lasciare la card su cui si sta lavorando. La creazione riutilizza lo stesso dialogo della pagina EA Delivery, e il nuovo documento compare in entrambi i posti. La visibilità della scheda segue le regole standard di permesso sulle card.
+Le iniziative espongono inoltre una scheda **SoAW** dedicata direttamente nella loro pagina di dettaglio. La scheda elenca la revisione corrente di ogni SoAW collegato a quell'iniziativa, più l'eventuale revisione in fase di redazione (titolo, chip di stato, numero di revisione, data dell'ultima modifica) con un pulsante **+ Nuovo SoAW** che preseleziona l'iniziativa corrente — così è possibile redigere o saltare a un SoAW senza lasciare la card su cui si sta lavorando. La creazione riutilizza lo stesso dialogo della pagina EA Delivery, e il nuovo documento compare in entrambi i posti. La scheda è mostrata ai ruoli che hanno **Visualizzare i documenti SoAW** (`soaw.view`); il pulsante **+ Nuovo SoAW** e l'azione di eliminazione di una bozza richiedono **Creare e modificare i documenti SoAW** (`soaw.manage`), che si possa o meno modificare l'iniziativa stessa.
 
 ## Architecture Decision Records (ADR)
 

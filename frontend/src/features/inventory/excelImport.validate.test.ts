@@ -367,6 +367,11 @@ describe("validateImport — rows", () => {
       expect(oneCreate(bc()).creates[0].data).not.toHaveProperty("lifecycle");
     });
 
+    it("leaves data.lifecycle unset on a create whose lifecycle cells are all empty", () => {
+      const r = oneCreate(bc({ lifecycle_plan: "", lifecycle_active: "" }));
+      expect(r.creates[0].data).not.toHaveProperty("lifecycle");
+    });
+
     it("drops a row with an invalid date from the creates, like a row with an invalid attribute", () => {
       const r = run([bc({ lifecycle_active: "15/06/2024", lifecycle_plan: "2024-01-01" })]);
       expect(r.errors).toEqual([
@@ -1068,12 +1073,55 @@ describe("validateImport — update classification", () => {
     expect(row.data.lifecycle).toEqual({ plan: "2019-01-01", active: "2021-01-01", endOfLife: "2030-12-31" });
   });
 
-  it("documents current behaviour: a phase absent from the sheet reads as cleared", () => {
-    const row = oneUpdate(erp({ lifecycle_active: "2020-06-01" }));
+  it("leaves a phase whose column is absent untouched", () => {
+    const unchanged = run([erp({ lifecycle_active: "2020-06-01" })]);
+    expect(unchanged.errors).toEqual([]);
+    expect(unchanged.updates).toEqual([]);
+    expect(unchanged.skipped).toBe(1);
+
+    const row = oneUpdate(erp({ lifecycle_active: "2021-01-01" }));
+    expect(row.changes).toEqual({ lifecycle_active: { old: "2020-06-01", new: "2021-01-01" } });
+    expect(row.data.lifecycle).toEqual({ plan: "2019-01-01", active: "2021-01-01", endOfLife: "2030-12-31" });
+  });
+
+  it("clears every lifecycle date whose cell was emptied (#1393)", () => {
+    const row = oneUpdate(
+      erp({
+        lifecycle_plan: "",
+        lifecycle_phaseIn: "",
+        lifecycle_active: "",
+        lifecycle_phaseOut: "",
+        lifecycle_endOfLife: "",
+      }),
+    );
     expect(row.changes).toEqual({
       lifecycle_plan: { old: "2019-01-01", new: null },
+      lifecycle_active: { old: "2020-06-01", new: null },
       lifecycle_endOfLife: { old: "2030-12-31", new: null },
     });
+    expect(row.data.lifecycle).toEqual({});
+  });
+
+  it("clears a card's only lifecycle date when its cell is emptied", () => {
+    const card = makeCard({ type: "Provider", name: "Acme", lifecycle: { active: "2023-01-01" } });
+    const r = run([{ id: card.id, type: "Provider", name: "Acme", lifecycle_active: "" }], {
+      existing: [card],
+    });
+    expect(r.errors).toEqual([]);
+    expect(r.updates).toHaveLength(1);
+    expect(r.updates[0].changes).toEqual({ lifecycle_active: { old: "2023-01-01", new: null } });
+    expect(r.updates[0].data.lifecycle).toEqual({});
+  });
+
+  it("clears only the emptied phase, keeping the dates still in the sheet", () => {
+    const row = oneUpdate(erp({ lifecycle_plan: "2019-01-01", lifecycle_active: "", lifecycle_endOfLife: "2030-12-31" }));
+    expect(row.changes).toEqual({ lifecycle_active: { old: "2020-06-01", new: null } });
+    expect(row.data.lifecycle).toEqual({ plan: "2019-01-01", endOfLife: "2030-12-31" });
+  });
+
+  it("leaves data.lifecycle unset on an update whose sheet has no lifecycle column", () => {
+    const row = oneUpdate(erp({ name: "ERP Core v2" }));
+    expect(row.data).not.toHaveProperty("lifecycle");
   });
 
   it("records a changed attribute alone, leaving the others to the merge", () => {

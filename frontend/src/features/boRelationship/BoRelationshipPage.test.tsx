@@ -25,16 +25,28 @@ vi.mock("react-i18next", () => ({
     i18n: { language: "en" },
   }),
 }));
-vi.mock("@/components/CardDetailSidePanel", () => ({
-  default: ({ cardId, open, refreshKey, onSaved }: {
-    cardId: string; open: boolean; refreshKey: number; onSaved: () => void;
-  }) => open ? (
-    <div data-testid="card-panel" data-refresh={refreshKey}>
-      {cardId}
-      <button onClick={onSaved}>Refetch from card panel</button>
-    </div>
-  ) : null,
-}));
+// Stands in for the real panel's contract (#1397): with unsaved edits and a declined
+// confirm it keeps showing its card and tells the parent to put its selection back.
+const panelDirty = vi.hoisted(() => ({ value: false }));
+vi.mock("@/components/CardDetailSidePanel", async () => {
+  const { useEffect, useRef } = await import("react");
+  const Panel = ({ cardId, open, refreshKey, onSaved, onKeepCard }: {
+      cardId: string; open: boolean; refreshKey: number; onSaved: () => void;
+      onKeepCard?: (id: string) => void;
+    }) => {
+      const shown = useRef(cardId);
+      const keep = open && panelDirty.value && cardId !== shown.current;
+      if (!keep) shown.current = cardId;
+      useEffect(() => { if (keep) onKeepCard?.(shown.current); });
+      return open ? (
+        <div data-testid="card-panel" data-refresh={refreshKey}>
+          {shown.current}
+          <button onClick={onSaved}>Refetch from card panel</button>
+        </div>
+      ) : null;
+  };
+  return { default: Panel };
+});
 vi.mock("./BoRelationshipDiagram", () => ({
   default: ({
     nodes, edges, positions, showGrid, onActivate, onMove, onRequestRemoveEdge, onShortcut,
@@ -64,6 +76,7 @@ function signInAsEditor() {
 beforeEach(() => {
   vi.resetAllMocks();
   localStorage.clear();
+  panelDirty.value = false;
   vi.mocked(useOptionalAuthUser).mockReturnValue(null);
 });
 
@@ -78,6 +91,27 @@ it("opens the chosen card alongside the canvas and shows its own application gro
   expect(screen.getByTestId("card-panel")).toHaveTextContent("b");
   expect(screen.getByText("ERP")).toBeInTheDocument();
   expect(screen.queryByText("CRM")).not.toBeInTheDocument();
+});
+
+it("puts the canvas selection back on the open card when the user declines to leave its unsaved edits", async () => {
+  const graph = { ...baseGraph, nodes: [customer, order], applications: {
+    a: { master: { id: "x", name: "CRM" }, slaves: [], unclassified: [] },
+    b: { master: null, slaves: [], unclassified: [{ id: "y", name: "ERP" }] },
+  } };
+  vi.mocked(api.get).mockImplementation(async (path) => path === "/bo-relationship" ? graph : { changes: [] });
+  render(<MemoryRouter><BoRelationshipPage /></MemoryRouter>);
+  fireEvent.click(await screen.findByRole("button", { name: customer.name }));
+  expect(screen.getByTestId("card-panel")).toHaveTextContent(customer.id);
+  expect(screen.getByText("CRM")).toBeInTheDocument();
+  panelDirty.value = true;
+
+  fireEvent.click(screen.getByRole("button", { name: order.name }));
+
+  await waitFor(() => expect(screen.getByTestId("card-panel")).toHaveTextContent(customer.id));
+  expect(screen.getByTestId("card-panel")).not.toHaveTextContent(order.id);
+  // The side column reads the page's selection: it is back on the first object.
+  expect(screen.getByText("CRM")).toBeInTheDocument();
+  expect(screen.queryByText("ERP")).not.toBeInTheDocument();
 });
 
 it("groups drawing actions above the workspace and reserves a card panel before selection", async () => {

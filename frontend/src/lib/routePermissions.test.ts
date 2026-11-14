@@ -239,6 +239,24 @@ describe("canAccessPath", () => {
     }
   });
 
+  // Issue #1400: EA Delivery lists SoAWs and decisions, so a reader of either
+  // opens it; each document page keeps its own permission.
+  it.each(["/ea-delivery", "/reports/ea-delivery"])(
+    "opens %s for a reader of SoAWs or of decisions, and for no one else",
+    (path) => {
+      expect(permissionForPath(path)).toEqual(["soaw.view", "adr.view"]);
+      expect(canAccessPath({ "adr.view": true, "adr.comment": true }, path)).toBe(true);
+      expect(canAccessPath({ "soaw.view": true }, path)).toBe(true);
+      expect(canAccessPath({ "ppm.view": true, "inventory.view": true }, path)).toBe(false);
+      expect(canAccessPath({ "soaw.view": false, "adr.view": false }, path)).toBe(false);
+    },
+  );
+
+  it("keeps a SoAW behind soaw.view and a decision behind adr.view", () => {
+    expect(canAccessPath({ "adr.view": true }, "/ea-delivery/soaw/abc")).toBe(false);
+    expect(canAccessPath({ "soaw.view": true }, "/ea-delivery/adr/abc")).toBe(false);
+    expect(canAccessPath({ "adr.view": true }, "/ea-delivery/adr/abc")).toBe(true);
+  });
 });
 
 describe("ROUTE_PATH", () => {

@@ -4,9 +4,10 @@
  * for the non-modal form so the grid and filter sidebar beside the panel stay
  * usable while a card is previewed (#1289).
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 import { MemoryRouter } from "react-router";
 import CardDetailSidePanel from "./CardDetailSidePanel";
 
@@ -27,13 +28,21 @@ vi.mock("@/features/cards/CardDetailContent", () => ({
     card,
     onCardUpdate,
     onSaveOrigin,
+    onDirtyChange,
   }: {
     card: { name: string; data_quality: number };
     onCardUpdate: (c: unknown) => void;
     onSaveOrigin?: (anchor: string) => void;
+    onDirtyChange?: (dirty: boolean) => void;
   }) => (
     <div data-testid="card-content">
       {card.name}
+      <button type="button" onClick={() => onDirtyChange?.(true)}>
+        Edit
+      </button>
+      <button type="button" onClick={() => onDirtyChange?.(false)}>
+        Saved
+      </button>
       <button type="button" onClick={() => onCardUpdate({ ...card, data_quality: 60 })}>
         Save
       </button>
@@ -113,6 +122,7 @@ const CARD = {
   lifecycle: {},
   attributes: {},
 };
+const OTHER = { ...CARD, id: "c2", name: "Salesforce" };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -121,23 +131,42 @@ beforeEach(() => {
   vi.mocked(api.get).mockImplementation((path: string) =>
     path.endsWith("/my-permissions")
       ? Promise.resolve({ effective: {} })
-      : Promise.resolve(CARD),
+      : Promise.resolve(path === "/cards/c2" ? OTHER : CARD),
   );
 });
 
-function mount(props: { nonModal?: boolean; open?: boolean } = {}) {
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+function mount(props: { nonModal?: boolean; open?: boolean; cardId?: string | null } = {}) {
   const onClose = vi.fn();
   const onPage = vi.fn();
-  const view = (open: boolean) => (
+  const onKeepCard = vi.fn();
+  const view = (open: boolean, cardId: string | null) => (
     <MemoryRouter>
       <button type="button" onClick={onPage}>
         Page behind
       </button>
-      <CardDetailSidePanel cardId="c1" open={open} onClose={onClose} nonModal={props.nonModal} />
+      <CardDetailSidePanel
+        cardId={cardId}
+        open={open}
+        onClose={onClose}
+        onKeepCard={onKeepCard}
+        nonModal={props.nonModal}
+      />
     </MemoryRouter>
   );
-  const utils = render(view(props.open ?? true));
-  return { ...utils, onClose, onPage, rerenderOpen: (open: boolean) => utils.rerender(view(open)) };
+  const initialId = props.cardId === undefined ? "c1" : props.cardId;
+  const utils = render(view(props.open ?? true, initialId));
+  return {
+    ...utils,
+    onClose,
+    onPage,
+    onKeepCard,
+    rerenderOpen: (open: boolean) => utils.rerender(view(open, initialId)),
+    rerenderWith: (cardId: string | null, open = true) => utils.rerender(view(open, cardId)),
+  };
 }
 
 const backdrop = () => document.querySelector(".MuiBackdrop-root");
@@ -338,4 +367,286 @@ it("does not offer inventory navigation from the scoped panel", async () => {
   render(<MemoryRouter><CardDetailSidePanel cardId="c1" open onClose={() => {}} boScoped /></MemoryRouter>);
   await screen.findByTestId("card-content");
   expect(screen.queryByRole("button", { name: "Open full page" })).not.toBeInTheDocument();
+});
+
+describe("CardDetailSidePanel — unsaved edits (#1397)", () => {
+  const MESSAGE = "You have unsaved changes. Leave without saving?";
+  const cardFetches = (id: string) =>
+    vi.mocked(api.get).mock.calls.filter(([path]) => path === `/cards/${id}`).length;
+
+  async function dirtyPanel(props: { nonModal?: boolean } = { nonModal: true }) {
+    const utils = mount(props);
+    expect(await screen.findByTestId("card-content")).toHaveTextContent("SAP ERP");
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    return utils;
+  }
+
+  it("keeps the card and its edits when the user declines switching to another card", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const { rerenderWith, onKeepCard } = await dirtyPanel();
+
+    rerenderWith("c2");
+
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(confirm).toHaveBeenCalledWith(MESSAGE);
+    expect(onKeepCard).toHaveBeenCalledTimes(1);
+    expect(onKeepCard).toHaveBeenCalledWith("c1");
+    expect(cardFetches("c2")).toBe(0);
+    expect(screen.getByTestId("card-content")).toHaveTextContent("SAP ERP");
+  });
+
+  it("does not ask twice for a request already declined", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const { rerenderWith, onKeepCard } = await dirtyPanel();
+
+    rerenderWith("c2");
+    rerenderWith(null, false);
+    rerenderWith("c2");
+    // A fresh request after the decline is asked again; repeating it is not.
+    expect(confirm).toHaveBeenCalledTimes(3);
+    expect(onKeepCard).toHaveBeenCalledTimes(3);
+    expect(screen.getByTestId("card-content")).toHaveTextContent("SAP ERP");
+  });
+
+  it("asks once under StrictMode, whose double effects must not prompt twice", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const onKeepCard = vi.fn();
+    const view = (cardId: string) => (
+      <StrictMode>
+        <MemoryRouter>
+          <CardDetailSidePanel
+            cardId={cardId}
+            open
+            onClose={() => {}}
+            onKeepCard={onKeepCard}
+            nonModal
+          />
+        </MemoryRouter>
+      </StrictMode>
+    );
+    const { rerender } = render(view("c1"));
+    expect(await screen.findByTestId("card-content")).toHaveTextContent("SAP ERP");
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+
+    rerender(view("c2"));
+
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(onKeepCard).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("card-content")).toHaveTextContent("SAP ERP");
+  });
+
+  it("asks again for the same card once the parent restored its state", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const { rerenderWith } = await dirtyPanel();
+
+    rerenderWith("c2");
+    rerenderWith("c1"); // the parent's onKeepCard put its state back
+    expect(confirm).toHaveBeenCalledTimes(1);
+    rerenderWith("c2");
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(cardFetches("c2")).toBe(0);
+  });
+
+  it("switches to the new card when the user agrees to discard the edits", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { rerenderWith, onKeepCard } = await dirtyPanel();
+
+    rerenderWith("c2");
+
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(confirm).toHaveBeenCalledWith(MESSAGE);
+    expect(onKeepCard).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByTestId("card-content")).toHaveTextContent("Salesforce"));
+    expect(cardFetches("c2")).toBe(1);
+    expect(screen.queryByText(/SAP ERP/)).toBeNull();
+
+    // The edits went with the old card: the next switch asks nothing.
+    rerenderWith("c1");
+    await waitFor(() => expect(screen.getByTestId("card-content")).toHaveTextContent("SAP ERP"));
+    expect(confirm).toHaveBeenCalledTimes(1);
+  });
+
+  it("switches without asking when nothing is unsaved", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const { rerenderWith, onKeepCard } = mount({ nonModal: true });
+    expect(await screen.findByTestId("card-content")).toHaveTextContent("SAP ERP");
+
+    rerenderWith("c2");
+
+    await waitFor(() => expect(screen.getByTestId("card-content")).toHaveTextContent("Salesforce"));
+    expect(confirm).not.toHaveBeenCalled();
+    expect(onKeepCard).not.toHaveBeenCalled();
+  });
+
+  it("switches without asking once the edits were saved", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const { rerenderWith } = await dirtyPanel();
+    await userEvent.click(screen.getByRole("button", { name: "Saved" }));
+
+    rerenderWith("c2");
+
+    await waitFor(() => expect(screen.getByTestId("card-content")).toHaveTextContent("Salesforce"));
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it("stays open when the parent closes it and the user keeps the edits", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const { rerenderWith, onKeepCard } = await dirtyPanel();
+
+    rerenderWith(null, false);
+
+    expect(confirm).toHaveBeenCalledWith(MESSAGE);
+    expect(onKeepCard).toHaveBeenCalledWith("c1");
+    expect(panel()).toHaveClass("MuiPaper-root");
+    expect(screen.getByTestId("card-content")).toHaveTextContent("SAP ERP");
+  });
+
+  it("closes when the parent closes it and the user discards the edits", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { rerenderWith, onKeepCard } = await dirtyPanel();
+
+    rerenderWith(null, false);
+
+    expect(onKeepCard).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByTestId("card-content")).toBeNull());
+  });
+
+  it("asks before the close button closes a panel with edits", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const { onClose, rerenderWith } = await dirtyPanel();
+
+    await userEvent.click(closeButton());
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(confirm).toHaveBeenCalledWith(MESSAGE);
+    expect(onClose).not.toHaveBeenCalled();
+
+    confirm.mockReturnValue(true);
+    await userEvent.click(closeButton());
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    // The parent closing in response is the same answer — no second prompt.
+    rerenderWith(null, false);
+    expect(confirm).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(screen.queryByTestId("card-content")).toBeNull());
+  });
+
+  it("asks before Escape closes a non-modal panel with edits", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const { onClose } = await dirtyPanel();
+
+    closeButton().focus();
+    await userEvent.keyboard("{Escape}");
+    expect(confirm).toHaveBeenCalledWith(MESSAGE);
+    expect(onClose).not.toHaveBeenCalled();
+
+    confirm.mockReturnValue(true);
+    await userEvent.keyboard("{Escape}");
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks before the backdrop closes a modal panel with edits", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const { onClose } = await dirtyPanel({});
+
+    await userEvent.click(backdrop() as HTMLElement);
+    expect(confirm).toHaveBeenCalledWith(MESSAGE);
+    expect(onClose).not.toHaveBeenCalled();
+
+    confirm.mockReturnValue(true);
+    await userEvent.click(backdrop() as HTMLElement);
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes a panel the parent already closed once the user discards the kept edits", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const { onClose, rerenderWith } = await dirtyPanel();
+    rerenderWith(null, false); // declined: the panel stays, the parent is closed
+
+    confirm.mockReturnValue(true);
+    await userEvent.click(closeButton());
+
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByTestId("card-content")).toBeNull());
+  });
+
+  it("closes without asking once the edits were saved", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const { onClose } = await dirtyPanel();
+    await userEvent.click(screen.getByRole("button", { name: "Saved" }));
+
+    await userEvent.click(closeButton());
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks before the open-full-page button leaves for the card page", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    await dirtyPanel();
+    const buttons = panel().querySelectorAll("button");
+    // Header: close, then open-full-page.
+    await userEvent.click(buttons[1] as HTMLButtonElement);
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(confirm).toHaveBeenCalledWith(MESSAGE);
+    expect(screen.getByTestId("card-content")).toHaveTextContent("SAP ERP");
+  });
+
+  describe("docked BO panel", () => {
+    const detailPaths = () => vi.mocked(api.get).mock.calls.map(([path]) => path);
+
+    async function dockedDirty() {
+      vi.mocked(api.get).mockImplementation((path: string) => Promise.resolve({
+        card: path.includes("/c2/") ? OTHER : CARD, permissions: { can_view: true },
+      }));
+      const onClose = vi.fn();
+      const view = (open: boolean, cardId: string) => (
+        <MemoryRouter>
+          <CardDetailSidePanel cardId={cardId} open={open} onClose={onClose} docked boScoped />
+        </MemoryRouter>
+      );
+      const utils = render(view(true, "c1"));
+      expect(await screen.findByTestId("card-content")).toHaveTextContent("SAP ERP");
+      await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+      return { ...utils, onClose, view };
+    }
+
+    it("keeps the region and does not close on Escape when the user declines", async () => {
+      const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+      const { onClose } = await dockedDirty();
+
+      await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+      await userEvent.keyboard("{Escape}");
+
+      expect(confirm).toHaveBeenCalledWith(MESSAGE);
+      expect(onClose).not.toHaveBeenCalled();
+      expect(screen.getByRole("region")).toBeInTheDocument();
+    });
+
+    it("stays rendered when the parent closes it and the user keeps the edits", async () => {
+      const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+      const { rerender, view } = await dockedDirty();
+
+      rerender(view(false, "c1"));
+
+      expect(confirm).toHaveBeenCalledWith(MESSAGE);
+      expect(screen.getByRole("region")).toBeInTheDocument();
+      expect(screen.getByTestId("card-content")).toHaveTextContent("SAP ERP");
+    });
+
+    it("does not load another object's detail when the user declines the switch", async () => {
+      const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+      const { rerender, view } = await dockedDirty();
+
+      rerender(view(true, "c2"));
+
+      expect(confirm).toHaveBeenCalledWith(MESSAGE);
+      expect(detailPaths()).not.toContain("/bo-relationship/objects/c2/detail");
+      expect(detailPaths().some((path) => path.startsWith("/cards/"))).toBe(false);
+      expect(screen.getByTestId("card-content")).toHaveTextContent("SAP ERP");
+    });
+  });
 });

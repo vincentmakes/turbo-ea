@@ -651,6 +651,7 @@ export default function CardDetailContent({
     risksCount,
     canViewCompliance,
     complianceCount,
+    canViewSoaw: can("soaw.view"),
     canViewAdr,
     adrCount,
     canManageAdrLinks: perms.can_manage_adr_links,
@@ -799,7 +800,9 @@ export default function CardDetailContent({
         <ErrorBoundary label="SoAW">
           <MuiCard>
             <CardContent>
-              <SoAWTab initiativeId={card.id} canManage={perms.can_edit} />
+              {/* Create and delete are what `POST` / `DELETE /soaw` ask for:
+                  `soaw.manage`, not the right to edit this card. */}
+              <SoAWTab initiativeId={card.id} canManage={can("soaw.manage")} />
             </CardContent>
           </MuiCard>
         </ErrorBoundary>

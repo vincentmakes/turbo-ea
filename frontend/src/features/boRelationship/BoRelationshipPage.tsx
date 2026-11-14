@@ -616,6 +616,7 @@ export default function BoRelationshipPage() {
                 onClose={() => setPanelOpen(false)}
                 docked
                 boScoped
+                onKeepCard={activateObject}
                 refreshKey={detailVersion}
                 onSaved={() => { refetch(); checkChanges(); }}
               />

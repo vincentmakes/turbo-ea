@@ -1,5 +1,32 @@
 import { useContext, useEffect, useRef } from "react";
-import { UNSAFE_NavigationContext } from "react-router";
+import { UNSAFE_NavigationContext, parsePath, useLocation, type To } from "react-router";
+
+export interface UnsavedChangesGuardOptions {
+  /**
+   * Only prompt for in-app navigation that changes the pathname. A same-path
+   * `push` / `replace` (a page syncing its own filters to the query string)
+   * passes through. For a guard that sits beside a page the user keeps working
+   * in — the card preview panel over the Inventory (#1397) — rather than one
+   * that owns the whole page.
+   *
+   * It also skips the back / forward guard (3 below). Its history sentinel is
+   * a copy of the current entry, and a same-path write lands on that copy: a
+   * `replace` leaves the entry beneath it holding the old query string, so a
+   * later Back rewinds the page's URL instead of leaving it (and, while
+   * dirty, rewinds it even when the prompt is declined); a `push` stacks
+   * above it, so Back within the page asks "leave?" for a step that leaves
+   * nothing. Reload, tab close and in-app
+   * route changes are still guarded.
+   */
+  pathOnly?: boolean;
+}
+
+/** The pathname a navigator `push` / `replace` is heading to, if it names one. */
+function destinationPath(to: unknown): string | undefined {
+  if (typeof to === "string") return parsePath(to).pathname || undefined;
+  if (to && typeof to === "object") return (to as Exclude<To, string>).pathname || undefined;
+  return undefined;
+}
 
 /**
  * Warn the user before they navigate away while there are unsaved changes.
@@ -21,17 +48,28 @@ import { UNSAFE_NavigationContext } from "react-router";
  *
  * @param dirty   Whether there are unsaved changes right now.
  * @param message The confirmation prompt shown for in-app navigation.
+ * @param options `pathOnly` — see {@link UnsavedChangesGuardOptions}.
  */
-export function useUnsavedChangesGuard(dirty: boolean, message: string): void {
+export function useUnsavedChangesGuard(
+  dirty: boolean,
+  message: string,
+  options: UnsavedChangesGuardOptions = {},
+): void {
   const { navigator } = useContext(UNSAFE_NavigationContext);
+  const { pathname } = useLocation();
 
   // Read the latest dirty/message through refs so the navigator patch can be
   // installed once for the component's lifetime and stay transparent (pass
   // through) whenever there are no unsaved changes.
   const dirtyRef = useRef(dirty);
   const messageRef = useRef(message);
+  const pathOnly = !!options.pathOnly;
+  const pathOnlyRef = useRef(pathOnly);
+  const pathnameRef = useRef(pathname);
   dirtyRef.current = dirty;
   messageRef.current = message;
+  pathOnlyRef.current = pathOnly;
+  pathnameRef.current = pathname;
 
   // 1. Browser unload (reload / tab close / hard nav).
   useEffect(() => {
@@ -59,7 +97,10 @@ export function useUnsavedChangesGuard(dirty: boolean, message: string): void {
     const guarded =
       (original: (...args: unknown[]) => void) =>
       (...args: unknown[]) => {
-        if (dirtyRef.current && !window.confirm(messageRef.current)) return;
+        const samePath =
+          pathOnlyRef.current &&
+          (destinationPath(args[0]) ?? pathnameRef.current) === pathnameRef.current;
+        if (dirtyRef.current && !samePath && !window.confirm(messageRef.current)) return;
         return original.apply(nav, args);
       };
     nav.push = guarded(originalPush);
@@ -71,9 +112,10 @@ export function useUnsavedChangesGuard(dirty: boolean, message: string): void {
   }, [navigator]);
 
   // 3. Back / forward. Push a same-URL sentinel so a Back press lands here and
-  //    can be confirmed instead of silently navigating away.
+  //    can be confirmed instead of silently navigating away. Not with
+  //    `pathOnly` — see UnsavedChangesGuardOptions.
   useEffect(() => {
-    if (!dirty) return;
+    if (!dirty || pathOnly) return;
     const sentinelUrl = window.location.href;
     window.history.pushState(null, "", sentinelUrl);
     const onPopState = () => {
@@ -93,5 +135,5 @@ export function useUnsavedChangesGuard(dirty: boolean, message: string): void {
       // navigating away), consume it so we don't leave a dead history entry.
       if (window.location.href === sentinelUrl) window.history.back();
     };
-  }, [dirty, message]);
+  }, [dirty, message, pathOnly]);
 }

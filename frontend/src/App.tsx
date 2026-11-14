@@ -66,6 +66,7 @@ const BpmDashboard = lazy(() => import("@/features/bpm/BpmDashboard"));
 const ProcessFlowEditorPage = lazy(() => import("@/features/bpm/ProcessFlowEditorPage"));
 const PpmHome = lazy(() => import("@/features/ppm/PpmHome"));
 const PpmProjectDetail = lazy(() => import("@/features/ppm/PpmProjectDetail"));
+const PpmProjectReport = lazy(() => import("@/features/ppm/PpmProjectReport"));
 const TurboLensPage = lazy(() => import("@/features/turbolens/TurboLensPage"));
 const AssessmentViewer = lazy(() => import("@/features/turbolens/AssessmentViewer"));
 const CapabilityCataloguePage = lazy(
@@ -209,6 +210,7 @@ function AppRoutes() {
                 <Route path="/value-chain/value-stream" element={<ModuleGate module="valuechain"><ValueStreamPage /></ModuleGate>} />
                 <Route path="/ppm" element={<ModuleGate module="ppm"><PpmHome /></ModuleGate>} />
                 <Route path="/ppm/:id" element={<ModuleGate module="ppm"><PpmProjectDetail /></ModuleGate>} />
+                <Route path="/ppm/:id/report" element={<ModuleGate module="ppm"><PpmProjectReport /></ModuleGate>} />
                 <Route path="/diagrams" element={<DiagramsPage />} />
                 <Route path="/diagrams/:id" element={<DiagramViewer />} />
                 <Route path="/diagrams/:id/edit" element={<DiagramEditor />} />

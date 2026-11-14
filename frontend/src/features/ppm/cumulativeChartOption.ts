@@ -17,7 +17,8 @@ import {
   tooltip,
   type ChartChromeContext,
 } from "@/components/charts/chrome";
-import type { MonthPoint } from "./costChartData";
+import { shortMonth } from "@/hooks/useDateFormat";
+import type { MonthPoint, YearMonth } from "./costChartData";
 
 /** A plotted cumulative line: which `MonthPoint` field, its legend name, its colour. */
 export interface CumulativeLine {
@@ -98,6 +99,39 @@ export function budgetAxisMax(
   return budgetMax > dataMax(points, lines) ? niceMax(budgetMax) : undefined;
 }
 
+/**
+ * The x-axis labels for a run of months: the short month name, with the
+ * two-digit year appended whenever the run crosses a calendar boundary, so
+ * "Jan" is never ambiguous on a multi-year axis. `shortMonth` pins the
+ * Gregorian calendar (the months are Gregorian ones: `ar-SA` would otherwise
+ * name Hijri months), strips the bidi marks and survives a bad locale tag —
+ * the same month names as every formatted date. Shared by the Budget & Costs
+ * tab and the initiative PDF.
+ */
+export function monthAxisLabels(months: YearMonth[], locale: string): string[] {
+  const multiYear = new Set(months.map((m) => m.year)).size > 1;
+  return months.map((m) => {
+    // Day 1 at noon: safe from any timezone rolling the date backwards.
+    const label = shortMonth(new Date(m.year, m.month - 1, 1, 12), locale);
+    return multiYear ? `${label} '${String(m.year).slice(-2)}` : label;
+  });
+}
+
+/**
+ * The dashed CapEx and OpEx budget lines of a by-category chart, each only
+ * when that budget is set, in the colour of the line it is measured against.
+ */
+export function categoryReferences(
+  budget: { capex: number; opex: number },
+  names: { capex: string; opex: string },
+  colors: { capex: string; opex: string },
+): BudgetReference[] {
+  return [
+    ...(budget.capex > 0 ? [{ value: budget.capex, name: names.capex, color: colors.capex }] : []),
+    ...(budget.opex > 0 ? [{ value: budget.opex, name: names.opex, color: colors.opex }] : []),
+  ];
+}
+
 /** How close to the axis top a budget line's label drops below it: within a tenth of the axis. */
 export const BUDGET_LABEL_TOP_BAND = 0.9;
 
@@ -113,6 +147,40 @@ export function budgetLabelPosition(value: number, axisTop: number): "insideEndT
   return value >= axisTop * BUDGET_LABEL_TOP_BAND ? "insideEndBottom" : "insideEndTop";
 }
 
+/** How close two budget lines are, as a share of the axis, before their labels would collide. */
+export const BUDGET_LABEL_CLASH_BAND = 0.1;
+
+export type BudgetLabelPosition =
+  | "insideEndTop"
+  | "insideEndBottom"
+  | "insideStartTop"
+  | "insideStartBottom";
+
+/**
+ * Where each budget line's name sits. At the line's end (`budgetLabelPosition`)
+ * unless an earlier line already labelled at the end is within
+ * `BUDGET_LABEL_CLASH_BAND` of the axis: two nearly equal budgets (a CapEx and
+ * an OpEx of about the same size) would print one name over the other, so the
+ * later one moves to the line's start, keeping its side of the line. The start
+ * is the emptiest corner of a cumulative chart — every line starts low — and,
+ * like the end, it mirrors with the inverted axis in RTL.
+ */
+export function budgetLabelPositions(
+  references: BudgetReference[],
+  axisTop: number,
+): BudgetLabelPosition[] {
+  // Stryker disable next-line ArrayDeclaration: equivalent, a seeded non-number only ever gives a NaN distance, which is never within the clash band
+  const atEnd: number[] = [];
+  return references.map((r) => {
+    const end = budgetLabelPosition(r.value, axisTop);
+    if (!atEnd.some((v) => Math.abs(v - r.value) < axisTop * BUDGET_LABEL_CLASH_BAND)) {
+      atEnd.push(r.value);
+      return end;
+    }
+    return end === "insideEndTop" ? "insideStartTop" : "insideStartBottom";
+  });
+}
+
 export function buildCumulativeOption(
   points: MonthPoint[],
   labels: string[],
@@ -125,19 +193,20 @@ export function buildCumulativeOption(
   // The axis's top edge: the highest budget rounded up when it is above the
   // data, else the data's own top (the axis rounds it up, never down).
   const axisTop = max ?? dataMax(points, lines);
+  const positions = budgetLabelPositions(references, axisTop);
 
   const markLine = {
     silent: true,
     symbol: "none",
     animation: false,
-    data: references.map((r) => ({
+    data: references.map((r, i) => ({
       yAxis: r.value,
       name: r.name,
       lineStyle: { color: r.color, type: BUDGET_DASH, opacity: 0.8, width: 1 },
       label: {
         show: true,
         formatter: r.name,
-        position: budgetLabelPosition(r.value, axisTop),
+        position: positions[i],
         color: r.color,
         fontSize: 11,
       },

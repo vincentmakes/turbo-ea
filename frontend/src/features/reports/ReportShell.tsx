@@ -13,7 +13,12 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
+import Snackbar from "@mui/material/Snackbar";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useSubmitOnce } from "@/hooks/useSubmitOnce";
+import { printPage } from "@/lib/printPage";
 import { brand } from "@/theme/tokens";
 import {
   exportReportToPptx,
@@ -21,6 +26,8 @@ import {
   extractSheetsFromDOM,
   type ReportExportData,
 } from "./reportExport";
+
+export type ReportExportFormat = "xlsx" | "pptx";
 
 export interface PrintParam {
   label: string;
@@ -68,6 +75,12 @@ export interface ReportShellProps<V extends string = "chart" | "table"> {
   /** Set to true to hide the XLSX/PPTX export menu entries for this report. */
   disableExport?: boolean;
   /**
+   * The export formats this report may offer. Omitted, each format shows by
+   * the rules below (what the user is looking at, whether `buildExportData`
+   * is given); a format left out of the list never shows.
+   */
+  exportFormats?: ReportExportFormat[];
+  /**
    * Set to true to drop the "View all saved reports" menu entry. The shell is
    * also used outside /reports (the PPM Portfolio), where a link into the
    * saved-report gallery points at an unrelated part of the app.
@@ -107,13 +120,17 @@ export default function ReportShell<V extends string = "chart" | "table">({
   printParams,
   buildExportData,
   disableExport,
+  exportFormats,
   disableSavedReportsLink,
   paginateRowSelector,
   children,
 }: ReportShellProps<V>) {
   const { t } = useTranslation(["reports", "common"]);
   const navigate = useNavigate();
+  const theme = useTheme();
   const [exportMenu, setExportMenu] = useState<HTMLElement | null>(null);
+  const [exportFailed, setExportFailed] = useState(false);
+  const exporting = useSubmitOnce();
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -138,16 +155,23 @@ export default function ReportShell<V extends string = "chart" | "table">({
   }, [buildExportData, chartRef, title, activeParams, paginateRowSelector]);
 
   const handleExport = useCallback(
-    async (format: "xlsx" | "pptx") => {
+    async (format: ReportExportFormat) => {
       setExportMenu(null);
-      const data = collectExportData();
-      if (format === "xlsx") {
-        await exportReportToXlsx(data);
-      } else {
-        await exportReportToPptx(data);
+      setExportFailed(false);
+      try {
+        await exporting.run(async () => {
+          const data = collectExportData();
+          if (format === "xlsx") {
+            await exportReportToXlsx(data);
+          } else {
+            await exportReportToPptx(data);
+          }
+        });
+      } catch {
+        setExportFailed(true);
       }
     },
-    [collectExportData],
+    [collectExportData, exporting],
   );
 
   const exportEnabled = !disableExport && !!chartRef;
@@ -156,13 +180,22 @@ export default function ReportShell<V extends string = "chart" | "table">({
   // without a table toggle are inherently chart-only — unless they supply
   // their own `buildExportData`, which means they hand over real tabular
   // data instead of relying on the DOM scrape, so XLSX always applies.
+  // `exportFormats`, when given, narrows that further.
+  const allows = (format: ReportExportFormat) => !exportFormats || exportFormats.includes(format);
   const showXlsxItem =
     exportEnabled &&
+    allows("xlsx") &&
     (!!buildExportData || (hasTableToggle && view === "table"));
-  const showPptxItem = exportEnabled && (!hasTableToggle || view !== "table");
+  const showPptxItem = exportEnabled && allows("pptx") && (!hasTableToggle || view !== "table");
 
   return (
-    <Box className="report-container" sx={{ maxWidth, mx: "auto" }}>
+    // `data-theme-mode`: a dark-theme report prints the text set on the page
+    // itself in ink, since the page prints on white paper (print.css).
+    <Box
+      className="report-container"
+      data-theme-mode={theme.palette.mode}
+      sx={{ maxWidth, mx: "auto" }}
+    >
       {/* Saved report banner */}
       {savedReportName && (
         <Alert
@@ -204,6 +237,7 @@ export default function ReportShell<V extends string = "chart" | "table">({
       >
         <MaterialSymbol icon={icon} size={26} color={iconColor} />
         <Typography
+          className="report-title"
           variant="h5"
           sx={{ fontWeight: 700, flex: 1, minWidth: 0 }}
           noWrap
@@ -266,18 +300,28 @@ export default function ReportShell<V extends string = "chart" | "table">({
           )}
 
           <Tooltip title={t("shell.printPdf")}>
-            <IconButton size="small" onClick={() => window.print()}>
+            <IconButton size="small" onClick={printPage}>
               <MaterialSymbol icon="print" size={20} />
             </IconButton>
           </Tooltip>
 
-          <Tooltip title={t("shell.moreActions")}>
-            <IconButton
-              size="small"
-              onClick={(e) => setExportMenu(e.currentTarget)}
-            >
-              <MaterialSymbol icon="more_vert" size={20} />
-            </IconButton>
+          <Tooltip title={exporting.busy ? t("shell.exporting") : t("shell.moreActions")}>
+            {/* A span keeps the tooltip working while the button is disabled. */}
+            <span>
+              <IconButton
+                size="small"
+                aria-label={exporting.busy ? t("shell.exporting") : t("shell.moreActions")}
+                aria-busy={exporting.busy}
+                disabled={exporting.busy}
+                onClick={(e) => setExportMenu(e.currentTarget)}
+              >
+                {exporting.busy ? (
+                  <CircularProgress size={20} data-testid="report-export-progress" />
+                ) : (
+                  <MaterialSymbol icon="more_vert" size={20} />
+                )}
+              </IconButton>
+            </span>
           </Tooltip>
 
           <Menu
@@ -323,6 +367,17 @@ export default function ReportShell<V extends string = "chart" | "table">({
           </Menu>
         </Box>
       </Box>
+
+      <Snackbar
+        open={exportFailed}
+        autoHideDuration={6000}
+        onClose={() => setExportFailed(false)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert severity="error" onClose={() => setExportFailed(false)} variant="filled">
+          {t("shell.exportFailed")}
+        </Alert>
+      </Snackbar>
 
       {/* Print-only: compact parameter summary */}
       {activeParams.length > 0 && (

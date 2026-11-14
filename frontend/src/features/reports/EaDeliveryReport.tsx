@@ -14,6 +14,7 @@ import { api } from "@/api/client";
 import CreateSoAWDialog from "@/features/ea-delivery/CreateSoAWDialog";
 import CreateAdrDialog from "@/features/ea-delivery/CreateAdrDialog";
 import LinkDiagramsDialog from "@/features/ea-delivery/LinkDiagramsDialog";
+import { useDeliveryAccess } from "@/features/ea-delivery/deliveryAccess";
 import { InitiativesTab } from "@/features/ea-delivery/initiatives";
 import NewArtefactSplitButton, {
   type ArtefactKind,
@@ -33,6 +34,10 @@ export default function EaDeliveryReport() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedInitiativeId = searchParams.get("initiative");
+  // What this role may start here; a SoAW it may create it may also edit and
+  // delete (`soaw.manage` covers all three on the API).
+  const { creatable } = useDeliveryAccess();
+  const canManageSoaw = creatable.includes("soaw");
 
   const setSelectedInitiativeId = useCallback(
     (id: string | null) => {
@@ -248,15 +253,18 @@ export default function EaDeliveryReport() {
             justifyContent: { xs: "flex-start", sm: "flex-end" },
           }}
         >
-          <NewArtefactSplitButton
-            initiativeId={
-              selectedInitiativeId && selectedInitiativeId !== UNLINKED_KEY
-                ? selectedInitiativeId
-                : undefined
-            }
-            onSelect={(kind, id) => handleCreateArtefact(kind, id)}
-            variant="contained"
-          />
+          {creatable.length > 0 && (
+            <NewArtefactSplitButton
+              initiativeId={
+                selectedInitiativeId && selectedInitiativeId !== UNLINKED_KEY
+                  ? selectedInitiativeId
+                  : undefined
+              }
+              onSelect={(kind, id) => handleCreateArtefact(kind, id)}
+              variant="contained"
+              kinds={creatable}
+            />
+          )}
         </Box>
       </Box>
 
@@ -291,19 +299,21 @@ export default function EaDeliveryReport() {
           </ListItemIcon>
           <ListItemText>{t("menu.preview")}</ListItemText>
         </MenuItem>
-        <MenuItem
-          onClick={() => {
-            if (ctxMenu) navigate(`/ea-delivery/soaw/${ctxMenu.soaw.id}`);
-            setCtxMenu(null);
-          }}
-        >
-          <ListItemIcon>
-            <MaterialSymbol icon="edit" size={18} />
-          </ListItemIcon>
-          <ListItemText>{t("menu.edit")}</ListItemText>
-        </MenuItem>
+        {canManageSoaw && (
+          <MenuItem
+            onClick={() => {
+              if (ctxMenu) navigate(`/ea-delivery/soaw/${ctxMenu.soaw.id}`);
+              setCtxMenu(null);
+            }}
+          >
+            <ListItemIcon>
+              <MaterialSymbol icon="edit" size={18} />
+            </ListItemIcon>
+            <ListItemText>{t("menu.edit")}</ListItemText>
+          </MenuItem>
+        )}
         {/* Only a draft can be deleted (the API refuses anything else). */}
-        {ctxMenu?.soaw.status === "draft" && (
+        {canManageSoaw && ctxMenu?.soaw.status === "draft" && (
           <MenuItem
             onClick={() => ctxMenu && handleDeleteSoaw(ctxMenu.soaw.id)}
             sx={{ color: "error.main" }}

@@ -84,6 +84,8 @@
   "shell.viewingSavedReport": "正在查看已保存报告：<strong>{{name}}</strong>",
   "shell.exportXlsx": "导出为 Excel (.xlsx)",
   "shell.exportPptx": "导出为 PowerPoint (.pptx)",
+  "shell.exporting": "正在导出…",
+  "shell.exportFailed": "无法创建导出文件，请重试。",
   "export.titleSlide": "生成于 {{date}}",
   "export.chartUnavailable": "图表预览不可用。",
   "export.summarySheet": "摘要",

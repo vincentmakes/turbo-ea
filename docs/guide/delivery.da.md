@@ -28,6 +28,18 @@ Hver trærække viser:
 
 Den syntetiske række **Unlinked artefacts** øverst i træet vises, når der er SoAW'er, diagrammer eller ADR'er, som endnu ikke er linket til et initiativ. Åbn den for at gen-linke dem.
 
+### Hvem ser hvad
+
+EA Delivery åbner for enhver rolle, der har **Se SoAW-dokumenter** (`soaw.view`) eller **Se arkitekturbeslutningsposter** (`adr.view`). Hver slags artefakt følger derefter sin egen tilladelse:
+
+| Artefakt | Vises med | Oprettes med |
+|----------|-------------|--------------|
+| **SoAW** | `soaw.view` | `soaw.manage` |
+| **Diagram** | `diagrams.view` | `diagrams.manage` (kræves også for at linke eller fjerne linket til et diagram) |
+| **ADR** | `adr.view` | `adr.manage` |
+
+En gruppe, du ikke må se, udelades fra arbejdsområdet, og **+ Ny artefakt** og **+ Tilføj …** tilbyder kun de slags, du må oprette — en rolle, der kun kan læse, ser ingen af knapperne. En rolle med kun `adr.view` får derfor siden med hvert initiativs beslutninger og intet om SoAW'er.
+
 ## Statement of Architecture Work (SoAW)
 
 En **Statement of Architecture Work (SoAW)** er et formelt dokument defineret af [TOGAF-standarden](https://pubs.opengroup.org/togaf-standard/) (The Open Group Architecture Framework). Den fastlægger omfanget, tilgangen, leverancerne og styringen for et arkitekturengagement. I TOGAF produceres SoAW'en under **Preliminary Phase** og **Phase A (Architecture Vision)** og fungerer som en aftale mellem arkitekturteamet og dets interessenter.
@@ -93,7 +105,7 @@ En SoAW har samme diskussion, omtaler og historik som en beslutning: diskussione
 
 ![Initiativkort — SoAW-fane](../assets/img/da/55_initiative_soaw_tab.png)
 
-Initiativer eksponerer også en dedikeret **SoAW**-fane direkte på deres kortdetaljeside. Fanen viser den aktuelle revision af hver SoAW linket til det initiativ samt enhver revision under udarbejdelse (titel, statuschip, revisionsnummer, sidst-ændret-dato) med en **+ New SoAW**-knap, der på forhånd vælger det aktuelle initiativ — så du kan forfatte eller hoppe til en SoAW uden at forlade det kort, du arbejder på. Oprettelse genbruger den samme dialog som EA Delivery-siden, og det nye dokument vises begge steder. Synligheden af fanen følger de almindelige kort-tilladelsesregler.
+Initiativer eksponerer også en dedikeret **SoAW**-fane direkte på deres kortdetaljeside. Fanen viser den aktuelle revision af hver SoAW linket til det initiativ samt enhver revision under udarbejdelse (titel, statuschip, revisionsnummer, sidst-ændret-dato) med en **+ New SoAW**-knap, der på forhånd vælger det aktuelle initiativ — så du kan forfatte eller hoppe til en SoAW uden at forlade det kort, du arbejder på. Oprettelse genbruger den samme dialog som EA Delivery-siden, og det nye dokument vises begge steder. Fanen vises for roller, der har **Se SoAW-dokumenter** (`soaw.view`); knappen **+ New SoAW** og slettehandlingen på en kladde kræver **Opret og rediger SoAW-dokumenter** (`soaw.manage`), uanset om du selv kan redigere initiativet.
 
 ## Architecture Decision Records (ADR)
 

@@ -14,7 +14,7 @@ vi.mock("@/features/reports/EaDeliveryReport", () => ({
   default: () => <div data-testid="ea-delivery" />,
 }));
 
-import { renderWithProviders } from "@/test/render";
+import { renderWithProviders, userWith } from "@/test/render";
 import { resetPageTitle, usePageTitleSlots } from "@/hooks/usePageTitle";
 import i18n from "@/i18n";
 import PpmHome from "./PpmHome";
@@ -36,13 +36,13 @@ function Probe() {
   );
 }
 
-function renderHome(route = "/ppm") {
+function renderHome(route = "/ppm", user?: ReturnType<typeof userWith>) {
   return renderWithProviders(
     <>
       <PpmHome />
       <Probe />
     </>,
-    { route, routes: [{ path: "/ppm" }] },
+    { route, routes: [{ path: "/ppm" }], ...(user ? { user } : {}) },
   );
 }
 
@@ -65,6 +65,30 @@ describe("PpmHome", () => {
     expect(screen.queryByTestId("ppm-portfolio")).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /EA Delivery/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByTestId("section")).toHaveTextContent("EA Delivery");
+  });
+
+  // Issue #1400: the tab follows the EA Delivery route's own gate.
+  it.each([["soaw.view"], ["adr.view"]])(
+    "offers the EA Delivery tab to a role holding %s alone",
+    async (permission) => {
+      renderHome("/ppm?tab=ea-delivery", userWith("ppm.view", permission));
+      expect(await screen.findByTestId("ea-delivery")).toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: /EA Delivery/ })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+    },
+  );
+
+  it("leaves the EA Delivery tab out for a role that reads neither SoAWs nor decisions", async () => {
+    renderHome("/ppm?tab=ea-delivery", userWith("ppm.view", "inventory.view"));
+    // The link to the tab opens Portfolio instead of a page of refused requests.
+    expect(await screen.findByTestId("ppm-portfolio")).toBeInTheDocument();
+    expect(screen.queryByTestId("ea-delivery")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("tab")).toHaveLength(1);
+    expect(screen.getByRole("tab", { name: /Portfolio/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("tab", { name: /EA Delivery/ })).not.toBeInTheDocument();
+    expect(screen.getByTestId("section")).toHaveTextContent("Portfolio");
   });
 
   it("ignores an unknown tab and falls back to Portfolio", async () => {

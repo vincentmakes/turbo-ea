@@ -1613,6 +1613,26 @@ export const DOC_PAGES: PageDef[] = [
       ru: "46_ppm_gantt",
     },
   },
+  {
+    // The Initiative Report page. It shows a spinner until its data has
+    // loaded and only then renders the sections, each a
+    // `<section data-report-section>`, so the wait cannot fire on the spinner.
+    // The spend charts load lazily: give them time to draw.
+    id: "103_ppm_initiative_report",
+    route: "/ppm/{{cardId:sampleInitiative}}/report",
+    waitFor: "[data-report-section]",
+    actions: [{ type: "wait", ms: 1500 }],
+    filenames: {
+      en: "103_ppm_initiative_report",
+      de: "103_ppm_initiativbericht",
+      fr: "103_ppm_rapport_initiative",
+      es: "103_ppm_informe_iniciativa",
+      it: "103_ppm_report_iniziativa",
+      pt: "103_ppm_relatorio_iniciativa",
+      zh: "103_ppm_initiative_report",
+      ru: "103_ppm_otchet_initsiativy",
+    },
+  },
 
   // ── BPM Process Flow Editor ──────────────────────────────────────────────
   {

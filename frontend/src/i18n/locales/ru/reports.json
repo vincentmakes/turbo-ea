@@ -84,6 +84,8 @@
   "shell.viewingSavedReport": "Просмотр сохранённого отчёта: <strong>{{name}}</strong>",
   "shell.exportXlsx": "Экспорт в Excel (.xlsx)",
   "shell.exportPptx": "Экспорт в PowerPoint (.pptx)",
+  "shell.exporting": "Экспорт…",
+  "shell.exportFailed": "Не удалось создать файл экспорта. Повторите попытку.",
   "export.titleSlide": "Сгенерировано {{date}}",
   "export.chartUnavailable": "Предпросмотр диаграммы недоступен.",
   "export.summarySheet": "Сводка",

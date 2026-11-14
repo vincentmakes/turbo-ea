@@ -35,7 +35,7 @@ Un **badge con il conteggio dei filtri attivi** mostra quanti filtri sono attual
 
 Fai clic con il tasto destro su una cella qualsiasi della griglia (pressione prolungata sui dispositivi touch) per aprire un menu contestuale con azioni rapide su ciò che si trova sotto il cursore, in stile ServiceNow:
 
-- **Anteprima scheda** — apre la scheda indicata dalla cella nel pannello laterale, senza uscire dalla griglia; il pannello lascia la griglia utilizzabile, così potete continuare a scorrere, filtrare e cliccare altre righe mentre è aperto, e chiuderlo con il suo pulsante di chiusura
+- **Anteprima scheda** — apre la scheda indicata dalla cella nel pannello laterale, senza uscire dalla griglia; il pannello lascia la griglia utilizzabile, così potete continuare a scorrere, filtrare e cliccare altre righe mentre è aperto, e chiuderlo con il suo pulsante di chiusura; se una sezione contiene modifiche non salvate, il pannello chiede conferma prima di scartarle quando visualizzate l'anteprima di un'altra scheda, chiudete il pannello o lasciate la pagina
 - **Mostra corrispondenze** — mantiene solo le righe il cui valore corrisponde a quello della cella selezionata
 - **Escludi** — nasconde le righe il cui valore corrisponde a quello della cella selezionata
 - **Copia valore** — copia il testo della cella negli appunti
@@ -103,7 +103,7 @@ L'inventario utilizza una tabella dati **AG Grid** con funzionalità avanzate:
 - **Selezione multipla** — Selezionate più righe per operazioni in blocco
 - **Visualizzazione gerarchica** — Le relazioni genitore/figlio sono mostrate come percorsi breadcrumb
 - **Configurazione colonne** — Mostrate, nascondete e riordinate le colonne
-- **Blocca una colonna** — Passate il mouse sull'intestazione di una colonna e cliccate sull'icona a puntina per bloccare quella colonna sul bordo sinistro, così resta visibile mentre scorrete lateralmente. Cliccate di nuovo sulla puntina per sbloccarla. Ogni colonna porta la stessa puntina anche nella scheda **Colonne** del pannello dei filtri, così potete bloccare una colonna senza cercarne l'intestazione. Le colonne bloccate vengono ricordate per ogni tabella e lo stesso comando è disponibile in tutte le tabelle dati di Turbo EA (Registro dei rischi, Decisioni, Rilievi di conformità, Utenti, Risorse, Log di audit).
+- **Blocca una colonna** — Passate il mouse sull'intestazione di una colonna e cliccate sull'icona a puntina per bloccare quella colonna sul bordo sinistro, così resta visibile mentre scorrete lateralmente. Cliccate di nuovo sulla puntina per sbloccarla. Ogni colonna porta la stessa puntina anche nella scheda **Colonne** del pannello dei filtri, così potete bloccare una colonna senza cercarne l'intestazione. Le colonne bloccate vengono ricordate per ogni tabella e lo stesso comando è disponibile in tutte le tabelle dati di Turbo EA (Registro dei rischi, Decisioni, Rilievi di conformità, Utenti, Risorse, Log di audit, Gestione dei rischi PPM).
 - **Riordinare le colonne** — Trascinate l'intestazione di una colonna per spostarla, oppure aprite la sezione **Ordine delle colonne** in cima alla scheda **Colonne** e trascinate una riga dalla sua maniglia. Quell'elenco *è* l'ordine della tabella, quindi i due coincidono sempre, e le colonne bloccate sono raggruppate in testa perché vengono sempre mostrate all'inizio: sbloccate lì la puntina di una colonna se volete spostarla fuori da quel gruppo. La maniglia funziona anche da tastiera (barra spaziatrice per prendere una colonna, frecce per spostarla, barra spaziatrice per rilasciarla) e al tocco, quindi l'ordine si può cambiare anche da telefono. L'ordine delle colonne viene ricordato per ogni tabella, in tutte le tabelle dati di Turbo EA.
 
 ### Barra degli strumenti
@@ -325,6 +325,8 @@ Su ogni foglio di schede, le colonne `stakeholder:<chiave_ruolo>` contengono gli
 !!! note "Fogli esportati prima del passaggio a chiavi camelCase"
     Le chiavi dei ruoli stakeholder seguono la stessa convenzione camelCase di ogni altra chiave del metamodello. Un foglio esportato prima di quel cambiamento contiene intestazioni come `stakeholder:technical_application_owner`; vengono comunque importate — l'intestazione viene associata al ruolo camelCase quando nessun ruolo corrisponde letteralmente. I fogli esportati ora usano la forma camelCase.
 
+
+**Celle di data del ciclo di vita** — le colonne `lifecycle_<phase>` (`lifecycle_plan`, `lifecycle_phaseIn`, `lifecycle_active`, `lifecycle_phaseOut`, `lifecycle_endOfLife`) seguono la stessa regola, una data per colonna: **svuotare una cella rimuove quella data** dalla scheda, e omettere del tutto la colonna lascia la data invariata. Le celle di valore semplice funzionano al contrario: una cella vuota di descrizione, sottotipo, alias, ID esterno, etichetta del genitore o attributo (`attr_<field>`) lascia invariato il valore memorizzato; cancellali invece sulla scheda o nella griglia dell'Inventario.
 
 ### Foglio `Relations`
 

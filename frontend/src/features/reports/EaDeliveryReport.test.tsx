@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router";
 
@@ -57,6 +57,12 @@ vi.mock("@/features/ea-delivery/CreateAdrDialog", () => dialogStub("CreateAdrDia
 vi.mock("@/features/ea-delivery/LinkDiagramsDialog", () => dialogStub("LinkDiagramsDialog"));
 vi.mock("@/features/diagrams/CreateDiagramDialog", () => dialogStub("CreateDiagramDialog"));
 
+// The signed-in role's app-level permissions; the wildcard unless a test narrows it.
+const auth = vi.hoisted(() => ({ permissions: { "*": true } as Record<string, boolean> }));
+vi.mock("@/hooks/AuthContext", () => ({
+  useAuthContext: () => ({ user: { id: "u1", permissions: auth.permissions } }),
+}));
+
 import EaDeliveryReport from "./EaDeliveryReport";
 
 type Fn = (...args: unknown[]) => unknown;
@@ -101,6 +107,7 @@ function renderPage(route = "/reports/ea-delivery", withData = true) {
 const location = () => screen.getByTestId("location").textContent;
 
 beforeEach(() => {
+  auth.permissions = { "*": true };
   mockApi.reset();
   mockApi.lenient([]);
   for (const k of Object.keys(captured)) delete captured[k];
@@ -337,6 +344,28 @@ describe("EaDeliveryReport", () => {
     });
   });
 
+  // Issue #1400: the page opens for a reader of SoAWs or of decisions alone,
+  // so what it offers to create follows the role, kind by kind.
+  describe("what the role may start", () => {
+    it("offers every kind to a role that may create them all", () => {
+      renderPage();
+      expect(captured.NewArtefactSplitButton.kinds).toEqual(["soaw", "diagram", "adr"]);
+    });
+
+    it("offers only the kinds the role may create", () => {
+      auth.permissions = { "soaw.view": true, "adr.view": true, "adr.manage": true };
+      renderPage();
+      expect(captured.NewArtefactSplitButton.kinds).toEqual(["adr"]);
+    });
+
+    it("shows no New button to a role that may only read", () => {
+      auth.permissions = { "adr.view": true, "adr.comment": true };
+      renderPage();
+      expect(screen.getByTestId("initiatives-tab")).toBeInTheDocument();
+      expect(screen.queryByTestId("new-artefact-split-button")).not.toBeInTheDocument();
+    });
+  });
+
   describe("the SoAW context menu", () => {
     async function openMenu(status = "draft") {
       const anchor = document.createElement("div");
@@ -356,6 +385,26 @@ describe("EaDeliveryReport", () => {
       }
       await openMenu("draft");
       expect(screen.getByRole("menuitem", { name: /delete/i })).toBeInTheDocument();
+    });
+
+    it("offers a SoAW reader Preview alone, on a draft too", async () => {
+      auth.permissions = { "soaw.view": true };
+      renderPage();
+      const menu = await openMenu("draft");
+      expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
+        "visibilityPreview",
+      ]);
+    });
+
+    it("offers Edit and Delete with soaw.manage", async () => {
+      auth.permissions = { "soaw.view": true, "soaw.manage": true };
+      renderPage();
+      const menu = await openMenu("draft");
+      expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
+        "visibilityPreview",
+        "editEdit",
+        "deleteDelete",
+      ]);
     });
 
     it("navigates to the preview", async () => {

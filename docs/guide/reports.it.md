@@ -393,10 +393,12 @@ Salvate qualsiasi configurazione di report per un accesso rapido successivo. I r
 
 ## Esportare i report
 
-Ogni report supporta **Esporta in Excel (.xlsx)** e **Esporta in PowerPoint (.pptx)** dal menu **⋮** nella barra del titolo (accanto a Stampa e Copia link).
+Ogni report supporta **Esporta in Excel (.xlsx)** e **Esporta in PowerPoint (.pptx)** dal menu **⋮** nella barra del titolo (accanto a Stampa e Copia link); il [Report dell'iniziativa](ppm.md#initiative-report) offre solo PowerPoint.
 
 - **Excel** — Produce un foglio per ogni tabella di dati visualizzata al momento, con colonne dimensionate automaticamente e formattazione di valute / numeri preservata. Passate alla **vista tabella** prima di esportare per catturare le righe sottostanti.
-- **PowerPoint** — Genera una presentazione la cui prima diapositiva combina titolo del report, timestamp di generazione, riepilogo dei filtri attivi e il grafico live in qualità presentazione. Le diapositive successive paginano le tabelle per dispense condivisibili.
+- **PowerPoint** — Genera una presentazione la cui prima diapositiva combina titolo del report, timestamp di generazione, riepilogo dei filtri attivi e il grafico live in qualità presentazione. Nei report con grafici lunghi (come i report Portfolio, Mappa delle Capability, Ciclo di vita e Qualità dei Dati) un grafico che non entra in una diapositiva prosegue su altre diapositive, suddiviso tra le righe; le tabelle di dati vanno invece nell'esportazione Excel.
+
+Mentre un'esportazione viene creata, il pulsante **⋮** mostra un indicatore di caricamento; se non riesce, un messaggio lo segnala e potete riprovare.
 
 Filtri e raggruppamenti attivi al momento dell'esportazione sono registrati sulla diapositiva di titolo o nell'intestazione, mantenendo le esportazioni autoesplicative.
 

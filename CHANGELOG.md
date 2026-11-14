@@ -5,6 +5,28 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.205.0] - 2026-11-14
+
+Upstream sync (upstream 2.203.1 to 2.204.0). The fork's cost and licensing features are kept as they are: upstream's change that counts an Initiative's PPM lines in the cost report (#1395) is not taken.
+
+### Added
+
+- **Initiative Report**: a **Report** button on a PPM initiative opens a report page of its overview, status reports, budget and costs, risks and schedule, with a toggle for each section, that prints or saves as PDF like the other reports, and exports to PowerPoint.
+- The PPM Risk Management tab exports the risks shown to Excel and imports them back (a row with a Risk ID updates that risk, a row without one creates a risk, nothing is ever deleted, and a preview shows every row before anything is written), and has a filter panel, grouping and columns you can freeze, reorder, show and hide.
+
+### Changed
+
+- A report export shows a spinner while it is built and a message if it fails.
+- The PPM Risk Management tab shows each risk's description and mitigation in full, with clickable web addresses.
+
+### Fixed
+
+- Excel import clears a lifecycle date whose cell was emptied, and leaves a date untouched when the sheet omits its `lifecycle_` column.
+- The card preview panel asks before discarding unsaved edits when you preview another card, close the panel or leave the page.
+- An Initiative card no longer shows the SoAW tab to a role that cannot view SoAW documents; EA Delivery opens for a role that can view architecture decisions but not SoAWs and lists only what the role may view.
+- Charts in a report printed or saved as PDF no longer show as white boxes in Apple Preview and on iPhone and iPad, and the **Print / Save as PDF** button opens the print sheet in Safari; PowerPoint exports with charts made in Safari include the charts.
+- The PPM Budget & Costs charts no longer draw the labels of two nearly equal budget lines on top of each other; a report printed in the dark theme shows its title and headings.
+
 ## [2.204.2] - 2026-11-13
 
 ### Fixed

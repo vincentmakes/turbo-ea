@@ -1,16 +1,23 @@
 /**
- * RiskMatrix — reusable 4×4 probability × impact heatmap.
+ * RiskMatrix — reusable probability × impact heatmap.
  *
  * Used in three surfaces: the Risk Register header, the TurboLens
  * Security Overview (initial levels only), and the Card Detail → Risks
  * tab. Cells can be clicked to filter a companion list; the currently
  * selected cell is outlined until the caller clears it.
+ *
+ * Without `rows` / `cols` it is the GRC register's 4×4 (probability
+ * very_high..low down, impact critical..low across, cells tinted by the
+ * derived risk level). A caller with other axes — a PPM initiative's 5×5 —
+ * passes `rows`, `cols`, `cellColor` and its own `legendItems`, and gets the
+ * same look: tinted cells, counts, "—" for zero, axis labels and the swatch
+ * legend beneath. Such a matrix is read-only.
  */
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import type { RiskImpact, RiskProbability } from "@/types";
-import RiskMatrixLegend from "./RiskMatrixLegend";
+import RiskMatrixLegend, { type RiskMatrixLegendItem } from "./RiskMatrixLegend";
 import { deriveLevelFromPair, riskLevelBackground } from "./riskMatrixColors";
 
 const PROBABILITIES: RiskProbability[] = ["very_high", "high", "medium", "low"];
@@ -21,24 +28,61 @@ export interface RiskMatrixSelection {
   impact: RiskImpact;
 }
 
-interface Props {
-  /** 4×4 counts: rows = probability (very_high..low), cols = impact (critical..low). */
+/** One row or column of a matrix with its own axes: its key and its visible label. */
+export interface RiskMatrixAxisItem {
+  key: string;
+  label: string;
+}
+
+interface BaseProps {
+  /** Counts, one array per row, one number per column, in display order. */
   matrix: number[][];
-  onSelect?: (selection: RiskMatrixSelection | null) => void;
-  highlight?: RiskMatrixSelection | null;
   /** Label for the label column (defaults to the translated "Probability"). */
   probabilityAxisLabel?: string;
   impactAxisLabel?: string;
 }
 
-export default function RiskMatrix({
-  matrix,
-  onSelect,
-  highlight,
-  probabilityAxisLabel,
-  impactAxisLabel,
-}: Props) {
+/** The GRC register's 4×4: rows = probability (very_high..low), cols = impact (critical..low). */
+interface DefaultAxesProps extends BaseProps {
+  rows?: undefined;
+  cols?: undefined;
+  cellColor?: undefined;
+  legendItems?: undefined;
+  onSelect?: (selection: RiskMatrixSelection | null) => void;
+  highlight?: RiskMatrixSelection | null;
+}
+
+/** Any other grid: its rows (top to bottom), columns (in reading order) and cell tint. */
+interface CustomAxesProps extends BaseProps {
+  rows: readonly RiskMatrixAxisItem[];
+  cols: readonly RiskMatrixAxisItem[];
+  /** The background of the cell at (row, column), whatever it holds. */
+  cellColor: (rowKey: string, colKey: string) => string;
+  /** The legend beneath the grid. */
+  legendItems: readonly RiskMatrixLegendItem[];
+  onSelect?: never;
+  highlight?: never;
+}
+
+export type RiskMatrixProps = DefaultAxesProps | CustomAxesProps;
+
+export default function RiskMatrix(props: RiskMatrixProps) {
+  const { matrix, probabilityAxisLabel, impactAxisLabel } = props;
   const { t } = useTranslation("grc");
+
+  const custom = props.rows !== undefined;
+  const rows: readonly RiskMatrixAxisItem[] = custom
+    ? props.rows
+    : PROBABILITIES.map((p) => ({ key: p, label: t(`risks.probability.${p}`) }));
+  const cols: readonly RiskMatrixAxisItem[] = custom
+    ? props.cols
+    : IMPACTS.map((i) => ({ key: i, label: t(`risks.impact.${i}`) }));
+  const cellColor = custom
+    ? props.cellColor
+    : (rowKey: string, colKey: string) =>
+        riskLevelBackground(deriveLevelFromPair(rowKey, colKey));
+  const onSelect = custom ? undefined : props.onSelect;
+  const highlight = custom ? undefined : props.highlight;
 
   return (
     <Box sx={{ mt: 1 }}>
@@ -47,8 +91,8 @@ export default function RiskMatrix({
           display: "grid",
           // Narrower label column on phones so the data cells stay legible.
           gridTemplateColumns: {
-            xs: `84px repeat(${IMPACTS.length}, 1fr)`,
-            sm: `130px repeat(${IMPACTS.length}, 1fr)`,
+            xs: `84px repeat(${cols.length}, 1fr)`,
+            sm: `130px repeat(${cols.length}, 1fr)`,
           },
           gap: 0.5,
           alignItems: "stretch",
@@ -60,45 +104,50 @@ export default function RiskMatrix({
             {probabilityAxisLabel ?? t("risks.matrix.probability")} ↓
           </Typography>
         </Box>
-        {IMPACTS.map((impact) => (
+        {cols.map((col) => (
           <Typography
-            key={impact}
+            key={col.key}
             variant="caption"
             color="text.secondary"
             align="center"
             sx={{ py: 1 }}
           >
-            {t(`risks.impact.${impact}`)}
+            {col.label}
           </Typography>
         ))}
 
-        {PROBABILITIES.map((prob, probIdx) => (
+        {rows.map((row, rowIdx) => (
           <RiskMatrixRow
-            key={prob}
-            probability={prob}
-            counts={matrix[probIdx] ?? [0, 0, 0, 0]}
+            key={row.key}
+            row={row}
+            cols={cols}
+            counts={matrix[rowIdx] ?? []}
+            cellColor={cellColor}
             onSelect={onSelect}
             highlight={highlight}
           />
         ))}
       </Box>
-      <RiskMatrixLegend />
+      <RiskMatrixLegend items={custom ? props.legendItems : undefined} />
     </Box>
   );
 }
 
 function RiskMatrixRow({
-  probability,
+  row,
+  cols,
   counts,
+  cellColor,
   onSelect,
   highlight,
 }: {
-  probability: RiskProbability;
+  row: RiskMatrixAxisItem;
+  cols: readonly RiskMatrixAxisItem[];
   counts: number[];
+  cellColor: (rowKey: string, colKey: string) => string;
   onSelect?: (selection: RiskMatrixSelection | null) => void;
   highlight?: RiskMatrixSelection | null;
 }) {
-  const { t } = useTranslation("grc");
   return (
     <>
       <Box
@@ -112,21 +161,26 @@ function RiskMatrixRow({
         }}
       >
         <Typography variant="body2" fontWeight={600}>
-          {t(`risks.probability.${probability}`)}
+          {row.label}
         </Typography>
       </Box>
-      {IMPACTS.map((impact, impactIdx) => {
-        const count = counts[impactIdx] ?? 0;
+      {cols.map((col, colIdx) => {
+        const count = counts[colIdx] ?? 0;
         const isActive =
-          highlight &&
-          highlight.probability === probability &&
-          highlight.impact === impact;
+          highlight && highlight.probability === row.key && highlight.impact === col.key;
+        // Only the default axes take onSelect, so the keys are a probability and an impact.
+        const selection = {
+          probability: row.key,
+          impact: col.key,
+        } as RiskMatrixSelection;
         const handleClick = onSelect
-          ? () => onSelect(isActive ? null : { probability, impact })
+          ? () => onSelect(isActive ? null : selection)
           : undefined;
         return (
           <Box
-            key={impact}
+            key={col.key}
+            data-row={row.key}
+            data-col={col.key}
             role={onSelect ? "button" : undefined}
             tabIndex={onSelect ? 0 : undefined}
             onClick={handleClick}
@@ -145,9 +199,7 @@ function RiskMatrixRow({
               borderRadius: 1,
               textAlign: "center",
               cursor: onSelect ? "pointer" : "default",
-              bgcolor: riskLevelBackground(
-                deriveLevelFromPair(probability, impact),
-              ),
+              bgcolor: cellColor(row.key, col.key),
               outline: isActive ? "2px solid" : "none",
               outlineColor: "primary.main",
               transition: "outline 120ms",

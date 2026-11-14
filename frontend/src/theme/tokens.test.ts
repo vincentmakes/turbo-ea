@@ -225,6 +225,22 @@ describe("PPM Gantt colours", () => {
   });
 });
 
+describe("PPM cost colours", () => {
+  it("draw CapEx in the brand blue and OpEx in MUI's default secondary purple, per mode", async () => {
+    const t = await freshTokens();
+    const { createTheme } = await import("@mui/material/styles");
+    for (const mode of ["light", "dark"] as const) {
+      const palette = createTheme({ palette: { mode, primary: { main: t.brand.primary } } }).palette;
+      expect(t.PPM_COST_COLORS[mode], mode).toEqual({
+        capex: palette.primary.main,
+        opex: palette.secondary.main,
+      });
+    }
+    expect(t.PPM_COST_COLORS.light.opex).toBe("#9c27b0");
+    expect(t.PPM_COST_COLORS.dark.opex).toBe("#ce93d8");
+  });
+});
+
 describe("heatmap ramp", () => {
   it("runs ten distinct hex steps per mode", async () => {
     const t = await freshTokens();

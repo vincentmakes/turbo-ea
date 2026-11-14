@@ -157,6 +157,7 @@ One palette wherever a phase is drawn as a colour (card Lifecycle section, LDV p
 | `ROLE_COLOR_PRESETS` | The twelve swatches the role editor offers; `[0]` is a new role's colour |
 | `FIELD_TYPE_COLORS` | The field-type chip in the card-layout editor; `other` for a type without its own hue |
 | `PPM_GANTT_COLORS.{status}` | PPM Gantt bars per task status: `bar`, `progress`, `barSelected`, `progressSelected` |
+| `PPM_COST_COLORS.{light,dark}.{capex,opex}` | The PPM spend charts' two cost categories (cumulative line and dashed budget line), on screen and in the initiative PDF (always `light`): the brand blue, and MUI's default secondary purple (500 light, 200 dark) |
 | `HEATMAP_RAMP.{light,dark}` | Ten discrete steps for a grid of counts (Matrix report). Continuous heatmaps use `CHART_SEQUENTIAL` |
 | `SURFACE_SHADOW.sticky` / `.hover` | Hairline under a pinned bar; lift of a clickable card under the pointer |
 | `THIRD_PARTY_BRAND.{microsoft,google,okta}` | The SSO providers' logo colours on the login page's sign-in button. The colour is the brand (data, like `ROLE_COLOR_PRESETS`): never re-tuned, never reused for anything else |

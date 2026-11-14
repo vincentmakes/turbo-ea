@@ -393,10 +393,12 @@ Gem en hvilken som helst rapportkonfiguration til hurtig adgang senere. Gemte ra
 
 ## Eksport af rapporter
 
-Hver rapport understøtter **Export to Excel (.xlsx)** og **Export to PowerPoint (.pptx)** fra **⋮**-menuen i titellinjen (sammen med Print og Copy link).
+Hver rapport understøtter **Export to Excel (.xlsx)** og **Export to PowerPoint (.pptx)** fra **⋮**-menuen i titellinjen (sammen med Print og Copy link); [Initiativrapport](ppm.md#initiativrapport) tilbyder kun PowerPoint.
 
 - **Excel** — Producerer ét ark pr. datatabel, der aktuelt er gengivet, med auto-justerede kolonner og valuta- / talformatering bevaret. Skift til **Table view** før eksport for at fange de underliggende rækker.
-- **PowerPoint** — Genererer et deck, hvis første slide kombinerer rapporttitlen, generationstidsstempel, aktivt filter-resumé og det levende diagram i præsentationskvalitet. Efterfølgende slides paginerer datatabellerne til dele-klar uddelingsmateriale.
+- **PowerPoint** — Genererer et deck, hvis første slide kombinerer rapporttitlen, generationstidsstempel, aktivt filter-resumé og det levende diagram i præsentationskvalitet. I rapporter med lange diagrammer (som Porteføljerapport, Kompetencekort, Livscyklusrapport og Datakvalitetsrapport) fortsætter et diagram, der ikke kan være der, på flere slides, delt mellem rækker; selve datatabellerne hører til Excel-eksporten.
+
+Mens en eksport bygges, viser **⋮**-knappen en spinner; hvis den mislykkes, vises en besked om det, og du kan prøve igen.
 
 Aktive filtre og grupperingsindstillinger, der er anvendt på eksporttidspunktet, registreres på titel-sliden / overskriftsrækken, så eksporter forbliver selvforklarende.
 

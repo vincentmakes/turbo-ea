@@ -120,6 +120,22 @@
     max-height: 350px !important;
   }
 
+  /* A chart prints as its flat picture (charts/printCopy.ts): while
+     the copy stands in, the live zrender canvases and the tooltip are not
+     printed. A canvas replayed into the PDF carries alpha soft masks that
+     Apple's viewers draw as white boxes; the copy is a plain image. */
+  .echart-printing > :not(.echart-print-copy) {
+    display: none !important;
+  }
+  .echart-print-copy {
+    display: block !important;
+    /* Never stretched: if a browser draws the copy before the print layout
+       applies (Safari at beforeprint), its proportions can differ from the
+       printed box; it then letterboxes from the top instead of distorting. */
+    object-fit: contain;
+    object-position: center top;
+  }
+
   /* Allow content to flow across pages, but avoid breaks inside cards */
   .report-chart-area {
     break-inside: auto;
@@ -167,6 +183,95 @@
     break-inside: avoid !important;
   }
 
+  /* ---- PPM Initiative Report ---- */
+
+  /* One initiative over several pages. The generic rule above keeps every
+     Paper and every box of the chart area whole, so a long card (the cost
+     tables, the risk table, the schedule) would be pushed whole onto the next
+     page and leave a mostly blank one behind, or be clipped. Let the cards
+     and boxes break, and keep only the small units whole: a tile, a card of
+     the Overview or of the risk matrix, a table row, a chart, the head of the
+     latest status report, a timeline row. */
+  .ppm-project-report .MuiPaper-root,
+  .ppm-project-report .MuiBox-root,
+  .ppm-project-report section {
+    break-inside: auto !important;
+  }
+  .ppm-project-report .ppm-report-tiles > .MuiPaper-root,
+  .ppm-project-report .ppm-report-cards > *,
+  .ppm-project-report tr,
+  .ppm-project-report .echart-container,
+  .ppm-project-report [data-export-row],
+  .ppm-project-report .ppm-report-latest > .MuiPaper-root > .MuiBox-root:first-child {
+    break-inside: avoid !important;
+  }
+
+  /* A table's total row prints once, after its last row. A <tfoot> repeats
+     at the foot of every page the table spans, as <thead> repeats at the
+     top, so a mid-table page would show the grand total under only part of
+     the rows. As a plain row group it ends the table; the header row still
+     repeats. */
+  .ppm-project-report tfoot {
+    display: table-row-group;
+  }
+
+  /* A fiscal year's row never ends a page with its lines on the next: it
+     goes over with its first line. */
+  .ppm-project-report [data-year-row] {
+    break-after: avoid;
+  }
+
+  /* A cost chart keeps its title with it. */
+  .ppm-project-report .echart-container {
+    break-before: avoid;
+  }
+
+  /* "Spend over time" prints whole: a card broken between its charts leaves
+     its border running down an empty page end. At the screen's height its
+     three charts are taller than a landscape page, so in print they draw
+     lower (EChart re-lays its canvas on the print media change) and the card
+     fits on one page beside its section's heading and tiles. */
+  .ppm-project-report .MuiBox-root:has(> .echart-container) {
+    height: 190px !important;
+  }
+  .ppm-project-report .MuiPaper-root:has(.echart-container) {
+    break-inside: avoid !important;
+  }
+
+  /* A heading never ends a page alone. */
+  .ppm-project-report .ppm-report-heading,
+  .ppm-project-report .MuiTypography-subtitle1 {
+    break-after: avoid;
+  }
+
+  /* The initiative's name wraps rather than being cut with an ellipsis. */
+  .report-container:has(.ppm-project-report) .MuiTypography-h5 {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+
+  /* ---- A dark-theme report on white paper ----
+     The page prints on white (main.app-main-content above), but in the dark
+     theme the text set directly on it is light: the report's title, its print
+     parameters, and the Initiative Report's section and table headings,
+     captions and legend. Print those in ink. Text inside a card keeps the
+     card's own colours, since the card prints its dark surface. Scoped to the
+     shell's title and parameters and to the Initiative Report: other reports
+     draw light text on coloured boxes that are not cards.
+     The Initiative Report's icons on the page (its section headings' glyphs)
+     inherit that light text colour too, so they take the ink as well; an icon
+     given its own colour (an inline `color`, like the shell title's card-type
+     icon) keeps it. */
+  .report-container[data-theme-mode="dark"] .report-title,
+  .report-container[data-theme-mode="dark"] .report-print-params .MuiTypography-root,
+  .report-container[data-theme-mode="dark"] .ppm-project-report .MuiTypography-root:not(.MuiPaper-root *),
+  .report-container[data-theme-mode="dark"]
+    .ppm-project-report
+    .material-symbols-outlined:not(.MuiPaper-root *):not([style*="color"]) {
+    color: #333 !important;
+  }
+
   /* Remove box shadows and unnecessary borders */
   .MuiPaper-root {
     box-shadow: none !important;
@@ -176,6 +281,14 @@
   * {
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
+  }
+}
+
+/* A chart's print copy (see the print block above) never shows on screen,
+   even for the moment between Safari's beforeprint and the print layout. */
+@media not print {
+  .echart-print-copy {
+    display: none !important;
   }
 }
 

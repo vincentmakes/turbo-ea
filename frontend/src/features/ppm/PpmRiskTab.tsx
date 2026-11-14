@@ -3,16 +3,7 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
-import LinkifiedText from "@/components/LinkifiedText";
 import Button from "@mui/material/Button";
-import IconButton from "@mui/material/IconButton";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TableRow from "@mui/material/TableRow";
-import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -25,12 +16,13 @@ import InputLabel from "@mui/material/InputLabel";
 import Slider from "@mui/material/Slider";
 import Autocomplete from "@mui/material/Autocomplete";
 import { useTranslation } from "react-i18next";
-import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useSubmitOnce } from "@/hooks/useSubmitOnce";
 import { useFullScreenDialog } from "@/hooks/useFullScreenDialog";
-import { RAG_COLORS } from "@/theme/tokens";
 import type { PpmRisk } from "@/types";
+import PpmRiskGrid from "./PpmRiskGrid";
+import PpmRiskImportDialog from "./PpmRiskImportDialog";
+import { RISK_STATUSES, riskStatusLabel, riskSummary } from "./ppmRiskModel";
 
 interface UserOption {
   id: string;
@@ -38,28 +30,17 @@ interface UserOption {
   email: string;
 }
 
-function scoreColor(score: number): string {
-  if (score >= 15) return RAG_COLORS.red;
-  if (score >= 6) return RAG_COLORS.amber;
-  return RAG_COLORS.green;
-}
-
-const STATUS_COLORS: Record<string, "default" | "error" | "warning" | "success" | "info"> = {
-  open: "error",
-  mitigating: "warning",
-  mitigated: "success",
-  closed: "default",
-  accepted: "info",
-};
-
 interface Props {
   initiativeId: string;
   risks: PpmRisk[];
   onRefresh: () => void;
+  /** The initiative's name, for the export's file name. */
+  initiativeName?: string;
 }
 
-export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
+export default function PpmRiskTab({ initiativeId, risks, onRefresh, initiativeName }: Props) {
   const { t } = useTranslation("ppm");
+  const [importOpen, setImportOpen] = useState(false);
   const fullScreen = useFullScreenDialog();
   const [dialog, setDialog] = useState<{ open: boolean; item?: PpmRisk }>({
     open: false,
@@ -88,8 +69,7 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
   const errorText = (err: unknown) =>
     err instanceof Error ? err.message : t("common:errors.generic");
 
-  const openRisks = risks.filter((r) => r.status === "open").length;
-  const highRisks = risks.filter((r) => r.risk_score >= 15).length;
+  const summary = riskSummary(risks);
 
   const handleOpen = (item?: PpmRisk) => {
     if (item) {
@@ -171,7 +151,7 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
             {t("totalRisks")}
           </Typography>
           <Typography variant="h6" fontWeight={600}>
-            {risks.length}
+            {summary.total}
           </Typography>
         </Box>
         <Box>
@@ -179,7 +159,7 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
             {t("riskStatusOpen")}
           </Typography>
           <Typography variant="h6" fontWeight={600} color="error">
-            {openRisks}
+            {summary.open}
           </Typography>
         </Box>
         <Box>
@@ -187,22 +167,10 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
             {t("highRisks")}
           </Typography>
           <Typography variant="h6" fontWeight={600} color="error">
-            {highRisks}
+            {summary.high}
           </Typography>
         </Box>
       </Paper>
-
-      {/* Add Button */}
-      <Box display="flex" justifyContent="flex-end" mb={2}>
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<MaterialSymbol icon="add" size={18} />}
-          onClick={() => handleOpen()}
-        >
-          {t("addRisk")}
-        </Button>
-      </Box>
 
       {deleteError && (
         // Stryker disable next-line ObjectLiteral: spacing is presentation
@@ -211,113 +179,23 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
         </Alert>
       )}
 
-      {/* Table */}
-      <TableContainer
-        component={Paper}
-        variant="outlined"
-        sx={{ WebkitOverflowScrolling: "touch" }}
-      >
-        <Table size="small" sx={{ minWidth: { xs: 900, md: "auto" } }}>
-          <TableHead>
-            <TableRow>
-              <TableCell>{t("riskTitle")}</TableCell>
-              <TableCell align="center" width={60}>
-                {t("probability")}
-              </TableCell>
-              <TableCell align="center" width={60}>
-                {t("impact")}
-              </TableCell>
-              <TableCell align="center" width={60}>
-                {t("riskScore")}
-              </TableCell>
-              <TableCell>{t("riskStatus")}</TableCell>
-              <TableCell>{t("riskOwner")}</TableCell>
-              <TableCell>{t("mitigation")}</TableCell>
-              <TableCell width={80} />
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {risks.map((risk) => (
-              <TableRow key={risk.id} hover>
-                <TableCell>
-                  <Typography variant="body2" fontWeight={500}>
-                    {risk.title}
-                  </Typography>
-                  {risk.description && (
-                    <Typography variant="caption" color="text.secondary">
-                      {risk.description.length > 80 ? (
-                        `${risk.description.slice(0, 80)}...`
-                      ) : (
-                        <LinkifiedText text={risk.description} />
-                      )}
-                    </Typography>
-                  )}
-                </TableCell>
-                <TableCell align="center">{risk.probability}</TableCell>
-                <TableCell align="center">{risk.impact}</TableCell>
-                <TableCell align="center">
-                  <Chip
-                    label={risk.risk_score}
-                    size="small"
-                    sx={{
-                      bgcolor: scoreColor(risk.risk_score),
-                      // Stryker disable next-line StringLiteral: the ink is presentation
-                color: "common.white",
-                      fontWeight: 700,
-                      minWidth: 32,
-                    }}
-                  />
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={t(`riskStatus${risk.status.charAt(0).toUpperCase()}${risk.status.slice(1)}`)}
-                    size="small"
-                    color={STATUS_COLORS[risk.status] || "default"}
-                    variant="outlined"
-                  />
-                </TableCell>
-                <TableCell>
-                  <Typography variant="caption">
-                    {risk.owner_name || "\u2014"}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="caption" noWrap sx={{ maxWidth: 200, display: "block" }}>
-                    {risk.mitigation ? <LinkifiedText text={risk.mitigation} /> : "\u2014"}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Box display="flex" gap={0.5}>
-                    <IconButton
-                      size="small"
-                      aria-label={t("common:actions.edit")}
-                      onClick={() => handleOpen(risk)}
-                    >
-                      <MaterialSymbol icon="edit" size={16} />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      aria-label={t("common:actions.delete")}
-                      onClick={() => handleDelete(risk.id)}
-                    >
-                      <MaterialSymbol icon="delete" size={16} />
-                    </IconButton>
-                  </Box>
-                </TableCell>
-              </TableRow>
-            ))}
-            {risks.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
-                  <Typography color="text.secondary">
-                    {t("noRisks")}
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      {/* Grid, with its sidebar and toolbar (Group by, Export, Import, Add) */}
+      <PpmRiskGrid
+        risks={risks}
+        initiativeName={initiativeName}
+        onAdd={() => handleOpen()}
+        onEdit={handleOpen}
+        onDelete={handleDelete}
+        onImport={() => setImportOpen(true)}
+      />
+
+      <PpmRiskImportDialog
+        open={importOpen}
+        initiativeId={initiativeId}
+        existingRisks={risks}
+        onClose={() => setImportOpen(false)}
+        onImported={onRefresh}
+      />
 
       {/* Dialog */}
       {dialog.open && (
@@ -427,13 +305,11 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
                     setForm({ ...form, status: e.target.value })
                   }
                 >
-                  {["open", "mitigating", "mitigated", "closed", "accepted"].map(
-                    (s) => (
-                      <MenuItem key={s} value={s}>
-                        {t(`riskStatus${s.charAt(0).toUpperCase()}${s.slice(1)}`)}
-                      </MenuItem>
-                    ),
-                  )}
+                  {RISK_STATUSES.map((s) => (
+                    <MenuItem key={s} value={s}>
+                      {riskStatusLabel(s, t)}
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Box>

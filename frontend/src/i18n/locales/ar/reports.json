@@ -84,6 +84,8 @@
   "shell.viewingSavedReport": "عرض التقرير المحفوظ: <strong>{{name}}</strong>",
   "shell.exportXlsx": "تصدير إلى Excel (.xlsx)",
   "shell.exportPptx": "تصدير إلى PowerPoint (.pptx)",
+  "shell.exporting": "جارٍ التصدير…",
+  "shell.exportFailed": "تعذّر إنشاء ملف التصدير. يُرجى المحاولة مرة أخرى.",
   "export.titleSlide": "تم الإنشاء بتاريخ {{date}}",
   "export.chartUnavailable": "معاينة الرسم البياني غير متاحة.",
   "export.summarySheet": "الملخص",

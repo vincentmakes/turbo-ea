@@ -714,6 +714,10 @@ export function validateImport(
     if (u.email) userByEmail.set(u.email.trim().toLowerCase(), u);
   }
   const stakeholderCols = headers.filter((h) => h.startsWith("stakeholder:"));
+  // Lifecycle phases whose `lifecycle_<phase>` column the sheet carries.
+  const lifecycleCols = new Set(
+    LIFECYCLE_PHASES.filter((p) => headers.includes(`lifecycle_${p}`)),
+  );
   // Warn once per (type, role) about unknown roles, not once per row.
   const warnedUnknownRoles = new Set<string>();
 
@@ -927,12 +931,20 @@ export function validateImport(
       continue;
     }
 
-    // Build lifecycle object
-    const lifecycle: Record<string, string> = {};
+    // Build lifecycle object. Lifecycle columns are declarative per column,
+    // like `rel:` and `stakeholder:` columns: a present column with an empty
+    // cell clears that date, an absent column leaves it untouched (#1393).
+    // An update therefore starts from the card's stored lifecycle; a create
+    // starts empty.
+    const lifecycle: Record<string, string> = matchedExisting
+      ? { ...matchedExisting.lifecycle }
+      : {};
     let rowHasLifecycleError = false;
     for (const phase of LIFECYCLE_PHASES) {
       const val = str(raw[`lifecycle_${phase}`]);
-      if (val) {
+      if (!val) {
+        if (lifecycleCols.has(phase)) delete lifecycle[phase];
+      } else {
         // Rule 13: lifecycle dates
         if (!DATE_RE.test(val)) {
           errors.push({
@@ -1216,7 +1228,12 @@ export function validateImport(
     if (parentLabel) data.parent_label = parentLabel;
     if (externalId) data.external_id = externalId;
     if (alias) data.alias = alias;
-    if (Object.keys(lifecycle).length > 0) data.lifecycle = lifecycle;
+    // An update carries its lifecycle whenever the sheet has a lifecycle
+    // column, even when every date was cleared (`{}`); a create only when it
+    // names a date.
+    if (matchedExisting ? lifecycleCols.size > 0 : Object.keys(lifecycle).length > 0) {
+      data.lifecycle = lifecycle;
+    }
     if (Object.keys(attributes).length > 0) data.attributes = attributes;
 
     const parsed: ParsedRow = {

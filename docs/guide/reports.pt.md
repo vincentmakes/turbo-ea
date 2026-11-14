@@ -393,10 +393,12 @@ Salve qualquer configuração de relatório para acesso rápido posterior. Relat
 
 ## Exportando relatórios
 
-Todos os relatórios suportam **Exportar para Excel (.xlsx)** e **Exportar para PowerPoint (.pptx)** a partir do menu **⋮** na barra de título (ao lado de Imprimir e Copiar link).
+Todos os relatórios suportam **Exportar para Excel (.xlsx)** e **Exportar para PowerPoint (.pptx)** a partir do menu **⋮** na barra de título (ao lado de Imprimir e Copiar link); o [Relatório da iniciativa](ppm.md#initiative-report) oferece apenas PowerPoint.
 
 - **Excel** — Gera uma planilha por tabela de dados atualmente exibida, com colunas dimensionadas automaticamente e formatação de moeda / número preservada. Alterne para a **visualização de tabela** antes de exportar para capturar as linhas subjacentes.
-- **PowerPoint** — Gera uma apresentação cujo primeiro slide combina o título do relatório, o carimbo de data/hora de geração, o resumo dos filtros ativos e o gráfico ao vivo em qualidade de apresentação. Os slides seguintes paginam as tabelas de dados em entregas compartilháveis.
+- **PowerPoint** — Gera uma apresentação cujo primeiro slide combina o título do relatório, o carimbo de data/hora de geração, o resumo dos filtros ativos e o gráfico ao vivo em qualidade de apresentação. Nos relatórios com gráficos longos (como os relatórios de Portfólio, Mapa de Capacidades, Ciclo de Vida e Qualidade dos Dados), um gráfico que não cabe continua em slides seguintes, dividido entre linhas; as tabelas de dados em si vão para a exportação Excel.
+
+Enquanto uma exportação está sendo gerada, o botão **⋮** mostra um indicador de carregamento; se ela falhar, uma mensagem informa isso e você pode tentar novamente.
 
 Os filtros e agrupamentos ativos no momento da exportação são registrados no slide de título ou no cabeçalho, mantendo as exportações autoexplicativas.
 

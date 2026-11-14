@@ -5966,6 +5966,7 @@ export default function InventoryPage() {
         cardId={previewCardId}
         open={!!previewCardId}
         onClose={() => setPreviewCardId(null)}
+        onKeepCard={setPreviewCardId}
         nonModal
       />
 

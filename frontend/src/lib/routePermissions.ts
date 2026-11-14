@@ -78,8 +78,10 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { path: "/reports/saved", permission: "reports.ea_dashboard" },
 
   // --- EA Delivery --------------------------------------------------------
-  { path: "/ea-delivery", permission: "soaw.view" },
-  { path: "/reports/ea-delivery", permission: "soaw.view" },
+  // The page lists SoAWs and decisions, each behind its own permission, so a
+  // reader of either opens it and sees only that kind (`deliveryAccess`).
+  { path: "/ea-delivery", permission: ["soaw.view", "adr.view"] },
+  { path: "/reports/ea-delivery", permission: ["soaw.view", "adr.view"] },
   { path: "/ea-delivery/soaw/new", permission: "soaw.manage" },
   { path: "/ea-delivery/soaw/:id/preview", permission: "soaw.view" },
   // The editor opens read-only for a viewer, so `soaw.view` is the right gate.
@@ -98,6 +100,7 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { path: "/value-chain/value-stream", permission: "bpm.value_chain" },
   { path: "/ppm", permission: "ppm.view" },
   { path: "/ppm/:id", permission: "ppm.view" },
+  { path: "/ppm/:id/report", permission: "ppm.view" },
   { path: "/grc", permission: "grc.view" },
   { path: "/grc/risks/:id", permission: "risks.view" },
   { path: "/turbolens", permission: "turbolens.view" },

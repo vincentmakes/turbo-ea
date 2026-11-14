@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { buildEChartsChrome } from "@/components/charts/echartsTheme";
+import { shortMonth } from "@/hooks/useDateFormat";
 import type { MonthPoint } from "./costChartData";
 import {
   BUDGET_DASH,
@@ -12,8 +13,12 @@ import {
   PPM_LEGEND_LABEL_WIDTH,
   budgetAxisMax,
   budgetLabelPosition,
+  budgetLabelPositions,
+  BUDGET_LABEL_CLASH_BAND,
   buildCumulativeOption,
+  categoryReferences,
   dataMax,
+  monthAxisLabels,
   tooltipValue,
   type BudgetReference,
   type CumulativeChartOptions,
@@ -319,9 +324,11 @@ describe("buildCumulativeOption — series", () => {
     const [high, mid] = build([CAPEX], [CAPEX_BUDGET, { ...OPEX_BUDGET, value: 400 }]).series[0].markLine.data;
     expect(high.label.position).toBe("insideEndBottom");
     expect(mid.label.position).toBe("insideEndTop");
-    // Over 450 (nine tenths of 500) it would be clipped.
+    // Over 450 (nine tenths of 500) it would be clipped, so it drops below its
+    // line — at the line's start, since 460 is within a tenth of the 500 whose
+    // label already holds the end.
     const [, near] = build([CAPEX], [CAPEX_BUDGET, { ...OPEX_BUDGET, value: 460 }]).series[0].markLine.data;
-    expect(near.label.position).toBe("insideEndBottom");
+    expect(near.label.position).toBe("insideStartBottom");
   });
 
   it("measures a label against the data's top when every budget is within it", () => {
@@ -351,5 +358,110 @@ describe("buildCumulativeOption — series", () => {
     const [capex, opex] = build(undefined, undefined, true).series[0].markLine.data;
     expect(capex.label.position).toBe("insideEndBottom");
     expect(opex.label.position).toBe("insideEndTop");
+  });
+});
+
+describe("monthAxisLabels", () => {
+  it("names the months of one calendar year by their short name", () => {
+    expect(monthAxisLabels([{ year: 2020, month: 1 }, { year: 2020, month: 12 }], "en")).toEqual(["Jan", "Dec"]);
+  });
+
+  it("adds the two-digit year once the run crosses a calendar year", () => {
+    expect(monthAxisLabels([{ year: 2019, month: 12 }, { year: 2020, month: 1 }], "en")).toEqual([
+      "Dec '19",
+      "Jan '20",
+    ]);
+  });
+
+  it("takes the year's last two digits, whatever its length", () => {
+    expect(monthAxisLabels([{ year: 999, month: 12 }, { year: 1000, month: 1 }], "en")).toEqual([
+      "Dec '99",
+      "Jan '00",
+    ]);
+  });
+
+  it("names the months in the given locale, as every formatted date does", () => {
+    // The ICU spelling ("Mär" / "März") varies by runtime; the shared helper is the reference.
+    expect(monthAxisLabels([{ year: 2020, month: 3 }], "de")).toEqual([
+      shortMonth(new Date(2020, 2, 1, 12), "de"),
+    ]);
+    expect(monthAxisLabels([{ year: 2020, month: 3 }], "de")).not.toEqual(["Mar"]);
+    expect(monthAxisLabels([], "en")).toEqual([]);
+  });
+});
+
+describe("categoryReferences", () => {
+  const names = { capex: "CapEx budget", opex: "OpEx budget" };
+  const colors = { capex: "capex-colour", opex: "opex-colour" };
+
+  it("draws a budget line per category with a budget, in its line's colour", () => {
+    expect(categoryReferences({ capex: 500, opex: 200 }, names, colors)).toEqual([
+      { value: 500, name: "CapEx budget", color: "capex-colour" },
+      { value: 200, name: "OpEx budget", color: "opex-colour" },
+    ]);
+  });
+
+  it("leaves out a category whose budget is not set", () => {
+    expect(categoryReferences({ capex: 0, opex: 200 }, names, colors)).toEqual([
+      { value: 200, name: "OpEx budget", color: "opex-colour" },
+    ]);
+    expect(categoryReferences({ capex: 500, opex: 0 }, names, colors)).toEqual([
+      { value: 500, name: "CapEx budget", color: "capex-colour" },
+    ]);
+    expect(categoryReferences({ capex: 0, opex: 0 }, names, colors)).toEqual([]);
+  });
+});
+
+describe("budgetLabelPositions", () => {
+  const ref = (value: number): BudgetReference => ({ value, name: String(value), color: "c" });
+
+  it("labels budget lines far apart at their ends", () => {
+    expect(budgetLabelPositions([ref(400), ref(200)], 500)).toEqual(["insideEndTop", "insideEndTop"]);
+    // Exactly a band apart is clear.
+    expect(budgetLabelPositions([ref(300), ref(250)], 500)).toEqual(["insideEndTop", "insideEndTop"]);
+    expect(BUDGET_LABEL_CLASH_BAND).toBe(0.1);
+  });
+
+  it("moves the second of two nearly equal budgets to the line's start, on its own side", () => {
+    expect(budgetLabelPositions([ref(300), ref(290)], 500)).toEqual(["insideEndTop", "insideStartTop"]);
+    expect(budgetLabelPositions([ref(290), ref(300)], 500)).toEqual(["insideEndTop", "insideStartTop"]);
+    expect(budgetLabelPositions([ref(300), ref(251)], 500)).toEqual(["insideEndTop", "insideStartTop"]);
+  });
+
+  it("keeps a moved label below its line when the line is near the axis top", () => {
+    expect(budgetLabelPositions([ref(250), ref(250)], 250)).toEqual(["insideEndBottom", "insideStartBottom"]);
+  });
+
+  it("compares against labels left at the end only", () => {
+    // 290 clashes with 300 and moves to the start; 270 is measured against 300
+    // only (the one left at the end), 30 away: a clash, so it moves too. 150 is clear.
+    expect(budgetLabelPositions([ref(300), ref(290), ref(270)], 1000)).toEqual([
+      "insideEndTop",
+      "insideStartTop",
+      "insideStartTop",
+    ]);
+    expect(budgetLabelPositions([ref(300), ref(290), ref(150)], 1000)).toEqual([
+      "insideEndTop",
+      "insideStartTop",
+      "insideEndTop",
+    ]);
+    expect(budgetLabelPositions([], 100)).toEqual([]);
+  });
+
+  it("places the labels in the option it builds", () => {
+    const option: any = buildCumulativeOption(
+      [point(1, 10, 5)],
+      ["Jan"],
+      [CAPEX, OPEX],
+      [
+        { ...CAPEX_BUDGET, value: 300 },
+        { ...OPEX_BUDGET, value: 290 },
+      ],
+      opts(),
+    );
+    expect(option.series[0].markLine.data.map((r: any) => r.label.position)).toEqual([
+      "insideEndTop",
+      "insideStartTop",
+    ]);
   });
 });

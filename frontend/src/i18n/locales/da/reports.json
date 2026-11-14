@@ -84,6 +84,8 @@
   "shell.viewingSavedReport": "Viser gemt rapport: <strong>{{name}}</strong>",
   "shell.exportXlsx": "Eksportér til Excel (.xlsx)",
   "shell.exportPptx": "Eksportér til PowerPoint (.pptx)",
+  "shell.exporting": "Eksporterer…",
+  "shell.exportFailed": "Eksporten kunne ikke oprettes. Prøv igen.",
   "export.titleSlide": "Genereret {{date}}",
   "export.chartUnavailable": "Diagramvisning ikke tilgængelig.",
   "export.summarySheet": "Resumé",

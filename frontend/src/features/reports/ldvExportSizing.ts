@@ -29,13 +29,21 @@ export function isAppleMobileDevice(nav: { userAgent: string; maxTouchPoints: nu
   );
 }
 
+/**
+ * The largest canvas, in device pixels, the browser will draw: ~16.7M px on
+ * iOS/iPadOS WebKit, far more on desktop. Shared with the report exporter.
+ */
+export function canvasMaxArea(isAppleMobile: boolean): number {
+  return isAppleMobile ? 16_000_000 : 64_000_000;
+}
+
 export function exportImageSize(
   bounds: { width: number; height: number },
   pad: number,
   env: ExportEnvironment,
 ): ExportImageSize {
   const maxDim = env.isAppleMobile ? 4096 : 6000;
-  const maxArea = env.isAppleMobile ? 16_000_000 : 64_000_000;
+  const maxArea = canvasMaxArea(env.isAppleMobile);
   const pixelRatio = env.isAppleMobile ? 1 : Math.min(env.devicePixelRatio || 1, 2);
   // Supersample the logical bounds (×2) for crispness.
   const rawW = Math.max(800, Math.round((bounds.width + pad * 2) * 2));

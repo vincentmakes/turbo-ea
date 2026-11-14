@@ -295,6 +295,8 @@ async def test_patch_refuses_a_new_link_to_a_hidden_card(client, cards_env):
 
 # ── card link / unlink endpoints ─────────────────────────────────────────────
 
+REFUSED = "An ArchiMate diagram's card links come from its model"
+
 
 async def _archimate_row(db):
     from app.models.diagram import Diagram
@@ -323,6 +325,7 @@ async def test_link_an_archimate_diagram_is_refused(client, cards_env, db):
         f"/api/v1/diagrams/{d.id}/cards", json={"card_id": str(cards_env["app"].id)}, headers=h
     )
     assert r.status_code == 409
+    assert r.json()["detail"] == REFUSED
 
 
 async def test_unlink_an_archimate_diagram_is_refused(client, cards_env, db):
@@ -330,6 +333,7 @@ async def test_unlink_an_archimate_diagram_is_refused(client, cards_env, db):
     h = auth_headers(cards_env["admin"])
     r = await client.delete(f"/api/v1/diagrams/{d.id}/cards/{cards_env['app'].id}", headers=h)
     assert r.status_code == 409
+    assert r.json()["detail"] == REFUSED
 
 
 async def test_link_an_archimate_diagram_needs_the_layer_key(client, cards_env, db):

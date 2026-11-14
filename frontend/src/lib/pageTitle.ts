@@ -63,6 +63,7 @@ export const ROUTE_TITLES: RouteTitle[] = [
   { path: "/value-chain/value-stream", titleKey: "valueChain" },
   { path: "/ppm", titleKey: "ppm" },
   { path: "/ppm/:id", titleKey: "ppm" },
+  { path: "/ppm/:id/report", titleKey: "ppm" },
   { path: "/grc", titleKey: "grc" },
   { path: "/grc/risks/:id", titleKey: "pageTitles.risk" },
   { path: "/turbolens", titleKey: "turbolens" },

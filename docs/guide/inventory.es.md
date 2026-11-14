@@ -35,7 +35,7 @@ Un **contador de filtros activos** muestra cuántos filtros están aplicados act
 
 Haga clic derecho en cualquier celda de la cuadrícula (pulsación larga en dispositivos táctiles) para abrir un menú contextual con acciones rápidas sobre lo que hay bajo el cursor, al estilo de ServiceNow:
 
-- **Vista previa de la ficha** — abrir la ficha que nombra la celda en el panel lateral, sin salir de la cuadrícula; el panel deja la cuadrícula utilizable, de modo que puede seguir desplazándose, filtrando y haciendo clic en otras filas mientras está abierto, y cerrarlo con su botón de cierre
+- **Vista previa de la ficha** — abrir la ficha que nombra la celda en el panel lateral, sin salir de la cuadrícula; el panel deja la cuadrícula utilizable, de modo que puede seguir desplazándose, filtrando y haciendo clic en otras filas mientras está abierto, y cerrarlo con su botón de cierre; si una sección contiene cambios sin guardar, el panel pregunta antes de descartarlos cuando previsualiza otra ficha, cierra el panel o abandona la página
 - **Mostrar coincidencias** — conservar solo las filas cuyo valor coincide con el de la celda pulsada
 - **Excluir** — ocultar las filas cuyo valor coincide con el de la celda pulsada
 - **Copiar valor** — copiar el texto de la celda al portapapeles
@@ -103,7 +103,7 @@ El inventario utiliza una tabla de datos **AG Grid** con funciones avanzadas:
 - **Selección múltiple** — Seleccione múltiples filas para operaciones masivas
 - **Vista jerárquica** — Las relaciones padre/hijo se muestran como rutas de navegación
 - **Configuración de columnas** — Mostrar, ocultar y reordenar columnas
-- **Fijar una columna** — Pase el ratón sobre el encabezado de una columna y haga clic en el icono de chincheta para fijar esa columna en el borde izquierdo, de modo que permanezca visible al desplazarse lateralmente. Haga clic de nuevo en la chincheta para liberarla. Cada columna lleva también esa chincheta en la pestaña **Columnas** del panel de filtros, así que puede fijar una columna sin buscar su encabezado. Las columnas fijadas se recuerdan por tabla, y el mismo control está disponible en todas las tablas de datos de Turbo EA (Registro de riesgos, Decisiones, Hallazgos de cumplimiento, Usuarios, Recursos, Registro de auditoría).
+- **Fijar una columna** — Pase el ratón sobre el encabezado de una columna y haga clic en el icono de chincheta para fijar esa columna en el borde izquierdo, de modo que permanezca visible al desplazarse lateralmente. Haga clic de nuevo en la chincheta para liberarla. Cada columna lleva también esa chincheta en la pestaña **Columnas** del panel de filtros, así que puede fijar una columna sin buscar su encabezado. Las columnas fijadas se recuerdan por tabla, y el mismo control está disponible en todas las tablas de datos de Turbo EA (Registro de riesgos, Decisiones, Hallazgos de cumplimiento, Usuarios, Recursos, Registro de auditoría, Gestión de riesgos de PPM).
 - **Reordenar columnas** — Arrastre el encabezado de una columna para moverla, o abra la sección **Orden de columnas** en la parte superior de la pestaña **Columnas** y arrastre una fila por su asa. Esa lista *es* el orden de la tabla, así que ambos coinciden siempre, y las columnas fijadas se agrupan al principio porque siempre se muestran al inicio: libere allí la chincheta de una columna si desea sacarla de ese grupo. El asa también funciona con el teclado (Espacio para tomar una columna, flechas para moverla, Espacio para soltarla) y de forma táctil, así que el orden se puede cambiar en un teléfono. Su orden de columnas se recuerda por tabla, en todas las tablas de datos de Turbo EA.
 
 ### Barra de Herramientas
@@ -325,6 +325,8 @@ En cada hoja de fichas, las columnas `stakeholder:<clave_de_rol>` llevan los usu
 !!! note "Hojas exportadas antes de que las claves fueran camelCase"
     Las claves de los roles de partes interesadas siguen la misma convención camelCase que cualquier otra clave del metamodelo. Una hoja exportada antes de ese cambio contiene encabezados como `stakeholder:technical_application_owner`; siguen importándose — el encabezado se asocia a su rol en camelCase cuando ningún rol coincide literalmente. Las hojas nuevas usan la forma camelCase.
 
+
+**Celdas de fecha de ciclo de vida** — las columnas `lifecycle_<phase>` (`lifecycle_plan`, `lifecycle_phaseIn`, `lifecycle_active`, `lifecycle_phaseOut`, `lifecycle_endOfLife`) siguen la misma regla, una fecha por columna: **vaciar una celda elimina esa fecha** de la ficha, y omitir la columna por completo deja esa fecha sin cambios. Las celdas de valor simple funcionan al revés: una celda vacía de descripción, subtipo, alias, ID externo, etiqueta del padre o atributo (`attr_<field>`) deja el valor almacenado sin cambios; bórrelos en la ficha o en la cuadrícula del Inventario.
 
 ### Hoja `Relations`
 

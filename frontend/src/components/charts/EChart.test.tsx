@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 
+const zr = vi.hoisted(() => ({ flush: vi.fn() }));
 const chart = vi.hoisted(() => ({
   setOption: vi.fn(),
   resize: vi.fn(),
@@ -8,6 +9,9 @@ const chart = vi.hoisted(() => ({
   on: vi.fn(),
   off: vi.fn(),
   getDom: vi.fn(),
+  getZr: vi.fn(() => zr),
+  isDisposed: vi.fn(() => false),
+  renderToCanvas: vi.fn(),
 }));
 const core = vi.hoisted(() => ({ init: vi.fn(() => chart), use: vi.fn() }));
 vi.mock("echarts/core", () => core);
@@ -34,6 +38,7 @@ vi.mock("echarts/renderers", () => ({ CanvasRenderer: "CanvasRenderer" }));
 
 import { installResizeObserver } from "@/test/dom";
 import EChart, { ECHART_CLASS, EXPORT_DPR } from "./EChart";
+import { ECHART_PRINT_COPY_CLASS, ECHART_PRINTING_CLASS, PRINT_PIXEL_RATIO } from "./printCopy";
 
 let restoreRo: ReturnType<typeof installResizeObserver>;
 
@@ -245,54 +250,215 @@ describe("EChart props", () => {
   });
 });
 
-describe("EChart print layout", () => {
+describe("EChart print copy", () => {
+  const original = window.matchMedia;
+  type ChangeListener = (event: { matches: boolean }) => void;
+  let changeListeners: Set<ChangeListener>;
+  let list: { addEventListener: ReturnType<typeof vi.fn>; removeEventListener: ReturnType<typeof vi.fn> };
+  let calls: string[];
+  let drawImage: ReturnType<typeof vi.fn>;
+  let getContext: ReturnType<typeof vi.spyOn>;
+
+  /** A stand-in for the bitmap ECharts renders the chart into. */
+  function picture(width = 900, height = 300) {
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    return canvas;
+  }
+
+  beforeEach(() => {
+    changeListeners = new Set();
+    list = {
+      addEventListener: vi.fn((type: string, cb: ChangeListener) => {
+        if (type === "change") changeListeners.add(cb);
+      }),
+      removeEventListener: vi.fn((type: string, cb: ChangeListener) => {
+        if (type === "change") changeListeners.delete(cb);
+      }),
+    };
+    Object.defineProperty(window, "matchMedia", {
+      value: vi.fn(() => list),
+      configurable: true,
+      writable: true,
+    });
+    calls = [];
+    chart.resize.mockImplementation(() => calls.push("resize"));
+    zr.flush.mockImplementation(() => calls.push("flush"));
+    chart.isDisposed.mockReturnValue(false);
+    chart.renderToCanvas.mockImplementation(() => {
+      calls.push("render");
+      return picture();
+    });
+    drawImage = vi.fn();
+    getContext = vi
+      .spyOn(HTMLCanvasElement.prototype, "getContext")
+      .mockImplementation(() => ({ drawImage }) as unknown as CanvasRenderingContext2D);
+  });
+  afterEach(() => {
+    Object.defineProperty(window, "matchMedia", { value: original, configurable: true, writable: true });
+    chart.resize.mockReset();
+    zr.flush.mockReset();
+    chart.renderToCanvas.mockReset();
+    getContext.mockRestore();
+  });
+
+  const mediaChange = (matches: boolean) => act(() => changeListeners.forEach((cb) => cb({ matches })));
+  const windowEvent = (type: "beforeprint" | "afterprint") =>
+    act(() => {
+      window.dispatchEvent(new Event(type));
+    });
+  const copies = (el: HTMLElement) => el.querySelectorAll(`.${ECHART_PRINT_COPY_CLASS}`);
+
+  function mount() {
+    const view = render(
+      <div style={{ backgroundColor: "rgb(10, 20, 30)" }}>
+        <EChart option={{}} ariaLabel="Spend" />
+      </div>,
+    );
+    const el = screen.getByRole("img", { name: "Spend" });
+    calls = [];
+    chart.resize.mockClear();
+    zr.flush.mockClear();
+    return { ...view, el };
+  }
+
+  it("on the print media change, re-lays the chart, flushes it, then shows a flat opaque copy in its place", () => {
+    const { el } = mount();
+    expect(copies(el)).toHaveLength(0);
+    mediaChange(true);
+    expect(calls).toEqual(["resize", "flush", "render"]);
+    expect(chart.renderToCanvas).toHaveBeenCalledWith({
+      pixelRatio: PRINT_PIXEL_RATIO,
+      backgroundColor: "rgb(10, 20, 30)",
+    });
+    expect(PRINT_PIXEL_RATIO).toBe(3);
+    const [copy] = copies(el) as NodeListOf<HTMLCanvasElement>;
+    expect(copy.tagName).toBe("CANVAS");
+    expect(copy.parentElement).toBe(el);
+    expect(el.lastElementChild).toBe(copy);
+    expect(copy.getAttribute("aria-hidden")).toBe("true");
+    expect(copy.width).toBe(900);
+    expect(copy.height).toBe(300);
+    expect(copy.style.width).toBe("100%");
+    expect(copy.style.height).toBe("100%");
+    // The copy's only drawing: one image of the rendered bitmap.
+    const rendered = chart.renderToCanvas.mock.results[0].value;
+    expect(drawImage).toHaveBeenCalledTimes(1);
+    expect(drawImage).toHaveBeenCalledWith(rendered, 0, 0);
+    expect(getContext).toHaveBeenCalledWith("2d");
+    expect(el).toHaveClass(ECHART_PRINTING_CLASS);
+    expect(ECHART_PRINT_COPY_CLASS).toBe("echart-print-copy");
+    expect(ECHART_PRINTING_CLASS).toBe("echart-printing");
+  });
+
+  it("does the same on beforeprint, and keeps one copy, drawn last, when the media change follows", () => {
+    const { el } = mount();
+    windowEvent("beforeprint");
+    expect(calls).toEqual(["resize", "flush", "render"]);
+    expect(copies(el)).toHaveLength(1);
+    const first = copies(el)[0];
+    mediaChange(true);
+    expect(copies(el)).toHaveLength(1);
+    expect(copies(el)[0]).not.toBe(first);
+    expect(first.isConnected).toBe(false);
+    expect(chart.renderToCanvas).toHaveBeenCalledTimes(2);
+    expect(drawImage).toHaveBeenLastCalledWith(chart.renderToCanvas.mock.results[1].value, 0, 0);
+    expect(el).toHaveClass(ECHART_PRINTING_CLASS);
+  });
+
+  it.each([
+    ["afterprint", () => windowEvent("afterprint")],
+    ["the media change back", () => mediaChange(false)],
+  ])("on %s, removes the copy, shows the live chart and re-lays it", (_why, end) => {
+    const { el } = mount();
+    mediaChange(true);
+    calls = [];
+    end();
+    expect(copies(el)).toHaveLength(0);
+    expect(el).not.toHaveClass(ECHART_PRINTING_CLASS);
+    expect(calls).toEqual(["resize", "flush"]);
+    expect(chart.renderToCanvas).toHaveBeenCalledTimes(1);
+  });
+
+  it("cleans up the copy and every print listener when unmounted mid-print", () => {
+    const { el, unmount } = mount();
+    windowEvent("beforeprint");
+    expect(copies(el)).toHaveLength(1);
+    const change = list.addEventListener.mock.calls[0][1];
+    unmount();
+    expect(copies(el)).toHaveLength(0);
+    expect(el).not.toHaveClass(ECHART_PRINTING_CLASS);
+    expect(list.removeEventListener).toHaveBeenCalledWith("change", change);
+    expect(changeListeners.size).toBe(0);
+    chart.renderToCanvas.mockClear();
+    calls = [];
+    windowEvent("beforeprint");
+    windowEvent("afterprint");
+    expect(chart.renderToCanvas).not.toHaveBeenCalled();
+    expect(calls).toEqual([]);
+  });
+
+  it("does nothing for a disposed chart, on either end of printing", () => {
+    const { el } = mount();
+    chart.isDisposed.mockReturnValue(true);
+    expect(() => windowEvent("beforeprint")).not.toThrow();
+    expect(() => windowEvent("afterprint")).not.toThrow();
+    expect(calls).toEqual([]);
+    expect(copies(el)).toHaveLength(0);
+    expect(el).not.toHaveClass(ECHART_PRINTING_CLASS);
+  });
+
+  it.each([
+    ["no width", 0, 300],
+    ["no height", 900, 0],
+  ])("leaves the live chart in place when it renders with %s", (_why, width, height) => {
+    const { el } = mount();
+    chart.renderToCanvas.mockImplementation(() => picture(width, height));
+    expect(() => mediaChange(true)).not.toThrow();
+    expect(copies(el)).toHaveLength(0);
+    expect(el).not.toHaveClass(ECHART_PRINTING_CLASS);
+    expect(drawImage).not.toHaveBeenCalled();
+  });
+
+  it("still puts the copy in place where the canvas has no 2D context", () => {
+    getContext.mockImplementation(() => null);
+    const { el } = mount();
+    expect(() => mediaChange(true)).not.toThrow();
+    expect(copies(el)).toHaveLength(1);
+  });
+});
+
+describe("EChart without a print media query", () => {
   const original = window.matchMedia;
   afterEach(() => {
     Object.defineProperty(window, "matchMedia", { value: original, configurable: true, writable: true });
   });
 
-  function installPrintQuery(list: Partial<MediaQueryList>) {
-    const matchMedia = vi.fn(() => list as MediaQueryList);
-    Object.defineProperty(window, "matchMedia", { value: matchMedia, configurable: true, writable: true });
-    return matchMedia;
-  }
-
-  it("resizes when print layout starts or ends and stops listening on unmount", () => {
-    const listeners = new Set<() => void>();
-    const list = {
-      addEventListener: vi.fn((type: string, cb: () => void) => {
-        if (type === "change") listeners.add(cb);
-      }),
-      removeEventListener: vi.fn((type: string, cb: () => void) => {
-        if (type === "change") listeners.delete(cb);
-      }),
-    };
-    const matchMedia = installPrintQuery(list as unknown as Partial<MediaQueryList>);
-    const { unmount } = render(<EChart option={{}} />);
-    expect(matchMedia).toHaveBeenCalledWith("print");
-    expect(listeners.size).toBe(1);
-    chart.resize.mockClear();
-    for (const cb of listeners) cb();
-    expect(chart.resize).toHaveBeenCalledTimes(1);
-    const handler = list.addEventListener.mock.calls[0][1];
-    unmount();
-    expect(list.removeEventListener).toHaveBeenCalledWith("change", handler);
-    expect(listeners.size).toBe(0);
-  });
-
-  it("mounts without a print listener where matchMedia is missing or legacy-only", () => {
+  it("mounts where matchMedia is missing or legacy-only, and still prints on beforeprint", () => {
     Object.defineProperty(window, "matchMedia", { value: undefined, configurable: true, writable: true });
     const first = render(<EChart option={{}} ariaLabel="a" />);
     expect(screen.getByRole("img", { name: "a" })).toBeInTheDocument();
     first.unmount();
 
     const addListener = vi.fn();
-    installPrintQuery({ addListener } as unknown as Partial<MediaQueryList>);
+    Object.defineProperty(window, "matchMedia", {
+      value: vi.fn(() => ({ addListener })),
+      configurable: true,
+      writable: true,
+    });
+    // A zero-size render: the print path runs, no copy is drawn.
+    chart.renderToCanvas.mockImplementation(() => Object.assign(document.createElement("canvas"), { width: 0 }));
     const second = render(<EChart option={{}} ariaLabel="b" />);
     expect(screen.getByRole("img", { name: "b" })).toBeInTheDocument();
+    act(() => {
+      window.dispatchEvent(new Event("beforeprint"));
+    });
+    expect(chart.renderToCanvas).toHaveBeenCalledTimes(1);
     expect(() => second.unmount()).not.toThrow();
     expect(addListener).not.toHaveBeenCalled();
     expect(chart.dispose).toHaveBeenCalledTimes(2);
+    chart.renderToCanvas.mockReset();
   });
 });
 

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
@@ -6,7 +7,8 @@ import { brand } from "@/theme/tokens";
 
 interface Props {
   label: string;
-  value: string | number;
+  /** The figure; a node when it carries a mark of its own (a derived figure's glyph). */
+  value: ReactNode;
   icon?: string;
   iconColor?: string;
   subtitle?: string;

@@ -3,7 +3,8 @@
  * and extension charts all draw through it. It registers only the charts and
  * components the app uses (so the bundle tree-shakes), initialises on mount,
  * replaces the option on change, follows its container's size (and the switch
- * to and from print layout) and disposes on unmount.
+ * to and from print layout), prints as a flat picture of itself
+ * (`printCopy.ts`) and disposes on unmount.
  */
 import { useEffect, useRef, type CSSProperties } from "react";
 import * as echarts from "echarts/core";
@@ -28,6 +29,7 @@ import {
   VisualMapComponent,
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
+import { drawPrintCopy, removePrintCopy } from "./printCopy";
 
 echarts.use([
   BarChart,
@@ -146,15 +148,31 @@ export default function EChart({
       observer = new ResizeObserver(() => chart.resize());
       observer.observe(el);
     }
-    // Entering or leaving print layout changes the page width without
-    // necessarily firing the observer before the browser paginates.
+    // Printing: entering print layout changes the page width without
+    // necessarily firing the observer before the browser paginates, so the
+    // chart is re-laid and drawn into its print copy synchronously (see
+    // `drawPrintCopy`). Chrome and Firefox announce print through the print
+    // media query; Safari through `beforeprint`. Both may fire: each start
+    // redraws the one copy, so the last (print-layout) one wins.
+    const startPrint = () => drawPrintCopy(el, chart);
+    const endPrint = () => {
+      removePrintCopy(el);
+      if (chart.isDisposed()) return;
+      chart.resize();
+      chart.getZr().flush();
+    };
     const media = typeof window.matchMedia === "function" ? window.matchMedia("print") : null;
     const print = typeof media?.addEventListener === "function" ? media : null;
-    const onPrintChange = () => chart.resize();
+    const onPrintChange = (event: MediaQueryListEvent) => (event.matches ? startPrint() : endPrint());
     print?.addEventListener("change", onPrintChange);
+    window.addEventListener("beforeprint", startPrint);
+    window.addEventListener("afterprint", endPrint);
     return () => {
       observer?.disconnect();
       print?.removeEventListener("change", onPrintChange);
+      window.removeEventListener("beforeprint", startPrint);
+      window.removeEventListener("afterprint", endPrint);
+      removePrintCopy(el);
       chart.off("click", handleClick);
       chart.off("contextmenu", handleContext);
       chart.dispose();

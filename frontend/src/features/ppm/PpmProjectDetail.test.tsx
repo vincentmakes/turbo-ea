@@ -1,7 +1,9 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
+import { setViewportWidth } from "@/test/matchMedia";
 import PpmProjectDetail from "./PpmProjectDetail";
 
 const { get } = vi.hoisted(() => ({ get: vi.fn() }));
@@ -97,5 +99,63 @@ describe("PpmProjectDetail", () => {
     renderPage();
 
     expect(await screen.findByText("ERP Replacement")).toBeInTheDocument();
+  });
+
+  describe("Report link", () => {
+    function loadAll() {
+      get.mockImplementation((path: string) => {
+        if (path === "/cards/i1") return Promise.resolve(INITIATIVE);
+        if (path === "/cards/i1/my-permissions") {
+          return Promise.resolve({ effective: { can_view: true } });
+        }
+        if (path === "/ppm/initiatives/i1/rollup") return Promise.resolve(null);
+        return Promise.resolve([]);
+      });
+    }
+
+    function renderWithReport() {
+      return render(
+        <MemoryRouter initialEntries={["/ppm/i1"]}>
+          <Routes>
+            <Route path="/ppm/:id" element={<PpmProjectDetail />} />
+            <Route path="/ppm/:id/report" element={<div data-testid="report-page" />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+    }
+
+    it("is a text link to the initiative's report, with a tooltip", async () => {
+      loadAll();
+      const user = userEvent.setup();
+      renderWithReport();
+      await screen.findByText("ERP Replacement");
+
+      const link = screen.getByRole("link", { name: /Report/ });
+      expect(link).toHaveAttribute("href", "/ppm/i1/report");
+      expect(link).toHaveTextContent("Report");
+      expect(link).toHaveTextContent("analytics");
+      expect(link).toHaveStyle({ textTransform: "none", flexShrink: "0" });
+      expect(screen.queryByRole("button", { name: /PDF/ })).not.toBeInTheDocument();
+      await user.hover(link);
+      expect(await screen.findByRole("tooltip")).toHaveTextContent("Initiative Report");
+
+      await user.click(link);
+      expect(screen.getByTestId("report-page")).toBeInTheDocument();
+    });
+
+    it("is an icon link on a phone", async () => {
+      setViewportWidth(375);
+      loadAll();
+      const user = userEvent.setup();
+      renderWithReport();
+      await screen.findByText("ERP Replacement");
+      const link = screen.getByRole("link", { name: "Initiative Report" });
+      expect(link).toHaveAttribute("href", "/ppm/i1/report");
+      expect(link).not.toHaveTextContent("Report");
+      expect(link).toHaveTextContent("analytics");
+      expect(link).toHaveStyle({ flexShrink: "0" });
+      await user.hover(link);
+      expect(await screen.findByRole("tooltip")).toHaveTextContent("Initiative Report");
+    });
   });
 });

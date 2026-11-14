@@ -127,17 +127,92 @@ Due aspetti da tenere presenti nella lettura dei grafici:
 
 ![Gestione dei Rischi PPM](../assets/img/it/44_ppm_gestione_rischi.png)
 
-Il registro dei rischi monitora i rischi del progetto con:
+Il registro dei rischi monitora i rischi dell'iniziativa. Ogni rischio ha:
 
 | Campo | Descrizione |
 |-------|-------------|
 | **Titolo** | Breve descrizione del rischio |
+| **Descrizione** | Il rischio per intero |
 | **Probabilità** | Punteggio di probabilità (1–5) |
 | **Impatto** | Punteggio di impatto (1–5) |
-| **Punteggio di rischio** | Calcolato automaticamente come probabilità x impatto |
+| **Punteggio di rischio** | Calcolato automaticamente come probabilità × impatto |
 | **Stato** | Aperto, In mitigazione, Mitigato, Chiuso o Accettato |
 | **Mitigazione** | Azioni di mitigazione pianificate |
 | **Responsabile** | Utente responsabile della gestione del rischio |
+
+Una barra di riepilogo sopra la griglia conta i **Totale rischi**, quelli in stato **Aperto** e i **Rischi elevati**.
+
+#### La griglia dei rischi
+
+I rischi sono elencati in una griglia costruita come l'[Inventario](inventory.md) e il [Registro dei rischi](risks.md#griglia-del-registro). Il testo non viene mai tagliato: ogni riga mostra il titolo del rischio in grassetto con la sua **descrizione completa** sotto, e la **mitigazione completa**, che vanno a capo su tutte le righe necessarie. Gli indirizzi web nella descrizione e nella mitigazione sono cliccabili.
+
+| Colonna | Mostra |
+|---------|--------|
+| **Rischio** | Il titolo, con la descrizione sotto |
+| **Punteggio di rischio** | Il punteggio come chip colorato, con accanto *probabilità × impatto* (ad esempio **20** *4 × 5*) |
+| **Stato** | Il chip dello stato |
+| **Responsabile** | Il responsabile del rischio, oppure un trattino |
+| **Mitigazione** | La mitigazione pianificata, oppure un trattino |
+| *(pulsanti)* | **Modifica** ed **Elimina** |
+
+Anche **Probabilità** e **Impatto** sono disponibili come colonne separate; sono nascoste per impostazione predefinita — attivatele nella scheda **Colonne** del pannello dei filtri.
+
+- **Ordinare** — cliccate sull'intestazione di una colonna. Finché non scegliete un ordinamento vostro, il punteggio più alto viene per primo.
+- **Filtrare una colonna** — usate i filtri nelle intestazioni, come nelle altre griglie.
+- **Bloccare una colonna** — cliccate sulla puntina nella sua intestazione per tenerla sul bordo sinistro mentre scorrete lateralmente; cliccatela di nuovo per sbloccarla.
+- **Riordinare le colonne** — trascinate l'intestazione di una colonna.
+- **Menu della cella** — cliccate con il tasto destro su una cella (pressione prolungata su un dispositivo touch) per lo stesso menu della cella delle altre griglie.
+
+#### Pannello dei filtri
+
+Il pannello a sinistra ha due schede:
+
+- **Filtri**
+    - **Cerca** — cerca nel titolo, nella descrizione, nella mitigazione e nel responsabile.
+    - **Stato** — spuntate uno o più chip di stato.
+    - **Punteggio di rischio** — le fasce di punteggio **Alto** (15 o più), **Medio** (da 6 a 14) e **Basso** (sotto 6).
+    - **Responsabile** — i responsabili presenti nell'elenco, più **Nessun responsabile**.
+    - **Cancella tutti i filtri** azzera tutti i filtri in una volta.
+- **Colonne** — l'elenco **Ordine delle colonne** (trascinate una riga per spostare una colonna, usate la sua puntina per bloccarla, **Reimposta ordine** per ripristinare l'ordine predefinito) e l'elenco **Colonne visibili** per mostrare o nascondere le colonne, con **Seleziona tutto** per mostrarle tutte. La colonna Rischio e i pulsanti sono sempre mostrati. Quando le colonne visibili differiscono da quelle predefinite, **Reimposta** le ripristina: tutte le colonne tranne Probabilità e Impatto.
+
+Il pannello si riduce a una barra stretta, che mostra quanti filtri sono attivi, e il suo bordo può essere trascinato per ridimensionarlo. Su un telefono il pannello è un cassetto, che si apre con il pulsante dei filtri nella barra degli strumenti.
+
+#### Barra degli strumenti
+
+La barra degli strumenti mostra quanti rischi sono elencati e offre:
+
+- **Raggruppa per** — raggruppa le righe per **Stato**, **Responsabile** o **Fascia di punteggio**.
+- **Esporta** — scarica i rischi attualmente mostrati come `.xlsx` (vedi sotto).
+- **Importa** — carica rischi da un `.xlsx` (vedi sotto).
+- **Aggiungi rischio** — apre la finestra di dialogo per registrare un nuovo rischio.
+
+L'ordinamento, le colonne bloccate, l'ordine delle colonne, le colonne visibili, la larghezza del pannello e il raggruppamento vengono ricordati nel vostro browser.
+
+#### Esportare i rischi in Excel
+
+**Esporta** scarica i rischi che la griglia mostra in quel momento — dopo i filtri del pannello, nell'ordine della griglia — come `.xlsx` con una riga per rischio e le colonne **ID rischio**, **Titolo del rischio**, **Descrizione**, **Probabilità**, **Impatto**, **Punteggio di rischio**, **Stato**, **Responsabile** e **Mitigazione**. Il file è anche un file di importazione valido: esportate, modificate in Excel e importatelo di nuovo.
+
+#### Importare i rischi da Excel {: #importing-risks }
+
+**Importa** carica un `.xlsx` per aggiungere o aggiornare i rischi dell'iniziativa. **Scarica modello** nella finestra di dialogo fornisce una cartella di lavoro con le intestazioni corrette e una riga di esempio.
+
+- Una riga con un **ID rischio** proveniente da un'esportazione **aggiorna** quel rischio, e solo i campi che sono cambiati.
+- Una riga **senza ID rischio** **crea** un nuovo rischio.
+- Un ID rischio che l'iniziativa non ha, o uno usato due volte nel file, **rifiuta** la riga.
+- I rischi assenti dal file restano invariati: **l'importazione non elimina mai nulla**.
+
+Prima che venga scritto qualcosa, un'anteprima elenca ogni riga come **Nuovo**, **Aggiornamento** (con i campi che cambiano), **Invariato** o **Rifiutato** (con il motivo), e conta gli avvisi. Le righe rifiutate vengono saltate; il pulsante importa le altre modifiche. Un riepilogo mostra poi quanti rischi sono stati creati, aggiornati e non riusciti.
+
+| Colonna | Regola |
+|---------|--------|
+| **Titolo del rischio** | Obbligatorio |
+| **Probabilità**, **Impatto** | Un numero intero da 1 a 5. Vuoto significa 3 su una riga nuova e lascia il valore invariato in un aggiornamento |
+| **Stato** | Aperto, In mitigazione, Mitigato, Chiuso o Accettato. Vuoto significa Aperto su una riga nuova e lascia lo stato invariato in un aggiornamento |
+| **Responsabile** | Abbinato per e-mail, poi per nome. Un responsabile che non corrisponde a nessuno, o a più persone, genera un avviso: la riga viene comunque importata e il responsabile resta invariato |
+| **Descrizione**, **Mitigazione**, **Responsabile** | Una cella vuota svuota il campo in un aggiornamento |
+| **Punteggio di rischio**, qualsiasi altra colonna | Ignorato — il punteggio viene sempre calcolato |
+
+Le colonne vengono riconosciute dalla loro intestazione nella vostra lingua o in inglese. Una colonna assente dal file resta invariata su ogni rischio che il file aggiorna.
 
 ### Scheda Attività
 
@@ -177,6 +252,26 @@ Interagisci con il diagramma di Gantt:
 ### Scheda Dettagli della Card
 
 L'ultima scheda mostra la vista completa dei dettagli della card, incluse tutte le sezioni standard.
+
+### Report dell'iniziativa { #initiative-report }
+
+![Report dell'iniziativa PPM](../assets/img/it/103_ppm_report_iniziativa.png)
+
+Il pulsante **Report** nell'intestazione dell'iniziativa, accanto al chip del sottotipo (un'icona su un telefono), apre il **Report dell'iniziativa**: un'unica pagina di sola lettura che raccoglie ciò che mostrano le schede, impaginata come gli altri report, con il nome dell'iniziativa come titolo e una freccia indietro per tornare all'iniziativa. I chip **Sezioni** nella barra degli strumenti mostrano o nascondono ciascuna sezione; la prima volta sono tutte visibili e la vostra scelta viene ricordata nel vostro browser:
+
+| Sezione | Cosa mostra |
+|---------|-------------|
+| **Panoramica** | Riquadri per **Budget totale**, **Consuntivo totale**, **Scostamento** e **Completamento**; il **Riepilogo salute** con i tre indicatori dell'ultimo rapporto di stato a colori e a parole; le barre **Finanze** per totale, CapEx e OpEx; la scheda **Cronologia** con le date di inizio e fine, il sottotipo e lo stato dell'iniziativa; e la descrizione. Gli importi presi dalle iniziative sottostanti sono contrassegnati, con una nota che li spiega |
+| **Rapporti di stato** | L'ultimo rapporto per intero, con i suoi indicatori, poi i rapporti precedenti in una tabella con data, relatore e indicatori di salute |
+| **Budget e costi** | Riquadri per budget, consuntivo e scostamento totali e per la spesa CapEx e OpEx rispetto al relativo budget; i grafici **Spesa nel tempo** per l'anno fiscale indicato nel loro chip e per l'intero progetto; poi le tabelle **Budget pianificato** e **Voci di costo** con tutti gli anni fiscali espansi |
+| **Gestione dei rischi** | Riquadri per **Totale rischi**, **Aperto** e **Rischi elevati**; la **Mappa di calore dei rischi** di probabilità rispetto a impatto, con ogni cella colorata per fascia di punteggio e il numero di rischi che contiene, accanto a un conteggio **Per stato**; poi ogni rischio con il punteggio (e probabilità × impatto), lo stato, il responsabile, la descrizione completa e la mitigazione completa, dal punteggio più alto |
+| **Attività e pianificazione** | Una tabella dei pacchetti di lavoro, ciascuno con le sue attività sotto, poi le attività senza pacchetto di lavoro, affiancata da una timeline su scala trimestrale: una barra per ogni pacchetto di lavoro riempita fino al suo completamento, una barra per ogni attività nel colore del suo stato, un rombo per una milestone (come nel diagramma di Gantt), un punto per un elemento con una sola data e una linea per oggi quando cade nell'intervallo. Ogni riga mostra anche l'avanzamento o lo stato e la priorità, e una legenda spiega i simboli |
+
+Per stampare il report o salvarlo come PDF, usate il pulsante **Stampa / Salva come PDF** nella barra del titolo, come in ogni report; apre la finestra di stampa del browser, oppure il foglio di stampa di Safari su iPhone o iPad, dove potete anche salvare come PDF. La pagina viene stampata in orizzontale senza la barra degli strumenti e la navigazione dell'applicazione, con i grafici in formato di stampa, e una riga sotto il titolo riporta il sottotipo, lo stato dell'iniziativa, le date di inizio e fine e il momento in cui il report è stato stampato. Una sezione senza contenuto lo indica.
+
+Per portare il report in una presentazione, scegliete **Esporta in PowerPoint (.pptx)** dal menu **⋮** nella barra del titolo. La presentazione si apre con una diapositiva di titolo che riporta il nome dell'iniziativa, la data in cui è stata generata e il suo sottotipo, lo stato e le date di inizio e fine. Ogni sezione mostrata nella pagina segue su una propria diapositiva, intitolata con il nome della sezione, come immagine della sezione così come la vedete; una sezione lunga prosegue su altre diapositive («Budget e costi — Pagina 2 / 3») e una tabella che continua ripete la propria riga di intestazione. La presentazione segue i chip **Sezioni**: una sezione che avete nascosto, o una senza contenuto, viene esclusa. Mentre la presentazione viene creata, il pulsante del menu mostra un indicatore di caricamento; se l'esportazione non riesce, un messaggio lo segnala e potete riprovare.
+
+Per distribuire un **report dei rischi**, mostrate solo **Gestione dei rischi**.
 
 ## Struttura di Scomposizione del Lavoro (WBS)
 
