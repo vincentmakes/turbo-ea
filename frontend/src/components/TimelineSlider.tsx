@@ -79,6 +79,20 @@ interface TimelineSliderProps {
    *  how many cards arrive and how many retire. Rendered as two chips in the
    *  label row while travelling forward. Omit to show none. */
   delta?: { arriving: number; retiring: number };
+  /** Discrete mode (length >= 2): the slider moves only between these values,
+   *  every one labelled, and the prev/next buttons walk them. `dateRange` and
+   *  `yearMarks` are ignored (pass `{ min: first, max: last }` and `[]`); the
+   *  today / past / future chips, transition marks and delta are not rendered. */
+  steps?: { value: number; label: string }[];
+  /** Replaces the past / future / primary accent. */
+  accentColor?: string;
+  /** The read-out and `aria-valuetext`. Steps mode falls back to the step label. */
+  valueText?: string;
+  /** Accessible names and tooltips of the step buttons (default: previous / next change). */
+  previousLabel?: string;
+  nextLabel?: string;
+  /** Accessible name of the slider itself. */
+  ariaLabel?: string;
 }
 
 const fmtTip = (v: number) =>
@@ -200,6 +214,12 @@ export default function TimelineSlider({
   milestoneCards,
   onMilestoneCardClick,
   onActiveSpanChange,
+  steps,
+  accentColor,
+  valueText,
+  previousLabel,
+  nextLabel,
+  ariaLabel,
 }: TimelineSliderProps) {
   const { t } = useTranslation("common");
   const isRtl = useIsRtl();
@@ -224,21 +244,30 @@ export default function TimelineSlider({
   const trackRef = useRef<HTMLDivElement>(null);
   const trackWidth = useMeasuredWidth(trackRef);
   const responsiveMarks = useResponsiveMarks(cappedMarks, cappedRange, trackWidth);
-  const milestoneClusters = useMilestoneClusters(milestones ?? [], cappedRange, trackWidth);
+  const isSteps = (steps?.length ?? 0) >= 2;
+  const milestoneClusters = useMilestoneClusters(
+    isSteps ? [] : (milestones ?? []),
+    cappedRange,
+    trackWidth,
+  );
 
   // A saved report can carry a date the current data no longer spans — the axis
   // shrinks whenever a lifecycle is edited. Pin the thumb to the end rather than
   // render it off the rail. Display only: the read-out, the past/future accent
   // and the step targets all keep the true `value`, and no effect calls
   // `onChange` to snap, which would silently rewrite the saved date on open.
-  const thumbValue = Math.min(Math.max(value, cappedRange.min), cappedRange.max);
+  const thumbValue = isSteps
+    ? value
+    : Math.min(Math.max(value, cappedRange.min), cappedRange.max);
 
-  const isAway = Math.abs(value - todayMs) > ONE_DAY_MS;
-  const isPast = value < todayMs - ONE_DAY_MS;
-  const isFuture = value > todayMs + ONE_DAY_MS;
+  // Steps are not dates, so "today" means nothing to them.
+  const isAway = !isSteps && Math.abs(value - todayMs) > ONE_DAY_MS;
+  const isPast = !isSteps && value < todayMs - ONE_DAY_MS;
+  const isFuture = !isSteps && value > todayMs + ONE_DAY_MS;
 
   // Color shifts: amber for past, purple for future, primary for today
-  const accent = isPast ? TIMELINE_COLORS.past : isFuture ? TIMELINE_COLORS.future : primary;
+  const accent =
+    accentColor ?? (isPast ? TIMELINE_COLORS.past : isFuture ? TIMELINE_COLORS.future : primary);
   const RESET_COLOR = TIMELINE_COLORS.reset;
 
   const hasMilestones = (milestones?.length ?? 0) > 0;
@@ -280,9 +309,16 @@ export default function TimelineSlider({
   // so say the span rather than a single day — a read-out of "Jun 1" beside a
   // view that already includes a 1 September go-live is the same disagreement
   // this mark's tooltip has always avoided.
-  const readout = activeCluster
-    ? spanLabel(activeCluster.value, activeCluster.spanEnd)
-    : fmtFull(value);
+  const stepLabel = steps?.find((s) => s.value === value)?.label ?? String(value);
+  const readout = isSteps
+    ? (valueText ?? stepLabel)
+    : activeCluster
+      ? spanLabel(activeCluster.value, activeCluster.spanEnd)
+      : fmtFull(value);
+
+  // Neighbouring steps, by value so an off-step value still has both sides.
+  const prevStep = isSteps ? ([...steps!].reverse().find((s) => s.value < value) ?? null) : null;
+  const nextStep = isSteps ? (steps!.find((s) => s.value > value) ?? null) : null;
 
   // Step-through targets are the marks AS DRAWN — the pixel clusters, not the
   // raw per-date milestones behind them. A merged mark is one thing on screen
@@ -380,7 +416,7 @@ export default function TimelineSlider({
   } as const;
 
   return (
-    <Box sx={{ width: "100%", maxWidth: 560, pt: 0.5, pb: 2 }}>
+    <Box sx={{ width: "100%", ...(!isSteps && { maxWidth: 560 }), pt: 0.5, pb: 2 }}>
       {/* Label row */}
       <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 0.5 }}>
         <MaterialSymbol icon="electric_bolt" size={16} color={accent} />
@@ -472,13 +508,17 @@ export default function TimelineSlider({
           Stepping is a move along the timeline, so the control belongs beside
           the track it moves rather than up in the label row. */}
       <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.25 }}>
-        {hasMilestones && (
-          <Tooltip title={t("timelineSlider.prevChange")} arrow>
+        {(hasMilestones || isSteps) && (
+          <Tooltip title={previousLabel ?? t("timelineSlider.prevChange")} arrow>
             <span>
               <IconButton
-                aria-label={t("timelineSlider.prevChange")}
-                disabled={prevCluster == null}
-                onClick={() => prevCluster && stepTo(prevCluster)}
+                aria-label={previousLabel ?? t("timelineSlider.prevChange")}
+                disabled={isSteps ? prevStep == null : prevCluster == null}
+                onClick={() =>
+                  isSteps
+                    ? prevStep && onChange(prevStep.value)
+                    : prevCluster && stepTo(prevCluster)
+                }
                 sx={stepButtonSx}
               >
                 <MaterialSymbol
@@ -500,14 +540,16 @@ export default function TimelineSlider({
           <Box ref={trackRef}>
             <Slider
               value={thumbValue}
-              min={cappedRange.min}
-              max={cappedRange.max}
-              step={ONE_DAY_MS}
+              min={isSteps ? steps![0].value : cappedRange.min}
+              max={isSteps ? steps![steps!.length - 1].value : cappedRange.max}
+              step={isSteps ? null : ONE_DAY_MS}
               track={false}
-              marks={responsiveMarks}
-              onChange={(_, v) => onChange(snapToCluster(v as number))}
-              valueLabelDisplay="auto"
+              marks={isSteps ? steps : responsiveMarks}
+              onChange={(_, v) => onChange(isSteps ? (v as number) : snapToCluster(v as number))}
+              valueLabelDisplay={isSteps ? "off" : "auto"}
               valueLabelFormat={fmtTip}
+              aria-label={ariaLabel}
+              getAriaValueText={isSteps ? () => valueText ?? stepLabel : undefined}
               sx={{
                 color: accent,
                 height: 6,
@@ -729,13 +771,17 @@ export default function TimelineSlider({
             </Box>
           )}
         </Box>
-        {hasMilestones && (
-          <Tooltip title={t("timelineSlider.nextChange")} arrow>
+        {(hasMilestones || isSteps) && (
+          <Tooltip title={nextLabel ?? t("timelineSlider.nextChange")} arrow>
             <span>
               <IconButton
-                aria-label={t("timelineSlider.nextChange")}
-                disabled={nextCluster == null}
-                onClick={() => nextCluster && stepTo(nextCluster)}
+                aria-label={nextLabel ?? t("timelineSlider.nextChange")}
+                disabled={isSteps ? nextStep == null : nextCluster == null}
+                onClick={() =>
+                  isSteps
+                    ? nextStep && onChange(nextStep.value)
+                    : nextCluster && stepTo(nextCluster)
+                }
                 sx={stepButtonSx}
               >
                 <MaterialSymbol
