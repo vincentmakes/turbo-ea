@@ -188,6 +188,14 @@ LOOPS = [
         [3600, 3600],
     ),
     (
+        main._purge_document_images_loop,
+        "app.main._purge_document_images_once",
+        lambda: AsyncMock(return_value=0),
+        [3600, 3600],
+        "Error in document picture purge loop",
+        [3600, 3600],
+    ),
+    (
         main._ops_access_maintenance_loop,
         "app.main._ops_access_maintenance_once",
         lambda: AsyncMock(return_value=(0, 0)),

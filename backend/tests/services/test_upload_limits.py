@@ -17,7 +17,12 @@ from pathlib import Path
 import pytest
 
 from app.api.v1.workspace import MAX_BUNDLE_BYTES
-from app.services.attachment_validation import ACCEPTED_EXTENSIONS, MAX_ATTACHMENT_MB
+from app.services.attachment_validation import (
+    ACCEPTED_EXTENSIONS,
+    MAX_ATTACHMENT_MB,
+    MAX_DOCUMENT_IMAGE_BYTES,
+    MAX_DOCUMENT_IMAGE_MB,
+)
 
 
 def _repo_root() -> Path:
@@ -48,6 +53,16 @@ class TestAttachmentCap:
             "disagree about the attachment size cap — the browser would then let "
             "through a file the backend refuses, or refuse one it would accept."
         )
+
+    def test_the_frontend_mirrors_the_document_image_cap(self, attachment_formats_ts):
+        """A picture in decision / SoAW text: 5 MB, refused above (never shrunk)."""
+        match = re.search(r"MAX_DOCUMENT_IMAGE_MB\s*=\s*(\d+)", attachment_formats_ts)
+        assert match, "attachmentFormats.ts must declare MAX_DOCUMENT_IMAGE_MB"
+        assert int(match.group(1)) == MAX_DOCUMENT_IMAGE_MB == 5
+        assert MAX_DOCUMENT_IMAGE_BYTES == 5 * 1024 * 1024
+        # The picture cap sits under the attachment cap, so the edge (which
+        # allows a little more than the attachment cap) never answers first.
+        assert MAX_DOCUMENT_IMAGE_MB < MAX_ATTACHMENT_MB
 
     def test_the_frontend_mirrors_the_accepted_extension_list(self, attachment_formats_ts):
         listed = set(re.findall(r'ext:\s*"(\.[^"]+)"', attachment_formats_ts))

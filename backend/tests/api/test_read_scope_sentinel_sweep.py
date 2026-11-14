@@ -168,6 +168,14 @@ async def world(db, client):
         "/api/v1/soaw",
         {"name": "Plan", "sections": {"1.1": {"content": f"<p>Scope: {mention}</p>"}}},
     )
+    # A picture in decision text: its route is swept like any other GET.
+    resp = await client.post(
+        "/api/v1/document-images/adr",
+        files={"file": ("p.png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 16, "image/png")},
+        headers=ah,
+    )
+    assert resp.status_code == 201, resp.text
+    image = resp.json()
     # One saved version of each holds the mention too: the version GET resolves
     # it per reader (the restricted reader may view versions: it holds
     # ``adr.manage`` / ``soaw.manage``).
@@ -228,6 +236,8 @@ async def world(db, client):
             "bm_id": bookmark["id"],
             "key": "Application",
             "type_key": "Application",
+            "kind": "adr",
+            "image_id": image["id"],
         },
         "sentinel_id": sentinel["id"],
         "held_id": held["id"],

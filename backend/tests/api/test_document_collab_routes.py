@@ -696,3 +696,227 @@ class TestSoawHooks:
         ]
         assert [c[1:3] for c in _of(spy, "before_save")] == [("soaw", None)]
         assert len(_of(spy, "render_doc")) == 7
+
+
+# ---------------------------------------------------------------------------
+# Pictures: checked on every save, kept through revise, duplicate and restore
+# ---------------------------------------------------------------------------
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+PICTURES = "/api/v1/document-images"
+
+
+async def _picture(client, env, kind="adr") -> str:
+    resp = await client.post(
+        f"{PICTURES}/{kind}",
+        files={"file": ("p.png", PNG, "image/png")},
+        headers=env["h"]["admin"],
+    )
+    assert resp.status_code == 201, resp.text
+    return resp.json()["id"]
+
+
+def _img(kind, image_id, extra="") -> str:
+    return f'<img src="{PICTURES}/{kind}/{image_id}"{extra}>'
+
+
+async def _used(db, *ids) -> list[bool]:
+    from app.models.document_image import DocumentImage
+
+    rows = {
+        str(r.id): r.used_at is not None
+        for r in (await db.execute(select(DocumentImage).execution_options(populate_existing=True)))
+        .scalars()
+        .all()
+    }
+    return [rows.get(i) for i in ids]
+
+
+async def _forget(db, image_id) -> None:
+    """Delete a picture from the store: a later lookup would no longer find it."""
+    from app.models.document_image import DocumentImage
+
+    await db.delete(await db.get(DocumentImage, uuid.UUID(image_id)))
+    await db.flush()
+
+
+class TestPictures:
+    async def test_a_user_save_keeps_known_pictures_and_drops_the_rest(self, client, db, env):
+        known = await _picture(client, env)
+        soaw_kind = await _picture(client, env, "soaw")
+        unknown = str(uuid.uuid4())
+        kept = _img("adr", known, ' width="320" height="200" data-align="center"')
+        context = (
+            f"<p>a</p>{kept}"
+            f'<img src="https://evil.example/p.png" onerror="x()">'
+            f'<img src="data:image/png;base64,AA==">'
+            f"{_img('adr', unknown)}{_img('adr', soaw_kind)}{_img('soaw', soaw_kind)}<p>b</p>"
+        )
+        adr = await _adr(client, env, context=context)
+        assert adr["context"] == f"<p>a</p>{kept}<p>b</p>"
+        # Only the picture the save stored is stamped used.
+        assert await _used(db, known, soaw_kind) == [True, False]
+
+    async def test_an_upload_no_save_stores_stays_unused(self, client, db, env):
+        image_id = await _picture(client, env)
+        await _adr(client, env, context="<p>no picture</p>")
+        assert await _used(db, image_id) == [False]
+
+    async def test_a_soaw_section_save(self, client, db, env):
+        known = await _picture(client, env, "soaw")
+        adr_kind = await _picture(client, env, "adr")
+        soaw = await _soaw(client, env)
+        content = f"<p>x</p>{_img('soaw', known)}{_img('adr', adr_kind)}{_img('soaw', adr_kind)}"
+        resp = await client.patch(
+            f"{SOAW}/{soaw['id']}",
+            json={"sections": {"1.1": {"content": content}, "t": {"rows": [["<img src=x>"]]}}},
+            headers=env["h"]["admin"],
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["sections"] == {
+            "1.1": {"content": f"<p>x</p>{_img('soaw', known)}"},
+            "t": {"rows": [["<img src=x>"]]},
+        }
+        assert await _used(db, known, adr_kind) == [True, False]
+
+    async def test_a_stored_picture_is_not_looked_up_again(self, client, db, env):
+        image_id = await _picture(client, env)
+        adr = await _adr(client, env, context=f"<p>a</p>{_img('adr', image_id)}")
+        await _forget(db, image_id)
+        resp = await client.patch(
+            f"{ADR}/{adr['id']}",
+            json={"context": f"<p>b</p>{_img('adr', image_id)}"},
+            headers=env["h"]["admin"],
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["context"] == f"<p>b</p>{_img('adr', image_id)}"
+        # Once gone from the text, it is new again: looked up, and dropped.
+        await client.patch(
+            f"{ADR}/{adr['id']}", json={"context": "<p>c</p>"}, headers=env["h"]["admin"]
+        )
+        resp = await client.patch(
+            f"{ADR}/{adr['id']}",
+            json={"context": f"<p>d</p>{_img('adr', image_id)}"},
+            headers=env["h"]["admin"],
+        )
+        assert resp.json()["context"] == "<p>d</p>"
+
+    async def test_a_system_writer_gets_the_existence_check(self, client, db, env):
+        known = await _picture(client, env)
+        unknown = str(uuid.uuid4())
+        out = await document_collab.before_save(
+            db,
+            "adr",
+            None,
+            {"context": f"{_img('adr', known)}{_img('adr', unknown)}", "decision": None},
+            user=None,
+            read_scope=None,
+        )
+        assert out == {"context": _img("adr", known), "decision": None}
+        assert await _used(db, known) == [True]
+
+    async def test_a_copy_is_never_checked_nor_stamped(self, client, db, env):
+        known = await _picture(client, env)
+        unknown = str(uuid.uuid4())
+        text = f"{_img('adr', known)}{_img('adr', unknown)}"
+        out = await document_collab.before_save(
+            db,
+            "adr",
+            None,
+            {"context": text + '<img src="https://e/x.png">'},
+            user=None,
+            read_scope=None,
+            copy=True,
+        )
+        assert out == {"context": text}
+        assert await _used(db, known) == [False]
+
+    async def test_a_mention_spliced_by_a_picture_pass_is_checked(self, client, env):
+        bogus = '<span data-type="mention" data-kind="bogus"></span>'
+
+        def spliced(card_id) -> str:
+            return (
+                f"<p><sp<im{bogus}g src=x>an "
+                f'data-type="mention" data-kind="card" data-id="{card_id}"></span></p>'
+            )
+
+        resp = await client.post(
+            ADR, json={"title": "D", "context": spliced(uuid.uuid4())}, headers=env["h"]["admin"]
+        )
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "Card not found"
+        card = str(env["card"].id)
+        resp = await client.post(
+            ADR, json={"title": "D", "context": spliced(card)}, headers=env["h"]["admin"]
+        )
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["context"] == (
+            f'<p><span data-type="mention" data-kind="card" data-id="{card}">@Billing</span></p>'
+        )
+
+    async def test_a_picture_spliced_by_the_mention_pass_is_checked(self, client, env):
+        bogus = '<span data-type="mention" data-kind="bogus" data-id="x"></span>'
+        known = await _picture(client, env)
+        context = (
+            f'<p><im{bogus}g src="{PICTURES}/adr/{uuid.uuid4()}"></p>'
+            f'<p><im{bogus}g src="{PICTURES}/adr/{known}" width="7"></p>'
+            f'<p><im{bogus}g src="https://evil.example/p.png"></p>'
+        )
+        adr = await _adr(client, env, context=context)
+        assert adr["context"] == f"<p></p><p>{_img('adr', known, ' width="7"')}</p><p></p>"
+
+    async def test_revise_and_duplicate_keep_pictures(self, client, db, env):
+        image_id = await _picture(client, env)
+        text = f"<p>a</p>{_img('adr', image_id, ' data-align="right"')}"
+        adr = await _adr(client, env, context=text)
+        base = f"{ADR}/{adr['id']}"
+        dup = await _post(client, env, f"{base}/duplicate", status=201)
+        assert dup["context"] == text
+        await _post(client, env, f"{base}/request-signatures", json={"user_ids": _ids(env, "one")})
+        await _post(client, env, f"{base}/sign", who="one")
+        # Revising a signed decision copies its text, pictures included, even
+        # when the picture is no longer in the store (a copy is never checked).
+        await _forget(db, image_id)
+        revision = await _post(client, env, f"{base}/revise")
+        assert revision["context"] == text
+
+    async def test_soaw_revise_keeps_pictures(self, client, env):
+        image_id = await _picture(client, env, "soaw")
+        sections = {"1.1": {"content": f"<p>a</p>{_img('soaw', image_id)}"}}
+        soaw = await _soaw(client, env, sections=sections)
+        base = f"{SOAW}/{soaw['id']}"
+        await _post(client, env, f"{base}/request-signatures", json={"user_ids": _ids(env, "one")})
+        await _post(client, env, f"{base}/sign", who="one")
+        revision = await _post(client, env, f"{base}/revise")
+        assert revision["sections"] == sections
+
+    async def test_restore_keeps_the_versions_pictures(self, client, db, env):
+        image_id = await _picture(client, env)
+        text = f"<p>first</p>{_img('adr', image_id)}"
+        adr = await _adr(client, env, context=text)
+        await client.patch(
+            f"{ADR}/{adr['id']}", json={"context": "<p>second</p>"}, headers=env["h"]["admin"]
+        )
+        # The version's picture was stored on the document once: restore keeps
+        # it without a look-up, even when the store no longer has it.
+        await _forget(db, image_id)
+        resp = await client.get(f"{ADR}/{adr['id']}/history", headers=env["h"]["admin"])
+        created = resp.json()["entries"][-1]
+        assert created["kind"] == "created"
+        detail = await _post(client, env, f"{ADR}/{adr['id']}/history/{created['id']}/restore")
+        assert detail["context"] == text
+
+    async def test_soaw_restore_keeps_the_versions_pictures(self, client, db, env):
+        image_id = await _picture(client, env, "soaw")
+        sections = {"1.1": {"content": f"<p>first</p>{_img('soaw', image_id)}"}}
+        soaw = await _soaw(client, env, sections=sections)
+        await client.patch(
+            f"{SOAW}/{soaw['id']}",
+            json={"sections": {"1.1": {"content": "<p>second</p>"}}},
+            headers=env["h"]["admin"],
+        )
+        await _forget(db, image_id)
+        resp = await client.get(f"{SOAW}/{soaw['id']}/history", headers=env["h"]["admin"])
+        created = resp.json()["entries"][-1]
+        detail = await _post(client, env, f"{SOAW}/{soaw['id']}/history/{created['id']}/restore")
+        assert detail["sections"] == sections

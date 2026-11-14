@@ -111,6 +111,34 @@ async def _purge_mutation_batches_loop() -> None:
             logger.exception("Error in mutation-batch purge loop")
 
 
+async def _purge_document_images_once(db, *, now=None) -> int:
+    """Delete the pictures uploaded for decision / SoAW text that no save ever
+    stored, once past their grace period (``document_image_service``). Returns
+    the number deleted; commits only when there were any."""
+    from app.services import document_image_service
+
+    deleted = await document_image_service.purge_unused_once(db, now=now)
+    if deleted:
+        await db.commit()
+        logger.info("Auto-purged %d never-used document picture(s).", deleted)
+    return deleted
+
+
+async def _purge_document_images_loop() -> None:
+    """Background loop that deletes never-used document pictures, hourly."""
+    from app.database import async_session
+
+    while True:
+        try:
+            await asyncio.sleep(_PURGE_INTERVAL_SECONDS)
+            async with async_session() as db:
+                await _purge_document_images_once(db)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Error in document picture purge loop")
+
+
 async def _purge_audit_log_once(db, *, now=None) -> int:
     """Delete the security & admin audit log rows past the retention window.
 
@@ -1094,6 +1122,10 @@ async def lifespan(app: FastAPI):
     # have their batch_id NULLed (FK is ON DELETE SET NULL).
     batch_purge_task = asyncio.create_task(_purge_mutation_batches_loop())
 
+    # Hourly purge of pictures uploaded for decision / SoAW text that no save
+    # ever stored (older than the 7-day grace period).
+    image_purge_task = asyncio.create_task(_purge_document_images_loop())
+
     # Daily security & admin audit log retention purge (04:00 UTC; the window
     # is ``general_settings.auditLogRetentionDays``, default 365, 0 = forever).
     audit_purge_task = asyncio.create_task(_purge_audit_log_loop())
@@ -1149,6 +1181,11 @@ async def lifespan(app: FastAPI):
     batch_purge_task.cancel()
     try:
         await batch_purge_task
+    except asyncio.CancelledError:
+        pass
+    image_purge_task.cancel()
+    try:
+        await image_purge_task
     except asyncio.CancelledError:
         pass
     audit_purge_task.cancel()

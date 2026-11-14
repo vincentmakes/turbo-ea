@@ -20,6 +20,7 @@ from app.api.v1 import (
     diagrams,
     document_comments,
     document_history,
+    document_images,
     documents,
     eol,
     events,
@@ -106,6 +107,7 @@ api_router.include_router(ppm_reports.router)
 api_router.include_router(adr.router)
 api_router.include_router(document_comments.router)
 api_router.include_router(document_history.router)
+api_router.include_router(document_images.router)
 api_router.include_router(mentions.router)
 api_router.include_router(risks.router)
 api_router.include_router(risks.cards_risks_router)

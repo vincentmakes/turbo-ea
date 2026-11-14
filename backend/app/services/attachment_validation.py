@@ -34,6 +34,12 @@ from dataclasses import dataclass
 MAX_ATTACHMENT_MB = 20
 MAX_ATTACHMENT_BYTES = MAX_ATTACHMENT_MB * 1024 * 1024
 
+# A picture in the text of a decision or a SoAW (``api/v1/document_images.py``).
+# Mirrored in ``frontend/src/lib/attachmentFormats.ts`` (``MAX_DOCUMENT_IMAGE_MB``);
+# ``tests/services/test_upload_limits.py`` fails if the two drift.
+MAX_DOCUMENT_IMAGE_MB = 5
+MAX_DOCUMENT_IMAGE_BYTES = MAX_DOCUMENT_IMAGE_MB * 1024 * 1024
+
 # Enough for a tar's ustar magic at offset 257, and for the junk some writers
 # emit before a PDF's %PDF- header.
 SNIFF_BYTES = 1024
@@ -261,6 +267,26 @@ def validate_content(fmt: AttachmentFormat, head: bytes) -> None:
         raise InvalidAttachmentError(
             f"File content does not match its '{fmt.extension}' extension."
         )
+
+
+#: The raster formats a picture in document text may be, as ``(sniff, MIME)``.
+#: SVG is deliberately absent: pictures are served inline, and SVG is scriptable.
+_RASTER_IMAGES: tuple[tuple[Callable[[bytes], bool], str], ...] = (
+    (_is_png, "image/png"),
+    (_is_jpeg, "image/jpeg"),
+    (_is_gif, "image/gif"),
+    (_is_webp, "image/webp"),
+)
+
+
+def sniff_raster_image(head: bytes) -> str | None:
+    """The canonical MIME of a PNG, JPEG, GIF or WebP from its leading bytes,
+    else ``None``. The name and the declared type decide nothing: a pasted
+    picture often has no usable name."""
+    for sniff, mime in _RASTER_IMAGES:
+        if sniff(head):
+            return mime
+    return None
 
 
 def validate_attachment(filename: str, data: bytes) -> str:

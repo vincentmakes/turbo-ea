@@ -1655,6 +1655,20 @@
         "title": "Body_upload_card_logo_api_v1_cards__card_id__logo_post",
         "type": "object"
       },
+      "Body_upload_document_image_api_v1_document_images__kind__post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_document_image_api_v1_document_images__kind__post",
+        "type": "object"
+      },
       "Body_upload_favicon_api_v1_settings_favicon_post": {
         "properties": {
           "file": {
@@ -30763,6 +30777,119 @@
         "summary": "Publish Diagram",
         "tags": [
           "diagrams"
+        ]
+      }
+    },
+    "/api/v1/document-images/{kind}": {
+      "post": {
+        "description": "Store one picture for the text of a ``kind`` document.",
+        "operationId": "upload_document_image_api_v1_document_images__kind__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "enum": [
+                "adr",
+                "soaw"
+              ],
+              "title": "Kind",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_document_image_api_v1_document_images__kind__post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Upload Document Image Api V1 Document Images  Kind  Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Document Image",
+        "tags": [
+          "document-images"
+        ]
+      }
+    },
+    "/api/v1/document-images/{kind}/{image_id}": {
+      "get": {
+        "description": "One picture of a ``kind`` document, inline.",
+        "operationId": "get_document_image_api_v1_document_images__kind___image_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "enum": [
+                "adr",
+                "soaw"
+              ],
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "image_id",
+            "required": true,
+            "schema": {
+              "title": "Image Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Document Image",
+        "tags": [
+          "document-images"
         ]
       }
     },
