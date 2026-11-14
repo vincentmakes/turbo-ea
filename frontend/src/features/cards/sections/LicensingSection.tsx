@@ -9,18 +9,17 @@ import ButtonBase from "@mui/material/ButtonBase";
 import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import FormControlLabel from "@mui/material/FormControlLabel";
-import IconButton from "@mui/material/IconButton";
 import LinearProgress from "@mui/material/LinearProgress";
 import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
 import { api, ApiError, apiErrorMessage } from "@/api/client";
 import EChart from "@/components/charts/EChart";
 import { useEChartsTheme } from "@/components/charts/echartsTheme";
+import FiscalYearTimeTravel from "@/components/FiscalYearTimeTravel";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
-import { costFiscalYearName } from "@/lib/fiscalYear";
 import { shortFiscalYear } from "@/lib/costItems";
 import { formatPct, LICENSE_METRICS, statusColor } from "@/lib/licenses";
 import { catalogueHues } from "@/features/reports/costColors";
@@ -188,7 +187,6 @@ export default function LicensingSection({
     </Box>
   );
 
-  const nav = (step: number) => setPicked(years[idx + step].fiscal_year);
   const metricName = (m: LicenseMetric) => t(`licensing.metrics.${m}`);
 
   const renderTile = (m: LicenseMetricResult, r: LicenseTypeResult) => {
@@ -344,6 +342,12 @@ export default function LicensingSection({
         </Box>
       </AccordionSummary>
       <AccordionDetails>
+        <FiscalYearTimeTravel
+          years={years.map((y) => y.fiscal_year)}
+          currentFy={currentFy}
+          value={year.fiscal_year}
+          onChange={setPicked}
+        />
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           {modelEditor || (
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flex: 1, flexWrap: "wrap" }}>
@@ -360,25 +364,6 @@ export default function LicensingSection({
               ) : null}
             </Box>
           )}
-          <IconButton
-            size="small"
-            aria-label={t("licensing.previousYear")}
-            disabled={idx === 0}
-            onClick={() => nav(-1)}
-          >
-            <MaterialSymbol icon={chrome.isRtl ? "chevron_right" : "chevron_left"} size={20} />
-          </IconButton>
-          <Typography fontWeight={600} sx={{ minWidth: 150, textAlign: "center" }}>
-            {costFiscalYearName(year.fiscal_year, currentFy)}
-          </Typography>
-          <IconButton
-            size="small"
-            aria-label={t("licensing.nextYear")}
-            disabled={idx === years.length - 1}
-            onClick={() => nav(1)}
-          >
-            <MaterialSymbol icon={chrome.isRtl ? "chevron_left" : "chevron_right"} size={20} />
-          </IconButton>
         </Box>
 
         {model.length === 0 ? (

@@ -794,8 +794,6 @@
   "costs.dialog.savedCopyFailed": "The amount was saved.",
   "licensing.title": "Licensing",
   "licensing.loadFailed": "Could not load the licenses of this card.",
-  "licensing.previousYear": "Previous fiscal year",
-  "licensing.nextYear": "Next fiscal year",
   "licensing.addItem": "Add license",
   "licensing.confirm": "Confirm {{year}}",
   "licensing.fallbackBanner": "No license counts entered for {{year}} yet. Showing the licensed counts of {{from}}, not confirmed.",
