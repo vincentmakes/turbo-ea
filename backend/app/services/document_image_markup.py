@@ -106,7 +106,7 @@ _CANONICAL_SRC_RE = re.compile(
 # fragment serialisation algorithm, with ``<`` / ``>`` as current browsers do).
 _ATTRIBUTE_ESCAPES: tuple[tuple[str, str], ...] = (
     ("&", "&amp;"),
-    (" ", "&nbsp;"),
+    ("\u00a0", "&nbsp;"),
     ('"', "&quot;"),
     ("<", "&lt;"),
     (">", "&gt;"),

@@ -74,6 +74,7 @@ ID_FREE_COLUMNS: dict[tuple[str, str], str] = {
     ("ComplianceFindings", "evidence"): PROSE,
     ("ComplianceFindings", "remediation"): PROSE,
     ("ComplianceFindings", "review_note"): PROSE,
+    ("DocumentImages", "data"): BINARY,
     ("Adrs", "attributes"): "an extension's own ext.<key>.* bag; core cannot know its shape",
     ("AdrFileContents", "data"): BINARY,
     ("Soaws", "document_info"): PROSE,

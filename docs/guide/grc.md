@@ -124,6 +124,7 @@ The editor provides:
 
 - Rich-text editing for each section (Context, Decision, Consequences, Alternatives Considered)
 - **Mentions** — type **@** in a section to mention a card or another decision (see [Mentions](#decision-mentions))
+- **Pictures** — insert a screenshot or a diagram into a section (see [Pictures](#decision-pictures))
 - **Discussion** — a panel beside the document with its discussion (see [Discussion](#decision-discussion))
 - **History** — a button at the top of the page that opens the decision's timeline and its saved versions (see [History](#decision-history))
 - Card linking — connect the ADR to relevant cards (applications, IT components, initiatives, …). Initiatives are linked via the standard card-linking feature, not a dedicated field, so an ADR can reference multiple initiatives
@@ -132,6 +133,18 @@ The editor provides:
 - **This decision…** — typed links to other decisions (see [Links between decisions](#decision-links))
 - **Change summary** — on a revision only: what changed in this revision, and why
 - **Files** — documents attached to the decision (see [Files](#decision-files))
+
+#### Pictures {: #decision-pictures }
+
+Each of the four sections can hold pictures — a screenshot, an exported diagram, a photo of a whiteboard. Click **Insert picture** in the section's toolbar and choose a file, paste a picture from the clipboard, or drag a picture file onto the section. The picture is uploaded as it is inserted and appears on its own line.
+
+- **Resize** a picture by dragging its corner: its proportions are kept.
+- **Align** it by selecting it and clicking **Align left**, **Align center** or **Align right** in the toolbar.
+- **Formats.** PNG, JPEG, GIF and WebP, up to 5 MB each. A larger picture is refused, not shrunk. SVG is not accepted.
+- **Where it shows.** Pictures appear in the [preview](#preview), in the PDF / printed copy and in the Word export. In the [History](#decision-history) a version shows its pictures, and **Changes** marks a picture added or removed as *[Picture]*. A revision, a duplicate and a restored version keep the pictures of the text they came from.
+- **Only pictures uploaded here.** A decision keeps only pictures uploaded to decisions. A picture that links to another website, or one copied from a SoAW, is removed when the decision is saved.
+- **Comments** in the [discussion](#decision-discussion) take no pictures.
+- **When file uploads are off.** The **Insert picture** button, paste and drag-and-drop of pictures disappear when an administrator has [switched file uploads off](../admin/resources.md#when-file-uploads-are-disabled). Pictures already in the text stay visible.
 
 #### Dates {: #decision-dates }
 

@@ -82,6 +82,8 @@ Bulk delete is checked **per row**. If your selection includes resources on card
 
 Turning off **File uploads** in **Admin → Settings → General** only blocks new uploads. Existing files stay listed here and remain downloadable and deletable, so you can still audit and clean up. An information banner appears on the page while the toggle is off.
 
+The same toggle also hides the controls that insert pictures into the text of [decisions](../guide/grc.md#decision-pictures) and [SoAWs](../guide/delivery.md#soaw-pictures). Pictures already in a document stay visible.
+
 ## Related
 
 - [Settings](settings.md) — the toggle that enables or disables file uploads

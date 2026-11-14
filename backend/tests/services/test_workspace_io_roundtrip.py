@@ -2633,6 +2633,147 @@ async def test_decision_register_roundtrips_and_reimports_as_all_skip(db, tmp_pa
     }
 
 
+async def test_document_pictures_roundtrip_and_the_text_still_finds_them(db, tmp_path):
+    """The pictures in a decision's and a SoAW's text travel as assets with
+    their kind, type, size, hash, uploader (by e-mail) and ``used_at``. The
+    text is copied verbatim: picture ids are preserved like every module PK,
+    so each ``src`` resolves to the imported row of its own kind. A picture
+    a document holds is not purged afterwards as never used; one no save
+    ever stored still is."""
+    from datetime import datetime, timedelta, timezone
+    from hashlib import sha256
+
+    from app.models.architecture_decision import ArchitectureDecision
+    from app.models.document_image import DocumentImage
+    from app.models.soaw import SoAW
+    from app.services import document_image_service as images
+    from app.services.document_image_markup import image_ids_of, serialise, src_for
+    from app.services.workspace_io.sections import ENTITY_SECTIONS
+
+    admin = await create_user(db, email="pic-admin@test.com", role="admin")
+    author = await create_user(db, email="pic-author@test.com", role="member")
+    png = b"\x89PNG\r\n\x1a\n" + b"adr-picture" * 40
+    jpeg = b"\xff\xd8\xff\xe0" + b"soaw-picture" * 30
+    gif = b"GIF89a" + b"never-saved" * 5
+    adr_pic = await images.store(db, "adr", png, mime_type="image/png", created_by=author.id)
+    soaw_pic = await images.store(db, "soaw", jpeg, mime_type="image/jpeg", created_by=None)
+    unused = await images.store(db, "adr", gif, mime_type="image/gif", created_by=admin.id)
+    used_at = datetime(2026, 11, 1, 8, 15, tzinfo=timezone.utc)
+    assert await images.mark_used(db, [adr_pic.id, soaw_pic.id], now=used_at) == 2
+    adr_id, soaw_pic_id, unused_id = adr_pic.id, soaw_pic.id, unused.id
+
+    adr_img = serialise(
+        {"src": src_for("adr", str(adr_id)), "alt": "Context", "width": "320"}
+        | {"data-align": "center"}
+    )
+    soaw_img = serialise({"src": src_for("soaw", str(soaw_pic_id)), "data-align": "right"})
+    context = f"<p>Before</p>{adr_img}<p>After</p>"
+    section_html = f"<p>Scope</p>{soaw_img}"
+    decision = ArchitectureDecision(
+        reference_number="ADR-960",
+        title="Pictured",
+        status="draft",
+        context=context,
+        created_by=admin.id,
+    )
+    soaw = SoAW(
+        name="Pictured plan",
+        sections={"1.1": {"content": section_html, "hidden": False}},
+        signatories=[],
+        created_by=admin.id,
+    )
+    db.add_all([decision, soaw])
+    await db.flush()
+    decision_id, soaw_id = decision.id, soaw.id
+
+    # The pictures are applied before the documents that show them.
+    order = [s.sheet for s in ENTITY_SECTIONS]
+    assert order.index("DocumentImages") < order.index("Adrs") < order.index("Soaws")
+
+    raw = await build_bundle(db)
+    _, _, assets = bundle_io.unpack(raw)
+    assert sorted(p for p in assets if p.startswith("DocumentImages/")) == sorted(
+        f"DocumentImages/{pid}__data.bin" for pid in (adr_id, soaw_pic_id, unused_id)
+    )
+    assert assets[f"DocumentImages/{adr_id}__data.bin"] == png
+    assert assets[f"DocumentImages/{soaw_pic_id}__data.bin"] == jpeg
+    exported = {r["id"]: r for r in parse_bundle(raw).rows("DocumentImages")}
+    assert "created_by" not in exported[str(adr_id)]
+    assert "data" not in exported[str(adr_id)]
+    assert exported[str(adr_id)]["created_by__email"] == "pic-author@test.com"
+    assert exported[str(soaw_pic_id)].get("created_by__email") is None
+
+    # Same instance: all-skip.
+    same = await apply_bundle(db, parse_bundle(raw), admin)
+    assert same.total_failed == 0, same.as_dict()
+    section = next(s for s in same.sections if s.sheet == "DocumentImages")
+    assert (section.created, section.skipped, section.conflict, section.failed) == (0, 3, 0, 0)
+
+    await db.execute(delete(ArchitectureDecision))
+    await db.execute(delete(SoAW))
+    await db.execute(delete(DocumentImage))
+    await db.flush()
+    db.expunge_all()
+
+    path = tmp_path / "workspace.zip"
+    path.write_bytes(raw)
+    with parse_bundle(path) as bundle:
+        result = await apply_bundle(db, bundle, admin)
+    assert result.total_failed == 0, result.as_dict()
+    section = next(s for s in result.sections if s.sheet == "DocumentImages")
+    assert (section.created, section.skipped, section.conflict, section.failed) == (3, 0, 0, 0)
+
+    rows = (
+        await db.execute(
+            select(
+                DocumentImage.id,
+                DocumentImage.kind,
+                DocumentImage.mime_type,
+                DocumentImage.size,
+                DocumentImage.sha256,
+                DocumentImage.data,
+                DocumentImage.created_by,
+                DocumentImage.used_at,
+            )
+        )
+    ).all()
+    assert sorted((tuple(r) for r in rows), key=lambda r: r[2]) == [
+        (unused_id, "adr", "image/gif", len(gif), sha256(gif).hexdigest(), gif, admin.id, None),
+        (
+            soaw_pic_id,
+            "soaw",
+            "image/jpeg",
+            len(jpeg),
+            sha256(jpeg).hexdigest(),
+            jpeg,
+            None,
+            used_at,
+        ),
+        (adr_id, "adr", "image/png", len(png), sha256(png).hexdigest(), png, author.id, used_at),
+    ]
+
+    # The text came across byte for byte, and each src finds its picture.
+    restored = (
+        await db.execute(select(ArchitectureDecision).where(ArchitectureDecision.id == decision_id))
+    ).scalar_one()
+    assert restored.context == context
+    assert image_ids_of(restored.context) == {str(adr_id)}
+    found = await images.load(db, "adr", adr_id)
+    assert found is not None and found.data == png
+    restored_soaw = (await db.execute(select(SoAW).where(SoAW.id == soaw_id))).scalar_one()
+    assert restored_soaw.sections["1.1"]["content"] == section_html
+    assert image_ids_of(restored_soaw.sections["1.1"]["content"]) == {str(soaw_pic_id)}
+    found = await images.load(db, "soaw", soaw_pic_id)
+    assert found is not None and found.data == jpeg
+
+    # A picture a document holds survives the unused-picture purge; the one
+    # no save ever stored does not.
+    later = datetime.now(timezone.utc) + timedelta(days=30)
+    assert await images.purge_unused_once(db, now=later) == 1
+    left = set((await db.execute(select(DocumentImage.id))).scalars().all())
+    assert left == {adr_id, soaw_pic_id}
+
+
 async def test_a_decision_person_whose_user_has_no_match_keeps_the_stored_name(db):
     """A bundle naming a person by a user the target does not have (and no
     Users sheet to create one) lands the person with the stored name and no

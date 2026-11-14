@@ -14,8 +14,8 @@ The export captures the full workspace as a `.zip` bundle containing one Excel w
 - **Users** — email, display name, role, and active flag (used to re-link ownership and assignments on the target). No passwords or SSO identities.
 - **Inventory** — every card (with its hierarchy, lifecycle, and attributes), card tags, and relations.
 - **Card context** — stakeholders, document links, comments, todos, and file attachments.
-- **Module data** — BPM (process diagrams, elements, flow versions, assessments), PPM (status reports, costs, budgets, risks, tasks, WBS, dependencies), the GRC risk register (risks, mitigation tasks and occurrences, card links), GRC compliance findings (with the analysis runs they reference), architecture decisions and Statements of Architecture Work, free-draw diagrams, saved reports, bookmarks (saved inventory views, including their shares), web portals, and surveys.
-- **Assets** — binary file attachments, diagram and BPMN XML, and the logo/favicon travel as separate files inside the bundle's `assets/` folder.
+- **Module data** — BPM (process diagrams, elements, flow versions, assessments), PPM (status reports, costs, budgets, risks, tasks, WBS, dependencies), the GRC risk register (risks, mitigation tasks and occurrences, card links), GRC compliance findings (with the analysis runs they reference), architecture decisions and Statements of Architecture Work (with the pictures in their text), free-draw diagrams, saved reports, bookmarks (saved inventory views, including their shares), web portals, and surveys.
+- **Assets** — binary file attachments, pictures in decision and SoAW text, diagram and BPMN XML, and the logo/favicon travel as separate files inside the bundle's `assets/` folder.
 
 ## What's never included
 

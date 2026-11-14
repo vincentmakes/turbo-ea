@@ -11,6 +11,7 @@ pure ``text_render.html_to_text`` they rely on.
 from __future__ import annotations
 
 import json
+import re
 from contextlib import ExitStack
 from unittest.mock import patch
 
@@ -767,6 +768,21 @@ class TestDocstrings:
         assert "open_thread_count" in server.get_adr.__doc__
         assert "404" in server.update_adr.__doc__
         assert "get_document_discussion" in server.list_soaws.__doc__
+
+    def test_the_decision_and_soaw_tools_explain_pictures(self):
+        def doc(tool) -> str:
+            return re.sub(r"\s+", " ", tool.__doc__ or "")
+
+        assert '<img src="/api/v1/document-images/adr/<uuid>">' in doc(server.get_adr)
+        assert "does not return the picture's bytes" in doc(server.get_adr)
+        assert '<img src="/api/v1/document-images/soaw/<uuid>">' in doc(server.list_soaws)
+        assert "bytes not returned" in doc(server.list_soaws)
+        for tool in (server.create_adr, server.update_adr, server.create_soaw):
+            text = doc(tool)
+            assert "Pictures cannot be uploaded through MCP" in text, tool.__name__
+            assert "external URL" in text and "data: URI" in text.replace("``", ""), tool.__name__
+            assert "is removed on save" in text, tool.__name__
+        assert "copies the text (pictures included)" in doc(server.revise_adr)
 
 
 # ── the helpers' exact answers ──────────────────────────────────────────────

@@ -62,6 +62,7 @@ The editor provides:
 - **Section templates** — Pre-defined sections following TOGAF standards (e.g., Problem Description, Objectives, Approach, Stakeholders, Constraints, Work Plan)
 - **Inline editable tables** — Add and edit tables within any section
 - **Mentions** — type **@** in a section's text to mention a card or a decision (see [Discussion, mentions and history](#soaw-collaboration))
+- **Pictures** — insert a screenshot or a diagram into a section's text (see [Pictures](#soaw-pictures))
 - **Document Version History** — a table the authors fill in by hand (version, date, revised by, description). It is part of the document and is not the [History](#soaw-collaboration) view
 - **Status workflow** — Documents progress through defined stages:
 
@@ -71,6 +72,12 @@ The editor provides:
 | **In Review** | Sent for signature — locked until the signatures are recalled |
 | **Approved** | Reviewed and accepted |
 | **Signed** | Formally signed off |
+
+### Pictures {: #soaw-pictures }
+
+A section's text can hold pictures, as a decision's can. Click **Insert picture** in the section's toolbar and choose a file, paste a picture from the clipboard, or drag a picture file onto the section. Drag a picture's corner to resize it (its proportions are kept), and select it to align it left, centre or right from the toolbar. PNG, JPEG, GIF and WebP are accepted, up to 5 MB each; SVG is not.
+
+Pictures appear in the preview, the PDF / printed copy and the Word export, and in the [History](#soaw-collaboration), where **Changes** marks a picture added or removed as *[Picture]*. A revision and a restored version keep their pictures. Only pictures uploaded to a SoAW are kept: a picture that links to another website is removed when the document is saved. Comments in the discussion take no pictures, and the picture controls disappear when an administrator has [switched file uploads off](../admin/resources.md#when-file-uploads-are-disabled). The full description is in the GRC guide: [Pictures](grc.md#decision-pictures).
 
 ### Sign-off Workflow
 
