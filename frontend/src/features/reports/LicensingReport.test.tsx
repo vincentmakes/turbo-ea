@@ -194,6 +194,36 @@ describe("LicensingReport", () => {
       await waitFor(() => expect(reportPaths().at(-1)).toBe("/reports/licensing?type=Application&metric=users"));
       expect(await slider()).toHaveAttribute("aria-valuenow", "2026");
     });
+
+    it("the value text names the year the server served", async () => {
+      // The default double answers fiscal_year 2026 whatever was asked.
+      extra.handlers["/saved-reports/r1"] = () =>
+        Promise.resolve({ id: "r1", name: "Mine", config: { fiscalYearParam: 2024 } });
+      renderReport("/?saved_report_id=r1");
+      const s = await slider();
+      await waitFor(() => expect(s).toHaveAttribute("aria-valuenow", "2024"));
+      expect(s).toHaveAttribute("aria-valuetext", "FY26 - Current");
+    });
+
+    it("an explicit pick is not silently reset to the current year when it fails", async () => {
+      extra.handlers["/saved-reports/r1"] = () =>
+        Promise.resolve({ id: "r1", name: "Mine", config: { fiscalYearParam: 2024 } });
+      extra.handlers["/reports/licensing?type=Application&metric=users&fiscal_year=2023"] = () =>
+        Promise.reject(new Error("400"));
+      renderReport("/?saved_report_id=r1");
+      await waitFor(() =>
+        expect(reportPaths().some((p) => p.includes("fiscal_year=2024"))).toBe(true),
+      );
+      await slider();
+      await userEvent.click(screen.getByRole("button", { name: "Previous fiscal year" }));
+      await screen.findByText("Could not load the licensing report.");
+      // Let any fallback effect run: a silent reset to the current year would refetch and clear the error.
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 50));
+      });
+      expect(screen.getByText("Could not load the licensing report.")).toBeInTheDocument();
+      expect(reportPaths().at(-1)).toContain("fiscal_year=2023");
+    });
   });
 
   it("shows the trend above the view, with the licensed marker", async () => {
