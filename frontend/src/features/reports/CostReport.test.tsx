@@ -473,22 +473,73 @@ describe("CostReport fiscal year", () => {
   });
 });
 
-describe("CostReport card-type selector and Sankey view", () => {
-  it("offers only Application and ITComponent in the card-type selector", async () => {
-    const { getByLabelText, findAllByRole } = renderCost();
-    await waitFor(() =>
-      expect(within(chart()).getAllByText("ERP").length).toBeGreaterThan(0),
-    );
-    const select = getByLabelText(/card type/i);
-    await userEvent.click(select);
-    const options = (await findAllByRole("option")).map((o) => o.textContent);
-    expect(options).toEqual([
-      "Application",
-      "IT Component",
-      "Application + IT Component",
-    ]);
+const typeButton = (name: string) =>
+  within(screen.getByRole("group", { name: /card type/i })).getByRole("button", { name });
+const lastTreemapType = () =>
+  new URL(treemapPaths().at(-1)!, "http://x").searchParams.get("type");
+
+describe("CostReport card type toggle buttons", () => {
+  it("offers Application and IT Component as two buttons, only Application on", async () => {
+    renderCost();
+    await screen.findByRole("group", { name: /card type/i });
+    const names = within(screen.getByRole("group", { name: /card type/i }))
+      .getAllByRole("button")
+      .map((b) => b.textContent);
+    expect(names).toEqual(["Application", "IT Component"]);
+    expect(typeButton("Application")).toHaveAttribute("aria-pressed", "true");
+    expect(typeButton("IT Component")).toHaveAttribute("aria-pressed", "false");
   });
 
+  it("only IT Component on requests ITComponent", async () => {
+    renderCost();
+    await userEvent.click(await screen.findByRole("button", { name: "IT Component" }));
+    await userEvent.click(typeButton("Application"));
+    await waitFor(() => expect(lastTreemapType()).toBe("ITComponent"));
+    expect(typeButton("Application")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("both on requests the combined type, only Application on requests Application", async () => {
+    renderCost();
+    await userEvent.click(await screen.findByRole("button", { name: "IT Component" }));
+    await waitFor(() => expect(lastTreemapType()).toBe("Application,ITComponent"));
+    await userEvent.click(typeButton("IT Component"));
+    await waitFor(() => expect(lastTreemapType()).toBe("Application"));
+  });
+
+  it("the last active button cannot be turned off", async () => {
+    renderCost();
+    await userEvent.click(await screen.findByRole("button", { name: "Application" }));
+    expect(typeButton("Application")).toHaveAttribute("aria-pressed", "true");
+    expect(typeButton("IT Component")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("a user who may read only one type sees one button, always on", async () => {
+    vi.mocked(useMetamodel).mockReturnValue({
+      types: [APP_TYPE],
+      relationTypes: [],
+      loading: false,
+      getType: () => APP_TYPE,
+      getRelationsForType: () => [],
+      invalidateCache: vi.fn(),
+    } as never);
+    renderCost();
+    await screen.findByRole("group", { name: /card type/i });
+    const buttons = within(screen.getByRole("group", { name: /card type/i })).getAllByRole("button");
+    expect(buttons).toHaveLength(1);
+    await userEvent.click(buttons[0]);
+    expect(buttons[0]).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("a saved report with the combined key reopens with both buttons on", async () => {
+    consumedConfig = { view: "table", cardTypeKey: "Application+ITComponent" };
+    renderCost();
+    await screen.findByRole("group", { name: /card type/i });
+    expect(typeButton("Application")).toHaveAttribute("aria-pressed", "true");
+    expect(typeButton("IT Component")).toHaveAttribute("aria-pressed", "true");
+  });
+});
+
+describe("CostReport card-type selector and Sankey view", () => {
   it("renders a Sankey toggle button and switches the panel on click", async () => {
     const { findByRole, findByTestId } = renderCost();
     await waitFor(() =>
@@ -698,9 +749,8 @@ describe("CostReport custom columns", () => {
     renderCost();
     await screen.findByRole("table");
     expect(screen.getByRole("columnheader", { name: "Alias" })).toBeInTheDocument();
-    const select = screen.getByLabelText(/card type/i);
-    await userEvent.click(select);
-    await userEvent.click(await screen.findByRole("option", { name: "IT Component" }));
+    await userEvent.click(typeButton("IT Component"));
+    await userEvent.click(typeButton("Application"));
     await waitFor(() =>
       expect(screen.queryByRole("columnheader", { name: "Alias" })).not.toBeInTheDocument(),
     );
@@ -828,8 +878,8 @@ describe("CostReport trend chart", () => {
     await ready();
     await pickYear("FY27 - Forecast");
     expect(await screen.findByTestId("cost-trend-chart")).toHaveAttribute("data-type", "Application");
-    await userEvent.click(screen.getByLabelText(/card type/i));
-    await userEvent.click(await screen.findByRole("option", { name: "IT Component" }));
+    await userEvent.click(typeButton("IT Component"));
+    await userEvent.click(typeButton("Application"));
     await waitFor(() =>
       expect(screen.getByTestId("cost-trend-chart")).toHaveAttribute("data-type", "ITComponent"),
     );

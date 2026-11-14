@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Checkbox from "@mui/material/Checkbox";
 import ListItemText from "@mui/material/ListItemText";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -1319,20 +1321,24 @@ export default function CostReport() {
       printParams={printParams}
       toolbar={
         <>
-          <TextField
-            select
+          <ToggleButtonGroup
             size="small"
-            label={t("cost.cardType")}
-            value={cardTypeKey}
-            onChange={(e) => setCardTypeKey(e.target.value)}
-            sx={{ minWidth: 150 }}
+            aria-label={t("cost.cardType")}
+            value={typeKeys}
+            onChange={(_, next: string[]) => {
+              // Never zero buttons on; both on is the combined key.
+              if (next.length === 0) return;
+              setCardTypeKey(next.length > 1 ? COMBINED_KEY : next[0]);
+            }}
           >
-            {typeOptions.map((o) => (
-              <MenuItem key={o.key} value={o.key}>
-                {o.label}
-              </MenuItem>
-            ))}
-          </TextField>
+            {typeOptions
+              .filter((o) => o.key !== COMBINED_KEY)
+              .map((o) => (
+                <ToggleButton key={o.key} value={o.key}>
+                  {o.label}
+                </ToggleButton>
+              ))}
+          </ToggleButtonGroup>
           {!combined && (
             <CardScopeFilter
               types={cardTypeKey}

@@ -246,6 +246,20 @@ async function pickOption(label: RegExp, option: RegExp) {
   }
 }
 
+const typeButtonNames = () =>
+  within(screen.getByRole("group", { name: /card type/i }))
+    .getAllByRole("button")
+    .map((b) => b.textContent);
+
+/** Press the other type's button, then turn the current one off: only `name` stays on. */
+async function showOnlyType(name: string) {
+  const group = within(await screen.findByRole("group", { name: /card type/i }));
+  const [first, second] = group.getAllByRole("button");
+  const [on, off] = first.textContent === name ? [first, second] : [second, first];
+  fireEvent.click(on);
+  fireEvent.click(off);
+}
+
 async function optionsOf(label: RegExp): Promise<string[]> {
   fireEvent.mouseDown(
     await screen.findByRole("combobox", { name: label }, { timeout: 5000 }),
@@ -830,7 +844,7 @@ describe("CostReport toolbar", () => {
     saved.config = { view: "table" };
     renderCost();
     await screen.findByRole("combobox", { name: /group by/i });
-    await pickOption(/card type/i, /^IT Component$/);
+    await showOnlyType("IT Component");
     await waitFor(() =>
       expect(lastTreemapParams().get("type")).toBe("ITComponent"),
     );
@@ -940,21 +954,13 @@ describe("CostReport toolbar", () => {
     );
     renderCost();
     await screen.findByTestId("treemap");
-    expect(await optionsOf(/card type/i)).toEqual([
-      "Application",
-      "IT Component",
-      "Application + IT Component",
-    ]);
+    expect(typeButtonNames()).toEqual(["Application", "IT Component"]);
   });
 
   it("offers Application and IT Component to a reports user who may not browse the inventory", async () => {
     renderWithProviders(<CostReport />, { user: userWith("costs.view") });
     await screen.findByTestId("treemap");
-    expect(await optionsOf(/card type/i)).toEqual([
-      "Application",
-      "IT Component",
-      "Application + IT Component",
-    ]);
+    expect(typeButtonNames()).toEqual(["Application", "IT Component"]);
   });
 });
 
