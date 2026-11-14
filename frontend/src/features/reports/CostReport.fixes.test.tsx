@@ -1,7 +1,8 @@
 /**
  * Regression tests for cost-report bugs fixed after the mutation pass.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { installResizeObserver } from "@/test/dom";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { createRef } from "react";
@@ -108,9 +109,11 @@ function renderCost() {
   );
 }
 
+// The fiscal-year slider measures its track with a ResizeObserver, which jsdom lacks.
+let restoreResizeObserver: () => void;
+afterEach(() => restoreResizeObserver());
 beforeEach(() => {
-  // jsdom has no ResizeObserver; the fiscal-year slider measures its track with one.
-  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
+  restoreResizeObserver = installResizeObserver();
   mockApi.reset();
   mockApi.on("get", "/metamodel/cost-item-types", []);
   hookState.reset();

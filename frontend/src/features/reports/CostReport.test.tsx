@@ -8,7 +8,8 @@
  * Fiscal year: the server shows the current year only and names it; the page
  * must say which year that is and never ask for another.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { installResizeObserver } from "@/test/dom";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
@@ -298,17 +299,12 @@ const yearSlider = () => screen.findByRole("slider", { name: "Fiscal year" });
 const prevYear = () => userEvent.click(screen.getByRole("button", { name: "Previous fiscal year" }));
 const nextYear = () => userEvent.click(screen.getByRole("button", { name: "Next fiscal year" }));
 
+// The slider measures its track with a ResizeObserver, which jsdom lacks.
+let restoreResizeObserver: () => void;
 beforeEach(() => {
-  // jsdom has no ResizeObserver; the slider measures its track with one.
-  vi.stubGlobal(
-    "ResizeObserver",
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    },
-  );
+  restoreResizeObserver = installResizeObserver();
 });
+afterEach(() => restoreResizeObserver());
 
 describe("CostReport fiscal year", () => {
   it("the steps are the fiscal year options in order", async () => {
@@ -316,8 +312,15 @@ describe("CostReport fiscal year", () => {
     const slider = await yearSlider();
     expect(slider).toHaveAttribute("aria-valuemin", "2022");
     expect(slider).toHaveAttribute("aria-valuemax", "2027");
-    for (const label of ["FY22", "FY23", "FY24", "FY25", "FY26", "FY27"])
-      expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+    // Exactly the six step labels, in order.
+    expect(screen.getAllByText(/^FY\d\d$/).map((el) => el.textContent)).toEqual([
+      "FY22",
+      "FY23",
+      "FY24",
+      "FY25",
+      "FY26",
+      "FY27",
+    ]);
     expect(slider).toHaveAttribute("aria-valuenow", "2026");
     // Between the toolbar and the summary strip.
     expect(
@@ -391,7 +394,7 @@ describe("CostReport fiscal year", () => {
     await waitFor(() => expect(treemapPaths().some(hasYear("2025"))).toBe(true));
     slider.focus();
     fireEvent.keyDown(slider, { key: "ArrowLeft" });
-    await waitFor(() => expect(treemapPaths().some(hasYear("2024"))).toBe(true));
+    await waitFor(() => expect(slider).toHaveAttribute("aria-valuenow", "2024"));
     fireEvent.keyDown(slider, { key: "ArrowRight" });
     fireEvent.keyDown(slider, { key: "ArrowRight" });
     // Two steps right of 2024 is the current year: no fiscal_year on the last request.
@@ -404,7 +407,7 @@ describe("CostReport fiscal year", () => {
     const slider = await yearSlider();
     await prevYear();
     await prevYear();
-    await waitFor(() => expect(treemapPaths().some(hasYear("2024"))).toBe(true));
+    await waitFor(() => expect(slider).toHaveAttribute("aria-valuetext", "FY24"));
     expect(slider).toHaveAttribute("aria-valuemin", "2022");
     expect(slider).toHaveAttribute("aria-valuemax", "2027");
   });

@@ -10,7 +10,8 @@
  * datum to the page's own `content` renderer at a size the test chooses (by
  * card name), and renders the tooltip once per datum plus the two inert cases.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { installResizeObserver } from "@/test/dom";
 import {
   act,
   fireEvent,
@@ -275,9 +276,11 @@ async function optionsOf(label: RegExp): Promise<string[]> {
   return out;
 }
 
+// The fiscal-year slider measures its track with a ResizeObserver, which jsdom lacks.
+let restoreResizeObserver: () => void;
+afterEach(() => restoreResizeObserver());
 beforeEach(() => {
-  // jsdom has no ResizeObserver; the fiscal-year slider measures its track with one.
-  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
+  restoreResizeObserver = installResizeObserver();
   mockApi.reset();
   mockApi.on("get", "/metamodel/cost-item-types", []);
   hookState.reset();
