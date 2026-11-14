@@ -75,7 +75,7 @@
 
 - [ ] **Step 1: Failing tests:** `steps are exactly the given years in order` (labels `FY22`…`FY27`); `announces the long name` (`aria-valuetext` = `FY26 - Current` when `currentFy` is 2026 and `value` 2026, `FY27 - Forecast` for 2027); `selecting a step calls onChange with the fiscal year` (arrow key and the next button); `the first year disables previous and the last disables next`.
 - [ ] **Step 2: Run** `npx vitest run src/components/FiscalYearTimeTravel.test.tsx`. Expected: FAIL (module missing).
-- [ ] **Step 3: Implement** the component as specified, 25 lines, no state.
+- [ ] **Step 3: Implement** the component as specified, 25 lines, no state. With fewer than 2 `years` it renders nothing (a one-step slider has min == max; the real lists always have 5 or 6 years, so this is only a guard; test `renders nothing with fewer than two years`).
 - [ ] **Step 4: Run** again. Expected: PASS.
 - [ ] **Step 5: Commit** `feat(reports): FiscalYearTimeTravel, a green fiscal-year Time Travel row`.
 
