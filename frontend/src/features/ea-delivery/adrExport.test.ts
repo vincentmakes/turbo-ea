@@ -241,6 +241,18 @@ describe("exportAdrsToDocx — pictures", () => {
     expect(media).toEqual([]);
   });
 
+  it("writes a picture nested in a list item as media", async () => {
+    vi.mocked(api.getRaw).mockResolvedValue({
+      blob: async () => ({ arrayBuffer: async () => PNG.slice().buffer }),
+    } as unknown as Response);
+    const { xml, media } = await exported([
+      adr({ consequences: `<ul><li><p>Step one</p><img src="${PIC}" width="80" height="40"></li></ul>` }),
+    ]);
+    expect(media).toHaveLength(1);
+    expect(xml.indexOf("Step one")).toBeLessThan(xml.indexOf("<w:drawing>"));
+    expect(xml).toContain(`<wp:extent cx="${80 * 9525}" cy="${40 * 9525}"/>`);
+  });
+
   it("fetches nothing for decisions without pictures", async () => {
     await exported([adr()]);
     expect(api.getRaw).not.toHaveBeenCalled();

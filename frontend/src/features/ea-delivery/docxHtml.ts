@@ -268,10 +268,16 @@ export function docxImageAlignment(
  * when it could not be had. Nothing for a picture that is not a document
  * picture (the sanitiser never shows one either).
  */
-function imageParagraph(el: Element, images: DocxImageMap): Paragraph | null {
+function imageParagraph(
+  el: Element,
+  images: DocxImageMap,
+  inset?: { left: number },
+): Paragraph | null {
   const ref = parseDocumentImageSrc(el.getAttribute("src"));
   if (!ref) return null;
   const alignment = docxImageAlignment(el.getAttribute("data-align"));
+  // Inside a list item or a quote a start-aligned picture sits under its text.
+  const indent = alignment ? undefined : inset;
   const image = images.get(ref.path) ?? null;
   const size = image
     ? docxImageSize(
@@ -294,14 +300,39 @@ function imageParagraph(el: Element, images: DocxImageMap): Paragraph | null {
         }),
       ],
       alignment,
+      indent,
       spacing: { line: LINE_SPACING, after: SPACING_AFTER_DEFAULT },
     });
   }
   return new Paragraph({
     children: [new ImageRun({ type: image.type, data: image.data, transformation: size })],
     alignment,
+    indent,
     spacing: { after: SPACING_AFTER_DEFAULT },
   });
+}
+
+/** The indent of a list item's or a quote's text, which its pictures share. */
+const NESTED_INDENT = { left: 720 };
+
+/**
+ * The picture paragraphs of the document pictures inside `container` that
+ * `owns` says belong to it (a list item keeps only those whose closest item
+ * is itself, so a nested list's pictures are written once, under their own
+ * item).
+ */
+function nestedPictures(
+  container: Element,
+  images: DocxImageMap,
+  owns: (img: Element) => boolean,
+): Paragraph[] {
+  const out: Paragraph[] = [];
+  for (const img of Array.from(container.querySelectorAll("img"))) {
+    if (!owns(img)) continue;
+    const picture = imageParagraph(img, images, NESTED_INDENT);
+    if (picture) out.push(picture);
+  }
+  return out;
 }
 
 // ─── HTML → Paragraphs ──────────────────────────────────────────────────────
@@ -369,6 +400,12 @@ export function htmlToParagraphs(stored: string, images: DocxImageMap = NO_IMAGE
     } else if (tag === "ul" || tag === "ol") {
       el.querySelectorAll("li").forEach((li, idx) => {
         const prefix = tag === "ol" ? `${idx + 1}. ` : "•  ";
+        const pictures = nestedPictures(li, images, (img) => img.closest("li") === li);
+        // An item holding only pictures is the pictures, not an empty bullet.
+        if (pictures.length > 0 && !(li.textContent ?? "").trim()) {
+          paragraphs.push(...pictures);
+          return;
+        }
         paragraphs.push(
           new Paragraph({
             children: [
@@ -383,8 +420,15 @@ export function htmlToParagraphs(stored: string, images: DocxImageMap = NO_IMAGE
             spacing: { line: LINE_SPACING, after: 80 },
           }),
         );
+        paragraphs.push(...pictures);
       });
     } else if (tag === "blockquote") {
+      // The quote is written whole (nested blocks included), so all its pictures are its own.
+      const pictures = nestedPictures(el, images, () => true);
+      if (pictures.length > 0 && !(el.textContent ?? "").trim()) {
+        paragraphs.push(...pictures);
+        return;
+      }
       paragraphs.push(
         new Paragraph({
           children: [
@@ -400,6 +444,7 @@ export function htmlToParagraphs(stored: string, images: DocxImageMap = NO_IMAGE
           spacing: { line: LINE_SPACING, after: SPACING_AFTER_DEFAULT },
         }),
       );
+      paragraphs.push(...pictures);
     } else {
       el.childNodes.forEach(processNode);
     }

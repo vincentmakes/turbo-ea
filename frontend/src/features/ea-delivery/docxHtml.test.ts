@@ -480,3 +480,95 @@ describe("htmlToParagraphs — pictures", () => {
     expect(xml).toContain(">[Picture not available]</w:t>");
   });
 });
+
+describe("htmlToParagraphs — pictures in lists and quotes", () => {
+  const img = (id: string, extra = "") => `<img src="${path("adr", id)}"${extra}>`;
+  const images = new Map<string, DocxImage | null>(
+    [ID1, ID2, ID3].map((id) => [path("adr", id), { type: "png", data: PNG_1X1, natural: { width: 10, height: 10 } }]),
+  );
+  const drawings = (xml: string) => xml.split("<w:drawing>").length - 1;
+  /** The `<w:p>` holding the n-th drawing. */
+  const drawingParagraph = (xml: string, n = 0) => {
+    const paras = xml.match(/<w:p>(?:(?!<\/w:p>)[\s\S])*<\/w:p>/g) ?? [];
+    return paras.filter((p) => p.includes("<w:drawing>"))[n];
+  };
+
+  it("writes a picture in a bullet item after the item's line, indented like it", async () => {
+    const paragraphs = htmlToParagraphs(`<ul><li><p>step</p>${img(ID1)}</li></ul>`, images);
+    expect(paragraphs).toHaveLength(2);
+    const zip = await packageOf(paragraphs);
+    expect(media(zip)).toHaveLength(1);
+    const xml = await xmlOf(zip);
+    expect(xml.indexOf("•  step")).toBeGreaterThan(-1);
+    expect(xml.indexOf("•  step")).toBeLessThan(xml.indexOf("<w:drawing>"));
+    expect(drawingParagraph(xml)).toContain('<w:ind w:left="720"/>');
+  });
+
+  it("writes a picture in a numbered item under that item", async () => {
+    const xml = await xmlOf(
+      await packageOf(
+        htmlToParagraphs(`<ol><li><p>a</p></li><li><p>b</p>${img(ID1)}</li><li><p>c</p></li></ol>`, images),
+      ),
+    );
+    expect(drawings(xml)).toBe(1);
+    expect(xml.indexOf("2. b")).toBeLessThan(xml.indexOf("<w:drawing>"));
+    expect(xml.indexOf("<w:drawing>")).toBeLessThan(xml.indexOf("3. c"));
+  });
+
+  it("writes a nested list's picture once, under its own item", async () => {
+    const paragraphs = htmlToParagraphs(
+      `<ul><li><p>outer</p>${img(ID1)}<ul><li><p>inner</p>${img(ID2)}</li></ul></li></ul>`,
+      images,
+    );
+    expect(paragraphs).toHaveLength(4);
+    // Same bytes, so docx stores one media file; two drawings use it.
+    const xml = await xmlOf(await packageOf(paragraphs));
+    expect(drawings(xml)).toBe(2);
+    // outer line, its picture, inner line, its picture.
+    const order = ["•  outer", "<w:drawing>", "•  inner"].map((s) => xml.indexOf(s));
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    expect(xml.lastIndexOf("<w:drawing>")).toBeGreaterThan(xml.indexOf("•  inner"));
+  });
+
+  it("writes a picture in a blockquote after the quote, indented like it", async () => {
+    const paragraphs = htmlToParagraphs(`<blockquote><p>quoted</p>${img(ID1)}</blockquote>`, images);
+    expect(paragraphs).toHaveLength(2);
+    const xml = await xmlOf(await packageOf(paragraphs));
+    expect(xml.indexOf(">quoted</w:t>")).toBeLessThan(xml.indexOf("<w:drawing>"));
+    expect(drawingParagraph(xml)).toContain('<w:ind w:left="720"/>');
+  });
+
+  it("writes a picture-only item or quote as the picture alone, with no empty bullet or quote line", async () => {
+    const item = htmlToParagraphs(`<ul><li>${img(ID1)}</li></ul>`, images);
+    expect(item).toHaveLength(1);
+    const itemXml = await xmlOf(await packageOf(item));
+    expect(itemXml).not.toContain("•");
+    expect(drawings(itemXml)).toBe(1);
+    const quote = htmlToParagraphs(`<blockquote>${img(ID1)}</blockquote>`, images);
+    expect(quote).toHaveLength(1);
+    expect(await xmlOf(await packageOf(quote))).not.toContain("<w:i/>");
+  });
+
+  it("does not indent a centred or right-aligned picture in an item", async () => {
+    const xml = await xmlOf(
+      await packageOf(
+        htmlToParagraphs(`<ul><li><p>x</p>${img(ID1, ' data-align="center"')}${img(ID2, ' data-align="right"')}</li></ul>`, images),
+      ),
+    );
+    expect(drawingParagraph(xml, 0)).toContain('<w:jc w:val="center"/>');
+    expect(drawingParagraph(xml, 0)).not.toContain("<w:ind ");
+    expect(drawingParagraph(xml, 1)).toContain('<w:jc w:val="right"/>');
+    expect(drawingParagraph(xml, 1)).not.toContain("<w:ind ");
+  });
+
+  it("indents the placeholder of a nested picture that could not be had", async () => {
+    const xml = await xmlOf(await packageOf(htmlToParagraphs(`<ul><li><p>x</p>${img(ID3)}</li></ul>`, new Map())));
+    expect(xml).toMatch(/<w:ind w:left="720"\/>(?:(?!<\/w:p>)[\s\S])*\[Picture not available\]/);
+  });
+
+  it("keeps an empty item, and an item with only an external picture, as an empty bullet", () => {
+    expect(htmlToParagraphs("<ul><li></li></ul>", images)).toHaveLength(1);
+    expect(htmlToParagraphs('<ul><li><img src="https://x.example/a.png"></li></ul>', images)).toHaveLength(1);
+    expect(htmlToParagraphs('<blockquote><img src="https://x.example/a.png"></blockquote>', images)).toHaveLength(1);
+  });
+});

@@ -14,6 +14,7 @@ import Alert from "@mui/material/Alert";
 import LinearProgress from "@mui/material/LinearProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useFileUploadsEnabled } from "@/hooks/useFileUploadsEnabled";
+import { DOCUMENT_IMAGE_SX } from "@/lib/documentImageMarkup";
 import type { MentionKind } from "@/lib/mentionHtml";
 import { plainListTags } from "./collab/discussionModel";
 import { createDocumentImageExtension, parseAlign, type DocumentImageAlign } from "./documentImageExtension";
@@ -127,16 +128,15 @@ function plainCommentLists(): AnyExtension {
 }
 
 /**
- * Pictures on the editor surface: the rules of `DOCUMENT_IMAGE_CSS` (which the
- * previews, print and export use), plus the resize view's own wrapper. While
+ * Pictures on the editor surface: the shared rules (`DOCUMENT_IMAGE_SX`, built
+ * from the same table as the `DOCUMENT_IMAGE_CSS` the previews, print and
+ * export use), plus the resize view's own wrapper. While
  * editing, the picture sits in that view's flex container, which carries the
  * same `data-align`; `flex-end` follows the writing direction, so right-to-left
  * locales mirror as the logical margins do.
  */
-const DOCUMENT_IMAGE_SX = {
-  "& img": { maxWidth: "100%", height: "auto" },
-  '& img[data-align="center"]': { display: "block", marginInline: "auto" },
-  '& img[data-align="right"]': { display: "block", marginInlineStart: "auto" },
+const EDITOR_IMAGE_SX = {
+  ...DOCUMENT_IMAGE_SX,
   "& [data-resize-container]": { my: 1 },
   "& [data-resize-wrapper]": { maxWidth: "100%" },
   // The view writes the committed size as inline px; the height follows the
@@ -590,7 +590,7 @@ export default function RichTextEditor({
               ml: 0,
               color: "text.secondary",
             },
-            ...DOCUMENT_IMAGE_SX,
+            ...EDITOR_IMAGE_SX,
           },
           },
         ]}
