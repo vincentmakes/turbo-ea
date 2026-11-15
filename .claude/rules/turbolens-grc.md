@@ -63,7 +63,7 @@ Native AI analysis module. Provides vendor analysis, duplicate detection, modern
 
 ### Architecture AI Flow
 
-The Architecture AI is a 7-step stepper (`ARCHITECT_STEPS`: phases 0, 1, 2, 3, 3.5, 4, 5) presenting five stages:
+The Architecture AI is a 7-step stepper (`ARCHITECT_STEPS`: phases 0, 1, 2, 3, 3.5, 4, 5) presenting six stages:
 
 1. **Requirements** (Phase 0) — User enters a business requirement, selects existing Objective cards (autocomplete), and optionally selects or creates Business Capabilities (free-text for new ones).
 2. **Business Fit** (Phase 1) — AI generates business clarification questions with typed inputs (text, single-choice, multi-choice with NFR categories).
