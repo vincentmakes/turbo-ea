@@ -46,6 +46,19 @@ export const TABLE_NO_HEADER =
   '<tr><td colspan="1" rowspan="1"><p></p></td><td colspan="1" rowspan="1"><p></p></td></tr>' +
   '<tr><td colspan="1" rowspan="1"><p></p></td><td colspan="1" rowspan="1"><p></p></td></tr>' +
   "</tbody></table>";
+/** Three rows by two, a header row, the first column's two body cells merged. */
+export const TABLE_ROWSPAN =
+  '<table style="min-width: 50px;"><colgroup><col style="min-width: 25px;"><col style="min-width: 25px;"></colgroup><tbody>' +
+  '<tr><th colspan="1" rowspan="1"><p></p></th><th colspan="1" rowspan="1"><p></p></th></tr>' +
+  '<tr><td colspan="1" rowspan="2"><p></p></td><td colspan="1" rowspan="1"><p></p></td></tr>' +
+  '<tr><td colspan="1" rowspan="1"><p></p></td></tr>' +
+  "</tbody></table>";
+/** Two rows by two, the header row's two cells merged. */
+export const TABLE_COLSPAN_HEADER =
+  '<table style="min-width: 50px;"><colgroup><col style="min-width: 25px;"><col style="min-width: 25px;"></colgroup><tbody>' +
+  '<tr><th colspan="2" rowspan="1"><p></p></th></tr>' +
+  '<tr><td colspan="1" rowspan="1"><p></p></td><td colspan="1" rowspan="1"><p></p></td></tr>' +
+  "</tbody></table>";
 
 /** Every pinned table, by name, for suites that check each one. */
 export const PINNED_TABLES: readonly (readonly [name: string, html: string])[] = [
@@ -56,4 +69,6 @@ export const PINNED_TABLES: readonly (readonly [name: string, html: string])[] =
   ["a merged cell", TABLE_MERGED],
   ["a merged cell across resized columns", TABLE_MERGED_RESIZED],
   ["a table without a header row", TABLE_NO_HEADER],
+  ["a cell merged across two rows", TABLE_ROWSPAN],
+  ["a header row merged across two columns", TABLE_COLSPAN_HEADER],
 ];

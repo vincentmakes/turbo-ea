@@ -22,6 +22,7 @@ import { invalidateDecisionOptions } from "@/components/DecisionPicker";
 import { invalidateFileUploadsEnabled } from "@/hooks/useFileUploadsEnabled";
 import { MAX_DOCUMENT_IMAGE_BYTES } from "@/lib/attachmentFormats";
 import {
+  PINNED_TABLES,
   TABLE_2X2,
   TABLE_3X3,
   TABLE_MERGED,
@@ -1941,10 +1942,16 @@ async function openTableMenu() {
 
 const ITEM_KEYS = [
   "insert",
+  "selectRow",
+  "selectColumn",
   "addRowBefore",
   "addRowAfter",
   "addColumnBefore",
   "addColumnAfter",
+  "moveRowUp",
+  "moveRowDown",
+  "moveColumnBefore",
+  "moveColumnAfter",
   "deleteRow",
   "deleteColumn",
   "toggleHeaderRow",
@@ -1972,10 +1979,16 @@ describe("RichTextEditor tables", () => {
     expect(tableButton()).toHaveAttribute("aria-expanded", "true");
     expect(screen.getAllByRole("menuitem").map((i) => i.textContent)).toEqual([
       "Insert table",
+      "Select row",
+      "Select column",
       "Add row above",
       "Add row below",
       "Add column before",
       "Add column after",
+      "Move row up",
+      "Move row down",
+      "Move column before",
+      "Move column after",
       "Delete row",
       "Delete column",
       "Merge cells",
@@ -2056,13 +2069,15 @@ describe("RichTextEditor tables", () => {
     });
     expect(editor.state.selection).toBeInstanceOf(CellSelection);
     await openTableMenu();
+    // Both columns are selected: the table keeps at least one, and neither moves.
     expect(enabledItems()).toEqual([
+      "selectRow",
+      "selectColumn",
       "addRowBefore",
       "addRowAfter",
       "addColumnBefore",
       "addColumnAfter",
       "deleteRow",
-      "deleteColumn",
       "toggleHeaderRow",
       "mergeCells",
       "deleteTable",
@@ -2099,7 +2114,7 @@ describe("RichTextEditor tables", () => {
     expect(screen.getByRole("menuitemcheckbox")).toHaveAttribute("aria-checked", "false");
   });
 
-  it("offers everything but Insert, Merge and Split with the caret in a cell", async () => {
+  it("offers everything but Insert, Merge, Split and the moves it cannot make with the caret in a cell", async () => {
     const { editor } = await tableEditor(ABCD);
     act(() => {
       editor.commands.setTextSelection(textAt(editor, "c"));
@@ -2107,16 +2122,82 @@ describe("RichTextEditor tables", () => {
     await openTableMenu();
     // No table inside a table from the menu, though the command would allow it.
     expect(editor.can().insertTable({ rows: 3, cols: 3, withHeaderRow: true })).toBe(true);
+    // The body row neither crosses the header row nor leaves the table; the
+    // first column moves only after.
     expect(enabledItems()).toEqual([
+      "selectRow",
+      "selectColumn",
       "addRowBefore",
       "addRowAfter",
       "addColumnBefore",
       "addColumnAfter",
+      "moveColumnAfter",
       "deleteRow",
       "deleteColumn",
       "toggleHeaderRow",
       "deleteTable",
     ]);
+  });
+
+  it("selects the caret's row from the menu with no edit reported, and gives the editor the focus", async () => {
+    const { editor, onChange } = await tableEditor(ABCD);
+    act(() => {
+      editor.commands.setTextSelection(textAt(editor, "c"));
+    });
+    await openTableMenu();
+    fireEvent.click(screen.getByTestId("table-selectRow"));
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+    await waitFor(() => expect(editor.view.dom).toHaveFocus());
+    const selection = editor.state.selection as CellSelection;
+    expect(selection).toBeInstanceOf(CellSelection);
+    expect(selection.isRowSelection()).toBe(true);
+    expect(selection.isColSelection()).toBe(false);
+    const cells = cellPositions(editor);
+    expect([selection.$anchorCell.pos, selection.$headCell.pos].sort((a, b) => a - b)).toEqual([cells[2], cells[3]]);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("counts the rows a selection deletes, and refuses to delete every row", async () => {
+    const three = `${table(2, [[th("A"), th("B")], [td("c"), td("d")], [td("e"), td("f")]])}<p>z</p>`;
+    const { editor, onChange } = await tableEditor(three);
+    const cells = cellPositions(editor);
+    act(() => {
+      editor.commands.setCellSelection({ anchorCell: cells[2], headCell: cells[4] });
+    });
+    await openTableMenu();
+    expect(screen.getByTestId("table-deleteRow")).toHaveTextContent(/^Delete 2 rows$/);
+    expect(screen.getByTestId("table-deleteColumn")).toHaveTextContent(/^Delete column$/);
+    expect(enabledItems()).toContain("deleteRow");
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+
+    act(() => {
+      editor.commands.setCellSelection({ anchorCell: cells[0], headCell: cells[5] });
+    });
+    await openTableMenu();
+    expect(screen.getByTestId("table-deleteRow")).toHaveTextContent(/^Delete 3 rows$/);
+    expect(screen.getByTestId("table-deleteColumn")).toHaveTextContent(/^Delete 2 columns$/);
+    expect(enabledItems()).not.toContain("deleteRow");
+    expect(enabledItems()).not.toContain("deleteColumn");
+    fireEvent.click(screen.getByTestId("table-deleteRow"));
+    expect(editor.getHTML()).toBe(three);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("moves a row from the menu", async () => {
+    const three = `${table(2, [[th("A"), th("B")], [td("c"), td("d")], [td("e"), td("f")]])}<p>z</p>`;
+    const { editor, onChange } = await tableEditor(three);
+    act(() => {
+      editor.commands.setTextSelection(textAt(editor, "c"));
+    });
+    await openTableMenu();
+    fireEvent.click(screen.getByTestId("table-moveRowDown"));
+    await waitFor(() =>
+      expect(onChange.mock.calls.at(-1)?.[0]).toBe(
+        `${table(2, [[th("A"), th("B")], [td("e"), td("f")], [td("c"), td("d")]])}<p>z</p>`,
+      ),
+    );
+    expect((editor.state.selection as CellSelection).isRowSelection()).toBe(true);
   });
 
   it("shows whether the table has a header row, and toggles it back on", async () => {
@@ -2209,14 +2290,7 @@ describe("RichTextEditor tables", () => {
       expect(editor.getHTML()).toBe(`${TABLE_ONE_RESIZED}<p>z</p>`);
     });
 
-    it.each([
-      ["a fresh 3×3 table", TABLE_3X3],
-      ["a resized table", TABLE_RESIZED],
-      ["a table with one column resized", TABLE_ONE_RESIZED],
-      ["a merged cell", TABLE_MERGED],
-      ["a merged cell across resized columns", TABLE_MERGED_RESIZED],
-      ["a table without a header row", TABLE_NO_HEADER],
-    ])("gives %s back byte for byte, with no edit reported", async (_label, html) => {
+    it.each(PINNED_TABLES)("gives %s back byte for byte, with no edit reported", async (_label, html) => {
       for (const stored of [html, `<p>a</p>${html}<p>z</p>`]) {
         const { editor, onChange, unmount } = await tableEditor(stored);
         expect(editor.getHTML()).toBe(stored);
