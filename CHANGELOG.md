@@ -5,7 +5,7 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.205.0] - 2026-11-14
+## [2.205.0] - 2026-11-15
 
 ### Added
 - Pictures in decision and SoAW sections: insert one with the toolbar button, by pasting or by drag-and-drop, then resize it and align it left, centre or right. Pictures show in the preview, the printed copy and PDF, the Word export and the history, and travel with a workspace transfer.
