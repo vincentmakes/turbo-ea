@@ -976,7 +976,7 @@ export function htmlToParagraphs(
 // ─── generated tables (facts, version history, links…) ──────────────────────
 
 /** The light fill behind a table header and a code block. */
-export const DOCX_LIGHT_FILL = "f5f5f5";
+const DOCX_LIGHT_FILL = "f5f5f5";
 /** A generated table's header row fill. */
 export const DOCX_HEADER_FILL = DOCX_LIGHT_FILL;
 /** A code block's fill. */
