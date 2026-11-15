@@ -84,7 +84,7 @@ Pictures appear in the preview, the PDF / printed copy and the Word export, and 
 
 ### Tables {: #soaw-tables }
 
-A section's text can hold tables, as a decision's can. Click **Table** in the section's toolbar and choose **Insert table** for a table of three rows and three columns with a header row; with the caret in a table the same menu adds and deletes rows and columns, turns the header row on or off, merges and splits cells and deletes the table. Drag a column border to resize it, and use **Tab** / **Shift+Tab** to move between cells. Formatting, links, mentions and pictures work in a cell.
+A section's text can hold tables, as a decision's can. Click **Table** in the section's toolbar and choose **Insert table** for a table of three rows and three columns with a header row; with the caret in a table the same menu selects, adds, moves and deletes rows and columns, turns the header row on or off, merges and splits cells and deletes the table. The same actions open on a right-click in a cell, and while you edit, grips beside a row and above a column open that row's or column's actions, and a **+** or a bar at the table's edge adds a row or a column. Drag a column border to resize it, and use **Tab** / **Shift+Tab** to move between cells. Formatting, links, mentions and pictures work in a cell.
 
 Tables appear in the preview, the PDF / printed copy (fitted to the page) and the Word export (as a real Word table), and in the [History](#soaw-collaboration), where **Changes** reads a row as one line. Comments in the discussion take no tables. The full description is in the GRC guide: [Tables](grc.md#decision-tables).
 

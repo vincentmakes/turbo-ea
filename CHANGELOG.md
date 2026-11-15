@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Pictures in decision and SoAW sections: insert one with the toolbar button, by pasting or by drag-and-drop, then resize it and align it left, centre or right. Pictures show in the preview, the printed copy and PDF, the Word export and the history, and travel with a workspace transfer.
 - Links on selected text in decision and SoAW sections and in discussion comments: the Link button or Ctrl/Cmd+K sets, edits or removes a link to a web or e-mail address.
 - Inline code button in decision and SoAW sections and in comments; code block and sub-heading buttons in sections.
-- Tables in decision and SoAW sections: insert, add and delete rows and columns, header row, merge and split cells, and resizable columns.
+- Tables in decision and SoAW sections: insert, select, add, move and delete rows and columns, header row, merge and split cells, and resizable columns, from the toolbar, a right-click menu in the table or the row and column handles beside it.
 - Diagrams on a decision: attach existing diagrams from a searchable picker; each shows its thumbnail and name, always as the diagram is now, and can change while the decision is a draft or in review.
 
 ### Changed

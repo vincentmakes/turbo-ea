@@ -162,14 +162,46 @@ Select some words and click **Link** in the section's toolbar, or press **Ctrl+K
 
 #### Tables {: #decision-tables }
 
-Each of the four sections can hold tables. Click **Table** in the section's toolbar and choose **Insert table**: a table of three rows and three columns is inserted, its first row a header row. With the caret in a table, the same menu offers:
+Each of the four sections can hold tables. Click **Table** in the section's toolbar and choose **Insert table**: a table of three rows and three columns is inserted, its first row a header row. A cell holds text like the rest of the section: formatting, links, mentions and pictures work in it.
 
-- **Add row above**, **Add row below**, **Add column before**, **Add column after**, **Delete row** and **Delete column**;
-- **Header row**, which turns the first row's header formatting on or off;
-- **Merge cells** — select several cells by dragging across them first — and **Split cell**, which divides a merged cell again;
+There are three ways to reach a table's actions, and each acts on the cell holding the caret or on the cells you have selected:
+
+- **The toolbar's Table menu** — with the caret in a table, **Table** lists every action below.
+- **Right-click** in a cell — the same actions open at the pointer.
+- **The handles** around the table — a grip beside a row or above a column opens the actions for that row or column, and a **+** inserts one (see *Handles* below).
+
+The actions:
+
+- **Select row** and **Select column** select the whole row or column of the caret, or of every cell selected.
+- **Add row above**, **Add row below**, **Add column before** and **Add column after**. **Add row above** is unavailable in the header row: a new row always goes below it.
+- **Move row up**, **Move row down**, **Move column before** and **Move column after** move the row or column by one place and keep it selected. A move is unavailable at the edge of the table, across the header row, with more than one row or column selected, and in a table where a merged cell spans several rows (for rows) or several columns (for columns).
+- **Delete row** and **Delete column** delete every row or column of the selection, and say how many (*Delete 2 rows*). A table keeps at least one row and one column: with every row selected **Delete row** is unavailable, and with every column selected **Delete column** is.
+- **Header row** turns the first row's header formatting on or off.
+- **Merge cells** joins the cells you selected by dragging across them, and **Split cell** divides a merged cell again.
 - **Delete table**.
 
-Drag the border between two columns to change their widths. **Tab** moves to the next cell and **Shift+Tab** to the previous one; Tab in the last cell adds a row. A cell holds text like the rest of the section: formatting, links, mentions and pictures work in it. A table wider than the section scrolls sideways.
+Before and after follow the reading direction: in a right-to-left language the column before is the one on the right.
+
+**Handles.** While you edit, the table has a narrow margin around it that holds its handles. They show for the cell under the pointer and, while you are working in the section, for the cell holding the caret:
+
+- **A row grip** beside the row and **a column grip** above the column. A click selects the row or column and opens its actions: for a row **Add row above**, **Add row below**, **Move row up**, **Move row down**, **Delete row**, and **Header row** on the first row; for a column **Add column before**, **Add column after**, **Move column before**, **Move column after** and **Delete column**. A right-click on a grip does the same. On a merged cell the grip stands for every row or column the cell spans, and its menu says so (*Delete 2 rows*).
+- **A +** on a row's lower border inserts a row below it, and **a +** on a column's end border inserts a column after it. The last row and the last column have the bars instead.
+- **A bar** under the last row adds a row at the end, and **a bar** after the last column adds a column at the end.
+
+A row or column added this way puts the caret in its first cell, and one undo removes it. On a touch screen the handles are larger, and they show for the cell you tapped.
+
+**The right-click menu.** A right-click in a cell opens the table's actions at the pointer. When the click is inside cells you have selected, the selection is kept, so the actions apply to all of them; anywhere else, the caret moves into the clicked cell first.
+
+- **Shift+right-click** opens the browser's own menu instead, for its spelling suggestions or **Paste**.
+- A right-click on a **link** or a **picture** in a cell opens the browser's menu too, to open or copy it.
+- On a touch screen, a long press selects text as usual; use the handles there.
+- With the keyboard, **Shift+F10** or the **Menu** key opens the same menu on the caret's cell.
+
+**Keyboard.** **Tab** moves to the next cell and **Shift+Tab** to the previous one; Tab in the last cell adds a row. The toolbar's **Table** menu reaches every action from the keyboard; the handles are for the pointer and touch and are not in the Tab order.
+
+**Widths and wide tables.** Drag the border between two columns to change their widths. A table wider than the section scrolls sideways; a row's grip then scrolls out of view with the first column, while the right-click menu and the toolbar's **Table** menu still reach every action.
+
+A locked or signed decision shows its tables without handles, and a right-click there opens the browser's menu.
 
 - **Where it shows.** Tables appear in the [preview](#preview) and the [History](#decision-history), where **Changes** reads each row as one line with its cells separated by ` | `. In the PDF / printed copy a table keeps the proportions of its columns and fits the page width. The Word export writes a real Word table, with its merged cells and column widths and a header row repeated at the top of each page.
 - **Comments** in the [discussion](#decision-discussion) take no tables: a table pasted into a comment becomes its cells' text.
