@@ -1,9 +1,12 @@
 ---
 paths:
   - "backend/app/services/risk_*.py"
+  - "backend/app/services/recurrence.py"
+  - "backend/app/schemas/risk*.py"
   - "backend/app/api/v1/risk*.py"
   - "backend/app/models/risk*.py"
   - "frontend/src/features/grc/risk/**"
+  - "frontend/src/lib/recurrence/**"
   - "frontend/src/features/cards/sections/RisksTab.tsx"
 ---
 
@@ -38,10 +41,10 @@ The `compliance_findings` table also carries a nullable `risk_id` back-link so f
 |------|---------|
 | `models/risk.py` | `Risk` + `RiskCard` SQLAlchemy models |
 | `schemas/risk.py` | Pydantic I/O models with typed literals for category, level, probability, impact, status |
-| `services/risk_service.py` | Pure helpers: `derive_level` (4×4 probability × impact matrix), `validate_status_transition`, `next_reference` (`R-000001` monotonic), `link_cards`, `promote_compliance_finding`, `risk_to_dict`, `compute_metrics`, `build_level_matrix` |
-| `services/risk_mitigation_task_service.py` | Mitigation-task lifecycle: `compute_next_due` (calendar-correct month/year math via `_add_months`), `create_task_with_first_occurrence`, `complete_occurrence` / `skip_occurrence` (snapshots `owner_at_completion`, deactivates one-shot tasks, rolls forward recurring tasks), `apply_task_owner_change` (propagates parent-task owner edits to the current open occurrence — past occurrences stay frozen), `sync_occurrence_todo` (mirrors `sync_owner_todo` but keyed per open occurrence), `publish_task_event` (fan-out to linked cards). |
-| `api/v1/risks.py` | CRUD + card linking + promote + metrics + `GET /cards/{id}/risks`. Includes `sync_owner_todo()` which creates / updates / deletes an `is_system` Todo on the owner and fires a `risk_assigned` notification whenever the owner changes (self-assignment included — whitelisted in `allow_self_types`). |
-| `api/v1/risk_mitigation_tasks.py` | Mitigation-task endpoints. `GET/POST /risks/{id}/mitigation-tasks`, `PATCH/DELETE /mitigation-tasks/{id}`, `POST /mitigation-tasks/{id}/occurrences/{occ_id}/complete` and `/skip`, `GET /mitigation-tasks/{id}/occurrences` (full audit history). Permission: `risks.view` to read; `risks.manage` to mutate; **carve-out** — a user without `risks.manage` who is the `assigned_owner_id` of an open occurrence can complete that occurrence so assignees don't have to escalate just to mark their own control review done. Skip always requires full `risks.manage`. |
+| `services/risk_service.py` | Pure helpers: `derive_level` (4×4 probability × impact matrix), `validate_status_transition`, `next_reference` (`R-000001` monotonic), `link_cards`, `promote_compliance_finding`, `risk_to_dict`, `compute_metrics`, `build_level_matrix`, `sync_owner_todo()` (creates / updates / deletes an `is_system` Todo on the owner and fires `risk_assigned` whenever the owner changes, self-assignment included — whitelisted in `allow_self_types`) |
+| `services/risk_mitigation_task_service.py` | Mitigation-task lifecycle: `compute_next_due` (calendar-correct month/year math; `compute_next_due` / `add_months` live in `services/recurrence.py`, shared with recurring Todos, and are re-exported here; change them there), `create_task_with_first_occurrence`, `complete_occurrence` / `skip_occurrence` (snapshots `owner_at_completion`, deactivates one-shot tasks, rolls forward recurring tasks), `apply_task_owner_change` (propagates parent-task owner edits to the current open occurrence — past occurrences stay frozen), `sync_occurrence_todo` (mirrors `sync_owner_todo` but keyed per open occurrence), `publish_task_event` (fan-out to linked cards). |
+| `api/v1/risks.py` | CRUD + Excel bulk import (`POST /risks/bulk-import`) + card linking + promote + metrics + `GET /cards/{id}/risks`. |
+| `api/v1/risk_mitigation_tasks.py` | Mitigation-task endpoints. `GET/POST /risks/{id}/mitigation-tasks`, `PATCH/DELETE /mitigation-tasks/{id}`, `POST /mitigation-tasks/{id}/occurrences/{occ_id}/complete` and `/skip`, `GET /mitigation-tasks/{id}/occurrences` (full audit history), `GET /risks/mitigation-tasks/export`. Permission: `risks.view` to read; `risks.manage` to mutate; **carve-out** — a user without `risks.manage` who is the `assigned_owner_id` of an open occurrence can complete that occurrence so assignees don't have to escalate just to mark their own control review done. Skip always requires full `risks.manage`. |
 
 ### Key behaviour
 
@@ -58,7 +61,7 @@ The `compliance_findings` table also carries a nullable `risk_id` back-link so f
 
 ### Frontend modules
 
-- `features/grc/risk/RiskMatrix.tsx` — shared 4×4 clickable heatmap used by Register and Detail pages.
+- `features/grc/risk/RiskMatrix.tsx` — shared heatmap: the GRC 4×4 (clickable) by default, and any custom-axes grid read-only (the PPM 5×5 in `PpmRiskMatrix` / `PpmProjectReport`). A change here is a PPM change too.
 - `features/grc/risk/CreateRiskDialog.tsx` — reused for manual create and for promoting compliance findings, including an Owner picker so assignment happens at creation time.
 - `features/grc/risk/RiskRegisterPage.tsx` — register list view (embedded as a tab in GRC at `/grc?tab=risk`).
 - `features/grc/risk/RiskDetailPage.tsx` — full TOGAF layout: Identification → Initial assessment → **Mitigation tasks panel** (replaces the old free-text field) → Residual assessment (with Owner autocomplete, Target date, residual matrix, task-summary chips for context) → Affected cards (M:N) → Status workflow (primary Next step + secondary side actions + stepper) → Audit.
@@ -66,5 +69,6 @@ The `compliance_findings` table also carries a nullable `risk_id` back-link so f
 - `features/grc/risk/mitigation/MitigationTaskDialog.tsx` — create / edit dialog (title, description, owner autocomplete, due date, "Repeats" Switch + unit/interval picker).
 - `features/grc/risk/mitigation/CompleteOccurrenceDialog.tsx` — confirm + optional completion notes when marking an occurrence done or skipped.
 - `features/grc/risk/mitigation/OccurrenceHistoryList.tsx` — read-only audit list per cycle, including the `owner_at_completion` snapshot.
-- `features/grc/risk/mitigation/recurrenceLabel.ts` — pure helper that formats `(unit, interval)` → translation-aware label ("One-shot", "Every 6 months", etc.). Unit-tested.
+- `lib/recurrence/recurrenceLabel.ts` — shared `formatRecurrence` / `RECURRENCE_UNIT_OPTIONS` (risk tasks and recurring Todos). Unit-tested.
+- `features/grc/risk/RiskImportDialog.tsx` / `riskImport.ts` — spreadsheet import of risks; `riskPrint.ts` — print / PDF dossier of one risk; `RiskFilterSidebar.tsx` — register filter panel; `affectedCards.ts` — grouping and ordering of a risk's affected cards; `mitigation/taskHistoryExport.ts` — workbook builders for mitigation tasks and their occurrence history.
 - `features/cards/sections/RisksTab.tsx` — Card Detail → Risks tab listing all risks linked to that card.

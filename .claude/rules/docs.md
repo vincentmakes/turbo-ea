@@ -15,6 +15,8 @@ paths:
 
 > Loaded when you touch `docs/**`, `mkdocs.yml`, `scripts/screenshots/**` (full list in the frontmatter). Moved verbatim from `CLAUDE.md`; edit it here.
 
+> Author the English page and the `en` screenshot names only; every locale sibling, translated nav label and locale filename is produced by `/translate` before the PR (see CLAUDE.md). "All languages" below describes what the PR must contain, not what the implementation session writes.
+
 ### User Documentation (User Manual)
 
 Every feature or UI change **must** include updates to the user manual. The user manual lives in `docs/` and is built with **MkDocs Material** + **mkdocs-static-i18n**. It deploys automatically to Cloudflare Pages on every push to `main`. See `CONTRIBUTING.md` for the full documentation guide — the rules below are the mandatory checklist for every change.
@@ -37,7 +39,7 @@ Files use **suffix-based** i18n: `page.md` is English (default), `page.es.md` is
 
 | Change Type | Required Doc Update |
 |-------------|-------------------|
-| **New feature** | Add or update the relevant guide/admin page in **all supported languages** (currently `en` + locale suffixes for `es`, `de`, `fr`, `it`, `pt`, `zh`, `ru`, `da`). |
+| **New feature** | Add or update the relevant guide/admin page in **all supported languages** (currently `en` + locale suffixes for `es`, `de`, `fr`, `it`, `pt`, `zh`, `ru`, `da`, `ar`). |
 | **UI change** | Replace affected screenshots in **all locale folders** under `docs/assets/img/`. |
 | **New admin setting** | Update the appropriate admin page (e.g., `docs/admin/settings.md`). |
 | **New API endpoint** | Document in the relevant guide page if user-facing. |
@@ -111,7 +113,7 @@ Example entry:
 
 | Change Type | What to Update in `scripts/screenshots/pages.ts` |
 |-------------|--------------------------------------------------|
-| **New page/route** | Add a new entry to `DOC_PAGES` with the next sequential `id` number. Include `filenames` for all supported locales (`en`, `es` at minimum). |
+| **New page/route** | Add a new entry to `DOC_PAGES` with the next sequential `id` number. Include `filenames` for the 8 locales that take translated names (see above). |
 | **Changed route path** | Update the `route` field on the affected entry. |
 | **New UI section requiring interaction** | Add `actions` (click tab, scroll, wait) to capture the specific state. |
 | **New card type in demo data** | Add a `CARD_LOOKUPS` entry if the screenshot needs to navigate to a specific card. |
