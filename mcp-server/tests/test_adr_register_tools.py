@@ -578,8 +578,9 @@ class TestUpdateAdrRegisterFields:
             (
                 "Cannot edit a decision in review. Recall the signatures to edit it.",
                 "decision_in_review",
-                "A decision sent for signature is locked: only linked_card_ids can "
-                "change. Recall the signature requests in the web UI to edit it.",
+                "A decision sent for signature is locked: only linked_card_ids and "
+                "linked_diagram_ids can change. Recall the signature requests in the "
+                "web UI to edit it.",
             ),
             (
                 "Cannot edit a signed decision. Create a new revision instead.",
@@ -1112,3 +1113,194 @@ class TestReviseAdr:
     def test_is_an_additive_write_tool(self):
         tool = server.mcp._tool_manager._tools["revise_adr"]
         assert tool.annotations == server._WRITE_ADDITIVE_ANNOT
+
+
+# ── diagrams linked to a decision ───────────────────────────────────────────
+
+DIAGRAM_A = {
+    "id": "d-1",
+    "name": "Context",
+    "thumbnail": "data:image/svg+xml,<svg/>",
+    "updated_at": "t1",
+}
+DIAGRAM_B = {"id": "d-2", "name": "Flows", "thumbnail": None, "updated_at": "t2"}
+
+
+def _detail(**extra) -> dict:
+    """A decision detail carrying two linked diagrams, one with a thumbnail."""
+    diagrams = [dict(DIAGRAM_A), dict(DIAGRAM_B)]
+    return {"id": ADR_ID, "title": "Use Postgres", "diagrams": diagrams, **extra}
+
+
+#: What every tool returns for ``_detail()``: the diagrams without ``thumbnail``.
+STRIPPED_DIAGRAMS = [
+    {"id": "d-1", "name": "Context", "updated_at": "t1"},
+    {"id": "d-2", "name": "Flows", "updated_at": "t2"},
+]
+
+
+class TestDiagramThumbnailsAreLeftOut:
+    def test_only_the_thumbnail_goes(self):
+        assert server._without_diagram_thumbnails(_detail(linked_cards=[{"id": "c"}])) == {
+            "id": ADR_ID,
+            "title": "Use Postgres",
+            "diagrams": STRIPPED_DIAGRAMS,
+            "linked_cards": [{"id": "c"}],
+        }
+
+    def test_anything_that_is_not_a_detail_is_returned_unchanged(self):
+        rows = [{"diagrams": [dict(DIAGRAM_A)]}]
+        assert server._without_diagram_thumbnails(rows) == [{"diagrams": [DIAGRAM_A]}]
+        assert server._without_diagram_thumbnails({"diagrams": None}) == {"diagrams": None}
+        assert server._without_diagram_thumbnails({"id": "x"}) == {"id": "x"}
+        mixed = {"diagrams": ["d-9", dict(DIAGRAM_B)]}
+        assert server._without_diagram_thumbnails(mixed) == {
+            "diagrams": ["d-9", {"id": "d-2", "name": "Flows", "updated_at": "t2"}]
+        }
+
+    @pytest.mark.asyncio
+    async def test_get_adr(self, fake_token):
+        mocks, calls = _backend(get=_detail(status="draft"))
+        with mocks[2]:
+            out = await server.get_adr(ADR_ID)
+        assert calls["get"] == [(f"/adr/{ADR_ID}", None)]
+        assert _parse(out) == {
+            "id": ADR_ID,
+            "title": "Use Postgres",
+            "status": "draft",
+            "diagrams": STRIPPED_DIAGRAMS,
+        }
+
+    @pytest.mark.asyncio
+    async def test_create_adr_commit(self, fake_token):
+        mocks, _calls = _backend(write=_detail())
+        with mocks[0]:
+            out = await server.create_adr(title="t", sections=[], dry_run=False)
+        assert _parse(out)["diagrams"] == STRIPPED_DIAGRAMS
+
+    @pytest.mark.asyncio
+    async def test_update_adr_commit(self, fake_token):
+        mocks, _calls = _backend(write=_detail())
+        with mocks[0], mocks[1]:
+            out = await server.update_adr(adr_id=ADR_ID, title="t", dry_run=False)
+        assert _parse(out) == {
+            "id": ADR_ID,
+            "title": "Use Postgres",
+            "diagrams": STRIPPED_DIAGRAMS,
+            "batch_id": "B-1",
+        }
+
+    @pytest.mark.asyncio
+    async def test_sign_adr_commit(self, fake_token):
+        mocks, _calls = _backend(write=_detail())
+        with mocks[0]:
+            out = await server.sign_adr(adr_id=ADR_ID, dry_run=False)
+        assert _parse(out)["diagrams"] == STRIPPED_DIAGRAMS
+
+    @pytest.mark.asyncio
+    async def test_revise_adr_commit(self, fake_token):
+        mocks, _calls = _backend(write=_detail())
+        with mocks[0]:
+            out = await server.revise_adr(adr_id=ADR_ID, dry_run=False)
+        assert _parse(out)["diagrams"] == STRIPPED_DIAGRAMS
+
+
+class TestLinkedDiagramIds:
+    @pytest.mark.asyncio
+    async def test_create_preview_shows_them(self, fake_token):
+        mocks, calls = _backend()
+        with mocks[0]:
+            out = await server.create_adr(title="t", sections=[], linked_diagram_ids=("d-1", "d-2"))
+        assert calls["post"] == [_open("create_adr", True), _close({"status": "previewed"})]
+        assert _parse(out) == {
+            "dry_run": True,
+            "would_create": {"title": "t", "linked_diagram_ids": ["d-1", "d-2"]},
+            "note": (
+                "Re-run with dry_run=False to persist. The backend will validate the "
+                "linked-card and linked-diagram UUIDs and the caller's adr.manage "
+                "permission."
+            ),
+            "batch_id": "B-1",
+        }
+
+    @pytest.mark.asyncio
+    async def test_create_commit_sends_them_beside_the_cards(self, fake_token):
+        mocks, calls = _backend(write={"id": "new"})
+        with mocks[0]:
+            await server.create_adr(
+                title="t",
+                sections=[],
+                linked_card_ids=["c-1"],
+                linked_diagram_ids=["d-1"],
+                dry_run=False,
+            )
+        assert calls["post"][1] == (
+            "/adr",
+            {"title": "t", "linked_card_ids": ["c-1"], "linked_diagram_ids": ["d-1"]},
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("value", [None, []])
+    async def test_create_leaves_out_none_and_empty(self, fake_token, value):
+        mocks, calls = _backend(write={"id": "new"})
+        with mocks[0]:
+            await server.create_adr(title="t", sections=[], linked_diagram_ids=value, dry_run=False)
+        assert calls["post"][1] == ("/adr", {"title": "t"})
+
+    @pytest.mark.asyncio
+    async def test_update_preview_shows_them(self, fake_token):
+        mocks, calls = _backend()
+        with mocks[0], mocks[1]:
+            out = await server.update_adr(adr_id="A-1", linked_diagram_ids=("d-1",))
+        assert calls["patch"] == []
+        assert _parse(out) == {
+            "dry_run": True,
+            "adr_id": "A-1",
+            "would_update": {"linked_diagram_ids": ["d-1"]},
+            "batch_id": "B-1",
+        }
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "value, body",
+        [
+            (["d-2", "d-1"], {"linked_diagram_ids": ["d-2", "d-1"]}),
+            # An empty list replaces the set with nothing: every link goes.
+            ([], {"linked_diagram_ids": []}),
+            # Omitted: the links stay as they are.
+            (None, {}),
+        ],
+    )
+    async def test_update_commit_replaces_the_set(self, fake_token, value, body):
+        mocks, calls = _backend(write={"id": "A-1"})
+        with mocks[0], mocks[1]:
+            await server.update_adr(
+                adr_id="A-1", title="t", linked_diagram_ids=value, dry_run=False
+            )
+        assert calls["patch"] == [("/adr/A-1", {"title": "t", **body})]
+
+    @pytest.mark.asyncio
+    async def test_an_unknown_diagram_is_the_backends_404(self, fake_token):
+        mocks, _calls = _backend(raises=_http_error(404, "Diagram not found"))
+        with mocks[0], mocks[1], pytest.raises(httpx.HTTPStatusError):
+            await server.update_adr(adr_id="A-1", linked_diagram_ids=["d-x"], dry_run=False)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("tool", ["create_adr", "update_adr"])
+    async def test_the_argument_is_declared_and_a_near_miss_is_refused(self, fake_token, tool):
+        from mcp.server.fastmcp.exceptions import ToolError
+
+        args = {"title": "t", "sections": []} if tool == "create_adr" else {"adr_id": "A-1"}
+        mocks, calls = _backend()
+        with mocks[0], mocks[1]:
+            await server.mcp.call_tool(tool, {**args, "linked_diagram_ids": ["d-1"]})
+            with pytest.raises(ToolError) as exc:
+                await server.mcp.call_tool(tool, {**args, "diagram_ids": ["d-1"]})
+        message = str(exc.value)
+        assert "Unknown argument(s): diagram_ids. Valid arguments: " in message
+        assert "linked_diagram_ids" in message
+        # Only the accepted call reached the backend: its preview batch.
+        assert [path for path, _ in calls["post"]] == [
+            "/mutation-batches?row_count=1",
+            "/mutation-batches/B-1/commit",
+        ]
