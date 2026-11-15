@@ -124,10 +124,10 @@ Los campos marcados como **calculados** muestran una insignia y no pueden editar
 
 ### Sección de Costes (Aplicación y Componente de TI)
 
-Las Aplicaciones y los Componentes de TI registran su coste como una lista de **partidas de coste** (por ejemplo licencias, alojamiento, soporte), no como un único número escrito a mano. La sección **Costes** muestra un año fiscal cada vez, con un navegador **‹ ›** sobre seis años: los cuatro anteriores al actual, el actual y el **Forecast**.
+Las Aplicaciones y los Componentes de TI registran su coste como una lista de **partidas de coste** (por ejemplo licencias, alojamiento, soporte), no como un único número escrito a mano. Una fila verde **Time Travel** en la parte superior de la sección **Costes** recorre seis años fiscales: los cuatro anteriores al actual, el actual y el **Forecast**. Debajo, una barra apilada por año fiscal muestra cómo se reparte cada año entre las partidas, con el Forecast arriba, el año más antiguo abajo y el total del año al final de la barra. El año seleccionado aparece resaltado y los demás atenuados.
 
 - **TCO** — El coste total de propiedad del año es la suma de sus partidas. Nunca se escribe a mano.
-- **Gráfico y tarjetas** — Una barra apilada muestra cómo se reparte el TCO entre las partidas. Cada partida tiene una tarjeta con su **importe anual** y su **fecha de renovación**; una renovación en los próximos 90 días se muestra en naranja. Los costes son siempre anuales.
+- **Gráfico y tarjetas** — Las tarjetas muestran solo el año seleccionado. Cada partida tiene una tarjeta con su **importe anual** y su **fecha de renovación**; una renovación en los próximos 90 días se muestra en naranja. Los costes son siempre anuales.
 - **Añadir y editar** — Una partida se añade, edita o elimina en un cuadro de diálogo. Las partidas proceden del catálogo que gestiona un administrador en [Metamodelo → Partidas de coste](../admin/metamodel.md#partidas-de-coste).
 - **Copiar a Forecast** — Copia las partidas del año que está viendo al año Forecast, para empezar un plan a partir de las cifras actuales.
 
@@ -139,7 +139,7 @@ El campo **Coste anual total** (`costTotalAnnual`) de la ficha se deriva de las 
 
 ### Sección de Licencias (Aplicación y Componente de TI)
 
-La sección **Licencias** registra, año a año, cuántas licencias tiene contratadas la ficha y cuántas se usan realmente. Está junto a los Costes y tiene el mismo navegador **‹ ›** sobre seis años: los cuatro anteriores al actual, el actual y el **Forecast**. Las métricas que sigue la ficha (**Usuarios**, **Instalaciones**) proceden de su **Modelo de licencias**, que se muestra en la parte superior de la sección. Quien puede editar la ficha lo cambia con **Editar**: marque **Usuarios** y/o **Instalaciones** y pulse **Guardar**. El modelo no aparece entre los demás campos de la ficha.
+La sección **Licencias** registra, año a año, cuántas licencias tiene contratadas la ficha y cuántas se usan realmente. Está junto a los Costes y tiene la misma fila verde **Time Travel** sobre seis años: los cuatro anteriores al actual, el actual y el **Forecast**. Las métricas que sigue la ficha (**Usuarios**, **Instalaciones**) proceden de su **Modelo de licencias**, que se muestra en la parte superior de la sección. Quien puede editar la ficha lo cambia con **Editar**: marque **Usuarios** y/o **Instalaciones** y pulse **Guardar**. El modelo no aparece entre los demás campos de la ficha.
 
 ![Sección de Licencias](../assets/img/en/104_card_licensing.png)
 

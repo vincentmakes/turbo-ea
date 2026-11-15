@@ -119,10 +119,10 @@ Felter markeret som **calculated** viser et badge og kan ikke redigeres manuelt 
 
 ### Omkostningssektion (Applikation og IT-komponent)
 
-Applikationer og IT-komponenter registrerer deres omkostninger som en liste af **omkostningsposter** (for eksempel licenser, hosting, support) og ikke som ét indtastet tal. Sektionen **Omkostninger** viser ét regnskabsår ad gangen, med en **‹ ›**-navigator over seks år: de fire før det nuværende, det nuværende og **Forecast**.
+Applikationer og IT-komponenter registrerer deres omkostninger som en liste af **omkostningsposter** (for eksempel licenser, hosting, support) og ikke som ét indtastet tal. En grøn **Time Travel**-række øverst i sektionen **Omkostninger** bevæger sig over seks regnskabsår: de fire før det nuværende, det nuværende og **Forecast**. Under den viser én stablet bjælke pr. regnskabsår, hvordan hvert år fordeler sig på posterne, med Forecast øverst, det ældste år nederst og årets total for enden af bjælken. Det valgte år er fremhævet, og de andre er dæmpede.
 
 - **TCO** — Årets samlede ejeromkostninger er summen af dets poster. De indtastes aldrig i hånden.
-- **Diagram og felter** — En stablet bjælke viser, hvordan TCO fordeler sig på posterne. Hver post har et felt med sit **årlige beløb** og sin **fornyelsesdato**; en fornyelse inden for 90 dage vises med orange. Omkostninger er altid årlige.
+- **Diagram og felter** — Felterne viser kun det valgte år. Hver post har et felt med sit **årlige beløb** og sin **fornyelsesdato**; en fornyelse inden for 90 dage vises med orange. Omkostninger er altid årlige.
 - **Tilføjelse og redigering** — En post tilføjes, redigeres eller slettes i en dialog. Posterne kommer fra kataloget, som en administrator vedligeholder under [Metamodel → Omkostningsposter](../admin/metamodel.md#omkostningsposter).
 - **Kopiér til Forecast** — Kopierer posterne fra det år, du ser på, til Forecast-året, så du kan begynde en plan ud fra de nuværende tal.
 
@@ -134,7 +134,7 @@ Kortets felt **Samlede årlige omkostninger** (`costTotalAnnual`) udledes af det
 
 ### Licenssektion (Applikation og IT-komponent)
 
-Sektionen **Licensering** registrerer år for år, hvor mange licenser kortet har under kontrakt, og hvor mange der reelt bruges. Den ligger ved siden af Omkostninger og har samme **‹ ›**-navigator over seks år: de fire før det nuværende, det nuværende og **Forecast**. Hvilke målinger kortet sporer (**Brugere**, **Installationer**), kommer fra kortets **Licensmodel**, som vises øverst i sektionen. Den, der kan redigere kortet, ændrer den med **Rediger**: markér **Brugere** og/eller **Installationer**, og vælg derefter **Gem**. Modellen vises ikke blandt kortets øvrige felter.
+Sektionen **Licensering** registrerer år for år, hvor mange licenser kortet har under kontrakt, og hvor mange der reelt bruges. Den ligger ved siden af Omkostninger og har samme grønne **Time Travel**-række over seks år: de fire før det nuværende, det nuværende og **Forecast**. Hvilke målinger kortet sporer (**Brugere**, **Installationer**), kommer fra kortets **Licensmodel**, som vises øverst i sektionen. Den, der kan redigere kortet, ændrer den med **Rediger**: markér **Brugere** og/eller **Installationer**, og vælg derefter **Gem**. Modellen vises ikke blandt kortets øvrige felter.
 
 ![Licenssektion](../assets/img/en/104_card_licensing.png)
 

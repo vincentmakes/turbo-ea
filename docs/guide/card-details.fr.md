@@ -122,10 +122,10 @@ Les champs marqués comme **calculés** affichent un badge et ne peuvent pas êt
 
 ### Section Coûts (Application et composant IT)
 
-Les Applications et les Composants IT enregistrent leurs coûts sous la forme d'une liste de **postes de coûts** (par exemple licences, hébergement, support), et non comme un seul nombre saisi. La section **Coûts** affiche un exercice à la fois, avec un navigateur **‹ ›** sur six ans : les quatre années précédant l'exercice courant, l'exercice courant et le **Forecast**.
+Les Applications et les Composants IT enregistrent leurs coûts sous la forme d'une liste de **postes de coûts** (par exemple licences, hébergement, support), et non comme un seul nombre saisi. Une ligne verte **Time Travel** en haut de la section **Coûts** parcourt six exercices : les quatre précédant l'exercice courant, l'exercice courant et le **Forecast**. En dessous, une barre empilée par exercice montre comment chaque année se répartit entre les postes, le Forecast en haut, l'année la plus ancienne en bas et le total de l'année au bout de la barre. L'année sélectionnée est mise en évidence et les autres sont atténuées.
 
 - **TCO** — Le coût total de possession de l'exercice est la somme de ses postes. Il n'est jamais saisi à la main.
-- **Graphique et vignettes** — Une barre empilée montre la répartition du TCO entre les postes. Chaque poste a une vignette avec son **montant annuel** et sa **date de renouvellement** ; un renouvellement dans les 90 jours s'affiche en orange. Les coûts sont toujours annuels.
+- **Graphique et vignettes** — Les vignettes montrent uniquement l'exercice sélectionné. Chaque poste a une vignette avec son **montant annuel** et sa **date de renouvellement** ; un renouvellement dans les 90 jours s'affiche en orange. Les coûts sont toujours annuels.
 - **Ajout et modification** — Un poste s'ajoute, se modifie ou se supprime dans une boîte de dialogue. Les postes proviennent du catalogue géré par un administrateur sous [Métamodèle → Postes de coûts](../admin/metamodel.md#postes-de-coûts).
 - **Copier vers Forecast** — Copie les postes de l'exercice affiché dans l'exercice Forecast, pour démarrer un plan à partir des chiffres actuels.
 
@@ -137,7 +137,7 @@ Le champ **Coût annuel total** (`costTotalAnnual`) de la fiche est dérivé des
 
 ### Section Licences (Application et composant IT)
 
-La section **Licences** enregistre, année par année, combien de licences la fiche a sous contrat et combien sont réellement utilisées. Elle se place à côté des Coûts et possède le même navigateur **‹ ›** sur six ans : les quatre années précédant l'exercice courant, l'exercice courant et le **Forecast**. Les indicateurs suivis par la fiche (**Utilisateurs**, **Installations**) viennent de son **Modèle de licence**, affiché en haut de la section. Toute personne pouvant modifier la fiche le change avec **Modifier** : cochez **Utilisateurs** et/ou **Installations**, puis **Enregistrer**. Le modèle n'apparaît pas parmi les autres champs de la fiche.
+La section **Licences** enregistre, année par année, combien de licences la fiche a sous contrat et combien sont réellement utilisées. Elle se place à côté des Coûts et possède la même ligne verte **Time Travel** sur six ans : les quatre années précédant l'exercice courant, l'exercice courant et le **Forecast**. Les indicateurs suivis par la fiche (**Utilisateurs**, **Installations**) viennent de son **Modèle de licence**, affiché en haut de la section. Toute personne pouvant modifier la fiche le change avec **Modifier** : cochez **Utilisateurs** et/ou **Installations**, puis **Enregistrer**. Le modèle n'apparaît pas parmi les autres champs de la fiche.
 
 ![Section Licences](../assets/img/en/104_card_licensing.png)
 

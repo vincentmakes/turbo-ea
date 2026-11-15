@@ -2,14 +2,16 @@
  * The Licensing report page: request shape, metric cards, the trend above every view, the
  * Utilisation and By-license-type views and the drill. Charts are the shared test double.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import i18n from "@/i18n";
+import { installResizeObserver } from "@/test/dom";
+import { isHiddenInPrint } from "@/test/hiddenInPrint";
 import LicensingReport from "./LicensingReport";
 
-vi.mock("@/api/client", () => ({ api: { get: vi.fn(), post: vi.fn() } }));
+vi.mock("@/api/client", () => ({ api: { get: vi.fn(), post: vi.fn() }, isAbortError: () => false }));
 vi.mock("@/hooks/useMetamodel", () => ({ useMetamodel: vi.fn() }));
 const auth = vi.hoisted(() => ({ permissions: {} as Record<string, boolean> }));
 vi.mock("@/hooks/AuthContext", () => ({
@@ -86,7 +88,11 @@ const extra: { handlers: Record<string, (path: string) => Promise<unknown>> } = 
 const reportPaths = () =>
   vi.mocked(api.get).mock.calls.map(([p]) => String(p)).filter((p) => p.startsWith("/reports/licensing"));
 
+// The year slider measures its track with a ResizeObserver, which jsdom lacks.
+let restoreResizeObserver: () => void;
+afterEach(() => restoreResizeObserver());
 beforeEach(async () => {
+  restoreResizeObserver = installResizeObserver();
   await i18n.changeLanguage("en");
   vi.clearAllMocks();
   echartState.reset();
@@ -149,12 +155,82 @@ describe("LicensingReport", () => {
     expect(reportPaths()).toHaveLength(1);
   });
 
-  it("does not offer the Forecast year", async () => {
-    renderReport();
-    await waitFor(() => expect(reportPaths()).toHaveLength(1));
-    await userEvent.click(screen.getByRole("combobox", { name: "Fiscal year" }));
-    const names = within(await screen.findByRole("listbox")).getAllByRole("option").map((o) => o.textContent);
-    expect(names).toEqual(["FY26 - Current", "FY25", "FY24", "FY23", "FY22"]);
+  describe("fiscal year row", () => {
+    const slider = () => screen.findByRole("slider", { name: "Fiscal year" });
+
+    it("the steps stop at the current year", async () => {
+      renderReport();
+      const s = await slider();
+      expect(s).toHaveAttribute("aria-valuemin", "2022");
+      expect(s).toHaveAttribute("aria-valuemax", "2026");
+      expect(s).toHaveAttribute("aria-valuenow", "2026");
+      expect(screen.getAllByText(/^FY\d\d$/).map((el) => el.textContent)).toEqual([
+        "FY22", "FY23", "FY24", "FY25", "FY26",
+      ]);
+    });
+
+    it("choosing a step changes the request year", async () => {
+      renderReport();
+      await slider();
+      await userEvent.click(screen.getByRole("button", { name: "Previous fiscal year" }));
+      await waitFor(() => expect(reportPaths().at(-1)).toContain("fiscal_year=2025"));
+      await userEvent.click(screen.getByRole("button", { name: "Next fiscal year" }));
+      await waitFor(() =>
+        expect(reportPaths().at(-1)).toBe("/reports/licensing?type=Application&metric=users"),
+      );
+    });
+
+    it("the year row is hidden in print (the year is in the print header)", async () => {
+      renderReport();
+      expect(isHiddenInPrint(await slider())).toBe(true);
+    });
+
+    it("the drop-down and the chip are gone", async () => {
+      renderReport();
+      await slider();
+      expect(screen.queryByRole("combobox", { name: "Fiscal year" })).toBeNull();
+      expect(screen.queryByTestId("licensing-fiscal-year")).toBeNull();
+    });
+
+    it("a restored year outside the steps falls back", async () => {
+      extra.handlers["/saved-reports/r1"] = () =>
+        Promise.resolve({ id: "r1", name: "Mine", config: { fiscalYearParam: 2027 } });
+      renderReport("/?saved_report_id=r1");
+      await waitFor(() => expect(reportPaths().some((p) => p.includes("fiscal_year=2027"))).toBe(true));
+      await waitFor(() => expect(reportPaths().at(-1)).toBe("/reports/licensing?type=Application&metric=users"));
+      expect(await slider()).toHaveAttribute("aria-valuenow", "2026");
+    });
+
+    it("the value text names the year the server served", async () => {
+      // The default double answers fiscal_year 2026 whatever was asked.
+      extra.handlers["/saved-reports/r1"] = () =>
+        Promise.resolve({ id: "r1", name: "Mine", config: { fiscalYearParam: 2024 } });
+      renderReport("/?saved_report_id=r1");
+      const s = await slider();
+      await waitFor(() => expect(s).toHaveAttribute("aria-valuenow", "2024"));
+      expect(s).toHaveAttribute("aria-valuetext", "FY26 - Current");
+    });
+
+    it("an explicit pick is not silently reset to the current year when it fails", async () => {
+      extra.handlers["/saved-reports/r1"] = () =>
+        Promise.resolve({ id: "r1", name: "Mine", config: { fiscalYearParam: 2024 } });
+      extra.handlers["/reports/licensing?type=Application&metric=users&fiscal_year=2023"] = () =>
+        Promise.reject(new Error("400"));
+      renderReport("/?saved_report_id=r1");
+      await waitFor(() =>
+        expect(reportPaths().some((p) => p.includes("fiscal_year=2024"))).toBe(true),
+      );
+      await slider();
+      await userEvent.click(screen.getByRole("button", { name: "Previous fiscal year" }));
+      await screen.findByText("Could not load the licensing report.");
+      // Let any fallback effect run: a silent reset to the current year would refetch and clear the error.
+      const n = reportPaths().length;
+      await act(async () => {});
+      await act(async () => {});
+      expect(reportPaths().length).toBe(n);
+      expect(screen.getByText("Could not load the licensing report.")).toBeInTheDocument();
+      expect(reportPaths().at(-1)).toContain("fiscal_year=2023");
+    });
   });
 
   it("shows the trend above the view, with the licensed marker", async () => {

@@ -672,3 +672,96 @@ describe("TimelineSlider merged mark range", () => {
     expect(onChange).toHaveBeenCalledWith(away);
   });
 });
+
+describe("TimelineSlider steps mode", () => {
+  const STEPS = [2022, 2023, 2024, 2025, 2026, 2027].map((y) => ({
+    value: y,
+    label: `FY${String(y).slice(2)}`,
+  }));
+
+  function renderSteps(
+    value: number,
+    overrides: Partial<React.ComponentProps<typeof TimelineSlider>> = {},
+  ) {
+    const onChange = vi.fn();
+    const utils = render(
+      <TimelineSlider
+        value={value}
+        onChange={onChange}
+        dateRange={{ min: 2022, max: 2027 }}
+        yearMarks={[]}
+        steps={STEPS}
+        {...overrides}
+      />,
+    );
+    return { ...utils, onChange };
+  }
+
+  it("renders one labelled mark per step, none thinned", () => {
+    renderSteps(2022);
+    // The read-out repeats the current step, so FY22 appears twice.
+    for (const s of STEPS) expect(screen.getAllByText(s.label).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("FY22")).toHaveLength(2);
+    expect(screen.getAllByText("FY27")).toHaveLength(1);
+  });
+
+  it("moves only between steps", () => {
+    // Uneven gaps: a plain step of 1 would land on 2023, not the next step.
+    const uneven = [2022, 2024, 2027].map((y) => ({ value: y, label: `FY${y}` }));
+    const { onChange } = renderSteps(2022, { steps: uneven });
+    const slider = screen.getByRole("slider");
+    slider.focus();
+    fireEvent.keyDown(slider, { key: "ArrowRight" });
+    expect(onChange).toHaveBeenCalledWith(2024);
+    onChange.mockClear();
+    fireEvent.keyDown(slider, { key: "ArrowLeft" });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("step buttons walk the steps and disable at the ends", async () => {
+    const first = renderSteps(2022);
+    expect(screen.getByRole("button", { name: /Previous change/i })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: /Next change/i }));
+    expect(first.onChange).toHaveBeenCalledWith(2023);
+    first.unmount();
+
+    const last = renderSteps(2027);
+    expect(screen.getByRole("button", { name: /Next change/i })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: /Previous change/i }));
+    expect(last.onChange).toHaveBeenCalledWith(2026);
+  });
+
+  it("step buttons and the slider take their labels from props", () => {
+    renderSteps(2024, { previousLabel: "Earlier FY", nextLabel: "Later FY", ariaLabel: "Fiscal year" });
+    expect(screen.getByRole("button", { name: "Earlier FY" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Later FY" })).toBeInTheDocument();
+    expect(screen.getByRole("slider", { name: "Fiscal year" })).toBeInTheDocument();
+  });
+
+  it("shows valueText and exposes it as aria-valuetext", () => {
+    renderSteps(2026, { valueText: "FY26 - Current" });
+    expect(screen.getByText("FY26 - Current")).toBeInTheDocument();
+    expect(screen.getByRole("slider")).toHaveAttribute("aria-valuetext", "FY26 - Current");
+  });
+
+  it("falls back to the step label as read-out and aria-valuetext", () => {
+    renderSteps(2025);
+    expect(screen.getAllByText("FY25").length).toBeGreaterThan(1);
+    expect(screen.getByRole("slider")).toHaveAttribute("aria-valuetext", "FY25");
+  });
+
+  it("uses accentColor and hides the today chips", () => {
+    const { container } = renderSteps(2022, { accentColor: "#00aa00" });
+    expect(container.querySelector(".MuiSlider-thumb")).toHaveStyle({
+      backgroundColor: "#00aa00",
+    });
+    expect(screen.queryByText("Reset to today")).toBeNull();
+    expect(screen.queryByText("Past")).toBeNull();
+    expect(screen.queryByText("Future")).toBeNull();
+  });
+
+  it("without steps nothing changes", () => {
+    renderSlider(TODAY);
+    expect(screen.getByRole("slider")).not.toHaveAttribute("aria-valuetext");
+  });
+});

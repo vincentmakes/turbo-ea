@@ -122,10 +122,10 @@ Fields marked as **calculated** show a badge and cannot be edited manually — t
 
 ### Costs Section (Application and IT Component)
 
-Applications and IT Components record their cost as a list of **cost items** (for example licences, hosting, support), not as a single typed number. The **Costs** section shows one fiscal year at a time, with a **‹ ›** navigator over six years: the four before the current one, the current one and the **Forecast**.
+Applications and IT Components record their cost as a list of **cost items** (for example licences, hosting, support), not as a single typed number. A green **Time Travel** row at the top of the **Costs** section moves across six fiscal years: the four before the current one, the current one and the **Forecast**. Below it, one stacked bar per fiscal year shows how each year splits across items, the Forecast on top and the oldest year at the bottom, with the year's total at the end of the bar. The year you selected is highlighted and the others are dimmed.
 
 - **TCO** — The total cost of ownership of the year is the sum of its items. It is never typed by hand.
-- **Chart and tiles** — A stacked bar shows how the TCO splits across items. Each item has a tile with its **annual amount** and **renewal date**; a renewal within 90 days is shown in orange. Costs are always annual.
+- **Chart and tiles** — The tiles show the selected year only. Each item has a tile with its **annual amount** and **renewal date**; a renewal within 90 days is shown in orange. Costs are always annual.
 - **Adding and editing** — Add, edit or delete an item in a dialog. Items come from the catalogue an administrator manages under [Metamodel → Cost items](../admin/metamodel.md#cost-items).
 - **Copy to Forecast** — Copies the items of the year you are viewing into the Forecast year, to start a plan from the current figures.
 
@@ -137,7 +137,7 @@ The card's **Total annual cost** field (`costTotalAnnual`) is derived from the c
 
 ### Licensing Section (Application and IT Component)
 
-The **Licensing** section records, year by year, how many licenses the card has under contract and how many are really used. It sits next to Costs and has the same **‹ ›** navigator over six years: the four before the current one, the current one and the **Forecast**. Which metrics the card tracks (**Users**, **Installations**) comes from its **Licensing model**, shown at the top of the section. Anyone who can edit the card changes it with **Edit** there: tick **Users** and/or **Installations**, then **Save**. The model is not shown among the card's other fields.
+The **Licensing** section records, year by year, how many licenses the card has under contract and how many are really used. It sits next to Costs and has the same green **Time Travel** row over six years: the four before the current one, the current one and the **Forecast**. Which metrics the card tracks (**Users**, **Installations**) comes from its **Licensing model**, shown at the top of the section. Anyone who can edit the card changes it with **Edit** there: tick **Users** and/or **Installations**, then **Save**. The model is not shown among the card's other fields.
 
 ![Licensing section](../assets/img/en/104_card_licensing.png)
 

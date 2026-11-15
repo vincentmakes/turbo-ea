@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Checkbox from "@mui/material/Checkbox";
 import ListItemText from "@mui/material/ListItemText";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -14,8 +16,6 @@ import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TableSortLabel from "@mui/material/TableSortLabel";
-import Tooltip from "@mui/material/Tooltip";
-import Chip from "@mui/material/Chip";
 import type { ECharts, EChartsCoreOption } from "echarts/core";
 import EChart, { EXPORT_DPR, type EChartClickParams } from "@/components/charts/EChart";
 import { useEChartsTheme, type EChartsThemeValue } from "@/components/charts/echartsTheme";
@@ -73,6 +73,7 @@ import {
   typeKeysOf,
   typeParam,
 } from "./costReportOptions";
+import FiscalYearTimeTravel from "@/components/FiscalYearTimeTravel";
 import { costFiscalYearName, costFiscalYearOptions } from "@/lib/fiscalYear";
 import { formatFieldValue, EMPTY_VALUE, type FieldMeta } from "@/lib/cardDisplayFields";
 import { costValue } from "@/lib/costValue";
@@ -1319,20 +1320,24 @@ export default function CostReport() {
       printParams={printParams}
       toolbar={
         <>
-          <TextField
-            select
+          <ToggleButtonGroup
             size="small"
-            label={t("cost.cardType")}
-            value={cardTypeKey}
-            onChange={(e) => setCardTypeKey(e.target.value)}
-            sx={{ minWidth: 150 }}
+            aria-label={t("cost.cardType")}
+            value={typeKeys}
+            onChange={(_, next: string[]) => {
+              // Never zero buttons on; both on is the combined key.
+              if (next.length === 0) return;
+              setCardTypeKey(next.length > 1 ? COMBINED_KEY : next[0]);
+            }}
           >
-            {typeOptions.map((o) => (
-              <MenuItem key={o.key} value={o.key}>
-                {o.label}
-              </MenuItem>
-            ))}
-          </TextField>
+            {typeOptions
+              .filter((o) => o.key !== COMBINED_KEY)
+              .map((o) => (
+                <ToggleButton key={o.key} value={o.key}>
+                  {o.label}
+                </ToggleButton>
+              ))}
+          </ToggleButtonGroup>
           {!combined && (
             <CardScopeFilter
               types={cardTypeKey}
@@ -1416,48 +1421,22 @@ export default function CostReport() {
               ))}
             </TextField>
           )}
-
-          <TextField
-            select
-            size="small"
-            label={t("cost.fiscalYear")}
-            value={fiscalYearParam ?? ""}
-            // "" is the "Current" entry; without this MUI shows it as blank.
-            slotProps={{ select: { displayEmpty: true } }}
-            onChange={(e) =>
-              setFiscalYearParam(
-                e.target.value === "" ? null : Number(e.target.value),
-              )
-            }
-            sx={{ minWidth: 130 }}
-          >
-            {fiscalYearOptions.map((o) => (
-              <MenuItem key={o.label} value={o.value ?? ""}>
-                {o.label}
-              </MenuItem>
-            ))}
-          </TextField>
-
-          {fiscalYear && (
-            // The live-card rule only describes the current year; other years list every card with a recorded cost.
-            <Tooltip
-              title={fiscalYearParam == null ? t("cost.fiscalYearHelp") : ""}
-              arrow
-              placement="bottom"
-            >
-              <Chip
-                variant="outlined"
-                icon={<MaterialSymbol icon="calendar_month" size={18} />}
-                label={t("cost.fiscalYearIndicator", {
-                  fy: costFiscalYearName(fiscalYear.year, currentFiscalYear),
-                })}
-                data-testid="cost-fiscal-year"
-              />
-            </Tooltip>
-          )}
         </>
       }
     >
+      {fiscalYear && (
+        // Hidden in print, like the toolbar it used to sit in: the year is in the print parameters.
+        <Box sx={{ "@media print": { display: "none" } }}>
+          <FiscalYearTimeTravel
+            years={trendYears}
+            currentFy={currentFiscalYear}
+            value={fiscalYearParam ?? currentFiscalYear}
+            onChange={(fy) => setFiscalYearParam(fy === currentFiscalYear ? null : fy)}
+            servedYear={fiscalYear.year}
+          />
+        </Box>
+      )}
+
       {/* Summary strip */}
       <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
         <MetricCard

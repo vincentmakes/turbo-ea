@@ -48,6 +48,12 @@ describe("buildLicensingBarOption", () => {
     expect(new Set(o.series.map((s) => s.stack)).size).toBe(1);
   });
 
+  it("its tooltip is not confined and is appended to body", () => {
+    const t = (opt() as unknown as { tooltip: { confine: boolean; appendTo: string } }).tooltip;
+    expect(t.confine).toBe(false);
+    expect(t.appendTo).toBe("body");
+  });
+
   it("mirrors in RTL", () => {
     expect(opt(true).xAxis.inverse).toBe(true);
     expect(opt(false).xAxis.inverse).toBe(false);

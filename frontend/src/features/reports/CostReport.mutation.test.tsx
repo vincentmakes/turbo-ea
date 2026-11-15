@@ -10,7 +10,8 @@
  * datum to the page's own `content` renderer at a size the test chooses (by
  * card name), and renders the tooltip once per datum plus the two inert cases.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { installResizeObserver } from "@/test/dom";
 import {
   act,
   fireEvent,
@@ -246,6 +247,20 @@ async function pickOption(label: RegExp, option: RegExp) {
   }
 }
 
+const typeButtonNames = async () =>
+  within(await screen.findByRole("group", { name: /card type/i }))
+    .getAllByRole("button")
+    .map((b) => b.textContent);
+
+/** Press the other type's button, then turn the current one off: only `name` stays on. */
+async function showOnlyType(name: string) {
+  const group = within(await screen.findByRole("group", { name: /card type/i }));
+  const [first, second] = group.getAllByRole("button");
+  const [on, off] = first.textContent === name ? [first, second] : [second, first];
+  fireEvent.click(on);
+  fireEvent.click(off);
+}
+
 async function optionsOf(label: RegExp): Promise<string[]> {
   fireEvent.mouseDown(
     await screen.findByRole("combobox", { name: label }, { timeout: 5000 }),
@@ -261,7 +276,11 @@ async function optionsOf(label: RegExp): Promise<string[]> {
   return out;
 }
 
+// The fiscal-year slider measures its track with a ResizeObserver, which jsdom lacks.
+let restoreResizeObserver: () => void;
+afterEach(() => restoreResizeObserver());
 beforeEach(() => {
+  restoreResizeObserver = installResizeObserver();
   mockApi.reset();
   mockApi.on("get", "/metamodel/cost-item-types", []);
   hookState.reset();
@@ -361,7 +380,7 @@ describe("CostReport loading and requests", () => {
 /* ------------------------------------------------------------------ */
 
 describe("CostReport fiscal year", () => {
-  const chip = () => screen.queryByTestId("cost-fiscal-year");
+  const row = () => screen.queryByRole("slider", { name: "Fiscal year" });
 
   it("names no year when the answer gives the year without its start month", async () => {
     mockApi.on("get", "/reports/cost-treemap*", {
@@ -371,7 +390,7 @@ describe("CostReport fiscal year", () => {
     });
     renderCost();
     await screen.findByTestId("treemap");
-    expect(chip()).toBeNull();
+    expect(row()).toBeNull();
     expect(printParams().map(([l]) => l)).not.toContain("Fiscal year");
   });
 
@@ -383,15 +402,22 @@ describe("CostReport fiscal year", () => {
     });
     renderCost();
     await screen.findByTestId("treemap");
-    expect(chip()).toBeNull();
+    expect(row()).toBeNull();
   });
 
-  it("explains the year on hover", async () => {
+  it("names the year the response served, not the one the row asks for", async () => {
+    saved.config = { view: "chart", fiscalYearParam: 2027 };
+    mockApi.on("get", "/reports/cost-treemap*", {
+      items: ITEMS,
+      total: 700,
+      fiscal_year: 2026,
+      current_fiscal_year: 2026,
+      fiscal_year_start: 1,
+    });
     renderCost();
-    fireEvent.mouseOver(await screen.findByTestId("cost-fiscal-year"));
-    expect(await screen.findByRole("tooltip")).toHaveTextContent(
-      /Annual costs of the cards live in this fiscal year/,
-    );
+    const slider = await screen.findByRole("slider", { name: "Fiscal year" });
+    expect(slider).toHaveAttribute("aria-valuenow", "2027");
+    expect(slider).toHaveAttribute("aria-valuetext", "FY26 - Current");
   });
 });
 
@@ -830,7 +856,7 @@ describe("CostReport toolbar", () => {
     saved.config = { view: "table" };
     renderCost();
     await screen.findByRole("combobox", { name: /group by/i });
-    await pickOption(/card type/i, /^IT Component$/);
+    await showOnlyType("IT Component");
     await waitFor(() =>
       expect(lastTreemapParams().get("type")).toBe("ITComponent"),
     );
@@ -940,21 +966,13 @@ describe("CostReport toolbar", () => {
     );
     renderCost();
     await screen.findByTestId("treemap");
-    expect(await optionsOf(/card type/i)).toEqual([
-      "Application",
-      "IT Component",
-      "Application + IT Component",
-    ]);
+    expect(await typeButtonNames()).toEqual(["Application", "IT Component"]);
   });
 
   it("offers Application and IT Component to a reports user who may not browse the inventory", async () => {
     renderWithProviders(<CostReport />, { user: userWith("costs.view") });
     await screen.findByTestId("treemap");
-    expect(await optionsOf(/card type/i)).toEqual([
-      "Application",
-      "IT Component",
-      "Application + IT Component",
-    ]);
+    expect(await typeButtonNames()).toEqual(["Application", "IT Component"]);
   });
 });
 

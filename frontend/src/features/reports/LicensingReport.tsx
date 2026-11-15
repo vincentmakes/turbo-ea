@@ -4,7 +4,6 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
-import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import ListItemText from "@mui/material/ListItemText";
 import MenuItem from "@mui/material/MenuItem";
@@ -16,6 +15,7 @@ import { useEChartsTheme } from "@/components/charts/echartsTheme";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
 import CardScopeFilter from "@/components/CardScopeFilter";
+import FiscalYearTimeTravel from "@/components/FiscalYearTimeTravel";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -749,37 +749,25 @@ export default function LicensingReport() {
               sx={{ minWidth: 220 }}
             />
           )}
-          <TextField
-            select
-            size="small"
-            label={t("cost.fiscalYear")}
-            value={fiscalYearParam ?? ""}
-            slotProps={{ select: { displayEmpty: true } }}
-            onChange={(e) => {
-              restoredYear.current = false;
-              setFiscalYearParam(e.target.value === "" ? null : Number(e.target.value));
-            }}
-            sx={{ minWidth: 130 }}
-          >
-            {yearOptions.map((o) => (
-              <MenuItem key={o.label} value={o.value ?? ""}>
-                {o.label}
-              </MenuItem>
-            ))}
-          </TextField>
-          {data && (
-            <Chip
-              variant="outlined"
-              icon={<MaterialSymbol icon="calendar_month" size={18} />}
-              label={t("licensing.fiscalYearIndicator", {
-                fy: costFiscalYearName(data.fiscal_year, currentFiscalYear),
-              })}
-              data-testid="licensing-fiscal-year"
-            />
-          )}
         </>
       }
     >
+      {data && (
+        // Hidden in print, like the toolbar it used to sit in: the year is in the print header.
+        <Box sx={{ "@media print": { display: "none" } }}>
+          <FiscalYearTimeTravel
+            // Oldest first; the forecast year is not offered here.
+            years={[...yearOptions].reverse().map((o) => o.value ?? currentFiscalYear)}
+            currentFy={currentFiscalYear}
+            value={fiscalYearParam ?? currentFiscalYear}
+            onChange={(fy) => {
+              restoredYear.current = false;
+              setFiscalYearParam(fy === currentFiscalYear ? null : fy);
+            }}
+            servedYear={data.fiscal_year}
+          />
+        </Box>
+      )}
       {error && <Alert severity="error">{t("licensing.loadFailed")}</Alert>}
       {loading && !data && (
         <Box sx={{ py: 8, textAlign: "center" }}>

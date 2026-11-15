@@ -124,10 +124,10 @@ Als **berechnet** markierte Felder zeigen ein Badge und können nicht manuell be
 
 ### Kostenabschnitt (Anwendung und IT-Komponente)
 
-Anwendungen und IT-Komponenten erfassen ihre Kosten als Liste von **Kostenelementen** (zum Beispiel Lizenzen, Hosting, Support), nicht als einzelne eingetippte Zahl. Der Abschnitt **Kosten** zeigt jeweils ein Geschäftsjahr, mit einem **‹ ›**-Navigator über sechs Jahre: die vier Jahre vor dem aktuellen, das aktuelle Jahr und das **Forecast**.
+Anwendungen und IT-Komponenten erfassen ihre Kosten als Liste von **Kostenelementen** (zum Beispiel Lizenzen, Hosting, Support), nicht als einzelne eingetippte Zahl. Eine grüne **Time Travel**-Zeile oben im Abschnitt **Kosten** wechselt über sechs Geschäftsjahre: die vier vor dem aktuellen, das aktuelle und das **Forecast**. Darunter zeigt je Geschäftsjahr ein gestapelter Balken, wie sich das Jahr auf die Elemente verteilt, mit dem Forecast oben, dem ältesten Jahr unten und der Jahressumme am Ende des Balkens. Das gewählte Jahr ist hervorgehoben, die anderen sind abgedunkelt.
 
 - **TCO** — Die Gesamtbetriebskosten des Jahres sind die Summe seiner Elemente. Sie werden nie von Hand eingegeben.
-- **Diagramm und Kacheln** — Ein gestapelter Balken zeigt, wie sich die TCO auf die Elemente verteilen. Jedes Element hat eine Kachel mit seinem **Jahresbetrag** und **Verlängerungsdatum**; eine Verlängerung innerhalb von 90 Tagen wird orange dargestellt. Kosten sind immer jährlich.
+- **Diagramm und Kacheln** — Die Kacheln zeigen nur das gewählte Jahr. Jedes Element hat eine Kachel mit seinem **Jahresbetrag** und **Verlängerungsdatum**; eine Verlängerung innerhalb von 90 Tagen wird orange dargestellt. Kosten sind immer jährlich.
 - **Hinzufügen und Bearbeiten** — Ein Element wird in einem Dialog hinzugefügt, bearbeitet oder gelöscht. Die Elemente stammen aus dem Katalog, den ein Administrator unter [Metamodell → Kostenelemente](../admin/metamodel.md#kostenelemente) verwaltet.
 - **In Forecast kopieren** — Kopiert die Elemente des angezeigten Jahres in das Forecast-Jahr, um einen Plan auf Basis der aktuellen Zahlen zu beginnen.
 
@@ -139,7 +139,7 @@ Das Feld **Jährliche Gesamtkosten** (`costTotalAnnual`) der Karte wird aus den 
 
 ### Lizenzabschnitt (Anwendung und IT-Komponente)
 
-Der Abschnitt **Lizenzierung** erfasst Jahr für Jahr, wie viele Lizenzen die Karte vertraglich hat und wie viele tatsächlich genutzt werden. Er steht neben den Kosten und hat denselben **‹ ›**-Navigator über sechs Jahre: die vier vor dem aktuellen, das aktuelle und das **Forecast**-Jahr. Welche Kennzahlen die Karte erfasst (**Benutzer**, **Installationen**), ergibt sich aus ihrem **Lizenzmodell**, das oben im Abschnitt angezeigt wird. Wer die Karte bearbeiten darf, ändert es dort mit **Bearbeiten**: **Benutzer** und/oder **Installationen** anhaken, dann **Speichern**. Das Modell erscheint nicht unter den übrigen Feldern der Karte.
+Der Abschnitt **Lizenzierung** erfasst Jahr für Jahr, wie viele Lizenzen die Karte vertraglich hat und wie viele tatsächlich genutzt werden. Er steht neben den Kosten und hat dieselbe grüne **Time Travel**-Zeile über sechs Jahre: die vier vor dem aktuellen, das aktuelle und das **Forecast**-Jahr. Welche Kennzahlen die Karte erfasst (**Benutzer**, **Installationen**), ergibt sich aus ihrem **Lizenzmodell**, das oben im Abschnitt angezeigt wird. Wer die Karte bearbeiten darf, ändert es dort mit **Bearbeiten**: **Benutzer** und/oder **Installationen** anhaken, dann **Speichern**. Das Modell erscheint nicht unter den übrigen Feldern der Karte.
 
 ![Lizenzabschnitt](../assets/img/en/104_card_licensing.png)
 

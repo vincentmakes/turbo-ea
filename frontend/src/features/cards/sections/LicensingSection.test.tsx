@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("@/api/client", () => ({
@@ -17,6 +17,8 @@ vi.mock("@/api/client", () => ({
 vi.mock("@/components/charts/EChart", () => import("@/test/echartMock").then((m) => m.echartModule()));
 
 import { api, ApiError } from "@/api/client";
+import i18n from "@/i18n";
+import { installResizeObserver } from "@/test/dom";
 import { echartState } from "@/test/echartMock";
 import type {
   CardLicensesResponse,
@@ -107,12 +109,26 @@ function mockGet(r: CardLicensesResponse | Error) {
   );
 }
 
+/** Move the Time Travel slider to a fiscal year, one keyboard step at a time. */
+async function goTo(fy: number) {
+  const slider = await screen.findByRole("slider");
+  const now = () => Number(slider.getAttribute("aria-valuenow"));
+  for (let i = 0; i < 6 && now() !== fy; i++) {
+    fireEvent.keyDown(slider, { key: now() < fy ? "ArrowRight" : "ArrowLeft" });
+  }
+  await waitFor(() => expect(now()).toBe(fy));
+}
+
+let restoreRo: ReturnType<typeof installResizeObserver>;
 beforeEach(() => {
+  // the Time Travel slider measures its track with a ResizeObserver
+  restoreRo = installResizeObserver();
   vi.clearAllMocks();
   echartState.reset();
   vi.mocked(api.post).mockResolvedValue({} as never);
   vi.mocked(api.put).mockResolvedValue({} as never);
 });
+afterEach(() => restoreRo());
 
 describe("LicensingSection", () => {
   it("renders nothing on 403 and on 404", async () => {
@@ -156,7 +172,7 @@ describe("LicensingSection", () => {
     mockGet(response());
     const user = userEvent.setup();
     const first = render(<LicensingSection cardId="c1" />);
-    await user.click(await screen.findByRole("button", { name: "Next fiscal year" }));
+    await goTo(2027);
     expect(
       screen.getByText(
         "No license counts entered for FY27 yet. Showing the licensed counts of FY26, not confirmed.",
@@ -168,20 +184,61 @@ describe("LicensingSection", () => {
 
     mockGet(response({ can_edit: false }));
     render(<LicensingSection cardId="c1" />);
-    await user.click(await screen.findByRole("button", { name: "Next fiscal year" }));
+    await goTo(2027);
     expect(screen.queryByRole("button", { name: /^Confirm/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "+ Add license" })).toBeNull();
   });
 
   it("Forecast tiles say licensed only", async () => {
     mockGet(response());
-    const user = userEvent.setup();
     render(<LicensingSection cardId="c1" />);
-    await user.click(await screen.findByRole("button", { name: "Next fiscal year" }));
+    await goTo(2027);
     const tile = screen.getByTestId("license-tile-users-prod");
     expect(tile).toHaveTextContent("licensed only");
     expect(tile).toHaveTextContent("100");
     expect(tile).not.toHaveTextContent("Compliant");
+  });
+
+  it("changes year with the Time Travel row", async () => {
+    mockGet(response());
+    render(<LicensingSection cardId="c1" />);
+    await goTo(2027);
+    expect(screen.getByTestId("license-tile-users-prod")).toHaveTextContent("licensed only");
+    await goTo(2025);
+    // FY25 carries no metrics in the fixture
+    expect(screen.queryByTestId("license-tile-users-prod")).toBeNull();
+    await goTo(2026);
+    expect(screen.getByTestId("license-tile-users-prod")).toHaveTextContent("Compliant");
+  });
+
+  it("the stepper arrows are gone", async () => {
+    mockGet(response());
+    render(<LicensingSection cardId="c1" />);
+    await screen.findByRole("slider");
+    // only the Time Travel slider's two arrows remain
+    expect(screen.queryAllByRole("button", { name: /previous|next/i })).toHaveLength(2);
+    expect(i18n.exists("licensing.previousYear", { ns: "cards" })).toBe(false);
+    expect(i18n.exists("licensing.nextYear", { ns: "cards" })).toBe(false);
+  });
+
+  it("no per-year bars are drawn", async () => {
+    mockGet(response());
+    render(<LicensingSection cardId="c1" />);
+    await goTo(2027);
+    // one chart per metric and nothing else, never one per year
+    expect(echartState.props.map((c) => c.ariaLabel)).toEqual([
+      `${BAR_LABEL}: Users`,
+      `${BAR_LABEL}: Installations`,
+    ]);
+  });
+
+  it("the Licensed / Actual chart is still there", async () => {
+    mockGet(response());
+    render(<LicensingSection cardId="c1" />);
+    await screen.findByRole("slider");
+    const bar = echartState.props.find((c) => c.ariaLabel?.startsWith(BAR_LABEL));
+    expect(bar?.option.series.map((s: { name: string }) => s.name)).toEqual(["Prod", "Dev", "QA"]);
+    expect(bar?.option.yAxis.data).toEqual(["Licensed", "Actual"]);
   });
 
   const MODEL_FIELD: FieldDef = {

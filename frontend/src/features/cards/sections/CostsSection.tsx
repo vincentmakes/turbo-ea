@@ -6,12 +6,13 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import ButtonBase from "@mui/material/ButtonBase";
-import IconButton from "@mui/material/IconButton";
+import { alpha } from "@mui/material/styles";
 import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
 import { api, ApiError, apiErrorMessage } from "@/api/client";
 import EChart from "@/components/charts/EChart";
 import { useEChartsTheme } from "@/components/charts/echartsTheme";
+import FiscalYearTimeTravel from "@/components/FiscalYearTimeTravel";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -19,13 +20,12 @@ import { useDateFormat } from "@/hooks/useDateFormat";
 import { useFieldLabel } from "@/hooks/useResolveLabel";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
 import { todayIsoDate } from "@/lib/dates";
-import { costFiscalYearName } from "@/lib/fiscalYear";
 import { isRenewalNear, shortFiscalYear } from "@/lib/costItems";
 import { SECTION_SCROLL_MARGIN, sectionAnchor } from "@/features/cards/dataQualityJump";
-import { CATEGORICAL_COLORS, EOL_WARNING_COLOR, STATUS_COLORS } from "@/theme/tokens";
+import { CATEGORICAL_COLORS, EOL_WARNING_COLOR, RAG_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import type { CardCostsResponse, CostItemType, CostLine } from "@/types";
 import CostItemDialog from "./CostItemDialog";
-import { buildCostsStackedBarOption } from "./costsStackedBarOption";
+import { buildCostsYearBarsOption, type CostYearBar } from "./costsYearBarsOption";
 
 interface Props {
   cardId: string;
@@ -110,22 +110,32 @@ export default function CostsSection({
     }
   };
 
-  const barOption = buildCostsStackedBarOption(
-    year.items.map((i) => ({
-      key: i.key,
-      label: labelOf(i.key),
-      amount: i.amount,
-      color: colorOf(i.key),
-    })),
-    {
-      chrome,
-      isRtl: chrome.isRtl,
-      format: (v) => fmt.format(v),
-      faded: !year.confirmed,
-    },
-  );
-
-  const nav = (step: number) => setPicked(years[idx + step].fiscal_year);
+  // One bar per fiscal year, the forecast on top; segments in catalogue order so
+  // colours and stacking stay the same from one year to the next.
+  const used = new Set(years.flatMap((y) => y.items.map((i) => i.key)));
+  const bars: CostYearBar[] = [...years].reverse().map((y) => {
+    const amounts = new Map(y.items.map((i) => [i.key, i.amount]));
+    return {
+      fiscalYear: y.fiscal_year,
+      label: shortFiscalYear(y.fiscal_year),
+      confirmed: y.confirmed,
+      total: y.tco,
+      segments: data.catalogue
+        .filter((c) => used.has(c.key))
+        .map((c) => ({
+          key: c.key,
+          label: labelOf(c.key),
+          amount: amounts.get(c.key) ?? 0,
+          color: colorOf(c.key),
+        })),
+    };
+  });
+  const barOption = buildCostsYearBarsOption(bars, year.fiscal_year, {
+    chrome,
+    isRtl: chrome.isRtl,
+    format: (v) => fmt.format(v),
+    tintColor: alpha(RAG_COLORS.green, 0.12),
+  });
 
   return (
     <Accordion
@@ -142,27 +152,12 @@ export default function CostsSection({
         </Box>
       </AccordionSummary>
       <AccordionDetails>
-        <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 0.5 }}>
-          <IconButton
-            size="small"
-            aria-label={t("costs.previousYear")}
-            disabled={idx === 0}
-            onClick={() => nav(-1)}
-          >
-            <MaterialSymbol icon={chrome.isRtl ? "chevron_right" : "chevron_left"} size={20} />
-          </IconButton>
-          <Typography fontWeight={600} sx={{ minWidth: 150, textAlign: "center" }}>
-            {costFiscalYearName(year.fiscal_year, currentFy)}
-          </Typography>
-          <IconButton
-            size="small"
-            aria-label={t("costs.nextYear")}
-            disabled={idx === years.length - 1}
-            onClick={() => nav(1)}
-          >
-            <MaterialSymbol icon={chrome.isRtl ? "chevron_left" : "chevron_right"} size={20} />
-          </IconButton>
-        </Box>
+        <FiscalYearTimeTravel
+          years={years.map((y) => y.fiscal_year)}
+          currentFy={currentFy}
+          value={year.fiscal_year}
+          onChange={setPicked}
+        />
 
         {!year.confirmed && (
           <Alert
@@ -199,69 +194,71 @@ export default function CostsSection({
           </Typography>
         </Box>
 
+        <Box sx={{ my: 1 }}>
+          <EChart
+            option={barOption}
+            style={{ height: bars.length * 22 }}
+            ariaLabel={t("costs.barLabel")}
+          />
+        </Box>
         {year.items.length > 0 ? (
-          <>
-            <Box sx={{ height: 14, my: 1, borderRadius: 0.5, overflow: "hidden" }}>
-              <EChart option={barOption} style={{ height: 14 }} ariaLabel={t("costs.barLabel")} />
-            </Box>
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-                gap: 1,
-                opacity: year.confirmed ? 1 : 0.75,
-              }}
-            >
-              {year.items.map((line) => {
-                const near = isRenewalNear(line.renewal_date, today);
-                return (
-                  <ButtonBase
-                    key={line.key}
-                    disabled={!editable}
-                    onClick={() => setDialog({ line })}
-                    data-testid={`cost-tile-${line.key}`}
-                    sx={{
-                      display: "block",
-                      textAlign: "start",
-                      p: 1.25,
-                      borderRadius: 1,
-                      border: 1,
-                      borderStyle: line.archived ? "dashed" : "solid",
-                      borderColor: near && !line.archived ? EOL_WARNING_COLOR : "divider",
-                      bgcolor: line.archived ? "action.hover" : "transparent",
-                      color: line.archived ? "text.secondary" : "text.primary",
-                      "&.Mui-disabled": { pointerEvents: "auto" },
-                    }}
-                  >
-                    <Typography variant="caption" sx={{ color: colorOf(line.key), display: "block" }}>
-                      {"● "}
-                      {labelOf(line.key)}
-                      {line.archived ? ` (${t("costs.archived")})` : ""}
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+              gap: 1,
+              opacity: year.confirmed ? 1 : 0.75,
+            }}
+          >
+            {year.items.map((line) => {
+              const near = isRenewalNear(line.renewal_date, today);
+              return (
+                <ButtonBase
+                  key={line.key}
+                  disabled={!editable}
+                  onClick={() => setDialog({ line })}
+                  data-testid={`cost-tile-${line.key}`}
+                  sx={{
+                    display: "block",
+                    textAlign: "start",
+                    p: 1.25,
+                    borderRadius: 1,
+                    border: 1,
+                    borderStyle: line.archived ? "dashed" : "solid",
+                    borderColor: near && !line.archived ? EOL_WARNING_COLOR : "divider",
+                    bgcolor: line.archived ? "action.hover" : "transparent",
+                    color: line.archived ? "text.secondary" : "text.primary",
+                    "&.Mui-disabled": { pointerEvents: "auto" },
+                  }}
+                >
+                  <Typography variant="caption" sx={{ color: colorOf(line.key), display: "block" }}>
+                    {"● "}
+                    {labelOf(line.key)}
+                    {line.archived ? ` (${t("costs.archived")})` : ""}
+                  </Typography>
+                  <Typography fontWeight={600}>{fmt.format(line.amount)}</Typography>
+                  {line.archived ? (
+                    <Typography variant="caption" color="text.secondary">
+                      {t("costs.archivedCounted")}
                     </Typography>
-                    <Typography fontWeight={600}>{fmt.format(line.amount)}</Typography>
-                    {line.archived ? (
-                      <Typography variant="caption" color="text.secondary">
-                        {t("costs.archivedCounted")}
+                  ) : (
+                    line.renewal_date && (
+                      <Typography
+                        variant="caption"
+                        data-near={near ? "true" : "false"}
+                        sx={{
+                          color: near ? EOL_WARNING_COLOR : "text.secondary",
+                          fontWeight: near ? 600 : 400,
+                        }}
+                      >
+                        {t("costs.renewal", { date: formatDate(line.renewal_date) })}
                       </Typography>
-                    ) : (
-                      line.renewal_date && (
-                        <Typography
-                          variant="caption"
-                          data-near={near ? "true" : "false"}
-                          sx={{
-                            color: near ? EOL_WARNING_COLOR : "text.secondary",
-                            fontWeight: near ? 600 : 400,
-                          }}
-                        >
-                          {t("costs.renewal", { date: formatDate(line.renewal_date) })}
-                        </Typography>
-                      )
-                    )}
-                  </ButtonBase>
-                );
-              })}
-            </Box>
-          </>
+                    )
+                  )}
+                </ButtonBase>
+              );
+            })}
+          </Box>
         ) : (
           <Typography variant="body2" color="text.secondary" sx={{ my: 1 }}>
             {t("costs.empty")}

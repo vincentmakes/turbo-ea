@@ -165,7 +165,7 @@ O **Relatório de Custos** fornece análise financeira do seu cenário tecnológ
 - **Visualização treemap** — Retângulos aninhados dimensionados por custo, com agrupamento opcional (ex.: por organização ou capacidade)
 - **Visualização em gráfico de barras** — Comparação de custos entre componentes
 - **Vista Sankey** — O mesmo relatório desenhado como um fluxo de custos (ver [Vista Sankey](#sankey-view))
-- **Tipo de cartão** — Escolha o tipo de cartão em torno do qual o relatório é construído: **Aplicação**, **Componente de TI** ou **Aplicação + Componente de TI** (os dois tipos num só gráfico, cada cartão com o seu próprio custo). As iniciativas deixaram de fazer parte do relatório de custos.
+- **Tipo de cartão** — Dois botões de alternância, **Aplicação** e **Componente de TI**. Prima um para construir o relatório em torno desse tipo, ou mantenha os dois premidos para **Aplicação + Componente de TI** (os dois tipos num só gráfico, cada card com o seu próprio custo). Pelo menos um botão fica sempre ativo; por isso, para passar de um tipo para o outro, prima primeiro o outro botão e depois solte o primeiro. Um tipo que não pode ler não é apresentado. As iniciativas deixaram de fazer parte do relatório de custos.
 - **Tipo de custo** — Escolha o que é somado: **TCO** (o total de todos os itens de custo de cada cartão) ou qualquer item de custo individual do catálogo. Para a opção combinada só são oferecidos os tipos de custo que existem nos dois tipos.
 
 Todas as vistas partilham a mesma barra de ferramentas, os mesmos filtros, o mesmo ano fiscal e o mesmo tipo de custo, pelo que mudar de vista só altera o desenho.
@@ -189,7 +189,7 @@ Os cartões sem valor, ou sem cartão associado, vão para o grupo **Unspecified
 
 ### Ano fiscal
 
-Os custos são anuais, por isso o relatório é elaborado para um **ano fiscal** de cada vez. Um seletor **Ano fiscal** na barra de ferramentas oferece seis entradas, a mais recente primeiro:
+Os custos são anuais, por isso o relatório é elaborado para um **ano fiscal** de cada vez. Uma linha verde **Time Travel** entre os filtros e os blocos de resumo percorre os anos fiscais: arraste o cursor, prima um ano na pista, use as teclas de seta ou os botões anterior e seguinte. Oferece seis passos, o mais antigo à esquerda:
 
 | Entrada | O que mostra |
 |---|---|
@@ -197,7 +197,7 @@ Os custos são anuais, por isso o relatório é elaborado para um **ano fiscal**
 | **FY26 - Current** | O ano fiscal atual, a partir dos atributos de custo em vigor dos cartões. É o valor predefinido. |
 | **FY25** … **FY22** | Os quatro anos fiscais anteriores ao atual, a partir dos custos registados para eles. |
 
-Um ano fiscal chama-se **FY** mais os dois últimos dígitos do ano em que **termina**, seja qual for o mês em que o seu ano fiscal começa: um ano fiscal de julho de 2025 a junho de 2026 é **FY26**. Um chip na barra de ferramentas repete a seleção, por exemplo **Ano fiscal: FY26 - Current**. *Current* e *Forecast* não são traduzidos.
+Um ano fiscal chama-se **FY** mais os dois últimos dígitos do ano em que **termina**, seja qual for o mês em que o seu ano fiscal começa: um ano fiscal de julho de 2025 a junho de 2026 é **FY26**. A linha indica o ano selecionado, por exemplo **FY26 - Current**, e identifica cada passo **FY22** … **FY27**. *Current* e *Forecast* não são traduzidos.
 
 **Os custos das Aplicações e dos Componentes de TI vêm dos itens de custo do card.** Cada item do catálogo (incluindo os arquivados) é um componente de custo próprio no treemap, no Sankey, na tendência e na tabela, e o Forecast é o ano Forecast da [seção de Custos](card-details.md#seção-de-custos-aplicação-e-componente-de-ti) do card. Para os outros tipos de card (Iniciativa, Fornecedor), o próximo ano fiscal é introduzido manualmente no histórico de custos do card, o que requer a mesma permissão que registar um ano passado. Quando esse ano passa a ser o atual, o relatório lê em vez disso os atributos em direto, e o valor em direto do card substitui o digitado.
 
@@ -270,7 +270,7 @@ O botão de ecrã inteiro no treemap e no Sankey faz o gráfico ocupar todo o ec
 
 O **Relatório de Licenciamento** (**Relatórios → Licenciamento**) compara, para cada Aplicação ou Componente de TI, as licenças contratadas com as realmente usadas e assinala um excesso. Requer a permissão `licenses.view`. Os dados são introduzidos na [seção Licenciamento](card-details.md#seção-de-licenças-aplicação-e-componente-de-ti) de cada card ou importados do Excel.
 
-A barra de ferramentas escolhe o **tipo de card** (Aplicação ou Componente de TI, um de cada vez), a **métrica** (**Utilizadores** ou **Instalações**), o **tipo de licença** (todos, ou uma entrada do catálogo), o **agrupamento**, o **ano fiscal** e o âmbito dos cards. Só são listados os cards cujo campo **Modelo de licenciamento** inclui a métrica selecionada. Quatro blocos no topo contam os cards **Conformes**, **Perto do limite**, **Sobrelicenciados** ou **Sem dados reais** no ano selecionado.
+A barra de ferramentas escolhe o **tipo de card** (Aplicação ou Componente de TI, um de cada vez), a **métrica** (**Utilizadores** ou **Instalações**), o **tipo de licença** (todos, ou uma entrada do catálogo), o **agrupamento** e o âmbito dos cards. O **ano fiscal** escolhe-se com a mesma linha verde **Time Travel** do relatório de custos, sem o ano Forecast. Só são listados os cards cujo campo **Modelo de licenciamento** inclui a métrica selecionada. Quatro blocos no topo contam os cards **Conformes**, **Perto do limite**, **Sobrelicenciados** ou **Sem dados reais** no ano selecionado.
 
 **Tendência** — Acima da vista, um gráfico mostra as quantidades licenciadas face às reais do ano atual, dos quatro anteriores e do ano **Forecast** (só licenciado), empilhadas por tipo de licença. Segue o filtro do tipo de licença, o âmbito e qualquer detalhe.
 

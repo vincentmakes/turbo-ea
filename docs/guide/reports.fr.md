@@ -165,7 +165,7 @@ Le **Rapport Coûts** fournit une analyse financière de votre paysage technolog
 - **Vue treemap** -- Rectangles imbriqués dimensionnés par coût, avec regroupement optionnel (par ex. par organisation ou capacité)
 - **Vue graphique à barres** -- Comparaison des coûts entre composants
 - **Vue Sankey** -- Le même rapport dessiné comme un flux de coûts (voir [Vue Sankey](#sankey-view))
-- **Type de fiche** -- Choisissez le type de fiche autour duquel le rapport est construit : **Application**, **Composant IT** ou **Application + Composant IT** (les deux types dans un même graphique, chaque fiche avec son propre coût). Les initiatives ne font plus partie du rapport de coûts.
+- **Type de fiche** -- Deux boutons à bascule, **Application** et **Composant IT**. Appuyez sur l'un pour construire le rapport autour de ce type, ou gardez les deux enfoncés pour **Application + Composant IT** (les deux types dans un même graphique, chaque fiche avec son propre coût). Au moins un bouton reste toujours actif : pour passer d'un type à l'autre, appuyez d'abord sur l'autre bouton, puis relâchez le premier. Un type que vous n'avez pas le droit de lire n'est pas proposé. Les initiatives ne font plus partie du rapport de coûts.
 - **Type de coût** -- Choisissez ce qui est additionné : **TCO** (le total de tous les postes de coûts de chaque fiche) ou un poste de coûts isolé du catalogue. Pour l'option combinée, seuls les types de coût présents dans les deux types sont proposés.
 
 Toutes les vues partagent la même barre d'outils, les mêmes filtres, le même exercice fiscal et le même type de coût : changer de vue ne modifie donc que le dessin.
@@ -189,7 +189,7 @@ Les fiches sans valeur ou sans fiche liée vont dans le groupe **Unspecified**. 
 
 ### Exercice fiscal
 
-Les coûts sont annuels : le rapport est donc établi pour un **exercice fiscal** à la fois. Un sélecteur **Exercice fiscal** dans la barre d'outils propose six entrées, la plus récente en premier :
+Les coûts sont annuels : le rapport est donc établi pour un **exercice fiscal** à la fois. Une ligne verte **Time Travel**, entre les filtres et les vignettes de synthèse, permet de parcourir les exercices : faites glisser la poignée, appuyez sur une année de la piste, utilisez les touches fléchées ou les boutons précédent et suivant. Elle propose six étapes, la plus ancienne à gauche :
 
 | Entrée | Ce qu'elle affiche |
 |---|---|
@@ -197,7 +197,7 @@ Les coûts sont annuels : le rapport est donc établi pour un **exercice fiscal*
 | **FY26 - Current** | L'exercice en cours, à partir des attributs de coût actuels des fiches. C'est la valeur par défaut. |
 | **FY25** … **FY22** | Les quatre exercices précédant l'exercice en cours, à partir des coûts enregistrés pour eux. |
 
-Un exercice fiscal se nomme **FY** suivi des deux derniers chiffres de l'année où il **se termine**, quel que soit le mois où débute votre exercice : un exercice allant de juillet 2025 à juin 2026 est **FY26**. Une puce de la barre d'outils rappelle la sélection, par exemple **Exercice fiscal : FY26 - Current**. *Current* et *Forecast* ne sont pas traduits.
+Un exercice fiscal se nomme **FY** suivi des deux derniers chiffres de l'année où il **se termine**, quel que soit le mois où débute votre exercice : un exercice allant de juillet 2025 à juin 2026 est **FY26**. La ligne nomme l'exercice sélectionné, par exemple **FY26 - Current**, et étiquette chaque étape **FY22** … **FY27**. *Current* et *Forecast* ne sont pas traduits.
 
 **Les coûts des Applications et des Composants IT proviennent des postes de coûts de la fiche.** Chaque poste du catalogue (y compris archivé) est une composante de coût à part entière dans la carte arborescente, le Sankey, la tendance et le tableau, et le Forecast est l'exercice Forecast de la [section Coûts](card-details.md#section-coûts-application-et-composant-it) de la fiche. Pour les autres types de fiche (Initiative, Fournisseur), l'exercice suivant se saisit à la main dans l'historique des coûts de la fiche, ce qui requiert la même permission que l'enregistrement d'un exercice passé. Lorsque cet exercice devient l'exercice courant, le rapport lit à la place les attributs en direct, et la valeur en direct de la fiche remplace celle saisie.
 
@@ -270,7 +270,7 @@ Le bouton plein écran du treemap et du Sankey fait occuper tout l'écran au gra
 
 Le **Rapport Licences** (**Rapports → Licences**) compare, pour chaque Application ou Composant IT, les licences sous contrat à celles réellement utilisées, et signale un dépassement. Il nécessite la permission `licenses.view`. Les données sont saisies dans la [section Licences](card-details.md#section-licences-application-et-composant-it) de chaque fiche ou importées depuis Excel.
 
-La barre d'outils choisit le **type de fiche** (Application ou Composant IT, un à la fois), l'**indicateur** (**Utilisateurs** ou **Installations**), le **type de licence** (tous, ou une entrée du catalogue), le **regroupement**, l'**exercice** et le périmètre des fiches. Seules les fiches dont le champ **Modèle de licence** inclut l'indicateur sélectionné sont listées. Quatre vignettes en haut comptent les fiches **Conformes**, **Proches du seuil**, **Surlicenciées** ou **Sans donnée réelle** pour l'exercice sélectionné.
+La barre d'outils choisit le **type de fiche** (Application ou Composant IT, un à la fois), l'**indicateur** (**Utilisateurs** ou **Installations**), le **type de licence** (tous, ou une entrée du catalogue), le **regroupement** et le périmètre des fiches. L'**exercice** se choisit avec la même ligne verte **Time Travel** que dans le rapport de coûts, sans l'année Forecast. Seules les fiches dont le champ **Modèle de licence** inclut l'indicateur sélectionné sont listées. Quatre vignettes en haut comptent les fiches **Conformes**, **Proches du seuil**, **Surlicenciées** ou **Sans donnée réelle** pour l'exercice sélectionné.
 
 **Tendance** — Au-dessus de la vue, un graphique compare les quantités sous licence et réelles pour l'exercice courant, les quatre précédents et l'exercice **Forecast** (sous licence uniquement), empilées par type de licence. Il suit le filtre de type de licence, le périmètre et tout forage.
 

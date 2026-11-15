@@ -165,7 +165,7 @@ The **Cost Report** provides financial analysis of your technology landscape:
 - **Treemap view** — Nested rectangles sized by cost, with optional grouping (e.g., by organization or capability)
 - **Bar chart view** — Cost comparison across components
 - **Sankey view** — The same report drawn as a flow of cost (see [Sankey view](#sankey-view))
-- **Card Type** — Pick which card type the report is built around: **Application**, **IT Component** or **Application + IT Component** (both types in one chart, each card with its own cost). Initiatives are no longer part of the Cost Report.
+- **Card Type** — Two toggle buttons, **Application** and **IT Component**. Press one to build the report around that type, or keep both pressed for **Application + IT Component** (both types in one chart, each card with its own cost). At least one button always stays on, so to go from one type to the other, press the other button first and then release the first. A type you may not read is not offered. Initiatives are no longer part of the Cost Report.
 - **Cost type** — Pick what is summed: **TCO** (the total of all cost items of each card) or any single cost item of the catalogue. For the combined option only the cost types that exist in both types are offered.
 
 All views share the same toolbar, filters, fiscal year and cost field, so switching view only changes the drawing.
@@ -189,7 +189,7 @@ Cards with no value, or no linked card, go to the group **Unspecified**. For the
 
 ### Fiscal year
 
-Costs are annual, so the report is built for one **fiscal year** at a time. A **Fiscal year** picker in the toolbar offers six entries, newest first:
+Costs are annual, so the report is built for one **fiscal year** at a time. A green **Time Travel** row between the filters and the summary tiles moves across the fiscal years: drag the handle, press a year on the track, use the arrow keys or the previous and next buttons. It offers six steps, oldest on the left:
 
 | Entry | What it shows |
 |---|---|
@@ -197,7 +197,7 @@ Costs are annual, so the report is built for one **fiscal year** at a time. A **
 | **FY26 - Current** | The current fiscal year, from the cards' live cost attributes. This is the default. |
 | **FY25** … **FY22** | The four fiscal years before the current one, from the costs recorded for them. |
 
-A fiscal year is named **FY** plus the last two digits of the year it **ends** in, whatever month your fiscal year starts in: a fiscal year running from July 2025 to June 2026 is **FY26**. A chip in the toolbar repeats the selection, for example **Fiscal year: FY26 - Current**. *Current* and *Forecast* are not translated.
+A fiscal year is named **FY** plus the last two digits of the year it **ends** in, whatever month your fiscal year starts in: a fiscal year running from July 2025 to June 2026 is **FY26**. The row names the selected year, for example **FY26 - Current**, and labels each step **FY22** … **FY27**. *Current* and *Forecast* are not translated.
 
 **Application and IT Component costs come from the card's cost items.** Each catalogue item (archived ones included) is its own cost component in the treemap, Sankey, trend and table, and the Forecast is the Forecast year of the card's [Costs section](card-details.md#costs-section-application-and-it-component). For other card types (Initiative, Provider) the next fiscal year is entered by hand in the card's cost history, which needs the same permission as recording a past year. When that year becomes the current one, the report reads the live attributes instead, and the card's live figure replaces what was typed.
 
@@ -270,7 +270,7 @@ The full-screen button on the treemap and the Sankey makes the chart fill the wh
 
 The **Licensing Report** (**Reports → Licensing**) compares, for every Application or IT Component, the licenses under contract with the ones really used, and flags an overrun. It needs the `licenses.view` permission. The data is entered in the [Licensing section](card-details.md#licensing-section-application-and-it-component) of each card or imported from Excel.
 
-The toolbar picks the **card type** (Application or IT Component, one at a time), the **metric** (**Users** or **Installations**), the **license type** (all, or one entry of the catalogue), the **group by**, the **fiscal year** and the card scope. Only cards whose **Licensing model** field includes the selected metric are listed. Four tiles on top count the cards that are **Compliant**, **Approaching**, **Over-licensed** or have **No actual data** in the selected year.
+The toolbar picks the **card type** (Application or IT Component, one at a time), the **metric** (**Users** or **Installations**), the **license type** (all, or one entry of the catalogue), the **group by** and the card scope. The **fiscal year** is chosen with the same green **Time Travel** row as in the Cost Report, without the Forecast year. Only cards whose **Licensing model** field includes the selected metric are listed. Four tiles on top count the cards that are **Compliant**, **Approaching**, **Over-licensed** or have **No actual data** in the selected year.
 
 **Trend** — Above the view, a chart shows licensed against actual counts for the current year, the four before it and the **Forecast** year (licensed only), stacked by license type. It follows the license type filter, the scope and any drill-down.
 

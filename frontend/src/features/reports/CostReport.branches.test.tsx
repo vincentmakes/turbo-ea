@@ -9,7 +9,8 @@
  * hands each datum to the page's own `content` renderer at a fixed size —
  * which is the code under test — and renders the tooltip content once, active.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { installResizeObserver } from "@/test/dom";
 import {
   act,
   fireEvent,
@@ -206,6 +207,13 @@ function renderCost() {
 const metric = (label: string) =>
   screen.getByText(label).closest(".MuiPaper-root");
 
+const typeGroup = async () =>
+  within(await screen.findByRole("group", { name: /card type/i }, { timeout: 5000 }));
+const typeButtonNames = async () =>
+  (await typeGroup()).getAllByRole("button").map((b) => b.textContent);
+const pressType = async (name: string) =>
+  fireEvent.click((await typeGroup()).getByRole("button", { name }));
+
 async function pickOption(label: RegExp, option: RegExp) {
   // The request the caller waited on is recorded when it is sent, not when its
   // response renders, so the toolbar may still be behind a spinner here.
@@ -223,7 +231,11 @@ async function pickOption(label: RegExp, option: RegExp) {
   }
 }
 
+// The fiscal-year slider measures its track with a ResizeObserver, which jsdom lacks.
+let restoreResizeObserver: () => void;
+afterEach(() => restoreResizeObserver());
 beforeEach(() => {
+  restoreResizeObserver = installResizeObserver();
   mockApi.reset();
   mockApi.on("get", "/metamodel/cost-item-types", []);
   hookState.reset();
@@ -380,7 +392,8 @@ describe("CostReport toolbar", () => {
     withMetamodel([TWO_COSTS, IT_COMPONENT_TYPE], []);
     renderCost();
     await screen.findByTestId("treemap");
-    await pickOption(/card type/i, /^IT Component$/);
+    await pressType("IT Component");
+    await pressType("Application");
     await waitFor(() =>
       expect(lastTreemapParams().get("type")).toBe("ITComponent"),
     );
@@ -712,31 +725,32 @@ describe("CostReport type, cost field and group by selectors", () => {
     });
   });
 
-  it("offers the combined option and no initiative", async () => {
+  it("offers Application and IT Component and no initiative", async () => {
     renderCost();
-    fireEvent.mouseDown(
-      await screen.findByRole("combobox", { name: /card type/i }),
-    );
-    expect(await optionNames()).toEqual([
-      "Application",
-      "IT Component",
-      "Application + IT Component",
-    ]);
+    expect(await typeButtonNames()).toEqual(["Application", "IT Component"]);
   });
 
-  it("omits the combined option when a type is not readable", async () => {
+  it("offers one button when a type is not readable", async () => {
     withMetamodel([APP_G, INITIATIVE_G], []);
     renderCost();
-    fireEvent.mouseDown(
-      await screen.findByRole("combobox", { name: /card type/i }),
-    );
-    expect(await optionNames()).toEqual(["Application"]);
+    expect(await typeButtonNames()).toEqual(["Application"]);
   });
 
-  it("combined option sends type=Application,ITComponent", async () => {
+  it("offers one button, on and not switchable off, when only IT Component is readable", async () => {
+    withMetamodel([ITC_G, INITIATIVE_G], []);
+    renderCost();
+    expect(await typeButtonNames()).toEqual(["IT Component"]);
+    const button = (await typeGroup()).getByRole("button", { name: "IT Component" });
+    expect(button).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(button);
+    expect(button).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => expect(lastParams(treemapCalls()).get("type")).toBe("ITComponent"));
+  });
+
+  it("both buttons on send type=Application,ITComponent", async () => {
     renderCost();
     await screen.findByTestId("treemap");
-    await pickOption(/card type/i, /Application \+ IT Component/);
+    await pressType("IT Component");
     await waitFor(() =>
       expect(lastParams(treemapCalls()).get("type")).toBe(
         "Application,ITComponent",
@@ -802,7 +816,7 @@ describe("CostReport type, cost field and group by selectors", () => {
     renderCost();
     await screen.findByTestId("sankey");
     expect(
-      screen.getByRole("combobox", { name: /card type/i }),
+      screen.getByRole("group", { name: /card type/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("combobox", { name: /group by/i }),

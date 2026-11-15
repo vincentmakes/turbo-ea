@@ -122,10 +122,10 @@ I campi contrassegnati come **calcolati** mostrano un badge e non possono essere
 
 ### Sezione Costi (Applicazione e Componente IT)
 
-Le Applicazioni e i Componenti IT registrano il proprio costo come elenco di **elementi di costo** (ad esempio licenze, hosting, supporto), non come un unico numero digitato. La sezione **Costi** mostra un anno fiscale alla volta, con un navigatore **‹ ›** su sei anni: i quattro precedenti a quello corrente, quello corrente e il **Forecast**.
+Le Applicazioni e i Componenti IT registrano il proprio costo come elenco di **elementi di costo** (ad esempio licenze, hosting, supporto), non come un unico numero digitato. Una riga verde **Time Travel** in cima alla sezione **Costi** scorre sei anni fiscali: i quattro precedenti a quello corrente, quello corrente e il **Forecast**. Sotto, una barra impilata per anno fiscale mostra come ogni anno si ripartisce tra gli elementi, con il Forecast in alto, l'anno più vecchio in basso e il totale dell'anno al termine della barra. L'anno selezionato è evidenziato e gli altri sono attenuati.
 
 - **TCO** — Il costo totale di proprietà dell'anno è la somma deli suoi elementi. Non viene mai digitato a mano.
-- **Grafico e riquadri** — Una barra impilata mostra come il TCO si ripartisce tra gli elementi. Ogni elemento ha un riquadro con il suo **importo annuo** e la **data di rinnovo**; un rinnovo entro 90 giorni è mostrato in arancione. I costi sono sempre annuali.
+- **Grafico e riquadri** — I riquadri mostrano solo l'anno selezionato. Ogni elemento ha un riquadro con il suo **importo annuo** e la **data di rinnovo**; un rinnovo entro 90 giorni è mostrato in arancione. I costi sono sempre annuali.
 - **Aggiunta e modifica** — Un elemento si aggiunge, modifica o elimina in una finestra di dialogo. Gli elementi provengono dal catalogo che un amministratore gestisce in [Metamodello → Elementi di costo](../admin/metamodel.md#elementi-di-costo).
 - **Copia in Forecast** — Copia gli elementi dell'anno che stai visualizzando nell'anno Forecast, per avviare un piano a partire dalle cifre attuali.
 
@@ -137,7 +137,7 @@ Il campo **Costo annuo totale** (`costTotalAnnual`) della card è derivato dalgl
 
 ### Sezione Licenze (Applicazione e Componente IT)
 
-La sezione **Licenze** registra, anno per anno, quante licenze la scheda ha a contratto e quante sono realmente utilizzate. Si trova accanto ai Costi e ha lo stesso navigatore **‹ ›** su sei anni: i quattro precedenti a quello corrente, quello corrente e il **Forecast**. Le metriche monitorate dalla scheda (**Utenti**, **Installazioni**) derivano dal suo **Modello di licenza**, mostrato in alto nella sezione. Chi può modificare la scheda lo cambia con **Modifica**: seleziona **Utenti** e/o **Installazioni**, quindi **Salva**. Il modello non compare tra gli altri campi della scheda.
+La sezione **Licenze** registra, anno per anno, quante licenze la scheda ha a contratto e quante sono realmente utilizzate. Si trova accanto ai Costi e ha la stessa riga verde **Time Travel** su sei anni: i quattro precedenti a quello corrente, quello corrente e il **Forecast**. Le metriche monitorate dalla scheda (**Utenti**, **Installazioni**) derivano dal suo **Modello di licenza**, mostrato in alto nella sezione. Chi può modificare la scheda lo cambia con **Modifica**: seleziona **Utenti** e/o **Installazioni**, quindi **Salva**. Il modello non compare tra gli altri campi della scheda.
 
 ![Sezione Licenze](../assets/img/en/104_card_licensing.png)
 
