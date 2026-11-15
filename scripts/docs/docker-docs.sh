@@ -41,7 +41,7 @@ docker info >/dev/null 2>&1 || { echo "Docker is not running"; exit 1; }
 stack() {
     POSTGRES_PASSWORD=docs_throwaway SECRET_KEY=docs_throwaway_secret_key_not_for_real_use_0123456789 \
         SEED_DEMO=true HOST_PORT="$HOST_PORT_DOCS" TLS_HOST_PORT="$TLS_PORT_DOCS" \
-        docker compose -p "$PROJECT" -f "$REPO/docker-compose.yml" -f "$REPO/scripts/docs/docker-compose.docs.yml" "$@"
+        docker compose -p "$PROJECT" -f "$HOST_REPO/docker-compose.yml" -f "$HOST_REPO/scripts/docs/docker-compose.docs.yml" "$@"
 }
 
 run_check() {
@@ -60,7 +60,7 @@ run_images() {
 run_capture() {
     for svc in db backend frontend nginx mcp-server; do
         echo "==> docker build --target $svc"
-        docker build -q --target "$svc" -t "turboea-docs-$svc:local" "$REPO"
+        docker build -q --target "$svc" -t "turboea-docs-$svc:local" "$HOST_REPO"
     done
     echo "==> Starting the isolated stack on port $HOST_PORT_DOCS (demo data)"
     stack up -d
@@ -87,8 +87,14 @@ run_capture() {
 case "$MODE" in
     check) run_check ;;
     images) run_images ;;
-    all) run_check; run_images ;;
-    capture) run_capture "$@"; run_check; run_images ;;
+    all | capture)
+        # Run both checks even when the first fails, so one run reports everything.
+        [ "$MODE" = "capture" ] && run_capture "$@"
+        rc=0
+        run_check || rc=1
+        run_images || rc=1
+        exit "$rc"
+        ;;
     down) stack down -v ;;
     *) usage ;;
 esac
