@@ -2,6 +2,8 @@
 paths:
   - "backend/app/services/archimate/**"
   - "backend/app/api/v1/archimate.py"
+  - "backend/app/api/v1/diagrams.py"
+  - "frontend/src/features/diagrams/ResourcesTab.tsx"
   - "backend/app/models/archimate_viewpoint.py"
   - "backend/alembic/versions/*archimate*"
   - "frontend/src/features/archimate/**"
