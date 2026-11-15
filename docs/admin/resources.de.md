@@ -78,9 +78,11 @@ Die Seite verwendet dieselben Berechtigungen wie der Ressourcen-Reiter einer Kar
 
 Das Massenlöschen wird **pro Zeile** geprüft. Enthält Ihre Auswahl Ressourcen auf Karten, die Sie nicht verwalten dürfen, werden diese Zeilen übersprungen, statt den gesamten Vorgang scheitern zu lassen, und eine Warnung listet genau auf, welche und warum.
 
-## Wenn Datei-Uploads deaktiviert sind
+## Wenn Datei-Uploads deaktiviert sind {: #when-file-uploads-are-disabled }
 
 Das Ausschalten von **Datei-Uploads** unter **Admin → Einstellungen → Allgemein** blockiert lediglich neue Uploads. Vorhandene Dateien bleiben hier gelistet und weiterhin herunterladbar und löschbar, sodass Sie weiterhin prüfen und aufräumen können. Solange der Schalter aus ist, erscheint auf der Seite ein Informationsbanner.
+
+Derselbe Schalter blendet auch die Steuerelemente aus, mit denen Bilder in den Text von [Entscheidungen](../guide/grc.md#decision-pictures) und [SoAWs](../guide/delivery.md#soaw-pictures) eingefügt werden. Bilder, die bereits in einem Dokument stehen, bleiben sichtbar.
 
 ## Verwandte Themen
 

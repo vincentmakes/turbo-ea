@@ -117,3 +117,51 @@ describe("VersionViewPane, another version picked", () => {
     expect(await screen.findByText("Second title")).toBeInTheDocument();
   });
 });
+
+describe("VersionViewPane — pictures", () => {
+  const ID = "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
+
+  it("shows a decision version's picture through the sanitiser, sized to the pane", async () => {
+    const pic = `/api/v1/document-images/adr/${ID}`;
+    mockApi.on("get", "/adr/a1/history/v1", {
+      entry: ENTRY,
+      content: {
+        title: "With a picture",
+        context: `<img src="${pic}" width="90" onerror="x()"><img src="data:image/png;base64,AAAA">`,
+        decision: null,
+        consequences: null,
+        alternatives_considered: null,
+        decided_on: null,
+        effective_from: null,
+        valid_until: null,
+        change_summary: null,
+        decision_makers: [],
+        participants: [],
+      },
+    });
+    const { container } = renderWithProviders(<VersionViewPane owner={{ kind: "adr", id: "a1" }} entryId="v1" />);
+    await screen.findByText("With a picture");
+    const pictures = Array.from(container.querySelectorAll("img"));
+    expect(pictures.map((p) => p.outerHTML)).toEqual([`<img src="${pic}" width="90">`]);
+    expect(pictures[0]).toHaveStyle({ maxWidth: "100%", height: "auto" });
+  });
+
+  it("shows a SoAW version's picture-only section and drops an external picture", async () => {
+    const pic = `/api/v1/document-images/soaw/${ID}`;
+    mockApi.on("get", "/soaw/s1/history/v1", {
+      entry: ENTRY,
+      content: {
+        name: "Pictured SoAW",
+        document_info: { prepared_by: "", reviewed_by: "", review_date: "" },
+        version_history: [],
+        sections: {
+          "1.1": { content: `<img src="${pic}" data-align="center"><img src="https://x.example/a.png">`, hidden: false },
+        },
+      },
+    });
+    const { container } = renderWithProviders(<VersionViewPane owner={{ kind: "soaw", id: "s1" }} entryId="v1" />);
+    await screen.findByText("Pictured SoAW");
+    const pictures = Array.from(container.querySelectorAll(".soaw-preview img"));
+    expect(pictures.map((p) => p.outerHTML)).toEqual([`<img src="${pic}" data-align="center">`]);
+  });
+});

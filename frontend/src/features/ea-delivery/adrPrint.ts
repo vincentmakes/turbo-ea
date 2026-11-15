@@ -3,7 +3,8 @@
  *
  * Builds the same content, in the same order, as the Word export in
  * `adrExport.ts` (facts, change summary, the four sections, linked decisions,
- * files, linked cards, extension sections, signatures or the recorded line)
+ * files, diagram names, linked cards, extension sections, signatures or the
+ * recorded line)
  * from the shared `adrDocumentFacts.ts`, as an HTML body for the shared
  * pop-up print path in
  * `@/lib/printDocument`. Kept free of `docx` so the preview and editor chunks
@@ -17,6 +18,7 @@ import {
 } from "@/hooks/useDateFormat";
 import { getExtensionAdrExportSections } from "@/lib/extensionHost";
 import {
+  documentContent,
   documentHeader,
   escapeHtml,
   htmlIsEmpty,
@@ -31,6 +33,7 @@ import {
 } from "@/lib/printDocument";
 import type { ArchitectureDecision } from "@/types";
 import {
+  adrDiagramNames,
   adrFactRows,
   adrFileNames,
   adrHeading,
@@ -59,7 +62,8 @@ export function buildAdrPrintBody(adr: ExportableDecision): string {
   // Labels first: a section holding only a restricted / deleted mention is not empty.
   const rich = (title: string, content: string | null) => {
     const filled = fillMentionLabelsI18n(content ?? "");
-    return htmlIsEmpty(filled) ? "" : section(title, filled);
+    // The stored fragment sits in `.doc-content`, where the stored-content rules apply.
+    return htmlIsEmpty(filled) ? "" : section(title, documentContent(filled));
   };
   html += rich(t("adr.context"), adr.context);
   html += rich(t("adr.decision"), adr.decision);
@@ -72,6 +76,13 @@ export function buildAdrPrintBody(adr: ExportableDecision): string {
     tableHtml(
       [t("adr.export.fileName")],
       adrFileNames(adr).map((name) => [name]),
+    ),
+  );
+  html += section(
+    t("adr.export.diagrams"),
+    tableHtml(
+      [t("adr.export.diagramName")],
+      adrDiagramNames(adr).map((name) => [name]),
     ),
   );
 

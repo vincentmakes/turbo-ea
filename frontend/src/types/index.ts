@@ -1392,6 +1392,15 @@ export interface DecisionFile {
   created_by: { user_id: string; display_name: string | null } | null;
 }
 
+/** A free-draw diagram linked to a decision (a live link, not a copy). */
+export interface AdrLinkedDiagram {
+  id: string;
+  name: string;
+  /** The stored SVG (data URI or raw markup); `null` when none or too large. */
+  thumbnail: string | null;
+  updated_at: string | null;
+}
+
 export interface DecisionRevision extends DecisionRef {
   status: ArchitectureDecision["status"];
   standing: DecisionStanding | null;
@@ -1456,6 +1465,9 @@ export interface ArchitectureDecision {
   change_summary?: string | null;
   recorded_by?: { user_id: string; display_name: string | null } | null;
   files?: DecisionFile[];
+  /** Detail only: the free-draw diagrams linked to the decision, by name;
+   *  `[]` for a reader without `diagrams.view`. */
+  diagrams?: AdrLinkedDiagram[];
   /** Detail only: unresolved discussion threads on this revision. */
   open_thread_count?: number;
 }

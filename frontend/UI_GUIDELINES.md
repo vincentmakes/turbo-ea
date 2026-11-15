@@ -746,7 +746,10 @@ Stored **rich text** (ADR and SoAW sections, a portal's card description) goes t
 `target` and leaves every anchor same-tab. The wrapper autolinks bare URLs in text nodes,
 sanitises last so stored and generated anchors share one policy, stamps `target`/`rel` on
 every anchor whose href is `http`, `https` or `mailto`, and strips any other href. It runs on
-a private DOMPurify instance so the SVG-thumbnail sanitisers never inherit the hook.
+a private DOMPurify instance so the SVG-thumbnail sanitisers never inherit the hook. It also
+removes what the editor never writes (`<style>`, forms, media, SVG, URL-taking attributes)
+and keeps an inline `style` only as a table's or column's pixel width or a cell's
+`text-align`, so a surface that renders stored HTML styles it with classes, never inline.
 
 Detection in prose is **`http(s)://` only** — no bare `www.`, no bare e-mails — the same
 allowlist the `url` field type enforces, chosen for zero false positives. `mailto:` is

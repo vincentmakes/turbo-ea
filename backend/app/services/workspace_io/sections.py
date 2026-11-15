@@ -4,8 +4,8 @@ the generic :mod:`entities` engine.
 Listed in dependency order: a section's intra-module parents come first
 (``PpmWbs`` before ``PpmTask`` before ``PpmTaskComment``; ``Risk`` before
 ``RiskCard``/``RiskMitigationTask`` before the occurrences; ``ArchitectureDecision``
-before its card links, decision links, people and files, with the file contents
-before the files; ``Survey`` before ``SurveyResponse``). Cards and relations
+before its card links, decision links, people, files and diagram links, with the
+file contents before the files; ``Survey`` before ``SurveyResponse``). Cards and relations
 are applied earlier by the bespoke core sections, so card FKs always resolve.
 
 Deliberately absent: ``events``, ``mutation_batches`` and ``audit_log``. They are
@@ -21,6 +21,7 @@ import sqlalchemy as sa
 
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
+from app.models.architecture_decision_diagram import ArchitectureDecisionDiagram
 from app.models.architecture_decision_file import (
     ArchitectureDecisionFile,
     ArchitectureDecisionFileContent,
@@ -36,6 +37,7 @@ from app.models.diagram_group import DiagramGroup
 from app.models.document import Document
 from app.models.document_comment import DocumentComment
 from app.models.document_history import DocumentHistoryEntry
+from app.models.document_image import DocumentImage
 from app.models.file_attachment import FileAttachment
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
 from app.models.ppm_dependency import PpmDependency
@@ -255,6 +257,17 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         id_bearing_columns=("finding_key",),
     ),
     # --- Governance / delivery -------------------------------------------
+    # The pictures in decision and SoAW text, before the documents that show
+    # them. The text names a picture by its id
+    # (``/api/v1/document-images/{kind}/{id}``), which survives the transfer
+    # like every module PK, so no text is rewritten. ``used_at`` travels with
+    # the row: a picture a document holds is never purged as unused.
+    EntitySection(
+        "DocumentImages",
+        DocumentImage,
+        user_fk_columns=("created_by",),
+        asset_columns=(("data", "bytes", "bin"),),
+    ),
     EntitySection(
         "Adrs",
         ArchitectureDecision,
@@ -286,6 +299,10 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         asset_columns=(("data", "bytes", "bin"),),
     ),
     EntitySection("AdrFiles", ArchitectureDecisionFile, user_fk_columns=("created_by",)),
+    # Live links from a decision to a free-draw diagram. Both ends are module
+    # PKs (``Diagrams`` and ``Adrs`` both come earlier and keep their ids), so
+    # they resolve verbatim with no remap, like ``AdrLinks``.
+    EntitySection("AdrDiagrams", ArchitectureDecisionDiagram),
     EntitySection(
         "Soaws",
         SoAW,

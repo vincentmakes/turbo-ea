@@ -40,6 +40,8 @@ EA Delivery åbner for enhver rolle, der har **Se SoAW-dokumenter** (`soaw.view`
 
 En gruppe, du ikke må se, udelades fra arbejdsområdet, og **+ Ny artefakt** og **+ Tilføj …** tilbyder kun de slags, du må oprette — en rolle, der kun kan læse, ser ingen af knapperne. En rolle med kun `adr.view` får derfor siden med hvert initiativs beslutninger og intet om SoAW'er.
 
+Diagrammerne, der er vedhæftet en beslutning, følger også `diagrams.view`: en rolle uden den ser ingen sektion [Diagrammer](grc.md#decision-diagrams) på en beslutning.
+
 ## Statement of Architecture Work (SoAW)
 
 En **Statement of Architecture Work (SoAW)** er et formelt dokument defineret af [TOGAF-standarden](https://pubs.opengroup.org/togaf-standard/) (The Open Group Architecture Framework). Den fastlægger omfanget, tilgangen, leverancerne og styringen for et arkitekturengagement. I TOGAF produceres SoAW'en under **Preliminary Phase** og **Phase A (Architecture Vision)** og fungerer som en aftale mellem arkitekturteamet og dets interessenter.
@@ -57,11 +59,13 @@ Turbo EA tilbyder en indbygget SoAW-editor med TOGAF-tilpassede sektions­skabel
 
 Editoren tilbyder:
 
-- **Rich text-redigering** — Komplet formateringsværktøjslinje (overskrifter, fed, kursiv, lister, links) drevet af TipTap-editoren
-- **Links** — En URL, du skriver eller indsætter, bliver til et link, mens du skriver, og hvert link i et dokument åbner i en ny fane. Adresser i dokumenter skrevet før links blev understøttet, linkes når dokumentet vises
+- **Rich text-redigering** — en formateringsværktøjslinje på hver tekstsektion: fed, kursiv, understreget, gennemstreget, inline-kode, en overskrift og en underoverskrift, punktlister og nummererede lister, citater, kodeblokke, skillelinjer, links, tabeller, omtaler og billeder
+- **Links** — markér nogle ord, og klik på **Link**, eller tryk på **Ctrl+K** (**Cmd+K** på en Mac) for at linke dem til en web- eller e-mailadresse; samme knap eller genvej redigerer eller fjerner linket under markøren. En webadresse, du skriver eller indsætter, bliver af sig selv til et link. Mens du redigerer, placerer et klik på et link markøren i det, og **Ctrl+klik** (**Cmd+klik**) åbner det; i forhåndsvisningen og et låst dokument åbner et klik det. Hvert link åbner i en ny fane, og adresser i dokumenter skrevet før links blev understøttet, linkes når dokumentet vises. Se [Links i teksten](grc.md#decision-text-links)
 - **Sektions­skabeloner** — Foruddefinerede sektioner, der følger TOGAF-standarder (f.eks. Problembeskrivelse, Mål, Tilgang, Interessenter, Begrænsninger, Arbejdsplan)
-- **Indlejret redigerbare tabeller** — Tilføj og rediger tabeller inden for en sektion
+- **Skabelontabeller** — skabelonens tabelsektioner (mål, interessenter, risici og lignende) er gitre med faste kolonner: tilføj og fjern rækker direkte
+- **Tabeller i teksten** — indsæt din egen tabel i en hvilken som helst tekstsektion (se [Tabeller](#soaw-tables))
 - **Omtaler** — skriv **@** i en sektions tekst for at omtale et kort eller en beslutning (se [Diskussion, omtaler og historik](#soaw-collaboration))
+- **Billeder** — indsæt et skærmbillede eller et diagram i en sektions tekst (se [Billeder](#soaw-pictures))
 - **Dokumentets versionshistorik** — en tabel, som forfatterne udfylder i hånden (version, dato, revideret af, beskrivelse). Den er en del af dokumentet og er ikke visningen [Historik](#soaw-collaboration)
 - **Status­arbejdsproces** — Dokumenter bevæger sig gennem definerede stadier:
 
@@ -71,6 +75,18 @@ Editoren tilbyder:
 | **In Review** | Sendt til underskrift — låst, indtil underskrifterne tilbagekaldes |
 | **Approved** | Gennemgået og accepteret |
 | **Signed** | Formelt underskrevet |
+
+### Billeder {: #soaw-pictures }
+
+En sektions tekst kan indeholde billeder, ligesom en beslutnings. Klik på **Indsæt billede** i sektionens værktøjslinje og vælg en fil, indsæt et billede fra udklipsholderen, eller træk en billedfil hen på sektionen. Træk i et billedes hjørne for at ændre størrelsen (proportionerne bevares), og markér det for at venstrejustere, centrere eller højrejustere det fra værktøjslinjen. PNG, JPEG, GIF og WebP accepteres, op til 5 MB pr. billede; SVG accepteres ikke.
+
+Billeder vises i forhåndsvisningen, i PDF-/printkopien og i Word-eksporten samt i [Historik](#soaw-collaboration), hvor **Ændringer** markerer et tilføjet eller fjernet billede som *[Billede]*. En revision og en gendannet version beholder deres billeder. Kun billeder, der er uploadet til en SoAW, bevares: et billede, der linker til et andet websted, fjernes, når dokumentet gemmes. Kommentarer i diskussionen kan ikke indeholde billeder, og billedkontrollerne forsvinder, når en administrator har [slået filupload fra](../admin/resources.md#when-file-uploads-are-disabled). Den fulde beskrivelse findes i GRC-guiden: [Billeder](grc.md#decision-pictures).
+
+### Tabeller {: #soaw-tables }
+
+En sektions tekst kan indeholde tabeller, ligesom en beslutnings. Klik på **Tabel** i sektionens værktøjslinje, og vælg **Indsæt tabel** for en tabel med tre rækker og tre kolonner med en overskriftsrække; med markøren i en tabel markerer, tilføjer, flytter og sletter den samme menu rækker og kolonner, slår overskriftsrækken til eller fra, fletter og opdeler celler og sletter tabellen. De samme handlinger åbnes med et højreklik i en celle, og mens du redigerer, åbner håndtag ved siden af en række og over en kolonne den pågældende rækkes eller kolonnes handlinger, og et **+** eller en bjælke ved tabellens kant tilføjer en række eller en kolonne. Træk i en kolonnekant for at ændre bredden, og brug **Tab** / **Skift+Tab** til at flytte mellem cellerne. Formatering, links, omtaler og billeder virker i en celle.
+
+Tabeller vises i forhåndsvisningen, PDF-/printkopien (tilpasset siden) og Word-eksporten (som en rigtig Word-tabel) samt i [Historik](#soaw-collaboration), hvor **Ændringer** læser en række som én linje. Kommentarer i diskussionen kan ikke indeholde tabeller. Den fulde beskrivelse findes i GRC-guiden: [Tabeller](grc.md#decision-tables).
 
 ### Underskrifts­arbejdsproces
 
@@ -98,7 +114,7 @@ En SoAW har samme diskussion, omtaler og historik som en beslutning: diskussione
 ### Preview og eksport
 
 - **Preview-tilstand** — Skrivebeskyttet visning af det komplette SoAW-dokument
-- **DOCX-eksport** — Download SoAW'en som et formateret Word-dokument til offline-deling eller udskrift
+- **DOCX-eksport** — Download SoAW'en som et formateret Word-dokument til offline-deling eller udskrift. Formatering og klikbare links bevares i alle dele af teksten, kode beholder en skrift med fast bredde, og tabeller i teksten bliver til rigtige Word-tabeller
 - **PDF-eksport** — Åbner en printklar visning i en ny fane; brug browserens *Gem som PDF*. Tillad pop op-vinduer for dette websted, hvis intet åbnes.
 
 ### SoAW-fane på initiativkort

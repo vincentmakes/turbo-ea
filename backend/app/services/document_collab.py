@@ -6,7 +6,8 @@ or serves one of them calls these four hooks, so the features land behind them
 without touching the call sites again:
 
 * :func:`before_save` — the incoming text fields of a create or an update,
-  before they reach the row (mentions are checked and canonicalised here);
+  before they reach the row (pictures and mentions are checked and
+  canonicalised here);
 * :func:`after_save` — after an update has been applied (a version is
   recorded here);
 * :func:`on_workflow` — a step of the document's life: it writes the
@@ -21,7 +22,7 @@ Every helper flushes and never commits: the caller owns the transaction.
 from __future__ import annotations
 
 import uuid
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
 from fastapi import HTTPException
@@ -32,8 +33,10 @@ from app.models.document_history import DocumentHistoryEntry
 from app.models.soaw import SoAW
 from app.models.user import User
 from app.services import decision_standing as ds
-from app.services import mention_service
+from app.services import document_image_service, mention_service
 from app.services.card_read_scope import CardReadScope
+from app.services.document_image_markup import image_ids_of, normalise_images
+from app.services.mention_markup import MAX_PASSES, text_of
 
 ADR = "adr"
 SOAW = "soaw"
@@ -102,6 +105,78 @@ async def _actor(
 # --- the hooks --------------------------------------------------------------------
 
 
+def _map_texts(doc_kind: str, values: dict[str, Any], fn: Callable[[str], str]) -> dict[str, Any]:
+    """``values`` with ``fn`` applied to every rich-text string of its text
+    fields; ``values`` itself when that changes nothing."""
+    out = dict(values)
+    for field in mention_service.text_fields_of(doc_kind):
+        if field in out:
+            out[field] = mention_service.map_field(doc_kind, out[field], fn)
+    return values if out == values else out
+
+
+def _texts(doc_kind: str, values: Mapping[str, Any]) -> list[str]:
+    return [
+        text
+        for field in mention_service.text_fields_of(doc_kind)
+        if field in values
+        for text in mention_service.field_texts(doc_kind, field, values[field])
+    ]
+
+
+def images_of(doc_kind: str, values: Mapping[str, Any]) -> set[str]:
+    """The ids of every stored picture in the text fields of ``values``."""
+    return {image_id for text in _texts(doc_kind, values) for image_id in image_ids_of(text)}
+
+
+def stored_images(doc_kind: str, doc: Any) -> set[str]:
+    """The pictures stored on ``doc`` (a decision or SoAW row; ``None`` → none)."""
+    if doc is None:
+        return set()
+    return images_of(
+        doc_kind, {f: getattr(doc, f, None) for f in mention_service.text_fields_of(doc_kind)}
+    )
+
+
+def settle_markup(text: str, doc_kind: str, keep: Callable[[str], bool] | None = None) -> str:
+    """``text`` (mentions already canonical) with its pictures normalised, the
+    mention pass re-run whenever that changed anything, until both are stable.
+
+    Removing a picture tag can splice its neighbours into a new mention span,
+    and removing a mention span can splice a new picture tag: each pass is
+    repeated after the other, at most ``MAX_PASSES`` times; markup built to
+    keep assembling either is reduced to its text. ``keep`` also removes a
+    picture whose id it refuses."""
+    for _ in range(MAX_PASSES):
+        pictured = normalise_images(text, doc_kind, keep)
+        if pictured == text:
+            return text
+        text = mention_service.canonicalise(pictured, mention_service.DOCUMENT_KINDS)
+    return text_of(text)
+
+
+async def _drop_unknown_images(
+    db: AsyncSession, doc_kind: str, values: dict[str, Any], known: set[str]
+) -> dict[str, Any]:
+    """``values`` without the pictures that are neither in ``known`` (already
+    stored on the document) nor pictures of ``doc_kind`` in the store. An
+    unknown picture is removed silently, never refused: a picture id names
+    nothing a 404 would protect, and a stale editor must still save."""
+    allowed = set(known)
+    for _ in range(MAX_PASSES):
+        new = images_of(doc_kind, values) - allowed
+        if not new:
+            return values
+        allowed |= await document_image_service.existing(db, doc_kind, new)
+        values = _map_texts(
+            doc_kind, values, lambda text: settle_markup(text, doc_kind, allowed.__contains__)
+        )
+    if images_of(doc_kind, values) - allowed:
+        # Removals that keep splicing new pictures together: keep the text only.
+        values = _map_texts(doc_kind, values, text_of)
+    return values
+
+
 async def before_save(
     db: AsyncSession,
     doc_kind: str,
@@ -112,28 +187,62 @@ async def before_save(
     read_scope: CardReadScope | None,
     copy: bool = False,
     kept: Iterable[mention_service.Mention] = (),
+    kept_images: Iterable[str] = (),
 ) -> dict[str, Any]:
     """The text fields to store for a create (``doc`` is ``None``) or an
-    update of ``doc``, their mentions checked and canonicalised
-    (:func:`mention_service.normalise_for_write`).
+    update of ``doc``: pictures and mentions checked and canonicalised.
+
+    Pictures first (``document_image_markup.normalise_images``: a picture
+    that is not this kind's stored form is removed, its attributes reduced to
+    the kept ones), then mentions
+    (:func:`mention_service.normalise_for_write`), then pictures again with
+    the mention pass re-run until both are stable (:func:`settle_markup`).
 
     Three kinds of writer: a USER (``user`` set; ``read_scope`` is theirs, or
     loaded when needed) — every new mention must be readable by them; a
     SYSTEM writer (``user`` ``None``: the extension bridge, the TurboLens
     commit) — existence only; a COPY (``copy=True``: a revision, a duplicate)
     — canonicalised only. ``kept`` (a restore) are mentions already stored on
-    ``doc`` once, never re-checked. 404 on a refused mention."""
-    return await mention_service.normalise_for_write(
+    ``doc`` once, never re-checked. 404 on a refused mention.
+
+    A picture new to the document (not in its stored text, nor in
+    ``kept_images`` — a restored version's) must be a picture of this kind in
+    the store, for a user and a system writer alike; an unknown one is
+    removed silently. A copy is never checked. Every picture a user or
+    system save stores is stamped used (``document_image_service.mark_used``),
+    so the purge of never-used uploads leaves it alone."""
+    pictured = _map_texts(doc_kind, incoming, lambda text: normalise_images(text, doc_kind))
+    mentioned = await mention_service.normalise_for_write(
         db,
         doc_kind=doc_kind,
         doc=doc,
-        incoming=incoming,
+        incoming=pictured,
         user=user,
         read_scope=read_scope,
         system=user is None and not copy,
         copy=copy,
         kept=kept,
     )
+    out = _map_texts(doc_kind, mentioned, lambda text: settle_markup(text, doc_kind))
+    if copy:
+        return out
+    if images_of(doc_kind, out):
+        known = stored_images(doc_kind, doc) | set(kept_images)
+        out = await _drop_unknown_images(db, doc_kind, out, known)
+    if out != mentioned:
+        # A mention the picture passes spliced together was never checked.
+        stored = mention_service.stored_mentions(doc_kind, doc) | set(kept)
+        spliced = (
+            mention_service.mentions_of(doc_kind, out)
+            - mention_service.mentions_of(doc_kind, mentioned)
+            - stored
+        )
+        if spliced:
+            await mention_service.check_new_mentions(
+                db, spliced, user=user, read_scope=read_scope, system=user is None
+            )
+    await document_image_service.mark_used(db, images_of(doc_kind, out))
+    return out
 
 
 async def after_save(

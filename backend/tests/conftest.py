@@ -453,6 +453,22 @@ async def create_card(db, *, card_type="Application", name="Test Card", user_id=
     return card
 
 
+async def create_diagram(db, *, name="Test Diagram", data=None, user_id=None, card_ids=()):
+    """Insert a free-draw diagram into the test database, linked to ``card_ids``."""
+    from app.models.diagram import Diagram, diagram_cards
+
+    diagram = Diagram(
+        name=name,
+        data=data if data is not None else {"xml": "<mxGraphModel/>"},
+        created_by=user_id,
+    )
+    db.add(diagram)
+    await db.flush()
+    for card_id in card_ids:
+        await db.execute(diagram_cards.insert().values(diagram_id=diagram.id, card_id=card_id))
+    return diagram
+
+
 async def create_budget_line(
     db, *, initiative_id, fiscal_year=2025, category="capex", amount=0.0, description=None
 ):

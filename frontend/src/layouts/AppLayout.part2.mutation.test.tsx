@@ -180,6 +180,23 @@ describe("AppLayout — Ctrl/Cmd+K", () => {
     expect(await screen.findByTestId("search-dialog")).toBeInTheDocument();
   });
 
+  it("leaves a Ctrl/Cmd+K something closer already handled (the rich-text link dialog)", async () => {
+    renderLayout();
+    const handled = (e: Event) => e.preventDefault();
+    document.body.addEventListener("keydown", handled);
+    try {
+      fireEvent.keyDown(document.body, { key: "k", ctrlKey: true });
+      fireEvent.keyDown(document.body, { key: "k", metaKey: true });
+    } finally {
+      document.body.removeEventListener("keydown", handled);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByTestId("search-dialog")).not.toBeInTheDocument();
+    // The same key, unhandled on its way up, still opens the search.
+    fireEvent.keyDown(document.body, { key: "k", ctrlKey: true });
+    expect(await screen.findByTestId("search-dialog")).toBeInTheDocument();
+  });
+
   it("stops claiming Ctrl+K once the layout is gone", () => {
     const { unmount } = renderLayout();
     expect(fireEvent.keyDown(document, { key: "k", ctrlKey: true })).toBe(false);

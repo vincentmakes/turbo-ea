@@ -6,7 +6,7 @@ O módulo **Diagramas** permite criar **diagramas visuais de arquitetura** utili
 
 ## Galeria de diagramas
 
-A galeria lista cada diagrama como um cartão compacto com miniatura, nome, autor e o número de cartões que referencia. **Crie**, **Abra**, **Edite detalhes**, organize ou **Exclua** qualquer diagrama.
+A galeria lista cada diagrama como um cartão compacto com miniatura, nome, autor e o número de cartões que referencia. **Crie**, **Abra**, **Edite detalhes**, organize ou **Exclua** qualquer diagrama. Eliminar um diagrama remove-o também de todas as decisões a que estava anexado (ver [Ligar diagramas a decisões](#linking-diagrams-to-decisions)).
 
 ### Encontrar diagramas
 
@@ -154,6 +154,10 @@ O botão Sync da barra mostra uma pílula pulsante «N por sincronizar» sempre 
 ### Vincular diagramas a cartões
 
 Os diagramas podem ser vinculados a **qualquer cartão** a partir do separador **Recursos** do cartão (ver [Detalhes do cartão](card-details.pt.md#separador-recursos)). Quando um diagrama está vinculado a um cartão **Iniciativa**, aparece também no módulo [EA Delivery](delivery.md) ao lado dos documentos SoAW.
+
+### Ligar diagramas a decisões {: #linking-diagrams-to-decisions }
+
+Um diagrama também pode ser anexado a uma decisão de arquitetura, a partir da secção **Diagramas** do editor da decisão (ver [Diagramas numa decisão](grc.md#decision-diagrams)). A decisão mostra o diagrama tal como está agora, pelo que editar o diagrama altera o que a decisão mostra, mesmo numa decisão assinada; eliminar o diagrama remove-o de todas as decisões a que estava anexado.
 
 ## Partilhar um diagrama fora do Turbo EA
 

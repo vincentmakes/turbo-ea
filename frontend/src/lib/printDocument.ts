@@ -23,16 +23,58 @@
 import i18n from "@/i18n";
 import { PRINT_COLORS, brand } from "@/theme/tokens";
 import type { SoAWSignatory } from "@/types";
+import {
+  DOCUMENT_CONTENT_CLASS,
+  PRINT_CONTENT_COLOURS,
+  documentContentCss,
+  documentImageCss,
+} from "./documentContentCss";
+import { DOCUMENT_IMAGE_PATH_PREFIX } from "./documentImageMarkup";
 import { escapeHtml } from "./escapeHtml";
 import { sanitizeRichHtml } from "./richHtml";
+import { richHtmlHasContent } from "./richHtmlContent";
 
 export { escapeHtml };
 
-/** True when the HTML has no visible text (empty, whitespace or empty tags). */
+/**
+ * True when the HTML has nothing to show: no visible text and no document
+ * picture (see `richHtmlHasContent`).
+ */
 export function htmlIsEmpty(html: string | null | undefined): boolean {
-  if (!html) return true;
-  const text = (new DOMParser().parseFromString(html, "text/html").body.textContent ?? "").trim();
-  return !text;
+  return !richHtmlHasContent(html);
+}
+
+/**
+ * Picture rules for a printed document under `scope`: the shared document
+ * picture CSS, and a picture is never split across a page break.
+ */
+export function printDocumentImageCss(scope: string): string {
+  return `${documentImageCss(scope)}\n${scope} img { break-inside: avoid; page-break-inside: avoid; }`;
+}
+
+/**
+ * The rules for stored rich content in a printed document or the SoAW
+ * preview, under `root` (the body class): links, code, sub-headings, tables,
+ * each scoped to the `.doc-content` wrapper so the document's own tables keep
+ * their look; rows never split across pages; on screen (the SoAW preview,
+ * the pop-up before it prints) each wrapper scrolls sideways when a table
+ * is wider than it. Pictures are styled by `printDocumentImageCss` under the
+ * whole root.
+ */
+export function printDocumentContentCss(root: string): string {
+  return documentContentCss(`${root} .${DOCUMENT_CONTENT_CLASS}`, PRINT_CONTENT_COLOURS, {
+    pictures: false,
+    print: true,
+    scroll: true,
+  });
+}
+
+/** The title block's classes (`documentHeader`): centred heading without rule, centred subtitle. */
+export function printDocumentHeaderCss(root: string): string {
+  return (
+    `${root} h1.doc-title { text-align: center; border: none; }\n` +
+    `${root} p.doc-subtitle { text-align: center; font-size: 14pt; color: ${PRINT_COLORS.inkSecondary}; }`
+  );
 }
 
 export const DOCUMENT_PRINT_CSS = `
@@ -61,6 +103,9 @@ export const DOCUMENT_PRINT_CSS = `
   .doc-signatures .sig-card .sig-name { font-weight: 600; font-size: 10pt; }
   .doc-signatures .sig-card .sig-detail { font-size: 9pt; color: ${PRINT_COLORS.inkSecondary}; }
   .doc-print-footer { display: none; }
+  ${printDocumentHeaderCss(".doc-print")}
+  ${printDocumentImageCss(".doc-print")}
+  ${printDocumentContentCss(".doc-print")}
   @media print {
     body.doc-print { margin: 20px; }
     .no-print { display: none !important; }
@@ -82,8 +127,65 @@ export interface PrintDocumentOptions {
   bodyClass?: string;
   /** Stylesheet; defaults to `DOCUMENT_PRINT_CSS`. */
   css?: string;
-  /** Delay before `print()` so the pop-up has laid out; defaults to 400 ms. */
+  /**
+   * Delay before `print()` so the pop-up has laid out; defaults to 400 ms.
+   * Counted from when every picture has loaded or failed.
+   */
   printDelayMs?: number;
+}
+
+const SANITISED_PICTURE = `<img src="${DOCUMENT_IMAGE_PATH_PREFIX}`;
+
+/**
+ * Every document picture's `src` made absolute against `origin`, so the
+ * `about:blank` pop-up loads it whatever base URL it inherited. Runs on the
+ * sanitiser's output, where a picture always starts `<img src="/api/…` and
+ * the sequence cannot occur anywhere else (text escapes `<`, attribute values
+ * escape `"`). An opaque or missing origin leaves the HTML as it is.
+ */
+export function absoluteDocumentImages(html: string, origin: string): string {
+  if (!origin || origin === "null") return html;
+  return html.split(SANITISED_PICTURE).join(`<img src="${escapeHtml(origin)}${DOCUMENT_IMAGE_PATH_PREFIX}`);
+}
+
+/** A `<col>`'s or a table's `width: Npx` (exactly the form the sanitiser keeps), or `null`. */
+function pixelWidth(el: Element): number | null {
+  const match = /^\s*width:\s*(\d+(?:\.\d+)?)px;?\s*$/.exec(el.getAttribute("style") ?? "");
+  const px = match ? Number(match[1]) : 0;
+  return px > 0 ? px : null;
+}
+
+/**
+ * Resized tables fitted to the printed page. A table whose every column
+ * carries a pixel width (a table the editor resized) gets each `<col>`'s
+ * width as its share of their sum, in percent, and its own width as that
+ * sum with `max-width: 100%`: it prints at its stored width when that fits
+ * and shrinks, keeping its proportions, when it does not (with
+ * `table-layout: fixed` and every column a percentage, the table's minimum
+ * width is only its borders and padding, so `max-width` bounds it). A table
+ * without stored widths is left alone, and HTML without a table is returned
+ * as it is. Runs on the sanitiser's output and writes only numbers it
+ * computed.
+ */
+export function printTableWidths(html: string): string {
+  if (!html.includes("<table")) return html;
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  let changed = false;
+  for (const table of Array.from(doc.querySelectorAll("table"))) {
+    const cols = Array.from(table.children)
+      .filter((c) => c.tagName === "COLGROUP")
+      .flatMap((g) => Array.from(g.children).filter((c) => c.tagName === "COL"));
+    const widths = cols.map(pixelWidth);
+    if (widths.length === 0 || widths.some((w) => w === null)) continue;
+    const total = (widths as number[]).reduce((a, b) => a + b, 0);
+    cols.forEach((col, i) => {
+      const percent = Math.round(((widths[i] as number) / total) * 10000) / 100;
+      col.setAttribute("style", `width: ${percent}%`);
+    });
+    table.setAttribute("style", `width: ${Math.round(total * 100) / 100}px; max-width: 100%`);
+    changed = true;
+  }
+  return changed ? doc.body.innerHTML : html;
 }
 
 /** Build the complete HTML document written into the pop-up. Pure. */
@@ -95,7 +197,10 @@ export function buildPrintHtml(opts: PrintDocumentOptions): string {
     parts.length > 0
       ? `<div class="doc-print-footer">${parts.map(escapeHtml).join("  &middot;  ")}</div>`
       : "";
-  const body = sanitizeRichHtml(opts.bodyHtml);
+  const body = absoluteDocumentImages(
+    printTableWidths(sanitizeRichHtml(opts.bodyHtml)),
+    window.location.origin,
+  );
   return `<!DOCTYPE html><html lang="${escapeHtml(i18n.language || "en")}" dir="${i18n.dir()}"><head><meta charset="utf-8">
 <title>${escapeHtml(opts.title)}</title>
 <style>${css}</style></head><body class="${escapeHtml(bodyClass)}">${body}${footer}</body></html>`;
@@ -114,12 +219,61 @@ export function openPrintWindow(): Window | null {
   return w;
 }
 
-/** Fill an already-open pop-up and schedule the print dialog. */
+/** The longest the print dialog waits for the pictures, in ms. */
+export const PRINT_IMAGE_WAIT_MS = 10_000;
+
+/** The pictures of `doc` that have neither loaded nor failed yet. */
+export function pendingImages(doc: Document): HTMLImageElement[] {
+  // Stryker disable next-line LogicalOperator: a document always has `images`; the fallback spares hand-made test windows
+  return Array.from(doc.images ?? []).filter((img) => !img.complete);
+}
+
+/**
+ * Resolves once every one of `images` has loaded or failed, or after
+ * `capMs`, whichever comes first. A picture that fails still counts as done:
+ * the print shows its broken frame rather than waiting for ever.
+ */
+export function waitForImages(
+  images: readonly HTMLImageElement[],
+  capMs: number = PRINT_IMAGE_WAIT_MS,
+): Promise<void> {
+  if (images.length === 0) return Promise.resolve();
+  return new Promise((resolve) => {
+    let left = images.length;
+    const timer = setTimeout(resolve, capMs);
+    for (const img of images) {
+      let settled = false;
+      const done = () => {
+        if (settled) return;
+        settled = true;
+        left -= 1;
+        if (left === 0) {
+          clearTimeout(timer);
+          resolve();
+        }
+      };
+      img.addEventListener("load", done);
+      img.addEventListener("error", done);
+    }
+  });
+}
+
+/**
+ * Fill an already-open pop-up and schedule the print dialog: once every
+ * picture has loaded or failed (at most `PRINT_IMAGE_WAIT_MS`), then after
+ * `printDelayMs` so the browser has laid out. With no picture to wait for,
+ * the delay starts at once, exactly as before pictures existed.
+ */
 export function writePrintDocument(win: Window, opts: PrintDocumentOptions): void {
   win.document.write(buildPrintHtml(opts));
   win.document.close();
-  // Give the browser a moment to render, then open print dialog.
-  setTimeout(() => win.print(), opts.printDelayMs ?? 400);
+  const delay = opts.printDelayMs ?? 400;
+  const schedule = () => {
+    setTimeout(() => win.print(), delay);
+  };
+  const pending = pendingImages(win.document);
+  if (pending.length === 0) schedule();
+  else void waitForImages(pending).then(schedule);
 }
 
 /** Open and fill in one go, for a caller that already holds its data. */
@@ -138,8 +292,8 @@ export function printDocument(opts: PrintDocumentOptions): void {
  */
 export function documentHeader(typeLabel: string, name: string): string {
   return (
-    `<h1 style="text-align:center;border:none;">${escapeHtml(typeLabel)}</h1>` +
-    `<p style="text-align:center;font-size:14pt;color:${PRINT_COLORS.inkSecondary};">${escapeHtml(name)}</p>`
+    `<h1 class="doc-title">${escapeHtml(typeLabel)}</h1>` +
+    `<p class="doc-subtitle">${escapeHtml(name)}</p>`
   );
 }
 
@@ -160,6 +314,15 @@ export function metaTable(rows: [label: string, value: string | null | undefined
 export function section(title: string, html: string): string {
   if (!html || !html.trim()) return "";
   return `<h2>${escapeHtml(title)}</h2>${html}`;
+}
+
+/**
+ * A stored rich fragment (a decision or SoAW section) in its `.doc-content`
+ * wrapper, which the stored-content rules are scoped to. Nothing when blank.
+ */
+export function documentContent(html: string | null | undefined): string {
+  if (!html || !html.trim()) return "";
+  return `<div class="${DOCUMENT_CONTENT_CLASS}">${html}</div>`;
 }
 
 /** A plain-text block that keeps its line breaks. */

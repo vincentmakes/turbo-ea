@@ -7,14 +7,17 @@
  *
  * - `htmlToPlainText` — a paragraph or heading becomes a block separated by a
  *   blank line, `<br>` a line break, a bullet `- item`, a numbered item
- *   `1. item`. Formatting (bold, links) is not carried.
+ *   `1. item`, a table row one line with its cells joined by ` | `. Formatting
+ *   (bold, links) is not carried; with `linkHrefs` a link reads `text (href)`.
  * - `plainTextToHtml` — the inverse: blank lines split paragraphs, a run of
  *   `- ` / `* ` lines is a bullet list, a run of `1. ` lines a numbered list,
  *   any other line break a `<br>`. Text is escaped. A cell that already holds
  *   HTML tags is passed through as it is, so a hand-made HTML import keeps its
  *   formatting (it is sanitised on render like every stored section).
  */
+import { parseDocumentImageSrc } from "@/lib/documentImageMarkup";
 import { escapeHtml } from "@/lib/escapeHtml";
+import { isLinkableHref } from "@/lib/linkify";
 import { fillMentionLabels, type MentionLabels } from "@/lib/mentionHtml";
 
 const BLOCK_TAGS = new Set([
@@ -31,7 +34,6 @@ const BLOCK_TAGS = new Set([
   "UL",
   "OL",
   "TABLE",
-  "TR",
 ]);
 
 const HTML_TAG_RE = /<\/?(p|br|ul|ol|li|strong|em|b|i|u|s|a|h[1-6]|div|span|blockquote|code|pre)\b[^>]*>/i;
@@ -43,7 +45,33 @@ export function looksLikeHtml(text: string): boolean {
   return HTML_TAG_RE.test(text);
 }
 
-function walk(node: Node, out: string[]): void {
+export interface PlainTextOptions {
+  /**
+   * When set, each document picture (a decision or SoAW picture — see
+   * `lib/documentImageMarkup.ts`) reads as this word on a line of its own,
+   * e.g. a translated "[Picture]". Without it pictures leave no text, as a
+   * spreadsheet cell has always shown them. Any other `<img>` never does.
+   */
+  imageToken?: string;
+  /**
+   * When set, a link whose address is http(s) or mailto and is not its own
+   * text reads as `text (address)`, so a changed address is a changed text
+   * (the History diff uses it). Without it a link reads as its text only, as
+   * a spreadsheet cell has always shown it.
+   */
+  linkHrefs?: boolean;
+}
+
+/** A link's address when it adds something to its text, else `null`. */
+function shownHref(el: Element, text: string): string | null {
+  const href = (el.getAttribute("href") ?? "").trim();
+  if (!href || !isLinkableHref(href)) return null;
+  const said = text.trim();
+  if (href === said || href.toLowerCase() === `mailto:${said.toLowerCase()}`) return null;
+  return href;
+}
+
+function walk(node: Node, out: string[], opts: PlainTextOptions): void {
   if (node.nodeType === Node.TEXT_NODE) {
     out.push((node.textContent ?? "").replace(/\s+/g, " "));
     return;
@@ -55,6 +83,32 @@ function walk(node: Node, out: string[]): void {
     out.push("\n");
     return;
   }
+  if (tag === "IMG") {
+    if (opts.imageToken && parseDocumentImageSrc(el.getAttribute("src"))) {
+      out.push(`\n\n${opts.imageToken}\n\n`);
+    }
+    return;
+  }
+  if (tag === "TR") {
+    // One line per row, its cells side by side.
+    const cells: string[] = [];
+    for (const cell of Array.from(el.children)) {
+      if (cell.tagName !== "TD" && cell.tagName !== "TH") continue;
+      const inner: string[] = [];
+      cell.childNodes.forEach((child) => walk(child, inner, opts));
+      cells.push(inner.join("").replace(/\s+/g, " ").trim());
+    }
+    out.push(`\n${cells.join(" | ")}`);
+    return;
+  }
+  if (tag === "A" && opts.linkHrefs) {
+    const inner: string[] = [];
+    el.childNodes.forEach((child) => walk(child, inner, opts));
+    const text = inner.join("");
+    const href = shownHref(el, text);
+    out.push(href ? `${text} (${href})` : text);
+    return;
+  }
   if (tag === "LI") {
     const parent = el.parentElement;
     const marker =
@@ -62,30 +116,33 @@ function walk(node: Node, out: string[]): void {
         ? `${Array.prototype.indexOf.call(parent.children, el) + 1}. `
         : "- ";
     const inner: string[] = [];
-    el.childNodes.forEach((child) => walk(child, inner));
+    el.childNodes.forEach((child) => walk(child, inner, opts));
     out.push(`\n${marker}${inner.join("").trim()}`);
     return;
   }
   const block = BLOCK_TAGS.has(tag);
   if (block) out.push("\n\n");
-  el.childNodes.forEach((child) => walk(child, out));
+  el.childNodes.forEach((child) => walk(child, out, opts));
   if (block) out.push("\n\n");
 }
 
 /**
  * Stored section HTML → the plain text a spreadsheet cell shows. With
  * `labels`, a restricted or deleted mention (an empty span) reads as the
- * reader's words; a resolved one is its "@Name" text either way.
+ * reader's words; a resolved one is its "@Name" text either way. With
+ * `opts.imageToken`, a document picture reads as that token (opt-in: the
+ * History diff uses it; a spreadsheet cell does not).
  */
 export function htmlToPlainText(
   html: string | null | undefined,
   labels?: MentionLabels,
+  opts: PlainTextOptions = {},
 ): string {
   if (!html) return "";
   const filled = labels ? fillMentionLabels(html, labels) : html;
   const doc = new DOMParser().parseFromString(filled, "text/html");
   const out: string[] = [];
-  doc.body.childNodes.forEach((child) => walk(child, out));
+  doc.body.childNodes.forEach((child) => walk(child, out, opts));
   return out
     .join("")
     .split("\n")

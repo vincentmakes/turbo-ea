@@ -70,7 +70,7 @@ describe("buildRiskPrintBody", () => {
   it("renders identification, assessments, tasks with cycles, cards and audit with translated labels", () => {
     const html = buildRiskPrintBody(risk(), [task()]);
     // The SoAW cover: document type, then "reference — title".
-    expect(html).toContain('<h1 style="text-align:center;border:none;">Risk</h1>');
+    expect(html).toContain('<h1 class="doc-title">Risk</h1>');
     expect(html).toContain(">R-000042 — Legacy CRM unsupported</p>");
     expect(html).not.toContain("doc-chip");
     // Status, level and source are rows of the first table, not chips.

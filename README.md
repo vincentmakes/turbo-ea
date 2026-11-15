@@ -190,7 +190,7 @@ Turbo EA ships an **Extension Store** (Admin → Extensions). Extensions are ven
 |---|---|
 | ![Roadmap Studio scenario roadmap](marketing-site/assets/screenshots/ext-roadmap-studio-roadmap.png) | ![Roadmap Studio scenario comparison](marketing-site/assets/screenshots/ext-roadmap-studio-compare.png) |
 
-Build your own: extensions can ship content packs, backend plugins, and UI plugins against a stable SDK (backend SDK 1.17, UI SDK 1.34) that exposes core's own components, data bridges, events, cron jobs, and encrypted secrets. Core also gates two authoring capabilities behind extension grants: per-field help text and custom field types. The `teax` CLI in [`scripts/extension-tools/`](scripts/extension-tools/) builds and verifies bundles; the customer-facing guide is the [Extension Store page](https://docs.turbo-ea.org/admin/extensions/) of the user manual, and the store itself lives at [store.turbo-ea.org](https://store.turbo-ea.org).
+Extensions are built, signed and published by the Turbo EA vendor. An instance installs only bundles that carry the vendor's signature, so third-party or self-built extensions are not supported. Each extension integrates through a versioned SDK (backend SDK 1.17, UI SDK 1.35), which is what keeps it working across core upgrades. Two authoring capabilities in core, per-field help text and custom field types, are unlocked by an extension grant. The customer-facing guide is the [Extension Store page](https://docs.turbo-ea.org/admin/extensions/) of the user manual, and the store itself lives at [store.turbo-ea.org](https://store.turbo-ea.org).
 
 ### Administration
 

@@ -5,6 +5,28 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.205.0] - 2026-11-15
+
+### Added
+- Pictures in decision and SoAW sections: insert one with the toolbar button, by pasting or by drag-and-drop, then resize it and align it left, centre or right. Pictures show in the preview, the printed copy and PDF, the Word export and the history, and travel with a workspace transfer.
+- Links on selected text in decision and SoAW sections and in discussion comments: the Link button or Ctrl/Cmd+K sets, edits or removes a link to a web or e-mail address.
+- Inline code button in decision and SoAW sections and in comments; code block and sub-heading buttons in sections.
+- Tables in decision and SoAW sections: insert, select, add, move and delete rows and columns, header row, merge and split cells, and resizable columns, from the toolbar, a right-click menu in the table or the row and column handles beside it.
+- Diagrams on a decision: attach existing diagrams from a searchable picker; each shows its thumbnail and name, always as the diagram is now, and can change while the decision is a draft or in review.
+
+### Changed
+- The Word export of decisions and SoAWs keeps formatting and clickable links in lists, quotes and headings too, keeps code in a monospace font and writes tables as Word tables.
+- While editing decision or SoAW text, a click on a link places the caret; Ctrl/Cmd+click opens it.
+- Extension UI SDK 1.35: `sanitizeRichHtml` keeps a picture only when it is one stored in Turbo EA for a decision or a SoAW, and removes style tags, forms, media and every inline style other than a table's column widths and a cell's alignment.
+
+### Fixed
+- In the Word export, a nested list's text is no longer repeated in its parent item, a numbered list no longer counts nested items, and line breaks and code blocks keep their lines.
+- A web address pasted without a scheme (`www.…`) is linked with https, as a typed one is.
+
+### Security
+- Decision and SoAW text keeps only pictures stored in Turbo EA: a picture from any other address is removed when the text is saved and is never displayed.
+- Stored rich text keeps only the markup the editor writes: style tags, forms, media, address-taking attributes other than a link's or a stored picture's, and inline styles other than table widths and cell alignment are removed when it is displayed.
+
 ## [2.204.0] - 2026-11-13
 
 ### Added
@@ -1185,7 +1207,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
-- **`cosign verify` on a published image or chart no longer fails with *no signatures found* on an up-to-date client — and the documentation now says which client that is.** Every image since 1.37.0 and every Helm chart is signed, but in the Sigstore *bundle* format that cosign 3 writes (the publish workflow moved to cosign 3 with a routine installer update in June); cosign 2.5 and older cannot see that format and reported the images as unsigned, while nothing in the manual mentioned a minimum version. The Supply Chain page, the README and the release checklist now state the floor — **cosign 2.6 or newer, or any 3.x** — explain the format and show how to inspect what is attached to an image, and the Supply Chain page is available in all ten languages. Every publish additionally verifies its own signature with cosign 2.6 before it is reported green, so a future change of format fails the build rather than an operator's deployment. ([#1136](https://github.com/vincentmakes/turbo-ea/issues/1136))
+- **`cosign verify` on a published image or chart no longer fails with *no signatures found* on an up-to-date client — and the documentation now says which client that is.** Every image since 1.37.0 and every Helm chart is signed, but in the Sigstore *bundle* format that cosign 3 writes (the publish workflow moved to cosign 3 with a routine installer update in June); cosign 2.5 and older cannot see that format and reported the images as unsigned, while nothing in the manual mentioned a minimum version. The Supply Chain page and the release checklist now state the floor — **cosign 2.6 or newer, or any 3.x** — explain the format and show how to inspect what is attached to an image, and the Supply Chain page is available in all ten languages. Every publish additionally verifies its own signature with cosign 2.6 before it is reported green, so a future change of format fails the build rather than an operator's deployment. ([#1136](https://github.com/vincentmakes/turbo-ea/issues/1136))
 - **Helm chart 2.141.0 is signed.** The first chart release was pushed and then failed at the signing step, and was the very example the Kubernetes guide used for `cosign verify`. The chart workflow can now sign an already-published version on request, the guide's example names no particular version, and 2.141.0 is signed from `main` (its certificate identity is the branch, not the tag; the documented `--certificate-identity-regexp` accepts both).
 
 ## [2.147.2] - 2026-09-21
@@ -4074,7 +4096,6 @@ Finishes the TurboLens CVE scanner removal that started in `1.11.1`. The CVE fea
 - **`security_cve` from the Risk `source_type` enum.** The Pydantic `SourceLiteral` in `schemas/risk.py` still listed the dead source variant — meaning `/risks?source_type=security_cve` was still accepted by FastAPI's request validator even though migration 084 had purged every row carrying it. Drops the literal, regenerates `docs/api/openapi.json` to match. The Risk model's docstring loses its "promoted from a TurboLens CVE / compliance finding" line for the same reason.
 
 ### Fixed
-- **README + CLAUDE.md feature claims.** The README's TurboLens bullet still advertised "On-demand CVE scans (NIST NVD-backed with deterministic probability scoring)" as a shipping feature, and the EA Risk Register bullet still mentioned "promote-from-finding for CVE and compliance findings". CLAUDE.md likewise listed `list_cve_findings` in the MCP cluster description with a stale tool count of 26. Both files now describe the post-removal reality.
 - **Frontend comments referencing a CVE scan card and CVE gating.** `SecurityScanCard.tsx`'s file header claimed "Used twice on the Security Overview: once for the CVE scan, once for the compliance scan" — there is only one usage now. `ComplianceTab.tsx` had a paragraph explaining why CVE scanning lived behind the AI gate. Both removed.
 - **`54_grc_compliance` screenshot was capturing the wrong sub-tab.** PR 558 added a `nth: 5` click into the inner Compliance sub-tab on `/grc?tab=compliance` based on the assumption that the order was `[3 outer GRC tabs, Overview, CVEs, Compliance]`. The CVEs sub-tab no longer exists, so the actual order is `[3 outer, Overview, Compliance]` (index 4). Index 5 silently no-oped via the `try/catch` in `capture.ts`, so every capture since PR 558 has been the Overview pane, not the Compliance register. Corrected to `nth: 4`.
 
@@ -4655,7 +4676,6 @@ This release is a stress-test pass: shaking out a real-world large-dataset workf
 - **PR template adds a `Type` checkbox row and a free-text `Test plan` section** above the existing 10-item conventions checklist. The checklist is unchanged — it already covered CLAUDE.md's permission-check, migration, async, i18n, and screenshot requirements.
 
 ### Changed
-- **README ServiceNow callout updated and linked to the new integration-tester issue template** (the SSO half of the prior callout had already been resolved earlier in the `0.x` line). SSO and ServiceNow are both shipping; the maintainer just has limited access to real-world identity providers and ServiceNow instances, so volunteer testers in those environments are the bottleneck on integration-bug feedback.
 - **Rewrote the user-manual installation guide to match the actual deployment.** `docs/getting-started/setup.md` (and all 7 locale variants) had drifted significantly: it documented installation via a non-existent `docker-compose.db.yml` file and pinned `0.65.3` as the version-pinning example. The page now describes the canonical `docker compose pull && docker compose up -d` flow from GHCR images, the `--profile ai` and `--profile mcp` opt-ins, the `SEED_DEMO` / `SEED_BPM` / `SEED_PPM` / `RESET_DB` seed flow, the 0.71.0 direct-HTTPS env vars, and points readers at `docs/admin/supply-chain.md` for cosign verification. The Quick Reference table is rebuilt around the actual commands (no stray `--build` flags in production rows).
 - **Expanded the user-manual first page to cover the platform's actual surface.** The Key Concepts table on `docs/index.md` (and all 7 locale variants) now defines Inventory, Reports, PPM, TurboLens, EA Delivery, ADR, Risk Register, Web Portal, MCP Server, and RBAC alongside the existing Card / Card Type / Relationship / Metamodel / Lifecycle / BPM / SoAW rows. Operators landing on the index page can now see what the project ships without having to discover each feature by clicking through the nav.
 
@@ -4701,7 +4721,7 @@ This release is a stress-test pass: shaking out a real-world large-dataset workf
 
 ### Changed
 - **Production and development Docker Compose are now explicitly separated.** The root `docker-compose.yml` is now production-only and pulls published GHCR images without any `build:` sections, while the new `dev/docker-compose.dev.yml` adds local source builds for `backend`, `frontend`, and `mcp-server` only when developers opt in. The Docker publish workflow now builds all three images from the root multi-target `Dockerfile`, and `latest` tagging is delegated to `docker/metadata-action`'s safe automatic semver handling so older hotfix tags can no longer overwrite the current `latest` image.
-- **Docker helper files are now grouped by role.** The test-only PostgreSQL harness moved to `test/docker-compose.test.yml`, with a short README beside it, and the Makefile now exposes symmetric production shortcuts (`pull-prod`, `up-prod`, `down-prod`) alongside the existing development helpers.
+- **Docker helper files are now grouped by role.** The test-only PostgreSQL harness moved to `test/docker-compose.test.yml`, and the Makefile now exposes symmetric production shortcuts (`pull-prod`, `up-prod`, `down-prod`) alongside the existing development helpers.
 
 ## [0.65.3] - 2026-05-04
 
@@ -5221,7 +5241,7 @@ This release is a stress-test pass: shaking out a real-world large-dataset workf
 ## [0.34.1] - 2026-03-12
 
 ### Added
-- Installation & Setup guide in README and user documentation covering seed demo data (BPM, PPM), Docker Compose options (embedded vs external database), environment configuration, and optional AI/MCP profiles — available in all 8 supported languages
+- Installation & Setup guide in the user documentation covering seed demo data (BPM, PPM), Docker Compose options (embedded vs external database), environment configuration, and optional AI/MCP profiles — available in all 8 supported languages
 
 ## [0.34.0] - 2026-03-12
 
@@ -5247,7 +5267,6 @@ This release is a stress-test pass: shaking out a real-world large-dataset workf
 
 ### Changed
 - Added MCP server conventions, ADR and file attachment routes, and missing env vars to CLAUDE.md
-- Fixed DrawIO version in README (v29.5.1 → v26.0.9) and expanded environment variables table
 - Added MCP server tests and docs build validation to CI pipeline
 - Added version bump, i18n, and docs update reminders to PR template checklist
 - Set mkdocs.yml site_url to actual docs domain instead of placeholder
@@ -5467,7 +5486,6 @@ This release is a stress-test pass: shaking out a real-world large-dataset workf
 
 ### Added
 - MCP Integration admin documentation page with full setup guide, tool reference, security details, and troubleshooting (all 7 locales)
-- MCP Server section in README with feature description and project structure entry
 - MCP glossary term added to all 7 locale glossaries
 - Navigation entry for MCP Integration in mkdocs.yml with translated labels for all 6 non-English locales
 
@@ -5543,8 +5561,6 @@ This release is a stress-test pass: shaking out a real-world large-dataset workf
 ### Changed
 - User manual introduction rewritten for all users (architects, analysts, admins) instead of only executives and decision makers
 - Expanded AI-powered descriptions benefit to cover commercial LLM providers and confidence scoring
-- README AI section updated to list all supported LLM providers and admin controls
-- README SSO section updated to list all supported identity providers (Microsoft Entra ID, Google Workspace, Okta, Generic OIDC) and removed outdated untested warning
 
 ## [0.22.1] - 2026-02-27
 

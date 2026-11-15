@@ -156,7 +156,7 @@ import { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
 import { buildGanttArrowPath } from "@/features/ppm/ganttArrowPath";
 import type { ArchitectureDecision, Card, DecisionStanding } from "@/types";
 
-export const UI_SDK_VERSION = "1.34";
+export const UI_SDK_VERSION = "1.35";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -1084,7 +1084,20 @@ export function initExtensionHost(): void {
       // `sanitizeRichHtml` is the one sanitiser for stored rich text — it
       // autolinks bare URLs and stamps every anchor target/rel. An extension
       // that renders a description or a rich-text field must not rebuild
-      // either, or its links will behave differently from core's.
+      // either, or its links will behave differently from core's. Since SDK
+      // 1.35 it keeps an `<img>` only when it is a document picture (the
+      // internal `/api/v1/document-images/{adr|soaw}/{uuid}` route), reduced
+      // to `src alt title width height data-align`; any other picture is
+      // removed. Also since 1.35 it removes what the editor never writes:
+      // `<style>`, forms and
+      // their controls, `<dialog>`, `<template>`, media (`video`, `audio`,
+      // `source`, `track`, `picture`), image maps, SVG, MathML and
+      // `<marquee>`; every attribute that takes a URL or opens something
+      // (`background`, `bgcolor`, `srcset`, `poster`, `action`, `formaction`,
+      // `cite`, `usemap`, `popover*`, `command*`); and every inline `style`
+      // except a pixel `width` / `min-width` on `table` / `col` and a
+      // `text-align` on `td` / `th`. `colspan` / `rowspan` stay only as
+      // 1–1000. An extension that styled stored HTML inline must use classes.
       LinkifiedText,
       sanitizeRichHtml,
       // SDK 1.15 — the whole report-scoping kit, so an extension report gets

@@ -126,6 +126,21 @@
             ],
             "title": "Linked Card Ids"
           },
+          "linked_diagram_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked Diagram Ids"
+          },
           "links": {
             "anyOf": [
               {
@@ -187,6 +202,21 @@
           "title"
         ],
         "title": "ADRCreate",
+        "type": "object"
+      },
+      "ADRDiagramLink": {
+        "additionalProperties": false,
+        "description": "Body of ``POST /adr/{id}/diagrams``.",
+        "properties": {
+          "diagram_id": {
+            "title": "Diagram Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "diagram_id"
+        ],
+        "title": "ADRDiagramLink",
         "type": "object"
       },
       "ADRImportItem": {
@@ -737,6 +767,21 @@
               }
             ],
             "title": "Linked Card Ids"
+          },
+          "linked_diagram_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked Diagram Ids"
           },
           "links": {
             "anyOf": [
@@ -1653,6 +1698,20 @@
           }
         },
         "title": "Body_upload_card_logo_api_v1_cards__card_id__logo_post",
+        "type": "object"
+      },
+      "Body_upload_document_image_api_v1_document_images__kind__post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_document_image_api_v1_document_images__kind__post",
         "type": "object"
       },
       "Body_upload_favicon_api_v1_settings_favicon_post": {
@@ -22057,6 +22116,102 @@
         ]
       }
     },
+    "/api/v1/adr/{adr_id}/diagrams": {
+      "post": {
+        "description": "Link an existing free-draw diagram to a decision (a live link).\n\n404 without ``diagrams.view`` or for an unknown diagram; 409 when already\nlinked. Returns the decision's detail payload.",
+        "operationId": "link_diagram_api_v1_adr__adr_id__diagrams_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ADRDiagramLink"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Link Diagram",
+        "tags": [
+          "adr"
+        ]
+      }
+    },
+    "/api/v1/adr/{adr_id}/diagrams/{diagram_id}": {
+      "delete": {
+        "description": "Remove a diagram's link from a decision; the diagram itself stays.\n\n404 without ``diagrams.view``, for an unknown diagram, or when it is not linked.",
+        "operationId": "unlink_diagram_api_v1_adr__adr_id__diagrams__diagram_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "diagram_id",
+            "required": true,
+            "schema": {
+              "title": "Diagram Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unlink Diagram",
+        "tags": [
+          "adr"
+        ]
+      }
+    },
     "/api/v1/adr/{adr_id}/duplicate": {
       "post": {
         "description": "Duplicate an ADR as a new draft with a new reference number.",
@@ -30763,6 +30918,119 @@
         "summary": "Publish Diagram",
         "tags": [
           "diagrams"
+        ]
+      }
+    },
+    "/api/v1/document-images/{kind}": {
+      "post": {
+        "description": "Store one picture for the text of a ``kind`` document.",
+        "operationId": "upload_document_image_api_v1_document_images__kind__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "enum": [
+                "adr",
+                "soaw"
+              ],
+              "title": "Kind",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_document_image_api_v1_document_images__kind__post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Upload Document Image Api V1 Document Images  Kind  Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Document Image",
+        "tags": [
+          "document-images"
+        ]
+      }
+    },
+    "/api/v1/document-images/{kind}/{image_id}": {
+      "get": {
+        "description": "One picture of a ``kind`` document, inline.",
+        "operationId": "get_document_image_api_v1_document_images__kind___image_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "enum": [
+                "adr",
+                "soaw"
+              ],
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "image_id",
+            "required": true,
+            "schema": {
+              "title": "Image Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Document Image",
+        "tags": [
+          "document-images"
         ]
       }
     },

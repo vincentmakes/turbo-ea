@@ -317,6 +317,7 @@ describe("ADREditor — a new decision", () => {
       revision_number: 1,
       attributes: {},
       linked_cards: [],
+      diagrams: [],
       decided_on: null,
       effective_from: null,
       valid_until: null,
