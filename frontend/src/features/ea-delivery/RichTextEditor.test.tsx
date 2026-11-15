@@ -17,6 +17,7 @@ import { CellSelection, columnResizingPluginKey, tableEditingKey } from "@tiptap
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import RichTextEditor from "./RichTextEditor";
+import { KEY_INVOCATION_MS } from "./tableContextMenu";
 import { tableHandlesKey } from "./tableHandles";
 import { plainListTags } from "./collab/discussionModel";
 import { api } from "@/api/client";
@@ -2787,6 +2788,150 @@ describe("RichTextEditor table right-click menu", () => {
       expect(keyboard(editor.view.dom)).toBe(true);
       await act(async () => {});
       expect(actionsMenu()).not.toBeInTheDocument();
+    });
+  });
+
+  describe("from the keyboard, recognised by its key (Chromium gives the caret's coordinates)", () => {
+    // `performance.now` is page-wide: give it back after each test.
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+    /** A key press that invokes the menu, then its `contextmenu` on the editor's root at (240, 120). */
+    const invoke = (editor: Editor, key: KeyboardEventInit, init: MouseEventInit = {}) => {
+      fireEvent.keyDown(editor.view.dom, key);
+      return fireEvent.contextMenu(editor.view.dom, { clientX: 240, clientY: 120, ...init });
+    };
+    const MENU_KEY = { key: "ContextMenu" };
+    const SHIFT_F10 = { key: "F10", shiftKey: true };
+    /** Gives the caret's cell a box: bottom 70, left 10, 300 wide. */
+    const boxCell = (container: HTMLElement, text: string) => {
+      const cell = cellText(container, text).closest("td, th")!;
+      vi.spyOn(cell, "getBoundingClientRect").mockReturnValue(new DOMRect(10, 30, 300, 40));
+    };
+    const expectAnchoredOnCell = async () => {
+      const menu = await screen.findByRole("menu", { name: "Table actions" });
+      expect(paperOf(menu).style.top).toBe("66px");
+      expect(paperOf(menu).style.left).toBe("130px");
+    };
+    const expectNoMenu = async () => {
+      await act(async () => {});
+      expect(actionsMenu()).not.toBeInTheDocument();
+    };
+
+    it("opens on the caret's cell after the Menu key", async () => {
+      const { container, editor, onChange } = await tableEditor(ABCD);
+      caretAt(editor, textAt(editor, "d"));
+      boxCell(container, "d");
+      expect(invoke(editor, MENU_KEY)).toBe(false);
+      await expectAnchoredOnCell();
+      expect(caretIn(editor)).toBe("d");
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("opens on the caret's cell after Shift+F10, Shift and all", async () => {
+      const { container, editor } = await tableEditor(ABCD);
+      caretAt(editor, textAt(editor, "d"));
+      boxCell(container, "d");
+      fireEvent.keyDown(editor.view.dom, { key: "Shift", shiftKey: true });
+      expect(invoke(editor, SHIFT_F10, { shiftKey: true })).toBe(false);
+      await expectAnchoredOnCell();
+    });
+
+    it("opens with the caret on a link inside a cell: there is no pointer on the link", async () => {
+      const { container, editor } = await tableEditor(RICH);
+      caretAt(editor, textAt(editor, "x"));
+      boxCell(container, "see x");
+      expect(invoke(editor, MENU_KEY)).toBe(false);
+      await expectAnchoredOnCell();
+    });
+
+    it("is not F10 without Shift", async () => {
+      const { editor } = await tableEditor(ABCD);
+      caretAt(editor, textAt(editor, "d"));
+      // A pointer-like event on the root, outside every cell: left alone.
+      expect(invoke(editor, { key: "F10" })).toBe(true);
+      await expectNoMenu();
+    });
+
+    it("is left to the browser with the caret outside a table, or in a locked editor", async () => {
+      const open = await tableEditor(ABCD);
+      caretAt(open.editor, textAt(open.editor, "z"));
+      expect(invoke(open.editor, MENU_KEY)).toBe(true);
+      await expectNoMenu();
+      open.unmount();
+
+      const locked = await tableEditor(ABCD, { readOnly: true });
+      caretAt(locked.editor, textAt(locked.editor, "d"));
+      expect(invoke(locked.editor, MENU_KEY)).toBe(true);
+      await expectNoMenu();
+    });
+
+    it("is cancelled by a pointer press between the key and the contextmenu", async () => {
+      const { container, editor } = await tableEditor(ABCD);
+      caretAt(editor, textAt(editor, "d"));
+      fireEvent.keyDown(editor.view.dom, MENU_KEY);
+      pointerDown(editor.view.dom, "mouse");
+      expect(fireEvent.contextMenu(editor.view.dom, { clientX: 240, clientY: 120 })).toBe(true);
+      await expectNoMenu();
+      // A mouse press cancels it too (a macOS Ctrl+click is a pointer). The
+      // left button's press reaches ProseMirror's own handler, which asks the
+      // document what is under the pointer; jsdom has no answer.
+      Object.defineProperty(document, "elementFromPoint", { configurable: true, value: () => null });
+      try {
+        fireEvent.keyDown(editor.view.dom, MENU_KEY);
+        fireEvent.mouseDown(cellText(container, "c"), { button: 0, ctrlKey: true });
+        expect(fireEvent.contextMenu(editor.view.dom, { clientX: 240, clientY: 120, ctrlKey: true })).toBe(true);
+        await expectNoMenu();
+      } finally {
+        delete (document as { elementFromPoint?: unknown }).elementFromPoint;
+      }
+    });
+
+    it("is cancelled by another key, not by a bare modifier", async () => {
+      const { container, editor } = await tableEditor(ABCD);
+      caretAt(editor, textAt(editor, "d"));
+      fireEvent.keyDown(editor.view.dom, MENU_KEY);
+      fireEvent.keyDown(editor.view.dom, { key: "a" });
+      expect(fireEvent.contextMenu(editor.view.dom, { clientX: 240, clientY: 120 })).toBe(true);
+      await expectNoMenu();
+
+      boxCell(container, "d");
+      fireEvent.keyDown(editor.view.dom, MENU_KEY);
+      fireEvent.keyDown(editor.view.dom, { key: "Control", ctrlKey: true });
+      fireEvent.keyUp(editor.view.dom, MENU_KEY);
+      expect(fireEvent.contextMenu(editor.view.dom, { clientX: 240, clientY: 120 })).toBe(false);
+      await expectAnchoredOnCell();
+    });
+
+    it("is taken by one contextmenu only: the next right-click is a pointer's", async () => {
+      const { container, editor } = await tableEditor(RICH);
+      caretAt(editor, textAt(editor, "pic"));
+      expect(invoke(editor, MENU_KEY)).toBe(false);
+      fireEvent.keyDown(await screen.findByRole("menu", { name: "Table actions" }), { key: "Escape" });
+      await waitFor(() => expect(actionsMenu()).not.toBeInTheDocument());
+      expect(rightClick(container.querySelector('.tiptap td a[href="https://x.io"]')!)).toBe(true);
+      await expectNoMenu();
+    });
+
+    it("goes stale after KEY_INVOCATION_MS: a later right-click on a link stays the browser's", async () => {
+      const { container, editor } = await tableEditor(RICH);
+      caretAt(editor, textAt(editor, "pic"));
+      const now = vi.spyOn(performance, "now").mockReturnValue(5000);
+      fireEvent.keyDown(editor.view.dom, MENU_KEY);
+      now.mockReturnValue(5000 + KEY_INVOCATION_MS + 1);
+      expect(rightClick(container.querySelector('.tiptap td a[href="https://x.io"]')!)).toBe(true);
+      await expectNoMenu();
+    });
+
+    it("is still valid at exactly KEY_INVOCATION_MS", async () => {
+      const { container, editor } = await tableEditor(ABCD);
+      caretAt(editor, textAt(editor, "d"));
+      boxCell(container, "d");
+      const now = vi.spyOn(performance, "now").mockReturnValue(5000);
+      fireEvent.keyDown(editor.view.dom, MENU_KEY);
+      now.mockReturnValue(5000 + KEY_INVOCATION_MS);
+      expect(fireEvent.contextMenu(editor.view.dom, { clientX: 240, clientY: 120 })).toBe(false);
+      await expectAnchoredOnCell();
     });
   });
 

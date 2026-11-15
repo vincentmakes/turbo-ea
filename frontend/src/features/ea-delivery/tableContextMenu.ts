@@ -17,10 +17,24 @@
  *
  * Otherwise the selection follows the click (a cell selection holding the
  * clicked cell, or a text selection inside it, is kept; else the caret goes
- * into the clicked cell) and the menu opens at the pointer. A keyboard
- * invocation (Shift+F10, the Menu key: a `contextmenu` at zero coordinates)
- * opens it on the selection's cell when the selection is in a table, Shift or
- * not, since Shift+F10 is itself a way to invoke it.
+ * into the clicked cell) and the menu opens at the pointer.
+ *
+ * A keyboard invocation (Shift+F10, the Menu key) opens it on the selection's
+ * cell when the selection is in a table, and leaves it to the browser
+ * otherwise. It is recognised by the key: Chromium gives a keyboard
+ * `contextmenu` the caret's coordinates and the editor's root as target, so
+ * neither tells it from a pointer. A `keydown` of `ContextMenu`, or of `F10`
+ * with Shift, marks a keyboard invocation as pending, and the next
+ * `contextmenu` takes the keyboard path while it is. It stops being pending
+ * when a `contextmenu` takes it, at any `pointerdown` or `mousedown` (so a
+ * macOS Ctrl+click is a pointer), at the `keydown` of any other key except a
+ * bare modifier, and `KEY_INVOCATION_MS` after the key went down (each
+ * auto-repeat of a held key renews it). The `keyup` does not end it: on
+ * Windows the menu key's `contextmenu` follows its release. A `contextmenu`
+ * at zero coordinates is a keyboard invocation too (what other browsers and
+ * assistive tools synthesise). On the keyboard path Shift, a link or a
+ * picture at the caret change nothing: they are about what is under a
+ * pointer, and there is none.
  *
  * The right button's `mousedown` is prevented under the same conditions as
  * the pointer case, so the press neither moves the browser's caret (a cell
@@ -29,7 +43,7 @@
  * nor `columnResizing` (no resize drag). A prevented `mousedown` does not
  * cancel the `contextmenu` that follows it.
  *
- * All three events are listened to on the editor's root in the capture
+ * Every event here is listened to on the editor's root in the capture
  * phase, not through `handleDOMEvents`. ProseMirror's own listeners on that
  * root run in the bubble phase, after these, and ignore an event already
  * prevented, so none of its handlers or plugins' handlers (`columnResizing`
@@ -140,10 +154,36 @@ function cellAnchor(view: EditorView): { top: number; left: number } | null {
   return { top: rect.bottom - 4, left: rect.left + Math.min(rect.width / 2, 120) };
 }
 
+/**
+ * How long after its key a keyboard invocation stays pending: the browser
+ * fires the `contextmenu` within the same key press (on the press, or on the
+ * release on Windows), so a second covers any key press while keeping a flag
+ * from a key press that brought no `contextmenu` from turning a later
+ * right-click into a keyboard invocation.
+ */
+export const KEY_INVOCATION_MS = 1000;
+
+/** Keys that alone end no pending keyboard invocation (Shift is part of Shift+F10). */
+const MODIFIER_KEYS = new Set(["Shift", "Control", "Alt", "Meta", "AltGraph"]);
+
+/** Whether a key press invokes a context menu: the Menu key, or Shift+F10. */
+function invokesMenu(event: KeyboardEvent): boolean {
+  return event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey);
+}
+
 /** The table actions right-click menu for an editor, talking to its store. */
 export function tableContextMenu(store: TableMenuStore): Plugin {
   // The last pointer pressed in this editor ("mouse", "pen", "touch").
   let lastPointerType = "";
+  // When the key of a pending keyboard invocation went down; null when none is.
+  let keyInvokedAt: number | null = null;
+
+  /** Takes the pending keyboard invocation: whether one was, and still is, valid. */
+  const takeKeyInvocation = () => {
+    const at = keyInvokedAt;
+    keyInvokedAt = null;
+    return at !== null && performance.now() - at <= KEY_INVOCATION_MS;
+  };
 
   const pointerType = (event: MouseEvent) => {
     const own = (event as Partial<PointerEvent>).pointerType;
@@ -159,8 +199,9 @@ export function tableContextMenu(store: TableMenuStore): Plugin {
   };
 
   const onContextMenu = (view: EditorView, event: MouseEvent) => {
+    const fromKey = takeKeyInvocation();
     if (!view.editable) return;
-    if (event.clientX === 0 && event.clientY === 0) {
+    if (fromKey || (event.clientX === 0 && event.clientY === 0)) {
       if (!isInTable(view.state)) return;
       const anchor = cellAnchor(view);
       if (!anchor) return;
@@ -179,28 +220,39 @@ export function tableContextMenu(store: TableMenuStore): Plugin {
   // ProseMirror's own (bubble-phase) ones, see the module comment.
   return new Plugin({
     view: (view) => {
-      const listeners: [string, (event: MouseEvent) => void][] = [
+      const listeners: [string, (event: Event) => void][] = [
+        [
+          "keydown",
+          (event) => {
+            const key = event as KeyboardEvent;
+            if (invokesMenu(key)) keyInvokedAt = performance.now();
+            else if (!MODIFIER_KEYS.has(key.key)) keyInvokedAt = null;
+          },
+        ],
         [
           "pointerdown",
           (event) => {
+            keyInvokedAt = null;
             lastPointerType = (event as Partial<PointerEvent>).pointerType ?? "";
           },
         ],
         [
           "mousedown",
           (event) => {
-            if (event.button === 2 && pointerCell(view, event) !== null) event.preventDefault();
+            keyInvokedAt = null;
+            const mouse = event as MouseEvent;
+            if (mouse.button === 2 && pointerCell(view, mouse) !== null) mouse.preventDefault();
           },
         ],
-        ["contextmenu", (event) => onContextMenu(view, event)],
+        ["contextmenu", (event) => onContextMenu(view, event as MouseEvent)],
       ];
       for (const [type, listener] of listeners) {
-        view.dom.addEventListener(type, listener as EventListener, true);
+        view.dom.addEventListener(type, listener, true);
       }
       return {
         destroy: () => {
           for (const [type, listener] of listeners) {
-            view.dom.removeEventListener(type, listener as EventListener, true);
+            view.dom.removeEventListener(type, listener, true);
           }
         },
       };
