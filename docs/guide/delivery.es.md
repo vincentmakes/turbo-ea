@@ -40,6 +40,8 @@ Entrega EA se abre para cualquier rol que tenga **Ver documentos SoAW** (`soaw.v
 
 Un grupo que no puede ver queda fuera del espacio de trabajo, y **+ Nuevo artefacto** y **+ Añadir …** solo ofrecen los tipos que puede crear — un rol que solo puede leer no ve ninguno de los dos botones. Así, un rol con solo `adr.view` obtiene la página con las decisiones de cada iniciativa y nada sobre SoAW.
 
+Los diagramas adjuntos a una decisión también siguen `diagrams.view`: un rol sin él no ve ninguna sección [Diagramas](grc.md#decision-diagrams) en una decisión.
+
 ## Declaración de Trabajo de Arquitectura (SoAW)
 
 Una **Declaración de Trabajo de Arquitectura (SoAW)** es un documento formal definido por el [estándar TOGAF](https://pubs.opengroup.org/togaf-standard/) (The Open Group Architecture Framework). Establece el alcance, enfoque, entregables y gobernanza para un compromiso de arquitectura. En TOGAF, el SoAW se produce durante la **Fase Preliminar** y la **Fase A (Visión de Arquitectura)** y sirve como acuerdo entre el equipo de arquitectura y sus partes interesadas.
@@ -57,11 +59,13 @@ Turbo EA proporciona un editor SoAW integrado con plantillas de secciones alinea
 
 El editor proporciona:
 
-- **Edición de texto enriquecido** — Barra de herramientas completa de formato (encabezados, negrita, cursiva, listas, enlaces) impulsada por el editor TipTap
-- **Enlaces** — Una URL escrita o pegada se convierte en enlace mientras escribe, y todos los enlaces de un documento se abren en una pestaña nueva. Las direcciones de los documentos redactados antes de que se admitieran los enlaces se convierten en enlaces al mostrarse
+- **Edición de texto enriquecido** — una barra de herramientas de formato en cada sección de texto: negrita, cursiva, subrayado, tachado, código en línea, un encabezado y un subencabezado, listas con viñetas y numeradas, citas, bloques de código, separadores, enlaces, tablas, menciones e imágenes
+- **Enlaces** — seleccione algunas palabras y haga clic en **Enlace**, o pulse **Ctrl+K** (**Cmd+K** en un Mac), para enlazarlas a una dirección web o de correo electrónico; el mismo botón o atajo edita o quita el enlace bajo el cursor. Una dirección web escrita o pegada se convierte en enlace por sí sola. Mientras edita, un clic en un enlace coloca el cursor en él y **Ctrl+clic** (**Cmd+clic**) lo abre; en la vista previa y en un documento bloqueado, un clic lo abre. Todos los enlaces se abren en una pestaña nueva, y las direcciones de los documentos redactados antes de que se admitieran los enlaces se convierten en enlaces al mostrarse. Consulte [Enlaces en el texto](grc.md#decision-text-links)
 - **Plantillas de secciones** — Secciones predefinidas siguiendo estándares TOGAF (ej., Descripción del Problema, Objetivos, Enfoque, Partes Interesadas, Restricciones, Plan de Trabajo)
-- **Tablas editables en línea** — Agregue y edite tablas dentro de cualquier sección
+- **Tablas de la plantilla** — las secciones de tabla de la plantilla (objetivos, partes interesadas, riesgos y similares) son cuadrículas con columnas fijas: añada y quite filas en línea
+- **Tablas en el texto** — inserte una tabla propia en cualquier sección de texto (consulte [Tablas](#soaw-tables))
 - **Menciones** — escriba **@** en el texto de una sección para mencionar una ficha o una decisión (consulte [Discusión, menciones e historial](#soaw-collaboration))
+- **Imágenes** — inserte una captura de pantalla o un diagrama en el texto de una sección (consulte [Imágenes](#soaw-pictures))
 - **Historial de Versiones del Documento** — una tabla que los autores rellenan a mano (versión, fecha, revisado por, descripción). Forma parte del documento y no es la vista [Historial](#soaw-collaboration)
 - **Flujo de estados** — Los documentos progresan a través de etapas definidas:
 
@@ -71,6 +75,18 @@ El editor proporciona:
 | **En Revisión** | Enviado para firma — bloqueado hasta que se retiren las firmas |
 | **Aprobado** | Revisado y aceptado |
 | **Firmado** | Firmado formalmente |
+
+### Imágenes {: #soaw-pictures }
+
+El texto de una sección puede contener imágenes, igual que el de una decisión. Haga clic en **Insertar imagen** en la barra de herramientas de la sección y elija un archivo, pegue una imagen desde el portapapeles o arrastre un archivo de imagen a la sección. Arrastre la esquina de una imagen para cambiar su tamaño (se mantienen sus proporciones) y selecciónela para alinearla a la izquierda, al centro o a la derecha desde la barra de herramientas. Se aceptan PNG, JPEG, GIF y WebP, hasta 5 MB por imagen; SVG no.
+
+Las imágenes aparecen en la vista previa, en la copia PDF / impresa y en la exportación a Word, así como en el [Historial](#soaw-collaboration), donde **Cambios** marca una imagen añadida o eliminada como *[Imagen]*. Una revisión y una versión restaurada conservan sus imágenes. Solo se conservan las imágenes subidas a un SoAW: una imagen que enlaza a otro sitio web se elimina al guardar el documento. Los comentarios de la discusión no admiten imágenes, y los controles de imagen desaparecen cuando un administrador ha [desactivado la carga de archivos](../admin/resources.md#when-file-uploads-are-disabled). La descripción completa está en la guía de GRC: [Imágenes](grc.md#decision-pictures).
+
+### Tablas {: #soaw-tables }
+
+El texto de una sección puede contener tablas, igual que el de una decisión. Haga clic en **Tabla** en la barra de herramientas de la sección y elija **Insertar tabla** para obtener una tabla de tres filas y tres columnas con una fila de encabezado; con el cursor en una tabla, el mismo menú añade y elimina filas y columnas, activa o desactiva la fila de encabezado, combina y divide celdas y elimina la tabla. Arrastre el borde de una columna para cambiar su tamaño, y use **Tab** / **Mayús+Tab** para moverse entre celdas. El formato, los enlaces, las menciones y las imágenes funcionan en una celda.
+
+Las tablas aparecen en la vista previa, en la copia PDF / impresa (ajustadas a la página) y en la exportación a Word (como una tabla real de Word), así como en el [Historial](#soaw-collaboration), donde **Cambios** lee una fila como una sola línea. Los comentarios de la discusión no admiten tablas. La descripción completa está en la guía de GRC: [Tablas](grc.md#decision-tables).
 
 ### Flujo de Firma
 
@@ -98,7 +114,7 @@ Un SoAW tiene la misma discusión, las mismas menciones y el mismo historial que
 ### Vista Previa y Exportación
 
 - **Modo de vista previa** — Vista de solo lectura del documento SoAW completo
-- **Exportación DOCX** — Descargue el SoAW como un documento Word formateado para compartir o imprimir sin conexión
+- **Exportación DOCX** — Descargue el SoAW como un documento Word formateado para compartir o imprimir sin conexión. El formato y los enlaces clicables se conservan en todas las partes del texto, el código mantiene una fuente monoespaciada y las tablas del texto se convierten en tablas reales de Word
 - **Exportación PDF** — Abre una vista lista para imprimir en una pestaña nueva; use *Guardar como PDF* del navegador. Permita las ventanas emergentes para este sitio si no se abre nada.
 
 ### Pestaña SoAW en las fichas de Iniciativa

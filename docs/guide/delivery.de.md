@@ -40,6 +40,8 @@ EA Delivery öffnet sich für jede Rolle, die **SoAW-Dokumente anzeigen** (`soaw
 
 Eine Gruppe, die Sie nicht sehen dürfen, fehlt im Arbeitsbereich, und **+ Neues Artefakt** sowie **+ Hinzufügen …** bieten nur die Arten an, die Sie erstellen dürfen — eine Rolle, die nur lesen kann, sieht keine der beiden Schaltflächen. Eine Rolle mit nur `adr.view` erhält also die Seite mit den Entscheidungen jeder Initiative und nichts zu SoAWs.
 
+Die an eine Entscheidung angehängten Diagramme folgen ebenfalls `diagrams.view`: Eine Rolle ohne diese Berechtigung sieht bei einer Entscheidung keinen Abschnitt [Diagramme](grc.md#decision-diagrams).
+
 ## Statement of Architecture Work (SoAW)
 
 Ein **Statement of Architecture Work (SoAW)** ist ein formales Dokument, das durch den [TOGAF-Standard](https://pubs.opengroup.org/togaf-standard/) (The Open Group Architecture Framework) definiert wird. Es legt den Umfang, Ansatz, die Ergebnisse und die Governance für ein Architekturvorhaben fest. In TOGAF wird das SoAW während der **Vorbereitungsphase** und **Phase A (Architekturvision)** erstellt und dient als Vereinbarung zwischen dem Architekturteam und seinen Stakeholdern.
@@ -57,11 +59,13 @@ Turbo EA bietet einen integrierten SoAW-Editor mit TOGAF-konformen Abschnittsvor
 
 Der Editor bietet:
 
-- **Rich-Text-Bearbeitung** — Vollständige Formatierungswerkzeugleiste (Überschriften, Fett, Kursiv, Listen, Links) unterstützt durch den TipTap-Editor
-- **Links** — Eine eingegebene oder eingefügte URL wird beim Tippen zu einem Link, und jeder Link in einem Dokument öffnet sich in einem neuen Tab. Adressen in Dokumenten, die vor der Link-Unterstützung geschrieben wurden, werden bei der Anzeige verlinkt
+- **Rich-Text-Bearbeitung** — eine Formatierungsleiste in jedem Textabschnitt: Fett, Kursiv, Unterstrichen, Durchgestrichen, Inline-Code, eine Überschrift und eine Unterüberschrift, Aufzählungen und nummerierte Listen, Zitate, Codeblöcke, Trennlinien, Links, Tabellen, Erwähnungen und Bilder
+- **Links** — markieren Sie einige Wörter und klicken Sie auf **Link** oder drücken Sie **Strg+K** (**Cmd+K** auf einem Mac), um sie mit einer Web- oder E-Mail-Adresse zu verlinken; dieselbe Schaltfläche oder dasselbe Tastenkürzel bearbeitet oder entfernt den Link unter dem Cursor. Eine eingegebene oder eingefügte Webadresse wird von selbst zu einem Link. Während Sie bearbeiten, setzt ein Klick auf einen Link den Cursor hinein, und **Strg+Klick** (**Cmd+Klick**) öffnet ihn; in der Vorschau und in einem gesperrten Dokument öffnet ein Klick ihn. Jeder Link öffnet sich in einem neuen Tab, und Adressen in Dokumenten, die vor der Link-Unterstützung geschrieben wurden, werden bei der Anzeige verlinkt. Siehe [Links im Text](grc.md#decision-text-links)
 - **Abschnittsvorlagen** — Vordefinierte Abschnitte gemäß TOGAF-Standards (z.B. Problembeschreibung, Ziele, Ansatz, Stakeholder, Einschränkungen, Arbeitsplan)
-- **Inline bearbeitbare Tabellen** — Tabellen in jedem Abschnitt hinzufügen und bearbeiten
+- **Vorlagentabellen** — die Tabellenabschnitte der Vorlage (Ziele, Stakeholder, Risiken und Ähnliches) sind Raster mit festen Spalten: Zeilen inline hinzufügen und entfernen
+- **Tabellen im Text** — fügen Sie in einen beliebigen Textabschnitt eine eigene Tabelle ein (siehe [Tabellen](#soaw-tables))
 - **Erwähnungen** — geben Sie **@** in den Text eines Abschnitts ein, um eine Karte oder eine Entscheidung zu erwähnen (siehe [Diskussion, Erwähnungen und Verlauf](#soaw-collaboration))
+- **Bilder** — fügen Sie einen Screenshot oder ein Diagramm in den Text eines Abschnitts ein (siehe [Bilder](#soaw-pictures))
 - **Dokumentversionshistorie** — eine Tabelle, die die Autoren von Hand ausfüllen (Version, Datum, überarbeitet von, Beschreibung). Sie ist Teil des Dokuments und nicht die Ansicht [Verlauf](#soaw-collaboration)
 - **Status-Workflow** — Dokumente durchlaufen definierte Phasen:
 
@@ -71,6 +75,18 @@ Der Editor bietet:
 | **In Überprüfung** | Zur Unterschrift gesendet — gesperrt, bis die Unterschriften zurückgerufen werden |
 | **Genehmigt** | Überprüft und akzeptiert |
 | **Unterschrieben** | Formal abgezeichnet |
+
+### Bilder {: #soaw-pictures }
+
+Der Text eines Abschnitts kann Bilder enthalten, wie der einer Entscheidung. Klicken Sie in der Symbolleiste des Abschnitts auf **Bild einfügen** und wählen Sie eine Datei, fügen Sie ein Bild aus der Zwischenablage ein oder ziehen Sie eine Bilddatei auf den Abschnitt. Ziehen Sie an der Ecke eines Bildes, um seine Größe zu ändern (seine Proportionen bleiben erhalten), und wählen Sie es aus, um es über die Symbolleiste links, zentriert oder rechts auszurichten. PNG, JPEG, GIF und WebP werden akzeptiert, bis zu 5 MB pro Bild; SVG nicht.
+
+Bilder erscheinen in der Vorschau, in der PDF-/Druckfassung und im Word-Export sowie im [Verlauf](#soaw-collaboration), wo **Änderungen** ein hinzugefügtes oder entferntes Bild als *[Bild]* markiert. Eine Revision und eine wiederhergestellte Version behalten ihre Bilder. Nur Bilder, die zu einem SoAW hochgeladen wurden, bleiben erhalten: Ein Bild, das auf eine andere Website verweist, wird beim Speichern des Dokuments entfernt. Kommentare in der Diskussion nehmen keine Bilder auf, und die Bild-Steuerelemente verschwinden, wenn ein Administrator [Datei-Uploads deaktiviert](../admin/resources.md#when-file-uploads-are-disabled) hat. Die vollständige Beschreibung steht im GRC-Leitfaden: [Bilder](grc.md#decision-pictures).
+
+### Tabellen {: #soaw-tables }
+
+Der Text eines Abschnitts kann Tabellen enthalten, wie der einer Entscheidung. Klicken Sie in der Symbolleiste des Abschnitts auf **Tabelle** und wählen Sie **Tabelle einfügen** für eine Tabelle mit drei Zeilen und drei Spalten und einer Kopfzeile; steht der Cursor in einer Tabelle, fügt dasselbe Menü Zeilen und Spalten hinzu und löscht sie, schaltet die Kopfzeile ein oder aus, verbindet und teilt Zellen und löscht die Tabelle. Ziehen Sie eine Spaltengrenze, um ihre Breite zu ändern, und wechseln Sie mit **Tab** / **Umschalt+Tab** zwischen den Zellen. Formatierung, Links, Erwähnungen und Bilder funktionieren in einer Zelle.
+
+Tabellen erscheinen in der Vorschau, in der PDF-/Druckfassung (an die Seite angepasst) und im Word-Export (als echte Word-Tabelle) sowie im [Verlauf](#soaw-collaboration), wo **Änderungen** eine Tabellenzeile als eine Zeile liest. Kommentare in der Diskussion nehmen keine Tabellen auf. Die vollständige Beschreibung steht im GRC-Leitfaden: [Tabellen](grc.md#decision-tables).
 
 ### Abzeichnungsworkflow
 
@@ -98,7 +114,7 @@ Ein SoAW hat dieselbe Diskussion, dieselben Erwähnungen und denselben Verlauf w
 ### Vorschau und Export
 
 - **Vorschaumodus** — Schreibgeschützte Ansicht des vollständigen SoAW-Dokuments
-- **DOCX-Export** — Das SoAW als formatiertes Word-Dokument zum Offline-Teilen oder Drucken herunterladen
+- **DOCX-Export** — Das SoAW als formatiertes Word-Dokument zum Offline-Teilen oder Drucken herunterladen. Formatierung und anklickbare Links bleiben in jedem Teil des Textes erhalten, Code behält eine Festbreitenschrift, und Tabellen im Text werden zu echten Word-Tabellen
 - **PDF-Export** — Öffnet eine druckfertige Ansicht in einem neuen Tab; nutzen Sie *Als PDF speichern* im Browser. Erlauben Sie Pop-ups für diese Seite, falls sich nichts öffnet.
 
 ### SoAW-Reiter auf Initiative-Karten

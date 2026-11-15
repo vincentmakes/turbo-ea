@@ -78,9 +78,11 @@ La página reutiliza los mismos permisos que la pestaña Recursos de una tarjeta
 
 La eliminación masiva se comprueba **fila por fila**. Si su selección incluye recursos de tarjetas que no puede gestionar, esas filas se omiten en lugar de hacer fallar toda la operación, y una advertencia enumera exactamente cuáles y por qué.
 
-## Cuando las cargas de archivos están deshabilitadas
+## Cuando las cargas de archivos están deshabilitadas {: #when-file-uploads-are-disabled }
 
 Desactivar las **Cargas de archivos** en **Administración → Configuración → General** solo bloquea las nuevas cargas. Los archivos existentes siguen listados aquí y se pueden descargar y eliminar, así que aún puede auditar y limpiar. Mientras el interruptor está desactivado, aparece un aviso informativo en la página.
+
+El mismo interruptor también oculta los controles que insertan imágenes en el texto de las [decisiones](../guide/grc.md#decision-pictures) y los [SoAW](../guide/delivery.md#soaw-pictures). Las imágenes que ya están en un documento siguen visibles.
 
 ## Relacionado
 
