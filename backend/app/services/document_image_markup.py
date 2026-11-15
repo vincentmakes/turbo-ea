@@ -256,15 +256,16 @@ def _parsed_pass(html: str, kind: str, keep: Callable[[str], bool] | None) -> st
     return "".join(out)
 
 
-def _strict_attributes(text: str) -> list[tuple[str, str | None]] | None:
-    """The ``name="value"`` pairs of a tag's attribute text, or ``None`` when
-    it is anything else (only canonical markup survives the regex pass)."""
+def _leading_attributes(text: str) -> list[tuple[str, str | None]]:
+    """The ``name="value"`` pairs at the start of a tag's attribute text, up
+    to the first thing that is not one. Whatever follows them makes the tag
+    differ from its canonical form, which the regex pass then removes."""
     found: list[tuple[str, str | None]] = []
     pos = 0
     while (match := _ATTRIBUTE_RE.match(text, pos)) is not None:
         found.append((match.group(1).lower(), html_lib.unescape(match.group(2))))
         pos = match.end()
-    return found if pos == len(text) else None
+    return found
 
 
 def _grammar_pass(html: str, kind: str, keep: Callable[[str], bool] | None) -> str:
@@ -277,10 +278,7 @@ def _grammar_pass(html: str, kind: str, keep: Callable[[str], bool] | None) -> s
         whole = match.group(0)
         if match.group(2) != ">":
             return ""
-        attrs = _strict_attributes(match.group(1))
-        if attrs is None:
-            return ""
-        tag = canonical_img(attrs, kind)
+        tag = canonical_img(_leading_attributes(match.group(1)), kind)
         if tag != whole:
             return ""
         return _keep_tag(tag, keep)

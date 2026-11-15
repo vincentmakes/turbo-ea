@@ -47,7 +47,7 @@ def _uuids(ids: Iterable[object]) -> set[uuid.UUID]:
     out: set[uuid.UUID] = set()
     for value in ids:
         try:
-            out.add(value if isinstance(value, uuid.UUID) else uuid.UUID(str(value)))
+            out.add(uuid.UUID(str(value)))
         except ValueError:
             continue
     return out

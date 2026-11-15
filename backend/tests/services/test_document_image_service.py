@@ -4,6 +4,7 @@ the raster sniff it relies on, and the hourly purge body in ``main``."""
 from __future__ import annotations
 
 import hashlib
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -54,6 +55,19 @@ class TestSniffRasterImage:
         assert sniff_raster_image(head) is None
 
 
+@pytest.fixture
+def utc_clock(monkeypatch):
+    """The service's clock fixed at ``NOW``; it answers a UTC read only."""
+
+    class _Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            assert tz is timezone.utc, "the clock is read without a time zone"
+            return NOW
+
+    monkeypatch.setattr(service, "datetime", _Clock)
+
+
 async def _image(db, kind="adr", *, created_at=None, used_at=None, data=PNG) -> DocumentImage:
     row = await service.store(db, kind, data, mime_type="image/png", created_by=None)
     if created_at is not None or used_at is not None:
@@ -78,11 +92,11 @@ class TestStoreAndLoad:
         assert isinstance(row.id, uuid.UUID)
 
     async def test_an_unknown_kind_is_refused(self, db):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="^Unknown document kind 'pdf'$"):
             await service.store(db, "pdf", PNG, mime_type="image/png", created_by=None)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="^Unknown document kind 'pdf'$"):
             await service.load(db, "pdf", uuid.uuid4())
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="^Unknown document kind 'pdf'$"):
             await service.existing(db, "pdf", [uuid.uuid4()])
 
     async def test_load_by_kind_and_id(self, db):
@@ -103,6 +117,16 @@ class TestStoreAndLoad:
         assert found == {str(adr.id)}
         assert await service.existing(db, "adr", []) == set()
         assert await service.existing(db, "adr", ["junk"]) == set()
+
+    async def test_existing_answers_only_the_ids_asked_for(self, db):
+        asked = await _image(db, "adr")
+        await _image(db, "adr")
+        assert await service.existing(db, "adr", [asked.id]) == {str(asked.id)}
+
+    async def test_a_malformed_id_skips_only_itself(self, db):
+        row = await _image(db, "adr")
+        assert await service.existing(db, "adr", ["junk", str(row.id)]) == {str(row.id)}
+        assert await service.mark_used(db, ["junk", row.id], now=NOW) == 1
 
 
 class TestMarkUsed:
@@ -127,11 +151,16 @@ class TestMarkUsed:
         assert await service.mark_used(db, []) == 0
         assert await service.mark_used(db, ["junk"]) == 0
 
-    async def test_defaults_to_the_current_time(self, db):
+    async def test_counts_every_row_stamped_and_none_already_stamped(self, db):
+        first, second = await _image(db), await _image(db)
+        assert await service.mark_used(db, [first.id, second.id], now=NOW) == 2
+        assert await service.mark_used(db, [first.id, second.id], now=NOW) == 0
+
+    async def test_defaults_to_the_current_utc_time(self, db, utc_clock):
         row = await _image(db)
         assert await service.mark_used(db, [row.id]) == 1
         await db.refresh(row)
-        assert row.used_at is not None
+        assert row.used_at == NOW
 
 
 class TestPurgeUnused:
@@ -145,6 +174,15 @@ class TestPurgeUnused:
         assert left == {edge.id, young.id, old_used.id}
         assert old_unused.id not in left
         assert await service.purge_unused_once(db, now=NOW) == 0
+
+    async def test_defaults_to_the_current_utc_time(self, db, utc_clock):
+        """Without ``now`` the cutoff is the UTC clock less the grace."""
+        past = await _image(db, created_at=NOW - service.UNUSED_GRACE - timedelta(minutes=1))
+        within = await _image(db, created_at=NOW - service.UNUSED_GRACE + timedelta(minutes=1))
+        assert await service.purge_unused_once(db) == 1
+        left = set((await db.execute(select(DocumentImage.id))).scalars().all())
+        assert left == {within.id}
+        assert past.id not in left
 
     async def test_the_grace_is_seven_days(self):
         assert timedelta(days=7) == service.UNUSED_GRACE
@@ -163,3 +201,14 @@ class TestPurgeUnused:
         assert commits == [1]
         assert await main._purge_document_images_once(db, now=NOW) == 0
         assert commits == [1]
+
+    async def test_the_main_body_purges_by_the_time_it_is_given_and_logs_the_count(
+        self, db, caplog
+    ):
+        later = datetime.now(timezone.utc) + timedelta(days=30)
+        await _image(db)  # uploaded now: young by the clock, past the grace by ``later``
+        with caplog.at_level(logging.INFO, logger=main.logger.name):
+            assert await main._purge_document_images_once(db, now=later) == 1
+        assert [r.getMessage() for r in caplog.records if r.name == main.logger.name] == [
+            "Auto-purged 1 never-used document picture(s)."
+        ]

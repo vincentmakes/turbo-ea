@@ -104,6 +104,7 @@ class TestWrites:
         with pytest.raises(HTTPException) as exc:
             await svc.add_link(db, a, d1)
         assert exc.value.status_code == 409
+        assert exc.value.detail == "The diagram is already linked to this decision"
         assert await _linked(db, a) == {d1}
 
     async def test_remove_and_missing_404(self, db, env):
@@ -116,6 +117,21 @@ class TestWrites:
             await svc.remove_link(db, a, d1)
         assert exc.value.status_code == 404
         assert exc.value.detail == "Link not found"
+
+    async def test_remove_touches_only_this_decisions_link(self, db, env):
+        a, b, d1 = env["a"].id, env["b"].id, env["d1"].id
+        await svc.add_link(db, b, d1)
+        with pytest.raises(HTTPException) as exc:
+            await svc.remove_link(db, a, d1)
+        assert (exc.value.status_code, exc.value.detail) == (404, "Link not found")
+        assert await _linked(db, b) == {d1}
+
+    async def test_linked_ids_are_sorted_whatever_the_link_order(self, db, env):
+        a = env["a"].id
+        ids = sorted([env["d1"].id, env["d2"].id, env["d3"].id])
+        for diagram_id in reversed(ids):
+            await svc.add_link(db, a, diagram_id)
+        assert await svc.linked_ids(db, a) == ids
 
     async def test_replace(self, db, env):
         a, b = env["a"].id, env["b"].id
@@ -159,6 +175,15 @@ class TestPayload:
             "updated_at": env["d1"].updated_at.isoformat(),
         }
         assert rows[1]["thumbnail"] is None
+
+    async def test_a_shared_name_is_ordered_by_id(self, db, env):
+        a = env["a"].id
+        same = [await create_diagram(db, name="Same") for _ in range(4)]
+        ids = sorted(d.id for d in same)
+        for diagram_id in reversed(ids):
+            await svc.add_link(db, a, diagram_id)
+        rows = await svc.diagrams_payload(db, a)
+        assert [r["id"] for r in rows] == [str(i) for i in ids]
 
     async def test_for_reader(self, db, env):
         a = env["a"].id

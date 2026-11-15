@@ -138,13 +138,39 @@ class TestDropped:
         assert _n(f'<img src="{SRC}">', "soaw") == ""
 
     def test_an_unknown_kind_is_refused(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="^Unknown document kind 'pdf'$"):
             normalise_images("<p></p>", "pdf")
 
     def test_keep_drops_a_refused_id(self):
         html = f'<img src="{SRC}"><img src="{SRC.replace(ID, OTHER)}">'
         assert _n(html, keep={ID}.__contains__) == f'<img src="{SRC}">'
         assert _n(html, keep=set().__contains__) == ""
+
+    def test_keep_drops_a_refused_id_where_the_parser_saw_text(self):
+        """A canonical picture inside an attribute value is the regex pass's
+        to keep or remove, and ``keep`` decides there too."""
+        html = f"<a title='<img src=\"{SRC}\">'>t</a>"
+        assert _n(html, keep={ID}.__contains__) == html
+        assert _n(html, keep=set().__contains__) == "<a title=''>t</a>"
+
+    def test_the_parser_removes_a_refused_id_in_the_round_that_finds_it(self):
+        """Six rounds of splicing assemble a refused picture behind a ``<``;
+        the parser removes it in the round that finds it, so the splice it
+        leaves (``<img src=x>``) is removed in that same round and the text
+        settles within ``MAX_PASSES``: the allowed picture is kept as a
+        picture, not escaped."""
+        refused = SRC.replace(ID, OTHER)
+        depth = 6
+        html = (
+            "<"
+            + "<im" * depth
+            + "<img src=x>"
+            + "g src=x>" * (depth - 1)
+            + f'g src="{refused}">'
+            + "img src=x>"
+            + f'<img src="{SRC}">'
+        )
+        assert _n(html, keep={ID}.__contains__) == f'<img src="{SRC}">'
 
 
 class TestTrickyMarkup:
@@ -158,6 +184,22 @@ class TestTrickyMarkup:
 
     def test_an_img_in_script_is_found(self):
         assert _n('<script><img src="https://e/x.png"></script>') == "<script></script>"
+
+    def test_a_picture_with_anything_after_its_attributes_is_removed(self):
+        """Where only the regex pass sees a tag, a stored-form prefix followed
+        by anything else is not the stored form: the tag goes."""
+        for tail in (" ", " width=5", ' x="1"', "/"):
+            html = f"<a title='<img src=\"{SRC}\"{tail}>'>t</a>"
+            assert _n(html) == "<a title=''>t</a>"
+
+    def test_after_a_malformed_character_reference_only_the_stored_form_is_kept(self):
+        """``html.parser`` reads everything after ``&#12a`` as one character
+        reference, so the pictures there reach the regex pass alone: one in
+        its stored form is kept, any other is removed."""
+        assert _n(f'<p>&#12a</p><img src="{SRC}" width="5">') == (
+            f'<p>&#12a</p><img src="{SRC}" width="5">'
+        )
+        assert _n(f'<p>&#12a</p><img src="{SRC}" width=5>') == "<p>&#12a</p>"
 
     def test_an_unterminated_tag_at_the_end_is_removed(self):
         assert _n(f'<p>x</p><img src="{SRC}"') == "<p>x</p>"
@@ -200,6 +242,11 @@ class TestPassThrough:
     def test_text_without_a_picture_is_the_same_object(self):
         html = '<p>Hello <strong>world</strong> <a href="https://x">x</a></p>'
         assert normalise_images(html, "adr") is html
+
+    @pytest.mark.parametrize("value", [None, 5, ["<img src=x>"]], ids=repr)
+    def test_anything_but_a_string_comes_back_as_it_is(self, value):
+        assert markup.has_hint(value) is False
+        assert normalise_images(value, "adr") is value
 
     def test_everything_around_a_picture_stays_byte_for_byte(self):
         around = '<p class="a">x &amp; y</p>\n<ul><li>  z</li></ul>'

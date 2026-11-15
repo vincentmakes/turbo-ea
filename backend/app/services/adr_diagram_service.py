@@ -64,10 +64,8 @@ async def diagrams_payload(db: AsyncSession, decision_id: uuid.UUID) -> list[dic
                 ).label("thumbnail"),
                 Diagram.updated_at,
             )
-            .join(
-                ArchitectureDecisionDiagram,
-                ArchitectureDecisionDiagram.diagram_id == Diagram.id,
-            )
+            # Joined on the link's one foreign key to ``diagrams``.
+            .join(ArchitectureDecisionDiagram)
             .where(ArchitectureDecisionDiagram.architecture_decision_id == decision_id)
             .order_by(Diagram.name, Diagram.id)
         )
