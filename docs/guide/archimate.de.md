@@ -17,7 +17,6 @@ Die obere Zeile zeigt den Diagrammnamen, Kartenfarben, Karteninhalte und Synchro
 
 Solange das Modul aktiv ist, werden ArchiMate-Diagramme über die Seite **Diagramme** und über den Reiter **Ressourcen** jeder Karte erstellt und geöffnet, die sie referenzieren. `/admin/architectureStudio` ist weiterhin die Liste Ihrer ArchiMate-Diagramme, in der Sie sie erstellen, öffnen und löschen können; dafür sind eine Berechtigung auf mindestens einer ArchiMate-Ebene und das aktivierte Modul nötig. Im Editor führt **Zurück** zur Seite, von der Sie gekommen sind.
 
-<!-- Planned screenshot (added with the screenshot capture): 102_archimate_sandbox -->
 
 ## Ihr erstes Diagramm
 
