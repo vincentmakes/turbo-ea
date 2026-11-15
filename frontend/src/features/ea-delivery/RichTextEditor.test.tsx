@@ -10,8 +10,9 @@
  * so a TipTap bump could otherwise reach production on a green build.
  */
 import { describe, it, expect, vi, afterEach, beforeAll, beforeEach } from "vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, createEvent, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { Editor } from "@tiptap/core";
+import { NodeSelection } from "@tiptap/pm/state";
 import { CellSelection, columnResizingPluginKey } from "@tiptap/pm/tables";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
@@ -2500,6 +2501,448 @@ describe("RichTextEditor tables", () => {
           ]) +
           "<p></p>",
       );
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The right-click menu in a table (document variant only)
+// ---------------------------------------------------------------------------
+
+describe("RichTextEditor table right-click menu", () => {
+  /** The paragraph (`p`) inside the rendered cell whose text is `text`. */
+  const cellText = (container: HTMLElement, text: string) => {
+    const found = Array.from(container.querySelectorAll(".tiptap td p, .tiptap th p")).find(
+      (p) => p.textContent === text,
+    );
+    expect(found, `no cell "${text}"`).toBeDefined();
+    return found as HTMLElement;
+  };
+  /** A pointer right-click at (240, 120); false when it was prevented. */
+  const rightClick = (target: Element, init: MouseEventInit = {}) =>
+    fireEvent.contextMenu(target, { clientX: 240, clientY: 120, button: 2, ...init });
+  /** A right-click whose event carries its own `pointerType` (a PointerEvent in Chrome). */
+  const rightClickAs = (target: Element, pointerType: string) => {
+    const event = createEvent.contextMenu(target, { clientX: 240, clientY: 120, button: 2 });
+    Object.defineProperty(event, "pointerType", { value: pointerType });
+    return fireEvent(target, event);
+  };
+  /** A `pointerdown` of that type (jsdom has no PointerEvent). */
+  const pointerDown = (target: Element, pointerType: string) => {
+    const event = createEvent.pointerDown(target, { button: 0 });
+    Object.defineProperty(event, "pointerType", { value: pointerType });
+    fireEvent(target, event);
+  };
+  const actionsMenu = () => screen.queryByRole("menu", { name: "Table actions" });
+  const paperOf = (menu: HTMLElement) => menu.closest(".MuiPaper-root") as HTMLElement;
+  const caretIn = (editor: Editor) => editor.state.selection.$head.parent.textContent;
+  const caretAt = (editor: Editor, pos: number) =>
+    act(() => {
+      editor.commands.setTextSelection(pos);
+    });
+
+  /** A body cell holding a link, a body cell holding a picture, then a paragraph. */
+  const RICH =
+    table(2, [
+      [th("A"), th("B")],
+      [
+        '<td colspan="1" rowspan="1"><p>see <a target="_blank" rel="noopener noreferrer" href="https://x.io">x</a></p></td>',
+        `<td colspan="1" rowspan="1"><img src="${ADR_IMG}"><p>pic</p></td>`,
+      ],
+    ]) + "<p>z</p>";
+  /** A body cell holding a card mention. */
+  const MENTIONED =
+    table(1, [
+      [th("A")],
+      [`<td colspan="1" rowspan="1"><p>by <span data-type="mention" data-kind="card" data-id="${CARD_ID}">@SAP ERP</span></p></td>`],
+    ]) + "<p>z</p>";
+
+  describe("opens", () => {
+    it("on a right-click in a cell, prevented, with the context set at the pointer", async () => {
+      const { container, editor, onChange } = await tableEditor(ABCD);
+      caretAt(editor, textAt(editor, "A"));
+      expect(rightClick(cellText(container, "d"))).toBe(false);
+      const menu = await screen.findByRole("menu", { name: "Table actions" });
+      expect(paperOf(menu).style.top).toBe("120px");
+      expect(paperOf(menu).style.left).toBe("240px");
+      const labels = within(menu)
+        .getAllByRole("menuitem")
+        .map((i) => i.textContent);
+      expect(labels[0]).toBe("Select row");
+      expect(labels).not.toContain("Insert table");
+      expect(labels).toHaveLength(15);
+      // The caret followed the click into the cell, at its start (no layout).
+      expect(editor.state.selection.from).toBe(textAt(editor, "d"));
+      expect(editor.state.selection.empty).toBe(true);
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("puts the caret where the pointer is when that lands inside the clicked cell", async () => {
+      const { container, editor } = await tableEditor(ABCD);
+      caretAt(editor, textAt(editor, "A"));
+      const d = textAt(editor, "d");
+      const posAtCoords = vi
+        .spyOn(editor.view, "posAtCoords")
+        .mockReturnValue({ pos: d + 1, inside: -1 });
+      rightClick(cellText(container, "d"));
+      expect(posAtCoords).toHaveBeenCalledWith({ left: 240, top: 120 });
+      expect(editor.state.selection.from).toBe(d + 1);
+      expect(editor.state.selection.empty).toBe(true);
+    });
+
+    it("puts the caret at the cell's start when the pointer lands outside it, or cannot be measured", async () => {
+      const { container, editor } = await tableEditor(ABCD);
+      const c = textAt(editor, "c");
+      const d = textAt(editor, "d");
+      const posAtCoords = vi.spyOn(editor.view, "posAtCoords");
+
+      caretAt(editor, textAt(editor, "A"));
+      posAtCoords.mockReturnValue({ pos: c, inside: -1 });
+      rightClick(cellText(container, "d"));
+      expect(editor.state.selection.from).toBe(d);
+
+      caretAt(editor, textAt(editor, "A"));
+      // Just past the cell's content (its closing token).
+      posAtCoords.mockReturnValue({ pos: d + 3, inside: -1 });
+      rightClick(cellText(container, "d"));
+      expect(editor.state.selection.from).toBe(d);
+
+      caretAt(editor, textAt(editor, "A"));
+      posAtCoords.mockImplementation(() => {
+        throw new Error("no layout");
+      });
+      expect(rightClick(cellText(container, "d"))).toBe(false);
+      expect(editor.state.selection.from).toBe(d);
+    });
+
+    it("accepts the pointer at the very start and end of the cell's content", async () => {
+      const { container, editor } = await tableEditor(ABCD);
+      const d = textAt(editor, "d");
+      const posAtCoords = vi.spyOn(editor.view, "posAtCoords");
+      // The cell's content runs from the paragraph's opening (d - 1) to its closing (d + 2).
+      caretAt(editor, textAt(editor, "A"));
+      posAtCoords.mockReturnValue({ pos: d + 2, inside: -1 });
+      rightClick(cellText(container, "d"));
+      expect(editor.state.selection.from).toBe(d + 1);
+      caretAt(editor, textAt(editor, "A"));
+      posAtCoords.mockReturnValue({ pos: d - 1, inside: -1 });
+      rightClick(cellText(container, "d"));
+      expect(editor.state.selection.from).toBe(d);
+    });
+
+    it("on a mention chip in a cell, whose node view keeps its events from ProseMirror's props", async () => {
+      const { container, editor, onChange } = await tableEditor(MENTIONED, { mentions: ["card"] });
+      const chip = container.querySelector('.tiptap td [data-type="mention"]')!;
+      expect(chip).not.toBeNull();
+      let chipPos = -1;
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name === "mention") chipPos = pos;
+      });
+      // The pointer is on the chip; the caret goes just before it.
+      vi.spyOn(editor.view, "posAtCoords").mockReturnValue({ pos: chipPos, inside: chipPos });
+      caretAt(editor, textAt(editor, "A"));
+      expect(fireEvent.mouseDown(chip, { button: 2, clientX: 240, clientY: 120 })).toBe(false);
+      fireEvent.mouseUp(chip, { button: 2, clientX: 240, clientY: 120 });
+      expect(rightClick(chip)).toBe(false);
+      expect(await screen.findByRole("menu", { name: "Table actions" })).toBeInTheDocument();
+      expect(editor.state.selection).not.toBeInstanceOf(NodeSelection);
+      expect(editor.state.selection.empty).toBe(true);
+      expect(editor.state.selection.from).toBe(chipPos);
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("after a touch press, once the next press is a mouse's", async () => {
+      const { container } = await tableEditor(ABCD);
+      const d = cellText(container, "d");
+      pointerDown(d, "touch");
+      pointerDown(d, "mouse");
+      expect(rightClick(d)).toBe(false);
+      expect(await screen.findByRole("menu", { name: "Table actions" })).toBeInTheDocument();
+    });
+
+    it("on a right-click carrying a mouse pointer type, whatever the last press was", async () => {
+      const { container } = await tableEditor(ABCD);
+      const d = cellText(container, "d");
+      pointerDown(d, "touch");
+      expect(rightClickAs(d, "mouse")).toBe(false);
+      expect(await screen.findByRole("menu", { name: "Table actions" })).toBeInTheDocument();
+    });
+  });
+
+  describe("is left to the browser", () => {
+    async function expectLeft(prevented: boolean) {
+      expect(prevented).toBe(true);
+      // Nothing opens, now or after React has settled.
+      await act(async () => {});
+      expect(actionsMenu()).not.toBeInTheDocument();
+    }
+
+    it("with Shift held", async () => {
+      const { container, editor } = await tableEditor(ABCD);
+      caretAt(editor, textAt(editor, "A"));
+      await expectLeft(rightClick(cellText(container, "d"), { shiftKey: true }));
+      // The selection is not moved either.
+      expect(caretIn(editor)).toBe("A");
+    });
+
+    it("in a locked editor", async () => {
+      const { container, editor } = await tableEditor(ABCD, { readOnly: true });
+      caretAt(editor, textAt(editor, "A"));
+      await expectLeft(rightClick(cellText(container, "d")));
+      expect(caretIn(editor)).toBe("A");
+    });
+
+    it("outside a table", async () => {
+      const { container } = await tableEditor(ABCD);
+      const after = Array.from(container.querySelectorAll(".tiptap > p")).find((p) => p.textContent === "z")!;
+      await expectLeft(rightClick(after));
+    });
+
+    it("on a link inside a cell", async () => {
+      const { container } = await tableEditor(RICH);
+      await expectLeft(rightClick(container.querySelector('.tiptap td a[href="https://x.io"]')!));
+    });
+
+    it("on a picture inside a cell", async () => {
+      const { container } = await tableEditor(RICH, { imageKind: "adr" });
+      const img = container.querySelector(".tiptap td img")!;
+      expect(img).toHaveAttribute("src", ADR_IMG);
+      await expectLeft(rightClick(img));
+    });
+
+    it("next to a link or a picture in the same cell, where the menu opens", async () => {
+      const { container } = await tableEditor(RICH, { imageKind: "adr" });
+      expect(rightClick(cellText(container, "pic"))).toBe(false);
+      expect(await screen.findByRole("menu", { name: "Table actions" })).toBeInTheDocument();
+    });
+
+    it("after a touch press", async () => {
+      const { container } = await tableEditor(ABCD);
+      const d = cellText(container, "d");
+      pointerDown(d, "touch");
+      await expectLeft(rightClick(d));
+    });
+
+    it("on a right-click that says it comes from touch", async () => {
+      const { container } = await tableEditor(ABCD);
+      await expectLeft(rightClickAs(cellText(container, "d"), "touch"));
+    });
+
+    it("in a comment, which has no tables", async () => {
+      const { container } = await tableEditor(
+        "<table><tbody><tr><td><p>b</p></td></tr></tbody></table>",
+        { variant: "comment" },
+      );
+      expect(container.querySelector(".tiptap td")).toBeNull();
+      await expectLeft(rightClick(container.querySelector(".tiptap p")!));
+    });
+  });
+
+  describe("from the keyboard (Shift+F10, the Menu key: zero coordinates)", () => {
+    const keyboard = (target: Element, init: MouseEventInit = {}) =>
+      fireEvent.contextMenu(target, { clientX: 0, clientY: 0, ...init });
+
+    it("opens on the caret's cell, anchored inside its bottom edge", async () => {
+      const { container, editor } = await tableEditor(ABCD);
+      caretAt(editor, textAt(editor, "d"));
+      const cell = cellText(container, "d").closest("td")!;
+      vi.spyOn(cell, "getBoundingClientRect").mockReturnValue(new DOMRect(10, 30, 300, 40));
+      expect(keyboard(editor.view.dom, { shiftKey: true })).toBe(false);
+      const menu = await screen.findByRole("menu", { name: "Table actions" });
+      // Bottom 70 less 4; left 10 plus half the width, at most 120.
+      expect(paperOf(menu).style.top).toBe("66px");
+      expect(paperOf(menu).style.left).toBe("130px");
+      expect(caretIn(editor)).toBe("d");
+    });
+
+    it("anchors on a narrow cell's middle, and on a cell selection's head cell", async () => {
+      const { container, editor } = await tableEditor(ABCD);
+      const cells = cellPositions(editor);
+      act(() => {
+        editor.commands.setCellSelection({ anchorCell: cells[0], headCell: cells[2] });
+      });
+      const cell = cellText(container, "c").closest("td")!;
+      vi.spyOn(cell, "getBoundingClientRect").mockReturnValue(new DOMRect(20, 30, 100, 40));
+      expect(keyboard(editor.view.dom)).toBe(false);
+      const menu = await screen.findByRole("menu", { name: "Table actions" });
+      expect(paperOf(menu).style.top).toBe("66px");
+      expect(paperOf(menu).style.left).toBe("70px");
+      expect(editor.state.selection).toBeInstanceOf(CellSelection);
+    });
+
+    it("is left to the browser with the caret outside a table", async () => {
+      const { editor } = await tableEditor(ABCD);
+      caretAt(editor, textAt(editor, "z"));
+      expect(keyboard(editor.view.dom)).toBe(true);
+      await act(async () => {});
+      expect(actionsMenu()).not.toBeInTheDocument();
+    });
+
+    it("is left to the browser in a locked editor", async () => {
+      const { editor } = await tableEditor(ABCD, { readOnly: true });
+      caretAt(editor, textAt(editor, "d"));
+      expect(keyboard(editor.view.dom)).toBe(true);
+      await act(async () => {});
+      expect(actionsMenu()).not.toBeInTheDocument();
+    });
+  });
+
+  describe("the selection", () => {
+    it("keeps a cell selection that holds the clicked cell", async () => {
+      const { container, editor } = await tableEditor(ABCD);
+      const cells = cellPositions(editor);
+      act(() => {
+        editor.commands.setCellSelection({ anchorCell: cells[2], headCell: cells[3] });
+      });
+      const before = editor.state.selection;
+      expect(rightClick(cellText(container, "d"))).toBe(false);
+      expect(editor.state.selection).toBe(before);
+      await screen.findByRole("menu", { name: "Table actions" });
+    });
+
+    it("moves the caret into a clicked cell outside the cell selection", async () => {
+      const { container, editor } = await tableEditor(ABCD);
+      const cells = cellPositions(editor);
+      act(() => {
+        editor.commands.setCellSelection({ anchorCell: cells[2], headCell: cells[3] });
+      });
+      rightClick(cellText(container, "A"));
+      expect(editor.state.selection).not.toBeInstanceOf(CellSelection);
+      expect(editor.state.selection.from).toBe(textAt(editor, "A"));
+      expect(editor.state.selection.empty).toBe(true);
+    });
+
+    it("keeps a text selection inside the clicked cell", async () => {
+      const { container, editor } = await tableEditor(ABCD);
+      const d = textAt(editor, "d");
+      act(() => {
+        editor.commands.setTextSelection({ from: d, to: d + 1 });
+      });
+      // Where the pointer is would collapse it, were it not kept.
+      vi.spyOn(editor.view, "posAtCoords").mockReturnValue({ pos: d, inside: -1 });
+      rightClick(cellText(container, "d"));
+      expect(editor.state.selection.from).toBe(d);
+      expect(editor.state.selection.to).toBe(d + 1);
+    });
+
+    it("moves a text selection that reaches outside the clicked cell", async () => {
+      const { container, editor } = await tableEditor(ABCD);
+      act(() => {
+        editor.commands.setTextSelection({ from: textAt(editor, "c"), to: textAt(editor, "d") + 1 });
+      });
+      rightClick(cellText(container, "d"));
+      expect(editor.state.selection.from).toBe(textAt(editor, "d"));
+      expect(editor.state.selection.empty).toBe(true);
+    });
+  });
+
+  describe("the menu", () => {
+    it("runs an action on the clicked cell, closes, and gives the editor the focus", async () => {
+      const { container, editor, onChange } = await tableEditor(ABCD);
+      caretAt(editor, textAt(editor, "A"));
+      (editor.view.dom as HTMLElement).blur();
+      rightClick(cellText(container, "c"));
+      const menu = await screen.findByRole("menu", { name: "Table actions" });
+      fireEvent.click(within(menu).getByTestId("table-addRowAfter"));
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect(onChange).toHaveBeenLastCalledWith(
+        `${table(2, [[th("A"), th("B")], [td("c"), td("d")], [td(), td()]])}<p>z</p>`,
+      );
+      await waitFor(() => expect(actionsMenu()).not.toBeInTheDocument());
+      await waitFor(() => expect(editor.view.dom).toHaveFocus());
+      expect(onChange).toHaveBeenCalledTimes(1);
+    });
+
+    it("closes on Escape and gives the editor the focus with the clicked cell's caret, reporting no edit", async () => {
+      const { container, editor, onChange } = await tableEditor(ABCD);
+      caretAt(editor, textAt(editor, "A"));
+      rightClick(cellText(container, "d"));
+      const menu = await screen.findByRole("menu", { name: "Table actions" });
+      fireEvent.keyDown(menu, { key: "Escape" });
+      await waitFor(() => expect(actionsMenu()).not.toBeInTheDocument());
+      await waitFor(() => expect(editor.view.dom).toHaveFocus());
+      expect(caretIn(editor)).toBe("d");
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("closes on a right-click on itself, which is prevented", async () => {
+      const { container } = await tableEditor(ABCD);
+      rightClick(cellText(container, "d"));
+      const menu = await screen.findByRole("menu", { name: "Table actions" });
+      expect(rightClick(menu)).toBe(false);
+      await waitFor(() => expect(actionsMenu()).not.toBeInTheDocument());
+    });
+
+    it("is mounted for a locked editor too, and stays closed there", async () => {
+      const { container } = await tableEditor(ABCD, { readOnly: true });
+      rightClick(cellText(container, "d"));
+      await act(async () => {});
+      expect(actionsMenu()).not.toBeInTheDocument();
+    });
+  });
+
+  describe("the right button's press", () => {
+    const resizing = (editor: Editor) => columnResizingPluginKey.getState(editor.state);
+    const press = (target: Element, init: MouseEventInit = {}) =>
+      fireEvent.mouseDown(target, { button: 2, clientX: 240, clientY: 120, ...init });
+
+    it("is prevented in a cell, and leaves the selection where it was", async () => {
+      const { container, editor } = await tableEditor(ABCD);
+      caretAt(editor, textAt(editor, "A"));
+      expect(press(cellText(container, "d"))).toBe(false);
+      expect(caretIn(editor)).toBe("A");
+    });
+
+    it("starts no resize drag on an active resize handle, where the left button does", async () => {
+      const { container, editor } = await tableEditor(`${TABLE_2X2}<p>z</p>`);
+      // As in "refuses a resize handle while locked…": a box for the first
+      // header cell and the pointer 2px inside its right edge.
+      const firstCell = cellPositions(editor)[0];
+      vi.spyOn(editor.view, "posAtCoords").mockReturnValue({ pos: firstCell + 2, inside: firstCell });
+      const headerCell = container.querySelector(".tiptap th")!;
+      vi.spyOn(headerCell, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 100, 20));
+      const cellDom = headerCell.querySelector("p")!;
+      fireEvent.mouseMove(cellDom, { clientX: 98, clientY: 10 });
+      expect(resizing(editor)?.activeHandle).toBe(firstCell);
+
+      expect(press(cellDom, { clientX: 98, clientY: 10 })).toBe(false);
+      expect(resizing(editor)?.dragging).toBeFalsy();
+
+      // The same press with the left button starts one: the handle was live.
+      fireEvent.mouseDown(cellDom, { button: 0, clientX: 98, clientY: 10 });
+      expect(resizing(editor)?.dragging).toBeTruthy();
+      fireEvent.mouseUp(window, { button: 0, clientX: 98, clientY: 10 });
+    });
+
+    it.each<[string, Partial<React.ComponentProps<typeof RichTextEditor>>, MouseEventInit, string]>([
+      ["with Shift held", {}, { shiftKey: true }, "d"],
+      ["in a locked editor", { readOnly: true }, {}, "d"],
+      ["on a link", {}, {}, "link"],
+      ["outside a table", {}, {}, "z"],
+    ])("is not prevented %s", async (_name, props, init, where) => {
+      const { container, editor } = await tableEditor(RICH.replace("<p>z</p>", ABCD), props);
+      vi.spyOn(editor.view, "posAtCoords").mockReturnValue(null);
+      const target =
+        where === "link"
+          ? container.querySelector('.tiptap td a[href="https://x.io"]')!
+          : where === "z"
+            ? Array.from(container.querySelectorAll(".tiptap > p")).find((p) => p.textContent === "z")!
+            : cellText(container, where);
+      expect(press(target, init)).toBe(true);
+    });
+
+    it("is not prevented for the left button", async () => {
+      const { container, editor } = await tableEditor(ABCD);
+      vi.spyOn(editor.view, "posAtCoords").mockReturnValue(null);
+      expect(fireEvent.mouseDown(cellText(container, "d"), { button: 0 })).toBe(true);
+    });
+
+    it("is not prevented after a touch press", async () => {
+      const { container, editor } = await tableEditor(ABCD);
+      vi.spyOn(editor.view, "posAtCoords").mockReturnValue(null);
+      const d = cellText(container, "d");
+      pointerDown(d, "touch");
+      expect(press(d)).toBe(true);
     });
   });
 });

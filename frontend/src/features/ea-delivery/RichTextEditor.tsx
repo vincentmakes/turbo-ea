@@ -40,7 +40,9 @@ import {
   type DocumentImageKind,
 } from "./documentImages";
 import LinkDialog, { type LinkDialogResult } from "./LinkDialog";
+import TableActionsMenu from "./TableActionsMenu";
 import TableMenu from "./TableMenu";
+import { createTableMenuStore } from "./tableMenuStore";
 import { MENTION_CHIP_SX } from "./mentions/MentionContainer";
 import MentionBrowseDialog from "./mentions/MentionBrowseDialog";
 import MentionPopup from "./mentions/MentionPopup";
@@ -344,6 +346,9 @@ export default function RichTextEditor({
   const { t } = useTranslation("delivery");
   const isComment = variant === "comment";
   const [store] = useState(createMentionSuggestionStore);
+  // The right-click table menu's store (document variant, read-only included:
+  // the plugin itself leaves a locked editor to the browser).
+  const [tableMenuStore] = useState(createTableMenuStore);
   const mentionLabels = useMentionLabels();
   // The editor is built once; the latest submit callback is read through a ref.
   const onSubmitRef = useRef(onSubmit);
@@ -400,7 +405,7 @@ export default function RichTextEditor({
       // Every document editor, read-only included: one without the table
       // nodes would drop a stored table on the next save. Never in a comment,
       // where a pasted table flattens to its paragraphs.
-      ...(isComment ? [] : createDocumentTableExtensions()),
+      ...(isComment ? [] : createDocumentTableExtensions({ menuStore: tableMenuStore })),
     ],
     content,
     editable: !readOnly,
@@ -859,6 +864,7 @@ export default function RichTextEditor({
       >
         <EditorContent editor={editor} />
       </Box>
+      {!isComment && <TableActionsMenu editor={editor} store={tableMenuStore} />}
       {hasMentions && (
         <MentionPopup
           store={store}

@@ -223,6 +223,7 @@
   "richText.tableMergeCells": "Merge cells",
   "richText.tableSplitCell": "Split cell",
   "richText.tableDelete": "Delete table",
+  "richText.tableActions": "Table actions",
   "mention.listLabel": "Mention suggestions",
   "mention.group.cards": "Cards",
   "mention.group.decisions": "Decisions",

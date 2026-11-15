@@ -1,6 +1,8 @@
 import type { AnyExtension } from "@tiptap/core";
-import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table";
+import { Table, TableCell, type TableOptions, TableHeader, TableRow } from "@tiptap/extension-table";
 import { columnResizing, tableEditing } from "@tiptap/pm/tables";
+import { tableContextMenu } from "./tableContextMenu";
+import type { TableMenuStore } from "./tableMenuStore";
 
 /**
  * Tables in decision and SoAW sections (the document variant only; a comment
@@ -23,10 +25,21 @@ import { columnResizing, tableEditing } from "@tiptap/pm/tables";
  * `<colgroup>` in step with the cells' `colwidth` while editing and wraps the
  * table in `div.tableWrapper`, which `renderWrapper: false` keeps out of
  * `getHTML()`.
+ *
+ * With a `menuStore`, the right-click menu's plugin (`tableContextMenu.ts`)
+ * comes first. Its listeners sit on the editor's root in the capture phase,
+ * so they run before every plugin's DOM handlers whatever the order; a
+ * right-button press it prevents never reaches `columnResizing`, which has no
+ * button check and would start a resize drag.
  */
-const DocumentTable = Table.extend({
+const DocumentTable = Table.extend<TableOptions & { menuStore: TableMenuStore | null }>({
+  addOptions() {
+    return { ...this.parent!(), menuStore: null };
+  },
   addProseMirrorPlugins() {
+    const { menuStore } = this.options;
     return [
+      ...(menuStore ? [tableContextMenu(menuStore)] : []),
       columnResizing({
         handleWidth: this.options.handleWidth,
         cellMinWidth: this.options.cellMinWidth,
@@ -42,10 +55,17 @@ const DocumentTable = Table.extend({
   },
 });
 
-/** The table nodes every document-variant editor registers, read-only included. */
-export function createDocumentTableExtensions(): AnyExtension[] {
+/**
+ * The table nodes every document-variant editor registers, read-only
+ * included. A `menuStore` adds the right-click menu, which opens through it;
+ * without one there is none.
+ */
+export function createDocumentTableExtensions(
+  options: { menuStore?: TableMenuStore } = {},
+): AnyExtension[] {
   return [
     DocumentTable.configure({
+      menuStore: options.menuStore ?? null,
       resizable: true,
       renderWrapper: false,
       lastColumnResizable: true,
