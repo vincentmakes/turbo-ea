@@ -3,6 +3,10 @@ paths:
   - "backend/app/services/ai_service.py"
   - "backend/app/services/servicenow_service.py"
   - "backend/app/api/v1/ai_suggest.py"
+  - "backend/app/schemas/ai_suggest.py"
+  - "backend/app/services/openai_chat.py"
+  - "backend/app/services/azure_openai.py"
+  - "backend/app/services/bedrock.py"
   - "backend/app/api/v1/servicenow.py"
   - "frontend/src/components/AiSuggestPanel*"
   - "frontend/src/features/admin/AiAdmin*"
@@ -27,15 +31,16 @@ Bi-directional sync between Turbo EA cards and ServiceNow CMDB.
 - **Mappings**: Card type ↔ ServiceNow table mappings with field-level rules
 - **Sync modes**: Pull (ServiceNow → Turbo), Push (Turbo → ServiceNow)
 - **Staging**: Records staged for admin review before applying changes (skip_staging flag available)
-- **Identity persistence**: `snow_identity_map` maintains ID mappings across syncs
+- **Identity persistence**: `servicenow_identity_map` maintains ID mappings across syncs
 
 ---
 
 ## AI Description Suggestions
 
-Optional feature that uses a local LLM (via Ollama or any Ollama-compatible provider) to generate card description suggestions. The pipeline combines web search context with LLM inference.
+Optional feature that generates card description suggestions with an LLM: Ollama (local, default), OpenAI-compatible, Azure OpenAI, Anthropic or AWS Bedrock (`provider_type` in `ai_service.py`; adapters in `services/openai_chat.py`, `azure_openai.py`, `bedrock.py`). The pipeline combines web search context with LLM inference.
 
 ### Architecture
+- **Hand the connection back before the LLM call**: every AI route does `await db.commit()` before the web search / LLM round-trip (`ai_suggest.py`); see `db-sessions-events-audit.md`.
 - **Two-step pipeline**: Web search (DuckDuckGo/Google/SearXNG) → LLM description generation
 - **Description-only**: Suggestions are limited to the `description` field — not arbitrary metadata fields
 - **Two surfaces, one pipeline**: `POST /ai/suggest` describes a card (gated per card type by `enabledTypes`); `POST /ai/suggest-eol-product` describes a custom EOL product (Settings → EOL, or a card's End of Life section) with the `EOL_PRODUCT_CONTEXT_KEY` search context — a product is not a card type, so only the switch, the provider configuration and `ai.suggest` gate it. Both share `_require_ai_ready` / `_suggest_or_502` in `ai_suggest.py`
@@ -45,7 +50,7 @@ Optional feature that uses a local LLM (via Ollama or any Ollama-compatible prov
 
 ### Backend Components
 - **`services/ai_service.py`**: Core orchestration — web search dispatch, LLM prompt building, response validation
-- **`api/v1/ai_suggest.py`**: FastAPI endpoints (`POST /ai/suggest`, `GET /ai/status`)
+- **`api/v1/ai_suggest.py`**: FastAPI endpoints (`POST /ai/suggest`, `POST /ai/suggest-eol-product`, `POST /ai/portfolio-insights`, `GET /ai/status`); the admin settings (incl. the encrypted `apiKey`) are read and written by `api/v1/settings.py`
 - **`schemas/ai_suggest.py`**: Pydantic request/response models
 - **Settings stored in**: `app_settings.general_settings.ai` (JSONB) — provider URL, model, search provider, enabled types
 
@@ -70,4 +75,5 @@ The `ollama` service uses a persistent volume (`ollama_models`) and is only acce
 - **Model pulling**: Background task checks if the configured model exists in Ollama and pulls it if missing (10-minute timeout, non-blocking)
 
 ### Permission
+- **`ai.portfolio_insights`**: gates `POST /ai/portfolio-insights` (Portfolio report). Same defaults as `ai.suggest`.
 - **`ai.suggest`**: Controls access to AI suggestion functionality. Granted to admin, bpm_admin, and member roles by default. Not available to viewers.
