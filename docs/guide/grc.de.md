@@ -158,14 +158,46 @@ Markieren Sie einige Wörter und klicken Sie in der Symbolleiste des Abschnitts 
 
 #### Tabellen {: #decision-tables }
 
-Jeder der vier Abschnitte kann Tabellen enthalten. Klicken Sie in der Symbolleiste des Abschnitts auf **Tabelle** und wählen Sie **Tabelle einfügen**: Eine Tabelle mit drei Zeilen und drei Spalten wird eingefügt, ihre erste Zeile ist eine Kopfzeile. Steht der Cursor in einer Tabelle, bietet dasselbe Menü:
+Jeder der vier Abschnitte kann Tabellen enthalten. Klicken Sie in der Symbolleiste des Abschnitts auf **Tabelle** und wählen Sie **Tabelle einfügen**: Eine Tabelle mit drei Zeilen und drei Spalten wird eingefügt, ihre erste Zeile ist eine Kopfzeile. Eine Zelle enthält Text wie der Rest des Abschnitts: Formatierung, Links, Erwähnungen und Bilder funktionieren darin.
 
-- **Zeile oberhalb einfügen**, **Zeile unterhalb einfügen**, **Spalte davor einfügen**, **Spalte danach einfügen**, **Zeile löschen** und **Spalte löschen**;
-- **Kopfzeile**, das die Kopfzeilenformatierung der ersten Zeile ein- oder ausschaltet;
-- **Zellen verbinden** — markieren Sie zuvor mehrere Zellen, indem Sie darüber ziehen — und **Zelle teilen**, das eine verbundene Zelle wieder aufteilt;
+Die Aktionen einer Tabelle erreichen Sie auf drei Wegen, und jede wirkt auf die Zelle mit dem Cursor oder auf die Zellen, die Sie markiert haben:
+
+- **Das Menü Tabelle der Symbolleiste** — steht der Cursor in einer Tabelle, listet **Tabelle** jede der unten genannten Aktionen auf.
+- **Rechtsklick** in eine Zelle — dieselben Aktionen öffnen sich am Mauszeiger.
+- **Die Griffe** rund um die Tabelle — ein Griff neben einer Zeile oder über einer Spalte öffnet die Aktionen für diese Zeile oder Spalte, und ein **+** fügt eine ein (siehe *Griffe* unten).
+
+Die Aktionen:
+
+- **Zeile auswählen** und **Spalte auswählen** markieren die ganze Zeile oder Spalte des Cursors oder jeder markierten Zelle.
+- **Zeile oberhalb einfügen**, **Zeile unterhalb einfügen**, **Spalte davor einfügen** und **Spalte danach einfügen**. **Zeile oberhalb einfügen** ist in der Kopfzeile nicht verfügbar: Eine neue Zeile kommt immer darunter.
+- **Zeile nach oben verschieben**, **Zeile nach unten verschieben**, **Spalte nach vorne verschieben** und **Spalte nach hinten verschieben** verschieben die Zeile oder Spalte um eine Position und lassen sie markiert. Ein Verschieben ist nicht verfügbar am Rand der Tabelle, über die Kopfzeile hinweg, wenn mehr als eine Zeile oder Spalte markiert ist, und in einer Tabelle, in der eine verbundene Zelle mehrere Zeilen (bei Zeilen) oder mehrere Spalten (bei Spalten) umfasst.
+- **Zeile löschen** und **Spalte löschen** löschen jede Zeile oder Spalte der Auswahl und nennen ihre Anzahl (*2 Zeilen löschen*). Eine Tabelle behält mindestens eine Zeile und eine Spalte: Sind alle Zeilen markiert, ist **Zeile löschen** nicht verfügbar, und sind alle Spalten markiert, ist es **Spalte löschen** nicht.
+- **Kopfzeile** schaltet die Kopfzeilenformatierung der ersten Zeile ein oder aus.
+- **Zellen verbinden** verbindet die Zellen, die Sie durch Ziehen darüber markiert haben, und **Zelle teilen** teilt eine verbundene Zelle wieder auf.
 - **Tabelle löschen**.
 
-Ziehen Sie die Grenze zwischen zwei Spalten, um ihre Breite zu ändern. **Tab** springt in die nächste Zelle und **Umschalt+Tab** in die vorherige; Tab in der letzten Zelle fügt eine Zeile hinzu. Eine Zelle enthält Text wie der Rest des Abschnitts: Formatierung, Links, Erwähnungen und Bilder funktionieren darin. Eine Tabelle, die breiter als der Abschnitt ist, lässt sich seitlich scrollen.
+Davor und danach, vorne und hinten folgen der Leserichtung: In einer Sprache, die von rechts nach links geschrieben wird, ist die Spalte davor die rechte.
+
+**Griffe.** Während Sie bearbeiten, hat die Tabelle einen schmalen Rand, der ihre Griffe trägt. Sie erscheinen für die Zelle unter dem Mauszeiger und, während Sie im Abschnitt arbeiten, für die Zelle mit dem Cursor:
+
+- **Ein Zeilengriff** neben der Zeile und **ein Spaltengriff** über der Spalte. Ein Klick markiert die Zeile oder Spalte und öffnet ihre Aktionen: für eine Zeile **Zeile oberhalb einfügen**, **Zeile unterhalb einfügen**, **Zeile nach oben verschieben**, **Zeile nach unten verschieben**, **Zeile löschen** und, in der ersten Zeile, **Kopfzeile**; für eine Spalte **Spalte davor einfügen**, **Spalte danach einfügen**, **Spalte nach vorne verschieben**, **Spalte nach hinten verschieben** und **Spalte löschen**. Ein Rechtsklick auf einen Griff bewirkt dasselbe. Bei einer verbundenen Zelle steht der Griff für jede Zeile oder Spalte, die die Zelle umfasst, und sein Menü sagt das (*2 Zeilen löschen*).
+- **Ein +** am unteren Rand einer Zeile fügt darunter eine Zeile ein, und **ein +** am hinteren Rand einer Spalte fügt danach eine Spalte ein. Die letzte Zeile und die letzte Spalte haben stattdessen die Leisten.
+- **Eine Leiste** unter der letzten Zeile fügt am Ende eine Zeile hinzu, und **eine Leiste** nach der letzten Spalte fügt am Ende eine Spalte hinzu.
+
+Eine so hinzugefügte Zeile oder Spalte setzt den Cursor in ihre erste Zelle, und ein einziges Rückgängigmachen entfernt sie. Auf einem Touchscreen sind die Griffe größer und erscheinen für die Zelle, die Sie angetippt haben.
+
+**Das Rechtsklickmenü.** Ein Rechtsklick in eine Zelle öffnet die Aktionen der Tabelle am Mauszeiger. Liegt der Klick innerhalb von Zellen, die Sie markiert haben, bleibt die Markierung erhalten, sodass die Aktionen für alle gelten; anderswo springt der Cursor zuerst in die angeklickte Zelle.
+
+- **Umschalt+Rechtsklick** öffnet stattdessen das eigene Menü des Browsers, für seine Rechtschreibvorschläge oder **Einfügen**.
+- Ein Rechtsklick auf einen **Link** oder ein **Bild** in einer Zelle öffnet ebenfalls das Menü des Browsers, um es zu öffnen oder zu kopieren.
+- Auf einem Touchscreen markiert langes Drücken wie gewohnt Text; verwenden Sie dort die Griffe.
+- Mit der Tastatur öffnet **Umschalt+F10** oder die **Menütaste** dasselbe Menü für die Zelle mit dem Cursor.
+
+**Tastatur.** **Tab** springt in die nächste Zelle und **Umschalt+Tab** in die vorherige; Tab in der letzten Zelle fügt eine Zeile hinzu. Über das Menü **Tabelle** der Symbolleiste ist jede Aktion per Tastatur erreichbar; die Griffe sind für Maus und Touch gedacht und nicht Teil der Tab-Reihenfolge.
+
+**Breiten und breite Tabellen.** Ziehen Sie die Grenze zwischen zwei Spalten, um ihre Breite zu ändern. Eine Tabelle, die breiter als der Abschnitt ist, lässt sich seitlich scrollen; der Griff einer Zeile scrollt dann mit der ersten Spalte aus dem Blick, während das Rechtsklickmenü und das Menü **Tabelle** der Symbolleiste weiterhin jede Aktion erreichen.
+
+Eine gesperrte oder unterschriebene Entscheidung zeigt ihre Tabellen ohne Griffe, und ein Rechtsklick dort öffnet das Menü des Browsers.
 
 - **Wo sie erscheinen.** Tabellen erscheinen in der [Vorschau](#preview) und im [Verlauf](#decision-history), wo **Änderungen** jede Tabellenzeile als eine Zeile liest, die Zellen durch ` | ` getrennt. In der PDF-/Druckfassung behält eine Tabelle die Proportionen ihrer Spalten und passt sich der Seitenbreite an. Der Word-Export schreibt eine echte Word-Tabelle, mit ihren verbundenen Zellen und Spaltenbreiten und einer Kopfzeile, die oben auf jeder Seite wiederholt wird.
 - **Kommentare** in der [Diskussion](#decision-discussion) nehmen keine Tabellen auf: Eine in einen Kommentar eingefügte Tabelle wird zum Text ihrer Zellen.

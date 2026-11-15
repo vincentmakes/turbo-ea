@@ -162,14 +162,46 @@ Markér nogle ord, og klik på **Link** i sektionens værktøjslinje, eller tryk
 
 #### Tabeller {: #decision-tables }
 
-Hver af de fire sektioner kan indeholde tabeller. Klik på **Tabel** i sektionens værktøjslinje, og vælg **Indsæt tabel**: en tabel med tre rækker og tre kolonner indsættes, og dens første række er en overskriftsrække. Med markøren i en tabel tilbyder den samme menu:
+Hver af de fire sektioner kan indeholde tabeller. Klik på **Tabel** i sektionens værktøjslinje, og vælg **Indsæt tabel**: en tabel med tre rækker og tre kolonner indsættes, og dens første række er en overskriftsrække. En celle indeholder tekst som resten af sektionen: formatering, links, omtaler og billeder virker i den.
 
-- **Tilføj række ovenfor**, **Tilføj række nedenfor**, **Tilføj kolonne før**, **Tilføj kolonne efter**, **Slet række** og **Slet kolonne**;
-- **Overskriftsrække**, som slår overskriftsformateringen af første række til eller fra;
-- **Flet celler** — markér først flere celler ved at trække hen over dem — og **Opdel celle**, som deler en flettet celle igen;
+Der er tre måder at nå en tabels handlinger på, og hver af dem virker på cellen med markøren eller på de celler, du har markeret:
+
+- **Værktøjslinjens Tabel-menu** — med markøren i en tabel viser **Tabel** alle handlingerne nedenfor.
+- **Højreklik** i en celle — de samme handlinger åbnes ved markøren.
+- **Håndtagene** rundt om tabellen — et håndtag ved siden af en række eller over en kolonne åbner handlingerne for den række eller kolonne, og et **+** indsætter en (se *Håndtag* nedenfor).
+
+Handlingerne:
+
+- **Markér række** og **Markér kolonne** markerer hele rækken eller kolonnen for markøren eller for hver markeret celle.
+- **Tilføj række ovenfor**, **Tilføj række nedenfor**, **Tilføj kolonne før** og **Tilføj kolonne efter**. **Tilføj række ovenfor** er ikke tilgængelig i overskriftsrækken: en ny række kommer altid under den.
+- **Flyt række op**, **Flyt række ned**, **Flyt kolonne før** og **Flyt kolonne efter** flytter rækken eller kolonnen én plads og holder den markeret. En flytning er ikke tilgængelig ved tabellens kant, hen over overskriftsrækken, med mere end én række eller kolonne markeret og i en tabel, hvor en flettet celle spænder over flere rækker (for rækker) eller flere kolonner (for kolonner).
+- **Slet række** og **Slet kolonne** sletter hver række eller kolonne i markeringen og siger hvor mange (*Slet 2 rækker*). En tabel beholder mindst én række og én kolonne: med alle rækker markeret er **Slet række** ikke tilgængelig, og med alle kolonner markeret er **Slet kolonne** det ikke.
+- **Overskriftsrække** slår overskriftsformateringen af første række til eller fra.
+- **Flet celler** samler de celler, du har markeret ved at trække hen over dem, og **Opdel celle** deler en flettet celle igen.
 - **Slet tabel**.
 
-Træk i kanten mellem to kolonner for at ændre deres bredde. **Tab** flytter til næste celle og **Skift+Tab** til den forrige; Tab i sidste celle tilføjer en række. En celle indeholder tekst som resten af sektionen: formatering, links, omtaler og billeder virker i den. En tabel, der er bredere end sektionen, kan rulles sidelæns.
+Før og efter følger læseretningen: i et sprog, der skrives fra højre mod venstre, er kolonnen før den til højre.
+
+**Håndtag.** Mens du redigerer, har tabellen en smal margen rundt om sig, der rummer dens håndtag. De vises for cellen under markøren og, mens du arbejder i sektionen, for cellen med tekstmarkøren:
+
+- **Et rækkehåndtag** ved siden af rækken og **et kolonnehåndtag** over kolonnen. Et klik markerer rækken eller kolonnen og åbner dens handlinger: for en række **Tilføj række ovenfor**, **Tilføj række nedenfor**, **Flyt række op**, **Flyt række ned**, **Slet række** og, på første række, **Overskriftsrække**; for en kolonne **Tilføj kolonne før**, **Tilføj kolonne efter**, **Flyt kolonne før**, **Flyt kolonne efter** og **Slet kolonne**. Et højreklik på et håndtag gør det samme. På en flettet celle står håndtaget for hver række eller kolonne, cellen spænder over, og dens menu siger det (*Slet 2 rækker*).
+- **Et +** på en rækkes nederste kant indsætter en række under den, og **et +** på en kolonnes slutkant indsætter en kolonne efter den. Den sidste række og den sidste kolonne har i stedet bjælkerne.
+- **En bjælke** under den sidste række tilføjer en række til sidst, og **en bjælke** efter den sidste kolonne tilføjer en kolonne til sidst.
+
+En række eller kolonne, der tilføjes på denne måde, sætter markøren i sin første celle, og én fortryd fjerner den. På en berøringsskærm er håndtagene større, og de vises for den celle, du trykkede på.
+
+**Højrekliksmenuen.** Et højreklik i en celle åbner tabellens handlinger ved markøren. Når klikket er inden for celler, du har markeret, bevares markeringen, så handlingerne gælder for dem alle; alle andre steder flytter markøren først ind i den klikkede celle.
+
+- **Skift+højreklik** åbner i stedet browserens egen menu, for dens stavningsforslag eller **Indsæt**.
+- Et højreklik på et **link** eller et **billede** i en celle åbner også browserens menu, så du kan åbne eller kopiere det.
+- På en berøringsskærm markerer et langt tryk tekst som sædvanligt; brug håndtagene der.
+- Med tastaturet åbner **Skift+F10** eller **Menu**-tasten den samme menu på cellen med markøren.
+
+**Tastatur.** **Tab** flytter til næste celle og **Skift+Tab** til den forrige; Tab i sidste celle tilføjer en række. Værktøjslinjens **Tabel**-menu når alle handlinger fra tastaturet; håndtagene er til mus og berøring og indgår ikke i tabulatorrækkefølgen.
+
+**Bredder og brede tabeller.** Træk i kanten mellem to kolonner for at ændre deres bredde. En tabel, der er bredere end sektionen, kan rulles sidelæns; en rækkes håndtag ruller så ud af syne med den første kolonne, mens højrekliksmenuen og værktøjslinjens **Tabel**-menu stadig når alle handlinger.
+
+En låst eller underskrevet beslutning viser sine tabeller uden håndtag, og et højreklik der åbner browserens menu.
 
 - **Hvor de vises.** Tabeller vises i [forhåndsvisningen](#preview) og i [Historik](#decision-history), hvor **Ændringer** læser hver række som én linje, med cellerne adskilt af ` | `. I PDF-/printkopien bevarer en tabel sine kolonners proportioner og tilpasses sidebredden. Word-eksporten skriver en rigtig Word-tabel med dens flettede celler og kolonnebredder og en overskriftsrække, der gentages øverst på hver side.
 - **Kommentarer** i [diskussionen](#decision-discussion) kan ikke indeholde tabeller: en tabel, der indsættes i en kommentar, bliver til teksten i dens celler.

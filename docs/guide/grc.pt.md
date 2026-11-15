@@ -158,14 +158,46 @@ Selecione algumas palavras e clique em **Ligação** na barra de ferramentas da 
 
 #### Tabelas {: #decision-tables }
 
-Cada uma das quatro secções pode conter tabelas. Clique em **Tabela** na barra de ferramentas da secção e escolha **Inserir tabela**: é inserida uma tabela de três linhas e três colunas, cuja primeira linha é uma linha de cabeçalho. Com o cursor numa tabela, o mesmo menu oferece:
+Cada uma das quatro secções pode conter tabelas. Clique em **Tabela** na barra de ferramentas da secção e escolha **Inserir tabela**: é inserida uma tabela de três linhas e três colunas, cuja primeira linha é uma linha de cabeçalho. Uma célula contém texto como o resto da secção: a formatação, as ligações, as menções e as imagens funcionam nela.
 
-- **Adicionar linha acima**, **Adicionar linha abaixo**, **Adicionar coluna antes**, **Adicionar coluna depois**, **Eliminar linha** e **Eliminar coluna**;
-- **Linha de cabeçalho**, que ativa ou desativa a formatação de cabeçalho da primeira linha;
-- **Unir células** — selecione primeiro várias células arrastando sobre elas — e **Dividir célula**, que volta a dividir uma célula unida;
+Há três formas de chegar às ações de uma tabela, e cada uma atua sobre a célula que contém o cursor ou sobre as células que selecionou:
+
+- **O menu Tabela da barra de ferramentas** — com o cursor numa tabela, **Tabela** lista todas as ações abaixo.
+- **Clique direito** numa célula — as mesmas ações abrem-se junto ao ponteiro.
+- **As pegas** à volta da tabela — uma pega ao lado de uma linha ou por cima de uma coluna abre as ações dessa linha ou coluna, e um **+** insere uma (ver *Pegas* abaixo).
+
+As ações:
+
+- **Selecionar linha** e **Selecionar coluna** selecionam a linha ou a coluna inteira do cursor, ou de cada célula selecionada.
+- **Adicionar linha acima**, **Adicionar linha abaixo**, **Adicionar coluna antes** e **Adicionar coluna depois**. **Adicionar linha acima** não está disponível na linha de cabeçalho: uma nova linha fica sempre abaixo dela.
+- **Mover linha para cima**, **Mover linha para baixo**, **Mover coluna para antes** e **Mover coluna para depois** movem a linha ou a coluna uma posição e mantêm-na selecionada. Um movimento não está disponível na margem da tabela, através da linha de cabeçalho, com mais de uma linha ou coluna selecionada, nem numa tabela em que uma célula unida abranja várias linhas (para as linhas) ou várias colunas (para as colunas).
+- **Eliminar linha** e **Eliminar coluna** eliminam todas as linhas ou colunas da seleção e indicam quantas (*Eliminar 2 linhas*). Uma tabela mantém pelo menos uma linha e uma coluna: com todas as linhas selecionadas, **Eliminar linha** não está disponível, e com todas as colunas selecionadas, também não está **Eliminar coluna**.
+- **Linha de cabeçalho** ativa ou desativa a formatação de cabeçalho da primeira linha.
+- **Unir células** junta as células que selecionou arrastando sobre elas, e **Dividir célula** volta a dividir uma célula unida.
 - **Eliminar tabela**.
 
-Arraste a margem entre duas colunas para alterar a sua largura. **Tab** passa para a célula seguinte e **Shift+Tab** para a anterior; Tab na última célula adiciona uma linha. Uma célula contém texto como o resto da secção: a formatação, as ligações, as menções e as imagens funcionam nela. Uma tabela mais larga do que a secção desloca-se lateralmente.
+Antes e depois seguem o sentido de leitura: numa língua que se escreve da direita para a esquerda, a coluna antes é a da direita.
+
+**Pegas.** Durante a edição, a tabela tem à sua volta uma margem estreita que contém as suas pegas. Aparecem para a célula sob o ponteiro e, enquanto trabalha na secção, para a célula que contém o cursor:
+
+- **Uma pega de linha** ao lado da linha e **uma pega de coluna** por cima da coluna. Um clique seleciona a linha ou a coluna e abre as suas ações: para uma linha, **Adicionar linha acima**, **Adicionar linha abaixo**, **Mover linha para cima**, **Mover linha para baixo**, **Eliminar linha** e, na primeira linha, **Linha de cabeçalho**; para uma coluna, **Adicionar coluna antes**, **Adicionar coluna depois**, **Mover coluna para antes**, **Mover coluna para depois** e **Eliminar coluna**. Um clique direito numa pega faz o mesmo. Numa célula unida, a pega representa todas as linhas ou colunas que a célula abrange, e o seu menu indica-o (*Eliminar 2 linhas*).
+- **Um +** na margem inferior de uma linha insere uma linha abaixo dela, e **um +** na margem final de uma coluna insere uma coluna depois dela. A última linha e a última coluna têm as barras em vez disso.
+- **Uma barra** sob a última linha adiciona uma linha no fim, e **uma barra** depois da última coluna adiciona uma coluna no fim.
+
+Uma linha ou coluna adicionada desta forma coloca o cursor na sua primeira célula, e um único anular remove-a. Num ecrã tátil, as pegas são maiores e aparecem para a célula em que tocou.
+
+**O menu do clique direito.** Um clique direito numa célula abre as ações da tabela junto ao ponteiro. Quando o clique é feito dentro de células que selecionou, a seleção é mantida, pelo que as ações se aplicam a todas; em qualquer outro sítio, o cursor passa primeiro para a célula clicada.
+
+- **Shift+clique direito** abre antes o menu próprio do browser, para as suas sugestões ortográficas ou **Colar**.
+- Um clique direito numa **ligação** ou numa **imagem** de uma célula também abre o menu do browser, para a abrir ou copiar.
+- Num ecrã tátil, um toque prolongado seleciona texto como habitualmente; use aí as pegas.
+- Com o teclado, **Shift+F10** ou a tecla **Menu** abre o mesmo menu na célula do cursor.
+
+**Teclado.** **Tab** passa para a célula seguinte e **Shift+Tab** para a anterior; Tab na última célula adiciona uma linha. O menu **Tabela** da barra de ferramentas dá acesso a todas as ações a partir do teclado; as pegas destinam-se ao ponteiro e ao toque e não fazem parte da ordem de tabulação.
+
+**Larguras e tabelas largas.** Arraste a margem entre duas colunas para alterar a sua largura. Uma tabela mais larga do que a secção desloca-se lateralmente; a pega de uma linha sai então de vista com a primeira coluna, enquanto o menu do clique direito e o menu **Tabela** da barra de ferramentas continuam a dar acesso a todas as ações.
+
+Uma decisão bloqueada ou assinada mostra as suas tabelas sem pegas, e um clique direito aí abre o menu do browser.
 
 - **Onde aparecem.** As tabelas aparecem na [pré-visualização](#preview) e no [Histórico](#decision-history), onde **Alterações** lê cada linha da tabela como uma só linha, com as células separadas por ` | `. Na cópia PDF / impressa, uma tabela mantém as proporções das suas colunas e ajusta-se à largura da página. A exportação para Word escreve uma verdadeira tabela Word, com as células unidas, as larguras das colunas e uma linha de cabeçalho repetida no topo de cada página.
 - **Os comentários** na [discussão](#decision-discussion) não aceitam tabelas: uma tabela colada num comentário torna-se o texto das suas células.

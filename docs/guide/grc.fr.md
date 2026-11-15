@@ -158,14 +158,46 @@ Sélectionnez quelques mots et cliquez sur **Lien** dans la barre d'outils de la
 
 #### Tableaux {: #decision-tables }
 
-Chacune des quatre sections peut contenir des tableaux. Cliquez sur **Tableau** dans la barre d'outils de la section et choisissez **Insérer un tableau** : un tableau de trois lignes et trois colonnes est inséré, sa première ligne étant une ligne d'en-tête. Lorsque le curseur est dans un tableau, le même menu propose :
+Chacune des quatre sections peut contenir des tableaux. Cliquez sur **Tableau** dans la barre d'outils de la section et choisissez **Insérer un tableau** : un tableau de trois lignes et trois colonnes est inséré, sa première ligne étant une ligne d'en-tête. Une cellule contient du texte comme le reste de la section : la mise en forme, les liens, les mentions et les images y fonctionnent.
 
-- **Ajouter une ligne au-dessus**, **Ajouter une ligne en dessous**, **Ajouter une colonne avant**, **Ajouter une colonne après**, **Supprimer la ligne** et **Supprimer la colonne** ;
-- **Ligne d’en-tête**, qui active ou désactive la mise en forme d'en-tête de la première ligne ;
-- **Fusionner les cellules** — sélectionnez d'abord plusieurs cellules en faisant glisser le pointeur dessus — et **Scinder la cellule**, qui divise à nouveau une cellule fusionnée ;
+Les actions d'un tableau sont accessibles de trois façons, et chacune agit sur la cellule qui contient le curseur ou sur les cellules que vous avez sélectionnées :
+
+- **Le menu Tableau de la barre d'outils** — lorsque le curseur est dans un tableau, **Tableau** liste toutes les actions ci-dessous.
+- **Clic droit** dans une cellule — les mêmes actions s'ouvrent à l'emplacement du pointeur.
+- **Les poignées** autour du tableau — une poignée à côté d'une ligne ou au-dessus d'une colonne ouvre les actions de cette ligne ou de cette colonne, et un **+** en insère une (voir *Poignées* ci-dessous).
+
+Les actions :
+
+- **Sélectionner la ligne** et **Sélectionner la colonne** sélectionnent toute la ligne ou la colonne du curseur, ou de chaque cellule sélectionnée.
+- **Ajouter une ligne au-dessus**, **Ajouter une ligne en dessous**, **Ajouter une colonne avant** et **Ajouter une colonne après**. **Ajouter une ligne au-dessus** n'est pas disponible dans la ligne d'en-tête : une nouvelle ligne se place toujours en dessous.
+- **Monter la ligne**, **Descendre la ligne**, **Déplacer la colonne avant** et **Déplacer la colonne après** déplacent la ligne ou la colonne d'une position et la gardent sélectionnée. Un déplacement n'est pas disponible au bord du tableau, à travers la ligne d'en-tête, lorsque plusieurs lignes ou colonnes sont sélectionnées, ni dans un tableau où une cellule fusionnée s'étend sur plusieurs lignes (pour les lignes) ou sur plusieurs colonnes (pour les colonnes).
+- **Supprimer la ligne** et **Supprimer la colonne** suppriment chaque ligne ou colonne de la sélection et en indiquent le nombre (*Supprimer 2 lignes*). Un tableau garde au moins une ligne et une colonne : lorsque toutes les lignes sont sélectionnées, **Supprimer la ligne** n'est pas disponible, et lorsque toutes les colonnes le sont, **Supprimer la colonne** ne l'est pas.
+- **Ligne d’en-tête** active ou désactive la mise en forme d'en-tête de la première ligne.
+- **Fusionner les cellules** réunit les cellules que vous avez sélectionnées en faisant glisser le pointeur dessus, et **Scinder la cellule** divise à nouveau une cellule fusionnée.
 - **Supprimer le tableau**.
 
-Faites glisser la bordure entre deux colonnes pour modifier leur largeur. **Tab** passe à la cellule suivante et **Maj+Tab** à la précédente ; Tab dans la dernière cellule ajoute une ligne. Une cellule contient du texte comme le reste de la section : la mise en forme, les liens, les mentions et les images y fonctionnent. Un tableau plus large que la section défile horizontalement.
+Avant et après suivent le sens de lecture : dans une langue qui s'écrit de droite à gauche, la colonne avant est celle de droite.
+
+**Poignées.** Pendant la modification, le tableau est entouré d'une marge étroite qui porte ses poignées. Elles s'affichent pour la cellule sous le pointeur et, pendant que vous travaillez dans la section, pour la cellule qui contient le curseur :
+
+- **Une poignée de ligne** à côté de la ligne et **une poignée de colonne** au-dessus de la colonne. Un clic sélectionne la ligne ou la colonne et ouvre ses actions : pour une ligne **Ajouter une ligne au-dessus**, **Ajouter une ligne en dessous**, **Monter la ligne**, **Descendre la ligne**, **Supprimer la ligne**, et **Ligne d’en-tête** sur la première ligne ; pour une colonne **Ajouter une colonne avant**, **Ajouter une colonne après**, **Déplacer la colonne avant**, **Déplacer la colonne après** et **Supprimer la colonne**. Un clic droit sur une poignée fait de même. Sur une cellule fusionnée, la poignée représente chaque ligne ou colonne que couvre la cellule, et son menu l'indique (*Supprimer 2 lignes*).
+- **Un +** sur la bordure inférieure d'une ligne insère une ligne en dessous, et **un +** sur la bordure de fin d'une colonne insère une colonne après elle. La dernière ligne et la dernière colonne ont les barres à la place.
+- **Une barre** sous la dernière ligne ajoute une ligne à la fin, et **une barre** après la dernière colonne ajoute une colonne à la fin.
+
+Une ligne ou une colonne ajoutée ainsi place le curseur dans sa première cellule, et une seule annulation la supprime. Sur un écran tactile, les poignées sont plus grandes et s'affichent pour la cellule que vous avez touchée.
+
+**Le menu du clic droit.** Un clic droit dans une cellule ouvre les actions du tableau à l'emplacement du pointeur. Lorsque le clic a lieu dans des cellules que vous avez sélectionnées, la sélection est conservée, de sorte que les actions s'appliquent à toutes ; ailleurs, le curseur passe d'abord dans la cellule cliquée.
+
+- **Maj+clic droit** ouvre à la place le menu propre du navigateur, pour ses suggestions d'orthographe ou **Coller**.
+- Un clic droit sur un **lien** ou une **image** dans une cellule ouvre aussi le menu du navigateur, pour l'ouvrir ou le copier.
+- Sur un écran tactile, un appui long sélectionne du texte comme d'habitude ; utilisez-y les poignées.
+- Au clavier, **Maj+F10** ou la touche **Menu** ouvre le même menu sur la cellule du curseur.
+
+**Clavier.** **Tab** passe à la cellule suivante et **Maj+Tab** à la précédente ; Tab dans la dernière cellule ajoute une ligne. Le menu **Tableau** de la barre d'outils donne accès à toutes les actions au clavier ; les poignées servent au pointeur et au tactile et ne font pas partie de l'ordre de tabulation.
+
+**Largeurs et tableaux larges.** Faites glisser la bordure entre deux colonnes pour modifier leur largeur. Un tableau plus large que la section défile horizontalement ; la poignée d'une ligne sort alors du champ avec la première colonne, tandis que le menu du clic droit et le menu **Tableau** de la barre d'outils donnent toujours accès à toutes les actions.
+
+Une décision verrouillée ou signée affiche ses tableaux sans poignées, et un clic droit y ouvre le menu du navigateur.
 
 - **Où ils apparaissent.** Les tableaux apparaissent dans l'[aperçu](#preview) et l'[Historique](#decision-history), où **Modifications** lit chaque ligne de tableau comme une seule ligne, ses cellules séparées par ` | `. Dans la copie PDF / imprimée, un tableau conserve les proportions de ses colonnes et s'adapte à la largeur de la page. L'export Word produit un vrai tableau Word, avec ses cellules fusionnées, ses largeurs de colonnes et une ligne d'en-tête répétée en haut de chaque page.
 - **Les commentaires** de la [discussion](#decision-discussion) n'acceptent pas les tableaux : un tableau collé dans un commentaire devient le texte de ses cellules.

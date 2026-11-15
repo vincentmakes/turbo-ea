@@ -158,14 +158,46 @@ Seleccione algunas palabras y haga clic en **Enlace** en la barra de herramienta
 
 #### Tablas {: #decision-tables }
 
-Cada una de las cuatro secciones puede contener tablas. Haga clic en **Tabla** en la barra de herramientas de la sección y elija **Insertar tabla**: se inserta una tabla de tres filas y tres columnas, con la primera fila como fila de encabezado. Con el cursor en una tabla, el mismo menú ofrece:
+Cada una de las cuatro secciones puede contener tablas. Haga clic en **Tabla** en la barra de herramientas de la sección y elija **Insertar tabla**: se inserta una tabla de tres filas y tres columnas, con la primera fila como fila de encabezado. Una celda contiene texto como el resto de la sección: el formato, los enlaces, las menciones y las imágenes funcionan en ella.
 
-- **Añadir fila encima**, **Añadir fila debajo**, **Añadir columna antes**, **Añadir columna después**, **Eliminar fila** y **Eliminar columna**;
-- **Fila de encabezado**, que activa o desactiva el formato de encabezado de la primera fila;
-- **Combinar celdas** — seleccione antes varias celdas arrastrando sobre ellas — y **Dividir celda**, que vuelve a dividir una celda combinada;
+Hay tres formas de llegar a las acciones de una tabla, y cada una actúa sobre la celda que contiene el cursor o sobre las celdas que haya seleccionado:
+
+- **El menú Tabla de la barra de herramientas** — con el cursor en una tabla, **Tabla** muestra todas las acciones que siguen.
+- **Clic derecho** en una celda — las mismas acciones se abren junto al puntero.
+- **Los tiradores** alrededor de la tabla — un tirador junto a una fila o encima de una columna abre las acciones de esa fila o columna, y un **+** inserta una (consulte *Tiradores* más abajo).
+
+Las acciones:
+
+- **Seleccionar fila** y **Seleccionar columna** seleccionan la fila o la columna entera del cursor, o de cada celda seleccionada.
+- **Añadir fila encima**, **Añadir fila debajo**, **Añadir columna antes** y **Añadir columna después**. **Añadir fila encima** no está disponible en la fila de encabezado: una fila nueva siempre va debajo de ella.
+- **Mover fila arriba**, **Mover fila abajo**, **Mover columna antes** y **Mover columna después** mueven la fila o la columna un lugar y la mantienen seleccionada. Un movimiento no está disponible en el borde de la tabla, a través de la fila de encabezado, con más de una fila o columna seleccionada, ni en una tabla en la que una celda combinada abarque varias filas (para las filas) o varias columnas (para las columnas).
+- **Eliminar fila** y **Eliminar columna** eliminan todas las filas o columnas de la selección e indican cuántas (*Eliminar 2 filas*). Una tabla conserva al menos una fila y una columna: con todas las filas seleccionadas, **Eliminar fila** no está disponible, y con todas las columnas seleccionadas, tampoco lo está **Eliminar columna**.
+- **Fila de encabezado** activa o desactiva el formato de encabezado de la primera fila.
+- **Combinar celdas** une las celdas que haya seleccionado arrastrando sobre ellas, y **Dividir celda** vuelve a dividir una celda combinada.
 - **Eliminar tabla**.
 
-Arrastre el borde entre dos columnas para cambiar su anchura. **Tab** pasa a la celda siguiente y **Mayús+Tab** a la anterior; Tab en la última celda añade una fila. Una celda contiene texto como el resto de la sección: el formato, los enlaces, las menciones y las imágenes funcionan en ella. Una tabla más ancha que la sección se desplaza lateralmente.
+Antes y después siguen el sentido de lectura: en un idioma que se escribe de derecha a izquierda, la columna de antes es la de la derecha.
+
+**Tiradores.** Mientras edita, la tabla tiene a su alrededor un margen estrecho que contiene sus tiradores. Se muestran para la celda bajo el puntero y, mientras trabaja en la sección, para la celda que contiene el cursor:
+
+- **Un tirador de fila** junto a la fila y **un tirador de columna** encima de la columna. Un clic selecciona la fila o la columna y abre sus acciones: para una fila, **Añadir fila encima**, **Añadir fila debajo**, **Mover fila arriba**, **Mover fila abajo**, **Eliminar fila** y, en la primera fila, **Fila de encabezado**; para una columna, **Añadir columna antes**, **Añadir columna después**, **Mover columna antes**, **Mover columna después** y **Eliminar columna**. Un clic derecho en un tirador hace lo mismo. En una celda combinada, el tirador representa todas las filas o columnas que abarca la celda, y su menú lo indica (*Eliminar 2 filas*).
+- **Un +** en el borde inferior de una fila inserta una fila debajo, y **un +** en el borde final de una columna inserta una columna después. La última fila y la última columna tienen en su lugar las barras.
+- **Una barra** bajo la última fila añade una fila al final, y **una barra** después de la última columna añade una columna al final.
+
+Una fila o columna añadida de este modo coloca el cursor en su primera celda, y un solo deshacer la elimina. En una pantalla táctil, los tiradores son más grandes y se muestran para la celda que haya tocado.
+
+**El menú del clic derecho.** Un clic derecho en una celda abre las acciones de la tabla junto al puntero. Si el clic se hace dentro de celdas que haya seleccionado, la selección se conserva, de modo que las acciones se aplican a todas ellas; en cualquier otro lugar, el cursor pasa primero a la celda en la que hizo clic.
+
+- **Mayús+clic derecho** abre en su lugar el menú propio del navegador, para sus sugerencias ortográficas o **Pegar**.
+- Un clic derecho en un **enlace** o una **imagen** de una celda también abre el menú del navegador, para abrirlo o copiarlo.
+- En una pantalla táctil, una pulsación larga selecciona texto como de costumbre; use allí los tiradores.
+- Con el teclado, **Mayús+F10** o la tecla **Menú** abre el mismo menú en la celda del cursor.
+
+**Teclado.** **Tab** pasa a la celda siguiente y **Mayús+Tab** a la anterior; Tab en la última celda añade una fila. El menú **Tabla** de la barra de herramientas da acceso a todas las acciones desde el teclado; los tiradores son para el puntero y la pantalla táctil y no forman parte del orden de tabulación.
+
+**Anchos y tablas anchas.** Arrastre el borde entre dos columnas para cambiar su anchura. Una tabla más ancha que la sección se desplaza lateralmente; el tirador de una fila sale entonces de la vista junto con la primera columna, mientras que el menú del clic derecho y el menú **Tabla** de la barra de herramientas siguen dando acceso a todas las acciones.
+
+Una decisión bloqueada o firmada muestra sus tablas sin tiradores, y un clic derecho en ella abre el menú del navegador.
 
 - **Dónde se muestran.** Las tablas aparecen en la [vista previa](#preview) y en el [Historial](#decision-history), donde **Cambios** lee cada fila como una sola línea, con sus celdas separadas por ` | `. En la copia PDF / impresa, una tabla conserva las proporciones de sus columnas y se ajusta al ancho de la página. La exportación a Word escribe una tabla real de Word, con sus celdas combinadas, sus anchos de columna y una fila de encabezado repetida al principio de cada página.
 - **Los comentarios** de la [discusión](#decision-discussion) no admiten tablas: una tabla pegada en un comentario se convierte en el texto de sus celdas.

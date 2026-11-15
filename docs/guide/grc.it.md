@@ -158,14 +158,46 @@ Selezionate alcune parole e fate clic su **Link** nella barra degli strumenti de
 
 #### Tabelle {: #decision-tables }
 
-Ognuna delle quattro sezioni può contenere tabelle. Fate clic su **Tabella** nella barra degli strumenti della sezione e scegliete **Inserisci tabella**: viene inserita una tabella di tre righe e tre colonne, la cui prima riga è una riga di intestazione. Con il cursore in una tabella, lo stesso menu offre:
+Ognuna delle quattro sezioni può contenere tabelle. Fate clic su **Tabella** nella barra degli strumenti della sezione e scegliete **Inserisci tabella**: viene inserita una tabella di tre righe e tre colonne, la cui prima riga è una riga di intestazione. Una cella contiene testo come il resto della sezione: formattazione, link, menzioni e immagini vi funzionano.
 
-- **Aggiungi riga sopra**, **Aggiungi riga sotto**, **Aggiungi colonna prima**, **Aggiungi colonna dopo**, **Elimina riga** ed **Elimina colonna**;
-- **Riga di intestazione**, che attiva o disattiva la formattazione di intestazione della prima riga;
-- **Unisci celle** — selezionate prima più celle trascinandovi sopra — e **Dividi cella**, che divide di nuovo una cella unita;
+Le azioni di una tabella si raggiungono in tre modi, e ognuno agisce sulla cella che contiene il cursore o sulle celle che avete selezionato:
+
+- **Il menu Tabella della barra degli strumenti** — con il cursore in una tabella, **Tabella** elenca tutte le azioni descritte sotto.
+- **Clic destro** in una cella — le stesse azioni si aprono in corrispondenza del puntatore.
+- **Le maniglie** attorno alla tabella — una maniglia accanto a una riga o sopra una colonna apre le azioni di quella riga o colonna, e un **+** ne inserisce una (vedere *Maniglie* più sotto).
+
+Le azioni:
+
+- **Seleziona riga** e **Seleziona colonna** selezionano l'intera riga o colonna del cursore, o di ogni cella selezionata.
+- **Aggiungi riga sopra**, **Aggiungi riga sotto**, **Aggiungi colonna prima** e **Aggiungi colonna dopo**. **Aggiungi riga sopra** non è disponibile nella riga di intestazione: una nuova riga va sempre sotto di essa.
+- **Sposta riga su**, **Sposta riga giù**, **Sposta colonna prima** e **Sposta colonna dopo** spostano la riga o la colonna di una posizione e la mantengono selezionata. Uno spostamento non è disponibile al bordo della tabella, attraverso la riga di intestazione, con più di una riga o colonna selezionata, né in una tabella in cui una cella unita si estende su più righe (per le righe) o su più colonne (per le colonne).
+- **Elimina riga** ed **Elimina colonna** eliminano ogni riga o colonna della selezione e ne indicano il numero (*Elimina 2 righe*). Una tabella conserva almeno una riga e una colonna: con tutte le righe selezionate **Elimina riga** non è disponibile, e con tutte le colonne selezionate non lo è **Elimina colonna**.
+- **Riga di intestazione** attiva o disattiva la formattazione di intestazione della prima riga.
+- **Unisci celle** unisce le celle che avete selezionato trascinandovi sopra, e **Dividi cella** divide di nuovo una cella unita.
 - **Elimina tabella**.
 
-Trascinate il bordo tra due colonne per cambiarne la larghezza. **Tab** passa alla cella successiva e **Maiusc+Tab** alla precedente; Tab nell'ultima cella aggiunge una riga. Una cella contiene testo come il resto della sezione: formattazione, link, menzioni e immagini vi funzionano. Una tabella più larga della sezione scorre lateralmente.
+Prima e dopo seguono il senso di lettura: in una lingua che si scrive da destra a sinistra, la colonna prima è quella a destra.
+
+**Maniglie.** Durante la modifica, la tabella ha attorno un margine stretto che ospita le sue maniglie. Compaiono per la cella sotto il puntatore e, mentre lavorate nella sezione, per la cella che contiene il cursore:
+
+- **Una maniglia di riga** accanto alla riga e **una maniglia di colonna** sopra la colonna. Un clic seleziona la riga o la colonna e ne apre le azioni: per una riga **Aggiungi riga sopra**, **Aggiungi riga sotto**, **Sposta riga su**, **Sposta riga giù**, **Elimina riga** e, sulla prima riga, **Riga di intestazione**; per una colonna **Aggiungi colonna prima**, **Aggiungi colonna dopo**, **Sposta colonna prima**, **Sposta colonna dopo** ed **Elimina colonna**. Un clic destro su una maniglia fa lo stesso. Su una cella unita la maniglia rappresenta ogni riga o colonna su cui la cella si estende, e il suo menu lo indica (*Elimina 2 righe*).
+- **Un +** sul bordo inferiore di una riga inserisce una riga sotto di essa, e **un +** sul bordo finale di una colonna inserisce una colonna dopo di essa. L'ultima riga e l'ultima colonna hanno invece le barre.
+- **Una barra** sotto l'ultima riga aggiunge una riga alla fine, e **una barra** dopo l'ultima colonna aggiunge una colonna alla fine.
+
+Una riga o colonna aggiunta in questo modo porta il cursore nella sua prima cella, e un solo annullamento la rimuove. Su uno schermo touch le maniglie sono più grandi e compaiono per la cella che avete toccato.
+
+**Il menu del clic destro.** Un clic destro in una cella apre le azioni della tabella in corrispondenza del puntatore. Se il clic avviene all'interno di celle che avete selezionato, la selezione viene mantenuta, così le azioni si applicano a tutte; altrove, il cursore si sposta prima nella cella cliccata.
+
+- **Maiusc+clic destro** apre invece il menu proprio del browser, per i suoi suggerimenti ortografici o **Incolla**.
+- Un clic destro su un **link** o su un'**immagine** in una cella apre anch'esso il menu del browser, per aprirli o copiarli.
+- Su uno schermo touch, una pressione prolungata seleziona il testo come di consueto; lì usate le maniglie.
+- Da tastiera, **Maiusc+F10** o il tasto **Menu** apre lo stesso menu sulla cella del cursore.
+
+**Tastiera.** **Tab** passa alla cella successiva e **Maiusc+Tab** alla precedente; Tab nell'ultima cella aggiunge una riga. Il menu **Tabella** della barra degli strumenti raggiunge ogni azione da tastiera; le maniglie sono pensate per il puntatore e il touch e non fanno parte dell'ordine di tabulazione.
+
+**Larghezze e tabelle larghe.** Trascinate il bordo tra due colonne per cambiarne la larghezza. Una tabella più larga della sezione scorre lateralmente; la maniglia di una riga esce allora dalla vista insieme alla prima colonna, mentre il menu del clic destro e il menu **Tabella** della barra degli strumenti raggiungono comunque ogni azione.
+
+Una decisione bloccata o firmata mostra le sue tabelle senza maniglie, e un clic destro lì apre il menu del browser.
 
 - **Dove compaiono.** Le tabelle compaiono nell'[anteprima](#preview) e nella [Cronologia](#decision-history), dove **Modifiche** legge ogni riga della tabella come una sola riga, con le celle separate da ` | `. Nella copia PDF / stampata una tabella mantiene le proporzioni delle sue colonne e si adatta alla larghezza della pagina. L'esportazione Word scrive una vera tabella Word, con le sue celle unite, le larghezze delle colonne e una riga di intestazione ripetuta in cima a ogni pagina.
 - **I commenti** nella [discussione](#decision-discussion) non accettano tabelle: una tabella incollata in un commento diventa il testo delle sue celle.
