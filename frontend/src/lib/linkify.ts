@@ -166,7 +166,7 @@ export function normaliseLinkHref(input: string): string | null {
   let href: string | null = null;
   if (scheme) {
     const name = scheme[1].toLowerCase();
-    if ((name === "http" || name === "https") && /^https?:\/\/[^/?#]/i.test(value)) href = value;
+    if (/^https?:\/\/[^/?#]/i.test(value)) href = value;
     else if (name === "mailto" && value.length > "mailto:".length) href = value;
   } else if (/^[^@/?#:]+@(?:[\p{L}\p{N}-]+\.)+\p{L}[\p{L}\p{N}-]*$/u.test(value)) {
     href = `mailto:${value}`;
@@ -177,5 +177,5 @@ export function normaliseLinkHref(input: string): string | null {
   ) {
     href = `https://${value}`;
   }
-  return href !== null && isStorableHref(href) ? href : null;
+  return isStorableHref(href) ? href : null;
 }

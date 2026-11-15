@@ -194,6 +194,17 @@ describe("isStorableHref", () => {
     expect(isStorableHref(undefined)).toBe(false);
     expect(isStorableHref(42)).toBe(false);
   });
+
+  it("refuses a non-string whose string form is a storable address", () => {
+    expect(isStorableHref(["https://x.io"])).toBe(false);
+    expect(isStorableHref({ toString: () => "https://x.io" })).toBe(false);
+  });
+
+  it("looks for the scheme at the start only", () => {
+    expect(isStorableHref("ftp://x.io/?next=https://y.io")).toBe(false);
+    expect(isStorableHref("xhttps://x.io")).toBe(false);
+    expect(isStorableHref("x:mailto:ann@a.io")).toBe(false);
+  });
 });
 
 describe("normaliseLinkHref", () => {
@@ -232,6 +243,11 @@ describe("normaliseLinkHref", () => {
     ["192.168.0.1", "https://192.168.0.1"],
     ["10.0.0.1:8443/x", "https://10.0.0.1:8443/x"],
     ["münchen.de", "https://münchen.de"],
+    ["example.xn--p1ai", "https://example.xn--p1ai"],
+    ["example.com/a:b", "https://example.com/a:b"],
+    ["example.com:8", "https://example.com:8"],
+    ["example.com:8/x", "https://example.com:8/x"],
+    ["localhost:8/x", "https://localhost:8/x"],
   ])("gives the host %j https://", (input, expected) => {
     expect(normaliseLinkHref(input)).toBe(expected);
   });
@@ -249,6 +265,7 @@ describe("normaliseLinkHref", () => {
     "https://",
     "http://",
     "https:///x",
+    "https:///http://x.io",
     "https:a.io",
     "mailto:",
     "hello",
@@ -265,6 +282,9 @@ describe("normaliseLinkHref", () => {
     "a.io b",
     "https://a.io/\u0000",
     "https://a.io/\u007f",
+    "https://x.io/\u0001a",
+    "https://x.io/\u007fa",
+    "mailto:ann@a.io\u0001",
     "a.io/\u0001",
     "https://a.io/\u00a0x",
     "ann@",
