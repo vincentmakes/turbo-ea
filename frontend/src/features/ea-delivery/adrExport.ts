@@ -5,21 +5,16 @@ import {
   Paragraph,
   TextRun,
   Table,
-  TableRow,
-  TableCell,
-  WidthType,
-  HeadingLevel,
   AlignmentType,
-  ShadingType,
   BorderStyle,
   PageBreak,
-  convertInchesToTwip,
 } from "docx";
 import { saveAs } from "file-saver";
 import { getExtensionAdrExportSections } from "@/lib/extensionHost";
 import { toLocalDate } from "@/lib/dates";
 import type { ArchitectureDecision } from "@/types";
 import {
+  adrDiagramNames,
   adrFactRows,
   adrFileNames,
   adrHeading,
@@ -29,238 +24,38 @@ import {
   type ExportableDecision,
 } from "./adrDocumentFacts";
 import { decisionRefLabel, statusLabelKey } from "./decisionStanding";
-import { fillMentionLabelsI18n } from "./mentions/mentionLabels";
+import { richHtmlHasContent } from "@/lib/richHtmlContent";
+import {
+  COLOR_BODY,
+  COLOR_PREAMBLE,
+  DOCX_PAGE_MARGIN_TWIP,
+  FONT,
+  LINE_SPACING,
+  SIZE_BODY,
+  SPACING_AFTER_DEFAULT,
+  buildDocxTable,
+  htmlToParagraphs,
+  prefetchDocumentImages,
+} from "./docxHtml";
 
 // ─── style constants (mirroring soawExport.ts) ──────────────────────────────
 
-const FONT = "Segoe UI";
-const COLOR_BODY = "222222";
 const COLOR_H1 = "1a1a2e";
 const COLOR_H2 = "333333";
-const COLOR_H3 = "444444";
 const COLOR_PART = "1976d2";
 const COLOR_SUBTITLE = "555555";
-const COLOR_PREAMBLE = "666666";
-const COLOR_BORDER = "cccccc";
 
-const SIZE_BODY = 22; // 11pt
 const SIZE_TITLE = 44; // 22pt
 const SIZE_SUBTITLE = 28; // 14pt
 const SIZE_PART = 36; // 18pt
 const SIZE_H2 = 32; // 16pt
-const SIZE_H3 = 26; // 13pt
-const SIZE_TABLE = 20; // 10pt
 
-const LINE_SPACING = 384;
-const SPACING_AFTER_DEFAULT = 160;
 const SPACING_PART_BEFORE = 540;
 const SPACING_PART_AFTER = 200;
 const SPACING_H2_BEFORE = 420;
-const SPACING_H3_BEFORE = 300;
 const SPACING_AFTER_TABLE = 240;
 
-const CELL_BORDER = {
-  style: BorderStyle.SINGLE,
-  size: 1,
-  color: COLOR_BORDER,
-};
-
-// ─── helpers (HTML → docx Paragraphs) ───────────────────────────────────────
-
-function htmlToParagraphs(stored: string): Paragraph[] {
-  if (!stored || stored === "<p></p>") return [];
-  // Restricted / deleted mentions arrive empty: the reader's words go in first.
-  const html = fillMentionLabelsI18n(stored);
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  const paragraphs: Paragraph[] = [];
-
-  const processNode = (node: Node) => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      const text = node.textContent?.trim();
-      if (text) {
-        paragraphs.push(
-          new Paragraph({
-            children: [new TextRun({ text, font: FONT, size: SIZE_BODY, color: COLOR_BODY })],
-            spacing: { line: LINE_SPACING, after: SPACING_AFTER_DEFAULT },
-          }),
-        );
-      }
-      return;
-    }
-    if (node.nodeType !== Node.ELEMENT_NODE) return;
-    const el = node as HTMLElement;
-    const tag = el.tagName.toLowerCase();
-
-    if (tag === "p") {
-      const runs = inlineRuns(el);
-      if (runs.length > 0) {
-        paragraphs.push(
-          new Paragraph({
-            children: runs,
-            spacing: { line: LINE_SPACING, after: SPACING_AFTER_DEFAULT },
-          }),
-        );
-      }
-    } else if (tag === "h3" || tag === "h4") {
-      paragraphs.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: el.textContent ?? "",
-              bold: true,
-              font: FONT,
-              size: SIZE_H3,
-              color: COLOR_H3,
-            }),
-          ],
-          heading: tag === "h3" ? HeadingLevel.HEADING_3 : HeadingLevel.HEADING_4,
-          spacing: { before: SPACING_H3_BEFORE, after: SPACING_AFTER_DEFAULT },
-        }),
-      );
-    } else if (tag === "ul" || tag === "ol") {
-      el.querySelectorAll("li").forEach((li, idx) => {
-        const prefix = tag === "ol" ? `${idx + 1}. ` : "•  ";
-        paragraphs.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: prefix + (li.textContent ?? ""),
-                font: FONT,
-                size: SIZE_BODY,
-                color: COLOR_BODY,
-              }),
-            ],
-            indent: { left: 720 },
-            spacing: { line: LINE_SPACING, after: 80 },
-          }),
-        );
-      });
-    } else if (tag === "blockquote") {
-      paragraphs.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: el.textContent ?? "",
-              italics: true,
-              font: FONT,
-              size: SIZE_BODY,
-              color: COLOR_PREAMBLE,
-            }),
-          ],
-          indent: { left: 720 },
-          spacing: { line: LINE_SPACING, after: SPACING_AFTER_DEFAULT },
-        }),
-      );
-    } else {
-      el.childNodes.forEach(processNode);
-    }
-  };
-
-  doc.body.childNodes.forEach(processNode);
-  return paragraphs;
-}
-
-function inlineRuns(el: HTMLElement): TextRun[] {
-  const runs: TextRun[] = [];
-  el.childNodes.forEach((child) => {
-    if (child.nodeType === Node.TEXT_NODE) {
-      const text = child.textContent ?? "";
-      if (text) runs.push(new TextRun({ text, font: FONT, size: SIZE_BODY, color: COLOR_BODY }));
-    } else if (child.nodeType === Node.ELEMENT_NODE) {
-      const c = child as HTMLElement;
-      const tag = c.tagName.toLowerCase();
-      const text = c.textContent ?? "";
-      runs.push(
-        new TextRun({
-          text,
-          font: FONT,
-          size: SIZE_BODY,
-          color: COLOR_BODY,
-          bold: tag === "strong" || tag === "b",
-          italics: tag === "em" || tag === "i",
-          underline: tag === "u" ? {} : undefined,
-          strike: tag === "s" || tag === "del",
-        }),
-      );
-    }
-  });
-  return runs;
-}
-
-function buildDocxTable(columns: string[], rows: string[][]): Table {
-  const cellBorders = {
-    top: CELL_BORDER,
-    bottom: CELL_BORDER,
-    left: CELL_BORDER,
-    right: CELL_BORDER,
-  };
-  const cellMargins = {
-    top: convertInchesToTwip(0.04),
-    bottom: convertInchesToTwip(0.04),
-    left: convertInchesToTwip(0.07),
-    right: convertInchesToTwip(0.07),
-  };
-
-  const headerCells = columns.map(
-    (col) =>
-      new TableCell({
-        children: [
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: col,
-                bold: true,
-                font: FONT,
-                size: SIZE_TABLE,
-                color: COLOR_BODY,
-              }),
-            ],
-          }),
-        ],
-        shading: { type: ShadingType.CLEAR, fill: "f5f5f5" },
-        borders: cellBorders,
-        margins: cellMargins,
-      }),
-  );
-
-  const dataRows = rows.map(
-    (row) =>
-      new TableRow({
-        children: row.map(
-          (cell) =>
-            new TableCell({
-              children: [
-                new Paragraph({
-                  children: [
-                    new TextRun({
-                      text: cell,
-                      font: FONT,
-                      size: SIZE_TABLE,
-                      color: COLOR_BODY,
-                    }),
-                  ],
-                }),
-              ],
-              borders: cellBorders,
-              margins: cellMargins,
-            }),
-        ),
-      }),
-  );
-
-  return new Table({
-    rows: [new TableRow({ children: headerCells }), ...dataRows],
-    width: { size: 100, type: WidthType.PERCENTAGE },
-  });
-}
-
-function htmlIsEmpty(html: string | null | undefined): boolean {
-  if (!html) return true;
-  // A section holding only a restricted / deleted mention still has something to say.
-  const filled = fillMentionLabelsI18n(html);
-  const text = (new DOMParser().parseFromString(filled, "text/html").body.textContent ?? "").trim();
-  return !text;
-}
+// ─── helpers ────────────────────────────────────────────────────────────────
 
 /** A timestamp or a `YYYY-MM-DD` day as a local date (a bare day is read as
  *  that calendar day, never UTC midnight). */
@@ -313,6 +108,10 @@ export async function exportAdrsToDocx(adrs: ExportableDecision[]): Promise<void
     String(i18n.t(`delivery:${key}`, opts as never));
 
   const children: (Paragraph | Table)[] = [];
+  // Every picture the decisions show, fetched once before building.
+  const images = await prefetchDocumentImages(
+    adrs.flatMap((a) => [a.context, a.decision, a.consequences, a.alternatives_considered]),
+  );
 
   // ── Cover / document title — the SoAW cover: document type, then the name
   // under a blue rule. Only a multi-decision export adds the count and date.
@@ -487,7 +286,8 @@ export async function exportAdrsToDocx(adrs: ExportableDecision[]): Promise<void
 
     // Section helper
     const addSection = (title: string, html: string | null) => {
-      if (htmlIsEmpty(html)) return;
+      // Text, a picture, or a restricted / deleted mention is something to say.
+      if (!richHtmlHasContent(html)) return;
       children.push(
         new Paragraph({
           children: [
@@ -502,7 +302,7 @@ export async function exportAdrsToDocx(adrs: ExportableDecision[]): Promise<void
           spacing: { before: SPACING_H2_BEFORE, after: SPACING_AFTER_DEFAULT },
         }),
       );
-      for (const p of htmlToParagraphs(html ?? "")) {
+      for (const p of htmlToParagraphs(html ?? "", images)) {
         children.push(p);
       }
     };
@@ -524,6 +324,14 @@ export async function exportAdrsToDocx(adrs: ExportableDecision[]): Promise<void
       addTable(
         [t("adr.export.fileName")],
         fileNames.map((name) => [name]),
+      );
+    }
+    const diagramNames = adrDiagramNames(adr);
+    if (diagramNames.length > 0) {
+      addHeading(t("adr.export.diagrams"));
+      addTable(
+        [t("adr.export.diagramName")],
+        diagramNames.map((name) => [name]),
       );
     }
 
@@ -649,7 +457,12 @@ export async function exportAdrsToDocx(adrs: ExportableDecision[]): Promise<void
       {
         properties: {
           page: {
-            margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
+            margin: {
+              top: DOCX_PAGE_MARGIN_TWIP,
+              right: DOCX_PAGE_MARGIN_TWIP,
+              bottom: DOCX_PAGE_MARGIN_TWIP,
+              left: DOCX_PAGE_MARGIN_TWIP,
+            },
           },
         },
         children,

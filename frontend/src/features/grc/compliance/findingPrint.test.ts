@@ -40,7 +40,7 @@ describe("buildFindingPrintBody", () => {
   it("renders regulation, article, scope, chips, sections and the review trail", () => {
     const html = buildFindingPrintBody(finding(), "EU AI Act");
     // The SoAW cover: document type, then "regulation — article".
-    expect(html).toContain('<h1 style="text-align:center;border:none;">Compliance finding</h1>');
+    expect(html).toContain('<h1 class="doc-title">Compliance finding</h1>');
     expect(html).toContain(">EU AI Act — Art. 9 — Risk management system</p>");
     expect(html).toContain("<h2>Document Information</h2>");
     expect(html).not.toContain("doc-chip");

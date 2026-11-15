@@ -120,6 +120,8 @@ export interface EditorAccess {
   cardsEditable: boolean;
   /** Files can be uploaded and deleted: a saved draft only. */
   filesEditable: boolean;
+  /** Diagrams are filing like linked cards: a saved decision, until signed. */
+  diagramsEditable: boolean;
   /** Extension panels must not offer edits (the SDK `readOnly` contract). */
   panelReadOnly: boolean;
 }
@@ -129,6 +131,7 @@ export function editorAccess(status: string, isNew: boolean): EditorAccess {
     locked: isLocked(status),
     cardsEditable: status !== "signed",
     filesEditable: !isNew && status === "draft",
+    diagramsEditable: !isNew && status !== "signed",
     panelReadOnly: status !== "draft",
   };
 }

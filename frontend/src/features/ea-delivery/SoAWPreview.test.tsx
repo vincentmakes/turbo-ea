@@ -645,3 +645,23 @@ describe("SoAWPreview — section markers", () => {
     expect(screen.queryAllByTestId(/^section-marker-/)).toHaveLength(0);
   });
 });
+
+describe("SoAWPreview — pictures", () => {
+  const PIC = "/api/v1/document-images/soaw/0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
+
+  it("shows a section holding only a picture, and drops an external picture", async () => {
+    mockApi.on("get", "/soaw/s1", {
+      ...SOAW,
+      sections: {
+        ...SOAW.sections,
+        "1.1": { content: `<img src="${PIC}" data-align="right" style="x"><img src="https://cdn.example.com/a.png">`, hidden: false },
+      },
+    });
+    renderPreview();
+    await screen.findByRole("heading", { name: SOAW.name });
+    const body = previewBody();
+    expect(body).toHaveTextContent(t("template.section_1_1.title"));
+    const pictures = Array.from(body.querySelectorAll("img"));
+    expect(pictures.map((p) => p.outerHTML)).toEqual([`<img src="${PIC}" data-align="right">`]);
+  });
+});

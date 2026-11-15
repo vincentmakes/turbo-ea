@@ -2,14 +2,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import JSZip from "jszip";
 import { Packer, type Document } from "docx";
 import { saveAs } from "file-saver";
+import { api } from "@/api/client";
 import i18n from "@/i18n";
-import { printDocument } from "@/lib/printDocument";
+import {
+  printDocument,
+  printDocumentContentCss,
+  printDocumentHeaderCss,
+} from "@/lib/printDocument";
 import type { SoAWDocumentInfo, SoAWSectionData, SoAWSignatory, SoAWVersionEntry } from "@/types";
-import { PRINT_COLORS } from "@/theme/tokens";
 import { getTemplateSections, getTogafPhases } from "./soawTemplate";
 import { buildPreviewBody, exportToDocx, exportToPdf, PREVIEW_CSS } from "./soawExport";
 
 vi.mock("file-saver", () => ({ saveAs: vi.fn() }));
+// Pictures are fetched through the API client; the tests answer for it.
+vi.mock("@/api/client", () => ({ api: { getRaw: vi.fn() } }));
 // Keep `escapeHtml` real (it is what the body builder escapes with) and only
 // stub the pop-up path, so no window is opened and no print dialog fires.
 vi.mock("@/lib/printDocument", async (importOriginal) => ({
@@ -191,8 +197,8 @@ afterEach(() => {
 describe("buildPreviewBody — title block", () => {
   it("opens with the document-type heading and the escaped name as subtitle", () => {
     const html = body({}, [], { name: `Cloud <Migration> & "Co"` });
-    expect(html.startsWith(`<h1 style="text-align:center;border:none;">${t("soawTitle")}</h1>`)).toBe(true);
-    expect(html).toContain(`<p style="text-align:center;font-size:14pt;color:${PRINT_COLORS.inkSecondary};">Cloud &lt;Migration&gt; &amp; &quot;Co&quot;</p>`);
+    expect(html.startsWith(`<h1 class="doc-title">${t("soawTitle")}</h1>`)).toBe(true);
+    expect(html).toContain(`<p class="doc-subtitle">Cloud &lt;Migration&gt; &amp; &quot;Co&quot;</p>`);
     expect(html).not.toContain("<Migration>");
   });
 
@@ -277,7 +283,7 @@ describe("buildPreviewBody — template sections", () => {
       "3.1": togaf({ A: "", B: "  " }),
       "7.1": { content: "", hidden: false },
     });
-    expect(html).toContain(`<h3>${def("1.1").title}</h3><p>Because <strong>latency</strong></p>`);
+    expect(html).toContain(`<h3>${def("1.1").title}</h3><div class="doc-content"><p>Because <strong>latency</strong></p></div>`);
     for (const id of ["1.2", "2.2", "4.1", "2.1", "2.3", "3.1", "7.1", "5.1"]) {
       expect(html).not.toContain(def(id).title);
     }
@@ -287,7 +293,7 @@ describe("buildPreviewBody — template sections", () => {
   it("uses h2 for a level-2 section and h3 for a level-3 one", () => {
     const html = body({ "7.0": rich("<p>Risks</p>"), "7.2": table(["D", "S"], [["x", "y"]]) });
     expect(def("7.0").level).toBe(2);
-    expect(html).toContain(`<h2>${def("7.0").title}</h2><p>Risks</p>`);
+    expect(html).toContain(`<h2>${def("7.0").title}</h2><div class="doc-content"><p>Risks</p></div>`);
     expect(html).toContain(`<h3>${def("7.2").title}</h3>`);
   });
 
@@ -320,7 +326,7 @@ describe("buildPreviewBody — custom sections", () => {
       { id: "custom_1", title: "<script>alert(1)</script>", content: "<p>Injected?</p>", insertAfter: "1.1" },
     ]);
     expect(html).toContain(
-      `<p>Background</p><h3><span class="custom-badge">${t("custom")}</span>&lt;script&gt;alert(1)&lt;/script&gt;</h3><p>Injected?</p><h3>${def("1.2").title}</h3>`,
+      `<p>Background</p></div><h3><span class="custom-badge">${t("custom")}</span>&lt;script&gt;alert(1)&lt;/script&gt;</h3><div class="doc-content"><p>Injected?</p></div><h3>${def("1.2").title}</h3>`,
     );
     expect(html).not.toContain("<script>");
   });
@@ -335,7 +341,7 @@ describe("buildPreviewBody — custom sections", () => {
     const b = html.indexOf("Appendix B");
     expect(lastTemplate).toBeLessThan(a);
     expect(a).toBeLessThan(b);
-    expect(html).toContain(`<h3><span class="custom-badge">${t("custom")}</span>Appendix A</h3><p>A</p>`);
+    expect(html).toContain(`<h3><span class="custom-badge">${t("custom")}</span>Appendix A</h3><div class="doc-content"><p>A</p></div>`);
     // An empty body renders the heading alone.
     expect(html.endsWith(`<h3><span class="custom-badge">${t("custom")}</span>Appendix B</h3>`)).toBe(true);
   });
@@ -349,8 +355,8 @@ describe("buildPreviewBody — custom sections", () => {
     ]);
     expect(html).toContain("<p>Kept</p>");
     expect(html).not.toContain("<p>Hidden</p>");
-    expect(html).toContain(`<h3><span class="custom-badge">${t("custom")}</span>After hidden</h3><p>h</p>`);
-    expect(html).toContain(`<h3><span class="custom-badge">${t("custom")}</span>After empty</h3><p>e</p>`);
+    expect(html).toContain(`<h3><span class="custom-badge">${t("custom")}</span>After hidden</h3><div class="doc-content"><p>h</p></div>`);
+    expect(html).toContain(`<h3><span class="custom-badge">${t("custom")}</span>After empty</h3><div class="doc-content"><p>e</p></div>`);
     // Anchored on 1.1 and 1.2, so both come before the first printed section.
     expect(html.indexOf("After hidden")).toBeLessThan(html.indexOf("After empty"));
     expect(html.indexOf("After empty")).toBeLessThan(html.indexOf("<p>Kept</p>"));
@@ -464,7 +470,7 @@ describe("exportToPdf", () => {
   it("falls back to 'SoAW' as the window title when the document has no name", () => {
     exportToPdf("", EMPTY_INFO, [], sections, [], undefined, undefined, undefined);
     expect(mockPrintDocument.mock.calls[0][0].title).toBe("SoAW");
-    expect(mockPrintDocument.mock.calls[0][0].bodyHtml).toContain(`color:${PRINT_COLORS.inkSecondary};"></p>`);
+    expect(mockPrintDocument.mock.calls[0][0].bodyHtml).toContain(`<p class="doc-subtitle"></p>`);
   });
 
   it("a signed document's footer names the first approver, the approval date and the print date", () => {
@@ -630,6 +636,21 @@ describe("exportToDocx — document content", () => {
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
   });
 
+  it("writes a table in a rich section as a real Word table with the stored column widths", async () => {
+    const xml = await docx({
+      "1.1": rich(
+        '<p>Before</p><table style="width: 400px"><colgroup><col style="width: 100px"><col style="width: 300px"></colgroup>' +
+          '<tbody><tr><td colspan="1" rowspan="1" colwidth="100"><p>left</p></td>' +
+          '<td colspan="1" rowspan="1" colwidth="300"><p>right</p></td></tr></tbody></table>',
+      ),
+    });
+    const stored = xml.split("<w:tbl>").find((t) => t.includes(">left</w:t>")) ?? "";
+    expect(stored).toContain('<w:tblGrid><w:gridCol w:w="1500"/><w:gridCol w:w="4500"/></w:tblGrid>');
+    expect(stored).toContain('<w:tblW w:type="dxa" w:w="6000"/>');
+    expect(stored).toContain(">right</w:t>");
+    expect(xml.indexOf(">Before</w:t>")).toBeLessThan(xml.indexOf(">left</w:t>"));
+  });
+
   it("converts rich text: inline marks, headings, lists, blockquotes, wrappers and loose text", async () => {
     const xml = await docx({
       "1.1": rich(
@@ -738,9 +759,112 @@ describe("restricted and deleted mentions", () => {
     const xml = await docx({ "1.1": rich(`<p>a ${RESTRICTED} b ${RESOLVED}</p>`) }, [
       { id: "custom_1", title: "Anchored", content: `<p>${MISSING}</p>`, insertAfter: "1.1" },
     ]);
+    // Plain text around a mention is one run with it (same formatting merges).
     const all = texts(xml);
-    expect(all).toContain("Restricted card");
-    expect(all).toContain("@SAP ERP");
+    expect(all).toContain("a Restricted card b @SAP ERP");
     expect(all).toContain("Deleted decision");
+  });
+});
+
+// ─── pictures ────────────────────────────────────────────────────────────────
+
+describe("pictures", () => {
+  const ID = "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
+  const PIC = `/api/v1/document-images/soaw/${ID}`;
+  const PNG = Uint8Array.from(
+    atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="),
+    (c) => c.charCodeAt(0),
+  );
+  const first = getTemplateSections().find((d) => d.type === "rich_text")!;
+
+  async function docxPackage(sections: Record<string, SoAWSectionData>, custom: CustomSection[] = []) {
+    const getDoc = captureDocument();
+    await exportToDocx("Cloud Migration", EMPTY_INFO, [], sections, custom);
+    const zip = await JSZip.loadAsync(await Packer.toBuffer(getDoc()));
+    return {
+      xml: await zip.file("word/document.xml")!.async("string"),
+      media: Object.keys(zip.files).filter((f) => f.startsWith("word/media/") && !f.endsWith("/")),
+    };
+  }
+
+  it("the preview / PDF body keeps a section holding only a picture", () => {
+    const html = body({ [first.id]: rich(`<img src="${PIC}" data-align="center">`) });
+    expect(html).toContain(`>${first.title}</h`);
+    expect(html).toContain(`<img src="${PIC}" data-align="center">`);
+  });
+
+  it("the preview / PDF body still drops a section holding only an external picture", () => {
+    const html = body({ [first.id]: rich('<img src="https://cdn.example.com/a.png">') });
+    expect(html).not.toContain(`>${first.title}</h`);
+  });
+
+  it("the Word export writes a picture-only section, and a picture-only custom section, as media", async () => {
+    vi.mocked(api.getRaw).mockResolvedValue({
+      blob: async () => ({ arrayBuffer: async () => PNG.slice().buffer }),
+    } as unknown as Response);
+    const { xml, media } = await docxPackage({ [first.id]: rich(`<img src="${PIC}" width="50" height="40">`) }, [
+      { id: "c1", title: "Appendix", content: `<img src="${PIC}">`, insertAfter: "" },
+    ]);
+    expect(texts(xml)).toContain(first.title);
+    expect(texts(xml)).toContain("Appendix");
+    expect(media.length).toBeGreaterThanOrEqual(1);
+    expect(xml).toContain(`<wp:extent cx="${50 * 9525}" cy="${40 * 9525}"/>`);
+    expect(api.getRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it("the Word export does not fetch the pictures of a hidden section", async () => {
+    await docxPackage({ [first.id]: rich(`<img src="${PIC}">`, true) });
+    expect(api.getRaw).not.toHaveBeenCalled();
+  });
+
+  it("the Word export writes the placeholder when a picture cannot be fetched", async () => {
+    vi.mocked(api.getRaw).mockRejectedValue(new Error("403"));
+    const { xml, media } = await docxPackage({ [first.id]: rich(`<img src="${PIC}">`) });
+    expect(texts(xml)).toContain(first.title);
+    expect(texts(xml)).toContain("[Picture not available]");
+    expect(media).toEqual([]);
+  });
+
+  it("PREVIEW_CSS styles stored content inside .doc-content and draws the title block from classes", () => {
+    expect(PREVIEW_CSS).toContain(printDocumentContentCss(".soaw-preview"));
+    expect(PREVIEW_CSS).toContain(".soaw-preview .doc-content a { color: ");
+    expect(PREVIEW_CSS).toContain(printDocumentHeaderCss(".soaw-preview"));
+    // The document's own tables keep their rules.
+    expect(PREVIEW_CSS).toContain(".soaw-preview table { width: 100%; border-collapse: collapse; margin: 12px 0; }");
+    expect(PREVIEW_CSS).not.toMatch(/\$\{|undefined/);
+  });
+
+  it("the preview body carries no inline style, and stored text sits in .doc-content", () => {
+    const html = body(
+      { [first.id]: rich('<p>See <a href="https://example.com">the docs</a></p>') },
+      [{ id: "c", title: "Appendix", content: "<p>A</p>", insertAfter: "" }],
+      { name: "Cloud", docInfo: { prepared_by: "Ada", reviewed_by: "", review_date: "" } },
+    );
+    expect(html).not.toContain("style=");
+    expect(html).toContain('<div class="doc-content"><p>See <a href="https://example.com">the docs</a></p></div>');
+    expect(html).toContain('<div class="doc-content"><p>A</p></div>');
+    // The document-information table is the document's own, outside any wrapper.
+    expect(html).toMatch(/<\/h2><table><tr><td class="meta-label">/);
+  });
+
+  it("the Word export writes a link in a section as a clickable hyperlink", async () => {
+    const getDoc = captureDocument();
+    await exportToDocx("Cloud", EMPTY_INFO, [], { [first.id]: rich('<p>See <a href="https://example.com/a">the docs</a></p>') }, [
+      { id: "c", title: "Appendix", content: '<p><a href="mailto:a@example.com">mail</a></p>', insertAfter: "" },
+    ]);
+    const zip = await JSZip.loadAsync(await Packer.toBuffer(getDoc()));
+    const xml = await zip.file("word/document.xml")!.async("string");
+    const rels = await zip.file("word/_rels/document.xml.rels")!.async("string");
+    expect(xml).toMatch(/<w:hyperlink [^>]*r:id="[^"]+"[^>]*>(?:(?!<\/w:hyperlink>)[\s\S])*>the docs<\/w:t>/);
+    expect(rels).toContain('Target="https://example.com/a" TargetMode="External"');
+    expect(rels).toContain('Target="mailto:a@example.com" TargetMode="External"');
+  });
+
+  it("PREVIEW_CSS styles pictures under the preview root and keeps each on one page", () => {
+    expect(PREVIEW_CSS).toContain(".soaw-preview img { max-width: 100%; height: auto; }");
+    expect(PREVIEW_CSS).toContain(
+      '.soaw-preview img[data-align="right"] { display: block; margin-inline-start: auto; }',
+    );
+    expect(PREVIEW_CSS).toContain(".soaw-preview img { break-inside: avoid;");
   });
 });

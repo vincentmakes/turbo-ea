@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { hasLink, isLinkableHref, splitLinks } from "./linkify";
+import { hasLink, isLinkableHref, isStorableHref, normaliseLinkHref, splitLinks } from "./linkify";
 
 const link = (value: string) => ({ type: "link", value, href: value });
 const text = (value: string) => ({ type: "text", value });
@@ -147,5 +147,143 @@ describe("hasLink / isLinkableHref", () => {
     expect(isLinkableHref("x-mailto:ops@a.io")).toBe(false);
     expect(isLinkableHref("/cards/1")).toBe(false);
     expect(isLinkableHref("")).toBe(false);
+  });
+});
+
+describe("isStorableHref", () => {
+  it("keeps http, https and mailto addresses, in any case", () => {
+    for (const href of ["http://a.io", "https://a.io/x?y=1#z", "HTTPS://A.IO", "mailto:ann@a.io", "MailTo:ann@a.io"]) {
+      expect(isStorableHref(href), href).toBe(true);
+    }
+  });
+
+  it("refuses every other scheme, a relative address and a leading space", () => {
+    for (const href of [
+      "javascript:alert(1)",
+      "ftp://a.io",
+      "tel:+41123",
+      "data:text/html,x",
+      "example.com",
+      "/path",
+      "#top",
+      "//a.io",
+      "https:a.io",
+      " https://a.io",
+      "",
+    ]) {
+      expect(isStorableHref(href), href).toBe(false);
+    }
+  });
+
+  it("refuses a space or a control character anywhere, as the server does", () => {
+    expect(isStorableHref("https://a.io/a b")).toBe(false);
+    expect(isStorableHref("https://a.io/\t")).toBe(false);
+    expect(isStorableHref("https://a.io/\n")).toBe(false);
+    expect(isStorableHref("https://a.io/\u0000")).toBe(false);
+    expect(isStorableHref("https://a.io/\u001f")).toBe(false);
+    expect(isStorableHref("https://a.io/\u007f")).toBe(false);
+    expect(isStorableHref("https://a.io/ ")).toBe(false);
+    // The edges of the refused range are refused, their neighbours kept.
+    expect(isStorableHref("https://a.io/!")).toBe(true);
+    expect(isStorableHref("https://a.io/~")).toBe(true);
+    expect(isStorableHref("https://a.io/\u0080")).toBe(true);
+  });
+
+  it("refuses what is not a string", () => {
+    expect(isStorableHref(null)).toBe(false);
+    expect(isStorableHref(undefined)).toBe(false);
+    expect(isStorableHref(42)).toBe(false);
+  });
+});
+
+describe("normaliseLinkHref", () => {
+  it.each([
+    ["https://a.io", "https://a.io"],
+    ["http://a.io/x?y=1#z", "http://a.io/x?y=1#z"],
+    ["HTTPS://A.IO", "HTTPS://A.IO"],
+    ["  https://a.io  ", "https://a.io"],
+    ["mailto:ann@a.io", "mailto:ann@a.io"],
+    ["MAILTO:ann@a.io", "MAILTO:ann@a.io"],
+    ["mailto:ann@a.io?subject=Hi", "mailto:ann@a.io?subject=Hi"],
+  ])("keeps %j as %j", (input, expected) => {
+    expect(normaliseLinkHref(input)).toBe(expected);
+  });
+
+  it.each([
+    ["ann@example.com", "mailto:ann@example.com"],
+    ["x@y.z", "mailto:x@y.z"],
+    ["first.last+tag@mail.example.co.uk", "mailto:first.last+tag@mail.example.co.uk"],
+  ])("makes the bare address %j a mailto: link", (input, expected) => {
+    expect(normaliseLinkHref(input)).toBe(expected);
+  });
+
+  it.each([
+    ["example.com", "https://example.com"],
+    ["example.com/path", "https://example.com/path"],
+    ["example.com?q=1", "https://example.com?q=1"],
+    ["example.com#part", "https://example.com#part"],
+    ["www.x.io", "https://www.x.io"],
+    ["sub.domain-1.example.org/a/b", "https://sub.domain-1.example.org/a/b"],
+    ["example.com:8080", "https://example.com:8080"],
+    ["example.com:8080/x", "https://example.com:8080/x"],
+    ["localhost", "https://localhost"],
+    ["localhost:3000", "https://localhost:3000"],
+    ["LOCALHOST:3000/app", "https://LOCALHOST:3000/app"],
+    ["192.168.0.1", "https://192.168.0.1"],
+    ["10.0.0.1:8443/x", "https://10.0.0.1:8443/x"],
+    ["münchen.de", "https://münchen.de"],
+  ])("gives the host %j https://", (input, expected) => {
+    expect(normaliseLinkHref(input)).toBe(expected);
+  });
+
+  it.each([
+    "",
+    "   ",
+    "javascript:alert(1)",
+    "JavaScript:alert(1)",
+    "data:text/html,x",
+    "ftp://a.io",
+    "tel:+41123",
+    "file:///etc/passwd",
+    "vbscript:x",
+    "https://",
+    "http://",
+    "https:///x",
+    "https:a.io",
+    "mailto:",
+    "hello",
+    "example",
+    "example.",
+    "example.123",
+    "/path",
+    "#anchor",
+    "?q=1",
+    "./x",
+    "../x",
+    "//example.com",
+    "https://a.io/a b",
+    "a.io b",
+    "https://a.io/\u0000",
+    "https://a.io/\u007f",
+    "a.io/\u0001",
+    "https://a.io/\u00a0x",
+    "ann@",
+    "@a.io",
+    "ann@localhost",
+    "ann@a.io/x",
+    "a@b@c.io",
+    "user:pass@a.io",
+    "a.io:port",
+    "a.io:123456",
+  ])("refuses %j", (input) => {
+    expect(normaliseLinkHref(input)).toBeNull();
+  });
+
+  it("always returns something isStorableHref keeps", () => {
+    for (const input of ["a.io", "ann@a.io", "https://a.io", "mailto:x@y.io", "localhost:1"]) {
+      const href = normaliseLinkHref(input);
+      expect(href).not.toBeNull();
+      expect(isStorableHref(href)).toBe(true);
+    }
   });
 });

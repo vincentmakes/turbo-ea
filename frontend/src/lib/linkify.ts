@@ -119,3 +119,63 @@ export function splitLinks(text: string): LinkToken[] {
 export function hasLink(text: string): boolean {
   return splitLinks(text).some((t) => t.type === "link");
 }
+
+/**
+ * What a link may point to once it is stored in rich text: an `http://`,
+ * `https://` or `mailto:` address with no space or control character in it.
+ * This is exactly the server's comment rule (`safe_href` in
+ * `document_discussion_service.py`): a link the server would refuse in a
+ * comment is shown there as escaped markup, and the sanitiser strips any
+ * other href at render time anyway. The editor's Link extension uses it, so
+ * a stored `ftp:`, `tel:` or relative anchor loads as plain text.
+ *
+ * Narrower than `isLinkableHref`, which trims and does not look past the
+ * scheme: that one decides what to *show* as a link, this one what to *keep*.
+ */
+export function isStorableHref(href: unknown): boolean {
+  if (typeof href !== "string") return false;
+  // The control characters are the point: the server's `[\x00-\x20\x7f]`.
+  // eslint-disable-next-line no-control-regex
+  return /^(?:https?:\/\/|mailto:)/i.test(href) && !/[\x00-\x20\x7f]/.test(href);
+}
+
+/**
+ * What someone typed into the link dialog, as the href to store, or `null`
+ * when it cannot be one.
+ *
+ * - Surrounding space is trimmed; any space or control character inside
+ *   refuses the input (an address has none, a sentence does).
+ * - `http://`, `https://` and `mailto:` are kept as typed (case included),
+ *   provided something follows them (`https://` or `mailto:` alone is refused,
+ *   and so is `https:example.com`, which has no `//`).
+ * - Any other scheme (`javascript:`, `data:`, `ftp:`, `tel:`, `file:`, …) is
+ *   refused.
+ * - An e-mail address without a scheme (`ann@example.com`) gets `mailto:`.
+ * - A host without a scheme gets `https://`: a dotted name ending in a
+ *   letter label (`example.com`, `www.x.io`, `example.com/path?q#f`), an IPv4
+ *   address, or `localhost`, each with an optional `:port`. `localhost:3000`
+ *   is a host and port, not a scheme.
+ * - Anything else (`hello`, `/path`, `#anchor`, `//example.com`, `./x`) is
+ *   refused: a relative link would point into the app itself.
+ */
+export function normaliseLinkHref(input: string): string | null {
+  const value = input.trim();
+  // Control characters are left to the final check.
+  if (!value || /\s/u.test(value)) return null;
+  const scheme = /^([a-z][a-z0-9+.-]*):(?!\d+(?:[/?#]|$))/i.exec(value);
+  let href: string | null = null;
+  if (scheme) {
+    const name = scheme[1].toLowerCase();
+    if ((name === "http" || name === "https") && /^https?:\/\/[^/?#]/i.test(value)) href = value;
+    else if (name === "mailto" && value.length > "mailto:".length) href = value;
+  } else if (/^[^@/?#:]+@(?:[\p{L}\p{N}-]+\.)+\p{L}[\p{L}\p{N}-]*$/u.test(value)) {
+    href = `mailto:${value}`;
+  } else if (
+    /^(?:(?:[\p{L}\p{N}-]+\.)+\p{L}[\p{L}\p{N}-]*|localhost|\d{1,3}(?:\.\d{1,3}){3})(?::\d{1,5})?(?:[/?#].*)?$/iu.test(
+      value,
+    )
+  ) {
+    href = `https://${value}`;
+  }
+  return href !== null && isStorableHref(href) ? href : null;
+}
