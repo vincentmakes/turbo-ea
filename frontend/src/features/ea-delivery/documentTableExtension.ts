@@ -2,6 +2,7 @@ import type { AnyExtension } from "@tiptap/core";
 import { Table, TableCell, type TableOptions, TableHeader, TableRow } from "@tiptap/extension-table";
 import { columnResizing, tableEditing } from "@tiptap/pm/tables";
 import { tableContextMenu } from "./tableContextMenu";
+import { tableHandles, type TableHandleLabels } from "./tableHandles";
 import type { TableMenuStore } from "./tableMenuStore";
 
 /**
@@ -30,16 +31,26 @@ import type { TableMenuStore } from "./tableMenuStore";
  * comes first. Its listeners sit on the editor's root in the capture phase,
  * so they run before every plugin's DOM handlers whatever the order; a
  * right-button press it prevents never reaches `columnResizing`, which has no
- * button check and would start a resize drag.
+ * button check and would start a resize drag. With `handleLabels` as well,
+ * the row and column handles (`tableHandles.ts`) are drawn too; their
+ * widgets stop every event themselves, so their order does not matter.
  */
-const DocumentTable = Table.extend<TableOptions & { menuStore: TableMenuStore | null }>({
+type DocumentTableOptions = TableOptions & {
+  menuStore: TableMenuStore | null;
+  handleLabels: { current: TableHandleLabels } | null;
+};
+
+const DocumentTable = Table.extend<DocumentTableOptions>({
   addOptions() {
-    return { ...this.parent!(), menuStore: null };
+    return { ...this.parent!(), menuStore: null, handleLabels: null };
   },
   addProseMirrorPlugins() {
-    const { menuStore } = this.options;
+    const { menuStore, handleLabels } = this.options;
     return [
       ...(menuStore ? [tableContextMenu(menuStore)] : []),
+      ...(menuStore && handleLabels
+        ? [tableHandles({ editor: this.editor, store: menuStore, labels: handleLabels })]
+        : []),
       columnResizing({
         handleWidth: this.options.handleWidth,
         cellMinWidth: this.options.cellMinWidth,
@@ -58,14 +69,16 @@ const DocumentTable = Table.extend<TableOptions & { menuStore: TableMenuStore | 
 /**
  * The table nodes every document-variant editor registers, read-only
  * included. A `menuStore` adds the right-click menu, which opens through it;
- * without one there is none.
+ * without one there is none. A `menuStore` with `handleLabels` (read each
+ * time the handles are drawn) adds the row and column handles.
  */
 export function createDocumentTableExtensions(
-  options: { menuStore?: TableMenuStore } = {},
+  options: { menuStore?: TableMenuStore; handleLabels?: { current: TableHandleLabels } } = {},
 ): AnyExtension[] {
   return [
     DocumentTable.configure({
       menuStore: options.menuStore ?? null,
+      handleLabels: options.handleLabels ?? null,
       resizable: true,
       renderWrapper: false,
       lastColumnResizable: true,

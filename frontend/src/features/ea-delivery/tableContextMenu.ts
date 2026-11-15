@@ -11,7 +11,9 @@
  *   Ctrl+click is the right-click on macOS;
  * - a touch pointer, so a long-press keeps its native text selection;
  * - a target outside the cells of this editor's tables;
- * - a link or a picture, whose browser menu opens or copies them.
+ * - a link or a picture, whose browser menu opens or copies them;
+ * - a row / column handle (`tableHandles.ts`): a grip opens its own menu,
+ *   and the other handles keep the browser's.
  *
  * Otherwise the selection follows the click (a cell selection holding the
  * clicked cell, or a text selection inside it, is kept; else the caret goes
@@ -59,8 +61,14 @@ function onLinkOrPicture(target: EventTarget | null): boolean {
   return Boolean(element?.closest("a[href], img"));
 }
 
+/** Whether the target is one of the row / column handles drawn in a cell. */
+function onHandle(target: EventTarget | null): boolean {
+  const element = target instanceof Element ? target : (target as Node | null)?.parentElement;
+  return Boolean(element?.closest("[data-table-handle]"));
+}
+
 /** The document position of the cell node a `td` / `th` renders, or null. */
-function cellPosOf(view: EditorView, cell: HTMLElement): number | null {
+export function cellPosOf(view: EditorView, cell: HTMLElement): number | null {
   // The cell is rendered by this view (`domCellAround`), so it has a position.
   const $pos = view.state.doc.resolve(view.posAtDOM(cell, 0));
   for (let depth = $pos.depth; depth > 0; depth -= 1) {
@@ -70,8 +78,11 @@ function cellPosOf(view: EditorView, cell: HTMLElement): number | null {
   return null;
 }
 
-/** The position of the cell holding the selection's head (a cell selection's head cell). */
-function selectionCellPos(state: EditorState): number | null {
+/**
+ * The position of the cell holding the selection's head (a cell selection's
+ * head cell), the innermost one in a nested table.
+ */
+export function selectionCellPos(state: EditorState): number | null {
   const { selection } = state;
   if (selection instanceof CellSelection) return selection.$headCell.pos;
   const { $head } = selection;
@@ -143,7 +154,7 @@ export function tableContextMenu(store: TableMenuStore): Plugin {
   const pointerCell = (view: EditorView, event: MouseEvent): number | null => {
     if (!view.editable || event.shiftKey || pointerType(event) === "touch") return null;
     const cell = domCellAround(view, event.target);
-    if (!cell || onLinkOrPicture(event.target)) return null;
+    if (!cell || onLinkOrPicture(event.target) || onHandle(event.target)) return null;
     return cellPosOf(view, cell);
   };
 

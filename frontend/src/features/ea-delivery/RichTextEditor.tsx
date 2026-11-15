@@ -22,6 +22,7 @@ import type { Theme } from "@mui/material/styles";
 import Alert from "@mui/material/Alert";
 import LinearProgress from "@mui/material/LinearProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { iconSize } from "@/theme/tokens";
 import { useFileUploadsEnabled } from "@/hooks/useFileUploadsEnabled";
 import { DOCUMENT_CONTENT_SX } from "@/lib/documentContentCss";
 import { DOCUMENT_IMAGE_SX } from "@/lib/documentImageMarkup";
@@ -42,6 +43,7 @@ import {
 import LinkDialog, { type LinkDialogResult } from "./LinkDialog";
 import TableActionsMenu from "./TableActionsMenu";
 import TableMenu from "./TableMenu";
+import type { TableHandleLabels } from "./tableHandles";
 import { createTableMenuStore } from "./tableMenuStore";
 import { MENTION_CHIP_SX } from "./mentions/MentionContainer";
 import MentionBrowseDialog from "./mentions/MentionBrowseDialog";
@@ -298,6 +300,14 @@ const EDITOR_IMAGE_SX = {
   '&[contenteditable="false"] [data-resize-handle]': { display: "none" },
 };
 
+// Stryker disable all: static layout rules, which jsdom cannot measure.
+/** A theme spacing, as an `sx` value for a property MUI does not scale itself. */
+const space = (n: number) => (theme: Theme) => theme.spacing(n);
+/** `calc(100% + <spacing>)`, for a box placed just past its cell's edge. */
+const pastEdge = (n: number) => (theme: Theme) => `calc(100% + ${theme.spacing(n)})`;
+/** The gutter around a table on every side, in spacing units (16px). */
+const TABLE_GUTTER = 2;
+
 /**
  * Tables while editing, on top of the shared table rules: the node view's
  * wrapper scrolls a table wider than the text, a cell selection is tinted, and
@@ -305,9 +315,33 @@ const EDITOR_IMAGE_SX = {
  * under the pointer) is a thin bar on the cell's inline-end edge. Resizing is
  * refused at event time while the editor is locked; a handle left over from
  * before the lock is hidden here, and so is the resize cursor.
+ *
+ * The wrapper has a gutter on every side for the row and column handles
+ * (`tableHandles.ts`), whether the editor is locked or not, so locking does
+ * not move the table. A negative start margin of the same width keeps the
+ * table aligned with the text (the gutter sits in the editor's own inline
+ * padding), and the wrapper's padding box holds every handle: anything past
+ * it would make the scrolling wrapper scroll. Each handle is placed from its
+ * cell with logical insets, so right-to-left mirrors it. In the start gutter:
+ * the row grip along its cell, inset from the cell's top and bottom so the
+ * "+" on the lower border fits between two grips. In the top gutter: the
+ * column grip along its cell, the "+" on the end border likewise. The two
+ * grips of the first cell meet at the table's corner without overlapping:
+ * one is left of the cell, the other above it. Under and after the table:
+ * the append bars, one segment per cell of the last row or column.
  */
 const EDITOR_TABLE_SX = {
-  "& .tableWrapper": { overflowX: "auto", maxWidth: "100%" },
+  "& .tableWrapper": {
+    overflowX: "auto",
+    boxSizing: "border-box",
+    p: TABLE_GUTTER,
+    marginInlineStart: -TABLE_GUTTER,
+    maxWidth: pastEdge(TABLE_GUTTER),
+  },
+  // The gutter takes the place of the table's own vertical margin.
+  "& .tableWrapper > table": { my: 0 },
+  // A table inside a cell keeps its gutter inside that cell.
+  "& td .tableWrapper, & th .tableWrapper": { marginInlineStart: 0, maxWidth: "100%" },
   "& td, & th": { position: "relative", boxSizing: "border-box" },
   "& .selectedCell::after": {
     content: '""',
@@ -329,7 +363,102 @@ const EDITOR_TABLE_SX = {
   },
   '&.resize-cursor[contenteditable="true"]': { cursor: "col-resize" },
   '&[contenteditable="false"] .column-resize-handle': { display: "none" },
+  "& [data-table-handle]": {
+    position: "absolute",
+    zIndex: 4,
+    m: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    boxSizing: "border-box",
+    borderRadius: 1,
+    color: "text.secondary",
+    bgcolor: "action.hover",
+    cursor: "pointer",
+    userSelect: "none",
+    lineHeight: 1,
+    "& .material-symbols-outlined": { fontSize: iconSize.xs, pointerEvents: "none" },
+    "&:hover": { bgcolor: "action.selected", color: "primary.main" },
+    "&:active": { bgcolor: "primary.main", color: "primary.contrastText" },
+  },
+  '& [data-table-handle="row"]': {
+    insetInlineStart: space(-1.5),
+    width: space(1.25),
+    top: space(1),
+    bottom: space(1),
+  },
+  '& [data-table-handle="column"]': {
+    top: space(-1.5),
+    height: space(1.25),
+    insetInlineStart: space(1),
+    insetInlineEnd: space(1),
+    "& .material-symbols-outlined": { transform: "rotate(90deg)" },
+  },
+  '& [data-table-handle="insert-row"]': {
+    insetInlineStart: space(-1.75),
+    bottom: space(-0.75),
+    width: space(1.5),
+    height: space(1.5),
+    borderRadius: "50%",
+  },
+  '& [data-table-handle="insert-column"]': {
+    top: space(-1.75),
+    insetInlineEnd: space(-0.75),
+    width: space(1.5),
+    height: space(1.5),
+    borderRadius: "50%",
+  },
+  // Segments meet across the cell borders; the glyph shows on the one hovered.
+  '& [data-table-handle="append-row"]': {
+    top: pastEdge(0.25),
+    height: space(1.25),
+    insetInlineStart: space(-0.125),
+    insetInlineEnd: space(-0.125),
+    borderRadius: 0,
+  },
+  '& [data-table-handle="append-column"]': {
+    insetInlineStart: pastEdge(0.25),
+    width: space(1.25),
+    top: space(-0.125),
+    bottom: space(-0.125),
+    borderRadius: 0,
+  },
+  '& [data-table-handle^="append"] .material-symbols-outlined': { opacity: 0 },
+  '& [data-table-handle^="append"]:hover .material-symbols-outlined': { opacity: 1 },
+  // Touch: larger targets, the top and bottom gutters deeper to hold them.
+  "@media (hover: none), (pointer: coarse)": {
+    "& .tableWrapper": { pt: 3, pb: 3 },
+    '& [data-table-handle="row"]': {
+      insetInlineStart: space(-1.75),
+      width: space(1.5),
+      top: space(1.25),
+      bottom: space(1.25),
+    },
+    '& [data-table-handle="column"]': {
+      top: space(-2.5),
+      height: space(2.25),
+      insetInlineStart: space(1.25),
+      insetInlineEnd: space(1.25),
+    },
+    '& [data-table-handle="insert-row"]': { height: space(2), bottom: space(-1) },
+    '& [data-table-handle="insert-column"]': {
+      top: space(-2.75),
+      height: space(2.25),
+      width: space(2),
+      insetInlineEnd: space(-1),
+    },
+    '& [data-table-handle="append-row"]': { height: space(2.25) },
+    '& [data-table-handle^="append"] .material-symbols-outlined': { opacity: 1 },
+  },
+  "@media print": {
+    "& .tableWrapper": { p: 0, marginInlineStart: 0, maxWidth: "100%" },
+    "& .tableWrapper > table": { my: 1.5 },
+    "& [data-table-handle]": { display: "none" },
+  },
+  '&[contenteditable="false"] [data-table-handle]': { display: "none" },
 };
+// Stryker restore all
 
 export default function RichTextEditor({
   content,
@@ -349,6 +478,20 @@ export default function RichTextEditor({
   // The right-click table menu's store (document variant, read-only included:
   // the plugin itself leaves a locked editor to the browser).
   const [tableMenuStore] = useState(createTableMenuStore);
+  // The editor is built once; the table handles read their labels through a
+  // ref refreshed on every render, so a language change reaches the next ones.
+  const tableHandleLabels: TableHandleLabels = {
+    row: t("richText.tableRowHandle"),
+    column: t("richText.tableColumnHandle"),
+    "insert-row": t("richText.tableInsertRowHere"),
+    "insert-column": t("richText.tableInsertColumnHere"),
+    "append-row": t("richText.tableAppendRow"),
+    "append-column": t("richText.tableAppendColumn"),
+  };
+  const tableHandleLabelsRef = useRef(tableHandleLabels);
+  useEffect(() => {
+    tableHandleLabelsRef.current = tableHandleLabels;
+  });
   const mentionLabels = useMentionLabels();
   // The editor is built once; the latest submit callback is read through a ref.
   const onSubmitRef = useRef(onSubmit);
@@ -405,7 +548,12 @@ export default function RichTextEditor({
       // Every document editor, read-only included: one without the table
       // nodes would drop a stored table on the next save. Never in a comment,
       // where a pasted table flattens to its paragraphs.
-      ...(isComment ? [] : createDocumentTableExtensions({ menuStore: tableMenuStore })),
+      ...(isComment
+        ? []
+        : createDocumentTableExtensions({
+            menuStore: tableMenuStore,
+            handleLabels: tableHandleLabelsRef,
+          })),
     ],
     content,
     editable: !readOnly,

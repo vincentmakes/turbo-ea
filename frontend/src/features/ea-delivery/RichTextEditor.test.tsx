@@ -13,10 +13,11 @@ import { describe, it, expect, vi, afterEach, beforeAll, beforeEach } from "vite
 import { act, createEvent, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { Editor } from "@tiptap/core";
 import { NodeSelection } from "@tiptap/pm/state";
-import { CellSelection, columnResizingPluginKey } from "@tiptap/pm/tables";
+import { CellSelection, columnResizingPluginKey, tableEditingKey } from "@tiptap/pm/tables";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import RichTextEditor from "./RichTextEditor";
+import { tableHandlesKey } from "./tableHandles";
 import { plainListTags } from "./collab/discussionModel";
 import { api } from "@/api/client";
 import { invalidateDecisionOptions } from "@/components/DecisionPicker";
@@ -26,11 +27,13 @@ import {
   PINNED_TABLES,
   TABLE_2X2,
   TABLE_3X3,
+  TABLE_COLSPAN_HEADER,
   TABLE_MERGED,
   TABLE_MERGED_RESIZED,
   TABLE_NO_HEADER,
   TABLE_ONE_RESIZED,
   TABLE_RESIZED,
+  TABLE_ROWSPAN,
 } from "@/test/fixtures/tableMarkup";
 
 vi.mock("@/api/client", () => ({
@@ -2943,6 +2946,521 @@ describe("RichTextEditor table right-click menu", () => {
       const d = cellText(container, "d");
       pointerDown(d, "touch");
       expect(press(d)).toBe(true);
+    });
+  });
+});
+
+describe("RichTextEditor table handles", () => {
+  /** A header row A B C, body rows d e f and g h i, then a paragraph. */
+  const GRID = `${table(3, [
+    [th("A"), th("B"), th("C")],
+    [td("d"), td("e"), td("f")],
+    [td("g"), td("h"), td("i")],
+  ])}<p>z</p>`;
+
+  /** The paragraph (`p`) inside the rendered cell whose text is `text`. */
+  const cellText = (container: HTMLElement, text: string) => {
+    const found = Array.from(container.querySelectorAll(".tiptap td > p, .tiptap th > p")).find(
+      (p) => p.textContent === text,
+    );
+    expect(found, `no cell "${text}"`).toBeDefined();
+    return found as HTMLElement;
+  };
+  /** Every handle drawn: its kind and the text of the cell it sits in. */
+  const handles = (container: HTMLElement) =>
+    Array.from(container.querySelectorAll(".tiptap [data-table-handle]")).map(
+      (el) =>
+        `${el.getAttribute("data-table-handle")}@${Array.from(el.parentElement!.children)
+          .filter((c) => c.tagName === "P")
+          .map((c) => c.textContent)
+          .join("")}`,
+    );
+  /** The handle of `kind` in the cell whose text is `text`. */
+  const handle = (container: HTMLElement, kind: string, text: string) => {
+    const found = cellText(container, text).parentElement!.querySelector(
+      `:scope > [data-table-handle="${kind}"]`,
+    );
+    expect(found, `no ${kind} handle in "${text}"`).not.toBeNull();
+    return found as HTMLElement;
+  };
+  const hover = (container: HTMLElement, text: string) =>
+    fireEvent.mouseMove(cellText(container, text), { clientX: 400, clientY: 400 });
+  const actionsMenu = () => screen.queryByRole("menu", { name: "Table actions" });
+  const paperOf = (menu: HTMLElement) => menu.closest(".MuiPaper-root") as HTMLElement;
+  const menuItems = (menu: HTMLElement) =>
+    Array.from(menu.querySelectorAll('[role^="menuitem"]')).map((i) => i.textContent);
+  const caretInto = (editor: Editor, text: string) =>
+    act(() => {
+      editor.commands.setTextSelection(textAt(editor, text));
+      editor.view.focus();
+    });
+  /** The text of every selected cell, in document order. */
+  const selectedTexts = (editor: Editor) => {
+    const { selection } = editor.state;
+    expect(selection).toBeInstanceOf(CellSelection);
+    const out: { pos: number; text: string }[] = [];
+    (selection as CellSelection).forEachCell((cell, pos) => out.push({ pos, text: cell.textContent }));
+    return out.sort((a, b) => a.pos - b.pos).map((c) => c.text);
+  };
+  /** The position of the cell holding the caret. */
+  const caretCell = (editor: Editor) => editor.state.selection.$head.before(-1);
+  /** The position of a cell selection's head cell. */
+  const headCell = (editor: Editor) => (editor.state.selection as CellSelection).$headCell.pos;
+
+  // `columnResizing` measures every move near a cell's edge (`posAtCoords`),
+  // which asks the document what is under the pointer; jsdom has no answer.
+  // Focus going back to the editor after a grip's menu scrolls a cell
+  // selection into view, which jsdom does not implement.
+  beforeEach(() => {
+    Object.defineProperty(document, "elementFromPoint", { configurable: true, value: () => null });
+    vi.spyOn(window, "scrollBy").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    delete (document as { elementFromPoint?: unknown }).elementFromPoint;
+    vi.restoreAllMocks();
+  });
+
+  describe("show", () => {
+    it("the hovered cell's grips, '+' and append bars, as labelled buttons, reporting no edit", async () => {
+      const { container, editor, onChange } = await tableEditor(GRID);
+      const html = editor.getHTML();
+      expect(handles(container)).toEqual([]);
+      hover(container, "e");
+      expect(handles(container)).toEqual([
+        "column@B",
+        "insert-column@B",
+        "append-column@C",
+        "row@d",
+        "insert-row@d",
+        "append-column@f",
+        "append-row@g",
+        "append-row@h",
+        "append-row@i",
+        "append-column@i",
+      ]);
+      const named = [
+        ["row", "d", "Row actions"],
+        ["column", "B", "Column actions"],
+        ["insert-row", "d", "Insert a row here"],
+        ["insert-column", "B", "Insert a column here"],
+        ["append-row", "g", "Add a row at the end"],
+        ["append-column", "C", "Add a column at the end"],
+      ];
+      for (const [kind, text, label] of named) {
+        const el = handle(container, kind, text);
+        expect(screen.getByRole("button", { name: label })).toBe(el);
+        expect(el).toHaveAttribute("title", label);
+        expect(el).toHaveAttribute("contenteditable", "false");
+        expect(el.querySelector("span")).toHaveAttribute("aria-hidden", "true");
+        expect(el.querySelector("span")).toHaveClass("material-symbols-outlined");
+      }
+      expect(handle(container, "row", "d")).toHaveTextContent("drag_indicator");
+      expect(handle(container, "column", "B")).toHaveTextContent("drag_indicator");
+      expect(handle(container, "insert-row", "d")).toHaveTextContent("add");
+      // The further segments of a bar only widen it.
+      for (const [kind, text] of [
+        ["append-row", "h"],
+        ["append-row", "i"],
+        ["append-column", "f"],
+        ["append-column", "i"],
+      ]) {
+        const el = handle(container, kind, text);
+        expect(el).toHaveAttribute("aria-hidden", "true");
+        expect(el).not.toHaveAttribute("role");
+        expect(el).not.toHaveAttribute("aria-label");
+      }
+      expect(editor.getHTML()).toBe(html);
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("follow the pointer, stay over the gutter and go when it leaves the table or the editor", async () => {
+      const { container, editor, onChange } = await tableEditor(GRID);
+      hover(container, "e");
+      const state = tableHandlesKey.getState(editor.state);
+      // A move inside the same cell dispatches nothing.
+      fireEvent.mouseMove(cellText(container, "e"), { clientX: 410, clientY: 400 });
+      expect(tableHandlesKey.getState(editor.state)).toBe(state);
+      hover(container, "i");
+      expect(handles(container).filter((h) => /^(row|column)@/.test(h))).toEqual(["column@C", "row@g"]);
+      // The wrapper's padding (the gutter the handles sit in) keeps them.
+      fireEvent.mouseMove(container.querySelector(".tiptap > .tableWrapper")!);
+      expect(handles(container)).toContain("row@g");
+      // A handle stops every event: a move over it keeps the hover too.
+      fireEvent.mouseMove(handle(container, "row", "g"));
+      expect(handles(container)).toContain("row@g");
+      const z = Array.from(container.querySelectorAll(".tiptap > p")).find((p) => p.textContent === "z")!;
+      fireEvent.mouseMove(z);
+      expect(handles(container)).toEqual([]);
+      hover(container, "e");
+      expect(handles(container)).toContain("row@d");
+      fireEvent.mouseLeave(container.querySelector(".tiptap")!);
+      expect(handles(container)).toEqual([]);
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("at the caret without a hover while the editor has the focus, and not once it is blurred", async () => {
+      const { container, editor, onChange } = await tableEditor(GRID);
+      act(() => {
+        editor.commands.setTextSelection(textAt(editor, "e"));
+      });
+      expect(handles(container)).toEqual([]);
+      caretInto(editor, "e");
+      expect(handles(container)).toContain("row@d");
+      expect(handles(container)).toContain("column@B");
+      // The hovered row and the caret's row each show their grip.
+      hover(container, "i");
+      expect(handles(container).filter((h) => /^(row|column)@/.test(h))).toEqual([
+        "column@B",
+        "column@C",
+        "row@d",
+        "row@g",
+      ]);
+      fireEvent.mouseLeave(container.querySelector(".tiptap")!);
+      act(() => {
+        (editor.view.dom as HTMLElement).blur();
+      });
+      expect(handles(container)).toEqual([]);
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("none in a locked editor, from the start or after locking with the caret in a table", async () => {
+      const locked = await tableEditor(GRID, { readOnly: true });
+      hover(locked.container, "e");
+      expect(handles(locked.container)).toEqual([]);
+      expect(tableHandlesKey.getState(locked.editor.state)?.hover).toBeNull();
+      locked.unmount();
+
+      const { container, editor, onChange, rerender } = await tableEditor(GRID);
+      caretInto(editor, "e");
+      hover(container, "e");
+      expect(handles(container)).toContain("row@d");
+      rerender(<RichTextEditor content={GRID} onChange={onChange} readOnly />);
+      expect(handles(container)).toEqual([]);
+      hover(container, "i");
+      expect(handles(container)).toEqual([]);
+      // Unlocked again: the hover from before the lock is forgotten.
+      rerender(<RichTextEditor content={GRID} onChange={onChange} />);
+      act(() => {
+        (editor.view.dom as HTMLElement).blur();
+      });
+      expect(handles(container)).toEqual([]);
+      hover(container, "h");
+      expect(handles(container)).toContain("row@g");
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("none in a comment, which has no tables", async () => {
+      const { container } = await tableEditor(GRID, { variant: "comment" });
+      fireEvent.mouseMove(container.querySelector(".tiptap p")!);
+      expect(container.querySelector("[data-table-handle]")).toBeNull();
+    });
+  });
+
+  describe("a grip", () => {
+    it("on a row selects the row and opens the row menu at the grip, Header row on the first row only", async () => {
+      const { container, editor, onChange } = await tableEditor(GRID);
+      const html = editor.getHTML();
+      hover(container, "e");
+      const grip = handle(container, "row", "d");
+      vi.spyOn(grip, "getBoundingClientRect").mockReturnValue(new DOMRect(30, 50, 10, 24));
+      const focus = vi.spyOn(editor.view, "focus");
+      expect(fireEvent.click(grip)).toBe(false);
+      expect(focus).toHaveBeenCalled();
+      expect((editor.state.selection as CellSelection).isRowSelection()).toBe(true);
+      expect(selectedTexts(editor)).toEqual(["d", "e", "f"]);
+      // The grip's cell stays the selection's head, so its handles stay put.
+      expect(headCell(editor)).toBe(textAt(editor, "d") - 2);
+      const menu = await screen.findByRole("menu", { name: "Table actions" });
+      expect(paperOf(menu).style.top).toBe("74px");
+      expect(paperOf(menu).style.left).toBe("30px");
+      expect(menuItems(menu)).toEqual([
+        "Add row above",
+        "Add row below",
+        "Move row up",
+        "Move row down",
+        "Delete row",
+      ]);
+      fireEvent.keyDown(menu, { key: "Escape" });
+      await waitFor(() => expect(actionsMenu()).not.toBeInTheDocument());
+      await waitFor(() => expect(editor.view.dom).toHaveFocus());
+
+      hover(container, "B");
+      fireEvent.click(handle(container, "row", "A"));
+      expect(selectedTexts(editor)).toEqual(["A", "B", "C"]);
+      const first = await screen.findByRole("menu", { name: "Table actions" });
+      expect(within(first).getByTestId("table-toggleHeaderRow")).toHaveTextContent("Header row");
+      expect(within(first).getByTestId("table-toggleHeaderRow")).toHaveAttribute("aria-checked", "true");
+      fireEvent.keyDown(first, { key: "Escape" });
+      await waitFor(() => expect(actionsMenu()).not.toBeInTheDocument());
+      expect(editor.getHTML()).toBe(html);
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("on a column selects the column and opens the column menu at the grip", async () => {
+      const { container, editor, onChange } = await tableEditor(GRID);
+      hover(container, "h");
+      const grip = handle(container, "column", "B");
+      vi.spyOn(grip, "getBoundingClientRect").mockReturnValue(new DOMRect(90, 12, 60, 10));
+      fireEvent.click(grip);
+      expect((editor.state.selection as CellSelection).isColSelection()).toBe(true);
+      expect(selectedTexts(editor)).toEqual(["B", "e", "h"]);
+      expect(headCell(editor)).toBe(textAt(editor, "B") - 2);
+      const menu = await screen.findByRole("menu", { name: "Table actions" });
+      expect(paperOf(menu).style.top).toBe("22px");
+      expect(paperOf(menu).style.left).toBe("90px");
+      expect(menuItems(menu)).toEqual([
+        "Add column before",
+        "Add column after",
+        "Move column before",
+        "Move column after",
+        "Delete column",
+      ]);
+      // An action from it acts on the grip's column.
+      fireEvent.click(within(menu).getByTestId("table-deleteColumn"));
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect(onChange).toHaveBeenLastCalledWith(
+        `${table(2, [[th("A"), th("C")], [td("d"), td("f")], [td("g"), td("i")]])}<p>z</p>`,
+      );
+    });
+
+    it("on a cell merged across two rows stands for both", async () => {
+      const { container, editor } = await tableEditor(`${TABLE_ROWSPAN}<p>z</p>`);
+      const cells = cellPositions(editor);
+      fireEvent.mouseMove(container.querySelectorAll(".tiptap td")[2], { clientX: 400, clientY: 400 });
+      const grips = container.querySelectorAll('.tiptap [data-table-handle="row"]');
+      expect(grips).toHaveLength(1);
+      expect(editor.view.posAtDOM(grips[0].parentElement!, 0) - 1).toBe(cells[2]);
+      fireEvent.click(grips[0]);
+      expect(selectedTexts(editor)).toHaveLength(3);
+      const menu = await screen.findByRole("menu", { name: "Table actions" });
+      expect(within(menu).getByTestId("table-deleteRow")).toHaveTextContent("Delete 2 rows");
+    });
+
+    it("on a header cell merged across two columns stands for both", async () => {
+      const { container, editor } = await tableEditor(`${TABLE_COLSPAN_HEADER}<p>z</p>`);
+      fireEvent.mouseMove(container.querySelectorAll(".tiptap td")[1], { clientX: 400, clientY: 400 });
+      const grips = container.querySelectorAll('.tiptap [data-table-handle="column"]');
+      expect(grips).toHaveLength(1);
+      expect(grips[0].parentElement!.tagName).toBe("TH");
+      fireEvent.click(grips[0]);
+      expect((editor.state.selection as CellSelection).isColSelection()).toBe(true);
+      const menu = await screen.findByRole("menu", { name: "Table actions" });
+      expect(within(menu).getByTestId("table-deleteColumn")).toHaveTextContent("Delete 2 columns");
+    });
+
+    it("opens its menu on a right-click too, and keeps the browser's menu on a '+'", async () => {
+      const { container, editor } = await tableEditor(GRID);
+      hover(container, "e");
+      const plus = handle(container, "insert-row", "d");
+      expect(fireEvent.contextMenu(plus, { button: 2, clientX: 240, clientY: 120 })).toBe(true);
+      expect(actionsMenu()).not.toBeInTheDocument();
+      expect(editor.state.selection).not.toBeInstanceOf(CellSelection);
+      const grip = handle(container, "row", "d");
+      vi.spyOn(grip, "getBoundingClientRect").mockReturnValue(new DOMRect(30, 50, 10, 24));
+      expect(fireEvent.contextMenu(grip, { button: 2, clientX: 240, clientY: 120 })).toBe(false);
+      expect(selectedTexts(editor)).toEqual(["d", "e", "f"]);
+      const menu = await screen.findByRole("menu", { name: "Table actions" });
+      // The grip's menu at the grip, not the right-click menu at the pointer.
+      expect(menuItems(menu)[0]).toBe("Add row above");
+      expect(paperOf(menu).style.top).toBe("74px");
+      expect(paperOf(menu).style.left).toBe("30px");
+    });
+
+    it("keeps the handles of the caret's cell while its menu has the focus", async () => {
+      const { container, editor } = await tableEditor(GRID);
+      hover(container, "e");
+      fireEvent.click(handle(container, "column", "B"));
+      await screen.findByRole("menu", { name: "Table actions" });
+      fireEvent.mouseLeave(container.querySelector(".tiptap")!);
+      await waitFor(() => expect(editor.view.dom).not.toHaveFocus());
+      act(() => {
+        editor.view.dispatch(editor.state.tr);
+      });
+      expect(handles(container)).toContain("column@B");
+    });
+
+    it("does nothing once it is no longer drawn", async () => {
+      const { container, editor, onChange } = await tableEditor(GRID);
+      hover(container, "e");
+      const grip = handle(container, "row", "d");
+      const plus = handle(container, "insert-row", "d");
+      fireEvent.mouseLeave(container.querySelector(".tiptap")!);
+      expect(grip.isConnected).toBe(false);
+      fireEvent.click(grip);
+      fireEvent.click(plus);
+      await act(async () => {});
+      expect(actionsMenu()).not.toBeInTheDocument();
+      expect(editor.state.selection).not.toBeInstanceOf(CellSelection);
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("does nothing once the editor is locked", async () => {
+      const { container, editor, onChange, rerender } = await tableEditor(GRID);
+      hover(container, "e");
+      const grip = handle(container, "row", "d");
+      const plus = handle(container, "insert-row", "d");
+      rerender(<RichTextEditor content={GRID} onChange={onChange} readOnly />);
+      fireEvent.click(grip);
+      expect(fireEvent.contextMenu(grip, { button: 2, clientX: 240, clientY: 120 })).toBe(true);
+      fireEvent.click(plus);
+      await act(async () => {});
+      expect(actionsMenu()).not.toBeInTheDocument();
+      expect(editor.state.selection).not.toBeInstanceOf(CellSelection);
+      expect(editor.getHTML()).toBe(GRID);
+      expect(onChange).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("a press on a handle", () => {
+    it("is prevented, keeping the focus and the selection, and starts no cell selection or resize", async () => {
+      const { container, editor } = await tableEditor(`${TABLE_2X2}<p>z</p>`);
+      const resizing = () => columnResizingPluginKey.getState(editor.state);
+      // As in "starts no resize drag on an active resize handle…": the
+      // pointer 2px inside the first header cell's right edge.
+      const firstCell = cellPositions(editor)[0];
+      vi.spyOn(editor.view, "posAtCoords").mockReturnValue({ pos: firstCell + 2, inside: firstCell });
+      const headerCell = container.querySelector(".tiptap th")!;
+      vi.spyOn(headerCell, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 100, 20));
+      fireEvent.mouseMove(headerCell.querySelector("p")!, { clientX: 98, clientY: 10 });
+      expect(resizing()?.activeHandle).toBe(firstCell);
+      act(() => {
+        editor.commands.setTextSelection(editor.state.doc.content.size - 1);
+      });
+      const before = editor.state.selection;
+
+      for (const kind of ["column", "insert-column", "row"]) {
+        const el = headerCell.querySelector(`:scope > [data-table-handle="${kind}"]`)!;
+        expect(el, kind).not.toBeNull();
+        expect(fireEvent.pointerDown(el, { button: 0 })).toBe(false);
+        expect(fireEvent.mouseDown(el, { button: 0, clientX: 98, clientY: 10 })).toBe(false);
+        expect(resizing()?.dragging).toBeFalsy();
+        expect(tableEditingKey.getState(editor.state)).toBeNull();
+        expect(editor.state.selection.eq(before)).toBe(true);
+        expect(editor.view.dom).not.toHaveFocus();
+        fireEvent.mouseUp(el, { button: 0 });
+      }
+      // Leaving the editor still reaches the resize plugin.
+      fireEvent.mouseLeave(container.querySelector(".tiptap")!);
+      expect(resizing()?.activeHandle).toBe(-1);
+    });
+  });
+
+  describe("'+'", () => {
+    it("between rows inserts a row after the hovered row, the caret in its first cell, one undo step", async () => {
+      const { container, editor, onChange } = await tableEditor(GRID);
+      hover(container, "e");
+      expect(fireEvent.click(handle(container, "insert-row", "d"))).toBe(false);
+      const inserted = `${table(3, [
+        [th("A"), th("B"), th("C")],
+        [td("d"), td("e"), td("f")],
+        [td(), td(), td()],
+        [td("g"), td("h"), td("i")],
+      ])}<p>z</p>`;
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect(onChange).toHaveBeenLastCalledWith(inserted);
+      expect(caretCell(editor)).toBe(cellPositions(editor)[6]);
+      expect(editor.state.selection.empty).toBe(true);
+      expect(editor.view.dom).toHaveFocus();
+      act(() => {
+        editor.commands.undo();
+      });
+      expect(editor.getHTML()).toBe(GRID);
+    });
+
+    it("between rows goes after the last row a merged first-column cell spans", async () => {
+      const content = `${table(2, [
+        [th("A"), th("B")],
+        ['<td colspan="1" rowspan="2"><p>m</p></td>', td("b")],
+        [td("c")],
+        [td("d"), td("e")],
+      ])}<p>z</p>`;
+      const { container, editor, onChange } = await tableEditor(content);
+      hover(container, "b");
+      fireEvent.click(handle(container, "insert-row", "m"));
+      expect(onChange).toHaveBeenLastCalledWith(
+        `${table(2, [
+          [th("A"), th("B")],
+          ['<td colspan="1" rowspan="2"><p>m</p></td>', td("b")],
+          [td("c")],
+          [td(), td()],
+          [td("d"), td("e")],
+        ])}<p>z</p>`,
+      );
+      expect(caretCell(editor)).toBe(cellPositions(editor)[5]);
+    });
+
+    it("between columns inserts a column after the hovered column, a header cell on the header row", async () => {
+      const { container, editor, onChange } = await tableEditor(GRID);
+      hover(container, "e");
+      fireEvent.click(handle(container, "insert-column", "B"));
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect(onChange).toHaveBeenLastCalledWith(
+        `${table(4, [
+          [th("A"), th("B"), th(), th("C")],
+          [td("d"), td("e"), td(), td("f")],
+          [td("g"), td("h"), td(), td("i")],
+        ])}<p>z</p>`,
+      );
+      expect(caretCell(editor)).toBe(cellPositions(editor)[2]);
+      act(() => {
+        editor.commands.undo();
+      });
+      expect(editor.getHTML()).toBe(GRID);
+    });
+  });
+
+  it("sit in a gutter the wrapper keeps whether the editor is locked or not", async () => {
+    for (const readOnly of [false, true]) {
+      const { container, unmount } = await tableEditor(GRID, { readOnly });
+      const wrapper = container.querySelector(".tiptap > .tableWrapper") as HTMLElement;
+      const style = getComputedStyle(wrapper);
+      expect([style.paddingTop, style.paddingBottom, style.boxSizing]).toEqual(["16px", "16px", "border-box"]);
+      expect(style.maxWidth).toBe("calc(100% + 16px)");
+      unmount();
+    }
+  });
+
+  describe("the append bars", () => {
+    it("under the table add a row at the end from any segment, the caret in its first cell", async () => {
+      for (const segment of ["g", "i"]) {
+        const { container, editor, onChange, unmount } = await tableEditor(GRID);
+        hover(container, "e");
+        fireEvent.click(handle(container, "append-row", segment));
+        expect(onChange).toHaveBeenCalledTimes(1);
+        expect(onChange).toHaveBeenLastCalledWith(
+          `${table(3, [
+            [th("A"), th("B"), th("C")],
+            [td("d"), td("e"), td("f")],
+            [td("g"), td("h"), td("i")],
+            [td(), td(), td()],
+          ])}<p>z</p>`,
+        );
+        expect(caretCell(editor)).toBe(cellPositions(editor)[9]);
+        act(() => {
+          editor.commands.undo();
+        });
+        expect(editor.getHTML()).toBe(GRID);
+        unmount();
+      }
+    });
+
+    it("after the table add a column at the end, the caret in its first cell", async () => {
+      const { container, editor, onChange } = await tableEditor(GRID);
+      hover(container, "e");
+      fireEvent.click(handle(container, "append-column", "f"));
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect(onChange).toHaveBeenLastCalledWith(
+        `${table(4, [
+          [th("A"), th("B"), th("C"), th()],
+          [td("d"), td("e"), td("f"), td()],
+          [td("g"), td("h"), td("i"), td()],
+        ])}<p>z</p>`,
+      );
+      expect(caretCell(editor)).toBe(cellPositions(editor)[3]);
+      act(() => {
+        editor.commands.undo();
+      });
+      expect(editor.getHTML()).toBe(GRID);
     });
   });
 });
