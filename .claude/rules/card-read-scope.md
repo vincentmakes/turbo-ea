@@ -9,6 +9,9 @@ paths:
   - "frontend/src/hooks/usePermissions.ts"
   - "frontend/src/features/admin/Roles*"
   - "frontend/src/features/admin/metamodel/DeleteTypeDialog*"
+  - "backend/app/services/adr_diagram_service.py"
+  - "frontend/src/features/ea-delivery/DecisionDiagramsSection*"
+  - "frontend/src/components/DiagramPickerDialog*"
 ---
 
 # Card read scope, RBAC and role impersonation
@@ -28,6 +31,15 @@ paths:
   Guard tests: `tests/services/test_card_read_scope.py` (SQL ↔ Python ↔ single-card guard ↔ `check_permission` parity over every cell × grant × stakeholder × mode combination), `test_card_read_scope_guard.py` (any `api/v1` module reading cards must reference the scope or sit in `NOT_A_USER_READ` with a reason; stale entries fail), `tests/api/test_read_scope_sentinel_sweep.py` (every GET route called as a restricted reader must not contain a seeded hidden card's name or id, with a non-vacuity control as admin), `tests/api/test_cards_type_read_permissions.py`. A new endpoint that returns cards takes the scope, or the static scan fails it.
 
 - **A built-in card type is only ever hidden; a custom one can be deleted for good, dependants included.** `DELETE /metamodel/types/{key}` hides a built-in type (the seed restores it) and refuses a custom type that still has cards with **409 `cards_present`** unless called with `delete_cards=true`, which additionally requires `inventory.delete` — deleting the cards is a permanent inventory delete, not a metamodel edit. The deletion itself lives in `backend/app/services/card_type_delete.py` (`type_delete_impact` for the counts the confirmation dialog and the 409 carry, `delete_type_dependents` for the removal, `leaves_first` for the parent-before-child ordering the self-FK needs): cards (publishing one `card.deleted` event each with `db=`, so the History and the Modified column agree, as the rule above requires), the relation types touching the type with their rows, the calculations targeting it, and the stakeholder role definitions by database cascade. The frontend offers it only from the type editor's header (`DeleteTypeDialog`), with the impact listed and the type key typed before the button unlocks; the button is rendered locked on a built-in type so the admin sees why. Guard tests: `tests/api/test_metamodel_delete_type.py`, `frontend/src/features/admin/metamodel/DeleteTypeDialog.test.tsx`.
+
+### Diagrams on a decision (2.205.0)
+
+`architecture_decision_diagrams` (migration 174) holds **live links**, never copies: the decision shows the diagram as it is now, and the FK cascades both ways, so deleting the diagram (signed decisions included) or the decision removes the link. Service: `backend/app/services/adr_diagram_service.py`; routes `POST /adr/{id}/diagrams`, `DELETE /adr/{id}/diagrams/{diagram_id}`, plus `linked_diagram_ids` on create and PATCH.
+- **Changes go through `adr_service.check_editable`** with `linked_diagram_ids` in `EDITABLE_IN_REVIEW`: draft and review may change them, signed is 403. Revisions and duplicates carry them (`copy_decision_extras`); history snapshots do not.
+- **No `diagrams.view`, no diagrams** (diagrams have no per-row visibility): the detail lists `[]`, add / remove answer 404, and a link set sent by such a caller can only be empty and changes nothing — every existing link is one they never saw (the `hidden_card_ids` idea above).
+- **The payload is `{id, name, thumbnail, updated_at}`, built without loading a diagram's XML and never carrying its `card_ids`**; a thumbnail over `MAX_THUMBNAIL_CHARS` (256 KiB) is sent as `null`, decided in SQL. Lists and summaries carry no diagrams.
+- **A thumbnail is only ever an `<img src>`** (`lib/diagramThumbnail.ts` turns a raw SVG into a data URI), never inlined as markup; the section renders nothing for a reader without `diagrams.view`.
+Guards: `backend/tests/api/test_adr_diagrams.py` (`test_without_diagrams_view_404`, `test_empty_patch_without_diagrams_view_keeps_links`, `test_no_xml_and_no_card_ids_in_the_payload`, `test_at_the_cap_intact_over_it_null`, `test_signed_is_fixed`, `test_in_review_may_change`, `test_deleting_the_diagram_removes_the_link`), `lib/diagramThumbnail.test.ts`, `features/ea-delivery/DecisionDiagramsSection.test.tsx` ("renders nothing without diagrams.view, even with diagrams and edit rights").
 
 ## RBAC (Role-Based Access Control)
 

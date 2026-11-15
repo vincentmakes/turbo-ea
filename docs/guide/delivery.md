@@ -40,6 +40,8 @@ EA Delivery opens for any role that holds **View SoAW documents** (`soaw.view`) 
 
 A group you may not view is left out of the workspace, and **+ New artefact** and **+ Add …** offer only the kinds you may create — a role that can only read sees neither button. So a role with `adr.view` alone gets the page with the decisions of each initiative and nothing about SoAWs.
 
+The diagrams attached to a decision follow `diagrams.view` too: a role without it sees no [Diagrams](grc.md#decision-diagrams) section on a decision.
+
 ## Statement of Architecture Work (SoAW)
 
 A **Statement of Architecture Work (SoAW)** is a formal document defined by the [TOGAF standard](https://pubs.opengroup.org/togaf-standard/) (The Open Group Architecture Framework). It establishes the scope, approach, deliverables, and governance for an architecture engagement. In TOGAF, the SoAW is produced during the **Preliminary Phase** and **Phase A (Architecture Vision)** and serves as an agreement between the architecture team and its stakeholders.
@@ -57,11 +59,13 @@ Turbo EA provides a built-in SoAW editor with TOGAF-aligned section templates, r
 
 The editor provides:
 
-- **Rich text editing** — Full formatting toolbar (headings, bold, italic, lists, links) powered by the TipTap editor
-- **Links** — A URL you type or paste becomes a link as you type, and every link in a document opens in a new tab. Addresses in documents written before links were supported are linked when the document is displayed
+- **Rich text editing** — a formatting toolbar on every text section: bold, italic, underline, strikethrough, inline code, a heading and a sub-heading, bulleted and numbered lists, quotes, code blocks, dividers, links, tables, mentions and pictures
+- **Links** — select some words and click **Link**, or press **Ctrl+K** (**Cmd+K** on a Mac), to link them to a web or e-mail address; the same button or shortcut edits or removes the link under the caret. A web address you type or paste becomes a link on its own. While you are editing, a click on a link places the caret in it and **Ctrl+click** (**Cmd+click**) opens it; in the preview and a locked document a click opens it. Every link opens in a new tab, and addresses in documents written before links were supported are linked when the document is displayed. See [Links in the text](grc.md#decision-text-links)
 - **Section templates** — Pre-defined sections following TOGAF standards (e.g., Problem Description, Objectives, Approach, Stakeholders, Constraints, Work Plan)
-- **Inline editable tables** — Add and edit tables within any section
+- **Template tables** — the template's table sections (objectives, stakeholders, risks and the like) are grids with fixed columns: add and remove rows inline
+- **Tables in the text** — insert a table of your own in any text section (see [Tables](#soaw-tables))
 - **Mentions** — type **@** in a section's text to mention a card or a decision (see [Discussion, mentions and history](#soaw-collaboration))
+- **Pictures** — insert a screenshot or a diagram into a section's text (see [Pictures](#soaw-pictures))
 - **Document Version History** — a table the authors fill in by hand (version, date, revised by, description). It is part of the document and is not the [History](#soaw-collaboration) view
 - **Status workflow** — Documents progress through defined stages:
 
@@ -71,6 +75,18 @@ The editor provides:
 | **In Review** | Sent for signature — locked until the signatures are recalled |
 | **Approved** | Reviewed and accepted |
 | **Signed** | Formally signed off |
+
+### Pictures {: #soaw-pictures }
+
+A section's text can hold pictures, as a decision's can. Click **Insert picture** in the section's toolbar and choose a file, paste a picture from the clipboard, or drag a picture file onto the section. Drag a picture's corner to resize it (its proportions are kept), and select it to align it left, centre or right from the toolbar. PNG, JPEG, GIF and WebP are accepted, up to 5 MB each; SVG is not.
+
+Pictures appear in the preview, the PDF / printed copy and the Word export, and in the [History](#soaw-collaboration), where **Changes** marks a picture added or removed as *[Picture]*. A revision and a restored version keep their pictures. Only pictures uploaded to a SoAW are kept: a picture that links to another website is removed when the document is saved. Comments in the discussion take no pictures, and the picture controls disappear when an administrator has [switched file uploads off](../admin/resources.md#when-file-uploads-are-disabled). The full description is in the GRC guide: [Pictures](grc.md#decision-pictures).
+
+### Tables {: #soaw-tables }
+
+A section's text can hold tables, as a decision's can. Click **Table** in the section's toolbar and choose **Insert table** for a table of three rows and three columns with a header row; with the caret in a table the same menu adds and deletes rows and columns, turns the header row on or off, merges and splits cells and deletes the table. Drag a column border to resize it, and use **Tab** / **Shift+Tab** to move between cells. Formatting, links, mentions and pictures work in a cell.
+
+Tables appear in the preview, the PDF / printed copy (fitted to the page) and the Word export (as a real Word table), and in the [History](#soaw-collaboration), where **Changes** reads a row as one line. Comments in the discussion take no tables. The full description is in the GRC guide: [Tables](grc.md#decision-tables).
 
 ### Sign-off Workflow
 
@@ -98,7 +114,7 @@ A SoAW has the same discussion, mentions and history as a decision: the discussi
 ### Preview and Export
 
 - **Preview mode** — Read-only view of the complete SoAW document
-- **DOCX export** — Download the SoAW as a formatted Word document for offline sharing or printing
+- **DOCX export** — Download the SoAW as a formatted Word document for offline sharing or printing. Formatting and clickable links are kept in every part of the text, code keeps a monospace font, and tables in the text become real Word tables
 - **PDF export** — Opens a print-ready view in a new tab; use the browser's *Save as PDF*. Allow pop-ups for this site if nothing opens.
 
 ### SoAW Tab on Initiative Cards

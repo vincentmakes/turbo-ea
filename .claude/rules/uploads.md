@@ -6,6 +6,20 @@ paths:
   - "backend/app/api/v1/resources.py"
   - "frontend/src/lib/attachmentFormats.ts"
   - "frontend/src/features/admin/Resources*"
+  - "backend/app/services/document_collab.py"
+  - "backend/app/services/document_image*.py"
+  - "backend/app/api/v1/document_images.py"
+  - "frontend/src/lib/documentImageMarkup.ts"
+  - "frontend/src/features/ea-delivery/documentImage*.ts"
+  - "frontend/src/features/ea-delivery/RichTextEditor*"
+  - "frontend/src/features/ea-delivery/LinkDialog*"
+  - "frontend/src/features/ea-delivery/TableMenu*"
+  - "frontend/src/features/ea-delivery/documentTable*"
+  - "frontend/src/features/ea-delivery/docxHtml*"
+  - "frontend/src/lib/linkify.ts"
+  - "frontend/src/lib/richHtml*"
+  - "frontend/src/lib/documentContentCss*"
+  - "frontend/src/lib/printDocument*"
 ---
 
 # File uploads and attachment validation
@@ -13,3 +27,41 @@ paths:
 > Loaded when you touch `backend/app/services/attachment_validation.py`, `backend/app/services/card_logos.py`, `backend/app/api/v1/file_attachments.py`, `backend/app/api/v1/resources.py`, … (full list in the frontmatter). Moved verbatim from `CLAUDE.md`; edit it here.
 
 - **An upload is what its bytes say, not what the client calls it.** `file.content_type` is multipart metadata the client writes, so it decides nothing: `backend/app/services/attachment_validation.py` resolves the **extension** to a format, requires the leading bytes to prove the container, and stores that table's **canonical** MIME — never the browser's string, which is how `image/jpg` and `application/x-zip-compressed` used to split one format into two Resources filter rows. A signature identifies a container, not a format (every OOXML and ODF file is a zip; `.doc`/`.xls`/`.ppt`/`.msg` are all OLE2), so the extension tells family members apart and the signature is what stops a renamed executable — that is the honest limit of the check. The size cap (`MAX_ATTACHMENT_BYTES`, 20 MB) lives there too and is mirrored in **three** other places that must not drift: the edge nginx's `client_max_body_size` (deliberately *higher*, see below), `frontend/src/lib/attachmentFormats.ts` (the `accept=` list, the pre-upload checks and the filter sidebar all derive from it) and the manual. `tests/services/test_upload_limits.py` reads the Dockerfile, the chart, the Terraform files and the TS mirror off disk and fails on any disagreement — written because the last drift (nginx 5 MB vs. an advertised 10 MB) shipped a raw 413 to users and no test noticed. `card_logos.sniff_image_mime` is the same posture for card logos; `services` must not import from `api`, so the four image signatures are deliberately duplicated. Guard tests: `tests/services/test_attachment_validation.py`, `tests/api/test_file_attachments.py`.
+
+## Rich text in decision and SoAW sections (2.205.0)
+
+Decision fields and SoAW sections share one TipTap editor (`features/ea-delivery/RichTextEditor.tsx`, `variant="document"`); discussion comments use its `variant="comment"`. Design records: `.trail/learnings/2026-11-14-pictures-in-decision-and-soaw-text-claude.md`, `…-building-pictures-in-decision-and-soaw-claude.md`, `…-decision-and-soaw-editor-second-batch-claude.md`.
+
+### Pictures
+
+A picture is uploaded once to `POST /api/v1/document-images/{adr|soaw}` into an immutable `document_images` row (migration 173) and the text holds only `<img src="/api/v1/document-images/<kind>/<uuid>" [alt] [title] [width] [height] [data-align]>`. Invariants a change must not break:
+
+- **One markup contract per side, byte-identical.** `backend/app/services/document_image_markup.py` and `frontend/src/lib/documentImageMarkup.ts` (with the editor's node, `features/ea-delivery/documentImageExtension.ts`) each define the route, the kept attributes and their order once. The server's canonical tag must equal the editor's output byte for byte, or every load of a document counts as an edit and adds a history version. Guards: `tests/services/test_document_image_markup.py`, `lib/documentImageMarkup.test.ts`, the byte-for-byte cases in `RichTextEditor.test.tsx`.
+- **`document_collab.before_save` runs pictures → mentions → pictures**, re-running the mention pass when the last picture pass changed anything: removing a tag can splice its neighbours into a new mention or `<img>`. Guards: the splice cases in `test_document_image_markup.py`, `tests/services/test_document_collab.py`.
+- **Rows are immutable and shared** by revisions, duplicates, history versions, restores and workspace transfer, so nothing deletes a row a save has stored (`used_at` set). The only delete is `document_image_service.purge_unused_once` (never-used rows past the grace). Guard: `tests/services/test_document_image_service.py`.
+- **The GET sets no `Content-Disposition`** (it would class the route as a bulk export for `test_audit_log_guard.py`), sends the stored type with `nosniff`, and its path parameters are filled by the `world` fixture of `tests/api/test_read_scope_sentinel_sweep.py` — never added to its skipped-parameter list. Guard: `tests/api/test_document_images.py`.
+- **The picture node is registered on read-only editors too**; an editor without it drops a stored picture on the next save. Guard: `RichTextEditor.test.tsx`.
+- **SVG is never accepted**: pictures are served inline, so only PNG / JPEG / GIF / WebP decided by the leading bytes (`attachment_validation.sniff_raster_image`). Guard: `tests/api/test_document_images.py`.
+- **The GET serves a row only when its stored type is one of the four.** It sends `mime_type` as the response type; a row whose type is not in `attachment_validation.RASTER_IMAGE_MIME_TYPES` (derived from `_RASTER_IMAGES`) answers the same 404 as an unknown id. Guard: `test_a_stored_row_of_another_type_is_404` in `tests/api/test_document_images.py`.
+- **The 5 MB cap** (`MAX_DOCUMENT_IMAGE_MB`) is mirrored in `frontend/src/lib/attachmentFormats.ts` and pinned by `tests/services/test_upload_limits.py`.
+- **The Word converter is recursive** (`convertBlock` / `convertChildren` in `features/ea-delivery/docxHtml.ts`): a picture inside a list item, a quote or a table cell is written where it sits, under its item. There is no separate nested-picture pass any more. Guard: the nested-picture cases in `docxHtml.test.ts`.
+
+### Links
+
+- **One link policy, everywhere: `isStorableHref` / `normaliseLinkHref` (`lib/linkify.ts`).** Storable = `http(s)://` or `mailto:` with no whitespace or control character — the server's comment rule. `normaliseLinkHref` turns what a person typed into that (bare host → `https://`, bare address → `mailto:`, anything else `null`). The editor's `DocumentLink` (a `Link.extend` registered in place of StarterKit's, `link: false`) uses it for **parse** (a stored `ftp:`, `tel:` or relative anchor loads as text), **render**, **autolink** / `isAllowedUri` / `shouldAutoLink`, and the **paste rule** (TipTap's own would store a pasted `www.` as `http://`). Guards: the `isStorableHref` / `normaliseLinkHref` describes in `lib/linkify.test.ts` (including "always returns something isStorableHref keeps"); in `RichTextEditor.test.tsx` "loads a stored ftp:, tel: or relative anchor as plain text, and still refuses javascript:", "links a pasted www. host with the stored attributes", "does not link the selection under a pasted ftp: address".
+- **`openOnClick: false`.** While editing a click places the caret; a plugin in `DocumentLink` opens the link on Ctrl/Cmd+click; a read-only editor leaves the anchor's own `target="_blank"` to the browser. Guards: "places the caret on a plain click and opens the link on Ctrl/Cmd+click", "leaves a read-only editor's link to the browser".
+- **Ctrl/Cmd+K belongs to an editable editor only.** `linkShortcut` returns `false` when `!editor.isEditable`, so a locked editor lets the key through; `AppLayout`'s global search handler returns early on `e.defaultPrevented`, so a key the editor handled never also opens search. Guards: the `RichTextEditor Ctrl/Cmd+K` describe ("is left to the page in a read-only editor, from the start or after locking"); `layouts/AppLayout.part2.mutation.test.tsx` "leaves a Ctrl/Cmd+K something closer already handled (the rich-text link dialog)".
+
+### Tables
+
+- **Registered on every document-variant editor, read-only included, never on comments** (`createDocumentTableExtensions`, `features/ea-delivery/documentTableExtension.ts`; `@tiptap/extension-table` pinned to exactly 3.31.0). An editor without the nodes drops a stored table on the next save; a comment has none, so a pasted table flattens to its cells' text. Guards: "keeps a stored table in a read-only editor, with no toolbar"; comment variant "has no table nodes: a loaded table flattens to its cells' paragraphs".
+- **`columnResizing` is always registered**, not only when the editor is editable at construction as TipTap's `Table` does: the editor is built once and locked / unlocked later, and prosemirror-tables checks `view.editable` per mouse event. The CSS hides a handle left over from before a lock. Guard: "registers column resizing whatever the editor's state, and keeps it across a lock change".
+- **The stored markup is pinned and round-trips byte-identically** (as for pictures: a difference makes every load an edit and a history version). Guards: the `stored markup` describe — "pins what the commands write: a fresh table, resized, merged, split, header row off" and "gives %s back byte for byte, with no edit reported".
+- **Word and print read the stored widths**: the cells' `colwidth` or the `<col style="width: Npx">` (`storedColumnWidths` / `fitColumnWidths` in `docxHtml.ts`; `printTableWidths` in `lib/printDocument.ts` rewrites a fully resized table to percentages). Guards: `docxHtml.test.ts` "stored tables — column widths"; `printDocument.test.ts` "resized tables in print".
+
+### Display rules and the sanitiser
+
+- **Display rules have one source, `lib/documentContentCss.ts`** — links, code, `pre`, `h4`, tables and pictures — as sx for screen surfaces (theme palette) and as CSS for print and the SoAW preview (`PRINT_COLORS`). Every stored fragment in a print or preview body sits in a `.doc-content` wrapper so its rules never touch the document's own generated tables. Guard: `lib/documentContentCss.test.ts`.
+- **The sanitiser policy** (`lib/richHtml.ts`, private DOMPurify instance, module doc is the spec): a deny-list on top of DOMPurify's defaults — `<style>`, form controls, `dialog`, `template`, media, `picture`, image maps, SVG, MathML removed; every URL-taking attribute but an anchor's `href` and a document picture's `src` removed; an inline `style` kept **only** as a pixel `width` / `min-width` on `table` / `col` and a `text-align` on `td` / `th`, removed whole otherwise; `colspan` / `rowspan` kept as 1–1000, `colwidth` dropped. Guard: `lib/richHtml.test.ts` (the "tags the editor never writes", "attributes that take a URL", "inline style", "cell spans" and "tables as the table extension writes them" describes).
+- **A generated print body carries no inline style**: the title block uses classes (`printDocument.documentHeader`, `soawExport.ts`), so the one rule applies to the whole body. Guards: `printDocument.test.ts` "removes an inline style a generated print body might carry", "draws the title block from classes"; `richHtml.test.ts` "keeps every class and every element a generated print body uses".
+- **`printTableWidths` runs after the sanitiser** (`printTableWidths(sanitizeRichHtml(body))` in `buildPrintHtml`): the percentages it writes are a shape the sanitiser would remove. Guard: "buildPrintHtml prints a resized table at page width and keeps a picture's absolute src".

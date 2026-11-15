@@ -5,6 +5,28 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.205.0] - 2026-11-14
+
+### Added
+- Pictures in decision and SoAW sections: insert one with the toolbar button, by pasting or by drag-and-drop, then resize it and align it left, centre or right. Pictures show in the preview, the printed copy and PDF, the Word export and the history, and travel with a workspace transfer.
+- Links on selected text in decision and SoAW sections and in discussion comments: the Link button or Ctrl/Cmd+K sets, edits or removes a link to a web or e-mail address.
+- Inline code button in decision and SoAW sections and in comments; code block and sub-heading buttons in sections.
+- Tables in decision and SoAW sections: insert, add and delete rows and columns, header row, merge and split cells, and resizable columns.
+- Diagrams on a decision: attach existing diagrams from a searchable picker; each shows its thumbnail and name, always as the diagram is now, and can change while the decision is a draft or in review.
+
+### Changed
+- The Word export of decisions and SoAWs keeps formatting and clickable links in lists, quotes and headings too, keeps code in a monospace font and writes tables as Word tables.
+- While editing decision or SoAW text, a click on a link places the caret; Ctrl/Cmd+click opens it.
+- Extension UI SDK 1.35: `sanitizeRichHtml` keeps a picture only when it is one stored in Turbo EA for a decision or a SoAW, and removes style tags, forms, media and every inline style other than a table's column widths and a cell's alignment.
+
+### Fixed
+- In the Word export, a nested list's text is no longer repeated in its parent item, a numbered list no longer counts nested items, and line breaks and code blocks keep their lines.
+- A web address pasted without a scheme (`www.…`) is linked with https, as a typed one is.
+
+### Security
+- Decision and SoAW text keeps only pictures stored in Turbo EA: a picture from any other address is removed when the text is saved and is never displayed.
+- Stored rich text keeps only the markup the editor writes: style tags, forms, media, address-taking attributes other than a link's or a stored picture's, and inline styles other than table widths and cell alignment are removed when it is displayed.
+
 ## [2.204.0] - 2026-11-13
 
 ### Added
