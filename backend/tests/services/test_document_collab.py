@@ -252,3 +252,56 @@ async def test_load_document_and_404s(db):
     with pytest.raises(HTTPException) as exc:
         await collab.load_document(db, "soaw", str(adr.id))
     assert exc.value.detail == "Statement of Architecture Work not found"
+
+
+# --- pictures -----------------------------------------------------------------------
+
+
+def _pic(kind: str, image_id: object) -> str:
+    return f'<img src="/api/v1/document-images/{kind}/{image_id}">'
+
+
+def test_images_of_reads_every_text_field():
+    assert collab.images_of("adr", {"context": _pic("adr", U1), "decision": _pic("adr", U2)}) == {
+        str(U1),
+        str(U2),
+    }
+    sections = {"1.1": {"content": _pic("soaw", U1)}, "t": {"rows": [[_pic("soaw", U2)]]}}
+    assert collab.images_of("soaw", {"sections": sections}) == {str(U1)}
+    assert collab.images_of("adr", {"title": _pic("adr", U1)}) == set()
+    assert collab.stored_images("adr", None) == set()
+
+
+async def test_stored_images_reads_the_row(db):
+    adr = await _decision(db)
+    adr.decision = _pic("adr", U2)
+    assert collab.stored_images("adr", adr) == {str(U2)}
+
+
+async def test_unknown_pictures_that_keep_splicing_leave_text_only(db, monkeypatch):
+    """Every removal assembles yet another new picture: after ``MAX_PASSES``
+    look-ups the field keeps its text only, so no unchecked picture is stored."""
+    lookups: list[set[str]] = []
+
+    async def existing(_db, _kind, ids):
+        lookups.append(set(ids))
+        return set(ids)
+
+    def settle(text, kind, keep=None):
+        return f"<p>t</p>{_pic(kind, uuid.uuid4())}"
+
+    monkeypatch.setattr(collab.document_image_service, "existing", existing)
+    monkeypatch.setattr(collab, "settle_markup", settle)
+    out = await collab._drop_unknown_images(db, "adr", {"context": _pic("adr", U1)}, set())
+    assert out == {"context": "t"}
+    assert len(lookups) == collab.MAX_PASSES
+    assert lookups[0] == {str(U1)}
+
+
+async def test_a_known_picture_needs_no_lookup(db, monkeypatch):
+    async def existing(*_args):
+        raise AssertionError("looked up")
+
+    monkeypatch.setattr(collab.document_image_service, "existing", existing)
+    values = {"context": _pic("adr", U1)}
+    assert await collab._drop_unknown_images(db, "adr", values, {str(U1)}) is values

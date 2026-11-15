@@ -41,6 +41,7 @@ from app.models.architecture_decision_link import ArchitectureDecisionLink
 from app.models.card import Card
 from app.models.user import User
 from app.services import (
+    adr_diagram_service,
     adr_file_service,
     decision_link_service,
     decision_people_service,
@@ -425,8 +426,8 @@ def lock_refusal(
 
 
 #: What a PATCH may still change while a decision is in review: card links are
-#: filing, not content.
-EDITABLE_IN_REVIEW: frozenset[str] = frozenset({"linked_card_ids"})
+#: filing, not content; the linked diagrams were agreed to follow them.
+EDITABLE_IN_REVIEW: frozenset[str] = frozenset({"linked_card_ids", "linked_diagram_ids"})
 
 
 def check_editable(current_status: str, new_status: str | None, fields: Iterable[str]) -> None:
@@ -651,13 +652,14 @@ async def copy_decision_extras(
     db: AsyncSession, source_id: uuid.UUID, new_id: uuid.UUID
 ) -> list[uuid.UUID]:
     """Carry what a revision or a duplicate inherits from ``source_id`` onto
-    ``new_id``: the ``relates`` links, the people, the card links and the file
-    pointers (the bytes are shared, never copied); flush. Returns the linked
-    card ids."""
+    ``new_id``: the ``relates`` links, the people, the card links, the file
+    pointers (the bytes are shared, never copied) and the diagram links;
+    flush. Returns the linked card ids."""
     await decision_link_service.copy_relates_links(db, source_id, new_id)
     await decision_people_service.copy_people(db, source_id, new_id)
     card_ids = await copy_card_links(db, source_id, new_id)
     await copy_file_pointers(db, source_id, new_id)
+    await adr_diagram_service.copy_links(db, source_id, new_id)
     return card_ids
 
 

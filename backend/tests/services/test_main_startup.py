@@ -340,6 +340,7 @@ async def quiet_lifespan(monkeypatch):
     for name in (
         "_purge_archived_cards_loop",
         "_purge_mutation_batches_loop",
+        "_purge_document_images_loop",
         "_purge_audit_log_loop",
         "_kpi_snapshot_loop",
         "_promote_recurring_tasks_loop",
@@ -371,6 +372,7 @@ class TestLifespan:
             "_promote_recurring_tasks_loop",
             "_purge_archived_cards_loop",
             "_purge_audit_log_loop",
+            "_purge_document_images_loop",
             "_purge_mutation_batches_loop",
             "_update_check_loop",
             "extension-job",
