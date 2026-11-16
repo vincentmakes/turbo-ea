@@ -107,3 +107,59 @@ def test_snapshot_is_the_five_audited_fields_with_a_copied_matrix():
 
 def test_snapshot_of_a_role_without_permissions_is_an_empty_matrix():
     assert _role_snapshot(_role(permissions=None))["permissions"] == {}
+
+
+def test_every_field_is_read_from_its_own_attribute():
+    role = _role(
+        id=uuid.UUID("33333333-3333-3333-3333-333333333333"),
+        key="other_key",
+        label="Other label",
+        description="other description",
+        is_system=True,
+        is_default=False,
+        is_archived=False,
+        color="#abcdef",
+        sort_order=0,
+        created_at=datetime(2026, 1, 2, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 3, 4, tzinfo=timezone.utc),
+        archived_at=datetime(2026, 5, 6, tzinfo=timezone.utc),
+        archived_by=uuid.UUID("44444444-4444-4444-4444-444444444444"),
+        permissions={"*": True},
+    )
+    out = _role_response(role, 9)
+    assert out == {
+        "id": "33333333-3333-3333-3333-333333333333",
+        "key": "other_key",
+        "label": "Other label",
+        "description": "other description",
+        "is_system": True,
+        "is_default": False,
+        "is_archived": False,
+        "color": "#abcdef",
+        "sort_order": 0,
+        "created_at": "2026-01-02T00:00:00+00:00",
+        "updated_at": "2026-03-04T00:00:00+00:00",
+        "archived_at": "2026-05-06T00:00:00+00:00",
+        "archived_by": "44444444-4444-4444-4444-444444444444",
+        "permissions": {"*": True},
+        "user_count": 9,
+    }
+
+
+def test_the_lite_payload_is_the_full_one_minus_exactly_the_two_admin_fields():
+    full = _role_response(_role(), 4)
+    lite = _role_response(_role(), 4, full=False)
+    assert lite == {k: v for k, v in full.items() if k not in ("permissions", "user_count")}
+
+
+def test_the_snapshot_has_exactly_five_keys_and_the_values_read_from_the_role():
+    perms = {"a.b": True}
+    snap = _role_snapshot(_role(permissions=perms, label="L", color="#000000", sort_order=2))
+    assert snap == {
+        "label": "L",
+        "color": "#000000",
+        "permissions": {"a.b": True},
+        "is_default": True,
+        "sort_order": 2,
+    }
+    assert _role_snapshot(_role(is_default=False))["is_default"] is False
