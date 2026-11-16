@@ -17,7 +17,6 @@ The top row shows the diagram name, **Card colors**, **Show on card** and **Sync
 
 While the module is on, ArchiMate diagrams are created and opened from the **Diagrams** page, and from the **Resources** tab of any card they reference. `/admin/architectureStudio` is still the list of your ArchiMate diagrams, where you can create, open and delete them; it needs a permission on at least one ArchiMate layer and the module switched on. In the editor, **Back** returns to the page you came from.
 
-<!-- Planned screenshot (added with the screenshot capture): 102_archimate_sandbox -->
 
 ## Your first diagram
 

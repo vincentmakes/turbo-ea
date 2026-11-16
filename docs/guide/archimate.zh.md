@@ -17,7 +17,6 @@
 
 模块开启期间，ArchiMate 图可从**图表**页面创建和打开，也可从其所引用的任意卡片的**资源**标签页打开。`/admin/architectureStudio` 仍是您的 ArchiMate 图列表，可在其中创建、打开和删除图；访问它需要至少一个 ArchiMate 层的权限，并且模块已开启。在编辑器中，**返回**会回到您来时的页面。
 
-<!-- Planned screenshot (added with the screenshot capture): 102_archimate_sandbox -->
 
 ## 您的第一张图
 

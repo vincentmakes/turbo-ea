@@ -1,0 +1,14 @@
+# Override for scripts/docs/docker-docs.sh capture: the working tree's own images, never the
+# registry ones, so the screenshots show the UI of the branch being documented.
+# Project name, ports, secrets and SEED_DEMO come from the script's environment.
+services:
+  db:
+    image: turboea-docs-db:local
+  backend:
+    image: turboea-docs-backend:local
+  frontend:
+    image: turboea-docs-frontend:local
+  mcp-server:
+    image: turboea-docs-mcp-server:local
+  nginx:
+    image: turboea-docs-nginx:local

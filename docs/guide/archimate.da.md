@@ -17,7 +17,6 @@ Den øverste række viser diagramnavnet, kortfarver, kortindhold og synkroniseri
 
 Mens modulet er slået til, oprettes og åbnes ArchiMate-diagrammer fra siden **Diagrammer** og fra fanen **Resources** på ethvert kort, de refererer til. `/admin/architectureStudio` er stadig listen over dine ArchiMate-diagrammer, hvor du kan oprette, åbne og slette dem; det kræver en tilladelse på mindst ét ArchiMate-lag og et slået-til modul. I editoren fører **Tilbage** til den side, du kom fra.
 
-<!-- Planned screenshot (added with the screenshot capture): 102_archimate_sandbox -->
 
 ## Dit første diagram
 

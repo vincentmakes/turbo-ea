@@ -17,7 +17,6 @@ A primeira linha mostra o nome do diagrama, as opções de cor e conteúdo dos c
 
 Enquanto o módulo estiver ativado, os diagramas ArchiMate são criados e abertos a partir da página **Diagramas** e do separador **Recursos** de qualquer card que referenciem. `/admin/architectureStudio` continua a ser a lista dos seus diagramas ArchiMate, onde pode criá-los, abri-los e eliminá-los; é preciso uma permissão em pelo menos uma camada ArchiMate e o módulo ativado. No editor, **Voltar** regressa à página de onde veio.
 
-<!-- Planned screenshot (added with the screenshot capture): 102_archimate_sandbox -->
 
 ## O seu primeiro diagrama
 

@@ -2970,24 +2970,6 @@ export const DOC_PAGES: PageDef[] = [
       ru: "101_value_stream_map",
     },
   },
-  {
-    // The ArchiMate sandbox is admin-only and the module is off by default:
-    // capture.ts switches it on when a route under /admin/architectureStudio is asked for.
-    id: "102_archimate_sandbox",
-    route: "/admin/architectureStudio",
-    waitFor: ".MuiPaper-root",
-    actions: [{ type: "wait", ms: 1200 }],
-    filenames: {
-      en: "102_archimate_sandbox",
-      de: "102_archimate_sandbox",
-      fr: "102_archimate_sandbox",
-      es: "102_archimate_sandbox",
-      it: "102_archimate_sandbox",
-      pt: "102_archimate_sandbox",
-      zh: "102_archimate_sandbox",
-      ru: "102_archimate_sandbox",
-    },
-  },
 
 ];
 
