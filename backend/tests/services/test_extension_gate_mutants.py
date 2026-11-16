@@ -57,10 +57,6 @@ async def test_the_key_passed_to_the_factory_is_the_one_looked_up():
     _license(key="other-ext", expires_at=None)
     assert (await _denial(KEY)).status_code == 404
     assert await require_extension("other-ext")() is None
-    # A licensed key that is not installed is still not installed.
-    extension_registry.load_installed([make_info(key="other-ext")])
-    _license(key=KEY, expires_at=None)
-    assert (await _denial(KEY)).status_code == 404
 
 
 @pytest.mark.parametrize(

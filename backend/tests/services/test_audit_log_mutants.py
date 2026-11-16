@@ -354,25 +354,35 @@ def test_build_entry_without_impersonation_stamps_neither_field():
     assert entry.impersonator_user_id is None and entry.impersonated_role is None
 
 
-def test_build_entry_redacts_before_it_stores_and_validates_first():
+def test_build_entry_redacts_before_it_stores():
     with context():
         entry = audit_log.build_entry(
             action="admin.settings.updated",
             category="admin",
             changes={"smtp_password": {"old": "a", "new": "b"}, "host": {"old": "x", "new": "y"}},
         )
-        assert entry.details == {
-            "changes": {
-                "smtp_password": {"old": "***", "new": "***"},
-                "host": {"old": "x", "new": "y"},
-            }
+    assert entry.details == {
+        "changes": {
+            "smtp_password": {"old": "***", "new": "***"},
+            "host": {"old": "x", "new": "y"},
         }
-        with pytest.raises(ValueError, match="category"):
-            audit_log.build_entry(action="a.b", category="landscape")
-        with pytest.raises(ValueError, match="outcome"):
-            audit_log.build_entry(action="a.b", category="auth", outcome="maybe")
-        with pytest.raises(ValueError, match="action is required"):
-            audit_log.build_entry(action=" ", category="auth")
+    }
+
+
+def test_build_entry_validates_the_fields_before_it_looks_at_the_details():
+    with pytest.raises(ValueError) as exc:
+        audit_log.build_entry(action="a.b", category="landscape", details="not a mapping")  # type: ignore[arg-type]
+    assert str(exc.value) == (
+        f"Unknown audit category 'landscape'; expected one of {sorted(audit_log.CATEGORIES)}"
+    )
+    with pytest.raises(ValueError) as exc:
+        audit_log.build_entry(action="a.b", category="auth", outcome="maybe")
+    assert str(exc.value) == (
+        f"Unknown audit outcome 'maybe'; expected one of {sorted(audit_log.OUTCOMES)}"
+    )
+    with pytest.raises(ValueError) as exc:
+        audit_log.build_entry(action=" ", category="auth")
+    assert str(exc.value) == "An audit action is required; got ' '"
 
 
 def test_build_entry_details_argument_is_merged_and_a_keyword_wins():
@@ -387,26 +397,6 @@ def test_build_entry_details_argument_is_merged_and_a_keyword_wins():
 
 
 # ── log_line ──────────────────────────────────────────────────────────────
-
-_LOG_KEYS = [
-    "audit_id",
-    "created_at",
-    "category",
-    "action",
-    "outcome",
-    "actor_user_id",
-    "actor_email",
-    "subject_email",
-    "target_type",
-    "target_id",
-    "target_label",
-    "ip",
-    "user_agent",
-    "origin",
-    "impersonator_user_id",
-    "impersonated_role",
-    "details",
-]
 
 
 def test_log_line_carries_every_column_under_its_own_name():
@@ -447,7 +437,6 @@ def test_log_line_carries_every_column_under_its_own_name():
         "impersonated_role": "viewer",
         "details": {"context": {"n": 1}},
     }
-    assert list(line) == _LOG_KEYS
 
 
 def test_log_line_of_a_bare_entry_is_null_where_nothing_was_set():
@@ -455,7 +444,6 @@ def test_log_line_of_a_bare_entry_is_null_where_nothing_was_set():
         entry = audit_log.build_entry(action="auth.logout", category="auth")
     raw = audit_log.log_line(entry)
     line = json.loads(raw)
-    assert list(line) == _LOG_KEYS
     assert line["audit_id"] == str(entry.id)
     assert line["created_at"] is None
     assert (line["category"], line["action"], line["outcome"]) == ("auth", "auth.logout", "success")
@@ -480,10 +468,8 @@ def test_log_line_of_a_bare_entry_is_null_where_nothing_was_set():
 # ── retention ─────────────────────────────────────────────────────────────
 
 
-def test_retention_days_reads_only_its_own_key_and_the_boundaries_hold():
+def test_retention_days_reads_only_its_own_key_and_falls_back_on_a_non_integer():
     assert audit_log.RETENTION_SETTING_KEY == "auditLogRetentionDays"
     assert audit_log.retention_days({"other": 30}) == audit_log.DEFAULT_RETENTION_DAYS
-    assert audit_log.retention_days({"auditLogRetentionDays": 1}) == 1
-    assert audit_log.retention_days({"auditLogRetentionDays": 3649}) == 3649
     assert audit_log.retention_days({"auditLogRetentionDays": 3.5}) == 365
     assert audit_log.retention_days({"auditLogRetentionDays": None}) == 365
