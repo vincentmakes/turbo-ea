@@ -1,6 +1,6 @@
 # Licensing metrics — configurable metrics and types, a per-year pair model, a reworked report and card section
 
-**Status:** draft after one builder check, for the user's review (2026-11-16). **Branch:** `docs/licensing-refinements-spec` (off `main`). **Builds on:** [`2026-11-05-licensing-core-design.md`](2026-11-05-licensing-core-design.md) (shipped; its rules stay unless this document changes them) and `.claude/rules/licensing-items.md`.
+**Status:** approved by the user 2026-11-16 ("vai con il piano"). **Branch:** `docs/licensing-refinements-spec` (off `main`). **Builds on:** [`2026-11-05-licensing-core-design.md`](2026-11-05-licensing-core-design.md) (shipped; its rules stay unless this document changes them) and `.claude/rules/licensing-items.md`.
 
 ## Intent
 

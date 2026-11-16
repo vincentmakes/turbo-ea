@@ -1,0 +1,208 @@
+# Licensing Metrics Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Make license metrics and their types catalogue data (a type belongs to one metric), derive a card's pairs `Metric:Type` from each year's cells, and rework the card section, the report, the import and the workspace transfer around them.
+
+**Architecture:** A new `license_metrics` table and `license_types.metric_key` replace the two constants; `card_licenses.items` keeps its shape. One backend catalogue object (`LicenseCatalogue`) is loaded once per request and passed to the status, write, report and import code. The frontend loads the same catalogue through one hook and draws the same pair bars in the card section and in the report's collapsible rows.
+
+**Tech Stack:** FastAPI, SQLAlchemy 2 async, Alembic, pytest; React 18, MUI 6, ECharts, Vitest.
+
+**Spec:** `docs/superpowers/specs/2026-11-16-licensing-metrics-design.md` (approved by the user 2026-11-16). Mockups: `docs/superpowers/specs/2026-11-16-licensing-metrics-design-assets/mockups.html` (the text of the spec wins where they differ). Earlier spec and rule: `2026-11-05-licensing-core-design.md`, `.claude/rules/licensing-items.md`.
+
+**Branch:** implementation on `feat/licensing-metrics` off an updated `main` (the spec PR merges first). Backend tasks go to `backend-dev`, frontend tasks to `frontend-dev`; they never commit, the session does.
+
+## Global Constraints
+
+- Counts of different metrics are never added or compared: totals are per metric only.
+- A status is decided only in `services/license_status.py`; one deliberate change: a card with no pair in the selected year is `no_actual_data` (was `compliant`).
+- Metrics and types are archived, never deleted; an archived metric or type cannot create a new cell but keeps counting where data exists; a type's `metric_key` and every `key` are immutable.
+- `card_licenses.items` stays `{metric_key: {type_key: {licensed, actual}}}`; a new cell is `{licensed: 0, actual: null}`; the Forecast year refuses `actual`.
+- Pairs of a year = the cells of that year's row (the current year with no row shows the carried cells, licensed only).
+- Events carry `metric:type` keys only, never counts, and every feed goes through `redact_cost_events`.
+- No raw SQL; services never commit; writes lock the year row (`yearly_rows.py`); every card-returning route applies `CardReadScope`.
+- User-facing English says "license"; strings use translation keys, English only in implementation (`/translate` fills the nine locales before the PR); admin metric/type labels resolve through the entity label resolvers, never `.key` as fallback.
+- `FORMAT_VERSION` of the workspace bundle does not change; an old bundle is recognised by its shape.
+- A new or changed route means a regenerated `docs/api/openapi.json`; migration number `192`; `/VERSION` minor bump (2.207.0) with a `CHANGELOG.md` entry that says what the migration does.
+- UI SDK / backend SDK versions stay frozen (nothing here touches them).
+
+## Review Focus
+
+1. **A type with data under both metrics, and a type with no data, at migration.** Expected: one row per metric (same key, label, archived flag) for the first; both metrics for the second; stored cells untouched. Test in Task 1.
+2. **An old bundle imported into a target that already archived `(installations, admin)`.** Expected: the row stays archived. Test in Task 6.
+3. **A year that holds a cell of an archived metric or type.** Expected: still shown, named and counted, cannot be added anew. Tests in Tasks 3 and 9.
+4. **Report rows and tiles.** `All metrics`: every live card of the selected types is a row (`no_actual_data` when it has no pair); a metric or type selected: only cards with a pair of it; tiles count exactly the rows. Test in Task 4.
+5. **Forecast year in the history chart and the bars.** Licensed only, `actual` null never drawn as 0. Tests in Task 9.
+6. **Old files and params still work.** An import file with `User` / `Installation`; a saved report whose metric no longer exists falls back to `All`. Tests in Tasks 5 and 4.
+
+---
+
+## Part A: Backend
+
+### Task 1: Catalogue tables, migration 192 and fresh-install seed
+
+**Files:**
+- Create: `backend/app/models/license_metric.py`, `backend/alembic/versions/192_license_metrics.py`, `backend/tests/services/test_alembic_192_license_metrics.py`
+- Modify: `backend/app/models/license_type.py`, `backend/app/models/__init__.py`, `backend/app/services/licensing_migration.py` (add functions only; the old ones stay, 178/179 import them), `backend/app/services/seed.py`
+
+**Interfaces:**
+- Produces: `class LicenseMetric(Base, UUIDMixin, TimestampMixin)` with `key` (unique), `label`, `sort_order`, `archived`, `translations`; `LicenseType.metric_key: Mapped[str]` and `UniqueConstraint("metric_key", "key", name="uq_license_types_metric_key")` (the old unique on `key` is gone); `licensing_migration.derive_type_metrics(types: Iterable[tuple[str, bool]], used: dict[str, set[str]]) -> list[tuple[str, str]]` (pure: `(type_key, metric_key)` rows; `used[type_key]` = metrics with data; none used -> both default metrics); `licensing_migration.without_model_field(schema: list) -> list` (pure: removes `licensingModel` and the `Licensing` section).
+
+- [ ] **Step 1: Write failing tests** in `test_alembic_192_license_metrics.py` (pattern of `test_alembic_177_card_licenses.py`): `test_creates_default_metrics`, `test_type_used_under_one_metric_stays_there`, `test_type_used_under_both_is_duplicated_with_same_label_and_archived`, `test_type_without_data_goes_under_both`, `test_cells_in_card_licenses_are_untouched`, `test_licensing_model_removed_from_schema_and_attribute_values_without_moving_updated_at`, `test_report_lists_duplicated_types_and_citing_calculations`, `test_downgrade_refuses_when_a_type_is_duplicated`. Plus pure tests of `derive_type_metrics` and `without_model_field` in `tests/services/test_licensing_migration.py`.
+- [ ] **Step 2: Run** `./scripts/test.sh --serial tests/services/test_alembic_192_license_metrics.py tests/services/test_licensing_migration.py` — Expected: FAIL (missing revision, functions).
+- [ ] **Step 3: Implement** the model, the constraint change and migration 192 following the spec's Migration section: create `license_metrics` (timestamps `server_default=sa.func.now()`), seed `users`/`installations` (labels "Users"/"Installations"), add `metric_key` and fill it with `derive_type_metrics` over `card_licenses.items`, duplicate rows for types used under both, swap the unique constraint, strip `licensingModel` from both card types' `fields_schema` with `without_model_field`, clear `cards.attributes.licensingModel` inside `derived_maintenance`-style (do not move `updated_at`), bump the data-quality rescore marker as migration 179 did, write `app_settings.general_settings["license_metrics_migration_report"]` (key-scoped write, capped at 200). Add the two default metrics to `seed.py`, insert-only (no types).
+- [ ] **Step 4: Run** the same command — Expected: PASS. Also run `tests/services/test_alembic_179_licensing_section.py` and `tests/services/test_alembic_177_card_licenses.py` — Expected: PASS (the frozen helpers are untouched).
+- [ ] **Step 5: Commit** `feat(licensing): license metrics catalogue and migration 192`.
+
+### Task 2: Catalogue service and admin routes
+
+**Files:**
+- Create: `backend/app/services/license_catalogue.py`, `backend/app/services/license_metrics.py`, `backend/tests/services/test_license_catalogue.py`, `backend/tests/api/test_license_metrics_api.py`
+- Modify: `backend/app/services/item_catalogue.py`, `backend/app/services/license_types.py`, `backend/app/api/v1/license_types.py` (becomes the metrics+types router), `backend/app/schemas/licenses.py`, `backend/app/services/audit_labels.py`, `backend/app/api/v1/router.py` if the prefix moves; delete or rewrite `backend/tests/api/test_license_types_api.py` and the old service tests
+
+**Interfaces:**
+- Produces (`license_catalogue.py`): `@dataclass(frozen=True) class CatalogueType: metric_key: str; key: str; label: str; archived: bool; sort_order: int; translations: dict`; `class CatalogueMetric` (same fields minus `metric_key`, plus `types: tuple[CatalogueType, ...]`); `class LicenseCatalogue` with `metrics: tuple[CatalogueMetric, ...]`, `metric(key) -> CatalogueMetric | None`, `type(metric_key, key) -> CatalogueType | None`, `metric_order() -> list[str]`, `type_order(metric_key) -> list[str]`; `async def load_catalogue(db: AsyncSession) -> LicenseCatalogue` (archived included, sorted by `sort_order`, label).
+- Produces (`item_catalogue.py`): every function gains `scope: Mapping[str, str] | None = None` that filters rows by those columns and, on create, sets them (types use `{"metric_key": ...}`); `sort_order` is the max inside the scope.
+- Routes (writes need `admin.metamodel`, reads any signed-in user): `GET /metamodel/license-metrics` returns `[{id,key,label,sort_order,archived,translations,types:[...]}]`; `POST /metamodel/license-metrics`; `PATCH /metamodel/license-metrics/{key}` (label, translations, sort_order, archived); `POST /metamodel/license-metrics/{metric_key}/types`; `PATCH /metamodel/license-metrics/{metric_key}/types/{key}`. The old `/metamodel/license-types*` routes are removed.
+
+- [ ] **Step 1: Write failing tests**: `load_catalogue` orders and nests; `type("users","admin")` is not `type("installations","admin")`; `create_item` scoped duplicates allowed across metrics and refused inside one (409 `duplicate_key`); a type cannot move metric (PATCH ignores/refuses `metric_key`); archive and restore; unknown metric 404; `admin.metamodel` 403 for a member; reads open; audit entries use labels (`audit_labels.py`).
+- [ ] **Step 2: Run** `./scripts/test.sh --serial tests/services/test_license_catalogue.py tests/api/test_license_metrics_api.py` — Expected: FAIL.
+- [ ] **Step 3: Implement** as above; keep `CatalogueError` codes; regenerate the OpenAPI spec at the end of Part A (Task 7).
+- [ ] **Step 4: Run** the same command and `tests/services/test_cost_item_*` (shared `item_catalogue`) — Expected: PASS.
+- [ ] **Step 5: Commit** `feat(licensing): metric-scoped catalogue service and routes`.
+
+### Task 3: Status, card data and card API on the catalogue
+
+**Files:**
+- Modify: `backend/app/services/license_status.py`, `backend/app/services/card_licenses.py`, `backend/app/api/v1/card_licenses.py`, `backend/app/schemas/licenses.py`, `backend/app/services/rollback_service.py`, `backend/app/services/audit_labels.py`, `backend/app/services/cost_event_redaction.py` (only if the payload key changes), `backend/app/api/v1/cards.py` (every `licensingModel` / `model_of` use)
+- Test: `backend/tests/services/test_license_status.py`, `test_card_licenses.py`, `test_license_event_redaction.py`, `tests/api/test_card_licenses_api.py`
+
+**Interfaces:**
+- Consumes: `LicenseCatalogue`, `load_catalogue` (Task 2).
+- Produces: `license_status.card_status(metrics: list[MetricResult]) -> MetricStatus` returns `"no_actual_data"` for `[]`; `METRICS` is gone. `card_licenses.year_licenses(items: dict, confirmed: bool, fallback_from: int | None, fy: int, cur: int, catalogue: LicenseCatalogue) -> YearLicenses` builds `metrics` from the metrics that have non-empty cells in `items`, in `catalogue.metric_order()` then unknown keys sorted (an unknown metric key is shown with its raw key, never dropped from the status); `get_year(db, card, fiscal_year, start_month, catalogue=None)`, `get_window(db, card, start_month, catalogue=None)`; `merge_cell(db, card_id, fiscal_year, metric, key, *, licensed=UNSET, actual=UNSET, catalogue=None, start_month=None)` validates the metric (`invalid_metric`), the type in that metric (`unknown_type`), and refuses a new cell for an archived metric or type (`archived_metric` / `archived_type`, both 409); `YearLicenses.type_keys` becomes `pair_keys: list[str]` of `"metric:type"`; the route path `_METRIC` pattern becomes the key pattern (the catalogue decides); `model_of` and every read of `licensingModel` are deleted; the event's `LIST_KEY` payload carries `metric:type` keys.
+
+- [ ] **Step 1: Write failing tests**: `card_status([]) == "no_actual_data"`; a year with only `{users: {admin: {licensed: 5, actual: None}}}` shows one metric, status `no_actual_data`; a year with cells of two metrics lists both in catalogue order; `merge_cell` into an archived type raises `archived_type` unless the cell exists; `merge_cell("users", "prod")` raises `unknown_type` when `prod` belongs to installations; same key under two metrics writes independent cells; Forecast refuses `actual`; the carried current year keeps licensed only and the pairs follow the carried cells; event payload `["users:admin"]` and no counts; redaction still strips counts for a user without `licenses.view`.
+- [ ] **Step 2: Run** `./scripts/test.sh --serial tests/services/test_license_status.py tests/services/test_card_licenses.py tests/services/test_license_event_redaction.py tests/api/test_card_licenses_api.py` — Expected: FAIL.
+- [ ] **Step 3: Implement**; update the card JSON (`YearLicensesOut`, `MetricResultOut`) so the frontend gets per-metric types with labels' keys, `pair_keys`, and the catalogue is fetched separately.
+- [ ] **Step 4: Run** the same command — Expected: PASS.
+- [ ] **Step 5: Commit** `feat(licensing): card licenses derive pairs from the year's cells`.
+
+### Task 4: Report backend
+
+**Files:**
+- Modify: `backend/app/services/license_report.py`, `backend/app/api/v1/reports.py` (the licensing route), `backend/app/schemas/licenses.py`, `backend/app/api/v1/saved_reports.py` (tolerance only)
+- Test: `backend/tests/services/test_license_report.py`, `backend/tests/api/test_reports_licensing.py`
+
+**Interfaces:**
+- Consumes: Tasks 2, 3.
+- Produces: `async def build_report(db, read_scope, *, card_types: list[str], metric: str | None, license_type: str | None, fy: int, group_by: GroupBy | None, card_id: uuid.UUID | None, hidden_attribute_keys=None) -> dict`; route `GET /reports/licensing?card_types=Application,ITComponent&metric=<key>&license_type=<key>&fiscal_year=&card_id=&...` (`card_types` parsed like the cost report's `parse_type_keys`; absent `metric` = all). Response: `{fiscal_year, current_fiscal_year, fiscal_year_start, years, catalogue: [...], aggregate, rows}` with **no** `trend`. A row: `{id, name, type, alias, logo?, attributes, group?, status | None, worst_pct, worst_no_licence, by_metric: [{metric, status, worst_pct, types: [{key, licensed, actual, pct, no_licence, status}]}]}`. Rules: `All metrics` lists every ACTIVE readable card of the types that is live in the year (current year: `is_live_in_fiscal_year`; other years: only cards with a stored row), `no_actual_data` when it has no pair; a metric or type selected lists only cards with a pair of that selection; the row status is the worst across the selection; a Platform aggregate keeps no status. `candidate_cards` loses its `licensingModel` filter.
+
+- [ ] **Step 1: Write failing tests**: all-metrics lists a card with no pair as `no_actual_data`; metric `installations` omits a card that only has users cells; license_type filter keeps only cards with that pair; row status is the worst across two metrics; tiles' counts (computed in the test from `rows`) equal the rows by status; past year lists only cards with a row that year; Platform aggregate rows have `status None`; archived metric with data in the year still appears; a saved report with an unknown `metric` param returns the all-metrics result; hidden cards absent (`CardReadScope`) and 403 without `licenses.view`; `trend` key absent.
+- [ ] **Step 2: Run** `./scripts/test.sh --serial tests/services/test_license_report.py tests/api/test_reports_licensing.py` — Expected: FAIL.
+- [ ] **Step 3: Implement**; the card's alias and logo come from the same fields the Inventory list uses (builder reads `cards.py` list serialisation).
+- [ ] **Step 4: Run** the same command — Expected: PASS.
+- [ ] **Step 5: Commit** `feat(licensing): report rows per card across metrics`.
+
+### Task 5: Mass import
+
+**Files:**
+- Modify: `backend/app/services/license_import.py`, `backend/app/api/v1/card_licenses.py` (import route), `backend/app/schemas/licenses.py`
+- Test: `backend/tests/services/test_license_import.py`, `backend/tests/api/test_license_import_api.py`
+
+**Interfaces:**
+- Consumes: `LicenseCatalogue`.
+- Produces: `plan_import(db, user, rows, catalogue=None)` resolves `Metric` by key or label (case-insensitive) in the catalogue, with `METRIC_ALIASES` (`user`, `users`, `installation`, `installations`) applied only to metrics whose key is `users` / `installations`; `License type` resolved inside that metric by key or label; reasons: existing ones plus `type_not_in_metric` (type exists in another metric) and the existing `invalid_metric` for an unknown metric; both values empty stays `nothing_to_write`; an archived metric or type cannot create a cell but updates an existing one; `ImportIssueOut.detail` keeps the offending text; every reason has a translation key.
+
+- [ ] **Step 1: Write failing tests**: label match ("Users" / "users"); legacy alias `User`; `Users | Prod` where `prod` is an installations type -> skipped `type_not_in_metric`; `Seats | Admin` -> `invalid_metric`; both values empty -> `nothing_to_write`; same type key under two metrics writes the right cell; archived type updates an existing cell but cannot create; a row with a value creates the pair in that year; dry run changes nothing; 20 MB cap and byte validation unchanged.
+- [ ] **Step 2: Run** `./scripts/test.sh --serial tests/services/test_license_import.py tests/api/test_license_import_api.py` — Expected: FAIL.
+- [ ] **Step 3: Implement**; `_match_type(value, metric)` takes the metric's types.
+- [ ] **Step 4: Run** the same command — Expected: PASS.
+- [ ] **Step 5: Commit** `feat(licensing): import by metric and type of the catalogue`.
+
+### Task 6: Workspace transfer
+
+**Files:**
+- Create: `backend/app/services/workspace_io/license_compat.py`, `backend/tests/services/test_workspace_io_license_catalogue.py`
+- Modify: `backend/app/services/workspace_io/schema.py`, `sections.py`, `applier.py`, `exporter.py` (only if the sheet list needs registering), `backend/tests/services/test_workspace_io_licenses.py`, `test_workspace_io_id_bearing_columns.py` (allowlist entry: `metric_key` is a key, not an id)
+
+**Interfaces:**
+- Produces: `schema.SHEET_LICENSE_METRICS = "LicenseMetrics"` with a `ConfigSection` (columns `key,label,sort_order,archived,translations`, natural key `("key",)`) placed **before** `LicenseTypes`; `LicenseTypes` columns gain `metric_key`, natural key `("metric_key", "key")`. `license_compat.derive_catalogue(metric_rows: list[dict], type_rows: list[dict], card_license_rows: list[dict]) -> tuple[list[dict], list[dict]]` (pure; old bundle = no metric rows or type rows without `metric_key`: default metrics `users`/`installations`, each type under the metric(s) the bundle's `CardLicenses` holds data for, both when none); `license_compat.keep_known_cells(items: dict, known: set[tuple[str, str]]) -> tuple[dict, list[str]]` (drops cells whose metric/type is in neither the bundle nor the target, returns the dropped `metric:type` names for the report); a dedicated `_apply_license_catalogue` in `applier.py` for both sheets: upsert by natural key, `archived` and `sort_order` of a target row the **old-bundle derivation** matched are never changed, rows of a new-format bundle follow the generic config merge; the card-type import drops `licensingModel` from the adopted `fields_schema` (`without_model_field`) and the card import drops `attributes.licensingModel`; the restore call `move_model_field` in the applier is deleted.
+
+- [ ] **Step 1: Write failing tests**: round trip of a workspace with two metrics and a type under each (export then import into an empty target reproduces catalogue and `CardLicenses`); `derive_catalogue` on an old bundle (type used under both -> two rows; unused -> both); old bundle into a target whose `(installations, admin)` is archived leaves it archived and keeps the target's `sort_order`; same key under another metric on the target is a different row; a cell whose metric exists nowhere is dropped and reported; an old bundle's card types and cards lose `licensingModel` and it is not re-added; `FORMAT_VERSION` unchanged and an old bundle with no `LicenseMetrics` sheet imports; `LicenseMetrics` applies before `LicenseTypes` before `CardLicenses`; the id-bearing-columns guard stays green.
+- [ ] **Step 2: Run** `./scripts/test.sh --serial tests/services/test_workspace_io_license_catalogue.py tests/services/test_workspace_io_licenses.py tests/services/test_workspace_io_id_bearing_columns.py tests/services/test_workspace_io_wiring_pure.py` — Expected: FAIL.
+- [ ] **Step 3: Implement** as above.
+- [ ] **Step 4: Run** the same command plus `tests/api/test_workspace*` — Expected: PASS.
+- [ ] **Step 5: Commit** `feat(licensing): workspace transfer carries metrics and types per metric`.
+
+### Task 7: Remove `licensingModel`, demo seed, OpenAPI
+
+**Files:**
+- Modify: `backend/app/api/v1/metamodel.py` (drop the `license_field_required` guard and the protected-section handling), `backend/app/services/seed.py` (no `LICENSING_MODEL_FIELD` in card types), `backend/app/services/seed_demo_licensing.py` (metrics and types per metric: Users: Business, Admin; Installations: Prod, No-Prod; demo cells with pairs that differ by year), `backend/app/services/extensions/field_contributions.py` / `cards.py` / data-quality if they cite the field, `docs/api/openapi.json` (regenerate with `python scripts/dump_openapi.py docs/api/openapi.json`)
+- Delete: `backend/tests/api/test_license_model_guard_api.py`, `backend/tests/services/test_alembic_179_licensing_section.py` cases that need the live guard (keep the migration's own pure tests)
+- Test: `backend/tests/services/test_seed_demo_licensing.py`, `test_seed_demo.py`, `test_seed_demo_security.py`
+
+- [ ] **Step 1: Write failing tests**: a fresh seed has no `licensingModel` field in the Application / IT Component schemas and has the two default metrics; the demo seed creates only types of existing metrics and every demo cell resolves in the catalogue; the metamodel route now lets an admin edit the schema without a `license_field_required` error.
+- [ ] **Step 2: Run** `./scripts/test.sh --serial tests/services/test_seed_demo_licensing.py tests/services/test_seed_demo.py tests/services/test_seed_demo_security.py` — Expected: FAIL.
+- [ ] **Step 3: Implement**; regenerate the OpenAPI spec.
+- [ ] **Step 4: Run** the full backend suite `./scripts/test.sh` — Expected: PASS. Note for the PR: removing the two guard tests trips `Guard Ratchet`; only the maintainer's `guard-change-approved` label passes it.
+- [ ] **Step 5: Commit** `refactor(licensing): drop licensingModel, reseed the demo, regenerate the API spec`.
+
+---
+
+## Part B: Frontend
+
+### Task 8: Catalogue hook, types and the License types dialog
+
+**Files:**
+- Create: `frontend/src/hooks/useLicenseCatalogue.ts`, `frontend/src/features/admin/metamodel/ManageLicenseTypesDialog.tsx` (+ `.test.tsx`), `frontend/src/hooks/useLicenseCatalogue.test.ts`
+- Modify: `frontend/src/lib/licenses.ts` (+ `.test.ts`), `frontend/src/types/index.ts`, `frontend/src/features/admin/metamodel/TypeDetailDrawer.tsx` (the License types button opens the new dialog; remove `licenseFieldLocked` handling and `LICENSING_MODEL_KEY`), `frontend/src/features/admin/MetamodelAdmin.tsx`, `frontend/src/features/cards/sectionConfig.ts`, `frontend/src/features/admin/CardLayoutEditor.tsx`, `frontend/src/features/cards/dataQualityJump.ts`, English keys in `frontend/src/i18n/locales/en/{admin,cards,reports}.json`
+
+**Interfaces:**
+- Produces: `interface LicenseType { id: string; metric_key: string; key: string; label: string; sort_order: number; archived: boolean; translations: Record<string,string> }`, `interface LicenseMetric { ...same minus metric_key; types: LicenseType[] }`; `useLicenseCatalogue(): { metrics: LicenseMetric[]; loading: boolean; reload(): void }` (inflight-promise singleton, invalidated by the dialog); `pairKey(metric: string, type: string): string` (`"users:admin"`); `pairLabel(metric: LicenseMetric, type: LicenseType, locale: string): string` (`"Users: Admin"` from the entity translations, never the key as fallback); `LICENSE_METRICS`, `LICENSING_MODEL_KEY` and `isLicenseType`'s old users are removed (`isLicenseType` stays for the card type check).
+
+- [ ] **Step 1: Write failing tests** (Vitest, `vi.mock("@/api/client")`): the dialog lists metrics with their types, adds a metric and a type under it (calls the new routes), archives and restores, shows archived items struck through, never offers delete; `pairLabel` joins metric and type labels; the hook caches one request.
+- [ ] **Step 2: Run** `cd frontend && npx vitest run src/features/admin/metamodel/ManageLicenseTypesDialog.test.tsx src/hooks/useLicenseCatalogue.test.ts src/lib/licenses.test.ts` — Expected: FAIL.
+- [ ] **Step 3: Implement** following `ManageCostItemsDialog.tsx` for the dialog chrome; layout per mockup tab "License types".
+- [ ] **Step 4: Run** the same command and `npx tsc --noEmit` — Expected: PASS.
+- [ ] **Step 5: Commit** `feat(licensing): metrics and types dialog in the metamodel admin`.
+
+### Task 9: Pair bars, pair history and the card section
+
+**Files:**
+- Create: `frontend/src/components/licensing/PairBars.tsx`, `PairHistory.tsx`, `pairBarsOption.ts`, `pairHistoryOption.ts` (each with a `.test.ts(x)`)
+- Modify: `frontend/src/features/cards/sections/LicensingSection.tsx`, `LicenseItemDialog.tsx`, `licensingBarOption.ts` (delete) and their tests
+- Update the rule globs: `.claude/rules/licensing-items.md` (after the reviews, with the user's yes) must include `frontend/src/components/licensing/**`
+
+**Interfaces:**
+- Consumes: `useLicenseCatalogue`, `pairKey`, `pairLabel`.
+- Produces: `pairBarsOption(groups: PairGroup[], opts: { selectedKey: string | null; dark: boolean; rtl: boolean }): EChartsOption` where `PairGroup = { metric: string; label: string; pairs: PairBar[] }`, `PairBar = { key: string; label: string; licensed: number; actual: number | null; color: string; status: string }`; one chart per metric group, horizontal bars, **Licensed wide and pale behind, Actual narrow and solid in front** (`barGap: "-100%"`, different `barWidth`), consumption text at the bar end, `appendTo: "body"` tooltip, non-selected pairs at `opacity 0.35`; `pairHistoryOption(rows: { year: string; licensed: number; actual: number | null; forecast: boolean }[], opts)`: columns per year, the Forecast year draws licensed only (a null actual is never a 0 bar); `<PairBars groups selectedKey onPick />`, `<PairHistory pair years />`. The section: `FiscalYearTimeTravel` unchanged; bars for the pairs of the selected year grouped by metric; clicking a bar shows `PairHistory` **below** the bars over the six-year window (Forecast included); clicking again closes it; "Add licensing" opens `LicenseItemDialog` with a metric select (non-archived) then a type select (non-archived types of that metric) and writes the cell in the **selected** year; an archived pair with data is shown and editable but cannot be added anew.
+
+- [ ] **Step 1: Write failing tests**: `pairBarsOption` makes two series per group with overlapped bars and dims non-selected pairs; `pairHistoryOption` leaves the Forecast actual out; `LicensingSection` shows the pairs of the selected year only (a year without `installations:prod` hides it), groups them by metric, opens history on a bar click and closes it on a second click, offers only non-archived metrics then types in the dialog and PUTs `/cards/{id}/licenses/{fy}/items/{metric}/{type}` for the selected year, shows an archived pair that has data, shows "no data" for a cell without values.
+- [ ] **Step 2: Run** `npx vitest run src/components/licensing src/features/cards/sections` — Expected: FAIL.
+- [ ] **Step 3: Implement**; use `costColors` for hues by `sort_order` inside the metric; layout per mockup tab "Card section".
+- [ ] **Step 4: Run** the same command and `npx tsc --noEmit` and `npx eslint src/components/licensing src/features/cards/sections` — Expected: PASS.
+- [ ] **Step 5: Commit** `feat(licensing): pair bars and history in the card section`.
+
+### Task 10: Report and import dialog
+
+**Files:**
+- Modify: `frontend/src/features/reports/LicensingReport.tsx`, `LicensingTable.tsx`, `LicensingImportDialog.tsx`, `savedReportStyles.ts` (the saved-report param fallback), `frontend/src/lib/routePermissions.ts` (unchanged unless a route moves)
+- Create: `frontend/src/features/reports/LicensingCardRow.tsx` (+ test)
+- Delete: `frontend/src/features/reports/licensingByTypeOption.ts`, `licensingUtilisationOption.ts`, the By-license-type view and the trend chart code and tests
+- Test: `LicensingReport.test.tsx`, `LicensingTable.test.tsx`, `LicensingImportDialog.test.tsx`, `LicensingCardRow.test.tsx`
+
+**Interfaces:**
+- Consumes: Task 4's response, `PairBars`, `PairHistory`, `useLicenseCatalogue`.
+- Produces: the report calls `GET /reports/licensing` with `card_types` (the cost report's Application / IT Component toggles, never none), `metric` (`All metrics` or a key), `license_type` (follows the metric; labels `Metric: Type`), `fiscal_year`; two views, **Utilisation** (the list) and **Table**; `<LicensingCardRow row expanded onToggle selectedPairKey onPick />`: left icon of the card type, the card image, name, alias; right status chip; expanded: `PairBars` for `row.by_metric`; tiles (Compliant, Approaching, Over-licensed, No actual data) count rows and a click dims the other tiles and filters rows, a second click clears; no chart until a row is expanded and a pair bar clicked, then `PairHistory` below the list (data from `GET /cards/{id}/licenses`); the table has a column group per pair present for the year and per-metric totals only; the import dialog shows `Metric: Type` in the preview and a translated message for `type_not_in_metric`.
+
+- [ ] **Step 1: Write failing tests**: no chart on first render; a tile click keeps only rows of that status and dims the other tiles; tile counts equal the row count by status; expanding a row shows its pair bars; clicking a pair bar fetches the card's history and shows it below; the metric select lists `All metrics` plus the catalogue and the license-type select follows the metric (labels `Metric: Type`); a saved report with an unknown metric loads as `All metrics`; selecting a metric hides the card that has no pair of it; the import preview shows `Metric: Type` and the `type_not_in_metric` text; the Table has a column group per pair and no cross-metric total.
+- [ ] **Step 2: Run** `npx vitest run src/features/reports` — Expected: FAIL.
+- [ ] **Step 3: Implement**; layout per mockup tabs "Report" and "Import"; reuse `ReportShell`, `CardScopeFilter`, `FiscalYearTimeTravel`, `CardDetailSidePanel` as the earlier spec requires.
+- [ ] **Step 4: Run** the same command, `npx tsc --noEmit`, `npx eslint src/features/reports` — Expected: PASS.
+- [ ] **Step 5: Commit** `feat(licensing): report as collapsible card rows and metric filters`.
+
+---
+
+## After the last task (run by the session, not a task)
+
+In the order of `CLAUDE.md`: `/translate` (the English keys of Tasks 8–10) → `docs-keeper` (`scripts/docs/docker-docs.sh all`; update the card-details, reports, admin metamodel and workspace-transfer pages in English, the `pages.ts` entries and **retake `103_report_licensing` and `104_card_licensing`** with `docker-docs.sh capture --locale en --only 103,104` once the UI exists) → `graphify update .` → full tests (`./scripts/test.sh`, `npm run test:run`) → `simplify` → re-run the touched tests → `ponytail-review` → `security-review` → re-run the tests of review fixes → update the rules with the user's yes per file (`licensing-items.md`, `workspace-transfer.md`, `.claude/rules/uploads.md` untouched) → VAPT (new routes and a migration) → `VERSION` 2.207.0 and the `CHANGELOG.md` entry → PR. The `Guard Ratchet` needs the maintainer's `guard-change-approved` label because Task 7 removes guard tests.
