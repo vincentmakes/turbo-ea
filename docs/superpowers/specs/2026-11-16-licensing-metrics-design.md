@@ -51,7 +51,7 @@ The dialog lists **metrics**; each metric lists its **types**. For both: add (ke
 - **Metric tiles** (Compliant, Approaching, Over-licensed, No actual data) count **rows**, one per card. **Clicking a tile** dims the other tiles and keeps only the cards with that status; clicking it again clears.
 - **History appears only when a card and a pair are both chosen**: expanding a row and clicking one of its pair bars opens that pair's history (as in the card section). With nothing chosen there is no chart on the page, and the trend chart above the views is removed.
 - **Table view**: one row per card (same rows as above); a column group per pair present in the scope for the selected year (licensed / actual / %), a status column, per-metric totals only; same Columns menu, XLSX and print as today.
-- Left click opens the card in the side panel and right click drills, as today. Saved reports keep working: a saved metric or license-type parameter that no longer exists falls back to `All`.
+- Left click opens the card in the side panel and right click drills, as today. No saved report of the old shape is migrated: the feature is not in production and no instance holds one.
 
 ### Mass import (Reports → Licensing → Import)
 Same long format, `Component | Metric | License type | Year | Licensed | Actual`, validated and applied on the same bytes:
