@@ -9,7 +9,8 @@
 #                                                  data, retake screenshots (ARGS go to capture.ts,
 #                                                  e.g. --locale en --only 26,27), then check
 #   scripts/docs/docker-docs.sh all                check + images
-#   scripts/docs/docker-docs.sh down               stop the capture stack and remove its volumes
+#   scripts/docs/docker-docs.sh down               remove the capture stack and its volumes (capture
+#                                                  already does it when it ends)
 #
 # The capture stack is its own compose project (tea-docs) on its own ports, with a throwaway
 # database seeded with the demo data (SEED_DEMO=true): it never touches your own instance, and no
@@ -39,9 +40,9 @@ command -v docker >/dev/null || { echo "docker not found"; exit 1; }
 docker info >/dev/null 2>&1 || { echo "Docker is not running"; exit 1; }
 
 stack() {
-    POSTGRES_PASSWORD=docs_throwaway SECRET_KEY=docs_throwaway_secret_key_not_for_real_use_0123456789 \
-        SEED_DEMO=true HOST_PORT="$HOST_PORT_DOCS" TLS_HOST_PORT="$TLS_PORT_DOCS" \
-        docker compose -p "$PROJECT" -f "$HOST_REPO/docker-compose.yml" -f "$HOST_REPO/scripts/docs/docker-compose.docs.yml" "$@"
+    # Ports bound to loopback only: the demo admin password is public. The values come from
+    # docs.env, never from the repository .env.
+    HOST_PORT="127.0.0.1:$HOST_PORT_DOCS" TLS_HOST_PORT="127.0.0.1:$TLS_PORT_DOCS"         docker compose -p "$PROJECT" --env-file "$HOST_REPO/scripts/docs/docs.env"         -f "$HOST_REPO/docker-compose.yml" -f "$HOST_REPO/scripts/docs/docker-compose.docs.yml" "$@"
 }
 
 run_check() {
@@ -62,7 +63,8 @@ run_capture() {
         echo "==> docker build --target $svc"
         docker build -q --target "$svc" -t "turboea-docs-$svc:local" "$HOST_REPO"
     done
-    echo "==> Starting the isolated stack on port $HOST_PORT_DOCS (demo data)"
+    trap 'stack down -v >/dev/null 2>&1 || true' EXIT
+    echo "==> Starting the isolated stack on 127.0.0.1:$HOST_PORT_DOCS (demo data)"
     stack up -d
     echo "==> Waiting for the backend"
     for _ in $(seq 1 120); do

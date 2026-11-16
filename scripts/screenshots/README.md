@@ -33,17 +33,6 @@ full run, and check the captured file actually differs from `04`. The entry
 waits up to two minutes for the answer, so a small local model on CPU
 (e.g. Ollama with `gemma3:1b`) is enough.
 
-### The ArchiMate shot enables the module
-
-`102_archimate_sandbox` opens `/admin/architectureStudio`, which shows a "module disabled"
-placeholder until the module is switched on. The script calls
-`PATCH /settings/archimate-enabled` for you whenever a requested page lives under
-`/admin/architectureStudio`, so it **changes the instance's settings** and leaves the module
-on afterwards. On a shared instance, restore the ArchiMate module setting yourself
-after capturing (Admin → Settings, or `PATCH /settings/archimate-enabled`); the
-script never switches it back off. There is no editor shot yet: the harness has no step that creates an
-ArchiMate diagram with elements.
-
 ### The diagram shots need DrawIO
 
 `99_diagram_editor`, `99a_diagram_sync_drawer` and `99b_diagram_viewer_legend`

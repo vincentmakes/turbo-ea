@@ -16,8 +16,8 @@ All through `scripts/docs/docker-docs.sh`, from the repository root, in Git Bash
 1. `scripts/docs/docker-docs.sh all` — `mkdocs build --strict` plus the two-way contract between the
    docs and `pages.ts` (`scripts/docs/check_doc_images.py`).
 2. Fix what it reports, then run it again until it is clean. Typical fixes: a broken link or anchor,
-   a nav entry missing in a locale, an image referenced in a page without a `pages.ts` entry (or the
-   reverse), a locale file name that does not match the entry's `filenames`.
+   an image referenced in a page without a `pages.ts` entry (or the reverse). A nav label or a
+   locale file name that is missing or does not match is reported, not fixed: `/translate` owns it.
 3. Only when the change altered UI that a documented screenshot shows: `scripts/docs/docker-docs.sh
    capture --locale en --only <id prefixes>`. It builds this tree, starts an isolated stack (project
    `tea-docs`, its own ports, throwaway database seeded with the **demo data**) and retakes the shots
@@ -33,8 +33,9 @@ All through `scripts/docs/docker-docs.sh`, from the repository root, in Git Bash
 - Edit only `docs/`, `mkdocs.yml` and `scripts/screenshots/`. Never touch application code, tests or
   `.claude/`.
 - Never run the mutation scripts, never commit, never push, never touch GitHub.
-- A failure that exists on `main` already (check with `git stash`-free reasoning: look at whether the
-  file is in your branch's diff) is reported, not fixed silently.
+- A failure on a file your branch did not change already exists on `main`: report it, do not fix it
+  silently.
+- Never pass `--base-url` to `capture`: it only ever targets the isolated stack.
 
 ## Report
 
