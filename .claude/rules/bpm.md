@@ -37,13 +37,11 @@ paths:
   
   Guard tests: `backend/tests/api/test_bpm_called_process.py`, `test_bpm_element_organizations.py`, `test_bpm_workflow.py`, `frontend/src/features/bpm/calledProcess.test.ts`, `calledProcessModule.test.ts`, `CalledProcessEntry.test.ts`, `CardLinkEntry.test.ts`.
 - **`sequence_order` is causal, not an iteration artefact.** The element tables (Pre-link Elements, published Elements, the Process × Organization matrix) render the parser's order positionally, so it *is* the reading order of the process. `bpmn_flow_order.order_flow_nodes` computes it: build a graph from `sequenceFlow` + `messageFlow` + `boundaryEvent[@attachedToRef]`, condense strongly connected components (so a rework loop is one causal level and never strands what follows it), rank by **longest** path over the condensation, and break every tie on document order. Four things look simplifiable and are not: (1) a greedy topological walk is *not* equivalent — it emits a short branch's tail before a long branch's head, which gets a two-pool conversation wrong; (2) sub-processes are solved as their own containers and spliced in after their parent — a flat "container → child" edge lets a sibling interleave into the sub-process body; (3) the weakly-connected-component key is what keeps two unrelated processes in one file as separate blocks instead of interleaving them rank by rank; (4) containers are sub-processes only, never `<process>` — grouping by process would order the pools of a collaboration one after another and lose the message-flow interleaving. Tarjan is iterative on purpose (a 2000-node chain is a real model), and it already emits components in reverse topological order, which is why no separate topological sort is needed. Ordering is derived entirely from the stored XML, so a change here warrants a backfill migration for already-published processes — see `138_backfill_process_element_order.py` ([#978](https://github.com/vincentmakes/turbo-ea/issues/978)).
-- **Element Linking**: `ElementLinker.tsx` connects BPMN elements to Application/DataObject/ITComponent cards
-- **Approval Workflow**: Process flows go through draft → pending → published → archived states
+- **Element Linking**: steps are linked from the element tables (`ProcessFlowTab.tsx`) and in the modeler (`CardLinkEntry.ts`, `calledProcessModule.ts`) — the five-links bullet above owns the rule
+- **Approval Workflow**: Process flows go through draft → pending → published → archived states; a published flow can be withdrawn (`published → withdrawn`, forward-only, mandatory reason, elements and relations kept, content cloned into a new draft — `withdraw_version` in `bpm_workflow.py`)
 
 ### BPM Reports
-- Process maturity dashboard
-- Risk assessment overview
-- Automation level analysis
+- `api/v1/bpm_reports.py`: dashboard (maturity, risk, automation) plus the process × capability/application/organization matrices, element maps, process map and value-stream matrix
 
 ### Card Detail Integration
 BusinessProcess cards show extra tabs in CardDetail:

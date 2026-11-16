@@ -24,7 +24,8 @@ paths:
   never a raw `dict`/`Any` reconstructed inline. The one deliberate exception is a card's `attributes`
   (`dict | None`, `field_validator` via `_validate_jsonb_dict`) — the data-driven metamodel means custom
   field keys are admin-configured, not fixed at the schema level, so `dict` there is correct, not a
-  shortcut.
+  shortcut. Legacy handlers that still take `body: dict` (most of `metamodel.py`, one each in `settings.py`,
+  `diagrams.py`, `bpm_workflow.py`) are debt, not precedent: a new or changed route never copies them.
 - **A route handler is a controller: parse/validate the request, check permissions, call a service, return
   the response. Business logic, transaction orchestration and side effects (writes, event emission,
   notifications) belong in `backend/app/services/`, never inline in the handler.** This is the same

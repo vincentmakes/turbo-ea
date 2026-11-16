@@ -4,8 +4,9 @@ paths:
   - "deploy/**"
   - "Dockerfile"
   - "docker-compose*.yml"
-  - "dev/**"
+  - "dev/docker-compose.dev.yml"
   - "nginx/**"
+  - "frontend/nginx.conf"
   - "backend/app/services/startup_lock.py"
   - ".github/workflows/docker-publish.yml"
   - ".github/workflows/helm-publish.yml"
@@ -22,7 +23,7 @@ paths:
 > Loaded when you touch `charts/**`, `deploy/**`, `Dockerfile`, `docker-compose*.yml`, … (full list in the frontmatter). Moved verbatim from `CLAUDE.md`; edit it here.
 
 ### Helm Chart & Managed-Container Conventions
-- The chart lives in `charts/turbo-ea/` and is published on `v*.*.*` tags only, as an OCI artifact at `oci://ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea`, by `.github/workflows/helm-publish.yml`. `Chart.yaml` keeps `version: 0.0.0` / `appVersion: "0.0.0"` — the same placeholder convention as `pyproject.toml` / `package.json` — and the workflow stamps both from `/VERSION`, so chart X.Y.Z always installs images X.Y.Z (`image.tag` defaults to `.Chart.AppVersion`). Never bump them by hand.
+- The chart lives in `charts/turbo-ea/` and is published on `v*.*.*` tags only, as an OCI artifact at `oci://ghcr.io/<owner>/turbo-ea/charts/turbo-ea`, by `.github/workflows/helm-publish.yml` (the owner is `${{ github.repository }}` in the workflows; this fork's compose pins `tommasochi`). `Chart.yaml` keeps `version: 0.0.0` / `appVersion: "0.0.0"` — the same placeholder convention as `pyproject.toml` / `package.json` — and the workflow stamps both from `/VERSION`, so chart X.Y.Z always installs images X.Y.Z (`image.tag` defaults to `.Chart.AppVersion`). Never bump them by hand.
 - **External PostgreSQL only.** The chart does not run a database, Ollama or in-cluster TLS. `publicUrl`, `postgresql.host` and either `existingSecret` or `secretKey` + `postgresql.password` are required — `turbo-ea.validate` in `_helpers.tpl` fails the render with a readable message, so every `helm lint` / `helm template` in CI passes a fixture from `charts/turbo-ea/ci/`.
 - **The backend is one replica, hard-coded.** In-process SSE bus, rate limiter and permission cache, unlocked Alembic-on-boot, and a ReadWriteOnce `/app/data` volume — the Deployment uses `Recreate`, and `values.schema.json` rejects `backend.replicaCount`. Scale `frontend` and `nginx` instead.
 - **The edge nginx is the only Service an Ingress targets**, routing the whole host (`/`, no rewrite) so `/.well-known/oauth-*`, `/mcp` and `/embed/` reach it intact. Every path the image writes at runtime is an emptyDir so `readOnlyRootFilesystem` holds; the kind test asserts it.
@@ -37,11 +38,11 @@ paths:
 
 ### docker-compose.yml
 Production-only stack with PostgreSQL, backend, frontend, edge nginx, and optional `mcp` / `ai` profiles:
-- **db**: pulled from `ghcr.io/vincentmakes/turbo-ea/db:${TURBO_EA_TAG}`, persisted in the `postgres_data` volume
-- **backend**: pulled from `ghcr.io/vincentmakes/turbo-ea/backend:${TURBO_EA_TAG}`, exposed only inside the compose network
-- **frontend**: pulled from `ghcr.io/vincentmakes/turbo-ea/frontend:${TURBO_EA_TAG}`, exposed only inside the compose network
-- **nginx**: pulled from `ghcr.io/vincentmakes/turbo-ea/nginx:${TURBO_EA_TAG}`, public entrypoint on `HOST_PORT`, proxies `/api`, `/mcp`, `/drawio`, and `/` to internal services
-- **mcp-server**: optional profile `mcp`, pulled from `ghcr.io/vincentmakes/turbo-ea/mcp-server:${TURBO_EA_TAG}`
+- **db**: pulled from `ghcr.io/<owner>/turbo-ea/db:${TURBO_EA_TAG}`, persisted in the `postgres_data` volume
+- **backend**: pulled from `ghcr.io/<owner>/turbo-ea/backend:${TURBO_EA_TAG}`, exposed only inside the compose network
+- **frontend**: pulled from `ghcr.io/<owner>/turbo-ea/frontend:${TURBO_EA_TAG}`, exposed only inside the compose network
+- **nginx**: pulled from `ghcr.io/<owner>/turbo-ea/nginx:${TURBO_EA_TAG}`, public entrypoint on `HOST_PORT`, proxies `/api`, `/mcp`, `/drawio`, and `/` to internal services
+- **mcp-server**: optional profile `mcp`, pulled from `ghcr.io/<owner>/turbo-ea/mcp-server:${TURBO_EA_TAG}`
 - **ollama**: optional profile `ai`, upstream's own `ollama/ollama:<release>` pinned in `docker-compose.yml` (not built, signed or scanned by this repo; bumped by Dependabot's `docker-compose` entry), persisted in the `ollama_models` volume
 
 ### dev/docker-compose.dev.yml
@@ -52,8 +53,8 @@ docker compose -f docker-compose.yml -f dev/docker-compose.dev.yml up -d --build
 ```
 
 ### GHCR Image Publishing (opt-in)
-- **Workflow**: `.github/workflows/docker-publish.yml` builds and pushes multi-arch (`amd64` + `arm64`) images to `ghcr.io/vincentmakes/turbo-ea/{db,backend,frontend,nginx,mcp-server}` on every push to `main`, every `v*.*.*` tag, and on `workflow_dispatch`. **Every image compose pulls from GHCR is in that matrix, and `backend/tests/services/test_publish_image_matrix.py` pins the three image matrices** (`docker-publish.yml`, `security-scan-published.yml`, `trivy-reconcile.yml`) to the set of images compose references. **The optional Ollama container is deliberately not one of them.** For two years it was a thin non-root patch over `ollama/ollama:latest` republished by hand — unsigned, unscanned, never tagged with the release version compose asked for. 2.154.0 put it in the matrix, and the very first publish filed 75 Trivy alerts, all Go-toolchain CVEs inside the upstream `ollama` binary that nothing in this repo can rebuild (0.35.0 was upstream's newest release). Signing and scanning someone else's binary bought nothing but an allowlist to maintain, so 2.155.0 dropped the image: `docker-compose.yml` pins upstream's own `ollama/ollama:<release>`, Dependabot's `docker-compose` entry bumps it, the container runs as root the way upstream ships it (the image has no `/models` directory for Docker to seed a volume from, so a non-root user could not write a fresh one) with capabilities dropped and no host port, and `OLLAMA_MODELS=/models` keeps the volume path so models pulled before 2.155.0 stay in place. The same test forbids an `AS ollama` stage from coming back and requires every non-GHCR image compose pulls to carry a release tag.
-- **Compose usage**: production uses `docker compose pull && docker compose up -d`. Development uses the `dev/docker-compose.dev.yml` file to build from source. Pin a version with `TURBO_EA_TAG=0.70.x` (defaults to `latest`).
+- **Workflow**: `.github/workflows/docker-publish.yml` builds and pushes multi-arch (`amd64` + `arm64`) images to `ghcr.io/<owner>/turbo-ea/{db,backend,frontend,nginx,mcp-server}` on every push to `main`, every `v*.*.*` tag, and on `workflow_dispatch`. **Every image compose pulls from GHCR is in that matrix, and `backend/tests/services/test_publish_image_matrix.py` pins the three image matrices** (`docker-publish.yml`, `security-scan-published.yml`, `trivy-reconcile.yml`) to the set of images compose references. **The optional Ollama container is deliberately not one of them.** For two years it was a thin non-root patch over `ollama/ollama:latest` republished by hand — unsigned, unscanned, never tagged with the release version compose asked for. 2.154.0 put it in the matrix, and the very first publish filed 75 Trivy alerts, all Go-toolchain CVEs inside the upstream `ollama` binary that nothing in this repo can rebuild (0.35.0 was upstream's newest release). Signing and scanning someone else's binary bought nothing but an allowlist to maintain, so 2.155.0 dropped the image: `docker-compose.yml` pins upstream's own `ollama/ollama:<release>`, Dependabot's `docker-compose` entry bumps it, the container runs as root the way upstream ships it (the image has no `/models` directory for Docker to seed a volume from, so a non-root user could not write a fresh one) with capabilities dropped and no host port, and `OLLAMA_MODELS=/models` keeps the volume path so models pulled before 2.155.0 stay in place. The same test forbids an `AS ollama` stage from coming back and requires every non-GHCR image compose pulls to carry a release tag.
+- **Compose usage**: production uses `docker compose pull && docker compose up -d`. Development uses the `dev/docker-compose.dev.yml` file to build from source. Pin a version with `TURBO_EA_TAG=<x.y.z>` (defaults to `latest`).
 - **Auth**: workflow uses the auto-provisioned `GITHUB_TOKEN` (`packages: write`); no extra secrets needed. Packages must be flipped to **Public** in GitHub package settings on first publish.
 
 ### Ollama Service (opt-in)
@@ -72,9 +73,9 @@ All container images are built from one `/Dockerfile` at the repo root using mul
 | `backend` | `python:3.12-alpine` | Final backend image — copies `VERSION` + `backend/`, runs as non-root `appuser` |
 | `db` | `postgres:18-alpine` | Bundled PostgreSQL image |
 | `frontend-build` | `node:24-alpine` | Vite build of `frontend/` (consumes `VERSION` for `__APP_VERSION__`) |
-| `drawio` | `alpine/git:v2.47.2` | Clones jgraph/drawio v32.6.9 |
+| `drawio` | `alpine/git:v2.54.0` | Clones jgraph/drawio v32.6.9 |
 | `frontend` | `nginx:1.30.6-alpine` | Final frontend image — built SPA + DrawIO assets, runs as non-root `nginx` |
-| `nginx` | `nginx:1.30.6-alpine` | Edge nginx (public entrypoint, proxies `/api`, `/mcp`, `/drawio`, `/`) — config from `nginx/default.conf` |
+| `nginx` | `nginx:1.30.6-alpine` | Edge nginx (public entrypoint, proxies `/api`, `/mcp`, `/drawio`, `/`) — server blocks generated by the entrypoint in `/Dockerfile` into the placeholder template `nginx/default.conf` |
 | `mcp-server` | `python:3.12-alpine` | MCP server image — copies `VERSION` + `mcp-server/`, runs as non-root |
 
 ### Nginx Configuration
