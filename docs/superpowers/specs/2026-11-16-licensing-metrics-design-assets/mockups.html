@@ -1,0 +1,326 @@
+<title>Licensing Metrics Mockups</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout concept: one tab per screen of the spec, each drawn like the Turbo EA app (top bar, MUI-like surfaces). All figures are examples. */
+:root {
+  --bg: #f4f6f9; --surface: #ffffff; --fg: #1d2530; --muted: #5d6877; --line: #dbe1e8;
+  --nav: #1b1c33; --primary: #1976d2; --primary-bg: #e3f0fc;
+  --ok: #2e7d32; --ok-bg: #e5f3e6; --warn: #b85c00; --warn-bg: #fdeed9; --bad: #c62828; --bad-bg: #fbe3e2; --none: #5d6877; --none-bg: #e8ecf0;
+  --lic: #cfd8e3; --act: #1976d2; --act2: #00897b; --act3: #8e24aa;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12161c; --surface: #1a2029; --fg: #e6eaf0; --muted: #98a3b3; --line: #2c3541;
+    --nav: #0e0f1f; --primary: #6db3f2; --primary-bg: #172a3e;
+    --ok: #7fd085; --ok-bg: #17301a; --warn: #f0b46a; --warn-bg: #3a2810; --bad: #f2a29c; --bad-bg: #3b1a18; --none: #98a3b3; --none-bg: #252d38;
+    --lic: #3a4656; --act: #6db3f2; --act2: #4db6a8; --act3: #c58ad9; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12161c; --surface: #1a2029; --fg: #e6eaf0; --muted: #98a3b3; --line: #2c3541;
+  --nav: #0e0f1f; --primary: #6db3f2; --primary-bg: #172a3e;
+  --ok: #7fd085; --ok-bg: #17301a; --warn: #f0b46a; --warn-bg: #3a2810; --bad: #f2a29c; --bad-bg: #3b1a18; --none: #98a3b3; --none-bg: #252d38;
+  --lic: #3a4656; --act: #6db3f2; --act2: #4db6a8; --act3: #c58ad9; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 14px; line-height: 1.5; padding-block: 20px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1100px; margin: 0 auto; display: grid; gap: 16px; }
+h1 { font-size: 22px; margin: 0; text-wrap: balance; }
+.lead { margin: 4px 0 0; color: var(--muted); max-width: 75ch; }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.tabs button { font: inherit; padding: 6px 14px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); border-radius: 6px; cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
+.tabs button:focus-visible, .row-h:focus-visible, .bar-row:focus-visible, .tile:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.screen[hidden] { display: none; }
+.note { color: var(--muted); font-size: 12px; margin: 0 0 8px; max-width: 80ch; }
+.app { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.topbar { background: var(--nav); color: #fff; padding: 10px 16px; display: flex; gap: 16px; align-items: center; font-size: 13px; flex-wrap: wrap; }
+.topbar b { font-size: 15px; letter-spacing: .02em; }
+.topbar span { opacity: .8; }
+.topbar .on { opacity: 1; font-weight: 600; }
+.body { padding: 16px; display: grid; gap: 14px; }
+.h2 { font-size: 17px; font-weight: 700; margin: 0; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.field { border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; min-width: 150px; background: var(--surface); }
+.field small { display: block; color: var(--muted); font-size: 11px; }
+.toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.toggle span { padding: 6px 12px; border-right: 1px solid var(--line); }
+.toggle span:last-child { border-right: 0; }
+.toggle .on { background: var(--primary); color: #fff; font-weight: 600; }
+.tt { display: flex; align-items: center; gap: 10px; color: var(--ok); font-weight: 600; }
+.tt .rail { flex: 1; height: 4px; background: var(--ok-bg); border-radius: 2px; position: relative; min-width: 120px; }
+.tt .rail i { position: absolute; right: 18%; top: -5px; width: 14px; height: 14px; border-radius: 50%; background: var(--ok); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.tile { border: 1px solid var(--line); border-left-width: 4px; border-radius: 6px; padding: 10px 12px; cursor: pointer; background: var(--surface); transition: opacity .15s; }
+.tile b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
+.tile.ok { border-left-color: var(--ok); } .tile.warn { border-left-color: var(--warn); } .tile.bad { border-left-color: var(--bad); } .tile.none { border-left-color: var(--none); }
+.dim { opacity: .35; }
+.chip { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.chip.ok { background: var(--ok-bg); color: var(--ok); } .chip.warn { background: var(--warn-bg); color: var(--warn); } .chip.bad { background: var(--bad-bg); color: var(--bad); } .chip.none { background: var(--none-bg); color: var(--none); }
+.list { border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.item + .item { border-top: 1px solid var(--line); }
+.row-h { display: flex; gap: 12px; align-items: center; padding: 9px 12px; cursor: pointer; min-width: 0; }
+.row-h .ic { width: 22px; height: 22px; border-radius: 5px; background: var(--primary-bg); color: var(--primary); display: grid; place-items: center; font-size: 11px; font-weight: 700; flex: none; }
+.row-h .logo { width: 28px; height: 28px; border-radius: 6px; background: var(--none-bg); display: grid; place-items: center; font-weight: 700; font-size: 12px; color: var(--muted); flex: none; }
+.row-h .nm { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.row-h .al { color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
+.row-h .sp { flex: 1; }
+.row-h .car { color: var(--muted); width: 14px; text-align: center; flex: none; }
+.detail { padding: 6px 12px 14px 56px; display: grid; gap: 10px; background: var(--bg); border-top: 1px dashed var(--line); }
+.grp { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+.bar-row { display: grid; grid-template-columns: 150px 1fr 120px; gap: 10px; align-items: center; cursor: pointer; border-radius: 4px; padding: 2px 4px; transition: opacity .15s; }
+.bar-row .lb { font-size: 13px; overflow-wrap: anywhere; }
+.track { position: relative; height: 20px; }
+.track .l { position: absolute; left: 0; top: 0; height: 20px; background: var(--lic); border-radius: 3px; }
+.track .a { position: absolute; left: 0; top: 5px; height: 10px; border-radius: 2px; }
+.track .mk { position: absolute; top: -2px; width: 0; height: 24px; border-left: 1px dashed var(--muted); }
+.bar-row .v { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+.hist { border: 1px solid var(--line); border-radius: 6px; padding: 12px; background: var(--surface); }
+.hist svg { width: 100%; height: auto; display: block; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.legend i { display: inline-block; width: 12px; height: 8px; margin-right: 5px; border-radius: 2px; }
+.scroller { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { color: var(--muted); font-weight: 600; font-size: 12px; }
+.dlg { max-width: 520px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: 0 8px 28px rgba(0,0,0,.18); padding: 16px; display: grid; gap: 12px; }
+.mrow { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; display: grid; gap: 6px; }
+.mrow .t { display: flex; gap: 8px; align-items: center; padding-left: 14px; flex-wrap: wrap; }
+.mrow .t.arch { opacity: .55; text-decoration: line-through; }
+.mrow .head { display: flex; gap: 8px; align-items: center; font-weight: 700; flex-wrap: wrap; }
+.btn { border: 1px solid var(--primary); color: var(--primary); border-radius: 6px; padding: 4px 12px; font-size: 13px; font-weight: 600; background: transparent; }
+.btn.fill { background: var(--primary); color: #fff; }
+.mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12px; background: var(--none-bg); padding: 1px 6px; border-radius: 4px; }
+.cols2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.box { border: 1px solid var(--line); border-radius: 6px; padding: 12px; background: var(--surface); min-width: 0; }
+.box h3 { margin: 0 0 6px; font-size: 14px; }
+.box p, .box li { margin: 0 0 4px; font-size: 13px; color: var(--muted); }
+.box ol, .box ul { margin: 0; padding-left: 18px; }
+@media (max-width: 560px) { .bar-row { grid-template-columns: 1fr; } .bar-row .v { text-align: left; } .detail { padding-left: 12px; } }
+@media (prefers-reduced-motion: reduce) { .tile, .bar-row { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Licensing metrics: mockups</h1>
+    <p class="lead">Indicative screens for <code>2026-11-16-licensing-metrics-design.md</code>. Every name and number is an example. Click the tabs, the tiles, a card row and a bar.</p>
+  </header>
+  <div class="tabs" role="tablist" aria-label="Screens" id="tabs"></div>
+
+  <!-- 1. Admin -->
+  <section class="screen" id="s-admin" hidden>
+    <p class="note">Metamodel configuration → Card types → <b>License types</b>. One dialog manages metrics and the types of each metric. Nothing is deleted: archived items cannot be chosen for new cells but keep showing in the years that hold data for them.</p>
+    <div class="dlg" role="group" aria-label="License types dialog">
+      <div class="row"><span class="h2">License types</span><span class="sp" style="flex:1"></span><button class="btn fill" type="button">Add metric</button></div>
+      <div class="mrow">
+        <div class="head">Users <span class="mono">users</span><span class="chip ok">active</span><span style="flex:1"></span><button class="btn" type="button">Add type</button></div>
+        <div class="t">Business <span class="mono">business</span><span class="chip ok">active</span><span style="flex:1"></span><button class="btn" type="button">Archive</button></div>
+        <div class="t">Admin <span class="mono">admin</span><span class="chip ok">active</span><span style="flex:1"></span><button class="btn" type="button">Archive</button></div>
+        <div class="t arch">Guest <span class="mono">guest</span><span class="chip none">archived</span><span style="flex:1"></span><button class="btn" type="button">Restore</button></div>
+      </div>
+      <div class="mrow">
+        <div class="head">Installations <span class="mono">installations</span><span class="chip ok">active</span><span style="flex:1"></span><button class="btn" type="button">Add type</button></div>
+        <div class="t">Prod <span class="mono">prod</span><span class="chip ok">active</span><span style="flex:1"></span><button class="btn" type="button">Archive</button></div>
+        <div class="t">No-Prod <span class="mono">no_prod</span><span class="chip ok">active</span><span style="flex:1"></span><button class="btn" type="button">Archive</button></div>
+      </div>
+      <div class="mrow">
+        <div class="head">Cores <span class="mono">cores</span><span class="chip none">archived</span><span style="flex:1"></span><button class="btn" type="button">Restore</button></div>
+      </div>
+      <p class="note" style="margin:0">The key is fixed when a metric or type is created. A type belongs to one metric and never moves.</p>
+    </div>
+  </section>
+
+  <!-- 2. Card -->
+  <section class="screen" id="s-card" hidden>
+    <p class="note">Card → Licensing, for the year picked in the Time Travel row. One horizontal bar per pair that has a cell in that year, grouped by metric (users are only compared with users). Licensed is the wide pale bar, Actual the narrow solid one. Click a bar to see its history; the other bars dim.</p>
+    <div class="app">
+      <div class="topbar"><b>Turbo EA</b><span>Dashboard</span><span>Inventory</span><span class="on">Reports</span><span>PPM</span></div>
+      <div class="body">
+        <div class="row"><span class="h2">SAP S/4HANA</span><span class="chip warn">Approaching</span><span style="flex:1"></span><button class="btn fill" type="button">Add licensing</button></div>
+        <div class="tt"><span>Time Travel FY26 - Current</span><div class="rail"><i></i></div></div>
+        <div id="card-bars"></div>
+        <div class="hist" id="card-hist" hidden></div>
+        <p class="note" style="margin:0">Add licensing opens a dialog: first the metric (Users, Installations), then a type of that metric. It writes the cell in the selected year only.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. Report -->
+  <section class="screen" id="s-report" hidden>
+    <p class="note">Reports → Licensing. No chart on load: tiles and one collapsible row per card. Click a tile to keep only that status (the others dim). Open a card to see its bars; click a bar to open that pair's history below the list.</p>
+    <div class="app">
+      <div class="topbar"><b>Turbo EA</b><span>Dashboard</span><span>Inventory</span><span class="on">Reports</span><span>PPM</span></div>
+      <div class="body">
+        <div class="row"><span class="h2">Licensing</span><span style="flex:1"></span><button class="btn" type="button">Import</button></div>
+        <div class="row">
+          <div><small style="color:var(--muted);font-size:11px">Card type</small><div class="toggle"><span class="on">Application</span><span class="on">IT Component</span></div></div>
+          <div class="field"><small>Metric</small>All metrics</div>
+          <div class="field"><small>License type</small>All license types</div>
+          <div class="field"><small>Group by</small>—</div>
+        </div>
+        <div class="tt"><span>Time Travel FY26 - Current</span><div class="rail"><i></i></div></div>
+        <div class="tiles" id="tiles"></div>
+        <div class="list" id="rlist"></div>
+        <div class="hist" id="rep-hist" hidden></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Import -->
+  <section class="screen" id="s-import" hidden>
+    <p class="note">Import preview. The metric must be one of the catalogue and the type one of that metric. A row with a value creates the cell, and so the pair, in that year. Both values empty: the row is skipped.</p>
+    <div class="app"><div class="body">
+      <div class="row"><span class="h2">Import licenses</span><span class="chip ok">4 rows ready</span><span class="chip warn">3 skipped</span></div>
+      <div class="scroller"><table>
+        <thead><tr><th>Row</th><th>Component</th><th>Metric: Type</th><th>Year</th><th>Licensed</th><th>Actual</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>2</td><td>SAP S/4HANA</td><td>Users: Business</td><td>FY26</td><td>1200</td><td>1130</td><td><span class="chip ok">will write</span></td></tr>
+          <tr><td>3</td><td>SAP S/4HANA</td><td>Users: Admin</td><td>FY26</td><td>40</td><td>38</td><td><span class="chip ok">will write</span></td></tr>
+          <tr><td>4</td><td>Oracle DB</td><td>Installations: Prod</td><td>FY26</td><td>12</td><td>14</td><td><span class="chip ok">will write</span></td></tr>
+          <tr><td>5</td><td>Oracle DB</td><td>Installations: Prod</td><td>FY25</td><td>12</td><td>11</td><td><span class="chip ok">will write</span></td></tr>
+          <tr><td>6</td><td>Oracle DB</td><td>Users: Prod</td><td>FY26</td><td>5</td><td></td><td><span class="chip bad">skipped</span> type not in metric</td></tr>
+          <tr><td>7</td><td>Oracle DB</td><td>Seats: Admin</td><td>FY26</td><td>5</td><td></td><td><span class="chip bad">skipped</span> invalid metric</td></tr>
+          <tr><td>8</td><td>Legacy CRM</td><td>Users: Business</td><td>FY26</td><td></td><td></td><td><span class="chip none">skipped</span> nothing to write</td></tr>
+        </tbody></table></div>
+    </div></div>
+  </section>
+
+  <!-- 5. Workspace transfer -->
+  <section class="screen" id="s-transfer" hidden>
+    <p class="note">Workspace transfer. What a bundle holds and what happens when an older bundle is imported.</p>
+    <div class="cols2">
+      <div class="box"><h3>New bundle, sheet order</h3>
+        <ol>
+          <li><span class="mono">LicenseMetrics</span> key, label, sort_order, archived, translations</li>
+          <li><span class="mono">LicenseTypes</span> the same plus <span class="mono">metric_key</span>, natural key (metric_key, key)</li>
+          <li><span class="mono">CardLicenses</span> unchanged: items keyed by metric key and type key, no ids</li>
+        </ol>
+        <p style="margin-top:8px">Card types no longer carry <span class="mono">licensingModel</span>. The format version does not change.</p>
+      </div>
+      <div class="box"><h3>Older bundle (no LicenseMetrics, no metric_key)</h3>
+        <ul>
+          <li>Default metrics Users and Installations are created if the target lacks them.</li>
+          <li>Each type goes to the metric(s) under which the bundle's own CardLicenses has data for it; used under both, it is duplicated; no data, attached to both.</li>
+          <li>Derived rows never change <span class="mono">archived</span> or <span class="mono">sort_order</span> of a row the target already has.</li>
+          <li><span class="mono">licensingModel</span> is removed from the card types and from the card attributes; never re-added.</li>
+          <li>A cell whose metric or type exists in neither bundle nor target is skipped and reported.</li>
+        </ul>
+      </div>
+      <div class="box"><h3>Target already has a catalogue</h3>
+        <ul><li>Rows are matched by natural key. The same type key under another metric is a different row.</li><li>A new-format bundle into an older instance is not refused; the older instance ignores the sheets it does not know.</li></ul>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+var SCREENS = [["admin","License types"],["card","Card section"],["report","Report"],["import","Import"],["transfer","Workspace transfer"]];
+var DATA = {
+  year: "FY26",
+  pairs: [
+    {g:"Users", k:"Users: Business", lic:1200, act:1130, c:"--act", h:[[ "FY22",900,880],["FY23",1000,990],["FY24",1100,1010],["FY25",1150,1090],["FY26",1200,1130],["FY27",1250,null]]},
+    {g:"Users", k:"Users: Admin", lic:40, act:38, c:"--act2", h:[["FY22",30,25],["FY23",35,33],["FY24",40,36],["FY25",40,37],["FY26",40,38],["FY27",40,null]]},
+    {g:"Installations", k:"Installations: Prod", lic:12, act:14, c:"--act3", h:[["FY22",8,7],["FY23",10,9],["FY24",12,11],["FY25",12,11],["FY26",12,14],["FY27",14,null]]},
+    {g:"Installations", k:"Installations: No-Prod", lic:20, act:11, c:"--act", h:[["FY22",20,9],["FY23",20,10],["FY24",20,12],["FY25",20,11],["FY26",20,11],["FY27",20,null]]}
+  ]
+};
+function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e;}
+function pct(p){return Math.round(p.act/p.lic*100);}
+function st(p){var q=p.act/p.lic;return q>1?["bad","Over-licensed"]:q>=0.8?["warn","Approaching"]:["ok","Compliant"];}
+function bars(host,pairs,sel,onPick){
+  host.textContent="";var g="";var max={};
+  pairs.forEach(function(p){max[p.g]=Math.max(max[p.g]||0,p.lic,p.act);});
+  pairs.forEach(function(p){
+    if(p.g!==g){g=p.g;host.appendChild(el("div","grp",g));}
+    var r=el("div","bar-row");r.tabIndex=0;r.setAttribute("role","button");
+    if(sel&&sel!==p.k)r.classList.add("dim");
+    r.appendChild(el("div","lb",p.k.split(": ")[1]));
+    var tr=el("div","track");var l=el("div","l");l.style.width=(p.lic/max[p.g]*100)+"%";
+    var a=el("div","a");a.style.width=(p.act/max[p.g]*100)+"%";a.style.background="var("+p.c+")";
+    tr.appendChild(l);tr.appendChild(a);r.appendChild(tr);
+    var s=st(p);var v=el("div","v");v.appendChild(document.createTextNode(p.act+" / "+p.lic+"  "+pct(p)+"% "));var ch=el("span","chip "+s[0],s[1]);ch.style.marginLeft="4px";v.appendChild(ch);r.appendChild(v);
+    function go(){onPick(sel===p.k?null:p.k);}
+    r.addEventListener("click",go);r.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();go();}});
+    host.appendChild(r);
+  });
+}
+function history(host,p){
+  host.textContent="";host.hidden=!p;if(!p)return;
+  host.appendChild(el("div","h2",p.k+" · history"));
+  var W=640,H=190,L=44,B=28,T=12,n=p.h.length,top=0;
+  p.h.forEach(function(r){top=Math.max(top,r[1],r[2]||0);});top=Math.ceil(top*1.15);
+  var ns="http://www.w3.org/2000/svg",svg=document.createElementNS(ns,"svg");svg.setAttribute("viewBox","0 0 "+W+" "+H);svg.setAttribute("role","img");svg.setAttribute("aria-label","History of "+p.k);
+  function mk(t,a,tx){var e=document.createElementNS(ns,t);for(var k in a)e.setAttribute(k,a[k]);if(tx!=null)e.textContent=tx;svg.appendChild(e);return e;}
+  [0,0.5,1].forEach(function(f){var y=H-B-(H-B-T)*f;mk("line",{x1:L,x2:W-8,y1:y,y2:y,stroke:"var(--line)"});mk("text",{x:L-6,y:y+4,"text-anchor":"end","font-size":11,fill:"var(--muted)"},Math.round(top*f));});
+  var bw=(W-L-8)/n;
+  p.h.forEach(function(r,i){
+    var x=L+i*bw+bw*0.15,w=bw*0.7,h1=(H-B-T)*r[1]/top;
+    mk("rect",{x:x,y:H-B-h1,width:w,height:h1,fill:"var(--lic)",rx:3});
+    if(r[2]!=null){var h2=(H-B-T)*r[2]/top;mk("rect",{x:x+w*0.2,y:H-B-h2,width:w*0.6,height:h2,fill:"var("+p.c+")",rx:2});}
+    mk("text",{x:x+w/2,y:H-10,"text-anchor":"middle","font-size":11,fill:i===4?"var(--fg)":"var(--muted)","font-weight":i===4?700:400},r[0]+(i===5?" Fcst":""));
+  });
+  host.appendChild(svg);
+  var lg=el("div","legend");lg.innerHTML='<span><i style="background:var(--lic)"></i>Licensed</span><span><i style="background:var('+p.c+')"></i>Actual</span><span>Forecast has Licensed only</span>';host.appendChild(lg);
+}
+/* card section */
+(function(){
+  var sel=null,host=document.getElementById("card-bars"),hh=document.getElementById("card-hist");
+  function draw(){bars(host,DATA.pairs,sel,function(k){sel=k;draw();history(hh,DATA.pairs.filter(function(p){return p.k===k})[0]||null);});}
+  draw();
+})();
+/* report */
+var CARDS = [
+  {t:"A",n:"SAP S/4HANA",a:"S4H",s:"warn",pairs:DATA.pairs},
+  {t:"A",n:"Oracle DB",a:"ORA-PRD",s:"bad",pairs:[DATA.pairs[2],DATA.pairs[3]]},
+  {t:"I",n:"Windows Server 2022",a:"WS22",s:"ok",pairs:[{g:"Installations",k:"Installations: Prod",lic:60,act:41,c:"--act3",h:DATA.pairs[2].h}]},
+  {t:"A",n:"Legacy CRM",a:"CRM",s:"none",pairs:[]}
+];
+var LABEL = {ok:"Compliant",warn:"Approaching",bad:"Over-licensed",none:"No actual data"};
+(function(){
+  var filt=null,open={1:true},selPair=null,selCard=null;
+  var tiles=document.getElementById("tiles"),list=document.getElementById("rlist"),hist=document.getElementById("rep-hist");
+  function draw(){
+    tiles.textContent="";
+    ["ok","warn","bad","none"].forEach(function(k){
+      var n=CARDS.filter(function(c){return c.s===k;}).length;
+      var t=el("div","tile "+k);t.tabIndex=0;t.setAttribute("role","button");
+      if(filt&&filt!==k)t.classList.add("dim");
+      t.appendChild(el("span","",LABEL[k]));t.appendChild(el("b","",String(n)));
+      function go(){filt=filt===k?null:k;draw();}
+      t.addEventListener("click",go);t.addEventListener("keydown",function(e){if(e.key==="Enter"){go();}});
+      tiles.appendChild(t);
+    });
+    list.textContent="";
+    CARDS.forEach(function(c,i){
+      if(filt&&c.s!==filt)return;
+      var it=el("div","item");var h=el("div","row-h");h.tabIndex=0;h.setAttribute("role","button");h.setAttribute("aria-expanded",open[i]?"true":"false");
+      h.appendChild(el("span","car",open[i]?"▾":"▸"));
+      h.appendChild(el("span","ic",c.t));h.appendChild(el("span","logo",c.n.slice(0,2).toUpperCase()));
+      h.appendChild(el("span","nm",c.n));h.appendChild(el("span","al",c.a));h.appendChild(el("span","sp"));h.lastChild.style.flex="1";
+      h.appendChild(el("span","chip "+c.s,LABEL[c.s]));
+      function tg(){open[i]=!open[i];draw();}
+      h.addEventListener("click",tg);h.addEventListener("keydown",function(e){if(e.key==="Enter"){tg();}});
+      it.appendChild(h);
+      if(open[i]){
+        var d=el("div","detail");
+        if(!c.pairs.length){d.appendChild(el("div","note","No pair in the selected year. Add licensing from the card, or import rows."));}
+        else{var b=el("div");bars(b,c.pairs,selCard===i?selPair:null,function(k){selPair=k;selCard=k?i:null;draw();});d.appendChild(b);}
+        it.appendChild(d);
+      }
+      list.appendChild(it);
+    });
+    var p=selCard!=null?CARDS[selCard].pairs.filter(function(x){return x.k===selPair;})[0]:null;
+    history(hist,p||null);
+  }
+  draw();
+})();
+/* tabs */
+(function(){
+  var host=document.getElementById("tabs");
+  function show(id){SCREENS.forEach(function(s){document.getElementById("s-"+s[0]).hidden=s[0]!==id;});
+    Array.prototype.forEach.call(host.children,function(b){b.setAttribute("aria-selected",b.dataset.id===id?"true":"false");});}
+  SCREENS.forEach(function(s){var b=el("button","",s[1]);b.type="button";b.dataset.id=s[0];b.setAttribute("role","tab");b.addEventListener("click",function(){show(s[0]);});host.appendChild(b);});
+  show("report");
+})();
+</script>
