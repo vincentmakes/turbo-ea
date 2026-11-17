@@ -165,6 +165,8 @@
   "dependencyCreateFailed": "Failed to create dependency",
   "dependencyDeleteFailed": "Failed to remove dependency",
   "dependencyCycleError": "This dependency would create a cycle",
+  "ganttMoveFailed": "The item could not be moved",
+  "ganttMoveWhileSorted": "Clear the column sort to reorder items.",
   "dependencyDuplicateError": "This dependency already exists",
   "confirmDeleteDependency": "Delete this dependency arrow?",
   "today": "Today",

@@ -251,6 +251,7 @@ Interager med Gantt-diagrammet ved hjælp af:
 
 - **Klik på en kolonneoverskrift** (Titel, %, Ansvarlig, Startdato eller Slutdato) for at sortere listen efter den: stigende ved første klik, faldende ved andet og tilbage til den planlagte rækkefølge ved tredje. En pil ved siden af overskriften viser den aktive sortering. Elementer sorteres blandt deres søskende, så en indlejret arbejdspakke eller opgave bliver under sin overordnede. Elementer uden ansvarlig eller uden egen dato kommer sidst i begge retninger, og **+**-rækken forbliver nederst. Valget huskes i din browser. På en telefon, hvor kun Titel og % vises, kan kun disse to sorteres
 - **Træk** bjælker for at om-planlægge elementer
+- **Træk en række i opgavelisten** for at omarrangere den: slip den over eller under en anden række for at placere den dér, eller på en arbejdspakke for at flytte den ind i den, til sidst. Slippes den lige under en åben arbejdspakke, bliver den pakkens første element; slippes den på en opgave, kommer den lige efter den opgave. Arbejdspakker bliver altid over de opgaver, der har samme overordnede, så en opgave, der slippes ved siden af en arbejdspakke, havner øverst blandt den overordnedes opgaver. En milepæl kan ikke indeholde andre elementer. Mens listen er sorteret efter en kolonneoverskrift, skal du først rydde sorteringen.
 - **Skift størrelse** af bjælkeenderne for at ændre varighed (1-dags granularitet)
 - **Højreklik** for kontekstmenu (rediger, tilføj opgave, markér udført, slet)
 - **Today-knap** for at rulle til den aktuelle dato

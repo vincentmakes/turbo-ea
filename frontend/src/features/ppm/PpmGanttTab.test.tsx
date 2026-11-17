@@ -4,7 +4,8 @@
  * hands the chart (rows, scale, column width) and what each of the chart's
  * callbacks does — the dates a drag writes, the progress a drag sets, the
  * dependency a handle-to-handle drag creates and the "Align start" that
- * follows it — and what a click on a column header does to the rows' order.
+ * follows it, the move a row dropped in the task list saves — and what a
+ * click on a column header does to the rows' order.
  * Bar geometry and arrows need a real layout and are covered by the browser
  * suite.
  */
@@ -29,6 +30,9 @@ interface GanttProps {
   ) => Promise<void>;
   onChangeExpandState: (task: Task) => void;
   onDoubleClick: (task: Task) => void;
+  onMoveTaskBefore: (target: TaskOrEmpty, moved: TaskOrEmpty) => Promise<void>;
+  onMoveTaskAfter: (target: TaskOrEmpty, moved: TaskOrEmpty) => Promise<void>;
+  onMoveTaskInside: (parent: Task, childs: readonly TaskOrEmpty[]) => void;
 }
 const gantt: { props: GanttProps | null } = { props: null };
 
@@ -522,5 +526,102 @@ describe("PpmGanttTab — chart colours", () => {
     const thumb = `::-webkit-scrollbar-thumb{background:${alpha(palette.common.white, 0.2)}!important;`;
     if (mode === "dark") expect(rules).toContain(thumb);
     else expect(rules).not.toContain("scrollbar-thumb");
+  });
+});
+
+describe("PpmGanttTab — dragging a row in the task list", () => {
+  const plan = () =>
+    serve(
+      [wbs("w1"), wbs("w2")],
+      [task("t1", { wbs_id: "w1" }), task("t2", { wbs_id: "w1" }), task("t3")],
+    );
+  const moves = () => mockApi.callsOf("post", `${base}/gantt/move`);
+
+  it("saves a row dropped after a sibling and reloads the rows", async () => {
+    plan();
+    mockApi.on("post", `${base}/gantt/move`, null);
+    await renderTab();
+    const before = reloads();
+    await act(() => gantt.props!.onMoveTaskAfter(row("task-t2"), row("task-t1")));
+    expect(moves().map((c) => c.body)).toEqual([
+      { kind: "task", id: "t1", parent_wbs_id: "w1", position: 1 },
+    ]);
+    expect(reloads()).toBe(before + 1);
+  });
+
+  it("saves a row dropped before a row under another parent", async () => {
+    plan();
+    mockApi.on("post", `${base}/gantt/move`, null);
+    await renderTab();
+    await act(() => gantt.props!.onMoveTaskBefore(row("task-t1"), row("task-t3")));
+    expect(moves()[0].body).toEqual({
+      kind: "task",
+      id: "t3",
+      parent_wbs_id: "w1",
+      position: 0,
+    });
+  });
+
+  it("saves a row dropped inside a work package", async () => {
+    plan();
+    mockApi.on("post", `${base}/gantt/move`, null);
+    await renderTab();
+    await act(async () => gantt.props!.onMoveTaskInside(row("wbs-w1"), [row("wbs-w2")]));
+    await waitFor(() =>
+      expect(moves().map((c) => c.body)).toEqual([
+        { kind: "wbs", id: "w2", parent_wbs_id: "w1", position: 0 },
+      ]),
+    );
+  });
+
+  it("places a row dropped onto a task after that task", async () => {
+    plan();
+    mockApi.on("post", `${base}/gantt/move`, null);
+    await renderTab();
+    await act(async () => gantt.props!.onMoveTaskInside(row("task-t1"), [row("task-t3")]));
+    await waitFor(() =>
+      expect(moves().map((c) => c.body)).toEqual([
+        { kind: "task", id: "t3", parent_wbs_id: "w1", position: 1 },
+      ]),
+    );
+  });
+
+  it("places a row dropped below an open work package first inside it, beside it once folded", async () => {
+    plan();
+    mockApi.on("post", `${base}/gantt/move`, null);
+    await renderTab();
+    await act(() => gantt.props!.onMoveTaskAfter(row("wbs-w1"), row("task-t3")));
+    expect(moves()[0].body).toEqual({ kind: "task", id: "t3", parent_wbs_id: "w1", position: 0 });
+    act(() => gantt.props!.onChangeExpandState(row("wbs-w1")));
+    await act(() => gantt.props!.onMoveTaskAfter(row("wbs-w1"), row("wbs-w2")));
+    expect(moves()).toHaveLength(1);
+  });
+
+  it("saves nothing for a drop that leaves the row in place", async () => {
+    plan();
+    await renderTab();
+    const before = reloads();
+    await act(() => gantt.props!.onMoveTaskBefore(row("task-t2"), row("task-t1")));
+    expect(moves()).toEqual([]);
+    expect(reloads()).toBe(before);
+  });
+
+  it("saves nothing while a column sort is on, and says why", async () => {
+    localStorage.setItem("ppm.gantt.sort", "title:asc");
+    plan();
+    await renderTab();
+    await act(() => gantt.props!.onMoveTaskAfter(row("task-t2"), row("task-t1")));
+    expect(await screen.findByText("Clear the column sort to reorder items.")).toBeInTheDocument();
+    expect(moves()).toEqual([]);
+  });
+
+  it("says when the move failed and reloads the stored order", async () => {
+    plan();
+    mockApi.fail("post", `${base}/gantt/move`, 400);
+    await renderTab();
+    const before = reloads();
+    await act(() => gantt.props!.onMoveTaskAfter(row("task-t2"), row("task-t1")));
+    expect(await screen.findByText("The item could not be moved")).toBeInTheDocument();
+    expect(reloads()).toBe(before + 1);
   });
 });

@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.205.1] - 2026-11-17
+
+### Fixed
+- Dragging a row in the project Gantt's task list now saves it: reorder work packages and tasks among their siblings, or move them into another work package or to the top level.
+
 ## [2.205.0] - 2026-11-15
 
 ### Added

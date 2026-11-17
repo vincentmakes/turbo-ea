@@ -171,6 +171,8 @@
   "dependencyCreateFailed": "Не удалось создать зависимость",
   "dependencyDeleteFailed": "Не удалось удалить зависимость",
   "dependencyCycleError": "Эта зависимость создаст цикл",
+  "ganttMoveFailed": "Не удалось переместить элемент",
+  "ganttMoveWhileSorted": "Снимите сортировку по столбцу, чтобы изменить порядок элементов.",
   "dependencyDuplicateError": "Эта зависимость уже существует",
   "confirmDeleteDependency": "Удалить эту стрелку зависимости?",
   "today": "Сегодня",

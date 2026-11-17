@@ -165,6 +165,8 @@
   "dependencyCreateFailed": "创建依赖关系失败",
   "dependencyDeleteFailed": "删除依赖关系失败",
   "dependencyCycleError": "此依赖关系会形成循环",
+  "ganttMoveFailed": "无法移动该项目",
+  "ganttMoveWhileSorted": "请先清除列排序，再重新排列项目。",
   "dependencyDuplicateError": "此依赖关系已存在",
   "confirmDeleteDependency": "删除此依赖关系箭头？",
   "today": "今天",
