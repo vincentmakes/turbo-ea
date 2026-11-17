@@ -76,6 +76,10 @@ def test_priority_over_approaching_no_data_compliant():
     assert card_status([_m("compliant")]) == "compliant"
 
 
+def test_card_with_no_metric_is_no_actual_data():
+    assert card_status([]) == "no_actual_data"
+
+
 def test_worst_pct_is_the_highest_type_pct_and_no_licence_wins():
     m = metric_result(
         "users",

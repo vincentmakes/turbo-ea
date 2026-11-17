@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.card_type import CardType
 from app.models.card_type_category import CardTypeCategory
 from app.models.cost_item_type import CostItemType
+from app.models.license_metric import LicenseMetric
 from app.models.license_type import LicenseType
 from app.models.role import Role
 
@@ -116,14 +117,30 @@ async def cost_event_summaries(
 
 
 async def license_type_labels(db: AsyncSession, keys: Iterable[str | None]) -> dict[str, str]:
-    """``{license type key: label}`` for ``keys``, in one query (none when empty)."""
+    """``{key: label}`` for ``keys``, in one query (none when empty). A ``metric:type`` key reads
+    "Metric / Type"; an old event's plain key reads the type's label."""
     wanted = _wanted(keys)
     if not wanted:
         return {}
+    types = [k.partition(":")[2] or k for k in wanted]
     rows = await db.execute(
-        select(LicenseType.key, LicenseType.label).where(LicenseType.key.in_(wanted))
+        select(LicenseType.metric_key, LicenseType.key, LicenseType.label).where(
+            LicenseType.key.in_(types)
+        )
     )
-    return {key: label for key, label in rows.all() if label}
+    found = rows.all()
+    metric_labels = dict(
+        (
+            await db.execute(
+                select(LicenseMetric.key, LicenseMetric.label).where(
+                    LicenseMetric.key.in_({m for m, _, _ in found})
+                )
+            )
+        ).all()
+    )
+    pairs = {f"{m}:{k}": f"{metric_labels.get(m, m)} / {label}" for m, k, label in found if label}
+    plain = {k: label for _, k, label in found if label}
+    return {k: pairs.get(k) or plain.get(k) for k in wanted if pairs.get(k) or plain.get(k)}
 
 
 async def license_event_summaries(

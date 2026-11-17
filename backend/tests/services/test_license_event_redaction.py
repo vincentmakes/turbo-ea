@@ -31,7 +31,7 @@ def _legacy_diff():
 
 
 def _types_list():
-    return {"fiscal_year": 2026, "changes": {cl.LIST_KEY: {"old": [], "new": ["admin"]}}}
+    return {"fiscal_year": 2026, "changes": {cl.LIST_KEY: {"old": [], "new": ["users:admin"]}}}
 
 
 async def _card_and_user(db, permissions):
@@ -80,9 +80,10 @@ async def test_cost_keys_redacted_for_a_license_only_reader(db):
 async def test_summary_names_year_and_labels(db):
     await create_license_type(db, "admin", "Admin users")
     await create_license_type(db, "prod", "Production")
+    await create_license_type(db, "admin", "Admin devices", metric_key="installations")
     full = {
         "fiscal_year": 2026,
-        "changes": {cl.LIST_KEY: {"old": ["admin"], "new": ["admin", "prod"]}},
+        "changes": {cl.LIST_KEY: {"old": ["users:admin"], "new": ["users:admin", "users:prod"]}},
     }
     redacted = {"fiscal_year": 2026, "changes": {}}
     out = await red.add_cost_summaries(
@@ -93,10 +94,28 @@ async def test_summary_names_year_and_labels(db):
     )
     assert (
         out[0]["summary"]
-        == "Licensing of ERP changed (FY26; license types: Admin users, Production)"
+        == "Licensing of ERP changed (FY26; license types: Users / Admin users, Users / Production)"
     )
     assert out[1]["summary"] == "Licensing of ERP changed (FY26)"
     assert "summary" not in full
+
+
+async def test_summary_resolves_the_pair_not_the_bare_key(db):
+    await create_license_type(db, "admin", "Admin users")
+    await create_license_type(db, "admin", "Admin devices", metric_key="installations")
+    payload = {"changes": {cl.LIST_KEY: {"old": [], "new": ["installations:admin"]}}}
+    out = await red.add_cost_summaries(db, "ERP", [Event(event_type=cl.LICENSE_EVENT)], [payload])
+    assert (
+        out[0]["summary"]
+        == "Licensing of ERP changed (license types: Installations / Admin devices)"
+    )
+
+
+async def test_summary_still_reads_an_old_event_with_plain_keys(db):
+    await create_license_type(db, "admin", "Admin users")
+    old = {"fiscal_year": 2026, "changes": {cl.LIST_KEY: {"old": [], "new": ["admin"]}}}
+    out = await red.add_cost_summaries(db, "ERP", [Event(event_type=cl.LICENSE_EVENT)], [old])
+    assert out[0]["summary"] == "Licensing of ERP changed (FY26; license types: Admin users)"
 
 
 def test_rollback_declines_license_event():

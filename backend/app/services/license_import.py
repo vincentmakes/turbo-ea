@@ -35,7 +35,6 @@ from app.services.card_licenses import (
     items_by_card,
     merge_cell,
     publish_change,
-    type_order,
 )
 from app.services.card_read_scope import CardReadScope
 from app.services.fiscal_year import (
@@ -43,6 +42,7 @@ from app.services.fiscal_year import (
     current_fiscal_year,
     get_fiscal_year_start,
 )
+from app.services.license_catalogue import load_catalogue
 from app.services.workspace_io.bundle import _check_declared_sizes
 
 HEADERS = ("component", "metric", "license type", "year", "licensed", "actual")
@@ -282,8 +282,7 @@ async def apply_import(db: AsyncSession, user_id: uuid.UUID, plan: ImportPlan) -
     """Write the plan: ``merge_cell`` per cell, one event per card-year. Returns the cell count.
     Flushes only; a ``LicenseError`` (the catalogue changed since the plan) propagates."""
     sm = await get_fiscal_year_start(db)
-    archived = await license_types.archived_keys(db)
-    order = await type_order(db)
+    catalogue = await load_catalogue(db)
     ids = {card_id for card_id, _ in plan.cells}
     cards = (
         {c.id: c for c in (await db.execute(select(Card).where(Card.id.in_(ids)))).scalars()}
@@ -293,7 +292,7 @@ async def apply_import(db: AsyncSession, user_id: uuid.UUID, plan: ImportPlan) -
     written = 0
     for (card_id, year), cells in plan.cells.items():
         card = cards[card_id]
-        old = await get_year(db, card, year, sm, order)
+        old = await get_year(db, card, year, sm, catalogue)
         for metric, key, licensed, actual in cells:
             await merge_cell(
                 db,
@@ -303,9 +302,9 @@ async def apply_import(db: AsyncSession, user_id: uuid.UUID, plan: ImportPlan) -
                 key,
                 licensed=licensed,
                 actual=actual,
-                archived=archived,
+                catalogue=catalogue,
                 start_month=sm,
             )
             written += 1
-        await publish_change(db, card, user_id, year, old, start_month=sm, order=order)
+        await publish_change(db, card, user_id, year, old, start_month=sm, catalogue=catalogue)
     return written

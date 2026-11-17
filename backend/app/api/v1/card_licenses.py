@@ -18,11 +18,10 @@ from app.schemas.licenses import (
     ImportIssueOut,
     ImportResultOut,
     LicenseCellWrite,
-    LicenseTypeOut,
     YearLicensesDetailOut,
     YearLicensesOut,
 )
-from app.services import card_licenses, license_import, license_types
+from app.services import card_licenses, license_import
 from app.services.attachment_upload import read_validated_upload
 from app.services.card_licenses import LICENSE_TYPES, LicenseError, YearLicenses
 from app.services.card_read_scope import require_card_readable
@@ -38,9 +37,9 @@ from app.services.permission_service import PermissionService
 router = APIRouter(tags=["card-licenses"])
 
 _KEY = Path(pattern=KEY_PATTERN)
-_METRIC = Path(pattern="^(users|installations)$")
+_METRIC = Path(pattern=KEY_PATTERN)  # the catalogue decides which metric keys exist
 _FY = Path(ge=MIN_FISCAL_YEAR, le=MAX_FISCAL_YEAR)
-_STATUS = {"archived_type": 409}
+_STATUS = {"archived_type": 409, "archived_metric": 409}
 
 
 async def _load_card(db: AsyncSession, card_uuid: uuid.UUID) -> Card:
@@ -95,15 +94,10 @@ async def get_card_licenses(
     user: User = Depends(get_current_user),
 ):
     card = await _load_for_read(db, user, card_id)
-    catalogue = await license_types.list_items(db)
-    years = await card_licenses.get_window(
-        db, card, await get_fiscal_year_start(db), [r.key for r in catalogue]
-    )
+    years = await card_licenses.get_window(db, card, await get_fiscal_year_start(db))
     return CardLicensesOut(
         can_edit=await PermissionService.can_edit_licenses(db, user, card.id),
-        licensing_model=card_licenses.model_of(card),
         years=[_out(y) for y in years],
-        catalogue=[LicenseTypeOut(**license_types.serialize(r)) for r in catalogue],
     )
 
 

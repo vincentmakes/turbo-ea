@@ -42,7 +42,10 @@ async def env(db):
         db.add(UserFavorite(user_id=who.id, card_id=card.id))
     for et, data in (
         ("card.costs_updated", {"changes": {"costTotalAnnual": {"old": 1, "new": 2}}}),
-        ("card.licenses_updated", {"changes": {"license_types": {"old": [], "new": ["admin"]}}}),
+        (
+            "card.licenses_updated",
+            {"changes": {"license_types": {"old": [], "new": ["users:admin"]}}},
+        ),
         (
             "card.updated",
             {

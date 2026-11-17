@@ -84,6 +84,7 @@ class YearLicensesOut(BaseModel):
     fallback_from: int | None
     metrics: list[MetricResultOut]
     status: str | None
+    pair_keys: list[str]
 
 
 class YearLicensesDetailOut(YearLicensesOut):
@@ -92,9 +93,7 @@ class YearLicensesDetailOut(YearLicensesOut):
 
 class CardLicensesOut(BaseModel):
     can_edit: bool
-    licensing_model: list[str]
     years: list[YearLicensesOut]
-    catalogue: list[LicenseTypeOut]
 
 
 class ReportTypeCell(BaseModel):

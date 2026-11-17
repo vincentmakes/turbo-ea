@@ -11,7 +11,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-METRICS: tuple[str, ...] = ("users", "installations")
 APPROACHING = 0.8
 
 TypeStatus = Literal["over", "approaching", "compliant", "no_data"]
@@ -89,5 +88,5 @@ def metric_result(metric: str, cells: dict[str, dict], order: list[str]) -> Metr
 
 
 def card_status(metrics: list[MetricResult]) -> MetricStatus:
-    """The highest-priority status among the metrics (``compliant`` for none)."""
-    return max((m.status for m in metrics), key=_PRIORITY.__getitem__, default="compliant")
+    """The highest-priority status among the metrics (``no_actual_data`` for none)."""
+    return max((m.status for m in metrics), key=_PRIORITY.__getitem__, default="no_actual_data")

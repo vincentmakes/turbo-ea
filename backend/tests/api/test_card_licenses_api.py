@@ -74,8 +74,9 @@ async def test_get_window_and_can_edit_for_admin(client, env):
     assert r.status_code == 200
     body = r.json()
     assert len(body["years"]) == 6 and body["can_edit"] is True
-    assert body["licensing_model"] == ["users", "installations"]
-    assert {c["key"] for c in body["catalogue"]} == {"admin", "old"}
+    assert (
+        "licensing_model" not in body and "catalogue" not in body
+    )  # GET /metamodel/license-metrics
     assert body["years"][-1]["is_forecast"] and body["years"][-1]["status"] is None
 
 
@@ -129,7 +130,10 @@ async def test_put_success_and_event_stored(client, db, env):
     assert users["status"] == "approaching"
     evs = [e for e in (await db.execute(select(Event))).scalars() if e.card_id == env["card"].id]
     assert len(evs) == 1 and evs[0].data["source"] == "card_licenses"
-    assert evs[0].data["changes"]["license_types"] == {"old": [], "new": ["admin"]}
+    assert evs[0].data["changes"]["license_types"] == {"old": [], "new": ["users:admin"]}
+    assert (
+        await client.get(url(env["card"], f"/{CUR}"), headers=auth_headers(env["admin"]))
+    ).json()["pair_keys"] == ["users:admin"]
     assert "10" not in str(evs[0].data["changes"])
     year = await client.get(url(env["card"], f"/{CUR}"), headers=auth_headers(env["admin"]))
     assert year.json()["can_edit"] is True
@@ -157,6 +161,14 @@ async def test_put_rejects_fractional_count_422(client, env):
 
 async def test_put_409_archived_new_type(client, env):
     assert (await put(client, env, key="old")).status_code == 409
+
+
+async def test_put_409_archived_metric_new_cell(client, db, env):
+    from app.services import license_metrics
+
+    await license_metrics.update_item(db, "users", archived=True)
+    r = await put(client, env)
+    assert r.status_code == 409 and r.json()["detail"] == "archived_metric"
 
 
 async def test_member_without_card_edit_stakeholder_403(client, env):

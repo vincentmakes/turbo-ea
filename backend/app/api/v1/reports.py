@@ -84,7 +84,6 @@ from app.services.kpi_snapshot_service import (
 )
 from app.services.license_report import PLATFORM_TYPE
 from app.services.license_report import build_report as build_license_report
-from app.services.license_status import METRICS as LICENSE_METRICS
 from app.services.lifecycle import current_lifecycle_phase, is_live_in_fiscal_year
 from app.services.permission_service import PermissionService
 from app.services.portfolio_payload import (
@@ -1070,6 +1069,7 @@ async def app_portfolio(
 #: Hard ceiling on the number of relation edges the matrix will serialise. A
 #: grid past this point is unreadable anyway; the response flags the cut so the
 #: UI can tell the user to narrow the filter rather than quietly lying.
+_LEGACY_METRICS = ("users", "installations")  # until the report reads the catalogue
 MATRIX_MAX_EDGES = 200_000
 
 #: Sentinel meaning "this attribute has no value", mirroring EMPTY_FILTER_KEY in
@@ -1681,7 +1681,7 @@ async def licensing_report(
     await PermissionService.require_permission(db, user, "licenses.view")
     if type not in LICENSE_TYPES:
         raise HTTPException(400, f"Unknown license card type: {type!r}")
-    if metric not in LICENSE_METRICS:
+    if metric not in _LEGACY_METRICS:
         raise HTTPException(400, f"Unknown metric: {metric!r}")
     fy_start = await get_fiscal_year_start(db)
     cur = current_fiscal_year(fy_start)
