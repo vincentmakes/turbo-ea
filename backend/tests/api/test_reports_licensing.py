@@ -1,6 +1,8 @@
-"""GET /reports/licensing: gate, rows, statuses, trend, the Platform aggregate."""
+"""GET /reports/licensing: gate, rows across metrics, statuses, the Platform aggregate."""
 
 from __future__ import annotations
+
+from collections import Counter
 
 import pytest
 from sqlalchemy import select, update
@@ -13,6 +15,7 @@ from tests.conftest import (
     auth_headers,
     create_card,
     create_card_type,
+    create_license_metric,
     create_license_type,
     create_relation,
     create_relation_type,
@@ -22,7 +25,6 @@ from tests.conftest import (
 
 CUR = current_fiscal_year(1)
 FORECAST = CUR + 1
-SCHEMA = [{"section": "S", "fields": [{"key": "licensingModel", "type": "multiple_select"}]}]
 HIDE_ITC = {"member": {"inventory.view": False}}
 
 
@@ -39,7 +41,12 @@ async def env(db):
         "viewer": await create_user(db, email="v@lic-rep.com", role="viewer"),
     }
     for key in ("Application", "ITComponent"):
-        await create_card_type(db, key=key, label=key, fields_schema=SCHEMA)
+        await create_card_type(
+            db,
+            key=key,
+            label=key,
+            fields_schema=[{"section": "S", "fields": [{"key": "tier", "type": "single_select"}]}],
+        )
     await create_card_type(db, key="Platform", label="Platform")
     await create_relation_type(
         db, key="relPlatformToApp", source_type_key="Platform", target_type_key="Application"
@@ -47,23 +54,27 @@ async def env(db):
     await create_relation_type(
         db, key="relPlatformToITC", source_type_key="Platform", target_type_key="ITComponent"
     )
+    await create_license_metric(db, "users", "Users", sort_order=1)
+    await create_license_metric(db, "installations", "Installations", sort_order=2)
     await create_license_type(db, "admin", "Admin")
     await create_license_type(db, "dev", "Dev")
+    await create_license_type(db, "seat", "Seat", metric_key="installations")
     return users
 
 
-async def _card(db, name, card_type="Application", model=("users",), **kw):
-    return await create_card(
-        db, card_type=card_type, name=name, attributes={"licensingModel": list(model)}, **kw
-    )
+async def _card(db, name, card_type="Application", **kw):
+    return await create_card(db, card_type=card_type, name=name, **kw)
 
 
-async def _row(db, card, year, **cells):
+async def _row(db, card, year, **metrics):
     db.add(
         CardLicense(
             card_id=card.id,
             fiscal_year=year,
-            items={"users": {k: {"licensed": v[0], "actual": v[1]} for k, v in cells.items()}},
+            items={
+                m: {k: {"licensed": v[0], "actual": v[1]} for k, v in cells.items()}
+                for m, cells in metrics.items()
+            },
         )
     )
     await db.flush()
@@ -77,7 +88,7 @@ async def _hide_itc(db):
 
 
 async def _get(client, env, user="admin", **params):
-    params = {"type": "Application", "metric": "users", **params}
+    params = {"card_types": "Application", **params}
     return await client.get(
         "/api/v1/reports/licensing", params=params, headers=auth_headers(env[user])
     )
@@ -88,27 +99,58 @@ async def test_requires_licenses_view(client, db, env):
     assert (await _get(client, env, "member")).status_code == 200
 
 
-async def test_rows_statuses_and_trend(client, db, env):
+async def test_rows_statuses_and_tiles_match_the_rows(client, db, env):
     over = await _card(db, "Over")
     near = await _card(db, "Near")
     nodata = await _card(db, "NoData")
-    await _row(db, over, CUR, admin=(10, 12))
-    await _row(db, near, CUR, admin=(10, 9))
-    await _row(db, nodata, CUR, admin=(10, None))
-    await _row(db, over, CUR - 1, admin=(10, 5))
+    await _card(db, "Bare")
+    await _row(db, over, CUR, users={"admin": (10, 12)})
+    await _row(db, near, CUR, users={"admin": (10, 9)})
+    await _row(db, nodata, CUR, users={"admin": (10, None)})
     body = (await _get(client, env)).json()
-    assert body["fiscal_year"] == body["current_fiscal_year"] == CUR
-    assert body["metric"] == "users" and body["aggregate"] is None
+    assert body["fiscal_year"] == body["current_fiscal_year"] == CUR and body["aggregate"] is None
     assert {r["name"]: r["status"] for r in body["rows"]} == {
         "Over": "over",
         "Near": "approaching",
         "NoData": "no_actual_data",
+        "Bare": "no_actual_data",
     }
-    assert [t["fiscal_year"] for t in body["trend"]] == list(range(CUR - 4, CUR + 2))
-    assert body["trend"][3]["cards"][str(over.id)]["admin"] == {"licensed": 10, "actual": 5}
-    assert [t["key"] for t in body["license_types"]] == ["admin", "dev"]
+    assert Counter(r["status"] for r in body["rows"]) == {
+        "over": 1,
+        "approaching": 1,
+        "no_actual_data": 2,
+    }
+    assert "trend" not in body and "license_types" not in body
+
+
+async def test_metric_and_license_type_filters(client, db, env):
+    a = await _card(db, "A")
+    b = await _card(db, "B")
+    await _row(db, a, CUR, users={"admin": (10, 4)})
+    await _row(db, b, CUR, installations={"seat": (5, 5)})
+    only_inst = (await _get(client, env, metric="installations")).json()
+    assert [r["name"] for r in only_inst["rows"]] == ["B"]
+    assert only_inst["metrics_in_year"] == ["users", "installations"]
+    pair = (await _get(client, env, license_type="installations:seat")).json()
+    assert [r["name"] for r in pair["rows"]] == ["B"]
+
+
+async def test_two_card_types_in_one_report(client, db, env):
+    await _card(db, "App")
+    await _card(db, "Itc", card_type="ITComponent")
+    body = (await _get(client, env, card_types="Application,ITComponent")).json()
+    assert sorted((r["name"], r["type"]) for r in body["rows"]) == [
+        ("App", "Application"),
+        ("Itc", "ITComponent"),
+    ]
+
+
+async def test_past_year_lists_only_cards_with_a_row(client, db, env):
+    a = await _card(db, "Row")
+    await _card(db, "NoRow")
+    await _row(db, a, CUR - 1, users={"admin": (10, 5)})
     past = (await _get(client, env, fiscal_year=CUR - 1)).json()
-    assert [r["name"] for r in past["rows"]] == ["Over"]
+    assert [r["name"] for r in past["rows"]] == ["Row"]
 
 
 async def test_forecast_year_refused(client, db, env):
@@ -117,21 +159,30 @@ async def test_forecast_year_refused(client, db, env):
     assert (await _get(client, env, fiscal_year=CUR - 5)).status_code == 400
 
 
-async def test_bad_metric_and_type_refused(client, db, env):
-    assert (await _get(client, env, metric="seats")).status_code == 400
-    assert (await _get(client, env, type="Platform")).status_code == 400
-    assert (await _get(client, env, group_by="field:nope")).status_code == 400
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"metric": "seats"},
+        {"license_type": "admin"},
+        {"license_type": "users:nope"},
+        {"card_types": "Platform"},
+        {"card_types": "Application,Application"},
+        {"card_types": ""},
+        {"group_by": "field:nope"},
+    ],
+)
+async def test_bad_parameters_refused(client, db, env, params):
+    assert (await _get(client, env, **params)).status_code == 400
 
 
-async def test_hidden_card_omitted_from_rows_and_trend(client, db, env):
+async def test_hidden_card_omitted_from_rows(client, db, env):
     hidden = await _card(db, "Secret", card_type="ITComponent")
-    await _row(db, hidden, CUR, admin=(1, 1))
+    await _row(db, hidden, CUR, users={"admin": (1, 1)})
     await _hide_itc(db)
-    admin_body = (await _get(client, env, type="ITComponent")).json()
+    admin_body = (await _get(client, env, card_types="ITComponent")).json()
     assert [r["name"] for r in admin_body["rows"]] == ["Secret"]  # non-vacuity
-    body = (await _get(client, env, "member", type="ITComponent")).json()
-    assert body["rows"] == []
-    assert all(t["cards"] == {} for t in body["trend"])
+    body = (await _get(client, env, "member", card_types="ITComponent")).json()
+    assert body["rows"] == [] and body["metrics_in_year"] == [] and body["types_in_year"] == []
     assert "Secret" not in str(body) and str(hidden.id) not in str(body)
 
 
@@ -152,7 +203,7 @@ async def test_card_id_of_another_type_refused(client, db, env):
 async def test_single_card_pick(client, db, env):
     a = await _card(db, "A")
     await _card(db, "B")
-    await _row(db, a, CUR, admin=(10, 5))
+    await _row(db, a, CUR, users={"admin": (10, 5)})
     body = (await _get(client, env, card_id=str(a.id))).json()
     assert [r["name"] for r in body["rows"]] == ["A"] and body["aggregate"] is None
     assert body["rows"][0]["status"] == "compliant"
@@ -167,15 +218,13 @@ async def test_platform_aggregate_counts_once_and_applies_the_report_rules(clien
     await create_relation(db, type_key="relPlatformToITC", source_id=plat.id, target_id=itc.id)
     archived = await _card(db, "Arch", status="ARCHIVED")
     retired = await _card(db, "Retired", lifecycle={"endOfLife": f"{CUR - 1}-12-31"})
-    other_metric = await _card(db, "Installs", model=("installations",))
-    for c in (archived, retired, other_metric):
+    for c in (archived, retired):
         await create_relation(db, type_key="relPlatformToApp", source_id=plat.id, target_id=c.id)
-    for c in (both, itc, archived, retired, other_metric):
-        await _row(db, c, CUR, admin=(10, 4))
+    for c in (both, itc, archived, retired):
+        await _row(db, c, CUR, users={"admin": (10, 4)})
     body = (await _get(client, env, card_id=str(plat.id))).json()
     assert body["aggregate"] == {"id": str(plat.id), "name": "Plat", "type": "Platform"}
     assert sorted(r["name"] for r in body["rows"]) == ["Both", "Itc"]
-    assert body["trend"][4]["cards"].keys() == {str(both.id), str(itc.id)}
 
 
 async def test_platform_aggregate_hides_unreadable_linked_cards(client, db, env):
@@ -194,19 +243,19 @@ async def test_platform_aggregate_past_year_needs_a_stored_row(client, db, env):
     b = await _card(db, "NoRow")
     for c in (a, b):
         await create_relation(db, type_key="relPlatformToApp", source_id=plat.id, target_id=c.id)
-    await _row(db, a, CUR - 2, admin=(3, 3))
+    await _row(db, a, CUR - 2, users={"admin": (3, 3)})
     body = (await _get(client, env, card_id=str(plat.id), fiscal_year=CUR - 2)).json()
     assert [r["name"] for r in body["rows"]] == ["Row"]
 
 
-async def test_platform_aggregate_has_no_status(client, db, env):
+async def test_platform_aggregate_rows_have_no_status(client, db, env):
     plat = await create_card(db, card_type="Platform", name="Plat")
     a = await _card(db, "A")
     await create_relation(db, type_key="relPlatformToApp", source_id=plat.id, target_id=a.id)
-    await _row(db, a, CUR, admin=(1, 5))
+    await _row(db, a, CUR, users={"admin": (1, 5)})
     row = (await _get(client, env, card_id=str(plat.id))).json()["rows"][0]
     assert row["status"] is None
-    assert row["by_type"]["admin"]["status"] == "over"  # the per-type figures stay
+    assert row["by_metric"][0]["types"][0]["status"] == "over"  # the per-type figures stay
 
 
 async def test_fiscal_year_start_april_names_the_current_year(client, db, env):
@@ -214,7 +263,7 @@ async def test_fiscal_year_start_april_names_the_current_year(client, db, env):
     await db.flush()
     cur4 = current_fiscal_year(4)
     a = await _card(db, "A")
-    await _row(db, a, cur4, admin=(10, 5))
+    await _row(db, a, cur4, users={"admin": (10, 5)})
     body = (await _get(client, env)).json()
     assert body["current_fiscal_year"] == cur4 and body["fiscal_year"] == cur4
     assert body["fiscal_year_start"] == 4
@@ -225,15 +274,8 @@ async def test_fiscal_year_start_april_names_the_current_year(client, db, env):
 
 async def test_cost_attributes_are_stripped_without_costs_view(client, db, env):
     ct = (await db.execute(select(CardType).where(CardType.key == "Application"))).scalar_one()
-    ct.fields_schema = SCHEMA + [{"section": "C", "fields": [{"key": "price", "type": "cost"}]}]
-    await create_card(
-        db,
-        card_type="Application",
-        name="A",
-        attributes={"licensingModel": ["users"], "price": 99},
-    )
+    ct.fields_schema = [{"section": "C", "fields": [{"key": "price", "type": "cost"}]}]
+    await create_card(db, card_type="Application", name="A", attributes={"price": 99})
     await db.flush()
-    member = (await _get(client, env, "member")).json()["rows"][0]["attributes"]
-    assert "price" not in member and member["licensingModel"] == ["users"]
-    admin = (await _get(client, env)).json()["rows"][0]["attributes"]
-    assert admin["price"] == 99
+    assert "price" not in (await _get(client, env, "member")).json()["rows"][0]["attributes"]
+    assert (await _get(client, env)).json()["rows"][0]["attributes"]["price"] == 99

@@ -1069,7 +1069,6 @@ async def app_portfolio(
 #: Hard ceiling on the number of relation edges the matrix will serialise. A
 #: grid past this point is unreadable anyway; the response flags the cut so the
 #: UI can tell the user to narrow the filter rather than quietly lying.
-_LEGACY_METRICS = ("users", "installations")  # until the report reads the catalogue
 MATRIX_MAX_EDGES = 200_000
 
 #: Sentinel meaning "this attribute has no value", mirroring EMPTY_FILTER_KEY in
@@ -1668,21 +1667,25 @@ async def cost_sankey(
 async def licensing_report(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
-    type: str = Query("Application"),
-    metric: str = Query("users"),
+    card_types: str = Query("Application,ITComponent"),
+    metric: str | None = Query(None),
+    license_type: str | None = Query(None),
     fiscal_year: int | None = Query(None, ge=MIN_FISCAL_YEAR, le=MAX_FISCAL_YEAR),
     group_by: str | None = Query(None),
     card_id: str | None = Query(None),
 ):
-    """Licensed vs actual per license type: the rows of ``fiscal_year`` (default the current
-    one; the Forecast year is not selectable) and the six-year trend, for the cards of one type,
-    one picked card or the cards linked to a picked Platform (see ``services/license_report``).
+    """One row per card across the license metrics for ``fiscal_year`` (default the current
+    one; the Forecast year is not selectable). ``metric`` / ``license_type`` (a ``metric:type``
+    pair) narrow the selection; a picked Platform ``card_id`` aggregates its linked cards (see
+    ``services/license_report``).
     """
     await PermissionService.require_permission(db, user, "licenses.view")
-    if type not in LICENSE_TYPES:
-        raise HTTPException(400, f"Unknown license card type: {type!r}")
-    if metric not in _LEGACY_METRICS:
-        raise HTTPException(400, f"Unknown metric: {metric!r}")
+    try:
+        type_keys = parse_type_keys(card_types)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    if not set(type_keys) <= LICENSE_TYPES:
+        raise HTTPException(400, f"Unknown license card type: {card_types!r}")
     fy_start = await get_fiscal_year_start(db)
     cur = current_fiscal_year(fy_start)
     fy = cur if fiscal_year is None else fiscal_year
@@ -1704,9 +1707,12 @@ async def licensing_report(
         .scalars()
         .all()
     }
-    type_def = license_card_types.get(type)
     field_keys = {
-        f["key"] for s in (type_def.fields_schema if type_def else None) or [] for f in s["fields"]
+        f["key"]
+        for key in type_keys
+        for s in (license_card_types[key].fields_schema if key in license_card_types else None)
+        or []
+        for f in s["fields"]
     }
     hidden: dict[str, frozenset[str]] = {}
     if not await PermissionService.has_app_permission(db, user, "costs.view"):
@@ -1718,8 +1724,9 @@ async def licensing_report(
         return await build_license_report(
             db,
             read_scope,
-            type_key=type,
+            card_types=type_keys,
             metric=metric,
+            license_type=license_type,
             fy=fy,
             group_by=parse_group_by(group_by, field_keys),
             card_id=picked,

@@ -1,10 +1,10 @@
 """The licensing report: which cards count in which fiscal year, and what they show.
 
-One rule for the rows of a year, every trend bar, the Platform aggregate and a single picked
-card (as ``cost_report`` is for costs): a candidate card is ACTIVE, readable (``CardReadScope``)
-and tracks the metric in ``licensingModel``; it counts in the CURRENT year when it is live in it
-(``is_live_in_fiscal_year``), in any other year (the Forecast included) when it has a stored row.
-Two queries load the cards' rows over all six years; there is no per-card query.
+One rule for the rows of a year, the Platform aggregate and a single picked card (as
+``cost_report`` is for costs): a candidate card is ACTIVE and readable (``CardReadScope``); it
+counts in the CURRENT year when it is live in it (``is_live_in_fiscal_year``), in any other year
+when it has a stored row. A row is one card across metrics; a metric / license-type selection
+keeps only the cards with a cell of it. Statuses come from ``license_status``, never from here.
 """
 
 from __future__ import annotations
@@ -16,16 +16,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
 from app.models.relation import Relation
-from app.services import license_types, yearly_rows
+from app.services import yearly_rows
 from app.services.card_licenses import LICENSE_TYPES, items_by_card
+from app.services.card_logo_service import logo_updated_map
 from app.services.card_read_scope import CardReadScope
 from app.services.cost_grouping import GroupBy, assign_groups
-from app.services.fiscal_year import (
-    FISCAL_YEAR_LOOKAHEAD,
-    current_fiscal_year,
-    get_fiscal_year_start,
-)
-from app.services.license_status import metric_result
+from app.services.fiscal_year import current_fiscal_year, get_fiscal_year_start
+from app.services.license_catalogue import LicenseCatalogue, load_catalogue
+from app.services.license_status import MetricResult, card_status, metric_result
 from app.services.lifecycle import is_live_in_fiscal_year
 
 PLATFORM_RELATIONS = ("relPlatformToApp", "relPlatformToITC")
@@ -52,18 +50,16 @@ async def _platform_card_ids(db: AsyncSession, platform_id: uuid.UUID) -> set[uu
 async def candidate_cards(
     db: AsyncSession,
     read_scope: CardReadScope,
-    metric: str,
     *,
-    type_key: str | None = None,
+    type_keys: list[str] | None = None,
     platform_id: uuid.UUID | None = None,
     card_id: uuid.UUID | None = None,
 ) -> list[Card]:
-    """ACTIVE, readable cards whose ``licensingModel`` holds ``metric``: of a type, linked to a
-    Platform (either direction, each card once) or the one card."""
+    """ACTIVE, readable Application / IT Component cards: of the types, linked to a Platform
+    (either direction, each card once) or the one card."""
     stmt = select(Card).where(
         Card.status == "ACTIVE",
         Card.type.in_(LICENSE_TYPES),
-        Card.attributes.contains({"licensingModel": [metric]}),
         *read_scope.where(Card, mode="module"),
     )
     if card_id is not None:
@@ -71,114 +67,148 @@ async def candidate_cards(
     elif platform_id is not None:
         stmt = stmt.where(Card.id.in_(await _platform_card_ids(db, platform_id)))
     else:
-        stmt = stmt.where(Card.type == type_key)
+        stmt = stmt.where(Card.type.in_(type_keys or []))
     return list((await db.execute(stmt.order_by(Card.name, Card.id))).scalars().all())
 
 
-def _by_type(result) -> dict[str, dict]:
-    return {
-        t.key: {
-            "licensed": t.licensed,
-            "actual": t.actual,
-            "pct": t.pct,
-            "no_licence": t.no_licence,
-            "status": t.status,
+def _validate_selection(
+    catalogue: LicenseCatalogue, metric: str | None, license_type: str | None
+) -> tuple[str | None, str | None]:
+    """``(metric, (type_metric, type_key) | None)``; raises ``ValueError`` for what the
+    catalogue lacks (a bare type key included: the pair is the only unambiguous form)."""
+    if metric is not None and catalogue.metric(metric) is None:
+        raise ValueError(f"Unknown metric: {metric!r}")
+    if license_type is None:
+        return metric, None
+    pair = tuple(license_type.partition(":")[::2])
+    if not pair[1] or catalogue.type(*pair) is None:
+        raise ValueError(f"Unknown license type (expected metric:type): {license_type!r}")
+    return metric, pair
+
+
+def _select(items: dict, metric: str | None, pair: tuple[str, str] | None) -> dict:
+    """The cells of ``items`` inside the selection (all of them when nothing is picked)."""
+    out: dict[str, dict] = {}
+    for m, cells in items.items():
+        if metric is not None and m != metric:
+            continue
+        kept = {k: c for k, c in cells.items() if pair is None or (m, k) == pair}
+        if kept:
+            out[m] = kept
+    return out
+
+
+def _metric_results(items: dict, catalogue: LicenseCatalogue) -> list[MetricResult]:
+    order = catalogue.metric_order()
+    keys = [m for m in order if m in items] + sorted(m for m in items if m not in order)
+    return [metric_result(m, items[m], catalogue.type_order(m)) for m in keys]
+
+
+def _by_metric(results: list[MetricResult]) -> list[dict]:
+    return [
+        {
+            "metric": r.metric,
+            "status": r.status,
+            "worst_pct": r.worst_pct,
+            "licensed_total": r.licensed_total,
+            "actual_total": r.actual_total,
+            "types": [
+                {
+                    "key": t.key,
+                    "licensed": t.licensed,
+                    "actual": t.actual,
+                    "pct": t.pct,
+                    "no_licence": t.no_licence,
+                    "status": t.status,
+                }
+                for t in r.types
+            ],
         }
-        for t in result.types
-    }
+        for r in results
+    ]
 
 
 async def build_report(
     db: AsyncSession,
     read_scope: CardReadScope,
     *,
-    type_key: str,
-    metric: str,
+    card_types: list[str],
+    metric: str | None,
+    license_type: str | None,
     fy: int,
     group_by: GroupBy | None,
     card_id: uuid.UUID | None,
     hidden_attribute_keys: dict[str, frozenset[str]] | None = None,
 ) -> dict:
-    """Rows of ``fy`` plus the six-year trend. ``card_id`` is an Application / IT Component
-    (the one card) or a Platform (the cards linked to it: no status, ``type_key`` and
-    ``group_by`` ignored). Raises ``ValueError`` when the grouping is refused."""
+    """One row per card for ``fy``. ``card_id`` is an Application / IT Component (the one card)
+    or a Platform (the cards linked to it: no status, ``card_types`` and ``group_by`` ignored).
+    ``license_type`` is a ``metric:type`` pair. Raises ``ValueError`` when the grouping or the
+    selection is refused."""
     sm = await get_fiscal_year_start(db)
     cur = current_fiscal_year(sm)
-    forecast = cur + FISCAL_YEAR_LOOKAHEAD
-    years = list(yearly_rows.window_years(cur))
+    catalogue = await load_catalogue(db)
+    sel_metric, pair = _validate_selection(catalogue, metric, license_type)
 
     aggregate = None
     if card_id is not None:
         picked = (await db.execute(select(Card).where(Card.id == card_id))).scalar_one()
         if picked.type == PLATFORM_TYPE:
             aggregate = {"id": str(picked.id), "name": picked.name, "type": PLATFORM_TYPE}
-            cards = await candidate_cards(db, read_scope, metric, platform_id=picked.id)
+            cards = await candidate_cards(db, read_scope, platform_id=picked.id)
         else:
-            cards = await candidate_cards(db, read_scope, metric, card_id=picked.id)
+            cards = await candidate_cards(db, read_scope, card_id=picked.id)
     else:
-        cards = await candidate_cards(db, read_scope, metric, type_key=type_key)
+        cards = await candidate_cards(db, read_scope, type_keys=card_types)
 
-    data = await items_by_card(db, [c.id for c in cards], years, sm)
-    catalogue = await license_types.list_items(db)
-    order = [t.key for t in catalogue]
+    data = await items_by_card(db, [c.id for c in cards], [fy], sm)
+    scoped = [c for c in cards if counts_in_year(c, data[c.id][fy][1], fy, cur, sm)]
+    selected = {c.id: _select(data[c.id][fy][0], sel_metric, pair) for c in scoped}
+    narrowed = sel_metric is not None or pair is not None
+    in_year = [c for c in scoped if selected[c.id] or not narrowed]
 
-    def counted(card: Card, year: int) -> bool:
-        _, confirmed, _ = data[card.id][year]
-        return counts_in_year(card, confirmed, year, cur, sm)
-
-    in_year = [c for c in cards if counted(c, fy)]
     groups = (
-        await assign_groups(db, read_scope, in_year, group_by, [type_key])
+        await assign_groups(db, read_scope, in_year, group_by, card_types)
         if group_by and card_id is None
         else {}
     )
+    logos = await logo_updated_map(db, in_year)
     hidden = hidden_attribute_keys or {}
     rows = []
     for card in in_year:
-        result = metric_result(metric, data[card.id][fy][0].get(metric) or {}, order)
+        results = _metric_results(selected[card.id], catalogue)
+        pcts = [r.worst_pct for r in results if r.worst_pct is not None]
         row = {
             "id": str(card.id),
             "name": card.name,
             "type": card.type,
+            "alias": card.alias,
             "attributes": {
                 k: v
                 for k, v in (card.attributes or {}).items()
                 if k not in hidden.get(card.type, ())
             },
-            "status": None if aggregate else result.status,
-            "worst_pct": result.worst_pct,
-            "worst_no_licence": result.worst_no_licence,
-            "licensed_total": result.licensed_total,
-            "actual_total": result.actual_total,
-            "by_type": _by_type(result),
+            "status": None if aggregate else card_status(results),
+            "worst_pct": max(pcts) if pcts else None,
+            "worst_no_licence": any(r.worst_no_licence for r in results),
+            "by_metric": _by_metric(results),
         }
+        if card.id in logos:
+            row["logo_updated_at"] = logos[card.id]
         if card.id in groups:
             row["group"] = groups[card.id]
         rows.append(row)
 
-    trend = []
-    for year in years:
-        per_card: dict[str, dict] = {}
-        for card in cards:
-            cells = data[card.id][year][0].get(metric) or {}
-            if cells and counted(card, year):
-                per_card[str(card.id)] = {
-                    key: {
-                        "licensed": cell.get("licensed") or 0,
-                        "actual": None if year == forecast else cell.get("actual"),
-                    }
-                    for key, cell in cells.items()
-                }
-        trend.append({"fiscal_year": year, "cards": per_card})
-
+    # The scope's cells whatever the selection: what the frontend's selects may offer.
+    pairs = {(m, k) for c in scoped for m, cells in data[c.id][fy][0].items() for k in cells}
+    in_scope = {m for m, _ in pairs}
+    order = catalogue.metric_order()
     return {
         "fiscal_year": fy,
         "current_fiscal_year": cur,
         "fiscal_year_start": sm,
-        "metric": metric,
-        "years": years,
-        "license_types": [license_types.serialize(t) for t in catalogue],
+        "years": list(yearly_rows.window_years(cur)),
         "aggregate": aggregate,
         "rows": rows,
-        "trend": trend,
+        "metrics_in_year": [m for m in order if m in in_scope] + sorted(in_scope - set(order)),
+        "types_in_year": sorted(f"{m}:{k}" for m, k in pairs),
     }

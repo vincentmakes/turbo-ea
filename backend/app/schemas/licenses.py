@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import BaseModel, Field, StrictInt
 
 from app.schemas.cost_items import KEY_PATTERN
@@ -96,36 +98,27 @@ class CardLicensesOut(BaseModel):
     years: list[YearLicensesOut]
 
 
-class ReportTypeCell(BaseModel):
-    licensed: int
-    actual: int | None
-    pct: float | None
-    no_licence: bool
+class ReportMetric(BaseModel):
+    metric: str
     status: str
+    worst_pct: float | None
+    licensed_total: int
+    actual_total: int | None
+    types: list[LicenseTypeResultOut]
 
 
 class ReportRow(BaseModel):
     id: str
     name: str
     type: str
+    alias: str | None
+    logo_updated_at: datetime | None = None
     attributes: dict
     group: str | None = None
     status: str | None
     worst_pct: float | None
     worst_no_licence: bool
-    licensed_total: int
-    actual_total: int | None
-    by_type: dict[str, ReportTypeCell]
-
-
-class ReportTrendCell(BaseModel):
-    licensed: int
-    actual: int | None
-
-
-class ReportTrendYear(BaseModel):
-    fiscal_year: int
-    cards: dict[str, dict[str, ReportTrendCell]]
+    by_metric: list[ReportMetric]
 
 
 class ReportAggregate(BaseModel):
@@ -138,12 +131,11 @@ class LicenseReportOut(BaseModel):
     fiscal_year: int
     current_fiscal_year: int
     fiscal_year_start: int
-    metric: str
     years: list[int]
-    license_types: list[LicenseTypeOut]
     aggregate: ReportAggregate | None
     rows: list[ReportRow]
-    trend: list[ReportTrendYear]
+    metrics_in_year: list[str]
+    types_in_year: list[str]
 
 
 class ImportIssueOut(BaseModel):
