@@ -2578,6 +2578,32 @@ describe("relations: one rule for every relation type (#1089)", () => {
       expect(report.relationOps).toHaveLength(0);
     });
 
+    it("still names the key when another relation type has no reverse label", async () => {
+      // `reverse_label` is optional: a type without one must be skipped by the
+      // label lookup, not crash it.
+      const oneWay: RelationType = {
+        ...FUNC_TO_APP,
+        key: "relFunctionalityToAppOneWay",
+        label: "feeds",
+        reverse_label: undefined,
+        translations: {},
+      };
+      postMock.mockImplementation(buildResolveRefsMock([featA, app]));
+      const parsed = parseWorkbookSheets(relationsOnlyWorkbook("Realises"), TYPES);
+      const report = await validateMultiSheet(parsed, [featA, app], TYPES, [oneWay, ...RELS], [
+        realises,
+      ] as never);
+
+      expect(report.errors).toEqual([
+        {
+          row: 2,
+          column: "relation_type",
+          message:
+            'Unknown relation type: Realises — that is the label of the relation type with key "relFunctionalityToApp". Enter the key in relation_type.',
+        },
+      ]);
+    });
+
     it.each([
       // `reverse` is the reverse label of three relation types in this block.
       ["an ambiguous label", "reverse"],
