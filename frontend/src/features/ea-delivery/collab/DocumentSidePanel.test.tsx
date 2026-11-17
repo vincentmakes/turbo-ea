@@ -146,7 +146,8 @@ describe("DocumentSidePanel", () => {
     expect(tabs.discussion[0]).toMatchObject({ owner: { kind: "adr", id: "a1" }, sections: SECTIONS, focusThreadId: null });
 
     await waitFor(() => expect(within(aside).getByTestId("open-thread-badge")).toHaveTextContent("5"));
-    expect(onOpenCountChange).toHaveBeenCalledWith(5);
+    // Reported from an effect, which React may flush a task after the badge's commit.
+    await waitFor(() => expect(onOpenCountChange).toHaveBeenCalledWith(5));
   });
 
   it("loads a state the earlier build stored with a tab, and stores the open flag only", async () => {
@@ -287,7 +288,7 @@ describe("DocumentSidePanel", () => {
     // The next read wins again.
     fireEvent(window, new Event("focus"));
     await waitFor(() => expect(badge()).toHaveTextContent("5"));
-    expect(onOpenCountChange).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(onOpenCountChange).toHaveBeenCalledTimes(2));
   });
 
   it("opens on Discussion when a notification for the open document arrives", async () => {
