@@ -31,6 +31,8 @@ import type {
   OnDateChange,
   OnProgressChange,
   OnRelationChange,
+  OnMoveTaskBeforeAfter,
+  OnMoveTaskInside,
   TaskOrEmpty,
   Column,
   ColumnProps,
@@ -79,12 +81,13 @@ import {
   loadInitialViewMode,
   nextGanttSort,
   parseDate,
+  resolveGanttMove,
   roundToDay,
   saveGanttSort,
   sortGanttRows,
   zoomBounds,
 } from "./ppmGanttModel";
-import type { GanttSort, GanttSortKey } from "./ppmGanttModel";
+import type { GanttDropKind, GanttSort, GanttSortKey } from "./ppmGanttModel";
 
 /** Geometry passed from parent to the dependency overlay.
  *  Coordinates are already in the overlay's local SVG coordinate system
@@ -663,6 +666,48 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       alignSuccessorStart,
       showSnack,
     ],
+  );
+
+  /** Save a row dragged in the task list: dropped before / after another
+   *  row, or inside a work package. The library reorders nothing itself
+   *  (the rows are ours), so the drop is saved and the rows reloaded. A drop
+   *  that would leave the row where it was saves nothing. While a column sort
+   *  is on the list is not in the stored order, so a drop there saves nothing
+   *  either (the library keeps rows draggable whatever `canMoveTasks` says). */
+  const handleRowDrop = useCallback(
+    async (drop: GanttDropKind, targetId: string, movedId: string) => {
+      if (effectiveSort) {
+        showSnack(t("ganttMoveWhileSorted"));
+        return;
+      }
+      if (drop === "inside" && targetId.startsWith("task-")) {
+        showSnack(t("ganttMoveIntoTask"));
+        return;
+      }
+      const move = resolveGanttMove(drop, targetId, movedId, wbsList, tasks);
+      if (!move) return;
+      try {
+        await api.post(`/ppm/initiatives/${initiativeId}/gantt/move`, move);
+      } catch {
+        showSnack(t("ganttMoveFailed"));
+      }
+      await loadData();
+    },
+    [effectiveSort, initiativeId, wbsList, tasks, loadData, showSnack, t],
+  );
+  const handleMoveTaskBefore: OnMoveTaskBeforeAfter = useCallback(
+    (target, taskForMove) => handleRowDrop("before", target.id, taskForMove.id),
+    [handleRowDrop],
+  );
+  const handleMoveTaskAfter: OnMoveTaskBeforeAfter = useCallback(
+    (target, taskForMove) => handleRowDrop("after", target.id, taskForMove.id),
+    [handleRowDrop],
+  );
+  const handleMoveTaskInside: OnMoveTaskInside = useCallback(
+    (parent, childs) => {
+      for (const child of childs) handleRowDrop("inside", parent.id, child.id);
+    },
+    [handleRowDrop],
   );
 
   const ganttRef = useRef<HTMLDivElement>(null);
@@ -1742,6 +1787,9 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
             onProgressChange={handleProgressChange}
             onChangeExpandState={handleExpanderClick}
             onRelationChange={handleRelationChange}
+            onMoveTaskBefore={handleMoveTaskBefore}
+            onMoveTaskAfter={handleMoveTaskAfter}
+            onMoveTaskInside={handleMoveTaskInside}
             contextMenuOptions={contextMenuOptions}
             enableTableListContextMenu={2}
             roundDate={roundToDay}

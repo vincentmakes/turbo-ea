@@ -10777,6 +10777,48 @@
         "title": "PpmGanttItem",
         "type": "object"
       },
+      "PpmGanttMove": {
+        "description": "Move one Gantt row: re-parent it and place it among its siblings.\n\n``position`` is the index among the same-kind siblings under the new\nparent (work packages and tasks keep separate orders), counted with the\nmoved row left out; a value past the end appends.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "task",
+              "wbs"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "parent_wbs_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Wbs Id"
+          },
+          "position": {
+            "minimum": 0.0,
+            "title": "Position",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "position"
+        ],
+        "title": "PpmGanttMove",
+        "type": "object"
+      },
       "PpmGanttStakeholder": {
         "properties": {
           "display_name": {
@@ -36664,6 +36706,52 @@
           }
         },
         "summary": "Create Dependency",
+        "tags": [
+          "ppm"
+        ]
+      }
+    },
+    "/api/v1/ppm/initiatives/{initiative_id}/gantt/move": {
+      "post": {
+        "description": "Save a row dragged in the Gantt task list: its parent work package and\nits place among the siblings of its kind.\n\nThe sibling group is renumbered ``0..n-1`` because rows created without\nan explicit order all share ``sort_order = 0``. A change of parent re-runs\nthe completion and date roll-ups, so both the old and the new parent\nfollow the move.",
+        "operationId": "move_gantt_row_api_v1_ppm_initiatives__initiative_id__gantt_move_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "initiative_id",
+            "required": true,
+            "schema": {
+              "title": "Initiative Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PpmGanttMove"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Move Gantt Row",
         "tags": [
           "ppm"
         ]

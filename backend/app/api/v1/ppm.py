@@ -31,6 +31,7 @@ from app.schemas.ppm import (
     PpmCostLineUpdate,
     PpmDependencyCreate,
     PpmDependencyOut,
+    PpmGanttMove,
     PpmRiskCreate,
     PpmRiskOut,
     PpmRiskUpdate,
@@ -56,6 +57,7 @@ from app.services.card_write_service import recalculate_and_rescore
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 from app.services.ppm_ancestors import active_initiative_ancestors
+from app.services.ppm_gantt_move import apply_gantt_move, assert_no_wbs_cycle
 from app.services.ppm_portfolio_service import build_initiative_rollup
 
 router = APIRouter(prefix="/ppm", tags=["ppm"])
@@ -1314,17 +1316,7 @@ async def update_wbs(
                 status_code=400,
                 detail="Parent WBS item not found in this initiative",
             )
-        # Walk ancestors to detect cycle
-        cursor = new_parent_id
-        while cursor:
-            if cursor == wbs_id:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Circular parent reference detected",
-                )
-            anc = await db.execute(select(PpmWbs.parent_id).where(PpmWbs.id == cursor))
-            row = anc.first()
-            cursor = str(row[0]) if row and row[0] else None
+        await assert_no_wbs_cycle(db, wbs_id, new_parent_id)
     for key, val in data.items():
         setattr(wbs, key, val)
     # Rollup completion to parents if completion changed
@@ -1334,6 +1326,31 @@ async def update_wbs(
     await _refresh_initiative_derived(db, wbs.initiative_id, user.id)
     await db.refresh(wbs)
     return await _wbs_to_out(db, wbs)
+
+
+@router.post("/initiatives/{initiative_id}/gantt/move", status_code=204)
+async def move_gantt_row(
+    initiative_id: str,
+    body: PpmGanttMove,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Save a row dragged in the Gantt task list: its parent work package and
+    its place among the siblings of its kind.
+
+    The sibling group is renumbered ``0..n-1`` because rows created without
+    an explicit order all share ``sort_order = 0``. A change of parent re-runs
+    the completion and date roll-ups, so both the old and the new parent
+    follow the move.
+    """
+    await PermissionService.require_permission(db, user, "ppm.manage")
+    card = await _get_initiative_or_404(db, initiative_id, user)
+    if await apply_gantt_move(db, card.id, body):
+        await db.flush()
+        await _rollup_wbs_from_tasks(db, initiative_id)
+        await _rollup_wbs_dates_from_tasks(db, initiative_id)
+    await db.commit()
+    await _refresh_initiative_derived(db, card.id, user.id)
 
 
 @router.delete("/wbs/{wbs_id}", status_code=204)
