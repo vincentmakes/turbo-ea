@@ -318,6 +318,12 @@ Auf jedem Kartenblatt drücken `rel:<beziehungstyp>`-Spalten ausgehende Beziehun
 
 Die Spalte `tags` folgt derselben Regel: `Gruppe: Tag`-Einträge, getrennt durch `; ` (z. B. `Vendor: Acme, Inc.; Region: EU`), wobei ein `;` im Tag-Namen als `\;` geschrieben wird. Vor 2.156.1 exportierte Arbeitsmappen trennen Tags mit Kommas und werden weiterhin wie bisher importiert.
 
+#### Den Schlüssel eines Beziehungstyps finden
+
+Der Name nach `rel:` ist der **Schlüssel** des Beziehungstyps, nicht sein Verb. Sie finden ihn unter **Admin > Metamodell > Beziehungen**: Öffnen Sie den Bearbeitungsdialog des Beziehungstyps, der den Schlüssel unter seinen beiden Kartentypen anzeigt. Auch die `rel:`-Spaltenüberschriften jedes Exports listen die Schlüssel auf. Ein benutzerdefinierter Beziehungstyp funktioniert genau wie ein integrierter.
+
+Verknüpfungen werden nur in der `rel:`-Spalte auf dem Blatt des Kartentyps angelegt und entfernt, von dem die Beziehung **ausgeht**. Eine `rel:`-Spalte auf dem Blatt des Kartentyps, auf den sie zeigt, wird ignoriert, und die Importvorschau nennt das Blatt, auf das sie gehört. Ein Beziehungstyp ohne Werte hat keine Zeilen auf dem Blatt `Relations`, da es dort nichts auszufüllen gibt. Wo das Blatt `Relations` einen `relation_type` braucht, geben Sie den Schlüssel ein; tippen Sie stattdessen ein Verb, nennt Ihnen die Vorschau den zu verwendenden Schlüssel.
+
 ### Stakeholder-Zellen
 
 Auf jedem Kartenblatt enthalten `stakeholder:<rollen_key>`-Spalten die den Stakeholder-Rollen zugewiesenen Benutzer als **semikolongetrennte E-Mail-Adressen** (dieselbe Konvention wie LeanIX' `subscriptions:<RoleType>`-Spalten), z. B. `ada@corp.com; bob@corp.com`. Die **E-Mail-Adresse ist die einzige akzeptierte Benutzerreferenz** — Anzeigenamen können kollidieren und werden nie zum Abgleich verwendet; ein Eintrag der Form `Name <email>` wird toleriert (die E-Mail in spitzen Klammern zählt), ein bloßer Anzeigename erzeugt eine Warnung und wird übersprungen. Wie Beziehungszellen sind Stakeholder-Zellen **deklarativ pro Rolle**: Die aufgeführten Benutzer werden nach dem Import zur vollständigen Zuweisungsmenge dieser Rolle. Das Entfernen eines Benutzers hebt die Zuweisung auf; eine leere Zelle leert die Rolle; das Weglassen der Spalte lässt die Zuweisungen unberührt. Einträge ohne passenden Benutzer erzeugen eine Warnung und werden übersprungen — sie blockieren den Import nie.

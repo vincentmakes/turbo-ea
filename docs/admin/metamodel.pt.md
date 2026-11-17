@@ -34,7 +34,7 @@ Clique em **+ Novo Tipo** para criar um tipo de card personalizado. Configure:
 
 | Campo | Descrição |
 |-------|-----------|
-| **Chave** | Identificador único (minúsculas, sem espaços) — não pode ser alterado após a criação |
+| **Chave** | Identificador único (uma letra seguida de letras e algarismos, sem espaços nem outros caracteres, por exemplo `myCustomType`) — não pode ser alterado após a criação |
 | **Rótulo** | Nome de exibição mostrado na interface |
 | **Ícone** | Nome do ícone Google Material Symbol |
 | **Cor** | Cor da marca para o tipo (usada no inventário, relatórios e diagramas) |
@@ -225,7 +225,7 @@ Tipos de relacionamento definem as conexões permitidas entre tipos de card. Cad
 
 | Campo | Descrição |
 |-------|-----------|
-| **Chave** | Identificador único — sugerido a partir do seu verbo, editável durante a criação e fixo depois |
+| **Chave** | Identificador único — sugerido a partir do seu verbo, editável durante a criação e fixo depois. A caixa de diálogo de edição do tipo de relacionamento mostra-a, porque é o nome que o Excel usa: a coluna `rel:<key>` e o valor `relation_type` na planilha `Relations` (consulte [Importação / exportação Excel](../guide/inventory.md#excel-import)) |
 | **Rótulo** | Rótulo da direção direta (ex.: "utiliza") |
 | **Rótulo Inverso** | Rótulo da direção inversa (ex.: "é utilizado por") |
 | **Tipo de Origem** | O tipo de card no lado "de" |

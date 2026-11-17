@@ -318,6 +318,12 @@ Chaque colonne `rel:<type_de_relation>` exprime les relations sortantes sous for
 
 La colonne `tags` suit la même règle : des entrées `Groupe: Étiquette` séparées par `; ` (par ex. `Vendor: Acme, Inc.; Region: EU`), un `;` dans le nom d'une étiquette s'écrivant `\;`. Les classeurs exportés avant la 2.156.1 séparaient les étiquettes par des virgules et s'importent toujours comme avant.
 
+#### Trouver la clé d’un type de relation
+
+Le nom qui suit `rel:` est la **clé** du type de relation, pas son verbe. Vous la trouvez dans **Admin > Métamodèle > Relations** : ouvrez la boîte de dialogue de modification du type de relation, qui affiche la clé sous ses deux types de fiches. Les en-têtes des colonnes `rel:` de tout export listent aussi les clés. Un type de relation personnalisé fonctionne exactement comme un type intégré.
+
+Les liens sont créés et supprimés uniquement dans la colonne `rel:` de la feuille du type de fiche dont la relation **part**. Une colonne `rel:` placée sur la feuille du type de fiche vers lequel elle pointe est ignorée, et l’aperçu de l’import indique la feuille à laquelle elle appartient. Un type de relation sans valeurs n’a aucune ligne sur la feuille `Relations`, puisqu’il n’y a rien à y renseigner. Lorsque la feuille `Relations` demande un `relation_type`, saisissez la clé ; si vous tapez un verbe à la place, l’aperçu vous indique la clé à utiliser.
+
 ### Cellules de parties prenantes
 
 Sur chaque feuille de fiches, les colonnes `stakeholder:<clé_de_rôle>` portent les utilisateurs assignés à chaque rôle de partie prenante, sous forme d'**adresses email séparées par des points-virgules** (la même convention que les colonnes `subscriptions:<RoleType>` de LeanIX), par ex. `ada@corp.com; bob@corp.com`. L'**adresse email est la seule référence utilisateur acceptée** — les noms affichés peuvent entrer en collision et ne servent jamais à la résolution ; une entrée `Nom <email>` est tolérée (l'email entre chevrons est utilisé), un nom seul produit un avertissement et est ignoré. Comme les cellules de relations, les cellules de parties prenantes sont **déclaratives par rôle** : les utilisateurs listés deviennent l'ensemble complet des assignations de ce rôle après l'import. Retirer un utilisateur le désassigne ; vider la cellule vide le rôle ; omettre la colonne laisse les assignations intactes. Les entrées sans utilisateur correspondant produisent un avertissement et sont ignorées — elles ne bloquent jamais l'import.

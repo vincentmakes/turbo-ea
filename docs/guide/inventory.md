@@ -337,6 +337,12 @@ A comma is never a separator in a workbook exported by Turbo EA (it carries a `_
 
 The `tags` column follows the same rule: `Group: Tag` entries separated by `; ` (for example `Vendor: Acme, Inc.; Region: EU`), with a `;` inside a tag name written as `\;`. Workbooks exported before 2.156.1 separated tags with commas and still import as before.
 
+#### Finding a relation type's key
+
+The name after `rel:` is the relation type's **key**, not its verb. You can read it in **Admin > Metamodel > Relations**: open the relation type's edit dialog, which shows the key under its two card types. The `rel:` column headers of any export list the keys too. A custom relation type works exactly like a built-in one.
+
+Links are created and removed only in the `rel:` column on the sheet of the card type the relation **starts from**. A `rel:` column placed on the sheet of the card type it points to is ignored, and the import preview names the sheet it belongs on. A relation type without values has no rows on the `Relations` sheet, since there is nothing to fill in there. Where the `Relations` sheet does need a `relation_type`, enter the key; if you type a verb instead, the preview tells you the key to use.
+
 ### Stakeholder cells
 
 On every card sheet, `stakeholder:<role_key>` columns carry the users assigned to each stakeholder role, as **semicolon-separated email addresses** (the same convention as LeanIX's `subscriptions:<RoleType>` export columns):

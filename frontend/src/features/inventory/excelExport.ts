@@ -18,9 +18,11 @@ import { escapeListItem, LIST_SEPARATOR, WORKBOOK_FORMAT_VERSION } from "./listC
  * Card sheets carry:
  *   - core columns (id, type, name, parent_path, …)
  *   - `attr_<key>` columns derived from `fields_schema`
- *   - `rel:<relation_type_key>` columns, one per relation type whose source
- *     is this card type, holding the target refs separated by `; ` (the cell
- *     grammar lives in `listCell.ts`)
+ *   - `rel:<relation_type_key>` columns, one per non-hidden relation type
+ *     whose source is this card type, whether or not it carries values,
+ *     holding the target refs separated by `; ` (the cell grammar lives in
+ *     `listCell.ts`). This column is where a relation is created or removed;
+ *     the target type's sheet has no column for it.
  *   - a `tags` column of `Group: Tag` entries, also separated by `; `
  *   - `stakeholder:<role_key>` columns — one per stakeholder role of the
  *     sheet's type, cells of semicolon-separated email addresses
@@ -30,14 +32,13 @@ import { escapeListItem, LIST_SEPARATOR, WORKBOOK_FORMAT_VERSION } from "./listC
  *     `parseStakeholderEntry` in excelImport.ts are the two halves of the
  *     round-trip.
  *
- * The `Relations` sheet carries **one row per relation** of the exported
- * cards — every relation type, not only those with attributes — because it is
- * the only place a relation's own values (`attr_<key>`) and `description` can
- * be read or filled in. A relation type that carries values has no inline
- * card-sheet column, since that cell is a list of names with nowhere to put
- * them; so when this sheet listed only types that ALREADY had attributes,
- * giving a relation type its first value left that value with no row anywhere
- * in the workbook (#1089).
+ * The `Relations` sheet carries **values only**: one row per relation of the
+ * exported cards whose (non-hidden) type has an `attributes_schema`, in both
+ * directions, so an export of the target type can still edit them. A row holds
+ * the relation's `attr_<key>` values and `description`, which a `rel:` cell (a
+ * list of names) has no room for. A relation type without values has no rows
+ * here, and the sheet never creates or deletes a relation (#1089; see the block
+ * comment where the sheet is built).
  *
  * Its `attr_*` columns are the union over the relation types touching the
  * exported card types only — not the whole metamodel.
@@ -510,8 +511,8 @@ export async function buildExportWorkbook(
     const costSet = costKeysByType.get(type.key) ?? new Set();
     for (const k of attrFieldKeys) attrIsCost.set(k, costSet.has(k));
 
-    // Relation types whose forward direction starts from this type. Hidden
-    // types and attribute-bearing types are excluded.
+    // Relation types whose forward direction starts from this type, valued or
+    // not. Only hidden types are excluded.
     const inlineForType = inlineRelTypes.filter((rt) => rt.source_type_key === type.key);
 
     // Stakeholder roles for this type — one `stakeholder:<role>` column each.

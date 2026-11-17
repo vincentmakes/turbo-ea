@@ -318,6 +318,12 @@ Ogni colonna `rel:<tipo_di_relazione>` esprime le relazioni in uscita come elenc
 
 La colonna `tags` segue la stessa regola: voci `Gruppo: Tag` separate da `; ` (es. `Vendor: Acme, Inc.; Region: EU`), con un `;` nel nome di un tag scritto come `\;`. Le cartelle di lavoro esportate prima della 2.156.1 separavano i tag con virgole e si importano ancora come prima.
 
+#### Trovare la chiave di un tipo di relazione
+
+Il nome dopo `rel:` è la **chiave** del tipo di relazione, non il suo verbo. La trovi in **Admin > Metamodello > Relazioni**: apri la finestra di modifica del tipo di relazione, che mostra la chiave sotto i suoi due tipi di scheda. Anche le intestazioni delle colonne `rel:` di qualsiasi esportazione elencano le chiavi. Un tipo di relazione personalizzato funziona esattamente come uno predefinito.
+
+I collegamenti si creano e si rimuovono solo nella colonna `rel:` del foglio del tipo di scheda da cui la relazione **parte**. Una colonna `rel:` posta nel foglio del tipo di scheda a cui punta viene ignorata, e l’anteprima dell’importazione indica il foglio a cui appartiene. Un tipo di relazione senza valori non ha righe nel foglio `Relations`, poiché lì non c’è nulla da compilare. Dove il foglio `Relations` richiede un `relation_type`, inserisci la chiave; se digiti invece un verbo, l’anteprima ti indica la chiave da usare.
+
 ### Celle stakeholder
 
 Su ogni foglio di schede, le colonne `stakeholder:<chiave_ruolo>` contengono gli utenti assegnati a ciascun ruolo stakeholder, come **indirizzi email separati da punto e virgola** (la stessa convenzione delle colonne `subscriptions:<RoleType>` di LeanIX), ad es. `ada@corp.com; bob@corp.com`. L'**indirizzo email è l'unico riferimento utente accettato** — i nomi visualizzati possono coincidere e non vengono mai usati per la risoluzione; una voce `Nome <email>` è tollerata (viene usata l'email tra parentesi angolari), un nome da solo produce un avviso e viene ignorato. Come le celle di relazione, le celle stakeholder sono **dichiarative per ruolo**: gli utenti elencati diventano l'insieme completo delle assegnazioni di quel ruolo dopo l'importazione. Rimuovere un utente lo disassegna; svuotare la cella svuota il ruolo; omettere la colonna lascia intatte le assegnazioni. Le voci senza utente corrispondente producono un avviso e vengono ignorate — non bloccano mai l'importazione.

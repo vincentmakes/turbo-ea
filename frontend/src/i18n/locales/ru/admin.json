@@ -127,6 +127,8 @@
   "metamodel.reverseLabel": "Обратная метка (напр. «используется»)",
   "metamodel.cardinality": "Кардинальность",
   "metamodel.editRelationType": "Редактировать тип связи",
+  "metamodel.relKeyCaption": "Ключ: {{key}}",
+  "metamodel.relKeyExcelHint": "В Excel этот ключ — заголовок столбца rel:{{key}} на листе исходного типа карточки и значение relation_type на листе Relations.",
   "metamodel.deleteRelationType": "Удалить тип связи?",
   "metamodel.deleteRelHasInstances": "Этот тип связи имеет <strong>{{count}}</strong> экземпляр(ов), связывающих карточки. Удаление навсегда удалит все из них.",
   "metamodel.deleteRelBuiltInHidden": "Этот встроенный тип связи будет скрыт и может быть восстановлен позже.",

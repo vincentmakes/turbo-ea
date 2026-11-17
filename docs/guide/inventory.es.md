@@ -318,6 +318,12 @@ Cada columna `rel:<tipo_de_relación>` expresa las relaciones salientes como una
 
 La columna `tags` sigue la misma regla: entradas `Grupo: Etiqueta` separadas por `; ` (p. ej. `Vendor: Acme, Inc.; Region: EU`), con un `;` dentro del nombre de una etiqueta escrito como `\;`. Los libros exportados antes de la 2.156.1 separaban las etiquetas con comas y se siguen importando como antes.
 
+#### Encontrar la clave de un tipo de relación
+
+El nombre que sigue a `rel:` es la **clave** del tipo de relación, no su verbo. Puede consultarla en **Administración > Metamodelo > Relaciones**: abra el diálogo de edición del tipo de relación, que muestra la clave bajo sus dos tipos de ficha. Los encabezados de las columnas `rel:` de cualquier exportación también enumeran las claves. Un tipo de relación personalizado funciona exactamente igual que uno integrado.
+
+Los vínculos se crean y se eliminan solo en la columna `rel:` de la hoja del tipo de ficha del que **parte** la relación. Una columna `rel:` colocada en la hoja del tipo de ficha al que apunta se ignora, y la vista previa de la importación indica la hoja a la que pertenece. Un tipo de relación sin valores no tiene filas en la hoja `Relations`, ya que allí no hay nada que rellenar. Cuando la hoja `Relations` necesite un `relation_type`, introduzca la clave; si escribe un verbo en su lugar, la vista previa le indica la clave que debe usar.
+
 ### Celdas de partes interesadas
 
 En cada hoja de fichas, las columnas `stakeholder:<clave_de_rol>` llevan los usuarios asignados a cada rol de parte interesada, como **direcciones de correo separadas por punto y coma** (la misma convención que las columnas `subscriptions:<RoleType>` de LeanIX), p. ej. `ada@corp.com; bob@corp.com`. La **dirección de correo es la única referencia de usuario aceptada** — los nombres pueden coincidir entre personas y nunca se usan para la resolución; una entrada `Nombre <email>` se tolera (se usa el correo entre corchetes angulares), un nombre solo produce una advertencia y se omite. Como las celdas de relaciones, las celdas de partes interesadas son **declarativas por rol**: los usuarios listados se convierten en el conjunto completo de asignaciones de ese rol tras la importación. Quitar un usuario lo desasigna; vaciar la celda vacía el rol; omitir la columna deja las asignaciones intactas. Las entradas sin usuario coincidente producen una advertencia y se omiten — nunca bloquean la importación.

@@ -2379,4 +2379,248 @@ describe("relations: one rule for every relation type (#1089)", () => {
     expect(report.relationOps).toHaveLength(0);
     expect(report.warnings.filter((w) => /relation/i.test(w.message))).toHaveLength(0);
   });
+
+  // #1406: a user created a custom card type and a custom relation type, then
+  // could not find the key to use. The export is right; these pin it for a
+  // custom, value-less type, and pin the import messages that point the user
+  // at the right sheet and the right key.
+  describe("a custom relation type between a custom and a built-in card type (#1406)", () => {
+    /** Custom card type, lowercase key as in the report. */
+    const FUNC_TYPE: CardType = {
+      ...ORG_TYPE,
+      key: "functionality",
+      label: "Functionality",
+      built_in: false,
+      sort_order: 9,
+    };
+    /** Custom, value-less, functionality → Application. The English
+     * translations differ from the columns on purpose, so each of the four
+     * spellings a label hint accepts is reachable on its own. */
+    const FUNC_TO_APP: RelationType = {
+      ...base,
+      key: "relFunctionalityToApp",
+      label: "realises",
+      reverse_label: "is realised by",
+      translations: {
+        label: { en: "implements" },
+        reverse_label: { en: "is implemented by" },
+      },
+      source_type_key: "functionality",
+      target_type_key: "Application",
+      attributes_schema: [],
+      built_in: false,
+      sort_order: 9,
+    };
+    const TYPES = [...ALL_TYPES, FUNC_TYPE];
+    const RELS = [...ALL_RELS, FUNC_TO_APP];
+
+    const featA = makeCard({
+      id: "99999999-9999-9999-9999-999999999999",
+      type: "functionality",
+      name: "Feature A",
+    });
+    const realises = {
+      id: "rel-func",
+      type: "relFunctionalityToApp",
+      source_id: featA.id,
+      target_id: app.id,
+      source: { id: featA.id, type: "functionality", name: featA.name },
+      target: { id: app.id, type: "Application", name: app.name },
+    };
+
+    function relationsOnlyWorkbook(relationType: string): ArrayBuffer {
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.json_to_sheet([
+          {
+            relation_type: relationType,
+            source_type: "functionality",
+            source_ref: "Feature A",
+            target_type: "Application",
+            target_ref: "Salesforce",
+            description: "",
+          },
+        ]),
+        "Relations",
+      );
+      return XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
+    }
+
+    it("exports it as a rel: column on its source type's sheet, with the linked names", async () => {
+      mockBackend([realises, usesApp], [acme]);
+      const wb = await buildExportWorkbook([featA, app], undefined, TYPES, RELS);
+
+      expect(headersOf(wb, "Functionality")).toContain("rel:relFunctionalityToApp");
+      const row = sheetRows(wb, "Functionality").find((r) => r.name === "Feature A")!;
+      expect(row["rel:relFunctionalityToApp"]).toBe("Salesforce");
+    });
+
+    it("gives it no column on the target type's sheet", async () => {
+      mockBackend([realises, usesApp], [acme]);
+      const wb = await buildExportWorkbook([featA, app], undefined, TYPES, RELS);
+
+      expect(headersOf(wb, "Application")).toContain("name");
+      expect(headersOf(wb, "Application")).not.toContain("rel:relFunctionalityToApp");
+    });
+
+    it("gives it no row on the Relations sheet, which lists only types with values", async () => {
+      mockBackend([realises, usesApp], [acme]);
+      const wb = await buildExportWorkbook([featA, app], undefined, TYPES, RELS);
+
+      // The incoming value-bearing relation keeps the sheet present, so the
+      // absence of the custom type is a real assertion, not an empty sheet.
+      expect(sheetRows(wb, "Relations").map((r) => r.relation_type)).toEqual(["relOrgToApp"]);
+    });
+
+    it("round-trips an untouched workbook to zero ops", async () => {
+      mockBackend([realises, usesApp], [acme]);
+      const wb = await buildExportWorkbook([featA, app], undefined, TYPES, RELS);
+
+      const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
+      const parsed = parseWorkbookSheets(buf, TYPES);
+      postMock.mockImplementation(buildResolveRefsMock([acme, featA, app]));
+      const report = await validateMultiSheet(parsed, [featA, app], TYPES, RELS, [
+        realises,
+        usesApp,
+      ] as never);
+
+      expect(report.errors).toEqual([]);
+      expect(report.relationOps).toHaveLength(0);
+      expect(report.warnings.filter((w) => /relation/i.test(w.message))).toHaveLength(0);
+    });
+
+    it("names the source type's sheet when its rel: column sits on the target type's sheet", async () => {
+      postMock.mockImplementation(buildResolveRefsMock([featA, app]));
+      const buf = buildWorkbook(
+        [
+          {
+            id: app.id,
+            type: "Application",
+            name: "Salesforce",
+            "rel:relFunctionalityToApp": "Feature A",
+          },
+        ],
+        "Application",
+      );
+      const parsed = parseWorkbookSheets(buf, TYPES);
+      const report = await validateMultiSheet(parsed, [featA, app], TYPES, RELS, []);
+
+      expect(report.warnings).toContainEqual({
+        row: 2,
+        column: "rel:relFunctionalityToApp",
+        message:
+          'Relation type "relFunctionalityToApp" starts from Functionality, so its rel: column belongs on the Functionality sheet — column ignored',
+      });
+      expect(report.warnings.some((w) => /Unknown relation type/.test(w.message))).toBe(false);
+      expect(report.relationOps).toHaveLength(0);
+    });
+
+    it("falls back to the source type's key when that card type is not in the metamodel", async () => {
+      postMock.mockImplementation(buildResolveRefsMock([featA, app]));
+      const buf = buildWorkbook(
+        [
+          {
+            id: app.id,
+            type: "Application",
+            name: "Salesforce",
+            "rel:relFunctionalityToApp": "Feature A",
+          },
+        ],
+        "Application",
+      );
+      const parsed = parseWorkbookSheets(buf, ALL_TYPES);
+      const report = await validateMultiSheet(parsed, [featA, app], ALL_TYPES, RELS, []);
+
+      expect(report.warnings.map((w) => w.message)).toContain(
+        'Relation type "relFunctionalityToApp" starts from functionality, so its rel: column belongs on the functionality sheet — column ignored',
+      );
+      expect(report.relationOps).toHaveLength(0);
+    });
+
+    it("keeps the unknown-type warning for a rel: key no relation type has", async () => {
+      postMock.mockImplementation(buildResolveRefsMock([acme, app]));
+      const buf = buildWorkbook(
+        [{ id: acme.id, type: "Organization", name: "Acme Group", "rel:relNoSuchType": "Salesforce" }],
+        "Organization",
+      );
+      const parsed = parseWorkbookSheets(buf, TYPES);
+      const report = await validateMultiSheet(parsed, [acme], TYPES, RELS, []);
+
+      expect(report.warnings).toContainEqual({
+        row: 2,
+        column: "rel:relNoSuchType",
+        message: 'Unknown relation type "relNoSuchType" — column ignored',
+      });
+      expect(report.warnings.some((w) => /starts from/.test(w.message))).toBe(false);
+      expect(report.relationOps).toHaveLength(0);
+    });
+
+    it.each([
+      ["the label", "Realises"],
+      ["the reverse label", "is realised by"],
+      ["the label in the current language", "Implements"],
+      ["the reverse label in the current language", "IS IMPLEMENTED BY"],
+    ])("names the key when relation_type holds %s", async (_what, typed) => {
+      postMock.mockImplementation(buildResolveRefsMock([featA, app]));
+      const parsed = parseWorkbookSheets(relationsOnlyWorkbook(typed), TYPES);
+      const report = await validateMultiSheet(parsed, [featA, app], TYPES, RELS, [
+        realises,
+      ] as never);
+
+      expect(report.errors).toEqual([
+        {
+          row: 2,
+          column: "relation_type",
+          message: `Unknown relation type: ${typed} — that is the label of the relation type with key "relFunctionalityToApp". Enter the key in relation_type.`,
+        },
+      ]);
+      expect(report.relationOps).toHaveLength(0);
+    });
+
+    it("still names the key when another relation type has no reverse label", async () => {
+      // `reverse_label` is optional: a type without one must be skipped by the
+      // label lookup, not crash it.
+      const oneWay: RelationType = {
+        ...FUNC_TO_APP,
+        key: "relFunctionalityToAppOneWay",
+        label: "feeds",
+        reverse_label: undefined,
+        translations: {},
+      };
+      postMock.mockImplementation(buildResolveRefsMock([featA, app]));
+      const parsed = parseWorkbookSheets(relationsOnlyWorkbook("Realises"), TYPES);
+      const report = await validateMultiSheet(parsed, [featA, app], TYPES, [oneWay, ...RELS], [
+        realises,
+      ] as never);
+
+      expect(report.errors).toEqual([
+        {
+          row: 2,
+          column: "relation_type",
+          message:
+            'Unknown relation type: Realises — that is the label of the relation type with key "relFunctionalityToApp". Enter the key in relation_type.',
+        },
+      ]);
+    });
+
+    it.each([
+      // `reverse` is the reverse label of three relation types in this block.
+      ["an ambiguous label", "reverse"],
+      ["a string that names nothing", "nonsense"],
+    ])("keeps the plain unknown-type error for %s", async (_what, typed) => {
+      postMock.mockImplementation(buildResolveRefsMock([featA, app]));
+      const parsed = parseWorkbookSheets(relationsOnlyWorkbook(typed), TYPES);
+      const report = await validateMultiSheet(parsed, [featA, app], TYPES, RELS, []);
+
+      expect(report.errors).toEqual([
+        {
+          row: 2,
+          column: "relation_type",
+          message: `Unknown relation type: ${typed}`,
+        },
+      ]);
+      expect(report.relationOps).toHaveLength(0);
+    });
+  });
 });

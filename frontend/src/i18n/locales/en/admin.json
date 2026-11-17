@@ -125,6 +125,8 @@
   "metamodel.reverseLabel": "Reverse Label (e.g., \"is used by\")",
   "metamodel.cardinality": "Cardinality",
   "metamodel.editRelationType": "Edit Relation Type",
+  "metamodel.relKeyCaption": "Key: {{key}}",
+  "metamodel.relKeyExcelHint": "In Excel, this key heads the rel:{{key}} column on the source card type's sheet and is the relation_type value on the Relations sheet.",
   "metamodel.deleteRelationType": "Delete Relation Type?",
   "metamodel.deleteRelHasInstances": "This relation type has <strong>{{count}}</strong> relation instance(s) linking cards together. Deleting it will permanently remove all of them.",
   "metamodel.deleteRelBuiltInHidden": "This built-in relation type will be hidden and can be restored later.",

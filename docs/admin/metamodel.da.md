@@ -34,7 +34,7 @@ Klik på **+ Ny type** for at oprette en brugerdefineret korttype. Konfigurer:
 
 | Felt | Beskrivelse |
 |-------|-------------|
-| **Nøgle** | Unik identifikator (små bogstaver, ingen mellemrum) — kan ikke ændres efter oprettelse |
+| **Nøgle** | Unik identifikator (et bogstav efterfulgt af bogstaver og cifre, uden mellemrum eller andre tegn, f.eks. `myCustomType`) — kan ikke ændres efter oprettelse |
 | **Etiket** | Visningsnavn vist i UI'et |
 | **Ikon** | Google Material Symbol-ikonnavn |
 | **Farve** | Brandfarve for typen (bruges i lager, rapporter og diagrammer) |
@@ -224,7 +224,7 @@ Relationstyper definerer de tilladte forbindelser mellem korttyper. Hver relatio
 
 | Felt | Beskrivelse |
 |-------|-------------|
-| **Nøgle** | Unik identifikator — foreslås ud fra dit verbum, kan redigeres under oprettelsen og ligger fast bagefter |
+| **Nøgle** | Unik identifikator — foreslås ud fra dit verbum, kan redigeres under oprettelsen og ligger fast bagefter. Relationstypens redigeringsdialog viser den, fordi det er navnet, Excel bruger: kolonnen `rel:<key>` og værdien `relation_type` på arket `Relations` (se [Excel-import / -eksport](../guide/inventory.md#excel-import)) |
 | **Etiket** | Etiket for fremadrettet retning (f.eks. "bruger") |
 | **Omvendt etiket** | Etiket for baglæns retning (f.eks. "bruges af") |
 | **Kildetype** | Korttypen på "fra"-siden |

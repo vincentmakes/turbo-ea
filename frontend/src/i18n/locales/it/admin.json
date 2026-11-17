@@ -125,6 +125,8 @@
   "metamodel.reverseLabel": "Etichetta inversa (es. \"è utilizzato da\")",
   "metamodel.cardinality": "Cardinalità",
   "metamodel.editRelationType": "Modifica tipo di relazione",
+  "metamodel.relKeyCaption": "Chiave: {{key}}",
+  "metamodel.relKeyExcelHint": "In Excel, questa chiave è l’intestazione della colonna rel:{{key}} nel foglio del tipo di scheda di origine ed è il valore relation_type nel foglio Relations.",
   "metamodel.deleteRelationType": "Eliminare il tipo di relazione?",
   "metamodel.deleteRelHasInstances": "Questo tipo di relazione ha <strong>{{count}}</strong> istanza/e di relazione che collegano le schede. L'eliminazione rimuoverà definitivamente tutte le istanze.",
   "metamodel.deleteRelBuiltInHidden": "Questo tipo di relazione predefinito verrà nascosto e potrà essere ripristinato in seguito.",

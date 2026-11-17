@@ -34,7 +34,7 @@ Cliccate su **+ Nuovo tipo** per creare un tipo di card personalizzato. Configur
 
 | Campo | Descrizione |
 |-------|-------------|
-| **Key** | Identificatore univoco (minuscolo, senza spazi) — non può essere modificato dopo la creazione |
+| **Key** | Identificatore univoco (una lettera seguita da lettere e cifre, senza spazi né altri caratteri, ad esempio `myCustomType`) — non può essere modificato dopo la creazione |
 | **Etichetta** | Nome visualizzato nell'interfaccia |
 | **Icona** | Nome dell'icona Google Material Symbol |
 | **Colore** | Colore del brand per il tipo (utilizzato nell'inventario, nei report e nei diagrammi) |
@@ -225,7 +225,7 @@ I tipi di relazione definiscono le connessioni consentite tra i tipi di card. Og
 
 | Campo | Descrizione |
 |-------|-------------|
-| **Key** | Identificatore univoco — proposto dal verbo, modificabile durante la creazione e poi fisso |
+| **Key** | Identificatore univoco — proposto dal verbo, modificabile durante la creazione e poi fisso. La finestra di modifica del tipo di relazione la mostra, perché è il nome usato da Excel: la colonna `rel:<key>` e il valore `relation_type` nel foglio `Relations` (vedi [Importazione / esportazione Excel](../guide/inventory.md#excel-import)) |
 | **Etichetta** | Etichetta della direzione in avanti (es. "utilizza") |
 | **Etichetta inversa** | Etichetta della direzione inversa (es. "è utilizzato da") |
 | **Tipo sorgente** | Il tipo di card sul lato "da" |

@@ -34,7 +34,7 @@ Click **+ New Type** to create a custom card type. Configure:
 
 | Field | Description |
 |-------|-------------|
-| **Key** | Unique identifier (lowercase, no spaces) — cannot be changed after creation |
+| **Key** | Unique identifier: a letter followed by letters and digits, with no spaces or other characters (for example `myCustomType`) — cannot be changed after creation |
 | **Label** | Display name shown in the UI |
 | **Icon** | Google Material Symbol icon name |
 | **Color** | Brand color for the type (used in inventory, reports, and diagrams) |
@@ -226,7 +226,7 @@ Relation types define the allowed connections between card types. Each relation 
 
 | Field | Description |
 |-------|-------------|
-| **Key** | Unique identifier — suggested from your verb, editable while you create the relation type, and fixed once it exists |
+| **Key** | Unique identifier — suggested from your verb, editable while you create the relation type, and fixed once it exists. The relation type's edit dialog shows it, because it is the name Excel uses: the `rel:<key>` column and the `relation_type` value on the `Relations` sheet (see [Excel Import / Export](../guide/inventory.md#excel-import)) |
 | **Label** | Forward direction label (e.g., "uses") |
 | **Reverse Label** | Backward direction label (e.g., "is used by") |
 | **Source Type** | The card type on the "from" side |
