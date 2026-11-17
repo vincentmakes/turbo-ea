@@ -34,7 +34,7 @@ Klicken Sie auf **+ Neuer Typ**, um einen benutzerdefinierten Kartentyp zu erste
 
 | Feld | Beschreibung |
 |------|-------------|
-| **Schlüssel** | Eindeutiger Bezeichner (Kleinbuchstaben, keine Leerzeichen) — kann nach der Erstellung nicht geändert werden |
+| **Schlüssel** | Eindeutiger Bezeichner (ein Buchstabe, gefolgt von Buchstaben und Ziffern, ohne Leerzeichen oder andere Zeichen, z. B. `myCustomType`) — kann nach der Erstellung nicht geändert werden |
 | **Bezeichnung** | Anzeigename in der Benutzeroberfläche |
 | **Symbol** | Google Material Symbol-Symbolname |
 | **Farbe** | Markenfarbe für den Typ (verwendet in Inventar, Berichten und Diagrammen) |
@@ -224,7 +224,7 @@ Beziehungstypen definieren die zulässigen Verbindungen zwischen Kartentypen. Je
 
 | Feld | Beschreibung |
 |------|-------------|
-| **Schlüssel** | Eindeutiger Bezeichner — wird aus Ihrem Verb vorgeschlagen, ist beim Anlegen noch änderbar und danach fest |
+| **Schlüssel** | Eindeutiger Bezeichner — wird aus Ihrem Verb vorgeschlagen, ist beim Anlegen noch änderbar und danach fest. Der Bearbeitungsdialog des Beziehungstyps zeigt ihn an, weil Excel diesen Namen verwendet: die Spalte `rel:<key>` und den Wert `relation_type` auf dem Blatt `Relations` (siehe [Excel-Import / -Export](../guide/inventory.md#excel-import)) |
 | **Bezeichnung** | Bezeichnung der Vorwärtsrichtung (z.B. «nutzt») |
 | **Umgekehrte Bezeichnung** | Bezeichnung der Rückwärtsrichtung (z.B. «wird genutzt von») |
 | **Quelltyp** | Der Kartentyp auf der «Von»-Seite |

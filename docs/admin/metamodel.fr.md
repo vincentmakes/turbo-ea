@@ -34,7 +34,7 @@ Cliquez sur **+ Nouveau type** pour créer un type de fiche personnalisé. Confi
 
 | Champ | Description |
 |-------|-------------|
-| **Clé** | Identifiant unique (minuscules, sans espaces) -- ne peut pas être modifié après la création |
+| **Clé** | Identifiant unique (une lettre suivie de lettres et de chiffres, sans espaces ni autres caractères, par exemple `myCustomType`) -- ne peut pas être modifié après la création |
 | **Libellé** | Nom d'affichage dans l'interface |
 | **Icône** | Nom de l'icône Google Material Symbol |
 | **Couleur** | Couleur de marque pour le type (utilisée dans l'inventaire, les rapports et les diagrammes) |
@@ -225,7 +225,7 @@ Les types de relations définissent les connexions autorisées entre les types d
 
 | Champ | Description |
 |-------|-------------|
-| **Clé** | Identifiant unique — proposé à partir de votre verbe, modifiable pendant la création et figé ensuite |
+| **Clé** | Identifiant unique — proposé à partir de votre verbe, modifiable pendant la création et figé ensuite. La boîte de dialogue de modification du type de relation l’affiche, car c’est le nom utilisé par Excel : la colonne `rel:<key>` et la valeur `relation_type` de la feuille `Relations` (voir [Import / export Excel](../guide/inventory.md#excel-import)) |
 | **Libellé** | Libellé dans le sens direct (par ex. « utilise ») |
 | **Libellé inverse** | Libellé dans le sens inverse (par ex. « est utilisé par ») |
 | **Type source** | Le type de fiche côté « depuis » |

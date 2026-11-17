@@ -34,7 +34,7 @@ Haga clic en **+ Nuevo Tipo** para crear un tipo de ficha personalizado. Configu
 
 | Campo | Descripción |
 |-------|-------------|
-| **Clave** | Identificador único (minúsculas, sin espacios) — no se puede cambiar después de la creación |
+| **Clave** | Identificador único (una letra seguida de letras y dígitos, sin espacios ni otros caracteres, por ejemplo `myCustomType`) — no se puede cambiar después de la creación |
 | **Etiqueta** | Nombre para mostrar en la interfaz |
 | **Icono** | Nombre del icono de Google Material Symbols |
 | **Color** | Color de marca para el tipo (usado en inventario, informes y diagramas) |
@@ -225,7 +225,7 @@ Los tipos de relación definen las conexiones permitidas entre tipos de fichas. 
 
 | Campo | Descripción |
 |-------|-------------|
-| **Clave** | Identificador único: se propone a partir de su verbo, se puede editar durante la creación y queda fijo después |
+| **Clave** | Identificador único: se propone a partir de su verbo, se puede editar durante la creación y queda fijo después. El diálogo de edición del tipo de relación la muestra, porque es el nombre que usa Excel: la columna `rel:<key>` y el valor `relation_type` de la hoja `Relations` (consulte [Importación / exportación de Excel](../guide/inventory.md#excel-import)) |
 | **Etiqueta** | Etiqueta de dirección directa (ej., «utiliza») |
 | **Etiqueta Inversa** | Etiqueta de dirección inversa (ej., «es utilizado por») |
 | **Tipo Origen** | El tipo de ficha en el lado «de» |

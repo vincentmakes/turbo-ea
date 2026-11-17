@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.205.2] - 2026-11-17
+
+### Fixed
+- **A relation type's key is now shown in its edit dialog**, with a note that it is the `rel:` column name and the `relation_type` value in Excel exports and imports, so the key of a custom relation type can be found after it is created ([#1406](https://github.com/vincentmakes/turbo-ea/discussions/1406)).
+- **An Excel import no longer calls a relation type "unknown" when its `rel:` column is on the wrong sheet**: the preview now names the card type whose sheet the column belongs on ([#1406](https://github.com/vincentmakes/turbo-ea/discussions/1406)).
+- **A relation type's verb typed in the `Relations` sheet's `relation_type` column** is now reported with the key to enter instead ([#1406](https://github.com/vincentmakes/turbo-ea/discussions/1406)).
+
 ## [2.205.1] - 2026-11-17
 
 ### Fixed

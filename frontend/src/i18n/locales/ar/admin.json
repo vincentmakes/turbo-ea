@@ -129,6 +129,8 @@
   "metamodel.reverseLabel": "التسمية العكسية (مثل «يُستخدم بواسطة»)",
   "metamodel.cardinality": "التعددية",
   "metamodel.editRelationType": "تعديل نوع العلاقة",
+  "metamodel.relKeyCaption": "المفتاح: {{key}}",
+  "metamodel.relKeyExcelHint": "في Excel، هذا المفتاح هو عنوان العمود rel:{{key}} في ورقة نوع البطاقة المصدر، وهو قيمة relation_type في ورقة Relations.",
   "metamodel.deleteRelationType": "حذف نوع العلاقة؟",
   "metamodel.deleteRelHasInstances": "يحتوي نوع العلاقة هذا على <strong>{{count}}</strong> مثيل علاقة يربط البطاقات معًا. سيؤدي حذفه إلى إزالتها جميعًا نهائيًا.",
   "metamodel.deleteRelBuiltInHidden": "سيتم إخفاء نوع العلاقة المدمج هذا ويمكن استعادته لاحقًا.",

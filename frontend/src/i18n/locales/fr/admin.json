@@ -125,6 +125,8 @@
   "metamodel.reverseLabel": "Libellé inverse (ex. « est utilisé par »)",
   "metamodel.cardinality": "Cardinalité",
   "metamodel.editRelationType": "Modifier le type de relation",
+  "metamodel.relKeyCaption": "Clé : {{key}}",
+  "metamodel.relKeyExcelHint": "Dans Excel, cette clé est l’en-tête de la colonne rel:{{key}} sur la feuille du type de fiche source et la valeur relation_type sur la feuille Relations.",
   "metamodel.deleteRelationType": "Supprimer le type de relation ?",
   "metamodel.deleteRelHasInstances": "Ce type de relation a <strong>{{count}}</strong> instance(s) liant des fiches entre elles. Le supprimer les supprimera toutes définitivement.",
   "metamodel.deleteRelBuiltInHidden": "Ce type de relation intégré sera masqué et pourra être restauré ultérieurement.",

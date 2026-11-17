@@ -335,6 +335,12 @@ I en projektmappe eksporteret af Turbo EA (den har et `_Meta`-ark) er et komma a
 
 Kolonnen `tags` følger samme regel: `Gruppe: Tag`-poster adskilt af `; ` (f.eks. `Vendor: Acme, Inc.; Region: EU`), hvor et `;` i et tagnavn skrives som `\;`. Projektmapper eksporteret før 2.156.1 adskilte tags med kommaer og importeres stadig som før.
 
+#### Find en relationstypes nøgle
+
+Navnet efter `rel:` er relationstypens **nøgle**, ikke dens verbum. Du kan se den under **Admin > Metamodel > Relationer**: åbn relationstypens redigeringsdialog, som viser nøglen under dens to korttyper. Kolonneoverskrifterne `rel:` i enhver eksport viser også nøglerne. En brugerdefineret relationstype fungerer præcis som en indbygget.
+
+Links oprettes og fjernes kun i kolonnen `rel:` på arket for den korttype, relationen **starter fra**. En `rel:`-kolonne placeret på arket for den korttype, den peger på, ignoreres, og importens forhåndsvisning angiver det ark, den hører til på. En relationstype uden værdier har ingen rækker på arket `Relations`, da der ikke er noget at udfylde. Hvor arket `Relations` skal bruge en `relation_type`, skal du angive nøglen; skriver du i stedet et verbum, fortæller forhåndsvisningen dig, hvilken nøgle du skal bruge.
+
 ### Interessent-celler
 
 På hvert kort-ark bærer `stakeholder:<role_key>`-kolonner de brugere, der er tildelt hver interessentrolle, som **semikolon-separerede e-mailadresser** (samme konvention som LeanIX' `subscriptions:<RoleType>`-kolonner), f.eks. `ada@corp.com; bob@corp.com`. **E-mailadressen er den eneste accepterede brugerreference** — visningsnavne kan kollidere og bruges aldrig til opslag; en post på formen `Navn <email>` tolereres (e-mailen i vinkelparenteser bruges), et navn alene giver en advarsel og springes over. Ligesom relations-celler er interessent-celler **deklarative pr. rolle**: De anførte brugere bliver det komplette sæt af tildelinger for rollen efter importen. Fjernes en bruger fra listen, fjernes tildelingen; en tom celle rydder rollen; udelades kolonnen helt, forbliver tildelingerne urørte. Poster uden matchende bruger giver en advarsel og springes over — de blokerer aldrig importen.

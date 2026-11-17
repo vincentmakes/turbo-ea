@@ -318,6 +318,12 @@ Cada coluna `rel:<tipo_de_relação>` expressa as relações de saída como uma 
 
 A coluna `tags` segue a mesma regra: entradas `Grupo: Etiqueta` separadas por `; ` (ex.: `Vendor: Acme, Inc.; Region: EU`), com um `;` no nome de uma etiqueta escrito como `\;`. As pastas de trabalho exportadas antes da 2.156.1 separavam as etiquetas por vírgulas e continuam a ser importadas como antes.
 
+#### Encontrar a chave de um tipo de relacionamento
+
+O nome depois de `rel:` é a **chave** do tipo de relacionamento, não o seu verbo. Pode consultá-la em **Admin > Metamodelo > Relacionamentos**: abra a caixa de diálogo de edição do tipo de relacionamento, que mostra a chave sob os seus dois tipos de card. Os cabeçalhos das colunas `rel:` de qualquer exportação também listam as chaves. Um tipo de relacionamento personalizado funciona exatamente como um integrado.
+
+As ligações são criadas e removidas apenas na coluna `rel:` da planilha do tipo de card de onde o relacionamento **parte**. Uma coluna `rel:` colocada na planilha do tipo de card para o qual aponta é ignorada, e a pré-visualização da importação indica a planilha a que pertence. Um tipo de relacionamento sem valores não tem linhas na planilha `Relations`, pois não há nada a preencher. Onde a planilha `Relations` precisa de um `relation_type`, introduza a chave; se escrever um verbo em vez dela, a pré-visualização indica a chave a usar.
+
 ### Células de partes interessadas
 
 Em cada planilha de fichas, as colunas `stakeholder:<chave_do_papel>` carregam os utilizadores atribuídos a cada papel de parte interessada, como **endereços de email separados por ponto e vírgula** (a mesma convenção das colunas `subscriptions:<RoleType>` do LeanIX), por ex. `ada@corp.com; bob@corp.com`. O **endereço de email é a única referência de utilizador aceite** — os nomes podem colidir e nunca são usados na resolução; uma entrada `Nome <email>` é tolerada (usa-se o email entre parênteses angulares), um nome sozinho produz um aviso e é ignorado. Como as células de relação, as células de partes interessadas são **declarativas por papel**: os utilizadores listados tornam-se o conjunto completo de atribuições desse papel após a importação. Remover um utilizador retira a atribuição; esvaziar a célula limpa o papel; omitir a coluna deixa as atribuições intactas. Entradas sem utilizador correspondente produzem um aviso e são ignoradas — nunca bloqueiam a importação.
