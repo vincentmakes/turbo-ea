@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from typing import TypeVar
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.ppm_task import PpmTask
@@ -48,21 +48,59 @@ def place_in_order(siblings: Sequence[Row], item: Row, position: int) -> list[Ro
     return ordered
 
 
-async def _load_parent(db: AsyncSession, initiative_id: uuid.UUID, parent_id: uuid.UUID) -> PpmWbs:
+async def next_sort_order(
+    db: AsyncSession,
+    kind: str,
+    initiative_id: uuid.UUID | str,
+    parent_id: uuid.UUID | str | None,
+) -> int:
+    """The ``sort_order`` that puts a row last among its same-kind siblings.
+
+    A row created (or moved under a new parent by a dialog) without an
+    explicit order goes here. Once a drag has renumbered a group ``0..n-1``,
+    the old default of 0 would slot a new row in second place.
+    """
+    if kind == "task":
+        column, parent_col, initiative_col = (
+            PpmTask.sort_order,
+            PpmTask.wbs_id,
+            PpmTask.initiative_id,
+        )
+    else:
+        column, parent_col, initiative_col = (
+            PpmWbs.sort_order,
+            PpmWbs.parent_id,
+            PpmWbs.initiative_id,
+        )
+    same_parent = parent_col.is_(None) if parent_id is None else parent_col == parent_id
+    result = await db.execute(
+        select(func.max(column)).where(initiative_col == initiative_id, same_parent)
+    )
+    highest = result.scalar_one_or_none()
+    return 0 if highest is None else highest + 1
+
+
+async def _check_new_parent(
+    db: AsyncSession, initiative_id: uuid.UUID, parent_id: uuid.UUID
+) -> None:
+    """400 unless ``parent_id`` is a work package of this initiative that can
+    hold items. Checked only when the parent changes, so rows that already sit
+    under a milestone can still be reordered there."""
     parent = await db.get(PpmWbs, parent_id)
     if parent is None or parent.initiative_id != initiative_id:
         raise HTTPException(status_code=400, detail="Parent WBS item not found in this initiative")
     if parent.is_milestone:
         raise HTTPException(status_code=400, detail="A milestone cannot contain items")
-    return parent
 
 
 async def apply_gantt_move(db: AsyncSession, initiative_id: uuid.UUID, move: PpmGanttMove) -> bool:
     """Re-parent and re-order one row of ``initiative_id``'s Gantt.
 
-    Raises 404 when the row is not this initiative's, 400 for a parent that
-    cannot hold it. Returns whether the parent changed, which is when the
-    caller has to re-run the completion and date roll-ups. Does not commit.
+    Raises 404 when the row is not this initiative's, 400 for a new parent
+    that cannot hold it. Siblings are read in the list endpoints' order, with
+    the id as the last tiebreaker so both agree on rows created together.
+    Returns whether the parent changed, which is when the caller has to
+    re-run the completion and date roll-ups. Does not commit.
     """
     parent_id = move.parent_wbs_id
     item: PpmTask | PpmWbs | None
@@ -72,31 +110,31 @@ async def apply_gantt_move(db: AsyncSession, initiative_id: uuid.UUID, move: Ppm
         item = await db.get(PpmWbs, move.id)
     if item is None or item.initiative_id != initiative_id:
         raise HTTPException(status_code=404, detail="Item not found")
-    if parent_id is not None:
-        await _load_parent(db, initiative_id, parent_id)
+    old_parent = item.wbs_id if isinstance(item, PpmTask) else item.parent_id
+    parent_changes = old_parent != parent_id
+    if parent_changes and parent_id is not None:
+        await _check_new_parent(db, initiative_id, parent_id)
 
     if isinstance(item, PpmTask):
-        old_parent = item.wbs_id
         same_parent = PpmTask.wbs_id.is_(None) if parent_id is None else PpmTask.wbs_id == parent_id
         tasks = await db.execute(
             select(PpmTask)
             .where(PpmTask.initiative_id == initiative_id, same_parent)
-            .order_by(PpmTask.sort_order, PpmTask.created_at)
+            .order_by(PpmTask.sort_order, PpmTask.created_at, PpmTask.id)
         )
         place_in_order(list(tasks.scalars().all()), item, move.position)
         item.wbs_id = parent_id
     else:
-        if parent_id is not None:
+        if parent_changes and parent_id is not None:
             await assert_no_wbs_cycle(db, str(item.id), str(parent_id))
-        old_parent = item.parent_id
         same_parent = (
             PpmWbs.parent_id.is_(None) if parent_id is None else PpmWbs.parent_id == parent_id
         )
         packages = await db.execute(
             select(PpmWbs)
             .where(PpmWbs.initiative_id == initiative_id, same_parent)
-            .order_by(PpmWbs.sort_order, PpmWbs.created_at)
+            .order_by(PpmWbs.sort_order, PpmWbs.created_at, PpmWbs.id)
         )
         place_in_order(list(packages.scalars().all()), item, move.position)
         item.parent_id = parent_id
-    return old_parent != parent_id
+    return parent_changes

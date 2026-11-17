@@ -574,14 +574,27 @@ describe("PpmGanttTab — dragging a row in the task list", () => {
     );
   });
 
-  it("refuses a task as the container and says so", async () => {
+  it("places a row dropped onto a task after that task", async () => {
     plan();
+    mockApi.on("post", `${base}/gantt/move`, null);
     await renderTab();
     await act(async () => gantt.props!.onMoveTaskInside(row("task-t1"), [row("task-t3")]));
-    expect(
-      await screen.findByText("A task cannot contain other items. Drop it on a work package instead."),
-    ).toBeInTheDocument();
-    expect(moves()).toEqual([]);
+    await waitFor(() =>
+      expect(moves().map((c) => c.body)).toEqual([
+        { kind: "task", id: "t3", parent_wbs_id: "w1", position: 1 },
+      ]),
+    );
+  });
+
+  it("places a row dropped below an open work package first inside it, beside it once folded", async () => {
+    plan();
+    mockApi.on("post", `${base}/gantt/move`, null);
+    await renderTab();
+    await act(() => gantt.props!.onMoveTaskAfter(row("wbs-w1"), row("task-t3")));
+    expect(moves()[0].body).toEqual({ kind: "task", id: "t3", parent_wbs_id: "w1", position: 0 });
+    act(() => gantt.props!.onChangeExpandState(row("wbs-w1")));
+    await act(() => gantt.props!.onMoveTaskAfter(row("wbs-w1"), row("wbs-w2")));
+    expect(moves()).toHaveLength(1);
   });
 
   it("saves nothing for a drop that leaves the row in place", async () => {

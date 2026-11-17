@@ -177,7 +177,6 @@
   "dependencyCreateFailed": "فشل في إنشاء التبعية",
   "dependencyDeleteFailed": "فشل في إزالة التبعية",
   "dependencyCycleError": "ستؤدي هذه التبعية إلى إنشاء حلقة دائرية",
-  "ganttMoveIntoTask": "لا يمكن للمهمة أن تحتوي على عناصر أخرى. أفلتها على حزمة عمل بدلاً من ذلك.",
   "ganttMoveFailed": "تعذّر نقل العنصر",
   "ganttMoveWhileSorted": "امسح فرز الأعمدة لإعادة ترتيب العناصر.",
   "dependencyDuplicateError": "هذه التبعية موجودة بالفعل",

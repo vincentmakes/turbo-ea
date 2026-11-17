@@ -915,7 +915,7 @@ describe("moving a row in the task list", () => {
       parent_wbs_id: null,
       position: 0,
     });
-    expect(move("after", "wbs-w1", "wbs-w4")).toBeNull();
+    expect(move("before", "wbs-w3", "wbs-w2")).toBeNull();
   });
 
   it("re-parents a row dropped next to a row under another parent", () => {
@@ -988,15 +988,64 @@ describe("moving a row in the task list", () => {
     });
   });
 
-  it("saves nothing when a task or a milestone would be the container", () => {
-    expect(move("inside", "task-t1", "task-t4")).toBeNull();
+  it("places a row dropped onto a task after that task", () => {
+    expect(move("inside", "task-t1", "task-t4")).toEqual({
+      kind: "task",
+      id: "t4",
+      parent_wbs_id: "w1",
+      position: 1,
+    });
+    expect(move("inside", "task-t1", "task-t3")).toBeNull();
+  });
+
+  it("makes a row dropped just below an open work package its first item", () => {
+    expect(move("after", "wbs-w1", "task-t4")).toEqual({
+      kind: "task",
+      id: "t4",
+      parent_wbs_id: "w1",
+      position: 0,
+    });
+    expect(move("after", "wbs-w1", "wbs-w4")).toEqual({
+      kind: "wbs",
+      id: "w4",
+      parent_wbs_id: "w1",
+      position: 0,
+    });
+    // w2 holds only a task, which still counts as a child.
+    expect(move("after", "wbs-w2", "task-t5")).toEqual({
+      kind: "task",
+      id: "t5",
+      parent_wbs_id: "w2",
+      position: 0,
+    });
+  });
+
+  it("places a row after a folded or empty work package, beside it", () => {
+    expect(resolveGanttMove("after", "wbs-w1", "wbs-w3", wbsList, tasks, new Set(["w1"]))).toEqual(
+      { kind: "wbs", id: "w3", parent_wbs_id: null, position: 1 },
+    );
+    expect(resolveGanttMove("after", "wbs-w1", "wbs-w4", wbsList, tasks, new Set(["w2"]))).toEqual(
+      { kind: "wbs", id: "w4", parent_wbs_id: "w1", position: 0 },
+    );
+    expect(move("after", "wbs-w3", "task-t4")).toEqual({
+      kind: "task",
+      id: "t4",
+      parent_wbs_id: "w1",
+      position: 0,
+    });
+  });
+
+  it("saves nothing when a milestone would be the container", () => {
     expect(move("inside", "wbs-w4", "task-t4")).toBeNull();
+    const underMilestone = [...tasks, task("t6", { wbs_id: "w4" })];
+    expect(resolveGanttMove("after", "wbs-w4", "task-t4", wbsList, underMilestone)).toBeNull();
   });
 
   it("saves nothing when a work package would land in itself or its subtree", () => {
     expect(move("inside", "wbs-w1", "wbs-w1")).toBeNull();
     expect(move("inside", "wbs-w2", "wbs-w1")).toBeNull();
     expect(move("before", "task-t2", "wbs-w1")).toBeNull();
+    expect(move("after", "wbs-w2", "wbs-w1")).toBeNull();
   });
 
   it("saves nothing when the row stays where it is", () => {

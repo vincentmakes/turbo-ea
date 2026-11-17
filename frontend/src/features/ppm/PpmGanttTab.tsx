@@ -680,11 +680,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         showSnack(t("ganttMoveWhileSorted"));
         return;
       }
-      if (drop === "inside" && targetId.startsWith("task-")) {
-        showSnack(t("ganttMoveIntoTask"));
-        return;
-      }
-      const move = resolveGanttMove(drop, targetId, movedId, wbsList, tasks);
+      const move = resolveGanttMove(drop, targetId, movedId, wbsList, tasks, collapsed);
       if (!move) return;
       try {
         await api.post(`/ppm/initiatives/${initiativeId}/gantt/move`, move);
@@ -693,7 +689,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       }
       await loadData();
     },
-    [effectiveSort, initiativeId, wbsList, tasks, loadData, showSnack, t],
+    [effectiveSort, initiativeId, wbsList, tasks, collapsed, loadData, showSnack, t],
   );
   const handleMoveTaskBefore: OnMoveTaskBeforeAfter = useCallback(
     (target, taskForMove) => handleRowDrop("before", target.id, taskForMove.id),
@@ -704,9 +700,9 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     [handleRowDrop],
   );
   const handleMoveTaskInside: OnMoveTaskInside = useCallback(
-    (parent, childs) => {
-      for (const child of childs) handleRowDrop("inside", parent.id, child.id);
-    },
+    // A drag hands over the one dragged row; the library's cut-and-paste,
+    // which could hand over several, is not in this chart's context menu.
+    (parent, [child]) => handleRowDrop("inside", parent.id, child.id),
     [handleRowDrop],
   );
 

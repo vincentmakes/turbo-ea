@@ -165,7 +165,6 @@
   "dependencyCreateFailed": "Error al crear la dependencia",
   "dependencyDeleteFailed": "Error al eliminar la dependencia",
   "dependencyCycleError": "Esta dependencia crearía un ciclo",
-  "ganttMoveIntoTask": "Una tarea no puede contener otros elementos. Suéltela en un paquete de trabajo en su lugar.",
   "ganttMoveFailed": "No se pudo mover el elemento",
   "ganttMoveWhileSorted": "Quite la ordenación por columna para reordenar los elementos.",
   "dependencyDuplicateError": "Esta dependencia ya existe",

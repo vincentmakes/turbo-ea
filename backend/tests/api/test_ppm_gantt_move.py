@@ -353,3 +353,181 @@ class TestPermissions:
 
         resp = await _move(client, env, kind="task", item=task, position=0, user=env["member"])
         assert resp.status_code == 404
+
+
+class TestMilestoneChildren:
+    async def test_rows_already_under_a_milestone_can_be_reordered(self, client, db, env):
+        init = env["initiative"].id
+        milestone = await create_wbs(db, initiative_id=init, title="M", is_milestone=True)
+        a, _b = await _ordered(
+            db,
+            [
+                await create_task(db, initiative_id=init, title="A", wbs_id=milestone.id),
+                await create_task(db, initiative_id=init, title="B", wbs_id=milestone.id),
+            ],
+        )
+        resp = await _move(client, env, kind="task", item=a, parent=milestone, position=1)
+        assert resp.status_code == 204
+        assert await _task_titles(client, env, milestone) == ["B", "A"]
+
+
+class TestNewRowsGoLast:
+    """After a drag has renumbered a group 0..n-1, a row created or re-parented
+    without an explicit order must land last, not second (default 0)."""
+
+    async def test_a_new_task_goes_last_after_a_move(self, client, db, env):
+        init = env["initiative"].id
+        a, _b, c = await _ordered(
+            db,
+            [
+                await create_task(db, initiative_id=init, title="A"),
+                await create_task(db, initiative_id=init, title="B"),
+                await create_task(db, initiative_id=init, title="C"),
+            ],
+        )
+        await _move(client, env, kind="task", item=c, position=0)
+        resp = await client.post(
+            f"{BASE}/initiatives/{init}/tasks",
+            json={"title": "D"},
+            headers=auth_headers(env["admin"]),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["sort_order"] == 3
+        assert await _task_titles(client, env) == ["C", "A", "B", "D"]
+
+    async def test_a_new_task_counts_only_its_own_work_package(self, client, db, env):
+        init = env["initiative"].id
+        pkg = await create_wbs(db, initiative_id=init, title="Pkg")
+        elsewhere = await create_task(db, initiative_id=init, title="Elsewhere")
+        elsewhere.sort_order = 9
+        inside = await create_task(db, initiative_id=init, title="Inside", wbs_id=pkg.id)
+        inside.sort_order = 2
+        other = await create_card(db, card_type="Initiative", name="Other")
+        foreign = await create_task(db, initiative_id=other.id, title="Foreign", wbs_id=None)
+        foreign.sort_order = 50
+        await db.flush()
+        resp = await client.post(
+            f"{BASE}/initiatives/{init}/tasks",
+            json={"title": "New", "wbs_id": str(pkg.id)},
+            headers=auth_headers(env["admin"]),
+        )
+        assert resp.json()["sort_order"] == 3
+
+    async def test_the_first_task_of_a_group_is_zero(self, client, env):
+        resp = await client.post(
+            f"{BASE}/initiatives/{env['initiative'].id}/tasks",
+            json={"title": "First"},
+            headers=auth_headers(env["admin"]),
+        )
+        assert resp.json()["sort_order"] == 0
+
+    async def test_an_explicit_order_is_kept(self, client, db, env):
+        init = env["initiative"].id
+        (a,) = await _ordered(db, [await create_task(db, initiative_id=init, title="A")])
+        a.sort_order = 5
+        await db.flush()
+        resp = await client.post(
+            f"{BASE}/initiatives/{init}/tasks",
+            json={"title": "B", "sort_order": 0},
+            headers=auth_headers(env["admin"]),
+        )
+        assert resp.json()["sort_order"] == 0
+
+    async def test_a_new_work_package_goes_last_under_its_parent(self, client, db, env):
+        init = env["initiative"].id
+        top = await create_wbs(db, initiative_id=init, title="Top")
+        child = await create_wbs(db, initiative_id=init, title="Child", parent_id=top.id)
+        child.sort_order = 4
+        sibling = await create_wbs(db, initiative_id=init, title="Sibling")
+        sibling.sort_order = 8
+        await db.flush()
+        resp = await client.post(
+            f"{BASE}/initiatives/{init}/wbs",
+            json={"title": "New", "parent_id": str(top.id)},
+            headers=auth_headers(env["admin"]),
+        )
+        assert resp.json()["sort_order"] == 5
+        resp = await client.post(
+            f"{BASE}/initiatives/{init}/wbs",
+            json={"title": "Pinned", "sort_order": 1},
+            headers=auth_headers(env["admin"]),
+        )
+        assert resp.json()["sort_order"] == 1
+
+    async def test_a_task_moved_by_the_dialog_goes_last_in_its_new_package(self, client, db, env):
+        init = env["initiative"].id
+        pkg = await create_wbs(db, initiative_id=init, title="Pkg")
+        there = await create_task(db, initiative_id=init, title="There", wbs_id=pkg.id)
+        there.sort_order = 3
+        moved = await create_task(db, initiative_id=init, title="Moved")
+        await db.flush()
+        resp = await client.patch(
+            f"{BASE}/tasks/{moved.id}",
+            json={"wbs_id": str(pkg.id)},
+            headers=auth_headers(env["admin"]),
+        )
+        assert resp.json()["sort_order"] == 4
+
+    async def test_a_dialog_save_that_keeps_the_package_keeps_the_order(self, client, db, env):
+        init = env["initiative"].id
+        pkg = await create_wbs(db, initiative_id=init, title="Pkg")
+        task = await create_task(db, initiative_id=init, title="T", wbs_id=pkg.id)
+        task.sort_order = 2
+        await create_task(db, initiative_id=init, title="Later", wbs_id=pkg.id)
+        await db.flush()
+        resp = await client.patch(
+            f"{BASE}/tasks/{task.id}",
+            json={"wbs_id": str(pkg.id), "title": "Renamed"},
+            headers=auth_headers(env["admin"]),
+        )
+        assert resp.json()["sort_order"] == 2
+
+    async def test_a_dialog_reparent_with_an_explicit_order_keeps_it(self, client, db, env):
+        init = env["initiative"].id
+        pkg = await create_wbs(db, initiative_id=init, title="Pkg")
+        there = await create_task(db, initiative_id=init, title="There", wbs_id=pkg.id)
+        there.sort_order = 3
+        moved = await create_task(db, initiative_id=init, title="Moved")
+        await db.flush()
+        resp = await client.patch(
+            f"{BASE}/tasks/{moved.id}",
+            json={"wbs_id": str(pkg.id), "sort_order": 0},
+            headers=auth_headers(env["admin"]),
+        )
+        assert resp.json()["sort_order"] == 0
+
+    async def test_a_work_package_moved_by_the_dialog_goes_last(self, client, db, env):
+        init = env["initiative"].id
+        top = await create_wbs(db, initiative_id=init, title="Top")
+        child = await create_wbs(db, initiative_id=init, title="Child", parent_id=top.id)
+        child.sort_order = 6
+        moved = await create_wbs(db, initiative_id=init, title="Moved")
+        moved.sort_order = 1
+        await db.flush()
+        resp = await client.patch(
+            f"{BASE}/wbs/{moved.id}",
+            json={"parent_id": str(top.id)},
+            headers=auth_headers(env["admin"]),
+        )
+        assert resp.json()["sort_order"] == 7
+        # Saving the dialog again with the same parent keeps that place.
+        resp = await client.patch(
+            f"{BASE}/wbs/{moved.id}",
+            json={"parent_id": str(top.id), "title": "Renamed"},
+            headers=auth_headers(env["admin"]),
+        )
+        assert resp.json()["sort_order"] == 7
+
+    async def test_a_work_package_moved_to_the_top_level_goes_last(self, client, db, env):
+        init = env["initiative"].id
+        top = await create_wbs(db, initiative_id=init, title="Top")
+        top.sort_order = 2
+        child = await create_wbs(db, initiative_id=init, title="Child", parent_id=top.id)
+        await db.flush()
+        resp = await client.patch(
+            f"{BASE}/wbs/{child.id}",
+            json={"parent_id": None},
+            headers=auth_headers(env["admin"]),
+        )
+        assert resp.json()["parent_id"] is None
+        assert resp.json()["sort_order"] == 3

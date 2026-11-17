@@ -57,10 +57,18 @@ from app.services.card_write_service import recalculate_and_rescore
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 from app.services.ppm_ancestors import active_initiative_ancestors
-from app.services.ppm_gantt_move import apply_gantt_move, assert_no_wbs_cycle
+from app.services.ppm_gantt_move import (
+    apply_gantt_move,
+    assert_no_wbs_cycle,
+    next_sort_order,
+)
 from app.services.ppm_portfolio_service import build_initiative_rollup
 
 router = APIRouter(prefix="/ppm", tags=["ppm"])
+
+
+def _id_str(value: uuid.UUID | None) -> str | None:
+    return str(value) if value is not None else None
 
 
 async def _get_initiative_or_404(db: AsyncSession, initiative_id: str, user: User) -> Card:
@@ -784,7 +792,7 @@ async def list_tasks(
     result = await db.execute(
         select(PpmTask)
         .where(PpmTask.initiative_id == initiative_id)
-        .order_by(PpmTask.sort_order, PpmTask.created_at)
+        .order_by(PpmTask.sort_order, PpmTask.created_at, PpmTask.id)
     )
     return [await _task_to_out(db, t) for t in result.scalars().all()]
 
@@ -808,7 +816,11 @@ async def create_task(
         assignee_id=body.assignee_id,
         start_date=body.start_date,
         due_date=body.due_date,
-        sort_order=body.sort_order,
+        sort_order=(
+            body.sort_order
+            if "sort_order" in body.model_fields_set
+            else await next_sort_order(db, "task", initiative_id, body.wbs_id)
+        ),
         tags=body.tags,
         wbs_id=body.wbs_id,
     )
@@ -854,6 +866,8 @@ async def update_task(
     await _ensure_initiative_readable(db, user, task.initiative_id)
     old_assignee_id = str(task.assignee_id) if task.assignee_id else None
     data = body.model_dump(exclude_unset=True)
+    if "wbs_id" in data and "sort_order" not in data and data["wbs_id"] != _id_str(task.wbs_id):
+        data["sort_order"] = await next_sort_order(db, "task", task.initiative_id, data["wbs_id"])
     for key, val in data.items():
         setattr(task, key, val)
     card = await _get_initiative_or_404(db, str(task.initiative_id), user)
@@ -1139,7 +1153,7 @@ async def _rollup_completion(db: AsyncSession, initiative_id: str) -> None:
     result = await db.execute(
         select(PpmWbs)
         .where(PpmWbs.initiative_id == initiative_id)
-        .order_by(PpmWbs.sort_order, PpmWbs.created_at)
+        .order_by(PpmWbs.sort_order, PpmWbs.created_at, PpmWbs.id)
     )
     all_wbs = result.scalars().all()
     by_id: dict[str, PpmWbs] = {str(w.id): w for w in all_wbs}
@@ -1240,7 +1254,7 @@ async def list_wbs(
     result = await db.execute(
         select(PpmWbs)
         .where(PpmWbs.initiative_id == initiative_id)
-        .order_by(PpmWbs.sort_order, PpmWbs.created_at)
+        .order_by(PpmWbs.sort_order, PpmWbs.created_at, PpmWbs.id)
     )
     return [await _wbs_to_out(db, w) for w in result.scalars().all()]
 
@@ -1274,7 +1288,11 @@ async def create_wbs(
         description=body.description,
         start_date=body.start_date,
         end_date=body.end_date,
-        sort_order=body.sort_order,
+        sort_order=(
+            body.sort_order
+            if "sort_order" in body.model_fields_set
+            else await next_sort_order(db, "wbs", initiative_id, body.parent_id)
+        ),
         is_milestone=body.is_milestone,
         completion=body.completion,
         assignee_id=body.assignee_id,
@@ -1317,6 +1335,12 @@ async def update_wbs(
                 detail="Parent WBS item not found in this initiative",
             )
         await assert_no_wbs_cycle(db, wbs_id, new_parent_id)
+    if (
+        "parent_id" in data
+        and "sort_order" not in data
+        and data["parent_id"] != _id_str(wbs.parent_id)
+    ):
+        data["sort_order"] = await next_sort_order(db, "wbs", wbs.initiative_id, data["parent_id"])
     for key, val in data.items():
         setattr(wbs, key, val)
     # Rollup completion to parents if completion changed
@@ -1338,10 +1362,10 @@ async def move_gantt_row(
     """Save a row dragged in the Gantt task list: its parent work package and
     its place among the siblings of its kind.
 
-    The sibling group is renumbered ``0..n-1`` because rows created without
-    an explicit order all share ``sort_order = 0``. A change of parent re-runs
-    the completion and date roll-ups, so both the old and the new parent
-    follow the move.
+    A change of parent re-runs the completion and date roll-ups, as a change
+    of ``wbs_id`` through ``PATCH /tasks`` does: the new parent counts the
+    moved row, and the old one is recomputed from what it still holds (a work
+    package left with no tasks keeps the values it had).
     """
     await PermissionService.require_permission(db, user, "ppm.manage")
     card = await _get_initiative_or_404(db, initiative_id, user)

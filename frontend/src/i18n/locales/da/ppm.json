@@ -165,7 +165,6 @@
   "dependencyCreateFailed": "Kunne ikke oprette afhængighed",
   "dependencyDeleteFailed": "Kunne ikke fjerne afhængighed",
   "dependencyCycleError": "Denne afhængighed ville skabe en cyklus",
-  "ganttMoveIntoTask": "En opgave kan ikke indeholde andre elementer. Slip den i stedet på en arbejdspakke.",
   "ganttMoveFailed": "Elementet kunne ikke flyttes",
   "ganttMoveWhileSorted": "Ryd kolonnesorteringen for at omarrangere elementer.",
   "dependencyDuplicateError": "Denne afhængighed findes allerede",

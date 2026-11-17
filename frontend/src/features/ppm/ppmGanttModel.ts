@@ -598,23 +598,27 @@ export interface GanttMove {
 
 /**
  * What a drop in the task list saves, or null when it saves nothing: an
- * unknown row, a task as the container, a milestone as the container, a work
- * package into itself or its own subtree, or a drop that leaves the row where
- * it is.
+ * unknown row, a milestone as the container, a work package into itself or
+ * its own subtree, or a drop that leaves the row where it is.
  *
  * Under any parent the work packages are drawn above the tasks, so a task
  * dropped next to a work package goes first among the tasks, and a work
  * package dropped next to a task goes last among the work packages. Inside a
  * work package a row goes last; on the empty "+" row it goes last at the top
- * level. `wbsList` and `tasks` are in the order the API sends them, which is
- * the stored order.
+ * level. A task holds nothing, and most of its row is the library's "inside"
+ * zone, so a drop onto a task places the row after it. The "after" strip of an
+ * open work package that has children is drawn above its first child, so a
+ * drop there makes the row the first of its kind inside it. `wbsList` and
+ * `tasks` are in the order the API sends them, which is the stored order;
+ * `collapsed` holds the ids of folded work packages.
  */
 export function resolveGanttMove(
-  drop: GanttDropKind,
+  dropKind: GanttDropKind,
   targetId: string,
   movedId: string,
   wbsList: PpmWbs[],
   tasks: PpmTask[],
+  collapsed: ReadonlySet<string> = new Set(),
 ): GanttMove | null {
   const moved = parseGanttId(movedId);
   if (!moved) return null;
@@ -638,7 +642,18 @@ export function resolveGanttMove(
   let parent: string | null;
   let position: number;
   const target = parseGanttId(targetId);
-  if (!target) {
+  let drop = dropKind;
+  if (target?.kind === "task" && drop === "inside") drop = "after";
+  const opensAbove =
+    target?.kind === "wbs" &&
+    !collapsed.has(target.id) &&
+    (wbsList.some((w) => w.parent_id === target.id) ||
+      tasks.some((tk) => tk.wbs_id === target.id));
+  if (drop === "after" && opensAbove) {
+    if (wbsById.get(target.id)?.is_milestone) return null;
+    parent = target.id;
+    position = 0;
+  } else if (!target) {
     if (targetId !== EMPTY_ROW_ID) return null;
     parent = null;
     position = othersUnder(null).length;

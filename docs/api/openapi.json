@@ -36713,7 +36713,7 @@
     },
     "/api/v1/ppm/initiatives/{initiative_id}/gantt/move": {
       "post": {
-        "description": "Save a row dragged in the Gantt task list: its parent work package and\nits place among the siblings of its kind.\n\nThe sibling group is renumbered ``0..n-1`` because rows created without\nan explicit order all share ``sort_order = 0``. A change of parent re-runs\nthe completion and date roll-ups, so both the old and the new parent\nfollow the move.",
+        "description": "Save a row dragged in the Gantt task list: its parent work package and\nits place among the siblings of its kind.\n\nA change of parent re-runs the completion and date roll-ups, as a change\nof ``wbs_id`` through ``PATCH /tasks`` does: the new parent counts the\nmoved row, and the old one is recomputed from what it still holds (a work\npackage left with no tasks keeps the values it had).",
         "operationId": "move_gantt_row_api_v1_ppm_initiatives__initiative_id__gantt_move_post",
         "parameters": [
           {

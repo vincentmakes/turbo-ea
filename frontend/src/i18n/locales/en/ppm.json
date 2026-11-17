@@ -165,7 +165,6 @@
   "dependencyCreateFailed": "Failed to create dependency",
   "dependencyDeleteFailed": "Failed to remove dependency",
   "dependencyCycleError": "This dependency would create a cycle",
-  "ganttMoveIntoTask": "A task cannot contain other items. Drop it on a work package instead.",
   "ganttMoveFailed": "The item could not be moved",
   "ganttMoveWhileSorted": "Clear the column sort to reorder items.",
   "dependencyDuplicateError": "This dependency already exists",

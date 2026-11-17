@@ -165,7 +165,6 @@
   "dependencyCreateFailed": "Échec de la création de la dépendance",
   "dependencyDeleteFailed": "Échec de la suppression de la dépendance",
   "dependencyCycleError": "Cette dépendance créerait un cycle",
-  "ganttMoveIntoTask": "Une tâche ne peut pas contenir d'autres éléments. Déposez-la plutôt sur un lot de travaux.",
   "ganttMoveFailed": "L'élément n'a pas pu être déplacé",
   "ganttMoveWhileSorted": "Supprimez le tri par colonne pour réorganiser les éléments.",
   "dependencyDuplicateError": "Cette dépendance existe déjà",
