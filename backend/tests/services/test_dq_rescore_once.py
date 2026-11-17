@@ -127,3 +127,7 @@ async def test_rescore_reruns_when_only_the_v2_marker_is_set(db):
     ).scalar_one()
     assert settings_row.general_settings.get(_DQ_RESCORE_FLAG) is True
     assert settings_row.general_settings.get("dataQualityCanonicalRescoreDoneV2") is True
+
+
+async def test_the_rescore_marker_was_bumped_for_the_license_metrics_migration():
+    assert _DQ_RESCORE_FLAG.endswith("V5")

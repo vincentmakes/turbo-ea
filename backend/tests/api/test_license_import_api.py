@@ -12,12 +12,12 @@ from sqlalchemy import select, update
 from app.models.card_license import CardLicense
 from app.models.card_type import CardType
 from app.models.stakeholder import Stakeholder
-from app.services import license_types
 from app.services.fiscal_year import current_fiscal_year
 from tests.conftest import (
     auth_headers,
     create_card,
     create_card_type,
+    create_license_type,
     create_role,
     create_stakeholder_role_def,
     create_user,
@@ -51,7 +51,7 @@ async def env(db):
         db, key="editor", label="E", permissions={"inventory.view": True, "licenses.edit": True}
     )
     await create_card_type(db, key="Application", label="Application")
-    await license_types.create_item(db, "admin", "Admin")
+    await create_license_type(db, "admin", "Admin")
     await create_stakeholder_role_def(
         db, key="responsible", label="R", permissions={"card.view": True, "card.edit": True}
     )

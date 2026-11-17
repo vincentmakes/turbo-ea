@@ -5,11 +5,16 @@ from __future__ import annotations
 import pytest
 
 from app.models.card_license import CardLicense
-from app.services import license_types
 from app.services.card_read_scope import CardReadScope
 from app.services.fiscal_year import current_fiscal_year
 from app.services.license_report import build_report, counts_in_year
-from tests.conftest import create_card, create_card_type, create_role, create_user
+from tests.conftest import (
+    create_card,
+    create_card_type,
+    create_license_type,
+    create_role,
+    create_user,
+)
 
 CUR = current_fiscal_year(1)
 FORECAST = CUR + 1
@@ -33,8 +38,8 @@ async def env(db):
             }
         ],
     )
-    await license_types.create_item(db, "admin", "Admin")
-    await license_types.create_item(db, "dev", "Dev")
+    await create_license_type(db, "admin", "Admin")
+    await create_license_type(db, "dev", "Dev")
     return CardReadScope.load, user
 
 

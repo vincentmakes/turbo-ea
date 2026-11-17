@@ -30,6 +30,7 @@ from app.models.dashboard import Dashboard
 from app.models.ea_principle import EAPrinciple
 from app.models.eol_custom_cycle import EolCustomCycle
 from app.models.eol_custom_product import EolCustomProduct
+from app.models.license_metric import LicenseMetric
 from app.models.license_type import LicenseType
 from app.models.resource_type import ResourceType
 from app.models.role import Role
@@ -65,6 +66,7 @@ SHEET_RESOURCE_TYPES = "ResourceTypes"
 SHEET_CARD_TYPE_CATEGORIES = "CardTypeCategories"
 SHEET_DASHBOARDS = "Dashboards"
 SHEET_COST_ITEM_TYPES = "CostItemTypes"
+SHEET_LICENSE_METRICS = "LicenseMetrics"
 SHEET_LICENSE_TYPES = "LicenseTypes"
 SHEET_EOL_CUSTOM_PRODUCTS = "EolCustomProducts"
 SHEET_EOL_CUSTOM_CYCLES = "EolCustomCycles"
@@ -341,12 +343,21 @@ CONFIG_SECTIONS: tuple[ConfigSection, ...] = (
         columns=("key", "label", "sort_order", "archived", "translations"),
         json_columns=frozenset({"translations"}),
     ),
-    # The license-type catalogue; ``CardLicenses.items`` is keyed by these ``key``s.
+    # The license metrics, then their types (a type names its metric by ``metric_key``);
+    # ``CardLicenses.items`` is keyed by metric key then type key. Both go through the
+    # generic applier for now.
+    ConfigSection(
+        sheet=SHEET_LICENSE_METRICS,
+        model=LicenseMetric,
+        natural_key=("key",),
+        columns=("key", "label", "sort_order", "archived", "translations"),
+        json_columns=frozenset({"translations"}),
+    ),
     ConfigSection(
         sheet=SHEET_LICENSE_TYPES,
         model=LicenseType,
-        natural_key=("key",),
-        columns=("key", "label", "sort_order", "archived", "translations"),
+        natural_key=("metric_key", "key"),
+        columns=("metric_key", "key", "label", "sort_order", "archived", "translations"),
         json_columns=frozenset({"translations"}),
     ),
     # Custom EOL products and their cycles: the organisation's own end-of-life

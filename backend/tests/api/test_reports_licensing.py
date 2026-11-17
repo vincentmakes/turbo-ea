@@ -8,12 +8,12 @@ from sqlalchemy import select, update
 from app.models.app_settings import AppSettings
 from app.models.card_license import CardLicense
 from app.models.card_type import CardType
-from app.services import license_types
 from app.services.fiscal_year import current_fiscal_year
 from tests.conftest import (
     auth_headers,
     create_card,
     create_card_type,
+    create_license_type,
     create_relation,
     create_relation_type,
     create_role,
@@ -47,8 +47,8 @@ async def env(db):
     await create_relation_type(
         db, key="relPlatformToITC", source_type_key="Platform", target_type_key="ITComponent"
     )
-    await license_types.create_item(db, "admin", "Admin")
-    await license_types.create_item(db, "dev", "Dev")
+    await create_license_type(db, "admin", "Admin")
+    await create_license_type(db, "dev", "Dev")
     return users
 
 

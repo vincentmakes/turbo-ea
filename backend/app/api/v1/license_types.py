@@ -38,7 +38,11 @@ async def create_license_type(
     await PermissionService.require_permission(db, user, "admin.metamodel")
     try:
         row = await license_types.create_item(
-            db, body.key, body.label.strip(), _clean_translations(body.translations)
+            db,
+            body.metric_key,
+            body.key,
+            body.label.strip(),
+            _clean_translations(body.translations),
         )
     except license_types.CatalogueError as exc:
         status = 409 if exc.code == "duplicate_key" else 422
@@ -58,12 +62,13 @@ async def create_license_type(
 @router.patch("/license-types/{key}")
 async def update_license_type(
     key: str,
+    metric_key: str,
     body: LicenseTypeUpdate,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "admin.metamodel")
-    row = await license_types.get_item(db, key)
+    row = await license_types.get_item(db, metric_key, key)
     if row is None:
         raise HTTPException(404, "License type not found")
     # A null means "leave as is" (update_item ignores it); keep it out of the audit diff too.
@@ -76,7 +81,7 @@ async def update_license_type(
     items = _label_translation_items(
         row.translations, updates.get("translations", row.translations)
     )
-    await license_types.update_item(db, key, **updates)
+    await license_types.update_item(db, metric_key, key, **updates)
     if changes or items:
         await audit_log.record(
             db,

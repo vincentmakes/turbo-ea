@@ -11,7 +11,7 @@ from app.models.event import Event
 from app.services import card_licenses as svc
 from app.services import license_types
 from app.services.fiscal_year import current_fiscal_year
-from tests.conftest import create_card, create_card_type, create_user
+from tests.conftest import create_card, create_card_type, create_license_type, create_user
 
 SM = 1
 CUR = current_fiscal_year(SM)
@@ -22,10 +22,11 @@ def cell(licensed, actual=None):
 
 
 async def _setup(db, archived=(), model=("users", "installations")):
-    for key in ("admin", "prod", "old"):
-        await license_types.create_item(db, key, key.upper())
-    for key in archived:
-        await license_types.update_item(db, key, archived=True)
+    for metric in ("users", "installations"):
+        for key in ("admin", "prod", "old"):
+            await create_license_type(db, key, key.upper(), metric_key=metric)
+            if key in archived:
+                await license_types.update_item(db, metric, key, archived=True)
     await create_card_type(db, key="Application")
     return await create_card(db, attributes={"licensingModel": list(model)})
 

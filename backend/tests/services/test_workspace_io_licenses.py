@@ -7,10 +7,11 @@ import uuid
 from sqlalchemy import delete, select
 
 from app.models.card_license import CardLicense
+from app.models.license_metric import LicenseMetric
 from app.models.license_type import LicenseType
 from app.services.workspace_io import apply_bundle, apply_selected, build_bundle, parse_bundle
 from app.services.workspace_io import remap as rm
-from tests.conftest import create_card, create_card_type, create_user
+from tests.conftest import create_card, create_card_type, create_license_type, create_user
 
 ITEMS = {"users": {"admin": {"licensed": 10, "actual": 7}, "dev": {"licensed": 3, "actual": None}}}
 
@@ -19,13 +20,9 @@ async def _seed(db, email):
     user = await create_user(db, email=email, role="admin")
     await create_card_type(db, key="Application", label="Application")
     card = await create_card(db, card_type="Application", name="Billing", user_id=user.id)
-    db.add_all(
-        [
-            LicenseType(key="admin", label="Admin", sort_order=0, translations={"it": "Amm."}),
-            LicenseType(key="dev", label="Dev", sort_order=1, archived=True),
-            CardLicense(card_id=card.id, fiscal_year=2026, items=ITEMS),
-        ]
-    )
+    await create_license_type(db, "admin", "Admin", sort_order=0, translations={"it": "Amm."})
+    await create_license_type(db, "dev", "Dev", sort_order=1, archived=True)
+    db.add(CardLicense(card_id=card.id, fiscal_year=2026, items=ITEMS))
     await db.flush()
     return user, card
 
@@ -37,6 +34,7 @@ async def test_round_trip_carries_types_and_card_licenses(db):
     # Wipe the inventory so the card gets a NEW id on import.
     await db.execute(delete(CardLicense))
     await db.execute(delete(LicenseType))
+    await db.execute(delete(LicenseMetric))
     await db.execute(delete(type(card)))
     await db.flush()
 
@@ -45,6 +43,8 @@ async def test_round_trip_carries_types_and_card_licenses(db):
 
     types = {t.key: t for t in (await db.execute(select(LicenseType))).scalars().all()}
     assert set(types) == {"admin", "dev"}
+    assert {t.metric_key for t in types.values()} == {"users"}
+    assert [m.key for m in (await db.execute(select(LicenseMetric))).scalars()] == ["users"]
     assert types["admin"].translations == {"it": "Amm."}
     assert types["dev"].archived is True
     new_card = (
@@ -61,7 +61,7 @@ async def test_reimport_is_all_skip(db):
     raw = await build_bundle(db)
     again = await apply_bundle(db, parse_bundle(raw), user)
     assert again.total_failed == 0, again.as_dict()
-    for sheet in ("LicenseTypes", "CardLicenses"):
+    for sheet in ("LicenseMetrics", "LicenseTypes", "CardLicenses"):
         section = next(s for s in again.sections if s.sheet == sheet)
         assert section.created == 0
 

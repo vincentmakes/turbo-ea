@@ -10,6 +10,7 @@ from tests.conftest import (
     auth_headers,
     create_card,
     create_card_type,
+    create_license_type,
     create_role,
     create_stakeholder_role_def,
     create_user,
@@ -38,9 +39,9 @@ async def env(db):
     await create_card_type(db, key="Application")
     await create_card_type(db, key="Platform", label="Platform")
     await create_card_type(db, key="Process", label="Process")
-    await license_types.create_item(db, "admin", "Admin")
-    await license_types.create_item(db, "old", "Old")
-    await license_types.update_item(db, "old", archived=True)
+    await create_license_type(db, "admin", "Admin")
+    await create_license_type(db, "old", "Old")
+    await license_types.update_item(db, "users", "old", archived=True)
     await create_stakeholder_role_def(
         db, key="responsible", label="R", permissions={"card.view": True, "card.edit": True}
     )

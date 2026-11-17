@@ -7,8 +7,14 @@ import uuid
 from app.models.event import Event
 from app.services import card_licenses as cl
 from app.services import cost_event_redaction as red
-from app.services import license_types, rollback_service
-from tests.conftest import create_card, create_card_type, create_role, create_user
+from app.services import rollback_service
+from tests.conftest import (
+    create_card,
+    create_card_type,
+    create_license_type,
+    create_role,
+    create_user,
+)
 
 
 def _legacy_diff():
@@ -72,8 +78,8 @@ async def test_cost_keys_redacted_for_a_license_only_reader(db):
 
 
 async def test_summary_names_year_and_labels(db):
-    await license_types.create_item(db, "admin", "Admin users")
-    await license_types.create_item(db, "prod", "Production")
+    await create_license_type(db, "admin", "Admin users")
+    await create_license_type(db, "prod", "Production")
     full = {
         "fiscal_year": 2026,
         "changes": {cl.LIST_KEY: {"old": ["admin"], "new": ["admin", "prod"]}},

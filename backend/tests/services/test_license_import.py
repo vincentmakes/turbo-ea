@@ -23,7 +23,13 @@ from app.services.license_import import (
     parse_workbook,
     plan_import,
 )
-from tests.conftest import create_card, create_card_type, create_role, create_user
+from tests.conftest import (
+    create_card,
+    create_card_type,
+    create_license_type,
+    create_role,
+    create_user,
+)
 
 CUR = current_fiscal_year(1)
 FORECAST = CUR + 1
@@ -107,12 +113,13 @@ async def env(db):
     user = await create_user(db, email="a@lic-imp.com", role="admin")
     await create_card_type(db, key="Application", label="Application")
     await create_card_type(db, key="ITComponent", label="IT Component")
-    await license_types.create_item(db, "admin", "Admin")
-    await license_types.create_item(db, "dev", "Dev")
-    await license_types.create_item(db, "old", "Old")
-    await license_types.update_item(db, "old", archived=True)
-    await license_types.create_item(db, "amb_a", "Shared")
-    await license_types.create_item(db, "amb_b", "Shared")
+    await create_license_type(db, "admin", "Admin")
+    await create_license_type(db, "dev", "Dev")
+    await create_license_type(db, "dev", "Dev", metric_key="installations")
+    await create_license_type(db, "old", "Old")
+    await license_types.update_item(db, "users", "old", archived=True)
+    await create_license_type(db, "amb_a", "Shared")
+    await create_license_type(db, "amb_b", "Shared")
     erp = await create_card(
         db,
         card_type="Application",
@@ -329,7 +336,7 @@ async def test_apply_failure_midway_leaves_nothing_after_rollback(db, env):
     plan = await plan_import(db, env["user"], [row(2), row(3, typ="dev", year=CUR - 1)])
     assert plan.skipped == []
     await license_types.update_item(
-        db, "dev", archived=True
+        db, "users", "dev", archived=True
     )  # the catalogue changes after the plan
     await db.flush()
     with pytest.raises(LicenseError):

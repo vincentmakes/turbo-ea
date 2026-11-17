@@ -6,6 +6,7 @@ from app.schemas.cost_items import KEY_PATTERN
 
 
 class LicenseTypeCreate(BaseModel):
+    metric_key: str = Field(..., pattern=KEY_PATTERN)
     key: str = Field(..., pattern=KEY_PATTERN)
     label: str = Field(..., min_length=1, max_length=100)
     translations: dict[str, str] | None = None
@@ -20,6 +21,7 @@ class LicenseTypeUpdate(BaseModel):
 
 class LicenseTypeOut(BaseModel):
     id: str
+    metric_key: str
     key: str
     label: str
     sort_order: int

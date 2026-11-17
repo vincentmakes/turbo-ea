@@ -69,9 +69,10 @@ async def seed_licensing_demo_data(db: AsyncSession) -> dict:
     if not cards:
         return {"skipped": True, "reason": "no demo cards"}
 
+    await license_types.seed_default_metrics(db)
     for key, label in TYPES:
-        if await license_types.get_item(db, key) is None:
-            await license_types.create_item(db, key, label)
+        if await license_types.get_item(db, "users", key) is None:
+            await license_types.create_item(db, "users", key, label)
 
     year = current_fiscal_year(await get_fiscal_year_start(db))
     # Natural-key skip: a card that already has any licence row (migrated or entered) is left alone.
