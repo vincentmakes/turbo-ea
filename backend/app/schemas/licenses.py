@@ -5,8 +5,20 @@ from pydantic import BaseModel, Field, StrictInt
 from app.schemas.cost_items import KEY_PATTERN
 
 
+class LicenseMetricCreate(BaseModel):
+    key: str = Field(..., pattern=KEY_PATTERN)
+    label: str = Field(..., min_length=1, max_length=100)
+    translations: dict[str, str] | None = None
+
+
+class LicenseMetricUpdate(BaseModel):
+    label: str | None = Field(None, min_length=1, max_length=100)
+    translations: dict[str, str] | None = None
+    archived: bool | None = None
+    sort_order: int | None = Field(None, ge=0, le=2147483647)
+
+
 class LicenseTypeCreate(BaseModel):
-    metric_key: str = Field(..., pattern=KEY_PATTERN)
     key: str = Field(..., pattern=KEY_PATTERN)
     label: str = Field(..., min_length=1, max_length=100)
     translations: dict[str, str] | None = None
@@ -27,6 +39,16 @@ class LicenseTypeOut(BaseModel):
     sort_order: int
     archived: bool
     translations: dict[str, str] = {}
+
+
+class LicenseMetricOut(BaseModel):
+    id: str
+    key: str
+    label: str
+    sort_order: int
+    archived: bool
+    translations: dict[str, str] = {}
+    types: list[LicenseTypeOut]
 
 
 class LicenseCellWrite(BaseModel):

@@ -2289,6 +2289,8 @@
   "securityLog.actionLabels.admin_settings_updated": "Setting changed",
   "securityLog.actionLabels.admin_metamodel_cost_item_type_created": "Cost item created",
   "securityLog.actionLabels.admin_metamodel_cost_item_type_updated": "Cost item updated",
+  "securityLog.actionLabels.admin_metamodel_license_metric_created": "License metric created",
+  "securityLog.actionLabels.admin_metamodel_license_metric_updated": "License metric updated",
   "securityLog.actionLabels.admin_metamodel_license_type_created": "License type created",
   "securityLog.actionLabels.admin_metamodel_license_type_updated": "License type updated",
   "securityLog.actionLabels.admin_metamodel_type_created": "Card type created",
