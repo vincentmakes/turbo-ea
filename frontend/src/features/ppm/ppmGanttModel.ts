@@ -642,25 +642,22 @@ export function resolveGanttMove(
   let parent: string | null;
   let position: number;
   const target = parseGanttId(targetId);
+  const targetWbs = target?.kind === "wbs" ? wbsById.get(target.id) : undefined;
+  const hasChildren = (wbsId: string) =>
+    wbsList.some((w) => w.parent_id === wbsId) || tasks.some((tk) => tk.wbs_id === wbsId);
   let drop = dropKind;
   if (target?.kind === "task" && drop === "inside") drop = "after";
-  const opensAbove =
-    target?.kind === "wbs" &&
-    !collapsed.has(target.id) &&
-    (wbsList.some((w) => w.parent_id === target.id) ||
-      tasks.some((tk) => tk.wbs_id === target.id));
-  if (drop === "after" && opensAbove) {
-    if (wbsById.get(target.id)?.is_milestone) return null;
-    parent = target.id;
+  if (drop === "after" && targetWbs && !collapsed.has(targetWbs.id) && hasChildren(targetWbs.id)) {
+    if (targetWbs.is_milestone) return null;
+    parent = targetWbs.id;
     position = 0;
   } else if (!target) {
     if (targetId !== EMPTY_ROW_ID) return null;
     parent = null;
     position = othersUnder(null).length;
   } else if (drop === "inside") {
-    const container = target.kind === "wbs" ? wbsById.get(target.id) : undefined;
-    if (!container || container.is_milestone) return null;
-    parent = container.id;
+    if (!targetWbs || targetWbs.is_milestone) return null;
+    parent = targetWbs.id;
     position = othersUnder(parent).length;
   } else {
     const targetParent = parentOf(target);
@@ -676,13 +673,13 @@ export function resolveGanttMove(
     }
   }
 
-  if (moved.kind === "wbs") {
-    for (let cursor = parent; cursor !== null; cursor = wbsById.get(cursor)?.parent_id ?? null) {
-      if (cursor === moved.id) return null;
-    }
+  // A work package cannot go into itself or its own subtree. (A task id is
+  // never a work package id, so the walk finds nothing for a task.)
+  for (let cursor = parent; cursor !== null; cursor = wbsById.get(cursor)?.parent_id ?? null) {
+    if (cursor === moved.id) return null;
   }
-  if (parent === currentParent && siblingsUnder(parent).indexOf(moved.id) === position) {
-    return null;
-  }
+  // Under a new parent the row is not among the siblings yet (index -1), so
+  // only a drop back onto its own place matches here.
+  if (siblingsUnder(parent).indexOf(moved.id) === position) return null;
   return { kind: moved.kind, id: moved.id, parent_wbs_id: parent, position };
 }

@@ -1064,10 +1064,49 @@ describe("moving a row in the task list", () => {
     });
   });
 
+  it("opens a work package whose only children are work packages", () => {
+    const packages = [wbs("a"), wbs("b", { parent_id: "a" })];
+    expect(resolveGanttMove("after", "wbs-a", "task-x", packages, [task("x")])).toEqual({
+      kind: "task",
+      id: "x",
+      parent_wbs_id: "a",
+      position: 0,
+    });
+  });
+
+  it("reads a task target as a task even when a work package shares its id", () => {
+    // Ids never collide in real data; this pins that the target's kind decides.
+    const packages = [wbs("s")];
+    const rows = [task("s"), task("m"), task("c", { wbs_id: "s" })];
+    expect(resolveGanttMove("after", "task-s", "task-m", packages, rows)).toBeNull();
+    expect(resolveGanttMove("before", "task-s", "task-m", packages, rows)).toEqual({
+      kind: "task",
+      id: "m",
+      parent_wbs_id: null,
+      position: 0,
+    });
+  });
+
+  it("walks past a work package whose parent is gone", () => {
+    const packages = [wbs("o", { parent_id: "missing" })];
+    expect(resolveGanttMove("inside", "wbs-o", "task-x", packages, [task("x")])).toEqual({
+      kind: "task",
+      id: "x",
+      parent_wbs_id: "o",
+      position: 0,
+    });
+  });
+
+  it("saves nothing after a missing work package that rows still point at", () => {
+    const rows = [task("x"), task("y", { wbs_id: "ghost" })];
+    expect(resolveGanttMove("after", "wbs-ghost", "task-x", [], rows)).toBeNull();
+  });
+
   it("saves nothing for an unknown or unparseable row", () => {
     expect(move("before", "task-t1", "task-gone")).toBeNull();
     expect(move("before", "task-gone", "task-t1")).toBeNull();
     expect(move("before", "wbs-gone", "wbs-w1")).toBeNull();
+    expect(move("before", "wbs-gone", "task-t4")).toBeNull();
     expect(move("before", "task-t1", EMPTY_ROW_ID)).toBeNull();
     expect(move("before", "other", "task-t1")).toBeNull();
     expect(move("before", "task-t1", "task-t1")).toBeNull();
