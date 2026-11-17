@@ -149,4 +149,3 @@ class ImportResultOut(BaseModel):
     matched: int
     applied: int
     skipped: list[ImportIssueOut]
-    flagged: list[ImportIssueOut]

@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
 from app.models.user import User
-from app.services import license_types, yearly_rows
+from app.services import yearly_rows
 from app.services.card_licenses import (
     LICENSE_TYPES,
     UNSET,
@@ -42,7 +42,11 @@ from app.services.fiscal_year import (
     current_fiscal_year,
     get_fiscal_year_start,
 )
-from app.services.license_catalogue import load_catalogue
+from app.services.license_catalogue import (
+    CatalogueMetric,
+    LicenseCatalogue,
+    load_catalogue,
+)
 from app.services.workspace_io.bundle import _check_declared_sizes
 
 HEADERS = ("component", "metric", "license type", "year", "licensed", "actual")
@@ -90,7 +94,6 @@ class ImportPlan:
     )
     matched: int = 0
     skipped: list[RowIssue] = field(default_factory=list)
-    flagged: list[RowIssue] = field(default_factory=list)
 
 
 def _text(value: object) -> str:
@@ -171,11 +174,24 @@ def _count(value: object) -> int | None:
     return whole
 
 
-def _match_type(value: str, catalogue) -> tuple[str | None, str | None]:
-    """``(key, None)``, or ``(None, "unknown_license_type" | "ambiguous_license_type")``: the
-    casefolded key or English label."""
+def _match_metric(value: str, catalogue: LicenseCatalogue) -> CatalogueMetric | None:
+    """The metric whose casefolded key or English label is ``value``; the legacy spellings
+    (``METRIC_ALIASES``) reach only the metrics keyed ``users`` / ``installations``."""
     wanted = value.casefold()
-    hits = {t.key for t in catalogue if t.key.casefold() == wanted or t.label.casefold() == wanted}
+    wanted_alias = METRIC_ALIASES.get(wanted)
+    hits = {
+        m.key: m
+        for m in catalogue.metrics
+        if m.key.casefold() == wanted or m.label.casefold() == wanted or m.key == wanted_alias
+    }
+    return next(iter(hits.values())) if len(hits) == 1 else None
+
+
+def _match_type(value: str, types) -> tuple[str | None, str | None]:
+    """``(key, None)``, or ``(None, "unknown_license_type" | "ambiguous_license_type")``: the
+    casefolded key or English label, among ``types`` (one metric's)."""
+    wanted = value.casefold()
+    hits = {t.key for t in types if t.key.casefold() == wanted or t.label.casefold() == wanted}
     if len(hits) == 1:
         return next(iter(hits)), None
     return None, "ambiguous_license_type" if hits else "unknown_license_type"
@@ -187,7 +203,7 @@ async def plan_import(db: AsyncSession, user: User, rows: list[ImportRow]) -> Im
     read_scope = await CardReadScope.load(db, user)
     found = (
         await db.execute(
-            select(Card.id, Card.name, Card.attributes).where(
+            select(Card.id, Card.name).where(
                 Card.type.in_(LICENSE_TYPES),
                 Card.status == "ACTIVE",
                 *read_scope.where(Card, mode="module"),
@@ -197,8 +213,7 @@ async def plan_import(db: AsyncSession, user: User, rows: list[ImportRow]) -> Im
     by_name: dict[str, list[Row[Any]]] = {}
     for card in found:
         by_name.setdefault(card.name.strip().casefold(), []).append(card)
-    catalogue = await license_types.list_items(db)
-    archived = {t.key: t.archived for t in catalogue}
+    catalogue = await load_catalogue(db)
 
     plan = ImportPlan()
 
@@ -215,12 +230,17 @@ async def plan_import(db: AsyncSession, user: User, rows: list[ImportRow]) -> Im
         if len(hits) > 1:
             skip(r, "ambiguous_card")
             continue
-        metric = METRIC_ALIASES.get(r.metric.casefold())
-        if metric is None:
+        found_metric = _match_metric(r.metric, catalogue)
+        if found_metric is None:
             skip(r, "invalid_metric", r.metric)
             continue
-        key, reason = _match_type(r.license_type, catalogue)
+        metric = found_metric.key
+        key, reason = _match_type(r.license_type, found_metric.types)
         if key is None:
+            if reason == "unknown_license_type" and any(
+                _match_type(r.license_type, m.types)[0] for m in catalogue.metrics
+            ):
+                reason = "type_not_in_metric"
             skip(r, reason or "unknown_license_type", r.license_type)
             continue
         year = _whole(r.year)
@@ -264,16 +284,17 @@ async def plan_import(db: AsyncSession, user: User, rows: list[ImportRow]) -> Im
         if values["actual"] is not UNSET and year == cur + FISCAL_YEAR_LOOKAHEAD:
             skip(r, "forecast_actual")
             continue
-        if archived[key] and key not in (existing[card.id][year][0].get(metric) or {}):
+        has_cell = key in (existing[card.id][year][0].get(metric) or {})
+        if catalogue.metric(metric).archived and not has_cell:
+            skip(r, "archived_license_metric", metric)
+            continue
+        if catalogue.type(metric, key).archived and not has_cell:
             skip(r, "archived_license_type", key)
             continue
         plan.cells.setdefault((card.id, year), []).append(
             (metric, key, values["licensed"], values["actual"])
         )
         plan.matched += 1
-        model = (card.attributes or {}).get("licensingModel")
-        if not (isinstance(model, list) and metric in model):
-            plan.flagged.append(RowIssue(r.row, r.component, "metric_not_tracked", metric))
     plan.skipped.sort(key=lambda i: i.row)
     return plan
 

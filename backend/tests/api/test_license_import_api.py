@@ -96,7 +96,7 @@ async def test_dry_run_writes_nothing(client, db, env):
     body = (await _post(client, env, book(GOOD))).json()
     assert body["matched"] == 1 and body["applied"] == 0
     assert [(s["row"], s["reason"]) for s in body["skipped"]] == [(3, "card_not_found")]
-    assert body["flagged"] == []
+    assert "flagged" not in body
     assert await _rows(db) == []
 
 

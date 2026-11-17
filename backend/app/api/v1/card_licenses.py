@@ -227,5 +227,4 @@ async def import_licenses(
         matched=plan.matched,
         applied=applied,
         skipped=[ImportIssueOut(**vars(i)) for i in plan.skipped],
-        flagged=[ImportIssueOut(**vars(i)) for i in plan.flagged],
     )
