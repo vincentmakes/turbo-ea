@@ -165,7 +165,7 @@ async def test_delete_absent_cell_is_noop_without_event(db):
     await _row(db, card, CUR, {"users": {"admin": cell(1, 1)}})
     assert await svc.delete_cell(db, card.id, CUR, "users", "prod") is False
     assert await svc.apply_write(
-        db, card, user.id, CUR, lambda: svc.delete_cell(db, card.id, CUR, "users", "prod")
+        db, card, user.id, CUR, lambda _cat: svc.delete_cell(db, card.id, CUR, "users", "prod")
     )
     evs = (await db.execute(select(Event).where(Event.card_id == card.id))).scalars().all()
     assert evs == []
@@ -261,7 +261,9 @@ async def test_event_carries_type_keys_only(db):
         card,
         user.id,
         CUR,
-        lambda: svc.merge_cell(db, card.id, CUR, "users", "admin", licensed=12345, actual=678),
+        lambda cat: svc.merge_cell(
+            db, card.id, CUR, "users", "admin", licensed=12345, actual=678, catalogue=cat
+        ),
     )
     ev = (await db.execute(select(Event).where(Event.card_id == card.id))).scalar_one()
     assert ev.event_type == svc.LICENSE_EVENT

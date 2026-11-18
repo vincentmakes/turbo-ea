@@ -45,6 +45,11 @@ class LicenseCatalogue:
     def metric_order(self) -> list[str]:
         return [m.key for m in self.metrics]
 
+    def ordered_metrics(self, keys) -> list[str]:
+        """``keys`` in catalogue order, unknown keys sorted after."""
+        order = self.metric_order()
+        return [m for m in order if m in keys] + sorted(m for m in keys if m not in order)
+
     def type_order(self, metric_key: str) -> list[str]:
         metric = self.metric(metric_key)
         return [t.key for t in metric.types] if metric else []

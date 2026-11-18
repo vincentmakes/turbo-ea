@@ -81,9 +81,10 @@ def year_licenses(
 ) -> YearLicenses:
     """The metrics are the ones with cells in ``items``: catalogue order, unknown keys sorted."""
     present = [m for m, cells in items.items() if cells]
-    order = catalogue.metric_order()
-    keys = [m for m in order if m in present] + sorted(m for m in present if m not in order)
-    metrics = [metric_result(m, items[m], catalogue.type_order(m)) for m in keys]
+    metrics = [
+        metric_result(m, items[m], catalogue.type_order(m))
+        for m in catalogue.ordered_metrics(present)
+    ]
     is_forecast = fy == cur + FISCAL_YEAR_LOOKAHEAD
     return YearLicenses(
         fiscal_year=fy,
@@ -244,7 +245,12 @@ async def confirm_year(db: AsyncSession, card_id: uuid.UUID, fiscal_year: int) -
 
 
 async def copy_to_forecast(
-    db: AsyncSession, card_id: uuid.UUID, from_year: int, metric: str, key: str
+    db: AsyncSession,
+    card_id: uuid.UUID,
+    from_year: int,
+    metric: str,
+    key: str,
+    catalogue: LicenseCatalogue | None = None,
 ) -> None:
     """Licensed count only, through ``merge_cell``."""
     sm = await get_fiscal_year_start(db)
@@ -265,6 +271,7 @@ async def copy_to_forecast(
         licensed=src.get("licensed") or 0,
         start_month=sm,
         allow_archived=True,
+        catalogue=catalogue,
     )
 
 
@@ -303,13 +310,13 @@ async def apply_write(
     card: Card,
     user_id: uuid.UUID,
     fiscal_year: int,
-    op: Callable[[], Awaitable[object]],
+    op: Callable[[LicenseCatalogue], Awaitable[object]],
 ) -> YearLicenses:
-    """Run ``op`` and publish the event; a no-op write (``False``) publishes nothing."""
+    """Run ``op(catalogue)`` and publish the event; a no-op write (``False``) publishes nothing."""
     sm = await get_fiscal_year_start(db)
     catalogue = await load_catalogue(db)  # read once: it cannot change inside a license write
     old = await get_year(db, card, fiscal_year, sm, catalogue)
-    if await op() is False:
+    if await op(catalogue) is False:
         return old
     return await publish_change(
         db, card, user_id, fiscal_year, old, start_month=sm, catalogue=catalogue

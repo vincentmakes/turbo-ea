@@ -15,7 +15,7 @@ import { buildPairGroups, pairHues } from "@/components/licensing/licensePairs";
 import { useLicenseCatalogue } from "@/hooks/useLicenseCatalogue";
 import { useIsRtl } from "@/hooks/useIsRtl";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { STATUS_LABEL_KEY, statusColor } from "@/lib/licenses";
+import { pairKey, STATUS_LABEL_KEY, statusColor } from "@/lib/licenses";
 import { CHART_OTHER, STATUS_COLORS } from "@/theme/tokens";
 import type { LicenseReportRow } from "@/types";
 
@@ -58,7 +58,7 @@ function RowBars({ row, selectedPairKey, onPick }: Pick<Props, "row" | "selected
         t,
         suffix: ` (${t("cards:licensing.archived")})`,
         forecast: false,
-        colorOf: (metric, key) => hues.get(`${metric}:${key}`) ?? chrome.categorical[0],
+        colorOf: (metric, key) => hues.get(pairKey(metric, key)) ?? chrome.categorical[0],
       })}
       selectedKey={selectedPairKey}
       forecast={false}

@@ -3760,23 +3760,11 @@ export interface CardCostsResponse {
 
 // ── Card licenses (GET /cards/{id}/licenses) ─────────────────────────────
 /** A license type of the catalogue (GET /metamodel/license-metrics), under its metric. */
-export interface LicenseTypeItem {
-  id: string;
+export interface LicenseTypeItem extends CostItemType {
   metric_key: string;
-  key: string;
-  label: string;
-  sort_order: number;
-  archived: boolean;
-  translations: Record<string, string>;
 }
 /** A license metric with its types. */
-export interface LicenseMetricItem {
-  id: string;
-  key: string;
-  label: string;
-  sort_order: number;
-  archived: boolean;
-  translations: Record<string, string>;
+export interface LicenseMetricItem extends CostItemType {
   types: LicenseTypeItem[];
 }
 /** Per license type; `no_data` = licensed but no actual entered. */

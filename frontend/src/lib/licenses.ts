@@ -40,6 +40,12 @@ export function formatPct(pct: number | null, noLicence: boolean, t: TFunction):
 /** A (metric, type) pair as one string, e.g. `users:admin`. */
 export const pairKey = (metric: string, type: string): string => `${metric}:${type}`;
 
+/** The inverse of `pairKey`: `[metric, type]`, split at the first colon. */
+export function parsePairKey(key: string): [string, string] {
+  const at = key.indexOf(":");
+  return [key.slice(0, at), key.slice(at + 1)];
+}
+
 /**
  * What a card can still be given in a year: the active metrics with their active types, the
  * pairs the year already holds (`held`, as `pairKey`s) left out, a metric with no type left

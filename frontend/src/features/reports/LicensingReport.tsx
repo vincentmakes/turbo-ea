@@ -44,7 +44,7 @@ import {
 import { formatFieldValue, type FieldMeta } from "@/lib/cardDisplayFields";
 import { resolveFacetField } from "@/lib/fieldFacets";
 import { costFiscalYearName, costFiscalYearOptions } from "@/lib/fiscalYear";
-import { isLicenseType, pairKey, statusColor } from "@/lib/licenses";
+import { LICENSE_TYPES, isLicenseType, pairKey, parsePairKey, statusColor } from "@/lib/licenses";
 import { CHART_OTHER, STATUS_COLORS } from "@/theme/tokens";
 import type {
   CardLicensesResponse,
@@ -128,9 +128,9 @@ export default function LicensingReport() {
 
   const cardTypeOptions = useMemo(() => {
     const byKey = new Map(readableTypes.map((tp) => [tp.key, tp]));
-    return ["Application", "ITComponent"].flatMap((k) => {
+    return LICENSE_TYPES.flatMap((k) => {
       const tp = byKey.get(k);
-      return tp && isLicenseType(k) ? [{ key: k, label: typeLabel(tp) }] : [];
+      return tp ? [{ key: k, label: typeLabel(tp) }] : [];
     });
   }, [readableTypes, typeLabel]);
   // A type the user may not read falls back to one they may.
@@ -386,7 +386,10 @@ export default function LicensingReport() {
     const unknown = [...present]
       .filter((k) => !known.some((x) => x.key === k))
       .sort()
-      .map((k) => ({ key: k, metric: k.split(":")[0], type: k.slice(k.indexOf(":") + 1) }));
+      .map((k) => {
+        const [metric, type] = parsePairKey(k);
+        return { key: k, metric, type };
+      });
     return [...known, ...unknown]
       .filter((x) => present.has(x.key))
       .map((x) => ({
@@ -579,20 +582,10 @@ export default function LicensingReport() {
       ) : history.data ? (
         <PairHistory
           pair={{
-            label: pairName(
-              catalogue,
-              activePick.key.split(":")[0],
-              activePick.key.slice(activePick.key.indexOf(":") + 1),
-              locale,
-              archivedSuffix,
-            ),
+            label: pairName(catalogue, ...parsePairKey(activePick.key), locale, archivedSuffix),
             color: hues.get(activePick.key) ?? chrome.categorical[0],
           }}
-          years={pairHistoryRows(
-            history.data.years,
-            activePick.key.split(":")[0],
-            activePick.key.slice(activePick.key.indexOf(":") + 1),
-          )}
+          years={pairHistoryRows(history.data.years, ...parsePairKey(activePick.key))}
         />
       ) : (
         <CircularProgress size={20} />

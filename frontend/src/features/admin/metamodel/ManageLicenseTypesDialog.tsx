@@ -26,6 +26,8 @@ import type { LicenseMetricItem, LicenseTypeItem } from "@/types";
 import { CostItemEditDialog, type CatalogueTextKey } from "./ManageCostItemsDialog";
 
 const METRICS_PATH = "/metamodel/license-metrics";
+const metricPath = (metric: string) => `${METRICS_PATH}/${encodeURIComponent(metric)}`;
+const typePath = (metric: string, type: string) => `${metricPath(metric)}/types/${encodeURIComponent(type)}`;
 
 /** What the edit dialog is open on: a new/existing metric, or a new/existing type of `metric`. */
 type Editing =
@@ -155,7 +157,7 @@ export default function ManageLicenseTypesDialog({ open, onClose }: Props) {
   const shown = editing ?? lastEditing.current;
   const editTextKey: CatalogueTextKey = shown?.kind === "type" ? "licenseTypes" : "licenseMetrics";
   const editPath =
-    shown?.kind === "type" ? `${METRICS_PATH}/${encodeURIComponent(shown.metric.key)}/types` : METRICS_PATH;
+    shown?.kind === "type" ? `${metricPath(shown.metric.key)}/types` : METRICS_PATH;
 
   return (
     <>
@@ -212,13 +214,13 @@ export default function ManageLicenseTypesDialog({ open, onClose }: Props) {
                     </Button>
                   )}
                   {moveButtons(mName, mi, metrics.length, (d) =>
-                    move(metrics, mi, d, (k) => `${METRICS_PATH}/${encodeURIComponent(k)}`),
+                    move(metrics, mi, d, metricPath),
                   )}
                   {actions(
                     mName,
                     m.archived,
                     () => setEditing({ kind: "metric", item: m }),
-                    `${METRICS_PATH}/${encodeURIComponent(m.key)}`,
+                    metricPath(m.key),
                   )}
                 </Box>
                 {m.types.map((ty, ti) => {
@@ -239,18 +241,13 @@ export default function ManageLicenseTypesDialog({ open, onClose }: Props) {
                       </Box>
                       {archivedChip(ty.archived)}
                       {moveButtons(tName, ti, m.types.length, (d) =>
-                        move(
-                          m.types,
-                          ti,
-                          d,
-                          (k) => `${METRICS_PATH}/${encodeURIComponent(m.key)}/types/${encodeURIComponent(k)}`,
-                        ),
+                        move(m.types, ti, d, (k) => typePath(m.key, k)),
                       )}
                       {actions(
                         tName,
                         ty.archived,
                         () => setEditing({ kind: "type", metric: m, item: ty }),
-                        `${METRICS_PATH}/${encodeURIComponent(m.key)}/types/${encodeURIComponent(ty.key)}`,
+                        typePath(m.key, ty.key),
                       )}
                     </Box>
                   );

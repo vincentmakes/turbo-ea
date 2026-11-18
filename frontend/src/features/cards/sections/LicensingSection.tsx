@@ -102,7 +102,8 @@ export default function LicensingSection({
       m.types.map((r) => [pairKey(m.metric, r.key), { metric: m.metric, key: r.key }] as const),
     ),
   );
-  const canAdd = addableCatalogue(catalogue, new Set(pairsByKey.keys())).length > 0;
+  const held = new Set(pairsByKey.keys());
+  const canAdd = addableCatalogue(catalogue, held).length > 0;
   const groups = buildPairGroups(year.metrics, {
     catalogue,
     locale,
@@ -242,7 +243,7 @@ export default function LicensingSection({
             forecastYear={forecastFy}
             cell={dialog.cell}
             catalogue={catalogue}
-            held={new Set(pairsByKey.keys())}
+            held={held}
             onClose={() => setDialog(null)}
             onChanged={(opts) => {
               if (!opts?.keepOpen) setDialog(null);

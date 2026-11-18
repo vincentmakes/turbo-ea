@@ -32,6 +32,7 @@ from app.services.fiscal_year import (
     current_fiscal_year,
     get_fiscal_year_start,
 )
+from app.services.license_catalogue import LicenseCatalogue
 from app.services.permission_service import PermissionService
 
 router = APIRouter(tags=["card-licenses"])
@@ -76,11 +77,13 @@ async def _write(
     user: User,
     card_id: str,
     fiscal_year: int,
-    op: Callable[[uuid.UUID], Awaitable[object]],
+    op: Callable[[uuid.UUID, LicenseCatalogue], Awaitable[object]],
 ) -> YearLicensesOut:
     card = await _load_for_edit(db, user, card_id)
     try:
-        new = await card_licenses.apply_write(db, card, user.id, fiscal_year, lambda: op(card.id))
+        new = await card_licenses.apply_write(
+            db, card, user.id, fiscal_year, lambda cat: op(card.id, cat)
+        )
     except LicenseError as e:
         raise HTTPException(_STATUS.get(e.code, 422), e.code) from e
     await db.commit()
@@ -134,8 +137,15 @@ async def put_card_license_cell(
         user,
         card_id,
         fiscal_year,
-        lambda cid: card_licenses.merge_cell(
-            db, cid, fiscal_year, metric, key, licensed=body.licensed, actual=body.actual
+        lambda cid, cat: card_licenses.merge_cell(
+            db,
+            cid,
+            fiscal_year,
+            metric,
+            key,
+            licensed=body.licensed,
+            actual=body.actual,
+            catalogue=cat,
         ),
     )
 
@@ -154,7 +164,7 @@ async def delete_card_license_cell(
         user,
         card_id,
         fiscal_year,
-        lambda cid: card_licenses.delete_cell(db, cid, fiscal_year, metric, key),
+        lambda cid, _cat: card_licenses.delete_cell(db, cid, fiscal_year, metric, key),
     )
     return Response(status_code=204)
 
@@ -171,7 +181,7 @@ async def confirm_card_license_year(
         user,
         card_id,
         fiscal_year,
-        lambda cid: card_licenses.confirm_year(db, cid, fiscal_year),
+        lambda cid, _cat: card_licenses.confirm_year(db, cid, fiscal_year),
     )
 
 
@@ -194,7 +204,7 @@ async def copy_card_license_to_forecast(
         user,
         card_id,
         forecast,
-        lambda cid: card_licenses.copy_to_forecast(db, cid, fiscal_year, metric, key),
+        lambda cid, cat: card_licenses.copy_to_forecast(db, cid, fiscal_year, metric, key, cat),
     )
 
 

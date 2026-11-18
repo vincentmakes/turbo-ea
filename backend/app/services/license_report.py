@@ -101,9 +101,10 @@ def _select(items: dict, metric: str | None, pair: tuple[str, str] | None) -> di
 
 
 def _metric_results(items: dict, catalogue: LicenseCatalogue) -> list[MetricResult]:
-    order = catalogue.metric_order()
-    keys = [m for m in order if m in items] + sorted(m for m in items if m not in order)
-    return [metric_result(m, items[m], catalogue.type_order(m)) for m in keys]
+    return [
+        metric_result(m, items[m], catalogue.type_order(m))
+        for m in catalogue.ordered_metrics(items)
+    ]
 
 
 def _by_metric(results: list[MetricResult]) -> list[dict]:
@@ -204,7 +205,6 @@ async def build_report(
     # The scope's cells whatever the selection: what the frontend's selects may offer.
     pairs = {(m, k) for c in scoped for m, cells in data[c.id][fy][0].items() for k in cells}
     in_scope = {m for m, _ in pairs}
-    order = catalogue.metric_order()
     return {
         "fiscal_year": fy,
         "current_fiscal_year": cur,
@@ -212,6 +212,6 @@ async def build_report(
         "years": list(yearly_rows.window_years(cur)),
         "aggregate": aggregate,
         "rows": rows,
-        "metrics_in_year": [m for m in order if m in in_scope] + sorted(in_scope - set(order)),
+        "metrics_in_year": catalogue.ordered_metrics(in_scope),
         "types_in_year": sorted(f"{m}:{k}" for m, k in pairs),
     }

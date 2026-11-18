@@ -97,9 +97,7 @@ export default function LicensingImportDialog({ open, onClose, onApplied }: Prop
     const suffix = ` (${t("cards:licensing.archived")})`;
     const locale = i18n.language;
     if (i.reason === "archived_license_metric")
-      return catalogue.some((m) => m.key === i.metric)
-        ? metricName(catalogue, i.metric, locale, suffix)
-        : i.metric || i.detail;
+      return i.metric ? metricName(catalogue, i.metric, locale, suffix) : i.detail;
     if (!TYPE_REASONS.includes(i.reason) || !i.metric) return i.detail;
     if (!i.detail) return metricName(catalogue, i.metric, locale, suffix);
     const owner = catalogue.find((m) => m.key === i.metric);

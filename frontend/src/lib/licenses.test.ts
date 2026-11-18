@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { TFunction } from "i18next";
 import { STATUS_COLORS } from "@/theme/tokens";
 import type { LicenseMetricItem, LicenseTypeItem } from "@/types";
-import { isLicenseType, formatPct, statusColor, STATUS_ORDER, pairKey, pairLabel, addableCatalogue } from "./licenses";
+import { isLicenseType, formatPct, statusColor, STATUS_ORDER, pairKey, parsePairKey, pairLabel, addableCatalogue } from "./licenses";
 
 const t = ((key: string) => key) as unknown as TFunction;
 
@@ -54,6 +54,11 @@ const metricItem = (over: Partial<LicenseMetricItem> = {}): LicenseMetricItem =>
 describe("license pairs", () => {
   it("keys a pair as metric:type", () => {
     expect(pairKey("users", "admin")).toBe("users:admin");
+  });
+
+  it("parses a pair key back at its first colon", () => {
+    expect(parsePairKey(pairKey("users", "admin"))).toEqual(["users", "admin"]);
+    expect(parsePairKey("users:a:b")).toEqual(["users", "a:b"]);
   });
 
   it("labels a pair Metric: Type", () => {
