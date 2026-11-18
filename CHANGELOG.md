@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Security
 - The frontend and edge nginx images now run **nginx 1.30.7**, fixing the "nginx2root" vulnerabilities (CVE-2026-123007, CVE-2026-123633, CVE-2026-123634, CVE-2026-121810, CVE-2026-113425) and CVE-2026-118899, CVE-2026-125283, CVE-2026-120967 and CVE-2026-123640. Installs that use the built-in TLS (`TURBO_EA_TLS_ENABLED=true`) serve HTTP/2 and were exposed to the critical HTTP/2 remote code execution: run `docker compose pull && docker compose up -d` (or upgrade the Helm release) now. Reloading nginx is not enough.
+- The Azure Container Apps, Cloud Run, ECS Fargate and Terraform deployment examples now default to this release instead of 2.141.0, whose nginx is affected. Raise `ImageTag` / `image_tag` / `chart_version` on an existing deployment made from them.
 
 ## [2.205.2] - 2026-11-17
 

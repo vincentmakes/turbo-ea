@@ -34,7 +34,7 @@ Parameters:
     Description: Public origin users open, e.g. https://ea.example.com (no path, no trailing slash).
   ImageTag:
     Type: String
-    Default: "2.141.0"
+    Default: "2.205.3"
     Description: Turbo EA release to run.
   ImageRepository:
     Type: String

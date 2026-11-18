@@ -46,7 +46,7 @@ spec:
       serviceAccountName: turbo-ea@PROJECT_ID.iam.gserviceaccount.com
       containers:
         - name: nginx
-          image: REGION-docker.pkg.dev/PROJECT_ID/ghcr/vincentmakes/turbo-ea/nginx:2.141.0
+          image: REGION-docker.pkg.dev/PROJECT_ID/ghcr/vincentmakes/turbo-ea/nginx:2.205.3
           # The only container with a port: Cloud Run routes ingress to it.
           ports:
             - name: http1
@@ -86,7 +86,7 @@ spec:
             failureThreshold: 30
             timeoutSeconds: 5
         - name: backend
-          image: REGION-docker.pkg.dev/PROJECT_ID/ghcr/vincentmakes/turbo-ea/backend:2.141.0
+          image: REGION-docker.pkg.dev/PROJECT_ID/ghcr/vincentmakes/turbo-ea/backend:2.205.3
           env:
             - name: POSTGRES_HOST
               value: CLOUD_SQL_PRIVATE_IP
@@ -142,7 +142,7 @@ spec:
             periodSeconds: 30
             failureThreshold: 3
         - name: frontend
-          image: REGION-docker.pkg.dev/PROJECT_ID/ghcr/vincentmakes/turbo-ea/frontend:2.141.0
+          image: REGION-docker.pkg.dev/PROJECT_ID/ghcr/vincentmakes/turbo-ea/frontend:2.205.3
           resources:
             limits:
               cpu: "0.5"
@@ -155,7 +155,7 @@ spec:
         # Optional MCP server at <publicUrl>/mcp. Remove this container AND its
         # entry in the container-dependencies annotation if you do not use it.
         - name: mcp-server
-          image: REGION-docker.pkg.dev/PROJECT_ID/ghcr/vincentmakes/turbo-ea/mcp-server:2.141.0
+          image: REGION-docker.pkg.dev/PROJECT_ID/ghcr/vincentmakes/turbo-ea/mcp-server:2.205.3
           env:
             - name: TURBO_EA_URL
               value: http://127.0.0.1:8000

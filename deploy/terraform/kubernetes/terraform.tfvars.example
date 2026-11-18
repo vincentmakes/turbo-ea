@@ -3,7 +3,7 @@
 #   export TF_VAR_db_password='…'
 # Guide: https://docs.turbo-ea.org/admin/terraform/
 
-chart_version = "2.141.0"
+chart_version = "2.205.3"
 namespace     = "turbo-ea"
 public_url    = "https://ea.example.com"
 

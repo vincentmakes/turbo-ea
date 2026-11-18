@@ -5,7 +5,7 @@
 region     = "eu-west-1"
 name       = "turbo-ea"
 public_url = "https://ea.example.com"
-image_tag  = "2.141.0"
+image_tag  = "2.205.3"
 
 vpc_id             = "vpc-0123456789abcdef0"
 public_subnet_ids  = ["subnet-0aaaaaaaaaaaaaaa1", "subnet-0aaaaaaaaaaaaaaa2"]

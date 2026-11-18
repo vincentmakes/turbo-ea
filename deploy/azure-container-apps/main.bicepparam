@@ -8,7 +8,7 @@ using 'main.bicep'
 
 param name = 'turbo-ea'
 param publicUrl = 'https://ea.example.com'
-param imageTag = '2.141.0'
+param imageTag = '2.205.3'
 
 param postgresHost = 'turbo-ea.postgres.database.azure.com'
 param postgresDatabase = 'turboea'
