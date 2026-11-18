@@ -618,6 +618,28 @@ describe("LicensingReport", () => {
       await waitFor(() => expect(reportPaths().at(-1)).toBe("/reports/licensing?card_types=Application"));
     });
 
+    it("a pair of another metric than the saved metric is never sent with it", async () => {
+      savedConfig({ metric: "users", licenseType: "installations:prod" });
+      renderReport("/?saved_report_id=r1");
+      await waitFor(() => expect(reportPaths().at(-1)).toBe("/reports/licensing?card_types=Application&metric=users"));
+      expect(reportPaths().some((p) => p.includes("metric=users") && p.includes("license_type"))).toBe(false);
+      await waitFor(() =>
+        expect(screen.getByRole("combobox", { name: "License type" })).toHaveTextContent("All license types"),
+      );
+    });
+
+    it("a 400 that merely names fiscal_year in its text leaves a restored year alone", async () => {
+      savedConfig({ fiscalYearParam: 2024 });
+      extra.handlers["/reports/licensing?card_types=Application&fiscal_year=2024"] = () =>
+        Promise.reject(new Error("Unknown group_by field: fiscal_year_owner"));
+      renderReport("/?saved_report_id=r1");
+      await screen.findByText("Could not load the licensing report.");
+      const n = reportPaths().length;
+      await act(async () => {});
+      expect(reportPaths()).toHaveLength(n);
+      expect(reportPaths().at(-1)).toContain("fiscal_year=2024");
+    });
+
     it("a 400 that is not about the year leaves a restored year alone", async () => {
       savedConfig({ fiscalYearParam: 2024 });
       extra.handlers["/reports/licensing?card_types=Application&fiscal_year=2024"] = () =>

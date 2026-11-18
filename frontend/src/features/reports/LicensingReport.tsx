@@ -75,8 +75,8 @@ const OTHER_GROUP = "__other__";
 const NO_FOLDED: Set<string> = new Set();
 const PICKABLE_TYPES = ["Application", "ITComponent", "Platform"];
 const TILE_DIMMED = 0.4;
-// The 400s of the report route about `fiscal_year` (and the Forecast year).
-const YEAR_REFUSAL = /fiscal_year|forecast_not_selectable/;
+// The route's two exact 400 details about the year (`reports.py`); `ApiError.message` is the plain detail.
+const YEAR_REFUSAL = /^(fiscal_year_out_of_range|forecast_not_selectable)$/;
 
 /** A pair of the list that is open: its card and its `metric:type` key. */
 interface Pick {
@@ -200,7 +200,10 @@ export default function LicensingReport() {
 
   // The server refuses a metric or pair it does not know (400): only what the catalogue has is sent.
   const knownMetric = catalogue.some((m) => m.key === metric);
-  const knownType = catalogue.some((m) => m.types.some((x) => pairKey(m.key, x.key) === licenseType));
+  // A pair of another metric than the selected one is refused by the server (400) too.
+  const knownType =
+    catalogue.some((m) => m.types.some((x) => pairKey(m.key, x.key) === licenseType)) &&
+    (!knownMetric || licenseType.startsWith(`${metric}:`));
   const cardIdParam = picked?.id ?? null;
   const path = useMemo(() => {
     const p = new URLSearchParams({ card_types: typeParam(cardTypeKey) });

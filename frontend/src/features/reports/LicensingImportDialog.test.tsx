@@ -140,11 +140,11 @@ describe("LicensingImportDialog", () => {
   it("shows the message of an ambiguous metric", async () => {
     vi.mocked(api.upload).mockResolvedValue({
       matched: 0, applied: 0,
-      skipped: [{ row: 3, component: "ACME", reason: "ambiguous_metric", detail: "", metric: "Seats" }],
+      skipped: [{ row: 3, component: "ACME", reason: "ambiguous_metric", detail: "Seats", metric: "Seats" }],
     } as never);
     const { input } = setup();
     await userEvent.upload(input(), xlsx());
-    expect(await screen.findByText("The metric text matches more than one metric; use the metric key.")).toBeInTheDocument();
+    expect(await screen.findByText(/The metric text matches more than one metric; use the metric key\. \(Seats\)/)).toBeInTheDocument();
   });
 
   it("has no rows-to-check chip any more", async () => {
