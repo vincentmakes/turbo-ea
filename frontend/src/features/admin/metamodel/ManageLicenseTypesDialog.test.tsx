@@ -205,6 +205,16 @@ describe("ManageLicenseTypesDialog", () => {
     await waitFor(() => expect(mockApi.callsOf("get", METRICS_PATH).length).toBeGreaterThan(1));
   });
 
+  it("shows the error and reloads the catalogue when the second move fails", async () => {
+    mockApi.on("patch", `${METRICS_PATH}/users`, {});
+    mockApi.fail("patch", `${METRICS_PATH}/cores`, 500);
+    const user = await renderDialog();
+    const before = mockApi.callsOf("get", METRICS_PATH).length;
+    await user.click(within(metricRow("users")).getByRole("button", { name: /^move down: users/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(`PATCH ${METRICS_PATH}/cores failed`);
+    await waitFor(() => expect(mockApi.callsOf("get", METRICS_PATH).length).toBe(before + 1));
+  });
+
   it("moves a type up within its metric, disabled at the ends", async () => {
     mockApi.on("patch", /^\/metamodel\/license-metrics\//, {});
     const user = await renderDialog();

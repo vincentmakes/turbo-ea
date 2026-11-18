@@ -73,10 +73,11 @@ export default function ManageLicenseTypesDialog({ open, onClose }: Props) {
     try {
       await api.patch(pathOf(a.key), { sort_order: equal ? index + delta : b.sort_order });
       await api.patch(pathOf(b.key), { sort_order: equal ? index : a.sort_order });
-      await invalidateLicenseCatalogue();
     } catch (err) {
       setError(apiErrorMessage(err, t("metamodel.licenseCatalogue.errors.generic")));
     } finally {
+      // Always re-read: a failed second PATCH leaves the order half-swapped on the server.
+      await invalidateLicenseCatalogue();
       setBusy(false);
     }
   };
