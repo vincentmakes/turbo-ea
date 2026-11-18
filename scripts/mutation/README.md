@@ -244,7 +244,19 @@ Each of these was found the hard way while wiring it up; keep them.
   each run leaves in the kept directory; the first run, with no digest
   yet, asks git what changed since the commit mutmut's stats were built at,
   fetching that commit into the shallow checkout, and treats every test
-  module as changed if git cannot say.
+  module as changed if git cannot say. The reopening covers every file in
+  the shard's cache, not only the files the shard owns that night. Each
+  backend shard keeps its own `mutants/`, and the digest moves on every
+  night, so a file the day's merges dealt back to a shard used to arrive
+  with the verdicts that shard had given it on its last visit, before the
+  tests that run it changed. Nightly run 61 reported `deps.py` falling from
+  53.3% to 45.9% that way: shard 1's map linked two tests to
+  `get_optional_user`, yet all 23 of its mutants still read "no tests".
+  Files outside the shard's scope are reopened but never named, so this
+  costs no test time. For the same reason a shard also resets every "no
+  tests" verdict in its scope whose function mutmut's map links to at least
+  one test: mutmut writes that verdict only when the map links none, so such
+  a verdict is out of date, and once re-tested it becomes a real one.
 - **A new function is linked to the tests that already run it.** mutmut
   records the functions a test runs once, the first time it sees the test,
   and the PR jobs use the nightly's map. A function written after that is
@@ -296,7 +308,11 @@ Each of these was found the hard way while wiring it up; keep them.
   slower and a correct `findByText` on a large page ran out of 1 s with no
   race anywhere (CardDetail, 2026-10-08). The normal suite keeps 1 s, so a
   slow render still fails a PR; a test that still fails in the sandbox has
-  a race.
+  a race. One such race comes from TipTap itself: its `focus()` command
+  focuses the editor a frame later, inside `requestAnimationFrame`, so a
+  test that simulates a blur right after `focus()` must first wait for
+  `editor.isFocused`, or the late focus lands after the blur and undoes it
+  (RichTextEditor, nightly run 61).
 - **A test that fails on unmutated code is named, and the shard stays red.**
   Every red nightly of October 2026 was one such test — Stryker's initial
   run of a chunk, or mutmut's clean test of a shard — and its name sat

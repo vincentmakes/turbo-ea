@@ -908,6 +908,95 @@ class TestMutmutRunAndCollect:
         assert files == ["app/x.py"]
         assert calls[-1][0][-1] == "app.x.x_plain__mutmut_*"
 
+    def test_a_shard_reopens_every_file_of_its_cache_but_names_only_its_own(
+        self, suite_repo, monkeypatch
+    ):
+        """A file dealt to another shard keeps its verdicts in this shard's
+        cache; reopening only today's files let the digest move past a test
+        change, so the file came back with stale verdicts (nightly run 61,
+        ``deps.py``)."""
+        (suite_repo / "backend" / "app" / "y.py").write_text("def f():\n    return 1\n")
+        calls, seen = [], {}
+        self.fake_mutmut(monkeypatch, calls, meta={"app.x.x_plain__mutmut_1": 1})
+        real_reopen = mutmut_scope.reopen_survivors
+        real_unchecked = mutmut_scope.unchecked_patterns
+        monkeypatch.setattr(
+            mutmut_scope,
+            "reopen_survivors",
+            lambda d, files: seen.setdefault("reopen", files) and real_reopen(d, files),
+        )
+        monkeypatch.setattr(
+            mutmut_scope,
+            "unchecked_patterns",
+            lambda d, files: seen.setdefault("unchecked", files) and real_unchecked(d, files),
+        )
+        assert mutmut_scope.shard_files("backend", "1/2", suite_repo) == ["app/x.py"]
+        assert mutmut_scope.run("backend", None, 2, suite_repo, shard="1/2", budget=5) == 0
+        assert seen == {"reopen": ["app/x.py", "app/y.py"], "unchecked": ["app/x.py"]}
+
+    def test_a_survivor_reopened_out_of_scope_is_named_once_its_file_is_in_scope(
+        self, suite_repo, monkeypatch, capsys
+    ):
+        backend = suite_repo / "backend"
+        (backend / "app" / "y.py").write_text("def f():\n    return 1\n")
+        (backend / "tests" / "test_y.py").write_text("def test_f(): pass\n")
+
+        def cache(directory):
+            mutants = directory / "mutants"
+            if (mutants / "mutmut-stats.json").is_file():
+                return
+            (mutants / "app").mkdir(parents=True, exist_ok=True)
+            (mutants / "mutmut-stats.json").write_text(
+                json.dumps(
+                    {"tests_by_mangled_function_name": {"app.y.x_f": ["tests/test_y.py::test_f"]}}
+                )
+            )
+            # y.py was scored here on an earlier visit: one survivor
+            (mutants / "app" / "y.py.meta").write_text(
+                json.dumps({"exit_code_by_key": {"app.y.x_f__mutmut_1": 0}})
+            )
+            # the digest the last night left, before test_y.py changed
+            (mutants / mutmut_scope.TESTS_DIGEST).write_text(
+                json.dumps(mutmut_scope.tests_digest(directory))
+            )
+            (directory / "tests" / "test_y.py").write_text("def test_f(): assert 1\n")
+
+        calls = []
+        self.fake_mutmut(monkeypatch, calls, meta={"app.x.x_plain__mutmut_1": 1}, on_generate=cache)
+        # tonight y.py belongs to shard 2: reopened in the cache, not tested
+        assert mutmut_scope.run("backend", None, 2, suite_repo, shard="1/2", budget=5) == 0
+        assert len(calls) == 1
+        out = capsys.readouterr().out
+        assert "1 survivor(s) reopened" in out
+        assert "has a verdict" in out
+        # the next night y.py is in scope: its reopened survivor is named
+        calls.clear()
+        assert mutmut_scope.run("backend", None, 2, suite_repo, shard="1/1", budget=5) == 0
+        assert calls[-1][0] == ("run", "--max-children", "2", "app.y.x_f__mutmut_*")
+
+    def test_a_shard_resets_a_no_tests_verdict_the_map_links_a_test_to(
+        self, suite_repo, monkeypatch, capsys
+    ):
+        """mutmut writes "no tests" only when its map links no test, so one
+        with a linked test is stale (shard 1's ``get_optional_user``, run 61)."""
+
+        def stats(directory):
+            (directory / "mutants").mkdir(exist_ok=True)
+            (directory / "mutants" / "mutmut-stats.json").write_text(
+                json.dumps({"tests_by_mangled_function_name": {"app.x.x_plain": ["tests/t.py::t"]}})
+            )
+
+        calls = []
+        meta = {
+            "app.x.x_plain__mutmut_1": 33,
+            "app.x.x_plain__mutmut_2": 33,
+            "app.x.xǁThingǁmethod__mutmut_1": 1,
+        }
+        self.fake_mutmut(monkeypatch, calls, meta=meta, on_generate=stats)
+        assert mutmut_scope.run("backend", None, 2, suite_repo, shard="1/1", budget=5) == 0
+        assert calls[-1][0] == ("run", "--max-children", "2", "app.x.x_plain__mutmut_*")
+        assert '2 "no tests" verdict(s) reset' in capsys.readouterr().out
+
     def test_a_shard_with_every_verdict_in_place_tests_nothing(
         self, suite_repo, monkeypatch, capsys
     ):
@@ -1541,6 +1630,28 @@ class TestRelinkUntested:
         )
         assert reset == 1
         assert verdicts_of(suite) == {**verdicts, "app.x.x_plain__mutmut_1": None}
+
+    def test_linked_no_tests_finds_only_functions_the_map_links_a_test_to(self, tmp_path):
+        verdicts = {
+            "app.x.x_linked__mutmut_1": 33,
+            "app.x.x_linked__mutmut_2": 1,
+            "app.x.x_alone__mutmut_1": 33,
+            "app.x.x_done__mutmut_1": 0,
+        }
+        tests_by_function = {
+            "app.x.x_linked": ["tests/test_a.py::test_one"],
+            "app.x.x_alone": [],
+            "app.x.x_done": ["tests/test_a.py::test_two"],
+        }
+        suite = survivors_suite(tmp_path, verdicts, tests_by_function, {})
+        functions = mutmut_scope.linked_no_tests(suite, ["app/x.py"])
+        assert functions == {"app.x.x_linked"}
+        assert mutmut_scope.reset_no_tests(suite, ["app/x.py"], functions) == 1
+        assert verdicts_of(suite) == {**verdicts, "app.x.x_linked__mutmut_1": None}
+        # out of scope, or with no stats: nothing
+        assert mutmut_scope.linked_no_tests(suite, ["app/y.py"]) == set()
+        (suite / "mutants" / "mutmut-stats.json").unlink()
+        assert mutmut_scope.linked_no_tests(suite, ["app/x.py"]) == set()
 
 
 class TestTestsChangedSince:
