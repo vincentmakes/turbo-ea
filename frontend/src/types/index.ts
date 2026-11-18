@@ -3759,7 +3759,6 @@ export interface CardCostsResponse {
 }
 
 // ── Card licenses (GET /cards/{id}/licenses) ─────────────────────────────
-export type LicenseType = CostItemType;
 /** A license type of the catalogue (GET /metamodel/license-metrics), under its metric. */
 export interface LicenseTypeItem {
   id: string;
@@ -3780,7 +3779,6 @@ export interface LicenseMetricItem {
   translations: Record<string, string>;
   types: LicenseTypeItem[];
 }
-export type LicenseMetric = "users" | "installations";
 /** Per license type; `no_data` = licensed but no actual entered. */
 export type LicenseTypeStatus = "over" | "approaching" | "compliant" | "no_data";
 /** Per metric (and per card): `over` > `approaching` > `no_actual_data` > `compliant`. */
@@ -3821,42 +3819,40 @@ export interface CardLicensesResponse {
 }
 
 // ── Licensing report (GET /reports/licensing) ────────────────────────────
-export interface LicenseReportCell {
-  licensed: number;
-  actual: number | null;
-  pct: number | null;
-  no_licence: boolean;
-  status: LicenseTypeStatus;
+/** One metric of a report row, narrowed to the selection (`licensed_total` / `actual_total` are its totals). */
+export interface LicenseReportMetric {
+  metric: string;
+  status: LicenseStatus;
+  worst_pct: number | null;
+  licensed_total: number;
+  actual_total: number | null;
+  types: LicenseTypeResult[];
 }
 export interface LicenseReportRow {
   id: string;
   name: string;
   type: string;
+  alias: string | null;
+  /** Present only when the card has a logo. */
+  logo_updated_at?: string | null;
   attributes: Record<string, unknown>;
   group?: string | null;
   /** Null for a card listed under a picked Platform. */
   status: LicenseStatus | null;
   worst_pct: number | null;
   worst_no_licence: boolean;
-  licensed_total: number;
-  actual_total: number | null;
-  by_type: Record<string, LicenseReportCell>;
-}
-export interface LicenseReportTrendYear {
-  fiscal_year: number;
-  /** card id -> license type key -> counts (the Forecast year carries `actual: null`). */
-  cards: Record<string, Record<string, { licensed: number; actual: number | null }>>;
+  by_metric: LicenseReportMetric[];
 }
 export interface LicenseReportResponse {
   fiscal_year: number;
   current_fiscal_year: number;
   fiscal_year_start: number;
-  metric: LicenseMetric;
   years: number[];
-  license_types: LicenseType[];
   aggregate: { id: string; name: string; type: string } | null;
   rows: LicenseReportRow[];
-  trend: LicenseReportTrendYear[];
+  /** The scope's metrics / `metric:type` pairs with a cell in the year, whatever the selection. */
+  metrics_in_year: string[];
+  types_in_year: string[];
 }
 
 export interface LicenseImportIssue {
@@ -3869,5 +3865,4 @@ export interface LicenseImportResult {
   matched: number;
   applied: number;
   skipped: LicenseImportIssue[];
-  flagged: LicenseImportIssue[];
 }

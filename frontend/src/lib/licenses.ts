@@ -1,11 +1,10 @@
 import type { TFunction } from "i18next";
 import { STATUS_COLORS } from "@/theme/tokens";
 import { fieldLabel } from "@/hooks/useResolveLabel";
-import type { LicenseMetric, LicenseMetricItem, LicenseTypeItem, LicenseStatus, LicenseTypeStatus } from "@/types";
+import type { LicenseMetricItem, LicenseTypeItem, LicenseStatus, LicenseTypeStatus } from "@/types";
 
 /** Card types that hold licenses (mirrors `LICENSE_TYPES` in the backend). */
 export const LICENSE_TYPES: readonly string[] = ["Application", "ITComponent"];
-export const LICENSE_METRICS: readonly LicenseMetric[] = ["users", "installations"];
 
 export const isLicenseType = (typeKey: string): boolean => LICENSE_TYPES.includes(typeKey);
 
@@ -16,6 +15,14 @@ export const STATUS_ORDER: readonly LicenseStatus[] = [
   "no_actual_data",
   "compliant",
 ];
+
+/** The report's translation key (`reports` namespace) of each status. */
+export const STATUS_LABEL_KEY: Record<LicenseStatus, string> = {
+  over: "licensing.statusOver",
+  approaching: "licensing.statusApproaching",
+  no_actual_data: "licensing.statusNoActualData",
+  compliant: "licensing.statusCompliant",
+};
 
 export function statusColor(s: LicenseStatus | LicenseTypeStatus): string {
   if (s === "over") return STATUS_COLORS.error;

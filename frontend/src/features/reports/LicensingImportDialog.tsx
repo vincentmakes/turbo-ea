@@ -16,6 +16,8 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import { api } from "@/api/client";
+import { metricName, pairName } from "@/components/licensing/licensePairs";
+import { useLicenseCatalogue } from "@/hooks/useLicenseCatalogue";
 import { MAX_ATTACHMENT_BYTES, MAX_ATTACHMENT_MB } from "@/lib/attachmentFormats";
 import type { LicenseImportIssue, LicenseImportResult } from "@/types";
 
@@ -27,7 +29,8 @@ interface Props {
 
 /** Preview (`dry_run=true`), then apply (`dry_run=false`, the same file: the server revalidates). */
 export default function LicensingImportDialog({ open, onClose, onApplied }: Props) {
-  const { t } = useTranslation(["reports", "common"]);
+  const { t, i18n } = useTranslation(["reports", "common", "cards"]);
+  const { metrics: catalogue } = useLicenseCatalogue(open);
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<LicenseImportResult | null>(null);
@@ -81,6 +84,20 @@ export default function LicensingImportDialog({ open, onClose, onApplied }: Prop
     }
   };
 
+  // The server's detail for an archived refusal is a key: show the catalogue's labels, and the
+  // file's own text for what the catalogue does not know (or while it has not loaded).
+  const detailOf = (i: LicenseImportIssue): string => {
+    const suffix = ` (${t("cards:licensing.archived")})`;
+    if (i.reason === "archived_license_metric" && catalogue.some((m) => m.key === i.detail))
+      return metricName(catalogue, i.detail, i18n.language, suffix);
+    if (i.reason === "archived_license_type") {
+      const owners = catalogue.filter((m) => m.types.some((x) => x.key === i.detail));
+      if (owners.length > 0)
+        return owners.map((m) => pairName(catalogue, m.key, i.detail, i18n.language, suffix)).join(", ");
+    }
+    return i.detail;
+  };
+
   const issues = (list: LicenseImportIssue[]) => (
     <Table size="small" sx={{ mb: 2 }}>
       <TableHead>
@@ -91,16 +108,19 @@ export default function LicensingImportDialog({ open, onClose, onApplied }: Prop
         </TableRow>
       </TableHead>
       <TableBody>
-        {list.map((i, n) => (
-          <TableRow key={`${i.row}-${n}`}>
-            <TableCell>{i.row}</TableCell>
-            <TableCell>{i.component}</TableCell>
-            <TableCell>
-              {t(`licensing.import.reasons.${i.reason}`, { defaultValue: i.reason })}
-              {i.detail ? ` (${i.detail})` : ""}
-            </TableCell>
-          </TableRow>
-        ))}
+        {list.map((i, n) => {
+          const detail = detailOf(i);
+          return (
+            <TableRow key={`${i.row}-${n}`}>
+              <TableCell>{i.row}</TableCell>
+              <TableCell>{i.component}</TableCell>
+              <TableCell>
+                {t(`licensing.import.reasons.${i.reason}`, { defaultValue: i.reason })}
+                {detail ? ` (${detail})` : ""}
+              </TableCell>
+            </TableRow>
+          );
+        })}
       </TableBody>
     </Table>
   );
@@ -142,15 +162,8 @@ export default function LicensingImportDialog({ open, onClose, onApplied }: Prop
                 color={preview.skipped.length ? "warning" : "default"}
                 label={t("licensing.import.skippedCount", { count: preview.skipped.length })}
               />
-              {preview.flagged.length > 0 && (
-                <Chip
-                  color="info"
-                  label={t("licensing.import.flaggedCount", { count: preview.flagged.length })}
-                />
-              )}
             </Box>
             {preview.skipped.length > 0 && issues(preview.skipped)}
-            {preview.flagged.length > 0 && issues(preview.flagged)}
           </>
         )}
       </DialogContent>

@@ -13,15 +13,18 @@ import { useEChartsTheme } from "@/components/charts/echartsTheme";
 import FiscalYearTimeTravel from "@/components/FiscalYearTimeTravel";
 import PairBars from "@/components/licensing/PairBars";
 import PairHistory from "@/components/licensing/PairHistory";
-import type { PairGroup } from "@/components/licensing/pairBarsOption";
+import {
+  buildPairGroups,
+  pairHistoryRows,
+  pairHues,
+  pairName,
+} from "@/components/licensing/licensePairs";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { useLicenseCatalogue } from "@/hooks/useLicenseCatalogue";
-import { fieldLabel } from "@/hooks/useResolveLabel";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
 import { shortFiscalYear } from "@/lib/costItems";
-import { addableCatalogue, formatPct, pairKey, pairLabel, statusColor } from "@/lib/licenses";
-import { catalogueHues } from "@/features/reports/costColors";
+import { addableCatalogue, pairKey, statusColor } from "@/lib/licenses";
 import { SECTION_SCROLL_MARGIN, sectionAnchor } from "@/features/cards/dataQualityJump";
 import { CHART_OTHER } from "@/theme/tokens";
 import type { CardLicensesResponse } from "@/types";
@@ -63,19 +66,10 @@ export default function LicensingSection({
   const [dialog, setDialog] = useState<DialogState>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  // A hue per type by sort order inside its metric, archived included, so it is stable across years.
-  const hues = useMemo(() => {
-    const out = new Map<string, string>();
-    for (const m of catalogue) {
-      const keys = [...m.types].sort((a, b) => a.sort_order - b.sort_order).map((x) => x.key);
-      for (const [k, color] of catalogueHues(keys, chrome.categorical, CHART_OTHER[chrome.mode])) {
-        out.set(pairKey(m.key, k), color);
-      }
-    }
-    return out;
-  }, [catalogue, chrome.categorical, chrome.mode]);
-  const metricOf = (key: string) => catalogue.find((m) => m.key === key);
-  const typeOf = (metric: string, key: string) => metricOf(metric)?.types.find((x) => x.key === key);
+  const hues = useMemo(
+    () => pairHues(catalogue, chrome.categorical, CHART_OTHER[chrome.mode]),
+    [catalogue, chrome.categorical, chrome.mode],
+  );
   const colorOf = (metric: string, key: string) =>
     hues.get(pairKey(metric, key)) ?? chrome.categorical[0];
 
@@ -102,16 +96,6 @@ export default function LicensingSection({
   };
 
   const archived = ` (${t("licensing.archived")})`;
-  const metricName = (key: string) => {
-    const m = metricOf(key);
-    if (!m) return key;
-    return m.archived ? `${fieldLabel(m, locale)}${archived}` : fieldLabel(m, locale);
-  };
-  const typeName = (metric: string, key: string) => {
-    const x = typeOf(metric, key);
-    if (!x) return key;
-    return x.archived ? `${fieldLabel(x, locale)}${archived}` : fieldLabel(x, locale);
-  };
 
   const pairsByKey = new Map<string, Pair>(
     year.metrics.flatMap((m) =>
@@ -119,26 +103,14 @@ export default function LicensingSection({
     ),
   );
   const canAdd = addableCatalogue(catalogue, new Set(pairsByKey.keys())).length > 0;
-  const groups: PairGroup[] = year.metrics.map((m) => ({
-    metric: m.metric,
-    label: metricName(m.metric),
-    status: forecast ? "" : t(`licensing.status.${m.status}`),
-    statusColor: forecast ? null : statusColor(m.status),
-    pairs: m.types.map((r) => {
-      // No percentage in the Forecast, with no actual, or when licensed is 0 and so is the use.
-      const hasPct = !forecast && r.actual != null && (r.pct != null || r.no_licence);
-      return {
-        key: pairKey(m.metric, r.key),
-        label: typeName(m.metric, r.key),
-        licensed: r.licensed,
-        actual: forecast ? null : r.actual,
-        color: colorOf(m.metric, r.key),
-        status: forecast ? t("licensing.licensedOnly") : t(`licensing.status.${r.status}`),
-        statusColor: statusColor(r.status),
-        pct: hasPct ? formatPct(r.pct, r.no_licence, t) : "",
-      };
-    }),
-  }));
+  const groups = buildPairGroups(year.metrics, {
+    catalogue,
+    locale,
+    t,
+    suffix: archived,
+    forecast,
+    colorOf,
+  });
   // The cell of the picked pair in the picked year, if the year has it (it may not).
   const cellOf = (p: Pair) =>
     year.metrics.find((m) => m.metric === p.metric)?.types.find((r) => r.key === p.key);
@@ -161,25 +133,12 @@ export default function LicensingSection({
   };
 
   const renderHistory = (p: Pair) => {
-    const m = metricOf(p.metric);
-    const x = typeOf(p.metric, p.key);
     const cell = cellOf(p);
     return (
       <>
         <PairHistory
-          pair={{
-            label: m && x ? `${pairLabel(m, x, locale)}${m.archived || x.archived ? archived : ""}` : `${p.metric}: ${p.key}`,
-            color: colorOf(p.metric, p.key),
-          }}
-          years={years.map((y) => {
-            const r = y.metrics.find((mr) => mr.metric === p.metric)?.types.find((tr) => tr.key === p.key);
-            return {
-              year: shortFiscalYear(y.fiscal_year),
-              licensed: r?.licensed ?? null,
-              actual: r?.actual ?? null,
-              forecast: y.is_forecast,
-            };
-          })}
+          pair={{ label: pairName(catalogue, p.metric, p.key, locale, archived), color: colorOf(p.metric, p.key) }}
+          years={pairHistoryRows(years, p.metric, p.key)}
         />
         {editable && cell && (
           <Button

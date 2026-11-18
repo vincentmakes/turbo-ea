@@ -11,8 +11,8 @@ import TableRow from "@mui/material/TableRow";
 import TableSortLabel from "@mui/material/TableSortLabel";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { formatPct, STATUS_ORDER, statusColor } from "@/lib/licenses";
-import type { LicenseReportRow, LicenseStatus, LicenseType } from "@/types";
+import { formatPct, pairKey, STATUS_LABEL_KEY, STATUS_ORDER, statusColor } from "@/lib/licenses";
+import type { LicenseReportRow, LicenseStatus, LicenseTypeResult } from "@/types";
 
 export interface LicensingTableRow {
   id: string;
@@ -25,9 +25,10 @@ export interface LicensingTableRow {
 
 export interface LicensingTableProps {
   rows: LicensingTableRow[];
-  /** The license types shown as columns, in catalogue order. */
-  types: LicenseType[];
-  labelOf: (typeKey: string) => string;
+  /** The `metric:type` pairs shown as column groups, in catalogue order, labelled `Metric: Type`. */
+  pairs: { key: string; metric: string; label: string }[];
+  /** The metrics those pairs belong to; each has its own totals, never one across metrics. */
+  metrics: { key: string; label: string }[];
   /** Group headers in display order; rows are matched on `row.group`. */
   groups?: { key: string; label: string }[];
   extraColumns: string[];
@@ -43,13 +44,6 @@ export interface LicensingTableProps {
   onDrill: (target: { id: string } | { group: string }) => void;
 }
 
-const STATUS_KEY: Record<LicenseStatus, string> = {
-  over: "licensing.statusOver",
-  approaching: "licensing.statusApproaching",
-  no_actual_data: "licensing.statusNoActualData",
-  compliant: "licensing.statusCompliant",
-};
-
 const DASH = "—";
 const num = (v: number | null | undefined) => (v == null ? DASH : String(v));
 
@@ -59,10 +53,13 @@ function sumOrNull(values: (number | null | undefined)[]): number | null {
   return present.length ? present.reduce((a, b) => a + b, 0) : null;
 }
 
+type Pair = LicensingTableProps["pairs"][number];
+type Count = number | null | undefined;
+
 export default function LicensingTable({
   rows,
-  types,
-  labelOf,
+  pairs,
+  metrics,
   groups,
   extraColumns,
   extraLabel,
@@ -77,23 +74,33 @@ export default function LicensingTable({
 }: LicensingTableProps) {
   const { t } = useTranslation(["reports", "common"]);
 
-  const licensedOf = (r: LicensingTableRow, key: string) => r.raw.by_type[key]?.licensed;
-  const actualOf = (r: LicensingTableRow, key: string) => r.raw.by_type[key]?.actual;
-  const totalLic = (r: LicensingTableRow) =>
-    sumOrNull(types.map((x) => licensedOf(r, x.key))) ?? 0;
-  const totalAct = (r: LicensingTableRow) => sumOrNull(types.map((x) => actualOf(r, x.key)));
+  const cellOf = (r: LicensingTableRow, p: Pair): LicenseTypeResult | undefined =>
+    r.raw.by_metric
+      .find((m) => m.metric === p.metric)
+      ?.types.find((x) => pairKey(p.metric, x.key) === p.key);
+  const licensedOf = (r: LicensingTableRow, p: Pair) => cellOf(r, p)?.licensed;
+  const actualOf = (r: LicensingTableRow, p: Pair) => cellOf(r, p)?.actual;
+  const totalLic = (r: LicensingTableRow, metric: string) =>
+    r.raw.by_metric.find((m) => m.metric === metric)?.licensed_total;
+  const totalAct = (r: LicensingTableRow, metric: string) =>
+    r.raw.by_metric.find((m) => m.metric === metric)?.actual_total;
 
   // The value a column sorts on; a missing figure sorts as the lowest one.
   const sortValue = (r: LicensingTableRow): string | number => {
     if (sortK === "name") return r.name;
     if (sortK === "status") return STATUS_ORDER.indexOf(r.status);
-    if (sortK === "total_lic") return totalLic(r);
-    if (sortK === "total_act") return totalAct(r) ?? -1;
-    const [kind, key] = sortK.split(":");
-    if (kind === "lic") return licensedOf(r, key) ?? 0;
-    if (kind === "act") return actualOf(r, key) ?? -1;
+    // `kind:rest`, where rest is a metric key or a `metric:type` pair key.
+    const at = sortK.indexOf(":");
+    const kind = sortK.slice(0, at);
+    const rest = sortK.slice(at + 1);
+    if (kind === "tlic") return totalLic(r, rest) ?? 0;
+    if (kind === "tact") return totalAct(r, rest) ?? -1;
+    const p = pairs.find((x) => x.key === rest);
+    if (!p) return 0;
+    if (kind === "lic") return licensedOf(r, p) ?? 0;
+    if (kind === "act") return actualOf(r, p) ?? -1;
     if (kind === "pct") {
-      const c = r.raw.by_type[key];
+      const c = cellOf(r, p);
       return c?.no_licence ? Number.POSITIVE_INFINITY : (c?.pct ?? -1);
     }
     return 0;
@@ -133,25 +140,33 @@ export default function LicensingTable({
     ) : null;
   };
 
+  // The counts of each pair, then the totals of each metric: the same cells in a card row and a total row.
   const countCells = (
-    lic: (key: string) => number | null | undefined,
-    act: (key: string) => number | null | undefined,
-    pct: ((key: string) => string) | null,
-    bold = false,
-  ) =>
-    types.map((x) => (
-      <Fragment key={x.key}>
-        <TableCell align="right" sx={bold ? { fontWeight: 700 } : undefined}>
-          {num(lic(x.key))}
-        </TableCell>
-        <TableCell align="right" sx={bold ? { fontWeight: 700 } : undefined}>
-          {num(act(x.key))}
-        </TableCell>
-        <TableCell align="right" sx={bold ? { fontWeight: 700 } : undefined}>
-          {pct ? pct(x.key) : ""}
-        </TableCell>
-      </Fragment>
-    ));
+    lic: (p: Pair) => Count,
+    act: (p: Pair) => Count,
+    pct: ((p: Pair) => string) | null,
+    totals: (metric: string) => [Count, Count],
+    strong = false,
+  ) => {
+    const sx = strong ? { fontWeight: 700 } : undefined;
+    return (
+      <>
+        {pairs.map((p) => (
+          <Fragment key={p.key}>
+            <TableCell align="right" sx={sx}>{num(lic(p))}</TableCell>
+            <TableCell align="right" sx={sx}>{num(act(p))}</TableCell>
+            <TableCell align="right" sx={sx}>{pct ? pct(p) : ""}</TableCell>
+          </Fragment>
+        ))}
+        {metrics.map((m) => (
+          <Fragment key={m.key}>
+            <TableCell align="right" sx={sx}>{num(totals(m.key)[0])}</TableCell>
+            <TableCell align="right" sx={sx}>{num(totals(m.key)[1])}</TableCell>
+          </Fragment>
+        ))}
+      </>
+    );
+  };
 
   const cardRow = (r: LicensingTableRow, indent: boolean) => (
     <TableRow
@@ -169,21 +184,20 @@ export default function LicensingTable({
         {typeBadge(r)}
       </TableCell>
       {countCells(
-        (k) => licensedOf(r, k),
-        (k) => actualOf(r, k),
-        (k) => {
-          const c = r.raw.by_type[k];
+        (p) => licensedOf(r, p),
+        (p) => actualOf(r, p),
+        (p) => {
+          const c = cellOf(r, p);
           return c ? formatPct(c.pct, c.no_licence, t) : DASH;
         },
+        (m) => [totalLic(r, m), totalAct(r, m)],
       )}
-      <TableCell align="right">{num(totalLic(r))}</TableCell>
-      <TableCell align="right">{num(totalAct(r))}</TableCell>
       {showStatus && (
         <TableCell>
           <Chip
             size="small"
             variant="outlined"
-            label={t(STATUS_KEY[r.status])}
+            label={t(STATUS_LABEL_KEY[r.status])}
             sx={{ borderColor: statusColor(r.status), color: statusColor(r.status) }}
           />
         </TableCell>
@@ -196,31 +210,22 @@ export default function LicensingTable({
     </TableRow>
   );
 
-  const sumType = (members: LicensingTableRow[], key: string, pick: (r: LicensingTableRow, key: string) => number | null | undefined) =>
-    sumOrNull(members.map((m) => pick(m, key)));
-  const tailBlank = (bold: boolean) => (
-    <>
-      {showStatus && <TableCell />}
-      {extraColumns.map((key) => (
-        <TableCell key={key} sx={bold ? { fontWeight: 700 } : undefined} />
-      ))}
-    </>
-  );
   const totalsCells = (members: LicensingTableRow[]) => (
     <>
       {countCells(
-        (k) => sumType(members, k, licensedOf) ?? 0,
-        (k) => sumType(members, k, actualOf),
+        (p) => sumOrNull(members.map((m) => licensedOf(m, p))) ?? 0,
+        (p) => sumOrNull(members.map((m) => actualOf(m, p))),
         null,
+        (metric) => [
+          sumOrNull(members.map((m) => totalLic(m, metric))) ?? 0,
+          sumOrNull(members.map((m) => totalAct(m, metric))),
+        ],
         true,
       )}
-      <TableCell align="right" sx={{ fontWeight: 700 }}>
-        {members.reduce((s, m) => s + totalLic(m), 0)}
-      </TableCell>
-      <TableCell align="right" sx={{ fontWeight: 700 }}>
-        {num(sumOrNull(members.map(totalAct)))}
-      </TableCell>
-      {tailBlank(true)}
+      {showStatus && <TableCell />}
+      {extraColumns.map((key) => (
+        <TableCell key={key} sx={{ fontWeight: 700 }} />
+      ))}
     </>
   );
 
@@ -232,15 +237,19 @@ export default function LicensingTable({
         <TableHead>
           <TableRow>
             {sortHead("name", t("common:labels.name"), "left")}
-            {types.map((x) => (
-              <Fragment key={x.key}>
-                {sortHead(`lic:${x.key}`, t("licensing.colLic", { label: labelOf(x.key) }))}
-                {sortHead(`act:${x.key}`, t("licensing.colAct", { label: labelOf(x.key) }))}
-                {sortHead(`pct:${x.key}`, t("licensing.colPct", { label: labelOf(x.key) }))}
+            {pairs.map((p) => (
+              <Fragment key={p.key}>
+                {sortHead(`lic:${p.key}`, t("licensing.colLic", { label: p.label }))}
+                {sortHead(`act:${p.key}`, t("licensing.colAct", { label: p.label }))}
+                {sortHead(`pct:${p.key}`, t("licensing.colPct", { label: p.label }))}
               </Fragment>
             ))}
-            {sortHead("total_lic", t("licensing.totalLic"))}
-            {sortHead("total_act", t("licensing.totalAct"))}
+            {metrics.map((m) => (
+              <Fragment key={m.key}>
+                {sortHead(`tlic:${m.key}`, t("licensing.metricTotalLic", { label: m.label }))}
+                {sortHead(`tact:${m.key}`, t("licensing.metricTotalAct", { label: m.label }))}
+              </Fragment>
+            ))}
             {showStatus && sortHead("status", t("licensing.status"), "left")}
             {extraColumns.map((key) => (
               <TableCell key={key} align="right">
