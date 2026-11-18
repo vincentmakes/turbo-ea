@@ -32,6 +32,10 @@ connects to: read callers and tests, not only the changed lines. Skip user docs,
 
 ## What you report
 
+**Report every finding, Minor included, and grade each Critical / Important / Minor.** The repository
+rule (`CLAUDE.md`, Testing Conventions) is that every Minor is fixed, none is parked: do not drop a
+Minor as "polish", and do not write "Minor, can wait". Each one is a line the developer agent will fix.
+
 One list, most severe first, each finding with: file and line, what is wrong in plain words, the input or
 state that breaks it, and which skill or rule found it. Separate **must fix** from **should fix** from
 **noted**. Say what you did **not** check (an area you had no rule for, a test you did not run). If

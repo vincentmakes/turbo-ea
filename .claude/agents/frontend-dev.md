@@ -85,6 +85,13 @@ API with `vi.mock("@/api/client")`, never the global fetch. Run only your files:
 - A test reads `vi.stubEnv("TZ")`? It will not run under Stryker; do not rely on it.
 - A mutation score is owed on your lines, but **you never run mutation testing**.
 
+## Review findings
+
+When you are called back to fix a review, fix **every** finding, Minor included: the repository rule
+(`CLAUDE.md`, Testing Conventions) is that none is parked. Each fix gets its own test, written first and
+seen failing; then re-run the files you touched. A finding you do not fix goes in your report with the
+reason, and only the session's user can accept it.
+
 ## What you report
 
 You work in `ponytail` at the **full** level (the smallest complete change). Its closing line about what
