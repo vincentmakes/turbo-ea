@@ -75,6 +75,8 @@ const OTHER_GROUP = "__other__";
 const NO_FOLDED: Set<string> = new Set();
 const PICKABLE_TYPES = ["Application", "ITComponent", "Platform"];
 const TILE_DIMMED = 0.4;
+// The 400s of the report route about `fiscal_year` (and the Forecast year).
+const YEAR_REFUSAL = /fiscal_year|forecast_not_selectable/;
 
 /** A pair of the list that is open: its card and its `metric:type` key. */
 interface Pick {
@@ -94,6 +96,7 @@ export default function LicensingReport() {
   const chrome = useEChartsTheme();
   const { metrics: catalogue, loading: catalogueLoading, failed: catalogueFailed } =
     useLicenseCatalogue();
+  const catalogueReady = !catalogueLoading && !catalogueFailed;
   const saved = useSavedReport("licensing");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() =>
     saved.setSaveDialogOpen(true),
@@ -195,17 +198,23 @@ export default function LicensingReport() {
     [effectiveGroupBy, groupableFields, t],
   );
 
+  // The server refuses a metric or pair it does not know (400): only what the catalogue has is sent.
+  const knownMetric = catalogue.some((m) => m.key === metric);
+  const knownType = catalogue.some((m) => m.types.some((x) => pairKey(m.key, x.key) === licenseType));
   const cardIdParam = picked?.id ?? null;
   const path = useMemo(() => {
     const p = new URLSearchParams({ card_types: typeParam(cardTypeKey) });
-    if (metric) p.set("metric", metric);
-    if (licenseType) p.set("license_type", licenseType);
+    if (knownMetric) p.set("metric", metric);
+    if (knownType) p.set("license_type", licenseType);
     if (fiscalYearParam != null) p.set("fiscal_year", String(fiscalYearParam));
     if (effectiveGroupBy && !cardIdParam) p.set("group_by", effectiveGroupBy);
     if (cardIdParam) p.set("card_id", cardIdParam);
     return `/reports/licensing?${p.toString()}`;
-  }, [cardTypeKey, metric, licenseType, fiscalYearParam, effectiveGroupBy, cardIdParam]);
-  const { data, loading, error, refetch } = useApiQuery<LicenseReportResponse>(path);
+  }, [cardTypeKey, metric, knownMetric, licenseType, knownType, fiscalYearParam, effectiveGroupBy, cardIdParam]);
+  const { data, loading, error, refetch } = useApiQuery<LicenseReportResponse>(
+    // Not before the catalogue can say what a metric or a type is.
+    catalogueReady ? path : null,
+  );
   const { user } = useAuthContext();
   const canImport = usePermissions(user).can("licenses.edit");
   const [importOpen, setImportOpen] = useState(false);
@@ -235,17 +244,14 @@ export default function LicensingReport() {
     : "";
 
   const aggregate = data?.aggregate ?? null;
-  const catalogueReady = !catalogueLoading && !catalogueFailed;
 
   // A saved metric or license type the catalogue retired, or an archived one the year has no
   // data for, falls back to all (the server refuses an unknown one, so this cannot wait for data).
   useEffect(() => {
     if (!catalogueReady) return;
-    const knownMetric = catalogue.some((m) => m.key === metric);
-    const knownType = catalogue.some((m) => m.types.some((x) => pairKey(m.key, x.key) === licenseType));
     if (metric && (!knownMetric || (data && !effectiveMetric))) setMetric("");
     if (licenseType && (!knownType || (data && !effectiveLicenseType))) setLicenseType("");
-  }, [catalogue, catalogueReady, data, metric, effectiveMetric, licenseType, effectiveLicenseType]);
+  }, [catalogueReady, data, metric, knownMetric, effectiveMetric, licenseType, knownType, effectiveLicenseType]);
 
   // Ids named by a drill exist only under the current selection.
   useEffect(() => {
@@ -320,14 +326,19 @@ export default function LicensingReport() {
   );
 
   // ── the list: expanded rows and the one pair whose history shows below ────────────────────
-  const toggleRow = (id: string) => {
+  const toggleRow = useCallback((id: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
       if (!next.delete(id)) next.add(id);
       return next;
     });
-    if (pick?.cardId === id) setPick(null);
-  };
+    setPick((cur) => (cur?.cardId === id ? null : cur));
+  }, []);
+  const pickPair = useCallback(
+    (cardId: string, key: string) =>
+      setPick((cur) => (cur?.cardId === cardId && cur.key === key ? null : { cardId, key })),
+    [],
+  );
   // A pair is only chosen while its card's row is open and still lists it.
   const activePick =
     pick &&
@@ -352,10 +363,11 @@ export default function LicensingReport() {
       key={r.id}
       row={r.raw}
       expanded={expanded.has(r.id)}
-      onToggle={() => toggleRow(r.id)}
+      onToggle={toggleRow}
       selectedPairKey={activePick?.cardId === r.id ? activePick.key : null}
-      onPick={(key) => setPick(activePick?.cardId === r.id && activePick.key === key ? null : { cardId: r.id, key })}
+      onPick={pickPair}
       onOpen={setSidePanelCardId}
+      onDrill={drillToCard}
     />
   );
 
@@ -453,7 +465,8 @@ export default function LicensingReport() {
       setFiscalYearParam(null);
   }, [data, fiscalYearParam, yearOptions]);
   useEffect(() => {
-    if (error && restoredYear.current && fiscalYearParam != null) {
+    // Only a refusal about the year: another 400 (a bad selection) says nothing against it.
+    if (error && restoredYear.current && fiscalYearParam != null && YEAR_REFUSAL.test(error.message)) {
       restoredYear.current = false;
       setFiscalYearParam(null);
     }
@@ -481,7 +494,8 @@ export default function LicensingReport() {
         : undefined;
     if (restoredType) setCardTypeKey(restoredType);
     if (typeof cfg.metric === "string") setMetric(cfg.metric);
-    if (typeof cfg.licenseType === "string") setLicenseType(cfg.licenseType);
+    if (typeof cfg.licenseType === "string" && (cfg.licenseType === "" || cfg.licenseType.includes(":")))
+      setLicenseType(cfg.licenseType);
     if (typeof cfg.groupBy === "string") setGroupBy(cfg.groupBy);
     if (cfg.view === "chart" || cfg.view === "table") setView(cfg.view);
     if (typeof cfg.sortK === "string") setSortK(cfg.sortK);
@@ -532,6 +546,8 @@ export default function LicensingReport() {
     setPicked(null);
     setScopeIds([]);
     setStatusFilter(null);
+    setExpanded(new Set());
+    setPick(null);
   }, [setScopeIds, saved]);
 
   const statusCards: { status: LicenseStatus; label: string; icon: string }[] = [
@@ -548,7 +564,9 @@ export default function LicensingReport() {
   );
   const noRows = (
     <Box sx={{ py: 8, textAlign: "center" }}>
-      <Typography color="text.secondary">{t("licensing.noData")}</Typography>
+      <Typography color="text.secondary">
+        {activeStatus ? t("licensing.noRowsForStatus") : t("licensing.noData")}
+      </Typography>
     </Box>
   );
   const pickedHistory = activePick && (
@@ -807,7 +825,14 @@ export default function LicensingReport() {
                 {groups
                   ? groups.map((g) => (
                       <Fragment key={g.key}>
-                        <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
+                        <Typography
+                          variant="subtitle2"
+                          sx={{ mt: 2, mb: 1 }}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            setDrill({ group: g.key });
+                          }}
+                        >
                           {g.label}
                         </Typography>
                         {drilledRows.filter((r) => r.group === g.key).map(renderRow)}

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -22,16 +22,19 @@ import type { LicenseReportRow } from "@/types";
 interface Props {
   row: LicenseReportRow;
   expanded: boolean;
-  onToggle: () => void;
+  /** Stable callbacks that take the card's id, so a memoised row does not render for another row's change. */
+  onToggle: (cardId: string) => void;
   /** The `metric:type` key of the pair whose history is shown, if it is one of this card's. */
   selectedPairKey: string | null;
-  onPick: (pairKey: string) => void;
+  onPick: (cardId: string, pairKey: string) => void;
   onOpen: (cardId: string) => void;
+  /** Right click on the header. */
+  onDrill: (cardId: string) => void;
 }
 
 /** What an expanded row shows: the card's Licensing bars for the selected year, once the catalogue is there. */
 function RowBars({ row, selectedPairKey, onPick }: Pick<Props, "row" | "selectedPairKey" | "onPick">) {
-  const { t, i18n } = useTranslation(["cards"]);
+  const { t, i18n } = useTranslation(["cards", "reports"]);
   const chrome = useEChartsTheme();
   const { metrics: catalogue, loading, failed } = useLicenseCatalogue();
   const hues = useMemo(
@@ -44,7 +47,7 @@ function RowBars({ row, selectedPairKey, onPick }: Pick<Props, "row" | "selected
   if (row.by_metric.length === 0)
     return (
       <Typography variant="body2" color="text.secondary">
-        {t("cards:licensing.noPairs")}
+        {t("reports:licensing.emptyRow")}
       </Typography>
     );
   return (
@@ -59,8 +62,8 @@ function RowBars({ row, selectedPairKey, onPick }: Pick<Props, "row" | "selected
       })}
       selectedKey={selectedPairKey}
       forecast={false}
-      confirmed
-      onPick={onPick}
+      confirmed={row.confirmed}
+      onPick={(key) => onPick(row.id, key)}
     />
   );
 }
@@ -69,7 +72,7 @@ function RowBars({ row, selectedPairKey, onPick }: Pick<Props, "row" | "selected
  * One card of the report's list. The header is a button (keyboard and screen reader);
  * opening the card is a second button beside it, never nested in it.
  */
-export default function LicensingCardRow({ row, expanded, onToggle, selectedPairKey, onPick, onOpen }: Props) {
+export default memo(function LicensingCardRow({ row, expanded, onToggle, selectedPairKey, onPick, onOpen, onDrill }: Props) {
   const { t } = useTranslation(["reports", "common"]);
   const { getType } = useMetamodel();
   const isRtl = useIsRtl();
@@ -79,7 +82,11 @@ export default function LicensingCardRow({ row, expanded, onToggle, selectedPair
     <Paper variant="outlined" sx={{ mb: 1 }}>
       <Box sx={{ display: "flex", alignItems: "center" }}>
         <ButtonBase
-          onClick={onToggle}
+          onClick={() => onToggle(row.id)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            onDrill(row.id);
+          }}
           aria-expanded={expanded}
           aria-controls={expanded ? bodyId : undefined}
           sx={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 1.5, p: 1.5, textAlign: "start", justifyContent: "flex-start" }}
@@ -130,4 +137,4 @@ export default function LicensingCardRow({ row, expanded, onToggle, selectedPair
       )}
     </Paper>
   );
-}
+});

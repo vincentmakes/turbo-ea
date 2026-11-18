@@ -639,6 +639,8 @@
   "licensing.metricTotalLic": "{{label}} total lic.",
   "licensing.metricTotalAct": "{{label}} total act.",
   "licensing.openCard": "Open {{name}}",
+  "licensing.emptyRow": "Add licensing from the card, or import rows.",
+  "licensing.noRowsForStatus": "No card has this status.",
   "licensing.status": "Status",
   "saved.typeLicensing": "Licensing",
   "licensing.import.button": "Import",

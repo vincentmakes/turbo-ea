@@ -2805,6 +2805,8 @@
   "securityLog.targetTypes.diagram": "Diagram",
   "securityLog.targetTypes.survey": "Survey",
   "securityLog.targetTypes.license": "Licence",
+  "securityLog.targetTypes.license_metric": "License metric",
+  "securityLog.targetTypes.license_type": "License type",
   "securityLog.targetTypes.extension": "Extension",
   "securityLog.targetTypes.workspace_transfer": "Workspace transfer",
   "securityLog.targetTypes.migration": "Migration",

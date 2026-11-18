@@ -27,6 +27,13 @@ interface Props {
   onApplied: () => void;
 }
 
+const TYPE_REASONS = [
+  "type_not_in_metric",
+  "unknown_license_type",
+  "ambiguous_license_type",
+  "archived_license_type",
+];
+
 /** Preview (`dry_run=true`), then apply (`dry_run=false`, the same file: the server revalidates). */
 export default function LicensingImportDialog({ open, onClose, onApplied }: Props) {
   const { t, i18n } = useTranslation(["reports", "common", "cards"]);
@@ -84,18 +91,21 @@ export default function LicensingImportDialog({ open, onClose, onApplied }: Prop
     }
   };
 
-  // The server's detail for an archived refusal is a key: show the catalogue's labels, and the
-  // file's own text for what the catalogue does not know (or while it has not loaded).
+  // The row's pair as `Metric: Type`: labels from the catalogue for what it knows, the file's own
+  // text for what it does not. Only the refusals about a license type name a pair.
   const detailOf = (i: LicenseImportIssue): string => {
     const suffix = ` (${t("cards:licensing.archived")})`;
-    if (i.reason === "archived_license_metric" && catalogue.some((m) => m.key === i.detail))
-      return metricName(catalogue, i.detail, i18n.language, suffix);
-    if (i.reason === "archived_license_type") {
-      const owners = catalogue.filter((m) => m.types.some((x) => x.key === i.detail));
-      if (owners.length > 0)
-        return owners.map((m) => pairName(catalogue, m.key, i.detail, i18n.language, suffix)).join(", ");
-    }
-    return i.detail;
+    const locale = i18n.language;
+    if (i.reason === "archived_license_metric")
+      return catalogue.some((m) => m.key === i.metric)
+        ? metricName(catalogue, i.metric, locale, suffix)
+        : i.metric || i.detail;
+    if (!TYPE_REASONS.includes(i.reason) || !i.metric) return i.detail;
+    if (!i.detail) return metricName(catalogue, i.metric, locale, suffix);
+    const owner = catalogue.find((m) => m.key === i.metric);
+    return owner?.types.some((x) => x.key === i.detail)
+      ? pairName(catalogue, i.metric, i.detail, locale, suffix)
+      : `${metricName(catalogue, i.metric, locale, suffix)}: ${i.detail}`;
   };
 
   const issues = (list: LicenseImportIssue[]) => (

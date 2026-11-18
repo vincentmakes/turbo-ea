@@ -51,6 +51,7 @@ const ROW: LicenseReportRow = {
   status: "over",
   worst_pct: 120,
   worst_no_licence: false,
+  confirmed: true,
   by_metric: [
     {
       metric: "users",
@@ -73,6 +74,7 @@ const baseProps = (): React.ComponentProps<typeof LicensingCardRow> => ({
   selectedPairKey: null,
   onPick: vi.fn(),
   onOpen: vi.fn(),
+  onDrill: vi.fn(),
 });
 
 function setup(over: Partial<React.ComponentProps<typeof LicensingCardRow>> = {}) {
@@ -83,6 +85,7 @@ function setup(over: Partial<React.ComponentProps<typeof LicensingCardRow>> = {}
     selectedPairKey: null,
     onPick: vi.fn(),
     onOpen: vi.fn(),
+    onDrill: vi.fn(),
     ...over,
   };
   render(<LicensingCardRow {...props} />);
@@ -113,6 +116,7 @@ describe("LicensingCardRow", () => {
     await userEvent.keyboard("{Enter}");
     await userEvent.keyboard(" ");
     expect(p.onToggle).toHaveBeenCalledTimes(3);
+    expect(p.onToggle).toHaveBeenCalledWith("A");
   });
 
   it("expanded: one chart per metric with the pair buttons, a pick reports the pair key", async () => {
@@ -120,7 +124,7 @@ describe("LicensingCardRow", () => {
     expect(screen.getByRole("button", { name: /^Alpha/ })).toHaveAttribute("aria-expanded", "true");
     expect(echartState.byName("Licensed and actual counts per license type: Users")).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: /^Dev: / }));
-    expect(p.onPick).toHaveBeenCalledWith("users:dev");
+    expect(p.onPick).toHaveBeenCalledWith("A", "users:dev");
   });
 
   it("the picked pair is marked", () => {
@@ -154,9 +158,27 @@ describe("LicensingCardRow", () => {
     expect(document.querySelector("img")?.getAttribute("src")).toContain("/api/v1/cards/A/logo");
   });
 
-  it("a card with no pair says so when expanded", () => {
+  it("a card with no pair points to the card and the import when expanded", () => {
     setup({ row: { ...ROW, by_metric: [], status: "no_actual_data" }, expanded: true });
-    expect(screen.getByText(/No licensing recorded/)).toBeInTheDocument();
+    expect(screen.getByText("Add licensing from the card, or import rows.")).toBeInTheDocument();
+  });
+
+  it("a right click on the header drills to the card", async () => {
+    const p = setup();
+    await userEvent.pointer({ keys: "[MouseRight]", target: screen.getByRole("button", { name: /^Alpha/ }) });
+    expect(p.onDrill).toHaveBeenCalledWith("A");
+  });
+
+  it("a year carried forward (not confirmed) is drawn faded", () => {
+    setup({ row: { ...ROW, confirmed: false }, expanded: true });
+    const licensed = echartState.byName("Licensed and actual counts per license type: Users").option.series[0];
+    expect(licensed.data[0].itemStyle.opacity).toBe(0.2);
+  });
+
+  it("a confirmed year is drawn at full strength", () => {
+    setup({ expanded: true });
+    const licensed = echartState.byName("Licensed and actual counts per license type: Users").option.series[0];
+    expect(licensed.data[0].itemStyle.opacity).toBe(0.35);
   });
 
   it("a failed catalogue shows the error, never a raw key", () => {

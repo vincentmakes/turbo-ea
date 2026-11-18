@@ -27,8 +27,8 @@ const typeItem = (metric: string, key: string, label: string) => ({
   translations: {},
 });
 const CATALOGUE = [
-  { id: "u", key: "users", label: "Users", sort_order: 1, archived: false, translations: {}, types: [typeItem("users", "prod", "Prod")] },
-  { id: "c", key: "cores", label: "Cores", sort_order: 2, archived: true, translations: {}, types: [typeItem("cores", "xeon", "Xeon")] },
+  { id: "u", key: "users", label: "Users", sort_order: 1, archived: false, translations: {}, types: [typeItem("users", "prod", "Prod"), typeItem("users", "standard", "Standard")] },
+  { id: "c", key: "cores", label: "Cores", sort_order: 2, archived: true, translations: {}, types: [typeItem("cores", "xeon", "Xeon"), typeItem("cores", "standard", "Standard")] },
 ];
 
 // Every `reason` the backend's plan_import can return (services/license_import.py).
@@ -52,11 +52,12 @@ const RESULT = {
   matched: 3,
   applied: 0,
   skipped: [
-    { row: 4, component: "Ghost", reason: "card_not_found", detail: "" },
-    { row: 7, component: "SAP", reason: "invalid_year", detail: "1999" },
-    { row: 9, component: "CRM", reason: "type_not_in_metric", detail: "Xeon" },
-    { row: 11, component: "ERP", reason: "archived_license_metric", detail: "cores" },
-    { row: 12, component: "HR", reason: "archived_license_type", detail: "xeon" },
+    { row: 4, component: "Ghost", reason: "card_not_found", detail: "", metric: "" },
+    { row: 7, component: "SAP", reason: "invalid_year", detail: "1999", metric: "users" },
+    { row: 9, component: "CRM", reason: "type_not_in_metric", detail: "Xeon", metric: "users" },
+    { row: 11, component: "ERP", reason: "archived_license_metric", detail: "cores", metric: "cores" },
+    { row: 12, component: "HR", reason: "archived_license_type", detail: "standard", metric: "cores" },
+    { row: 13, component: "FIN", reason: "unknown_license_type", detail: "Bar", metric: "Foo" },
   ],
 };
 
@@ -95,7 +96,7 @@ describe("LicensingImportDialog", () => {
     expect(sap).toHaveTextContent("7");
     expect(sap).toHaveTextContent("1999");
     const crm = rows.find((r) => within(r).queryByText("CRM"))!;
-    expect(crm).toHaveTextContent("License type belongs to another metric (Xeon)");
+    expect(crm).toHaveTextContent("License type belongs to another metric (Users: Xeon)");
     expect(screen.getByRole("button", { name: "Apply 3 rows" })).toBeEnabled();
   });
 
@@ -108,8 +109,22 @@ describe("LicensingImportDialog", () => {
       "Metric is archived and not yet used on this card (Cores (archived))",
     );
     expect(rows.find((r) => within(r).queryByText("HR"))!).toHaveTextContent(
-      "License type is archived and not yet used on this card (Cores: Xeon (archived))",
+      "License type is archived and not yet used on this card (Cores: Standard (archived))",
     );
+  });
+
+  it("names the metric of the row's pair, never every metric owning the type key", async () => {
+    vi.mocked(api.upload).mockResolvedValue(RESULT as never);
+    const { input } = setup();
+    await userEvent.upload(input(), xlsx());
+    const rows = await screen.findAllByRole("row");
+    // `standard` exists under Users and Cores: only the refused pair (Cores) is named.
+    expect(rows.find((r) => within(r).queryByText("HR"))!).not.toHaveTextContent("Users: Standard");
+    // A metric and type the catalogue does not know stay as the file wrote them.
+    expect(rows.find((r) => within(r).queryByText("FIN"))!).toHaveTextContent("(Foo: Bar)");
+    // A year refusal has no pair to name.
+    expect(rows.find((r) => within(r).queryByText("SAP"))!).toHaveTextContent("1999");
+    expect(rows.find((r) => within(r).queryByText("SAP"))!).not.toHaveTextContent("users");
   });
 
   it("keeps the file's own text while the catalogue is not there", async () => {

@@ -15,6 +15,8 @@ import LicensingReport from "./LicensingReport";
 
 vi.mock("@/api/client", () => ({ api: { get: vi.fn(), post: vi.fn() }, isAbortError: () => false }));
 vi.mock("@/hooks/useMetamodel", () => ({ useMetamodel: vi.fn() }));
+// Called once per render of a card row: a render-count spy for the list.
+const getTypeSpy = vi.hoisted(() => vi.fn());
 const auth = vi.hoisted(() => ({ permissions: {} as Record<string, boolean> }));
 vi.mock("@/hooks/AuthContext", () => ({
   useAuthContext: () => ({ user: { permissions: auth.permissions } }),
@@ -55,6 +57,7 @@ const FIELDS = [
       { key: "owner", label: "Owner", type: "text" },
       { key: "seats", label: "Seats", type: "number" },
       { key: "extra", label: "Extension thing", type: "ext.demo.rating" },
+      { key: "tier", label: "Tier", type: "single_select", options: [{ key: "gold", label: "Gold" }, { key: "silver", label: "Silver" }] },
     ],
   },
 ];
@@ -90,12 +93,12 @@ const metric = (key: string, status: string, types: ReturnType<typeof cell>[]) =
 const NAMES: Record<string, string> = { A: "Alpha", B: "Beta", C: "Gamma", D: "Delta" };
 const ROW = (id: string, status: string | null, by_metric: unknown[], extra = {}) => ({
   id, name: NAMES[id], type: "Application", alias: null, attributes: {}, status, worst_pct: null,
-  worst_no_licence: false, by_metric, ...extra,
+  worst_no_licence: false, confirmed: true, by_metric, ...extra,
 });
 const ROWS = [
-  ROW("A", "over", [metric("users", "over", [cell("admin", 10, 12, 120, "over")])], { alias: "ALP" }),
-  ROW("B", "compliant", [metric("users", "compliant", [cell("admin", 10, 5, 50, "compliant"), cell("dev", 4, 1, 25, "compliant")])]),
-  ROW("C", "no_actual_data", [metric("installations", "no_actual_data", [cell("prod", 5, null, null, "no_data")])]),
+  ROW("A", "over", [metric("users", "over", [cell("admin", 10, 12, 120, "over")])], { alias: "ALP", group: "gold" }),
+  ROW("B", "compliant", [metric("users", "compliant", [cell("admin", 10, 5, 50, "compliant"), cell("dev", 4, 1, 25, "compliant")])], { group: "silver" }),
+  ROW("C", "no_actual_data", [metric("installations", "no_actual_data", [cell("prod", 5, null, null, "no_data")])], { group: "gold" }),
   ROW("D", "no_actual_data", []),
 ];
 const YEARS = [2022, 2023, 2024, 2025, 2026, 2027];
@@ -129,6 +132,7 @@ beforeEach(async () => {
   extra.handlers = {};
   auth.permissions = {};
   catalogue.state = { metrics: CATALOGUE, loading: false, failed: false, reload: () => {} };
+  getTypeSpy.mockImplementation((k: string) => [APP_TYPE, ITC_TYPE].find((x) => x.key === k));
   vi.mocked(api.get).mockImplementation((path: string) => {
     const h = Object.entries(extra.handlers).find(([p]) => path.startsWith(p));
     if (h) return h[1](path) as never;
@@ -142,11 +146,15 @@ beforeEach(async () => {
       return Promise.resolve(report({ rows })) as never;
     }
     if (path === "/cards/A/licenses") return Promise.resolve(cardLicenses) as never;
-    return Promise.resolve({ items: [], total: 0 }) as never;
+    // The scope filter reads the hierarchy of the type from /cards.
+    return Promise.resolve({
+      items: Object.keys(NAMES).map((id) => ({ id, name: NAMES[id], type: "Application", parent_id: null })),
+      total: 4,
+    }) as never;
   });
   vi.mocked(useMetamodel).mockReturnValue({
     types: [APP_TYPE, ITC_TYPE], relationTypes: [], loading: false,
-    getType: (k: string) => [APP_TYPE, ITC_TYPE].find((x) => x.key === k),
+    getType: getTypeSpy,
     getRelationsForType: () => [], invalidateCache: vi.fn(),
   } as never);
 });
@@ -369,6 +377,8 @@ describe("LicensingReport", () => {
       renderReport();
       expect(screen.getByRole("progressbar")).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /^Alpha/ })).toBeNull();
+      // No request goes out before the catalogue can say what a metric or a type is.
+      expect(reportPaths()).toHaveLength(0);
     });
 
     it("failed: an error and no rows", () => {
@@ -478,7 +488,7 @@ describe("LicensingReport", () => {
       await toTable();
       await userEvent.click(screen.getByRole("combobox", { name: "Columns" }));
       const names = within(await screen.findByRole("listbox")).getAllByRole("option").map((o) => o.textContent);
-      expect(names).toEqual(["Owner", "Seats"]);
+      expect(names).toEqual(["Owner", "Seats", "Tier"]);
     });
   });
 
@@ -588,6 +598,111 @@ describe("LicensingReport", () => {
       renderReport("/?saved_report_id=r1");
       await waitFor(() => expect(reportPaths().at(-1)).toBe("/reports/licensing?card_types=Application"));
       expect(screen.getByRole("combobox", { name: "License type" })).toHaveTextContent("All license types");
+      // A pair the catalogue does not know never reaches the server.
+      expect(reportPaths().every((p) => !p.includes("license_type"))).toBe(true);
+    });
+
+    it("a license type that is not a metric:type pair is not restored", async () => {
+      savedConfig({ licenseType: "admin" });
+      renderReport("/?saved_report_id=r1");
+      await loaded();
+      expect(screen.getByRole("combobox", { name: "License type" })).toHaveTextContent("All license types");
+      expect(reportPaths().every((p) => !p.includes("license_type"))).toBe(true);
+    });
+
+    it("a restored year the server refuses for the year falls back to the current year", async () => {
+      savedConfig({ fiscalYearParam: 2019 });
+      extra.handlers["/reports/licensing?card_types=Application&fiscal_year=2019"] = () =>
+        Promise.reject(new Error("fiscal_year_out_of_range"));
+      renderReport("/?saved_report_id=r1");
+      await waitFor(() => expect(reportPaths().at(-1)).toBe("/reports/licensing?card_types=Application"));
+    });
+
+    it("a 400 that is not about the year leaves a restored year alone", async () => {
+      savedConfig({ fiscalYearParam: 2024 });
+      extra.handlers["/reports/licensing?card_types=Application&fiscal_year=2024"] = () =>
+        Promise.reject(new Error("Unknown license type: 'x'"));
+      renderReport("/?saved_report_id=r1");
+      await screen.findByText("Could not load the licensing report.");
+      const n = reportPaths().length;
+      await act(async () => {});
+      expect(reportPaths()).toHaveLength(n);
+      expect(reportPaths().at(-1)).toContain("fiscal_year=2024");
+    });
+  });
+
+  describe("the list", () => {
+    const heading = (name: string) => screen.getByText(name, { selector: ".MuiTypography-subtitle2" });
+    const follows = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const groupByTier = async () => {
+      await userEvent.click(screen.getByRole("combobox", { name: "Group By" }));
+      await userEvent.click(await screen.findByRole("option", { name: "Tier" }));
+    };
+
+    it("grouped: group_by goes in the request and each card sits under its group's subtitle", async () => {
+      renderReport();
+      await loaded();
+      await groupByTier();
+      await waitFor(() => expect(reportPaths().at(-1)).toBe("/reports/licensing?card_types=Application&group_by=field%3Atier"));
+      const [gold, silver, none] = [heading("Gold"), heading("Silver"), heading("Unspecified")];
+      const [alpha, beta, gamma, delta] = ["Alpha", "Beta", "Gamma", "Delta"].map((n) => rowHeader(n));
+      expect(follows(gold, alpha) && follows(alpha, silver) && follows(gamma, silver)).toBe(true);
+      expect(follows(gold, gamma)).toBe(true);
+      expect(follows(silver, beta) && follows(beta, none) && follows(none, delta)).toBe(true);
+    });
+
+    it("a right click on a group subtitle drills into the group", async () => {
+      renderReport();
+      await loaded();
+      await groupByTier();
+      await userEvent.pointer({ keys: "[MouseRight]", target: await screen.findByText("Gold", { selector: ".MuiTypography-subtitle2" }) });
+      await waitFor(() => expect(rowNames()).toEqual(["Alpha", "Gamma"]));
+    });
+
+    it("a right click on a card's header drills into the card, Back climbs", async () => {
+      renderReport();
+      await loaded();
+      await userEvent.pointer({ keys: "[MouseRight]", target: rowHeader("Beta") });
+      await waitFor(() => expect(rowNames()).toEqual(["Beta"]));
+      await userEvent.click(screen.getByRole("button", { name: /Back/ }));
+      await waitFor(() => expect(rowNames()).toHaveLength(4));
+    });
+
+    it("the scope filter narrows the list", async () => {
+      renderReport();
+      await loaded();
+      await userEvent.click(screen.getByText("scope-b"));
+      await waitFor(() => expect(rowNames()).toEqual(["Beta"]));
+    });
+
+    it("a status with no card says so, not that there is no license data", async () => {
+      renderReport();
+      await loaded();
+      await userEvent.click(tile("Approaching"));
+      expect(await screen.findByText("No card has this status.")).toBeInTheDocument();
+      expect(screen.queryByText("No license data found.")).toBeNull();
+    });
+
+    it("Reset collapses the rows and closes the history", async () => {
+      renderReport();
+      await userEvent.click(await loaded());
+      await userEvent.click(screen.getByRole("button", { name: /^Admin: / }));
+      await screen.findByTestId("license-pair-history");
+      await userEvent.click(screen.getByRole("button", { name: "Reset to defaults" }));
+      expect(rowHeader("Alpha")).toHaveAttribute("aria-expanded", "false");
+      expect(screen.queryByTestId("license-pair-history")).toBeNull();
+      // Opening the row again shows no pair picked.
+      await userEvent.click(rowHeader("Alpha"));
+      expect(screen.getByRole("button", { name: /^Admin: / })).toHaveAttribute("aria-pressed", "false");
+    });
+
+    it("toggling one row does not render the others again", async () => {
+      renderReport();
+      await loaded();
+      const before = getTypeSpy.mock.calls.length;
+      await userEvent.click(rowHeader("Beta"));
+      // One render of Beta's row, none of Alpha's, Gamma's or Delta's.
+      expect(getTypeSpy.mock.calls.length - before).toBe(1);
     });
   });
 

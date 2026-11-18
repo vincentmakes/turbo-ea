@@ -3841,6 +3841,8 @@ export interface LicenseReportRow {
   status: LicenseStatus | null;
   worst_pct: number | null;
   worst_no_licence: boolean;
+  /** False for a current year carried forward from an earlier one: its counts are not confirmed yet. */
+  confirmed: boolean;
   by_metric: LicenseReportMetric[];
 }
 export interface LicenseReportResponse {
@@ -3860,6 +3862,8 @@ export interface LicenseImportIssue {
   component: string;
   reason: string;
   detail: string;
+  /** The resolved metric key, or the file's own metric text when it did not resolve. */
+  metric: string;
 }
 export interface LicenseImportResult {
   matched: number;

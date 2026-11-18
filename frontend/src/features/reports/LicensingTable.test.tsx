@@ -43,6 +43,7 @@ const raw = (id: string, by_metric: LicenseReportMetric[]): LicenseReportRow => 
   status: "compliant",
   worst_pct: null,
   worst_no_licence: false,
+  confirmed: true,
   by_metric,
 });
 const ROWS: LicensingTableRow[] = [
