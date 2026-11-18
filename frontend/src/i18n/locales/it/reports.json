@@ -620,6 +620,7 @@
   "licensing.viewUtilisation": "Utilizzo",
   "licensing.cardType": "Tipo di scheda",
   "licensing.metric": "Metrica",
+  "licensing.allMetrics": "Tutte le metriche",
   "licensing.licenseType": "Tipo di licenza",
   "licensing.allLicenseTypes": "Tutti i tipi di licenza",
   "licensing.statusCompliant": "Conforme",
@@ -635,6 +636,11 @@
   "licensing.colLic": "{{label}} lic.",
   "licensing.colAct": "{{label}} eff.",
   "licensing.colPct": "{{label}} %",
+  "licensing.metricTotalLic": "{{label}} totale lic.",
+  "licensing.metricTotalAct": "{{label}} totale eff.",
+  "licensing.openCard": "Apri {{name}}",
+  "licensing.emptyRow": "Aggiungi le licenze dalla card o importa le righe.",
+  "licensing.noRowsForStatus": "Nessuna card ha questo stato.",
   "licensing.status": "Stato",
   "saved.typeLicensing": "Licenze",
   "licensing.import.button": "Importa",
@@ -652,6 +658,7 @@
   "licensing.import.reasons.card_not_found": "Scheda non trovata",
   "licensing.import.reasons.ambiguous_card": "Più di una scheda ha questo nome",
   "licensing.import.reasons.invalid_metric": "Metrica sconosciuta",
+  "licensing.import.reasons.ambiguous_metric": "Il testo della metrica corrisponde a più metriche; usa la chiave della metrica.",
   "licensing.import.reasons.unknown_license_type": "Tipo di licenza sconosciuto",
   "licensing.import.reasons.ambiguous_license_type": "Il tipo di licenza corrisponde a più di una voce",
   "licensing.import.reasons.invalid_year": "Anno fuori dalla finestra consentita",
@@ -659,5 +666,7 @@
   "licensing.import.reasons.invalid_number": "Non è un numero intero da 0 in su",
   "licensing.import.reasons.nothing_to_write": "Nessun valore da scrivere",
   "licensing.import.reasons.forecast_actual": "Le quantità effettive non possono essere impostate per l'anno Forecast",
-  "licensing.import.reasons.archived_license_type": "Il tipo di licenza è archiviato e non ancora usato su questa scheda"
+  "licensing.import.reasons.archived_license_type": "Il tipo di licenza è archiviato e non ancora usato su questa scheda",
+  "licensing.import.reasons.archived_license_metric": "La metrica è archiviata e non ancora usata su questa card",
+  "licensing.import.reasons.type_not_in_metric": "Il tipo di licenza appartiene a un'altra metrica"
 }

@@ -804,6 +804,9 @@
   "licensing.licensedOnly": "kun licenseret",
   "licensing.archived": "arkiveret",
   "licensing.barLabel": "Licenserede og faktiske antal pr. licenstype",
+  "licensing.forecast": "Prognose",
+  "licensing.historyLabel": "Licenserede og faktiske antal pr. regnskabsår",
+  "licensing.noPairs": "Ingen licenser registreret for dette år. Tilføj en licens for at komme i gang.",
   "licensing.status.over": "Overlicenseret",
   "licensing.status.approaching": "Tæt på grænsen",
   "licensing.status.compliant": "Kompatibel",
@@ -826,6 +829,7 @@
   "licensing.errors.unknown_type": "Denne licenstype findes ikke.",
   "licensing.errors.archived_type": "Denne licenstype er arkiveret og kan ikke tilføjes til et år.",
   "licensing.errors.invalid_metric": "Ukendt måling.",
+  "licensing.errors.archived_metric": "Denne licensmåling er arkiveret og kan ikke føjes til et år.",
   "licensing.errors.invalid_count": "Antal skal være hele tal fra 0 til 1.000.000.000.",
   "licensing.errors.forecast_actual": "Forecast-året tager kun imod licenserede antal.",
   "licensing.errors.year_out_of_range": "Dette regnskabsår ligger uden for det redigerbare vindue."

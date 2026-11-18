@@ -980,6 +980,9 @@
   "licensing.licensedOnly": "مرخَّص فقط",
   "licensing.archived": "مؤرشف",
   "licensing.barLabel": "الأعداد المرخّصة والفعلية لكل نوع ترخيص",
+  "licensing.forecast": "التوقعات",
+  "licensing.historyLabel": "الكميات المرخَّصة والفعلية لكل سنة مالية",
+  "licensing.noPairs": "لا توجد تراخيص مسجّلة لهذه السنة. أضف ترخيصًا للبدء.",
   "licensing.status.over": "تجاوز الترخيص",
   "licensing.status.approaching": "يقترب من الحد",
   "licensing.status.compliant": "متوافق",
@@ -1002,6 +1005,7 @@
   "licensing.errors.unknown_type": "نوع الترخيص هذا غير موجود.",
   "licensing.errors.archived_type": "نوع الترخيص هذا مؤرشف ولا يمكن إضافته إلى سنة.",
   "licensing.errors.invalid_metric": "مقياس غير معروف.",
+  "licensing.errors.archived_metric": "مقياس الترخيص هذا مؤرشف ولا يمكن إضافته إلى سنة.",
   "licensing.errors.invalid_count": "يجب أن تكون الأعداد أعدادًا صحيحة من 0 إلى 1,000,000,000.",
   "licensing.errors.forecast_actual": "تقبل سنة Forecast الأعداد المرخّصة فقط.",
   "licensing.errors.year_out_of_range": "هذه السنة المالية خارج نطاق التعديل."

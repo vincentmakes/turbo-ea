@@ -892,6 +892,9 @@
   "licensing.licensedOnly": "только по лицензии",
   "licensing.archived": "в архиве",
   "licensing.barLabel": "Лицензированные и фактические количества по типам лицензий",
+  "licensing.forecast": "Прогноз",
+  "licensing.historyLabel": "Количество по лицензии и фактическое по финансовым годам",
+  "licensing.noPairs": "Для этого года лицензирование не записано. Добавьте лицензию, чтобы начать.",
   "licensing.status.over": "Превышение лицензий",
   "licensing.status.approaching": "Близко к лимиту",
   "licensing.status.compliant": "Соответствует",
@@ -914,6 +917,7 @@
   "licensing.errors.unknown_type": "Такого типа лицензии не существует.",
   "licensing.errors.archived_type": "Этот тип лицензии в архиве и не может быть добавлен в год.",
   "licensing.errors.invalid_metric": "Неизвестный показатель.",
+  "licensing.errors.archived_metric": "Этот показатель лицензий в архиве и не может быть добавлен в год.",
   "licensing.errors.invalid_count": "Количества должны быть целыми числами от 0 до 1 000 000 000.",
   "licensing.errors.forecast_actual": "Год Forecast принимает только лицензированные количества.",
   "licensing.errors.year_out_of_range": "Этот финансовый год вне редактируемого периода."

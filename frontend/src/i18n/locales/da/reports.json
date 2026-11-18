@@ -620,6 +620,7 @@
   "licensing.viewUtilisation": "Udnyttelse",
   "licensing.cardType": "Korttype",
   "licensing.metric": "Måling",
+  "licensing.allMetrics": "Alle målinger",
   "licensing.licenseType": "Licenstype",
   "licensing.allLicenseTypes": "Alle licenstyper",
   "licensing.statusCompliant": "Kompatibel",
@@ -635,6 +636,11 @@
   "licensing.colLic": "{{label}} lic.",
   "licensing.colAct": "{{label}} fakt.",
   "licensing.colPct": "{{label}} %",
+  "licensing.metricTotalLic": "{{label}} i alt lic.",
+  "licensing.metricTotalAct": "{{label}} i alt fakt.",
+  "licensing.openCard": "Åbn {{name}}",
+  "licensing.emptyRow": "Tilføj licenser fra kortet, eller importér rækker.",
+  "licensing.noRowsForStatus": "Intet kort har denne status.",
   "licensing.status": "Status",
   "saved.typeLicensing": "Licensering",
   "licensing.import.button": "Importér",
@@ -652,6 +658,7 @@
   "licensing.import.reasons.card_not_found": "Kort ikke fundet",
   "licensing.import.reasons.ambiguous_card": "Mere end ét kort har dette navn",
   "licensing.import.reasons.invalid_metric": "Ukendt måling",
+  "licensing.import.reasons.ambiguous_metric": "Målingsteksten matcher mere end én måling; brug målingens nøgle.",
   "licensing.import.reasons.unknown_license_type": "Ukendt licenstype",
   "licensing.import.reasons.ambiguous_license_type": "Licenstypen matcher mere end én post",
   "licensing.import.reasons.invalid_year": "År uden for det tilladte vindue",
@@ -659,5 +666,7 @@
   "licensing.import.reasons.invalid_number": "Ikke et helt tal på 0 eller mere",
   "licensing.import.reasons.nothing_to_write": "Ingen værdi at skrive",
   "licensing.import.reasons.forecast_actual": "Faktiske antal kan ikke angives for Forecast-året",
-  "licensing.import.reasons.archived_license_type": "Licenstypen er arkiveret og endnu ikke brugt på dette kort"
+  "licensing.import.reasons.archived_license_type": "Licenstypen er arkiveret og endnu ikke brugt på dette kort",
+  "licensing.import.reasons.archived_license_metric": "Målingen er arkiveret og endnu ikke brugt på dette kort",
+  "licensing.import.reasons.type_not_in_metric": "Licenstypen hører til en anden måling"
 }

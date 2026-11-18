@@ -804,6 +804,9 @@
   "licensing.licensedOnly": "solo licenciado",
   "licensing.archived": "archivado",
   "licensing.barLabel": "Cantidades licenciadas y reales por tipo de licencia",
+  "licensing.forecast": "Previsión",
+  "licensing.historyLabel": "Cantidades licenciadas y reales por año fiscal",
+  "licensing.noPairs": "No hay licencias registradas para este año. Añada una licencia para empezar.",
   "licensing.status.over": "Sobrelicenciado",
   "licensing.status.approaching": "Cerca del límite",
   "licensing.status.compliant": "Conforme",
@@ -826,6 +829,7 @@
   "licensing.errors.unknown_type": "Este tipo de licencia no existe.",
   "licensing.errors.archived_type": "Este tipo de licencia está archivado y no se puede añadir a un año.",
   "licensing.errors.invalid_metric": "Métrica desconocida.",
+  "licensing.errors.archived_metric": "Esta métrica de licencia está archivada y no se puede añadir a un año.",
   "licensing.errors.invalid_count": "Las cantidades deben ser números enteros de 0 a 1.000.000.000.",
   "licensing.errors.forecast_actual": "El año Forecast solo admite cantidades licenciadas.",
   "licensing.errors.year_out_of_range": "Este año fiscal está fuera del periodo editable."

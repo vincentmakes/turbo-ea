@@ -620,6 +620,7 @@
   "licensing.viewUtilisation": "Utilização",
   "licensing.cardType": "Tipo de cartão",
   "licensing.metric": "Métrica",
+  "licensing.allMetrics": "Todas as métricas",
   "licensing.licenseType": "Tipo de licença",
   "licensing.allLicenseTypes": "Todos os tipos de licença",
   "licensing.statusCompliant": "Conforme",
@@ -635,6 +636,11 @@
   "licensing.colLic": "{{label}} lic.",
   "licensing.colAct": "{{label}} real",
   "licensing.colPct": "{{label}} %",
+  "licensing.metricTotalLic": "{{label}} total lic.",
+  "licensing.metricTotalAct": "{{label}} total real",
+  "licensing.openCard": "Abrir {{name}}",
+  "licensing.emptyRow": "Adicione licenças a partir do card ou importe linhas.",
+  "licensing.noRowsForStatus": "Nenhum card tem este estado.",
   "licensing.status": "Estado",
   "saved.typeLicensing": "Licenciamento",
   "licensing.import.button": "Importar",
@@ -652,6 +658,7 @@
   "licensing.import.reasons.card_not_found": "Cartão não encontrado",
   "licensing.import.reasons.ambiguous_card": "Mais de um cartão tem este nome",
   "licensing.import.reasons.invalid_metric": "Métrica desconhecida",
+  "licensing.import.reasons.ambiguous_metric": "O texto da métrica corresponde a mais de uma métrica; use a chave da métrica.",
   "licensing.import.reasons.unknown_license_type": "Tipo de licença desconhecido",
   "licensing.import.reasons.ambiguous_license_type": "O tipo de licença corresponde a mais de uma entrada",
   "licensing.import.reasons.invalid_year": "Ano fora do período permitido",
@@ -659,5 +666,7 @@
   "licensing.import.reasons.invalid_number": "Não é um número inteiro de 0 ou mais",
   "licensing.import.reasons.nothing_to_write": "Nenhum valor a escrever",
   "licensing.import.reasons.forecast_actual": "Não é possível definir quantidades reais para o ano Forecast",
-  "licensing.import.reasons.archived_license_type": "O tipo de licença está arquivado e ainda não é usado neste cartão"
+  "licensing.import.reasons.archived_license_type": "O tipo de licença está arquivado e ainda não é usado neste cartão",
+  "licensing.import.reasons.archived_license_metric": "A métrica está arquivada e ainda não é usada neste card",
+  "licensing.import.reasons.type_not_in_metric": "O tipo de licença pertence a outra métrica"
 }

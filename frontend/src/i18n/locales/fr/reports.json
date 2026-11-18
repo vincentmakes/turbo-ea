@@ -620,6 +620,7 @@
   "licensing.viewUtilisation": "Utilisation",
   "licensing.cardType": "Type de fiche",
   "licensing.metric": "Indicateur",
+  "licensing.allMetrics": "Tous les indicateurs",
   "licensing.licenseType": "Type de licence",
   "licensing.allLicenseTypes": "Tous les types de licence",
   "licensing.statusCompliant": "Conforme",
@@ -635,6 +636,11 @@
   "licensing.colLic": "{{label}} lic.",
   "licensing.colAct": "{{label}} réel",
   "licensing.colPct": "{{label}} %",
+  "licensing.metricTotalLic": "{{label}} total sous licence",
+  "licensing.metricTotalAct": "{{label}} total réel",
+  "licensing.openCard": "Ouvrir {{name}}",
+  "licensing.emptyRow": "Ajoutez des licences depuis la fiche ou importez des lignes.",
+  "licensing.noRowsForStatus": "Aucune fiche n'a ce statut.",
   "licensing.status": "Statut",
   "saved.typeLicensing": "Licences",
   "licensing.import.button": "Importer",
@@ -652,6 +658,7 @@
   "licensing.import.reasons.card_not_found": "Fiche introuvable",
   "licensing.import.reasons.ambiguous_card": "Plusieurs fiches portent ce nom",
   "licensing.import.reasons.invalid_metric": "Indicateur inconnu",
+  "licensing.import.reasons.ambiguous_metric": "Le texte de l'indicateur correspond à plusieurs indicateurs ; utilisez la clé de l'indicateur.",
   "licensing.import.reasons.unknown_license_type": "Type de licence inconnu",
   "licensing.import.reasons.ambiguous_license_type": "Le type de licence correspond à plusieurs entrées",
   "licensing.import.reasons.invalid_year": "Année en dehors de la fenêtre autorisée",
@@ -659,5 +666,7 @@
   "licensing.import.reasons.invalid_number": "Pas un nombre entier de 0 ou plus",
   "licensing.import.reasons.nothing_to_write": "Aucune valeur à écrire",
   "licensing.import.reasons.forecast_actual": "Le réel ne peut pas être défini pour l'exercice Forecast",
-  "licensing.import.reasons.archived_license_type": "Le type de licence est archivé et pas encore utilisé sur cette fiche"
+  "licensing.import.reasons.archived_license_type": "Le type de licence est archivé et pas encore utilisé sur cette fiche",
+  "licensing.import.reasons.archived_license_metric": "L'indicateur est archivé et pas encore utilisé sur cette fiche",
+  "licensing.import.reasons.type_not_in_metric": "Le type de licence appartient à un autre indicateur"
 }

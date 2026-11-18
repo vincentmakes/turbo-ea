@@ -620,6 +620,7 @@
   "licensing.viewUtilisation": "Utilización",
   "licensing.cardType": "Tipo de ficha",
   "licensing.metric": "Métrica",
+  "licensing.allMetrics": "Todas las métricas",
   "licensing.licenseType": "Tipo de licencia",
   "licensing.allLicenseTypes": "Todos los tipos de licencia",
   "licensing.statusCompliant": "Conforme",
@@ -635,6 +636,11 @@
   "licensing.colLic": "{{label}} lic.",
   "licensing.colAct": "{{label}} real",
   "licensing.colPct": "{{label}} %",
+  "licensing.metricTotalLic": "{{label}} total lic.",
+  "licensing.metricTotalAct": "{{label}} total real",
+  "licensing.openCard": "Abrir {{name}}",
+  "licensing.emptyRow": "Añada licencias desde la ficha o importe filas.",
+  "licensing.noRowsForStatus": "Ninguna ficha tiene este estado.",
   "licensing.status": "Estado",
   "saved.typeLicensing": "Licencias",
   "licensing.import.button": "Importar",
@@ -652,6 +658,7 @@
   "licensing.import.reasons.card_not_found": "Ficha no encontrada",
   "licensing.import.reasons.ambiguous_card": "Más de una ficha tiene este nombre",
   "licensing.import.reasons.invalid_metric": "Métrica desconocida",
+  "licensing.import.reasons.ambiguous_metric": "El texto de la métrica coincide con más de una métrica; use la clave de la métrica.",
   "licensing.import.reasons.unknown_license_type": "Tipo de licencia desconocido",
   "licensing.import.reasons.ambiguous_license_type": "El tipo de licencia coincide con más de una entrada",
   "licensing.import.reasons.invalid_year": "Año fuera del periodo permitido",
@@ -659,5 +666,7 @@
   "licensing.import.reasons.invalid_number": "No es un número entero de 0 o más",
   "licensing.import.reasons.nothing_to_write": "Ningún valor que escribir",
   "licensing.import.reasons.forecast_actual": "No se pueden establecer cantidades reales para el año Forecast",
-  "licensing.import.reasons.archived_license_type": "El tipo de licencia está archivado y aún no se usa en esta ficha"
+  "licensing.import.reasons.archived_license_type": "El tipo de licencia está archivado y aún no se usa en esta ficha",
+  "licensing.import.reasons.archived_license_metric": "La métrica está archivada y aún no se usa en esta ficha",
+  "licensing.import.reasons.type_not_in_metric": "El tipo de licencia pertenece a otra métrica"
 }

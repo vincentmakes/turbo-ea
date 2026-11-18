@@ -804,6 +804,9 @@
   "licensing.licensedOnly": "nur lizenziert",
   "licensing.archived": "archiviert",
   "licensing.barLabel": "Lizenzierte und tatsächliche Mengen pro Lizenztyp",
+  "licensing.forecast": "Forecast",
+  "licensing.historyLabel": "Lizenzierte und tatsächliche Mengen pro Geschäftsjahr",
+  "licensing.noPairs": "Für dieses Jahr sind keine Lizenzen erfasst. Fügen Sie eine Lizenz hinzu, um zu beginnen.",
   "licensing.status.over": "Überlizenziert",
   "licensing.status.approaching": "Nahe am Limit",
   "licensing.status.compliant": "Konform",
@@ -826,6 +829,7 @@
   "licensing.errors.unknown_type": "Dieser Lizenztyp existiert nicht.",
   "licensing.errors.archived_type": "Dieser Lizenztyp ist archiviert und kann keinem Jahr hinzugefügt werden.",
   "licensing.errors.invalid_metric": "Unbekannte Kennzahl.",
+  "licensing.errors.archived_metric": "Diese Lizenzkennzahl ist archiviert und kann keinem Jahr hinzugefügt werden.",
   "licensing.errors.invalid_count": "Mengen müssen ganze Zahlen von 0 bis 1.000.000.000 sein.",
   "licensing.errors.forecast_actual": "Das Forecast-Jahr nimmt nur lizenzierte Mengen auf.",
   "licensing.errors.year_out_of_range": "Dieses Geschäftsjahr liegt außerhalb des bearbeitbaren Zeitraums."

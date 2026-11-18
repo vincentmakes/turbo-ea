@@ -804,6 +804,9 @@
   "licensing.licensedOnly": "sous licence uniquement",
   "licensing.archived": "archivé",
   "licensing.barLabel": "Quantités sous licence et réelles par type de licence",
+  "licensing.forecast": "Prévision",
+  "licensing.historyLabel": "Quantités sous licence et réelles par exercice",
+  "licensing.noPairs": "Aucune licence enregistrée pour cette année. Ajoutez une licence pour commencer.",
   "licensing.status.over": "Surlicencié",
   "licensing.status.approaching": "Proche du seuil",
   "licensing.status.compliant": "Conforme",
@@ -826,6 +829,7 @@
   "licensing.errors.unknown_type": "Ce type de licence n'existe pas.",
   "licensing.errors.archived_type": "Ce type de licence est archivé et ne peut pas être ajouté à un exercice.",
   "licensing.errors.invalid_metric": "Indicateur inconnu.",
+  "licensing.errors.archived_metric": "Cet indicateur de licence est archivé et ne peut pas être ajouté à une année.",
   "licensing.errors.invalid_count": "Les quantités doivent être des nombres entiers de 0 à 1 000 000 000.",
   "licensing.errors.forecast_actual": "L'exercice Forecast n'accepte que des quantités sous licence.",
   "licensing.errors.year_out_of_range": "Cet exercice est en dehors de la fenêtre modifiable."

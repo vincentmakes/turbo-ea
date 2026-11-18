@@ -716,6 +716,7 @@
   "licensing.viewUtilisation": "الاستخدام",
   "licensing.cardType": "نوع البطاقة",
   "licensing.metric": "المقياس",
+  "licensing.allMetrics": "كل المقاييس",
   "licensing.licenseType": "نوع الترخيص",
   "licensing.allLicenseTypes": "كل أنواع التراخيص",
   "licensing.statusCompliant": "متوافق",
@@ -731,6 +732,11 @@
   "licensing.colLic": "{{label}} مرخَّص",
   "licensing.colAct": "{{label}} فعلي",
   "licensing.colPct": "{{label}} %",
+  "licensing.metricTotalLic": "إجمالي {{label}} المرخَّص",
+  "licensing.metricTotalAct": "إجمالي {{label}} الفعلي",
+  "licensing.openCard": "فتح {{name}}",
+  "licensing.emptyRow": "أضف التراخيص من البطاقة أو استورد الصفوف.",
+  "licensing.noRowsForStatus": "لا توجد بطاقة بهذه الحالة.",
   "licensing.status": "الحالة",
   "saved.typeLicensing": "التراخيص",
   "licensing.import.button": "استيراد",
@@ -748,6 +754,7 @@
   "licensing.import.reasons.card_not_found": "لم يتم العثور على البطاقة",
   "licensing.import.reasons.ambiguous_card": "أكثر من بطاقة تحمل هذا الاسم",
   "licensing.import.reasons.invalid_metric": "مقياس غير معروف",
+  "licensing.import.reasons.ambiguous_metric": "نص المقياس يطابق أكثر من مقياس؛ استخدم مفتاح المقياس.",
   "licensing.import.reasons.unknown_license_type": "نوع ترخيص غير معروف",
   "licensing.import.reasons.ambiguous_license_type": "نوع الترخيص يطابق أكثر من إدخال",
   "licensing.import.reasons.invalid_year": "السنة خارج النطاق المسموح",
@@ -755,5 +762,7 @@
   "licensing.import.reasons.invalid_number": "ليس عددًا صحيحًا من 0 أو أكثر",
   "licensing.import.reasons.nothing_to_write": "لا توجد قيمة للكتابة",
   "licensing.import.reasons.forecast_actual": "لا يمكن تعيين الأعداد الفعلية لسنة Forecast",
-  "licensing.import.reasons.archived_license_type": "نوع الترخيص مؤرشف ولم يُستخدم بعد في هذه البطاقة"
+  "licensing.import.reasons.archived_license_type": "نوع الترخيص مؤرشف ولم يُستخدم بعد في هذه البطاقة",
+  "licensing.import.reasons.archived_license_metric": "المقياس مؤرشف ولم يُستخدم بعد في هذه البطاقة",
+  "licensing.import.reasons.type_not_in_metric": "نوع الترخيص ينتمي إلى مقياس آخر"
 }

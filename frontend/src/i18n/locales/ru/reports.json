@@ -668,6 +668,7 @@
   "licensing.viewUtilisation": "Использование",
   "licensing.cardType": "Тип карточки",
   "licensing.metric": "Показатель",
+  "licensing.allMetrics": "Все показатели",
   "licensing.licenseType": "Тип лицензии",
   "licensing.allLicenseTypes": "Все типы лицензий",
   "licensing.statusCompliant": "Соответствует",
@@ -683,6 +684,11 @@
   "licensing.colLic": "{{label}} лиц.",
   "licensing.colAct": "{{label}} факт",
   "licensing.colPct": "{{label}} %",
+  "licensing.metricTotalLic": "{{label}}: всего по лиц.",
+  "licensing.metricTotalAct": "{{label}}: всего факт.",
+  "licensing.openCard": "Открыть {{name}}",
+  "licensing.emptyRow": "Добавьте лицензии из карточки или импортируйте строки.",
+  "licensing.noRowsForStatus": "Ни одна карточка не имеет этого статуса.",
   "licensing.status": "Статус",
   "saved.typeLicensing": "Лицензирование",
   "licensing.import.button": "Импорт",
@@ -700,6 +706,7 @@
   "licensing.import.reasons.card_not_found": "Карточка не найдена",
   "licensing.import.reasons.ambiguous_card": "Это название носит более одной карточки",
   "licensing.import.reasons.invalid_metric": "Неизвестный показатель",
+  "licensing.import.reasons.ambiguous_metric": "Текст показателя соответствует нескольким показателям; используйте ключ показателя.",
   "licensing.import.reasons.unknown_license_type": "Неизвестный тип лицензии",
   "licensing.import.reasons.ambiguous_license_type": "Тип лицензии соответствует более чем одной записи",
   "licensing.import.reasons.invalid_year": "Год вне допустимого периода",
@@ -707,5 +714,7 @@
   "licensing.import.reasons.invalid_number": "Не целое число от 0",
   "licensing.import.reasons.nothing_to_write": "Нет значения для записи",
   "licensing.import.reasons.forecast_actual": "Фактические количества нельзя задать для года Forecast",
-  "licensing.import.reasons.archived_license_type": "Тип лицензии в архиве и ещё не используется в этой карточке"
+  "licensing.import.reasons.archived_license_type": "Тип лицензии в архиве и ещё не используется в этой карточке",
+  "licensing.import.reasons.archived_license_metric": "Показатель в архиве и ещё не используется в этой карточке",
+  "licensing.import.reasons.type_not_in_metric": "Тип лицензии относится к другому показателю"
 }

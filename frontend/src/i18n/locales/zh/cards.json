@@ -804,6 +804,9 @@
   "licensing.licensedOnly": "仅授权",
   "licensing.archived": "已归档",
   "licensing.barLabel": "各许可证类型的授权数量与实际数量",
+  "licensing.forecast": "预测",
+  "licensing.historyLabel": "每个财年的已授权数量与实际数量",
+  "licensing.noPairs": "该年度尚未记录许可。请添加许可证开始。",
   "licensing.status.over": "超额授权",
   "licensing.status.approaching": "接近上限",
   "licensing.status.compliant": "合规",
@@ -826,6 +829,7 @@
   "licensing.errors.unknown_type": "此许可证类型不存在。",
   "licensing.errors.archived_type": "此许可证类型已归档,无法添加到某一年。",
   "licensing.errors.invalid_metric": "未知指标。",
+  "licensing.errors.archived_metric": "此许可证指标已归档，无法添加到某一年。",
   "licensing.errors.invalid_count": "数量必须是 0 到 1,000,000,000 之间的整数。",
   "licensing.errors.forecast_actual": "Forecast 年度只接受授权数量。",
   "licensing.errors.year_out_of_range": "此财年超出可编辑范围。"

@@ -620,6 +620,7 @@
   "licensing.viewUtilisation": "Auslastung",
   "licensing.cardType": "Kartentyp",
   "licensing.metric": "Kennzahl",
+  "licensing.allMetrics": "Alle Kennzahlen",
   "licensing.licenseType": "Lizenztyp",
   "licensing.allLicenseTypes": "Alle Lizenztypen",
   "licensing.statusCompliant": "Konform",
@@ -635,6 +636,11 @@
   "licensing.colLic": "{{label}} Liz.",
   "licensing.colAct": "{{label}} Ist",
   "licensing.colPct": "{{label}} %",
+  "licensing.metricTotalLic": "{{label}} Gesamt lizenziert",
+  "licensing.metricTotalAct": "{{label}} Gesamt Ist",
+  "licensing.openCard": "{{name}} öffnen",
+  "licensing.emptyRow": "Fügen Sie Lizenzen über die Karte hinzu oder importieren Sie Zeilen.",
+  "licensing.noRowsForStatus": "Keine Karte hat diesen Status.",
   "licensing.status": "Status",
   "saved.typeLicensing": "Lizenzierung",
   "licensing.import.button": "Importieren",
@@ -652,6 +658,7 @@
   "licensing.import.reasons.card_not_found": "Karte nicht gefunden",
   "licensing.import.reasons.ambiguous_card": "Mehr als eine Karte hat diesen Namen",
   "licensing.import.reasons.invalid_metric": "Unbekannte Kennzahl",
+  "licensing.import.reasons.ambiguous_metric": "Der Kennzahltext passt auf mehr als eine Kennzahl; verwenden Sie den Kennzahlschlüssel.",
   "licensing.import.reasons.unknown_license_type": "Unbekannter Lizenztyp",
   "licensing.import.reasons.ambiguous_license_type": "Der Lizenztyp passt auf mehr als einen Eintrag",
   "licensing.import.reasons.invalid_year": "Jahr außerhalb des zulässigen Zeitraums",
@@ -659,5 +666,7 @@
   "licensing.import.reasons.invalid_number": "Keine ganze Zahl ab 0",
   "licensing.import.reasons.nothing_to_write": "Kein Wert zu schreiben",
   "licensing.import.reasons.forecast_actual": "Ist-Mengen können für das Forecast-Jahr nicht gesetzt werden",
-  "licensing.import.reasons.archived_license_type": "Der Lizenztyp ist archiviert und auf dieser Karte noch nicht verwendet"
+  "licensing.import.reasons.archived_license_type": "Der Lizenztyp ist archiviert und auf dieser Karte noch nicht verwendet",
+  "licensing.import.reasons.archived_license_metric": "Die Kennzahl ist archiviert und auf dieser Karte noch nicht verwendet",
+  "licensing.import.reasons.type_not_in_metric": "Der Lizenztyp gehört zu einer anderen Kennzahl"
 }
