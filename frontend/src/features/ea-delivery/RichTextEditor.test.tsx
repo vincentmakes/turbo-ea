@@ -760,6 +760,10 @@ describe("RichTextEditor Browse", () => {
       editor.chain().focus("end").insertContent(" @Ado").run();
     });
     await screen.findByRole("option", { name: /ADR-001/ });
+    // TipTap's focus() focuses the view a frame later (requestAnimationFrame).
+    // Landing after the blur below, that focus would forget the "@query" the
+    // blur remembered, and the pick would go in at the caret instead.
+    await waitFor(() => expect(editor.isFocused).toBe(true));
     // The toolbar's own press: the editor loses focus first.
     act(() => {
       fireEvent.blur(editor.view.dom);
