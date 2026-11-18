@@ -18,6 +18,9 @@ class LicenseMetricCreate(BaseModel):
 
 
 class LicenseMetricUpdate(BaseModel):
+    # A metric's key never changes: a ``key`` in the body is refused, not ignored.
+    model_config = ConfigDict(extra="forbid")
+
     label: Label | None = None
     translations: dict[str, str] | None = None
     archived: bool | None = None

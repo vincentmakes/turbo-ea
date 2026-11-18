@@ -180,6 +180,11 @@ async def test_card_types_are_not_checked_for_a_picked_card(client, db, env):
     assert (await _get(client, env, card_types="Platform")).status_code == 400
 
 
+async def test_the_year_is_checked_before_the_card_types(client, db, env):
+    resp = await _get(client, env, card_types="Bogus", fiscal_year=FORECAST)
+    assert resp.status_code == 400 and resp.json()["detail"] == "forecast_not_selectable"
+
+
 async def test_forecast_year_refused(client, db, env):
     resp = await _get(client, env, fiscal_year=FORECAST)
     assert resp.status_code == 400 and resp.json()["detail"] == "forecast_not_selectable"

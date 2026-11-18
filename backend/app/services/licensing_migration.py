@@ -280,18 +280,21 @@ DEFAULT_METRICS = (("users", "Users"), ("installations", "Installations"))
 
 
 def derive_type_metrics(
-    types: Iterable[tuple[str, bool]], used: dict[str, set[str]]
+    types: Iterable[tuple[str, bool]],
+    used: dict[str, set[str]],
+    known: Iterable[str] = (),
 ) -> list[tuple[str, str]]:
     """``(type_key, metric_key)`` rows for migration 192, from ``(key, archived)`` types and
     ``used[type_key]`` (the metrics holding data for that type). A type with data under one
     metric belongs to it, under both it is listed under both, with none it goes under both
-    default metrics (the admin archives what they do not need). A metric outside the defaults
-    (the whole catalogue at that point) is ignored. ``archived`` is carried by the caller's
-    templates, not decided here."""
+    default metrics (the admin archives what they do not need). Only the defaults and the
+    ``known`` metrics (a bundle's own) count; data under any other metric is ignored.
+    ``archived`` is carried by the caller's templates, not decided here."""
     order = [key for key, _ in DEFAULT_METRICS]
+    counted = order + [m for m in known if m not in order]
     plan: list[tuple[str, str]] = []
     for type_key, _archived in types:
-        metrics = [m for m in order if m in (used.get(type_key) or ())] or order
+        metrics = [m for m in counted if m in (used.get(type_key) or ())] or order
         plan.extend((type_key, m) for m in metrics)
     return plan
 

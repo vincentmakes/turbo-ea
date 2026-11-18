@@ -103,6 +103,20 @@ def test_derive_keeps_the_bundles_own_metrics_and_adds_only_the_missing_defaults
     ]
 
 
+def test_derive_keeps_a_type_under_the_bundles_own_metric_holding_its_cells():
+    metrics, derived = derive_catalogue(
+        [{"key": "cores", "label": "Cores"}],
+        [{"key": "std", "label": "Std"}, {"key": "lost", "label": "Lost"}],
+        [{"items": {"cores": {"std": {"licensed": 4}}, "seats": {"lost": {"licensed": 1}}}}],
+    )
+    assert [m["key"] for m in metrics] == ["cores", "users", "installations"]
+    assert sorted((t["metric_key"], t["key"]) for t in derived) == [
+        ("cores", "std"),
+        ("installations", "lost"),
+        ("users", "lost"),
+    ]
+
+
 def test_derive_keeps_a_type_row_that_already_names_its_metric_and_ignores_bad_json():
     _, derived = derive_catalogue(
         [], [{"metric_key": "users", "key": "admin"}], [{"items": "{not json"}]

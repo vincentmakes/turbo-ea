@@ -172,6 +172,15 @@ async def test_clear_model_values_keeps_a_value_a_field_of_that_key_still_owns(d
     assert attrs == {app_id: {"licensingModel": ["seat"]}, itc_id: {}}
 
 
+async def test_a_type_used_only_under_unknown_metrics_is_attached_not_duplicated(db):
+    used = {"x": {"seats", "cores"}}
+    plan = derive_type_metrics([("x", False)], used)
+    templates = {"x": {"label": "X"}}
+    report = await db.run_sync(lambda s: lmm.collect_report(s, plan, used, templates, []))
+    assert report["duplicated_types"] == []
+    assert report["attached_to_both"] == [{"key": "x", "label": "X"}]
+
+
 async def test_report_lists_are_capped_and_the_card_total_is_not(db):
     many = [f"t{i:03d}" for i in range(lmm.REPORT_CAP + 1)]
     templates = {k: {"label": k.upper()} for k in many}

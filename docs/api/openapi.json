@@ -9876,6 +9876,7 @@
         "type": "object"
       },
       "LicenseMetricUpdate": {
+        "additionalProperties": false,
         "properties": {
           "archived": {
             "anyOf": [

@@ -221,21 +221,61 @@ def test_derive_type_metrics_drops_a_metric_the_catalogue_does_not_have():
     ]
 
 
+_MIGRATION_HELPERS = "app.services.licensing_migration"
+
+
+def _reads_migration_defaults(source: str) -> bool:
+    """``DEFAULT_METRICS`` taken from ``licensing_migration``, imported by name or read as an
+    attribute of the module (``import ... as lm; lm.DEFAULT_METRICS``)."""
+    tree = ast.parse(source)
+    aliases: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module == _MIGRATION_HELPERS:
+            if any(a.name == "DEFAULT_METRICS" for a in node.names):
+                return True
+        elif isinstance(node, ast.ImportFrom) and node.module == "app.services":
+            aliases |= {a.asname or a.name for a in node.names if a.name == "licensing_migration"}
+        elif isinstance(node, ast.Import):
+            aliases |= {a.asname or a.name for a in node.names if a.name == _MIGRATION_HELPERS}
+    return any(
+        isinstance(n, ast.Attribute)
+        and n.attr == "DEFAULT_METRICS"
+        and ast.unparse(n.value) in aliases
+        for n in ast.walk(tree)
+    )
+
+
+@pytest.mark.parametrize(
+    "source,reads",
+    [
+        ("from app.services.licensing_migration import DEFAULT_METRICS", True),
+        ("import app.services.licensing_migration as lm\nx = lm.DEFAULT_METRICS", True),
+        (
+            "import app.services.licensing_migration\n"
+            "x = app.services.licensing_migration.DEFAULT_METRICS",
+            True,
+        ),
+        (
+            "from app.services import licensing_migration\nx = licensing_migration.DEFAULT_METRICS",
+            True,
+        ),
+        ("from app.services import license_types\nx = license_types.DEFAULT_METRICS", False),
+        ("from app.services.license_types import DEFAULT_METRICS", False),
+    ],
+    ids=["from-import", "module-alias", "module-path", "package-import", "live-attr", "live-name"],
+)
+def test_the_default_metrics_scan_catches_every_import_form(source, reads):
+    assert _reads_migration_defaults(source) is reads
+
+
 @pytest.mark.source_scan
 def test_no_app_module_takes_the_default_metrics_from_the_migration_helpers():
     """``licensing_migration.DEFAULT_METRICS`` is migration 192's frozen copy; the app reads
     the live one from ``license_types``."""
     from tests.app_source import iter_py
 
-    importers = {
-        path
-        for path, source in iter_py().items()
-        for node in ast.walk(ast.parse(source))
-        if isinstance(node, ast.ImportFrom)
-        and node.module == "app.services.licensing_migration"
-        and any(a.name == "DEFAULT_METRICS" for a in node.names)
-    }
-    assert importers == {"services/license_metrics_migration.py"}
+    readers = {path for path, source in iter_py().items() if _reads_migration_defaults(source)}
+    assert readers == {"services/license_metrics_migration.py"}
 
 
 def _field(ftype="multiple_select", **kw):

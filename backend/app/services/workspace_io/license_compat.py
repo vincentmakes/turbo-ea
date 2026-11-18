@@ -31,15 +31,17 @@ def derive_catalogue(
     metric_rows: list[dict], type_rows: list[dict], card_license_rows: list[dict]
 ) -> tuple[list[dict], list[dict]]:
     """``(metric rows, type rows)`` of an old bundle: its own metric rows plus the default
-    metrics it lacks, and each type without ``metric_key`` under every metric the bundle's
-    ``CardLicenses`` holds a cell of it for (under both defaults when none). A type row that
-    already names its metric is kept as it is; a pair listed twice is kept once."""
+    metrics it lacks, and each type without ``metric_key`` under every one of those metrics
+    the bundle's ``CardLicenses`` holds a cell of it for (under both defaults when none; a
+    metric the bundle does not have does not count). A type row that already names its metric
+    is kept as it is; a pair listed twice is kept once."""
     have = {row.get("key") for row in metric_rows}
     metrics = list(metric_rows) + [
         {"key": key, "label": label, "sort_order": order, "archived": False, "translations": {}}
         for order, (key, label) in enumerate(DEFAULT_METRICS)
         if key not in have
     ]
+    own = [k for row in metric_rows if isinstance(k := row.get("key"), str)]
     used: dict[str, set[str]] = {}
     for row in card_license_rows:
         for metric, cells in items_of(row).items():
@@ -51,7 +53,7 @@ def derive_catalogue(
         if row.get("metric_key"):
             derived = [row]
         else:
-            plan = derive_type_metrics([(row.get("key"), False)], used)
+            plan = derive_type_metrics([(row.get("key"), False)], used, own)
             derived = [{**row, "metric_key": metric} for _, metric in plan]
         for out in derived:
             pair = (out["metric_key"], out.get("key"))

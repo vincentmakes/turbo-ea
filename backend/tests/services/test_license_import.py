@@ -15,7 +15,6 @@ from app.models.event import Event
 from app.services import license_metrics, license_types
 from app.services.card_licenses import UNSET, LicenseError, merge_cell
 from app.services.fiscal_year import current_fiscal_year
-from app.services.license_catalogue import load_catalogue
 from app.services.license_import import (
     HEADERS,
     ImportFileError,
@@ -203,15 +202,6 @@ async def test_a_type_ambiguous_in_another_metric_is_type_not_in_metric(db, env)
     await create_license_type(db, "twin_b", "Twin", metric_key="installations")
     plan = await plan_import(db, env["user"], [row(2, metric="users", typ="twin")])
     assert [(s.reason, s.detail) for s in plan.skipped] == [("type_not_in_metric", "twin")]
-
-
-async def test_plan_uses_the_catalogue_it_is_given(db, env):
-    catalogue = await load_catalogue(db)
-    await create_license_type(db, "late", "Late")
-    rows = [row(2, typ="late")]
-    plan = await plan_import(db, env["user"], rows, catalogue=catalogue)
-    assert [s.reason for s in plan.skipped] == ["unknown_license_type"]
-    assert (await plan_import(db, env["user"], rows)).skipped == []
 
 
 async def test_a_type_of_another_metric_is_skipped_type_not_in_metric(db, env):

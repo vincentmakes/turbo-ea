@@ -225,15 +225,17 @@ def collect_report(
     by_type: dict[str, list[str]] = {}
     for type_key, metric_key in plan:
         by_type.setdefault(type_key, []).append(metric_key)
+    # Duplicated = data under every metric it went to; else attached by default (data under
+    # none of them, or only under a metric the catalogue does not have).
     duplicated = [
         {"key": k, "label": templates[k]["label"], "metrics": ms}
         for k, ms in by_type.items()
-        if len(ms) > 1 and len(used.get(k) or ()) > 1
+        if len(ms) > 1 and set(ms) <= (used.get(k) or set())
     ]
     attached = [
         {"key": k, "label": templates[k]["label"]}
         for k, ms in by_type.items()
-        if len(ms) > 1 and len(used.get(k) or ()) <= 1
+        if len(ms) > 1 and not set(ms) <= (used.get(k) or set())
     ]
     calcs = citing_model_calculations(
         (str(i), name, formula)

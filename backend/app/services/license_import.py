@@ -16,6 +16,7 @@ import io
 import math
 import uuid
 import zipfile
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -44,6 +45,7 @@ from app.services.fiscal_year import (
 )
 from app.services.license_catalogue import (
     CatalogueMetric,
+    CatalogueType,
     LicenseCatalogue,
     load_catalogue,
 )
@@ -192,7 +194,7 @@ def _match_metric(
     return None, "ambiguous_metric" if labelled else "invalid_metric"
 
 
-def _match_type(value: str, types) -> tuple[str, None] | tuple[None, str]:
+def _match_type(value: str, types: Iterable[CatalogueType]) -> tuple[str, None] | tuple[None, str]:
     """``(key, None)``, or ``(None, "unknown_license_type" | "ambiguous_license_type")``: the
     casefolded key or English label, among ``types`` (one metric's)."""
     wanted = value.casefold()
@@ -206,7 +208,6 @@ async def plan_import(
     db: AsyncSession,
     user: User,
     rows: list[ImportRow],
-    catalogue: LicenseCatalogue | None = None,
 ) -> ImportPlan:
     sm = await get_fiscal_year_start(db)
     cur = current_fiscal_year(sm)
@@ -223,7 +224,7 @@ async def plan_import(
     by_name: dict[str, list[Row[Any]]] = {}
     for card in found:
         by_name.setdefault(card.name.strip().casefold(), []).append(card)
-    catalogue = catalogue or await load_catalogue(db)
+    catalogue = await load_catalogue(db)
 
     plan = ImportPlan()
 

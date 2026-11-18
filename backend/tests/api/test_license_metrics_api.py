@@ -143,6 +143,11 @@ async def test_a_blank_label_is_refused(client, env, db, method, url, body):
     assert r.status_code == 422
 
 
+async def test_patch_metric_refuses_a_field_it_does_not_take(client, env):
+    r = await client.patch(f"{BASE}/users", json={"key": "seats"}, headers=env["h"])
+    assert r.status_code == 422
+
+
 async def test_patch_unknown_metric_404(client, env):
     r = await client.patch(f"{BASE}/nope", json={"label": "x"}, headers=env["h"])
     assert r.status_code == 404
