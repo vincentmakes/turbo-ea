@@ -62,8 +62,8 @@ async def list_items(
     return cast("list[T]", list((await db.execute(stmt)).scalars().all()))
 
 
-async def archived_keys(db: AsyncSession, model, scope: Scope = None) -> dict[str, bool]:
-    rows = await db.execute(_scoped(select(model.key, model.archived), model, scope))
+async def archived_keys(db: AsyncSession, model) -> dict[str, bool]:
+    rows = await db.execute(select(model.key, model.archived))
     return {k: a for k, a in rows.all()}
 
 

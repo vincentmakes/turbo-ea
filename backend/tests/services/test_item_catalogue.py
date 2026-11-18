@@ -58,11 +58,12 @@ async def test_license_and_cost_catalogues_are_independent(db):
 
 
 async def test_archived_keys_maps_key_to_flag(db):
-    await license_types.create_item(db, "users", "a", "A")
-    await license_types.create_item(db, "users", "b", "B")
-    await license_types.update_item(db, "users", "b", archived=True)
-    assert await license_types.archived_keys(db) == {"a": False, "b": True}
-    assert [r.key for r in await license_types.list_items(db, include_archived=False)] == ["a"]
+    for key, archived in (("a", False), ("b", True)):
+        db.add(CostItemType(key=key, label=key, sort_order=0, archived=archived, translations={}))
+    await db.flush()
+    assert await item_catalogue.archived_keys(db, CostItemType) == {"a": False, "b": True}
+    live = await item_catalogue.list_items(db, CostItemType, include_archived=False)
+    assert [r.key for r in live] == ["a"]
 
 
 async def test_update_unknown_uses_the_noun(db):
@@ -100,7 +101,6 @@ async def test_a_key_is_unique_per_metric_and_sort_order_counts_per_metric(db):
     archived = await license_types.update_item(db, "installations", "prod", archived=True)
     assert archived.archived is True
     assert (await license_types.get_item(db, "users", "prod")).archived is False
-    assert await license_types.archived_keys(db, "users") == {"prod": False}
 
 
 async def test_a_type_needs_an_existing_metric(db):

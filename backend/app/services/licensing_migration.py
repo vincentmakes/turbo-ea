@@ -15,8 +15,7 @@ from collections.abc import Iterable
 
 EXT_KEY = "licensing"
 MODEL_KEY = "licensingModel"
-# The field lives alone in this section on both types, and the metamodel route refuses to
-# remove, retype, strip or move it (``_guard_license_model_field``).
+# Where migration 179 put the field, alone, on both types (frozen for migrations 178/179).
 LICENSING_SECTION = "Licensing"
 # Where the field sat before migration 179 (still read by 178's and 179's tests).
 GENERAL_SECTION = {
@@ -24,7 +23,6 @@ GENERAL_SECTION = {
     "ITComponent": "Component Information",
 }
 LICENSING_TYPES = frozenset(GENERAL_SECTION)
-REQUIRED_OPTIONS = frozenset({"users", "installations"})
 MAX_COUNT = 1_000_000_000
 
 # THE one definition of the field (migration 178 and the fresh-install seed both use it).

@@ -10,6 +10,7 @@ from tests.conftest import (
     auth_headers,
     create_card,
     create_card_type,
+    create_license_metric,
     create_license_type,
     create_role,
     create_stakeholder_role_def,
@@ -137,6 +138,16 @@ async def test_put_success_and_event_stored(client, db, env):
     assert "10" not in str(evs[0].data["changes"])
     year = await client.get(url(env["card"], f"/{CUR}"), headers=auth_headers(env["admin"]))
     assert year.json()["can_edit"] is True
+
+
+async def test_put_under_a_custom_metric_needs_it_in_the_catalogue(client, db, env):
+    r = await put(client, env, metric="seats", key="x")
+    assert r.status_code == 422 and r.json()["detail"] == "invalid_metric"
+    await create_license_metric(db, "seats", "Seats")
+    await create_license_type(db, "x", "X", metric_key="seats")
+    r = await put(client, env, metric="seats", key="x")
+    assert r.status_code == 200
+    assert [m["metric"] for m in r.json()["metrics"]] == ["seats"]
 
 
 async def test_put_rejects_unknown_type_422(client, env):

@@ -17,13 +17,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.card import Card
 from app.models.relation import Relation
 from app.services import yearly_rows
-from app.services.card_licenses import LICENSE_TYPES, items_by_card
+from app.services.card_licenses import LICENSE_TYPES, items_by_card, metric_results
 from app.services.card_logo_service import logo_updated_map
 from app.services.card_read_scope import CardReadScope
 from app.services.cost_grouping import GroupBy, assign_groups
 from app.services.fiscal_year import current_fiscal_year, get_fiscal_year_start
 from app.services.license_catalogue import LicenseCatalogue, load_catalogue
-from app.services.license_status import MetricResult, card_status, card_worst, metric_result
+from app.services.license_status import MetricResult, card_status, card_worst
 from app.services.lifecycle import is_live_in_fiscal_year
 
 PLATFORM_RELATIONS = ("relPlatformToApp", "relPlatformToITC")
@@ -100,13 +100,6 @@ def _select(items: dict, metric: str | None, pair: tuple[str, str] | None) -> di
     return out
 
 
-def _metric_results(items: dict, catalogue: LicenseCatalogue) -> list[MetricResult]:
-    return [
-        metric_result(m, items[m], catalogue.type_order(m))
-        for m in catalogue.ordered_metrics(items)
-    ]
-
-
 def _by_metric(results: list[MetricResult]) -> list[dict]:
     return [
         {
@@ -178,7 +171,7 @@ async def build_report(
     hidden = hidden_attribute_keys or {}
     rows = []
     for card in in_year:
-        results = _metric_results(selected[card.id], catalogue)
+        results = metric_results(selected[card.id], catalogue)
         worst_pct, worst_no_licence = card_worst(results)
         row = {
             "id": str(card.id),

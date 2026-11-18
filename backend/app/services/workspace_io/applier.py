@@ -214,6 +214,8 @@ def _update_if_changed(current: Any, data: dict[str, Any], cols, sr: SectionResu
 
 
 async def apply_bundle(db: AsyncSession, bundle: WorkspaceBundle, user: User) -> ApplyResult:
+    """Apply every sheet. Changes ``bundle``: its ``CardLicenses`` rows are replaced by the
+    rows without the cells of an unknown metric or type (``_apply_license_catalogue``)."""
     return await _run(db, bundle, user, dry_run=False)
 
 
@@ -234,7 +236,8 @@ async def apply_selected(
     Public facade for callers outside workspace transfer (the Extension
     Store's content packs) that reuse the idempotent upsert engine —
     built-in protection, topo-sorted cards, dry-run via savepoint — over an in-memory
-    :class:`WorkspaceBundle` carrying only the listed sheets.
+    :class:`WorkspaceBundle` carrying only the listed sheets. Changes ``bundle`` like
+    :func:`apply_bundle` when ``CardLicenses`` is selected.
     """
     return await _run(db, bundle, user, dry_run=dry_run, sheets=sheets)
 
@@ -996,7 +999,10 @@ async def _apply_license_catalogue(
     target row; it is written only when one of the two catalogue sheets is selected, and with
     ``CardLicenses`` alone it only builds the set of known cells. A new-format bundle follows
     the config merge.
-    A type whose metric is on neither side is reported and skipped (its cells then drop)."""
+    A type whose metric is on neither side is reported and skipped (its cells then drop); one
+    whose metric is only in the bundle, its sheet not written, is reported and not created.
+    When ``CardLicenses`` is wanted, ``bundle.sheets`` gets the filtered rows in place: the
+    caller's bundle object is changed."""
     metric_sec = _config_section(schema.SHEET_LICENSE_METRICS)
     type_sec = _config_section(schema.SHEET_LICENSE_TYPES)
     metric_rows = bundle.rows(metric_sec.sheet)
@@ -1059,6 +1065,13 @@ async def _apply_license_catalogue(
             continue
         known.add((metric_key, key))
         if tsr is None:
+            continue
+        if metric_key not in metrics:  # only in the bundle, and its sheet is not written
+            tsr.skip("unknown_metric")
+            tsr.errors.append(
+                f"license type {metric_key}:{key}: its metric is not on this instance and "
+                "the metrics sheet is not imported, skipped"
+            )
             continue
         current = types.get((metric_key, key))
         if current is None:

@@ -27,8 +27,9 @@ async def get_item(db: AsyncSession, key: str) -> LicenseMetric | None:
     return await item_catalogue.get_item(db, LicenseMetric, key)
 
 
-async def list_items(db: AsyncSession, include_archived: bool = True) -> list[LicenseMetric]:
-    return await item_catalogue.list_items(db, LicenseMetric, include_archived)
+async def list_items(db: AsyncSession) -> list[LicenseMetric]:
+    """Every metric, archived included."""
+    return await item_catalogue.list_items(db, LicenseMetric)
 
 
 async def create_item(

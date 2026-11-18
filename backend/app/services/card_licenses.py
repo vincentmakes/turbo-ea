@@ -71,6 +71,15 @@ def licensed_only(items: dict, years: int) -> dict:
     }
 
 
+def metric_results(items: dict, catalogue: LicenseCatalogue) -> list[MetricResult]:
+    """One result per metric with cells in ``items``: catalogue order, unknown keys sorted."""
+    present = [m for m, cells in items.items() if cells]
+    return [
+        metric_result(m, items[m], catalogue.type_order(m))
+        for m in catalogue.ordered_metrics(present)
+    ]
+
+
 def year_licenses(
     items: dict,
     confirmed: bool,
@@ -79,12 +88,7 @@ def year_licenses(
     cur: int,
     catalogue: LicenseCatalogue,
 ) -> YearLicenses:
-    """The metrics are the ones with cells in ``items``: catalogue order, unknown keys sorted."""
-    present = [m for m, cells in items.items() if cells]
-    metrics = [
-        metric_result(m, items[m], catalogue.type_order(m))
-        for m in catalogue.ordered_metrics(present)
-    ]
+    metrics = metric_results(items, catalogue)
     is_forecast = fy == cur + FISCAL_YEAR_LOOKAHEAD
     return YearLicenses(
         fiscal_year=fy,

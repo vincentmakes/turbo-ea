@@ -261,6 +261,21 @@ async def test_a_cell_whose_metric_or_type_exists_nowhere_is_dropped_and_reporte
     assert (await db.execute(select(CardLicense))).scalar_one().items == items
 
 
+async def test_types_selected_without_their_metric_sheet_create_no_orphan_metric_key(db):
+    user, items = await _seed_two_metrics(db, "lc-sel-types@test.com")
+    bundle = parse_bundle(await build_bundle(db))
+    await db.execute(delete(CardLicense))
+    await db.execute(delete(LicenseType))
+    await db.execute(delete(LicenseMetric).where(LicenseMetric.key == "seats"))
+    await db.flush()
+
+    result = await apply_selected(db, bundle, user, sheets={TYPES, "CardLicenses"}, dry_run=False)
+    assert set(await _types(db)) == {("users", "admin")}
+    assert _section(result, TYPES).skip_reasons.get("unknown_metric") == 1
+    # The cells stay, as with CardLicenses alone: the bundle knows the pair.
+    assert (await db.execute(select(CardLicense))).scalar_one().items == items
+
+
 async def test_license_sheets_apply_in_dependency_order(db):
     user, _ = await _seed_two_metrics(db, "lc-order@test.com")
     result = await apply_bundle(db, parse_bundle(await build_bundle(db)), user)
