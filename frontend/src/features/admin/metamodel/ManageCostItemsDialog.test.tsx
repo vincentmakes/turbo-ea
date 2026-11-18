@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { mockApi } from "@/test/apiMock";
 import type { CostItemType } from "@/types";
-import ManageCostItemsDialog, { TEXT_SUFFIXES } from "./ManageCostItemsDialog";
+import ManageCostItemsDialog, { EDIT_TEXT_SUFFIXES, LIST_TEXT_SUFFIXES } from "./ManageCostItemsDialog";
 import adminEn from "@/i18n/locales/en/admin.json";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -130,11 +130,28 @@ describe("ManageCostItemsDialog", () => {
   });
 });
 
+const missingKeys = (messages: Record<string, string>, group: string, suffixes: readonly string[]) =>
+  suffixes.filter((suffix) => !messages[`metamodel.${group}.${suffix}`]);
+
 describe("ManageCostItemsDialog texts", () => {
-  it("every list text key exists", () => {
-    const messages = adminEn as Record<string, string>;
-    for (const suffix of TEXT_SUFFIXES) {
-      expect(messages[`metamodel.costItems.${suffix}`], suffix).toBeTruthy();
-    }
+  const messages = adminEn as Record<string, string>;
+
+  it("every list text key of the cost items exists", () => {
+    expect(missingKeys(messages, "costItems", LIST_TEXT_SUFFIXES)).toEqual([]);
+  });
+
+  // The edit dialog builds `metamodel.${textKey}.<suffix>` at run time: a missing key would show raw.
+  it.each(["costItems", "licenseTypes", "licenseMetrics"])(
+    "every text key the edit dialog builds for %s exists",
+    (group) => {
+      expect(missingKeys(messages, group, EDIT_TEXT_SUFFIXES)).toEqual([]);
+    },
+  );
+
+  it("reports a key that is missing", () => {
+    const { "metamodel.licenseMetrics.keyHelp": _removed, ...without } = messages;
+    void _removed;
+    expect(missingKeys(without, "licenseMetrics", EDIT_TEXT_SUFFIXES)).toEqual(["keyHelp"]);
+    expect(missingKeys(without, "licenseTypes", EDIT_TEXT_SUFFIXES)).toEqual([]);
   });
 });

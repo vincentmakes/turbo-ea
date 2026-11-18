@@ -29,10 +29,6 @@ export interface CostTrendOptions {
   yearLabel: (year: number) => string;
   /** A component's display label; the key itself when omitted. */
   componentLabel?: (component: string) => string;
-  /** A component's colour; the categorical palette in order when omitted. */
-  colorOf?: (component: string, i: number) => string;
-  /** Series appended after the stacked bars; their names join the legend. */
-  extraSeries?: object[];
 }
 
 export function buildCostTrendOption(
@@ -50,10 +46,7 @@ export function buildCostTrendOption(
       axisPointer: { type: "shadow", shadowStyle: { color: ctx.theme.hover } },
       valueFormatter: (v: unknown) => o.format(Number(v ?? 0)),
     }),
-    legend: legend(ctx, [
-      ...components.map(nameOf),
-      ...(o.extraSeries ?? []).flatMap((s) => ((s as { name?: string }).name ? [(s as { name: string }).name] : [])),
-    ]),
+    legend: legend(ctx, components.map(nameOf)),
     xAxis: {
       type: "category",
       inverse: o.isRtl,
@@ -75,10 +68,9 @@ export function buildCostTrendOption(
         stack: "cost",
         barMaxWidth: BAR_MAX_THICKNESS,
         emphasis: { focus: "series" },
-        itemStyle: { color: o.colorOf?.(component, i) ?? CATEGORICAL_COLORS[i % CATEGORICAL_COLORS.length] },
+        itemStyle: { color: CATEGORICAL_COLORS[i % CATEGORICAL_COLORS.length] },
         data: rows.map((r) => r[component] ?? 0),
       })),
-      ...(o.extraSeries ?? []),
     ],
   };
 }

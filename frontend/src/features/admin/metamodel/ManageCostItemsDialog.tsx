@@ -35,12 +35,8 @@ const COST_PATH = "/metamodel/cost-item-types";
 /** Which `admin:metamodel.<key>.*` texts the edit dialog reads: the cost items and the license catalogue share it. */
 export type CatalogueTextKey = "costItems" | "licenseTypes" | "licenseMetrics";
 
-/** The `metamodel.costItems.*` keys of `en/admin.json` the list dialog reads. */
-export const TEXT_SUFFIXES = [
-  "dialogTitle",
-  "description",
-  "archivedHelp",
-  "newItem",
+/** The `metamodel.<group>.*` texts `CostItemEditDialog` builds at run time, for every `CatalogueTextKey`. */
+export const EDIT_TEXT_SUFFIXES = [
   "createTitle",
   "editTitle",
   "keyLabel",
@@ -48,12 +44,20 @@ export const TEXT_SUFFIXES = [
   "labelLabel",
   "translationsLabel",
   "translationsHelp",
-  "archived",
-  "archive",
-  "restore",
   "errors.duplicate_key",
   "errors.invalid_key",
   "errors.generic",
+] as const;
+
+/** The `metamodel.costItems.*` texts only the cost items list dialog reads. */
+export const LIST_TEXT_SUFFIXES = [
+  "dialogTitle",
+  "description",
+  "archivedHelp",
+  "newItem",
+  "archived",
+  "archive",
+  "restore",
 ] as const;
 
 function costItemErrorMessage(

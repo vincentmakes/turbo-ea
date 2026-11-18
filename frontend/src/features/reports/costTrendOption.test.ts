@@ -71,21 +71,6 @@ describe("buildCostTrendOption", () => {
     expect(build().yAxis.position).toBe("left");
   });
 
-  it("uses colorOf when given and appends extraSeries", () => {
-    const o = buildCostTrendOption(ROWS, COMPONENTS, {
-      chrome,
-      isRtl: false,
-      format: String,
-      yearLabel: (y) => `FY${y}`,
-      colorOf: (c, i) => `${c}-${i}`,
-      extraSeries: [{ type: "scatter", name: "Licensed", data: [1, 2] }],
-    }) as any;
-    expect(o.series.map((s: any) => s.name)).toEqual([...COMPONENTS, "Licensed"]);
-    expect(o.series[0].itemStyle.color).toBe("licenseCost-0");
-    expect(o.series[1].itemStyle.color).toBe("serviceCost-1");
-    expect(o.legend.data).toEqual([...COMPONENTS, "Licensed"]);
-  });
-
   it("cost defaults unchanged", () => {
     const o = build();
     expect(o.series).toHaveLength(2);

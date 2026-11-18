@@ -44,7 +44,7 @@ import {
 import { formatFieldValue, type FieldMeta } from "@/lib/cardDisplayFields";
 import { resolveFacetField } from "@/lib/fieldFacets";
 import { costFiscalYearName, costFiscalYearOptions } from "@/lib/fiscalYear";
-import { LICENSE_TYPES, isLicenseType, pairKey, parsePairKey, statusColor } from "@/lib/licenses";
+import { LICENSE_TYPES, isLicenseType, pairKey, parsePairKey, STATUS_LABEL_KEY, statusColor } from "@/lib/licenses";
 import { CHART_OTHER, STATUS_COLORS } from "@/theme/tokens";
 import type {
   CardLicensesResponse,
@@ -556,12 +556,14 @@ export default function LicensingReport() {
     setPick(null);
   }, [setScopeIds, saved]);
 
-  const statusCards: { status: LicenseStatus; label: string; icon: string }[] = [
-    { status: "compliant", label: t("licensing.statusCompliant"), icon: "check_circle" },
-    { status: "approaching", label: t("licensing.statusApproaching"), icon: "warning" },
-    { status: "over", label: t("licensing.statusOver"), icon: "error" },
-    { status: "no_actual_data", label: t("licensing.statusNoActualData"), icon: "help" },
-  ];
+  const statusCards = (
+    [
+      ["compliant", "check_circle"],
+      ["approaching", "warning"],
+      ["over", "error"],
+      ["no_actual_data", "help"],
+    ] as const
+  ).map(([status, icon]) => ({ status, icon, label: t(STATUS_LABEL_KEY[status]) }));
   const toggleStatus = (s: LicenseStatus) => setStatusFilter((cur) => (cur === s ? null : s));
 
   const showDrillBar = view === "table" || crumbs.length > 1;
