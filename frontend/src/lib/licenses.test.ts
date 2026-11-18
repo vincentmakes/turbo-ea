@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { TFunction } from "i18next";
 import { STATUS_COLORS } from "@/theme/tokens";
-import { isLicenseType, formatPct, statusColor, STATUS_ORDER } from "./licenses";
+import type { LicenseMetricItem, LicenseTypeItem } from "@/types";
+import { isLicenseType, formatPct, statusColor, STATUS_ORDER, pairKey, pairLabel } from "./licenses";
 
 const t = ((key: string) => key) as unknown as TFunction;
 
@@ -26,5 +27,43 @@ describe("licenses helpers", () => {
     expect(isLicenseType("Application")).toBe(true);
     expect(isLicenseType("ITComponent")).toBe(true);
     expect(isLicenseType("Platform")).toBe(false);
+  });
+});
+
+const typeItem = (over: Partial<LicenseTypeItem> = {}): LicenseTypeItem => ({
+  id: "t1",
+  metric_key: "users",
+  key: "admin",
+  label: "Admin",
+  sort_order: 0,
+  archived: false,
+  translations: {},
+  ...over,
+});
+const metricItem = (over: Partial<LicenseMetricItem> = {}): LicenseMetricItem => ({
+  id: "m1",
+  key: "users",
+  label: "Users",
+  sort_order: 0,
+  archived: false,
+  translations: {},
+  types: [],
+  ...over,
+});
+
+describe("license pairs", () => {
+  it("keys a pair as metric:type", () => {
+    expect(pairKey("users", "admin")).toBe("users:admin");
+  });
+
+  it("labels a pair Metric: Type", () => {
+    expect(pairLabel(metricItem(), typeItem(), "en")).toBe("Users: Admin");
+  });
+
+  it("uses each entity's own translation, falling back to its label and never to the key", () => {
+    const m = metricItem({ translations: { de: "Benutzer" } });
+    const ty = typeItem({ label: "Admin", translations: { de: "Administrator" } });
+    expect(pairLabel(m, ty, "de")).toBe("Benutzer: Administrator");
+    expect(pairLabel(m, ty, "fr")).toBe("Users: Admin");
   });
 });

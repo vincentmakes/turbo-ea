@@ -356,14 +356,14 @@ describe("MetamodelAdmin", () => {
     const user = userEvent.setup();
     const base = vi.mocked(api.get).getMockImplementation()!;
     vi.mocked(api.get).mockImplementation((path: string, ...rest: unknown[]) =>
-      path.startsWith("/metamodel/license-types")
+      path.startsWith("/metamodel/license-metrics")
         ? Promise.resolve([])
         : (base as (p: string, ...r: unknown[]) => Promise<unknown>)(path, ...rest),
     );
     renderMetamodel();
     await user.click(screen.getByRole("button", { name: /license types/i }));
     expect(await screen.findByRole("heading", { name: "License types" })).toBeInTheDocument();
-    expect(vi.mocked(api.get)).toHaveBeenCalledWith("/metamodel/license-types", expect.anything());
+    expect(vi.mocked(api.get)).toHaveBeenCalledWith("/metamodel/license-metrics");
   });
 
   it("shows Show hidden types toggle", async () => {

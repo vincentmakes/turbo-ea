@@ -32,9 +32,10 @@ import type { CostItemType, TranslationMap } from "@/types";
 
 const COST_PATH = "/metamodel/cost-item-types";
 
-export type CatalogueTextKey = "costItems" | "licenseTypes";
+/** Which `admin:metamodel.<key>.*` texts the edit dialog reads: the cost items and the license catalogue share it. */
+export type CatalogueTextKey = "costItems" | "licenseTypes" | "licenseMetrics";
 
-/** The `metamodel.<textKey>.*` keys of `en/admin.json` this dialog reads, for both catalogues. */
+/** The `metamodel.costItems.*` keys of `en/admin.json` the list dialog reads. */
 export const TEXT_SUFFIXES = [
   "dialogTitle",
   "description",
@@ -85,7 +86,7 @@ interface EditProps {
   onSaved: () => void;
 }
 
-function CostItemEditDialog({ open, path, textKey, item, onClose, onSaved }: EditProps) {
+export function CostItemEditDialog({ open, path, textKey, item, onClose, onSaved }: EditProps) {
   const { t } = useTranslation(["admin", "common"]);
   const [key, setKey] = useState("");
   const [label, setLabel] = useState("");
@@ -187,18 +188,12 @@ function CostItemEditDialog({ open, path, textKey, item, onClose, onSaved }: Edi
 export interface ManageCostItemsDialogProps {
   open: boolean;
   onClose: () => void;
-  /** The catalogue endpoint; defaults to the cost item types. */
-  path?: string;
-  /** Which `admin:metamodel.*` texts to show; defaults to `costItems`. */
-  textKey?: CatalogueTextKey;
 }
 
-export default function ManageCostItemsDialog({
-  open,
-  onClose,
-  path = COST_PATH,
-  textKey = "costItems",
-}: ManageCostItemsDialogProps) {
+const path = COST_PATH;
+const textKey = "costItems";
+
+export default function ManageCostItemsDialog({ open, onClose }: ManageCostItemsDialogProps) {
   const { t } = useTranslation(["admin", "common"]);
   const fieldLabel = useFieldLabel();
   const { data, refetch } = useApiQuery<CostItemType[]>(open ? path : null);

@@ -37,6 +37,7 @@ import LifecyclePhaseHelpPanel from "./metamodel/LifecyclePhaseHelpPanel";
 import CategoryCombobox from "./metamodel/CategoryCombobox";
 import ManageCategoriesDialog from "./metamodel/ManageCategoriesDialog";
 import ManageCostItemsDialog from "./metamodel/ManageCostItemsDialog";
+import ManageLicenseTypesDialog from "./metamodel/ManageLicenseTypesDialog";
 import { categoryErrorMessage } from "./metamodel/categoryErrors";
 import { useCardTypeCategories } from "@/hooks/useCardTypeCategories";
 import { categoryDisplayName, defaultNewTypeCategory } from "@/lib/cardTypeOrder";
@@ -495,11 +496,9 @@ export default function MetamodelAdmin() {
         open={manageCostItemsOpen}
         onClose={() => setManageCostItemsOpen(false)}
       />
-      <ManageCostItemsDialog
+      <ManageLicenseTypesDialog
         open={manageLicenseTypesOpen}
         onClose={() => setManageLicenseTypesOpen(false)}
-        path="/metamodel/license-types"
-        textKey="licenseTypes"
       />
 
       {/* ============================================================ */}

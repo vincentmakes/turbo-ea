@@ -1,6 +1,7 @@
 import type { TFunction } from "i18next";
 import { STATUS_COLORS } from "@/theme/tokens";
-import type { LicenseMetric, LicenseStatus, LicenseTypeStatus } from "@/types";
+import { fieldLabel } from "@/hooks/useResolveLabel";
+import type { LicenseMetric, LicenseMetricItem, LicenseTypeItem, LicenseStatus, LicenseTypeStatus } from "@/types";
 
 /** Card types that hold licenses (mirrors `LICENSE_TYPES` in the backend). */
 export const LICENSE_TYPES: readonly string[] = ["Application", "ITComponent"];
@@ -31,3 +32,10 @@ export function formatPct(pct: number | null, noLicence: boolean, t: TFunction):
   if (noLicence) return t("cards:licensing.noLicense");
   return pct == null ? "—" : `${pct} %`;
 }
+
+/** A (metric, type) pair as one string, e.g. `users:admin`. */
+export const pairKey = (metric: string, type: string): string => `${metric}:${type}`;
+
+/** `Users: Admin`, each part resolved from its own translations. */
+export const pairLabel = (metric: LicenseMetricItem, type: LicenseTypeItem, locale: string): string =>
+  `${fieldLabel(metric, locale)}: ${fieldLabel(type, locale)}`;

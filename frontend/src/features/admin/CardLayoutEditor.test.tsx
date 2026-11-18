@@ -409,7 +409,7 @@ describe("CardLayoutEditor — license-bearing types", () => {
     expect(headers).toContain("Licensing");
   });
 
-  it("does not offer the dedicated schema section holding licensingModel as a generic one", () => {
+  it("lists an admin's own section named Licensing like any other, beside the built-in one", () => {
     const licensing = makeSection({
       section: "Licensing",
       fields: [makeField({ key: "licensingModel", label: "Licensing Model", type: "multiple_select" })],
@@ -421,27 +421,8 @@ describe("CardLayoutEditor — license-bearing types", () => {
       section_config: {},
     });
     setup({ cardType: app });
-    // Only the built-in Licensing section (items) is listed, once, not the schema one.
-    expect(sectionHeaders().filter((h) => h === "Licensing")).toHaveLength(1);
-    expect(screen.queryByText("Licensing Model")).not.toBeInTheDocument();
-  });
-
-  it("keeps an admin's own Licensing section that holds more than the model field", () => {
-    const licensing = makeSection({
-      section: "Licensing",
-      fields: [
-        makeField({ key: "licensingModel", label: "Licensing Model", type: "multiple_select" }),
-        makeField({ key: "vendorNote", label: "Vendor note", type: "text" }),
-      ],
-    });
-    const app = makeCardType({
-      ...TYPE,
-      key: "Application",
-      fields_schema: [...(TYPE.fields_schema ?? []), licensing],
-      section_config: {},
-    });
-    setup({ cardType: app });
     expect(sectionHeaders().filter((h) => h === "Licensing")).toHaveLength(2);
+    expect(screen.getByText("Licensing Model")).toBeInTheDocument();
   });
 
   it("keeps a section named Licensing on a type that holds no licenses", () => {
