@@ -197,6 +197,17 @@ async def test_current_year_carry_forward_reads_licensed_only(db, env):
     assert row["status"] == "no_actual_data"
 
 
+async def test_a_row_says_whether_its_year_is_confirmed_or_carried_forward(db, env):
+    own = await _card(db, "Own")
+    carried = await _card(db, "Carried")
+    await _row(db, own, CUR, users={"admin": (10, 4)})
+    await _row(db, carried, CUR - 1, users={"admin": (10, 9)})
+    rows = _by_name(await _report(db, env))
+    assert (rows["Own"]["confirmed"], rows["Carried"]["confirmed"]) == (True, False)
+    past = _by_name(await _report(db, env, fy=CUR - 1))
+    assert past["Carried"]["confirmed"] is True
+
+
 async def test_retired_card_only_in_its_recorded_years(db, env):
     c = await _card(db, "Gone", lifecycle={"endOfLife": f"{CUR - 1}-12-31"})
     await _row(db, c, CUR - 1, users={"admin": (5, 1)})

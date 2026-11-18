@@ -190,6 +190,7 @@ async def build_report(
             "status": None if aggregate else card_status(results),
             "worst_pct": max(pcts) if pcts else None,
             "worst_no_licence": any(r.worst_no_licence for r in results),
+            "confirmed": data[card.id][fy][1],
             "by_metric": _by_metric(results),
         }
         if card.id in logos:

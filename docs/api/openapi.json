@@ -9531,6 +9531,11 @@
             "title": "Detail",
             "type": "string"
           },
+          "metric": {
+            "default": "",
+            "title": "Metric",
+            "type": "string"
+          },
           "reason": {
             "title": "Reason",
             "type": "string"
@@ -16144,6 +16149,10 @@
             "title": "By Metric",
             "type": "array"
           },
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "boolean"
+          },
           "group": {
             "anyOf": [
               {
@@ -16215,6 +16224,7 @@
           "status",
           "worst_pct",
           "worst_no_licence",
+          "confirmed",
           "by_metric"
         ],
         "title": "ReportRow",

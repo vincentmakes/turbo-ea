@@ -100,6 +100,15 @@ async def test_dry_run_writes_nothing(client, db, env):
     assert await _rows(db) == []
 
 
+async def test_a_skipped_row_names_its_metric(client, db, env):
+    rows = [["ERP", "Users", "nope", CUR, 1, 1], ["ERP", "Seats", "admin", CUR, 1, 1]]
+    body = (await _post(client, env, book(rows))).json()
+    assert [(s["reason"], s["metric"]) for s in body["skipped"]] == [
+        ("unknown_license_type", "users"),
+        ("invalid_metric", "Seats"),
+    ]
+
+
 async def test_apply_writes_and_returns_counts(client, db, env):
     body = (await _post(client, env, book(GOOD), dry_run=False)).json()
     assert body["matched"] == 1 and body["applied"] == 1

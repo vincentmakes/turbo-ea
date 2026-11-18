@@ -153,6 +153,17 @@ async def test_past_year_lists_only_cards_with_a_row(client, db, env):
     assert [r["name"] for r in past["rows"]] == ["Row"]
 
 
+async def test_rows_carry_confirmed_for_a_stored_year_and_not_for_a_carried_one(client, db, env):
+    own = await _card(db, "Own")
+    carried = await _card(db, "Carried")
+    await _row(db, own, CUR, users={"admin": (10, 4)})
+    await _row(db, carried, CUR - 1, users={"admin": (10, 9)})
+    body = (await _get(client, env)).json()
+    assert {r["name"]: r["confirmed"] for r in body["rows"]} == {"Own": True, "Carried": False}
+    past = (await _get(client, env, fiscal_year=CUR - 1)).json()
+    assert {r["name"]: r["confirmed"] for r in past["rows"]} == {"Carried": True}
+
+
 async def test_forecast_year_refused(client, db, env):
     resp = await _get(client, env, fiscal_year=FORECAST)
     assert resp.status_code == 400 and resp.json()["detail"] == "forecast_not_selectable"

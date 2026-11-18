@@ -212,12 +212,12 @@ async def test_an_archived_metric_cannot_create_a_cell_but_updates_an_existing_o
         db,
         env["user"],
         [
-            row(2, metric="legacy", typ="x", year=CUR - 1),
+            row(2, metric="Legacy", typ="x", year=CUR - 1),
             row(3, metric="legacy", typ="x", year=CUR - 2),
         ],
     )
-    assert [(s.row, s.reason, s.detail) for s in plan.skipped] == [
-        (2, "archived_license_metric", "legacy")
+    assert [(s.row, s.reason, s.detail, s.metric) for s in plan.skipped] == [
+        (2, "archived_license_metric", "legacy", "legacy")
     ]
     assert list(plan.cells) == [(env["erp"].id, CUR - 2)]
     assert await apply_import(db, env["user"].id, plan) == 1
@@ -263,6 +263,56 @@ async def test_plan_skips_every_reason(db, env):
         13: "nothing_to_write",
     }
     assert plan.matched == 1 and list(plan.cells) == [(env["erp"].id, CUR - 4)]
+
+
+# The file says "Users" (a label): a resolved metric is named by its key "users", an
+# unresolved one by the file's own text.
+@pytest.mark.parametrize(
+    "reason,kwargs,metric",
+    [
+        ("card_not_found", {"comp": "Nobody"}, "Users"),
+        ("ambiguous_card", {"comp": "Twin"}, "Users"),
+        ("invalid_metric", {"metric": "Seats"}, "Seats"),
+        ("unknown_license_type", {"typ": "nope"}, "users"),
+        ("ambiguous_license_type", {"typ": "shared"}, "users"),
+        ("type_not_in_metric", {"typ": "seat"}, "users"),
+        ("archived_license_type", {"typ": "old", "year": CUR - 1}, "users"),
+        ("invalid_year", {"year": CUR + 2}, "users"),
+        ("invalid_number", {"licensed": "12.5"}, "users"),
+        ("forecast_actual", {"year": FORECAST, "licensed": 3, "actual": 1}, "users"),
+        ("nothing_to_write", {"licensed": None, "actual": ""}, "users"),
+    ],
+    ids=lambda v: v if isinstance(v, str) else "",
+)
+async def test_every_skip_names_the_metric(db, env, reason, kwargs, metric):
+    await create_card(db, card_type="Application", name="Twin")
+    await create_card(db, card_type="ITComponent", name="twin")
+    await create_license_type(db, "seat", "Seat", metric_key="installations")
+    plan = await plan_import(db, env["user"], [row(2, **{"metric": "Users", **kwargs})])
+    assert [(s.reason, s.metric) for s in plan.skipped] == [(reason, metric)]
+
+
+async def test_a_duplicate_cell_names_the_metric(db, env):
+    plan = await plan_import(db, env["user"], [row(2, metric="Users"), row(3)])
+    assert [(s.reason, s.metric) for s in plan.skipped] == [("duplicate_cell", "users")] * 2
+
+
+async def test_an_archived_type_names_the_metric_it_is_archived_under(db, env):
+    await create_license_type(db, "standard", "Standard")
+    await license_types.update_item(db, "users", "standard", archived=True)
+    await create_license_type(db, "standard", "Standard", metric_key="installations")
+    plan = await plan_import(
+        db,
+        env["user"],
+        [
+            row(2, metric="Users", typ="standard"),
+            row(3, metric="Installations", typ="standard", actual=None),
+        ],
+    )
+    assert [(s.row, s.reason, s.detail, s.metric) for s in plan.skipped] == [
+        (2, "archived_license_type", "standard", "users")
+    ]
+    assert plan.cells[(env["erp"].id, CUR)] == [("installations", "standard", 10, UNSET)]
 
 
 @pytest.mark.parametrize(

@@ -85,6 +85,7 @@ class RowIssue:
     component: str
     reason: str
     detail: str = ""
+    metric: str = ""
 
 
 @dataclass
@@ -217,8 +218,9 @@ async def plan_import(db: AsyncSession, user: User, rows: list[ImportRow]) -> Im
 
     plan = ImportPlan()
 
-    def skip(r: ImportRow, reason: str, detail: str = "") -> None:
-        plan.skipped.append(RowIssue(r.row, r.component, reason, detail))
+    def skip(r: ImportRow, reason: str, detail: str = "", metric: str | None = None) -> None:
+        """``metric``: the resolved key; the file's own text until the metric is resolved."""
+        plan.skipped.append(RowIssue(r.row, r.component, reason, detail, metric or r.metric))
 
     # 1. who and where: the cell each row names
     resolved: list[tuple[ImportRow, Row[Any], int, str, str]] = []
@@ -241,11 +243,11 @@ async def plan_import(db: AsyncSession, user: User, rows: list[ImportRow]) -> Im
                 _match_type(r.license_type, m.types)[0] for m in catalogue.metrics
             ):
                 reason = "type_not_in_metric"
-            skip(r, reason or "unknown_license_type", r.license_type)
+            skip(r, reason or "unknown_license_type", r.license_type, metric)
             continue
         year = _whole(r.year)
         if year is None or not yearly_rows.in_window(year, sm):
-            skip(r, "invalid_year", _text(r.year))
+            skip(r, "invalid_year", _text(r.year), metric)
             continue
         resolved.append((r, hits[0], year, metric, key))
 
@@ -263,7 +265,7 @@ async def plan_import(db: AsyncSession, user: User, rows: list[ImportRow]) -> Im
     )
     for r, card, year, metric, key in resolved:
         if seen[(card.id, year, metric, key)] > 1:
-            skip(r, "duplicate_cell")
+            skip(r, "duplicate_cell", metric=metric)
             continue
         values: dict[str, object] = {}
         bad = None
@@ -276,20 +278,20 @@ async def plan_import(db: AsyncSession, user: User, rows: list[ImportRow]) -> Im
             else:
                 values[name] = count
         if bad:
-            skip(r, "invalid_number", bad)
+            skip(r, "invalid_number", bad, metric)
             continue
         if values["licensed"] is UNSET and values["actual"] is UNSET:
-            skip(r, "nothing_to_write")
+            skip(r, "nothing_to_write", metric=metric)
             continue
         if values["actual"] is not UNSET and year == cur + FISCAL_YEAR_LOOKAHEAD:
-            skip(r, "forecast_actual")
+            skip(r, "forecast_actual", metric=metric)
             continue
         has_cell = key in (existing[card.id][year][0].get(metric) or {})
         if catalogue.metric(metric).archived and not has_cell:
-            skip(r, "archived_license_metric", metric)
+            skip(r, "archived_license_metric", metric, metric)
             continue
         if catalogue.type(metric, key).archived and not has_cell:
-            skip(r, "archived_license_type", key)
+            skip(r, "archived_license_type", key, metric)
             continue
         plan.cells.setdefault((card.id, year), []).append(
             (metric, key, values["licensed"], values["actual"])

@@ -118,6 +118,7 @@ class ReportRow(BaseModel):
     status: str | None
     worst_pct: float | None
     worst_no_licence: bool
+    confirmed: bool
     by_metric: list[ReportMetric]
 
 
@@ -143,6 +144,7 @@ class ImportIssueOut(BaseModel):
     component: str
     reason: str
     detail: str = ""
+    metric: str = ""
 
 
 class ImportResultOut(BaseModel):
