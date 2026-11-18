@@ -3,6 +3,7 @@ written before metrics existed (no ``LicenseMetrics`` sheet, types without ``met
 
 from __future__ import annotations
 
+import pytest
 from sqlalchemy import delete, select
 
 from app.models.card import Card
@@ -18,7 +19,7 @@ from app.services.workspace_io import (
     build_bundle,
     parse_bundle,
 )
-from app.services.workspace_io.license_compat import derive_catalogue, keep_known_cells
+from app.services.workspace_io.license_compat import derive_catalogue, items_of, keep_known_cells
 from tests.conftest import (
     create_card,
     create_card_type,
@@ -326,6 +327,7 @@ async def test_an_old_bundle_changes_no_row_the_target_already_has(db):
     result = await apply_bundle(db, bundle, user)
     metrics, types = _section(result, METRICS), _section(result, TYPES)
     assert (metrics.created, metrics.updated, metrics.skipped) == (0, 0, 2)
+    assert metrics.skip_reasons == {"already_present": 2}
     # ``dev`` had no data, so it lands under both metrics: the target only had it under users.
     assert (types.created, types.updated, types.skipped) == (1, 0, 3)
 
@@ -366,3 +368,109 @@ async def test_an_old_bundle_with_card_licenses_only_creates_nothing_and_drops_u
     assert stored.items == items
     errors = _section(result, "CardLicenses").errors
     assert any("seats:admin" in e for e in errors) and any("users:ghost" in e for e in errors)
+
+
+# --- review hardening ------------------------------------------------------------------
+
+
+async def test_a_new_bundle_with_an_empty_metric_key_cell_is_not_treated_as_old(db):
+    user, _ = await _seed_two_metrics(db, "lc-emptycell@test.com")
+    bundle = parse_bundle(await build_bundle(db))
+    bundle.sheets[TYPES].append({"metric_key": None, "key": "loose", "label": "Loose"})
+
+    result = await apply_bundle(db, bundle, user)
+    sr = _section(result, TYPES)
+    assert (sr.created, sr.failed) == (0, 1), sr
+    # Treated as old, the row would be derived under both defaults, creating ``installations``.
+    assert set(await _metrics(db)) == {"users", "seats"}
+    assert not any(k == "loose" for _, k in await _types(db))
+
+
+async def test_a_catalogue_row_without_key_is_counted_as_failed(db):
+    user, _ = await _seed_two_metrics(db, "lc-nokey@test.com")
+    bundle = parse_bundle(await build_bundle(db))
+    bundle.sheets[METRICS].append({"key": None, "label": "Nameless"})
+    bundle.sheets[TYPES].append({"metric_key": "users", "key": None, "label": "Nameless"})
+
+    result = await apply_bundle(db, bundle, user)
+    assert _section(result, METRICS).failed == 1
+    assert _section(result, TYPES).failed == 1
+
+
+async def test_a_new_row_with_empty_label_and_sort_order_takes_the_key_and_the_default(db):
+    user, _ = await _seed_two_metrics(db, "lc-blank@test.com")
+    bundle = parse_bundle(await build_bundle(db))
+    bundle.sheets[METRICS].append({"key": "cores", "label": None, "sort_order": None})
+    bundle.sheets[TYPES].append(
+        {"metric_key": "cores", "key": "std", "label": None, "sort_order": None}
+    )
+
+    result = await apply_bundle(db, bundle, user)
+    assert result.total_failed == 0, result.as_dict()
+    metric = (await _metrics(db))["cores"]
+    assert (metric.label, metric.sort_order) == ("cores", 0)
+    typ = (await _types(db))[("cores", "std")]
+    assert (typ.label, typ.sort_order) == ("std", 0)
+
+
+async def test_dropped_cells_are_reported_one_line_each_in_name_order(db):
+    user, items = await _seed_two_metrics(db, "lc-lines@test.com")
+    bundle = parse_bundle(await build_bundle(db))
+    (row,) = bundle.sheets["CardLicenses"]
+    row["items"] = {**items, "users": {**items["users"], "ghost": CELL}, "cores": {"x": CELL}}
+    await db.execute(delete(CardLicense))
+    await db.flush()
+
+    result = await apply_bundle(db, bundle, user)
+    tail = "its metric or type is on neither this instance nor in the bundle, skipped"
+    assert _section(result, "CardLicenses").errors == [
+        f"license cell cores:x: {tail}",
+        f"license cell users:ghost: {tail}",
+    ]
+
+
+async def test_a_card_licenses_row_whose_items_are_not_an_object_reaches_the_entity_pass(db):
+    user, _ = await _seed_two_metrics(db, "lc-list@test.com")
+    bundle = parse_bundle(await build_bundle(db))
+    (row,) = bundle.sheets["CardLicenses"]
+    row["items"] = "[1, 2]"
+
+    result = await apply_bundle(db, bundle, user)
+    assert bundle.sheets["CardLicenses"] == [row]
+    assert _section(result, "CardLicenses").errors == []
+
+
+def test_items_of_reads_an_object_and_nothing_else():
+    assert items_of({"items": '{"users": {}}'}) == {"users": {}}
+    assert items_of({"items": {"users": {}}}) == {"users": {}}
+    assert items_of({"items": "{not json"}) == {}
+    assert items_of({"items": "[1]"}) == {}
+    assert items_of({}) == {}
+
+
+@pytest.mark.parametrize("selected", [TYPES, METRICS])
+async def test_an_old_bundle_with_one_catalogue_sheet_selected_writes_both(db, selected):
+    user, _, _ = await _seed_old_world(db, f"lc-one-{selected.lower()}@test.com")
+    bundle = _make_old(parse_bundle(await build_bundle(db)))
+    await _wipe_catalogue(db)
+
+    result = await apply_selected(db, bundle, user, sheets={selected}, dry_run=False)
+    assert [s.sheet for s in result.sections] == [METRICS, TYPES]
+    assert _section(result, METRICS).created == 2
+    assert _section(result, TYPES).created == 4
+    assert set(await _metrics(db)) == {"users", "installations"}
+
+
+async def test_an_old_bundle_card_with_no_attributes_imports(db):
+    user, _, _ = await _seed_old_world(db, "lc-noattrs@test.com")
+    bundle = _make_old(parse_bundle(await build_bundle(db)))
+    (card_row,) = [r for r in bundle.sheets["Cards"] if r.get("name") == "Billing"]
+    card_row["attributes"] = None
+    await db.execute(delete(CardLicense))
+    await db.execute(delete(Card))
+    await db.flush()
+
+    result = await apply_bundle(db, bundle, user)
+    assert _section(result, "Cards").failed == 0, result.as_dict()
+    imported = (await db.execute(select(Card).where(Card.name == "Billing"))).scalar_one()
+    assert MODEL_KEY not in (imported.attributes or {})

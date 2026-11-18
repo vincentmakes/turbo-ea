@@ -2030,6 +2030,7 @@
   "workspaceTransfer.report.reason.duplicate_in_bundle": "Duplicate entry in the bundle",
   "workspaceTransfer.report.reason.ambiguous_match": "Multiple matches on this instance — left unchanged",
   "workspaceTransfer.report.reason.user_exists": "User already exists (matched by email)",
+  "workspaceTransfer.report.reason.unknown_metric": "Its license metric is on neither this instance nor in the bundle",
   "workspaceTransfer.report.references": "References",
   "workspaceTransfer.report.ref.remapped": "Ids translated to this instance's cards, relations and tags",
   "workspaceTransfer.report.ref.relinked_by_name": "Diagram cards relinked by card type and name (older bundle)",

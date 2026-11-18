@@ -4,7 +4,8 @@ A bundle written before license metrics existed has no ``LicenseMetrics`` sheet 
 ``LicenseTypes`` rows carry no ``metric_key``. ``derive_catalogue`` reproduces for it what
 migration 192 does to a database (the same ``derive_type_metrics`` rule); the caller decides
 that a bundle is old, from the sheet being absent and never from it being empty.
-``keep_known_cells`` drops the ``CardLicenses`` cells whose metric or type exists nowhere.
+``items_of`` reads a ``CardLicenses`` row's cells; ``keep_known_cells`` drops the cells
+whose metric or type exists nowhere.
 Pure: no database, nothing written.
 """
 
@@ -16,7 +17,8 @@ from app.services.licensing_migration import DEFAULT_METRICS, derive_type_metric
 from app.services.workspace_io.bundle import from_cell
 
 
-def _items(row: dict[str, Any]) -> dict:
+def items_of(row: dict[str, Any]) -> dict:
+    """A ``CardLicenses`` row's ``items`` object; ``{}`` for bad JSON or anything else."""
     try:
         items = from_cell(row.get("items"), is_json=True)
     except ValueError:  # the entity pass reports a row it cannot read
@@ -39,7 +41,7 @@ def derive_catalogue(
     ]
     used: dict[str, set[str]] = {}
     for row in card_license_rows:
-        for metric, cells in _items(row).items():
+        for metric, cells in items_of(row).items():
             for type_key in cells if isinstance(cells, dict) else {}:
                 used.setdefault(type_key, set()).add(metric)
     types: list[dict] = []

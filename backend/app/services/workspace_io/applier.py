@@ -990,18 +990,20 @@ async def _apply_license_catalogue(
     Returns the dropped ``metric:type`` names, for the ``CardLicenses`` section's report.
 
     A bundle written before license metrics (no ``LicenseMetrics`` sheet — absent, never merely
-    empty — or a type row without ``metric_key``) has its catalogue derived as migration 192
-    does (``license_compat.derive_catalogue``). Its metrics are only inserted, never changed,
-    and a type row it yields never changes ``archived`` or ``sort_order`` of a target row; it is
-    written only when one of the two catalogue sheets is selected, and with ``CardLicenses``
-    alone it only builds the set of known cells. A new-format bundle follows the config merge.
+    empty — or a type row without a ``metric_key`` column) has its catalogue derived as
+    migration 192 does (``license_compat.derive_catalogue``). Its metrics are only inserted,
+    never changed, and a type row it yields never changes ``archived`` or ``sort_order`` of a
+    target row; it is written only when one of the two catalogue sheets is selected, and with
+    ``CardLicenses`` alone it only builds the set of known cells. A new-format bundle follows
+    the config merge.
     A type whose metric is on neither side is reported and skipped (its cells then drop)."""
     metric_sec = _config_section(schema.SHEET_LICENSE_METRICS)
     type_sec = _config_section(schema.SHEET_LICENSE_TYPES)
     metric_rows = bundle.rows(metric_sec.sheet)
     type_rows = bundle.rows(type_sec.sheet)
     card_rows = bundle.rows(SHEET_CARD_LICENSES)
-    old = metric_sec.sheet not in bundle.sheets or any(not r.get("metric_key") for r in type_rows)
+    # The column missing, not an empty cell: a new bundle's blank row fails on its own.
+    old = metric_sec.sheet not in bundle.sheets or any("metric_key" not in r for r in type_rows)
     if old:
         metric_rows, type_rows = license_compat.derive_catalogue(metric_rows, type_rows, card_rows)
     # An old bundle's types need their derived metrics, so either sheet writes both.
@@ -1068,20 +1070,16 @@ async def _apply_license_catalogue(
             _update_if_changed(current, data, cols, tsr)
     await db.flush()
 
-    if not wanted(SHEET_CARD_LICENSES) or SHEET_CARD_LICENSES not in bundle.sheets:
+    if not wanted(SHEET_CARD_LICENSES):
         return []
     dropped: set[str] = set()
     kept_rows: list[dict[str, Any]] = []
     for row in card_rows:
-        try:
-            items = from_cell(row.get("items"), is_json=True)
-        except ValueError:  # left to the entity pass, which reports the row
-            items = None
-        if isinstance(items, dict):
-            items, gone = license_compat.keep_known_cells(items, known)
-            if gone:
-                dropped.update(gone)
-                row = {**row, "items": items}
+        # A row it cannot read is left to the entity pass, which reports it.
+        items, gone = license_compat.keep_known_cells(license_compat.items_of(row), known)
+        if gone:
+            dropped.update(gone)
+            row = {**row, "items": items}
         kept_rows.append(row)
     # The entity pass reads the sheet from the bundle: hand it the filtered rows.
     bundle.sheets[SHEET_CARD_LICENSES] = kept_rows
