@@ -36,6 +36,7 @@ const BACKEND_REASONS = [
   "card_not_found",
   "ambiguous_card",
   "invalid_metric",
+  "ambiguous_metric",
   "unknown_license_type",
   "ambiguous_license_type",
   "invalid_year",
@@ -134,6 +135,16 @@ describe("LicensingImportDialog", () => {
     await userEvent.upload(input(), xlsx());
     const rows = await screen.findAllByRole("row");
     expect(rows.find((r) => within(r).queryByText("ERP"))!).toHaveTextContent("(cores)");
+  });
+
+  it("shows the message of an ambiguous metric", async () => {
+    vi.mocked(api.upload).mockResolvedValue({
+      matched: 0, applied: 0,
+      skipped: [{ row: 3, component: "ACME", reason: "ambiguous_metric", detail: "", metric: "Seats" }],
+    } as never);
+    const { input } = setup();
+    await userEvent.upload(input(), xlsx());
+    expect(await screen.findByText("The metric text matches more than one metric; use the metric key.")).toBeInTheDocument();
   });
 
   it("has no rows-to-check chip any more", async () => {
