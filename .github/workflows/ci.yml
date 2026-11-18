@@ -31,6 +31,7 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend == 'true' || steps.filter.outputs.ci == 'true' }}
       mcp: ${{ steps.filter.outputs.mcp == 'true' || steps.filter.outputs.ci == 'true' }}
       mutation: ${{ steps.filter.outputs.mutation == 'true' || steps.filter.outputs.ci == 'true' }}
+      images: ${{ steps.filter.outputs.images == 'true' || steps.filter.outputs.ci == 'true' }}
       docs: ${{ steps.filter.outputs.docs == 'true' || steps.filter.outputs.ci == 'true' }}
       devcontainer: ${{ steps.filter.outputs.devcontainer == 'true' || steps.filter.outputs.ci == 'true' }}
       helm: ${{ steps.filter.outputs.helm == 'true' || steps.filter.outputs.ci == 'true' }}
@@ -75,6 +76,16 @@ jobs:
             # else, so a change here runs those four jobs and not the suites.
             mutation:
               - 'scripts/mutation/**'
+            # The container build files. The guards that read them as text (the
+            # nginx base pin and module removal, the published image matrix, the
+            # edge config's headers, real-IP and upload limits) are Backend Unit
+            # Tests, so a Dockerfile-only change (Dependabot's weekly base-image
+            # bump among them) runs that job and not the whole backend suite.
+            images:
+              - 'Dockerfile'
+              - 'nginx/**'
+              - 'frontend/nginx.conf'
+              - 'docker-compose.yml'
             docs:
               - 'docs/**'
               - 'mkdocs.yml'
@@ -138,7 +149,7 @@ jobs:
   backend-test-unit:
     name: Backend Unit Tests
     needs: changes
-    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.mutation == 'true'
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.mutation == 'true' || needs.changes.outputs.images == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

@@ -156,3 +156,71 @@ class TestNginxStagesDropUnusedModules:
         about to go, and the layer never holds them."""
         for stage, body in self._nginx_stages().items():
             assert body.index("apk del") < body.index("apk upgrade"), stage
+
+
+_NGINX_PINNED_RE = re.compile(r"^nginx:(\d+)\.(\d+)\.(\d+)-alpine$")
+# nginx2root (nginx.org, 2026-11-18): 1.30.6 and earlier, and 1.31.8 and
+# earlier, carry CVE-2026-123007 (HTTP/2 flow-control memory corruption,
+# unauthenticated code execution), CVE-2026-123633 (HTTP/2 use-after-free),
+# CVE-2026-123634 (resolver use-after-free), CVE-2026-121810 (HTTP/3),
+# CVE-2026-113425 (mail proxy), CVE-2026-118899 (endless loop reading a body
+# over TLS 1.3), CVE-2026-125283 (try_files with alias), CVE-2026-120967 and
+# CVE-2026-123640 (stream). Each branch has its own first fixed release; a
+# branch newer than the last listed one was cut after the fix.
+_NGINX_FIRST_FIXED = {(1, 30): 7, (1, 31): 9}
+
+
+def _nginx_is_patched(major: int, minor: int, patch: int) -> bool:
+    branch = (major, minor)
+    if branch > max(_NGINX_FIRST_FIXED):
+        return True
+    return branch in _NGINX_FIRST_FIXED and patch >= _NGINX_FIRST_FIXED[branch]
+
+
+class TestNginxBaseIsPatched:
+    """The nginx binary both published nginx images run is whatever their
+    ``FROM nginx:...`` tag holds. A moving tag (``nginx:alpine``) is how
+    CVE-2026-42945 shipped unnoticed in May 2026, and the edge config turns on
+    ``http2`` with built-in TLS, which made the nginx2root HTTP/2 bugs
+    reachable. So: an exact pin, the same in every nginx stage, and never a
+    release an advisory above names. Raise the floors when a later advisory
+    moves them; never lower them."""
+
+    def _nginx_bases(self) -> dict[str, str]:
+        text = (_ROOT / "Dockerfile").read_text(encoding="utf-8")
+        return {
+            stage: base
+            for stage, (base, _body) in _stage_bodies(text).items()
+            if base.startswith("nginx:")
+        }
+
+    def test_both_published_nginx_images_are_covered(self):
+        assert {"frontend", "nginx"} <= set(self._nginx_bases())
+
+    def test_every_nginx_stage_is_an_exact_alpine_pin(self):
+        for stage, base in self._nginx_bases().items():
+            assert _NGINX_PINNED_RE.match(base), f"stage {stage!r} uses a moving tag: {base}"
+
+    def test_every_nginx_stage_pins_the_same_release(self):
+        bases = self._nginx_bases()
+        assert len(set(bases.values())) == 1, bases
+
+    def test_every_nginx_stage_is_past_the_nginx2root_advisories(self):
+        for stage, base in self._nginx_bases().items():
+            match = _NGINX_PINNED_RE.match(base)
+            assert match, base
+            version = tuple(int(part) for part in match.groups())
+            assert _nginx_is_patched(*version), (
+                f"stage {stage!r} runs {base}; nginx2root is fixed from 1.30.7 (stable) "
+                "and 1.31.9 (mainline)"
+            )
+
+    def test_the_floor_is_per_branch(self):
+        """A mainline release between the two fixes is still vulnerable."""
+        assert _nginx_is_patched(1, 30, 7)
+        assert _nginx_is_patched(1, 31, 9)
+        assert _nginx_is_patched(1, 32, 0)
+        assert not _nginx_is_patched(1, 30, 6)
+        assert not _nginx_is_patched(1, 31, 8)
+        assert not _nginx_is_patched(1, 29, 9)
+        assert not _nginx_is_patched(0, 31, 9)

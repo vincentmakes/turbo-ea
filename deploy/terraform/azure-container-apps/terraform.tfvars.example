@@ -7,7 +7,7 @@ resource_group_name = "rg-turbo-ea"
 location            = "westeurope"
 name                = "turbo-ea"
 public_url          = "https://ea.example.com"
-image_tag           = "2.141.0"
+image_tag           = "2.205.3"
 
 # Globally unique names.
 storage_account_name   = "turboeadata"
