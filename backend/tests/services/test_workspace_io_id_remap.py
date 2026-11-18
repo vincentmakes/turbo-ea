@@ -33,7 +33,6 @@ from app.models.todo import Todo
 from app.models.turbolens import TurboLensAnalysisRun, TurboLensComplianceFinding
 from app.models.web_portal import WebPortal
 from app.services.compliance_scanner import compute_finding_key
-from app.services.licensing_migration import licensing_section
 from app.services.workspace_io import (
     apply_bundle,
     build_bundle,
@@ -101,9 +100,7 @@ def _card_xml(cells: list[tuple[str, Card]], edges: list[tuple[str, Relation, st
 
 
 async def _metamodel(db):
-    await create_card_type(
-        db, key="Application", label="Application", fields_schema=[licensing_section()]
-    )
+    await create_card_type(db, key="Application", label="Application")
     await create_card_type(db, key="BusinessProcess", label="Business Process")
     await create_card_type(db, key="Organization", label="Organization")
     await create_relation_type(

@@ -474,7 +474,12 @@ async def test_a_full_run_walks_every_section_in_dependency_order(db, env, final
         *(
             sec.sheet
             for sec in schema.CONFIG_SECTIONS
-            if sec.sheet != schema.SHEET_CARD_TYPE_CATEGORIES
+            if sec.sheet
+            not in {
+                schema.SHEET_CARD_TYPE_CATEGORIES,
+                schema.SHEET_LICENSE_METRICS,
+                schema.SHEET_LICENSE_TYPES,
+            }
         ),
         schema.SHEET_TAG_GROUPS,
         schema.SHEET_TAGS,
@@ -483,6 +488,9 @@ async def test_a_full_run_walks_every_section_in_dependency_order(db, env, final
         schema.SHEET_CARDS,
         schema.SHEET_CARD_TAGS,
         schema.SHEET_RELATIONS,
+        # The license catalogue has its own applier, run before the entity sections.
+        schema.SHEET_LICENSE_METRICS,
+        schema.SHEET_LICENSE_TYPES,
         *(ent.sheet for ent in ENTITY_SECTIONS),
         SHEET_DIAGRAM_CARDS,
         SHEET_DIAGRAM_GROUP_MEMBERS,

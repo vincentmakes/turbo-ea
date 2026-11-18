@@ -344,8 +344,9 @@ CONFIG_SECTIONS: tuple[ConfigSection, ...] = (
         json_columns=frozenset({"translations"}),
     ),
     # The license metrics, then their types (a type names its metric by ``metric_key``);
-    # ``CardLicenses.items`` is keyed by metric key then type key. Both go through the
-    # generic applier for now.
+    # ``CardLicenses.items`` is keyed by metric key then type key. Exported generically, but
+    # APPLIED by the bespoke ``_apply_license_catalogue`` (after the core sections, before the
+    # entity sections), which also imports a bundle written before metrics existed.
     ConfigSection(
         sheet=SHEET_LICENSE_METRICS,
         model=LicenseMetric,
