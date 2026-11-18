@@ -109,7 +109,7 @@ const year = (fy: number, over: Partial<YearLicenses> = {}): YearLicenses => ({
   ...over,
 });
 const YEARS: YearLicenses[] = [
-  year(2022),
+  year(2022, { metrics: [metric("cores", [tr("x", 4, 1)], "compliant")] }),
   year(2023, { metrics: [metric("users", [tr("qa", 0, null)], "no_actual_data")] }),
   year(2024, { metrics: [metric("users", [tr("old", 7, 3)], "compliant")] }),
   year(2025, { metrics: [metric("users", [tr("prod", 90, 70)], "compliant")] }),
@@ -193,8 +193,10 @@ describe("LicensingSection", () => {
     expect(chart("Installations").option.yAxis[0].data).toEqual(["Prod"]);
     // Actual is the solid bar in front; QA has no actual, so no zero bar
     expect(values(chart("Users").option.series[1])).toEqual([50, 12, null]);
-    // the card's status for the year sits above the bars
-    expect(screen.getByText("Over-licensed")).toBeInTheDocument();
+    // the card's status for the year sits above the bars, each metric's status in its header
+    expect(screen.getAllByText("Over-licensed")).toHaveLength(2);
+    expect(within(screen.getByTestId("license-block-users")).getByText("Over-licensed")).toBeInTheDocument();
+    expect(within(screen.getByTestId("license-block-installations")).getByText("Compliant")).toBeInTheDocument();
   });
 
   it("shows only the pairs the selected year has", async () => {
@@ -208,11 +210,22 @@ describe("LicensingSection", () => {
   });
 
   it("says so when the year has no pair", async () => {
-    await mockGet(response());
+    await mockGet(response({ years: YEARS.map((y) => (y.fiscal_year === 2025 ? { ...y, metrics: [] } : y)) }));
     render(<LicensingSection cardId="c1" />);
-    await goTo(2022);
+    await goTo(2025);
     expect(await screen.findByText(/No licensing recorded for this year/)).toBeInTheDocument();
     expect(screen.queryByTestId("license-block-users")).toBeNull();
+  });
+
+  it("shows an archived metric that has data, labelled archived, in the bars and the history title", async () => {
+    await mockGet(response());
+    const user = userEvent.setup();
+    render(<LicensingSection cardId="c1" />);
+    await goTo(2022);
+    await waitFor(() => expect(chart("Cores (archived)").option.yAxis[0].data).toEqual(["Xeon"]));
+    expect(screen.getByText("Cores (archived)")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^Xeon:/ }));
+    expect(await screen.findByText("Cores: Xeon (archived)")).toBeInTheDocument();
   });
 
   it("shows an archived pair that has data, and a cell without values as no data", async () => {
@@ -274,13 +287,44 @@ describe("LicensingSection", () => {
     expect(last.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     // the six years, Forecast included; a year without the pair has no cell
     const hist = echartState.byName(`${HISTORY}: Users: Dev`);
-    expect(hist.option.xAxis.data).toEqual(["FY22", "FY23", "FY24", "FY25", "FY26", "FY27"]);
-    expect(hist.option.series[0].data).toEqual([0, 0, 0, 0, 10, 0]);
+    expect(hist.option.xAxis.data).toEqual(["FY22", "FY23", "FY24", "FY25", "FY26", "FY27 (Forecast)"]);
+    expect(hist.option.series[0].data).toEqual([null, null, null, null, 10, null]);
     expect(hist.option.series[1].data).toEqual([null, null, null, null, 12, null]);
     // the other pairs dim
     expect(chart("Users").option.series[1].data[0].itemStyle.opacity).toBeLessThan(1);
     clickBar("Users", 1);
     await waitFor(() => expect(screen.queryByTestId("license-pair-history")).toBeNull());
+  });
+
+  it("every pair has a button that opens and closes its history from the keyboard", async () => {
+    await mockGet(response());
+    const user = userEvent.setup();
+    render(<LicensingSection cardId="c1" />);
+    const dev = await screen.findByRole("button", { name: /^Dev:/ });
+    dev.focus();
+    await user.keyboard("{Enter}");
+    expect(await screen.findByText("Users: Dev")).toBeInTheDocument();
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(screen.queryByTestId("license-pair-history")).toBeNull());
+  });
+
+  it("clears the picked pair when the year changes, even if the new year has it", async () => {
+    await mockGet(response());
+    render(<LicensingSection cardId="c1" />);
+    await screen.findByTestId("license-block-installations");
+    clickBar("Users", 0);
+    await screen.findByTestId("license-pair-history");
+    await goTo(2025); // FY25 also holds users:prod
+    await waitFor(() => expect(screen.queryByTestId("license-pair-history")).toBeNull());
+    await goTo(2026);
+    expect(screen.queryByTestId("license-pair-history")).toBeNull();
+  });
+
+  it("fades the bars of a year carried forward and not confirmed", async () => {
+    await mockGet(response());
+    render(<LicensingSection cardId="c1" />);
+    await goTo(2027);
+    await waitFor(() => expect(chart("Users").option.series[0].data[0].itemStyle.opacity).toBeLessThan(0.35));
   });
 
   it("a click on another pair switches the history", async () => {
@@ -337,11 +381,8 @@ describe("LicensingSection", () => {
     ]);
     await user.click(screen.getByRole("option", { name: "Users" }));
     await user.click(within(dialog).getByLabelText("License type"));
-    expect((await screen.findAllByRole("option")).map((o) => o.textContent)).toEqual([
-      "Prod",
-      "Dev",
-      "QA",
-    ]);
+    // FY25 already holds users:prod: Add never offers it, so it cannot overwrite that cell
+    expect((await screen.findAllByRole("option")).map((o) => o.textContent)).toEqual(["Dev", "QA"]);
     await user.click(screen.getByRole("option", { name: "Dev" }));
     await user.type(within(dialog).getByLabelText("Licensed"), "30");
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
@@ -357,6 +398,28 @@ describe("LicensingSection", () => {
     await mockGet(response(), [CATALOGUE[2]]);
     render(<LicensingSection cardId="c1" />);
     await screen.findByText("FY26 - Current");
+    expect(screen.queryByRole("button", { name: "+ Add license" })).toBeNull();
+  });
+
+  it("offers no Add when an active metric has only archived types", async () => {
+    await mockGet(response(), [metricItem("users", "Users", 1, [typeItem("users", "old", "Old", 1, true)])]);
+    render(<LicensingSection cardId="c1" />);
+    await screen.findByText("FY26 - Current");
+    expect(screen.queryByRole("button", { name: "+ Add license" })).toBeNull();
+  });
+
+  it("offers no Add when the year already holds every active pair", async () => {
+    const held = [metricItem("installations", "Installations", 1, [typeItem("installations", "prod", "Prod", 1)])];
+    await mockGet(
+      response({
+        years: YEARS.map((y) =>
+          y.fiscal_year === FY ? { ...y, metrics: [y.metrics[1]] } : y,
+        ),
+      }),
+      held,
+    );
+    render(<LicensingSection cardId="c1" />);
+    await screen.findByTestId("license-block-installations");
     expect(screen.queryByRole("button", { name: "+ Add license" })).toBeNull();
   });
 });

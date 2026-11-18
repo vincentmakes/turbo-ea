@@ -15,6 +15,7 @@ import { api, apiErrorMessage } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useFieldLabel } from "@/hooks/useResolveLabel";
 import { shortFiscalYear } from "@/lib/costItems";
+import { addableCatalogue } from "@/lib/licenses";
 import type { LicenseMetricItem } from "@/types";
 
 export interface LicenseCell {
@@ -32,6 +33,8 @@ interface Props {
   cell: LicenseCell | null;
   /** The whole catalogue, archived entries included: an archived pair is edited but never added. */
   catalogue: LicenseMetricItem[];
+  /** The `pairKey`s the year already holds: Add never offers them, so it cannot overwrite a cell. */
+  held: ReadonlySet<string>;
   onClose: () => void;
   /** After a save or delete went through; the section reloads. */
   onChanged: (opts?: { keepOpen?: boolean }) => void;
@@ -56,6 +59,7 @@ export default function LicenseItemDialog({
   forecastYear,
   cell,
   catalogue,
+  held,
   onClose,
   onChanged,
 }: Props) {
@@ -72,8 +76,8 @@ export default function LicenseItemDialog({
   const [copyError, setCopyError] = useState<string | null>(null);
 
   const editing = cell !== null;
-  const activeMetrics = catalogue.filter((m) => !m.archived);
-  const activeTypes = (catalogue.find((m) => m.key === metric)?.types ?? []).filter((x) => !x.archived);
+  const addable = addableCatalogue(catalogue, held);
+  const addableTypes = addable.find((m) => m.key === metric)?.types ?? [];
   const cellMetric = catalogue.find((m) => m.key === cell?.metric);
   const cellType = cellMetric?.types.find((x) => x.key === cell?.key);
   const isForecast = fiscalYear === forecastYear;
@@ -166,7 +170,7 @@ export default function LicenseItemDialog({
               }}
               size="small"
             >
-              {activeMetrics.map((m) => (
+              {addable.map((m) => (
                 <MenuItem key={m.key} value={m.key}>
                   {fieldLabel(m)}
                 </MenuItem>
@@ -181,7 +185,7 @@ export default function LicenseItemDialog({
               disabled={metric === ""}
               helperText={key === "" ? t("licensing.dialog.typePlaceholder") : undefined}
             >
-              {activeTypes.map((x) => (
+              {addableTypes.map((x) => (
                 <MenuItem key={x.key} value={x.key}>
                   {fieldLabel(x)}
                 </MenuItem>

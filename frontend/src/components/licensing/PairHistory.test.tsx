@@ -23,7 +23,8 @@ describe("PairHistory", () => {
     expect(screen.getByText("Users: Prod")).toBeInTheDocument();
     const chart = echartState.last();
     expect(chart.ariaLabel).toBe("Licensed and actual counts per fiscal year: Users: Prod");
-    expect(chart.option.xAxis.data).toEqual(["FY25", "FY26", "FY27"]);
+    expect(chart.option.xAxis.data).toEqual(["FY25", "FY26", "FY27 (Forecast)"]);
+    expect(chart.option.legend.data).toEqual(["Licensed", "Actual"]);
     expect(chart.option.series[1].data).toEqual([70, 60, null]);
   });
 });

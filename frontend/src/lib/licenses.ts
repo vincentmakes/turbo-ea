@@ -5,9 +5,6 @@ import type { LicenseMetric, LicenseMetricItem, LicenseTypeItem, LicenseStatus, 
 
 /** Card types that hold licenses (mirrors `LICENSE_TYPES` in the backend). */
 export const LICENSE_TYPES: readonly string[] = ["Application", "ITComponent"];
-/** The model field and its dedicated section (mirror `MODEL_KEY` / `LICENSING_SECTION` in the backend). */
-export const LICENSING_MODEL_KEY = "licensingModel";
-export const LICENSING_SECTION = "Licensing";
 export const LICENSE_METRICS: readonly LicenseMetric[] = ["users", "installations"];
 
 export const isLicenseType = (typeKey: string): boolean => LICENSE_TYPES.includes(typeKey);
@@ -35,6 +32,21 @@ export function formatPct(pct: number | null, noLicence: boolean, t: TFunction):
 
 /** A (metric, type) pair as one string, e.g. `users:admin`. */
 export const pairKey = (metric: string, type: string): string => `${metric}:${type}`;
+
+/**
+ * What a card can still be given in a year: the active metrics with their active types, the
+ * pairs the year already holds (`held`, as `pairKey`s) left out, a metric with no type left
+ * dropped. Add must never offer a held pair: writing it would overwrite that cell.
+ */
+export function addableCatalogue(
+  catalogue: LicenseMetricItem[],
+  held: ReadonlySet<string>,
+): LicenseMetricItem[] {
+  return catalogue
+    .filter((m) => !m.archived)
+    .map((m) => ({ ...m, types: m.types.filter((x) => !x.archived && !held.has(pairKey(m.key, x.key))) }))
+    .filter((m) => m.types.length > 0);
+}
 
 /** `Users: Admin`, each part resolved from its own translations. */
 export const pairLabel = (metric: LicenseMetricItem, type: LicenseTypeItem, locale: string): string =>

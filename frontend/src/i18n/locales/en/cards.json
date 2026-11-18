@@ -804,6 +804,7 @@
   "licensing.licensedOnly": "licensed only",
   "licensing.archived": "archived",
   "licensing.barLabel": "Licensed and actual counts per license type",
+  "licensing.forecast": "Forecast",
   "licensing.historyLabel": "Licensed and actual counts per fiscal year",
   "licensing.noPairs": "No licensing recorded for this year. Add a license to start.",
   "licensing.status.over": "Over-licensed",

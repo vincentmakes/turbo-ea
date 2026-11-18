@@ -30,6 +30,7 @@ const catalogue: LicenseMetricItem[] = [
   metricOf("users", "Users", [type("users", "prod", "Prod"), type("users", "old", "Old", true)]),
   metricOf("installations", "Installations", [type("installations", "dev", "Dev")]),
   metricOf("cores", "Cores", [type("cores", "x", "Xeon")], true),
+  metricOf("void", "Void", [type("void", "z", "Zed", true)]),
 ];
 const cell = { metric: "users", key: "prod", licensed: 100, actual: 80 as number | null };
 
@@ -43,6 +44,7 @@ function setup(over: Partial<React.ComponentProps<typeof LicenseItemDialog>> = {
       forecastYear={2027}
       cell={cell}
       catalogue={catalogue}
+      held={new Set()}
       onClose={onClose}
       onChanged={onChanged}
       {...over}
@@ -129,6 +131,30 @@ describe("LicenseItemDialog", () => {
     await user.click(await screen.findByRole("option", { name: "Users" }));
     await user.click(screen.getByLabelText("License type"));
     expect((await screen.findAllByRole("option")).map((o) => o.textContent)).toEqual(["Prod"]);
+  });
+
+  it("never offers a pair the year already holds, so Add cannot overwrite a cell", async () => {
+    const { user } = setup({ cell: null, held: new Set(["users:prod"]) });
+    await user.click(screen.getByLabelText("Metric"));
+    // Users has nothing left to add (its other type is archived)
+    expect((await screen.findAllByRole("option")).map((o) => o.textContent)).toEqual(["Installations"]);
+  });
+
+  it("offers a held pair's metric again for its other types", async () => {
+    const cat = [
+      metricOf("users", "Users", [type("users", "prod", "Prod"), type("users", "dev", "Dev")]),
+    ];
+    const { user } = setup({ cell: null, catalogue: cat, held: new Set(["users:prod"]) });
+    await user.click(screen.getByLabelText("Metric"));
+    await user.click(await screen.findByRole("option", { name: "Users" }));
+    await user.click(screen.getByLabelText("License type"));
+    expect((await screen.findAllByRole("option")).map((o) => o.textContent)).toEqual(["Dev"]);
+  });
+
+  it("does not offer a metric whose types are all archived", async () => {
+    const { user } = setup({ cell: null });
+    await user.click(screen.getByLabelText("Metric"));
+    expect((await screen.findAllByRole("option")).map((o) => o.textContent)).not.toContain("Void");
   });
 
   it("forgets the type when the metric changes", async () => {

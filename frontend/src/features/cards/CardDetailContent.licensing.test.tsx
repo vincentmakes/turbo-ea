@@ -68,24 +68,20 @@ import { resetExtensionHost } from "@/lib/extensionHost";
 import type { Card } from "@/types";
 import CardDetailContent from "./CardDetailContent";
 
-const typeOf = (
-  key: string,
-  sectionConfig: Record<string, unknown> = {},
-  schema?: unknown[],
-) => ({
+const typeOf = (key: string, sectionConfig: Record<string, unknown> = {}) => ({
   key,
   label: key,
   icon: "apps",
   color: "#0f7eb5",
   has_hierarchy: false,
   subtypes: [],
-  fields_schema: schema ?? [
+  fields_schema: [
     { section: "Basics", fields: [{ key: "fieldA", label: "Indicator A", type: "text" }] },
   ],
   section_config: sectionConfig,
 });
 
-const cardOf = (type: string, extra: Record<string, unknown> = {}) =>
+const cardOf = (type: string) =>
   ({
     id: "card-1",
     name: "X",
@@ -95,7 +91,7 @@ const cardOf = (type: string, extra: Record<string, unknown> = {}) =>
     approval_status: "DRAFT",
     data_quality: 50,
     lifecycle: {},
-    attributes: { fieldA: "a", ...extra },
+    attributes: { fieldA: "a" },
     tags: [],
     stakeholders: [],
   }) as unknown as Card;
@@ -108,9 +104,8 @@ function renderFor(
   type: string,
   sectionConfig: Record<string, unknown> = {},
   permissions: typeof perms = perms,
-  extra: { schema?: unknown[]; attributes?: Record<string, unknown> } = {},
 ) {
-  const def = typeOf(type, sectionConfig, extra.schema);
+  const def = typeOf(type, sectionConfig);
   vi.mocked(useMetamodel).mockReturnValue({
     types: [def],
     relationTypes: [],
@@ -122,7 +117,7 @@ function renderFor(
   return render(
     <MemoryRouter>
       <CardDetailContent
-        card={cardOf(type, extra.attributes)}
+        card={cardOf(type)}
         perms={permissions}
         onCardUpdate={() => {}}
         showLdvSection={false}
@@ -156,17 +151,5 @@ describe("CardDetailContent licensing section", () => {
     const props = (await screen.findByTestId("section-props")).textContent ?? "";
     expect(props).not.toMatch(/model/i);
     expect(props.split(",")).toEqual(expect.arrayContaining(["cardId", "onChanged"]));
-  });
-
-  it("renders an admin's own licensingModel field of another section as a generic one", async () => {
-    renderFor("Application", {}, perms, {
-      schema: [
-        {
-          section: "Basics",
-          fields: [{ key: "licensingModel", label: "Own model", type: "text" }],
-        },
-      ],
-    });
-    expect(await screen.findByText("Own model")).toBeInTheDocument();
   });
 });

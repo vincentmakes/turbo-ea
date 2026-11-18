@@ -20,7 +20,7 @@ import { useLicenseCatalogue } from "@/hooks/useLicenseCatalogue";
 import { fieldLabel } from "@/hooks/useResolveLabel";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
 import { shortFiscalYear } from "@/lib/costItems";
-import { pairKey, pairLabel, statusColor } from "@/lib/licenses";
+import { addableCatalogue, formatPct, pairKey, pairLabel, statusColor } from "@/lib/licenses";
 import { catalogueHues } from "@/features/reports/costColors";
 import { SECTION_SCROLL_MARGIN, sectionAnchor } from "@/features/cards/dataQualityJump";
 import { CHART_OTHER } from "@/theme/tokens";
@@ -52,7 +52,7 @@ export default function LicensingSection({
   const { t, i18n } = useTranslation("cards");
   const locale = i18n.language;
   const chrome = useEChartsTheme();
-  const { metrics: catalogue } = useLicenseCatalogue();
+  const { metrics: catalogue, loading, failed } = useLicenseCatalogue();
   const [expanded, setExpanded] = useSyncedExpanded(initialExpanded, expandOn);
   const [version, setVersion] = useState(0);
   const { data, error } = useApiQuery<CardLicensesResponse>(`/cards/${cardId}/licenses`, {
@@ -81,8 +81,9 @@ export default function LicensingSection({
 
   // 403/404: no access or not a license-bearing card, so the section does not exist for this user.
   if (error instanceof ApiError && (error.status === 403 || error.status === 404)) return null;
-  if (error && !data) return <Alert severity="error">{t("licensing.loadFailed")}</Alert>;
-  if (!data) return null;
+  if ((error && !data) || failed) return <Alert severity="error">{t("licensing.loadFailed")}</Alert>;
+  // Without the catalogue a bar would carry a raw key as its label.
+  if (!data || loading) return null;
 
   const years = data.years;
   const currentFy = years.find((y) => y.is_current)?.fiscal_year ?? years[0].fiscal_year;
@@ -95,20 +96,21 @@ export default function LicensingSection({
   ];
   const forecast = year.is_forecast;
   const editable = data.can_edit;
-  const canAdd = catalogue.some((m) => !m.archived && m.types.some((x) => !x.archived));
   const reload = () => {
     setVersion((v) => v + 1);
     onChanged?.();
   };
 
+  const archived = ` (${t("licensing.archived")})`;
   const metricName = (key: string) => {
     const m = metricOf(key);
-    return m ? fieldLabel(m, locale) : key;
+    if (!m) return key;
+    return m.archived ? `${fieldLabel(m, locale)}${archived}` : fieldLabel(m, locale);
   };
   const typeName = (metric: string, key: string) => {
     const x = typeOf(metric, key);
     if (!x) return key;
-    return x.archived ? `${fieldLabel(x, locale)} (${t("licensing.archived")})` : fieldLabel(x, locale);
+    return x.archived ? `${fieldLabel(x, locale)}${archived}` : fieldLabel(x, locale);
   };
 
   const pairsByKey = new Map<string, Pair>(
@@ -116,17 +118,26 @@ export default function LicensingSection({
       m.types.map((r) => [pairKey(m.metric, r.key), { metric: m.metric, key: r.key }] as const),
     ),
   );
+  const canAdd = addableCatalogue(catalogue, new Set(pairsByKey.keys())).length > 0;
   const groups: PairGroup[] = year.metrics.map((m) => ({
     metric: m.metric,
     label: metricName(m.metric),
-    pairs: m.types.map((r) => ({
-      key: pairKey(m.metric, r.key),
-      label: typeName(m.metric, r.key),
-      licensed: r.licensed,
-      actual: forecast ? null : r.actual,
-      color: colorOf(m.metric, r.key),
-      status: forecast ? t("licensing.licensedOnly") : t(`licensing.status.${r.status}`),
-    })),
+    status: forecast ? "" : t(`licensing.status.${m.status}`),
+    statusColor: forecast ? null : statusColor(m.status),
+    pairs: m.types.map((r) => {
+      // No percentage in the Forecast, with no actual, or when licensed is 0 and so is the use.
+      const hasPct = !forecast && r.actual != null && (r.pct != null || r.no_licence);
+      return {
+        key: pairKey(m.metric, r.key),
+        label: typeName(m.metric, r.key),
+        licensed: r.licensed,
+        actual: forecast ? null : r.actual,
+        color: colorOf(m.metric, r.key),
+        status: forecast ? t("licensing.licensedOnly") : t(`licensing.status.${r.status}`),
+        statusColor: statusColor(r.status),
+        pct: hasPct ? formatPct(r.pct, r.no_licence, t) : "",
+      };
+    }),
   }));
   // The cell of the picked pair in the picked year, if the year has it (it may not).
   const cellOf = (p: Pair) =>
@@ -157,14 +168,14 @@ export default function LicensingSection({
       <>
         <PairHistory
           pair={{
-            label: m && x ? pairLabel(m, x, locale) : `${metricName(p.metric)}: ${p.key}`,
+            label: m && x ? `${pairLabel(m, x, locale)}${m.archived || x.archived ? archived : ""}` : `${p.metric}: ${p.key}`,
             color: colorOf(p.metric, p.key),
           }}
           years={years.map((y) => {
             const r = y.metrics.find((mr) => mr.metric === p.metric)?.types.find((tr) => tr.key === p.key);
             return {
               year: shortFiscalYear(y.fiscal_year),
-              licensed: r?.licensed ?? 0,
+              licensed: r?.licensed ?? null,
               actual: r?.actual ?? null,
               forecast: y.is_forecast,
             };
@@ -205,7 +216,10 @@ export default function LicensingSection({
           years={years.map((y) => y.fiscal_year)}
           currentFy={currentFy}
           value={year.fiscal_year}
-          onChange={setPicked}
+          onChange={(fy) => {
+            setPicked(fy);
+            setSelected(null);
+          }}
         />
         {!year.confirmed && (
           <Alert
@@ -255,6 +269,8 @@ export default function LicensingSection({
           <PairBars
             groups={groups}
             selectedKey={active && pairKey(active.metric, active.key)}
+            forecast={forecast}
+            confirmed={year.confirmed}
             onPick={pick}
           />
         )}
@@ -267,6 +283,7 @@ export default function LicensingSection({
             forecastYear={forecastFy}
             cell={dialog.cell}
             catalogue={catalogue}
+            held={new Set(pairsByKey.keys())}
             onClose={() => setDialog(null)}
             onChanged={(opts) => {
               if (!opts?.keepOpen) setDialog(null);

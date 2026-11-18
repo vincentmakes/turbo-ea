@@ -9,6 +9,7 @@ import {
   axisLabel,
   base,
   grid,
+  legend,
   splitLine,
   tooltip,
   type ChartChromeContext,
@@ -16,7 +17,8 @@ import {
 
 export interface PairHistoryRow {
   year: string;
-  licensed: number;
+  /** `null` for a year with no cell for the pair: nothing is drawn, not a zero. */
+  licensed: number | null;
   actual: number | null;
   forecast: boolean;
 }
@@ -27,6 +29,8 @@ export interface PairHistoryOptions {
   color: string;
   licensedLabel: string;
   actualLabel: string;
+  /** Marks the Forecast year's column. */
+  forecastLabel: string;
 }
 
 export function pairHistoryOption(
@@ -38,7 +42,9 @@ export function pairHistoryOption(
   return {
     ...base(ctx),
     animation: false,
-    grid: grid(ctx, 8, 0),
+    legend: legend(ctx, [o.licensedLabel, o.actualLabel], { selectedMode: false }),
+    // the bottom inset holds the legend band
+    grid: grid(ctx, 8, 36),
     tooltip: tooltip(ctx, {
       trigger: "axis",
       confine: false,
@@ -48,7 +54,7 @@ export function pairHistoryOption(
     xAxis: {
       type: "category",
       inverse: o.isRtl,
-      data: rows.map((r) => r.year),
+      data: rows.map((r) => (r.forecast ? `${r.year} (${o.forecastLabel})` : r.year)),
       axisLabel: axisLabel(ctx, { interval: 0 }),
       axisTick: { show: false },
     },

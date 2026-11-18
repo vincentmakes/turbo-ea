@@ -7,6 +7,7 @@
 import type { EChartsCoreOption } from "echarts/core";
 import type { EChartsChrome } from "@/components/charts/echartsTheme";
 import {
+  axisLabel,
   base,
   escapeHtml,
   GRID_TRAILING_INSET,
@@ -24,16 +25,27 @@ export interface PairBar {
   color: string;
   /** The status as the user reads it (already translated). */
   status: string;
+  /** The status's colour, used for the consumption text. */
+  statusColor: string;
+  /** The utilisation as the user reads it (`80 %`, "no license"), empty when there is none to show. */
+  pct: string;
 }
 
 export interface PairGroup {
   metric: string;
   label: string;
+  /** The metric's status as the user reads it; empty with no status (the Forecast year). */
+  status: string;
+  statusColor: string | null;
   pairs: PairBar[];
 }
 
 export interface PairBarsOptions {
   selectedKey: string | null;
+  /** The Forecast year: licensed counts only, no status. */
+  forecast: boolean;
+  /** False for a year carried forward and not confirmed yet: drawn faded. */
+  confirmed: boolean;
   chrome: EChartsChrome;
   isRtl: boolean;
   licensedLabel: string;
@@ -47,7 +59,9 @@ const GROUP_GAP = 8;
 const LICENSED_WIDTH = 22;
 const ACTUAL_WIDTH = 10;
 const LICENSED_OPACITY = 0.35;
+const LICENSED_OPACITY_UNCONFIRMED = 0.2;
 const LICENSED_OPACITY_DIMMED = 0.12;
+const ACTUAL_OPACITY_UNCONFIRMED = 0.55;
 const ACTUAL_OPACITY_DIMMED = 0.35;
 
 /** The height of the chart drawing these groups, in px. */
@@ -56,19 +70,24 @@ export function pairBarsHeight(groups: PairGroup[]): number {
   return rows * ROW_HEIGHT + GROUP_GAP * Math.max(0, groups.length - 1);
 }
 
+/** The text at the end of a pair's bar: `80 / 100 (80 %)`, `— / 10` with no actual yet, the count alone in the Forecast. */
+export function pairConsumption(
+  p: PairBar,
+  o: Pick<PairBarsOptions, "forecast" | "noDataLabel">,
+): string {
+  if (o.forecast) return String(p.licensed);
+  if (p.actual == null) return p.licensed === 0 ? o.noDataLabel : `— / ${p.licensed}`;
+  return `${p.actual} / ${p.licensed}${p.pct ? ` (${p.pct})` : ""}`;
+}
+
 export function pairBarsOption(groups: PairGroup[], o: PairBarsOptions): EChartsCoreOption {
   const ctx: ChartChromeContext = { theme: o.chrome, isRtl: o.isRtl };
   const end = o.isRtl ? "left" : "right";
-  const consumption = (p: PairBar): string =>
-    p.actual != null
-      ? `${p.actual} / ${p.licensed}`
-      : p.licensed === 0
-        ? o.noDataLabel
-        : String(p.licensed);
+  const consumption = (p: PairBar) => pairConsumption(p, o);
   const label = (p: PairBar) => ({
     show: true,
     position: end,
-    color: o.chrome.textSecondary,
+    color: o.forecast ? o.chrome.textSecondary : p.statusColor,
     fontSize: VALUE_LABEL_FONT_SIZE,
     formatter: () => consumption(p),
   });
@@ -102,7 +121,11 @@ export function pairBarsOption(groups: PairGroup[], o: PairBarsOptions): ECharts
         value: p.licensed,
         itemStyle: {
           color: p.color,
-          opacity: dimmed(p) ? LICENSED_OPACITY_DIMMED : LICENSED_OPACITY,
+          opacity: dimmed(p)
+            ? LICENSED_OPACITY_DIMMED
+            : o.confirmed
+              ? LICENSED_OPACITY
+              : LICENSED_OPACITY_UNCONFIRMED,
         },
         label: onActual(p) ? { show: false } : label(p),
       })),
@@ -114,7 +137,10 @@ export function pairBarsOption(groups: PairGroup[], o: PairBarsOptions): ECharts
       z: 3,
       data: g.pairs.map((p) => ({
         value: p.actual,
-        itemStyle: { color: p.color, opacity: dimmed(p) ? ACTUAL_OPACITY_DIMMED : 1 },
+        itemStyle: {
+          color: p.color,
+          opacity: dimmed(p) ? ACTUAL_OPACITY_DIMMED : o.confirmed ? 1 : ACTUAL_OPACITY_UNCONFIRMED,
+        },
         label: onActual(p) ? label(p) : { show: false },
       })),
     });
@@ -151,7 +177,7 @@ export function pairBarsOption(groups: PairGroup[], o: PairBarsOptions): ECharts
       data: g.pairs.map((p) => p.label),
       axisLine: { show: false },
       axisTick: { show: false },
-      axisLabel: { color: o.chrome.textSecondary, fontSize: 12, interval: 0 },
+      axisLabel: axisLabel(ctx, { interval: 0 }),
     })),
   };
 }

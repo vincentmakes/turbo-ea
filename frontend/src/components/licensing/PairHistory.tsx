@@ -26,6 +26,7 @@ export default function PairHistory({ pair, years }: Props) {
           color: pair.color,
           licensedLabel: t("licensing.licensed"),
           actualLabel: t("licensing.actual"),
+          forecastLabel: t("licensing.forecast"),
         })}
         style={{ height: HEIGHT }}
         ariaLabel={`${t("licensing.historyLabel")}: ${pair.label}`}
