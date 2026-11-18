@@ -1206,8 +1206,16 @@ export const DOC_PAGES: PageDef[] = [
   {
     id: "103_report_licensing",
     route: "/reports/licensing",
-    waitFor: ".echart-container",
-    actions: [{ type: "wait", ms: 1000 }],
+    waitFor: "button[aria-expanded]",
+    // The Utilisation list starts collapsed and most demo cards have no licensing: keep the
+    // Over-licensed tile (third status tile), then open its first card so the pair bars show.
+    actions: [
+      { type: "click", selector: "[role='button'][aria-pressed]", nth: 2 },
+      { type: "wait", ms: 500 },
+      { type: "click", selector: "button[aria-expanded='false']", nth: 0 },
+      { type: "waitFor", selector: ".echart-container" },
+      { type: "wait", ms: 1000 },
+    ],
     filenames: {
       en: "103_report_licensing",
       de: "103_bericht_lizenzierung",

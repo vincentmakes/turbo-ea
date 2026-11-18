@@ -27,7 +27,8 @@
 | **DrawIO** | The embedded open-source diagramming tool used for visual architecture diagrams |
 | **Cost Item** | One line of an Application or IT Component's annual cost (for example hosting), taken from the catalogue in Admin > Metamodel > Cost items. A card's TCO is the sum of its items for the fiscal year |
 | **TCO (Total Cost of Ownership)** | The total annual cost of an Application or IT Component for a fiscal year, always derived from its cost items and never typed by hand |
-| **License Type** | A kind of license (for example Admin or End User) from the catalogue in Admin > Metamodel > License types. Application and IT Component cards record licensed and actual counts per license type, metric and fiscal year |
+| **License Metric** | What an Application or IT Component's licenses are counted in (by default Users and Installations), from the catalogue in Admin > Metamodel > License types. Counts of different metrics are never added together |
+| **License Type** | A kind of license (for example Admin or Prod) that belongs to one License Metric, from the catalogue in Admin > Metamodel > License types. A card records licensed and actual counts for each Metric: Type pair and fiscal year |
 | **Utilisation** | Actual license count divided by licensed count, as a percentage. Below 80 % a license type is compliant, from 80 % approaching, above 100 % over-licensed |
 | **Cost Line** | A budget or actual cost entry (CapEx/OpEx) in a PPM initiative, used to track financial spending |
 | **Enterprise Architecture (EA)** | The discipline that organizes and documents an organization's business and technology structure |
