@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$(git rev-parse --show-toplevel)\" && node .trail/hook.cjs session-start",
+            "timeout": 5,
+            "statusMessage": "Loading Turbo EA Trail notes"
+          }
+        ]
+      }
+    ]
+  }
+}

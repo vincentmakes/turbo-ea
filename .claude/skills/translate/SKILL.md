@@ -1,12 +1,15 @@
 ---
 name: translate
-description: Fill all non-English locales (UI JSON, seed translations, doc siblings, screenshot filenames) from this branch's English changes, on a Sonnet subagent. Run before opening a PR that touched en/*.json, seed.py, docs/*.md or pages.ts.
+description: Fill all non-English locales (UI JSON, seed translations, doc siblings, screenshot filenames) from this branch's English changes through the translator subagent. Run before opening a PR that touched en/*.json, seed.py, docs/*.md or pages.ts.
 context: fork
 agent: translator
 model: sonnet
 background: false
 allowed-tools: Bash(python scripts/i18n/check_locales.py:*) Bash(cd frontend && npx vitest run src/i18n:*) Bash(cd backend && python -m pytest tests/services/test_i18n_seed.py:*)
 ---
+
+When running this skill in Codex as the calling agent, delegate the procedure below to the project's
+`translator` profile and wait for its report. If you are already the translator, start at step 1.
 
 Bring the nine non-English locales (`de fr es it pt zh ru da ar`) level with the English changes
 on this branch. Follow the rules in your agent definition; this is the procedure.

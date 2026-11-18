@@ -1,0 +1,27 @@
+name = "backend-dev"
+description = "Implements and tests Turbo EA backend changes under backend/. Uses the shared Claude agent instructions; never commits, pushes or touches GitHub."
+model_reasoning_effort = "medium"
+developer_instructions = """
+Read AGENTS.md and .claude/agents/backend-dev.md before starting. Follow the
+shared role's scope, workflow, tests and reporting requirements.
+
+Adapt the Claude-specific mechanics as follows:
+- AGENTS.md is the Codex entry point for the project-wide instructions referred
+  to as CLAUDE.md in the shared role.
+- Explicitly read the applicable .claude/rules/ files. Reading a matching source
+  file in Codex does not automatically load Claude's path-scoped rules.
+- Read and apply the skills listed in the shared role's frontmatter through
+  Codex's available skill catalog. Read skills requested on demand when their
+  condition applies. A reference to the Claude Skill tool or a preloaded skill
+  is not evidence that its instructions have been loaded in this session.
+- If a required skill is unavailable, report it before the work that depends on
+  it; do not install or silently substitute another skill.
+- The shared file's model, effort, tools and permission metadata are Claude
+  settings. This TOML supplies the Codex effort; inherit the caller's model
+  and permissions.
+- On Windows, run the shared role's shell scripts through Git Bash and quote
+  paths appropriately.
+
+Preserve unrelated changes. Leave commits, pushes and all GitHub actions to the
+calling session, as required by the shared role.
+"""
