@@ -6,9 +6,12 @@ from sqlalchemy import delete, select
 
 from app.models.card import Card
 from app.models.card_license import CardLicense
+from app.models.card_type import CardType
+from app.models.license_metric import LicenseMetric
 from app.models.license_type import LicenseType
-from app.services import card_licenses
+from app.services import card_licenses, seed
 from app.services.fiscal_year import current_fiscal_year, get_fiscal_year_start
+from app.services.license_catalogue import load_catalogue
 from app.services.seed_demo_licensing import SEEDER_KEY, seed_licensing_demo_data
 from app.services.seed_markers import demo_seed_completed
 from tests.conftest import create_card, create_card_type
@@ -26,24 +29,58 @@ async def _demo_cards(db):
         await create_card(db, card_type="ITComponent", name=name, attributes={})
 
 
+async def test_fresh_seed_has_the_default_metrics_and_no_model_field(db):
+    await seed.seed_metamodel(db)
+    metrics = (await db.execute(select(LicenseMetric.key))).scalars().all()
+    assert set(metrics) == {"users", "installations"}
+    for key in ("Application", "ITComponent"):
+        schema = (
+            await db.execute(select(CardType.fields_schema).where(CardType.key == key))
+        ).scalar_one()
+        assert "licensingModel" not in [f["key"] for s in schema for f in s["fields"]]
+
+
 async def test_seeds_once_by_marker(db):
     await _demo_cards(db)
     first = await seed_licensing_demo_data(db)
     assert not first.get("skipped")
     assert await demo_seed_completed(db, SEEDER_KEY)
-    types = (await db.execute(select(LicenseType.key))).scalars().all()
-    assert {"admin", "end_user", "dev"} <= set(types)
-    models = (
-        (await db.execute(select(Card.attributes).where(Card.type.in_(["Application"]))))
-        .scalars()
-        .all()
-    )
-    assert sum(1 for a in models if a.get("licensingModel")) == 4
+    attrs = (await db.execute(select(Card.attributes))).scalars().all()
+    assert not any("licensingModel" in a for a in attrs)
 
     rows = (await db.execute(select(CardLicense))).scalars().all()
     second = await seed_licensing_demo_data(db)
     assert second["skipped"] is True
     assert len((await db.execute(select(CardLicense))).scalars().all()) == len(rows)
+
+
+async def test_types_sit_under_their_metric_and_every_cell_resolves(db):
+    await _demo_cards(db)
+    await seed_licensing_demo_data(db)
+    pairs = set((await db.execute(select(LicenseType.metric_key, LicenseType.key))).all())
+    assert pairs == {
+        ("users", "business"),
+        ("users", "admin"),
+        ("installations", "prod"),
+        ("installations", "no_prod"),
+    }
+    catalogue = await load_catalogue(db)
+    rows = (await db.execute(select(CardLicense))).scalars().all()
+    for row in rows:
+        for metric, types in row.items.items():
+            for key in types:
+                assert catalogue.type(metric, key) is not None, (metric, key)
+
+
+async def test_a_card_pairs_differ_by_year(db):
+    await _demo_cards(db)
+    await seed_licensing_demo_data(db)
+    rows = (await db.execute(select(CardLicense))).scalars().all()
+    by_card: dict = {}
+    for row in rows:
+        pairs = frozenset((m, k) for m, types in row.items.items() for k in types)
+        by_card.setdefault(row.card_id, set()).add(pairs)
+    assert any(len(years) > 1 for years in by_card.values())
 
 
 async def test_marker_holds_after_data_deleted(db):

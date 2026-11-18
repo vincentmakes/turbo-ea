@@ -1,4 +1,4 @@
-"""Demo licensing data: license types and yearly license rows on a few demo cards.
+"""Demo licensing data: license types per metric and yearly license rows on a few demo cards.
 
 Runs after the base demo seeder. Guarded by a durable ``seed_markers`` entry, never by
 the rows it created, so deleting them never brings them back on a restart.
@@ -17,31 +17,43 @@ from app.services.seed_markers import demo_seed_completed, mark_demo_seed_comple
 
 SEEDER_KEY = "licensing"
 
-TYPES = (("admin", "Admin"), ("end_user", "End User"), ("dev", "Dev"))
+# metric -> its types (key, label); the metrics are the two seeded defaults.
+TYPES = {
+    "users": (("business", "Business"), ("admin", "Admin")),
+    "installations": (("prod", "Prod"), ("no_prod", "No-Prod")),
+}
 
 # card type -> name -> {metric: {type key: (licensed, actual this year)}}; actual None = no data.
 # One card per status in the current year: compliant, over, approaching, no actual data.
 DEMO: dict[tuple[str, str], dict[str, dict[str, tuple[int, int | None]]]] = {
     ("Application", "SAP S/4HANA"): {
-        "users": {"admin": (50, 30), "end_user": (500, 300)},
-        "installations": {"end_user": (40, 22)},
+        "users": {"admin": (50, 30), "business": (500, 300)},
+        "installations": {"prod": (40, 22)},
     },
-    ("Application", "SAP Ariba"): {"users": {"end_user": (200, 230), "admin": (10, 6)}},
-    ("Application", "SAP SuccessFactors"): {"users": {"end_user": (1000, 900)}},
-    ("Application", "Siemens Teamcenter"): {"users": {"end_user": (300, None)}},
-    ("ITComponent", "PostgreSQL 16"): {"installations": {"dev": (20, 12), "admin": (4, 3)}},
-    ("ITComponent", "Datadog"): {"installations": {"dev": (30, 28)}},
+    ("Application", "SAP Ariba"): {"users": {"business": (200, 230), "admin": (10, 6)}},
+    ("Application", "SAP SuccessFactors"): {"users": {"business": (1000, 900)}},
+    ("Application", "Siemens Teamcenter"): {"users": {"business": (300, None)}},
+    ("ITComponent", "PostgreSQL 16"): {"installations": {"prod": (20, 12), "no_prod": (4, 3)}},
+    ("ITComponent", "Datadog"): {"installations": {"prod": (30, 28)}},
+}
+# The first year (relative to the current one) a pair has a cell; absent = every year.
+# So a card's pairs differ by year.
+SINCE: dict[tuple[str, str], dict[tuple[str, str], int]] = {
+    ("Application", "SAP S/4HANA"): {("installations", "prod"): -1},
+    ("Application", "SAP Ariba"): {("users", "admin"): 0},
+    ("ITComponent", "PostgreSQL 16"): {("installations", "no_prod"): -1},
 }
 # Past years run a little smaller; the Forecast year carries the current licensed only.
 PAST_SCALE = {2: 0.8, 1: 0.9}
 
 
-def _items(rows: dict, offset: int) -> dict:
+def _items(rows: dict, offset: int, since: dict) -> dict:
     """``offset`` is the year relative to the current one (-2 ... +1)."""
     out: dict = {}
     for metric, by_type in rows.items():
-        out[metric] = {}
         for key, (licensed, actual) in by_type.items():
+            if offset < since.get((metric, key), -2):
+                continue
             if offset > 0:
                 cell = {"licensed": licensed, "actual": None}
             elif offset == 0:
@@ -52,7 +64,7 @@ def _items(rows: dict, offset: int) -> dict:
                     "licensed": round(licensed * scale),
                     "actual": None if actual is None else round(actual * scale),
                 }
-            out[metric][key] = cell
+            out.setdefault(metric, {})[key] = cell
     return out
 
 
@@ -70,9 +82,10 @@ async def seed_licensing_demo_data(db: AsyncSession) -> dict:
         return {"skipped": True, "reason": "no demo cards"}
 
     await license_types.seed_default_metrics(db)
-    for key, label in TYPES:
-        if await license_types.get_item(db, "users", key) is None:
-            await license_types.create_item(db, "users", key, label)
+    for metric, types in TYPES.items():
+        for key, label in types:
+            if await license_types.get_item(db, metric, key) is None:
+                await license_types.create_item(db, metric, key, label)
 
     year = current_fiscal_year(await get_fiscal_year_start(db))
     # Natural-key skip: a card that already has any licence row (migrated or entered) is left alone.
@@ -88,17 +101,12 @@ async def seed_licensing_demo_data(db: AsyncSession) -> dict:
     for ident, card in cards.items():
         if card.id in licensed:
             continue
-        # Reassign: JSONB does not track in-place mutation.
-        card.attributes = {
-            **(card.attributes or {}),
-            "licensingModel": sorted(DEMO[ident]),
-        }
         for offset in (-2, -1, 0, 1):
             db.add(
                 CardLicense(
                     card_id=card.id,
                     fiscal_year=year + offset,
-                    items=_items(DEMO[ident], offset),
+                    items=_items(DEMO[ident], offset, SINCE.get(ident, {})),
                 )
             )
     await mark_demo_seed_completed(db, SEEDER_KEY)
