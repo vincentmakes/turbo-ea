@@ -10209,6 +10209,7 @@
         "type": "object"
       },
       "LicenseTypeUpdate": {
+        "additionalProperties": false,
         "properties": {
           "archived": {
             "anyOf": [

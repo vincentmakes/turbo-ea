@@ -7,9 +7,12 @@ migration 192 (see ``test_alembic_192_license_metrics.py``).
 
 from __future__ import annotations
 
+import ast
 import copy
 import importlib.util
 from pathlib import Path
+
+import pytest
 
 from app.services import seed
 from app.services.licensing_migration import (
@@ -207,6 +210,32 @@ def test_derive_type_metrics_follows_where_the_data_is():
 
 def test_derive_type_metrics_of_no_types_is_empty():
     assert derive_type_metrics([], {}) == []
+
+
+def test_derive_type_metrics_drops_a_metric_the_catalogue_does_not_have():
+    used = {"admin": {"users", "seats"}, "x": {"seats"}}
+    assert derive_type_metrics([("admin", False), ("x", False)], used) == [
+        ("admin", "users"),
+        ("x", "users"),
+        ("x", "installations"),
+    ]
+
+
+@pytest.mark.source_scan
+def test_no_app_module_takes_the_default_metrics_from_the_migration_helpers():
+    """``licensing_migration.DEFAULT_METRICS`` is migration 192's frozen copy; the app reads
+    the live one from ``license_types``."""
+    from tests.app_source import iter_py
+
+    importers = {
+        path
+        for path, source in iter_py().items()
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.ImportFrom)
+        and node.module == "app.services.licensing_migration"
+        and any(a.name == "DEFAULT_METRICS" for a in node.names)
+    }
+    assert importers == {"services/license_metrics_migration.py"}
 
 
 def _field(ftype="multiple_select", **kw):

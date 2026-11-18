@@ -172,10 +172,25 @@ def ignored_metric_cards(session: Session) -> list[dict]:
 
 def clear_model_values(session: Session) -> int:
     """Drop ``attributes.licensingModel`` of both card types; returns how many cards had it.
-    ``updated_at`` stays where it is."""
+    A type whose schema still holds a field of that key (an extension's, which
+    ``without_model_field`` keeps) keeps its values. ``updated_at`` stays where it is."""
+    owned = {
+        key
+        for key, schema in session.execute(
+            sa.select(_card_types.c.key, _card_types.c.fields_schema).where(
+                _card_types.c.key.in_(LICENSING_TYPES)
+            )
+        )
+        if any(
+            isinstance(f, dict) and f.get("key") == MODEL_KEY
+            for s in without_model_field(key, schema or [])
+            if isinstance(s, dict)
+            for f in s.get("fields", [])
+        )
+    }
     rows = session.execute(
         sa.select(_cards.c.id, _cards.c.attributes).where(
-            _cards.c.type.in_(LICENSING_TYPES), _cards.c.attributes.has_key(MODEL_KEY)
+            _cards.c.type.in_(LICENSING_TYPES - owned), _cards.c.attributes.has_key(MODEL_KEY)
         )
     ).all()
     for card_id, attrs in rows:

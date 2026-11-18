@@ -137,6 +137,28 @@ async def test_copy_to_forecast_copies_licensed_only(db):
     assert e.value.code == "unknown_type"
 
 
+async def test_copy_to_forecast_from_an_archived_metric(db):
+    card = await _setup(db)
+    await _row(db, card, CUR, {"installations": {"prod": cell(6, 5)}})
+    await license_metrics.update_item(db, "installations", archived=True)
+    await svc.copy_to_forecast(db, card.id, CUR, "installations", "prod")
+    items = (await svc._resolve(db, card.id, CUR + 1, SM))[0]
+    assert items == {"installations": {"prod": cell(6, None)}}
+
+
+async def test_delete_clears_a_cell_the_catalogue_does_not_know(db):
+    card = await _setup(db)
+    await _row(
+        db,
+        card,
+        CUR,
+        {"seats": {"x": cell(1, 1)}, "users": {"ghost": cell(2, 2), "admin": cell(3, 3)}},
+    )
+    assert await svc.delete_cell(db, card.id, CUR, "seats", "x") is True
+    assert await svc.delete_cell(db, card.id, CUR, "users", "ghost") is True
+    assert (await svc._resolve(db, card.id, CUR, SM))[0] == {"users": {"admin": cell(3, 3)}}
+
+
 async def test_delete_absent_cell_is_noop_without_event(db):
     card = await _setup(db)
     user = await create_user(db, email="d@lic.com")

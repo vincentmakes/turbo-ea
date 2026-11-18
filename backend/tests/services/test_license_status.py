@@ -5,6 +5,7 @@ from __future__ import annotations
 from app.services.license_status import (
     MetricResult,
     card_status,
+    card_worst,
     metric_result,
     type_result,
 )
@@ -97,3 +98,13 @@ def test_order_follows_catalogue_then_unknown_keys_sorted():
 
 def test_catalogue_key_without_cell_is_left_out():
     assert metric_result("users", {"a": {}}, ["b", "a"]).types[0].key == "a"
+
+
+def test_card_worst_is_the_highest_pct_and_any_no_licence_across_metrics():
+    a = MetricResult("users", [], True, "compliant", 50.0, False, 0, None)
+    b = MetricResult("installations", [], True, "over", 120.0, True, 0, None)
+    c = MetricResult("cores", [], False, "no_actual_data", None, False, 0, None)
+    assert card_worst([a, b, c]) == (120.0, True)
+    assert card_worst([a, c]) == (50.0, False)
+    assert card_worst([c]) == (None, False)
+    assert card_worst([]) == (None, False)

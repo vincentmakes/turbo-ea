@@ -12,6 +12,9 @@ rescore marker is bumped in ``app/main.py``, not here. Idempotent: it does nothi
 ``license_types.metric_key`` exists.
 
 Forward-only in practice: the downgrade refuses while a type key exists under two metrics.
+When it runs it drops ``license_metrics`` and ``license_types.metric_key`` only: it does not
+put ``licensingModel`` back (field or card values) and leaves ``card_licenses.items`` as they
+are, cells under a custom metric included.
 
 Revision ID: 192
 Revises: 191

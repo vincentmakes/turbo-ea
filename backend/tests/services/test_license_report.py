@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import pytest
+from sqlalchemy import update
 
 from app.models.card_license import CardLicense
+from app.models.card_logo import CardLogo
+from app.models.card_type import CardType
 from app.services.card_read_scope import CardReadScope
 from app.services.cost_grouping import GroupBy
 from app.services.fiscal_year import current_fiscal_year
@@ -256,6 +259,53 @@ async def test_an_archived_metric_is_listed_only_with_data_in_the_year(db, env):
     assert "old" not in (await _report(db, env))["metrics_in_year"]
     await _row(db, c, CUR, old={"x": (1, 1)})
     assert "old" in (await _report(db, env))["metrics_in_year"]
+
+
+async def test_a_metric_and_a_pair_of_another_metric_are_refused(db, env):
+    with pytest.raises(ValueError, match="installations:seat"):
+        await _report(db, env, metric="users", license_type="installations:seat")
+    assert (await _report(db, env, metric="installations", license_type="installations:seat"))[
+        "rows"
+    ] == []
+
+
+async def test_a_row_carries_logo_updated_at_only_when_the_card_has_a_logo(db, env):
+    await db.execute(
+        update(CardType).where(CardType.key == "Application").values(allow_card_logo=True)
+    )
+    logo = await _card(db, "Logo")
+    await _card(db, "Plain")
+    db.add(CardLogo(card_id=logo.id, mime_type="image/png", size=1, data=b"x"))
+    await db.flush()
+    rows = _by_name(await _report(db, env))
+    assert rows["Logo"]["logo_updated_at"] is not None
+    assert "logo_updated_at" not in rows["Plain"]
+
+
+async def test_unknown_metrics_follow_the_catalogue_ones_sorted(db, env):
+    c = await _card(db, "Mixed")
+    await _row(
+        db,
+        c,
+        CUR,
+        zeta={"x": (1, 1)},
+        installations={"seat": (1, 1)},
+        alpha={"x": (1, 1)},
+        users={"admin": (1, 1)},
+    )
+    row = (await _report(db, env))["rows"][0]
+    assert [m["metric"] for m in row["by_metric"]] == ["users", "installations", "alpha", "zeta"]
+
+
+async def test_a_selection_and_a_grouping_combine(db, env):
+    gold = await _card(db, "Gold", attributes={"tier": "gold"})
+    other = await _card(db, "Other")
+    seats = await _card(db, "Seats", attributes={"tier": "gold"})
+    await _row(db, gold, CUR, users={"admin": (1, 1)})
+    await _row(db, other, CUR, users={"dev": (1, 1)})
+    await _row(db, seats, CUR, installations={"seat": (1, 1)})
+    report = await _report(db, env, metric="users", group_by=GroupBy("field", "tier"))
+    assert {r["name"]: r["group"] for r in report["rows"]} == {"Gold": "gold", "Other": "__other__"}
 
 
 @pytest.mark.parametrize(

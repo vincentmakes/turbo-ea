@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 from sqlalchemy import select
 
@@ -94,10 +96,51 @@ async def test_patch_metric_updates_and_audits(client, env, db):
     assert (body["label"], body["archived"], body["sort_order"]) == ("Named users", True, 5)
     (entry,) = await _audit(db, "admin.metamodel.license_metric.updated")
     assert entry.target_label == "Users"
-    assert "archived" in str(entry.details)
+    assert entry.details == {
+        "changes": {
+            "label": {"old": "Users", "new": "Named users"},
+            "archived": {"old": False, "new": True},
+            "sort_order": {"old": 0, "new": 5},
+        }
+    }
     # Restore.
     r = await client.patch(f"{BASE}/users", json={"archived": False}, headers=env["h"])
     assert r.json()["archived"] is False
+
+
+async def test_patch_metric_translations_only_audits_the_translation(client, env, db):
+    r = await client.patch(
+        f"{BASE}/users", json={"translations": {"it": "Utenti"}}, headers=env["h"]
+    )
+    assert r.status_code == 200 and r.json()["translations"] == {"it": "Utenti"}
+    (entry,) = await _audit(db, "admin.metamodel.license_metric.updated")
+    assert entry.details == {
+        "items": [
+            {
+                "kind": "translation.changed",
+                "property": "label",
+                "locale": "it",
+                "old": None,
+                "new": "Utenti",
+            }
+        ]
+    }
+
+
+@pytest.mark.parametrize(
+    "method,url,body",
+    [
+        ("post", BASE, {"key": "seats", "label": "   "}),
+        ("patch", f"{BASE}/users", {"label": "   "}),
+        ("post", f"{BASE}/users/types", {"key": "a", "label": "   "}),
+        ("patch", f"{BASE}/users/types/dev", {"label": "  "}),
+    ],
+    ids=["create-metric", "patch-metric", "create-type", "patch-type"],
+)
+async def test_a_blank_label_is_refused(client, env, db, method, url, body):
+    await create_license_type(db, "dev", "Dev", metric_key="users")
+    r = await getattr(client, method)(url, json=body, headers=env["h"])
+    assert r.status_code == 422
 
 
 async def test_patch_unknown_metric_404(client, env):
@@ -134,14 +177,18 @@ async def test_patch_type_archives_restores_and_cannot_move_metric(client, env, 
     await client.post(f"{BASE}/users/types", json={"key": "dev", "label": "Dev"}, headers=h)
     url = f"{BASE}/users/types/dev"
     r = await client.patch(url, json={"archived": True, "metric_key": "installations"}, headers=h)
-    assert r.status_code == 200
+    assert r.status_code == 422  # a type never moves: the field is refused, not ignored
+    r = await client.patch(url, json={"archived": True}, headers=h)
     assert (r.json()["archived"], r.json()["metric_key"]) == (True, "users")
     r = await client.patch(url, json={"archived": False}, headers=h)
     assert r.json()["archived"] is False
     entries = await _audit(db, "admin.metamodel.license_type.updated")
     assert len(entries) == 2
     assert all(e.target_id == "users/dev" and e.target_label == "Users / Dev" for e in entries)
-    assert "archived" in str(entries[0].details)
+    assert sorted(json.dumps(e.details, sort_keys=True) for e in entries) == sorted(
+        json.dumps({"changes": {"archived": {"old": not v, "new": v}}}, sort_keys=True)
+        for v in (True, False)
+    )
 
 
 async def test_patch_type_is_scoped_to_its_metric(client, env):

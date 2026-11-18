@@ -274,7 +274,8 @@ def citing_calculations(rows: Iterable[tuple[str, str, str]]) -> list[dict]:
     return out
 
 
-# The two metrics that existed before the catalogue (migration 192), in the order they are seeded.
+# The two metrics that existed before the catalogue, in the order migration 192 seeds them.
+# Frozen with the migration: the app reads ``license_types.DEFAULT_METRICS``.
 DEFAULT_METRICS = (("users", "Users"), ("installations", "Installations"))
 
 
@@ -284,14 +285,14 @@ def derive_type_metrics(
     """``(type_key, metric_key)`` rows for migration 192, from ``(key, archived)`` types and
     ``used[type_key]`` (the metrics holding data for that type). A type with data under one
     metric belongs to it, under both it is listed under both, with none it goes under both
-    default metrics (the admin archives what they do not need). ``archived`` is carried by the
-    caller's templates, not decided here."""
+    default metrics (the admin archives what they do not need). A metric outside the defaults
+    (the whole catalogue at that point) is ignored. ``archived`` is carried by the caller's
+    templates, not decided here."""
     order = [key for key, _ in DEFAULT_METRICS]
     plan: list[tuple[str, str]] = []
     for type_key, _archived in types:
-        metrics = used.get(type_key) or set(order)
-        rank = lambda m: (order.index(m) if m in order else len(order), m)  # noqa: E731
-        plan.extend((type_key, m) for m in sorted(metrics, key=rank))
+        metrics = [m for m in order if m in (used.get(type_key) or ())] or order
+        plan.extend((type_key, m) for m in metrics)
     return plan
 
 

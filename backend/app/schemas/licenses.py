@@ -1,20 +1,24 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Annotated
 
-from pydantic import BaseModel, Field, StrictInt
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StringConstraints
 
 from app.schemas.cost_items import KEY_PATTERN
+
+# Stripped before the length check: "   " is no label.
+Label = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
 
 
 class LicenseMetricCreate(BaseModel):
     key: str = Field(..., pattern=KEY_PATTERN)
-    label: str = Field(..., min_length=1, max_length=100)
+    label: Label
     translations: dict[str, str] | None = None
 
 
 class LicenseMetricUpdate(BaseModel):
-    label: str | None = Field(None, min_length=1, max_length=100)
+    label: Label | None = None
     translations: dict[str, str] | None = None
     archived: bool | None = None
     sort_order: int | None = Field(None, ge=0, le=2147483647)
@@ -22,12 +26,15 @@ class LicenseMetricUpdate(BaseModel):
 
 class LicenseTypeCreate(BaseModel):
     key: str = Field(..., pattern=KEY_PATTERN)
-    label: str = Field(..., min_length=1, max_length=100)
+    label: Label
     translations: dict[str, str] | None = None
 
 
 class LicenseTypeUpdate(BaseModel):
-    label: str | None = Field(None, min_length=1, max_length=100)
+    # A type never moves to another metric: a ``metric_key`` in the body is refused.
+    model_config = ConfigDict(extra="forbid")
+
+    label: Label | None = None
     translations: dict[str, str] | None = None
     archived: bool | None = None
     sort_order: int | None = Field(None, ge=0, le=2147483647)

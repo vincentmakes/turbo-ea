@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import uuid
 
+from sqlalchemy import event as sa_event
+
 from app.models.event import Event
 from app.services import card_licenses as cl
 from app.services import cost_event_redaction as red
 from app.services import rollback_service
+from app.services.audit_labels import license_type_labels
 from tests.conftest import (
     create_card,
     create_card_type,
+    create_license_metric,
     create_license_type,
     create_role,
     create_user,
@@ -116,6 +120,30 @@ async def test_summary_still_reads_an_old_event_with_plain_keys(db):
     old = {"fiscal_year": 2026, "changes": {cl.LIST_KEY: {"old": [], "new": ["admin"]}}}
     out = await red.add_cost_summaries(db, "ERP", [Event(event_type=cl.LICENSE_EVENT)], [old])
     assert out[0]["summary"] == "Licensing of ERP changed (FY26; license types: Admin users)"
+
+
+async def test_a_plain_key_under_two_metrics_reads_the_first_metric_s_type(db):
+    await create_license_metric(db, "users", "Users", sort_order=0)
+    await create_license_metric(db, "installations", "Installations", sort_order=1)
+    await create_license_type(db, "admin", "Admin users")
+    await create_license_type(db, "admin", "Admin devices", metric_key="installations")
+    assert await license_type_labels(db, ["admin"]) == {"admin": "Admin users"}
+
+
+async def test_labels_of_unknown_keys_take_one_query(db):
+    statements: list[str] = []
+    bind = db.sync_session.get_bind()
+
+    def record(conn, cursor, statement, *args):
+        if statement.lstrip().upper().startswith("SELECT"):
+            statements.append(statement)
+
+    sa_event.listen(bind, "before_cursor_execute", record)
+    try:
+        assert await license_type_labels(db, ["users:ghost", "ghost"]) == {}
+    finally:
+        sa_event.remove(bind, "before_cursor_execute", record)
+    assert len(statements) == 1
 
 
 def test_rollback_declines_license_event():

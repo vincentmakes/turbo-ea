@@ -164,6 +164,22 @@ async def test_rows_carry_confirmed_for_a_stored_year_and_not_for_a_carried_one(
     assert {r["name"]: r["confirmed"] for r in past["rows"]} == {"Carried": True}
 
 
+async def test_card_types_default_to_both_license_types(client, db, env):
+    await _card(db, "App")
+    await _card(db, "Itc", card_type="ITComponent")
+    resp = await client.get("/api/v1/reports/licensing", headers=auth_headers(env["admin"]))
+    assert sorted(r["name"] for r in resp.json()["rows"]) == ["App", "Itc"]
+
+
+async def test_card_types_are_not_checked_for_a_picked_card(client, db, env):
+    plat = await create_card(db, card_type="Platform", name="Plat")
+    a = await _card(db, "A")
+    await create_relation(db, type_key="relPlatformToApp", source_id=plat.id, target_id=a.id)
+    resp = await _get(client, env, card_id=str(plat.id), card_types="Platform")
+    assert resp.status_code == 200 and [r["name"] for r in resp.json()["rows"]] == ["A"]
+    assert (await _get(client, env, card_types="Platform")).status_code == 400
+
+
 async def test_forecast_year_refused(client, db, env):
     resp = await _get(client, env, fiscal_year=FORECAST)
     assert resp.status_code == 400 and resp.json()["detail"] == "forecast_not_selectable"

@@ -47,9 +47,13 @@ SINCE: dict[tuple[str, str], dict[tuple[str, str], int]] = {
 PAST_SCALE = {2: 0.8, 1: 0.9}
 
 
-def _items(rows: dict, offset: int, since: dict) -> dict:
+def _items(
+    rows: dict[str, dict[str, tuple[int, int | None]]],
+    offset: int,
+    since: dict[tuple[str, str], int],
+) -> dict[str, dict[str, dict[str, int | None]]]:
     """``offset`` is the year relative to the current one (-2 ... +1)."""
-    out: dict = {}
+    out: dict[str, dict[str, dict[str, int | None]]] = {}
     for metric, by_type in rows.items():
         for key, (licensed, actual) in by_type.items():
             if offset < since.get((metric, key), -2):

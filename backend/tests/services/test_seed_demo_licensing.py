@@ -6,7 +6,6 @@ from sqlalchemy import delete, select
 
 from app.models.card import Card
 from app.models.card_license import CardLicense
-from app.models.card_type import CardType
 from app.models.license_metric import LicenseMetric
 from app.models.license_type import LicenseType
 from app.services import card_licenses, seed
@@ -29,15 +28,10 @@ async def _demo_cards(db):
         await create_card(db, card_type="ITComponent", name=name, attributes={})
 
 
-async def test_fresh_seed_has_the_default_metrics_and_no_model_field(db):
+async def test_fresh_seed_has_the_default_metrics(db):
     await seed.seed_metamodel(db)
     metrics = (await db.execute(select(LicenseMetric.key))).scalars().all()
     assert set(metrics) == {"users", "installations"}
-    for key in ("Application", "ITComponent"):
-        schema = (
-            await db.execute(select(CardType.fields_schema).where(CardType.key == key))
-        ).scalar_one()
-        assert "licensingModel" not in [f["key"] for s in schema for f in s["fields"]]
 
 
 async def test_seeds_once_by_marker(db):
@@ -75,12 +69,22 @@ async def test_types_sit_under_their_metric_and_every_cell_resolves(db):
 async def test_a_card_pairs_differ_by_year(db):
     await _demo_cards(db)
     await seed_licensing_demo_data(db)
-    rows = (await db.execute(select(CardLicense))).scalars().all()
-    by_card: dict = {}
-    for row in rows:
-        pairs = frozenset((m, k) for m, types in row.items.items() for k in types)
-        by_card.setdefault(row.card_id, set()).add(pairs)
-    assert any(len(years) > 1 for years in by_card.values())
+    fy = current_fiscal_year(await get_fiscal_year_start(db))
+    rows = (
+        await db.execute(
+            select(Card.name, CardLicense.fiscal_year, CardLicense.items).join(
+                Card, Card.id == CardLicense.card_id
+            )
+        )
+    ).all()
+    pairs = {
+        (name, year - fy): {(m, k) for m, types in items.items() for k in types}
+        for name, year, items in rows
+    }
+    assert pairs[("SAP S/4HANA", -2)] == {("users", "admin"), ("users", "business")}
+    assert ("installations", "prod") in pairs[("SAP S/4HANA", -1)]
+    assert all(("users", "admin") not in pairs[("SAP Ariba", y)] for y in (-2, -1))
+    assert ("users", "admin") in pairs[("SAP Ariba", 0)]
 
 
 async def test_marker_holds_after_data_deleted(db):

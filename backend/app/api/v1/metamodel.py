@@ -1389,7 +1389,7 @@ async def create_type(
 
 
 def _fields_by_key(schema: list | None, field_key: str) -> list[tuple[str | None, dict]]:
-    """Every ``(section name, field)`` with this key. The guards want exactly one, because
+    """Every ``(section name, field)`` with this key. The guard wants exactly one, because
     ``_cleanup_removed_fields_and_options`` keeps the LAST definition of a repeated key."""
     return [
         (sec.get("section"), f)

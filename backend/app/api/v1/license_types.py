@@ -28,15 +28,14 @@ _AUDIT_SCALARS = ("label", "archived", "sort_order")
 
 
 def _refuse(exc: CatalogueError) -> HTTPException:
-    status = {"duplicate_key": 409, "unknown_metric": 404, "not_found": 404}.get(exc.code, 422)
+    # The routes resolve the metric (404) first, so a create only refuses a key.
+    status = 409 if exc.code == "duplicate_key" else 422
     return HTTPException(status, detail={"error": exc.code, "message": str(exc)})
 
 
 def _clean(updates: dict) -> dict:
     # A null means "leave as is" (update_item ignores it); keep it out of the audit diff too.
     updates = {k: v for k, v in updates.items() if v is not None}
-    if "label" in updates:
-        updates["label"] = updates["label"].strip()
     if "translations" in updates:
         updates["translations"] = _clean_translations(updates["translations"])
     return updates
@@ -77,7 +76,7 @@ async def create_license_metric(
     await PermissionService.require_permission(db, user, "admin.metamodel")
     try:
         row = await license_metrics.create_item(
-            db, body.key, body.label.strip(), _clean_translations(body.translations)
+            db, body.key, body.label, _clean_translations(body.translations)
         )
     except CatalogueError as exc:
         raise _refuse(exc) from exc
@@ -138,7 +137,7 @@ async def create_license_type(
             db,
             metric_key,
             body.key,
-            body.label.strip(),
+            body.label,
             _clean_translations(body.translations),
         )
     except CatalogueError as exc:

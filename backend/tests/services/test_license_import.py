@@ -15,6 +15,7 @@ from app.models.event import Event
 from app.services import license_metrics, license_types
 from app.services.card_licenses import UNSET, LicenseError, merge_cell
 from app.services.fiscal_year import current_fiscal_year
+from app.services.license_catalogue import load_catalogue
 from app.services.license_import import (
     HEADERS,
     ImportFileError,
@@ -161,15 +162,56 @@ async def test_a_metric_resolves_by_label_and_a_custom_metric_works(db, env):
         ],
     )
     assert plan.skipped == []
-    assert plan.cells[(env["erp"].id, CUR)] == [("cores", "std", 10, UNSET)]
+    assert plan.cells == {
+        (env["erp"].id, CUR): [("cores", "std", 10, UNSET)],
+        (env["erp"].id, CUR - 1): [("users", "admin", 10, 4)],
+        (env["erp"].id, CUR - 2): [("cores", "std", 10, UNSET)],
+    }
 
 
 async def test_legacy_alias_only_reaches_a_metric_keyed_users_or_installations(db, env):
     await create_license_metric(db, key="seats", label="Seats")
     await create_license_type(db, "admin", "Admin", metric_key="seats")
+    # A label equal to the alias does not take it: the alias names the users metric.
+    await create_license_metric(db, key="named", label="User")
+    await create_license_type(db, "admin", "Admin", metric_key="named")
     plan = await plan_import(db, env["user"], [row(2, metric="user"), row(3, metric="seat")])
     assert [(s.row, s.reason) for s in plan.skipped] == [(3, "invalid_metric")]
     assert list(plan.cells[(env["erp"].id, CUR)]) == [("users", "admin", 10, 4)]
+
+
+async def test_an_exact_metric_key_wins_over_another_metric_s_label(db, env):
+    await create_license_metric(db, key="seats", label="Users")
+    await create_license_type(db, "admin", "Admin", metric_key="seats")
+    plan = await plan_import(db, env["user"], [row(2, metric="users")])
+    assert plan.skipped == []
+    assert plan.cells[(env["erp"].id, CUR)] == [("users", "admin", 10, 4)]
+
+
+async def test_a_label_two_metrics_share_is_ambiguous_metric(db, env):
+    for key in ("cores_a", "cores_b"):
+        await create_license_metric(db, key=key, label="Cores")
+        await create_license_type(db, "admin", "Admin", metric_key=key)
+    plan = await plan_import(db, env["user"], [row(2, metric="cores")])
+    assert [(s.reason, s.detail, s.metric) for s in plan.skipped] == [
+        ("ambiguous_metric", "cores", "cores")
+    ]
+
+
+async def test_a_type_ambiguous_in_another_metric_is_type_not_in_metric(db, env):
+    await create_license_type(db, "twin_a", "Twin", metric_key="installations")
+    await create_license_type(db, "twin_b", "Twin", metric_key="installations")
+    plan = await plan_import(db, env["user"], [row(2, metric="users", typ="twin")])
+    assert [(s.reason, s.detail) for s in plan.skipped] == [("type_not_in_metric", "twin")]
+
+
+async def test_plan_uses_the_catalogue_it_is_given(db, env):
+    catalogue = await load_catalogue(db)
+    await create_license_type(db, "late", "Late")
+    rows = [row(2, typ="late")]
+    plan = await plan_import(db, env["user"], rows, catalogue=catalogue)
+    assert [s.reason for s in plan.skipped] == ["unknown_license_type"]
+    assert (await plan_import(db, env["user"], rows)).skipped == []
 
 
 async def test_a_type_of_another_metric_is_skipped_type_not_in_metric(db, env):
@@ -224,7 +266,12 @@ async def test_an_archived_metric_cannot_create_a_cell_but_updates_an_existing_o
 
 
 async def test_both_values_empty_is_nothing_to_write_even_for_an_archived_metric(db, env):
-    plan = await plan_import(db, env["user"], [row(2, licensed=None, actual="")])
+    await create_license_metric(db, key="legacy", label="Legacy")
+    await create_license_type(db, "x", "X", metric_key="legacy")
+    await license_metrics.update_item(db, "legacy", archived=True)
+    plan = await plan_import(
+        db, env["user"], [row(2, metric="legacy", typ="x", licensed=None, actual="")]
+    )
     assert [s.reason for s in plan.skipped] == ["nothing_to_write"]
 
 
@@ -346,6 +393,10 @@ async def test_an_archived_type_with_an_existing_cell_is_accepted(db, env):
     await db.flush()
     plan = await plan_import(db, env["user"], [row(2, typ="old", year=CUR - 1, actual=2)])
     assert plan.skipped == [] and plan.matched == 1
+    assert await apply_import(db, env["user"].id, plan) == 1
+    stored = (await db.execute(select(CardLicense))).scalar_one()
+    await db.refresh(stored)
+    assert stored.items == {"users": {"old": {"licensed": 10, "actual": 2}}}
 
 
 async def test_empty_cell_leaves_stored_value(db, env):

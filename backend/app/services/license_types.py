@@ -10,7 +10,6 @@ from app.models.license_type import LicenseType
 from app.services import item_catalogue
 from app.services.item_catalogue import CatalogueError
 from app.services.item_catalogue import serialize as _serialize
-from app.services.licensing_migration import DEFAULT_METRICS
 
 __all__ = [
     "CatalogueError",
@@ -24,6 +23,9 @@ __all__ = [
 ]
 
 NOUN = "License type"
+# The metrics a fresh install starts with, in this order. Migration 192 keeps its own frozen
+# copy (``licensing_migration.DEFAULT_METRICS``): a change here must not rewrite history.
+DEFAULT_METRICS = (("users", "Users"), ("installations", "Installations"))
 
 
 async def seed_default_metrics(db: AsyncSession) -> None:

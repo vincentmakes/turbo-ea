@@ -1680,12 +1680,6 @@ async def licensing_report(
     ``services/license_report``).
     """
     await PermissionService.require_permission(db, user, "licenses.view")
-    try:
-        type_keys = parse_type_keys(card_types)
-    except ValueError as exc:
-        raise HTTPException(400, str(exc)) from exc
-    if not set(type_keys) <= LICENSE_TYPES:
-        raise HTTPException(400, f"Unknown license card type: {card_types!r}")
     fy_start = await get_fiscal_year_start(db)
     cur = current_fiscal_year(fy_start)
     fy = cur if fiscal_year is None else fiscal_year
@@ -1701,6 +1695,14 @@ async def licensing_report(
         picked_type = await require_card_readable(db, user, picked, mode="module")
         if picked_type not in LICENSE_TYPES | {PLATFORM_TYPE}:
             raise HTTPException(400, f"Card type {picked_type!r} holds no licenses")
+        type_keys: list[str] = []  # a picked card ignores card_types (and group_by)
+    else:
+        try:
+            type_keys = parse_type_keys(card_types)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        if not set(type_keys) <= LICENSE_TYPES:
+            raise HTTPException(400, f"Unknown license card type: {card_types!r}")
     license_card_types = {
         ct.key: ct
         for ct in (await db.execute(select(CardType).where(CardType.key.in_(LICENSE_TYPES))))

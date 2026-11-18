@@ -13,7 +13,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.services.licensing_migration import DEFAULT_METRICS, derive_type_metrics
+from app.services.license_types import DEFAULT_METRICS
+from app.services.licensing_migration import derive_type_metrics
 from app.services.workspace_io.bundle import from_cell
 
 

@@ -138,6 +138,63 @@ async def test_licensing_model_removed_from_schema_and_attribute_values_without_
         assert row.attributes == attrs and row.updated_at == old
 
 
+async def test_clear_model_values_keeps_a_value_a_field_of_that_key_still_owns(db):
+    ext_field = {"key": "licensingModel", "type": "multiple_select", "ext": "licensing"}
+    await create_card_type(
+        db,
+        key="Application",
+        fields_schema=[{"section": "Licensing", "ext": "licensing", "fields": [ext_field]}],
+    )
+    await create_card_type(
+        db,
+        key="ITComponent",
+        fields_schema=[
+            {
+                "section": "Licensing",
+                "fields": [{"key": "licensingModel", "type": "multiple_select"}],
+            }
+        ],
+    )
+    app = await create_card(db, name="App", attributes={"licensingModel": ["seat"]})
+    itc = await create_card(
+        db, card_type="ITComponent", name="Itc", attributes={"licensingModel": ["users"]}
+    )
+    app_id, itc_id = app.id, itc.id
+    await db.run_sync(lmm.strip_model_field)
+    cleared = await db.run_sync(lmm.clear_model_values)
+    db.expire_all()
+    attrs = dict(
+        (await db.execute(select(Card.id, Card.attributes).where(Card.id.in_([app_id, itc_id]))))
+        .tuples()
+        .all()
+    )
+    assert cleared == 1
+    assert attrs == {app_id: {"licensingModel": ["seat"]}, itc_id: {}}
+
+
+async def test_report_lists_are_capped_and_the_card_total_is_not(db):
+    many = [f"t{i:03d}" for i in range(lmm.REPORT_CAP + 1)]
+    templates = {k: {"label": k.upper()} for k in many}
+    plan = [(k, m) for k in many for m in ("users", "installations")]
+    used = {k: {"users", "installations"} for k in many}
+    cards = [{"card_id": str(i), "metrics": ["users"]} for i in range(lmm.REPORT_CAP + 1)]
+    db.add_all(
+        Calculation(
+            name=f"c{i}",
+            target_type_key="Application",
+            target_field_key="x",
+            formula="x = data.licensingModel",
+        )
+        for i in range(lmm.REPORT_CAP + 1)
+    )
+    await db.flush()
+    report = await db.run_sync(lambda s: lmm.collect_report(s, plan, used, templates, cards))
+    assert lmm.REPORT_CAP == 200
+    assert [len(report[k]) for k in ("duplicated_types", "calculations", "cards")] == [200] * 3
+    assert report["duplicated_types"][-1]["key"] == many[-2]
+    assert report["total_cards"] == lmm.REPORT_CAP + 1
+
+
 async def test_report_lists_duplicated_types_citing_calculations_and_cards_whose_ignored_metric_data_now_shows(  # noqa: E501
     db,
 ):

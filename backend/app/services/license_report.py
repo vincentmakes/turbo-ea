@@ -23,7 +23,7 @@ from app.services.card_read_scope import CardReadScope
 from app.services.cost_grouping import GroupBy, assign_groups
 from app.services.fiscal_year import current_fiscal_year, get_fiscal_year_start
 from app.services.license_catalogue import LicenseCatalogue, load_catalogue
-from app.services.license_status import MetricResult, card_status, metric_result
+from app.services.license_status import MetricResult, card_status, card_worst, metric_result
 from app.services.lifecycle import is_live_in_fiscal_year
 
 PLATFORM_RELATIONS = ("relPlatformToApp", "relPlatformToITC")
@@ -83,6 +83,8 @@ def _validate_selection(
     pair = tuple(license_type.partition(":")[::2])
     if not pair[1] or catalogue.type(*pair) is None:
         raise ValueError(f"Unknown license type (expected metric:type): {license_type!r}")
+    if metric is not None and pair[0] != metric:
+        raise ValueError(f"License type {license_type!r} is not of metric {metric!r}")
     return metric, pair
 
 
@@ -176,7 +178,7 @@ async def build_report(
     rows = []
     for card in in_year:
         results = _metric_results(selected[card.id], catalogue)
-        pcts = [r.worst_pct for r in results if r.worst_pct is not None]
+        worst_pct, worst_no_licence = card_worst(results)
         row = {
             "id": str(card.id),
             "name": card.name,
@@ -188,8 +190,8 @@ async def build_report(
                 if k not in hidden.get(card.type, ())
             },
             "status": None if aggregate else card_status(results),
-            "worst_pct": max(pcts) if pcts else None,
-            "worst_no_licence": any(r.worst_no_licence for r in results),
+            "worst_pct": worst_pct,
+            "worst_no_licence": worst_no_licence,
             "confirmed": data[card.id][fy][1],
             "by_metric": _by_metric(results),
         }

@@ -175,20 +175,24 @@ def _count(value: object) -> int | None:
     return whole
 
 
-def _match_metric(value: str, catalogue: LicenseCatalogue) -> CatalogueMetric | None:
-    """The metric whose casefolded key or English label is ``value``; the legacy spellings
-    (``METRIC_ALIASES``) reach only the metrics keyed ``users`` / ``installations``."""
+def _match_metric(
+    value: str, catalogue: LicenseCatalogue
+) -> tuple[CatalogueMetric, None] | tuple[None, str]:
+    """``(metric, None)``, or ``(None, "invalid_metric" | "ambiguous_metric")``. A casefolded key
+    wins, then a legacy spelling (``METRIC_ALIASES``, reaching only the metrics keyed ``users``
+    / ``installations``), then the one metric with that English label."""
     wanted = value.casefold()
-    wanted_alias = METRIC_ALIASES.get(wanted)
-    hits = {
-        m.key: m
-        for m in catalogue.metrics
-        if m.key.casefold() == wanted or m.label.casefold() == wanted or m.key == wanted_alias
-    }
-    return next(iter(hits.values())) if len(hits) == 1 else None
+    by_key = {m.key.casefold(): m for m in catalogue.metrics}
+    hit = by_key.get(wanted) or by_key.get(METRIC_ALIASES.get(wanted, ""))
+    if hit is not None:
+        return hit, None
+    labelled = [m for m in catalogue.metrics if m.label.casefold() == wanted]
+    if len(labelled) == 1:
+        return labelled[0], None
+    return None, "ambiguous_metric" if labelled else "invalid_metric"
 
 
-def _match_type(value: str, types) -> tuple[str | None, str | None]:
+def _match_type(value: str, types) -> tuple[str, None] | tuple[None, str]:
     """``(key, None)``, or ``(None, "unknown_license_type" | "ambiguous_license_type")``: the
     casefolded key or English label, among ``types`` (one metric's)."""
     wanted = value.casefold()
@@ -198,7 +202,12 @@ def _match_type(value: str, types) -> tuple[str | None, str | None]:
     return None, "ambiguous_license_type" if hits else "unknown_license_type"
 
 
-async def plan_import(db: AsyncSession, user: User, rows: list[ImportRow]) -> ImportPlan:
+async def plan_import(
+    db: AsyncSession,
+    user: User,
+    rows: list[ImportRow],
+    catalogue: LicenseCatalogue | None = None,
+) -> ImportPlan:
     sm = await get_fiscal_year_start(db)
     cur = current_fiscal_year(sm)
     read_scope = await CardReadScope.load(db, user)
@@ -214,7 +223,7 @@ async def plan_import(db: AsyncSession, user: User, rows: list[ImportRow]) -> Im
     by_name: dict[str, list[Row[Any]]] = {}
     for card in found:
         by_name.setdefault(card.name.strip().casefold(), []).append(card)
-    catalogue = await load_catalogue(db)
+    catalogue = catalogue or await load_catalogue(db)
 
     plan = ImportPlan()
 
@@ -232,19 +241,24 @@ async def plan_import(db: AsyncSession, user: User, rows: list[ImportRow]) -> Im
         if len(hits) > 1:
             skip(r, "ambiguous_card")
             continue
-        found_metric = _match_metric(r.metric, catalogue)
-        if found_metric is None:
-            skip(r, "invalid_metric", r.metric)
+        matched = _match_metric(r.metric, catalogue)  # indexed, not unpacked: mypy narrows it
+        if matched[0] is None:
+            skip(r, matched[1], r.metric)
             continue
+        found_metric = matched[0]
         metric = found_metric.key
-        key, reason = _match_type(r.license_type, found_metric.types)
-        if key is None:
+        typed = _match_type(r.license_type, found_metric.types)
+        if typed[0] is None:
+            reason = typed[1]
+            # Known (even ambiguously) under another metric: say so rather than "unknown".
             if reason == "unknown_license_type" and any(
-                _match_type(r.license_type, m.types)[0] for m in catalogue.metrics
+                _match_type(r.license_type, m.types)[1] != "unknown_license_type"
+                for m in catalogue.metrics
             ):
                 reason = "type_not_in_metric"
-            skip(r, reason or "unknown_license_type", r.license_type, metric)
+            skip(r, reason, r.license_type, metric)
             continue
+        key = typed[0]
         year = _whole(r.year)
         if year is None or not yearly_rows.in_window(year, sm):
             skip(r, "invalid_year", _text(r.year), metric)
