@@ -52,12 +52,7 @@ import SoAWTab from "@/features/cards/sections/SoAWTab";
 import CostsSection from "@/features/cards/sections/CostsSection";
 import LicensingSection from "@/features/cards/sections/LicensingSection";
 import { DERIVED_COST_FIELD, isCostItemType } from "@/lib/costItems";
-import {
-  isLicenseType,
-  LICENSE_METRICS,
-  LICENSING_MODEL_KEY,
-  LICENSING_SECTION,
-} from "@/lib/licenses";
+import { isLicenseType } from "@/lib/licenses";
 import {
   customSectionAnchor,
   sectionAnchor,
@@ -335,17 +330,7 @@ export default function CardDetailContent({
   // attribute is not shown (nor editable) next to them.
   const hasCostItems = isCostItemType(card.type);
   if (hasCostItems) hiddenFieldKeys.add(DERIVED_COST_FIELD);
-  // The Licensing section is where the model is shown and edited: the field (alone in its
-  // dedicated schema section) is not a generic one. An admin's own field of that key
-  // elsewhere is left alone, and so is its generic rendering.
   const hasLicensing = isLicenseType(card.type);
-  const licensingModelField = hasLicensing
-    ? typeConfig?.fields_schema
-        ?.find((s) => s.section === LICENSING_SECTION)
-        ?.fields.find((f) => f.key === LICENSING_MODEL_KEY)
-    : undefined;
-  if (licensingModelField) hiddenFieldKeys.add(LICENSING_MODEL_KEY);
-  const storedModel = (card.attributes?.[LICENSING_MODEL_KEY] as string[] | undefined) ?? [];
 
   const customSections = customSectionsOf(typeConfig?.fields_schema);
   const descExtraSection = (typeConfig?.fields_schema || []).find(
@@ -537,22 +522,6 @@ export default function CardDetailContent({
             cardId={card.id}
             initialExpanded={exp}
             expandOn={expandOn(sectionAnchor("licensing"))}
-            modelField={licensingModelField}
-            onSaveModel={
-              perms.can_edit && licensingModelField
-                ? (next) =>
-                    saveFrom(sectionAnchor("licensing"))({
-                      attributes: {
-                        ...card.attributes,
-                        // The editor shows the two metrics only: other stored options stay.
-                        [LICENSING_MODEL_KEY]: [
-                          ...next,
-                          ...storedModel.filter((v) => !(LICENSE_METRICS as readonly string[]).includes(v)),
-                        ],
-                      },
-                    })
-                : undefined
-            }
             onChanged={refreshFrom(sectionAnchor("licensing"))}
           />
         </ErrorBoundary>

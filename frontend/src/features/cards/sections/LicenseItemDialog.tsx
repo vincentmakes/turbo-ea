@@ -13,11 +13,12 @@ import TextField from "@mui/material/TextField";
 import { useTranslation } from "react-i18next";
 import { api, apiErrorMessage } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useFieldLabel } from "@/hooks/useResolveLabel";
 import { shortFiscalYear } from "@/lib/costItems";
-import type { LicenseMetric, LicenseType } from "@/types";
+import type { LicenseMetricItem } from "@/types";
 
 export interface LicenseCell {
-  metric: LicenseMetric;
+  metric: string;
   key: string;
   licensed: number;
   actual: number | null;
@@ -27,14 +28,10 @@ interface Props {
   cardId: string;
   fiscalYear: number;
   forecastYear: number;
-  /** The metrics the card tracks (its `licensingModel`). */
-  metrics: LicenseMetric[];
-  /** The cell being edited; `null` adds a new one (metric and type are then chosen). */
+  /** The cell being edited; `null` adds a new one (metric, then type, are chosen). */
   cell: LicenseCell | null;
-  /** Add mode: the active license types. */
-  options: LicenseType[];
-  /** The label of a catalogue key (archived types included). */
-  labelOf: (key: string) => string;
+  /** The whole catalogue, archived entries included: an archived pair is edited but never added. */
+  catalogue: LicenseMetricItem[];
   onClose: () => void;
   /** After a save or delete went through; the section reloads. */
   onChanged: (opts?: { keepOpen?: boolean }) => void;
@@ -44,6 +41,7 @@ const MAX_COUNT = 1_000_000_000;
 const ERROR_CODES = [
   "unknown_type",
   "archived_type",
+  "archived_metric",
   "invalid_metric",
   "invalid_count",
   "forecast_actual",
@@ -56,15 +54,14 @@ export default function LicenseItemDialog({
   cardId,
   fiscalYear,
   forecastYear,
-  metrics,
   cell,
-  options,
-  labelOf,
+  catalogue,
   onClose,
   onChanged,
 }: Props) {
   const { t } = useTranslation("cards");
   const { t: tc } = useTranslation("common");
+  const fieldLabel = useFieldLabel();
   const [metric, setMetric] = useState<string>(cell?.metric ?? "");
   const [key, setKey] = useState(cell?.key ?? "");
   const [licensed, setLicensed] = useState(cell ? String(cell.licensed) : "");
@@ -75,6 +72,10 @@ export default function LicenseItemDialog({
   const [copyError, setCopyError] = useState<string | null>(null);
 
   const editing = cell !== null;
+  const activeMetrics = catalogue.filter((m) => !m.archived);
+  const activeTypes = (catalogue.find((m) => m.key === metric)?.types ?? []).filter((x) => !x.archived);
+  const cellMetric = catalogue.find((m) => m.key === cell?.metric);
+  const cellType = cellMetric?.types.find((x) => x.key === cell?.key);
   const isForecast = fiscalYear === forecastYear;
   const base = `/cards/${cardId}/licenses/${fiscalYear}/items/${metric}/${key}`;
   const licensedValid = isCount(licensed.trim());
@@ -142,13 +143,13 @@ export default function LicenseItemDialog({
           <>
             <TextField
               label={t("licensing.dialog.metric")}
-              value={t(`licensing.metrics.${cell.metric}`)}
+              value={cellMetric ? fieldLabel(cellMetric) : cell.metric}
               size="small"
               slotProps={{ input: { readOnly: true } }}
             />
             <TextField
               label={t("licensing.dialog.type")}
-              value={labelOf(cell.key)}
+              value={cellType ? fieldLabel(cellType) : cell.key}
               size="small"
               slotProps={{ input: { readOnly: true } }}
             />
@@ -159,12 +160,15 @@ export default function LicenseItemDialog({
               select
               label={t("licensing.dialog.metric")}
               value={metric}
-              onChange={(e) => setMetric(e.target.value)}
+              onChange={(e) => {
+                setMetric(e.target.value);
+                setKey("");
+              }}
               size="small"
             >
-              {metrics.map((m) => (
-                <MenuItem key={m} value={m}>
-                  {t(`licensing.metrics.${m}`)}
+              {activeMetrics.map((m) => (
+                <MenuItem key={m.key} value={m.key}>
+                  {fieldLabel(m)}
                 </MenuItem>
               ))}
             </TextField>
@@ -174,11 +178,12 @@ export default function LicenseItemDialog({
               value={key}
               onChange={(e) => setKey(e.target.value)}
               size="small"
+              disabled={metric === ""}
               helperText={key === "" ? t("licensing.dialog.typePlaceholder") : undefined}
             >
-              {options.map((o) => (
-                <MenuItem key={o.key} value={o.key}>
-                  {labelOf(o.key)}
+              {activeTypes.map((x) => (
+                <MenuItem key={x.key} value={x.key}>
+                  {fieldLabel(x)}
                 </MenuItem>
               ))}
             </TextField>

@@ -3796,7 +3796,8 @@ export interface LicenseTypeResult {
   status: LicenseTypeStatus;
 }
 export interface LicenseMetricResult {
-  metric: LicenseMetric;
+  /** The metric's catalogue key. */
+  metric: string;
   types: LicenseTypeResult[];
   has_actual: boolean;
   status: LicenseStatus;
@@ -3816,10 +3817,7 @@ export interface YearLicenses {
 }
 export interface CardLicensesResponse {
   can_edit: boolean;
-  /** The metrics the card tracks (its `licensingModel`). */
-  licensing_model: LicenseMetric[];
   years: YearLicenses[];
-  catalogue: LicenseType[];
 }
 
 // ── Licensing report (GET /reports/licensing) ────────────────────────────
