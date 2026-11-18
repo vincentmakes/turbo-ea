@@ -1,3 +1,14 @@
+/**
+ * useLicenseCatalogue — module-level singleton caching the license catalogue
+ * (metrics with their types, archived ones included).
+ *
+ * Inflight-promise pattern (CLAUDE.md): components mounting in the same tick
+ * share one request. `invalidateLicenseCatalogue()` (the metamodel dialog calls
+ * it after every write) starts a NEW request that supersedes the inflight one;
+ * a generation counter lets only the newest response land. A failed fetch
+ * leaves the cache `null` so the next mount retries, and tells listeners `[]`.
+ * `enabled=false` defers the fetch (a dialog that is mounted but closed).
+ */
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/api/client";
 import type { LicenseMetricItem } from "@/types";
@@ -6,44 +17,56 @@ const PATH = "/metamodel/license-metrics";
 
 let _cache: LicenseMetricItem[] | null = null;
 let _inflight: Promise<void> | null = null;
-const _listeners = new Set<(m: LicenseMetricItem[]) => void>();
+let _generation = 0;
+const _listeners = new Set<(m: LicenseMetricItem[] | null, failed: boolean) => void>();
 
-function _fetchOnce(): Promise<void> {
-  if (_cache) return Promise.resolve();
-  if (_inflight) return _inflight;
-  _inflight = api
+function _notify(m: LicenseMetricItem[] | null, failed: boolean) {
+  for (const fn of _listeners) fn(m, failed);
+}
+
+function _fetch(force = false): Promise<void> {
+  if (_inflight && !force) return _inflight;
+  const generation = ++_generation;
+  const request: Promise<void> = api
     .get<LicenseMetricItem[]>(PATH)
     .then((r) => {
+      if (generation !== _generation) return;
       _cache = Array.isArray(r) ? r : [];
-      for (const fn of _listeners) fn(_cache);
+      _notify(_cache, false);
     })
     .catch(() => {
-      // An empty catalogue: the pickers show nothing rather than the page failing.
-      _cache = [];
-      for (const fn of _listeners) fn(_cache);
+      if (generation !== _generation) return;
+      // A first load leaves the cache null so the next mount retries; a refresh keeps the old list.
+      _notify(_cache ?? [], true);
     })
     .finally(() => {
-      _inflight = null;
+      if (_inflight === request) _inflight = null;
     });
-  return _inflight;
+  _inflight = request;
+  return request;
 }
 
-/** Drop the cache and fetch again; the metamodel dialog calls it after every write. */
+/** Fetch again, superseding any request in flight. */
 export function invalidateLicenseCatalogue(): Promise<void> {
-  _cache = null;
-  return _fetchOnce();
+  return _fetch(true);
 }
 
-/** The license catalogue (metrics with their types, archived ones included). */
-/** `enabled=false` defers the fetch (a dialog that is mounted but closed). */
 export function useLicenseCatalogue(enabled = true) {
   const [metrics, setMetrics] = useState<LicenseMetricItem[] | null>(_cache);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    _listeners.add(setMetrics);
-    if (enabled) void _fetchOnce();
+    const listener = (m: LicenseMetricItem[] | null, f: boolean) => {
+      setMetrics(m);
+      setFailed(f);
+    };
+    _listeners.add(listener);
+    if (enabled) {
+      if (_cache) setMetrics(_cache);
+      else void _fetch();
+    }
     return () => {
-      _listeners.delete(setMetrics);
+      _listeners.delete(listener);
     };
   }, [enabled]);
 
@@ -51,5 +74,5 @@ export function useLicenseCatalogue(enabled = true) {
     void invalidateLicenseCatalogue();
   }, []);
 
-  return { metrics: metrics ?? [], loading: metrics === null, reload };
+  return { metrics: metrics ?? [], loading: enabled && metrics === null, failed, reload };
 }

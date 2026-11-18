@@ -46,7 +46,7 @@ describe("useLicenseCatalogue", () => {
     mockApi.on("get", PATH, [metric("users")]);
     const { useLicenseCatalogue } = await load();
     const a = renderHook(() => useLicenseCatalogue(false));
-    expect(a.result.current.loading).toBe(true);
+    expect(a.result.current.metrics).toEqual([]);
     expect(mockApi.callsOf("get", PATH)).toHaveLength(0);
   });
 
@@ -78,5 +78,70 @@ describe("useLicenseCatalogue", () => {
     const a = renderHook(() => useLicenseCatalogue());
     await waitFor(() => expect(a.result.current.loading).toBe(false));
     expect(a.result.current.metrics).toEqual([]);
+    expect(a.result.current.failed).toBe(true);
+  });
+
+  it("retries on the next mount after a failed request", async () => {
+    mockApi.fail("get", PATH, 500);
+    const { useLicenseCatalogue } = await load();
+    const a = renderHook(() => useLicenseCatalogue());
+    await waitFor(() => expect(a.result.current.failed).toBe(true));
+    a.unmount();
+    mockApi.reset();
+    mockApi.on("get", PATH, [metric("users")]);
+    const b = renderHook(() => useLicenseCatalogue());
+    await waitFor(() => expect(b.result.current.metrics.map((m) => m.key)).toEqual(["users"]));
+    expect(b.result.current.failed).toBe(false);
+    expect(mockApi.callsOf("get", PATH)).toHaveLength(1);
+  });
+
+  it("lets only the newest response land when invalidated mid-request", async () => {
+    const replies: Array<(v: LicenseMetricItem[]) => void> = [];
+    mockApi.on("get", PATH, () => new Promise<LicenseMetricItem[]>((res) => replies.push(res)));
+    const { useLicenseCatalogue, invalidateLicenseCatalogue } = await load();
+    const a = renderHook(() => useLicenseCatalogue());
+    await waitFor(() => expect(replies).toHaveLength(1));
+    let second: Promise<void> = Promise.resolve();
+    act(() => {
+      second = invalidateLicenseCatalogue();
+    });
+    await waitFor(() => expect(replies).toHaveLength(2));
+    await act(async () => {
+      replies[1]([metric("new")]);
+      await second;
+    });
+    await act(async () => {
+      replies[0]([metric("old")]);
+    });
+    expect(a.result.current.metrics.map((m) => m.key)).toEqual(["new"]);
+  });
+
+  it("keeps the loaded list when a refresh fails", async () => {
+    mockApi.on("get", PATH, [metric("users")]);
+    const { useLicenseCatalogue, invalidateLicenseCatalogue } = await load();
+    const a = renderHook(() => useLicenseCatalogue());
+    await waitFor(() => expect(a.result.current.loading).toBe(false));
+    mockApi.fail("get", PATH, 500);
+    await act(async () => {
+      await invalidateLicenseCatalogue();
+    });
+    expect(a.result.current.metrics.map((m) => m.key)).toEqual(["users"]);
+    expect(a.result.current.failed).toBe(true);
+  });
+
+  it("fetches when enabled turns true", async () => {
+    mockApi.on("get", PATH, [metric("users")]);
+    const { useLicenseCatalogue } = await load();
+    const a = renderHook(({ on }) => useLicenseCatalogue(on), { initialProps: { on: false } });
+    expect(mockApi.callsOf("get", PATH)).toHaveLength(0);
+    a.rerender({ on: true });
+    await waitFor(() => expect(a.result.current.metrics.map((m) => m.key)).toEqual(["users"]));
+    expect(mockApi.callsOf("get", PATH)).toHaveLength(1);
+  });
+
+  it("is not loading while disabled", async () => {
+    const { useLicenseCatalogue } = await load();
+    const a = renderHook(() => useLicenseCatalogue(false));
+    expect(a.result.current.loading).toBe(false);
   });
 });

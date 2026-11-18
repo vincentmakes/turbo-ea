@@ -190,13 +190,10 @@ export interface ManageCostItemsDialogProps {
   onClose: () => void;
 }
 
-const path = COST_PATH;
-const textKey = "costItems";
-
 export default function ManageCostItemsDialog({ open, onClose }: ManageCostItemsDialogProps) {
   const { t } = useTranslation(["admin", "common"]);
   const fieldLabel = useFieldLabel();
-  const { data, refetch } = useApiQuery<CostItemType[]>(open ? path : null);
+  const { data, refetch } = useApiQuery<CostItemType[]>(open ? COST_PATH : null);
   const [editing, setEditing] = useState<CostItemType | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -206,10 +203,10 @@ export default function ManageCostItemsDialog({ open, onClose }: ManageCostItems
     setBusy(true);
     setError(null);
     try {
-      await api.patch(`${path}/${encodeURIComponent(item.key)}`, { archived });
+      await api.patch(`${COST_PATH}/${encodeURIComponent(item.key)}`, { archived });
       refetch();
     } catch (err) {
-      setError(costItemErrorMessage(err, t, textKey));
+      setError(costItemErrorMessage(err, t, "costItems"));
     } finally {
       setBusy(false);
     }
@@ -223,13 +220,13 @@ export default function ManageCostItemsDialog({ open, onClose }: ManageCostItems
   return (
     <>
       <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-        <DialogTitle>{t(`metamodel.${textKey}.dialogTitle`)}</DialogTitle>
+        <DialogTitle>{t(`metamodel.costItems.dialogTitle`)}</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            {t(`metamodel.${textKey}.description`)}
+            {t(`metamodel.costItems.description`)}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {t(`metamodel.${textKey}.archivedHelp`)}
+            {t(`metamodel.costItems.archivedHelp`)}
           </Typography>
           {error && (
             <Alert severity="error" onClose={() => setError(null)} sx={{ mb: 2 }}>
@@ -261,7 +258,7 @@ export default function ManageCostItemsDialog({ open, onClose }: ManageCostItems
                     </Typography>
                   </Box>
                   {c.archived && (
-                    <Chip size="small" variant="outlined" label={t(`metamodel.${textKey}.archived`)} />
+                    <Chip size="small" variant="outlined" label={t(`metamodel.costItems.archived`)} />
                   )}
                   <Tooltip title={t("common:actions.edit")}>
                     <IconButton
@@ -274,12 +271,12 @@ export default function ManageCostItemsDialog({ open, onClose }: ManageCostItems
                     </IconButton>
                   </Tooltip>
                   <Tooltip
-                    title={c.archived ? t(`metamodel.${textKey}.restore`) : t(`metamodel.${textKey}.archive`)}
+                    title={c.archived ? t(`metamodel.costItems.restore`) : t(`metamodel.costItems.archive`)}
                   >
                     <IconButton
                       size="small"
                       aria-label={`${
-                        c.archived ? t(`metamodel.${textKey}.restore`) : t(`metamodel.${textKey}.archive`)
+                        c.archived ? t(`metamodel.costItems.restore`) : t(`metamodel.costItems.archive`)
                       }: ${name}`}
                       disabled={busy}
                       onClick={() => setArchived(c, !c.archived)}
@@ -297,14 +294,14 @@ export default function ManageCostItemsDialog({ open, onClose }: ManageCostItems
             startIcon={<MaterialSymbol icon="add" size={18} />}
             onClick={() => setCreating(true)}
           >
-            {t(`metamodel.${textKey}.newItem`)}
+            {t(`metamodel.costItems.newItem`)}
           </Button>
           <Button onClick={onClose}>{t("common:actions.close")}</Button>
         </DialogActions>
       </Dialog>
       <CostItemEditDialog
-        path={path}
-        textKey={textKey}
+        path={COST_PATH}
+        textKey="costItems"
         open={creating || editing !== null}
         item={editing}
         onClose={closeEdit}

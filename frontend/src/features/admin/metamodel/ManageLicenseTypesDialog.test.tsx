@@ -33,9 +33,13 @@ const lmetric = (key: string, over: Partial<LicenseMetricItem> = {}): LicenseMet
 
 const CATALOGUE = [
   lmetric("users", {
-    types: [ltype("users", "business"), ltype("users", "guest", { archived: true })],
+    sort_order: 1,
+    types: [
+      ltype("users", "business", { sort_order: 1 }),
+      ltype("users", "guest", { archived: true, sort_order: 2 }),
+    ],
   }),
-  lmetric("cores", { archived: true }),
+  lmetric("cores", { archived: true, sort_order: 2 }),
 ];
 
 const metricRow = (key: string) => screen.getByTestId(`license-metric-${key}`);
@@ -161,8 +165,65 @@ describe("ManageLicenseTypesDialog", () => {
     mockApi.fail("patch", `${METRICS_PATH}/users/types/business`, 500, "boom");
     const user = await renderDialog();
     await user.click(within(typeRow("users", "business")).getByRole("button", { name: /archive/i }));
-    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      `PATCH ${METRICS_PATH}/users/types/business failed`,
+    );
   });
+
+  it("falls back to the generic message when the refusal carries none", async () => {
+    mockApi.on("patch", `${METRICS_PATH}/users/types/business`, () => {
+      throw "refused";
+    });
+    const user = await renderDialog();
+    await user.click(within(typeRow("users", "business")).getByRole("button", { name: /archive/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("The change could not be saved");
+  });
+
+  it("offers no Add type on an archived metric", async () => {
+    await renderDialog();
+    expect(within(metricRow("users")).getByRole("button", { name: /add type/i })).toBeInTheDocument();
+    expect(within(metricRow("cores")).queryByRole("button", { name: /add type/i })).toBeNull();
+  });
+
+  it("keeps the type title while the edit dialog closes", async () => {
+    const user = await renderDialog();
+    await user.click(within(metricRow("users")).getByRole("button", { name: /add type/i }));
+    expect(screen.getByText("New license type")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+    expect(screen.queryByText("New license metric")).toBeNull();
+  });
+
+  it("moves a metric down by swapping sort orders, disabled at the ends", async () => {
+    mockApi.on("patch", /^\/metamodel\/license-metrics\//, {});
+    const user = await renderDialog();
+    expect(within(metricRow("users")).getByRole("button", { name: /^move up: users/i })).toBeDisabled();
+    expect(within(metricRow("cores")).getByRole("button", { name: /^move down: cores/i })).toBeDisabled();
+    await user.click(within(metricRow("users")).getByRole("button", { name: /^move down: users/i }));
+    await waitFor(() => expect(mockApi.callsOf("patch")).toHaveLength(2));
+    expect(mockApi.callsOf("patch", `${METRICS_PATH}/users`)[0].body).toEqual({ sort_order: 2 });
+    expect(mockApi.callsOf("patch", `${METRICS_PATH}/cores`)[0].body).toEqual({ sort_order: 1 });
+    await waitFor(() => expect(mockApi.callsOf("get", METRICS_PATH).length).toBeGreaterThan(1));
+  });
+
+  it("moves a type up within its metric, disabled at the ends", async () => {
+    mockApi.on("patch", /^\/metamodel\/license-metrics\//, {});
+    const user = await renderDialog();
+    expect(
+      within(typeRow("users", "business")).getByRole("button", { name: /^move up: business/i }),
+    ).toBeDisabled();
+    expect(
+      within(typeRow("users", "guest")).getByRole("button", { name: /^move down: guest/i }),
+    ).toBeDisabled();
+    await user.click(within(typeRow("users", "guest")).getByRole("button", { name: /^move up: guest/i }));
+    await waitFor(() => expect(mockApi.callsOf("patch")).toHaveLength(2));
+    expect(mockApi.callsOf("patch", `${METRICS_PATH}/users/types/guest`)[0].body).toEqual({
+      sort_order: 1,
+    });
+    expect(mockApi.callsOf("patch", `${METRICS_PATH}/users/types/business`)[0].body).toEqual({
+      sort_order: 2,
+    });
+  });
+
 
   it("says a duplicate key already exists", async () => {
     mockApi.fail("post", METRICS_PATH, 409, "duplicate_key");

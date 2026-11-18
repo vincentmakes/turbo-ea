@@ -78,7 +78,6 @@ export interface TypeDrawerProps {
   onDeleted?: () => void;
 }
 
-
 export default function TypeDetailDrawer({
   open,
   typeKey,

@@ -4,11 +4,12 @@
  * metric for good, and nothing is deleted: an archived metric or type cannot be
  * chosen for a new cell but keeps counting where a year already holds data.
  */
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
 import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
@@ -18,7 +19,7 @@ import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { api } from "@/api/client";
+import { api, apiErrorMessage } from "@/api/client";
 import { invalidateLicenseCatalogue, useLicenseCatalogue } from "@/hooks/useLicenseCatalogue";
 import { useFieldLabel } from "@/hooks/useResolveLabel";
 import type { LicenseMetricItem, LicenseTypeItem } from "@/types";
@@ -39,7 +40,7 @@ interface Props {
 export default function ManageLicenseTypesDialog({ open, onClose }: Props) {
   const { t } = useTranslation(["admin", "common"]);
   const fieldLabel = useFieldLabel();
-  const { metrics } = useLicenseCatalogue(open);
+  const { metrics, loading, failed } = useLicenseCatalogue(open);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -51,11 +52,58 @@ export default function ManageLicenseTypesDialog({ open, onClose }: Props) {
       await api.patch(path, { archived });
       await invalidateLicenseCatalogue();
     } catch (err) {
-      setError(err instanceof Error && err.message ? err.message : t("metamodel.licenseCatalogue.errors.generic"));
+      setError(apiErrorMessage(err, t("metamodel.licenseCatalogue.errors.generic")));
     } finally {
       setBusy(false);
     }
   };
+
+  /** Swap `sort_order` with the neighbour (equal values fall back to list positions), then reload. */
+  const move = async (
+    items: { key: string; sort_order: number }[],
+    index: number,
+    delta: -1 | 1,
+    pathOf: (key: string) => string,
+  ) => {
+    const a = items[index];
+    const b = items[index + delta];
+    const equal = a.sort_order === b.sort_order;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.patch(pathOf(a.key), { sort_order: equal ? index + delta : b.sort_order });
+      await api.patch(pathOf(b.key), { sort_order: equal ? index : a.sort_order });
+      await invalidateLicenseCatalogue();
+    } catch (err) {
+      setError(apiErrorMessage(err, t("metamodel.licenseCatalogue.errors.generic")));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const moveButtons = (
+    name: string,
+    index: number,
+    count: number,
+    onMove: (delta: -1 | 1) => void,
+  ) =>
+    ([-1, 1] as const).map((delta) => {
+      const label = t(`metamodel.licenseCatalogue.${delta < 0 ? "moveUp" : "moveDown"}`);
+      return (
+        <Tooltip key={delta} title={label}>
+          <span>
+            <IconButton
+              size="small"
+              aria-label={`${label}: ${name}`}
+              disabled={busy || (delta < 0 ? index === 0 : index === count - 1)}
+              onClick={() => onMove(delta)}
+            >
+              <MaterialSymbol icon={delta < 0 ? "arrow_upward" : "arrow_downward"} size={18} />
+            </IconButton>
+          </span>
+        </Tooltip>
+      );
+    });
 
   const rowSx = (archived: boolean) => ({
     display: "flex",
@@ -100,9 +148,13 @@ export default function ManageLicenseTypesDialog({ open, onClose }: Props) {
       <Chip size="small" variant="outlined" label={t("metamodel.licenseCatalogue.archived")} />
     );
 
-  const editTextKey: CatalogueTextKey = editing?.kind === "type" ? "licenseTypes" : "licenseMetrics";
+  // Keep the last target until the edit dialog has closed, so its title does not flicker.
+  const lastEditing = useRef<Editing | null>(null);
+  if (editing) lastEditing.current = editing;
+  const shown = editing ?? lastEditing.current;
+  const editTextKey: CatalogueTextKey = shown?.kind === "type" ? "licenseTypes" : "licenseMetrics";
   const editPath =
-    editing?.kind === "type" ? `${METRICS_PATH}/${encodeURIComponent(editing.metric.key)}/types` : METRICS_PATH;
+    shown?.kind === "type" ? `${METRICS_PATH}/${encodeURIComponent(shown.metric.key)}/types` : METRICS_PATH;
 
   return (
     <>
@@ -120,7 +172,17 @@ export default function ManageLicenseTypesDialog({ open, onClose }: Props) {
               {error}
             </Alert>
           )}
-          {metrics.map((m) => {
+          {loading && (
+            <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
+              <CircularProgress size={24} />
+            </Box>
+          )}
+          {failed && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {t("metamodel.licenseCatalogue.errors.load")}
+            </Alert>
+          )}
+          {metrics.map((m, mi) => {
             const mName = fieldLabel(m);
             return (
               <Box
@@ -138,14 +200,19 @@ export default function ManageLicenseTypesDialog({ open, onClose }: Props) {
                     </Typography>
                   </Box>
                   {archivedChip(m.archived)}
-                  <Button
-                    size="small"
-                    disabled={busy}
-                    startIcon={<MaterialSymbol icon="add" size={16} />}
-                    onClick={() => setEditing({ kind: "type", metric: m, item: null })}
-                  >
-                    {t("metamodel.licenseCatalogue.addType")}
-                  </Button>
+                  {!m.archived && (
+                    <Button
+                      size="small"
+                      disabled={busy}
+                      startIcon={<MaterialSymbol icon="add" size={16} />}
+                      onClick={() => setEditing({ kind: "type", metric: m, item: null })}
+                    >
+                      {t("metamodel.licenseCatalogue.addType")}
+                    </Button>
+                  )}
+                  {moveButtons(mName, mi, metrics.length, (d) =>
+                    move(metrics, mi, d, (k) => `${METRICS_PATH}/${encodeURIComponent(k)}`),
+                  )}
                   {actions(
                     mName,
                     m.archived,
@@ -153,7 +220,7 @@ export default function ManageLicenseTypesDialog({ open, onClose }: Props) {
                     `${METRICS_PATH}/${encodeURIComponent(m.key)}`,
                   )}
                 </Box>
-                {m.types.map((ty) => {
+                {m.types.map((ty, ti) => {
                   const tName = fieldLabel(ty);
                   return (
                     <Box
@@ -170,6 +237,14 @@ export default function ManageLicenseTypesDialog({ open, onClose }: Props) {
                         </Typography>
                       </Box>
                       {archivedChip(ty.archived)}
+                      {moveButtons(tName, ti, m.types.length, (d) =>
+                        move(
+                          m.types,
+                          ti,
+                          d,
+                          (k) => `${METRICS_PATH}/${encodeURIComponent(m.key)}/types/${encodeURIComponent(k)}`,
+                        ),
+                      )}
                       {actions(
                         tName,
                         ty.archived,
@@ -197,7 +272,7 @@ export default function ManageLicenseTypesDialog({ open, onClose }: Props) {
         open={editing !== null}
         path={editPath}
         textKey={editTextKey}
-        item={editing?.item ?? null}
+        item={shown?.item ?? null}
         onClose={() => setEditing(null)}
         onSaved={() => {
           setEditing(null);
