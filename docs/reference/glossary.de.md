@@ -23,7 +23,8 @@
 | **Konfidenzwert** | Eine Bewertung von 0–100%, die angibt, wie zuverlässig eine KI-generierte Beschreibung ist |
 | **Kostenelement** | Eine Zeile der jährlichen Kosten einer Anwendung oder IT-Komponente (zum Beispiel Hosting), entnommen dem Katalog unter Admin > Metamodell > Kostenelemente. Die TCO einer Karte sind die Summe ihrer Elemente für das Geschäftsjahr |
 | **TCO (Gesamtbetriebskosten)** | Die jährlichen Gesamtkosten einer Anwendung oder IT-Komponente für ein Geschäftsjahr, stets aus ihren Kostenelementen abgeleitet und nie von Hand eingegeben |
-| **Lizenztyp** | Eine Lizenzart (zum Beispiel Admin oder Endbenutzer) aus dem Katalog unter Admin > Metamodell > Lizenztypen. Karten vom Typ Anwendung und IT-Komponente erfassen lizenzierte und tatsächliche Mengen je Lizenztyp, Kennzahl und Geschäftsjahr |
+| **Lizenzkennzahl** | Das, worin die Lizenzen einer Anwendung oder IT-Komponente gezählt werden (standardmäßig Benutzer und Installationen), aus dem Katalog unter Admin > Metamodell > Lizenztypen. Mengen verschiedener Kennzahlen werden nie addiert |
+| **Lizenztyp** | Eine Lizenzart (zum Beispiel Admin oder Prod), die zu genau einer Lizenzkennzahl gehört, aus dem Katalog unter Admin > Metamodell > Lizenztypen. Eine Karte erfasst lizenzierte und tatsächliche Mengen je Paar Kennzahl: Typ und Geschäftsjahr |
 | **Auslastung** | Tatsächliche Lizenzmenge geteilt durch lizenzierte Menge, in Prozent. Unter 80 % ist ein Lizenztyp konform, ab 80 % nahe am Limit, über 100 % überlizenziert |
 | **Kostenposition** | Ein Budget- oder Ist-Kosteneintrag (CapEx/OpEx) in einer PPM-Initiative zur Verfolgung finanzieller Ausgaben |
 | **Datenqualität** | Ein Vollständigkeitswert von 0–100%, basierend auf ausgefüllten Feldern und deren konfigurierten Gewichtungen |

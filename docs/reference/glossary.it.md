@@ -22,7 +22,8 @@
 | **Punteggio di affidabilità** | Una valutazione 0-100% che indica quanto è affidabile una descrizione generata dall'AI |
 | **Elemento di costo** | Una riga del costo annuo di un'Applicazione o di un Componente IT (ad esempio l'hosting), presa dal catalogo in Admin > Metamodello > Elementi di costo. Il TCO di una card è la somma deli suoi elementi per l'anno fiscale |
 | **TCO (costo totale di proprietà)** | Il costo annuo totale di un'Applicazione o di un Componente IT per un anno fiscale, sempre derivato dalle sue elementi di costo e mai digitato a mano |
-| **Tipo di licenza** | Un tipo di licenza (ad esempio Admin o Utente finale) dal catalogo in Admin > Metamodello > Tipi di licenza. Le schede Applicazione e Componente IT registrano quantità in licenza ed effettive per tipo di licenza, metrica e anno fiscale |
+| **Metrica di licenza** | Ciò in cui sono contate le licenze di un'Applicazione o di un Componente IT (per impostazione predefinita Utenti e Installazioni), dal catalogo in Admin > Metamodello > Tipi di licenza. Le quantità di metriche diverse non vengono mai sommate |
+| **Tipo di licenza** | Un genere di licenza (per esempio Admin o Prod) che appartiene a una sola Metrica di licenza, dal catalogo in Admin > Metamodello > Tipi di licenza. Una card registra quantità in licenza ed effettive per ogni coppia Metrica: Tipo e anno fiscale |
 | **Utilizzo** | Quantità effettiva di licenze divisa per la quantità in licenza, in percentuale. Sotto l'80 % un tipo di licenza è conforme, dall'80 % è vicino al limite, oltre il 100 % è sovralicenziato |
 | **Voce di costo** | Una voce di budget o costo effettivo (CapEx/OpEx) in un'iniziativa PPM, utilizzata per monitorare le spese finanziarie |
 | **Qualità dei dati** | Un punteggio di completezza 0-100% basato sui campi compilati e sui loro pesi configurati |

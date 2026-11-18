@@ -27,7 +27,8 @@
 | **DrawIO** | Det indlejrede open source-diagramværktøj, der bruges til visuelle arkitekturdiagrammer |
 | **Omkostningspost** | Én linje af en applikations eller IT-komponents årlige omkostninger (for eksempel hosting), hentet fra kataloget under Admin > Metamodel > Omkostningsposter. Et korts TCO er summen af dets poster for regnskabsåret |
 | **TCO (samlede ejeromkostninger)** | De samlede årlige omkostninger for en applikation eller IT-komponent i et regnskabsår, altid udledt af dens omkostningsposter og aldrig indtastet i hånden |
-| **Licenstype** | En slags licens (for eksempel Admin eller Slutbruger) fra kataloget under Admin > Metamodel > Licenstyper. Kort for applikationer og IT-komponenter registrerer licenserede og faktiske antal pr. licenstype, måling og regnskabsår |
+| **Licensmåling** | Det, en applikations eller IT-komponents licenser tælles i (som standard Brugere og Installationer), fra kataloget under Admin > Metamodel > Licenstyper. Antal fra forskellige målinger lægges aldrig sammen |
+| **Licenstype** | En slags licens (for eksempel Admin eller Prod), der hører til netop én licensmåling, fra kataloget under Admin > Metamodel > Licenstyper. Et kort registrerer licenserede og faktiske antal for hvert par Måling: Type og regnskabsår |
 | **Udnyttelse** | Faktisk licensantal divideret med licenseret antal, i procent. Under 80 % er en licenstype kompatibel, fra 80 % er den tæt på grænsen, over 100 % er den overlicenseret |
 | **Omkostningslinje** | En budget- eller faktisk omkostningspost (CapEx/OpEx) i et PPM-initiativ, brugt til at spore økonomiske udgifter |
 | **Enterprise Architecture (EA)** | Disciplinen, der organiserer og dokumenterer en organisations forretnings- og teknologistruktur |
