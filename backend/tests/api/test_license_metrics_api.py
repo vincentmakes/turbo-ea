@@ -214,3 +214,52 @@ async def test_old_license_types_routes_are_gone(client, env):
         headers=h,
     )
     assert r.status_code in (404, 405)
+
+
+# --- VAPT L3 / L4 ---------------------------------------------------------------------
+
+INT_MAX = 2147483647
+
+
+@pytest.mark.parametrize(
+    "url, key",
+    [(BASE, "seats"), (f"{BASE}/users/types", "pro")],
+    ids=["metric", "type"],
+)
+async def test_creating_after_a_sort_order_at_int_max_is_201_not_a_500(client, env, url, key):
+    h = env["h"]
+    assert (await client.post(url, json={"key": key, "label": "A"}, headers=h)).status_code == 201
+    patched = await client.patch(f"{url}/{key}", json={"sort_order": INT_MAX}, headers=h)
+    assert patched.status_code == 200
+    r = await client.post(url, json={"key": key + "2", "label": "B"}, headers=h)
+    assert r.status_code == 201, r.text
+    assert r.json()["sort_order"] == INT_MAX
+
+
+@pytest.mark.parametrize("model_name", ["LicenseType", "LicenseMetric"])
+async def test_a_row_inserted_between_check_and_insert_is_409_not_a_500(
+    client, env, db, monkeypatch, model_name
+):
+    """The duplicate pre-check misses the row, as when another request inserts in between."""
+    from app.models.license_metric import LicenseMetric
+    from app.models.license_type import LicenseType
+    from app.services import item_catalogue
+
+    model = {"LicenseType": LicenseType, "LicenseMetric": LicenseMetric}[model_name]
+    real = item_catalogue.get_item
+
+    async def blind(db, m, key, scope=None):
+        return None if m is model else await real(db, m, key, scope)
+
+    await create_license_type(db, "race", "Race", metric_key="users")
+    monkeypatch.setattr(item_catalogue, "get_item", blind)
+    h = env["h"]
+    if model is LicenseType:
+        r = await client.post(f"{BASE}/users/types", json={"key": "race", "label": "R"}, headers=h)
+    else:
+        r = await client.post(BASE, json={"key": "users", "label": "U"}, headers=h)
+    assert r.status_code == 409, r.text
+    assert r.json()["detail"]["error"] == "duplicate_key"
+    monkeypatch.setattr(item_catalogue, "get_item", real)
+    # The session survived the failed insert.
+    assert (await client.get(BASE, headers=h)).status_code == 200

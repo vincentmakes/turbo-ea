@@ -10,9 +10,11 @@ from collections.abc import Awaitable, Callable
 from typing import Any, TypeVar, cast
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 T = TypeVar("T")
+INT32_MAX = 2147483647  # the column's max: ``max + 1`` must not overflow it
 KEY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
 
 
@@ -90,12 +92,16 @@ async def create_item(
         **(scope or {}),
         key=key,
         label=label,
-        sort_order=(current if current is not None else -1) + 1,
+        sort_order=min((current if current is not None else -1) + 1, INT32_MAX),
         archived=False,
         translations=translations or {},
     )
-    db.add(row)
-    await db.flush()
+    try:
+        async with db.begin_nested():  # a lost race leaves the session usable
+            db.add(row)
+            await db.flush()
+    except IntegrityError as exc:  # another request inserted the key after the check
+        raise CatalogueError("duplicate_key", f"{noun} '{key}' already exists") from exc
     return cast("T", row)
 
 

@@ -503,3 +503,103 @@ async def test_an_old_bundle_card_with_no_attributes_imports(db):
     assert _section(result, "Cards").failed == 0, result.as_dict()
     imported = (await db.execute(select(Card).where(Card.name == "Billing"))).scalar_one()
     assert MODEL_KEY not in (imported.attributes or {})
+
+
+# --- VAPT L1 / L2: a bundle is held to the rules of the API schemas ---------------------
+
+_BAD_CELLS = {
+    "string_licensed": ({"users": {"admin": {"licensed": "abc", "actual": 1}}}, "users:admin"),
+    "bool_licensed": ({"users": {"admin": {"licensed": True}}}, "users:admin"),
+    "float_licensed": ({"users": {"admin": {"licensed": 1.5}}}, "users:admin"),
+    "huge_licensed": ({"users": {"admin": {"licensed": 10**30}}}, "users:admin"),
+    "negative_licensed": ({"users": {"admin": {"licensed": -5, "actual": 1}}}, "users:admin"),
+    "negative_actual": ({"users": {"admin": {"licensed": 5, "actual": -9}}}, "users:admin"),
+    "string_actual": ({"users": {"admin": {"licensed": 5, "actual": "x"}}}, "users:admin"),
+    "cell_not_a_dict": ({"users": {"admin": "x"}}, "users:admin"),
+    "metric_not_a_dict": ({"users": "junk"}, "users"),
+}
+
+
+@pytest.mark.parametrize("bad, name", list(_BAD_CELLS.values()), ids=list(_BAD_CELLS))
+async def test_a_license_cell_that_breaks_the_api_rules_is_dropped_and_reported(db, bad, name):
+    user, _ = await _seed_two_metrics(db, "lc-badcell@test.com")
+    bundle = parse_bundle(await build_bundle(db))
+    (row,) = bundle.sheets["CardLicenses"]
+    row["items"] = {**bad, "seats": {"named": CELL}}
+    await db.execute(delete(CardLicense))
+    await db.flush()
+
+    result = await apply_bundle(db, bundle, user)
+    sr = _section(result, "CardLicenses")
+    assert (await db.execute(select(CardLicense))).scalar_one().items == {"seats": {"named": CELL}}
+    assert sr.failed == 0, sr
+    assert [e for e in sr.errors if f"license cell {name}:" in e], sr.errors
+
+
+async def test_a_valid_cell_with_a_null_actual_is_kept(db):
+    user, _ = await _seed_two_metrics(db, "lc-nullactual@test.com")
+    bundle = parse_bundle(await build_bundle(db))
+    (row,) = bundle.sheets["CardLicenses"]
+    row["items"] = {"users": {"admin": {"licensed": 0, "actual": None}}}
+    await db.execute(delete(CardLicense))
+    await db.flush()
+
+    result = await apply_bundle(db, bundle, user)
+    assert _section(result, "CardLicenses").errors == []
+    stored = (await db.execute(select(CardLicense))).scalar_one().items
+    assert stored == {"users": {"admin": {"licensed": 0, "actual": None}}}
+
+
+_BAD_METRICS = {
+    "bad_key": {"key": "Evil Key/../x", "label": "Ok"},
+    "long_label": {"key": "longlbl", "label": "x" * 101},
+    "blank_label": {"key": "blanklbl", "label": "   "},
+    "bad_translations": {"key": "badtr", "label": "Ok", "translations": {"it": 5}},
+}
+
+
+@pytest.mark.parametrize("row", list(_BAD_METRICS.values()), ids=list(_BAD_METRICS))
+async def test_a_metric_row_that_breaks_the_key_or_label_rules_is_skipped_and_its_cells_drop(
+    db, row
+):
+    user, items = await _seed_two_metrics(db, "lc-badmetric@test.com")
+    bundle = parse_bundle(await build_bundle(db))
+    bundle.sheets[METRICS].append(row)
+    bundle.sheets[TYPES].append({"metric_key": row["key"], "key": "t", "label": "T"})
+    (card_row,) = bundle.sheets["CardLicenses"]
+    card_row["items"] = {**items, row["key"]: {"t": CELL}}
+    await db.execute(delete(CardLicense))
+    await db.flush()
+
+    result = await apply_bundle(db, bundle, user)
+    msr = _section(result, METRICS)
+    assert msr.failed == 1, msr
+    assert any(row["key"] in e for e in msr.errors), msr.errors
+    assert set(await _metrics(db)) == {"users", "seats"}
+    assert not any(k == "t" for _, k in await _types(db))
+    assert (await db.execute(select(CardLicense))).scalar_one().items == items
+
+
+_BAD_TYPES = {
+    "bad_key": {"metric_key": "users", "key": "Bad Key!", "label": "T"},
+    "long_label": {"metric_key": "users", "key": "longt", "label": "x" * 101},
+    "bad_translations": {"metric_key": "users", "key": "badt", "label": "T", "translations": [1]},
+}
+
+
+@pytest.mark.parametrize("row", list(_BAD_TYPES.values()), ids=list(_BAD_TYPES))
+async def test_a_type_row_that_breaks_the_key_or_label_rules_is_skipped_and_its_cells_drop(db, row):
+    user, items = await _seed_two_metrics(db, "lc-badtype@test.com")
+    bundle = parse_bundle(await build_bundle(db))
+    bundle.sheets[TYPES].append(row)
+    (card_row,) = bundle.sheets["CardLicenses"]
+    card_row["items"] = {**items, "users": {**items["users"], row["key"]: CELL}}
+    await db.execute(delete(CardLicense))
+    await db.flush()
+
+    result = await apply_bundle(db, bundle, user)
+    tsr = _section(result, TYPES)
+    assert tsr.failed == 1, tsr
+    assert any(row["key"] in e for e in tsr.errors), tsr.errors
+    assert ("users", row["key"]) not in await _types(db)
+    assert (await db.execute(select(CardLicense))).scalar_one().items == items

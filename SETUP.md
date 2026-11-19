@@ -580,10 +580,11 @@ project-root path calculated above for the working directory and bin path.
 }
 ```
 
-The additional hooks use the same `.trail/hook.cjs`:
+All four Trail hooks use the same `.trail/hook.cjs`:
 
 | Codex event | Matcher | Trail handler | Purpose |
 | --- | --- | --- | --- |
+| `SessionStart` | `startup` | `session-start` | Load the initial project context and standing notes when a new chat starts. |
 | `PreToolUse` | `^apply_patch$` | `pre-edit` | Recall relevant notes before a patch. |
 | `PostToolUse` | `^Bash$` | `tool-savings` | Recall notes for files named by a shell command, including PowerShell reads through `exec_command`. |
 | `PostToolUse` | `^apply_patch$` | `post-edit` | Mark the map as needing an update and recall notes not already shown. |

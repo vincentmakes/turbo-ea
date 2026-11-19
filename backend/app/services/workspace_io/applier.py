@@ -55,6 +55,7 @@ from app.models.role import Role
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
+from app.schemas.licenses import LicenseMetricCreate, LicenseTypeCreate
 from app.services import card_reference, card_type_categories, decision_links_legacy
 from app.services.bo_relationship_constants import (
     APPLICATION_RELATION,
@@ -298,8 +299,11 @@ async def _run(
         # The license catalogue also runs for a CardLicenses-only import: it is what drops the
         # cells whose metric or type exists nowhere.
         dropped_license_cells: list[str] = []
+        invalid_license_cells: list[str] = []
         if any(_wanted(s) for s in (*_LICENSE_CATALOGUE_SHEETS, SHEET_CARD_LICENSES)):
-            dropped_license_cells = await _apply_license_catalogue(db, bundle, result, _wanted)
+            dropped_license_cells, invalid_license_cells = await _apply_license_catalogue(
+                db, bundle, result, _wanted
+            )
         # The Principles sheet does not carry the source's references (each
         # instance numbers its own), so number whatever that section created.
         await ensure_principle_references(db)
@@ -330,6 +334,10 @@ async def _run(
                     f"license cell {name}: its metric or type is on neither this instance "
                     "nor in the bundle, skipped"
                     for name in dropped_license_cells
+                )
+                sr.errors.extend(
+                    f"license cell {name}: not a valid license count, skipped"
+                    for name in invalid_license_cells
                 )
             await apply_entity_section(db, ent, bundle, sr, ent_resolver, email_to_id, remap_ctx)
         if adr_ids_before is not None:
@@ -987,10 +995,12 @@ def _fresh(data: dict[str, Any], key: str) -> dict[str, Any]:
 
 async def _apply_license_catalogue(
     db, bundle: WorkspaceBundle, result: ApplyResult, wanted: Callable[[str], bool]
-) -> list[str]:
+) -> tuple[list[str], list[str]]:
     """Upsert the license metrics and the types of each metric, and drop from the bundle's
     ``CardLicenses`` the cells whose metric or type is on neither the target nor in the bundle.
-    Returns the dropped ``metric:type`` names, for the ``CardLicenses`` section's report.
+    Returns the dropped ``metric:type`` names and the names of the cells the API's cell rules
+    refuse, for the ``CardLicenses`` section's report. A metric or type row that breaks the
+    API's key / label rules is counted ``failed``, reported and skipped, so its cells drop too.
 
     A bundle written before license metrics (no ``LicenseMetrics`` sheet — absent, never merely
     empty — or a type row without a ``metric_key`` column) has its catalogue derived as
@@ -1028,6 +1038,11 @@ async def _apply_license_catalogue(
             if msr is not None:
                 msr.failed += 1
             continue
+        if error := license_compat.catalogue_row_error(data, LicenseMetricCreate):
+            if msr is not None:
+                msr.failed += 1
+                msr.errors.append(f"license metric {key!r}: {error}, skipped")
+            continue
         metric_keys.add(key)
         if msr is None:
             continue
@@ -1054,6 +1069,11 @@ async def _apply_license_catalogue(
         if not metric_key or not key:
             if tsr is not None:
                 tsr.failed += 1
+            continue
+        if error := license_compat.catalogue_row_error(data, LicenseTypeCreate):
+            if tsr is not None:
+                tsr.failed += 1
+                tsr.errors.append(f"license type {metric_key}:{key!r}: {error}, skipped")
             continue
         if metric_key not in metric_keys:
             if tsr is not None:
@@ -1084,19 +1104,22 @@ async def _apply_license_catalogue(
     await db.flush()
 
     if not wanted(SHEET_CARD_LICENSES):
-        return []
+        return [], []
     dropped: set[str] = set()
+    invalid: set[str] = set()
     kept_rows: list[dict[str, Any]] = []
     for row in card_rows:
         # A row it cannot read is left to the entity pass, which reports it.
-        items, gone = license_compat.keep_known_cells(license_compat.items_of(row), known)
-        if gone:
+        items, bad = license_compat.drop_invalid_cells(license_compat.items_of(row))
+        items, gone = license_compat.keep_known_cells(items, known)
+        if gone or bad:
             dropped.update(gone)
+            invalid.update(bad)
             row = {**row, "items": items}
         kept_rows.append(row)
     # The entity pass reads the sheet from the bundle: hand it the filtered rows.
     bundle.sheets[SHEET_CARD_LICENSES] = kept_rows
-    return sorted(dropped)
+    return sorted(dropped), sorted(invalid)
 
 
 # ---------------------------------------------------------------------------

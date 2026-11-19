@@ -5,7 +5,9 @@ A bundle written before license metrics existed has no ``LicenseMetrics`` sheet 
 migration 192 does to a database (the same ``derive_type_metrics`` rule); the caller decides
 that a bundle is old, from the sheet being absent and never from it being empty.
 ``items_of`` reads a ``CardLicenses`` row's cells; ``keep_known_cells`` drops the cells
-whose metric or type exists nowhere.
+whose metric or type exists nowhere, ``drop_invalid_cells`` those that break the rules of
+the API's cell schema, and ``catalogue_row_error`` a metric or type row that breaks the
+API's key and label rules.
 Pure: no database, nothing written.
 """
 
@@ -13,6 +15,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from pydantic import BaseModel, ValidationError
+
+from app.schemas.licenses import LicenseCellWrite
 from app.services.license_types import DEFAULT_METRICS
 from app.services.licensing_migration import derive_type_metrics
 from app.services.workspace_io.bundle import from_cell
@@ -76,4 +81,44 @@ def keep_known_cells(items: dict, known: set[tuple[str, str]]) -> tuple[dict, li
         dropped.extend(f"{metric}:{t}" for t in cells if t not in mine)
         if mine or not cells:
             kept[metric] = mine
+    return kept, sorted(dropped)
+
+
+def catalogue_row_error(data: dict[str, Any], schema: type[BaseModel]) -> str | None:
+    """Why a metric or type row breaks the API's key / label / translations rules
+    (``schema`` is ``LicenseMetricCreate`` or ``LicenseTypeCreate``), or ``None``. An empty
+    label cell is fine: the new row takes its key. The offending value is not echoed."""
+    payload = {k: data.get(k) for k in ("key", "label", "translations")}
+    if payload["label"] is None:
+        payload["label"] = payload["key"]
+    try:
+        schema.model_validate(payload)
+    except ValidationError as exc:
+        first = exc.errors()[0]
+        return f"{'.'.join(str(p) for p in first['loc'])}: {first['msg']}"
+    return None
+
+
+def _cell_ok(cell: Any) -> bool:
+    try:
+        LicenseCellWrite.model_validate(cell)
+    except ValidationError:
+        return False
+    return True
+
+
+def drop_invalid_cells(items: dict) -> tuple[dict, list[str]]:
+    """``items`` without the cells the API's ``LicenseCellWrite`` would refuse (a non-int or
+    out-of-range count, a cell that is not an object) and without a metric that is not an
+    object, plus the dropped names (``metric:type``, or ``metric``), sorted."""
+    kept: dict = {}
+    dropped: list[str] = []
+    for metric, cells in items.items():
+        if not isinstance(cells, dict):
+            dropped.append(metric)
+            continue
+        good = {t: c for t, c in cells.items() if _cell_ok(c)}
+        dropped.extend(f"{metric}:{t}" for t in cells if t not in good)
+        if good or not cells:
+            kept[metric] = good
     return kept, sorted(dropped)
