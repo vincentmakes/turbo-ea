@@ -107,7 +107,7 @@ Depending on the card type, you will see additional sections with **custom field
 - **Text** — Free text input
 - **Multi-line Text** — Free text input that preserves line breaks, rendered as an auto-growing text area
 - **Number** — Numeric value
-- **Cost** — Numeric value displayed with the platform's configured currency. Cost fields are shown only to users whose role holds the `costs.view` permission (listed under **Costs** in the role editor). Everyone else sees *Restricted* in their place and cannot change the value — a stakeholder role on the card, Observer or owner, does not change that
+- **Cost** — Numeric value displayed with the platform's configured currency. Cost fields are shown to users whose role holds the `costs.view` permission (listed under **Costs** in the role editor), and to a card's stakeholders when their [stakeholder role](../admin/metamodel.md) allows it. Everyone else sees *Restricted* in their place and cannot change the value. Observing a card does not show its costs
 - **Boolean** — Chosen from a Yes / No list, with **None** to clear it; shown as a green *Yes* or blue *No* pill, — when unset
 - **Date** — Date picker
 - **URL** — Clickable link (validated for http/https/mailto)

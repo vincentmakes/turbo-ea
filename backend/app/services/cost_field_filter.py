@@ -1,7 +1,7 @@
 """Helpers to identify and strip cost-typed fields from card and relation attributes.
 
-Used by endpoints that gate cost visibility behind the `costs.view` permission —
-see PermissionService.can_view_costs().
+Used by endpoints that gate cost visibility behind the `costs.view` permission, or
+a stakeholder role granting `card.view_costs` — see PermissionService.can_view_costs().
 """
 
 from __future__ import annotations

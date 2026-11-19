@@ -151,6 +151,8 @@ Dê a um papel uma **descrição** para dizer o que ele significa na sua organiz
 
 Cada papel tem também um interruptor **Conta para a qualidade dos dados**. A pontuação de qualidade tem uma única posição para partes interessadas, satisfeita assim que alguém é atribuído ao card num papel com este interruptor ativo. Desative-o para papéis puramente passivos — o **Observador** integrado vem desativado, para que observar um card nunca equivalha a ser responsável por ele. Um tipo cujos papéis estejam todos desativados não contribui com posição alguma. Alterar o interruptor volta a pontuar de imediato todos os cards do tipo.
 
+As permissões de um papel também determinam se os seus titulares veem os **campos de custo** de um cartão. Os utilizadores cujo papel da aplicação possui `costs.view` veem os custos em todos os cartões. Para todos os outros, marque **card.view_costs** num papel de parte interessada: os seus titulares passam então a ver os custos dos cartões em que detêm esse papel e podem alterá-los se o papel também puder editar. Os papéis integrados são fornecidos com ela ativada, exceto **Observador**: qualquer pessoa que possa ver um cartão pode tornar-se o seu Observador com **Observar este cartão**, pelo que tudo o que o papel Observador permite fica aberto a todos, e o editor de papéis assinala-o nesse papel. Um papel que criar começa com ela desativada.
+
 Os papéis podem ser removidos de duas formas:
 
 - **Arquivar** — o papel permanece nos cartões que já o utilizam, mas deixa de poder ser atribuído e deixa de conceder as suas permissões ao nível do cartão. Os papéis arquivados aparecem atrás do interruptor **Mostrar arquivados** e podem ser restaurados a qualquer momento. É a escolha certa para um papel que foi realmente utilizado.

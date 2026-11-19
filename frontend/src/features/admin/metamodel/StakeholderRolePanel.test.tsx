@@ -413,6 +413,96 @@ describe("StakeholderRolePanel — legacy permission keys", () => {
   });
 });
 
+describe("StakeholderRolePanel — cost access and the self-assignable role (#1412)", () => {
+  const HINT = /anyone who can view a card can make themselves its observer/i;
+  const COST_ROLES = [
+    {
+      id: "1",
+      card_type_key: "Application",
+      key: "responsible",
+      label: "Responsible",
+      color: "#1976d2",
+      permissions: { "card.view": true, "card.view_costs": true },
+      is_archived: false,
+      sort_order: 0,
+      stakeholder_count: 0,
+    },
+    {
+      id: "2",
+      card_type_key: "Application",
+      key: "observer",
+      label: "Observer",
+      color: "#757575",
+      permissions: { "card.view": true, "card.view_costs": false },
+      is_archived: false,
+      sort_order: 1,
+      stakeholder_count: 0,
+    },
+  ];
+
+  function mockCostApi() {
+    apiMock.get.mockImplementation((path: string) => {
+      if (path.includes("/usage")) return Promise.resolve(UNUSED);
+      if (path.includes("permissions-schema"))
+        return Promise.resolve({ "card.view": "View card", "card.view_costs": "View costs" });
+      return Promise.resolve(COST_ROLES);
+    });
+    apiMock.patch.mockResolvedValue({});
+    apiMock.post.mockResolvedValue({});
+  }
+
+  async function openEdit(user: ReturnType<typeof userEvent.setup>, index: number) {
+    render(<StakeholderRolePanel typeKey="Application" onError={() => {}} />);
+    await screen.findByText("Observer");
+    await user.click(screen.getAllByRole("button", { name: /edit/i })[index]);
+    const save = await screen.findByRole("button", { name: /^save$/i });
+    await waitFor(() => expect(save).toBeEnabled());
+    return save;
+  }
+
+  it("warns on the Observer role that whatever it allows is open to everyone", async () => {
+    mockCostApi();
+    const user = userEvent.setup();
+    await openEdit(user, 1);
+    expect(screen.getByText(HINT)).toBeInTheDocument();
+  });
+
+  it("shows no such warning on a role that has to be assigned", async () => {
+    mockCostApi();
+    const user = userEvent.setup();
+    await openEdit(user, 0);
+    expect(screen.queryByText(HINT)).not.toBeInTheDocument();
+  });
+
+  it("saves the cost permission an admin ticks on a role", async () => {
+    mockCostApi();
+    const user = userEvent.setup();
+    const save = await openEdit(user, 1);
+
+    const boxes = screen.getAllByRole("checkbox");
+    const costs = boxes.filter((b) => !(b as HTMLInputElement).checked).at(-1)!;
+    await user.click(costs);
+    await user.click(save);
+
+    await waitFor(() => expect(apiMock.patch).toHaveBeenCalled());
+    const [path, body] = apiMock.patch.mock.calls[0];
+    expect(path).toContain("/stakeholder-roles/observer");
+    expect(body.permissions).toEqual({ "card.view": true, "card.view_costs": true });
+  });
+
+  it("warns in the create form once the new role's key is observer", async () => {
+    mockCostApi();
+    const user = userEvent.setup();
+    render(<StakeholderRolePanel typeKey="Application" onError={() => {}} />);
+    await screen.findByText("Observer");
+    await user.click(screen.getByRole("button", { name: /add role/i }));
+    expect(screen.queryByText(HINT)).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/^label/i), "Observer");
+    expect(await screen.findByText(HINT)).toBeInTheDocument();
+  });
+});
+
 describe("StakeholderRolePanel — confirmation escapes the role label", () => {
   it("renders an admin-typed label as text, never as markup", async () => {
     // The confirm line goes through `dangerouslySetInnerHTML` (the translation

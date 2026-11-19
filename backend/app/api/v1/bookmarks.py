@@ -565,8 +565,8 @@ async def bookmark_odata_feed(
     cards = list(result.scalars().all())
 
     # Resolve cost field keys per type so we can redact when the user lacks
-    # `costs.view`. OData feeds aggregate across many cards, so we apply the
-    # bulk check to honour the same rule as the cards API.
+    # cost access. OData feeds aggregate across many cards, so we apply the
+    # bulk stakeholder check to honour the same rule as the cards API.
     type_keys_in_page = {c.type for c in cards if c.type}
     cost_keys_per_type: dict[str, frozenset[str]] = {}
     if type_keys_in_page:

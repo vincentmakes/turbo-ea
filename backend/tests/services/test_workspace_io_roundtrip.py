@@ -1275,6 +1275,134 @@ async def test_import_cannot_reintroduce_legacy_permission_keys(db):
     assert stored == {"card.view": True}
 
 
+async def _reimported_role_permissions(db, roles: dict, *, app_version, wipe=True) -> dict:
+    """Export ``roles`` (key -> permissions), stamp the bundle as written by
+    ``app_version`` (``None`` leaves the manifest without one) and import it
+    back; returns each role's stored permissions."""
+    from app.models.card_type import CardType
+    from app.models.stakeholder_role_definition import StakeholderRoleDefinition
+
+    user = await create_user(db, email="view-costs-ws@test.com", role="admin")
+    db.add(
+        CardType(
+            key="Application", label="Application", icon="apps", color="#0f7eb5", fields_schema=[]
+        )
+    )
+    await db.flush()
+    for key, permissions in roles.items():
+        db.add(
+            StakeholderRoleDefinition(
+                card_type_key="Application", key=key, label=key.title(), permissions=permissions
+            )
+        )
+    await db.flush()
+
+    bundle = parse_bundle(await build_bundle(db))
+    if app_version is None:
+        bundle.manifest.pop("app_version", None)
+    else:
+        bundle.manifest["app_version"] = app_version
+
+    if wipe:
+        await db.execute(delete(StakeholderRoleDefinition))
+    else:
+        # The applier's update path: the rows stay, carrying something else.
+        for srd in (await db.execute(select(StakeholderRoleDefinition))).scalars().all():
+            srd.permissions = {"card.edit": True}
+    await db.flush()
+
+    result = await apply_bundle(db, bundle, user)
+    assert result.total_failed == 0, result.as_dict()
+    rows = await db.execute(
+        select(
+            StakeholderRoleDefinition.key, StakeholderRoleDefinition.permissions
+        ).execution_options(populate_existing=True)
+    )
+    return {key: permissions for key, permissions in rows.all()}
+
+
+_PRE_COSTS_ROLES = {
+    "responsible": {"card.view": True, "card.edit": True},
+    "observer": {"card.view": True},
+    "auditor": {},
+}
+
+
+@pytest.mark.parametrize("wipe", [True, False])
+async def test_an_older_bundle_keeps_the_cost_access_its_roles_had(db, wipe):
+    """Before 2.206.0 every stakeholder role showed its card's costs (#1412).
+
+    A bundle exported then carries no ``card.view_costs`` — the key did not
+    exist — so importing it verbatim would take cost access away from every
+    owner. The importer fills the key the way migration 175 did on an upgraded
+    install: on for every role, off for Observer.
+    """
+    stored = await _reimported_role_permissions(
+        db, _PRE_COSTS_ROLES, app_version="2.205.3", wipe=wipe
+    )
+    assert stored == {
+        "responsible": {"card.view": True, "card.edit": True, "card.view_costs": True},
+        "observer": {"card.view": True, "card.view_costs": False},
+        "auditor": {"card.view_costs": True},
+    }
+
+
+@pytest.mark.parametrize("app_version", ["2.206.0", "2.206.1", "3.0.0", "10.0.0", "test", "", None])
+async def test_a_bundle_that_is_not_older_is_taken_at_its_word(db, app_version):
+    # A role created since the key exists has no entry until an admin ticks
+    # it, and that means "no costs". Only a bundle that says it is older gets
+    # the fill — never one from this release on, nor one that names no version
+    # (a content pack, a hand-built bundle).
+    stored = await _reimported_role_permissions(db, _PRE_COSTS_ROLES, app_version=app_version)
+    assert stored == _PRE_COSTS_ROLES
+
+
+@pytest.mark.parametrize("app_version", ["2.205.99", "2.9.0", "1.999.999", "0.6.0"])
+async def test_every_release_before_the_key_counts_as_older(db, app_version):
+    # Compared as numbers: "2.9.0" and "1.999.999" are older than 2.206.0.
+    stored = await _reimported_role_permissions(
+        db, {"responsible": {"card.view": True}}, app_version=app_version
+    )
+    assert stored == {"responsible": {"card.view": True, "card.view_costs": True}}
+
+
+async def test_an_older_bundle_never_overrides_a_stated_choice(db):
+    stored = await _reimported_role_permissions(
+        db,
+        {"responsible": {"card.view_costs": False}, "observer": {"card.view_costs": True}},
+        app_version="2.205.3",
+    )
+    assert stored == {
+        "responsible": {"card.view_costs": False},
+        "observer": {"card.view_costs": True},
+    }
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("2.205.3", (2, 205, 3)),
+        ("2.206.0", (2, 206, 0)),
+        ("10.20.30", (10, 20, 30)),
+        ("2.206.0-rc1", (2, 206, 0)),
+        ("test", None),
+        ("2.206", None),
+        ("v2.206.0", None),
+        ("", None),
+        (None, None),
+    ],
+)
+async def test_bundle_app_version(raw, expected):
+    manifest = {"format_version": "1"}
+    if raw is not None:
+        manifest["app_version"] = raw
+    assert bundle_io.WorkspaceBundle(manifest=manifest, sheets={}).app_version == expected
+
+
+async def test_a_bundle_without_a_manifest_version_has_none():
+    assert bundle_io.WorkspaceBundle(manifest={}, sheets={}).app_version is None
+
+
 async def test_import_renames_legacy_app_permission_keys(db):
     """A bundle from a pre-033 instance must not reintroduce the old app names.
 

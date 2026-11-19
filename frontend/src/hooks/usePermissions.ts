@@ -57,8 +57,9 @@ export function usePermissions(user: User | null) {
   const isAdmin = useMemo(() => !!permissions["*"], [permissions]);
 
   /**
-   * Whether the user can see cost-typed fields on cards. `costs.view` alone
-   * decides: a stakeholder role on a card does not reveal its costs.
+   * Whether the user can see cost-typed fields on cards landscape-wide.
+   * For the per-card check (a stakeholder whose role grants `card.view_costs`
+   * sees costs on that card only) use canOnCard(cardId, "can_view_costs").
    */
   const canViewCostsGlobally = useMemo(
     () => isAdmin || !!permissions["costs.view"],

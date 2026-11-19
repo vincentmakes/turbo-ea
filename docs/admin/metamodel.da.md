@@ -150,6 +150,8 @@ Giv en rolle en **beskrivelse** for at angive, hvad den betyder i din organisati
 
 Hver rolle har desuden en **Tæller med i datakvaliteten**-kontakt. Datakvalitetsscoren har én enkelt interessentplads, og den er opfyldt, så snart nogen er tildelt kortet i en rolle, hvor kontakten er slået til. Slå den fra for rent passive roller — den indbyggede **Observatør** leveres med den slået fra, så det at følge et kort aldrig træder i stedet for at eje det. En type, hvor alle roller har den slået fra, bidrager slet ikke med en interessentplads. Skift af kontakten genberegner straks scoren for alle kort af typen.
 
+En rolles tilladelser afgør også, om dens indehavere ser et korts **omkostningsfelter**. Brugere, hvis approlle har `costs.view`, ser omkostninger på alle kort. For alle andre skal du markere **card.view_costs** på en interessentrolle: Dens indehavere ser så omkostningerne for de kort, hvor de har den rolle, og kan ændre dem, hvis rollen også kan redigere. De indbyggede roller leveres med den slået til, undtagen **Observatør** — enhver, der kan se et kort, kan gøre sig selv til dets Observatør med **Observe this card**, så alt, hvad Observatør-rollen tillader, er åbent for dem alle, og rolleeditoren gør opmærksom på det på den rolle. En rolle, du opretter, starter med den slået fra.
+
 Roller kan fjernes på to måder:
 
 - **Arkivér** — rollen bliver på de kort der allerede bruger den, men kan ikke længere tildeles, og den giver ikke længere sine rettigheder på kortniveau. Arkiverede roller vises bag **Vis arkiverede**-kontakten og kan gendannes når som helst. Det er det rigtige valg for en rolle der reelt har været brugt.

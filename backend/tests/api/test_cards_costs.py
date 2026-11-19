@@ -2,9 +2,9 @@
 
 Confirms that:
 - A user without costs.view sees no cost fields in card responses.
-- A stakeholder role on the card changes nothing: neither the owner of a card
-  nor someone who made themselves its Observer sees its costs without
-  costs.view (#1412).
+- A stakeholder of a card sees its costs without costs.view only when the role
+  they hold grants `card.view_costs`. Merely holding a role is not enough:
+  someone who made themselves an Observer sees no costs (#1412).
 - A user with costs.view sees all costs.
 - PATCH from a user without cost access drops cost keys silently — they cannot
   blank or change a cost they were not allowed to see.
@@ -102,10 +102,44 @@ class TestGetCardCostStripping:
         assert "costTotalAnnual" not in attrs
         assert attrs.get("name2") == "x"  # non-cost fields still present
 
-    async def test_a_stakeholder_without_costs_view_does_not_see_cost(self, client, db, cost_env):
-        # Owning a card is not a grant of its costs: `costs.view` alone decides.
+    async def test_a_role_that_shows_costs_shows_them_on_its_own_card_only(
+        self, client, db, cost_env
+    ):
         await create_stakeholder_role_def(
             db, key="responsible", permissions=RESPONSIBLE_CARD_PERMISSIONS
+        )
+        db.add(
+            Stakeholder(
+                card_id=cost_env["card"].id, user_id=cost_env["viewer"].id, role="responsible"
+            )
+        )
+        await db.flush()
+
+        r1 = await client.get(
+            f"/api/v1/cards/{cost_env['card'].id}",
+            headers=auth_headers(cost_env["viewer"]),
+        )
+        r2 = await client.get(
+            f"/api/v1/cards/{cost_env['other_card'].id}",
+            headers=auth_headers(cost_env["viewer"]),
+        )
+        assert r1.json()["attributes"].get("costTotalAnnual") == 1234
+        assert "costTotalAnnual" not in r2.json()["attributes"]
+
+        listed = await client.get(
+            "/api/v1/cards?type=Application", headers=auth_headers(cost_env["viewer"])
+        )
+        by_name = {i["name"]: i.get("attributes") or {} for i in listed.json()["items"]}
+        assert by_name["App1"].get("costTotalAnnual") == 1234
+        assert "costTotalAnnual" not in by_name["App2"]
+
+    async def test_a_role_that_does_not_show_costs_keeps_them_hidden(self, client, db, cost_env):
+        # Holding a role is not a grant of the card's costs: the role has to
+        # allow it.
+        await create_stakeholder_role_def(
+            db,
+            key="responsible",
+            permissions={**RESPONSIBLE_CARD_PERMISSIONS, "card.view_costs": False},
         )
         db.add(
             Stakeholder(
@@ -127,7 +161,7 @@ class TestGetCardCostStripping:
 class TestObservingDoesNotRevealCosts:
     """#1412: a member whose role lost `costs.view` clicked "Observe this card"
     and saw its costs. Anyone who can view a card may make themselves its
-    Observer, so a stakeholder role must never stand in for the permission."""
+    Observer, so the role a user can give themselves must not show costs."""
 
     @pytest.fixture
     async def no_cost_member(self, db, cost_env):
@@ -178,8 +212,7 @@ class TestObservingDoesNotRevealCosts:
             assert "costTotalAnnual" not in (item.get("attributes") or {})
 
     async def test_regranting_costs_view_shows_the_cost(self, client, db, cost_env):
-        # The same observer with the permission: it is the role, not the
-        # stakeholder row, that decides either way.
+        # The same observer with the app permission sees costs through it.
         await create_stakeholder_role_def(
             db, key="observer", label="Observer", permissions=OBSERVER_CARD_PERMISSIONS
         )
@@ -238,11 +271,11 @@ class TestPatchDropsCostsWhenForbidden:
         assert ar.json()["attributes"].get("costTotalAnnual") == 1234
         assert ar.json()["attributes"].get("name2") == "updated"
 
-    async def test_a_stakeholder_editor_without_costs_view_cannot_change_cost(
+    async def test_a_stakeholder_editor_without_cost_access_cannot_change_cost(
         self, client, db, cost_env
     ):
-        # Edit rights through a stakeholder role, no costs.view: the edit goes
-        # through, the cost they cannot see stays what it was.
+        # Edit rights through a stakeholder role that does not show costs: the
+        # edit goes through, the cost they cannot see stays what it was.
         await create_stakeholder_role_def(
             db,
             key="full_editor",
@@ -272,24 +305,28 @@ class TestPatchDropsCostsWhenForbidden:
         assert ar.json()["attributes"].get("costTotalAnnual") == 1234
         assert ar.json()["attributes"].get("name2") == "z"
 
-    async def test_a_stakeholder_editor_with_costs_view_changes_cost(self, client, db, cost_env):
+    async def test_a_stakeholder_editor_whose_role_shows_costs_can_update_cost(
+        self, client, db, cost_env
+    ):
+        # A stakeholder whose role grants edit and cost access sets the cost
+        # without the global costs.view permission.
         await create_stakeholder_role_def(
             db,
             key="full_editor",
             label="Full Editor",
-            permissions={"card.view": True, "card.edit": True},
+            permissions={"card.view": True, "card.edit": True, "card.view_costs": True},
         )
-        await create_role(
-            db, key="cost_reader", permissions={"inventory.view": True, "costs.view": True}
+        db.add(
+            Stakeholder(
+                card_id=cost_env["card"].id, user_id=cost_env["viewer"].id, role="full_editor"
+            )
         )
-        reader = await create_user(db, email="reader@test.com", role="cost_reader")
-        db.add(Stakeholder(card_id=cost_env["card"].id, user_id=reader.id, role="full_editor"))
         await db.flush()
 
         r = await client.patch(
             f"/api/v1/cards/{cost_env['card'].id}",
             json={"attributes": {"costTotalAnnual": 9999, "name2": "z"}},
-            headers=auth_headers(reader),
+            headers=auth_headers(cost_env["viewer"]),
         )
         assert r.status_code == 200, r.text
         assert r.json()["attributes"].get("costTotalAnnual") == 9999

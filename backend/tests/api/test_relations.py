@@ -10,7 +10,11 @@ import uuid
 import pytest
 
 from app.api.v1.relations import MAX_CARD_IDS_PER_QUERY
-from app.core.permissions import RESPONSIBLE_CARD_PERMISSIONS, VIEWER_PERMISSIONS
+from app.core.permissions import (
+    OBSERVER_CARD_PERMISSIONS,
+    RESPONSIBLE_CARD_PERMISSIONS,
+    VIEWER_PERMISSIONS,
+)
 from app.models.stakeholder import Stakeholder
 from tests.conftest import (
     auth_headers,
@@ -778,8 +782,9 @@ class TestUpdateRelation:
 
 
 class TestRelationCostsAndStakeholders:
-    """A relation's cost attributes follow `costs.view` alone (#1412): owning
-    the source card neither reveals them nor lets them be overwritten."""
+    """A relation's cost attributes follow the source card: its stakeholder
+    sees and changes them without `costs.view` only when the role they hold
+    grants `card.view_costs` (#1412)."""
 
     @pytest.fixture
     async def costed(self, db, rel_env):
@@ -804,43 +809,75 @@ class TestRelationCostsAndStakeholders:
         await create_stakeholder_role_def(
             db, key="responsible", permissions=RESPONSIBLE_CARD_PERMISSIONS
         )
+        await create_stakeholder_role_def(
+            db, key="observer", label="Observer", permissions=OBSERVER_CARD_PERMISSIONS
+        )
         await create_role(
             db,
             key="relation_editor",
             label="Relation editor",
             permissions={"inventory.view": True, "relations.manage": True, "costs.view": False},
         )
-        owner = await create_user(db, email="owner@test.com", role="relation_editor")
-        db.add(Stakeholder(card_id=rel_env["source"].id, user_id=owner.id, role="responsible"))
-        await db.flush()
-        return {"rel": rel, "owner": owner}
+        user = await create_user(db, email="owner@test.com", role="relation_editor")
 
-    async def test_the_source_cards_stakeholder_does_not_see_the_cost(
-        self, client, db, rel_env, costed
-    ):
-        resp = await client.get(
-            "/api/v1/relations?type=costed_rel", headers=auth_headers(costed["owner"])
-        )
+        async def hold(role: str, card=rel_env["source"]) -> None:
+            db.add(Stakeholder(card_id=card.id, user_id=user.id, role=role))
+            await db.flush()
+
+        return {"rel": rel, "user": user, "hold": hold}
+
+    async def _listed(self, client, user):
+        resp = await client.get("/api/v1/relations?type=costed_rel", headers=auth_headers(user))
         assert resp.status_code == 200
         [row] = resp.json()
-        assert row["attributes"] == {"note": "keep me"}
+        return row["attributes"]
 
-    async def test_the_source_cards_stakeholder_cannot_overwrite_the_cost(
+    async def test_an_observer_of_the_source_card_does_not_see_the_cost(
         self, client, db, rel_env, costed
     ):
+        await costed["hold"]("observer")
+        assert await self._listed(client, costed["user"]) == {"note": "keep me"}
+
+    async def test_an_owner_of_the_source_card_sees_the_cost(self, client, db, rel_env, costed):
+        await costed["hold"]("responsible")
+        assert await self._listed(client, costed["user"]) == {
+            "costTotalAnnual": 42000,
+            "note": "keep me",
+        }
+
+    async def test_owning_the_target_card_does_not_show_the_cost(self, client, db, rel_env, costed):
+        await create_stakeholder_role_def(
+            db,
+            card_type_key="ITComponent",
+            key="responsible",
+            permissions=RESPONSIBLE_CARD_PERMISSIONS,
+        )
+        await costed["hold"]("responsible", rel_env["target"])
+        assert await self._listed(client, costed["user"]) == {"note": "keep me"}
+
+    async def test_an_observer_cannot_overwrite_the_cost(self, client, db, rel_env, costed):
+        await costed["hold"]("observer")
         resp = await client.patch(
             f"/api/v1/relations/{costed['rel'].id}",
             json={"attributes": {"costTotalAnnual": 1, "note": "changed"}},
-            headers=auth_headers(costed["owner"]),
+            headers=auth_headers(costed["user"]),
         )
         assert resp.status_code == 200, resp.text
         assert resp.json()["attributes"] == {"note": "changed"}
+        assert await self._listed(client, rel_env["admin"]) == {
+            "costTotalAnnual": 42000,
+            "note": "changed",
+        }
 
-        as_admin = await client.get(
-            "/api/v1/relations?type=costed_rel", headers=auth_headers(rel_env["admin"])
+    async def test_an_owner_can_change_the_cost(self, client, db, rel_env, costed):
+        await costed["hold"]("responsible")
+        resp = await client.patch(
+            f"/api/v1/relations/{costed['rel'].id}",
+            json={"attributes": {"costTotalAnnual": 1, "note": "changed"}},
+            headers=auth_headers(costed["user"]),
         )
-        [row] = as_admin.json()
-        assert row["attributes"] == {"costTotalAnnual": 42000, "note": "changed"}
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["attributes"] == {"costTotalAnnual": 1, "note": "changed"}
 
 
 # ---------------------------------------------------------------

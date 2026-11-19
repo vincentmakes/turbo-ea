@@ -10,7 +10,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.permissions import type_cell_decision
+from app.core.permissions import VIEW_COSTS_CARD_PERMISSION, type_cell_decision
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.role import Role
@@ -312,15 +312,21 @@ class PermissionService:
             raise HTTPException(403, "Insufficient permissions")
 
     @staticmethod
-    async def can_view_costs(db: AsyncSession, user: User) -> bool:
-        """Return True if the user may see and change cost-typed fields.
+    async def can_view_costs(db: AsyncSession, user: User, card_id: UUID) -> bool:
+        """Return True if the user may see and change cost fields on this card.
 
-        ``costs.view`` alone decides. A stakeholder role on a card grants
-        nothing here: anyone who can view a card may make themselves its
-        Observer (``POST /cards/{id}/me/observe``), so a stakeholder exception
-        let every user past the permission (#1412).
+        ``costs.view`` shows them on every card. Without it, a stakeholder
+        role on the card shows them only when the role grants
+        ``card.view_costs`` — holding *a* role is not enough: anyone who can
+        view a card may make themselves its Observer
+        (``POST /cards/{id}/me/observe``), and that used to let every user
+        past the permission (#1412).
         """
-        return await PermissionService.has_app_permission(db, user, "costs.view")
+        if await PermissionService.has_app_permission(db, user, "costs.view"):
+            return True
+        return await PermissionService.has_card_permission(
+            db, user, card_id, VIEW_COSTS_CARD_PERMISSION
+        )
 
     @staticmethod
     async def card_ids_with_cost_access(
@@ -329,14 +335,27 @@ class PermissionService:
         """Bulk variant of `can_view_costs` for list endpoints.
 
         Returns the subset of candidate card IDs the user can see costs for:
-        every candidate with ``costs.view``, none without — the same rule as
-        `can_view_costs`, kept per card so the redaction call sites read the
-        same whatever the rule is.
+        every candidate with ``costs.view``, otherwise those on which the user
+        holds a stakeholder role granting ``card.view_costs``. The role check
+        reads through the same cached map as ``has_card_permission``, so an
+        archived or undefined role grants nothing here either.
         """
         candidates = {cid for cid in candidate_card_ids if cid is not None}
-        if candidates and await PermissionService.can_view_costs(db, user):
+        if not candidates:
+            return set()
+        if await PermissionService.has_app_permission(db, user, "costs.view"):
             return candidates
-        return set()
+        held = await db.execute(
+            select(Stakeholder.card_id, Card.type, Stakeholder.role)
+            .join(Card, Stakeholder.card_id == Card.id)
+            .where(Stakeholder.user_id == user.id, Stakeholder.card_id.in_(candidates))
+        )
+        allowed: set[UUID] = set()
+        for card_id, type_key, role_key in held.all():
+            perms = await PermissionService.stakeholder_role_permissions(db, type_key, role_key)
+            if perms and perms.get(VIEW_COSTS_CARD_PERMISSION):
+                allowed.add(card_id)
+        return allowed
 
     @staticmethod
     async def get_effective_card_permissions(db: AsyncSession, user: User, card_id: UUID) -> dict:
@@ -437,8 +456,11 @@ class PermissionService:
             "can_manage_diagram_links": is_admin
             or _app("diagrams.manage")
             or card_level.get("card.manage_diagram_links", False),
-            # No stakeholder term on purpose: see ``can_view_costs``.
-            "can_view_costs": is_admin or _app("costs.view"),
+            # Only a role that grants the key, never merely holding a role:
+            # see ``can_view_costs``.
+            "can_view_costs": is_admin
+            or _app("costs.view")
+            or card_level.get(VIEW_COSTS_CARD_PERMISSION, False),
         }
 
         return {

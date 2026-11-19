@@ -42,6 +42,14 @@ interface RoleUsage {
 }
 
 /** Backend grammar for a role key: `^[a-zA-Z][a-zA-Z0-9]{2,49}$`. */
+/**
+ * The one role a user can give themselves: "Observe this card"
+ * (`POST /cards/{id}/me/observe`) assigns it to anyone who can view the card.
+ * Whatever it allows is therefore open to all of them, which is how a card's
+ * costs once leaked (#1412) — the permission editor says so on this role.
+ */
+const SELF_ASSIGNABLE_ROLE_KEY = "observer";
+
 const ROLE_KEY_MIN = 3;
 const ROLE_KEY_MAX = 50;
 
@@ -409,6 +417,7 @@ const StakeholderRolePanel = forwardRef<StakeholderRolePanelHandle, StakeholderR
 
   /* --- Permission checkbox helper --- */
   const renderPermissionEditor = (
+    roleKey: string,
     perms: Record<string, boolean>,
     onChange: (key: string, val: boolean) => void,
   ) => (
@@ -443,6 +452,11 @@ const StakeholderRolePanel = forwardRef<StakeholderRolePanelHandle, StakeholderR
           </Box>
         </Box>
       ))}
+      {roleKey === SELF_ASSIGNABLE_ROLE_KEY && (
+        <Alert severity="info" sx={{ mt: 1 }}>
+          {t("metamodel.stakeholderPanel.selfAssignableHint")}
+        </Alert>
+      )}
     </Box>
   );
 
@@ -699,7 +713,7 @@ const StakeholderRolePanel = forwardRef<StakeholderRolePanelHandle, StakeholderR
                         }
                         sx={{ alignItems: "flex-start", ml: 0 }}
                       />
-                      {renderPermissionEditor(editForm.permissions, (key, val) =>
+                      {renderPermissionEditor(editForm.key, editForm.permissions, (key, val) =>
                         setEditForm({
                           ...editForm,
                           permissions: { ...editForm.permissions, [key]: val },
@@ -848,7 +862,7 @@ const StakeholderRolePanel = forwardRef<StakeholderRolePanelHandle, StakeholderR
                 }
                 sx={{ alignItems: "flex-start", ml: 0 }}
               />
-              {renderPermissionEditor(createForm.permissions, (key, val) =>
+              {renderPermissionEditor(createForm.key, createForm.permissions, (key, val) =>
                 setCreateForm({
                   ...createForm,
                   permissions: { ...createForm.permissions, [key]: val },

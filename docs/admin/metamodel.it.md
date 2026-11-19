@@ -151,6 +151,8 @@ Assegna a un ruolo una **descrizione** per spiegare che cosa significa nella tua
 
 Ogni ruolo porta inoltre un interruttore **Conta per la qualità dei dati**. Il punteggio di qualità ha un solo slot per gli stakeholder, soddisfatto non appena qualcuno viene assegnato alla scheda in un ruolo con questo interruttore attivo. Disattivalo per i ruoli puramente passivi: l'**Osservatore** integrato viene fornito disattivato, così osservare una scheda non vale mai come responsabilità. Un tipo in cui tutti i ruoli sono disattivati non contribuisce con alcuno slot. Cambiare l'interruttore ricalcola subito il punteggio di tutte le schede del tipo.
 
+I permessi di un ruolo decidono anche se i suoi titolari vedono i **campi di costo** di una scheda. Gli utenti il cui ruolo applicativo possiede `costs.view` vedono i costi su ogni scheda. Per tutti gli altri, seleziona **card.view_costs** su un ruolo di stakeholder: i suoi titolari vedranno allora i costi delle schede su cui ricoprono quel ruolo e potranno modificarli se il ruolo può anche modificare. I ruoli integrati vengono forniti con il permesso attivo, tranne **Osservatore**: chiunque possa vedere una scheda può diventarne l'Osservatore con **Osserva questa scheda**, quindi tutto ciò che il ruolo Osservatore consente è aperto a tutti, e l'editor dei ruoli lo segnala su quel ruolo. Un ruolo che crei parte con il permesso disattivato.
+
 I ruoli possono essere rimossi in due modi:
 
 - **Archivia** — il ruolo rimane sulle schede che già lo usano ma non può più essere assegnato e smette di concedere i permessi a livello di scheda. I ruoli archiviati compaiono dietro l'interruttore **Mostra archiviati** e possono essere ripristinati in qualsiasi momento. È la scelta giusta per un ruolo realmente utilizzato.

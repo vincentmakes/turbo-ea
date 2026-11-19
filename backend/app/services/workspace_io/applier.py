@@ -35,6 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.permissions import (
     migrate_legacy_app_permissions,
     strip_legacy_card_permissions,
+    with_legacy_cost_grant,
 )
 from app.models.app_settings import AppSettings
 from app.models.architecture_decision import ArchitectureDecision
@@ -823,6 +824,16 @@ async def _apply_relation_types(
 # ---------------------------------------------------------------------------
 
 
+# The first release whose stakeholder role maps carry ``card.view_costs``.
+VIEW_COSTS_SINCE = (2, 206, 0)
+
+
+def _predates_view_costs(bundle: WorkspaceBundle) -> bool:
+    """True for a bundle exported by a release older than ``VIEW_COSTS_SINCE``."""
+    version = bundle.app_version
+    return version is not None and version < VIEW_COSTS_SINCE
+
+
 def _make_config_applier(sec: schema.ConfigSection):
     async def _apply(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: bool) -> None:
         existing_rows = (await db.execute(select(sec.model))).scalars().all()
@@ -842,9 +853,18 @@ def _make_config_applier(sec: schema.ConfigSection):
             # card-level keys are dropped (they grant nothing), while app-level
             # keys are renamed onto the permissions they still mean, so an
             # import never silently revokes access a role actually had.
+            #
+            # ``card.view_costs`` is the same promise the other way round: a
+            # bundle exported before the key existed describes roles that all
+            # showed costs, so they keep doing so (Observer excepted) — the rule
+            # migration 175 applied to an upgraded install. A bundle that names
+            # no older version is taken at its word: no key, no cost access.
             if "permissions" in data:
                 if sec.model is StakeholderRoleDefinition:
-                    data["permissions"] = strip_legacy_card_permissions(data["permissions"])
+                    perms = strip_legacy_card_permissions(data["permissions"])
+                    if _predates_view_costs(bundle):
+                        perms = with_legacy_cost_grant(str(data.get("key")), perms)
+                    data["permissions"] = perms
                 elif sec.model is Role:
                     data["permissions"] = migrate_legacy_app_permissions(data["permissions"])
             nk = tuple(data.get(k) for k in sec.natural_key)

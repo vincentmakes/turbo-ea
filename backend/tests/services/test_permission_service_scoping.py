@@ -97,20 +97,24 @@ async def test_two_roles_on_one_card_are_both_collected(db, world):
     assert eff["card_level"] == {"card.edit": True, "card.view": True}
 
 
-async def test_a_stakeholder_role_gives_no_cost_access(db, world):
-    # `costs.view` alone decides (#1412): holding a role on a candidate card
-    # adds nothing, and the same candidates all come back with the permission.
-    me, (c0, c1, _) = world["me"], world["cards"]
-    await hold(db, c0, me, "owner")
-    assert await PermissionService.card_ids_with_cost_access(db, me, [c0.id, c1.id, None]) == set()
-    eff = await PermissionService.get_effective_card_permissions(db, me, c0.id)
+async def test_cost_access_is_limited_to_the_users_own_candidate_cards(db, world):
+    # "funder" shows costs; "owner" and "watcher" do not grant the key (#1412).
+    await create_stakeholder_role_def(
+        db, card_type_key="Application", key="funder", permissions={"card.view_costs": True}
+    )
+    me, other, (c0, c1, c2) = world["me"], world["other"], world["cards"]
+    await hold(db, c0, me, "funder")
+    await hold(db, c2, me, "funder")  # held, but not a candidate
+    await hold(db, c1, other, "funder")  # a candidate, but someone else's
+    await hold(db, c1, me, "owner")  # mine, but the role does not show costs
+    got = await PermissionService.card_ids_with_cost_access(db, me, [c0.id, c1.id, None])
+    assert got == {c0.id}
+
+    eff = await PermissionService.get_effective_card_permissions(db, me, c1.id)
     assert eff["stakeholder_roles"] == ["owner"]
     assert eff["effective"]["can_view_costs"] is False
-
-    await create_role(db, key="costs", label="Costs", permissions={"costs.view": True})
-    reader = await create_user(db, email="reader@test.com", role="costs")
-    got = await PermissionService.card_ids_with_cost_access(db, reader, [c0.id, c1.id, None])
-    assert got == {c0.id, c1.id}
+    eff = await PermissionService.get_effective_card_permissions(db, me, c0.id)
+    assert eff["effective"]["can_view_costs"] is True
 
 
 async def test_cost_access_for_nothing_is_nothing(db, world):

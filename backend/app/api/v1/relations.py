@@ -96,10 +96,10 @@ def _rel_to_response(
 async def _relation_cost_redaction(
     db: AsyncSession, user: User, rels: list[Relation]
 ) -> dict[uuid.UUID, frozenset[str]]:
-    """Map relation_id → cost field keys to strip for a user without
-    ``costs.view``. The check is asked per source card (most cost-bearing
-    relation attributes describe the source card's costs, e.g.
-    relAppToITC.costTotalAnnual), through the same helper as the cards API."""
+    """Map relation_id → cost field keys to strip, based on the user's access
+    to the source card (we treat the source card as the authoritative owner
+    for cost visibility — most cost-bearing relation attributes describe the
+    source card's costs, e.g. relAppToITC.costTotalAnnual)."""
     if not rels:
         return {}
     type_keys = {r.type for r in rels if r.type}
@@ -324,12 +324,12 @@ async def update_relation(
     if not rel or not await _relation_readable(db, user, rel):
         raise HTTPException(404, "Relation not found")
     update_data = body.model_dump(exclude_unset=True)
-    # If the user lacks `costs.view`, preserve any existing
+    # If the user lacks cost access on the source card, preserve any existing
     # cost-typed values on the relation. PATCH replaces `attributes` wholesale,
     # so we merge old cost values back into the incoming payload to prevent a
     # silent wipe of values the user was never allowed to see.
     if "attributes" in update_data and update_data["attributes"] is not None:
-        if not await PermissionService.can_view_costs(db, user):
+        if not await PermissionService.can_view_costs(db, user, rel.source_id):
             rt_row = await db.execute(
                 select(RelationType.attributes_schema).where(RelationType.key == rel.type)
             )

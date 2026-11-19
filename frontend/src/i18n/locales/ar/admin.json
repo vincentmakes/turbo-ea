@@ -332,6 +332,7 @@
   "metamodel.stakeholderPanel.subscriberCount_other": "{{count}} مشترك",
   "metamodel.stakeholderPanel.permissions": "الصلاحيات",
   "metamodel.stakeholderPanel.noPermissions": "لم يتم تعريف صلاحيات.",
+  "metamodel.stakeholderPanel.selfAssignableHint": "يمكن لأي شخص يستطيع عرض بطاقة أن يجعل نفسه مراقبًا لها، لذا فكل ما يسمح به هذا الدور متاح لجميعهم.",
   "metamodel.stakeholderPanel.newRole": "دور صاحب مصلحة جديد",
   "metamodel.stakeholderPanel.keyLabel": "المفتاح",
   "metamodel.stakeholderPanel.keyPlaceholder": "مثل dataSteward",

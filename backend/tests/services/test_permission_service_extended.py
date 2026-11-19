@@ -681,8 +681,9 @@ EFFECTIVE_FLAGS = {
     "can_bpm_withdraw": ("bpm.withdraw_flows", "card.bpm_withdraw"),
     "can_manage_adr_links": ("adr.manage", "card.manage_adr_links"),
     "can_manage_diagram_links": ("diagrams.manage", "card.manage_diagram_links"),
+    "can_view_costs": ("costs.view", "card.view_costs"),
 }
-ALL_FLAGS = [*EFFECTIVE_FLAGS, "can_view_costs"]
+ALL_FLAGS = list(EFFECTIVE_FLAGS)
 
 
 @pytest.fixture
@@ -733,7 +734,7 @@ class TestEffectiveFlagsOneGrantAtATime:
         user = await create_user(db, email="card@test.com", role="nothing")
         await _assign_stakeholder(db, flag_env.id, user.id, "holder")
         result = await PermissionService.get_effective_card_permissions(db, user, flag_env.id)
-        # a stakeholder role never reveals the card's costs (#1412)
+        # holding a role reveals nothing but what the role grants (#1412)
         assert result["effective"] == only(flag)
         assert result["card_level"] == {card_key: True}
         assert result["stakeholder_roles"] == ["holder"]
