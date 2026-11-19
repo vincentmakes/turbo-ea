@@ -42,6 +42,9 @@ interface RoleUsage {
 }
 
 /** Backend grammar for a role key: `^[a-zA-Z][a-zA-Z0-9]{2,49}$`. */
+const ROLE_KEY_MIN = 3;
+const ROLE_KEY_MAX = 50;
+
 /**
  * The one role a user can give themselves: "Observe this card"
  * (`POST /cards/{id}/me/observe`) assigns it to anyone who can view the card.
@@ -49,9 +52,6 @@ interface RoleUsage {
  * costs once leaked (#1412) — the permission editor says so on this role.
  */
 const SELF_ASSIGNABLE_ROLE_KEY = "observer";
-
-const ROLE_KEY_MIN = 3;
-const ROLE_KEY_MAX = 50;
 
 /**
  * KeyInput's shared `isValidKey` covers the character set but permits any

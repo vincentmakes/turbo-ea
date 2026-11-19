@@ -602,10 +602,14 @@ async def list_my_stakeholder_cards(
         for srd in srd_rows.scalars().all():
             role_def_map[(srd.card_type_key, srd.key)] = srd
 
+    # Holding a role on a card is not a grant of its costs: only a role that
+    # allows it shows them (#1412), so this list is redacted like every other.
+    redact = await _cost_redaction_map(db, user, [card for card, _ in rows])
+
     items = []
     roles_by_card_id: dict[str, list[dict]] = {}
     for card, roles in rows:
-        items.append(_card_to_response(card))
+        items.append(_card_to_response(card, strip_cost_keys=redact.get(card.id, frozenset())))
         descriptors: list[dict] = []
         seen: set[str] = set()
         for role_key in roles or []:

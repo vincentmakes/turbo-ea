@@ -211,6 +211,62 @@ class TestObservingDoesNotRevealCosts:
         for item in items:
             assert "costTotalAnnual" not in (item.get("attributes") or {})
 
+    async def test_my_roles_keeps_the_cost_hidden(self, client, db, cost_env, no_cost_member):
+        # The Workspace "My roles" list returns the very cards the user holds
+        # a role on, so it is where a role that must not show costs is tested.
+        await self._observe(client, cost_env["card"], no_cost_member)
+        r = await client.get("/api/v1/cards/my-stakeholder", headers=auth_headers(no_cost_member))
+        assert r.status_code == 200
+        [item] = r.json()["items"]
+        assert item["name"] == "App1"
+        assert "costTotalAnnual" not in item["attributes"]
+        assert item["attributes"].get("name2") == "x"
+
+    async def test_my_roles_shows_the_cost_of_a_card_whose_role_allows_it(
+        self, client, db, cost_env, no_cost_member
+    ):
+        await create_stakeholder_role_def(
+            db, key="responsible", permissions=RESPONSIBLE_CARD_PERMISSIONS
+        )
+        await self._observe(client, cost_env["card"], no_cost_member)
+        db.add(
+            Stakeholder(
+                card_id=cost_env["other_card"].id, user_id=no_cost_member.id, role="responsible"
+            )
+        )
+        await db.flush()
+
+        r = await client.get("/api/v1/cards/my-stakeholder", headers=auth_headers(no_cost_member))
+        by_name = {i["name"]: i["attributes"] for i in r.json()["items"]}
+        assert "costTotalAnnual" not in by_name["App1"]
+        assert by_name["App2"].get("costTotalAnnual") == 5678
+
+    async def test_someone_elses_roles_are_read_with_the_callers_cost_access(
+        self, client, db, cost_env, no_cost_member
+    ):
+        # Looking up a colleague's cards must not lend the caller the
+        # colleague's role: the viewer holds no role and no costs.view.
+        await create_stakeholder_role_def(
+            db, key="responsible", permissions=RESPONSIBLE_CARD_PERMISSIONS
+        )
+        db.add(
+            Stakeholder(card_id=cost_env["card"].id, user_id=no_cost_member.id, role="responsible")
+        )
+        await db.flush()
+
+        mine = await client.get(
+            "/api/v1/cards/my-stakeholder", headers=auth_headers(no_cost_member)
+        )
+        assert mine.json()["items"][0]["attributes"].get("costTotalAnnual") == 1234
+
+        theirs = await client.get(
+            f"/api/v1/cards/my-stakeholder?user_id={no_cost_member.id}",
+            headers=auth_headers(cost_env["viewer"]),
+        )
+        assert theirs.status_code == 200, theirs.text
+        [item] = theirs.json()["items"]
+        assert "costTotalAnnual" not in item["attributes"]
+
     async def test_regranting_costs_view_shows_the_cost(self, client, db, cost_env):
         # The same observer with the app permission sees costs through it.
         await create_stakeholder_role_def(

@@ -1347,7 +1347,10 @@ async def test_an_older_bundle_keeps_the_cost_access_its_roles_had(db, wipe):
     }
 
 
-@pytest.mark.parametrize("app_version", ["2.206.0", "2.206.1", "3.0.0", "10.0.0", "test", "", None])
+@pytest.mark.parametrize(
+    "app_version",
+    ["2.206.0", "2.206.1", "3.0.0", "10.0.0", "0.0.0-dev", "2.205.3-dev", "test", "", None],
+)
 async def test_a_bundle_that_is_not_older_is_taken_at_its_word(db, app_version):
     # A role created since the key exists has no entry until an admin ticks
     # it, and that means "no costs". Only a bundle that says it is older gets
@@ -1384,7 +1387,10 @@ async def test_an_older_bundle_never_overrides_a_stated_choice(db):
         ("2.205.3", (2, 205, 3)),
         ("2.206.0", (2, 206, 0)),
         ("10.20.30", (10, 20, 30)),
-        ("2.206.0-rc1", (2, 206, 0)),
+        ("2.206.0-rc1", None),
+        ("0.0.0-dev", None),
+        ("2.205.3 ", None),
+        ("2.205.3.1", None),
         ("test", None),
         ("2.206", None),
         ("v2.206.0", None),
@@ -1397,6 +1403,23 @@ async def test_bundle_app_version(raw, expected):
     if raw is not None:
         manifest["app_version"] = raw
     assert bundle_io.WorkspaceBundle(manifest=manifest, sheets={}).app_version == expected
+
+
+async def test_the_release_that_added_the_key_is_the_one_the_importer_compares_to():
+    """``VIEW_COSTS_SINCE`` is a copy of the release that shipped
+    ``card.view_costs``. If that release is renumbered (another change takes
+    the version first), a bundle from the release in between would be read as
+    "not older" and its owner roles would lose cost access on import with every
+    other test still green — so the constant is pinned to the changelog."""
+    from pathlib import Path
+
+    from app.services.workspace_io.applier import VIEW_COSTS_SINCE
+
+    changelog = (Path(__file__).resolve().parents[3] / "CHANGELOG.md").read_text()
+    heading = "## [{}.{}.{}]".format(*VIEW_COSTS_SINCE)
+    assert changelog.count(heading) == 1, f"no changelog entry for {heading}"
+    section = changelog.split(heading, 1)[1].split("\n## [", 1)[0]
+    assert "card.view_costs" in section
 
 
 async def test_a_bundle_without_a_manifest_version_has_none():
