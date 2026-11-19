@@ -13,8 +13,9 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.schemas.cost_items import INT32_MAX
+
 T = TypeVar("T")
-INT32_MAX = 2147483647  # the column's max: ``max + 1`` must not overflow it
 KEY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
 
 

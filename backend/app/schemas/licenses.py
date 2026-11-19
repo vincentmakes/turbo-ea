@@ -5,7 +5,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StringConstraints
 
-from app.schemas.cost_items import KEY_PATTERN
+from app.schemas.cost_items import INT32_MAX, KEY_PATTERN
 
 # Stripped before the length check: "   " is no label.
 Label = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
@@ -24,7 +24,7 @@ class LicenseMetricUpdate(BaseModel):
     label: Label | None = None
     translations: dict[str, str] | None = None
     archived: bool | None = None
-    sort_order: int | None = Field(None, ge=0, le=2147483647)
+    sort_order: int | None = Field(None, ge=0, le=INT32_MAX)
 
 
 class LicenseTypeCreate(BaseModel):
@@ -40,7 +40,7 @@ class LicenseTypeUpdate(BaseModel):
     label: Label | None = None
     translations: dict[str, str] | None = None
     archived: bool | None = None
-    sort_order: int | None = Field(None, ge=0, le=2147483647)
+    sort_order: int | None = Field(None, ge=0, le=INT32_MAX)
 
 
 class LicenseTypeOut(BaseModel):

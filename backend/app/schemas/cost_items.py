@@ -5,6 +5,7 @@ from datetime import date
 from pydantic import BaseModel, Field
 
 KEY_PATTERN = r"^[A-Za-z][A-Za-z0-9_]{0,63}$"
+INT32_MAX = 2147483647  # a ``sort_order`` column's max; ``max + 1`` must not overflow it
 
 
 class CostItemTypeCreate(BaseModel):
@@ -17,7 +18,7 @@ class CostItemTypeUpdate(BaseModel):
     label: str | None = Field(None, min_length=1, max_length=100)
     translations: dict[str, str] | None = None
     archived: bool | None = None
-    sort_order: int | None = Field(None, ge=0, le=2147483647)
+    sort_order: int | None = Field(None, ge=0, le=INT32_MAX)
 
 
 class CostItemTypeOut(BaseModel):

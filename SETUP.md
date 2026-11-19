@@ -528,12 +528,12 @@ project-root path calculated above for the working directory and bin path.
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "startup",
+        "matcher": "startup|resume|clear|compact|fork",
         "hooks": [
           {
             "type": "command",
             "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs session-start\"",
-            "timeout": 5,
+            "timeout": 10,
             "statusMessage": "Loading Turbo EA Trail notes"
           }
         ]
@@ -550,6 +550,23 @@ project-root path calculated above for the working directory and bin path.
             "statusMessage": "Loading Trail notes before the edit"
           }
         ]
+      },
+      {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs pre-edit\"",
+            "timeout": 5,
+            "statusMessage": "Loading Trail notes before the command"
+          },
+          {
+            "type": "command",
+            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs pre-bash\"",
+            "timeout": 5,
+            "statusMessage": "Checking the command with Trail"
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -558,9 +575,9 @@ project-root path calculated above for the working directory and bin path.
         "hooks": [
           {
             "type": "command",
-            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs tool-savings\"",
+            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs codex-post-bash\"",
             "timeout": 5,
-            "statusMessage": "Loading Trail notes for the command"
+            "statusMessage": "Recording the command result in Trail"
           }
         ]
       },
@@ -575,36 +592,84 @@ project-root path calculated above for the working directory and bin path.
           }
         ]
       }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs prompt\"",
+            "timeout": 15,
+            "statusMessage": "Loading Trail context for the request"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs stop\"",
+            "timeout": 10,
+            "statusMessage": "Updating Trail at the end of the turn"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs session-end\"",
+            "timeout": 3,
+            "statusMessage": "Closing the Trail session"
+          }
+        ]
+      }
     ]
   }
 }
 ```
 
-All four Trail hooks use the same `.trail/hook.cjs`:
+All nine Trail handlers use the same `.trail/hook.cjs`:
 
 | Codex event | Matcher | Trail handler | Purpose |
 | --- | --- | --- | --- |
-| `SessionStart` | `startup` | `session-start` | Load the initial project context and standing notes when a new chat starts. |
+| `SessionStart` | `startup\|resume\|clear\|compact\|fork` | `session-start` | Load context and standing notes at startup and when the session resumes or its context restarts. |
+| `UserPromptSubmit` | All prompts | `prompt` | Retrieve notes and code pointers relevant to the request. |
 | `PreToolUse` | `^apply_patch$` | `pre-edit` | Recall relevant notes before a patch. |
-| `PostToolUse` | `^Bash$` | `tool-savings` | Recall notes for files named by a shell command, including PowerShell reads through `exec_command`. |
+| `PreToolUse` | `^Bash$` | `pre-edit` | Recall notes for files named by a shell command, including PowerShell reads through `exec_command`. |
+| `PreToolUse` | `^Bash$` | `pre-bash` | Apply Trail's command checks before execution. |
+| `PostToolUse` | `^Bash$` | `codex-post-bash` | Read the exit status and record successful and failed commands correctly. |
 | `PostToolUse` | `^apply_patch$` | `post-edit` | Mark the map as needing an update and recall notes not already shown. |
+| `Stop` | Every completed turn | `stop` | Run end-of-turn bookkeeping and start a local background index update when an edit marked it dirty. |
+| `SessionEnd` | All session endings | `session-end` | Call Trail's closing handler; its telemetry flush stays disabled by `DO_NOT_TRACK=1`. |
 
 Codex exposes shell commands as `Bash` to its hooks even on Windows.
-Trail's existing `tool-savings` handler is used for note recall: in the
-verified installed version, `codex-post-bash` does not include file notes.
-No custom script or change to the shared hook is needed. Each command keeps
-`TRAIL_INVOKED_AS=trail`, `DO_NOT_TRACK=1` and the local bin path.
+Unlike Claude, Codex reports failed commands through `PostToolUse`, so it
+uses Trail's existing `codex-post-bash` handler instead of `post-bash-fail`.
+The existing `pre-edit` handler also accepts shell commands and delivers
+file notes before execution. This replaces the earlier `tool-savings`
+entry: running both post-command handlers could record one result twice
+and treat a failed command as successful. No custom script or change to
+the shared hook is needed. Each command keeps `TRAIL_INVOKED_AS=trail`,
+`DO_NOT_TRACK=1` and the local bin path.
 
-Approve the three new entries in **Settings → Hooks**, under Turbo EA:
-`PreToolUse / apply_patch`, `PostToolUse / Bash` and
-`PostToolUse / apply_patch`. They do not run automatically until approved.
-The existing `SessionStart` entry remains unchanged and retains its approval.
-A later command change requires a new approval. Open a new project chat
-after approving the hooks.
+Review the new and changed entries in **Settings → Hooks**, under Turbo EA:
+`SessionStart`, `UserPromptSubmit`, both `PreToolUse / Bash` handlers,
+`PostToolUse / Bash`, `Stop` and `SessionEnd`. These seven handlers need
+approval. The two unchanged `apply_patch` handlers retain their approval.
+Open a new project chat after approving them; a later configuration change
+can require approval again.
 
-Claude also has personal hooks under `%USERPROFILE%\.claude\`: when the
-personal copy handles the event, the project's copy avoids the duplicate
-reply. There is no need to create a second script for Codex.
+Claude's Trail hooks are configured in the project: startup in
+`.claude/settings.json`, and the other events in `.claude/settings.local.json`.
+Both hosts call the same script. Matching event coverage does not make every
+upstream behavior identical: some note-saving reminders and command warnings
+in the installed Trail version are specific to Claude. No automatic note
+creation is enabled by this configuration.
 
 #### Code map and check
 
@@ -633,11 +698,12 @@ normal searches.
 - Before searches (`ask`, `grep`, `skeleton`, `map` and other lookup commands),
   Trail checks whether the code has changed and updates the graph when
   needed. The structural update is local, with no LLM calls.
-- In Claude, the edit hooks report that the map needs updating; the `Stop` hook,
-  at the end of a turn, can start the synchronisation in the background.
-- In Codex, `SessionStart` loads the available context. The `post-edit` hook
-  marks the map as needing an update after `apply_patch`; the next Trail search
-  checks and updates the graph. No Codex `Stop` hook is configured here.
+- In Claude and Codex, the edit hooks report that the map needs updating;
+  the `Stop` hook can start a local structural update in the background at
+  the end of a turn. This update makes no LLM calls. In Codex the edit event
+  is `apply_patch`; changes made through other tools are still checked by
+  the next Trail search.
+- `SessionStart` loads the available context; it is not a full rebuild.
 
 `--no-refresh` or `GRAFT_NO_REFRESH=1` turn off the update before the
 search. If an update fails or is already running, Trail may answer
@@ -655,7 +721,7 @@ Notes saved with `--personal` live under `%USERPROFILE%\.trail\` instead.
 **Reading into the agent's context.** At startup the hook presents the map and
 the availability of the notes; it does not insert the contents of all the Markdown files.
 Trail searches retrieve the notes that bear on the request. The Codex hooks
-above also recall notes before a patch and after shell commands or patches
+above also recall notes before shell commands and patches, and after patches,
 that name a file listed in a note's `touches`. Repeated reads and the
 pre/post pair do not repeat a note already shown in the session. Commands
 that do not name a matching file do not receive file-related notes.
@@ -664,16 +730,23 @@ that do not name a matching file do not receive file-related notes.
 `TRAIL_INVOKED_AS=trail`, the startup hook can include the project's standing
 notes (`standing: true`). Claude's configured file hooks also recall notes
 relevant to a file read or edit. Codex receives file-related notes through
-the three additional entries above; the environment variable alone would
-not register those events.
+the file and command hooks above; the environment variable alone would not
+register those events. `UserPromptSubmit` also retrieves notes relevant to
+the message.
 
 Verification covered the shared startup hook for both hosts and a real
 file-related note through Claude's hook. Standing notes were tested on a
 temporary copy because none of the project's current notes were marked
-`standing: true`. Codex file hooks were also checked with simulated shell
-and patch events on an isolated copy: matching notes arrive, unrelated
-commands receive none, and repeated events do not duplicate the note.
-The temporary copies were removed and no project notes were changed.
+`standing: true`. Codex hooks were checked with simulated events on an
+isolated copy: startup and resume variants return context, prompt and file
+notes arrive, unrelated commands receive no file note, and repeated events
+do not duplicate it. Successful and failed shell results are recorded once
+with the correct status; output without a valid exit header is not recorded
+as success. After a patch, `Stop` rebuilt the small copy's index locally;
+`SessionEnd` completed within Codex's three-second limit without queued
+telemetry. These are handler tests, not proof of automatic execution in an
+approved live chat. The temporary copies were removed and no project notes
+were changed.
 
 #### Update
 

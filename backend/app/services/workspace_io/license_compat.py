@@ -6,8 +6,9 @@ migration 192 does to a database (the same ``derive_type_metrics`` rule); the ca
 that a bundle is old, from the sheet being absent and never from it being empty.
 ``items_of`` reads a ``CardLicenses`` row's cells; ``keep_known_cells`` drops the cells
 whose metric or type exists nowhere, ``drop_invalid_cells`` those that break the rules of
-the API's cell schema, and ``catalogue_row_error`` a metric or type row that breaks the
-API's key and label rules.
+the API's cell schema, and ``check_catalogue_row`` a metric or type row that breaks the
+API's key, label, order and flag rules (it also writes the validated values back).
+Every name or reason reported is cut to ``NAME_MAX`` characters: it is the bundle's text.
 Pure: no database, nothing written.
 """
 
@@ -22,14 +23,24 @@ from app.services.license_types import DEFAULT_METRICS
 from app.services.licensing_migration import derive_type_metrics
 from app.services.workspace_io.bundle import from_cell
 
+NAME_MAX = 64
 
-def items_of(row: dict[str, Any]) -> dict:
-    """A ``CardLicenses`` row's ``items`` object; ``{}`` for bad JSON or anything else."""
+
+def clip(text: str) -> str:
+    """``text`` cut to ``NAME_MAX`` characters, for a report line."""
+    return text if len(text) <= NAME_MAX else text[: NAME_MAX - 1] + "…"
+
+
+def items_of(row: dict[str, Any]) -> dict | None:
+    """A ``CardLicenses`` row's ``items`` object; ``{}`` when the cell is empty, ``None`` when
+    it is bad JSON or valid JSON that is not an object (the entity pass cannot store those)."""
     try:
         items = from_cell(row.get("items"), is_json=True)
-    except ValueError:  # the entity pass reports a row it cannot read
+    except ValueError:
+        return None
+    if items is None:
         return {}
-    return items if isinstance(items, dict) else {}
+    return items if isinstance(items, dict) else None
 
 
 def derive_catalogue(
@@ -49,7 +60,7 @@ def derive_catalogue(
     own = [k for row in metric_rows if isinstance(k := row.get("key"), str)]
     used: dict[str, set[str]] = {}
     for row in card_license_rows:
-        for metric, cells in items_of(row).items():
+        for metric, cells in (items_of(row) or {}).items():
             for type_key in cells if isinstance(cells, dict) else {}:
                 used.setdefault(type_key, set()).add(metric)
     types: list[dict] = []
@@ -78,33 +89,45 @@ def keep_known_cells(items: dict, known: set[tuple[str, str]]) -> tuple[dict, li
             kept[metric] = cells
             continue
         mine = {t: cell for t, cell in cells.items() if (metric, t) in known}
-        dropped.extend(f"{metric}:{t}" for t in cells if t not in mine)
+        dropped.extend(clip(f"{metric}:{t}") for t in cells if t not in mine)
         if mine or not cells:
             kept[metric] = mine
     return kept, sorted(dropped)
 
 
-def catalogue_row_error(data: dict[str, Any], schema: type[BaseModel]) -> str | None:
-    """Why a metric or type row breaks the API's key / label / translations rules
-    (``schema`` is ``LicenseMetricCreate`` or ``LicenseTypeCreate``), or ``None``. An empty
-    label cell is fine: the new row takes its key. The offending value is not echoed."""
+def check_catalogue_row(
+    data: dict[str, Any], create: type[BaseModel], update: type[BaseModel]
+) -> str | None:
+    """Why a metric or type row breaks the API's rules, or ``None``. ``create`` (the
+    ``...Create`` schema) judges key, label and translations, ``update`` the ``sort_order``
+    and ``archived`` that are present. An empty label cell is fine: a new row takes its key.
+    On success ``data`` holds the validated values (a stripped label, an int order), so what
+    is written is what the API would have written. Only the field name is reported, never the
+    bundle's value or the keys of its translations."""
     payload = {k: data.get(k) for k in ("key", "label", "translations")}
     if payload["label"] is None:
         payload["label"] = payload["key"]
+    extra = {k: data[k] for k in ("sort_order", "archived") if data.get(k) is not None}
     try:
-        schema.model_validate(payload)
+        made = create.model_validate(payload)
+        changed = update.model_validate(extra)
     except ValidationError as exc:
         first = exc.errors()[0]
-        return f"{'.'.join(str(p) for p in first['loc'])}: {first['msg']}"
+        return clip(f"{first['loc'][0]}: {first['msg']}")
+    for name in ("label", "translations"):
+        if data.get(name) is not None:
+            data[name] = getattr(made, name)
+    for name in extra:
+        data[name] = getattr(changed, name)
     return None
 
 
-def _cell_ok(cell: Any) -> bool:
+def _valid_cell(cell: Any) -> dict | None:
+    """The cell as the API stores it (no extra key), or ``None`` when it is refused."""
     try:
-        LicenseCellWrite.model_validate(cell)
+        return LicenseCellWrite.model_validate(cell).model_dump()
     except ValidationError:
-        return False
-    return True
+        return None
 
 
 def drop_invalid_cells(items: dict) -> tuple[dict, list[str]]:
@@ -115,10 +138,10 @@ def drop_invalid_cells(items: dict) -> tuple[dict, list[str]]:
     dropped: list[str] = []
     for metric, cells in items.items():
         if not isinstance(cells, dict):
-            dropped.append(metric)
+            dropped.append(clip(metric))
             continue
-        good = {t: c for t, c in cells.items() if _cell_ok(c)}
-        dropped.extend(f"{metric}:{t}" for t in cells if t not in good)
+        good = {t: cell for t, c in cells.items() if (cell := _valid_cell(c)) is not None}
+        dropped.extend(clip(f"{metric}:{t}") for t in cells if t not in good)
         if good or not cells:
             kept[metric] = good
     return kept, sorted(dropped)

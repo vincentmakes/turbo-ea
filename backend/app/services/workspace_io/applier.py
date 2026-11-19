@@ -55,7 +55,12 @@ from app.models.role import Role
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
-from app.schemas.licenses import LicenseMetricCreate, LicenseTypeCreate
+from app.schemas.licenses import (
+    LicenseMetricCreate,
+    LicenseMetricUpdate,
+    LicenseTypeCreate,
+    LicenseTypeUpdate,
+)
 from app.services import card_reference, card_type_categories, decision_links_legacy
 from app.services.bo_relationship_constants import (
     APPLICATION_RELATION,
@@ -866,7 +871,7 @@ async def _apply_card_type_categories(
             data["translations"] = {}
         current = existing.get(key)
         if current is None:
-            fresh = {k: v for k, v in data.items() if v is not None}
+            fresh = _not_none(data)
             fresh.setdefault("label", key)
             if "sort_order" not in fresh:
                 fresh["sort_order"] = await card_type_categories.next_sort_order(db)
@@ -986,9 +991,13 @@ def _config_section(sheet: str) -> schema.ConfigSection:
     return next(s for s in schema.CONFIG_SECTIONS if s.sheet == sheet)
 
 
+def _not_none(data: dict[str, Any]) -> dict[str, Any]:
+    return {k: v for k, v in data.items() if v is not None}
+
+
 def _fresh(data: dict[str, Any], key: str) -> dict[str, Any]:
     """A new catalogue row's values: an empty cell takes the model default, the label the key."""
-    fresh = {k: v for k, v in data.items() if v is not None}
+    fresh = _not_none(data)
     fresh.setdefault("label", key)
     return fresh
 
@@ -1038,10 +1047,13 @@ async def _apply_license_catalogue(
             if msr is not None:
                 msr.failed += 1
             continue
-        if error := license_compat.catalogue_row_error(data, LicenseMetricCreate):
+        error = license_compat.check_catalogue_row(data, LicenseMetricCreate, LicenseMetricUpdate)
+        if error:
             if msr is not None:
                 msr.failed += 1
-                msr.errors.append(f"license metric {key!r}: {error}, skipped")
+                msr.errors.append(
+                    f"license metric {license_compat.clip(repr(key))}: {error}, skipped"
+                )
             continue
         metric_keys.add(key)
         if msr is None:
@@ -1055,7 +1067,8 @@ async def _apply_license_catalogue(
             msr.skip("already_present")
         else:
             cols = [c for c in metric_sec.columns if c not in metric_sec.natural_key]
-            _update_if_changed(current, data, cols, msr)
+            # An empty cell on a row the target has says nothing: the NOT NULL column stays.
+            _update_if_changed(current, _not_none(data), cols, msr)
 
     types = {(t.metric_key, t.key): t for t in (await db.execute(select(LicenseType))).scalars()}
     known: set[tuple[str, str]] = set(types)
@@ -1070,17 +1083,19 @@ async def _apply_license_catalogue(
             if tsr is not None:
                 tsr.failed += 1
             continue
-        if error := license_compat.catalogue_row_error(data, LicenseTypeCreate):
+        error = license_compat.check_catalogue_row(data, LicenseTypeCreate, LicenseTypeUpdate)
+        if error:
             if tsr is not None:
                 tsr.failed += 1
-                tsr.errors.append(f"license type {metric_key}:{key!r}: {error}, skipped")
+                name = license_compat.clip(f"{metric_key}:{key!r}")
+                tsr.errors.append(f"license type {name}: {error}, skipped")
             continue
         if metric_key not in metric_keys:
             if tsr is not None:
                 tsr.skip("unknown_metric")
                 tsr.errors.append(
-                    f"license type {metric_key}:{key}: its metric is on neither this "
-                    "instance nor in the bundle, skipped"
+                    f"license type {license_compat.clip(f'{metric_key}:{key}')}: its metric is "
+                    "on neither this instance nor in the bundle, skipped"
                 )
             continue
         known.add((metric_key, key))
@@ -1089,8 +1104,8 @@ async def _apply_license_catalogue(
         if metric_key not in metrics:  # only in the bundle, and its sheet is not written
             tsr.skip("unknown_metric")
             tsr.errors.append(
-                f"license type {metric_key}:{key}: its metric is not on this instance and "
-                "the metrics sheet is not imported, skipped"
+                f"license type {license_compat.clip(f'{metric_key}:{key}')}: its metric is not "
+                "on this instance and the metrics sheet is not imported, skipped"
             )
             continue
         current = types.get((metric_key, key))
@@ -1100,7 +1115,7 @@ async def _apply_license_catalogue(
             tsr.created += 1
         else:
             cols = [c for c in type_sec.columns if c not in keeps]
-            _update_if_changed(current, data, cols, tsr)
+            _update_if_changed(current, _not_none(data), cols, tsr)
     await db.flush()
 
     if not wanted(SHEET_CARD_LICENSES):
@@ -1109,14 +1124,16 @@ async def _apply_license_catalogue(
     invalid: set[str] = set()
     kept_rows: list[dict[str, Any]] = []
     for row in card_rows:
-        # A row it cannot read is left to the entity pass, which reports it.
-        items, bad = license_compat.drop_invalid_cells(license_compat.items_of(row))
-        items, gone = license_compat.keep_known_cells(items, known)
-        if gone or bad:
-            dropped.update(gone)
-            invalid.update(bad)
-            row = {**row, "items": items}
-        kept_rows.append(row)
+        items = license_compat.items_of(row)
+        if items is None:  # bad JSON, or not an object: nothing the entity pass can store
+            items, gone, bad = {}, [], ["items"]
+        else:  # the known cells first, so a bundle's long key never reaches the cell check
+            items, gone = license_compat.keep_known_cells(items, known)
+            items, bad = license_compat.drop_invalid_cells(items)
+        dropped.update(gone)
+        invalid.update(bad)
+        # Always the validated items: a cell is stored as the API stores it, extra keys gone.
+        kept_rows.append({**row, "items": items})
     # The entity pass reads the sheet from the bundle: hand it the filtered rows.
     bundle.sheets[SHEET_CARD_LICENSES] = kept_rows
     return sorted(dropped), sorted(invalid)

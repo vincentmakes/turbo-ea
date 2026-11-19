@@ -19,7 +19,14 @@ from app.services.workspace_io import (
     build_bundle,
     parse_bundle,
 )
-from app.services.workspace_io.license_compat import derive_catalogue, items_of, keep_known_cells
+from app.services.workspace_io.license_compat import (
+    NAME_MAX,
+    clip,
+    derive_catalogue,
+    drop_invalid_cells,
+    items_of,
+    keep_known_cells,
+)
 from tests.conftest import (
     create_card,
     create_card_type,
@@ -458,23 +465,34 @@ async def test_dropped_cells_are_reported_one_line_each_in_name_order(db):
     ]
 
 
-async def test_a_card_licenses_row_whose_items_are_not_an_object_reaches_the_entity_pass(db):
-    user, _ = await _seed_two_metrics(db, "lc-list@test.com")
-    bundle = parse_bundle(await build_bundle(db))
-    (row,) = bundle.sheets["CardLicenses"]
-    row["items"] = "[1, 2]"
-
-    result = await apply_bundle(db, bundle, user)
-    assert bundle.sheets["CardLicenses"] == [row]
-    assert _section(result, "CardLicenses").errors == []
-
-
-def test_items_of_reads_an_object_and_nothing_else():
+def test_items_of_reads_an_object_and_flags_anything_else_with_none():
     assert items_of({"items": '{"users": {}}'}) == {"users": {}}
     assert items_of({"items": {"users": {}}}) == {"users": {}}
-    assert items_of({"items": "{not json"}) == {}
-    assert items_of({"items": "[1]"}) == {}
+    assert items_of({"items": "{not json"}) is None
+    assert items_of({"items": "[1]"}) is None
     assert items_of({}) == {}
+
+
+@pytest.mark.parametrize("items", [[1], "[1]", '"abc"', 5, "5", "{not json"], ids=repr)
+async def test_a_card_licenses_row_whose_items_are_not_a_json_object_is_emptied_and_reported(
+    db, items
+):
+    user, _ = await _seed_two_metrics(db, "lc-notobj@test.com")
+    bundle = parse_bundle(await build_bundle(db))
+    (row,) = bundle.sheets["CardLicenses"]
+    row["items"] = items
+    await db.execute(delete(CardLicense))
+    await db.flush()
+
+    result = await apply_bundle(db, bundle, user)
+    sr = _section(result, "CardLicenses")
+    assert (await db.execute(select(CardLicense))).scalar_one().items == {}
+    assert [e for e in sr.errors if "license cell items:" in e], sr.errors
+
+
+def test_drop_invalid_cells_keeps_a_metric_with_no_cells_and_drops_one_with_only_bad_ones():
+    assert drop_invalid_cells({"users": {}}) == ({"users": {}}, [])
+    assert drop_invalid_cells({"users": {"a": "x"}}) == ({}, ["users:a"])
 
 
 @pytest.mark.parametrize("selected", [TYPES, METRICS])
@@ -603,3 +621,110 @@ async def test_a_type_row_that_breaks_the_key_or_label_rules_is_skipped_and_its_
     assert any(row["key"] in e for e in tsr.errors), tsr.errors
     assert ("users", row["key"]) not in await _types(db)
     assert (await db.execute(select(CardLicense))).scalar_one().items == items
+
+
+# --- review round 2: store what was validated, never fail on a stray value --------------
+
+
+async def test_a_cell_is_stored_as_the_api_stores_it_without_the_extra_keys(db):
+    user, _ = await _seed_two_metrics(db, "lc-extra@test.com")
+    bundle = parse_bundle(await build_bundle(db))
+    (row,) = bundle.sheets["CardLicenses"]
+    row["items"] = {"users": {"admin": {"licensed": 1, "note": "x" * 1000}}}
+    await db.execute(delete(CardLicense))
+    await db.flush()
+
+    await apply_bundle(db, bundle, user)
+    stored = (await db.execute(select(CardLicense))).scalar_one().items
+    assert stored == {"users": {"admin": {"licensed": 1, "actual": None}}}
+
+
+async def test_a_new_rows_label_is_stored_stripped_and_a_too_long_one_is_skipped(db):
+    user, _ = await _seed_two_metrics(db, "lc-strip@test.com")
+    bundle = parse_bundle(await build_bundle(db))
+    bundle.sheets[METRICS].append({"key": "fresh", "label": " Fresh "})
+    bundle.sheets[METRICS].append({"key": "toolong", "label": "x" * 100 + " "})
+    bundle.sheets[TYPES].append({"metric_key": "users", "key": "tfresh", "label": " T "})
+
+    result = await apply_bundle(db, bundle, user)
+    assert result.total_failed == 0, result.as_dict()
+    assert (await _metrics(db))["fresh"].label == "Fresh"
+    assert (await _metrics(db))["toolong"].label == "x" * 100
+    assert (await _types(db))[("users", "tfresh")].label == "T"
+
+
+async def test_an_empty_label_or_translations_cell_on_an_existing_row_leaves_it_alone(db):
+    user, _ = await _seed_two_metrics(db, "lc-keepexisting@test.com")
+    bundle = parse_bundle(await build_bundle(db))
+    for sheet, key in ((METRICS, "seats"), (TYPES, "admin")):
+        (row,) = [r for r in bundle.sheets[sheet] if r["key"] == key]
+        row.update(label=None, translations=None, sort_order=None, archived=None)
+
+    result = await apply_bundle(db, bundle, user)
+    assert result.total_failed == 0, result.as_dict()
+    seats = (await _metrics(db))["seats"]
+    assert (seats.label, seats.translations, seats.sort_order) == ("Seats", {"it": "Posti"}, 1)
+    admin = (await _types(db))[("users", "admin")]
+    assert (admin.label, admin.sort_order, admin.archived) == ("Admin", 3, False)
+
+
+_BAD_ORDER_FLAGS = {
+    "over_int32": {"sort_order": 2147483648},
+    "text": {"sort_order": "abc"},
+    "fraction": {"sort_order": 1.5},
+    "negative": {"sort_order": -5},
+    "bad_flag": {"archived": "maybe"},
+}
+
+
+@pytest.mark.parametrize("extra", list(_BAD_ORDER_FLAGS.values()), ids=list(_BAD_ORDER_FLAGS))
+@pytest.mark.parametrize("sheet", [METRICS, TYPES])
+async def test_a_row_with_a_bad_sort_order_or_flag_is_skipped_and_reported(db, sheet, extra):
+    user, items = await _seed_two_metrics(db, "lc-badorder@test.com")
+    bundle = parse_bundle(await build_bundle(db))
+    row = {"key": "weird", "label": "Weird", **extra}
+    if sheet == TYPES:
+        row["metric_key"] = "users"
+    bundle.sheets[sheet].append(row)
+
+    result = await apply_bundle(db, bundle, user)
+    sr = _section(result, sheet)
+    assert (sr.created, sr.failed) == (0, 1), sr
+    assert "weird" not in {k for k, _ in await _types(db)} | set(await _metrics(db))
+
+
+async def test_reported_names_and_reasons_are_short_whatever_the_bundle_holds(db):
+    user, items = await _seed_two_metrics(db, "lc-long@test.com")
+    bundle = parse_bundle(await build_bundle(db))
+    big = "k" * 5000
+    bundle.sheets[METRICS].append({"key": big, "label": "Ok"})
+    bundle.sheets[METRICS].append({"key": "trk", "label": "Ok", "translations": {big: 5}})
+    bundle.sheets[TYPES].append({"metric_key": big, "key": "t", "label": "T"})
+    bundle.sheets[TYPES].append(
+        {"metric_key": "users", "key": "tr", "label": "T", "translations": {big: 5}}
+    )
+    (card_row,) = bundle.sheets["CardLicenses"]
+    card_row["items"] = {"users": {big: CELL}, big: {"t": CELL}}
+    await db.execute(delete(CardLicense))
+    await db.flush()
+
+    result = await apply_bundle(db, bundle, user)
+    lines = [e for s in result.sections for e in s.errors]
+    assert len(lines) >= 5, lines
+    assert all(len(line) < 250 for line in lines), [len(x) for x in lines]
+
+
+@pytest.mark.source_scan
+def test_the_int32_maximum_is_written_once_in_the_app():
+    from tests.app_source import APP
+
+    hits = [p for p in APP.rglob("*.py") if "2147483647" in p.read_text(encoding="utf-8")]
+    assert [p.name for p in hits] == ["cost_items.py"]
+
+
+def test_clip_keeps_a_name_at_the_limit_and_cuts_a_longer_one_to_the_limit():
+    at_limit = "a" * NAME_MAX
+    assert clip(at_limit) == at_limit
+    over = clip("a" * (NAME_MAX + 1))
+    assert over == "a" * (NAME_MAX - 1) + "…"
+    assert len(over) == NAME_MAX
