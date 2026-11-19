@@ -10,7 +10,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.permissions import VIEW_COSTS_CARD_PERMISSION, type_cell_decision
+from app.core.permissions import VIEW_COSTS_CARD_PERMISSION, type_cell_decision, view_denied
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.role import Role
@@ -314,7 +314,8 @@ class PermissionService:
     @staticmethod
     async def view_denied_types(db: AsyncSession, user: User) -> frozenset[str]:
         """Card types whose View cell takes every landscape-wide grant away
-        from this user's role (``type_cell_decision``).
+        from this user's role (``view_denied``, the cell ``type_cell_decision``
+        answers ``False`` on whatever the permission).
 
         Empty for the wildcard role and for a role with no such cell — the
         common case, answered from the role and type-cell caches.
@@ -325,9 +326,7 @@ class PermissionService:
             return frozenset()
         overrides = await PermissionService.load_all_type_role_permissions(db)
         return frozenset(
-            type_key
-            for type_key, cells in overrides.items()
-            if type_cell_decision(cells.get(role_key), "costs.view") is False
+            type_key for type_key, cells in overrides.items() if view_denied(cells.get(role_key))
         )
 
     @staticmethod
@@ -356,7 +355,7 @@ class PermissionService:
 
     @staticmethod
     async def card_ids_with_cost_access(
-        db: AsyncSession, user: User, candidate_card_ids: Iterable[UUID]
+        db: AsyncSession, user: User, candidate_card_ids: Iterable[UUID | None]
     ) -> set[UUID]:
         """Bulk variant of `can_view_costs` for list endpoints.
 
@@ -388,7 +387,7 @@ class PermissionService:
                 return allowed
         held = await db.execute(
             select(Stakeholder.card_id, Card.type, Stakeholder.role)
-            .join(Card, Stakeholder.card_id == Card.id)
+            .join(Card)
             .where(Stakeholder.user_id == user.id, Stakeholder.card_id.in_(pending))
         )
         for card_id, type_key, role_key in held.all():

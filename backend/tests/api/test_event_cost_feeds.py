@@ -195,6 +195,12 @@ async def test_an_editor_cannot_read_the_cost_back_from_their_own_batch(client, 
         "old": {"tier": "platinum"},
         "new": {"tier": "silver"},
     }
+    # The batch is still shown with its author, on both of its endpoints.
+    assert resp.json()["batch"]["actor_display_name"] == reader.display_name
+    meta = await client.get(f"/api/v1/mutation-batches/{batch_id}", headers=auth_headers(reader))
+    assert meta.status_code == 200, meta.text
+    assert meta.json()["actor_display_name"] == reader.display_name
+    assert meta.json()["actor_user_id"] == str(reader.id)
 
     # An auditor who sees costs reads the same batch whole.
     as_admin = await client.get(
@@ -298,5 +304,8 @@ async def test_a_rollback_preview_carries_the_batch_it_would_reverse(client, db,
     assert body["dry_run"] is True
     assert body["batch"]["id"] == batch_id
     assert body["batch"]["tool_name"] == "update_card"
+    # the preview's batch names no author, as before
+    assert body["batch"]["actor_display_name"] is None
+    assert body["batch"]["actor_user_id"] == str(reader.id)
     assert body["event_count"] == 1
     assert body["unsupported_events"] == []

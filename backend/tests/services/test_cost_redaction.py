@@ -287,6 +287,36 @@ async def test_card_costs_alone_are_enough_to_redact(db, world):
     assert _attrs(got) == [({"tier": "gold"}, []), (None, [])]
 
 
+async def test_an_item_whose_role_shows_costs_keeps_them_without_any_relation(db, world):
+    # Nothing but the item's own id says its card is one to ask about.
+    reader = world["users"]["reader"]
+    await _fund(db, world["app"], reader)
+    payload = _payload(world)
+    for item in payload["items"]:
+        item["relations"] = []
+    payload["items"][1]["attributes"] = {"costRun": 3, "tier": "silver"}
+    got = await cr.redact_portfolio_costs(db, reader, payload, world["app_type"])
+    assert _attrs(got) == [
+        ({"costTotalAnnual": 100, "costRun": 7, "tier": "gold"}, []),
+        ({"tier": "silver"}, []),
+    ]
+
+
+async def test_no_relations_and_no_card_cost_field_is_returned_itself(db, world):
+    payload = _payload(world)
+    payload["items"] = [
+        {
+            "id": str(world["server"].id),
+            "name": "Server",
+            "attributes": {"costTotalAnnual": 3},
+            "relations": [],
+            "tag_ids": [],
+        }
+    ]
+    got = await cr.redact_portfolio_costs(db, world["users"]["reader"], payload, world["itc_type"])
+    assert got is payload
+
+
 async def test_relation_costs_alone_are_enough_to_redact(db, world):
     # The IT Component has no cost field; the relation it is listed with does.
     payload = _payload(world)

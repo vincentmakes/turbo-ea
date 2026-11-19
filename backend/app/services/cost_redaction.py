@@ -61,7 +61,7 @@ async def card_cost_redaction_map(
     return redact
 
 
-def _without(attributes: Any, cost_keys: frozenset[str]) -> Any:
+def _without(attributes: Any, cost_keys: frozenset[str] | None) -> Any:
     if not cost_keys or not isinstance(attributes, dict):
         return attributes
     return {k: v for k, v in attributes.items() if k not in cost_keys}
@@ -125,8 +125,7 @@ async def redact_portfolio_costs(
             else {
                 **relation,
                 "attributes": _without(
-                    relation["attributes"],
-                    relation_keys.get(relation["relation_type"], frozenset()),
+                    relation["attributes"], relation_keys.get(relation["relation_type"])
                 ),
             }
             for relation in item["relations"]

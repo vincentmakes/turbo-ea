@@ -411,6 +411,7 @@ async def test_with_no_card_left_the_app_grant_decides_on_the_type_named(db, wor
 
     both = {"costTotalAnnual": 1, "costBudget": 2}
     gone = uuid.uuid4()
+    denied = _change({"costBudget": 2}, {"costBudget": 2}, type="Application")
     got = await scrub.scrub_event_costs(
         db,
         finance,
@@ -419,13 +420,17 @@ async def test_with_no_card_left_the_app_grant_decides_on_the_type_named(db, wor
             (gone, _change(both, both, type="Initiative")),
             (gone, _change(both, both, type="NoSuchType")),
             (None, _change(both, both)),
+            # ...and a payload the grant covers does not end the pass: the
+            # ones after it are still judged.
+            (gone, _change(both, both, type="Application")),
         ],
     )
     assert got == [
-        _change({"costBudget": 2}, {"costBudget": 2}, type="Application"),
+        denied,
         _change(both, both, type="Initiative"),
         _change(both, both, type="NoSuchType"),
         _change(both, both),
+        denied,
     ]
 
 

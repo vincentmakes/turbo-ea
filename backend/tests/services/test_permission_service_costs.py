@@ -409,6 +409,18 @@ class TestCostAccessUnderAViewDeny:
         for card in (owned, observed, plain, itc):
             assert (card.id in out) is await PermissionService.can_view_costs(db, finance, card.id)
 
+    async def test_a_denied_card_that_was_not_asked_about_does_not_come_back(self, db, finance):
+        # The user holds a cost-showing role on two cards of the denied type;
+        # only one of them is a candidate.
+        await _deny_view(db, "Application", "finance")
+        asked = await create_card(db, card_type="Application", name="Asked")
+        not_asked = await create_card(db, card_type="Application", name="Not asked")
+        await _make_stakeholder(db, user=finance, card=asked)
+        await _make_stakeholder(db, user=finance, card=not_asked)
+
+        out = await PermissionService.card_ids_with_cost_access(db, finance, [asked.id])
+        assert out == {asked.id}
+
     async def test_candidates_outside_the_denied_type_all_come_back(self, db, finance):
         await _deny_view(db, "Application", "finance")
         itc1 = await create_card(db, card_type="ITComponent", name="One")

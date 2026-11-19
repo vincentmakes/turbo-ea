@@ -467,6 +467,18 @@ TYPE_SCOPED_APP_PERMISSIONS: frozenset[str] = frozenset(
 VIEW_PERMISSION = "inventory.view"
 
 
+def view_denied(cells: dict | None) -> bool:
+    """True when one role's override cells on one card type deny View.
+
+    Only an explicit ``False`` counts: no cells, no View cell, an Allow, or a
+    role that merely lacks the global ``inventory.view`` are not a deny. This
+    is the cell that takes every landscape-wide grant away on the type
+    (``type_cell_decision``), asked on its own by a caller that needs "which
+    types" rather than "this permission on this type".
+    """
+    return (cells or {}).get(VIEW_PERMISSION) is False
+
+
 def type_cell_decision(cells: dict | None, permission: str) -> bool | None:
     """What one role's override cells on one card type say about ``permission``.
 
@@ -482,9 +494,9 @@ def type_cell_decision(cells: dict | None, permission: str) -> bool | None:
     Only an explicit ``False`` does this — a role that merely lacks the global
     ``inventory.view`` keeps whatever else it holds, exactly as before.
     """
-    cells = cells or {}
-    if cells.get(VIEW_PERMISSION) is False:
+    if view_denied(cells):
         return False
+    cells = cells or {}
     if permission in TYPE_SCOPED_APP_PERMISSIONS:
         cell = cells.get(permission)
         if cell is not None:

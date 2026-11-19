@@ -145,7 +145,8 @@ async def scrub_event_costs(
 
     subjects = {i: subject_card_id(events[i][0], payloads[i]) for i in carrying}
     card_ids = {card_id for card_id in subjects.values() if card_id is not None}
-    type_of: dict[uuid.UUID, str] = {}
+    # Keyed as it is looked up: a payload with no subject asks for ``None``.
+    type_of: dict[uuid.UUID | None, str] = {}
     if card_ids:
         rows = await db.execute(select(Card.id, Card.type).where(Card.id.in_(card_ids)))
         type_of = {card_id: type_key for card_id, type_key in rows.all()}
@@ -162,7 +163,7 @@ async def scrub_event_costs(
         if card_id in allowed:
             continue
         data = payloads[i]
-        type_key = type_of.get(card_id) if card_id is not None else None
+        type_key = type_of.get(card_id)
         if type_key is None:
             # No card left to ask about (deleted, or the payload is not about
             # a card at all): the landscape-wide grant decides, on the type
