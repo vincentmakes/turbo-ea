@@ -1165,6 +1165,75 @@ async def test_an_existing_relation_takes_only_what_changed(db, env, published, 
         assert published == []
 
 
+@pytest.mark.parametrize(
+    "incoming,stored_after,changed",
+    [
+        # a protected key keeps its stored value; the rest is replaced
+        ({"cost": 1, "note": "new"}, {"cost": 100, "note": "new"}, ["attributes"]),
+        # left out, it is not wiped
+        ({"note": "new"}, {"cost": 100, "note": "new"}, ["attributes"]),
+        ({}, {"cost": 100}, ["attributes"]),
+        # only the protected key differs: nothing changed, nothing announced
+        ({"cost": 1, "note": "old"}, {"cost": 100, "note": "old"}, []),
+    ],
+)
+async def test_protected_attributes_survive_an_upsert_onto_an_existing_relation(
+    db, env, published, incoming, stored_after, changed
+):
+    app = await create_card(db, name="Billing")
+    itc = await create_card(db, card_type="ITComponent", name="Server")
+    existing = await create_relation(
+        db, source_id=app.id, target_id=itc.id, attributes={"cost": 100, "note": "old"}
+    )
+    rel, reused, got = await svc.upsert_relation(
+        db,
+        env["actor"],
+        type_key="app_to_itc",
+        source_id=app.id,
+        target_id=itc.id,
+        attributes=incoming,
+        preserve_attribute_keys=frozenset({"cost"}),
+    )
+    assert rel.id == existing.id and reused is True and got == changed
+    assert rel.attributes == stored_after
+    assert len(published) == (2 if changed else 0)
+
+
+async def test_protected_keys_do_nothing_when_no_attributes_are_sent(db, env, published):
+    app = await create_card(db, name="Billing")
+    itc = await create_card(db, card_type="ITComponent", name="Server")
+    await create_relation(
+        db, source_id=app.id, target_id=itc.id, attributes={"cost": 100, "note": "old"}
+    )
+    rel, reused, got = await svc.upsert_relation(
+        db,
+        env["actor"],
+        type_key="app_to_itc",
+        source_id=app.id,
+        target_id=itc.id,
+        description="why",
+        preserve_attribute_keys=frozenset({"cost"}),
+    )
+    assert reused is True and got == ["description"]
+    assert rel.attributes == {"cost": 100, "note": "old"}
+
+
+async def test_protected_keys_do_not_touch_a_new_relation(db, env, published):
+    app = await create_card(db, name="Billing")
+    itc = await create_card(db, card_type="ITComponent", name="Server")
+    rel, reused, _ = await svc.upsert_relation(
+        db,
+        env["actor"],
+        type_key="app_to_itc",
+        source_id=app.id,
+        target_id=itc.id,
+        attributes={"cost": 7, "note": "new"},
+        preserve_attribute_keys=frozenset({"cost"}),
+    )
+    assert reused is False
+    assert rel.attributes == {"cost": 7, "note": "new"}
+
+
 async def test_both_relation_events_carry_the_cards_and_the_actor(db, env, published):
     app = await create_card(db, name="Billing")
     itc = await create_card(db, card_type="ITComponent", name="Server")

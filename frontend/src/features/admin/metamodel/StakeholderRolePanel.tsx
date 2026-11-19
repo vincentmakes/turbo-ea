@@ -46,8 +46,9 @@ const ROLE_KEY_MIN = 3;
 const ROLE_KEY_MAX = 50;
 
 /**
- * The one role a user can give themselves: "Observe this card"
- * (`POST /cards/{id}/me/observe`) assigns it to anyone who can view the card.
+ * The role anyone can give themselves: "Observe this card"
+ * (`POST /cards/{id}/me/observe`) assigns it to whoever can view the card,
+ * with no right to manage stakeholders.
  * Whatever it allows is therefore open to all of them, which is how a card's
  * costs once leaked (#1412) — the permission editor says so on this role.
  */

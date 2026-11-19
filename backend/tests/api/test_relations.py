@@ -879,6 +879,236 @@ class TestRelationCostsAndStakeholders:
         assert resp.status_code == 200, resp.text
         assert resp.json()["attributes"] == {"costTotalAnnual": 1, "note": "changed"}
 
+    # POST /relations and POST /relations/bulk land on the existing row and
+    # replace its attributes, so they keep hidden costs exactly as PATCH does.
+
+    async def _post(self, client, rel_env, user, attributes, *, swapped=False):
+        source, target = rel_env["source"], rel_env["target"]
+        if swapped:
+            source, target = target, source
+        return await client.post(
+            "/api/v1/relations",
+            json={
+                "type": "costed_rel",
+                "source_id": str(source.id),
+                "target_id": str(target.id),
+                "attributes": attributes,
+            },
+            headers=auth_headers(user),
+        )
+
+    async def _bulk(self, client, rel_env, user, *attribute_sets, swapped=False):
+        source, target = rel_env["source"], rel_env["target"]
+        if swapped:
+            source, target = target, source
+        return await client.post(
+            "/api/v1/relations/bulk",
+            json={
+                "operations": [
+                    {
+                        "row_index": i,
+                        "action": "upsert",
+                        "type": "costed_rel",
+                        "source": {"id": str(source.id)},
+                        "target": {"id": str(target.id)},
+                        "attributes": attributes,
+                    }
+                    for i, attributes in enumerate(attribute_sets)
+                ]
+            },
+            headers=auth_headers(user),
+        )
+
+    @pytest.mark.parametrize("swapped", [False, True])
+    async def test_an_observer_cannot_overwrite_the_cost_by_posting_the_relation_again(
+        self, client, db, rel_env, costed, swapped
+    ):
+        await costed["hold"]("observer")
+        resp = await self._post(
+            client,
+            rel_env,
+            costed["user"],
+            {"costTotalAnnual": 1, "note": "changed"},
+            swapped=swapped,
+        )
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["id"] == str(costed["rel"].id)
+        assert resp.json()["attributes"] == {"note": "changed"}
+        assert await self._listed(client, rel_env["admin"]) == {
+            "costTotalAnnual": 42000,
+            "note": "changed",
+        }
+
+    async def test_an_observer_cannot_wipe_the_cost_by_posting_without_it(
+        self, client, db, rel_env, costed
+    ):
+        await costed["hold"]("observer")
+        resp = await self._post(client, rel_env, costed["user"], {})
+        assert resp.status_code == 201, resp.text
+        assert await self._listed(client, rel_env["admin"]) == {"costTotalAnnual": 42000}
+
+    async def test_posting_without_attributes_changes_nothing(self, client, db, rel_env, costed):
+        await costed["hold"]("observer")
+        resp = await client.post(
+            "/api/v1/relations",
+            json={
+                "type": "costed_rel",
+                "source_id": str(rel_env["source"].id),
+                "target_id": str(rel_env["target"].id),
+                "description": "why",
+            },
+            headers=auth_headers(costed["user"]),
+        )
+        assert resp.status_code == 201, resp.text
+        assert await self._listed(client, rel_env["admin"]) == {
+            "costTotalAnnual": 42000,
+            "note": "keep me",
+        }
+
+    @pytest.mark.parametrize("swapped", [False, True])
+    async def test_an_owner_changes_the_cost_by_posting_the_relation_again(
+        self, client, db, rel_env, costed, swapped
+    ):
+        await costed["hold"]("responsible")
+        resp = await self._post(
+            client,
+            rel_env,
+            costed["user"],
+            {"costTotalAnnual": 1, "note": "changed"},
+            swapped=swapped,
+        )
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["attributes"] == {"costTotalAnnual": 1, "note": "changed"}
+
+    async def test_owning_the_target_card_does_not_open_the_cost_to_a_post(
+        self, client, db, rel_env, costed
+    ):
+        # Sent the other way round, the pair still belongs to the Application:
+        # the IT Component's owner is not the one who decides.
+        await create_stakeholder_role_def(
+            db,
+            card_type_key="ITComponent",
+            key="responsible",
+            permissions=RESPONSIBLE_CARD_PERMISSIONS,
+        )
+        await costed["hold"]("responsible", rel_env["target"])
+        resp = await self._post(
+            client, rel_env, costed["user"], {"costTotalAnnual": 1, "note": "x"}, swapped=True
+        )
+        assert resp.status_code == 201, resp.text
+        assert await self._listed(client, rel_env["admin"]) == {
+            "costTotalAnnual": 42000,
+            "note": "x",
+        }
+
+    async def test_a_new_relation_takes_the_cost_it_was_created_with(
+        self, client, db, rel_env, costed
+    ):
+        # Nothing stored, so nothing to protect: what the caller creates is
+        # theirs to set (as on a new card); they just do not get it read back.
+        other = await create_card(
+            db, card_type="ITComponent", name="Other ITC", user_id=rel_env["admin"].id
+        )
+        resp = await client.post(
+            "/api/v1/relations",
+            json={
+                "type": "costed_rel",
+                "source_id": str(rel_env["source"].id),
+                "target_id": str(other.id),
+                "attributes": {"costTotalAnnual": 7, "note": "new"},
+            },
+            headers=auth_headers(costed["user"]),
+        )
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["attributes"] == {"note": "new"}
+        as_admin = await client.get(
+            f"/api/v1/relations?type=costed_rel&card_id={other.id}",
+            headers=auth_headers(rel_env["admin"]),
+        )
+        [row] = as_admin.json()
+        assert row["attributes"] == {"costTotalAnnual": 7, "note": "new"}
+
+    @pytest.mark.parametrize("swapped", [False, True])
+    async def test_an_observer_cannot_overwrite_the_cost_through_bulk(
+        self, client, db, rel_env, costed, swapped
+    ):
+        await costed["hold"]("observer")
+        resp = await self._bulk(
+            client,
+            rel_env,
+            costed["user"],
+            {"costTotalAnnual": 1, "note": "first"},
+            {"note": "second"},
+            swapped=swapped,
+        )
+        assert resp.status_code == 200, resp.text
+        assert (resp.json()["upserted"], resp.json()["failed"]) == (2, 0)
+        assert await self._listed(client, rel_env["admin"]) == {
+            "costTotalAnnual": 42000,
+            "note": "second",
+        }
+
+    async def test_an_owner_changes_the_cost_through_bulk(self, client, db, rel_env, costed):
+        await costed["hold"]("responsible")
+        resp = await self._bulk(
+            client, rel_env, costed["user"], {"costTotalAnnual": 1, "note": "changed"}
+        )
+        assert resp.status_code == 200, resp.text
+        assert await self._listed(client, rel_env["admin"]) == {
+            "costTotalAnnual": 1,
+            "note": "changed",
+        }
+
+    async def test_bulk_without_attributes_changes_nothing(self, client, db, rel_env, costed):
+        await costed["hold"]("observer")
+        resp = await client.post(
+            "/api/v1/relations/bulk",
+            json={
+                "operations": [
+                    {
+                        "row_index": 0,
+                        "action": "upsert",
+                        "type": "costed_rel",
+                        "source": {"id": str(rel_env["source"].id)},
+                        "target": {"id": str(rel_env["target"].id)},
+                    }
+                ]
+            },
+            headers=auth_headers(costed["user"]),
+        )
+        assert resp.status_code == 200, resp.text
+        assert await self._listed(client, rel_env["admin"]) == {
+            "costTotalAnnual": 42000,
+            "note": "keep me",
+        }
+
+    async def test_a_relation_type_without_cost_attributes_is_replaced_as_before(
+        self, client, db, rel_env, costed
+    ):
+        # `app_to_itc` has no attribute schema: a key that merely looks like a
+        # cost is an ordinary attribute there, replaced like any other.
+        await costed["hold"]("observer")
+        rel = await create_relation(
+            db,
+            type_key="app_to_itc",
+            source_id=rel_env["source"].id,
+            target_id=rel_env["target"].id,
+            attributes={"costTotalAnnual": 5, "note": "old"},
+        )
+        resp = await client.post(
+            "/api/v1/relations",
+            json={
+                "type": "app_to_itc",
+                "source_id": str(rel_env["source"].id),
+                "target_id": str(rel_env["target"].id),
+                "attributes": {"note": "new"},
+            },
+            headers=auth_headers(costed["user"]),
+        )
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["id"] == str(rel.id)
+        assert resp.json()["attributes"] == {"note": "new"}
+
 
 # ---------------------------------------------------------------
 # DELETE /relations/{id}

@@ -66,6 +66,25 @@ def cost_field_keys_from_relation_schema(attributes_schema: Any) -> frozenset[st
     return _cost_keys_from_flat_schema(attributes_schema)
 
 
+def keep_stored_cost_values(
+    stored: dict | None, incoming: dict, cost_keys: frozenset[str] | set[str]
+) -> dict:
+    """What a caller without cost access may write over ``stored``.
+
+    A write replaces the whole ``attributes`` dict, so dropping the cost keys
+    from the request would wipe values the caller was never shown, and taking
+    them would let the caller overwrite those values. The result is
+    ``incoming`` without its cost keys, plus the stored value of every cost
+    key that has one — the one merge the card and relation write paths share.
+    """
+    current = stored or {}
+    merged = {key: value for key, value in incoming.items() if key not in cost_keys}
+    for key in cost_keys:
+        if key in current:
+            merged[key] = current[key]
+    return merged
+
+
 def strip_costs_from_attributes(card_type: CardType | None, attributes: dict | None) -> dict:
     """Return a shallow copy of `attributes` with all cost-typed keys removed."""
     if not attributes:

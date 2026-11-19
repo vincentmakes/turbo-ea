@@ -293,3 +293,139 @@ class TestEffectivePermissionsIncludesCanViewCosts:
 
         eff = await PermissionService.get_effective_card_permissions(db, user, card.id)
         assert eff["effective"]["can_view_costs"] is False
+
+
+# ── a per-type View deny takes `costs.view` away on that type ───────────────
+
+
+async def _deny_view(db, type_key: str, role_key: str, cells: dict | None = None) -> None:
+    from sqlalchemy import select
+
+    from app.models.card_type import CardType
+
+    card_type = (await db.execute(select(CardType).where(CardType.key == type_key))).scalar_one()
+    card_type.role_permissions = {role_key: {"inventory.view": False} if cells is None else cells}
+    await db.flush()
+    PermissionService.invalidate_type_permission_cache()
+
+
+@pytest.fixture
+async def finance(db, roles):
+    """A role with `costs.view`, an IT Component type beside Application."""
+    await create_role(db, key="finance", permissions={"inventory.view": True, "costs.view": True})
+    await create_card_type(db, key="ITComponent", label="IT Component")
+    return await create_user(db, email="finance@test.com", role="finance")
+
+
+class TestViewDeniedTypes:
+    async def test_a_role_without_cells_is_denied_nothing(self, db, finance):
+        assert await PermissionService.view_denied_types(db, finance) == frozenset()
+        assert await PermissionService.sees_all_costs(db, finance) is True
+
+    async def test_a_view_deny_names_its_type(self, db, finance):
+        await _deny_view(db, "Application", "finance")
+        assert await PermissionService.view_denied_types(db, finance) == frozenset({"Application"})
+        assert await PermissionService.sees_all_costs(db, finance) is False
+
+    @pytest.mark.parametrize(
+        "cells",
+        [
+            {"inventory.view": True},
+            {"inventory.edit": False, "inventory.delete": False},
+            {"inventory.view": None},
+            {},
+        ],
+    )
+    async def test_only_an_explicit_view_deny_counts(self, db, finance, cells):
+        await _deny_view(db, "Application", "finance", cells)
+        assert await PermissionService.view_denied_types(db, finance) == frozenset()
+        assert await PermissionService.sees_all_costs(db, finance) is True
+
+    async def test_another_roles_deny_is_not_mine(self, db, finance):
+        await _deny_view(db, "Application", "viewer")
+        assert await PermissionService.view_denied_types(db, finance) == frozenset()
+
+    async def test_the_wildcard_role_is_never_denied(self, db, finance):
+        await create_role(db, key="admin", permissions={"*": True})
+        admin = await create_user(db, email="admin@test.com", role="admin")
+        await _deny_view(db, "Application", "admin")
+        assert await PermissionService.view_denied_types(db, admin) == frozenset()
+        assert await PermissionService.sees_all_costs(db, admin) is True
+
+    async def test_a_user_whose_role_does_not_exist_is_denied_nothing_and_sees_nothing(
+        self, db, finance
+    ):
+        ghost = await create_user(db, email="ghost@test.com", role="no_such_role")
+        await _deny_view(db, "Application", "no_such_role")
+        assert await PermissionService.view_denied_types(db, ghost) == frozenset()
+        assert await PermissionService.sees_all_costs(db, ghost) is False
+
+    async def test_without_costs_view_nobody_sees_all_costs(self, db, finance):
+        viewer = await _viewer(db)
+        assert await PermissionService.view_denied_types(db, viewer) == frozenset()
+        assert await PermissionService.sees_all_costs(db, viewer) is False
+
+
+class TestCostAccessUnderAViewDeny:
+    """`costs.view` is a landscape-wide grant: a View deny on a type takes it
+    away there, as it does every other. A card of that type the user still
+    opens through a stakeholder role shows costs only if that role says so —
+    which is what `my-permissions` already reported."""
+
+    async def test_the_app_grant_does_not_reach_a_denied_type(self, db, finance):
+        await _deny_view(db, "Application", "finance")
+        app = await create_card(db, card_type="Application", name="App")
+        itc = await create_card(db, card_type="ITComponent", name="Server")
+
+        assert await PermissionService.can_view_costs(db, finance, app.id) is False
+        assert await PermissionService.can_view_costs(db, finance, itc.id) is True
+        eff = await PermissionService.get_effective_card_permissions(db, finance, app.id)
+        assert eff["effective"]["can_view_costs"] is False
+
+    async def test_a_role_on_the_card_decides_instead(self, db, finance):
+        await _deny_view(db, "Application", "finance")
+        owned = await create_card(db, card_type="Application", name="Owned")
+        observed = await create_card(db, card_type="Application", name="Observed")
+        await _make_stakeholder(db, user=finance, card=owned)
+        await _make_stakeholder(db, user=finance, card=observed, role="observer")
+
+        assert await PermissionService.can_view_costs(db, finance, owned.id) is True
+        assert await PermissionService.can_view_costs(db, finance, observed.id) is False
+
+    async def test_the_bulk_check_agrees_card_by_card(self, db, finance):
+        await _deny_view(db, "Application", "finance")
+        owned = await create_card(db, card_type="Application", name="Owned")
+        observed = await create_card(db, card_type="Application", name="Observed")
+        plain = await create_card(db, card_type="Application", name="Plain")
+        itc = await create_card(db, card_type="ITComponent", name="Server")
+        unknown = uuid.uuid4()
+        await _make_stakeholder(db, user=finance, card=owned)
+        await _make_stakeholder(db, user=finance, card=observed, role="observer")
+
+        out = await PermissionService.card_ids_with_cost_access(
+            db, finance, [owned.id, observed.id, plain.id, itc.id, unknown, None]
+        )
+        assert out == {owned.id, itc.id, unknown}
+        for card in (owned, observed, plain, itc):
+            assert (card.id in out) is await PermissionService.can_view_costs(db, finance, card.id)
+
+    async def test_candidates_outside_the_denied_type_all_come_back(self, db, finance):
+        await _deny_view(db, "Application", "finance")
+        itc1 = await create_card(db, card_type="ITComponent", name="One")
+        itc2 = await create_card(db, card_type="ITComponent", name="Two")
+
+        out = await PermissionService.card_ids_with_cost_access(db, finance, [itc1.id, itc2.id])
+        assert out == {itc1.id, itc2.id}
+
+    async def test_only_denied_candidates_with_no_role_come_back_empty(self, db, finance):
+        await _deny_view(db, "Application", "finance")
+        app = await create_card(db, card_type="Application", name="App")
+
+        assert await PermissionService.card_ids_with_cost_access(db, finance, [app.id]) == set()
+
+    async def test_a_deny_on_another_type_changes_nothing_for_this_one(self, db, finance):
+        await _deny_view(db, "ITComponent", "finance")
+        app = await create_card(db, card_type="Application", name="App")
+
+        assert await PermissionService.can_view_costs(db, finance, app.id) is True
+        assert await PermissionService.card_ids_with_cost_access(db, finance, [app.id]) == {app.id}

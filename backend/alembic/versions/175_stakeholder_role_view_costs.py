@@ -12,7 +12,8 @@ existing role definition so an upgrade changes nothing except the hole itself:
 
 - every role keeps showing costs (``true``) — owners, custom roles, archived
   roles (so restoring one brings back what it had);
-- ``observer`` stops (``false``): it is the one role a user can give themselves.
+- ``observer`` stops (``false``): it is the role anyone who can view a card can
+  give themselves, without the right to manage stakeholders.
 
 A row that already carries the key is left alone, either value, so a re-run —
 or a row an admin edited on a newer build before this revision ran — is never

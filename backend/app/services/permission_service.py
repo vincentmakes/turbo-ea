@@ -312,20 +312,46 @@ class PermissionService:
             raise HTTPException(403, "Insufficient permissions")
 
     @staticmethod
+    async def view_denied_types(db: AsyncSession, user: User) -> frozenset[str]:
+        """Card types whose View cell takes every landscape-wide grant away
+        from this user's role (``type_cell_decision``).
+
+        Empty for the wildcard role and for a role with no such cell — the
+        common case, answered from the role and type-cell caches.
+        """
+        role_key = effective_role_key(user)
+        role_data = await PermissionService.load_role(db, role_key)
+        if not role_data or role_data["permissions"].get("*"):
+            return frozenset()
+        overrides = await PermissionService.load_all_type_role_permissions(db)
+        return frozenset(
+            type_key
+            for type_key, cells in overrides.items()
+            if type_cell_decision(cells.get(role_key), "costs.view") is False
+        )
+
+    @staticmethod
+    async def sees_all_costs(db: AsyncSession, user: User) -> bool:
+        """True when ``costs.view`` shows this user the costs of every card:
+        the role holds it and no card type's View cell takes it away."""
+        if not await PermissionService.has_app_permission(db, user, "costs.view"):
+            return False
+        return not await PermissionService.view_denied_types(db, user)
+
+    @staticmethod
     async def can_view_costs(db: AsyncSession, user: User, card_id: UUID) -> bool:
         """Return True if the user may see and change cost fields on this card.
 
-        ``costs.view`` shows them on every card. Without it, a stakeholder
-        role on the card shows them only when the role grants
-        ``card.view_costs`` — holding *a* role is not enough: anyone who can
-        view a card may make themselves its Observer
-        (``POST /cards/{id}/me/observe``), and that used to let every user
-        past the permission (#1412).
+        ``costs.view`` shows them on every card whose type the role may view
+        (a View deny on the type takes the grant away, as for every other
+        landscape-wide permission). Without it, a stakeholder role on the card
+        shows them only when the role grants ``card.view_costs`` — holding *a*
+        role is not enough: anyone who can view a card may make themselves its
+        Observer (``POST /cards/{id}/me/observe``), and that used to let every
+        user past the permission (#1412).
         """
-        if await PermissionService.has_app_permission(db, user, "costs.view"):
-            return True
-        return await PermissionService.has_card_permission(
-            db, user, card_id, VIEW_COSTS_CARD_PERMISSION
+        return await PermissionService.check_permission(
+            db, user, "costs.view", card_id, VIEW_COSTS_CARD_PERMISSION
         )
 
     @staticmethod
@@ -335,22 +361,36 @@ class PermissionService:
         """Bulk variant of `can_view_costs` for list endpoints.
 
         Returns the subset of candidate card IDs the user can see costs for:
-        every candidate with ``costs.view``, otherwise those on which the user
-        holds a stakeholder role granting ``card.view_costs``. The role check
-        reads through the same cached map as ``has_card_permission``, so an
-        archived or undefined role grants nothing here either.
+        with ``costs.view``, every candidate whose type the role is not denied
+        View on; for the rest, those on which the user holds a stakeholder
+        role granting ``card.view_costs``. The role check reads through the
+        same cached map as ``has_card_permission``, so an archived or
+        undefined role grants nothing here either.
+
+        A role with ``costs.view`` and no View deny gets its candidates back
+        without a query — ids that name no card included, as before.
         """
         candidates = {cid for cid in candidate_card_ids if cid is not None}
         if not candidates:
             return set()
+        allowed: set[UUID] = set()
+        pending = candidates
         if await PermissionService.has_app_permission(db, user, "costs.view"):
-            return candidates
+            denied = await PermissionService.view_denied_types(db, user)
+            if not denied:
+                return candidates
+            in_denied = await db.execute(
+                select(Card.id).where(Card.id.in_(candidates), Card.type.in_(denied))
+            )
+            pending = {row[0] for row in in_denied.all()}
+            allowed = candidates - pending
+            if not pending:
+                return allowed
         held = await db.execute(
             select(Stakeholder.card_id, Card.type, Stakeholder.role)
             .join(Card, Stakeholder.card_id == Card.id)
-            .where(Stakeholder.user_id == user.id, Stakeholder.card_id.in_(candidates))
+            .where(Stakeholder.user_id == user.id, Stakeholder.card_id.in_(pending))
         )
-        allowed: set[UUID] = set()
         for card_id, type_key, role_key in held.all():
             perms = await PermissionService.stakeholder_role_permissions(db, type_key, role_key)
             if perms and perms.get(VIEW_COSTS_CARD_PERMISSION):

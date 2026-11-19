@@ -28,7 +28,10 @@ from app.services import card_write_service
 from app.services.calculation_engine import run_calculations_for_card
 from app.services.card_read_scope import CardReadScope, require_card_readable
 from app.services.card_resolver import CardResolver
-from app.services.cost_field_filter import cost_field_keys_from_relation_schema
+from app.services.cost_field_filter import (
+    cost_field_keys_from_relation_schema,
+    keep_stored_cost_values,
+)
 from app.services.data_quality import calc_data_quality
 from app.services.permission_service import PermissionService
 from app.services.relation_orientation import orient_endpoints
@@ -277,6 +280,28 @@ async def list_relations(
     ]
 
 
+async def _closed_cost_keys(
+    db: AsyncSession, user: User, type_key: str, source_id: uuid.UUID, target_id: uuid.UUID
+) -> frozenset[str]:
+    """Cost attributes of ``type_key`` this caller may not write on the pair.
+
+    Empty when the relation type has no cost attribute (no further query) or
+    the caller has cost access on the source card — the source as the relation
+    type runs, so a pair sent the other way round is judged by the same card
+    the stored row will be (#1140).
+    """
+    schema = await db.execute(
+        select(RelationType.attributes_schema).where(RelationType.key == type_key)
+    )
+    cost_keys = cost_field_keys_from_relation_schema(schema.scalar_one_or_none())
+    if not cost_keys:
+        return frozenset()
+    source, _ = await orient_endpoints(db, type_key, source_id, target_id)
+    if await PermissionService.can_view_costs(db, user, source):
+        return frozenset()
+    return cost_keys
+
+
 @router.post("", response_model=RelationResponse, status_code=201)
 async def create_relation(
     body: RelationCreate,
@@ -289,7 +314,13 @@ async def create_relation(
     await require_card_readable(db, user, uuid.UUID(body.target_id), mode="module")
     # Idempotent upsert on (type, source, target) — discussion #905 — via the
     # shared card write service, so every write path merges instead of
-    # duplicating.
+    # duplicating. Landing on an existing row replaces its attributes, so the
+    # cost values a caller may not see are kept, as on PATCH.
+    preserve: frozenset[str] = frozenset()
+    if body.attributes is not None:
+        preserve = await _closed_cost_keys(
+            db, user, body.type, uuid.UUID(body.source_id), uuid.UUID(body.target_id)
+        )
     rel, _, _ = await card_write_service.upsert_relation(
         db,
         card_write_service.WriteActor.from_user(user),
@@ -298,6 +329,7 @@ async def create_relation(
         target_id=uuid.UUID(body.target_id),
         attributes=body.attributes,
         description=body.description,
+        preserve_attribute_keys=preserve,
     )
 
     await db.commit()
@@ -335,12 +367,9 @@ async def update_relation(
             )
             cost_keys = cost_field_keys_from_relation_schema(rt_row.scalar_one_or_none())
             if cost_keys:
-                old_attrs = dict(rel.attributes or {})
-                merged = {k: v for k, v in update_data["attributes"].items() if k not in cost_keys}
-                for key in cost_keys:
-                    if key in old_attrs:
-                        merged[key] = old_attrs[key]
-                update_data["attributes"] = merged
+                update_data["attributes"] = keep_stored_cost_values(
+                    rel.attributes, update_data["attributes"], cost_keys
+                )
     changed_fields = sorted(update_data.keys())
     for field, value in update_data.items():
         setattr(rel, field, value)
@@ -493,6 +522,7 @@ async def bulk_relations(
         actor_id=user.id,
         dry_run=body.dry_run,
         read_scope=await CardReadScope.load(db, user),
+        cost_guard_user=user,
     )
 
     if body.dry_run:
@@ -560,6 +590,7 @@ async def apply_relation_operations(
     actor_id: uuid.UUID,
     dry_run: bool,
     read_scope: CardReadScope | None = None,
+    cost_guard_user: User | None = None,
 ) -> tuple[list[RelationBulkResult], int, int, int]:
     """Apply relation upsert/delete ops within the CURRENT transaction and
     return ``(results, upserted, deleted, failed)``.
@@ -575,8 +606,15 @@ async def apply_relation_operations(
 
     ``read_scope`` (module mode) makes a card hidden from the caller resolve as
     missing, whether it was referenced by name or by id.
+
+    ``cost_guard_user`` is the person the batch acts for: an upsert landing on
+    an existing row keeps the cost attributes that person may not see on the
+    source card, as ``PATCH /relations/{id}`` does. ``None`` (a system caller)
+    writes what it was given.
     """
     operations = list(operations)
+    # Cost access per source card, asked once however many ops name the card.
+    cost_access: dict[uuid.UUID, bool] = {}
 
     # Preload every referenced relation type in one query.
     rt_keys: set[str] = {op.type for op in operations}
@@ -658,12 +696,24 @@ async def apply_relation_operations(
                     )
                     await db.flush()
                     op_events.append(await _pending_event(db, "relation.created", rel))
-                elif changed := card_write_service.merge_relation_fields(
-                    rel, attributes=op.attributes, description=op.description
-                ):
-                    op_events.append(
-                        await _pending_event(db, "relation.updated", rel, {"fields": changed})
-                    )
+                else:
+                    attributes = op.attributes
+                    cost_keys = cost_field_keys_from_relation_schema(rt_def.attributes_schema)
+                    if attributes is not None and cost_keys and cost_guard_user is not None:
+                        if source_id not in cost_access:
+                            cost_access[source_id] = await PermissionService.can_view_costs(
+                                db, cost_guard_user, source_id
+                            )
+                        if not cost_access[source_id]:
+                            attributes = keep_stored_cost_values(
+                                rel.attributes, attributes, cost_keys
+                            )
+                    if changed := card_write_service.merge_relation_fields(
+                        rel, attributes=attributes, description=op.description
+                    ):
+                        op_events.append(
+                            await _pending_event(db, "relation.updated", rel, {"fields": changed})
+                        )
 
                 op_impacted += [source_id, target_id]
                 op_result = RelationBulkResult(

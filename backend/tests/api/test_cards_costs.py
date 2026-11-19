@@ -386,3 +386,80 @@ class TestPatchDropsCostsWhenForbidden:
         )
         assert r.status_code == 200, r.text
         assert r.json()["attributes"].get("costTotalAnnual") == 9999
+
+
+class TestBulkPatchKeepsHiddenCosts:
+    """`PATCH /cards/bulk` replaces `attributes` on every card it names, with
+    the same cost rule as the single PATCH, decided per card."""
+
+    async def _bulk(self, client, user, cards, attributes):
+        return await client.patch(
+            "/api/v1/cards/bulk",
+            json={"ids": [str(c.id) for c in cards], "updates": {"attributes": attributes}},
+            headers=auth_headers(user),
+        )
+
+    async def _stored(self, client, cost_env, card):
+        r = await client.get(f"/api/v1/cards/{card.id}", headers=auth_headers(cost_env["admin"]))
+        return r.json()["attributes"]
+
+    async def test_an_editor_without_cost_access_changes_everything_but_the_cost(
+        self, client, db, cost_env
+    ):
+        await create_role(
+            db,
+            key="non_cost_editor",
+            permissions={
+                "inventory.view": True,
+                "inventory.edit": True,
+                "inventory.bulk_edit": True,
+                "costs.view": False,
+            },
+        )
+        editor = await create_user(db, email="editor@test.com", role="non_cost_editor")
+        cards = [cost_env["card"], cost_env["other_card"]]
+
+        r = await self._bulk(client, editor, cards, {"costTotalAnnual": 1, "name2": "bulk"})
+        assert r.status_code == 200, r.text
+        for item in r.json():
+            assert item["attributes"] == {"name2": "bulk"}
+        assert await self._stored(client, cost_env, cards[0]) == {
+            "costTotalAnnual": 1234,
+            "name2": "bulk",
+        }
+        assert await self._stored(client, cost_env, cards[1]) == {
+            "costTotalAnnual": 5678,
+            "name2": "bulk",
+        }
+
+    async def test_a_role_that_shows_costs_changes_the_cost_of_its_own_card_only(
+        self, client, db, cost_env
+    ):
+        await create_role(
+            db,
+            key="non_cost_editor",
+            permissions={
+                "inventory.view": True,
+                "inventory.edit": True,
+                "inventory.bulk_edit": True,
+                "costs.view": False,
+            },
+        )
+        editor = await create_user(db, email="editor@test.com", role="non_cost_editor")
+        await create_stakeholder_role_def(
+            db, key="responsible", permissions=RESPONSIBLE_CARD_PERMISSIONS
+        )
+        db.add(Stakeholder(card_id=cost_env["card"].id, user_id=editor.id, role="responsible"))
+        await db.flush()
+
+        cards = [cost_env["card"], cost_env["other_card"]]
+        r = await self._bulk(client, editor, cards, {"costTotalAnnual": 1, "name2": "bulk"})
+        assert r.status_code == 200, r.text
+        assert await self._stored(client, cost_env, cards[0]) == {
+            "costTotalAnnual": 1,
+            "name2": "bulk",
+        }
+        assert await self._stored(client, cost_env, cards[1]) == {
+            "costTotalAnnual": 5678,
+            "name2": "bulk",
+        }

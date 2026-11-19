@@ -386,7 +386,10 @@ def strip_legacy_card_permissions(permissions: dict) -> dict:
 # grants ``card.view_costs``.
 VIEW_COSTS_CARD_PERMISSION = "card.view_costs"
 
-# The one role a user can give themselves.
+# The role anyone who can view a card can give themselves, without the right
+# to manage stakeholders (``POST /cards/{id}/me/observe``). A user who *may*
+# manage stakeholders can assign any role, to themselves too: that is theirs
+# to grant, and the admin's to withhold.
 SELF_ASSIGNABLE_STAKEHOLDER_ROLE = "observer"
 
 
