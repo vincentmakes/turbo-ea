@@ -5,6 +5,26 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.207.0] - 2026-11-19
+
+### Added
+
+- **License metrics**: Administration lists the metrics licenses are counted in, **Users** and **Installations** by default, and an administrator can add, rename, translate, reorder and archive them. Each metric has its own license types.
+- A card can hold licenses in several metrics in the same fiscal year. The metric and type pairs are taken from what the year's cells hold, so adding a cell under a new metric is all it takes.
+- The Licensing Report lists one row per card across all metrics, and its filters and tiles take the metric and license type together.
+- The licensing Excel import has a **Metric** column; a row names the metric by its key or label, and the preview says when a label matches two metrics or a type does not belong to the metric.
+- The workspace export and import carry the metrics and the types of each metric.
+
+### Changed
+
+- A license type belongs to one metric, and the same type key can exist in two metrics. Existing licenses are moved under the metric they were counted in, and a type used in both gets a copy in each.
+- The workspace import drops a license cell whose count is not a whole number from 0 to 1,000,000,000 and a metric or type row with an invalid key or label, and lists each one in the import report.
+
+### Fixed
+
+- A workspace bundle with a license count that is not a number no longer makes a card's Licensing section and the Licensing Report fail with an error for every user.
+- Creating a license metric or type after another sits at the highest sort position, or at the same moment as another with the same key, no longer fails with a server error; a duplicate key answers that the key already exists.
+
 ## [2.206.0] - 2026-11-14
 
 ### Changed
