@@ -197,6 +197,27 @@ def _card_to_response(
     )
 
 
+def _diff_without_costs(diff: dict, strip: frozenset[str] | None) -> dict:
+    """A bulk-edit preview row (``{id, before, after}``) for a caller who may
+    not see this card's costs: the whole old and new ``attributes`` it shows
+    lose their cost keys. The row itself is returned when there is nothing to
+    hide; the diff the commit path keeps is never touched."""
+    if not strip or "attributes" not in diff["before"]:
+        return diff
+    return {
+        **diff,
+        **{
+            side: {
+                **diff[side],
+                "attributes": {
+                    k: v for k, v in (diff[side]["attributes"] or {}).items() if k not in strip
+                },
+            }
+            for side in ("before", "after")
+        },
+    }
+
+
 async def _card_response_with_cost_check(db: AsyncSession, user: User, card: Card) -> CardResponse:
     """Build a CardResponse, redacting cost fields per the cost permission rule."""
     redact = await _cost_redaction_map(db, user, [card])
@@ -1775,10 +1796,10 @@ async def bulk_update(
     # PATCH does a full replace on `attributes`, so we merge the existing
     # cost values back into the incoming payload. Without this, a bulk edit
     # would silently wipe cost values from cards the user couldn't see.
+    # `is not None`, as on the single PATCH: an empty `attributes` replaces the
+    # dict too, and must not wipe the costs either.
     incoming_attr_redact = (
-        await _cost_redaction_map(db, user, sheets)
-        if "attributes" in updates and updates["attributes"]
-        else {}
+        await _cost_redaction_map(db, user, sheets) if updates.get("attributes") is not None else {}
     )
 
     # Prefetch schemas once per distinct type for the per-card required-field
@@ -1872,7 +1893,7 @@ async def bulk_update(
             if field == "parent_id" and value is not None:
                 value = uuid.UUID(value)
             elif field == "attributes":
-                if value:
+                if value is not None:
                     strip = incoming_attr_redact.get(card.id)
                     if strip:
                         value = keep_stored_cost_values(card.attributes, value, strip)
@@ -1922,7 +1943,12 @@ async def bulk_update(
         return {
             "dry_run": True,
             "results": [
-                {"row_index": i, "card_id": d["id"], "status": "would_update", **d}
+                {
+                    "row_index": i,
+                    "card_id": d["id"],
+                    "status": "would_update",
+                    **_diff_without_costs(d, incoming_attr_redact.get(uuid.UUID(d["id"]))),
+                }
                 for i, d in enumerate(diffs)
             ],
             "updated": 0,

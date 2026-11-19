@@ -16,6 +16,7 @@ from app.services.permission_service import PermissionService
 from tests.conftest import (
     create_card,
     create_card_type,
+    create_relation_type,
     create_role,
     create_stakeholder_role_def,
     create_user,
@@ -53,8 +54,37 @@ async def world(db):
     await create_role(
         db, key="finance", label="Finance", permissions={"inventory.view": True, "costs.view": True}
     )
-    await create_card_type(db, key="Application", label="Application", fields_schema=APP_SCHEMA)
-    await create_card_type(db, key="ITComponent", label="IT Component")
+    app_type = await create_card_type(
+        db, key="Application", label="Application", fields_schema=APP_SCHEMA
+    )
+    itc_type = await create_card_type(db, key="ITComponent", label="IT Component")
+    await create_relation_type(
+        db,
+        key="relAppToItc",
+        label="uses",
+        source_type_key="Application",
+        target_type_key="ITComponent",
+        attributes_schema=REL_SCHEMA,
+    )
+    # Hidden: the portfolio payload leaves it out of `relation_types` but
+    # still lists its rows.
+    hidden = await create_relation_type(
+        db,
+        key="relAppToApp",
+        label="feeds",
+        source_type_key="Application",
+        target_type_key="Application",
+        attributes_schema=REL_SCHEMA,
+    )
+    hidden.is_hidden = True
+    await create_relation_type(
+        db,
+        key="plain",
+        label="runs on",
+        source_type_key="Application",
+        target_type_key="ITComponent",
+    )
+    await db.flush()
     await create_stakeholder_role_def(
         db, key="funder", label="Funder", permissions={"card.view": True, "card.view_costs": True}
     )
@@ -65,7 +95,14 @@ async def world(db):
     app = await create_card(db, card_type="Application", name="Billing")
     other = await create_card(db, card_type="Application", name="Ledger")
     server = await create_card(db, card_type="ITComponent", name="Server")
-    return {"users": users, "app": app, "other": other, "server": server}
+    return {
+        "users": users,
+        "app": app,
+        "other": other,
+        "server": server,
+        "app_type": app_type,
+        "itc_type": itc_type,
+    }
 
 
 async def _fund(db, card, user):
@@ -143,11 +180,10 @@ def _payload(world) -> dict:
             },
         ],
         "fields_schema": APP_SCHEMA,
+        # as the payload builds it: the hidden `relAppToApp` is not listed
         "relation_types": [
             {"key": "relAppToItc", "attributes_schema": REL_SCHEMA},
-            {"key": "relAppToApp", "attributes_schema": REL_SCHEMA},
             {"key": "plain", "attributes_schema": []},
-            {"key": "bare"},
         ],
         "groupable_types": {"ITComponent": []},
         "tag_groups": [],
@@ -164,7 +200,7 @@ def _attrs(payload) -> list:
 async def test_a_reader_without_cost_access_gets_no_cost_value(db, world):
     payload = _payload(world)
     before = copy.deepcopy(payload)
-    got = await cr.redact_portfolio_costs(db, world["users"]["reader"], payload)
+    got = await cr.redact_portfolio_costs(db, world["users"]["reader"], payload, world["app_type"])
     assert _attrs(got) == [
         # a relation type with no cost attribute keeps a key that only looks like one
         ({"tier": "gold"}, [{"note": "n"}, {"note": "n"}, {"costShare": 1}]),
@@ -182,7 +218,10 @@ async def test_a_reader_without_cost_access_gets_no_cost_value(db, world):
 @pytest.mark.parametrize("who", ["admin", "finance"])
 async def test_a_reader_who_sees_every_cost_gets_the_payload_itself(db, world, who):
     payload = _payload(world)
-    assert await cr.redact_portfolio_costs(db, world["users"][who], payload) is payload
+    assert (
+        await cr.redact_portfolio_costs(db, world["users"][who], payload, world["app_type"])
+        is payload
+    )
 
 
 async def test_a_relation_follows_its_source_card(db, world):
@@ -191,7 +230,7 @@ async def test_a_relation_follows_its_source_card(db, world):
     # whether it is listed on Billing (incoming) or on Ledger (outgoing).
     reader = world["users"]["reader"]
     await _fund(db, world["app"], reader)
-    got = await cr.redact_portfolio_costs(db, reader, _payload(world))
+    got = await cr.redact_portfolio_costs(db, reader, _payload(world), world["app_type"])
     assert _attrs(got) == [
         (
             {"costTotalAnnual": 100, "costRun": 7, "tier": "gold"},
@@ -204,7 +243,7 @@ async def test_a_relation_follows_its_source_card(db, world):
 async def test_owning_the_other_end_opens_the_relations_that_start_there(db, world):
     reader = world["users"]["reader"]
     await _fund(db, world["other"], reader)
-    got = await cr.redact_portfolio_costs(db, reader, _payload(world))
+    got = await cr.redact_portfolio_costs(db, reader, _payload(world), world["app_type"])
     assert _attrs(got) == [
         ({"tier": "gold"}, [{"note": "n"}, {"costShare": 5, "note": "n"}, {"costShare": 1}]),
         (None, [{"costShare": 5, "note": "n"}]),
@@ -212,27 +251,72 @@ async def test_owning_the_other_end_opens_the_relations_that_start_there(db, wor
 
 
 async def test_a_payload_with_no_cost_key_anywhere_is_returned_itself(db, world):
+    # An IT Component portfolio whose only relations are of a type without
+    # cost attributes: the schemas the payload carries are not what decides.
     payload = _payload(world)
-    payload["fields_schema"] = [{"section": "g", "fields": [{"key": "tier", "type": "text"}]}]
-    payload["relation_types"] = [{"key": "relAppToItc", "attributes_schema": []}, {"key": "bare"}]
-    assert await cr.redact_portfolio_costs(db, world["users"]["reader"], payload) is payload
+    payload["items"] = [
+        {
+            "id": str(world["server"].id),
+            "name": "Server",
+            "attributes": {"costTotalAnnual": 3},
+            "relations": [payload["items"][0]["relations"][2]],
+            "tag_ids": [],
+        }
+    ]
+    got = await cr.redact_portfolio_costs(db, world["users"]["reader"], payload, world["itc_type"])
+    assert got is payload
+
+
+async def test_the_cost_keys_come_from_the_metamodel_not_from_the_payload(db, world):
+    # A payload that claims no schema at all is redacted just the same.
+    payload = _payload(world)
+    payload["fields_schema"] = []
+    payload["relation_types"] = []
+    got = await cr.redact_portfolio_costs(db, world["users"]["reader"], payload, world["app_type"])
+    assert _attrs(got) == [
+        ({"tier": "gold"}, [{"note": "n"}, {"note": "n"}, {"costShare": 1}]),
+        (None, [{"note": "n"}]),
+    ]
 
 
 async def test_card_costs_alone_are_enough_to_redact(db, world):
     payload = _payload(world)
-    payload["relation_types"] = []
-    got = await cr.redact_portfolio_costs(db, world["users"]["reader"], payload)
-    assert got["items"][0]["attributes"] == {"tier": "gold"}
-    # no relation type is known to carry a cost: relation attributes stay
-    assert got["items"][0]["relations"][0]["attributes"] == {"costShare": 5, "note": "n"}
+    for item in payload["items"]:
+        item["relations"] = []
+    got = await cr.redact_portfolio_costs(db, world["users"]["reader"], payload, world["app_type"])
+    assert _attrs(got) == [({"tier": "gold"}, []), (None, [])]
 
 
 async def test_relation_costs_alone_are_enough_to_redact(db, world):
+    # The IT Component has no cost field; the relation it is listed with does.
     payload = _payload(world)
-    payload["fields_schema"] = []
-    got = await cr.redact_portfolio_costs(db, world["users"]["reader"], payload)
-    assert got["items"][0]["attributes"] == {"costTotalAnnual": 100, "costRun": 7, "tier": "gold"}
-    assert got["items"][0]["relations"][0]["attributes"] == {"note": "n"}
+    incoming = {**payload["items"][0]["relations"][0], "direction": "incoming"}
+    incoming["related_id"] = str(world["app"].id)
+    payload["items"] = [
+        {
+            "id": str(world["server"].id),
+            "name": "Server",
+            "attributes": {"costTotalAnnual": 3},
+            "relations": [incoming],
+            "tag_ids": [],
+        }
+    ]
+    got = await cr.redact_portfolio_costs(db, world["users"]["reader"], payload, world["itc_type"])
+    assert _attrs(got) == [({"costTotalAnnual": 3}, [{"note": "n"}])]
+
+
+async def test_a_relation_type_the_metamodel_no_longer_has_keeps_its_attributes(db, world):
+    payload = _payload(world)
+    payload["items"][0]["relations"].append(
+        {
+            "relation_type": "gone",
+            "direction": "outgoing",
+            "related_id": str(world["server"].id),
+            "attributes": {"costShare": 9},
+        }
+    )
+    got = await cr.redact_portfolio_costs(db, world["users"]["reader"], payload, world["app_type"])
+    assert got["items"][0]["relations"][-1]["attributes"] == {"costShare": 9}
 
 
 async def test_a_reader_who_sees_every_cost_pays_no_query(db, world):
@@ -246,7 +330,7 @@ async def test_a_reader_who_sees_every_cost_pays_no_query(db, world):
 
     sa_event.listen(bind, "before_cursor_execute", _record)
     try:
-        await cr.redact_portfolio_costs(db, finance, _payload(world))
+        await cr.redact_portfolio_costs(db, finance, _payload(world), world["app_type"])
     finally:
         sa_event.remove(bind, "before_cursor_execute", _record)
     assert statements == []

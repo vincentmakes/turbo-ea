@@ -1053,7 +1053,7 @@ async def app_portfolio(
     payload = await build_portfolio_payload(db, read_scope, target_type, all_types)
     # Every attribute of every card, for client-side grouping: the cost
     # fields go only to a reader who may see them on the card itself.
-    return await redact_portfolio_costs(db, user, payload)
+    return await redact_portfolio_costs(db, user, payload, target_type)
 
 
 #: Hard ceiling on the number of relation edges the matrix will serialise. A
@@ -1359,7 +1359,7 @@ async def roadmap(
         target_type = next((t for t in all_types if t.key == type), None)
         if target_type is not None and not target_type.is_hidden:
             payload = await build_portfolio_payload(db, read_scope, target_type, all_types)
-            payload = await redact_portfolio_costs(db, user, payload)
+            payload = await redact_portfolio_costs(db, user, payload, target_type)
             return roadmap_from_portfolio(payload, type)
     q = select(Card).where(Card.status == "ACTIVE", *read_scope.where(Card, mode="module"))
     if type:

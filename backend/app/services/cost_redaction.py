@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
 from app.models.card_type import CardType
+from app.models.relation_type import RelationType
 from app.models.user import User
 from app.services.cost_field_filter import (
     cost_field_keys_from_card_schema,
@@ -72,23 +73,36 @@ def _relation_source(item_id: str, relation: dict) -> str:
     return item_id if relation["direction"] == "outgoing" else relation["related_id"]
 
 
-async def redact_portfolio_costs(db: AsyncSession, user: User, payload: dict) -> dict:
-    """A portfolio payload (``build_portfolio_payload``) without the cost
-    values ``user`` may not see.
+async def redact_portfolio_costs(
+    db: AsyncSession, user: User, payload: dict, card_type: CardType
+) -> dict:
+    """A portfolio payload (``build_portfolio_payload`` for ``card_type``)
+    without the cost values ``user`` may not see.
 
     Each item's ``attributes`` follow the item's own card; a relation entry's
     ``attributes`` follow the relation's **source** card, as everywhere else
-    (``_relation_cost_redaction``). The cost keys are read from the schemas
-    the payload itself carries. Returns ``payload`` itself, without a query,
+    (``_relation_cost_redaction``). The cost keys are read from the metamodel,
+    not from the schemas the payload carries: the payload lists every relation
+    row, including those of a relation type it leaves out of ``relation_types``
+    because the type is hidden. Returns ``payload`` itself, without a query,
     for a reader who sees every card's costs.
     """
     if await PermissionService.sees_all_costs(db, user):
         return payload
-    card_keys = cost_field_keys_from_card_schema(payload["fields_schema"])
-    relation_keys = {
-        rt["key"]: cost_field_keys_from_relation_schema(rt.get("attributes_schema"))
-        for rt in payload["relation_types"]
+    card_keys = cost_field_keys_from_card_schema(card_type.fields_schema)
+    used_types = {
+        relation["relation_type"] for item in payload["items"] for relation in item["relations"]
     }
+    relation_keys: dict[str, frozenset[str]] = {}
+    if used_types:
+        rows = await db.execute(
+            select(RelationType.key, RelationType.attributes_schema).where(
+                RelationType.key.in_(used_types)
+            )
+        )
+        relation_keys = {
+            key: cost_field_keys_from_relation_schema(schema) for key, schema in rows.all()
+        }
     if not card_keys and not any(relation_keys.values()):
         return payload
 

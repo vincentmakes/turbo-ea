@@ -267,6 +267,31 @@ class TestPortfolioAndLifecycleRedactCosts:
         assert await shares("owner") == {"A": self.REL_FULL, "B": self.REL_BARE}
         assert await shares("finance") == {"A": self.REL_FULL, "B": self.REL_FULL}
 
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "/api/v1/reports/app-portfolio?type=Application",
+            "/api/v1/reports/roadmap?type=Application",
+        ],
+    )
+    async def test_a_hidden_relation_type_still_has_its_costs_removed(self, client, db, env, url):
+        # A hidden relation type drops out of the payload's `relation_types`,
+        # but its rows are still listed on the cards.
+        from sqlalchemy import select
+
+        from app.models.relation_type import RelationType
+
+        rt = (
+            await db.execute(select(RelationType).where(RelationType.key == "relAppToItc"))
+        ).scalar_one()
+        rt.is_hidden = True
+        await db.flush()
+
+        items = await self._apps(client, env["users"]["analyst"], url)
+        assert items["A"]["relations"][0]["attributes"] == self.REL_BARE
+        items = await self._apps(client, env["users"]["finance"], url)
+        assert items["A"]["relations"][0]["attributes"] == self.REL_FULL
+
     async def test_the_lifecycle_report_across_all_types(self, client, env):
         async def attributes(who):
             resp = await client.get(
@@ -278,3 +303,104 @@ class TestPortfolioAndLifecycleRedactCosts:
         assert await attributes("analyst") == {"A": self.BARE[0], "B": self.BARE[1], "Server": {}}
         assert await attributes("owner") == {"A": self.FULL[0], "B": self.BARE[1], "Server": {}}
         assert await attributes("finance") == {"A": self.FULL[0], "B": self.FULL[1], "Server": {}}
+
+
+class TestReportsUnderAViewDeny:
+    """A View deny on a card type takes `costs.view` away for that type. The
+    Landscape and Capability reports read their cost flag for the type they
+    show, so a card of a denied type the reader still opens through a
+    stakeholder role comes without its costs — and without them summed."""
+
+    @pytest.fixture
+    async def env(self, db):
+        from sqlalchemy import select
+
+        from app.models.card_type import CardType
+        from app.models.stakeholder import Stakeholder
+        from app.services.permission_service import PermissionService
+        from tests.conftest import (
+            create_relation,
+            create_relation_type,
+            create_stakeholder_role_def,
+        )
+
+        PermissionService.invalidate_type_permission_cache()
+        await create_role(db, key="admin", permissions={"*": True})
+        await create_role(
+            db,
+            key="finance",
+            permissions={"reports.ea_dashboard": True, "inventory.view": True, "costs.view": True},
+        )
+        await create_card_type(
+            db,
+            key="Application",
+            fields_schema=[
+                {
+                    "section": "g",
+                    "fields": [
+                        {"key": "costTotalAnnual", "type": "cost", "weight": 0},
+                        {"key": "tier", "type": "text", "weight": 0},
+                    ],
+                }
+            ],
+        )
+        await create_card_type(db, key="BusinessCapability", label="Business Capability")
+        await create_relation_type(
+            db,
+            key="relAppToBC",
+            label="supports",
+            source_type_key="Application",
+            target_type_key="BusinessCapability",
+        )
+        await create_stakeholder_role_def(db, key="watcher", permissions={"card.view": True})
+        finance = await create_user(db, email="finance@test.com", role="finance")
+        app = await create_card(
+            db,
+            card_type="Application",
+            name="Billing",
+            attributes={"costTotalAnnual": 100, "tier": "gold"},
+        )
+        cap = await create_card(db, card_type="BusinessCapability", name="Finance")
+        await create_relation(db, type_key="relAppToBC", source_id=app.id, target_id=cap.id)
+        db.add(Stakeholder(card_id=app.id, user_id=finance.id, role="watcher"))
+        await db.flush()
+
+        async def deny() -> None:
+            ct = (
+                await db.execute(select(CardType).where(CardType.key == "Application"))
+            ).scalar_one()
+            ct.role_permissions = {"finance": {"inventory.view": False}}
+            await db.flush()
+            PermissionService.invalidate_type_permission_cache()
+
+        yield {"finance": finance, "deny": deny}
+        PermissionService.invalidate_type_permission_cache()
+
+    async def _landscape(self, client, user):
+        resp = await client.get(
+            "/api/v1/reports/landscape?type=Application&group_by=BusinessCapability",
+            headers=auth_headers(user),
+        )
+        assert resp.status_code == 200, resp.text
+        [group] = resp.json()["groups"]
+        [item] = group["items"]
+        return item["attributes"]
+
+    async def _heatmap(self, client, user):
+        resp = await client.get(
+            "/api/v1/reports/capability-heatmap?metric=app_count", headers=auth_headers(user)
+        )
+        assert resp.status_code == 200, resp.text
+        [item] = resp.json()["items"]
+        [app] = item["apps"]
+        return item["total_cost"], app["attributes"]
+
+    async def test_without_a_deny_the_reports_carry_the_costs(self, client, env):
+        full = {"costTotalAnnual": 100, "tier": "gold"}
+        assert await self._landscape(client, env["finance"]) == full
+        assert await self._heatmap(client, env["finance"]) == (100.0, full)
+
+    async def test_a_view_deny_on_the_type_takes_the_costs_out_of_both(self, client, env):
+        await env["deny"]()
+        assert await self._landscape(client, env["finance"]) == {"tier": "gold"}
+        assert await self._heatmap(client, env["finance"]) == (0.0, {"tier": "gold"})

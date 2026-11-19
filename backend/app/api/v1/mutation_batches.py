@@ -239,10 +239,13 @@ async def list_batches(
         rows = await db.execute(select(User).where(User.id.in_(actor_ids)))
         users_by_id = {u.id: u for u in rows.scalars().all()}
 
-    items = [
-        MutationBatchOut(**batch_to_dict(b, actor_display_name=_actor_name_for(b, users_by_id)))
-        for b in batches
-    ]
+    # A rollback batch's summary lists the values it restored: an auditor
+    # without cost access reads it as they would the batch itself.
+    items = []
+    for b in batches:
+        out = batch_to_dict(b, actor_display_name=_actor_name_for(b, users_by_id))
+        out["summary"] = await scrub_summary_costs(db, user, out["summary"])
+        items.append(MutationBatchOut(**out))
     return MutationBatchListPage(
         items=items,
         total=total,

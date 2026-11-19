@@ -267,6 +267,24 @@ async def test_rolling_a_batch_back_restores_the_cost_without_showing_it(client,
         "attributes": {"costTotalAnnual": 250, "tier": "platinum"}
     }
 
+    # The audit list reads the same way: whole for someone who sees costs,
+    # without them for an auditor who does not.
+    await create_role(
+        db, key="auditor", label="Auditor", permissions={**BASE, "admin.events": True}
+    )
+    auditor = await create_user(db, email="auditor@test.com", role="auditor")
+
+    async def listed(user):
+        resp = await client.get("/api/v1/mutation-batches", headers=auth_headers(user))
+        assert resp.status_code == 200, resp.text
+        [row] = [b for b in resp.json()["items"] if b["id"] == rollback_id]
+        return row["summary"]["results"][0]["fields"]
+
+    assert await listed(auditor) == {"attributes": {"tier": "platinum"}}
+    assert await listed(env["users"]["admin"]) == {
+        "attributes": {"costTotalAnnual": 250, "tier": "platinum"}
+    }
+
 
 async def test_a_rollback_preview_carries_the_batch_it_would_reverse(client, db, env):
     reader = env["users"]["reader"]

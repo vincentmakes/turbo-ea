@@ -463,3 +463,88 @@ class TestBulkPatchKeepsHiddenCosts:
             "costTotalAnnual": 5678,
             "name2": "bulk",
         }
+
+    async def _no_cost_bulk_editor(self, db):
+        await create_role(
+            db,
+            key="non_cost_editor",
+            permissions={
+                "inventory.view": True,
+                "inventory.edit": True,
+                "inventory.bulk_edit": True,
+                "costs.view": False,
+            },
+        )
+        return await create_user(db, email="editor@test.com", role="non_cost_editor")
+
+    async def test_an_empty_attributes_object_does_not_wipe_the_cost(self, client, db, cost_env):
+        editor = await self._no_cost_bulk_editor(db)
+        r = await self._bulk(client, editor, [cost_env["card"]], {})
+        assert r.status_code == 200, r.text
+        assert await self._stored(client, cost_env, cost_env["card"]) == {"costTotalAnnual": 1234}
+
+    async def test_with_cost_access_an_empty_attributes_object_clears_them_all(
+        self, client, db, cost_env
+    ):
+        r = await self._bulk(client, cost_env["admin"], [cost_env["card"]], {})
+        assert r.status_code == 200, r.text
+        assert await self._stored(client, cost_env, cost_env["card"]) == {}
+
+    async def test_a_preview_shows_no_cost_to_an_editor_who_may_not_see_it(
+        self, client, db, cost_env
+    ):
+        editor = await self._no_cost_bulk_editor(db)
+        cards = [cost_env["card"], cost_env["other_card"]]
+
+        async def preview(user):
+            r = await client.patch(
+                "/api/v1/cards/bulk",
+                json={
+                    "ids": [str(c.id) for c in cards],
+                    "updates": {"attributes": {"name2": "bulk"}, "name": "Renamed"},
+                    "dry_run": True,
+                },
+                headers=auth_headers(user),
+            )
+            assert r.status_code == 200, r.text
+            assert r.json()["would_update"] == 2
+            return {row["card_id"]: (row["before"], row["after"]) for row in r.json()["results"]}
+
+        got = await preview(editor)
+        assert got[str(cards[0].id)] == (
+            {"attributes": {"name2": "x"}, "name": "App1"},
+            {"attributes": {"name2": "bulk"}, "name": "Renamed"},
+        )
+        assert got[str(cards[1].id)] == (
+            {"attributes": {"name2": "y"}, "name": "App2"},
+            {"attributes": {"name2": "bulk"}, "name": "Renamed"},
+        )
+        # Someone who sees costs previews the same edit whole: theirs would
+        # replace the attributes, cost included.
+        full = await preview(cost_env["admin"])
+        assert full[str(cards[0].id)] == (
+            {"attributes": {"costTotalAnnual": 1234, "name2": "x"}, "name": "App1"},
+            {"attributes": {"name2": "bulk"}, "name": "Renamed"},
+        )
+        # Nothing was written by either preview.
+        assert await self._stored(client, cost_env, cards[0]) == {
+            "costTotalAnnual": 1234,
+            "name2": "x",
+        }
+
+    async def test_a_preview_without_an_attributes_change_is_shown_as_it_is(
+        self, client, db, cost_env
+    ):
+        editor = await self._no_cost_bulk_editor(db)
+        r = await client.patch(
+            "/api/v1/cards/bulk",
+            json={
+                "ids": [str(cost_env["card"].id)],
+                "updates": {"name": "Renamed"},
+                "dry_run": True,
+            },
+            headers=auth_headers(editor),
+        )
+        assert r.status_code == 200, r.text
+        [row] = r.json()["results"]
+        assert (row["before"], row["after"]) == ({"name": "App1"}, {"name": "Renamed"})

@@ -392,6 +392,53 @@ async def test_a_view_deny_on_the_type_takes_the_app_grant_away(db, world):
     assert got == [APP_CLEAN, _change(APP_BEFORE, APP_AFTER), _change(both, both)]
 
 
+async def test_with_no_card_left_the_app_grant_decides_on_the_type_named(db, world):
+    # `costs.view`, with a View deny on Application: this reader does not see
+    # every cost, so payloads are judged one by one. A card that is gone is
+    # judged by the grant on the type its event names — denied on
+    # Application, held on Initiative and when no card type is named.
+    from sqlalchemy import select
+
+    from app.models.card_type import CardType
+
+    finance = world["users"]["finance"]
+    app_type = (
+        await db.execute(select(CardType).where(CardType.key == "Application"))
+    ).scalar_one()
+    app_type.role_permissions = {"finance": {"inventory.view": False}}
+    await db.flush()
+    PermissionService.invalidate_type_permission_cache()
+
+    both = {"costTotalAnnual": 1, "costBudget": 2}
+    gone = uuid.uuid4()
+    got = await scrub.scrub_event_costs(
+        db,
+        finance,
+        [
+            (gone, _change(both, both, type="Application")),
+            (gone, _change(both, both, type="Initiative")),
+            (gone, _change(both, both, type="NoSuchType")),
+            (None, _change(both, both)),
+        ],
+    )
+    assert got == [
+        _change({"costBudget": 2}, {"costBudget": 2}, type="Application"),
+        _change(both, both, type="Initiative"),
+        _change(both, both, type="NoSuchType"),
+        _change(both, both),
+    ]
+
+
+@pytest.mark.parametrize("named", [{"old": "a", "new": "b"}, ["Application"], 7, None])
+async def test_a_type_that_is_not_a_card_type_key_is_no_type(db, world, named):
+    # Other events use `type` for their own purposes; it must not break the
+    # feed, and it names no card type.
+    reader = world["users"]["reader"]
+    both = {"costTotalAnnual": 1, "costBudget": 2}
+    [got] = await scrub.scrub_event_costs(db, reader, [(None, _change(both, both, type=named))])
+    assert got == _change({}, {}, type=named)
+
+
 async def test_no_card_type_with_a_cost_field_means_nothing_to_remove(db):
     await create_role(db, key="reader", label="Reader", permissions={"inventory.view": True})
     await create_card_type(db, key="Application", fields_schema=_fields(("tier", "text")))

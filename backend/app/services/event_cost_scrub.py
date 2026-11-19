@@ -132,9 +132,11 @@ async def scrub_event_costs(
     values removed where ``user`` may not see that card's costs.
 
     Issues no query when no payload carries values or the reader sees every
-    card's costs. A payload whose card no longer exists is judged by the type
-    it names (``data.type``), and failing that loses every cost key any card
-    type defines: with no card left to ask about, the answer is "no".
+    card's costs. A payload with no card to ask about — the card is gone, or
+    the event was never about one — is judged by ``costs.view`` alone, on the
+    type it names (``data.type``) when that is a card type; a reader without
+    the grant loses that type's cost keys, or every cost key any card type
+    defines when no type is named.
     """
     payloads = [data for _, data in events]
     carrying = [i for i, data in enumerate(payloads) if carries_values(data)]
@@ -162,8 +164,16 @@ async def scrub_event_costs(
         data = payloads[i]
         type_key = type_of.get(card_id) if card_id is not None else None
         if type_key is None:
-            type_key = data.get("type")
-        cost_keys = keys_of[type_key] if type_key in keys_of else every_key
+            # No card left to ask about (deleted, or the payload is not about
+            # a card at all): the landscape-wide grant decides, on the type
+            # the payload names when it names a known one.
+            named = data.get("type")
+            type_key = named if isinstance(named, str) and named in keys_of else None
+            if await PermissionService.has_app_permission(
+                db, user, "costs.view", card_type_key=type_key
+            ):
+                continue
+        cost_keys = every_key if type_key is None else keys_of[type_key]
         payloads[i] = strip_cost_values(data, cost_keys)
     return payloads
 
