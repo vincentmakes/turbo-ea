@@ -399,6 +399,14 @@ Each of these was found the hard way while wiring it up; keep them.
   `backend/tests/core/test_mutation_scripts.py`, then
   `make mutation-backend FILE=app/services/lifecycle.py` and check that
   `collect` still places every mutant on a source line.
+- **A restored cache is pruned of deleted tests.** The nightly's `mutants/`
+  holds a copy of the suite as of that night, and mutmut only adds to it. A PR
+  that deletes a test file would still run the cached copy against the new
+  code, fail mutmut's clean test and measure nothing (PR #76,
+  `tests/api/test_license_types_api.py`). `run` calls `drop_stale_tests`
+  after the shadow root is built: every file under `mutants/tests/` with no
+  counterpart under the suite's real `tests/` is deleted. Stale `.pyc` files
+  and stats entries are left alone; pytest only collects `.py` files.
 
 ## Files
 

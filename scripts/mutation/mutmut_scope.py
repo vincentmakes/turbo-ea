@@ -939,6 +939,18 @@ def changed_line_mutants(suite: str, changed: dict, repo: Path = REPO) -> list[s
     return names
 
 
+def drop_stale_tests(directory: Path) -> None:
+    """Delete from the cached ``mutants/tests`` what the repository's ``tests/`` no longer has.
+
+    A restored cache keeps a test file the PR deleted, and mutmut runs that copy
+    against the new code: its clean test fails and the run measures nothing.
+    """
+    cached = directory / "mutants" / "tests"
+    for path in cached.rglob("*") if cached.is_dir() else ():
+        if path.is_file() and not (directory / "tests" / path.relative_to(cached)).exists():
+            path.unlink()
+
+
 def run(
     suite: str,
     changed: dict | None,
@@ -957,6 +969,7 @@ def run(
         print(f"No {suite} function to mutate in this scope.")
         return 0
     shadow_root.build(SUITE_DIRS[suite], repo)
+    drop_stale_tests(directory)
     if changed is not None or not files:
         started = time.monotonic()
         generated = generate_only(directory, max_children)
