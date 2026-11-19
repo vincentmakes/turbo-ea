@@ -16,9 +16,6 @@ if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
   echo 'export DO_NOT_TRACK=1' >> "$CLAUDE_ENV_FILE"
 fi
 
-if ! command -v trail >/dev/null 2>&1; then
-  npm install -g @trailhq/trail-code >/dev/null 2>&1
-fi
 trail telemetry disable >/dev/null 2>&1 || true
 
 # Incremental: a cached container only re-parses what changed since its last build.

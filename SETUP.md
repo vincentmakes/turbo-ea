@@ -538,13 +538,69 @@ project-root path calculated above for the working directory and bin path.
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "^apply_patch$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs pre-edit\"",
+            "timeout": 5,
+            "statusMessage": "Loading Trail notes before the edit"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs tool-savings\"",
+            "timeout": 5,
+            "statusMessage": "Loading Trail notes for the command"
+          }
+        ]
+      },
+      {
+        "matcher": "^apply_patch$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs post-edit\"",
+            "timeout": 10,
+            "statusMessage": "Updating Trail context after the edit"
+          }
+        ]
+      }
     ]
   }
 }
 ```
 
-Approve the Codex hook in **Settings → Hooks**. If the command changes, a new
-approval is needed. In the verified project it is approved.
+The additional hooks use the same `.trail/hook.cjs`:
+
+| Codex event | Matcher | Trail handler | Purpose |
+| --- | --- | --- | --- |
+| `PreToolUse` | `^apply_patch$` | `pre-edit` | Recall relevant notes before a patch. |
+| `PostToolUse` | `^Bash$` | `tool-savings` | Recall notes for files named by a shell command, including PowerShell reads through `exec_command`. |
+| `PostToolUse` | `^apply_patch$` | `post-edit` | Mark the map as needing an update and recall notes not already shown. |
+
+Codex exposes shell commands as `Bash` to its hooks even on Windows.
+Trail's existing `tool-savings` handler is used for note recall: in the
+verified installed version, `codex-post-bash` does not include file notes.
+No custom script or change to the shared hook is needed. Each command keeps
+`TRAIL_INVOKED_AS=trail`, `DO_NOT_TRACK=1` and the local bin path.
+
+Approve the three new entries in **Settings → Hooks**, under Turbo EA:
+`PreToolUse / apply_patch`, `PostToolUse / Bash` and
+`PostToolUse / apply_patch`. They do not run automatically until approved.
+The existing `SessionStart` entry remains unchanged and retains its approval.
+A later command change requires a new approval. Open a new project chat
+after approving the hooks.
+
 Claude also has personal hooks under `%USERPROFILE%\.claude\`: when the
 personal copy handles the event, the project's copy avoids the duplicate
 reply. There is no need to create a second script for Codex.
@@ -578,9 +634,9 @@ normal searches.
   needed. The structural update is local, with no LLM calls.
 - In Claude, the edit hooks report that the map needs updating; the `Stop` hook,
   at the end of a turn, can start the synchronisation in the background.
-- In the current Codex configuration only `SessionStart` is registered:
-  startup loads the available context, while the next search checks and
-  updates the graph. There is no Codex hook after every edit.
+- In Codex, `SessionStart` loads the available context. The `post-edit` hook
+  marks the map as needing an update after `apply_patch`; the next Trail search
+  checks and updates the graph. No Codex `Stop` hook is configured here.
 
 `--no-refresh` or `GRAFT_NO_REFRESH=1` turn off the update before the
 search. If an update fails or is already running, Trail may answer
@@ -597,20 +653,26 @@ Notes saved with `--personal` live under `%USERPROFILE%\.trail\` instead.
 
 **Reading into the agent's context.** At startup the hook presents the map and
 the availability of the notes; it does not insert the contents of all the Markdown files.
-Trail searches retrieve the notes that bear on the request. Codex, with
-only the current `SessionStart`, does not receive new notes on every read or edit
-of a file through an additional hook.
+Trail searches retrieve the notes that bear on the request. The Codex hooks
+above also recall notes before a patch and after shell commands or patches
+that name a file listed in a note's `touches`. Repeated reads and the
+pre/post pair do not repeat a note already shown in the session. Commands
+that do not name a matching file do not receive file-related notes.
 
 **Automatic note recall with the project settings above.** With
 `TRAIL_INVOKED_AS=trail`, the startup hook can include the project's standing
 notes (`standing: true`). Claude's configured file hooks also recall notes
-relevant to a file read or edit. Codex currently has only `SessionStart`, so
-setting the variable does not add file hooks.
+relevant to a file read or edit. Codex receives file-related notes through
+the three additional entries above; the environment variable alone would
+not register those events.
 
 Verification covered the shared startup hook for both hosts and a real
 file-related note through Claude's hook. Standing notes were tested on a
 temporary copy because none of the project's current notes were marked
-`standing: true`; the copy was removed and no project notes were changed.
+`standing: true`. Codex file hooks were also checked with simulated shell
+and patch events on an isolated copy: matching notes arrive, unrelated
+commands receive none, and repeated events do not duplicate the note.
+The temporary copies were removed and no project notes were changed.
 
 #### Update
 
