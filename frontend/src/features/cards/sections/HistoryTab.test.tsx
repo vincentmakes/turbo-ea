@@ -144,7 +144,7 @@ describe("HistoryTab — document link edits (#1166)", () => {
         user_display_name: "Vincent",
         data: {
           summary: "Licences FY26",
-          changes: { license_types: { old: ["a"], new: ["a", "b"] } },
+          changes: { license_types: { old: ["users:a"], new: ["users:a", "users:b"] } },
         },
       },
     ]);
@@ -154,7 +154,7 @@ describe("HistoryTab — document link edits (#1166)", () => {
     expect(await screen.findByText("Licenses updated")).toBeInTheDocument();
     expect(screen.getByText("Licences FY26")).toBeInTheDocument();
     expect(screen.queryByText("license_types")).not.toBeInTheDocument();
-    expect(screen.queryByText("a, b")).not.toBeInTheDocument();
+    expect(screen.queryByText("users:a, users:b")).not.toBeInTheDocument();
   });
 
   it("falls back to the cost-items change row when a costs update has no summary", async () => {

@@ -16,6 +16,8 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import { api } from "@/api/client";
+import { metricName, pairName } from "@/components/licensing/licensePairs";
+import { useLicenseCatalogue } from "@/hooks/useLicenseCatalogue";
 import { MAX_ATTACHMENT_BYTES, MAX_ATTACHMENT_MB } from "@/lib/attachmentFormats";
 import type { LicenseImportIssue, LicenseImportResult } from "@/types";
 
@@ -25,9 +27,17 @@ interface Props {
   onApplied: () => void;
 }
 
+const TYPE_REASONS = [
+  "type_not_in_metric",
+  "unknown_license_type",
+  "ambiguous_license_type",
+  "archived_license_type",
+];
+
 /** Preview (`dry_run=true`), then apply (`dry_run=false`, the same file: the server revalidates). */
 export default function LicensingImportDialog({ open, onClose, onApplied }: Props) {
-  const { t } = useTranslation(["reports", "common"]);
+  const { t, i18n } = useTranslation(["reports", "common", "cards"]);
+  const { metrics: catalogue } = useLicenseCatalogue(open);
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<LicenseImportResult | null>(null);
@@ -81,6 +91,21 @@ export default function LicensingImportDialog({ open, onClose, onApplied }: Prop
     }
   };
 
+  // The row's pair as `Metric: Type`: labels from the catalogue for what it knows, the file's own
+  // text for what it does not. Only the refusals about a license type name a pair.
+  const detailOf = (i: LicenseImportIssue): string => {
+    const suffix = ` (${t("cards:licensing.archived")})`;
+    const locale = i18n.language;
+    if (i.reason === "archived_license_metric")
+      return i.metric ? metricName(catalogue, i.metric, locale, suffix) : i.detail;
+    if (!TYPE_REASONS.includes(i.reason) || !i.metric) return i.detail;
+    if (!i.detail) return metricName(catalogue, i.metric, locale, suffix);
+    const owner = catalogue.find((m) => m.key === i.metric);
+    return owner?.types.some((x) => x.key === i.detail)
+      ? pairName(catalogue, i.metric, i.detail, locale, suffix)
+      : `${metricName(catalogue, i.metric, locale, suffix)}: ${i.detail}`;
+  };
+
   const issues = (list: LicenseImportIssue[]) => (
     <Table size="small" sx={{ mb: 2 }}>
       <TableHead>
@@ -91,16 +116,19 @@ export default function LicensingImportDialog({ open, onClose, onApplied }: Prop
         </TableRow>
       </TableHead>
       <TableBody>
-        {list.map((i, n) => (
-          <TableRow key={`${i.row}-${n}`}>
-            <TableCell>{i.row}</TableCell>
-            <TableCell>{i.component}</TableCell>
-            <TableCell>
-              {t(`licensing.import.reasons.${i.reason}`, { defaultValue: i.reason })}
-              {i.detail ? ` (${i.detail})` : ""}
-            </TableCell>
-          </TableRow>
-        ))}
+        {list.map((i, n) => {
+          const detail = detailOf(i);
+          return (
+            <TableRow key={`${i.row}-${n}`}>
+              <TableCell>{i.row}</TableCell>
+              <TableCell>{i.component}</TableCell>
+              <TableCell>
+                {t(`licensing.import.reasons.${i.reason}`, { defaultValue: i.reason })}
+                {detail ? ` (${detail})` : ""}
+              </TableCell>
+            </TableRow>
+          );
+        })}
       </TableBody>
     </Table>
   );
@@ -142,15 +170,8 @@ export default function LicensingImportDialog({ open, onClose, onApplied }: Prop
                 color={preview.skipped.length ? "warning" : "default"}
                 label={t("licensing.import.skippedCount", { count: preview.skipped.length })}
               />
-              {preview.flagged.length > 0 && (
-                <Chip
-                  color="info"
-                  label={t("licensing.import.flaggedCount", { count: preview.flagged.length })}
-                />
-              )}
             </Box>
             {preview.skipped.length > 0 && issues(preview.skipped)}
-            {preview.flagged.length > 0 && issues(preview.flagged)}
           </>
         )}
       </DialogContent>

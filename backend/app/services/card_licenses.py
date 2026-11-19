@@ -18,15 +18,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
 from app.models.card_license import CardLicense
-from app.services import license_types, yearly_rows
+from app.services import yearly_rows
 from app.services.event_bus import event_bus
 from app.services.fiscal_year import (
     FISCAL_YEAR_LOOKAHEAD,
     current_fiscal_year,
     get_fiscal_year_start,
 )
+from app.services.license_catalogue import LicenseCatalogue, load_catalogue
 from app.services.license_status import (
-    METRICS,
     MetricResult,
     MetricStatus,
     card_status,
@@ -43,8 +43,8 @@ UNSET: Final = object()  # "leave this value as it is"
 
 
 class LicenseError(Exception):
-    """``code``: unknown_type, archived_type, invalid_metric, invalid_count, forecast_actual,
-    year_out_of_range."""
+    """``code``: unknown_type, archived_type, archived_metric, invalid_metric, invalid_count,
+    forecast_actual, year_out_of_range."""
 
     def __init__(self, code: str, message: str = "") -> None:
         super().__init__(message or code)
@@ -60,7 +60,7 @@ class YearLicenses:
     fallback_from: int | None
     metrics: list[MetricResult]
     status: MetricStatus | None  # None on the Forecast year
-    type_keys: list[str]  # sorted license type keys present in any stored metric (event payload)
+    pair_keys: list[str]  # sorted ``metric:type`` keys of the year's cells (event payload)
 
 
 def licensed_only(items: dict, years: int) -> dict:
@@ -71,10 +71,13 @@ def licensed_only(items: dict, years: int) -> dict:
     }
 
 
-def model_of(card: Card) -> list[str]:
-    raw = (card.attributes or {}).get("licensingModel")
-    chosen = set(raw) if isinstance(raw, list) else set()
-    return [m for m in METRICS if m in chosen]
+def metric_results(items: dict, catalogue: LicenseCatalogue) -> list[MetricResult]:
+    """One result per metric with cells in ``items``: catalogue order, unknown keys sorted."""
+    present = [m for m, cells in items.items() if cells]
+    return [
+        metric_result(m, items[m], catalogue.type_order(m))
+        for m in catalogue.ordered_metrics(present)
+    ]
 
 
 def year_licenses(
@@ -83,10 +86,9 @@ def year_licenses(
     fallback_from: int | None,
     fy: int,
     cur: int,
-    model: list[str],
-    order: list[str],
+    catalogue: LicenseCatalogue,
 ) -> YearLicenses:
-    metrics = [metric_result(m, items.get(m) or {}, order) for m in METRICS if m in model]
+    metrics = metric_results(items, catalogue)
     is_forecast = fy == cur + FISCAL_YEAR_LOOKAHEAD
     return YearLicenses(
         fiscal_year=fy,
@@ -96,7 +98,7 @@ def year_licenses(
         fallback_from=fallback_from,
         metrics=metrics,
         status=None if is_forecast else card_status(metrics),
-        type_keys=sorted({k for cells in items.values() for k in cells}),
+        pair_keys=sorted(f"{m}:{k}" for m, cells in items.items() for k in cells),
     )
 
 
@@ -135,19 +137,14 @@ async def items_by_card(
     return out
 
 
-async def type_order(db: AsyncSession) -> list[str]:
-    return [r.key for r in await license_types.list_items(db)]  # sort_order, archived included
-
-
 async def get_year(
     db: AsyncSession,
     card: Card,
     fiscal_year: int,
     start_month: int,
-    order: list[str] | None = None,
+    catalogue: LicenseCatalogue | None = None,
 ) -> YearLicenses:
-    """Any single year, no window limit; ``metrics`` = ``licensingModel`` ∩ ``METRICS``.
-    ``order``: the catalogue key order, when the caller already holds it."""
+    """Any single year, no window limit. ``catalogue``: when the caller already holds it."""
     items, confirmed, fb = await _resolve(db, card.id, fiscal_year, start_month)
     return year_licenses(
         items,
@@ -155,21 +152,22 @@ async def get_year(
         fb,
         fiscal_year,
         current_fiscal_year(start_month),
-        model_of(card),
-        await type_order(db) if order is None else order,
+        catalogue or await load_catalogue(db),
     )
 
 
 async def get_window(
-    db: AsyncSession, card: Card, start_month: int, order: list[str] | None = None
+    db: AsyncSession,
+    card: Card,
+    start_month: int,
+    catalogue: LicenseCatalogue | None = None,
 ) -> list[YearLicenses]:
     """The section's six years from one row query (not one per year)."""
     cur = current_fiscal_year(start_month)
     years = list(yearly_rows.window_years(cur))
     data = (await items_by_card(db, [card.id], years, start_month))[card.id]
-    order = await type_order(db) if order is None else order
-    model = model_of(card)
-    return [year_licenses(*data[y], y, cur, model, order) for y in years]
+    catalogue = catalogue or await load_catalogue(db)
+    return [year_licenses(*data[y], y, cur, catalogue) for y in years]
 
 
 def check_count(name: str, value: object) -> None:
@@ -186,18 +184,21 @@ async def merge_cell(
     *,
     licensed: object = UNSET,
     actual: object = UNSET,
-    archived: dict[str, bool] | None = None,
+    catalogue: LicenseCatalogue | None = None,
     start_month: int | None = None,
+    allow_archived: bool = False,
 ) -> None:
-    """The one write rule. ``UNSET`` leaves a value as it is, ``actual=None`` clears it."""
+    """The one write rule. ``UNSET`` leaves a value as it is, ``actual=None`` clears it.
+    A new cell in an archived metric or type is refused unless ``allow_archived``."""
     sm = await get_fiscal_year_start(db) if start_month is None else start_month
     if not yearly_rows.in_window(fiscal_year, sm):
         raise LicenseError("year_out_of_range", f"Fiscal year {fiscal_year} is outside the window")
-    if metric not in METRICS:
+    catalogue = catalogue or await load_catalogue(db)
+    cat_metric = catalogue.metric(metric)
+    if cat_metric is None:
         raise LicenseError("invalid_metric", f"Unknown metric '{metric}'")
-    if archived is None:
-        archived = await license_types.archived_keys(db)
-    if key not in archived:
+    cat_type = catalogue.type(metric, key)
+    if cat_type is None:
         raise LicenseError("unknown_type", f"Unknown license type '{key}'")
     if licensed is not UNSET:
         check_count("licensed", licensed)
@@ -206,8 +207,11 @@ async def merge_cell(
         if fiscal_year == current_fiscal_year(sm) + FISCAL_YEAR_LOOKAHEAD:
             raise LicenseError("forecast_actual", "The Forecast year takes licensed counts only")
     current, _, _ = await _resolve(db, card_id, fiscal_year, sm)
-    if key not in (current.get(metric) or {}) and archived[key]:
-        raise LicenseError("archived_type", f"License type '{key}' is archived")
+    if not allow_archived and key not in (current.get(metric) or {}):
+        if cat_metric.archived:
+            raise LicenseError("archived_metric", f"License metric '{metric}' is archived")
+        if cat_type.archived:
+            raise LicenseError("archived_type", f"License type '{key}' is archived")
     row = await yearly_rows.editable(db, CardLicense, card_id, fiscal_year, sm, licensed_only)
     cells = dict((row.items or {}).get(metric) or {})
     cell = dict(cells.get(key) or {"licensed": 0, "actual": None})
@@ -245,7 +249,12 @@ async def confirm_year(db: AsyncSession, card_id: uuid.UUID, fiscal_year: int) -
 
 
 async def copy_to_forecast(
-    db: AsyncSession, card_id: uuid.UUID, from_year: int, metric: str, key: str
+    db: AsyncSession,
+    card_id: uuid.UUID,
+    from_year: int,
+    metric: str,
+    key: str,
+    catalogue: LicenseCatalogue | None = None,
 ) -> None:
     """Licensed count only, through ``merge_cell``."""
     sm = await get_fiscal_year_start(db)
@@ -256,8 +265,7 @@ async def copy_to_forecast(
     src = (items.get(metric) or {}).get(key)
     if src is None:
         raise LicenseError("unknown_type", f"'{key}' has no count in FY{from_year}")
-    # An archived type is fine here: it already has a count, it is not a new addition.
-    archived = {**await license_types.archived_keys(db), key: False}
+    # An archived type or metric is fine here: it already has a count, not a new addition.
     await merge_cell(
         db,
         card_id,
@@ -265,8 +273,9 @@ async def copy_to_forecast(
         metric,
         key,
         licensed=src.get("licensed") or 0,
-        archived=archived,
         start_month=sm,
+        allow_archived=True,
+        catalogue=catalogue,
     )
 
 
@@ -278,20 +287,20 @@ async def publish_change(
     old: YearLicenses,
     *,
     start_month: int,
-    order: list[str],
+    catalogue: LicenseCatalogue | None = None,
 ) -> YearLicenses:
     """Read the new year and publish the event. Flush only.
 
-    The event carries license type keys, never counts: it is readable without licenses.view.
+    The event carries ``metric:type`` keys, never counts: it is readable without licenses.view.
     """
-    new = await get_year(db, card, fiscal_year, start_month, order)
+    new = await get_year(db, card, fiscal_year, start_month, catalogue)
     await event_bus.publish(
         LICENSE_EVENT,
         {
             "id": str(card.id),
             "source": "card_licenses",
             "fiscal_year": fiscal_year,
-            "changes": {LIST_KEY: {"old": old.type_keys, "new": new.type_keys}},
+            "changes": {LIST_KEY: {"old": old.pair_keys, "new": new.pair_keys}},
         },
         db=db,
         card_id=card.id,
@@ -305,13 +314,14 @@ async def apply_write(
     card: Card,
     user_id: uuid.UUID,
     fiscal_year: int,
-    op: Callable[[], Awaitable[object]],
+    op: Callable[[LicenseCatalogue], Awaitable[object]],
 ) -> YearLicenses:
-    """Run ``op`` and publish the event; a no-op write (``False``) publishes nothing."""
+    """Run ``op(catalogue)`` and publish the event; a no-op write (``False``) publishes nothing."""
     sm = await get_fiscal_year_start(db)
-    order = await type_order(db)
-    old = await get_year(db, card, fiscal_year, sm, order)
-    if await op() is False:
+    catalogue = await load_catalogue(db)  # read once: it cannot change inside a license write
+    old = await get_year(db, card, fiscal_year, sm, catalogue)
+    if await op(catalogue) is False:
         return old
-    # The catalogue order cannot change inside a license write, so it is read once.
-    return await publish_change(db, card, user_id, fiscal_year, old, start_month=sm, order=order)
+    return await publish_change(
+        db, card, user_id, fiscal_year, old, start_month=sm, catalogue=catalogue
+    )

@@ -553,7 +553,9 @@ async def _promote_recurring_tasks_loop() -> None:
 #                 of one slot per role defined on the card type.
 #   V4 (2.190.0) — licensingModel became a built-in field and the licensing
 #                 extension's contributed fields left the schemas (migration 178).
-_DQ_RESCORE_FLAG = "dataQualityCanonicalRescoreDoneV4"
+#   V5 (license metrics) — licensingModel left both card types again (migration 192), so a
+#                 card no longer has that field to fill in. The migration does not touch this.
+_DQ_RESCORE_FLAG = "dataQualityCanonicalRescoreDoneV5"
 
 
 async def _one_shot_upgrade_announcement() -> None:

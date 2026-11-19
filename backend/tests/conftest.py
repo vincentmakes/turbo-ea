@@ -457,6 +457,33 @@ async def create_card(db, *, card_type="Application", name="Test Card", user_id=
     return card
 
 
+async def create_license_metric(db, key="users", label="Users", **kw):
+    """Insert a license metric (or return the one already there)."""
+    from sqlalchemy import select
+
+    from app.models.license_metric import LicenseMetric
+
+    row = (
+        await db.execute(select(LicenseMetric).where(LicenseMetric.key == key))
+    ).scalar_one_or_none()
+    if row is None:
+        row = LicenseMetric(key=key, label=label, **kw)
+        db.add(row)
+        await db.flush()
+    return row
+
+
+async def create_license_type(db, key="admin", label="Admin", metric_key="users", **kw):
+    """Insert a license type under ``metric_key`` (the metric is created when missing)."""
+    from app.models.license_type import LicenseType
+
+    await create_license_metric(db, key=metric_key, label=metric_key.capitalize())
+    row = LicenseType(metric_key=metric_key, key=key, label=label, **kw)
+    db.add(row)
+    await db.flush()
+    return row
+
+
 async def create_budget_line(
     db, *, initiative_id, fiscal_year=2025, category="capex", amount=0.0, description=None
 ):

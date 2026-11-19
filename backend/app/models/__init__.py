@@ -49,6 +49,7 @@ from app.models.extension import (
 )
 from app.models.file_attachment import FileAttachment
 from app.models.kpi_snapshot import KpiSnapshot
+from app.models.license_metric import LicenseMetric
 from app.models.license_type import LicenseType
 from app.models.migration import IdentityMap, Migration, StagedRecord
 from app.models.mutation_batch import MutationBatch
@@ -204,6 +205,7 @@ __all__ = [
     "CardCost",
     "CostItemType",
     "CardLicense",
+    "LicenseMetric",
     "LicenseType",
     "Dashboard",
     "DashboardKpiSnapshot",

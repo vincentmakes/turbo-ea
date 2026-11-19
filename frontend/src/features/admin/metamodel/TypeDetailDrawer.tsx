@@ -25,8 +25,7 @@ import ColorPicker from "@/components/ColorPicker";
 import IconPicker from "@/components/IconPicker";
 import KeyInput, { isValidKey } from "@/components/KeyInput";
 import CardLayoutEditor from "@/features/admin/CardLayoutEditor";
-import { api, ApiError } from "@/api/client";
-import { isLicenseType, LICENSING_MODEL_KEY } from "@/lib/licenses";
+import { api } from "@/api/client";
 import { LOCALE_LABELS } from "@/i18n";
 import type {
   CardType as FSType,
@@ -78,10 +77,6 @@ export interface TypeDrawerProps {
   /** The type was permanently deleted: close the drawer and reload the list. */
   onDeleted?: () => void;
 }
-
-/** The server refuses to remove or alter `licensingModel` (400 `license_field_required`). */
-const isLicenseFieldRefusal = (e: unknown) =>
-  e instanceof ApiError && e.detail === "license_field_required";
 
 export default function TypeDetailDrawer({
   open,
@@ -274,13 +269,7 @@ export default function TypeDetailDrawer({
       onRefresh();
       return true;
     } catch (e: unknown) {
-      onFailure(
-        isLicenseFieldRefusal(e)
-          ? t("metamodel.typeDrawer.licenseFieldLocked")
-          : e instanceof Error
-            ? e.message
-            : t(fallbackMessageKey),
-      );
+      onFailure(e instanceof Error ? e.message : t(fallbackMessageKey));
       return false;
     } finally {
       mutatingRef.current = false;
@@ -324,9 +313,7 @@ export default function TypeDetailDrawer({
       setError(
         categoryErrorCode(e)
           ? categoryErrorMessage(e, t)
-          : isLicenseFieldRefusal(e)
-            ? t("metamodel.typeDrawer.licenseFieldLocked")
-            : e instanceof Error
+          : e instanceof Error
             ? e.message
             : t("metamodel.typeDrawer.failedToSave"),
       );
@@ -530,11 +517,6 @@ export default function TypeDetailDrawer({
 
   const promptDeleteField = (sectionIdx: number, fieldIdx: number) => {
     const field = cardTypeKey.fields_schema[sectionIdx].fields[fieldIdx];
-    // Locked like the derived cost total: the server refuses it too.
-    if (field.key === LICENSING_MODEL_KEY && isLicenseType(cardTypeKey.key)) {
-      setError(t("metamodel.typeDrawer.licenseFieldLocked"));
-      return;
-    }
     setDeleteError(null);
     setDeleteFieldConfirm({
       sectionIdx,

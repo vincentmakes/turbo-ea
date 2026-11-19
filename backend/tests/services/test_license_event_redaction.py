@@ -4,11 +4,21 @@ from __future__ import annotations
 
 import uuid
 
+from sqlalchemy import event as sa_event
+
 from app.models.event import Event
 from app.services import card_licenses as cl
 from app.services import cost_event_redaction as red
-from app.services import license_types, rollback_service
-from tests.conftest import create_card, create_card_type, create_role, create_user
+from app.services import rollback_service
+from app.services.audit_labels import license_type_labels
+from tests.conftest import (
+    create_card,
+    create_card_type,
+    create_license_metric,
+    create_license_type,
+    create_role,
+    create_user,
+)
 
 
 def _legacy_diff():
@@ -25,7 +35,7 @@ def _legacy_diff():
 
 
 def _types_list():
-    return {"fiscal_year": 2026, "changes": {cl.LIST_KEY: {"old": [], "new": ["admin"]}}}
+    return {"fiscal_year": 2026, "changes": {cl.LIST_KEY: {"old": [], "new": ["users:admin"]}}}
 
 
 async def _card_and_user(db, permissions):
@@ -72,11 +82,12 @@ async def test_cost_keys_redacted_for_a_license_only_reader(db):
 
 
 async def test_summary_names_year_and_labels(db):
-    await license_types.create_item(db, "admin", "Admin users")
-    await license_types.create_item(db, "prod", "Production")
+    await create_license_type(db, "admin", "Admin users")
+    await create_license_type(db, "prod", "Production")
+    await create_license_type(db, "admin", "Admin devices", metric_key="installations")
     full = {
         "fiscal_year": 2026,
-        "changes": {cl.LIST_KEY: {"old": ["admin"], "new": ["admin", "prod"]}},
+        "changes": {cl.LIST_KEY: {"old": ["users:admin"], "new": ["users:admin", "users:prod"]}},
     }
     redacted = {"fiscal_year": 2026, "changes": {}}
     out = await red.add_cost_summaries(
@@ -87,10 +98,52 @@ async def test_summary_names_year_and_labels(db):
     )
     assert (
         out[0]["summary"]
-        == "Licensing of ERP changed (FY26; license types: Admin users, Production)"
+        == "Licensing of ERP changed (FY26; license types: Users / Admin users, Users / Production)"
     )
     assert out[1]["summary"] == "Licensing of ERP changed (FY26)"
     assert "summary" not in full
+
+
+async def test_summary_resolves_the_pair_not_the_bare_key(db):
+    await create_license_type(db, "admin", "Admin users")
+    await create_license_type(db, "admin", "Admin devices", metric_key="installations")
+    payload = {"changes": {cl.LIST_KEY: {"old": [], "new": ["installations:admin"]}}}
+    out = await red.add_cost_summaries(db, "ERP", [Event(event_type=cl.LICENSE_EVENT)], [payload])
+    assert (
+        out[0]["summary"]
+        == "Licensing of ERP changed (license types: Installations / Admin devices)"
+    )
+
+
+async def test_summary_still_reads_an_old_event_with_plain_keys(db):
+    await create_license_type(db, "admin", "Admin users")
+    old = {"fiscal_year": 2026, "changes": {cl.LIST_KEY: {"old": [], "new": ["admin"]}}}
+    out = await red.add_cost_summaries(db, "ERP", [Event(event_type=cl.LICENSE_EVENT)], [old])
+    assert out[0]["summary"] == "Licensing of ERP changed (FY26; license types: Admin users)"
+
+
+async def test_a_plain_key_under_two_metrics_reads_the_first_metric_s_type(db):
+    await create_license_metric(db, "users", "Users", sort_order=0)
+    await create_license_metric(db, "installations", "Installations", sort_order=1)
+    await create_license_type(db, "admin", "Admin users")
+    await create_license_type(db, "admin", "Admin devices", metric_key="installations")
+    assert await license_type_labels(db, ["admin"]) == {"admin": "Admin users"}
+
+
+async def test_labels_of_unknown_keys_take_one_query(db):
+    statements: list[str] = []
+    bind = db.sync_session.get_bind()
+
+    def record(conn, cursor, statement, *args):
+        if statement.lstrip().upper().startswith("SELECT"):
+            statements.append(statement)
+
+    sa_event.listen(bind, "before_cursor_execute", record)
+    try:
+        assert await license_type_labels(db, ["users:ghost", "ghost"]) == {}
+    finally:
+        sa_event.remove(bind, "before_cursor_execute", record)
+    assert len(statements) == 1
 
 
 def test_rollback_declines_license_event():

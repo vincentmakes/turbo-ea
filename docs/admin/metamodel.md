@@ -296,15 +296,23 @@ Entering amounts on a card needs `costs.edit` (or a stakeholder role that may ed
 
 ## License types
 
-**License types** are the catalogue of license kinds that Application and IT Component cards can carry (see the [Licensing section](../guide/card-details.md#licensing-section-application-and-it-component)), for example *Admin*, *End User*, *Prod* or *Dev*. Manage it under **Admin > Metamodel > License types**.
+**License metrics and license types** are the catalogue behind the [Licensing section](../guide/card-details.md#licensing-section-application-and-it-component) of Application and IT Component cards. A **metric** is what licenses are counted in; the default ones are **Users** and **Installations**. Each metric has its own **license types**, for example *Business* and *Admin* under Users, or *Prod* and *No-Prod* under Installations. A card records its counts per **pair** such as *Users: Admin*, and counts of different metrics are never added together.
 
-Each type has a stable **key** (letters, digits and underscores, fixed once created), a **name** and optional **translations** of the name. Types are **archived**, not deleted: an archived type can no longer be added to a card, but counts already entered keep counting in the statuses and in the [Licensing Report](../guide/reports.md#licensing-report). Each type keeps a stable colour in the charts, following its order in the catalogue.
+Manage both under **Admin > Metamodel > Card types > License types**. The **License types** dialog lists the metrics, and under each metric its types:
+
+- **Add metric** and **Add type** create an entry with a stable **key** (letters, digits and underscores, starting with a letter, fixed once created), a **name** and optional **translations** of the name. A type is created inside a metric and never moves to another one, so two metrics can each have a type with the same key.
+- **Edit** changes the name and translations; **Move up** and **Move down** reorder. A type keeps a stable colour in the charts, following its order within its metric.
+- **Archive** and **Restore** replace deletion: nothing is ever deleted. An archived metric or type cannot be chosen for a new pair, but counts already entered keep counting in the statuses and in the [Licensing Report](../guide/reports.md#licensing-report), and it is still shown on the years that hold data for it.
 
 Two permissions control licensing. `licenses.view` lets a role read the licenses of any card, and `licenses.edit` lets it change them and import them from the Licensing Report; a stakeholder on a card can also read it, and edit it when their role may edit the card. By default only administrators hold `licenses.edit`. Changing the catalogue needs the metamodel administration permission.
 
 ### Moving from the Licensing Analysis extension
 
-Licensing is now part of Turbo EA. On upgrade, the data of the former *Licensing Analysis* extension moves automatically: the licensed and actual counts go into the current fiscal year of each card, every free-text category becomes a license type, the extension's `ext.licensing.view` and `ext.licensing.manage` grants are copied to `licenses.view` and `licenses.edit`, and the extension's four count fields are removed from the cards. The *Licensing model* field moves to its own **Licensing** section of the type, and is restored there if it had been deleted. That field is protected: it cannot be deleted, retyped, moved out of its section or stripped of its **Users** / **Installations** options (you can still rename it, translate it or add options), and the card layout editor does not list its section. A card's model is edited from the card's Licensing section. Values that could not be moved are listed in a report kept in the application settings. **Uninstall the extension** after upgrading (Admin → Extensions); its saved reports are not converted.
+Licensing is now part of Turbo EA. On upgrade, the data of the former *Licensing Analysis* extension moves automatically: the licensed and actual counts go into the current fiscal year of each card, every free-text category becomes a license type, the extension's `ext.licensing.view` and `ext.licensing.manage` grants are copied to `licenses.view` and `licenses.edit`, and the extension's four count fields are removed from the cards. Values that could not be moved are listed in a report kept in the application settings. **Uninstall the extension** after upgrading (Admin → Extensions); its saved reports are not converted.
+
+### Metrics replace the Licensing model field
+
+Earlier versions kept the license types in one flat list, and a protected **Licensing model** field on the card type said which metrics a card tracked. That field and its **Licensing** section are gone. On upgrade, the default metrics **Users** and **Installations** are created and each existing license type is placed under the metric whose data it holds; a type used under both metrics is duplicated, and a type with no data is attached to both (archive what you do not need). Counts already stored are kept, including those of a metric the card did not track before: they now show, because their pair exists in its year. A card has exactly the pairs added to it for each year, so there is nothing to tick on the card type or on the card.
 
 ## Calculations
 

@@ -1,37 +1,50 @@
 /**
  * The Licensing report's Table view: one header row (the XLSX export reads no colspan/rowspan),
- * a total row without a percentage, sorting, the cost report's click gestures and group headers.
+ * a column group per `Metric: Type` pair, per-metric totals and no cross-metric total, sorting,
+ * the cost report's click gestures and group headers.
  */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import i18n from "@/i18n";
-import type { LicenseReportRow, LicenseType } from "@/types";
+import type { LicenseReportMetric, LicenseReportRow } from "@/types";
 import LicensingTable, { type LicensingTableRow } from "./LicensingTable";
 
-const TYPES: LicenseType[] = [
-  { id: "1", key: "admin", label: "Admin", sort_order: 1, archived: false, translations: {} },
-  { id: "2", key: "dev", label: "Dev", sort_order: 2, archived: false, translations: {} },
+const PAIRS = [
+  { key: "users:admin", metric: "users", label: "Users: Admin" },
+  { key: "users:dev", metric: "users", label: "Users: Dev" },
+  { key: "installations:prod", metric: "installations", label: "Installations: Prod" },
+];
+const METRICS = [
+  { key: "users", label: "Users" },
+  { key: "installations", label: "Installations" },
 ];
 
-const raw = (id: string, by_type: LicenseReportRow["by_type"]): LicenseReportRow => ({
-  id,
-  name: id,
-  type: "Application",
-  attributes: {},
-  status: "compliant",
-  worst_pct: null,
-  worst_no_licence: false,
-  licensed_total: 0,
-  actual_total: null,
-  by_type,
-});
-const cell = (licensed: number, actual: number | null, pct: number | null, no_licence = false) => ({
+const cell = (key: string, licensed: number, actual: number | null, pct: number | null, no_licence = false) => ({
+  key,
   licensed,
   actual,
   pct,
   no_licence,
   status: "compliant" as const,
+});
+const metric = (
+  key: string,
+  licensed_total: number,
+  actual_total: number | null,
+  types: LicenseReportMetric["types"],
+): LicenseReportMetric => ({ metric: key, status: "compliant", worst_pct: null, licensed_total, actual_total, types });
+const raw = (id: string, by_metric: LicenseReportMetric[]): LicenseReportRow => ({
+  id,
+  name: id,
+  type: "Application",
+  alias: null,
+  attributes: {},
+  status: "compliant",
+  worst_pct: null,
+  worst_no_licence: false,
+  confirmed: true,
+  by_metric,
 });
 const ROWS: LicensingTableRow[] = [
   {
@@ -40,7 +53,7 @@ const ROWS: LicensingTableRow[] = [
     type: "Application",
     status: "over",
     group: "g1",
-    raw: raw("A", { admin: cell(10, 12, 120), dev: cell(0, 3, null, true) }),
+    raw: raw("A", [metric("users", 10, 15, [cell("admin", 10, 12, 120), cell("dev", 0, 3, null, true)])]),
   },
   {
     id: "B",
@@ -48,7 +61,7 @@ const ROWS: LicensingTableRow[] = [
     type: "Application",
     status: "compliant",
     group: "g2",
-    raw: raw("B", { admin: cell(20, 5, 25) }),
+    raw: raw("B", [metric("users", 20, 5, [cell("admin", 20, 5, 25)])]),
   },
   {
     id: "C",
@@ -56,15 +69,15 @@ const ROWS: LicensingTableRow[] = [
     type: "Application",
     status: "no_actual_data",
     group: "g1",
-    raw: raw("C", { dev: cell(4, null, null) }),
+    raw: raw("C", [metric("installations", 4, null, [cell("prod", 4, null, null)])]),
   },
 ];
 
 function setup(over: Partial<React.ComponentProps<typeof LicensingTable>> = {}) {
   const props: React.ComponentProps<typeof LicensingTable> = {
     rows: ROWS,
-    types: TYPES,
-    labelOf: (k) => TYPES.find((x) => x.key === k)?.label ?? k,
+    pairs: PAIRS,
+    metrics: METRICS,
     extraColumns: [],
     extraLabel: (k) => k,
     extraValue: () => "",
@@ -80,11 +93,11 @@ function setup(over: Partial<React.ComponentProps<typeof LicensingTable>> = {}) 
   render(<LicensingTable {...props} />);
   return props;
 }
-const names = () =>
-  screen.getAllByTestId("licensing-row-name").map((n) => n.textContent);
+const names = () => screen.getAllByTestId("licensing-row-name").map((n) => n.textContent);
+const texts = (tr: Element) => [...tr.querySelectorAll("td")].map((c) => c.textContent);
 
 describe("LicensingTable", () => {
-  it("one header row with lic./act./% per type and no total %", async () => {
+  it("one header row: lic./act./% per pair, then the totals of each metric, no cross-metric total", async () => {
     await i18n.changeLanguage("en");
     setup();
     const headRows = document.querySelectorAll("thead tr");
@@ -92,49 +105,69 @@ describe("LicensingTable", () => {
     const heads = [...headRows[0].querySelectorAll("th")].map((h) => h.textContent);
     expect(heads).toEqual([
       "Name",
-      "Admin lic.",
-      "Admin act.",
-      "Admin %",
-      "Dev lic.",
-      "Dev act.",
-      "Dev %",
-      "Total lic.",
-      "Total act.",
+      "Users: Admin lic.",
+      "Users: Admin act.",
+      "Users: Admin %",
+      "Users: Dev lic.",
+      "Users: Dev act.",
+      "Users: Dev %",
+      "Installations: Prod lic.",
+      "Installations: Prod act.",
+      "Installations: Prod %",
+      "Users total lic.",
+      "Users total act.",
+      "Installations total lic.",
+      "Installations total act.",
       "Status",
     ]);
+    expect(heads).not.toContain("Total lic.");
     // No colspan/rowspan anywhere: extractSheetsFromDOM does not read them.
     expect(document.querySelectorAll("[colspan],[rowspan]")).toHaveLength(0);
-    const total = screen.getByTestId("licensing-total-row");
-    const cells = [...total.querySelectorAll("td")].map((c) => c.textContent);
-    // Admin 30 / 17, Dev 4 / 3, totals 34 / 20; no percentage in the totals, none for the status.
-    expect(cells).toEqual(["Total", "30", "17", "", "4", "3", "", "34", "20", ""]);
   });
 
-  it("renders counts, percentages, no-license, missing actual and status pills", async () => {
+  it("the total row sums each pair and each metric, with no percentage", async () => {
+    await i18n.changeLanguage("en");
+    setup();
+    expect(texts(screen.getByTestId("licensing-total-row"))).toEqual([
+      "Total",
+      "30", "17", "", // Users: Admin
+      "0", "3", "", // Users: Dev
+      "4", "—", "", // Installations: Prod (no actual at all)
+      "30", "20", // Users totals
+      "4", "—", // Installations totals
+      "",
+    ]);
+  });
+
+  it("renders counts, percentages, no-license, a missing cell and the status pill", async () => {
     await i18n.changeLanguage("en");
     setup();
     const rowA = screen.getByText("Alpha").closest("tr") as HTMLElement;
-    const cells = [...rowA.querySelectorAll("td")].map((c) => c.textContent);
-    expect(cells.slice(1, 9)).toEqual(["10", "12", "120 %", "0", "3", "no license", "10", "15"]);
+    expect(texts(rowA).slice(1, 7)).toEqual(["10", "12", "120 %", "0", "3", "no license"]);
+    expect(texts(rowA).slice(7, 14)).toEqual(["—", "—", "—", "10", "15", "—", "—"]);
     expect(within(rowA).getByText("Over-licensed")).toBeInTheDocument();
-    const rowC = screen.getByText("Gamma").closest("tr") as HTMLElement;
-    expect([...rowC.querySelectorAll("td")].map((c) => c.textContent).slice(1, 9)).toEqual([
-      "—", "—", "—", "4", "—", "—", "4", "—",
-    ]);
   });
 
-  it("sorts by a type column", async () => {
+  it("sorts by a pair column", async () => {
     await i18n.changeLanguage("en");
-    setup({ sortK: "lic:admin", sortD: "desc" });
-    // Beta 20, Alpha 10, Gamma has no Admin cell (counts as 0).
+    setup({ sortK: "lic:users:admin", sortD: "desc" });
+    // Beta 20, Alpha 10, Gamma has no such cell (counts as 0).
+    expect(names()).toEqual(["Beta", "Alpha", "Gamma"]);
+  });
+
+  it("sorts by a metric total", async () => {
+    await i18n.changeLanguage("en");
+    setup({ sortK: "tlic:users", sortD: "desc" });
     expect(names()).toEqual(["Beta", "Alpha", "Gamma"]);
   });
 
   it("clicking a header asks to sort by that column", async () => {
     await i18n.changeLanguage("en");
     const p = setup();
-    await userEvent.click(screen.getByText("Dev act."));
-    expect(p.onSort).toHaveBeenCalledWith("act:dev");
+    await userEvent.click(screen.getByText("Users: Dev act."));
+    expect(p.onSort).toHaveBeenCalledWith("act:users:dev");
+    await userEvent.click(screen.getByText("Installations total lic."));
+    expect(p.onSort).toHaveBeenCalledWith("tlic:installations");
   });
 
   it("sorts by status, worst first", async () => {
@@ -162,7 +195,7 @@ describe("LicensingTable", () => {
       ],
     });
     const head = screen.getByText("Group one").closest("tr") as HTMLElement;
-    expect([...head.querySelectorAll("td")].map((c) => c.textContent).slice(1, 3)).toEqual(["10", "12"]);
+    expect(texts(head).slice(1, 3)).toEqual(["10", "12"]);
     expect(within(head).getByText("(2)")).toBeInTheDocument();
     // Members follow their header.
     const order = [...document.querySelectorAll("tbody tr")].map((r) => r.textContent ?? "");

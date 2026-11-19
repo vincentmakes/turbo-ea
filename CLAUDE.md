@@ -34,6 +34,30 @@ When working on this codebase, follow these conventions:
 - **A cross-cutting card health flag has exactly one definition, in `backend/app/services/card_flags.py`** (orphaned, stale, EOL coverage), and **"does this card's cost count" has one definition, `is_live_in_fiscal_year` (`backend/app/services/lifecycle.py`)** — the cost reports take an optional `fiscal_year`; the current year is served from live attributes and gated by it, any other year lists the cards with a cost recorded for it (`services/cost_report.py`). → `.claude/rules/card-flags-eol.md`, `.claude/rules/cost-fiscal-year.md`
 - **Never hold a database session across work that is not database work.** The pool is 30 connections on one process. A streaming endpoint must not take `Depends(get_db)`; a background job does `read → commit() → slow work → fresh short session for the writes`; a helper never commits or rolls back a session it was handed; never assume 30 connections are available. → `.claude/rules/db-sessions-events-audit.md`
 
+### Security Requirements
+- Never store plaintext secrets in the database — use `encrypt_value()`.
+- Never expose sensitive fields (password hashes, encrypted secrets) in API responses.
+- Always validate user input via Pydantic schemas on the backend.
+- Use parameterized queries (SQLAlchemy ORM) — never construct SQL strings.
+- New endpoints must use `Depends(get_current_user)` or `Depends(require_permission(...))`.
+- Rate limiting is applied via `slowapi` — apply `@limiter.limit()` to auth-sensitive endpoints.
+
+### Where the rule of your area lives (path-scoped)
+Read the rule file of the area before you change it; each loads on its own when you open a matching file.
+- MCP server, write-tool guardrails, mutation batches, confirm tokens → `.claude/rules/mcp-server.md`
+- Platform migration importer / exporter (LeanIX adapter pattern) → `.claude/rules/platform-migration.md`
+- **Workspace transfer — any DB schema change is potentially a workspace-transfer change** (the checklist is mandatory on every model or migration edit) → `.claude/rules/workspace-transfer.md`
+- Extension Store: signing, licensing, content packs, field contributions → `.claude/rules/extensions-backend.md`; the backend SDK and its bridges → `.claude/rules/extensions-sdk-bridges.md`; UI plugins and the `window.TurboEA.sdk` reuse boundary → `.claude/rules/extensions-ui.md`
+- BPM → `.claude/rules/bpm.md` · PPM → `.claude/rules/ppm.md` · TurboLens + compliance → `.claude/rules/turbolens-grc.md` · Risk Register → `.claude/rules/risk-register.md` · AI suggestions + ServiceNow → `.claude/rules/ai-and-integrations.md`
+- ArchiMate (Architecture Studio, Viewpoint Catalog, Enterprise Objects) → `.claude/rules/archimate.md` · Value Chain / Value Stream → `.claude/rules/value-chain.md`
+- Data Modeller → `.claude/rules/data-modeller.md`
+- Specs and plans under `docs/superpowers/` are read by a fresh agent before they reach the user → `.claude/rules/spec-and-plan-review.md`
+- Helm, managed containers, Terraform, Docker images, signing → `.claude/rules/deploy.md`
+- Homepage dashboards: widget registry parity, no ids in widget config, trends → `.claude/rules/dashboards.md`
+- **At every release tag run the `security-audit` skill and a full-repo `ponytail-audit`** (never per-PR) → `.claude/rules/release-audit.md`
+- Costs of Application / IT Component as catalogue items (TCO, derived total, `costs.edit`, event redaction) → `.claude/rules/cost-items.md`
+- Licenses of Application / IT Component per fiscal year (metric and type catalogue, `metric:type` pairs from each year's cells, status, import, report) → `.claude/rules/licensing-items.md`
+
 ### Backend Conventions
 - **A Security & admin log entry is written for a person to read**: `audit_log.record` takes exactly `reason` / `changes` / `items` / `context`, values are labels not keys, and a new item kind is a three-place change. → `.claude/rules/db-sessions-events-audit.md`
 - All route handlers live in `backend/app/api/v1/`, one file per resource domain.
@@ -58,22 +82,6 @@ When working on this codebase, follow these conventions:
 - **Public API surface is auto-documented** (`docs/api/openapi.json`, version-agnostic, regenerated via `scripts/dump_openapi.py`) → `.claude/rules/api-contracts.md`
 - **Boot-time public settings belong in `/api/v1/settings/bootstrap`** When you add a new small public setting that the frontend reads at boot (a feature toggle, a display preference, an enabled-list, etc.), add it to the response of `GET /settings/bootstrap` in `backend/app/api/v1/settings.py` instead of (or in addition to) creating a per-setting `GET` endpoint. The frontend calls bootstrap once after auth and primes hook caches from the result, so anything that lands here costs zero round-trips on subsequent navigations. Per-endpoint reads remain the right choice for selective refresh after admin edits
 - **`app_settings.general_settings` is a settings row, not a cache — and every write to it is key-scoped.** A cache gets its own table (`catalogue_cache`); nothing multi-megabyte belongs in the blob. **Static-asset redirects carry `Cache-Control`. Macro Capabilities are an additive tier above L1.** → `.claude/rules/settings-and-seed.md`
-
-### Area conventions (path-scoped)
-Each of these loads automatically when you touch its files; read it first when you plan a change there
-- MCP server, write-tool guardrails, mutation batches, confirm tokens → `.claude/rules/mcp-server.md`
-- Platform migration importer / exporter (LeanIX adapter pattern) → `.claude/rules/platform-migration.md`
-- **Workspace transfer — any DB schema change is potentially a workspace-transfer change** (the checklist is mandatory on every model or migration edit) → `.claude/rules/workspace-transfer.md`
-- Extension Store: signing, licensing, content packs, field contributions → `.claude/rules/extensions-backend.md`; the backend SDK and its bridges → `.claude/rules/extensions-sdk-bridges.md`; UI plugins and the `window.TurboEA.sdk` reuse boundary → `.claude/rules/extensions-ui.md`
-- BPM → `.claude/rules/bpm.md` · PPM → `.claude/rules/ppm.md` · TurboLens + compliance → `.claude/rules/turbolens-grc.md` · Risk Register → `.claude/rules/risk-register.md` · AI suggestions + ServiceNow → `.claude/rules/ai-and-integrations.md`
-- ArchiMate (Architecture Studio, Viewpoint Catalog, Enterprise Objects) → `.claude/rules/archimate.md` · Value Chain / Value Stream → `.claude/rules/value-chain.md`
-- Data Modeller → `.claude/rules/data-modeller.md`
-- Specs and plans under `docs/superpowers/` are read by a fresh agent before they reach the user → `.claude/rules/spec-and-plan-review.md`
-- Helm, managed containers, Terraform, Docker images, signing → `.claude/rules/deploy.md`
-- Homepage dashboards: widget registry parity, no ids in widget config, trends → `.claude/rules/dashboards.md`
-- **At every release tag run the `security-audit` skill and a full-repo `ponytail-audit`** (never per-PR) → `.claude/rules/release-audit.md`
-- Costs of Application / IT Component as catalogue items (TCO, derived total, `costs.edit`, event redaction) → `.claude/rules/cost-items.md`
-- Licenses of Application / IT Component per fiscal year (status, `licensingModel`, import, report) → `.claude/rules/licensing-items.md`
 
 ### Frontend Conventions
 - Route-level pages use `lazy()` imports in `App.tsx` for code splitting.
@@ -116,22 +124,7 @@ Author **English only**: `frontend/src/i18n/locales/en/*.json`, the English `lab
 - Every design spec from `superpowers:brainstorming` and every implementation plan from `superpowers:writing-plans` lives under `docs/superpowers/` in this repo (`docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`, `docs/superpowers/plans/YYYY-MM-DD-<topic>.md`) — never outside the repo, even for exploratory work done elsewhere first.
 - When the work a spec describes ships, add a short line at the top of that spec file linking the PR(s) that implemented it (e.g., `**Shipped:** [owner/repo#123](url)`). Do this once the PR is merged, not at creation.
 
-### Security Requirements
-- Never store plaintext secrets in the database — use `encrypt_value()`.
-- Never expose sensitive fields (password hashes, encrypted secrets) in API responses.
-- Always validate user input via Pydantic schemas on the backend.
-- Use parameterized queries (SQLAlchemy ORM) — never construct SQL strings.
-- New endpoints must use `Depends(get_current_user)` or `Depends(require_permission(...))`.
-- Rate limiting is applied via `slowapi` — apply `@limiter.limit()` to auth-sensitive endpoints.
-
 ### Testing Conventions
-- **Before `finishing-a-development-branch` / opening a PR, run a `ponytail-review` pass on the whole branch diff — once, not per plan task.** Apply every Must/Should fix it finds (with its own test if the fix changes behavior), then re-run the suite. This catches bloat/lean issues the correctness-focused final branch reviewer doesn't target; it is separate from, and runs after, that reviewer.
-- **The review chain before a PR runs in this order, each step by a fresh agent (never the one that wrote the code):** tests green → `simplify` (it edits the code) → re-run the tests of the files it touched → `ponytail-review` → `security-review` → re-run the tests of the files the review fixes touched. `code-review` stays on request, never mandatory.
-- **`/translate` runs before the full test suites**, so the i18n parity tests see every locale; running the suites first leaves them red until the translation is done.
-- **After `/translate`, verify the manual before the full test suites** with `scripts/docs/docker-docs.sh all` (the `docs-keeper` agent runs it): `mkdocs build --strict` in docker (CI's build is not strict, so it misses broken links and missing images) plus the check that every image referenced in `docs/` has its `scripts/screenshots/pages.ts` entry. `docker-docs.sh capture` retakes the screenshots the change affects on an isolated demo stack.
-- **After `simplify` and the reviews, the rules follow the code:** a fresh agent compares the branch diff with each `.claude/rules/*.md` whose `paths:` it touches and drafts the changes; the session shows them one file at a time and edits a rule only after the user's explicit yes for that file.
-- **Development and review go to the project's own agents (`.claude/agents/`).** Work under `backend/` goes to `backend-dev`, work under `frontend/` to `frontend-dev` (both Sonnet); the branch review goes to `reviewer` (Opus, read-only), after `simplify`; translations go to `/translate`. These agents never commit, push, label or touch GitHub: the session that called them owns git. The agent that wrote the code never reviews it.
-- **Reviews and audits (`ponytail-review`, `security-review`, `ponytail-audit`, `security-audit`) read code and tests and skip user docs**: `docs/**` (specs and plans included), `CHANGELOG.md`, `README.md` and the non-English `frontend/src/i18n/locales/*` (parity tests cover them). Never skip `CLAUDE.md`, `AGENTS.md`, `.claude/rules/**`, `.claude/agents/**`, `.claude/skills/**`: agents execute them.
 - **Every new feature and every bug fix must include tests. This is a requirement, not a preference.** A change without tests is not finished: do not call it done and do not open a PR for it. What that means for each kind of change:
   - **Bug fix**: a regression test that fails on the code before the fix and passes after it. Reproduce the bug in a test first, then fix it.
   - **New or changed backend endpoint**: an API test under `backend/tests/api/` covering the success path, the permission denial (403, or 404 where `CardReadScope` hides the card) and at least one rejected input.
@@ -164,8 +157,22 @@ cd frontend && npm test          # watch mode
 cd frontend && npm run test:run  # single run (CI mode)
 ```
 
-### VAPT (Active Security Testing)
-- **Run a VAPT pass automatically whenever a PR adds a route or a table (a new path in `backend/app/api/v1/` or a new model/migration), or touches permission/auth/session code, or on explicit request — independent of `/VERSION`.** Testing-your-own-application only (this repo, this user's local deploy instance — never a third-party or production target). → `.claude/rules/vapt.md`
+### Before opening a PR (in this order)
+
+Who does the work:
+- **Development and review go to the project's own agents (`.claude/agents/`).** Work under `backend/` goes to `backend-dev`, work under `frontend/` to `frontend-dev` (both Sonnet); the branch review goes to `reviewer` (Opus, read-only), after `simplify`; translations go to `/translate`. These agents never commit, push, label or touch GitHub: the session that called them owns git. The agent that wrote the code never reviews it.
+- **Reviews and audits (`ponytail-review`, `security-review`, `ponytail-audit`, `security-audit`) read code and tests and skip user docs**: `docs/**` (specs and plans included), `CHANGELOG.md`, `README.md` and the non-English `frontend/src/i18n/locales/*` (parity tests cover them). Never skip `CLAUDE.md`, `AGENTS.md`, `.claude/rules/**`, `.claude/agents/**`, `.claude/skills/**`: agents execute them.
+
+1. **`/translate` runs before the full test suites**, so the i18n parity tests see every locale; running the suites first leaves them red until the translation is done.
+2. **After `/translate`, verify the manual before the full test suites** with `scripts/docs/docker-docs.sh all` (the `docs-keeper` agent runs it): `mkdocs build --strict` in docker (CI's build is not strict, so it misses broken links and missing images) plus the check that every image referenced in `docs/` has its `scripts/screenshots/pages.ts` entry. `docker-docs.sh capture` retakes the screenshots the change affects on an isolated demo stack.
+3. **Code graph and full test suites.** Run `graphify update .` first (see General Principles), then `./scripts/test.sh` and `npm run test:run`, one at a time.
+4. **The review chain before a PR runs in this order, each step by a fresh agent (never the one that wrote the code):** tests green → `simplify` (it edits the code) → re-run the tests of the files it touched → `ponytail-review` → `security-review` → re-run the tests of the files the review fixes touched. `code-review` stays on request, never mandatory. `ponytail-review` runs once on the whole branch diff, never per plan task; apply every Must/Should fix it finds, with its own test when behaviour changes, then re-run the suite.
+5. **Every Minor finding of a review is fixed, none is parked.** A task's review (per task in `subagent-driven-development`, and the branch-wide `ponytail-review` / `security-review` before the PR) grades findings Critical / Important / Minor; the fix pass takes all three grades, each fix with its own test and a green re-run of the files it touches. A Minor is left only with a one-line reason in the PR's Test Plan, and only the user can accept that. This overrides the skill's "Minors never enter the fix pass".
+6. **After `simplify` and the reviews, the rules follow the code:** a fresh agent compares the branch diff with each `.claude/rules/*.md` whose `paths:` it touches and drafts the changes; the session shows them one file at a time and edits a rule only after the user's explicit yes for that file.
+7. **Before the PR is opened, the session asks the user whether to save learnings, and writes them with `trail note` only after a yes.** It proposes, one at a time and each with its title and text, only what the code and the diff cannot tell the next person: a decision and why, an approach dropped, a trap found after failed attempts, or a correction from the user. The user approves or drops each. Learnings go in `.trail/learnings/` and are committed with the change. Never one for setup, status or what the diff shows.
+8. **Run a VAPT pass automatically whenever a PR adds a route or a table (a new path in `backend/app/api/v1/` or a new model/migration), or touches permission/auth/session code, or on explicit request — independent of `/VERSION`.** Testing-your-own-application only (this repo, this user's local deploy instance — never a third-party or production target). → `.claude/rules/vapt.md`
+9. **Version and changelog:** see *Changelog & Versioning Conventions* below.
+10. **Open the PR** with the template: see *Pull Request Conventions* below.
 
 ### Pull Request Conventions
 - **Always use the PR template** at `.github/pull_request_template.md` when creating pull requests. Do not use a custom format — fill in the template sections exactly as defined.

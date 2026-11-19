@@ -25,9 +25,10 @@ from __future__ import annotations
 
 import functools
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import timezone
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import exists, or_, select
 from sqlalchemy.dialects.postgresql import insert
@@ -46,12 +47,20 @@ from app.models.card_type import CardType
 from app.models.card_type_category import CardTypeCategory
 from app.models.diagram import Diagram, diagram_cards
 from app.models.diagram_group import DiagramGroup, diagram_group_members
+from app.models.license_metric import LicenseMetric
+from app.models.license_type import LicenseType
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.role import Role
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
+from app.schemas.licenses import (
+    LicenseMetricCreate,
+    LicenseMetricUpdate,
+    LicenseTypeCreate,
+    LicenseTypeUpdate,
+)
 from app.services import card_reference, card_type_categories, decision_links_legacy
 from app.services.bo_relationship_constants import (
     APPLICATION_RELATION,
@@ -65,12 +74,12 @@ from app.services.bo_relationship_constants import (
 from app.services.card_resolver import CardResolver
 from app.services.card_write_service import lock_bo_relation_writes
 from app.services.email_backends.runtime import apply_email_settings_to_runtime
-from app.services.licensing_migration import move_model_field
+from app.services.licensing_migration import LICENSING_TYPES, MODEL_KEY, without_model_field
 from app.services.principle_service import ensure_principle_references
 from app.services.relation_orientation import oriented
 from app.services.workspace_io import exporter as exp
+from app.services.workspace_io import license_compat, schema
 from app.services.workspace_io import remap as rm
-from app.services.workspace_io import schema
 from app.services.workspace_io.bundle import WorkspaceBundle, from_cell
 from app.services.workspace_io.entities import apply_entity_section
 from app.services.workspace_io.secrets import (
@@ -211,6 +220,8 @@ def _update_if_changed(current: Any, data: dict[str, Any], cols, sr: SectionResu
 
 
 async def apply_bundle(db: AsyncSession, bundle: WorkspaceBundle, user: User) -> ApplyResult:
+    """Apply every sheet. Changes ``bundle``: its ``CardLicenses`` rows are replaced by the
+    rows without the cells of an unknown metric or type (``_apply_license_catalogue``)."""
     return await _run(db, bundle, user, dry_run=False)
 
 
@@ -231,7 +242,8 @@ async def apply_selected(
     Public facade for callers outside workspace transfer (the Extension
     Store's content packs) that reuse the idempotent upsert engine —
     built-in protection, topo-sorted cards, dry-run via savepoint — over an in-memory
-    :class:`WorkspaceBundle` carrying only the listed sheets.
+    :class:`WorkspaceBundle` carrying only the listed sheets. Changes ``bundle`` like
+    :func:`apply_bundle` when ``CardLicenses`` is selected.
     """
     return await _run(db, bundle, user, dry_run=dry_run, sheets=sheets)
 
@@ -271,7 +283,7 @@ async def _run(
         *(
             (sec.sheet, _make_config_applier(sec))
             for sec in schema.CONFIG_SECTIONS
-            if sec.sheet != schema.SHEET_CARD_TYPE_CATEGORIES
+            if sec.sheet not in _BESPOKE_CONFIG_SHEETS
         ),
         (schema.SHEET_TAG_GROUPS, _apply_tag_groups),
         (schema.SHEET_TAGS, functools.partial(_apply_tags, id_map=id_map)),
@@ -289,6 +301,14 @@ async def _run(
             sr = SectionResult(sheet=sheet)
             result.sections.append(sr)
             await applier(db, bundle, sr, dry_run)
+        # The license catalogue also runs for a CardLicenses-only import: it is what drops the
+        # cells whose metric or type exists nowhere.
+        dropped_license_cells: list[str] = []
+        invalid_license_cells: list[str] = []
+        if any(_wanted(s) for s in (*_LICENSE_CATALOGUE_SHEETS, SHEET_CARD_LICENSES)):
+            dropped_license_cells, invalid_license_cells = await _apply_license_catalogue(
+                db, bundle, result, _wanted
+            )
         # The Principles sheet does not carry the source's references (each
         # instance numbers its own), so number whatever that section created.
         await ensure_principle_references(db)
@@ -314,6 +334,16 @@ async def _run(
         for ent in wanted_entity_sections:
             sr = SectionResult(sheet=ent.sheet)
             result.sections.append(sr)
+            if ent.sheet == SHEET_CARD_LICENSES:
+                sr.errors.extend(
+                    f"license cell {name}: its metric or type is on neither this instance "
+                    "nor in the bundle, skipped"
+                    for name in dropped_license_cells
+                )
+                sr.errors.extend(
+                    f"license cell {name}: not a valid license count, skipped"
+                    for name in invalid_license_cells
+                )
             await apply_entity_section(db, ent, bundle, sr, ent_resolver, email_to_id, remap_ctx)
         if adr_ids_before is not None:
             await _apply_legacy_decisions(db, bundle, result, adr_ids_before)
@@ -771,9 +801,13 @@ async def _apply_bookmark_shares(
 
 async def _apply_card_types(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: bool) -> None:
     existing = {ct.key: ct for ct in (await db.execute(select(CardType))).scalars().all()}
-    counted: set[str] = set()  # rows already in created / updated, so a restore adds no second
     for row in bundle.rows(schema.SHEET_CARD_TYPES):
         data = _coerce(row, exp.CARD_TYPE_COLUMNS, exp.CARD_TYPE_JSON)
+        # An older bundle still carries ``licensingModel``; license metrics replaced it.
+        if data.get("fields_schema") is not None:
+            data["fields_schema"] = without_model_field(
+                cast(str, data.get("key")), data["fields_schema"]
+            )
         # NOT NULL JSONB columns: a hand-authored content pack may declare the
         # column and leave the cell blank, which `from_cell` reads as None and
         # the insert would reject. An absent column is still left alone (see
@@ -791,23 +825,11 @@ async def _apply_card_types(db, bundle: WorkspaceBundle, sr: SectionResult, dry_
             db.add(ct)
             existing[key] = ct
             sr.created += 1
-            counted.add(key)
         else:
             # Never flip a built-in type's identity; merge mutable schema only.
             # (The row was matched by key, so the key itself never differs.)
             cols = [c for c in exp.CARD_TYPE_COLUMNS if c != "built_in"]
-            before = sr.updated
             _update_if_changed(current, data, cols, sr)
-            if sr.updated > before:
-                counted.add(key)
-    # ``licensingModel`` is protected (the metamodel route refuses to remove it): a bundle
-    # that lacks it must not strip it either.
-    for key, ct in existing.items():
-        restored = move_model_field(key, ct.fields_schema or [])
-        if restored is not None:
-            ct.fields_schema = restored
-            if key not in counted:
-                sr.updated += 1
     await db.flush()
     # A bundle older than the category registry (or a content pack that ships
     # no CardTypeCategories sheet) still names its layers: adopt any the
@@ -851,7 +873,7 @@ async def _apply_card_type_categories(
             data["translations"] = {}
         current = existing.get(key)
         if current is None:
-            fresh = {k: v for k, v in data.items() if v is not None}
+            fresh = _not_none(data)
             fresh.setdefault("label", key)
             if "sort_order" not in fresh:
                 fresh["sort_order"] = await card_type_categories.next_sort_order(db)
@@ -953,6 +975,171 @@ def _make_config_applier(sec: schema.ConfigSection):
         await db.flush()
 
     return _apply
+
+
+# ---------------------------------------------------------------------------
+# License catalogue (metrics, then the types of each metric)
+# ---------------------------------------------------------------------------
+
+SHEET_CARD_LICENSES = "CardLicenses"
+_LICENSE_CATALOGUE_SHEETS = (schema.SHEET_LICENSE_METRICS, schema.SHEET_LICENSE_TYPES)
+# Config sheets applied by their own applier, not by the generic loop.
+_BESPOKE_CONFIG_SHEETS = frozenset({schema.SHEET_CARD_TYPE_CATEGORIES, *_LICENSE_CATALOGUE_SHEETS})
+# What a type row derived from an old bundle never changes on a row the target already has.
+_DERIVED_TYPE_KEEPS = ("archived", "sort_order")
+
+
+def _config_section(sheet: str) -> schema.ConfigSection:
+    return next(s for s in schema.CONFIG_SECTIONS if s.sheet == sheet)
+
+
+def _not_none(data: dict[str, Any]) -> dict[str, Any]:
+    return {k: v for k, v in data.items() if v is not None}
+
+
+def _fresh(data: dict[str, Any], key: str) -> dict[str, Any]:
+    """A new catalogue row's values: an empty cell takes the model default, the label the key."""
+    fresh = _not_none(data)
+    fresh.setdefault("label", key)
+    return fresh
+
+
+async def _apply_license_catalogue(
+    db, bundle: WorkspaceBundle, result: ApplyResult, wanted: Callable[[str], bool]
+) -> tuple[list[str], list[str]]:
+    """Upsert the license metrics and the types of each metric, and drop from the bundle's
+    ``CardLicenses`` the cells whose metric or type is on neither the target nor in the bundle.
+    Returns the dropped ``metric:type`` names and the names of the cells the API's cell rules
+    refuse, for the ``CardLicenses`` section's report. A metric or type row that breaks the
+    API's key / label rules is counted ``failed``, reported and skipped, so its cells drop too.
+
+    A bundle written before license metrics (no ``LicenseMetrics`` sheet — absent, never merely
+    empty — or a type row without a ``metric_key`` column) has its catalogue derived as
+    migration 192 does (``license_compat.derive_catalogue``). Its metrics are only inserted,
+    never changed, and a type row it yields never changes ``archived`` or ``sort_order`` of a
+    target row; it is written only when one of the two catalogue sheets is selected, and with
+    ``CardLicenses`` alone it only builds the set of known cells. A new-format bundle follows
+    the config merge.
+    A type whose metric is on neither side is reported and skipped (its cells then drop); one
+    whose metric is only in the bundle, its sheet not written, is reported and not created.
+    When ``CardLicenses`` is wanted, ``bundle.sheets`` gets the filtered rows in place: the
+    caller's bundle object is changed."""
+    metric_sec = _config_section(schema.SHEET_LICENSE_METRICS)
+    type_sec = _config_section(schema.SHEET_LICENSE_TYPES)
+    metric_rows = bundle.rows(metric_sec.sheet)
+    type_rows = bundle.rows(type_sec.sheet)
+    card_rows = bundle.rows(SHEET_CARD_LICENSES)
+    # The column missing, not an empty cell: a new bundle's blank row fails on its own.
+    old = metric_sec.sheet not in bundle.sheets or any("metric_key" not in r for r in type_rows)
+    if old:
+        metric_rows, type_rows = license_compat.derive_catalogue(metric_rows, type_rows, card_rows)
+    # An old bundle's types need their derived metrics, so either sheet writes both.
+    write_metrics = wanted(metric_sec.sheet) or (old and wanted(type_sec.sheet))
+    write_types = wanted(type_sec.sheet) or (old and wanted(metric_sec.sheet))
+
+    metrics = {m.key: m for m in (await db.execute(select(LicenseMetric))).scalars()}
+    metric_keys = set(metrics)
+    msr = SectionResult(sheet=metric_sec.sheet) if write_metrics else None
+    if msr is not None:
+        result.sections.append(msr)
+    for row in metric_rows:
+        data = _coerce(row, metric_sec.columns, metric_sec.json_columns)
+        key = data.get("key")
+        if not key:
+            if msr is not None:
+                msr.failed += 1
+            continue
+        error = license_compat.check_catalogue_row(data, LicenseMetricCreate, LicenseMetricUpdate)
+        if error:
+            if msr is not None:
+                msr.failed += 1
+                msr.errors.append(
+                    f"license metric {license_compat.clip(repr(key))}: {error}, skipped"
+                )
+            continue
+        metric_keys.add(key)
+        if msr is None:
+            continue
+        current = metrics.get(key)
+        if current is None:
+            metrics[key] = LicenseMetric(**_fresh(data, key))
+            db.add(metrics[key])
+            msr.created += 1
+        elif old:  # the bundle said nothing about metrics: the target's row stays as it is
+            msr.skip("already_present")
+        else:
+            cols = [c for c in metric_sec.columns if c not in metric_sec.natural_key]
+            # An empty cell on a row the target has says nothing: the NOT NULL column stays.
+            _update_if_changed(current, _not_none(data), cols, msr)
+
+    types = {(t.metric_key, t.key): t for t in (await db.execute(select(LicenseType))).scalars()}
+    known: set[tuple[str, str]] = set(types)
+    tsr = SectionResult(sheet=type_sec.sheet) if write_types else None
+    if tsr is not None:
+        result.sections.append(tsr)
+    keeps = type_sec.natural_key + (_DERIVED_TYPE_KEEPS if old else ())
+    for row in type_rows:
+        data = _coerce(row, type_sec.columns, type_sec.json_columns)
+        metric_key, key = data.get("metric_key"), data.get("key")
+        if not metric_key or not key:
+            if tsr is not None:
+                tsr.failed += 1
+            continue
+        error = license_compat.check_catalogue_row(data, LicenseTypeCreate, LicenseTypeUpdate)
+        if error:
+            if tsr is not None:
+                tsr.failed += 1
+                name = license_compat.clip(f"{metric_key}:{key!r}")
+                tsr.errors.append(f"license type {name}: {error}, skipped")
+            continue
+        if metric_key not in metric_keys:
+            if tsr is not None:
+                tsr.skip("unknown_metric")
+                tsr.errors.append(
+                    f"license type {license_compat.clip(f'{metric_key}:{key}')}: its metric is "
+                    "on neither this instance nor in the bundle, skipped"
+                )
+            continue
+        known.add((metric_key, key))
+        if tsr is None:
+            continue
+        if metric_key not in metrics:  # only in the bundle, and its sheet is not written
+            tsr.skip("unknown_metric")
+            tsr.errors.append(
+                f"license type {license_compat.clip(f'{metric_key}:{key}')}: its metric is not "
+                "on this instance and the metrics sheet is not imported, skipped"
+            )
+            continue
+        current = types.get((metric_key, key))
+        if current is None:
+            types[(metric_key, key)] = LicenseType(**_fresh(data, key))
+            db.add(types[(metric_key, key)])
+            tsr.created += 1
+        else:
+            cols = [c for c in type_sec.columns if c not in keeps]
+            _update_if_changed(current, _not_none(data), cols, tsr)
+    await db.flush()
+
+    if not wanted(SHEET_CARD_LICENSES):
+        return [], []
+    dropped: set[str] = set()
+    invalid: set[str] = set()
+    kept_rows: list[dict[str, Any]] = []
+    gone: list[str]
+    for row in card_rows:
+        items = license_compat.items_of(row)
+        if items is None:  # bad JSON, or not an object: nothing the entity pass can store
+            items, gone, bad = {}, [], ["items"]
+        else:  # the known cells first, so a bundle's long key never reaches the cell check
+            items, gone = license_compat.keep_known_cells(items, known)
+            items, bad = license_compat.drop_invalid_cells(items)
+        dropped.update(gone)
+        invalid.update(bad)
+        # Always the validated items: a cell is stored as the API stores it, extra keys gone.
+        kept_rows.append({**row, "items": items})
+    # The entity pass reads the sheet from the bundle: hand it the filtered rows.
+    bundle.sheets[SHEET_CARD_LICENSES] = kept_rows
+    return sorted(dropped), sorted(invalid)
 
 
 # ---------------------------------------------------------------------------
@@ -1258,6 +1445,9 @@ def _make_cards_applier(user: User, id_map: rm.IdMap | None = None):
             data = _coerce(row, exp.CARD_COLUMNS, exp.CARD_JSON)
             type_key = data.get("type")
             name = data.get("name")
+            # An older bundle's value of the retired field, dropped as migration 192 does.
+            if type_key in LICENSING_TYPES and isinstance(data.get("attributes"), dict):
+                data["attributes"] = {k: v for k, v in data["attributes"].items() if k != MODEL_KEY}
             if not type_key or not name:
                 sr.failed += 1
                 continue

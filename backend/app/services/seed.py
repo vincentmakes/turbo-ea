@@ -30,7 +30,6 @@ from app.services.archimate.enterprise_object_seed import (
 from app.services.archimate.viewpoint_example_seed import seed_viewpoint_examples
 from app.services.archimate.viewpoint_seed import seed_viewpoints
 from app.services.hierarchy import HIERARCHY_LEVEL_KEY, hierarchy_level_field_def
-from app.services.licensing_migration import licensing_section
 
 # ── Reusable option lists ──────────────────────────────────────────────
 
@@ -3503,7 +3502,6 @@ TYPES = [
                     },
                 ],
             },
-            licensing_section(),
             {
                 "section": "Assessment",
                 "translations": {
@@ -4209,7 +4207,6 @@ TYPES = [
                     },
                 ],
             },
-            licensing_section(),
             {
                 "section": "Cost",
                 "translations": {
@@ -7410,6 +7407,11 @@ async def seed_metamodel(db: AsyncSession) -> None:
     from app.services.cost_item_types import seed_default_items
 
     await seed_default_items(db)
+
+    # ── License metrics (users, installations; insert-only, no types) ──
+    from app.services.license_types import seed_default_metrics
+
+    await seed_default_metrics(db)
 
     # ── Built-in homepage dashboards (Overview, My Workspace, Admin; insert-only) ──
     from app.services.dashboard_service import seed_dashboards

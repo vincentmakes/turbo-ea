@@ -136,17 +136,23 @@ O campo **Custo anual total** (`costTotalAnnual`) do card é derivado dos itens 
 
 ### Seção de Licenças (Aplicação e Componente de TI)
 
-A seção **Licenciamento** regista, ano a ano, quantas licenças o card tem contratadas e quantas são realmente usadas. Fica junto dos Custos e tem a mesma linha verde **Time Travel** ao longo de seis anos: os quatro anteriores ao atual, o atual e o **Forecast**. As métricas que o card acompanha (**Utilizadores**, **Instalações**) vêm do seu **Modelo de licenciamento**, mostrado no topo da secção. Quem pode editar o card altera-o com **Editar**: marque **Utilizadores** e/ou **Instalações** e depois **Guardar**. O modelo não aparece entre os restantes campos do card.
+A seção **Licenciamento** regista, ano a ano, quantas licenças o card tem contratadas e quantas são realmente usadas. Fica junto aos Custos e tem a mesma linha verde **Time Travel** sobre seis anos: os quatro anteriores ao atual, o atual e o **Forecast**. Tudo o que está na seção diz respeito ao ano selecionado.
 
-![Seção de Licenças](../assets/img/en/104_card_licensing.png)
+Um card tem os **pares** *Métrica: Tipo* (por exemplo *Utilizadores: Admin* ou *Instalações: Prod*) que foram adicionados ao ano selecionado. Não há nenhuma definição ao nível do card para assinalar: um par existe num ano a partir do momento em que o adiciona.
 
-- **Por métrica e tipo de licença** — Cada métrica tem um bloco com um mosaico por tipo de licença que mostra a quantidade **licenciada**, a quantidade **real**, a **% de utilização** e um estado: **Conforme**, **Perto do limite** (a partir de 80 %), **Sobrelicenciado** (real acima do licenciado) ou **Sem dados**. Uma barra empilhada soma os tipos. Os tipos de licença vêm do catálogo que um administrador gere em [Metamodelo → Tipos de licença](../admin/metamodel.md#tipos-de-licença).
-- **Adicionar e editar** — Uma quantidade é adicionada, editada ou eliminada numa caixa de diálogo. Deixar **Real** vazio significa «sem dados», o que é diferente de 0.
-- **Forecast** — O ano Forecast só aceita a quantidade licenciada. **Copiar para Forecast** copia as quantidades licenciadas do ano que está a ver.
+![Seção de Licenciamento](../assets/img/en/104_card_licensing.png)
 
-**Um novo ano fiscal.** Quando um card ainda não tem dados de licenciamento para o novo ano atual, a seção mostra as quantidades licenciadas do ano anterior marcadas como **não confirmadas**, sem quantidade real, para que um novo ano nunca herde o consumo do anterior. Ficam assim até alguém as confirmar ou editar uma quantidade.
+- **Barras** — Cada par é uma barra horizontal, agrupada sob um cabeçalho por métrica, de modo que os utilizadores só são comparados com utilizadores e as instalações só com instalações. Numa barra, **Licenciado** é a barra larga e clara ao fundo e **Real** a barra mais estreita e sólida à frente. No fim da barra, o consumo lê-se **real / licenciado (%)**, colorido conforme o seu estado. Um par sem valores indica **sem dados**.
+- **Estado** — Um chip no topo indica o estado do card para o ano, e cada métrica tem o seu próprio chip: **Conforme**, **Perto do limite** (a partir de 80 %), **Sobrelicenciado** (real acima do licenciado) ou **Sem dados reais**. Um card sem nenhum par no ano está **Sem dados reais**. O ano Forecast não tem estado.
+- **Histórico** — Clique numa barra, ou no chip do par por baixo do gráfico, para abrir o **histórico** desse par por baixo das barras: as suas quantidades licenciadas e reais do ano atual, dos quatro anteriores e do ano Forecast (apenas licenciado), com os restantes pares atenuados. Clique de novo no par, ou noutro, para fechar ou mudar.
+- **Adicionar licença** — Escolha primeiro a **métrica** e depois um **tipo de licença** dessa métrica. As métricas e os tipos arquivados não podem ser escolhidos, e os pares que o ano já tem não são oferecidos de novo. O par é adicionado apenas ao ano selecionado. Abra um par para editar as suas quantidades, ou esvazie-o para remover o par desse ano sem tocar nos outros anos. Deixar **Real** vazio significa «sem dados», o que é diferente de 0.
+- **Forecast** — O ano Forecast só aceita a quantidade licenciada. **Copiar licenciado para Forecast** na caixa de diálogo copia a quantidade licenciada do ano que está a ver.
 
-**Quem pode ver e editar as licenças.** Pode **vê-las** com a permissão `licenses.view`, ou se tiver qualquer papel de stakeholder no card. Pode **editá-las** com a permissão `licenses.edit`, ou se tiver no card um papel de stakeholder que permita editar o card. Por predefinição, só os administradores têm `licenses.edit`. Uma alteração aparece no separador Histórico como **Licenças atualizadas**, com os tipos de licença afetados mas não as quantidades, e não pode ser revertida.
+As métricas e os tipos de licença vêm do catálogo que um administrador gere em [Metamodelo → Tipos de licença](../admin/metamodel.md#tipos-de-licença).
+
+**Um novo ano fiscal.** Quando um card ainda não tem dados de licenças para o novo ano atual, a seção mostra os pares do ano anterior com as respetivas quantidades licenciadas, desenhados **atenuados** e marcados como **não confirmados**, sem quantidade real, de modo que um novo ano nunca herda o consumo do último. Mantêm-se assim até alguém confirmar o ano (**Confirmar**) ou editar uma quantidade.
+
+**Quem pode ver e editar as licenças.** Pode **vê-las** com a permissão `licenses.view`, ou se tiver qualquer papel de parte interessada no card. Pode **editá-las** com a permissão `licenses.edit`, ou se tiver no card um papel de parte interessada que permita editar o card. Por predefinição, só os administradores têm `licenses.edit`. Uma alteração aparece no separador Histórico como **Licenças atualizadas**, com os pares afetados (*Métrica: Tipo*) mas não as quantidades, e não pode ser revertida.
 
 ### Seção de Hierarquia
 

@@ -22,7 +22,8 @@
 | **Pontuação de Confiança** | Uma classificação de 0–100% indicando o quão confiável é uma descrição gerada por IA |
 | **Item de custo** | Uma linha do custo anual de uma Aplicação ou Componente de TI (por exemplo, alojamento), retirada do catálogo em Admin > Metamodelo > Itens de custo. O TCO de um card é a soma dos seus itens no ano fiscal |
 | **TCO (custo total de propriedade)** | O custo anual total de uma Aplicação ou Componente de TI num ano fiscal, sempre derivado dos seus itens de custo e nunca digitado à mão |
-| **Tipo de licença** | Uma espécie de licença (por exemplo Admin ou Utilizador final) do catálogo em Admin > Metamodelo > Tipos de licença. Os cards de Aplicação e Componente de TI registam quantidades licenciadas e reais por tipo de licença, métrica e ano fiscal |
+| **Métrica de licença** | Aquilo em que se contam as licenças de uma Aplicação ou de um Componente de TI (por predefinição Utilizadores e Instalações), do catálogo em Admin > Metamodelo > Tipos de licença. As quantidades de métricas diferentes nunca são somadas |
+| **Tipo de licença** | Uma classe de licença (por exemplo Admin ou Prod) que pertence a uma única Métrica de licença, do catálogo em Admin > Metamodelo > Tipos de licença. Um card regista quantidades licenciadas e reais para cada par Métrica: Tipo e ano fiscal |
 | **Utilização** | Quantidade real de licenças dividida pela quantidade licenciada, em percentagem. Abaixo de 80 % um tipo de licença está conforme, a partir de 80 % está perto do limite, acima de 100 % está sobrelicenciado |
 | **Linha de custo** | Uma entrada de orçamento ou custo real (CapEx/OpEx) em uma iniciativa PPM, usada para rastrear gastos financeiros |
 | **Qualidade de Dados** | Uma pontuação de completude de 0–100% baseada nos campos preenchidos e seus pesos configurados |

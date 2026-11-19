@@ -146,3 +146,7 @@ frontend/e2e/.auth/
 
 # skills.sh canonical copy; Claude Code reads the tracked copy in .claude/skills/
 /.agents/
+
+# Machine-specific Codex files (absolute paths, local PATH)
+.codex/hooks.json
+.codex/config.toml

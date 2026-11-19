@@ -1,30 +1,66 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field, StrictInt
+from datetime import datetime
+from typing import Annotated
 
-from app.schemas.cost_items import KEY_PATTERN
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StringConstraints
+
+from app.schemas.cost_items import INT32_MAX, KEY_PATTERN
+
+# Stripped before the length check: "   " is no label.
+Label = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+
+
+class LicenseMetricCreate(BaseModel):
+    key: str = Field(..., pattern=KEY_PATTERN)
+    label: Label
+    translations: dict[str, str] | None = None
+
+
+class LicenseMetricUpdate(BaseModel):
+    # A metric's key never changes: a ``key`` in the body is refused, not ignored.
+    model_config = ConfigDict(extra="forbid")
+
+    label: Label | None = None
+    translations: dict[str, str] | None = None
+    archived: bool | None = None
+    sort_order: int | None = Field(None, ge=0, le=INT32_MAX)
 
 
 class LicenseTypeCreate(BaseModel):
     key: str = Field(..., pattern=KEY_PATTERN)
-    label: str = Field(..., min_length=1, max_length=100)
+    label: Label
     translations: dict[str, str] | None = None
 
 
 class LicenseTypeUpdate(BaseModel):
-    label: str | None = Field(None, min_length=1, max_length=100)
+    # A type never moves to another metric: a ``metric_key`` in the body is refused.
+    model_config = ConfigDict(extra="forbid")
+
+    label: Label | None = None
     translations: dict[str, str] | None = None
     archived: bool | None = None
-    sort_order: int | None = Field(None, ge=0, le=2147483647)
+    sort_order: int | None = Field(None, ge=0, le=INT32_MAX)
 
 
 class LicenseTypeOut(BaseModel):
+    id: str
+    metric_key: str
+    key: str
+    label: str
+    sort_order: int
+    archived: bool
+    translations: dict[str, str] = {}
+
+
+class LicenseMetricOut(BaseModel):
     id: str
     key: str
     label: str
     sort_order: int
     archived: bool
     translations: dict[str, str] = {}
+    types: list[LicenseTypeOut]
 
 
 class LicenseCellWrite(BaseModel):
@@ -60,6 +96,7 @@ class YearLicensesOut(BaseModel):
     fallback_from: int | None
     metrics: list[MetricResultOut]
     status: str | None
+    pair_keys: list[str]
 
 
 class YearLicensesDetailOut(YearLicensesOut):
@@ -68,41 +105,31 @@ class YearLicensesDetailOut(YearLicensesOut):
 
 class CardLicensesOut(BaseModel):
     can_edit: bool
-    licensing_model: list[str]
     years: list[YearLicensesOut]
-    catalogue: list[LicenseTypeOut]
 
 
-class ReportTypeCell(BaseModel):
-    licensed: int
-    actual: int | None
-    pct: float | None
-    no_licence: bool
+class ReportMetric(BaseModel):
+    metric: str
     status: str
+    worst_pct: float | None
+    licensed_total: int
+    actual_total: int | None
+    types: list[LicenseTypeResultOut]
 
 
 class ReportRow(BaseModel):
     id: str
     name: str
     type: str
+    alias: str | None
+    logo_updated_at: datetime | None = None
     attributes: dict
     group: str | None = None
     status: str | None
     worst_pct: float | None
     worst_no_licence: bool
-    licensed_total: int
-    actual_total: int | None
-    by_type: dict[str, ReportTypeCell]
-
-
-class ReportTrendCell(BaseModel):
-    licensed: int
-    actual: int | None
-
-
-class ReportTrendYear(BaseModel):
-    fiscal_year: int
-    cards: dict[str, dict[str, ReportTrendCell]]
+    confirmed: bool
+    by_metric: list[ReportMetric]
 
 
 class ReportAggregate(BaseModel):
@@ -115,12 +142,11 @@ class LicenseReportOut(BaseModel):
     fiscal_year: int
     current_fiscal_year: int
     fiscal_year_start: int
-    metric: str
     years: list[int]
-    license_types: list[LicenseTypeOut]
     aggregate: ReportAggregate | None
     rows: list[ReportRow]
-    trend: list[ReportTrendYear]
+    metrics_in_year: list[str]
+    types_in_year: list[str]
 
 
 class ImportIssueOut(BaseModel):
@@ -128,10 +154,10 @@ class ImportIssueOut(BaseModel):
     component: str
     reason: str
     detail: str = ""
+    metric: str = ""
 
 
 class ImportResultOut(BaseModel):
     matched: int
     applied: int
     skipped: list[ImportIssueOut]
-    flagged: list[ImportIssueOut]

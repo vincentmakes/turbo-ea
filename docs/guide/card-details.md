@@ -137,17 +137,23 @@ The card's **Total annual cost** field (`costTotalAnnual`) is derived from the c
 
 ### Licensing Section (Application and IT Component)
 
-The **Licensing** section records, year by year, how many licenses the card has under contract and how many are really used. It sits next to Costs and has the same green **Time Travel** row over six years: the four before the current one, the current one and the **Forecast**. Which metrics the card tracks (**Users**, **Installations**) comes from its **Licensing model**, shown at the top of the section. Anyone who can edit the card changes it with **Edit** there: tick **Users** and/or **Installations**, then **Save**. The model is not shown among the card's other fields.
+The **Licensing** section records, year by year, how many licenses the card has under contract and how many are really used. It sits next to Costs and has the same green **Time Travel** row over six years: the four before the current one, the current one and the **Forecast**. Everything in the section is for the selected year.
+
+A card has the **pairs** *Metric: Type* (for example *Users: Admin* or *Installations: Prod*) that were added to the selected year. There is no card-level setting to tick: a pair exists in a year once you add it.
 
 ![Licensing section](../assets/img/en/104_card_licensing.png)
 
-- **Per metric and license type** — Each metric has a block with one tile per license type showing the **licensed** count, the **actual** count, the **utilisation %** and a status: **Compliant**, **Approaching** (from 80 %), **Over-licensed** (actual above licensed) or **No data**. A stacked bar sums the types. License types come from the catalogue an administrator manages under [Metamodel → License types](../admin/metamodel.md#license-types).
-- **Adding and editing** — Add, edit or delete a count in a dialog. Leaving **Actual** empty means "no data", which is different from 0.
-- **Forecast** — The Forecast year takes the licensed count only. **Copy to Forecast** copies the licensed counts of the year you are viewing.
+- **Bars** — Each pair is one horizontal bar, grouped under a header per metric, so users are only compared with users and installations with installations. In a bar, **Licensed** is the wide pale bar behind and **Actual** the narrower solid bar in front. At the end of the bar the consumption reads **actual / licensed (%)**, coloured by its status. A pair with no values reads **no data**.
+- **Status** — A chip at the top gives the status of the card for the year, and each metric has its own chip: **Compliant**, **Approaching** (from 80 %), **Over-licensed** (actual above licensed) or **No actual data**. A card with no pair in the year is **No actual data**. The Forecast year has no status.
+- **History** — Click a bar, or the chip of the pair under the chart, to open the **history** of that pair below the bars: its licensed and actual counts for the current year, the four before it and the Forecast year (licensed only), with the other pairs dimmed. Click the pair again, or another pair, to close or switch it.
+- **Add license** — Pick the **metric** first, then a **license type** of that metric. Archived metrics and types cannot be chosen, and pairs the year already has are not offered again. The pair is added to the selected year only. Open a pair to edit its counts, or clear it to remove the pair from that year without touching other years. Leaving **Actual** empty means "no data", which is different from 0.
+- **Forecast** — The Forecast year takes the licensed count only. **Copy licensed to Forecast** in the dialog copies the licensed count of the year you are viewing.
 
-**A new fiscal year.** When a card has no licensing data for the new current year yet, the section shows the previous year's licensed counts marked **not confirmed**, with no actual count, so a new year never inherits last year's consumption. They stay that way until someone confirms them or edits a count.
+Metrics and license types come from the catalogue an administrator manages under [Metamodel → License types](../admin/metamodel.md#license-types).
 
-**Who can see and edit licenses.** You can **view** them with the `licenses.view` permission, or when you hold any stakeholder role on the card. You can **edit** them with the `licenses.edit` permission, or when you hold a stakeholder role on the card that allows editing the card. By default only administrators hold `licenses.edit`. A change appears in the History tab as **Licenses updated**, naming the license types touched but not the counts, and it cannot be rolled back.
+**A new fiscal year.** When a card has no licensing data for the new current year yet, the section shows the pairs of the previous year with their licensed counts, drawn **faded** and marked **not confirmed**, with no actual count, so a new year never inherits last year's consumption. They stay that way until someone confirms the year (**Confirm**) or edits a count.
+
+**Who can see and edit licenses.** You can **view** them with the `licenses.view` permission, or when you hold any stakeholder role on the card. You can **edit** them with the `licenses.edit` permission, or when you hold a stakeholder role on the card that allows editing the card. By default only administrators hold `licenses.edit`. A change appears in the History tab as **Licenses updated**, naming the pairs touched (*Metric: Type*) but not the counts, and it cannot be rolled back.
 
 ### Hierarchy Section
 

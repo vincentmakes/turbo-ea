@@ -32,14 +32,11 @@ import type { CostItemType, TranslationMap } from "@/types";
 
 const COST_PATH = "/metamodel/cost-item-types";
 
-export type CatalogueTextKey = "costItems" | "licenseTypes";
+/** Which `admin:metamodel.<key>.*` texts the edit dialog reads: the cost items and the license catalogue share it. */
+export type CatalogueTextKey = "costItems" | "licenseTypes" | "licenseMetrics";
 
-/** The `metamodel.<textKey>.*` keys of `en/admin.json` this dialog reads, for both catalogues. */
-export const TEXT_SUFFIXES = [
-  "dialogTitle",
-  "description",
-  "archivedHelp",
-  "newItem",
+/** The `metamodel.<group>.*` texts `CostItemEditDialog` builds at run time, for every `CatalogueTextKey`. */
+export const EDIT_TEXT_SUFFIXES = [
   "createTitle",
   "editTitle",
   "keyLabel",
@@ -47,12 +44,20 @@ export const TEXT_SUFFIXES = [
   "labelLabel",
   "translationsLabel",
   "translationsHelp",
-  "archived",
-  "archive",
-  "restore",
   "errors.duplicate_key",
   "errors.invalid_key",
   "errors.generic",
+] as const;
+
+/** The `metamodel.costItems.*` texts only the cost items list dialog reads. */
+export const LIST_TEXT_SUFFIXES = [
+  "dialogTitle",
+  "description",
+  "archivedHelp",
+  "newItem",
+  "archived",
+  "archive",
+  "restore",
 ] as const;
 
 function costItemErrorMessage(
@@ -85,7 +90,7 @@ interface EditProps {
   onSaved: () => void;
 }
 
-function CostItemEditDialog({ open, path, textKey, item, onClose, onSaved }: EditProps) {
+export function CostItemEditDialog({ open, path, textKey, item, onClose, onSaved }: EditProps) {
   const { t } = useTranslation(["admin", "common"]);
   const [key, setKey] = useState("");
   const [label, setLabel] = useState("");
@@ -187,21 +192,12 @@ function CostItemEditDialog({ open, path, textKey, item, onClose, onSaved }: Edi
 export interface ManageCostItemsDialogProps {
   open: boolean;
   onClose: () => void;
-  /** The catalogue endpoint; defaults to the cost item types. */
-  path?: string;
-  /** Which `admin:metamodel.*` texts to show; defaults to `costItems`. */
-  textKey?: CatalogueTextKey;
 }
 
-export default function ManageCostItemsDialog({
-  open,
-  onClose,
-  path = COST_PATH,
-  textKey = "costItems",
-}: ManageCostItemsDialogProps) {
+export default function ManageCostItemsDialog({ open, onClose }: ManageCostItemsDialogProps) {
   const { t } = useTranslation(["admin", "common"]);
   const fieldLabel = useFieldLabel();
-  const { data, refetch } = useApiQuery<CostItemType[]>(open ? path : null);
+  const { data, refetch } = useApiQuery<CostItemType[]>(open ? COST_PATH : null);
   const [editing, setEditing] = useState<CostItemType | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -211,10 +207,10 @@ export default function ManageCostItemsDialog({
     setBusy(true);
     setError(null);
     try {
-      await api.patch(`${path}/${encodeURIComponent(item.key)}`, { archived });
+      await api.patch(`${COST_PATH}/${encodeURIComponent(item.key)}`, { archived });
       refetch();
     } catch (err) {
-      setError(costItemErrorMessage(err, t, textKey));
+      setError(costItemErrorMessage(err, t, "costItems"));
     } finally {
       setBusy(false);
     }
@@ -228,13 +224,13 @@ export default function ManageCostItemsDialog({
   return (
     <>
       <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-        <DialogTitle>{t(`metamodel.${textKey}.dialogTitle`)}</DialogTitle>
+        <DialogTitle>{t(`metamodel.costItems.dialogTitle`)}</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            {t(`metamodel.${textKey}.description`)}
+            {t(`metamodel.costItems.description`)}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {t(`metamodel.${textKey}.archivedHelp`)}
+            {t(`metamodel.costItems.archivedHelp`)}
           </Typography>
           {error && (
             <Alert severity="error" onClose={() => setError(null)} sx={{ mb: 2 }}>
@@ -266,7 +262,7 @@ export default function ManageCostItemsDialog({
                     </Typography>
                   </Box>
                   {c.archived && (
-                    <Chip size="small" variant="outlined" label={t(`metamodel.${textKey}.archived`)} />
+                    <Chip size="small" variant="outlined" label={t(`metamodel.costItems.archived`)} />
                   )}
                   <Tooltip title={t("common:actions.edit")}>
                     <IconButton
@@ -279,12 +275,12 @@ export default function ManageCostItemsDialog({
                     </IconButton>
                   </Tooltip>
                   <Tooltip
-                    title={c.archived ? t(`metamodel.${textKey}.restore`) : t(`metamodel.${textKey}.archive`)}
+                    title={c.archived ? t(`metamodel.costItems.restore`) : t(`metamodel.costItems.archive`)}
                   >
                     <IconButton
                       size="small"
                       aria-label={`${
-                        c.archived ? t(`metamodel.${textKey}.restore`) : t(`metamodel.${textKey}.archive`)
+                        c.archived ? t(`metamodel.costItems.restore`) : t(`metamodel.costItems.archive`)
                       }: ${name}`}
                       disabled={busy}
                       onClick={() => setArchived(c, !c.archived)}
@@ -302,14 +298,14 @@ export default function ManageCostItemsDialog({
             startIcon={<MaterialSymbol icon="add" size={18} />}
             onClick={() => setCreating(true)}
           >
-            {t(`metamodel.${textKey}.newItem`)}
+            {t(`metamodel.costItems.newItem`)}
           </Button>
           <Button onClick={onClose}>{t("common:actions.close")}</Button>
         </DialogActions>
       </Dialog>
       <CostItemEditDialog
-        path={path}
-        textKey={textKey}
+        path={COST_PATH}
+        textKey="costItems"
         open={creating || editing !== null}
         item={editing}
         onClose={closeEdit}

@@ -5,6 +5,7 @@ from __future__ import annotations
 from app.services.license_status import (
     MetricResult,
     card_status,
+    card_worst,
     metric_result,
     type_result,
 )
@@ -76,6 +77,10 @@ def test_priority_over_approaching_no_data_compliant():
     assert card_status([_m("compliant")]) == "compliant"
 
 
+def test_card_with_no_metric_is_no_actual_data():
+    assert card_status([]) == "no_actual_data"
+
+
 def test_worst_pct_is_the_highest_type_pct_and_no_licence_wins():
     m = metric_result(
         "users",
@@ -93,3 +98,13 @@ def test_order_follows_catalogue_then_unknown_keys_sorted():
 
 def test_catalogue_key_without_cell_is_left_out():
     assert metric_result("users", {"a": {}}, ["b", "a"]).types[0].key == "a"
+
+
+def test_card_worst_is_the_highest_pct_and_any_no_licence_across_metrics():
+    a = MetricResult("users", [], True, "compliant", 50.0, False, 0, None)
+    b = MetricResult("installations", [], True, "over", 120.0, True, 0, None)
+    c = MetricResult("cores", [], False, "no_actual_data", None, False, 0, None)
+    assert card_worst([a, b, c]) == (120.0, True)
+    assert card_worst([a, c]) == (50.0, False)
+    assert card_worst([c]) == (None, False)
+    assert card_worst([]) == (None, False)

@@ -476,42 +476,6 @@ describe("TypeDetailDrawer — save", () => {
   });
 });
 
-describe("TypeDetailDrawer — protected licensingModel field", () => {
-  const WITH_MODEL: CardType = makeCardType({
-    key: "Application",
-    label: "Application",
-    fields_schema: [
-      makeSection({ section: "__description", fields: [makeField({ key: "alias" })] }),
-      makeSection({
-        section: "Licensing",
-        fields: [makeField({ key: "licensingModel", type: "multiple_select" })],
-      }),
-    ],
-  });
-
-  it("refuses to delete it, with a readable message and no request", async () => {
-    const { user } = renderDrawer("Application", [WITH_MODEL]);
-    await screen.findByRole("dialog");
-    await user.click(screen.getByRole("button", { name: "stub-delete-field" }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      ta("metamodel.typeDrawer.licenseFieldLocked"),
-    );
-    expect(screen.queryByText(ta("metamodel.typeDrawer.deleteField"))).not.toBeInTheDocument();
-    expect(mockApi.callsOf("patch", /^\/metamodel\/types\//)).toHaveLength(0);
-  });
-
-  it("translates the server refusal license_field_required", async () => {
-    mockApi.fail("patch", /^\/metamodel\/types\/[^/]+$/, 400, "license_field_required");
-    const { user } = renderDrawer();
-    await screen.findByRole("dialog");
-    await user.click(screen.getByRole("button", { name: tc("actions.save") }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      ta("metamodel.typeDrawer.licenseFieldLocked"),
-    );
-  });
-});
-
 /* ------------------------------------------------------------------------- */
 /*  Subtypes                                                                  */
 /* ------------------------------------------------------------------------- */

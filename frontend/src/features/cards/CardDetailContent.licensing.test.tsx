@@ -1,5 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -31,19 +30,10 @@ vi.mock("@/features/bpm/ProcessAssessmentPanel", () => ({ default: () => null })
 vi.mock("@/features/cards/sections/SoAWTab", () => ({ default: () => null }));
 vi.mock("@/features/cards/sections/CostsSection", () => ({ default: () => null }));
 vi.mock("@/features/cards/sections/LicensingSection", () => ({
-  default: ({
-    cardId,
-    modelField,
-    onSaveModel,
-  }: {
-    cardId: string;
-    modelField?: { key: string };
-    onSaveModel?: (next: string[]) => Promise<void>;
-  }) => (
+  default: (props: Record<string, unknown>) => (
     <div data-testid="licensing-section">
-      {cardId}
-      <span data-testid="model-field">{modelField?.key}</span>
-      <button onClick={() => onSaveModel?.(["users"])}>save-model</button>
+      {String(props.cardId)}
+      <span data-testid="section-props">{Object.keys(props).sort().join(",")}</span>
     </div>
   ),
 }));
@@ -73,34 +63,25 @@ vi.mock("@/features/cards/sections", async () => {
   };
 });
 
-import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { resetExtensionHost } from "@/lib/extensionHost";
 import type { Card } from "@/types";
 import CardDetailContent from "./CardDetailContent";
 
-const typeOf = (
-  key: string,
-  sectionConfig: Record<string, unknown> = {},
-  schema?: unknown[],
-) => ({
+const typeOf = (key: string, sectionConfig: Record<string, unknown> = {}) => ({
   key,
   label: key,
   icon: "apps",
   color: "#0f7eb5",
   has_hierarchy: false,
   subtypes: [],
-  fields_schema: schema ?? [
+  fields_schema: [
     { section: "Basics", fields: [{ key: "fieldA", label: "Indicator A", type: "text" }] },
-    {
-      section: "Licensing",
-      fields: [{ key: "licensingModel", label: "Licensing model", type: "multiple_select" }],
-    },
   ],
   section_config: sectionConfig,
 });
 
-const cardOf = (type: string, extra: Record<string, unknown> = {}) =>
+const cardOf = (type: string) =>
   ({
     id: "card-1",
     name: "X",
@@ -110,7 +91,7 @@ const cardOf = (type: string, extra: Record<string, unknown> = {}) =>
     approval_status: "DRAFT",
     data_quality: 50,
     lifecycle: {},
-    attributes: { fieldA: "a", ...extra },
+    attributes: { fieldA: "a" },
     tags: [],
     stakeholders: [],
   }) as unknown as Card;
@@ -123,9 +104,8 @@ function renderFor(
   type: string,
   sectionConfig: Record<string, unknown> = {},
   permissions: typeof perms = perms,
-  extra: { schema?: unknown[]; attributes?: Record<string, unknown> } = {},
 ) {
-  const def = typeOf(type, sectionConfig, extra.schema);
+  const def = typeOf(type, sectionConfig);
   vi.mocked(useMetamodel).mockReturnValue({
     types: [def],
     relationTypes: [],
@@ -137,7 +117,7 @@ function renderFor(
   return render(
     <MemoryRouter>
       <CardDetailContent
-        card={cardOf(type, extra.attributes)}
+        card={cardOf(type)}
         perms={permissions}
         onCardUpdate={() => {}}
         showLdvSection={false}
@@ -166,56 +146,10 @@ describe("CardDetailContent licensing section", () => {
     expect(screen.queryByTestId("licensing-section")).not.toBeInTheDocument();
   });
 
-  it("does not render licensingModel (nor its dedicated section) as a generic field", async () => {
+  it("hands the Licensing section no licensing model: the card no longer tracks metrics", async () => {
     renderFor("Application");
-    expect(await screen.findByTestId("licensing-section")).toBeInTheDocument();
-    expect(screen.getByText("Indicator A")).toBeInTheDocument();
-    expect(screen.queryByText("Licensing model")).not.toBeInTheDocument();
-    expect(document.getElementById("card-section-custom-licensing")).toBeNull();
-  });
-
-  it("hands the Licensing section the model field and a save that merges the attributes", async () => {
-    const user = userEvent.setup();
-    renderFor("Application");
-    expect(await screen.findByTestId("model-field")).toHaveTextContent("licensingModel");
-    await user.click(screen.getByRole("button", { name: "save-model" }));
-    await waitFor(() =>
-      expect(api.patch).toHaveBeenCalledWith("/cards/card-1", {
-        attributes: { fieldA: "a", licensingModel: ["users"] },
-      }),
-    );
-  });
-
-  it("offers no model save to a reader", async () => {
-    renderFor("Application", {}, { ...perms, can_edit: false });
-    await screen.findByTestId("licensing-section");
-    await userEvent.setup().click(screen.getByRole("button", { name: "save-model" }));
-    expect(api.patch).not.toHaveBeenCalled();
-  });
-
-  it("keeps the stored options the editor does not show when it saves", async () => {
-    const user = userEvent.setup();
-    renderFor("Application", {}, perms, {
-      attributes: { licensingModel: ["installations", "cores"] },
-    });
-    await user.click(await screen.findByRole("button", { name: "save-model" }));
-    await waitFor(() =>
-      expect(api.patch).toHaveBeenCalledWith("/cards/card-1", {
-        attributes: { fieldA: "a", licensingModel: ["users", "cores"] },
-      }),
-    );
-  });
-
-  it("renders an admin's own licensingModel field of another section as a generic one", async () => {
-    renderFor("Application", {}, perms, {
-      schema: [
-        {
-          section: "Basics",
-          fields: [{ key: "licensingModel", label: "Own model", type: "text" }],
-        },
-      ],
-    });
-    expect(await screen.findByText("Own model")).toBeInTheDocument();
-    expect(screen.getByTestId("model-field")).toHaveTextContent("");
+    const props = (await screen.findByTestId("section-props")).textContent ?? "";
+    expect(props).not.toMatch(/model/i);
+    expect(props.split(",")).toEqual(expect.arrayContaining(["cardId", "onChanged"]));
   });
 });

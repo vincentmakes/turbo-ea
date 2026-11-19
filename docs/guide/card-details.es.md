@@ -139,17 +139,23 @@ El campo **Coste anual total** (`costTotalAnnual`) de la ficha se deriva de las 
 
 ### Sección de Licencias (Aplicación y Componente de TI)
 
-La sección **Licencias** registra, año a año, cuántas licencias tiene contratadas la ficha y cuántas se usan realmente. Está junto a los Costes y tiene la misma fila verde **Time Travel** sobre seis años: los cuatro anteriores al actual, el actual y el **Forecast**. Las métricas que sigue la ficha (**Usuarios**, **Instalaciones**) proceden de su **Modelo de licencias**, que se muestra en la parte superior de la sección. Quien puede editar la ficha lo cambia con **Editar**: marque **Usuarios** y/o **Instalaciones** y pulse **Guardar**. El modelo no aparece entre los demás campos de la ficha.
+La sección **Licencias** registra, año a año, cuántas licencias tiene contratadas la ficha y cuántas se usan realmente. Está junto a los Costes y tiene la misma fila verde **Time Travel** sobre seis años: los cuatro anteriores al actual, el actual y el **Forecast**. Todo lo que hay en la sección corresponde al año seleccionado.
+
+Una ficha tiene los **pares** *Métrica: Tipo* (por ejemplo *Usuarios: Admin* o *Instalaciones: Prod*) que se han añadido al año seleccionado. No hay ningún ajuste a nivel de ficha que marcar: un par existe en un año una vez que lo añade.
 
 ![Sección de Licencias](../assets/img/en/104_card_licensing.png)
 
-- **Por métrica y tipo de licencia** — Cada métrica tiene un bloque con un mosaico por tipo de licencia que muestra la cantidad **licenciada**, la cantidad **real**, el **% de utilización** y un estado: **Conforme**, **Cerca del límite** (desde el 80 %), **Sobrelicenciado** (real por encima de lo licenciado) o **Sin datos**. Una barra apilada suma los tipos. Los tipos de licencia proceden del catálogo que gestiona un administrador en [Metamodelo → Tipos de licencia](../admin/metamodel.md#tipos-de-licencia).
-- **Añadir y editar** — Una cantidad se añade, edita o elimina en un cuadro de diálogo. Dejar **Real** vacío significa «sin datos», que es distinto de 0.
-- **Forecast** — El año Forecast solo admite la cantidad licenciada. **Copiar a Forecast** copia las cantidades licenciadas del año que está viendo.
+- **Barras** — Cada par es una barra horizontal, agrupada bajo un encabezado por métrica, de modo que los usuarios solo se comparan con usuarios y las instalaciones solo con instalaciones. En una barra, **Licenciado** es la barra ancha y clara del fondo y **Real** la barra más estrecha y sólida de delante. Al final de la barra, el consumo se lee **real / licenciado (%)**, coloreado según su estado. Un par sin valores indica **sin datos**.
+- **Estado** — Una etiqueta arriba indica el estado de la ficha para el año, y cada métrica tiene la suya: **Conforme**, **Cerca del límite** (desde el 80 %), **Sobrelicenciado** (real por encima de lo licenciado) o **Sin datos reales**. Una ficha sin ningún par en el año está **Sin datos reales**. El año Forecast no tiene estado.
+- **Historial** — Haga clic en una barra, o en la etiqueta del par bajo el gráfico, para abrir el **historial** de ese par debajo de las barras: sus cantidades licenciadas y reales del año actual, los cuatro anteriores y el año Forecast (solo licenciado), con los demás pares atenuados. Haga clic de nuevo en el par, o en otro, para cerrarlo o cambiar.
+- **Añadir licencia** — Elija primero la **métrica** y después un **tipo de licencia** de esa métrica. Las métricas y los tipos archivados no se pueden elegir, y los pares que el año ya tiene no se ofrecen de nuevo. El par se añade solo al año seleccionado. Abra un par para editar sus cantidades, o vacíelo para quitar el par de ese año sin tocar los demás. Dejar **Real** vacío significa «sin datos», que es distinto de 0.
+- **Forecast** — El año Forecast solo admite la cantidad licenciada. **Copiar licenciado a Forecast** en el cuadro de diálogo copia la cantidad licenciada del año que está viendo.
 
-**Un nuevo año fiscal.** Cuando una ficha aún no tiene datos de licencias para el nuevo año actual, la sección muestra las cantidades licenciadas del año anterior marcadas como **sin confirmar**, sin cantidad real, de modo que un año nuevo nunca hereda el consumo del anterior. Se mantienen así hasta que alguien las confirma o edita una cantidad.
+Las métricas y los tipos de licencia proceden del catálogo que gestiona un administrador en [Metamodelo → Tipos de licencia](../admin/metamodel.md#tipos-de-licencia).
 
-**Quién puede ver y editar las licencias.** Puede **verlas** con el permiso `licenses.view`, o si tiene cualquier rol de interesado en la ficha. Puede **editarlas** con el permiso `licenses.edit`, o si tiene en la ficha un rol de interesado que permite editarla. Por defecto, solo los administradores tienen `licenses.edit`. Un cambio aparece en la pestaña Historial como **Licencias actualizadas**, con los tipos de licencia afectados pero no las cantidades, y no se puede revertir.
+**Un nuevo año fiscal.** Cuando una ficha aún no tiene datos de licencias para el nuevo año actual, la sección muestra los pares del año anterior con sus cantidades licenciadas, dibujados **atenuados** y marcados como **sin confirmar**, sin cantidad real, de modo que un año nuevo nunca hereda el consumo del anterior. Se mantienen así hasta que alguien confirma el año (**Confirmar**) o edita una cantidad.
+
+**Quién puede ver y editar las licencias.** Puede **verlas** con el permiso `licenses.view`, o si tiene cualquier rol de interesado en la ficha. Puede **editarlas** con el permiso `licenses.edit`, o si tiene en la ficha un rol de interesado que permite editarla. Por defecto, solo los administradores tienen `licenses.edit`. Un cambio aparece en la pestaña Historial como **Licencias actualizadas**, con los pares afectados (*Métrica: Tipo*) pero no las cantidades, y no se puede revertir.
 
 ### Sección de Jerarquía
 

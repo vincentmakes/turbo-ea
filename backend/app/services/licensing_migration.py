@@ -15,8 +15,7 @@ from collections.abc import Iterable
 
 EXT_KEY = "licensing"
 MODEL_KEY = "licensingModel"
-# The field lives alone in this section on both types, and the metamodel route refuses to
-# remove, retype, strip or move it (``_guard_license_model_field``).
+# Where migration 179 put the field, alone, on both types (frozen for migrations 178/179).
 LICENSING_SECTION = "Licensing"
 # Where the field sat before migration 179 (still read by 178's and 179's tests).
 GENERAL_SECTION = {
@@ -24,7 +23,6 @@ GENERAL_SECTION = {
     "ITComponent": "Component Information",
 }
 LICENSING_TYPES = frozenset(GENERAL_SECTION)
-REQUIRED_OPTIONS = frozenset({"users", "installations"})
 MAX_COUNT = 1_000_000_000
 
 # THE one definition of the field (migration 178 and the fresh-install seed both use it).
@@ -272,3 +270,70 @@ def citing_calculations(rows: Iterable[tuple[str, str, str]]) -> list[dict]:
         if cited:
             out.append({"id": calc_id, "name": name, "keys": cited})
     return out
+
+
+# The two metrics that existed before the catalogue, in the order migration 192 seeds them.
+# Frozen with the migration: the app reads ``license_types.DEFAULT_METRICS``.
+DEFAULT_METRICS = (("users", "Users"), ("installations", "Installations"))
+
+
+def derive_type_metrics(
+    types: Iterable[tuple[str, bool]],
+    used: dict[str, set[str]],
+    known: Iterable[str] = (),
+) -> list[tuple[str, str]]:
+    """``(type_key, metric_key)`` rows for migration 192, from ``(key, archived)`` types and
+    ``used[type_key]`` (the metrics holding data for that type). A type with data under one
+    metric belongs to it, under both it is listed under both, with none it goes under both
+    default metrics (the admin archives what they do not need). Only the defaults and the
+    ``known`` metrics (a bundle's own) count; data under any other metric is ignored.
+    ``archived`` is carried by the caller's templates, not decided here."""
+    order = [key for key, _ in DEFAULT_METRICS]
+    counted = order + [m for m in known if m not in order]
+    plan: list[tuple[str, str]] = []
+    for type_key, _archived in types:
+        metrics = [m for m in counted if m in (used.get(type_key) or ())] or order
+        plan.extend((type_key, m) for m in metrics)
+    return plan
+
+
+def without_model_field(type_key: str, schema: list) -> list:
+    """The schema without ``licensingModel`` (Application / IT Component only, the same scope
+    as ``_model_fields``: the non-extension multiple-select) and without the ``Licensing``
+    section once it is left empty (an admin may have added fields to it). A custom type's own
+    field of that name, and every other type, is left alone."""
+    out = copy.deepcopy(schema or [])
+    if type_key not in LICENSING_TYPES:
+        return out
+    for section in out:
+        if isinstance(section, dict):
+            section["fields"] = [
+                f
+                for f in section.get("fields", [])
+                if not (
+                    isinstance(f, dict)
+                    and f.get("key") == MODEL_KEY
+                    and not f.get("ext")
+                    and f.get("type") == "multiple_select"
+                )
+            ]
+    return [
+        s
+        for s in out
+        if not (
+            isinstance(s, dict)
+            and s.get("section") == LICENSING_SECTION
+            and not s.get("ext")
+            and not s.get("fields")
+        )
+    ]
+
+
+def citing_model_calculations(rows: Iterable[tuple[str, str, str]]) -> list[dict]:
+    """``(id, name, formula)`` rows whose formula reads ``data.licensingModel``, as
+    ``[{"id", "name"}]``. Listed in migration 192's report, never rewritten."""
+    return [
+        {"id": calc_id, "name": name}
+        for calc_id, name, formula in rows
+        if re.search(rf"data\.{MODEL_KEY}\b", formula or "")
+    ]

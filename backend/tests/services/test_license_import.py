@@ -12,7 +12,7 @@ from sqlalchemy import select
 from app.models.app_settings import AppSettings
 from app.models.card_license import CardLicense
 from app.models.event import Event
-from app.services import license_types
+from app.services import license_metrics, license_types
 from app.services.card_licenses import UNSET, LicenseError, merge_cell
 from app.services.fiscal_year import current_fiscal_year
 from app.services.license_import import (
@@ -23,7 +23,14 @@ from app.services.license_import import (
     parse_workbook,
     plan_import,
 )
-from tests.conftest import create_card, create_card_type, create_role, create_user
+from tests.conftest import (
+    create_card,
+    create_card_type,
+    create_license_metric,
+    create_license_type,
+    create_role,
+    create_user,
+)
 
 CUR = current_fiscal_year(1)
 FORECAST = CUR + 1
@@ -107,12 +114,13 @@ async def env(db):
     user = await create_user(db, email="a@lic-imp.com", role="admin")
     await create_card_type(db, key="Application", label="Application")
     await create_card_type(db, key="ITComponent", label="IT Component")
-    await license_types.create_item(db, "admin", "Admin")
-    await license_types.create_item(db, "dev", "Dev")
-    await license_types.create_item(db, "old", "Old")
-    await license_types.update_item(db, "old", archived=True)
-    await license_types.create_item(db, "amb_a", "Shared")
-    await license_types.create_item(db, "amb_b", "Shared")
+    await create_license_type(db, "admin", "Admin")
+    await create_license_type(db, "dev", "Dev")
+    await create_license_type(db, "dev", "Dev", metric_key="installations")
+    await create_license_type(db, "old", "Old")
+    await license_types.update_item(db, "users", "old", archived=True)
+    await create_license_type(db, "amb_a", "Shared")
+    await create_license_type(db, "amb_b", "Shared")
     erp = await create_card(
         db,
         card_type="Application",
@@ -122,7 +130,7 @@ async def env(db):
     return {"user": user, "erp": erp}
 
 
-async def test_plan_matches_case_insensitive_and_flags_untracked_metric(db, env):
+async def test_plan_matches_case_insensitive_and_does_not_read_licensing_model(db, env):
     plan = await plan_import(
         db,
         env["user"],
@@ -133,11 +141,128 @@ async def test_plan_matches_case_insensitive_and_flags_untracked_metric(db, env)
     )
     assert plan.skipped == []
     assert plan.matched == 2
-    assert [f.reason for f in plan.flagged] == ["metric_not_tracked"] and plan.flagged[0].row == 3
+    assert not hasattr(plan, "flagged")  # an untracked metric no longer flags anything
     assert sorted(plan.cells[(env["erp"].id, CUR)]) == [
         ("installations", "dev", 5, UNSET),
         ("users", "admin", 10, 4),
     ]
+
+
+async def test_a_metric_resolves_by_label_and_a_custom_metric_works(db, env):
+    await create_license_metric(db, key="cores", label="CPU Cores")
+    await create_license_type(db, "std", "Standard", metric_key="cores")
+    plan = await plan_import(
+        db,
+        env["user"],
+        [
+            row(2, metric="cpu cores", typ="Standard", actual=None),
+            row(3, metric="Users", typ="admin", year=CUR - 1),
+            row(4, metric="cores", typ="std", year=CUR - 2, actual=None),
+        ],
+    )
+    assert plan.skipped == []
+    assert plan.cells == {
+        (env["erp"].id, CUR): [("cores", "std", 10, UNSET)],
+        (env["erp"].id, CUR - 1): [("users", "admin", 10, 4)],
+        (env["erp"].id, CUR - 2): [("cores", "std", 10, UNSET)],
+    }
+
+
+async def test_legacy_alias_only_reaches_a_metric_keyed_users_or_installations(db, env):
+    await create_license_metric(db, key="seats", label="Seats")
+    await create_license_type(db, "admin", "Admin", metric_key="seats")
+    # A label equal to the alias does not take it: the alias names the users metric.
+    await create_license_metric(db, key="named", label="User")
+    await create_license_type(db, "admin", "Admin", metric_key="named")
+    plan = await plan_import(db, env["user"], [row(2, metric="user"), row(3, metric="seat")])
+    assert [(s.row, s.reason) for s in plan.skipped] == [(3, "invalid_metric")]
+    assert list(plan.cells[(env["erp"].id, CUR)]) == [("users", "admin", 10, 4)]
+
+
+async def test_an_exact_metric_key_wins_over_another_metric_s_label(db, env):
+    await create_license_metric(db, key="seats", label="Users")
+    await create_license_type(db, "admin", "Admin", metric_key="seats")
+    plan = await plan_import(db, env["user"], [row(2, metric="users")])
+    assert plan.skipped == []
+    assert plan.cells[(env["erp"].id, CUR)] == [("users", "admin", 10, 4)]
+
+
+async def test_a_label_two_metrics_share_is_ambiguous_metric(db, env):
+    for key in ("cores_a", "cores_b"):
+        await create_license_metric(db, key=key, label="Cores")
+        await create_license_type(db, "admin", "Admin", metric_key=key)
+    plan = await plan_import(db, env["user"], [row(2, metric="cores")])
+    assert [(s.reason, s.detail, s.metric) for s in plan.skipped] == [
+        ("ambiguous_metric", "cores", "cores")
+    ]
+
+
+async def test_a_type_ambiguous_in_another_metric_is_type_not_in_metric(db, env):
+    await create_license_type(db, "twin_a", "Twin", metric_key="installations")
+    await create_license_type(db, "twin_b", "Twin", metric_key="installations")
+    plan = await plan_import(db, env["user"], [row(2, metric="users", typ="twin")])
+    assert [(s.reason, s.detail) for s in plan.skipped] == [("type_not_in_metric", "twin")]
+
+
+async def test_a_type_of_another_metric_is_skipped_type_not_in_metric(db, env):
+    await create_license_type(db, "prod", "Prod", metric_key="installations")
+    plan = await plan_import(
+        db,
+        env["user"],
+        [row(2, metric="Users", typ="prod"), row(3, metric="Users", typ="Prod", year=CUR - 1)],
+    )
+    assert [(s.row, s.reason, s.detail) for s in plan.skipped] == [
+        (2, "type_not_in_metric", "prod"),
+        (3, "type_not_in_metric", "Prod"),
+    ]
+
+
+async def test_the_same_type_key_under_two_metrics_writes_the_right_cell(db, env):
+    plan = await plan_import(
+        db,
+        env["user"],
+        [row(2, metric="installations", typ="dev", licensed=7, actual=None)],
+    )
+    assert await apply_import(db, env["user"].id, plan) == 1
+    stored = (await db.execute(select(CardLicense))).scalar_one()
+    assert stored.items == {"installations": {"dev": {"licensed": 7, "actual": None}}}
+
+
+async def test_an_archived_metric_cannot_create_a_cell_but_updates_an_existing_one(db, env):
+    await create_license_metric(db, key="legacy", label="Legacy")
+    await create_license_type(db, "x", "X", metric_key="legacy")
+    db.add(
+        CardLicense(
+            card_id=env["erp"].id,
+            fiscal_year=CUR - 2,
+            items={"legacy": {"x": {"licensed": 2, "actual": 1}}},
+        )
+    )
+    await license_metrics.update_item(db, "legacy", archived=True)
+    await db.flush()
+    plan = await plan_import(
+        db,
+        env["user"],
+        [
+            row(2, metric="Legacy", typ="x", year=CUR - 1),
+            row(3, metric="legacy", typ="x", year=CUR - 2),
+        ],
+    )
+    assert [(s.row, s.reason, s.detail, s.metric) for s in plan.skipped] == [
+        (2, "archived_license_metric", "legacy", "legacy")
+    ]
+    assert list(plan.cells) == [(env["erp"].id, CUR - 2)]
+    assert await apply_import(db, env["user"].id, plan) == 1
+
+
+async def test_both_values_empty_is_nothing_to_write_even_for_an_archived_metric(db, env):
+    await create_license_metric(db, key="legacy", label="Legacy")
+    await create_license_type(db, "x", "X", metric_key="legacy")
+    await license_metrics.update_item(db, "legacy", archived=True)
+    plan = await plan_import(
+        db, env["user"], [row(2, metric="legacy", typ="x", licensed=None, actual="")]
+    )
+    assert [s.reason for s in plan.skipped] == ["nothing_to_write"]
 
 
 async def test_plan_skips_every_reason(db, env):
@@ -177,6 +302,56 @@ async def test_plan_skips_every_reason(db, env):
     assert plan.matched == 1 and list(plan.cells) == [(env["erp"].id, CUR - 4)]
 
 
+# The file says "Users" (a label): a resolved metric is named by its key "users", an
+# unresolved one by the file's own text.
+@pytest.mark.parametrize(
+    "reason,kwargs,metric",
+    [
+        ("card_not_found", {"comp": "Nobody"}, "Users"),
+        ("ambiguous_card", {"comp": "Twin"}, "Users"),
+        ("invalid_metric", {"metric": "Seats"}, "Seats"),
+        ("unknown_license_type", {"typ": "nope"}, "users"),
+        ("ambiguous_license_type", {"typ": "shared"}, "users"),
+        ("type_not_in_metric", {"typ": "seat"}, "users"),
+        ("archived_license_type", {"typ": "old", "year": CUR - 1}, "users"),
+        ("invalid_year", {"year": CUR + 2}, "users"),
+        ("invalid_number", {"licensed": "12.5"}, "users"),
+        ("forecast_actual", {"year": FORECAST, "licensed": 3, "actual": 1}, "users"),
+        ("nothing_to_write", {"licensed": None, "actual": ""}, "users"),
+    ],
+    ids=lambda v: v if isinstance(v, str) else "",
+)
+async def test_every_skip_names_the_metric(db, env, reason, kwargs, metric):
+    await create_card(db, card_type="Application", name="Twin")
+    await create_card(db, card_type="ITComponent", name="twin")
+    await create_license_type(db, "seat", "Seat", metric_key="installations")
+    plan = await plan_import(db, env["user"], [row(2, **{"metric": "Users", **kwargs})])
+    assert [(s.reason, s.metric) for s in plan.skipped] == [(reason, metric)]
+
+
+async def test_a_duplicate_cell_names_the_metric(db, env):
+    plan = await plan_import(db, env["user"], [row(2, metric="Users"), row(3)])
+    assert [(s.reason, s.metric) for s in plan.skipped] == [("duplicate_cell", "users")] * 2
+
+
+async def test_an_archived_type_names_the_metric_it_is_archived_under(db, env):
+    await create_license_type(db, "standard", "Standard")
+    await license_types.update_item(db, "users", "standard", archived=True)
+    await create_license_type(db, "standard", "Standard", metric_key="installations")
+    plan = await plan_import(
+        db,
+        env["user"],
+        [
+            row(2, metric="Users", typ="standard"),
+            row(3, metric="Installations", typ="standard", actual=None),
+        ],
+    )
+    assert [(s.row, s.reason, s.detail, s.metric) for s in plan.skipped] == [
+        (2, "archived_license_type", "standard", "users")
+    ]
+    assert plan.cells[(env["erp"].id, CUR)] == [("installations", "standard", 10, UNSET)]
+
+
 @pytest.mark.parametrize(
     "bad", ["12.5", -1, "-3", True, "abc", 1_000_000_001, float("nan")], ids=repr
 )
@@ -208,6 +383,10 @@ async def test_an_archived_type_with_an_existing_cell_is_accepted(db, env):
     await db.flush()
     plan = await plan_import(db, env["user"], [row(2, typ="old", year=CUR - 1, actual=2)])
     assert plan.skipped == [] and plan.matched == 1
+    assert await apply_import(db, env["user"].id, plan) == 1
+    stored = (await db.execute(select(CardLicense))).scalar_one()
+    await db.refresh(stored)
+    assert stored.items == {"users": {"old": {"licensed": 10, "actual": 2}}}
 
 
 async def test_empty_cell_leaves_stored_value(db, env):
@@ -329,7 +508,7 @@ async def test_apply_failure_midway_leaves_nothing_after_rollback(db, env):
     plan = await plan_import(db, env["user"], [row(2), row(3, typ="dev", year=CUR - 1)])
     assert plan.skipped == []
     await license_types.update_item(
-        db, "dev", archived=True
+        db, "users", "dev", archived=True
     )  # the catalogue changes after the plan
     await db.flush()
     with pytest.raises(LicenseError):

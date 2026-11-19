@@ -12,12 +12,12 @@ from sqlalchemy import select, update
 from app.models.card_license import CardLicense
 from app.models.card_type import CardType
 from app.models.stakeholder import Stakeholder
-from app.services import license_types
 from app.services.fiscal_year import current_fiscal_year
 from tests.conftest import (
     auth_headers,
     create_card,
     create_card_type,
+    create_license_type,
     create_role,
     create_stakeholder_role_def,
     create_user,
@@ -51,7 +51,7 @@ async def env(db):
         db, key="editor", label="E", permissions={"inventory.view": True, "licenses.edit": True}
     )
     await create_card_type(db, key="Application", label="Application")
-    await license_types.create_item(db, "admin", "Admin")
+    await create_license_type(db, "admin", "Admin")
     await create_stakeholder_role_def(
         db, key="responsible", label="R", permissions={"card.view": True, "card.edit": True}
     )
@@ -96,8 +96,17 @@ async def test_dry_run_writes_nothing(client, db, env):
     body = (await _post(client, env, book(GOOD))).json()
     assert body["matched"] == 1 and body["applied"] == 0
     assert [(s["row"], s["reason"]) for s in body["skipped"]] == [(3, "card_not_found")]
-    assert body["flagged"] == []
+    assert "flagged" not in body
     assert await _rows(db) == []
+
+
+async def test_a_skipped_row_names_its_metric(client, db, env):
+    rows = [["ERP", "Users", "nope", CUR, 1, 1], ["ERP", "Seats", "admin", CUR, 1, 1]]
+    body = (await _post(client, env, book(rows))).json()
+    assert [(s["reason"], s["metric"]) for s in body["skipped"]] == [
+        ("unknown_license_type", "users"),
+        ("invalid_metric", "Seats"),
+    ]
 
 
 async def test_apply_writes_and_returns_counts(client, db, env):

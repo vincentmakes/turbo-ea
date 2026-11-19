@@ -23,7 +23,8 @@
 | **Puntuación de Confianza** | Una calificación de 0–100% que indica la fiabilidad de una descripción generada por IA |
 | **Partida de coste** | Una línea del coste anual de una Aplicación o Componente de TI (por ejemplo, alojamiento), tomada del catálogo en Admin > Metamodelo > Partidas de coste. El TCO de una ficha es la suma de sus partidas del año fiscal |
 | **TCO (coste total de propiedad)** | El coste anual total de una Aplicación o Componente de TI en un año fiscal, siempre derivado de sus partidas de coste y nunca escrito a mano |
-| **Tipo de licencia** | Una clase de licencia (por ejemplo Admin o Usuario final) del catálogo de Admin > Metamodelo > Tipos de licencia. Las fichas de Aplicación y Componente de TI registran cantidades licenciadas y reales por tipo de licencia, métrica y año fiscal |
+| **Métrica de licencia** | Aquello en lo que se cuentan las licencias de una Aplicación o Componente de TI (por defecto Usuarios e Instalaciones), del catálogo en Admin > Metamodelo > Tipos de licencia. Las cantidades de métricas distintas nunca se suman |
+| **Tipo de licencia** | Una clase de licencia (por ejemplo Admin o Prod) que pertenece a una sola Métrica de licencia, del catálogo en Admin > Metamodelo > Tipos de licencia. Una ficha registra cantidades licenciadas y reales para cada par Métrica: Tipo y año fiscal |
 | **Utilización** | Cantidad real de licencias dividida por la cantidad licenciada, en porcentaje. Por debajo del 80 % un tipo de licencia es conforme, desde el 80 % está cerca del límite, por encima del 100 % está sobrelicenciado |
 | **Línea de costo** | Una entrada de presupuesto o costo real (CapEx/OpEx) en una iniciativa PPM, utilizada para rastrear el gasto financiero |
 | **Calidad de Datos** | Una puntuación de completitud de 0–100% basada en campos completados y sus pesos configurados |

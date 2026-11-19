@@ -134,17 +134,23 @@ Kortets felt **Samlede årlige omkostninger** (`costTotalAnnual`) udledes af det
 
 ### Licenssektion (Applikation og IT-komponent)
 
-Sektionen **Licensering** registrerer år for år, hvor mange licenser kortet har under kontrakt, og hvor mange der reelt bruges. Den ligger ved siden af Omkostninger og har samme grønne **Time Travel**-række over seks år: de fire før det nuværende, det nuværende og **Forecast**. Hvilke målinger kortet sporer (**Brugere**, **Installationer**), kommer fra kortets **Licensmodel**, som vises øverst i sektionen. Den, der kan redigere kortet, ændrer den med **Rediger**: markér **Brugere** og/eller **Installationer**, og vælg derefter **Gem**. Modellen vises ikke blandt kortets øvrige felter.
+Sektionen **Licensering** registrerer år for år, hvor mange licenser kortet har under kontrakt, og hvor mange der reelt bruges. Den ligger ved siden af Omkostninger og har samme grønne **Time Travel**-række over seks år: de fire før det nuværende, det nuværende og **Forecast**. Alt i sektionen gælder det valgte år.
+
+Et kort har de **par** *Måling: Type* (for eksempel *Brugere: Admin* eller *Installationer: Prod*), der er føjet til det valgte år. Der er ingen indstilling på kortniveau, du skal markere: et par findes i et år, så snart du tilføjer det.
 
 ![Licenssektion](../assets/img/en/104_card_licensing.png)
 
-- **Pr. måling og licenstype** — Hver måling har en blok med en flise pr. licenstype, der viser det **licenserede** antal, det **faktiske** antal, **udnyttelses-%** og en status: **Kompatibel**, **Tæt på grænsen** (fra 80 %), **Overlicenseret** (faktisk over licenseret) eller **Ingen data**. En stablet søjle summerer typerne. Licenstyperne kommer fra kataloget, som en administrator vedligeholder under [Metamodel → Licenstyper](../admin/metamodel.md#licenstyper).
-- **Tilføjelse og redigering** — Et antal tilføjes, redigeres eller slettes i en dialog. Hvis **Faktisk** er tom, betyder det «ingen data», hvilket er noget andet end 0.
-- **Forecast** — Forecast-året tager kun imod det licenserede antal. **Kopiér til Forecast** kopierer de licenserede antal for det år, du ser.
+- **Søjler** — Hvert par er én vandret søjle, grupperet under en overskrift pr. måling, så brugere kun sammenlignes med brugere og installationer kun med installationer. I en søjle er **Licenseret** den brede, lyse søjle bagved og **Faktisk** den smallere, massive søjle foran. Yderst på søjlen står forbruget som **faktisk / licenseret (%)**, farvet efter sin status. Et par uden værdier viser **ingen data**.
+- **Status** — Et chip øverst angiver kortets status for året, og hver måling har sit eget chip: **Kompatibel**, **Tæt på grænsen** (fra 80 %), **Overlicenseret** (faktisk over licenseret) eller **Ingen faktiske data**. Et kort uden par i året har **Ingen faktiske data**. Forecast-året har ingen status.
+- **Historik** — Klik på en søjle, eller på parrets chip under diagrammet, for at åbne parrets **historik** under søjlerne: dets licenserede og faktiske antal for det aktuelle år, de fire før det og Forecast-året (kun licenseret), mens de øvrige par er nedtonet. Klik på parret igen, eller på et andet, for at lukke eller skifte.
+- **Tilføj licens** — Vælg først **målingen** og derefter en **licenstype** for den måling. Arkiverede målinger og typer kan ikke vælges, og par, som året allerede har, tilbydes ikke igen. Parret tilføjes kun til det valgte år. Åbn et par for at redigere dets antal, eller ryd det for at fjerne parret fra det år uden at røre andre år. Hvis **Faktisk** efterlades tom, betyder det «ingen data», hvilket er noget andet end 0.
+- **Forecast** — Forecast-året tager kun det licenserede antal. **Kopiér licenseret til Forecast** i dialogen kopierer det licenserede antal for det år, du ser på.
 
-**Et nyt regnskabsår.** Når et kort endnu ikke har licensdata for det nye nuværende år, viser sektionen det forrige års licenserede antal markeret som **ikke bekræftet**, uden faktisk antal, så et nyt år aldrig arver sidste års forbrug. De forbliver sådan, indtil nogen bekræfter dem eller redigerer et antal.
+Målinger og licenstyper kommer fra kataloget, som en administrator vedligeholder under [Metamodel → Licenstyper](../admin/metamodel.md#licenstyper).
 
-**Hvem kan se og redigere licenser.** Du kan **se** dem med tilladelsen `licenses.view` eller hvis du har en vilkårlig interessentrolle på kortet. Du kan **redigere** dem med tilladelsen `licenses.edit` eller hvis du har en interessentrolle på kortet, der tillader redigering af kortet. Som standard har kun administratorer `licenses.edit`. En ændring vises under fanen Historik som **Licenser opdateret**, med de berørte licenstyper men ikke antallene, og den kan ikke rulles tilbage.
+**Et nyt regnskabsår.** Når et kort endnu ikke har licensdata for det nye aktuelle år, viser sektionen det foregående års par med deres licenserede antal, tegnet **nedtonet** og markeret som **ikke bekræftet**, uden faktisk antal, så et nyt år aldrig arver sidste års forbrug. De forbliver sådan, indtil nogen bekræfter året (**Bekræft**) eller redigerer et antal.
+
+**Hvem kan se og redigere licenser.** Du kan **se** dem med tilladelsen `licenses.view` eller hvis du har en vilkårlig interessentrolle på kortet. Du kan **redigere** dem med tilladelsen `licenses.edit` eller hvis du har en interessentrolle på kortet, der tillader redigering af kortet. Som standard har kun administratorer `licenses.edit`. En ændring vises under fanen Historik som **Licenser opdateret**, med de berørte par (*Måling: Type*) men ikke antallene, og den kan ikke rulles tilbage.
 
 ### Hierarki-sektion
 

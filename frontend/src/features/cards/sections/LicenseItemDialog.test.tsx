@@ -8,14 +8,31 @@ vi.mock("@/api/client", () => ({
 }));
 
 import { api } from "@/api/client";
-import type { LicenseType } from "@/types";
+import type { LicenseMetricItem, LicenseTypeItem } from "@/types";
 import LicenseItemDialog from "./LicenseItemDialog";
 
-const options: LicenseType[] = [
-  { id: "4", key: "dev", label: "Dev", sort_order: 1, archived: false, translations: {} },
+const type = (metric: string, key: string, label: string, archived = false): LicenseTypeItem => ({
+  id: `${metric}-${key}`,
+  metric_key: metric,
+  key,
+  label,
+  sort_order: 1,
+  archived,
+  translations: {},
+});
+const metricOf = (
+  key: string,
+  label: string,
+  types: LicenseTypeItem[],
+  archived = false,
+): LicenseMetricItem => ({ id: key, key, label, sort_order: 1, archived, translations: {}, types });
+const catalogue: LicenseMetricItem[] = [
+  metricOf("users", "Users", [type("users", "prod", "Prod"), type("users", "old", "Old", true)]),
+  metricOf("installations", "Installations", [type("installations", "dev", "Dev")]),
+  metricOf("cores", "Cores", [type("cores", "x", "Xeon")], true),
+  metricOf("void", "Void", [type("void", "z", "Zed", true)]),
 ];
-const labels: Record<string, string> = { prod: "Prod", dev: "Dev" };
-const cell = { metric: "users" as const, key: "prod", licensed: 100, actual: 80 as number | null };
+const cell = { metric: "users", key: "prod", licensed: 100, actual: 80 as number | null };
 
 function setup(over: Partial<React.ComponentProps<typeof LicenseItemDialog>> = {}) {
   const onChanged = vi.fn();
@@ -25,10 +42,9 @@ function setup(over: Partial<React.ComponentProps<typeof LicenseItemDialog>> = {
       cardId="c1"
       fiscalYear={2026}
       forecastYear={2027}
-      metrics={["users", "installations"]}
       cell={cell}
-      options={options}
-      labelOf={(k) => labels[k] ?? k}
+      catalogue={catalogue}
+      held={new Set()}
       onClose={onClose}
       onChanged={onChanged}
       {...over}
@@ -84,14 +100,21 @@ describe("LicenseItemDialog", () => {
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   });
 
-  it("adds a cell by choosing metric and type", async () => {
-    const { user } = setup({ cell: null, metrics: ["users", "installations"] });
+  it("adds a cell by choosing a metric, then a type of that metric", async () => {
+    const { user } = setup({ cell: null });
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     expect(screen.queryByRole("button", { name: /Delete/ })).toBeNull();
+    expect(screen.getByLabelText("License type")).toHaveAttribute("aria-disabled", "true");
     await user.click(screen.getByLabelText("Metric"));
-    await user.click(await screen.findByRole("option", { name: "Installations" }));
+    // an archived metric cannot be added to
+    expect((await screen.findAllByRole("option")).map((o) => o.textContent)).toEqual([
+      "Users",
+      "Installations",
+    ]);
+    await user.click(screen.getByRole("option", { name: "Installations" }));
     await user.click(screen.getByLabelText("License type"));
-    await user.click(await screen.findByRole("option", { name: "Dev" }));
+    expect((await screen.findAllByRole("option")).map((o) => o.textContent)).toEqual(["Dev"]);
+    await user.click(screen.getByRole("option", { name: "Dev" }));
     await user.type(screen.getByLabelText("Licensed"), "7");
     await user.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() =>
@@ -100,6 +123,73 @@ describe("LicenseItemDialog", () => {
         actual: null,
       }),
     );
+  });
+
+  it("offers only the non-archived types of the chosen metric", async () => {
+    const { user } = setup({ cell: null });
+    await user.click(screen.getByLabelText("Metric"));
+    await user.click(await screen.findByRole("option", { name: "Users" }));
+    await user.click(screen.getByLabelText("License type"));
+    expect((await screen.findAllByRole("option")).map((o) => o.textContent)).toEqual(["Prod"]);
+  });
+
+  it("never offers a pair the year already holds, so Add cannot overwrite a cell", async () => {
+    const { user } = setup({ cell: null, held: new Set(["users:prod"]) });
+    await user.click(screen.getByLabelText("Metric"));
+    // Users has nothing left to add (its other type is archived)
+    expect((await screen.findAllByRole("option")).map((o) => o.textContent)).toEqual(["Installations"]);
+  });
+
+  it("offers a held pair's metric again for its other types", async () => {
+    const cat = [
+      metricOf("users", "Users", [type("users", "prod", "Prod"), type("users", "dev", "Dev")]),
+    ];
+    const { user } = setup({ cell: null, catalogue: cat, held: new Set(["users:prod"]) });
+    await user.click(screen.getByLabelText("Metric"));
+    await user.click(await screen.findByRole("option", { name: "Users" }));
+    await user.click(screen.getByLabelText("License type"));
+    expect((await screen.findAllByRole("option")).map((o) => o.textContent)).toEqual(["Dev"]);
+  });
+
+  it("does not offer a metric whose types are all archived", async () => {
+    const { user } = setup({ cell: null });
+    await user.click(screen.getByLabelText("Metric"));
+    expect((await screen.findAllByRole("option")).map((o) => o.textContent)).not.toContain("Void");
+  });
+
+  it("forgets the type when the metric changes", async () => {
+    const { user } = setup({ cell: null });
+    await user.click(screen.getByLabelText("Metric"));
+    await user.click(await screen.findByRole("option", { name: "Users" }));
+    await user.click(screen.getByLabelText("License type"));
+    await user.click(await screen.findByRole("option", { name: "Prod" }));
+    await user.type(screen.getByLabelText("Licensed"), "7");
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+    await user.click(screen.getByLabelText("Metric"));
+    await user.click(await screen.findByRole("option", { name: "Installations" }));
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+  });
+
+  it("edits an archived pair: shown by its labels, saved to its own path", async () => {
+    const { user } = setup({ cell: { metric: "cores", key: "x", licensed: 4, actual: 1 } });
+    expect(screen.getByLabelText("Metric")).toHaveValue("Cores");
+    expect(screen.getByLabelText("License type")).toHaveValue("Xeon");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(api.put).toHaveBeenCalledWith("/cards/c1/licenses/2026/items/cores/x", {
+        licensed: 4,
+        actual: 1,
+      }),
+    );
+  });
+
+  it("shows the server error for archived_metric", async () => {
+    const { user } = setup();
+    vi.mocked(api.put).mockRejectedValueOnce(new Error("archived_metric"));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(
+      await screen.findByText("This license metric is archived and cannot be added to a year."),
+    ).toBeInTheDocument();
   });
 
   it("copies licensed to the Forecast year when ticked", async () => {
