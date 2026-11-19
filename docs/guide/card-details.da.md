@@ -104,7 +104,7 @@ Afhængigt af korttypen vil du se yderligere sektioner med **brugerdefinerede fe
 - **Text** — Friform tekstindtastning
 - **Multi-line Text** — Friform tekstindtastning, der bevarer linjeskift, gengivet som et auto-voksende tekstområde
 - **Number** — Numerisk værdi
-- **Cost** — Numerisk værdi vist med platformens konfigurerede valuta
+- **Cost** — Numerisk værdi vist med platformens konfigurerede valuta. Omkostningsfelter vises for brugere, hvis rolle har tilladelsen `costs.view` (angivet under **Costs** i rolleeditoren), og for et korts interessenter, når deres [interessentrolle](../admin/metamodel.md) tillader det. Alle andre ser *Begrænset* i stedet og kan ikke ændre værdien. At observere et kort viser ikke dets omkostninger
 - **Boolean** — Valg fra en Ja/Nej-liste med **Ingen** til at rydde feltet; vises som en grøn *Ja*- eller blå *Nej*-mærkat, — når det ikke er angivet
 - **Date** — Datovælger
 - **URL** — Klikbart link (valideret for http/https/mailto)

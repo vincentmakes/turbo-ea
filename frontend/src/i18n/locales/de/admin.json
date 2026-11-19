@@ -300,6 +300,7 @@
   "metamodel.stakeholderPanel.subscriberCount_other": "{{count}} Abos",
   "metamodel.stakeholderPanel.permissions": "Berechtigungen",
   "metamodel.stakeholderPanel.noPermissions": "Keine Berechtigungen definiert.",
+  "metamodel.stakeholderPanel.selfAssignableHint": "Jeder, der eine Karte ansehen kann, kann sich selbst zu deren Beobachter machen – alles, was diese Rolle erlaubt, steht daher allen offen.",
   "metamodel.stakeholderPanel.newRole": "Neue Stakeholder-Rolle",
   "metamodel.stakeholderPanel.keyLabel": "Schlüssel",
   "metamodel.stakeholderPanel.keyPlaceholder": "z. B. dataSteward",

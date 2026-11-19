@@ -55,6 +55,7 @@ from app.services.cost_attribution import (
     split_share,
 )
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
+from app.services.cost_redaction import card_cost_redaction_map, redact_portfolio_costs
 from app.services.cost_value import cost_value
 from app.services.data_quality_bands import DQ_BAND_BOUNDS, band_of, dq_band_condition
 from app.services.document_event_scope import document_event_read_filters
@@ -65,6 +66,7 @@ from app.services.eol_service import (
     find_cycle,
     manual_eol_status,
 )
+from app.services.event_cost_scrub import scrub_event_costs
 from app.services.fiscal_year import current_fiscal_year, get_fiscal_year_start
 from app.services.kpi_snapshot_service import (
     compute_trend_block,
@@ -199,6 +201,9 @@ async def dashboard(db: AsyncSession = Depends(get_db), user: User = Depends(get
         return None
 
     payloads = await scrub_event_payloads(db, read_scope, [e.data for e in events_list])
+    payloads = await scrub_event_costs(
+        db, user, [(e.card_id, data) for e, data in zip(events_list, payloads)]
+    )
     recent_events = [
         {
             "id": str(e.id),
@@ -609,6 +614,9 @@ async def admin_dashboard_summary(
     sys_payloads = await scrub_event_payloads(
         db, await CardReadScope.load(db, user), [e.data for e in sys_events_list]
     )
+    sys_payloads = await scrub_event_costs(
+        db, user, [(e.card_id, data) for e, data in zip(sys_events_list, sys_payloads)]
+    )
     recent_activity = [
         {
             "id": str(e.id),
@@ -850,7 +858,11 @@ async def landscape(
 ):
     """Landscape report: cards grouped by a related type."""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
-    can_view_costs_global = await PermissionService.has_app_permission(db, user, "costs.view")
+    # Type-aware: a View deny on the target type takes `costs.view` away for
+    # its cards (the few a stakeholder role still lets the reader open).
+    can_view_costs_global = await PermissionService.has_app_permission(
+        db, user, "costs.view", card_type_key=type
+    )
     readable = (await CardReadScope.load(db, user)).where(Card, mode="module")
     # Get all cards of the target type
     result = await db.execute(
@@ -1038,7 +1050,10 @@ async def app_portfolio(
         raise HTTPException(status_code=404, detail=f"Card type '{type}' not found")
 
     read_scope = await CardReadScope.load(db, user)
-    return await build_portfolio_payload(db, read_scope, target_type, all_types)
+    payload = await build_portfolio_payload(db, read_scope, target_type, all_types)
+    # Every attribute of every card, for client-side grouping: the cost
+    # fields go only to a reader who may see them on the card itself.
+    return await redact_portfolio_costs(db, user, payload, target_type)
 
 
 #: Hard ceiling on the number of relation edges the matrix will serialise. A
@@ -1344,17 +1359,22 @@ async def roadmap(
         target_type = next((t for t in all_types if t.key == type), None)
         if target_type is not None and not target_type.is_hidden:
             payload = await build_portfolio_payload(db, read_scope, target_type, all_types)
+            payload = await redact_portfolio_costs(db, user, payload, target_type)
             return roadmap_from_portfolio(payload, type)
     q = select(Card).where(Card.status == "ACTIVE", *read_scope.where(Card, mode="module"))
     if type:
         q = q.where(Card.type == type)
     result = await db.execute(q)
     sheets = result.scalars().all()
+    redact = await card_cost_redaction_map(db, user, sheets)
     items = []
     for card in sheets:
         lc = card.lifecycle or {}
         attrs = card.attributes or {}
         if has_timeline_dates(lc, attrs):
+            strip = redact.get(card.id)
+            if strip:
+                attrs = {k: v for k, v in attrs.items() if k not in strip}
             items.append(
                 {
                     "id": str(card.id),
@@ -1889,7 +1909,11 @@ async def capability_heatmap(
         raise HTTPException(400, str(exc)) from exc
     if metric == "total_cost":
         await PermissionService.require_permission(db, user, "costs.view")
-    can_view_costs_global = await PermissionService.has_app_permission(db, user, "costs.view")
+    # The costs are the applications', so a View deny on Application takes
+    # `costs.view` away here too.
+    can_view_costs_global = await PermissionService.has_app_permission(
+        db, user, "costs.view", card_type_key="Application"
+    )
     read_scope = await CardReadScope.load(db, user)
     readable = read_scope.where(Card, mode="module")
     # Get all business capabilities

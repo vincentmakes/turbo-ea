@@ -123,10 +123,15 @@ from app.services.card_write_service import (
     _walk_ancestor_chain,  # noqa: F401
     emit_hierarchy_cascade_events,
 )
-from app.services.cost_field_filter import cost_field_keys_from_card_schema
+from app.services.cost_field_filter import (
+    cost_field_keys_from_card_schema,
+    keep_stored_cost_values,
+)
+from app.services.cost_redaction import card_cost_redaction_map as _cost_redaction_map
 from app.services.data_quality import calc_data_quality, calc_data_quality_breakdown
 from app.services.document_event_scope import document_event_read_filters
 from app.services.event_bus import event_bus
+from app.services.event_cost_scrub import scrub_event_costs
 from app.services.lifecycle import lifecycle_rank
 from app.services.permission_service import PermissionService
 
@@ -192,38 +197,25 @@ def _card_to_response(
     )
 
 
-async def _cost_redaction_map(
-    db: AsyncSession, user: User, cards: list[Card]
-) -> dict[uuid.UUID, frozenset[str]]:
-    """Return a map of card_id → cost field keys to strip for this user.
-
-    Cards whose costs the user is allowed to see are absent from the map.
-    """
-    if not cards:
-        return {}
-    type_keys = {c.type for c in cards if c.type}
-    if not type_keys:
-        return {}
-    rows = await db.execute(
-        select(CardType.key, CardType.fields_schema).where(CardType.key.in_(type_keys))
-    )
-    cost_keys_per_type: dict[str, frozenset[str]] = {}
-    for tk, schema in rows.all():
-        keys = cost_field_keys_from_card_schema(schema)
-        if keys:
-            cost_keys_per_type[tk] = keys
-    if not cost_keys_per_type:
-        return {}
-    candidate_ids = [c.id for c in cards if c.type in cost_keys_per_type]
-    if not candidate_ids:
-        return {}
-    allowed = await PermissionService.card_ids_with_cost_access(db, user, candidate_ids)
-    redact: dict[uuid.UUID, frozenset[str]] = {}
-    for card in cards:
-        cost_keys = cost_keys_per_type.get(card.type)
-        if cost_keys and card.id not in allowed:
-            redact[card.id] = cost_keys
-    return redact
+def _diff_without_costs(diff: dict, strip: frozenset[str] | None) -> dict:
+    """A bulk-edit preview row (``{id, before, after}``) for a caller who may
+    not see this card's costs: the whole old and new ``attributes`` it shows
+    lose their cost keys. The row itself is returned when there is nothing to
+    hide; the diff the commit path keeps is never touched."""
+    if not strip or "attributes" not in diff["before"]:
+        return diff
+    return {
+        **diff,
+        **{
+            side: {
+                **diff[side],
+                "attributes": {
+                    k: v for k, v in (diff[side]["attributes"] or {}).items() if k not in strip
+                },
+            }
+            for side in ("before", "after")
+        },
+    }
 
 
 async def _card_response_with_cost_check(db: AsyncSession, user: User, card: Card) -> CardResponse:
@@ -602,10 +594,14 @@ async def list_my_stakeholder_cards(
         for srd in srd_rows.scalars().all():
             role_def_map[(srd.card_type_key, srd.key)] = srd
 
+    # Holding a role on a card is not a grant of its costs: only a role that
+    # allows it shows them (#1412), so this list is redacted like every other.
+    redact = await _cost_redaction_map(db, user, [card for card, _ in rows])
+
     items = []
     roles_by_card_id: dict[str, list[dict]] = {}
     for card, roles in rows:
-        items.append(_card_to_response(card))
+        items.append(_card_to_response(card, strip_cost_keys=redact.get(card.id, frozenset())))
         descriptors: list[dict] = []
         seen: set[str] = set()
         for role_key in roles or []:
@@ -1800,10 +1796,10 @@ async def bulk_update(
     # PATCH does a full replace on `attributes`, so we merge the existing
     # cost values back into the incoming payload. Without this, a bulk edit
     # would silently wipe cost values from cards the user couldn't see.
+    # `is not None`, as on the single PATCH: an empty `attributes` replaces the
+    # dict too, and must not wipe the costs either.
     incoming_attr_redact = (
-        await _cost_redaction_map(db, user, sheets)
-        if "attributes" in updates and updates["attributes"]
-        else {}
+        await _cost_redaction_map(db, user, sheets) if updates.get("attributes") is not None else {}
     )
 
     # Prefetch schemas once per distinct type for the per-card required-field
@@ -1897,14 +1893,10 @@ async def bulk_update(
             if field == "parent_id" and value is not None:
                 value = uuid.UUID(value)
             elif field == "attributes":
-                if value:
+                if value is not None:
                     strip = incoming_attr_redact.get(card.id)
                     if strip:
-                        old_attrs = dict(card.attributes or {})
-                        value = {k: v for k, v in value.items() if k not in strip}
-                        for key in strip:
-                            if key in old_attrs:
-                                value[key] = old_attrs[key]
+                        value = keep_stored_cost_values(card.attributes, value, strip)
                 # Guard: never clear a required field — checked against the
                 # post-redaction final state, per card (also on dry-run, so an
                 # MCP preview surfaces the violation before any commit).
@@ -1951,7 +1943,12 @@ async def bulk_update(
         return {
             "dry_run": True,
             "results": [
-                {"row_index": i, "card_id": d["id"], "status": "would_update", **d}
+                {
+                    "row_index": i,
+                    "card_id": d["id"],
+                    "status": "would_update",
+                    **_diff_without_costs(d, incoming_attr_redact.get(uuid.UUID(d["id"]))),
+                }
                 for i, d in enumerate(diffs)
             ],
             "updated": 0,
@@ -2552,12 +2549,9 @@ async def update_card(
             )
             cost_keys = cost_field_keys_from_card_schema(type_schema_row.scalar_one_or_none())
             if cost_keys:
-                old_attrs = dict(card.attributes or {})
-                new_attrs = {k: v for k, v in updates["attributes"].items() if k not in cost_keys}
-                for key in cost_keys:
-                    if key in old_attrs:
-                        new_attrs[key] = old_attrs[key]
-                updates["attributes"] = new_attrs
+                updates["attributes"] = keep_stored_cost_values(
+                    card.attributes, updates["attributes"], cost_keys
+                )
 
     changed = await card_write_service.update_card(
         db,
@@ -3152,6 +3146,11 @@ async def get_history(
     result = await db.execute(q)
     events = result.scalars().all()
     payloads = await scrub_event_payloads(db, read_scope, [e.data for e in events])
+    # An update's event holds the whole old and new attributes: a reader who
+    # may not see this card's costs does not get them from its history either.
+    payloads = await scrub_event_costs(
+        db, user, [(e.card_id, data) for e, data in zip(events, payloads)]
+    )
     return [
         {
             "id": str(e.id),

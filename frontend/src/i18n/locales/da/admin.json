@@ -300,6 +300,7 @@
   "metamodel.stakeholderPanel.subscriberCount_other": "{{count}} ab.",
   "metamodel.stakeholderPanel.permissions": "Tilladelser",
   "metamodel.stakeholderPanel.noPermissions": "Ingen tilladelser defineret.",
+  "metamodel.stakeholderPanel.selfAssignableHint": "Alle, der kan se et kort, kan gøre sig selv til dets Observatør, så alt, hvad denne rolle tillader, er åbent for dem alle.",
   "metamodel.stakeholderPanel.newRole": "Ny interessentrolle",
   "metamodel.stakeholderPanel.keyLabel": "Nøgle",
   "metamodel.stakeholderPanel.keyPlaceholder": "f.eks. dataSteward",

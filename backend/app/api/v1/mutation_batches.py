@@ -55,6 +55,7 @@ from app.schemas.mutation_batch import (
     MutationBatchOut,
 )
 from app.services.event_bus import request_origin
+from app.services.event_cost_scrub import scrub_event_costs, scrub_summary_costs
 from app.services.mutation_batch_service import (
     CONFIRM_TOKEN_THRESHOLD,
     batch_to_dict,
@@ -238,16 +239,29 @@ async def list_batches(
         rows = await db.execute(select(User).where(User.id.in_(actor_ids)))
         users_by_id = {u.id: u for u in rows.scalars().all()}
 
-    items = [
-        MutationBatchOut(**batch_to_dict(b, actor_display_name=_actor_name_for(b, users_by_id)))
-        for b in batches
-    ]
+    # A rollback batch's summary lists the values it restored: an auditor
+    # without cost access reads it as they would the batch itself.
+    items = []
+    for b in batches:
+        out = batch_to_dict(b, actor_display_name=_actor_name_for(b, users_by_id))
+        out["summary"] = await scrub_summary_costs(db, user, out["summary"])
+        items.append(MutationBatchOut(**out))
     return MutationBatchListPage(
         items=items,
         total=total,
         page=page,
         page_size=page_size,
     )
+
+
+async def _batch_out(
+    db: AsyncSession, user: User, batch: MutationBatch, actor: User | None
+) -> dict:
+    """``batch_to_dict`` for one reader: a rollback batch's summary lists the
+    values it restored, so its cost values go the way of a card's own."""
+    out = batch_to_dict(batch, actor_display_name=actor.display_name if actor else None)
+    out["summary"] = await scrub_summary_costs(db, user, out["summary"])
+    return out
 
 
 @router.get("/{batch_id}", response_model=MutationBatchOut)
@@ -268,9 +282,7 @@ async def get_batch_meta(
         actor = (
             await db.execute(select(User).where(User.id == batch.actor_user_id))
         ).scalar_one_or_none()
-    return MutationBatchOut(
-        **batch_to_dict(batch, actor_display_name=actor.display_name if actor else None)
-    )
+    return MutationBatchOut(**await _batch_out(db, user, batch, actor))
 
 
 @router.get("/{batch_id}/events", response_model=MutationBatchHistory)
@@ -298,22 +310,23 @@ async def get_batch_history(
         .order_by(Event.created_at.asc())
     )
     events = list((await db.execute(q)).scalars().all())
+    # The author of a batch reads it without `admin.events`, and their own
+    # edit's event holds the cost values the write merged back in for them.
+    payloads = await scrub_event_costs(db, user, [(e.card_id, e.data) for e in events])
 
     return MutationBatchHistory(
-        batch=MutationBatchOut(
-            **batch_to_dict(batch, actor_display_name=actor.display_name if actor else None)
-        ),
+        batch=MutationBatchOut(**await _batch_out(db, user, batch, actor)),
         events=[
             MutationBatchEvent(
                 id=e.id,
                 event_type=e.event_type,
-                data=e.data,
+                data=data,
                 card_id=e.card_id,
                 user_id=e.user_id,
                 user_display_name=e.user.display_name if e.user else None,
                 created_at=e.created_at,
             )
-            for e in events
+            for e, data in zip(events, payloads)
         ],
     )
 
@@ -347,7 +360,10 @@ async def rollback(
     if body.dry_run:
         plan = await plan_rollback(db, batch)
         plan["dry_run"] = True
-        return plan
+        plan["batch"] = await _batch_out(db, user, batch, None)
+        return await scrub_summary_costs(db, user, plan)
     result = await execute_rollback(db, batch, user_id=user.id, force=body.force)
     await db.commit()
-    return result
+    # The stored summary keeps the restored values; the answer does not show
+    # the ones this caller may not see.
+    return await scrub_summary_costs(db, user, result)

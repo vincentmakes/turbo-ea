@@ -29,7 +29,7 @@ export interface RoutePermission {
 
 export const ROUTE_PERMISSIONS: RoutePermission[] = [
   // --- Inventory ----------------------------------------------------------
-  // Per-card access (stakeholder roles, `GET /cards/{id}/effective-permissions`)
+  // Per-card access (stakeholder roles, `GET /cards/{id}/my-permissions`)
   // is enforced by the backend and by CardDetail itself; the route gate is the
   // app-level permission only.
   { path: "/inventory", permission: "inventory.view" },

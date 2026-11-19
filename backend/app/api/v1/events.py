@@ -26,6 +26,7 @@ from app.services.card_read_scope import (
 )
 from app.services.document_event_scope import document_event_read_filters
 from app.services.event_bus import event_bus
+from app.services.event_cost_scrub import scrub_event_costs
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/events", tags=["events"])
@@ -164,6 +165,9 @@ async def list_my_card_events(
 
     payloads = await scrub_event_payloads(
         db, await CardReadScope.load(db, user), [e.data for e in events_list]
+    )
+    payloads = await scrub_event_costs(
+        db, user, [(e.card_id, data) for e, data in zip(events_list, payloads)]
     )
     return [
         {

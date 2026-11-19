@@ -51,6 +51,7 @@ from app.models.relation_type import RelationType
 from app.services import card_approval, card_lifecycle, card_reference, notification_service
 from app.services.calculation_engine import run_calculations_for_card
 from app.services.card_uniqueness import check_sibling_name_unique
+from app.services.cost_field_filter import keep_stored_cost_values
 from app.services.cost_value import is_numeric_text
 from app.services.data_quality import calc_data_quality
 from app.services.event_bus import event_bus
@@ -1432,6 +1433,7 @@ async def upsert_relation(
     attributes: dict | None = None,
     description: str | None = None,
     dry_run: bool = False,
+    preserve_attribute_keys: frozenset[str] = frozenset(),
 ) -> tuple[Relation, bool, list[str]]:
     """Idempotent single-relation upsert on ``(type, source, target)`` —
     the ``POST /relations`` semantics (#905): reuse an existing row and merge
@@ -1441,7 +1443,12 @@ async def upsert_relation(
 
     The ends are turned into the relation type's direction first
     (``relation_orientation``), so a request sent the other way round merges
-    into the existing row instead of forking a backwards one (#1140)."""
+    into the existing row instead of forking a backwards one (#1140).
+
+    ``preserve_attribute_keys`` names attributes the caller may not write on
+    an existing row (the cost attributes of a caller without cost access —
+    the route decides, this module never judges a permission): their stored
+    values survive the replace. A new row takes ``attributes`` as given."""
     source_id, target_id = await orient_endpoints(db, type_key, source_id, target_id)
     rel = await find_relation(db, type_key, source_id, target_id)
     reused = rel is not None
@@ -1457,6 +1464,10 @@ async def upsert_relation(
             description=description,
         )
     else:
+        if attributes is not None and preserve_attribute_keys:
+            attributes = keep_stored_cost_values(
+                rel.attributes, attributes, preserve_attribute_keys
+            )
         changed = merge_relation_fields(rel, attributes=attributes, description=description)
     await db.flush()
 

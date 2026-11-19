@@ -46,6 +46,15 @@ const ROLE_KEY_MIN = 3;
 const ROLE_KEY_MAX = 50;
 
 /**
+ * The role anyone can give themselves: "Observe this card"
+ * (`POST /cards/{id}/me/observe`) assigns it to whoever can view the card,
+ * with no right to manage stakeholders.
+ * Whatever it allows is therefore open to all of them, which is how a card's
+ * costs once leaked (#1412) — the permission editor says so on this role.
+ */
+const SELF_ASSIGNABLE_ROLE_KEY = "observer";
+
+/**
  * KeyInput's shared `isValidKey` covers the character set but permits any
  * length; the role endpoint additionally requires 3-50 characters. Checking
  * both here is what stops a server-side 422 reaching the user.
@@ -409,6 +418,7 @@ const StakeholderRolePanel = forwardRef<StakeholderRolePanelHandle, StakeholderR
 
   /* --- Permission checkbox helper --- */
   const renderPermissionEditor = (
+    roleKey: string,
     perms: Record<string, boolean>,
     onChange: (key: string, val: boolean) => void,
   ) => (
@@ -443,6 +453,11 @@ const StakeholderRolePanel = forwardRef<StakeholderRolePanelHandle, StakeholderR
           </Box>
         </Box>
       ))}
+      {roleKey === SELF_ASSIGNABLE_ROLE_KEY && (
+        <Alert severity="info" sx={{ mt: 1 }}>
+          {t("metamodel.stakeholderPanel.selfAssignableHint")}
+        </Alert>
+      )}
     </Box>
   );
 
@@ -699,7 +714,7 @@ const StakeholderRolePanel = forwardRef<StakeholderRolePanelHandle, StakeholderR
                         }
                         sx={{ alignItems: "flex-start", ml: 0 }}
                       />
-                      {renderPermissionEditor(editForm.permissions, (key, val) =>
+                      {renderPermissionEditor(editForm.key, editForm.permissions, (key, val) =>
                         setEditForm({
                           ...editForm,
                           permissions: { ...editForm.permissions, [key]: val },
@@ -848,7 +863,7 @@ const StakeholderRolePanel = forwardRef<StakeholderRolePanelHandle, StakeholderR
                 }
                 sx={{ alignItems: "flex-start", ml: 0 }}
               />
-              {renderPermissionEditor(createForm.permissions, (key, val) =>
+              {renderPermissionEditor(createForm.key, createForm.permissions, (key, val) =>
                 setCreateForm({
                   ...createForm,
                   permissions: { ...createForm.permissions, [key]: val },

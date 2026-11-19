@@ -300,6 +300,7 @@
   "metamodel.stakeholderPanel.subscriberCount_other": "{{count}} inscr.",
   "metamodel.stakeholderPanel.permissions": "Permissões",
   "metamodel.stakeholderPanel.noPermissions": "Nenhuma permissão definida.",
+  "metamodel.stakeholderPanel.selfAssignableHint": "Qualquer pessoa que possa ver um cartão pode tornar-se o seu Observador, pelo que tudo o que este papel permite fica aberto a todos.",
   "metamodel.stakeholderPanel.newRole": "Novo papel de parte interessada",
   "metamodel.stakeholderPanel.keyLabel": "Chave",
   "metamodel.stakeholderPanel.keyPlaceholder": "ex: responsavelDados",

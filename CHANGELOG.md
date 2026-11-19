@@ -5,6 +5,23 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.206.0] - 2026-11-19
+
+### Security
+- **Making yourself an Observer no longer reveals a card's costs.** Cost fields on cards and relations were shown to anyone holding *any* stakeholder role on the card, even without the `costs.view` permission — and since anyone who can view a card can make themselves its Observer with one click, every user could reveal the costs of any card they could open ([#1412](https://github.com/vincentmakes/turbo-ea/issues/1412)). A stakeholder role now shows costs only when it is allowed to (see below), and the built-in **Observer** role is not.
+- **Cost values no longer reach a reader through a card's history or an activity feed.** A card's **History** tab, the dashboard's recent activity, the admin summary, **My Workspace** and a change batch read by its own author (including its rollback preview) all returned the old and new cost values of an edit to users who could not see them on the card itself.
+- **The Portfolio and Lifecycle reports no longer return cost fields** of cards and relations to users who may not see them on the card.
+- **Cost values can no longer be overwritten or wiped by a user who cannot see them** by adding the same relation again, through a bulk relation import (Excel, MCP) or with a bulk card edit that sends empty attributes; a bulk edit's preview no longer shows them either.
+- **A role denied View on a card type no longer gets that type's costs through `costs.view`** on the cards it still opens through a stakeholder role; the card already said it could not.
+
+### Added
+- **A stakeholder role's cost access is now a permission of the role.** Each role under **Admin → Metamodel → [card type] → Stakeholder Roles** has a new **card.view_costs** checkbox: holders see (and, with edit rights, change) the cost fields of their own cards without the app-level `costs.view` permission. On upgrade every existing role keeps showing costs, except Observer; a role you create afterwards starts without it. The editor warns on the Observer role that whatever it allows is open to everyone who can view the card.
+
+### Changed
+- **Check who may assign stakeholder roles.** A user who can manage stakeholders (`stakeholders.manage`, which Member has by default) can assign a role that shows costs to anyone, themselves included. Where costs must stay closed to them, remove that permission or untick **card.view_costs** on the roles they can assign.
+- A stakeholder whose role has no definition for its card type — the default Responsible / Observer of a custom card type whose roles were never set up — no longer sees that card's costs. Define the role under **Stakeholder Roles** and tick **card.view_costs**, or grant the user's role `costs.view`.
+- A workspace bundle exported before this release keeps the cost access its stakeholder roles had when it is imported (Observer excepted).
+
 ## [2.205.3] - 2026-11-18
 
 ### Security
