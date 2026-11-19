@@ -54,7 +54,8 @@ Guards: `backend/tests/api/test_adr_diagrams.py` (`test_without_diagrams_view_40
 4. **Effective Permissions**: For any user + card combination, the system computes the union of:
    - App-level role permissions (with app→card permission mapping from `core/permissions.py`)
    - All stakeholder role permissions the user holds on that card
-   - Result exposed via `GET /cards/{id}/effective-permissions`
+   - Result exposed via `GET /cards/{id}/my-permissions`
+   - **Cost fields are the exception: `costs.view` alone decides** (`PermissionService.can_view_costs`, the `can_view_costs` flag). No stakeholder role shows or lets someone change a card's or a relation's cost fields — anyone who can view a card can make themselves its Observer (`POST /cards/{id}/me/observe`), so the stakeholder exception the permission first shipped with let every user past it ([#1412](https://github.com/vincentmakes/turbo-ea/issues/1412), removed in 2.205.4). Guard tests: `tests/api/test_cards_costs.py::TestObservingDoesNotRevealCosts`, `tests/api/test_relations.py::TestRelationCostsAndStakeholders`.
 
 ### Permission Key Registry (`core/permissions.py`)
 

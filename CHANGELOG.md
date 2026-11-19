@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.205.4] - 2026-11-19
+
+### Security
+- **A stakeholder role no longer reveals a card's costs.** Cost fields on cards and relations were shown to anyone holding a stakeholder role on the card, even without the **View cost fields** permission (`costs.view`) — and since anyone who can view a card can make themselves its Observer with one click, every user could reveal the costs of any card they could open ([#1412](https://github.com/vincentmakes/turbo-ea/issues/1412)). The permission alone now decides: without it cost fields show *Restricted* and cannot be changed, whatever stakeholder role the user holds. **If owners should keep seeing the costs of their own cards, grant `costs.view` to their role** (Member and BPM Admin have it by default, Viewer does not).
+
 ## [2.205.3] - 2026-11-18
 
 ### Security

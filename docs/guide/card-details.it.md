@@ -107,7 +107,7 @@ A seconda del tipo di card, vedrete sezioni aggiuntive con **campi personalizzat
 - **Testo** — Input di testo libero
 - **Testo multilinea** — Input di testo libero che preserva le interruzioni di riga, visualizzato come un'area di testo a crescita automatica
 - **Numero** — Valore numerico
-- **Costo** — Valore numerico visualizzato con la valuta configurata della piattaforma
+- **Costo** — Valore numerico visualizzato con la valuta configurata della piattaforma. I campi di costo sono mostrati solo agli utenti il cui ruolo possiede il permesso `costs.view` (elencato sotto **Costs** nell'editor dei ruoli). Tutti gli altri vedono *Limitato* al loro posto e non possono modificare il valore: un ruolo di stakeholder sulla scheda, Osservatore o proprietario, non cambia questa situazione
 - **Booleano** — Scelta da un elenco Sì / No, con **Nessuno** per svuotarlo; mostrato come etichetta verde *Sì* o blu *No*, — se non impostato
 - **Data** — Selettore di data
 - **URL** — Link cliccabile (validato per http/https/mailto)

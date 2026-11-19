@@ -10,7 +10,8 @@ import uuid
 import pytest
 
 from app.api.v1.relations import MAX_CARD_IDS_PER_QUERY
-from app.core.permissions import VIEWER_PERMISSIONS
+from app.core.permissions import RESPONSIBLE_CARD_PERMISSIONS, VIEWER_PERMISSIONS
+from app.models.stakeholder import Stakeholder
 from tests.conftest import (
     auth_headers,
     create_card,
@@ -18,6 +19,7 @@ from tests.conftest import (
     create_relation,
     create_relation_type,
     create_role,
+    create_stakeholder_role_def,
     create_user,
 )
 
@@ -773,6 +775,72 @@ class TestUpdateRelation:
             headers=auth_headers(viewer),
         )
         assert resp.status_code == 403
+
+
+class TestRelationCostsAndStakeholders:
+    """A relation's cost attributes follow `costs.view` alone (#1412): owning
+    the source card neither reveals them nor lets them be overwritten."""
+
+    @pytest.fixture
+    async def costed(self, db, rel_env):
+        await create_relation_type(
+            db,
+            key="costed_rel",
+            label="Costed",
+            source_type_key="Application",
+            target_type_key="ITComponent",
+            attributes_schema=[
+                {"key": "costTotalAnnual", "label": "Annual cost", "type": "cost"},
+                {"key": "note", "label": "Note", "type": "text"},
+            ],
+        )
+        rel = await create_relation(
+            db,
+            type_key="costed_rel",
+            source_id=rel_env["source"].id,
+            target_id=rel_env["target"].id,
+            attributes={"costTotalAnnual": 42000, "note": "keep me"},
+        )
+        await create_stakeholder_role_def(
+            db, key="responsible", permissions=RESPONSIBLE_CARD_PERMISSIONS
+        )
+        await create_role(
+            db,
+            key="relation_editor",
+            label="Relation editor",
+            permissions={"inventory.view": True, "relations.manage": True, "costs.view": False},
+        )
+        owner = await create_user(db, email="owner@test.com", role="relation_editor")
+        db.add(Stakeholder(card_id=rel_env["source"].id, user_id=owner.id, role="responsible"))
+        await db.flush()
+        return {"rel": rel, "owner": owner}
+
+    async def test_the_source_cards_stakeholder_does_not_see_the_cost(
+        self, client, db, rel_env, costed
+    ):
+        resp = await client.get(
+            "/api/v1/relations?type=costed_rel", headers=auth_headers(costed["owner"])
+        )
+        assert resp.status_code == 200
+        [row] = resp.json()
+        assert row["attributes"] == {"note": "keep me"}
+
+    async def test_the_source_cards_stakeholder_cannot_overwrite_the_cost(
+        self, client, db, rel_env, costed
+    ):
+        resp = await client.patch(
+            f"/api/v1/relations/{costed['rel'].id}",
+            json={"attributes": {"costTotalAnnual": 1, "note": "changed"}},
+            headers=auth_headers(costed["owner"]),
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["attributes"] == {"note": "changed"}
+
+        as_admin = await client.get(
+            "/api/v1/relations?type=costed_rel", headers=auth_headers(rel_env["admin"])
+        )
+        [row] = as_admin.json()
+        assert row["attributes"] == {"costTotalAnnual": 42000, "note": "changed"}
 
 
 # ---------------------------------------------------------------

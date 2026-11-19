@@ -202,10 +202,7 @@ APP_PERMISSIONS: dict[str, dict] = {
     "costs": {
         "label": "Costs",
         "permissions": {
-            "costs.view": (
-                "View cost fields on cards and cost reports "
-                "(stakeholders see costs on their own cards regardless)"
-            ),
+            "costs.view": "View cost fields on cards and cost reports",
         },
     },
     "users": {

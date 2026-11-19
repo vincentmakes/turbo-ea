@@ -1,4 +1,10 @@
-"""Tests for the costs.view permission rule (app-level + stakeholder bypass)."""
+"""Tests for the costs.view permission rule.
+
+`costs.view` alone decides whether cost fields are shown. A stakeholder role on
+the card grants nothing here (#1412): anyone who can view a card can make
+themselves its Observer, so a stakeholder exception would let every user past
+the permission.
+"""
 
 from __future__ import annotations
 
@@ -17,52 +23,40 @@ async def _make_stakeholder(db, *, user, card, role="responsible"):
     return sh
 
 
-class TestIsStakeholderOf:
-    async def test_returns_true_when_stakeholder(self, db, app_card_type):
-        await create_role(db, key="member", permissions=MEMBER_PERMISSIONS)
-        user = await create_user(db, role="member")
-        card = await create_card(db, card_type="Application")
-        await _make_stakeholder(db, user=user, card=card)
-
-        assert await PermissionService.is_stakeholder_of(db, user, card.id) is True
-
-    async def test_returns_false_when_not_stakeholder(self, db, app_card_type):
-        await create_role(db, key="member", permissions=MEMBER_PERMISSIONS)
-        user = await create_user(db, role="member")
-        card = await create_card(db, card_type="Application")
-
-        assert await PermissionService.is_stakeholder_of(db, user, card.id) is False
-
-
 class TestCanViewCosts:
     async def test_admin_wildcard_grants_access(self, db, app_card_type):
         await create_role(db, key="admin", permissions={"*": True})
         user = await create_user(db, role="admin")
-        card = await create_card(db, card_type="Application")
 
-        assert await PermissionService.can_view_costs(db, user, card.id) is True
+        assert await PermissionService.can_view_costs(db, user) is True
 
     async def test_app_perm_grants_access(self, db, app_card_type):
         await create_role(db, key="cost_role", permissions={"costs.view": True})
         user = await create_user(db, role="cost_role")
-        card = await create_card(db, card_type="Application")
 
-        assert await PermissionService.can_view_costs(db, user, card.id) is True
+        assert await PermissionService.can_view_costs(db, user) is True
 
-    async def test_stakeholder_grants_access_without_global_perm(self, db, app_card_type):
+    async def test_a_stakeholder_role_does_not_grant_access(self, db, app_card_type):
         await create_role(db, key="viewer", permissions=VIEWER_PERMISSIONS)
         user = await create_user(db, role="viewer")
         card = await create_card(db, card_type="Application")
         await _make_stakeholder(db, user=user, card=card)
 
-        assert await PermissionService.can_view_costs(db, user, card.id) is True
+        assert await PermissionService.can_view_costs(db, user) is False
+
+    async def test_an_explicit_false_grant_denies(self, db, app_card_type):
+        await create_role(
+            db, key="no_costs", permissions={**MEMBER_PERMISSIONS, "costs.view": False}
+        )
+        user = await create_user(db, role="no_costs")
+
+        assert await PermissionService.can_view_costs(db, user) is False
 
     async def test_no_perm_no_stakeholder_denies(self, db, app_card_type):
         await create_role(db, key="viewer", permissions=VIEWER_PERMISSIONS)
         user = await create_user(db, role="viewer")
-        card = await create_card(db, card_type="Application")
 
-        assert await PermissionService.can_view_costs(db, user, card.id) is False
+        assert await PermissionService.can_view_costs(db, user) is False
 
 
 class TestCardIdsWithCostAccess:
@@ -75,7 +69,7 @@ class TestCardIdsWithCostAccess:
         out = await PermissionService.card_ids_with_cost_access(db, user, [c1.id, c2.id])
         assert out == {c1.id, c2.id}
 
-    async def test_no_perm_returns_only_stakeholder_cards(self, db, app_card_type):
+    async def test_no_perm_returns_nothing_even_for_stakeholder_cards(self, db, app_card_type):
         await create_role(db, key="viewer", permissions=VIEWER_PERMISSIONS)
         user = await create_user(db, role="viewer")
         c1 = await create_card(db, card_type="Application", name="A")
@@ -83,7 +77,7 @@ class TestCardIdsWithCostAccess:
         await _make_stakeholder(db, user=user, card=c1)
 
         out = await PermissionService.card_ids_with_cost_access(db, user, [c1.id, c2.id])
-        assert out == {c1.id}
+        assert out == set()
 
     async def test_no_perm_no_stakeholders_returns_empty(self, db, app_card_type):
         await create_role(db, key="viewer", permissions=VIEWER_PERMISSIONS)
@@ -100,15 +94,16 @@ class TestCardIdsWithCostAccess:
         out = await PermissionService.card_ids_with_cost_access(db, user, [])
         assert out == set()
 
-    async def test_filters_unknown_ids(self, db, app_card_type):
-        await create_role(db, key="viewer", permissions=VIEWER_PERMISSIONS)
-        user = await create_user(db, role="viewer")
+    async def test_none_and_duplicate_candidates_are_dropped(self, db, app_card_type):
+        await create_role(db, key="cost_role", permissions={"costs.view": True})
+        user = await create_user(db, role="cost_role")
         c1 = await create_card(db, card_type="Application")
-        await _make_stakeholder(db, user=user, card=c1)
-        random_id = uuid.uuid4()
+        other_id = uuid.uuid4()
 
-        out = await PermissionService.card_ids_with_cost_access(db, user, [c1.id, random_id])
-        assert out == {c1.id}
+        out = await PermissionService.card_ids_with_cost_access(
+            db, user, [c1.id, None, c1.id, other_id]
+        )
+        assert out == {c1.id, other_id}
 
 
 class TestEffectivePermissionsIncludesCanViewCosts:
@@ -128,14 +123,15 @@ class TestEffectivePermissionsIncludesCanViewCosts:
         eff = await PermissionService.get_effective_card_permissions(db, user, card.id)
         assert eff["effective"]["can_view_costs"] is True
 
-    async def test_stakeholder_makes_can_view_costs_true(self, db, app_card_type):
+    async def test_a_stakeholder_role_leaves_can_view_costs_false(self, db, app_card_type):
         await create_role(db, key="viewer", permissions=VIEWER_PERMISSIONS)
         user = await create_user(db, role="viewer")
         card = await create_card(db, card_type="Application")
         await _make_stakeholder(db, user=user, card=card)
 
         eff = await PermissionService.get_effective_card_permissions(db, user, card.id)
-        assert eff["effective"]["can_view_costs"] is True
+        assert eff["stakeholder_roles"] == ["responsible"]
+        assert eff["effective"]["can_view_costs"] is False
 
     async def test_no_access_returns_false(self, db, app_card_type):
         await create_role(db, key="viewer", permissions=VIEWER_PERMISSIONS)

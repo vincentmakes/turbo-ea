@@ -79,34 +79,38 @@ async def test_a_role_on_another_card_or_held_by_someone_else_does_not_count(db,
     await hold(db, c1, me, "owner")  # me, but another card
     await hold(db, c0, other, "owner")  # this card, but another user
 
-    assert await PermissionService.is_stakeholder_of(db, me, c0.id) is False
     assert await PermissionService.has_card_permission(db, me, c0.id, "card.edit") is False
     eff = await PermissionService.get_effective_card_permissions(db, me, c0.id)
     assert eff["stakeholder_roles"] == [] and eff["card_level"] == {}
     assert eff["effective"]["can_edit"] is False
     assert eff["effective"]["can_view_costs"] is False
 
-    assert await PermissionService.is_stakeholder_of(db, me, c1.id) is True
     assert await PermissionService.has_card_permission(db, me, c1.id, "card.edit") is True
 
 
-async def test_two_roles_on_one_card_still_make_one_stakeholder(db, world):
+async def test_two_roles_on_one_card_are_both_collected(db, world):
     me, (c0, *_) = world["me"], world["cards"]
     await hold(db, c0, me, "owner")
     await hold(db, c0, me, "watcher")
-    assert await PermissionService.is_stakeholder_of(db, me, c0.id) is True
     eff = await PermissionService.get_effective_card_permissions(db, me, c0.id)
     assert sorted(eff["stakeholder_roles"]) == ["owner", "watcher"]
     assert eff["card_level"] == {"card.edit": True, "card.view": True}
 
 
-async def test_cost_access_is_limited_to_the_users_own_candidate_cards(db, world):
-    me, other, (c0, c1, c2) = world["me"], world["other"], world["cards"]
+async def test_a_stakeholder_role_gives_no_cost_access(db, world):
+    # `costs.view` alone decides (#1412): holding a role on a candidate card
+    # adds nothing, and the same candidates all come back with the permission.
+    me, (c0, c1, _) = world["me"], world["cards"]
     await hold(db, c0, me, "owner")
-    await hold(db, c2, me, "owner")  # held, but not a candidate
-    await hold(db, c1, other, "owner")  # a candidate, but someone else's
-    got = await PermissionService.card_ids_with_cost_access(db, me, [c0.id, c1.id, None])
-    assert got == {c0.id}
+    assert await PermissionService.card_ids_with_cost_access(db, me, [c0.id, c1.id, None]) == set()
+    eff = await PermissionService.get_effective_card_permissions(db, me, c0.id)
+    assert eff["stakeholder_roles"] == ["owner"]
+    assert eff["effective"]["can_view_costs"] is False
+
+    await create_role(db, key="costs", label="Costs", permissions={"costs.view": True})
+    reader = await create_user(db, email="reader@test.com", role="costs")
+    got = await PermissionService.card_ids_with_cost_access(db, reader, [c0.id, c1.id, None])
+    assert got == {c0.id, c1.id}
 
 
 async def test_cost_access_for_nothing_is_nothing(db, world):

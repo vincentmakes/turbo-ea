@@ -312,28 +312,15 @@ class PermissionService:
             raise HTTPException(403, "Insufficient permissions")
 
     @staticmethod
-    async def is_stakeholder_of(db: AsyncSession, user: User, card_id: UUID) -> bool:
-        """Return True if the user holds any stakeholder role on this card."""
-        result = await db.execute(
-            select(Stakeholder.id)
-            .where(
-                Stakeholder.card_id == card_id,
-                Stakeholder.user_id == user.id,
-            )
-            .limit(1)
-        )
-        return result.scalar_one_or_none() is not None
+    async def can_view_costs(db: AsyncSession, user: User) -> bool:
+        """Return True if the user may see and change cost-typed fields.
 
-    @staticmethod
-    async def can_view_costs(db: AsyncSession, user: User, card_id: UUID) -> bool:
-        """Return True if the user may see cost-typed fields on this card.
-
-        Rule: app-level `costs.view` grants access landscape-wide; otherwise
-        any stakeholder role on the card grants access to that card's costs.
+        ``costs.view`` alone decides. A stakeholder role on a card grants
+        nothing here: anyone who can view a card may make themselves its
+        Observer (``POST /cards/{id}/me/observe``), so a stakeholder exception
+        let every user past the permission (#1412).
         """
-        if await PermissionService.has_app_permission(db, user, "costs.view"):
-            return True
-        return await PermissionService.is_stakeholder_of(db, user, card_id)
+        return await PermissionService.has_app_permission(db, user, "costs.view")
 
     @staticmethod
     async def card_ids_with_cost_access(
@@ -341,21 +328,15 @@ class PermissionService:
     ) -> set[UUID]:
         """Bulk variant of `can_view_costs` for list endpoints.
 
-        Returns the subset of candidate card IDs the user can see costs for.
-        If the user has the global `costs.view` permission, returns all candidates.
+        Returns the subset of candidate card IDs the user can see costs for:
+        every candidate with ``costs.view``, none without — the same rule as
+        `can_view_costs`, kept per card so the redaction call sites read the
+        same whatever the rule is.
         """
-        candidates = list({cid for cid in candidate_card_ids if cid is not None})
-        if not candidates:
-            return set()
-        if await PermissionService.has_app_permission(db, user, "costs.view"):
-            return set(candidates)
-        result = await db.execute(
-            select(Stakeholder.card_id).where(
-                Stakeholder.user_id == user.id,
-                Stakeholder.card_id.in_(candidates),
-            )
-        )
-        return {row[0] for row in result.all()}
+        candidates = {cid for cid in candidate_card_ids if cid is not None}
+        if candidates and await PermissionService.can_view_costs(db, user):
+            return candidates
+        return set()
 
     @staticmethod
     async def get_effective_card_permissions(db: AsyncSession, user: User, card_id: UUID) -> dict:
@@ -456,7 +437,8 @@ class PermissionService:
             "can_manage_diagram_links": is_admin
             or _app("diagrams.manage")
             or card_level.get("card.manage_diagram_links", False),
-            "can_view_costs": is_admin or _app("costs.view") or len(stakeholder_roles) > 0,
+            # No stakeholder term on purpose: see ``can_view_costs``.
+            "can_view_costs": is_admin or _app("costs.view"),
         }
 
         return {

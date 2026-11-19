@@ -2538,7 +2538,7 @@ async def update_card(
         # A parent hidden from the caller does not exist for them.
         await require_card_readable(db, user, uuid.UUID(str(new_parent)), mode="module")
 
-    # Preserve cost-typed keys when the user lacks cost access on this card.
+    # Preserve cost-typed keys when the user lacks `costs.view`.
     # PATCH does a full replace on `attributes`, so simply dropping the
     # forbidden keys from the incoming payload would wipe whatever the card
     # already had. Merge the existing values back so the user's update can
@@ -2546,7 +2546,7 @@ async def update_card(
     # permission shaping of the incoming payload, so it stays route-side —
     # the write service applies the merged result.
     if "attributes" in updates and updates["attributes"] is not None:
-        if not await PermissionService.can_view_costs(db, user, card.id):
+        if not await PermissionService.can_view_costs(db, user):
             type_schema_row = await db.execute(
                 select(CardType.fields_schema).where(CardType.key == card.type)
             )
