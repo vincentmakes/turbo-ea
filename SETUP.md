@@ -10,6 +10,7 @@ Sections of this file:
 3. Python (uv and the backend venv)
 4. User-level Claude Code plugins and skills (caveman, superpowers, claude-md-management, humanizer)
 5. Project-level Claude Code skills
+   - [Project agents for Claude Code and Codex](#project-agents-for-claude-code-and-codex)
 6. Tools
    - Graphify (code graph)
    - Trail (local install, shared hook and telemetry turned off)
@@ -339,6 +340,36 @@ The `/translate` command starts the [translator](.claude/agents/translator.md) a
 - Updated by the Turbo EA maintainers, through a PR to the repository.
 
 The specialised agents are defined in `.claude/agents/`. The per-area rules are in `.claude/rules/` and are referenced from [CLAUDE.md](CLAUDE.md).
+
+### Project agents for Claude Code and Codex
+
+Each role has one shared definition in `.claude/agents/<name>.md`. Its Codex profile in `.codex/agents/<name>.toml` refers to that file and sets the model and reasoning effort. Both directories are versioned with Turbo EA.
+
+| Agent | Responsibility | Claude Code definition | Claude model | Claude effort | Codex TOML profile | Codex model | Codex effort |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| backend-dev | Backend implementation and regression tests | [.claude/agents/backend-dev.md](.claude/agents/backend-dev.md) | sonnet | medium | [.codex/agents/backend-dev.toml](.codex/agents/backend-dev.toml) | gpt-6.1-terra | medium |
+| frontend-dev | Frontend implementation and regression tests | [.claude/agents/frontend-dev.md](.claude/agents/frontend-dev.md) | sonnet | medium | [.codex/agents/frontend-dev.toml](.codex/agents/frontend-dev.toml) | gpt-6.1-terra | medium |
+| translator | Nine non-English locales and translation parity checks | [.claude/agents/translator.md](.claude/agents/translator.md) | sonnet | medium | [.codex/agents/translator.toml](.codex/agents/translator.toml) | gpt-6-luna | medium |
+| docs-keeper | Manual, screenshot references and screenshot capture | [.claude/agents/docs-keeper.md](.claude/agents/docs-keeper.md) | sonnet | medium | [.codex/agents/docs-keeper.toml](.codex/agents/docs-keeper.toml) | gpt-6.2-sol | medium |
+| reviewer | Independent, read-only review of the branch diff | [.claude/agents/reviewer.md](.claude/agents/reviewer.md) | opus | high | [.codex/agents/reviewer.toml](.codex/agents/reviewer.toml) | gpt-6.2-astra | high |
+| spec-plan-reviewer | Fresh, read-only review of each spec or plan before presentation | [.claude/agents/spec-plan-reviewer.md](.claude/agents/spec-plan-reviewer.md) | opus | medium | [.codex/agents/spec-plan-reviewer.toml](.codex/agents/spec-plan-reviewer.toml) | gpt-6.2-astra | high |
+
+Start the `reviewer` in a fresh context after development. The calling session owns commits, pushes and pull requests. To change a role's duties for both tools, edit its shared definition. To change its Codex model or reasoning effort, edit its TOML profile.
+
+#### Run a read-only spec or plan review in Codex
+
+The `spec-plan-reviewer` inherits the calling turn's filesystem permissions. Its TOML declares `sandbox_mode = "read-only"`, but starting the agent from a `workspace-write` turn still gives it write access.
+
+1. Before delegating, select read-only permissions in the calling session. To keep working in a writable development chat, open a separate PowerShell terminal at the Turbo EA project root and start a review session:
+
+   ```powershell
+   codex -s read-only
+   ```
+
+2. Ask Codex to start a fresh `spec-plan-reviewer` and give it the repository-relative path to the committed spec. For a plan, ask for a **new instance** and give it both the plan path and the corresponding spec path.
+3. To verify the effective settings, inspect the child session's `turn_context` record. The verified values are `model = gpt-6.2-astra`, `effort = high` and `sandbox_policy.type = read-only`. A `workspace-write` value means the review must be relaunched from a read-only turn.
+
+See the [spec and plan review rule](.claude/rules/spec-and-plan-review.md) for what each review must cover.
 
 ---
 

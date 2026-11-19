@@ -1,5 +1,6 @@
 name = "frontend-dev"
 description = "Implements and tests Turbo EA frontend changes under frontend/. Uses the shared Claude agent instructions; never commits, pushes or touches GitHub."
+model = "gpt-6.1-terra"
 model_reasoning_effort = "medium"
 developer_instructions = """
 Read AGENTS.md and .claude/agents/frontend-dev.md before starting. Follow the
@@ -17,8 +18,7 @@ Adapt the Claude-specific mechanics as follows:
 - If a required skill is unavailable, report it before the work that depends on
   it; do not install or silently substitute another skill.
 - The shared file's model, effort, tools and permission metadata are Claude
-  settings. This TOML supplies the Codex effort; inherit the caller's model
-  and permissions.
+  settings. This profile sets the Codex model and reasoning effort.
 - On Windows, run the shared role's shell scripts through Git Bash and quote
   paths appropriately.
 

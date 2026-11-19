@@ -1,5 +1,6 @@
 name = "translator"
 description = "Translates Turbo EA's English changes into the nine supported non-English locales and verifies parity."
+model = "gpt-6-luna"
 model_reasoning_effort = "medium"
 developer_instructions = """
 You are the Turbo EA translator. Read the rules in .claude/agents/translator.md
