@@ -56,7 +56,7 @@ Read the rule file of the area before you change it; each loads on its own when 
 - Homepage dashboards: widget registry parity, no ids in widget config, trends → `.claude/rules/dashboards.md`
 - **At every release tag run the `security-audit` skill and a full-repo `ponytail-audit`** (never per-PR) → `.claude/rules/release-audit.md`
 - Costs of Application / IT Component as catalogue items (TCO, derived total, `costs.edit`, event redaction) → `.claude/rules/cost-items.md`
-- Licenses of Application / IT Component per fiscal year (status, `licensingModel`, import, report) → `.claude/rules/licensing-items.md`
+- Licenses of Application / IT Component per fiscal year (metric and type catalogue, `metric:type` pairs from each year's cells, status, import, report) → `.claude/rules/licensing-items.md`
 
 ### Backend Conventions
 - **A Security & admin log entry is written for a person to read**: `audit_log.record` takes exactly `reason` / `changes` / `items` / `context`, values are labels not keys, and a new item kind is a three-place change. → `.claude/rules/db-sessions-events-audit.md`
