@@ -388,13 +388,12 @@ The `.trail/` folder already comes with the repository: `learnings/` holds the s
 
 #### Local install with telemetry turned off
 
-Run it from PowerShell and finish all the commands before opening new Claude
+Run it from PowerShell at the project root and finish all the commands before opening new Claude
 or Codex chats on the project: hooks that are already configured can start
 automatically when a session opens.
 
 ```powershell
-$projectPath = Join-Path $env:USERPROFILE 'claude-work\software\turbo-ea'
-Set-Location -LiteralPath $projectPath
+# Start this PowerShell in the Turbo EA project root.
 
 # This also protects the first command, before the persistent preference exists.
 $env:DO_NOT_TRACK = '1'
@@ -417,8 +416,8 @@ if ($trailTelemetry.enabled -ne $false) {
 
 `--prefix .` installs locally. `--no-save` and `--package-lock=false` avoid
 changes to the npm manifests; `--ignore-scripts` skips the automatic install
-scripts. The executable is `node_modules/.bin/trail.cmd`: use this full
-path, with no global install and no change to the PATH.
+scripts. The executable is `node_modules/.bin/trail.cmd`: invoke it relative
+to the project root, with no global install or change to the Windows PATH.
 [npm install reference](https://docs.npmjs.com/cli/commands/npm-install/).
 
 `DO_NOT_TRACK=1` applies to this PowerShell and the processes it starts.
@@ -435,6 +434,81 @@ under `%USERPROFILE%\.claude\` and create personal state under
 `%USERPROFILE%\.trail\`. The package install itself stays local.
 `--ignore-scripts` does not prevent these writes the next time Trail starts.
 
+#### Project-only PATH and Trail mode
+
+These settings apply to Claude and Codex sessions opened on Turbo EA. They do
+not change the Windows user or system PATH, or the environment of an ordinary
+PowerShell opened separately. Changing directory to the project does not make
+the bare `trail` command available in that terminal.
+
+`TRAIL_INVOKED_AS=trail` selects Trail mode explicitly. The automatic detection
+excludes `node_modules/.bin`, so adding that directory to PATH alone does not
+enable all note automations. Keep `DO_NOT_TRACK=1` alongside it, in addition to
+the persistent `telemetry disable` preference above.
+
+From the project root, prepare the values for this installation. These commands
+only calculate values; they do not write configuration files or change Windows
+environment variables:
+
+```powershell
+$projectRoot = (Get-Location).Path
+if (-not (Test-Path -LiteralPath '.\.trail\hook.cjs')) {
+    throw 'Open PowerShell at the Turbo EA project root first.'
+}
+$trailBin = Join-Path $projectRoot 'node_modules\.bin'
+$windowsPath = @(
+    [Environment]::GetEnvironmentVariable('Path', 'Machine')
+    [Environment]::GetEnvironmentVariable('Path', 'User')
+) -join [IO.Path]::PathSeparator
+$trailEnvironment = [ordered]@{
+    TRAIL_INVOKED_AS = 'trail'
+    DO_NOT_TRACK = '1'
+    PATH = $trailBin + [IO.Path]::PathSeparator + $windowsPath
+}
+```
+
+**Claude — `.claude/settings.local.json`.** Print the JSON below and merge its
+`env` entries into the existing file, preserving permissions, hooks and other
+settings. If `env` already exists, update these three keys inside it:
+
+```powershell
+[ordered]@{ env = $trailEnvironment } | ConvertTo-Json -Depth 3
+```
+
+**Codex — `.codex/config.toml`.** Print this TOML and merge the three entries
+into `[shell_environment_policy.set]`, preserving other entries. Create that
+table if it is absent; do not add a duplicate table:
+
+```powershell
+'[shell_environment_policy.set]'
+$trailEnvironment.GetEnumerator() | ForEach-Object {
+    '{0} = {1}' -f $_.Key, (ConvertTo-Json -InputObject $_.Value -Compress)
+}
+```
+
+The generated PATH is a literal value derived from the project root and the
+Windows machine/user PATH, with no hardcoded username. Do not paste an
+unexpanded `$env:PATH` or `%PATH%` into these settings. Regenerate the values
+if the project moves or the Windows PATH changes. Open new agent sessions
+after applying the settings. Codex command hooks also need the variables in
+their command: they do not inherit `shell_environment_policy.set`.
+
+#### Verify from an ordinary PowerShell
+
+Run these commands from the Turbo EA project root, including when Claude
+and Codex are closed:
+
+```powershell
+$env:DO_NOT_TRACK = '1'
+& .\node_modules\.bin\trail.cmd --version
+& .\node_modules\.bin\trail.cmd telemetry status
+```
+
+The version check must print the installed version; the telemetry status must
+report that collection is disabled. A bare `trail --version` in an ordinary
+PowerShell may still report "command not found": the project-only agent
+settings do not apply to it.
+
 #### Shared hook for Claude and Codex
 
 Claude uses the `SessionStart` entry already present in `.claude/settings.json`:
@@ -443,8 +517,11 @@ Claude uses the `SessionStart` entry already present in `.claude/settings.json`:
 node "${CLAUDE_PROJECT_DIR:-.}/.trail/hook.cjs" session-start || exit 0
 ```
 
-Codex uses `.codex/hooks.json`. The following entry must be merged in, keeping
-any other hooks; it calls the same file from the Git root:
+Codex uses `.codex/hooks.json`. Merge this Windows example while keeping any
+other hooks. Open Codex at the Turbo EA project root: this relative-path
+example uses that session directory (`%CD%`) to locate `node_modules/.bin`
+and the shared hook. For sessions started in a subdirectory, use the expanded
+project-root path calculated above for the working directory and bin path.
 
 ```json
 {
@@ -455,7 +532,7 @@ any other hooks; it calls the same file from the Git root:
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"$(git rev-parse --show-toplevel)\" && node .trail/hook.cjs session-start",
+            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs session-start\"",
             "timeout": 5,
             "statusMessage": "Loading Turbo EA Trail notes"
           }
@@ -524,14 +601,16 @@ Trail searches retrieve the notes that bear on the request. Codex, with
 only the current `SessionStart`, does not receive new notes on every read or edit
 of a file through an additional hook.
 
-**Limit of the verified local install.** The hook looks for a `trail` command
-on the PATH to enable some note automations; this check
-excludes `node_modules/.bin` paths. On this machine it does not find that
-command and uses the `graft` compatibility mode. The map and the explicit
-searches with `.\node_modules\.bin\trail.cmd` work, but the automatic recall
-of the project's standing notes (`standing: true`) at startup, or of the notes that bear on each file touched,
-must not be taken for granted.
-This limit is documented; the hooks were not modified to work around it.
+**Automatic note recall with the project settings above.** With
+`TRAIL_INVOKED_AS=trail`, the startup hook can include the project's standing
+notes (`standing: true`). Claude's configured file hooks also recall notes
+relevant to a file read or edit. Codex currently has only `SessionStart`, so
+setting the variable does not add file hooks.
+
+Verification covered the shared startup hook for both hosts and a real
+file-related note through Claude's hook. Standing notes were tested on a
+temporary copy because none of the project's current notes were marked
+`standing: true`; the copy was removed and no project notes were changed.
 
 #### Update
 
