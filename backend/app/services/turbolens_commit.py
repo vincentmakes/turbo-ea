@@ -88,6 +88,8 @@ async def _generate_description(
             provider_type=provider_type,
             api_key=api_key,
             fields_schema=card_type.fields_schema if card_type else [],
+            search_provider=ai.get("searchProvider") or "duckduckgo",
+            search_url=ai.get("searchUrl") or "",
         )
         suggestions = result_data.get("suggestions", {})
         desc_suggestion = suggestions.get("description", {})

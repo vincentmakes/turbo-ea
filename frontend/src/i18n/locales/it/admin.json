@@ -2997,5 +2997,13 @@
   "metamodel.principles.reference": "Riferimento",
   "metamodel.principles.import.title": "Importa principi di EA",
   "metamodel.principles.import.intro": "Carica un file .xlsx per creare o aggiornare i principi in blocco. Ogni riga viene associata a un principio esistente prima tramite il riferimento (P-001), poi tramite il titolo; un principio associato viene aggiornato con i valori che differiscono e ogni altra riga crea un nuovo principio. Una colonna assente dal foglio lascia il campo invariato, mentre una cella di testo vuota lo cancella e una cella is_active o sort_order vuota lascia quel valore com'è.",
-  "metamodel.principles.import.skippedHint": "Queste righe corrispondono a un principio esistente e non modificano nulla."
+  "metamodel.principles.import.skippedHint": "Queste righe corrispondono a un principio esistente e non modificano nulla.",
+  "settings.ai.searchProvider": "Search provider",
+  "settings.ai.searchProviderHelper": "DuckDuckGo is the default. Keenable works without a key. Google's Custom Search JSON API is closed to new customers and will be discontinued on 1 January 2027.",
+  "settings.ai.searchUrlKeenable": "Keenable API key (optional)",
+  "settings.ai.searchUrlSearxng": "SearXNG URL",
+  "settings.ai.searchUrlGoogle": "Google API key and CX (API_KEY:CX)",
+  "settings.ai.keenableKeylessNote": "Keyless Keenable requests are logged with the query and IP.",
+  "settings.ai.cseShutdownNote": "Google's Custom Search JSON API is closed to new customers and will be discontinued on 1 January 2027.",
+  "securityLog.values.keenable": "Keenable"
 }

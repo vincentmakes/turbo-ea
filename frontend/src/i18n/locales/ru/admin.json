@@ -3127,5 +3127,13 @@
   "metamodel.principles.reference": "Номер",
   "metamodel.principles.import.title": "Импорт принципов ЕА",
   "metamodel.principles.import.intro": "Загрузите файл .xlsx, чтобы массово создать или обновить принципы. Каждая строка сопоставляется с существующим принципом сначала по номеру (P-001), затем по названию; сопоставленный принцип обновляется отличающимися значениями, а любая другая строка создаёт новый принцип. Столбец, отсутствующий в таблице, оставляет поле без изменений, а пустая текстовая ячейка очищает его, тогда как пустая ячейка is_active или sort_order оставляет это значение как есть.",
-  "metamodel.principles.import.skippedHint": "Эти строки совпадают с существующим принципом и ничего не меняют."
+  "metamodel.principles.import.skippedHint": "Эти строки совпадают с существующим принципом и ничего не меняют.",
+  "settings.ai.searchProvider": "Search provider",
+  "settings.ai.searchProviderHelper": "DuckDuckGo is the default. Keenable works without a key. Google's Custom Search JSON API is closed to new customers and will be discontinued on 1 January 2027.",
+  "settings.ai.searchUrlKeenable": "Keenable API key (optional)",
+  "settings.ai.searchUrlSearxng": "SearXNG URL",
+  "settings.ai.searchUrlGoogle": "Google API key and CX (API_KEY:CX)",
+  "settings.ai.keenableKeylessNote": "Keyless Keenable requests are logged with the query and IP.",
+  "settings.ai.cseShutdownNote": "Google's Custom Search JSON API is closed to new customers and will be discontinued on 1 January 2027.",
+  "securityLog.values.keenable": "Keenable"
 }

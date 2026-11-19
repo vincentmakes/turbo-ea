@@ -182,6 +182,54 @@ async def _search_google(api_key: str, cx: str, query: str, limit: int = 8) -> l
     return results
 
 
+async def _search_keenable(
+    query: str, limit: int = 8, api_key: str = ""
+) -> list[dict[str, str]]:
+    """Search via Keenable. A key is optional.
+
+    Keyless calls go to POST /v1/search/public with X-Keenable-Title.
+    A key switches to /v1/search and X-API-Key. httpx does not follow
+    redirects by default, so the key cannot be forwarded to another host.
+    """
+    client = await _get_search_client()
+    keyed = bool(api_key.strip())
+    url = (
+        "https://api.keenable.ai/v1/search"
+        if keyed
+        else "https://api.keenable.ai/v1/search/public"
+    )
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Keenable-Title": "turbo-ea",
+    }
+    if keyed:
+        headers["X-API-Key"] = api_key.strip()
+    try:
+        resp = await client.post(
+            url,
+            headers=headers,
+            json={"query": query, "max_results": min(limit, 10)},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    except httpx.HTTPError as exc:
+        logger.warning("Keenable search failed: %s", exc)
+        return []
+
+    results: list[dict[str, str]] = []
+    for item in data.get("results", [])[:limit]:
+        snippet = item.get("snippet") or item.get("description") or ""
+        results.append(
+            {
+                "url": item.get("url", ""),
+                "title": item.get("title", ""),
+                "snippet": snippet,
+            }
+        )
+    return results
+
+
 async def web_search(
     query: str,
     provider: str = "duckduckgo",
@@ -189,6 +237,8 @@ async def web_search(
     limit: int = 8,
 ) -> list[dict[str, str]]:
     """Run a web search using the configured provider."""
+    if provider == "keenable":
+        return await _search_keenable(query, limit, api_key=search_url)
     if provider == "searxng" and search_url:
         return await _search_searxng(search_url, query, limit)
     if provider == "google" and search_url:
@@ -1257,15 +1307,19 @@ async def suggest_metadata(
     api_key: str = "",
     api_version: str = DEFAULT_AZURE_API_VERSION,
     fields_schema: list[dict] | None = None,
+    search_provider: str = "duckduckgo",
+    search_url: str = "",
 ) -> dict[str, Any]:
     """Full pipeline: web search → LLM description → validated suggestion."""
-    # Step 1: Web search (always DuckDuckGo — commercial APIs have no web access)
+    # Step 1: Web search. DuckDuckGo is the default; an admin can opt into
+    # Keenable, SearXNG, or Google CSE via AI settings.
+    provider = search_provider or "duckduckgo"
     search_suffix = _get_search_suffix(type_key, subtype)
     query = f"{name} {search_suffix}"
     if subtype:
         query += f" {subtype}"
-    logger.info("[ai] Searching for '%s' via duckduckgo", query)
-    search_results = await web_search(query, "duckduckgo")
+    logger.info("[ai] Searching for '%s' via %s", query, provider)
+    search_results = await web_search(query, provider, search_url)
     logger.info("[ai] Search returned %d results", len(search_results))
 
     # Step 2: Build prompt and call LLM
@@ -1302,5 +1356,5 @@ async def suggest_metadata(
         "suggestions": suggestions,
         "sources": sources,
         "model": model,
-        "search_provider": "duckduckgo",
+        "search_provider": provider,
     }

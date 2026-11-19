@@ -1914,6 +1914,7 @@ async def update_registration_settings(
 
 _AI_KEY_MASK = "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
 _VALID_PROVIDER_TYPES = {"ollama", "openai", "azure_openai", "anthropic", "bedrock"}
+_VALID_SEARCH_PROVIDERS = {"duckduckgo", "searxng", "google", "keenable"}
 
 
 class AiSettingsPayload(BaseModel):
@@ -2043,8 +2044,12 @@ async def update_ai_settings(
         "apiKey": encrypted_key,
         "model": body.model,
         "apiVersion": body.api_version if provider_type == "azure_openai" else "",
-        "searchProvider": "duckduckgo",
-        "searchUrl": "",
+        "searchProvider": (
+            body.search_provider
+            if body.search_provider in _VALID_SEARCH_PROVIDERS
+            else "duckduckgo"
+        ),
+        "searchUrl": body.search_url,
         "enabledTypes": body.enabled_types,
         "portfolioInsightsEnabled": body.portfolio_insights_enabled,
     }

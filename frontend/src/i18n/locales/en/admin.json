@@ -687,7 +687,7 @@
   "settings.ai.modelHelperOpenai": "e.g. gpt-4o-mini, gemini-2.0-flash, deepseek-chat",
   "settings.ai.modelHelperAzureOpenai": "Enter your Azure OpenAI deployment name (e.g. my-gpt4o-deployment). This is the deployment name, not the model name.",
   "settings.ai.modelHelperAnthropic": "e.g. claude-sonnet-4-20250514, claude-haiku-4-5-20251001",
-  "settings.ai.searchInfo": "DuckDuckGo is used automatically to search the web for context before generating descriptions.",
+  "settings.ai.searchInfo": "Web search adds context before generating descriptions. DuckDuckGo is the default.",
   "settings.ai.enabledTypes": "Enabled Card Types",
   "settings.ai.enabledTypesHelper": "Select which card types show the AI suggest button. Leave all unchecked to enable for all types.",
   "settings.ai.testConnection": "Test Connection",
@@ -2997,5 +2997,13 @@
   "metamodel.principles.reference": "Reference",
   "metamodel.principles.import.title": "Import EA principles",
   "metamodel.principles.import.intro": "Upload an .xlsx file to create or update principles in bulk. Each row is matched to an existing principle by its reference (P-001), then by title; a matched principle is updated with the values that differ, and every other row creates a new principle. A column left out of the sheet leaves that field unchanged; an empty text cell clears it, while an empty is_active or sort_order cell leaves that value as it is.",
-  "metamodel.principles.import.skippedHint": "These rows match an existing principle and change nothing."
+  "metamodel.principles.import.skippedHint": "These rows match an existing principle and change nothing.",
+  "settings.ai.searchProvider": "Search provider",
+  "settings.ai.searchProviderHelper": "DuckDuckGo is the default. Keenable works without a key. Google's Custom Search JSON API is closed to new customers and will be discontinued on 1 January 2027.",
+  "settings.ai.searchUrlKeenable": "Keenable API key (optional)",
+  "settings.ai.searchUrlSearxng": "SearXNG URL",
+  "settings.ai.searchUrlGoogle": "Google API key and CX (API_KEY:CX)",
+  "settings.ai.keenableKeylessNote": "Keyless Keenable requests are logged with the query and IP.",
+  "settings.ai.cseShutdownNote": "Google's Custom Search JSON API is closed to new customers and will be discontinued on 1 January 2027.",
+  "securityLog.values.keenable": "Keenable"
 }

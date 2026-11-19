@@ -22,6 +22,7 @@ from app.services.ai_service import (
     _probe_chat_payload,
     _search_duckduckgo,
     _search_google,
+    _search_keenable,
     _search_searxng,
     build_llm_prompt,
     call_llm,
@@ -390,6 +391,61 @@ class TestSearchGoogle:
 
 
 # ---------------------------------------------------------------------------
+
+class TestSearchKeenable:
+    @pytest.mark.asyncio
+    async def test_keyless_posts_to_public_with_title_header(self):
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.json.return_value = {
+            "results": [
+                {
+                    "title": "A",
+                    "url": "https://a.example",
+                    "snippet": "alpha",
+                    "acquired_at": "2026-11-19T00:00:00Z",
+                },
+                {"title": "B", "url": "https://b.example", "description": "beta"},
+            ]
+        }
+        mock_client = MagicMock()
+        mock_client.post = AsyncMock(return_value=mock_resp)
+        with patch("app.services.ai_service._get_search_client", new=AsyncMock(return_value=mock_client)):
+            results = await _search_keenable("q", limit=8)
+        mock_client.post.assert_called_once()
+        args, kwargs = mock_client.post.call_args
+        assert args[0] == "https://api.keenable.ai/v1/search/public"
+        assert kwargs["headers"]["X-Keenable-Title"] == "turbo-ea"
+        assert "X-API-Key" not in kwargs["headers"]
+        assert kwargs["json"] == {"query": "q", "max_results": 8}
+        assert results == [
+            {"url": "https://a.example", "title": "A", "snippet": "alpha"},
+            {"url": "https://b.example", "title": "B", "snippet": "beta"},
+        ]
+
+    @pytest.mark.asyncio
+    async def test_keyed_posts_to_search_with_api_key(self):
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.json.return_value = {"results": []}
+        mock_client = MagicMock()
+        mock_client.post = AsyncMock(return_value=mock_resp)
+        with patch("app.services.ai_service._get_search_client", new=AsyncMock(return_value=mock_client)):
+            await _search_keenable("q", api_key="secret")
+        args, kwargs = mock_client.post.call_args
+        assert args[0] == "https://api.keenable.ai/v1/search"
+        assert kwargs["headers"]["X-API-Key"] == "secret"
+        assert kwargs["headers"]["X-Keenable-Title"] == "turbo-ea"
+
+    @pytest.mark.asyncio
+    async def test_http_error_returns_empty(self):
+        mock_client = MagicMock()
+        mock_client.post = AsyncMock(side_effect=httpx.ConnectError("boom"))
+        with patch("app.services.ai_service._get_search_client", new=AsyncMock(return_value=mock_client)):
+            results = await _search_keenable("q")
+        assert results == []
+
+
 # web_search dispatcher
 # ---------------------------------------------------------------------------
 
@@ -428,6 +484,21 @@ class TestWebSearch:
             mock_ddg.return_value = []
             await web_search("test", provider="searxng", search_url="")
             mock_ddg.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_keenable_provider_keyless(self):
+        with patch("app.services.ai_service._search_keenable") as mock_k:
+            mock_k.return_value = [{"url": "k.com", "title": "K", "snippet": "s"}]
+            results = await web_search("test", provider="keenable")
+            mock_k.assert_called_once_with("test", 8, api_key="")
+            assert results[0]["url"] == "k.com"
+
+    @pytest.mark.asyncio
+    async def test_keenable_provider_with_key(self):
+        with patch("app.services.ai_service._search_keenable") as mock_k:
+            mock_k.return_value = []
+            await web_search("test", provider="keenable", search_url="secret")
+            mock_k.assert_called_once_with("test", 8, api_key="secret")
 
 
 # ---------------------------------------------------------------------------

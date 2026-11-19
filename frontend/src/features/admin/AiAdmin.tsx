@@ -59,6 +59,8 @@ export default function AiAdmin() {
   const [aiModel, setAiModel] = useState("");
   const [aiApiVersion, setAiApiVersion] = useState("2025-01-01");
   const [aiEnabledTypes, setAiEnabledTypes] = useState<string[]>([]);
+  const [aiSearchProvider, setAiSearchProvider] = useState("duckduckgo");
+  const [aiSearchUrl, setAiSearchUrl] = useState("");
   const [portfolioInsightsEnabled, setPortfolioInsightsEnabled] = useState(false);
   const [savingAi, setSavingAi] = useState(false);
   const [testingAi, setTestingAi] = useState(false);
@@ -87,6 +89,8 @@ export default function AiAdmin() {
         setAiModel(data.model);
         setAiApiVersion(data.api_version || "2025-01-01");
         setAiEnabledTypes(data.enabled_types);
+        setAiSearchProvider(data.search_provider || "duckduckgo");
+        setAiSearchUrl(data.search_url || "");
         setPortfolioInsightsEnabled(data.portfolio_insights_enabled ?? false);
         setMcpEnabled(mcpData.enabled);
         setMcpSsoConfigured(mcpData.sso_configured);
@@ -106,8 +110,8 @@ export default function AiAdmin() {
         api_key: aiApiKey,
         model: aiModel,
         api_version: aiApiVersion,
-        search_provider: "duckduckgo",
-        search_url: "",
+        search_provider: aiSearchProvider,
+        search_url: aiSearchProvider === "duckduckgo" ? "" : aiSearchUrl,
         enabled_types: aiEnabledTypes,
         portfolio_insights_enabled: portfolioInsightsEnabled,
       });
@@ -419,10 +423,67 @@ export default function AiAdmin() {
 
         {aiEnabled && (
           <>
-            {/* Search Info */}
+            {/* Search provider — DuckDuckGo stays the default. */}
             <Alert severity="info" icon={false} sx={{ mb: 2, py: 0.5 }}>
               <Typography variant="caption">{t("settings.ai.searchInfo")}</Typography>
             </Alert>
+            <TextField
+              select
+              label={t("settings.ai.searchProvider")}
+              value={aiSearchProvider}
+              onChange={(e) => setAiSearchProvider(e.target.value)}
+              fullWidth
+              size="small"
+              helperText={t("settings.ai.searchProviderHelper")}
+              sx={{ mb: 2 }}
+            >
+              <MenuItem value="duckduckgo">DuckDuckGo</MenuItem>
+              <MenuItem value="keenable">Keenable</MenuItem>
+              <MenuItem value="searxng">SearXNG</MenuItem>
+              <MenuItem value="google">Google Custom Search</MenuItem>
+            </TextField>
+            {aiSearchProvider === "keenable" && (
+              <>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+                  {t("settings.ai.keenableKeylessNote")}
+                </Typography>
+                <TextField
+                  label={t("settings.ai.searchUrlKeenable")}
+                  value={aiSearchUrl}
+                  onChange={(e) => setAiSearchUrl(e.target.value)}
+                  fullWidth
+                  size="small"
+                  type="password"
+                  autoComplete="off"
+                  sx={{ mb: 2 }}
+                />
+              </>
+            )}
+            {aiSearchProvider === "searxng" && (
+              <TextField
+                label={t("settings.ai.searchUrlSearxng")}
+                value={aiSearchUrl}
+                onChange={(e) => setAiSearchUrl(e.target.value)}
+                fullWidth
+                size="small"
+                sx={{ mb: 2 }}
+              />
+            )}
+            {aiSearchProvider === "google" && (
+              <>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+                  {t("settings.ai.cseShutdownNote")}
+                </Typography>
+                <TextField
+                  label={t("settings.ai.searchUrlGoogle")}
+                  value={aiSearchUrl}
+                  onChange={(e) => setAiSearchUrl(e.target.value)}
+                  fullWidth
+                  size="small"
+                  sx={{ mb: 2 }}
+                />
+              </>
+            )}
 
             {/* Enabled Types */}
             <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>

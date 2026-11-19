@@ -93,8 +93,8 @@ def _get_ai_config(general: dict) -> dict:
         "api_key": decrypt_value(encrypted_key) if encrypted_key else "",
         "model": ai.get("model") or app_config.AI_MODEL,
         "api_version": ai.get("apiVersion", DEFAULT_AZURE_API_VERSION),
-        "search_provider": "duckduckgo",
-        "search_url": "",
+        "search_provider": ai.get("searchProvider") or app_config.AI_SEARCH_PROVIDER or "duckduckgo",
+        "search_url": ai.get("searchUrl") or app_config.AI_SEARCH_URL or "",
         "enabled_types": ai.get("enabledTypes", []),
         "portfolio_insights_enabled": ai.get("portfolioInsightsEnabled", False),
     }
@@ -184,6 +184,8 @@ async def suggest(
         api_key=ai_cfg["api_key"],
         api_version=ai_cfg["api_version"],
         fields_schema=card_type.fields_schema or [],
+        search_provider=ai_cfg["search_provider"],
+        search_url=ai_cfg["search_url"],
     )
 
     return AiSuggestResponse(**result_data)
@@ -219,6 +221,8 @@ async def suggest_eol_product(
         api_key=ai_cfg["api_key"],
         api_version=ai_cfg["api_version"],
         fields_schema=None,
+        search_provider=ai_cfg["search_provider"],
+        search_url=ai_cfg["search_url"],
     )
     return AiSuggestResponse(**result_data)
 
