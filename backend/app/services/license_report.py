@@ -10,6 +10,7 @@ keeps only the cards with a cell of it. Statuses come from ``license_status``, n
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -73,19 +74,19 @@ async def candidate_cards(
 
 def _validate_selection(
     catalogue: LicenseCatalogue, metric: str | None, license_type: str | None
-) -> tuple[str | None, str | None]:
+) -> tuple[str | None, tuple[str, str] | None]:
     """``(metric, (type_metric, type_key) | None)``; raises ``ValueError`` for what the
     catalogue lacks (a bare type key included: the pair is the only unambiguous form)."""
     if metric is not None and catalogue.metric(metric) is None:
         raise ValueError(f"Unknown metric: {metric!r}")
     if license_type is None:
         return metric, None
-    pair = tuple(license_type.partition(":")[::2])
-    if not pair[1] or catalogue.type(*pair) is None:
+    head, _, tail = license_type.partition(":")
+    if not tail or catalogue.type(head, tail) is None:
         raise ValueError(f"Unknown license type (expected metric:type): {license_type!r}")
-    if metric is not None and pair[0] != metric:
+    if metric is not None and head != metric:
         raise ValueError(f"License type {license_type!r} is not of metric {metric!r}")
-    return metric, pair
+    return metric, (head, tail)
 
 
 def _select(items: dict, metric: str | None, pair: tuple[str, str] | None) -> dict:
@@ -173,7 +174,7 @@ async def build_report(
     for card in in_year:
         results = metric_results(selected[card.id], catalogue)
         worst_pct, worst_no_licence = card_worst(results)
-        row = {
+        row: dict[str, Any] = {
             "id": str(card.id),
             "name": card.name,
             "type": card.type,

@@ -18,7 +18,6 @@ import uuid
 import zipfile
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Any
 
 import openpyxl
 from sqlalchemy import Row, select
@@ -221,7 +220,7 @@ async def plan_import(
             )
         )
     ).all()
-    by_name: dict[str, list[Row[Any]]] = {}
+    by_name: dict[str, list[Row[uuid.UUID, str]]] = {}
     for card in found:
         by_name.setdefault(card.name.strip().casefold(), []).append(card)
     catalogue = await load_catalogue(db)
@@ -233,7 +232,7 @@ async def plan_import(
         plan.skipped.append(RowIssue(r.row, r.component, reason, detail, metric or r.metric))
 
     # 1. who and where: the cell each row names
-    resolved: list[tuple[ImportRow, Row[Any], int, str, str]] = []
+    resolved: list[tuple[ImportRow, Row[uuid.UUID, str], int, str, str]] = []
     for r in rows:
         hits = by_name.get(r.component.strip().casefold(), [])
         if not hits:
@@ -302,10 +301,12 @@ async def plan_import(
             skip(r, "forecast_actual", metric=metric)
             continue
         has_cell = key in (existing[card.id][year][0].get(metric) or {})
-        if catalogue.metric(metric).archived and not has_cell:
+        cat_metric, cat_type = catalogue.metric(metric), catalogue.type(metric, key)
+        assert cat_metric and cat_type  # resolved from this catalogue in step 1
+        if cat_metric.archived and not has_cell:
             skip(r, "archived_license_metric", metric, metric)
             continue
-        if catalogue.type(metric, key).archived and not has_cell:
+        if cat_type.archived and not has_cell:
             skip(r, "archived_license_type", key, metric)
             continue
         plan.cells.setdefault((card.id, year), []).append(

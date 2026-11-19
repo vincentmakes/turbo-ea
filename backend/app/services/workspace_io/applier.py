@@ -28,7 +28,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import timezone
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import exists, or_, select
 from sqlalchemy.dialects.postgresql import insert
@@ -805,7 +805,9 @@ async def _apply_card_types(db, bundle: WorkspaceBundle, sr: SectionResult, dry_
         data = _coerce(row, exp.CARD_TYPE_COLUMNS, exp.CARD_TYPE_JSON)
         # An older bundle still carries ``licensingModel``; license metrics replaced it.
         if data.get("fields_schema") is not None:
-            data["fields_schema"] = without_model_field(data.get("key"), data["fields_schema"])
+            data["fields_schema"] = without_model_field(
+                cast(str, data.get("key")), data["fields_schema"]
+            )
         # NOT NULL JSONB columns: a hand-authored content pack may declare the
         # column and leave the cell blank, which `from_cell` reads as None and
         # the insert would reject. An absent column is still left alone (see
@@ -1123,6 +1125,7 @@ async def _apply_license_catalogue(
     dropped: set[str] = set()
     invalid: set[str] = set()
     kept_rows: list[dict[str, Any]] = []
+    gone: list[str]
     for row in card_rows:
         items = license_compat.items_of(row)
         if items is None:  # bad JSON, or not an object: nothing the entity pass can store

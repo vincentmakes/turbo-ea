@@ -14,7 +14,7 @@ Pure: no database, nothing written.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel, ValidationError
 
@@ -69,7 +69,7 @@ def derive_catalogue(
         if row.get("metric_key"):
             derived = [row]
         else:
-            plan = derive_type_metrics([(row.get("key"), False)], used, own)
+            plan = derive_type_metrics([(cast(str, row.get("key")), False)], used, own)
             derived = [{**row, "metric_key": metric} for _, metric in plan]
         for out in derived:
             pair = (out["metric_key"], out.get("key"))
