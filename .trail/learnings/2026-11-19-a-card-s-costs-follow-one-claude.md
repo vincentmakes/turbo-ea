@@ -3,7 +3,7 @@ title: "A card's costs follow one rule everywhere they travel: the role must be 
 author: Claude
 date: 2026-11-19
 branch: claude/charming-franklin-e6y3au
-cost: { minutes: 66, tokens: 345093 }
+cost: { minutes: 91, tokens: 420237 }
 id: l-32bc00b6
 scope: repo
 status: active
@@ -34,10 +34,16 @@ Why clean on read, not on write: rollback restores a card from the values stored
 Owner's calls on what is NOT guarded:
 - Someone who may manage stakeholders can assign a cost-showing role to anyone, themselves included. Documented in the changelog and the admin guide; no check was added.
 - A custom card type whose roles were never set up has no role definition to tick, so its stakeholders lose cost access on upgrade. Accepted; the changelog says to define the role.
+Two findings from the second review of the cost-access change (#1412), both of the kind a passing test suite does not show:
+- The Portfolio and Lifecycle reports list every relation row of a card, including rows whose relation type is hidden, but leave a hidden type out of the list of relation types they send along. A cost guard that read "which attributes are costs" from that list missed those rows. The cost keys are now read from the metamodel for the types the rows actually name.
+- A bulk card edit that sends an empty attributes object replaces the stored attributes like any other edit. The guard that keeps hidden costs was written as "if attributes" and so skipped the empty object, wiping the costs. It now tests "is not None", as the single-card edit always did.
+
+Why keep this: both guards looked complete and had tests. The gap was in what the guard took as its input, not in its logic.
 
 ## Tried and ruled out
 - Blocking the assignment of a cost-showing role unless the assigner sees that card's costs (all assignments, or self-assignment only): offered, not chosen.
 - Costs for nobody but holders of the app permission: built first, replaced the same day because owners lost the costs of their own cards.
+- Reading cost keys from the schema a payload carries: shorter and needs no query, but the payload's schema is built for display (hidden and unreadable types removed), not for deciding what is sensitive.
 
 ## Watch out
 - Left open, told to the owner: a survey shows and can overwrite a cost field for whoever it was sent to; a cost set while creating a card or relation is accepted from anyone who may create it.
@@ -51,3 +57,10 @@ In the code:
 - Read side: `backend/app/services/event_cost_scrub.py` (history, `/reports/dashboard`, `/reports/admin-dashboard`, `/events/my-cards`, `/mutation-batches/{id}` and `/events`, rollback preview), `backend/app/services/cost_redaction.py` (`redact_portfolio_costs`, `card_cost_redaction_map`).
 - Write side: `keep_stored_cost_values` in `cost_field_filter.py`; `preserve_attribute_keys` on `card_write_service.upsert_relation`; `_closed_cost_keys` and `cost_guard_user` in `api/v1/relations.py`.
 - Self-assignment: `add_me_as_observer` in `api/v1/stakeholders.py`; assignment by a manager: `create_stakeholder`, same file.
+- A bulk edit's dry-run preview returns each card's whole old and new attributes. It needed the same cost removal as the real response.
+- An event payload with no card to ask about (the card was deleted, or the event is about a risk or a todo) is judged by the app-level cost permission alone. A `type` value in such a payload can be a dict or a list, so it is used as a card type only when it is a string naming one.
+
+- `redact_portfolio_costs` in `backend/app/services/cost_redaction.py`; payload built by `build_portfolio_payload` in `portfolio_payload.py` (relation rows at step 2, `rel_type_defs` from non-hidden types at step 5).
+- `bulk_update` and `_diff_without_costs` in `backend/app/api/v1/cards.py`.
+- `scrub_event_costs` in `backend/app/services/event_cost_scrub.py`.
+- Tests: `test_a_hidden_relation_type_still_has_its_costs_removed`, `TestBulkPatchKeepsHiddenCosts`, `test_a_type_that_is_not_a_card_type_key_is_no_type`.
