@@ -34,7 +34,7 @@ connects to: read callers and tests, not only the changed lines. Skip user docs,
 
 ## Start from what Trail knows
 
-Trail's hooks do not reach sub-agents, so ask it yourself before you review: run
+Trail's session hooks do not prime you, so ask it yourself before you review: run
 `trail ask '<what the branch changes, in a sentence>' --source --no-refresh` with Bash (if `trail` is not
 on the PATH, use `./node_modules/.bin/trail`; `--no-refresh` keeps the run read-only). Read the learnings
 it puts above the code and check the change against them: a change that brings back an approach a
@@ -54,4 +54,4 @@ there is nothing to report, say so and list what you looked at: an empty answer 
 
 You do not run the test suite or mutation testing; the session owns both.
 
-> The skills named here other than `translate` are tracked in `.claude/skills/` or come from plugins: if one is missing on this machine, say so in your report and continue without it.
+> `ponytail:ponytail-review` comes from a plugin and `python-anti-patterns` is tracked in `.claude/skills/`: if one is missing on this machine, say so in your report and continue without it.

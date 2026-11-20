@@ -85,7 +85,7 @@ The policy is `.claude/rules/vapt.md`: read it first, then `../turbo-ea-vapt/REA
 
 `security-audit` (Skill tool) is the guide for the method and the severity wording; use it, but the
 policy above wins where they differ. The `security-review` skill that the repository hook asks for before
-`gh pr create` is run by the session, not by you: your run does not count for that hook.
+`gh pr create` is not yours: the `security-reviewer` agent runs it.
 
 ## What you write and report
 
