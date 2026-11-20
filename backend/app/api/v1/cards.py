@@ -1830,6 +1830,16 @@ async def bulk_update(
     locked_by_type = {
         key: field_gate.locked_fields(key, schema) for key, schema in req_schemas.items()
     }
+    # ...except a locked key the server recomputes (a calculation's target, a
+    # readonly field): a stale copy of it is carried over silently.
+    locked_types = [key for key, locked in locked_by_type.items() if locked]
+    calculated_by_type = await field_gate.calculated_targets(db, locked_types)
+    maintained_by_type = {
+        key: field_gate.maintained_keys(
+            req_schemas.get(key), locked_by_type[key], calculated_by_type[key]
+        )
+        for key in locked_types
+    }
 
     # Same prefetch for the hierarchy-label vocabulary — the check is per card
     # (each compares against its own stored label and its own final parent), so
@@ -1915,7 +1925,9 @@ async def bulk_update(
                         value = keep_stored_cost_values(card.attributes, value, strip)
                 locked = locked_by_type.get(card.type)
                 if locked:
-                    value = field_gate.checked_attributes(card.attributes, value, locked)
+                    value = field_gate.checked_attributes(
+                        card.attributes, value, locked, maintained_by_type.get(card.type, ())
+                    )
                 # Guard: never clear a required field — checked against the
                 # post-redaction final state, per card (also on dry-run, so an
                 # MCP preview surfaces the violation before any commit).

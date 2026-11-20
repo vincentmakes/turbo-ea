@@ -523,6 +523,81 @@ class TestReadOnlyExtensionFields:
         (event,) = await _events(db, "card.updated")
         assert "attributes" not in event.data["changes"]
 
+    async def test_an_update_with_only_locked_changes_is_not_an_update(self, db, env, monkeypatch):
+        engine, _ = _engine(db, monkeypatch, snow_table_handler())
+        card = await _card(db, env, "Same", attributes={"criticality": "low"})
+        entry = await _identity(db, env, card, S1)
+        entry.last_synced_at = None
+        run = SnowSyncRun(connection_id=env["conn"].id, mapping_id=env["mapping"].id, stats={})
+        db.add(run)
+        await db.flush()
+        db.add(
+            SnowStagedRecord(
+                sync_run_id=run.id,
+                mapping_id=env["mapping"].id,
+                snow_sys_id=S1,
+                action="update",
+                card_id=card.id,
+                diff={"attributes.criticality": {"old": "low", "new": "critical"}},
+                status="pending",
+            )
+        )
+        await db.flush()
+        applied = await engine._apply_staged(run)
+        assert applied == {"created": 0, "updated": 0, "deleted": 0, "errors": 0}
+        assert card.attributes == {"criticality": "low"}
+        assert await _events(db, "card.updated") == []
+        assert entry.last_synced_at is not None
+        assert {s.status for s in await _staged(db, run)} == {"applied"}
+
+    async def test_skip_staging_counts_a_locked_only_record_as_skipped(self, db, env, monkeypatch):
+        env["mapping"].skip_staging = True
+        card = await _card(
+            db,
+            env,
+            "Billing",
+            description="Billing desc",
+            attributes={"criticality": "low", "origin": "servicenow"},
+            lifecycle={"active": "2021-05-01"},
+        )
+        await _identity(db, env, card, S1)
+        engine, _ = _engine(db, monkeypatch, snow_table_handler(records=[_rec(S1, "Billing")]))
+        run = await engine.pull_sync(env["mapping"], env["fms"], user_id=env["admin"].id)
+        assert run.stats == {**PULL_ZERO, "fetched": 1, "skipped": 1}
+        assert card.attributes["criticality"] == "low"
+        assert await _events(db, "card.updated") == []
+
+    async def test_the_locked_fields_are_resolved_once_per_card_type(self, db, env, monkeypatch):
+        engine, _ = _engine(db, monkeypatch, snow_table_handler())
+        calls: list[str] = []
+        original = snow.field_gate.locked_fields_for_type
+
+        async def counting(session, type_key):
+            calls.append(type_key)
+            return await original(session, type_key)
+
+        monkeypatch.setattr(snow.field_gate, "locked_fields_for_type", counting)
+        cards = [await _card(db, env, f"C{i}", attributes={"criticality": "low"}) for i in (1, 2)]
+        for i, card in enumerate(cards):
+            staged = SnowStagedRecord(
+                snow_sys_id=(S1, S2)[i],
+                action="update",
+                card_id=card.id,
+                diff={
+                    "name": {"old": card.name, "new": f"N{i}"},
+                    "attributes.criticality": {"old": "low", "new": "critical"},
+                },
+            )
+            assert await engine._apply_update(staged, env["fms"], env["admin"].id) is True
+        await engine._apply_create(
+            SnowStagedRecord(snow_sys_id=S3, action="create", snow_data=_rec(S3, "Fresh")),
+            env["mapping"],
+            env["fms"],
+            env["admin"].id,
+        )
+        assert calls == ["Application"]
+        assert [c.attributes["criticality"] for c in cards] == ["low", "low"]
+
     async def test_a_create_leaves_the_locked_field_out(self, db, env, monkeypatch):
         engine, _ = _engine(db, monkeypatch, snow_table_handler())
         run = SnowSyncRun(connection_id=env["conn"].id, mapping_id=env["mapping"].id, stats={})

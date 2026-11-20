@@ -269,6 +269,7 @@ class ExtensionRisks(RisksBridge):
                     raise ExtensionDataError(str(e.detail)) from e
                 await db.commit()
                 return result
+        inbound_batch_id = request_batch_id.get()
         origin_token = request_origin.set("ext")
         batch_token = None
         try:
@@ -286,7 +287,11 @@ class ExtensionRisks(RisksBridge):
                 except HTTPException as e:  # defensive: service helpers are HTTP-flavoured
                     raise ExtensionDataError(str(e.detail)) from e
                 await mutation_batch_service.commit_batch(
-                    db, batch, summary=summary(result) if summary else None
+                    db,
+                    batch,
+                    summary=await data_service.single_op_summary(
+                        db, inbound_batch_id, summary(result) if summary else None
+                    ),
                 )
                 await db.commit()
                 return result

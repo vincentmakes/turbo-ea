@@ -476,6 +476,14 @@ describe("mandatory-field helpers", () => {
           { key: "gdpr", label: "GDPR", type: "boolean", required: true },
           { key: "score2", label: "Score", type: "number", required: true, readonly: true },
           { key: "notes", label: "Notes", type: "text" },
+          {
+            key: "extScore",
+            label: "Extension score",
+            type: "text",
+            required: true,
+            ext: "sample-ext",
+            ext_locked: true,
+          },
         ] as FieldDef[],
       },
     ],
@@ -500,6 +508,12 @@ describe("mandatory-field helpers", () => {
     expect(isEnforcedRequiredField(fields[2])).toBe(false); // boolean
     expect(isEnforcedRequiredField(fields[3])).toBe(false); // readonly
     expect(isEnforcedRequiredField(fields[4])).toBe(false); // not required
+  });
+
+  it("isEnforcedRequiredField exempts a locked extension field, not an unlocked one", () => {
+    const locked = typeConfig.fields_schema[0].fields[5];
+    expect(isEnforcedRequiredField(locked)).toBe(false);
+    expect(isEnforcedRequiredField({ ...locked, ext_locked: false })).toBe(true);
   });
 
   it("missingRequiredFields lists empty enforced-required fields", () => {

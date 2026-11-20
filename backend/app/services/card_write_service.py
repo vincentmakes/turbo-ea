@@ -925,11 +925,13 @@ async def update_card(
 
     # Guard: the fields an inactive or unlicensed extension contributed keep
     # their stored values — carried over when the payload omits them, a 403
-    # (extension_fields_locked) when it changes one. Before the required-field
-    # check, so that check sees the carried-over state.
+    # (extension_fields_locked) when it changes one. A locked key the server
+    # recomputes (a calculation's target, a readonly field) is carried over
+    # silently, like the PPM-managed keys above: a stale echo is no change.
+    # Before the required-field check, so that check sees the carried-over state.
     if "attributes" in updates:
         updates["attributes"] = await field_gate.enforce_field_lock(
-            db, card.type, card.attributes, updates["attributes"]
+            db, card.type, card.attributes, updates["attributes"], carry_maintained=True
         )
 
     # Guard: never clear a required field. Validates the post-merge final state

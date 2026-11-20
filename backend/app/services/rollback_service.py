@@ -543,8 +543,12 @@ async def _apply_restore_card_fields(db: AsyncSession, op: dict[str, Any]) -> di
         return _ok(op)
     # A field an inactive or unlicensed extension contributed is read-only:
     # the rollback keeps its current value and reports it, restoring the rest.
+    # The snapshot is the whole column, so a locked key missing from it did
+    # not exist then — one the batch added is reported, not called restored.
     locked = await field_gate.locked_fields_for_type(db, card.type)
-    card.attributes, skipped = field_gate.apply_field_lock(card.attributes, restored_attrs, locked)
+    card.attributes, skipped = field_gate.apply_snapshot_lock(
+        card.attributes, restored_attrs, locked
+    )
     if skipped:
         return {**_ok(op), "locked_fields": skipped}
     return _ok(op)

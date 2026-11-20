@@ -267,6 +267,41 @@ class TestBatchJoin:
         )
 
 
+async def _inbound(db) -> MutationBatch:
+    """A stored batch, as an MCP call into an extension route opens one."""
+    from app.services import mutation_batch_service
+
+    row = await mutation_batch_service.create_batch(
+        db, tool_name="call_extension_write", actor=None, origin="mcp", dry_run=False
+    )
+    await db.flush()
+    return row
+
+
+async def _ext_batch(db) -> MutationBatch:
+    return (
+        await db.execute(select(MutationBatch).where(MutationBatch.tool_name == f"ext:{KEY}"))
+    ).scalar_one()
+
+
+class TestInboundBatch:
+    async def test_single_op_write_records_the_inbound_batch(self, db, env):
+        from app.services.event_bus import request_batch_id
+
+        load_registry(grants=["core.risks.write"])
+        inbound = await _inbound(db)
+        token = request_batch_id.set(inbound.id)
+        try:
+            out = await ExtensionRisks(KEY).create(
+                title="Via MCP", card_ids=[str(env["active"].id)], source_ref="r-1"
+            )
+        finally:
+            request_batch_id.reset(token)
+        summary = (await _ext_batch(db)).summary
+        assert summary["via_batch_id"] == str(inbound.id)
+        assert summary["reference"] == out.reference
+
+
 class TestLookups:
     async def test_find_by_source_ref_is_scoped_to_the_extension(self, db, env):
         load_registry(grants=["core.risks.write"])

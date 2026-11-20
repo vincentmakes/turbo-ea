@@ -103,6 +103,73 @@ async def _batches(db) -> list[MutationBatch]:
     return list((await db.execute(select(MutationBatch))).scalars().all())
 
 
+async def _inbound(db) -> MutationBatch:
+    """A stored batch, as an MCP call into an extension route opens one."""
+    from app.services import mutation_batch_service
+
+    row = await mutation_batch_service.create_batch(
+        db, tool_name="call_extension_write", actor=None, origin="mcp", dry_run=False
+    )
+    await db.flush()
+    return row
+
+
+async def _ext_batch(db) -> MutationBatch:
+    return (
+        await db.execute(select(MutationBatch).where(MutationBatch.tool_name == f"ext:{KEY}"))
+    ).scalar_one()
+
+
+class TestSingleOpInboundBatch:
+    """The implicit single-op batch of a write made outside any batch() scope
+    names the inbound request batch too (the call_extension_write promise),
+    but only when that id names a stored batch."""
+
+    async def test_single_op_write_records_the_inbound_batch(self, db, env):
+        from app.services.event_bus import request_batch_id
+
+        load_registry(grants=["core.cards.write"])
+        inbound = await _inbound(db)
+        token = request_batch_id.set(inbound.id)
+        try:
+            await ExtensionData(KEY).create_card(type="Application", name="Single")
+            assert request_batch_id.get() == inbound.id
+        finally:
+            request_batch_id.reset(token)
+        batch = await _ext_batch(db)
+        assert batch.committed_at is not None
+        assert batch.summary == {"via_batch_id": str(inbound.id)}
+
+    async def test_single_op_write_ignores_an_unknown_inbound_id(self, db, env):
+        from app.services.event_bus import request_batch_id
+
+        load_registry(grants=["core.cards.write"])
+        token = request_batch_id.set(uuid.uuid4())
+        try:
+            await ExtensionData(KEY).create_card(type="Application", name="Forged")
+        finally:
+            request_batch_id.reset(token)
+        assert (await _ext_batch(db)).summary is None
+
+    async def test_single_op_write_without_an_inbound_batch(self, db, env):
+        load_registry(grants=["core.cards.write"])
+        await ExtensionData(KEY).create_card(type="Application", name="Plain")
+        assert (await _ext_batch(db)).summary is None
+
+    async def test_single_op_summary_helper(self, db, env):
+        inbound = await _inbound(db)
+        assert await bridge_mod.single_op_summary(db, None, None) is None
+        assert await bridge_mod.single_op_summary(db, None, {"a": 1}) == {"a": 1}
+        assert await bridge_mod.single_op_summary(db, uuid.uuid4(), {"a": 1}) == {"a": 1}
+        assert await bridge_mod.single_op_summary(db, inbound.id, None) == {
+            "via_batch_id": str(inbound.id)
+        }
+        assert await bridge_mod.single_op_summary(db, inbound.id, {"a": 1}) == {
+            "a": 1,
+            "via_batch_id": str(inbound.id),
+        }
+
+
 class TestGating:
     async def test_read_grant_does_not_allow_writes(self, db, env):
         load_registry(grants=["core.cards.read"])

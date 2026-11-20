@@ -199,6 +199,79 @@ class TestApplyFieldLock:
         assert refused == []
 
 
+class TestMaintainedKeys:
+    def test_maintained_locked_key_is_kept_silently(self):
+        attrs, refused = field_gate.apply_field_lock(
+            {"score": 4, "calc": 1}, {"score": 4, "calc": 9}, {**LOCKED, "calc": "Calc"}, {"calc"}
+        )
+        assert refused == []
+        assert attrs == {"score": 4, "calc": 1}
+
+    def test_maintained_key_absent_from_stored_is_dropped(self):
+        attrs, refused = field_gate.apply_field_lock({}, {"calc": 9}, {"calc": "Calc"}, {"calc"})
+        assert refused == []
+        assert attrs == {}
+
+    def test_other_locked_keys_are_still_refused(self):
+        _, refused = field_gate.apply_field_lock(
+            {"score": 4, "calc": 1}, {"score": 5, "calc": 9}, {**LOCKED, "calc": "Calc"}, {"calc"}
+        )
+        assert refused == ["score"]
+
+    def test_checked_attributes_passes_maintained_through(self):
+        assert field_gate.checked_attributes({"calc": 1}, {"calc": 2}, {"calc": "C"}, {"calc"}) == {
+            "calc": 1
+        }
+
+    def test_maintained_keys_are_locked_calculated_or_readonly(self):
+        schema = _schema(
+            {"key": "auto", "ext": "x", "readonly": True},
+            {"key": "calc", "ext": "x"},
+            {"key": "plain", "ext": "x"},
+            {"key": "own_ro", "readonly": True},
+        )
+        locked = {"auto": "A", "calc": "C", "plain": "P"}
+        assert field_gate.maintained_keys(schema, locked, {"calc", "own_ro", "other"}) == {
+            "auto",
+            "calc",
+        }
+
+    def test_maintained_keys_needs_a_lock(self):
+        assert field_gate.maintained_keys(
+            _schema({"key": "auto", "readonly": True}), {}, {"x"}
+        ) == (set())
+
+
+class TestApplySnapshotLock:
+    def test_locked_key_absent_from_snapshot_is_kept_and_reported(self):
+        attrs, differing = field_gate.apply_snapshot_lock(
+            {"score": 4, "note": "b"}, {"note": "a"}, LOCKED
+        )
+        assert attrs == {"score": 4, "note": "a"}
+        assert differing == ["score"]
+
+    def test_changed_locked_key_is_kept_and_reported(self):
+        attrs, differing = field_gate.apply_snapshot_lock({"score": 4}, {"score": 1}, LOCKED)
+        assert attrs == {"score": 4}
+        assert differing == ["score"]
+
+    def test_locked_key_only_in_snapshot_stays_absent_and_is_reported(self):
+        attrs, differing = field_gate.apply_snapshot_lock({"note": "b"}, {"score": 1}, LOCKED)
+        assert attrs == {}
+        assert differing == ["score"]
+
+    def test_equal_or_both_empty_is_not_reported(self):
+        for current, snapshot in (({"score": 4}, {"score": 4}), ({}, {}), ({"score": ""}, {})):
+            attrs, differing = field_gate.apply_snapshot_lock(current, snapshot, LOCKED)
+            assert differing == []
+            assert attrs == dict(current)
+
+    def test_none_current_and_unlocked_keys_restore(self):
+        attrs, differing = field_gate.apply_snapshot_lock(None, {"note": "a"}, LOCKED)
+        assert attrs == {"note": "a"}
+        assert differing == []
+
+
 class TestCheckedAttributes:
     def test_passes_carried_over_state(self):
         assert field_gate.checked_attributes({"score": 4}, None, LOCKED) == {"score": 4}

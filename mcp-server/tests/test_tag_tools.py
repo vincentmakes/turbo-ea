@@ -299,6 +299,64 @@ class TestPlanTagGroups:
         assert plan[0]["group_id"] == "g8" and plan[0]["status"] == "exists"
         assert plan[0]["tags"][0]["status"] == "create"
 
+    def test_two_entries_for_one_group_id_are_merged(self):
+        plan, err = server._plan_tag_groups(
+            self._specs(
+                [
+                    {"group_id": "g1", "tags": [{"name": "Edge"}, {"name": "cloud"}]},
+                    {"group_id": "g1", "tags": [{"name": "EDGE"}, {"name": "Fog"}]},
+                ]
+            ),
+            EXISTING,
+        )
+        assert err is None
+        assert server._public_plan(plan) == [
+            {
+                "group_id": "g1",
+                "name": "Hosting",
+                "status": "exists",
+                "tags": [
+                    {"name": "Edge", "color": None, "description": None, "status": "create"},
+                    {"name": "Cloud", "id": "t1", "status": "exists"},
+                    {"name": "EDGE", "status": "duplicate"},
+                    {"name": "Fog", "color": None, "description": None, "status": "create"},
+                ],
+                "merged_entries": [0, 1],
+            }
+        ]
+        assert server._plan_counts(plan) == (0, 2)
+
+    def test_a_name_and_the_id_of_the_group_it_names_are_merged(self):
+        plan, err = server._plan_tag_groups(
+            self._specs(
+                [
+                    {"name": "HOSTING", "tags": [{"name": "Edge"}]},
+                    {"group_id": "g3", "tags": [{"name": "Edge"}]},
+                    {"group_id": "g1", "tags": [{"name": "edge"}, {"name": "On-prem"}]},
+                ]
+            ),
+            EXISTING,
+        )
+        assert err is None
+        public = server._public_plan(plan)
+        assert [(p["group_id"], p.get("merged_entries")) for p in public] == [
+            ("g1", [0, 2]),
+            ("g3", None),
+        ]
+        assert [(t["name"], t["status"]) for t in public[0]["tags"]] == [
+            ("Edge", "create"),
+            ("edge", "duplicate"),
+            ("On-Prem", "exists"),
+        ]
+        # The other group's tag of the same name is its own.
+        assert public[1]["tags"][0]["status"] == "create"
+        assert server._plan_counts(plan) == (0, 2)
+
+    def test_two_new_groups_of_one_name_never_reach_the_plan(self):
+        specs, err = server._validate_tag_group_specs([{"name": "Tier"}, {"name": "TIER"}])
+        assert specs == []
+        assert err["error"] == "duplicate_group" and err["index"] == 1
+
     def test_counts_take_created_rows_too(self):
         plan = [
             {"status": "created", "tags": [{"status": "created"}, {"status": "exists"}]},
@@ -415,6 +473,28 @@ class TestCreateTagGroups:
             "/tag-groups",
             "/tag-groups/g1/tags",
             "/tag-groups/g3/tags",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_merged_entries_create_a_tag_once(self, fake_token):
+        backend = _Backend(answers={"/tag-groups/g1/tags": {"id": "t-edge"}}, groups=EXISTING)
+        data = await _run(
+            backend,
+            lambda: server.create_tag_groups(
+                groups=[
+                    {"name": "Hosting", "tags": [{"name": "Edge"}]},
+                    {"group_id": "g1", "tags": [{"name": "edge"}]},
+                ],
+                dry_run=False,
+            ),
+        )
+        assert [p for p, _ in backend.writes()] == ["/tag-groups/g1/tags"]
+        assert data["created"] == {"groups": 0, "tags": 1}
+        [group] = data["groups"]
+        assert group["merged_entries"] == [0, 1]
+        assert [(t["name"], t["status"]) for t in group["tags"]] == [
+            ("Edge", "created"),
+            ("edge", "duplicate"),
         ]
 
     @pytest.mark.asyncio

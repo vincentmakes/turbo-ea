@@ -2959,7 +2959,13 @@ def _plan_tag_groups(specs: list[dict], existing: list) -> tuple[list[dict], dic
 
     A new group whose name is taken is reported ``exists`` and its tags are
     matched inside that group, so nothing is created twice. A ``group_id``
-    that is not listed refuses the call. Returns ``(plan, error)``.
+    that is not listed refuses the call. Entries that resolve to the same
+    existing group (the same ``group_id`` twice, or a name and the id of the
+    group it names) are merged into one plan item, which lists the input
+    indexes as ``merged_entries``; across them a tag is planned once — a later
+    entry naming it again gets ``duplicate`` (a tag the group already has stays
+    ``exists``). Two new groups of one name never reach here: the shape check
+    refuses them. Returns ``(plan, error)``.
     """
     by_id = {str(g.get("id")): g for g in existing if isinstance(g, dict)}
     by_name: dict[str, dict] = {}
@@ -2967,6 +2973,7 @@ def _plan_tag_groups(specs: list[dict], existing: list) -> tuple[list[dict], dic
         if isinstance(g, dict) and isinstance(g.get("name"), str):
             by_name.setdefault(g["name"].strip().casefold(), g)
     plan: list[dict] = []
+    by_group: dict[str, dict] = {}
     for idx, spec in enumerate(specs):
         if spec["kind"] == "existing":
             group = by_id.get(spec["group_id"])
@@ -2985,19 +2992,32 @@ def _plan_tag_groups(specs: list[dict], existing: list) -> tuple[list[dict], dic
             else:
                 item = {"group_id": str(group.get("id")), "name": group.get("name")}
                 item["status"] = "exists"
+        target = by_group.get(item["group_id"]) if item["group_id"] is not None else None
+        if target is None:
+            target = {**item, "spec": spec, "tags": [], "entries": [idx]}
+            plan.append(target)
+            if item["group_id"] is not None:
+                by_group[item["group_id"]] = target
+        else:
+            target["entries"].append(idx)
         have = {
             t["name"].strip().casefold(): t
             for t in ((group or {}).get("tags") or [])
             if isinstance(t, dict) and isinstance(t.get("name"), str)
         }
-        tags = []
+        planned = {t["name"].casefold() for t in target["tags"] if t["status"] == "create"}
         for tag in spec["tags"]:
-            found = have.get(tag["name"].casefold())
-            if found is None:
-                tags.append({**tag, "status": "create"})
+            key = tag["name"].casefold()
+            found = have.get(key)
+            if found is not None:
+                target["tags"].append(
+                    {"name": found.get("name"), "id": found.get("id"), "status": "exists"}
+                )
+            elif key in planned:
+                target["tags"].append({"name": tag["name"], "status": "duplicate"})
             else:
-                tags.append({"name": found.get("name"), "id": found.get("id"), "status": "exists"})
-        plan.append({**item, "spec": spec, "tags": tags})
+                planned.add(key)
+                target["tags"].append({**tag, "status": "create"})
     return plan, None
 
 
@@ -3036,8 +3056,17 @@ def _refusal(exc: httpx.HTTPStatusError) -> dict:
 
 
 def _public_plan(plan: list[dict]) -> list[dict]:
-    """The plan as the caller sees it (the validated spec stays internal)."""
-    return [{k: v for k, v in item.items() if k != "spec"} for item in plan]
+    """The plan as the caller sees it (the validated spec stays internal).
+
+    ``merged_entries`` names the input indexes of an item several entries
+    resolved to; an item from one entry does not carry it."""
+    out = []
+    for item in plan:
+        public = {k: v for k, v in item.items() if k not in ("spec", "entries")}
+        if len(item.get("entries") or ()) > 1:
+            public["merged_entries"] = list(item["entries"])
+        out.append(public)
+    return out
 
 
 async def _run_tag_group_plan(client: TurboEAClient, plan: list[dict], *, dry_run: bool) -> None:
@@ -3103,6 +3132,9 @@ async def create_tag_groups(
     keys (null = every type). Names are matched against the existing groups
     and tags first (case-insensitive): a group or tag that already exists is
     reported ``exists`` and never created twice, so a repeated call is safe.
+    Entries that name the same existing group (by id or by name) are merged
+    into one result listing their indexes as ``merged_entries``, and a tag
+    they name twice is created once, the repeat reported ``duplicate``.
 
     Requires ``tags.manage``. NOT reversible by ``rollback_batch``: tag groups
     and tags are metamodel admin records, not card changes, so an unwanted one
@@ -3117,7 +3149,8 @@ async def create_tag_groups(
             (counted as groups + tags named), the token the dry run returned.
 
     Returns: JSON with ``groups[]`` (``name``, ``group_id``, ``status``
-    create / created / exists / refused, and ``tags[]`` the same way),
+    create / created / exists / refused, and ``tags[]`` the same way plus
+    skipped / duplicate),
     ``would_create`` or ``created`` counts, ``dry_run`` and ``batch_id``.
     """
     token = await _get_current_token()

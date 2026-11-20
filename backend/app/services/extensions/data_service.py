@@ -403,6 +403,24 @@ def batch_summary(label: str, writes: int, via_batch_id: str | None) -> dict[str
     return summary
 
 
+async def single_op_summary(
+    db: AsyncSession, inbound_batch_id: uuid.UUID | None, summary: dict[str, Any] | None
+) -> dict[str, Any] | None:
+    """The summary an implicit single-op ``ext:{key}`` batch commits with.
+
+    Every write bridge opens one when no ``batch()`` scope is open. Like
+    :func:`open_batch`, it names the batch of the request the extension was
+    serving as ``via_batch_id`` — but only when ``inbound_batch_id`` (read
+    before the bridge set its own batch on the contextvar) names a stored
+    batch. Otherwise ``summary`` is returned untouched (``None`` keeps the
+    batch's own summary).
+    """
+    via_batch_id = await _existing_batch_id(db, inbound_batch_id)
+    if via_batch_id is None:
+        return summary
+    return {**(summary or {}), "via_batch_id": via_batch_id}
+
+
 async def _drop_empty_batch(key: str, batch_id: uuid.UUID) -> None:
     try:
         async with async_session() as db:
@@ -853,6 +871,7 @@ class ExtensionData:
 
         # Implicit single-op batch (todos-bridge shape).
         self._count_batch_against_rate()
+        inbound_batch_id = request_batch_id.get()
         origin_token = request_origin.set("ext")
         batch_token = None
         try:
@@ -869,7 +888,9 @@ class ExtensionData:
                     result = await op(db)
                 except HTTPException as e:
                     raise ExtensionDataError(http_detail_text(e.detail)) from e
-                await mutation_batch_service.commit_batch(db, batch)
+                await mutation_batch_service.commit_batch(
+                    db, batch, summary=await single_op_summary(db, inbound_batch_id, None)
+                )
                 await db.commit()
                 return result
         finally:

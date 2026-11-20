@@ -505,4 +505,25 @@ describe("AttributeSection — a field of an inactive or unlicensed extension", 
     await waitFor(() => expect(onSave).toHaveBeenCalled());
     expect(onSave.mock.calls[0][0]).toEqual({ attributes: { score: "7", note: "n" } });
   });
+
+  it("does not hold a required but empty locked field against Save", async () => {
+    const requiredLocked: SectionDef & { columns?: 1 | 2 } = {
+      ...lockedSection,
+      fields: [{ ...lockedSection.fields[0], required: true }, lockedSection.fields[1]],
+    };
+    const emptyCard = { ...lockedCard, attributes: { note: "n" } } as unknown as Card;
+    const onSave = vi.fn(async () => {});
+    const { container } = render(
+      <AttributeSection section={requiredLocked} card={emptyCard} onSave={onSave} canEdit />,
+    );
+    const root = container.firstElementChild as HTMLElement & { scrollIntoView: () => void };
+    root.scrollIntoView = vi.fn();
+    fireEvent.click(screen.getByText("edit"));
+    expect(screen.queryByText(i18n.t("validation:requiredEmpty"))).toBeNull();
+    const save = screen.getByRole("button", { name: "Save" });
+    expect(save).toBeEnabled();
+    fireEvent.click(save);
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(onSave.mock.calls[0][0]).toEqual({ attributes: { note: "n" } });
+  });
 });

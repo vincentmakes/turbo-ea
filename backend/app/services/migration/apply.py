@@ -217,6 +217,8 @@ async def _apply_card_pass(
     # progress, the remaining rows are part of a cycle and apply
     # in arrival order with a logged warning.
     ordered = _topo_sort(rows)
+    # Read-only extension fields per card type, resolved once for the pass.
+    locked_by_type: dict[str, dict[str, str]] = {}
 
     for staged in ordered:
         if staged.action == "skip":
@@ -243,7 +245,9 @@ async def _apply_card_pass(
             continue
 
         try:
-            await _apply_single_card(db, staged, user, field_mappings=field_mappings)
+            await _apply_single_card(
+                db, staged, user, field_mappings=field_mappings, locked_by_type=locked_by_type
+            )
             counts["created" if staged.action == "create" else "updated"] += 1
             staged.status = "applied"
         except Exception as exc:  # noqa: BLE001 — collect, don't crash the pass
@@ -265,11 +269,23 @@ def _note_skipped_fields(staged: StagedRecord, skipped: list[str]) -> None:
     staged.error_message = note[:1000]
 
 
+async def _locked_fields(
+    db: AsyncSession, type_key: str, cache: dict[str, dict[str, str]] | None
+) -> dict[str, str]:
+    """``field_gate.locked_fields_for_type``, memoised in ``cache`` when given."""
+    if cache is None:
+        return await field_gate.locked_fields_for_type(db, type_key)
+    if type_key not in cache:
+        cache[type_key] = await field_gate.locked_fields_for_type(db, type_key)
+    return cache[type_key]
+
+
 async def _apply_single_card(
     db: AsyncSession,
     staged: StagedRecord,
     user: User,
     field_mappings: dict[str, dict[str, str]] | None = None,
+    locked_by_type: dict[str, dict[str, str]] | None = None,
 ) -> None:
     payload = (staged.source_data or {}).get("payload") or {}
     raw = (staged.source_data or {}).get("raw") or {}
@@ -300,7 +316,7 @@ async def _apply_single_card(
     # A field an inactive or unlicensed extension contributed is read-only: the
     # import keeps its stored value, skips the change and notes it on the row.
     if staged.action == "create":
-        locked = await field_gate.locked_fields_for_type(db, payload["type"])
+        locked = await _locked_fields(db, payload["type"], locked_by_type)
         attributes, skipped = field_gate.apply_field_lock(
             {}, payload.get("attributes") or {}, locked
         )
@@ -373,7 +389,7 @@ async def _apply_single_card(
         if payload.get("lifecycle"):
             card.lifecycle = {**(card.lifecycle or {}), **payload["lifecycle"]}
         merged_attrs = {**(card.attributes or {}), **(payload.get("attributes") or {})}
-        locked = await field_gate.locked_fields_for_type(db, card.type)
+        locked = await _locked_fields(db, card.type, locked_by_type)
         merged_attrs, skipped = field_gate.apply_field_lock(card.attributes, merged_attrs, locked)
         _note_skipped_fields(staged, skipped)
         card.attributes = merged_attrs

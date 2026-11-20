@@ -23,7 +23,7 @@ loaders that read a card type's ``fields_schema``. This module imports neither
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Collection, Iterable, Mapping
 from datetime import datetime
 from typing import Any
 
@@ -133,10 +133,19 @@ def _same(old: Any, new: Any) -> bool:
     return old == new or (_is_empty(old) and _is_empty(new))
 
 
+def _keep_stored(out: dict[str, Any], current: Mapping[str, Any], key: str) -> None:
+    """Put ``key`` of ``out`` back at its stored state (present or absent)."""
+    if key in current:
+        out[key] = current[key]
+    else:
+        out.pop(key, None)
+
+
 def apply_field_lock(
     stored: Mapping[str, Any] | None,
     incoming: Mapping[str, Any],
     locked: Mapping[str, str],
+    maintained: Collection[str] = (),
 ) -> tuple[dict[str, Any], list[str]]:
     """What a write may store over ``stored``, and which locked keys it tried to change.
 
@@ -148,18 +157,43 @@ def apply_field_lock(
     value and named in the second element. On create ``stored`` is empty, so
     any non-empty locked value is refused. Shape of
     ``cost_field_filter.keep_stored_cost_values``.
+
+    A locked key in ``maintained`` (see :func:`maintained_keys`: the server
+    recomputes it) is kept at its stored state too, but never named: a client
+    echoing a stale copy of a value it cannot edit anyway is not a change.
     """
     current = stored or {}
     out = dict(incoming)
     refused: list[str] = []
     for key in locked:
-        if key in out and not _same(current.get(key), out[key]):
+        if key in out and key not in maintained and not _same(current.get(key), out[key]):
             refused.append(key)
-        if key in current:
-            out[key] = current[key]
-        else:
-            out.pop(key, None)
+        _keep_stored(out, current, key)
     return out, refused
+
+
+def apply_snapshot_lock(
+    current: Mapping[str, Any] | None,
+    snapshot: Mapping[str, Any],
+    locked: Mapping[str, str],
+) -> tuple[dict[str, Any], list[str]]:
+    """Restore the ``attributes`` ``snapshot`` over ``current``, except the locked keys.
+
+    The rollback counterpart of :func:`apply_field_lock`. A snapshot is the
+    whole column as it was, so a locked key ABSENT from it did not exist then
+    — it is not "carried over" the way a PATCH that omits it is. Every locked
+    key stays at its current state (it cannot be written), and is named in the
+    second element whenever that state differs from the snapshot's, absence
+    included, so the caller can report what the restore could not undo.
+    """
+    now = current or {}
+    out = dict(snapshot)
+    differing: list[str] = []
+    for key in locked:
+        if not _same(snapshot.get(key), now.get(key)):
+            differing.append(key)
+        _keep_stored(out, now, key)
+    return out, differing
 
 
 def locked_error(refused: list[str], locked: Mapping[str, str]) -> HTTPException:
@@ -182,22 +216,63 @@ def checked_attributes(
     stored: Mapping[str, Any] | None,
     incoming: Mapping[str, Any] | None,
     locked: Mapping[str, str],
+    maintained: Collection[str] = (),
 ) -> dict[str, Any]:
     """:func:`apply_field_lock` for a user-driven write: raise on a change."""
-    attrs, refused = apply_field_lock(stored, incoming or {}, locked)
+    attrs, refused = apply_field_lock(stored, incoming or {}, locked, maintained)
     if refused:
         raise locked_error(refused, locked)
     return attrs
 
 
-async def locked_fields_for_type(db: AsyncSession, type_key: str) -> dict[str, str]:
-    """:func:`locked_fields` for a card type read from the database."""
+def maintained_keys(
+    fields_schema: Any, locked: Mapping[str, str], calculated: Collection[str]
+) -> set[str]:
+    """The locked keys the server maintains itself: an active calculation's
+    target (``calculated``) or a ``readonly`` field of ``fields_schema``.
+
+    A client never edits these, so the copy it sends back is only ever stale,
+    never a change — :func:`apply_field_lock` carries the stored value over
+    silently instead of refusing the whole write over it.
+    """
+    keys = {key for key in locked if key in calculated}
+    for field in _schema_fields(fields_schema):
+        if field["key"] in locked and field.get("readonly"):
+            keys.add(field["key"])
+    return keys
+
+
+async def calculated_targets(db: AsyncSession, type_keys: Iterable[str]) -> dict[str, set[str]]:
+    """Per card type, the field keys an ACTIVE calculation writes (one query)."""
+    from app.models.calculation import Calculation
+
+    keys = sorted(set(type_keys))
+    out: dict[str, set[str]] = {key: set() for key in keys}
+    if not keys:
+        return out
+    rows = await db.execute(
+        select(Calculation.target_type_key, Calculation.target_field_key).where(
+            Calculation.target_type_key.in_(keys),
+            Calculation.is_active.is_(True),
+        )
+    )
+    for type_key, field_key in rows.all():
+        if field_key:
+            out[type_key].add(field_key)
+    return out
+
+
+async def _type_schema(db: AsyncSession, type_key: str) -> Any:
     from app.models.card_type import CardType
 
-    schema = (
+    return (
         await db.execute(select(CardType.fields_schema).where(CardType.key == type_key))
     ).scalar_one_or_none()
-    return locked_fields(type_key, schema)
+
+
+async def locked_fields_for_type(db: AsyncSession, type_key: str) -> dict[str, str]:
+    """:func:`locked_fields` for a card type read from the database."""
+    return locked_fields(type_key, await _type_schema(db, type_key))
 
 
 async def enforce_field_lock(
@@ -205,11 +280,22 @@ async def enforce_field_lock(
     type_key: str,
     stored: Mapping[str, Any] | None,
     incoming: Mapping[str, Any] | None,
+    *,
+    carry_maintained: bool = False,
 ) -> Any:
     """Gate one user-driven attribute write. Returns ``incoming`` untouched
     when the type has no locked field, else the carried-over dict; raises the
-    403 of :func:`locked_error` when a locked value would change."""
-    locked = await locked_fields_for_type(db, type_key)
+    403 of :func:`locked_error` when a locked value would change.
+
+    ``carry_maintained`` (an update of an existing card) keeps a locked key the
+    server maintains (:func:`maintained_keys`) at its stored value silently, so
+    a stale echo of it does not fail an unrelated edit."""
+    schema = await _type_schema(db, type_key)
+    locked = locked_fields(type_key, schema)
     if not locked:
         return incoming
-    return checked_attributes(stored, incoming, locked)
+    maintained: set[str] = set()
+    if carry_maintained:
+        calculated = (await calculated_targets(db, [type_key]))[type_key]
+        maintained = maintained_keys(schema, locked, calculated)
+    return checked_attributes(stored, incoming, locked, maintained)

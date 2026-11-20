@@ -1625,3 +1625,55 @@ async def test_an_unchanged_read_only_field_leaves_no_note(db, env, published, n
     await ap._apply_single_card(db, staged, env.admin)
     assert card.attributes == {"score": 1, "k": 2}
     assert staged.error_message is None
+
+
+async def test_the_card_pass_resolves_locked_fields_once_per_type(
+    db, env, published, no_extensions, monkeypatch
+):
+    await create_card_type(db, key="Gadget", label="Gadget", fields_schema=_LOCKED_SCHEMA)
+    card = await create_card(db, card_type="Gadget", name="G", attributes={"score": 1, "k": 1})
+    calls: list[str] = []
+    original = ap.field_gate.locked_fields_for_type
+
+    async def counting(session, type_key):
+        calls.append(type_key)
+        return await original(session, type_key)
+
+    monkeypatch.setattr(ap.field_gate, "locked_fields_for_type", counting)
+    for source_id, name in (("N1", "A"), ("N2", "B")):
+        payload = {"type": "Gadget", "name": name, "attributes": {"score": 3, "k": 1}}
+        await stage(db, env, "card", source_id, data={"payload": payload})
+    await stage(
+        db,
+        env,
+        "card",
+        "U1",
+        action="update",
+        target_id=card.id,
+        data={"payload": {"attributes": {"score": 5, "k": 2}}},
+    )
+    assert await ap._apply_card_pass(db, env.m, env.admin) == zero(created=2, updated=1)
+    assert calls == ["Gadget"]
+    assert card.attributes == {"score": 1, "k": 2}
+    created = (await db.execute(select(Card).where(Card.name.in_(["A", "B"])))).scalars().all()
+    assert [c.attributes for c in created] == [{"k": 1}, {"k": 1}]
+
+
+async def test_a_single_card_without_a_cache_still_resolves_locked_fields(
+    db, env, published, no_extensions
+):
+    await create_card_type(db, key="Gadget", label="Gadget", fields_schema=_LOCKED_SCHEMA)
+    card = await create_card(db, card_type="Gadget", name="G", attributes={"score": 1})
+    cache: dict = {}
+    staged = await stage(
+        db,
+        env,
+        "card",
+        "U1",
+        action="update",
+        target_id=card.id,
+        data={"payload": {"attributes": {"score": 4}}},
+    )
+    await ap._apply_single_card(db, staged, env.admin, locked_by_type=cache)
+    assert cache == {"Gadget": {"score": "Score"}}
+    assert card.attributes == {"score": 1}

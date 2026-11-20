@@ -17,6 +17,7 @@ from unittest.mock import AsyncMock
 import pytest
 from sqlalchemy import select
 
+from app.models.calculation import Calculation
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.services import rollback_service
@@ -249,6 +250,124 @@ class TestBulkUpdate:
         assert await _attrs(db, env["card"]) == {"score": 7}
 
 
+MAINTAINED_SCHEMA = [
+    {
+        "section": "Sample",
+        "ext": OWNER,
+        "fields": [
+            {"key": "score", "label": "Score", "type": "number", "ext": OWNER},
+            {"key": "auto", "label": "Auto", "type": "number", "ext": OWNER, "readonly": True},
+            {"key": "calc", "label": "Calc", "type": "number", "ext": OWNER},
+        ],
+    },
+    {"section": "Own", "fields": [{"key": "note", "label": "Note", "type": "text"}]},
+]
+
+
+class TestServerMaintainedLockedKeys:
+    """A locked key the server recomputes (a readonly field, an active
+    calculation's target) is carried over silently: a stale echo of it must
+    not turn an unrelated edit into a licensing 403."""
+
+    @pytest.fixture
+    async def menv(self, db, env):
+        await create_card_type(db, key="Widget", label="Widget", fields_schema=MAINTAINED_SCHEMA)
+        db.add(
+            Calculation(
+                name="Constant",
+                formula="10",
+                target_type_key="Widget",
+                target_field_key="calc",
+                is_active=True,
+            )
+        )
+        card = await create_card(
+            db,
+            card_type="Widget",
+            name="W1",
+            attributes={"score": 4, "auto": 5, "calc": 10, "note": "a"},
+        )
+        await db.commit()
+        return {**env, "widget": card}
+
+    async def test_single_patch_keeps_a_stale_readonly_and_calculated_value(self, client, db, menv):
+        load(owner_licensed=False)
+        resp = await client.patch(
+            f"/api/v1/cards/{menv['widget'].id}",
+            headers=auth_headers(menv["admin"]),
+            json={"attributes": {"score": 4, "auto": 1, "calc": 3, "note": "changed"}},
+        )
+        assert resp.status_code == 200, resp.text
+        assert await _attrs(db, menv["widget"]) == {
+            "score": 4,
+            "auto": 5,
+            "calc": 10,
+            "note": "changed",
+        }
+
+    async def test_single_patch_still_refuses_an_ordinary_locked_key(self, client, db, menv):
+        load(owner_licensed=False)
+        resp = await client.patch(
+            f"/api/v1/cards/{menv['widget'].id}",
+            headers=auth_headers(menv["admin"]),
+            json={"attributes": {"score": 9, "auto": 1, "calc": 3, "note": "changed"}},
+        )
+        assert resp.status_code == 403
+        assert resp.json()["detail"]["fields"] == ["score"]
+
+    async def test_inactive_calculation_target_is_not_maintained(self, client, db, menv):
+        calc = (await db.execute(select(Calculation))).scalar_one()
+        calc.is_active = False
+        await db.commit()
+        load(owner_licensed=False)
+        resp = await client.patch(
+            f"/api/v1/cards/{menv['widget'].id}",
+            headers=auth_headers(menv["admin"]),
+            json={"attributes": {"score": 4, "calc": 3, "note": "changed"}},
+        )
+        assert resp.status_code == 403
+        assert resp.json()["detail"]["fields"] == ["calc"]
+
+    async def test_bulk_patch_keeps_each_cards_maintained_value(self, client, db, menv):
+        load(owner_licensed=False)
+        other = await create_card(
+            db,
+            card_type="Widget",
+            name="W2",
+            attributes={"score": 2, "auto": 6, "calc": 10, "note": "b"},
+        )
+        await db.commit()
+        resp = await client.patch(
+            "/api/v1/cards/bulk",
+            headers=auth_headers(menv["admin"]),
+            json={
+                "ids": [str(menv["widget"].id), str(other.id)],
+                "updates": {"attributes": {"auto": 0, "calc": 0, "note": "same"}},
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        assert await _attrs(db, menv["widget"]) == {
+            "score": 4,
+            "auto": 5,
+            "calc": 10,
+            "note": "same",
+        }
+        assert await _attrs(db, other) == {"score": 2, "auto": 6, "calc": 10, "note": "same"}
+
+    async def test_bulk_patch_still_refuses_an_ordinary_locked_key(self, client, db, menv):
+        load(owner_licensed=False)
+        resp = await client.patch(
+            "/api/v1/cards/bulk",
+            headers=auth_headers(menv["admin"]),
+            json={
+                "ids": [str(menv["widget"].id)],
+                "updates": {"attributes": {"score": 1, "auto": 0, "note": "same"}},
+            },
+        )
+        assert resp.status_code == 403
+        assert resp.json()["detail"]["fields"] == ["score"]
+
+
 class TestBulkCreate:
     async def test_lapsed_row_fails_with_the_message(self, client, env):
         load(owner_licensed=False)
@@ -333,6 +452,28 @@ class TestRollbackRestore:
         card = (await db.execute(select(Card).where(Card.id == env["card"].id))).scalar_one()
         assert card.attributes == {"score": 4, "note": "old"}
         assert card.name == "Restored"
+
+    async def test_lapsed_reports_a_locked_key_the_batch_added(self, db, env):
+        # The snapshot is the whole column: "score" missing from it means the
+        # batch added it. It cannot be removed while locked, so it stays — and
+        # the op must say so rather than report a clean restore.
+        load(owner_licensed=False)
+        out = await rollback_service._apply_restore_card_fields(
+            db, self._op(env["card"], {"note": "old"})
+        )
+        assert out["status"] == "ok"
+        assert out["locked_fields"] == ["score"]
+        await db.flush()
+        card = (await db.execute(select(Card).where(Card.id == env["card"].id))).scalar_one()
+        assert card.attributes == {"score": 4, "note": "old"}
+
+    async def test_lapsed_unchanged_locked_key_is_not_reported(self, db, env):
+        load(owner_licensed=False)
+        out = await rollback_service._apply_restore_card_fields(
+            db, self._op(env["card"], {"score": 4, "note": "old"})
+        )
+        assert out == {**self._op(env["card"], {"score": 4, "note": "old"}), "status": "ok"}
+        assert env["card"].attributes == {"score": 4, "note": "old"}
 
     async def test_licensed_restores_everything(self, db, env):
         load(owner_licensed=True)
