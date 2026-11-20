@@ -21,14 +21,15 @@ paths:
 # VAPT (Active Security Testing)
 
 > Loaded when you touch `backend/app/core/permissions.py`, `backend/app/services/permission_service.py`,
-> `backend/app/api/v1/**`, … (full list in the frontmatter). Moved verbatim from `CLAUDE.md`; edit it here.
+> `backend/app/api/v1/**`, … (full list in the frontmatter). The method lives in the `vapt` agent.
 
-- **Scope**: this software, this repo, the user's own local deploy instance only — never anything not owned by the user, never a production/public deployment. This is testing-your-own-application, not a third-party engagement.
-- **Trigger**: run a VAPT pass automatically whenever a PR **adds a route or a table** (a new path under `backend/app/api/v1/`, a new model in `backend/app/models/`, a new Alembic migration that creates a table), **or** touches `backend/app/core/permissions.py`, `backend/app/services/permission_service.py` or any auth/session-handling code. It does not depend on `/VERSION`: #41 added routes and a table without a bump and was never tested. Also run on explicit request at any time. Scope the targeted tests to the new endpoints (hidden-card 404, viewer write 403, malformed id/body, out-of-range input), on top of the generic pass.
-- **Deploy before testing**: build the local images (`docker build --target <svc> -t turboea-fork-<svc>:local .` from the repo root for db, backend, frontend, nginx, mcp-server) and `docker compose up -d` in `software/turbo-ea-conf/`, then `docker compose up -d --force-recreate mcp-server nginx`; never `docker compose pull`. Back up the DB first and restore it after the pass. Stop at the Medium tier; the instance runs without AI/Ollama.
-- **Scope of the pass** (three buckets, same depth each time):
-  - **Code-level**: review the diff and its blast radius for auth/permission logic (`permissions.py`, `PermissionService`), injection (any raw SQL string construction, not just the diff), IDOR on changed/added endpoints (every `/x/{id}`-style route checks ownership or `card_read_scope`/permission before returning data), deserialization of untrusted input, path traversal on upload/download/export endpoints.
-  - **Dynamic**: against the running local instance only — authentication-bypass attempts, horizontal and vertical privilege escalation between roles (compare what each role can reach vs. what `PermissionService` says it should), CSRF on state-changing endpoints, SSRF surfaces (the AI provider integration, extension webhooks — confirm outbound URLs are allowlisted/validated), rate-limit coverage on authentication endpoints.
-  - **Dependency/supply chain**: beyond the existing passive Trivy/pip-audit/Dependabot gates — an SBOM pass, a license check, and a review of any newly unpinned or floating dependency version.
-- **Tooling**: nikto, sqlmap, and OWASP ZAP (baseline + full-scan) run as on-demand Docker containers against the user's own local deploy instance — see `../turbo-ea-vapt/README.md` for the exact commands. Burp is not automated (GUI proxy tool, driven interactively if the user wants it). This on-demand ZAP run is separate from the weekly CI DAST scan (`.github/workflows/dast-scan.yml`) — same tool, different target and cadence. sqlmap's targets are **not** a hand-maintained list — `../turbo-ea-vapt/extract-targets.py` derives them from the backend's live `/api/openapi.json` each run, so a new path-param route is covered automatically; nothing to update here or there when a route is added.
-- **Output**: findings go into a dated report `../turbo-ea-vapt/reports/YYYY-MM-DD_<tier>-vapt-<topic>.md` from `../turbo-ea-vapt/REPORT_TEMPLATE.md` (raw tool output beside it, as the README names it) — never into this repo. Report first, fix only after the user reviews the findings.
+- **Run the `vapt` agent** (`.claude/agents/vapt.md`) whenever a PR **adds a route or a table** (a new path
+  under `backend/app/api/v1/`, a new model in `backend/app/models/`, a new Alembic migration that creates a
+  table), **or** touches `backend/app/core/permissions.py`, `backend/app/services/permission_service.py` or
+  any auth or session code. It does not depend on `/VERSION`. Also run it on explicit request at any time.
+- **Scope**: this repository's own code, on the isolated test stack `turboea-vapt` only. Never the user's
+  real local instance (`turbo-ea-aruba`, `turbo-ea-conf`), never a third-party or production deployment.
+- **Report first, fix after.** The agent writes a dated report to
+  `../turbo-ea-vapt/reports/YYYY-MM-DD_<tier>-vapt-<topic>.md` (never into this repo) and changes no code;
+  findings are fixed only after the user has read it, each with a regression test.
+- The agent runs up to the Medium tier. Anything beyond is a separate decision of the user.

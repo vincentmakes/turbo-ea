@@ -761,6 +761,36 @@ class TestScoping:
             mutmut_scope.parse_shard("4/3")
 
 
+def touch(path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("x = 1\n")
+
+
+class TestStaleCachedTests:
+    """A restored cache still holds a test the PR deleted; it must not run."""
+
+    def test_a_test_the_source_tree_lacks_is_removed(self, tmp_path):
+        for rel in ("tests/api/test_gone.py", "tests/keep/test_kept.py", "app/x.py"):
+            for root in (tmp_path, tmp_path / "mutants"):
+                touch(root / rel)
+        (tmp_path / "tests/api/test_gone.py").unlink()
+
+        mutmut_scope.drop_stale_tests(tmp_path)
+
+        assert not (tmp_path / "mutants/tests/api/test_gone.py").exists()
+        assert (tmp_path / "mutants/tests/keep/test_kept.py").exists()
+        assert (tmp_path / "tests/keep/test_kept.py").exists()
+        # nothing outside tests/ is touched, even without a source twin
+        touch(tmp_path / "mutants/app/only_cached.py")
+        mutmut_scope.drop_stale_tests(tmp_path)
+        assert (tmp_path / "mutants/app/only_cached.py").exists()
+        assert (tmp_path / "mutants/app/x.py").exists()
+
+    def test_a_cold_cache_is_a_no_op(self, tmp_path):
+        mutmut_scope.drop_stale_tests(tmp_path)
+        assert list(tmp_path.iterdir()) == []
+
+
 class TestLocate:
     def test_function_spans_include_decorators(self):
         assert mutmut_scope.function_span(SOURCE, "plain", None) == (6, 10)
@@ -855,6 +885,20 @@ class TestMutmutRunAndCollect:
             return subprocess.CompletedProcess(a, 0, "", "")
 
         monkeypatch.setattr(mutmut_scope, "mutmut", fake)
+
+    def test_run_drops_stale_cached_tests_after_the_shadow_root_is_built(
+        self, suite_repo, monkeypatch
+    ):
+        stale = suite_repo / "backend" / "mutants" / "tests" / "test_gone.py"
+
+        def build(*_a, **_k):  # the restored cache arrives with the shadow root
+            touch(stale)
+
+        monkeypatch.setattr(mutmut_scope.shadow_root, "build", build)
+        self.fake_mutmut(monkeypatch, [])
+        changed = {"backend/app/x.py": [[8, 8]]}
+        assert mutmut_scope.run("backend", changed, 2, suite_repo) == 0
+        assert not stale.exists()
 
     def test_a_shard_never_generated_runs_whole_files(self, suite_repo, monkeypatch):
         calls = []

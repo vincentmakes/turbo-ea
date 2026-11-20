@@ -115,18 +115,22 @@ archive/
 /turbolens/
 
 #Local Claude — everything stays local except the Trail-code wiring: the shared
-# settings.json (hooks -> .trail/hook.cjs), the web-session installer and the skill
+# settings.json (hooks -> .trail/hook.cjs), the hooks folder and the translate skill
 .claude/*
 !.claude/settings.json
 !.claude/hooks/
 !.claude/skills/
+.claude/skills/*
+!.claude/skills/translate/
 !.claude/rules/
 !.claude/agents/
 AGENTS.md
-!.claude/skills/**/AGENTS.md
 
 # graphify: output locale dello strumento, non codice del fork
 graphify-out/
+
+# External skills (versions pinned in skills-lock.json): local to this machine. Only translate is the project's own.
+skills-lock.json
 
 # Terraform (deploy/terraform): provider binaries, state and personal tfvars.
 # The .terraform.lock.hcl files ARE committed.
@@ -147,6 +151,8 @@ frontend/e2e/.auth/
 # skills.sh canonical copy; Claude Code reads the tracked copy in .claude/skills/
 /.agents/
 
-# Machine-specific Codex files (absolute paths, local PATH)
-.codex/hooks.json
-.codex/config.toml
+# Codex files (profiles, hooks, config): local to this machine, not versioned
+/.codex/
+
+# Personal machine setup notes (not versioned)
+/SETUP.md
