@@ -345,9 +345,7 @@ async def delete_tag(
     await db.commit()
 
 
-async def _can_tag_card(
-    db: AsyncSession, user: User, card_uuid: uuid.UUID, *, type_key: str | None = None
-) -> bool:
+async def _can_tag_card(db: AsyncSession, user: User, card_uuid: uuid.UUID) -> bool:
     """May the user tag this card? `tags.manage` globally, OR edit rights on
     the card (`inventory.edit` at the app level, or `card.edit` through a
     stakeholder role)."""
@@ -359,7 +357,6 @@ async def _can_tag_card(
         "inventory.edit",
         card_id=card_uuid,
         card_permission="card.edit",
-        card_type_key=type_key,
     )
 
 
@@ -370,7 +367,7 @@ async def _require_can_tag_card(db: AsyncSession, user: User, card_uuid: uuid.UU
 
 def _parse_uuid(raw: str) -> uuid.UUID | None:
     try:
-        return uuid.UUID(str(raw))
+        return uuid.UUID(raw)
     except ValueError:
         return None
 
@@ -400,7 +397,7 @@ async def _apply_tag_operation(
             index=index, card_id=op.card_id, status="failed", error="Card is archived"
         )
     tag_uuids = [_parse_uuid(t) for t in op.tag_ids]
-    bad = [raw for raw, parsed in zip(op.tag_ids, tag_uuids, strict=True) if parsed is None]
+    bad = [raw for raw in op.tag_ids if _parse_uuid(raw) is None]
     if bad:
         return CardTagBulkResult(
             index=index,
@@ -455,11 +452,7 @@ async def apply_card_tag_operations(
         if read_scope.readable(cid, card.type, mode="inventory")
     }
 
-    denied = [
-        str(cid)
-        for cid, card in visible.items()
-        if not await _can_tag_card(db, user, cid, type_key=card.type)
-    ]
+    denied = [str(cid) for cid, card in visible.items() if not await _can_tag_card(db, user, cid)]
     if denied:
         raise HTTPException(
             403, "Not enough permissions to tag card(s): " + ", ".join(sorted(denied))
@@ -482,19 +475,18 @@ async def apply_card_tag_operations(
                 index=index, card_id=op.card_id, status="failed", error=str(exc)
             )
         else:
-            if result.status == "failed":
-                await row_sp.rollback()
-            else:
-                await row_sp.commit()
+            # A row refused before it wrote (archived, a bad tag id) has
+            # nothing in its savepoint, so committing it is the same as not.
+            await row_sp.commit()
         results.append(result)
 
     response = _summarise(results, dry_run=body.dry_run)
     if dry_run_savepoint is not None:
         await dry_run_savepoint.rollback()
-    elif response.updated:
-        await db.commit()
     else:
-        await db.rollback()
+        # Failed rows rolled back their own savepoints; what is left is the
+        # rows that succeeded (or wrote nothing at all).
+        await db.commit()
     return response
 
 

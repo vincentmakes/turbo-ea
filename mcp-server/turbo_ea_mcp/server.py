@@ -205,6 +205,10 @@ mcp = _StrictFastMCP(
         Every tool refuses an argument it does not declare: pass only the
         parameters a tool lists.
 
+        Tags: list_tag_groups gives the groups and tag ids; set_card_tags
+        adds, removes or replaces tags on cards and create_tag_groups adds
+        missing groups or tags (an existing name is reused, never doubled).
+
         Architecture decisions (ADRs) have a status (draft, in_review,
         signed) and, once signed, a derived standing (scheduled, in_force,
         amended, superseded, revoked, expired). list_adrs shows the current
@@ -627,7 +631,7 @@ async def list_card_types() -> str:
 
 
 # What ``list_tag_groups`` keeps from each tag group and from each of its tags.
-_TAG_GROUP_KEYS = ("id", "name", "mode", "restrict_to_types")
+_TAG_GROUP_KEYS = ("id", "name", "description", "mode", "mandatory", "restrict_to_types")
 _TAG_KEYS = ("id", "name", "color")
 
 
@@ -638,10 +642,13 @@ async def list_tag_groups() -> str:
     The tag ids are what ``query_cards`` and ``save_inventory_view`` take
     under ``where.tags``. A group applies only to the card types in its
     ``restrict_to_types``; null or empty means every card type. ``mode`` is
-    "single" (a card carries at most one tag of the group) or "multi".
+    "single" (a card carries at most one tag of the group) or "multi". A
+    ``mandatory`` group counts towards a card's data quality until the card
+    carries one of its tags. ``set_card_tags`` puts these tag ids on cards;
+    ``create_tag_groups`` adds groups and tags.
 
-    Returns: JSON list of ``{id, name, mode, restrict_to_types, tags: [{id,
-    name, color}]}``.
+    Returns: JSON list of ``{id, name, description, mode, mandatory,
+    restrict_to_types, tags: [{id, name, color}]}``.
     """
     token = await _get_current_token()
     if not token:
@@ -2726,6 +2733,538 @@ async def assign_stakeholders(
             outcomes.append({"op": op, "result": resp})
         batch.summary = {"operations": len(ops)}
         return _fmt({"batch_id": batch.batch_id, "outcomes": outcomes})
+
+
+# ── Tags: create tag groups / tags, set tags on cards ──────────────────────
+
+_TAG_OP_KEYS = frozenset({"card_id", "tag_ids", "mode"})
+_TAG_OP_MODES = ("add", "remove", "replace")
+_NEW_GROUP_KEYS = frozenset(
+    {"name", "description", "mode", "mandatory", "restrict_to_types", "tags"}
+)
+_EXISTING_GROUP_KEYS = frozenset({"group_id", "tags"})
+_NEW_TAG_KEYS = frozenset({"name", "color", "description"})
+# Mirrors the column widths behind ``POST /tag-groups`` (``backend/app/models/tag.py``)
+# so a preview reports a too-long value per row instead of a commit-time 422.
+_TAG_NAME_MAX = 200
+_TAG_COLOR_MAX = 20
+
+
+def _validate_tag_ops(operations: list) -> tuple[list[dict], dict | None]:
+    """Shape-check ``set_card_tags`` operations before any backend call.
+
+    Each op is ``{card_id, tag_ids, mode}`` and nothing else; ``mode`` is
+    one of add / remove / replace and is required (``replace`` can take
+    tags off, so it is never assumed). Returns ``(ops, error)`` — exactly
+    one is populated.
+    """
+    validated: list[dict] = []
+    for idx, op in enumerate(operations):
+        if not isinstance(op, dict):
+            return [], {
+                "error": "invalid_operation",
+                "index": idx,
+                "message": "Each operation must be a dict.",
+            }
+        unknown = sorted(set(op) - _TAG_OP_KEYS)
+        if unknown:
+            return [], {
+                "error": "unknown_fields",
+                "index": idx,
+                "unknown": unknown,
+                "message": "An operation takes card_id, tag_ids and mode only.",
+            }
+        card_id = op.get("card_id")
+        if not isinstance(card_id, str) or not card_id.strip():
+            return [], {
+                "error": "missing_card_id",
+                "index": idx,
+                "message": "Every operation needs a card_id.",
+            }
+        mode = op.get("mode")
+        if mode not in _TAG_OP_MODES:
+            return [], {
+                "error": "invalid_mode",
+                "index": idx,
+                "mode": mode,
+                "message": 'mode must be "add", "remove" or "replace".',
+            }
+        tag_ids = op.get("tag_ids")
+        if not isinstance(tag_ids, list) or not all(
+            isinstance(t, str) and t.strip() for t in tag_ids
+        ):
+            return [], {
+                "error": "invalid_tag_ids",
+                "index": idx,
+                "message": "tag_ids must be a list of tag id strings (from list_tag_groups).",
+            }
+        if not tag_ids and mode != "replace":
+            return [], {
+                "error": "invalid_tag_ids",
+                "index": idx,
+                "message": "add and remove need at least one tag id; replace with [] clears.",
+            }
+        validated.append({"card_id": card_id.strip(), "tag_ids": tag_ids, "mode": mode})
+    return validated, None
+
+
+def _tag_spec_problem(idx: int, error: str, message: str, **extra) -> dict:
+    return {"error": error, "index": idx, **extra, "message": message}
+
+
+def _validate_new_tags(idx: int, tags: object) -> tuple[list[dict], dict | None]:
+    """The ``tags`` list of one ``create_tag_groups`` entry."""
+    if tags is None:
+        return [], None
+    if not isinstance(tags, list):
+        return [], _tag_spec_problem(idx, "invalid_tags", "tags must be a list of dicts.")
+    out: list[dict] = []
+    seen: set[str] = set()
+    for tag in tags:
+        if not isinstance(tag, dict):
+            return [], _tag_spec_problem(idx, "invalid_tags", "Each tag must be a dict.")
+        unknown = sorted(set(tag) - _NEW_TAG_KEYS)
+        if unknown:
+            return [], _tag_spec_problem(
+                idx,
+                "unknown_fields",
+                "A tag takes name, color and description only.",
+                unknown=unknown,
+            )
+        name = tag.get("name")
+        if not isinstance(name, str) or not name.strip() or len(name.strip()) > _TAG_NAME_MAX:
+            return [], _tag_spec_problem(
+                idx, "invalid_tag_name", f"A tag name is 1-{_TAG_NAME_MAX} characters."
+            )
+        color = tag.get("color")
+        if color is not None and (not isinstance(color, str) or len(color) > _TAG_COLOR_MAX):
+            return [], _tag_spec_problem(
+                idx, "invalid_color", f"color is a string of at most {_TAG_COLOR_MAX} characters."
+            )
+        description = tag.get("description")
+        if description is not None and not isinstance(description, str):
+            return [], _tag_spec_problem(idx, "invalid_description", "description is a string.")
+        key = name.strip().casefold()
+        if key in seen:
+            return [], _tag_spec_problem(
+                idx, "duplicate_tag", "A tag is named twice in one group.", name=name.strip()
+            )
+        seen.add(key)
+        out.append({"name": name.strip(), "color": color, "description": description})
+    return out, None
+
+
+def _validate_tag_group_specs(groups: list) -> tuple[list[dict], dict | None]:
+    """Shape-check ``create_tag_groups`` entries before any backend call.
+
+    An entry is either a NEW group ``{name, description?, mode?, mandatory?,
+    restrict_to_types?, tags?}`` or tags for an EXISTING group ``{group_id,
+    tags}``. Returns ``(specs, error)`` — exactly one is populated; each spec
+    carries ``kind`` ("new" / "existing") and its normalised ``tags``.
+    """
+    specs: list[dict] = []
+    new_names: set[str] = set()
+    for idx, entry in enumerate(groups):
+        if not isinstance(entry, dict):
+            return [], _tag_spec_problem(idx, "invalid_group", "Each entry must be a dict.")
+        tags, problem = _validate_new_tags(idx, entry.get("tags"))
+        if problem is not None:
+            return [], problem
+        if "group_id" in entry:
+            unknown = sorted(set(entry) - _EXISTING_GROUP_KEYS)
+            if unknown:
+                return [], _tag_spec_problem(
+                    idx,
+                    "unknown_fields",
+                    "An entry with group_id adds tags to that group and takes group_id "
+                    "and tags only.",
+                    unknown=unknown,
+                )
+            group_id = entry.get("group_id")
+            if not isinstance(group_id, str) or not group_id.strip():
+                return [], _tag_spec_problem(idx, "invalid_group_id", "group_id is a string.")
+            if not tags:
+                return [], _tag_spec_problem(
+                    idx, "invalid_tags", "An entry with group_id needs at least one tag."
+                )
+            specs.append({"kind": "existing", "group_id": group_id.strip(), "tags": tags})
+            continue
+        unknown = sorted(set(entry) - _NEW_GROUP_KEYS)
+        if unknown:
+            return [], _tag_spec_problem(
+                idx,
+                "unknown_fields",
+                "A new group takes name, description, mode, mandatory, restrict_to_types "
+                "and tags only.",
+                unknown=unknown,
+            )
+        name = entry.get("name")
+        if not isinstance(name, str) or not name.strip() or len(name.strip()) > _TAG_NAME_MAX:
+            return [], _tag_spec_problem(
+                idx, "invalid_group_name", f"A group name is 1-{_TAG_NAME_MAX} characters."
+            )
+        mode = entry.get("mode", "multi")
+        if mode not in ("single", "multi"):
+            return [], _tag_spec_problem(
+                idx, "invalid_mode", 'mode must be "single" or "multi".', mode=mode
+            )
+        mandatory = entry.get("mandatory", False)
+        if not isinstance(mandatory, bool):
+            return [], _tag_spec_problem(idx, "invalid_mandatory", "mandatory is a boolean.")
+        restrict = entry.get("restrict_to_types")
+        if restrict is not None and not (
+            isinstance(restrict, list) and all(isinstance(k, str) and k for k in restrict)
+        ):
+            return [], _tag_spec_problem(
+                idx,
+                "invalid_restrict_to_types",
+                "restrict_to_types is a list of card type keys, or null for every type.",
+            )
+        description = entry.get("description")
+        if description is not None and not isinstance(description, str):
+            return [], _tag_spec_problem(idx, "invalid_description", "description is a string.")
+        key = name.strip().casefold()
+        if key in new_names:
+            return [], _tag_spec_problem(
+                idx, "duplicate_group", "A group is named twice.", name=name.strip()
+            )
+        new_names.add(key)
+        specs.append(
+            {
+                "kind": "new",
+                "name": name.strip(),
+                "description": description,
+                "mode": mode,
+                "mandatory": mandatory,
+                "restrict_to_types": restrict,
+                "tags": tags,
+            }
+        )
+    return specs, None
+
+
+def _tag_group_rows(specs: list[dict]) -> int:
+    """The batch's row count: every group and every tag the call names."""
+    return sum((1 if s["kind"] == "new" else 0) + len(s["tags"]) for s in specs)
+
+
+def _plan_tag_groups(specs: list[dict], existing: list) -> tuple[list[dict], dict | None]:
+    """Match the specs against ``GET /tag-groups`` by name (case-insensitive).
+
+    A new group whose name is taken is reported ``exists`` and its tags are
+    matched inside that group, so nothing is created twice. A ``group_id``
+    that is not listed refuses the call. Returns ``(plan, error)``.
+    """
+    by_id = {str(g.get("id")): g for g in existing if isinstance(g, dict)}
+    by_name: dict[str, dict] = {}
+    for g in existing:
+        if isinstance(g, dict) and isinstance(g.get("name"), str):
+            by_name.setdefault(g["name"].strip().casefold(), g)
+    plan: list[dict] = []
+    for idx, spec in enumerate(specs):
+        if spec["kind"] == "existing":
+            group = by_id.get(spec["group_id"])
+            if group is None:
+                return [], _tag_spec_problem(
+                    idx,
+                    "unknown_group",
+                    "No tag group has this id; call list_tag_groups.",
+                    group_id=spec["group_id"],
+                )
+            item = {"group_id": spec["group_id"], "name": group.get("name"), "status": "exists"}
+        else:
+            group = by_name.get(spec["name"].casefold())
+            if group is None:
+                item = {"group_id": None, "name": spec["name"], "status": "create"}
+            else:
+                item = {"group_id": str(group.get("id")), "name": group.get("name")}
+                item["status"] = "exists"
+        have = {
+            t["name"].strip().casefold(): t
+            for t in ((group or {}).get("tags") or [])
+            if isinstance(t, dict) and isinstance(t.get("name"), str)
+        }
+        tags = []
+        for tag in spec["tags"]:
+            found = have.get(tag["name"].casefold())
+            if found is None:
+                tags.append({**tag, "status": "create"})
+            else:
+                tags.append({"name": found.get("name"), "id": found.get("id"), "status": "exists"})
+        plan.append({**item, "spec": spec, "tags": tags})
+    return plan, None
+
+
+def _plan_counts(plan: list[dict]) -> tuple[int, int]:
+    groups = sum(1 for p in plan if p["status"] in ("create", "created"))
+    tags = sum(1 for p in plan for t in p["tags"] if t["status"] in ("create", "created"))
+    return groups, tags
+
+
+def _tag_group_body(spec: dict, *, dry_run: bool) -> dict:
+    return {
+        "name": spec["name"],
+        "description": spec["description"],
+        "mode": spec["mode"],
+        "mandatory": spec["mandatory"],
+        "restrict_to_types": spec["restrict_to_types"],
+        "dry_run": dry_run,
+    }
+
+
+def _tag_body(tag: dict, *, dry_run: bool) -> dict:
+    return {
+        "name": tag["name"],
+        "color": tag.get("color"),
+        "description": tag.get("description"),
+        "dry_run": dry_run,
+    }
+
+
+def _refusal(exc: httpx.HTTPStatusError) -> dict:
+    return {
+        "status": "refused",
+        "http_status": exc.response.status_code,
+        "detail": _detail(exc),
+    }
+
+
+def _public_plan(plan: list[dict]) -> list[dict]:
+    """The plan as the caller sees it (the validated spec stays internal)."""
+    return [{k: v for k, v in item.items() if k != "spec"} for item in plan]
+
+
+async def _run_tag_group_plan(client: TurboEAClient, plan: list[dict], *, dry_run: bool) -> None:
+    """Send each group and tag the plan creates, in place on ``plan``.
+
+    A preview sends the same requests with ``dry_run: true``: the backend runs
+    its permission, mode and card-type checks and stores nothing. A tag of a
+    group that is itself only previewed has no group to be checked against and
+    keeps ``create``. A refused group skips its tags; per-row isolation
+    otherwise.
+    """
+    for item in plan:
+        if item["status"] == "create":
+            try:
+                data = await client.post(
+                    "/tag-groups", json=_tag_group_body(item["spec"], dry_run=dry_run)
+                )
+            except httpx.HTTPStatusError as exc:
+                item.update(_refusal(exc))
+                for tag in item["tags"]:
+                    if tag["status"] == "create":
+                        tag["status"] = "skipped"
+                continue
+            if not dry_run:
+                item["status"] = "created"
+                item["group_id"] = data.get("id") if isinstance(data, dict) else None
+        group_id = item["group_id"]
+        if group_id is None:
+            continue
+        for tag in item["tags"]:
+            if tag["status"] != "create":
+                continue
+            try:
+                data = await client.post(
+                    f"/tag-groups/{quote(group_id, safe='')}/tags",
+                    json=_tag_body(tag, dry_run=dry_run),
+                )
+            except httpx.HTTPStatusError as exc:
+                tag.update(_refusal(exc))
+                continue
+            if not dry_run:
+                tag["status"] = "created"
+                tag["id"] = data.get("id") if isinstance(data, dict) else None
+
+
+@mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
+async def create_tag_groups(
+    groups: list[dict],
+    dry_run: bool = True,
+    confirm_token: str = "",
+) -> str:
+    """Create tag groups and tags.
+
+    Each entry is either a NEW group with its tags:
+    ``{"name": "Hosting", "description": "...", "mode": "single",
+    "mandatory": false, "restrict_to_types": ["Application"],
+    "tags": [{"name": "Cloud", "color": "#1976d2", "description": "..."}]}``
+    or tags for an EXISTING group:
+    ``{"group_id": "<id from list_tag_groups>", "tags": [{"name": "Edge"}]}``.
+
+    ``mode`` is "multi" (default) or "single" (a card carries at most one tag
+    of the group); ``restrict_to_types`` limits the group to those card type
+    keys (null = every type). Names are matched against the existing groups
+    and tags first (case-insensitive): a group or tag that already exists is
+    reported ``exists`` and never created twice, so a repeated call is safe.
+
+    Requires ``tags.manage``. NOT reversible by ``rollback_batch``: tag groups
+    and tags are metamodel admin records, not card changes, so an unwanted one
+    is deleted in Admin → Tags.
+
+    Args:
+        groups: The entries above.
+        dry_run: When True (default), the backend validates every group and
+            tag it would create (permission, mode, card types, group) and
+            stores nothing.
+        confirm_token: For commits above the per-call confirmation threshold
+            (counted as groups + tags named), the token the dry run returned.
+
+    Returns: JSON with ``groups[]`` (``name``, ``group_id``, ``status``
+    create / created / exists / refused, and ``tags[]`` the same way),
+    ``would_create`` or ``created`` counts, ``dry_run`` and ``batch_id``.
+    """
+    token = await _get_current_token()
+    if not token:
+        return "Error: Not authenticated. Please reconnect."
+    if (disabled := _writes_disabled_message()) is not None:
+        return disabled
+    specs, problem = _validate_tag_group_specs(groups)
+    if problem is not None:
+        return _fmt(problem)
+    rows = _tag_group_rows(specs)
+    if rows > MCP_MAX_CARDS_PER_CALL:
+        return _fmt(
+            {
+                "error": "batch_too_large",
+                "message": (
+                    f"This call names {rows} groups and tags but the MCP per-call cap "
+                    f"is {MCP_MAX_CARDS_PER_CALL}."
+                ),
+                "cap": MCP_MAX_CARDS_PER_CALL,
+                "received": rows,
+            }
+        )
+    if not dry_run:
+        gate = _confirmation_required_message("create_tag_groups", rows)
+        if gate is not None and not confirm_token:
+            return gate
+    # The dedupe read runs before the batch opens: an unknown group_id refuses
+    # the call before anything is recorded.
+    existing = await TurboEAClient(token).get("/tag-groups")
+    plan, problem = _plan_tag_groups(specs, existing if isinstance(existing, list) else [])
+    if problem is not None:
+        return _fmt(problem)
+    async with mutation_batch(
+        token,
+        tool_name="create_tag_groups",
+        row_count=rows,
+        dry_run=dry_run,
+        confirm_token=confirm_token or None,
+    ) as batch:
+        await _run_tag_group_plan(batch.client(), plan, dry_run=dry_run)
+        n_groups, n_tags = _plan_counts(plan)
+        counts = {"groups": n_groups, "tags": n_tags}
+        if dry_run:
+            batch.summary = {"rows": rows, "would_create": counts}
+            return _fmt(
+                {
+                    "dry_run": True,
+                    "groups": _public_plan(plan),
+                    "would_create": counts,
+                    **_preview_fields(batch),
+                }
+            )
+        batch.summary = {"rows": rows, "created": counts}
+        return _fmt(
+            {
+                "dry_run": False,
+                "groups": _public_plan(plan),
+                "created": counts,
+                "batch_id": batch.batch_id,
+            }
+        )
+
+
+def _tag_ops_summary(data: object, rows: int, *, dry_run: bool) -> dict:
+    """What the batch records about a ``set_card_tags`` call."""
+    body = data if isinstance(data, dict) else {}
+    key = "would_update" if dry_run else "updated"
+    return {"rows": rows, key: body.get("updated", 0), "failed": body.get("failed", 0)}
+
+
+@mcp.tool(annotations=_WRITE_DESTRUCTIVE_ANNOT)
+async def set_card_tags(
+    operations: list[dict],
+    dry_run: bool = True,
+    confirm_token: str = "",
+) -> str:
+    """Add, remove or replace tags on cards.
+
+    Each op: ``{"card_id": "...", "tag_ids": ["..."], "mode": "add"}`` where
+    ``mode`` is "add" (keep the card's other tags), "remove" (take these
+    off) or "replace" (the card ends with exactly these tags; ``[]`` clears
+    them all). Tag ids come from ``list_tag_groups``. Group rules apply to
+    the resulting set: a single-choice group keeps at most one tag per card
+    (use "replace", or "remove" then "add", to swap one) and a group
+    restricted to card types refuses other types.
+
+    Rows are independent: a card that does not exist or that you may not
+    read is ``not_found``, an archived card or a rule violation is
+    ``failed`` with the reason, and the other rows still apply. Requires
+    ``tags.manage`` or edit rights on every card named. Reversible with
+    ``rollback_batch`` (each change is a tag.added / tag.removed card event).
+
+    Args:
+        operations: List of op dicts (cap ``MCP_MAX_CARDS_PER_CALL``).
+        dry_run: When True (default), the backend applies every row and
+            rolls back, so the preview's per-row result is what a commit
+            would do.
+        confirm_token: For commits above the per-call confirmation
+            threshold, the token the dry run returned.
+
+    Returns: JSON with ``results[]`` (``index``, ``card_id``, ``status``
+    updated / unchanged / not_found / failed, ``added``, ``removed``,
+    ``tag_ids`` = the card's resulting tags, ``error``), the ``updated`` /
+    ``unchanged`` / ``failed`` counts, ``dry_run`` and ``batch_id``.
+    """
+    token = await _get_current_token()
+    if not token:
+        return "Error: Not authenticated. Please reconnect."
+    if (disabled := _writes_disabled_message()) is not None:
+        return disabled
+    ops, problem = _validate_tag_ops(operations)
+    if problem is not None:
+        return _fmt(problem)
+    if len(ops) > MCP_MAX_CARDS_PER_CALL:
+        return _fmt(
+            {
+                "error": "batch_too_large",
+                "message": (
+                    f"This batch has {len(ops)} operations but the MCP per-call cap "
+                    f"is {MCP_MAX_CARDS_PER_CALL}."
+                ),
+                "cap": MCP_MAX_CARDS_PER_CALL,
+                "received": len(ops),
+            }
+        )
+    if not dry_run:
+        gate = _confirmation_required_message("set_card_tags", len(ops))
+        if gate is not None and not confirm_token:
+            return gate
+    async with mutation_batch(
+        token,
+        tool_name="set_card_tags",
+        row_count=len(ops),
+        dry_run=dry_run,
+        confirm_token=confirm_token or None,
+    ) as batch:
+        try:
+            data = await batch.client().post(
+                "/cards/tags/bulk", json={"operations": ops, "dry_run": dry_run}
+            )
+        except httpx.HTTPStatusError as exc:
+            batch.summary = {"rows": len(ops), "status": "refused"}
+            refused = {"error": "set_card_tags_refused", **_refusal(exc)}
+            refused.pop("status")
+            fields = _preview_fields(batch) if dry_run else {"batch_id": batch.batch_id}
+            return _fmt({**refused, **fields})
+        batch.summary = _tag_ops_summary(data, len(ops), dry_run=dry_run)
+        out = dict(data) if isinstance(data, dict) else {"result": data}
+        out["dry_run"] = dry_run
+        if dry_run:
+            return _fmt({**out, **_preview_fields(batch)})
+        return _fmt({**out, "batch_id": batch.batch_id})
 
 
 @mcp.tool(annotations=_READ_ANNOT)

@@ -833,7 +833,9 @@ BULK = "/api/v1/cards/tags/bulk"
 
 
 class TestBulkCardTags:
-    async def test_add_replace_remove_with_results_and_events(self, client, db, bulk_env):
+    async def test_add_replace_remove_with_results_and_events(
+        self, client, db, bulk_env, publish_commit_log
+    ):
         t = bulk_env["tags"]
         card = bulk_env["card"]
         headers = auth_headers(bulk_env["admin"])
@@ -855,6 +857,12 @@ class TestBulkCardTags:
         assert set(row["added"]) == {t["finance"], t["gold"]} and row["removed"] == []
         assert set(row["tag_ids"]) == {t["finance"], t["gold"]}
         assert await _card_tag_set(db, card.id) == {t["finance"], t["gold"]}
+        # The events are persisted (db=) and published before the commit.
+        assert publish_commit_log == [
+            ("publish", "tag.added", True),
+            ("publish", "tag.added", True),
+            ("commit",),
+        ]
 
         # Replace swaps the single-choice tag; remove drops one.
         resp = await client.post(
@@ -967,6 +975,20 @@ class TestBulkCardTags:
         assert resp.json()["failed"] == 3
         assert await _card_tag_set(db, initiative.id) == set()
 
+    async def test_the_inventory_read_scope_applies(self, client, db, bulk_env):
+        """A role that may manage tags but not browse the inventory reads no
+        card here: the scope is the inventory's, not a module's."""
+        await create_role(db, key="tagger", label="Tagger", permissions={"tags.manage": True})
+        tagger = await create_user(db, email="tagger@test.com", role="tagger")
+        t = bulk_env["tags"]
+        card = bulk_env["card"]
+        resp = await client.post(
+            BULK, json=_ops((card.id, [t["hr"]], "add")), headers=auth_headers(tagger)
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["results"][0]["status"] == "not_found"
+        assert await _card_tag_set(db, card.id) == set()
+
     async def test_without_edit_rights_the_call_is_refused(self, client, db, bulk_env):
         t = bulk_env["tags"]
         card, other = bulk_env["card"], bulk_env["other"]
@@ -1022,6 +1044,19 @@ class TestBulkCardTags:
     )
     async def test_rejected_bodies(self, client, db, bulk_env, body):
         resp = await client.post(BULK, json=body, headers=auth_headers(bulk_env["admin"]))
+        assert resp.status_code == 422
+
+    async def test_tag_ids_per_operation_are_capped(self, client, db, bulk_env):
+        from app.schemas.common import MAX_TAGS_PER_OPERATION
+
+        card_id = str(bulk_env["card"].id)
+        headers = auth_headers(bulk_env["admin"])
+        unknown = "00000000-0000-0000-0000-000000000000"
+        at_cap = {"card_id": card_id, "tag_ids": [unknown] * MAX_TAGS_PER_OPERATION, "mode": "add"}
+        resp = await client.post(BULK, json={"operations": [at_cap]}, headers=headers)
+        assert resp.status_code == 200
+        over = {**at_cap, "tag_ids": [unknown] * (MAX_TAGS_PER_OPERATION + 1)}
+        resp = await client.post(BULK, json={"operations": [over]}, headers=headers)
         assert resp.status_code == 422
 
     async def test_operations_are_capped(self, client, db, bulk_env):

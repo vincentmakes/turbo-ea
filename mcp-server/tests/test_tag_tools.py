@@ -1,0 +1,660 @@
+"""The tag write tools: ``set_card_tags`` (add / remove / replace through
+``POST /cards/tags/bulk``, previewed by the backend) and ``create_tag_groups``
+(groups and tags deduplicated by name against ``GET /tag-groups`` before the
+batch opens), plus their plain validation and planning helpers."""
+
+from __future__ import annotations
+
+import json
+from unittest.mock import AsyncMock, patch
+
+import httpx
+import pytest
+
+from turbo_ea_mcp import server
+
+
+@pytest.fixture
+def fake_token(monkeypatch):
+    monkeypatch.setattr(server, "_stdio_token", "test-token")
+    yield "test-token"
+
+
+def _parse(s: str):
+    return json.loads(s)
+
+
+def _http_error(status: int, detail: object) -> httpx.HTTPStatusError:
+    request = httpx.Request("POST", "http://backend/api/v1/x")
+    response = httpx.Response(status, json={"detail": detail}, request=request)
+    return httpx.HTTPStatusError(f"{status} error", request=request, response=response)
+
+
+class _Backend:
+    """Answers the batch open / close; ``answers`` maps a write path to a
+    response or an exception (a callable gets the body). Records every call."""
+
+    def __init__(self, answers=None, groups=None):
+        self.answers = answers or {}
+        self.groups = groups if groups is not None else []
+        self.posts: list[tuple[str, dict | None]] = []
+        self.gets: list[str] = []
+
+    async def post(self, path, json=None):
+        self.posts.append((path, json))
+        if path.endswith("/commit"):
+            return {"id": "B-1", "committed_at": "now"}
+        if path.startswith("/mutation-batches"):
+            return {"id": "B-1", "dry_run": (json or {}).get("dry_run")}
+        answer = self.answers.get(path, {"id": f"new:{path}"})
+        if isinstance(answer, Exception):
+            raise answer
+        if callable(answer):
+            return answer(json)
+        return answer
+
+    async def get(self, path, params=None):
+        self.gets.append(path)
+        assert path == "/tag-groups"
+        return self.groups
+
+    def writes(self):
+        return [(p, b) for p, b in self.posts if not p.startswith("/mutation-batches")]
+
+    def closed_summary(self):
+        return self.posts[-1][1]["summary"]
+
+    def patched(self):
+        return (
+            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=self.post)),
+            patch.object(server.TurboEAClient, "get", AsyncMock(side_effect=self.get)),
+        )
+
+
+async def _run(backend: _Backend, coro_factory):
+    p1, p2 = backend.patched()
+    with p1, p2:
+        return _parse(await coro_factory())
+
+
+# ── _validate_tag_ops ───────────────────────────────────────────────────────
+
+
+class TestValidateTagOps:
+    def test_valid_ops_are_normalised(self):
+        ops, err = server._validate_tag_ops(
+            [
+                {"card_id": " c1 ", "tag_ids": ["t1", "t2"], "mode": "add"},
+                {"card_id": "c2", "tag_ids": [], "mode": "replace"},
+                {"card_id": "c3", "tag_ids": ["t1"], "mode": "remove"},
+            ]
+        )
+        assert err is None
+        assert ops == [
+            {"card_id": "c1", "tag_ids": ["t1", "t2"], "mode": "add"},
+            {"card_id": "c2", "tag_ids": [], "mode": "replace"},
+            {"card_id": "c3", "tag_ids": ["t1"], "mode": "remove"},
+        ]
+
+    @pytest.mark.parametrize(
+        ("op", "error"),
+        [
+            ("c1", "invalid_operation"),
+            ({"card_id": "c1", "tag_ids": ["t"], "mode": "add", "x": 1}, "unknown_fields"),
+            ({"tag_ids": ["t"], "mode": "add"}, "missing_card_id"),
+            ({"card_id": "  ", "tag_ids": ["t"], "mode": "add"}, "missing_card_id"),
+            ({"card_id": 5, "tag_ids": ["t"], "mode": "add"}, "missing_card_id"),
+            ({"card_id": "c1", "tag_ids": ["t"]}, "invalid_mode"),
+            ({"card_id": "c1", "tag_ids": ["t"], "mode": "toggle"}, "invalid_mode"),
+            ({"card_id": "c1", "tag_ids": "t", "mode": "add"}, "invalid_tag_ids"),
+            ({"card_id": "c1", "mode": "add"}, "invalid_tag_ids"),
+            ({"card_id": "c1", "tag_ids": ["t", ""], "mode": "add"}, "invalid_tag_ids"),
+            ({"card_id": "c1", "tag_ids": ["t", 3], "mode": "add"}, "invalid_tag_ids"),
+            ({"card_id": "c1", "tag_ids": [], "mode": "add"}, "invalid_tag_ids"),
+            ({"card_id": "c1", "tag_ids": [], "mode": "remove"}, "invalid_tag_ids"),
+        ],
+    )
+    def test_a_bad_op_is_named_by_its_index(self, op, error):
+        ops, err = server._validate_tag_ops(
+            [{"card_id": "c0", "tag_ids": ["t"], "mode": "add"}, op]
+        )
+        assert ops == []
+        assert err["error"] == error
+        assert err["index"] == 1
+        assert err["message"]
+
+    def test_the_unknown_keys_and_the_bad_mode_are_echoed(self):
+        _, err = server._validate_tag_ops(
+            [{"card_id": "c1", "tag_ids": ["t"], "mode": "add", "z": 1, "a": 2}]
+        )
+        assert err["unknown"] == ["a", "z"]
+        _, err = server._validate_tag_ops([{"card_id": "c1", "tag_ids": ["t"], "mode": "set"}])
+        assert err["mode"] == "set"
+
+
+# ── _validate_tag_group_specs / _plan_tag_groups ────────────────────────────
+
+
+class TestValidateTagGroupSpecs:
+    def test_a_new_group_takes_defaults(self):
+        specs, err = server._validate_tag_group_specs(
+            [{"name": " Hosting ", "tags": [{"name": " Cloud ", "color": "#111"}]}]
+        )
+        assert err is None
+        assert specs == [
+            {
+                "kind": "new",
+                "name": "Hosting",
+                "description": None,
+                "mode": "multi",
+                "mandatory": False,
+                "restrict_to_types": None,
+                "tags": [{"name": "Cloud", "color": "#111", "description": None}],
+            }
+        ]
+        assert server._tag_group_rows(specs) == 2
+
+    def test_a_full_new_group_and_an_existing_group_entry(self):
+        specs, err = server._validate_tag_group_specs(
+            [
+                {
+                    "name": "Tier",
+                    "description": "Service tier",
+                    "mode": "single",
+                    "mandatory": True,
+                    "restrict_to_types": ["Application"],
+                },
+                {"group_id": " g1 ", "tags": [{"name": "A"}, {"name": "B", "description": "d"}]},
+            ]
+        )
+        assert err is None
+        assert specs[0]["mode"] == "single" and specs[0]["mandatory"] is True
+        assert specs[0]["restrict_to_types"] == ["Application"]
+        assert specs[0]["description"] == "Service tier" and specs[0]["tags"] == []
+        assert specs[1] == {
+            "kind": "existing",
+            "group_id": "g1",
+            "tags": [
+                {"name": "A", "color": None, "description": None},
+                {"name": "B", "color": None, "description": "d"},
+            ],
+        }
+        # One new group (no tags) + two tags for the existing one.
+        assert server._tag_group_rows(specs) == 3
+
+    @pytest.mark.parametrize(
+        ("entry", "error"),
+        [
+            ("Hosting", "invalid_group"),
+            ({"name": "G", "tags": "x"}, "invalid_tags"),
+            ({"name": "G", "tags": ["x"]}, "invalid_tags"),
+            ({"name": "G", "tags": [{"name": "T", "size": 1}]}, "unknown_fields"),
+            ({"name": "G", "tags": [{"name": ""}]}, "invalid_tag_name"),
+            ({"name": "G", "tags": [{"name": "x" * 201}]}, "invalid_tag_name"),
+            ({"name": "G", "tags": [{"name": "T", "color": "#" * 21}]}, "invalid_color"),
+            ({"name": "G", "tags": [{"name": "T", "color": 3}]}, "invalid_color"),
+            ({"name": "G", "tags": [{"name": "T", "description": 3}]}, "invalid_description"),
+            ({"name": "G", "tags": [{"name": "T"}, {"name": " t "}]}, "duplicate_tag"),
+            ({"group_id": "g1", "name": "G", "tags": [{"name": "T"}]}, "unknown_fields"),
+            ({"group_id": "", "tags": [{"name": "T"}]}, "invalid_group_id"),
+            ({"group_id": 7, "tags": [{"name": "T"}]}, "invalid_group_id"),
+            ({"group_id": "g1"}, "invalid_tags"),
+            ({"group_id": "g1", "tags": []}, "invalid_tags"),
+            ({"name": "G", "colour": "x"}, "unknown_fields"),
+            ({"name": " "}, "invalid_group_name"),
+            ({"name": 3}, "invalid_group_name"),
+            ({"name": "x" * 201}, "invalid_group_name"),
+            ({"name": "G", "mode": "several"}, "invalid_mode"),
+            ({"name": "G", "mandatory": "yes"}, "invalid_mandatory"),
+            ({"name": "G", "restrict_to_types": "Application"}, "invalid_restrict_to_types"),
+            ({"name": "G", "restrict_to_types": ["Application", ""]}, "invalid_restrict_to_types"),
+            ({"name": "G", "description": 4}, "invalid_description"),
+            ({"name": " first "}, "duplicate_group"),
+        ],
+    )
+    def test_a_bad_entry_is_named_by_its_index(self, entry, error):
+        specs, err = server._validate_tag_group_specs([{"name": "First"}, entry])
+        assert specs == []
+        assert err["error"] == error
+        assert err["index"] == 1
+        assert err["message"]
+
+    def test_names_at_the_limit_pass(self):
+        specs, err = server._validate_tag_group_specs(
+            [{"name": "x" * 200, "tags": [{"name": "y" * 200, "color": "#" * 20}]}]
+        )
+        assert err is None and len(specs) == 1
+
+
+EXISTING = [
+    {
+        "id": "g1",
+        "name": "Hosting",
+        "tags": [{"id": "t1", "name": "Cloud"}, {"id": "t2", "name": "On-Prem"}],
+    },
+    {"id": "g2", "name": "hosting", "tags": []},
+    {"id": "g3", "name": "Empty"},
+]
+
+
+class TestPlanTagGroups:
+    def _specs(self, entries):
+        specs, err = server._validate_tag_group_specs(entries)
+        assert err is None
+        return specs
+
+    def test_an_existing_name_is_reused_and_matching_tags_too(self):
+        plan, err = server._plan_tag_groups(
+            self._specs([{"name": "HOSTING", "tags": [{"name": "cloud"}, {"name": "Edge"}]}]),
+            EXISTING,
+        )
+        assert err is None
+        public = server._public_plan(plan)
+        assert public == [
+            {
+                "group_id": "g1",
+                "name": "Hosting",
+                "status": "exists",
+                "tags": [
+                    {"name": "Cloud", "id": "t1", "status": "exists"},
+                    {"name": "Edge", "color": None, "description": None, "status": "create"},
+                ],
+            }
+        ]
+        assert server._plan_counts(plan) == (0, 1)
+
+    def test_a_new_name_is_created(self):
+        plan, err = server._plan_tag_groups(
+            self._specs([{"name": "Tier", "tags": [{"name": "Gold"}]}]), EXISTING
+        )
+        assert err is None
+        assert plan[0]["status"] == "create" and plan[0]["group_id"] is None
+        assert plan[0]["tags"][0]["status"] == "create"
+        assert server._plan_counts(plan) == (1, 1)
+
+    def test_tags_for_a_group_by_id(self):
+        plan, err = server._plan_tag_groups(
+            self._specs([{"group_id": "g3", "tags": [{"name": "A"}]}]), EXISTING
+        )
+        assert err is None
+        assert plan[0]["group_id"] == "g3" and plan[0]["name"] == "Empty"
+        assert plan[0]["status"] == "exists"
+        assert plan[0]["tags"][0]["status"] == "create"
+
+    def test_an_unknown_group_id_refuses_the_call(self):
+        plan, err = server._plan_tag_groups(
+            self._specs([{"name": "Tier"}, {"group_id": "nope", "tags": [{"name": "A"}]}]),
+            EXISTING,
+        )
+        assert plan == []
+        assert err["error"] == "unknown_group"
+        assert err["index"] == 1 and err["group_id"] == "nope"
+
+    def test_junk_in_the_listing_is_ignored(self):
+        plan, err = server._plan_tag_groups(
+            self._specs([{"name": "Tier", "tags": [{"name": "A"}]}]),
+            ["junk", {"id": "g9", "name": None}, {"id": "g8", "name": "Tier", "tags": ["x"]}],
+        )
+        assert err is None
+        assert plan[0]["group_id"] == "g8" and plan[0]["status"] == "exists"
+        assert plan[0]["tags"][0]["status"] == "create"
+
+    def test_counts_take_created_rows_too(self):
+        plan = [
+            {"status": "created", "tags": [{"status": "created"}, {"status": "exists"}]},
+            {"status": "refused", "tags": [{"status": "skipped"}]},
+            {"status": "exists", "tags": [{"status": "refused"}, {"status": "create"}]},
+        ]
+        assert server._plan_counts(plan) == (1, 2)
+
+
+# ── create_tag_groups ───────────────────────────────────────────────────────
+
+
+class TestCreateTagGroups:
+    @pytest.mark.asyncio
+    async def test_preview_asks_the_backend_and_stores_nothing(self, fake_token):
+        backend = _Backend(groups=EXISTING)
+        data = await _run(
+            backend,
+            lambda: server.create_tag_groups(
+                groups=[
+                    {"name": "Tier", "mode": "single", "tags": [{"name": "Gold"}]},
+                    {"name": "hosting", "tags": [{"name": "Cloud"}, {"name": "Edge"}]},
+                ]
+            ),
+        )
+        assert backend.gets == ["/tag-groups"]
+        # The dedupe read runs before the batch opens.
+        assert backend.posts[0] == (
+            "/mutation-batches?row_count=5",
+            {"tool_name": "create_tag_groups", "dry_run": True},
+        )
+        assert backend.writes() == [
+            (
+                "/tag-groups",
+                {
+                    "name": "Tier",
+                    "description": None,
+                    "mode": "single",
+                    "mandatory": False,
+                    "restrict_to_types": None,
+                    "dry_run": True,
+                },
+            ),
+            (
+                "/tag-groups/g1/tags",
+                {"name": "Edge", "color": None, "description": None, "dry_run": True},
+            ),
+        ]
+        assert data["dry_run"] is True and data["batch_id"] == "B-1"
+        assert data["would_create"] == {"groups": 1, "tags": 2}
+        tier, hosting = data["groups"]
+        assert (tier["status"], tier["group_id"]) == ("create", None)
+        assert tier["tags"][0]["status"] == "create"
+        assert hosting["status"] == "exists" and hosting["group_id"] == "g1"
+        assert [t["status"] for t in hosting["tags"]] == ["exists", "create"]
+        assert "spec" not in tier
+        assert backend.closed_summary() == {"rows": 5, "would_create": {"groups": 1, "tags": 2}}
+
+    @pytest.mark.asyncio
+    async def test_commit_creates_the_group_then_its_tags(self, fake_token):
+        backend = _Backend(
+            answers={
+                "/tag-groups": {"id": "g-new", "name": "Tier"},
+                "/tag-groups/g-new/tags": {"id": "t-new", "name": "Gold"},
+            }
+        )
+        data = await _run(
+            backend,
+            lambda: server.create_tag_groups(
+                groups=[{"name": "Tier", "tags": [{"name": "Gold"}]}], dry_run=False
+            ),
+        )
+        assert [p for p, _ in backend.writes()] == ["/tag-groups", "/tag-groups/g-new/tags"]
+        assert all(body["dry_run"] is False for _, body in backend.writes())
+        assert data["dry_run"] is False and data["batch_id"] == "B-1"
+        assert data["created"] == {"groups": 1, "tags": 1}
+        [group] = data["groups"]
+        assert (group["status"], group["group_id"]) == ("created", "g-new")
+        assert group["tags"] == [
+            {"name": "Gold", "color": None, "description": None, "status": "created", "id": "t-new"}
+        ]
+        assert backend.closed_summary() == {"rows": 2, "created": {"groups": 1, "tags": 1}}
+
+    @pytest.mark.asyncio
+    async def test_a_refused_group_skips_its_tags_and_the_rest_still_runs(self, fake_token):
+        backend = _Backend(
+            answers={
+                "/tag-groups": _http_error(422, "Unknown card type(s) in restrict_to_types: X"),
+                "/tag-groups/g1/tags": _http_error(403, "Insufficient permissions"),
+                "/tag-groups/g3/tags": {"id": "t9"},
+            },
+            groups=EXISTING,
+        )
+        data = await _run(
+            backend,
+            lambda: server.create_tag_groups(
+                groups=[
+                    {"name": "Bad", "restrict_to_types": ["X"], "tags": [{"name": "A"}]},
+                    {"group_id": "g1", "tags": [{"name": "Edge"}]},
+                    {"group_id": "g3", "tags": [{"name": "Fine"}]},
+                ],
+                dry_run=False,
+            ),
+        )
+        bad, refused_tag, fine = data["groups"]
+        assert bad["status"] == "refused" and bad["http_status"] == 422
+        assert bad["detail"] == "Unknown card type(s) in restrict_to_types: X"
+        assert bad["tags"][0]["status"] == "skipped"
+        assert refused_tag["tags"][0]["status"] == "refused"
+        assert refused_tag["tags"][0]["http_status"] == 403
+        assert fine["tags"][0]["status"] == "created" and fine["tags"][0]["id"] == "t9"
+        assert data["created"] == {"groups": 0, "tags": 1}
+        assert [p for p, _ in backend.writes()] == [
+            "/tag-groups",
+            "/tag-groups/g1/tags",
+            "/tag-groups/g3/tags",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_a_group_id_is_sent_as_one_path_segment(self, fake_token):
+        backend = _Backend(groups=[{"id": "a/b", "name": "Odd", "tags": []}])
+        await _run(
+            backend,
+            lambda: server.create_tag_groups(
+                groups=[{"group_id": "a/b", "tags": [{"name": "T"}]}], dry_run=False
+            ),
+        )
+        assert [p for p, _ in backend.writes()] == ["/tag-groups/a%2Fb/tags"]
+
+    @pytest.mark.asyncio
+    async def test_everything_existing_writes_nothing(self, fake_token):
+        backend = _Backend(groups=EXISTING)
+        data = await _run(
+            backend,
+            lambda: server.create_tag_groups(
+                groups=[{"name": "Hosting", "tags": [{"name": "Cloud"}]}], dry_run=False
+            ),
+        )
+        assert backend.writes() == []
+        assert data["created"] == {"groups": 0, "tags": 0}
+        assert data["groups"][0]["status"] == "exists"
+
+    @pytest.mark.asyncio
+    async def test_an_unknown_group_id_refuses_before_the_batch(self, fake_token):
+        backend = _Backend(groups=EXISTING)
+        data = await _run(
+            backend,
+            lambda: server.create_tag_groups(groups=[{"group_id": "zz", "tags": [{"name": "T"}]}]),
+        )
+        assert data["error"] == "unknown_group"
+        assert backend.posts == []
+
+    @pytest.mark.asyncio
+    async def test_a_non_list_listing_counts_as_no_groups(self, fake_token):
+        backend = _Backend(groups={"detail": "odd"})
+        data = await _run(backend, lambda: server.create_tag_groups(groups=[{"name": "Tier"}]))
+        assert data["would_create"] == {"groups": 1, "tags": 0}
+
+    @pytest.mark.asyncio
+    async def test_a_bad_entry_refuses_before_any_call(self, fake_token):
+        backend = _Backend()
+        data = await _run(
+            backend, lambda: server.create_tag_groups(groups=[{"name": "G", "mode": "x"}])
+        )
+        assert data["error"] == "invalid_mode"
+        assert backend.posts == [] and backend.gets == []
+
+    @pytest.mark.asyncio
+    async def test_the_cap_counts_groups_and_tags(self, fake_token, monkeypatch):
+        monkeypatch.setattr(server, "MCP_MAX_CARDS_PER_CALL", 2)
+        backend = _Backend()
+        data = await _run(
+            backend,
+            lambda: server.create_tag_groups(
+                groups=[{"name": "G", "tags": [{"name": "A"}, {"name": "B"}]}]
+            ),
+        )
+        assert data["error"] == "batch_too_large"
+        assert (data["cap"], data["received"]) == (2, 3)
+        assert backend.posts == [] and backend.gets == []
+        # At the cap, it runs.
+        data = await _run(
+            backend,
+            lambda: server.create_tag_groups(groups=[{"name": "G", "tags": [{"name": "A"}]}]),
+        )
+        assert data["dry_run"] is True
+
+    @pytest.mark.asyncio
+    async def test_kill_switch(self, fake_token, monkeypatch):
+        monkeypatch.setattr(server, "MCP_WRITES_ENABLED", False)
+        backend = _Backend()
+        data = await _run(backend, lambda: server.create_tag_groups(groups=[{"name": "G"}]))
+        assert data["error"] == "writes_disabled"
+        assert backend.posts == [] and backend.gets == []
+
+    def test_requires_auth(self, monkeypatch):
+        import asyncio
+
+        monkeypatch.setattr(server, "_stdio_token", None)
+        assert "Not authenticated" in asyncio.run(server.create_tag_groups(groups=[]))
+
+    def test_is_additive(self):
+        tool = server.mcp._tool_manager._tools["create_tag_groups"]
+        assert tool.annotations == server._WRITE_ADDITIVE_ANNOT
+
+
+# ── set_card_tags ───────────────────────────────────────────────────────────
+
+BULK_ANSWER = {
+    "results": [
+        {
+            "index": 0,
+            "card_id": "c1",
+            "status": "updated",
+            "added": ["t1"],
+            "removed": [],
+            "tag_ids": ["t1"],
+            "error": None,
+        },
+        {"index": 1, "card_id": "c2", "status": "not_found"},
+    ],
+    "updated": 1,
+    "unchanged": 0,
+    "failed": 1,
+}
+
+
+def _bulk(body):
+    return {**BULK_ANSWER, "dry_run": body["dry_run"]}
+
+
+OPS = [
+    {"card_id": "c1", "tag_ids": ["t1"], "mode": "add"},
+    {"card_id": "c2", "tag_ids": ["t1"], "mode": "replace"},
+]
+
+
+class TestSetCardTags:
+    @pytest.mark.asyncio
+    async def test_preview_is_a_backend_dry_run(self, fake_token):
+        backend = _Backend(answers={"/cards/tags/bulk": _bulk})
+        data = await _run(backend, lambda: server.set_card_tags(operations=OPS))
+        assert backend.posts[0] == (
+            "/mutation-batches?row_count=2",
+            {"tool_name": "set_card_tags", "dry_run": True},
+        )
+        assert backend.writes() == [("/cards/tags/bulk", {"operations": OPS, "dry_run": True})]
+        assert data["dry_run"] is True and data["batch_id"] == "B-1"
+        assert data["results"] == BULK_ANSWER["results"]
+        assert (data["updated"], data["failed"]) == (1, 1)
+        assert backend.closed_summary() == {"rows": 2, "would_update": 1, "failed": 1}
+
+    @pytest.mark.asyncio
+    async def test_commit_returns_the_batch_id(self, fake_token):
+        backend = _Backend(answers={"/cards/tags/bulk": _bulk})
+        data = await _run(backend, lambda: server.set_card_tags(operations=OPS, dry_run=False))
+        assert backend.writes() == [("/cards/tags/bulk", {"operations": OPS, "dry_run": False})]
+        assert data["dry_run"] is False and data["batch_id"] == "B-1"
+        assert "confirm_token" not in data
+        assert backend.closed_summary() == {"rows": 2, "updated": 1, "failed": 1}
+
+    @pytest.mark.asyncio
+    async def test_preview_above_the_threshold_carries_the_token(self, fake_token, monkeypatch):
+        monkeypatch.setattr(server, "MCP_BATCH_CONFIRMATION_THRESHOLD", 1)
+        backend = _Backend(answers={"/cards/tags/bulk": _bulk})
+
+        async def post(path, json=None):
+            if path.startswith("/mutation-batches?"):
+                backend.posts.append((path, json))
+                return {"id": "B-1", "dry_run": True, "confirm_token": "TOK"}
+            return await backend.post(path, json)
+
+        with patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)):
+            data = _parse(await server.set_card_tags(operations=OPS))
+        assert data["confirm_token"] == "TOK"
+
+    @pytest.mark.asyncio
+    async def test_a_refused_call_reports_the_backend_detail(self, fake_token):
+        backend = _Backend(
+            answers={
+                "/cards/tags/bulk": _http_error(403, "Not enough permissions to tag card(s): c1")
+            }
+        )
+        data = await _run(backend, lambda: server.set_card_tags(operations=OPS, dry_run=False))
+        assert data == {
+            "error": "set_card_tags_refused",
+            "http_status": 403,
+            "detail": "Not enough permissions to tag card(s): c1",
+            "batch_id": "B-1",
+        }
+        assert backend.closed_summary() == {"rows": 2, "status": "refused"}
+
+    @pytest.mark.asyncio
+    async def test_a_refused_preview_still_hands_back_the_batch(self, fake_token):
+        backend = _Backend(answers={"/cards/tags/bulk": _http_error(422, [{"msg": "bad"}])})
+        data = await _run(backend, lambda: server.set_card_tags(operations=OPS))
+        assert data["error"] == "set_card_tags_refused"
+        assert data["http_status"] == 422 and data["detail"] == [{"msg": "bad"}]
+        assert data["batch_id"] == "B-1"
+
+    @pytest.mark.asyncio
+    async def test_a_non_dict_answer_is_wrapped(self, fake_token):
+        backend = _Backend(answers={"/cards/tags/bulk": ["odd"]})
+        data = await _run(backend, lambda: server.set_card_tags(operations=OPS, dry_run=False))
+        assert data["result"] == ["odd"] and data["dry_run"] is False
+        assert backend.closed_summary() == {"rows": 2, "updated": 0, "failed": 0}
+
+    @pytest.mark.asyncio
+    async def test_a_bad_op_refuses_before_any_call(self, fake_token):
+        backend = _Backend()
+        data = await _run(
+            backend,
+            lambda: server.set_card_tags(operations=[{"card_id": "c1", "tag_ids": ["t"]}]),
+        )
+        assert data["error"] == "invalid_mode"
+        assert backend.posts == []
+
+    @pytest.mark.asyncio
+    async def test_the_cap(self, fake_token, monkeypatch):
+        monkeypatch.setattr(server, "MCP_MAX_CARDS_PER_CALL", 1)
+        backend = _Backend()
+        data = await _run(backend, lambda: server.set_card_tags(operations=OPS))
+        assert data["error"] == "batch_too_large"
+        assert (data["cap"], data["received"]) == (1, 2)
+        assert backend.posts == []
+
+    @pytest.mark.asyncio
+    async def test_a_commit_above_the_threshold_needs_the_token(self, fake_token, monkeypatch):
+        monkeypatch.setattr(server, "MCP_BATCH_CONFIRMATION_THRESHOLD", 1)
+        monkeypatch.setattr(server, "MCP_REQUIRE_DRYRUN_FIRST", True)
+        backend = _Backend()
+        data = await _run(backend, lambda: server.set_card_tags(operations=OPS, dry_run=False))
+        assert data["error"] == "confirm_token_required" and data["tool"] == "set_card_tags"
+        assert backend.posts == []
+
+    @pytest.mark.asyncio
+    async def test_kill_switch(self, fake_token, monkeypatch):
+        monkeypatch.setattr(server, "MCP_WRITES_ENABLED", False)
+        backend = _Backend()
+        data = await _run(backend, lambda: server.set_card_tags(operations=OPS))
+        assert data["error"] == "writes_disabled"
+        assert backend.posts == []
+
+    def test_requires_auth(self, monkeypatch):
+        import asyncio
+
+        monkeypatch.setattr(server, "_stdio_token", None)
+        assert "Not authenticated" in asyncio.run(server.set_card_tags(operations=OPS))
+
+    def test_is_destructive(self):
+        tool = server.mcp._tool_manager._tools["set_card_tags"]
+        assert tool.annotations == server._WRITE_DESTRUCTIVE_ANNOT
+
+
+class TestInstructions:
+    def test_the_server_instructions_name_the_tag_tools(self):
+        text = server.mcp.instructions
+        for name in ("list_tag_groups", "set_card_tags", "create_tag_groups"):
+            assert name in text
