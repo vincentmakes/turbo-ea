@@ -1,9 +1,10 @@
-import { Fragment, useMemo, useState, type MouseEvent, type ReactNode } from "react";
+import { Fragment, useId, useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
+import Collapse from "@mui/material/Collapse";
 import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
@@ -111,6 +112,13 @@ interface Props {
    * becomes a toggle; edit mode never offers it.
    */
   onToggleMatched?: (key: string) => void;
+  /**
+   * View mode: the lines are folded into the title row. Given, the strip is
+   * controlled (the page persists it); absent, the strip keeps its own state,
+   * expanded at first. Edit mode never folds.
+   */
+  collapsed?: boolean;
+  onCollapsedChange?: (collapsed: boolean) => void;
 }
 
 /** The pills of one line of a view that switch a matched-cards column. */
@@ -151,9 +159,18 @@ export default function QueryPathStrip({
   canViewEol = false,
   matchedKeys = NO_KEYS,
   onToggleMatched,
+  collapsed,
+  onCollapsedChange,
 }: Props) {
   // Picked cards are named once for the whole strip, every line and node at once.
   const cardNames = useCardNames(pickedCardIdsOf(draft?.query ?? view?.query ?? { type: "" }));
+  const [ownCollapsed, setOwnCollapsed] = useState(false);
+  const isCollapsed = collapsed ?? ownCollapsed;
+  const toggleCollapsed = () => {
+    const next = !isCollapsed;
+    if (collapsed === undefined) setOwnCollapsed(next);
+    onCollapsedChange?.(next);
+  };
   if (draft) {
     return (
       <EditStrip
@@ -182,6 +199,8 @@ export default function QueryPathStrip({
       error={queryError}
       matchedKeys={matchedKeys}
       onToggleMatched={onToggleMatched}
+      collapsed={isCollapsed}
+      onToggleCollapsed={toggleCollapsed}
     />
   );
 }
@@ -197,6 +216,19 @@ const STRIP_SX = {
 } as const;
 const ROW_SX = { display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap" } as const;
 const BADGE_SX = { height: 20, fontSize: 11, fontWeight: 700, letterSpacing: 0.5 } as const;
+/**
+ * The lines area, below the title row. Six stacked lines would otherwise push
+ * the grid out of the fixed-height page, so it is capped and scrolls on its
+ * own; the title row (and its buttons) stays outside, always in reach. Its
+ * `gap` repeats the strip's, which no longer reaches the lines inside it.
+ */
+const LINES_SX = {
+  maxHeight: "32vh",
+  overflowY: "auto",
+  display: "flex",
+  flexDirection: "column",
+  gap: 0.75,
+} as const;
 
 /**
  * The query's lines one below the other: an AND badge on its own row between
@@ -257,6 +289,8 @@ function ViewStrip({
   error,
   matchedKeys,
   onToggleMatched,
+  collapsed,
+  onToggleCollapsed,
 }: {
   view: ActiveQuery;
   canEdit: boolean;
@@ -267,19 +301,51 @@ function ViewStrip({
   error: string | null;
   matchedKeys: readonly string[];
   onToggleMatched?: (key: string) => void;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
 }) {
   const { t } = useTranslation(["inventory", "common"]);
   const { types, relationTypes } = useMetamodel();
+  const isRtl = useIsRtl();
+  const uid = useId();
+  const titleId = `${uid}-title`;
+  const linesId = `${uid}-lines`;
   // Every pill's key comes from `matchNodes`, the numbering the page and the
   // server use, never from a count kept here.
   const keyAt = useMemo(() => matchKeyAt(view.query), [view.query]);
+  const lines = lineCount(view.query);
   return (
-    <Paper variant="outlined" data-testid="query-path-strip" sx={STRIP_SX}>
+    <Paper variant="outlined" data-testid="query-path-strip" sx={{ ...STRIP_SX, gap: 0 }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+        {/* A sibling of the title, never wrapping it: the edit and close
+            buttons in this row are tab stops of their own. */}
+        <IconButton
+          size="small"
+          aria-label={collapsed ? t("inventory:queryView.expand") : t("inventory:queryView.collapse")}
+          aria-expanded={!collapsed}
+          aria-controls={linesId}
+          data-testid="query-path-collapse"
+          onClick={onToggleCollapsed}
+          sx={{ p: 0.25 }}
+        >
+          <MaterialSymbol
+            icon={collapsed ? "chevron_right" : "expand_more"}
+            size={18}
+            style={{ transform: collapsed && isRtl ? "scaleX(-1)" : undefined }}
+          />
+        </IconButton>
         <OriginChip origin={view.createdVia} />
-        <Typography variant="body2" fontWeight={600}>
+        <Typography id={titleId} variant="body2" fontWeight={600}>
           {view.name}
         </Typography>
+        {collapsed && (
+          <Chip
+            size="small"
+            variant="outlined"
+            data-testid="query-path-line-count"
+            label={t("inventory:queryView.lineCount", { count: lines })}
+          />
+        )}
         {view.createdVia === "mcp" && (
           <Tooltip title={t("inventory:queryView.createdViaMcpHint")} describeChild>
             <Typography variant="caption" color="text.secondary">
@@ -307,27 +373,41 @@ function ViewStrip({
           <MaterialSymbol icon="close" size={18} />
         </IconButton>
       </Box>
-      <LineStack
-        query={view.query}
-        renderLine={({ query }, index) => (
-          <QueryNode
-            typeKey={query.type}
-            where={query.where}
-            hops={query.related ?? []}
-            types={types}
-            relationTypes={relationTypes}
-            tagGroups={tagGroups}
-            cardNames={cardNames}
-            switches={
-              onToggleMatched
-                ? { line: index, keyAt, pressed: matchedKeys, onToggle: onToggleMatched }
-                : undefined
-            }
-            indices={NO_INDICES}
+      {/* Folded, not unmounted: the lines keep their state and the region
+          `aria-controls` names is always in the document. The gap to the
+          title row lives inside (the Paper's own gap is zeroed), so a folded
+          strip keeps no dead space under its title. */}
+      <Collapse in={!collapsed} id={linesId} role="region" aria-labelledby={titleId}>
+        <Box data-testid="query-path-lines" sx={{ ...LINES_SX, mt: 0.75 }}>
+          <LineStack
+            query={view.query}
+            renderLine={({ query }, index) => (
+              <QueryNode
+                typeKey={query.type}
+                where={query.where}
+                hops={query.related ?? []}
+                types={types}
+                relationTypes={relationTypes}
+                tagGroups={tagGroups}
+                cardNames={cardNames}
+                switches={
+                  onToggleMatched
+                    ? { line: index, keyAt, pressed: matchedKeys, onToggle: onToggleMatched }
+                    : undefined
+                }
+                indices={NO_INDICES}
+              />
+            )}
           />
-        )}
-      />
-      {error && <StripError code={error} />}
+        </Box>
+      </Collapse>
+      {/* Outside the fold: a refused query explains an empty grid, so it stays
+          on screen while the lines are folded away. */}
+      {error && (
+        <Box sx={{ mt: 0.75 }}>
+          <StripError code={error} />
+        </Box>
+      )}
     </Paper>
   );
 }
@@ -742,52 +822,56 @@ function EditStrip({
           {t("common:actions.save")}
         </Button>
       </Box>
-      <LineStack
-        query={set}
-        lineKeys={lineIds.ids}
-        renderLine={(l) => (
-          <EditChain
-            query={l.query}
-            start={l.fixedType ? "fixed" : l.typeLocked ? "locked" : "choose"}
-            canAddHop={hopsLeft}
-            tagGroups={tagGroups}
-            cardNames={cardNames}
-            canViewEol={canViewEol}
-            onChange={(q) => onChange(updateLine(set, l.group, l.line, q))}
-          />
-        )}
-        lineEnd={(l) =>
-          removable && (
-            <IconButton
-              size="small"
-              aria-label={t("inventory:queryView.removeLine")}
-              data-testid="query-line-remove"
-              onClick={() => {
-                lineIds.remove(flatIndex(set, l.group, l.line));
-                onChange(removeLine(set, l.group, l.line));
-              }}
-              sx={{ p: 0.25 }}
-            >
-              <MaterialSymbol icon="close" size={18} />
-            </IconButton>
-          )
-        }
-        groupEnd={(group) =>
-          canAddLine(set) && (
-            <AddLineButton
-              key={`add-${group}`}
-              canAnd={!!linesOf(set).find((l) => l.group === group)?.query.type}
-              onPick={(connective) => {
-                const next = addLine(set, group, connective);
-                if (next === set) return;
-                // Both connectives put the new line right after the group's last.
-                lineIds.insert(afterGroup(set, group));
-                onChange(next);
-              }}
+      {/* Capped like the view's lines, never folded: Save and Cancel above
+          stay in reach however many lines the builder holds. */}
+      <Box data-testid="query-path-lines" sx={LINES_SX}>
+        <LineStack
+          query={set}
+          lineKeys={lineIds.ids}
+          renderLine={(l) => (
+            <EditChain
+              query={l.query}
+              start={l.fixedType ? "fixed" : l.typeLocked ? "locked" : "choose"}
+              canAddHop={hopsLeft}
+              tagGroups={tagGroups}
+              cardNames={cardNames}
+              canViewEol={canViewEol}
+              onChange={(q) => onChange(updateLine(set, l.group, l.line, q))}
             />
-          )
-        }
-      />
+          )}
+          lineEnd={(l) =>
+            removable && (
+              <IconButton
+                size="small"
+                aria-label={t("inventory:queryView.removeLine")}
+                data-testid="query-line-remove"
+                onClick={() => {
+                  lineIds.remove(flatIndex(set, l.group, l.line));
+                  onChange(removeLine(set, l.group, l.line));
+                }}
+                sx={{ p: 0.25 }}
+              >
+                <MaterialSymbol icon="close" size={18} />
+              </IconButton>
+            )
+          }
+          groupEnd={(group) =>
+            canAddLine(set) && (
+              <AddLineButton
+                key={`add-${group}`}
+                canAnd={!!linesOf(set).find((l) => l.group === group)?.query.type}
+                onPick={(connective) => {
+                  const next = addLine(set, group, connective);
+                  if (next === set) return;
+                  // Both connectives put the new line right after the group's last.
+                  lineIds.insert(afterGroup(set, group));
+                  onChange(next);
+                }}
+              />
+            )
+          }
+        />
+      </Box>
       {shownError && <StripError code={shownError} />}
     </Paper>
   );

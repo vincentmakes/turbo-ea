@@ -10,6 +10,7 @@ import InventoryPage, {
   buildInventoryFacetBindings,
   normalizeAttrValue,
   optionChipItems,
+  queryStripCollapsedFromPrefs,
 } from "./InventoryPage";
 import { invalidateCalculatedFields } from "@/hooks/useCalculatedFields";
 import { MAX_SPLIT_VALUES } from "@/components/grid/useCellContextMenu";
@@ -2733,6 +2734,51 @@ describe("InventoryPage query views", () => {
     expect(screen.queryByTestId("query-path-strip")).not.toBeInTheDocument();
     expect(screen.getByTestId("filter-sidebar")).toHaveAttribute("data-external-view-id", "");
     await waitFor(() => expect(prefs().activeQuery).toBeNull());
+  });
+
+  it("opens the strip expanded and remembers folding it in the prefs", async () => {
+    localStorage.setItem(
+      "turboea_inventory",
+      JSON.stringify({ filters: { types: ["Application"] }, activeQuery: ACTIVE }),
+    );
+    renderInventory();
+    const toggle = await screen.findByTestId("query-path-collapse");
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await waitFor(() => expect(prefs().queryStripCollapsed).toBe(false));
+
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await waitFor(() => expect(prefs().queryStripCollapsed).toBe(true));
+  });
+
+  it("restores a folded strip from the prefs and unfolds it on a click", async () => {
+    localStorage.setItem(
+      "turboea_inventory",
+      JSON.stringify({
+        filters: { types: ["Application"] },
+        activeQuery: ACTIVE,
+        queryStripCollapsed: true,
+      }),
+    );
+    renderInventory();
+    const toggle = await screen.findByTestId("query-path-collapse");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByTestId("query-path-line-count")).toHaveTextContent("1 line");
+
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await waitFor(() => expect(prefs().queryStripCollapsed).toBe(false));
+  });
+
+  it("folds the strip only for a stored true", () => {
+    expect(queryStripCollapsedFromPrefs(null)).toBe(false);
+    expect(queryStripCollapsedFromPrefs({})).toBe(false);
+    expect(queryStripCollapsedFromPrefs({ queryStripCollapsed: false })).toBe(false);
+    // A hand-edited value is not a preference.
+    expect(
+      queryStripCollapsedFromPrefs({ queryStripCollapsed: "true" as unknown as boolean }),
+    ).toBe(false);
+    expect(queryStripCollapsedFromPrefs({ queryStripCollapsed: true })).toBe(true);
   });
 
   it("ignores a persisted query when the URL carries its own filters", async () => {
