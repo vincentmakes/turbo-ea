@@ -184,7 +184,7 @@ def schema_problem(schema: Any) -> str | None:
 def find_route(routes: Sequence[Any], method: str, path: str) -> APIRoute | None:
     """The route on the extension router serving ``method path``, else None."""
     for route in routes:
-        if isinstance(route, APIRoute) and route.path == path and method in route.methods:
+        if isinstance(route, APIRoute) and route.path == path and method in (route.methods or ()):
             return route
     return None
 

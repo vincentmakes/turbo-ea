@@ -1393,7 +1393,10 @@ async def agent_tool_catalogue(
     never offered: the registry refused such declarations at startup.
     """
     await extension_registry.refresh_from_db(db)
-    return AgentToolCatalogueOut(extensions=await ext_agent_tools.catalogue_for(db, user))
+    entries = await ext_agent_tools.catalogue_for(db, user)
+    return AgentToolCatalogueOut(
+        extensions=[AgentToolExtensionOut.model_validate(entry) for entry in entries]
+    )
 
 
 # ---------------------------------------------------------------------------
