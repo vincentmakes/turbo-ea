@@ -145,6 +145,8 @@ class TagRef(BaseModel):
     name: str
     color: str | None = None
     group_name: str | None = None
+    # Group names are not unique, so a caller replacing a group's tag needs the id.
+    tag_group_id: str | None = None
 
     model_config = {"from_attributes": True}
 

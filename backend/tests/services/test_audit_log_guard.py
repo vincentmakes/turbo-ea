@@ -107,6 +107,9 @@ NOT_AN_ADMIN_ACTION = {
     "tags.py::remove_tag": (
         "content write on a card: recorded as a tag.removed card event in its History"
     ),
+    "tags.py::bulk_set_card_tags": (
+        "content write on cards: each change is a tag.added / tag.removed card event"
+    ),
     "extensions.py::open_billing_portal": (
         "mints a store billing-portal link for the browser to open; changes nothing locally"
     ),

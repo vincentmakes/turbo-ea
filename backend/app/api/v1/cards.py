@@ -152,6 +152,7 @@ def _card_to_response(
                 name=t.name,
                 color=t.color,
                 group_name=t.group.name if t.group else None,
+                tag_group_id=str(t.tag_group_id),
             )
         )
     stakeholder_refs = []

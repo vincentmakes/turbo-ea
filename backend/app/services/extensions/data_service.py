@@ -1037,6 +1037,7 @@ class ExtensionData:
                     mode=mode,  # type: ignore[arg-type]
                     actor_id=None,
                     event_extra={"ext": self._key},
+                    dry_run=dry_run,
                 )
             except tag_service.TagWriteError as e:
                 raise ExtensionDataError(str(e)) from e

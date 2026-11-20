@@ -1,6 +1,5 @@
-"""Card tagging — the one writer behind ``POST /cards/{id}/tags``,
-``DELETE /cards/{id}/tags/{tag_id}`` and the SDK data bridge's
-``set_card_tags``.
+"""Card tagging — the shared writer behind ``POST /cards/tags/bulk`` (the
+MCP ``set_card_tags`` tool) and the SDK data bridge's ``set_card_tags``.
 
 Two facts every tag write owes, whichever path performs it:
 
@@ -11,9 +10,11 @@ Two facts every tag write owes, whichever path performs it:
   column moves while the History tab stays silent (#995). A tag the card
   already carries writes nothing and says nothing.
 
-Group rules the bridge enforces (the REST routes trust the UI, which never
-offers an invalid pick): a *single*-mode group holds at most one tag per
-card, and a group restricted to card types refuses cards of other types.
+Group rules ``set_card_tags`` enforces: a *single*-mode group holds at most
+one tag per card, and a group restricted to card types refuses cards of
+other types. The single-card routes ``POST /cards/{id}/tags`` and
+``DELETE /cards/{id}/tags/{tag_id}`` trust the UI instead, which swaps a
+single-choice tag by adding before it removes.
 """
 
 from __future__ import annotations
@@ -85,6 +86,7 @@ async def set_card_tags(
     mode: TagSetMode = "replace",
     actor_id: uuid.UUID | None,
     event_extra: dict | None = None,
+    dry_run: bool = False,
 ) -> tuple[list[uuid.UUID], list[uuid.UUID]]:
     """Make the card's tag set equal to / include / exclude ``tag_ids``.
 
@@ -93,6 +95,11 @@ async def set_card_tags(
     tag for another passes while an ``add`` that would leave two fails.
     Publishes one event per changed tag and rescores once. Flushes, never
     commits. Returns ``(added, removed)``.
+
+    ``dry_run`` publishes nothing: the caller previews inside a savepoint it
+    rolls back, and a savepoint does not stop ``event_bus.publish`` from
+    fanning the event out to live SSE subscribers — a preview would announce
+    a tag change that never happened.
     """
     wanted = list(dict.fromkeys(tag_ids))
     if wanted:
@@ -154,6 +161,8 @@ async def set_card_tags(
             await db.delete(link)
     await db.flush()
     await rescore_cards(db, [card.id])
+    if dry_run:
+        return added, removed
     for tag_id in added:
         await publish_tag_event(db, "tag.added", card.id, tag_id, actor_id, extra=event_extra)
     for tag_id in removed:

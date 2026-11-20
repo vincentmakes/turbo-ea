@@ -34,6 +34,8 @@ import Typography from "@mui/material/Typography";
 import { DateField } from "@/components/DateField";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { FilterSectionHeader } from "@/components/FilterSidebarSection";
+import { resetFilterKeys } from "@/lib/filterSections";
 import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
 import ColumnOrderSection, {
   type ColumnOrderItem,
@@ -165,51 +167,6 @@ interface Props {
 // Helpers
 // ──────────────────────────────────────────────────────────────────────────
 
-/**
- * Section header — chevron, section glyph, bold label, and a primary count
- * chip when the section has active selections. Same shape as the inventory
- * sidebar's `SectionHeader` (see `frontend/UI_GUIDELINES.md` § 3.11).
- */
-function SectionHeader({
-  label,
-  icon,
-  expanded,
-  onToggle,
-  count,
-}: {
-  label: string;
-  icon: string;
-  expanded: boolean;
-  onToggle: () => void;
-  count?: number;
-}) {
-  return (
-    <Box
-      onClick={onToggle}
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        gap: 0.75,
-        py: 0.5,
-        px: 0.5,
-        cursor: "pointer",
-        borderRadius: 1,
-        userSelect: "none",
-        "&:hover": { bgcolor: "action.hover" },
-      }}
-    >
-      <MaterialSymbol icon={expanded ? "expand_more" : "chevron_right"} size={16} />
-      <MaterialSymbol icon={icon} size={16} />
-      <Typography variant="body2" fontWeight={600} fontSize={13} sx={{ flex: 1 }}>
-        {label}
-      </Typography>
-      {count != null && count > 0 && (
-        <Chip label={count} size="small" color="primary" sx={{ height: 18, fontSize: 11 }} />
-      )}
-    </Box>
-  );
-}
-
 /** Checkbox row list with the option's own glyph, as the inventory card-type
  *  and column lists do. Options with no icon fall back to a coloured dot when
  *  they carry a colour, and to nothing at all when they carry neither. */
@@ -333,6 +290,9 @@ export default function ResourcesFilterSidebar({
   );
 
   const clearAll = () => onFiltersChange({ ...EMPTY_RESOURCE_FILTERS });
+  /** One section's clear button: resets exactly that section's keys. */
+  const clearKeys = (...keys: (keyof ResourceFilters)[]) =>
+    onFiltersChange(resetFilterKeys(filters, EMPTY_RESOURCE_FILTERS, keys));
 
   const activeCount = useMemo(
     () =>
@@ -497,11 +457,12 @@ export default function ResourcesFilterSidebar({
               )}
 
               {/* Search */}
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("resources.filters.sectionSearch")}
                 icon="search"
                 expanded={expandedSections.search}
                 onToggle={() => toggleSection("search")}
+                onClear={() => clearKeys("search")}
                 count={filters.search.trim() ? 1 : 0}
               />
               <Collapse in={expandedSections.search}>
@@ -540,11 +501,12 @@ export default function ResourcesFilterSidebar({
               <Divider sx={{ my: 1 }} />
 
               {/* Kind */}
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("resources.filters.sectionKind")}
                 icon="folder_open"
                 expanded={expandedSections.kind}
                 onToggle={() => toggleSection("kind")}
+                onClear={() => clearKeys("kinds")}
                 count={filters.kinds.length}
               />
               <Collapse in={expandedSections.kind}>
@@ -563,11 +525,12 @@ export default function ResourcesFilterSidebar({
               <Divider sx={{ my: 1 }} />
 
               {/* Card type */}
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("resources.filters.sectionCardType")}
                 icon="category"
                 expanded={expandedSections.cardType}
                 onToggle={() => toggleSection("cardType")}
+                onClear={() => clearKeys("cardTypes")}
                 count={filters.cardTypes.length}
               />
               <Collapse in={expandedSections.cardType}>
@@ -581,11 +544,12 @@ export default function ResourcesFilterSidebar({
               <Divider sx={{ my: 1 }} />
 
               {/* Category / link type */}
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("resources.filters.sectionCategory")}
                 icon="sell"
                 expanded={expandedSections.category}
                 onToggle={() => toggleSection("category")}
+                onClear={() => clearKeys("categories")}
                 count={filters.categories.length}
               />
               <Collapse in={expandedSections.category}>
@@ -599,11 +563,12 @@ export default function ResourcesFilterSidebar({
               <Divider sx={{ my: 1 }} />
 
               {/* File type */}
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("resources.filters.sectionMime")}
                 icon="description"
                 expanded={expandedSections.mime}
                 onToggle={() => toggleSection("mime")}
+                onClear={() => clearKeys("mimeTypes")}
                 count={filters.mimeTypes.length}
               />
               <Collapse in={expandedSections.mime}>
@@ -622,11 +587,12 @@ export default function ResourcesFilterSidebar({
               <Divider sx={{ my: 1 }} />
 
               {/* Card */}
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("resources.filters.sectionCard")}
                 icon="dashboard"
                 expanded={expandedSections.card}
                 onToggle={() => toggleSection("card")}
+                onClear={() => clearKeys("card")}
                 count={filters.card ? 1 : 0}
               />
               <Collapse in={expandedSections.card} onEntered={() => setCardPickerOpen(true)}>
@@ -645,11 +611,12 @@ export default function ResourcesFilterSidebar({
               <Divider sx={{ my: 1 }} />
 
               {/* Created by */}
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("resources.filters.sectionCreator")}
                 icon="person"
                 expanded={expandedSections.creator}
                 onToggle={() => toggleSection("creator")}
+                onClear={() => clearKeys("createdBy")}
                 count={filters.createdBy ? 1 : 0}
               />
               <Collapse in={expandedSections.creator}>
@@ -675,11 +642,12 @@ export default function ResourcesFilterSidebar({
 
               {/* Archived — coloured selectable chips, like the inventory's
                   approval-status and lifecycle sections. */}
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("resources.filters.sectionArchived")}
                 icon="inventory_2"
                 expanded={expandedSections.archived}
                 onToggle={() => toggleSection("archived")}
+                onClear={() => clearKeys("archived")}
                 count={filters.archived !== "any" ? 1 : 0}
               />
               <Collapse in={expandedSections.archived}>
@@ -707,11 +675,12 @@ export default function ResourcesFilterSidebar({
               <Divider sx={{ my: 1 }} />
 
               {/* Date range */}
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("resources.filters.sectionDate")}
                 icon="schedule"
                 expanded={expandedSections.date}
                 onToggle={() => toggleSection("date")}
+                onClear={() => clearKeys("dateFrom", "dateTo")}
                 count={(filters.dateFrom ? 1 : 0) + (filters.dateTo ? 1 : 0)}
               />
               <Collapse in={expandedSections.date}>
@@ -765,7 +734,7 @@ export default function ResourcesFilterSidebar({
                   </Button>
                 )}
               </Box>
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("resources.filters.columnsHint")}
                 icon="grid_view"
                 expanded
