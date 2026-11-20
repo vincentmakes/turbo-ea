@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [2.207.1] - 2026-11-20
 
 ### Fixed
-- Fields an extension adds to a card type are no longer lost when that card type is saved in the metamodel editor, and are restored automatically at startup if they were.
+- Fields and subtypes an extension adds to a card type are no longer lost when that card type is saved in the metamodel editor or overwritten by a workspace import, and are restored automatically at startup if they were.
 
 ## [2.207.0] - 2026-11-20
 
