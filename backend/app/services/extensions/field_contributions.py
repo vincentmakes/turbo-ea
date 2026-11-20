@@ -41,7 +41,9 @@ Ownership + lifecycle:
   ownership is **skipped** (never hijack an admin's or core's field).
 - License lapse does NOT remove contributions (lapse is a licensing
   state, not a deactivation): rendering is never gated, and the fields
-  degrade like any ``ext.*`` value when the UI plugin isn't loaded.
+  degrade like any ``ext.*`` value when the UI plugin isn't loaded. Their
+  values do become read-only until the extension is live again —
+  ``field_gate`` gates every write.
 
 Data-quality scores are recomputed for affected card types on both apply
 and remove, since contributed fields carry weights.

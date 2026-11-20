@@ -158,6 +158,14 @@ export function isEmptyAttrValue(val: unknown): boolean {
   );
 }
 
+/** A field whose value cannot be changed here: a `readonly` (auto-maintained)
+ * field, or one an extension contributed while that extension is not enabled
+ * or not licensed (`ext_locked`). Every editing surface asks this, never
+ * `field.readonly` alone. */
+export function isWriteLockedField(field: Pick<FieldDef, "readonly" | "ext_locked">): boolean {
+  return !!field.readonly || field.ext_locked === true;
+}
+
 export function isEnforcedRequiredField(field: FieldDef): boolean {
   return !!field.required && field.type !== "boolean" && !field.readonly;
 }

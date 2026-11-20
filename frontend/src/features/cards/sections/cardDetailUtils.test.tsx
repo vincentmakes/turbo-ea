@@ -20,6 +20,7 @@ import {
   FieldValue,
   isEmptyAttrValue,
   isEnforcedRequiredField,
+  isWriteLockedField,
   missingRequiredFields,
   NO_SUBTYPE_KEY,
   shouldGroupBySubtype,
@@ -661,5 +662,14 @@ describe("multiple_select chips follow the option order (#1292)", () => {
   it("FieldEditor's selected chips use the same order", () => {
     render(<FieldEditor field={tiers} value={["bronze", "silver"]} onChange={() => {}} />);
     expect(chipOrder(["Bronze", "Silver"])).toEqual(["Silver", "Bronze"]);
+  });
+});
+
+describe("isWriteLockedField", () => {
+  it("locks a readonly field and a field of an inactive extension, nothing else", () => {
+    expect(isWriteLockedField({})).toBe(false);
+    expect(isWriteLockedField({ readonly: false, ext_locked: false })).toBe(false);
+    expect(isWriteLockedField({ readonly: true })).toBe(true);
+    expect(isWriteLockedField({ ext_locked: true })).toBe(true);
   });
 });

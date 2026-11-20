@@ -2615,6 +2615,40 @@ describe("InventoryPage grid handlers", () => {
     expect(await screen.findByTestId("card-page")).toHaveAttribute("data-card-id", CARD_IDS.erp);
   });
 
+  it("never writes or offers a field of an inactive or unlicensed extension", async () => {
+    const types = CARD_TYPES.map((t) =>
+      t.key !== "Application"
+        ? t
+        : {
+            ...t,
+            fields_schema: t.fields_schema.map((s) => ({
+              ...s,
+              fields: s.fields.map((f) =>
+                f.key === "goLiveDate" ? { ...f, ext: "sample-ext", ext_locked: true } : f,
+              ),
+            })),
+          },
+    );
+    withMetamodel(types, RELATION_TYPES);
+    mockApi.on("patch", /^\/cards\//, {});
+    const { user } = renderInventory("/inventory?type=Application");
+    await waitForRows(3);
+    await act(async () => {
+      gridStub.editCell("attr_goLiveDate", ERP, "2031-01-01");
+      gridStub.editCell("attr_notes", ERP, "fresh");
+    });
+    await waitFor(() =>
+      expect(mockApi.callsOf("patch", /^\/cards\//).map((c) => c.body)).toEqual([
+        { attributes: { ...ERP.attributes, notes: "fresh" } },
+      ]),
+    );
+
+    await openMassEdit(user, [ERP]);
+    await user.click(within(screen.getByRole("dialog")).getAllByRole("combobox")[0]);
+    expect(await screen.findByRole("option", { name: "Notes" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Go-Live Date" })).toBeNull();
+  });
+
   it("persists every kind of inline edit through the right endpoint", async () => {
     withMetamodel([APPLICATION_WITH_LABELS, ...CARD_TYPES.slice(2)], RELATION_TYPES);
     mockApi.on("patch", /^\/cards\//, {});

@@ -1558,3 +1558,70 @@ async def test_a_field_for_an_unknown_type_records_a_truncated_reason(db, env, c
     expected = f"target card type {long_key!r} not found"[:1000]
     assert (staged.status, staged.error_message) == ("error", expected)
     assert staged2.error_message == expected
+
+
+# ── read-only extension fields ──────────────────────────────────────────────
+
+_LOCKED_SCHEMA = [
+    {
+        "section": "Sample",
+        "fields": [{"key": "score", "label": "Score", "type": "number", "ext": "sample-ext"}],
+    }
+]
+
+
+@pytest.fixture
+def no_extensions():
+    from app.services.extensions.registry import extension_registry
+
+    # An empty registry: the stamped field's extension is not live, so it is locked.
+    extension_registry.clear()
+    yield
+    extension_registry.clear()
+
+
+async def test_a_create_skips_a_read_only_extension_field_and_notes_it(
+    db, env, published, no_extensions
+):
+    await create_card_type(db, key="Gadget", label="Gadget", fields_schema=_LOCKED_SCHEMA)
+    payload = {"type": "Gadget", "name": "G", "attributes": {"score": 3, "k": 1}}
+    staged = await stage(db, env, "card", "N1", data={"payload": payload})
+    assert await ap._apply_card_pass(db, env.m, env.admin) == zero(created=1)
+    card = (await db.execute(select(Card).where(Card.name == "G"))).scalar_one()
+    assert card.attributes == {"k": 1}
+    assert staged.status == "applied"
+    assert staged.error_message == "Read-only extension fields not imported: score"
+
+
+async def test_an_update_keeps_a_read_only_extension_field(db, env, published, no_extensions):
+    await create_card_type(db, key="Gadget", label="Gadget", fields_schema=_LOCKED_SCHEMA)
+    card = await create_card(db, card_type="Gadget", name="G", attributes={"score": 1, "k": 1})
+    staged = await stage(
+        db,
+        env,
+        "card",
+        "U1",
+        action="update",
+        target_id=card.id,
+        data={"payload": {"attributes": {"score": 5, "k": 2}}},
+    )
+    await ap._apply_single_card(db, staged, env.admin)
+    assert card.attributes == {"score": 1, "k": 2}
+    assert staged.error_message == "Read-only extension fields not imported: score"
+
+
+async def test_an_unchanged_read_only_field_leaves_no_note(db, env, published, no_extensions):
+    await create_card_type(db, key="Gadget", label="Gadget", fields_schema=_LOCKED_SCHEMA)
+    card = await create_card(db, card_type="Gadget", name="G", attributes={"score": 1})
+    staged = await stage(
+        db,
+        env,
+        "card",
+        "U1",
+        action="update",
+        target_id=card.id,
+        data={"payload": {"attributes": {"score": 1, "k": 2}}},
+    )
+    await ap._apply_single_card(db, staged, env.admin)
+    assert card.attributes == {"score": 1, "k": 2}
+    assert staged.error_message is None

@@ -190,7 +190,7 @@ import { readableCardTypes } from "@/hooks/useReadableCardTypes";
 import { canCreateAnyCardType, hasTypePermission } from "@/components/RequirePermission";
 import { useCardSearch } from "@/hooks/useCardSearch";
 import { useTypeLabel, useTypeDescription, useRelationLabel, useFieldLabel, useOptionLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
-import { useFieldHelp } from "@/features/cards/sections/cardDetailUtils";
+import { isWriteLockedField, useFieldHelp } from "@/features/cards/sections/cardDetailUtils";
 import { OptionChip } from "@/components/OptionChip";
 import { readableTextColor } from "@/lib/color";
 import { booleanOption, facetOptions, facetValues, isGroupableField } from "@/lib/fieldFacets";
@@ -2997,7 +2997,7 @@ export default function InventoryPage() {
         const fieldDef = typeConfig?.fields_schema
           .flatMap((s) => s.fields)
           .find((f) => f.key === key);
-        if (fieldDef?.readonly) return { needsReload: false };
+        if (fieldDef && isWriteLockedField(fieldDef)) return { needsReload: false };
         // Merge onto the card's own attributes. Never PATCH /cards/bulk with an
         // `attributes` payload — that endpoint replaces the whole JSONB blob
         // per card and would wipe every other attribute.
@@ -3401,7 +3401,7 @@ export default function InventoryPage() {
     if (typeConfig) {
       for (const section of typeConfig.fields_schema) {
         for (const field of section.fields) {
-          if (field.readonly || calculatedKeys.has(field.key)) continue;
+          if (isWriteLockedField(field) || calculatedKeys.has(field.key)) continue;
           // Same gate the grid columns and the export use: a user without
           // costs.view must not be able to overwrite figures they cannot see.
           if (field.type === "cost" && !canViewCostsGlobally) continue;
@@ -4462,7 +4462,7 @@ export default function InventoryPage() {
             headerTooltip: fieldHelp(field) || undefined,
             width: 150,
             hide: !selectedColumns.has(colKey),
-            editable: gridEditMode && !field.readonly && !calculatedKeys.has(field.key),
+            editable: gridEditMode && !isWriteLockedField(field) && !calculatedKeys.has(field.key),
             valueGetter: (p: { data: Card }) =>
               (p.data?.attributes || {})[field.key] ?? "",
             valueSetter: (p) => {

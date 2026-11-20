@@ -2365,6 +2365,8 @@ describe("InventoryPage — calculated columns", () => {
           fields: [
             { key: "progress", label: "Progress", type: "percentage" },
             { key: "notes", label: "Notes", type: "text" },
+            // Contributed by an extension that is not active or licensed.
+            { key: "score", label: "Score", type: "number", ext: "sample-ext", ext_locked: true },
           ],
         },
       ],
@@ -2403,6 +2405,15 @@ describe("InventoryPage — calculated columns", () => {
     await userEvent.click(await screen.findByRole("button", { name: /grid edit/i }));
     await waitFor(() => expect(col("attr_notes")!.editable).toBe(true));
     await waitFor(() => expect(col("attr_progress")!.editable).toBe(false));
+  });
+
+  it("never lets grid edit mode open an editor on a field of an inactive extension", async () => {
+    renderInventory();
+    await userEvent.click(screen.getByTestId("select-application"));
+    await waitFor(() => expect(col("attr_score")).toBeDefined());
+    await userEvent.click(await screen.findByRole("button", { name: /grid edit/i }));
+    await waitFor(() => expect(col("attr_notes")!.editable).toBe(true));
+    expect(col("attr_score")!.editable).toBe(false);
   });
 });
 

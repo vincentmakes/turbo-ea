@@ -817,6 +817,32 @@ describe("validateImport — attributes", () => {
       expect(r.skipped).toBe(1);
     });
 
+    it("treats a field of an inactive or unlicensed extension as read-only, with its own reason", () => {
+      const types = CARD_TYPES.map((t) =>
+        t.key !== "Application"
+          ? t
+          : {
+              ...t,
+              fields_schema: t.fields_schema.map((s) => ({
+                ...s,
+                fields: s.fields.map((f) =>
+                  f.key === "goLiveDate" ? { ...f, ext: "sample-ext", ext_locked: true } : f,
+                ),
+              })),
+            },
+      );
+      expect(run([erp({ attr_goLiveDate: "2020-06-01" })], { types }).warnings).toEqual([]);
+      const differs = run([erp({ attr_goLiveDate: "2024-01-01" })], { types });
+      expect(differs.warnings).toEqual([
+        {
+          row: 2,
+          column: "attr_goLiveDate",
+          message: warn("extLockedFieldIgnored", { row: 2, field: label("Application", "goLiveDate") }),
+        },
+      ]);
+      expect(differs.updates).toEqual([]);
+    });
+
     it("treats a calculated field the same way, joining an array value for the comparison", () => {
       const calculated: CalculatedFieldsMap = { Application: ["coverage", "regions"] };
       const same = run([erp({ attr_coverage: "75", attr_regions: "emea, amer" })], { calculated });

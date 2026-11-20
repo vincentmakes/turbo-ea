@@ -102,6 +102,9 @@ const MOCK_TYPES = [
         section: "Details",
         fields: [
           { key: "costTotalAnnual", label: "Total Annual Cost", type: "cost", required: true, translations: { en: "Total Annual Cost" } },
+          // Contributed by an extension that is not active or licensed: the
+          // backend refuses a value on create, so it is never offered.
+          { key: "lockedScore", label: "Locked Score", type: "number", required: true, ext: "sample-ext", ext_locked: true },
           // Required multi-select rendered a plain text box instead of a
           // dropdown, so the field could never be filled (issue #931).
           {
@@ -462,6 +465,12 @@ describe("CreateCardDialog", () => {
 
     // Application has a required costTotalAnnual field
     expect(screen.getByLabelText("Total Annual Cost", { exact: false })).toBeInTheDocument();
+  });
+
+  it("never offers a required field of an inactive or unlicensed extension", () => {
+    renderDialog({ initialType: "Application" });
+    expect(screen.getByLabelText("Total Annual Cost", { exact: false })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Locked Score", { exact: false })).not.toBeInTheDocument();
   });
 
   it("renders a required multi-select as a dropdown and submits the selection as an array (issue #931)", async () => {

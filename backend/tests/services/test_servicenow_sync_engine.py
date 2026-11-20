@@ -458,6 +458,91 @@ class TestPullApply:
         assert event.data["changes"]["subtype"] == {"old": None, "new": "saas"}
 
 
+class TestReadOnlyExtensionFields:
+    """A field an inactive or unlicensed extension contributed keeps its value:
+    the sync skips that change and applies the rest of the record."""
+
+    @pytest.fixture(autouse=True)
+    async def _locked(self, db, env):
+        from app.models.card_type import CardType
+        from app.services.extensions.registry import extension_registry
+
+        ct = (await db.execute(select(CardType).where(CardType.key == "Application"))).scalar_one()
+        ct.fields_schema = [
+            {
+                "section": "Sample",
+                "fields": [
+                    {
+                        "key": "criticality",
+                        "label": "Criticality",
+                        "type": "text",
+                        "ext": "sample-ext",
+                    },
+                ],
+            }
+        ]
+        await db.flush()
+        # An empty registry: the stamped field's extension is not live.
+        extension_registry.clear()
+        yield
+        extension_registry.clear()
+
+    def test_the_diff_loses_only_the_locked_attribute(self):
+        diff = {
+            "name": {"old": "a", "new": "b"},
+            "attributes.criticality": {"old": "low", "new": "high"},
+            "attributes.other": {"old": None, "new": 1},
+        }
+        kept = snow.skip_locked_attribute_changes(diff, {"criticality": "Criticality"}, S1)
+        assert kept == {
+            "name": {"old": "a", "new": "b"},
+            "attributes.other": {"old": None, "new": 1},
+        }
+        assert snow.skip_locked_attribute_changes(diff, {}, S1) is diff
+
+    async def test_an_update_skips_the_locked_field(self, db, env, monkeypatch):
+        engine, _ = _engine(db, monkeypatch, snow_table_handler())
+        card = await _card(db, env, "Old", attributes={"criticality": "low"})
+        run = SnowSyncRun(connection_id=env["conn"].id, mapping_id=env["mapping"].id, stats={})
+        db.add(run)
+        await db.flush()
+        staged = SnowStagedRecord(
+            sync_run_id=run.id,
+            mapping_id=env["mapping"].id,
+            snow_sys_id=S1,
+            action="update",
+            card_id=card.id,
+            diff={
+                "name": {"old": "Old", "new": "New"},
+                "attributes.criticality": {"old": "low", "new": "critical"},
+            },
+        )
+        await engine._apply_update(staged, env["fms"], env["admin"].id)
+        assert card.name == "New"
+        assert card.attributes["criticality"] == "low"
+        (event,) = await _events(db, "card.updated")
+        assert "attributes" not in event.data["changes"]
+
+    async def test_a_create_leaves_the_locked_field_out(self, db, env, monkeypatch):
+        engine, _ = _engine(db, monkeypatch, snow_table_handler())
+        run = SnowSyncRun(connection_id=env["conn"].id, mapping_id=env["mapping"].id, stats={})
+        db.add(run)
+        await db.flush()
+        staged = SnowStagedRecord(
+            sync_run_id=run.id,
+            mapping_id=env["mapping"].id,
+            snow_sys_id=S2,
+            action="create",
+            snow_data=_rec(S2, "Fresh"),
+        )
+        db.add(staged)
+        await db.flush()
+        await engine._apply_create(staged, env["mapping"], env["fms"], env["admin"].id)
+        card = (await db.execute(select(Card).where(Card.name == "Fresh"))).scalar_one()
+        assert "criticality" not in card.attributes
+        assert card.attributes["origin"] == "servicenow"
+
+
 # ---------------------------------------------------------------------------
 # Deletions
 # ---------------------------------------------------------------------------
