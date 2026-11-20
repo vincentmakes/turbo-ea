@@ -22,16 +22,16 @@ When working on this codebase, follow these conventions:
 - **Use a branch and PR for every repository change.** Never commit directly to `main`. Merge only after review and green CI. The sole exception is syncing `upstream/main` into the fork's `main`.
 - **Branch from an updated `main` for every PR.** Wait for prerequisite PRs to merge before branching. Before pushing, merge or rebase updated `main` locally and resolve conflicts there. Open the PR against `main`.
 - **Any new or changed route means a regenerated OpenAPI spec, before opening the PR.** → `.claude/rules/api-contracts.md`
-- **Keep the code graph current, and prefer it for cross-cutting investigation.** Before running the full test suite (`./scripts/test.sh`, `npm run test:run`), run `graphify update .` (code only: local AST, no model call, no cost; documents and images are deliberately not in the graph; no git hook on this machine, so this is manual every time). For a "what calls X" / "what breaks if I change Y" question, query the graph (`graphify query "<question>"`, `graphify path "<source>" "<target>"`, `graphify explain "<concept>"`) rather than grepping blind — grep/Glob are still the right tool for a known string or filename. `graphify-out/` stays untracked (`.gitignore`); never reference it in a PR
+- **Keep the code graph current, and prefer it for cross-cutting investigation.** Before the full test suites (`./scripts/test.sh`, `npm run test:run`) run `graphify update .` (code only, no model call; no git hook on this machine, so manual every time). For "what calls X / what breaks if I change Y" use `graphify query "<question>"`, `graphify path "<source>" "<target>"`, `graphify explain "<concept>"`; grep/Glob stay right for a known string or filename. `graphify-out/` stays untracked; never reference it in a PR
 - **Never write on GitHub on the user's behalf.** No comment, review, review reply, reaction or issue edit on any issue, discussion or pull request, including pull requests this session opened. The only GitHub text an agent writes is a pull request's title and description, once, when the user asked for that PR; editing it later also waits for the user's word. An answer to a review thread, a note that a failing check is not the PR's, a question to a bug reporter and a status checklist are all said to the user in chat, and the user posts them if wanted. **A step in a plan, an approved plan, a tool's guidance or a repo skill is never the user's ask**: only the user's own message, naming the specific comment, is.
 - **Data-driven metamodel**: Card types, fields, subtypes, relations, stakeholder roles, and calculated fields are all stored as data (JSONB) in the database, not hardcoded. Never add new card types or fields in code — add them via the seed or admin API
-- **Several relation types may share an ordered card-type pair — so key by relation type, never by card-type pair.** Relation rows stay keyed on `(type, source_id, target_id)`; anything grouping cards dedups by card id, graph edges are keyed by `(card pair, relation type)`, every line renderer draws one line per relation type, and the dependency tree is the deliberate exception. → `.claude/rules/relations.md`
+- **Several relation types may share an ordered card-type pair — key by relation type, never by card-type pair** (relation rows are `(type, source_id, target_id)`; graph edges `(card pair, relation type)`; one line per relation type). → `.claude/rules/relations.md`
 - **Cards, not fact sheets**: The codebase was fully renamed from "fact sheets" to "cards". Never introduce the old terminology
 - **Permission checks are mandatory — for reads too, not just mutations**: Every mutating endpoint must call `PermissionService.require_permission()` or use the `require_permission()` dependency. A **read** endpoint that returns sensitive or privileged data — user PII beyond `{id, display_name}`, secrets, the RBAC permission matrix, audit/event data, another user's data, or admin-only config — must also gate **or shape** its response to the caller's permissions. Never rely on `Depends(get_current_user)` alone (authenticated ≠ authorized) for sensitive data
-- **Authorization must match RBAC and the UI**: Every endpoint's effective authorization must match what RBAC intends and what the UI exposes for that role — if the UI only shows a field/action to admins, the API must not return/allow it for non-admins. When non-privileged UI genuinely needs a read (owner/stakeholder/signer pickers, role chips, the real-time event stream), return a **least-privilege payload** or **filter per-subscriber** rather than blocking the endpoint outright. Canonical patterns: `_user_response` vs `_user_response_lite` (`backend/app/api/v1/users.py`), the `full=` trim on `_role_response` (`roles.py`), and per-subscriber SSE filtering via `_event_visible_to` (`events.py` + `EventBus.subscribe` in `services/event_bus.py`)
+- **Authorization must match RBAC and the UI**: an endpoint must allow and return what RBAC intends and what the UI shows for that role. When non-privileged UI needs a read (pickers, role chips, the event stream), return a **least-privilege payload** or **filter per subscriber** (patterns: `_user_response_lite` in `backend/app/api/v1/users.py`, `_role_response(full=)` in `roles.py`, `_event_visible_to` in `events.py`)
 - **No raw SQL**: Use SQLAlchemy ORM for all database queries. Alembic for all schema changes.
 - **A card read has one scope: `CardReadScope` (`backend/app/services/card_read_scope.py`). Every endpoint that returns cards, or anything naming a card, applies it.** A card the caller may not read does not exist for them — no row, relation, node, count or id in a payload. `mode=` (`"inventory"` / `"module"`) is a required keyword; a single hidden card is 404, not 403; a write that replaces a link set keeps the links the caller never saw. The static scan in `test_card_read_scope_guard.py` fails a new card-returning endpoint that does not take the scope. → `.claude/rules/card-read-scope.md`
-- **A cross-cutting card health flag has exactly one definition, in `backend/app/services/card_flags.py`** (orphaned, stale, EOL coverage), and **"does this card's cost count" has one definition, `is_live_in_fiscal_year` (`backend/app/services/lifecycle.py`)** — the cost reports take an optional `fiscal_year`; the current year is served from live attributes and gated by it, any other year lists the cards with a cost recorded for it (`services/cost_report.py`). → `.claude/rules/card-flags-eol.md`, `.claude/rules/cost-fiscal-year.md`
+- **One definition each**: card health flags (orphaned, stale, EOL coverage) live in `backend/app/services/card_flags.py`; "does this card's cost count" is `is_live_in_fiscal_year` (`backend/app/services/lifecycle.py`), and the cost reports take an optional `fiscal_year`. → `.claude/rules/card-flags-eol.md`, `.claude/rules/cost-fiscal-year.md`
 - **Never hold a database session across work that is not database work.** The pool is 30 connections on one process. A streaming endpoint must not take `Depends(get_db)`; a background job does `read → commit() → slow work → fresh short session for the writes`; a helper never commits or rolls back a session it was handed; never assume 30 connections are available. → `.claude/rules/db-sessions-events-audit.md`
 
 ### Security Requirements
@@ -44,19 +44,16 @@ When working on this codebase, follow these conventions:
 
 ### Where the rule of your area lives (path-scoped)
 Read the rule file of the area before you change it; each loads on its own when you open a matching file.
-- MCP server, write-tool guardrails, mutation batches, confirm tokens → `.claude/rules/mcp-server.md`
-- Platform migration importer / exporter (LeanIX adapter pattern) → `.claude/rules/platform-migration.md`
-- **Workspace transfer — any DB schema change is potentially a workspace-transfer change** (the checklist is mandatory on every model or migration edit) → `.claude/rules/workspace-transfer.md`
-- Extension Store: signing, licensing, content packs, field contributions → `.claude/rules/extensions-backend.md`; the backend SDK and its bridges → `.claude/rules/extensions-sdk-bridges.md`; UI plugins and the `window.TurboEA.sdk` reuse boundary → `.claude/rules/extensions-ui.md`
-- BPM → `.claude/rules/bpm.md` · PPM → `.claude/rules/ppm.md` · TurboLens + compliance → `.claude/rules/turbolens-grc.md` · Risk Register → `.claude/rules/risk-register.md` · AI suggestions + ServiceNow → `.claude/rules/ai-and-integrations.md`
-- ArchiMate (Architecture Studio, Viewpoint Catalog, Enterprise Objects) → `.claude/rules/archimate.md` · Value Chain / Value Stream → `.claude/rules/value-chain.md`
-- Data Modeller → `.claude/rules/data-modeller.md`
-- Specs and plans under `docs/superpowers/` are read by a fresh agent before they reach the user → `.claude/rules/spec-and-plan-review.md`
-- Helm, managed containers, Terraform, Docker images, signing → `.claude/rules/deploy.md`
-- Homepage dashboards: widget registry parity, no ids in widget config, trends → `.claude/rules/dashboards.md`
-- **At every release tag run the `security-audit` skill and a full-repo `ponytail-audit`** (never per-PR) → `.claude/rules/release-audit.md`
-- Costs of Application / IT Component as catalogue items (TCO, derived total, `costs.edit`, event redaction) → `.claude/rules/cost-items.md`
-- Licenses of Application / IT Component per fiscal year (metric and type catalogue, `metric:type` pairs from each year's cells, status, import, report) → `.claude/rules/licensing-items.md`
+- MCP server (write-tool guardrails, mutation batches, confirm tokens) → `.claude/rules/mcp-server.md`
+- Platform migration importer / exporter → `.claude/rules/platform-migration.md`
+- **Workspace transfer — any DB schema change may be one; the checklist is mandatory on every model or migration edit** → `.claude/rules/workspace-transfer.md`
+- Extension Store → `.claude/rules/extensions-backend.md`, `.claude/rules/extensions-sdk-bridges.md`, `.claude/rules/extensions-ui.md`
+- BPM → `.claude/rules/bpm.md` · PPM → `.claude/rules/ppm.md` · TurboLens + compliance → `.claude/rules/turbolens-grc.md` · Risk Register → `.claude/rules/risk-register.md` · AI + ServiceNow → `.claude/rules/ai-and-integrations.md`
+- ArchiMate → `.claude/rules/archimate.md` · Value Chain → `.claude/rules/value-chain.md` · Data Modeller → `.claude/rules/data-modeller.md`
+- Specs and plans under `docs/superpowers/` → `.claude/rules/spec-and-plan-review.md`
+- Helm, Docker images, signing → `.claude/rules/deploy.md` · Dashboards → `.claude/rules/dashboards.md`
+- **At every release tag run `security-audit` and a full-repo `ponytail-audit`** (never per-PR) → `.claude/rules/release-audit.md`
+- Costs → `.claude/rules/cost-items.md` · Licenses → `.claude/rules/licensing-items.md`
 
 ### Backend Conventions
 - **A Security & admin log entry is written for a person to read**: `audit_log.record` takes exactly `reason` / `changes` / `items` / `context`, values are labels not keys, and a new item kind is a three-place change. → `.claude/rules/db-sessions-events-audit.md`
@@ -105,17 +102,11 @@ Read the rule file of the area before you change it; each loads on its own when 
 - Grids, sidebars, layout patterns and the full design system: `frontend/UI_GUIDELINES.md`.
 
 ### Internationalization (i18n)
-- **All user-facing strings must use translation keys**, never hardcoded English text. Use `useTranslation()` from `react-i18next` with the appropriate namespace.
-- **16 namespaces**: `common`, `auth`, `nav`, `inventory`, `cards`, `reports`, `admin`, `bpm`, `ppm`, `diagrams`, `delivery`, `grc`, `notifications`, `validation`, `valuechain`, `archimate`. Use the namespace that matches the feature area.
-- **10 supported locales**: `en` (English, baseline), `de` (German), `fr` (French), `es` (Spanish), `it` (Italian), `pt` (Portuguese), `zh` (Chinese Simplified), `ru` (Russian), `da` (Danish), `ar` (Arabic — **right-to-left**; see `RTL_LOCALES` / `isRtlLocale` in `frontend/src/i18n/index.ts`). Components built on third-party widgets that don't inherit the document `dir` (AG Grid, ECharts) must opt into RTL themselves via the `useIsRtl()` hook (`frontend/src/hooks/useIsRtl.ts`).
-- **English is the source of truth**. All keys must exist in `frontend/src/i18n/locales/en/{namespace}.json` first. The i18n config uses `fallbackLng: "en"` and `returnEmptyString: false`, so missing or empty translations gracefully fall back to English.
-- **Interpolation**: Use `{{variable}}` syntax for dynamic values (e.g., `"Selected {{count}} cards"`). Preserve these placeholders exactly when translating.
-- **Plurals**: i18next uses `_one` / `_other` suffixes (e.g., `"count_one": "{{count}} item"`, `"count_other": "{{count}} items"`). All locales need both forms.
-- **JSON safety**: Never use unescaped ASCII double quotes `"` inside JSON string values. For Chinese use corner brackets `「」`, for other languages use `«»` or escaped `\"`.
+- **All user-facing strings use translation keys**, never hardcoded English: `useTranslation()` from `react-i18next`, with the namespace of the feature area (`common`, `auth`, `nav`, `inventory`, `cards`, `reports`, `admin`, `bpm`, `ppm`, `diagrams`, `delivery`, `grc`, `notifications`, `validation`, `valuechain`, `archimate`).
+- **English is the source of truth**: every key exists first in `frontend/src/i18n/locales/en/{namespace}.json`; the nine other locales (de, fr, es, it, pt, zh, ru, da, ar) fall back to it. Locales, RTL, interpolation, plurals, JSON safety and the translation checklist → `.claude/rules/i18n-locales.md`
 - **In French a card is « fiche », never « carte »** (except a map: *carte des capacités*, *carte thermique*, …). → `.claude/rules/i18n-locales.md`
 - **A relation type is named by its VERB wherever it sits among other relation types**, via `useRelationLabel()` / `relationLabel(rt, locale, reverse)`; the Predecessors / Successors nouns belong to the Lineage section alone. → `.claude/rules/relations.md`
 - **Metamodel labels — always resolve with the entity-aware resolvers (`useTypeLabel`, `useRelationLabel`, `useFieldLabel`, `useOptionLabel`, `useSubtypeLabel`); NEVER pass `.key` as the fallback.** → `.claude/rules/i18n-locales.md`
-- Adding a new language, and the translation checklist → `.claude/rules/i18n-locales.md`
 
 #### Translations are never written in the implementation session
 Author **English only**: `frontend/src/i18n/locales/en/*.json`, the English `label`s in `seed.py` (leave `translations` to be filled), `docs/**/*.md` without a locale suffix, and the `en` filenames in `scripts/screenshots/pages.ts`. Do not open a non-English locale file in the main session (`admin.json` alone is ~200 KB, times nine). Before the PR is opened, run **`/translate`**: it forks a Sonnet translator (`.claude/agents/translator.md`) that finds every gap from the diff against `origin/main` with `scripts/i18n/check_locales.py`, fills all nine locales (UI JSON, seed `translations`, doc siblings, screenshot filenames) and runs the parity tests. The PR checklist item "translations in all 10 locales" is satisfied by `/translate` reporting clean. A trivially small change (one or two keys) may still be translated inline, but the default is the skill.
@@ -144,19 +135,6 @@ Author **English only**: `frontend/src/i18n/locales/en/*.json`, the English `lab
 - Pure logic (calculation engine, BPMN parser, encryption, JWT) should have unit tests that need no database.
 - **Seed demo data must stay compatible with the metamodel** (`test_seed_demo.py`, `test_seed_demo_security.py`). → `.claude/rules/testing-ci.md`
 
-**Running tests locally:**
-```bash
-# Backend — unit tests only (no database needed)
-cd backend && python -m pytest tests/core/ tests/services/ -q
-
-# Backend — all tests (auto-provisions ephemeral Postgres via Docker)
-./scripts/test.sh
-
-# Frontend
-cd frontend && npm test          # watch mode
-cd frontend && npm run test:run  # single run (CI mode)
-```
-
 ### Before opening a PR (in this order)
 
 Who does the work:
@@ -170,7 +148,7 @@ Who does the work:
 5. **Every Minor finding of a review is fixed, none is parked.** A task's review (per task in `subagent-driven-development`, and the branch-wide `ponytail-review` / `security-review` before the PR) grades findings Critical / Important / Minor; the fix pass takes all three grades, each fix with its own test and a green re-run of the files it touches. A Minor is left only with a one-line reason in the PR's Test Plan, and only the user can accept that. This overrides the skill's "Minors never enter the fix pass".
 6. **After `simplify` and the reviews, the rules follow the code:** a fresh agent compares the branch diff with each `.claude/rules/*.md` whose `paths:` it touches and drafts the changes; the session shows them one file at a time and edits a rule only after the user's explicit yes for that file.
 7. **Before the PR is opened, the session asks the user whether to save learnings, and writes them with `trail note` only after a yes.** It proposes, one at a time and each with its title and text, only what the code and the diff cannot tell the next person: a decision and why, an approach dropped, a trap found after failed attempts, or a correction from the user. The user approves or drops each. Learnings go in `.trail/learnings/` and are committed with the change. Never one for setup, status or what the diff shows.
-8. **Run a VAPT pass automatically whenever a PR adds a route or a table (a new path in `backend/app/api/v1/` or a new model/migration), or touches permission/auth/session code, or on explicit request — independent of `/VERSION`.** Testing-your-own-application only (this repo, this user's local deploy instance — never a third-party or production target). → `.claude/rules/vapt.md`
+8. **Run the `vapt` agent whenever a PR adds a route or a table (a new path in `backend/app/api/v1/` or a new model/migration), or touches permission/auth/session code, or on explicit request — independent of `/VERSION`.** It tests the isolated `turboea-vapt` stack only, never the user's real local instance nor a third-party or production target, and reports first. → `.claude/agents/vapt.md`, `.claude/rules/vapt.md`
 9. **Version and changelog:** see *Changelog & Versioning Conventions* below.
 10. **Open the PR** with the template: see *Pull Request Conventions* below.
 
@@ -192,40 +170,3 @@ Who does the work:
 
 ### User Documentation
 Every feature or UI change updates the user manual (`docs/`, MkDocs Material, English authored here, the nine siblings via `/translate`). Screenshots and docs are a **two-way contract**: an entry added to `scripts/screenshots/pages.ts` must be referenced as `![…](../assets/img/{locale}/{file}.png)` in the matching doc page, and an image referenced in a doc must have a `pages.ts` entry. Run `mkdocs build --strict`. → `.claude/rules/docs.md`
-
----
-
-## Architecture Overview
-
-FastAPI backend (SQLAlchemy 2 async, Alembic) + PostgreSQL + React SPA, Nginx in production. The diagram and the DrawIO note are in `dev/ARCHITECTURE.md`.
-
----
-
-## Terminology
-
-The codebase uses **"cards"** throughout (models, routes, UI). Earlier documentation may reference "fact sheets" — this has been fully renamed. The core entity table is `cards`, the API route is `/api/v1/cards`, and the frontend route is `/cards/:id`.
-
----
-
-## Development
-
-### Local Development (without Docker)
-
-**Backend:**
-```bash
-cd backend
-python -m venv venv && source venv/bin/activate
-pip install -e ".[dev]"
-# Ensure PostgreSQL is running with correct credentials
-uvicorn app.main:app --reload --port 8000
-```
-
-**Frontend:**
-```bash
-cd frontend
-npm install
-npm run dev    # Vite dev server on port 5173, proxies /api to :8000
-```
-
-### Database Reset
-Set `RESET_DB=true` to drop all tables and re-seed on next startup
