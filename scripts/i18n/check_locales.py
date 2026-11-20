@@ -6,19 +6,16 @@ filled afterwards by the ``/translate`` skill (``.claude/skills/translate``),
 which drives this script. Stdlib only, like ``scripts/check_deploy_versions.py``.
 
     python scripts/i18n/check_locales.py report [--base origin/main] [--json]
-    python scripts/i18n/check_locales.py todo <locale> --out <file.json>
-    python scripts/i18n/check_locales.py apply <locale> <file.json>
+    python scripts/i18n/check_locales.py todo <locale> --out <file.json> [--base origin/main]
+    python scripts/i18n/check_locales.py apply <locale> <file.json> [--base origin/main]
 
-``report`` exits 1 on a missing key or a placeholder mismatch in the UI JSON and
-0 otherwise. Suspect values (equal to English), plural-shape notes, documentation
-gaps and screenshot filenames are reported but never fatal: CI parity stays owned
-by ``frontend/src/i18n/i18n.test.ts`` and ``backend/tests/services/test_i18n_seed.py``.
-
-The unit of work ``todo`` writes and ``apply`` reads is a flat JSON object
-``{"<namespace>:<dotted.key.path>": "<value>"}``. ``todo`` fills the values with
-English; the translator replaces them and hands the file to ``apply``, which
-inserts each key into ``locales/<locale>/<namespace>.json`` at the position it
-has in the English file.
+All three commands compare working files against the Git merge base. The flat TODO
+maps namespace:dotted.key to English text for translation or null for deletion.
+Only keys retired on this branch may be removed. Report exits 1 for missing or
+empty values, placeholder mismatches, outstanding removals, missing or stale
+manual translations, or an unavailable base.
+Changed English with untouched translations requires review: an existing translation
+can still be correct. Suspect values equal to English are also advisory.
 """
 
 from __future__ import annotations
@@ -110,7 +107,12 @@ def diff_locale(en: dict, loc: dict, locale: str) -> dict[str, list]:
     """
     en_flat = flatten(en)
     loc_flat = flatten(loc)
-    result: dict[str, list] = {"missing": [], "placeholder": [], "extra": [], "empty": []}
+    result: dict[str, list] = {
+        "missing": [],
+        "placeholder": [],
+        "extra": [],
+        "empty": [],
+    }
     for path, value in en_flat.items():
         if path not in loc_flat:
             result["missing"].append(path)
@@ -234,6 +236,42 @@ def replace_flat_value(text: str, key: str, value: object) -> str:
     return pattern.sub(lambda m: m.group(1) + json.dumps(value, ensure_ascii=False), text, count=1)
 
 
+def edit_member(text: str, path: tuple, value: str | None) -> str:
+    """Edit one existing leaf without re-encoding its siblings or their escapes."""
+    decoder = json.JSONDecoder()
+    space = re.compile(r"\s*")
+    start = text.index("{")
+    removals = []
+    for key in path:
+        previous_end = None
+        cursor = start + 1
+        while True:
+            name, key_end = decoder.raw_decode(text, space.match(text, cursor).end())
+            colon = space.match(text, key_end).end()
+            start = space.match(text, colon + 1).end()
+            _, end = decoder.raw_decode(text, start)
+            separator = space.match(text, end).end()
+            last = text[separator] == "}"
+            if name == key:
+                removals.append(
+                    (
+                        previous_end if last and previous_end else cursor,
+                        end if last else separator + 1,
+                        last and previous_end is None,
+                    )
+                )
+                break
+            previous_end = end
+            cursor = separator + 1
+    if value is not None:
+        return text[:start] + json.dumps(value, ensure_ascii=False) + text[end:]
+    # If the removed leaf was its parent's only child, prune the empty object.
+    while len(removals) > 1 and removals[-1][2]:
+        removals.pop()
+    begin, end, _ = removals[-1]
+    return text[:begin] + text[end:]
+
+
 # ---------------------------------------------------------------------------
 # File access
 # ---------------------------------------------------------------------------
@@ -251,36 +289,83 @@ def load(locale: str, ns: str) -> dict:
 def git(*args: str) -> str | None:
     try:
         return subprocess.run(
-            ["git", *args], cwd=REPO, check=True, capture_output=True, text=True
+            ["git", *args], cwd=REPO, check=True, capture_output=True, encoding="utf-8"
         ).stdout
     except (OSError, subprocess.CalledProcessError):
         return None
 
 
-def changed_files(base: str) -> set[str] | None:
+def changed_files(revision: str | None) -> set[str] | None:
     """Files changed on this branch relative to ``base``, working tree included."""
-    merge_base = git("merge-base", base, "HEAD")
-    if merge_base is None:
+    if revision is None:
         return None
-    out = git("diff", "--name-only", merge_base.strip())
-    untracked = git("ls-files", "--others", "--exclude-standard")
-    if out is None:
+    out = git("diff", "--no-renames", "--name-only", "-z", revision)
+    untracked = git("ls-files", "--others", "--exclude-standard", "-z")
+    if out is None or untracked is None:
         return None
-    return {f for f in (out + (untracked or "")).splitlines() if f}
+    return {name for name in (out + untracked).split("\0") if name}
 
 
-def english_at(base: str, ns: str) -> dict | None:
-    merge_base = git("merge-base", base, "HEAD")
-    if merge_base is None:
-        return None
-    text = git("show", f"{merge_base.strip()}:frontend/src/i18n/locales/en/{ns}.json")
-    return json.loads(text) if text else {}
+def locale_at(revision: str, locale: str, ns: str) -> dict:
+    text = git("show", f"{revision}:frontend/src/i18n/locales/{locale}/{ns}.json")
+    return flatten(json.loads(text)) if text else {}
+
+
+def branch_changes(base: str) -> tuple[str, set[str]]:
+    revision = git("merge-base", base, "HEAD")
+    revision = revision.strip() if revision else None
+    changed = changed_files(revision)
+    if revision is None or changed is None:
+        raise ValueError(f"cannot compare the working tree against {base}; check the Git base")
+    return revision, changed
+
+
+def ui_work(revision: str, changed: set[str], locales):
+    """Yield source values, authorized tombstones and outstanding work per locale."""
+    en_prefix = "frontend/src/i18n/locales/en/"
+    touched = {
+        Path(name).stem for name in changed if name.startswith(en_prefix) and name.endswith(".json")
+    }
+    for ns in sorted(set(namespaces()) | touched):
+        en = load("en", ns)
+        now = flatten(en)
+        before = locale_at(revision, "en", ns) if ns in touched else now
+        edited = {p for p in now if p not in before or before[p] != now[p]}
+        for loc in locales:
+            data = load(loc, ns)
+            current = flatten(data)
+            prior = current
+            if ns in touched and f"frontend/src/i18n/locales/{loc}/{ns}.json" in changed:
+                prior = locale_at(revision, loc, ns)
+            result = diff_locale(en, data, loc)
+            source = dict(now)
+            review = set(edited)
+            # A locale-only plural follows the English plural family's wording.
+            for path in current.keys() | prior.keys():
+                if path not in now and is_locale_extra(loc, path, now):
+                    stem, _ = plural_base(path[-1])
+                    variants = [path[:-1] + (f"{stem}_{suffix}",) for suffix in ("other", "one")]
+                    source[path] = next(now[p] for p in variants if p in now)
+                    if edited.intersection(variants):
+                        review.add(path)
+            removed = (before.keys() - source.keys()) | {
+                p
+                for p in current.keys() | prior.keys()
+                if p not in source and is_locale_extra(loc, p, before)
+            }
+            result["changed"] = sorted(
+                p for p in review if p in current and p in prior and prior[p] == current[p]
+            )
+            result["removed"] = sorted(removed.intersection(current))
+            result["extra"] = [p for p in result["extra"] if p not in removed]
+            result["suspect"] = sorted(p for p in review if current.get(p) == source[p])
+            yield loc, ns, source, removed, result
 
 
 def doc_pages() -> tuple[list[Path], set[Path]]:
-    """English doc pages (no locale suffix) and every file under docs/."""
+    """English manual pages and their siblings, excluding internal specs and plans."""
     suffixes = tuple(f".{loc}" for loc in TARGET_LOCALES) + (".en",)
-    all_md = set(DOCS_DIR.rglob("*.md"))
+    all_md = {p for p in DOCS_DIR.rglob("*.md") if not p.is_relative_to(DOCS_DIR / "superpowers")}
     english = sorted(p for p in all_md if not p.stem.endswith(suffixes))
     return english, all_md
 
@@ -305,33 +390,19 @@ def screenshot_gaps() -> list[dict]:
 
 
 def build_report(base: str) -> dict:
-    changed = changed_files(base)
-    report: dict = {"base": base, "ui": {}, "docs": {}, "screenshots": screenshot_gaps()}
+    revision, changed = branch_changes(base)
+    report: dict = {
+        "base": base,
+        "ui": {},
+        "docs": {},
+        "screenshots": screenshot_gaps(),
+    }
     fatal = 0
-    for ns in namespaces():
-        en = load("en", ns)
-        en_flat = flatten(en)
-        touched: set[tuple] | None = None
-        if changed is not None and f"frontend/src/i18n/locales/en/{ns}.json" in changed:
-            before = flatten(english_at(base, ns) or {})
-            touched = {p for p, v in en_flat.items() if before.get(p) != v}
-        for loc in TARGET_LOCALES:
-            data = load(loc, ns)
-            result = diff_locale(en, data, loc)
-            loc_flat = flatten(data)
-            suspects = []
-            if touched:
-                suspects = [p for p in touched if p in loc_flat and loc_flat[p] == en_flat[p]]
-            entry = {
-                "missing": [dotted(p) for p in result["missing"]],
-                "placeholder": [dotted(p) for p in result["placeholder"]],
-                "empty": [dotted(p) for p in result["empty"]],
-                "extra": [dotted(p) for p in result["extra"]],
-                "suspect": sorted(dotted(p) for p in suspects),
-            }
-            fatal += len(entry["missing"]) + len(entry["placeholder"]) + len(entry["empty"])
-            if any(entry.values()):
-                report["ui"].setdefault(loc, {})[ns] = entry
+    for loc, ns, _, _, result in ui_work(revision, changed, TARGET_LOCALES):
+        entry = {kind: [dotted(p) for p in paths] for kind, paths in result.items()}
+        fatal += sum(len(entry[k]) for k in ("missing", "placeholder", "empty", "removed"))
+        if any(entry.values()):
+            report["ui"].setdefault(loc, {})[ns] = entry
     english, all_md = doc_pages()
     no_sibling: dict[str, list[str]] = {}
     stale: dict[str, list[str]] = {}
@@ -345,7 +416,7 @@ def build_report(base: str) -> dict:
             elif changed is not None and rel in changed and sib_rel not in changed:
                 stale.setdefault(rel, []).append(loc)
     report["docs"] = {"no_sibling": no_sibling, "untouched_sibling": stale}
-    report["fatal"] = fatal
+    report["fatal"] = fatal + sum(map(len, no_sibling.values())) + sum(map(len, stale.values()))
     return report
 
 
@@ -355,7 +426,15 @@ def print_report(report: dict) -> None:
         print("  none")
     for loc, per_ns in sorted(report["ui"].items()):
         for ns, entry in sorted(per_ns.items()):
-            for kind in ("missing", "placeholder", "empty", "suspect", "extra"):
+            for kind in (
+                "missing",
+                "placeholder",
+                "empty",
+                "changed",
+                "removed",
+                "suspect",
+                "extra",
+            ):
                 keys = entry[kind]
                 if keys:
                     shown = ", ".join(keys[:8]) + (
@@ -363,12 +442,12 @@ def print_report(report: dict) -> None:
                     )
                     print(f"  {loc}/{ns}.json {kind} ({len(keys)}): {shown}")
     docs = report["docs"]
-    print("Docs pages with no sibling (non-fatal):")
+    print("Manual pages missing translations:")
     for page, locs in sorted(docs["no_sibling"].items()):
         print(f"  {page}: {', '.join(locs)}")
     if not docs["no_sibling"]:
         print("  none")
-    print("Docs pages changed on this branch whose sibling was not (non-fatal):")
+    print("Changed manual pages with untouched translations:")
     for page, locs in sorted(docs["untouched_sibling"].items()):
         print(f"  {page}: {', '.join(locs)}")
     if not docs["untouched_sibling"]:
@@ -378,7 +457,7 @@ def print_report(report: dict) -> None:
         print(f"  {gap['id']}: {', '.join(gap['missing'])}")
     if not report["screenshots"]:
         print("  none")
-    print(f"Fatal UI gaps: {report['fatal']}")
+    print(f"Blocking UI and manual gaps: {report['fatal']}")
 
 
 def cmd_report(args: argparse.Namespace) -> int:
@@ -392,15 +471,68 @@ def cmd_report(args: argparse.Namespace) -> int:
 
 def cmd_todo(args: argparse.Namespace) -> int:
     todo: dict[str, object] = {}
-    for ns in namespaces():
-        en = load("en", ns)
-        en_flat = flatten(en)
-        result = diff_locale(en, load(args.locale, ns), args.locale)
-        for path in result["missing"] + result["placeholder"] + result["empty"]:
-            todo[f"{ns}:{dotted(path)}"] = en_flat[path]
+    revision, changed = branch_changes(args.base)
+    for _, ns, source, _, result in ui_work(revision, changed, [args.locale]):
+        for kind in ("missing", "placeholder", "empty", "changed", "removed"):
+            for path in result[kind]:
+                todo[f"{ns}:{dotted(path)}"] = None if kind == "removed" else source[path]
     Path(args.out).write_text(canonical_json(todo), encoding="utf-8")
     print(f"{len(todo)} key(s) to translate for {args.locale} -> {args.out}")
     return 0
+
+
+def apply_entries(
+    locale: str, en: dict, text: str, source: dict, removed: set, entries: dict
+) -> str:
+    data = json.loads(text)
+    current = flatten(data)
+    known = {}
+    for path in source.keys() | removed:
+        key = dotted(path)
+        known[key] = None if key in known else path
+    # Resolve every removal against the branch, even when reapplying an old TODO.
+    for key, value in entries.items():
+        if value is not None:
+            continue
+        path = known.get(key)
+        if path not in removed:
+            raise ValueError(f"{key}: not an unambiguous removal from English")
+        if path in current:
+            text = edit_member(text, path, None)
+            del current[path]
+    data = json.loads(text)
+    canonical = not data or text == canonical_json(data)
+    for key, value in entries.items():
+        if value is None:
+            continue
+        path = known.get(key)
+        if path not in source:
+            raise ValueError(f"{key}: no matching unambiguous English key")
+        problem = validate_value(locale, str(source[path]), value)
+        if problem:
+            raise ValueError(f"{key}: {problem}")
+        if current.get(path) == value:
+            continue
+        expected = insert_in_order(data, en, path, value)
+        if path not in current and any(
+            path[: len(p)] == p or p[: len(path)] == path for p in current
+        ):
+            raise ValueError(f"{key}: would overwrite other locale keys")
+        if not canonical:
+            if path in current:
+                text = edit_member(text, path, value)
+            elif len(path) == 1:
+                preceding = list(expected)[: list(expected).index(path[0])]
+                text = insert_flat_text(text, path[0], value, preceding[-1] if preceding else None)
+            else:
+                raise ValueError(f"{key}: cannot insert nested key without reformatting")
+        data = expected
+        current[path] = value
+    if canonical:
+        return canonical_json(data)
+    if json.loads(text) != data:
+        raise ValueError("layout-preserving edit diverged")
+    return text
 
 
 def cmd_apply(args: argparse.Namespace) -> int:
@@ -409,55 +541,39 @@ def cmd_apply(args: argparse.Namespace) -> int:
         print(f"refusing: {locale} is not a target locale", file=sys.stderr)
         return 2
     todo = json.loads(Path(args.file).read_text(encoding="utf-8"))
-    by_ns: dict[str, dict[tuple, object]] = {}
-    errors = []
-    for full_key, value in todo.items():
-        ns, _, key = full_key.partition(":")
-        en_flat = flatten(load("en", ns))
-        try:
-            path = resolve_key(en_flat, key)
-        except KeyError:
-            errors.append(f"{full_key}: no such English key")
-            continue
-        problem = validate_value(locale, str(en_flat[path]), value)
-        if problem:
-            errors.append(f"{full_key}: {problem}")
-            continue
-        by_ns.setdefault(ns, {})[path] = value
-    if errors:
-        print("refused, nothing written:", file=sys.stderr)
-        for line in errors:
-            print(f"  {line}", file=sys.stderr)
+    if not isinstance(todo, dict):
+        print("refusing: expected an object of translation keys", file=sys.stderr)
         return 1
-    for ns, entries in by_ns.items():
+    by_ns = {}
+    for full_key, value in todo.items():
+        ns, separator, key = full_key.partition(":")
+        if not separator:
+            raise ValueError(f"missing namespace in {full_key}")
+        by_ns.setdefault(ns, {})[key] = value
+    revision, changed = branch_changes(args.base)
+    writes = {}
+    for _, ns, source, removed, _ in ui_work(revision, changed, [locale]):
+        entries = by_ns.pop(ns, {})
+        if not entries:
+            continue
         target = LOCALES_DIR / locale / f"{ns}.json"
         en = load("en", ns)
-        text = target.read_text(encoding="utf-8") if target.exists() else "{}\n"
-        data = json.loads(text)
-        expected = data
-        for path, value in entries.items():
-            expected = insert_in_order(expected, en, path, value)
-        if canonical_json(data) == text or not text.strip("{}\n "):
-            target.write_text(canonical_json(expected), encoding="utf-8")
+        raw = target.read_bytes() if target.exists() else b"{}\n"
+        newline = "\r\n" if b"\r\n" in raw else "\n"
+        original = raw.decode("utf-8").replace("\r\n", "\n")
+        text = apply_entries(locale, en, original, source, removed, entries)
+        if text != original:
+            delete_file = not (LOCALES_DIR / "en" / target.name).exists() and not json.loads(text)
+            writes[target] = None if delete_file else text.replace("\n", newline).encode("utf-8")
+    if by_ns:
+        raise ValueError(f"unknown namespace: {next(iter(by_ns))}")
+    for target, content in writes.items():
+        if content is None:
+            target.unlink()
         else:
-            if any(len(p) > 1 for p in entries):
-                print(f"refusing: {target} is not canonical JSON and nested", file=sys.stderr)
-                return 1
-            for (key,), value in entries.items():
-                present = json.loads(text)
-                if key in present:
-                    text = replace_flat_value(text, key, value)
-                    continue
-                en_keys = list(en.keys())
-                anchor = next(
-                    (k for k in reversed(en_keys[: en_keys.index(key)]) if k in present), None
-                )
-                text = insert_flat_text(text, key, value, anchor)
-            if json.loads(text) != expected:
-                print(f"refusing: layout-preserving edit of {target} diverged", file=sys.stderr)
-                return 1
-            target.write_text(text, encoding="utf-8")
-        print(f"{locale}/{ns}.json: {len(entries)} key(s) applied")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(content)
+        print(f"{locale}/{target.name}: applied")
     return 0
 
 
@@ -471,13 +587,19 @@ def main(argv: list[str] | None = None) -> int:
     todo = sub.add_parser("todo", help="write the keys one locale still needs")
     todo.add_argument("locale", choices=TARGET_LOCALES)
     todo.add_argument("--out", required=True)
+    todo.add_argument("--base", default="origin/main")
     todo.set_defaults(func=cmd_todo)
     apply = sub.add_parser("apply", help="insert translated keys in English order")
     apply.add_argument("locale")
     apply.add_argument("file")
+    apply.add_argument("--base", default="origin/main")
     apply.set_defaults(func=cmd_apply)
     args = parser.parse_args(argv)
-    return args.func(args)
+    try:
+        return args.func(args)
+    except ValueError as error:
+        print(error, file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

@@ -18,10 +18,12 @@ All through `scripts/docs/docker-docs.sh`, from the repository root, in Git Bash
 2. Fix what it reports, then run it again until it is clean. Typical fixes: a broken link or anchor,
    an image referenced in a page without a `pages.ts` entry (or the reverse). A nav label or a
    locale file name that is missing or does not match is reported, not fixed: `/translate` owns it.
-3. Only when the change altered UI that a documented screenshot shows: `scripts/docs/docker-docs.sh
-   capture --locale en --only <id prefixes>`. It builds this tree, starts an isolated stack (project
-   `tea-docs`, its own ports, throwaway database seeded with the **demo data**) and retakes the shots
-   into `docs/assets/img/`. When done, `scripts/docs/docker-docs.sh down`.
+3. When the change alters UI shown in a manual screenshot, identify the affected IDs in
+   `scripts/screenshots/pages.ts`. Run `scripts/docs/docker-docs.sh capture --only <comma-separated-IDs>`
+   for those shots in all ten locales. The command builds this tree, starts the isolated `tea-docs`
+   stack with demo data and tears it down on exit. Require a successful capture in each locale.
+   Report any skipped ID and locale as a failure even if an older PNG exists. Translation-only
+   changes can reuse existing screenshots.
 
 ## Rules
 
@@ -40,4 +42,4 @@ All through `scripts/docs/docker-docs.sh`, from the repository root, in Git Bash
 ## Report
 
 One short block: what you ran, what you changed (files), what is still red and why, and which
-screenshots were retaken. Name every problem the check printed.
+affected screenshot IDs were retaken in all ten locales. Name every problem the check printed.

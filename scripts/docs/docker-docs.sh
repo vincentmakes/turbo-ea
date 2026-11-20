@@ -7,7 +7,7 @@
 #   scripts/docs/docker-docs.sh images             manual <-> scripts/screenshots/pages.ts contract
 #   scripts/docs/docker-docs.sh capture [ARGS...]  build this tree, start an isolated stack with the demo
 #                                                  data, retake screenshots (ARGS go to capture.ts,
-#                                                  e.g. --locale en --only 26,27), then check
+#                                                  e.g. --only 26,27 for affected IDs in all ten locales), then check
 #   scripts/docs/docker-docs.sh all                check + images
 #   scripts/docs/docker-docs.sh down               remove the capture stack and its volumes (capture
 #                                                  already does it when it ends)

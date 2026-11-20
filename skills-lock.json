@@ -8,6 +8,13 @@
       "computedHash": "5ed4e3ea95b394323088b0754668d72d8d0f70905826be41bf3b440f71fa9f07",
       "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d"
     },
+    "ce-simplify-code": {
+      "source": "EveryInc/compound-engineering-plugin",
+      "sourceType": "github",
+      "skillPath": "skills/ce-simplify-code/SKILL.md",
+      "computedHash": "6413ae2f594027094b92fcd90f37b83b3665afd00b5d6b2dd4b3a1b8c73c4bd0",
+      "commit": "58d1a83d9207c96c9fb4934589b8b5967849dfdb"
+    },
     "material-ui-styling": {
       "source": "mui/material-ui",
       "sourceType": "github",
@@ -63,6 +70,13 @@
       "skillPath": "skills/composition-patterns/SKILL.md",
       "computedHash": "f711ed8b16162eaa712abbcdbbae6c926f86c57e60127735fecc3ad0dd85b3fa",
       "commit": "1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62"
+    },
+    "vercel-react-best-practices": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/react-best-practices/SKILL.md",
+      "computedHash": "7991ed4fbecdac23f47c1a40c243e00a212a9e7f3604db93959b3ae11dffe299",
+      "commit": "5a37a6329fbad3666c3207392a6a7c0110e92efb"
     }
   }
 }

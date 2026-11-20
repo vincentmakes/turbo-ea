@@ -125,8 +125,7 @@ export const BOOKMARK_LOOKUPS = {
  * Locales the capture pipeline covers.
  *
  * Keep in sync with `SUPPORTED_LOCALES` (frontend/src/i18n/index.ts), the
- * backend allow-lists in api/v1/{users,settings}.py, and the `locales` default
- * in capture.ts.
+ * backend allow-lists in api/v1/{users,settings}.py.
  */
 export const LOCALES = [
   "en", "de", "fr", "es", "it", "pt", "zh", "ru", "da", "ar",

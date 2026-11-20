@@ -286,9 +286,9 @@ calls it. With caveman switched on, type `normal mode` first.
 
 ## 6. Project-level Claude Code skills
 
-All ten project skills are versioned under [.claude/skills](.claude/skills). The nine external skills have source commits and content hashes in [skills-lock.json](skills-lock.json). The commands below are for refreshing the project copies.
+The project skills are versioned under [.claude/skills](.claude/skills). External skills have source commits and content hashes in [skills-lock.json](skills-lock.json). The commands below are for refreshing the project copies.
 
-After installing the Ponytail plugin (section 5), run `.\.agents\restore-skills.ps1` from the project root in PowerShell. It creates ten junctions to the project skills and six to the installed Ponytail skills. It also checks existing junctions before making changes. Rerun it to check an existing checkout.
+After installing the Ponytail plugin (section 5), run `./.agents/restore-skills.ps1` from the project root in PowerShell. It creates a junction to each project skill and six to the installed Ponytail skills. It also checks existing junctions before making changes. Rerun it to check an existing checkout.
 
 ### async-python-patterns
 
@@ -341,13 +341,19 @@ The [frontend-dev](.claude/agents/frontend-dev.md) agent loads it for the MUI th
 
 ### vercel-composition-patterns
 
-The [frontend-dev](.claude/agents/frontend-dev.md) agent consults it on request for component structure: boolean props, compound components, state and context, React 19 APIs. It is not preloaded: the skill and its rules are about 50 KB.
+The [frontend-dev](.claude/agents/frontend-dev.md) and [code-reviewer](.claude/agents/code-reviewer.md) agents consult the relevant rules when designing or reviewing changes to component props, child composition, state or context.
 
 - Install into the project with `npx skills add vercel-labs/agent-skills --skill vercel-composition-patterns --agent claude-code --copy`. In the repository the folder is `composition-patterns`, but the installer uses the name in the skill's frontmatter.
 - Source on GitHub. [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills/tree/1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62/skills/composition-patterns) (MIT licence; checked at commit `1a2c79d4`).
 - Skills Skanner Security finds 0 HIGH and 6 MEDIUM: all six are `react.dev` links in `AGENTS.md`, harmless.
 - The installer also writes a copy in `.agents/skills/`, which is ignored by git.
-- The other skills of the same repository were evaluated and are not used: `react-best-practices` (little value on this code) and `web-design-guidelines` (it downloads its rules at run time).
+
+### vercel-react-best-practices
+
+Both agents read individual rules when the change affects data requests (`async-*`, `client-*`), initial bundle size (`bundle-*`), or grids, lists and frequent renders (`rerender-*`, `rendering-*`). They use `js-*` and `advanced-*` for identifiable costs only. Turbo EA uses client-side React with Vite, so server, Next.js and hydration rules are outside this scope. The developer applies project conventions during implementation. The reviewer identifies the concrete impact of the diff.
+
+- Refresh using the same project install command as for composition patterns, with `--skill vercel-react-best-practices`. Run `./.agents/restore-skills.ps1` to expose the project copy to Codex.
+- [Vercel source at the installed revision](https://github.com/vercel-labs/agent-skills/tree/5a37a6329fbad3666c3207392a6a7c0110e92efb/skills/react-best-practices).
 
 ### security-audit
 
@@ -377,12 +383,12 @@ Each role has one shared definition in `.claude/agents/<name>.md`. Its Codex pro
 | translator | Nine non-English locales and translation parity checks | [.claude/agents/translator.md](.claude/agents/translator.md) | sonnet | medium | [.codex/agents/translator.toml](.codex/agents/translator.toml) | gpt-6-luna | medium |
 | docs-keeper | Manual, screenshot references and screenshot capture | [.claude/agents/docs-keeper.md](.claude/agents/docs-keeper.md) | sonnet | medium | [.codex/agents/docs-keeper.toml](.codex/agents/docs-keeper.toml) | gpt-6.2-sol | medium |
 | code-simplifier | Simplifies the changed code without changing behaviour, then re-runs the tests of the files it touched | [.claude/agents/code-simplifier.md](.claude/agents/code-simplifier.md) | opus | high | [.codex/agents/code-simplifier.toml](.codex/agents/code-simplifier.toml) | gpt-6-sol | medium |
-| code-reviewer | Independent, read-only code review of the branch diff (ponytail-review, python-anti-patterns, project rules) | [.claude/agents/code-reviewer.md](.claude/agents/code-reviewer.md) | opus | high | [.codex/agents/code-reviewer.toml](.codex/agents/code-reviewer.toml) | gpt-6.2-astra | high |
+| code-reviewer | Independent, read-only review with ponytail-review and project rules, plus targeted Python, React composition and React performance checks | [.claude/agents/code-reviewer.md](.claude/agents/code-reviewer.md) | opus | high | [.codex/agents/code-reviewer.toml](.codex/agents/code-reviewer.toml) | gpt-6.2-astra | high |
 | security-reviewer | Independent, read-only security review of the branch diff (diff scan, permission and CardReadScope rules) | [.claude/agents/security-reviewer.md](.claude/agents/security-reviewer.md) | opus | high | [.codex/agents/security-reviewer.toml](.codex/agents/security-reviewer.toml) | gpt-6.2-astra | high |
 | spec-plan-reviewer | Fresh, read-only review of each spec or plan before presentation | [.claude/agents/spec-plan-reviewer.md](.claude/agents/spec-plan-reviewer.md) | opus | medium | [.codex/agents/spec-plan-reviewer.toml](.codex/agents/spec-plan-reviewer.toml) | gpt-6.2-astra | high |
 | vapt | Isolated security testing: shared Viewer check, passive traffic analysis and evidence review; full VAPT in Claude | [.claude/agents/vapt.md](.claude/agents/vapt.md) | opus | high | [.codex/agents/vapt.toml](.codex/agents/vapt.toml) | gpt-6.2-astra | high |
 
-After development, start `code-simplifier`, `code-reviewer` and `security-reviewer`, one after the other, each in a fresh context: tests, simplify, tests of the touched files, code review and its fixes, security review and its fixes. Both environments use `ponytail:ponytail` at level `full` for simplification and `ponytail:ponytail-review` for code review. In Codex, start each reviewer from a read-only parent session as described below. Claude Code uses `security-review` and records it for the `gh pr create` hook. Codex uses `security-diff-scan` from the Codex Security plugin. Both hosts use the shared PR hooks described below. The calling session owns commits, pushes and pull requests. To change a role's duties for both tools, edit its shared definition. To change its Codex model or reasoning effort, edit its TOML profile.
+After development, start `code-simplifier`, `code-reviewer` and `security-reviewer`, one after the other, each in a fresh context: tests, simplify, tests of the touched files, code review and its fixes, security review and its fixes. In both hosts, `code-simplifier` runs `ce-simplify-code` on changed code and tests. When the diff includes project-maintained operational instructions or configuration, it then runs `ponytail:ponytail` at level `full` on those files. An instructions- or configuration-only diff goes directly to Ponytail. The independent `code-reviewer` uses `ponytail:ponytail-review`. In Codex, start each reviewer from a read-only parent session as described below. Claude Code uses `security-review` and records it for the `gh pr create` hook. Codex uses `security-diff-scan` from the Codex Security plugin. Both hosts use the shared PR hooks described below. The calling session owns commits, pushes and pull requests. To change a role's duties for both tools, edit its shared definition. To change its Codex model or reasoning effort, edit its TOML profile.
 
 #### Approve and verify the security review before a PR
 
@@ -393,9 +399,34 @@ In the Turbo EA project, open **Settings → Hooks** and approve these two comma
 | PostToolUse on `mcp__codex_security__get_codex_security_completed_scan` | Registra security review | `.claude/hooks/mark-security-review.sh codex` |
 | PreToolUse on `Bash` | Verifica security review prima della PR | `.claude/hooks/check-security-review.sh` |
 
-The read-only reviewer returns the scan ID. In the writable session that owns the PR, read the sealed report using `get_codex_security_completed_scan` with that ID. The hook checks the result, scan ID, diff mode and local checkout identity, then records the original completion time in `.claude/.security-review-marker`. Reading an old result again preserves its age. Each checkout has its own marker. Claude records its `security-review` skill through the same marker script.
+1. The Codex `security-reviewer` completes Security Diff Scan and reads the sealed report with `get_codex_security_completed_scan` in the same chat that started the scan. This read triggers the approved hook, which verifies the scan ID, diff mode and checkout identity and records the original completion time in `.claude/.security-review-marker`.
+2. The reviewer sends the main chat the **reviewed commit SHA, scan ID and outcome**, including findings with severity and any gaps in coverage. For a review spanning multiple targets, report the scope and outcome of each scan. The plugin restricts the sealed report to its owning chat, so the main chat uses the reviewer's summary.
+3. The main chat checks that the reported revision and scope match the changes headed for the PR, confirms the marker in the same checkout and follows up on the findings. If a fix changes the reviewed diff, review the updated diff before opening the PR.
 
-Both Codex commands use a one-command Git alias to run the project script from the worktree root with Git Bash on Windows. The shared check denies `gh pr create` when the marker is missing or older than 30 minutes. It checks recency only. Run `python scripts/security/test_security_review_hooks.py` from the project root to exercise the hooks with synthetic events in temporary checkouts.
+Reading the same report again preserves the original completion time. Claude records its `security-review` skill through the same marker script.
+
+Both Codex commands use a one-command Git alias to run the project script from the worktree root with Git Bash on Windows. The shared check denies `gh pr create` when the marker is missing or older than 30 minutes. The marker attests only to recency. The reviewer's summary identifies the revision reviewed and any open findings. Run `python scripts/security/test_security_review_hooks.py` from the project root to exercise the hooks with synthetic events in temporary checkouts.
+
+### Release audits in Codex and Claude chat
+
+For a stable tag or an `-rc.N` tag, audit the exact release commit from a clean checkout. If the maintainer hasn't specified the release type, ask before preparing the version. Run the full `security-audit` and `ponytail-audit`, read the completed reports and resolve blocking findings. Save each report with its findings and conclusion. Include these three lines in each passing report, using the name of the audit and the full SHA it covered:
+
+```text
+Audit: security-audit
+Commit: <full-commit-sha>
+Outcome: pass
+```
+
+Record each successful report using its actual file:
+
+```text
+node .claude/hooks/release-audits.cjs record security-audit <commit-sha> <security-report-file>
+node .claude/hooks/release-audits.cjs record ponytail-audit <commit-sha> <ponytail-report-file>
+```
+
+Recording a report attests that the release chat checked its scope and outcome. The hook checks the two records and their report digests for the target commit. A later commit requires new audits. In chat, issue tag creation and the explicit tag push as separate, direct Git commands. A maintainer working directly in a terminal follows the release checklist in the manual.
+
+Codex lists the command under the project's **Settings → Hooks**, where it can request approval for the new command. Run `node --test scripts/security/release-audits.test.cjs` to exercise the gate with temporary repositories.
 
 #### Run a read-only spec or plan review in Codex
 
@@ -407,7 +438,7 @@ The `spec-plan-reviewer` inherits the calling turn's filesystem permissions. Its
    codex -s read-only
    ```
 
-2. Ask Codex to start a fresh `spec-plan-reviewer` and give it the repository-relative path to the committed spec. For a plan, ask for a **new instance** and give it both the plan path and the corresponding spec path.
+2. Call `spawn_agent` with `agent_type="spec-plan-reviewer"` and **`fork_turns="none"`**. The default forwards the parent chat's history. Give the reviewer the repository-relative path to the committed spec and the review request. For the plan, start a separate instance with the same options and give it the plan and spec paths. Leave the design discussion in the parent chat.
 3. To verify the effective settings, inspect the child session's `turn_context` record. The verified values are `model = gpt-6.2-astra`, `effort = high` and `sandbox_policy.type = read-only`. A `workspace-write` value means the review must be relaunched from a read-only turn.
 
 See the [spec and plan review rule](.claude/rules/spec-and-plan-review.md) for what each review must cover.
@@ -433,15 +464,16 @@ $vaptPermissions = @(
 
 Ask that session to start a fresh `vapt` by name. For a startup check, ask the child to reply `READY` without running any tools. In its `turn_context`, verify `gpt-6.2-astra`, `high`, and the resolved reports directory as the only writable filesystem entry. If the parent has broader permissions, start a session with the settings above before delegating.
 
+For a change review, use the [Codex coverage instructions](.claude/agents/vapt.md#coverage-to-report-in-codex). The report must connect every triggering change to its evidence and identify gaps. A successful launch or Viewer check alone leaves other changed surfaces unverified.
+
 ---
 
 ## 7. Tools
 
 ### Graphify (code graph)
 
-Builds a knowledge graph of the code (code only, no model calls). In the development process it is
-step 11: git hooks rebuild it after every commit, checkout, merge and rebase, so there is nothing to run by
-hand. `graphify-out/` stays untracked and is never referenced in a PR. Python package `graphifyy` (with two "y"), version 0.9.112, installed with **uv** as a
+Builds a knowledge graph of the code (code only, no model calls). The Git hooks and worktree refresh instructions below describe when the graph updates.
+`graphify-out/` stays untracked and is never referenced in a PR. Python package `graphifyy` (with two "y"), version 0.9.112, installed with **uv** as a
 user tool; it exposes the `graphify` and `graphify-mcp` commands.
 GitHub: <https://github.com/Graphify-Labs/graphify> (Apache-2.0 license; site <https://graphify.com>,
 documentation <https://docs.graphify.com>, issues <https://github.com/Graphify-Labs/graphify/issues>).
@@ -470,10 +502,9 @@ The four Graphify hooks are versioned in [.githooks](.githooks). In a fresh clon
 git config --local core.hooksPath .githooks
 ```
 
-`post-commit`, `post-checkout`, `post-merge` and `post-rewrite` refresh the code graph. Existing installations using `graphify hook install` in `.git/hooks` can keep using them. Check for other hooks in that directory before switching, as Git reads hooks from a single directory.
+Check the effective hook directory with `git rev-parse --git-path hooks`. Use `git config --show-origin --get core.hooksPath` to identify an override. With no override, Git uses the hooks directory under its common Git directory. An existing installation there can keep using it. Check for other hooks before switching directories.
 
-The hooks run after a commit, so edits that are not committed yet are not in the graph. To include
-them, run `graphify update .` in the repo.
+The four supplied hooks schedule background updates in the primary checkout and skip linked worktrees. A successful Git command can finish before its graph is current. In a linked worktree, or to include uncommitted changes, run `graphify update .` from the worktree you are investigating and wait for it to finish before querying its graph.
 
 #### Graphify search reminder for Claude Code and Codex
 
@@ -489,7 +520,7 @@ In Codex, open **Settings → Hooks** for Turbo EA and approve the `PreToolUse` 
 ### Trail
 
 Trail reads the project's shared notes and builds a map of the code.
-Install the latest version of `@trailhq/trail-code` into the `node_modules/` at the
+Install the version of `@trailhq/trail-code` used by the web bootstrap (0.30.5) into the `node_modules/` at the
 root of Turbo EA. [Official source and documentation](https://github.com/trailhq/Trail-Code#readme).
 
 The `.trail/` folder already comes with the repository: `learnings/` holds the shared notes,
@@ -509,7 +540,7 @@ automatically when a session opens.
 # This also protects the first command, before the persistent preference exists.
 $env:DO_NOT_TRACK = '1'
 
-npm.cmd install --prefix . --ignore-scripts --no-save --package-lock=false --no-audit --no-fund @trailhq/trail-code@latest
+npm.cmd install --prefix . --ignore-scripts --no-save --package-lock=false --no-audit --no-fund @trailhq/trail-code@0.30.5
 if ($LASTEXITCODE -ne 0) { throw 'Trail installation failed.' }
 
 & .\node_modules\.bin\trail.cmd telemetry disable
@@ -544,6 +575,12 @@ the configuration automatically: `.trail/hook.cjs`, `.trail/statusline.cjs`,
 under `%USERPROFILE%\.claude\` and create personal state under
 `%USERPROFILE%\.trail\`. The package install itself stays local.
 `--ignore-scripts` does not prevent these writes the next time Trail starts.
+
+#### Claude Code web sessions
+
+The [web startup hook](.claude/hooks/session-start.sh) installs the pinned version into the project when it is missing or differs, then builds the index with the checkout's CLI. A fresh container needs Node, npm and access to the package or a populated npm cache. Startup proceeds asynchronously, so the first prompt can arrive before the index is ready. Install and build failures go to the hook log. Telemetry is disabled for the bootstrap and the session through `DO_NOT_TRACK=1`. Existing user preferences are preserved.
+
+The October learning about web sessions describes a disposable home directory. On persistent workstations, personal machine workarounds can be saved with `trail note --personal`. Shared team decisions belong in the repository.
 
 #### Project-only PATH and Trail mode
 
@@ -731,8 +768,4 @@ were changed.
 
 #### Update
 
-The package update is manual: repeat from the Turbo EA root
-the install block with `@latest`, including turning telemetry off
-and checking it. The npm package and the code index therefore have
-separate updates. Before using the hooks of a new version,
-check their effects on a copy of the project.
+To upgrade Trail, test the exact candidate version and the shared hooks on a copy of the project with telemetry disabled. Update the version in the web bootstrap, its offline test and the local install instructions together. Run the local install block from the Turbo EA root and verify the installed version and telemetry status. A routine index rebuild uses the already installed package.

@@ -33,6 +33,16 @@
     ],
     "PreToolUse": [
       {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/release-audits.cjs\"",
+            "onFailure": "block"
+          }
+        ]
+      },
+      {
         "matcher": "Bash",
         "hooks": [
           {

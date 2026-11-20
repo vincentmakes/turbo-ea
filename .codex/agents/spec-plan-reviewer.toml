@@ -1,5 +1,5 @@
 name = "spec-plan-reviewer"
-description = "Reviews a Turbo EA spec or implementation plan as a fresh reader before it is presented, using the shared Claude role. Never edits, runs tests, commits, pushes or touches GitHub."
+description = "Start with fork_turns='none' from a read-only parent. Use a separate fresh instance for each Turbo EA spec and plan. Never edits, runs tests, commits, pushes or touches GitHub."
 model = "gpt-6.2-astra"
 model_reasoning_effort = "high"
 # Codex inherits the parent sandbox. Start the review from a read-only parent turn.

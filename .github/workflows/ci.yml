@@ -28,6 +28,8 @@ jobs:
     # fires. Do not simplify these back to `||` between the raw outputs.
     outputs:
       backend: ${{ steps.filter.outputs.backend == 'true' || steps.filter.outputs.ci == 'true' }}
+      openapi: ${{ steps.filter.outputs.openapi == 'true' }}
+      images: ${{ steps.filter.outputs.images == 'true' }}
       frontend: ${{ steps.filter.outputs.frontend == 'true' || steps.filter.outputs.ci == 'true' }}
       mcp: ${{ steps.filter.outputs.mcp == 'true' || steps.filter.outputs.ci == 'true' }}
       mutation: ${{ steps.filter.outputs.mutation == 'true' || steps.filter.outputs.ci == 'true' }}
@@ -67,6 +69,13 @@ jobs:
             frontend:
               - 'frontend/**'
               - '.github/audit-ci.jsonc'
+            openapi:
+              - 'docs/api/openapi.json'
+            images:
+              - 'Dockerfile'
+              - 'nginx/**'
+              - 'frontend/nginx.conf'
+              - 'docker-compose.yml'
             mcp:
               - 'mcp-server/**'
             # The mutation gate's own scripts and floors. They are read by the
@@ -138,7 +147,7 @@ jobs:
   backend-test-unit:
     name: Backend Unit Tests
     needs: changes
-    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.mutation == 'true'
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.mutation == 'true' || needs.changes.outputs.images == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -1191,7 +1200,7 @@ jobs:
   openapi-spec:
     name: OpenAPI Spec
     needs: changes
-    if: needs.changes.outputs.backend == 'true'
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.openapi == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write

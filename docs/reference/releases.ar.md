@@ -12,7 +12,7 @@
 - **الفرعي** (مثل `1.0.0` ← `1.1.0`): ميزات جديدة. متوافق رجعيًا وفق [سياسة التوافق](compatibility.md).
 - **الرئيسي** (مثل `1.x` ← `2.0.0`): تغييرات كاسرة. تأتي ملاحظات الترحيل مع الإصدار.
 
-يُرفع الإصدار مرة واحدة لكل PR، لا لكل commit. يستخدم إدخال CHANGELOG في الـ PR الإصدار الجديد كعنوان؛ ويُفشل [`version-check.yml`](https://github.com/vincentmakes/turbo-ea/blob/main/.github/workflows/version-check.yml) في CI أي PR يرفع `VERSION` دون عنوان `## [<version>]` مطابق في `CHANGELOG.md`.
+يُرفع الإصدار مرة واحدة لكل PR، لا لكل commit. يستخدم إدخال CHANGELOG في الـ PR الإصدار الجديد كعنوان؛ ويُفشل [`version-check.yml`](https://github.com/TommasoChi/turbo-ea/blob/main/.github/workflows/version-check.yml) في CI أي PR يرفع `VERSION` دون عنوان `## [<version>]` مطابق في `CHANGELOG.md`.
 
 ---
 
@@ -44,7 +44,7 @@
 
 - وسوم RC هي `vX.Y.0-rc.N` — لا تكون أبدًا على إصدار تصحيح، فقط على الإصدارات الفرعية ذات التغييرات المرئية للمشغّل.
 - يُهيَّأ `docker/metadata-action` في سير عمل النشر بـ `flavor: latest=auto`. هذا يستبعد تلقائيًا وسوم ما قبل الإصدار من نوع semver من `:latest` و`:X.Y` و`:X` — تُنشر مرشّحات RC فقط كـ `:X.Y.0-rc.N`. المشغّلون الذين يثبّتون على `:latest` لن يسحبوا RC بالخطأ.
-- ينبغي تعليم إصدار GitHub لوسم RC كـ ما قبل إصدار في صفحة الإصدارات. سير عمل `github-release.yml` الحالي ينشئ دائمًا إصدارًا ليس ما قبل إصدار؛ يقلب المسؤول مفتاح ما قبل الإصدار يدويًا بعد تشغيل سير العمل (أو يحرّر الإصدار عبر `gh release edit vX.Y.0-rc.N --prerelease`).
+- يضع GitHub تلقائيًا علامة ما قبل الإصدار على أي إصدار موسوم بـ `vX.Y.0-rc.N`. أما الوسم المستقر فينشئ إصدارًا عاديًا.
 
 وقت النضج:
 
@@ -53,7 +53,7 @@
 
 الترقية إلى النهائي:
 
-- يُنشأ الوسم النهائي `vX.Y.0` على نفس الـ commit الخاص بآخر RC. يعيد سير عمل النشر بناء وإعادة وسم الصور متعددة المعماريات؛ سيختلف الـ digest عن RC رغم تطابق المصدر (مدخلات البناء تتضمّن طوابع زمنية).
+- يشير الوسم النهائي `vX.Y.0` إلى دمج PR الترقية، الذي يحدّث الإصدار وسجل التغييرات بعد آخر RC. يعيد سير عمل النشر بناء الصور متعددة المعماريات وإعادة وسمها؛ وسيختلف الـ digest عن RC لأن الإصدار ومدخلات البناء تتغيّر.
 - تنتقل وسوم `:X.Y` و`:X` و`:latest` للإشارة إلى الإصدار النهائي عند هذه النقطة.
 
 ---
@@ -65,25 +65,25 @@
 1. على فرع ميزة، ارفع `VERSION` وأضف العنوان المطابق `## [<version>] - YYYY-MM-DD` إلى `CHANGELOG.md`.
 2. شغّل `python scripts/dump_openapi.py` إذا تغيّر أي مسار أو مخطط في الخلفية؛ ثبّت النتيجة إن تغيّرت.
 3. افتح الـ PR. يشغّل CI الفحص اللغوي والاختبارات وفحص انحراف OpenAPI و`version-check.yml`.
-4. ادمج بالضغط (squash-merge) إلى `main`.
+4. ادمج بالضغط (squash-merge) إلى `main`. قبل وضع وسم لهذا الالتزام، شغّل `security-audit` و`ponytail-audit` على المستودع بأكمله. اقرأ التقريرين، وعالج نتائج الأمان المانعة وجميع نتائج Must وShould، وتأكد من أن التدقيقين يغطيان الالتزام النهائي. في محادثة Codex أو Claude، سجّل التقريرين المكتملين كما هو موضح في `SETUP.md`. ينطبق ذلك على الوسوم المستقرة ووسوم مرشّحات الإصدار.
 5. من `main`: `git tag -s v<version> -m "v<version>"` (أو `git tag v<version>` إن لم يُهيَّأ مفتاح توقيع)، `git push origin v<version>`.
 6. يستخرج سير عمل `Publish GitHub Release` قسم `## [<version>]` من `CHANGELOG.md` وينشئ إصدار GitHub.
 7. يبني سير عمل `Publish Docker images to GHCR` الصور متعددة المعماريات ويوقّعها وينشرها.
 8. تحقّق باستخدام cosign:
    ```bash
    cosign verify \
-     --certificate-identity-regexp 'https://github.com/vincentmakes/turbo-ea/.+' \
+     --certificate-identity-regexp '^https://github\.com/TommasoChi/turbo-ea/\.github/workflows/docker-publish\.yml@refs/(heads/main|tags/v[^/]+)$' \
      --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
-     ghcr.io/vincentmakes/turbo-ea/backend:<version>
+     ghcr.io/tommasochi/turbo-ea/backend:<version>
    ```
    يتطلّب cosign 2.6 أو أحدث (أو 3.x) — التوقيع عبارة عن حزمة Sigstore؛ راجع [سلسلة التوريد](../admin/supply-chain.md).
 
 لإصدار فرعي يستدعي RC:
 
 1. نفس تدفق الـ PR والدمج أعلاه، لكن ارفع إلى `1.Y.0-rc.1`.
-2. بعد الدمج، ضع وسم `v1.Y.0-rc.1` وادفع. يبني سير عمل النشر صور RC ويدفعها (فقط `:1.Y.0-rc.1`، لا `:latest` أو الوسوم القصيرة أبدًا — `flavor: latest=auto` يتولّى ذلك). ينشئ سير عمل الإصدار إصدار GitHub؛ اقلبه يدويًا إلى ما قبل إصدار بعد ذلك عبر `gh release edit v1.Y.0-rc.1 --prerelease` أو في واجهة GitHub.
+2. بعد الدمج، ضع الوسم `v1.Y.0-rc.1` وادفعه. يبني سير عمل النشر صور RC وينشرها (فقط `:1.Y.0-rc.1`، دون `:latest` أو الوسوم القصيرة — تتولى `flavor: latest=auto` ذلك). يضع GitHub علامة ما قبل الإصدار تلقائيًا.
 3. انتظر نافذة النضج. عالج أي مشكلات مُبلَّغ عنها بـ `-rc.2` و`-rc.3` حسب الحاجة.
-4. للترقية: ارفع `VERSION` إلى `1.Y.0` في PR نهائي (إدخال CHANGELOG يدمج كل إصلاحات RC)، ادمج، ضع وسم `v1.Y.0`، ادفع. تشير الآن وسوم `:latest` والقصيرة إلى الإصدار المُرقّى.
+4. للترقية: ارفع `VERSION` إلى `1.Y.0` في PR نهائي (يدمج إدخال CHANGELOG كل إصلاحات RC)، ثم ادمج، وشغّل تدقيقي الإصدار وسجّل نتيجتيهما على الالتزام النهائي، وبعد ذلك ضع الوسم `v1.Y.0` وادفعه. ستشير وسوم `:latest` والوسوم القصيرة عندها إلى الإصدار المُرقّى.
 
 ---
 

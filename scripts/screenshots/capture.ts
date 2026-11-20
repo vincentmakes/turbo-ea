@@ -23,6 +23,7 @@ import * as fs from "fs";
 import { fileURLToPath } from "node:url";
 import {
   DOC_PAGES,
+  LOCALES,
   MARKETING_PAGES,
   CARD_LOOKUPS,
   DIAGRAM_LOOKUPS,
@@ -52,7 +53,7 @@ const DEFAULT_CONFIG: Config = {
   baseUrl: process.env.BASE_URL || "http://localhost:8920",
   email: process.env.SCREENSHOT_EMAIL || "admin@turboea.demo",
   password: process.env.SCREENSHOT_PASSWORD || "TurboEA!2025",
-  locales: ["en", "de", "fr", "es", "it", "pt", "zh", "ru", "da", "ar"],
+  locales: [...LOCALES],
   captureDocs: true,
   captureMarketing: false,
   only: [],
@@ -93,9 +94,12 @@ function parseArgs(): Config {
         config.captureDocs = true;
         config.captureMarketing = true;
         break;
-      case "--only":
-        config.only = args[++i].split(",").map((s) => s.trim());
+      case "--only": {
+        const prefixes = (args[++i] ?? "").split(",").map((s) => s.trim());
+        if (prefixes.includes("")) throw new Error("--only requires non-empty ID prefixes");
+        config.only = config.only.concat(prefixes);
         break;
+      }
       case "--dry-run":
         config.dryRun = true;
         break;
@@ -584,8 +588,8 @@ async function capturePage(
 ): Promise<boolean> {
   // Resolve route
   const route = interpolateRoute(pageDef.route, cardIds, draftIds, namedIds);
-  if (!route || route.includes("__MISSING__")) {
-    console.warn(`  SKIP ${pageDef.id}: unresolved card ID in route`);
+  if (!route || route.includes("__MISSING__") || route.includes("{{")) {
+    console.warn(`  SKIP ${locale}/${pageDef.id}: unresolved route ${pageDef.route}`);
     return false;
   }
 
@@ -713,12 +717,17 @@ async function main(): Promise<void> {
 
   const docPages = config.captureDocs ? filterPages(DOC_PAGES) : [];
   const mktPages = config.captureMarketing ? filterPages(MARKETING_PAGES) : [];
+  const selected = [...docPages, ...mktPages];
+  for (const prefix of config.only) {
+    if (!selected.some((p) => p.id.startsWith(prefix))) {
+      throw new Error(`No screenshot matches --only prefix "${prefix}"`);
+    }
+  }
   const totalCount =
     docPages.length * config.locales.length + mktPages.length;
 
   if (totalCount === 0) {
-    console.log("Nothing to capture. Check your --only filter or --locale.");
-    return;
+    throw new Error("Nothing to capture. Check your --only filter or --locale.");
   }
 
   console.log(`Planned: ${totalCount} screenshots\n`);
@@ -770,11 +779,8 @@ async function main(): Promise<void> {
     const cardIds = await resolveCardIds(page, config, token);
 
     // Draft flows for the editor shots (only touched when a route asks).
-    const draftIds = await resolveDraftIds(page, config, token, cardIds, [
-      ...docPages,
-      ...mktPages,
-    ]);
-    const namedIds = await resolveNamedIds(page, config, token, [...docPages, ...mktPages]);
+    const draftIds = await resolveDraftIds(page, config, token, cardIds, selected);
+    const namedIds = await resolveNamedIds(page, config, token, selected);
 
     let captured = 0;
     let skipped = 0;
@@ -843,7 +849,8 @@ async function main(): Promise<void> {
       }
     }
 
-    console.log(`\nDone! Captured: ${captured}, Skipped: ${skipped}`);
+    console.log(`\nCaptured: ${captured}, Skipped: ${skipped}`);
+    if (skipped) process.exitCode = 1;
   } finally {
     await browser.close();
   }

@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test": "node --test capture.test.mjs",
     "capture": "npx tsx capture.ts",
     "capture:en": "npx tsx capture.ts --locale en",
     "capture:es": "npx tsx capture.ts --locale es",

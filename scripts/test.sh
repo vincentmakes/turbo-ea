@@ -66,6 +66,9 @@ if ! python -c "import pytest" 2>/dev/null; then
     pip install -e "$BACKEND_DIR[dev]" --quiet --quiet 2>&1 | tail -5
 fi
 
+# Windows Python defaults to the ANSI code page; the repo's text files are UTF-8.
+export PYTHONUTF8=1
+
 # Enable parallel execution unless --serial or --cov (check after venv activation)
 if ! $SERIAL && ! $UNIT_ONLY; then
     if python -c "import xdist" 2>/dev/null; then
@@ -77,8 +80,8 @@ fi
 if $UNIT_ONLY; then
     echo "==> Running unit tests only (no database)"
     cd "$BACKEND_DIR"
-    python -m pytest tests/core/ tests/services/test_calculation_engine.py tests/services/test_bpmn_parser.py "${PYTEST_ARGS[@]}" 2>/dev/null || \
-    python -m pytest tests/core/ "${PYTEST_ARGS[@]}"
+    python -m pytest tests/core/ tests/services/test_calculation_engine.py \
+        tests/services/test_bpmn_parser.py "${PYTEST_ARGS[@]}"
     exit $?
 fi
 
@@ -112,7 +115,5 @@ export POSTGRES_PORT=5433
 export POSTGRES_USER=turboea
 export POSTGRES_PASSWORD=turboea
 export TEST_POSTGRES_DB=turboea_test
-# Windows Python defaults to the ANSI code page; the repo's text files are UTF-8.
-export PYTHONUTF8=1
 
 python -m pytest "${PYTEST_ARGS[@]}"

@@ -46,6 +46,15 @@ clean up only records created for this run. Leave the database, services and pre
    Use passive rules only, with crawling, discovery, active scanning and request replay disabled.
    Identify the traffic actually available and any redactions or omissions in the report.
 
+### Coverage to report in Codex
+
+Identify the reviewed revision and local changes, including new, non-ignored files. List each
+changed route, table, or permission, auth or session behavior that triggered the review. For each,
+give the file and the relevant test result, source inspection or recorded observation. Say which
+behavior it establishes and what still needs verification. Mark coverage as partial if any item
+lacks the required evidence. A Viewer result covers only the behavior exercised. A startup-only
+`READY` confirms the agent launched and provides no evidence about the change.
+
 ## Order for a full Claude Code VAPT
 
 1. **Scope.** Read the diff (`git diff origin/main...HEAD` or the PR's files) and name the new or changed

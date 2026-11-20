@@ -8,5 +8,5 @@ For a live check, follow the shared Standalone Viewer check on localhost:8930. C
 source and existing evidence and may analyse the fixed test traffic with passive ZAP rules.
 The full Claude Code VAPT procedure is outside this profile. Keep file writes under
 ../turbo-ea-vapt/reports/. Use the dedicated parent session described in SETUP.md.
-A startup-only check requires no tools.
+For a change review, follow the shared "Coverage to report in Codex" section for each triggering change. A startup-only READY requires no tools and records no test coverage.
 """
