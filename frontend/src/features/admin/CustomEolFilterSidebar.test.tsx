@@ -361,3 +361,19 @@ describe("per-section clear", () => {
     expect(screen.queryByRole("button", { name: "Clear Search filters" })).toBeNull();
   });
 });
+
+describe("per-section clear, every section", () => {
+  /** Every section holds a filter, so a clear that touches too much shows. */
+  const FULL: CustomEolFilters = { search: "java", statuses: ["eol", "unknown"], usage: "unused" };
+
+  it.each<[string, Partial<CustomEolFilters>]>([
+    ["Search", { search: "" }],
+    ["Status", { statuses: [] }],
+    ["Usage", { usage: "any" }],
+  ])("the %s clear resets exactly that section", async (section, reset) => {
+    const p = setup({ filters: FULL });
+    await userEvent.click(screen.getByRole("button", { name: `Clear ${section} filters` }));
+    expect(p.onFiltersChange).toHaveBeenCalledTimes(1);
+    expect(p.onFiltersChange.mock.calls[0][0]).toStrictEqual({ ...FULL, ...reset });
+  });
+});

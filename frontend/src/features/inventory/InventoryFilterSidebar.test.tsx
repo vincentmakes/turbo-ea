@@ -2916,3 +2916,68 @@ describe("InventoryFilterSidebar — per-section clear", () => {
     expect(screen.queryByRole("button", { name: /^Clear .* filters$/ })).toBeNull();
   });
 });
+
+describe("InventoryFilterSidebar — per-section clear, every section", () => {
+  /** Application with a link-type vocabulary, so all twelve sections render at once. */
+  const TYPES_WITH_LINKS = CARD_TYPES.map((ct) =>
+    ct.key === "Application" ? { ...ct, hierarchy_labels: SITE_TYPE.hierarchy_labels } : ct,
+  );
+
+  /** Every section holds a filter, so a clear that touches too much shows. */
+  const EVERY: Filters = {
+    types: ["Application"],
+    search: "erp",
+    subtypes: ["microservice"],
+    lifecyclePhases: ["active"],
+    dataQualityBands: ["complete"],
+    approvalStatuses: ["APPROVED"],
+    showArchived: true,
+    attributes: { alias: "x" },
+    relations: { relAppToITC: ["PostgreSQL"] },
+    tagIds: [HOSTING_GROUP.tags[0].id],
+    mineScope: "stakeholder",
+    orphanedOnly: true,
+    staleOnly: true,
+    eolStatuses: ["eol"],
+    linkTypes: ["primary"],
+    origins: ["mcp"],
+  };
+
+  it.each<[string, Partial<Filters>]>([
+    ["Search", { search: "" }],
+    [
+      "Types",
+      {
+        types: [],
+        subtypes: [],
+        attributes: {},
+        relations: {},
+        eolStatuses: [],
+        linkTypes: [],
+      },
+    ],
+    ["Subtypes", { subtypes: [] }],
+    ["Approval Status", { approvalStatuses: [] }],
+    ["Origin", { origins: [] }],
+    ["Lifecycle", { lifecyclePhases: [] }],
+    ["End of life", { eolStatuses: [] }],
+    ["Link type", { linkTypes: [] }],
+    ["Data Quality", { dataQualityBands: [] }],
+    ["Attributes", { attributes: {} }],
+    ["Relationships", { relations: {} }],
+    ["Tags", { tagIds: [] }],
+  ])("the %s clear resets exactly that section", async (section, reset) => {
+    const { changes } = await renderSidebar({
+      types: TYPES_WITH_LINKS,
+      initialFilters: EVERY,
+      showEolFacet: true,
+      showLinkTypeFacet: true,
+      allRelevantRelTypes: [REL_APP_TO_ITC],
+      relationsMap: RELATIONS_MAP,
+      tagGroups: TAG_GROUPS,
+    });
+    fireEvent.click(screen.getByRole("button", { name: `Clear ${section} filters` }));
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toStrictEqual({ ...EVERY, ...reset });
+  });
+});

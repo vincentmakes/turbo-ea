@@ -475,3 +475,25 @@ describe("per-section clear", () => {
     expect(screen.queryByRole("button", { name: "Clear Status filters" })).toBeNull();
   });
 });
+
+describe("per-section clear, every section", () => {
+  /** Every section holds a filter, so a clear that touches too much shows. */
+  const EVERY: PpmRiskFilters = {
+    search: "abc",
+    statuses: ["open", "closed"],
+    bands: ["low"],
+    owners: ["u1", NO_OWNER],
+  };
+
+  it.each<[string, Partial<PpmRiskFilters>]>([
+    ["Search", { search: "" }],
+    ["Status", { statuses: [] }],
+    ["Risk Score", { bands: [] }],
+    ["Owner", { owners: [] }],
+  ])("the %s clear resets exactly that section", async (section, reset) => {
+    const { user, onFiltersChange } = renderSidebar({ filters: EVERY });
+    await user.click(screen.getByRole("button", { name: `Clear ${section} filters` }));
+    expect(onFiltersChange).toHaveBeenCalledTimes(1);
+    expect(onFiltersChange.mock.calls[0][0]).toStrictEqual({ ...EVERY, ...reset });
+  });
+});

@@ -118,3 +118,37 @@ describe("RiskFilterSidebar per-section clear", () => {
     expect(last()).toEqual(EMPTY_RISK_FILTERS);
   });
 });
+
+describe("RiskFilterSidebar per-section clear, every section", () => {
+  /** Every section holds a filter, so a clear that touches too much shows. */
+  const EVERY: RiskFilters = {
+    search: "breach",
+    statuses: ["identified", "closed"],
+    categories: ["security"],
+    levels: ["high"],
+    owners: ["u1"],
+    cards: [{ id: "card-1", name: "ERP Core", type: "Application" }],
+    cardTypes: ["Application"],
+    sources: ["compliance"],
+    dateTargetFrom: "2026-01-01",
+    dateTargetTo: "2026-03-01",
+    overdueOnly: true,
+  };
+
+  it.each<[string, Partial<RiskFilters>]>([
+    ["Search", { search: "" }],
+    ["Status", { statuses: [] }],
+    ["Category", { categories: [] }],
+    ["Level", { levels: [] }],
+    ["Owner", { owners: [] }],
+    ["Card type", { cardTypes: [] }],
+    ["Affected cards", { cards: [] }],
+    ["Source", { sources: [] }],
+    ["Target date", { dateTargetFrom: "", dateTargetTo: "", overdueOnly: false }],
+  ])("the %s clear resets exactly that section", async (section, reset) => {
+    const { user, onFiltersChange } = setup(EVERY);
+    await user.click(screen.getByRole("button", { name: `Clear ${section} filters` }));
+    expect(onFiltersChange).toHaveBeenCalledTimes(1);
+    expect(onFiltersChange.mock.calls[0][0]).toStrictEqual({ ...EVERY, ...reset });
+  });
+});

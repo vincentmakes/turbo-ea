@@ -114,3 +114,44 @@ describe("ComplianceFilterSidebar", () => {
     expect(last()).toEqual(NO_FILTER);
   });
 });
+
+describe("ComplianceFilterSidebar per-section clear, every section", () => {
+  /** Every section holds a filter, so a clear that touches too much shows. */
+  const EVERY: ComplianceFilters = {
+    statuses: new Set(["compliant"]),
+    severities: new Set(["critical", "high"]),
+    decisions: new Set(["new"]),
+    cardTypes: new Set(["Application"]),
+    aiOnly: true,
+    aiConfirmedOnly: true,
+    includeResolved: true,
+  };
+
+  it.each<[string, Partial<ComplianceFilters>]>([
+    ["Compliance status", { statuses: NO_FILTER.statuses }],
+    ["Severity", { severities: NO_FILTER.severities }],
+    ["Lifecycle", { decisions: NO_FILTER.decisions }],
+    ["Card type", { cardTypes: NO_FILTER.cardTypes }],
+    ["Other", { aiOnly: false, aiConfirmedOnly: false, includeResolved: false }],
+  ])("the %s clear resets exactly that section", async (section, reset) => {
+    const onFiltersChange = vi.fn<(f: ComplianceFilters) => void>();
+    render(
+      <ComplianceFilterSidebar
+        filters={EVERY}
+        onFiltersChange={onFiltersChange}
+        collapsed={false}
+        onToggleCollapsed={vi.fn()}
+        visibleColumns={new Set(COMPLIANCE_GRID_COLUMNS.map((c) => c.id))}
+        onVisibleColumnsChange={vi.fn()}
+        frozenColumns={new Set()}
+        onToggleFrozen={vi.fn()}
+        columnOrderItems={[]}
+        columnOrder={[]}
+        onColumnOrderChange={vi.fn()}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: `Clear ${section} filters` }));
+    expect(onFiltersChange).toHaveBeenCalledTimes(1);
+    expect(onFiltersChange.mock.calls[0][0]).toStrictEqual({ ...EVERY, ...reset });
+  });
+});

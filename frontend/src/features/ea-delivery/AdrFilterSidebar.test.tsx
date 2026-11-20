@@ -288,3 +288,41 @@ describe("AdrFilterSidebar per-section clear", () => {
     expect(screen.queryByRole("button", { name: "Clear Date Created filters" })).toBeNull();
   });
 });
+
+describe("AdrFilterSidebar per-section clear, every section", () => {
+  /** Every section holds a filter, so a clear that touches too much shows. */
+  const EVERY: AdrFilters = {
+    cardTypes: ["Application"],
+    linkedCards: ["card-1"],
+    statuses: ["draft", "signed"],
+    standings: ["in_force"],
+    signedBy: ["user-1"],
+    dateCreatedFrom: "2026-01-01",
+    dateCreatedTo: "2026-01-31",
+    dateModifiedFrom: "2026-02-01",
+    dateModifiedTo: "2026-02-28",
+    dateSignedFrom: "2026-03-01",
+    dateSignedTo: "2026-03-31",
+    dateDecidedFrom: "2026-04-01",
+    dateDecidedTo: "2026-04-30",
+    showEarlierRevisions: true,
+  };
+
+  it.each<[string, Partial<AdrFilters>]>([
+    ["Card Types", { cardTypes: [] }],
+    ["Linked Cards", { linkedCards: [] }],
+    ["Status", { statuses: [] }],
+    ["Standing", { standings: [] }],
+    ["Signed By", { signedBy: [] }],
+    ["Date Created", { dateCreatedFrom: "", dateCreatedTo: "" }],
+    ["Date Modified", { dateModifiedFrom: "", dateModifiedTo: "" }],
+    ["Date Signed", { dateSignedFrom: "", dateSignedTo: "" }],
+    ["Date Decided", { dateDecidedFrom: "", dateDecidedTo: "" }],
+  ])("the %s clear resets exactly that section", (section, reset) => {
+    const onChange = vi.fn();
+    renderSidebar({ filters: EVERY, onFiltersChange: onChange });
+    fireEvent.click(screen.getByRole("button", { name: `Clear ${section} filters` }));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0][0]).toStrictEqual({ ...EVERY, ...reset });
+  });
+});

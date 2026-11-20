@@ -509,3 +509,28 @@ describe("UsersFilterSidebar per-section clear", () => {
     expect(screen.queryByRole("button", { name: /^Clear .* filters$/ })).toBeNull();
   });
 });
+
+describe("UsersFilterSidebar per-section clear, every section", () => {
+  /** Every section holds a filter, so a clear that touches too much shows. */
+  const FULL: UserFilters = {
+    search: "ann",
+    roles: ["admin"],
+    statuses: ["active", "invited"],
+    authMethods: ["sso"],
+    invited: true,
+  };
+
+  it.each<[string, Partial<UserFilters>]>([
+    ["Search", { search: "" }],
+    ["Role", { roles: [] }],
+    ["Status", { statuses: [] }],
+    ["Auth", { authMethods: [] }],
+    ["Advanced", { invited: false }],
+  ])("the %s clear resets exactly that section", async (section, reset) => {
+    const user = userEvent.setup();
+    render(<Harness initialFilters={FULL} />);
+    await user.click(screen.getByRole("button", { name: `Clear ${section} filters` }));
+    expect(spies.filters).toHaveBeenCalledTimes(1);
+    expect(lastFilters()).toStrictEqual({ ...FULL, ...reset });
+  });
+});

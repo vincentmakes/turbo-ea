@@ -331,3 +331,28 @@ describe("per-section clear", () => {
     expect(screen.getByRole("button", { name: "Clear Status filters" })).toBeInTheDocument();
   });
 });
+
+describe("per-section clear, every section", () => {
+  /** Every section holds a filter, so a clear that touches too much shows. */
+  const FULL: AuditLogFilters = {
+    search: "q",
+    origins: ["mcp", "web"],
+    statuses: ["open"],
+    toolName: "sync",
+    dateFrom: "2026-01-01",
+    dateTo: "2026-02-01",
+  };
+
+  it.each<[string, Partial<AuditLogFilters>]>([
+    ["Search", { search: "" }],
+    ["Origin", { origins: [] }],
+    ["Status", { statuses: [] }],
+    ["Tool name", { toolName: "" }],
+    ["Date range", { dateFrom: "", dateTo: "" }],
+  ])("the %s clear resets exactly that section", async (section, reset) => {
+    const { user, onFiltersChange } = setup({}, FULL);
+    await user.click(screen.getByRole("button", { name: `Clear ${section} filters` }));
+    expect(onFiltersChange).toHaveBeenCalledTimes(1);
+    expect(onFiltersChange.mock.calls[0][0]).toStrictEqual({ ...FULL, ...reset });
+  });
+});
