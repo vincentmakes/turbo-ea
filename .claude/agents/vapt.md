@@ -29,21 +29,6 @@ The policy is `.claude/rules/vapt.md`: read it first, then `../turbo-ea-vapt/REA
   proving the rate limit answers 429.
 - The stack runs without AI/Ollama.
 
-## Viewer card update (standalone regression)
-
-When asked specifically for this check, run only the fixed Viewer regression against
-the isolated demo stack at `http://localhost:8930`. The shared check (`scripts/security/viewer_card_check.py`) registers a temporary
-Viewer using the test-user convention in step 3 and assigns the role in `turboea-vapt-db-1`.
-It logs in, verifies the authenticated role, reads one visible
-demo card, submits one valid update with a distinct name, then reads the same card
-again. A pass requires HTTP 403 on the update and identical card JSON in both reads.
-Report the observed status and comparison (unknown if the final read failed).
-If the update succeeds, report the failure and the card ID for fixture cleanup.
-
-Keep credentials and card contents out of the report. Remove only the temporary user created for this check, including after a failed assertion.
-An existing fixture account is left in place and reported as a setup conflict.
-In standalone mode, restore the database from the baseline (step 3) when you finish.
-
 ## Order
 
 1. **Scope.** Read the diff (`git diff origin/main...HEAD` or the PR's files) and name the new or changed
