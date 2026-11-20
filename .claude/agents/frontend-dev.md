@@ -1,6 +1,6 @@
 ---
 name: frontend-dev
-description: Implements and tests Turbo EA frontend changes (React 18, MUI 6, Vite, Vitest, i18n keys). Use for any task whose files are under frontend/. Never commits, pushes or opens a PR.
+description: Implements and tests Turbo EA frontend changes (React 19, MUI 6, Vite, Vitest, i18n keys). Use for any task whose files are under frontend/. Never commits, pushes or opens a PR.
 model: sonnet
 effort: medium
 tools: Read, Edit, Write, Bash, Grep, Glob, Skill
@@ -84,6 +84,17 @@ API with `vi.mock("@/api/client")`, never the global fetch. Run only your files:
 - A test that sends a `MessageEvent` sets `origin: window.location.origin`.
 - A test reads `vi.stubEnv("TZ")`? It will not run under Stryker; do not rely on it.
 - A mutation score is owed on your lines, but **you never run mutation testing**.
+
+## Component structure
+
+When you write a new component, or change one that has grown hard to follow (many props, boolean flags that
+switch layouts, one `return` with nested ternaries), consult the `vercel-composition-patterns` skill with the
+Skill tool: read its `SKILL.md`, then only the rule files that fit what you see (they are in
+`.claude/skills/vercel-composition-patterns/rules/`). It is not preloaded on purpose. Two limits: **the
+project's conventions win** over the skill (MUI 6 components, the hooks and pickers in "Conventions that always
+apply"), and **the smallest change wins**: apply it to the component your task touches, never as a reason to
+restructure other files or to add a context provider for a single consumer. React 19 is the project's
+version, so its "React 19 APIs" rules apply. Say in your report which rule shaped a change.
 
 ## Review findings
 
