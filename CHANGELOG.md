@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.207.1] - 2026-11-20
+
+### Security
+
+- The frontend and edge nginx images now run **nginx 1.30.7**, fixing the critical nginx vulnerabilities CVE-2026-113425, CVE-2026-121810, CVE-2026-123007 and CVE-2026-123633 that failed the image scan.
+
 ## [2.207.0] - 2026-11-19
 
 ### Added
