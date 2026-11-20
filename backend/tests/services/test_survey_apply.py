@@ -562,3 +562,23 @@ async def test_open_auto_batch_truncates_a_long_endpoint_to_the_column(db):
     finally:
         request_endpoint.reset(t_endpoint)
         request_batch_id.reset(t_batch)
+
+
+async def test_rollback_folds_legacy_attr_changes_into_a_restored_attributes_dict(db):
+    """An op carrying the whole ``attributes`` snapshot AND legacy ``attr_<key>``
+    changes applies the legacy keys on top of the snapshot, not the card's
+    current attributes."""
+    await create_card_type(db, key="Application", label="Application")
+    card = await create_card(db, name="Mixed", attributes={"current": 1, "legacy": "new"})
+    op = {
+        "op": "restore_card_fields",
+        "card_id": str(card.id),
+        "fields": {
+            "attributes": {"snapshot": 2},
+            "attr_legacy": "old",
+            "attr_gone": None,
+        },
+    }
+    result = await _apply_restore_card_fields(db, op)
+    assert result == {**op, "status": "ok"}
+    assert card.attributes == {"snapshot": 2, "legacy": "old"}

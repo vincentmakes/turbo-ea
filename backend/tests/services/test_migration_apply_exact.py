@@ -1558,3 +1558,172 @@ async def test_a_field_for_an_unknown_type_records_a_truncated_reason(db, env, c
     expected = f"target card type {long_key!r} not found"[:1000]
     assert (staged.status, staged.error_message) == ("error", expected)
     assert staged2.error_message == expected
+
+
+# ── read-only extension fields ──────────────────────────────────────────────
+
+_LOCKED_SCHEMA = [
+    {
+        "section": "Sample",
+        "fields": [{"key": "score", "label": "Score", "type": "number", "ext": "sample-ext"}],
+    }
+]
+
+
+@pytest.fixture
+def no_extensions():
+    from app.services.extensions.registry import extension_registry
+
+    # An empty registry: the stamped field's extension is not live, so it is locked.
+    extension_registry.clear()
+    yield
+    extension_registry.clear()
+
+
+async def test_a_create_skips_a_read_only_extension_field_and_notes_it(
+    db, env, published, no_extensions
+):
+    await create_card_type(db, key="Gadget", label="Gadget", fields_schema=_LOCKED_SCHEMA)
+    payload = {"type": "Gadget", "name": "G", "attributes": {"score": 3, "k": 1}}
+    staged = await stage(db, env, "card", "N1", data={"payload": payload})
+    assert await ap._apply_card_pass(db, env.m, env.admin) == zero(created=1)
+    card = (await db.execute(select(Card).where(Card.name == "G"))).scalar_one()
+    assert card.attributes == {"k": 1}
+    assert staged.status == "applied"
+    assert staged.error_message == "Read-only extension fields not imported: score"
+
+
+async def test_an_update_keeps_a_read_only_extension_field(db, env, published, no_extensions):
+    await create_card_type(db, key="Gadget", label="Gadget", fields_schema=_LOCKED_SCHEMA)
+    card = await create_card(db, card_type="Gadget", name="G", attributes={"score": 1, "k": 1})
+    staged = await stage(
+        db,
+        env,
+        "card",
+        "U1",
+        action="update",
+        target_id=card.id,
+        data={"payload": {"attributes": {"score": 5, "k": 2}}},
+    )
+    await ap._apply_single_card(db, staged, env.admin)
+    assert card.attributes == {"score": 1, "k": 2}
+    assert staged.error_message == "Read-only extension fields not imported: score"
+
+
+async def test_an_unchanged_read_only_field_leaves_no_note(db, env, published, no_extensions):
+    await create_card_type(db, key="Gadget", label="Gadget", fields_schema=_LOCKED_SCHEMA)
+    card = await create_card(db, card_type="Gadget", name="G", attributes={"score": 1})
+    staged = await stage(
+        db,
+        env,
+        "card",
+        "U1",
+        action="update",
+        target_id=card.id,
+        data={"payload": {"attributes": {"score": 1, "k": 2}}},
+    )
+    await ap._apply_single_card(db, staged, env.admin)
+    assert card.attributes == {"score": 1, "k": 2}
+    assert staged.error_message is None
+
+
+async def test_the_card_pass_resolves_locked_fields_once_per_type(
+    db, env, published, no_extensions, monkeypatch
+):
+    await create_card_type(db, key="Gadget", label="Gadget", fields_schema=_LOCKED_SCHEMA)
+    card = await create_card(db, card_type="Gadget", name="G", attributes={"score": 1, "k": 1})
+    calls: list[str] = []
+    original = ap.field_gate.locked_fields_for_type
+
+    async def counting(session, type_key):
+        calls.append(type_key)
+        return await original(session, type_key)
+
+    monkeypatch.setattr(ap.field_gate, "locked_fields_for_type", counting)
+    for source_id, name in (("N1", "A"), ("N2", "B")):
+        payload = {"type": "Gadget", "name": name, "attributes": {"score": 3, "k": 1}}
+        await stage(db, env, "card", source_id, data={"payload": payload})
+    await stage(
+        db,
+        env,
+        "card",
+        "U1",
+        action="update",
+        target_id=card.id,
+        data={"payload": {"attributes": {"score": 5, "k": 2}}},
+    )
+    assert await ap._apply_card_pass(db, env.m, env.admin) == zero(created=2, updated=1)
+    assert calls == ["Gadget"]
+    assert card.attributes == {"score": 1, "k": 2}
+    created = (await db.execute(select(Card).where(Card.name.in_(["A", "B"])))).scalars().all()
+    assert [c.attributes for c in created] == [{"k": 1}, {"k": 1}]
+
+
+async def test_a_single_card_without_a_cache_still_resolves_locked_fields(
+    db, env, published, no_extensions
+):
+    await create_card_type(db, key="Gadget", label="Gadget", fields_schema=_LOCKED_SCHEMA)
+    card = await create_card(db, card_type="Gadget", name="G", attributes={"score": 1})
+    cache: dict = {}
+    staged = await stage(
+        db,
+        env,
+        "card",
+        "U1",
+        action="update",
+        target_id=card.id,
+        data={"payload": {"attributes": {"score": 4}}},
+    )
+    await ap._apply_single_card(db, staged, env.admin, locked_by_type=cache)
+    assert cache == {"Gadget": {"score": "Score"}}
+    assert card.attributes == {"score": 1}
+
+
+def test_a_skipped_field_note_names_every_field_and_is_logged(caplog):
+    staged = SimpleNamespace(source_id="N7", error_message=None)
+    with caplog.at_level(logging.WARNING, logger=LOGGER):
+        ap._note_skipped_fields(staged, ["score", "rating"])
+    note = "Read-only extension fields not imported: score, rating"
+    assert staged.error_message == note
+    records = [r for r in caplog.records if r.name == LOGGER]
+    assert [(r.levelno, r.msg, r.args) for r in records] == [
+        (logging.WARNING, "migration apply: card %s — %s", ("N7", note))
+    ]
+    assert records[0].getMessage() == f"migration apply: card N7 — {note}"
+
+
+def test_a_long_skipped_field_note_is_cut_to_a_thousand_characters():
+    staged = SimpleNamespace(source_id="N8", error_message=None)
+    skipped = [f"field_{i:04d}" for i in range(200)]
+    ap._note_skipped_fields(staged, skipped)
+    full = "Read-only extension fields not imported: " + ", ".join(skipped)
+    assert len(full) > 1001
+    assert staged.error_message == full[:1000]
+    assert len(staged.error_message) == 1000
+
+
+def test_no_skipped_field_leaves_the_row_and_the_log_alone(caplog):
+    staged = SimpleNamespace(source_id="N9", error_message="kept")
+    with caplog.at_level(logging.WARNING, logger=LOGGER):
+        ap._note_skipped_fields(staged, [])
+    assert staged.error_message == "kept"
+    assert [r for r in caplog.records if r.name == LOGGER] == []
+
+
+async def test_a_create_gates_its_attributes_against_an_empty_stored_dict(
+    db, env, published, no_extensions, monkeypatch
+):
+    await create_card_type(db, key="Gadget", label="Gadget", fields_schema=_LOCKED_SCHEMA)
+    calls: list[tuple] = []
+    original = ap.field_gate.apply_field_lock
+
+    def recording(stored, incoming, locked, *args):
+        calls.append((stored, dict(incoming), dict(locked)))
+        return original(stored, incoming, locked, *args)
+
+    monkeypatch.setattr(ap.field_gate, "apply_field_lock", recording)
+    payload = {"type": "Gadget", "name": "G", "attributes": {"score": 3, "k": 1}}
+    staged = await stage(db, env, "card", "N1", data={"payload": payload})
+    await ap._apply_single_card(db, staged, env.admin)
+    # A new card has nothing stored: the gate compares against an empty dict.
+    assert calls == [({}, {"score": 3, "k": 1}, {"score": "Score"})]

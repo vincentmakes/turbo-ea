@@ -183,20 +183,20 @@ pip install ./mcp-server
 
 ## 可用功能
 
-MCP 服务器提供 **65 个工具**，分为两组：**40 个读取工具** 用于查询 EA 数据，**25 个写入工具**（20 个增量型、5 个破坏型）用于创建和维护卡片、关系、图表、风险、ADR、已保存的清单视图等——包括将 AI 工具上下文中的工件（电子表格、BPMN XML、DrawIO XML、文档、图像）转换为结构化的 EA 数据。每个工具都带有 MCP `ToolAnnotations`（只读 / 破坏性 / 幂等提示），以便连接器在其界面中呈现破坏性程度。每个工具还会拒绝其未声明的参数：调用失败，错误信息会指出未知参数并列出有效参数，且不执行任何操作。（在 2.203.0 之前，此类参数会被静默忽略，因此调用可能报告成功，而所请求的部分内容却丢失了。）
+MCP 服务器提供 **70 个工具**，分为两组：**42 个读取工具** 用于查询 EA 数据，**28 个写入工具**（21 个增量型、7 个破坏型）用于创建和维护卡片、关系、图表、风险、ADR、已保存的清单视图等——包括将 AI 工具上下文中的工件（电子表格、BPMN XML、DrawIO XML、文档、图像）转换为结构化的 EA 数据。每个工具都带有 MCP `ToolAnnotations`（只读 / 破坏性 / 幂等提示），以便连接器在其界面中呈现破坏性程度。每个工具还会拒绝其未声明的参数：调用失败，错误信息会指出未知参数并列出有效参数，且不执行任何操作。（在 2.203.0 之前，此类参数会被静默忽略，因此调用可能报告成功，而所请求的部分内容却丢失了。） 此外还有用于标签的工具，以及用于运行已安装扩展所提供操作的工具（参见[扩展操作](#extension-operations)）。
 
 ### 写入操作的演练安全机制
 
 每个写入工具默认使用 **`dry_run=true`**，在 AI 工具以 `dry_run=false` 再次调用之前不会持久化任何内容——而它只应在用户查看预览并确认之后才这样做。这可以防止过于热心的代理在解读错误的电子表格基础上悄悄创建数百张卡片。预览分为两种：
 
-- **由后端验证。** 当底层端点支持演练时，后端会运行每一个校验器和解析器——权限、卡片 id、用户可读取的内容——构建完整结果，然后**回滚事务**。这涵盖卡片（`create_cards_bulk`、`update_cards_bulk`）、关系（`upsert_relations_bulk`）和图表（`create_diagram`、`update_diagram`）。图表预览会返回后端接受的卡片链接；对于更新，则返回确切的变更：重命名的字段、新增和移除的卡片链接，以及画布是否发生变化。
-- **由 MCP 服务器构建。** 当端点没有演练功能时，工具会校验并转换其输入，并展示提交将发送的确切负载，而不会调用写入端点：`import_bpmn`（查找提交时将保存到的草稿；其流程节点数量只是估算，因此预览会显示 `verified: false`）、`submit_process_flow` 和 `approve_process_flow`（读取该版本并报告状态变化，或说明为何无法进行）、`link_process_flow_elements`（读取版本及其步骤，并报告每个链接的当前值和新值，或其不认识的步骤）、`create_adr`、`update_adr`、`sign_adr`、`revise_adr`（读取该决策并报告将创建的修订号，或后端会拒绝的原因）、`create_soaw`、`add_card_comment`、`add_document_comment`（读取讨论并报告您是否可以评论，以及您回复的主题是否属于该文档）、`transition_card_lifecycle`、`save_inventory_view`（运行查询并报告匹配的卡片数量及若干示例名称）、`assign_stakeholders`、`create_risks`、`update_risks`、`archive_cards`（会显示每张卡片的归档影响），以及 `set_card_logos` / `clear_card_logos`（会查询每张卡片的类型和当前徽标，并获取每个 `image_url`）。
+- **由后端验证。** 当底层端点支持演练时，后端会运行每一个校验器和解析器——权限、卡片 id、用户可读取的内容——构建完整结果，然后**回滚事务**。这涵盖卡片（`create_cards_bulk`、`update_cards_bulk`）、关系（`upsert_relations_bulk`）和图表（`create_diagram`、`update_diagram`）。图表预览会返回后端接受的卡片链接；对于更新，则返回确切的变更：重命名的字段、新增和移除的卡片链接，以及画布是否发生变化。 标签（`set_card_tags`、`create_tag_groups`）同样以此方式验证，声明了自身试运行的扩展操作也是如此（`call_extension_write`，由扩展验证调用且不存储任何内容）。
+- **由 MCP 服务器构建。** 当端点没有演练功能时，工具会校验并转换其输入，并展示提交将发送的确切负载，而不会调用写入端点：`import_bpmn`（查找提交时将保存到的草稿；其流程节点数量只是估算，因此预览会显示 `verified: false`）、`submit_process_flow` 和 `approve_process_flow`（读取该版本并报告状态变化，或说明为何无法进行）、`link_process_flow_elements`（读取版本及其步骤，并报告每个链接的当前值和新值，或其不认识的步骤）、`create_adr`、`update_adr`、`sign_adr`、`revise_adr`（读取该决策并报告将创建的修订号，或后端会拒绝的原因）、`create_soaw`、`add_card_comment`、`add_document_comment`（读取讨论并报告您是否可以评论，以及您回复的主题是否属于该文档）、`transition_card_lifecycle`、`save_inventory_view`（运行查询并报告匹配的卡片数量及若干示例名称）、`assign_stakeholders`、`create_risks`、`update_risks`、`archive_cards`（会显示每张卡片的归档影响），以及 `set_card_logos` / `clear_card_logos`（会查询每张卡片的类型和当前徽标，并获取每个 `image_url`）。 对于没有自身试运行的扩展操作，`call_extension_write` 也采用这种方式：它不向扩展发送任何内容，而是显示提交时将发出的请求。
 
 无论哪种方式，预览都会作为演练批次记录在审计日志中，因此管理员既能看到代理提议了什么，也能看到它提交了什么。
 
 ### 读取工具
 
-服务器以十个集群提供 40 个读取工具。
+服务器以十一个集群提供 42 个读取工具。
 
 **卡片与元模型**
 
@@ -210,7 +210,7 @@ MCP 服务器提供 **65 个工具**，分为两组：**40 个读取工具** 用
 | `get_card_hierarchy` | 获取卡片的祖先和子级 |
 | `list_card_types` | 列出元模型中的所有卡片类型；每个类型的 `category` 是其分类（架构层）的键 |
 | `get_relation_types` | 列出关系类型，可按卡片类型筛选 |
-| `list_tag_groups` | 列出标签组（及每个标签组适用的卡片类型）及其标签；标签 id 即 `query_cards` 和 `save_inventory_view` 在 `where.tags` 下所接受的值 |
+| `list_tag_groups` | 列出标签组（包括描述、单选或多选、是否必填，以及各自适用的卡片类型）及其标签；标签 id 是 `set_card_tags` 为卡片设置的内容，也是 `query_cards` 和 `save_inventory_view` 在 `where.tags` 下接受的值 |
 | `resolve_card_refs` | 在批量导入之前预校验基于名称的卡片引用（名称 → UUID）——仅解析，从不写入 |
 | `analyze_impact` | 针对卡片的一项拟议变更进行依赖影响范围分析 |
 
@@ -288,13 +288,20 @@ MCP 服务器提供 **65 个工具**，分为两组：**40 个读取工具** 用
 |------|------|
 | `get_change_history` | 查询变更批次台账（按批次 id、操作者、工具或来源），以精确重建先前某次 MCP 提交所做的更改 |
 
+**扩展**
+
+| 工具 | 描述 |
+|------|------|
+| `list_extension_tools` | 列出已安装扩展向您提供的操作：仅限已安装、已启用且已获许可的扩展，且仅限您的权限所允许的操作，每项都带有其类型（读取、写入或破坏型）及所接受的参数——参见[扩展操作](#extension-operations) |
+| `call_extension_read` | 运行扩展提供的读取操作。会拒绝更改数据的操作、操作不接受的参数以及缺失的必填参数 |
+
 所有工具都尊重已登录用户的 RBAC——查看者对其无权访问的范围只会得到空列表（或 403）；MCP 层无需任何按工具的配置。
 
 ### 写入工具
 
-服务器提供 25 个写入工具，每个都标注为**增量型**（创建或扩展数据）或**破坏型**（修改或删除现有数据），以便连接器给出相应的警示。
+服务器提供 28 个写入工具，每个都标注为**增量型**（创建或扩展数据）或**破坏型**（修改或删除现有数据），以便连接器给出相应的警示。
 
-**增量型（20 个）**
+**增量型（21 个）**
 
 | 工具 | 描述 |
 |------|------|
@@ -318,8 +325,9 @@ MCP 服务器提供 **65 个工具**，分为两组：**40 个读取工具** 用
 | `submit_process_flow` | 将流程图草稿提交审批（草稿 → 待审批），效果与 Web 界面中的 **提交审批** 按钮相同。流程负责人会收到通知和一项审批待办事项。需要 `bpm.edit`。无法通过 `rollback_batch` 撤销：审批人在 Web 界面中驳回该修订即可将其退回草稿。 |
 | `approve_process_flow` | 批准待审批的流程图，从而将其发布并归档先前发布的修订。需要审批权限（`bpm.approve_flows`，或流程负责人这一利益相关者角色），并遵循要求由另一位审批人审批的设置。被拒绝时会返回后端给出的原因。无法通过 `rollback_batch` 撤销：误发布的修订应在 Web 界面中撤回，它会保留记录并新开一个草稿。 |
 | `set_card_logos` | Set the custom logo on many cards at once — the bulk way to put product marks on an Application inventory. Three ways to supply the image, one per row: a built-in `icon_slug` (resolved server-side, nothing transferred), an `image_url` the MCP server downloads for you from an allowlisted icon host, or `image_base64` from the agent's own context. The packs are a shortcut, not the source of truth — a dry run lists the slugs they do not carry under `unknown_icon_slugs` **and** fetches every `image_url`, so a missing brand or a dead link is reported before anything is written rather than left as a logo nobody could set. `mime` is optional and sniffed from the bytes. PNG/JPEG/WebP/GIF only, 1 MB each. Each row echoes a sha256 so the caller can prove what landed. Use `clear_card_logos` to remove one. |
+| `create_tag_groups` | 创建带标签的标签组，或向现有标签组（通过 `list_tag_groups` 中的 id）添加标签。标签组设定其描述、单选或多选、是否必填以及适用的卡片类型。名称会先与现有标签组和标签进行不区分大小写的比对：已存在的会被报告为 `exists` 而不再重复创建，因此重复调用是安全的。指向同一现有标签组的条目（无论按 id 还是按名称）会合并为一个结果，其中重复出现的标签只创建一次（重复项报告为 `duplicate`）。试运行会让后端检查它将创建的每个标签组以及将添加到现有标签组的每个标签（权限、选择模式、卡片类型）；新标签组的标签由 MCP 服务器检查。需要 `tags.manage`。无法通过 `rollback_batch` 回滚：请在**管理 → 标签**中删除不需要的标签组或标签。 |
 
-**破坏型（5 个）**
+**破坏型（7 个）**
 
 | 工具 | 描述 |
 |------|------|
@@ -328,6 +336,17 @@ MCP 服务器提供 **65 个工具**，分为两组：**40 个读取工具** 用
 | `update_diagram` | 替换图表的 DrawIO XML、名称或卡片链接。 |
 | `rollback_batch` | 撤销先前某个变更批次下执行的写入。 |
 | `clear_card_logos` | Remove the custom logo from cards, falling them back to their card-type icon. Recoverable — set it again to restore. |
+| `call_extension_write` | 运行已安装扩展提供的写入操作（参见[扩展操作](#extension-operations)）。先预览：扩展支持试运行时由扩展验证调用，否则预览显示提交时将发送的请求。扩展标记为破坏型的操作会被拒绝，除非运维人员设置 `MCP_ALLOW_EXTENSION_DESTRUCTIVE=true`。无法通过 `rollback_batch` 回滚：扩展将记录保存在自己的表中，因此请在扩展中撤销已提交的调用。 |
+| `set_card_tags` | 一次调用即可为多张卡片添加、移除或替换标签，使用来自 `list_tag_groups` 的标签 id。标签组规则适用于卡片最终的标签：单选标签组每张卡片最多保留一个标签（替换即换掉一个），限定卡片类型的标签组会拒绝其他类型。每张卡片是独立的一行：用户无权查看的卡片显示为未找到，已归档的卡片或违反规则只会使该行失败。需要 `tags.manage`，或对所列每张卡片的编辑权限。可通过 `rollback_batch` 回滚。 |
+
+### 扩展操作 { #extension-operations }
+
+已安装的扩展可以向 AI 助手提供其自身的部分操作，例如列出或创建其记录。它们仅在扩展已安装、已启用且已获许可时才会出现在 `list_extension_tools` 中，并且只对权限涵盖它们的人员显示；许可证失效或扩展被停用后，其操作会从列表中消失，所有调用都会被拒绝。MCP 服务器使用您自己的登录凭据调用扩展，因此扩展的权限检查与网页应用中完全一致，助手在此所做的一切都不会超出您自己能做的范围。
+
+- **读取操作**通过 `call_extension_read` 运行；**写入**和**破坏型**操作通过 `call_extension_write` 运行，它与所有写入工具一样先预览，并将每次调用记录为一个变更批次。当扩展在处理调用时写入卡片或其他核心数据，它自己的审计条目会注明该批次（`via_batch_id`）。
+- **破坏型操作**——即删除或覆盖记录的操作——会被拒绝，除非运维人员设置 `MCP_ALLOW_EXTENSION_DESTRUCTIVE=true`。
+- **无法通过 `rollback_batch` 回滚。** 扩展将记录保存在自己的表中；请在扩展本身中撤销已提交的调用。
+- **绝不提供配置。** 扩展的设置、凭据、连接测试和演示数据只保留在网页应用中，文件下载同样如此。
 
 ### 多跳卡片查询 { #multi-hop-card-queries }
 
@@ -463,21 +482,23 @@ BPMN 图与在 Web 界面中绘制的图走相同的审批工作流，每次一�
 
 - **每次调用的大小上限。** MCP 写入工具强制施加比底层 Excel 导入端点小得多的上限：`create_cards_bulk` 为 200 行，`upsert_relations_bulk` 为 500 次操作。足以应对任何实际的单一工件上传，又小到可以快速扫描演练预览。
 - **默认不允许删除关系。** `upsert_relations_bulk` 拒绝 `action: "delete"` 操作——若要删除关系，请使用 Web 界面，那里的操作会以用户身份被记录。运营者可通过设置 `MCP_ALLOW_RELATION_DELETE=true` 启用此功能。
-- **紧急开关。** `MCP_WRITES_ENABLED=false` 可在无需重新部署代码的情况下关闭全部 25 个写入工具。40 个读取工具继续工作。
+- **默认不允许破坏型扩展操作。** `call_extension_write` 会拒绝扩展标记为破坏型的操作。运维人员可通过设置 `MCP_ALLOW_EXTENSION_DESTRUCTIVE=true` 选择启用。
+- **紧急开关。** `MCP_WRITES_ENABLED=false` 可在无需重新部署代码的情况下关闭全部 28 个写入工具。42 个读取工具继续工作。
 - **徽标下载仅限白名单主机。** 内置图标包无法覆盖客户使用的每一款产品，而助手往往运行在无法访问外网的沙箱里，因此 `set_card_logos` 接受 `image_url`，由 MCP 服务器代为下载。仅限 `https`、仅限 `MCP_LOGO_FETCH_HOSTS` 中的主机、仅限公网地址，最多两次重定向（每次重新校验），最多以流式读取 1 MB，且字节必须带有真实的 PNG/JPEG/WebP/GIF 签名。下载发生在 MCP 边缘而非后端，随后图片经普通通道上传 —— 由大模型选定的 URL 永远不会抵达持有数据库的进程。`MCP_LOGO_FETCH_ENABLED=false` 可将其关闭。
 - **审计来源标记。** 来自 MCP 服务器的每个后端请求都携带 `X-Turbo-EA-Origin: mcp` 头。从这些请求发出的事件在审计日志载荷中被标记为 `origin: "mcp"`，以便管理员可以将 MCP 驱动的写入与 Web 界面操作分别从时间线中筛选出来。
-- **变更批次。** 每次 MCP 写入调用——无论是预览还是提交——都是审计日志中的一个变更批次，在任何写入发生之前打开；调用期间发出的每个事件都会被标记上批次 id，每个写入工具都会返回该 `batch_id`。管理员（或 `get_change_history` 工具）可以凭一个 id 重建某次提交的完整逐事件差异，而 `rollback_batch` 可以将其撤销——包括删除由 `create_diagram` 创建的图表，除非此后有人已将其发布。图表更新会被报告为不可撤销，因为之前的画布不会被保留。在决策或 SoAW 上发表的评论同样不可撤销：它可能已经被人阅读，因此应改为在讨论中将其删除。流程图的各个步骤同样如此：`rollback_batch` 会将提交或批准报告为不可撤销，且不做任何更改——待审批的修订由审批人驳回，已发布的修订则被撤回，两者都在 Web 界面中完成。由 `import_bpmn` 保存的草稿不可撤销，因为它不记录任何事件；应在「草稿」子标签页中将其删除。由 `link_process_flow_elements` 设置的步骤链接同样不记录任何事件；如需更改，请重新设置。超过 `MCP_BATCH_CONFIRMATION_THRESHOLD` 行的提交必须回传先前演练返回的一次性 `confirm_token`。后端在提交的批次打开时、任何写入发生之前校验它：它必须来自同一用户在 15 分钟内对同一工具执行的演练，并且只能授权一次提交。所有批量写入工具都遵循这一「预览 → 确认」流程：`create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`、`link_process_flow_elements`。
+- **变更批次。** 每次 MCP 写入调用——无论是预览还是提交——都是审计日志中的一个变更批次，在任何写入发生之前打开；调用期间发出的每个事件都会被标记上批次 id，每个写入工具都会返回该 `batch_id`。管理员（或 `get_change_history` 工具）可以凭一个 id 重建某次提交的完整逐事件差异，而 `rollback_batch` 可以将其撤销——包括删除由 `create_diagram` 创建的图表，除非此后有人已将其发布。图表更新会被报告为不可撤销，因为之前的画布不会被保留。在决策或 SoAW 上发表的评论同样不可撤销：它可能已经被人阅读，因此应改为在讨论中将其删除。流程图的各个步骤同样如此：`rollback_batch` 会将提交或批准报告为不可撤销，且不做任何更改——待审批的修订由审批人驳回，已发布的修订则被撤回，两者都在 Web 界面中完成。由 `import_bpmn` 保存的草稿不可撤销，因为它不记录任何事件；应在「草稿」子标签页中将其删除。由 `link_process_flow_elements` 设置的步骤链接同样不记录任何事件；如需更改，请重新设置。超过 `MCP_BATCH_CONFIRMATION_THRESHOLD` 行的提交必须回传先前演练返回的一次性 `confirm_token`。后端在提交的批次打开时、任何写入发生之前校验它：它必须来自同一用户在 15 分钟内对同一工具执行的演练，并且只能授权一次提交。所有批量写入工具都遵循这一「预览 → 确认」流程：`create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`、`set_card_tags`、`create_tag_groups`、`link_process_flow_elements`。 `set_card_tags` 为卡片添加或移除的标签，与其他卡片更改一样可以回滚，但 `create_tag_groups` 创建的标签组和标签属于管理记录，而非卡片更改：请在**管理 → 标签**中删除。使用 `call_extension_write` 对扩展发起的调用同样无法回滚：扩展将记录保存在自己的表中，因此请在扩展中撤销。
 - **没有硬删除。** 工具集刻意省略了卡片的永久删除。`archive_cards` 和 `update_cards_bulk` *确实*已暴露，但归档是可恢复的软删除（30 天还原窗口），且两者都带有破坏性标注并受演练机制约束。添加任何执行不可逆变更的工具（硬删除、强制清除）都需要进行明确的设计评审。
 
-MCP 容器上的六个防护栏环境变量：
+MCP 容器上的防护栏环境变量：
 
 | 变量 | 默认 | 作用 |
 |------|------|------|
 | `MCP_WRITES_ENABLED` | `true` | 写入工具的总开关。`false` → 只读 MCP。 |
-| `MCP_MAX_CARDS_PER_CALL` | `200` | 每次请求 `create_cards_bulk` / `update_cards_bulk` 行数的硬性上限。 |
+| `MCP_MAX_CARDS_PER_CALL` | `200` | 每次请求中 `create_cards_bulk` / `update_cards_bulk` 的行数、`set_card_tags` 的操作数以及 `create_tag_groups` 的标签组与标签总数的硬性上限。 |
 | `MCP_MAX_RELATIONS_PER_CALL` | `500` | 每次请求 `upsert_relations_bulk` 操作数的硬性上限。 |
 | `MCP_MAX_LOGOS_PER_CALL` | `50` | Hard cap on `set_card_logos` rows per request. Lower than the card cap because each logo is its own upload and carries image bytes. |
 | `MCP_ALLOW_RELATION_DELETE` | `false` | 当为 `true` 时，`upsert_relations_bulk` 接受 `action: "delete"` 操作。 |
+| `MCP_ALLOW_EXTENSION_DESTRUCTIVE` | `false` | 为 `true` 时，`call_extension_write` 会运行已安装扩展标记为破坏型的操作。 |
 | `MCP_LOGO_FETCH_ENABLED` | `true` | 为 `true` 时，`set_card_logos` 可接受 `image_url`：由 MCP 服务器下载图片，再经普通上传通道写入，因此权限、大小与格式校验一律照常执行。设为 `false` 则完全拒绝 URL 方式 —— 图标 slug 与直接粘贴的字节仍可使用。 |
 | `MCP_LOGO_FETCH_HOSTS` | *(built-in)* | 允许下载徽标的主机，逗号分隔，精确匹配。默认为 `raw.githubusercontent.com`, `cdn.jsdelivr.net`, `cdn.simpleicons.org`, `upload.wikimedia.org` —— 公共图标托管，请求中只带文件名，不透露任何landscape信息。也可加入按域名查徽标的服务，但代价是让该服务知道你在用哪些供应商。 |
 | `MCP_BATCH_CONFIRMATION_THRESHOLD` | `20` | 涉及行数超过此值的提交需要出示先前演练签发的 `confirm_token`。无论此值如何设置，后端都会执行自身 20 行的上限，因此此值只能降低该上限，不能提高。 |
@@ -506,7 +527,7 @@ MCP 容器上的六个防护栏环境变量：
 | 角色 | 访问权限 |
 |------|----------|
 | **管理员** | 配置 MCP 设置（`admin.mcp` 权限）。通过 MCP 拥有完整的读取 + 写入访问。 |
-| **所有已认证用户** | 读取访问由其现有 RBAC 控制。写入工具需要相应的后端权限——`inventory.create` / `inventory.edit` / `inventory.archive`（卡片）、`relations.manage`（关系）、`diagrams.manage`（图表）、`bpm.edit`（BPMN 草稿、其步骤链接及其提交）、`bpm.approve_flows`（批准流程图）、`risks.manage`（风险登记册）、`comments.create`（评论）、`stakeholders.manage`（干系人）、`soaw.create`（SoAW）、`adr.manage` / `adr.sign`（ADR）、`adr.comment` / `soaw.comment`（决策和 SoAW 的讨论）、`bookmarks.manage` / `bookmarks.share`（已保存的清单视图）。 |
+| **所有已认证用户** | 读取访问由其现有 RBAC 控制。写入工具需要相应的后端权限——`inventory.create` / `inventory.edit` / `inventory.archive`（卡片）、`relations.manage`（关系）、`diagrams.manage`（图表）、`bpm.edit`（BPMN 草稿、其步骤链接及其提交）、`bpm.approve_flows`（批准流程图）、`risks.manage`（风险登记册）、`comments.create`（评论）、`stakeholders.manage`（干系人）、`tags.manage`（标签组和标签，以及为任意卡片打标签——为您可编辑的卡片打标签无需更多权限）, `soaw.create`（SoAW）、`adr.manage` / `adr.sign`（ADR）、`adr.comment` / `soaw.comment`（决策和 SoAW 的讨论）、`bookmarks.manage` / `bookmarks.share`（已保存的清单视图）。; 扩展操作需要扩展为其声明的权限. |
 
 `admin.mcp` 权限控制谁可以管理 MCP 设置。默认情况下仅对管理员角色可用。可以通过角色管理页面向自定义角色授予此权限。
 

@@ -15,6 +15,7 @@ import logging
 from sqlalchemy import select
 
 from app.database import async_session
+from app.services.extensions.agent_tools import start_agent_tools
 from app.services.extensions.events import start_extension_event_dispatchers
 from app.services.extensions.jobs import (
     build_context,
@@ -104,6 +105,9 @@ async def initialize_extensions(report: LoadReport) -> list[asyncio.Task]:
     # Manifest-driven, no task: the types must be known before the first
     # job or event handler sends under one of them.
     start_notification_types(report)
+    # Checked against the routers mounted at import time; liveness (enabled,
+    # licensed) is re-checked on every read, so this needs no task either.
+    start_agent_tools(report)
 
     return (
         start_extension_jobs(report)

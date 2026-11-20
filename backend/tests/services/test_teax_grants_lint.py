@@ -231,6 +231,28 @@ class TestTeaxGrantsLint:
         # case is pinning that the *grants* draw no complaint.
         assert [w for w in warnings if "logo" not in w] == []
 
+    def test_agent_tools_grant_is_valid_in_both_copies(self, teax):
+        assert "core.agent.tools" in BACKEND_VALID_GRANTS
+        assert "core.agent.tools" in teax.VALID_GRANTS
+
+    def test_agent_tools_grant_with_pre_1_18_sdk_warns(self, teax, tmp_path):
+        src = write_source(
+            tmp_path,
+            {**BASE_MANIFEST, "grants": ["core.agent.tools"], "sdk_version": "1.17"},
+        )
+        _, _, problems, warnings = teax._lint_source(src)
+        assert problems == []
+        assert any("core.agent.tools requires SDK 1.18" in w for w in warnings)
+
+    def test_agent_tools_grant_with_1_18_sdk_is_clean(self, teax, tmp_path):
+        src = write_source(
+            tmp_path,
+            {**BASE_MANIFEST, "grants": ["core.agent.tools"], "sdk_version": "1.18"},
+        )
+        _, _, problems, warnings = teax._lint_source(src)
+        assert problems == []
+        assert [w for w in warnings if "logo" not in w] == []
+
     def test_non_list_grants_is_a_problem(self, teax, tmp_path):
         src = write_source(tmp_path, {**BASE_MANIFEST, "grants": "core.todos.write"})
         _, _, problems, _ = teax._lint_source(src)

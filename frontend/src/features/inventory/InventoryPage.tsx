@@ -190,7 +190,7 @@ import { readableCardTypes } from "@/hooks/useReadableCardTypes";
 import { canCreateAnyCardType, hasTypePermission } from "@/components/RequirePermission";
 import { useCardSearch } from "@/hooks/useCardSearch";
 import { useTypeLabel, useTypeDescription, useRelationLabel, useFieldLabel, useOptionLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
-import { useFieldHelp } from "@/features/cards/sections/cardDetailUtils";
+import { isWriteLockedField, useFieldHelp } from "@/features/cards/sections/cardDetailUtils";
 import { OptionChip } from "@/components/OptionChip";
 import { readableTextColor } from "@/lib/color";
 import { booleanOption, facetOptions, facetValues, isGroupableField } from "@/lib/fieldFacets";
@@ -989,7 +989,20 @@ interface InventoryPrefs {
   // The query view in force (an MCP-authored multi-hop query, sent to the
   // server as `GET /cards?query=`), or null / absent for none.
   activeQuery?: ActiveQuery | null;
+  // The query view's lines folded into its title row (the strip above the
+  // grid). Absent = expanded.
+  queryStripCollapsed?: boolean;
 }
+
+/** Whether the persisted prefs fold the query strip: only a stored `true`
+ * does — anything else (absent, a hand-edited string) leaves it expanded. */
+export function queryStripCollapsedFromPrefs(saved: InventoryPrefs | null): boolean {
+  return saved?.queryStripCollapsed === true;
+}
+
+/** The grid's floor height (px). Below it the page column scrolls instead,
+ * so a tall query strip on a short screen can never squeeze the grid away. */
+const GRID_MIN_HEIGHT = 240;
 
 /** The sidebar filters persisted in the prefs, field by field with a default
  * for each (prefs written before a facet existed carry none), or the empty
@@ -1149,6 +1162,11 @@ export default function InventoryPage() {
   // filters, unless the URL carries its own filter state.
   const [activeQuery, setActiveQuery] = useState<ActiveQuery | null>(() =>
     urlHasFilterParams(searchParams) ? null : (savedPrefsRef.current?.activeQuery ?? null),
+  );
+  // The query strip's lines folded into its title row; a preference that
+  // outlives the view, so the next view opens folded too.
+  const [queryStripCollapsed, setQueryStripCollapsed] = useState<boolean>(() =>
+    queryStripCollapsedFromPrefs(savedPrefsRef.current),
   );
   // The view a `?view=` link applied, so the sidebar highlights it.
   const [deepLinkedViewId, setDeepLinkedViewId] = useState<string | null>(null);
@@ -2066,9 +2084,11 @@ export default function InventoryPage() {
       groupTree,
       groupTreeLevel,
       activeQuery,
+      queryStripCollapsed,
     });
   }, [
     activeQuery,
+    queryStripCollapsed,
     filters,
     selectedColumns,
     sortModel,
@@ -2977,7 +2997,7 @@ export default function InventoryPage() {
         const fieldDef = typeConfig?.fields_schema
           .flatMap((s) => s.fields)
           .find((f) => f.key === key);
-        if (fieldDef?.readonly) return { needsReload: false };
+        if (fieldDef && isWriteLockedField(fieldDef)) return { needsReload: false };
         // Merge onto the card's own attributes. Never PATCH /cards/bulk with an
         // `attributes` payload — that endpoint replaces the whole JSONB blob
         // per card and would wipe every other attribute.
@@ -3381,7 +3401,7 @@ export default function InventoryPage() {
     if (typeConfig) {
       for (const section of typeConfig.fields_schema) {
         for (const field of section.fields) {
-          if (field.readonly || calculatedKeys.has(field.key)) continue;
+          if (isWriteLockedField(field) || calculatedKeys.has(field.key)) continue;
           // Same gate the grid columns and the export use: a user without
           // costs.view must not be able to overwrite figures they cannot see.
           if (field.type === "cost" && !canViewCostsGlobally) continue;
@@ -4442,7 +4462,7 @@ export default function InventoryPage() {
             headerTooltip: fieldHelp(field) || undefined,
             width: 150,
             hide: !selectedColumns.has(colKey),
-            editable: gridEditMode && !field.readonly && !calculatedKeys.has(field.key),
+            editable: gridEditMode && !isWriteLockedField(field) && !calculatedKeys.has(field.key),
             valueGetter: (p: { data: Card }) =>
               (p.data?.attributes || {})[field.key] ?? "",
             valueSetter: (p) => {
@@ -5282,8 +5302,21 @@ export default function InventoryPage() {
         />
       )}
 
-      {/* Main content */}
-      <Box sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", p: { xs: 1, sm: 2 } }}>
+      {/* Main content. Normally everything fits and the grid takes what is
+          left; on a short screen the grid stops at GRID_MIN_HEIGHT and this
+          column scrolls instead (the grid keeps its own scrolling inside). */}
+      <Box
+        data-testid="inventory-main"
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          display: "flex",
+          flexDirection: "column",
+          overflowX: "hidden",
+          overflowY: "auto",
+          p: { xs: 1, sm: 2 },
+        }}
+      >
         {/* Header */}
         <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 1, sm: 2 }, mb: 1.5, flexShrink: 0, flexWrap: "wrap" }}>
           {isMobile && (
@@ -5575,6 +5608,8 @@ export default function InventoryPage() {
           canViewEol={canViewEol}
           matchedKeys={viaKeys}
           onToggleMatched={toggleViaColumn}
+          collapsed={queryStripCollapsed}
+          onCollapsedChange={setQueryStripCollapsed}
         />
 
         <Dialog
@@ -5623,7 +5658,7 @@ export default function InventoryPage() {
           sx={{
             flex: 1,
             width: "100%",
-            minHeight: 0,
+            minHeight: GRID_MIN_HEIGHT,
             ...columnFreeze.sx,
             ...cellMenu.sx,
             ...grouping.sx,

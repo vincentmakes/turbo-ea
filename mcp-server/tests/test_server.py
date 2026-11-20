@@ -739,7 +739,9 @@ class TestListTagGroups:
             {
                 "id": "g1",
                 "name": "Domain",
+                "description": "Business domain",
                 "mode": "multi",
+                "mandatory": True,
                 "restrict_to_types": ["Application", "Organization"],
                 "tags": [
                     {"id": "t1", "name": "Finance", "color": "#123456"},
@@ -757,9 +759,25 @@ class TestListTagGroups:
         patcher, _ = _patched_get(groups)
         with patcher:
             out = _parse(await server.list_tag_groups())
+        # A key the backend did not send comes back as null, never dropped.
+        blank = {"description": None, "mandatory": None}
         assert out == [
-            {"id": "g1", "name": "Tier", "mode": "single", "restrict_to_types": None, "tags": []},
-            {"id": "g2", "name": "Empty", "mode": "multi", "restrict_to_types": [], "tags": []},
+            {
+                "id": "g1",
+                "name": "Tier",
+                **blank,
+                "mode": "single",
+                "restrict_to_types": None,
+                "tags": [],
+            },
+            {
+                "id": "g2",
+                "name": "Empty",
+                **blank,
+                "mode": "multi",
+                "restrict_to_types": [],
+                "tags": [],
+            },
         ]
 
     @pytest.mark.asyncio

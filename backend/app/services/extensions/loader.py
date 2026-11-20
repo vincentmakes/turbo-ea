@@ -56,6 +56,11 @@ class LoadedExtension:
     manifest: dict[str, Any]
     directory: Path
     instance: TurboExtension | None = None  # None for content/frontend-only bundles
+    # The router ``mount_extension_routers`` mounted, kept so the agent-tools
+    # registry can check declarations against the routes actually served —
+    # ``get_router()`` may build a fresh router per call, so it is never
+    # called a second time.
+    router: APIRouter | None = None
 
 
 @dataclass
@@ -191,6 +196,7 @@ def mount_extension_routers(api_router: APIRouter, report: LoadReport) -> None:
             continue
         if router is None:
             continue
+        ext.router = router
         api_router.include_router(
             router,
             prefix=f"/ext/{ext.key}",

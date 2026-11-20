@@ -1006,5 +1006,6 @@
   "spreadsheetImport.doneFailed_two": "الصفوف التي لم تُستورد بسبب أخطاء: {{count}}",
   "spreadsheetImport.doneFailed_few": "الصفوف التي لم تُستورد بسبب أخطاء: {{count}}",
   "spreadsheetImport.doneFailed_many": "الصفوف التي لم تُستورد بسبب أخطاء: {{count}}",
-  "spreadsheetImport.doneFailed_other": "الصفوف التي لم تُستورد بسبب أخطاء: {{count}}"
+  "spreadsheetImport.doneFailed_other": "الصفوف التي لم تُستورد بسبب أخطاء: {{count}}",
+  "filter.clearSection": "مسح عوامل تصفية {{section}}"
 }

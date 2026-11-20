@@ -79,6 +79,7 @@ def starters(monkeypatch):
         events=MagicMock(return_value=["dispatcher"]),
         channels=MagicMock(return_value=["channel"]),
         types=MagicMock(),
+        agent_tools=MagicMock(),
         build_context=lambda key: f"ctx:{key}",
     )
     monkeypatch.setattr(startup, "run_extension_migrations", s.migrations)
@@ -86,6 +87,7 @@ def starters(monkeypatch):
     monkeypatch.setattr(startup, "start_extension_event_dispatchers", s.events)
     monkeypatch.setattr(startup, "start_notification_channels", s.channels)
     monkeypatch.setattr(startup, "start_notification_types", s.types)
+    monkeypatch.setattr(startup, "start_agent_tools", s.agent_tools)
     monkeypatch.setattr(startup, "build_context", s.build_context)
     return s
 
@@ -131,7 +133,13 @@ class TestInitializeExtensions:
         assert starters.migrations.await_args.kwargs == {
             "should_run": {"ok-ext": True, "off-ext": False, "pack-ext": True}
         }
-        for starter in (starters.jobs, starters.events, starters.channels, starters.types):
+        for starter in (
+            starters.jobs,
+            starters.events,
+            starters.channels,
+            starters.types,
+            starters.agent_tools,
+        ):
             assert starter.call_args.args == (report,)
         assert extension_registry.get("ok-ext").status == "installed"
 

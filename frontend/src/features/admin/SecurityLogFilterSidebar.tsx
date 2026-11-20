@@ -38,6 +38,7 @@ import {
   FilterCheckboxList,
   FilterSectionHeader,
 } from "@/components/FilterSidebarSection";
+import { resetFilterKeys } from "@/lib/filterSections";
 import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
 import ColumnOrderSection, {
   type ColumnOrderItem,
@@ -314,6 +315,9 @@ export default function SecurityLogFilterSidebar({
   );
 
   const clearAll = () => onFiltersChange({ ...EMPTY_SECURITY_FILTERS });
+  /** One section's clear button: resets exactly that section's keys. */
+  const clearKeys = (...keys: (keyof SecurityLogFilters)[]) =>
+    onFiltersChange(resetFilterKeys(filters, EMPTY_SECURITY_FILTERS, keys));
 
   const activeCount = useMemo(() => countActiveSecurityFilters(filters), [filters]);
 
@@ -469,6 +473,7 @@ export default function SecurityLogFilterSidebar({
                 icon="search"
                 expanded={expandedSections.search}
                 onToggle={() => toggleSection("search")}
+                onClear={() => clearKeys("q")}
                 count={filters.q.trim() ? 1 : 0}
               />
               <Collapse in={expandedSections.search}>
@@ -489,6 +494,7 @@ export default function SecurityLogFilterSidebar({
                 icon="category"
                 expanded={expandedSections.category}
                 onToggle={() => toggleSection("category")}
+                onClear={() => clearKeys("category")}
                 count={filters.category ? 1 : 0}
               />
               <Collapse in={expandedSections.category}>
@@ -511,6 +517,7 @@ export default function SecurityLogFilterSidebar({
                 icon="rule"
                 expanded={expandedSections.outcome}
                 onToggle={() => toggleSection("outcome")}
+                onClear={() => clearKeys("outcome")}
                 count={filters.outcome ? 1 : 0}
               />
               <Collapse in={expandedSections.outcome}>
@@ -533,6 +540,7 @@ export default function SecurityLogFilterSidebar({
                 icon="bolt"
                 expanded={expandedSections.action}
                 onToggle={() => toggleSection("action")}
+                onClear={() => clearKeys("action")}
                 count={filters.action ? 1 : 0}
               />
               <Collapse in={expandedSections.action}>
@@ -566,6 +574,7 @@ export default function SecurityLogFilterSidebar({
                 icon="person"
                 expanded={expandedSections.actor}
                 onToggle={() => toggleSection("actor")}
+                onClear={() => clearKeys("actor")}
                 count={filters.actor.trim() ? 1 : 0}
               />
               <Collapse in={expandedSections.actor}>
@@ -586,6 +595,7 @@ export default function SecurityLogFilterSidebar({
                 icon="lan"
                 expanded={expandedSections.ip}
                 onToggle={() => toggleSection("ip")}
+                onClear={() => clearKeys("ip")}
                 count={filters.ip.trim() ? 1 : 0}
               />
               <Collapse in={expandedSections.ip}>
@@ -606,6 +616,7 @@ export default function SecurityLogFilterSidebar({
                 icon="event"
                 expanded={expandedSections.date}
                 onToggle={() => toggleSection("date")}
+                onClear={() => clearKeys("dateFrom", "dateTo")}
                 count={(filters.dateFrom ? 1 : 0) + (filters.dateTo ? 1 : 0)}
               />
               <Collapse in={expandedSections.date}>

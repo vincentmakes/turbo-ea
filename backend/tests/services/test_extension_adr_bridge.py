@@ -316,6 +316,39 @@ class TestCreateDraft:
         assert links == []
 
 
+async def _inbound(db) -> MutationBatch:
+    """A stored batch, as an MCP call into an extension route opens one."""
+    from app.services import mutation_batch_service
+
+    row = await mutation_batch_service.create_batch(
+        db, tool_name="call_extension_write", actor=None, origin="mcp", dry_run=False
+    )
+    await db.flush()
+    return row
+
+
+async def _ext_batch(db) -> MutationBatch:
+    return (
+        await db.execute(select(MutationBatch).where(MutationBatch.tool_name == f"ext:{KEY}"))
+    ).scalar_one()
+
+
+class TestInboundBatch:
+    async def test_single_op_write_records_the_inbound_batch(self, db, env):
+        from app.services.event_bus import request_batch_id
+
+        load_registry(grants=["core.adr.write"])
+        inbound = await _inbound(db)
+        token = request_batch_id.set(inbound.id)
+        try:
+            out = await ExtensionDecisions(KEY).create_draft(title="Via MCP")
+        finally:
+            request_batch_id.reset(token)
+        summary = (await _ext_batch(db)).summary
+        assert summary["via_batch_id"] == str(inbound.id)
+        assert summary["decision_id"] == out.id
+
+
 class TestGet:
     async def test_returns_wire_shaped_decision_with_links(self, db, env):
         load_registry(grants=["core.adr.write"])
@@ -444,3 +477,30 @@ class TestTimeline:
             "decision_makers": [],
             "participants": [],
         }
+
+
+async def test_a_write_without_a_summary_commits_only_the_inbound_link(db):
+    """``summary`` is optional: a write that names none commits its batch with
+    just the inbound batch it was serving."""
+    from app.services import mutation_batch_service
+    from app.services.event_bus import request_batch_id
+
+    load_registry(grants=["core.adr.write"])
+    inbound = await mutation_batch_service.create_batch(
+        db, tool_name="call_extension_write", actor=None, origin="mcp", dry_run=False
+    )
+    await db.flush()
+
+    async def op(session):
+        return "done"
+
+    token = request_batch_id.set(inbound.id)
+    try:
+        assert await ExtensionDecisions(KEY)._write(op) == "done"
+    finally:
+        request_batch_id.reset(token)
+    batch = (
+        await db.execute(select(MutationBatch).where(MutationBatch.tool_name == f"ext:{KEY}"))
+    ).scalar_one()
+    assert batch.committed_at is not None
+    assert batch.summary == {"via_batch_id": str(inbound.id)}

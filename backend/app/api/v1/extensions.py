@@ -34,6 +34,7 @@ import uuid
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
+from typing import Any
 from urllib.parse import urljoin, urlsplit
 
 import httpx
@@ -48,6 +49,7 @@ from app.database import async_session, get_db
 from app.models.extension import Extension, ExtensionInstall, ExtensionLicense
 from app.models.user import User
 from app.services import audit_log
+from app.services.extensions import agent_tools as ext_agent_tools
 from app.services.extensions import installer as ext_installer
 from app.services.extensions.bundle import (
     LOGO_EXTENSIONS,
@@ -1351,6 +1353,50 @@ async def ui_manifest(
             )
         )
     return out
+
+
+class AgentToolOut(BaseModel):
+    name: str
+    title: str
+    description: str
+    kind: str
+    method: str
+    path: str
+    path_params: list[str]
+    query_params: list[str]
+    input_schema: dict[str, Any]
+    supports_dry_run: bool
+
+
+class AgentToolExtensionOut(BaseModel):
+    key: str
+    name: str
+    version: str
+    tools: list[AgentToolOut]
+
+
+class AgentToolCatalogueOut(BaseModel):
+    extensions: list[AgentToolExtensionOut]
+
+
+@status_router.get("/agent-tools", response_model=AgentToolCatalogueOut)
+async def agent_tool_catalogue(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> AgentToolCatalogueOut:
+    """Operations installed extensions offer to AI assistants (SDK 1.18).
+
+    Read by the MCP server on every extension call. Lists only extensions that
+    are enabled, licensed and declare the ``core.agent.tools`` grant, and within
+    them only the tools whose permission the caller holds — the same permission
+    the extension's route checks when the tool is then called. Configuration is
+    never offered: the registry refused such declarations at startup.
+    """
+    await extension_registry.refresh_from_db(db)
+    entries = await ext_agent_tools.catalogue_for(db, user)
+    return AgentToolCatalogueOut(
+        extensions=[AgentToolExtensionOut.model_validate(entry) for entry in entries]
+    )
 
 
 # ---------------------------------------------------------------------------

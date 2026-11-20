@@ -75,6 +75,9 @@ VALID_GRANTS = frozenset(
         "core.stakeholders.write",
         "core.surveys.read",
         "core.surveys.write",
+        # SDK 1.18: the extension offers operations to AI assistants through
+        # the MCP server (``get_agent_tools()``; ``extensions/agent_tools.py``).
+        "core.agent.tools",
     }
 )
 

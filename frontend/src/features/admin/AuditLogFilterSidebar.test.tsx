@@ -303,3 +303,56 @@ describe("resize handle", () => {
     expect(onWidthChange).not.toHaveBeenCalled();
   });
 });
+
+describe("per-section clear", () => {
+  it("gives every section header a glyph and a count", () => {
+    setup({}, { origins: ["mcp", "web"], statuses: ["committed"], toolName: "x" });
+    const icons = [...document.querySelectorAll("[data-section-icon]")].map((el) =>
+      el.getAttribute("data-section-icon"),
+    );
+    expect(icons).toEqual(["search", "hub", "rule", "build", "event"]);
+    const counts = screen.getAllByTestId("section-count").map((el) => el.textContent);
+    expect(counts).toEqual(["2", "1", "1"]);
+  });
+
+  it("clears one section's filters and leaves every other section alone", async () => {
+    const { user, onFiltersChange } = setup(
+      {},
+      { search: "q", origins: ["mcp", "web"], statuses: ["open"], dateFrom: "2026-01-01" },
+    );
+    await user.click(screen.getByRole("button", { name: "Clear Origin filters" }));
+    expect(lastFilters(onFiltersChange)).toEqual({
+      ...EMPTY_AUDIT_FILTERS,
+      search: "q",
+      statuses: ["open"],
+      dateFrom: "2026-01-01",
+    });
+    expect(screen.queryByRole("button", { name: "Clear Origin filters" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Clear Status filters" })).toBeInTheDocument();
+  });
+});
+
+describe("per-section clear, every section", () => {
+  /** Every section holds a filter, so a clear that touches too much shows. */
+  const FULL: AuditLogFilters = {
+    search: "q",
+    origins: ["mcp", "web"],
+    statuses: ["open"],
+    toolName: "sync",
+    dateFrom: "2026-01-01",
+    dateTo: "2026-02-01",
+  };
+
+  it.each<[string, Partial<AuditLogFilters>]>([
+    ["Search", { search: "" }],
+    ["Origin", { origins: [] }],
+    ["Status", { statuses: [] }],
+    ["Tool name", { toolName: "" }],
+    ["Date range", { dateFrom: "", dateTo: "" }],
+  ])("the %s clear resets exactly that section", async (section, reset) => {
+    const { user, onFiltersChange } = setup({}, FULL);
+    await user.click(screen.getByRole("button", { name: `Clear ${section} filters` }));
+    expect(onFiltersChange).toHaveBeenCalledTimes(1);
+    expect(onFiltersChange.mock.calls[0][0]).toStrictEqual({ ...FULL, ...reset });
+  });
+});

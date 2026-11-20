@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.207.0] - 2026-11-20
+
+### Added
+- AI assistants connected through the MCP server can use the operations of installed, licensed extensions (`list_extension_tools`, `call_extension_read`, `call_extension_write`), within the user's permissions. Extension configuration is not exposed.
+- MCP tools to create tags and tag groups (`create_tag_groups`) and to add, remove or replace the tags on cards (`set_card_tags`).
+- A clear button on each section of the grid filter panels.
+- The query strip above the Inventory can be folded.
+
+### Fixed
+- Fields an extension adds to card types could still be edited while that extension was disabled or unlicensed; they are now read-only until it is active again.
+- A query view with several lines no longer squeezes the Inventory grid to a single row.
+- Creating a tag group or tag through the API with an unknown group, mode or card type now returns 404 / 422 instead of a server error.
+
 ## [2.206.0] - 2026-11-19
 
 ### Security

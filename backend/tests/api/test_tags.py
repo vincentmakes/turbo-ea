@@ -683,6 +683,7 @@ class TestTagAudit:
 
     async def test_restricted_types_are_recorded_by_label(self, client, db, tags_env):
         await create_card_type(db, key="ITComponent", label="IT Component")
+        gone = await create_card_type(db, key="Gone", label="Gone Type")
         headers = auth_headers(tags_env["admin"])
 
         group = await client.post(
@@ -691,12 +692,15 @@ class TestTagAudit:
                 "name": "Tier",
                 "mode": "multi",
                 "mandatory": True,
-                # A key with no card type is kept as it is.
                 "restrict_to_types": ["ITComponent", "Gone", "Application"],
             },
             headers=headers,
         )
         gid = group.json()["id"]
+        # The type is deleted after the group names it: its key has no label
+        # any more and is kept as it is.
+        await db.delete(gone)
+        await db.flush()
         await client.patch(
             f"/api/v1/tag-groups/{gid}",
             json={"restrict_to_types": ["Application"]},
@@ -711,7 +715,7 @@ class TestTagAudit:
             "context": {
                 "mode": "multi",
                 "mandatory": True,
-                "restrict_to_types": ["IT Component", "Gone", "Application"],
+                "restrict_to_types": ["IT Component", "Gone Type", "Application"],
             }
         }
         assert narrowed.details == {
@@ -754,3 +758,538 @@ class TestTagAudit:
         )
         assert resp.status_code == 403
         assert await _audit_rows(db, "admin.") == []
+
+
+# ---------------------------------------------------------------
+# POST /cards/tags/bulk  (add / remove / replace on many cards)
+# ---------------------------------------------------------------
+
+
+async def _card_tag_set(db, card_id) -> set[str]:
+    from sqlalchemy import select
+
+    from app.models.tag import CardTag
+
+    rows = await db.execute(select(CardTag.tag_id).where(CardTag.card_id == card_id))
+    return {str(t) for t in rows.scalars().all()}
+
+
+async def _tag_events(db) -> list[tuple[str, str]]:
+    from sqlalchemy import select
+
+    from app.models.event import Event
+
+    rows = await db.execute(select(Event).where(Event.event_type.like("tag.%")))
+    return sorted((e.event_type, e.data["tag_name"]) for e in rows.scalars().all())
+
+
+@pytest.fixture
+async def bulk_env(db, tags_env):
+    from app.models.stakeholder import Stakeholder
+    from tests.conftest import create_stakeholder_role_def, create_tag, create_tag_group
+
+    await create_role(db, key="member", label="Member", permissions=MEMBER_PERMISSIONS)
+    await create_card_type(db, key="Initiative", label="Initiative")
+    await create_stakeholder_role_def(
+        db, card_type_key="Application", key="editor", permissions={"card.edit": True}
+    )
+    member = await create_user(db, email="member@test.com", role="member")
+    other = await create_card(db, card_type="Application", name="Other App")
+    initiative = await create_card(db, card_type="Initiative", name="Secret Program")
+    archived = await create_card(db, card_type="Application", name="Old App", status="ARCHIVED")
+    domains = await create_tag_group(db, name="Domains", mode="multi")
+    tier = await create_tag_group(db, name="Tier", mode="single")
+    apps_only = await create_tag_group(db, name="Hosting", restrict_to_types=["Application"])
+    tags = {
+        "finance": await create_tag(db, group=domains, name="Finance"),
+        "hr": await create_tag(db, group=domains, name="HR"),
+        "gold": await create_tag(db, group=tier, name="Gold"),
+        "silver": await create_tag(db, group=tier, name="Silver"),
+        "cloud": await create_tag(db, group=apps_only, name="Cloud"),
+    }
+    db.add(Stakeholder(card_id=other.id, user_id=tags_env["viewer"].id, role="editor"))
+    await db.flush()
+    return {
+        **tags_env,
+        "member": member,
+        "other": other,
+        "initiative": initiative,
+        "archived": archived,
+        "tier": tier,
+        "tags": {k: str(v.id) for k, v in tags.items()},
+    }
+
+
+def _ops(*rows) -> dict:
+    return {
+        "operations": [
+            {"card_id": str(card_id), "tag_ids": list(tag_ids), "mode": mode}
+            for card_id, tag_ids, mode in rows
+        ]
+    }
+
+
+BULK = "/api/v1/cards/tags/bulk"
+
+
+class TestBulkCardTags:
+    async def test_add_replace_remove_with_results_and_events(
+        self, client, db, bulk_env, publish_commit_log
+    ):
+        t = bulk_env["tags"]
+        card = bulk_env["card"]
+        headers = auth_headers(bulk_env["admin"])
+
+        resp = await client.post(
+            BULK, json=_ops((card.id, [t["finance"], t["gold"]], "add")), headers=headers
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert (body["updated"], body["unchanged"], body["failed"], body["dry_run"]) == (
+            1,
+            0,
+            0,
+            False,
+        )
+        row = body["results"][0]
+        assert row["index"] == 0 and row["card_id"] == str(card.id)
+        assert row["status"] == "updated"
+        assert set(row["added"]) == {t["finance"], t["gold"]} and row["removed"] == []
+        assert set(row["tag_ids"]) == {t["finance"], t["gold"]}
+        assert await _card_tag_set(db, card.id) == {t["finance"], t["gold"]}
+        # The events are persisted (db=) and published before the commit.
+        assert publish_commit_log == [
+            ("publish", "tag.added", True),
+            ("publish", "tag.added", True),
+            ("commit",),
+        ]
+
+        # Replace swaps the single-choice tag; remove drops one.
+        resp = await client.post(
+            BULK,
+            json=_ops(
+                (card.id, [t["finance"], t["silver"]], "replace"),
+                (card.id, [t["finance"]], "remove"),
+            ),
+            headers=headers,
+        )
+        first, second = resp.json()["results"]
+        assert first["added"] == [t["silver"]] and first["removed"] == [t["gold"]]
+        assert second["status"] == "updated" and second["removed"] == [t["finance"]]
+        assert second["tag_ids"] == [t["silver"]]
+        assert resp.json()["updated"] == 2
+        assert await _card_tag_set(db, card.id) == {t["silver"]}
+        assert await _tag_events(db) == [
+            ("tag.added", "Finance"),
+            ("tag.added", "Gold"),
+            ("tag.added", "Silver"),
+            ("tag.removed", "Finance"),
+            ("tag.removed", "Gold"),
+        ]
+
+    async def test_an_unchanged_set_reports_unchanged(self, client, db, bulk_env):
+        t = bulk_env["tags"]
+        card = bulk_env["card"]
+        headers = auth_headers(bulk_env["admin"])
+        await client.post(BULK, json=_ops((card.id, [t["hr"]], "add")), headers=headers)
+        resp = await client.post(BULK, json=_ops((card.id, [t["hr"]], "add")), headers=headers)
+        body = resp.json()
+        assert (body["updated"], body["unchanged"]) == (0, 1)
+        assert body["results"][0]["status"] == "unchanged"
+        assert body["results"][0]["tag_ids"] == [t["hr"]]
+        assert await _tag_events(db) == [("tag.added", "HR")]
+
+    async def test_group_rules_fail_the_row_only(self, client, db, bulk_env):
+        t = bulk_env["tags"]
+        card, initiative = bulk_env["card"], bulk_env["initiative"]
+        resp = await client.post(
+            BULK,
+            json=_ops(
+                (card.id, [t["gold"], t["silver"]], "add"),
+                (initiative.id, [t["cloud"]], "add"),
+                (card.id, [t["hr"]], "add"),
+            ),
+            headers=auth_headers(bulk_env["admin"]),
+        )
+        assert resp.status_code == 200
+        single, restricted, ok = resp.json()["results"]
+        assert single["status"] == "failed" and "single-choice" in single["error"]
+        assert single["tag_ids"] == [] and single["added"] == []
+        assert restricted["status"] == "failed" and "restricted" in restricted["error"]
+        assert ok["status"] == "updated"
+        assert resp.json()["failed"] == 2
+        assert await _card_tag_set(db, card.id) == {t["hr"]}
+        assert await _card_tag_set(db, initiative.id) == set()
+
+    async def test_unknown_and_malformed_tag_ids_fail_the_row(self, client, db, bulk_env):
+        import uuid as _uuid
+
+        card = bulk_env["card"]
+        resp = await client.post(
+            BULK,
+            json=_ops((card.id, [str(_uuid.uuid4())], "add"), (card.id, ["nope"], "add")),
+            headers=auth_headers(bulk_env["admin"]),
+        )
+        unknown, malformed = resp.json()["results"]
+        assert unknown["status"] == "failed" and "Unknown tag" in unknown["error"]
+        assert malformed["status"] == "failed"
+        assert malformed["error"] == "Invalid tag id(s): nope"
+        assert resp.json()["updated"] == 0
+
+    async def test_archived_card_is_refused(self, client, db, bulk_env):
+        t = bulk_env["tags"]
+        archived = bulk_env["archived"]
+        resp = await client.post(
+            BULK,
+            json=_ops((archived.id, [t["hr"]], "add")),
+            headers=auth_headers(bulk_env["admin"]),
+        )
+        row = resp.json()["results"][0]
+        assert (row["status"], row["error"]) == ("failed", "Card is archived")
+        assert await _card_tag_set(db, archived.id) == set()
+
+    async def test_hidden_unknown_and_malformed_cards_are_not_found(self, client, db, bulk_env):
+        import uuid as _uuid
+
+        from tests.api.test_cards_type_read_permissions import set_overrides
+
+        await set_overrides(db, "Initiative", {"member": {"inventory.view": False}})
+        t = bulk_env["tags"]
+        initiative = bulk_env["initiative"]
+        resp = await client.post(
+            BULK,
+            json=_ops(
+                (initiative.id, [t["hr"]], "add"),
+                (_uuid.uuid4(), [t["hr"]], "add"),
+                ("not-a-uuid", [t["hr"]], "add"),
+            ),
+            headers=auth_headers(bulk_env["member"]),
+        )
+        assert resp.status_code == 200, resp.text
+        rows = resp.json()["results"]
+        assert [r["status"] for r in rows] == ["not_found"] * 3
+        # The hidden card's row reads exactly like the missing one's.
+        assert {k: v for k, v in rows[0].items() if k not in ("index", "card_id")} == {
+            k: v for k, v in rows[1].items() if k not in ("index", "card_id")
+        }
+        assert resp.json()["failed"] == 3
+        assert await _card_tag_set(db, initiative.id) == set()
+
+    async def test_the_inventory_read_scope_applies(self, client, db, bulk_env):
+        """A role that may manage tags but not browse the inventory reads no
+        card here: the scope is the inventory's, not a module's."""
+        await create_role(db, key="tagger", label="Tagger", permissions={"tags.manage": True})
+        tagger = await create_user(db, email="tagger@test.com", role="tagger")
+        t = bulk_env["tags"]
+        card = bulk_env["card"]
+        resp = await client.post(
+            BULK, json=_ops((card.id, [t["hr"]], "add")), headers=auth_headers(tagger)
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["results"][0]["status"] == "not_found"
+        assert await _card_tag_set(db, card.id) == set()
+
+    async def test_without_edit_rights_the_call_is_refused(self, client, db, bulk_env):
+        t = bulk_env["tags"]
+        card, other = bulk_env["card"], bulk_env["other"]
+        resp = await client.post(
+            BULK,
+            json=_ops((other.id, [t["hr"]], "add"), (card.id, [t["hr"]], "add")),
+            headers=auth_headers(bulk_env["viewer"]),
+        )
+        assert resp.status_code == 403
+        # The viewer edits `other` through a stakeholder role; only `card` is named.
+        assert resp.json()["detail"] == f"Not enough permissions to tag card(s): {card.id}"
+        assert await _card_tag_set(db, other.id) == set()
+        assert await _tag_events(db) == []
+
+    async def test_stakeholder_with_card_edit_may_tag(self, client, db, bulk_env):
+        t = bulk_env["tags"]
+        other = bulk_env["other"]
+        resp = await client.post(
+            BULK,
+            json=_ops((other.id, [t["hr"]], "add")),
+            headers=auth_headers(bulk_env["viewer"]),
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["results"][0]["status"] == "updated"
+        assert await _card_tag_set(db, other.id) == {t["hr"]}
+
+    async def test_dry_run_persists_and_publishes_nothing(
+        self, client, db, bulk_env, publish_commit_log
+    ):
+        t = bulk_env["tags"]
+        card = bulk_env["card"]
+        resp = await client.post(
+            BULK,
+            json={**_ops((card.id, [t["finance"], t["gold"]], "add")), "dry_run": True},
+            headers=auth_headers(bulk_env["admin"]),
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["dry_run"] is True and body["updated"] == 1
+        assert set(body["results"][0]["tag_ids"]) == {t["finance"], t["gold"]}
+        assert [e for e in publish_commit_log if e[0] == "publish"] == []
+        assert ("commit",) not in publish_commit_log
+        assert await _card_tag_set(db, card.id) == set()
+        assert await _tag_events(db) == []
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {"operations": []},
+            {"operations": [{"card_id": "x", "tag_ids": [], "mode": "toggle"}]},
+            {"operations": [{"card_id": "x", "tag_ids": []}]},
+        ],
+    )
+    async def test_rejected_bodies(self, client, db, bulk_env, body):
+        resp = await client.post(BULK, json=body, headers=auth_headers(bulk_env["admin"]))
+        assert resp.status_code == 422
+
+    async def test_tag_ids_per_operation_are_capped(self, client, db, bulk_env):
+        from app.schemas.common import MAX_TAGS_PER_OPERATION
+
+        card_id = str(bulk_env["card"].id)
+        headers = auth_headers(bulk_env["admin"])
+        unknown = "00000000-0000-0000-0000-000000000000"
+        at_cap = {"card_id": card_id, "tag_ids": [unknown] * MAX_TAGS_PER_OPERATION, "mode": "add"}
+        resp = await client.post(BULK, json={"operations": [at_cap]}, headers=headers)
+        assert resp.status_code == 200
+        over = {**at_cap, "tag_ids": [unknown] * (MAX_TAGS_PER_OPERATION + 1)}
+        resp = await client.post(BULK, json={"operations": [over]}, headers=headers)
+        assert resp.status_code == 422
+
+    async def test_operations_are_capped(self, client, db, bulk_env):
+        from app.schemas.common import MAX_CARD_TAG_OPERATIONS
+
+        op = {"card_id": str(bulk_env["card"].id), "tag_ids": [], "mode": "add"}
+        resp = await client.post(
+            BULK,
+            json={"operations": [op] * (MAX_CARD_TAG_OPERATIONS + 1)},
+            headers=auth_headers(bulk_env["admin"]),
+        )
+        assert resp.status_code == 422
+
+    async def test_card_detail_tags_carry_their_group_id(self, client, db, bulk_env):
+        t = bulk_env["tags"]
+        card = bulk_env["card"]
+        headers = auth_headers(bulk_env["admin"])
+        card_id, tier_id = card.id, bulk_env["tier"].id
+        await client.post(BULK, json=_ops((card_id, [t["gold"]], "add")), headers=headers)
+        db.expire_all()  # the shared test session cached the card's empty tag list
+        resp = await client.get(f"/api/v1/cards/{card_id}", headers=headers)
+        assert resp.status_code == 200
+        [tag] = resp.json()["tags"]
+        assert tag["tag_group_id"] == str(tier_id)
+        assert tag["group_name"] == "Tier"
+
+
+# ---------------------------------------------------------------
+# Tag group / tag creation: dry run and validation
+# ---------------------------------------------------------------
+
+
+class TestTagCreationRules:
+    async def test_group_dry_run_stores_and_records_nothing(self, client, db, tags_env):
+        from sqlalchemy import select
+
+        from app.models.tag import TagGroup
+
+        resp = await client.post(
+            "/api/v1/tag-groups",
+            json={"name": "Preview", "mode": "single", "dry_run": True},
+            headers=auth_headers(tags_env["admin"]),
+        )
+        assert resp.status_code == 201
+        assert resp.json() == {"id": None, "name": "Preview", "dry_run": True}
+        assert (await db.execute(select(TagGroup))).scalars().all() == []
+        assert await _audit_rows(db, "admin.") == []
+
+    async def test_tag_dry_run_stores_and_records_nothing(self, client, db, tags_env):
+        from sqlalchemy import select
+
+        from app.models.tag import Tag
+        from tests.conftest import create_tag_group
+
+        group = await create_tag_group(db, name="Domains")
+        resp = await client.post(
+            f"/api/v1/tag-groups/{group.id}/tags",
+            json={"name": "Finance", "color": "#112233", "dry_run": True},
+            headers=auth_headers(tags_env["admin"]),
+        )
+        assert resp.status_code == 201
+        assert resp.json() == {
+            "id": None,
+            "name": "Finance",
+            "description": None,
+            "color": "#112233",
+            "dry_run": True,
+        }
+        assert (await db.execute(select(Tag))).scalars().all() == []
+        assert await _audit_rows(db, "admin.") == []
+
+    @pytest.mark.parametrize("group_id", ["00000000-0000-0000-0000-000000000000", "nope"])
+    async def test_tag_in_unknown_group_is_404(self, client, db, tags_env, group_id):
+        for dry_run in (False, True):
+            resp = await client.post(
+                f"/api/v1/tag-groups/{group_id}/tags",
+                json={"name": "Orphan", "dry_run": dry_run},
+                headers=auth_headers(tags_env["admin"]),
+            )
+            assert resp.status_code == 404
+            assert resp.json()["detail"] == "Tag group not found"
+
+    async def test_tag_needs_tags_manage(self, client, db, tags_env):
+        from tests.conftest import create_tag_group
+
+        group = await create_tag_group(db, name="Domains")
+        resp = await client.post(
+            f"/api/v1/tag-groups/{group.id}/tags",
+            json={"name": "Finance", "dry_run": True},
+            headers=auth_headers(tags_env["viewer"]),
+        )
+        assert resp.status_code == 403
+
+    async def test_bad_mode_is_422(self, client, db, tags_env):
+        from tests.conftest import create_tag_group
+
+        headers = auth_headers(tags_env["admin"])
+        resp = await client.post(
+            "/api/v1/tag-groups", json={"name": "Bad", "mode": "several"}, headers=headers
+        )
+        assert resp.status_code == 422
+        group = await create_tag_group(db, name="Domains")
+        resp = await client.patch(
+            f"/api/v1/tag-groups/{group.id}", json={"mode": "several"}, headers=headers
+        )
+        assert resp.status_code == 422
+
+    async def test_unknown_restrict_type_is_422(self, client, db, tags_env):
+        headers = auth_headers(tags_env["admin"])
+        for dry_run in (False, True):
+            resp = await client.post(
+                "/api/v1/tag-groups",
+                json={
+                    "name": "Scoped",
+                    "restrict_to_types": ["Application", "Nope", "Ghost"],
+                    "dry_run": dry_run,
+                },
+                headers=headers,
+            )
+            assert resp.status_code == 422
+            assert resp.json()["detail"] == (
+                "Unknown card type(s) in restrict_to_types: Ghost, Nope"
+            )
+        assert await _audit_rows(db, "admin.") == []
+
+    async def test_patch_checks_new_restrict_keys_but_keeps_stored_ones(self, client, db, tags_env):
+        from tests.conftest import create_tag_group
+
+        headers = auth_headers(tags_env["admin"])
+        # A group that already names a type which no longer exists.
+        group = await create_tag_group(db, name="Scoped", restrict_to_types=["Gone"])
+        resp = await client.patch(
+            f"/api/v1/tag-groups/{group.id}",
+            json={"restrict_to_types": ["Gone", "Application"]},
+            headers=headers,
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["restrict_to_types"] == ["Gone", "Application"]
+        resp = await client.patch(
+            f"/api/v1/tag-groups/{group.id}",
+            json={"restrict_to_types": ["Application", "Nope"]},
+            headers=headers,
+        )
+        assert resp.status_code == 422
+        assert resp.json()["detail"] == "Unknown card type(s) in restrict_to_types: Nope"
+
+
+class TestCardTagRefusalsExact:
+    async def test_single_card_tagging_answers_the_stakeholder_question(self, client, db, bulk_env):
+        t = bulk_env["tags"]
+        headers = auth_headers(bulk_env["viewer"])
+        # The viewer edits `other` through a stakeholder role on that card.
+        ok = await client.post(
+            f"/api/v1/cards/{bulk_env['other'].id}/tags", json=[t["hr"]], headers=headers
+        )
+        assert ok.status_code == 201, ok.text
+        assert await _card_tag_set(db, bulk_env["other"].id) == {t["hr"]}
+        refused = await client.post(
+            f"/api/v1/cards/{bulk_env['card'].id}/tags", json=[t["hr"]], headers=headers
+        )
+        assert refused.status_code == 403
+        assert refused.json() == {"detail": "Insufficient permissions"}
+
+    async def test_every_malformed_tag_id_is_named(self, client, db, bulk_env):
+        card = bulk_env["card"]
+        resp = await client.post(
+            BULK,
+            json=_ops((card.id, ["nope", "bad"], "add")),
+            headers=auth_headers(bulk_env["admin"]),
+        )
+        assert resp.json()["results"][0]["error"] == "Invalid tag id(s): nope, bad"
+
+    async def test_the_events_name_the_caller(self, client, db, bulk_env):
+        from sqlalchemy import select
+
+        from app.models.event import Event
+
+        t = bulk_env["tags"]
+        card = bulk_env["card"]
+        resp = await client.post(
+            BULK, json=_ops((card.id, [t["hr"]], "add")), headers=auth_headers(bulk_env["admin"])
+        )
+        assert resp.status_code == 200
+        rows = (await db.execute(select(Event).where(Event.event_type == "tag.added"))).scalars()
+        assert [e.user_id for e in rows.all()] == [bulk_env["admin"].id]
+
+    async def test_only_malformed_card_ids_are_all_not_found(self, client, db, bulk_env):
+        t = bulk_env["tags"]
+        resp = await client.post(
+            BULK,
+            json=_ops(("x", [t["hr"]], "add"), ("y", [t["hr"]], "add")),
+            headers=auth_headers(bulk_env["admin"]),
+        )
+        assert resp.status_code == 200, resp.text
+        assert [r["status"] for r in resp.json()["results"]] == ["not_found", "not_found"]
+
+    async def test_every_refused_card_is_named_in_order(self, client, db, bulk_env):
+        card, archived = bulk_env["card"], bulk_env["archived"]
+        t = bulk_env["tags"]
+        resp = await client.post(
+            BULK,
+            json=_ops((card.id, [t["hr"]], "add"), (archived.id, [t["hr"]], "add")),
+            headers=auth_headers(bulk_env["viewer"]),
+        )
+        assert resp.status_code == 403
+        first, second = sorted([str(card.id), str(archived.id)])
+        assert resp.json()["detail"] == (
+            f"Not enough permissions to tag card(s): {first}, {second}"
+        )
+
+    async def test_a_card_read_through_a_stakeholder_role_is_tagged(self, client, db, bulk_env):
+        """With the type hidden from the role, the card is still readable — and
+        taggable — through the caller's stakeholder role on it."""
+        from app.models.stakeholder import Stakeholder
+        from tests.api.test_cards_type_read_permissions import set_overrides
+        from tests.conftest import create_stakeholder_role_def
+
+        await create_stakeholder_role_def(
+            db,
+            card_type_key="Application",
+            key="curator",
+            permissions={"card.view": True, "card.edit": True},
+        )
+        other = bulk_env["other"]
+        db.add(Stakeholder(card_id=other.id, user_id=bulk_env["viewer"].id, role="curator"))
+        await db.flush()
+        await set_overrides(db, "Application", {"viewer": {"inventory.view": False}})
+        t = bulk_env["tags"]
+        resp = await client.post(
+            BULK,
+            json=_ops((other.id, [t["hr"]], "add"), (bulk_env["card"].id, [t["hr"]], "add")),
+            headers=auth_headers(bulk_env["viewer"]),
+        )
+        assert resp.status_code == 200, resp.text
+        assert [r["status"] for r in resp.json()["results"]] == ["updated", "not_found"]
+        assert await _card_tag_set(db, other.id) == {t["hr"]}

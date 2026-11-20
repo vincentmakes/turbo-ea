@@ -302,6 +302,39 @@ class TestSend:
         assert state["types"] == ["survey_request"]
 
 
+async def _inbound(db) -> MutationBatch:
+    """A stored batch, as an MCP call into an extension route opens one."""
+    from app.services import mutation_batch_service
+
+    row = await mutation_batch_service.create_batch(
+        db, tool_name="call_extension_write", actor=None, origin="mcp", dry_run=False
+    )
+    await db.flush()
+    return row
+
+
+async def _ext_batch(db) -> MutationBatch:
+    return (
+        await db.execute(select(MutationBatch).where(MutationBatch.tool_name == f"ext:{KEY}"))
+    ).scalar_one()
+
+
+class TestInboundBatch:
+    async def test_single_op_write_records_the_inbound_batch(self, db, env):
+        from app.services.event_bus import request_batch_id
+
+        load_registry(grants=["core.surveys.write"])
+        inbound = await _inbound(db)
+        token = request_batch_id.set(inbound.id)
+        try:
+            out = await ExtensionSurveys(KEY).send(**_send_kwargs(env))
+        finally:
+            request_batch_id.reset(token)
+        summary = (await _ext_batch(db)).summary
+        assert summary["via_batch_id"] == str(inbound.id)
+        assert summary["survey_id"] == out.id
+
+
 class TestPreview:
     async def test_preview_counts_without_writing(self, db, env):
         load_registry(grants=["core.surveys.read"])
@@ -579,3 +612,30 @@ class TestReadOrderingAndDefaults:
             pending = inspect.signature(cls.pending_responses).parameters
             assert pending["card_ids"].default is None
             assert pending["limit"].default == 5000
+
+
+async def test_a_write_without_a_summary_commits_only_the_inbound_link(db):
+    """``summary`` is optional: a write that names none commits its batch with
+    just the inbound batch it was serving."""
+    from app.services import mutation_batch_service
+    from app.services.event_bus import request_batch_id
+
+    load_registry(grants=["core.surveys.write"])
+    inbound = await mutation_batch_service.create_batch(
+        db, tool_name="call_extension_write", actor=None, origin="mcp", dry_run=False
+    )
+    await db.flush()
+
+    async def op(session):
+        return "done"
+
+    token = request_batch_id.set(inbound.id)
+    try:
+        assert await ExtensionSurveys(KEY)._write(op) == "done"
+    finally:
+        request_batch_id.reset(token)
+    batch = (
+        await db.execute(select(MutationBatch).where(MutationBatch.tool_name == f"ext:{KEY}"))
+    ).scalar_one()
+    assert batch.committed_at is not None
+    assert batch.summary == {"via_batch_id": str(inbound.id)}

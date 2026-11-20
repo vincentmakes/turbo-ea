@@ -110,6 +110,8 @@
   "attributes.calculated": "计算值",
   "attributes.percentageRange": "请输入 0 到 100 之间的数字",
   "attributes.auto": "自动",
+  "attributes.extLocked": "只读",
+  "attributes.extLockedTooltip": "只读：提供此字段的扩展未启用或未获许可",
   "attributes.filterAll": "全部",
   "hierarchy.title": "层级",
   "hierarchy.level": "第 {{level}} 级",

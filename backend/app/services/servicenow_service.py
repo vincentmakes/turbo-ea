@@ -25,6 +25,7 @@ from app.models.servicenow import (
 )
 from app.services.card_lifecycle import archive_cards_in_place
 from app.services.event_bus import event_bus
+from app.services.extensions import field_gate
 
 logger = logging.getLogger(__name__)
 
@@ -363,6 +364,26 @@ def _diff_to_changes(
     return changes
 
 
+def skip_locked_attribute_changes(diff: dict, locked: dict, sys_id: str) -> dict:
+    """``diff`` without the ``attributes.<key>`` changes to read-only fields.
+
+    A field an inactive or unlicensed extension contributed keeps its stored
+    value (``extensions.field_gate``): the sync skips that change, logs it and
+    applies the rest of the record rather than failing it.
+    """
+    skipped = [
+        path for path in diff if path.startswith("attributes.") and path.split(".", 1)[1] in locked
+    ]
+    if not skipped:
+        return diff
+    logger.warning(
+        "ServiceNow sync: read-only extension fields not updated for %s: %s",
+        sys_id,
+        ", ".join(path.split(".", 1)[1] for path in skipped),
+    )
+    return {path: change for path, change in diff.items() if path not in skipped}
+
+
 def _bump(run: SnowSyncRun, key: str, by: int = 1) -> None:
     """Count on the run's ``stats`` by *reassigning* the dict.
 
@@ -383,6 +404,17 @@ class SyncEngine:
     def __init__(self, db: AsyncSession, client: ServiceNowClient):
         self.db = db
         self.client = client
+        # Read-only extension fields per card type, resolved once per engine
+        # (one engine serves one sync request) rather than once per record.
+        self._locked_by_type: dict[str, dict[str, str]] = {}
+
+    async def _locked_fields(self, type_key: str) -> dict[str, str]:
+        """``field_gate.locked_fields_for_type``, cached per card type."""
+        if type_key not in self._locked_by_type:
+            self._locked_by_type[type_key] = await field_gate.locked_fields_for_type(
+                self.db, type_key
+            )
+        return self._locked_by_type[type_key]
 
     async def pull_sync(
         self,
@@ -558,7 +590,10 @@ class SyncEngine:
             if action == "create":
                 await self._apply_create(fake_staged, mapping, field_mappings, run.created_by)
             elif action == "update":
-                await self._apply_update(fake_staged, field_mappings, run.created_by)
+                # Nothing left to write once read-only fields are skipped: the
+                # record counts as skipped, not updated.
+                if not await self._apply_update(fake_staged, run.created_by):
+                    action = "skip"
         elif not skip_staging:
             staged = SnowStagedRecord(
                 sync_run_id=run.id,
@@ -737,8 +772,8 @@ class SyncEngine:
                     await self._apply_create(staged, mapping, field_mappings, run.created_by)
                     applied["created"] += 1
                 elif staged.action == "update":
-                    await self._apply_update(staged, field_mappings, run.created_by)
-                    applied["updated"] += 1
+                    if await self._apply_update(staged, run.created_by):
+                        applied["updated"] += 1
                 elif staged.action == "delete":
                     await self._apply_delete(staged, mapping, run.created_by)
                     applied["deleted"] += 1
@@ -763,13 +798,26 @@ class SyncEngine:
             staged.snow_data or {}, field_mappings, "snow_to_turbo"
         )
 
+        # A field an inactive or unlicensed extension contributed is read-only:
+        # the new card is created without it, and the sync says so in the log.
+        locked = await self._locked_fields(mapping.card_type_key)
+        attributes, skipped = field_gate.apply_field_lock(
+            {}, transformed.get("attributes") or {}, locked
+        )
+        if skipped:
+            logger.warning(
+                "ServiceNow sync: read-only extension fields not written on create of %s: %s",
+                staged.snow_sys_id,
+                ", ".join(skipped),
+            )
+
         card = Card(
             type=mapping.card_type_key,
             subtype=transformed.get("subtype"),
             name=transformed.get("name", f"SNOW-{staged.snow_sys_id[:8]}"),
             description=transformed.get("description"),
             lifecycle=transformed.get("lifecycle", {}),
-            attributes=transformed.get("attributes", {}),
+            attributes=attributes,
             status="ACTIVE",
             approval_status="DRAFT",
         )
@@ -804,19 +852,32 @@ class SyncEngine:
     async def _apply_update(
         self,
         staged: SnowStagedRecord,
-        field_mappings: list[SnowFieldMapping],
         actor_id: uuid.UUID | None = None,
-    ) -> None:
-        """Update an existing card from a staged record."""
+    ) -> bool:
+        """Update an existing card from a staged record.
+
+        Returns False when the record leaves nothing to write: every change it
+        carried touched a read-only extension field (or it carried none). Such
+        a record publishes no ``card.updated`` and is not counted as updated;
+        it only stamps the identity map as synced. A row whose card is gone
+        keeps its old accounting (True, nothing written).
+        """
         if not staged.card_id:
-            return
+            return True
 
         result = await self.db.execute(select(Card).where(Card.id == staged.card_id))
         card = result.scalar_one_or_none()
         if not card:
-            return
+            return True
 
-        diff = staged.diff or {}
+        diff = skip_locked_attribute_changes(
+            staged.diff or {},
+            await self._locked_fields(card.type),
+            staged.snow_sys_id,
+        )
+        if not diff:
+            await self._touch_identity(staged)
+            return False
         before_attrs = dict(card.attributes or {})
         before_lifecycle = dict(card.lifecycle or {})
         for field_path, change in diff.items():
@@ -838,16 +899,7 @@ class SyncEngine:
                 attrs[attr_key] = new_val
                 card.attributes = attrs
 
-        # Update identity map timestamp
-        id_result = await self.db.execute(
-            select(SnowIdentityMap).where(
-                SnowIdentityMap.card_id == staged.card_id,
-                SnowIdentityMap.snow_sys_id == staged.snow_sys_id,
-            )
-        )
-        id_entry = id_result.scalar_one_or_none()
-        if id_entry:
-            id_entry.last_synced_at = datetime.now(timezone.utc)
+        await self._touch_identity(staged)
 
         await event_bus.publish(
             event_type="card.updated",
@@ -861,6 +913,19 @@ class SyncEngine:
             card_id=card.id,
             user_id=actor_id,
         )
+        return True
+
+    async def _touch_identity(self, staged: SnowStagedRecord) -> None:
+        """Stamp the record's identity-map row as synced now."""
+        id_result = await self.db.execute(
+            select(SnowIdentityMap).where(
+                SnowIdentityMap.card_id == staged.card_id,
+                SnowIdentityMap.snow_sys_id == staged.snow_sys_id,
+            )
+        )
+        id_entry = id_result.scalar_one_or_none()
+        if id_entry:
+            id_entry.last_synced_at = datetime.now(timezone.utc)
 
     async def _apply_delete(
         self,

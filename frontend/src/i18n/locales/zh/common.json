@@ -802,5 +802,6 @@
   "spreadsheetImport.doneSkipped_one": "已跳过 {{count}} 行。",
   "spreadsheetImport.doneSkipped_other": "已跳过 {{count}} 行。",
   "spreadsheetImport.doneFailed_one": "因错误未导入 {{count}} 行。",
-  "spreadsheetImport.doneFailed_other": "因错误未导入 {{count}} 行。"
+  "spreadsheetImport.doneFailed_other": "因错误未导入 {{count}} 行。",
+  "filter.clearSection": "清除{{section}}筛选器"
 }

@@ -43,6 +43,7 @@ from app.services import (
     card_type_delete,
     principle_service,
 )
+from app.services.extensions import field_gate
 from app.services.extensions.registry import extension_registry
 from app.services.hierarchy import (
     HIERARCHY_LEVEL_KEY,
@@ -499,6 +500,62 @@ def _enforce_field_gating(
     return new_schema
 
 
+def _carry_ext_stamps(new_schema: list | None, old_schema: list | None) -> list:
+    """Keep a field's ``ext`` stamp exactly as stored, whatever the body says.
+
+    The stamp says which extension contributed a field, and so whether its
+    values are writable (``extensions.field_gate``). A metamodel body may
+    neither drop it (that would unlock the field) nor add one (that would lock
+    an admin's own field, or claim it for an extension): each field takes the
+    stamp the stored field of the same key carries, or none. The transient
+    ``ext_locked`` flag ``GET /metamodel/types`` adds is stripped here too, so
+    it is never persisted.
+    """
+    new_schema = new_schema or []
+    stamps: dict[str, str] = {}
+    for section in old_schema or []:
+        for f in section.get("fields", []) if isinstance(section, dict) else []:
+            if isinstance(f, dict) and isinstance(f.get("ext"), str) and f["ext"]:
+                stamps[f.get("key")] = f["ext"]
+    for section in new_schema:
+        if not isinstance(section, dict):
+            continue
+        for f in section.get("fields", []):
+            if not isinstance(f, dict):
+                continue
+            f.pop("ext_locked", None)
+            stamp = stamps.get(f.get("key"))
+            if stamp:
+                f["ext"] = stamp
+            else:
+                f.pop("ext", None)
+    return new_schema
+
+
+def _schema_with_lock_flags(type_key: str, schema: list | None) -> list:
+    """``schema`` with ``ext_locked: true`` on every field whose values may not
+    change because the extension that contributed it is not active or licensed.
+
+    Transient: computed per read from the live registry, never stored (and
+    stripped from a write body by :func:`_carry_ext_stamps`). Returns copies —
+    the stored schema is never mutated.
+    """
+    locked = field_gate.locked_fields(type_key, schema)
+    if not locked:
+        return schema or []
+    out: list = []
+    for section in schema or []:
+        if not isinstance(section, dict):
+            out.append(section)
+            continue
+        fields = [
+            {**f, "ext_locked": True} if isinstance(f, dict) and f.get("key") in locked else f
+            for f in section.get("fields", [])
+        ]
+        out.append({**section, "fields": fields})
+    return out
+
+
 # ── Helpers ────────────────────────────────────────────────────────────
 
 # The five inventory permissions a card type may override, in the order the
@@ -555,7 +612,7 @@ def _serialize_type(t: CardType, *, include_role_permissions: bool = True) -> di
         "allow_card_logo": t.allow_card_logo,
         "subtypes": t.subtypes or [],
         "hierarchy_labels": t.hierarchy_labels or [],
-        "fields_schema": t.fields_schema or [],
+        "fields_schema": _schema_with_lock_flags(t.key, t.fields_schema),
         "stakeholder_roles": t.stakeholder_roles or [],
         "section_config": t.section_config or {},
         "reference_config": t.reference_config or {},
@@ -1246,7 +1303,9 @@ async def create_type(
     ]
     await extension_registry.refresh_from_db(db)
     fields_schema = _enforce_field_gating(
-        body.get("fields_schema", []), [], extension_registry.granted_capabilities()
+        _carry_ext_stamps(body.get("fields_schema", []), []),
+        [],
+        extension_registry.granted_capabilities(),
     )
     # Auto-add the readonly hierarchyLevel field for hierarchical types (after
     # gating, which only rewrites ext.* field types — a plain number field is safe).
@@ -1346,6 +1405,9 @@ async def update_type(
 
     # ── Clean up card attributes when fields or options are removed ──
     if "fields_schema" in body:
+        # Stamps first, so neither the cleanup nor anything after it can see a
+        # field the body tried to unlock (or claim) by editing its `ext`.
+        body["fields_schema"] = _carry_ext_stamps(body["fields_schema"], t.fields_schema)
         await _cleanup_removed_fields_and_options(
             db,
             key,

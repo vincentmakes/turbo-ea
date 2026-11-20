@@ -21,8 +21,8 @@ import { STATUS_COLORS } from "@/theme/tokens";
  * duplicated near-verbatim. It mirrors the vocabulary of the grid filter
  * sidebars' `FilterSectionHeader` (chevron -> section glyph -> label ->
  * primary count chip) rather than reusing it: that one is sidebar-typography,
- * has nowhere to put the clear-all chip, and is a bare `Box onClick` with no
- * button semantics.
+ * and its per-section clear is a small icon button, not the clear-all chip a
+ * report toolbar shows.
  *
  * Two structural rules that look like styling but are not:
  *  - `width: "100%"` on the wrapper is what keeps the block on its own line in

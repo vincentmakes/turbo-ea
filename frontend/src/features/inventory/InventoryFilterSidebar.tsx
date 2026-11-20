@@ -31,6 +31,8 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import Autocomplete from "@mui/material/Autocomplete";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { FilterSectionHeader } from "@/components/FilterSidebarSection";
+import { resetFilterKeys } from "@/lib/filterSections";
 import { expandSides, sideKey } from "@/lib/relationSort";
 import { groupCardTypesByCategory } from "@/lib/cardTypeOrder";
 import { useCardTypeCategories } from "@/hooks/useCardTypeCategories";
@@ -423,9 +425,19 @@ export function filtersAfterTypeToggle(filters: Filters, key: string): Filters {
   const next = filters.types.includes(key)
     ? filters.types.filter((t) => t !== key)
     : [...filters.types, key];
+  return filtersWithTypes(filters, next);
+}
+
+/**
+ * The filter state for a new type selection, with the type-specific facets
+ * reset (see `filtersAfterTypeToggle`). The Card Types section's clear button
+ * goes through here with `[]`, so clearing the types drops exactly what
+ * unticking the last type does.
+ */
+export function filtersWithTypes(filters: Filters, types: string[]): Filters {
   return {
     ...filters,
-    types: next,
+    types,
     subtypes: [],
     attributes: {},
     relations: {},
@@ -765,6 +777,10 @@ export default function InventoryFilterSidebar({
     // Clearing every filter also leaves a query view.
     onApplyQuery?.(null);
   };
+
+  /** One section's clear button: resets exactly that section's keys. */
+  const clearKeys = (...keys: (keyof Filters)[]) =>
+    onFiltersChange(resetFilterKeys(filters, emptyFilters(), keys));
 
   const activeCount =
     filters.types.length +
@@ -1182,11 +1198,13 @@ export default function InventoryFilterSidebar({
             /* ====================== FILTERS TAB ====================== */
             <>
               {/* Search */}
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("common:actions.search")}
                 icon="search"
                 expanded={expandedSections.search}
                 onToggle={() => toggleSection("search")}
+                onClear={() => clearKeys("search")}
+                count={filters.search ? 1 : 0}
               />
               <Collapse in={expandedSections.search}>
                 <TextField
@@ -1261,11 +1279,12 @@ export default function InventoryFilterSidebar({
 
 
               {/* Card Types */}
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("filter.types")}
                 icon="category"
                 expanded={expandedSections.types}
                 onToggle={() => toggleSection("types")}
+                onClear={() => onFiltersChange(filtersWithTypes(filters, []))}
                 count={filters.types.length}
               />
               <Collapse in={expandedSections.types}>
@@ -1351,11 +1370,12 @@ export default function InventoryFilterSidebar({
               {/* Subtypes (only when single type with subtypes selected) */}
               {subtypeOptions.length > 0 && (
                 <>
-                  <SectionHeader
+                  <FilterSectionHeader
                     label={t("filter.subtypes")}
                     icon="label"
                     expanded={expandedSections.subtypes}
                     onToggle={() => toggleSection("subtypes")}
+                    onClear={() => clearKeys("subtypes")}
                     count={filters.subtypes.length}
                   />
                   <Collapse in={expandedSections.subtypes}>
@@ -1381,11 +1401,12 @@ export default function InventoryFilterSidebar({
               )}
 
               {/* Approval Status */}
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("filter.approvalStatus")}
                 icon="verified"
                 expanded={expandedSections.approvalStatus}
                 onToggle={() => toggleSection("approvalStatus")}
+                onClear={() => clearKeys("approvalStatuses")}
                 count={filters.approvalStatuses.length}
               />
               <Collapse in={expandedSections.approvalStatus}>
@@ -1408,11 +1429,12 @@ export default function InventoryFilterSidebar({
               </Collapse>
 
               {/* Origin — the channel each card was created through */}
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("filter.origin")}
                 icon="smart_toy"
                 expanded={expandedSections.origin}
                 onToggle={() => toggleSection("origin")}
+                onClear={() => clearKeys("origins")}
                 count={filters.origins?.length ?? 0}
               />
               <Collapse in={expandedSections.origin}>
@@ -1440,11 +1462,12 @@ export default function InventoryFilterSidebar({
               </Collapse>
 
               {/* Lifecycle */}
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("filter.lifecycle")}
                 icon="schedule"
                 expanded={expandedSections.lifecycle}
                 onToggle={() => toggleSection("lifecycle")}
+                onClear={() => clearKeys("lifecyclePhases")}
                 count={filters.lifecyclePhases.length}
               />
               <Collapse in={expandedSections.lifecycle}>
@@ -1478,11 +1501,12 @@ export default function InventoryFilterSidebar({
                   has recorded an end of life for. */}
               {showEolFacet && (
                 <>
-                  <SectionHeader
+                  <FilterSectionHeader
                     label={t("filter.eol")}
                     icon="update"
                     expanded={expandedSections.eol}
                     onToggle={() => toggleSection("eol")}
+                    onClear={() => clearKeys("eolStatuses")}
                     count={filters.eolStatuses.length}
                   />
                   <Collapse in={expandedSections.eol}>
@@ -1521,11 +1545,12 @@ export default function InventoryFilterSidebar({
                   "(empty)" to find the rows nobody has filled in. */}
               {showLinkTypeFacet && linkTypeOptions.length > 0 && (
                 <>
-                  <SectionHeader
+                  <FilterSectionHeader
                     label={t("filter.linkType")}
                     icon="link"
                     expanded={expandedSections.linkType}
                     onToggle={() => toggleSection("linkType")}
+                    onClear={() => clearKeys("linkTypes")}
                     count={filters.linkTypes?.length ?? 0}
                   />
                   <Collapse in={expandedSections.linkType}>
@@ -1561,11 +1586,12 @@ export default function InventoryFilterSidebar({
               )}
 
               {/* Data Quality */}
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("filter.dataQuality")}
                 icon="bar_chart"
                 expanded={expandedSections.dataQuality}
                 onToggle={() => toggleSection("dataQuality")}
+                onClear={() => clearKeys("dataQualityBands")}
                 count={filters.dataQualityBands.length}
               />
               <Collapse in={expandedSections.dataQuality}>
@@ -1600,11 +1626,12 @@ export default function InventoryFilterSidebar({
               {/* Attribute Filters (only when single type selected) */}
               {attributeFields.length > 0 && (
                 <>
-                  <SectionHeader
+                  <FilterSectionHeader
                     label={t("filter.attributes")}
                     icon="tune"
                     expanded={expandedSections.attributes}
                     onToggle={() => toggleSection("attributes")}
+                    onClear={() => clearKeys("attributes")}
                     count={Object.keys(filters.attributes).length}
                   />
                   <Collapse in={expandedSections.attributes}>
@@ -1765,11 +1792,12 @@ export default function InventoryFilterSidebar({
               {/* Relationship Filters (only when single type selected and relations exist) */}
               {relFilterOptions.size > 0 && (
                 <>
-                  <SectionHeader
+                  <FilterSectionHeader
                     label={t("filter.relationships")}
                     icon="share"
                     expanded={expandedSections.relationships}
                     onToggle={() => toggleSection("relationships")}
+                    onClear={() => clearKeys("relations")}
                     count={Object.keys(filters.relations || {}).length}
                   />
                   <Collapse in={expandedSections.relationships}>
@@ -1895,11 +1923,12 @@ export default function InventoryFilterSidebar({
 
                 return (
                   <>
-                    <SectionHeader
+                    <FilterSectionHeader
                       label={t("filter.tags")}
                       icon="sell"
                       expanded={expandedSections.tags}
                       onToggle={() => toggleSection("tags")}
+                      onClear={() => clearKeys("tagIds")}
                       count={(filters.tagIds || []).length}
                     />
                     <Collapse in={expandedSections.tags}>
@@ -2485,53 +2514,6 @@ function EmptyChip({
 }
 
 /* ------------------------------------------------------------------ */
-/*  Section header helper                                              */
-/* ------------------------------------------------------------------ */
-
-function SectionHeader({
-  label,
-  icon,
-  expanded,
-  onToggle,
-  count,
-}: {
-  label: string;
-  icon: string;
-  expanded: boolean;
-  onToggle: () => void;
-  count?: number;
-}) {
-  return (
-    <Box
-      onClick={onToggle}
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        gap: 0.75,
-        py: 0.5,
-        px: 0.5,
-        cursor: "pointer",
-        borderRadius: 1,
-        userSelect: "none",
-        "&:hover": { bgcolor: "action.hover" },
-      }}
-    >
-      <MaterialSymbol
-        icon={expanded ? "expand_more" : "chevron_right"}
-        size={16}
-      />
-      <MaterialSymbol icon={icon} size={16} />
-      <Typography variant="body2" fontWeight={600} fontSize={13} sx={{ flex: 1 }}>
-        {label}
-      </Typography>
-      {count != null && count > 0 && (
-        <Chip label={count} size="small" color="primary" sx={{ height: 18, fontSize: 11 }} />
-      )}
-    </Box>
-  );
-}
-
-/* ------------------------------------------------------------------ */
 /*  Bookmark list item helper                                          */
 /* ------------------------------------------------------------------ */
 
@@ -3054,7 +3036,7 @@ function ColumnsTab({
       {/* Default (always-visible) columns section */}
       {filteredCore.length > 0 && (
         <>
-          <SectionHeader
+          <FilterSectionHeader
             label={t("columns.defaults")}
             icon="grid_view"
             expanded={expandedSections.defaults}
@@ -3139,7 +3121,7 @@ function ColumnsTab({
       {/* Metadata section */}
       {filteredMeta.length > 0 && (
         <>
-          <SectionHeader
+          <FilterSectionHeader
             label={t("columns.metadata")}
             icon="info"
             expanded={expandedSections.metadata}
@@ -3198,7 +3180,7 @@ function ColumnsTab({
       {/* Attribute fields section */}
       {filteredAttrs.length > 0 && (
         <>
-          <SectionHeader
+          <FilterSectionHeader
             label={t("columns.attributes")}
             icon="tune"
             expanded={expandedSections.attributes}
@@ -3254,7 +3236,7 @@ function ColumnsTab({
       {/* Relation columns section */}
       {filteredRels.length > 0 && (
         <>
-          <SectionHeader
+          <FilterSectionHeader
             label={t("columns.relations")}
             icon="link"
             expanded={expandedSections.relations}
@@ -3319,7 +3301,7 @@ function ColumnsTab({
       {/* Stakeholder columns section — one per role of the selected type */}
       {filteredStakeholderRoles.length > 0 && (
         <>
-          <SectionHeader
+          <FilterSectionHeader
             label={t("columns.stakeholders")}
             icon="group"
             expanded={expandedSections.stakeholders}

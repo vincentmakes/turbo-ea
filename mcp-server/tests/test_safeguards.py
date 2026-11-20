@@ -254,6 +254,11 @@ def _tool_call(tool: str, n: int, **kw):
             {"card_id": f"c{i}", "image_base64": _PNG_B64, "mime": "image/png"} for i in range(n)
         ]
         return server.set_card_logos(items=rows, **kw)
+    if tool == "set_card_tags":
+        rows = [{"card_id": f"c{i}", "tag_ids": ["t1"], "mode": "add"} for i in range(n)]
+        return server.set_card_tags(operations=rows, **kw)
+    if tool == "create_tag_groups":
+        return server.create_tag_groups(groups=[{"name": f"G{i}"} for i in range(n)], **kw)
     assert tool == "clear_card_logos"
     return server.clear_card_logos(card_ids=[f"c{i}" for i in range(n)], **kw)
 
@@ -267,6 +272,16 @@ PREVIEW_SUMMARY = {
     "update_risks": {"rows": 3, "status": "previewed"},
     "set_card_logos": {"rows": 3, "would_set": 3},
     "clear_card_logos": {"rows": 3, "would_clear": 3},
+    "set_card_tags": {"rows": 3, "would_update": 0, "failed": 0},
+    "create_tag_groups": {"rows": 3, "would_create": {"groups": 3, "tags": 0}},
+}
+
+# The backend requests a preview makes, each itself a dry run (``dry_run:
+# true`` in the body); every other tool builds its preview without one.
+PREVIEW_BACKEND_POSTS = {
+    "upsert_relations_bulk": ["/relations/bulk"],
+    "set_card_tags": ["/cards/tags/bulk"],
+    "create_tag_groups": ["/tag-groups"] * 3,
 }
 
 NEW_CYCLE_TOOLS = [
@@ -276,6 +291,8 @@ NEW_CYCLE_TOOLS = [
     "update_risks",
     "set_card_logos",
     "clear_card_logos",
+    "set_card_tags",
+    "create_tag_groups",
 ]
 
 
@@ -393,13 +410,13 @@ class TestEveryBulkToolFollowsTheCycle:
         assert close_path == "/mutation-batches/B-1/commit"
         assert close_body["confirm_token"] == "TOK-1"
         assert close_body["summary"] == PREVIEW_SUMMARY[tool]
-        # A preview writes nothing: only relations ask the backend for one,
-        # and that request is itself a dry run.
+        # A preview writes nothing: the backend requests it makes are
+        # themselves dry runs.
         assert backend.writes == []
-        expected = ["/relations/bulk"] if tool == "upsert_relations_bulk" else []
+        expected = PREVIEW_BACKEND_POSTS.get(tool, [])
         assert backend.non_batch_posts() == expected
-        if expected:
-            assert backend.posts[1][1]["dry_run"] is True
+        previews = [body for path, body in backend.posts if path in expected]
+        assert [body["dry_run"] for body in previews] == [True] * len(expected)
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("tool", NEW_CYCLE_TOOLS)
@@ -682,17 +699,20 @@ _BATCH_TOOLS_EXPECTED = [
     "approve_process_flow",
     "archive_cards",
     "assign_stakeholders",
+    "call_extension_write",
     "clear_card_logos",
     "create_adr",
     "create_cards_bulk",
     "create_diagram",
     "create_risks",
     "create_soaw",
+    "create_tag_groups",
     "import_bpmn",
     "link_process_flow_elements",
     "revise_adr",
     "save_inventory_view",
     "set_card_logos",
+    "set_card_tags",
     "sign_adr",
     "submit_process_flow",
     "transition_card_lifecycle",
@@ -719,6 +739,37 @@ _FLOW_PROCESS = "00000000-0000-4000-8000-0000000000b1"
 _FLOW_DRAFT = "00000000-0000-4000-8000-0000000000d1"
 _FLOW_PENDING = "00000000-0000-4000-8000-0000000000e1"
 _FLOW_STATUS = {_FLOW_DRAFT: "draft", _FLOW_PENDING: "pending"}
+
+# A fake extension offering one write operation, so call_extension_write's
+# commit has something to send inside its batch.
+_EXT_KEY = "sample-ext"
+_EXT_CATALOGUE = {
+    "extensions": [
+        {
+            "key": _EXT_KEY,
+            "name": "Sample",
+            "version": "1.0.0",
+            "tools": [
+                {
+                    "name": "create_item",
+                    "title": "Create item",
+                    "description": "Creates an item.",
+                    "kind": "write",
+                    "method": "POST",
+                    "path": "/items",
+                    "path_params": [],
+                    "query_params": [],
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {"name": {"type": "string"}},
+                        "required": ["name"],
+                    },
+                    "supports_dry_run": False,
+                }
+            ],
+        }
+    ]
+}
 
 # One minimal, valid call per write tool, as ``(dry_run) -> coroutine``.
 _BATCH_TOOL_CALLS = {
@@ -777,6 +828,9 @@ _BATCH_TOOL_CALLS = {
     "revise_adr": lambda dry_run: server.revise_adr(
         adr_id="00000000-0000-0000-0000-0000000000a1", dry_run=dry_run
     ),
+    "call_extension_write": lambda dry_run: server.call_extension_write(
+        extension=_EXT_KEY, tool="create_item", arguments={"name": "n"}, dry_run=dry_run
+    ),
     "create_soaw": lambda dry_run: server.create_soaw(
         initiative_id="i1",
         title="t",
@@ -795,6 +849,8 @@ class _BatchRecorder(_Backend):
         self.calls: list[tuple[str, str, str | None]] = []
 
     async def get(self, path, params=None):
+        if path == "/extensions/agent-tools":
+            return _EXT_CATALOGUE
         if path == "/cards" and "search" in (params or {}):
             # import_bpmn's lookup of the BusinessProcess card by name.
             return {"items": [{"id": "bp-1", "name": params["search"], "parent_id": None}]}

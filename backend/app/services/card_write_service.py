@@ -55,6 +55,7 @@ from app.services.cost_field_filter import keep_stored_cost_values
 from app.services.cost_value import is_numeric_text
 from app.services.data_quality import calc_data_quality
 from app.services.event_bus import event_bus
+from app.services.extensions import field_gate
 from app.services.hierarchy import HIERARCHY_LEVEL_KEY
 from app.services.ppm_fiscal_costs import ACTUAL_FIELD, BUDGET_FIELD, PPM_COST_FIELDS
 from app.services.relation_orientation import orient_endpoints
@@ -796,6 +797,9 @@ async def create_card(
     number its cards with one global scan per prefix instead of one per
     card; without it the reference is allocated exactly as before.
     """
+    # Guard: a field an inactive or unlicensed extension contributed is
+    # read-only — a new card may not fill it in (403 extension_fields_locked).
+    attributes = await field_gate.enforce_field_lock(db, type_key, {}, attributes)
     await _validate_url_attributes(db, type_key, attributes or {})
     await _validate_percentage_attributes(db, type_key, attributes or {})
     await _validate_boolean_attributes(db, type_key, attributes or {})
@@ -918,6 +922,17 @@ async def update_card(
                 if key in old_attrs:
                     new_attrs[key] = old_attrs[key]
             updates["attributes"] = new_attrs
+
+    # Guard: the fields an inactive or unlicensed extension contributed keep
+    # their stored values — carried over when the payload omits them, a 403
+    # (extension_fields_locked) when it changes one. A locked key the server
+    # recomputes (a calculation's target, a readonly field) is carried over
+    # silently, like the PPM-managed keys above: a stale echo is no change.
+    # Before the required-field check, so that check sees the carried-over state.
+    if "attributes" in updates:
+        updates["attributes"] = await field_gate.enforce_field_lock(
+            db, card.type, card.attributes, updates["attributes"], carry_maintained=True
+        )
 
     # Guard: never clear a required field. Validates the post-merge final state
     # (after the cost/PPM preservation above), and runs even for an empty payload

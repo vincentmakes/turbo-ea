@@ -130,6 +130,8 @@
   "attributes.calculated": "вычисляемое",
   "attributes.percentageRange": "Введите число от 0 до 100",
   "attributes.auto": "авто",
+  "attributes.extLocked": "только чтение",
+  "attributes.extLockedTooltip": "Только чтение: расширение, предоставляющее это поле, не активно или не лицензировано",
   "attributes.filterAll": "Все",
   "hierarchy.title": "Иерархия",
   "hierarchy.level": "Уровень {{level}}",

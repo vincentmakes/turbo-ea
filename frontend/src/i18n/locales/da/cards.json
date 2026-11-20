@@ -110,6 +110,8 @@
   "attributes.calculated": "beregnet",
   "attributes.percentageRange": "Indtast et tal mellem 0 og 100",
   "attributes.auto": "auto",
+  "attributes.extLocked": "skrivebeskyttet",
+  "attributes.extLockedTooltip": "Skrivebeskyttet: udvidelsen, der leverer dette felt, er ikke aktiv eller licenseret",
   "attributes.filterAll": "Alle",
   "hierarchy.title": "Hierarki",
   "hierarchy.level": "Niveau {{level}}",

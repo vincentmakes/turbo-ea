@@ -25,7 +25,7 @@ The left sidebar panel allows you to **filter** cards by different criteria:
 - **Relations** — Filter by related cards across relation types
 - **Custom attributes** — Filter by values in custom fields (text search, select options)
 - **Show archived only** — Toggle to view archived (soft-deleted) cards
-- **Clear all** — Reset all active filters at once
+- **Clear all** — Reset all active filters at once. To reset just one group, use the clear button that appears beside the group's count once something in it is selected — clearing **Types** also resets the filters that only apply to the selected type (subtypes, link types, end of life, attributes and relations).
 
 > **Find cards with no value.** The Subtype, Lifecycle, Tags, Relations, and single/multi-select custom attribute filters each include an **(empty)** option. Select it to list only the cards that have *no* value for that field — for example, every card with no lifecycle set. It can be combined with normal values (matching either) and across filters (matching all).
 
@@ -268,6 +268,8 @@ For example, the demo view *Active apps on aging tech, and the organizations usi
 A view holds at most **six** query lines, **twelve** relations over all its lines, and **three** relations in depth on each line. The lines of an AND group meet on their start card only: the IT Component of one line and the Initiative of the other can be different cards. Two requirements on the **same** card in the middle of a line — say, the same IT Component must be offered by a Provider **and** belong to a Tech Category — cannot be built in the query builder; an AI assistant can write such a query through the [MCP server](../admin/mcp.md#multi-hop-card-queries), and the strip then shows it.
 
 **Editing a saved query view.** When a query view is open, the strip shows its path: the card types as chips, joined by the relation verb that links each step (for example *Organization → uses Application → is affected by Initiative*), with each card's conditions underneath. A view with several lines shows the same stack, with its AND markers and OR dividers, without the editing controls. If you own the view or have edit rights on it, a **pencil** in the strip switches it to the same builder; **Save** updates the view. The **×** button (*Leave this view*) returns to the normal inventory. **Save Current View** while a query view is open saves a new query view with the same query.
+
+**Folding the strip.** The chevron at the start of the strip folds the query lines into its title row, which then shows only the view's name and how many lines it has, leaving more room for the grid; click it again to unfold them. The inventory remembers your choice for the next view you open. A view with many lines, in the strip or in the builder, keeps them in an area of limited height that scrolls on its own, so the grid below always keeps its room and the pencil, **×**, **Save** and **Cancel** stay in reach.
 
 #### Seeing the cards behind a match { #query-view-matches }
 

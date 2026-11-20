@@ -256,3 +256,73 @@ describe("AdrFilterSidebar register filters", () => {
     expect(onChange).toHaveBeenCalledWith(EMPTY_ADR_FILTERS);
   });
 });
+
+describe("AdrFilterSidebar per-section clear", () => {
+  const FULL: Partial<AdrFilters> = {
+    cardTypes: ["Application"],
+    statuses: ["draft", "signed"],
+    standings: ["in_force"],
+    dateCreatedFrom: "2026-01-01",
+    dateCreatedTo: "2026-02-01",
+    showEarlierRevisions: true,
+  };
+
+  it("clears one section's filters and leaves every other section alone", () => {
+    const onChange = vi.fn();
+    renderSidebar({ filters: FULL, onFiltersChange: onChange });
+    fireEvent.click(screen.getByRole("button", { name: "Clear Status filters" }));
+    expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_ADR_FILTERS, ...FULL, statuses: [] });
+    fireEvent.click(screen.getByRole("button", { name: "Clear Date Created filters" }));
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...EMPTY_ADR_FILTERS,
+      ...FULL,
+      dateCreatedFrom: "",
+      dateCreatedTo: "",
+    });
+  });
+
+  it("shows a clear button only on the sections holding a selection", () => {
+    renderSidebar({ filters: { cardTypes: ["Application"] } });
+    expect(screen.getByRole("button", { name: "Clear Card Types filters" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Clear Status filters" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Clear Date Created filters" })).toBeNull();
+  });
+});
+
+describe("AdrFilterSidebar per-section clear, every section", () => {
+  /** Every section holds a filter, so a clear that touches too much shows. */
+  const EVERY: AdrFilters = {
+    cardTypes: ["Application"],
+    linkedCards: ["card-1"],
+    statuses: ["draft", "signed"],
+    standings: ["in_force"],
+    signedBy: ["user-1"],
+    dateCreatedFrom: "2026-01-01",
+    dateCreatedTo: "2026-01-31",
+    dateModifiedFrom: "2026-02-01",
+    dateModifiedTo: "2026-02-28",
+    dateSignedFrom: "2026-03-01",
+    dateSignedTo: "2026-03-31",
+    dateDecidedFrom: "2026-04-01",
+    dateDecidedTo: "2026-04-30",
+    showEarlierRevisions: true,
+  };
+
+  it.each<[string, Partial<AdrFilters>]>([
+    ["Card Types", { cardTypes: [] }],
+    ["Linked Cards", { linkedCards: [] }],
+    ["Status", { statuses: [] }],
+    ["Standing", { standings: [] }],
+    ["Signed By", { signedBy: [] }],
+    ["Date Created", { dateCreatedFrom: "", dateCreatedTo: "" }],
+    ["Date Modified", { dateModifiedFrom: "", dateModifiedTo: "" }],
+    ["Date Signed", { dateSignedFrom: "", dateSignedTo: "" }],
+    ["Date Decided", { dateDecidedFrom: "", dateDecidedTo: "" }],
+  ])("the %s clear resets exactly that section", (section, reset) => {
+    const onChange = vi.fn();
+    renderSidebar({ filters: EVERY, onFiltersChange: onChange });
+    fireEvent.click(screen.getByRole("button", { name: `Clear ${section} filters` }));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0][0]).toStrictEqual({ ...EVERY, ...reset });
+  });
+});

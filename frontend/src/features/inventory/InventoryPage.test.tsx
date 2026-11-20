@@ -10,6 +10,7 @@ import InventoryPage, {
   buildInventoryFacetBindings,
   normalizeAttrValue,
   optionChipItems,
+  queryStripCollapsedFromPrefs,
 } from "./InventoryPage";
 import { invalidateCalculatedFields } from "@/hooks/useCalculatedFields";
 import { MAX_SPLIT_VALUES } from "@/components/grid/useCellContextMenu";
@@ -2364,6 +2365,8 @@ describe("InventoryPage — calculated columns", () => {
           fields: [
             { key: "progress", label: "Progress", type: "percentage" },
             { key: "notes", label: "Notes", type: "text" },
+            // Contributed by an extension that is not active or licensed.
+            { key: "score", label: "Score", type: "number", ext: "sample-ext", ext_locked: true },
           ],
         },
       ],
@@ -2402,6 +2405,15 @@ describe("InventoryPage — calculated columns", () => {
     await userEvent.click(await screen.findByRole("button", { name: /grid edit/i }));
     await waitFor(() => expect(col("attr_notes")!.editable).toBe(true));
     await waitFor(() => expect(col("attr_progress")!.editable).toBe(false));
+  });
+
+  it("never lets grid edit mode open an editor on a field of an inactive extension", async () => {
+    renderInventory();
+    await userEvent.click(screen.getByTestId("select-application"));
+    await waitFor(() => expect(col("attr_score")).toBeDefined());
+    await userEvent.click(await screen.findByRole("button", { name: /grid edit/i }));
+    await waitFor(() => expect(col("attr_notes")!.editable).toBe(true));
+    expect(col("attr_score")!.editable).toBe(false);
   });
 });
 
@@ -2733,6 +2745,51 @@ describe("InventoryPage query views", () => {
     expect(screen.queryByTestId("query-path-strip")).not.toBeInTheDocument();
     expect(screen.getByTestId("filter-sidebar")).toHaveAttribute("data-external-view-id", "");
     await waitFor(() => expect(prefs().activeQuery).toBeNull());
+  });
+
+  it("opens the strip expanded and remembers folding it in the prefs", async () => {
+    localStorage.setItem(
+      "turboea_inventory",
+      JSON.stringify({ filters: { types: ["Application"] }, activeQuery: ACTIVE }),
+    );
+    renderInventory();
+    const toggle = await screen.findByTestId("query-path-collapse");
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await waitFor(() => expect(prefs().queryStripCollapsed).toBe(false));
+
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await waitFor(() => expect(prefs().queryStripCollapsed).toBe(true));
+  });
+
+  it("restores a folded strip from the prefs and unfolds it on a click", async () => {
+    localStorage.setItem(
+      "turboea_inventory",
+      JSON.stringify({
+        filters: { types: ["Application"] },
+        activeQuery: ACTIVE,
+        queryStripCollapsed: true,
+      }),
+    );
+    renderInventory();
+    const toggle = await screen.findByTestId("query-path-collapse");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByTestId("query-path-line-count")).toHaveTextContent("1 line");
+
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await waitFor(() => expect(prefs().queryStripCollapsed).toBe(false));
+  });
+
+  it("folds the strip only for a stored true", () => {
+    expect(queryStripCollapsedFromPrefs(null)).toBe(false);
+    expect(queryStripCollapsedFromPrefs({})).toBe(false);
+    expect(queryStripCollapsedFromPrefs({ queryStripCollapsed: false })).toBe(false);
+    // A hand-edited value is not a preference.
+    expect(
+      queryStripCollapsedFromPrefs({ queryStripCollapsed: "true" as unknown as boolean }),
+    ).toBe(false);
+    expect(queryStripCollapsedFromPrefs({ queryStripCollapsed: true })).toBe(true);
   });
 
   it("ignores a persisted query when the URL carries its own filters", async () => {

@@ -6,6 +6,9 @@ app starts), so activation is enforced here on every request instead:
 - extension not installed          → 404 (surface indistinguishable from
   a route that never existed — same philosophy as the ops API)
 - extension disabled by the admin  → 403
+- extension failed to load (e.g. a migration step failed) → 403 — its
+  routes were mounted at import time, before migrations ran, so they would
+  otherwise serve requests over tables that may not exist
 - no usable entitlement (expired past grace, or unlicensed) → 403
 
 ``active`` and ``grace`` entitlements both pass — grace is a warning
@@ -29,6 +32,8 @@ def require_extension(key: str):
             raise HTTPException(status_code=404, detail="Not found")
         if not info.enabled or info.status == "disabled":
             raise HTTPException(status_code=403, detail="Extension is disabled")
+        if info.status == "failed":
+            raise HTTPException(status_code=403, detail="Extension failed to load")
         if not extension_registry.entitlement(key).usable:
             raise HTTPException(
                 status_code=403,

@@ -166,6 +166,19 @@ def count_write_in_active_batch() -> None:
         )
 
 
+def http_detail_text(detail: object) -> str:
+    """The human sentence of an ``HTTPException`` detail.
+
+    Core's structured refusals (``{"error", "message", ...}`` — a locked
+    extension field, a required field emptied, a sibling-name clash) carry
+    their text in ``message``; ``str()`` of the dict would hand the extension a
+    Python repr instead.
+    """
+    if isinstance(detail, dict) and detail.get("message"):
+        return str(detail["message"])
+    return str(detail)
+
+
 def _parse_uuid(value: str, what: str) -> uuid.UUID:
     try:
         return uuid.UUID(value)
@@ -329,7 +342,9 @@ async def open_batch(key: str, label: str) -> AsyncIterator[ExtBatch]:
     if _active_batch.get() is not None:
         raise ExtensionDataError("Extension write batches cannot nest")
     _count_batch_against_rate(key)
+    inbound_batch_id = request_batch_id.get()
     async with async_session() as db:
+        via_batch_id = await _existing_batch_id(db, inbound_batch_id)
         batch = await mutation_batch_service.create_batch(
             db,
             tool_name=f"ext:{key}"[:100],
@@ -350,7 +365,7 @@ async def open_batch(key: str, label: str) -> AsyncIterator[ExtBatch]:
                 row = await db.get(MutationBatch, batch_id)
                 if row is not None:
                     await mutation_batch_service.commit_batch(
-                        db, row, summary={"label": label, "writes": state.writes}
+                        db, row, summary=batch_summary(label, state.writes, via_batch_id)
                     )
                     await db.commit()
     finally:
@@ -359,6 +374,51 @@ async def open_batch(key: str, label: str) -> AsyncIterator[ExtBatch]:
         _active_batch.reset(active_token)
         if state.writes == 0:
             await _drop_empty_batch(key, batch_id)
+
+
+async def _existing_batch_id(db: AsyncSession, batch_id: uuid.UUID | None) -> str | None:
+    """``batch_id`` as a string when it names a stored mutation batch, else None.
+
+    The inbound id comes from the ``X-Turbo-EA-Batch`` header (an MCP call
+    opened that batch and is calling an extension route inside it); it is
+    only a parsed UUID, so it is recorded only once it is known to exist.
+    """
+    if batch_id is None:
+        return None
+    row = await db.get(MutationBatch, batch_id)
+    return str(batch_id) if row is not None else None
+
+
+def batch_summary(label: str, writes: int, via_batch_id: str | None) -> dict[str, Any]:
+    """The committed ``ext:{key}`` batch's summary.
+
+    ``via_batch_id`` names the batch of the request the extension was serving
+    when it wrote — an MCP tool call into one of its routes (SDK 1.18) — so
+    the extension's bridge writes stay traceable to that call in the Audit
+    Log. Absent when the writes came from a job or an event handler.
+    """
+    summary: dict[str, Any] = {"label": label, "writes": writes}
+    if via_batch_id is not None:
+        summary["via_batch_id"] = via_batch_id
+    return summary
+
+
+async def single_op_summary(
+    db: AsyncSession, inbound_batch_id: uuid.UUID | None, summary: dict[str, Any] | None
+) -> dict[str, Any] | None:
+    """The summary an implicit single-op ``ext:{key}`` batch commits with.
+
+    Every write bridge opens one when no ``batch()`` scope is open. Like
+    :func:`open_batch`, it names the batch of the request the extension was
+    serving as ``via_batch_id`` — but only when ``inbound_batch_id`` (read
+    before the bridge set its own batch on the contextvar) names a stored
+    batch. Otherwise ``summary`` is returned untouched (``None`` keeps the
+    batch's own summary).
+    """
+    via_batch_id = await _existing_batch_id(db, inbound_batch_id)
+    if via_batch_id is None:
+        return summary
+    return {**(summary or {}), "via_batch_id": via_batch_id}
 
 
 async def _drop_empty_batch(key: str, batch_id: uuid.UUID) -> None:
@@ -791,7 +851,7 @@ class ExtensionData:
                 try:
                     result = await op(db)
                 except HTTPException as e:
-                    raise ExtensionDataError(str(e.detail)) from e
+                    raise ExtensionDataError(http_detail_text(e.detail)) from e
                 finally:
                     if sp.is_active:
                         await sp.rollback()
@@ -805,12 +865,13 @@ class ExtensionData:
                 try:
                     result = await op(db)
                 except HTTPException as e:
-                    raise ExtensionDataError(str(e.detail)) from e
+                    raise ExtensionDataError(http_detail_text(e.detail)) from e
                 await db.commit()
                 return result
 
         # Implicit single-op batch (todos-bridge shape).
         self._count_batch_against_rate()
+        inbound_batch_id = request_batch_id.get()
         origin_token = request_origin.set("ext")
         batch_token = None
         try:
@@ -826,8 +887,10 @@ class ExtensionData:
                 try:
                     result = await op(db)
                 except HTTPException as e:
-                    raise ExtensionDataError(str(e.detail)) from e
-                await mutation_batch_service.commit_batch(db, batch)
+                    raise ExtensionDataError(http_detail_text(e.detail)) from e
+                await mutation_batch_service.commit_batch(
+                    db, batch, summary=await single_op_summary(db, inbound_batch_id, None)
+                )
                 await db.commit()
                 return result
         finally:
@@ -1037,6 +1100,7 @@ class ExtensionData:
                     mode=mode,  # type: ignore[arg-type]
                     actor_id=None,
                     event_extra={"ext": self._key},
+                    dry_run=dry_run,
                 )
             except tag_service.TagWriteError as e:
                 raise ExtensionDataError(str(e)) from e

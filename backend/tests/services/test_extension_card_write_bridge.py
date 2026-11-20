@@ -8,6 +8,7 @@ event dispatcher's self-origin filter keys off.
 
 from __future__ import annotations
 
+import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 
@@ -100,6 +101,73 @@ async def env(db):
 
 async def _batches(db) -> list[MutationBatch]:
     return list((await db.execute(select(MutationBatch))).scalars().all())
+
+
+async def _inbound(db) -> MutationBatch:
+    """A stored batch, as an MCP call into an extension route opens one."""
+    from app.services import mutation_batch_service
+
+    row = await mutation_batch_service.create_batch(
+        db, tool_name="call_extension_write", actor=None, origin="mcp", dry_run=False
+    )
+    await db.flush()
+    return row
+
+
+async def _ext_batch(db) -> MutationBatch:
+    return (
+        await db.execute(select(MutationBatch).where(MutationBatch.tool_name == f"ext:{KEY}"))
+    ).scalar_one()
+
+
+class TestSingleOpInboundBatch:
+    """The implicit single-op batch of a write made outside any batch() scope
+    names the inbound request batch too (the call_extension_write promise),
+    but only when that id names a stored batch."""
+
+    async def test_single_op_write_records_the_inbound_batch(self, db, env):
+        from app.services.event_bus import request_batch_id
+
+        load_registry(grants=["core.cards.write"])
+        inbound = await _inbound(db)
+        token = request_batch_id.set(inbound.id)
+        try:
+            await ExtensionData(KEY).create_card(type="Application", name="Single")
+            assert request_batch_id.get() == inbound.id
+        finally:
+            request_batch_id.reset(token)
+        batch = await _ext_batch(db)
+        assert batch.committed_at is not None
+        assert batch.summary == {"via_batch_id": str(inbound.id)}
+
+    async def test_single_op_write_ignores_an_unknown_inbound_id(self, db, env):
+        from app.services.event_bus import request_batch_id
+
+        load_registry(grants=["core.cards.write"])
+        token = request_batch_id.set(uuid.uuid4())
+        try:
+            await ExtensionData(KEY).create_card(type="Application", name="Forged")
+        finally:
+            request_batch_id.reset(token)
+        assert (await _ext_batch(db)).summary is None
+
+    async def test_single_op_write_without_an_inbound_batch(self, db, env):
+        load_registry(grants=["core.cards.write"])
+        await ExtensionData(KEY).create_card(type="Application", name="Plain")
+        assert (await _ext_batch(db)).summary is None
+
+    async def test_single_op_summary_helper(self, db, env):
+        inbound = await _inbound(db)
+        assert await bridge_mod.single_op_summary(db, None, None) is None
+        assert await bridge_mod.single_op_summary(db, None, {"a": 1}) == {"a": 1}
+        assert await bridge_mod.single_op_summary(db, uuid.uuid4(), {"a": 1}) == {"a": 1}
+        assert await bridge_mod.single_op_summary(db, inbound.id, None) == {
+            "via_batch_id": str(inbound.id)
+        }
+        assert await bridge_mod.single_op_summary(db, inbound.id, {"a": 1}) == {
+            "a": 1,
+            "via_batch_id": str(inbound.id),
+        }
 
 
 class TestGating:
@@ -371,6 +439,58 @@ class TestBatching:
         assert batches[0].committed_at is not None
         assert batches[0].summary == {"label": "nightly sync", "writes": 1}
 
+    async def test_batch_records_the_inbound_mcp_batch(self, db, env):
+        # SDK 1.18: an MCP tool call into an extension route carries its own
+        # batch id on the request; the extension's bridge writes made while
+        # serving it name that batch, so the Audit Log can link the two.
+        from app.services import mutation_batch_service
+        from app.services.event_bus import request_batch_id
+
+        load_registry(grants=["core.cards.write"])
+        inbound = await mutation_batch_service.create_batch(
+            db, tool_name="call_extension_write", actor=None, origin="mcp", dry_run=False
+        )
+        await db.flush()
+        token = request_batch_id.set(inbound.id)
+        try:
+            bridge = ExtensionData(KEY)
+            async with bridge.batch("via mcp") as handle:
+                await bridge.create_card(type="Application", name="Via MCP")
+            # The inbound id is restored once the scope closes.
+            assert request_batch_id.get() == inbound.id
+        finally:
+            request_batch_id.reset(token)
+        ext_batch = await db.get(MutationBatch, uuid.UUID(handle.id))
+        assert ext_batch.summary == {
+            "label": "via mcp",
+            "writes": 1,
+            "via_batch_id": str(inbound.id),
+        }
+
+    async def test_an_unknown_inbound_batch_id_is_not_recorded(self, db, env):
+        # The header is only a parsed UUID: an id naming no stored batch is
+        # never written into the audit trail.
+        from app.services.event_bus import request_batch_id
+
+        load_registry(grants=["core.cards.write"])
+        token = request_batch_id.set(uuid.uuid4())
+        try:
+            bridge = ExtensionData(KEY)
+            async with bridge.batch("forged") as handle:
+                await bridge.create_card(type="Application", name="Forged")
+        finally:
+            request_batch_id.reset(token)
+        ext_batch = await db.get(MutationBatch, uuid.UUID(handle.id))
+        assert ext_batch.summary == {"label": "forged", "writes": 1}
+
+    def test_batch_summary_helper(self):
+        assert bridge_mod.batch_summary("l", 3, None) == {"label": "l", "writes": 3}
+        assert bridge_mod.batch_summary("l", 3, "abc") == {
+            "label": "l",
+            "writes": 3,
+            "via_batch_id": "abc",
+        }
+
     async def test_batch_yields_its_audit_id(self, db, env):
         # SDK 1.8: the handle names the batch the writes landed in.
         load_registry(grants=["core.cards.write"])
@@ -412,3 +532,42 @@ class TestBatching:
         await bridge.create_card(type="Application", name="Rate 2")
         with pytest.raises(ExtensionDataError, match="rate cap"):
             await bridge.create_card(type="Application", name="Rate 3")
+
+
+class TestRefusalText:
+    """A refusal raised inside the write reaches the extension as the core
+    message, on the dry-run and the in-batch paths alike."""
+
+    MESSAGE = "Invalid value for select field(s): 'Criticality' got 'nope'; valid options: high."
+
+    async def test_a_dry_run_refusal_carries_the_message(self, db, env):
+        load_registry(grants=["core.cards.write"])
+        bridge = ExtensionData(KEY)
+        with pytest.raises(ExtensionDataError) as exc:
+            await bridge.create_card(
+                type="Application", name="Bad", attributes={"criticality": "nope"}, dry_run=True
+            )
+        assert str(exc.value) == self.MESSAGE
+
+    async def test_an_in_batch_refusal_carries_the_message(self, db, env):
+        load_registry(grants=["core.cards.write"])
+        bridge = ExtensionData(KEY)
+        with pytest.raises(ExtensionDataError) as exc:
+            async with bridge.batch("sync"):
+                await bridge.create_card(
+                    type="Application", name="Bad", attributes={"criticality": "nope"}
+                )
+        assert str(exc.value) == self.MESSAGE
+
+
+@pytest.mark.parametrize(
+    "detail,text",
+    [
+        ({"error": "x", "message": "Readable."}, "Readable."),
+        ({"error": "x", "message": ""}, "{'error': 'x', 'message': ''}"),
+        ("Plain text", "Plain text"),
+        (None, "None"),
+    ],
+)
+def test_http_detail_text(detail, text):
+    assert bridge_mod.http_detail_text(detail) == text

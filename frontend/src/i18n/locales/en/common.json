@@ -802,5 +802,6 @@
   "spreadsheetImport.doneSkipped_one": "{{count}} row was skipped.",
   "spreadsheetImport.doneSkipped_other": "{{count}} rows were skipped.",
   "spreadsheetImport.doneFailed_one": "{{count}} row was not imported because of errors.",
-  "spreadsheetImport.doneFailed_other": "{{count}} rows were not imported because of errors."
+  "spreadsheetImport.doneFailed_other": "{{count}} rows were not imported because of errors.",
+  "filter.clearSection": "Clear {{section}} filters"
 }

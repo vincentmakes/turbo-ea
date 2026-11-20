@@ -997,7 +997,11 @@ export function validateImport(
       // actually supplied a *different* value than what's on the existing
       // card. Otherwise we'd spam one warning per (row, calc-field)
       // combination on every re-import of an untouched workbook.
-      const isReadOnly = field.readonly === true || calcFieldsForType.has(field.key);
+      // A field whose contributing extension is not enabled or licensed is
+      // read-only too (`ext_locked`): the backend refuses a change to it.
+      const extLocked = field.ext_locked === true;
+      const isReadOnly =
+        field.readonly === true || extLocked || calcFieldsForType.has(field.key);
       if (isReadOnly) {
         if (val) {
           const existingVal = matchedExisting?.attributes?.[field.key];
@@ -1011,10 +1015,15 @@ export function validateImport(
             warnings.push({
               row: rowNum,
               column: colKey,
-              message: t("import.warnings.readOnlyFieldIgnored", {
-                row: rowNum,
-                field: fieldLabel(field, i18n.language),
-              }),
+              message: t(
+                extLocked
+                  ? "import.warnings.extLockedFieldIgnored"
+                  : "import.warnings.readOnlyFieldIgnored",
+                {
+                  row: rowNum,
+                  field: fieldLabel(field, i18n.language),
+                },
+              ),
             });
           }
         }

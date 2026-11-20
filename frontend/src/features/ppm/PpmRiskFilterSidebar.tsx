@@ -30,6 +30,8 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import type { SxProps, Theme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { FilterSectionHeader } from "@/components/FilterSidebarSection";
+import { resetFilterKeys } from "@/lib/filterSections";
 import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
 import ColumnOrderSection, { type ColumnOrderItem } from "@/components/grid/ColumnOrderSection";
 import {
@@ -55,19 +57,6 @@ import {
 
 // Stryker disable all: layout, spacing and colour are presentation; jsdom lays nothing out
 const SX = {
-  sectionHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: 0.75,
-    py: 0.5,
-    px: 0.5,
-    cursor: "pointer",
-    borderRadius: 1,
-    userSelect: "none",
-    "&:hover": { bgcolor: "action.hover" },
-  },
-  sectionLabel: { flex: 1 },
-  countChip: { height: 18, fontSize: 11 },
   changeDot: { width: 8, height: 8, borderRadius: "50%", bgcolor: "primary.main", flexShrink: 0 },
   rail: {
     width: 44,
@@ -137,39 +126,6 @@ const SX = {
 const ROW_TEXT_PROPS = { fontSize: 13, noWrap: true };
 const EMPTY_TEXT_PROPS = { fontSize: 13, noWrap: true, fontStyle: "italic", color: "text.secondary" };
 // Stryker restore all
-
-function SectionHeader({
-  label,
-  icon,
-  expanded,
-  onToggle,
-  count,
-}: {
-  label: string;
-  icon: string;
-  expanded: boolean;
-  onToggle: () => void;
-  count: number;
-}) {
-  return (
-    <Box
-      onClick={onToggle}
-      sx={SX.sectionHeader}
-      role="button"
-      aria-expanded={expanded}
-      data-section-icon={icon}
-    >
-      <MaterialSymbol icon={expanded ? "expand_more" : "chevron_right"} size={16} />
-      <MaterialSymbol icon={icon} size={16} />
-      <Typography variant="body2" fontWeight={600} fontSize={13} sx={SX.sectionLabel}>
-        {label}
-      </Typography>
-      {count > 0 && (
-        <Chip label={count} size="small" color="primary" sx={SX.countChip} data-testid="section-count" />
-      )}
-    </Box>
-  );
-}
 
 function ChangeDot() {
   return <Box data-testid="change-dot" sx={SX.changeDot} />;
@@ -248,6 +204,9 @@ export default function PpmRiskFilterSidebar({
     owner: true,
   });
   const toggleSection = (key: string) => setExpanded((p) => ({ ...p, [key]: !p[key] }));
+  /** One section's clear button: resets exactly that section's keys. */
+  const clearKeys = (...keys: (keyof PpmRiskFilters)[]) =>
+    onFiltersChange(resetFilterKeys(filters, EMPTY_RISK_FILTERS, keys));
   const activeCount = useMemo(() => activeRiskFilterCount(filters), [filters]);
   const columnsChanged = riskColumnsDifferFromDefault(visibleColumns);
   const allColumns = RISK_GRID_COLUMN_IDS.length;
@@ -357,11 +316,12 @@ export default function PpmRiskFilterSidebar({
                 </Button>
               )}
 
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("riskFilterSectionSearch")}
                 icon="search"
                 expanded={expanded.search}
                 onToggle={() => toggleSection("search")}
+                onClear={() => clearKeys("search")}
                 count={filters.search.trim() ? 1 : 0}
               />
               <Collapse in={expanded.search}>
@@ -398,11 +358,12 @@ export default function PpmRiskFilterSidebar({
 
               <Divider sx={SX.divider} />
 
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("riskStatus")}
                 icon="traffic"
                 expanded={expanded.status}
                 onToggle={() => toggleSection("status")}
+                onClear={() => clearKeys("statuses")}
                 count={filters.statuses.length}
               />
               <Collapse in={expanded.status}>
@@ -421,11 +382,12 @@ export default function PpmRiskFilterSidebar({
 
               <Divider sx={SX.divider} />
 
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("riskScore")}
                 icon="speed"
                 expanded={expanded.score}
                 onToggle={() => toggleSection("score")}
+                onClear={() => clearKeys("bands")}
                 count={filters.bands.length}
               />
               <Collapse in={expanded.score}>
@@ -444,11 +406,12 @@ export default function PpmRiskFilterSidebar({
 
               <Divider sx={SX.divider} />
 
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("riskOwner")}
                 icon="person"
                 expanded={expanded.owner}
                 onToggle={() => toggleSection("owner")}
+                onClear={() => clearKeys("owners")}
                 count={filters.owners.length}
               />
               <Collapse in={expanded.owner}>
@@ -483,7 +446,7 @@ export default function PpmRiskFilterSidebar({
                   </Button>
                 )}
               </Box>
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("riskGridColumnsSection")}
                 icon="view_column"
                 expanded

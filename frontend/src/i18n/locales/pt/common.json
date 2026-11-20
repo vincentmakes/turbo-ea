@@ -802,5 +802,6 @@
   "spreadsheetImport.doneSkipped_one": "{{count}} linha foi ignorada.",
   "spreadsheetImport.doneSkipped_other": "{{count}} linhas foram ignoradas.",
   "spreadsheetImport.doneFailed_one": "{{count}} linha não foi importada devido a erros.",
-  "spreadsheetImport.doneFailed_other": "{{count}} linhas não foram importadas devido a erros."
+  "spreadsheetImport.doneFailed_other": "{{count}} linhas não foram importadas devido a erros.",
+  "filter.clearSection": "Limpar filtros de {{section}}"
 }

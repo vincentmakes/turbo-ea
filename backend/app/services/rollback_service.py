@@ -81,6 +81,7 @@ from app.models.tag import CardTag, Tag
 from app.models.todo import Todo
 from app.services import adr_service
 from app.services.event_bus import event_bus
+from app.services.extensions import field_gate
 from app.services.mutation_batch_service import batch_to_dict, create_batch
 
 # ---------------------------------------------------------------------------
@@ -516,9 +517,13 @@ async def _apply_restore_card_fields(db: AsyncSession, op: dict[str, Any]) -> di
     # JSON (UUIDs as strings, dicts intact). Re-coerce parent_id back to
     # UUID; everything else is set verbatim.
     legacy_attrs: dict[str, Any] = {}
+    restored_attrs: dict[str, Any] | None = None
     for k, v in (op.get("fields") or {}).items():
         if k.startswith(_LEGACY_ATTR_PREFIX):
             legacy_attrs[k[len(_LEGACY_ATTR_PREFIX) :]] = v
+            continue
+        if k == "attributes":
+            restored_attrs = dict(v or {})
             continue
         if k == "parent_id" and v:
             v = uuid.UUID(v)
@@ -528,13 +533,24 @@ async def _apply_restore_card_fields(db: AsyncSession, op: dict[str, Any]) -> di
         # attribute instead of the whole ``attributes`` dict, and ``setattr``
         # of ``attr_<key>`` wrote nothing. Restore each key onto the card's
         # attributes; an attribute that did not exist before is removed.
-        attrs = dict(card.attributes or {})
+        restored_attrs = dict(card.attributes or {} if restored_attrs is None else restored_attrs)
         for key, old in legacy_attrs.items():
             if old is None:
-                attrs.pop(key, None)
+                restored_attrs.pop(key, None)
             else:
-                attrs[key] = old
-        card.attributes = attrs
+                restored_attrs[key] = old
+    if restored_attrs is None:
+        return _ok(op)
+    # A field an inactive or unlicensed extension contributed is read-only:
+    # the rollback keeps its current value and reports it, restoring the rest.
+    # The snapshot is the whole column, so a locked key missing from it did
+    # not exist then — one the batch added is reported, not called restored.
+    locked = await field_gate.locked_fields_for_type(db, card.type)
+    card.attributes, skipped = field_gate.apply_snapshot_lock(
+        card.attributes, restored_attrs, locked
+    )
+    if skipped:
+        return {**_ok(op), "locked_fields": skipped}
     return _ok(op)
 
 

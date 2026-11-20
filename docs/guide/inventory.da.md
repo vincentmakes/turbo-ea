@@ -25,7 +25,7 @@ Det venstre sidepanel lader dig **filtrere** kort efter forskellige kriterier:
 - **Relationer** — Filtrer efter relaterede kort på tværs af relations­typer
 - **Brugerdefinerede attributter** — Filtrer efter værdier i brugerdefinerede felter (tekstsøgning, select-muligheder)
 - **Vis kun arkiverede** — Skift for at se arkiverede (soft-deleted) kort
-- **Ryd alle** — Nulstil alle aktive filtre på én gang
+- **Ryd alle** — Nulstil alle aktive filtre på én gang. For kun at nulstille én gruppe skal du bruge ryd-knappen, der vises ved siden af gruppens antal, så snart noget i den er valgt — rydning af **Typer** nulstiller også de filtre, der kun gælder for den valgte type (undertyper, linktyper, end of life, attributter og relationer).
 
 > **Find kort uden værdi.** Filtrene Undertype, Livscyklus, Tags, Relationer og brugerdefinerede valg-attributter har hver en **(tom)**-mulighed. Vælg den for kun at vise de kort, der *ikke* har en værdi for det felt — for eksempel alle kort uden en angivet livscyklus. Den kan kombineres med normale værdier (matcher en af dem) og på tværs af flere filtre (matcher alle).
 
@@ -268,6 +268,8 @@ Demovisningen *Active apps on aging tech, and the organizations using apps* har 
 En visning rummer højst **seks** forespørgselslinjer, **tolv** relationer på tværs af alle linjer og **tre** relationer i dybden på hver linje. Linjerne i en OG-gruppe mødes kun ved deres startkort: IT-komponenten i den ene linje og initiativet i den anden kan være forskellige kort. To krav til **det samme** kort midt i en linje — f.eks. at den samme IT-komponent leveres af en leverandør **og** tilhører en teknologikategori — kan ikke bygges i forespørgselseditoren; en AI-assistent kan skrive en sådan forespørgsel via [MCP-serveren](../admin/mcp.md#multi-hop-card-queries), og striben viser den derefter.
 
 **Redigering af en gemt forespørgselsvisning.** Når en forespørgselsvisning er åben, viser strimlen dens sti: korttyperne som chips, forbundet af det relationsverbum, der knytter hvert trin (for eksempel *Organisation → bruger Applikation → er berørt af Initiativ*), med hvert korts betingelser nedenunder. En visning med flere linjer viser den samme stak med sine OG-markører og ELLER-skillelinjer, men uden redigeringsknapperne. Hvis du ejer visningen eller har redigeringsrettigheder til den, skifter en **blyant** i strimlen den til den samme bygger; **Gem** opdaterer visningen. Knappen **×** (*Forlad denne visning*) vender tilbage til det normale inventar. **Gem aktuel visning**, mens en forespørgselsvisning er åben, gemmer en ny forespørgselsvisning med samme forespørgsel.
+
+**Fold striben sammen.** Pilen i starten af striben folder forespørgselslinjerne sammen i dens titelrække, som så kun viser visningens navn og antallet af linjer, så der bliver mere plads til gitteret; klik igen for at folde dem ud. Inventaret husker dit valg til den næste visning, du åbner. En visning med mange linjer beholder dem, i striben eller i buildere, i et område med begrænset højde, der ruller for sig, så gitteret nedenunder altid beholder sin plads, og blyanten, **×**, **Gem** og **Annuller** forbliver inden for rækkevidde.
 
 #### Se kortene bag et match { #query-view-matches }
 

@@ -190,6 +190,7 @@ class ExtensionTodos(TodosBridge):
                     raise ExtensionDataError(e.message) from e
                 await db.commit()
                 return result
+        inbound_batch_id = request_batch_id.get()
         origin_token = request_origin.set("ext")
         batch_token = None
         try:
@@ -206,7 +207,11 @@ class ExtensionTodos(TodosBridge):
                     result = await op(db)
                 except TodoError as e:
                     raise ExtensionDataError(e.message) from e
-                await mutation_batch_service.commit_batch(db, batch)
+                await mutation_batch_service.commit_batch(
+                    db,
+                    batch,
+                    summary=await data_service.single_op_summary(db, inbound_batch_id, None),
+                )
                 await db.commit()
                 return result
         finally:

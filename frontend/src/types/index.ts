@@ -230,6 +230,11 @@ export interface FieldDef {
   // manifest on enable/update, so the admin UI shows their config/help
   // read-only ("Managed by <ext>") rather than offering edits that won't stick.
   ext?: string;
+  // Transient, set by `GET /metamodel/types` (never stored): the extension
+  // that contributed this field is not enabled or not licensed, so its values
+  // are shown but cannot be changed — the backend refuses a change with 403
+  // `extension_fields_locked`. Read it through `isWriteLockedField`.
+  ext_locked?: boolean;
   // Set on built-in relation attribute "dimensions" (e.g. usageType,
   // flowDirection): the field definition is locked, but its options can be
   // managed. Custom relation dimensions are fully editable.

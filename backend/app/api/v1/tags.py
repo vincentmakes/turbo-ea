@@ -10,10 +10,22 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.models.card import Card
+from app.models.card_type import CardType
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
-from app.schemas.common import TagCreate, TagGroupCreate, TagGroupUpdate, TagUpdate
-from app.services import audit_labels, audit_log
+from app.schemas.common import (
+    CardTagBulkRequest,
+    CardTagBulkResponse,
+    CardTagBulkResult,
+    CardTagOperation,
+    TagCreate,
+    TagGroupCreate,
+    TagGroupUpdate,
+    TagUpdate,
+)
+from app.services import audit_labels, audit_log, tag_service
+from app.services.card_read_scope import CardReadScope
 from app.services.data_quality import rescore_cards
 from app.services.permission_service import PermissionService
 from app.services.tag_service import publish_tag_event as _publish_tag_event
@@ -34,6 +46,36 @@ async def _group_name(db: AsyncSession, group_id: uuid.UUID) -> str | None:
     return (
         await db.execute(select(TagGroup.name).where(TagGroup.id == group_id))
     ).scalar_one_or_none()
+
+
+async def _check_restrict_types(
+    db: AsyncSession, keys: list[str] | None, *, already_stored: list[str] | None = None
+) -> None:
+    """422 unless every card-type key in ``keys`` names an existing card type.
+
+    A key the group already stores is let through, so a group whose type was
+    since deleted can still be edited without first dropping that key.
+    """
+    if not keys:
+        return
+    stored = set(already_stored or [])
+    to_check = sorted({k for k in keys if k not in stored})
+    if not to_check:
+        return
+    existing = set(
+        (await db.execute(select(CardType.key).where(CardType.key.in_(to_check)))).scalars().all()
+    )
+    unknown = [k for k in to_check if k not in existing]
+    if unknown:
+        raise HTTPException(422, "Unknown card type(s) in restrict_to_types: " + ", ".join(unknown))
+
+
+def _parse_group_id(group_id: str) -> uuid.UUID:
+    """The path's group id, or 404 — a malformed id names no group."""
+    try:
+        return uuid.UUID(group_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Tag group not found") from exc
 
 
 router = APIRouter(tags=["tags"])
@@ -83,6 +125,10 @@ async def create_tag_group(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "tags.manage")
+    await _check_restrict_types(db, body.restrict_to_types)
+    if body.dry_run:
+        # Every check has run; nothing is stored and no audit row is written.
+        return {"id": None, "name": body.name, "dry_run": True}
     group = TagGroup(
         name=body.name,
         description=body.description,
@@ -121,6 +167,10 @@ async def update_tag_group(
     if group is None:
         raise HTTPException(status_code=404, detail="Tag group not found")
     updates = body.model_dump(exclude_unset=True)
+    if "restrict_to_types" in updates:
+        await _check_restrict_types(
+            db, updates["restrict_to_types"], already_stored=group.restrict_to_types
+        )
     changes: dict[str, Any] = audit_log.diff(group, updates)
     if "restrict_to_types" in changes:
         # Named the way the tag-group editor lists them.
@@ -180,8 +230,20 @@ async def create_tag(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "tags.manage")
+    group = await db.get(TagGroup, _parse_group_id(group_id))
+    if group is None:
+        raise HTTPException(status_code=404, detail="Tag group not found")
+    if body.dry_run:
+        # Every check has run; nothing is stored and no audit row is written.
+        return {
+            "id": None,
+            "name": body.name,
+            "description": body.description,
+            "color": body.color,
+            "dry_run": True,
+        }
     tag = Tag(
-        tag_group_id=uuid.UUID(group_id),
+        tag_group_id=group.id,
         name=body.name,
         description=body.description,
         color=body.color,
@@ -283,21 +345,162 @@ async def delete_tag(
     await db.commit()
 
 
-async def _require_can_tag_card(db: AsyncSession, user: User, card_uuid: uuid.UUID) -> None:
-    """Allow tagging a card if the user has `tags.manage` globally OR can
-    edit the card (via `inventory.edit` at the app level, or `card.edit`
-    through a stakeholder role)."""
+async def _can_tag_card(db: AsyncSession, user: User, card_uuid: uuid.UUID) -> bool:
+    """May the user tag this card? `tags.manage` globally, OR edit rights on
+    the card (`inventory.edit` at the app level, or `card.edit` through a
+    stakeholder role)."""
     if await PermissionService.check_permission(db, user, "tags.manage"):
-        return
-    if await PermissionService.check_permission(
+        return True
+    return await PermissionService.check_permission(
         db,
         user,
         "inventory.edit",
         card_id=card_uuid,
         card_permission="card.edit",
-    ):
-        return
-    raise HTTPException(status_code=403, detail="Insufficient permissions")
+    )
+
+
+async def _require_can_tag_card(db: AsyncSession, user: User, card_uuid: uuid.UUID) -> None:
+    if not await _can_tag_card(db, user, card_uuid):
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+
+
+def _parse_uuid(raw: str) -> uuid.UUID | None:
+    try:
+        return uuid.UUID(raw)
+    except ValueError:
+        return None
+
+
+def _summarise(results: list[CardTagBulkResult], *, dry_run: bool) -> CardTagBulkResponse:
+    return CardTagBulkResponse(
+        results=results,
+        updated=sum(1 for r in results if r.status == "updated"),
+        unchanged=sum(1 for r in results if r.status == "unchanged"),
+        failed=sum(1 for r in results if r.status in ("failed", "not_found")),
+        dry_run=dry_run,
+    )
+
+
+async def _apply_tag_operation(
+    db: AsyncSession,
+    user: User,
+    index: int,
+    op: CardTagOperation,
+    card: Card,
+    *,
+    dry_run: bool,
+) -> CardTagBulkResult:
+    """One row of ``POST /cards/tags/bulk``, inside the caller's savepoint."""
+    if card.status == "ARCHIVED":
+        return CardTagBulkResult(
+            index=index, card_id=op.card_id, status="failed", error="Card is archived"
+        )
+    tag_uuids = [_parse_uuid(t) for t in op.tag_ids]
+    bad = [raw for raw in op.tag_ids if _parse_uuid(raw) is None]
+    if bad:
+        return CardTagBulkResult(
+            index=index,
+            card_id=op.card_id,
+            status="failed",
+            error="Invalid tag id(s): " + ", ".join(bad),
+        )
+    added, removed = await tag_service.set_card_tags(
+        db,
+        card,
+        [t for t in tag_uuids if t is not None],
+        mode=op.mode,
+        actor_id=user.id,
+        dry_run=dry_run,
+    )
+    resulting = await tag_service.card_tag_ids(db, card.id)
+    return CardTagBulkResult(
+        index=index,
+        card_id=op.card_id,
+        status="updated" if added or removed else "unchanged",
+        added=[str(t) for t in added],
+        removed=[str(t) for t in removed],
+        tag_ids=[str(t) for t in resulting],
+    )
+
+
+async def apply_card_tag_operations(
+    db: AsyncSession, user: User, body: CardTagBulkRequest
+) -> CardTagBulkResponse:
+    """Add, remove or replace tags on many cards — the body of
+    ``POST /cards/tags/bulk``.
+
+    A card the caller may not read answers ``not_found`` exactly like one that
+    does not exist (inventory read scope). Every readable card must be
+    taggable by the caller or the whole call is refused before anything is
+    written — the bulk-archive convention. Each row then runs in its own
+    savepoint through ``tag_service.set_card_tags``, so the group rules
+    (single-choice, card-type restriction) are enforced on the resulting set
+    and a failed row rolls back only itself. ``dry_run`` rolls the whole call
+    back and publishes nothing.
+    """
+    ops = list(body.operations)
+    card_uuids = {u for u in (_parse_uuid(op.card_id) for op in ops) if u is not None}
+    cards: dict[uuid.UUID, Card] = {}
+    if card_uuids:
+        rows = await db.execute(select(Card).where(Card.id.in_(card_uuids)))
+        cards = {c.id: c for c in rows.scalars().all()}
+    read_scope = await CardReadScope.load(db, user)
+    visible = {
+        cid: card
+        for cid, card in cards.items()
+        if read_scope.readable(cid, card.type, mode="inventory")
+    }
+
+    denied = [str(cid) for cid, card in visible.items() if not await _can_tag_card(db, user, cid)]
+    if denied:
+        raise HTTPException(
+            403, "Not enough permissions to tag card(s): " + ", ".join(sorted(denied))
+        )
+
+    dry_run_savepoint = await db.begin_nested() if body.dry_run else None
+    results: list[CardTagBulkResult] = []
+    for index, op in enumerate(ops):
+        cid = _parse_uuid(op.card_id)
+        card = visible.get(cid) if cid is not None else None
+        if card is None:
+            results.append(CardTagBulkResult(index=index, card_id=op.card_id, status="not_found"))
+            continue
+        row_sp = await db.begin_nested()
+        try:
+            result = await _apply_tag_operation(db, user, index, op, card, dry_run=body.dry_run)
+        except tag_service.TagWriteError as exc:
+            await row_sp.rollback()
+            result = CardTagBulkResult(
+                index=index, card_id=op.card_id, status="failed", error=str(exc)
+            )
+        else:
+            # A row refused before it wrote (archived, a bad tag id) has
+            # nothing in its savepoint, so committing it is the same as not.
+            await row_sp.commit()
+        results.append(result)
+
+    response = _summarise(results, dry_run=body.dry_run)
+    if dry_run_savepoint is not None:
+        await dry_run_savepoint.rollback()
+    else:
+        # Failed rows rolled back their own savepoints; what is left is the
+        # rows that succeeded (or wrote nothing at all).
+        await db.commit()
+    return response
+
+
+@router.post("/cards/tags/bulk", response_model=CardTagBulkResponse)
+async def bulk_set_card_tags(
+    body: CardTagBulkRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Add, remove or replace tags on many cards in one call, with group rules
+    enforced and an optional ``dry_run``. The single-card ``POST
+    /cards/{id}/tags`` stays as it is: the UI swaps a single-choice tag by
+    adding before it removes, which the rule check here would refuse."""
+    return await apply_card_tag_operations(db, user, body)
 
 
 @router.post("/cards/{card_id}/tags", status_code=201)
