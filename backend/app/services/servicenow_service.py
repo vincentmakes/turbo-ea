@@ -25,6 +25,7 @@ from app.models.servicenow import (
 )
 from app.services.card_lifecycle import archive_cards_in_place
 from app.services.event_bus import event_bus
+from app.services.extensions import field_gate
 
 logger = logging.getLogger(__name__)
 
@@ -361,6 +362,26 @@ def _diff_to_changes(
     if any(k.startswith("lifecycle.") for k in (diff or {})):
         changes["lifecycle"] = {"old": before_lifecycle, "new": dict(card.lifecycle or {})}
     return changes
+
+
+def skip_locked_attribute_changes(diff: dict, locked: dict, sys_id: str) -> dict:
+    """``diff`` without the ``attributes.<key>`` changes to read-only fields.
+
+    A field an inactive or unlicensed extension contributed keeps its stored
+    value (``extensions.field_gate``): the sync skips that change, logs it and
+    applies the rest of the record rather than failing it.
+    """
+    skipped = [
+        path for path in diff if path.startswith("attributes.") and path.split(".", 1)[1] in locked
+    ]
+    if not skipped:
+        return diff
+    logger.warning(
+        "ServiceNow sync: read-only extension fields not updated for %s: %s",
+        sys_id,
+        ", ".join(path.split(".", 1)[1] for path in skipped),
+    )
+    return {path: change for path, change in diff.items() if path not in skipped}
 
 
 def _bump(run: SnowSyncRun, key: str, by: int = 1) -> None:
@@ -763,13 +784,26 @@ class SyncEngine:
             staged.snow_data or {}, field_mappings, "snow_to_turbo"
         )
 
+        # A field an inactive or unlicensed extension contributed is read-only:
+        # the new card is created without it, and the sync says so in the log.
+        locked = await field_gate.locked_fields_for_type(self.db, mapping.card_type_key)
+        attributes, skipped = field_gate.apply_field_lock(
+            {}, transformed.get("attributes", {}) or {}, locked
+        )
+        if skipped:
+            logger.warning(
+                "ServiceNow sync: read-only extension fields not written on create of %s: %s",
+                staged.snow_sys_id,
+                ", ".join(skipped),
+            )
+
         card = Card(
             type=mapping.card_type_key,
             subtype=transformed.get("subtype"),
             name=transformed.get("name", f"SNOW-{staged.snow_sys_id[:8]}"),
             description=transformed.get("description"),
             lifecycle=transformed.get("lifecycle", {}),
-            attributes=transformed.get("attributes", {}),
+            attributes=attributes,
             status="ACTIVE",
             approval_status="DRAFT",
         )
@@ -816,7 +850,11 @@ class SyncEngine:
         if not card:
             return
 
-        diff = staged.diff or {}
+        diff = skip_locked_attribute_changes(
+            staged.diff or {},
+            await field_gate.locked_fields_for_type(self.db, card.type),
+            staged.snow_sys_id,
+        )
         before_attrs = dict(card.attributes or {})
         before_lifecycle = dict(card.lifecycle or {})
         for field_path, change in diff.items():

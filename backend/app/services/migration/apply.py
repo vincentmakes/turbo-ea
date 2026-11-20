@@ -58,6 +58,7 @@ from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
 from app.services import card_type_categories
 from app.services.event_bus import event_bus
+from app.services.extensions import field_gate
 from app.services.relation_orientation import orient_endpoints
 
 logger = logging.getLogger(__name__)
@@ -255,6 +256,15 @@ async def _apply_card_pass(
     return counts
 
 
+def _note_skipped_fields(staged: StagedRecord, skipped: list[str]) -> None:
+    """Record the read-only extension fields an import did not write."""
+    if not skipped:
+        return
+    note = "Read-only extension fields not imported: " + ", ".join(skipped)
+    logger.warning("migration apply: card %s — %s", staged.source_id, note)
+    staged.error_message = note[:1000]
+
+
 async def _apply_single_card(
     db: AsyncSession,
     staged: StagedRecord,
@@ -287,7 +297,14 @@ async def _apply_single_card(
             }
     parent_id = await _resolve_parent_card_id(db, staged)
 
+    # A field an inactive or unlicensed extension contributed is read-only: the
+    # import keeps its stored value, skips the change and notes it on the row.
     if staged.action == "create":
+        locked = await field_gate.locked_fields_for_type(db, payload["type"])
+        attributes, skipped = field_gate.apply_field_lock(
+            {}, payload.get("attributes") or {}, locked
+        )
+        _note_skipped_fields(staged, skipped)
         card = Card(
             type=payload["type"],
             subtype=payload.get("subtype"),
@@ -295,7 +312,7 @@ async def _apply_single_card(
             description=payload.get("description"),
             parent_id=parent_id,
             lifecycle=payload.get("lifecycle") or {},
-            attributes=payload.get("attributes") or {},
+            attributes=attributes,
             status=payload.get("status") or "ACTIVE",
             approval_status=payload.get("approval_status") or "DRAFT",
             external_id=payload.get("external_id"),
@@ -356,6 +373,9 @@ async def _apply_single_card(
         if payload.get("lifecycle"):
             card.lifecycle = {**(card.lifecycle or {}), **payload["lifecycle"]}
         merged_attrs = {**(card.attributes or {}), **(payload.get("attributes") or {})}
+        locked = await field_gate.locked_fields_for_type(db, card.type)
+        merged_attrs, skipped = field_gate.apply_field_lock(card.attributes, merged_attrs, locked)
+        _note_skipped_fields(staged, skipped)
         card.attributes = merged_attrs
         if payload.get("external_id"):
             card.external_id = payload["external_id"]

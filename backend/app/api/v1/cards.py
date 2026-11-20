@@ -132,6 +132,7 @@ from app.services.data_quality import calc_data_quality, calc_data_quality_break
 from app.services.document_event_scope import document_event_read_filters
 from app.services.event_bus import event_bus
 from app.services.event_cost_scrub import scrub_event_costs
+from app.services.extensions import field_gate
 from app.services.lifecycle import lifecycle_rank
 from app.services.permission_service import PermissionService
 
@@ -903,6 +904,12 @@ async def bulk_create_cards(
         ).all()
     }
 
+    # Fields of an inactive or unlicensed extension, per type: a row may not
+    # fill them in (that row fails with the extension_fields_locked message).
+    locked_by_type = {
+        key: field_gate.locked_fields(key, schemas_by_type.get(key)) for key in batch_types
+    }
+
     async def _bulk_assign_reference(card: Card, row) -> None:
         if row.type not in _ref_types:
             _ref_types[row.type] = (
@@ -919,6 +926,9 @@ async def bulk_create_cards(
         # per-row result reporting this handler is built around.
         row_sp = await db.begin_nested()
         try:
+            row_attributes = field_gate.checked_attributes(
+                {}, r.attributes or {}, locked_by_type.get(r.type) or {}
+            )
             await _validate_url_attributes(db, r.type, r.attributes or {})
             await _validate_percentage_attributes(db, r.type, r.attributes or {})
             await _validate_boolean_attributes(db, r.type, r.attributes or {})
@@ -993,7 +1003,7 @@ async def bulk_create_cards(
                 parent_id=resolved_parent,
                 parent_label=r.parent_label if resolved_parent is not None else None,
                 lifecycle=r.lifecycle or {},
-                attributes=r.attributes or {},
+                attributes=row_attributes,
                 external_id=r.external_id,
                 alias=r.alias,
                 approval_status=r.approval_status or "DRAFT",
@@ -1815,6 +1825,11 @@ async def bulk_update(
                 select(CardType.key, CardType.fields_schema).where(CardType.key.in_(type_keys))
             )
             req_schemas = {key: schema for key, schema in rows.all()}
+    # Fields of an inactive or unlicensed extension, per type: carried over when
+    # the shared map omits them, a whole-call 403 when it would change one.
+    locked_by_type = {
+        key: field_gate.locked_fields(key, schema) for key, schema in req_schemas.items()
+    }
 
     # Same prefetch for the hierarchy-label vocabulary — the check is per card
     # (each compares against its own stored label and its own final parent), so
@@ -1898,6 +1913,9 @@ async def bulk_update(
                     strip = incoming_attr_redact.get(card.id)
                     if strip:
                         value = keep_stored_cost_values(card.attributes, value, strip)
+                locked = locked_by_type.get(card.type)
+                if locked:
+                    value = field_gate.checked_attributes(card.attributes, value, locked)
                 # Guard: never clear a required field — checked against the
                 # post-redaction final state, per card (also on dry-run, so an
                 # MCP preview surfaces the violation before any commit).

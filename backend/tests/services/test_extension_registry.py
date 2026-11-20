@@ -248,6 +248,27 @@ class TestRequireExtensionGate:
         )
         assert await _get(gate_app) == 403
 
+    async def test_failed_is_403_even_when_licensed(self, gate_app):
+        # Routes are mounted before migrations run: a failed load must not
+        # serve requests over tables that may not exist.
+        extension_registry.load_installed([make_info(status="failed")])
+        extension_registry.set_license(
+            make_license(Entitlement(extension_key="sample-ext", expires_at=None))
+        )
+        async with AsyncClient(
+            transport=ASGITransport(app=gate_app), base_url="http://test"
+        ) as client:
+            resp = await client.get("/probe")
+        assert resp.status_code == 403
+        assert resp.json()["detail"] == "Extension failed to load"
+
+    async def test_needs_restart_still_passes(self, gate_app):
+        extension_registry.load_installed([make_info(status="needs_restart")])
+        extension_registry.set_license(
+            make_license(Entitlement(extension_key="sample-ext", expires_at=None))
+        )
+        assert await _get(gate_app) == 200
+
     async def test_unlicensed_is_403(self, gate_app):
         extension_registry.load_installed([make_info()])
         assert await _get(gate_app) == 403

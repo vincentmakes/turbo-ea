@@ -166,6 +166,19 @@ def count_write_in_active_batch() -> None:
         )
 
 
+def http_detail_text(detail: object) -> str:
+    """The human sentence of an ``HTTPException`` detail.
+
+    Core's structured refusals (``{"error", "message", ...}`` — a locked
+    extension field, a required field emptied, a sibling-name clash) carry
+    their text in ``message``; ``str()`` of the dict would hand the extension a
+    Python repr instead.
+    """
+    if isinstance(detail, dict) and detail.get("message"):
+        return str(detail["message"])
+    return str(detail)
+
+
 def _parse_uuid(value: str, what: str) -> uuid.UUID:
     try:
         return uuid.UUID(value)
@@ -791,7 +804,7 @@ class ExtensionData:
                 try:
                     result = await op(db)
                 except HTTPException as e:
-                    raise ExtensionDataError(str(e.detail)) from e
+                    raise ExtensionDataError(http_detail_text(e.detail)) from e
                 finally:
                     if sp.is_active:
                         await sp.rollback()
@@ -805,7 +818,7 @@ class ExtensionData:
                 try:
                     result = await op(db)
                 except HTTPException as e:
-                    raise ExtensionDataError(str(e.detail)) from e
+                    raise ExtensionDataError(http_detail_text(e.detail)) from e
                 await db.commit()
                 return result
 
@@ -826,7 +839,7 @@ class ExtensionData:
                 try:
                     result = await op(db)
                 except HTTPException as e:
-                    raise ExtensionDataError(str(e.detail)) from e
+                    raise ExtensionDataError(http_detail_text(e.detail)) from e
                 await mutation_batch_service.commit_batch(db, batch)
                 await db.commit()
                 return result
