@@ -251,7 +251,7 @@ Check: `"claude-md-management@claude-plugins-official": true` in `enabledPlugins
 ### ponytail
 
 Keeps changes small: the "smallest change that fully solves the task" mode, plus the review and audit skills
-(`ponytail:ponytail-review`, `ponytail:ponytail-audit`) that the `reviewer` and the development agents use.
+(`ponytail:ponytail-review`, `ponytail:ponytail-audit`) that the `code-reviewer` and the development agents use.
 Version 5.3.3.
 GitHub: <https://github.com/DietrichGebert/ponytail> (marketplace `ponytail`, author Dietrich Gebert).
 
@@ -320,7 +320,7 @@ Used on request for annotations, protocols and type checking in Python.
 
 ### python-anti-patterns
 
-The [reviewer](.claude/agents/reviewer.md) agent uses it during backend review.
+The [code-reviewer](.claude/agents/code-reviewer.md) agent uses it during backend review.
 
 - Re-import into the project with `npx skills add wshobson/agents --skill python-anti-patterns --agent claude-code --copy`.
 - Source on GitHub. [wshobson/agents](https://github.com/wshobson/agents/blob/9c61ab243def98f72da12abd41cfcf5bcd91af9d/plugins/python-development/skills/python-anti-patterns/SKILL.md)
@@ -376,11 +376,13 @@ Each role has one shared definition in `.claude/agents/<name>.md`. Its Codex pro
 | frontend-dev | Frontend implementation and regression tests | [.claude/agents/frontend-dev.md](.claude/agents/frontend-dev.md) | sonnet | medium | [.codex/agents/frontend-dev.toml](.codex/agents/frontend-dev.toml) | gpt-6.1-terra | medium |
 | translator | Nine non-English locales and translation parity checks | [.claude/agents/translator.md](.claude/agents/translator.md) | sonnet | medium | [.codex/agents/translator.toml](.codex/agents/translator.toml) | gpt-6-luna | medium |
 | docs-keeper | Manual, screenshot references and screenshot capture | [.claude/agents/docs-keeper.md](.claude/agents/docs-keeper.md) | sonnet | medium | [.codex/agents/docs-keeper.toml](.codex/agents/docs-keeper.toml) | gpt-6.2-sol | medium |
-| reviewer | Independent, read-only review of the branch diff | [.claude/agents/reviewer.md](.claude/agents/reviewer.md) | opus | high | [.codex/agents/reviewer.toml](.codex/agents/reviewer.toml) | gpt-6.2-astra | high |
+| code-simplifier | Simplifies the changed code without changing behaviour, then re-runs the tests of the files it touched | [.claude/agents/code-simplifier.md](.claude/agents/code-simplifier.md) | opus | high | — | — | — |
+| code-reviewer | Independent, read-only code review of the branch diff (ponytail-review, python-anti-patterns, project rules) | [.claude/agents/code-reviewer.md](.claude/agents/code-reviewer.md) | opus | high | — | — | — |
+| security-reviewer | Independent, read-only security review of the branch diff (security-review, permission and CardReadScope rules) | [.claude/agents/security-reviewer.md](.claude/agents/security-reviewer.md) | opus | high | — | — | — |
 | spec-plan-reviewer | Fresh, read-only review of each spec or plan before presentation | [.claude/agents/spec-plan-reviewer.md](.claude/agents/spec-plan-reviewer.md) | opus | medium | [.codex/agents/spec-plan-reviewer.toml](.codex/agents/spec-plan-reviewer.toml) | gpt-6.2-astra | high |
 | vapt | Security assessment of the isolated test stack (Claude) and defensive review (Codex) | [.claude/agents/vapt.md](.claude/agents/vapt.md) | opus | high | [.codex/agents/vapt.toml](.codex/agents/vapt.toml) | gpt-6.2-astra | high |
 
-Start the `reviewer` in a fresh context after development. The calling session owns commits, pushes and pull requests. To change a role's duties for both tools, edit its shared definition. To change its Codex model or reasoning effort, edit its TOML profile.
+After development, start `code-simplifier`, `code-reviewer` and `security-reviewer`, one after the other, each in a fresh context: tests, simplify, tests of the touched files, code review and its fixes, security review and its fixes. The `security-reviewer` run also satisfies the hook that blocks `gh pr create`. The calling session owns commits, pushes and pull requests. To change a role's duties for both tools, edit its shared definition. To change its Codex model or reasoning effort, edit its TOML profile.
 
 #### Run a read-only spec or plan review in Codex
 
