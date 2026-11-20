@@ -292,3 +292,142 @@ class TestCheckedAttributes:
         err = field_gate.locked_error(["a", "b"], {"a": "Alpha"})
         assert err.detail["message"].endswith(": Alpha, b.")
         assert err.detail["fields"] == ["a", "b"]
+
+
+# ---------------------------------------------------------------------------
+# Walks that must go on past a skipped entry, the default registry, and the
+# database loaders
+# ---------------------------------------------------------------------------
+
+
+def _manifest(*sections: dict) -> dict:
+    return {"metamodel": {"field_sections": list(sections)}}
+
+
+@pytest.fixture
+def global_registry():
+    from app.services.extensions.registry import extension_registry
+
+    extension_registry.clear()
+    yield extension_registry
+    extension_registry.clear()
+
+
+def test_the_default_registry_is_the_global_one(global_registry):
+    global_registry.load_installed(
+        [ExtensionInfo(key=KEY, name="S", version="1", status="installed", enabled=True)]
+    )
+    global_registry.set_license(_license(Entitlement(extension_key=KEY, expires_at=None)))
+    assert field_gate.extension_fields_writable(KEY, now=NOW) is True
+    assert field_gate.extension_fields_writable("other-ext", now=NOW) is False
+
+
+def test_a_junk_section_does_not_end_the_schema_walk():
+    schema = ["junk", {"section": "S", "fields": [STAMPED]}]
+    assert field_gate.locked_fields("App", schema, ExtensionRegistry(), NOW) == {"score": "Score"}
+
+
+def test_a_manifest_that_is_not_a_dict_contributes_nothing():
+    assert list(field_gate._manifest_fields("junk", "App")) == []
+    assert list(field_gate._manifest_fields(None, "App")) == []
+
+
+def test_a_section_for_another_type_does_not_end_the_manifest_walk():
+    manifest = _manifest(
+        {"card_type": "Other", "fields": [{"key": "elsewhere"}]},
+        {"card_type": "App", "fields": [{"key": "rank"}]},
+    )
+    assert [f["key"] for f in field_gate._manifest_fields(manifest, "App")] == ["rank"]
+
+
+def test_a_writable_extension_does_not_end_the_manifest_pass():
+    reg = ExtensionRegistry()
+    reg.load_installed(
+        [
+            ExtensionInfo(
+                key="live-ext",
+                name="Live",
+                version="1",
+                status="installed",
+                enabled=True,
+                manifest={
+                    "free": True,
+                    **_manifest({"card_type": "App", "fields": [{"key": "a"}]}),
+                },
+            ),
+            ExtensionInfo(
+                key=KEY,
+                name="Off",
+                version="1",
+                status="installed",
+                enabled=False,
+                manifest=_manifest(
+                    {"card_type": "App", "fields": [{"key": "note"}, {"key": "rank"}]}
+                ),
+            ),
+        ]
+    )
+    # live-ext is writable and skipped; the disabled one still locks "rank",
+    # past "note", which the schema already carries.
+    assert field_gate.locked_fields("App", _schema(OWN), reg, NOW) == {"rank": "rank"}
+
+
+async def test_calculated_targets_reads_only_the_asked_types(db):
+    from app.models.calculation import Calculation
+
+    for type_key, field_key, active in (
+        ("App", "total", True),
+        ("App", "draft", False),
+        ("Other", "elsewhere", True),
+    ):
+        db.add(
+            Calculation(
+                name=f"{type_key}.{field_key}",
+                target_type_key=type_key,
+                target_field_key=field_key,
+                formula="1",
+                is_active=active,
+            )
+        )
+    await db.flush()
+    assert await field_gate.calculated_targets(db, ["App", "Empty"]) == {
+        "App": {"total"},
+        "Empty": set(),
+    }
+    assert await field_gate.calculated_targets(db, []) == {}
+
+
+async def test_locked_fields_for_type_matches_the_manifest_on_the_type(db, global_registry):
+    from tests.conftest import create_card_type
+
+    await create_card_type(db, key="App", label="App", fields_schema=_schema(OWN))
+    global_registry.load_installed(
+        [
+            ExtensionInfo(
+                key=KEY,
+                name="Off",
+                version="1",
+                status="installed",
+                enabled=False,
+                manifest=_manifest({"card_type": "App", "fields": [{"key": "rank"}]}),
+            )
+        ]
+    )
+    assert await field_gate.locked_fields_for_type(db, "App") == {"rank": "rank"}
+
+
+async def test_enforce_field_lock_refuses_a_stale_maintained_echo_by_default(db, global_registry):
+    from tests.conftest import create_card_type
+
+    readonly = {**STAMPED, "readonly": True}
+    await create_card_type(db, key="App", label="App", fields_schema=_schema(readonly, OWN))
+    stored = {"score": 1}
+    incoming = {"score": 2, "note": "x"}
+    # A create (the default) has nothing to carry: the change is refused.
+    with pytest.raises(HTTPException) as exc:
+        await field_gate.enforce_field_lock(db, "App", stored, incoming)
+    assert exc.value.detail["fields"] == ["score"]
+    # An update carries the server-maintained value over silently.
+    assert await field_gate.enforce_field_lock(
+        db, "App", stored, incoming, carry_maintained=True
+    ) == {"score": 1, "note": "x"}

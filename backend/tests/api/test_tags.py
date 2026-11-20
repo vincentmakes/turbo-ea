@@ -1202,3 +1202,94 @@ class TestTagCreationRules:
         )
         assert resp.status_code == 422
         assert resp.json()["detail"] == "Unknown card type(s) in restrict_to_types: Nope"
+
+
+class TestCardTagRefusalsExact:
+    async def test_single_card_tagging_answers_the_stakeholder_question(self, client, db, bulk_env):
+        t = bulk_env["tags"]
+        headers = auth_headers(bulk_env["viewer"])
+        # The viewer edits `other` through a stakeholder role on that card.
+        ok = await client.post(
+            f"/api/v1/cards/{bulk_env['other'].id}/tags", json=[t["hr"]], headers=headers
+        )
+        assert ok.status_code == 201, ok.text
+        assert await _card_tag_set(db, bulk_env["other"].id) == {t["hr"]}
+        refused = await client.post(
+            f"/api/v1/cards/{bulk_env['card'].id}/tags", json=[t["hr"]], headers=headers
+        )
+        assert refused.status_code == 403
+        assert refused.json() == {"detail": "Insufficient permissions"}
+
+    async def test_every_malformed_tag_id_is_named(self, client, db, bulk_env):
+        card = bulk_env["card"]
+        resp = await client.post(
+            BULK,
+            json=_ops((card.id, ["nope", "bad"], "add")),
+            headers=auth_headers(bulk_env["admin"]),
+        )
+        assert resp.json()["results"][0]["error"] == "Invalid tag id(s): nope, bad"
+
+    async def test_the_events_name_the_caller(self, client, db, bulk_env):
+        from sqlalchemy import select
+
+        from app.models.event import Event
+
+        t = bulk_env["tags"]
+        card = bulk_env["card"]
+        resp = await client.post(
+            BULK, json=_ops((card.id, [t["hr"]], "add")), headers=auth_headers(bulk_env["admin"])
+        )
+        assert resp.status_code == 200
+        rows = (await db.execute(select(Event).where(Event.event_type == "tag.added"))).scalars()
+        assert [e.user_id for e in rows.all()] == [bulk_env["admin"].id]
+
+    async def test_only_malformed_card_ids_are_all_not_found(self, client, db, bulk_env):
+        t = bulk_env["tags"]
+        resp = await client.post(
+            BULK,
+            json=_ops(("x", [t["hr"]], "add"), ("y", [t["hr"]], "add")),
+            headers=auth_headers(bulk_env["admin"]),
+        )
+        assert resp.status_code == 200, resp.text
+        assert [r["status"] for r in resp.json()["results"]] == ["not_found", "not_found"]
+
+    async def test_every_refused_card_is_named_in_order(self, client, db, bulk_env):
+        card, archived = bulk_env["card"], bulk_env["archived"]
+        t = bulk_env["tags"]
+        resp = await client.post(
+            BULK,
+            json=_ops((card.id, [t["hr"]], "add"), (archived.id, [t["hr"]], "add")),
+            headers=auth_headers(bulk_env["viewer"]),
+        )
+        assert resp.status_code == 403
+        first, second = sorted([str(card.id), str(archived.id)])
+        assert resp.json()["detail"] == (
+            f"Not enough permissions to tag card(s): {first}, {second}"
+        )
+
+    async def test_a_card_read_through_a_stakeholder_role_is_tagged(self, client, db, bulk_env):
+        """With the type hidden from the role, the card is still readable — and
+        taggable — through the caller's stakeholder role on it."""
+        from app.models.stakeholder import Stakeholder
+        from tests.api.test_cards_type_read_permissions import set_overrides
+        from tests.conftest import create_stakeholder_role_def
+
+        await create_stakeholder_role_def(
+            db,
+            card_type_key="Application",
+            key="curator",
+            permissions={"card.view": True, "card.edit": True},
+        )
+        other = bulk_env["other"]
+        db.add(Stakeholder(card_id=other.id, user_id=bulk_env["viewer"].id, role="curator"))
+        await db.flush()
+        await set_overrides(db, "Application", {"viewer": {"inventory.view": False}})
+        t = bulk_env["tags"]
+        resp = await client.post(
+            BULK,
+            json=_ops((other.id, [t["hr"]], "add"), (bulk_env["card"].id, [t["hr"]], "add")),
+            headers=auth_headers(bulk_env["viewer"]),
+        )
+        assert resp.status_code == 200, resp.text
+        assert [r["status"] for r in resp.json()["results"]] == ["updated", "not_found"]
+        assert await _card_tag_set(db, other.id) == {t["hr"]}

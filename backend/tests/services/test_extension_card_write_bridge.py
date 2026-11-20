@@ -532,3 +532,42 @@ class TestBatching:
         await bridge.create_card(type="Application", name="Rate 2")
         with pytest.raises(ExtensionDataError, match="rate cap"):
             await bridge.create_card(type="Application", name="Rate 3")
+
+
+class TestRefusalText:
+    """A refusal raised inside the write reaches the extension as the core
+    message, on the dry-run and the in-batch paths alike."""
+
+    MESSAGE = "Invalid value for select field(s): 'Criticality' got 'nope'; valid options: high."
+
+    async def test_a_dry_run_refusal_carries_the_message(self, db, env):
+        load_registry(grants=["core.cards.write"])
+        bridge = ExtensionData(KEY)
+        with pytest.raises(ExtensionDataError) as exc:
+            await bridge.create_card(
+                type="Application", name="Bad", attributes={"criticality": "nope"}, dry_run=True
+            )
+        assert str(exc.value) == self.MESSAGE
+
+    async def test_an_in_batch_refusal_carries_the_message(self, db, env):
+        load_registry(grants=["core.cards.write"])
+        bridge = ExtensionData(KEY)
+        with pytest.raises(ExtensionDataError) as exc:
+            async with bridge.batch("sync"):
+                await bridge.create_card(
+                    type="Application", name="Bad", attributes={"criticality": "nope"}
+                )
+        assert str(exc.value) == self.MESSAGE
+
+
+@pytest.mark.parametrize(
+    "detail,text",
+    [
+        ({"error": "x", "message": "Readable."}, "Readable."),
+        ({"error": "x", "message": ""}, "{'error': 'x', 'message': ''}"),
+        ("Plain text", "Plain text"),
+        (None, "None"),
+    ],
+)
+def test_http_detail_text(detail, text):
+    assert bridge_mod.http_detail_text(detail) == text

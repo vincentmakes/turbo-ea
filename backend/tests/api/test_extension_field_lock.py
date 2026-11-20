@@ -557,3 +557,56 @@ class TestMetamodel:
         )
         assert resp.status_code == 201
         assert "ext" not in _field(resp.json(), "x")
+
+
+class TestMetamodelHelpers:
+    """The two schema helpers of ``api/v1/metamodel.py`` on malformed entries:
+    a junk section or field is passed over, never the end of the walk."""
+
+    def test_stamps_survive_junk_and_fieldless_sections(self):
+        from app.api.v1.metamodel import _carry_ext_stamps
+
+        old = [
+            "junk",
+            {"section": "No fields"},
+            {"section": "Sample", "fields": ["junk", {"key": "score", "ext": OWNER}]},
+        ]
+        new = [
+            "junk",
+            {"section": "No fields"},
+            {
+                "section": "Sample",
+                "fields": [
+                    "junk",
+                    {"key": "score", "ext_locked": True},
+                    {"key": "note", "ext": "claimed"},
+                    {"key": "plain"},
+                ],
+            },
+        ]
+        assert _carry_ext_stamps(new, old) == [
+            "junk",
+            {"section": "No fields"},
+            {
+                "section": "Sample",
+                "fields": [
+                    "junk",
+                    {"key": "score", "ext": OWNER},
+                    {"key": "note"},
+                    {"key": "plain"},
+                ],
+            },
+        ]
+
+    def test_lock_flags_keep_junk_and_fieldless_sections_in_place(self):
+        from app.api.v1.metamodel import _schema_with_lock_flags
+
+        extension_registry.clear()
+        stamped = {"key": "score", "label": "Score", "ext": OWNER}
+        schema = ["junk", {"section": "Empty"}, {"section": "Sample", "fields": [stamped]}]
+        assert _schema_with_lock_flags("Gadget", schema) == [
+            "junk",
+            {"section": "Empty", "fields": []},
+            {"section": "Sample", "fields": [{**stamped, "ext_locked": True}]},
+        ]
+        assert schema[2]["fields"] == [stamped]

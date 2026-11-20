@@ -592,7 +592,7 @@ class SyncEngine:
             elif action == "update":
                 # Nothing left to write once read-only fields are skipped: the
                 # record counts as skipped, not updated.
-                if not await self._apply_update(fake_staged, field_mappings, run.created_by):
+                if not await self._apply_update(fake_staged, run.created_by):
                     action = "skip"
         elif not skip_staging:
             staged = SnowStagedRecord(
@@ -772,7 +772,7 @@ class SyncEngine:
                     await self._apply_create(staged, mapping, field_mappings, run.created_by)
                     applied["created"] += 1
                 elif staged.action == "update":
-                    if await self._apply_update(staged, field_mappings, run.created_by):
+                    if await self._apply_update(staged, run.created_by):
                         applied["updated"] += 1
                 elif staged.action == "delete":
                     await self._apply_delete(staged, mapping, run.created_by)
@@ -802,7 +802,7 @@ class SyncEngine:
         # the new card is created without it, and the sync says so in the log.
         locked = await self._locked_fields(mapping.card_type_key)
         attributes, skipped = field_gate.apply_field_lock(
-            {}, transformed.get("attributes", {}) or {}, locked
+            {}, transformed.get("attributes") or {}, locked
         )
         if skipped:
             logger.warning(
@@ -852,7 +852,6 @@ class SyncEngine:
     async def _apply_update(
         self,
         staged: SnowStagedRecord,
-        field_mappings: list[SnowFieldMapping],
         actor_id: uuid.UUID | None = None,
     ) -> bool:
         """Update an existing card from a staged record.

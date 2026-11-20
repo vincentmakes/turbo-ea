@@ -123,9 +123,11 @@ def config_segment(path: str) -> str | None:
 
 
 def is_file_download(path: str) -> bool:
-    """True when the last path segment ends in a file extension (``/export.csv``)."""
-    last = str(path).rstrip("/").rsplit("/", 1)[-1]
-    return bool(_FILE_EXTENSION.search(last))
+    """True when the last path segment ends in a file extension (``/export.csv``).
+
+    ``_FILE_EXTENSION`` is anchored at the end and cannot match a ``/``, so it
+    only ever sees the last segment; no split is needed."""
+    return bool(_FILE_EXTENSION.search(str(path).rstrip("/")))
 
 
 def path_params_of(path: str) -> tuple[str, ...]:
@@ -303,7 +305,7 @@ def check_agent_tool(
             raise AgentToolError(f"{what} is empty")
         if len(text) > limit:
             raise AgentToolError(f"{what} is longer than {limit} characters")
-    method = str(tool.method or "").upper()
+    method = str(tool.method).upper()
     if method not in METHODS:
         raise AgentToolError(f"method {tool.method!r} is not one of {sorted(METHODS)}")
     path = str(tool.path or "")

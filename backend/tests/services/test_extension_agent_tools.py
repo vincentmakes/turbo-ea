@@ -679,3 +679,204 @@ def test_tool_payload_shape():
         "supports_dry_run": False,
     }
     assert at.tool_payload(tool())["input_schema"] == {"type": "object", "properties": {}}
+
+
+# ---------------------------------------------------------------------------
+# Exact refusals, log lines and normalisation
+# ---------------------------------------------------------------------------
+
+
+def _messages(caplog, level=logging.WARNING) -> list[str]:
+    return [r.getMessage() for r in caplog.records if r.name == at.__name__ and r.levelno == level]
+
+
+def test_a_path_parameter_is_removed_before_a_segment_is_judged():
+    # "{name}admin" is the literal "admin" once the parameter is taken out.
+    assert at.config_segment("/items/{name}admin") == "{name}admin"
+
+
+def test_a_trailing_x_is_a_file_extension_not_a_separator():
+    assert at.is_file_download("/export/report.X")
+
+
+def test_no_permission_is_named_exactly():
+    assert at.permission_problem(KEY, "", KNOWN) == "no permission declared"
+    assert at.permission_problem(KEY, None, KNOWN) == "no permission declared"
+
+
+@pytest.mark.parametrize(
+    "schema,message",
+    [
+        (None, "input_schema must be a JSON-schema object (a dict)"),
+        ({"type": "array"}, 'input_schema must have "type": "object"'),
+        ({"type": "object", "properties": []}, "input_schema properties must be an object"),
+        ({"type": "object", "required": [1]}, "input_schema required must be a list of strings"),
+        ({"type": "object", "default": {1}}, "input_schema must be JSON-serialisable"),
+    ],
+)
+def test_schema_refusals_are_exact(schema, message):
+    assert at.schema_problem(schema) == message
+
+
+class _CountingDependant:
+    """A dependant whose query parameters count how often they are read."""
+
+    def __init__(self, fields=(), dependencies=()):
+        self._fields = [SimpleNamespace(alias=name) for name in fields]
+        self.dependencies = list(dependencies)
+        self.reads = 0
+
+    @property
+    def query_params(self):
+        self.reads += 1
+        return self._fields
+
+
+def test_a_dependant_reached_twice_is_read_once_and_the_walk_goes_on():
+    shared = _CountingDependant(["shared"])
+    first = _CountingDependant(["first"], [shared])
+    second = _CountingDependant(["second"], [shared])
+    late = _CountingDependant(["late"])
+    # The walk pops from the end: second, its shared child, first, the shared
+    # child again (already seen), then late — which must still be visited.
+    root = _CountingDependant(["root"], [late, first, second])
+    fields = at._query_fields(SimpleNamespace(dependant=root))
+    assert sorted(fields) == ["first", "late", "root", "second", "shared"]
+    assert [d.reads for d in (root, first, second, shared, late)] == [1, 1, 1, 1, 1]
+
+
+@pytest.mark.parametrize("value", [None, 5, {"a": 1}])
+def test_a_non_list_of_names_is_refused_as_such(value):
+    with pytest.raises(at.AgentToolError) as exc:
+        at._string_tuple(value, "names")
+    assert str(exc.value) == "names must be a list of names"
+
+
+class TestCheckAgentToolExact:
+    def test_not_an_agent_tool(self, routes):
+        with pytest.raises(at.AgentToolError) as exc:
+            at.check_agent_tool(KEY, {"name": "x"}, routes, KNOWN)
+        assert str(exc.value) == "not an AgentTool"
+
+    def test_a_title_of_exactly_the_limit_passes(self, routes):
+        title = "t" * at.MAX_TITLE_LENGTH
+        assert check(tool(title=title), routes).title == title
+
+    def test_a_missing_path_is_named_as_empty(self, routes):
+        assert refused(tool(path=None), routes) == "path '' must start with /"
+
+    def test_bad_path_params_are_named(self, routes):
+        assert refused(tool(name="get_item", path="/items/{item_id}"), routes) == (
+            "path_params [] must equal the route's ['item_id']"
+        )
+        assert refused(tool(path_params="item_id"), routes) == (
+            "path_params must be a list of names"
+        )
+
+    def test_a_name_in_both_places_is_refused_exactly(self):
+        router = APIRouter()
+
+        @router.get("/x/{q}")
+        async def x(q: str, other: int = Query(0, alias="q")):
+            return {}
+
+        assert refused(
+            tool(path="/x/{q}", path_params=("q",), query_params=("q",)), router.routes
+        ) == ("a name cannot be both a path and a query parameter")
+
+    def test_a_bare_dict_body_refusal_is_exact(self, routes):
+        assert refused(tool(name="raw", method="POST", path="/raw", kind="write"), routes) == (
+            "the route takes a bare dict body, so input_schema is required"
+        )
+
+    def test_the_lists_and_the_dry_run_flag_are_normalised(self, routes):
+        out = check(
+            tool(
+                name="copy_item",
+                method="POST",
+                path="/items/{item_id}/copy",
+                kind="write",
+                path_params=["item_id"],
+                query_params=[],
+                supports_dry_run=1,
+            ),
+            routes,
+        )
+        assert out.path_params == ("item_id",)
+        assert out.query_params == ()
+        assert out.supports_dry_run is True
+        listed = check(
+            tool(name="create_item", method="POST", kind="write", query_params=["mode"]), routes
+        )
+        assert listed.query_params == ("mode",)
+
+
+class TestCollectToolsExact:
+    def test_a_refused_row_is_logged_with_its_extension_and_label(self, caplog):
+        caplog.set_level(logging.WARNING, logger=at.__name__)
+        accepted = at.collect_tools(
+            KEY, [{"x": 1}, tool(path="/settings"), tool(), tool()], build_router(), KNOWN
+        )
+        assert [t.name for t in accepted] == ["list_items"]
+        assert _messages(caplog) == [
+            "Extension sample-ext agent tool \"{'x': 1}\" skipped: not an AgentTool",
+            "Extension sample-ext agent tool 'list_items' skipped: "
+            "path '/settings' is a configuration route ('settings')",
+            "Extension sample-ext agent tool 'list_items' skipped: the name is already used",
+        ]
+
+    def test_the_cap_is_logged_exactly(self, monkeypatch, caplog):
+        monkeypatch.setattr(at, "MAX_TOOLS_PER_EXTENSION", 1)
+        caplog.set_level(logging.WARNING, logger=at.__name__)
+        at.collect_tools(KEY, [tool(name="t0"), tool(name="t1")], build_router(), KNOWN)
+        assert _messages(caplog) == [
+            "Extension sample-ext declares more than 1 agent tools — 't1' and the rest skipped"
+        ]
+
+
+class TestRegisterExact:
+    def test_a_missing_grant_is_logged_exactly(self, clean, known, caplog):
+        caplog.set_level(logging.WARNING, logger=at.__name__)
+        at.register_extension_tools(KEY, {}, _Ext([tool()]), build_router())
+        assert _messages(caplog) == [
+            "Extension sample-ext offers agent tools but does not declare the "
+            "core.agent.tools grant — tools skipped"
+        ]
+
+    def test_a_missing_router_is_logged_exactly(self, clean, known, caplog):
+        caplog.set_level(logging.WARNING, logger=at.__name__)
+        at.register_extension_tools(KEY, GRANTED, _Ext([tool()]), None)
+        assert _messages(caplog) == [
+            "Extension sample-ext offers agent tools but mounts no router — skipped"
+        ]
+
+    def test_a_raising_hook_is_logged_exactly(self, clean, known, caplog):
+        caplog.set_level(logging.WARNING, logger=at.__name__)
+        at.register_extension_tools(KEY, GRANTED, _Ext(fail=True), build_router())
+        assert _messages(caplog, logging.ERROR) == ["Extension sample-ext get_agent_tools() failed"]
+
+    def test_a_registration_is_logged_exactly(self, clean, known, caplog):
+        caplog.set_level(logging.INFO, logger=at.__name__)
+        at.register_extension_tools(KEY, GRANTED, _Ext([tool()]), build_router())
+        assert _messages(caplog, logging.INFO) == [
+            "Registered 1 agent tool(s) for extension sample-ext"
+        ]
+
+    def test_a_failed_startup_registration_is_logged_exactly(
+        self, clean, known, monkeypatch, caplog
+    ):
+        def boom(*args):
+            raise RuntimeError("bad")
+
+        monkeypatch.setattr(at, "register_extension_tools", boom)
+        at.start_agent_tools(LoadReport(loaded=[_loaded(KEY, _Ext([tool()]), build_router())]))
+        assert _messages(caplog, logging.ERROR) == [
+            "Extension sample-ext agent tools could not be registered"
+        ]
+
+
+def test_an_extension_that_is_not_live_does_not_hide_the_next_one(clean):
+    at._tools["a-ext"] = [tool()]  # sorts first, not installed
+    at._tools[KEY] = [tool()]
+    _install()
+    assert [info.key for info, _ in at.live_tools()] == [KEY]

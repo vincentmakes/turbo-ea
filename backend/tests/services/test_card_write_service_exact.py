@@ -168,6 +168,23 @@ async def test_a_bare_create_takes_the_defaults(db, env):
     assert card.created_by is None and card.updated_by is None
 
 
+async def test_a_create_gates_its_attributes_against_an_empty_stored_dict(db, env, monkeypatch):
+    calls = []
+
+    async def gate(db_, type_key, stored, incoming, **kwargs):
+        calls.append((db_, type_key, stored, incoming, kwargs))
+        return {**incoming, "gated": True}
+
+    monkeypatch.setattr(svc.field_gate, "enforce_field_lock", gate)
+    card = await svc.create_card(
+        db, env["actor"], type_key="ITComponent", name="Server", attributes={"k": 1}
+    )
+    # A new card has nothing stored: the lock compares against an empty dict,
+    # and what the gate returns is what the card stores.
+    assert calls == [(db, "ITComponent", {}, {"k": 1}, {})]
+    assert card.attributes == {"k": 1, "gated": True}
+
+
 async def test_an_empty_label_without_a_parent_is_dropped(db, env):
     card = await svc.create_card(
         db, env["actor"], type_key="ITComponent", name="Server", parent_label=""

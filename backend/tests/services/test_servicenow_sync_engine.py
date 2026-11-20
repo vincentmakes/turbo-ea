@@ -9,6 +9,7 @@ the test database with no network.
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 
 import httpx
@@ -450,7 +451,7 @@ class TestPullApply:
                 "attributes.x": {"old": None, "new": 1},
             },
         )
-        await engine._apply_update(staged, env["fms"], env["admin"].id)
+        await engine._apply_update(staged, env["admin"].id)
         assert (card.name, card.subtype, card.description) == ("New", "saas", "d")
         assert card.lifecycle["endOfLife"] == "2030-01-01" and card.attributes["x"] == 1
         (event,) = await _events(db, "card.updated")
@@ -517,7 +518,7 @@ class TestReadOnlyExtensionFields:
                 "attributes.criticality": {"old": "low", "new": "critical"},
             },
         )
-        await engine._apply_update(staged, env["fms"], env["admin"].id)
+        await engine._apply_update(staged, env["admin"].id)
         assert card.name == "New"
         assert card.attributes["criticality"] == "low"
         (event,) = await _events(db, "card.updated")
@@ -588,7 +589,7 @@ class TestReadOnlyExtensionFields:
                     "attributes.criticality": {"old": "low", "new": "critical"},
                 },
             )
-            assert await engine._apply_update(staged, env["fms"], env["admin"].id) is True
+            assert await engine._apply_update(staged, env["admin"].id) is True
         await engine._apply_create(
             SnowStagedRecord(snow_sys_id=S3, action="create", snow_data=_rec(S3, "Fresh")),
             env["mapping"],
@@ -932,3 +933,174 @@ class TestClient:
         assert snow.decrypt_credentials(stored) == {"username": "u"}
         assert snow.decrypt_credentials({"username": "legacy"}) == {"username": "legacy"}
         assert snow.decrypt_credentials({"_enc": "garbage"}) == {}
+
+
+# ---------------------------------------------------------------------------
+# Read-only extension fields — exact log lines, actor and identity stamping
+# ---------------------------------------------------------------------------
+
+
+SNOW_LOGGER = snow.__name__
+
+
+def _snow_warnings(caplog) -> list[str]:
+    return [
+        r.getMessage()
+        for r in caplog.records
+        if r.name == SNOW_LOGGER and r.levelno == logging.WARNING
+    ]
+
+
+@pytest.fixture
+async def two_locked(db, env):
+    """``criticality`` and ``origin`` are both contributed by an extension that
+    is not live (an empty registry)."""
+    from app.models.card_type import CardType
+    from app.services.extensions.registry import extension_registry
+
+    ct = (await db.execute(select(CardType).where(CardType.key == "Application"))).scalar_one()
+    ct.fields_schema = [
+        {
+            "section": "Sample",
+            "fields": [
+                {"key": "criticality", "label": "Criticality", "type": "text", "ext": "sample-ext"},
+                {"key": "origin", "label": "Origin", "type": "text", "ext": "sample-ext"},
+            ],
+        }
+    ]
+    await db.flush()
+    extension_registry.clear()
+    yield
+    extension_registry.clear()
+
+
+def test_a_dotted_locked_key_is_matched_whole_and_logged(caplog):
+    caplog.set_level(logging.WARNING, logger=SNOW_LOGGER)
+    diff = {
+        "attributes.cost.total": {"old": 1, "new": 2},
+        "attributes.cost": {"old": 0, "new": 3},
+        "attributes.owner": {"old": "a", "new": "b"},
+        "name": {"old": "x", "new": "y"},
+    }
+    kept = snow.skip_locked_attribute_changes(diff, {"cost.total": "Total", "owner": "Owner"}, S1)
+    assert kept == {"attributes.cost": {"old": 0, "new": 3}, "name": {"old": "x", "new": "y"}}
+    assert _snow_warnings(caplog) == [
+        f"ServiceNow sync: read-only extension fields not updated for {S1}: cost.total, owner"
+    ]
+
+
+async def test_a_create_logs_every_locked_field_it_left_out(
+    db, env, two_locked, monkeypatch, caplog
+):
+    caplog.set_level(logging.WARNING, logger=SNOW_LOGGER)
+    engine, _ = _engine(db, monkeypatch, snow_table_handler())
+    calls: list[tuple] = []
+    original = snow.field_gate.apply_field_lock
+
+    def recording(stored, incoming, locked, *args):
+        calls.append((stored, dict(incoming)))
+        return original(stored, incoming, locked, *args)
+
+    monkeypatch.setattr(snow.field_gate, "apply_field_lock", recording)
+    staged = SnowStagedRecord(snow_sys_id=S2, action="create", snow_data=_rec(S2, "Fresh"))
+    await engine._apply_create(staged, env["mapping"], env["fms"], env["admin"].id)
+    card = (await db.execute(select(Card).where(Card.name == "Fresh"))).scalar_one()
+    assert card.attributes == {}
+    # A new card has nothing stored: the gate compares against an empty dict.
+    assert calls == [({}, {"criticality": "critical", "origin": "servicenow"})]
+    assert _snow_warnings(caplog) == [
+        "ServiceNow sync: read-only extension fields not written on create of "
+        f"{S2}: criticality, origin"
+    ]
+
+
+async def test_a_create_without_mapped_attributes_starts_empty(db, env, monkeypatch):
+    engine, _ = _engine(db, monkeypatch, snow_table_handler())
+    names_only = [fm for fm in env["fms"] if fm.turbo_field == "name"]
+    staged = SnowStagedRecord(snow_sys_id=S3, action="create", snow_data=_rec(S3, "Bare"))
+    await engine._apply_create(staged, env["mapping"], names_only, env["admin"].id)
+    card = (await db.execute(select(Card).where(Card.name == "Bare"))).scalar_one()
+    assert card.attributes == {}
+
+
+async def test_an_update_logs_the_skipped_field_with_its_record(
+    db, env, two_locked, monkeypatch, caplog
+):
+    caplog.set_level(logging.WARNING, logger=SNOW_LOGGER)
+    engine, _ = _engine(db, monkeypatch, snow_table_handler())
+    card = await _card(db, env, "Old", attributes={"criticality": "low"})
+    staged = SnowStagedRecord(
+        snow_sys_id=S1,
+        action="update",
+        card_id=card.id,
+        diff={
+            "name": {"old": "Old", "new": "New"},
+            "attributes.criticality": {"old": "low", "new": "critical"},
+        },
+    )
+    assert await engine._apply_update(staged, env["admin"].id) is True
+    assert _snow_warnings(caplog) == [
+        f"ServiceNow sync: read-only extension fields not updated for {S1}: criticality"
+    ]
+    (event,) = await _events(db, "card.updated")
+    assert event.user_id == env["admin"].id
+
+
+async def test_a_staged_update_is_published_as_the_run_s_creator(db, env, monkeypatch):
+    engine, _ = _engine(db, monkeypatch, snow_table_handler())
+    card = await _card(db, env, "Old")
+    run = SnowSyncRun(
+        connection_id=env["conn"].id,
+        mapping_id=env["mapping"].id,
+        stats={},
+        created_by=env["admin"].id,
+    )
+    db.add(run)
+    await db.flush()
+    db.add(
+        SnowStagedRecord(
+            sync_run_id=run.id,
+            mapping_id=env["mapping"].id,
+            snow_sys_id=S1,
+            action="update",
+            card_id=card.id,
+            diff={"name": {"old": "Old", "new": "New"}},
+            status="pending",
+        )
+    )
+    await db.flush()
+    assert await engine._apply_staged(run) == {
+        "created": 0,
+        "updated": 1,
+        "deleted": 0,
+        "errors": 0,
+    }
+    (event,) = await _events(db, "card.updated")
+    assert event.user_id == env["admin"].id
+
+
+async def test_a_direct_update_is_published_as_the_syncing_user(db, env, monkeypatch):
+    env["mapping"].skip_staging = True
+    card = await _card(db, env, "Billing", description="old")
+    await _identity(db, env, card, S1)
+    engine, _ = _engine(db, monkeypatch, snow_table_handler(records=[_rec(S1, "Billing")]))
+    run = await engine.pull_sync(env["mapping"], env["fms"], user_id=env["admin"].id)
+    assert run.stats == {**PULL_ZERO, "fetched": 1, "updated": 1}
+    (event,) = await _events(db, "card.updated")
+    assert event.user_id == env["admin"].id
+
+
+async def test_only_the_record_s_own_identity_row_is_stamped(db, env, monkeypatch):
+    engine, _ = _engine(db, monkeypatch, snow_table_handler())
+    card = await _card(db, env, "Mine")
+    other = await _card(db, env, "Other")
+    own = await _identity(db, env, card, S1)
+    same_card = await _identity(db, env, card, S2)
+    same_sys_id = await _identity(db, env, other, S1)
+    for row in (own, same_card, same_sys_id):
+        row.last_synced_at = None
+    await db.flush()
+    await engine._touch_identity(SnowStagedRecord(snow_sys_id=S1, card_id=card.id))
+    assert own.last_synced_at is not None
+    assert own.last_synced_at.tzinfo is not None
+    assert (same_card.last_synced_at, same_sys_id.last_synced_at) == (None, None)

@@ -415,3 +415,30 @@ class TestUpdate:
             )
         with pytest.raises(ExtensionDataError, match="not found"):
             await bridge.update(str(uuid.uuid4()), title="x")
+
+
+async def test_a_write_without_a_summary_commits_only_the_inbound_link(db):
+    """``summary`` is optional: a write that names none commits its batch with
+    just the inbound batch it was serving."""
+    from app.services import mutation_batch_service
+    from app.services.event_bus import request_batch_id
+
+    load_registry(grants=["core.risks.write"])
+    inbound = await mutation_batch_service.create_batch(
+        db, tool_name="call_extension_write", actor=None, origin="mcp", dry_run=False
+    )
+    await db.flush()
+
+    async def op(session):
+        return "done"
+
+    token = request_batch_id.set(inbound.id)
+    try:
+        assert await ExtensionRisks(KEY)._write(op) == "done"
+    finally:
+        request_batch_id.reset(token)
+    batch = (
+        await db.execute(select(MutationBatch).where(MutationBatch.tool_name == f"ext:{KEY}"))
+    ).scalar_one()
+    assert batch.committed_at is not None
+    assert batch.summary == {"via_batch_id": str(inbound.id)}
