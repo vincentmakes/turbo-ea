@@ -545,7 +545,7 @@ def _schema_with_lock_flags(type_key: str, schema: list | None) -> list:
                     flags["ext_locked"] = True
                 if contribution_guard.stamp_of(f) in active:
                     flags["ext_protected"] = True
-                f = {**f, **flags} if flags else f
+                f = {**f, **flags}
             fields.append(f)
         flagged = {**section, "fields": fields}
         if index in protected_sections:

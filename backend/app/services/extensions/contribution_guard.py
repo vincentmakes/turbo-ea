@@ -63,6 +63,7 @@ from app.services.extensions.field_contributions import (
 from app.services.extensions.registry import ExtensionRegistry, extension_registry
 
 Mode = Literal["save", "import"]
+_MODES: tuple[Mode, ...] = ("save", "import")
 
 #: Read-only flags a metamodel read adds; never stored.
 TRANSIENT_FLAGS = ("ext_locked", "ext_protected")
@@ -148,6 +149,14 @@ def stamp_of(item: Any) -> str | None:
         return None
     stamp = item.get("ext")
     return stamp if isinstance(stamp, str) and stamp else None
+
+
+def _check_mode(mode: Any) -> None:
+    """Refuse a mode that is neither a save nor an import: only ``"import"``
+    changes what the guard does, so a misspelt mode would silently act as a
+    save."""
+    if mode not in _MODES:
+        raise ValueError(f"unknown contribution guard mode: {mode!r}")
 
 
 def _key_of(item: Any) -> str | None:
@@ -290,7 +299,7 @@ def _insert_by_neighbours(
 ) -> None:
     """Insert ``entry`` after the nearest earlier stored section still in
     ``items``, else before the nearest later one, else at the end."""
-    for j in range(stored_index - 1, -1, -1):
+    for j in reversed(range(stored_index)):
         idx = _index_of(items, pair.get(j)) if j in pair else None
         if idx is not None:
             items.insert(idx + 1, entry)
@@ -340,6 +349,7 @@ def preserve_ext_schema(
     """Guard a ``fields_schema`` write (see the module docstring for what is
     guaranteed). ``installed`` (:func:`installed_contributions`) bounds the
     stamps an import may bring. Never mutates either argument."""
+    _check_mode(mode)
     installed = installed or {}
     stored = list(stored_schema) if isinstance(stored_schema, list) else []
     items = [_copy_section(s) for s in (body_schema if isinstance(body_schema, list) else [])]
@@ -361,13 +371,11 @@ def preserve_ext_schema(
         if id(section) in paired:
             _set_stamp(section, paired[id(section)])
             continue
-        claimed = (
-            _import_stamp(stamp_of(section), section.get("section"), "sections", installed)
-            if mode == "import"
-            else None
-        )
+        claimed = _import_stamp(stamp_of(section), section.get("section"), "sections", installed)
         # A new section keeps a bundle's stamp only alongside a field new to
         # this instance that carries the same one: never on admin fields alone.
+        # (On a save every field new here was just unstamped, so a save never
+        # keeps one.)
         keeps = claimed and any(
             stamp_of(f) == claimed and _key_of(f) not in stored_fields for f in _fields(section)
         )
@@ -545,7 +553,7 @@ def preserve_ext_section_config(
     stored = stored_config if isinstance(stored_config, dict) else {}
     out: dict = {}
     for key, value in config.items():
-        if key == "__order" or not _is_custom_key(key) or index_map is None:
+        if not _is_custom_key(key) or index_map is None:
             out[key] = copy.deepcopy(value)
             continue
         index = _custom_index(key)
@@ -591,6 +599,7 @@ def preserve_ext_subtypes(
     :func:`_import_stamp`'s rule), and an active
     extension's stamped subtype the body left out re-appended with its stored
     definition. Never mutates either argument."""
+    _check_mode(mode)
     stored = stored_subtypes if isinstance(stored_subtypes, list) else []
     stamps = _stored_stamps(stored)
     installed = installed or {}
@@ -652,7 +661,7 @@ def guard_card_type_row(
     stored_subtypes: Any,
     stored_config: Any,
     active_keys: Collection[str],
-    mode: Mode = "save",
+    mode: Mode,
     installed: Mapping[str, Contributed] | None = None,
 ) -> None:
     """Guard the ``fields_schema`` / ``subtypes`` / ``section_config`` a write
@@ -667,7 +676,11 @@ def guard_card_type_row(
     - ``fields_schema`` alone: the stored config, if a section was put back;
     - ``section_config`` alone (a stale editor): keys kept as sent, and every
       active contributed section given a place in a sent ``__order``.
+
+    ``mode`` is required (``"save"`` or ``"import"``; anything else raises
+    ``ValueError``): a caller states which write it guards.
     """
+    _check_mode(mode)
     if "fields_schema" in row:
         sent = row["fields_schema"]
         guard = preserve_ext_schema(
@@ -684,8 +697,9 @@ def guard_card_type_row(
                 stored_config=stored_config,
                 index_map=guard.body_to_final,
                 stored_to_final=guard.stored_to_final,
+                # No ``recreated``: the body's indices never name a section
+                # the guard re-created, so the body's map cannot reach one.
                 restored=guard.restored,
-                recreated=guard.recreated,
             )
         elif "section_config" not in row and guard.inserted and isinstance(stored_config, dict):
             row["section_config"] = preserve_ext_section_config(
