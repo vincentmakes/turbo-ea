@@ -335,8 +335,8 @@ describe("UsersFilterSidebar sections", () => {
       />,
     );
 
-    // Search has no count: its text is either there or not.
-    expect(sectionHeader("Search").textContent).toBe("expand_moresearchSearch");
+    // Search counts its text as one selection, so its clear button has a condition.
+    expect(sectionHeader("Search").textContent).toBe("expand_moresearchSearch1");
     expect(sectionHeader("Role").textContent).toBe("expand_moreshieldRole1");
     expect(sectionHeader("Status").textContent).toBe("expand_morecheck_circleStatus2");
     expect(sectionHeader("Auth").textContent).toBe("expand_morevpn_keyAuth1");
@@ -482,5 +482,30 @@ describe("UsersFilterSidebar resize listeners", () => {
       add.mockRestore();
       remove.mockRestore();
     }
+  });
+});
+
+describe("UsersFilterSidebar per-section clear", () => {
+  const FILTERED: UserFilters = {
+    search: "ann",
+    roles: ["admin"],
+    statuses: ["active", "invited"],
+    authMethods: ["sso"],
+    invited: true,
+  };
+
+  it("clears one section's filters and leaves every other section alone", async () => {
+    const user = userEvent.setup();
+    render(<Harness initialFilters={FILTERED} />);
+    await user.click(screen.getByRole("button", { name: "Clear Status filters" }));
+    expect(lastFilters()).toEqual({ ...FILTERED, statuses: [] });
+    expect(sectionHeader("Status").textContent).toBe("expand_morecheck_circleStatus");
+    await user.click(screen.getByRole("button", { name: "Clear Search filters" }));
+    expect(lastFilters()).toEqual({ ...FILTERED, statuses: [], search: "" });
+  });
+
+  it("shows no clear button while nothing is filtered", () => {
+    render(<Harness />);
+    expect(screen.queryByRole("button", { name: /^Clear .* filters$/ })).toBeNull();
   });
 });

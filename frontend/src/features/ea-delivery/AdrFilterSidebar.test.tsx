@@ -256,3 +256,35 @@ describe("AdrFilterSidebar register filters", () => {
     expect(onChange).toHaveBeenCalledWith(EMPTY_ADR_FILTERS);
   });
 });
+
+describe("AdrFilterSidebar per-section clear", () => {
+  const FULL: Partial<AdrFilters> = {
+    cardTypes: ["Application"],
+    statuses: ["draft", "signed"],
+    standings: ["in_force"],
+    dateCreatedFrom: "2026-01-01",
+    dateCreatedTo: "2026-02-01",
+    showEarlierRevisions: true,
+  };
+
+  it("clears one section's filters and leaves every other section alone", () => {
+    const onChange = vi.fn();
+    renderSidebar({ filters: FULL, onFiltersChange: onChange });
+    fireEvent.click(screen.getByRole("button", { name: "Clear Status filters" }));
+    expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_ADR_FILTERS, ...FULL, statuses: [] });
+    fireEvent.click(screen.getByRole("button", { name: "Clear Date Created filters" }));
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...EMPTY_ADR_FILTERS,
+      ...FULL,
+      dateCreatedFrom: "",
+      dateCreatedTo: "",
+    });
+  });
+
+  it("shows a clear button only on the sections holding a selection", () => {
+    renderSidebar({ filters: { cardTypes: ["Application"] } });
+    expect(screen.getByRole("button", { name: "Clear Card Types filters" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Clear Status filters" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Clear Date Created filters" })).toBeNull();
+  });
+});

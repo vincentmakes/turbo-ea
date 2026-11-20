@@ -677,3 +677,27 @@ describe("columns tab detail", () => {
     expect(screen.queryByText(t("securityLog.filters.selectAll"))).not.toBeInTheDocument();
   });
 });
+
+describe("per-section clear", () => {
+  it("clears one section's filters and leaves every other section alone", async () => {
+    const { user, onFiltersChange } = setup(
+      {},
+      { q: "bob", category: "auth", dateFrom: "2026-01-01", dateTo: "2026-02-01" },
+    );
+    await user.click(screen.getByRole("button", { name: "Clear Date range filters" }));
+    expect(lastFilters(onFiltersChange)).toEqual({
+      ...EMPTY_SECURITY_FILTERS,
+      q: "bob",
+      category: "auth",
+    });
+    // The section is now empty, so its button is gone; the others keep theirs.
+    expect(screen.queryByRole("button", { name: "Clear Date range filters" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Clear Category filters" }));
+    expect(lastFilters(onFiltersChange)).toEqual({ ...EMPTY_SECURITY_FILTERS, q: "bob" });
+  });
+
+  it("offers no clear button on a section with nothing selected", () => {
+    setup();
+    expect(screen.queryByRole("button", { name: /^Clear .* filters$/ })).toBeNull();
+  });
+});
