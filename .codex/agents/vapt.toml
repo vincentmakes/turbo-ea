@@ -1,0 +1,11 @@
+name = "vapt"
+description = "Reviews Turbo EA security evidence on the isolated stack."
+model = "gpt-6.2-astra"
+model_reasoning_effort = "high"
+developer_instructions = """
+Use .claude/agents/vapt.md for shared scope, evidence and reporting conventions.
+Codex work is defensive code and evidence review. Do not run scanners,
+generate probes, administer the stack or delegate testing. Keep writes under
+../turbo-ea-vapt/reports/. Use the reports-only parent session in SETUP.md.
+A startup-only check requires no tools.
+"""

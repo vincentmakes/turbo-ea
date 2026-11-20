@@ -9,6 +9,26 @@
             "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/mark-security-review.sh\" 2>/dev/null || true"
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.trail/hook.cjs\" post-edit || exit 0",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|mcp__graft__|mcp__trail__|Read|Grep|Glob|Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.trail/hook.cjs\" tool-savings || exit 0",
+            "timeout": 8
+          }
+        ]
       }
     ],
     "PreToolUse": [
@@ -20,6 +40,36 @@
             "if": "Bash(gh pr create*)",
             "command": "f=\"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/check-security-review.sh\"; [ -f \"$f\" ] || exit 0; bash \"$f\"",
             "onFailure": "block"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.trail/hook.cjs\" pre-edit || exit 0",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.trail/hook.cjs\" pre-bash || exit 0",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "^(Grep|Glob)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/graphify-search.cjs\"",
+            "timeout": 5
           }
         ]
       }
@@ -42,6 +92,51 @@
           }
         ]
       }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.trail/hook.cjs\" prompt || exit 0",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.trail/hook.cjs\" post-bash-fail || exit 0",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.trail/hook.cjs\" stop || exit 0",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.trail/hook.cjs\" session-end || exit 0",
+            "timeout": 5
+          }
+        ]
+      }
     ]
   },
   "enabledPlugins": {
@@ -53,6 +148,12 @@
     "ponytail@ponytail": true
   },
   "env": {
-    "PYTHONUTF8": "1"
+    "PYTHONUTF8": "1",
+    "TRAIL_INVOKED_AS": "trail",
+    "DO_NOT_TRACK": "1"
+  },
+  "subagentStatusLine": {
+    "type": "command",
+    "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.trail/statusline.cjs\""
   }
 }

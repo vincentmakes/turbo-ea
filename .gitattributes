@@ -6,3 +6,4 @@ Dockerfile text eol=lf
 # The ArchiMate contract fixture is compared byte for byte with the frontend writer's LF-only output.
 backend/tests/fixtures/archimate/*.xml text eol=lf
 backend/tests/fixtures/archimate/*.archimate text eol=lf
+/.githooks/* text eol=lf
