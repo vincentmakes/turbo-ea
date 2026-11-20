@@ -781,7 +781,7 @@ class TestStaleCachedTests:
         assert (tmp_path / "mutants/tests/keep/test_kept.py").exists()
         assert (tmp_path / "tests/keep/test_kept.py").exists()
         # nothing outside tests/ is touched, even without a source twin
-        write(tmp_path / "mutants", "app/only_cached.py", "x = 1\n")
+        touch(tmp_path / "mutants/app/only_cached.py")
         mutmut_scope.drop_stale_tests(tmp_path)
         assert (tmp_path / "mutants/app/only_cached.py").exists()
         assert (tmp_path / "mutants/app/x.py").exists()
@@ -885,6 +885,20 @@ class TestMutmutRunAndCollect:
             return subprocess.CompletedProcess(a, 0, "", "")
 
         monkeypatch.setattr(mutmut_scope, "mutmut", fake)
+
+    def test_run_drops_stale_cached_tests_after_the_shadow_root_is_built(
+        self, suite_repo, monkeypatch
+    ):
+        stale = suite_repo / "backend" / "mutants" / "tests" / "test_gone.py"
+
+        def build(*_a, **_k):  # the restored cache arrives with the shadow root
+            touch(stale)
+
+        monkeypatch.setattr(mutmut_scope.shadow_root, "build", build)
+        self.fake_mutmut(monkeypatch, [])
+        changed = {"backend/app/x.py": [[8, 8]]}
+        assert mutmut_scope.run("backend", changed, 2, suite_repo) == 0
+        assert not stale.exists()
 
     def test_a_shard_never_generated_runs_whole_files(self, suite_repo, monkeypatch):
         calls = []

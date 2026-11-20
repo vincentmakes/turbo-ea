@@ -115,7 +115,7 @@ archive/
 /turbolens/
 
 #Local Claude — everything stays local except the Trail-code wiring: the shared
-# settings.json (hooks -> .trail/hook.cjs), the web-session installer and the skill
+# settings.json (hooks -> .trail/hook.cjs), the hooks folder and the translate skill
 .claude/*
 !.claude/settings.json
 !.claude/hooks/
@@ -125,7 +125,6 @@ archive/
 !.claude/rules/
 !.claude/agents/
 AGENTS.md
-!.claude/skills/**/AGENTS.md
 
 # graphify: output locale dello strumento, non codice del fork
 graphify-out/
@@ -153,7 +152,7 @@ frontend/e2e/.auth/
 /.agents/
 
 # Codex files (profiles, hooks, config): local to this machine, not versioned
-.codex/
+/.codex/
 
 # Personal machine setup notes (not versioned)
-SETUP.md
+/SETUP.md

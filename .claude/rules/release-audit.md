@@ -1,6 +1,5 @@
 ---
 paths:
-  - ".claude/skills/security-audit/**"
   - "VERSION"
 ---
 
@@ -14,5 +13,5 @@ paths:
 
 > Loaded when you touch `VERSION` or the `security-audit` skill. Moved verbatim from `CLAUDE.md`; edit it here.
 
-- **Run the `security-audit` skill (project-scoped, `.claude/skills/security-audit/`) whenever a release tag is cut on this repo, or on explicit request.** Multi-phase, multi-agent audit — expect it to take several minutes and real token spend; this is a procedure to run deliberately before a release ships, not a background check. No automatic hook triggers it (git tag/push events outside Claude Code are invisible to hooks, and a long multi-agent run has no safe pass/fail to gate a command on) — treat "we're cutting a tag" as the cue to invoke it yourself in the session doing the release.
+- **Run the `security-audit` skill (a local install under `.claude/skills/security-audit/`, git-ignored: not in a fresh clone) whenever a release tag is cut on this repo, or on explicit request.** Multi-phase, multi-agent audit — expect it to take several minutes and real token spend; this is a procedure to run deliberately before a release ships, not a background check. No automatic hook triggers it (git tag/push events outside Claude Code are invisible to hooks, and a long multi-agent run has no safe pass/fail to gate a command on) — treat "we're cutting a tag" as the cue to invoke it yourself in the session doing the release.
 - **Also run a full-repo `ponytail-audit` on the same cadence — a release tag, or on explicit request** — never per-PR (the per-PR `ponytail-review` diff gate (CLAUDE.md, Testing Conventions) already covers that). Show every finding, then fix every Must and Should before the release ships.

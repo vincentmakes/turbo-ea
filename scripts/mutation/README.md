@@ -405,8 +405,8 @@ Each of these was found the hard way while wiring it up; keep them.
   code, fail mutmut's clean test and measure nothing (PR #76,
   `tests/api/test_license_types_api.py`). `run` calls `drop_stale_tests`
   after the shadow root is built: every file under `mutants/tests/` with no
-  counterpart under the suite's real `tests/` is deleted. Stale `.pyc` files
-  and stats entries are left alone; pytest only collects `.py` files.
+  counterpart under the suite's real `tests/` is deleted (`.pyc` files
+  included). Only `mutants/tests/` is touched; stats entries are left alone.
 
 ## Files
 
