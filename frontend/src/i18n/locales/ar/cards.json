@@ -150,6 +150,8 @@
   "attributes.calculated": "محسوب",
   "attributes.percentageRange": "أدخل رقمًا بين 0 و100",
   "attributes.auto": "تلقائي",
+  "attributes.extLocked": "للقراءة فقط",
+  "attributes.extLockedTooltip": "للقراءة فقط: الإضافة التي توفر هذا الحقل غير نشطة أو غير مرخّصة",
   "attributes.filterAll": "الكل",
   "hierarchy.title": "التسلسل الهرمي",
   "hierarchy.level": "المستوى {{level}}",

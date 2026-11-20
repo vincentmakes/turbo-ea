@@ -25,7 +25,7 @@ El panel lateral izquierdo permite **filtrar** las fichas por diferentes criteri
 - **Relaciones** — Filtrar por fichas relacionadas a través de tipos de relación
 - **Atributos personalizados** — Filtrar por valores en campos personalizados (búsqueda de texto, opciones de selección)
 - **Mostrar solo archivados** — Alternar para ver fichas archivadas (eliminadas temporalmente)
-- **Limpiar todo** — Restablecer todos los filtros activos de una vez
+- **Limpiar todo** — Restablecer todos los filtros activos de una vez. Para restablecer solo un grupo, use el botón de limpiar que aparece junto al contador del grupo en cuanto hay algo seleccionado en él — limpiar **Tipos** también restablece los filtros que solo se aplican al tipo seleccionado (subtipos, tipos de enlace, fin de vida, atributos y relaciones).
 
 > **Encontrar fichas sin valor.** Los filtros de Subtipo, Ciclo de vida, Etiquetas, Relaciones y atributos personalizados de selección incluyen cada uno una opción **(vacío)**. Selecciónela para mostrar solo las fichas que *no* tienen valor en ese campo, por ejemplo todas las fichas sin ciclo de vida definido. Se puede combinar con valores normales (coincide con cualquiera) y entre varios filtros (coincide con todos).
 
@@ -266,6 +266,8 @@ Por ejemplo, la vista de demostración *Active apps on aging tech, and the organ
 Una vista contiene como máximo **seis** líneas de consulta, **doce** relaciones entre todas sus líneas y **tres** relaciones de profundidad en cada línea. Las líneas de un grupo Y solo coinciden en su ficha inicial: el Componente de TI de una línea y la Iniciativa de la otra pueden ser fichas distintas. Dos requisitos sobre la **misma** ficha en mitad de una línea — por ejemplo, que el mismo Componente de TI lo ofrezca un Proveedor **y** pertenezca a una Categoría tecnológica — no pueden construirse en el generador de consultas; un asistente de IA puede escribir una consulta así mediante el [servidor MCP](../admin/mcp.md#multi-hop-card-queries), y la tira la muestra entonces.
 
 **Editar una vista de consulta guardada.** Cuando hay una vista de consulta abierta, la tira muestra su ruta: los tipos de ficha como pastillas, unidos por el verbo de relación que enlaza cada paso (por ejemplo *Organización → usa Aplicación → es afectada por Iniciativa*), con las condiciones de cada ficha debajo. Una vista con varias líneas muestra la misma pila, con sus marcas Y y sus separadores O, sin los controles de edición. Si es el propietario de la vista o tiene derechos de edición sobre ella, un **lápiz** en la tira la cambia al mismo generador; **Guardar** actualiza la vista. El botón **×** (*Salir de esta vista*) vuelve al inventario normal. **Guardar vista actual** mientras hay una vista de consulta abierta guarda una nueva vista de consulta con la misma consulta.
+
+**Plegar la franja.** La flecha al inicio de la franja pliega las líneas de la consulta en su fila de título, que entonces muestra solo el nombre de la vista y cuántas líneas tiene, dejando más espacio a la cuadrícula; vuelva a hacer clic para desplegarlas. El inventario recuerda su elección para la siguiente vista que abra. Una vista con muchas líneas las mantiene, en la franja o en el constructor, en un área de altura limitada que se desplaza por sí sola, de modo que la cuadrícula inferior conserva siempre su espacio y el lápiz, **×**, **Guardar** y **Cancelar** siguen al alcance.
 
 #### Ver las fichas detrás de una coincidencia { #query-view-matches }
 

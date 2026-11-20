@@ -802,5 +802,6 @@
   "spreadsheetImport.doneSkipped_one": "{{count}} række blev sprunget over.",
   "spreadsheetImport.doneSkipped_other": "{{count}} rækker blev sprunget over.",
   "spreadsheetImport.doneFailed_one": "{{count}} række blev ikke importeret på grund af fejl.",
-  "spreadsheetImport.doneFailed_other": "{{count}} rækker blev ikke importeret på grund af fejl."
+  "spreadsheetImport.doneFailed_other": "{{count}} rækker blev ikke importeret på grund af fejl.",
+  "filter.clearSection": "Ryd {{section}}-filtre"
 }

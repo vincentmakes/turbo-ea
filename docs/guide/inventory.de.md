@@ -25,7 +25,7 @@ Das linke Seitenpanel ermöglicht es Ihnen, Karten nach verschiedenen Kriterien 
 - **Beziehungen** — Filtern nach verwandten Karten über Beziehungstypen
 - **Benutzerdefinierte Attribute** — Filtern nach Werten in benutzerdefinierten Feldern (Textsuche, Auswahloptionen)
 - **Nur archivierte anzeigen** — Umschalter zur Anzeige archivierter (weich gelöschter) Karten
-- **Alle zurücksetzen** — Alle aktiven Filter auf einmal zurücksetzen
+- **Alle zurücksetzen** — Alle aktiven Filter auf einmal zurücksetzen. Um nur eine Gruppe zurückzusetzen, verwenden Sie die Schaltfläche neben der Anzahl der Gruppe, die erscheint, sobald darin etwas ausgewählt ist — das Zurücksetzen von **Typen** setzt auch die Filter zurück, die nur für den ausgewählten Typ gelten (Untertypen, Verknüpfungstypen, Lebensende, Attribute und Beziehungen).
 
 > **Karten ohne Wert finden.** Die Filter für Untertyp, Lebenszyklus, Tags, Beziehungen und Auswahl-Attribute bieten jeweils eine Option **(leer)**. Wählen Sie sie, um nur Karten anzuzeigen, die für dieses Feld *keinen* Wert haben – zum Beispiel alle Karten ohne festgelegten Lebenszyklus. Sie lässt sich mit normalen Werten (Treffer bei einem davon) und über mehrere Filter hinweg (Treffer bei allen) kombinieren.
 
@@ -266,6 +266,8 @@ Die Demo-Ansicht *Active apps on aging tech, and the organizations using apps* h
 Eine Ansicht enthält höchstens **sechs** Abfragezeilen, **zwölf** Beziehungen über alle Zeilen und **drei** Beziehungen in der Tiefe je Zeile. Die Zeilen einer UND-Gruppe treffen sich nur an ihrer Startkarte: Die IT-Komponente der einen Zeile und die Initiative der anderen können verschiedene Karten sein. Zwei Anforderungen an **dieselbe** Karte in der Mitte einer Zeile — etwa dass dieselbe IT-Komponente von einem Anbieter bereitgestellt wird **und** zu einer Tech-Kategorie gehört — lassen sich im Abfrage-Editor nicht aufbauen; ein KI-Assistent kann eine solche Abfrage über den [MCP-Server](../admin/mcp.md#multi-hop-card-queries) schreiben, und der Streifen zeigt sie dann an.
 
 **Eine gespeicherte Abfrageansicht bearbeiten.** Ist eine Abfrageansicht geöffnet, zeigt der Streifen ihren Pfad: die Kartentypen als Chips, verbunden durch das Beziehungsverb, das jeden Schritt verknüpft (zum Beispiel *Organisation → nutzt Anwendung → ist betroffen von Initiative*), mit den Bedingungen jeder Karte darunter. Eine Ansicht mit mehreren Zeilen zeigt denselben Stapel mit seinen UND-Markierungen und ODER-Trennern, ohne die Bearbeitungselemente. Wenn Sie die Ansicht besitzen oder Bearbeitungsrechte darauf haben, schaltet ein **Stift** im Streifen auf denselben Editor um; **Speichern** aktualisiert die Ansicht. Die **×**-Schaltfläche (*Diese Ansicht verlassen*) führt zum normalen Inventar zurück. **Aktuelle Ansicht speichern** speichert, während eine Abfrageansicht geöffnet ist, eine neue Abfrageansicht mit derselben Abfrage.
+
+**Die Leiste einklappen.** Der Pfeil am Anfang der Leiste klappt die Abfragezeilen in ihre Titelzeile ein, die dann nur noch den Namen der Ansicht und die Anzahl ihrer Zeilen zeigt und so mehr Platz für das Raster lässt; ein erneuter Klick klappt sie wieder aus. Das Inventar merkt sich Ihre Wahl für die nächste Ansicht, die Sie öffnen. Eine Ansicht mit vielen Zeilen hält diese in der Leiste wie im Builder in einem Bereich begrenzter Höhe, der für sich scrollt, sodass das Raster darunter immer seinen Platz behält und Stift, **×**, **Speichern** und **Abbrechen** erreichbar bleiben.
 
 #### Die Karten hinter einem Treffer anzeigen { #query-view-matches }
 

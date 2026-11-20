@@ -112,6 +112,16 @@ Hele siden og alle dens API-ruter er beskyttet af den dedikerede tilladelse `adm
 
 Nogle udvidelser låser op for **brugerdefinerede felttyper** — nye felttyper ud over det indbyggede sæt (for eksempel en konfigurerbar bedømmelse fra 1–5 eller 0–10). De vises i metamodellens felteditor **kun, mens den udvidelse, der leverer dem, er installeret og licenseret**. Hvis en sådan udvidelse senere deaktiveres, eller dens licens udløber, vises de værdier, du allerede har indtastet, fortsat som almindelig skrivebeskyttet tekst — intet tømmes eller slettes — og de brugerdefinerede typer forsvinder blot fra felteditoren, indtil udvidelsen er aktiv igen.
 
+### Felter, en udvidelse tilføjer til dine korttyper
+
+En udvidelse kan tilføje en sektion med felter til en eksisterende korttype (for eksempel en blok af regulatoriske attributter på Applikationer). Disse felter kan **kun ændres, mens udvidelsen er aktiveret og licenseret** (et aktivt abonnement, dets respitperiode eller en gratis udvidelse). Når udvidelsen deaktiveres, eller dens licens udløber:
+
+- bliver værdierne på hvert kort og forbliver synlige — intet tømmes eller slettes;
+- bliver felterne **skrivebeskyttede** overalt: på kortet (markeret med en lås og en **skrivebeskyttet**-chip), i inventarets gitterredigering og masseredigering, i regnearksimport, via REST-API'et, MCP-serveren og andre udvidelser. En ændring af et af dem afvises med fejlen `extension_fields_locked`; at gemme et kort uden at røre dem bevarer deres værdier;
+- lader importer fra ServiceNow eller en anden platform samt tilbagerulning af en batch i revisionsloggen et sådant felt stå på sin nuværende værdi og noterer, at det blev sprunget over, mens resten af posten anvendes.
+
+At anvende en fornyet licens eller aktivere udvidelsen igen gør felterne redigerbare med det samme, uden genstart. I metamodel-editoren forbliver disse felter tilskrevet deres udvidelse: Det er ikke muligt at fjerne eller tilføje denne tilskrivning.
+
 **Felthjælpetekst** — en sammenklappelig vejledning under et felt under dataindtastning — kræver ingen udvidelse: Siden version 2.174.0 skriver enhver metamodel-administrator den i felteditoren (se [Metamodel](metamodel.md)). En udvidelse kan stadig levere hjælpetekst med de felter, den bidrager med; den hjælpetekst vises skrivebeskyttet i felteditoren.
 
 ## Dataadgangs-grants
@@ -133,6 +143,7 @@ De fleste udvidelser arbejder kun med deres egne data. En udvidelse, der integre
 - `core.stakeholders.write` — tildele eller fjerne interessentroller på kort med præcis de roller, korttypen definerer. Det er en særskilt grant fra `core.cards.write`, fordi en interessentrolle giver personen rettigheder på kortet.
 - `core.surveys.read` — læse en undersøgelses navn, status og svarandel.
 - `core.surveys.write` — sende en datavedligeholdelsesundersøgelse til interessenterne på et sæt kort, for eksempel en planlagt regel der beder ejerne af hver forretningskritisk applikation under datakvalitetsmålet om at udfylde deres kort — én anmodning pr. person i stedet for én opgave pr. kort. Skrivning indebærer læsning. Undersøgelsen vises i **Admin → Undersøgelser** uden ophavsmand, dens felter er præcis dem, korttypen definerer, og hver person får den sædvanlige undersøgelsesnotifikation. En udvidelse kan aldrig lukke en undersøgelse eller anvende dens svar — det bliver hos jer — og en tilbagerulning af den kørsel, der sendte den (Admin → Revisionslog), lukker undersøgelsen og trækker de anmodninger tilbage, som ingen endnu havde besvaret.
+- `core.agent.tools` — tilbyde nogle af udvidelsens egne operationer til AI-assistenter via [MCP-serveren](mcp.md#extension-operations), for eksempel at vise eller oprette udvidelsens poster. En assistent ser dem kun, mens udvidelsen er installeret, aktiveret og licenseret, og kun dem, brugerens tilladelser giver adgang til; den kalder dem med denne brugers egen login, så udvidelsens tilladelseskontrol gælder som i webappen. Udvidelsens konfiguration — indstillinger, legitimationsoplysninger, forbindelsestest, demodata — tilbydes aldrig, og det gør fildownloads heller ikke.
 
 Grants er en del af det leverandørsignerede bundle: de fastlægges ved pakningen og er synlige før installation. De gælder kun, mens udvidelsen er installeret, aktiveret og licenseret — deaktivering eller en udløbet licens tilbagekalder adgangen med det samme, uden genstart. Enhver ændring foretaget af en udvidelse registreres i **Admin → Auditlog** under oprindelsen **Udvidelse**, og en todo, der spejles fra et eksternt system, viser en chip med link til det eksterne element.
 

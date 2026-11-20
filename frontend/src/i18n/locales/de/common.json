@@ -802,5 +802,6 @@
   "spreadsheetImport.doneSkipped_one": "{{count}} Zeile wurde übersprungen.",
   "spreadsheetImport.doneSkipped_other": "{{count}} Zeilen wurden übersprungen.",
   "spreadsheetImport.doneFailed_one": "{{count}} Zeile wurde wegen Fehlern nicht importiert.",
-  "spreadsheetImport.doneFailed_other": "{{count}} Zeilen wurden wegen Fehlern nicht importiert."
+  "spreadsheetImport.doneFailed_other": "{{count}} Zeilen wurden wegen Fehlern nicht importiert.",
+  "filter.clearSection": "{{section}}-Filter löschen"
 }

@@ -25,7 +25,7 @@ Il pannello laterale sinistro consente di **filtrare** le card secondo diversi c
 - **Relazioni** — Filtra per card correlate attraverso i tipi di relazione
 - **Attributi personalizzati** — Filtra per valori nei campi personalizzati (ricerca testuale, opzioni di selezione)
 - **Mostra solo archiviate** — Attiva/disattiva per visualizzare le card archiviate (eliminate temporaneamente)
-- **Cancella tutto** — Reimposta tutti i filtri attivi in una volta
+- **Cancella tutto** — Reimposta tutti i filtri attivi in una volta. Per reimpostare un solo gruppo, usa il pulsante di cancellazione che compare accanto al conteggio del gruppo non appena vi è selezionato qualcosa — cancellare **Tipi** reimposta anche i filtri che si applicano solo al tipo selezionato (sottotipi, tipi di collegamento, fine vita, attributi e relazioni).
 
 > **Trovare le carte senza valore.** I filtri Sottotipo, Ciclo di vita, Tag, Relazioni e gli attributi personalizzati a selezione offrono ciascuno un'opzione **(vuoto)**. Selezionala per elencare solo le carte che *non* hanno un valore per quel campo — ad esempio tutte le carte senza ciclo di vita impostato. Può essere combinata con valori normali (corrisponde a uno qualsiasi) e tra più filtri (corrisponde a tutti).
 
@@ -266,6 +266,8 @@ Per esempio, la vista demo *Active apps on aging tech, and the organizations usi
 Una vista contiene al massimo **sei** righe di query, **dodici** relazioni su tutte le sue righe e **tre** relazioni in profondità su ogni riga. Le righe di un gruppo E si incontrano solo sulla card iniziale: il Componente IT di una riga e l'Iniziativa dell'altra possono essere card diverse. Due requisiti sulla **stessa** card a metà di una riga — per esempio, che lo stesso Componente IT sia offerto da un Fornitore **e** appartenga a una Categoria tecnologica — non si possono costruire nel generatore di query; un assistente IA può scrivere una query simile tramite il [server MCP](../admin/mcp.md#multi-hop-card-queries), e la striscia la mostra poi.
 
 **Modificare una vista di query salvata.** Quando una vista di query è aperta, la striscia ne mostra il percorso: i tipi di card come chip, uniti dal verbo di relazione che collega ogni passaggio (ad esempio *Organizzazione → usa Applicazione → è interessata da Iniziativa*), con le condizioni di ciascuna card sotto. Una vista con più righe mostra la stessa pila, con i suoi indicatori E e i divisori O, senza i controlli di modifica. Se sei il proprietario della vista o hai diritti di modifica su di essa, una **matita** nella striscia la porta nello stesso generatore; **Salva** aggiorna la vista. Il pulsante **×** (*Esci da questa vista*) riporta all'inventario normale. **Salva vista corrente** mentre è aperta una vista di query salva una nuova vista di query con la stessa query.
+
+**Comprimere la striscia.** La freccia all'inizio della striscia comprime le righe della query nella sua riga del titolo, che mostra allora solo il nome della vista e quante righe ha, lasciando più spazio alla griglia; fai di nuovo clic per espanderle. L'inventario ricorda la tua scelta per la prossima vista che apri. Una vista con molte righe le mantiene, nella striscia o nel builder, in un'area di altezza limitata che scorre da sola, così la griglia sottostante conserva sempre il suo spazio e la matita, **×**, **Salva** e **Annulla** restano a portata di mano.
 
 #### Vedere le card dietro una corrispondenza { #query-view-matches }
 

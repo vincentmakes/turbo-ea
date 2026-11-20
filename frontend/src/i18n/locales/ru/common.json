@@ -904,5 +904,6 @@
   "spreadsheetImport.doneFailed_one": "Не импортировано из-за ошибок строк: {{count}}",
   "spreadsheetImport.doneFailed_few": "Не импортировано из-за ошибок строк: {{count}}",
   "spreadsheetImport.doneFailed_many": "Не импортировано из-за ошибок строк: {{count}}",
-  "spreadsheetImport.doneFailed_other": "Не импортировано из-за ошибок строк: {{count}}"
+  "spreadsheetImport.doneFailed_other": "Не импортировано из-за ошибок строк: {{count}}",
+  "filter.clearSection": "Очистить фильтры «{{section}}»"
 }

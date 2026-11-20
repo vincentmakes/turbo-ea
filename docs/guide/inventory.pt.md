@@ -25,7 +25,7 @@ O painel lateral esquerdo permite **filtrar** cards por diferentes critérios:
 - **Relacionamentos** — Filtrar por cards relacionados através de tipos de relacionamento
 - **Atributos personalizados** — Filtrar por valores em campos personalizados (busca de texto, opções de seleção)
 - **Mostrar apenas arquivados** — Alternância para visualizar cards arquivados (excluídos temporariamente)
-- **Limpar tudo** — Redefinir todos os filtros ativos de uma vez
+- **Limpar tudo** — Redefinir todos os filtros ativos de uma vez. Para redefinir apenas um grupo, use o botão de limpar que aparece junto à contagem do grupo assim que algo nele está selecionado — limpar **Tipos** também redefine os filtros que só se aplicam ao tipo selecionado (subtipos, tipos de ligação, fim de vida, atributos e relacionamentos).
 
 > **Encontrar cartões sem valor.** Os filtros de Subtipo, Ciclo de vida, Etiquetas, Relações e atributos personalizados de seleção incluem, cada um, uma opção **(vazio)**. Selecione-a para listar apenas os cartões que *não* têm valor nesse campo — por exemplo, todos os cartões sem ciclo de vida definido. Pode ser combinada com valores normais (corresponde a qualquer um) e entre vários filtros (corresponde a todos).
 
@@ -266,6 +266,8 @@ Por exemplo, a visualização de demonstração *Active apps on aging tech, and 
 Uma visualização contém no máximo **seis** linhas de consulta, **doze** relações em todas as suas linhas e **três** relações em profundidade em cada linha. As linhas de um grupo E encontram-se apenas no card inicial: o Componente de TI de uma linha e a Iniciativa da outra podem ser cards diferentes. Dois requisitos sobre o **mesmo** card a meio de uma linha — por exemplo, que o mesmo Componente de TI seja oferecido por um Fornecedor **e** pertença a uma Categoria tecnológica — não podem ser construídos no construtor de consultas; um assistente de IA pode escrever uma consulta assim através do [servidor MCP](../admin/mcp.md#multi-hop-card-queries), e a faixa passa então a mostrá-la.
 
 **Editar uma visualização de consulta salva.** Quando uma visualização de consulta está aberta, a faixa mostra o seu caminho: os tipos de card como chips, unidos pelo verbo de relação que liga cada etapa (por exemplo *Organização → usa Aplicação → é afetada por Iniciativa*), com as condições de cada card abaixo. Uma visualização com várias linhas mostra a mesma pilha, com os seus marcadores E e divisores OU, sem os controles de edição. Se você é o proprietário da visualização ou tem direitos de edição sobre ela, um **lápis** na faixa a muda para o mesmo construtor; **Salvar** atualiza a visualização. O botão **×** (*Sair desta visualização*) volta ao inventário normal. **Salvar visualização atual** enquanto uma visualização de consulta está aberta salva uma nova visualização de consulta com a mesma consulta.
+
+**Recolher a faixa.** A seta no início da faixa recolhe as linhas da consulta na sua linha de título, que passa a mostrar apenas o nome da vista e quantas linhas tem, deixando mais espaço à grelha; clique de novo para as expandir. O inventário lembra-se da sua escolha para a próxima vista que abrir. Uma vista com muitas linhas mantém-nas, na faixa ou no construtor, numa área de altura limitada que se desloca por si, de modo que a grelha abaixo conserva sempre o seu espaço e o lápis, **×**, **Guardar** e **Cancelar** ficam ao alcance.
 
 #### Ver os cards por trás de uma correspondência { #query-view-matches }
 

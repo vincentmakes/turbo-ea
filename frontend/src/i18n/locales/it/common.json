@@ -802,5 +802,6 @@
   "spreadsheetImport.doneSkipped_one": "{{count}} riga è stata saltata.",
   "spreadsheetImport.doneSkipped_other": "{{count}} righe sono state saltate.",
   "spreadsheetImport.doneFailed_one": "{{count}} riga non è stata importata a causa di errori.",
-  "spreadsheetImport.doneFailed_other": "{{count}} righe non sono state importate a causa di errori."
+  "spreadsheetImport.doneFailed_other": "{{count}} righe non sono state importate a causa di errori.",
+  "filter.clearSection": "Cancella i filtri {{section}}"
 }
