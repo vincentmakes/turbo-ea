@@ -153,20 +153,15 @@ Who does the work:
 10. **Open the PR** with the template: see *Pull Request Conventions* below.
 
 ### Pull Request Conventions
-- **Always use the PR template** at `.github/pull_request_template.md` when creating pull requests. Do not use a custom format — fill in the template sections exactly as defined.
-- The PR template has four required sections: **Summary**, **Changes**, **Test Plan**, and **Checklist**. All must be completed.
-- **Summary**: 1-3 sentences explaining what the PR does and why.
-- **Changes**: Bulleted list of the key changes made.
-- **Test Plan**: Describe how you verified the changes work. Always include the four CI checkboxes (all CI checks pass, manually tested, added/updated tests, mutation gate). Check the boxes that apply. For the mutation gate, give the score on changed lines and list every surviving mutant and every new suppression pragma with its reason.
-- **Checklist**: Review every item and check all that apply. These enforce the project's core conventions (permission checks, Alembic migrations, async handlers, data-driven metamodel, no exposed secrets). Do not remove unchecked items — leave them unchecked so reviewers can see what was considered.
-- PR titles should be concise (under 72 characters) and describe the change, not the implementation.
-- **No comments on the PR, ever** — see *Never write on GitHub on the user's behalf* above. Review threads, CI explanations and reviewer questions are answered to the user in chat; the PR body is written at creation and left alone unless the user asks for an edit.
+- **Fill in the template** `.github/pull_request_template.md` exactly (Summary, Changes, Test Plan, Checklist, all four completed). Do not use a custom format.
+- **Test Plan**: say how you verified the change, keep the four CI checkboxes and check those that apply; for the mutation gate give the score on changed lines and list every surviving mutant and every new suppression pragma with its reason. **Checklist**: check what applies and leave the rest unchecked, never delete an item.
+- Title under 72 characters, describing the change, not the implementation.
+- **No comments on the PR, ever** (see *Never write on GitHub on the user's behalf*): review threads, CI explanations and reviewer questions are answered to the user in chat; the PR body is written at creation and edited only when the user asks.
 
 ### Changelog & Versioning Conventions
-- **Update `CHANGELOG.md`** for every user-facing change, under the heading of the version it ships in (`## [0.6.0] - 2026-02-22`); never an `[Unreleased]` section, this project ships continuously. [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format, categories **Added**, **Changed**, **Deprecated**, **Removed**, **Fixed**, **Security** (only those that apply), one concise line per entry from the user's perspective.
-- **A change with no effect on the running product takes no version bump and no changelog entry**: CI workflows, the security-scan and publish pipelines, Dependabot config, repo tooling under `scripts/`, guard tests and contributor docs are hardening *around* the app, not changes *to* it. `.github/SECURITY_PIPELINE.md` is the record for pipeline changes. The version check only runs when a PR touches `VERSION`, so such a PR leaves both files alone.
-- **Bump the version once per PR** (not per commit), following [Semantic Versioning](https://semver.org/): **patch** for bug fixes, **minor** for new features, **major** for breaking changes. The single source of truth is `/VERSION`: edit only that file (the backend reads it in `config.py`, the frontend in `vite.config.ts`) and never `backend/pyproject.toml` or `frontend/package.json`, whose static `"0.0.0"` avoids needless CI runs. Add a `## [x.y.z] - date` heading to `CHANGELOG.md` and put the new entries under it.
-- CI (`.github/workflows/version-check.yml`) fails any PR that touches `VERSION` unless `CHANGELOG.md` has the matching `## [<version>]` heading; that keeps the Publish-GitHub-Release workflow from breaking at tag time.
+- **Update `CHANGELOG.md` for every user-facing change**, under the heading of the version it ships in (`## [0.6.0] - 2026-02-22`), never an `[Unreleased]` section (this project ships continuously). Keep a Changelog format; categories Added, Changed, Deprecated, Removed, Fixed, Security (only those that apply); one concise line per entry, from the user's perspective.
+- **A change with no effect on the running product takes no version bump and no changelog entry**: CI workflows, security-scan and publish pipelines (their record is `.github/SECURITY_PIPELINE.md`), Dependabot config, repo tooling under `scripts/`, guard tests and contributor docs.
+- **Bump the version once per PR**, by SemVer (patch fix, minor feature, major breaking). Edit only `/VERSION`, never `backend/pyproject.toml` or `frontend/package.json` (their static `"0.0.0"` avoids needless CI runs), and add a `## [x.y.z] - date` heading to `CHANGELOG.md` with the entries; `version-check.yml` fails a PR that touches `VERSION` without that heading.
 
 ### User Documentation
 Every feature or UI change updates the user manual (`docs/`, MkDocs Material, English authored here, the nine siblings via `/translate`). Screenshots and docs are a **two-way contract**: an entry added to `scripts/screenshots/pages.ts` must be referenced as `![…](../assets/img/{locale}/{file}.png)` in the matching doc page, and an image referenced in a doc must have a `pages.ts` entry. Run `mkdocs build --strict`. → `.claude/rules/docs.md`
