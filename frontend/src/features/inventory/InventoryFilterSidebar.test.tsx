@@ -2877,13 +2877,12 @@ describe("InventoryFilterSidebar — per-section clear", () => {
       dataQualityBands: ["partial"],
     } as Partial<Filters>;
     const { last } = await renderSidebar({ initialFilters: initial });
+    const header = screen.getByText("Lifecycle").closest("[role=button]")!;
+    const before = header.getAttribute("aria-expanded");
     clear("Lifecycle");
     expect(last()).toEqual({ ...EMPTY_FILTERS, ...initial, lifecyclePhases: [] });
     // Its section stays where it was — the clear never folds or unfolds it.
-    expect(screen.getByText("Lifecycle").closest("[role=button]")).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
+    expect(header).toHaveAttribute("aria-expanded", before!);
   });
 
   it("clears the attribute and relationship facets to empty maps", async () => {

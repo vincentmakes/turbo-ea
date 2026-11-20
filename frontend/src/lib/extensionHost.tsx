@@ -156,7 +156,7 @@ import { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
 import { buildGanttArrowPath } from "@/features/ppm/ganttArrowPath";
 import type { ArchitectureDecision, Card, DecisionStanding } from "@/types";
 
-export const UI_SDK_VERSION = "1.35";
+export const UI_SDK_VERSION = "1.36";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -1188,6 +1188,9 @@ export function initExtensionHost(): void {
       // count chip, dense checkbox rows with semantic dots/icons and the
       // per-row freeze pin — so an extension grid page's sidebar is built
       // from the same anatomy as the Inventory's instead of a lookalike.
+      // Since 1.36 the header takes an optional `onClear`, shown as a
+      // per-section clear button while `count > 0`, and its toggle area is a
+      // keyboard-operable button (`role="button"`, `aria-expanded`).
       FilterSectionHeader,
       FilterCheckboxList,
       ColumnFreezeToggle,

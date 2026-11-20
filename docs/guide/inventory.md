@@ -25,7 +25,7 @@ The left sidebar panel allows you to **filter** cards by different criteria:
 - **Relations** — Filter by related cards across relation types
 - **Custom attributes** — Filter by values in custom fields (text search, select options)
 - **Show archived only** — Toggle to view archived (soft-deleted) cards
-- **Clear all** — Reset all active filters at once
+- **Clear all** — Reset all active filters at once. To reset just one group, use the clear button that appears beside the group's count once something in it is selected — clearing **Types** also resets the filters that only apply to the selected type (subtypes, link types, end of life, attributes and relations).
 
 > **Find cards with no value.** The Subtype, Lifecycle, Tags, Relations, and single/multi-select custom attribute filters each include an **(empty)** option. Select it to list only the cards that have *no* value for that field — for example, every card with no lifecycle set. It can be combined with normal values (matching either) and across filters (matching all).
 
