@@ -15,8 +15,10 @@ What is guaranteed, exactly:
   stored section it stands for (same name, else a renamed one holding its
   stamped fields), or none. A body can neither drop a stamp nor mint one. On an
   import (``mode="import"``) a stamp on a key NEW to this instance is kept as the
-  bundle has it — another instance's extension field stays an extension field
-  (and, with no such extension here, a locked one) — while a stamp on a key this
+  bundle has it when it names an extension not installed here — another
+  instance's extension field stays an extension field (a locked one) — and,
+  when it names one installed here, only if that extension's manifest
+  contributes the key (or section name) to the type; a stamp on a key this
   instance holds unstamped is stripped: a bundle cannot claim an admin field.
 - **An ACTIVE extension's contributions cannot be deleted** (active = installed,
   enabled, not ``disabled``/``removed``; the licence plays no part —
@@ -52,7 +54,12 @@ from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from app.services.extensions.field_contributions import is_custom_section, resolve_placement
+from app.services.extensions.field_contributions import (
+    contributions_from_manifest,
+    is_custom_section,
+    resolve_placement,
+    subtype_contributions_from_manifest,
+)
 from app.services.extensions.registry import ExtensionRegistry, extension_registry
 
 Mode = Literal["save", "import"]
@@ -71,6 +78,68 @@ def active_extension_keys(registry: ExtensionRegistry | None = None) -> frozense
     return frozenset(
         info.key for info in reg.all() if info.enabled and info.status not in _INACTIVE_STATUSES
     )
+
+
+@dataclass(frozen=True)
+class Contributed:
+    """What one installed extension's manifest contributes to one card type:
+    field keys, section names and subtype keys."""
+
+    fields: frozenset[str] = frozenset()
+    sections: frozenset[str] = frozenset()
+    subtypes: frozenset[str] = frozenset()
+
+
+def _keys(rows: Any, name: str) -> set[str]:
+    """The non-empty string ``name`` of every dict in ``rows``."""
+    if not isinstance(rows, list):
+        return set()
+    return {
+        r[name] for r in rows if isinstance(r, dict) and isinstance(r.get(name), str) and r[name]
+    }
+
+
+def contributed_by_manifest(manifest: Any, type_key: str) -> Contributed:
+    """What ``manifest`` contributes to ``type_key``."""
+    fields: set[str] = set()
+    sections: set[str] = set()
+    subtypes: set[str] = set()
+    for c in contributions_from_manifest(manifest if isinstance(manifest, dict) else None):
+        if isinstance(c, dict) and c.get("card_type") == type_key:
+            if isinstance(c.get("section"), str) and c["section"]:
+                sections.add(c["section"])
+            fields |= _keys(c.get("fields"), "key")
+    for c in subtype_contributions_from_manifest(manifest if isinstance(manifest, dict) else None):
+        if isinstance(c, dict) and c.get("card_type") == type_key:
+            subtypes |= _keys(c.get("subtypes"), "key")
+    return Contributed(frozenset(fields), frozenset(sections), frozenset(subtypes))
+
+
+def installed_contributions(
+    type_key: str, registry: ExtensionRegistry | None = None
+) -> dict[str, Contributed]:
+    """Per extension INSTALLED here (any status but ``removed``), what its
+    manifest contributes to ``type_key`` — what an import may stamp with that
+    extension's key (:func:`_import_stamp`)."""
+    reg = extension_registry if registry is None else registry
+    return {
+        info.key: contributed_by_manifest(info.manifest, type_key)
+        for info in reg.all()
+        if info.status != "removed"
+    }
+
+
+def _import_stamp(
+    stamp: str | None, name: Any, kind: str, installed: Mapping[str, Contributed]
+) -> str | None:
+    """The stamp a bundle may keep on an entry new to this instance: an
+    orphan stamp (no such extension installed here) as is; a stamp naming an
+    installed extension only on what its manifest contributes (``kind`` is
+    ``fields`` / ``sections`` / ``subtypes``) — a bundle cannot make a key of
+    its own look like that extension's contribution."""
+    if stamp is None or stamp not in installed:
+        return stamp
+    return stamp if name in getattr(installed[stamp], kind) else None
 
 
 def stamp_of(item: Any) -> str | None:
@@ -127,11 +196,19 @@ def _stored_stamps(entries: Any) -> dict[str, str | None]:
     return out
 
 
-def _incoming_stamp(item: dict, stored: Mapping[str, str | None], mode: Mode) -> str | None:
+def _incoming_stamp(
+    item: dict,
+    stored: Mapping[str, str | None],
+    mode: Mode,
+    kind: str,
+    installed: Mapping[str, Contributed],
+) -> str | None:
     key = _key_of(item)
     if key is not None and key in stored:
         return stored[key]
-    return stamp_of(item) if mode == "import" and key is not None else None
+    if mode != "import" or key is None:
+        return None
+    return _import_stamp(stamp_of(item), key, kind, installed)
 
 
 # ---------------------------------------------------------------------------
@@ -147,6 +224,9 @@ class SchemaGuard:
     (resp. the stored schema) to the index the same section has in ``schema``;
     a stored section the body deleted has no entry. ``restored`` lists
     ``(final index, stored index)`` for each stored section put back whole.
+    ``recreated`` lists the final index of each stamped section re-created to
+    hold a restored field (a stand-in for a deleted section: it takes that
+    section's place in ``__order`` but none of its per-section settings).
     ``inserted`` is true when any section was put back or re-created.
     """
 
@@ -154,23 +234,30 @@ class SchemaGuard:
     body_to_final: dict[int, int] = field(default_factory=dict)
     stored_to_final: dict[int, int] = field(default_factory=dict)
     restored: list[tuple[int, int]] = field(default_factory=list)
+    recreated: list[int] = field(default_factory=list)
     inserted: bool = False
 
 
 def _pair_sections(body: list, stored: list) -> dict[int, dict]:
     """``{stored index: body section}`` for every stored section the body still
-    carries: by name first, then — for a stored section holding stamped fields
+    carries: by name and stamp, then by name, then — for a stored section holding stamped fields
     — by those fields, provided the body section's name is not one the stored
     schema already uses (a renamed section; an admin section a contributed
     field was moved into is never taken for the contributed section)."""
     pair: dict[int, dict] = {}
     taken: set[int] = set()
     candidates = [s for s in body if isinstance(s, dict)]
-    for i, s in enumerate(stored):
-        if not isinstance(s, dict):
-            continue
-        for b in candidates:
-            if id(b) not in taken and b.get("section") == s.get("section"):
+    # Same name AND stamp first: an admin "X" beside a contributed "X" pairs
+    # each with its own, whatever order the body sends them in; then name alone.
+    for same_stamp in (True, False):
+        for i, s in enumerate(stored):
+            if i in pair or not isinstance(s, dict):
+                continue
+            for b in candidates:
+                if id(b) in taken or b.get("section") != s.get("section"):
+                    continue
+                if same_stamp and stamp_of(b) != stamp_of(s):
+                    continue
                 pair[i] = b
                 taken.add(id(b))
                 break
@@ -248,9 +335,12 @@ def preserve_ext_schema(
     active_keys: Collection[str],
     *,
     mode: Mode = "save",
+    installed: Mapping[str, Contributed] | None = None,
 ) -> SchemaGuard:
     """Guard a ``fields_schema`` write (see the module docstring for what is
-    guaranteed). Never mutates either argument."""
+    guaranteed). ``installed`` (:func:`installed_contributions`) bounds the
+    stamps an import may bring. Never mutates either argument."""
+    installed = installed or {}
     stored = list(stored_schema) if isinstance(stored_schema, list) else []
     items = [_copy_section(s) for s in (body_schema if isinstance(body_schema, list) else [])]
     origins: list = [("body", None)] * len(items)
@@ -260,7 +350,7 @@ def preserve_ext_schema(
     for section in items:
         for f in _fields(section):
             if isinstance(f, dict):
-                _set_stamp(f, _incoming_stamp(f, stored_fields, mode))
+                _set_stamp(f, _incoming_stamp(f, stored_fields, mode, "fields", installed))
 
     # Section stamps: those of the stored section each body section stands for.
     pair = _pair_sections(items, stored)
@@ -271,7 +361,11 @@ def preserve_ext_schema(
         if id(section) in paired:
             _set_stamp(section, paired[id(section)])
             continue
-        claimed = stamp_of(section) if mode == "import" else None
+        claimed = (
+            _import_stamp(stamp_of(section), section.get("section"), "sections", installed)
+            if mode == "import"
+            else None
+        )
         # A new section keeps a bundle's stamp only alongside a field new to
         # this instance that carries the same one: never on admin fields alone.
         keeps = claimed and any(
@@ -334,6 +428,8 @@ def _line_up(
             body_index += 1
         else:
             out.inserted = True
+            if origin[0] == "recreated":
+                out.recreated.append(final_index)
         final_index += 1
     stored_index = 0
     for i, s in enumerate(stored):
@@ -430,6 +526,7 @@ def preserve_ext_section_config(
     index_map: Mapping[int, int] | None,
     stored_to_final: Mapping[int, int],
     restored: Collection[tuple[int, int]] = (),
+    recreated: Collection[int] = (),
 ) -> dict:
     """``config`` addressed to ``final_schema``. Never mutates its arguments.
 
@@ -439,7 +536,9 @@ def preserve_ext_section_config(
     did not change (keys are kept as they are). It re-addresses the ``__order``
     entries and the per-section entries (``hidden``, ``defaultExpanded``…)
     alike; a key whose section is gone is dropped. Each ``restored`` section
-    gets back its own stored per-section entry, never another section's. Then
+    gets back its own stored per-section entry, never another section's; a
+    ``recreated`` stand-in gets none (a ``hidden`` of the admin section it
+    replaces must not hide the field it was re-created for). Then
     every active contributed section missing from a non-empty ``__order`` is
     placed (:func:`_place_missing`).
     """
@@ -450,7 +549,7 @@ def preserve_ext_section_config(
             out[key] = copy.deepcopy(value)
             continue
         index = _custom_index(key)
-        if index is not None and index in index_map:
+        if index is not None and index in index_map and index_map[index] not in recreated:
             out[f"custom:{index_map[index]}"] = copy.deepcopy(value)
     for final_index, stored_index in restored:
         own = stored.get(f"custom:{stored_index}")
@@ -485,18 +584,21 @@ def preserve_ext_subtypes(
     active_keys: Collection[str],
     *,
     mode: Mode = "save",
+    installed: Mapping[str, Contributed] | None = None,
 ) -> list:
     """Guard a ``subtypes`` write: stamps carried by key as stored (on an
-    import, a stamp on a key new to this instance is kept), and an active
+    import, a stamp on a key new to this instance is kept, within
+    :func:`_import_stamp`'s rule), and an active
     extension's stamped subtype the body left out re-appended with its stored
     definition. Never mutates either argument."""
     stored = stored_subtypes if isinstance(stored_subtypes, list) else []
     stamps = _stored_stamps(stored)
+    installed = installed or {}
     out: list = []
     for entry in body_subtypes if isinstance(body_subtypes, list) else []:
         entry = _clean(entry)
         if isinstance(entry, dict):
-            _set_stamp(entry, _incoming_stamp(entry, stamps, mode))
+            _set_stamp(entry, _incoming_stamp(entry, stamps, mode, "subtypes", installed))
         out.append(entry)
     present = {k for e in out if (k := _key_of(e)) is not None}
     for entry in stored:
@@ -551,6 +653,7 @@ def guard_card_type_row(
     stored_config: Any,
     active_keys: Collection[str],
     mode: Mode = "save",
+    installed: Mapping[str, Contributed] | None = None,
 ) -> None:
     """Guard the ``fields_schema`` / ``subtypes`` / ``section_config`` a write
     carries (a ``PATCH /metamodel/types`` body, a workspace ``CardTypes`` row),
@@ -567,7 +670,9 @@ def guard_card_type_row(
     """
     if "fields_schema" in row:
         sent = row["fields_schema"]
-        guard = preserve_ext_schema(sent, stored_schema, active_keys, mode=mode)
+        guard = preserve_ext_schema(
+            sent, stored_schema, active_keys, mode=mode, installed=installed
+        )
         if sent is not None or guard.schema:
             row["fields_schema"] = guard.schema
         config = row.get("section_config")
@@ -580,6 +685,7 @@ def guard_card_type_row(
                 index_map=guard.body_to_final,
                 stored_to_final=guard.stored_to_final,
                 restored=guard.restored,
+                recreated=guard.recreated,
             )
         elif "section_config" not in row and guard.inserted and isinstance(stored_config, dict):
             row["section_config"] = preserve_ext_section_config(
@@ -589,6 +695,7 @@ def guard_card_type_row(
                 stored_config=stored_config,
                 index_map=guard.stored_to_final,
                 stored_to_final=guard.stored_to_final,
+                recreated=guard.recreated,
             )
     elif isinstance(row.get("section_config"), dict):
         schema = stored_schema if isinstance(stored_schema, list) else []
@@ -602,6 +709,8 @@ def guard_card_type_row(
         )
     if "subtypes" in row:
         sent = row["subtypes"]
-        subtypes = preserve_ext_subtypes(sent, stored_subtypes, active_keys, mode=mode)
+        subtypes = preserve_ext_subtypes(
+            sent, stored_subtypes, active_keys, mode=mode, installed=installed
+        )
         if sent is not None or subtypes:
             row["subtypes"] = subtypes

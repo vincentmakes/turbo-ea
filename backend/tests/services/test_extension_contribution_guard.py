@@ -345,3 +345,139 @@ def test_protected_fields_and_sections():
     schema = [sec("A", [fd("a"), fd("x", K)]), "junk", sec("E", [fd("y", K), fd("z", "gone")], K)]
     assert g.protected_fields_and_sections(schema, ACTIVE) == ({"x", "y"}, {2})
     assert g.protected_fields_and_sections(None, ACTIVE) == (set(), set())
+
+
+class TestReReviewFixes:
+    def test_same_named_sections_pair_by_stamp_whatever_the_body_order(self):
+        stored = [sec("X", [fd("a")]), sec("X", [fd("x", K)], K)]
+        # The editor sends both back (stamps as read), in swapped order.
+        body = [sec("X", [fd("x")], K), sec("X", [fd("a")])]
+        out = g.preserve_ext_schema(body, stored, ACTIVE)
+        assert shape(out.schema) == [("X", K, [("x", K)]), ("X", None, [("a", None)])]
+        assert out.stored_to_final == {0: 1, 1: 0}
+        assert out.inserted is False
+
+    def test_a_recreated_stand_in_takes_no_per_section_setting_of_the_deleted_holder(self):
+        stored = [sec("General", [fd("a"), fd("x", K)]), sec("Other", [fd("b")])]
+        row = {"fields_schema": [sec("Other", [fd("b")])]}
+        g.guard_card_type_row(
+            row,
+            stored_schema=stored,
+            stored_subtypes=None,
+            stored_config={
+                "__order": ["custom:0", "custom:1", "relations"],
+                "custom:0": {"hidden": True},
+                "custom:1": {"defaultExpanded": False},
+            },
+            active_keys=ACTIVE,
+        )
+        assert shape(row["fields_schema"]) == [
+            ("General", K, [("x", K)]),
+            ("Other", None, [("b", None)]),
+        ]
+        # The stand-in keeps the holder's place in the order, not its "hidden".
+        assert row["section_config"] == {
+            "__order": ["custom:0", "custom:1", "relations"],
+            "custom:1": {"defaultExpanded": False},
+        }
+
+    def test_a_recreated_stand_in_with_a_sent_config_gets_no_entry_either(self):
+        stored = [sec("General", [fd("a"), fd("x", K)]), sec("Other", [fd("b")])]
+        guard = g.preserve_ext_schema([sec("Other", [fd("b")])], stored, ACTIVE)
+        assert guard.recreated == [0]
+        cfg = g.preserve_ext_section_config(
+            {"custom:0": {"hidden": True}},
+            final_schema=guard.schema,
+            active_keys=ACTIVE,
+            stored_config={},
+            index_map=guard.stored_to_final,
+            stored_to_final=guard.stored_to_final,
+            recreated=guard.recreated,
+        )
+        assert cfg == {}
+
+
+class TestImportStampRule:
+    INSTALLED = {
+        K: g.Contributed(
+            fields=frozenset({"real"}),
+            sections=frozenset({"Real"}),
+            subtypes=frozenset({"branch"}),
+        )
+    }
+
+    def test_a_stamp_of_an_installed_extension_is_kept_only_on_what_it_contributes(self):
+        body = [
+            sec("Real", [fd("real", K), fd("forged", K)], K),
+            sec("Fake", [fd("forged2", K)], K),
+            sec("Orphan", [fd("o", "unknown-ext")], "unknown-ext"),
+        ]
+        out = g.preserve_ext_schema(
+            body, [], frozenset(), mode="import", installed=self.INSTALLED
+        ).schema
+        assert shape(out) == [
+            ("Real", K, [("real", K), ("forged", None)]),
+            ("Fake", None, [("forged2", None)]),
+            ("Orphan", "unknown-ext", [("o", "unknown-ext")]),
+        ]
+
+    def test_subtypes_follow_the_same_rule(self):
+        body = [
+            {"key": "branch", "label": "B", "ext": K},
+            {"key": "forged", "label": "F", "ext": K},
+            {"key": "o", "label": "O", "ext": "unknown-ext"},
+        ]
+        out = g.preserve_ext_subtypes(
+            body, [], frozenset(), mode="import", installed=self.INSTALLED
+        )
+        assert out == [
+            {"key": "branch", "label": "B", "ext": K},
+            {"key": "forged", "label": "F"},
+            {"key": "o", "label": "O", "ext": "unknown-ext"},
+        ]
+
+    def test_a_save_never_consults_it(self):
+        body = [sec("Real", [fd("real", K)], K)]
+        out = g.preserve_ext_schema(body, [], ACTIVE, installed=self.INSTALLED).schema
+        assert shape(out) == [("Real", None, [("real", None)])]
+
+    def test_installed_contributions_reads_every_non_removed_manifest(self):
+        manifest = {
+            "metamodel": {
+                "field_sections": [
+                    {"card_type": "App", "section": "S", "fields": [fd("x"), {"label": "no key"}]},
+                    {"card_type": "Other", "section": "T", "fields": [fd("y")]},
+                    "junk",
+                ],
+                "subtypes": [
+                    {"card_type": "App", "subtypes": [{"key": "st", "label": "St"}]},
+                    {"card_type": "Other", "subtypes": [{"key": "no", "label": "No"}]},
+                ],
+            }
+        }
+        reg = ExtensionRegistry()
+        reg.load_installed(
+            [
+                ExtensionInfo(
+                    key="a",
+                    name="a",
+                    version="1",
+                    status="disabled",
+                    enabled=False,
+                    manifest=manifest,
+                ),
+                ExtensionInfo(
+                    key="r",
+                    name="r",
+                    version="1",
+                    status="removed",
+                    enabled=True,
+                    manifest=manifest,
+                ),
+                ExtensionInfo(key="n", name="n", version="1", status="installed", enabled=True),
+            ]
+        )
+        assert g.installed_contributions("App", reg) == {
+            "a": g.Contributed(frozenset({"x"}), frozenset({"S"}), frozenset({"st"})),
+            "n": g.Contributed(),
+        }

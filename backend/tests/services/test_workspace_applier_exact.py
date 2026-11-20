@@ -1088,3 +1088,88 @@ async def test_the_heal_is_isolated_from_the_import(db, import_env, monkeypatch)
     assert counts(sr) == (0, 0, 1, 0, 0)
     assert import_env.healed == [[]]
     assert (await card_type(db, "Gadget")).fields_schema == [ADMIN]
+
+
+# A bundle may keep a stamp on a key new to this instance only as an ORPHAN
+# stamp (no such extension installed here). A stamp naming an extension that
+# IS installed here is kept only on what that extension's manifest contributes
+# to the type — on an existing type and on a type the import creates alike.
+FORGED = {
+    "section": "Forged",
+    "ext": IMPORT_EXT,
+    "fields": [{"key": "forged", "label": "F", "type": "text", "ext": IMPORT_EXT}],
+}
+FORGED_SUB = {"key": "fsub", "label": "F", "ext": IMPORT_EXT}
+ORPHAN = {
+    "section": "Foreign",
+    "ext": "foreign-ext",
+    "fields": [{"key": "f1", "label": "F1", "type": "text", "ext": "foreign-ext"}],
+}
+
+
+def unstamped(item):
+    out = {k: v for k, v in item.items() if k != "ext"}
+    if "fields" in out:
+        out["fields"] = [{k: v for k, v in f.items() if k != "ext"} for f in out["fields"]]
+    return out
+
+
+async def test_a_forged_stamp_of_an_installed_extension_is_stripped(db, import_env):
+    rows = [type_row([ADMIN, CONTRIBUTED, FORGED, ORPHAN], subtypes=[SUB, FORGED_SUB])]
+    assert counts(await import_types(db, import_env, rows, dry_run=False)) == (0, 1, 0, 0, 0)
+    ct = await card_type(db, "Gadget")
+    assert ct.fields_schema == [ADMIN, CONTRIBUTED, unstamped(FORGED), ORPHAN]
+    assert ct.subtypes == [SUB, unstamped(FORGED_SUB)]
+    assert counts(await import_types(db, import_env, rows, dry_run=False)) == (0, 0, 1, 0, 0)
+
+
+async def test_a_contributed_key_new_to_this_instance_keeps_its_stamp(db, import_env):
+    import_env.ct.fields_schema = [ADMIN]
+    import_env.ct.subtypes = []
+    await db.flush()
+    rows = [type_row([ADMIN, CONTRIBUTED], subtypes=[SUB])]
+    assert counts(await import_types(db, import_env, rows, dry_run=False)) == (0, 1, 0, 0, 0)
+    ct = await card_type(db, "Gadget")
+    assert ct.fields_schema == [ADMIN, CONTRIBUTED]
+    assert ct.subtypes == [SUB]
+
+
+async def test_a_new_type_takes_the_same_stamp_rule(db, import_env):
+    from sqlalchemy import select
+
+    from app.models.extension import Extension
+
+    ext = (await db.execute(select(Extension).where(Extension.key == IMPORT_EXT))).scalar_one()
+    widget_contribution = {
+        "card_type": "Widget",
+        "section": "Sample",
+        "fields": [{"key": "s1", "label": "S1", "type": "text"}],
+    }
+    ext.manifest = {
+        "metamodel": {
+            "field_sections": [
+                *IMPORT_MANIFEST["metamodel"]["field_sections"],
+                widget_contribution,
+            ],
+            "subtypes": [{"card_type": "Widget", "subtypes": [{"key": "sub", "label": "Sub"}]}],
+        }
+    }
+    await db.flush()
+    flagged = {
+        **CONTRIBUTED,
+        "ext_protected": True,
+        "fields": [{**CONTRIBUTED["fields"][0], "ext_locked": True}],
+    }
+    row = {
+        "key": "Widget",
+        "label": "Widget",
+        "fields_schema": json.dumps([flagged, FORGED, ORPHAN]),
+        "subtypes": json.dumps([SUB, FORGED_SUB]),
+    }
+    sr = await import_types(db, import_env, [row], dry_run=False)
+    assert counts(sr)[0] == 1
+    ct = await card_type(db, "Widget")
+    assert ct.fields_schema == [CONTRIBUTED, unstamped(FORGED), ORPHAN]
+    assert ct.subtypes == [SUB, unstamped(FORGED_SUB)]
+    again = await import_types(db, import_env, [row], dry_run=False)
+    assert counts(again) == (0, 0, 1, 0, 0)

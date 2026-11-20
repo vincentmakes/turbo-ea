@@ -379,6 +379,44 @@ class TestReadFlags:
         assert "ext_protected" not in ct.fields_schema[2]
         assert ct.subtypes[1] == SUBTYPES[1]
 
+    async def test_the_flags_follow_a_disable_through_the_api(self, client, db, admin, gadget):
+        mine = {"key": "mine", "label": "Mine", "type": "text"}
+        schema = stored_schema()
+        schema[2] = {**schema[2], "fields": [*schema[2]["fields"], mine]}
+        gadget.fields_schema = schema
+        await db.flush()
+        await extension_registry.refresh_from_db(db)
+
+        def flags(out):
+            return [
+                (
+                    s["section"],
+                    s.get("ext_protected"),
+                    [f.get("ext_protected") for f in s["fields"]],
+                )
+                for s in out["fields_schema"]
+            ]
+
+        headers = auth_headers(admin)
+        before = (await client.get("/api/v1/metamodel/types/Gadget", headers=headers)).json()
+        assert flags(before)[2] == ("Sample", True, [True, True, True, None])
+        resp = await client.put(
+            f"/api/v1/admin/extensions/{EXT}/enabled", headers=headers, json={"enabled": False}
+        )
+        assert resp.status_code == 200, resp.text
+        after = (await client.get("/api/v1/metamodel/types/Gadget", headers=headers)).json()
+        # The disabled extension's fields are stripped; the section it stamped
+        # survives for the admin field it holds, no longer protected. The
+        # other (still active) extension's section keeps its flag.
+        assert flags(after) == [
+            ("__description", None, []),
+            ("Core", None, [None]),
+            ("Sample", None, [None]),
+            ("Other", True, [True]),
+            ("Notes", None, [None]),
+        ]
+        assert [s.get("ext_protected") for s in after["subtypes"]] == [None]
+
 
 class TestAdminHolderSection:
     async def test_deleting_a_section_holding_a_moved_field_recreates_only_the_field(

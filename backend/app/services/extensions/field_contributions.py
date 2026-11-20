@@ -233,11 +233,39 @@ def _resync_in_place(
         for f in current:
             if _is_own_field(f, ext_key, by_key.keys()):
                 found.add(f["key"])
-                rebuilt.append(dict(by_key[f["key"]]))
+                rebuilt.append(_resynced_at(f, by_key[f["key"]]))
             else:
                 rebuilt.append(f)
         section["fields"] = rebuilt
     return found
+
+
+#: Where a field sits inside its section — set by the Card Layout editor, so
+#: they describe the admin's position, not the field.
+_LAYOUT_PROPS = ("column", "group")
+
+
+def _resynced_at(current: dict, fresh: dict) -> dict:
+    """``fresh`` (the manifest definition) for a field that stands where
+    ``current`` stands: its layout props are ``current``'s, never the
+    manifest's — the manifest's column and group name its own section."""
+    out = {k: v for k, v in fresh.items() if k not in _LAYOUT_PROPS}
+    out.update({k: current[k] for k in _LAYOUT_PROPS if k in current})
+    return out
+
+
+def _manifest_field_keys(contributions: list, type_key: str) -> set[str]:
+    """Every field key the manifest contributes to ``type_key``, whichever
+    contribution (section) declares it."""
+    keys: set[str] = set()
+    for contrib in contributions:
+        if not isinstance(contrib, dict) or contrib.get("card_type") != type_key:
+            continue
+        fields = contrib.get("fields")
+        for f in fields if isinstance(fields, list) else []:
+            if isinstance(f, dict) and isinstance(f.get("key"), str) and f["key"]:
+                keys.add(f["key"])
+    return keys
 
 
 def _foreign_field_keys(schema: list, ext_key: str) -> set[str]:
@@ -324,6 +352,10 @@ async def apply_field_contributions(
             fields.append(_sanitize_field(ext_key, f))
         if not fields:
             continue
+        own_keys = {f["key"] for f in fields}
+        # This manifest's other contributions to the same type: a field of
+        # theirs an admin moved into this section belongs here now.
+        sibling_keys = _manifest_field_keys(contributions, type_key) - own_keys
 
         # Find our section: by (marker, name) first; a single unclaimed marked
         # section adopts a manifest rename. An unstamped section is never ours,
@@ -368,9 +400,15 @@ async def apply_field_contributions(
             target["translations"] = contrib["translations"]
         if "groupTranslations" in contrib:
             target["groupTranslations"] = contrib["groupTranslations"]
-        # Replace our fields; keep admin-added (unstamped) fields in place.
+        # Replace our fields; keep admin-added (unstamped) fields in place, and
+        # a sibling contribution's field moved here (re-synced by that
+        # contribution, before or after this one). Drop only this
+        # contribution's own keys (re-added below) and stamped keys the
+        # manifest no longer declares.
         kept = [
-            f for f in target.get("fields", []) if isinstance(f, dict) and f.get("ext") != ext_key
+            f
+            for f in target.get("fields", [])
+            if isinstance(f, dict) and (f.get("ext") != ext_key or f.get("key") in sibling_keys)
         ]
         target["fields"] = kept + own_fields
 

@@ -718,20 +718,24 @@ async def _apply_card_types(db, bundle: WorkspaceBundle, sr: SectionResult, dry_
             sr.failed += 1
             continue
         current = existing.get(key)
+        # A type new here is guarded too, against nothing stored: the same
+        # stamp rule as for a type this instance has (no forged stamps of an
+        # extension installed here), and no transient read flags written.
+        contribution_guard.guard_card_type_row(
+            data,
+            stored_schema=None if current is None else current.fields_schema,
+            stored_subtypes=None if current is None else current.subtypes,
+            stored_config=None if current is None else current.section_config,
+            active_keys=active_keys,
+            mode="import",
+            installed=contribution_guard.installed_contributions(str(key)),
+        )
         if current is None:
             ct = CardType(**{k: v for k, v in data.items()})
             db.add(ct)
             existing[key] = ct
             sr.created += 1
         else:
-            contribution_guard.guard_card_type_row(
-                data,
-                stored_schema=current.fields_schema,
-                stored_subtypes=current.subtypes,
-                stored_config=current.section_config,
-                active_keys=active_keys,
-                mode="import",
-            )
             # Never flip a built-in type's identity; merge mutable schema only.
             # (The row was matched by key, so the key itself never differs.)
             cols = [c for c in exp.CARD_TYPE_COLUMNS if c != "built_in"]
