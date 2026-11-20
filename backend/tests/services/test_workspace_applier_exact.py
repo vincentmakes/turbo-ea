@@ -1016,6 +1016,27 @@ async def test_an_import_keeps_an_active_extensions_section_and_order(db, import
     assert import_env.healed == [[]]
 
 
+async def test_a_restored_section_goes_back_where_the_stored_config_had_it(db, import_env):
+    """The restored section is placed from THIS instance's stored
+    ``section_config``: next to its stored neighbour (here below Relations,
+    where an admin dragged it — not the default ``before:relations``), and it
+    gets its own stored per-section entry back."""
+    import_env.ct.section_config = {
+        "__order": ["relations", "custom:0", "custom:1"],
+        "custom:1": {"defaultExpanded": False},
+    }
+    await db.flush()
+    rows = [type_row([ADMIN], section_config={"__order": ["relations", "custom:0"]})]
+    sr = await import_types(db, import_env, rows, dry_run=False)
+    assert counts(sr) == (0, 0, 1, 0, 0)
+    ct = await card_type(db, "Gadget")
+    assert ct.fields_schema == [ADMIN, CONTRIBUTED]
+    assert ct.section_config == {
+        "__order": ["relations", "custom:0", "custom:1"],
+        "custom:1": {"defaultExpanded": False},
+    }
+
+
 async def test_an_identical_bundle_imported_again_is_a_no_op(db, import_env):
     relabelled = {"section": "Main", "fields": [{"key": "c1", "label": "Renamed", "type": "text"}]}
     rows = [type_row([relabelled], section_config={"__order": ["relations", "custom:0"]})]
