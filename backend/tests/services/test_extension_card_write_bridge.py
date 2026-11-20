@@ -8,6 +8,7 @@ event dispatcher's self-origin filter keys off.
 
 from __future__ import annotations
 
+import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 
@@ -370,6 +371,58 @@ class TestBatching:
         assert len(batches) == 1
         assert batches[0].committed_at is not None
         assert batches[0].summary == {"label": "nightly sync", "writes": 1}
+
+    async def test_batch_records_the_inbound_mcp_batch(self, db, env):
+        # SDK 1.18: an MCP tool call into an extension route carries its own
+        # batch id on the request; the extension's bridge writes made while
+        # serving it name that batch, so the Audit Log can link the two.
+        from app.services import mutation_batch_service
+        from app.services.event_bus import request_batch_id
+
+        load_registry(grants=["core.cards.write"])
+        inbound = await mutation_batch_service.create_batch(
+            db, tool_name="call_extension_write", actor=None, origin="mcp", dry_run=False
+        )
+        await db.flush()
+        token = request_batch_id.set(inbound.id)
+        try:
+            bridge = ExtensionData(KEY)
+            async with bridge.batch("via mcp") as handle:
+                await bridge.create_card(type="Application", name="Via MCP")
+            # The inbound id is restored once the scope closes.
+            assert request_batch_id.get() == inbound.id
+        finally:
+            request_batch_id.reset(token)
+        ext_batch = await db.get(MutationBatch, uuid.UUID(handle.id))
+        assert ext_batch.summary == {
+            "label": "via mcp",
+            "writes": 1,
+            "via_batch_id": str(inbound.id),
+        }
+
+    async def test_an_unknown_inbound_batch_id_is_not_recorded(self, db, env):
+        # The header is only a parsed UUID: an id naming no stored batch is
+        # never written into the audit trail.
+        from app.services.event_bus import request_batch_id
+
+        load_registry(grants=["core.cards.write"])
+        token = request_batch_id.set(uuid.uuid4())
+        try:
+            bridge = ExtensionData(KEY)
+            async with bridge.batch("forged") as handle:
+                await bridge.create_card(type="Application", name="Forged")
+        finally:
+            request_batch_id.reset(token)
+        ext_batch = await db.get(MutationBatch, uuid.UUID(handle.id))
+        assert ext_batch.summary == {"label": "forged", "writes": 1}
+
+    def test_batch_summary_helper(self):
+        assert bridge_mod.batch_summary("l", 3, None) == {"label": "l", "writes": 3}
+        assert bridge_mod.batch_summary("l", 3, "abc") == {
+            "label": "l",
+            "writes": 3,
+            "via_batch_id": "abc",
+        }
 
     async def test_batch_yields_its_audit_id(self, db, env):
         # SDK 1.8: the handle names the batch the writes landed in.

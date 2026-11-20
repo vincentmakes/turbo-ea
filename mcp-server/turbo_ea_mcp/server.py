@@ -19,7 +19,7 @@ import textwrap
 import threading
 import uuid
 from datetime import date, datetime, timezone
-from urllib.parse import quote, urlparse
+from urllib.parse import quote, urlencode, urlparse
 
 import httpx
 from mcp.server.fastmcp import FastMCP
@@ -35,6 +35,7 @@ from turbo_ea_mcp.api_client import CARD_IDS_CHUNK, TurboEAClient, chunked
 from turbo_ea_mcp.batches import BatchContext, mutation_batch
 from turbo_ea_mcp.config import (
     APP_VERSION,
+    MCP_ALLOW_EXTENSION_DESTRUCTIVE,
     MCP_ALLOW_RELATION_DELETE,
     MCP_ALLOWED_HOSTS,
     MCP_ALLOWED_ORIGINS,
@@ -204,6 +205,11 @@ mcp = _StrictFastMCP(
 
         Every tool refuses an argument it does not declare: pass only the
         parameters a tool lists.
+
+        Extensions: call list_extension_tools first. Only installed,
+        licensed extensions appear, with the operations your permissions
+        allow; run them with call_extension_read / call_extension_write
+        (preview first). Extension configuration is not available here.
 
         Tags: list_tag_groups gives the groups and tag ids; set_card_tags
         adds, removes or replaces tags on cards and create_tag_groups adds
@@ -7308,6 +7314,387 @@ async def approve_process_flow(
             preview is still recorded as a dry-run batch).
     """
     return await _flow_step("approve", business_process_id, version_id, dry_run)
+
+
+# ── Extension operations ────────────────────────────────────────────────────
+#
+# An installed extension may offer some of its own routes to AI assistants
+# (backend SDK 1.18, grant ``core.agent.tools``). The backend lists the live
+# ones at ``GET /extensions/agent-tools``: only extensions that are enabled,
+# licensed and declare the grant, and only the tools the caller's permissions
+# cover; configuration routes never appear. The tools below read that
+# catalogue on every call (no cache, so a lapsed licence or a role change
+# takes effect at once) and call the extension's route with the person's own
+# token — ``require_extension`` and the route's permission check stay the
+# authority, and this server adds no power of its own.
+
+_EXTENSION_CATALOGUE_PATH = "/extensions/agent-tools"
+#: Methods whose arguments (all but the path parameters) go in the query
+#: string; every other method sends them as the JSON body, except those the
+#: tool lists in ``query_params``.
+_EXTENSION_QUERY_METHODS = frozenset({"GET", "DELETE"})
+_EXTENSION_PATH_PARAM = re.compile(r"\{([^}:]+)(?::[^}]*)?\}")
+_EXTENSION_NOT_REVERSIBLE = (
+    "An extension stores its records in its own tables: rollback_batch does "
+    "not reverse this call. Undo it in the extension itself."
+)
+
+
+class ExtensionCallError(Exception):
+    """A call the MCP server refuses before anything reaches the extension."""
+
+    def __init__(self, error: str, message: str, **extra: object) -> None:
+        super().__init__(message)
+        self.error = error
+        self.message = message
+        self.extra = extra
+
+    def payload(self) -> dict:
+        return {"error": self.error, "message": self.message, **self.extra}
+
+
+async def _extension_catalogue(client: TurboEAClient) -> list[dict]:
+    """The live catalogue for the caller; empty on a backend without one."""
+    try:
+        data = await client.get(_EXTENSION_CATALOGUE_PATH)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            return []
+        raise
+    extensions = data.get("extensions") if isinstance(data, dict) else None
+    if not isinstance(extensions, list):
+        return []
+    return [ext for ext in extensions if isinstance(ext, dict)]
+
+
+def _find_extension_tool(catalogue: list[dict], extension: str, tool: str) -> tuple[dict, dict]:
+    """``(extension entry, tool entry)``; refuses a name the catalogue does not list."""
+    entry = next((e for e in catalogue if e.get("key") == extension), None)
+    if entry is None:
+        raise ExtensionCallError(
+            "unknown_extension",
+            f"No installed, licensed extension {extension!r} offers operations to "
+            "you. Call list_extension_tools for the ones that do.",
+            available=sorted(str(e.get("key")) for e in catalogue),
+        )
+    tools = [t for t in entry.get("tools") or [] if isinstance(t, dict)]
+    found = next((t for t in tools if t.get("name") == tool), None)
+    if found is None:
+        raise ExtensionCallError(
+            "unknown_tool",
+            f"Extension {extension!r} offers no operation {tool!r} to you.",
+            available=sorted(str(t.get("name")) for t in tools),
+        )
+    return entry, found
+
+
+def _extension_argument_names(tool: dict) -> tuple[set[str], list[str]]:
+    """``(allowed, required)`` argument names for a catalogue tool.
+
+    Allowed: the schema's properties, the path parameters and the query
+    parameters. Required: the schema's ``required`` plus every path parameter.
+    """
+    schema = tool.get("input_schema") if isinstance(tool.get("input_schema"), dict) else {}
+    properties = schema.get("properties") if isinstance(schema.get("properties"), dict) else {}
+    path_params = [str(p) for p in tool.get("path_params") or []]
+    query_params = [str(p) for p in tool.get("query_params") or []]
+    allowed = set(properties) | set(path_params) | set(query_params)
+    required = [str(r) for r in schema.get("required") or [] if isinstance(r, str)]
+    for name in path_params:
+        if name not in required:
+            required.append(name)
+    return allowed, required
+
+
+def _check_extension_arguments(tool: dict, arguments: object) -> dict:
+    """``arguments`` when they fit the tool; refuses unknown, missing and bad path values."""
+    if arguments is None:
+        arguments = {}
+    if not isinstance(arguments, dict):
+        raise ExtensionCallError("invalid_arguments", "arguments must be an object.")
+    allowed, required = _extension_argument_names(tool)
+    if tool.get("supports_dry_run"):
+        # The preview / commit switch is the tool's own dry_run parameter.
+        allowed.discard("dry_run")
+        required = [r for r in required if r != "dry_run"]
+    unknown = sorted(k for k in arguments if k not in allowed)
+    if unknown:
+        raise ExtensionCallError(
+            "unknown_arguments",
+            f"Operation {tool.get('name')!r} does not take {unknown}.",
+            valid=sorted(allowed),
+        )
+    missing = [r for r in required if r not in arguments]
+    if missing:
+        raise ExtensionCallError(
+            "missing_arguments",
+            f"Operation {tool.get('name')!r} needs {missing}.",
+            valid=sorted(allowed),
+        )
+    for name in tool.get("path_params") or []:
+        value = arguments[name]
+        if isinstance(value, bool) or not isinstance(value, (str, int)):
+            raise ExtensionCallError(
+                "invalid_path_parameter", f"{name} must be a string or an integer."
+            )
+        text = str(value)
+        if not text or "/" in text:
+            raise ExtensionCallError(
+                "invalid_path_parameter", f"{name} must be a non-empty value without '/'."
+            )
+    return arguments
+
+
+def _extension_segment(value: object) -> str:
+    """A path parameter as ONE encoded segment — dots too, so ``..`` is never
+    a dot-segment that aims the call at another route."""
+    return quote(str(value), safe="").replace(".", "%2E")
+
+
+def _query_value(value: object) -> object:
+    """A query value as the backend reads it (booleans lower-case)."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return value
+
+
+def _build_extension_request(extension: str, tool: dict, arguments: dict) -> dict:
+    """``{method, path, query, body}`` for one call: path parameters encoded
+    into the route, ``query_params`` (all arguments on GET / DELETE) in the
+    query string, the rest as the JSON body."""
+    method = str(tool.get("method") or "GET").upper()
+    path_params = [str(p) for p in tool.get("path_params") or []]
+    route = _EXTENSION_PATH_PARAM.sub(
+        lambda m: _extension_segment(arguments[m.group(1)]), str(tool.get("path") or "")
+    )
+    rest = {k: v for k, v in arguments.items() if k not in path_params}
+    if method in _EXTENSION_QUERY_METHODS:
+        query, body = rest, None
+    else:
+        query_names = {str(q) for q in tool.get("query_params") or []}
+        query = {k: v for k, v in rest.items() if k in query_names}
+        body = {k: v for k, v in rest.items() if k not in query_names}
+    return {
+        "method": method,
+        "path": f"/ext/{quote(extension, safe='')}{route}",
+        "query": {k: _query_value(v) for k, v in query.items() if v is not None},
+        "body": body,
+    }
+
+
+def _request_url(request: dict) -> str:
+    """The request's path with its query string, as the client sends it."""
+    query = request.get("query") or {}
+    if not query:
+        return request["path"]
+    return f"{request['path']}?{urlencode(query, doseq=True)}"
+
+
+async def _send_extension_request(client: TurboEAClient, request: dict) -> object:
+    """Send the call; a successful answer that is not JSON never crashes the tool."""
+    url = _request_url(request)
+    method = request["method"]
+    try:
+        if method == "GET":
+            return await client.get(url)
+        if method == "DELETE":
+            return await client.delete(url)
+        sender = {"POST": client.post, "PUT": client.put, "PATCH": client.patch}[method]
+        return await sender(url, json=request["body"] or {})
+    except json.JSONDecodeError:
+        # The status was a success (errors raise first); the body is not JSON.
+        return {"note": "The extension answered successfully, but not with JSON."}
+
+
+def _extension_refusal(exc: httpx.HTTPStatusError) -> dict:
+    """The extension's (or the gate's) refusal, handed back rather than raised."""
+    return {
+        "error": "extension_refused",
+        "status": exc.response.status_code,
+        "detail": _detail(exc),
+    }
+
+
+async def _prepare_extension_call(
+    client: TurboEAClient, extension: str, tool: str, arguments: object
+) -> tuple[dict, dict, dict]:
+    """Read the catalogue and check the call: ``(extension, tool, request)``."""
+    catalogue = await _extension_catalogue(client)
+    entry, found = _find_extension_tool(catalogue, extension, tool)
+    checked = _check_extension_arguments(found, arguments)
+    return entry, found, _build_extension_request(extension, found, checked)
+
+
+def _extension_write_refusal(found: dict) -> ExtensionCallError | None:
+    """Why ``call_extension_write`` may not run this tool, else None."""
+    kind = found.get("kind")
+    if kind == "read":
+        return ExtensionCallError(
+            "read_operation",
+            f"{found.get('name')!r} only reads: call it with call_extension_read.",
+        )
+    if kind == "destructive" and not MCP_ALLOW_EXTENSION_DESTRUCTIVE:
+        return ExtensionCallError(
+            "destructive_disabled",
+            f"{found.get('name')!r} removes or overwrites records, which this "
+            "deployment does not allow from an AI assistant. Do it in the web "
+            "app, or ask the operator to set MCP_ALLOW_EXTENSION_DESTRUCTIVE=true.",
+        )
+    if kind not in ("write", "destructive"):
+        return ExtensionCallError("unknown_kind", f"Unknown operation kind {kind!r}.")
+    return None
+
+
+@mcp.tool(annotations=_READ_ANNOT)
+async def list_extension_tools() -> str:
+    """List the operations installed extensions offer to you.
+
+    Only extensions that are installed, enabled and licensed appear, and
+    within them only the operations your permissions allow. Each operation
+    has a ``kind``: ``read`` (call it with ``call_extension_read``),
+    ``write`` or ``destructive`` (call it with ``call_extension_write``,
+    preview first). ``input_schema`` describes its ``arguments``. Extension
+    configuration (settings, credentials, connections) is never offered —
+    that stays in the web app.
+    """
+    token = await _get_current_token()
+    if not token:
+        return "Error: Not authenticated. Please reconnect."
+    catalogue = await _extension_catalogue(TurboEAClient(token))
+    return _fmt(
+        {
+            "extensions": catalogue,
+            "writes_enabled": MCP_WRITES_ENABLED,
+            "destructive_enabled": MCP_ALLOW_EXTENSION_DESTRUCTIVE,
+        }
+    )
+
+
+@mcp.tool(annotations=_READ_ANNOT)
+async def call_extension_read(extension: str, tool: str, arguments: dict | None = None) -> str:
+    """Run a read operation an installed extension offers (see list_extension_tools).
+
+    Refuses an operation whose kind is not ``read``, an argument the
+    operation does not list and a missing required one. The call goes to the
+    extension with your own permissions; a refusal comes back as
+    ``extension_refused`` with the extension's reason.
+
+    Args:
+        extension: The extension key, as list_extension_tools shows it.
+        tool: The operation name.
+        arguments: The operation's arguments, per its input_schema.
+    """
+    token = await _get_current_token()
+    if not token:
+        return "Error: Not authenticated. Please reconnect."
+    client = TurboEAClient(token)
+    try:
+        _entry, found, request = await _prepare_extension_call(client, extension, tool, arguments)
+        if found.get("kind") != "read":
+            raise ExtensionCallError(
+                "not_a_read_operation",
+                f"{tool!r} changes data: preview and run it with call_extension_write.",
+            )
+    except ExtensionCallError as exc:
+        return _fmt(exc.payload())
+    try:
+        data = await _send_extension_request(client, request)
+    except httpx.HTTPStatusError as exc:
+        return _fmt({**_extension_refusal(exc), "extension": extension, "tool": tool})
+    return _fmt({"extension": extension, "tool": tool, "response": data})
+
+
+@mcp.tool(annotations=_WRITE_DESTRUCTIVE_ANNOT)
+async def call_extension_write(
+    extension: str, tool: str, arguments: dict | None = None, dry_run: bool = True
+) -> str:
+    """Run a write operation an installed extension offers (see list_extension_tools).
+
+    Defaults to a preview. When the operation supports a dry run, the
+    preview asks the extension to validate the call without storing anything
+    and reports its answer (``preview_source: "extension"``); otherwise
+    nothing is sent and the preview shows the request a commit would make
+    (``preview_source: "mcp_server"``). Operations of kind ``destructive``
+    are refused unless the operator set MCP_ALLOW_EXTENSION_DESTRUCTIVE=true.
+    Every call is recorded as one mutation batch; the extension's own writes
+    to core data name it as ``via_batch_id``.
+
+    Not reversible by rollback_batch: an extension keeps its records in its
+    own tables, so undo a committed call in the extension itself.
+
+    Args:
+        extension: The extension key, as list_extension_tools shows it.
+        tool: The operation name.
+        arguments: The operation's arguments, per its input_schema.
+        dry_run: When True (default), preview only. Re-run with
+            ``dry_run=False`` to commit.
+    """
+    token = await _get_current_token()
+    if not token:
+        return "Error: Not authenticated. Please reconnect."
+    if (disabled := _writes_disabled_message()) is not None:
+        return disabled
+    try:
+        entry, found, request = await _prepare_extension_call(
+            TurboEAClient(token), extension, tool, arguments
+        )
+        if (refusal := _extension_write_refusal(found)) is not None:
+            raise refusal
+    except ExtensionCallError as exc:
+        return _fmt(exc.payload())
+    supports_dry_run = bool(found.get("supports_dry_run"))
+    if supports_dry_run:
+        request["body"] = {**(request["body"] or {}), "dry_run": dry_run}
+    described = {"extension": extension, "tool": tool, "kind": found.get("kind")}
+    async with mutation_batch(
+        token, tool_name="call_extension_write", row_count=1, dry_run=dry_run
+    ) as batch:
+        if dry_run and not supports_dry_run:
+            batch.summary = {**described, "status": "previewed", "preview_source": "mcp_server"}
+            return _fmt(
+                {
+                    "dry_run": True,
+                    **described,
+                    "preview_source": "mcp_server",
+                    "note": (
+                        "This operation has no dry run of its own, so nothing was "
+                        "sent to the extension: the preview is the request a "
+                        "commit would make."
+                    ),
+                    "would_send": request,
+                    "reversible": False,
+                    **_preview_fields(batch),
+                }
+            )
+        try:
+            data = await _send_extension_request(batch.client(), request)
+        except httpx.HTTPStatusError as exc:
+            refusal = _extension_refusal(exc)
+            batch.summary = {**described, "status": "refused", "http_status": refusal["status"]}
+            return _fmt({**refusal, **described, "batch_id": batch.batch_id})
+        if dry_run:
+            batch.summary = {**described, "status": "previewed", "preview_source": "extension"}
+            return _fmt(
+                {
+                    "dry_run": True,
+                    **described,
+                    "preview_source": "extension",
+                    "response": data,
+                    "reversible": False,
+                    **_preview_fields(batch),
+                }
+            )
+        batch.summary = {**described, "status": "applied"}
+        return _fmt(
+            {
+                **described,
+                "version": entry.get("version"),
+                "response": data,
+                "batch_id": batch.batch_id,
+                "reversible": False,
+                "note": _EXTENSION_NOT_REVERSIBLE,
+            }
+        )
 
 
 # ── Resources ───────────────────────────────────────────────────────────────

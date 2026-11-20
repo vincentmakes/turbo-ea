@@ -310,7 +310,20 @@ async def require_card_permission(
 #   ``status`` keeps its three values. ``create_draft(related_decisions=)``
 #   is unchanged; its entries are now stored as ``relates`` links.
 
-SDK_VERSION = "1.17"
+# 1.18: agent tools. An extension may offer some of its OWN routes to AI
+#   assistants through the core MCP server: the optional ``get_agent_tools()``
+#   hook (duck-typed like ``get_event_handlers``, so older extensions load
+#   untouched) returns :class:`AgentTool` rows, unlocked by the manifest grant
+#   ``core.agent.tools``. Each row names a route on the extension's mounted
+#   router; core checks it against that router at startup and drops (and
+#   logs) any declaration it cannot vouch for — a configuration path, an
+#   ``ext.{key}.admin`` permission, a file download, a route that does not
+#   exist. ``GET /extensions/agent-tools`` lists the live tools filtered by the
+#   caller's permissions; the MCP server then calls the route itself with the
+#   user's token, so ``require_extension`` (installed, enabled, licensed) and
+#   the route's own permission check stay the authority.
+
+SDK_VERSION = "1.18"
 
 
 @dataclass(frozen=True)
@@ -1100,6 +1113,64 @@ class SupportsNotificationChannels(Protocol):
     ``getattr``, so extensions without it keep loading."""
 
     def get_notification_channels(self) -> list[NotificationChannel]: ...
+
+
+AGENT_TOOL_KINDS = ("read", "write", "destructive")
+
+
+@dataclass(frozen=True)
+class AgentTool:
+    """One operation an extension offers to AI assistants (SDK 1.18).
+
+    It names a route on the extension's own router — ``path`` relative to it,
+    exactly as declared there (``"/scenarios/{scenario_id}"``) — and is offered
+    through the core MCP server only while the extension is enabled, licensed
+    and declares the ``core.agent.tools`` grant, and only to people holding
+    ``permission``. The MCP server calls the route with the person's own
+    token: this row describes an operation, it confers no authority.
+
+    - ``name``: ``^[a-z][a-z0-9_]{0,62}$``, unique within the extension.
+    - ``method``: the HTTP method of the route (``GET``, ``POST``, …).
+    - ``permission``: an ``ext.{key}.*`` key (never ``ext.{key}.admin``) or a
+      core permission key — the one the route itself checks.
+    - ``kind``: ``read`` (GET or POST, changes nothing), ``write`` or
+      ``destructive`` (removes or overwrites; refused by the MCP server unless
+      the operator opts in).
+    - ``input_schema``: a JSON-schema object for the arguments. Derived from
+      the route's pydantic body model when omitted; required when the route
+      takes a bare ``dict`` body.
+    - ``path_params``: must equal the route's path parameters.
+    - ``query_params``: arguments sent in the query string (everything else
+      goes in the JSON body; on a GET or DELETE everything is a query
+      parameter, so such a route takes no body).
+    - ``supports_dry_run``: the route accepts ``dry_run: true`` in its body and
+      then validates without storing anything — the MCP preview forwards it.
+
+    Configuration routes (settings, credentials, connection tests, demo data)
+    and file downloads are never accepted.
+    """
+
+    name: str
+    title: str
+    description: str
+    method: str
+    path: str
+    permission: str
+    kind: str
+    input_schema: dict[str, Any] | None = None
+    path_params: tuple[str, ...] = ()
+    query_params: tuple[str, ...] = ()
+    supports_dry_run: bool = False
+
+
+class SupportsAgentTools(Protocol):
+    """Typing helper for extensions that implement the OPTIONAL
+    ``get_agent_tools`` hook (SDK 1.18). Deliberately not
+    ``runtime_checkable`` and deliberately not part of
+    :class:`TurboExtension` — the loader discovers the hook via ``getattr``,
+    so extensions without it keep loading."""
+
+    def get_agent_tools(self) -> list[AgentTool]: ...
 
 
 class SupportsEventHandlers(Protocol):

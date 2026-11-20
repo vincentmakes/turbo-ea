@@ -49,6 +49,7 @@
 | `MCP_MAX_RELATIONS_PER_CALL` | `500` | (MCP server) Per-call size cap for `upsert_relations_bulk`. Backend accepts up to 5000 from the UI. |
 | `MCP_MAX_LOGOS_PER_CALL` | `50` | (MCP server) Per-call cap for `set_card_logos`. Lower than the card cap because each logo is its own upload and carries image bytes. |
 | `MCP_ALLOW_RELATION_DELETE` | `false` | (MCP server) When `false` (default), `upsert_relations_bulk` refuses `action: "delete"` ops — relations must be removed via the web UI for an explicit audit trail. Set `true` only when an operator opts in. |
+| `MCP_ALLOW_EXTENSION_DESTRUCTIVE` | `false` | (MCP server) When `false` (default), `call_extension_write` refuses the operations an installed extension marks `destructive` (removing or overwriting its records — an extension's own tables are not reversible by `rollback_batch`). Set `true` only when an operator opts in. |
 | `MCP_LOGO_FETCH_ENABLED` | `true` | (MCP server) Allows `set_card_logos` to take an `image_url`, which the MCP server downloads and uploads through the ordinary route. `false` refuses the URL path; slugs and pasted bytes are unaffected. |
 | `MCP_LOGO_FETCH_HOSTS` | *(built-in list)* | (MCP server) Comma-separated hosts a logo may be fetched from, **exact match**. Empty ⇒ `raw.githubusercontent.com`, `cdn.jsdelivr.net`, `cdn.simpleicons.org`, `upload.wikimedia.org`. |
 | `EXTENSION_WRITES_ENABLED` | `true` | Kill switch for the extension data bridge's write surface — set `false` to pause all extension inventory writes instantly (no restart; reads keep working). |

@@ -216,3 +216,21 @@ class TestPublicAppUrl:
         finally:
             monkeypatch.undo()
             importlib.reload(config)
+
+
+def test_extension_destructive_is_opt_in(monkeypatch):
+    """``call_extension_write`` refuses an extension's destructive operations
+    unless the operator sets ``MCP_ALLOW_EXTENSION_DESTRUCTIVE``."""
+    import importlib
+
+    monkeypatch.delenv("MCP_ALLOW_EXTENSION_DESTRUCTIVE", raising=False)
+    monkeypatch.delenv("MCP_ALLOW_RELATION_DELETE", raising=False)
+    try:
+        assert importlib.reload(config).MCP_ALLOW_EXTENSION_DESTRUCTIVE is False
+        monkeypatch.setenv("MCP_ALLOW_EXTENSION_DESTRUCTIVE", "true")
+        assert importlib.reload(config).MCP_ALLOW_EXTENSION_DESTRUCTIVE is True
+        # The relation-delete opt-in is a different switch.
+        assert config.MCP_ALLOW_RELATION_DELETE is False
+    finally:
+        monkeypatch.undo()
+        importlib.reload(config)

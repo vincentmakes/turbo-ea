@@ -342,7 +342,9 @@ async def open_batch(key: str, label: str) -> AsyncIterator[ExtBatch]:
     if _active_batch.get() is not None:
         raise ExtensionDataError("Extension write batches cannot nest")
     _count_batch_against_rate(key)
+    inbound_batch_id = request_batch_id.get()
     async with async_session() as db:
+        via_batch_id = await _existing_batch_id(db, inbound_batch_id)
         batch = await mutation_batch_service.create_batch(
             db,
             tool_name=f"ext:{key}"[:100],
@@ -363,7 +365,7 @@ async def open_batch(key: str, label: str) -> AsyncIterator[ExtBatch]:
                 row = await db.get(MutationBatch, batch_id)
                 if row is not None:
                     await mutation_batch_service.commit_batch(
-                        db, row, summary={"label": label, "writes": state.writes}
+                        db, row, summary=batch_summary(label, state.writes, via_batch_id)
                     )
                     await db.commit()
     finally:
@@ -372,6 +374,33 @@ async def open_batch(key: str, label: str) -> AsyncIterator[ExtBatch]:
         _active_batch.reset(active_token)
         if state.writes == 0:
             await _drop_empty_batch(key, batch_id)
+
+
+async def _existing_batch_id(db: AsyncSession, batch_id: uuid.UUID | None) -> str | None:
+    """``batch_id`` as a string when it names a stored mutation batch, else None.
+
+    The inbound id comes from the ``X-Turbo-EA-Batch`` header (an MCP call
+    opened that batch and is calling an extension route inside it); it is
+    only a parsed UUID, so it is recorded only once it is known to exist.
+    """
+    if batch_id is None:
+        return None
+    row = await db.get(MutationBatch, batch_id)
+    return str(batch_id) if row is not None else None
+
+
+def batch_summary(label: str, writes: int, via_batch_id: str | None) -> dict[str, Any]:
+    """The committed ``ext:{key}`` batch's summary.
+
+    ``via_batch_id`` names the batch of the request the extension was serving
+    when it wrote — an MCP tool call into one of its routes (SDK 1.18) — so
+    the extension's bridge writes stay traceable to that call in the Audit
+    Log. Absent when the writes came from a job or an event handler.
+    """
+    summary: dict[str, Any] = {"label": label, "writes": writes}
+    if via_batch_id is not None:
+        summary["via_batch_id"] = via_batch_id
+    return summary
 
 
 async def _drop_empty_batch(key: str, batch_id: uuid.UUID) -> None:

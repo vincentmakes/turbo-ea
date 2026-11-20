@@ -133,6 +133,7 @@
         "image": { "$ref": "#/definitions/componentImage" },
         "replicaCount": { "type": "integer", "minimum": 0 },
         "writesEnabled": { "type": "boolean" },
+        "allowExtensionDestructive": { "type": "boolean" },
         "logoFetch": {
           "type": "object",
           "properties": {

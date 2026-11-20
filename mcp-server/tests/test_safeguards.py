@@ -699,6 +699,7 @@ _BATCH_TOOLS_EXPECTED = [
     "approve_process_flow",
     "archive_cards",
     "assign_stakeholders",
+    "call_extension_write",
     "clear_card_logos",
     "create_adr",
     "create_cards_bulk",
@@ -738,6 +739,37 @@ _FLOW_PROCESS = "00000000-0000-4000-8000-0000000000b1"
 _FLOW_DRAFT = "00000000-0000-4000-8000-0000000000d1"
 _FLOW_PENDING = "00000000-0000-4000-8000-0000000000e1"
 _FLOW_STATUS = {_FLOW_DRAFT: "draft", _FLOW_PENDING: "pending"}
+
+# A fake extension offering one write operation, so call_extension_write's
+# commit has something to send inside its batch.
+_EXT_KEY = "sample-ext"
+_EXT_CATALOGUE = {
+    "extensions": [
+        {
+            "key": _EXT_KEY,
+            "name": "Sample",
+            "version": "1.0.0",
+            "tools": [
+                {
+                    "name": "create_item",
+                    "title": "Create item",
+                    "description": "Creates an item.",
+                    "kind": "write",
+                    "method": "POST",
+                    "path": "/items",
+                    "path_params": [],
+                    "query_params": [],
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {"name": {"type": "string"}},
+                        "required": ["name"],
+                    },
+                    "supports_dry_run": False,
+                }
+            ],
+        }
+    ]
+}
 
 # One minimal, valid call per write tool, as ``(dry_run) -> coroutine``.
 _BATCH_TOOL_CALLS = {
@@ -796,6 +828,9 @@ _BATCH_TOOL_CALLS = {
     "revise_adr": lambda dry_run: server.revise_adr(
         adr_id="00000000-0000-0000-0000-0000000000a1", dry_run=dry_run
     ),
+    "call_extension_write": lambda dry_run: server.call_extension_write(
+        extension=_EXT_KEY, tool="create_item", arguments={"name": "n"}, dry_run=dry_run
+    ),
     "create_soaw": lambda dry_run: server.create_soaw(
         initiative_id="i1",
         title="t",
@@ -814,6 +849,8 @@ class _BatchRecorder(_Backend):
         self.calls: list[tuple[str, str, str | None]] = []
 
     async def get(self, path, params=None):
+        if path == "/extensions/agent-tools":
+            return _EXT_CATALOGUE
         if path == "/cards" and "search" in (params or {}):
             # import_bpmn's lookup of the BusinessProcess card by name.
             return {"items": [{"id": "bp-1", "name": params["search"], "parent_id": None}]}
