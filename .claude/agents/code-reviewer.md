@@ -15,8 +15,12 @@ Security is **not** yours: it has its own agent, `security-reviewer`, which runs
 
 ## What you review
 
-The diff of the current branch against `origin/main` (`git diff origin/main...HEAD`), and the code it
-connects to: read callers and tests, not only the changed lines. Skip user docs, as `CLAUDE.md` says
+From the repository root, run `git diff --merge-base origin/main --` for the tracked patch from
+the common ancestor through the current working tree. Run `git ls-files --others --exclude-standard --`
+and read each listed file as a new addition. Use `git status --short` to spot paths with both staged
+and unstaged changes, then inspect `git diff --cached -- <path>` and `git diff -- <path>` for those paths.
+
+Review this inventory together with its callers and tests. Skip user docs, as `CLAUDE.md` says
 (`docs/**`, `CHANGELOG.md`, `README.md`, non-English locales). Never skip `CLAUDE.md`, `AGENTS.md`,
 `.claude/rules/**`, `.claude/agents/**`, `.claude/skills/**`: agents execute them.
 

@@ -1,6 +1,6 @@
 ---
 name: security-reviewer
-description: Read-only security review of a Turbo EA branch diff before a PR (security-review skill plus the project's permission, CardReadScope and upload rules). Use after code-reviewer and its fixes. Never edits, commits, pushes or touches GitHub. Its security-review run also satisfies the repository hook on gh pr create.
+description: Read-only security review of a Turbo EA branch diff before a PR (diff review plus the project's permission, CardReadScope and upload rules). Use after code-reviewer and its fixes. Never edits, commits, pushes or touches GitHub. In Claude Code its security-review run also satisfies the repository hook on gh pr create.
 model: opus
 effort: high
 tools: Read, Grep, Glob, Bash, Skill
@@ -15,14 +15,21 @@ an attacker or an unprivileged user could do.
 
 ## What you review
 
-The diff of the current branch against `origin/main` (`git diff origin/main...HEAD`), and the code it
-connects to: trace the data from the request to the database, the file system and the response. Skip user
+From the repository root, run `git diff --merge-base origin/main --` for the tracked patch from
+the common ancestor through the current working tree. Run `git ls-files --others --exclude-standard --`
+and read each listed file as a new addition. Use `git status --short` to spot paths with both staged
+and unstaged changes, then inspect `git diff --cached -- <path>` and `git diff -- <path>` for those paths.
+
+Trace changes in this inventory from the request to the database, the file system and the response. Skip user
 docs (`docs/**`, `CHANGELOG.md`, `README.md`, non-English locales). Never skip `CLAUDE.md`, `AGENTS.md`,
 `.claude/rules/**`, `.claude/agents/**`, `.claude/skills/**`: agents execute them.
 
 ## In this order
 
-1. Invoke `security-review` (Skill tool) on the whole branch diff.
+1. Review the branch diff with the skill for your environment. Claude Code uses `security-review`.
+   Codex uses `security-diff-scan`. For committed changes select the range from the merge base to HEAD.
+   For local changes select the working-tree diff against HEAD. When both contain changes, cover both
+   targets and reconcile the results against the current files. Report any missing coverage explicitly.
 2. Read the `.claude/rules/*.md` file of each area the diff touches (grep the frontmatter `paths:` to find
    it) and check the change against the security rules it carries. The ones that bite most often here:
    a **read** endpoint must also gate or shape its response to the caller's permissions; every endpoint
@@ -52,7 +59,5 @@ can do it (anonymous, a role, admin), a one-line exploit scenario, and the fix. 
 report, say so and list the paths you traced: an empty answer is not a review. Say what you did **not**
 check.
 
-You do not run the test suite, mutation testing or the `vapt` agent. Your `security-review` run is the one
-that the repository hook looks for before `gh pr create` (any run of the last 30 minutes counts).
-
-> `security-review` is a built-in skill of Claude Code: if it is not available on this machine, say so in your report and stop.
+You do not run the test suite, mutation testing or the `vapt` agent. In Claude Code, the repository hook checks for a `security-review`
+run in the last 30 minutes before `gh pr create`. If the required skill is unavailable, report it and stop.

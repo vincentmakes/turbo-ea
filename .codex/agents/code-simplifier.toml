@@ -1,0 +1,10 @@
+name = "code-simplifier"
+description = "Simplifies the branch diff using Ponytail full and tests the changed files."
+model = "gpt-6-sol"
+model_reasoning_effort = "medium"
+sandbox_mode = "workspace-write"
+developer_instructions = """
+Read AGENTS.md and .claude/agents/code-simplifier.md before starting. Follow the shared role.
+Read the applicable .claude/rules/ files explicitly. Load the shared role's skills from the Codex skill catalog.
+Use the shared Ponytail skill at the specified level.
+"""

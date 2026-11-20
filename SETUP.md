@@ -376,13 +376,26 @@ Each role has one shared definition in `.claude/agents/<name>.md`. Its Codex pro
 | frontend-dev | Frontend implementation and regression tests | [.claude/agents/frontend-dev.md](.claude/agents/frontend-dev.md) | sonnet | medium | [.codex/agents/frontend-dev.toml](.codex/agents/frontend-dev.toml) | gpt-6.1-terra | medium |
 | translator | Nine non-English locales and translation parity checks | [.claude/agents/translator.md](.claude/agents/translator.md) | sonnet | medium | [.codex/agents/translator.toml](.codex/agents/translator.toml) | gpt-6-luna | medium |
 | docs-keeper | Manual, screenshot references and screenshot capture | [.claude/agents/docs-keeper.md](.claude/agents/docs-keeper.md) | sonnet | medium | [.codex/agents/docs-keeper.toml](.codex/agents/docs-keeper.toml) | gpt-6.2-sol | medium |
-| code-simplifier | Simplifies the changed code without changing behaviour, then re-runs the tests of the files it touched | [.claude/agents/code-simplifier.md](.claude/agents/code-simplifier.md) | opus | high | — | — | — |
-| code-reviewer | Independent, read-only code review of the branch diff (ponytail-review, python-anti-patterns, project rules) | [.claude/agents/code-reviewer.md](.claude/agents/code-reviewer.md) | opus | high | — | — | — |
-| security-reviewer | Independent, read-only security review of the branch diff (security-review, permission and CardReadScope rules) | [.claude/agents/security-reviewer.md](.claude/agents/security-reviewer.md) | opus | high | — | — | — |
+| code-simplifier | Simplifies the changed code without changing behaviour, then re-runs the tests of the files it touched | [.claude/agents/code-simplifier.md](.claude/agents/code-simplifier.md) | opus | high | [.codex/agents/code-simplifier.toml](.codex/agents/code-simplifier.toml) | gpt-6-sol | medium |
+| code-reviewer | Independent, read-only code review of the branch diff (ponytail-review, python-anti-patterns, project rules) | [.claude/agents/code-reviewer.md](.claude/agents/code-reviewer.md) | opus | high | [.codex/agents/code-reviewer.toml](.codex/agents/code-reviewer.toml) | gpt-6.2-astra | high |
+| security-reviewer | Independent, read-only security review of the branch diff (diff scan, permission and CardReadScope rules) | [.claude/agents/security-reviewer.md](.claude/agents/security-reviewer.md) | opus | high | [.codex/agents/security-reviewer.toml](.codex/agents/security-reviewer.toml) | gpt-6.2-astra | high |
 | spec-plan-reviewer | Fresh, read-only review of each spec or plan before presentation | [.claude/agents/spec-plan-reviewer.md](.claude/agents/spec-plan-reviewer.md) | opus | medium | [.codex/agents/spec-plan-reviewer.toml](.codex/agents/spec-plan-reviewer.toml) | gpt-6.2-astra | high |
-| vapt | Security assessment of the isolated test stack (Claude) and defensive review (Codex) | [.claude/agents/vapt.md](.claude/agents/vapt.md) | opus | high | [.codex/agents/vapt.toml](.codex/agents/vapt.toml) | gpt-6.2-astra | high |
+| vapt | Isolated security testing: shared Viewer check, passive traffic analysis and evidence review; full VAPT in Claude | [.claude/agents/vapt.md](.claude/agents/vapt.md) | opus | high | [.codex/agents/vapt.toml](.codex/agents/vapt.toml) | gpt-6.2-astra | high |
 
-After development, start `code-simplifier`, `code-reviewer` and `security-reviewer`, one after the other, each in a fresh context: tests, simplify, tests of the touched files, code review and its fixes, security review and its fixes. The `security-reviewer` run also satisfies the hook that blocks `gh pr create`. The calling session owns commits, pushes and pull requests. To change a role's duties for both tools, edit its shared definition. To change its Codex model or reasoning effort, edit its TOML profile.
+After development, start `code-simplifier`, `code-reviewer` and `security-reviewer`, one after the other, each in a fresh context: tests, simplify, tests of the touched files, code review and its fixes, security review and its fixes. Both environments use `ponytail:ponytail` at level `full` for simplification and `ponytail:ponytail-review` for code review. In Codex, start each reviewer from a read-only parent session as described below. Claude Code uses `security-review` and records it for the `gh pr create` hook. Codex uses `security-diff-scan` from the Codex Security plugin. Both hosts use the shared PR hooks described below. The calling session owns commits, pushes and pull requests. To change a role's duties for both tools, edit its shared definition. To change its Codex model or reasoning effort, edit its TOML profile.
+
+#### Approve and verify the security review before a PR
+
+In the Turbo EA project, open **Settings → Hooks** and approve these two commands from `.codex/hooks.json`.
+
+| Codex event | Entry to approve | Shared script |
+| --- | --- | --- |
+| PostToolUse on `mcp__codex_security__get_codex_security_completed_scan` | Registra security review | `.claude/hooks/mark-security-review.sh codex` |
+| PreToolUse on `Bash` | Verifica security review prima della PR | `.claude/hooks/check-security-review.sh` |
+
+The read-only reviewer returns the scan ID. In the writable session that owns the PR, read the sealed report using `get_codex_security_completed_scan` with that ID. The hook checks the result, scan ID, diff mode and local checkout identity, then records the original completion time in `.claude/.security-review-marker`. Reading an old result again preserves its age. Each checkout has its own marker. Claude records its `security-review` skill through the same marker script.
+
+Both Codex commands use a one-command Git alias to run the project script from the worktree root with Git Bash on Windows. The shared check denies `gh pr create` when the marker is missing or older than 30 minutes. It checks recency only. Run `python scripts/security/test_security_review_hooks.py` from the project root to exercise the hooks with synthetic events in temporary checkouts.
 
 #### Run a read-only spec or plan review in Codex
 
@@ -401,15 +414,15 @@ See the [spec and plan review rule](.claude/rules/spec-and-plan-review.md) for w
 
 #### Run the Codex VAPT agent
 
-The `vapt` profile reviews the diff and existing evidence from the isolated `turboea-vapt` stack (`http://localhost:8930`). Its output belongs in `../turbo-ea-vapt/reports/`. The child inherits the parent session's permissions. Use a dedicated parent with a read-only filesystem and one writable directory.
+The `vapt` profile can run the [standalone Viewer check](.claude/agents/vapt.md#standalone-viewer-check-claude-code-and-codex) against the running `turboea-vapt` stack at `http://localhost:8930`, analyse its recorded traffic passively with ZAP, and review the diff and existing evidence. Its output belongs in `../turbo-ea-vapt/reports/`. The child inherits the parent session's permissions. Use a dedicated parent with a read-only filesystem and one writable directory.
 
-From the Turbo EA checkout in PowerShell, launch the Codex desktop runtime. The agent shell keeps its existing network restrictions.
+From the Turbo EA checkout in PowerShell, launch the Codex desktop runtime. The default session keeps networking restricted. For the live check, approve only the individual fixture or test command after verifying its target and cleanup. A shell escalation runs outside the default sandbox. Keep the client on the fixed origin and disable redirects. Evidence-only reviews need no network approval.
 
 ```powershell
 $codex = (Get-Command codex.exe -All | Where-Object Source -Like '*WindowsApps*' | Select-Object -First 1).Source
 $reports = (Resolve-Path -LiteralPath '../turbo-ea-vapt/reports').Path
 $vaptPermissions = @(
-    '-a', 'never',
+    '-c', "approval_policy='on-request'",
     '-c', "permissions.vapt_reports.extends=':read-only'",
     '-c', "permissions.vapt_reports.filesystem={'$reports'='write'}",
     '-c', 'permissions.vapt_reports.network.enabled=false',

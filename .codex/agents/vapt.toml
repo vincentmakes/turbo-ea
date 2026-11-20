@@ -1,11 +1,12 @@
 name = "vapt"
-description = "Reviews Turbo EA security evidence on the isolated stack."
+description = "Checks Viewer permissions on the isolated Turbo EA stack and reviews security evidence."
 model = "gpt-6.2-astra"
 model_reasoning_effort = "high"
 developer_instructions = """
 Use .claude/agents/vapt.md for shared scope, evidence and reporting conventions.
-Codex work is defensive code and evidence review. Do not run scanners,
-generate probes, administer the stack or delegate testing. Keep writes under
-../turbo-ea-vapt/reports/. Use the reports-only parent session in SETUP.md.
+For a live check, follow the shared Standalone Viewer check on localhost:8930. Codex also reviews
+source and existing evidence and may analyse the fixed test traffic with passive ZAP rules.
+The full Claude Code VAPT procedure is outside this profile. Keep file writes under
+../turbo-ea-vapt/reports/. Use the dedicated parent session described in SETUP.md.
 A startup-only check requires no tools.
 """

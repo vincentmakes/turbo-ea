@@ -14,15 +14,19 @@ or touch GitHub**: the session that called you owns git.
 
 ## What you work on
 
-The diff of the current branch against `origin/main` (`git diff origin/main...HEAD`). Touch only files the
-diff touches, and only the lines it adds or changes plus what they need to stay consistent. Skip user docs
+From the repository root, run `git diff --merge-base origin/main --` for the tracked patch from
+the common ancestor through the current working tree. Run `git ls-files --others --exclude-standard --`
+and read each listed file as a new addition. Use `git status --short` to spot paths with both staged
+and unstaged changes, then inspect `git diff --cached -- <path>` and `git diff -- <path>` for those paths.
+
+Touch only files in that inventory and only the lines it adds or changes plus what they need to stay consistent. Skip user docs
 (`docs/**`, `CHANGELOG.md`, `README.md`, non-English locales). Never rewrite code that is not in the diff,
 and never restructure a file because it could be better.
 
 ## In this order
 
-1. Invoke the `simplify` skill (Skill tool) on the branch diff and apply what it finds: reuse of an
-   existing helper, duplication removed, a simpler construct, work that does not need doing.
+1. In Claude Code and Codex, use `ponytail:ponytail` at level `full` on the branch diff. Look for existing
+   helpers to reuse, duplication to remove and simpler ways to preserve the same behaviour.
 2. Read the `.claude/rules/*.md` file of each area the diff touches (grep the frontmatter `paths:` to find
    it). The project's own rules win over the skill: a "simplification" that breaks one of them is wrong.
    Examples: relations are keyed by relation type, a card read goes through `CardReadScope`, a seed or
@@ -42,9 +46,8 @@ Before you edit a symbol, `trail callers <symbol>` lists what depends on it.
 
 ## What you report
 
-You work in `ponytail` at the **full** level. Files changed, one line each saying what got simpler and why
-behaviour is the same; what the `simplify` skill suggested and you **declined**, with the reason; the exact
-commands you ran and their result counts; what you did not run. If you changed nothing, say so and list what
+For each changed file, explain what got simpler and why behaviour is the same. List any changes you
+considered and declined, with the reason. Give the commands you ran, their result counts and any checks you skipped. If you changed nothing, say so and list what
 you looked at: an empty answer is not a pass.
 
-> `simplify` is a built-in skill of Claude Code: if it is not available on this machine, say so in your report and stop.
+> If `ponytail:ponytail` is unavailable, report the missing skill and stop.
