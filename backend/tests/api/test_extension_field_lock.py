@@ -564,7 +564,7 @@ class TestMetamodelHelpers:
     a junk section or field is passed over, never the end of the walk."""
 
     def test_stamps_survive_junk_and_fieldless_sections(self):
-        from app.api.v1.metamodel import _carry_ext_stamps
+        from app.services.extensions.contribution_guard import preserve_ext_schema
 
         old = [
             "junk",
@@ -584,7 +584,7 @@ class TestMetamodelHelpers:
                 ],
             },
         ]
-        assert _carry_ext_stamps(new, old) == [
+        assert preserve_ext_schema(new, old, frozenset()).schema == [
             "junk",
             {"section": "No fields"},
             {
@@ -596,6 +596,27 @@ class TestMetamodelHelpers:
                     {"key": "plain"},
                 ],
             },
+        ]
+
+    def test_protect_flags_alone_are_still_written(self):
+        """A licensed, active owner: nothing is locked, but what it stamped is
+        protected — a protected field alone, or a protected section alone,
+        still gets its flag."""
+        from app.api.v1.metamodel import _schema_with_lock_flags
+
+        load(owner_licensed=True)
+        stamped = {"key": "score", "label": "Score", "ext": OWNER}
+        plain = {"key": "note", "label": "Note"}
+        field_only = [{"section": "Own", "fields": [stamped, plain]}]
+        assert _schema_with_lock_flags("Gadget", field_only) == [
+            {"section": "Own", "fields": [{**stamped, "ext_protected": True}, plain]}
+        ]
+        section_only = [{"section": "Sample", "ext": OWNER, "fields": [plain]}]
+        assert _schema_with_lock_flags("Gadget", section_only) == [
+            {"section": "Sample", "ext": OWNER, "fields": [plain], "ext_protected": True}
+        ]
+        assert _schema_with_lock_flags("Gadget", [{"section": "Own", "fields": [plain]}]) == [
+            {"section": "Own", "fields": [plain]}
         ]
 
     def test_lock_flags_keep_junk_and_fieldless_sections_in_place(self):

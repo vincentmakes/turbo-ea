@@ -271,7 +271,11 @@ function FieldCard({
             </Tooltip>
           )}
           {onEdit && <IconButton size="small" onClick={onEdit} sx={{ p: 0.25 }}><MaterialSymbol icon="edit" size={16} /></IconButton>}
-          {onDelete && <IconButton size="small" onClick={onDelete} sx={{ p: 0.25 }}><MaterialSymbol icon="delete" size={16} /></IconButton>}
+          {onDelete && (field.ext_protected ? (
+            <Tooltip title={t("cardLayout.extensionOwned")}>
+              <span><IconButton size="small" disabled aria-label={t("cardLayout.extensionOwned")} sx={{ p: 0.25 }}><MaterialSymbol icon="delete" size={16} /></IconButton></span>
+            </Tooltip>
+          ) : <IconButton size="small" onClick={onDelete} sx={{ p: 0.25 }}><MaterialSymbol icon="delete" size={16} /></IconButton>)}
         </Box>
       )}
     </Box>
@@ -1151,6 +1155,25 @@ function DescriptionFieldsPanel({
 
 // ── SortableSectionItem ──────────────────────────────────────────
 
+/** Why a section cannot be deleted here, or `null` when it can.
+ *  `"owned"`: an active extension contributed it (the server puts it back on
+ *  save). `"holds"`: an admin section holding a field an active extension
+ *  contributed — the field must be moved out first. Both read the transient
+ *  `ext_protected` flag, never the raw stamp, so what an uninstalled
+ *  extension left behind stays deletable. */
+export function sectionDeleteBlock(
+  section: SectionDef | null | undefined,
+): "owned" | "holds" | null {
+  if (!section) return null;
+  if (section.ext_protected) return "owned";
+  return (section.fields || []).some((f) => !!f.ext_protected) ? "holds" : null;
+}
+
+const DELETE_BLOCK_KEYS = {
+  owned: "cardLayout.extensionOwned",
+  holds: "cardLayout.extensionFieldInside",
+} as const;
+
 function SortableSectionItem({
   id, sectionKey, info, cfg, expanded, onToggleExpand,
   onToggleCollapsed, onToggleHidden, onDelete, children, dqWeight, note,
@@ -1173,6 +1196,7 @@ function SortableSectionItem({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
   const canExpand = (info.isCustom || sectionKey === "description") && !cfg.hidden;
+  const deleteBlock = sectionDeleteBlock(info.section);
 
   return (
     <Box ref={setNodeRef} style={style} sx={{ border: 1, borderColor: cfg.hidden ? "action.disabled" : "divider", borderRadius: 1.5, mb: 1, bgcolor: cfg.hidden ? "action.disabledBackground" : "background.paper" }}>
@@ -1199,13 +1223,21 @@ function SortableSectionItem({
             sx={{ mr: 0, ml: 0 }}
           />
         </Tooltip>
-        {onDelete && (
+        {onDelete && (deleteBlock ? (
+          <Tooltip title={t(DELETE_BLOCK_KEYS[deleteBlock])}>
+            <span>
+              <IconButton size="small" disabled aria-label={t(DELETE_BLOCK_KEYS[deleteBlock])}>
+                <MaterialSymbol icon="delete" size={18} color={STATUS_COLORS.neutral} />
+              </IconButton>
+            </span>
+          </Tooltip>
+        ) : (
           <Tooltip title={t("cardLayout.deleteSection")}>
             <IconButton size="small" onClick={onDelete}>
               <MaterialSymbol icon="delete" size={18} color={STATUS_COLORS.neutral} />
             </IconButton>
           </Tooltip>
-        )}
+        ))}
         {canExpand && (
           <IconButton size="small" onClick={onToggleExpand}>
             <MaterialSymbol icon={expanded ? "expand_less" : "expand_more"} size={20} />

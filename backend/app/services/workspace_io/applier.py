@@ -695,6 +695,15 @@ async def _apply_bookmark_shares(
 
 async def _apply_card_types(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: bool) -> None:
     existing = {ct.key: ct for ct in (await db.execute(select(CardType))).scalars().all()}
+    # A row replaces fields_schema / subtypes / section_config whole. What an
+    # active extension contributed to a type on THIS instance is kept, by the
+    # same guard a metamodel save runs — before the comparison, so a re-import
+    # is a no-op and the preview shows exactly what the apply writes.
+    from app.services.extensions import contribution_guard
+    from app.services.extensions.registry import extension_registry
+
+    await extension_registry.refresh_from_db(db)
+    active_keys = contribution_guard.active_extension_keys()
     for row in bundle.rows(schema.SHEET_CARD_TYPES):
         data = _coerce(row, exp.CARD_TYPE_COLUMNS, exp.CARD_TYPE_JSON)
         # NOT NULL JSONB columns: a hand-authored content pack may declare the
@@ -709,6 +718,18 @@ async def _apply_card_types(db, bundle: WorkspaceBundle, sr: SectionResult, dry_
             sr.failed += 1
             continue
         current = existing.get(key)
+        # A type new here is guarded too, against nothing stored: the same
+        # stamp rule as for a type this instance has (no forged stamps of an
+        # extension installed here), and no transient read flags written.
+        contribution_guard.guard_card_type_row(
+            data,
+            stored_schema=None if current is None else current.fields_schema,
+            stored_subtypes=None if current is None else current.subtypes,
+            stored_config=None if current is None else current.section_config,
+            active_keys=active_keys,
+            mode="import",
+            installed=contribution_guard.installed_contributions(str(key)),
+        )
         if current is None:
             ct = CardType(**{k: v for k, v in data.items()})
             db.add(ct)
@@ -724,6 +745,13 @@ async def _apply_card_types(db, bundle: WorkspaceBundle, sr: SectionResult, dry_
     # no CardTypeCategories sheet) still names its layers: adopt any the
     # registry lacks, so the type editor never refuses to save such a type.
     await card_type_categories.ensure_categories(db, (ct.category for ct in existing.values()))
+    if not dry_run:
+        # Fallback only: the guard above already kept every active
+        # contribution of the types this instance had, so this finds nothing
+        # to do unless a contribution was missing before the import.
+        from app.services.extensions.field_contributions import heal_contributions
+
+        await heal_contributions(db)
 
 
 # The one column of a built-in category a bundle may change: its place in the

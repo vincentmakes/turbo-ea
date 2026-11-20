@@ -9,6 +9,7 @@ strips the extension's fields while attribute values survive untouched.
 from __future__ import annotations
 
 import json
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -628,3 +629,742 @@ class TestSubtypeBundleValidation(TestBundleValidation):
         )
         with pytest.raises(BundleError, match="missing card_type"):
             read_bundle(path)
+
+
+# ---------------------------------------------------------------------------
+# Self-heal: contributions_missing / heal_contributions
+# ---------------------------------------------------------------------------
+
+HEAL_EXT = "sample-ext"
+
+
+def heal_manifest(card_type="Gadget"):
+    return {
+        "metamodel": {
+            "field_sections": [
+                {
+                    "card_type": card_type,
+                    "section": "Sample",
+                    "fields": [
+                        {"key": "h1", "label": "H1", "type": "number", "weight": 1},
+                        {"key": "h2", "label": "H2", "type": "text"},
+                    ],
+                }
+            ],
+            "subtypes": [{"card_type": card_type, "subtypes": [{"key": "sub", "label": "Sub"}]}],
+        }
+    }
+
+
+INTACT_SECTION = {
+    "section": "Sample",
+    "ext": HEAL_EXT,
+    "fields": [
+        {"key": "h1", "label": "H1", "type": "number", "weight": 1, "ext": HEAL_EXT},
+        {"key": "h2", "label": "H2", "type": "text", "ext": HEAL_EXT},
+    ],
+}
+INTACT_SUBTYPES = [{"key": "sub", "label": "Sub", "ext": HEAL_EXT}]
+
+
+async def heal_type(db, *, fields_schema=None, subtypes=None):
+    return await create_card_type(
+        db,
+        key="Gadget",
+        label="Gadget",
+        fields_schema=fields_schema
+        if fields_schema is not None
+        else [{"section": "Core", "fields": []}, json.loads(json.dumps(INTACT_SECTION))],
+        subtypes=subtypes if subtypes is not None else json.loads(json.dumps(INTACT_SUBTYPES)),
+    )
+
+
+async def extension_row(db, key=HEAL_EXT, *, manifest=None, **kw):
+    from app.models.extension import Extension
+
+    row = Extension(
+        key=key,
+        name=key,
+        version="1.0.0",
+        manifest=manifest if manifest is not None else heal_manifest(),
+        capabilities=["metamodel"],
+        status=kw.get("status", "installed"),
+        enabled=kw.get("enabled", True),
+    )
+    db.add(row)
+    await db.flush()
+    return row
+
+
+def section(name, ext=None, fields=()):
+    out = {"section": name, "fields": [dict(f) if isinstance(f, dict) else f for f in fields]}
+    if ext:
+        out["ext"] = ext
+    return out
+
+
+class TestFieldSectionsMissing:
+    """The pure check, on in-memory card types (a truth table)."""
+
+    @staticmethod
+    def types(schema, subtypes=()):
+        from app.models.card_type import CardType
+
+        return {"Gadget": CardType(key="Gadget", fields_schema=schema, subtypes=list(subtypes))}
+
+    def test_truth_table(self):
+        from app.services.extensions.field_contributions import field_sections_missing
+
+        h1 = {"key": "h1", "ext": HEAL_EXT}
+        h2 = {"key": "h2", "ext": HEAL_EXT}
+        cases = [
+            ([section("Sample", HEAL_EXT, [h1, h2])], False),  # intact
+            ([], True),  # section and fields gone
+            ([section("Sample", HEAL_EXT, [h1])], True),  # one field gone
+            # Field-centric: every key is on the type, wherever it sits.
+            ([section("Sample", None, [h1, h2])], False),  # section unstamped
+            ([section("Renamed", HEAL_EXT, [h1, h2])], False),  # renamed section
+            ([section("Sample", "other", [h1, h2])], False),  # someone else's section
+            ([section("Mine", None, [h1]), section("Sample", HEAL_EXT, [h2])], False),  # moved
+            ([section("Mine", None, [h1])], True),  # moved one, the other gone
+            ([{"section": "Odd", "fields": "junk"}, section("S", None, [h1, h2])], False),
+            # A key someone else holds is never taken over, so never missing.
+            ([section("Sample", HEAL_EXT, [h1]), section("Core", None, [{"key": "h2"}])], False),
+            ([section("Core", None, [{"key": "h1"}, {"key": "h2", "ext": "o"}])], False),
+            (["junk", section("Sample", HEAL_EXT, [h1, h2, "junk"])], False),
+        ]
+        for schema, expected in cases:
+            assert field_sections_missing(self.types(schema), HEAL_EXT, heal_manifest()) is (
+                expected
+            ), schema
+
+    def test_a_missing_target_type_or_no_contributions_is_not_missing(self):
+        from app.services.extensions.field_contributions import field_sections_missing
+
+        assert field_sections_missing({}, HEAL_EXT, heal_manifest()) is False
+        assert field_sections_missing(self.types([]), HEAL_EXT, {}) is False
+        assert field_sections_missing(self.types([]), HEAL_EXT, None) is False
+        malformed = {
+            "metamodel": {
+                "field_sections": [
+                    "junk",
+                    {"card_type": "Gadget", "fields": [{"key": "h1"}]},  # no section
+                    {"card_type": "Gadget", "section": "S", "fields": ["junk", {"label": "x"}]},
+                ]
+            }
+        }
+        assert field_sections_missing(self.types([]), HEAL_EXT, malformed) is False
+
+    def test_subtypes_truth_table(self):
+        from app.services.extensions.field_contributions import subtypes_missing
+
+        m = heal_manifest()
+        assert subtypes_missing(self.types([], INTACT_SUBTYPES), HEAL_EXT, m) is False
+        assert subtypes_missing(self.types([], []), HEAL_EXT, m) is True
+        # Present outside the extension: apply never takes it, never missing.
+        assert subtypes_missing(self.types([], [{"key": "sub"}]), HEAL_EXT, m) is False
+        assert subtypes_missing(self.types([], ["junk"]), HEAL_EXT, m) is True
+        assert subtypes_missing({}, HEAL_EXT, m) is False
+        no_label = {
+            "metamodel": {
+                "subtypes": [
+                    "junk",
+                    {"card_type": "Gadget", "subtypes": [{"key": "sub"}, {"label": "L"}, "junk"]},
+                    {"card_type": "Gadget", "subtypes": "x"},
+                ]
+            }
+        }
+        assert subtypes_missing(self.types([], []), HEAL_EXT, no_label) is False
+
+
+class TestContributionsMissing:
+    async def test_reads_the_target_types(self, db):
+        from app.services.extensions.field_contributions import contributions_missing
+
+        await heal_type(db)
+        assert await contributions_missing(db, HEAL_EXT, heal_manifest()) is False
+        assert await contributions_missing(db, HEAL_EXT, heal_manifest("Nope")) is False
+        assert await contributions_missing(db, HEAL_EXT, {}) is False
+
+    async def test_a_missing_section_or_subtype_each_counts(self, db):
+        from app.services.extensions.field_contributions import contributions_missing
+
+        ct = await heal_type(db, fields_schema=[])
+        assert await contributions_missing(db, HEAL_EXT, heal_manifest()) is True
+        ct.fields_schema = [json.loads(json.dumps(INTACT_SECTION))]
+        ct.subtypes = []
+        await db.flush()
+        assert await contributions_missing(db, HEAL_EXT, heal_manifest()) is True
+
+
+class TestHealContributions:
+    @pytest.fixture
+    def spies(self, monkeypatch):
+        from unittest.mock import AsyncMock
+
+        from app.services.extensions import field_contributions as fc
+
+        recompute = AsyncMock()
+        flagged: list = []
+        real_flag = fc.flag_modified
+        monkeypatch.setattr(fc, "_recompute_data_quality", recompute)
+        monkeypatch.setattr(
+            fc, "flag_modified", lambda obj, key: (flagged.append(key), real_flag(obj, key))
+        )
+        return recompute, flagged
+
+    async def test_restores_a_wiped_section_and_subtype(self, db, spies):
+        from app.services.extensions.field_contributions import heal_contributions
+
+        recompute, flagged = spies
+        ct = await heal_type(db, fields_schema=[{"section": "Core", "fields": []}], subtypes=[])
+        await extension_row(db)
+        assert await heal_contributions(db) == [HEAL_EXT]
+        assert ct.fields_schema == [{"section": "Core", "fields": []}, INTACT_SECTION]
+        assert ct.subtypes == INTACT_SUBTYPES
+        assert recompute.await_count == 1
+        assert recompute.await_args.args[1] == {"Gadget"}
+        assert flagged == ["fields_schema", "subtypes"]
+
+    async def test_only_the_missing_half_is_applied(self, db, spies):
+        from app.services.extensions.field_contributions import heal_contributions
+
+        recompute, flagged = spies
+        ct = await heal_type(db, subtypes=[])
+        await extension_row(db)
+        assert await heal_contributions(db) == [HEAL_EXT]
+        assert ct.subtypes == INTACT_SUBTYPES
+        assert recompute.await_count == 0
+        assert flagged == ["subtypes"]
+
+    async def test_intact_is_a_strict_no_op(self, db, spies):
+        from app.services.extensions.field_contributions import heal_contributions
+
+        recompute, flagged = spies
+        ct = await heal_type(db)
+        await extension_row(db)
+        before = (json.dumps(ct.fields_schema), json.dumps(ct.subtypes))
+        assert await heal_contributions(db) == []
+        assert recompute.await_count == 0
+        assert flagged == []
+        assert (json.dumps(ct.fields_schema), json.dumps(ct.subtypes)) == before
+        assert ct not in db.dirty
+
+    async def test_disabled_and_removed_extensions_are_left_alone(self, db, spies):
+        from app.services.extensions.field_contributions import heal_contributions
+
+        recompute, flagged = spies
+        ct = await heal_type(db, fields_schema=[], subtypes=[])
+        await extension_row(db, "off-ext", enabled=False)
+        await extension_row(db, "dis-ext", status="disabled")
+        await extension_row(db, "gone-ext", status="removed")
+        assert await heal_contributions(db) == []
+        assert ct.fields_schema == [] and ct.subtypes == []
+        assert recompute.await_count == 0 and flagged == []
+
+    async def test_heals_whatever_the_licence_and_in_key_order(self, db, spies):
+        from app.services.extensions.field_contributions import heal_contributions
+        from app.services.extensions.registry import extension_registry
+
+        extension_registry.clear()  # no licence anywhere
+        await heal_type(db, fields_schema=[], subtypes=[])
+        await extension_row(db, "z-ext", status="failed", manifest=heal_manifest())
+        await extension_row(db, HEAL_EXT, status="needs_restart", manifest={})
+        await extension_row(
+            db,
+            "a-ext",
+            manifest={
+                "metamodel": {
+                    "subtypes": [{"card_type": "Gadget", "subtypes": [{"key": "a", "label": "A"}]}]
+                }
+            },
+        )
+        assert await heal_contributions(db) == ["a-ext", "z-ext"]
+
+
+class TestApplyKeepsWhatAnAdminMoved:
+    """An admin may move a contributed field into a section of their own, or
+    rename the contributed section. Apply re-syncs the field where it stands
+    and never adopts, renames or restamps an admin's (unstamped) section, nor
+    adds a key a second time."""
+
+    MANIFEST = heal_manifest()
+
+    async def test_fields_in_an_unstamped_section_are_resynced_in_place(self, db):
+        holder = {
+            "section": "Sample",
+            "fields": [
+                {"key": "h1", "label": "Old", "type": "text", "ext": HEAL_EXT},
+                {"key": "mine", "label": "Mine", "type": "text"},
+                {"key": "h2", "label": "H2", "type": "text", "ext": HEAL_EXT},
+            ],
+        }
+        ct = await heal_type(
+            db,
+            fields_schema=[
+                {"section": "Core", "fields": [{"key": "h9", "ext": "other"}]},
+                json.loads(json.dumps(holder)),
+            ],
+        )
+        assert await apply_field_contributions(db, HEAL_EXT, self.MANIFEST) == 2
+        assert ct.fields_schema == [
+            {"section": "Core", "fields": [{"key": "h9", "ext": "other"}]},
+            {
+                "section": "Sample",
+                "fields": [
+                    INTACT_SECTION["fields"][0],
+                    {"key": "mine", "label": "Mine", "type": "text"},
+                    INTACT_SECTION["fields"][1],
+                ],
+            },
+        ]
+
+    async def test_a_moved_field_is_not_added_again_to_the_contributed_section(self, db):
+        moved = dict(INTACT_SECTION["fields"][0], label="Renamed by admin")
+        ct = await heal_type(
+            db,
+            fields_schema=[
+                {"section": "Mine", "fields": [{"key": "a", "label": "A", "type": "text"}, moved]},
+                {
+                    "section": "Sample",
+                    "ext": HEAL_EXT,
+                    "fields": [json.loads(json.dumps(INTACT_SECTION["fields"][1]))],
+                },
+            ],
+        )
+        await apply_field_contributions(db, HEAL_EXT, self.MANIFEST)
+        assert ct.fields_schema == [
+            {
+                "section": "Mine",
+                "fields": [{"key": "a", "label": "A", "type": "text"}, INTACT_SECTION["fields"][0]],
+            },
+            INTACT_SECTION | {"fields": [INTACT_SECTION["fields"][1]]},
+        ]
+
+    async def test_a_duplicate_left_by_an_older_apply_is_folded_away(self, db):
+        h1 = INTACT_SECTION["fields"][0]
+        ct = await heal_type(
+            db,
+            fields_schema=[
+                {"section": "Mine", "fields": [dict(h1)]},
+                json.loads(json.dumps(INTACT_SECTION)),
+            ],
+        )
+        await apply_field_contributions(db, HEAL_EXT, self.MANIFEST)
+        assert ct.fields_schema == [
+            {"section": "Mine", "fields": [h1]},
+            INTACT_SECTION | {"fields": [INTACT_SECTION["fields"][1]]},
+        ]
+
+    async def test_all_fields_moved_and_section_deleted_creates_nothing(self, db):
+        fields = json.loads(json.dumps(INTACT_SECTION["fields"]))
+        ct = await heal_type(db, fields_schema=[{"section": "Mine", "fields": fields}])
+        assert await apply_field_contributions(db, HEAL_EXT, self.MANIFEST) == 2
+        assert ct.fields_schema == [{"section": "Mine", "fields": INTACT_SECTION["fields"]}]
+
+    async def test_junk_sections_are_passed_over(self, db):
+        ct = await heal_type(db, fields_schema=["junk", {"section": "Odd", "fields": "x"}])
+        await apply_field_contributions(db, HEAL_EXT, self.MANIFEST)
+        assert ct.fields_schema == ["junk", {"section": "Odd", "fields": "x"}, INTACT_SECTION]
+
+
+class TestHealLeavesAdminArrangementsAlone:
+    async def test_moved_fields_and_a_renamed_section_trigger_no_heal(self, db, monkeypatch):
+        from app.services.extensions import field_contributions as fc
+
+        apply = AsyncMock()
+        monkeypatch.setattr(fc, "apply_field_contributions", apply)
+        renamed = json.loads(json.dumps(INTACT_SECTION)) | {"section": "Renamed"}
+        await heal_type(db, fields_schema=[renamed])
+        await extension_row(db)
+        assert await fc.heal_contributions(db) == []
+
+        other = await create_card_type(
+            db,
+            key="Other",
+            label="Other",
+            fields_schema=[{"section": "Mine", "fields": INTACT_SECTION["fields"]}],
+        )
+        fields_only = {
+            "metamodel": {"field_sections": heal_manifest("Other")["metamodel"]["field_sections"]}
+        }
+        await extension_row(db, "b-ext", manifest=fields_only)
+        assert await fc.heal_contributions(db) == []
+        assert apply.await_count == 0
+        assert other.fields_schema == [{"section": "Mine", "fields": INTACT_SECTION["fields"]}]
+
+
+class TestHealIsolation:
+    async def test_one_failing_extension_does_not_stop_the_others(self, db, monkeypatch, caplog):
+        import logging
+
+        from app.services.extensions import field_contributions as fc
+
+        real = fc.apply_field_contributions
+
+        async def apply(session, key, manifest):
+            if key == "a-ext":
+                raise RuntimeError("bad row")
+            return await real(session, key, manifest)
+
+        monkeypatch.setattr(fc, "apply_field_contributions", apply)
+        monkeypatch.setattr(fc, "_recompute_data_quality", AsyncMock())
+        ct = await heal_type(db, fields_schema=[], subtypes=json.loads(json.dumps(INTACT_SUBTYPES)))
+        await extension_row(db, "a-ext")
+        await extension_row(db, "b-ext", manifest={"metamodel": "junk"})
+        await extension_row(db, HEAL_EXT)
+        with caplog.at_level(logging.ERROR, logger="app.services.extensions.field_contributions"):
+            assert await fc.heal_contributions(db) == [HEAL_EXT]
+        assert ct.fields_schema == [INTACT_SECTION]
+        assert [r.getMessage() for r in caplog.records if r.levelname == "ERROR"] == [
+            "Extension a-ext: restoring its metamodel contributions failed",
+            "Extension b-ext: restoring its metamodel contributions failed",
+        ]
+        assert "bad row" in caplog.text
+
+
+class TestSubtypeApplyKeepsAdminProps:
+    async def test_admin_properties_survive_and_manifest_ones_resync(self, db):
+        from app.services.extensions.field_contributions import apply_subtype_contributions
+
+        ct = await heal_type(
+            db,
+            subtypes=[
+                {"key": "own", "label": "Own"},
+                {
+                    "key": "sub",
+                    "label": "Edited",
+                    "color": "#000000",
+                    "ext": HEAL_EXT,
+                    "hidden_fields": ["h1"],
+                    "optional_relations": ["relX"],
+                },
+                {"key": "dropped", "label": "Dropped", "ext": HEAL_EXT},
+            ],
+        )
+        assert await apply_subtype_contributions(db, HEAL_EXT, heal_manifest()) == 1
+        assert ct.subtypes == [
+            {"key": "own", "label": "Own"},
+            {
+                "key": "sub",
+                "label": "Sub",
+                "ext": HEAL_EXT,
+                "hidden_fields": ["h1"],
+                "optional_relations": ["relX"],
+            },
+        ]
+
+    async def test_an_unchanged_list_is_not_written(self, db, monkeypatch):
+        from app.services.extensions import field_contributions as fc
+
+        flagged: list = []
+        monkeypatch.setattr(fc, "flag_modified", lambda obj, key: flagged.append(key))
+        ct = await heal_type(db)
+        assert await fc.apply_subtype_contributions(db, HEAL_EXT, heal_manifest()) == 1
+        assert ct.subtypes == INTACT_SUBTYPES
+        assert flagged == []
+
+
+class TestTwoSectionsOfOneManifest:
+    """One extension, two contributed sections on one type (S1[x], S2[y])."""
+
+    MANIFEST = {
+        "metamodel": {
+            "field_sections": [
+                {"card_type": "Gadget", "section": "S1", "fields": [{"key": "x", "label": "X"}]},
+                {"card_type": "Gadget", "section": "S2", "fields": [{"key": "y", "label": "Y"}]},
+            ]
+        }
+    }
+    X = {"key": "x", "label": "X", "ext": HEAL_EXT}
+    Y = {"key": "y", "label": "Y", "ext": HEAL_EXT}
+
+    async def test_a_field_moved_into_the_sibling_section_is_kept_and_resynced(self, db):
+        from app.services.extensions.field_contributions import field_sections_missing
+
+        ct = await heal_type(
+            db,
+            fields_schema=[
+                section("S1", HEAL_EXT),
+                section(
+                    "S2",
+                    HEAL_EXT,
+                    [self.Y, {"key": "x", "label": "Old X", "ext": HEAL_EXT}, {"key": "a"}],
+                ),
+            ],
+            subtypes=[],
+        )
+        assert await apply_field_contributions(db, HEAL_EXT, self.MANIFEST) == 2
+        assert ct.fields_schema == [
+            section("S1", HEAL_EXT),
+            section("S2", HEAL_EXT, [self.X, {"key": "a"}, self.Y]),
+        ]
+        assert field_sections_missing({"Gadget": ct}, HEAL_EXT, self.MANIFEST) is False
+
+    async def test_the_sibling_order_does_not_matter(self, db):
+        ct = await heal_type(
+            db,
+            fields_schema=[
+                section("S1", HEAL_EXT, [self.X, {"key": "y", "label": "Old", "ext": HEAL_EXT}]),
+                section("S2", HEAL_EXT),
+            ],
+            subtypes=[],
+        )
+        await apply_field_contributions(db, HEAL_EXT, self.MANIFEST)
+        assert ct.fields_schema == [
+            section("S1", HEAL_EXT, [self.Y, self.X]),
+            section("S2", HEAL_EXT),
+        ]
+
+    async def test_a_key_the_manifest_dropped_is_still_dropped(self, db):
+        ct = await heal_type(
+            db,
+            fields_schema=[
+                section("S1", HEAL_EXT, [self.X]),
+                section("S2", HEAL_EXT, [self.Y, {"key": "gone", "ext": HEAL_EXT}]),
+            ],
+            subtypes=[],
+        )
+        await apply_field_contributions(db, HEAL_EXT, self.MANIFEST)
+        assert ct.fields_schema == [
+            section("S1", HEAL_EXT, [self.X]),
+            section("S2", HEAL_EXT, [self.Y]),
+        ]
+
+
+class TestResyncKeepsTheAdminsLayout:
+    async def test_column_and_group_of_a_moved_field_are_the_admins(self, db):
+        manifest = {
+            "metamodel": {
+                "field_sections": [
+                    {
+                        "card_type": "Gadget",
+                        "section": "Sample",
+                        "fields": [
+                            {"key": "h1", "label": "H1", "column": 0, "group": "Theirs"},
+                            {"key": "h2", "label": "H2", "column": 1, "group": "Theirs"},
+                        ],
+                    }
+                ]
+            }
+        }
+        ct = await heal_type(
+            db,
+            fields_schema=[
+                {
+                    "section": "Mine",
+                    "columns": 2,
+                    "fields": [
+                        {
+                            "key": "h1",
+                            "label": "Old",
+                            "column": 1,
+                            "group": "Mine",
+                            "ext": HEAL_EXT,
+                        },
+                        {"key": "h2", "label": "Old", "column": 0, "ext": HEAL_EXT},
+                    ],
+                }
+            ],
+            subtypes=[],
+        )
+        await apply_field_contributions(db, HEAL_EXT, manifest)
+        assert ct.fields_schema == [
+            {
+                "section": "Mine",
+                "columns": 2,
+                "fields": [
+                    {"key": "h1", "label": "H1", "column": 1, "group": "Mine", "ext": HEAL_EXT},
+                    {"key": "h2", "label": "H2", "column": 0, "ext": HEAL_EXT},
+                ],
+            }
+        ]
+
+
+class TestRenamesAndLabelsAcrossHealAndApply:
+    """A renamed contributed section and an edited field label survive a heal
+    with nothing missing (a restart), and are re-synced from the manifest by
+    an apply (an update or a re-enable)."""
+
+    @staticmethod
+    def edited():
+        out = json.loads(json.dumps(INTACT_SECTION)) | {"section": "Renamed"}
+        out["fields"][0]["label"] = "My label"
+        return out
+
+    async def test_a_heal_with_nothing_missing_keeps_them(self, db):
+        from app.services.extensions.field_contributions import heal_contributions
+
+        ct = await heal_type(db, fields_schema=[self.edited()])
+        await extension_row(db)
+        assert await heal_contributions(db) == []
+        assert ct.fields_schema == [self.edited()]
+
+    async def test_an_apply_resyncs_them(self, db):
+        ct = await heal_type(db, fields_schema=[self.edited()])
+        await apply_field_contributions(db, HEAL_EXT, heal_manifest())
+        assert ct.fields_schema == [INTACT_SECTION]
+
+
+# ---------------------------------------------------------------------------
+# Malformed manifests and schemas: each entry is judged on its own
+# ---------------------------------------------------------------------------
+
+
+class TestPureHelpersOnMalformedInput:
+    def test_manifest_field_keys_reads_every_contribution_to_the_type(self):
+        from app.services.extensions.field_contributions import _manifest_field_keys
+
+        contributions = [
+            "junk",
+            {"card_type": "Other", "fields": [{"key": "o"}]},
+            {"card_type": "Gadget", "fields": None},
+            {"card_type": "Gadget", "fields": ["junk", {"key": ""}, {"key": 5}, {"key": "a"}]},
+            {"card_type": "Gadget", "fields": [{"key": "b"}]},
+        ]
+        assert _manifest_field_keys(contributions, "Gadget") == {"a", "b"}
+
+    def test_merge_subtypes_keeps_everything_after_a_dropped_one(self):
+        from app.services.extensions.field_contributions import _merge_subtypes
+
+        existing = [
+            {"key": "old", "label": "Old", "ext": HEAL_EXT},
+            {"key": "a", "label": "A", "ext": HEAL_EXT, "hidden_fields": ["x"]},
+            {"key": "z", "label": "Z"},
+        ]
+        stamped = [{"key": "a", "label": "A2", "ext": HEAL_EXT}]
+        assert _merge_subtypes(existing, stamped, HEAL_EXT) == [
+            {"key": "a", "label": "A2", "ext": HEAL_EXT, "hidden_fields": ["x"]},
+            {"key": "z", "label": "Z"},
+        ]
+
+    def test_type_field_keys_on_a_type_without_a_schema(self):
+        from app.models.card_type import CardType
+        from app.services.extensions.field_contributions import _type_field_keys
+
+        assert _type_field_keys(CardType(key="Gadget", fields_schema=None)) == set()
+        schema = [section("S", None, [{"key": "a"}, {"key": ""}, {"key": 5}])]
+        assert _type_field_keys(CardType(key="Gadget", fields_schema=schema)) == {"a"}
+
+    def test_a_skipped_contribution_does_not_stop_the_missing_check(self):
+        from app.models.card_type import CardType
+        from app.services.extensions.field_contributions import (
+            field_sections_missing,
+            subtypes_missing,
+        )
+
+        types = {"Gadget": CardType(key="Gadget", fields_schema=[], subtypes=[])}
+        field_row = {"card_type": "Gadget", "section": "S", "fields": [{"key": "h1"}]}
+        sub_row = {"card_type": "Gadget", "subtypes": [{"key": "s", "label": "S"}]}
+        for skipped in ("junk", {"card_type": "Nope", "section": "S", "fields": [{"key": "n"}]}):
+            manifest = {"metamodel": {"field_sections": [skipped, field_row]}}
+            assert field_sections_missing(types, HEAL_EXT, manifest) is True, skipped
+        for skipped in ("junk", {"card_type": "Nope", "subtypes": [{"key": "n", "label": "N"}]}):
+            manifest = {"metamodel": {"subtypes": [skipped, sub_row]}}
+            assert subtypes_missing(types, HEAL_EXT, manifest) is True, skipped
+
+    def test_target_type_keys_take_only_string_card_types(self):
+        from app.services.extensions.field_contributions import _target_type_keys
+
+        manifest = {
+            "metamodel": {
+                "field_sections": ["junk", {"card_type": 5}, {"card_type": "A"}],
+                "subtypes": [{"no": "type"}, {"card_type": "B"}],
+            }
+        }
+        assert _target_type_keys(manifest) == {"A", "B"}
+
+
+class TestApplyOnMalformedInput:
+    async def test_each_bad_contribution_is_skipped_and_the_rest_applied(self, db):
+        ct = await heal_type(db, fields_schema=[])
+        valid = heal_manifest()["metamodel"]["field_sections"][0]
+        manifest = manifest_with(
+            [
+                "junk",
+                {"card_type": "Gadget", "fields": [{"key": "n", "label": "N"}]},  # no section
+                {"card_type": "Gadget", "section": "Bad", "fields": 5},
+                valid,
+            ]
+        )
+        assert await apply_field_contributions(db, HEAL_EXT, manifest) == 2
+        assert ct.fields_schema == [INTACT_SECTION]
+
+    async def test_sections_without_a_field_list_are_passed_over(self, db):
+        ct = await heal_type(
+            db, fields_schema=[{"section": "Odd"}, {"section": "Sample", "ext": HEAL_EXT}]
+        )
+        assert await apply_field_contributions(db, HEAL_EXT, heal_manifest()) == 2
+        assert ct.fields_schema == [{"section": "Odd"}, INTACT_SECTION]
+
+    async def test_a_sibling_contributions_section_is_never_adopted(self, db):
+        second = {
+            "card_type": "Gadget",
+            "section": "Second",
+            "fields": [{"key": "s1", "label": "S1", "type": "text"}],
+        }
+        manifest = manifest_with([heal_manifest()["metamodel"]["field_sections"][0], second])
+        ct = await heal_type(db, fields_schema=[json.loads(json.dumps(INTACT_SECTION))])
+        assert await apply_field_contributions(db, HEAL_EXT, manifest) == 3
+        assert ct.fields_schema == [
+            INTACT_SECTION,
+            {
+                "section": "Second",
+                "ext": HEAL_EXT,
+                "fields": [{"key": "s1", "label": "S1", "type": "text", "ext": HEAL_EXT}],
+            },
+        ]
+
+    async def test_a_contribution_living_elsewhere_does_not_stop_the_next(self, db):
+        second = {
+            "card_type": "Gadget",
+            "section": "Second",
+            "fields": [{"key": "s1", "label": "S1", "type": "text"}],
+        }
+        manifest = manifest_with([heal_manifest()["metamodel"]["field_sections"][0], second])
+        moved = json.loads(json.dumps(INTACT_SECTION["fields"]))
+        ct = await heal_type(db, fields_schema=[{"section": "Mine", "fields": moved}])
+        assert await apply_field_contributions(db, HEAL_EXT, manifest) == 3
+        assert ct.fields_schema == [
+            {"section": "Mine", "fields": INTACT_SECTION["fields"]},
+            {
+                "section": "Second",
+                "ext": HEAL_EXT,
+                "fields": [{"key": "s1", "label": "S1", "type": "text", "ext": HEAL_EXT}],
+            },
+        ]
+
+    async def test_the_touched_types_are_rescored(self, db, monkeypatch):
+        from app.services import data_quality
+
+        rescored: list = []
+
+        async def rescore(session, type_key):
+            rescored.append(type_key)
+            return 0
+
+        monkeypatch.setattr(data_quality, "rescore_card_type", rescore)
+        await heal_type(db, fields_schema=[])
+        await apply_field_contributions(db, HEAL_EXT, heal_manifest())
+        assert rescored == ["Gadget"]
+        await remove_field_contributions(db, HEAL_EXT)
+        assert rescored == ["Gadget", "Gadget"]
+
+
+class TestRemoveWithADescriptionSection:
+    async def test_the_description_section_takes_no_custom_slot(self, db):
+        ct = await heal_type(
+            db,
+            fields_schema=[
+                {"section": "__description", "fields": []},
+                json.loads(json.dumps(INTACT_SECTION)),
+                {"section": "Ops", "fields": []},
+            ],
+        )
+        ct.section_config = {"__order": ["description", "custom:1", "relations"]}
+        assert await remove_field_contributions(db, HEAL_EXT) == 2
+        assert ct.fields_schema == [
+            {"section": "__description", "fields": []},
+            {"section": "Ops", "fields": []},
+        ]
+        assert ct.section_config == {"__order": ["description", "custom:0", "relations"]}
