@@ -80,6 +80,14 @@ async def _run(backend: _Backend, coro_factory):
 # ── _validate_tag_ops ───────────────────────────────────────────────────────
 
 
+OP_NOT_A_DICT = "Each operation must be a dict."
+OP_UNKNOWN = "An operation takes card_id, tag_ids and mode only."
+NO_CARD = "Every operation needs a card_id."
+OP_MODE = 'mode must be "add", "remove" or "replace".'
+TAG_IDS_SHAPE = "tag_ids must be a list of tag id strings (from list_tag_groups)."
+TAG_IDS_EMPTY = "add and remove need at least one tag id; replace with [] clears."
+
+
 class TestValidateTagOps:
     def test_valid_ops_are_normalised(self):
         ops, err = server._validate_tag_ops(
@@ -97,31 +105,62 @@ class TestValidateTagOps:
         ]
 
     @pytest.mark.parametrize(
-        ("op", "error"),
+        ("op", "expected"),
         [
-            ("c1", "invalid_operation"),
-            ({"card_id": "c1", "tag_ids": ["t"], "mode": "add", "x": 1}, "unknown_fields"),
-            ({"tag_ids": ["t"], "mode": "add"}, "missing_card_id"),
-            ({"card_id": "  ", "tag_ids": ["t"], "mode": "add"}, "missing_card_id"),
-            ({"card_id": 5, "tag_ids": ["t"], "mode": "add"}, "missing_card_id"),
-            ({"card_id": "c1", "tag_ids": ["t"]}, "invalid_mode"),
-            ({"card_id": "c1", "tag_ids": ["t"], "mode": "toggle"}, "invalid_mode"),
-            ({"card_id": "c1", "tag_ids": "t", "mode": "add"}, "invalid_tag_ids"),
-            ({"card_id": "c1", "mode": "add"}, "invalid_tag_ids"),
-            ({"card_id": "c1", "tag_ids": ["t", ""], "mode": "add"}, "invalid_tag_ids"),
-            ({"card_id": "c1", "tag_ids": ["t", 3], "mode": "add"}, "invalid_tag_ids"),
-            ({"card_id": "c1", "tag_ids": [], "mode": "add"}, "invalid_tag_ids"),
-            ({"card_id": "c1", "tag_ids": [], "mode": "remove"}, "invalid_tag_ids"),
+            ("c1", {"error": "invalid_operation", "message": OP_NOT_A_DICT}),
+            (
+                {"card_id": "c1", "tag_ids": ["t"], "mode": "add", "x": 1},
+                {"error": "unknown_fields", "unknown": ["x"], "message": OP_UNKNOWN},
+            ),
+            ({"tag_ids": ["t"], "mode": "add"}, {"error": "missing_card_id", "message": NO_CARD}),
+            (
+                {"card_id": "  ", "tag_ids": ["t"], "mode": "add"},
+                {"error": "missing_card_id", "message": NO_CARD},
+            ),
+            (
+                {"card_id": 5, "tag_ids": ["t"], "mode": "add"},
+                {"error": "missing_card_id", "message": NO_CARD},
+            ),
+            (
+                {"card_id": "c1", "tag_ids": ["t"]},
+                {"error": "invalid_mode", "mode": None, "message": OP_MODE},
+            ),
+            (
+                {"card_id": "c1", "tag_ids": ["t"], "mode": "toggle"},
+                {"error": "invalid_mode", "mode": "toggle", "message": OP_MODE},
+            ),
+            (
+                {"card_id": "c1", "tag_ids": "t", "mode": "add"},
+                {"error": "invalid_tag_ids", "message": TAG_IDS_SHAPE},
+            ),
+            (
+                {"card_id": "c1", "mode": "add"},
+                {"error": "invalid_tag_ids", "message": TAG_IDS_SHAPE},
+            ),
+            (
+                {"card_id": "c1", "tag_ids": ["t", ""], "mode": "add"},
+                {"error": "invalid_tag_ids", "message": TAG_IDS_SHAPE},
+            ),
+            (
+                {"card_id": "c1", "tag_ids": ["t", 3], "mode": "add"},
+                {"error": "invalid_tag_ids", "message": TAG_IDS_SHAPE},
+            ),
+            (
+                {"card_id": "c1", "tag_ids": [], "mode": "add"},
+                {"error": "invalid_tag_ids", "message": TAG_IDS_EMPTY},
+            ),
+            (
+                {"card_id": "c1", "tag_ids": [], "mode": "remove"},
+                {"error": "invalid_tag_ids", "message": TAG_IDS_EMPTY},
+            ),
         ],
     )
-    def test_a_bad_op_is_named_by_its_index(self, op, error):
+    def test_a_bad_op_is_named_by_its_index(self, op, expected):
         ops, err = server._validate_tag_ops(
             [{"card_id": "c0", "tag_ids": ["t"], "mode": "add"}, op]
         )
         assert ops == []
-        assert err["error"] == error
-        assert err["index"] == 1
-        assert err["message"]
+        assert err == {**expected, "index": 1}
 
     def test_the_unknown_keys_and_the_bad_mode_are_echoed(self):
         _, err = server._validate_tag_ops(
@@ -133,6 +172,20 @@ class TestValidateTagOps:
 
 
 # ── _validate_tag_group_specs / _plan_tag_groups ────────────────────────────
+
+
+TAG_UNKNOWN = "A tag takes name, color and description only."
+TAG_NAME = "A tag name is 1-200 characters."
+TAG_COLOR = "color is a string of at most 20 characters."
+EXISTING_UNKNOWN = (
+    "An entry with group_id adds tags to that group and takes group_id and tags only."
+)
+EXISTING_NO_TAGS = "An entry with group_id needs at least one tag."
+NEW_UNKNOWN = (
+    "A new group takes name, description, mode, mandatory, restrict_to_types and tags only."
+)
+GROUP_NAME = "A group name is 1-200 characters."
+RESTRICT = "restrict_to_types is a list of card type keys, or null for every type."
 
 
 class TestValidateTagGroupSpecs:
@@ -183,41 +236,107 @@ class TestValidateTagGroupSpecs:
         assert server._tag_group_rows(specs) == 3
 
     @pytest.mark.parametrize(
-        ("entry", "error"),
+        ("entry", "expected"),
         [
-            ("Hosting", "invalid_group"),
-            ({"name": "G", "tags": "x"}, "invalid_tags"),
-            ({"name": "G", "tags": ["x"]}, "invalid_tags"),
-            ({"name": "G", "tags": [{"name": "T", "size": 1}]}, "unknown_fields"),
-            ({"name": "G", "tags": [{"name": ""}]}, "invalid_tag_name"),
-            ({"name": "G", "tags": [{"name": "x" * 201}]}, "invalid_tag_name"),
-            ({"name": "G", "tags": [{"name": "T", "color": "#" * 21}]}, "invalid_color"),
-            ({"name": "G", "tags": [{"name": "T", "color": 3}]}, "invalid_color"),
-            ({"name": "G", "tags": [{"name": "T", "description": 3}]}, "invalid_description"),
-            ({"name": "G", "tags": [{"name": "T"}, {"name": " t "}]}, "duplicate_tag"),
-            ({"group_id": "g1", "name": "G", "tags": [{"name": "T"}]}, "unknown_fields"),
-            ({"group_id": "", "tags": [{"name": "T"}]}, "invalid_group_id"),
-            ({"group_id": 7, "tags": [{"name": "T"}]}, "invalid_group_id"),
-            ({"group_id": "g1"}, "invalid_tags"),
-            ({"group_id": "g1", "tags": []}, "invalid_tags"),
-            ({"name": "G", "colour": "x"}, "unknown_fields"),
-            ({"name": " "}, "invalid_group_name"),
-            ({"name": 3}, "invalid_group_name"),
-            ({"name": "x" * 201}, "invalid_group_name"),
-            ({"name": "G", "mode": "several"}, "invalid_mode"),
-            ({"name": "G", "mandatory": "yes"}, "invalid_mandatory"),
-            ({"name": "G", "restrict_to_types": "Application"}, "invalid_restrict_to_types"),
-            ({"name": "G", "restrict_to_types": ["Application", ""]}, "invalid_restrict_to_types"),
-            ({"name": "G", "description": 4}, "invalid_description"),
-            ({"name": " first "}, "duplicate_group"),
+            ("Hosting", {"error": "invalid_group", "message": "Each entry must be a dict."}),
+            (
+                {"name": "G", "tags": "x"},
+                {"error": "invalid_tags", "message": "tags must be a list of dicts."},
+            ),
+            (
+                {"name": "G", "tags": ["x"]},
+                {"error": "invalid_tags", "message": "Each tag must be a dict."},
+            ),
+            (
+                {"name": "G", "tags": [{"name": "T", "size": 1, "id": "x"}]},
+                {"error": "unknown_fields", "unknown": ["id", "size"], "message": TAG_UNKNOWN},
+            ),
+            (
+                {"name": "G", "tags": [{"name": ""}]},
+                {"error": "invalid_tag_name", "message": TAG_NAME},
+            ),
+            (
+                {"name": "G", "tags": [{"name": "x" * 201}]},
+                {"error": "invalid_tag_name", "message": TAG_NAME},
+            ),
+            (
+                {"name": "G", "tags": [{"name": "T", "color": "#" * 21}]},
+                {"error": "invalid_color", "message": TAG_COLOR},
+            ),
+            (
+                {"name": "G", "tags": [{"name": "T", "color": 3}]},
+                {"error": "invalid_color", "message": TAG_COLOR},
+            ),
+            (
+                {"name": "G", "tags": [{"name": "T", "description": 3}]},
+                {"error": "invalid_description", "message": "description is a string."},
+            ),
+            (
+                {"name": "G", "tags": [{"name": "T"}, {"name": " t "}]},
+                {
+                    "error": "duplicate_tag",
+                    "name": "t",
+                    "message": "A tag is named twice in one group.",
+                },
+            ),
+            (
+                {"group_id": "g1", "name": "G", "tags": [{"name": "T"}]},
+                {"error": "unknown_fields", "unknown": ["name"], "message": EXISTING_UNKNOWN},
+            ),
+            (
+                {"group_id": "", "tags": [{"name": "T"}]},
+                {"error": "invalid_group_id", "message": "group_id is a string."},
+            ),
+            (
+                {"group_id": 7, "tags": [{"name": "T"}]},
+                {"error": "invalid_group_id", "message": "group_id is a string."},
+            ),
+            ({"group_id": "g1"}, {"error": "invalid_tags", "message": EXISTING_NO_TAGS}),
+            (
+                {"group_id": "g1", "tags": []},
+                {"error": "invalid_tags", "message": EXISTING_NO_TAGS},
+            ),
+            (
+                {"name": "G", "colour": "x", "id": 1},
+                {"error": "unknown_fields", "unknown": ["colour", "id"], "message": NEW_UNKNOWN},
+            ),
+            ({"name": " "}, {"error": "invalid_group_name", "message": GROUP_NAME}),
+            ({"name": 3}, {"error": "invalid_group_name", "message": GROUP_NAME}),
+            ({"name": "x" * 201}, {"error": "invalid_group_name", "message": GROUP_NAME}),
+            (
+                {"name": "G", "mode": "several"},
+                {
+                    "error": "invalid_mode",
+                    "mode": "several",
+                    "message": 'mode must be "single" or "multi".',
+                },
+            ),
+            (
+                {"name": "G", "mandatory": "yes"},
+                {"error": "invalid_mandatory", "message": "mandatory is a boolean."},
+            ),
+            (
+                {"name": "G", "restrict_to_types": "Application"},
+                {"error": "invalid_restrict_to_types", "message": RESTRICT},
+            ),
+            (
+                {"name": "G", "restrict_to_types": ["Application", ""]},
+                {"error": "invalid_restrict_to_types", "message": RESTRICT},
+            ),
+            (
+                {"name": "G", "description": 4},
+                {"error": "invalid_description", "message": "description is a string."},
+            ),
+            (
+                {"name": " first "},
+                {"error": "duplicate_group", "name": "first", "message": "A group is named twice."},
+            ),
         ],
     )
-    def test_a_bad_entry_is_named_by_its_index(self, entry, error):
+    def test_a_bad_entry_is_named_by_its_index(self, entry, expected):
         specs, err = server._validate_tag_group_specs([{"name": "First"}, entry])
         assert specs == []
-        assert err["error"] == error
-        assert err["index"] == 1
-        assert err["message"]
+        assert err == {**expected, "index": 1}
 
     def test_names_at_the_limit_pass(self):
         specs, err = server._validate_tag_group_specs(
@@ -268,9 +387,36 @@ class TestPlanTagGroups:
             self._specs([{"name": "Tier", "tags": [{"name": "Gold"}]}]), EXISTING
         )
         assert err is None
-        assert plan[0]["status"] == "create" and plan[0]["group_id"] is None
-        assert plan[0]["tags"][0]["status"] == "create"
+        assert server._public_plan(plan) == [
+            {
+                "group_id": None,
+                "name": "Tier",
+                "status": "create",
+                "tags": [{"name": "Gold", "color": None, "description": None, "status": "create"}],
+            }
+        ]
         assert server._plan_counts(plan) == (1, 1)
+
+    def test_a_tag_named_twice_in_one_spec_is_planned_once(self):
+        # The shape check refuses this; the planner holds the line on its own.
+        spec = {
+            "kind": "new",
+            "name": "Tier",
+            "description": None,
+            "mode": "multi",
+            "mandatory": False,
+            "restrict_to_types": None,
+            "tags": [
+                {"name": "Gold", "color": None, "description": None},
+                {"name": "GOLD", "color": None, "description": None},
+            ],
+        }
+        plan, err = server._plan_tag_groups([spec], [])
+        assert err is None
+        assert [(t["name"], t["status"]) for t in plan[0]["tags"]] == [
+            ("Gold", "create"),
+            ("GOLD", "duplicate"),
+        ]
 
     def test_tags_for_a_group_by_id(self):
         plan, err = server._plan_tag_groups(
@@ -287,8 +433,12 @@ class TestPlanTagGroups:
             EXISTING,
         )
         assert plan == []
-        assert err["error"] == "unknown_group"
-        assert err["index"] == 1 and err["group_id"] == "nope"
+        assert err == {
+            "error": "unknown_group",
+            "index": 1,
+            "group_id": "nope",
+            "message": "No tag group has this id; call list_tag_groups.",
+        }
 
     def test_junk_in_the_listing_is_ignored(self):
         plan, err = server._plan_tag_groups(
@@ -473,6 +623,88 @@ class TestCreateTagGroups:
             "/tag-groups",
             "/tag-groups/g1/tags",
             "/tag-groups/g3/tags",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_a_refused_tag_does_not_stop_the_next_tag_of_its_group(self, fake_token):
+        def answer(body):
+            if body["name"] == "Bad":
+                raise _http_error(409, "Tag already exists")
+            return {"id": f"id-{body['name']}"}
+
+        backend = _Backend(answers={"/tag-groups/g3/tags": answer}, groups=EXISTING)
+        data = await _run(
+            backend,
+            lambda: server.create_tag_groups(
+                groups=[{"group_id": "g3", "tags": [{"name": "Bad"}, {"name": "Good"}]}],
+                dry_run=False,
+            ),
+        )
+        assert [b["name"] for _, b in backend.writes()] == ["Bad", "Good"]
+        [group] = data["groups"]
+        assert group["tags"] == [
+            {
+                "name": "Bad",
+                "color": None,
+                "description": None,
+                "status": "refused",
+                "http_status": 409,
+                "detail": "Tag already exists",
+            },
+            {
+                "name": "Good",
+                "color": None,
+                "description": None,
+                "status": "created",
+                "id": "id-Good",
+            },
+        ]
+        assert data["created"] == {"groups": 0, "tags": 1}
+
+    @pytest.mark.asyncio
+    async def test_a_tag_carries_its_color_and_description(self, fake_token):
+        backend = _Backend(answers={"/tag-groups/g3/tags": {"id": "t1"}}, groups=EXISTING)
+        await _run(
+            backend,
+            lambda: server.create_tag_groups(
+                groups=[
+                    {
+                        "group_id": "g3",
+                        "tags": [{"name": "Gold", "color": "#ffd700", "description": "Top tier"}],
+                    }
+                ],
+                dry_run=False,
+            ),
+        )
+        assert backend.writes() == [
+            (
+                "/tag-groups/g3/tags",
+                {"name": "Gold", "color": "#ffd700", "description": "Top tier", "dry_run": False},
+            )
+        ]
+
+    @pytest.mark.asyncio
+    async def test_an_answer_that_is_not_an_object_leaves_no_id(self, fake_token):
+        # The group answer carries no id, so its tags cannot be sent.
+        backend = _Backend(
+            answers={"/tag-groups": None, "/tag-groups/g3/tags": ["odd"]}, groups=EXISTING
+        )
+        data = await _run(
+            backend,
+            lambda: server.create_tag_groups(
+                groups=[
+                    {"name": "Tier", "tags": [{"name": "Gold"}]},
+                    {"group_id": "g3", "tags": [{"name": "A"}]},
+                ],
+                dry_run=False,
+            ),
+        )
+        assert [p for p, _ in backend.writes()] == ["/tag-groups", "/tag-groups/g3/tags"]
+        tier, empty = data["groups"]
+        assert (tier["status"], tier["group_id"]) == ("created", None)
+        assert tier["tags"][0]["status"] == "create"
+        assert empty["tags"] == [
+            {"name": "A", "color": None, "description": None, "status": "created", "id": None}
         ]
 
     @pytest.mark.asyncio

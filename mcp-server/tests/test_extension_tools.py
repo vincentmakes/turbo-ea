@@ -291,6 +291,12 @@ class TestCheckArguments:
         err = _error(server._check_extension_arguments, RENAME, {"name": "n"})
         assert err.error == "missing_arguments"
         assert err.message == "Operation 'rename_item' needs ['item_id']."
+        assert err.extra == {"valid": ["item_id", "name"]}
+        assert err.payload() == {
+            "error": "missing_arguments",
+            "message": "Operation 'rename_item' needs ['item_id'].",
+            "valid": ["item_id", "name"],
+        }
 
     def test_dry_run_is_the_tools_own_parameter(self):
         # A tool that supports a dry run takes the switch from the dry_run
@@ -328,7 +334,41 @@ class TestCheckArguments:
         assert (err.error, err.message) == ("invalid_path_parameter", message)
 
 
+class TestCallError:
+    def test_the_message_is_the_exception_text(self):
+        err = server.ExtensionCallError("e", "Something is off.", x=1)
+        assert str(err) == "Something is off."
+        assert err.args == ("Something is off.",)
+        assert err.payload() == {"error": "e", "message": "Something is off.", "x": 1}
+
+
+class TestSegment:
+    @pytest.mark.parametrize(
+        ("value", "segment"),
+        [
+            ("a/b", "a%2Fb"),
+            ("../x", "%2E%2E%2Fx"),
+            ("a b", "a%20b"),
+            (7, "7"),
+        ],
+    )
+    def test_a_value_is_one_encoded_segment(self, value, segment):
+        # Defence in depth: the argument check refuses '/', and the segment
+        # encodes it anyway.
+        assert server._extension_segment(value) == segment
+
+
 class TestBuildRequest:
+    def test_the_extension_key_is_one_path_segment(self):
+        req = server._build_extension_request("a/b", GET_ITEM, {"item_id": "i"})
+        assert req["path"] == "/ext/a%2Fb/items/i"
+
+    def test_a_tool_without_a_path_calls_the_extension_root(self):
+        req = server._build_extension_request(KEY, {"name": "t"}, {})
+        assert req == {"method": "GET", "path": "/ext/sample-ext", "query": {}, "body": None}
+        req = server._build_extension_request(KEY, {"name": "t", "path": None}, {})
+        assert req["path"] == "/ext/sample-ext"
+
     def test_get_sends_everything_but_path_params_as_query(self):
         req = server._build_extension_request(
             KEY, GET_ITEM, {"item_id": "a b", "full": True, "skip": None}
@@ -401,7 +441,11 @@ class TestWriteRefusal:
         monkeypatch.setattr(server, "MCP_ALLOW_EXTENSION_DESTRUCTIVE", False)
         err = server._extension_write_refusal(DELETE)
         assert err.error == "destructive_disabled"
-        assert "MCP_ALLOW_EXTENSION_DESTRUCTIVE=true" in err.message
+        assert err.message == (
+            "'delete_item' removes or overwrites records, which this deployment does "
+            "not allow from an AI assistant. Do it in the web app, or ask the operator "
+            "to set MCP_ALLOW_EXTENSION_DESTRUCTIVE=true."
+        )
         monkeypatch.setattr(server, "MCP_ALLOW_EXTENSION_DESTRUCTIVE", True)
         assert server._extension_write_refusal(DELETE) is None
 
@@ -696,7 +740,14 @@ class TestCallExtensionWrite:
                 KEY, "delete_item", {"item_id": "i"}, dry_run=False
             ),
         )
-        assert out["error"] == "destructive_disabled"
+        assert out == {
+            "error": "destructive_disabled",
+            "message": (
+                "'delete_item' removes or overwrites records, which this deployment does "
+                "not allow from an AI assistant. Do it in the web app, or ask the operator "
+                "to set MCP_ALLOW_EXTENSION_DESTRUCTIVE=true."
+            ),
+        }
         assert backend.calls == []  # not even a batch
 
     @pytest.mark.asyncio
