@@ -26,7 +26,7 @@ import { mockApi } from "@/test/apiMock";
 import { renderWithProviders } from "@/test/render";
 import { makeCardType, makeField, makeSection } from "@/test/fixtures/metamodel";
 import type { CardType, FieldDef, SectionConfig, SectionDef } from "@/types";
-import CardLayoutEditor from "./CardLayoutEditor";
+import CardLayoutEditor, { isExtensionOwnedSection } from "./CardLayoutEditor";
 import { createTheme, hexToRgb } from "@mui/material/styles";
 import { brand } from "@/theme";
 import { FIELD_TYPE_COLORS } from "@/theme/tokens";
@@ -1209,5 +1209,61 @@ describe("CardLayoutEditor — one save at a time", () => {
     release();
     await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+});
+
+describe("CardLayoutEditor — what an extension contributed cannot be deleted here", () => {
+  const OWNED = "Provided by an extension — disable the extension to remove it";
+  const CONTRIBUTED = makeSection({
+    section: "Contributed",
+    ext: "sample-ext",
+    fields: [makeField({ key: "rating", label: "Rating", type: "number", ext: "sample-ext" })],
+  });
+  // An admin section an extension field was moved into.
+  const HOLDER = makeSection({
+    section: "Holder",
+    fields: [
+      makeField({ key: "moved", label: "Moved", type: "text", ext: "sample-ext" }),
+      makeField({ key: "own", label: "Own", type: "text" }),
+    ],
+  });
+  const EXT_TYPE: CardType = {
+    ...TYPE,
+    fields_schema: [DESCRIPTION_SECTION, DETAILS_SECTION, EXTRA_SECTION, CONTRIBUTED, HOLDER],
+    section_config: {} as Record<string, SectionConfig>,
+  };
+
+  it("locks the delete of a contributed section and of one holding a contributed field", async () => {
+    const { user, promptDeleteSection } = setup({ cardType: EXT_TYPE });
+    for (const name of ["Contributed", "Holder"]) {
+      // The section's own delete and the one on its contributed field.
+      const locked = within(sectionRoot(name)).getAllByRole("button", { name: OWNED });
+      expect(locked).toHaveLength(2);
+      for (const button of locked) expect(button).toBeDisabled();
+      expect(within(sectionRoot(name)).queryByRole("button", { name: "Delete section" })).not.toBeInTheDocument();
+    }
+    await user.click(within(sectionRoot("Extra")).getByRole("button", { name: "Delete section" }));
+    expect(promptDeleteSection).toHaveBeenCalledTimes(1);
+    expect(promptDeleteSection).toHaveBeenCalledWith(2);
+  });
+
+  it("locks the delete of a contributed field and keeps it on the admin's own", async () => {
+    const { user, promptDeleteField } = setup({ cardType: EXT_TYPE });
+    const moved = fieldRoot("Moved");
+    expect(within(moved).getByRole("button", { name: OWNED })).toBeDisabled();
+    expect(within(moved).queryByRole("button", { name: "delete" })).not.toBeInTheDocument();
+    await user.click(within(fieldRoot("Own")).getByRole("button", { name: "delete" }));
+    expect(promptDeleteField).toHaveBeenCalledTimes(1);
+    expect(promptDeleteField).toHaveBeenCalledWith(4, 1);
+  });
+
+  it("isExtensionOwnedSection reads the section stamp and its fields' stamps", () => {
+    expect(isExtensionOwnedSection(CONTRIBUTED)).toBe(true);
+    expect(isExtensionOwnedSection(HOLDER)).toBe(true);
+    expect(isExtensionOwnedSection({ ...CONTRIBUTED, fields: [] })).toBe(true);
+    expect(isExtensionOwnedSection(EXTRA_SECTION)).toBe(false);
+    expect(isExtensionOwnedSection({ section: "No fields" } as SectionDef)).toBe(false);
+    expect(isExtensionOwnedSection(null)).toBe(false);
+    expect(isExtensionOwnedSection(undefined)).toBe(false);
   });
 });

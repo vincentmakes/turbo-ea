@@ -43,6 +43,7 @@ from app.services import (
     card_type_delete,
     principle_service,
 )
+from app.services.extensions import field_contributions as fc
 from app.services.extensions import field_gate
 from app.services.extensions.registry import extension_registry
 from app.services.hierarchy import (
@@ -530,6 +531,233 @@ def _carry_ext_stamps(new_schema: list | None, old_schema: list | None) -> list:
             else:
                 f.pop("ext", None)
     return new_schema
+
+
+def _ext_stamp(item: object) -> str | None:
+    """The ``ext`` stamp of a section or field dict, or ``None``."""
+    if not isinstance(item, dict):
+        return None
+    stamp = item.get("ext")
+    return stamp if isinstance(stamp, str) and stamp else None
+
+
+def _section_fields(section: dict) -> list:
+    fields = section.get("fields")
+    return fields if isinstance(fields, list) else []
+
+
+def _field_keys(schema: list) -> set:
+    return {
+        f.get("key")
+        for section in schema
+        if isinstance(section, dict)
+        for f in _section_fields(section)
+        if isinstance(f, dict)
+    }
+
+
+def _stamped_field_keys(section: dict) -> list:
+    return [f.get("key") for f in _section_fields(section) if _ext_stamp(f)]
+
+
+def _match_contributed_sections(
+    new_schema: list, contributing: list[dict], old_schema: list
+) -> dict[int, dict]:
+    """Pair each stored section that carries contributions with the body
+    section that stands for it: ``{id(stored section): body section}``.
+
+    First by the same name and the same stamp (``None`` for a section that
+    only holds stamped fields); then, for what is left, by the stamped fields
+    it holds — a renamed section, or one whose stamp the body dropped. That
+    second pass never claims a body section named like another stored section,
+    so an admin section a contributed field was moved into is not mistaken for
+    the contributed section itself.
+    """
+    paired: dict[int, dict] = {}
+    taken: set[int] = set()
+    body = [s for s in new_schema if isinstance(s, dict)]
+    for stored in contributing:
+        for candidate in body:
+            if id(candidate) in taken:
+                continue
+            if candidate.get("section") == stored.get("section") and _ext_stamp(
+                candidate
+            ) == _ext_stamp(stored):
+                paired[id(stored)] = candidate
+                taken.add(id(candidate))
+                break
+    for stored in contributing:
+        if id(stored) in paired:
+            continue
+        other_names = {
+            s.get("section") for s in old_schema if isinstance(s, dict) and s is not stored
+        }
+        wanted = set(_stamped_field_keys(stored))
+        for candidate in body:
+            if id(candidate) in taken or candidate.get("section") in other_names:
+                continue
+            if wanted & {f.get("key") for f in _section_fields(candidate) if isinstance(f, dict)}:
+                paired[id(stored)] = candidate
+                taken.add(id(candidate))
+                break
+    return paired
+
+
+def _restore_missing_fields(target: dict, stored: dict, present: set) -> None:
+    """Put back into ``target`` every stamped field of ``stored`` the schema
+    no longer has anywhere: right after the nearest field it followed in the
+    stored section, else right before the nearest one it preceded, else at
+    the end — so the extension's fields keep their stored order."""
+    stored_fields = [f for f in _section_fields(stored) if isinstance(f, dict)]
+    fields = list(_section_fields(target))
+    for position, field in enumerate(stored_fields):
+        if not _ext_stamp(field) or field.get("key") in present:
+            continue
+        siblings = [f.get("key") for f in stored_fields]
+        own = position
+        keys = [f.get("key") if isinstance(f, dict) else None for f in fields]
+        index = len(fields)
+        before = next((k for k in reversed(siblings[:own]) if k in keys), None)
+        if before is not None:
+            index = keys.index(before) + 1
+        else:
+            after = next((k for k in siblings[own + 1 :] if k in keys), None)
+            if after is not None:
+                index = keys.index(after)
+        fields.insert(index, copy.deepcopy(field))
+        present.add(field.get("key"))
+    target["fields"] = fields
+
+
+def _preserve_ext_contributions(
+    new_schema: list | None, old_schema: list | None
+) -> tuple[list, list[tuple[int, int]]]:
+    """A card-type write body cannot remove or relabel what an extension
+    contributed; the extension's lifecycle (disable, uninstall) is the only
+    way out.
+
+    - every section takes the ``ext`` stamp of the stored section it stands
+      for (:func:`_match_contributed_sections`) or none — a body can neither
+      drop a section stamp (the next apply would then add a second copy of the
+      section) nor mint one;
+    - a stamped field the body left out is put back into its section
+      (:func:`_restore_missing_fields`);
+    - a stored section carrying contributions that the body left out is put
+      back at its stored index, clamped, so the positional ``custom:N`` keys of
+      the stored ``section_config.__order`` keep naming the same sections — with
+      the admin's own fields it held, unless the body has them elsewhere;
+    - field stamps follow :func:`_carry_ext_stamps`.
+
+    Everything else — admin sections, admin fields, admin fields inside a
+    contributed section — stays exactly as the body sends it. Returns the
+    schema and, for each re-inserted section, ``(custom index now, custom
+    index stored)``, which :func:`_order_with_restored_sections` needs when the
+    same body also sends an ``__order``. Never mutates ``old_schema``.
+    """
+    schema = list(new_schema or [])
+    old = list(old_schema or [])
+    contributing = [
+        s for s in old if isinstance(s, dict) and (_ext_stamp(s) or _stamped_field_keys(s))
+    ]
+    contributing_ids = {id(s) for s in contributing}
+    paired = _match_contributed_sections(schema, contributing, old)
+    stamp_of = {id(paired[id(s)]): _ext_stamp(s) for s in contributing if id(s) in paired}
+    for section in schema:
+        if not isinstance(section, dict):
+            continue
+        stamp = stamp_of.get(id(section))
+        if stamp:
+            section["ext"] = stamp
+        else:
+            section.pop("ext", None)
+
+    body_keys = _field_keys(schema)
+    restored: list[tuple[dict, dict]] = []
+    for index, stored in enumerate(old):
+        if id(stored) not in contributing_ids or id(stored) in paired:
+            continue
+        section = copy.deepcopy(stored)
+        section["fields"] = [
+            f
+            for f in _section_fields(section)
+            if not (isinstance(f, dict) and f.get("key") in body_keys)
+        ]
+        schema.insert(min(index, len(schema)), section)
+        restored.append((section, stored))
+
+    present = _field_keys(schema)
+    for stored in contributing:
+        target = paired.get(id(stored))
+        if target is not None:
+            _restore_missing_fields(target, stored, present)
+
+    inserted = [
+        (fc._custom_section_index(schema, section), fc._custom_section_index(old, stored))
+        for section, stored in restored
+        if fc._is_custom_section(section)
+    ]
+    return _carry_ext_stamps(schema, old), [
+        (now, then) for now, then in inserted if now is not None and then is not None
+    ]
+
+
+def _order_with_restored_sections(
+    order: list, inserted: list[tuple[int, int]], stored_order: list, custom_count: int
+) -> list:
+    """Re-address a body's ``__order`` after sections were put back.
+
+    The body's ``custom:N`` keys index the sections IT sent; each re-inserted
+    section shifts the ones after it, so a key is moved to the index its
+    section has now (one pointing past the body's sections is dropped, as
+    ``field_contributions._reindex_section_order`` does), and a re-inserted
+    section takes back the place its stored key held in the stored order. One
+    the stored order never listed stays unlisted, as it was. ``custom_count``
+    is the number of custom sections in the final schema.
+    """
+    if not inserted:
+        return order
+    restored_now = {now for now, _ in inserted}
+    body_to_now = [i for i in range(custom_count) if i not in restored_now]
+    out: list = []
+    for key in order:
+        if not (isinstance(key, str) and key.startswith("custom:")):
+            out.append(key)
+            continue
+        try:
+            body_index = int(key.split(":", 1)[1])
+        except ValueError:
+            continue
+        if 0 <= body_index < len(body_to_now):
+            out.append(f"custom:{body_to_now[body_index]}")
+    for now, then in sorted(inserted):
+        stored_key = f"custom:{then}"
+        if stored_key in stored_order:
+            out.insert(min(stored_order.index(stored_key), len(out)), f"custom:{now}")
+    return out
+
+
+def _readdress_body_order(
+    body: dict, inserted: list[tuple[int, int]], stored_config: object
+) -> None:
+    """When an update put contributed sections back AND sends its own
+    ``section_config.__order``, re-address that order to the final schema
+    (:func:`_order_with_restored_sections`). Without an ``__order`` in the body
+    the stored one stands, and the sections were put back where it expects
+    them."""
+    config = body.get("section_config")
+    if not inserted or not isinstance(config, dict):
+        return
+    order = config.get("__order")
+    if not isinstance(order, list):
+        return
+    stored = stored_config.get("__order") if isinstance(stored_config, dict) else None
+    custom_count = sum(1 for s in body["fields_schema"] if fc._is_custom_section(s))
+    body["section_config"] = {
+        **config,
+        "__order": _order_with_restored_sections(
+            order, inserted, stored if isinstance(stored, list) else [], custom_count
+        ),
+    }
 
 
 def _schema_with_lock_flags(type_key: str, schema: list | None) -> list:
@@ -1303,7 +1531,7 @@ async def create_type(
     ]
     await extension_registry.refresh_from_db(db)
     fields_schema = _enforce_field_gating(
-        _carry_ext_stamps(body.get("fields_schema", []), []),
+        _preserve_ext_contributions(body.get("fields_schema", []), [])[0],
         [],
         extension_registry.granted_capabilities(),
     )
@@ -1407,7 +1635,10 @@ async def update_type(
     if "fields_schema" in body:
         # Stamps first, so neither the cleanup nor anything after it can see a
         # field the body tried to unlock (or claim) by editing its `ext`.
-        body["fields_schema"] = _carry_ext_stamps(body["fields_schema"], t.fields_schema)
+        body["fields_schema"], restored_sections = _preserve_ext_contributions(
+            body["fields_schema"], t.fields_schema
+        )
+        _readdress_body_order(body, restored_sections, t.section_config)
         await _cleanup_removed_fields_and_options(
             db,
             key,

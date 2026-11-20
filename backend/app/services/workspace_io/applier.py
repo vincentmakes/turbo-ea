@@ -724,6 +724,13 @@ async def _apply_card_types(db, bundle: WorkspaceBundle, sr: SectionResult, dry_
     # no CardTypeCategories sheet) still names its layers: adopt any the
     # registry lacks, so the type editor never refuses to save such a type.
     await card_type_categories.ensure_categories(db, (ct.category for ct in existing.values()))
+    if not dry_run:
+        # A row's fields_schema replaces the stored one whole, so a type that
+        # carried an installed extension's sections loses them; put back what
+        # an active extension contributed (a no-op when nothing is missing).
+        from app.services.extensions.field_contributions import heal_contributions
+
+        await heal_contributions(db)
 
 
 # The one column of a built-in category a bundle may change: its place in the

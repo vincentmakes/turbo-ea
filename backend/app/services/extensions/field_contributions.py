@@ -203,6 +203,18 @@ def _own_sections(schema: list, ext_key: str) -> list[dict]:
     return [s for s in schema if isinstance(s, dict) and s.get("ext") == ext_key]
 
 
+def _unstamped_holder(schema: list, ext_key: str, keys: set[str]) -> dict | None:
+    """The first unstamped section holding one of this extension's stamped
+    fields among ``keys``, or ``None``."""
+    for section in schema:
+        if not isinstance(section, dict) or section.get("ext"):
+            continue
+        for f in section.get("fields", []):
+            if isinstance(f, dict) and f.get("ext") == ext_key and f.get("key") in keys:
+                return section
+    return None
+
+
 def _foreign_field_keys(schema: list, ext_key: str) -> set[str]:
     """Every field key on the type NOT owned by this extension."""
     keys: set[str] = set()
@@ -304,6 +316,10 @@ async def apply_field_contributions(
             orphans = [s for s in owned if s.get("section") not in wanted_names]
             if len(orphans) == 1:
                 target = orphans[0]
+        if target is None:
+            # A section that lost its stamp but still holds our stamped fields
+            # is ours: re-stamp it rather than add a second copy beside it.
+            target = _unstamped_holder(schema, ext_key, {f["key"] for f in fields})
 
         if target is None:
             target = {"section": section_name, "ext": ext_key, "fields": []}
@@ -571,3 +587,148 @@ async def remove_field_contributions(
         await _recompute_data_quality(db, touched_types)
         await db.flush()
     return removed
+
+
+# ---------------------------------------------------------------------------
+# Self-heal. Contributions are re-applied on install, update and enable only,
+# so anything that removed them in between — a card-type save from a stale
+# editor copy before saves preserved them, a workspace import overwriting the
+# type — left them gone until someone toggled the extension. Startup (and the
+# workspace importer) re-applies what is MISSING, and only that: an apply
+# rescores every card of each touched type, which must not run on every boot.
+# ---------------------------------------------------------------------------
+
+
+def _type_field_owners(ct: CardType) -> dict[str, str | None]:
+    """Every field key on the type → its ``ext`` stamp (``None`` unstamped)."""
+    owners: dict[str, str | None] = {}
+    for section in ct.fields_schema or []:
+        if not isinstance(section, dict):
+            continue
+        for f in section.get("fields", []):
+            if isinstance(f, dict) and f.get("key"):
+                owners[f["key"]] = f.get("ext") or None
+    return owners
+
+
+def field_sections_missing(
+    types: dict[str, CardType], ext_key: str, manifest: dict[str, Any] | None
+) -> bool:
+    """Would :func:`apply_field_contributions` put anything back?
+
+    A contribution is missing when its target type exists and either one of
+    its fields is absent from the type, or no section of that name carries the
+    extension's stamp. A field key present on the type but not stamped by this
+    extension is someone else's — apply never takes it over, so it never counts
+    as missing (or every boot would re-apply to no effect).
+    """
+    for contrib in contributions_from_manifest(manifest):
+        if not isinstance(contrib, dict):
+            continue
+        ct = types.get(str(contrib.get("card_type")))
+        section_name = contrib.get("section")
+        if ct is None or not section_name:
+            continue
+        owners = _type_field_owners(ct)
+        wanted = [
+            f["key"]
+            for f in contrib.get("fields") or []
+            if isinstance(f, dict)
+            and f.get("key")
+            and (f["key"] not in owners or owners[f["key"]] == ext_key)
+        ]
+        if not wanted:
+            continue
+        if any(key not in owners for key in wanted):
+            return True
+        stamped = any(
+            isinstance(s, dict) and s.get("ext") == ext_key and s.get("section") == section_name
+            for s in ct.fields_schema or []
+        )
+        if not stamped:
+            return True
+    return False
+
+
+def subtypes_missing(
+    types: dict[str, CardType], ext_key: str, manifest: dict[str, Any] | None
+) -> bool:
+    """Would :func:`apply_subtype_contributions` put a subtype back? Only an
+    absent key counts; one present outside the extension is never taken over."""
+    for contrib in subtype_contributions_from_manifest(manifest):
+        if not isinstance(contrib, dict):
+            continue
+        ct = types.get(str(contrib.get("card_type")))
+        if ct is None or not isinstance(contrib.get("subtypes"), list):
+            continue
+        present = {s.get("key") for s in ct.subtypes or [] if isinstance(s, dict)}
+        for s in contrib["subtypes"]:
+            if isinstance(s, dict) and s.get("key") and s.get("label") and s["key"] not in present:
+                return True
+    return False
+
+
+def _target_type_keys(manifest: dict[str, Any] | None) -> set[str]:
+    rows = contributions_from_manifest(manifest) + subtype_contributions_from_manifest(manifest)
+    return {
+        r["card_type"] for r in rows if isinstance(r, dict) and isinstance(r.get("card_type"), str)
+    }
+
+
+async def _target_types(db: AsyncSession, manifest: dict[str, Any] | None) -> dict[str, CardType]:
+    keys = _target_type_keys(manifest)
+    if not keys:
+        return {}
+    rows = (await db.execute(select(CardType).where(CardType.key.in_(keys)))).scalars().all()
+    return {ct.key: ct for ct in rows}
+
+
+async def contributions_missing(
+    db: AsyncSession, ext_key: str, manifest: dict[str, Any] | None
+) -> bool:
+    """Is any field section, field or subtype this manifest contributes gone
+    from its (existing) target card type? Read-only."""
+    types = await _target_types(db, manifest)
+    return field_sections_missing(types, ext_key, manifest) or subtypes_missing(
+        types, ext_key, manifest
+    )
+
+
+async def heal_contributions(db: AsyncSession) -> list[str]:
+    """Re-apply the contributions of every active extension that lost some.
+
+    Active means enabled and neither ``disabled`` nor ``removed``; the licence
+    plays no part, since a lapse never removes contributions. Each half (field
+    sections, subtypes) is applied only when it is missing, so an intact
+    instance is not written to and no data quality is recomputed. Flushes,
+    never commits: the caller owns the session. Returns the healed keys.
+    """
+    from app.models.extension import Extension
+
+    rows = (
+        (
+            await db.execute(
+                select(Extension)
+                .where(
+                    Extension.enabled.is_(True),
+                    Extension.status.not_in(("disabled", "removed")),
+                )
+                .order_by(Extension.key)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    healed: list[str] = []
+    for row in rows:
+        manifest = row.manifest or {}
+        types = await _target_types(db, manifest)
+        fields_gone = field_sections_missing(types, row.key, manifest)
+        subtypes_gone = subtypes_missing(types, row.key, manifest)
+        if fields_gone:
+            await apply_field_contributions(db, row.key, manifest)
+        if subtypes_gone:
+            await apply_subtype_contributions(db, row.key, manifest)
+        if fields_gone or subtypes_gone:
+            healed.append(row.key)
+    return healed

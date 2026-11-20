@@ -1229,6 +1229,7 @@
   "cardLayout.hiddenFromDetail": "Hidden from card detail",
   "cardLayout.eolNote": "Showing this section also brings the type into End of Life reporting: the EOL report, coverage figures, the inventory column and bulk linking. It is shown by default on Applications and IT Components only.",
   "cardLayout.deleteSection": "Delete section",
+  "cardLayout.extensionOwned": "Provided by an extension — disable the extension to remove it",
   "cardLayout.addSection": "Add Section",
   "cardLayout.sectionName": "Section name",
   "cardLayout.oneCol": "1 Col",

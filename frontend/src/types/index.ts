@@ -269,6 +269,9 @@ export interface SectionDef {
   // name → { locale → label }. Display-only and ungated; any metamodel section
   // (core or extension) may supply it so group headers aren't English-only.
   groupTranslations?: Record<string, TranslationMap>;
+  // Stamped `<extension key>` on a section an extension manifest contributed
+  // (see backend field_contributions). The type editor cannot delete it.
+  ext?: string;
 }
 
 export interface StakeholderRoleDefinition {

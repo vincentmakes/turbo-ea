@@ -271,7 +271,11 @@ function FieldCard({
             </Tooltip>
           )}
           {onEdit && <IconButton size="small" onClick={onEdit} sx={{ p: 0.25 }}><MaterialSymbol icon="edit" size={16} /></IconButton>}
-          {onDelete && <IconButton size="small" onClick={onDelete} sx={{ p: 0.25 }}><MaterialSymbol icon="delete" size={16} /></IconButton>}
+          {onDelete && (field.ext ? (
+            <Tooltip title={t("cardLayout.extensionOwned")}>
+              <span><IconButton size="small" disabled aria-label={t("cardLayout.extensionOwned")} sx={{ p: 0.25 }}><MaterialSymbol icon="delete" size={16} /></IconButton></span>
+            </Tooltip>
+          ) : <IconButton size="small" onClick={onDelete} sx={{ p: 0.25 }}><MaterialSymbol icon="delete" size={16} /></IconButton>)}
         </Box>
       )}
     </Box>
@@ -1151,6 +1155,13 @@ function DescriptionFieldsPanel({
 
 // ── SortableSectionItem ──────────────────────────────────────────
 
+/** A section an extension contributed, or one holding a field it contributed:
+ *  the server puts either back on save, so the editor does not offer deleting it. */
+export function isExtensionOwnedSection(section: SectionDef | null | undefined): boolean {
+  if (!section) return false;
+  return !!section.ext || (section.fields || []).some((f) => !!f.ext);
+}
+
 function SortableSectionItem({
   id, sectionKey, info, cfg, expanded, onToggleExpand,
   onToggleCollapsed, onToggleHidden, onDelete, children, dqWeight, note,
@@ -1199,13 +1210,21 @@ function SortableSectionItem({
             sx={{ mr: 0, ml: 0 }}
           />
         </Tooltip>
-        {onDelete && (
+        {onDelete && (isExtensionOwnedSection(info.section) ? (
+          <Tooltip title={t("cardLayout.extensionOwned")}>
+            <span>
+              <IconButton size="small" disabled aria-label={t("cardLayout.extensionOwned")}>
+                <MaterialSymbol icon="delete" size={18} color={STATUS_COLORS.neutral} />
+              </IconButton>
+            </span>
+          </Tooltip>
+        ) : (
           <Tooltip title={t("cardLayout.deleteSection")}>
             <IconButton size="small" onClick={onDelete}>
               <MaterialSymbol icon="delete" size={18} color={STATUS_COLORS.neutral} />
             </IconButton>
           </Tooltip>
-        )}
+        ))}
         {canExpand && (
           <IconButton size="small" onClick={onToggleExpand}>
             <MaterialSymbol icon={expanded ? "expand_less" : "expand_more"} size={20} />

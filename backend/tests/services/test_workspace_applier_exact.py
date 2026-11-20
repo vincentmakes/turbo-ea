@@ -908,3 +908,51 @@ async def test_several_diagram_links_and_members_are_created(db, diagram_env):
         db, bundle(SHEET_DIAGRAM_GROUP_MEMBERS, member_rows), sr2
     )
     assert counts(sr2) == (2, 0, 0, 0, 0)
+
+
+async def test_an_imported_card_type_gets_an_active_extensions_section_back(db, monkeypatch):
+    """A CardTypes row replaces ``fields_schema`` whole; what an enabled
+    extension contributed to that type is put back by the heal, and only on
+    a real apply — a preview never calls it."""
+    from unittest.mock import AsyncMock
+
+    from app.models.extension import Extension
+    from app.services.extensions import field_contributions
+
+    contributed = {
+        "section": "Sample",
+        "ext": "sample-ext",
+        "fields": [{"key": "s1", "label": "S1", "type": "text", "ext": "sample-ext"}],
+    }
+    await create_card_type(db, key="Gadget", label="Gadget", fields_schema=[contributed])
+    db.add(
+        Extension(
+            key="sample-ext",
+            name="Sample",
+            version="1.0.0",
+            capabilities=["metamodel"],
+            manifest={
+                "metamodel": {
+                    "field_sections": [
+                        {
+                            "card_type": "Gadget",
+                            "section": "Sample",
+                            "fields": [{"key": "s1", "label": "S1", "type": "text"}],
+                        }
+                    ]
+                }
+            },
+        )
+    )
+    await db.flush()
+    rows = [{"key": "Gadget", "fields_schema": '[{"section": "Core", "fields": []}]'}]
+    heal = AsyncMock(wraps=field_contributions.heal_contributions)
+    monkeypatch.setattr(field_contributions, "heal_contributions", heal)
+
+    await applier._apply_card_types(db, bundle(schema.SHEET_CARD_TYPES, rows), section(), True)
+    assert heal.await_count == 0
+
+    await applier._apply_card_types(db, bundle(schema.SHEET_CARD_TYPES, rows), section(), False)
+    assert heal.await_count == 1
+    ct = await card_type(db, "Gadget")
+    assert ct.fields_schema == [{"section": "Core", "fields": []}, contributed]
