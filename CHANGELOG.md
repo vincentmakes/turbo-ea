@@ -8,19 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [2.207.0] - 2026-11-20
 
 ### Added
-- **AI assistants can use what your licensed extensions offer.** An extension can now make its everyday operations available to AI assistants connected through the MCP server. Three new MCP tools, `list_extension_tools`, `call_extension_read` and `call_extension_write`, list and run them. An operation appears only while its extension is installed, enabled and licensed, and only to users whose permissions allow it. Extension configuration is never offered. A write previews before it commits, and a destructive operation stays refused unless an administrator sets `MCP_ALLOW_EXTENSION_DESTRUCTIVE=true`.
-- **AI assistants can create tags and tag cards.** The new MCP tools `create_tag_groups` and `set_card_tags` create tag groups and tags, and add, remove or replace the tags on cards. Both preview before they commit. They follow each group's single-choice and card-type rules and the cards you are allowed to see, and `rollback_batch` restores the tags a call changed.
-- **Every section of a grid filter panel has its own clear button.** In the Inventory, Risk Register, Compliance, Decisions, PPM risks, Users, Resources, Security log, Audit log and custom end-of-life panels, a section that filters something shows a button that clears that section only.
-- **The query strip above the Inventory folds.** The chevron at the start of a query view's strip folds its lines into the title row, and the Inventory remembers the choice.
-
-### Changed
-- **Fields an extension adds to your card types are read-only while that extension is not licensed or is disabled.** Their values stay on the cards and remain visible; they can be changed again as soon as the extension is enabled with a valid licence. Card detail, Grid Edit, mass edit, Create card and Excel import show them read-only with a lock, and the API refuses a change with `extension_fields_locked`. ServiceNow sync, platform migration and change rollback leave those fields as they are and report them.
-- An extension whose database migration failed now answers its API calls with "Extension failed to load" instead of running against tables it could not prepare.
-- Creating a tag group or tag through the API now answers 404 for an unknown group and 422 for an unknown mode or card type, instead of a server error.
+- AI assistants connected through the MCP server can use the operations of installed, licensed extensions (`list_extension_tools`, `call_extension_read`, `call_extension_write`), within the user's permissions. Extension configuration is not exposed.
+- MCP tools to create tags and tag groups (`create_tag_groups`) and to add, remove or replace the tags on cards (`set_card_tags`).
+- A clear button on each section of the grid filter panels.
+- The query strip above the Inventory can be folded.
 
 ### Fixed
-- **A query view with several lines no longer squeezes the Inventory grid to a single row.** The lines area of the strip and of the query builder now has a limited height and scrolls on its own.
-- Previewing a tag change through an extension no longer sends live tag notifications for a change that was never saved.
+- Fields an extension adds to card types could still be edited while that extension was disabled or unlicensed; they are now read-only until it is active again.
+- A query view with several lines no longer squeezes the Inventory grid to a single row.
+- Creating a tag group or tag through the API with an unknown group, mode or card type now returns 404 / 422 instead of a server error.
 
 ## [2.206.0] - 2026-11-19
 
