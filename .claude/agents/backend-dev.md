@@ -63,7 +63,7 @@ back. The session that called you owns git: **you never commit, push, tag, label
 
 The three Python skills loaded above are generic; `python-type-safety` is installed too and **not**
 preloaded: invoke it (Skill tool) when you add or change annotations, generics or mypy configuration.
-`python-anti-patterns` is a review checklist and belongs to the reviewer. When one disagrees with this repository (line length 100,
+`python-anti-patterns` is a review checklist and belongs to the `code-reviewer`. When one disagrees with this repository (line length 100,
 ORM only, real database and factories in tests, `CardReadScope`, the rules files), **the repository wins.**
 
 - Async handlers; SQLAlchemy ORM only (no raw SQL); Alembic for every schema change, sequentially
