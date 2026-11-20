@@ -235,6 +235,10 @@ export interface FieldDef {
   // are shown but cannot be changed — the backend refuses a change with 403
   // `extension_fields_locked`. Read it through `isWriteLockedField`.
   ext_locked?: boolean;
+  // Transient, set by `GET /metamodel/types` (never stored): an ACTIVE
+  // (installed, enabled) extension contributed this field, so a card-type save
+  // cannot delete it and the editor offers no delete.
+  ext_protected?: boolean;
   // Set on built-in relation attribute "dimensions" (e.g. usageType,
   // flowDirection): the field definition is locked, but its options can be
   // managed. Custom relation dimensions are fully editable.
@@ -256,6 +260,11 @@ export interface SubtypeDef {
    * side neither blocks approval nor counts against data quality.
    */
   optional_relations?: string[];
+  // Stamped `<extension key>` on a subtype an extension manifest contributed.
+  ext?: string;
+  // Transient, set by `GET /metamodel/types` (never stored): an active
+  // extension contributed this subtype, so it cannot be deleted here.
+  ext_protected?: boolean;
 }
 
 export interface SectionDef {
@@ -270,8 +279,12 @@ export interface SectionDef {
   // (core or extension) may supply it so group headers aren't English-only.
   groupTranslations?: Record<string, TranslationMap>;
   // Stamped `<extension key>` on a section an extension manifest contributed
-  // (see backend field_contributions). The type editor cannot delete it.
+  // (see backend field_contributions).
   ext?: string;
+  // Transient, set by `GET /metamodel/types` (never stored): an ACTIVE
+  // extension contributed this section, so the type editor cannot delete it.
+  // A stamp alone (an uninstalled extension's leftover) does not protect.
+  ext_protected?: boolean;
 }
 
 export interface StakeholderRoleDefinition {

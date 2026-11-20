@@ -564,7 +564,7 @@ class TestMetamodelHelpers:
     a junk section or field is passed over, never the end of the walk."""
 
     def test_stamps_survive_junk_and_fieldless_sections(self):
-        from app.api.v1.metamodel import _carry_ext_stamps
+        from app.services.extensions.contribution_guard import preserve_ext_schema
 
         old = [
             "junk",
@@ -584,7 +584,7 @@ class TestMetamodelHelpers:
                 ],
             },
         ]
-        assert _carry_ext_stamps(new, old) == [
+        assert preserve_ext_schema(new, old, frozenset()).schema == [
             "junk",
             {"section": "No fields"},
             {

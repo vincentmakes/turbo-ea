@@ -1,11 +1,14 @@
-"""A card-type save cannot drop or unstamp what an extension contributed.
+"""A card-type save cannot delete or unstamp what an ACTIVE extension contributed.
 
-`PATCH /metamodel/types/{key}` replaces `fields_schema` with the body. A body
-that left out an extension's section (a stale editor copy, an API client) used
-to delete it, its fields with it, and nothing re-applied the contribution
-afterwards. The route now puts every contributed section and field back where
-it was, keeps their `ext` stamps, and re-addresses a `__order` the same body
-sends; admin sections and fields stay exactly as sent.
+`PATCH /metamodel/types/{key}` replaces `fields_schema`, `subtypes` and
+`section_config` with the body. A body that left out an extension's section (a
+stale editor copy, an API client) used to delete it, its fields with it, and
+nothing re-applied the contribution afterwards. The route now runs the body
+through `services/extensions/contribution_guard.py`: an active extension's
+stamped sections, fields and subtypes come back, stamps stay as stored, and the
+section order is re-addressed to the final schema. What an extension that is NOT
+active stamped (a leftover after an uninstall) stays deletable. The pure guard
+itself is covered in `tests/services/test_extension_contribution_guard.py`.
 """
 
 from __future__ import annotations
@@ -15,14 +18,8 @@ import copy
 import pytest
 from sqlalchemy import select
 
-from app.api.v1.metamodel import (
-    _match_contributed_sections,
-    _order_with_restored_sections,
-    _preserve_ext_contributions,
-    _readdress_body_order,
-    _restore_missing_fields,
-)
 from app.models.card_type import CardType
+from app.models.extension import Extension
 from app.services.extensions.registry import extension_registry
 from tests.conftest import (
     auth_headers,
@@ -34,6 +31,7 @@ from tests.conftest import (
 
 EXT = "sample-ext"
 OTHER = "other-ext"
+GONE = "gone-ext"  # stamps of an extension that is not installed here
 
 DESCRIPTION = {"section": "__description", "fields": []}
 CORE = {"section": "Core", "fields": [{"key": "hosting", "label": "Hosting", "type": "text"}]}
@@ -56,6 +54,10 @@ NOTES = {"section": "Notes", "fields": [{"key": "note", "label": "Note", "type":
 
 # custom:0 Core, custom:1 Sample, custom:2 Other, custom:3 Notes
 STORED_ORDER = ["description", "custom:3", "custom:0", "custom:1", "relations", "custom:2"]
+SUBTYPES = [
+    {"key": "own", "label": "Own"},
+    {"key": "contrib", "label": "Contributed", "ext": EXT, "hidden_fields": ["s1"]},
+]
 
 
 def stored_schema() -> list:
@@ -76,12 +78,21 @@ def _clear_registry():
 
 
 @pytest.fixture
-async def gadget(db):
+async def active(db):
+    """Both stamping extensions installed and enabled (no licence needed)."""
+    for key in (EXT, OTHER):
+        db.add(Extension(key=key, name=key, version="1.0.0", manifest={}, capabilities=[]))
+    await db.flush()
+
+
+@pytest.fixture
+async def gadget(db, active):
     return await create_card_type(
         db,
         key="Gadget",
         label="Gadget",
         fields_schema=stored_schema(),
+        subtypes=copy.deepcopy(SUBTYPES),
         section_config={"__order": list(STORED_ORDER), "custom:1": {"defaultExpanded": False}},
     )
 
@@ -135,6 +146,16 @@ class TestUpdateTypeKeepsContributions:
         await _patch(client, admin, {"fields_schema": body})
         assert (await _stored(db)).fields_schema == stored_schema()
 
+    async def test_label_type_and_section_name_stay_the_bodys(self, client, db, admin, gadget):
+        body = stored_schema()
+        body[2]["section"] = "Renamed"
+        body[2]["fields"][0] = {"key": "s1", "label": "Score", "type": "text"}
+        await _patch(client, admin, {"fields_schema": body})
+        sample = (await _stored(db)).fields_schema[2]
+        assert sample["section"] == "Renamed"
+        assert sample["ext"] == EXT
+        assert sample["fields"][0] == {"key": "s1", "label": "Score", "type": "text", "ext": EXT}
+
     async def test_an_admin_field_added_inside_the_contributed_section_stays(
         self, client, db, admin, gadget
     ):
@@ -174,11 +195,25 @@ class TestUpdateTypeKeepsContributions:
         await _patch(client, admin, {"fields_schema": body})
         assert (await _stored(db)).fields_schema == stored_schema()
 
+    async def test_transient_flags_are_never_stored(self, client, db, admin, gadget):
+        body = stored_schema()
+        body[2]["ext_protected"] = True
+        body[2]["fields"][0]["ext_protected"] = True
+        body[2]["fields"][1]["ext_locked"] = True
+        subtypes = [{**s, "ext_protected": True} for s in copy.deepcopy(SUBTYPES)]
+        await _patch(client, admin, {"fields_schema": body, "subtypes": subtypes})
+        ct = await _stored(db)
+        assert ct.fields_schema == stored_schema()
+        assert ct.subtypes == SUBTYPES
+
+
+class TestSectionOrder:
     async def test_a_stale_delete_keeps_its_order_pointing_at_the_same_sections(
         self, client, db, admin, gadget
     ):
         # The editor's copy predates the contributed section: customs Core 0,
-        # Other 1, Notes 2. Deleting Notes there drops custom:2 from its order.
+        # Other 1, Notes 2. Deleting Notes there drops custom:2 from its
+        # (shorter) order. Sample comes back after Core, its stored neighbour.
         body = [copy.deepcopy(DESCRIPTION), copy.deepcopy(CORE), copy.deepcopy(OTHER_SECTION)]
         order = ["description", "custom:0", "relations", "custom:1"]
         await _patch(
@@ -188,16 +223,220 @@ class TestUpdateTypeKeepsContributions:
         )
         ct = await _stored(db)
         assert ct.fields_schema == [DESCRIPTION, CORE, CONTRIBUTED, OTHER_SECTION]
-        # Core is custom:0, Sample custom:1 (back at its stored order slot),
-        # Other custom:2.
+        # Core custom:0, Sample custom:1, Other custom:2; Sample gets back its
+        # own stored setting.
         assert ct.section_config == {
-            "__order": ["description", "custom:0", "relations", "custom:1", "custom:2"],
+            "__order": ["description", "custom:0", "custom:1", "relations", "custom:2"],
             "tags": {"x": 1},
+            "custom:1": {"defaultExpanded": False},
+        }
+
+    async def test_no_stored_order_places_a_restored_section_before_relations(
+        self, client, db, admin, active
+    ):
+        await create_card_type(
+            db,
+            key="Gadget",
+            label="Gadget",
+            fields_schema=[copy.deepcopy(CORE), copy.deepcopy(CONTRIBUTED), copy.deepcopy(NOTES)],
+            section_config={},
+        )
+        await _patch(
+            client,
+            admin,
+            {
+                "fields_schema": [copy.deepcopy(CORE), copy.deepcopy(NOTES)],
+                "section_config": {
+                    "__order": ["description", "custom:0", "custom:1", "relations", "tags"]
+                },
+            },
+        )
+        ct = await _stored(db)
+        assert [s["section"] for s in ct.fields_schema] == ["Core", "Sample", "Notes"]
+        assert ct.section_config == {
+            "__order": ["description", "custom:0", "custom:2", "custom:1", "relations", "tags"]
+        }
+
+    async def test_per_section_settings_follow_their_sections(self, client, db, admin, gadget):
+        body = _without(stored_schema(), "Sample")  # customs: Core 0, Other 1, Notes 2
+        config = {
+            "__order": ["description", "custom:2", "custom:0", "relations", "custom:1"],
+            "custom:1": {"hidden": True},  # Other
+            "custom:2": {"defaultExpanded": True},  # Notes
+        }
+        await _patch(client, admin, {"fields_schema": body, "section_config": config})
+        ct = await _stored(db)
+        assert ct.fields_schema == stored_schema()
+        assert ct.section_config == {
+            "__order": STORED_ORDER,
+            "custom:2": {"hidden": True},
+            "custom:3": {"defaultExpanded": True},
+            # Sample's own stored setting, not Other's.
+            "custom:1": {"defaultExpanded": False},
+        }
+
+    async def test_a_section_config_only_patch_keeps_the_contributed_section_placed(
+        self, client, db, admin, gadget
+    ):
+        # A stale editor that never saw Sample sends an order without it.
+        order = ["description", "custom:3", "custom:0", "relations", "custom:2"]
+        await _patch(client, admin, {"section_config": {"__order": order}})
+        ct = await _stored(db)
+        assert ct.fields_schema == stored_schema()
+        assert ct.section_config == {"__order": STORED_ORDER}
+
+    async def test_a_fields_only_save_that_restores_readdresses_the_stored_config(
+        self, client, db, admin, gadget
+    ):
+        # Notes deleted, Sample left out: Sample comes back in place, the
+        # stored keys follow their sections and Notes' key goes.
+        body = _without(_without(stored_schema(), "Sample"), "Notes")
+        await _patch(client, admin, {"fields_schema": body})
+        ct = await _stored(db)
+        assert ct.fields_schema == _without(stored_schema(), "Notes")
+        assert ct.section_config == {
+            "__order": ["description", "custom:0", "custom:1", "relations", "custom:2"],
+            "custom:1": {"defaultExpanded": False},
         }
 
 
+class TestInactiveStampsAreDeletable:
+    """What an extension that is not active here stamped — a section kept for an
+    admin field after an uninstall, stamps from another instance — may go."""
+
+    @pytest.fixture
+    async def leftover(self, db, active):
+        db.add(
+            Extension(
+                key="off-ext", name="off", version="1", manifest={}, capabilities=[], enabled=False
+            )
+        )
+        await db.flush()
+        return await create_card_type(
+            db,
+            key="Gadget",
+            label="Gadget",
+            fields_schema=[
+                copy.deepcopy(CORE),
+                {
+                    "section": "Leftover",
+                    "ext": GONE,
+                    "fields": [{"key": "note2", "label": "Note", "type": "text"}],
+                },
+                {
+                    "section": "Disabled",
+                    "ext": "off-ext",
+                    "fields": [{"key": "d1", "label": "D1", "type": "text", "ext": "off-ext"}],
+                },
+            ],
+            subtypes=[{"key": "gone", "label": "Gone", "ext": GONE}],
+        )
+
+    async def test_they_can_be_deleted(self, client, db, admin, leftover):
+        await _patch(client, admin, {"fields_schema": [copy.deepcopy(CORE)], "subtypes": []})
+        ct = await _stored(db)
+        assert ct.fields_schema == [CORE]
+        assert ct.subtypes == []
+
+    async def test_what_the_body_keeps_keeps_its_stamp(self, client, db, admin, leftover):
+        body = copy.deepcopy(leftover.fields_schema)
+        body[1].pop("ext")
+        body[2]["fields"][0].pop("ext")
+        await _patch(client, admin, {"fields_schema": body})
+        assert (await _stored(db)).fields_schema == leftover.fields_schema
+
+
+class TestReadFlags:
+    async def test_active_contributions_are_flagged_protected(self, client, db, admin, gadget):
+        gadget.fields_schema = [
+            *stored_schema(),
+            {
+                "section": "Leftover",
+                "ext": GONE,
+                "fields": [{"key": "g1", "label": "G1", "type": "text", "ext": GONE}],
+            },
+        ]
+        gadget.subtypes = [*copy.deepcopy(SUBTYPES), {"key": "g", "label": "G", "ext": GONE}]
+        await db.flush()
+        # The read uses the live registry, loaded at startup in production.
+        await extension_registry.refresh_from_db(db)
+        resp = await client.get("/api/v1/metamodel/types/Gadget", headers=auth_headers(admin))
+        out = resp.json()
+        assert [
+            (s["section"], s.get("ext_protected"), [f.get("ext_protected") for f in s["fields"]])
+            for s in out["fields_schema"]
+        ] == [
+            ("__description", None, []),
+            ("Core", None, [None]),
+            ("Sample", True, [True, True, True]),
+            ("Other", True, [True]),
+            ("Notes", None, [None]),
+            ("Leftover", None, [None]),
+        ]
+        assert [s.get("ext_protected") for s in out["subtypes"]] == [None, True, None]
+        # Never written back.
+        ct = await _stored(db)
+        assert "ext_protected" not in ct.fields_schema[2]
+        assert ct.subtypes[1] == SUBTYPES[1]
+
+
+class TestAdminHolderSection:
+    async def test_deleting_a_section_holding_a_moved_field_recreates_only_the_field(
+        self, client, db, admin, active
+    ):
+        holder = {
+            "section": "Mine",
+            "fields": [
+                {"key": "a", "label": "A", "type": "text"},
+                {"key": "s1", "label": "S1", "type": "number", "ext": EXT},
+            ],
+        }
+        await create_card_type(
+            db,
+            key="Gadget",
+            label="Gadget",
+            fields_schema=[copy.deepcopy(CORE), holder, copy.deepcopy(NOTES)],
+            section_config={"__order": ["custom:2", "custom:1", "custom:0"]},
+        )
+        await _patch(
+            client,
+            admin,
+            {
+                "fields_schema": [copy.deepcopy(CORE), copy.deepcopy(NOTES)],
+                "section_config": {"__order": ["custom:1", "custom:0"]},
+            },
+        )
+        ct = await _stored(db)
+        assert ct.fields_schema == [
+            CORE,
+            {"section": "Mine", "ext": EXT, "fields": [holder["fields"][1]]},
+            NOTES,
+        ]
+        assert ct.section_config == {"__order": ["custom:2", "custom:1", "custom:0"]}
+
+
+class TestSubtypes:
+    async def test_a_dropped_subtype_comes_back(self, client, db, admin, gadget):
+        await _patch(client, admin, {"subtypes": [{"key": "own", "label": "Renamed"}]})
+        assert (await _stored(db)).subtypes == [{"key": "own", "label": "Renamed"}, SUBTYPES[1]]
+
+    async def test_a_dropped_stamp_comes_back(self, client, db, admin, gadget):
+        body = copy.deepcopy(SUBTYPES)
+        body[1].pop("ext")
+        body[1]["label"] = "Relabelled"
+        await _patch(client, admin, {"subtypes": body})
+        assert (await _stored(db)).subtypes == [SUBTYPES[0], {**SUBTYPES[1], "label": "Relabelled"}]
+
+    async def test_a_stamp_cannot_be_minted(self, client, db, admin, gadget):
+        body = copy.deepcopy(SUBTYPES)
+        body[0]["ext"] = EXT
+        body.append({"key": "new", "label": "New", "ext": OTHER})
+        await _patch(client, admin, {"subtypes": body})
+        assert (await _stored(db)).subtypes == [*SUBTYPES, {"key": "new", "label": "New"}]
+
+
 class TestCreateTypeCannotStamp:
-    async def test_stamps_in_a_create_body_are_dropped(self, client, db, admin):
+    async def test_stamps_in_a_create_body_are_dropped(self, client, db, admin, active):
         resp = await client.post(
             "/api/v1/metamodel/types",
             headers=auth_headers(admin),
@@ -211,6 +450,7 @@ class TestCreateTypeCannotStamp:
                         "fields": [{"key": "c", "label": "C", "type": "text", "ext": EXT}],
                     }
                 ],
+                "subtypes": [{"key": "st", "label": "St", "ext": EXT, "ext_protected": True}],
             },
         )
         assert resp.status_code == 201
@@ -218,125 +458,17 @@ class TestCreateTypeCannotStamp:
         assert ct.fields_schema == [
             {"section": "Claimed", "fields": [{"key": "c", "label": "C", "type": "text"}]}
         ]
+        assert ct.subtypes == [{"key": "st", "label": "St"}]
 
 
-class TestPreserveHelpers:
-    """The pure helpers behind the route, on the shapes the route never sends."""
-
-    def test_old_schema_is_never_mutated_and_junk_passes(self):
-        old = ["junk", *stored_schema()]
-        before = copy.deepcopy(old)
-        schema, inserted = _preserve_ext_contributions(["junk", {"section": "Core"}], old)
-        assert old == before
-        assert schema == [
-            "junk",
-            {"section": "Core"},
-            CONTRIBUTED,
-            OTHER_SECTION,
-        ]
-        # junk counts as a custom section (positional), __description does not.
-        assert inserted == [(2, 2), (3, 3)]
-
-    def test_none_schemas(self):
-        assert _preserve_ext_contributions(None, None) == ([], [])
-
-    def test_a_restored_section_leaves_out_fields_the_body_has_elsewhere(self):
-        old = stored_schema()
-        body = _without(stored_schema(), "Sample")
-        body[1]["fields"].append({"key": "s2", "label": "S2", "type": "text"})
-        schema, inserted = _preserve_ext_contributions(body, old)
-        assert schema[1]["fields"][-1] == {"key": "s2", "label": "S2", "type": "text", "ext": EXT}
-        assert schema[2] == {
-            **CONTRIBUTED,
-            "fields": [CONTRIBUTED["fields"][0], CONTRIBUTED["fields"][2]],
-        }
-        assert inserted == [(1, 1)]
-
-    def test_a_renamed_section_keeps_its_stamp(self):
-        body = stored_schema()
-        body[2]["section"] = "Renamed"
-        body[2].pop("ext")
-        schema, inserted = _preserve_ext_contributions(body, stored_schema())
-        assert schema[2] == {**CONTRIBUTED, "section": "Renamed"}
-        assert inserted == []
-
-    def test_an_admin_section_holding_a_moved_field_is_not_taken_for_it(self):
-        old = stored_schema()
-        body = _without(stored_schema(), "Sample")
-        body[3]["fields"].append(copy.deepcopy(CONTRIBUTED["fields"][0]))  # into Notes
-        schema, _ = _preserve_ext_contributions(body, old)
-        assert "ext" not in schema[4]
-        assert schema[4]["section"] == "Notes"
-        assert schema[2] == {**CONTRIBUTED, "fields": CONTRIBUTED["fields"][1:]}
-
-    def test_section_matching_pairs_by_name_then_by_fields(self):
-        stored = stored_schema()
-        contributing = [stored[2], stored[3]]
-        body = [{"section": "Elsewhere", "fields": [{"key": "o1"}]}, {"section": "Sample"}]
-        paired = _match_contributed_sections(["junk", *body], contributing, ["junk", *stored])
-        # "Sample" without its stamp does not match by name; it holds no field.
-        assert paired == {id(stored[3]): body[0]}
-
-    def test_section_matching_takes_a_body_section_once(self):
-        a = {"section": "A", "ext": EXT, "fields": [{"key": "x", "ext": EXT}]}
-        b = {"section": "B", "ext": EXT, "fields": [{"key": "y", "ext": EXT}]}
-        body = [{"section": "A", "ext": EXT, "fields": [{"key": "x"}, {"key": "y"}]}]
-        assert _match_contributed_sections(body, [a, b], [a, b]) == {id(a): body[0]}
-
-    def test_a_restored_field_follows_its_stored_neighbours(self):
-        stored = {
-            "section": "S",
-            "fields": [
-                {"key": "a", "ext": EXT},
-                {"key": "m"},
-                {"key": "b", "ext": EXT},
-                {"key": "c", "ext": EXT},
-                "junk",
-            ],
-        }
-        target = {"section": "S", "fields": [{"key": "m"}, {"key": "c"}, {"key": "z"}]}
-        _restore_missing_fields(target, stored, {"m", "c", "z"})
-        # a has no earlier neighbour: before m; b after m.
-        assert [f["key"] for f in target["fields"]] == ["a", "m", "b", "c", "z"]
-
-    def test_a_restored_field_without_neighbours_goes_last(self):
-        stored = {"section": "S", "fields": [{"key": "a", "ext": EXT}, {"key": "b"}]}
-        target = {"section": "S"}
-        present = {"other"}
-        _restore_missing_fields(target, stored, present)
-        assert target == {"section": "S", "fields": [{"key": "a", "ext": EXT}]}
-        assert present == {"other", "a"}
-        target = {"section": "S", "fields": [{"key": "q"}]}
-        _restore_missing_fields(target, stored, set())
-        assert target["fields"] == [{"key": "q"}, {"key": "a", "ext": EXT}]
-
-    def test_order_remap(self):
-        stored_order = ["custom:1", "relations", "custom:0", "custom:3"]
-        # Body customs 0,1,2 → final 0,2,4; restored final 1 (stored 3), 3 (stored 9).
-        out = _order_with_restored_sections(
-            ["custom:2", "custom:0", "tags", "custom:x", "custom:3", 7, "custom:1"],
-            [(3, 9), (1, 3)],
-            stored_order,
-            5,
+class TestPermission:
+    async def test_a_non_admin_cannot_save(self, client, db, gadget):
+        await create_role(db, key="viewer", label="Viewer", permissions={"inventory.view": True})
+        viewer = await create_user(db, email="v@test.com", role="viewer")
+        resp = await client.patch(
+            "/api/v1/metamodel/types/Gadget",
+            headers=auth_headers(viewer),
+            json={"fields_schema": []},
         )
-        assert out == ["custom:4", "custom:0", "tags", "custom:1", 7, "custom:2"]
-
-    def test_order_remap_without_inserts_is_the_body_order(self):
-        order = ["custom:5", "x"]
-        assert _order_with_restored_sections(order, [], ["custom:0"], 1) is order
-
-    def test_readdress_only_with_an_order_list(self):
-        body = {"fields_schema": [{"section": "A"}, {"section": "B"}], "section_config": None}
-        _readdress_body_order(body, [(0, 0)], {"__order": ["custom:0"]})
-        assert body["section_config"] is None
-        body["section_config"] = {"__order": "nope"}
-        _readdress_body_order(body, [(0, 0)], {"__order": ["custom:0"]})
-        assert body["section_config"] == {"__order": "nope"}
-        body["section_config"] = {"__order": ["custom:0"], "k": 1}
-        _readdress_body_order(body, [], {"__order": ["custom:0"]})
-        assert body["section_config"] == {"__order": ["custom:0"], "k": 1}
-        _readdress_body_order(body, [(0, 0)], {"__order": ["x", "custom:0"]})
-        assert body["section_config"] == {"__order": ["custom:1", "custom:0"], "k": 1}
-        body["section_config"] = {"__order": ["custom:0"]}
-        _readdress_body_order(body, [(0, 0)], None)
-        assert body["section_config"] == {"__order": ["custom:1"]}
+        assert resp.status_code == 403
+        assert (await _stored(db)).fields_schema == stored_schema()

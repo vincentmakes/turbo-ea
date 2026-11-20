@@ -231,6 +231,59 @@ class TestHealAtStartup:
         ]
         assert healed == ["Extension sample-ext: restored missing metamodel contributions"]
 
+    async def test_a_renamed_section_and_moved_fields_survive_boot(
+        self, db, patched_async_session, rows, starters, caplog
+    ):
+        import logging
+
+        from tests.conftest import create_card_type
+
+        manifest = {
+            "metamodel": {
+                "field_sections": [
+                    {
+                        "card_type": "Gadget",
+                        "section": "Sample",
+                        "fields": [
+                            {"key": "s1", "label": "S1", "type": "text"},
+                            {"key": "s2", "label": "S2", "type": "text"},
+                        ],
+                    }
+                ]
+            }
+        }
+        schema = [
+            {
+                "section": "Renamed by admin",
+                "ext": "sample-ext",
+                "fields": [{"key": "s1", "label": "S1", "type": "text", "ext": "sample-ext"}],
+            },
+            {
+                "section": "Mine",
+                "fields": [{"key": "s2", "label": "S2", "type": "text", "ext": "sample-ext"}],
+            },
+        ]
+        ct = await create_card_type(db, key="Gadget", label="Gadget", fields_schema=schema)
+        db.add(
+            Extension(
+                key="sample-ext",
+                name="Sample",
+                version="1.0.0",
+                manifest=manifest,
+                capabilities=["metamodel"],
+                status="installed",
+                enabled=True,
+            )
+        )
+        await db.flush()
+        with caplog.at_level(logging.INFO, logger="app.services.extensions.startup"):
+            assert await startup.initialize_extensions(LoadReport()) == []
+        await db.refresh(ct)
+        assert ct.fields_schema == schema
+        assert [
+            r.getMessage() for r in caplog.records if r.name == "app.services.extensions.startup"
+        ] == []
+
     async def test_the_heal_runs_before_the_loaded_extensions_start(
         self, db, patched_async_session, rows, starters, monkeypatch
     ):

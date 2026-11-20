@@ -695,6 +695,15 @@ async def _apply_bookmark_shares(
 
 async def _apply_card_types(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: bool) -> None:
     existing = {ct.key: ct for ct in (await db.execute(select(CardType))).scalars().all()}
+    # A row replaces fields_schema / subtypes / section_config whole. What an
+    # active extension contributed to a type on THIS instance is kept, by the
+    # same guard a metamodel save runs — before the comparison, so a re-import
+    # is a no-op and the preview shows exactly what the apply writes.
+    from app.services.extensions import contribution_guard
+    from app.services.extensions.registry import extension_registry
+
+    await extension_registry.refresh_from_db(db)
+    active_keys = contribution_guard.active_extension_keys()
     for row in bundle.rows(schema.SHEET_CARD_TYPES):
         data = _coerce(row, exp.CARD_TYPE_COLUMNS, exp.CARD_TYPE_JSON)
         # NOT NULL JSONB columns: a hand-authored content pack may declare the
@@ -715,6 +724,14 @@ async def _apply_card_types(db, bundle: WorkspaceBundle, sr: SectionResult, dry_
             existing[key] = ct
             sr.created += 1
         else:
+            contribution_guard.guard_card_type_row(
+                data,
+                stored_schema=current.fields_schema,
+                stored_subtypes=current.subtypes,
+                stored_config=current.section_config,
+                active_keys=active_keys,
+                mode="import",
+            )
             # Never flip a built-in type's identity; merge mutable schema only.
             # (The row was matched by key, so the key itself never differs.)
             cols = [c for c in exp.CARD_TYPE_COLUMNS if c != "built_in"]
@@ -725,9 +742,9 @@ async def _apply_card_types(db, bundle: WorkspaceBundle, sr: SectionResult, dry_
     # registry lacks, so the type editor never refuses to save such a type.
     await card_type_categories.ensure_categories(db, (ct.category for ct in existing.values()))
     if not dry_run:
-        # A row's fields_schema replaces the stored one whole, so a type that
-        # carried an installed extension's sections loses them; put back what
-        # an active extension contributed (a no-op when nothing is missing).
+        # Fallback only: the guard above already kept every active
+        # contribution of the types this instance had, so this finds nothing
+        # to do unless a contribution was missing before the import.
         from app.services.extensions.field_contributions import heal_contributions
 
         await heal_contributions(db)

@@ -910,49 +910,181 @@ async def test_several_diagram_links_and_members_are_created(db, diagram_env):
     assert counts(sr2) == (2, 0, 0, 0, 0)
 
 
-async def test_an_imported_card_type_gets_an_active_extensions_section_back(db, monkeypatch):
-    """A CardTypes row replaces ``fields_schema`` whole; what an enabled
-    extension contributed to that type is put back by the heal, and only on
-    a real apply — a preview never calls it."""
-    from unittest.mock import AsyncMock
+# ── extension contributions survive a CardTypes import ──────────────────────
+# A row replaces fields_schema / subtypes / section_config whole. The shared
+# guard (`extensions/contribution_guard.py`) runs on the row before the
+# comparison, in preview and apply alike, so what an active extension
+# contributed here stays, a re-import is a no-op and the preview counts what
+# the apply writes. The heal after a real apply is only a fallback.
 
+IMPORT_EXT = "sample-ext"
+IMPORT_MANIFEST = {
+    "metamodel": {
+        "field_sections": [
+            {
+                "card_type": "Gadget",
+                "section": "Sample",
+                "fields": [{"key": "s1", "label": "S1", "type": "text"}],
+            }
+        ],
+        "subtypes": [{"card_type": "Gadget", "subtypes": [{"key": "sub", "label": "Sub"}]}],
+    }
+}
+CONTRIBUTED = {
+    "section": "Sample",
+    "ext": IMPORT_EXT,
+    "fields": [{"key": "s1", "label": "S1", "type": "text", "ext": IMPORT_EXT}],
+}
+ADMIN = {"section": "Core", "fields": [{"key": "c1", "label": "C1", "type": "text"}]}
+SUB = {"key": "sub", "label": "Sub", "ext": IMPORT_EXT}
+
+
+@pytest.fixture
+async def import_env(db, monkeypatch):
     from app.models.extension import Extension
     from app.services.extensions import field_contributions
+    from app.services.extensions.registry import extension_registry
 
-    contributed = {
-        "section": "Sample",
-        "ext": "sample-ext",
-        "fields": [{"key": "s1", "label": "S1", "type": "text", "ext": "sample-ext"}],
-    }
-    await create_card_type(db, key="Gadget", label="Gadget", fields_schema=[contributed])
+    extension_registry.clear()
     db.add(
         Extension(
-            key="sample-ext",
+            key=IMPORT_EXT,
             name="Sample",
             version="1.0.0",
             capabilities=["metamodel"],
-            manifest={
-                "metamodel": {
-                    "field_sections": [
-                        {
-                            "card_type": "Gadget",
-                            "section": "Sample",
-                            "fields": [{"key": "s1", "label": "S1", "type": "text"}],
-                        }
-                    ]
-                }
-            },
+            manifest=IMPORT_MANIFEST,
         )
     )
-    await db.flush()
-    rows = [{"key": "Gadget", "fields_schema": '[{"section": "Core", "fields": []}]'}]
-    heal = AsyncMock(wraps=field_contributions.heal_contributions)
+    ct = await create_card_type(
+        db,
+        key="Gadget",
+        label="Gadget",
+        fields_schema=json.loads(json.dumps([ADMIN, CONTRIBUTED])),
+        subtypes=[dict(SUB)],
+        section_config={"__order": ["custom:1", "relations", "custom:0"]},
+    )
+    healed: list = []
+    real_heal = field_contributions.heal_contributions
+
+    async def heal(session):
+        healed.append(await real_heal(session))
+        return healed[-1]
+
     monkeypatch.setattr(field_contributions, "heal_contributions", heal)
+    await create_role(db, key="admin", label="Admin", permissions={"*": True})
+    user = await create_user(db, email="importer@test.com", role="admin")
+    yield SimpleNamespace(ct=ct, healed=healed, user=user)
+    extension_registry.clear()
 
-    await applier._apply_card_types(db, bundle(schema.SHEET_CARD_TYPES, rows), section(), True)
-    assert heal.await_count == 0
 
-    await applier._apply_card_types(db, bundle(schema.SHEET_CARD_TYPES, rows), section(), False)
-    assert heal.await_count == 1
+def type_row(fields_schema, **extra) -> dict:
+    row = {"key": "Gadget", "fields_schema": json.dumps(fields_schema)}
+    row.update({k: json.dumps(v) for k, v in extra.items()})
+    return row
+
+
+async def import_types(db, env, rows, *, dry_run: bool) -> applier.SectionResult:
+    result = await applier.apply_selected(
+        db,
+        bundle(schema.SHEET_CARD_TYPES, rows),
+        env.user,
+        sheets={schema.SHEET_CARD_TYPES},
+        dry_run=dry_run,
+    )
+    return result.sections[0]
+
+
+async def test_an_import_keeps_an_active_extensions_section_and_order(db, import_env):
+    rows = [
+        type_row(
+            [ADMIN],
+            subtypes=[],
+            section_config={"__order": ["relations", "custom:0"]},
+        )
+    ]
+    # Everything the row lacks is the active extension's: nothing to write.
+    preview = await import_types(db, import_env, rows, dry_run=True)
+    assert counts(preview) == (0, 0, 1, 0, 0)
+    await db.refresh(import_env.ct)
+    applied = await import_types(db, import_env, rows, dry_run=False)
+    assert counts(applied) == counts(preview)
     ct = await card_type(db, "Gadget")
-    assert ct.fields_schema == [{"section": "Core", "fields": []}, contributed]
+    assert ct.fields_schema == [ADMIN, CONTRIBUTED]
+    assert ct.subtypes == [SUB]
+    assert ct.section_config == {"__order": ["custom:1", "relations", "custom:0"]}
+    # The guard kept everything: the fallback heal found nothing to do.
+    assert import_env.healed == [[]]
+
+
+async def test_an_identical_bundle_imported_again_is_a_no_op(db, import_env):
+    relabelled = {"section": "Main", "fields": [{"key": "c1", "label": "Renamed", "type": "text"}]}
+    rows = [type_row([relabelled], section_config={"__order": ["relations", "custom:0"]})]
+    preview = await import_types(db, import_env, rows, dry_run=True)
+    assert counts(preview) == (0, 1, 0, 0, 0)
+    assert (await card_type(db, "Gadget")).fields_schema == [ADMIN, CONTRIBUTED]
+    first = await import_types(db, import_env, rows, dry_run=False)
+    assert counts(first) == counts(preview)
+    ct = await card_type(db, "Gadget")
+    assert ct.fields_schema == [relabelled, CONTRIBUTED]
+    assert ct.section_config == {"__order": ["custom:1", "relations", "custom:0"]}
+    second = await import_types(db, import_env, rows, dry_run=False)
+    assert counts(second) == (0, 0, 1, 0, 0)
+    assert second.skip_reasons == {"identical": 1}
+
+
+async def test_a_bundle_cannot_drop_or_mint_a_stamp(db, import_env):
+    unstamped = {"section": "Sample", "fields": [{"key": "s1", "label": "S1", "type": "text"}]}
+    claimed = {
+        "section": "Core",
+        "ext": "foreign-ext",
+        "fields": [{"key": "c1", "label": "C1", "type": "text", "ext": "foreign-ext"}],
+    }
+    sub = {"key": "sub", "label": "Sub"}
+    rows = [type_row([claimed, unstamped], subtypes=[sub])]
+    sr = await import_types(db, import_env, rows, dry_run=False)
+    assert counts(sr) == (0, 0, 1, 0, 0)
+    ct = await card_type(db, "Gadget")
+    assert ct.fields_schema == [ADMIN, CONTRIBUTED]
+    assert ct.subtypes == [SUB]
+
+
+async def test_a_stamped_key_new_to_this_instance_keeps_its_stamp(db, import_env):
+    foreign = {
+        "section": "Foreign",
+        "ext": "foreign-ext",
+        "fields": [{"key": "f1", "label": "F1", "type": "text", "ext": "foreign-ext"}],
+    }
+    foreign_sub = {"key": "fsub", "label": "F", "ext": "foreign-ext"}
+    rows = [type_row([ADMIN, CONTRIBUTED, foreign], subtypes=[SUB, foreign_sub])]
+    assert counts(await import_types(db, import_env, rows, dry_run=False)) == (0, 1, 0, 0, 0)
+    ct = await card_type(db, "Gadget")
+    assert ct.fields_schema == [ADMIN, CONTRIBUTED, foreign]
+    assert ct.subtypes == [SUB, foreign_sub]
+    assert counts(await import_types(db, import_env, rows, dry_run=False)) == (0, 0, 1, 0, 0)
+
+
+async def test_an_inactive_extensions_stamps_can_be_dropped_by_an_import(db, import_env):
+    import_env.ct.fields_schema = [
+        *import_env.ct.fields_schema,
+        {"section": "Leftover", "ext": "gone-ext", "fields": [{"key": "n", "label": "N"}]},
+    ]
+    await db.flush()
+    rows = [type_row([ADMIN, CONTRIBUTED])]
+    assert counts(await import_types(db, import_env, rows, dry_run=False)) == (0, 1, 0, 0, 0)
+    assert (await card_type(db, "Gadget")).fields_schema == [ADMIN, CONTRIBUTED]
+
+
+async def test_the_heal_is_isolated_from_the_import(db, import_env, monkeypatch):
+    """A raising extension in the fallback heal never fails the import."""
+    from app.services.extensions import field_contributions
+
+    async def broken(session, key, manifest):
+        raise RuntimeError("bad manifest")
+
+    monkeypatch.setattr(field_contributions, "apply_field_contributions", broken)
+    import_env.ct.fields_schema = [ADMIN]  # missing before the import
+    await db.flush()
+    sr = await import_types(db, import_env, [type_row([ADMIN])], dry_run=False)
+    assert counts(sr) == (0, 0, 1, 0, 0)
+    assert import_env.healed == [[]]
+    assert (await card_type(db, "Gadget")).fields_schema == [ADMIN]

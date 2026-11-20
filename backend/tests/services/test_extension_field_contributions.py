@@ -9,6 +9,7 @@ strips the extension's fields while attribute values survive untouched.
 from __future__ import annotations
 
 import json
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -720,9 +721,13 @@ class TestFieldSectionsMissing:
             ([section("Sample", HEAL_EXT, [h1, h2])], False),  # intact
             ([], True),  # section and fields gone
             ([section("Sample", HEAL_EXT, [h1])], True),  # one field gone
-            ([section("Sample", None, [h1, h2])], True),  # section unstamped
-            ([section("Renamed", HEAL_EXT, [h1, h2])], True),  # no section of that name
-            ([section("Sample", "other", [h1, h2])], True),  # someone else's section
+            # Field-centric: every key is on the type, wherever it sits.
+            ([section("Sample", None, [h1, h2])], False),  # section unstamped
+            ([section("Renamed", HEAL_EXT, [h1, h2])], False),  # renamed section
+            ([section("Sample", "other", [h1, h2])], False),  # someone else's section
+            ([section("Mine", None, [h1]), section("Sample", HEAL_EXT, [h2])], False),  # moved
+            ([section("Mine", None, [h1])], True),  # moved one, the other gone
+            ([{"section": "Odd", "fields": "junk"}, section("S", None, [h1, h2])], False),
             # A key someone else holds is never taken over, so never missing.
             ([section("Sample", HEAL_EXT, [h1]), section("Core", None, [{"key": "h2"}])], False),
             ([section("Core", None, [{"key": "h1"}, {"key": "h2", "ext": "o"}])], False),
@@ -877,27 +882,184 @@ class TestHealContributions:
         assert await heal_contributions(db) == ["a-ext", "z-ext"]
 
 
-class TestApplyAdoptsAnUnstampedHolder:
-    async def test_a_section_that_lost_its_stamp_is_restamped_not_duplicated(self, db):
-        unstamped = json.loads(json.dumps(INTACT_SECTION))
-        unstamped.pop("ext")
-        unstamped["fields"].insert(1, {"key": "mine", "label": "Mine", "type": "text"})
+class TestApplyKeepsWhatAnAdminMoved:
+    """An admin may move a contributed field into a section of their own, or
+    rename the contributed section. Apply re-syncs the field where it stands
+    and never adopts, renames or restamps an admin's (unstamped) section, nor
+    adds a key a second time."""
+
+    MANIFEST = heal_manifest()
+
+    async def test_fields_in_an_unstamped_section_are_resynced_in_place(self, db):
+        holder = {
+            "section": "Sample",
+            "fields": [
+                {"key": "h1", "label": "Old", "type": "text", "ext": HEAL_EXT},
+                {"key": "mine", "label": "Mine", "type": "text"},
+                {"key": "h2", "label": "H2", "type": "text", "ext": HEAL_EXT},
+            ],
+        }
         ct = await heal_type(
             db,
             fields_schema=[
                 {"section": "Core", "fields": [{"key": "h9", "ext": "other"}]},
-                {"section": "Admin", "fields": [{"key": "x", "label": "X", "type": "text"}]},
-                unstamped,
+                json.loads(json.dumps(holder)),
             ],
         )
-        await apply_field_contributions(db, HEAL_EXT, heal_manifest())
+        assert await apply_field_contributions(db, HEAL_EXT, self.MANIFEST) == 2
         assert ct.fields_schema == [
             {"section": "Core", "fields": [{"key": "h9", "ext": "other"}]},
-            {"section": "Admin", "fields": [{"key": "x", "label": "X", "type": "text"}]},
             {
                 "section": "Sample",
-                "ext": HEAL_EXT,
-                "fields": [{"key": "mine", "label": "Mine", "type": "text"}]
-                + INTACT_SECTION["fields"],
+                "fields": [
+                    INTACT_SECTION["fields"][0],
+                    {"key": "mine", "label": "Mine", "type": "text"},
+                    INTACT_SECTION["fields"][1],
+                ],
             },
         ]
+
+    async def test_a_moved_field_is_not_added_again_to_the_contributed_section(self, db):
+        moved = dict(INTACT_SECTION["fields"][0], label="Renamed by admin")
+        ct = await heal_type(
+            db,
+            fields_schema=[
+                {"section": "Mine", "fields": [{"key": "a", "label": "A", "type": "text"}, moved]},
+                {
+                    "section": "Sample",
+                    "ext": HEAL_EXT,
+                    "fields": [json.loads(json.dumps(INTACT_SECTION["fields"][1]))],
+                },
+            ],
+        )
+        await apply_field_contributions(db, HEAL_EXT, self.MANIFEST)
+        assert ct.fields_schema == [
+            {
+                "section": "Mine",
+                "fields": [{"key": "a", "label": "A", "type": "text"}, INTACT_SECTION["fields"][0]],
+            },
+            INTACT_SECTION | {"fields": [INTACT_SECTION["fields"][1]]},
+        ]
+
+    async def test_a_duplicate_left_by_an_older_apply_is_folded_away(self, db):
+        h1 = INTACT_SECTION["fields"][0]
+        ct = await heal_type(
+            db,
+            fields_schema=[
+                {"section": "Mine", "fields": [dict(h1)]},
+                json.loads(json.dumps(INTACT_SECTION)),
+            ],
+        )
+        await apply_field_contributions(db, HEAL_EXT, self.MANIFEST)
+        assert ct.fields_schema == [
+            {"section": "Mine", "fields": [h1]},
+            INTACT_SECTION | {"fields": [INTACT_SECTION["fields"][1]]},
+        ]
+
+    async def test_all_fields_moved_and_section_deleted_creates_nothing(self, db):
+        fields = json.loads(json.dumps(INTACT_SECTION["fields"]))
+        ct = await heal_type(db, fields_schema=[{"section": "Mine", "fields": fields}])
+        assert await apply_field_contributions(db, HEAL_EXT, self.MANIFEST) == 2
+        assert ct.fields_schema == [{"section": "Mine", "fields": INTACT_SECTION["fields"]}]
+
+    async def test_junk_sections_are_passed_over(self, db):
+        ct = await heal_type(db, fields_schema=["junk", {"section": "Odd", "fields": "x"}])
+        await apply_field_contributions(db, HEAL_EXT, self.MANIFEST)
+        assert ct.fields_schema == ["junk", {"section": "Odd", "fields": "x"}, INTACT_SECTION]
+
+
+class TestHealLeavesAdminArrangementsAlone:
+    async def test_moved_fields_and_a_renamed_section_trigger_no_heal(self, db, monkeypatch):
+        from app.services.extensions import field_contributions as fc
+
+        apply = AsyncMock()
+        monkeypatch.setattr(fc, "apply_field_contributions", apply)
+        renamed = json.loads(json.dumps(INTACT_SECTION)) | {"section": "Renamed"}
+        await heal_type(db, fields_schema=[renamed])
+        await extension_row(db)
+        assert await fc.heal_contributions(db) == []
+
+        other = await create_card_type(
+            db,
+            key="Other",
+            label="Other",
+            fields_schema=[{"section": "Mine", "fields": INTACT_SECTION["fields"]}],
+        )
+        fields_only = {
+            "metamodel": {"field_sections": heal_manifest("Other")["metamodel"]["field_sections"]}
+        }
+        await extension_row(db, "b-ext", manifest=fields_only)
+        assert await fc.heal_contributions(db) == []
+        assert apply.await_count == 0
+        assert other.fields_schema == [{"section": "Mine", "fields": INTACT_SECTION["fields"]}]
+
+
+class TestHealIsolation:
+    async def test_one_failing_extension_does_not_stop_the_others(self, db, monkeypatch, caplog):
+        import logging
+
+        from app.services.extensions import field_contributions as fc
+
+        real = fc.apply_field_contributions
+
+        async def apply(session, key, manifest):
+            if key == "a-ext":
+                raise RuntimeError("bad row")
+            return await real(session, key, manifest)
+
+        monkeypatch.setattr(fc, "apply_field_contributions", apply)
+        monkeypatch.setattr(fc, "_recompute_data_quality", AsyncMock())
+        ct = await heal_type(db, fields_schema=[], subtypes=json.loads(json.dumps(INTACT_SUBTYPES)))
+        await extension_row(db, "a-ext")
+        await extension_row(db, "b-ext", manifest={"metamodel": "junk"})
+        await extension_row(db, HEAL_EXT)
+        with caplog.at_level(logging.ERROR, logger="app.services.extensions.field_contributions"):
+            assert await fc.heal_contributions(db) == [HEAL_EXT]
+        assert ct.fields_schema == [INTACT_SECTION]
+        assert [r.getMessage() for r in caplog.records if r.levelname == "ERROR"] == [
+            "Extension a-ext: restoring its metamodel contributions failed",
+            "Extension b-ext: restoring its metamodel contributions failed",
+        ]
+        assert "bad row" in caplog.text
+
+
+class TestSubtypeApplyKeepsAdminProps:
+    async def test_admin_properties_survive_and_manifest_ones_resync(self, db):
+        from app.services.extensions.field_contributions import apply_subtype_contributions
+
+        ct = await heal_type(
+            db,
+            subtypes=[
+                {"key": "own", "label": "Own"},
+                {
+                    "key": "sub",
+                    "label": "Edited",
+                    "color": "#000000",
+                    "ext": HEAL_EXT,
+                    "hidden_fields": ["h1"],
+                    "optional_relations": ["relX"],
+                },
+                {"key": "dropped", "label": "Dropped", "ext": HEAL_EXT},
+            ],
+        )
+        assert await apply_subtype_contributions(db, HEAL_EXT, heal_manifest()) == 1
+        assert ct.subtypes == [
+            {"key": "own", "label": "Own"},
+            {
+                "key": "sub",
+                "label": "Sub",
+                "ext": HEAL_EXT,
+                "hidden_fields": ["h1"],
+                "optional_relations": ["relX"],
+            },
+        ]
+
+    async def test_an_unchanged_list_is_not_written(self, db, monkeypatch):
+        from app.services.extensions import field_contributions as fc
+
+        flagged: list = []
+        monkeypatch.setattr(fc, "flag_modified", lambda obj, key: flagged.append(key))
+        ct = await heal_type(db)
+        assert await fc.apply_subtype_contributions(db, HEAL_EXT, heal_manifest()) == 1
+        assert ct.subtypes == INTACT_SUBTYPES
+        assert flagged == []
