@@ -88,6 +88,7 @@ import {
   hasAnyCost,
   hasHierarchy,
   healthLabelKey,
+  matchesBoard,
   maxTreeDepth,
   money,
   nowPct,
@@ -97,6 +98,7 @@ import {
   projectManager,
   ragColor,
   rowFigures,
+  shownDashboard,
   subtypeGroupBy,
   subtypeKeys,
   subtypeName,
@@ -327,6 +329,9 @@ const PLAN_CELL_SX = { px: 0.5, textAlign: "center" };
 /** No extra styling (the mobile card's quarter span). */
 const NO_SX = {};
 
+/** No extra print params (the portal board, which has no Filters section). */
+const NO_PRINT_PARAMS: PrintParam[] = [];
+
 const gridCols =
   "minmax(180px,1.5fr) 120px 90px 1fr 32px 32px 32px 120px 120px 64px";
 const GRID_MIN_WIDTH = 1100;
@@ -373,6 +378,24 @@ export interface PpmPortfolioViewProps {
   shell?: (parts: PpmPortfolioShellParts) => ReactNode;
   /** Render the page heading on the bare path. Off inside a portal. */
   showTitle?: boolean;
+  /**
+   * The authenticated page's Filters section, rendered as the toolbar's last
+   * row. A portal passes none.
+   */
+  filterSection?: ReactNode;
+  /**
+   * The initiatives the Filters section keeps; null (the default) narrows
+   * nothing. Applied with the search and subtype, so the group-anchor rule holds.
+   */
+  matchIds?: ReadonlySet<string> | null;
+  /** The Filters section's lines for the print header, after the board's own. */
+  extraPrintParams?: PrintParam[];
+  /**
+   * The Filters section's selection as `?filters=`; "" drops the param.
+   * Written by the board's one URL-sync effect — a second `setSearchParams`
+   * in the same tick would clobber this one.
+   */
+  filtersParam?: string;
 }
 
 export default function PpmPortfolioView({
@@ -387,6 +410,10 @@ export default function PpmPortfolioView({
   onOpen,
   shell,
   showTitle = true,
+  filterSection,
+  matchIds = null,
+  extraPrintParams = NO_PRINT_PARAMS,
+  filtersParam = "",
 }: PpmPortfolioViewProps) {
   const { t, i18n } = useTranslation("ppm");
   const { formatDate } = useDateFormat();
@@ -442,6 +469,7 @@ export default function PpmPortfolioView({
           hierarchy,
           depth,
           bySubtype,
+          filters: filtersParam,
         }),
       { replace: true },
     );
@@ -454,6 +482,7 @@ export default function PpmPortfolioView({
     hierarchy,
     depth,
     bySubtype,
+    filtersParam,
     setSearchParams,
   ]);
 
@@ -518,9 +547,23 @@ export default function PpmPortfolioView({
   const subtypes = useMemo(() => subtypeKeys(items), [items]);
 
   const filtered = useMemo(
-    () => filterItems(items, search, subtypeFilter),
-    [items, search, subtypeFilter],
+    () => filterItems(items, search, subtypeFilter, matchIds),
+    [items, search, subtypeFilter, matchIds],
   );
+
+  // The KPI tiles follow what the board shows. Narrowed, they count the rows
+  // themselves — an anchor kept only as its group's header is not one of them.
+  // Unnarrowed, the server's figures stand as they are.
+  const shown = useMemo(() => {
+    if (!dashboard) return null;
+    const narrowed = search !== "" || subtypeFilter !== "" || matchIds !== null;
+    return shownDashboard(
+      dashboard,
+      narrowed
+        ? filtered.filter((i) => !i.group_anchor || matchesBoard(i, search, subtypeFilter, matchIds))
+        : null,
+    );
+  }, [dashboard, filtered, search, subtypeFilter, matchIds]);
 
   const groups = useMemo(() => groupItems(filtered, t("noGroup")), [filtered, t]);
 
@@ -551,13 +594,15 @@ export default function PpmPortfolioView({
   );
 
   const printParams: PrintParam[] = useMemo(
-    () =>
-      buildPrintParams(
+    () => [
+      ...buildPrintParams(
         { groupTypeLabel: groupLabel, subtype: subtypeFilter, search, layout },
         t,
         resolveSubtype,
       ),
-    [t, groupLabel, subtypeFilter, search, layout, resolveSubtype],
+      ...extraPrintParams,
+    ],
+    [t, groupLabel, subtypeFilter, search, layout, resolveSubtype, extraPrintParams],
   );
 
   const buildExportData = useCallback(
@@ -1222,6 +1267,7 @@ export default function PpmPortfolioView({
           />
         </span>
       </Tooltip>
+      {filterSection}
     </>
   );
 
@@ -1234,7 +1280,7 @@ export default function PpmPortfolioView({
       ) : (
         <Box className="ppm-portfolio">
         {/* KPI Bar */}
-        {dashboard && (
+        {shown && (
           <Paper
             sx={{
               display: "flex",
@@ -1252,25 +1298,25 @@ export default function PpmPortfolioView({
                 {t("totalInitiatives")}
               </Typography>
               <Typography variant="h6" fontWeight={700}>
-                {dashboard.total_initiatives}
+                {shown.total_initiatives}
               </Typography>
             </Box>
-            {dashboard.total_budget != null && (
+            {shown.total_budget != null && (
               <Box>
                 <Typography variant="caption" color="text.secondary">
                   {t("totalBudget")}
                 </Typography>
                 <Typography variant="h6" fontWeight={700}>
-                  {fmtShort(dashboard.total_budget)}
+                  {fmtShort(shown.total_budget)}
                 </Typography>
               </Box>
             )}
             <Box display="flex" gap={2} alignItems="center">
               {(
                 [
-                  ["onTrack", dashboard.health_schedule.onTrack],
-                  ["atRisk", dashboard.health_schedule.atRisk],
-                  ["offTrack", dashboard.health_schedule.offTrack],
+                  ["onTrack", shown.health_schedule.onTrack],
+                  ["atRisk", shown.health_schedule.atRisk],
+                  ["offTrack", shown.health_schedule.offTrack],
                 ] as const
               ).map(([key, count]) => (
                 <Box key={key} display="flex" alignItems="center" gap={0.5}>
