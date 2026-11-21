@@ -116,7 +116,7 @@ COPY frontend/ ./
 RUN npm run build
 
 
-FROM alpine/git:v2.54.0 AS drawio
+FROM alpine/git:v2.54.1 AS drawio
 
 RUN git clone --depth 1 --branch v32.6.9 https://github.com/jgraph/drawio.git /drawio
 
