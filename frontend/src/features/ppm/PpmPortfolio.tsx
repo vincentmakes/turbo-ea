@@ -15,12 +15,22 @@
  *
  * The section starts folded and its payload (`/reports/ppm/filter-data`) is
  * fetched the first time it is opened — or at once, when the URL already
- * carries a selection — so the default page load costs no extra request.
+ * carries a selection or the section opens unfolded — so the default page
+ * load costs no extra request.
+ *
+ * The page link is the board's state; the browser remembers the last state
+ * (`ppmBoardPrefs`, like the reports' `useSavedReport`). A link with no board
+ * parameter — the PPM menu entry, the back arrow on an initiative — gets the
+ * remembered ones written onto it before the board mounts, because the view
+ * and this container both read their opening state from the link. A link with
+ * settings of its own wins, and becomes what is remembered.
  */
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
+import Box from "@mui/material/Box";
+import CircularProgress from "@mui/material/CircularProgress";
 import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useApiQuery } from "@/hooks/useApiQuery";
@@ -45,6 +55,15 @@ import {
   otherTypesFirst,
 } from "./ppmBoardFilters";
 import type { PpmFilterData } from "./ppmBoardFilters";
+import {
+  boardParams,
+  clearBoardPrefs,
+  loadBoardPrefs,
+  restoreTarget,
+  sameBoardParams,
+  saveBoardPrefs,
+  withBoardParams,
+} from "./ppmBoardPrefs";
 import type { PpmPortfolioShellParts } from "./PpmPortfolioView";
 import type {
   PpmGanttItem,
@@ -54,10 +73,65 @@ import type {
   PpmPortfolioGroupOption,
 } from "@/types";
 
+/** The spinner while the link is being brought to the board's opening state — the view's own. */
+const PENDING_SX = { display: "flex", justifyContent: "center", py: 8 } as const;
+
 /** No print lines from the Filters section (nothing selected, or nothing loaded). */
 const NO_PRINT_PARAMS: PrintParam[] = [];
 
+/**
+ * Mounts the board only once the link shows the board parameters it must open
+ * with: the remembered ones on a bare link, none after Reset.
+ *
+ * `pending` is a latch on the OBSERVED link, not a guess that the router has
+ * applied the navigation (it renders in a transition): the board waits until
+ * `useSearchParams` shows the parameters. Should the link come back showing
+ * something else — a remembered value no link can carry — the first link
+ * observed after the write releases the latch anyway, and the board opens on
+ * what the link shows. So it mounts at the latest one navigation later.
+ */
 export default function PpmPortfolio() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [pending, setPending] = useState(() =>
+    restoreTarget(searchParams, loadBoardPrefs().params),
+  );
+  // The link as it was when `pending` was written onto it; null = not written yet.
+  const writtenOver = useRef<URLSearchParams | null>(null);
+
+  useEffect(() => {
+    if (pending === null) return;
+    const release = () => {
+      writtenOver.current = null;
+      setPending(null);
+    };
+    if (sameBoardParams(boardParams(searchParams), pending)) {
+      release();
+    } else if (writtenOver.current === null) {
+      writtenOver.current = searchParams;
+      setSearchParams((prev) => withBoardParams(prev, pending), { replace: true });
+    } else if (searchParams !== writtenOver.current) {
+      release();
+    }
+  }, [pending, searchParams, setSearchParams]);
+
+  const handleReset = useCallback(() => {
+    clearBoardPrefs();
+    // Unmounts the board until the link is bare, so every piece of its state
+    // — the view's, the Filters selection, the fold — starts over.
+    setPending({});
+  }, []);
+
+  if (pending !== null) {
+    return (
+      <Box sx={PENDING_SX}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+  return <PpmPortfolioBoard onReset={handleReset} />;
+}
+
+function PpmPortfolioBoard({ onReset }: { onReset: () => void }) {
   const { t } = useTranslation(["ppm", "reports", "common"]);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -122,15 +196,40 @@ export default function PpmPortfolio() {
   const [filters, setFilters] = useState<CardFilterValue>(() =>
     decodeCardFilters(searchParams.get("filters")),
   );
-  // Folded on every visit, even with a selection in the URL — the board is the
-  // point of the page, and the header's count chip says filters are on.
-  const [filtersCollapsed, setFiltersCollapsed] = useState(true);
+  // Folded the first time, even with a selection in the URL — the board is the
+  // point of the page, and the header's count chip says filters are on — and
+  // afterwards the way the user last left it.
+  const [filtersCollapsed, setFiltersCollapsed] = useState(
+    () => loadBoardPrefs().filtersCollapsed,
+  );
   // Latched: once requested the path never returns to null, which would clear
-  // the payload (`useApiQuery`) and refetch on every re-open.
-  const [requested, setRequested] = useState(() => countActiveFilters(filters) > 0);
+  // the payload (`useApiQuery`) and refetch on every re-open. A section that
+  // opens unfolded needs its payload at once, or it would say "Loading…" for good.
+  const [requested, setRequested] = useState(
+    () => countActiveFilters(filters) > 0 || !filtersCollapsed,
+  );
   const filterQuery = useApiQuery<PpmFilterData>(requested ? "/reports/ppm/filter-data" : null);
   const filterData = filterQuery.data;
 
+  /* ---- What the browser remembers ----------------------------------- */
+
+  // The board parameters the view last reported (from its state, not the link:
+  // a bare link while the board is up leaves the state, and so the memory, as
+  // it was) and the fold the user last chose. A failed load showing the section
+  // open is derived below and never remembered.
+  const shownParams = useRef<Record<string, string>>({});
+  const foldRef = useRef(filtersCollapsed);
+  const remember = useCallback(
+    () => saveBoardPrefs({ params: shownParams.current, filtersCollapsed: foldRef.current }),
+    [],
+  );
+  const handleBoardState = useCallback(
+    (params: string) => {
+      shownParams.current = Object.fromEntries(new URLSearchParams(params));
+      remember();
+    },
+    [remember],
+  );
   const relationTypes = useMemo(() => filterData?.relation_types ?? [], [filterData]);
   const groupableTypes = useMemo(() => filterData?.groupable_types ?? {}, [filterData]);
   const tagGroups = useMemo(() => filterData?.tag_groups ?? [], [filterData]);
@@ -206,8 +305,10 @@ export default function PpmPortfolio() {
       // header whose count chip claims a filter that is not applied.
       collapsed={filtersCollapsed && filterQuery.error === null}
       onToggle={() => {
-        setFiltersCollapsed((v) => !v);
+        foldRef.current = !filtersCollapsed;
+        setFiltersCollapsed(foldRef.current);
         setRequested(true);
+        remember();
       }}
       value={filters}
       onChange={setFilters}
@@ -248,12 +349,13 @@ export default function PpmPortfolio() {
         buildExportData={buildExportData}
         paginateRowSelector="[data-export-row]"
         disableSavedReportsLink
+        onReset={onReset}
         toolbar={toolbar}
       >
         {content}
       </ReportShell>
     ),
-    [t],
+    [t, onReset],
   );
 
   return (
@@ -270,6 +372,7 @@ export default function PpmPortfolio() {
       matchIds={matchIds}
       extraPrintParams={extraPrintParams}
       filtersParam={encodeCardFilters(filters)}
+      onBoardStateChange={handleBoardState}
     />
   );
 }

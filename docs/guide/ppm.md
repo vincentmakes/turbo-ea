@@ -25,17 +25,17 @@ Use the toolbar to:
 - **Show hierarchy** to nest the initiatives of each group under their parent Initiative (see below)
 - **Sub-group by subtype** to split each group by subtype (see below)
 
-These filters persist in the URL, so refreshing the page retains your current view. The hierarchy, its display depth and the sub-grouping are kept in the URL too.
+These settings are kept in the URL, so refreshing the page retains your current view, and a link you share opens the same board. The board also remembers its search, grouping, subtype, hierarchy settings and filters in your browser and restores them when you come back — from the PPM menu, or with the back arrow after opening an initiative. A link that carries settings of its own opens with those, and they become the remembered ones. The **Reset** icon in the title bar returns the board to its defaults.
 
 #### The Filters section
 
-Below the toolbar sits a **Filters** section, folded by default so the board stays in view; while it is folded, a chip on its header shows how many filters are active. Unfold it to narrow the board, with the same filters as the reports:
+Below the toolbar sits a **Filters** section, folded the first time you open the board so the board stays in view, and afterwards the way you last left it; while it is folded, a chip on its header shows how many filters are active. Unfold it to narrow the board, with the same filters as the reports:
 
 - **Related cards** — keep the initiatives linked to the cards you pick, for example an Organization or an Application. **Include sub-cards** also keeps the initiatives linked to the cards beneath a picked card in its hierarchy
 - **Tags** — keep the initiatives carrying the tags you pick
 - **Fields** — keep the initiatives whose own fields (the Initiative type's attributes) match the values you pick
 
-Active filters are kept in the URL, so a link you share opens the same board, and they are listed in the parameter line of a print or export. **Clear all** empties the Filters section and leaves the rest of the toolbar as it is.
+Active filters are kept in the URL and remembered with the rest of the board, so a link you share opens the same board, and they are listed in the parameter line of a print or export. **Clear all** empties the Filters section and leaves the rest of the toolbar as it is.
 
 #### Showing the Initiative hierarchy
 

@@ -396,6 +396,13 @@ export interface PpmPortfolioViewProps {
    * in the same tick would clobber this one.
    */
   filtersParam?: string;
+  /**
+   * Told the board's own link parameters (`filterSearchParams` over an empty
+   * link) whenever the board's state changes, so a container can remember
+   * them. Derived from state, never read back from the link: a bare link
+   * (the PPM menu entry while on the board) leaves the state as it was.
+   */
+  onBoardStateChange?: (params: string) => void;
 }
 
 export default function PpmPortfolioView({
@@ -414,6 +421,7 @@ export default function PpmPortfolioView({
   matchIds = null,
   extraPrintParams = NO_PRINT_PARAMS,
   filtersParam = "",
+  onBoardStateChange,
 }: PpmPortfolioViewProps) {
   const { t, i18n } = useTranslation("ppm");
   const { formatDate } = useDateFormat();
@@ -458,21 +466,19 @@ export default function PpmPortfolioView({
 
   // Sync filters to URL
   useEffect(() => {
-    setSearchParams(
-      (prev) =>
-        filterSearchParams(prev, {
-          groupBy,
-          search,
-          subtype: subtypeFilter,
-          initialGroupBy,
-          initialSubtype,
-          hierarchy,
-          depth,
-          bySubtype,
-          filters: filtersParam,
-        }),
-      { replace: true },
-    );
+    const state = {
+      groupBy,
+      search,
+      subtype: subtypeFilter,
+      initialGroupBy,
+      initialSubtype,
+      hierarchy,
+      depth,
+      bySubtype,
+      filters: filtersParam,
+    };
+    setSearchParams((prev) => filterSearchParams(prev, state), { replace: true });
+    onBoardStateChange?.(filterSearchParams(new URLSearchParams(), state).toString());
   }, [
     groupBy,
     search,
@@ -484,6 +490,7 @@ export default function PpmPortfolioView({
     bySubtype,
     filtersParam,
     setSearchParams,
+    onBoardStateChange,
   ]);
 
   // ── Report hover popover state ──

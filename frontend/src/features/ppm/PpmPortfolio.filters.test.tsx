@@ -3,11 +3,13 @@
  * starts folded, fetches its payload only once it is opened (or at once when
  * the URL carries a selection), narrows the rows and the KPI tiles, keeps the
  * selection in `?filters=`, and never shows unfiltered rows while a selection
- * is still loading.
+ * is still loading — and remembers the board's state in the browser, restoring
+ * it onto a bare link, with Reset to return to the defaults.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { useEffect } from "react";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { MemoryRouter, useLocation } from "react-router";
+import { MemoryRouter, useLocation, useNavigate, useNavigationType } from "react-router";
 import { api } from "@/api/client";
 import PpmPortfolio from "./PpmPortfolio";
 
@@ -180,12 +182,21 @@ const FILTER_DATA_TAGS = {
 
 const SALES = encodeURIComponent('{"relationFilters":{"Organization":["sales"]}}');
 
+/** The board's rows and grouping options for the current test. */
+let ganttRows: unknown[] = GANTT;
+let groupOptionRows: unknown[] = [];
+
 /** How the filter payload answers: at once, never (until released), or with an error. */
 let filterAnswer: () => Promise<unknown> = () => Promise.resolve(FILTER_DATA);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // The board remembers its state in the browser, and jsdom shares one storage.
+  localStorage.clear();
   filterAnswer = () => Promise.resolve(FILTER_DATA);
+  ganttRows = GANTT;
+  groupOptionRows = [];
+  navigationTypes = [];
   metamodelTypes = TYPES;
   vi.stubGlobal(
     "ResizeObserver",
@@ -196,17 +207,34 @@ beforeEach(() => {
     },
   );
   vi.mocked(api.get).mockImplementation(((path: string) => {
-    if (path.startsWith("/reports/ppm/gantt")) return Promise.resolve(GANTT);
+    if (path.startsWith("/reports/ppm/gantt")) return Promise.resolve(ganttRows);
     if (path.startsWith("/reports/ppm/dashboard")) return Promise.resolve(DASHBOARD);
-    if (path.startsWith("/reports/ppm/group-options")) return Promise.resolve([]);
+    if (path.startsWith("/reports/ppm/group-options")) return Promise.resolve(groupOptionRows);
     if (path === "/reports/ppm/filter-data") return filterAnswer();
     return Promise.resolve([]);
   }) as typeof api.get);
 });
 
+/** How each location the board was rendered at was reached ("POP" is the first). */
+let navigationTypes: string[] = [];
+
 function LocationProbe() {
-  const { search } = useLocation();
+  const { search, key } = useLocation();
+  const type = useNavigationType();
+  useEffect(() => {
+    navigationTypes.push(type);
+  }, [key, type]);
   return <output data-testid="location">{search}</output>;
+}
+
+/** Navigates to a bare link while the board stays mounted — the PPM menu entry. */
+function MenuEntry() {
+  const navigate = useNavigate();
+  return (
+    <button type="button" onClick={() => navigate("/")}>
+      menu
+    </button>
+  );
 }
 
 function renderBoard(url = "/") {
@@ -214,6 +242,7 @@ function renderBoard(url = "/") {
     <MemoryRouter initialEntries={[url]}>
       <PpmPortfolio />
       <LocationProbe />
+      <MenuEntry />
     </MemoryRouter>,
   );
 }
@@ -475,5 +504,224 @@ describe("PpmPortfolio Filters section", () => {
     const listbox = await screen.findByRole("listbox");
     expect(within(listbox).getByText("Initiative subtypes")).toBeInTheDocument();
     expect(within(listbox).getByRole("option", { name: "Project" })).toBeInTheDocument();
+  });
+});
+
+/* ------------------------------------------------------------------------ */
+/* What the board remembers between visits                                   */
+/* ------------------------------------------------------------------------ */
+
+const PREFS_KEY = "turboea.ppm.portfolio.prefs";
+const SALES_RAW = '{"relationFilters":{"Organization":["sales"]}}';
+const remember = (value: unknown) => localStorage.setItem(PREFS_KEY, JSON.stringify(value));
+const remembered = () => JSON.parse(localStorage.getItem(PREFS_KEY) ?? "null");
+const searchBox = () => screen.getByPlaceholderText("Search initiatives...") as HTMLInputElement;
+const ganttCalls = () =>
+  vi
+    .mocked(api.get)
+    .mock.calls.map(([p]) => p)
+    .filter((p) => p.startsWith("/reports/ppm/gantt"));
+const resetButton = () => screen.getByRole("button", { name: "Reset to defaults" });
+
+describe("PpmPortfolio remembers its state", () => {
+  it("restores the remembered search, grouping, subtype and filters onto a bare link", async () => {
+    groupOptionRows = [
+      { type_key: "Organization", type_label: "Organization" },
+      { type_key: "Platform", type_label: "Platform" },
+    ];
+    remember({
+      params: { search: "a", groupBy: "Platform", subtype: "project", filters: SALES_RAW },
+      filtersCollapsed: true,
+    });
+    renderBoard("/?tab=reports");
+    await waitFor(() => expect(names()).toEqual(["Alpha Rollout"]));
+    expect(total()).toBe("1");
+    expect(searchBox()).toHaveValue("a");
+    expect(groupBySelect()).toHaveTextContent("Platform");
+    // The board mounted on the restored link: it never asked for the default grouping.
+    expect(ganttCalls()).toEqual(["/reports/ppm/gantt?group_by=Platform"]);
+    expect(header()).toHaveAttribute("aria-expanded", "false");
+    expect(within(header()).getByText("1")).toBeInTheDocument();
+    expect(Object.fromEntries(location())).toEqual({
+      tab: "reports",
+      search: "a",
+      groupBy: "Platform",
+      subtype: "project",
+      filters: SALES_RAW,
+    });
+    expect(screen.getAllByRole("combobox")[1]).toHaveTextContent("Project");
+    // Written over the link, not pushed as a page of its own for Back to land on.
+    expect(navigationTypes).not.toContain("PUSH");
+
+    // Reset after a restore writes the link again, and the board starts over.
+    fireEvent.click(resetButton());
+    await waitFor(() =>
+      expect(names()).toEqual(["Alpha Rollout", "Beta Upgrade", "Gamma Study"]),
+    );
+    expect(location().toString()).toBe("tab=reports");
+    expect(searchBox()).toHaveValue("");
+    expect(localStorage.getItem(PREFS_KEY)).toBeNull();
+  });
+
+  it("restores the hierarchy and its depth", async () => {
+    ganttRows = [GANTT[0], { ...GANTT[1], parent_id: "i1" }, GANTT[2]];
+    remember({ params: { hierarchy: "1", depth: "1" }, filtersCollapsed: true });
+    renderBoard();
+    await screen.findByText("Alpha Rollout");
+    expect(screen.getByLabelText("Show hierarchy")).toBeChecked();
+    expect(screen.getByRole("combobox", { name: "Display depth" })).toHaveTextContent("Level 1");
+    // Depth 1 keeps the roots only.
+    expect(names()).toEqual(["Alpha Rollout", "Gamma Study"]);
+    expect(location().toString()).toBe("hierarchy=1&depth=1");
+  });
+
+  it("restores the sub-grouping by subtype", async () => {
+    remember({ params: { bySubtype: "1" }, filtersCollapsed: true });
+    renderBoard();
+    await screen.findByText("Alpha Rollout");
+    expect(screen.getByLabelText("Sub-group by subtype")).toBeChecked();
+    expect(location().toString()).toBe("bySubtype=1");
+  });
+
+  it("opens a link with settings of its own as it says, and remembers those", async () => {
+    remember({ params: { search: "Gamma", subtype: "project" }, filtersCollapsed: true });
+    renderBoard("/?search=Beta");
+    await waitFor(() => expect(names()).toEqual(["Beta Upgrade"]));
+    expect(location().toString()).toBe("search=Beta");
+    expect(remembered()).toEqual({ params: { search: "Beta" }, filtersCollapsed: true });
+  });
+
+  it("remembers each change", async () => {
+    renderBoard();
+    await screen.findByText("Alpha Rollout");
+    expect(localStorage.getItem(PREFS_KEY)).toBeNull();
+    fireEvent.change(searchBox(), { target: { value: "Beta" } });
+    await waitFor(() =>
+      expect(remembered()).toEqual({ params: { search: "Beta" }, filtersCollapsed: true }),
+    );
+    fireEvent.click(header());
+    await pickOrganization("Sales");
+    await waitFor(() =>
+      expect(remembered()).toEqual({
+        params: { search: "Beta", filters: SALES_RAW },
+        filtersCollapsed: false,
+      }),
+    );
+  });
+
+  it("keeps the state, and the memory, when the menu opens a bare link over the board", async () => {
+    renderBoard("/?search=Beta");
+    await waitFor(() => expect(names()).toEqual(["Beta Upgrade"]));
+    fireEvent.click(screen.getByRole("button", { name: "menu" }));
+    // The board stays mounted with its state, and writes that state back onto the link.
+    await waitFor(() => expect(location().toString()).toBe("search=Beta"));
+    // Not remounted: the rows were fetched once.
+    expect(ganttCalls()).toHaveLength(1);
+    expect(names()).toEqual(["Beta Upgrade"]);
+    expect(searchBox()).toHaveValue("Beta");
+    expect(remembered()).toEqual({ params: { search: "Beta" }, filtersCollapsed: true });
+
+    fireEvent.change(searchBox(), { target: { value: "Gamma" } });
+    await waitFor(() =>
+      expect(remembered()).toEqual({ params: { search: "Gamma" }, filtersCollapsed: true }),
+    );
+    expect(location().toString()).toBe("search=Gamma");
+  });
+
+  it("is folded the first time, and opens as the user last left it", async () => {
+    const first = renderBoard();
+    await screen.findByText("Alpha Rollout");
+    expect(header()).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(header());
+    expect(remembered()).toEqual({ params: {}, filtersCollapsed: false });
+    first.unmount();
+
+    // Opened unfolded, and fetched at once — not a section stuck on "Loading…".
+    const second = renderBoard();
+    await screen.findByRole("combobox", { name: "Organization" });
+    expect(header()).toHaveAttribute("aria-expanded", "true");
+    expect(filterCalls()).toBe(2);
+    fireEvent.click(header());
+    expect(header()).toHaveAttribute("aria-expanded", "false");
+    // Folded with nothing else set is the default, which leaves nothing behind.
+    expect(localStorage.getItem(PREFS_KEY)).toBeNull();
+    second.unmount();
+
+    renderBoard();
+    await screen.findByText("Alpha Rollout");
+    expect(header()).toHaveAttribute("aria-expanded", "false");
+    expect(filterCalls()).toBe(2);
+  });
+
+  it("does not remember the section open because a failed load showed it open", async () => {
+    filterAnswer = () => Promise.reject(new Error("boom"));
+    renderBoard(`/?filters=${SALES}`);
+    await screen.findByText("Filters could not be loaded.");
+    expect(header()).toHaveAttribute("aria-expanded", "true");
+    await waitFor(() =>
+      expect(remembered()).toEqual({ params: { filters: SALES_RAW }, filtersCollapsed: true }),
+    );
+  });
+
+  it("returns to the defaults with Reset, keeping the link's other parameters", async () => {
+    groupOptionRows = [
+      { type_key: "Organization", type_label: "Organization" },
+      { type_key: "Platform", type_label: "Platform" },
+    ];
+    renderBoard(`/?tab=reports&search=Beta&groupBy=Platform&filters=${SALES}`);
+    // Beta matches the search, but only Alpha is related to Sales.
+    await screen.findByText("No initiatives found");
+    fireEvent.click(header());
+    await screen.findByRole("combobox", { name: "Organization" });
+    expect(remembered()).toEqual({
+      params: { search: "Beta", groupBy: "Platform", filters: SALES_RAW },
+      filtersCollapsed: false,
+    });
+
+    fireEvent.click(resetButton());
+    await waitFor(() =>
+      expect(names()).toEqual(["Alpha Rollout", "Beta Upgrade", "Gamma Study"]),
+    );
+    expect(searchBox()).toHaveValue("");
+    expect(groupBySelect()).toHaveTextContent("Organization");
+    expect(header()).toHaveAttribute("aria-expanded", "false");
+    expect(within(header()).queryByText("1")).toBeNull();
+    expect(total()).toBe("3");
+    expect(location().toString()).toBe("tab=reports");
+    expect(localStorage.getItem(PREFS_KEY)).toBeNull();
+    expect(ganttCalls().at(-1)).toBe("/reports/ppm/gantt?group_by=Organization");
+    expect(navigationTypes).not.toContain("PUSH");
+  });
+
+  it("returns to the defaults with Reset when the link is already bare", async () => {
+    // Only the fold is remembered, so the link carries no board parameter at all.
+    remember({ params: {}, filtersCollapsed: false });
+    renderBoard("/?tab=reports");
+    await screen.findByRole("combobox", { name: "Organization" });
+    expect(header()).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.click(resetButton());
+    await waitFor(() => expect(header()).toHaveAttribute("aria-expanded", "false"));
+    expect(names()).toEqual(["Alpha Rollout", "Beta Upgrade", "Gamma Study"]);
+    expect(location().toString()).toBe("tab=reports");
+    expect(localStorage.getItem(PREFS_KEY)).toBeNull();
+  });
+
+  it("opens the default board over corrupt storage", async () => {
+    localStorage.setItem(PREFS_KEY, "{bad");
+    renderBoard();
+    await screen.findByText("Alpha Rollout");
+    expect(names()).toEqual(["Alpha Rollout", "Beta Upgrade", "Gamma Study"]);
+    expect(location().toString()).toBe("");
+  });
+
+  it("opens on what the link shows when a remembered value cannot survive the link", async () => {
+    // A lone surrogate is written to the link as U+FFFD, so the link never shows
+    // exactly what was remembered: the board must open anyway, not spin for good.
+    remember({ params: { search: "\ud800" }, filtersCollapsed: true });
+    renderBoard();
+    expect(await screen.findByText("No initiatives found")).toBeInTheDocument();
+    expect(searchBox()).toHaveValue("\ufffd");
+    expect(location().get("search")).toBe("\ufffd");
   });
 });

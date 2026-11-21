@@ -173,6 +173,8 @@ async function openExportMenu() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // The board remembers its state in the browser, and jsdom shares one storage.
+  localStorage.clear();
   ganttRows = GANTT;
 });
 

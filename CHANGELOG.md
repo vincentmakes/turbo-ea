@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 - A **Filters** section on the PPM portfolio narrows the board by related cards (with their sub-cards), tags and the initiatives' own fields; it starts folded, and the active filters are kept in the page link and listed in print and export headers.
+- The PPM portfolio now remembers its search, grouping, subtype, hierarchy and filters between visits, like the reports, and offers a Reset button to return to the defaults.
 
 ### Changed
 - The PPM portfolio's tiles (initiatives, budget, schedule health) now follow the search, the subtype pick and the filters, on public portfolio portals too, so a portal set to a default subtype opens with the tiles for that subtype.

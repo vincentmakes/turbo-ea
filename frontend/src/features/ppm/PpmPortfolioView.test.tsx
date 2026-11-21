@@ -1340,3 +1340,35 @@ describe("PpmPortfolioView Filters section slot", () => {
     expect(location()).toBe("");
   });
 });
+
+describe("PpmPortfolioView board state", () => {
+  it("tells its container the board's parameters from its state, on opening and on change", () => {
+    const onBoardStateChange = vi.fn();
+    renderAt("/?tab=x&search=erp", { items: TREE, subtypeDefs: SUBTYPES, onBoardStateChange });
+    // Only the board's own parameters, never the link's others.
+    expect(onBoardStateChange).toHaveBeenLastCalledWith("search=erp");
+
+    fireEvent.change(screen.getByPlaceholderText("Search initiatives..."), {
+      target: { value: "" },
+    });
+    expect(onBoardStateChange).toHaveBeenLastCalledWith("");
+    fireEvent.click(hierarchySwitch());
+    expect(onBoardStateChange).toHaveBeenLastCalledWith("hierarchy=1");
+    expect(location()).toBe("?tab=x&hierarchy=1");
+  });
+
+  it("carries the Filters section's value it is handed", () => {
+    const onBoardStateChange = vi.fn();
+    renderAt("/", { filtersParam: '{"tagFilterIds":["t1"]}', onBoardStateChange });
+    expect(onBoardStateChange).toHaveBeenLastCalledWith(
+      new URLSearchParams({ filters: '{"tagFilterIds":["t1"]}' }).toString(),
+    );
+  });
+
+  it("needs no listener — the portal board passes none and still keeps its link", () => {
+    renderAt("/", { items: TREE, subtypeDefs: SUBTYPES });
+    fireEvent.click(hierarchySwitch());
+    expect(location()).toBe("?hierarchy=1");
+    expect(rowNames()).toEqual(["Transformation", "ERP Rollout", "Finance Stream"]);
+  });
+});
