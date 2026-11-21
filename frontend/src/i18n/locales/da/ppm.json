@@ -25,6 +25,7 @@
   "projectManager": "PM",
   "budget": "Budget",
   "noInitiatives": "Ingen initiativer fundet",
+  "filtersLoadFailed": "Filtrene kunne ikke indlæses.",
   "cardDetails": "Kortoplysninger",
   "overview": "Oversigt",
   "statusReports": "Statusrapporter",

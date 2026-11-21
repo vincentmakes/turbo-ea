@@ -25,6 +25,7 @@
   "projectManager": "项目经理",
   "budget": "预算",
   "noInitiatives": "未找到举措",
+  "filtersLoadFailed": "无法加载筛选条件。",
   "cardDetails": "卡片详情",
   "overview": "概览",
   "statusReports": "状态报告",

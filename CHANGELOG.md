@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.208.0] - 2026-11-21
+
+### Added
+- A **Filters** section on the PPM portfolio narrows the board by related cards (with their sub-cards), tags and the initiatives' own fields; it starts folded, and the active filters are kept in the page link and listed in print and export headers.
+
+### Changed
+- The PPM portfolio's tiles (initiatives, budget, schedule health) now follow the search, the subtype pick and the filters, on public portfolio portals too, so a portal set to a default subtype opens with the tiles for that subtype.
+
 ## [2.207.1] - 2026-11-20
 
 ### Fixed

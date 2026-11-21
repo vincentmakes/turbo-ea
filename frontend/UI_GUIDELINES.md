@@ -631,6 +631,10 @@ and Capability Map had duplicated it near-verbatim before it was extracted).
   report's saved-report config (the five-edit convention: `useState(false)` → restore with
   `if (cfg.filtersCollapsed != null)` → `getConfig()` → persist dep array → `handleReset`).
   The `!= null` guard is what lets a stored `false` survive.
+- The one deliberate exception is a board whose content is the point rather than a report:
+  the PPM portfolio (`features/ppm/PpmPortfolio.tsx`) starts its Filters section **folded**
+  on every visit and does not persist the fold (it has no saved-report config); the count
+  chip on the folded header says filters are on. Reports stay expanded by default.
 - Pass `count` — the **same integer the report puts in its print params** (both reports
   already compute `activeFilterCount`), so a collapsed section on screen and the printed
   header can never disagree. It counts what the section *contains*; a search box that lives

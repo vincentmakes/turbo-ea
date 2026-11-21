@@ -16,6 +16,8 @@ import { STATUS_COLORS } from "@/theme/tokens";
  * sub-sections on the Portfolio report — so it folds away, expanded by
  * default, with the collapse state persisted by the report alongside every
  * other setting (`filtersCollapsed` in its saved-report config).
+ * The one exception is a board whose content is the point: the PPM portfolio
+ * starts it folded and does not persist the fold (UI_GUIDELINES §3.12).
  *
  * Extracted from the Portfolio and Capability Map reports, whose headers were
  * duplicated near-verbatim. It mirrors the vocabulary of the grid filter

@@ -121,6 +121,8 @@ vi.mock("@/hooks/useMetamodel", () => ({
         label: "Initiative",
         translations: {},
         subtypes: [{ key: "project", label: "Project", translations: {} }],
+        // A real card type always carries its schema; the Filters section reads it.
+        fields_schema: [],
       },
     ],
     relationTypes: [],

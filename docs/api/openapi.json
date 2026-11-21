@@ -39563,6 +39563,26 @@
         ]
       }
     },
+    "/api/v1/reports/ppm/filter-data": {
+      "get": {
+        "description": "What the board's Filters section matches initiatives on: every initiative\n``/gantt`` returns, with its relations, tags, subtype and attributes, plus the\nrelation types, related cards and tag groups the filter options list.\n\nThe same initiatives as ``/gantt``: ``build_portfolio_payload`` selects the\nACTIVE cards of the type inside the reader's module read scope, as\n``load_initiatives`` does, and neither consults the type's ``is_hidden``.\nCost attributes go only to a reader who may see them. An install without an\nInitiative type gets the empty payload, never a 404.",
+        "operationId": "ppm_filter_data_api_v1_reports_ppm_filter_data_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Ppm Filter Data",
+        "tags": [
+          "ppm-reports"
+        ]
+      }
+    },
     "/api/v1/reports/ppm/gantt": {
       "get": {
         "operationId": "ppm_gantt_api_v1_reports_ppm_gantt_get",

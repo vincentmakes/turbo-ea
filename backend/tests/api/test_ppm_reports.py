@@ -1,6 +1,7 @@
 """Integration tests for PPM report endpoints.
 
-Covers the 3 endpoints in ppm_reports.py: group-options, dashboard, and gantt.
+Covers the 4 endpoints in ppm_reports.py: group-options, dashboard, gantt and
+filter-data.
 
 Integration tests requiring a PostgreSQL test database.
 """
@@ -784,6 +785,226 @@ class TestPpmGroupOptions:
 # ---------------------------------------------------------------------------
 
 
+class TestPpmFilterData:
+    """``/reports/ppm/filter-data`` hands the board's Filters section what the
+    reports' matcher reads, for exactly the initiatives ``/gantt`` returns."""
+
+    URL = "/api/v1/reports/ppm/filter-data"
+
+    @staticmethod
+    async def _member(db):
+        from app.core.permissions import MEMBER_PERMISSIONS
+
+        await create_role(db, key="member", label="Member", permissions=MEMBER_PERMISSIONS)
+        return await create_user(db, email="member@test.com", role="member")
+
+    @staticmethod
+    async def _deny_view(db, type_key: str, role: str = "member"):
+        from sqlalchemy import select
+
+        from app.models.card_type import CardType
+        from app.services.permission_service import PermissionService
+
+        ct = (await db.execute(select(CardType).where(CardType.key == type_key))).scalar_one()
+        ct.role_permissions = {role: {"inventory.view": False}}
+        await db.flush()
+        PermissionService.invalidate_type_permission_cache()
+
+    async def test_shape_with_a_relation_and_a_tag(self, client, db, ppm_env):
+        from tests.conftest import create_tag, create_tag_group
+
+        await create_relation_type(
+            db,
+            key="relInitToOrg",
+            label="affects",
+            source_type_key="Initiative",
+            target_type_key="Organization",
+        )
+        init = await create_card(
+            db,
+            card_type="Initiative",
+            name="Alpha",
+            subtype="Project",
+            attributes={"businessValue": "high"},
+            lifecycle={"active": "2026-01-01"},
+        )
+        org = await create_card(db, card_type="Organization", name="Finance")
+        await create_relation(db, type_key="relInitToOrg", source_id=init.id, target_id=org.id)
+        group = await create_tag_group(db, name="Theme")
+        tag = await create_tag(db, group=group, name="Cloud", cards=[init])
+
+        resp = await client.get(self.URL, headers=auth_headers(ppm_env["admin"]))
+        assert resp.status_code == 200
+        body = resp.json()
+        assert set(body) == {"items", "relation_types", "groupable_types", "tag_groups"}
+
+        [item] = body["items"]
+        assert item == {
+            "id": str(init.id),
+            "name": "Alpha",
+            "subtype": "Project",
+            "attributes": {"businessValue": "high"},
+            "relations": [
+                {
+                    "relation_type": "relInitToOrg",
+                    "direction": "outgoing",
+                    "related_id": str(org.id),
+                    "related_name": "Finance",
+                    "related_type": "Organization",
+                    "attributes": {},
+                }
+            ],
+            "tag_ids": [str(tag.id)],
+        }
+        assert [rt["key"] for rt in body["relation_types"]] == ["relInitToOrg"]
+        assert body["relation_types"][0]["other_type_key"] == "Organization"
+        assert [m["id"] for m in body["groupable_types"]["Organization"]] == [str(org.id)]
+        assert [g["name"] for g in body["tag_groups"]] == ["Theme"]
+        assert [t["id"] for t in body["tag_groups"][0]["tags"]] == [str(tag.id)]
+
+    async def test_same_initiatives_as_the_gantt(self, client, db, ppm_env):
+        admin = ppm_env["admin"]
+        await create_card(db, card_type="Initiative", name="One")
+        await create_card(db, card_type="Initiative", name="Two")
+        gone = await create_card(db, card_type="Initiative", name="Gone", status="ARCHIVED")
+        await create_card(db, card_type="Application", name="Not An Initiative")
+
+        resp = await client.get(self.URL, headers=auth_headers(admin))
+        assert resp.status_code == 200
+        gantt = await client.get("/api/v1/reports/ppm/gantt", headers=auth_headers(admin))
+        assert gantt.status_code == 200
+
+        ids = {i["id"] for i in resp.json()["items"]}
+        assert ids == {i["id"] for i in gantt.json()}
+        assert {i["name"] for i in resp.json()["items"]} == {"One", "Two"}
+        assert str(gone.id) not in ids
+
+    async def test_a_hidden_initiative_type_is_still_built(self, client, db, ppm_env):
+        """``/gantt`` ignores the type's ``is_hidden``, so this endpoint does too."""
+        from sqlalchemy import select
+
+        from app.models.card_type import CardType
+
+        init = await create_card(db, card_type="Initiative", name="Hidden-Type Initiative")
+        ct = (await db.execute(select(CardType).where(CardType.key == "Initiative"))).scalar_one()
+        ct.is_hidden = True
+        await db.flush()
+
+        resp = await client.get(self.URL, headers=auth_headers(ppm_env["admin"]))
+        assert resp.status_code == 200
+        assert [i["id"] for i in resp.json()["items"]] == [str(init.id)]
+
+    async def test_an_initiative_hidden_by_the_read_scope_is_absent(self, client, db, ppm_env):
+        from app.models.stakeholder import Stakeholder
+        from tests.conftest import create_stakeholder_role_def
+
+        member = await self._member(db)
+        await create_stakeholder_role_def(
+            db, card_type_key="Initiative", key="responsible", permissions={"card.view": True}
+        )
+        secret = await create_card(db, card_type="Initiative", name="Secret Initiative")
+        held = await create_card(db, card_type="Initiative", name="Held Initiative")
+        db.add(Stakeholder(card_id=held.id, user_id=member.id, role="responsible"))
+        await self._deny_view(db, "Initiative")
+
+        resp = await client.get(self.URL, headers=auth_headers(member))
+        assert resp.status_code == 200
+        assert [i["id"] for i in resp.json()["items"]] == [str(held.id)]
+        assert str(secret.id) not in resp.text
+        assert "Secret Initiative" not in resp.text
+
+        # The admin still sees both.
+        admin = await client.get(self.URL, headers=auth_headers(ppm_env["admin"]))
+        assert {i["id"] for i in admin.json()["items"]} == {str(secret.id), str(held.id)}
+
+    async def test_a_related_card_of_a_denied_type_is_not_named(self, client, db, ppm_env):
+        member = await self._member(db)
+        await create_relation_type(
+            db,
+            key="relInitToApp",
+            label="changes",
+            source_type_key="Initiative",
+            target_type_key="Application",
+        )
+        await create_relation_type(
+            db,
+            key="relInitToOrg",
+            label="affects",
+            source_type_key="Initiative",
+            target_type_key="Organization",
+        )
+        init = await create_card(db, card_type="Initiative", name="Visible Initiative")
+        app = await create_card(db, card_type="Application", name="Secret App")
+        org = await create_card(db, card_type="Organization", name="Open Org")
+        await create_relation(db, type_key="relInitToApp", source_id=init.id, target_id=app.id)
+        await create_relation(db, type_key="relInitToOrg", source_id=init.id, target_id=org.id)
+        await self._deny_view(db, "Application")
+
+        resp = await client.get(self.URL, headers=auth_headers(member))
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "Secret App" not in resp.text
+        assert str(app.id) not in resp.text
+        assert [rt["key"] for rt in body["relation_types"]] == ["relInitToOrg"]
+        assert "Application" not in body["groupable_types"]
+        [item] = body["items"]
+        assert [r["related_id"] for r in item["relations"]] == [str(org.id)]
+
+        # Non-vacuity: the admin is told about the application.
+        admin = await client.get(self.URL, headers=auth_headers(ppm_env["admin"]))
+        assert "Secret App" in admin.text
+        assert {rt["key"] for rt in admin.json()["relation_types"]} == {
+            "relInitToApp",
+            "relInitToOrg",
+        }
+
+    async def test_costs_are_redacted_without_cost_access(self, client, db, ppm_env):
+        from sqlalchemy import select
+
+        from app.models.card_type import CardType
+
+        ct = (await db.execute(select(CardType).where(CardType.key == "Initiative"))).scalar_one()
+        ct.fields_schema = [
+            {
+                "section": "g",
+                "fields": [
+                    {"key": "costBudget", "type": "cost", "weight": 0},
+                    {"key": "theme", "type": "text", "weight": 0},
+                ],
+            }
+        ]
+        await db.flush()
+        await create_role(db, key="ppm_only", label="PPM only", permissions={"ppm.view": True})
+        reader = await create_user(db, email="ppmonly@test.com", role="ppm_only")
+        await create_card(
+            db,
+            card_type="Initiative",
+            name="Costly",
+            attributes={"costBudget": 500, "theme": "cloud"},
+        )
+
+        resp = await client.get(self.URL, headers=auth_headers(reader))
+        assert resp.status_code == 200
+        assert resp.json()["items"][0]["attributes"] == {"theme": "cloud"}
+
+        admin = await client.get(self.URL, headers=auth_headers(ppm_env["admin"]))
+        assert admin.json()["items"][0]["attributes"] == {"costBudget": 500, "theme": "cloud"}
+
+    async def test_no_initiative_type_gives_the_empty_payload(self, client, db):
+        await create_role(db, key="admin", permissions={"*": True})
+        admin = await create_user(db, email="admin@test.com", role="admin")
+        await create_card_type(db, key="Organization", label="Organization")
+
+        resp = await client.get(self.URL, headers=auth_headers(admin))
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "items": [],
+            "relation_types": [],
+            "groupable_types": {},
+            "tag_groups": [],
+        }
+
+
 class TestPpmReportsPermission:
     async def test_viewer_can_access_dashboard(self, client, ppm_env):
         """Viewers have ppm.view=True so they should access the dashboard."""
@@ -807,6 +1028,13 @@ class TestPpmReportsPermission:
         )
         assert resp.status_code == 200
 
+    async def test_viewer_can_access_filter_data(self, client, ppm_env):
+        resp = await client.get(
+            "/api/v1/reports/ppm/filter-data",
+            headers=auth_headers(ppm_env["viewer"]),
+        )
+        assert resp.status_code == 200
+
     async def test_unauthenticated_rejected(self, client, ppm_env):
         resp = await client.get("/api/v1/reports/ppm/dashboard")
         assert resp.status_code in (401, 403)
@@ -822,6 +1050,20 @@ class TestPpmReportsPermission:
         user = await create_user(db, email="noppm@test.com", role="no_ppm")
         resp = await client.get(
             "/api/v1/reports/ppm/dashboard",
+            headers=auth_headers(user),
+        )
+        assert resp.status_code == 403
+
+    async def test_no_ppm_permission_denied_on_filter_data(self, client, db, ppm_env):
+        await create_role(
+            db,
+            key="no_ppm",
+            label="No PPM",
+            permissions={"ppm.view": False, "inventory.view": True},
+        )
+        user = await create_user(db, email="noppm@test.com", role="no_ppm")
+        resp = await client.get(
+            "/api/v1/reports/ppm/filter-data",
             headers=auth_headers(user),
         )
         assert resp.status_code == 403

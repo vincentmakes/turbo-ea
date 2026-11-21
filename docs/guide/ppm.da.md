@@ -11,9 +11,7 @@
 
 **Portefølje-dashboardet** er hovedindgangspunktet for PPM. Det tilbyder:
 
-- **KPI-kort** — Samlede initiativer, samlet budget, samlede faktiske omkostninger og oversigt over sundhedsstatus
-- **Sundheds-cirkeldiagrammer** — Fordeling af tidsplan-, omkostnings- og scope-sundhed (On Track / At Risk / Off Track)
-- **Status-fordeling** — Opdeling efter initiativ-undertype og status
+- **KPI-linje** — Antallet af initiativer, deres samlede budget (hvor omkostninger vises for dig) og hvor mange der er På sporet, I fare og Ude af spor i tidsplanen. Tallene følger porteføljen: søgningen, den valgte undertype og sektionen **Filtre** indsnævrer dem til de initiativer, du ser på
 - **Gantt-oversigt** — Tidslinjebjælker, der viser hvert initiativs start- og slutdatoer, med RAG-sundhedsindikatorer
 
 ### Gruppering og filtrering
@@ -28,6 +26,16 @@ Brug værktøjslinjen til at:
 - **Undergruppere efter undertype** for at opdele hver gruppe efter undertype (se nedenfor)
 
 Disse filtre vedvarer i URL'en, så opdatering af siden bibeholder din nuværende visning. Hierarkiet, dets visningsdybde og undergrupperingen gemmes også i URL'en.
+
+#### Sektionen Filtre
+
+Under værktøjslinjen ligger sektionen **Filtre**, der som standard er foldet sammen, så porteføljen forbliver synlig; mens den er foldet sammen, viser en chip i dens overskrift, hvor mange filtre der er aktive. Fold den ud for at indsnævre porteføljen med de samme filtre som rapporterne:
+
+- **Relaterede kort** — beholder de initiativer, der er knyttet til de kort, du vælger, for eksempel en Organisation eller en Applikation. **Medtag underkort** beholder også de initiativer, der er knyttet til kortene under et valgt kort i dets hierarki
+- **Tags** — beholder de initiativer, der har de tags, du vælger
+- **Felter** — beholder de initiativer, hvis egne felter (attributterne for korttypen Initiativ) matcher de værdier, du vælger
+
+Aktive filtre gemmes i URL'en, så et link, du deler, åbner den samme portefølje, og de står i parameterlinjen på en udskrift eller eksport. **Ryd alle** tømmer sektionen Filtre og lader resten af værktøjslinjen være, som den er.
 
 #### Vis initiativhierarkiet
 
@@ -57,7 +65,7 @@ De afledte tal findes kun på PPM-tavlen og på initiativets egne faner **Oversi
 
 Porteføljen tilbyder de samme handlinger i titellinjen som rapporterne:
 
-- **Udskriv / Gem som PDF** — printerikonet udskriver porteføljen, som den ser ud på skærmen. Fanebjælken, filterværktøjslinjen og pop op-vinduer ved museover udelades, den aktive gruppering, undertype og søgning udskrives som en kompakt parameterlinje, og tidslinjegitteret beskæres ikke længere, så alle kolonner er med på siden. Når hierarkiet eller undergrupperingen er slået til, nævner parameterlinjen også det, med visningsdybden.
+- **Udskriv / Gem som PDF** — printerikonet udskriver porteføljen, som den ser ud på skærmen. Fanebjælken, filterværktøjslinjen og pop op-vinduer ved museover udelades, den aktive gruppering, undertype og søgning samt filtrene i sektionen Filtre udskrives som en kompakt parameterlinje, og tidslinjegitteret beskæres ikke længere, så alle kolonner er med på siden. Når hierarkiet eller undergrupperingen er slået til, nævner parameterlinjen også det, med visningsdybden.
 - **Eksportér til PowerPoint (.pptx)** — fra **⋮**-menuen. Det første dias indeholder titlen, tidsstemplet for genereringen og de aktive filtre sammen med porteføljen i præsentationskvalitet; lange porteføljer fortsætter på flere dias og opdeles kun mellem initiativer — aldrig midt i en række, en gruppeoverskrift eller en totallinje.
 - **Eksportér til Excel (.xlsx)** — også fra **⋮**-menuen. Én række pr. initiativ med gruppe, undertype, projektleder, start- og slutdato, de tre sundhedsvurderinger, planlagt og faktisk CapEx/OpEx samt datoen for den seneste statusrapport. Rækkerne følger rækkefølgen på skærmen; mens hierarkiet vises, angiver en kolonne **Overordnet** hvert initiativs overordnede initiativ. Tre kolonner, **Budget fra**, **Omkostninger fra** og **Datoer fra**, angiver, om en rækkes budget, realiserede tal og datoer er dens egne eller summen af initiativerne under den. Når tavlen er grupperet efter en undertype af Initiativ, er det grupperende initiativ **den første række i sin gruppe**, med de tal dets bundlinje viser.
 

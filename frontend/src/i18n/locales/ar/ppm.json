@@ -25,6 +25,7 @@
   "projectManager": "مدير المشروع",
   "budget": "الميزانية",
   "noInitiatives": "لم يتم العثور على مبادرات",
+  "filtersLoadFailed": "تعذّر تحميل المرشحات.",
   "cardDetails": "تفاصيل البطاقة",
   "overview": "نظرة عامة",
   "statusReports": "تقارير الحالة",
