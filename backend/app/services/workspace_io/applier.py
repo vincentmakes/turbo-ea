@@ -38,6 +38,7 @@ from app.core.permissions import (
     migrate_legacy_app_permissions,
     strip_legacy_card_permissions,
     with_legacy_cost_grant,
+    with_legacy_license_grant,
 )
 from app.models.app_settings import AppSettings
 from app.models.architecture_decision import ArchitectureDecision
@@ -972,6 +973,7 @@ UPSTREAM_VIEW_COSTS_SINCE = (2, 206, 0)
 def _predates_view_costs(bundle: WorkspaceBundle) -> bool:
     """Use the source's first release with per-role cost access."""
     version = bundle.app_version
+    # shortcut: CostItemTypes identifies fork bundles; add a source marker if upstream adds it.
     first_release = (
         VIEW_COSTS_SINCE
         if schema.SHEET_COST_ITEM_TYPES in bundle.sheets
@@ -1010,6 +1012,13 @@ def _make_config_applier(sec: schema.ConfigSection):
                     perms = strip_legacy_card_permissions(data["permissions"])
                     if _predates_view_costs(bundle):
                         perms = with_legacy_cost_grant(str(data.get("key")), perms)
+                    # The fork first shipped explicit license visibility in 2.208.0.
+                    if (
+                        schema.SHEET_COST_ITEM_TYPES in bundle.sheets
+                        and bundle.app_version is not None
+                        and bundle.app_version < VIEW_COSTS_SINCE
+                    ):
+                        perms = with_legacy_license_grant(str(data.get("key")), perms)
                     data["permissions"] = perms
                 elif sec.model is Role:
                     data["permissions"] = migrate_legacy_app_permissions(data["permissions"])

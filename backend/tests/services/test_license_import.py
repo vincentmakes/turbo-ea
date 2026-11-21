@@ -7,11 +7,13 @@ import zipfile
 
 import openpyxl
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.models.app_settings import AppSettings
 from app.models.card_license import CardLicense
+from app.models.card_type import CardType
 from app.models.event import Event
+from app.models.stakeholder import Stakeholder
 from app.services import license_metrics, license_types
 from app.services.card_licenses import UNSET, LicenseError, merge_cell
 from app.services.fiscal_year import current_fiscal_year
@@ -23,12 +25,14 @@ from app.services.license_import import (
     parse_workbook,
     plan_import,
 )
+from app.services.permission_service import PermissionService
 from tests.conftest import (
     create_card,
     create_card_type,
     create_license_metric,
     create_license_type,
     create_role,
+    create_stakeholder_role_def,
     create_user,
 )
 
@@ -146,6 +150,28 @@ async def test_plan_matches_case_insensitive_and_does_not_read_licensing_model(d
         ("installations", "dev", 5, UNSET),
         ("users", "admin", 10, 4),
     ]
+
+
+async def test_import_omits_card_without_license_visibility(db, env):
+    await create_role(
+        db, key="license_editor", permissions={"licenses.view": True, "licenses.edit": True}
+    )
+    user = await create_user(db, email="lic-imp-editor@test.com", role="license_editor")
+    await create_stakeholder_role_def(
+        db, key="reader", permissions={"card.view": True, "card.view_licenses": False}
+    )
+    db.add(Stakeholder(card_id=env["erp"].id, user_id=user.id, role="reader"))
+    await db.execute(
+        update(CardType)
+        .where(CardType.key == "Application")
+        .values(role_permissions={"license_editor": {"inventory.view": False}})
+    )
+    await db.flush()
+    PermissionService.invalidate_type_permission_cache()
+
+    plan = await plan_import(db, user, [row(2)])
+    assert plan.matched == 0
+    assert [issue.reason for issue in plan.skipped] == ["card_not_found"]
 
 
 async def test_a_metric_resolves_by_label_and_a_custom_metric_works(db, env):

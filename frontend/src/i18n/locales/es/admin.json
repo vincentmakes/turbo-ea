@@ -413,6 +413,7 @@
   "metamodel.stakeholderPanel.subscriberCount_other": "{{count}} suscriptores",
   "metamodel.stakeholderPanel.permissions": "Permisos",
   "metamodel.stakeholderPanel.noPermissions": "No se han definido permisos.",
+  "metamodel.stakeholderPanel.viewLicensesDescription": "Ver las licencias de esta ficha sin el permiso licenses.view",
   "metamodel.stakeholderPanel.selfAssignableHint": "Cualquiera que pueda ver una tarjeta puede convertirse en su Observador, por lo que todo lo que este rol permite queda abierto a todos ellos.",
   "metamodel.stakeholderPanel.newRole": "Nuevo rol de parte interesada",
   "metamodel.stakeholderPanel.keyLabel": "Clave",

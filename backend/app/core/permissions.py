@@ -259,11 +259,11 @@ APP_PERMISSIONS: dict[str, dict] = {
         "permissions": {
             "licenses.view": (
                 "View license counts on cards and the Licensing report "
-                "(stakeholders see their own cards' licenses regardless)"
+                "(stakeholder roles can separately grant access to their own cards)"
             ),
             "licenses.edit": (
-                "Edit and import the licenses of any card "
-                "(stakeholders whose role can edit a card edit that card's licenses regardless)"
+                "Edit and import licenses on cards whose license counts are visible "
+                "(stakeholders with card.edit can also edit where they have license visibility)"
             ),
         },
     },
@@ -378,6 +378,7 @@ def migrate_legacy_app_permissions(permissions: dict) -> dict:
 CARD_PERMISSIONS: dict[str, str] = {
     "card.view": "View this card's detail page",
     "card.view_costs": "View this card's cost fields without the costs.view permission",
+    "card.view_licenses": "View this card's licenses without the licenses.view permission",
     "card.edit": "Edit this card's fields, name, description, lifecycle",
     "card.archive": "Archive or restore this card",
     "card.delete": "Permanently delete this card (admin)",
@@ -438,12 +439,13 @@ def strip_legacy_card_permissions(permissions: dict) -> dict:
 # Cost access through a stakeholder role
 # ---------------------------------------------------------------------------
 #
-# Until 2.206.0 *any* stakeholder role on a card showed that card's cost fields
+# Before 2.206.0 upstream and 2.208.0 in this fork, any stakeholder role showed costs
 # to a user without ``costs.view``. Anyone who can view a card can make
 # themselves its Observer (``POST /cards/{id}/me/observe``), so that let every
 # user past the permission (#1412). Since then a role shows costs only when it
 # grants ``card.view_costs``.
 VIEW_COSTS_CARD_PERMISSION = "card.view_costs"
+VIEW_LICENSES_CARD_PERMISSION = "card.view_licenses"
 
 # The role anyone who can view a card can give themselves, without the right
 # to manage stakeholders (``POST /cards/{id}/me/observe``). A user who *may*
@@ -459,14 +461,24 @@ def with_legacy_cost_grant(role_key: str, permissions: dict) -> dict:
     the role keeps doing so — except Observer, the self-assignable one, which
     is the hole the key closes. A map that already carries the key, either
     value, is returned as it is: an admin's choice is never overwritten.
-    Migration 175 applies the same rule to the rows of an existing install;
-    the workspace importer calls this for a bundle exported before 2.206.0.
+    Migration 195 applies the same rule to the rows of an existing install;
+    the importer uses the exporting source's version to identify older bundles.
     """
     if not isinstance(permissions, dict) or VIEW_COSTS_CARD_PERMISSION in permissions:
         return permissions
     return {
         **permissions,
         VIEW_COSTS_CARD_PERMISSION: role_key != SELF_ASSIGNABLE_STAKEHOLDER_ROLE,
+    }
+
+
+def with_legacy_license_grant(role_key: str, permissions: dict) -> dict:
+    """Keep previous license visibility for old roles except the self-assignable Observer."""
+    if not isinstance(permissions, dict) or VIEW_LICENSES_CARD_PERMISSION in permissions:
+        return permissions
+    return {
+        **permissions,
+        VIEW_LICENSES_CARD_PERMISSION: role_key != SELF_ASSIGNABLE_STAKEHOLDER_ROLE,
     }
 
 
@@ -492,6 +504,7 @@ APP_TO_CARD_PERMISSION_MAP: dict[str, str] = {
     "adr.manage": "card.manage_adr_links",
     "diagrams.manage": "card.manage_diagram_links",
     "costs.view": "card.view_costs",
+    "licenses.view": "card.view_licenses",
 }
 
 # Reverse: card-level → app-level (for check_permission convenience)
@@ -586,7 +599,6 @@ def type_cell_decision(
     cells = cells or {}
     if resolve_cell(cells.get(VIEW_PERMISSION), subtype) is False:
         return False
-    cells = cells or {}
     if permission in TYPE_SCOPED_APP_PERMISSIONS:
         decision = resolve_cell(cells.get(permission), subtype)
         if decision is not None:
@@ -992,6 +1004,7 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
 RESPONSIBLE_CARD_PERMISSIONS: dict[str, bool] = {
     "card.view": True,
     "card.view_costs": True,
+    "card.view_licenses": True,
     "card.edit": True,
     "card.archive": True,
     "card.delete": False,
@@ -1012,6 +1025,7 @@ RESPONSIBLE_CARD_PERMISSIONS: dict[str, bool] = {
 OBSERVER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.view": True,
     "card.view_costs": False,
+    "card.view_licenses": False,
     "card.edit": False,
     "card.archive": False,
     "card.delete": False,
@@ -1032,6 +1046,7 @@ OBSERVER_CARD_PERMISSIONS: dict[str, bool] = {
 PROCESS_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.view": True,
     "card.view_costs": True,
+    "card.view_licenses": True,
     "card.edit": True,
     "card.archive": False,
     "card.delete": False,
@@ -1054,6 +1069,7 @@ PROCESS_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
 TECH_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.view": True,
     "card.view_costs": True,
+    "card.view_licenses": True,
     "card.edit": True,
     "card.archive": False,
     "card.delete": False,
@@ -1074,6 +1090,7 @@ TECH_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
 BIZ_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.view": True,
     "card.view_costs": True,
+    "card.view_licenses": True,
     "card.edit": True,
     "card.archive": False,
     "card.delete": False,
@@ -1094,6 +1111,7 @@ BIZ_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
 IT_PROJECT_MANAGER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.view": True,
     "card.view_costs": True,
+    "card.view_licenses": True,
     "card.edit": True,
     "card.archive": False,
     "card.delete": False,

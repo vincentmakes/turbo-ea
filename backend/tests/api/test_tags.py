@@ -882,6 +882,27 @@ BULK = "/api/v1/cards/tags/bulk"
 
 
 class TestBulkCardTags:
+    async def test_subtype_read_denial_does_not_hide_other_subtypes(self, client, db, bulk_env):
+        from tests.api.test_cards_type_read_permissions import set_overrides
+
+        await set_overrides(
+            db,
+            "Application",
+            {"member": {"inventory.view": {"value": False, "subtypes": ["Hidden"]}}},
+        )
+        visible = await create_card(db, card_type="Application", name="Visible", subtype="Public")
+        hidden = await create_card(db, card_type="Application", name="Hidden", subtype="Hidden")
+        tag_id = bulk_env["tags"]["hr"]
+        resp = await client.post(
+            BULK,
+            json=_ops((visible.id, [tag_id], "add"), (hidden.id, [tag_id], "add")),
+            headers=auth_headers(bulk_env["member"]),
+        )
+        assert resp.status_code == 200, resp.text
+        assert [row["status"] for row in resp.json()["results"]] == ["updated", "not_found"]
+        assert await _card_tag_set(db, visible.id) == {tag_id}
+        assert await _card_tag_set(db, hidden.id) == set()
+
     async def test_add_replace_remove_with_results_and_events(
         self, client, db, bulk_env, publish_commit_log
     ):

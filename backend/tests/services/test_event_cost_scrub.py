@@ -444,14 +444,17 @@ async def test_a_type_that_is_not_a_card_type_key_is_no_type(db, world, named):
     assert got == _change({}, {}, type=named)
 
 
-async def test_no_card_type_with_a_cost_field_means_nothing_to_remove(db):
+async def test_reserved_total_is_hidden_without_a_cost_field_in_schema(db):
     await create_role(db, key="reader", label="Reader", permissions={"inventory.view": True})
     await create_card_type(db, key="Application", fields_schema=_fields(("tier", "text")))
     reader = await create_user(db, email="reader@test.com", role="reader")
     card = await create_card(db, card_type="Application", name="Billing")
     stored = _change({"costTotalAnnual": 1}, {"costTotalAnnual": 2})
     [got] = await scrub.scrub_event_costs(db, reader, [(card.id, stored)])
-    assert got is stored
+    assert got == _change({}, {})
+    public = _change({"tier": "gold"}, {"tier": "silver"})
+    [got] = await scrub.scrub_event_costs(db, reader, [(card.id, public)])
+    assert got is public
 
 
 def _count_statements(db):
@@ -539,3 +542,17 @@ async def test_a_summary_has_both_of_its_operation_lists_scrubbed(db, world):
 )
 async def test_a_summary_without_operation_lists_is_returned_itself(db, world, summary):
     assert await scrub.scrub_summary_costs(db, world["users"]["reader"], summary) is summary
+
+
+async def test_rollback_hides_legacy_cost_items(db, world):
+    reader = world["users"]["reader"]
+    payload = {
+        "card_id": str(world["app"].id),
+        "fields": {
+            "attributes": {"softwareLicensingCost": 123, "tier": "gold"},
+            "cost_items": {"hosting": 456},
+        },
+    }
+    assert await scrub.scrub_operation_costs(db, reader, [payload]) == [
+        {"card_id": str(world["app"].id), "fields": {"attributes": {"tier": "gold"}}}
+    ]

@@ -73,7 +73,6 @@ from app.services.eol_service import (
     find_cycle,
     manual_eol_status,
 )
-from app.services.event_cost_scrub import scrub_event_costs
 from app.services.fiscal_year import (
     MAX_FISCAL_YEAR,
     MIN_FISCAL_YEAR,
@@ -224,9 +223,6 @@ async def dashboard(db: AsyncSession = Depends(get_db), user: User = Depends(get
 
     payloads = await scrub_event_payloads(db, read_scope, [e.data for e in events_list])
     payloads = await redact_cost_events(db, user, events_list, payloads)
-    payloads = await scrub_event_costs(
-        db, user, [(e.card_id, data) for e, data in zip(events_list, payloads)]
-    )
     recent_events = [
         {
             "id": str(e.id),
@@ -639,9 +635,6 @@ async def admin_dashboard_summary(
 
     sys_payloads = await scrub_event_payloads(db, activity_scope, [e.data for e in sys_events_list])
     sys_payloads = await redact_cost_events(db, user, sys_events_list, sys_payloads)
-    sys_payloads = await scrub_event_costs(
-        db, user, [(e.card_id, data) for e, data in zip(sys_events_list, sys_payloads)]
-    )
     recent_activity = [
         {
             "id": str(e.id),
@@ -1746,6 +1739,7 @@ async def licensing_report(
         return await build_license_report(
             db,
             read_scope,
+            user=user,
             card_types=type_keys,
             metric=metric,
             license_type=license_type,

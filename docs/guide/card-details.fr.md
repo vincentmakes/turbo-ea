@@ -139,6 +139,7 @@ Le champ **Coût annuel total** (`costTotalAnnual`) de la fiche est dérivé des
 
 La section **Licences** enregistre, année par année, combien de licences la fiche a sous contrat et combien sont réellement utilisées. Elle se place à côté des Coûts et possède la même ligne verte **Time Travel** sur six ans : les quatre années précédant l'exercice courant, l'exercice courant et le **Forecast**. Tout ce que contient la section concerne l'exercice sélectionné.
 
+
 Une fiche a les **paires** *Indicateur : Type* (par exemple *Utilisateurs : Admin* ou *Installations : Prod*) qui ont été ajoutées à l'exercice sélectionné. Il n'y a aucun réglage à cocher au niveau de la fiche : une paire existe dans une année dès que vous l'ajoutez.
 
 ![Section Licences](../assets/img/en/104_card_licensing.png)
@@ -153,7 +154,7 @@ Les indicateurs et les types de licence viennent du catalogue géré par un admi
 
 **Un nouvel exercice.** Lorsqu'une fiche n'a pas encore de données de licences pour le nouvel exercice courant, la section affiche les paires de l'exercice précédent avec leurs quantités sous licence, dessinées **atténuées** et marquées **non confirmées**, sans quantité réelle, de sorte qu'un nouvel exercice n'hérite jamais de la consommation de l'ancien. Elles le restent jusqu'à ce que quelqu'un confirme l'exercice (**Confirmer**) ou modifie une quantité.
 
-**Qui peut voir et modifier les licences.** Vous pouvez les **consulter** avec la permission `licenses.view`, ou si vous détenez un rôle de partie prenante sur la fiche. Vous pouvez les **modifier** avec la permission `licenses.edit`, ou si vous détenez sur la fiche un rôle de partie prenante qui permet de modifier la fiche. Par défaut, seuls les administrateurs détiennent `licenses.edit`. Une modification apparaît dans l'onglet Historique sous **Licences mises à jour**, avec les paires concernées (*Indicateur : Type*) mais sans les quantités, et ne peut pas être annulée.
+**Qui peut consulter et modifier les licences.** Vous pouvez **consulter** les licences si votre rôle d’application vous accorde `licenses.view` pour le type de fiche ou si votre rôle de partie prenante sur la fiche accorde `card.view_licenses`. Par défaut, le rôle Observer ne dispose pas de cette autorisation. Pour **modifier** les licences, il faut aussi `licenses.edit` ou un rôle de partie prenante qui vous accorde `card.edit` sur cette fiche. Par défaut, seuls les administrateurs disposent de `licenses.edit`. Une modification apparaît dans l’onglet Historique sous **Licences mises à jour**, avec les paires concernées (*Indicateur : Type*) mais sans les quantités, et ne peut pas être annulée.
 
 ### Section Hiérarchie
 

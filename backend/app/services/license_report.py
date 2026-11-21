@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
 from app.models.relation import Relation
+from app.models.user import User
 from app.services import yearly_rows
 from app.services.card_licenses import LICENSE_TYPES, items_by_card, metric_results
 from app.services.card_logo_service import logo_updated_map
@@ -26,6 +27,7 @@ from app.services.fiscal_year import current_fiscal_year, get_fiscal_year_start
 from app.services.license_catalogue import LicenseCatalogue, load_catalogue
 from app.services.license_status import MetricResult, card_status, card_worst
 from app.services.lifecycle import is_live_in_fiscal_year
+from app.services.permission_service import PermissionService
 
 PLATFORM_RELATIONS = ("relPlatformToApp", "relPlatformToITC")
 PLATFORM_TYPE = "Platform"
@@ -129,6 +131,7 @@ async def build_report(
     db: AsyncSession,
     read_scope: CardReadScope,
     *,
+    user: User,
     card_types: list[str],
     metric: str | None,
     license_type: str | None,
@@ -157,6 +160,10 @@ async def build_report(
     else:
         cards = await candidate_cards(db, read_scope, type_keys=card_types)
 
+    allowed_ids = await PermissionService.card_ids_with_license_access(
+        db, user, (card.id for card in cards)
+    )
+    cards = [card for card in cards if card.id in allowed_ids]
     data = await items_by_card(db, [c.id for c in cards], [fy], sm)
     scoped = [c for c in cards if counts_in_year(c, data[c.id][fy][1], fy, cur, sm)]
     selected = {c.id: _select(data[c.id][fy][0], sel_metric, pair) for c in scoped}

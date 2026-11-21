@@ -548,3 +548,20 @@ async def test_cost_access_batch_respects_subtype_view_denials(db, finance):
         db, finance, [blocked.id, allowed.id]
     ) == {allowed.id}
     assert not await PermissionService.sees_all_costs(db, finance)
+
+
+async def test_stream_hides_costs_when_type_view_is_denied(db, finance):
+    from app.services.cost_event_redaction import reader_drop_keys
+
+    await _deny_view(db, "Application", "finance")
+    assert "cost_items" in await reader_drop_keys(db, finance)
+
+
+async def test_stream_hides_licenses_when_type_view_is_denied(db):
+    from app.services.cost_event_redaction import reader_drop_keys
+
+    await create_role(db, key="lic_stream", permissions={"licenses.view": True})
+    await create_card_type(db, key="Application")
+    user = await create_user(db, role="lic_stream", email="lic-stream@example.com")
+    await _deny_view(db, "Application", "lic_stream")
+    assert "licensedUsers" in await reader_drop_keys(db, user)

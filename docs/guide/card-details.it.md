@@ -139,6 +139,7 @@ Il campo **Costo annuo totale** (`costTotalAnnual`) della card è derivato dalgl
 
 La sezione **Licenze** registra, anno per anno, quante licenze la card ha a contratto e quante sono realmente usate. Si trova accanto ai Costi e ha la stessa riga verde **Time Travel** su sei anni: i quattro precedenti a quello corrente, quello corrente e il **Forecast**. Tutto ciò che c'è nella sezione riguarda l'anno selezionato.
 
+
 Una card ha le **coppie** *Metrica: Tipo* (per esempio *Utenti: Admin* o *Installazioni: Prod*) che sono state aggiunte all'anno selezionato. Non c'è nessuna impostazione a livello di card da spuntare: una coppia esiste in un anno una volta che la aggiungi.
 
 ![Sezione Licenze](../assets/img/en/104_card_licensing.png)
@@ -153,7 +154,7 @@ Le metriche e i tipi di licenza provengono dal catalogo che un amministratore ge
 
 **Un nuovo anno fiscale.** Quando una card non ha ancora dati di licenze per il nuovo anno corrente, la sezione mostra le coppie dell'anno precedente con le loro quantità in licenza, disegnate **attenuate** e contrassegnate come **non confermate**, senza quantità effettiva, in modo che un nuovo anno non erediti mai il consumo dell'ultimo. Restano così finché qualcuno non conferma l'anno (**Conferma**) o modifica una quantità.
 
-**Chi può vedere e modificare le licenze.** Puoi **visualizzarle** con il permesso `licenses.view`, oppure se hai un qualsiasi ruolo di stakeholder sulla card. Puoi **modificarle** con il permesso `licenses.edit`, oppure se hai sulla card un ruolo di stakeholder che consente di modificarla. Per impostazione predefinita solo gli amministratori hanno `licenses.edit`. Una modifica compare nella scheda Cronologia come **Licenze aggiornate**, con le coppie interessate (*Metrica: Tipo*) ma non le quantità, e non può essere annullata.
+**Chi può vedere e modificare le licenze.** Puoi **visualizzare** le licenze se il tuo ruolo applicativo ti concede `licenses.view` per il tipo di card oppure se il tuo ruolo di stakeholder sulla card concede `card.view_licenses`. Per impostazione predefinita, Observer non dispone di questo permesso. Per **modificare** le licenze serve anche `licenses.edit` oppure un ruolo di stakeholder che ti conceda `card.edit` su quella card. Per impostazione predefinita solo gli amministratori hanno `licenses.edit`. Una modifica compare nella scheda Cronologia come **Licenze aggiornate**, con le coppie interessate (*Metrica: Tipo*) ma non le quantità, e non può essere annullata.
 
 ### Sezione Gerarchia
 

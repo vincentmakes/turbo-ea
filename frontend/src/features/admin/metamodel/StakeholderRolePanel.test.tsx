@@ -492,6 +492,24 @@ describe("StakeholderRolePanel — cost access and the self-assignable role (#14
     expect(screen.queryByText(HINT)).not.toBeInTheDocument();
   });
 
+  it("shows the translated licensing permission description", async () => {
+    mockCostApi();
+    apiMock.get.mockImplementation((path: string) => {
+      if (path.includes("/usage")) return Promise.resolve(UNUSED);
+      if (path.includes("permissions-schema")) {
+        return Promise.resolve({
+          "card.view": "View card from the server",
+          "card.view_licenses": "Licensing description from the server",
+        });
+      }
+      return Promise.resolve(COST_ROLES);
+    });
+    await openEdit(userEvent.setup(), 0);
+
+    expect(screen.getByText("View this card's licenses without the licenses.view permission")).toBeInTheDocument();
+    expect(screen.getByText("View card from the server")).toBeInTheDocument();
+  });
+
   it("saves the cost permission an admin ticks on a role", async () => {
     mockCostApi();
     const user = userEvent.setup();

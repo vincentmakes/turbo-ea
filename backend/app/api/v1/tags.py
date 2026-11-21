@@ -10,22 +10,17 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
 from app.schemas.common import (
-    CardTagBulkRequest,
-    CardTagBulkResponse,
-    CardTagBulkResult,
-    CardTagOperation,
     TagCreate,
     TagGroupCreate,
     TagGroupUpdate,
     TagUpdate,
 )
 from app.services import audit_labels, audit_log, tag_service
-from app.services.card_read_scope import CardReadScope, require_card_readable
+from app.services.card_read_scope import require_card_readable
 from app.services.data_quality import rescore_cards
 from app.services.permission_service import PermissionService
 from app.services.tag_service import publish_tag_event as _publish_tag_event
@@ -350,145 +345,12 @@ async def _can_tag_card(db: AsyncSession, user: User, card_uuid: uuid.UUID) -> b
     the card (`inventory.edit` at the app level, or `card.edit` through a
     stakeholder role)."""
     await require_card_readable(db, user, card_uuid, mode="module")
-    if await PermissionService.check_permission(db, user, "tags.manage"):
-        return True
-    return await PermissionService.check_permission(
-        db,
-        user,
-        "inventory.edit",
-        card_id=card_uuid,
-        card_permission="card.edit",
-    )
+    return await tag_service.can_tag_card(db, user, card_uuid)
 
 
 async def _require_can_tag_card(db: AsyncSession, user: User, card_uuid: uuid.UUID) -> None:
     if not await _can_tag_card(db, user, card_uuid):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
-
-
-def _parse_uuid(raw: str) -> uuid.UUID | None:
-    try:
-        return uuid.UUID(raw)
-    except ValueError:
-        return None
-
-
-def _summarise(results: list[CardTagBulkResult], *, dry_run: bool) -> CardTagBulkResponse:
-    return CardTagBulkResponse(
-        results=results,
-        updated=sum(1 for r in results if r.status == "updated"),
-        unchanged=sum(1 for r in results if r.status == "unchanged"),
-        failed=sum(1 for r in results if r.status in ("failed", "not_found")),
-        dry_run=dry_run,
-    )
-
-
-async def _apply_tag_operation(
-    db: AsyncSession,
-    user: User,
-    index: int,
-    op: CardTagOperation,
-    card: Card,
-    *,
-    dry_run: bool,
-) -> CardTagBulkResult:
-    """One row of ``POST /cards/tags/bulk``, inside the caller's savepoint."""
-    if card.status == "ARCHIVED":
-        return CardTagBulkResult(
-            index=index, card_id=op.card_id, status="failed", error="Card is archived"
-        )
-    tag_uuids = [_parse_uuid(t) for t in op.tag_ids]
-    bad = [raw for raw in op.tag_ids if _parse_uuid(raw) is None]
-    if bad:
-        return CardTagBulkResult(
-            index=index,
-            card_id=op.card_id,
-            status="failed",
-            error="Invalid tag id(s): " + ", ".join(bad),
-        )
-    added, removed = await tag_service.set_card_tags(
-        db,
-        card,
-        [t for t in tag_uuids if t is not None],
-        mode=op.mode,
-        actor_id=user.id,
-        dry_run=dry_run,
-    )
-    resulting = await tag_service.card_tag_ids(db, card.id)
-    return CardTagBulkResult(
-        index=index,
-        card_id=op.card_id,
-        status="updated" if added or removed else "unchanged",
-        added=[str(t) for t in added],
-        removed=[str(t) for t in removed],
-        tag_ids=[str(t) for t in resulting],
-    )
-
-
-async def apply_card_tag_operations(
-    db: AsyncSession, user: User, body: CardTagBulkRequest
-) -> CardTagBulkResponse:
-    """Add, remove or replace tags on many cards — the body of
-    ``POST /cards/tags/bulk``.
-
-    A card the caller may not read answers ``not_found`` exactly like one that
-    does not exist (inventory read scope). Every readable card must be
-    taggable by the caller or the whole call is refused before anything is
-    written — the bulk-archive convention. Each row then runs in its own
-    savepoint through ``tag_service.set_card_tags``, so the group rules
-    (single-choice, card-type restriction) are enforced on the resulting set
-    and a failed row rolls back only itself. ``dry_run`` rolls the whole call
-    back and publishes nothing.
-    """
-    ops = list(body.operations)
-    card_uuids = {u for u in (_parse_uuid(op.card_id) for op in ops) if u is not None}
-    cards: dict[uuid.UUID, Card] = {}
-    if card_uuids:
-        rows = await db.execute(select(Card).where(Card.id.in_(card_uuids)))
-        cards = {c.id: c for c in rows.scalars().all()}
-    read_scope = await CardReadScope.load(db, user)
-    visible = {
-        cid: card
-        for cid, card in cards.items()
-        if read_scope.readable(cid, card.type, mode="inventory")
-    }
-
-    denied = [str(cid) for cid, card in visible.items() if not await _can_tag_card(db, user, cid)]
-    if denied:
-        raise HTTPException(
-            403, "Not enough permissions to tag card(s): " + ", ".join(sorted(denied))
-        )
-
-    dry_run_savepoint = await db.begin_nested() if body.dry_run else None
-    results: list[CardTagBulkResult] = []
-    for index, op in enumerate(ops):
-        cid = _parse_uuid(op.card_id)
-        card = visible.get(cid) if cid is not None else None
-        if card is None:
-            results.append(CardTagBulkResult(index=index, card_id=op.card_id, status="not_found"))
-            continue
-        row_sp = await db.begin_nested()
-        try:
-            result = await _apply_tag_operation(db, user, index, op, card, dry_run=body.dry_run)
-        except tag_service.TagWriteError as exc:
-            await row_sp.rollback()
-            result = CardTagBulkResult(
-                index=index, card_id=op.card_id, status="failed", error=str(exc)
-            )
-        else:
-            # A row refused before it wrote (archived, a bad tag id) has
-            # nothing in its savepoint, so committing it is the same as not.
-            await row_sp.commit()
-        results.append(result)
-
-    response = _summarise(results, dry_run=body.dry_run)
-    if dry_run_savepoint is not None:
-        await dry_run_savepoint.rollback()
-    else:
-        # Failed rows rolled back their own savepoints; what is left is the
-        # rows that succeeded (or wrote nothing at all).
-        await db.commit()
-    return response
 
 
 @router.post("/cards/{card_id}/tags", status_code=201)

@@ -10,7 +10,12 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.permissions import VIEW_COSTS_CARD_PERMISSION, type_cell_decision, view_denied
+from app.core.permissions import (
+    VIEW_COSTS_CARD_PERMISSION,
+    VIEW_LICENSES_CARD_PERMISSION,
+    type_cell_decision,
+    view_denied,
+)
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.role import Role
@@ -383,14 +388,6 @@ class PermissionService:
         return result.scalar_one_or_none() is not None
 
     @staticmethod
-    async def _can_view_domain(db: AsyncSession, user: User, card_id: UUID, perm: str) -> bool:
-        """View rule shared by costs and licenses: the app-level ``perm`` grants every
-        card; otherwise any stakeholder role on the card grants that card."""
-        if await PermissionService.has_app_permission(db, user, perm):
-            return True
-        return await PermissionService.is_stakeholder_of(db, user, card_id)
-
-    @staticmethod
     async def _can_edit_domain(db: AsyncSession, user: User, card_id: UUID, perm: str) -> bool:
         """Edit rule shared by costs and licenses: the app-level ``perm``, or a stakeholder
         role on THIS card whose permissions give `card.edit` (Observer does not).
@@ -398,25 +395,6 @@ class PermissionService:
         if await PermissionService.has_app_permission(db, user, perm):
             return True
         return await PermissionService.has_card_permission(db, user, card_id, "card.edit")
-
-    @staticmethod
-    async def _card_ids_with_domain_access(
-        db: AsyncSession, user: User, candidate_card_ids: Iterable[UUID], perm: str
-    ) -> set[UUID]:
-        """Bulk variant of `_can_view_domain` for list endpoints: the subset of the candidate
-        card IDs the user can see; all of them with the global ``perm``."""
-        candidates = list({cid for cid in candidate_card_ids if cid is not None})
-        if not candidates:
-            return set()
-        if await PermissionService.has_app_permission(db, user, perm):
-            return set(candidates)
-        result = await db.execute(
-            select(Stakeholder.card_id).where(
-                Stakeholder.user_id == user.id,
-                Stakeholder.card_id.in_(candidates),
-            )
-        )
-        return set(result.scalars().all())
 
     @staticmethod
     async def can_view_costs(db: AsyncSession, user: User, card_id: UUID) -> bool:
@@ -450,29 +428,52 @@ class PermissionService:
         A role with ``costs.view`` and no View deny gets its candidates back
         without a query — ids that name no card included, as before.
         """
+        return await PermissionService._card_ids_with_domain_access(
+            db, user, candidate_card_ids, "costs.view", VIEW_COSTS_CARD_PERMISSION
+        )
+
+    @staticmethod
+    async def _card_ids_with_domain_access(
+        db: AsyncSession,
+        user: User,
+        candidate_card_ids: Iterable[UUID | None],
+        app_permission: str,
+        card_permission: str,
+    ) -> set[UUID]:
+        """Return candidate cards whose domain data the user may see."""
         candidates = {cid for cid in candidate_card_ids if cid is not None}
         if not candidates:
             return set()
-        allowed: set[UUID] = set()
-        pending = candidates
-        if await PermissionService.has_app_permission(db, user, "costs.view"):
-            denied = await PermissionService.view_denied_types(db, user)
-            if not denied:
-                return candidates
+        global_access = await PermissionService.has_app_permission(db, user, app_permission)
+        role_key = effective_role_key(user)
+        role_data = await PermissionService.load_role(db, role_key)
+        overrides = await PermissionService.load_all_type_role_permissions(db)
+        affected_types = {
+            type_key
+            for type_key, roles in overrides.items()
+            if any(key in (roles.get(role_key) or {}) for key in ("inventory.view", app_permission))
+        }
+        if role_data and role_data["permissions"].get("*"):
+            affected_types = set()
+        allowed = set(candidates) if global_access else set()
+        pending = set() if global_access else set(candidates)
+        if affected_types:
             possible = await db.execute(
                 select(Card.id, Card.type, Card.subtype).where(
-                    Card.id.in_(candidates), Card.type.in_(denied)
+                    Card.id.in_(candidates), Card.type.in_(affected_types)
                 )
             )
-            pending = set()
             for card_id, card_type, subtype in possible.all():
-                if not await PermissionService.has_app_permission(
-                    db, user, "costs.view", card_type_key=card_type, subtype=subtype
+                if await PermissionService.has_app_permission(
+                    db, user, app_permission, card_type_key=card_type, subtype=subtype
                 ):
+                    allowed.add(card_id)
+                    pending.discard(card_id)
+                else:
+                    allowed.discard(card_id)
                     pending.add(card_id)
-            allowed = candidates - pending
-            if not pending:
-                return allowed
+        if not pending:
+            return allowed
         held = await db.execute(
             select(Stakeholder.card_id, Card.type, Stakeholder.role)
             .join(Card)
@@ -480,7 +481,7 @@ class PermissionService:
         )
         for card_id, type_key, role_key in held.all():
             perms = await PermissionService.stakeholder_role_permissions(db, type_key, role_key)
-            if perms and perms.get(VIEW_COSTS_CARD_PERMISSION):
+            if perms and perms.get(card_permission):
                 allowed.add(card_id)
         return allowed
 
@@ -493,21 +494,25 @@ class PermissionService:
 
     @staticmethod
     async def can_view_licenses(db: AsyncSession, user: User, card_id: UUID) -> bool:
-        """May the user see this card's licenses (`licenses.view` or a stakeholder)."""
-        return await PermissionService._can_view_domain(db, user, card_id, "licenses.view")
+        """May the user see this card's licenses through an app or stakeholder grant."""
+        return await PermissionService.check_permission(
+            db, user, "licenses.view", card_id, VIEW_LICENSES_CARD_PERMISSION
+        )
 
     @staticmethod
     async def can_edit_licenses(db: AsyncSession, user: User, card_id: UUID) -> bool:
-        """May the user edit this card's licenses (`licenses.edit` or a card.edit stakeholder)."""
-        return await PermissionService._can_edit_domain(db, user, card_id, "licenses.edit")
+        """Edit licenses only where their values are visible."""
+        return await PermissionService.can_view_licenses(
+            db, user, card_id
+        ) and await PermissionService._can_edit_domain(db, user, card_id, "licenses.edit")
 
     @staticmethod
     async def card_ids_with_license_access(
-        db: AsyncSession, user: User, candidate_card_ids: Iterable[UUID]
+        db: AsyncSession, user: User, candidate_card_ids: Iterable[UUID | None]
     ) -> set[UUID]:
         """Bulk variant of `can_view_licenses` for list endpoints."""
         return await PermissionService._card_ids_with_domain_access(
-            db, user, candidate_card_ids, "licenses.view"
+            db, user, candidate_card_ids, "licenses.view", VIEW_LICENSES_CARD_PERMISSION
         )
 
     @staticmethod
@@ -617,6 +622,9 @@ class PermissionService:
             "can_view_costs": is_admin
             or _app("costs.view")
             or card_level.get(VIEW_COSTS_CARD_PERMISSION, False),
+            "can_view_licenses": is_admin
+            or _app("licenses.view")
+            or card_level.get(VIEW_LICENSES_CARD_PERMISSION, False),
         }
 
         return {

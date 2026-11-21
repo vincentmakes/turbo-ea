@@ -413,6 +413,7 @@
   "metamodel.stakeholderPanel.subscriberCount_other": "{{count}} abonnés",
   "metamodel.stakeholderPanel.permissions": "Autorisations",
   "metamodel.stakeholderPanel.noPermissions": "Aucune permission définie.",
+  "metamodel.stakeholderPanel.viewLicensesDescription": "Afficher les licences de cette fiche sans la permission licenses.view",
   "metamodel.stakeholderPanel.selfAssignableHint": "Toute personne pouvant consulter une fiche peut s'en faire l'Observateur : tout ce que ce rôle autorise est donc ouvert à tous.",
   "metamodel.stakeholderPanel.newRole": "Nouveau rôle de partie prenante",
   "metamodel.stakeholderPanel.keyLabel": "Clé",

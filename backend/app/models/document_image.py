@@ -20,7 +20,7 @@ from app.models.base import Base, UUIDMixin
 
 
 class DocumentImage(Base, UUIDMixin):
-    """A picture shown inline in the rich text of a decision or a SoAW (migration 173).
+    """A picture shown inline in the rich text of a decision or a SoAW (migration 193).
 
     Immutable: a row is written once by an upload and never changed except for
     ``used_at``. The text references it as

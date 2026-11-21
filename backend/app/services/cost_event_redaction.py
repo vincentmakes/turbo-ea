@@ -17,9 +17,9 @@ from app.services.card_licenses import LEGACY_KEYS, LICENSE_EVENT, LIST_KEY
 from app.services.cost_field_filter import (
     COST_ITEMS_KEY,
     cost_field_keys_from_card_schema,
-    strip_change_keys,
 )
 from app.services.cost_items_migration import LEGACY_ITEMS
+from app.services.event_cost_scrub import scrub_event_costs, scrub_license_values
 from app.services.permission_service import PermissionService
 
 
@@ -40,15 +40,6 @@ async def all_cost_keys(db: AsyncSession) -> frozenset[str]:
 LICENSE_KEYS: frozenset[str] = frozenset({*LEGACY_KEYS, LIST_KEY})
 
 
-def _touches(payload: dict | None, keys: frozenset[str]) -> bool:
-    changes = payload.get("changes") if isinstance(payload, dict) else None
-    if not isinstance(changes, dict):
-        return False
-    attrs = changes.get("attributes")
-    sides = [v for v in attrs.values() if isinstance(v, dict)] if isinstance(attrs, dict) else []
-    return any(k in keys for k in changes) or any(k in keys for side in sides for k in side)
-
-
 async def redact_cost_events(
     db: AsyncSession, user: User, events: Sequence[Event], payloads: Sequence[dict | None]
 ) -> list[dict | None]:
@@ -58,33 +49,23 @@ async def redact_cost_events(
     access. One access query per domain for the whole list (the license one only when a payload
     names a license key). The event stays; only the values go.
     """
-    card_ids = {e.card_id for e in events if e.card_id is not None}
-    cost_ok = await PermissionService.card_ids_with_cost_access(db, user, card_ids)
-    lic_ok = card_ids
-    if any(_touches(p, LICENSE_KEYS) for p in payloads):
-        lic_ok = await PermissionService.card_ids_with_license_access(db, user, card_ids)
-    if card_ids <= cost_ok and card_ids <= lic_ok:
-        return list(payloads)
-    cost_drop = (await all_cost_keys(db) | {COST_ITEMS_KEY}) if card_ids - cost_ok else frozenset()
-    out: list[dict | None] = []
-    for e, p in zip(events, payloads):
-        drop: frozenset[str] = frozenset()
-        if e.card_id is not None:
-            if e.card_id not in cost_ok:
-                drop |= cost_drop
-            if e.card_id not in lic_ok:
-                drop |= LICENSE_KEYS
-        out.append(strip_change_keys(p, drop) if drop else p)
-    return out
+    payloads = await scrub_event_costs(
+        db, user, [(event.card_id, payload) for event, payload in zip(events, payloads)]
+    )
+    return await scrub_license_values(
+        db, user, [(event.card_id, payload) for event, payload in zip(events, payloads)]
+    )
 
 
 async def reader_drop_keys(db: AsyncSession, user: User) -> frozenset[str]:
     """The change keys a live stream drops for ``user``: landscape-wide grants only (a
     stakeholder-only reader is treated as without: no per-card lookup mid-stream)."""
     drop: frozenset[str] = frozenset()
-    if not await PermissionService.has_app_permission(db, user, "costs.view"):
+    if not await PermissionService.sees_all_costs(db, user):
         drop |= await all_cost_keys(db) | {COST_ITEMS_KEY}
-    if not await PermissionService.has_app_permission(db, user, "licenses.view"):
+    if not await PermissionService.has_app_permission(
+        db, user, "licenses.view"
+    ) or await PermissionService.view_denied_types(db, user):
         drop |= LICENSE_KEYS
     return drop
 

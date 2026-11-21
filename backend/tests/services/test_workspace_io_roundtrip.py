@@ -1694,11 +1694,11 @@ async def test_bundle_cost_permission_transition_depends_on_exporter(version, fo
 
 @pytest.mark.parametrize("wipe", [True, False])
 async def test_an_older_bundle_keeps_the_cost_access_its_roles_had(db, wipe):
-    """Before 2.206.0 every stakeholder role showed its card's costs (#1412).
+    """Before 2.206.0 upstream and 2.208.0 in this fork, roles showed costs (#1412).
 
     A bundle exported then carries no ``card.view_costs`` — the key did not
     exist — so importing it verbatim would take cost access away from every
-    owner. The importer fills the key the way migration 175 did on an upgraded
+    owner. The importer fills the key the way migration 195 did on an upgraded
     install: on for every role, off for Observer.
     """
     stored = await _reimported_role_permissions(
@@ -1752,9 +1752,14 @@ async def test_old_fork_bundle_preserves_stakeholder_cost_access(db, wipe, app_v
         db, _PRE_COSTS_ROLES, app_version=app_version, wipe=wipe, fork=True
     )
     assert stored == {
-        "responsible": {"card.view": True, "card.edit": True, "card.view_costs": True},
-        "observer": {"card.view": True, "card.view_costs": False},
-        "auditor": {"card.view_costs": True},
+        "responsible": {
+            "card.view": True,
+            "card.edit": True,
+            "card.view_costs": True,
+            "card.view_licenses": True,
+        },
+        "observer": {"card.view": True, "card.view_costs": False, "card.view_licenses": False},
+        "auditor": {"card.view_costs": True, "card.view_licenses": True},
     }
 
 
@@ -1766,8 +1771,21 @@ async def test_old_fork_bundle_preserves_explicit_cost_choices(db):
         fork=True,
     )
     assert stored == {
-        "responsible": {"card.view_costs": False},
-        "observer": {"card.view_costs": True},
+        "responsible": {"card.view_costs": False, "card.view_licenses": True},
+        "observer": {"card.view_costs": True, "card.view_licenses": False},
+    }
+
+
+async def test_old_fork_bundle_preserves_explicit_license_choices(db):
+    stored = await _reimported_role_permissions(
+        db,
+        {"responsible": {"card.view_licenses": False}, "observer": {"card.view_licenses": True}},
+        app_version="2.207.1",
+        fork=True,
+    )
+    assert stored == {
+        "responsible": {"card.view_costs": True, "card.view_licenses": False},
+        "observer": {"card.view_costs": False, "card.view_licenses": True},
     }
 
 

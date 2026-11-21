@@ -13,7 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user, parse_uuid
-from app.api.v1.tags import apply_card_tag_operations
 from app.database import get_db
 from app.models.card import Card
 from app.models.card_type import CardType
@@ -83,6 +82,7 @@ from app.services import (
     card_reference,
     card_write_service,
     notification_service,
+    tag_service,
 )
 from app.services.bo_inventory_deletions import record_inventory_card_deletions
 from app.services.bo_relationship_constants import BO_TYPE
@@ -138,7 +138,6 @@ from app.services.cost_redaction import card_cost_redaction_map as _cost_redacti
 from app.services.data_quality import calc_data_quality, calc_data_quality_breakdown
 from app.services.document_event_scope import document_event_read_filters
 from app.services.event_bus import event_bus
-from app.services.event_cost_scrub import scrub_event_costs
 from app.services.extensions import field_gate
 from app.services.lifecycle import lifecycle_rank
 from app.services.permission_service import PermissionService
@@ -766,7 +765,10 @@ async def bulk_set_card_tags(
     user: User = Depends(get_current_user),
 ) -> CardTagBulkResponse:
     """Apply tag operations to readable cards and record each change in history."""
-    return await apply_card_tag_operations(db, user, body)
+    result = await tag_service.apply_card_tag_operations(db, user, body)
+    if not body.dry_run:
+        await db.commit()
+    return result
 
 
 @router.post("/bulk-create", response_model=CardBulkCreateResponse)
@@ -3322,9 +3324,6 @@ async def get_history(
         payloads = await add_cost_summaries(db, card_name, events, payloads)
     # An update's event holds the whole old and new attributes: a reader who
     # may not see this card's costs does not get them from its history either.
-    payloads = await scrub_event_costs(
-        db, user, [(e.card_id, data) for e, data in zip(events, payloads)]
-    )
     return [
         {
             "id": str(e.id),

@@ -136,6 +136,7 @@ Kortets felt **Samlede årlige omkostninger** (`costTotalAnnual`) udledes af det
 
 Sektionen **Licensering** registrerer år for år, hvor mange licenser kortet har under kontrakt, og hvor mange der reelt bruges. Den ligger ved siden af Omkostninger og har samme grønne **Time Travel**-række over seks år: de fire før det nuværende, det nuværende og **Forecast**. Alt i sektionen gælder det valgte år.
 
+
 Et kort har de **par** *Måling: Type* (for eksempel *Brugere: Admin* eller *Installationer: Prod*), der er føjet til det valgte år. Der er ingen indstilling på kortniveau, du skal markere: et par findes i et år, så snart du tilføjer det.
 
 ![Licenssektion](../assets/img/en/104_card_licensing.png)
@@ -150,7 +151,7 @@ Målinger og licenstyper kommer fra kataloget, som en administrator vedligeholde
 
 **Et nyt regnskabsår.** Når et kort endnu ikke har licensdata for det nye aktuelle år, viser sektionen det foregående års par med deres licenserede antal, tegnet **nedtonet** og markeret som **ikke bekræftet**, uden faktisk antal, så et nyt år aldrig arver sidste års forbrug. De forbliver sådan, indtil nogen bekræfter året (**Bekræft**) eller redigerer et antal.
 
-**Hvem kan se og redigere licenser.** Du kan **se** dem med tilladelsen `licenses.view` eller hvis du har en vilkårlig interessentrolle på kortet. Du kan **redigere** dem med tilladelsen `licenses.edit` eller hvis du har en interessentrolle på kortet, der tillader redigering af kortet. Som standard har kun administratorer `licenses.edit`. En ændring vises under fanen Historik som **Licenser opdateret**, med de berørte par (*Måling: Type*) men ikke antallene, og den kan ikke rulles tilbage.
+**Hvem kan se og redigere licenser.** Du kan **se** licenserne, hvis din applikationsrolle giver dig `licenses.view` for korttypen, eller hvis din interessentrolle på kortet giver `card.view_licenses`. Observer har som standard ikke denne tilladelse. **Redigering** kræver også `licenses.edit` eller en interessentrolle, der giver dig `card.edit` på kortet. Som standard har kun administratorer `licenses.edit`. En ændring vises under fanen Historik som **Licenser opdateret**, med de berørte par (*Måling: Type*) men ikke antallene, og den kan ikke rulles tilbage.
 
 ### Hierarki-sektion
 

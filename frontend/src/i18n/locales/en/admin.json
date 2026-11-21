@@ -413,6 +413,7 @@
   "metamodel.stakeholderPanel.subscriberCount_other": "{{count}} subs",
   "metamodel.stakeholderPanel.permissions": "Permissions",
   "metamodel.stakeholderPanel.noPermissions": "No permissions defined.",
+  "metamodel.stakeholderPanel.viewLicensesDescription": "View this card's licenses without the licenses.view permission",
   "metamodel.stakeholderPanel.selfAssignableHint": "Anyone who can view a card can make themselves its Observer, so whatever this role allows is open to all of them.",
   "metamodel.stakeholderPanel.newRole": "New Stakeholder Role",
   "metamodel.stakeholderPanel.keyLabel": "Key",

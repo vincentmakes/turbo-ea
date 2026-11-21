@@ -32,8 +32,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
 from app.models.card_type import CardType
+from app.models.cost_item_type import CostItemType
 from app.models.user import User
-from app.services.cost_field_filter import cost_field_keys_from_card_schema
+from app.services.card_costs import COST_ITEM_TYPES, DERIVED_KEY
+from app.services.card_licenses import LEGACY_KEYS, LIST_KEY
+from app.services.cost_field_filter import COST_ITEMS_KEY, cost_field_keys_from_card_schema
+from app.services.cost_items_migration import LEGACY_ITEMS
 from app.services.permission_service import PermissionService
 
 # The per-attribute change key survey applies wrote before 2.163.0.
@@ -103,7 +107,7 @@ def strip_cost_values(data: dict, cost_keys: frozenset[str]) -> dict:
     fields = data.get("fields")
     if isinstance(fields, dict):
         out = {**out, "fields": _strip_fields(fields, cost_keys)}
-    return out
+    return data if out == data else out
 
 
 def carries_values(data: Any) -> bool:
@@ -153,7 +157,14 @@ async def scrub_event_costs(
 
     schemas = await db.execute(select(CardType.key, CardType.fields_schema))
     keys_of = {key: cost_field_keys_from_card_schema(schema) for key, schema in schemas.all()}
-    every_key = frozenset().union(*keys_of.values())
+    catalogue = (await db.execute(select(CostItemType.key))).scalars().all()
+    shared_keys = frozenset(
+        {COST_ITEMS_KEY, DERIVED_KEY, *catalogue, *(key for key, _ in LEGACY_ITEMS)}
+    )
+    keys_of = {
+        key: keys | shared_keys if key in COST_ITEM_TYPES else keys for key, keys in keys_of.items()
+    }
+    every_key = frozenset().union(shared_keys, *keys_of.values())
     if not every_key:
         return payloads
 
@@ -179,13 +190,40 @@ async def scrub_event_costs(
     return payloads
 
 
+async def scrub_license_values(db: AsyncSession, user: User, events: Sequence[tuple]) -> list:
+    """Filter license values in event or rollback payloads using their subject card."""
+    keys = frozenset({*LEGACY_KEYS, LIST_KEY})
+    payloads = [payload for _, payload in events]
+    candidates = [
+        i
+        for i, payload in enumerate(payloads)
+        if isinstance(payload, dict) and strip_cost_values(payload, keys) != payload
+    ]
+    if not candidates:
+        return payloads
+    subjects = {i: subject_card_id(events[i][0], payloads[i]) for i in candidates}
+    ids = {card_id for card_id in subjects.values() if card_id is not None}
+    allowed = await PermissionService.card_ids_with_license_access(db, user, ids)
+    unknown_allowed = False
+    if None in subjects.values():
+        unknown_allowed = await PermissionService.has_app_permission(db, user, "licenses.view")
+        if unknown_allowed:
+            unknown_allowed = not await PermissionService.view_denied_types(db, user)
+    for i in candidates:
+        if subjects[i] not in allowed and (subjects[i] is not None or not unknown_allowed):
+            payloads[i] = strip_cost_values(payloads[i], keys)
+    return payloads
+
+
 async def scrub_operation_costs(db: AsyncSession, user: User, operations: Any) -> Any:
     """Rollback operations (each names its ``card_id`` and the old ``fields``)
     with cost values removed where ``user`` may not see that card's costs.
     Anything that is not a list is returned as it is."""
     if not isinstance(operations, list):
         return operations
-    return await scrub_event_costs(db, user, [(None, op) for op in operations])
+    pairs = [(None, op) for op in operations]
+    payloads = await scrub_event_costs(db, user, pairs)
+    return await scrub_license_values(db, user, list(zip((None for _ in payloads), payloads)))
 
 
 # Where a mutation batch's summary, a rollback preview and a rollback result

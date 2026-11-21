@@ -109,8 +109,9 @@ def test_the_seed_defaults_are_what_the_migration_writes():
     # A fresh install (seed) and an upgraded one (this migration) agree on
     # every built-in role.
     for role, perms in DEFAULT_CARD_PERMISSIONS_BY_ROLE.items():
-        without = {k: v for k, v in perms.items() if k != "card.view_costs"}
-        assert mig.plan_permissions(role, without) == perms, role
+        baseline = {k: v for k, v in perms.items() if k != "card.view_licenses"}
+        without = {k: v for k, v in baseline.items() if k != "card.view_costs"}
+        assert mig.plan_permissions(role, without) == baseline, role
 
 
 def test_downgrade_drops_the_key_and_nothing_else():

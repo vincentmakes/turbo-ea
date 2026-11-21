@@ -56,7 +56,7 @@ from app.schemas.mutation_batch import (
 )
 from app.services.cost_event_redaction import redact_cost_events
 from app.services.event_bus import request_origin
-from app.services.event_cost_scrub import scrub_event_costs, scrub_summary_costs
+from app.services.event_cost_scrub import scrub_summary_costs
 from app.services.mutation_batch_service import (
     CONFIRM_TOKEN_THRESHOLD,
     batch_to_dict,
@@ -312,9 +312,6 @@ async def get_batch_history(
     )
     events = list((await db.execute(q)).scalars().all())
     payloads = await redact_cost_events(db, user, events, [e.data for e in events])
-    payloads = await scrub_event_costs(
-        db, user, [(e.card_id, data) for e, data in zip(events, payloads)]
-    )
 
     return MutationBatchHistory(
         batch=MutationBatchOut(**await _batch_out(db, user, batch, actor)),

@@ -159,8 +159,13 @@ def test_rollback_declines_license_event():
 
 
 def test_touches_looks_at_top_level_and_attribute_sides_only():
+    from app.services.event_cost_scrub import strip_cost_values
+
     keys = frozenset({"licensedUsers"})
-    touches = red._touches
+
+    def touches(payload, keys):
+        return isinstance(payload, dict) and strip_cost_values(payload, keys) != payload
+
     assert touches({"changes": {"licensedUsers": {"new": 1}}}, keys) is True
     assert touches({"changes": {"attributes": {"old": {"licensedUsers": 1}}}}, keys) is True
     assert touches({"changes": {"attributes": {"new": {"licensedUsers": 1}}}}, keys) is True
@@ -218,11 +223,34 @@ async def test_redaction_is_decided_per_event_and_per_domain(db):
     ]
     out = await red.redact_cost_events(db, costs_user, events, [mixed, mixed])
     assert set(out[0]["changes"]) == {"costTotalAnnual", "cost_items", "description"}
-    assert out[1] == mixed
+    assert set(out[1]["changes"]) == {"costTotalAnnual", "cost_items", "description"}
     out = await red.redact_cost_events(db, lic_user, events, [mixed, mixed])
     assert set(out[0]["changes"]) == {"licensedUsers", "description"}
-    assert out[1] == mixed
+    assert set(out[1]["changes"]) == {"licensedUsers", "description"}
     # a payload with no license key never needs the license access lookup
     plain = {"changes": {"description": {"old": "a", "new": "b"}}}
     out = await red.redact_cost_events(db, costs_user, events[:1], [plain])
     assert out == [plain]
+
+
+async def test_license_fields_follow_card_access_in_rollback_and_cardless_events(db):
+    from app.services.event_cost_scrub import scrub_summary_costs
+
+    card, denied = await _card_and_user(db, {"inventory.view": True})
+    await create_role(db, key="lic_allowed", permissions={"licenses.view": True})
+    allowed = await create_user(db, email="allowed@license-example.test", role="lic_allowed")
+    payload = {
+        "card_id": str(card.id),
+        "fields": {"attributes": {"licensedUsers": 5, "name": "x"}, "actualInstallations": 2},
+    }
+    clean = {"card_id": str(card.id), "fields": {"attributes": {"name": "x"}}}
+    hidden_summary = await scrub_summary_costs(db, denied, {"operations": [payload]})
+    visible_summary = await scrub_summary_costs(db, allowed, {"operations": [payload]})
+    assert hidden_summary["operations"] == [clean]
+    assert visible_summary["operations"] == [payload]
+    event = Event(card_id=None, event_type="card.updated")
+    diff = {"card_id": str(card.id), **_legacy_diff()}
+    [hidden] = await red.redact_cost_events(db, denied, [event], [diff])
+    [visible] = await red.redact_cost_events(db, allowed, [event], [diff])
+    assert "actualInstallations" not in hidden["changes"]
+    assert visible == diff
