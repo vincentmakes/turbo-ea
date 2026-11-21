@@ -8,17 +8,17 @@ Esta página explica qué se firma, qué versión de cosign necesita, cómo veri
 
 ## Qué se firma
 
-Cada imagen construida por `.github/workflows/docker-publish.yml` y publicada en `ghcr.io/vincentmakes/turbo-ea/<image>` se firma con [cosign](https://github.com/sigstore/cosign) mediante **OIDC sin clave**: no existe ninguna clave de firma de larga duración. El certificado lo emite el Fulcio de Sigstore para la identidad del flujo de trabajo (`https://github.com/vincentmakes/turbo-ea/.github/workflows/docker-publish.yml@<ref>`), queda registrado en el registro público de transparencia Rekor y se descarta en cuanto se crea la firma.
+Cada imagen construida por `.github/workflows/docker-publish.yml` y publicada en `ghcr.io/tommasochi/turbo-ea/<image>` se firma con [cosign](https://github.com/sigstore/cosign) mediante **OIDC sin clave**: no existe ninguna clave de firma de larga duración. El certificado lo emite el Fulcio de Sigstore para la identidad del flujo de trabajo (`https://github.com/TommasoChi/turbo-ea/.github/workflows/docker-publish.yml@<ref>`), queda registrado en el registro público de transparencia Rekor y se descarta en cuanto se crea la firma.
 
 Imágenes firmadas:
 
-- `ghcr.io/vincentmakes/turbo-ea/db`
-- `ghcr.io/vincentmakes/turbo-ea/backend`
-- `ghcr.io/vincentmakes/turbo-ea/frontend`
-- `ghcr.io/vincentmakes/turbo-ea/nginx`
-- `ghcr.io/vincentmakes/turbo-ea/mcp-server`
+- `ghcr.io/tommasochi/turbo-ea/db`
+- `ghcr.io/tommasochi/turbo-ea/backend`
+- `ghcr.io/tommasochi/turbo-ea/frontend`
+- `ghcr.io/tommasochi/turbo-ea/nginx`
+- `ghcr.io/tommasochi/turbo-ea/mcp-server`
 
-El chart de Helm, `ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea`, lo firma del mismo modo `.github/workflows/helm-publish.yml` en cada etiqueta de versión (identidad `…/helm-publish.yml@<ref>`).
+El chart de Helm, `ghcr.io/tommasochi/turbo-ea/charts/turbo-ea`, lo firma del mismo modo `.github/workflows/helm-publish.yml` en cada etiqueta de versión (identidad `…/helm-publish.yml@<ref>`).
 
 Todas las imágenes que `docker-compose.yml` descarga desde GHCR están en esa lista. El contenedor opcional de Ollama no lo está: desde la 2.155.0, `docker-compose.yml` fija directamente la etiqueta de versión de la imagen original `ollama/ollama`, y Turbo EA no firma ni analiza esa imagen — verifíquela con los medios que ofrece el proyecto original. Existe una copia parcheada, `ghcr.io/vincentmakes/turbo-ea/ollama`, solo para las versiones 2.154.0 a 2.154.2.
 
@@ -33,7 +33,7 @@ La firma se aplica al digest de la lista de manifiestos OCI, así que una sola f
 La causa es un cambio en el formato de almacenamiento, no en la firma. Hasta la 1.36.0 el flujo de publicación usaba cosign 2, que guardaba la firma bajo la etiqueta `sha256-<digest>.sig` junto a la imagen. Desde la 1.37.0 (junio de 2026, cuando el instalador de cosign pasó a cosign 3) la firma es un [bundle de Sigstore](https://docs.sigstore.dev/about/bundle/): un *referrer* OCI 1.1 de la imagen. GHCR no implementa la API de referrers, así que cosign guarda el bundle bajo la etiqueta de índice alternativa `sha256-<digest>` — sin sufijo `.sig` —, justo el lugar que un cliente anterior a 2.6 nunca consulta. `cosign tree` muestra lo que hay adjunto a una imagen:
 
 ```bash
-cosign tree ghcr.io/vincentmakes/turbo-ea/backend:<version>
+cosign tree ghcr.io/tommasochi/turbo-ea/backend:<version>
 ```
 
 | Versiones | Formato de la firma | Verificable con |
@@ -51,26 +51,26 @@ Instale [cosign](https://docs.sigstore.dev/cosign/installation/) 2.6 o posterior
 
 ```bash
 cosign verify \
-  --certificate-identity-regexp 'https://github.com/vincentmakes/turbo-ea/.+' \
+  --certificate-identity-regexp '^https://github\.com/TommasoChi/turbo-ea/\.github/workflows/docker-publish\.yml@refs/(heads/main|tags/v[^/]+)$' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
-  ghcr.io/vincentmakes/turbo-ea/backend:<version>
+  ghcr.io/tommasochi/turbo-ea/backend:<version>
 ```
 
 Qué hacen las opciones:
 
-- `--certificate-identity-regexp` — acepta cualquier ruta de flujo de trabajo dentro de este repositorio, así que el mismo comando funciona tanto si la imagen se publicó desde `docker-publish.yml` en `main` como en una etiqueta. Si quiere ser más estricto, sustitúyala por `--certificate-identity 'https://github.com/vincentmakes/turbo-ea/.github/workflows/docker-publish.yml@refs/tags/v<version>'`.
-- `--certificate-oidc-issuer` — fija el emisor OIDC al punto de conexión de tokens de GitHub. Una firma emitida por cualquier otro emisor (por ejemplo, la CI de un fork) fallará la verificación.
+- `--certificate-identity-regexp` — comprueba el flujo de publicación de imágenes del fork y acepta una compilación de `docker-publish.yml` en `main` o en una etiqueta de versión. Si desea ser más estricto, sustituya la opción por `--certificate-identity 'https://github.com/TommasoChi/turbo-ea/.github/workflows/docker-publish.yml@refs/tags/v<version>'`.
+- `--certificate-oidc-issuer` — fija el emisor OIDC al punto de conexión de tokens de GitHub. La identidad del certificado anterior identifica el repositorio y el flujo de trabajo.
 
 Una verificación correcta imprime la carga firmada y una entrada del registro de transparencia Rekor. Un fallo termina con un código de salida distinto de cero y un diagnóstico — haga fallar su despliegue con él. Si el diagnóstico es `no signatures found`, compruebe primero `cosign version`: vea la sección anterior.
 
 También puede verificar por digest, la forma más estricta (inmune a que se muevan las etiquetas):
 
 ```bash
-DIGEST=$(docker buildx imagetools inspect ghcr.io/vincentmakes/turbo-ea/backend:<version> --format '{{ .Manifest.Digest }}')
+DIGEST=$(docker buildx imagetools inspect ghcr.io/tommasochi/turbo-ea/backend:<version> --format '{{ .Manifest.Digest }}')
 cosign verify \
-  --certificate-identity-regexp 'https://github.com/vincentmakes/turbo-ea/.+' \
+  --certificate-identity-regexp '^https://github\.com/TommasoChi/turbo-ea/\.github/workflows/docker-publish\.yml@refs/(heads/main|tags/v[^/]+)$' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
-  ghcr.io/vincentmakes/turbo-ea/backend@${DIGEST}
+  ghcr.io/tommasochi/turbo-ea/backend@${DIGEST}
 ```
 
 ---
@@ -81,12 +81,12 @@ El chart es un artefacto OCI del mismo registro y se verifica con el mismo coman
 
 ```bash
 cosign verify \
-  --certificate-identity-regexp 'https://github.com/vincentmakes/turbo-ea/.+' \
+  --certificate-identity-regexp '^https://github\.com/TommasoChi/turbo-ea/\.github/workflows/helm-publish\.yml@refs/(heads/main|tags/v[^/]+)$' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
-  ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea:<version>
+  ghcr.io/tommasochi/turbo-ea/charts/turbo-ea:<version>
 ```
 
-Una excepción en la identidad de la etiqueta: el chart `2.141.0`, la primera versión del chart, se publicó sin firmar (su paso de firma falló en la autenticación con el registro) y se firmó después desde la rama `main`, así que su identidad de certificado es `…/helm-publish.yml@refs/heads/main` y no una referencia de etiqueta. La expresión regular anterior acepta ambas; una `--certificate-identity` estricta debe indicar `refs/heads/main` para esa única versión.
+En el historial de versiones upstream, el chart `2.141.0`, el primero que se publicó, se subió sin firma (el paso de firma falló al autenticarse en el registro) y se firmó después desde la rama `main`; por eso, la identidad de su certificado es `…/helm-publish.yml@refs/heads/main` y no una referencia de etiqueta. La expresión regular anterior acepta ambas; para usar `--certificate-identity` de forma estricta en esa versión, debe indicar `refs/heads/main`.
 
 ---
 
@@ -98,7 +98,7 @@ Descárguela con:
 
 ```bash
 docker buildx imagetools inspect --format '{{ json .SBOM }}' \
-  ghcr.io/vincentmakes/turbo-ea/backend:<version> | jq .
+  ghcr.io/tommasochi/turbo-ea/backend:<version> | jq .
 ```
 
 La SBOM enumera cada paquete que buildkit observó en la imagen final (paquetes apk, wheels de Python, módulos de Node, etc.) con versiones y URL de origen. Es una entrada útil para su propio escáner de vulnerabilidades, sus herramientas de cumplimiento de licencias o su inventario de componentes.
@@ -118,7 +118,7 @@ Los mismos dos pasos se repiten a diario contra los manifiestos `:latest` realme
 
 **Para operadores:** la puerta protege las imágenes publicadas, pero ejecute también su propio escáner sobre la imagen descargada — su política puede diferir de la nuestra. La SBOM publicada es una entrada limpia.
 
-**Para colaboradores:** si detecta un hallazgo realmente explotable en un camino de uso de Turbo EA, notifíquelo mediante un [aviso de seguridad privado](https://github.com/vincentmakes/turbo-ea/security/advisories/new) en lugar de comentar en una incidencia pública. Consulte [`SECURITY.md`](https://github.com/vincentmakes/turbo-ea/blob/main/SECURITY.md).
+**Para colaboradores:** si detecta un hallazgo realmente explotable en un camino de uso de Turbo EA, notifíquelo mediante un [aviso de seguridad privado](https://github.com/TommasoChi/turbo-ea/security/advisories/new) en lugar de comentar en una incidencia pública. Consulte [`SECURITY.md`](https://github.com/TommasoChi/turbo-ea/blob/main/SECURITY.md).
 
 ---
 

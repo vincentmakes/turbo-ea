@@ -150,13 +150,20 @@ class TestInsertInOrder:
 
 
 class TestResolveKey:
-    def test_unique_match(self):
-        flat = cl.flatten({"a": {"b": "x"}})
-        assert cl.resolve_key(flat, "a.b") == ("a", "b")
+    @pytest.mark.parametrize("en", [{"a": {"b": "x"}}, {"a.b": "x"}])
+    def test_unique_match(self, en):
+        text = json.dumps(en)
+        out = cl.apply_entries("fr", en, text, cl.flatten(en), set(), {"a.b": "y"})
+        assert json.loads(out) == ({"a": {"b": "y"}} if "a" in en else {"a.b": "y"})
 
     def test_unknown_key(self):
-        with pytest.raises(KeyError):
-            cl.resolve_key({}, "nope")
+        with pytest.raises(ValueError, match="no matching unambiguous English key"):
+            cl.apply_entries("fr", {}, "{}", {}, set(), {"nope": "value"})
+
+    def test_ambiguous_key(self):
+        en = {"a": {"b": "x"}, "a.b": "x"}
+        with pytest.raises(ValueError, match="no matching unambiguous English key"):
+            cl.apply_entries("fr", en, json.dumps(en), cl.flatten(en), set(), {"a.b": "y"})
 
 
 class TestLayoutPreservingEdit:
@@ -176,9 +183,9 @@ class TestLayoutPreservingEdit:
         assert list(json.loads(out)) == ["_", "a", "c"]
 
     def test_replace_value(self):
-        out = cl.replace_flat_value(self.TEXT, "a", "Ä")
-        assert json.loads(out)["a"] == "Ä"
-        assert "\\u00e9" in out
+        en = {"a": "A", "c": "café"}
+        out = cl.apply_entries("fr", en, self.TEXT, cl.flatten(en), set(), {"a": "Ä"})
+        assert out == '{\n  "a": "Ä",\n\n  "c": "caf\\u00e9"\n}\n'
 
 
 def test_repository_locales_have_no_fatal_gaps():

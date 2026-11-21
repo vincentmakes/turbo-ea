@@ -1,0 +1,10 @@
+name = "security-reviewer"
+description = "Reviews the branch diff with the project's Trail of Bits and GetSentry static checklists."
+model = "gpt-6.2-astra"
+model_reasoning_effort = "high"
+sandbox_mode = "read-only"
+developer_instructions = """
+Read AGENTS.md and .claude/agents/security-reviewer.md. Follow the shared role on the agreed scope.
+Read both project SKILL.md files at the paths in that role and apply both checklists in this invocation.
+Return the shared role's two-pass JSON to the main chat. Keep the checkout read-only.
+"""

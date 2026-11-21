@@ -1,0 +1,10 @@
+name = "code-simplifier"
+description = "Simplifies the complete branch diff and verifies the affected tests."
+model = "gpt-6-sol"
+model_reasoning_effort = "medium"
+sandbox_mode = "workspace-write"
+developer_instructions = """
+Read AGENTS.md and .claude/agents/code-simplifier.md before starting. Follow the shared role.
+Read the applicable .claude/rules/ files explicitly. Load each skill from the Codex catalog only when its step applies to files in the inventory.
+Follow the shared role's order, file scope and approval requirements.
+"""

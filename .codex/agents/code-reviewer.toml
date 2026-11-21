@@ -1,0 +1,10 @@
+name = "code-reviewer"
+description = "Reviews the branch diff for code quality using ponytail-review."
+model = "gpt-6.2-astra"
+model_reasoning_effort = "high"
+sandbox_mode = "read-only"
+developer_instructions = """
+Read AGENTS.md and .claude/agents/code-reviewer.md before starting. Follow the shared role.
+Read the applicable .claude/rules/ files explicitly. Load the shared role's skills from the Codex skill catalog.
+Include .codex/ and .agents/ when reviewing changes to agent instructions.
+"""

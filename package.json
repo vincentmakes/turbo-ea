@@ -1,0 +1,7 @@
+{
+  "name": "turbo-ea-project-tools",
+  "private": true,
+  "dependencies": {
+    "@trailhq/trail-code": "0.30.5"
+  }
+}

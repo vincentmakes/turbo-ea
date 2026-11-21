@@ -18,12 +18,10 @@ back. The session that called you owns git: **you never commit, push, tag, label
 
 ## Before you write anything
 
-1. Read `CLAUDE.md` (already loaded) and the **rule file of the area you are about to change**. Path
-   scoped rules load when you *read* a matching file, not when you grep or glob one, so open one real
-   file of the area first, then **one rule** (the row below; open a second only when the first points
-   you to it, to keep your context for the work). **To find the rule for a file you do not recognise**, grep the
-   frontmatter: every `.claude/rules/*.md` lists the paths that trigger it under `paths:`
-   (`grep -l "backend/app/services/foo" .claude/rules/*.md`).
+1. Read `CLAUDE.md`. Match every path you will edit or create against the `paths:` patterns
+   in `.claude/rules/*.md` and read every matching rule. Also follow the subject-specific
+   instructions in the table below and in `CLAUDE.md`. For example, a card-returning route
+   that adds a model needs the API contract, card read scope and workspace transfer rules.
 
    | You change | Read |
    |---|---|

@@ -29,7 +29,33 @@ The policy is `.claude/rules/vapt.md`: read it first, then `../turbo-ea-vapt/REA
   proving the rate limit answers 429.
 - The stack runs without AI/Ollama.
 
-## Order
+## Standalone Viewer check (Claude Code and Codex)
+
+Use this procedure when asked for the Viewer permission check. The isolated stack must already be
+running. Confirm that port 8930 belongs to `turboea-vapt-nginx-1`. Use only the exact origin
+`http://localhost:8930` and disable redirects. On a shared stack, use disposable demo fixtures and
+clean up only records created for this run. Leave the database, services and pre-existing accounts in place.
+
+1. Authenticate the dedicated test user and verify the effective Viewer role via the current-user API.
+2. Read one visible, disposable demo card, submit an ordinary valid name change as that Viewer,
+   then read the same card again. Compare both complete card JSON objects. A pass requires a 403
+   from the update and identical reads. If a read fails, report the comparison as unknown.
+3. Report the observed HTTP status, comparison and fixture cleanup. Keep secrets and card contents
+   out of the report. Report a missing fixture or inaccessible stack as a blocked check.
+4. When passive ZAP analysis is requested, limit it to the traffic from these fixed requests.
+   Use passive rules only, with crawling, discovery, active scanning and request replay disabled.
+   Identify the traffic actually available and any redactions or omissions in the report.
+
+### Coverage to report in Codex
+
+Identify the reviewed revision and local changes, including new, non-ignored files. List each
+changed route, table, or permission, auth or session behavior that triggered the review. For each,
+give the file and the relevant test result, source inspection or recorded observation. Say which
+behavior it establishes and what still needs verification. Mark coverage as partial if any item
+lacks the required evidence. A Viewer result covers only the behavior exercised. A startup-only
+`READY` confirms the agent launched and provides no evidence about the change.
+
+## Order for a full Claude Code VAPT
 
 1. **Scope.** Read the diff (`git diff origin/main...HEAD` or the PR's files) and name the new or changed
    routes, tables, migrations and permission or session code. A new route is covered automatically by the

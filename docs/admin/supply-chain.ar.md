@@ -8,17 +8,17 @@
 
 ## ما الذي يُوقَّع
 
-كل صورة يبنيها `.github/workflows/docker-publish.yml` وتُدفَع إلى `ghcr.io/vincentmakes/turbo-ea/<image>` تُوقَّع باستخدام [cosign](https://github.com/sigstore/cosign) عبر **keyless OIDC**: لا يوجد مفتاح توقيع طويل الأمد. تُصدَر الشهادة من Fulcio التابع لـ Sigstore لهوية سير العمل (`https://github.com/vincentmakes/turbo-ea/.github/workflows/docker-publish.yml@<ref>`)، وتُسجَّل في سجل الشفافية العام Rekor، ثم تُتلَف بمجرد إنشاء التوقيع.
+كل صورة يبنيها `.github/workflows/docker-publish.yml` وتُدفَع إلى `ghcr.io/tommasochi/turbo-ea/<image>` تُوقَّع باستخدام [cosign](https://github.com/sigstore/cosign) عبر **keyless OIDC**: لا يوجد مفتاح توقيع طويل الأمد. تُصدَر الشهادة من Fulcio التابع لـ Sigstore لهوية سير العمل (`https://github.com/TommasoChi/turbo-ea/.github/workflows/docker-publish.yml@<ref>`)، وتُسجَّل في سجل الشفافية العام Rekor، ثم تُتلَف بمجرد إنشاء التوقيع.
 
 الصور الموقَّعة:
 
-- `ghcr.io/vincentmakes/turbo-ea/db`
-- `ghcr.io/vincentmakes/turbo-ea/backend`
-- `ghcr.io/vincentmakes/turbo-ea/frontend`
-- `ghcr.io/vincentmakes/turbo-ea/nginx`
-- `ghcr.io/vincentmakes/turbo-ea/mcp-server`
+- `ghcr.io/tommasochi/turbo-ea/db`
+- `ghcr.io/tommasochi/turbo-ea/backend`
+- `ghcr.io/tommasochi/turbo-ea/frontend`
+- `ghcr.io/tommasochi/turbo-ea/nginx`
+- `ghcr.io/tommasochi/turbo-ea/mcp-server`
 
-يُوقَّع مخطط Helm، `ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea`، بالطريقة نفسها بواسطة `.github/workflows/helm-publish.yml` عند كل وسم إصدار (الهوية `…/helm-publish.yml@<ref>`).
+يُوقَّع مخطط Helm، `ghcr.io/tommasochi/turbo-ea/charts/turbo-ea`، بالطريقة نفسها بواسطة `.github/workflows/helm-publish.yml` عند كل وسم إصدار (الهوية `…/helm-publish.yml@<ref>`).
 
 كل صورة يسحبها `docker-compose.yml` من GHCR موجودة في هذه القائمة. أما حاوية Ollama الاختيارية فليست منها: منذ الإصدار 2.155.0 يثبّت `docker-compose.yml` مباشرةً وسم إصدار الصورة الأصلية `ollama/ollama`، ولا يقوم Turbo EA بتوقيع هذه الصورة ولا بفحصها — تحقق منها بالوسائل التي يوفرها المشروع الأصلي. توجد نسخة معدّلة، `ghcr.io/vincentmakes/turbo-ea/ollama`، للإصدارات من 2.154.0 إلى 2.154.2 فقط.
 
@@ -33,7 +33,7 @@
 السبب هو تغيير في صيغة التخزين، لا في التوقيع نفسه. حتى الإصدار 1.36.0 كان سير عمل النشر يشغّل cosign 2، الذي كان يخزّن التوقيع تحت الوسم `sha256-<digest>.sig` بجوار الصورة. ومنذ الإصدار 1.37.0 (يونيو 2026، عندما انتقل مثبِّت cosign إلى cosign 3) أصبح التوقيع [حزمة Sigstore](https://docs.sigstore.dev/about/bundle/): أي *referrer* وفق OCI 1.1 للصورة. لا يطبّق GHCR واجهة referrers API، لذا يحتفظ cosign بالحزمة تحت وسم الفهرس الاحتياطي `sha256-<digest>` — دون لاحقة `.sig` — وهو تحديدًا المكان الذي لا ينظر فيه أبدًا أي عميل أقدم من 2.6. يعرض الأمر `cosign tree` ما هو مُلحَق بالصورة:
 
 ```bash
-cosign tree ghcr.io/vincentmakes/turbo-ea/backend:<version>
+cosign tree ghcr.io/tommasochi/turbo-ea/backend:<version>
 ```
 
 | الإصدارات | صيغة التوقيع | يمكن التحقّق منه باستخدام |
@@ -51,26 +51,26 @@ cosign tree ghcr.io/vincentmakes/turbo-ea/backend:<version>
 
 ```bash
 cosign verify \
-  --certificate-identity-regexp 'https://github.com/vincentmakes/turbo-ea/.+' \
+  --certificate-identity-regexp '^https://github\.com/TommasoChi/turbo-ea/\.github/workflows/docker-publish\.yml@refs/(heads/main|tags/v[^/]+)$' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
-  ghcr.io/vincentmakes/turbo-ea/backend:<version>
+  ghcr.io/tommasochi/turbo-ea/backend:<version>
 ```
 
 ما الذي تفعله الرايات:
 
-- `--certificate-identity-regexp` — يقبل أي مسار لسير العمل داخل هذا المستودع، فيعمل الأمر نفسه سواء نُشِرت الصورة من `docker-publish.yml` على `main` أو على وسم. إذا أردت تشديدًا أكبر، استبدله بـ `--certificate-identity 'https://github.com/vincentmakes/turbo-ea/.github/workflows/docker-publish.yml@refs/tags/v<version>'`.
-- `--certificate-oidc-issuer` — يثبّت مُصدِر OIDC على نقطة طرف الرمز الخاصة بـ GitHub. أي توقيع صادر من مُصدِر آخر (مثل CI الخاص بنسخة منشقّة) سيفشل في التحقّق.
+- `--certificate-identity-regexp` — يتحقق من سير عمل نشر الصور في الـ fork ويقبل بناءً من `docker-publish.yml` على `main` أو على وسم إصدار. لمزيد من التقييد، استبدل الخيار بـ `--certificate-identity 'https://github.com/TommasoChi/turbo-ea/.github/workflows/docker-publish.yml@refs/tags/v<version>'`.
+- `--certificate-oidc-issuer` — يثبّت مُصدِر OIDC على نقطة طرف الرموز لدى GitHub. وتحدد هوية الشهادة أعلاه المستودع وسير العمل.
 
 يطبع التحقّق الناجح الحمولة الموقَّعة وإدخالًا في سجل شفافية Rekor. أما الفشل فيخرج بقيمة غير صفرية مع تشخيص — اجعل عملية النشر تفشل عند حدوثه. إذا كان التشخيص `no signatures found`، فتحقّق أولًا من `cosign version`: راجع القسم أعلاه.
 
 يمكنك أيضًا التحقّق عبر الهضم (digest)، وهو أصرم صيغة (محصّن ضد إعادة تخطيط الوسوم):
 
 ```bash
-DIGEST=$(docker buildx imagetools inspect ghcr.io/vincentmakes/turbo-ea/backend:<version> --format '{{ .Manifest.Digest }}')
+DIGEST=$(docker buildx imagetools inspect ghcr.io/tommasochi/turbo-ea/backend:<version> --format '{{ .Manifest.Digest }}')
 cosign verify \
-  --certificate-identity-regexp 'https://github.com/vincentmakes/turbo-ea/.+' \
+  --certificate-identity-regexp '^https://github\.com/TommasoChi/turbo-ea/\.github/workflows/docker-publish\.yml@refs/(heads/main|tags/v[^/]+)$' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
-  ghcr.io/vincentmakes/turbo-ea/backend@${DIGEST}
+  ghcr.io/tommasochi/turbo-ea/backend@${DIGEST}
 ```
 
 ---
@@ -81,12 +81,12 @@ cosign verify \
 
 ```bash
 cosign verify \
-  --certificate-identity-regexp 'https://github.com/vincentmakes/turbo-ea/.+' \
+  --certificate-identity-regexp '^https://github\.com/TommasoChi/turbo-ea/\.github/workflows/helm-publish\.yml@refs/(heads/main|tags/v[^/]+)$' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
-  ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea:<version>
+  ghcr.io/tommasochi/turbo-ea/charts/turbo-ea:<version>
 ```
 
-استثناء واحد في هوية الوسم: المخطط `2.141.0`، وهو أول إصدار للمخطط، دُفِع دون توقيع (فشلت خطوة توقيعه في المصادقة مع السجلّ) ثم وُقِّع لاحقًا من الفرع `main`، لذا فإن هوية شهادته هي `…/helm-publish.yml@refs/heads/main` وليست مرجعًا لوسم. يقبل التعبير النمطي أعلاه كلتيهما؛ أما `--certificate-identity` الصارمة فيجب أن تذكر `refs/heads/main` لهذا الإصدار وحده.
+في سجل إصدارات upstream، نُشر مخطط `2.141.0`، وهو أول إصدار للمخطط، دون توقيع (فشلت خطوة التوقيع في المصادقة مع السجل)، ثم وُقّع لاحقًا من فرع `main`. لذلك فإن هوية شهادته هي `…/helm-publish.yml@refs/heads/main` وليست مرجع وسم. يقبل التعبير النمطي أعلاه كلا الخيارين؛ ولتقييد `--certificate-identity` لهذه النسخة، اذكر `refs/heads/main`.
 
 ---
 
@@ -98,7 +98,7 @@ cosign verify \
 
 ```bash
 docker buildx imagetools inspect --format '{{ json .SBOM }}' \
-  ghcr.io/vincentmakes/turbo-ea/backend:<version> | jq .
+  ghcr.io/tommasochi/turbo-ea/backend:<version> | jq .
 ```
 
 يسرد ملف SBOM كل حزمة رصدها buildkit في الصورة النهائية (حزم apk، وعجلات Python، ووحدات Node، وغيرها) مع الإصدارات وعناوين URL للمصادر. وهو مدخل مفيد لأداة فحص الثغرات الخاصة بك، أو أدوات الامتثال للتراخيص، أو جرد المكوّنات.
@@ -118,7 +118,7 @@ docker buildx imagetools inspect --format '{{ json .SBOM }}' \
 
 **للمشغّلين:** تحمي البوّابة الصور المنشورة، لكن شغّل أداة الفحص الخاصة بك على الصورة المسحوبة أيضًا — فقد تختلف سياستك عن سياستنا. ملف SBOM المنشور مدخل نظيف.
 
-**للمساهمين:** إذا اكتشفت نتيجة قابلة للاستغلال فعليًا في أحد مسارات استخدام Turbo EA، فالرجاء الإبلاغ عنها عبر [استشارة أمنية خاصة](https://github.com/vincentmakes/turbo-ea/security/advisories/new) بدلًا من التعليق في مشكلة عامة. راجع [`SECURITY.md`](https://github.com/vincentmakes/turbo-ea/blob/main/SECURITY.md).
+**للمساهمين:** إذا اكتشفت نتيجة قابلة للاستغلال فعليًا في أحد مسارات استخدام Turbo EA، فالرجاء الإبلاغ عنها عبر [استشارة أمنية خاصة](https://github.com/TommasoChi/turbo-ea/security/advisories/new) بدلًا من التعليق في مشكلة عامة. راجع [`SECURITY.md`](https://github.com/TommasoChi/turbo-ea/blob/main/SECURITY.md).
 
 ---
 

@@ -86,6 +86,8 @@ def test_rule_file_is_path_scoped(path: Path):
         assert glob not in FORBIDDEN_GLOBS, (
             f"{path.name}: {glob!r} is so wide the rule would load on nearly every edit"
         )
+        if not any(char in glob for char in "*?[{"):
+            assert (_REPO / glob).exists(), f"{path.name}: missing literal rule path {glob!r}"
 
 
 def test_every_pointer_in_claude_md_resolves():

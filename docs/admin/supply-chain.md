@@ -8,17 +8,17 @@ This page covers what's signed, which cosign version you need, how to verify an 
 
 ## What's signed
 
-Every image built by `.github/workflows/docker-publish.yml` and pushed to `ghcr.io/vincentmakes/turbo-ea/<image>` is signed with [cosign](https://github.com/sigstore/cosign) using **keyless OIDC**: there is no long-lived signing key. The certificate is issued by Sigstore's Fulcio for the workflow identity (`https://github.com/vincentmakes/turbo-ea/.github/workflows/docker-publish.yml@<ref>`), recorded in the public Rekor transparency log, and discarded as soon as the signature is created.
+Every image built by `.github/workflows/docker-publish.yml` and pushed to `ghcr.io/tommasochi/turbo-ea/<image>` is signed with [cosign](https://github.com/sigstore/cosign) using **keyless OIDC**: there is no long-lived signing key. The certificate is issued by Sigstore's Fulcio for the workflow identity (`https://github.com/TommasoChi/turbo-ea/.github/workflows/docker-publish.yml@<ref>`), recorded in the public Rekor transparency log, and discarded as soon as the signature is created.
 
 Signed images:
 
-- `ghcr.io/vincentmakes/turbo-ea/db`
-- `ghcr.io/vincentmakes/turbo-ea/backend`
-- `ghcr.io/vincentmakes/turbo-ea/frontend`
-- `ghcr.io/vincentmakes/turbo-ea/nginx`
-- `ghcr.io/vincentmakes/turbo-ea/mcp-server`
+- `ghcr.io/tommasochi/turbo-ea/db`
+- `ghcr.io/tommasochi/turbo-ea/backend`
+- `ghcr.io/tommasochi/turbo-ea/frontend`
+- `ghcr.io/tommasochi/turbo-ea/nginx`
+- `ghcr.io/tommasochi/turbo-ea/mcp-server`
 
-The Helm chart, `ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea`, is signed the same way by `.github/workflows/helm-publish.yml` on every release tag (identity `…/helm-publish.yml@<ref>`).
+The Helm chart, `ghcr.io/tommasochi/turbo-ea/charts/turbo-ea`, is signed the same way by `.github/workflows/helm-publish.yml` on every release tag (identity `…/helm-publish.yml@<ref>`).
 
 Every image `docker-compose.yml` pulls from GHCR is in that list. The optional Ollama container is not: since 2.155.0 `docker-compose.yml` pins upstream's own `ollama/ollama` release tag directly, and Turbo EA neither signs nor scans that image — verify it with the means upstream provides. A patched copy, `ghcr.io/vincentmakes/turbo-ea/ollama`, exists for 2.154.0 to 2.154.2 only.
 
@@ -33,7 +33,7 @@ The signature applies to the OCI manifest list digest, so a single signature tra
 The reason is a change of storage format, not of signing. Up to 1.36.0 the publish workflow ran cosign 2, which stored the signature under the tag `sha256-<digest>.sig` next to the image. Since 1.37.0 (June 2026, when the cosign installer moved to cosign 3) the signature is a [Sigstore bundle](https://docs.sigstore.dev/about/bundle/): an OCI 1.1 *referrer* of the image. GHCR does not implement the referrers API, so cosign keeps the bundle under the fallback index tag `sha256-<digest>` — no `.sig` suffix — which is exactly the place a pre-2.6 client never looks. `cosign tree` shows what is attached to an image:
 
 ```bash
-cosign tree ghcr.io/vincentmakes/turbo-ea/backend:<version>
+cosign tree ghcr.io/tommasochi/turbo-ea/backend:<version>
 ```
 
 | Releases | Signature format | Verifies with |
@@ -51,26 +51,26 @@ Install [cosign](https://docs.sigstore.dev/cosign/installation/) 2.6 or newer, t
 
 ```bash
 cosign verify \
-  --certificate-identity-regexp 'https://github.com/vincentmakes/turbo-ea/.+' \
+  --certificate-identity-regexp '^https://github\.com/TommasoChi/turbo-ea/\.github/workflows/docker-publish\.yml@refs/(heads/main|tags/v[^/]+)$' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
-  ghcr.io/vincentmakes/turbo-ea/backend:<version>
+  ghcr.io/tommasochi/turbo-ea/backend:<version>
 ```
 
 What the flags do:
 
-- `--certificate-identity-regexp` — accepts any workflow path inside this repo, so the same command works whether the image was published from `docker-publish.yml` on `main` or on a tag. If you want to be stricter, replace with `--certificate-identity 'https://github.com/vincentmakes/turbo-ea/.github/workflows/docker-publish.yml@refs/tags/v<version>'`.
-- `--certificate-oidc-issuer` — pins the OIDC issuer to GitHub's token endpoint. A signature minted by any other issuer (e.g. a fork's CI) will fail verification.
+- `--certificate-identity-regexp` — checks the fork's image publishing workflow and accepts a build from `docker-publish.yml` on `main` or on a release tag. If you want to be stricter, replace with `--certificate-identity 'https://github.com/TommasoChi/turbo-ea/.github/workflows/docker-publish.yml@refs/tags/v<version>'`.
+- `--certificate-oidc-issuer` — pins the OIDC issuer to GitHub's token endpoint. The certificate identity above identifies the repository and workflow.
 
 A successful verification prints the signed payload and a Rekor transparency-log entry. A failure exits non-zero with a diagnostic — fail your deploy on it. If the diagnostic is `no signatures found`, check `cosign version` first: see the section above.
 
 You can also verify by digest, which is the strictest form (immune to tag remapping):
 
 ```bash
-DIGEST=$(docker buildx imagetools inspect ghcr.io/vincentmakes/turbo-ea/backend:<version> --format '{{ .Manifest.Digest }}')
+DIGEST=$(docker buildx imagetools inspect ghcr.io/tommasochi/turbo-ea/backend:<version> --format '{{ .Manifest.Digest }}')
 cosign verify \
-  --certificate-identity-regexp 'https://github.com/vincentmakes/turbo-ea/.+' \
+  --certificate-identity-regexp '^https://github\.com/TommasoChi/turbo-ea/\.github/workflows/docker-publish\.yml@refs/(heads/main|tags/v[^/]+)$' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
-  ghcr.io/vincentmakes/turbo-ea/backend@${DIGEST}
+  ghcr.io/tommasochi/turbo-ea/backend@${DIGEST}
 ```
 
 ---
@@ -81,12 +81,12 @@ The chart is an OCI artifact in the same registry and verifies with the same com
 
 ```bash
 cosign verify \
-  --certificate-identity-regexp 'https://github.com/vincentmakes/turbo-ea/.+' \
+  --certificate-identity-regexp '^https://github\.com/TommasoChi/turbo-ea/\.github/workflows/helm-publish\.yml@refs/(heads/main|tags/v[^/]+)$' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
-  ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea:<version>
+  ghcr.io/tommasochi/turbo-ea/charts/turbo-ea:<version>
 ```
 
-One exception to the tag identity: chart `2.141.0`, the first chart release, was pushed but not signed (its signing step failed on registry authentication) and was signed afterwards from the `main` branch, so its certificate identity is `…/helm-publish.yml@refs/heads/main` rather than a tag ref. The regexp above accepts both; a strict `--certificate-identity` for that one version must name `refs/heads/main`.
+In the upstream release history, chart `2.141.0`, the first chart release, was pushed but not signed (its signing step failed on registry authentication) and was signed afterwards from the `main` branch, so its certificate identity is `…/helm-publish.yml@refs/heads/main` rather than a tag ref. The regexp above accepts both; a strict `--certificate-identity` for that one version must name `refs/heads/main`.
 
 ---
 
@@ -98,7 +98,7 @@ Pull it with:
 
 ```bash
 docker buildx imagetools inspect --format '{{ json .SBOM }}' \
-  ghcr.io/vincentmakes/turbo-ea/backend:<version> | jq .
+  ghcr.io/tommasochi/turbo-ea/backend:<version> | jq .
 ```
 
 The SBOM lists every package buildkit observed in the final image (apk packages, Python wheels, Node modules, etc.) with versions and source URLs. Useful inputs to your own vulnerability scanner, license-compliance tooling, or component inventory.

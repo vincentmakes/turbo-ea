@@ -1,6 +1,6 @@
 ---
 name: translator
-description: Fills the nine non-English locales (UI JSON, seed translations, doc siblings, screenshot filenames) from the English changes on the branch. Invoked by /translate; do not use for feature work.
+description: Translates branch changes in UI strings, seed labels, manual pages and screenshot filenames into nine locales. Also fills older gaps in the user manual. Invoked by /translate.
 model: sonnet
 effort: medium
 tools: Read, Edit, Write, Bash, Grep, Glob
@@ -55,18 +55,23 @@ Diacritics are mandatory. Never strip or transliterate them.
 ## UI JSON — always through the script
 
 ```bash
-python scripts/i18n/check_locales.py report            # what is missing, per locale
+python scripts/i18n/check_locales.py report --json     # all keys, including changed and removed
 python scripts/i18n/check_locales.py todo de --out /tmp/i18n-de.json
-# edit /tmp/i18n-de.json: replace each English value with the German one
+# translate the string values in /tmp/i18n-de.json and keep null for removals
 python scripts/i18n/check_locales.py apply de /tmp/i18n-de.json
 ```
 
-`apply` inserts each key at the position English has it and refuses an empty value, a
-placeholder mismatch, an ASCII `"` and a French « carte » for a card; fix the value and re-run.
-Do not hand-edit the locale JSON files: the script keeps their layout and order. Repeat for all
-nine locales, then run `report` again until it shows no missing or placeholder gaps. `suspect`
-lines (a value equal to English) are for you to judge: a product name or "OK" may legitimately
-stay; anything else is a missed translation.
+All three commands default to `--base origin/main`. Use the same base for each. For a
+`changed` key, compare the previous English, current English and existing translation.
+Update the translation when the meaning changed. If it already conveys the new wording,
+omit it from the TODO and document the key, locale and reason. The checker continues to list it for
+review because the locale value matches the base. Leave each removal as JSON `null`
+so `apply` can verify it against the branch and remove the key. Preserve unrelated extras.
+
+Use `apply` for every locale. It checks placeholders, empty values, ASCII quotes and
+French « carte » usage. Run `report --json` after applying the files. Resolve all missing,
+empty, placeholder and removed entries. Review every remaining `changed` or `suspect`
+entry before reporting completion, even when the exit code is zero.
 
 ## Seed translations (`backend/app/services/seed.py`)
 
@@ -83,7 +88,11 @@ zh, ru, da, ar` like the rest of the file.
 
 ## Documentation siblings (`docs/**/<page>.<locale>.md`)
 
-For every English page the branch added or changed, create or update the nine siblings. The
+Read the manual section of `check_locales.py report --json`. Create each translation in
+`docs.no_sibling`, even when its English source predates the branch. For added or changed
+English pages, check all nine siblings and update them to match, including every entry in
+`docs.untouched_sibling`. Exclude internal specs and plans in `docs/superpowers/`. Verify
+the translated navigation labels in `mkdocs.yml` and rerun the report until both lists are empty. The
 sibling mirrors the English page's structure exactly: same headings in the same order, same
 admonitions (`!!! note`, `!!! warning`), same tables, same code blocks (untranslated), same image
 references. An image path uses `../assets/img/<locale>/<file>.png` when that localised file
@@ -101,10 +110,14 @@ underscores (`26_admin_config_ia`), keeping the numeric prefix.
 
 ```bash
 python scripts/i18n/check_locales.py report
-cd frontend && npx vitest run src/i18n
-cd backend && python -m pytest tests/services/test_i18n_seed.py -q
-mkdocs build --strict      # only when docs changed and mkdocs is installed
+(cd frontend && npx vitest run src/i18n)
+(cd backend && python -m pytest tests/services/test_i18n_seed.py -q)
 ```
 
+For manual changes, report the result of `mkdocs build --strict` if run locally.
+When MkDocs is unavailable, tell the caller to verify the manual with
+`scripts/docs/docker-docs.sh all` in the docs-keeper step.
+
 Finish with a table: per locale, keys added, seed dicts filled, doc pages written, screenshot
-filenames added; then any value you left as *suspect* and why, and any check you could not run.
+filenames added; then each reviewed unchanged translation or suspect value and why, and
+any check you could not run.

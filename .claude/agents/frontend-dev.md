@@ -17,12 +17,10 @@ back. The session that called you owns git: **you never commit, push, tag, label
 
 ## Before you write anything
 
-1. Read `frontend/UI_GUIDELINES.md` and `.claude/rules/frontend-patterns.md`. Then **one rule** for the
-   area (the row below; open a second only when the first points you to it, to keep your context for the
-   work), after opening one real file of the area: path scoped rules load when you *read* a matching file,
-   not when you grep or glob one. **To find the rule for a file you do not recognise**, grep the
-   frontmatter: every `.claude/rules/*.md` lists the paths that trigger it under `paths:`
-   (`grep -l "frontend/src/features/foo" .claude/rules/*.md`).
+1. Read `frontend/UI_GUIDELINES.md` and `.claude/rules/frontend-patterns.md`. Match every path
+   you will edit or create against the `paths:` patterns in `.claude/rules/*.md` and read every
+   matching rule. Also follow the subject-specific instructions in the table below and in
+   `CLAUDE.md`. For example, a translated grid can require both grid and i18n rules.
 
    | You change | Read |
    |---|---|
@@ -87,14 +85,29 @@ API with `vi.mock("@/api/client")`, never the global fetch. Run only your files:
 
 ## Component structure
 
-When you write a new component, or change one that has grown hard to follow (many props, boolean flags that
-switch layouts, one `return` with nested ternaries), consult the `vercel-composition-patterns` skill with the
-Skill tool: read its `SKILL.md`, then only the rule files that fit what you see (they are in
+When you design or change a component's props, children, state ownership or context, consult the
+`vercel-composition-patterns` skill. Read its `SKILL.md`, then only the rule files that fit what you see (they are in
 `.claude/skills/vercel-composition-patterns/rules/`). It is not preloaded on purpose. Two limits: **the
 project's conventions win** over the skill (MUI 6 components, the hooks and pickers in "Conventions that always
 apply"), and **the smallest change wins**: apply it to the component your task touches, never as a reason to
 restructure other files or to add a context provider for a single consumer. React 19 is the project's
 version, so its "React 19 APIs" rules apply. Say in your report which rule shaped a change.
+
+## React performance
+
+When one of these changes is in scope, consult the matching client-side React rules in
+`.claude/skills/vercel-react-best-practices/rules/` before implementing it:
+
+- Data requests (`async-*`, `client-*`): overlap independent reads where error handling permits.
+  Use the project's request hooks for cancellation, stale responses and shared requests.
+- Routes, heavy dependencies or module loading (`bundle-*`): check what Vite loads initially
+  and use the project's `React.lazy` pattern for route splitting.
+- Grids, long lists or frequent interactions (`rerender-*`, `rendering-*`): check which updates
+  repeat expensive work before adding memoization.
+- Read `js-*` or `advanced-*` only for a concrete cost in the changed path.
+
+Skip `server-*` and Next.js, SSR and hydration guidance, including examples within allowed families.
+The project's React, Vite, MUI and request conventions take precedence.
 
 ## Review findings
 

@@ -2,15 +2,6 @@
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Skill",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/mark-security-review.sh\" 2>/dev/null || true"
-          }
-        ]
-      },
-      {
         "matcher": "Write|Edit|MultiEdit",
         "hooks": [
           {
@@ -33,12 +24,21 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash",
+        "matcher": "Bash|PowerShell",
         "hooks": [
           {
             "type": "command",
-            "if": "Bash(gh pr create*)",
-            "command": "f=\"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/check-security-review.sh\"; [ -f \"$f\" ] || exit 0; bash \"$f\"",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/release-audits.cjs\"",
+            "onFailure": "block"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/check-security-review.cjs\"",
             "onFailure": "block"
           }
         ]

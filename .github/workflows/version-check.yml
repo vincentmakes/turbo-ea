@@ -5,10 +5,7 @@ name: Version sync check
 # without that section, so catching the drift at PR time prevents a broken
 # release tag later.
 #
-# Documentation-only PRs (every changed file is `.md`, plus VERSION /
-# CHANGELOG.md themselves) skip the strict enforcement — they still bump
-# VERSION per project convention, but the gate isn't worth blocking a pure
-# docs PR on if the contributor forgot the matching CHANGELOG heading.
+# A Markdown-only PR can skip this check. A change to VERSION always runs it.
 
 on:
   pull_request:
@@ -26,15 +23,15 @@ jobs:
 
       - name: Detect docs-only PR
         id: docs_only
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
-          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
-          base_sha=$(git rev-parse FETCH_HEAD)
-          non_docs=$(git diff --name-only "${base_sha}...HEAD" \
-            | grep -vE '(\.md$|^VERSION$|^CHANGELOG\.md$)' || true)
+          changed=$(git diff --name-only "${BASE_SHA}...HEAD")
+          non_docs=$(grep -vE '\.md$' <<< "$changed" || true)
           if [[ -z "$non_docs" ]]; then
             echo "result=true" >> "$GITHUB_OUTPUT"
-            echo "PR touches only Markdown / VERSION / CHANGELOG — skipping enforcement."
+            echo "PR touches only Markdown — skipping enforcement."
           else
             echo "result=false" >> "$GITHUB_OUTPUT"
             echo "Non-docs files changed; running version/changelog check:"
@@ -50,8 +47,7 @@ jobs:
             echo "::error file=VERSION::VERSION file is empty"
             exit 1
           fi
-          escaped="${version//./\\.}"
-          if ! grep -qE "^## \[${escaped}\]" CHANGELOG.md; then
+          if ! awk -v heading="[$version]" '/^## / && $2 == heading { found=1; exit } END { exit !found }' CHANGELOG.md; then
             echo "::error file=CHANGELOG.md::CHANGELOG.md has no '## [${version}]' section."
             echo "Bumping VERSION to ${version} requires a matching '## [${version}] - YYYY-MM-DD' entry in CHANGELOG.md."
             echo "Without it, the Publish-GitHub-Release workflow will fail when this version is tagged."

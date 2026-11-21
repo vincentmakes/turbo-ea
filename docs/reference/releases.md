@@ -12,7 +12,7 @@ Turbo EA follows [Semantic Versioning](https://semver.org/). The single source o
 - **Minor** (e.g. `1.0.0` → `1.1.0`): new features. Backwards-compatible per the [compatibility policy](compatibility.md).
 - **Major** (e.g. `1.x` → `2.0.0`): breaking changes. Migration notes ship with the release.
 
-The version is bumped once per PR, not per commit. The PR's CHANGELOG entry uses the new version as the heading; CI's [`version-check.yml`](https://github.com/vincentmakes/turbo-ea/blob/main/.github/workflows/version-check.yml) fails any PR that bumps `VERSION` without a matching `## [<version>]` heading in `CHANGELOG.md`.
+The version is bumped once per PR, not per commit. The PR's CHANGELOG entry uses the new version as the heading; CI's [`version-check.yml`](https://github.com/TommasoChi/turbo-ea/blob/main/.github/workflows/version-check.yml) fails any PR that bumps `VERSION` without a matching `## [<version>]` heading in `CHANGELOG.md`.
 
 ---
 
@@ -44,7 +44,7 @@ Conventions:
 
 - RC tags are `vX.Y.0-rc.N` — never on a patch release, only on minors with operator-visible changes.
 - The publish workflow's `docker/metadata-action` is configured with `flavor: latest=auto`. This automatically excludes prerelease semver tags from `:latest`, `:X.Y`, and `:X` — RCs are only published as `:X.Y.0-rc.N`. Operators who pin to `:latest` won't accidentally pull an RC.
-- The GitHub Release for an RC tag should be flagged as a prerelease in the Releases page. The current `github-release.yml` workflow always creates a non-prerelease release; the maintainer flips the prerelease toggle manually after the workflow runs (or edits the release via `gh release edit vX.Y.0-rc.N --prerelease`).
+- GitHub marks a release tagged `vX.Y.0-rc.N` as a prerelease automatically. A stable tag creates an ordinary release.
 
 Bake time:
 
@@ -53,7 +53,7 @@ Bake time:
 
 Promotion to final:
 
-- The final `vX.Y.0` tag is created on the same commit as the last RC. The publish workflow rebuilds and re-tags multi-arch images; the digest will differ from the RC even though the source is identical (build inputs include timestamps).
+- The final `vX.Y.0` tag points to the merge of the promotion PR, which updates the version and changelog after the last RC. The publish workflow rebuilds and re-tags multi-arch images; the digest will differ from the RC because the version and build inputs change.
 - The `:X.Y`, `:X`, and `:latest` tags move to point at the final release at this point.
 
 ---
@@ -65,25 +65,25 @@ For a normal patch or minor — no RC channel needed:
 1. On a feature branch, bump `VERSION` and add the matching `## [<version>] - YYYY-MM-DD` heading to `CHANGELOG.md`.
 2. Run `python scripts/dump_openapi.py` if any backend route or schema changed; commit the result if it changed.
 3. Open the PR. CI runs lint, tests, OpenAPI drift check, and `version-check.yml`.
-4. Squash-merge to `main`.
+4. Squash-merge to `main`. Before tagging that commit, run the full-repository `security-audit` and `ponytail-audit`. Read both reports, resolve blocking security findings and every Must and Should, and verify both audits cover the final commit. In a Codex or Claude chat, record the two completed reports as described in the repository's `SETUP.md`. This applies to stable and release candidate tags.
 5. From `main`: `git tag -s v<version> -m "v<version>"` (or `git tag v<version>` if no signing key configured), `git push origin v<version>`.
 6. The `Publish GitHub Release` workflow extracts the `## [<version>]` section from `CHANGELOG.md` and creates a GitHub Release.
 7. The `Publish Docker images to GHCR` workflow builds, signs, and publishes the multi-arch images.
 8. Verify with cosign:
    ```bash
    cosign verify \
-     --certificate-identity-regexp 'https://github.com/vincentmakes/turbo-ea/.+' \
+     --certificate-identity-regexp '^https://github\.com/TommasoChi/turbo-ea/\.github/workflows/docker-publish\.yml@refs/(heads/main|tags/v[^/]+)$' \
      --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
-     ghcr.io/vincentmakes/turbo-ea/backend:<version>
+     ghcr.io/tommasochi/turbo-ea/backend:<version>
    ```
    Needs cosign 2.6 or newer (or 3.x) — the signature is a Sigstore bundle; see [Supply Chain](../admin/supply-chain.md).
 
 For a minor that warrants an RC:
 
 1. Same PR-and-merge flow as above, but bump to `1.Y.0-rc.1`.
-2. After merge, tag `v1.Y.0-rc.1` and push. The publish workflow builds and pushes the RC images (only `:1.Y.0-rc.1`, never `:latest` or short tags — `flavor: latest=auto` handles that). The release workflow creates a GitHub Release; manually flip it to prerelease afterwards via `gh release edit v1.Y.0-rc.1 --prerelease` or in the GitHub UI.
+2. After merge, tag `v1.Y.0-rc.1` and push. The publish workflow builds and pushes the RC images (only `:1.Y.0-rc.1`, never `:latest` or short tags — `flavor: latest=auto` handles that). GitHub marks the release as a prerelease automatically.
 3. Wait for the bake window. Address any reported issues with `-rc.2`, `-rc.3` as needed.
-4. To promote: bump `VERSION` to `1.Y.0` in a final PR (CHANGELOG entry consolidates all RC fixes), merge, tag `v1.Y.0`, push. The `:latest` and short tags now point at the promoted release.
+4. To promote: bump `VERSION` to `1.Y.0` in a final PR (CHANGELOG entry consolidates all RC fixes), merge, run and record both release audits on the final commit, then tag `v1.Y.0` and push. The `:latest` and short tags now point at the promoted release.
 
 ---
 

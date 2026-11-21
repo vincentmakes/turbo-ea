@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs session-start\"",
+            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set TRAIL_HOME=%CD%\\.trail\\cache\\codex-home&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs session-start\"",
             "timeout": 10,
             "statusMessage": "Loading Turbo EA Trail notes"
           }
@@ -15,11 +15,22 @@
     ],
     "PreToolUse": [
       {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git -c \"alias.turbo-release-check=!node .claude/hooks/release-audits.cjs\" turbo-release-check",
+            "timeout": 10,
+            "statusMessage": "Verifica entrambi gli audit prima del tag"
+          }
+        ]
+      },
+      {
         "matcher": "^apply_patch$",
         "hooks": [
           {
             "type": "command",
-            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs pre-edit\"",
+            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set TRAIL_HOME=%CD%\\.trail\\cache\\codex-home&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs pre-edit\"",
             "timeout": 5,
             "statusMessage": "Loading Trail notes before the edit"
           }
@@ -30,13 +41,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs pre-edit\"",
+            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set TRAIL_HOME=%CD%\\.trail\\cache\\codex-home&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs pre-edit\"",
             "timeout": 5,
             "statusMessage": "Loading Trail notes before the command"
           },
           {
             "type": "command",
-            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs pre-bash\"",
+            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set TRAIL_HOME=%CD%\\.trail\\cache\\codex-home&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs pre-bash\"",
             "timeout": 5,
             "statusMessage": "Checking the command with Trail"
           }
@@ -52,6 +63,17 @@
             "statusMessage": "Graphify · Promemoria per le ricerche"
           }
         ]
+      },
+      {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git -c \"alias.turbo-security-check=!node .claude/hooks/check-security-review.cjs\" turbo-security-check",
+            "timeout": 60,
+            "statusMessage": "Verifica security review prima della PR"
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -60,7 +82,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs codex-post-bash\"",
+            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set TRAIL_HOME=%CD%\\.trail\\cache\\codex-home&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs codex-post-bash\"",
             "timeout": 5,
             "statusMessage": "Recording the command result in Trail"
           }
@@ -71,7 +93,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs post-edit\"",
+            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set TRAIL_HOME=%CD%\\.trail\\cache\\codex-home&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs post-edit\"",
             "timeout": 10,
             "statusMessage": "Updating Trail context after the edit"
           }
@@ -83,7 +105,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs prompt\"",
+            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set TRAIL_HOME=%CD%\\.trail\\cache\\codex-home&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs prompt\"",
             "timeout": 15,
             "statusMessage": "Loading Trail context for the request"
           }
@@ -95,7 +117,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs stop\"",
+            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set TRAIL_HOME=%CD%\\.trail\\cache\\codex-home&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs stop\"",
             "timeout": 10,
             "statusMessage": "Updating Trail at the end of the turn"
           }
@@ -107,7 +129,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs session-end\"",
+            "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set TRAIL_HOME=%CD%\\.trail\\cache\\codex-home&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs session-end\"",
             "timeout": 3,
             "statusMessage": "Closing the Trail session"
           }

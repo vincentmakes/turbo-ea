@@ -1,3 +1,4 @@
 [shell_environment_policy.set]
 TRAIL_INVOKED_AS = "trail"
 DO_NOT_TRACK = "1"
+TRAIL_HOME = ".trail/cache/codex-home"

@@ -24,8 +24,8 @@ jobs:
           version="${GITHUB_REF_NAME#v}"
           # Contract: CHANGELOG headings must stay in Keep a Changelog form,
           # e.g. `## [0.70.0] - 2026-05-05`, so the matching section can be cut.
-          section=$(awk -v version="$version" '
-            $0 ~ "^## \\[" version "\\]" { capture=1; next }
+          section=$(awk -v heading="[$version]" '
+            /^## / && $2 == heading { capture=1; next }
             capture && $0 ~ "^## \\[" { exit }
             capture { print }
           ' CHANGELOG.md)
@@ -49,5 +49,5 @@ jobs:
           name: ${{ steps.notes.outputs.name }}
           body: ${{ steps.notes.outputs.body }}
           draft: false
-          prerelease: false
+          prerelease: ${{ contains(github.ref_name, '-rc.') }}
           generate_release_notes: false
