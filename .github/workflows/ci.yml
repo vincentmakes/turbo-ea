@@ -30,6 +30,11 @@ jobs:
       backend: ${{ steps.filter.outputs.backend == 'true' || steps.filter.outputs.ci == 'true' }}
       openapi: ${{ steps.filter.outputs.openapi == 'true' }}
       images: ${{ steps.filter.outputs.images == 'true' }}
+      review_hooks: ${{ steps.filter.outputs.review_hooks == 'true' || steps.filter.outputs.ci == 'true' }}
+      trail_bootstrap: ${{ steps.filter.outputs.trail_bootstrap == 'true' || steps.filter.outputs.ci == 'true' }}
+      translation_tool: ${{ steps.filter.outputs.translation_tool == 'true' || steps.filter.outputs.ci == 'true' }}
+      screenshot_tool: ${{ steps.filter.outputs.screenshot_tool == 'true' || steps.filter.outputs.ci == 'true' }}
+      signature_docs: ${{ steps.filter.outputs.signature_docs == 'true' || steps.filter.outputs.ci == 'true' }}
       frontend: ${{ steps.filter.outputs.frontend == 'true' || steps.filter.outputs.ci == 'true' }}
       mcp: ${{ steps.filter.outputs.mcp == 'true' || steps.filter.outputs.ci == 'true' }}
       mutation: ${{ steps.filter.outputs.mutation == 'true' || steps.filter.outputs.ci == 'true' }}
@@ -76,6 +81,25 @@ jobs:
               - 'nginx/**'
               - 'frontend/nginx.conf'
               - 'docker-compose.yml'
+            review_hooks:
+              - '.claude/hooks/*security-review*'
+              - '.claude/hooks/release-audits.cjs'
+              - '.claude/hooks/shell-commands.cjs'
+              - '.claude/settings.json'
+              - '.codex/hooks.json'
+              - 'scripts/security/test_security_review_hooks.py'
+              - 'scripts/security/release-audits.test.cjs'
+            trail_bootstrap:
+              - '.claude/hooks/session-start.sh'
+              - 'scripts/test_trail_web_start.sh'
+            translation_tool:
+              - 'scripts/i18n/**'
+            screenshot_tool:
+              - 'scripts/screenshots/**'
+            signature_docs:
+              - 'docs/admin/supply-chain.md'
+              - 'docs/reference/releases.md'
+              - 'backend/tests/services/test_release_workflow_guards.py'
             mcp:
               - 'mcp-server/**'
             # The mutation gate's own scripts and floors. They are read by the
@@ -120,6 +144,44 @@ jobs:
               - 'Dockerfile'
             ci:
               - '.github/workflows/**'
+
+  tooling-tests:
+    name: Project Tooling Tests
+    needs: changes
+    if: needs.changes.outputs.review_hooks == 'true' || needs.changes.outputs.trail_bootstrap == 'true' || needs.changes.outputs.translation_tool == 'true' || needs.changes.outputs.screenshot_tool == 'true' || needs.changes.outputs.signature_docs == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: needs.changes.outputs.review_hooks == 'true' || needs.changes.outputs.translation_tool == 'true' || needs.changes.outputs.signature_docs == 'true'
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: needs.changes.outputs.review_hooks == 'true' || needs.changes.outputs.screenshot_tool == 'true'
+        with:
+          node-version: 24
+      - name: Test PR review receipts
+        if: needs.changes.outputs.review_hooks == 'true'
+        run: python scripts/security/test_security_review_hooks.py
+      - name: Test release audit receipts
+        if: needs.changes.outputs.review_hooks == 'true'
+        run: node --test scripts/security/release-audits.test.cjs
+      - name: Test the Trail web bootstrap
+        if: needs.changes.outputs.trail_bootstrap == 'true'
+        run: bash scripts/test_trail_web_start.sh
+      - name: Test the translation CLI
+        if: needs.changes.outputs.translation_tool == 'true'
+        run: python -m unittest discover -s scripts/i18n -p test_check_locales_cli.py
+      - name: Test screenshot capture
+        if: needs.changes.outputs.screenshot_tool == 'true'
+        run: |
+          npm ci --prefix scripts/screenshots
+          npm --prefix scripts/screenshots test
+      - name: Verify documented signature commands
+        if: needs.changes.outputs.signature_docs == 'true'
+        run: |
+          python -m pip install "pytest>=8,<9.2"
+          python -m pytest --noconftest -q backend/tests/services/test_release_workflow_guards.py -k documented_backend_signature
 
   # ── Backend ───────────────────────────────────────────────────────────
   backend-lint:
