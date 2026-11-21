@@ -66,8 +66,8 @@ colour in code, whatever an example in the skill shows. Their `reference.md` fil
 - Free text through `LinkifiedText`; stored HTML through `sanitizeRichHtml`; a `postMessage` handler
   checks `e.origin`; a chart tooltip that returns a string escapes every label (`escapeHtml`).
 - A new route goes in `ROUTE_PERMISSIONS` (`src/lib/routePermissions.ts`) or `INTENTIONALLY_UNGATED`.
-- The post-edit hook runs Biome on touched `.ts` and `.tsx` files. Review the automatic fixes
-  and resolve remaining diagnostics from its concise output.
+- The post-edit hook runs read-only Biome lint on existing `.ts` and `.tsx` files. It formats
+  and safely fixes new files. Review those fixes and resolve remaining concise diagnostics.
 - For each modified or new `.ts` or `.tsx` file that the hook did not check, run
   `make frontend-check FILE=frontend/src/path.tsx` from the repository root.
 - Before reporting, run ESLint once on the touched files from `frontend/` with

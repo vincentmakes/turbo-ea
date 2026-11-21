@@ -85,7 +85,7 @@ test('requires an existing backend Python file before running Ruff', t => {
   }
 });
 
-test('Claude Edit fixes and formats the named file and reports its remaining diagnostic', t => {
+test('Claude Edit formats the named file, preserves its unused import and reports F401', t => {
   const { cwd, write, hook, read } = fixture(t);
   const file = 'backend/app/with spaces.py';
   write(file, 'import os\n\nassert  1==1\n');
@@ -95,8 +95,11 @@ test('Claude Edit fixes and formats the named file and reports its remaining dia
   const output = JSON.parse(result.stdout).hookSpecificOutput;
   assert.equal(output.hookEventName, 'PostToolUse');
   const context = output.additionalContext;
-  assert.match(context, /^[^\n]+with spaces\.py:1:1: S101 [^\n]+$/);
-  assert.equal(read(file), 'assert 1 == 1\n');
+  const findings = context.split('\n');
+  assert.equal(findings.length, 2);
+  assert.match(findings[0], /with spaces\.py:1:8: F401 /);
+  assert.match(findings[1], /with spaces\.py:3:1: S101 /);
+  assert.equal(read(file), 'import os\n\nassert 1 == 1\n');
   assert.equal(read('backend/app/other.py'), 'import sys\n');
 });
 

@@ -202,7 +202,7 @@ for the [pre-PR workflow](#local-workflow-from-change-to-pr-and-release).
 ```mermaid
 flowchart TD
     edit["Create or edit a .ts or .tsx file"] --> hook{"Did the post-edit hook run?"}
-    hook -->|Yes| automatic["Claude or Codex runs Biome<br/>Safe fixes and concise diagnostics"]
+    hook -->|Yes| automatic["Run Biome lint on existing files<br/>Format and safely fix new files"]
     hook -->|No| manual["Run make frontend-check FILE=frontend/..."]
     automatic --> review["Resolve findings and review the diff"]
     manual --> review
@@ -214,9 +214,14 @@ flowchart TD
 #### While editing TypeScript
 
 The shared post-edit hook runs Biome after Claude Code's `Edit` and `Write` and Codex's `apply_patch`.
-It uses the frontend's installed Biome to apply safe fixes to the touched `.ts` and `.tsx` files.
+It runs read-only lint on existing `.ts` and `.tsx` files. On new files absent from `HEAD`, Biome
+can format, organize imports and apply safe fixes. It uses read-only lint for patch renames and
+when Git cannot confirm that a file is new.
+The formatter aims for lines of about 100 columns. This setting does not affect lint-only runs.
 A clean result produces no Biome feedback. Remaining errors use `concise` output, one line per
-diagnostic. See [project hook approval](#review-project-hooks).
+diagnostic. The hook and the manual check honor existing ESLint waivers for the matching
+`no-explicit-any` location. An `any` outside those waivers still produces an error.
+See [project hook approval](#review-project-hooks).
 
 For a file created or modified outside the hook, run this read-only check from the repository root.
 
@@ -319,6 +324,7 @@ flowchart TD
 The shared Ruff hook runs after Claude Code's `Edit` and `Write` and Codex's `apply_patch`.
 It applies safe fixes from the standard rule set, formats the affected Python files under
 `backend/`, then checks each whole file with the standard rules plus `B`, `S`, `C901` and `UP`.
+The hook reports `F401` without removing the unused import, which an in-progress edit may still need.
 The expanded check ignores `S101` in Pytest files under `backend/tests/`. A clean edit produces no
 Ruff feedback. Remaining diagnostics use `concise` output, one line per finding.
 
@@ -351,7 +357,8 @@ committing. For intentional bulk lint fixes, use `make format` from the reposito
 backend venv activated and review `git diff -- backend/` afterwards.
 
 ```powershell
-ruff format . ; ruff check .
+.\venv\Scripts\ruff.exe format .
+.\venv\Scripts\ruff.exe check .
 ```
 
 ---

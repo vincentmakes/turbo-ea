@@ -38,7 +38,7 @@ function runRuff(backend, files, fromHook = false) {
 
   let formatting;
   if (fromHook) {
-    const fixes = run('check', ['--fix-only', '--no-unsafe-fixes']);
+    const fixes = run('check', ['--fix-only', '--no-unsafe-fixes', '--unfixable', 'F401']);
     if (fixes.status !== 0) return fixes;
     formatting = run('format', []);
   }

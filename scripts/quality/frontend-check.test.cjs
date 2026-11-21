@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
+const { createRequire } = require('node:module');
 const os = require('node:os');
 const path = require('node:path');
 const { test } = require('node:test');
@@ -53,8 +54,8 @@ test('rejects empty, non-TypeScript, directory, outside and multi-file input bef
   assert.equal(result.stdout, '');
 });
 
-test('post-edit Biome stays silent on success and returns only residual concise errors', t => {
-  const { cwd: root, file } = fixture(t);
+function hookFixture(t) {
+  const { cwd: root, file, check } = fixture(t);
   const scriptDir = path.join(root, 'scripts', 'quality');
   fs.mkdirSync(scriptDir, { recursive: true });
   for (const name of ['frontend-check.cjs', 'python-check.cjs', 'post-edit.cjs']) {
@@ -64,21 +65,42 @@ test('post-edit Biome stays silent on success and returns only residual concise 
   const bin = path.join('node_modules', '@biomejs', 'biome', 'bin', 'biome');
   fs.writeFileSync(path.join(frontend, bin), `require(${JSON.stringify(path.join(project, 'frontend', bin))});`);
   fs.copyFileSync(path.join(project, 'frontend/biome.json'), path.join(frontend, 'biome.json'));
+  const localRequire = createRequire(path.join(project, 'frontend', 'package.json'));
+  for (const name of ['eslint', 'typescript-eslint']) {
+    const moduleDir = path.join(frontend, 'node_modules', name);
+    fs.mkdirSync(moduleDir, { recursive: true });
+    fs.writeFileSync(path.join(moduleDir, 'index.js'),
+      `module.exports = require(${JSON.stringify(localRequire.resolve(name))});`);
+  }
 
-  const clean = path.join(frontend, 'src', 'clean.ts');
-  fs.writeFileSync(clean, 'export const value = 1;\n');
+  function git(...args) {
+    const result = spawnSync('git', ['-c', 'core.autocrlf=false', '-c', 'core.hooksPath=.git/hooks',
+      '-c', 'user.name=Tooling test', '-c', 'user.email=tooling@example.invalid',
+      '-c', 'commit.gpgsign=false', ...args], { cwd: root, encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout;
+  }
+  git('init', '-q');
+  git('commit', '-qm', 'Start fixture', '--allow-empty');
   const run = (tool, input) => spawnSync(process.execPath, [path.join(scriptDir, 'post-edit.cjs')], {
     cwd: root,
     encoding: 'utf8',
     input: JSON.stringify({ cwd: root, tool_name: tool, tool_input: input }),
   });
+  return { frontend, file, run, git, check };
+}
 
+test('post-edit Biome stays silent on success and safely fixes a new file', t => {
+  const { frontend, file, run, git } = hookFixture(t);
+  const clean = path.join(frontend, 'src', 'clean.ts');
+  fs.writeFileSync(clean, 'export const value = 1;\n');
   const success = run('Write', { file_path: clean });
   assert.equal(success.status, 0, success.stderr);
   assert.equal(success.stdout, '');
   assert.equal(success.stderr, '');
 
   fs.writeFileSync(file, 'export const value: any=1;\n');
+  git('add', '--', 'frontend/src/with space.tsx');
   const failure = run('apply_patch', {
     command: '*** Begin Patch\n*** Update File: frontend/src/with space.tsx\n*** End Patch\n',
   });
@@ -88,4 +110,66 @@ test('post-edit Biome stays silent on success and returns only residual concise 
   assert.equal(hookEventName, 'PostToolUse');
   assert.match(additionalContext, /^[^\r\n]+with space\.tsx:[^\r\n]+noExplicitAny[^\r\n]*$/);
   assert.equal(fs.readFileSync(file, 'utf8'), 'export const value: any = 1;\n');
+});
+
+test('post-edit Biome lints a one-line edit to a tracked TSX without rewriting the rest', t => {
+  const { file, run, git } = hookFixture(t);
+  const longLine = `export const details = { first: "${'x'.repeat(150)}", second: 1 };`;
+  const source = `${longLine}\nexport const value: any = 1;\n`;
+  fs.writeFileSync(file, source);
+  git('add', '--', 'frontend/src/with space.tsx');
+  git('commit', '-qm', 'Track existing TSX');
+  const edited = source.replace('value: any = 1', 'value: any = 2');
+  fs.writeFileSync(file, edited);
+
+  const result = run('Edit', { file_path: file });
+  assert.equal(result.status, 0, result.stderr);
+  const { additionalContext } = JSON.parse(result.stdout).hookSpecificOutput;
+  assert.match(additionalContext, /^[^\r\n]+with space\.tsx:[^\r\n]+noExplicitAny[^\r\n]*$/);
+  assert.equal(fs.readFileSync(file, 'utf8'), edited);
+  assert.match(git('diff', '--numstat', '--', 'frontend/src/with space.tsx'), /^1\t1\t/);
+});
+
+test('post-edit Biome keeps a patch rename in read-only mode', t => {
+  const { frontend, file, run, git } = hookFixture(t);
+  const source = 'export const value=1;\n';
+  fs.writeFileSync(file, source);
+  git('add', '--', 'frontend/src/with space.tsx');
+  git('commit', '-qm', 'Track original TSX');
+  git('mv', '--', 'frontend/src/with space.tsx', 'frontend/src/renamed.tsx');
+
+  const result = run('apply_patch', {
+    command: '*** Begin Patch\n*** Update File: frontend/src/with space.tsx\n*** Move to: frontend/src/renamed.tsx\n*** End Patch\n',
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, '');
+  assert.equal(fs.readFileSync(path.join(frontend, 'src', 'renamed.tsx'), 'utf8'), source);
+});
+
+test('Biome honors ESLint any waivers without hiding an any outside their scope', t => {
+  const { file, run, git, check } = hookFixture(t);
+  const waived = [
+    '// eslint-disable-next-line @typescript-eslint/no-explicit-any -- DrawIO peer API',
+    'export const sameLine = ["\u{1f680}", 1 as any];',
+    '/* eslint-disable @typescript-eslint/no-explicit-any */',
+    'export const inBlock: any = 2;',
+    '/* eslint-enable @typescript-eslint/no-explicit-any */',
+    '',
+  ].join('\n');
+  fs.writeFileSync(file, waived);
+  git('add', '--', 'frontend/src/with space.tsx');
+  git('commit', '-qm', 'Track existing ESLint waivers');
+
+  const clean = run('Edit', { file_path: file });
+  assert.equal(clean.status, 0, clean.stderr);
+  assert.equal(clean.stdout, '');
+  const manual = check('frontend/src/with space.tsx');
+  assert.equal(manual.status, 0, manual.stdout + manual.stderr);
+
+  const edited = waived + 'export const unwaived: any = 3;\n';
+  fs.writeFileSync(file, edited);
+  const result = run('Edit', { file_path: file });
+  const { additionalContext } = JSON.parse(result.stdout).hookSpecificOutput;
+  assert.match(additionalContext, /^[^\r\n]+with space\.tsx:6:24: lint\/suspicious\/noExplicitAny:[^\r\n]+$/);
+  assert.equal(fs.readFileSync(file, 'utf8'), edited);
 });
