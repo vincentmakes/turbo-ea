@@ -69,8 +69,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "git -c \"alias.turbo-security-check=!CLAUDE_PROJECT_DIR=. bash .claude/hooks/check-security-review.sh\" turbo-security-check",
-            "timeout": 10,
+            "command": "git -c \"alias.turbo-security-check=!node .claude/hooks/check-security-review.cjs\" turbo-security-check",
+            "timeout": 60,
             "statusMessage": "Verifica security review prima della PR"
           }
         ]
@@ -96,17 +96,6 @@
             "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set TRAIL_HOME=%CD%\\.trail\\cache\\codex-home&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs post-edit\"",
             "timeout": 10,
             "statusMessage": "Updating Trail context after the edit"
-          }
-        ]
-      },
-      {
-        "matcher": "^mcp__codex_security__get_codex_security_completed_scan$",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "git -c \"alias.turbo-security-mark=!CLAUDE_PROJECT_DIR=. bash .claude/hooks/mark-security-review.sh codex\" turbo-security-mark",
-            "timeout": 10,
-            "statusMessage": "Registra security review"
           }
         ]
       }

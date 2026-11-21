@@ -5,6 +5,8 @@ const path = require('node:path');
 const { createHash, randomUUID } = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 
+const { commands } = require('./shell-commands.cjs');
+
 const audits = ['security-audit', 'ponytail-audit'];
 const release = /^v\d+\.\d+\.\d+(?:-rc\.\d+)?$/;
 const fullSha = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
@@ -75,22 +77,6 @@ function requireAudits(cwd, ref) {
   if (missing.length) throw Error('Release blocked for ' + sha + '. Run and review the full-repository '
     + missing.join(' and ') + ', then record each passing report with node .claude/hooks/release-audits.cjs record <audit> '
     + sha + ' <report-file>.');
-}
-
-// Recognize direct commands, quoted arguments and shell separators without
-// executing any input. Arbitrary scripts, shell aliases and wrappers are outside this chat hook.
-function commands(text) {
-  const parts = [[]];
-  const joined = text.replace(/[\\\x60]\r?\n/g, '');
-  const tokens = joined.match(/(?:[^\s"';&|]+|"[^"]*"|'[^']*')+|&&|\|\||[;&|\n]/g) || [];
-  for (const token of tokens) {
-    if (/^(?:&&|\|\||[;&|\n])$/.test(token)) {
-      if (parts.at(-1).length) parts.push([]);
-    } else {
-      parts.at(-1).push(token.replace(/"([^"]*)"|'([^']*)'/g, (_, dq, sq) => dq ?? sq));
-    }
-  }
-  return parts.filter(part => part.length);
 }
 
 function dynamic(value) {

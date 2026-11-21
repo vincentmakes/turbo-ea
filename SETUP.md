@@ -290,6 +290,18 @@ The project skills are versioned under [.claude/skills](.claude/skills). Externa
 
 After installing the Ponytail plugin (section 5), run `./.agents/restore-skills.ps1` from the project root in PowerShell. It creates a junction to each project skill and six to the installed Ponytail skills. It also checks existing junctions before making changes. Rerun it to check an existing checkout.
 
+### Static security review skills
+
+The pre-PR `security-reviewer` uses both project adaptations in one invocation on Claude Code and Codex.
+
+- [Trail of Bits differential review](.claude/skills/trailofbits-differential-review-static/SKILL.md)
+  compares the patch with its baseline and traces changed protections to callers and tests.
+- [GetSentry security review](.claude/skills/getsentry-security-review-static/SKILL.md)
+  follows data and permissions through the implementation, including authenticated roles.
+
+Each entry includes its source revision and license. The project copies contain the
+instructions needed offline. The PowerShell restore command above exposes them to Codex.
+
 ### async-python-patterns
 
 The [backend-dev](.claude/agents/backend-dev.md) agent loads it for asynchronous code and concurrency in Python.
@@ -384,28 +396,27 @@ Each role has one shared definition in `.claude/agents/<name>.md`. Its Codex pro
 | docs-keeper | Manual, screenshot references and screenshot capture | [.claude/agents/docs-keeper.md](.claude/agents/docs-keeper.md) | sonnet | medium | [.codex/agents/docs-keeper.toml](.codex/agents/docs-keeper.toml) | gpt-6.2-sol | medium |
 | code-simplifier | Simplifies the changed code without changing behaviour, then re-runs the tests of the files it touched | [.claude/agents/code-simplifier.md](.claude/agents/code-simplifier.md) | opus | high | [.codex/agents/code-simplifier.toml](.codex/agents/code-simplifier.toml) | gpt-6-sol | medium |
 | code-reviewer | Independent, read-only review with ponytail-review and project rules, plus targeted Python, React composition and React performance checks | [.claude/agents/code-reviewer.md](.claude/agents/code-reviewer.md) | opus | high | [.codex/agents/code-reviewer.toml](.codex/agents/code-reviewer.toml) | gpt-6.2-astra | high |
-| security-reviewer | Independent, read-only security review of the branch diff (diff scan, permission and CardReadScope rules) | [.claude/agents/security-reviewer.md](.claude/agents/security-reviewer.md) | opus | high | [.codex/agents/security-reviewer.toml](.codex/agents/security-reviewer.toml) | gpt-6.2-astra | high |
+| security-reviewer | Independent, read-only Trail of Bits and GetSentry static reviews of the same diff, including permissions and CardReadScope | [.claude/agents/security-reviewer.md](.claude/agents/security-reviewer.md) | opus | high | [.codex/agents/security-reviewer.toml](.codex/agents/security-reviewer.toml) | gpt-6.2-astra | high |
 | spec-plan-reviewer | Fresh, read-only review of each spec or plan before presentation | [.claude/agents/spec-plan-reviewer.md](.claude/agents/spec-plan-reviewer.md) | opus | medium | [.codex/agents/spec-plan-reviewer.toml](.codex/agents/spec-plan-reviewer.toml) | gpt-6.2-astra | high |
 | vapt | Isolated security testing: shared Viewer check, passive traffic analysis and evidence review; full VAPT in Claude | [.claude/agents/vapt.md](.claude/agents/vapt.md) | opus | high | [.codex/agents/vapt.toml](.codex/agents/vapt.toml) | gpt-6.2-astra | high |
 
-After development, start `code-simplifier`, `code-reviewer` and `security-reviewer`, one after the other, each in a fresh context: tests, simplify, tests of the touched files, code review and its fixes, security review and its fixes. In both hosts, `code-simplifier` runs `ce-simplify-code` on changed code and tests. When the diff includes project-maintained operational instructions or configuration, it then runs `ponytail:ponytail` at level `full` on those files. An instructions- or configuration-only diff goes directly to Ponytail. The independent `code-reviewer` uses `ponytail:ponytail-review`. In Codex, start each reviewer from a read-only parent session as described below. Claude Code uses `security-review` and records it for the `gh pr create` hook. Codex uses `security-diff-scan` from the Codex Security plugin. Both hosts use the shared PR hooks described below. The calling session owns commits, pushes and pull requests. To change a role's duties for both tools, edit its shared definition. To change its Codex model or reasoning effort, edit its TOML profile.
+After development, start `code-simplifier`, `code-reviewer` and `security-reviewer`, one after the other, each in a fresh context: tests, simplify, tests of the touched files, code review and its fixes, security review and its fixes. In both hosts, `code-simplifier` runs `ce-simplify-code` on changed code and tests. When the diff includes project-maintained operational instructions or configuration, it then runs `ponytail:ponytail` at level `full` on those files. An instructions- or configuration-only diff goes directly to Ponytail. The independent `code-reviewer` uses `ponytail:ponytail-review`. In Codex, start each reviewer from a read-only parent session as described below. On both hosts the security reviewer returns one report covering both static checklists. The calling session owns commits, pushes and pull requests. To change a role's duties for both tools, edit its shared definition. To change its Codex model or reasoning effort, edit its TOML profile.
 
 #### Approve and verify the security review before a PR
 
-In the Turbo EA project, open **Settings → Hooks** and approve these two commands from `.codex/hooks.json`.
+In Codex, approve **Verifica security review prima della PR** under **Settings → Hooks** in the Turbo EA project. Both hosts run the shared [PR hook](.claude/hooks/check-security-review.cjs) before a direct GitHub CLI command. Use a fresh chat after changing project hook configuration.
 
-| Codex event | Entry to approve | Shared script |
-| --- | --- | --- |
-| PostToolUse on `mcp__codex_security__get_codex_security_completed_scan` | Registra security review | `.claude/hooks/mark-security-review.sh codex` |
-| PreToolUse on `Bash` | Verifica security review prima della PR | `.claude/hooks/check-security-review.sh` |
+1. Start the named `security-reviewer` in a fresh context. For the current branch it obtains the commit and scope ID from `node .claude/hooks/security-review.cjs snapshot`. The ID covers the checkout, merge base with `origin/main`, HEAD, index, working changes and new non-ignored files. The reviewer reads both checklists and compares the snapshot again when finished.
+2. The reviewer returns one JSON report containing `commit`, `scopeId`, `completedAt` and one entry per skill in `passes`. Each entry gives its status, findings and coverage gaps. The main chat follows up on findings and repeats the review after any fixes.
+3. The main chat submits the reviewer's JSON verbatim to `node .claude/hooks/security-review.cjs record` on standard input. Save the UTF-8 report outside the checkout or in an already ignored directory. For example, with the report in the project's ignored `.cache` directory, run this from PowerShell to pass its original bytes:
 
-1. The Codex `security-reviewer` completes Security Diff Scan and reads the sealed report with `get_codex_security_completed_scan` in the same chat that started the scan. This read triggers the approved hook, which verifies the scan ID, diff mode and checkout identity and records the original completion time in `.claude/.security-review-marker`.
-2. The reviewer sends the main chat the **reviewed commit SHA, scan ID and outcome**, including findings with severity and any gaps in coverage. For a review spanning multiple targets, report the scope and outcome of each scan. The plugin restricts the sealed report to its owning chat, so the main chat uses the reviewer's summary.
-3. The main chat checks that the reported revision and scope match the changes headed for the PR, confirms the marker in the same checkout and follows up on the findings. If a fix changes the reviewed diff, review the updated diff before opening the PR.
+   ```powershell
+   cmd /d /c 'node .claude/hooks/security-review.cjs record < ".cache\security-review-report.json"'
+   ```
 
-Reading the same report again preserves the original completion time. Claude records its `security-review` skill through the same marker script.
+4. Run `node .claude/hooks/security-review.cjs check` to verify the receipt without opening a PR. The PR hook checks the same receipt for the checkout used by the command. It requires both passes on the current diff and a completion time within the last 30 minutes. Re-submitting the same JSON preserves the original expiry. The receipt records the reviewer's conclusions, including outstanding findings.
 
-Both Codex commands use a one-command Git alias to run the project script from the worktree root with Git Bash on Windows. The shared check denies `gh pr create` when the marker is missing or older than 30 minutes. The marker attests only to recency. The reviewer's summary identifies the revision reviewed and any open findings. Run `python scripts/security/test_security_review_hooks.py` from the project root to exercise the hooks with synthetic events in temporary checkouts.
+For a historical comparison, give the reviewer the two full commit SHAs. Both passes read that range and return their findings in chat. Only a current-branch review produces the scope ID and completion time used by the gate. Run `python scripts/security/test_security_review_hooks.py` to exercise the host hooks in temporary local repositories.
 
 ### Release audits in Codex and Claude chat
 

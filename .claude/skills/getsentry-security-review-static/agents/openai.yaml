@@ -1,0 +1,5 @@
+interface:
+  display_name: "GetSentry Static Security Review"
+  short_description: "Review a local diff and verify authorization from source."
+policy:
+  allow_implicit_invocation: false

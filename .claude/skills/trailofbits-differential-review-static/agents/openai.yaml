@@ -1,0 +1,5 @@
+interface:
+  display_name: "Trail of Bits Differential Review (Static)"
+  short_description: "Trace a patch through Git history, callers and tests"
+policy:
+  allow_implicit_invocation: false

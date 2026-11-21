@@ -1,180 +1,313 @@
-"""Exercise the configured hooks with synthetic events in an isolated Git checkout."""
+"""Exercise the static-review receipt and both hosts' PR hooks in a local Git fixture."""
 
-import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
 import tempfile
 import time
 import unittest
-from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-READ_SCAN = "mcp__codex_security__get_codex_security_completed_scan"
+HOOKS = Path(".claude/hooks")
+RECEIVER = HOOKS / "security-review.cjs"
+GATE = "check-security-review.cjs"
+SKILLS = ("trailofbits-differential-review-static", "getsentry-security-review-static")
+HOSTS = (
+    (".claude/settings.json", "Bash", "command"),
+    (".claude/settings.json", "PowerShell", "command"),
+    (".codex/hooks.json", "Bash", "cmd"),
+)
 
 
 class SecurityReviewHooks(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory()
+        temporary = tempfile.TemporaryDirectory(prefix="security review ")
         self.addCleanup(temporary.cleanup)
-        self.repo = Path(temporary.name).resolve()
-        subprocess.run(["git", "init", "-q", str(self.repo)], check=True)
-        hooks_dir = self.repo / ".claude/hooks"
-        hooks_dir.mkdir(parents=True)
-        for script in ("mark-security-review.sh", "check-security-review.sh"):
-            shutil.copyfile(ROOT / ".claude/hooks" / script, hooks_dir / script)
-        self.marker = self.repo / ".claude/.security-review-marker"
-        self.hooks = json.loads((ROOT / ".codex/hooks.json").read_text("utf-8"))[
-            "hooks"
-        ]
-
-    def run_hook(self, event, script):
-        commands = [
-            h["command"]
-            for group in self.hooks[event["hook_event_name"]]
-            if re.fullmatch(group["matcher"], event["tool_name"])
-            for h in group["hooks"]
-            if script in h["command"]
-        ]
-        self.assertEqual(len(commands), 1)
-        return subprocess.run(
-            commands[0],
-            shell=True,
-            cwd=self.repo,
-            input=json.dumps(event),
-            text=True,
-            capture_output=True,
-            check=True,
-        ).stdout.strip()
-
-    def check_pr(self, command="gh pr create --fill"):
-        verdict = self.run_hook(
-            {
-                "hook_event_name": "PreToolUse",
-                "tool_name": "Bash",
-                "tool_input": {"command": command},
+        self.repo = Path(temporary.name).resolve() / "checkout"
+        self.repo.mkdir()
+        self.env = {
+            **{
+                key: value
+                for key, value in os.environ.items()
+                if not key.startswith("GIT_") and key != "GH_REPO"
             },
-            "check-security-review.sh",
-        )
-        return (
-            json.loads(verdict)["hookSpecificOutput"]["permissionDecision"]
-            if verdict
-            else "allow"
-        )
-
-    def completed(self, age=5, target=None):
-        instant = int(time.time()) - age
-        date = datetime.fromtimestamp(instant, timezone.utc).isoformat()
-        digest = hashlib.sha256(
-            f"local-workspace\0{target or self.repo}".encode()
-        ).hexdigest()
-        scan = {
-            "id": "test-scan",
-            "mode": "branch_diff",
-            "status": "completed",
-            "sealedAt": date,
-            "completedAt": date,
-            "target": {"kind": "git_diff", "targetId": "target_sha256_" + digest},
+            "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "CLAUDE_PROJECT_DIR": str(self.repo),
         }
+        self.git("init", "-q", "-b", "review-fixture")
+        self.git("config", "user.name", "Review fixture")
+        self.git("config", "user.email", "review@example.invalid")
+        self.git("remote", "add", "origin", "https://github.com/fixture/review.git")
+        (self.repo / HOOKS).mkdir(parents=True)
+        for script in (ROOT / HOOKS).glob("*.cjs"):
+            shutil.copyfile(script, self.repo / HOOKS / script.name)
+        (self.repo / ".gitignore").write_text(
+            ".claude/.security-review-marker\ncache/\n"
+        )
+        self.tracked = self.repo / "tracked.txt"
+        self.tracked.write_bytes(b"base\n")
+        self.git("add", ".")
+        self.git("commit", "-qm", "base")
+        self.git("update-ref", "refs/remotes/origin/main", "HEAD")
+        self.git("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
+        self.tracked.write_bytes(b"branch change\n")
+        self.git("commit", "-qam", "branch change")
+        self.marker = self.repo / ".claude/.security-review-marker"
+
+    def run_local(self, args, *, data=None, cwd=None, check=True):
+        return subprocess.run(
+            args,
+            cwd=cwd or self.repo,
+            env=self.env,
+            input=data,
+            capture_output=True,
+            text=True,
+            check=check,
+        )
+
+    def git(self, *args):
+        return self.run_local(["git", *args]).stdout.strip()
+
+    def cli(self, action, data=None, *, cwd=None):
+        return self.run_local(
+            ["node", str(self.repo / RECEIVER), action], data=data, cwd=cwd, check=False
+        )
+
+    def snapshot(self):
+        result = self.cli("snapshot")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout)
+
+    def report(self):
+        scope = self.snapshot()
         return {
-            "hook_event_name": "PostToolUse",
-            "tool_name": READ_SCAN,
-            "tool_input": {"scanId": scan["id"]},
-            "tool_response": {
-                "structuredContent": {
-                    "scanId": scan["id"],
-                    "manifest": {
-                        "documentType": "codex-security.scan-manifest",
-                        "scan": scan,
-                    },
-                }
-            },
-        }, instant
+            "scopeId": scope["scopeId"],
+            "commit": scope["commit"],
+            "completedAt": scope["observedAt"],
+            "passes": [
+                {"skill": skill, "status": "completed", "findings": [], "gaps": []}
+                for skill in SKILLS
+            ],
+        }
 
-    def mark(self, event):
-        self.run_hook(event, "mark-security-review.sh")
+    def record(self, report):
+        return self.cli("record", json.dumps(report))
 
-    def test_recent_completed_diff_allows_pr(self):
-        event, completed_at = self.completed()
-        self.mark(event)
-        self.assertEqual(int(self.marker.read_text()), completed_at)
-        self.assertEqual(self.check_pr(), "allow")
+    def assert_recorded(self, report):
+        result = self.record(report)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        result = self.cli("check")
+        self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_absent_or_expired_marker_denies_only_pr(self):
-        self.assertEqual(self.check_pr(), "deny")
-        self.marker.write_text(str(int(time.time()) - 1801))
-        self.assertEqual(self.check_pr(), "deny")
-        self.assertEqual(self.check_pr("git status"), "allow")
-
-    def test_invalid_results_do_not_mark(self):
-        for reason in (
-            "error",
-            "incomplete",
-            "unsealed",
-            "other checkout",
-            "id mismatch",
-            "wrong mode",
-            "future",
-            "malformed",
-            "error text",
-        ):
-            with self.subTest(reason=reason):
-                event, _ = self.completed(
-                    age=-300 if reason == "future" else 5,
-                    target=self.repo.parent
-                    if reason == "other checkout"
-                    else self.repo,
-                )
-                result = event["tool_response"]
-                scan = result["structuredContent"]["manifest"]["scan"]
-                if reason == "error":
-                    result["isError"] = True
-                elif reason == "incomplete":
-                    scan["status"] = "running"
-                elif reason == "unsealed":
-                    del scan["sealedAt"]
-                elif reason == "id mismatch":
-                    event["tool_input"]["scanId"] = "another-scan"
-                elif reason == "wrong mode":
-                    scan["mode"] = "repository"
-                elif reason == "malformed":
-                    del result["structuredContent"]
-                elif reason == "error text":
-                    event["tool_response"] = {
-                        "content": [{"type": "text", "text": "failed"}]
-                    }
-                self.mark(event)
-                self.assertFalse(self.marker.exists())
-
-    def test_rereading_an_old_report_preserves_completion_time(self):
-        old, stamp = self.completed(age=3600)
-        self.mark(old)
-        self.mark(old)
-        self.assertEqual(int(self.marker.read_text()), stamp)
-        self.assertEqual(self.check_pr(), "deny")
-        recent, new_stamp = self.completed()
-        self.mark(recent)
-        self.mark(old)
-        self.assertEqual(int(self.marker.read_text()), new_stamp)
-
-    def test_claude_skill_is_still_recorded(self):
-        script = ".claude/hooks/mark-security-review.sh"
-        for skill in ("other", "security-review"):
-            subprocess.run(
-                [
-                    "git",
-                    "-c",
-                    f"alias.test-mark=!CLAUDE_PROJECT_DIR=. bash {script}",
-                    "test-mark",
-                ],
+    def verdict(self, host, tool, field, command, *, workdir=None):
+        config = json.loads((ROOT / host).read_text("utf-8"))
+        hooks = [
+            hook
+            for group in config["hooks"]["PreToolUse"]
+            if re.fullmatch(group["matcher"], tool)
+            for hook in group["hooks"]
+            if GATE in hook["command"]
+        ]
+        self.assertEqual(len(hooks), 1, (host, tool))
+        self.assertNotIn(
+            "if", hooks[0], "Each shell form should reach the command parser"
+        )
+        tool_input = {field: command}
+        if workdir:
+            tool_input["workdir"] = str(workdir)
+        event = {
+            "hook_event_name": "PreToolUse",
+            "tool_name": tool,
+            "cwd": str(self.repo),
+            "tool_input": tool_input,
+        }
+        # The Claude command uses POSIX project-directory expansion. Git supplies
+        # the same shell on Windows. Codex uses its native command processor.
+        if host.startswith(".claude"):
+            args = [
+                "git",
+                "-c",
+                "alias.fixture-hook=!" + hooks[0]["command"],
+                "fixture-hook",
+            ]
+            result = self.run_local(args, data=json.dumps(event))
+        else:
+            result = subprocess.run(
+                hooks[0]["command"],
+                shell=True,
                 cwd=self.repo,
-                input=json.dumps({"tool_input": {"skill": skill}}),
+                env=self.env,
+                input=json.dumps(event),
+                capture_output=True,
                 text=True,
                 check=True,
             )
-            self.assertEqual(self.marker.exists(), skill == "security-review")
+        return (
+            json.loads(result.stdout)["hookSpecificOutput"]["permissionDecision"]
+            if result.stdout.strip()
+            else "allow"
+        )
+
+    def test_rerecording_an_old_report_cannot_renew_its_review(self):
+        report = self.report()
+        now = int(time.time() * 1000)
+        for completion in (now - 1_801_000, now + 120_000, None):
+            with self.subTest(completion=completion):
+                self.assertNotEqual(
+                    self.record(dict(report, completedAt=completion)).returncode, 0
+                )
+                self.assertFalse(self.marker.exists())
+
+    def test_both_hosts_require_both_passes_only_for_a_pr(self):
+        for host in HOSTS:
+            with self.subTest(host=host):
+                self.assertEqual(self.verdict(*host, "gh pr create --fill"), "deny")
+                self.assertEqual(self.verdict(*host, "gh pr view"), "allow")
+                self.assertEqual(
+                    self.verdict(*host, "echo 'run gh pr create when ready'"), "allow"
+                )
+        report = self.report()
+        report["passes"].reverse()
+        report["passes"][0]["findings"] = ["Medium: inspect a changed permission check"]
+        self.assert_recorded(report)
+        self.assertEqual(
+            json.loads(self.marker.read_text("utf-8"))["passes"], report["passes"]
+        )
+        for host in HOSTS:
+            with self.subTest(host=host):
+                self.assertEqual(self.verdict(*host, "gh pr create --fill"), "allow")
+        self.tracked.write_bytes(b"changed since review\n")
+        self.assertEqual(self.verdict(*HOSTS[-1], "gh pr create --fill"), "deny")
+
+    def test_pr_target_must_match_the_reviewed_checkout(self):
+        self.assert_recorded(self.report())
+        host = HOSTS[-1]
+        self.assertEqual(
+            self.verdict(
+                *host,
+                "gh pr create --repo fixture/review --base main --head review-fixture",
+            ),
+            "allow",
+        )
+        self.assertEqual(
+            self.verdict(
+                *host,
+                'gh pr --repo fixture/review create --head fixture:review-fixture --title "--base other"',
+            ),
+            "allow",
+        )
+        for command in (
+            "gh -R another/repo pr create --fill",
+            "gh pr create --repo another/repo --fill",
+            "gh pr create --base another-base --fill",
+            "gh pr create --head another-head --fill",
+        ):
+            with self.subTest(command=command):
+                self.assertEqual(self.verdict(*host, command), "deny")
+        self.git("config", "branch.review-fixture.gh-merge-base", "another-base")
+        self.assertEqual(self.verdict(*host, "gh pr create --fill"), "deny")
+        self.assertEqual(self.verdict(*host, "gh pr create --base main"), "allow")
+        self.git("config", "--unset", "branch.review-fixture.gh-merge-base")
+        self.git("remote", "add", "upstream", "https://github.com/upstream/review.git")
+        self.assertEqual(self.verdict(*host, "gh pr create --fill"), "deny")
+        self.assertEqual(self.verdict(*host, "gh pr create -R fixture/review"), "allow")
+        self.git("config", "remote.upstream.gh-resolved", "base")
+        self.assertEqual(self.verdict(*host, "gh pr create --fill"), "deny")
+        self.git("config", "--unset", "remote.upstream.gh-resolved")
+        self.git("config", "remote.origin.gh-resolved", "base")
+        self.assertEqual(self.verdict(*host, "gh pr create --fill"), "allow")
+
+    def test_old_scan_and_skill_events_have_no_marker_writer(self):
+        for config_path in {host for host, _, _ in HOSTS}:
+            hosts = json.loads((ROOT / config_path).read_text("utf-8"))
+            for group in hosts["hooks"].get("PostToolUse", []):
+                for hook in group["hooks"]:
+                    self.assertNotIn("mark-security-review.sh", hook.get("command", ""))
+
+    def test_invalid_or_historical_reports_cannot_create_a_receipt(self):
+        report = self.report()
+        first, second = report["passes"]
+        invalid = [
+            {**report, "passes": [first]},
+            {**report, "passes": [first, first]},
+            {**report, "passes": [first, {**second, "status": "incomplete"}]},
+            {**report, "passes": [first, {**second, "findings": "none"}]},
+            {**report, "passes": [first, {**second, "skill": "security-review"}]},
+            {**report, "scopeId": None},
+            {**report, "commit": self.git("rev-parse", "HEAD^")},
+        ]
+        for bad in invalid:
+            with self.subTest(bad=bad):
+                self.assertNotEqual(self.record(bad).returncode, 0)
+                self.assertFalse(self.marker.exists())
+        self.assertNotEqual(self.cli("record", "{").returncode, 0)
+        self.assertNotEqual(self.cli("check").returncode, 0)
+
+    def test_scope_covers_index_even_when_worktree_matches_reviewed_bytes(self):
+        old = self.report()
+        self.assert_recorded(old)
+        original = self.tracked.read_bytes()
+        self.tracked.write_bytes(b"staged only\n")
+        self.git("add", self.tracked.name)
+        self.tracked.write_bytes(original)
+        self.assertNotEqual(self.cli("check").returncode, 0)
+        self.assertNotEqual(self.record(old).returncode, 0)
+
+    def test_untracked_content_rename_deletion_and_ignored_files(self):
+        tracked = self.report()
+        self.assert_recorded(tracked)
+        cache = self.repo / "cache"
+        cache.mkdir()
+        (cache / "ignored").write_text("temporary output")
+        self.assertEqual(self.cli("check").returncode, 0)
+        new = self.repo / "untracked with spaces.bin"
+        new.write_bytes(bytes([0, 254]))
+        self.assertNotEqual(self.cli("check").returncode, 0)
+        untracked = self.report()
+        self.assert_recorded(untracked)
+        new.write_bytes(bytes([0, 255]))
+        self.assertNotEqual(self.cli("check").returncode, 0)
+        new.write_bytes(bytes([0, 254]))
+        renamed = new.rename(self.repo / "renamed.bin")
+        self.assertNotEqual(self.record(untracked).returncode, 0)
+        renamed.unlink()
+        self.assertNotEqual(self.record(untracked).returncode, 0)
+
+    def test_receipt_is_bound_to_checkout_head_and_base(self):
+        report = self.report()
+        self.assert_recorded(report)
+        copy = self.repo.parent / "another checkout"
+        shutil.copytree(self.repo, copy)
+        self.assertNotEqual(self.cli("check", cwd=copy).returncode, 0)
+        self.assertEqual(
+            self.verdict(*HOSTS[-1], "gh pr create --fill", workdir=copy), "deny"
+        )
+        self.git("update-ref", "refs/remotes/origin/main", "HEAD")
+        self.assertNotEqual(self.cli("check").returncode, 0)
+        self.assert_recorded(self.report())
+        self.git("commit", "--allow-empty", "-qm", "new head")
+        self.assertNotEqual(self.cli("check").returncode, 0)
+
+    def test_partial_expired_future_and_legacy_receipts_fail_closed(self):
+        self.assert_recorded(self.report())
+        receipt = json.loads(self.marker.read_text("utf-8"))
+        now = int(time.time() * 1000)
+        for bad in (
+            dict(receipt, passes=receipt["passes"][:1]),
+            dict(receipt, recordedAt=now - 1_801_000),
+            dict(receipt, completedAt=now - 1_801_000),
+            dict(receipt, recordedAt=now + 120_000),
+            now // 1000,
+            None,
+        ):
+            with self.subTest(bad=bad):
+                self.marker.write_text(json.dumps(bad))
+                self.assertNotEqual(self.cli("check").returncode, 0)
+        self.assertEqual(self.verdict(*HOSTS[-1], "gh pr create --fill"), "deny")
 
 
 if __name__ == "__main__":
