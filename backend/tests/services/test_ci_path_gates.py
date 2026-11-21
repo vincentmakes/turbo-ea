@@ -14,6 +14,8 @@ TOOLING_INPUTS = [
     ("docs/reference/releases.md", "signature_docs"),
     ("backend/tests/services/test_release_workflow_guards.py", "signature_docs"),
     (".claude/hooks/security-review.cjs", "review_hooks"),
+    (".claude/agents/security-reviewer.md", "review_hooks"),
+    (".codex/agents/security-reviewer.toml", "review_hooks"),
     (".claude/hooks/check-security-review.cjs", "review_hooks"),
     (".claude/hooks/release-audits.cjs", "review_hooks"),
     (".claude/hooks/shell-commands.cjs", "review_hooks"),
@@ -23,6 +25,8 @@ TOOLING_INPUTS = [
     ("scripts/security/release-audits.test.cjs", "review_hooks"),
     (".claude/hooks/session-start.sh", "trail_bootstrap"),
     ("scripts/test_trail_web_start.sh", "trail_bootstrap"),
+    ("package.json", "trail_bootstrap"),
+    ("package-lock.json", "trail_bootstrap"),
     ("scripts/i18n/check_locales.py", "translation_tool"),
     ("scripts/i18n/test_check_locales_cli.py", "translation_tool"),
     ("scripts/screenshots/capture.ts", "screenshot_tool"),
@@ -63,6 +67,10 @@ def test_file_change_enables_its_check(changed_file, job):
     body = jobs[job]
     assert re.search(r"^    needs: (?:\[)?changes(?:\])?$", body, re.M)
     condition = re.search(r"^    if: (.+)$", body, re.M).group(1)
+    if job == "tooling-tests":
+        guard = "always() && (needs.changes.result != 'success' || "
+        assert condition.startswith(guard) and condition.endswith(")")
+        condition = condition[len(guard) : -1]
 
     # Handle the current OR-of-boolean-comparisons syntax and fail closed if it changes.
     patterns = []
@@ -78,6 +86,17 @@ def test_file_change_enables_its_check(changed_file, job):
 def test_tooling_inputs_enable_the_step_that_checks_them(changed_file, output):
     patterns = output_patterns(workflow_jobs()["changes"], output)
     assert any(fnmatch.fnmatchcase(changed_file, pattern) for pattern in patterns)
+
+
+def test_required_tooling_check_fails_when_change_detection_fails():
+    body = workflow_jobs()["tooling-tests"]
+    assert "        if: needs.changes.result != 'success'\n        run: exit 1\n" in body
+    name = re.search(r"^    name: (.+)$", body, re.M).group(1)
+    guidance = (CI.parents[2] / "CONTRIBUTING.md").read_text(encoding="utf-8")
+    row = next(
+        line for line in guidance.splitlines() if line.startswith("| **Require status checks")
+    )
+    assert name in row.split("|")[2].strip().split(", ")
 
 
 @pytest.mark.parametrize(

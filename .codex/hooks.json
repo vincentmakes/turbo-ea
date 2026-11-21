@@ -19,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \".claude/hooks/release-audits.cjs\"",
+            "command": "git -c \"alias.turbo-release-check=!node .claude/hooks/release-audits.cjs\" turbo-release-check",
             "timeout": 10,
             "statusMessage": "Verifica entrambi gli audit prima del tag"
           }

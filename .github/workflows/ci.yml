@@ -82,6 +82,8 @@ jobs:
               - 'frontend/nginx.conf'
               - 'docker-compose.yml'
             review_hooks:
+              - '.claude/agents/security-reviewer.md'
+              - '.codex/agents/security-reviewer.toml'
               - '.claude/hooks/*security-review*'
               - '.claude/hooks/release-audits.cjs'
               - '.claude/hooks/shell-commands.cjs'
@@ -90,6 +92,8 @@ jobs:
               - 'scripts/security/test_security_review_hooks.py'
               - 'scripts/security/release-audits.test.cjs'
             trail_bootstrap:
+              - 'package.json'
+              - 'package-lock.json'
               - '.claude/hooks/session-start.sh'
               - 'scripts/test_trail_web_start.sh'
             translation_tool:
@@ -148,16 +152,19 @@ jobs:
   tooling-tests:
     name: Project Tooling Tests
     needs: changes
-    if: needs.changes.outputs.review_hooks == 'true' || needs.changes.outputs.trail_bootstrap == 'true' || needs.changes.outputs.translation_tool == 'true' || needs.changes.outputs.screenshot_tool == 'true' || needs.changes.outputs.signature_docs == 'true'
+    if: always() && (needs.changes.result != 'success' || needs.changes.outputs.review_hooks == 'true' || needs.changes.outputs.trail_bootstrap == 'true' || needs.changes.outputs.translation_tool == 'true' || needs.changes.outputs.screenshot_tool == 'true' || needs.changes.outputs.signature_docs == 'true')
     runs-on: ubuntu-latest
     steps:
+      - name: Require successful file change detection
+        if: needs.changes.result != 'success'
+        run: exit 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         if: needs.changes.outputs.review_hooks == 'true' || needs.changes.outputs.translation_tool == 'true' || needs.changes.outputs.signature_docs == 'true'
         with:
           python-version: "3.12"
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        if: needs.changes.outputs.review_hooks == 'true' || needs.changes.outputs.screenshot_tool == 'true'
+        if: needs.changes.outputs.review_hooks == 'true' || needs.changes.outputs.trail_bootstrap == 'true' || needs.changes.outputs.screenshot_tool == 'true'
         with:
           node-version: 24
       - name: Test PR review receipts

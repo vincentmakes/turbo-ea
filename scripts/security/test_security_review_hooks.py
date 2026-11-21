@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import tempfile
 import time
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -188,6 +189,21 @@ class SecurityReviewHooks(unittest.TestCase):
         self.tracked.write_bytes(b"changed since review\n")
         self.assertEqual(self.verdict(*HOSTS[-1], "gh pr create --fill"), "deny")
 
+    def test_grouped_commands_and_literal_messages_on_each_host(self):
+        for host in HOSTS:
+            with self.subTest(host=host):
+                self.assertEqual(self.verdict(*host, "(gh pr create --fill)"), "deny")
+                self.assertEqual(self.verdict(*host, "echo '(gh pr create)'"), "allow")
+                self.assertEqual(self.verdict(*host, "(gh pr view)"), "allow")
+        self.assert_recorded(self.report())
+        for host in HOSTS:
+            with self.subTest(host=host):
+                self.assertEqual(self.verdict(*host, "(gh pr create --fill)"), "allow")
+                self.assertEqual(self.verdict(*host, 'echo "$(gh pr create)"'), "deny")
+        self.assertEqual(self.verdict(*HOSTS[0], 'echo "`gh pr create`"'), "deny")
+        self.assertEqual(self.verdict(*HOSTS[0], "echo '`gh pr create`'"), "allow")
+        self.assertEqual(self.verdict(*HOSTS[1], 'echo "`$(gh pr create)"'), "allow")
+
     def test_pr_target_must_match_the_reviewed_checkout(self):
         self.assert_recorded(self.report())
         host = HOSTS[-1]
@@ -313,6 +329,21 @@ class SecurityReviewHooks(unittest.TestCase):
                 self.marker.write_text(json.dumps(bad))
                 self.assertNotEqual(self.cli("check").returncode, 0)
         self.assertEqual(self.verdict(*HOSTS[-1], "gh pr create --fill"), "deny")
+
+
+class SecurityReviewerProfile(unittest.TestCase):
+    def test_claude_reviewer_can_only_read_and_search(self):
+        role = (ROOT / ".claude/agents/security-reviewer.md").read_text(encoding="utf-8")
+        frontmatter = role.split("---", 2)[1]
+        tools = re.findall(r"^tools: (.+)$", frontmatter, re.MULTILINE)
+        self.assertEqual(len(tools), 1)
+        self.assertEqual({tool.strip() for tool in tools[0].split(",")}, {"Read", "Grep", "Glob"})
+
+    def test_codex_reviewer_uses_read_only_shared_role(self):
+        with (ROOT / ".codex/agents/security-reviewer.toml").open("rb") as profile_file:
+            profile = tomllib.load(profile_file)
+        self.assertEqual(profile["sandbox_mode"], "read-only")
+        self.assertIn(".claude/agents/security-reviewer.md", profile["developer_instructions"])
 
 
 if __name__ == "__main__":

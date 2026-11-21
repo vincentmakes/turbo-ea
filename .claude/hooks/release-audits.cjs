@@ -8,7 +8,8 @@ const { execFileSync } = require('node:child_process');
 const { commands } = require('./shell-commands.cjs');
 
 const audits = ['security-audit', 'ponytail-audit'];
-const release = /^v\d+\.\d+\.\d+(?:-rc\.\d+)?$/;
+const number = '(?:0|[1-9][0-9]*)';
+const release = new RegExp('^v' + number + '\\.' + number + '\\.' + number + '(?:-rc\\.' + number + ')?$');
 const fullSha = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 const digest = report => createHash('sha256').update(report).digest('hex');
 
@@ -83,6 +84,13 @@ function dynamic(value) {
   return /[$%*?]/.test(value);
 }
 
+function isRelease(name) {
+  // The three publishing workflows subscribe to v*.*.*. A single * excludes '/'.
+  if (!/^v[^/]*\.[^/]*\.[^/]*$/.test(name)) return false;
+  if (!release.test(name)) throw Error('Use a stable vX.Y.Z or candidate vX.Y.Z-rc.N release tag with canonical numeric components.');
+  return true;
+}
+
 function tagTargets(args) {
   const operands = [];
   let endOptions = false;
@@ -96,9 +104,9 @@ function tagTargets(args) {
       || /^-[asf]*[mFu]$/.test(arg)) i++;
   }
   const [name, target = 'HEAD'] = operands;
-  if (!name || !release.test(name) && !dynamic(name)) return [];
+  if (!name) return [];
   if (dynamic(name)) throw Error('Use the literal release tag name so its target can be checked.');
-  return [target];
+  return isRelease(name) ? [target] : [];
 }
 
 function followsTags(cwd) {
@@ -141,7 +149,7 @@ function pushTargets(args, cwd, followTags) {
     if (operands[i] === 'tag' && operands[i + 1]) {
       const name = operands[++i];
       if (dynamic(name)) throw Error('Use an explicit local tag and destination.');
-      if (release.test(name)) targets.push('refs/tags/' + name);
+      if (isRelease(name)) targets.push('refs/tags/' + name);
       continue;
     }
     const spec = operands[i].replace(/^\+/, '');
@@ -150,7 +158,7 @@ function pushTargets(args, cwd, followTags) {
     if (!source || dest.startsWith('refs/') && !dest.startsWith('refs/tags/') && !dynamic(dest.split('/')[1])) continue;
     const name = dest.replace(/^refs\/tags\//, '');
     if (dynamic(name)) throw Error('Push release tags by explicit ref so each audited commit can be checked.');
-    if (release.test(name)) targets.push(source === dest && !source.includes('/') ? 'refs/tags/' + source : source);
+    if (isRelease(name)) targets.push(source === dest && !source.includes('/') ? 'refs/tags/' + source : source);
   }
   return targets;
 }
@@ -167,7 +175,9 @@ function checkGh(args) {
     else if (!arg.startsWith('-')) words.push(arg);
   }
   const [group, action, name] = words;
-  if (group === 'release' && action === 'create' && !verifyTag && (!name || release.test(name) || dynamic(name))) {
+  if (group !== 'release' || action !== 'create') return;
+  if (!name || dynamic(name)) throw Error('Specify the literal release tag name.');
+  if (isRelease(name) && !verifyTag) {
     throw Error('gh release create can create a remote tag. Create and push the audited tag with Git, then use the normal release workflow.');
   }
 }
@@ -177,7 +187,7 @@ function check(event) {
   const input = event.tool_input || {};
   const shell = input.command ?? input.cmd;
   if (typeof shell !== 'string') return;
-  const groups = commands(shell);
+  const groups = commands(shell, input.shell || event.tool_name);
   for (const args of groups) {
     let i = 0;
     while (/^\w+=/.test(args[i])) i++;

@@ -107,6 +107,31 @@ test('separate repositories containing the same commit require their own reports
   assert.equal(verdict('git status && git tag v1.0.0'), 'deny');
 });
 
+test('publishing tag names must use the canonical stable or RC format', t => {
+  const { record, verdict } = setup(t);
+  for (const audit of audits) assert.equal(record(audit).status, 0);
+  for (const name of ['v1.2.3-beta.1', 'vnext.release.preview', 'v01.2.3', 'v1.2.3-rc.01']) {
+    for (const command of ['git tag ' + name, 'git push origin tag ' + name,
+      'git push origin HEAD:refs/tags/' + name, 'gh release create ' + name,
+      'gh release create --verify-tag ' + name]) assert.equal(verdict(command), 'deny', command);
+  }
+  for (const name of ['v1.2.3', 'v1.2.3-rc.0', 'docs.snapshot.1', 'vendor/docs.2.3']) {
+    assert.equal(verdict('git tag ' + name), 'allow', name);
+  }
+});
+
+test('grouped commands check the release target and quoted messages stay literal', t => {
+  const { record, verdict } = setup(t);
+  const grouped = '(git tag v1.2.3)';
+  assert.equal(verdict(grouped), 'deny');
+  assert.equal(verdict('{ git tag v1.2.3; }'), 'deny');
+  assert.equal(verdict("echo '(git tag v1.2.3)'"), 'allow');
+  assert.equal(verdict('(git status)'), 'allow');
+  for (const audit of audits) assert.equal(record(audit).status, 0);
+  assert.equal(verdict(grouped), 'allow');
+  assert.equal(verdict('git tag v1.2.3 "$(git status)"'), 'deny');
+});
+
 test('recorder rejects incomplete attestations and scoped evidence fails closed on damage', t => {
   const { cwd, first, record, reportText, verdict } = setup(t);
   assert.notEqual(record('diff').status, 0);
@@ -143,4 +168,25 @@ test('Claude and Codex each register the release gate before a shell command', (
       assert.equal(matches[0].type, 'command');
     }
   }
+});
+
+test('Codex launches the release hook from a checkout subdirectory', t => {
+  const { cwd } = setup(t);
+  const hooks = path.join(cwd, '.claude/hooks');
+  fs.mkdirSync(hooks, { recursive: true });
+  for (const file of ['shell-commands.cjs', 'release-audits.cjs']) {
+    fs.copyFileSync(path.join(path.dirname(hook), file), path.join(hooks, file));
+  }
+  const subdir = path.join(cwd, 'backend');
+  fs.mkdirSync(subdir);
+  const config = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../.codex/hooks.json'), 'utf8'));
+  const launcher = config.hooks.PreToolUse.filter(group => new RegExp(group.matcher).test('Bash'))
+    .flatMap(group => group.hooks).find(h => h.command?.includes('release-audits.cjs'));
+  const result = spawnSync(launcher.command, {
+    cwd: subdir, shell: true, encoding: 'utf8', input: JSON.stringify({
+      cwd: subdir, hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { cmd: 'git tag v1.2.3' },
+    }),
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(JSON.parse(result.stdout).hookSpecificOutput.permissionDecision, 'deny');
 });

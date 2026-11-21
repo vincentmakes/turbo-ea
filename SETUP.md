@@ -406,7 +406,7 @@ After development, start `code-simplifier`, `code-reviewer` and `security-review
 
 In Codex, approve **Verifica security review prima della PR** under **Settings → Hooks** in the Turbo EA project. Both hosts run the shared [PR hook](.claude/hooks/check-security-review.cjs) before a direct GitHub CLI command. Use a fresh chat after changing project hook configuration.
 
-1. Start the named `security-reviewer` in a fresh context. For the current branch it obtains the commit and scope ID from `node .claude/hooks/security-review.cjs snapshot`. The ID covers the checkout, merge base with `origin/main`, HEAD, index, working changes and new non-ignored files. The reviewer reads both checklists and compares the snapshot again when finished.
+1. The main chat takes a snapshot with `node .claude/hooks/security-review.cjs snapshot`. The scope ID covers the checkout, merge base with `origin/main`, HEAD, index, working changes and new non-ignored files. If the helper itself is under review, use a trusted copy from outside the proposed changes. Start the named `security-reviewer` in a fresh context. On Codex, use a read-only parent, set `fork_turns="none"` and verify the child's effective sandbox before supplying evidence. Give the reviewer the snapshot, branch and working-tree diffs (including staged changes), contents of new non-ignored files, and relevant indexed Trail sources. When both passes finish, send the same reviewer a fresh snapshot so it can compare the commit and scope ID.
 2. The reviewer returns one JSON report containing `commit`, `scopeId`, `completedAt` and one entry per skill in `passes`. Each entry gives its status, findings and coverage gaps. The main chat follows up on findings and repeats the review after any fixes.
 3. The main chat submits the reviewer's JSON verbatim to `node .claude/hooks/security-review.cjs record` on standard input. Save the UTF-8 report outside the checkout or in an already ignored directory. For example, with the report in the project's ignored `.cache` directory, run this from PowerShell to pass its original bytes:
 
@@ -416,7 +416,7 @@ In Codex, approve **Verifica security review prima della PR** under **Settings �
 
 4. Run `node .claude/hooks/security-review.cjs check` to verify the receipt without opening a PR. The PR hook checks the same receipt for the checkout used by the command. It requires both passes on the current diff and a completion time within the last 30 minutes. Re-submitting the same JSON preserves the original expiry. The receipt records the reviewer's conclusions, including outstanding findings.
 
-For a historical comparison, give the reviewer the two full commit SHAs. Both passes read that range and return their findings in chat. Only a current-branch review produces the scope ID and completion time used by the gate. Run `python scripts/security/test_security_review_hooks.py` to exercise the host hooks in temporary local repositories.
+For a historical comparison, supply both full commit SHAs, their diff and the matching historical contents of source files, callers and tests. The reviewer returns both pass results with the base SHA in `base`, the target SHA in `commit`, and null values for `scopeId` and `completedAt`. Run `python scripts/security/test_security_review_hooks.py` to exercise the host hooks in temporary local repositories.
 
 ### Release audits in Codex and Claude chat
 
@@ -531,8 +531,7 @@ In Codex, open **Settings → Hooks** for Turbo EA and approve the `PreToolUse` 
 ### Trail
 
 Trail reads the project's shared notes and builds a map of the code.
-Install the version of `@trailhq/trail-code` used by the web bootstrap (0.30.5) into the `node_modules/` at the
-root of Turbo EA. [Official source and documentation](https://github.com/trailhq/Trail-Code#readme).
+The project's `package-lock.json` pins `@trailhq/trail-code` (0.30.5) and its dependencies for both local and web installs. Trail runs from `node_modules/` at the root of Turbo EA. [Official source and documentation](https://github.com/trailhq/Trail-Code#readme).
 
 The `.trail/` folder already comes with the repository: `learnings/` holds the shared notes,
 `hook.cjs` is the entry point shared by Claude and Codex, and
@@ -551,7 +550,9 @@ automatically when a session opens.
 # This also protects the first command, before the persistent preference exists.
 $env:DO_NOT_TRACK = '1'
 
-npm.cmd install --prefix . --ignore-scripts --no-save --package-lock=false --no-audit --no-fund @trailhq/trail-code@0.30.5
+# npm ci replaces node_modules. Use a fresh checkout or move existing packages aside first.
+if (Test-Path -LiteralPath node_modules) { throw 'Preserve the existing node_modules before running npm ci.' }
+npm.cmd ci --ignore-scripts --no-audit --no-fund
 if ($LASTEXITCODE -ne 0) { throw 'Trail installation failed.' }
 
 & .\node_modules\.bin\trail.cmd telemetry disable
@@ -567,11 +568,7 @@ if ($trailTelemetry.enabled -ne $false) {
 & .\node_modules\.bin\trail.cmd telemetry status
 ```
 
-`--prefix .` installs locally. `--no-save` and `--package-lock=false` avoid
-changes to the npm manifests; `--ignore-scripts` skips the automatic install
-scripts. The executable is `node_modules/.bin/trail.cmd`: invoke it relative
-to the project root, with no global install or change to the Windows PATH.
-[npm install reference](https://docs.npmjs.com/cli/commands/npm-install/).
+`npm ci` installs the exact dependency tree recorded in the lockfile and verifies the package integrity hashes. `--ignore-scripts` skips automatic install scripts. Invoke `node_modules/.bin/trail.cmd` relative to the project root. [npm ci reference](https://docs.npmjs.com/cli/commands/npm-ci/).
 
 `DO_NOT_TRACK=1` applies to this PowerShell and the processes it starts.
 `telemetry disable` instead saves `enabled: false` in
@@ -589,7 +586,7 @@ under `%USERPROFILE%\.claude\` and create personal state under
 
 #### Claude Code web sessions
 
-The [web startup hook](.claude/hooks/session-start.sh) installs the pinned version into the project when it is missing or differs, then builds the index with the checkout's CLI. A fresh container needs Node, npm and access to the package or a populated npm cache. Startup proceeds asynchronously, so the first prompt can arrive before the index is ready. Install and build failures go to the hook log. Telemetry is disabled for the bootstrap and the session through `DO_NOT_TRACK=1`. Existing user preferences are preserved.
+The [web startup hook](.claude/hooks/session-start.sh) installs from the committed lockfile in a temporary directory and moves the completed install into the project root. It reuses its install while the npm manifests match. When the root already contains an unrecognized installation, or the manifests change, the hook preserves that directory and asks for a fresh web checkout. A fresh container needs Node, npm and access to the registry or a populated npm cache. Startup proceeds asynchronously, so the first prompt can arrive before the index is ready. Install and build failures go to the hook log. `DO_NOT_TRACK=1` disables telemetry for the bootstrap and the session.
 
 The October learning about web sessions describes a disposable home directory. On persistent workstations, personal machine workarounds can be saved with `trail note --personal`. Shared team decisions belong in the repository.
 
