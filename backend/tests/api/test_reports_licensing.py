@@ -10,7 +10,9 @@ from sqlalchemy import select, update
 from app.models.app_settings import AppSettings
 from app.models.card_license import CardLicense
 from app.models.card_type import CardType
+from app.models.stakeholder import Stakeholder
 from app.services.fiscal_year import current_fiscal_year
+from app.services.permission_service import PermissionService
 from tests.conftest import (
     auth_headers,
     create_card,
@@ -20,6 +22,7 @@ from tests.conftest import (
     create_relation,
     create_relation_type,
     create_role,
+    create_stakeholder_role_def,
     create_user,
 )
 
@@ -97,6 +100,43 @@ async def _get(client, env, user="admin", **params):
 async def test_requires_licenses_view(client, db, env):
     assert (await _get(client, env, "viewer")).status_code == 403
     assert (await _get(client, env, "member")).status_code == 200
+
+
+async def test_report_hides_cost_attributes_per_card(client, db, env):
+    await create_role(
+        db,
+        key="lic_cost_reader",
+        permissions={"inventory.view": True, "licenses.view": True, "costs.view": True},
+    )
+    user = await create_user(db, email="lic-cost-reader@test.com", role="lic_cost_reader")
+    await create_stakeholder_role_def(
+        db,
+        key="license_reader",
+        permissions={"card.view": True, "card.view_licenses": True},
+    )
+    card = await _card(db, "Readable", attributes={"costPrice": 90, "tier": "gold"})
+    db.add(Stakeholder(card_id=card.id, user_id=user.id, role="license_reader"))
+    card_type = (
+        await db.execute(select(CardType).where(CardType.key == "Application"))
+    ).scalar_one()
+    card_type.fields_schema = [
+        {
+            "section": "S",
+            "fields": [
+                {"key": "costPrice", "type": "cost"},
+                {"key": "tier", "type": "single_select"},
+            ],
+        }
+    ]
+    card_type.role_permissions = {"lic_cost_reader": {"inventory.view": False}}
+    await db.flush()
+    PermissionService.invalidate_type_permission_cache()
+
+    response = await _get(client, {"restricted": user}, "restricted", group_by="field:costPrice")
+    assert response.status_code == 200, response.text
+    row = response.json()["rows"][0]
+    assert row["attributes"] == {"tier": "gold"}
+    assert row["group"] == "__other__"
 
 
 async def test_rows_statuses_and_tiles_match_the_rows(client, db, env):

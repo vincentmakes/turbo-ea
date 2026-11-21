@@ -18,6 +18,7 @@ from app.models.card import Card
 from app.models.card_cost import CardCost
 from app.models.card_cost_history import CardCostHistory
 from app.models.cost_item_type import CostItemType
+from app.models.user import User
 from app.services.card_costs import (
     COST_ITEM_TYPES,
     DERIVED_KEY,
@@ -32,6 +33,7 @@ from app.services.cost_grouping import GroupBy, assign_groups
 from app.services.cost_value import cost_value
 from app.services.fiscal_year import current_fiscal_year
 from app.services.lifecycle import is_live_in_fiscal_year
+from app.services.permission_service import PermissionService
 
 OTHER_ITEM = "__other__"  # cost items the components do not account for; the page translates it
 
@@ -219,6 +221,7 @@ async def build_cost_sankey(
     target_fy: int,
     current_fy: int,
     fy_start: int,
+    user: User,
 ) -> dict:
     """Cost items -> cards, or cost items -> groups -> cards when ``group_by`` is set.
 
@@ -237,6 +240,10 @@ async def build_cost_sankey(
     totals = await cards_with_cost_for_types(
         db, read_scope, type_keys, cost_field, target_fy, current_fy, fy_start
     )
+    allowed = await PermissionService.card_ids_with_cost_access(
+        db, user, (card.id for card, _ in totals)
+    )
+    totals = [(card, cost) for card, cost in totals if card.id in allowed]
     per_card: dict[uuid.UUID, tuple[Card, float, dict[str, float]]] = {
         c.id: (c, cost, {} if split else {cost_field: cost}) for c, cost in totals
     }

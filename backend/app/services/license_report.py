@@ -22,7 +22,7 @@ from app.services import yearly_rows
 from app.services.card_licenses import LICENSE_TYPES, items_by_card, metric_results
 from app.services.card_logo_service import logo_updated_map
 from app.services.card_read_scope import CardReadScope
-from app.services.cost_grouping import GroupBy, assign_groups
+from app.services.cost_grouping import OTHER_GROUP, GroupBy, assign_groups
 from app.services.fiscal_year import current_fiscal_year, get_fiscal_year_start
 from app.services.license_catalogue import LicenseCatalogue, load_catalogue
 from app.services.license_status import MetricResult, card_status, card_worst
@@ -175,8 +175,15 @@ async def build_report(
         if group_by and card_id is None
         else {}
     )
-    logos = await logo_updated_map(db, in_year)
+    cost_visible = await PermissionService.card_ids_with_cost_access(
+        db, user, (card.id for card in in_year)
+    )
     hidden = hidden_attribute_keys or {}
+    if groups and group_by and group_by.kind == "field":
+        for card in in_year:
+            if card.id not in cost_visible and group_by.key in hidden.get(card.type, ()):
+                groups[card.id] = OTHER_GROUP
+    logos = await logo_updated_map(db, in_year)
     rows = []
     for card in in_year:
         results = metric_results(selected[card.id], catalogue)
@@ -189,7 +196,7 @@ async def build_report(
             "attributes": {
                 k: v
                 for k, v in (card.attributes or {}).items()
-                if k not in hidden.get(card.type, ())
+                if card.id in cost_visible or k not in hidden.get(card.type, ())
             },
             "status": None if aggregate else card_status(results),
             "worst_pct": worst_pct,

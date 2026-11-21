@@ -1448,6 +1448,10 @@ async def cost_report(
     if type in COST_ITEM_TYPES:
         # cost items, not the cached attribute: one definition with the treemap
         costed = await cards_with_cost(db, read_scope, type, DERIVED_KEY, fy, fy, fy_start)
+        allowed = await PermissionService.card_ids_with_cost_access(
+            db, user, (card.id for card, _ in costed)
+        )
+        costed = [(card, cost) for card, cost in costed if card.id in allowed]
         items = [{"id": str(c.id), "name": c.name, "cost": cost} for c, cost in costed]
         total = sum(cost for _, cost in costed)
     else:
@@ -1459,6 +1463,10 @@ async def cost_report(
         sheets = [
             c for c in result.scalars().all() if is_live_in_fiscal_year(c.lifecycle, fy, fy_start)
         ]
+        allowed = await PermissionService.card_ids_with_cost_access(
+            db, user, (card.id for card in sheets)
+        )
+        sheets = [card for card in sheets if card.id in allowed]
         items = []
         total = 0
         for card in sheets:
@@ -1540,6 +1548,10 @@ async def cost_treemap(
     sheets = await cards_with_cost_for_types(
         db, read_scope, type_keys, cost_field, target_fy, fy, fy_start
     )
+    allowed = await PermissionService.card_ids_with_cost_access(
+        db, user, (card.id for card, _ in sheets)
+    )
+    sheets = [(card, cost) for card, cost in sheets if card.id in allowed]
 
     items: list[dict] = [
         {
@@ -1664,6 +1676,7 @@ async def cost_sankey(
             target_fy,
             fy,
             fy_start,
+            user,
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
@@ -1729,12 +1742,10 @@ async def licensing_report(
         or []
         for f in s["fields"]
     }
-    hidden: dict[str, frozenset[str]] = {}
-    if not await PermissionService.has_app_permission(db, user, "costs.view"):
-        hidden = {
-            key: cost_field_keys_from_card_schema(ct.fields_schema)
-            for key, ct in license_card_types.items()
-        }
+    hidden = {
+        key: cost_field_keys_from_card_schema(ct.fields_schema)
+        for key, ct in license_card_types.items()
+    }
     try:
         return await build_license_report(
             db,

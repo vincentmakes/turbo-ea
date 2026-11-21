@@ -7945,6 +7945,7 @@ async def call_extension_read(extension: str, tool: str, arguments: dict | None 
     operation does not list and a missing required one. The call goes to the
     extension with your own permissions; a refusal comes back as
     ``extension_refused`` with the extension's reason.
+    Operations using POST also require MCP writes to be enabled.
 
     Args:
         extension: The extension key, as list_extension_tools shows it.
@@ -7964,6 +7965,8 @@ async def call_extension_read(extension: str, tool: str, arguments: dict | None 
             )
     except ExtensionCallError as exc:
         return _fmt(exc.payload())
+    if request["method"] != "GET" and (blocked := _writes_disabled_message()) is not None:
+        return blocked
     try:
         data = await _send_extension_request(client, request)
     except httpx.HTTPStatusError as exc:

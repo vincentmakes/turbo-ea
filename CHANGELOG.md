@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - Stakeholder roles grant visibility of card costs through `card.view_costs`. The Observer role starts without access. Cost values in card history, activity and reports follow the card's cost permissions.
 - A stakeholder role must grant `card.view_licenses` to give access to a card's Licensing data. Observer starts without that grant.
+- MCP read-only mode blocks extension operations that use `POST`.
 
 ## [2.207.1] - 2026-11-20
 

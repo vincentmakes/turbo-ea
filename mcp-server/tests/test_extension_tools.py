@@ -535,6 +535,22 @@ class TestCallExtensionRead:
         assert backend.ext_calls() == [("POST", "/ext/sample-ext/items/validate", {"name": "x"})]
 
     @pytest.mark.asyncio
+    async def test_read_only_mode_allows_get_and_refuses_post(self, fake_token, monkeypatch):
+        monkeypatch.setattr(server, "MCP_WRITES_ENABLED", False)
+        backend = _Backend(answers={("GET", "/ext/sample-ext/items?limit=2"): [{"id": 1}]})
+        get_result = await _run(
+            backend, lambda: server.call_extension_read(KEY, "list_items", {"limit": 2})
+        )
+        post_result = await _run(
+            backend, lambda: server.call_extension_read(KEY, "validate_item", {"name": "x"})
+        )
+
+        assert get_result["response"] == [{"id": 1}]
+        assert post_result["error"] == "writes_disabled"
+        assert backend.ext_calls() == [("GET", "/ext/sample-ext/items?limit=2", None)]
+        assert backend.opened() == []
+
+    @pytest.mark.asyncio
     async def test_a_write_kind_is_refused(self, fake_token):
         backend = _Backend()
         out = await _run(
