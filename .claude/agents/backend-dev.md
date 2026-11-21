@@ -74,14 +74,18 @@ ORM only, real database and factories in tests, `CardReadScope`, the rules files
 - Never hold a DB session across slow non-DB work; a helper never commits a session it was handed.
 - Sensitive values go through `encrypt_value()`. No plaintext secret, no secret in a response.
 - English only for user-facing text and seed labels; translations are done later by `/translate`.
-- Before you report: `cd backend && ruff format . && ruff check .`.
+- The post-edit hook runs Ruff on each Python file it receives. Resolve the remaining diagnostics
+  it reports in concise format and review the diff after automatic fixes.
+- For each modified or new Python file that the hook did not check, run
+  `make python-check FILE=backend/path.py` from the repository root.
 
 ## Tests: every change owes them
 
 Backend tests mirror the source tree under `backend/tests/` (`core/`, `services/`, `api/`); use the
 factories in `backend/tests/conftest.py` (`create_user`, `create_card`, `create_card_type`, ...).
-Run them with `./scripts/test.sh <paths>` (it starts a throwaway Postgres; add `--serial` for a fixed
-order). Traps that have already cost a CI run, avoid them:
+Before reporting, run the relevant Pytest files together once with `./scripts/test.sh <paths>`.
+Pass test paths relative to `backend/`, such as `tests/services/test_example.py`. The runner starts
+a throwaway Postgres. Add `--serial` for a fixed order. Traps that have already cost a CI run:
 
 - **No random value in an assertion about digits or text**: a UUID can contain "678". Exclude `id`
   from a "no amount leaks" scan.

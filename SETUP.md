@@ -141,14 +141,57 @@ cd frontend
 npm install
 ```
 
-Check (from the same folder):
+To verify a fresh installation, run the project type check and the full test suite from `frontend/`.
 
 ```powershell
-npx tsc --noEmit -p .
+npx tsc --noEmit --pretty false -p .
 npm run test:run
 ```
 
 `npm run dev` starts Vite on `localhost:5173` and proxies `/api` to `:8000`.
+
+### Frontend checks during development
+
+```mermaid
+flowchart TD
+    edit["Create or edit a .ts or .tsx file"] --> hook{"Did the post-edit hook run?"}
+    hook -->|Yes| automatic["Claude or Codex runs Biome<br/>Safe fixes and concise diagnostics"]
+    hook -->|No| manual["Run make frontend-check FILE=frontend/..."]
+    automatic --> review["Resolve findings and review the diff"]
+    manual --> review
+    review --> eslint["Before handoff, frontend-dev runs ESLint on touched files"]
+    eslint --> types["Run the project type check once with tsc"]
+    types --> tests["Run targeted Vitest once<br/>--reporter=agent"]
+```
+
+#### While editing TypeScript
+
+The shared post-edit hook runs Biome after Claude Code's `Edit` and `Write` and Codex's `apply_patch`.
+It uses the frontend's installed Biome to apply safe fixes to the touched `.ts` and `.tsx` files.
+A clean result produces no Biome feedback. Remaining errors use `concise` output, one line per
+diagnostic. If Codex requests a review, follow the [shared hook approval steps](#while-editing-python).
+
+For a file created or modified outside the hook, run this read-only check from the repository root.
+
+```powershell
+make frontend-check FILE=frontend/src/lib/costValue.ts
+```
+
+#### Before handing off frontend work
+
+The [frontend-dev agent](.claude/agents/frontend-dev.md) runs ESLint on the touched files, checks
+the project types once, then runs the relevant Vitest files together once with the compact
+`agent` reporter. Use paths relative to `frontend/` for these commands.
+
+```powershell
+cd frontend
+npx eslint -- src/lib/costValue.ts src/lib/costValue.test.ts
+npx tsc --noEmit --pretty false -p .
+npx vitest run --reporter=agent src/lib/costValue.test.ts
+```
+
+When the test files are unknown, use `npx vitest related --run --reporter=agent <changed source paths>`
+and report an empty selection.
 
 ---
 
@@ -209,21 +252,58 @@ The machine already has a venv in `backend/venv` (Python 3.12.10, `ruff` 0.16.0)
 
 ### Check
 
+```mermaid
+flowchart TD
+    edit["Create or edit a Python file"] --> hook{"Did the post-edit hook run?"}
+    hook -->|Yes| automatic["Claude or Codex runs Ruff<br/>Safe fixes, formatting, concise diagnostics"]
+    hook -->|No| manual["Run make python-check FILE=backend/..."]
+    automatic --> review["Resolve findings and review the diff"]
+    manual --> review
+    review --> tests["Before handoff, backend-dev runs targeted Pytest once"]
+```
+
+#### While editing Python
+
+The shared Ruff hook runs after Claude Code's `Edit` and `Write` and Codex's `apply_patch`.
+It applies safe fixes from the standard rule set, formats the affected Python files under
+`backend/`, then checks each whole file with the standard rules plus `B`, `S`, `C901` and `UP`.
+The expanded check ignores `S101` in Pytest files under `backend/tests/`. A clean edit produces no
+Ruff feedback. Remaining diagnostics use `concise` output, one line per finding.
+
+When Codex asks for hook review, use `/hooks` to approve
+`node scripts/quality/post-edit.cjs` under `PostToolUse`. Its status message is
+**Ruff e Biome: controllo dopo la modifica**.
+
+For a Python file created or modified outside the hook, run this read-only check from the repository
+root with that file's path. Both the hook and the Make target look for Ruff in `backend/venv`,
+then `backend/.venv`, then on `PATH`.
+
 ```powershell
-cd software\turbo-ea\backend
-ruff format . ; ruff check .
-cd ..
+make python-check FILE=backend/app/services/license_status.py
+```
+
+#### Before handing off backend work
+
+The [backend-dev agent](.claude/agents/backend-dev.md) runs the relevant Pytest files together once
+from the repository root in Git Bash. Pass paths relative to `backend/`.
+
+```bash
 ./scripts/test.sh tests/services/test_license_status.py
 ```
 
-`./scripts/test.sh` is run from Git Bash: it starts a throwaway Postgres with Docker, creates the venv if it is
-missing and installs the dependencies on the first run. Test paths are **relative to `backend/`**: with a
-`backend/` prefix it collects no tests and exits without an error.
+The runner starts a throwaway Postgres with Docker and sets up the venv and dependencies if needed.
 
 Known issue: on a fresh venv the `pip install -e "$BACKEND_DIR[dev]"` step of `scripts/test.sh` can get the path
 wrong in Git Bash. In that case install the dependencies by hand as above and run it again.
 On this machine 11 backend tests always fail for Windows reasons (time zones with `time.tzset`,
 `python3` lookup, timing thresholds, an IPv6 nginx directive); they are not defects in the product code.
+
+The repository-wide Ruff check still uses the standard rule set. Run it from `backend/` before
+committing.
+
+```powershell
+ruff format . ; ruff check .
+```
 
 ---
 

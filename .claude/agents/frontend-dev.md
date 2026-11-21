@@ -66,13 +66,22 @@ colour in code, whatever an example in the skill shows. Their `reference.md` fil
 - Free text through `LinkifiedText`; stored HTML through `sanitizeRichHtml`; a `postMessage` handler
   checks `e.origin`; a chart tooltip that returns a string escapes every label (`escapeHtml`).
 - A new route goes in `ROUTE_PERMISSIONS` (`src/lib/routePermissions.ts`) or `INTENTIONALLY_UNGATED`.
-- Before you report, from `frontend/`: `npx eslint <changed files>` and `npx tsc --noEmit -p .`.
+- The post-edit hook runs Biome on touched `.ts` and `.tsx` files. Review the automatic fixes
+  and resolve remaining diagnostics from its concise output.
+- For each modified or new `.ts` or `.tsx` file that the hook did not check, run
+  `make frontend-check FILE=frontend/src/path.tsx` from the repository root.
+- Before reporting, run ESLint once on the touched files from `frontend/` with
+  `npx eslint -- <changed files>`, then run the project type check once with
+  `npx tsc --noEmit --pretty false -p .`.
 
 ## Tests: every change owes them
 
 A Vitest test next to the source file: what it renders and how it answers its main interaction. Mock the
-API with `vi.mock("@/api/client")`, never the global fetch. Run only your files:
-`npx vitest run <paths>` (the whole suite is the session's job). Traps that have already cost a CI run:
+API with `vi.mock("@/api/client")`, never the global fetch. Before reporting, run the relevant tests
+together once with `npx vitest run --reporter=agent <test paths>` from `frontend/`. If the test paths
+are unknown, use `npx vitest related --run --reporter=agent <changed source paths>` and report an empty
+selection. Summarize test counts and actionable diagnostics in a few lines. Traps that have already
+cost a CI run:
 
 - **Wait for what you assert on**: a header button that renders only after data loads needs
   `await within(...).findByRole(...)`, not `getByRole` right after the heading appears. A test that passes
