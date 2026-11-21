@@ -25,6 +25,7 @@
   "projectManager": "РП",
   "budget": "Бюджет",
   "noInitiatives": "Инициативы не найдены",
+  "filtersLoadFailed": "Не удалось загрузить фильтры.",
   "cardDetails": "Детали карточки",
   "overview": "Обзор",
   "statusReports": "Отчёты о статусе",

@@ -25,6 +25,7 @@
   "projectManager": "PM",
   "budget": "Budget",
   "noInitiatives": "Nessuna iniziativa trovata",
+  "filtersLoadFailed": "Caricamento dei filtri non riuscito.",
   "cardDetails": "Dettagli scheda",
   "overview": "Panoramica",
   "statusReports": "Rapporti di stato",

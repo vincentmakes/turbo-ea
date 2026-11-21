@@ -25,6 +25,7 @@
   "projectManager": "CP",
   "budget": "Budget",
   "noInitiatives": "Aucune initiative trouvée",
+  "filtersLoadFailed": "Les filtres n'ont pas pu être chargés.",
   "cardDetails": "Détails de la fiche",
   "overview": "Vue d'ensemble",
   "statusReports": "Rapports de statut",

@@ -25,6 +25,7 @@
   "projectManager": "PM",
   "budget": "Budget",
   "noInitiatives": "No initiatives found",
+  "filtersLoadFailed": "Filters could not be loaded.",
   "cardDetails": "Card Details",
   "overview": "Overview",
   "statusReports": "Status Reports",

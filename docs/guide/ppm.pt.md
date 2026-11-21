@@ -11,9 +11,7 @@ O módulo **PPM** fornece uma solução completa de gerenciamento de portfólio 
 
 O **Painel do Portfólio** é o ponto de entrada principal para o PPM. Ele fornece:
 
-- **Cards de KPI** — Total de iniciativas, orçamento total, custo real total e resumos de status de saúde
-- **Gráficos circulares de saúde** — Distribuição de saúde de cronograma, custos e escopo (No Caminho / Em Risco / Fora do Caminho)
-- **Distribuição de status** — Detalhamento por subtipo de iniciativa e status
+- **Barra de KPIs** — O número de iniciativas, o orçamento total delas (quando os custos lhe são mostrados) e quantas estão No caminho, Em risco e Fora do caminho no cronograma. Os valores acompanham o portfólio: a pesquisa, o subtipo escolhido e a secção **Filtros** restringem-nos às iniciativas que você está consultando
 - **Visão geral Gantt** — Barras de cronograma mostrando as datas de início e fim de cada iniciativa, com indicadores de saúde RAG
 
 ### Agrupamento e filtragem
@@ -27,7 +25,17 @@ Use a barra de ferramentas para:
 - **Mostrar hierarquia** para aninhar as iniciativas de cada grupo sob a iniciativa pai (veja abaixo)
 - **Subagrupar por subtipo** para dividir cada grupo por subtipo (veja abaixo)
 
-Esses filtros são mantidos na URL, então atualizar a página preserva sua visualização atual. A hierarquia, sua profundidade de exibição e o subagrupamento também são mantidos na URL.
+Estas definições são mantidas na URL, então atualizar a página preserva a sua visualização atual, e um link que você partilhar abre o mesmo portfólio. O portfólio também memoriza no seu navegador a pesquisa, o agrupamento, o subtipo, as definições de hierarquia e os filtros, e restaura-os quando você volta — a partir do menu PPM, ou com a seta de voltar depois de abrir uma iniciativa. Um link que traz definições próprias abre com essas, e elas passam a ser as memorizadas. O ícone **Redefinir padrões** na barra de título repõe o portfólio nas suas predefinições.
+
+#### A secção Filtros
+
+Abaixo da barra de ferramentas fica uma secção **Filtros**, recolhida na primeira vez que você abre o portfólio para que este continue à vista e, depois, tal como a deixou da última vez; enquanto está recolhida, um chip no cabeçalho indica quantos filtros estão ativos. Expanda-a para restringir o portfólio, com os mesmos filtros dos relatórios:
+
+- **Cards relacionados** — mantém as iniciativas ligadas aos cards que você escolher, por exemplo uma Organização ou uma Aplicação. **Incluir subcartões** mantém também as iniciativas ligadas aos cards situados abaixo de um card escolhido na hierarquia dele
+- **Etiquetas** — mantém as iniciativas que têm as etiquetas que você escolher
+- **Campos** — mantém as iniciativas cujos próprios campos (os atributos do tipo Iniciativa) correspondem aos valores que você escolher
+
+Os filtros ativos são mantidos na URL e memorizados com o resto do portfólio, de modo que um link que você partilhar abre o mesmo portfólio, e são listados na linha de parâmetros de uma impressão ou exportação. **Limpar tudo** esvazia a secção Filtros e deixa o resto da barra de ferramentas como está.
 
 #### Mostrar a hierarquia de iniciativas
 
@@ -57,7 +65,7 @@ Os valores derivados existem apenas no quadro de PPM e nas abas **Visão geral**
 
 O portfólio oferece as mesmas ações na barra de título que os relatórios:
 
-- **Imprimir / Salvar como PDF** — o ícone de impressora imprime o portfólio como ele aparece na tela. A barra de abas, a barra de filtros e os balões exibidos ao passar o mouse são ocultados, o agrupamento, o subtipo e a busca ativos são impressos como uma linha compacta de parâmetros, e a grade de cronograma deixa de ser cortada, para que todas as colunas caibam na página. Quando a hierarquia ou o subagrupamento estão ativados, a linha de parâmetros também os indica, com a profundidade de exibição.
+- **Imprimir / Salvar como PDF** — o ícone de impressora imprime o portfólio como ele aparece na tela. A barra de abas, a barra de filtros e os balões exibidos ao passar o mouse são ocultados, o agrupamento, o subtipo e a busca ativos e os filtros da secção Filtros são impressos como uma linha compacta de parâmetros, e a grade de cronograma deixa de ser cortada, para que todas as colunas caibam na página. Quando a hierarquia ou o subagrupamento estão ativados, a linha de parâmetros também os indica, com a profundidade de exibição.
 - **Exportar para PowerPoint (.pptx)** — pelo menu **⋮**. O primeiro slide traz o título, o carimbo de data/hora de geração e os filtros ativos junto com o portfólio em qualidade de apresentação; portfólios longos continuam em outros slides, divididos apenas entre iniciativas — nunca no meio de uma linha, de um cabeçalho de grupo ou de uma linha de totais.
 - **Exportar para Excel (.xlsx)** — também pelo menu **⋮**. Uma linha por iniciativa com seu grupo, subtipo, gerente de projeto, datas de início e término, os três indicadores de saúde, CapEx/OpEx planejado e realizado, e a data do último relatório de status. As linhas seguem a ordem da tela; enquanto a hierarquia é exibida, uma coluna **Pai** indica a iniciativa pai de cada iniciativa. Três colunas, **Origem do orçamento**, **Origem dos custos** e **Origem das datas**, indicam se o orçamento, o realizado e as datas de uma linha são os próprios ou o total das iniciativas abaixo dela. Quando o painel está agrupado por um subtipo de iniciativa, a iniciativa que agrupa é a **primeira linha do seu grupo**, com os valores que a sua linha final mostra.
 

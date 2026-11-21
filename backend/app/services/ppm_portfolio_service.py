@@ -873,3 +873,32 @@ def to_public_portfolio(
         ),
         items=public_items,
     )
+
+
+# ── Board filters ───────────────────────────────────────────────────────
+
+#: What the board's Filters section reads from each initiative: the reports'
+#: client-side matcher needs the relations (with their side), the tags, the
+#: subtype and the attributes. Lifecycle and the legacy ``org_ids`` stay out.
+FILTER_ITEM_KEYS = ("id", "name", "subtype", "attributes", "relations", "tag_ids")
+
+
+def card_filter_payload(payload: dict) -> dict:
+    """The board's filter data, projected from a ``build_portfolio_payload``
+    result for the Initiative type (already cost-redacted by the caller).
+
+    Opt-in like ``to_public_portfolio``: only the keys the matcher reads go
+    out. ``fields_schema`` and ``organizations`` are dropped — the facet fields
+    come from the metamodel the client already holds.
+    """
+    return {
+        "items": [{key: item[key] for key in FILTER_ITEM_KEYS} for item in payload["items"]],
+        "relation_types": payload["relation_types"],
+        "groupable_types": payload["groupable_types"],
+        "tag_groups": payload["tag_groups"],
+    }
+
+
+def empty_filter_payload() -> dict:
+    """The filter data of an install without an Initiative card type."""
+    return {"items": [], "relation_types": [], "groupable_types": {}, "tag_groups": []}

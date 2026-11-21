@@ -25,6 +25,7 @@
   "projectManager": "GP",
   "budget": "Orçamento",
   "noInitiatives": "Nenhuma iniciativa encontrada",
+  "filtersLoadFailed": "Não foi possível carregar os filtros.",
   "cardDetails": "Detalhes do cartão",
   "overview": "Visão geral",
   "statusReports": "Relatórios de estado",

@@ -9,7 +9,7 @@
 import { describe, expect, it } from "vitest";
 
 import { WARNING_STRONG_COLOR } from "@/theme/tokens";
-import type { PpmPortfolioItem, PpmPortfolioReport } from "@/types";
+import type { PpmPortfolioDashboard, PpmPortfolioItem, PpmPortfolioReport } from "@/types";
 import {
   ALL_LEVELS,
   barModel,
@@ -29,6 +29,7 @@ import {
   hasAnyCost,
   hasHierarchy,
   healthLabelKey,
+  matchesBoard,
   maxTreeDepth,
   money,
   nowPct,
@@ -38,6 +39,7 @@ import {
   projectManager,
   ragColor,
   rowFigures,
+  shownDashboard,
   subtypeGroupBy,
   subtypeGroupKey,
   subtypeKeys,
@@ -523,17 +525,17 @@ describe("filterItems", () => {
   const ids = (list: PpmPortfolioItem[]) => list.map((i) => i.id);
 
   it("keeps everything with no search and no subtype", () => {
-    expect(ids(filterItems(rows, "", ""))).toEqual(["a", "b", "c"]);
+    expect(ids(filterItems(rows, "", "", null))).toEqual(["a", "b", "c"]);
   });
 
   it("matches the name in any case, both ways round", () => {
-    expect(ids(filterItems(rows, "crm", ""))).toEqual(["a", "b"]);
-    expect(ids(filterItems(rows, "CRM S", ""))).toEqual(["b"]);
+    expect(ids(filterItems(rows, "crm", "", null))).toEqual(["a", "b"]);
+    expect(ids(filterItems(rows, "CRM S", "", null))).toEqual(["b"]);
   });
 
   it("narrows to the picked subtype, and combines with the search", () => {
-    expect(ids(filterItems(rows, "", "project"))).toEqual(["a", "c"]);
-    expect(ids(filterItems(rows, "crm", "project"))).toEqual(["a"]);
+    expect(ids(filterItems(rows, "", "project", null))).toEqual(["a", "c"]);
+    expect(ids(filterItems(rows, "crm", "project", null))).toEqual(["a"]);
   });
 });
 
@@ -582,6 +584,7 @@ describe("filterSearchParams", () => {
     subtype: "",
     initialGroupBy: "Organization",
     initialSubtype: "",
+    filters: "",
   };
   const params = (prev: string, s: Partial<FilterState>) =>
     filterSearchParams(new URLSearchParams(prev), { ...opening, ...s }).toString();
@@ -1359,6 +1362,7 @@ describe("filterSearchParams — hierarchy and sub-groups", () => {
     subtype: "",
     initialGroupBy: "Organization",
     initialSubtype: "",
+    filters: "",
   };
   const params = (prev: string, s: Partial<FilterState>) =>
     filterSearchParams(new URLSearchParams(prev), { ...opening, ...s }).toString();
@@ -1588,36 +1592,36 @@ describe("filterItems — anchored groups", () => {
   const ids = (list: PpmPortfolioItem[]) => list.map((i) => i.id);
 
   it("keeps every anchor when neither filter is set, an empty group's included", () => {
-    expect(ids(filterItems(rows, "", ""))).toEqual(["p", "a", "q", "b", "u"]);
-    expect(ids(filterItems([rows[0]], "", ""))).toEqual(["p"]);
+    expect(ids(filterItems(rows, "", "", null))).toEqual(["p", "a", "q", "b", "u"]);
+    expect(ids(filterItems([rows[0]], "", "", null))).toEqual(["p"]);
   });
 
   it("keeps an anchor whose group kept a row under the search, and drops one that did not", () => {
-    expect(ids(filterItems(rows, "alpha", ""))).toEqual(["p", "a", "u"]);
-    expect(ids(filterItems(rows, "beta", ""))).toEqual(["q", "b"]);
+    expect(ids(filterItems(rows, "alpha", "", null))).toEqual(["p", "a", "u"]);
+    expect(ids(filterItems(rows, "beta", "", null))).toEqual(["q", "b"]);
   });
 
   it("does not match the search against the anchor itself", () => {
-    expect(ids(filterItems(rows, "program crm", ""))).toEqual([]);
+    expect(ids(filterItems(rows, "program crm", "", null))).toEqual([]);
   });
 
   it("keeps an anchor whose group kept a row under the subtype, and drops one that did not", () => {
-    expect(ids(filterItems(rows, "", "epic"))).toEqual(["q", "b"]);
-    expect(ids(filterItems(rows, "", "project"))).toEqual(["p", "a", "u"]);
+    expect(ids(filterItems(rows, "", "epic", null))).toEqual(["q", "b"]);
+    expect(ids(filterItems(rows, "", "project", null))).toEqual(["p", "a", "u"]);
   });
 
   it("does not match the subtype against the anchor itself", () => {
-    expect(ids(filterItems(rows, "", "program"))).toEqual([]);
+    expect(ids(filterItems(rows, "", "program", null))).toEqual([]);
   });
 
   it("combines both filters for the rows that decide an anchor", () => {
-    expect(ids(filterItems(rows, "alpha", "epic"))).toEqual([]);
-    expect(ids(filterItems(rows, "be", "epic"))).toEqual(["q", "b"]);
+    expect(ids(filterItems(rows, "alpha", "epic", null))).toEqual([]);
+    expect(ids(filterItems(rows, "be", "epic", null))).toEqual(["q", "b"]);
   });
 
   it("drops an anchor with no rows once a filter is set", () => {
-    expect(ids(filterItems([rows[0]], "x", ""))).toEqual([]);
-    expect(ids(filterItems([rows[0]], "", "program"))).toEqual([]);
+    expect(ids(filterItems([rows[0]], "x", "", null))).toEqual([]);
+    expect(ids(filterItems([rows[0]], "", "program", null))).toEqual([]);
   });
 });
 
@@ -1722,5 +1726,160 @@ describe("buildPortfolioExport — anchored groups", () => {
       ["Grandchild", "Child"],
       ["Loose", ""],
     ]);
+  });
+});
+
+describe("matchesBoard", () => {
+  const row = item({ id: "a", name: "CRM Rollout", subtype: "project" });
+
+  it("passes a row that meets every filter", () => {
+    expect(matchesBoard(row, "rollout", "project", new Set(["a"]))).toBe(true);
+  });
+
+  it("matches the search in any case", () => {
+    expect(matchesBoard(row, "crm ROLL", "", null)).toBe(true);
+    expect(matchesBoard(item({ name: "crm rollout" }), "CRM", "", null)).toBe(true);
+  });
+
+  it("fails a search miss", () => {
+    expect(matchesBoard(row, "erp", "", null)).toBe(false);
+  });
+
+  it("fails a subtype miss, and passes any subtype with none picked", () => {
+    expect(matchesBoard(row, "", "epic", null)).toBe(false);
+    expect(matchesBoard(row, "", "", null)).toBe(true);
+  });
+
+  it("fails a row the id set leaves out, and an empty set keeps nothing", () => {
+    expect(matchesBoard(row, "", "", new Set(["b"]))).toBe(false);
+    expect(matchesBoard(row, "", "", new Set())).toBe(false);
+  });
+
+  it("lets every row through when the id set is null", () => {
+    expect(matchesBoard(row, "", "", null)).toBe(true);
+  });
+});
+
+describe("filterItems — the Filters section's ids", () => {
+  const anchor = (id: string) =>
+    item({ id, name: id, subtype: "program", group_id: id, group_name: id, group_anchor: true });
+  const rows = [
+    anchor("p"),
+    item({ id: "a", name: "Alpha", group_id: "p", group_name: "p" }),
+    anchor("q"),
+    item({ id: "b", name: "Beta", group_id: "q", group_name: "q" }),
+    item({ id: "u", name: "Loose" }),
+  ];
+  const ids = (list: PpmPortfolioItem[]) => list.map((i) => i.id);
+
+  it("narrows the rows to the ids alone", () => {
+    expect(ids(filterItems(rows, "", "", new Set(["u"])))).toEqual(["u"]);
+  });
+
+  it("keeps an anchor the ids leave out when a row of its group is kept", () => {
+    expect(ids(filterItems(rows, "", "", new Set(["a", "u"])))).toEqual(["p", "a", "u"]);
+  });
+
+  it("counts the ids alone as a filter, dropping an anchor whose group kept nothing", () => {
+    expect(ids(filterItems(rows, "", "", new Set(["q"])))).toEqual([]);
+    expect(ids(filterItems([rows[0]], "", "", new Set()))).toEqual([]);
+  });
+
+  it("combines with the search", () => {
+    expect(ids(filterItems(rows, "beta", "", new Set(["a", "b"])))).toEqual(["q", "b"]);
+  });
+});
+
+describe("filterSearchParams — the Filters section", () => {
+  const opening: FilterState = {
+    groupBy: "Organization",
+    search: "",
+    subtype: "",
+    initialGroupBy: "Organization",
+    initialSubtype: "",
+    filters: "",
+  };
+  const params = (prev: string, s: Partial<FilterState>) =>
+    filterSearchParams(new URLSearchParams(prev), { ...opening, ...s }).toString();
+
+  it("writes the encoded selection", () => {
+    expect(params("", { filters: '{"tagFilterIds":["t1"]}' })).toBe(
+      "filters=%7B%22tagFilterIds%22%3A%5B%22t1%22%5D%7D",
+    );
+  });
+
+  it("deletes the param once the selection is empty", () => {
+    expect(params("filters=x", { filters: "" })).toBe("");
+  });
+
+  it("keeps every other param alongside it", () => {
+    expect(params("tab=2", { search: "crm", filters: "f" })).toBe("tab=2&search=crm&filters=f");
+  });
+});
+
+describe("shownDashboard", () => {
+  const dashboard: PpmPortfolioDashboard = {
+    total_initiatives: 9,
+    total_budget: 5000,
+    health_schedule: { onTrack: 4, atRisk: 3, offTrack: 1, noReport: 1 },
+  };
+
+  it("returns the server's figures themselves when the board is not narrowed", () => {
+    expect(shownDashboard(dashboard, null)).toBe(dashboard);
+  });
+
+  it("counts the rows shown", () => {
+    expect(shownDashboard(dashboard, [item(), item()]).total_initiatives).toBe(2);
+    expect(shownDashboard(dashboard, []).total_initiatives).toBe(0);
+  });
+
+  it("sums the planned capex and opex, a missing figure counting as zero", () => {
+    const rows = [
+      item({ capex_planned: 100, opex_planned: 20 }),
+      item({ capex_planned: null, opex_planned: 5 }),
+      item({ capex_planned: 7 }),
+      item({ capex_actual: 999, opex_actual: 999 }),
+    ];
+    expect(shownDashboard(dashboard, rows).total_budget).toBe(132);
+    expect(shownDashboard(dashboard, []).total_budget).toBe(0);
+  });
+
+  it("keeps a withheld budget withheld even when the rows carry figures", () => {
+    const rows = [item({ capex_planned: 100, opex_planned: 20 })];
+    expect(shownDashboard({ ...dashboard, total_budget: null }, rows).total_budget).toBeNull();
+    const absent = { total_initiatives: 1, health_schedule: dashboard.health_schedule };
+    expect(shownDashboard(absent, rows).total_budget).toBeUndefined();
+  });
+
+  it("recounts the schedule health, a missing report as no report and an unknown value nowhere", () => {
+    const rows = [
+      item({ latest_report: report({ schedule_health: "onTrack" }) }),
+      item({ latest_report: report({ schedule_health: "onTrack" }) }),
+      item({ latest_report: report({ schedule_health: "atRisk" }) }),
+      item({ latest_report: report({ schedule_health: "offTrack" }) }),
+      item({ latest_report: null }),
+      item({ latest_report: report({ schedule_health: "sideways" }) }),
+      item({ latest_report: report({ schedule_health: "toString" }) }),
+    ];
+    expect(shownDashboard(dashboard, rows).health_schedule).toEqual({
+      onTrack: 2,
+      atRisk: 1,
+      offTrack: 1,
+      noReport: 1,
+    });
+  });
+
+  it("leaves every other dashboard field as it is, and the original untouched", () => {
+    const full = { ...dashboard, total_actual: 77, by_status: { ACTIVE: 9 } };
+    const shown = shownDashboard(full, [item()]);
+    expect(shown).toEqual({
+      total_initiatives: 1,
+      total_budget: 0,
+      health_schedule: { onTrack: 0, atRisk: 0, offTrack: 0, noReport: 1 },
+      total_actual: 77,
+      by_status: { ACTIVE: 9 },
+    });
+    expect(full.total_initiatives).toBe(9);
+    expect(full.health_schedule.noReport).toBe(1);
   });
 });

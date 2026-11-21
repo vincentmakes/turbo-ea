@@ -11,9 +11,7 @@ Das **PPM**-Modul bietet eine vollständige Lösung für das Projektportfolioman
 
 Das **Portfolio-Dashboard** ist der Haupteinstiegspunkt für PPM. Es bietet:
 
-- **KPI-Karten** — Gesamtzahl der Initiativen, Gesamtbudget, tatsächliche Gesamtkosten und Zusammenfassungen des Gesundheitsstatus
-- **Gesundheits-Kreisdiagramme** — Verteilung von Zeitplan-, Kosten- und Umfangsgesundheit (Auf Kurs / Gefährdet / Abweichend)
-- **Statusverteilung** — Aufschlüsselung nach Initiativ-Subtyp und Status
+- **KPI-Leiste** — Die Anzahl der Initiativen, ihr Gesamtbudget (sofern Ihnen Kosten angezeigt werden) und wie viele beim Zeitplan Im Plan, Gefährdet oder Nicht im Plan sind. Die Werte folgen dem Portfolio: Die Suche, die Subtyp-Auswahl und der Abschnitt **Filter** grenzen sie auf die Initiativen ein, die Sie gerade betrachten
 - **Gantt-Übersicht** — Zeitbalken mit Start- und Enddaten jeder Initiative und RAG-Gesundheitsindikatoren
 
 ### Gruppierung und Filterung
@@ -27,7 +25,17 @@ Verwenden Sie die Symbolleiste, um:
 - **Hierarchie anzeigen** – die Initiativen jeder Gruppe unter ihrer übergeordneten Initiative einrücken (siehe unten)
 - **Nach Untertyp untergliedern** – jede Gruppe nach Untertyp aufteilen (siehe unten)
 
-Diese Filter bleiben in der URL erhalten, sodass eine Seitenaktualisierung Ihre aktuelle Ansicht beibehält. Auch die Hierarchie, ihre Anzeigetiefe und die Untergliederung bleiben in der URL erhalten.
+Diese Einstellungen bleiben in der URL erhalten, sodass eine Seitenaktualisierung Ihre aktuelle Ansicht beibehält und ein geteilter Link dasselbe Portfolio öffnet. Das Portfolio merkt sich außerdem seine Suche, Gruppierung, den Subtyp, die Hierarchie-Einstellungen und die Filter in Ihrem Browser und stellt sie wieder her, wenn Sie zurückkehren – über das PPM-Menü oder mit dem Zurück-Pfeil, nachdem Sie eine Initiative geöffnet haben. Ein Link mit eigenen Einstellungen öffnet sich mit diesen, und sie werden zu den gemerkten Einstellungen. Das Symbol **Auf Standard zurücksetzen** in der Titelleiste setzt das Portfolio auf seine Standardwerte zurück.
+
+#### Der Abschnitt Filter
+
+Unter der Symbolleiste befindet sich der Abschnitt **Filter**, beim ersten Öffnen des Portfolios eingeklappt, damit das Portfolio im Blick bleibt, und danach so, wie Sie ihn zuletzt verlassen haben; solange er eingeklappt ist, zeigt ein Chip in seiner Kopfzeile, wie viele Filter aktiv sind. Klappen Sie ihn auf, um das Portfolio mit denselben Filtern wie in den Berichten einzugrenzen:
+
+- **Verknüpfte Karten** — behält die Initiativen, die mit den ausgewählten Karten verknüpft sind, zum Beispiel mit einer Organisation oder einer Anwendung. **Unterkarten einbeziehen** behält auch die Initiativen, die mit den Karten unterhalb einer ausgewählten Karte in deren Hierarchie verknüpft sind
+- **Tags** — behält die Initiativen, die die ausgewählten Tags tragen
+- **Felder** — behält die Initiativen, deren eigene Felder (die Attribute des Kartentyps Initiative) den ausgewählten Werten entsprechen
+
+Aktive Filter bleiben in der URL erhalten und werden mit dem Rest des Portfolios gemerkt, sodass ein geteilter Link dasselbe Portfolio öffnet, und sie werden in der Parameterzeile eines Ausdrucks oder Exports aufgeführt. **Alle löschen** leert den Abschnitt Filter und lässt den Rest der Symbolleiste unverändert.
 
 #### Die Initiativhierarchie anzeigen
 
@@ -57,7 +65,7 @@ Die abgeleiteten Werte gibt es nur auf dem PPM-Board und auf den Reitern **Über
 
 Das Portfolio bietet dieselben Aktionen in der Titelleiste wie die Berichte:
 
-- **Drucken / Als PDF speichern** — Das Druckersymbol druckt das Portfolio so, wie es auf dem Bildschirm aussieht. Die Registerkartenleiste, die Filterleiste und Hover-Popovers werden ausgeblendet, die aktive Gruppierung, der Subtyp und die Suche erscheinen als kompakte Parameterzeile, und das Zeitplanraster wird nicht mehr beschnitten, sodass alle Spalten auf die Seite passen. Sind die Hierarchie oder die Untergliederung eingeschaltet, nennt die Parameterzeile auch diese, mit der Anzeigetiefe.
+- **Drucken / Als PDF speichern** — Das Druckersymbol druckt das Portfolio so, wie es auf dem Bildschirm aussieht. Die Registerkartenleiste, die Filterleiste und Hover-Popovers werden ausgeblendet, die aktive Gruppierung, der Subtyp, die Suche und die Filter des Abschnitts Filter erscheinen als kompakte Parameterzeile, und das Zeitplanraster wird nicht mehr beschnitten, sodass alle Spalten auf die Seite passen. Sind die Hierarchie oder die Untergliederung eingeschaltet, nennt die Parameterzeile auch diese, mit der Anzeigetiefe.
 - **Export nach PowerPoint (.pptx)** — über das **⋮**-Menü. Die erste Folie enthält Titel, Erstellungszeitstempel und die aktiven Filter zusammen mit dem Portfolio in Präsentationsqualität; lange Portfolios werden auf weiteren Folien fortgesetzt und nur zwischen Initiativen getrennt — nie mitten in einer Zeile, einer Gruppenüberschrift oder einer Summenzeile.
 - **Export nach Excel (.xlsx)** — ebenfalls über das **⋮**-Menü. Eine Zeile je Initiative mit Gruppe, Subtyp, Projektleitung, Start- und Enddatum, den drei Gesundheitsbewertungen, CapEx/OpEx geplant und tatsächlich sowie dem Datum des letzten Statusberichts. Die Zeilen folgen der Reihenfolge auf dem Bildschirm; solange die Hierarchie angezeigt wird, nennt eine Spalte **Übergeordnet** die übergeordnete Initiative jeder Initiative. Drei Spalten, **Budget aus**, **Kosten aus** und **Termine aus**, geben an, ob Budget, Ist-Kosten und Termine einer Zeile ihre eigenen sind oder die Summe der Initiativen darunter. Ist das Board nach einem Untertyp der Initiative gruppiert, ist die gruppierende Initiative die **erste Zeile ihrer Gruppe**, mit den Werten, die ihre Schlusszeile zeigt.
 
