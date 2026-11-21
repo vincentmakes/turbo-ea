@@ -118,9 +118,51 @@ function followsTags(cwd) {
   }
 }
 
-function pushTargets(args, cwd, followTags) {
+function checkPushDefaults(cwd, remote, refs) {
+  const implicitDestination = !refs.length || refs.some(ref => !ref.includes(':'));
+  if (implicitDestination) {
+    // Legacy named remotes store their Push lines outside git config.
+    const dir = git(cwd, ['rev-parse', '--path-format=absolute', '--git-path', 'remotes']);
+    const entries = fs.existsSync(dir) ? fs.readdirSync(dir) : [];
+    if (entries.length && (!remote || entries.includes(remote.split('/')[0]))) {
+      throw Error('A legacy remote may supply push refspecs. Supply each source and destination explicitly.');
+    }
+  }
+  let settings;
+  try {
+    settings = git(cwd, ['config', '--null', '--get-regexp', '^remote\\..*\\.(mirror|push)$|^branch\\..*\\.merge$']);
+  } catch (error) {
+    if (error.status === 1) return; // No matching settings.
+    throw Error('Could not read the Git push configuration for this checkout.');
+  }
+  // Without a named remote Git may select one through the current branch or pushDefault.
+  // A source without a destination may also be remapped by remote.<name>.push.
+  for (const entry of settings.split('\0').filter(Boolean)) {
+    const newline = entry.indexOf('\n');
+    const key = newline < 0 ? entry : entry.slice(0, newline);
+    const value = newline < 0 ? '' : entry.slice(newline + 1);
+    if (key.startsWith('branch.')) {
+      if (!refs.length && !value.startsWith('refs/heads/')
+        && key === 'branch.' + git(cwd, ['symbolic-ref', 'HEAD']).replace(/^refs\/heads\//, '') + '.merge') {
+        throw Error('A configured upstream is outside refs/heads. Supply an explicit push destination.');
+      }
+      continue;
+    }
+    const [, name, setting] = /^remote\.(.*)\.(mirror|push)$/.exec(key);
+    if (remote && remote !== name) continue;
+    if (setting === 'mirror' && !/^(?:false|no|off|0)$/i.test(value)) {
+      throw Error('A configured mirror can push every tag. Select a non-mirroring remote and explicit refs.');
+    }
+    if (setting === 'push' && implicitDestination && releaseSources([value]).length) {
+      throw Error('A configured push refspec may publish tags. Supply each source and destination explicitly.');
+    }
+  }
+}
+
+function pushTargets(args, cwd, uncertainContext) {
   const operands = [];
-  let remoteByOption = false;
+  let remoteByOption;
+  let followTags;
   let bulk = false;
   let deletion = false;
   let dryRun = false;
@@ -130,8 +172,7 @@ function pushTargets(args, cwd, followTags) {
     if (endOptions || !arg.startsWith('-')) operands.push(arg);
     else if (arg === '--') endOptions = true;
     else if (arg === '--repo' || arg.startsWith('--repo=')) {
-      remoteByOption = true;
-      if (arg === '--repo') i++;
+      remoteByOption = arg === '--repo' ? args[++i] : arg.slice('--repo='.length);
     } else if (['--tags', '--mirror'].includes(arg)) bulk = true;
     else if (arg === '--follow-tags') followTags = true;
     else if (arg === '--no-follow-tags') followTags = false;
@@ -141,9 +182,17 @@ function pushTargets(args, cwd, followTags) {
     else if (arg === '--dry-run' || /^-[fquv]*n[fquv]*$/.test(arg)) dryRun = true;
     else if (arg === '--no-dry-run') dryRun = false;
   }
-  if (deletion || dryRun) return [];
+  if (dryRun) return [];
+  if (uncertainContext) throw Error('Run the push separately in the intended checkout without Git overrides so its effective configuration can be checked.');
   if (bulk || (followTags ?? followsTags(cwd))) throw Error('Push release tags individually by explicit ref and disable automatic tag following with --no-follow-tags.');
-  if (!remoteByOption) operands.shift();
+  if (remoteByOption !== undefined && operands.length) throw Error('Use a positional remote followed by explicit push refs.');
+  const remote = remoteByOption ?? operands.shift();
+  if (remote && dynamic(remote)) throw Error('Use a literal push remote so its configuration can be checked.');
+  checkPushDefaults(cwd, remote, operands);
+  return deletion ? [] : releaseSources(operands);
+}
+
+function releaseSources(operands) {
   const targets = [];
   for (let i = 0; i < operands.length; i++) {
     if (operands[i] === 'tag' && operands[i + 1]) {
@@ -187,7 +236,7 @@ function check(event) {
   const input = event.tool_input || {};
   const shell = input.command ?? input.cmd;
   if (typeof shell !== 'string') return;
-  const groups = commands(shell, input.shell || event.tool_name);
+  const groups = commands(shell, event);
   for (const args of groups) {
     let i = 0;
     while (/^\w+=/.test(args[i])) i++;
@@ -197,21 +246,17 @@ function check(event) {
     i++;
     let cwd = path.resolve(event.cwd || process.cwd(), input.workdir || '.');
     let configOverride = environmentOverride;
-    let followTags;
     while (args[i]?.startsWith('-')) {
       const opt = args[i++];
       if (opt === '-C' && args[i] !== undefined) cwd = path.resolve(cwd, args[i++]);
-      else if (opt === '-c' || opt === '--git-dir' || opt === '--work-tree' || opt === '--namespace') {
-        if (opt === '-c' && /^push\.followtags(?:=|$)/i.test(args[i])) {
-          followTags = !/^push\.followtags=(?:false|no|off|0|)$/i.test(args[i]);
-        }
+      else if (['-c', '--config-env', '--git-dir', '--work-tree', '--namespace'].includes(opt)) {
         i++;
         configOverride = true;
       } else if (opt !== '--no-pager' && opt !== '--no-optional-locks') configOverride = true;
     }
     const operation = args[i++];
     const refs = operation === 'tag' ? tagTargets(args.slice(i))
-      : operation === 'push' ? pushTargets(args.slice(i), cwd, followTags) : [];
+      : operation === 'push' ? pushTargets(args.slice(i), cwd, configOverride || groups.length !== 1) : [];
     if (!refs.length) continue;
     if (groups.length !== 1 || configOverride) {
       throw Error('Run the release command separately with a literal repository path and without Git overrides so its target can be verified.');

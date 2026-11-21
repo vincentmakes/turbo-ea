@@ -23,6 +23,79 @@ HOSTS = (
 )
 
 
+class ShellCommandTokens(unittest.TestCase):
+    def assert_tokens(self, event, examples):
+        program = """
+        const fs = require('node:fs');
+        const { commands } = require('./.claude/hooks/shell-commands.cjs');
+        const [event, examples] = JSON.parse(fs.readFileSync(0, 'utf8'));
+        console.log(JSON.stringify(examples.map(text => commands(text, event))));
+        """
+        parsed = subprocess.run(
+            ["node", "-e", program],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            encoding="utf-8",
+            input=json.dumps([event, list(examples)]),
+        )
+        for (command, expected), actual in zip(
+            examples.items(), json.loads(parsed.stdout), strict=True
+        ):
+            with self.subTest(command=command):
+                self.assertEqual(actual, expected)
+
+    def test_bash_continuations_and_escapes(self):
+        self.assert_tokens(
+            {"tool_name": "Bash", "tool_input": {"command": ""}},
+            {
+                "pr\\\nobe one\\ two": [["probe", "one two"]],
+                "probe 'one\\\ntwo'": [["probe", "one\\\ntwo"]],
+                'probe "one\\\ntwo"': [["probe", "onetwo"]],
+                r"probe one\;two blue\|green red\(yellow\)": [
+                    ["probe", "one;two", "blue|green", "red(yellow)"]
+                ],
+                r'probe "C:\Work Files\sample"': [["probe", r"C:\Work Files\sample"]],
+                "probe one\\\\\nsample": [["probe", "one\\"], ["sample"]],
+            },
+        )
+
+    def test_powershell_continuations_and_escapes(self):
+        self.assert_tokens(
+            {"tool_name": "PowerShell"},
+            {
+                "probe `\r\n one` two": [["probe", "one two"]],
+                "probe \\\nsample": [["probe", "\\"], ["sample"]],
+                "probe 'one`\ntwo'": [["probe", "one`\ntwo"]],
+                'probe "one`\r\ntwo"': [["probe", "one\r\ntwo"]],
+                r"probe C:\Work\sample": [["probe", r"C:\Work\sample"]],
+                "probe 'it''s' one`;two": [["probe", "it's", "one;two"]],
+                "probe one`tand`nmore": [["probe", "one\tand\nmore"]],
+            },
+        )
+
+    def test_codex_selects_explicit_shell_or_platform_default(self):
+        sample = "probe \\\nsample"
+        bash = [["probe", "sample"]]
+        powershell = [["probe", "\\"], ["sample"]]
+        for shell, expected in (
+            ("/bin/bash", bash),
+            (r"C:\Tools\pwsh.exe", powershell),
+            (None, powershell if os.name == "nt" else bash),
+        ):
+            self.assert_tokens(
+                {"tool_name": "Bash", "tool_input": {"cmd": sample, "shell": shell}},
+                {sample: expected},
+            )
+
+    def test_modern_powershell_unicode_escape(self):
+        sample = 'probe "caf`u{e9}"'
+        for shell, expected in (("pwsh.exe", "café"), ("powershell.exe", "cafu{e9}")):
+            self.assert_tokens(
+                {"tool_input": {"shell": shell}}, {sample: [["probe", expected]]}
+            )
+
+
 class SecurityReviewHooks(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix="security review ")

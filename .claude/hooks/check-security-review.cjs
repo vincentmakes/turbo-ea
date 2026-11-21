@@ -71,7 +71,7 @@ function check(event) {
   const input = event.tool_input || {};
   const shell = input.command ?? input.cmd;
   if (typeof shell !== 'string') throw Error('The security review hook could not read the shell command.');
-  const groups = commands(shell, input.shell || event.tool_name);
+  const groups = commands(shell, event);
   for (const argv of groups) {
     let i = 0;
     while (/^\w+=/.test(argv[i])) i++;

@@ -88,10 +88,10 @@ test('common shell forms, ordinary Git commands, tag reads and deletes', t => {
     'git tag --column v1.1.0', 'git push origin $env:RELEASE_TAG',
     'git push origin --dry-run --no-dry-run v1.0.0',
     'gh release create v1.0.0', 'gh -R owner/repo release create --title "candidate" v1.1.0-rc.1',
-    'git -c push.followTags=true push origin main', 'git \\\n tag v1.0.0',
-    'git ' + String.fromCharCode(96) + '\r\n tag v1.0.0']) {
+    'git -c push.followTags=true push origin main', 'git \\\n tag v1.0.0']) {
     assert.equal(verdict(command), 'deny', command);
   }
+  assert.equal(verdict('git ' + String.fromCharCode(96) + '\r\n tag v1.0.0', {}, 'PowerShell'), 'deny');
 });
 
 test('separate repositories containing the same commit require their own reports', t => {
@@ -156,6 +156,39 @@ test('repository push.followTags requires an explicit opt-out for a branch-only 
   git('config', '--local', 'push.followTags', 'true');
   assert.equal(verdict('git push origin main'), 'deny');
   assert.equal(verdict('git push --no-follow-tags origin main'), 'allow');
+});
+
+test('push checks mirror and refspec defaults before allowing implicit destinations', t => {
+  const { cwd, git, verdict } = setup(t);
+  git('config', 'remote.backup.mirror', 'true');
+  git('config', 'remote.pushDefault', 'backup');
+  for (const command of ['git push', 'git push backup', 'git push --repo=backup',
+    'git push backup HEAD:refs/heads/main', 'git push --no-follow-tags backup']) {
+    assert.equal(verdict(command), 'deny', command);
+  }
+  assert.equal(verdict('git push origin main'), 'allow');
+  assert.equal(verdict('git push --dry-run backup'), 'allow');
+
+  git('config', 'remote.backup.mirror', 'false');
+  git('config', '--add', 'remote.backup.push', 'refs/heads/*:refs/heads/*');
+  git('config', '--add', 'remote.backup.push', 'HEAD');
+  assert.equal(verdict('git push backup'), 'allow');
+  git('config', '--add', 'remote.backup.push', 'refs/heads/main:refs/tags/v1.0.0');
+  for (const command of ['git push', 'git push backup', 'git push backup main']) {
+    assert.equal(verdict(command), 'deny', command);
+  }
+  assert.equal(verdict('git push backup HEAD:refs/heads/main'), 'allow');
+  assert.equal(verdict('git push origin main'), 'allow');
+  assert.equal(verdict('git -c remote.origin.mirror=true push origin'), 'deny');
+  git('config', 'branch.' + git('symbolic-ref', '--short', 'HEAD') + '.merge', 'refs/tags/v1.0.0');
+  assert.equal(verdict('git push origin'), 'deny');
+  assert.equal(verdict('git push origin main:refs/heads/main'), 'allow');
+  const remotes = path.join(cwd, '.git', 'remotes');
+  fs.mkdirSync(remotes, { recursive: true });
+  fs.writeFileSync(path.join(remotes, 'archive'), 'Push: refs/tags/*:refs/tags/*\n');
+  assert.equal(verdict('git push archive main'), 'deny');
+  assert.equal(verdict('git push archive main:refs/heads/main'), 'allow');
+  assert.equal(verdict('git push origin main'), 'allow');
 });
 
 test('Claude and Codex each register the release gate before a shell command', () => {
