@@ -9,7 +9,6 @@
  * only — never by `PpmPortfolioView`, which the public portal bundle shares.
  */
 import {
-  EMPTY_CARD_FILTERS,
   countActiveFilters,
   expandRelationFilters,
   relatedTypeOfKey,
@@ -85,12 +84,13 @@ export function decodeCardFilters(raw: string | null): CardFilterValue {
   try {
     parsed = raw ? JSON.parse(raw) : null;
   } catch {
-    parsed = null;
+    // Broken JSON: `parsed` stays null, the empty selection.
   }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    return { ...EMPTY_CARD_FILTERS };
-  }
-  return { ...restoreCardFilters(parsed as Record<string, unknown>), subtypeFilters: [] };
+  // The restore reads every key defensively, so an array or a scalar restores
+  // to the empty selection on its own; only null (no param, broken JSON, the
+  // literal `null`) has no keys to read and needs a stand-in object.
+  const cfg = (parsed ?? {}) as Record<string, unknown>;
+  return { ...restoreCardFilters(cfg), subtypeFilters: [] };
 }
 
 /**

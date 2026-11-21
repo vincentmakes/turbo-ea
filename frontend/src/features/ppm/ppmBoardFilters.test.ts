@@ -90,7 +90,7 @@ describe("encodeCardFilters", () => {
 
 describe("decodeCardFilters", () => {
   it("reads no param, an empty one and anything unparseable as the empty selection", () => {
-    for (const raw of [null, "", "{bad", "[]", "5", '"str"', "null", "true"]) {
+    for (const raw of [null, "", "{bad", "[]", "[1]", "5", "0", '"str"', "null", "true", "false"]) {
       expect(decodeCardFilters(raw)).toEqual(EMPTY);
     }
   });

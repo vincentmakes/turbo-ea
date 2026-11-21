@@ -45,12 +45,15 @@ const TYPES = [
   },
 ];
 
+/** The metamodel's card types for the current test — every test starts from `TYPES`. */
+let metamodelTypes: typeof TYPES = TYPES;
+
 vi.mock("@/hooks/useMetamodel", () => ({
   useMetamodel: () => ({
-    types: TYPES,
+    types: metamodelTypes,
     relationTypes: [],
     loading: false,
-    getType: (key: string) => TYPES.find((tp) => tp.key === key),
+    getType: (key: string) => metamodelTypes.find((tp) => tp.key === key),
     getRelationsForType: () => [],
     invalidateCache: vi.fn(),
   }),
@@ -152,6 +155,29 @@ const FILTER_DATA_SELF = {
   },
 };
 
+/**
+ * The same board with one tag group: Alpha is tagged Cloud, Beta is tagged
+ * Data, Gamma carries no tag.
+ */
+const FILTER_DATA_TAGS = {
+  ...FILTER_DATA,
+  items: FILTER_DATA.items.map((it) => ({
+    ...it,
+    tag_ids: it.id === "i1" ? ["cloud"] : it.id === "i2" ? ["data"] : [],
+  })),
+  tag_groups: [
+    {
+      id: "theme",
+      name: "Theme",
+      mode: "multi",
+      tags: [
+        { id: "cloud", name: "Cloud" },
+        { id: "data", name: "Data" },
+      ],
+    },
+  ],
+};
+
 const SALES = encodeURIComponent('{"relationFilters":{"Organization":["sales"]}}');
 
 /** How the filter payload answers: at once, never (until released), or with an error. */
@@ -160,6 +186,7 @@ let filterAnswer: () => Promise<unknown> = () => Promise.resolve(FILTER_DATA);
 beforeEach(() => {
   vi.clearAllMocks();
   filterAnswer = () => Promise.resolve(FILTER_DATA);
+  metamodelTypes = TYPES;
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -201,6 +228,10 @@ const total = () => {
   const caption = screen.getByText("Total Initiatives");
   return caption.nextElementSibling?.textContent;
 };
+
+/** The toolbar's Group by select (an MUI Select whose label is not wired to it). */
+const groupBySelect = () =>
+  within(screen.getByText("Group by", { selector: "label" }).parentElement!).getByRole("combobox");
 
 async function pickOrganization(option: string) {
   const input = await screen.findByRole("combobox", { name: "Organization" });
@@ -373,5 +404,76 @@ describe("PpmPortfolio Filters section", () => {
         "Organization: Sales",
       ),
     );
+  });
+
+  it("offers the payload's tag group, and a tag pick narrows the rows, the tile and the print header", async () => {
+    filterAnswer = () => Promise.resolve(FILTER_DATA_TAGS);
+    renderBoard();
+    await screen.findByText("Alpha Rollout");
+    fireEvent.click(header());
+    const tags = await screen.findByRole("combobox", { name: "Tags" });
+    fireEvent.mouseDown(tags);
+    const listbox = await screen.findByRole("listbox");
+    // The group's own tags, by name.
+    expect(within(listbox).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "Cloud",
+      "Data",
+    ]);
+    fireEvent.click(within(listbox).getByRole("option", { name: "Cloud" }));
+    await waitFor(() => expect(names()).toEqual(["Alpha Rollout"]));
+    expect(total()).toBe("1");
+    expect(location().get("filters")).toBe('{"tagFilterIds":["cloud"]}');
+    // Named by the tag, never by its id.
+    expect(document.querySelector(".report-print-params")?.textContent ?? "").toContain(
+      "Tags: Cloud",
+    );
+  });
+
+  it("prints a pick widened with Include sub-cards with the sub-cards note", async () => {
+    renderBoard(
+      `/?filters=${encodeURIComponent('{"relationFilters":{"Organization":["sales"]},"includeDescendants":true}')}`,
+    );
+    await waitFor(() => expect(names()).toEqual(["Alpha Rollout", "Beta Upgrade"]));
+    expect(document.querySelector(".report-print-params")?.textContent ?? "").toContain(
+      "Organization: Sales (incl. sub-cards)",
+    );
+  });
+
+  it("names an (empty) pick in the print header by the empty label", async () => {
+    renderBoard(
+      `/?filters=${encodeURIComponent('{"relationFilters":{"Organization":["__empty__"]}}')}`,
+    );
+    // Only the initiative related to no organization.
+    await waitFor(() => expect(names()).toEqual(["Gamma Study"]));
+    expect(document.querySelector(".report-print-params")?.textContent ?? "").toContain(
+      "Organization: (empty)",
+    );
+  });
+
+  it("falls back to a plain Filters header, and no subtype grouping, without an Initiative type", async () => {
+    metamodelTypes = TYPES.filter((tp) => tp.key !== "Initiative");
+    renderBoard();
+    await screen.findByText("Alpha Rollout");
+    expect(names()).toEqual(["Alpha Rollout", "Beta Upgrade", "Gamma Study"]);
+    const plain = screen.getByRole("button", { name: /Filters$/ });
+    // The header's caption is exactly the plain label (the icons add their glyph names).
+    expect(within(plain).getByText("Filters")).toBeInTheDocument();
+    expect(plain).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: /Initiative Filters/ })).toBeNull();
+    fireEvent.click(plain);
+    await screen.findByRole("combobox", { name: "Organization" });
+    // The Group by menu offers subtype grouping only from the type's subtypes.
+    fireEvent.mouseDown(groupBySelect());
+    await screen.findByRole("listbox");
+    expect(screen.queryByText("Initiative subtypes")).toBeNull();
+  });
+
+  it("offers subtype grouping from the Initiative type's subtypes", async () => {
+    renderBoard();
+    await screen.findByText("Alpha Rollout");
+    fireEvent.mouseDown(groupBySelect());
+    const listbox = await screen.findByRole("listbox");
+    expect(within(listbox).getByText("Initiative subtypes")).toBeInTheDocument();
+    expect(within(listbox).getByRole("option", { name: "Project" })).toBeInTheDocument();
   });
 });
