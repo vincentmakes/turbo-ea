@@ -83,7 +83,7 @@ Pour une version minor qui nécessite une RC :
 1. Suivez le même processus de PR et de fusion que ci-dessus, mais définissez la version sur `1.Y.0-rc.1`.
 2. Après la fusion, créez le tag `v1.Y.0-rc.1` et poussez-le. Le workflow de publication crée et pousse les images RC (uniquement `:1.Y.0-rc.1`, jamais `:latest` ni les tags courts — `flavor: latest=auto` s’en charge). GitHub marque automatiquement la release comme prépublication.
 3. Attendez la fin de la période d’évaluation. Traitez les problèmes signalés avec `-rc.2`, `-rc.3` si nécessaire.
-4. Pour la promotion, définissez `VERSION` sur `1.Y.0` dans un PR final (l’entrée du CHANGELOG regroupe toutes les corrections des RC), fusionnez, créez le tag `v1.Y.0` et poussez-le. Les tags `:latest` et courts pointent alors vers la version promue.
+4. Pour la promotion, définissez `VERSION` sur `1.Y.0` dans un PR final (l’entrée du CHANGELOG regroupe toutes les corrections des RC), fusionnez, exécutez et consignez les deux audits de release sur le commit final, puis créez le tag `v1.Y.0` et poussez-le. Les tags `:latest` et courts pointent alors vers la version promue.
 
 ---
 

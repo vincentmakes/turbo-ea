@@ -118,7 +118,7 @@ De samme to trin køres dagligt igen mod de faktisk publicerede `:latest`-manife
 
 **Til operatører:** porten beskytter de publicerede images, men kør også din egen scanner mod det trukne image — din politik kan afvige fra vores. Den publicerede SBOM er et rent input.
 
-**Til bidragydere:** hvis du opdager et fund, der faktisk kan udnyttes i en Turbo EA-anvendelsessti, så rapportér det venligst via en [privat sikkerhedsmeddelelse](https://github.com/vincentmakes/turbo-ea/security/advisories/new) i stedet for at kommentere i et offentligt issue. Se [`SECURITY.md`](https://github.com/vincentmakes/turbo-ea/blob/main/SECURITY.md).
+**Til bidragydere:** hvis du opdager et fund, der faktisk kan udnyttes i en Turbo EA-anvendelsessti, så rapportér det venligst via en [privat sikkerhedsmeddelelse](https://github.com/TommasoChi/turbo-ea/security/advisories/new) i stedet for at kommentere i et offentligt issue. Se [`SECURITY.md`](https://github.com/TommasoChi/turbo-ea/blob/main/SECURITY.md).
 
 ---
 

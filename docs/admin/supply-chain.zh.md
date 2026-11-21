@@ -118,7 +118,7 @@ SBOM 列出了 buildkit 在最终镜像中观察到的每个软件包（apk 包�
 
 **对运维人员：** 门禁保护的是已发布的镜像，但仍请对拉取到的镜像运行您自己的扫描器——您的策略可能与我们的不同。已发布的 SBOM 是一份干净的输入。
 
-**对贡献者：** 如果您发现某个发现在 Turbo EA 的使用路径中确实可被利用，请通过[私密安全通告](https://github.com/vincentmakes/turbo-ea/security/advisories/new)报告，而不要在公开 issue 中评论。参见 [`SECURITY.md`](https://github.com/vincentmakes/turbo-ea/blob/main/SECURITY.md)。
+**对贡献者：** 如果您发现某个发现在 Turbo EA 的使用路径中确实可被利用，请通过[私密安全通告](https://github.com/TommasoChi/turbo-ea/security/advisories/new)报告，而不要在公开 issue 中评论。参见 [`SECURITY.md`](https://github.com/TommasoChi/turbo-ea/blob/main/SECURITY.md)。
 
 ---
 

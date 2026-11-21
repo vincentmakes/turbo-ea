@@ -118,7 +118,7 @@ Los mismos dos pasos se repiten a diario contra los manifiestos `:latest` realme
 
 **Para operadores:** la puerta protege las imágenes publicadas, pero ejecute también su propio escáner sobre la imagen descargada — su política puede diferir de la nuestra. La SBOM publicada es una entrada limpia.
 
-**Para colaboradores:** si detecta un hallazgo realmente explotable en un camino de uso de Turbo EA, notifíquelo mediante un [aviso de seguridad privado](https://github.com/vincentmakes/turbo-ea/security/advisories/new) en lugar de comentar en una incidencia pública. Consulte [`SECURITY.md`](https://github.com/vincentmakes/turbo-ea/blob/main/SECURITY.md).
+**Para colaboradores:** si detecta un hallazgo realmente explotable en un camino de uso de Turbo EA, notifíquelo mediante un [aviso de seguridad privado](https://github.com/TommasoChi/turbo-ea/security/advisories/new) en lugar de comentar en una incidencia pública. Consulte [`SECURITY.md`](https://github.com/TommasoChi/turbo-ea/blob/main/SECURITY.md).
 
 ---
 

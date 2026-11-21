@@ -118,7 +118,7 @@ docker buildx imagetools inspect --format '{{ json .SBOM }}' \
 
 **للمشغّلين:** تحمي البوّابة الصور المنشورة، لكن شغّل أداة الفحص الخاصة بك على الصورة المسحوبة أيضًا — فقد تختلف سياستك عن سياستنا. ملف SBOM المنشور مدخل نظيف.
 
-**للمساهمين:** إذا اكتشفت نتيجة قابلة للاستغلال فعليًا في أحد مسارات استخدام Turbo EA، فالرجاء الإبلاغ عنها عبر [استشارة أمنية خاصة](https://github.com/vincentmakes/turbo-ea/security/advisories/new) بدلًا من التعليق في مشكلة عامة. راجع [`SECURITY.md`](https://github.com/vincentmakes/turbo-ea/blob/main/SECURITY.md).
+**للمساهمين:** إذا اكتشفت نتيجة قابلة للاستغلال فعليًا في أحد مسارات استخدام Turbo EA، فالرجاء الإبلاغ عنها عبر [استشارة أمنية خاصة](https://github.com/TommasoChi/turbo-ea/security/advisories/new) بدلًا من التعليق في مشكلة عامة. راجع [`SECURITY.md`](https://github.com/TommasoChi/turbo-ea/blob/main/SECURITY.md).
 
 ---
 

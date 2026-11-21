@@ -118,7 +118,7 @@ As mesmas duas etapas são repetidas diariamente contra os manifestos `:latest` 
 
 **Para operadores:** o portão protege as imagens publicadas, mas execute também o seu próprio scanner sobre a imagem baixada — sua política pode diferir da nossa. A SBOM publicada é uma entrada limpa.
 
-**Para colaboradores:** se você encontrar um achado realmente explorável em um caminho de uso do Turbo EA, reporte-o por meio de um [aviso de segurança privado](https://github.com/vincentmakes/turbo-ea/security/advisories/new) em vez de comentar em uma issue pública. Veja [`SECURITY.md`](https://github.com/vincentmakes/turbo-ea/blob/main/SECURITY.md).
+**Para colaboradores:** se você encontrar um achado realmente explorável em um caminho de uso do Turbo EA, reporte-o por meio de um [aviso de segurança privado](https://github.com/TommasoChi/turbo-ea/security/advisories/new) em vez de comentar em uma issue pública. Veja [`SECURITY.md`](https://github.com/TommasoChi/turbo-ea/blob/main/SECURITY.md).
 
 ---
 
