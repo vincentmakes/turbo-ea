@@ -27,7 +27,7 @@ function pullRequest(args) {
       words.push(word);
     }
   }
-  if (words[0] === 'pr' && words[1] === 'create') return options;
+  if (words[0] === 'pr' && ['create', 'new'].includes(words[1])) return options;
 }
 
 function checkTarget(options, cwd) {

@@ -189,14 +189,6 @@ def insert_in_order(loc: dict, en: dict, path: tuple, value: object) -> dict:
     return dict(items)
 
 
-def resolve_key(en_flat: dict, dotted_key: str) -> tuple:
-    """The English key path a ``todo`` file's dotted key names."""
-    matches = [p for p in en_flat if dotted(p) == dotted_key]
-    if len(matches) != 1:
-        raise KeyError(dotted_key)
-    return matches[0]
-
-
 def canonical_json(obj: dict) -> str:
     return json.dumps(obj, indent=2, ensure_ascii=False) + "\n"
 
@@ -224,16 +216,6 @@ def insert_flat_text(text: str, key: str, value: object, anchor: str | None) -> 
         lines[idx] = lines[idx].rstrip() + ","
         lines.insert(idx + 1, new_line)
     return "\n".join(lines)
-
-
-def replace_flat_value(text: str, key: str, value: object) -> str:
-    """Replace one top-level key's single-line string value in place."""
-    keys = {json.dumps(key), json.dumps(key, ensure_ascii=False)}
-    pattern = re.compile(
-        r"^(\s*(?:" + "|".join(re.escape(k) for k in keys) + r')\s*:\s*)"(?:[^"\\]|\\.)*"',
-        re.MULTILINE,
-    )
-    return pattern.sub(lambda m: m.group(1) + json.dumps(value, ensure_ascii=False), text, count=1)
 
 
 def edit_member(text: str, path: tuple, value: str | None) -> str:

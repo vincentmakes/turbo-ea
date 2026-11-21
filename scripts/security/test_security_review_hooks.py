@@ -163,10 +163,14 @@ class SecurityReviewHooks(unittest.TestCase):
                 self.assertFalse(self.marker.exists())
 
     def test_both_hosts_require_both_passes_only_for_a_pr(self):
+        submissions = ("gh pr create --fill", "gh pr new --fill")
         for host in HOSTS:
             with self.subTest(host=host):
-                self.assertEqual(self.verdict(*host, "gh pr create --fill"), "deny")
+                for command in submissions:
+                    self.assertEqual(self.verdict(*host, command), "deny", command)
                 self.assertEqual(self.verdict(*host, "gh pr view"), "allow")
+                self.assertEqual(self.verdict(*host, "gh pr new --help"), "allow")
+                self.assertEqual(self.verdict(*host, "gh pr status"), "allow")
                 self.assertEqual(
                     self.verdict(*host, "echo 'run gh pr create when ready'"), "allow"
                 )
@@ -179,7 +183,8 @@ class SecurityReviewHooks(unittest.TestCase):
         )
         for host in HOSTS:
             with self.subTest(host=host):
-                self.assertEqual(self.verdict(*host, "gh pr create --fill"), "allow")
+                for command in submissions:
+                    self.assertEqual(self.verdict(*host, command), "allow", command)
         self.tracked.write_bytes(b"changed since review\n")
         self.assertEqual(self.verdict(*HOSTS[-1], "gh pr create --fill"), "deny")
 

@@ -5,6 +5,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import sys
 import textwrap
 from pathlib import Path
 
@@ -24,15 +25,10 @@ def _docs_only_result(tmp_path, changed_files):
     workflow = (WORKFLOWS / "version-check.yml").read_text(encoding="utf-8")
     step = workflow.split("id: docs_only", 1)[1].split("      - name:", 1)[0]
     script = textwrap.dedent(step.split("run: |\n", 1)[1])
-    script = script.replace("${{ github.base_ref }}", "main")
     stub_git = """
 git() {
-  case "$1" in
-    fetch) return 0 ;;
-    rev-parse) printf '%s\\n' base ;;
-    diff) printf '%s\\n' "$CHANGED_FILES" ;;
-    *) return 1 ;;
-  esac
+  [[ "$#" == 3 && "$1" == diff && "$2" == --name-only && "$3" == base...HEAD ]] || return 1
+  printf '%s\\n' "$CHANGED_FILES"
 }
 """
     env = {
@@ -57,6 +53,18 @@ git() {
 )
 def test_version_check_runs_for_version_bump_even_in_docs_only_pr(tmp_path, changed, expected):
     assert _docs_only_result(tmp_path, changed) == expected
+
+
+def test_version_check_rejects_wrong_diff_arguments(tmp_path, monkeypatch):
+    workflow = (WORKFLOWS / "version-check.yml").read_text(encoding="utf-8")
+    changed = workflow.replace(
+        'git diff --name-only "${BASE_SHA}...HEAD"', "git diff --name-only HEAD"
+    )
+    assert changed != workflow
+    (tmp_path / "version-check.yml").write_text(changed, encoding="utf-8")
+    monkeypatch.setattr(sys.modules[__name__], "WORKFLOWS", tmp_path)
+    with pytest.raises(subprocess.CalledProcessError):
+        _docs_only_result(tmp_path, ["VERSION"])
 
 
 @pytest.mark.parametrize("tag, prerelease", [("v2.208.0-rc.1", True), ("v2.208.0", False)])
