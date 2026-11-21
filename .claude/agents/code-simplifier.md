@@ -33,8 +33,14 @@ assigning files to either skill.
 2. If the inventory includes changed code or tests, use `ce-simplify-code` with
    `mode:pipeline size-cutoff:30`. Pass the code, tests and their relevant fixtures as explicit
    scope, including eligible untracked files. Pass each test that proves the change as
-   `proof-test:<path>`. Reviewers work read-only. Follow the skill's inline fallback when
-   dispatch is unavailable and report which reviews ran inline.
+   `proof-test:<path>`. You keep write access. Only you apply the accepted findings and run
+   the affected tests, after all review passes finish.
+   Each subreviewer returns findings only. Before dispatch, verify that the host enforces
+   read-only access to the checkout for that child (including shell commands). This takes
+   precedence over the skill's default of inheriting permissions. If the child would inherit
+   your write access or you cannot verify its permissions, run the same reviewer prompt inline
+   and leave files untouched during that pass. Report which reviews ran in read-only children
+   and which ran inline.
    Leave regression and guard tests intact and report any proposed changes to them.
    Keep comments that explain a project constraint while that constraint applies.
 3. If the inventory includes project-maintained operational Markdown or configuration, load
