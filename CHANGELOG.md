@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.208.1] - 2026-11-21
+
+### Fixed
+- Going back from the EA Delivery tab to the Portfolio tab on the PPM page left the page link pointing at EA Delivery, so a reload or a shared link opened the wrong tab.
+
 ## [2.208.0] - 2026-11-21
 
 ### Added
