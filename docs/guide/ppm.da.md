@@ -25,17 +25,17 @@ Brug værktøjslinjen til at:
 - **Vise hierarki** for at indlejre initiativerne i hver gruppe under deres overordnede initiativ (se nedenfor)
 - **Undergruppere efter undertype** for at opdele hver gruppe efter undertype (se nedenfor)
 
-Disse filtre vedvarer i URL'en, så opdatering af siden bibeholder din nuværende visning. Hierarkiet, dets visningsdybde og undergrupperingen gemmes også i URL'en.
+Disse indstillinger gemmes i URL'en, så opdatering af siden bibeholder din nuværende visning, og et link, du deler, åbner den samme portefølje. Porteføljen husker også sin søgning, gruppering, undertype, hierarkiindstillinger og filtre i din browser og gendanner dem, når du vender tilbage — fra PPM-menuen eller med tilbage-pilen efter at have åbnet et initiativ. Et link, der har sine egne indstillinger med, åbner med dem, og de bliver de huskede. Ikonet **Nulstil til standarder** i titellinjen sætter porteføljen tilbage til standardindstillingerne.
 
 #### Sektionen Filtre
 
-Under værktøjslinjen ligger sektionen **Filtre**, der som standard er foldet sammen, så porteføljen forbliver synlig; mens den er foldet sammen, viser en chip i dens overskrift, hvor mange filtre der er aktive. Fold den ud for at indsnævre porteføljen med de samme filtre som rapporterne:
+Under værktøjslinjen ligger sektionen **Filtre**, der er foldet sammen første gang du åbner porteføljen, så porteføljen forbliver synlig, og derefter som du sidst forlod den; mens den er foldet sammen, viser en chip i dens overskrift, hvor mange filtre der er aktive. Fold den ud for at indsnævre porteføljen med de samme filtre som rapporterne:
 
 - **Relaterede kort** — beholder de initiativer, der er knyttet til de kort, du vælger, for eksempel en Organisation eller en Applikation. **Medtag underkort** beholder også de initiativer, der er knyttet til kortene under et valgt kort i dets hierarki
 - **Tags** — beholder de initiativer, der har de tags, du vælger
 - **Felter** — beholder de initiativer, hvis egne felter (attributterne for korttypen Initiativ) matcher de værdier, du vælger
 
-Aktive filtre gemmes i URL'en, så et link, du deler, åbner den samme portefølje, og de står i parameterlinjen på en udskrift eller eksport. **Ryd alle** tømmer sektionen Filtre og lader resten af værktøjslinjen være, som den er.
+Aktive filtre gemmes i URL'en og huskes sammen med resten af porteføljen, så et link, du deler, åbner den samme portefølje, og de står i parameterlinjen på en udskrift eller eksport. **Ryd alle** tømmer sektionen Filtre og lader resten af værktøjslinjen være, som den er.
 
 #### Vis initiativhierarkiet
 

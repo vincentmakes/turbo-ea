@@ -25,7 +25,7 @@ Use the toolbar to:
 - **Show hierarchy** to nest the initiatives of each group under their parent Initiative (see below)
 - **Sub-group by subtype** to split each group by subtype (see below)
 
-These settings are kept in the URL, so refreshing the page retains your current view, and a link you share opens the same board. The board also remembers its search, grouping, subtype, hierarchy settings and filters in your browser and restores them when you come back — from the PPM menu, or with the back arrow after opening an initiative. A link that carries settings of its own opens with those, and they become the remembered ones. The **Reset** icon in the title bar returns the board to its defaults.
+These settings are kept in the URL, so refreshing the page retains your current view, and a link you share opens the same board. The board also remembers its search, grouping, subtype, hierarchy settings and filters in your browser and restores them when you come back — from the PPM menu, or with the back arrow after opening an initiative. A link that carries settings of its own opens with those, and they become the remembered ones. The **Reset to defaults** icon in the title bar returns the board to its defaults.
 
 #### The Filters section
 

@@ -25,17 +25,17 @@ Utilisez la barre d'outils pour :
 - **Afficher la hiérarchie** pour imbriquer les initiatives de chaque groupe sous leur initiative parente (voir ci-dessous)
 - **Sous-grouper par sous-type** pour scinder chaque groupe par sous-type (voir ci-dessous)
 
-Ces filtres sont conservés dans l'URL, donc l'actualisation de la page conserve votre vue actuelle. La hiérarchie, sa profondeur d’affichage et le sous-groupement sont eux aussi conservés dans l'URL.
+Ces réglages sont conservés dans l'URL : l'actualisation de la page conserve donc votre vue actuelle, et un lien que vous partagez ouvre le même portefeuille. Le portefeuille mémorise aussi sa recherche, son regroupement, son sous-type, ses réglages de hiérarchie et ses filtres dans votre navigateur, et les restaure lorsque vous revenez — depuis le menu PPM, ou avec la flèche de retour après avoir ouvert une initiative. Un lien qui porte ses propres réglages s'ouvre avec ceux-ci, et ils deviennent les réglages mémorisés. L'icône **Réinitialiser les paramètres par défaut** dans la barre de titre ramène le portefeuille à ses valeurs par défaut.
 
 #### La section Filtres
 
-Sous la barre d'outils se trouve une section **Filtres**, repliée par défaut pour que le portefeuille reste visible ; tant qu'elle est repliée, une puce dans son en-tête indique combien de filtres sont actifs. Dépliez-la pour restreindre le portefeuille, avec les mêmes filtres que les rapports :
+Sous la barre d'outils se trouve une section **Filtres**, repliée la première fois que vous ouvrez le portefeuille pour qu'il reste visible, puis dans l'état où vous l'avez laissée ; tant qu'elle est repliée, une puce dans son en-tête indique combien de filtres sont actifs. Dépliez-la pour restreindre le portefeuille, avec les mêmes filtres que les rapports :
 
 - **Fiches liées** — conserve les initiatives liées aux fiches que vous choisissez, par exemple une Organisation ou une Application. **Inclure les sous-fiches** conserve aussi les initiatives liées aux fiches situées sous une fiche choisie dans sa hiérarchie
 - **Étiquettes** — conserve les initiatives portant les étiquettes que vous choisissez
 - **Champs** — conserve les initiatives dont les propres champs (les attributs du type Initiative) correspondent aux valeurs que vous choisissez
 
-Les filtres actifs sont conservés dans l'URL : un lien que vous partagez ouvre donc le même portefeuille, et ils sont listés dans la ligne de paramètres d'une impression ou d'un export. **Tout effacer** vide la section Filtres et laisse le reste de la barre d'outils tel quel.
+Les filtres actifs sont conservés dans l'URL et mémorisés avec le reste du portefeuille : un lien que vous partagez ouvre donc le même portefeuille, et ils sont listés dans la ligne de paramètres d'une impression ou d'un export. **Tout effacer** vide la section Filtres et laisse le reste de la barre d'outils tel quel.
 
 #### Afficher la hiérarchie des initiatives
 

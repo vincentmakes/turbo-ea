@@ -25,17 +25,17 @@ Use a barra de ferramentas para:
 - **Mostrar hierarquia** para aninhar as iniciativas de cada grupo sob a iniciativa pai (veja abaixo)
 - **Subagrupar por subtipo** para dividir cada grupo por subtipo (veja abaixo)
 
-Esses filtros são mantidos na URL, então atualizar a página preserva sua visualização atual. A hierarquia, sua profundidade de exibição e o subagrupamento também são mantidos na URL.
+Estas definições são mantidas na URL, então atualizar a página preserva a sua visualização atual, e um link que você partilhar abre o mesmo portfólio. O portfólio também memoriza no seu navegador a pesquisa, o agrupamento, o subtipo, as definições de hierarquia e os filtros, e restaura-os quando você volta — a partir do menu PPM, ou com a seta de voltar depois de abrir uma iniciativa. Um link que traz definições próprias abre com essas, e elas passam a ser as memorizadas. O ícone **Redefinir padrões** na barra de título repõe o portfólio nas suas predefinições.
 
 #### A secção Filtros
 
-Abaixo da barra de ferramentas fica uma secção **Filtros**, recolhida por padrão para que o portfólio continue à vista; enquanto está recolhida, um chip no cabeçalho indica quantos filtros estão ativos. Expanda-a para restringir o portfólio, com os mesmos filtros dos relatórios:
+Abaixo da barra de ferramentas fica uma secção **Filtros**, recolhida na primeira vez que você abre o portfólio para que este continue à vista e, depois, tal como a deixou da última vez; enquanto está recolhida, um chip no cabeçalho indica quantos filtros estão ativos. Expanda-a para restringir o portfólio, com os mesmos filtros dos relatórios:
 
 - **Cards relacionados** — mantém as iniciativas ligadas aos cards que você escolher, por exemplo uma Organização ou uma Aplicação. **Incluir subcartões** mantém também as iniciativas ligadas aos cards situados abaixo de um card escolhido na hierarquia dele
 - **Etiquetas** — mantém as iniciativas que têm as etiquetas que você escolher
 - **Campos** — mantém as iniciativas cujos próprios campos (os atributos do tipo Iniciativa) correspondem aos valores que você escolher
 
-Os filtros ativos são mantidos na URL, de modo que um link que você partilhar abre o mesmo portfólio, e são listados na linha de parâmetros de uma impressão ou exportação. **Limpar tudo** esvazia a secção Filtros e deixa o resto da barra de ferramentas como está.
+Os filtros ativos são mantidos na URL e memorizados com o resto do portfólio, de modo que um link que você partilhar abre o mesmo portfólio, e são listados na linha de parâmetros de uma impressão ou exportação. **Limpar tudo** esvazia a secção Filtros e deixa o resto da barra de ferramentas como está.
 
 #### Mostrar a hierarquia de iniciativas
 

@@ -25,17 +25,17 @@ Utilizzare la barra degli strumenti per:
 - **Mostrare la gerarchia** per annidare le iniziative di ogni gruppo sotto la loro iniziativa padre (vedi sotto)
 - **Sottoraggruppare per sottotipo** per suddividere ogni gruppo per sottotipo (vedi sotto)
 
-Questi filtri vengono mantenuti nell'URL, quindi l'aggiornamento della pagina conserva la vista corrente. Anche la gerarchia, la sua profondità di visualizzazione e il sottoraggruppamento vengono mantenuti nell'URL.
+Queste impostazioni vengono mantenute nell'URL, quindi l'aggiornamento della pagina conserva la vista corrente e un link che condividete apre lo stesso portafoglio. Il portafoglio ricorda inoltre nel vostro browser la ricerca, il raggruppamento, il sottotipo, le impostazioni della gerarchia e i filtri, e li ripristina quando tornate — dal menu PPM, oppure con la freccia indietro dopo aver aperto un'iniziativa. Un link che porta impostazioni proprie si apre con quelle, che diventano le impostazioni ricordate. L'icona **Reimposta predefiniti** nella barra del titolo riporta il portafoglio alle impostazioni predefinite.
 
 #### La sezione Filtri
 
-Sotto la barra degli strumenti si trova una sezione **Filtri**, chiusa per impostazione predefinita così che il portafoglio resti in vista; mentre è chiusa, un chip nella sua intestazione indica quanti filtri sono attivi. Apritela per restringere il portafoglio, con gli stessi filtri dei report:
+Sotto la barra degli strumenti si trova una sezione **Filtri**, chiusa la prima volta che aprite il portafoglio così che resti in vista, e in seguito come l'avete lasciata l'ultima volta; mentre è chiusa, un chip nella sua intestazione indica quanti filtri sono attivi. Apritela per restringere il portafoglio, con gli stessi filtri dei report:
 
 - **Card correlate** — mantiene le iniziative collegate alle card che scegliete, per esempio un'Organizzazione o un'Applicazione. **Includi sotto-schede** mantiene anche le iniziative collegate alle card che si trovano sotto una card scelta nella sua gerarchia
 - **Tag** — mantiene le iniziative che portano i tag che scegliete
 - **Campi** — mantiene le iniziative i cui campi propri (gli attributi del tipo Iniziativa) corrispondono ai valori che scegliete
 
-I filtri attivi vengono mantenuti nell'URL, così un link che condividete apre lo stesso portafoglio, e sono elencati nella riga dei parametri di una stampa o di un'esportazione. **Cancella tutto** svuota la sezione Filtri e lascia invariato il resto della barra degli strumenti.
+I filtri attivi vengono mantenuti nell'URL e ricordati insieme al resto del portafoglio, così un link che condividete apre lo stesso portafoglio, e sono elencati nella riga dei parametri di una stampa o di un'esportazione. **Cancella tutto** svuota la sezione Filtri e lascia invariato il resto della barra degli strumenti.
 
 #### Mostrare la gerarchia delle iniziative
 

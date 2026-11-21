@@ -25,17 +25,17 @@ Use la barra de herramientas para:
 - **Mostrar jerarquía** para anidar las iniciativas de cada grupo bajo su iniciativa padre (ver más abajo)
 - **Subagrupar por subtipo** para dividir cada grupo por subtipo (ver más abajo)
 
-Estos filtros se mantienen en la URL, por lo que al actualizar la página se conserva su vista actual. La jerarquía, su profundidad de visualización y la subagrupación también se conservan en la URL.
+Estos ajustes se mantienen en la URL, por lo que al actualizar la página se conserva su vista actual, y un enlace que comparta abre la misma cartera. La cartera también recuerda en su navegador la búsqueda, la agrupación, el subtipo, los ajustes de jerarquía y los filtros, y los restaura cuando vuelve — desde el menú PPM o con la flecha de retroceso después de abrir una iniciativa. Un enlace que lleva sus propios ajustes se abre con ellos, y estos pasan a ser los recordados. El icono **Restablecer valores predeterminados** de la barra de título devuelve la cartera a sus valores predeterminados.
 
 #### La sección Filtros
 
-Debajo de la barra de herramientas hay una sección **Filtros**, plegada de forma predeterminada para que la cartera siga a la vista; mientras está plegada, un chip en su encabezado indica cuántos filtros están activos. Despliéguela para acotar la cartera con los mismos filtros que los informes:
+Debajo de la barra de herramientas hay una sección **Filtros**, plegada la primera vez que abre la cartera para que siga a la vista y, después, tal como la dejó la última vez; mientras está plegada, un chip en su encabezado indica cuántos filtros están activos. Despliéguela para acotar la cartera con los mismos filtros que los informes:
 
 - **Tarjetas relacionadas** — conserva las iniciativas vinculadas a las tarjetas que elija, por ejemplo una Organización o una Aplicación. **Incluir subtarjetas** conserva también las iniciativas vinculadas a las tarjetas situadas bajo una tarjeta elegida en su jerarquía
 - **Etiquetas** — conserva las iniciativas que llevan las etiquetas que elija
 - **Campos** — conserva las iniciativas cuyos propios campos (los atributos del tipo Iniciativa) coinciden con los valores que elija
 
-Los filtros activos se conservan en la URL, de modo que un enlace que comparta abre la misma cartera, y aparecen en la línea de parámetros de una impresión o exportación. **Limpiar todo** vacía la sección Filtros y deja el resto de la barra de herramientas como está.
+Los filtros activos se conservan en la URL y se recuerdan junto con el resto de la cartera, de modo que un enlace que comparta abre la misma cartera, y aparecen en la línea de parámetros de una impresión o exportación. **Limpiar todo** vacía la sección Filtros y deja el resto de la barra de herramientas como está.
 
 #### Mostrar la jerarquía de iniciativas
 

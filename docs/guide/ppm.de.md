@@ -25,17 +25,17 @@ Verwenden Sie die Symbolleiste, um:
 - **Hierarchie anzeigen** – die Initiativen jeder Gruppe unter ihrer übergeordneten Initiative einrücken (siehe unten)
 - **Nach Untertyp untergliedern** – jede Gruppe nach Untertyp aufteilen (siehe unten)
 
-Diese Filter bleiben in der URL erhalten, sodass eine Seitenaktualisierung Ihre aktuelle Ansicht beibehält. Auch die Hierarchie, ihre Anzeigetiefe und die Untergliederung bleiben in der URL erhalten.
+Diese Einstellungen bleiben in der URL erhalten, sodass eine Seitenaktualisierung Ihre aktuelle Ansicht beibehält und ein geteilter Link dasselbe Portfolio öffnet. Das Portfolio merkt sich außerdem seine Suche, Gruppierung, den Subtyp, die Hierarchie-Einstellungen und die Filter in Ihrem Browser und stellt sie wieder her, wenn Sie zurückkehren – über das PPM-Menü oder mit dem Zurück-Pfeil, nachdem Sie eine Initiative geöffnet haben. Ein Link mit eigenen Einstellungen öffnet sich mit diesen, und sie werden zu den gemerkten Einstellungen. Das Symbol **Auf Standard zurücksetzen** in der Titelleiste setzt das Portfolio auf seine Standardwerte zurück.
 
 #### Der Abschnitt Filter
 
-Unter der Symbolleiste befindet sich der Abschnitt **Filter**, standardmäßig eingeklappt, damit das Portfolio im Blick bleibt; solange er eingeklappt ist, zeigt ein Chip in seiner Kopfzeile, wie viele Filter aktiv sind. Klappen Sie ihn auf, um das Portfolio mit denselben Filtern wie in den Berichten einzugrenzen:
+Unter der Symbolleiste befindet sich der Abschnitt **Filter**, beim ersten Öffnen des Portfolios eingeklappt, damit das Portfolio im Blick bleibt, und danach so, wie Sie ihn zuletzt verlassen haben; solange er eingeklappt ist, zeigt ein Chip in seiner Kopfzeile, wie viele Filter aktiv sind. Klappen Sie ihn auf, um das Portfolio mit denselben Filtern wie in den Berichten einzugrenzen:
 
 - **Verknüpfte Karten** — behält die Initiativen, die mit den ausgewählten Karten verknüpft sind, zum Beispiel mit einer Organisation oder einer Anwendung. **Unterkarten einbeziehen** behält auch die Initiativen, die mit den Karten unterhalb einer ausgewählten Karte in deren Hierarchie verknüpft sind
 - **Tags** — behält die Initiativen, die die ausgewählten Tags tragen
 - **Felder** — behält die Initiativen, deren eigene Felder (die Attribute des Kartentyps Initiative) den ausgewählten Werten entsprechen
 
-Aktive Filter bleiben in der URL erhalten, sodass ein geteilter Link dasselbe Portfolio öffnet, und sie werden in der Parameterzeile eines Ausdrucks oder Exports aufgeführt. **Alle löschen** leert den Abschnitt Filter und lässt den Rest der Symbolleiste unverändert.
+Aktive Filter bleiben in der URL erhalten und werden mit dem Rest des Portfolios gemerkt, sodass ein geteilter Link dasselbe Portfolio öffnet, und sie werden in der Parameterzeile eines Ausdrucks oder Exports aufgeführt. **Alle löschen** leert den Abschnitt Filter und lässt den Rest der Symbolleiste unverändert.
 
 #### Die Initiativhierarchie anzeigen
 
