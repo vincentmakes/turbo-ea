@@ -4,6 +4,7 @@ paths:
   - "backend/app/services/fiscal_year.py"
   - "backend/app/services/calculation_ppm.py"
   - "backend/app/services/cost_report.py"
+  - "backend/app/services/cost_components.py"
   - "backend/app/services/cost_grouping.py"
   - "backend/app/services/cost_attribution.py"
   - "backend/app/api/v1/reports.py"
