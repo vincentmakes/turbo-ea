@@ -846,6 +846,7 @@ EFFECTIVE_FLAGS = {
     "can_manage_adr_links": ("adr.manage", "card.manage_adr_links"),
     "can_manage_diagram_links": ("diagrams.manage", "card.manage_diagram_links"),
     "can_view_costs": ("costs.view", "card.view_costs"),
+    "can_view_licenses": ("licenses.view", "card.view_licenses"),
 }
 ALL_FLAGS = list(EFFECTIVE_FLAGS)
 
