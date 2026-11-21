@@ -118,6 +118,40 @@ const FILTER_DATA = {
   tag_groups: [],
 };
 
+/**
+ * The same board with an Initiative self-relation and a third related type. The
+ * payload lists the Initiative's own facets first, as the backend seeds them.
+ */
+const FILTER_DATA_SELF = {
+  ...FILTER_DATA,
+  relation_types: [
+    {
+      key: "relInitiativeSucceeds",
+      label: "succeeds",
+      reverse_label: "is succeeded by",
+      source_type_key: "Initiative",
+      target_type_key: "Initiative",
+      other_type_key: "Initiative",
+      attributes_schema: [],
+    },
+    ...FILTER_DATA.relation_types,
+    {
+      key: "relInitiativeToApplication",
+      label: "affects",
+      reverse_label: "is affected by",
+      source_type_key: "Initiative",
+      target_type_key: "Application",
+      other_type_key: "Application",
+      attributes_schema: [],
+    },
+  ],
+  groupable_types: {
+    Initiative: [{ id: "i1", name: "Alpha Rollout", parent_id: null }],
+    ...FILTER_DATA.groupable_types,
+    Application: [{ id: "crm", name: "CRM", parent_id: null }],
+  },
+};
+
 const SALES = encodeURIComponent('{"relationFilters":{"Organization":["sales"]}}');
 
 /** How the filter payload answers: at once, never (until released), or with an error. */
@@ -175,6 +209,22 @@ async function pickOrganization(option: string) {
 }
 
 describe("PpmPortfolio Filters section", () => {
+  it("offers the other card types first and the Initiative's own facets behind the more chip", async () => {
+    filterAnswer = () => Promise.resolve(FILTER_DATA_SELF);
+    renderBoard();
+    await screen.findByText("Alpha Rollout");
+    fireEvent.click(header());
+    await screen.findByRole("combobox", { name: "Organization" });
+    const body = document.getElementById(header().getAttribute("aria-controls")!)!;
+    // Two facets before the chip: Organization and Application, in the payload's order.
+    expect(within(body).getAllByRole("combobox")).toHaveLength(2);
+    expect(screen.getByRole("combobox", { name: "Application" })).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: /^Initiative/ })).toBeNull();
+    fireEvent.click(screen.getByText("3 more"));
+    expect(screen.getByRole("combobox", { name: "Initiative" })).toBeInTheDocument();
+    expect(screen.getAllByRole("combobox", { name: /^Initiative · / })).toHaveLength(2);
+  });
+
   it("starts folded and costs no request on the default load", async () => {
     renderBoard();
     await screen.findByText("Alpha Rollout");

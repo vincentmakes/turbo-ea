@@ -6,11 +6,13 @@
 import { describe, expect, it } from "vitest";
 
 import { EMPTY_CARD_FILTERS } from "@/features/reports/cardFilters";
-import type { CardFilterValue } from "@/features/reports/cardFilters";
+import type { CardFilterValue, RelationFilterOption } from "@/features/reports/cardFilters";
+import type { RelTypeDef } from "@/features/reports/portfolioHelpers";
 import {
   decodeCardFilters,
   encodeCardFilters,
   matchingInitiativeIds,
+  otherTypesFirst,
 } from "./ppmBoardFilters";
 import type { PpmFilterContext, PpmFilterItem } from "./ppmBoardFilters";
 
@@ -298,5 +300,89 @@ describe("matchingInitiativeIds", () => {
     expect(ids(value({ tagFilterIds: ["blue"], relationFilters: { Application: ["crm"] } }))).toEqual(
       [],
     );
+  });
+});
+
+describe("otherTypesFirst", () => {
+  const rt = (key: string, source: string, target: string): RelTypeDef => ({
+    key,
+    label: key,
+    source_type_key: source,
+    target_type_key: target,
+    other_type_key: source === "Initiative" ? target : source,
+  });
+  const RTS = [
+    rt("relInitiativeToOrganization", "Initiative", "Organization"),
+    rt("relInitiativeToOrganizationSponsor", "Initiative", "Organization"),
+    rt("relInitiativeSucceeds", "Initiative", "Initiative"),
+  ];
+  const opt = (typeKey: string): RelationFilterOption => ({
+    typeKey,
+    label: typeKey,
+    icon: "link",
+    hierarchical: false,
+    options: [],
+  });
+  const keys = (list: RelationFilterOption[]) => list.map((o) => o.typeKey);
+
+  it("moves the own type's bare facet and both its sides after the other types, keeping each group's order", () => {
+    const input = [
+      opt("Initiative"),
+      opt("relInitiativeSucceeds__out"),
+      opt("relInitiativeSucceeds__in"),
+      opt("Organization"),
+      opt("relInitiativeToOrganizationSponsor"),
+      opt("relInitiativeToOrganization"),
+      opt("Application"),
+    ];
+    expect(keys(otherTypesFirst(input, RTS, "Initiative"))).toEqual([
+      "Organization",
+      "relInitiativeToOrganizationSponsor",
+      "relInitiativeToOrganization",
+      "Application",
+      "Initiative",
+      "relInitiativeSucceeds__out",
+      "relInitiativeSucceeds__in",
+    ]);
+  });
+
+  it("keeps the incoming order inside the own type's group too", () => {
+    const input = [opt("relInitiativeSucceeds__in"), opt("Platform"), opt("Initiative")];
+    expect(keys(otherTypesFirst(input, RTS, "Initiative"))).toEqual([
+      "Platform",
+      "relInitiativeSucceeds__in",
+      "Initiative",
+    ]);
+  });
+
+  it("returns only other types in the order they came", () => {
+    const input = [opt("Platform"), opt("Organization"), opt("Application")];
+    expect(keys(otherTypesFirst(input, RTS, "Initiative"))).toEqual([
+      "Platform",
+      "Organization",
+      "Application",
+    ]);
+  });
+
+  it("returns only the own type's facets in the order they came", () => {
+    const input = [
+      opt("relInitiativeSucceeds__in"),
+      opt("Initiative"),
+      opt("relInitiativeSucceeds__out"),
+    ];
+    expect(keys(otherTypesFirst(input, RTS, "Initiative"))).toEqual([
+      "relInitiativeSucceeds__in",
+      "Initiative",
+      "relInitiativeSucceeds__out",
+    ]);
+  });
+
+  it("reads the far end from the key, so the own type is whatever it is told", () => {
+    const input = [opt("Initiative"), opt("Organization")];
+    expect(keys(otherTypesFirst(input, RTS, "Organization"))).toEqual(["Initiative", "Organization"]);
+  });
+
+  it("returns an empty list for no facets", () => {
+    expect(otherTypesFirst([], RTS, "Initiative")).toEqual([]);
   });
 });

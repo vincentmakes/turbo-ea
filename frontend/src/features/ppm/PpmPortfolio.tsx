@@ -38,7 +38,12 @@ import type { CardFilterValue } from "@/features/reports/cardFilters";
 import { useCardFilterOptions } from "@/features/reports/useCardFilterOptions";
 import PpmPortfolioView from "./PpmPortfolioView";
 import { BOARD_MAX_WIDTH } from "./ppmPortfolioFormat";
-import { decodeCardFilters, encodeCardFilters, matchingInitiativeIds } from "./ppmBoardFilters";
+import {
+  decodeCardFilters,
+  encodeCardFilters,
+  matchingInitiativeIds,
+  otherTypesFirst,
+} from "./ppmBoardFilters";
 import type { PpmFilterData } from "./ppmBoardFilters";
 import type { PpmPortfolioShellParts } from "./PpmPortfolioView";
 import type {
@@ -130,12 +135,22 @@ export default function PpmPortfolio() {
   const groupableTypes = useMemo(() => filterData?.groupable_types ?? {}, [filterData]);
   const tagGroups = useMemo(() => filterData?.tag_groups ?? [], [filterData]);
 
-  const { relationOptions, relSubtypes, facetFields } = useCardFilterOptions({
+  const {
+    relationOptions: payloadOrder,
+    relSubtypes,
+    facetFields,
+  } = useCardFilterOptions({
     cardTypeKey: "Initiative",
     relationTypes,
     groupableTypes,
     includeDescendants: filters.includeDescendants,
   });
+  // Other card types before the Initiative's own facets, in the section and
+  // the print header alike.
+  const relationOptions = useMemo(
+    () => otherTypesFirst(payloadOrder, relationTypes, "Initiative"),
+    [payloadOrder, relationTypes],
+  );
 
   const matchIds = useMemo(
     () =>

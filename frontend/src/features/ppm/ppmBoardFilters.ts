@@ -12,10 +12,15 @@ import {
   EMPTY_CARD_FILTERS,
   countActiveFilters,
   expandRelationFilters,
+  relatedTypeOfKey,
   relationTypeKeys,
   restoreCardFilters,
 } from "@/features/reports/cardFilters";
-import type { CardFilterValue, FilterMember } from "@/features/reports/cardFilters";
+import type {
+  CardFilterValue,
+  FilterMember,
+  RelationFilterOption,
+} from "@/features/reports/cardFilters";
 import { matchesStaticFilters } from "@/features/reports/portfolioHelpers";
 import type {
   AppRelation,
@@ -86,6 +91,23 @@ export function decodeCardFilters(raw: string | null): CardFilterValue {
     return { ...EMPTY_CARD_FILTERS };
   }
   return { ...restoreCardFilters(parsed as Record<string, unknown>), subtypeFilters: [] };
+}
+
+/**
+ * The section's "Related by" facets with the other card types first and the
+ * board's own type last — its bare facet and its relation sides ("Initiative ·
+ * succeeds", …) — each group in the order it came. The payload lists the own
+ * type first, and the section shows only the first two facets before "+N
+ * more", which on a board of initiatives put the rarely useful ones in front.
+ * The far end is read from each facet's key (`relatedTypeOfKey`), never its label.
+ */
+export function otherTypesFirst(
+  options: RelationFilterOption[],
+  relationTypes: RelTypeDef[],
+  ownType: string,
+): RelationFilterOption[] {
+  const own = (o: RelationFilterOption) => relatedTypeOfKey(o.typeKey, relationTypes) === ownType;
+  return [...options.filter((o) => !own(o)), ...options.filter(own)];
 }
 
 /** What the matcher needs besides the selection. */
