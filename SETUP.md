@@ -1,46 +1,70 @@
-# SETUP: starting from scratch on Windows (no administrator rights)
+# Set up Turbo EA on Windows
 
-This file lists what to install on a new machine to work on Turbo EA with Claude Code.
-Everything is installed in user space: no system-wide MSI installers, and no `winget install` that asks for admin rights.
+Use this guide to prepare a Windows checkout for Claude Code or Codex. Install tools in user
+space. Docker Desktop's per-user installation needs WSL 2 already enabled on the machine.
 
-Sections of this file:
+1. [System prerequisites](#1-system-prerequisites)
+2. [Clone the repository](#2-clone-the-repository)
+3. [Node and frontend](#3-node-and-frontend)
+4. [Python and backend](#4-python-and-backend)
+5. [User-level Claude Code plugins and skills](#5-user-level-claude-code-plugins-and-skills)
+6. [Project skills, agents and review workflow](#6-project-level-claude-code-skills)
+7. [Graphify and Trail](#7-tools)
+8. [Final verification](#8-final-verification)
 
-1. System prerequisites
-2. Node (user-level globals and project)
-3. Clone the repository
-   - Folders outside the repository
-4. Python (uv and the backend venv)
-5. User-level Claude Code plugins and skills (caveman, superpowers, claude-md-management, ponytail, humanizer)
-6. Project-level Claude Code skills
-   - [Project agents for Claude Code and Codex](#project-agents-for-claude-code-and-codex)
-7. Tools
-   - Graphify (code graph)
-   - Trail (local install, shared hook and telemetry turned off)
-
-A final verification section will follow.
+```mermaid
+flowchart TD
+    tools["Install Windows tools and Claude Code or Codex"] --> clone["Clone Turbo EA"]
+    clone --> deps["Install frontend dependencies and create the backend venv"]
+    deps --> setup["Restore skills and set up Graphify and project-local Trail"]
+    setup --> hooks["Review project hooks and open a fresh session"]
+    hooks --> verify["Verify the checkout, agents and local checks"]
+```
 
 ---
 
 ## 1. System prerequisites
 
-| Program | Verified version | Where it lives on the machine |
+| Program | Version verified on the reference checkout | Installation |
 |---|---|---|
 | Git for Windows | 2.54.0 | `%LOCALAPPDATA%\Programs\Git` |
 | GitHub CLI (`gh`) | 2.97.0 | `%LOCALAPPDATA%\GitHub CLI\bin` |
 | GNU Make | 4.4.1 | `%LOCALAPPDATA%\Programs\GNU-Make\4.4.1\bin` |
-| Docker Desktop | Latest stable release | `%LOCALAPPDATA%\Programs\DockerDesktop` (per-user install) |
+| Docker CLI and Compose | 29.9.2 and 5.6.1 | Docker Desktop in per-user mode with WSL 2 |
+| Claude Code | 2.1.328 | Native Windows install |
+| Codex CLI | 0.145.0 | Codex CLI or the Windows app for local chats |
 
-### Required variable for Claude Code: `CLAUDE_CODE_GIT_BASH_PATH`
+Use the user installation options for [Git for Windows](https://git-scm.com/install/windows)
+and the [GitHub CLI](https://cli.github.com/). Start a new terminal after
+installing or changing the user PATH.
 
-Claude Code's Bash tool needs `bash.exe`, **not** the `git-bash.exe` launcher
-(which opens a separate MinTTY window and never returns the output).
+### Claude Code and Codex
+
+Follow the [Claude Code Windows setup](https://code.claude.com/docs/en/setup#install-on-native-windows)
+or use the [Codex Windows app](https://learn.chatgpt.com/docs/windows/windows-app). The
+[Codex CLI](https://learn.chatgpt.com/docs/codex/cli) also provides the `/hooks` review menu.
+Sign in to the host you use. For command-line installations, verify it in a new terminal.
 
 ```powershell
-[Environment]::SetEnvironmentVariable(
-  "CLAUDE_CODE_GIT_BASH_PATH",
-  "$env:LOCALAPPDATA\Programs\Git\bin\bash.exe",
-  "User")
+claude --version
+claude auth status
+codex --version
+codex login status
 ```
+
+### Git Bash for Claude Code
+
+Claude Code's Bash tool uses `bin\bash.exe` from Git for Windows. Find it from the active Git
+installation before setting the user variable.
+
+```powershell
+$gitRoot = Split-Path -Parent (Split-Path -Parent (Get-Command git.exe -ErrorAction Stop).Source)
+$gitBash = Join-Path $gitRoot 'bin\bash.exe'
+if (!(Test-Path -LiteralPath $gitBash -PathType Leaf)) { throw 'Find bin\bash.exe in your Git for Windows installation.' }
+[Environment]::SetEnvironmentVariable('CLAUDE_CODE_GIT_BASH_PATH', $gitBash, 'User')
+```
+
+Restart Claude Code to pick up the user variable.
 
 ### `gh` and the PATH
 
@@ -52,14 +76,19 @@ gh --version
 gh auth status
 ```
 
-If it is missing, add the folder to the user PATH:
+If `gh` is installed but missing from PATH, add the folder containing `gh.exe` to the user
+PATH. The reference machine uses the following folder.
 
 ```powershell
+$ghBin = Join-Path $env:LOCALAPPDATA 'GitHub CLI\bin'
+if (!(Test-Path -LiteralPath (Join-Path $ghBin 'gh.exe') -PathType Leaf)) { throw 'Use the actual folder containing gh.exe.' }
 $p = [Environment]::GetEnvironmentVariable("Path", "User")
-[Environment]::SetEnvironmentVariable("Path", "$p;$env:LOCALAPPDATA\GitHub CLI\bin", "User")
+if (($p -split ';') -notcontains $ghBin) {
+    [Environment]::SetEnvironmentVariable('Path', (@($p, $ghBin) -join ';'), 'User')
+}
 ```
 
-Then run `gh auth login` (access to the fork `TommasoChi/turbo-ea`).
+Open a new terminal and run `gh auth login` with access to `TommasoChi/turbo-ea`.
 
 ### GNU Make
 
@@ -85,17 +114,6 @@ Open **Edit environment variables for your account** and add
 `%LOCALAPPDATA%\Programs\GNU-Make\4.4.1\bin` to the user `Path`. Open a new PowerShell
 and run `make --version`. Restart Claude Code or Codex if it still has the old `PATH`.
 
-After creating the backend venv in section 4, run this from the repository root when you want
-Ruff to apply lint fixes and format the backend.
-
-```powershell
-.\backend\venv\Scripts\Activate.ps1
-make format
-```
-
-`make --dry-run format` shows the commands that would run. After formatting, review the changed
-files with `git diff HEAD -- backend/` and list new files with `git status --short -- backend/`.
-
 ### Docker
 
 With WSL 2 already enabled, download the latest stable
@@ -108,22 +126,51 @@ Docker is needed for `./scripts/test.sh` (it starts a throwaway Postgres), for b
 ```powershell
 docker --version
 docker compose version
-docker run --rm hello-world
+docker info --format '{{.ServerVersion}}'
 ```
 
 ---
 
-## 2. Node
+## 2. Clone the repository
 
-Node is installed in user space with **nvm-windows** (`%LOCALAPPDATA%\Programs\nvm`); the active
-version lives in `%LOCALAPPDATA%\Programs\Nodejs`. Both folders are on the user PATH.
+From the workspace folder, create a clone and enter its root.
+
+```powershell
+New-Item -ItemType Directory -Path software -Force | Out-Null
+git clone https://github.com/TommasoChi/turbo-ea.git software\turbo-ea
+Set-Location software\turbo-ea
+git status --short --branch
+```
+
+The clone configures the fork as `origin`. If you maintain the upstream sync, add the upstream
+remote once with `git remote add upstream https://github.com/vincentmakes/turbo-ea.git`.
+
+The commands in the rest of this guide start from the repository root unless they specify
+another directory. Open Claude Code or Codex on this directory after installing the local
+dependencies and reviewing the project hooks.
+
+### Folders outside the repository
+
+Keep the local test instance in `../turbo-ea-conf` and the isolated VAPT stack in
+`../turbo-ea-vapt`. Their environment files, Compose configuration, backups and reports stay
+in those sibling directories. The scripted Pytest database is a separate temporary Compose
+project named `turboea-test`.
+
+---
+
+## 3. Node and frontend
+
+On the reference machine, **nvm-windows** manages Node under `%LOCALAPPDATA%\Programs\nvm`
+and `%LOCALAPPDATA%\Programs\Nodejs`. If you need a portable install, extract the Windows ZIP
+from [Node.js Downloads](https://nodejs.org/en/download) under your user directory and put the
+folder containing `node.exe` on your user PATH.
 
 | What | Verified version |
 |---|---|
 | Node | 26.13.1 |
 | npm | 12.2.3 |
 
-The frontend installs only with **npm 11 or newer**: npm 10 refuses the lockfile.
+Use npm 11 or newer for this setup. The versions above describe the reference machine.
 
 ```powershell
 node --version
@@ -134,21 +181,21 @@ npm --version
 
 No global (`-g`) package is needed for Turbo EA. To list the ones present: `npm ls -g --depth=0`.
 
-### Project
+### Frontend dependencies
+
+From the repository root, install the frontend from its lockfile. `npm ci` recreates
+`frontend/node_modules` and installs the pinned local Biome along with the other development
+dependencies. The root Trail installation is a separate [step](#local-install-with-telemetry-turned-off).
 
 ```powershell
-cd frontend
-npm install
+Push-Location frontend
+npm ci
+Pop-Location
 ```
 
-To verify a fresh installation, run the project type check and the full test suite from `frontend/`.
-
-```powershell
-npx tsc --noEmit --pretty false -p .
-npm run test:run
-```
-
-`npm run dev` starts Vite on `localhost:5173` and proxies `/api` to `:8000`.
+Use the [final verification](#8-final-verification) after installing. Reserve the full suite
+for the [pre-PR workflow](#local-workflow-from-change-to-pr-and-release).
+`npm run dev` starts Vite on `localhost:5173` and proxies `/api` to the backend on port 8000.
 
 ### Frontend checks during development
 
@@ -169,7 +216,7 @@ flowchart TD
 The shared post-edit hook runs Biome after Claude Code's `Edit` and `Write` and Codex's `apply_patch`.
 It uses the frontend's installed Biome to apply safe fixes to the touched `.ts` and `.tsx` files.
 A clean result produces no Biome feedback. Remaining errors use `concise` output, one line per
-diagnostic. If Codex requests a review, follow the [shared hook approval steps](#while-editing-python).
+diagnostic. See [project hook approval](#review-project-hooks).
 
 For a file created or modified outside the hook, run this read-only check from the repository root.
 
@@ -184,10 +231,11 @@ the project types once, then runs the relevant Vitest files together once with t
 `agent` reporter. Use paths relative to `frontend/` for these commands.
 
 ```powershell
-cd frontend
+Push-Location frontend
 npx eslint -- src/lib/costValue.ts src/lib/costValue.test.ts
 npx tsc --noEmit --pretty false -p .
 npx vitest run --reporter=agent src/lib/costValue.test.ts
+Pop-Location
 ```
 
 When the test files are unknown, use `npx vitest related --run --reporter=agent <changed source paths>`
@@ -195,52 +243,36 @@ and report an empty selection.
 
 ---
 
-## 3. Clone the repository
+## 4. Python and backend
 
-From the workspace folder (the one that holds `software\`):
-
-```powershell
-git clone https://github.com/TommasoChi/turbo-ea.git software\turbo-ea
-```
-
-### Folders outside the repository
-
-Next to the clone, inside `software\`, there are folders that are **not** part of the repository and are never
-committed: `turbo-ea-conf` (the local test instance: `.env` and Compose files, database backups) and
-`turbo-ea-vapt` (the isolated security-test stack: backups, test accounts, reports). They hold the environment
-files, the backups and the reports, so that sensitive information stays out of the repository. Create them by
-hand next to the clone; nothing in them is ever added to a commit.
-
----
-
-## 4. Python
-
-The backend requires Python **3.11 or newer** (`requires-python = ">=3.11"` in `backend/pyproject.toml`).
-The machine has Python 3.12.16 managed by **uv** (0.13.7): the interpreter lives in `%USERPROFILE%\.local\bin\python.exe`.
-`uv` also installed `graphify` (section 7).
+The backend requires Python **3.11 or newer**. Use **Python 3.12** for the development venv,
+matching the backend test jobs. The reference machine uses **uv 0.13.7**.
 
 ### uv and Python
 
 ```powershell
 winget install --id astral-sh.uv --scope user
 uv python install 3.12
-python --version
+uv python find 3.12
 ```
 
-`uv` is on the user PATH (`...\WinGet\Packages\astral-sh.uv_Microsoft.Winget.Source_8wekyb3d8bbwe`). If `winget`
-cannot be used without administrator rights, download a portable `uv` and put it on the user PATH.
-
-The uv interpreter is marked "externally managed": a direct `python -m pip install` fails. To install
-packages outside a venv use `uv pip install --python <interpreter> --break-system-packages <package>`.
-Turbo EA does not need this: the whole backend lives in a venv.
+If WinGet is unavailable, use the [uv installation guide](https://docs.astral.sh/uv/getting-started/installation/)
+and put `uv` on your user PATH. Install Turbo EA's Python dependencies inside the checkout's venv.
 
 ### Project: the backend venv
 
+From the repository root, create the venv if it is missing and install the development dependencies.
+Use a venv created in this checkout. If a Windows checkout moves or you create a linked worktree,
+create its own venv so its launchers point at the correct absolute path.
+
 ```powershell
-cd software\turbo-ea\backend
-python -m venv venv
-venv\Scripts\activate
-pip install -e ".[dev]"
+Push-Location backend
+if (!(Test-Path -LiteralPath 'venv\Scripts\python.exe')) {
+    uv venv --python 3.12 --seed venv
+}
+uv pip install --python .\venv\Scripts\python.exe -e '.[dev]'
+.\venv\Scripts\python.exe --version
+Pop-Location
 ```
 
 The development dependencies are in `backend/pyproject.toml`, section `[project.optional-dependencies] dev`:
@@ -248,7 +280,27 @@ The development dependencies are in `backend/pyproject.toml`, section `[project.
 `ruff`, `vulture` (pinned version), `pip-audit`, `pip-tools`, `mypy`. `mutmut` and `vulture` are pinned
 on purpose: do not upgrade them on your own.
 
-The machine already has a venv in `backend/venv` (Python 3.12.10, `ruff` 0.16.0).
+The existing reference venv uses Python 3.12.10 and Ruff 0.17.6.
+
+### Run the local development stack
+
+Use the [local source build](README.md#development-from-source) to try a change in the browser.
+From the project root, create `.env` from [.env.example](.env.example) if it is missing.
+
+```powershell
+if (!(Test-Path -LiteralPath .env)) { Copy-Item -LiteralPath .env.example -Destination .env }
+```
+
+Set development credentials and free values for `HOST_PORT` and `TLS_HOST_PORT`, and set
+`TURBO_EA_PUBLIC_URL` to the URL you will open. Then start the source stack from this checkout.
+The instances in `turbo-ea-conf` and `turbo-ea-vapt` have their own configuration and ports.
+
+```powershell
+make up-dev
+docker compose -f docker-compose.yml -f dev/docker-compose.dev.yml ps
+```
+
+Open the configured public URL. Run `make down-dev` from the root to stop that stack.
 
 ### Check
 
@@ -270,9 +322,7 @@ It applies safe fixes from the standard rule set, formats the affected Python fi
 The expanded check ignores `S101` in Pytest files under `backend/tests/`. A clean edit produces no
 Ruff feedback. Remaining diagnostics use `concise` output, one line per finding.
 
-When Codex asks for hook review, use `/hooks` to approve
-`node scripts/quality/post-edit.cjs` under `PostToolUse`. Its status message is
-**Ruff e Biome: controllo dopo la modifica**.
+See [project hook approval](#review-project-hooks).
 
 For a Python file created or modified outside the hook, run this read-only check from the repository
 root with that file's path. Both the hook and the Make target look for Ruff in `backend/venv`,
@@ -291,15 +341,14 @@ from the repository root in Git Bash. Pass paths relative to `backend/`.
 ./scripts/test.sh tests/services/test_license_status.py
 ```
 
-The runner starts a throwaway Postgres with Docker and sets up the venv and dependencies if needed.
-
-Known issue: on a fresh venv the `pip install -e "$BACKEND_DIR[dev]"` step of `scripts/test.sh` can get the path
-wrong in Git Bash. In that case install the dependencies by hand as above and run it again.
-On this machine 11 backend tests always fail for Windows reasons (time zones with `time.tzset`,
-`python3` lookup, timing thresholds, an IPv6 nginx directive); they are not defects in the product code.
+The runner provisions Postgres in the temporary `turboea-test` Compose project. Check the number of
+collected tests, especially when passing a path. For the runner's built-in unit-only selection, use
+`./scripts/test.sh --unit`. If dependency setup fails under Git Bash, complete the PowerShell venv setup
+above first, then rerun the selected tests.
 
 The repository-wide Ruff check still uses the standard rule set. Run it from `backend/` before
-committing.
+committing. For intentional bulk lint fixes, use `make format` from the repository root with the
+backend venv activated and review `git diff -- backend/` afterwards.
 
 ```powershell
 ruff format . ; ruff check .
@@ -404,7 +453,11 @@ calls it. With caveman switched on, type `normal mode` first.
 
 The project skills are versioned under [.claude/skills](.claude/skills). External skills have source commits and content hashes in [skills-lock.json](skills-lock.json). The commands below are for refreshing the project copies.
 
-After installing the Ponytail plugin (section 5), run `./.agents/restore-skills.ps1` from the project root in PowerShell. It creates a junction to each project skill and six to the installed Ponytail skills. It also checks existing junctions before making changes. Rerun it to check an existing checkout.
+After installing Ponytail, run `./.agents/restore-skills.ps1` from the project root in PowerShell.
+It restores the Codex junctions to the checked-in project skills and to six installed Ponytail skills.
+By default it finds the Ponytail installation in the Claude plugin registry. If you keep those
+skills elsewhere, pass `-PonytailSkills <directory>` with the directory containing the six skills.
+The junctions should resolve to the installed skills so that plugin updates remain available.
 
 ### Static security review skills
 
@@ -473,7 +526,6 @@ The [frontend-dev](.claude/agents/frontend-dev.md) and [code-reviewer](.claude/a
 
 - Install into the project with `npx skills add vercel-labs/agent-skills --skill vercel-composition-patterns --agent claude-code --copy`. In the repository the folder is `composition-patterns`, but the installer uses the name in the skill's frontmatter.
 - Source on GitHub. [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills/tree/1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62/skills/composition-patterns) (MIT licence; checked at commit `1a2c79d4`).
-- Skills Skanner Security finds 0 HIGH and 6 MEDIUM: all six are `react.dev` links in `AGENTS.md`, harmless.
 - The installer also writes a copy in `.agents/skills/`, which is ignored by git.
 
 ### vercel-react-best-practices
@@ -516,7 +568,54 @@ Each role has one shared definition in `.claude/agents/<name>.md`. Its Codex pro
 | spec-plan-reviewer | Fresh, read-only review of each spec or plan before presentation | [.claude/agents/spec-plan-reviewer.md](.claude/agents/spec-plan-reviewer.md) | opus | medium | [.codex/agents/spec-plan-reviewer.toml](.codex/agents/spec-plan-reviewer.toml) | gpt-6.2-astra | high |
 | vapt | Isolated security testing: shared Viewer check, passive traffic analysis and evidence review; full VAPT in Claude | [.claude/agents/vapt.md](.claude/agents/vapt.md) | opus | high | [.codex/agents/vapt.toml](.codex/agents/vapt.toml) | gpt-6.2-astra | high |
 
-After development, start `code-simplifier`, `code-reviewer` and `security-reviewer`, one after the other, each in a fresh context: tests, simplify, tests of the touched files, code review and its fixes, security review and its fixes. In both hosts, `code-simplifier` runs `ce-simplify-code` on changed code and tests. When the diff includes project-maintained operational instructions or configuration, it then runs `ponytail:ponytail` at level `full` on those files. An instructions- or configuration-only diff goes directly to Ponytail. The independent `code-reviewer` uses `ponytail:ponytail-review`. In Codex, start each reviewer from a read-only parent session as described below. On both hosts the security reviewer returns one report covering both static checklists. The calling session owns commits, pushes and pull requests. To change a role's duties for both tools, edit its shared definition. To change its Codex model or reasoning effort, edit its TOML profile.
+To change a role's duties on both hosts, edit the shared definition. To change its Codex model
+or reasoning effort, edit its TOML profile. The calling session handles Git.
+
+#### Review project hooks
+
+The checked-in hook definitions are in [.claude/settings.json](.claude/settings.json) and
+[.codex/hooks.json](.codex/hooks.json). Open the project at its repository root.
+In Codex, review the exact project commands in **Settings → Hooks** or use `/hooks` in the CLI.
+Under `PostToolUse`, identify the quality hook by the command `node scripts/quality/post-edit.cjs`.
+Its progress message is **Ruff e Biome: controllo dopo la modifica**. The menu can show a numbered
+entry. Review changed commands again when Codex asks and open a fresh chat after changing the hook configuration.
+
+The shared quality hook selects Ruff or Biome from the paths in the edit event. Test runners and
+type checking belong to the agent's handoff checks. Graphify's Git hooks schedule graph refreshes
+after Git operations. Trail's chat hooks supply project context.
+
+#### Local workflow from change to PR and release
+
+```mermaid
+flowchart TD
+    plan["Update main, create a branch and agree the change"] --> dev["Implement with the backend or frontend agent<br/>Post-edit lint and targeted handoff tests"]
+    dev --> docs["Before PR: translations and manual checks as applicable"]
+    docs --> suites["Run the full backend and frontend suites in sequence"]
+    suites --> review["Simplify, retest, review code, then review security<br/>Fix findings and rerun affected tests"]
+    review --> finish["Check rules and learnings<br/>Complete applicable VAPT, version and changelog steps"]
+    finish --> pr["Record the current security review and open the PR"]
+    pr --> merge["Merge after review and required CI checks"]
+    merge --> release{"Release planned?"}
+    release -->|Yes| tag["Audit the exact release commit<br/>Create and push the tag in separate commands"]
+```
+
+The [project instructions](AGENTS.md#before-opening-a-pr-in-this-order) give the full order.
+Review specs and implementation plans when applicable. Before the full suites, run
+`/translate` for affected source strings and manual pages, then use `docs-keeper` for the
+required manual checks. Run `./scripts/test.sh` from the root and `npm run test:run` from
+`frontend/`, one after the other.
+
+Start `code-simplifier`, `code-reviewer` and `security-reviewer` in that order, each in a
+fresh context. The simplifier uses `ce-simplify-code` for code and tests and Ponytail for
+project-maintained operational Markdown and configuration. Retest the files it touches.
+The code reviewer uses `ponytail:ponytail-review`. In Codex, start read-only reviewers from a
+read-only parent. Apply review fixes and rerun their tests before collecting fresh security
+evidence.
+
+Review applicable rules and proposed Trail learnings with the user. Route, table, permission,
+auth and session changes also trigger the isolated [VAPT workflow](#run-the-codex-vapt-agent).
+Apply the project's version and changelog rules, then use the PR template. The
+[release audits](#release-audits-in-codex-and-claude-chat) are a separate step when preparing a tag.
 
 #### Approve and verify the security review before a PR
 
@@ -554,6 +653,9 @@ node .claude/hooks/release-audits.cjs record ponytail-audit <commit-sha> <ponyta
 Recording a report attests that the release chat checked its scope and outcome. The hook checks the two records and their report digests for the target commit. A later commit requires new audits. In chat, issue tag creation and the explicit tag push as separate, direct Git commands. A maintainer working directly in a terminal follows the release checklist in the manual.
 
 Codex lists the command under the project's **Settings → Hooks**, where it can request approval for the new command. Run `node --test scripts/security/release-audits.test.cjs` to exercise the gate with temporary repositories.
+
+On Windows, run the PR and release hook tests from an ordinary terminal. If Git's shell aliases
+exit with code 66 inside a restricted agent shell, repeat the check in the ordinary terminal.
 
 #### Run a read-only spec or plan review in Codex
 
@@ -739,9 +841,9 @@ $trailEnvironment = [ordered]@{
 }
 ```
 
-**Claude — `.claude/settings.local.json`.** Print the JSON below and merge its
-`env` entries into the existing file, preserving permissions, hooks and other
-settings. If `env` already exists, update these three keys inside it:
+**Claude — `.claude/settings.local.json`.** The checked-in settings already set
+`TRAIL_INVOKED_AS` and `DO_NOT_TRACK`. To make the bare `trail` command available to Claude's shell,
+print the JSON below and merge its `env` values into the local file, preserving the other settings.
 
 ```powershell
 [ordered]@{ env = $trailEnvironment } | ConvertTo-Json -Depth 3
@@ -822,7 +924,7 @@ If the map does not exist yet, from the project root:
 ```
 
 The map is written to `.trail/cache/`, excluded from Git through
-`.trail/.gitignore`. The two flags keep the existing exclusion files.
+`.trail/.gitignore`. The flags tell Trail to leave `.gitignore` and `.ignore` as they are.
 If the index is already there, check it without rebuilding:
 
 ```powershell
@@ -834,6 +936,11 @@ If the index is already there, check it without rebuilding:
 The test search must find `backend/app/services/card_read_scope.py`.
 `--no-refresh` is only meant to try the existing index; leave it out of
 normal searches.
+
+Before committing, run `trail check` against the intended branch base. The default is the remote's
+default branch. For a working change stacked on a separate alignment branch, use
+`trail check --base <ref>` to check the diff from that branch point. On large diffs, check for
+the warning that only the first 400 KB were analysed.
 
 #### When the index is updated
 
@@ -876,20 +983,46 @@ the file and command hooks above; the environment variable alone would not
 register those events. `UserPromptSubmit` also retrieves notes relevant to
 the message.
 
-Verification covered the shared startup hook for both hosts and a real
-file-related note through Claude's hook. Standing notes were tested on a
-temporary copy because none of the project's current notes were marked
-`standing: true`. Codex hooks were checked with simulated events on an
-isolated copy: startup and resume variants return context, prompt and file
-notes arrive, unrelated commands receive no file note, and repeated events
-do not duplicate it. Successful and failed shell results are recorded once
-with the correct status; output without a valid exit header is not recorded
-as success. After a patch, `Stop` rebuilt the small copy's index locally;
-`SessionEnd` completed within Codex's three-second limit without queued
-telemetry. These are handler tests, not proof of automatic execution in an
-approved live chat. The temporary copies were removed and no project notes
-were changed.
+For a live check, open a fresh chat on the project with its normal settings. Ask about an area
+that has a shared learning and check the title returned in the chat. If you change the package
+or hook configuration, repeat the check on every host you use.
 
 #### Update
 
-To upgrade Trail, test the exact candidate version and the shared hooks on a copy of the project with telemetry disabled. Update the version in the web bootstrap, its offline test and the local install instructions together. Run the local install block from the Turbo EA root and verify the installed version and telemetry status. A routine index rebuild uses the already installed package.
+To upgrade Trail, test the exact version in a fresh checkout with telemetry disabled. Update
+the root `package.json` and `package-lock.json` together. The web bootstrap reads those files;
+verify it with `scripts/test_trail_web_start.sh`. Verify the local executable, the persistent
+telemetry setting and the shared hook in a fresh chat. An index rebuild uses the installed package.
+
+---
+
+## 8. Final verification
+
+From an ordinary PowerShell at the repository root, confirm the checkout and the local binaries.
+
+```powershell
+git status --short --branch
+make --version
+node --version
+& .\backend\venv\Scripts\ruff.exe --version
+& .\frontend\node_modules\.bin\biome.cmd --version
+& .\node_modules\.bin\trail.cmd --version
+node -p "require.resolve('@trailhq/trail-code/package.json')"
+```
+
+The resolved Trail module should be under this checkout's `node_modules`. Check persistent
+telemetry separately as shown in [Trail setup](#local-install-with-telemetry-turned-off).
+Run the Ruff and Biome contract tests after installing both development environments.
+
+```powershell
+node --test scripts/quality/python-check.test.cjs scripts/quality/frontend-check.test.cjs
+```
+
+Open a fresh Claude Code or Codex chat on the root and verify that it can start the named
+project agents. If you use both hosts, try one clean and one failing edit in each. A clean edit
+produces no quality-hook feedback. For a remaining error, verify that the agent receives a
+diagnostic in `concise` format. Remove the probe files afterwards.
+
+For ordinary development, use the [frontend](#frontend-checks-during-development) and
+[backend](#while-editing-python) handoff checks. Use the
+[full workflow](#local-workflow-from-change-to-pr-and-release) when preparing a PR.
