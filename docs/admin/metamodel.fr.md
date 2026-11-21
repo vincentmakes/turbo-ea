@@ -34,7 +34,7 @@ Cliquez sur **+ Nouveau type** pour créer un type de fiche personnalisé. Confi
 
 | Champ | Description |
 |-------|-------------|
-| **Clé** | Identifiant unique (minuscules, sans espaces) -- ne peut pas être modifié après la création |
+| **Clé** | Identifiant unique (une lettre suivie de lettres et de chiffres, sans espaces ni autres caractères, par exemple `myCustomType`) -- ne peut pas être modifié après la création |
 | **Libellé** | Nom d'affichage dans l'interface |
 | **Icône** | Nom de l'icône Google Material Symbol |
 | **Couleur** | Couleur de marque pour le type (utilisée dans l'inventaire, les rapports et les diagrammes) |
@@ -151,6 +151,8 @@ Donnez à un rôle une **description** pour préciser ce qu'il signifie dans vot
 
 Chaque rôle porte également un interrupteur **Compte pour la qualité des données**. Le score de qualité comporte un seul emplacement « parties prenantes », satisfait dès qu'une personne est affectée à la fiche dans un rôle où cet interrupteur est actif. Désactivez-le pour les rôles purement passifs — l'**Observateur** intégré est livré désactivé, afin qu'observer une fiche ne vaille jamais responsabilité. Un type dont tous les rôles sont désactivés ne contribue à aucun emplacement. Basculer l'interrupteur recalcule immédiatement le score de toutes les fiches du type.
 
+Les autorisations d'un rôle déterminent aussi si ses titulaires voient les **champs de coût** d'une fiche. Les utilisateurs dont le rôle applicatif détient `costs.view` voient les coûts sur toutes les fiches. Pour tous les autres, cochez **card.view_costs** sur un rôle de partie prenante : ses titulaires voient alors les coûts des fiches sur lesquelles ils détiennent ce rôle, et peuvent les modifier si le rôle peut aussi modifier. Les rôles intégrés sont livrés avec cette autorisation activée, sauf **Observateur** — toute personne pouvant consulter une fiche peut s'en faire l'Observateur avec **Observer cette fiche**, de sorte que tout ce que le rôle Observateur autorise est ouvert à tous ; l'éditeur de rôles le signale sur ce rôle. Un rôle que vous créez démarre avec cette autorisation désactivée. Gardez à l'esprit qui peut attribuer un rôle : un utilisateur autorisé à gérer les parties prenantes (la permission `stakeholders.manage`, ou un rôle de partie prenante avec **card.manage_stakeholders**) peut attribuer à n'importe qui, lui-même compris, un rôle qui affiche les coûts. Lorsque les coûts doivent rester fermés à ces utilisateurs, retirez-leur cette permission ou décochez **card.view_costs** sur les rôles qu'ils peuvent attribuer.
+
 Les rôles peuvent être retirés de deux façons :
 
 - **Archiver** — le rôle demeure sur les fiches qui l'utilisent déjà mais ne peut plus être attribué, et il cesse d'accorder ses permissions au niveau de la fiche. Les rôles archivés apparaissent derrière le commutateur **Afficher les archivés** et peuvent être restaurés à tout moment. C'est le bon choix pour un rôle réellement utilisé.
@@ -227,7 +229,7 @@ Les types de relations définissent les connexions autorisées entre les types d
 
 | Champ | Description |
 |-------|-------------|
-| **Clé** | Identifiant unique — proposé à partir de votre verbe, modifiable pendant la création et figé ensuite |
+| **Clé** | Identifiant unique — proposé à partir de votre verbe, modifiable pendant la création et figé ensuite. La boîte de dialogue de modification du type de relation l’affiche, car c’est le nom utilisé par Excel : la colonne `rel:<key>` et la valeur `relation_type` de la feuille `Relations` (voir [Import / export Excel](../guide/inventory.md#excel-import)) |
 | **Libellé** | Libellé dans le sens direct (par ex. « utilise ») |
 | **Libellé inverse** | Libellé dans le sens inverse (par ex. « est utilisé par ») |
 | **Type source** | Le type de fiche côté « depuis » |

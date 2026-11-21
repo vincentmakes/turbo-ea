@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from uuid import UUID
 
+import pytest
+
 from app.api import deps as core_deps
 from app.database import get_db as core_get_db
 from app.services.extensions import sdk
@@ -227,6 +229,7 @@ def test_sdk_compatibility_is_major_only():
     assert sdk.sdk_compatible("1.15")
     assert sdk.sdk_compatible("1.16")
     assert sdk.sdk_compatible("1.17")
+    assert sdk.sdk_compatible("1.18")
     assert not sdk.sdk_compatible("2.0")
 
 
@@ -567,3 +570,48 @@ def test_sdk_1_14_surface_exists():
 
     assert {"core.surveys.read", "core.surveys.write"} <= bundle.VALID_GRANTS
     assert "core.surveys.write" in data_service.CONTEXT_BATCH_GRANTS
+
+
+def test_sdk_1_18_surface_exists():
+    # SDK 1.18 — agent tools: routes an extension offers to AI assistants
+    # through the MCP server. The hook is duck-typed like get_event_handlers,
+    # so the Protocol is a typing helper only and must NOT be on TurboExtension.
+    import dataclasses
+
+    assert sdk.SupportsAgentTools is not None
+    assert not hasattr(sdk.TurboExtension, "get_agent_tools")
+    assert sdk.AGENT_TOOL_KINDS == ("read", "write", "destructive")
+    fields = {f.name: f for f in dataclasses.fields(sdk.AgentTool)}
+    assert list(fields) == [
+        "name",
+        "title",
+        "description",
+        "method",
+        "path",
+        "permission",
+        "kind",
+        "input_schema",
+        "path_params",
+        "query_params",
+        "supports_dry_run",
+    ]
+    tool = sdk.AgentTool(
+        name="list_items",
+        title="List items",
+        description="Lists the items.",
+        method="GET",
+        path="/items",
+        permission="ext.sample-ext.view",
+        kind="read",
+    )
+    # The optional fields default so a seven-argument construction works.
+    assert tool.input_schema is None
+    assert tool.path_params == ()
+    assert tool.query_params == ()
+    assert tool.supports_dry_run is False
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        tool.name = "other"  # type: ignore[misc]
+
+    from app.services.extensions import bundle
+
+    assert "core.agent.tools" in bundle.VALID_GRANTS

@@ -226,11 +226,11 @@ describe("ResourcesFilterSidebar filters", () => {
     const user = userEvent.setup();
     render(<Harness />);
 
-    await user.click(screen.getByRole("button", { name: /File/ }));
+    await user.click(screen.getByRole("button", { name: /File$/ }));
     expect(lastFilters().kinds).toEqual(["file"]);
     await user.click(screen.getByRole("button", { name: /Link/ }));
     expect(lastFilters().kinds).toEqual(["file", "link"]);
-    await user.click(screen.getByRole("button", { name: /File/ }));
+    await user.click(screen.getByRole("button", { name: /File$/ }));
     expect(lastFilters().kinds).toEqual(["link"]);
 
     // Card-type rows carry the metamodel glyph, a dot, or nothing.
@@ -358,7 +358,7 @@ describe("ResourcesFilterSidebar sections", () => {
     expect(sectionHeader("Date added").textContent).toBe("chevron_rightscheduleDate added");
 
     expect(screen.getByPlaceholderText("Name, card or URL…")).toBeVisible();
-    expect(screen.getByRole("button", { name: /File/ })).toBeVisible();
+    expect(screen.getByRole("button", { name: /File$/ })).toBeVisible();
     expect(screen.getByRole("button", { name: /Application/ })).toBeVisible();
     expect(screen.getByText("Contract")).not.toBeVisible();
     expect(screen.getByText("PDF")).not.toBeVisible();
@@ -496,7 +496,7 @@ describe("ResourcesFilterSidebar sections", () => {
 
   it("keeps an option row's checkbox out of the tab order — the row is the control", () => {
     render(<Harness />);
-    expect(rowCheckbox(/File/)).toHaveAttribute("tabindex", "-1");
+    expect(rowCheckbox(/File$/)).toHaveAttribute("tabindex", "-1");
   });
 });
 
@@ -589,5 +589,52 @@ describe("ResourcesFilterSidebar resize listeners", () => {
       add.mockRestore();
       remove.mockRestore();
     }
+  });
+});
+
+describe("ResourcesFilterSidebar per-section clear", () => {
+  it("clears one section's filters and leaves every other section alone", async () => {
+    const user = userEvent.setup();
+    render(<Harness initialFilters={EVERY_FILTER} />);
+    await user.click(screen.getByRole("button", { name: "Clear Date added filters" }));
+    expect(lastFilters()).toEqual({ ...EVERY_FILTER, dateFrom: "", dateTo: "" });
+    await user.click(screen.getByRole("button", { name: "Clear Kind filters" }));
+    expect(lastFilters()).toEqual({ ...EVERY_FILTER, dateFrom: "", dateTo: "", kinds: [] });
+    expect(screen.queryByRole("button", { name: "Clear Kind filters" })).toBeNull();
+  });
+
+  it("clears a single-value section back to its empty value", async () => {
+    const user = userEvent.setup();
+    render(<Harness initialFilters={EVERY_FILTER} />);
+    await user.click(screen.getByRole("button", { name: "Clear Archived cards filters" }));
+    expect(lastFilters().archived).toBe("any");
+    await user.click(screen.getByRole("button", { name: "Clear Card filters" }));
+    expect(lastFilters().card).toBeNull();
+    expect(lastFilters().createdBy).toBe("u1");
+  });
+
+  it("shows no clear button while nothing is filtered", () => {
+    render(<Harness />);
+    expect(screen.queryByRole("button", { name: /^Clear .* filters$/ })).toBeNull();
+  });
+});
+
+describe("ResourcesFilterSidebar per-section clear, every section", () => {
+  it.each<[string, Partial<ResourceFilters>]>([
+    ["Search", { search: "" }],
+    ["Kind", { kinds: [] }],
+    ["Card type", { cardTypes: [] }],
+    ["Category / link type", { categories: [] }],
+    ["File type", { mimeTypes: [] }],
+    ["Card", { card: null }],
+    ["Added by", { createdBy: "" }],
+    ["Archived cards", { archived: "any" }],
+    ["Date added", { dateFrom: "", dateTo: "" }],
+  ])("the %s clear resets exactly that section", async (section, reset) => {
+    const user = userEvent.setup();
+    render(<Harness initialFilters={EVERY_FILTER} />);
+    await user.click(screen.getByRole("button", { name: `Clear ${section} filters` }));
+    expect(spies.filters).toHaveBeenCalledTimes(1);
+    expect(lastFilters()).toStrictEqual({ ...EVERY_FILTER, ...reset });
   });
 });

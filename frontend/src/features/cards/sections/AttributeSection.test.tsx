@@ -455,3 +455,75 @@ describe("AttributeSection read-mode help", () => {
     expect(screen.getByRole("button", { name: "Computed nightly" })).toBeInTheDocument();
   });
 });
+
+describe("AttributeSection — a field of an inactive or unlicensed extension", () => {
+  const lockedSection: SectionDef & { columns?: 1 | 2 } = {
+    section: "Contributed",
+    columns: 1,
+    fields: [
+      { key: "score", label: "Score", type: "text", ext: "sample-ext", ext_locked: true },
+      { key: "note", label: "Note", type: "text" },
+    ],
+  };
+  const lockedCard = {
+    id: "card-2",
+    type: "Application",
+    name: "Locked",
+    attributes: { score: "7", note: "n" },
+  } as unknown as Card;
+
+  it("shows the value with a lock chip that explains why", async () => {
+    render(
+      <AttributeSection section={lockedSection} card={lockedCard} onSave={async () => {}} canEdit={false} />,
+    );
+    expect(screen.getByText("7")).toBeInTheDocument();
+    const chips = screen.getAllByTestId("ext-locked-chip");
+    expect(chips).toHaveLength(1);
+    expect(chips[0]).toHaveTextContent("read-only");
+    fireEvent.mouseOver(chips[0]);
+    expect(
+      await screen.findByText(
+        "Read-only: the extension that provides this field is not active or licensed",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("offers no editor for it in edit mode, and saves its stored value unchanged", async () => {
+    const onSave = vi.fn(async () => {});
+    const { container } = render(
+      <AttributeSection section={lockedSection} card={lockedCard} onSave={onSave} canEdit />,
+    );
+    // jsdom has no scrollIntoView; the post-save snap calls it.
+    const root = container.firstElementChild as HTMLElement & { scrollIntoView: () => void };
+    root.scrollIntoView = vi.fn();
+    fireEvent.click(screen.getByText("edit"));
+    expect(container.querySelector('[data-field-key="score"]')).toBeNull();
+    expect(container.querySelector('[data-field-key="note"] input')).not.toBeNull();
+    expect(screen.getByText("7")).toBeInTheDocument();
+    expect(screen.getAllByTestId("ext-locked-chip")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(onSave.mock.calls[0][0]).toEqual({ attributes: { score: "7", note: "n" } });
+  });
+
+  it("does not hold a required but empty locked field against Save", async () => {
+    const requiredLocked: SectionDef & { columns?: 1 | 2 } = {
+      ...lockedSection,
+      fields: [{ ...lockedSection.fields[0], required: true }, lockedSection.fields[1]],
+    };
+    const emptyCard = { ...lockedCard, attributes: { note: "n" } } as unknown as Card;
+    const onSave = vi.fn(async () => {});
+    const { container } = render(
+      <AttributeSection section={requiredLocked} card={emptyCard} onSave={onSave} canEdit />,
+    );
+    const root = container.firstElementChild as HTMLElement & { scrollIntoView: () => void };
+    root.scrollIntoView = vi.fn();
+    fireEvent.click(screen.getByText("edit"));
+    expect(screen.queryByText(i18n.t("validation:requiredEmpty"))).toBeNull();
+    const save = screen.getByRole("button", { name: "Save" });
+    expect(save).toBeEnabled();
+    fireEvent.click(save);
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(onSave.mock.calls[0][0]).toEqual({ attributes: { note: "n" } });
+  });
+});

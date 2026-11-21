@@ -472,3 +472,17 @@ def test_the_budget_is_halved_without_integer_arithmetic(job, tmp_path):
         capture_output=True,
     )
     assert bad.returncode != 0
+
+
+def test_a_container_build_change_runs_the_guards_that_read_it():
+    # The Dockerfile, edge nginx and compose guards are text scans in Backend
+    # Unit Tests; without this filter a Dockerfile-only PR (a base-image bump)
+    # skipped them, which is the change they exist to check.
+    entries = _filter_entries("images")
+    for path in ("'Dockerfile'", "'nginx/**'", "'frontend/nginx.conf'", "'docker-compose.yml'"):
+        assert path in entries
+    assert "needs.changes.outputs.images == 'true'" in jobs(CI)["backend-test-unit"]
+    readers = {
+        job_id for job_id, body in jobs(CI).items() if "needs.changes.outputs.images" in body
+    }
+    assert readers == {"backend-test-unit"}

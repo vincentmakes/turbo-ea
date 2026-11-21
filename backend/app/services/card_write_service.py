@@ -57,10 +57,12 @@ from app.services.bo_relationship_constants import APPLICATION_RELATION, ER_RELA
 from app.services.calculation_engine import run_calculations_for_card
 from app.services.card_costs import COST_ITEM_TYPES, DERIVED_KEY, recompute_derived
 from app.services.card_uniqueness import check_sibling_name_unique
+from app.services.cost_field_filter import keep_stored_cost_values
 from app.services.cost_history import sync_current_fy_history
 from app.services.cost_value import is_numeric_text
 from app.services.data_quality import calc_data_quality
 from app.services.event_bus import event_bus
+from app.services.extensions import field_gate
 from app.services.hierarchy import HIERARCHY_LEVEL_KEY
 from app.services.relation_orientation import orient_endpoints
 
@@ -813,6 +815,9 @@ async def create_card(
         await db.execute(select(CardType).where(CardType.key == type_key))
     ).scalar_one_or_none()
     validate_dataobject_subtype(type_key, subtype, card_type_row)
+    # Guard: a field an inactive or unlicensed extension contributed is
+    # read-only — a new card may not fill it in (403 extension_fields_locked).
+    attributes = await field_gate.enforce_field_lock(db, type_key, {}, attributes)
     await _validate_url_attributes(db, type_key, attributes or {})
     await _validate_percentage_attributes(db, type_key, attributes or {})
     await _validate_boolean_attributes(db, type_key, attributes or {})
@@ -943,6 +948,17 @@ async def update_card(
                 if key in old_attrs:
                     new_attrs[key] = old_attrs[key]
             updates["attributes"] = new_attrs
+
+    # Guard: the fields an inactive or unlicensed extension contributed keep
+    # their stored values — carried over when the payload omits them, a 403
+    # (extension_fields_locked) when it changes one. A locked key the server
+    # recomputes (a calculation's target, a readonly field) is carried over
+    # silently, like the PPM-managed keys above: a stale echo is no change.
+    # Before the required-field check, so that check sees the carried-over state.
+    if "attributes" in updates:
+        updates["attributes"] = await field_gate.enforce_field_lock(
+            db, card.type, card.attributes, updates["attributes"], carry_maintained=True
+        )
 
     # Guard: never clear a required field. Validates the post-merge final state
     # (after the cost/PPM preservation above), and runs even for an empty payload
@@ -1590,6 +1606,7 @@ async def upsert_relation(
     description: str | None = None,
     dry_run: bool = False,
     create_only: bool = False,
+    preserve_attribute_keys: frozenset[str] = frozenset(),
 ) -> tuple[Relation, bool, list[str]]:
     """Idempotent single-relation upsert on ``(type, source, target)`` —
     the ``POST /relations`` semantics (#905): reuse an existing row and merge
@@ -1599,7 +1616,12 @@ async def upsert_relation(
 
     The ends are turned into the relation type's direction first
     (``relation_orientation``), so a request sent the other way round merges
-    into the existing row instead of forking a backwards one (#1140)."""
+    into the existing row instead of forking a backwards one (#1140).
+
+    ``preserve_attribute_keys`` names attributes the caller may not write on
+    an existing row (the cost attributes of a caller without cost access —
+    the route decides, this module never judges a permission): their stored
+    values survive the replace. A new row takes ``attributes`` as given."""
     source_id, target_id = await orient_endpoints(db, type_key, source_id, target_id)
     await lock_bo_relation_writes(db, [(type_key, source_id, target_id)])
     endpoints = {source_id, target_id}
@@ -1624,6 +1646,10 @@ async def upsert_relation(
             description=description,
         )
     else:
+        if attributes is not None and preserve_attribute_keys:
+            attributes = keep_stored_cost_values(
+                rel.attributes, attributes, preserve_attribute_keys
+            )
         changed = merge_relation_fields(rel, attributes=attributes, description=description)
     await db.flush()
 

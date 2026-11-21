@@ -1,17 +1,50 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Extension, type AnyExtension, type Range } from "@tiptap/core";
+import {
+  Extension,
+  PasteRule,
+  getMarkRange,
+  mergeAttributes,
+  type AnyExtension,
+  type PasteRuleFinder,
+  type Range,
+} from "@tiptap/core";
+import { Link } from "@tiptap/extension-link";
 import { Plugin } from "@tiptap/pm/state";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, useEditorState, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import Divider from "@mui/material/Divider";
+import type { Theme } from "@mui/material/styles";
+import Alert from "@mui/material/Alert";
+import LinearProgress from "@mui/material/LinearProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { iconSize } from "@/theme/tokens";
+import { useFileUploadsEnabled } from "@/hooks/useFileUploadsEnabled";
+import { DOCUMENT_CONTENT_SX } from "@/lib/documentContentCss";
+import { DOCUMENT_IMAGE_SX } from "@/lib/documentImageMarkup";
+import { isStorableHref, normaliseLinkHref } from "@/lib/linkify";
 import type { MentionKind } from "@/lib/mentionHtml";
 import { plainListTags } from "./collab/discussionModel";
+import { createDocumentImageExtension, parseAlign, type DocumentImageAlign } from "./documentImageExtension";
+import { createDocumentTableExtensions } from "./documentTableExtension";
+import {
+  DOCUMENT_IMAGE_ACCEPT,
+  clipboardHtmlHasText,
+  documentImagePath,
+  documentImageSrc,
+  imageRefusal,
+  uploadDocumentImage,
+  type DocumentImageKind,
+} from "./documentImages";
+import LinkDialog, { type LinkDialogResult } from "./LinkDialog";
+import TableActionsMenu from "./TableActionsMenu";
+import TableMenu from "./TableMenu";
+import type { TableHandleLabels } from "./tableHandles";
+import { createTableMenuStore } from "./tableMenuStore";
 import { MENTION_CHIP_SX } from "./mentions/MentionContainer";
 import MentionBrowseDialog from "./mentions/MentionBrowseDialog";
 import MentionPopup from "./mentions/MentionPopup";
@@ -53,6 +86,13 @@ interface Props {
   mentionContext?: MentionContext;
   /** Each new non-zero value puts the caret at the end of the text. */
   focusRequest?: number;
+  /**
+   * Document variant: the store this section's pictures belong to. A stored
+   * picture is kept (read-only editors included); inserting one by button,
+   * paste or drop is offered while editable and file uploads are on.
+   * Absent: no picture support.
+   */
+  imageKind?: DocumentImageKind;
 }
 
 /**
@@ -74,6 +114,117 @@ function submitShortcut(store: MentionSuggestionStore, submit: () => void): AnyE
     },
   });
 }
+
+/**
+ * Ctrl/Cmd+K opens the link dialog. Handled (so ProseMirror prevents the
+ * browser default, and the app's global search shortcut, which skips a
+ * prevented event, stays shut) only while the editor is editable: a locked
+ * editor lets Ctrl/Cmd+K open the search as everywhere else.
+ */
+function linkShortcut(open: { current: () => void }): AnyExtension {
+  return Extension.create({
+    name: "linkShortcut",
+    addKeyboardShortcuts() {
+      return {
+        "Mod-k": () => {
+          if (!this.editor.isEditable) return false;
+          open.current();
+          return true;
+        },
+      };
+    },
+  });
+}
+
+/** What autolink, the paste rule and `setLink` may turn into a link (see `DocumentLink`). */
+const linkCandidate = (url: unknown) =>
+  isStorableHref(url) || (typeof url === "string" && normaliseLinkHref(url) !== null);
+
+/**
+ * Links. StarterKit's own copy is switched off and this one registered in its
+ * place, because the stored-link policy needs its parse and render rules:
+ *
+ * - One policy everywhere (`isStorableHref`, the server's comment rule):
+ *   http(s) and mailto only. A stored `ftp:`, `tel:` or relative anchor loads
+ *   as plain text, and a mark whose href is anything else renders without one.
+ * - `isAllowedUri` is ALSO what autolink and the paste rule ask about the
+ *   *text* they found (`www.x.io`, `ann@x.io`) before linkify turns it into
+ *   the href (`https://www.x.io`, `mailto:ann@x.io`), so it accepts what
+ *   `normaliseLinkHref` can make storable (`linkCandidate`). Every href this
+ *   editor writes is storable all the same: autolink and paste store
+ *   linkify's href, and the link dialog normalises before `setLink`.
+ *   `shouldAutoLink` gains the same check, so pasting `ftp://…` over a
+ *   selection (a path that consults no `isAllowedUri`) does not link it.
+ * - A click while editing places the caret (`openOnClick: false`); the
+ *   Ctrl/Cmd+click plugin below opens the link. In a read-only editor
+ *   nothing here acts, so the anchor's own `target="_blank"` follows it.
+ * - The mark is inclusive because autolink is on (TipTap ties the two): text
+ *   typed at the end of a link joins it. The dialog leaves the caret after
+ *   the link with the mark dropped from what is typed next, and ArrowRight
+ *   at a link's end steps out of it (`exitable`).
+ */
+const DocumentLink = Link.extend({
+  addOptions() {
+    const parent = this.parent!();
+    return {
+      ...parent,
+      shouldAutoLink: (url: string) => parent.shouldAutoLink(url) && linkCandidate(url),
+    };
+  },
+  parseHTML() {
+    return [
+      {
+        tag: "a[href]",
+        getAttrs: (dom: HTMLElement) => (isStorableHref(dom.getAttribute("href")) ? null : false),
+      },
+    ];
+  },
+  // TipTap's paste rule asks linkify without the default protocol, so a
+  // pasted `www.x.io` would be stored as `http://…` where a typed one gets
+  // `https://`. The rule is kept; only the href each match carries is
+  // rebuilt by `normaliseLinkHref` (bare host → https, bare address →
+  // mailto, an explicit scheme kept exactly as pasted).
+  addPasteRules() {
+    return (this.parent?.() ?? []).map((rule) => {
+      // The link rule's finder is linkify's `findPlainUrls`, a function.
+      const find = rule.find as Exclude<PasteRuleFinder, RegExp>;
+      return new PasteRule({
+        find: (text, event) =>
+          find(text, event)?.map((match) => ({
+            ...match,
+            data: { ...match.data, href: normaliseLinkHref(match.text) ?? match.data?.href },
+          })),
+        handler: rule.handler,
+      });
+    });
+  },
+  renderHTML(props) {
+    if (isStorableHref(props.HTMLAttributes.href)) return this.parent!(props);
+    return ["a", mergeAttributes(this.options.HTMLAttributes, props.HTMLAttributes, { href: null }), 0];
+  },
+  addProseMirrorPlugins() {
+    return [
+      ...(this.parent?.() ?? []),
+      // Ctrl/Cmd+click on a link while editing opens it in a new tab, as in
+      // Word; a plain click is a caret placement.
+      new Plugin({
+        props: {
+          handleClick: (view, _pos, event) => {
+            if (!view.editable || event.button !== 0 || !(event.ctrlKey || event.metaKey)) {
+              return false;
+            }
+            const anchor = (event.target as Element | null)?.closest?.("a") ?? null;
+            if (!anchor || !view.dom.contains(anchor)) return false;
+            const href = anchor.getAttribute("href");
+            if (!href || !isStorableHref(href)) return false;
+            window.open(href, "_blank", "noopener,noreferrer");
+            return true;
+          },
+        },
+      }),
+    ];
+  },
+});
 
 /**
  * The server keeps attribute-less tags only in a comment and escapes any
@@ -105,6 +256,210 @@ function plainCommentLists(): AnyExtension {
   });
 }
 
+/**
+ * Pictures on the editor surface: the shared rules (`DOCUMENT_IMAGE_SX`, built
+ * from the same table as the `DOCUMENT_IMAGE_CSS` the previews, print and
+ * export use), plus the resize view's own wrapper. While
+ * editing, the picture sits in that view's flex container, which carries the
+ * same `data-align`; `flex-end` follows the writing direction, so right-to-left
+ * locales mirror as the logical margins do.
+ */
+const EDITOR_IMAGE_SX = {
+  ...DOCUMENT_IMAGE_SX,
+  "& [data-resize-container]": { my: 1 },
+  "& [data-resize-wrapper]": { maxWidth: "100%" },
+  // The view writes the committed size as inline px; the height follows the
+  // width so a picture narrowed by `max-width` keeps its proportions.
+  "& [data-resize-wrapper] img": { display: "block", height: "auto !important" },
+  '& [data-resize-container][data-align="center"]': { justifyContent: "center" },
+  '& [data-resize-container][data-align="right"]': { justifyContent: "flex-end" },
+  "& [data-resize-handle]": {
+    width: 10,
+    height: 10,
+    bgcolor: "primary.main",
+    border: "1px solid",
+    borderColor: "background.paper",
+    borderRadius: "2px",
+    opacity: 0,
+    zIndex: 1,
+  },
+  '& [data-resize-handle="top-left"], & [data-resize-handle="bottom-right"]': {
+    cursor: "nwse-resize",
+  },
+  '& [data-resize-handle="top-right"], & [data-resize-handle="bottom-left"]': {
+    cursor: "nesw-resize",
+  },
+  "& [data-resize-container]:hover [data-resize-handle], & .ProseMirror-selectednode [data-resize-handle], & [data-resize-state='true'] [data-resize-handle]":
+    { opacity: 1 },
+  "& .ProseMirror-selectednode img": {
+    outline: "2px solid",
+    outlineColor: (theme: Theme) => theme.palette.primary.main,
+  },
+  // A read-only document cannot be resized (the view only drops its handles
+  // on a document change, not when the editor locks).
+  '&[contenteditable="false"] [data-resize-handle]': { display: "none" },
+};
+
+// Stryker disable all: static layout rules, which jsdom cannot measure.
+/** A theme spacing, as an `sx` value for a property MUI does not scale itself. */
+const space = (n: number) => (theme: Theme) => theme.spacing(n);
+/** `calc(100% + <spacing>)`, for a box placed just past its cell's edge. */
+const pastEdge = (n: number) => (theme: Theme) => `calc(100% + ${theme.spacing(n)})`;
+/** The gutter around a table on every side, in spacing units (16px). */
+const TABLE_GUTTER = 2;
+
+/**
+ * Tables while editing, on top of the shared table rules: the node view's
+ * wrapper scrolls a table wider than the text, a cell selection is tinted, and
+ * the column-resize handle (a decoration `columnResizing` draws in the cell
+ * under the pointer) is a thin bar on the cell's inline-end edge. Resizing is
+ * refused at event time while the editor is locked; a handle left over from
+ * before the lock is hidden here, and so is the resize cursor.
+ *
+ * The wrapper has a gutter on every side for the row and column handles
+ * (`tableHandles.ts`), whether the editor is locked or not, so locking does
+ * not move the table. A negative start margin of the same width keeps the
+ * table aligned with the text (the gutter sits in the editor's own inline
+ * padding), and the wrapper's padding box holds every handle: anything past
+ * it would make the scrolling wrapper scroll. Each handle is placed from its
+ * cell with logical insets, so right-to-left mirrors it. In the start gutter:
+ * the row grip along its cell, inset from the cell's top and bottom so the
+ * "+" on the lower border fits between two grips. In the top gutter: the
+ * column grip along its cell, the "+" on the end border likewise. The two
+ * grips of the first cell meet at the table's corner without overlapping:
+ * one is left of the cell, the other above it. Under and after the table:
+ * the append bars, one segment per cell of the last row or column.
+ */
+const EDITOR_TABLE_SX = {
+  "& .tableWrapper": {
+    overflowX: "auto",
+    boxSizing: "border-box",
+    p: TABLE_GUTTER,
+    marginInlineStart: -TABLE_GUTTER,
+    maxWidth: pastEdge(TABLE_GUTTER),
+  },
+  // The gutter takes the place of the table's own vertical margin.
+  "& .tableWrapper > table": { my: 0 },
+  // A table inside a cell keeps its gutter inside that cell.
+  "& td .tableWrapper, & th .tableWrapper": { marginInlineStart: 0, maxWidth: "100%" },
+  "& td, & th": { position: "relative", boxSizing: "border-box" },
+  "& .selectedCell::after": {
+    content: '""',
+    position: "absolute",
+    inset: 0,
+    bgcolor: "action.selected",
+    pointerEvents: "none",
+    zIndex: 2,
+  },
+  "& .column-resize-handle": {
+    position: "absolute",
+    insetInlineEnd: "-2px",
+    top: 0,
+    bottom: 0,
+    width: "4px",
+    bgcolor: "primary.main",
+    pointerEvents: "none",
+    zIndex: 3,
+  },
+  '&.resize-cursor[contenteditable="true"]': { cursor: "col-resize" },
+  '&[contenteditable="false"] .column-resize-handle': { display: "none" },
+  "& [data-table-handle]": {
+    position: "absolute",
+    zIndex: 4,
+    m: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    boxSizing: "border-box",
+    borderRadius: 1,
+    color: "text.secondary",
+    bgcolor: "action.hover",
+    cursor: "pointer",
+    userSelect: "none",
+    lineHeight: 1,
+    "& .material-symbols-outlined": { fontSize: iconSize.xs, pointerEvents: "none" },
+    "&:hover": { bgcolor: "action.selected", color: "primary.main" },
+    "&:active": { bgcolor: "primary.main", color: "primary.contrastText" },
+  },
+  '& [data-table-handle="row"]': {
+    insetInlineStart: space(-1.5),
+    width: space(1.25),
+    top: space(1),
+    bottom: space(1),
+  },
+  '& [data-table-handle="column"]': {
+    top: space(-1.5),
+    height: space(1.25),
+    insetInlineStart: space(1),
+    insetInlineEnd: space(1),
+    "& .material-symbols-outlined": { transform: "rotate(90deg)" },
+  },
+  '& [data-table-handle="insert-row"]': {
+    insetInlineStart: space(-1.75),
+    bottom: space(-0.75),
+    width: space(1.5),
+    height: space(1.5),
+    borderRadius: "50%",
+  },
+  '& [data-table-handle="insert-column"]': {
+    top: space(-1.75),
+    insetInlineEnd: space(-0.75),
+    width: space(1.5),
+    height: space(1.5),
+    borderRadius: "50%",
+  },
+  // Segments meet across the cell borders; the glyph shows on the one hovered.
+  '& [data-table-handle="append-row"]': {
+    top: pastEdge(0.25),
+    height: space(1.25),
+    insetInlineStart: space(-0.125),
+    insetInlineEnd: space(-0.125),
+    borderRadius: 0,
+  },
+  '& [data-table-handle="append-column"]': {
+    insetInlineStart: pastEdge(0.25),
+    width: space(1.25),
+    top: space(-0.125),
+    bottom: space(-0.125),
+    borderRadius: 0,
+  },
+  '& [data-table-handle^="append"] .material-symbols-outlined': { opacity: 0 },
+  '& [data-table-handle^="append"]:hover .material-symbols-outlined': { opacity: 1 },
+  // Touch: larger targets, the top and bottom gutters deeper to hold them.
+  "@media (hover: none), (pointer: coarse)": {
+    "& .tableWrapper": { pt: 3, pb: 3 },
+    '& [data-table-handle="row"]': {
+      insetInlineStart: space(-1.75),
+      width: space(1.5),
+      top: space(1.25),
+      bottom: space(1.25),
+    },
+    '& [data-table-handle="column"]': {
+      top: space(-2.5),
+      height: space(2.25),
+      insetInlineStart: space(1.25),
+      insetInlineEnd: space(1.25),
+    },
+    '& [data-table-handle="insert-row"]': { height: space(2), bottom: space(-1) },
+    '& [data-table-handle="insert-column"]': {
+      top: space(-2.75),
+      height: space(2.25),
+      width: space(2),
+      insetInlineEnd: space(-1),
+    },
+    '& [data-table-handle="append-row"]': { height: space(2.25) },
+    '& [data-table-handle^="append"] .material-symbols-outlined': { opacity: 1 },
+  },
+  "@media print": {
+    "& .tableWrapper": { p: 0, marginInlineStart: 0, maxWidth: "100%" },
+    "& .tableWrapper > table": { my: 1.5 },
+    "& [data-table-handle]": { display: "none" },
+  },
+  '&[contenteditable="false"] [data-table-handle]': { display: "none" },
+};
+// Stryker restore all
+
 export default function RichTextEditor({
   content,
   onChange,
@@ -115,10 +470,28 @@ export default function RichTextEditor({
   onSubmit,
   mentionContext,
   focusRequest = 0,
+  imageKind,
 }: Props) {
   const { t } = useTranslation("delivery");
   const isComment = variant === "comment";
   const [store] = useState(createMentionSuggestionStore);
+  // The right-click table menu's store (document variant, read-only included:
+  // the plugin itself leaves a locked editor to the browser).
+  const [tableMenuStore] = useState(createTableMenuStore);
+  // The editor is built once; the table handles read their labels through a
+  // ref refreshed on every render, so a language change reaches the next ones.
+  const tableHandleLabels: TableHandleLabels = {
+    row: t("richText.tableRowHandle"),
+    column: t("richText.tableColumnHandle"),
+    "insert-row": t("richText.tableInsertRowHere"),
+    "insert-column": t("richText.tableInsertColumnHere"),
+    "append-row": t("richText.tableAppendRow"),
+    "append-column": t("richText.tableAppendColumn"),
+  };
+  const tableHandleLabelsRef = useRef(tableHandleLabels);
+  useEffect(() => {
+    tableHandleLabelsRef.current = tableHandleLabels;
+  });
   const mentionLabels = useMentionLabels();
   // The editor is built once; the latest submit callback is read through a ref.
   const onSubmitRef = useRef(onSubmit);
@@ -126,6 +499,22 @@ export default function RichTextEditor({
     onSubmitRef.current = onSubmit;
   }, [onSubmit]);
   const hasMentions = Boolean(mentions && mentions.length > 0);
+  // The node is registered whenever the document has a picture store, even
+  // read-only: without it a stored picture would vanish on the next save.
+  const hasImages = Boolean(imageKind) && !isComment;
+  const { fileUploadsEnabled } = useFileUploadsEnabled();
+  const canInsertImages = hasImages && !readOnly && fileUploadsEnabled;
+  // The editor is built once; its paste / drop handlers read these refs.
+  const canInsertImagesRef = useRef(canInsertImages);
+  useEffect(() => {
+    canInsertImagesRef.current = canInsertImages;
+  }, [canInsertImages]);
+  const insertImagesRef = useRef<(files: File[], at: number | null) => void>(() => {});
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  // The editor is built once; its Ctrl/Cmd+K shortcut reads the latest opener.
+  const openLinkRef = useRef<() => void>(() => {});
+  const [uploading, setUploading] = useState(0);
+  const [imageError, setImageError] = useState("");
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -135,28 +524,73 @@ export default function RichTextEditor({
         horizontalRule: isComment ? false : undefined,
         codeBlock: isComment ? false : undefined,
         underline: isComment ? false : undefined,
-        // StarterKit bundles the Link extension. A URL typed or pasted becomes
-        // a link as you type, stored with the attributes every outbound link
-        // in the app carries; `whenNotEditable` keeps a click in edit mode as
-        // a caret placement and makes it follow the link once read-only.
-        // `sanitizeRichHtml` re-stamps target/rel at render time for content
-        // written before this, so the stored attributes are a convenience,
-        // not the safety net.
-        link: {
-          openOnClick: "whenNotEditable",
-          autolink: true,
-          linkOnPaste: true,
-          defaultProtocol: "https",
-          HTMLAttributes: { target: "_blank", rel: "noopener noreferrer" },
-        },
+        // Registered below as `DocumentLink`.
+        link: false,
       }),
+      // A URL typed or pasted becomes a link as you type, stored with the
+      // attributes every outbound link in the app carries. `sanitizeRichHtml`
+      // re-stamps target/rel at render time for content written before this,
+      // so the stored attributes are a convenience, not the safety net.
+      DocumentLink.configure({
+        openOnClick: false,
+        enableClickSelection: false,
+        autolink: true,
+        linkOnPaste: true,
+        defaultProtocol: "https",
+        HTMLAttributes: { target: "_blank", rel: "noopener noreferrer" },
+        isAllowedUri: (url) => linkCandidate(url),
+      }),
+      linkShortcut(openLinkRef),
       Placeholder.configure({ placeholder: placeholder ?? t("richText.startTyping") }),
       ...(hasMentions ? [createMentionExtension(store, mentionLabels)] : []),
       ...(isComment ? [submitShortcut(store, () => onSubmitRef.current?.()), plainCommentLists()] : []),
+      ...(hasImages && imageKind ? [createDocumentImageExtension(imageKind)] : []),
+      // Every document editor, read-only included: one without the table
+      // nodes would drop a stored table on the next save. Never in a comment,
+      // where a pasted table flattens to its paragraphs.
+      ...(isComment
+        ? []
+        : createDocumentTableExtensions({
+            menuStore: tableMenuStore,
+            handleLabels: tableHandleLabelsRef,
+          })),
     ],
     content,
     editable: !readOnly,
+    editorProps: {
+      // A pasted picture FILE is uploaded. Clipboard HTML with text in it
+      // (a copy from Word or Excel also carries a rendered picture of the
+      // selection) is pasted as text instead.
+      handlePaste: (_view, event) => {
+        const data = event.clipboardData;
+        const files = Array.from(data?.files ?? []);
+        if (files.length === 0 || !canInsertImagesRef.current) return false;
+        if (clipboardHtmlHasText(data?.getData("text/html") ?? "")) return false;
+        insertImagesRef.current(files, null);
+        return true;
+      },
+      // Dropped files land where they were dropped; a drag inside the
+      // document (`moved`) is ProseMirror's own.
+      handleDrop: (view, event, _slice, moved) => {
+        if (moved || !canInsertImagesRef.current) return false;
+        const files = Array.from(event.dataTransfer?.files ?? []);
+        if (files.length === 0) return false;
+        let at: number | null = null;
+        try {
+          at = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos ?? null;
+        } catch {
+          // No layout to measure against: insert at the caret.
+        }
+        event.preventDefault();
+        insertImagesRef.current(files, at);
+        return true;
+      },
+    },
     onUpdate: ({ editor: e }) => {
+      // A locked document reports no edit: what changes it there is the
+      // editor's own upkeep (the empty paragraph TipTap keeps after a final
+      // picture, list or rule appears on the first selection change).
+      if (!e.isEditable) return;
       const html = e.getHTML();
       onChange(isComment ? plainListTags(html) : html);
     },
@@ -207,6 +641,126 @@ export default function RichTextEditor({
     chain.insertContentAt(target, mentionInsertContent(picks)).run();
   };
 
+  // The link dialog: the range it applies to (a link under the caret is
+  // taken whole), the selection Cancel gives back, and the href shown.
+  const [linkEdit, setLinkEdit] = useState<{
+    range: Range;
+    selection: Range;
+    href: string;
+    editing: boolean;
+    askText: boolean;
+  } | null>(null);
+  const openLink = () => {
+    if (!editor || editor.isDestroyed || !editor.isEditable) return;
+    const { state } = editor;
+    const { from, to, empty, $from } = state.selection;
+    const editing = editor.isActive("link");
+    const mark = editing ? getMarkRange($from, state.schema.marks.link) : undefined;
+    const range = mark && mark.from <= from && mark.to >= to ? mark : { from, to };
+    setLinkEdit({
+      range,
+      selection: { from, to },
+      href: editing ? String(editor.getAttributes("link").href ?? "") : "",
+      editing,
+      askText: empty && !editing,
+    });
+  };
+  useEffect(() => {
+    openLinkRef.current = openLink;
+  });
+  // As `closeBrowse`: an editor destroyed or locked meanwhile takes nothing,
+  // and a saved range that no longer fits the document changes nothing.
+  const closeLink = (
+    result: { kind: "cancel" } | { kind: "remove" } | ({ kind: "apply" } & LinkDialogResult),
+  ) => {
+    const saved = linkEdit;
+    setLinkEdit(null);
+    if (!saved || !editor || editor.isDestroyed || !editor.isEditable) return;
+    const size = editor.state.doc.content.size;
+    const chain = editor.chain().focus();
+    if (result.kind === "cancel") {
+      (rangeFits(saved.selection, size) ? chain.setTextSelection(saved.selection) : chain).run();
+      return;
+    }
+    if (!rangeFits(saved.range, size)) {
+      chain.run();
+      return;
+    }
+    chain.setTextSelection(saved.range);
+    if (result.kind === "remove") {
+      chain.unsetLink().run();
+      return;
+    }
+    const { href, text } = result;
+    if (text !== undefined) {
+      chain.insertContent({ type: "text", text, marks: [{ type: "link", attrs: { href } }] });
+    } else {
+      chain.setLink({ href }).setTextSelection(saved.range.to);
+    }
+    // The caret ends after the link, and what is typed there next is not
+    // part of it (the mark is inclusive, see `DocumentLink`).
+    chain.unsetMark("link").run();
+  };
+
+  // Each file in turn: refused with a reason, or uploaded and inserted. The
+  // first lands at `at` (a drop) or the caret, each next one after it. As in
+  // `closeBrowse`, an editor destroyed or locked while the upload ran takes
+  // nothing.
+  const insertImages = async (files: File[], at: number | null) => {
+    if (!imageKind) return;
+    let target = at;
+    for (const file of files) {
+      const refusal = imageRefusal(file);
+      if (refusal) {
+        setImageError(refusal);
+        continue;
+      }
+      setUploading((n) => n + 1);
+      try {
+        const stored = await uploadDocumentImage(imageKind, file);
+        const src =
+          documentImagePath(stored.src, imageKind) ??
+          documentImagePath(documentImageSrc(imageKind, stored.id), imageKind);
+        if (!src) throw new Error("");
+        if (!editor || editor.isDestroyed || !editor.isEditable) continue;
+        const node = { type: "image", attrs: { src } };
+        const chain = editor.chain().focus();
+        if (target !== null && target <= editor.state.doc.content.size) {
+          chain.insertContentAt(target, node).run();
+        } else {
+          chain.insertContent(node).run();
+        }
+        // The next file goes after this one, not over it (an inserted
+        // picture may be left selected).
+        target = editor.state.selection.to;
+      } catch (err) {
+        // The detail names the real reason (wrong bytes, uploads switched off).
+        const detail = err instanceof Error ? err.message : "";
+        setImageError(detail || t("richText.imageUploadFailed"));
+      } finally {
+        setUploading((n) => n - 1);
+      }
+    }
+  };
+  useEffect(() => {
+    insertImagesRef.current = (files, at) => void insertImages(files, at);
+  });
+
+  // The picture selected, for the alignment buttons (selection changes do
+  // not re-render the editor on their own).
+  const selectedImage = useEditorState({
+    editor,
+    selector: ({ editor: e }): { align: DocumentImageAlign | null } | null =>
+      e && hasImages && e.isActive("image")
+        ? { align: parseAlign(e.getAttributes("image").align as string | null) }
+        : null,
+  });
+  // Whether the caret is in a link, for the link button.
+  const inLink = useEditorState({
+    editor,
+    selector: ({ editor: e }) => Boolean(e?.isActive("link")),
+  });
+
   // Sync editable state when readOnly changes. No update is emitted: an
   // untouched document must not report its own re-serialisation as an edit.
   // The empty transaction tells node views (mention chips) to re-read
@@ -228,6 +782,9 @@ export default function RichTextEditor({
   }, [content]);
 
   if (!editor) return null;
+
+  const setAlign = (align: DocumentImageAlign | null) =>
+    editor.chain().focus().updateAttributes("image", { align }).run();
 
   const btn = (
     icon: string,
@@ -297,15 +854,29 @@ export default function RichTextEditor({
           () => editor.chain().focus().toggleStrike().run(),
           editor.isActive("strike"),
         )}
+        {btn(
+          "code",
+          t("richText.code"),
+          () => editor.chain().focus().toggleCode().run(),
+          editor.isActive("code"),
+        )}
+        {btn("link", t("richText.link"), openLink, inLink)}
 
         <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
         {!isComment &&
           btn(
-            "title",
+            "format_h3",
             t("richText.heading"),
             () => editor.chain().focus().toggleHeading({ level: 3 }).run(),
             editor.isActive("heading", { level: 3 }),
+          )}
+        {!isComment &&
+          btn(
+            "format_h4",
+            t("richText.subheading"),
+            () => editor.chain().focus().toggleHeading({ level: 4 }).run(),
+            editor.isActive("heading", { level: 4 }),
           )}
         {btn(
           "format_list_bulleted",
@@ -327,9 +898,17 @@ export default function RichTextEditor({
           editor.isActive("blockquote"),
         )}
         {!isComment &&
+          btn(
+            "code_blocks",
+            t("richText.codeBlock"),
+            () => editor.chain().focus().toggleCodeBlock().run(),
+            editor.isActive("codeBlock"),
+          )}
+        {!isComment &&
           btn("horizontal_rule", t("richText.divider"), () =>
             editor.chain().focus().setHorizontalRule().run(),
           )}
+        {!isComment && <TableMenu editor={editor} />}
 
         <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
@@ -345,9 +924,48 @@ export default function RichTextEditor({
           </>
         )}
 
+        {canInsertImages &&
+          btn("image", t("richText.insertImage"), () => fileInputRef.current?.click())}
+        {canInsertImages && (
+          <input
+            ref={fileInputRef}
+            type="file"
+            hidden
+            multiple
+            accept={DOCUMENT_IMAGE_ACCEPT}
+            data-testid="rich-text-image-input"
+            onChange={(e) => {
+              const files = Array.from(e.target.files ?? []);
+              // Picking the same file again must fire onChange again.
+              e.target.value = "";
+              if (files.length > 0) void insertImages(files, null);
+            }}
+          />
+        )}
+        {/* Aligning is an edit of the text, not an upload: offered whatever
+            the upload setting. */}
+        {selectedImage && (
+          <>
+            {btn("format_align_left", t("richText.alignLeft"), () => setAlign(null), selectedImage.align === null)}
+            {btn("format_align_center", t("richText.alignCenter"), () => setAlign("center"), selectedImage.align === "center")}
+            {btn("format_align_right", t("richText.alignRight"), () => setAlign("right"), selectedImage.align === "right")}
+          </>
+        )}
+        {(canInsertImages || selectedImage) && (
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+        )}
+
         {btn("undo", t("richText.undo"), () => editor.chain().focus().undo().run())}
         {btn("redo", t("richText.redo"), () => editor.chain().focus().redo().run())}
       </Box>}
+      {hasImages && uploading > 0 && (
+        <LinearProgress aria-label={t("richText.imageUploading")} sx={{ height: 2 }} />
+      )}
+      {hasImages && imageError && (
+        <Alert severity="error" onClose={() => setImageError("")} sx={{ borderRadius: 0 }}>
+          {imageError}
+        </Alert>
+      )}
 
       {/* Editor content */}
       <Box
@@ -368,10 +986,17 @@ export default function RichTextEditor({
               height: 0,
               pointerEvents: "none",
             },
+            // The shared display rules (links, code, code blocks, the
+            // sub-heading, tables, pictures), so text looks the same here
+            // as in the preview; the editor's own rules follow.
+            ...DOCUMENT_CONTENT_SX,
+            // A wide table scrolls in its own wrapper here (see
+            // `EDITOR_TABLE_SX`), so the editable root never scrolls.
+            overflowX: "visible",
             "& h3": { fontSize: "1.1rem", fontWeight: 600, mt: 2, mb: 1 },
-            "& h4": { fontSize: "1rem", fontWeight: 600, mt: 1.5, mb: 0.5 },
             "& ul, & ol": { pl: 3 },
-            "& a": { color: "primary.main", wordBreak: "break-all" },
+            // A click on a link while editing places the caret.
+            "& a": { ...DOCUMENT_CONTENT_SX["& a"], cursor: "text" },
             "& blockquote": {
               borderLeft: "3px solid",
               borderColor: "divider",
@@ -379,12 +1004,15 @@ export default function RichTextEditor({
               ml: 0,
               color: "text.secondary",
             },
+            ...EDITOR_IMAGE_SX,
+            ...EDITOR_TABLE_SX,
           },
           },
         ]}
       >
         <EditorContent editor={editor} />
       </Box>
+      {!isComment && <TableActionsMenu editor={editor} store={tableMenuStore} />}
       {hasMentions && (
         <MentionPopup
           store={store}
@@ -393,6 +1021,15 @@ export default function RichTextEditor({
           hidden={Boolean(browse)}
         />
       )}
+      <LinkDialog
+        open={Boolean(linkEdit)}
+        href={linkEdit?.href ?? ""}
+        editing={linkEdit?.editing ?? false}
+        askText={linkEdit?.askText ?? false}
+        onCancel={() => closeLink({ kind: "cancel" })}
+        onApply={(r) => closeLink({ kind: "apply", ...r })}
+        onRemove={() => closeLink({ kind: "remove" })}
+      />
       {hasMentions && (
         <MentionBrowseDialog
           open={Boolean(browse)}

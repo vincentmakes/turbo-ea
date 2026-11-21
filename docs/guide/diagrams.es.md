@@ -6,7 +6,7 @@ El módulo **Diagramas** permite crear **diagramas visuales de arquitectura** us
 
 ## Galería de diagramas
 
-La galería muestra cada diagrama como una tarjeta compacta con una miniatura, un nombre, un autor y el número de tarjetas que referencia. **Cree**, **Abra**, **Edite detalles**, organice o **Elimine** cualquier diagrama.
+La galería muestra cada diagrama como una tarjeta compacta con una miniatura, un nombre, un autor y el número de tarjetas que referencia. **Cree**, **Abra**, **Edite detalles**, organice o **Elimine** cualquier diagrama. Eliminar un diagrama también lo quita de todas las decisiones a las que estaba adjunto (consulte [Vincular diagramas a decisiones](#linking-diagrams-to-decisions)).
 
 ### Encontrar diagramas
 
@@ -154,6 +154,10 @@ El botón Sync de la barra de herramientas muestra una pastilla pulsante «N sin
 ### Vincular diagramas a tarjetas
 
 Los diagramas pueden vincularse a **cualquier tarjeta** desde la pestaña **Recursos** de la tarjeta (ver [Detalle de tarjetas](card-details.es.md#pestaña-recursos)). Cuando un diagrama está vinculado a una tarjeta **Iniciativa**, también aparece en el módulo [EA Delivery](delivery.md) junto a los documentos SoAW.
+
+### Vincular diagramas a decisiones {: #linking-diagrams-to-decisions }
+
+Un diagrama también puede adjuntarse a una decisión de arquitectura, desde la sección **Diagramas** del editor de la decisión (consulte [Diagramas en una decisión](grc.md#decision-diagrams)). La decisión muestra el diagrama tal como está ahora, de modo que editar el diagrama cambia lo que muestra la decisión, incluso en una decisión firmada; eliminar el diagrama lo quita de todas las decisiones a las que estaba adjunto.
 
 ## Data Modeller
 

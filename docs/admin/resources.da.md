@@ -78,9 +78,11 @@ Siden genbruger de samme tilladelser som et korts Ressourcer-faneblad — den bl
 
 Massesletning kontrolleres **pr. række**. Hvis din markering omfatter ressourcer på kort, du ikke må administrere, springes disse rækker over i stedet for at få hele handlingen til at fejle, og en advarsel angiver præcis hvilke og hvorfor.
 
-## Når filupload er deaktiveret
+## Når filupload er deaktiveret {: #when-file-uploads-are-disabled }
 
 At slå **Filupload** fra under **Admin → Indstillinger → Generelt** blokerer kun nye uploads. Eksisterende filer vises fortsat her og kan stadig downloades og slettes, så du kan blive ved med at revidere og rydde op. Et informationsbanner vises på siden, mens kontakten er slået fra.
+
+Den samme kontakt skjuler også de kontroller, der indsætter billeder i teksten i [beslutninger](../guide/grc.md#decision-pictures) og [SoAW'er](../guide/delivery.md#soaw-pictures). Billeder, der allerede er i et dokument, forbliver synlige.
 
 ## Se også
 

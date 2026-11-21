@@ -41,7 +41,12 @@ a set of mutant-name patterns, never on nothing: without names mutmut's
   therefore reopens every survived or untested mutant whose function is
   exercised by a test module that changed since the last run
   (``reopen_survivors``), judged by a digest of the test modules kept in the
-  cached ``mutants/``.
+  cached ``mutants/``. It does so in every file of the shard's cache, not only
+  the shard's current files: the digest moves on every night, so a file dealt
+  back to the shard later would otherwise keep the verdicts it held there
+  before (nightly run 61, ``deps.py``). A "no tests" verdict on a function
+  the cached map links to a test is stale for the same reason and is reset
+  too (``linked_no_tests``).
 
 Both then make sure a function in scope that mutmut's cached map links to no
 test is not scored "no tests" for the wrong reason (``relink_untested``).
@@ -918,6 +923,26 @@ def reset_no_tests(directory: Path, files: list[str], functions: set[str]) -> in
     return reset
 
 
+def linked_no_tests(directory: Path, files: list[str]) -> set[str]:
+    """The functions of ``files`` with a mutant scored "no tests" (or still
+    unchecked) that mutmut's cached map links to at least one test.
+
+    A "no tests" verdict there is stale: mutmut writes it only when the map
+    links the function to no test, so the map has gained a link since. That
+    happens when a file comes back to a shard whose cache scored it before
+    the tests that run it were collected (nightly run 61: shard 1's map
+    linked two tests to ``get_optional_user`` while all 23 of its mutants read
+    "no tests"). It cannot repeat: once re-tested, the verdict is a real one.
+    """
+    stats_file = directory / "mutants" / "mutmut-stats.json"
+    if not stats_file.is_file():
+        return set()
+    tests_by_function = json.loads(stats_file.read_text("utf-8")).get(
+        "tests_by_mangled_function_name", {}
+    )
+    return {f for f in untested_functions(directory, files) if tests_by_function.get(f)}
+
+
 def changed_line_mutants(suite: str, changed: dict, repo: Path = REPO) -> list[str] | None:
     """The generated mutants that ``collect`` would score for this change —
     on a changed line of a touched function — or None when a changed file
@@ -993,9 +1018,16 @@ def run(
             )
         else:
             in_scope = shard_files(suite, shard, repo) if shard else mutable_files(suite, repo)
-            reopened = reopen_survivors(directory, in_scope)
+            # Every file of the shard's cache, not only today's scope: a file
+            # dealt back to this shard later must not come with the verdicts
+            # it held here before the tests that run it changed. Files out of
+            # scope are never named, so this costs no test time.
+            reopened = reopen_survivors(directory, mutable_files(suite, repo))
             if reopened:
                 print(f"{reopened} survivor(s) reopened: a test that runs them changed.")
+            stale = reset_no_tests(directory, in_scope, linked_no_tests(directory, in_scope))
+            if stale:
+                print(f'{stale} "no tests" verdict(s) reset: the cached map links a test to them.')
             relinked = relink_untested(
                 directory, untested_functions(directory, in_scope), mutable_files(suite, repo)
             )

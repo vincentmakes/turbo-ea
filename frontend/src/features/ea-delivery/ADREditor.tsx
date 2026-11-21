@@ -33,6 +33,7 @@ import RevisionStrip, { decisionRevisionItems, showsRevisionStrip } from "./Revi
 import DecisionPeopleField from "./DecisionPeopleField";
 import DecisionLinksBlock from "./DecisionLinksBlock";
 import DecisionFilesSection from "./DecisionFilesSection";
+import DecisionDiagramsSection from "./DecisionDiagramsSection";
 import RecordAsDecidedDialog from "./RecordAsDecidedDialog";
 import ReviseMenu, { createRevision } from "./ReviseMenu";
 import { DecisionStandingChip, DecisionStatusChip } from "./DecisionStandingChip";
@@ -71,6 +72,7 @@ import { hasPermission } from "@/components/RequirePermission";
 import { ExtensionBoundary, ExtensionSlot, useExtensionAdrPanels } from "@/lib/extensionHost";
 import { printAdr } from "./adrPrint";
 import type {
+  AdrLinkedDiagram,
   ArchitectureDecision,
   DecisionLinkInput,
   DecisionPerson,
@@ -131,6 +133,9 @@ export default function ADREditor() {
   const [linkedCards, setLinkedCards] = useState<
     { id: string; name: string; type: string }[]
   >([]);
+  // Linked diagrams: filing like linked cards, changed at once through their
+  // own routes, never part of Save or of the unsaved-edits check.
+  const [diagrams, setDiagrams] = useState<AdrLinkedDiagram[]>([]);
   const [decidedOn, setDecidedOn] = useState("");
   const [effectiveFrom, setEffectiveFrom] = useState("");
   const [validUntil, setValidUntil] = useState("");
@@ -236,6 +241,7 @@ export default function ADREditor() {
     setSignedAt(adr.signed_at);
     setAttributes(adr.attributes || {});
     setLinkedCards(adr.linked_cards || []);
+    setDiagrams(adr.diagrams || []);
     setDecidedOn(content.decidedOn);
     setEffectiveFrom(content.effectiveFrom);
     setValidUntil(content.validUntil);
@@ -293,6 +299,7 @@ export default function ADREditor() {
     revision_number: revisionNumber,
     attributes,
     linked_cards: linkedCards,
+    diagrams,
     decided_on: decidedOn || null,
     effective_from: effectiveFrom || null,
     valid_until: validUntil || null,
@@ -923,6 +930,7 @@ export default function ADREditor() {
         </Typography>
         <RichTextEditor
           mentions={DOCUMENT_MENTIONS}
+          imageKind="adr"
           mentionContext={textMentionContext}
           content={context}
           onChange={setContext}
@@ -942,6 +950,7 @@ export default function ADREditor() {
         </Typography>
         <RichTextEditor
           mentions={DOCUMENT_MENTIONS}
+          imageKind="adr"
           mentionContext={textMentionContext}
           content={decision}
           onChange={setDecision}
@@ -961,6 +970,7 @@ export default function ADREditor() {
         </Typography>
         <RichTextEditor
           mentions={DOCUMENT_MENTIONS}
+          imageKind="adr"
           mentionContext={textMentionContext}
           content={alternatives}
           onChange={setAlternatives}
@@ -980,6 +990,7 @@ export default function ADREditor() {
         </Typography>
         <RichTextEditor
           mentions={DOCUMENT_MENTIONS}
+          imageKind="adr"
           mentionContext={textMentionContext}
           content={consequences}
           onChange={setConsequences}
@@ -1097,6 +1108,16 @@ export default function ADREditor() {
             locked={locked}
           />
         </Paper>
+      )}
+
+      {/* ── Diagrams ── */}
+      {!isNew && id && (
+        <DecisionDiagramsSection
+          adrId={id}
+          diagrams={diagrams}
+          editable={access.diagramsEditable && canManage}
+          onChange={setDiagrams}
+        />
       )}
 
       {/* ── Linked Cards ── */}

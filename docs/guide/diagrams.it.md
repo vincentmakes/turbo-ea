@@ -6,7 +6,7 @@ Il modulo **Diagrammi** consente di creare **diagrammi di architettura visivi** 
 
 ## Galleria diagrammi
 
-La galleria elenca ogni diagramma come una scheda compatta con miniatura, nome, autore e il numero di schede a cui fa riferimento. **Crea**, **Apri**, **Modifica dettagli**, organizza o **Elimina** qualsiasi diagramma.
+La galleria elenca ogni diagramma come una scheda compatta con miniatura, nome, autore e il numero di schede a cui fa riferimento. **Crea**, **Apri**, **Modifica dettagli**, organizza o **Elimina** qualsiasi diagramma. Eliminare un diagramma lo rimuove anche da ogni decisione a cui era allegato (vedi [Collegare i diagrammi alle decisioni](#linking-diagrams-to-decisions)).
 
 ### Trovare i diagrammi
 
@@ -154,6 +154,10 @@ Il pulsante Sync della barra strumenti mostra una pillola pulsante «N non sincr
 ### Collegare diagrammi alle schede
 
 I diagrammi possono essere collegati a **qualsiasi scheda** dalla scheda **Risorse** della scheda stessa (vedi [Dettaglio scheda](card-details.it.md#scheda-risorse)). Quando un diagramma è collegato a una scheda **Iniziativa**, appare anche nel modulo [EA Delivery](delivery.md) accanto ai documenti SoAW.
+
+### Collegare i diagrammi alle decisioni {: #linking-diagrams-to-decisions }
+
+Un diagramma può anche essere allegato a una decisione architetturale, dalla sezione **Diagrammi** dell'editor della decisione (vedi [Diagrammi in una decisione](grc.md#decision-diagrams)). La decisione mostra il diagramma com'è adesso, quindi modificare il diagramma cambia ciò che la decisione mostra, anche in una decisione firmata; eliminare il diagramma lo rimuove da ogni decisione a cui era allegato.
 
 ## Data Modeller
 

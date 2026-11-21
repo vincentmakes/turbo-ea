@@ -82,6 +82,7 @@ export function useLatestRequest(): LatestRequest {
   // MUST be identity-stable: callers put this in `useCallback` dependency
   // arrays, so a fresh object each render would rebuild their fetch callback
   // and turn the effect that calls it into an infinite request loop.
+  // Stryker disable next-line ArrayDeclaration: run and cancel are useCallback([]) refs that never change, so [] memoises identically
   return useMemo(() => ({ run, cancel }), [run, cancel]);
 }
 

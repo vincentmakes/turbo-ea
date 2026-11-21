@@ -6,7 +6,7 @@
 
 ## Diagramgalleri
 
-Galleriet viser hvert diagram som et kompakt kort med et miniaturebillede, navn, forfatter og antallet af kort, det refererer til. **Opret**, **Åbn**, **Rediger detaljer**, organisér eller **Slet** ethvert diagram.
+Galleriet viser hvert diagram som et kompakt kort med et miniaturebillede, navn, forfatter og antallet af kort, det refererer til. **Opret**, **Åbn**, **Rediger detaljer**, organisér eller **Slet** ethvert diagram. Sletning af et diagram fjerner det også fra alle beslutninger, det var vedhæftet (se [Tilknytning af diagrammer til beslutninger](#linking-diagrams-to-decisions)).
 
 ### Find diagrammer
 
@@ -154,6 +154,10 @@ Synkroniseringsknappen i værktøjslinjen viser en pulserende "N usynkroniseret"
 ### Linke diagrammer til kort
 
 Diagrammer kan linkes til **et hvilket som helst kort** fra kortets fane **Resources** (se [Kortdetaljer](card-details.md#resources-tab)). Når et diagram er linket til et **Initiative**-kort, vises det også i [EA Delivery](delivery.md)-modulet sammen med SoAW-dokumenter.
+
+### Tilknytning af diagrammer til beslutninger {: #linking-diagrams-to-decisions }
+
+Et diagram kan også vedhæftes en arkitekturbeslutning fra sektionen **Diagrammer** i beslutningens editor (se [Diagrammer på en beslutning](grc.md#decision-diagrams)). Beslutningen viser diagrammet, som det er nu, så redigering af diagrammet ændrer, hvad beslutningen viser, også på en underskrevet beslutning; sletning af diagrammet fjerner det fra alle beslutninger, det var vedhæftet.
 
 ## Data Modeller
 

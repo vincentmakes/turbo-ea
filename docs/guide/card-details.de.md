@@ -111,7 +111,7 @@ Abhängig vom Kartentyp werden Sie zusätzliche Abschnitte mit **benutzerdefinie
 - **Text** — Freitexteingabe
 - **Mehrzeiliger Text** — Freitexteingabe, die Zeilenumbrüche beibehält und als automatisch wachsendes Textfeld dargestellt wird
 - **Zahl** — Numerischer Wert
-- **Kosten** — Numerischer Wert, angezeigt mit der konfigurierten Währung der Plattform
+- **Kosten** — Numerischer Wert, angezeigt mit der konfigurierten Währung der Plattform. Kostenfelder werden Benutzern angezeigt, deren Rolle die Berechtigung `costs.view` besitzt (im Rolleneditor unter **Costs** aufgeführt), sowie den Stakeholdern einer Karte, wenn ihre [Stakeholder-Rolle](../admin/metamodel.md) dies erlaubt. Alle anderen sehen stattdessen *Eingeschränkt* und können den Wert nicht ändern. Das Beobachten einer Karte macht ihre Kosten nicht sichtbar
 - **Boolean** — Auswahl aus einer Ja/Nein-Liste, **Keine** leert das Feld; angezeigt als grüne *Ja*- oder blaue *Nein*-Marke, — wenn nicht gesetzt
 - **Datum** — Datumsauswahl
 - **URL** — Klickbarer Link (validiert für http/https/mailto)

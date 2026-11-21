@@ -111,6 +111,12 @@ MCP_WRITES_ENABLED: bool = _env_bool("MCP_WRITES_ENABLED", True)
 # explicit operator choice.
 MCP_ALLOW_RELATION_DELETE: bool = _env_bool("MCP_ALLOW_RELATION_DELETE", False)
 
+# Let ``call_extension_write`` run the operations an installed extension marks
+# ``destructive`` (removing or overwriting its records). Off by default, like
+# relation deletes: an extension's own tables are not reversible by
+# ``rollback_batch``, so turning this on is an explicit operator choice.
+MCP_ALLOW_EXTENSION_DESTRUCTIVE: bool = _env_bool("MCP_ALLOW_EXTENSION_DESTRUCTIVE", False)
+
 # Above this row count, a commit must echo back the ``confirm_token`` issued
 # by the prior dry-run. The backend has its own floor (currently 20); the
 # MCP wrapper enforces this value first so the agent gets a clear error

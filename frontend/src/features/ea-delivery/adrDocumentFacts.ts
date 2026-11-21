@@ -99,6 +99,12 @@ export function adrFileNames(adr: ExportableDecision): string[] {
   return (adr.files ?? []).map((f) => f.name).filter(Boolean);
 }
 
+/** The names of the diagrams linked to the decision (detail only; names
+ *  alone, as a thumbnail is an SVG that Word cannot show). */
+export function adrDiagramNames(adr: ExportableDecision): string[] {
+  return (adr.diagrams ?? []).map((d) => d.name).filter(Boolean);
+}
+
 /**
  * "Recorded by X on date, not signed in Turbo EA" for a decision recorded as
  * decided outside Turbo EA; null for any other decision. It replaces the

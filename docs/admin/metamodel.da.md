@@ -34,7 +34,7 @@ Klik på **+ Ny type** for at oprette en brugerdefineret korttype. Konfigurer:
 
 | Felt | Beskrivelse |
 |-------|-------------|
-| **Nøgle** | Unik identifikator (små bogstaver, ingen mellemrum) — kan ikke ændres efter oprettelse |
+| **Nøgle** | Unik identifikator (et bogstav efterfulgt af bogstaver og cifre, uden mellemrum eller andre tegn, f.eks. `myCustomType`) — kan ikke ændres efter oprettelse |
 | **Etiket** | Visningsnavn vist i UI'et |
 | **Ikon** | Google Material Symbol-ikonnavn |
 | **Farve** | Brandfarve for typen (bruges i lager, rapporter og diagrammer) |
@@ -150,6 +150,8 @@ Giv en rolle en **beskrivelse** for at angive, hvad den betyder i din organisati
 
 Hver rolle har desuden en **Tæller med i datakvaliteten**-kontakt. Datakvalitetsscoren har én enkelt interessentplads, og den er opfyldt, så snart nogen er tildelt kortet i en rolle, hvor kontakten er slået til. Slå den fra for rent passive roller — den indbyggede **Observatør** leveres med den slået fra, så det at følge et kort aldrig træder i stedet for at eje det. En type, hvor alle roller har den slået fra, bidrager slet ikke med en interessentplads. Skift af kontakten genberegner straks scoren for alle kort af typen.
 
+En rolles tilladelser afgør også, om dens indehavere ser et korts **omkostningsfelter**. Brugere, hvis approlle har `costs.view`, ser omkostninger på alle kort. For alle andre skal du markere **card.view_costs** på en interessentrolle: Dens indehavere ser så omkostningerne for de kort, hvor de har den rolle, og kan ændre dem, hvis rollen også kan redigere. De indbyggede roller leveres med den slået til, undtagen **Observatør** — enhver, der kan se et kort, kan gøre sig selv til dets Observatør med **Observe this card**, så alt, hvad Observatør-rollen tillader, er åbent for dem alle, og rolleeditoren gør opmærksom på det på den rolle. En rolle, du opretter, starter med den slået fra. Vær opmærksom på, hvem der kan tildele en rolle: En bruger, der må administrere interessenter (tilladelsen `stakeholders.manage` eller en interessentrolle med **card.manage_stakeholders**), kan tildele en rolle, der viser omkostninger, til hvem som helst, sig selv inklusive. Hvor omkostninger skal forblive lukkede for sådanne brugere, så fjern denne tilladelse fra dem, eller fjern markeringen af **card.view_costs** på de roller, de kan tildele.
+
 Roller kan fjernes på to måder:
 
 - **Arkivér** — rollen bliver på de kort der allerede bruger den, men kan ikke længere tildeles, og den giver ikke længere sine rettigheder på kortniveau. Arkiverede roller vises bag **Vis arkiverede**-kontakten og kan gendannes når som helst. Det er det rigtige valg for en rolle der reelt har været brugt.
@@ -226,7 +228,7 @@ Relationstyper definerer de tilladte forbindelser mellem korttyper. Hver relatio
 
 | Felt | Beskrivelse |
 |-------|-------------|
-| **Nøgle** | Unik identifikator — foreslås ud fra dit verbum, kan redigeres under oprettelsen og ligger fast bagefter |
+| **Nøgle** | Unik identifikator — foreslås ud fra dit verbum, kan redigeres under oprettelsen og ligger fast bagefter. Relationstypens redigeringsdialog viser den, fordi det er navnet, Excel bruger: kolonnen `rel:<key>` og værdien `relation_type` på arket `Relations` (se [Excel-import / -eksport](../guide/inventory.md#excel-import)) |
 | **Etiket** | Etiket for fremadrettet retning (f.eks. "bruger") |
 | **Omvendt etiket** | Etiket for baglæns retning (f.eks. "bruges af") |
 | **Kildetype** | Korttypen på "fra"-siden |

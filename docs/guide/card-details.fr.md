@@ -109,7 +109,7 @@ Selon le type de fiche, vous verrez des sections supplémentaires avec des **cha
 - **Texte** -- Saisie de texte libre
 - **Texte multiligne** -- Saisie de texte libre qui préserve les retours à la ligne, affichée comme une zone de texte à hauteur automatique
 - **Nombre** -- Valeur numérique
-- **Coût** -- Valeur numérique affichée avec la devise configurée de la plateforme
+- **Coût** -- Valeur numérique affichée avec la devise configurée de la plateforme. Les champs de coût sont affichés aux utilisateurs dont le rôle détient l'autorisation `costs.view` (listée sous **Costs** dans l'éditeur de rôles), ainsi qu'aux parties prenantes d'une fiche lorsque leur [rôle de partie prenante](../admin/metamodel.md) l'autorise. Tous les autres voient *Restreint* à la place et ne peuvent pas modifier la valeur. Observer une fiche n'en révèle pas les coûts
 - **Booléen** -- Choix dans une liste Oui / Non, **Aucun** pour l'effacer ; affiché sous forme de pastille verte *Oui* ou bleue *Non*, — s'il n'est pas renseigné
 - **Date** -- Sélecteur de date
 - **URL** -- Lien cliquable (validé pour http/https/mailto)

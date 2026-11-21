@@ -90,7 +90,7 @@ Use a barra de **filtro rápido** para pesquisa de texto completo. Clique com o 
 
 #### Exportar e importar decisões {: #decisions-import }
 
-**Exportar** (junto a **+ Nova decisão**) transfere as decisões que a barra lateral de filtros mostra atualmente como um ficheiro `.xlsx`, uma linha por revisão de decisão. As colunas, por ordem: `reference_number`, `title`, `status`, `revision_number`, as quatro secções (`context`, `decision`, `consequences`, `alternatives_considered`) como texto simples, `cards` e `related_decisions` (separadas por ponto e vírgula), `author`, `signatories`, `signed_at`, `created_at`, `updated_at`, e depois os dados próprios do registo — `standing` (como chave, por exemplo `in_force`), `decided_on`, `effective_from`, `valid_until`, `decision_makers`, `participants`, e as ligações tipificadas `replaces`, `amends`, `revokes` e `consolidates` como referências. A formatação, como o negrito ou as ligações, não passa para a folha de cálculo. Para partilhar decisões com toda a formatação, selecione linhas na grelha e utilize o botão **Export** da própria grelha, que gera um documento Word.
+**Exportar** (junto a **+ Nova decisão**) transfere as decisões que a barra lateral de filtros mostra atualmente como um ficheiro `.xlsx`, uma linha por revisão de decisão. As colunas, por ordem: `reference_number`, `title`, `status`, `revision_number`, as quatro secções (`context`, `decision`, `consequences`, `alternatives_considered`) como texto simples, `cards` e `related_decisions` (separadas por ponto e vírgula), `author`, `signatories`, `signed_at`, `created_at`, `updated_at`, e depois os dados próprios do registo — `standing` (como chave, por exemplo `in_force`), `decided_on`, `effective_from`, `valid_until`, `decision_makers`, `participants`, e as ligações tipificadas `replaces`, `amends`, `revokes` e `consolidates` como referências. A formatação, como o negrito ou as ligações, não passa para a folha de cálculo, e cada linha de uma tabela numa secção é escrita numa só linha, com as células separadas por ` | `. Para partilhar decisões com toda a formatação, selecione linhas na grelha e utilize o botão **Export** da própria grelha, que gera um documento Word.
 
 **Importar** cria decisões em massa a partir de um ficheiro `.xlsx`. Clique em **Transferir modelo** para obter um livro inicial, preencha uma decisão por linha e carregue-o:
 
@@ -118,8 +118,11 @@ Em todos os casos você pode pesquisar e vincular cards adicionais durante a cri
 
 O editor oferece:
 
-- Edição de texto rico para cada seção (Contexto, Decisão, Consequências, Alternativas Consideradas)
+- Edição de texto rico para cada seção (Contexto, Decisão, Consequências, Alternativas Consideradas): negrito, itálico, sublinhado, tachado, **Código em linha**, um **Título** e um **Subtítulo**, listas com marcadores e numeradas, citações, um **Bloco de código** para um comando ou um excerto de configuração (mantido nas suas próprias linhas num tipo de letra monoespaçado) e divisores
+- **Ligações** — ligue o texto selecionado a uma página web ou a um endereço de e-mail (ver [Ligações no texto](#decision-text-links))
+- **Tabelas** — insira e edite uma tabela numa secção (ver [Tabelas](#decision-tables))
 - **Menções** — escreva **@** numa seção para mencionar um card ou outra decisão (ver [Menções](#decision-mentions))
+- **Imagens** — insira uma captura de ecrã ou um diagrama numa seção (ver [Imagens](#decision-pictures))
 - **Discussão** — um painel ao lado do documento com a sua discussão (ver [Discussão](#decision-discussion))
 - **Histórico** — um botão no topo da página que abre a cronologia da decisão e as suas versões guardadas (ver [Histórico](#decision-history))
 - Vinculação de cards — conecte o ADR a cards relevantes (aplicações, componentes de TI, iniciativas, …). As iniciativas são vinculadas através da vinculação padrão de cards, não por um campo dedicado, permitindo que um ADR referencie múltiplas iniciativas
@@ -128,6 +131,76 @@ O editor oferece:
 - **Esta decisão…** — ligações tipificadas a outras decisões (ver [Ligações entre decisões](#decision-links))
 - **Resumo das alterações** — apenas numa revisão: o que mudou nesta revisão e porquê
 - **Ficheiros** — documentos anexados à decisão (ver [Ficheiros](#decision-files))
+- **Diagramas** — diagramas do módulo Diagramas anexados à decisão (ver [Diagramas](#decision-diagrams))
+
+#### Imagens {: #decision-pictures }
+
+Cada uma das quatro seções pode conter imagens — uma captura de ecrã, um diagrama exportado, a fotografia de um quadro branco. Clique em **Inserir imagem** na barra de ferramentas da seção e escolha um ficheiro, cole uma imagem da área de transferência ou arraste um ficheiro de imagem para a seção. A imagem é carregada no momento em que é inserida e aparece numa linha própria.
+
+- **Redimensionar.** Arraste o canto de uma imagem para a redimensionar: as suas proporções são mantidas.
+- **Alinhar.** Selecione a imagem e clique em **Alinhar à esquerda**, **Centrar** ou **Alinhar à direita** na barra de ferramentas.
+- **Formatos.** PNG, JPEG, GIF e WebP, até 5 MB por imagem. Uma imagem maior é recusada, não reduzida. SVG não é aceite.
+- **Onde aparece.** As imagens aparecem na [pré-visualização](#preview), na cópia PDF / impressa e na exportação para Word. No [Histórico](#decision-history), uma versão mostra as suas imagens, e **Alterações** assinala uma imagem adicionada ou removida como *[Imagem]*. Uma revisão, um duplicado e uma versão restaurada mantêm as imagens do texto de onde vieram.
+- **Apenas imagens carregadas aqui.** Uma decisão mantém apenas as imagens carregadas em decisões. Uma imagem que aponta para outro site, ou uma copiada de um SoAW, é removida quando a decisão é guardada.
+- **Os comentários** na [discussão](#decision-discussion) não aceitam imagens.
+- **Quando o carregamento de ficheiros está desligado.** O botão **Inserir imagem**, a colagem e o arrastar e largar de imagens desaparecem quando um administrador [desligou o carregamento de ficheiros](../admin/resources.md#when-file-uploads-are-disabled). As imagens que já estão no texto continuam visíveis.
+
+#### Ligações no texto {: #decision-text-links }
+
+Selecione algumas palavras e clique em **Ligação** na barra de ferramentas da secção, ou prima **Ctrl+K** (**Cmd+K** num Mac), para as ligar. Escreva o **Endereço** e clique em **Aplicar**. Sem nada selecionado, a caixa de diálogo pede também o **Texto a apresentar**; se ficar vazio, é apresentado o próprio endereço. Um endereço web ou de e-mail escrito ou colado no texto torna-se uma ligação por si só.
+
+- **O que pode ser uma ligação.** Endereços web (`http://`, `https://`) e endereços de e-mail (`mailto:`). Um endereço sem esquema é completado: `example.com` passa a `https://example.com` e `ann@example.com` a uma ligação de e-mail. Tudo o resto — outro esquema, ou um endereço dentro do Turbo EA como `/cards/…` — é recusado com *Introduza um endereço web (https://…) ou um endereço de e-mail*.
+- **Editar ou remover uma ligação.** Coloque o cursor na ligação e clique novamente em **Ligação** ou prima Ctrl/Cmd+K: a caixa de diálogo abre com o endereço preenchido e oferece também **Remover ligação** e **Abrir em uma nova aba**.
+- **Seguir uma ligação.** Durante a edição, um clique numa ligação coloca o cursor nela, para que possa ser editada como qualquer outro texto; **Ctrl+clique** (**Cmd+clique** num Mac) abre-a em uma nova aba. Na pré-visualização, no histórico e numa decisão bloqueada ou assinada, um clique abre-a em uma nova aba.
+- **Ctrl/Cmd+K.** Dentro de uma secção que está a editar, o atalho abre a caixa de diálogo de ligação em vez da [pesquisa global](inventory.md); em qualquer outro lugar continua a abrir a pesquisa.
+- **Os comentários** na [discussão](#decision-discussion) aceitam ligações da mesma forma.
+- **Onde aparecem.** As ligações continuam clicáveis na pré-visualização, na cópia PDF / impressa e na exportação para Word. No [Histórico](#decision-history), **Alterações** assinala como alteração um endereço de ligação alterado.
+
+#### Tabelas {: #decision-tables }
+
+Cada uma das quatro secções pode conter tabelas. Clique em **Tabela** na barra de ferramentas da secção e escolha **Inserir tabela**: é inserida uma tabela de três linhas e três colunas, cuja primeira linha é uma linha de cabeçalho. Uma célula contém texto como o resto da secção: a formatação, as ligações, as menções e as imagens funcionam nela.
+
+Há três formas de chegar às ações de uma tabela, e cada uma atua sobre a célula que contém o cursor ou sobre as células que selecionou:
+
+- **O menu Tabela da barra de ferramentas** — com o cursor numa tabela, **Tabela** lista todas as ações abaixo.
+- **Clique direito** numa célula — as mesmas ações abrem-se junto ao ponteiro.
+- **As pegas** à volta da tabela — uma pega ao lado de uma linha ou por cima de uma coluna abre as ações dessa linha ou coluna, e um **+** insere uma (ver *Pegas* abaixo).
+
+As ações:
+
+- **Selecionar linha** e **Selecionar coluna** selecionam a linha ou a coluna inteira do cursor, ou de cada célula selecionada.
+- **Adicionar linha acima**, **Adicionar linha abaixo**, **Adicionar coluna antes** e **Adicionar coluna depois**. **Adicionar linha acima** não está disponível na linha de cabeçalho: uma nova linha fica sempre abaixo dela.
+- **Mover linha para cima**, **Mover linha para baixo**, **Mover coluna para antes** e **Mover coluna para depois** movem a linha ou a coluna uma posição e mantêm-na selecionada. Um movimento não está disponível na margem da tabela, através da linha de cabeçalho, com mais de uma linha ou coluna selecionada, nem numa tabela em que uma célula unida abranja várias linhas (para as linhas) ou várias colunas (para as colunas).
+- **Eliminar linha** e **Eliminar coluna** eliminam todas as linhas ou colunas da seleção e indicam quantas (*Eliminar 2 linhas*). Uma tabela mantém pelo menos uma linha e uma coluna: com todas as linhas selecionadas, **Eliminar linha** não está disponível, e com todas as colunas selecionadas, também não está **Eliminar coluna**.
+- **Linha de cabeçalho** ativa ou desativa a formatação de cabeçalho da primeira linha.
+- **Unir células** junta as células que selecionou arrastando sobre elas, e **Dividir célula** volta a dividir uma célula unida.
+- **Eliminar tabela**.
+
+Antes e depois seguem o sentido de leitura: numa língua que se escreve da direita para a esquerda, a coluna antes é a da direita.
+
+**Pegas.** Durante a edição, a tabela tem à sua volta uma margem estreita que contém as suas pegas. Aparecem para a célula sob o ponteiro e, enquanto trabalha na secção, para a célula que contém o cursor:
+
+- **Uma pega de linha** ao lado da linha e **uma pega de coluna** por cima da coluna. Um clique seleciona a linha ou a coluna e abre as suas ações: para uma linha, **Adicionar linha acima**, **Adicionar linha abaixo**, **Mover linha para cima**, **Mover linha para baixo**, **Eliminar linha** e, na primeira linha, **Linha de cabeçalho**; para uma coluna, **Adicionar coluna antes**, **Adicionar coluna depois**, **Mover coluna para antes**, **Mover coluna para depois** e **Eliminar coluna**. Um clique direito numa pega faz o mesmo. Numa célula unida, a pega representa todas as linhas ou colunas que a célula abrange, e o seu menu indica-o (*Eliminar 2 linhas*).
+- **Um +** na margem inferior de uma linha insere uma linha abaixo dela, e **um +** na margem final de uma coluna insere uma coluna depois dela. A última linha e a última coluna têm as barras em vez disso.
+- **Uma barra** sob a última linha adiciona uma linha no fim, e **uma barra** depois da última coluna adiciona uma coluna no fim.
+
+Uma linha ou coluna adicionada desta forma coloca o cursor na sua primeira célula, e um único anular remove-a. Num ecrã tátil, as pegas são maiores e aparecem para a célula em que tocou.
+
+**O menu do clique direito.** Um clique direito numa célula abre as ações da tabela junto ao ponteiro. Quando o clique é feito dentro de células que selecionou, a seleção é mantida, pelo que as ações se aplicam a todas; em qualquer outro sítio, o cursor passa primeiro para a célula clicada.
+
+- **Shift+clique direito** abre antes o menu próprio do browser, para as suas sugestões ortográficas ou **Colar**.
+- Um clique direito numa **ligação** ou numa **imagem** de uma célula também abre o menu do browser, para a abrir ou copiar.
+- Num ecrã tátil, um toque prolongado seleciona texto como habitualmente; use aí as pegas.
+- Com o teclado, **Shift+F10** ou a tecla **Menu** abre o mesmo menu na célula do cursor.
+
+**Teclado.** **Tab** passa para a célula seguinte e **Shift+Tab** para a anterior; Tab na última célula adiciona uma linha. O menu **Tabela** da barra de ferramentas dá acesso a todas as ações a partir do teclado; as pegas destinam-se ao ponteiro e ao toque e não fazem parte da ordem de tabulação.
+
+**Larguras e tabelas largas.** Arraste a margem entre duas colunas para alterar a sua largura. Uma tabela mais larga do que a secção desloca-se lateralmente; a pega de uma linha sai então de vista com a primeira coluna, enquanto o menu do clique direito e o menu **Tabela** da barra de ferramentas continuam a dar acesso a todas as ações.
+
+Uma decisão bloqueada ou assinada mostra as suas tabelas sem pegas, e um clique direito aí abre o menu do browser.
+
+- **Onde aparecem.** As tabelas aparecem na [pré-visualização](#preview) e no [Histórico](#decision-history), onde **Alterações** lê cada linha da tabela como uma só linha, com as células separadas por ` | `. Na cópia PDF / impressa, uma tabela mantém as proporções das suas colunas e ajusta-se à largura da página. A exportação para Word escreve uma verdadeira tabela Word, com as células unidas, as larguras das colunas e uma linha de cabeçalho repetida no topo de cada página.
+- **Os comentários** na [discussão](#decision-discussion) não aceitam tabelas: uma tabela colada num comentário torna-se o texto das suas células.
 
 #### Datas {: #decision-dates }
 
@@ -154,6 +227,8 @@ A secção **Esta decisão…** de uma decisão liga-a a outras. Escolha o tipo 
 
 As ligações são mostradas em ambas as decisões e apontam para a revisão atual da decisão. Atuam sobre a decisão inteira, incluindo todas as suas revisões, e só depois de a decisão que as contém estar assinada e efetiva: um rascunho que revoga outra decisão não altera nada até ser assinado, e um com uma data *Em vigor desde* posterior atua nessa data (a outra decisão indica *Esta decisão será revogada por … em …*). Uma decisão não pode ligar-se a uma das suas próprias revisões, e todas as decisões a que se liga têm de estar assinadas antes de ser enviada para revisão ou registada.
 
+Estas são ligações entre decisões; para ligações a páginas web no texto de uma secção, ver [Ligações no texto](#decision-text-links).
+
 #### Revogar ou substituir uma decisão
 
 Uma decisão assinada nunca é retirada manualmente: é revogada ou substituída por outra decisão assinada, para que o registo guarde quem a decidiu e quando. Abra a decisão assinada e utilize o menu **Revisar**:
@@ -172,6 +247,15 @@ Uma decisão alterada por outra continua em vigor, e a sua página lista as deci
 
 A secção **Ficheiros** anexa documentos a uma decisão — uma ata assinada, uma análise de suporte. Os ficheiros aceitam os mesmos formatos que os [anexos dos cards](card-details.md#resources-tab), até 20 MB cada, e só podem ser carregados enquanto o carregamento de ficheiros estiver ativado (eliminar um é sempre possível). Só podem ser adicionados e eliminados num rascunho guardado: assim que a decisão é enviada para revisão, ficam bloqueados com ela. Uma revisão transporta os ficheiros da sua decisão.
 
+#### Diagramas {: #decision-diagrams }
+
+A secção **Diagramas**, depois de **Ficheiros**, anexa a uma decisão diagramas do módulo [Diagramas](diagrams.md) — por exemplo, o diagrama de contexto de que trata a decisão. Clique em **Anexar diagrama**, pesquise na lista e escolha um; é anexado de imediato, sem guardar. Cada diagrama anexado mostra a sua miniatura e o seu nome, e um clique abre-o. Para desanexar um, clique no respetivo botão de remoção e confirme: o diagrama em si é mantido.
+
+- **Sempre o diagrama atual.** A decisão liga-se ao diagrama, não guarda uma cópia: mostra sempre o diagrama tal como está agora, também depois de a decisão ser assinada. Eliminar o diagrama remove-o de todas as decisões a que estava anexado, incluindo as assinadas.
+- **Quando pode mudar.** Os diagramas podem ser anexados e desanexados enquanto a decisão é um rascunho ou está em revisão. Depois de a decisão ser assinada, ficam fixos: para os alterar, crie uma nova revisão.
+- **Quem os vê.** Ver a secção exige a permissão para ver diagramas (`diagrams.view`); anexar e desanexar exigem também `adr.manage`. Um leitor sem `diagrams.view` não vê nenhuma secção Diagramas. Uma decisão que não pode ser editada e não tem diagramas também não mostra a secção.
+- **Onde aparecem.** A [pré-visualização](#preview) mostra os diagramas só de leitura; a cópia PDF / impressa e a exportação para Word listam os seus nomes. Uma revisão e um duplicado mantêm os diagramas. Os diagramas não fazem parte de uma versão do [Histórico](#decision-history).
+
 #### Fluxo de Assinatura
 
 Os ADR suportam um processo formal de assinatura:
@@ -182,7 +266,7 @@ Os ADR suportam um processo formal de assinatura:
 4. Os signatários revisam e clicam em **Assinar**.
 5. Quando todos os signatários assinarem, o ADR passa automaticamente para o status **Assinado**.
 
-**Uma decisão em revisão fica bloqueada**, para que os signatários assinem exatamente o que lhes foi enviado: o texto, as datas, as pessoas, as ligações, os ficheiros e os painéis de extensões ficam só de leitura, e apenas os cards vinculados ainda podem mudar. Para a editar, clique em **Recolher assinaturas**, o que a devolve a rascunho. Um signatário que clique em **Rejeitar** também a devolve a rascunho, com o mesmo número de revisão.
+**Uma decisão em revisão fica bloqueada**, para que os signatários assinem exatamente o que lhes foi enviado: o texto, as datas, as pessoas, as ligações a outras decisões, os ficheiros e os painéis de extensões ficam só de leitura, e apenas os cards vinculados e os [diagramas](#decision-diagrams) anexados ainda podem mudar. Para a editar, clique em **Recolher assinaturas**, o que a devolve a rascunho. Um signatário que clique em **Rejeitar** também a devolve a rascunho, com o mesmo número de revisão.
 
 ADR assinados ficam bloqueados e não podem ser editados — para mudanças crie uma nova revisão.
 
@@ -194,7 +278,7 @@ A decisão fica então bloqueada como uma decisão assinada e recebe a sua vigê
 
 #### Revisões {: #revisions }
 
-Abra um ADR assinado e escolha **Revisar → Revisar esta decisão** para criar um novo rascunho baseado na versão assinada. A revisão mantém a referência da decisão e recebe o número de revisão seguinte — **ADR-012 · Rev. 2** — e herda o conteúdo, os cards vinculados, as ligações **Relaciona-se com**, as pessoas, os ficheiros e a data *Válida até*. Não herda as datas de decisão e de entrada em vigor, os signatários, o resumo das alterações nem as ligações substitui / altera / revoga, que ficam na revisão que as criou. Cada revisão mantém o seu próprio rastro de assinaturas.
+Abra um ADR assinado e escolha **Revisar → Revisar esta decisão** para criar um novo rascunho baseado na versão assinada. A revisão mantém a referência da decisão e recebe o número de revisão seguinte — **ADR-012 · Rev. 2** — e herda o conteúdo, os cards vinculados, os diagramas anexados, as ligações **Relaciona-se com**, as pessoas, os ficheiros e a data *Válida até*. Não herda as datas de decisão e de entrada em vigor, os signatários, o resumo das alterações nem as ligações substitui / altera / revoga, que ficam na revisão que as criou. Cada revisão mantém o seu próprio rastro de assinaturas.
 
 - **Uma revisão aberta de cada vez.** Enquanto uma revisão está a ser redigida, a revisão atual indica-o e o menu **Revisar** abre esse rascunho em vez de iniciar outro.
 - **A revisão atual é a que está em vigor.** Quando uma revisão está assinada e efetiva, as anteriores ficam **Substituídas** e mostram um banner com uma ligação para a atual. A faixa **Revisões** em cada revisão lista a cadeia completa e assinala a atual.
@@ -202,11 +286,11 @@ Abra um ADR assinado e escolha **Revisar → Revisar esta decisão** para criar 
 - **Uma rejeição não conta como revisão**: o número de revisão só muda quando é criada uma nova revisão.
 - As decisões revisadas antes da versão 2.199.0 mantêm os números de referência com que foram emitidas, e continuam a ler-se como uma única decisão com uma única faixa de revisões.
 
-#### Pré-visualização
+#### Pré-visualização {: #preview }
 
-Clique no ícone de pré-visualização para ver uma versão somente leitura e formatada do ADR — útil para revisão antes de assinar.
+Clique no ícone de pré-visualização para ver uma versão somente leitura e formatada do ADR — útil para revisão antes de assinar. Mostra também os diagramas anexados, e as suas ligações abrem em uma nova aba.
 
-Na pré-visualização, clique em **PDF** para abrir uma cópia pronta para impressão em uma nova aba — metadados e datas, as quatro seções, pessoas, cartões vinculados, ligações a outras decisões, nomes dos ficheiros, seções de extensões e o bloco de assinaturas (ou a linha de registo), com o aprovador e a data de impressão no rodapé. O editor tem o mesmo botão **PDF** mais **Word**, que baixa a decisão como `.docx` enquanto ela não estiver assinada; ambos exportam o estado atual do editor, incluindo alterações não salvas.
+Na pré-visualização, clique em **PDF** para abrir uma cópia pronta para impressão em uma nova aba — metadados e datas, as quatro seções, pessoas, cartões vinculados, ligações a outras decisões, nomes dos ficheiros, nomes dos diagramas, seções de extensões e o bloco de assinaturas (ou a linha de registo), com o aprovador e a data de impressão no rodapé. O editor tem o mesmo botão **PDF** mais **Word**, que baixa a decisão como `.docx` enquanto ela não estiver assinada; ambos exportam o estado atual do editor, incluindo alterações não salvas. No documento Word, a formatação e as ligações são mantidas em todo o lado — também em listas, citações e títulos —, as ligações são clicáveis, o código mantém um tipo de letra monoespaçado e as tabelas são verdadeiras tabelas Word.
 
 #### Discussão {: #decision-discussion }
 
@@ -216,6 +300,7 @@ Cada decisão tem a sua própria **Discussão**, para que uma decisão possa ser
 - **Filtrar por seção.** Assim que um tópico tem uma seção, uma fila de etiquetas no topo da discussão lista cada seção que tem tópicos, com quantos (*Decisão (2)*), e uma etiqueta **Geral** quando alguns tópicos não têm seção. Clique numa etiqueta para mostrar apenas os seus tópicos; ative várias para ver os tópicos de qualquer uma delas, clique de novo numa para a desativar, ou clique em **Limpar**. Clicar na etiqueta de seção de um tópico ativa o respetivo filtro. O filtro funciona com os tópicos resolvidos recolhidos ou não e com as revisões anteriores mostradas, e conta apenas os tópicos listados. Não é mantido quando sai do documento, e um tópico aberto a partir de uma notificação é sempre mostrado.
 - **Discussão numa seção.** Cada seção mostra um pequeno ícone de chat ao lado do seu título, no editor e na pré-visualização, para as pessoas que podem comentar (quem só pode ler vê-o apenas nas seções com tópicos): o número de tópicos abertos quando a seção tem discussão, ou um ícone esbatido quando todos estão resolvidos. Clique nele para abrir a discussão filtrada por essa seção, com os tópicos resolvidos expandidos quando nenhum está aberto e a seção já selecionada para um novo comentário (o ícone nunca é impresso nem exportado).
 - **Resolver e reabrir.** Clique em **Resolver** quando um tópico estiver encerrado e em **Reabrir** se não estiver. Os tópicos resolvidos ficam recolhidos atrás de **Mostrar N tópicos resolvidos**.
+- **Formatação.** Um comentário aceita negrito, itálico, tachado, **Código em linha**, listas com marcadores e numeradas, citações e [ligações](#decision-text-links) (o botão **Ligação** ou Ctrl/Cmd+K). Títulos, blocos de código, imagens e tabelas pertencem às secções, não aos comentários.
 - **Quem pode publicar.** A leitura da discussão segue quem pode abrir a decisão (`adr.view`). Publicar, responder, resolver e reabrir exigem a permissão `adr.comment`, que os membros e administradores têm por predefinição e os visualizadores não; um administrador pode alterá-la por papel. Os signatários da decisão podem sempre comentá-la, incluindo as pessoas a quem foi pedido que a assinassem numa ronda de revisão anterior que foi recolhida ou rejeitada.
 - **Durante a revisão e após a assinatura.** O [bloqueio de revisão](#fluxo-de-assinatura) abrange o conteúdo, não a conversa: a discussão continua aberta enquanto a decisão está em revisão e depois de assinada.
 - **Notas de revisão.** Quando um signatário rejeita uma decisão, o motivo abre um tópico marcado como **Motivo da rejeição** (*Nenhum motivo indicado* quando o signatário o deixou vazio), que se responde e resolve como qualquer outro. Um signatário pode acrescentar uma nota opcional ao assinar; esta aparece na discussão como **Nota de assinatura**. Nenhum dos dois se perde já quando as assinaturas são recolhidas, e ambos aparecem também no [Histórico](#decision-history).
@@ -241,9 +326,9 @@ O botão **Histórico** no topo do editor ou da pré-visualização da decisão,
 
 O Histórico não é a tabela **Histórico de versões do documento**, mantida à mão, de um [Statement of Architecture Work](delivery.md#o-editor-de-soaw), que regista o que os autores decidem escrever nela.
 
-- **Versões.** É guardada uma versão sempre que um rascunho é guardado com alterações. Contém o título, as quatro seções, as datas, o resumo das alterações e as pessoas; as ligações, os cards vinculados e os ficheiros não fazem parte de uma versão. Os passos que contêm uma versão estão assinalados na cronologia; as pessoas que podem editar a decisão e os seus signatários selecionam um para o mostrar à direita, e a versão mais recente fica selecionada quando a vista abre. Os outros leitores veem a cronologia sem as versões (*As versões guardadas só são mostradas a editores e signatários.*). Num ecrã estreito, a vista mostra primeiro a cronologia e depois a versão selecionada com um botão **Voltar**.
-- **Alterações.** Por cima da versão selecionada, **Versão** mostra-a tal como foi guardada e **Alterações** mostra o que mudou entre ela e a versão anterior, palavra a palavra em cada seção, juntamente com as datas e as pessoas que mudaram; escolha qualquer outra versão em **Comparar com**. Só as versões já carregadas na cronologia podem ser comparadas: quando a versão anterior à selecionada ainda não está carregada, **Alterações** indica-o, e **Carregar mais** carrega-a. Uma alteração apenas de formatação é indicada como *Apenas formatação: as palavras são as mesmas.*
-- **Restaurar.** Num rascunho, quem pode editar a decisão pode restaurar a versão selecionada com **Restaurar esta versão**. O restauro só avança: o texto, as datas e as pessoas da versão substituem os do rascunho e são guardados como uma nova versão, e o estado do rascunho antes do restauro fica no histórico. As ligações, os cards vinculados e os ficheiros não são restaurados. Quando o editor tem edições não guardadas, a confirmação avisa que serão descartadas. Depois do restauro, a página mostra a decisão restaurada e a vista fecha-se. Uma decisão em revisão ou assinada não pode ser restaurada.
+- **Versões.** É guardada uma versão sempre que um rascunho é guardado com alterações. Contém o título, as quatro seções, as datas, o resumo das alterações e as pessoas; as ligações a outras decisões, os cards vinculados, os ficheiros e os diagramas não fazem parte de uma versão. Os passos que contêm uma versão estão assinalados na cronologia; as pessoas que podem editar a decisão e os seus signatários selecionam um para o mostrar à direita, e a versão mais recente fica selecionada quando a vista abre. Os outros leitores veem a cronologia sem as versões (*As versões guardadas só são mostradas a editores e signatários.*). Num ecrã estreito, a vista mostra primeiro a cronologia e depois a versão selecionada com um botão **Voltar**.
+- **Alterações.** Por cima da versão selecionada, **Versão** mostra-a tal como foi guardada e **Alterações** mostra o que mudou entre ela e a versão anterior, palavra a palavra em cada seção, juntamente com as datas e as pessoas que mudaram; escolha qualquer outra versão em **Comparar com**. Só as versões já carregadas na cronologia podem ser comparadas: quando a versão anterior à selecionada ainda não está carregada, **Alterações** indica-o, e **Carregar mais** carrega-a. Uma alteração apenas de formatação é indicada como *Apenas formatação: as palavras são as mesmas.*; uma ligação cujo endereço mudou conta como alteração, e uma linha de tabela lê-se como uma só linha, com as células separadas por ` | `.
+- **Restaurar.** Num rascunho, quem pode editar a decisão pode restaurar a versão selecionada com **Restaurar esta versão**. O restauro só avança: o texto, as datas e as pessoas da versão substituem os do rascunho e são guardados como uma nova versão, e o estado do rascunho antes do restauro fica no histórico. As ligações a outras decisões, os cards vinculados, os ficheiros e os diagramas não são restaurados. Quando o editor tem edições não guardadas, a confirmação avisa que serão descartadas. Depois do restauro, a página mostra a decisão restaurada e a vista fecha-se. Uma decisão em revisão ou assinada não pode ser restaurada.
 
 #### Limitações conhecidas {: #collaboration-limits }
 
@@ -280,5 +365,7 @@ A mesma aba Conformidade também aparece no Detalhe do card (auto-ocultada quand
 | `adr.comment` | admin, bpm_admin, member — publicar na [discussão](#decision-discussion) de uma decisão; os signatários de uma decisão podem sempre comentá-la |
 | `risks.view` / `risks.manage` | ver [Registro de riscos § Permissões](risks.md) |
 | `compliance.view` / `compliance.manage` | ver [TurboLens § Security & Compliance](turbolens.md) |
+
+A secção [Diagramas](#decision-diagrams) de uma decisão também exige `diagrams.view` (admin, bpm_admin, member, viewer por predefinição): sem esta permissão, um leitor não vê diagramas em nenhuma decisão.
 
 `grc.view` controla a visibilidade da própria rota GRC — sem ele, a entrada do menu superior fica oculta. Cada aba ainda impõe sua própria permissão de domínio, de modo que uma visualizadora possa ler o registro sem poder disparar uma varredura LLM, por exemplo.

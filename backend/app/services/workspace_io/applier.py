@@ -37,6 +37,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.permissions import (
     migrate_legacy_app_permissions,
     strip_legacy_card_permissions,
+    with_legacy_cost_grant,
 )
 from app.models.app_settings import AppSettings
 from app.models.architecture_decision import ArchitectureDecision
@@ -801,6 +802,15 @@ async def _apply_bookmark_shares(
 
 async def _apply_card_types(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: bool) -> None:
     existing = {ct.key: ct for ct in (await db.execute(select(CardType))).scalars().all()}
+    # A row replaces fields_schema / subtypes / section_config whole. What an
+    # active extension contributed to a type on THIS instance is kept, by the
+    # same guard a metamodel save runs — before the comparison, so a re-import
+    # is a no-op and the preview shows exactly what the apply writes.
+    from app.services.extensions import contribution_guard
+    from app.services.extensions.registry import extension_registry
+
+    await extension_registry.refresh_from_db(db)
+    active_keys = contribution_guard.active_extension_keys()
     for row in bundle.rows(schema.SHEET_CARD_TYPES):
         data = _coerce(row, exp.CARD_TYPE_COLUMNS, exp.CARD_TYPE_JSON)
         # An older bundle still carries ``licensingModel``; license metrics replaced it.
@@ -820,6 +830,18 @@ async def _apply_card_types(db, bundle: WorkspaceBundle, sr: SectionResult, dry_
             sr.failed += 1
             continue
         current = existing.get(key)
+        # A type new here is guarded too, against nothing stored: the same
+        # stamp rule as for a type this instance has (no forged stamps of an
+        # extension installed here), and no transient read flags written.
+        contribution_guard.guard_card_type_row(
+            data,
+            stored_schema=None if current is None else current.fields_schema,
+            stored_subtypes=None if current is None else current.subtypes,
+            stored_config=None if current is None else current.section_config,
+            active_keys=active_keys,
+            mode="import",
+            installed=contribution_guard.installed_contributions(str(key)),
+        )
         if current is None:
             ct = CardType(**{k: v for k, v in data.items()})
             db.add(ct)
@@ -835,6 +857,13 @@ async def _apply_card_types(db, bundle: WorkspaceBundle, sr: SectionResult, dry_
     # no CardTypeCategories sheet) still names its layers: adopt any the
     # registry lacks, so the type editor never refuses to save such a type.
     await card_type_categories.ensure_categories(db, (ct.category for ct in existing.values()))
+    if not dry_run:
+        # Fallback only: the guard above already kept every active
+        # contribution of the types this instance had, so this finds nothing
+        # to do unless a contribution was missing before the import.
+        from app.services.extensions.field_contributions import heal_contributions
+
+        await heal_contributions(db)
 
 
 # The one column of a built-in category a bundle may change: its place in the
@@ -935,6 +964,22 @@ async def _apply_relation_types(
 # ---------------------------------------------------------------------------
 
 
+# The permission shipped at different versions in upstream and this fork.
+VIEW_COSTS_SINCE = (2, 208, 0)
+UPSTREAM_VIEW_COSTS_SINCE = (2, 206, 0)
+
+
+def _predates_view_costs(bundle: WorkspaceBundle) -> bool:
+    """Use the source's first release with per-role cost access."""
+    version = bundle.app_version
+    first_release = (
+        VIEW_COSTS_SINCE
+        if schema.SHEET_COST_ITEM_TYPES in bundle.sheets
+        else UPSTREAM_VIEW_COSTS_SINCE
+    )
+    return version is not None and version < first_release
+
+
 def _make_config_applier(sec: schema.ConfigSection):
     async def _apply(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: bool) -> None:
         existing_rows = (await db.execute(select(sec.model))).scalars().all()
@@ -954,9 +999,18 @@ def _make_config_applier(sec: schema.ConfigSection):
             # card-level keys are dropped (they grant nothing), while app-level
             # keys are renamed onto the permissions they still mean, so an
             # import never silently revokes access a role actually had.
+            #
+            # ``card.view_costs`` is the same promise the other way round: a
+            # bundle exported before the key existed describes roles that all
+            # showed costs, so they keep doing so (Observer excepted) — the rule
+            # migration 195 applies to an upgraded install. A bundle that names
+            # no older version is taken at its word: no key, no cost access.
             if "permissions" in data:
                 if sec.model is StakeholderRoleDefinition:
-                    data["permissions"] = strip_legacy_card_permissions(data["permissions"])
+                    perms = strip_legacy_card_permissions(data["permissions"])
+                    if _predates_view_costs(bundle):
+                        perms = with_legacy_cost_grant(str(data.get("key")), perms)
+                    data["permissions"] = perms
                 elif sec.model is Role:
                     data["permissions"] = migrate_legacy_app_permissions(data["permissions"])
             nk = tuple(data.get(k) for k in sec.natural_key)

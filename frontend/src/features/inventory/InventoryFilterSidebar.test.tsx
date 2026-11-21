@@ -327,6 +327,15 @@ function chip(name: string | RegExp): HTMLElement {
   return screen.getByRole("button", { name });
 }
 
+/**
+ * The collapsible body under a section header, from any element of the
+ * header's toggle: header row (toggle + clear button) → its next sibling.
+ */
+function sectionBody(inHeader: HTMLElement): HTMLElement {
+  return inHeader.closest("[data-section-icon]")!.parentElement!
+    .nextElementSibling as HTMLElement;
+}
+
 function openTab(name: "Filters" | "Columns" | "Views") {
   fireEvent.click(screen.getByRole("tab", { name }));
 }
@@ -1218,7 +1227,7 @@ describe("InventoryFilterSidebar — Columns tab", () => {
     });
     openTab("Columns");
     const metaHeader = screen.getByText("Metadata");
-    const metaList = metaHeader.parentElement!.nextElementSibling as HTMLElement;
+    const metaList = sectionBody(metaHeader);
     const metaSelectAll = within(metaList).getByText("Select all");
     const metaCheckbox = metaSelectAll.closest('[role="button"]')!.querySelector("input") as HTMLInputElement;
     expect(metaCheckbox).toHaveAttribute("data-indeterminate", "true");
@@ -1239,7 +1248,7 @@ describe("InventoryFilterSidebar — Columns tab", () => {
     fireEvent.click(metaSelectAll);
     expect(lastColumns()).toEqual(new Set(["core_type", "core_name"]));
 
-    const coreList = screen.getByText("Default columns").parentElement!.nextElementSibling as HTMLElement;
+    const coreList = sectionBody(screen.getByText("Default columns"));
     fireEvent.click(within(coreList).getByText("Select all"));
     expect(lastColumns().has("core_reference")).toBe(true);
     expect(lastColumns().has("core_logo")).toBe(true);
@@ -1276,18 +1285,18 @@ describe("InventoryFilterSidebar — Columns tab", () => {
     fireEvent.click(screen.getByText("Application Owner"));
     expect(lastColumns().has("stakeholder_applicationOwner")).toBe(true);
 
-    const attrList = screen.getByText("Attributes").parentElement!.nextElementSibling as HTMLElement;
+    const attrList = sectionBody(screen.getByText("Attributes"));
     fireEvent.click(within(attrList).getByText("Select all"));
     expect(lastColumns().has("attr_alias")).toBe(true);
     expect(lastColumns().has("attr_notes")).toBe(true);
 
-    const relList = screen.getByText("Relations").parentElement!.nextElementSibling as HTMLElement;
+    const relList = sectionBody(screen.getByText("Relations"));
     fireEvent.click(within(relList).getByText("Select all"));
     expect(lastColumns().has("rel_relAppToBC__out")).toBe(true);
 
     // The role is already on, so the section reads fully checked and the
     // first Select all turns it off; the second turns it back on.
-    const stList = screen.getByText("Stakeholders").parentElement!.nextElementSibling as HTMLElement;
+    const stList = sectionBody(screen.getByText("Stakeholders"));
     fireEvent.click(within(stList).getByText("Select all"));
     expect(lastColumns().has("stakeholder_applicationOwner")).toBe(false);
     fireEvent.click(within(stList).getByText("Select all"));
@@ -1327,7 +1336,7 @@ describe("InventoryFilterSidebar — Columns tab", () => {
       initialFilters: { types: ["Application", "Service"] },
     });
     openTab("Columns");
-    const attrList = screen.getByText("Attributes").parentElement!.nextElementSibling as HTMLElement;
+    const attrList = sectionBody(screen.getByText("Attributes"));
     expect(within(attrList).getByText("Alias")).toBeInTheDocument();
     expect(within(attrList).queryByText("Owner")).not.toBeInTheDocument();
     expect(within(attrList).queryByText("Business Criticality")).not.toBeInTheDocument();
@@ -1413,7 +1422,7 @@ describe("InventoryFilterSidebar — Columns tab", () => {
       ),
     });
     openTab("Columns");
-    const relList = screen.getByText("Relations").parentElement!.nextElementSibling as HTMLElement;
+    const relList = sectionBody(screen.getByText("Relations"));
     const rows = within(relList)
       .getAllByRole("button")
       .map((b) => b.textContent)
@@ -2827,5 +2836,148 @@ describe("InventoryFilterSidebar — matched-cards columns", () => {
     expect((mockApi.callsOf("patch")[0].body as { columns: string[] }).columns).toEqual([
       "core_name",
     ]);
+  });
+});
+
+/* ========================================================================= */
+/*  Per-section clear                                                          */
+/* ========================================================================= */
+
+describe("InventoryFilterSidebar — per-section clear", () => {
+  const clear = (section: string) =>
+    fireEvent.click(screen.getByRole("button", { name: `Clear ${section} filters` }));
+
+  it("clearing Types drops the type-specific facets exactly as unticking the last type does", async () => {
+    const { last } = await renderSidebar({
+      initialFilters: {
+        types: ["Application", "ITComponent"],
+        subtypes: ["microservice"],
+        eolStatuses: ["eol"],
+        linkTypes: ["primary"],
+        lifecyclePhases: ["active"],
+        approvalStatuses: ["APPROVED"],
+        search: "erp",
+      },
+    });
+    clear("Types");
+    expect(last()).toEqual({
+      ...EMPTY_FILTERS,
+      lifecyclePhases: ["active"],
+      approvalStatuses: ["APPROVED"],
+      search: "erp",
+    });
+    expect(screen.queryByRole("button", { name: "Clear Types filters" })).toBeNull();
+  });
+
+  it("clears one chip facet and leaves every other section alone", async () => {
+    const initial = {
+      types: ["Application"],
+      lifecyclePhases: ["active", "phaseOut"],
+      approvalStatuses: ["APPROVED"],
+      dataQualityBands: ["partial"],
+    } as Partial<Filters>;
+    const { last } = await renderSidebar({ initialFilters: initial });
+    const header = screen.getByText("Lifecycle").closest("[role=button]")!;
+    const before = header.getAttribute("aria-expanded");
+    clear("Lifecycle");
+    expect(last()).toEqual({ ...EMPTY_FILTERS, ...initial, lifecyclePhases: [] });
+    // Its section stays where it was — the clear never folds or unfolds it.
+    expect(header).toHaveAttribute("aria-expanded", before!);
+  });
+
+  it("clears the attribute and relationship facets to empty maps", async () => {
+    const initial = {
+      types: ["Application"],
+      attributes: { businessCriticality: ["missionCritical"], alias: "x" },
+      relations: { relAppToITC: ["PostgreSQL"] },
+      tagIds: ["t1"],
+    } as Partial<Filters>;
+    const { last } = await renderSidebar({
+      initialFilters: initial,
+      allRelevantRelTypes: [REL_APP_TO_ITC],
+      relationsMap: RELATIONS_MAP,
+    });
+    expect(screen.getByText("Attributes").closest("[role=button]")).toHaveTextContent("2");
+    clear("Attributes");
+    expect(last()).toEqual({ ...EMPTY_FILTERS, ...initial, attributes: {} });
+    clear("Relationships");
+    expect(last()).toEqual({ ...EMPTY_FILTERS, ...initial, attributes: {}, relations: {} });
+  });
+
+  it("counts a search and clears it from its header", async () => {
+    const { last } = await renderSidebar({ initialFilters: { search: "erp", types: ["Application"] } });
+    expect(screen.getByText("Search").closest("[role=button]")).toHaveTextContent("1");
+    clear("Search");
+    expect(last()).toEqual({ ...EMPTY_FILTERS, types: ["Application"] });
+  });
+
+  it("offers no clear button while nothing is filtered", async () => {
+    await renderSidebar();
+    expect(screen.queryByRole("button", { name: /^Clear .* filters$/ })).toBeNull();
+  });
+});
+
+describe("InventoryFilterSidebar — per-section clear, every section", () => {
+  /** Application with a link-type vocabulary, so all twelve sections render at once. */
+  const TYPES_WITH_LINKS = CARD_TYPES.map((ct) =>
+    ct.key === "Application" ? { ...ct, hierarchy_labels: SITE_TYPE.hierarchy_labels } : ct,
+  );
+
+  /** Every section holds a filter, so a clear that touches too much shows. */
+  const EVERY: Filters = {
+    types: ["Application"],
+    search: "erp",
+    subtypes: ["microservice"],
+    lifecyclePhases: ["active"],
+    dataQualityBands: ["complete"],
+    approvalStatuses: ["APPROVED"],
+    showArchived: true,
+    attributes: { alias: "x" },
+    relations: { relAppToITC: ["PostgreSQL"] },
+    tagIds: [HOSTING_GROUP.tags[0].id],
+    mineScope: "stakeholder",
+    orphanedOnly: true,
+    staleOnly: true,
+    eolStatuses: ["eol"],
+    linkTypes: ["primary"],
+    origins: ["mcp"],
+  };
+
+  it.each<[string, Partial<Filters>]>([
+    ["Search", { search: "" }],
+    [
+      "Types",
+      {
+        types: [],
+        subtypes: [],
+        attributes: {},
+        relations: {},
+        eolStatuses: [],
+        linkTypes: [],
+      },
+    ],
+    ["Subtypes", { subtypes: [] }],
+    ["Approval Status", { approvalStatuses: [] }],
+    ["Origin", { origins: [] }],
+    ["Lifecycle", { lifecyclePhases: [] }],
+    ["End of life", { eolStatuses: [] }],
+    ["Link type", { linkTypes: [] }],
+    ["Data Quality", { dataQualityBands: [] }],
+    ["Attributes", { attributes: {} }],
+    ["Relationships", { relations: {} }],
+    ["Tags", { tagIds: [] }],
+  ])("the %s clear resets exactly that section", async (section, reset) => {
+    const { changes } = await renderSidebar({
+      types: TYPES_WITH_LINKS,
+      initialFilters: EVERY,
+      showEolFacet: true,
+      showLinkTypeFacet: true,
+      allRelevantRelTypes: [REL_APP_TO_ITC],
+      relationsMap: RELATIONS_MAP,
+      tagGroups: TAG_GROUPS,
+    });
+    fireEvent.click(screen.getByRole("button", { name: `Clear ${section} filters` }));
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toStrictEqual({ ...EVERY, ...reset });
   });
 });

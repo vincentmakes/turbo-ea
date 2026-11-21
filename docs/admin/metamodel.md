@@ -34,7 +34,7 @@ Click **+ New Type** to create a custom card type. Configure:
 
 | Field | Description |
 |-------|-------------|
-| **Key** | Unique identifier (lowercase, no spaces) — cannot be changed after creation |
+| **Key** | Unique identifier: a letter followed by letters and digits, with no spaces or other characters (for example `myCustomType`) — cannot be changed after creation |
 | **Label** | Display name shown in the UI |
 | **Icon** | Google Material Symbol icon name |
 | **Color** | Brand color for the type (used in inventory, reports, and diagrams) |
@@ -152,6 +152,8 @@ Give a role a **description** to say what it means in your organisation — what
 
 Each role also carries a **Counts toward data quality** switch. The data-quality score has a single stakeholders slot, and it is filled as soon as anyone is assigned to the card in a role where this is on. Turn it off for purely passive roles — the built-in **Observer** ships with it off, so watching a card never stands in for owning it. A type whose roles all have it off contributes no stakeholders slot at all. Flipping the switch re-scores every card of the type straight away.
 
+A role's permissions also decide whether its holders see a card's **cost fields**. Users whose app-level role holds `costs.view` see costs on every card. For everyone else, tick **card.view_costs** on a stakeholder role: its holders then see the costs of the cards they hold that role on, and can change them when the role can also edit. The built-in roles ship with it on, except **Observer** — anyone who can view a card can make themselves its Observer with **Observe this card**, so whatever the Observer role allows is open to all of them, and the role editor says so on that role. A role you create starts with it off. Keep in mind who can hand a role out: a user who may manage stakeholders (the `stakeholders.manage` permission, or a stakeholder role with **card.manage_stakeholders**) can assign a role that shows costs to anyone, themselves included. Where costs must stay closed to such users, take that permission away from them or untick **card.view_costs** on the roles they can assign.
+
 Roles can be removed in two ways:
 
 - **Archive** — the role stays on cards that already use it but can no longer be assigned, and it stops granting its card-level permissions. Archived roles are listed behind the **Show archived** toggle and can be restored at any time. This is the right choice for a role that has been genuinely used.
@@ -228,7 +230,7 @@ Relation types define the allowed connections between card types. Each relation 
 
 | Field | Description |
 |-------|-------------|
-| **Key** | Unique identifier — suggested from your verb, editable while you create the relation type, and fixed once it exists |
+| **Key** | Unique identifier — suggested from your verb, editable while you create the relation type, and fixed once it exists. The relation type's edit dialog shows it, because it is the name Excel uses: the `rel:<key>` column and the `relation_type` value on the `Relations` sheet (see [Excel Import / Export](../guide/inventory.md#excel-import)) |
 | **Label** | Forward direction label (e.g., "uses") |
 | **Reverse Label** | Backward direction label (e.g., "is used by") |
 | **Source Type** | The card type on the "from" side |

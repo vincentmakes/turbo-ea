@@ -91,6 +91,45 @@ describe("DescriptionSection — calculated fields in the __description section"
   });
 });
 
+describe("DescriptionSection — a field of an inactive or unlicensed extension", () => {
+  const extField: FieldDef = {
+    key: "progress",
+    label: "Progress",
+    type: "percentage",
+    ext: "sample-ext",
+    ext_locked: true,
+  };
+
+  it("locks it in edit mode: value + read-only chip, no editor", () => {
+    renderSection({ extraFields: [extField] });
+    enterEdit();
+    expect(screen.queryByRole("slider")).not.toBeInTheDocument();
+    expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
+    expect(screen.getByText("40%")).toBeInTheDocument();
+    expect(screen.getByText("read-only")).toBeInTheDocument();
+    expect(screen.queryByText("auto")).not.toBeInTheDocument();
+    expect(screen.queryByText("calculated")).not.toBeInTheDocument();
+  });
+
+  it("does not block saving when it is required and empty, and saves the rest", async () => {
+    const onSave = vi.fn(async () => {});
+    render(
+      <DescriptionSection
+        card={{ ...card, attributes: {} } as unknown as Card}
+        onSave={onSave}
+        extraFields={[{ ...extField, required: true }]}
+      />,
+    );
+    enterEdit();
+    expect(screen.queryByText("read-only")).toBeInTheDocument();
+    const save = screen.getByRole("button", { name: "Save" });
+    expect(save).toBeEnabled();
+    fireEvent.click(save);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0]).toEqual({ description: "Some text", attributes: {} });
+  });
+});
+
 describe("DescriptionSection — links in the description", () => {
   it("renders a pasted address as a link that opens in a new tab", () => {
     render(

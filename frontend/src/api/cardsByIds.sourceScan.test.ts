@@ -79,6 +79,8 @@ describe("idsQueries", () => {
   });
 });
 
+const WHOLE_TREE_SCAN_TIMEOUT_MS = 60_000;
+
 describeSourceScan("cards by id go through fetchCardsByIds", () => {
   itSourceScan("no hand-built ids= query outside api/cardsByIds.ts", () => {
     const files = walkSources(SRC, { exclude: (f) => f === FETCHER });
@@ -92,8 +94,10 @@ describeSourceScan("cards by id go through fetchCardsByIds", () => {
         "it chunks the ids under the proxy's URL limit and reports withheld ids. CLAUDE.md, " +
         "Frontend Conventions.",
     ).toEqual([]);
-    // Parses every source file: well over the 15 s default on a loaded CI shard.
-  }, 90_000);
+    // Parses every source file with the TypeScript compiler in one test: a
+    // few seconds on an idle machine, several times that on a loaded CI
+    // shard, so it takes its own limit instead of the suite's 15 s.
+  }, WHOLE_TREE_SCAN_TIMEOUT_MS);
 
   itSourceScan("the fetcher itself still builds the query (the exclusion is not stale)", () => {
     const fetcher = path.join(SRC, "api", "cardsByIds.ts");

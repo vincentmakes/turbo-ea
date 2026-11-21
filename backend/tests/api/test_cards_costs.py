@@ -12,7 +12,12 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
+from app.core.permissions import (
+    MEMBER_PERMISSIONS,
+    OBSERVER_CARD_PERMISSIONS,
+    RESPONSIBLE_CARD_PERMISSIONS,
+    VIEWER_PERMISSIONS,
+)
 from app.models.stakeholder import Stakeholder
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from tests.conftest import (
@@ -20,6 +25,7 @@ from tests.conftest import (
     create_card,
     create_card_type,
     create_role,
+    create_stakeholder_role_def,
     create_user,
 )
 
@@ -96,6 +102,12 @@ class TestGetCardCostStripping:
         assert attrs.get("name2") == "x"  # non-cost fields still present
 
     async def test_viewer_stakeholder_sees_cost_on_their_card_only(self, client, db, cost_env):
+        await create_stakeholder_role_def(
+            db,
+            card_type_key="Provider",
+            key="responsible",
+            permissions=RESPONSIBLE_CARD_PERMISSIONS,
+        )
         sh = Stakeholder(
             card_id=cost_env["card"].id,
             user_id=cost_env["viewer"].id,
@@ -115,11 +127,70 @@ class TestGetCardCostStripping:
         assert r1.json()["attributes"].get("costTotalAnnual") == 1234
         assert "costTotalAnnual" not in r2.json()["attributes"]
 
+    async def test_a_role_that_shows_costs_shows_them_on_its_own_card_only(
+        self, client, db, cost_env
+    ):
+        await create_stakeholder_role_def(
+            db,
+            card_type_key="Provider",
+            key="responsible",
+            permissions=RESPONSIBLE_CARD_PERMISSIONS,
+        )
+        db.add(
+            Stakeholder(
+                card_id=cost_env["card"].id, user_id=cost_env["viewer"].id, role="responsible"
+            )
+        )
+        await db.flush()
+
+        r1 = await client.get(
+            f"/api/v1/cards/{cost_env['card'].id}",
+            headers=auth_headers(cost_env["viewer"]),
+        )
+        r2 = await client.get(
+            f"/api/v1/cards/{cost_env['other_card'].id}",
+            headers=auth_headers(cost_env["viewer"]),
+        )
+        assert r1.json()["attributes"].get("costTotalAnnual") == 1234
+        assert "costTotalAnnual" not in r2.json()["attributes"]
+
+        listed = await client.get(
+            "/api/v1/cards?type=Provider", headers=auth_headers(cost_env["viewer"])
+        )
+        by_name = {i["name"]: i.get("attributes") or {} for i in listed.json()["items"]}
+        assert by_name["App1"].get("costTotalAnnual") == 1234
+        assert "costTotalAnnual" not in by_name["App2"]
+
+    async def test_a_role_that_does_not_show_costs_keeps_them_hidden(self, client, db, cost_env):
+        # Holding a role is not a grant of the card's costs: the role has to
+        # allow it.
+        await create_stakeholder_role_def(
+            db,
+            card_type_key="Provider",
+            key="responsible",
+            permissions={**RESPONSIBLE_CARD_PERMISSIONS, "card.view_costs": False},
+        )
+        db.add(
+            Stakeholder(
+                card_id=cost_env["card"].id, user_id=cost_env["viewer"].id, role="responsible"
+            )
+        )
+        await db.flush()
+
+        r = await client.get(
+            f"/api/v1/cards/{cost_env['card'].id}",
+            headers=auth_headers(cost_env["viewer"]),
+        )
+        assert r.status_code == 200
+        attrs = r.json()["attributes"]
+        assert "costTotalAnnual" not in attrs
+        assert attrs.get("name2") == "x"
+
 
 class TestListCostStripping:
     async def test_viewer_list_strips_costs(self, client, db, cost_env):
         r = await client.get(
-            "/api/v1/cards?type=Application",
+            "/api/v1/cards?type=Provider",
             headers=auth_headers(cost_env["viewer"]),
         )
         assert r.status_code == 200
@@ -175,7 +246,7 @@ class TestPatchDropsCostsWhenForbidden:
             card_type_key="Provider",
             key="full_editor",
             label="Full Editor",
-            permissions={"card.view": True, "card.edit": True},
+            permissions={"card.view": True, "card.edit": True, "card.view_costs": True},
             color="#000",
             sort_order=0,
             is_archived=False,
@@ -187,6 +258,68 @@ class TestPatchDropsCostsWhenForbidden:
             role="full_editor",
         )
         db.add(sh)
+        await db.flush()
+
+        r = await client.patch(
+            f"/api/v1/cards/{cost_env['card'].id}",
+            json={"attributes": {"costTotalAnnual": 9999, "name2": "z"}},
+            headers=auth_headers(cost_env["viewer"]),
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["attributes"].get("costTotalAnnual") == 9999
+
+    async def test_a_stakeholder_editor_without_cost_access_cannot_change_cost(
+        self, client, db, cost_env
+    ):
+        # Edit rights through a stakeholder role that does not show costs: the
+        # edit goes through, the cost they cannot see stays what it was.
+        await create_stakeholder_role_def(
+            db,
+            card_type_key="Provider",
+            key="full_editor",
+            label="Full Editor",
+            permissions={"card.view": True, "card.edit": True},
+        )
+        db.add(
+            Stakeholder(
+                card_id=cost_env["card"].id, user_id=cost_env["viewer"].id, role="full_editor"
+            )
+        )
+        await db.flush()
+
+        r = await client.patch(
+            f"/api/v1/cards/{cost_env['card'].id}",
+            json={"attributes": {"costTotalAnnual": 9999, "name2": "z"}},
+            headers=auth_headers(cost_env["viewer"]),
+        )
+        assert r.status_code == 200, r.text
+        assert "costTotalAnnual" not in r.json()["attributes"]
+        assert r.json()["attributes"].get("name2") == "z"
+
+        ar = await client.get(
+            f"/api/v1/cards/{cost_env['card'].id}",
+            headers=auth_headers(cost_env["admin"]),
+        )
+        assert ar.json()["attributes"].get("costTotalAnnual") == 1234
+        assert ar.json()["attributes"].get("name2") == "z"
+
+    async def test_a_stakeholder_editor_whose_role_shows_costs_can_update_cost(
+        self, client, db, cost_env
+    ):
+        # A stakeholder whose role grants edit and cost access sets the cost
+        # without the global costs.view permission.
+        await create_stakeholder_role_def(
+            db,
+            card_type_key="Provider",
+            key="full_editor",
+            label="Full Editor",
+            permissions={"card.view": True, "card.edit": True, "card.view_costs": True},
+        )
+        db.add(
+            Stakeholder(
+                card_id=cost_env["card"].id, user_id=cost_env["viewer"].id, role="full_editor"
+            )
+        )
         await db.flush()
 
         r = await client.patch(
@@ -229,3 +362,303 @@ class TestApplicationDerivedTotalRedaction:
             r = await client.get(f"/api/v1/cards/{app.id}", headers=auth_headers(cost_env[user]))
             assert r.status_code == 200
             assert ("costTotalAnnual" in r.json()["attributes"]) is seen
+
+
+class TestObservingDoesNotRevealCosts:
+    """#1412: a member whose role lost `costs.view` clicked "Observe this card"
+    and saw its costs. Anyone who can view a card may make themselves its
+    Observer, so the role a user can give themselves must not show costs."""
+
+    @pytest.fixture
+    async def no_cost_member(self, db, cost_env):
+        await create_role(
+            db,
+            key="member_without_costs",
+            permissions={**MEMBER_PERMISSIONS, "costs.view": False},
+        )
+        await create_stakeholder_role_def(
+            db,
+            card_type_key="Provider",
+            key="observer",
+            label="Observer",
+            permissions=OBSERVER_CARD_PERMISSIONS,
+        )
+        return await create_user(db, email="nocost@test.com", role="member_without_costs")
+
+    async def _observe(self, client, card, user):
+        r = await client.post(f"/api/v1/cards/{card.id}/me/observe", headers=auth_headers(user))
+        assert r.status_code == 201, r.text
+        assert r.json()["role"] == "observer"
+
+    async def test_card_detail_keeps_the_cost_hidden(self, client, db, cost_env, no_cost_member):
+        await self._observe(client, cost_env["card"], no_cost_member)
+        r = await client.get(
+            f"/api/v1/cards/{cost_env['card'].id}", headers=auth_headers(no_cost_member)
+        )
+        assert r.status_code == 200
+        attrs = r.json()["attributes"]
+        assert "costTotalAnnual" not in attrs
+        assert attrs.get("name2") == "x"
+
+    async def test_effective_permissions_say_no_costs(self, client, db, cost_env, no_cost_member):
+        await self._observe(client, cost_env["card"], no_cost_member)
+        r = await client.get(
+            f"/api/v1/cards/{cost_env['card'].id}/my-permissions",
+            headers=auth_headers(no_cost_member),
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["stakeholder_roles"] == ["observer"]
+        assert body["effective"]["can_view_costs"] is False
+        assert body["effective"]["can_view"] is True
+
+    async def test_the_list_keeps_the_cost_hidden(self, client, db, cost_env, no_cost_member):
+        await self._observe(client, cost_env["card"], no_cost_member)
+        r = await client.get("/api/v1/cards?type=Provider", headers=auth_headers(no_cost_member))
+        assert r.status_code == 200
+        items = r.json()["items"]
+        assert {i["name"] for i in items} == {"App1", "App2"}
+        for item in items:
+            assert "costTotalAnnual" not in (item.get("attributes") or {})
+
+    async def test_my_roles_keeps_the_cost_hidden(self, client, db, cost_env, no_cost_member):
+        # The Workspace "My roles" list returns the very cards the user holds
+        # a role on, so it is where a role that must not show costs is tested.
+        await self._observe(client, cost_env["card"], no_cost_member)
+        r = await client.get("/api/v1/cards/my-stakeholder", headers=auth_headers(no_cost_member))
+        assert r.status_code == 200
+        [item] = r.json()["items"]
+        assert item["name"] == "App1"
+        assert "costTotalAnnual" not in item["attributes"]
+        assert item["attributes"].get("name2") == "x"
+
+    async def test_my_roles_shows_the_cost_of_a_card_whose_role_allows_it(
+        self, client, db, cost_env, no_cost_member
+    ):
+        await create_stakeholder_role_def(
+            db,
+            card_type_key="Provider",
+            key="responsible",
+            permissions=RESPONSIBLE_CARD_PERMISSIONS,
+        )
+        await self._observe(client, cost_env["card"], no_cost_member)
+        db.add(
+            Stakeholder(
+                card_id=cost_env["other_card"].id, user_id=no_cost_member.id, role="responsible"
+            )
+        )
+        await db.flush()
+
+        r = await client.get("/api/v1/cards/my-stakeholder", headers=auth_headers(no_cost_member))
+        by_name = {i["name"]: i["attributes"] for i in r.json()["items"]}
+        assert "costTotalAnnual" not in by_name["App1"]
+        assert by_name["App2"].get("costTotalAnnual") == 5678
+
+    async def test_someone_elses_roles_are_read_with_the_callers_cost_access(
+        self, client, db, cost_env, no_cost_member
+    ):
+        # Looking up a colleague's cards must not lend the caller the
+        # colleague's role: the viewer holds no role and no costs.view.
+        await create_stakeholder_role_def(
+            db,
+            card_type_key="Provider",
+            key="responsible",
+            permissions=RESPONSIBLE_CARD_PERMISSIONS,
+        )
+        db.add(
+            Stakeholder(card_id=cost_env["card"].id, user_id=no_cost_member.id, role="responsible")
+        )
+        await db.flush()
+
+        mine = await client.get(
+            "/api/v1/cards/my-stakeholder", headers=auth_headers(no_cost_member)
+        )
+        assert mine.json()["items"][0]["attributes"].get("costTotalAnnual") == 1234
+
+        theirs = await client.get(
+            f"/api/v1/cards/my-stakeholder?user_id={no_cost_member.id}",
+            headers=auth_headers(cost_env["viewer"]),
+        )
+        assert theirs.status_code == 200, theirs.text
+        [item] = theirs.json()["items"]
+        assert "costTotalAnnual" not in item["attributes"]
+
+    async def test_regranting_costs_view_shows_the_cost(self, client, db, cost_env):
+        # The same observer with the app permission sees costs through it.
+        await create_stakeholder_role_def(
+            db,
+            card_type_key="Provider",
+            key="observer",
+            label="Observer",
+            permissions=OBSERVER_CARD_PERMISSIONS,
+        )
+        await self._observe(client, cost_env["card"], cost_env["member"])
+        r = await client.get(
+            f"/api/v1/cards/{cost_env['card'].id}", headers=auth_headers(cost_env["member"])
+        )
+        assert r.json()["attributes"].get("costTotalAnnual") == 1234
+
+
+class TestBulkPatchKeepsHiddenCosts:
+    """`PATCH /cards/bulk` replaces `attributes` on every card it names, with
+    the same cost rule as the single PATCH, decided per card."""
+
+    async def _bulk(self, client, user, cards, attributes):
+        return await client.patch(
+            "/api/v1/cards/bulk",
+            json={"ids": [str(c.id) for c in cards], "updates": {"attributes": attributes}},
+            headers=auth_headers(user),
+        )
+
+    async def _stored(self, client, cost_env, card):
+        r = await client.get(f"/api/v1/cards/{card.id}", headers=auth_headers(cost_env["admin"]))
+        return r.json()["attributes"]
+
+    async def test_an_editor_without_cost_access_changes_everything_but_the_cost(
+        self, client, db, cost_env
+    ):
+        await create_role(
+            db,
+            key="non_cost_editor",
+            permissions={
+                "inventory.view": True,
+                "inventory.edit": True,
+                "inventory.bulk_edit": True,
+                "costs.view": False,
+            },
+        )
+        editor = await create_user(db, email="editor@test.com", role="non_cost_editor")
+        cards = [cost_env["card"], cost_env["other_card"]]
+
+        r = await self._bulk(client, editor, cards, {"costTotalAnnual": 1, "name2": "bulk"})
+        assert r.status_code == 200, r.text
+        for item in r.json():
+            assert item["attributes"] == {"name2": "bulk"}
+        assert await self._stored(client, cost_env, cards[0]) == {
+            "costTotalAnnual": 1234,
+            "name2": "bulk",
+        }
+        assert await self._stored(client, cost_env, cards[1]) == {
+            "costTotalAnnual": 5678,
+            "name2": "bulk",
+        }
+
+    async def test_a_role_that_shows_costs_changes_the_cost_of_its_own_card_only(
+        self, client, db, cost_env
+    ):
+        await create_role(
+            db,
+            key="non_cost_editor",
+            permissions={
+                "inventory.view": True,
+                "inventory.edit": True,
+                "inventory.bulk_edit": True,
+                "costs.view": False,
+            },
+        )
+        editor = await create_user(db, email="editor@test.com", role="non_cost_editor")
+        await create_stakeholder_role_def(
+            db,
+            card_type_key="Provider",
+            key="responsible",
+            permissions=RESPONSIBLE_CARD_PERMISSIONS,
+        )
+        db.add(Stakeholder(card_id=cost_env["card"].id, user_id=editor.id, role="responsible"))
+        await db.flush()
+
+        cards = [cost_env["card"], cost_env["other_card"]]
+        r = await self._bulk(client, editor, cards, {"costTotalAnnual": 1, "name2": "bulk"})
+        assert r.status_code == 200, r.text
+        assert await self._stored(client, cost_env, cards[0]) == {
+            "costTotalAnnual": 1,
+            "name2": "bulk",
+        }
+        assert await self._stored(client, cost_env, cards[1]) == {
+            "costTotalAnnual": 5678,
+            "name2": "bulk",
+        }
+
+    async def _no_cost_bulk_editor(self, db):
+        await create_role(
+            db,
+            key="non_cost_editor",
+            permissions={
+                "inventory.view": True,
+                "inventory.edit": True,
+                "inventory.bulk_edit": True,
+                "costs.view": False,
+            },
+        )
+        return await create_user(db, email="editor@test.com", role="non_cost_editor")
+
+    async def test_an_empty_attributes_object_does_not_wipe_the_cost(self, client, db, cost_env):
+        editor = await self._no_cost_bulk_editor(db)
+        r = await self._bulk(client, editor, [cost_env["card"]], {})
+        assert r.status_code == 200, r.text
+        assert await self._stored(client, cost_env, cost_env["card"]) == {"costTotalAnnual": 1234}
+
+    async def test_with_cost_access_an_empty_attributes_object_clears_them_all(
+        self, client, db, cost_env
+    ):
+        r = await self._bulk(client, cost_env["admin"], [cost_env["card"]], {})
+        assert r.status_code == 200, r.text
+        assert await self._stored(client, cost_env, cost_env["card"]) == {}
+
+    async def test_a_preview_shows_no_cost_to_an_editor_who_may_not_see_it(
+        self, client, db, cost_env
+    ):
+        editor = await self._no_cost_bulk_editor(db)
+        cards = [cost_env["card"], cost_env["other_card"]]
+
+        async def preview(user):
+            r = await client.patch(
+                "/api/v1/cards/bulk",
+                json={
+                    "ids": [str(c.id) for c in cards],
+                    "updates": {"attributes": {"name2": "bulk"}, "name": "Renamed"},
+                    "dry_run": True,
+                },
+                headers=auth_headers(user),
+            )
+            assert r.status_code == 200, r.text
+            assert r.json()["would_update"] == 2
+            return {row["card_id"]: (row["before"], row["after"]) for row in r.json()["results"]}
+
+        got = await preview(editor)
+        assert got[str(cards[0].id)] == (
+            {"attributes": {"name2": "x"}, "name": "App1"},
+            {"attributes": {"name2": "bulk"}, "name": "Renamed"},
+        )
+        assert got[str(cards[1].id)] == (
+            {"attributes": {"name2": "y"}, "name": "App2"},
+            {"attributes": {"name2": "bulk"}, "name": "Renamed"},
+        )
+        # Someone who sees costs previews the same edit whole: theirs would
+        # replace the attributes, cost included.
+        full = await preview(cost_env["admin"])
+        assert full[str(cards[0].id)] == (
+            {"attributes": {"costTotalAnnual": 1234, "name2": "x"}, "name": "App1"},
+            {"attributes": {"name2": "bulk"}, "name": "Renamed"},
+        )
+        # Nothing was written by either preview.
+        assert await self._stored(client, cost_env, cards[0]) == {
+            "costTotalAnnual": 1234,
+            "name2": "x",
+        }
+
+    async def test_a_preview_without_an_attributes_change_is_shown_as_it_is(
+        self, client, db, cost_env
+    ):
+        editor = await self._no_cost_bulk_editor(db)
+        r = await client.patch(
+            "/api/v1/cards/bulk",
+            json={
+                "ids": [str(cost_env["card"].id)],
+                "updates": {"name": "Renamed"},
+                "dry_run": True,
+            },
+            headers=auth_headers(editor),
+        )
+        assert r.status_code == 200, r.text
+        [row] = r.json()["results"]
+        assert (row["before"], row["after"]) == ({"name": "App1"}, {"name": "Renamed"})

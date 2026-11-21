@@ -78,9 +78,11 @@ La page réutilise les mêmes permissions que l'onglet Ressources d'une fiche �
 
 La suppression en masse est vérifiée **ligne par ligne**. Si votre sélection contient des ressources rattachées à des fiches que vous n'avez pas le droit de gérer, ces lignes sont ignorées plutôt que de faire échouer toute l'opération, et un avertissement indique précisément lesquelles et pourquoi.
 
-## Lorsque les téléversements de fichiers sont désactivés
+## Lorsque les téléversements de fichiers sont désactivés {: #when-file-uploads-are-disabled }
 
 Désactiver les **Téléversements de fichiers** dans **Admin → Paramètres → Général** bloque uniquement les nouveaux téléversements. Les fichiers existants restent listés ici, téléchargeables et supprimables, ce qui vous permet de continuer à auditer et à faire le ménage. Une bannière d'information s'affiche sur la page tant que la bascule est désactivée.
+
+La même bascule masque aussi les commandes qui insèrent des images dans le texte des [décisions](../guide/grc.md#decision-pictures) et des [SoAW](../guide/delivery.md#soaw-pictures). Les images déjà présentes dans un document restent visibles.
 
 ## Voir aussi
 

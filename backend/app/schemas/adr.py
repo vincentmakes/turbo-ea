@@ -42,6 +42,8 @@ class ADRCreate(BaseModel):
     # Decision ids or reference numbers, saved as ``relates`` links.
     related_decisions: list[str] = []
     linked_card_ids: list[str] | None = None
+    # Free-draw diagrams to link (live links); needs ``diagrams.view``.
+    linked_diagram_ids: list[str] | None = Field(None, max_length=500)
     links: list[ADRLinkIn] | None = Field(None, max_length=500)
     decision_makers: list[ADRPersonIn] | None = Field(None, max_length=500)
     participants: list[ADRPersonIn] | None = Field(None, max_length=500)
@@ -70,6 +72,9 @@ class ADRUpdate(BaseModel):
     # Replace-set semantics: the full desired link list. None = leave links
     # unchanged; [] = remove all links.
     linked_card_ids: list[str] | None = None
+    # Replace-set semantics: the full desired set of linked diagrams; None =
+    # unchanged. Needs ``diagrams.view`` unless empty (then a no-op).
+    linked_diagram_ids: list[str] | None = Field(None, max_length=500)
     # Replace-set semantics for each of these; omitted = unchanged. ``links``
     # is the full typed set and cannot be sent with ``related_decisions``.
     links: list[ADRLinkIn] | None = Field(None, max_length=500)
@@ -127,6 +132,27 @@ class ADRCardLink(BaseModel):
     card_id: str
 
 
+class ADRDiagramLink(BaseModel):
+    """Body of ``POST /adr/{id}/diagrams``."""
+
+    diagram_id: str
+
+    model_config = {"extra": "forbid"}
+
+
+class ADRLinkedDiagram(BaseModel):
+    """A diagram linked to a decision, as the detail payload's ``diagrams`` lists it.
+
+    ``thumbnail`` is the diagram's stored SVG thumbnail, or ``None`` when it has
+    none or it is larger than 256 KiB.
+    """
+
+    id: str
+    name: str
+    thumbnail: str | None = None
+    updated_at: datetime | None = None
+
+
 class ADRLinkedCard(BaseModel):
     id: str
     name: str
@@ -152,6 +178,8 @@ class ADRResponse(BaseModel):
     revision_number: int = 1
     parent_id: str | None = None
     linked_cards: list[ADRLinkedCard] = []
+    # Empty unless the reader holds ``diagrams.view``.
+    diagrams: list[ADRLinkedDiagram] = []
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

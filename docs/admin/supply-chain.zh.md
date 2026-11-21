@@ -112,7 +112,7 @@ SBOM 列出了 buildkit 在最终镜像中观察到的每个软件包（apk 包�
 - **观察** — HIGH 和 CRITICAL 级别的发现以 SARIF 形式上传到仓库的 GitHub **Security** 标签页。此步骤从不导致作业失败。
 - **门禁** — 任何已有修复的 CRITICAL 发现都会**导致发布失败**，除非该 CVE 已连同书面理由列入 `.github/trivy-allowlist`（每个条目每季度重新评估，一旦上游发布补丁便立即移除）。
 
-同样的两步每天会针对实际已发布的 `:latest` manifest 重新运行；已发布镜像上出现可修复的 HIGH 或 CRITICAL 发现时，会触发针对最新 Alpine 仓库的重建。HIGH 级别的发现目前仍只观察不拦截：基础镜像基于 alpine（`python:3.12-alpine`、`postgres:18-alpine`、`nginx:alpine`），经常带有针对 musl-libc 和 apk 传递依赖的基线发现，这些路径 Turbo EA 的代码根本不会触及，但 Trivy 仍会报告。
+同样的两步每天会针对实际已发布的 `:latest` manifest 重新运行；已发布镜像上出现可修复的 HIGH 或 CRITICAL 发现时，会触发针对最新 Alpine 仓库的重建。HIGH 级别的发现目前仍只观察不拦截：基础镜像基于 alpine（`python:3.12-alpine`、`postgres:18-alpine`、`nginx:1.30.x-alpine`），经常带有针对 musl-libc 和 apk 传递依赖的基线发现，这些路径 Turbo EA 的代码根本不会触及，但 Trivy 仍会报告。
 
 **运行中栈的动态扫描。** 每周一次，已发布的 `:latest` 镜像还会用未经修改的 `docker-compose.yml` 启动，并由 OWASP ZAP 的被动基线扫描探测——匿名一次、以演示管理员身份登录一次：检查爬虫触及的每个页面和 API 路由的响应头、Cookie 标志、Content-Security-Policy 和信息泄露。不做任何模糊测试。已接受的告警连同理由列在 `.github/zap-rules.tsv` 中；其余任何告警都会使运行失败。该扫描覆盖的是默认形态的栈，而非您的反向代理、身份提供方或网络——请针对您自己的实例运行自己的 DAST。
 

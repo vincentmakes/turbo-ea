@@ -79,34 +79,42 @@ async def test_a_role_on_another_card_or_held_by_someone_else_does_not_count(db,
     await hold(db, c1, me, "owner")  # me, but another card
     await hold(db, c0, other, "owner")  # this card, but another user
 
-    assert await PermissionService.is_stakeholder_of(db, me, c0.id) is False
     assert await PermissionService.has_card_permission(db, me, c0.id, "card.edit") is False
     eff = await PermissionService.get_effective_card_permissions(db, me, c0.id)
     assert eff["stakeholder_roles"] == [] and eff["card_level"] == {}
     assert eff["effective"]["can_edit"] is False
     assert eff["effective"]["can_view_costs"] is False
 
-    assert await PermissionService.is_stakeholder_of(db, me, c1.id) is True
     assert await PermissionService.has_card_permission(db, me, c1.id, "card.edit") is True
 
 
-async def test_two_roles_on_one_card_still_make_one_stakeholder(db, world):
+async def test_two_roles_on_one_card_are_both_collected(db, world):
     me, (c0, *_) = world["me"], world["cards"]
     await hold(db, c0, me, "owner")
     await hold(db, c0, me, "watcher")
-    assert await PermissionService.is_stakeholder_of(db, me, c0.id) is True
     eff = await PermissionService.get_effective_card_permissions(db, me, c0.id)
     assert sorted(eff["stakeholder_roles"]) == ["owner", "watcher"]
     assert eff["card_level"] == {"card.edit": True, "card.view": True}
 
 
 async def test_cost_access_is_limited_to_the_users_own_candidate_cards(db, world):
+    # "funder" shows costs; "owner" and "watcher" do not grant the key (#1412).
+    await create_stakeholder_role_def(
+        db, card_type_key="Application", key="funder", permissions={"card.view_costs": True}
+    )
     me, other, (c0, c1, c2) = world["me"], world["other"], world["cards"]
-    await hold(db, c0, me, "owner")
-    await hold(db, c2, me, "owner")  # held, but not a candidate
-    await hold(db, c1, other, "owner")  # a candidate, but someone else's
+    await hold(db, c0, me, "funder")
+    await hold(db, c2, me, "funder")  # held, but not a candidate
+    await hold(db, c1, other, "funder")  # a candidate, but someone else's
+    await hold(db, c1, me, "owner")  # mine, but the role does not show costs
     got = await PermissionService.card_ids_with_cost_access(db, me, [c0.id, c1.id, None])
     assert got == {c0.id}
+
+    eff = await PermissionService.get_effective_card_permissions(db, me, c1.id)
+    assert eff["stakeholder_roles"] == ["owner"]
+    assert eff["effective"]["can_view_costs"] is False
+    eff = await PermissionService.get_effective_card_permissions(db, me, c0.id)
+    assert eff["effective"]["can_view_costs"] is True
 
 
 async def test_cost_access_for_nothing_is_nothing(db, world):

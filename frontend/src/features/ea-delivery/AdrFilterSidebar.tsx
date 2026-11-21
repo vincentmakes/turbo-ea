@@ -20,6 +20,8 @@ import Tab from "@mui/material/Tab";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { FilterSectionHeader } from "@/components/FilterSidebarSection";
+import { resetFilterKeys } from "@/lib/filterSections";
 import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
 import ColumnOrderSection, {
   type ColumnOrderItem,
@@ -84,50 +86,6 @@ const STANDING_OPTIONS: { key: string; style: ChipStyle }[] = [
 
 const MIN_WIDTH = 220;
 const MAX_WIDTH = 500;
-
-/* ------------------------------------------------------------------ */
-/*  Section header                                                     */
-/* ------------------------------------------------------------------ */
-
-function SectionHeader({
-  label,
-  icon,
-  count,
-  expanded,
-  onToggle,
-}: {
-  label: string;
-  /** Material Symbol of the section (Inventory sidebar anatomy). */
-  icon?: string;
-  /** Active selections in the section, shown as a chip when > 0. */
-  count?: number;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <Box
-      onClick={onToggle}
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        gap: 0.75,
-        cursor: "pointer",
-        py: 0.5,
-        userSelect: "none",
-        "&:hover": { bgcolor: "action.hover", borderRadius: 1 },
-      }}
-    >
-      <MaterialSymbol icon={expanded ? "expand_more" : "chevron_right"} size={18} />
-      {icon && <MaterialSymbol icon={icon} size={16} />}
-      <Typography variant="subtitle2" sx={{ fontSize: 13, fontWeight: 600, flex: 1 }}>
-        {label}
-      </Typography>
-      {count != null && count > 0 && (
-        <Chip label={count} size="small" color="primary" sx={{ height: 18, fontSize: 11 }} />
-      )}
-    </Box>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /*  Columns tab (grid column chooser)                                  */
@@ -407,6 +365,9 @@ export default function AdrFilterSidebar({
   /* ---- Clear / count ---- */
 
   const clearAll = () => onFiltersChange({ ...EMPTY_ADR_FILTERS });
+  /** One section's clear button: resets exactly that section's keys. */
+  const clearKeys = (...keys: (keyof AdrFilters)[]) =>
+    onFiltersChange(resetFilterKeys(filters, EMPTY_ADR_FILTERS, keys));
 
   const activeCount = useMemo(() => countActiveAdrFilters(filters), [filters]);
 
@@ -621,12 +582,13 @@ export default function AdrFilterSidebar({
 
           {/* ---- Card Types ---- */}
           {/* adr.filter.cardTypes = "Card Types" */}
-          <SectionHeader
+          <FilterSectionHeader
             label={t("adr.filter.cardTypes")}
             icon="category"
             count={filters.cardTypes.length}
             expanded={expandedSections.cardTypes}
             onToggle={() => toggleSection("cardTypes")}
+            onClear={() => clearKeys("cardTypes")}
           />
           <Collapse in={expandedSections.cardTypes}>
             <List dense disablePadding sx={{ mb: 1 }}>
@@ -677,12 +639,13 @@ export default function AdrFilterSidebar({
           <Divider sx={{ my: 1 }} />
 
           {/* ---- Linked Cards ---- */}
-          <SectionHeader
+          <FilterSectionHeader
             label={t("adr.filter.linkedCards")}
             icon="link"
             count={filters.linkedCards.length}
             expanded={expandedSections.linkedCards}
             onToggle={() => toggleSection("linkedCards")}
+            onClear={() => clearKeys("linkedCards")}
           />
           <Collapse in={expandedSections.linkedCards}>
             <TextField
@@ -748,12 +711,13 @@ export default function AdrFilterSidebar({
 
           {/* ---- Status ---- */}
           {/* adr.filter.status = "Status" */}
-          <SectionHeader
+          <FilterSectionHeader
             label={t("adr.filter.status")}
             icon="flag"
             count={filters.statuses.length}
             expanded={expandedSections.status}
             onToggle={() => toggleSection("status")}
+            onClear={() => clearKeys("statuses")}
           />
           <Collapse in={expandedSections.status}>
             <List dense disablePadding sx={{ mb: 1 }}>
@@ -796,12 +760,13 @@ export default function AdrFilterSidebar({
 
           {/* ---- Standing ---- */}
           {/* A mutually-exclusive state: filled-vs-outlined coloured chips. */}
-          <SectionHeader
+          <FilterSectionHeader
             label={t("adr.filter.standing")}
             icon="gavel"
             count={filters.standings.length}
             expanded={expandedSections.standing}
             onToggle={() => toggleSection("standing")}
+            onClear={() => clearKeys("standings")}
           />
           <Collapse in={expandedSections.standing}>
             <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 1, mt: 0.5, px: 0.5 }}>
@@ -826,12 +791,13 @@ export default function AdrFilterSidebar({
           <Divider sx={{ my: 1 }} />
 
           {/* ---- Signed By ---- */}
-          <SectionHeader
+          <FilterSectionHeader
             label={t("adr.filter.signedBy")}
             icon="draw"
             count={filters.signedBy.length}
             expanded={expandedSections.signedBy}
             onToggle={() => toggleSection("signedBy")}
+            onClear={() => clearKeys("signedBy")}
           />
           <Collapse in={expandedSections.signedBy}>
             <List dense disablePadding sx={{ mb: 1, maxHeight: 240, overflow: "auto" }}>
@@ -873,12 +839,13 @@ export default function AdrFilterSidebar({
 
           {/* ---- Date Created ---- */}
           {/* adr.filter.dateCreated = "Date Created" */}
-          <SectionHeader
+          <FilterSectionHeader
             label={t("adr.filter.dateCreated")}
             icon="calendar_today"
             count={(filters.dateCreatedFrom ? 1 : 0) + (filters.dateCreatedTo ? 1 : 0)}
             expanded={expandedSections.dateCreated}
             onToggle={() => toggleSection("dateCreated")}
+            onClear={() => clearKeys("dateCreatedFrom", "dateCreatedTo")}
           />
           <Collapse in={expandedSections.dateCreated}>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mb: 1.5, mt: 0.5 }}>
@@ -903,12 +870,13 @@ export default function AdrFilterSidebar({
 
           {/* ---- Date Modified ---- */}
           {/* adr.filter.dateModified = "Date Modified" */}
-          <SectionHeader
+          <FilterSectionHeader
             label={t("adr.filter.dateModified")}
             icon="edit_calendar"
             count={(filters.dateModifiedFrom ? 1 : 0) + (filters.dateModifiedTo ? 1 : 0)}
             expanded={expandedSections.dateModified}
             onToggle={() => toggleSection("dateModified")}
+            onClear={() => clearKeys("dateModifiedFrom", "dateModifiedTo")}
           />
           <Collapse in={expandedSections.dateModified}>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mb: 1.5, mt: 0.5 }}>
@@ -933,12 +901,13 @@ export default function AdrFilterSidebar({
 
           {/* ---- Date Signed ---- */}
           {/* adr.filter.dateSigned = "Date Signed" */}
-          <SectionHeader
+          <FilterSectionHeader
             label={t("adr.filter.dateSigned")}
             icon="event_available"
             count={(filters.dateSignedFrom ? 1 : 0) + (filters.dateSignedTo ? 1 : 0)}
             expanded={expandedSections.dateSigned}
             onToggle={() => toggleSection("dateSigned")}
+            onClear={() => clearKeys("dateSignedFrom", "dateSignedTo")}
           />
           <Collapse in={expandedSections.dateSigned}>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mb: 1.5, mt: 0.5 }}>
@@ -963,12 +932,13 @@ export default function AdrFilterSidebar({
 
           {/* ---- Date Decided (signed and recorded decisions) ---- */}
           {/* adr.filter.dateDecided = "Date Decided" */}
-          <SectionHeader
+          <FilterSectionHeader
             label={t("adr.filter.dateDecided")}
             icon="gavel"
             count={(filters.dateDecidedFrom ? 1 : 0) + (filters.dateDecidedTo ? 1 : 0)}
             expanded={expandedSections.dateDecided}
             onToggle={() => toggleSection("dateDecided")}
+            onClear={() => clearKeys("dateDecidedFrom", "dateDecidedTo")}
           />
           <Collapse in={expandedSections.dateDecided}>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mb: 1.5, mt: 0.5 }}>

@@ -79,6 +79,7 @@ def starters(monkeypatch):
         events=MagicMock(return_value=["dispatcher"]),
         channels=MagicMock(return_value=["channel"]),
         types=MagicMock(),
+        agent_tools=MagicMock(),
         build_context=lambda key: f"ctx:{key}",
     )
     monkeypatch.setattr(startup, "run_extension_migrations", s.migrations)
@@ -86,6 +87,7 @@ def starters(monkeypatch):
     monkeypatch.setattr(startup, "start_extension_event_dispatchers", s.events)
     monkeypatch.setattr(startup, "start_notification_channels", s.channels)
     monkeypatch.setattr(startup, "start_notification_types", s.types)
+    monkeypatch.setattr(startup, "start_agent_tools", s.agent_tools)
     monkeypatch.setattr(startup, "build_context", s.build_context)
     return s
 
@@ -131,7 +133,13 @@ class TestInitializeExtensions:
         assert starters.migrations.await_args.kwargs == {
             "should_run": {"ok-ext": True, "off-ext": False, "pack-ext": True}
         }
-        for starter in (starters.jobs, starters.events, starters.channels, starters.types):
+        for starter in (
+            starters.jobs,
+            starters.events,
+            starters.channels,
+            starters.types,
+            starters.agent_tools,
+        ):
             assert starter.call_args.args == (report,)
         assert extension_registry.get("ok-ext").status == "installed"
 
@@ -170,3 +178,139 @@ class TestInitializeExtensions:
         assert await startup.initialize_extensions(report) == []
         assert "Extension registry initialization failed" in caplog.text
         assert starters.migrations.await_count == 0
+
+
+class TestHealAtStartup:
+    """Contributions an active extension lost are put back at boot, from the
+    rows — also when no extension code was loaded at all."""
+
+    MANIFEST = {
+        "metamodel": {
+            "field_sections": [
+                {
+                    "card_type": "Gadget",
+                    "section": "Sample",
+                    "fields": [{"key": "s1", "label": "S1", "type": "text"}],
+                }
+            ]
+        }
+    }
+
+    async def test_a_wiped_section_is_restored_even_with_nothing_loaded(
+        self, db, patched_async_session, rows, starters, caplog
+    ):
+        import logging
+
+        from tests.conftest import create_card_type
+
+        ct = await create_card_type(db, key="Gadget", label="Gadget", fields_schema=[])
+        db.add(
+            Extension(
+                key="sample-ext",
+                name="Sample",
+                version="1.0.0",
+                manifest=self.MANIFEST,
+                capabilities=["metamodel"],
+                status="installed",
+                enabled=True,
+            )
+        )
+        await db.flush()
+        with caplog.at_level(logging.INFO, logger="app.services.extensions.startup"):
+            assert await startup.initialize_extensions(LoadReport()) == []
+        await db.refresh(ct)
+        assert ct.fields_schema == [
+            {
+                "section": "Sample",
+                "ext": "sample-ext",
+                "fields": [{"key": "s1", "label": "S1", "type": "text", "ext": "sample-ext"}],
+            }
+        ]
+        healed = [
+            r.getMessage() for r in caplog.records if r.name == "app.services.extensions.startup"
+        ]
+        assert healed == ["Extension sample-ext: restored missing metamodel contributions"]
+
+    async def test_a_renamed_section_and_moved_fields_survive_boot(
+        self, db, patched_async_session, rows, starters, caplog
+    ):
+        import logging
+
+        from tests.conftest import create_card_type
+
+        manifest = {
+            "metamodel": {
+                "field_sections": [
+                    {
+                        "card_type": "Gadget",
+                        "section": "Sample",
+                        "fields": [
+                            {"key": "s1", "label": "S1", "type": "text"},
+                            {"key": "s2", "label": "S2", "type": "text"},
+                        ],
+                    }
+                ]
+            }
+        }
+        schema = [
+            {
+                "section": "Renamed by admin",
+                "ext": "sample-ext",
+                "fields": [{"key": "s1", "label": "S1", "type": "text", "ext": "sample-ext"}],
+            },
+            {
+                "section": "Mine",
+                "fields": [{"key": "s2", "label": "S2", "type": "text", "ext": "sample-ext"}],
+            },
+        ]
+        ct = await create_card_type(db, key="Gadget", label="Gadget", fields_schema=schema)
+        db.add(
+            Extension(
+                key="sample-ext",
+                name="Sample",
+                version="1.0.0",
+                manifest=manifest,
+                capabilities=["metamodel"],
+                status="installed",
+                enabled=True,
+            )
+        )
+        await db.flush()
+        with caplog.at_level(logging.INFO, logger="app.services.extensions.startup"):
+            assert await startup.initialize_extensions(LoadReport()) == []
+        await db.refresh(ct)
+        assert ct.fields_schema == schema
+        assert [
+            r.getMessage() for r in caplog.records if r.name == "app.services.extensions.startup"
+        ] == []
+
+    async def test_the_heal_runs_before_the_loaded_extensions_start(
+        self, db, patched_async_session, rows, starters, monkeypatch
+    ):
+        calls: list[str] = []
+
+        async def heal(session):
+            calls.append("heal")
+            return []
+
+        monkeypatch.setattr(startup, "heal_contributions", heal)
+        starters.migrations.side_effect = lambda *a, **k: calls.append("migrations") or {}
+        report = LoadReport(loaded=[_loaded("ok-ext", FakeInstance())], failed=[])
+        assert await startup.initialize_extensions(report) == ["job", "dispatcher", "channel"]
+        assert calls == ["heal", "migrations"]
+
+    async def test_a_failing_heal_never_blocks_boot(
+        self, db, patched_async_session, rows, starters, monkeypatch, caplog
+    ):
+        monkeypatch.setattr(
+            startup, "heal_contributions", AsyncMock(side_effect=RuntimeError("heal boom"))
+        )
+        ok = FakeInstance()
+        report = LoadReport(loaded=[_loaded("ok-ext", ok)], failed=[])
+        assert await startup.initialize_extensions(report) == ["job", "dispatcher", "channel"]
+        assert ok.started_with == ["ctx:ok-ext"]
+        failures = [r for r in caplog.records if r.levelname == "ERROR"]
+        assert [r.getMessage() for r in failures] == [
+            "Restoring extension metamodel contributions failed"
+        ]
+        assert "heal boom" in caplog.text

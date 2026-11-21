@@ -1019,13 +1019,27 @@ export default function TypeDetailDrawer({
                           </Box>
                         }
                         onClick={() => openSubtypeTemplate(s.key)}
-                        onDelete={() => handleRemoveSubtype(s.key)}
+                        // An active extension provides it: a save would put it
+                        // back, so no delete is offered (the lock says why).
+                        onDelete={s.ext_protected ? undefined : () => handleRemoveSubtype(s.key)}
                         disabled={mutating}
                         variant={editingSubtypeKey === s.key ? "filled" : "outlined"}
                         color={editingSubtypeKey === s.key ? "primary" : "default"}
                         size="small"
                         icon={<MaterialSymbol icon="tune" size={16} />}
                       />
+                      {s.ext_protected && (
+                        <Tooltip title={t("metamodel.typeDrawer.subtypeExtensionOwned")}>
+                          <Box
+                            component="span"
+                            role="img"
+                            aria-label={t("metamodel.typeDrawer.subtypeExtensionOwned")}
+                            sx={{ display: "inline-flex", ml: 0.25, color: "text.secondary" }}
+                          >
+                            <MaterialSymbol icon="lock" size={15} />
+                          </Box>
+                        </Tooltip>
+                      )}
                       <Tooltip title={t("metamodel.typeDrawer.renameSubtype")}>
                         <span>
                           <IconButton

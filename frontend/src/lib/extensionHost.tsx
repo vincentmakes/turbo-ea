@@ -1297,7 +1297,20 @@ export function initExtensionHost(): void {
       // `sanitizeRichHtml` is the one sanitiser for stored rich text — it
       // autolinks bare URLs and stamps every anchor target/rel. An extension
       // that renders a description or a rich-text field must not rebuild
-      // either, or its links will behave differently from core's.
+      // either, or its links will behave differently from core's. Since SDK
+      // 1.35 it keeps an `<img>` only when it is a document picture (the
+      // internal `/api/v1/document-images/{adr|soaw}/{uuid}` route), reduced
+      // to `src alt title width height data-align`; any other picture is
+      // removed. Also since 1.35 it removes what the editor never writes:
+      // `<style>`, forms and
+      // their controls, `<dialog>`, `<template>`, media (`video`, `audio`,
+      // `source`, `track`, `picture`), image maps, SVG, MathML and
+      // `<marquee>`; every attribute that takes a URL or opens something
+      // (`background`, `bgcolor`, `srcset`, `poster`, `action`, `formaction`,
+      // `cite`, `usemap`, `popover*`, `command*`); and every inline `style`
+      // except a pixel `width` / `min-width` on `table` / `col` and a
+      // `text-align` on `td` / `th`. `colspan` / `rowspan` stay only as
+      // 1–1000. An extension that styled stored HTML inline must use classes.
       LinkifiedText,
       sanitizeRichHtml,
       // SDK 1.15 — the whole report-scoping kit, so an extension report gets
@@ -1388,6 +1401,9 @@ export function initExtensionHost(): void {
       // count chip, dense checkbox rows with semantic dots/icons and the
       // per-row freeze pin — so an extension grid page's sidebar is built
       // from the same anatomy as the Inventory's instead of a lookalike.
+      // Since 1.36 the header takes an optional `onClear`, shown as a
+      // per-section clear button while `count > 0`, and its toggle area is a
+      // keyboard-operable button (`role="button"`, `aria-expanded`).
       FilterSectionHeader,
       FilterCheckboxList,
       ColumnFreezeToggle,

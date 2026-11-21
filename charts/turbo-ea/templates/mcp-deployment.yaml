@@ -64,6 +64,8 @@ spec:
                   key: {{ .Values.existingSecretKeys.secretKey }}
             - name: MCP_WRITES_ENABLED
               value: {{ .Values.mcp.writesEnabled | quote }}
+            - name: MCP_ALLOW_EXTENSION_DESTRUCTIVE
+              value: {{ .Values.mcp.allowExtensionDestructive | default false | quote }}
             - name: MCP_LOGO_FETCH_ENABLED
               value: {{ .Values.mcp.logoFetch.enabled | quote }}
             {{- with .Values.mcp.logoFetch.hosts }}

@@ -11,6 +11,7 @@ pure ``text_render.html_to_text`` they rely on.
 from __future__ import annotations
 
 import json
+import re
 from contextlib import ExitStack
 from unittest.mock import patch
 
@@ -767,6 +768,66 @@ class TestDocstrings:
         assert "open_thread_count" in server.get_adr.__doc__
         assert "404" in server.update_adr.__doc__
         assert "get_document_discussion" in server.list_soaws.__doc__
+
+    def test_the_decision_and_soaw_tools_explain_pictures(self):
+        def doc(tool) -> str:
+            return re.sub(r"\s+", " ", tool.__doc__ or "")
+
+        assert '<img src="/api/v1/document-images/adr/<uuid>">' in doc(server.get_adr)
+        assert "does not return the picture's bytes" in doc(server.get_adr)
+        assert '<img src="/api/v1/document-images/soaw/<uuid>">' in doc(server.list_soaws)
+        assert "bytes not returned" in doc(server.list_soaws)
+        for tool in (server.create_adr, server.update_adr, server.create_soaw):
+            text = doc(tool)
+            assert "Pictures cannot be uploaded through MCP" in text, tool.__name__
+            assert "external URL" in text and "data: URI" in text.replace("``", ""), tool.__name__
+            assert "is removed on save" in text, tool.__name__
+        assert "copies the text (pictures included)" in doc(server.revise_adr)
+
+    def test_the_decision_and_soaw_tools_explain_the_rest_of_the_html(self):
+        def doc(tool) -> str:
+            return re.sub(r"\s+", " ", tool.__doc__ or "").replace("``", "")
+
+        rules = (
+            "simple tables, inline code, code blocks and <h3> / <h4> headings are "
+            "accepted; <style>, form and media tags and inline styles are removed on "
+            "display."
+        )
+        for tool in (server.create_adr, server.update_adr, server.create_soaw):
+            text = doc(tool)
+            assert (
+                "Links must be http, https or mailto addresses (others are shown as plain text)"
+                in text
+            ), tool.__name__
+            assert rules in text, tool.__name__
+        reading = doc(server.get_adr)
+        assert "only http, https and mailto addresses are links, any other is shown as" in reading
+        assert "simple tables (<table>, <tr>, <th>, <td>, colspan / rowspan)" in reading
+        assert "inline code (<code>), code blocks (<pre><code>) and <h3> / <h4> headings" in reading
+        assert "<style>, form and media tags and inline styles are removed on display" in reading
+        assert "links, tables, code and <h3> / <h4> headings, as described on get_adr" in doc(
+            server.list_soaws
+        )
+
+    def test_the_decision_tools_explain_linked_diagrams(self):
+        def doc(tool) -> str:
+            return re.sub(r"\s+", " ", tool.__doc__ or "").replace("``", "")
+
+        reading = doc(server.get_adr)
+        assert "diagrams lists the free-draw diagrams linked to the decision" in reading
+        assert "[{id, name, updated_at}] ordered by name ([] without the diagrams.view" in reading
+        assert "read one with get_diagram" in reading
+        for tool in (server.create_adr, server.update_adr):
+            text = doc(tool)
+            assert "linked_diagram_ids:" in text, tool.__name__
+            assert "ids from list_diagrams" in text, tool.__name__
+            assert "may not see diagrams (diagrams.view) or an id is unknown" in text
+        update = doc(server.update_adr)
+        assert "the full desired set, like linked_card_ids: [] removes every link" in update
+        assert "omit to leave them unchanged" in update
+        assert "refused once the decision is signed" in update
+        assert "only linked_card_ids and linked_diagram_ids can change" in update
+        assert "linked cards and diagrams" in doc(server.revise_adr)
 
 
 # ── the helpers' exact answers ──────────────────────────────────────────────

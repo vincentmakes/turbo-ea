@@ -61,6 +61,7 @@ from app.services.archimate.card_type_mapping import get_card_type_mapping
 from app.services.archimate.taxonomy import TAB_LAYERS
 from app.services.archimate.validate import MAX_XML_BYTES, validate_exchange
 from app.services.card_costs import COST_ITEM_TYPES, DERIVED_KEY
+from app.services.extensions import contribution_guard, field_gate
 from app.services.extensions.registry import extension_registry
 from app.services.hierarchy import (
     HIERARCHY_LEVEL_KEY,
@@ -545,6 +546,60 @@ def _enforce_field_gating(
     return new_schema
 
 
+def _guard_ext_contributions(body: dict, t: CardType, active: frozenset[str]) -> None:
+    """Run ``body``'s ``fields_schema`` / ``subtypes`` / ``section_config``
+    through :mod:`contribution_guard` against the stored type, in place."""
+    contribution_guard.guard_card_type_row(
+        body,
+        stored_schema=t.fields_schema,
+        stored_subtypes=t.subtypes,
+        stored_config=t.section_config,
+        active_keys=active,
+        mode="save",
+    )
+
+
+def _schema_with_lock_flags(type_key: str, schema: list | None) -> list:
+    """``schema`` with the two transient flags a metamodel read carries.
+
+    - ``ext_locked: true`` on every field whose values may not change because
+      the extension that contributed it is not active or licensed;
+    - ``ext_protected: true`` on every field and section an ACTIVE extension
+      stamped — what a card-type save cannot delete (``contribution_guard``),
+      so the editor offers no delete for it.
+
+    Computed per read from the live registry, never stored (the write guard
+    strips both). Returns copies — the stored schema is never mutated.
+    """
+    locked = field_gate.locked_fields(type_key, schema)
+    active = contribution_guard.active_extension_keys()
+    protected_fields, protected_sections = contribution_guard.protected_fields_and_sections(
+        schema, active
+    )
+    if not locked and not protected_fields and not protected_sections:
+        return schema or []
+    out: list = []
+    for index, section in enumerate(schema or []):
+        if not isinstance(section, dict):
+            out.append(section)
+            continue
+        fields = []
+        for f in section.get("fields", []):
+            if isinstance(f, dict):
+                flags = {}
+                if f.get("key") in locked:
+                    flags["ext_locked"] = True
+                if contribution_guard.stamp_of(f) in active:
+                    flags["ext_protected"] = True
+                f = {**f, **flags}
+            fields.append(f)
+        flagged = {**section, "fields": fields}
+        if index in protected_sections:
+            flagged["ext_protected"] = True
+        out.append(flagged)
+    return out
+
+
 # ── Helpers ────────────────────────────────────────────────────────────
 
 # The five inventory permissions a card type may override, in the order the
@@ -607,9 +662,11 @@ def _serialize_type(t: CardType, *, include_role_permissions: bool = True) -> di
         "has_hierarchy": t.has_hierarchy,
         "has_successors": t.has_successors,
         "allow_card_logo": t.allow_card_logo,
-        "subtypes": t.subtypes or [],
+        "subtypes": contribution_guard.flag_protected_subtypes(
+            t.subtypes or [], contribution_guard.active_extension_keys()
+        ),
         "hierarchy_labels": t.hierarchy_labels or [],
-        "fields_schema": t.fields_schema or [],
+        "fields_schema": _schema_with_lock_flags(t.key, t.fields_schema),
         "stakeholder_roles": t.stakeholder_roles or [],
         "section_config": t.section_config or {},
         "reference_config": t.reference_config or {},
@@ -1325,9 +1382,15 @@ async def create_type(
         {"key": "observer", "label": "Observer"},
     ]
     await extension_registry.refresh_from_db(db)
+    # Nothing is stored yet, so the guard strips every stamp a body sends: a
+    # new type cannot claim fields or subtypes for an extension.
+    active = contribution_guard.active_extension_keys()
     fields_schema = _enforce_field_gating(
-        body.get("fields_schema", []), [], extension_registry.granted_capabilities()
+        contribution_guard.preserve_ext_schema(body.get("fields_schema", []), [], active).schema,
+        [],
+        extension_registry.granted_capabilities(),
     )
+    subtypes = contribution_guard.preserve_ext_subtypes(body.get("subtypes", []), [], active)
     # Auto-add the readonly hierarchyLevel field for hierarchical types (after
     # gating, which only rewrites ext.* field types — a plain number field is safe).
     if body.get("has_hierarchy"):
@@ -1350,7 +1413,7 @@ async def create_type(
         has_hierarchy=body.get("has_hierarchy", False),
         has_successors=body.get("has_successors", False),
         allow_card_logo=body.get("allow_card_logo", False),
-        subtypes=_strip_subtype_archimate_type(body.get("subtypes", [])),
+        subtypes=_strip_subtype_archimate_type(subtypes),
         hierarchy_labels=body.get("hierarchy_labels", []),
         fields_schema=fields_schema,
         stakeholder_roles=body.get("stakeholder_roles", default_roles),
@@ -1452,6 +1515,13 @@ async def update_type(
     audit_fields = _TYPE_AUDIT_SCALARS + _TYPE_AUDIT_JSON
     audit_before = _audit_snapshot(t, audit_fields)
 
+    # What an active extension contributed survives the save (stamps, sections,
+    # fields, subtypes, the section order) — before anything else reads the
+    # body, so neither the cleanup nor anything after it can see a field the
+    # body tried to delete, unlock or claim.
+    await extension_registry.refresh_from_db(db)
+    _guard_ext_contributions(body, t, contribution_guard.active_extension_keys())
+
     # ── Clean up card attributes when fields or options are removed ──
     if "fields_schema" in body:
         _guard_derived_cost_field(key, t.fields_schema, body["fields_schema"])
@@ -1463,7 +1533,6 @@ async def update_type(
         )
         # Downgrade custom ext.* field types that aren't unlocked by a licensed
         # extension — grandfathering stored values. Help text is core (#1297).
-        await extension_registry.refresh_from_db(db)
         body["fields_schema"] = _enforce_field_gating(
             body["fields_schema"] or [],
             t.fields_schema or [],

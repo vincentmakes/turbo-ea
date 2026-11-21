@@ -559,7 +559,7 @@
   "dependency.createDiagramError": "Impossibile creare il diagramma. Riprova.",
   "dependency.openInReport": "Apri nel report Dipendenze",
   "cost.permissionDeniedTitle": "Dati sui costi limitati",
-  "cost.permissionDeniedBody": "Non hai i permessi per visualizzare i report sui costi. Chiedi a un amministratore di concederti il permesso «costs.view», oppure diventa stakeholder delle schede in questione.",
+  "cost.permissionDeniedBody": "Non hai i permessi per visualizzare i report sui costi. Chiedi a un amministratore di concederti il permesso «costs.view».",
   "portfolio.viewInInventory": "Visualizza nell'inventario",
   "common.scope": "Ambito",
   "capabilityMap.scopeAll": "Tutte le capacità",

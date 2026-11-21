@@ -245,8 +245,8 @@ APP_PERMISSIONS: dict[str, dict] = {
         "label": "Costs",
         "permissions": {
             "costs.view": (
-                "View cost fields on cards and cost reports "
-                "(stakeholders see costs on their own cards regardless)"
+                "View cost fields on every card and the cost reports "
+                "(a stakeholder role can show the costs of its own cards without it)"
             ),
             "costs.edit": (
                 "Edit the cost items of any card "
@@ -377,6 +377,7 @@ def migrate_legacy_app_permissions(permissions: dict) -> dict:
 
 CARD_PERMISSIONS: dict[str, str] = {
     "card.view": "View this card's detail page",
+    "card.view_costs": "View this card's cost fields without the costs.view permission",
     "card.edit": "Edit this card's fields, name, description, lifecycle",
     "card.archive": "Archive or restore this card",
     "card.delete": "Permanently delete this card (admin)",
@@ -434,6 +435,42 @@ def strip_legacy_card_permissions(permissions: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Cost access through a stakeholder role
+# ---------------------------------------------------------------------------
+#
+# Until 2.206.0 *any* stakeholder role on a card showed that card's cost fields
+# to a user without ``costs.view``. Anyone who can view a card can make
+# themselves its Observer (``POST /cards/{id}/me/observe``), so that let every
+# user past the permission (#1412). Since then a role shows costs only when it
+# grants ``card.view_costs``.
+VIEW_COSTS_CARD_PERMISSION = "card.view_costs"
+
+# The role anyone who can view a card can give themselves, without the right
+# to manage stakeholders (``POST /cards/{id}/me/observe``). A user who *may*
+# manage stakeholders can assign any role, to themselves too: that is theirs
+# to grant, and the admin's to withhold.
+SELF_ASSIGNABLE_STAKEHOLDER_ROLE = "observer"
+
+
+def with_legacy_cost_grant(role_key: str, permissions: dict) -> dict:
+    """Fill ``card.view_costs`` into a role map written before the key existed.
+
+    Such a map has no entry for the key, and every role then showed costs, so
+    the role keeps doing so — except Observer, the self-assignable one, which
+    is the hole the key closes. A map that already carries the key, either
+    value, is returned as it is: an admin's choice is never overwritten.
+    Migration 175 applies the same rule to the rows of an existing install;
+    the workspace importer calls this for a bundle exported before 2.206.0.
+    """
+    if not isinstance(permissions, dict) or VIEW_COSTS_CARD_PERMISSION in permissions:
+        return permissions
+    return {
+        **permissions,
+        VIEW_COSTS_CARD_PERMISSION: role_key != SELF_ASSIGNABLE_STAKEHOLDER_ROLE,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Mapping: app-level permission → card-level equivalent
 # When checking a card action, the app-level perm also grants access.
 # ---------------------------------------------------------------------------
@@ -454,6 +491,7 @@ APP_TO_CARD_PERMISSION_MAP: dict[str, str] = {
     "bpm.withdraw_flows": "card.bpm_withdraw",
     "adr.manage": "card.manage_adr_links",
     "diagrams.manage": "card.manage_diagram_links",
+    "costs.view": "card.view_costs",
 }
 
 # Reverse: card-level → app-level (for check_permission convenience)
@@ -508,6 +546,19 @@ def resolve_cell(cell: object, subtype: str | None = None) -> bool | None:
     return bool(cell)
 
 
+def view_denied(cells: dict | None) -> bool:
+    """True when one role's override cells on one card type deny View.
+
+    Only an explicit ``False`` counts: no cells, no View cell, an Allow, or a
+    role that merely lacks the global ``inventory.view`` are not a deny. This
+    is the cell that takes every landscape-wide grant away on the type
+    (``type_cell_decision``), asked on its own by a caller that needs "which
+    types" rather than "this permission on this type".
+    """
+    cell = (cells or {}).get(VIEW_PERMISSION)
+    return cell is False or isinstance(cell, dict) and cell.get("value") is False
+
+
 def type_cell_decision(
     cells: dict | None, permission: str, subtype: str | None = None
 ) -> bool | None:
@@ -535,6 +586,7 @@ def type_cell_decision(
     cells = cells or {}
     if resolve_cell(cells.get(VIEW_PERMISSION), subtype) is False:
         return False
+    cells = cells or {}
     if permission in TYPE_SCOPED_APP_PERMISSIONS:
         decision = resolve_cell(cells.get(permission), subtype)
         if decision is not None:
@@ -939,6 +991,7 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
 
 RESPONSIBLE_CARD_PERMISSIONS: dict[str, bool] = {
     "card.view": True,
+    "card.view_costs": True,
     "card.edit": True,
     "card.archive": True,
     "card.delete": False,
@@ -958,6 +1011,7 @@ RESPONSIBLE_CARD_PERMISSIONS: dict[str, bool] = {
 
 OBSERVER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.view": True,
+    "card.view_costs": False,
     "card.edit": False,
     "card.archive": False,
     "card.delete": False,
@@ -977,6 +1031,7 @@ OBSERVER_CARD_PERMISSIONS: dict[str, bool] = {
 
 PROCESS_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.view": True,
+    "card.view_costs": True,
     "card.edit": True,
     "card.archive": False,
     "card.delete": False,
@@ -998,6 +1053,7 @@ PROCESS_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
 
 TECH_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.view": True,
+    "card.view_costs": True,
     "card.edit": True,
     "card.archive": False,
     "card.delete": False,
@@ -1017,6 +1073,7 @@ TECH_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
 
 BIZ_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.view": True,
+    "card.view_costs": True,
     "card.edit": True,
     "card.archive": False,
     "card.delete": False,
@@ -1036,6 +1093,7 @@ BIZ_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
 
 IT_PROJECT_MANAGER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.view": True,
+    "card.view_costs": True,
     "card.edit": True,
     "card.archive": False,
     "card.delete": False,

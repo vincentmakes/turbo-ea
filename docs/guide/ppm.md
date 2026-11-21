@@ -251,6 +251,7 @@ Interact with the Gantt chart using:
 
 - **Click a column header** (Title, %, Responsible, Start Date or End Date) to sort the list by it: ascending on the first click, descending on the second, and back to the planned order on the third. An arrow next to the header shows the active sort. Items are sorted among their siblings, so a nested work package or task stays under its parent. Items with no responsible person, or no date of their own, come last either way, and the **+** row stays at the bottom. The choice is remembered in your browser. On a phone, where only Title and % are shown, only those two can be sorted
 - **Drag** bars to reschedule items
+- **Drag a row in the task list** to reorder it: drop it above or below another row to place it there, or onto a work package to move it inside, at the end. Dropped just below an open work package, it becomes that package's first item; dropped onto a task, it goes right after that task. Work packages always stay above the tasks that share their parent, so a task dropped next to a work package goes to the top of that parent's tasks. A milestone cannot hold other items. While the list is sorted by a column header, clear the sort first
 - **Resize** bar edges to change duration (1-day granularity)
 - **Right-click** for context menu (edit, add task, mark done, delete)
 - **Today button** to scroll to the current date

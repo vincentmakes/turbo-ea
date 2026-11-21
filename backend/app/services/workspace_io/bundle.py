@@ -11,6 +11,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import re
 import uuid
 import zipfile
 from collections.abc import Iterable
@@ -47,6 +48,9 @@ MAX_BUNDLE_UNCOMPRESSED_BYTES = 20 * 1024**3  # everything inflated, ~10x the 2 
 
 class BundleFormatError(ValueError):
     """Raised when an uploaded file isn't a valid workspace bundle."""
+
+
+_APP_VERSION = re.compile(r"(\d+)\.(\d+)\.(\d+)")
 
 
 @runtime_checkable
@@ -138,6 +142,21 @@ class WorkspaceBundle:
     @property
     def format_version(self) -> str:
         return str(self.manifest.get("format_version", ""))
+
+    @property
+    def app_version(self) -> tuple[int, int, int] | None:
+        """The version of the app that exported the bundle, as ``(X, Y, Z)``.
+
+        ``None`` when the manifest names none (a content pack, a hand-built
+        bundle) or anything that is not exactly ``X.Y.Z`` — a caller asking
+        "is this bundle older than …" must then answer no, not guess. That
+        includes ``0.0.0-dev``, what a build without a ``VERSION`` file calls
+        itself (``config._read_version``): it is a current build, not release
+        zero, and reading it as one would hand its roles the cost access of a
+        bundle that predates ``card.view_costs``.
+        """
+        match = _APP_VERSION.fullmatch(str(self.manifest.get("app_version") or ""))
+        return (int(match[1]), int(match[2]), int(match[3])) if match else None
 
     def rows(self, sheet: str) -> list[dict[str, Any]]:
         return self.sheets.get(sheet, [])

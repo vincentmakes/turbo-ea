@@ -1370,3 +1370,77 @@ describe("ADREditor — discussion and review notes", () => {
     expect(await screen.findByTestId("sign-dialog")).toHaveAttribute("data-open-threads", "4");
   });
 });
+
+describe("ADREditor — diagrams", () => {
+  const LANDSCAPE = {
+    id: "d1",
+    name: "Landscape",
+    thumbnail: "data:image/svg+xml;base64,PHN2Zy8+",
+    updated_at: null,
+  };
+  const FLOWS = { id: "d2", name: "Data flows", thumbnail: null, updated_at: null };
+
+  it("shows the loaded diagrams after the files, editable on a draft to a manager", async () => {
+    authState.user = { id: "u1", permissions: { "adr.manage": true, "diagrams.view": true } };
+    mockLoad({ ...base, diagrams: [LANDSCAPE] });
+    renderEditor();
+    const section = await screen.findByTestId("decision-diagrams");
+    expect(within(section).getByRole("link")).toHaveAttribute("href", "/diagrams/d1");
+    expect(within(section).getByText("Landscape")).toBeInTheDocument();
+    expect(within(section).getByRole("button", { name: /^add Attach diagram$/ })).toBeInTheDocument();
+    expect(within(section).getByRole("button", { name: "Remove diagram" })).toBeInTheDocument();
+    // After the files section in the page.
+    const files = screen.getByTestId("decision-files");
+    expect(files.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("stays editable in review and is fixed once signed", async () => {
+    authState.user = { id: "u1", permissions: { "adr.manage": true, "diagrams.view": true } };
+    mockLoad({ ...base, status: "in_review", diagrams: [LANDSCAPE] });
+    const { unmount } = renderEditor();
+    const review = await screen.findByTestId("decision-diagrams");
+    expect(within(review).getByRole("button", { name: "Remove diagram" })).toBeInTheDocument();
+    unmount();
+
+    mockLoad({ ...base, status: "signed", diagrams: [LANDSCAPE] });
+    renderEditor();
+    const signed = await screen.findByTestId("decision-diagrams");
+    expect(within(signed).getByText("Landscape")).toBeInTheDocument();
+    expect(within(signed).queryByRole("button", { name: "Remove diagram" })).toBeNull();
+    expect(within(signed).queryByRole("button", { name: /Attach diagram/ })).toBeNull();
+  });
+
+  it("offers no controls without adr.manage, and nothing without diagrams.view", async () => {
+    authState.user = { id: "u1", permissions: { "diagrams.view": true } };
+    mockLoad({ ...base, diagrams: [LANDSCAPE] });
+    const { unmount } = renderEditor();
+    const section = await screen.findByTestId("decision-diagrams");
+    expect(within(section).queryByRole("button", { name: "Remove diagram" })).toBeNull();
+    unmount();
+
+    authState.user = { id: "u1", permissions: { "adr.manage": true } };
+    mockLoad({ ...base, diagrams: [LANDSCAPE] });
+    renderEditor();
+    await screen.findByDisplayValue("Adopt event bus");
+    expect(screen.queryByTestId("decision-diagrams")).toBeNull();
+  });
+
+  it("keeps a removal in the page, and exports carry the diagrams", async () => {
+    authState.user = { id: "u1", permissions: { "adr.manage": true, "diagrams.view": true } };
+    vi.mocked(api.delete).mockResolvedValue(undefined as never);
+    mockLoad({ ...base, diagrams: [LANDSCAPE, FLOWS] });
+    renderEditor();
+    const section = await screen.findByTestId("decision-diagrams");
+    fireEvent.click(within(section).getAllByRole("button", { name: "Remove diagram" })[0]);
+    fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Remove" }));
+    await waitFor(() => expect(screen.queryByText("Landscape")).toBeNull());
+    expect(api.delete).toHaveBeenCalledWith("/adr/adr-1/diagrams/d1");
+    expect(screen.getByText("Data flows")).toBeInTheDocument();
+    // A link change is not an unsaved edit: nothing was PATCHed.
+    expect(api.patch).not.toHaveBeenCalled();
+
+    // Once the confirmation has closed, the page is no longer hidden behind it.
+    fireEvent.click(await screen.findByRole("button", { name: /PDF$/ }));
+    expect(vi.mocked(printAdr).mock.calls[0][0].diagrams).toEqual([FLOWS]);
+  });
+});

@@ -111,7 +111,7 @@ Dependiendo del tipo de ficha, verá secciones adicionales con **campos personal
 - **Texto** — Entrada de texto libre
 - **Texto multilínea** — Entrada de texto libre que preserva los saltos de línea, mostrada como un área de texto que crece automáticamente
 - **Número** — Valor numérico
-- **Costo** — Valor numérico mostrado con la moneda configurada en la plataforma
+- **Costo** — Valor numérico mostrado con la moneda configurada en la plataforma. Los campos de costo se muestran a los usuarios cuyo rol tiene el permiso `costs.view` (listado en **Costs** en el editor de roles) y a las partes interesadas de una tarjeta cuando su [rol de parte interesada](../admin/metamodel.md) lo permite. Los demás ven *Restringido* en su lugar y no pueden cambiar el valor. Observar una tarjeta no muestra sus costos
 - **Booleano** — Elección en una lista Sí / No, con **Ninguno** para borrarlo; se muestra como una etiqueta verde *Sí* o azul *No*, — si no está definido
 - **Fecha** — Selector de fecha
 - **URL** — Enlace interactivo (validado para http/https/mailto)

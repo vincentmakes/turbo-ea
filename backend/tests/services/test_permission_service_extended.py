@@ -845,8 +845,9 @@ EFFECTIVE_FLAGS = {
     "can_bpm_withdraw": ("bpm.withdraw_flows", "card.bpm_withdraw"),
     "can_manage_adr_links": ("adr.manage", "card.manage_adr_links"),
     "can_manage_diagram_links": ("diagrams.manage", "card.manage_diagram_links"),
+    "can_view_costs": ("costs.view", "card.view_costs"),
 }
-ALL_FLAGS = [*EFFECTIVE_FLAGS, "can_view_costs"]
+ALL_FLAGS = list(EFFECTIVE_FLAGS)
 
 
 @pytest.fixture
@@ -889,7 +890,7 @@ class TestEffectiveFlagsOneGrantAtATime:
         assert result["app_level"] == {app_key: True, "x.y": False}
 
     @pytest.mark.parametrize("flag", list(EFFECTIVE_FLAGS))
-    async def test_the_card_level_key_alone_sets_its_flag_and_costs(self, db, flag_env, flag):
+    async def test_the_card_level_key_alone_sets_only_its_flag(self, db, flag_env, flag):
         card_key = EFFECTIVE_FLAGS[flag][1]
         await create_stakeholder_role_def(
             db, card_type_key="Application", key="holder", permissions={card_key: True}
@@ -897,8 +898,8 @@ class TestEffectiveFlagsOneGrantAtATime:
         user = await create_user(db, email="card@test.com", role="nothing")
         await _assign_stakeholder(db, flag_env.id, user.id, "holder")
         result = await PermissionService.get_effective_card_permissions(db, user, flag_env.id)
-        # any stakeholder role also reveals the card's costs
-        assert result["effective"] == only(flag, "can_view_costs")
+        # holding a role reveals nothing but what the role grants (#1412)
+        assert result["effective"] == only(flag)
         assert result["card_level"] == {card_key: True}
         assert result["stakeholder_roles"] == ["holder"]
 
@@ -913,14 +914,15 @@ class TestEffectiveFlagsOneGrantAtATime:
         await _assign_stakeholder(db, flag_env.id, user.id, "mixed")
         result = await PermissionService.get_effective_card_permissions(db, user, flag_env.id)
         assert result["card_level"] == {"card.view": True}
-        assert result["effective"] == only("can_view", "can_view_costs")
+        assert result["effective"] == only("can_view")
 
-    async def test_a_stakeholder_role_without_a_definition_grants_only_costs(self, db, flag_env):
+    async def test_a_stakeholder_role_without_a_definition_grants_nothing(self, db, flag_env):
         user = await create_user(db, email="undefined@test.com", role="nothing")
         await _assign_stakeholder(db, flag_env.id, user.id, "ghost")
         result = await PermissionService.get_effective_card_permissions(db, user, flag_env.id)
+        assert result["stakeholder_roles"] == ["ghost"]
         assert result["card_level"] == {}
-        assert result["effective"] == only("can_view_costs")
+        assert result["effective"] == only()
 
     async def test_costs_view_alone_sets_only_costs(self, db, flag_env):
         await create_role(db, key="costs", label="Costs", permissions={"costs.view": True})

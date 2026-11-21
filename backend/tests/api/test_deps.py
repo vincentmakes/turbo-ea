@@ -133,6 +133,25 @@ class TestGetCurrentUser:
         assert resp.status_code == 401
         assert "inactive" in resp.json()["detail"].lower()
 
+    async def test_expired_access_returns_401_saying_so(self, client, db, deps_env):
+        """A valid JWT for a user whose access has expired is refused, and the
+        response says why: the client tells this apart from a bad token."""
+        from datetime import datetime, timedelta, timezone
+
+        from app.core.security import create_access_token
+
+        lapsed = await create_user(db, email="lapsed@test.com", role="member")
+        lapsed.access_expires_at = datetime.now(timezone.utc) - timedelta(minutes=1)
+        await db.flush()
+
+        token = create_access_token(lapsed.id, lapsed.role)
+        resp = await client.get(
+            "/api/v1/cards",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 401
+        assert resp.json() == {"detail": "Account access has expired"}
+
 
 # ---------------------------------------------------------------------------
 # get_optional_user — graceful fallback

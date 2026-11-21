@@ -147,6 +147,11 @@ services:
       # allowlist of public icon CDNs.
       MCP_LOGO_FETCH_ENABLED: ${MCP_LOGO_FETCH_ENABLED:-true}
       MCP_LOGO_FETCH_HOSTS: ${MCP_LOGO_FETCH_HOSTS:-}
+      # Opt-ins for the two removals the MCP server refuses by default:
+      # relation deletes through upsert_relations_bulk, and the operations an
+      # installed extension marks destructive (call_extension_write).
+      MCP_ALLOW_RELATION_DELETE: ${MCP_ALLOW_RELATION_DELETE:-false}
+      MCP_ALLOW_EXTENSION_DESTRUCTIVE: ${MCP_ALLOW_EXTENSION_DESTRUCTIVE:-false}
       # Extra Host names / browser origins the MCP endpoint accepts beyond the
       # two public URLs, and static OAuth redirect URIs. Empty = none.
       MCP_ALLOWED_HOSTS: ${MCP_ALLOWED_HOSTS:-}

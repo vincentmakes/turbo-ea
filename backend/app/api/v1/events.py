@@ -28,6 +28,7 @@ from app.services.cost_event_redaction import reader_drop_keys, redact_cost_even
 from app.services.cost_field_filter import strip_change_keys
 from app.services.document_event_scope import document_event_read_filters
 from app.services.event_bus import event_bus
+from app.services.event_cost_scrub import scrub_event_costs
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/events", tags=["events"])
@@ -172,6 +173,9 @@ async def list_my_card_events(
 
     payloads = await scrub_event_payloads(db, read_scope, [e.data for e in events_list])
     payloads = await redact_cost_events(db, user, events_list, payloads)
+    payloads = await scrub_event_costs(
+        db, user, [(e.card_id, data) for e, data in zip(events_list, payloads)]
+    )
     return [
         {
             "id": str(e.id),

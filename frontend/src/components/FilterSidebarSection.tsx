@@ -5,16 +5,19 @@
  * The house pattern, extracted from the Compliance sidebar so the GRC
  * panels can't drift apart again:
  *  - `FilterSectionHeader` — chevron + section icon + label + a primary
- *    count chip when the section holds active selections (the Inventory
- *    sidebar's header, verbatim).
+ *    count chip when the section holds active selections, plus — when the
+ *    sidebar passes `onClear` — a per-section clear button beside it.
  *  - `FilterCheckboxList` — dense checkbox rows, with a small coloured dot
  *    (or icon) before the label where the value carries a semantic colour.
  *    Deliberately **not** chips: the dot keeps the colour visible without
  *    confusing the selected/unselected affordance.
  */
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
+import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
 import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
@@ -22,47 +25,99 @@ import ListItemText from "@mui/material/ListItemText";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
+import { isToggleKey, showsSectionClear } from "@/lib/filterSections";
 
+/**
+ * The toggle area is a keyboard-operable `role="button"` with
+ * `aria-expanded`; `data-section-icon` names the section for tests.
+ */
 export function FilterSectionHeader({
   label,
   icon,
   expanded,
   onToggle,
   count,
+  onClear,
 }: {
   label: string;
   icon: string;
   expanded: boolean;
   onToggle: () => void;
   count?: number;
+  /**
+   * Clears every filter of this section. The button renders only while
+   * `count > 0`, as a SIBLING of the toggle area — its own tab stop, and a
+   * click on it can never fold or unfold the section (same reasoning as the
+   * clear-all chip of `ReportFilterSection` and the freeze pin below).
+   */
+  onClear?: () => void;
 }) {
+  const { t } = useTranslation("common");
   return (
     <Box
-      onClick={onToggle}
       sx={{
         display: "flex",
         alignItems: "center",
-        gap: 0.75,
-        py: 0.5,
-        px: 0.5,
-        cursor: "pointer",
         borderRadius: 1,
-        userSelect: "none",
         "&:hover": { bgcolor: "action.hover" },
       }}
     >
-      <MaterialSymbol icon={expanded ? "expand_more" : "chevron_right"} size={16} />
-      <MaterialSymbol icon={icon} size={16} />
-      <Typography variant="body2" fontWeight={600} fontSize={13} sx={{ flex: 1 }}>
-        {label}
-      </Typography>
-      {count != null && count > 0 && (
-        <Chip
-          label={count}
-          size="small"
-          color="primary"
-          sx={{ height: 18, fontSize: 11 }}
-        />
+      <Box
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
+        data-section-icon={icon}
+        onClick={onToggle}
+        onKeyDown={(e) => {
+          if (isToggleKey(e.key)) {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          flex: 1,
+          minWidth: 0,
+          gap: 0.75,
+          py: 0.5,
+          px: 0.5,
+          cursor: "pointer",
+          borderRadius: 1,
+          userSelect: "none",
+          "&:focus-visible": {
+            outline: "2px solid",
+            outlineColor: "primary.main",
+            outlineOffset: -2,
+          },
+        }}
+      >
+        <MaterialSymbol icon={expanded ? "expand_more" : "chevron_right"} size={16} />
+        <MaterialSymbol icon={icon} size={16} />
+        <Typography variant="body2" fontWeight={600} fontSize={13} sx={{ flex: 1 }}>
+          {label}
+        </Typography>
+        {count != null && count > 0 && (
+          <Chip
+            label={count}
+            size="small"
+            color="primary"
+            sx={{ height: 18, fontSize: 11 }}
+            data-testid="section-count"
+          />
+        )}
+      </Box>
+      {showsSectionClear(count, onClear) && (
+        <Tooltip title={t("filter.clearSection", { section: label })}>
+          <IconButton
+            size="small"
+            aria-label={t("filter.clearSection", { section: label })}
+            onClick={onClear}
+            sx={{ p: 0.25, mr: 0.25, color: "text.secondary" }}
+          >
+            <MaterialSymbol icon="filter_alt_off" size={16} />
+          </IconButton>
+        </Tooltip>
       )}
     </Box>
   );

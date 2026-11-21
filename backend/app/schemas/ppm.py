@@ -1,3 +1,4 @@
+import uuid
 from datetime import date as date_type
 from datetime import datetime
 from typing import Literal
@@ -281,6 +282,23 @@ class PpmWbsOut(BaseModel):
     task_count: int = 0
     created_at: datetime
     updated_at: datetime
+
+
+# --- Gantt row move (drag a row in the task list) ---
+
+
+class PpmGanttMove(BaseModel):
+    """Move one Gantt row: re-parent it and place it among its siblings.
+
+    ``position`` is the index among the same-kind siblings under the new
+    parent (work packages and tasks keep separate orders), counted with the
+    moved row left out; a value past the end appends.
+    """
+
+    kind: Literal["task", "wbs"]
+    id: uuid.UUID
+    parent_wbs_id: uuid.UUID | None = None
+    position: int = Field(..., ge=0)
 
 
 # --- Gantt Dependencies (FS only for now) ---

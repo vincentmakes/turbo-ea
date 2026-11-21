@@ -10,7 +10,7 @@ The **Inventory** is the heart of Turbo EA. Here all **cards** (components) of t
 
 The left sidebar panel allows you to **filter** cards by different criteria:
 
-- **Search** — Free text search across card names, from the very first letter. Best matches come first: exact names, then names starting with what you typed, then names where it starts a word, then the rest. Every search box in Turbo EA orders results this way — the global search (**Ctrl+K** / **⌘K**), each card picker, the Risk Register, Decisions and published portals — unless you have chosen a sort of your own, which always wins. A card's **alias** and its description are matched too, so a card is found by the name your organisation actually uses for it — and an alias that matches exactly ranks as highly as a name that does
+- **Search** — Free text search across card names, from the very first letter. Best matches come first: exact names, then names starting with what you typed, then names where it starts a word, then the rest. Every search box in Turbo EA orders results this way — the global search (**Ctrl+K** / **⌘K** — except inside decision or SoAW text you are editing, where the shortcut opens the [link dialog](grc.md#decision-text-links)), each card picker, the Risk Register, Decisions and published portals — unless you have chosen a sort of your own, which always wins. A card's **alias** and its description are matched too, so a card is found by the name your organisation actually uses for it — and an alias that matches exactly ranks as highly as a name that does
 - **Types** — Filter by one or more card types, grouped by the architecture layer each type belongs to: Strategy & Transformation (Objective, Platform, Initiative), Business Architecture (Organization, Business Capability, Business Context, Business Process), Application & Data (Application, Interface, Data Object) and Technical Architecture (IT Component, Tech Category, Provider). A type your administrator places in a layer of its own gets its own heading after those four, and any type with no layer set is listed last under **Uncategorized**
 - **Subtypes** — When a type is selected, filter further by subtype (e.g., Application → Business Application, Microservice, AI Agent, Deployment)
 - **Approval Status** — Draft, Approved, Broken, or Rejected
@@ -25,7 +25,7 @@ The left sidebar panel allows you to **filter** cards by different criteria:
 - **Relations** — Filter by related cards across relation types
 - **Custom attributes** — Filter by values in custom fields (text search, select options)
 - **Show archived only** — Toggle to view archived (soft-deleted) cards
-- **Clear all** — Reset all active filters at once
+- **Clear all** — Reset all active filters at once. To reset just one group, use the clear button that appears beside the group's count once something in it is selected — clearing **Types** also resets the filters that only apply to the selected type (subtypes, link types, end of life, attributes and relations).
 
 > **Find cards with no value.** The Subtype, Lifecycle, Tags, Relations, and single/multi-select custom attribute filters each include an **(empty)** option. Select it to list only the cards that have *no* value for that field — for example, every card with no lifecycle set. It can be combined with normal values (matching either) and across filters (matching all).
 
@@ -269,6 +269,8 @@ A view holds at most **six** query lines, **twelve** relations over all its line
 
 **Editing a saved query view.** When a query view is open, the strip shows its path: the card types as chips, joined by the relation verb that links each step (for example *Organization → uses Application → is affected by Initiative*), with each card's conditions underneath. A view with several lines shows the same stack, with its AND markers and OR dividers, without the editing controls. If you own the view or have edit rights on it, a **pencil** in the strip switches it to the same builder; **Save** updates the view. The **×** button (*Leave this view*) returns to the normal inventory. **Save Current View** while a query view is open saves a new query view with the same query.
 
+**Folding the strip.** The chevron at the start of the strip folds the query lines into its title row, which then shows only the view's name and how many lines it has, leaving more room for the grid; click it again to unfold them. The inventory remembers your choice for the next view you open. A view with many lines, in the strip or in the builder, keeps them in an area of limited height that scrolls on its own, so the grid below always keeps its room and the pencil, **×**, **Save** and **Cancel** stay in reach.
+
 #### Seeing the cards behind a match { #query-view-matches }
 
 A query view lists only the first card of its query. To see which cards further along the chain made a row match, click their card type in the query string. In *Organizations that use an Application that uses an IT Component at or near end of life*, click **Application** and a column lists, for each Organization, the Applications through which it matches; click **IT Component** and another column lists the qualifying IT Components. Click the card type again to remove its column.
@@ -336,6 +338,12 @@ Cells are **declarative**: the set of targets in the cell becomes the complete s
 A comma is never a separator in a workbook exported by Turbo EA (it carries a `_Meta` sheet), so a cell holding one target such as `This is X, it does Y` stays one target. A sheet without `_Meta` (built by hand, or exported before 1.23) may still separate targets with commas: a cell containing any `;` is semicolon-separated, and a cell without one is read as a single target when the whole cell names a card, and as comma-separated otherwise.
 
 The `tags` column follows the same rule: `Group: Tag` entries separated by `; ` (for example `Vendor: Acme, Inc.; Region: EU`), with a `;` inside a tag name written as `\;`. Workbooks exported before 2.156.1 separated tags with commas and still import as before.
+
+#### Finding a relation type's key
+
+The name after `rel:` is the relation type's **key**, not its verb. You can read it in **Admin > Metamodel > Relations**: open the relation type's edit dialog, which shows the key under its two card types. The `rel:` column headers of any export list the keys too. A custom relation type works exactly like a built-in one.
+
+Links are created and removed only in the `rel:` column on the sheet of the card type the relation **starts from**. A `rel:` column placed on the sheet of the card type it points to is ignored, and the import preview names the sheet it belongs on. A relation type without values has no rows on the `Relations` sheet, since there is nothing to fill in there. Where the `Relations` sheet does need a `relation_type`, enter the key; if you type a verb instead, the preview tells you the key to use.
 
 ### Stakeholder cells
 

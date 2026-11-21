@@ -232,24 +232,31 @@ class DocumentResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+TagGroupMode = Literal["single", "multi"]
+
+
 class TagGroupCreate(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1, max_length=200)
     description: str | None = None
-    mode: str = "multi"
+    mode: TagGroupMode = "multi"
     mandatory: bool = False
     restrict_to_types: list[str] | None = None
+    # Validate and roll back: nothing is stored and no audit row is written.
+    dry_run: bool = False
 
 
 class TagCreate(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1, max_length=200)
     description: str | None = None
-    color: str | None = None
+    color: str | None = Field(default=None, max_length=20)
+    # Validate and roll back: nothing is stored and no audit row is written.
+    dry_run: bool = False
 
 
 class TagGroupUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
-    mode: str | None = None
+    mode: TagGroupMode | None = None
     mandatory: bool | None = None
     restrict_to_types: list[str] | None = None
 
@@ -258,6 +265,51 @@ class TagUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
     color: str | None = None
+
+
+# The cap matches the bulk card create's: the MCP wrapper sends far fewer
+# (``MCP_MAX_CARDS_PER_CALL``), and the importer-sized ceiling bounds the rest.
+MAX_CARD_TAG_OPERATIONS = 2000
+MAX_TAGS_PER_OPERATION = 200
+
+
+class CardTagOperation(BaseModel):
+    """Add, remove or replace tags on one card."""
+
+    card_id: str
+    tag_ids: list[str] = Field(default_factory=list, max_length=MAX_TAGS_PER_OPERATION)
+    mode: Literal["add", "remove", "replace"]
+
+
+class CardTagBulkRequest(BaseModel):
+    operations: list[CardTagOperation] = Field(
+        ..., min_length=1, max_length=MAX_CARD_TAG_OPERATIONS
+    )
+    dry_run: bool = False
+
+
+class CardTagBulkResult(BaseModel):
+    """One row's outcome. ``status`` is ``updated`` (or ``unchanged`` when the
+    card already had that set), ``not_found`` for a card that does not exist
+    or that the caller may not read, ``failed`` for an archived card, a bad id
+    or a group rule. ``tag_ids`` is the card's resulting set (empty unless the
+    row succeeded)."""
+
+    index: int
+    card_id: str
+    status: Literal["updated", "unchanged", "not_found", "failed"]
+    added: list[str] = []
+    removed: list[str] = []
+    tag_ids: list[str] = []
+    error: str | None = None
+
+
+class CardTagBulkResponse(BaseModel):
+    results: list[CardTagBulkResult]
+    updated: int
+    unchanged: int
+    failed: int
+    dry_run: bool
 
 
 class TagGroupResponse(BaseModel):

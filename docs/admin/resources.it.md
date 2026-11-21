@@ -78,9 +78,11 @@ La pagina riutilizza gli stessi permessi del tab Risorse di una scheda — non e
 
 L'eliminazione in blocco viene verificata **riga per riga**. Se la vostra selezione include risorse su schede che non potete gestire, quelle righe vengono saltate anziché far fallire l'intera operazione, e un avviso elenca esattamente quali e perché.
 
-## Quando il caricamento di file è disabilitato
+## Quando il caricamento di file è disabilitato {: #when-file-uploads-are-disabled }
 
 Disattivare **Caricamento di file** in **Admin → Impostazioni → Generali** blocca soltanto i nuovi caricamenti. I file esistenti restano elencati qui e rimangono scaricabili ed eliminabili, così potete comunque fare audit e pulizia. Mentre l'interruttore è disattivato, sulla pagina compare un banner informativo.
+
+Lo stesso interruttore nasconde anche i comandi che inseriscono immagini nel testo delle [decisioni](../guide/grc.md#decision-pictures) e dei [SoAW](../guide/delivery.md#soaw-pictures). Le immagini già presenti in un documento restano visibili.
 
 ## Correlati
 

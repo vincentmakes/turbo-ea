@@ -165,6 +165,8 @@
   "dependencyCreateFailed": "Échec de la création de la dépendance",
   "dependencyDeleteFailed": "Échec de la suppression de la dépendance",
   "dependencyCycleError": "Cette dépendance créerait un cycle",
+  "ganttMoveFailed": "L'élément n'a pas pu être déplacé",
+  "ganttMoveWhileSorted": "Supprimez le tri par colonne pour réorganiser les éléments.",
   "dependencyDuplicateError": "Cette dépendance existe déjà",
   "confirmDeleteDependency": "Supprimer cette flèche de dépendance ?",
   "today": "Aujourd'hui",

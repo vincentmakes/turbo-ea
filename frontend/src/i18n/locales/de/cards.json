@@ -110,6 +110,8 @@
   "attributes.calculated": "berechnet",
   "attributes.percentageRange": "Geben Sie eine Zahl zwischen 0 und 100 ein",
   "attributes.auto": "auto",
+  "attributes.extLocked": "schreibgeschützt",
+  "attributes.extLockedTooltip": "Schreibgeschützt: Die Erweiterung, die dieses Feld bereitstellt, ist nicht aktiv oder lizenziert",
   "attributes.filterAll": "Alle",
   "hierarchy.title": "Hierarchie",
   "hierarchy.level": "Ebene {{level}}",
