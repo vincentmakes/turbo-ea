@@ -333,7 +333,12 @@ class TestReportsUnderAViewDeny:
         await create_role(
             db,
             key="finance",
-            permissions={"reports.ea_dashboard": True, "inventory.view": True, "costs.view": True},
+            permissions={
+                "reports.ea_dashboard": True,
+                "reports.portfolio": True,
+                "inventory.view": True,
+                "costs.view": True,
+            },
         )
         await create_card_type(
             db,
@@ -377,7 +382,7 @@ class TestReportsUnderAViewDeny:
             await db.flush()
             PermissionService.invalidate_type_permission_cache()
 
-        yield {"finance": finance, "deny": deny}
+        yield {"finance": finance, "deny": deny, "app": app, "cap": cap}
         PermissionService.invalidate_type_permission_cache()
 
     async def _landscape(self, client, user):
@@ -408,3 +413,105 @@ class TestReportsUnderAViewDeny:
         await env["deny"]()
         assert await self._landscape(client, env["finance"]) == {"tier": "gold"}
         assert await self._heatmap(client, env["finance"]) == (0.0, {"tier": "gold"})
+
+    async def test_portfolio_hides_cost_axis_for_a_denied_card(self, client, env):
+        await env["deny"]()
+        response = await client.get(
+            "/api/v1/reports/portfolio",
+            params={
+                "type": "Application",
+                "x_axis": "tier",
+                "y_axis": "tier",
+                "size_field": "costTotalAnnual",
+                "color_field": "tier",
+            },
+            headers=auth_headers(env["finance"]),
+        )
+        assert response.status_code == 200, response.text
+        [item] = response.json()["items"]
+        assert item["name"] == "Billing"
+        assert item["x"] == "gold"
+        assert item["size"] is None
+
+    async def test_subtype_deny_hides_application_costs_in_both_reports(self, client, db, env):
+        from sqlalchemy import select
+
+        from app.models.card_type import CardType
+        from app.services.permission_service import PermissionService
+
+        ct = (await db.execute(select(CardType).where(CardType.key == "Application"))).scalar_one()
+        env["app"].subtype = "restricted"
+        ct.role_permissions = {
+            "finance": {"inventory.view": {"value": False, "subtypes": ["restricted"]}}
+        }
+        await db.flush()
+        PermissionService.invalidate_type_permission_cache()
+        assert await self._landscape(client, env["finance"]) == {"tier": "gold"}
+        assert await self._heatmap(client, env["finance"]) == (0.0, {"tier": "gold"})
+
+    async def test_capability_cost_attributes_follow_card_permission(self, client, db, env):
+        from sqlalchemy import select
+
+        from app.models.card_type import CardType
+        from app.models.stakeholder import Stakeholder
+        from app.services.permission_service import PermissionService
+        from tests.conftest import create_stakeholder_role_def
+
+        ct = (
+            await db.execute(select(CardType).where(CardType.key == "BusinessCapability"))
+        ).scalar_one()
+        ct.fields_schema = [
+            {
+                "section": "g",
+                "fields": [
+                    {"key": "costEstimate", "type": "cost"},
+                    {"key": "tier", "type": "text"},
+                ],
+            }
+        ]
+        ct.role_permissions = {"finance": {"inventory.view": False}}
+        await create_stakeholder_role_def(
+            db, card_type_key="BusinessCapability", key="watcher", permissions={"card.view": True}
+        )
+        db.add(Stakeholder(card_id=env["cap"].id, user_id=env["finance"].id, role="watcher"))
+        env["cap"].attributes = {"costEstimate": 40, "tier": "gold"}
+        await db.flush()
+        PermissionService.invalidate_type_permission_cache()
+        response = await client.get(
+            "/api/v1/reports/capability-heatmap?metric=app_count",
+            headers=auth_headers(env["finance"]),
+        )
+        assert response.status_code == 200, response.text
+        [item] = response.json()["items"]
+        assert item["attributes"] == {"tier": "gold"}
+
+    async def test_subtype_deny_keeps_authorized_cost_in_heatmap(self, client, db, env):
+        from sqlalchemy import select
+
+        from app.models.card_type import CardType
+        from app.services.permission_service import PermissionService
+        from tests.conftest import create_relation
+
+        ct = (await db.execute(select(CardType).where(CardType.key == "Application"))).scalar_one()
+        env["app"].subtype = "restricted"
+        ct.role_permissions = {
+            "finance": {"inventory.view": {"value": False, "subtypes": ["restricted"]}}
+        }
+        allowed = await create_card(
+            db, card_type="Application", name="Allowed", attributes={"costTotalAnnual": 70}
+        )
+        await create_relation(
+            db, type_key="relAppToBC", source_id=allowed.id, target_id=env["cap"].id
+        )
+        await db.flush()
+        PermissionService.invalidate_type_permission_cache()
+        response = await client.get(
+            "/api/v1/reports/capability-heatmap?metric=total_cost",
+            headers=auth_headers(env["finance"]),
+        )
+        assert response.status_code == 200, response.text
+        [item] = response.json()["items"]
+        assert item["total_cost"] == 70
+        apps = {app["name"]: app for app in item["apps"]}
+        assert apps["Allowed"]["attributes"]["costTotalAnnual"] == 70
+        assert "costTotalAnnual" not in apps["Billing"]["attributes"]
