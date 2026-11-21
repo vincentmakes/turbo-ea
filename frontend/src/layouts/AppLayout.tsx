@@ -548,9 +548,13 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     fetchBadgeCounts();
   }, [location.pathname, fetchBadgeCounts]);
 
-  // Global Cmd/Ctrl+K keyboard shortcut to open search
+  // Global Cmd/Ctrl+K keyboard shortcut to open search. A key something
+  // closer already handled is left alone: an editable rich-text editor takes
+  // Ctrl/Cmd+K for its link dialog (ProseMirror prevents the default of every
+  // key it handles, before this bubble-phase listener runs).
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         setSearchDialogOpen(true);

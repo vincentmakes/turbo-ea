@@ -552,6 +552,11 @@ class TestMountRoutersFailSoft:
         api_router = APIRouter()
         mount_extension_routers(api_router, report)
         assert [(f.key, f.error) for f in report.failed] == [("bad", "no router")]
+        # The mounted router is kept on the LoadedExtension (the agent-tools
+        # registry checks declarations against it, never calling get_router()
+        # again); nothing is kept for the raising or empty ones.
+        kept = {ext.key: ext.router for ext in report.loaded}
+        assert kept == {"bad": None, "empty": None, "ok": served, "content": None}
         app = FastAPI()
         app.include_router(api_router)
         paths = app.openapi()["paths"]

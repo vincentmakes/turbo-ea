@@ -7,6 +7,7 @@ from app.models.archimate_viewpoint import (
 )
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
+from app.models.architecture_decision_diagram import ArchitectureDecisionDiagram
 from app.models.architecture_decision_file import (
     ArchitectureDecisionFile,
     ArchitectureDecisionFileContent,
@@ -36,6 +37,7 @@ from app.models.diagram_group import DiagramGroup, diagram_group_members
 from app.models.document import Document
 from app.models.document_comment import DocumentComment
 from app.models.document_history import DocumentHistoryEntry
+from app.models.document_image import DocumentImage
 from app.models.ea_principle import EAPrinciple
 from app.models.enterprise_object import EnterpriseObject, EnterpriseObjectCardMapping
 from app.models.eol_custom_cycle import EolCustomCycle
@@ -116,6 +118,7 @@ __all__ = [
     "TurboLensVendorHierarchy",
     "ArchitectureDecision",
     "ArchitectureDecisionCard",
+    "ArchitectureDecisionDiagram",
     "ArchitectureDecisionFile",
     "ArchitectureDecisionFileContent",
     "ArchitectureDecisionLink",
@@ -147,6 +150,7 @@ __all__ = [
     "Document",
     "DocumentComment",
     "DocumentHistoryEntry",
+    "DocumentImage",
     "EAPrinciple",
     "EnterpriseObject",
     "EnterpriseObjectCardMapping",

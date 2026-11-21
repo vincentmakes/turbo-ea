@@ -398,7 +398,7 @@ class TestImportPathsRecordThemselves:
             status="pending",
         )
 
-        await engine._apply_update(staged, [], env["user"].id)
+        await engine._apply_update(staged, env["user"].id)
 
         events = await _events_for(db, env["card"].id)
         assert [e.event_type for e in events] == ["card.updated"]

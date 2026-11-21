@@ -29,6 +29,8 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import type { SxProps, Theme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { FilterSectionHeader } from "@/components/FilterSidebarSection";
+import { resetFilterKeys } from "@/lib/filterSections";
 import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
 import ColumnOrderSection, { type ColumnOrderItem } from "@/components/grid/ColumnOrderSection";
 import { EOL_STATUS_COLORS, EOL_STATUS_LABEL_KEYS, EOL_STATUSES } from "@/lib/eol";
@@ -99,19 +101,6 @@ export const SIDEBAR_MAX_WIDTH = 480;
 
 // Stryker disable all: layout, spacing and colour are presentation; jsdom lays nothing out
 const SX = {
-  sectionHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: 0.75,
-    py: 0.5,
-    px: 0.5,
-    cursor: "pointer",
-    borderRadius: 1,
-    userSelect: "none",
-    "&:hover": { bgcolor: "action.hover" },
-  },
-  sectionLabel: { flex: 1 },
-  countChip: { height: 18, fontSize: 11 },
   changeDot: { width: 8, height: 8, borderRadius: "50%", bgcolor: "primary.main", flexShrink: 0 },
   rail: {
     width: 44,
@@ -184,33 +173,6 @@ export function activeFilterCount(f: CustomEolFilters): number {
   return (f.search.trim() ? 1 : 0) + f.statuses.length + (f.usage !== "any" ? 1 : 0);
 }
 
-function SectionHeader({
-  label,
-  icon,
-  expanded,
-  onToggle,
-  count,
-}: {
-  label: string;
-  icon: string;
-  expanded: boolean;
-  onToggle: () => void;
-  count?: number;
-}) {
-  return (
-    <Box onClick={onToggle} sx={SX.sectionHeader}>
-      <MaterialSymbol icon={expanded ? "expand_more" : "chevron_right"} size={16} />
-      <MaterialSymbol icon={icon} size={16} />
-      <Typography variant="body2" fontWeight={600} fontSize={13} sx={SX.sectionLabel}>
-        {label}
-      </Typography>
-      {count != null && count > 0 && (
-        <Chip label={count} size="small" color="primary" sx={SX.countChip} />
-      )}
-    </Box>
-  );
-}
-
 function ChangeDot() {
   return <Box data-testid="change-dot" sx={SX.changeDot} />;
 }
@@ -256,6 +218,9 @@ export default function CustomEolFilterSidebar({
     usage: false,
   });
   const toggleSection = (key: string) => setExpanded((p) => ({ ...p, [key]: !p[key] }));
+  /** One section's clear button: resets exactly that section's keys. */
+  const clearKeys = (...keys: (keyof CustomEolFilters)[]) =>
+    onFiltersChange(resetFilterKeys(filters, EMPTY_CUSTOM_EOL_FILTERS, keys));
   const activeCount = useMemo(() => activeFilterCount(filters), [filters]);
   const allColumnIds = useMemo(() => CUSTOM_EOL_COLUMNS.map((c) => c.id), []);
   const columnsChanged = columnsDifferFromDefault(visibleColumns);
@@ -361,11 +326,12 @@ export default function CustomEolFilterSidebar({
                 </Button>
               )}
 
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("eol.custom.filters.sectionSearch")}
                 icon="search"
                 expanded={expanded.search}
                 onToggle={() => toggleSection("search")}
+                onClear={() => clearKeys("search")}
                 count={filters.search.trim() ? 1 : 0}
               />
               <Collapse in={expanded.search}>
@@ -399,11 +365,12 @@ export default function CustomEolFilterSidebar({
 
               <Divider sx={SX.divider} />
 
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("eol.custom.filters.sectionStatus")}
                 icon="traffic"
                 expanded={expanded.status}
                 onToggle={() => toggleSection("status")}
+                onClear={() => clearKeys("statuses")}
                 count={filters.statuses.length}
               />
               <Collapse in={expanded.status}>
@@ -431,11 +398,12 @@ export default function CustomEolFilterSidebar({
 
               <Divider sx={SX.divider} />
 
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("eol.custom.filters.sectionUsage")}
                 icon="link"
                 expanded={expanded.usage}
                 onToggle={() => toggleSection("usage")}
+                onClear={() => clearKeys("usage")}
                 count={filters.usage !== "any" ? 1 : 0}
               />
               <Collapse in={expanded.usage}>
@@ -485,7 +453,7 @@ export default function CustomEolFilterSidebar({
                   </Button>
                 )}
               </Box>
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("eol.custom.filters.columnsHint")}
                 icon="grid_view"
                 expanded

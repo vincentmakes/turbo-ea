@@ -90,7 +90,7 @@ Utilisez la barre de **filtre rapide** pour une recherche en texte intégral. Fa
 
 #### Exporter et importer des décisions {: #decisions-import }
 
-**Exporter** (à côté de **+ Nouvelle décision**) télécharge les décisions actuellement affichées par la barre latérale de filtres sous forme de fichier `.xlsx`, une ligne par révision de décision. Les colonnes, dans l'ordre : `reference_number`, `title`, `status`, `revision_number`, les quatre sections (`context`, `decision`, `consequences`, `alternatives_considered`) en texte brut, `cards` et `related_decisions` (séparées par des points-virgules), `author`, `signatories`, `signed_at`, `created_at`, `updated_at`, puis les données propres au registre — `standing` (sous forme de clé, par ex. `in_force`), `decided_on`, `effective_from`, `valid_until`, `decision_makers`, `participants`, et les liens typés `replaces`, `amends`, `revokes` et `consolidates` sous forme de références. La mise en forme (gras, liens, etc.) n'est pas reprise dans le tableur. Pour partager des décisions entièrement mises en forme, sélectionnez des lignes dans la grille et utilisez le bouton **Export** de la grille, qui produit un document Word.
+**Exporter** (à côté de **+ Nouvelle décision**) télécharge les décisions actuellement affichées par la barre latérale de filtres sous forme de fichier `.xlsx`, une ligne par révision de décision. Les colonnes, dans l'ordre : `reference_number`, `title`, `status`, `revision_number`, les quatre sections (`context`, `decision`, `consequences`, `alternatives_considered`) en texte brut, `cards` et `related_decisions` (séparées par des points-virgules), `author`, `signatories`, `signed_at`, `created_at`, `updated_at`, puis les données propres au registre — `standing` (sous forme de clé, par ex. `in_force`), `decided_on`, `effective_from`, `valid_until`, `decision_makers`, `participants`, et les liens typés `replaces`, `amends`, `revokes` et `consolidates` sous forme de références. La mise en forme (gras, liens, etc.) n'est pas reprise dans le tableur, et chaque ligne d'un tableau d'une section y est écrite sur une seule ligne, ses cellules séparées par ` | `. Pour partager des décisions entièrement mises en forme, sélectionnez des lignes dans la grille et utilisez le bouton **Export** de la grille, qui produit un document Word.
 
 **Importer** crée des décisions en masse à partir d'un fichier `.xlsx`. Cliquez sur **Télécharger le modèle** pour obtenir un classeur de départ, renseignez une décision par ligne et importez-le :
 
@@ -118,8 +118,11 @@ Dans tous les cas, vous pouvez rechercher et lier des fiches supplémentaires lo
 
 L'éditeur offre :
 
-- Édition de texte riche pour chaque section (Contexte, Décision, Conséquences, Alternatives envisagées)
+- Édition de texte riche pour chaque section (Contexte, Décision, Conséquences, Alternatives envisagées) : gras, italique, souligné, barré, **Code en ligne**, un **Titre** et un **Sous-titre**, listes à puces et numérotées, citations, un **Bloc de code** pour une commande ou un extrait de configuration (conservé sur ses propres lignes dans une police à chasse fixe) et séparateurs
+- **Liens** — liez un texte sélectionné à une page web ou à une adresse e-mail (voir [Liens dans le texte](#decision-text-links))
+- **Tableaux** — insérez et modifiez un tableau dans une section (voir [Tableaux](#decision-tables))
 - **Mentions** — tapez **@** dans une section pour mentionner une fiche ou une autre décision (voir [Mentions](#decision-mentions))
+- **Images** — insérez une capture d'écran ou un diagramme dans une section (voir [Images](#decision-pictures))
 - **Discussion** — un panneau à côté du document avec sa discussion (voir [Discussion](#decision-discussion))
 - **Historique** — un bouton en haut de la page qui ouvre la chronologie de la décision et ses versions enregistrées (voir [Historique](#decision-history))
 - Liaison de fiches — connectez l'ADR aux fiches pertinentes (applications, composants IT, initiatives, …). Les initiatives sont liées via la fonctionnalité standard de liaison de fiches, et non via un champ dédié, ce qui permet à un ADR de référencer plusieurs initiatives
@@ -128,6 +131,76 @@ L'éditeur offre :
 - **Cette décision…** — des liens typés vers d'autres décisions (voir [Liens entre décisions](#decision-links))
 - **Résumé des modifications** — sur une révision uniquement : ce qui a changé dans cette révision, et pourquoi
 - **Fichiers** — des documents joints à la décision (voir [Fichiers](#decision-files))
+- **Diagrammes** — des diagrammes du module Diagrammes joints à la décision (voir [Diagrammes](#decision-diagrams))
+
+#### Images {: #decision-pictures }
+
+Chacune des quatre sections peut contenir des images — une capture d'écran, un diagramme exporté, la photo d'un tableau blanc. Cliquez sur **Insérer une image** dans la barre d'outils de la section et choisissez un fichier, collez une image depuis le presse-papiers ou faites glisser un fichier image sur la section. L'image est téléversée au moment de son insertion et apparaît sur sa propre ligne.
+
+- **Redimensionner.** Faites glisser le coin d'une image pour la redimensionner : ses proportions sont conservées.
+- **Aligner.** Sélectionnez l'image et cliquez sur **Aligner à gauche**, **Centrer** ou **Aligner à droite** dans la barre d'outils.
+- **Formats.** PNG, JPEG, GIF et WebP, jusqu'à 5 Mo par image. Une image plus grande est refusée, pas réduite. SVG n'est pas accepté.
+- **Où elle apparaît.** Les images apparaissent dans l'[aperçu](#preview), dans la copie PDF / imprimée et dans l'export Word. Dans l'[Historique](#decision-history), une version affiche ses images, et **Modifications** signale une image ajoutée ou supprimée par *[Image]*. Une révision, un duplicata et une version restaurée conservent les images du texte dont ils proviennent.
+- **Uniquement les images téléversées ici.** Une décision ne conserve que les images téléversées dans des décisions. Une image qui pointe vers un autre site web, ou copiée depuis un SoAW, est supprimée à l'enregistrement de la décision.
+- **Les commentaires** de la [discussion](#decision-discussion) n'acceptent pas d'images.
+- **Lorsque le téléversement de fichiers est désactivé.** Le bouton **Insérer une image**, le collage et le glisser-déposer d'images disparaissent lorsqu'un administrateur a [désactivé le téléversement de fichiers](../admin/resources.md#when-file-uploads-are-disabled). Les images déjà présentes dans le texte restent visibles.
+
+#### Liens dans le texte {: #decision-text-links }
+
+Sélectionnez quelques mots et cliquez sur **Lien** dans la barre d'outils de la section, ou appuyez sur **Ctrl+K** (**Cmd+K** sur Mac), pour les lier. Saisissez l'**Adresse** et cliquez sur **Appliquer**. Si rien n'est sélectionné, la boîte de dialogue demande aussi le **Texte à afficher** ; laissé vide, c'est l'adresse elle-même qui s'affiche. Une adresse web ou une adresse e-mail saisie ou collée dans le texte devient un lien d'elle-même.
+
+- **Ce qui peut être un lien.** Les adresses web (`http://`, `https://`) et les adresses e-mail (`mailto:`). Une adresse sans schéma est complétée : `example.com` devient `https://example.com` et `ann@example.com` un lien e-mail. Tout le reste — un autre schéma, ou une adresse interne à Turbo EA comme `/cards/…` — est refusé avec *Saisissez une adresse web (https://…) ou une adresse e-mail*.
+- **Modifier ou supprimer un lien.** Placez le curseur dans le lien et cliquez à nouveau sur **Lien** ou appuyez sur Ctrl/Cmd+K : la boîte de dialogue s'ouvre avec l'adresse renseignée et propose aussi **Supprimer le lien** et **Ouvrir dans un nouvel onglet**.
+- **Suivre un lien.** Pendant l'édition, un clic sur un lien y place le curseur, pour qu'il se modifie comme n'importe quel autre texte ; **Ctrl+clic** (**Cmd+clic** sur Mac) l'ouvre dans un nouvel onglet. Dans l'aperçu, l'historique et une décision verrouillée ou signée, un clic l'ouvre dans un nouvel onglet.
+- **Ctrl/Cmd+K.** Dans une section en cours d'édition, le raccourci ouvre la boîte de dialogue de lien au lieu de la [recherche globale](inventory.md) ; partout ailleurs, il ouvre toujours la recherche.
+- **Les commentaires** de la [discussion](#decision-discussion) acceptent les liens de la même manière.
+- **Où ils apparaissent.** Les liens restent cliquables dans l'aperçu, la copie PDF / imprimée et l'export Word. Dans l'[Historique](#decision-history), **Modifications** signale comme une modification le changement d'adresse d'un lien.
+
+#### Tableaux {: #decision-tables }
+
+Chacune des quatre sections peut contenir des tableaux. Cliquez sur **Tableau** dans la barre d'outils de la section et choisissez **Insérer un tableau** : un tableau de trois lignes et trois colonnes est inséré, sa première ligne étant une ligne d'en-tête. Une cellule contient du texte comme le reste de la section : la mise en forme, les liens, les mentions et les images y fonctionnent.
+
+Les actions d'un tableau sont accessibles de trois façons, et chacune agit sur la cellule qui contient le curseur ou sur les cellules que vous avez sélectionnées :
+
+- **Le menu Tableau de la barre d'outils** — lorsque le curseur est dans un tableau, **Tableau** liste toutes les actions ci-dessous.
+- **Clic droit** dans une cellule — les mêmes actions s'ouvrent à l'emplacement du pointeur.
+- **Les poignées** autour du tableau — une poignée à côté d'une ligne ou au-dessus d'une colonne ouvre les actions de cette ligne ou de cette colonne, et un **+** en insère une (voir *Poignées* ci-dessous).
+
+Les actions :
+
+- **Sélectionner la ligne** et **Sélectionner la colonne** sélectionnent toute la ligne ou la colonne du curseur, ou de chaque cellule sélectionnée.
+- **Ajouter une ligne au-dessus**, **Ajouter une ligne en dessous**, **Ajouter une colonne avant** et **Ajouter une colonne après**. **Ajouter une ligne au-dessus** n'est pas disponible dans la ligne d'en-tête : une nouvelle ligne se place toujours en dessous.
+- **Monter la ligne**, **Descendre la ligne**, **Déplacer la colonne avant** et **Déplacer la colonne après** déplacent la ligne ou la colonne d'une position et la gardent sélectionnée. Un déplacement n'est pas disponible au bord du tableau, à travers la ligne d'en-tête, lorsque plusieurs lignes ou colonnes sont sélectionnées, ni dans un tableau où une cellule fusionnée s'étend sur plusieurs lignes (pour les lignes) ou sur plusieurs colonnes (pour les colonnes).
+- **Supprimer la ligne** et **Supprimer la colonne** suppriment chaque ligne ou colonne de la sélection et en indiquent le nombre (*Supprimer 2 lignes*). Un tableau garde au moins une ligne et une colonne : lorsque toutes les lignes sont sélectionnées, **Supprimer la ligne** n'est pas disponible, et lorsque toutes les colonnes le sont, **Supprimer la colonne** ne l'est pas.
+- **Ligne d’en-tête** active ou désactive la mise en forme d'en-tête de la première ligne.
+- **Fusionner les cellules** réunit les cellules que vous avez sélectionnées en faisant glisser le pointeur dessus, et **Scinder la cellule** divise à nouveau une cellule fusionnée.
+- **Supprimer le tableau**.
+
+Avant et après suivent le sens de lecture : dans une langue qui s'écrit de droite à gauche, la colonne avant est celle de droite.
+
+**Poignées.** Pendant la modification, le tableau est entouré d'une marge étroite qui porte ses poignées. Elles s'affichent pour la cellule sous le pointeur et, pendant que vous travaillez dans la section, pour la cellule qui contient le curseur :
+
+- **Une poignée de ligne** à côté de la ligne et **une poignée de colonne** au-dessus de la colonne. Un clic sélectionne la ligne ou la colonne et ouvre ses actions : pour une ligne **Ajouter une ligne au-dessus**, **Ajouter une ligne en dessous**, **Monter la ligne**, **Descendre la ligne**, **Supprimer la ligne**, et **Ligne d’en-tête** sur la première ligne ; pour une colonne **Ajouter une colonne avant**, **Ajouter une colonne après**, **Déplacer la colonne avant**, **Déplacer la colonne après** et **Supprimer la colonne**. Un clic droit sur une poignée fait de même. Sur une cellule fusionnée, la poignée représente chaque ligne ou colonne que couvre la cellule, et son menu l'indique (*Supprimer 2 lignes*).
+- **Un +** sur la bordure inférieure d'une ligne insère une ligne en dessous, et **un +** sur la bordure de fin d'une colonne insère une colonne après elle. La dernière ligne et la dernière colonne ont les barres à la place.
+- **Une barre** sous la dernière ligne ajoute une ligne à la fin, et **une barre** après la dernière colonne ajoute une colonne à la fin.
+
+Une ligne ou une colonne ajoutée ainsi place le curseur dans sa première cellule, et une seule annulation la supprime. Sur un écran tactile, les poignées sont plus grandes et s'affichent pour la cellule que vous avez touchée.
+
+**Le menu du clic droit.** Un clic droit dans une cellule ouvre les actions du tableau à l'emplacement du pointeur. Lorsque le clic a lieu dans des cellules que vous avez sélectionnées, la sélection est conservée, de sorte que les actions s'appliquent à toutes ; ailleurs, le curseur passe d'abord dans la cellule cliquée.
+
+- **Maj+clic droit** ouvre à la place le menu propre du navigateur, pour ses suggestions d'orthographe ou **Coller**.
+- Un clic droit sur un **lien** ou une **image** dans une cellule ouvre aussi le menu du navigateur, pour l'ouvrir ou le copier.
+- Sur un écran tactile, un appui long sélectionne du texte comme d'habitude ; utilisez-y les poignées.
+- Au clavier, **Maj+F10** ou la touche **Menu** ouvre le même menu sur la cellule du curseur.
+
+**Clavier.** **Tab** passe à la cellule suivante et **Maj+Tab** à la précédente ; Tab dans la dernière cellule ajoute une ligne. Le menu **Tableau** de la barre d'outils donne accès à toutes les actions au clavier ; les poignées servent au pointeur et au tactile et ne font pas partie de l'ordre de tabulation.
+
+**Largeurs et tableaux larges.** Faites glisser la bordure entre deux colonnes pour modifier leur largeur. Un tableau plus large que la section défile horizontalement ; la poignée d'une ligne sort alors du champ avec la première colonne, tandis que le menu du clic droit et le menu **Tableau** de la barre d'outils donnent toujours accès à toutes les actions.
+
+Une décision verrouillée ou signée affiche ses tableaux sans poignées, et un clic droit y ouvre le menu du navigateur.
+
+- **Où ils apparaissent.** Les tableaux apparaissent dans l'[aperçu](#preview) et l'[Historique](#decision-history), où **Modifications** lit chaque ligne de tableau comme une seule ligne, ses cellules séparées par ` | `. Dans la copie PDF / imprimée, un tableau conserve les proportions de ses colonnes et s'adapte à la largeur de la page. L'export Word produit un vrai tableau Word, avec ses cellules fusionnées, ses largeurs de colonnes et une ligne d'en-tête répétée en haut de chaque page.
+- **Les commentaires** de la [discussion](#decision-discussion) n'acceptent pas les tableaux : un tableau collé dans un commentaire devient le texte de ses cellules.
 
 #### Dates {: #decision-dates }
 
@@ -154,6 +227,8 @@ La section **Cette décision…** d'une décision la lie à d'autres. Choisissez
 
 Les liens sont affichés sur les deux décisions et pointent vers la révision actuelle de la décision. Ils agissent sur la décision entière, toutes ses révisions comprises, et seulement une fois que la décision qui les porte est signée et applicable : un brouillon qui en révoque une autre ne change rien tant qu'il n'est pas signé, et un brouillon avec une date *En vigueur à partir du* ultérieure agit à cette date (l'autre décision indique *Cette décision sera révoquée par … le …*). Une décision ne peut pas être liée à l'une de ses propres révisions, et chaque décision à laquelle elle est liée doit être signée avant qu'elle soit envoyée pour revue ou enregistrée.
 
+Il s'agit de liens entre décisions ; pour les liens vers des pages web dans le texte d'une section, voir [Liens dans le texte](#decision-text-links).
+
 #### Révoquer ou remplacer une décision {: #revoking-or-replacing-a-decision }
 
 Une décision signée n'est jamais retirée à la main : elle est révoquée ou remplacée par une autre décision signée, de sorte que le registre conserve qui l'a prise et quand. Ouvrez la décision signée et utilisez le menu **Réviser** :
@@ -172,6 +247,15 @@ Une décision modifiée par une autre reste en vigueur, et sa page liste les dé
 
 La section **Fichiers** joint des documents à une décision — un procès-verbal signé, une analyse à l'appui. Les fichiers acceptent les mêmes formats que les [pièces jointes des fiches](card-details.md#onglet-ressources), jusqu'à 20 Mo chacun, et ne peuvent être téléversés que tant que le téléversement de fichiers est activé (la suppression reste toujours possible). Ils ne peuvent être ajoutés et supprimés que sur un brouillon enregistré : une fois la décision envoyée pour revue, ils sont verrouillés avec elle. Une révision reprend les fichiers de sa décision.
 
+#### Diagrammes {: #decision-diagrams }
+
+La section **Diagrammes**, après **Fichiers**, joint à une décision des diagrammes du module [Diagrammes](diagrams.md) — par exemple le diagramme de contexte dont traite la décision. Cliquez sur **Joindre un diagramme**, cherchez dans la liste et choisissez-en un ; il est joint immédiatement, sans enregistrement. Chaque diagramme joint affiche sa miniature et son nom, et un clic l'ouvre. Pour en détacher un, cliquez sur son bouton de retrait et confirmez : le diagramme lui-même est conservé.
+
+- **Toujours le diagramme actuel.** La décision pointe vers le diagramme, elle n'en garde pas de copie : elle affiche toujours le diagramme tel qu'il est maintenant, y compris une fois la décision signée. Supprimer le diagramme le retire de toutes les décisions auxquelles il était joint, signées comprises.
+- **Quand cela peut changer.** Les diagrammes peuvent être joints et détachés tant que la décision est un brouillon ou en revue. Une fois la décision signée, ils sont figés : pour les changer, créez une nouvelle révision.
+- **Qui les voit.** Voir la section requiert la permission de voir les diagrammes (`diagrams.view`) ; joindre et détacher requièrent en plus `adr.manage`. Un lecteur sans `diagrams.view` ne voit aucune section Diagrammes. Une décision non modifiable et sans diagramme n'affiche pas non plus la section.
+- **Où ils apparaissent.** L'[aperçu](#preview) affiche les diagrammes en lecture seule ; la copie PDF / imprimée et l'export Word listent leurs noms. Une révision et un duplicata reprennent les diagrammes. Les diagrammes ne font pas partie d'une version de l'[Historique](#decision-history).
+
 #### Workflow de signature
 
 Les ADR prennent en charge un processus formel de signature :
@@ -182,7 +266,7 @@ Les ADR prennent en charge un processus formel de signature :
 4. Les signataires examinent et cliquent sur **Signer**.
 5. Une fois que tous les signataires ont signé, l'ADR passe automatiquement au statut **Signé**.
 
-**Une décision en revue est verrouillée**, afin que les signataires signent exactement ce qui leur a été envoyé : le texte, les dates, les personnes, les liens, les fichiers et les panneaux d'extension sont en lecture seule, et seules les fiches liées peuvent encore changer. Pour la modifier, cliquez sur **Rappeler les signatures**, ce qui la remet en brouillon. Un signataire qui clique sur **Rejeter** la remet également en brouillon, sous le même numéro de révision.
+**Une décision en revue est verrouillée**, afin que les signataires signent exactement ce qui leur a été envoyé : le texte, les dates, les personnes, les liens vers d'autres décisions, les fichiers et les panneaux d'extension sont en lecture seule, et seuls les fiches liées et les [diagrammes](#decision-diagrams) joints peuvent encore changer. Pour la modifier, cliquez sur **Rappeler les signatures**, ce qui la remet en brouillon. Un signataire qui clique sur **Rejeter** la remet également en brouillon, sous le même numéro de révision.
 
 Les ADR signés sont verrouillés et ne peuvent pas être modifiés — pour apporter des changements, créez une nouvelle révision.
 
@@ -194,7 +278,7 @@ La décision est alors verrouillée comme une décision signée et reçoit sa va
 
 #### Révisions
 
-Ouvrez un ADR signé et choisissez **Réviser → Réviser cette décision** pour créer un nouveau brouillon basé sur la version signée. La révision conserve la référence de la décision et prend le numéro de révision suivant — **ADR-012 · Rév. 2** — et hérite du contenu, des fiches liées, des liens **Se rapporte à**, des personnes, des fichiers et de la date *Valable jusqu'au*. Elle n'hérite pas des dates de décision et d'entrée en vigueur, des signataires, du résumé des modifications ni des liens remplace / modifie / révoque, qui restent sur la révision qui les a créés. Chaque révision conserve sa propre trace de signature.
+Ouvrez un ADR signé et choisissez **Réviser → Réviser cette décision** pour créer un nouveau brouillon basé sur la version signée. La révision conserve la référence de la décision et prend le numéro de révision suivant — **ADR-012 · Rév. 2** — et hérite du contenu, des fiches liées, des diagrammes joints, des liens **Se rapporte à**, des personnes, des fichiers et de la date *Valable jusqu'au*. Elle n'hérite pas des dates de décision et d'entrée en vigueur, des signataires, du résumé des modifications ni des liens remplace / modifie / révoque, qui restent sur la révision qui les a créés. Chaque révision conserve sa propre trace de signature.
 
 - **Une seule révision ouverte à la fois.** Tant qu'une révision est en cours de rédaction, la révision actuelle l'indique et le menu **Réviser** ouvre ce brouillon au lieu d'en démarrer un autre.
 - **La révision actuelle est celle en vigueur.** Une fois qu'une révision est signée et applicable, les précédentes sont **Remplacées** et affichent un bandeau avec un lien vers la révision actuelle. La barre **Révisions** de chaque révision liste toute la chaîne et signale la révision actuelle.
@@ -202,11 +286,11 @@ Ouvrez un ADR signé et choisissez **Réviser → Réviser cette décision** pou
 - **Un rejet ne compte pas comme une révision** : le numéro de révision ne change que lorsqu'une nouvelle révision est créée.
 - Les décisions révisées avant la version 2.199.0 conservent les numéros de référence sous lesquels elles ont été émises, et se lisent toujours comme une seule décision avec une seule barre de révisions.
 
-#### Aperçu
+#### Aperçu {: #preview }
 
-Cliquez sur l'icône d'aperçu pour afficher une version en lecture seule et formatée de l'ADR — utile pour la revue avant signature.
+Cliquez sur l'icône d'aperçu pour afficher une version en lecture seule et formatée de l'ADR — utile pour la revue avant signature. Il affiche aussi les diagrammes joints, et ses liens s'ouvrent dans un nouvel onglet.
 
-Depuis l'aperçu, cliquez sur **PDF** pour ouvrir une copie prête à imprimer dans un nouvel onglet — métadonnées et dates, les quatre sections, personnes, fiches liées, liens vers d'autres décisions, noms de fichiers, sections d'extension et bloc de signatures (ou la mention d'enregistrement), avec l'approbateur et la date d'impression en pied de page. L'éditeur propose le même bouton **PDF** ainsi que **Word**, qui télécharge la décision au format `.docx` tant qu'elle n'est pas signée ; les deux exportent l'état courant de l'éditeur, modifications non enregistrées comprises.
+Depuis l'aperçu, cliquez sur **PDF** pour ouvrir une copie prête à imprimer dans un nouvel onglet — métadonnées et dates, les quatre sections, personnes, fiches liées, liens vers d'autres décisions, noms de fichiers, noms des diagrammes, sections d'extension et bloc de signatures (ou la mention d'enregistrement), avec l'approbateur et la date d'impression en pied de page. L'éditeur propose le même bouton **PDF** ainsi que **Word**, qui télécharge la décision au format `.docx` tant qu'elle n'est pas signée ; les deux exportent l'état courant de l'éditeur, modifications non enregistrées comprises. Dans le document Word, la mise en forme et les liens sont conservés partout — y compris dans les listes, les citations et les titres —, les liens sont cliquables, le code garde une police à chasse fixe et les tableaux sont de vrais tableaux Word.
 
 #### Discussion {: #decision-discussion }
 
@@ -216,6 +300,7 @@ Chaque décision a sa propre **Discussion**, de sorte qu'une décision peut êtr
 - **Filtrer par section.** Dès qu'un fil a une section, une rangée de puces en haut de la discussion liste chaque section qui a des fils, avec leur nombre (*Décision (2)*), ainsi qu'une puce **Général** lorsque certains fils n'ont pas de section. Cliquez sur une puce pour n'afficher que ses fils ; activez-en plusieurs pour voir les fils de l'une ou l'autre, cliquez de nouveau sur une puce pour la désactiver, ou cliquez sur **Effacer**. Cliquer sur la puce de section d'un fil active son filtre. Le filtre fonctionne que les fils résolus soient repliés ou non et avec les révisions antérieures affichées, et ne compte que les fils listés. Il n'est pas conservé lorsque vous quittez le document, et un fil ouvert depuis une notification est toujours affiché.
 - **Discussion sur une section.** Chaque section affiche une petite icône de bulle à côté de son titre, dans l'éditeur et dans l'aperçu, pour les personnes qui peuvent commenter (les personnes qui peuvent seulement lire ne la voient que sur les sections qui ont des fils) : le nombre de fils ouverts lorsque la section a une discussion, ou une icône estompée une fois qu'ils sont tous résolus. Cliquez dessus pour ouvrir la discussion filtrée sur cette section, avec les fils résolus dépliés lorsqu'aucun n'est ouvert, et la section déjà sélectionnée pour un nouveau commentaire (l'icône n'est jamais imprimée ni exportée).
 - **Résoudre et rouvrir.** Cliquez sur **Résoudre** une fois un fil réglé et sur **Rouvrir** s'il ne l'est pas. Les fils résolus sont repliés derrière **Afficher N fils résolus**.
+- **Mise en forme.** Un commentaire accepte le gras, l'italique, le barré, le **Code en ligne**, les listes à puces et numérotées, les citations et les [liens](#decision-text-links) (le bouton **Lien** ou Ctrl/Cmd+K). Les titres, les blocs de code, les images et les tableaux ont leur place dans les sections, pas dans les commentaires.
 - **Qui peut publier.** La lecture de la discussion suit le droit d'ouvrir la décision (`adr.view`). Publier, répondre, résoudre et rouvrir requièrent la permission `adr.comment`, que les membres et les administrateurs détiennent par défaut et les lecteurs non ; un administrateur peut la modifier pour chaque rôle. Les signataires de la décision peuvent toujours la commenter, y compris les personnes invitées à la signer lors d'un cycle de revue antérieur qui a été rappelé ou rejeté.
 - **Pendant la revue et après la signature.** Le [verrouillage de revue](#workflow-de-signature) porte sur le contenu, pas sur la conversation : la discussion reste ouverte pendant que la décision est en revue et après sa signature.
 - **Notes de revue.** Lorsqu'un signataire rejette une décision, le motif ouvre un fil marqué **Motif du rejet** (*Aucun motif indiqué* si le signataire l'a laissé vide), auquel on répond et que l'on résout comme n'importe quel autre. Un signataire peut ajouter une note facultative en signant ; elle apparaît dans la discussion comme **Note de signature**. Ni l'un ni l'autre ne sont plus perdus lorsque les signatures sont rappelées, et tous deux figurent aussi dans l'[Historique](#decision-history).
@@ -241,9 +326,9 @@ Le bouton **Historique** en haut de l'éditeur ou de l'aperçu de la décision, 
 
 L'Historique n'est pas le tableau **Historique des versions du document**, tenu à la main, d'un [Statement of Architecture Work](delivery.md#lediteur-soaw), qui consigne ce que les auteurs choisissent d'y écrire.
 
-- **Versions.** Une version est conservée chaque fois qu'un brouillon est enregistré avec des modifications. Elle contient le titre, les quatre sections, les dates, le résumé des modifications et les personnes ; les liens, les fiches liées et les fichiers ne font pas partie d'une version. Les étapes qui contiennent une version sont signalées dans la chronologie ; les personnes qui peuvent modifier la décision et ses signataires en sélectionnent une pour l'afficher à droite, et la version la plus récente est sélectionnée à l'ouverture de la vue. Les autres lecteurs voient la chronologie sans les versions (*Les versions enregistrées ne sont visibles que par les éditeurs et les signataires.*). Sur un écran étroit, la vue affiche d'abord la chronologie, puis la version sélectionnée avec un bouton **Retour**.
-- **Modifications.** Au-dessus de la version sélectionnée, **Version** l'affiche telle qu'elle a été enregistrée et **Modifications** montre ce qui a changé entre elle et la version précédente, mot par mot et section par section, ainsi que les dates et les personnes modifiées ; choisissez n'importe quelle autre version sous **Comparer avec**. Seules les versions déjà chargées dans la chronologie peuvent être comparées : lorsque la version précédant la version sélectionnée n'est pas encore chargée, **Modifications** l'indique, et **Charger plus** la charge. Un simple changement de mise en forme est signalé par *Mise en forme uniquement : les mots sont identiques.*
-- **Restaurer.** Sur un brouillon, une personne pouvant modifier la décision peut restaurer la version sélectionnée avec **Restaurer cette version**. La restauration va uniquement de l'avant : le texte, les dates et les personnes de la version remplacent ceux du brouillon et sont conservés comme nouvelle version, et l'état du brouillon avant la restauration reste dans l'historique. Les liens, les fiches liées et les fichiers ne sont pas restaurés. Lorsque l'éditeur contient des modifications non enregistrées, la confirmation indique qu'elles seront perdues. Une fois la restauration effectuée, la page affiche la décision restaurée et la vue se ferme. Une décision en revue ou signée ne peut pas être restaurée.
+- **Versions.** Une version est conservée chaque fois qu'un brouillon est enregistré avec des modifications. Elle contient le titre, les quatre sections, les dates, le résumé des modifications et les personnes ; les liens vers d'autres décisions, les fiches liées, les fichiers et les diagrammes ne font pas partie d'une version. Les étapes qui contiennent une version sont signalées dans la chronologie ; les personnes qui peuvent modifier la décision et ses signataires en sélectionnent une pour l'afficher à droite, et la version la plus récente est sélectionnée à l'ouverture de la vue. Les autres lecteurs voient la chronologie sans les versions (*Les versions enregistrées ne sont visibles que par les éditeurs et les signataires.*). Sur un écran étroit, la vue affiche d'abord la chronologie, puis la version sélectionnée avec un bouton **Retour**.
+- **Modifications.** Au-dessus de la version sélectionnée, **Version** l'affiche telle qu'elle a été enregistrée et **Modifications** montre ce qui a changé entre elle et la version précédente, mot par mot et section par section, ainsi que les dates et les personnes modifiées ; choisissez n'importe quelle autre version sous **Comparer avec**. Seules les versions déjà chargées dans la chronologie peuvent être comparées : lorsque la version précédant la version sélectionnée n'est pas encore chargée, **Modifications** l'indique, et **Charger plus** la charge. Un simple changement de mise en forme est signalé par *Mise en forme uniquement : les mots sont identiques.* ; un lien dont l'adresse a changé compte comme une modification, et une ligne de tableau se lit comme une seule ligne, ses cellules séparées par ` | `.
+- **Restaurer.** Sur un brouillon, une personne pouvant modifier la décision peut restaurer la version sélectionnée avec **Restaurer cette version**. La restauration va uniquement de l'avant : le texte, les dates et les personnes de la version remplacent ceux du brouillon et sont conservés comme nouvelle version, et l'état du brouillon avant la restauration reste dans l'historique. Les liens vers d'autres décisions, les fiches liées, les fichiers et les diagrammes ne sont pas restaurés. Lorsque l'éditeur contient des modifications non enregistrées, la confirmation indique qu'elles seront perdues. Une fois la restauration effectuée, la page affiche la décision restaurée et la vue se ferme. Une décision en revue ou signée ne peut pas être restaurée.
 
 #### Limites connues {: #collaboration-limits }
 
@@ -280,5 +365,7 @@ Le même onglet Conformité apparaît aussi sur le Détail de la fiche (auto-mas
 | `adr.comment` | admin, bpm_admin, member — publier dans la [discussion](#decision-discussion) d'une décision ; les signataires d'une décision peuvent toujours la commenter |
 | `risks.view` / `risks.manage` | voir [Registre des risques § Permissions](risks.md) |
 | `compliance.view` / `compliance.manage` | voir [TurboLens § Security & Compliance](turbolens.md) |
+
+La section [Diagrammes](#decision-diagrams) d'une décision requiert aussi `diagrams.view` (admin, bpm_admin, member, viewer par défaut) : sans cette permission, un lecteur ne voit de diagramme sur aucune décision.
 
 `grc.view` contrôle la visibilité de la route GRC elle-même — sans elle, l'entrée du menu supérieur est masquée. Chaque onglet impose en plus sa permission propre au domaine, de sorte qu'un visualiseur peut consulter le registre sans pouvoir déclencher un scan LLM, par exemple.

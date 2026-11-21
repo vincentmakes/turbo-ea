@@ -81,6 +81,7 @@ export function useApiQuery<T, S = T>(
     });
   }, [path, refetchKey, nonce, keepPreviousData, run, cancel]);
 
+  // Stryker disable next-line ArithmeticOperator: the nonce only has to differ from the last one, so counting down re-runs the effect identically
   const refetch = useCallback(() => setNonce((n) => n + 1), []);
 
   return { data, loading, error, refetch };

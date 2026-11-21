@@ -108,7 +108,7 @@ Dependendo do tipo de card, você verá seções adicionais com **campos persona
 - **Texto** — Entrada de texto livre
 - **Texto multilinha** — Entrada de texto livre que preserva quebras de linha, exibida como uma área de texto que cresce automaticamente
 - **Número** — Valor numérico
-- **Custo** — Valor numérico exibido com a moeda configurada na plataforma
+- **Custo** — Valor numérico exibido com a moeda configurada na plataforma. Os campos de custo são exibidos para usuários cujo papel possui a permissão `costs.view` (listada em **Costs** no editor de papéis) e para as partes interessadas de um cartão quando o seu [papel de parte interessada](../admin/metamodel.md) o permite. Todos os demais veem *Restrito* no lugar e não podem alterar o valor. Observar um cartão não mostra os seus custos
 - **Booleano** — Escolha numa lista Sim / Não, com **Nenhum** para o limpar; exibido como etiqueta verde *Sim* ou azul *Não*, — quando não definido
 - **Data** — Seletor de data
 - **URL** — Link clicável (validado para http/https/mailto)
@@ -138,6 +138,7 @@ O campo **Custo anual total** (`costTotalAnnual`) do card é derivado dos itens 
 
 A seção **Licenciamento** regista, ano a ano, quantas licenças o card tem contratadas e quantas são realmente usadas. Fica junto aos Custos e tem a mesma linha verde **Time Travel** sobre seis anos: os quatro anteriores ao atual, o atual e o **Forecast**. Tudo o que está na seção diz respeito ao ano selecionado.
 
+
 Um card tem os **pares** *Métrica: Tipo* (por exemplo *Utilizadores: Admin* ou *Instalações: Prod*) que foram adicionados ao ano selecionado. Não há nenhuma definição ao nível do card para assinalar: um par existe num ano a partir do momento em que o adiciona.
 
 ![Seção de Licenciamento](../assets/img/en/104_card_licensing.png)
@@ -152,7 +153,7 @@ As métricas e os tipos de licença vêm do catálogo que um administrador gere 
 
 **Um novo ano fiscal.** Quando um card ainda não tem dados de licenças para o novo ano atual, a seção mostra os pares do ano anterior com as respetivas quantidades licenciadas, desenhados **atenuados** e marcados como **não confirmados**, sem quantidade real, de modo que um novo ano nunca herda o consumo do último. Mantêm-se assim até alguém confirmar o ano (**Confirmar**) ou editar uma quantidade.
 
-**Quem pode ver e editar as licenças.** Pode **vê-las** com a permissão `licenses.view`, ou se tiver qualquer papel de parte interessada no card. Pode **editá-las** com a permissão `licenses.edit`, ou se tiver no card um papel de parte interessada que permita editar o card. Por predefinição, só os administradores têm `licenses.edit`. Uma alteração aparece no separador Histórico como **Licenças atualizadas**, com os pares afetados (*Métrica: Tipo*) mas não as quantidades, e não pode ser revertida.
+**Quem pode ver e editar licenças.** Pode **ver** as licenças se o seu papel de aplicação lhe conceder `licenses.view` para o tipo de card ou se o seu papel de stakeholder no card conceder `card.view_licenses`. Por predefinição, Observer não tem esta permissão. Para **editar** as licenças também é necessário `licenses.edit` ou um papel de stakeholder que lhe conceda `card.edit` nesse card. Por predefinição, só os administradores têm `licenses.edit`. Uma alteração aparece no separador Histórico como **Licenças atualizadas**, com os pares afetados (*Métrica: Tipo*) mas não as quantidades, e não pode ser revertida.
 
 ### Seção de Hierarquia
 

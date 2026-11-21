@@ -1,7 +1,7 @@
 """Helpers to identify and strip cost-typed fields from card and relation attributes.
 
-Used by endpoints that gate cost visibility behind the `costs.view` permission +
-stakeholder bypass — see PermissionService.can_view_costs().
+Used by endpoints that gate cost visibility behind the `costs.view` permission, or
+a stakeholder role granting `card.view_costs` — see PermissionService.can_view_costs().
 """
 
 from __future__ import annotations
@@ -64,6 +64,25 @@ def cost_field_keys_for_relation_type(relation_type: RelationType | None) -> fro
 def cost_field_keys_from_relation_schema(attributes_schema: Any) -> frozenset[str]:
     """Same as cost_field_keys_for_relation_type but operates on a raw schema list."""
     return _cost_keys_from_flat_schema(attributes_schema)
+
+
+def keep_stored_cost_values(
+    stored: dict | None, incoming: dict, cost_keys: frozenset[str] | set[str]
+) -> dict:
+    """What a caller without cost access may write over ``stored``.
+
+    A write replaces the whole ``attributes`` dict, so dropping the cost keys
+    from the request would wipe values the caller was never shown, and taking
+    them would let the caller overwrite those values. The result is
+    ``incoming`` without its cost keys, plus the stored value of every cost
+    key that has one — the one merge the card and relation write paths share.
+    """
+    current = stored or {}
+    merged = {key: value for key, value in incoming.items() if key not in cost_keys}
+    for key in cost_keys:
+        if key in current:
+            merged[key] = current[key]
+    return merged
 
 
 def strip_costs_from_attributes(card_type: CardType | None, attributes: dict | None) -> dict:

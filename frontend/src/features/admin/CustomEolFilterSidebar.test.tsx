@@ -114,7 +114,9 @@ describe("CustomEolFilterSidebar", () => {
   it("hides an optional column but never a locked one, and pins any", async () => {
     const p = setup();
     await userEvent.click(screen.getByRole("tab", { name: /Columns/ }));
-    const list = screen.getByText("Visible columns").closest("div")!.parentElement!;
+    // The header row (toggle + its clear button) sits inside the list box.
+    const list = screen.getByText("Visible columns").closest("[role=button]")!.parentElement!
+      .parentElement!;
     await userEvent.click(within(list).getByText("Latest version"));
     const hidden = p.onVisibleColumnsChange.mock.calls[0][0] as Set<string>;
     expect(hidden.has("latest")).toBe(false);
@@ -328,7 +330,9 @@ describe("the Columns tab", () => {
 
   it("shows a hidden column again, and never toggles a locked one", async () => {
     const { p } = await openColumns(LOCKED_ONLY());
-    const list = screen.getByText("Visible columns").closest("div")!.parentElement!;
+    // The header row (toggle + its clear button) sits inside the list box.
+    const list = screen.getByText("Visible columns").closest("[role=button]")!.parentElement!
+      .parentElement!;
     await userEvent.click(within(list).getByText("Status"));
     expect(p.onVisibleColumnsChange).toHaveBeenLastCalledWith(
       new Set([...LOCKED_ONLY(), "status"]),
@@ -336,5 +340,40 @@ describe("the Columns tab", () => {
     // The locked row is disabled; even a click that reaches it changes nothing.
     fireEvent.click(within(list).getByText("Product"));
     expect(p.onVisibleColumnsChange).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("per-section clear", () => {
+  const FULL: CustomEolFilters = { search: "java", statuses: ["eol", "unknown"], usage: "unused" };
+
+  it("clears one section's filters and leaves every other section alone", async () => {
+    const p = setup({ filters: FULL });
+    await userEvent.click(screen.getByRole("button", { name: "Clear Status filters" }));
+    expect(p.onFiltersChange).toHaveBeenLastCalledWith({ ...FULL, statuses: [] });
+    await userEvent.click(screen.getByRole("button", { name: "Clear Usage filters" }));
+    expect(p.onFiltersChange).toHaveBeenLastCalledWith({ ...FULL, usage: "any" });
+  });
+
+  it("shows no clear button on an empty section", () => {
+    setup({ filters: { ...EMPTY_CUSTOM_EOL_FILTERS, usage: "linked" } });
+    expect(screen.getByRole("button", { name: "Clear Usage filters" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Clear Status filters" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Clear Search filters" })).toBeNull();
+  });
+});
+
+describe("per-section clear, every section", () => {
+  /** Every section holds a filter, so a clear that touches too much shows. */
+  const FULL: CustomEolFilters = { search: "java", statuses: ["eol", "unknown"], usage: "unused" };
+
+  it.each<[string, Partial<CustomEolFilters>]>([
+    ["Search", { search: "" }],
+    ["Status", { statuses: [] }],
+    ["Usage", { usage: "any" }],
+  ])("the %s clear resets exactly that section", async (section, reset) => {
+    const p = setup({ filters: FULL });
+    await userEvent.click(screen.getByRole("button", { name: `Clear ${section} filters` }));
+    expect(p.onFiltersChange).toHaveBeenCalledTimes(1);
+    expect(p.onFiltersChange.mock.calls[0][0]).toStrictEqual({ ...FULL, ...reset });
   });
 });

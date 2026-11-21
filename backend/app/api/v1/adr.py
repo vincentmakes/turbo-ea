@@ -19,6 +19,7 @@ from app.models.user import User
 from app.schemas.adr import (
     ADRCardLink,
     ADRCreate,
+    ADRDiagramLink,
     ADRImportRequest,
     ADRImportResponse,
     ADRImportResult,
@@ -30,6 +31,7 @@ from app.schemas.adr import (
     ADRUpdate,
 )
 from app.services import (
+    adr_diagram_service,
     adr_file_service,
     adr_import_service,
     adr_service,
@@ -162,6 +164,8 @@ async def _adr_to_dict(
         "revision_number": adr.revision_number,
         "parent_id": str(adr.parent_id) if adr.parent_id else None,
         "linked_cards": linked_cards,
+        # Live links to free-draw diagrams; ``[]`` without ``diagrams.view``.
+        "diagrams": await adr_diagram_service.diagrams_for_reader(db, user, adr.id),
         "created_at": adr.created_at.isoformat() if adr.created_at else None,
         "updated_at": adr.updated_at.isoformat() if adr.updated_at else None,
         **adr_service.standing_fields(register, adr.id),
@@ -466,6 +470,7 @@ async def create_adr(
     await PermissionService.require_permission(db, user, "adr.manage")
     read_scope = await CardReadScope.load(db, user)
     card_ids = await adr_service.resolve_card_ids(db, body.linked_card_ids or [])
+    diagram_ids = await adr_diagram_service.resolve_diagram_ids(db, user, body.linked_diagram_ids)
     register = await ds.load_register(db)
     adr_service.check_dates(
         body.decided_on, body.effective_from, body.valid_until, today=register.today
@@ -494,6 +499,7 @@ async def create_adr(
         participants=body.participants or [],
     )
     await decision_link_service.replace_links(db, adr, wanted, register=register)
+    await adr_diagram_service.replace_links(db, adr.id, diagram_ids)
     await db.commit()
     await db.refresh(adr)
     return await _detail(db, adr, user, read_scope)
@@ -568,6 +574,8 @@ async def update_adr(
     await PermissionService.require_permission(db, user, "adr.manage")
     adr = await _get_adr(db, adr_id)
     adr_service.check_editable(adr.status, body.status, body.model_fields_set)
+    # Replace-set; a caller without ``diagrams.view`` may only send [] (no-op).
+    diagram_ids = await adr_diagram_service.resolve_diagram_ids(db, user, body.linked_diagram_ids)
     read_scope = await CardReadScope.load(db, user)
     was_draft = adr.status == "draft"
     # The content before this save touches the row: a draft's first recorded
@@ -658,6 +666,7 @@ async def update_adr(
                     card_id=card_id,
                 )
             )
+    await adr_diagram_service.replace_links(db, adr.id, diagram_ids)
 
     await document_collab.after_save(
         db, document_collab.ADR, adr, user=user, was_draft=was_draft, before=before
@@ -1391,6 +1400,57 @@ async def unlink_card(
         raise HTTPException(404, "Link not found")
     await db.delete(link)
     await _publish_adr_card_event(db, adr, "adr.unlinked", uuid.UUID(card_id), actor_id=user.id)
+    await db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Diagram linking
+# ---------------------------------------------------------------------------
+
+
+async def _get_adr_for_diagrams(db: AsyncSession, adr_id: str) -> ArchitectureDecision:
+    """The decision whose diagram links change: 404 when missing, 403 once signed
+    (draft and in review may change them, like ``linked_diagram_ids`` on PATCH)."""
+    adr = await _get_adr(db, adr_id)
+    adr_service.check_editable(adr.status, None, {"linked_diagram_ids"})
+    return adr
+
+
+@router.post("/{adr_id}/diagrams", status_code=201)
+async def link_diagram(
+    adr_id: str,
+    body: ADRDiagramLink,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Link an existing free-draw diagram to a decision (a live link).
+
+    404 without ``diagrams.view`` or for an unknown diagram; 409 when already
+    linked. Returns the decision's detail payload.
+    """
+    await PermissionService.require_permission(db, user, "adr.manage")
+    adr = await _get_adr_for_diagrams(db, adr_id)
+    diagram_id = await adr_diagram_service.resolve_one(db, user, body.diagram_id)
+    await adr_diagram_service.add_link(db, adr.id, diagram_id)
+    await db.commit()
+    return await _detail(db, adr, user)
+
+
+@router.delete("/{adr_id}/diagrams/{diagram_id}", status_code=204)
+async def unlink_diagram(
+    adr_id: str,
+    diagram_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Remove a diagram's link from a decision; the diagram itself stays.
+
+    404 without ``diagrams.view``, for an unknown diagram, or when it is not linked.
+    """
+    await PermissionService.require_permission(db, user, "adr.manage")
+    adr = await _get_adr_for_diagrams(db, adr_id)
+    resolved = await adr_diagram_service.resolve_one(db, user, diagram_id)
+    await adr_diagram_service.remove_link(db, adr.id, resolved)
     await db.commit()
 
 

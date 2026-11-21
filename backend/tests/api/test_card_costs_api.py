@@ -241,7 +241,11 @@ async def test_copy_and_confirm_event_keys(client, db, env):
 
 async def test_stakeholder_without_costs_view_can_read_others_cannot(client, db, env):
     from app.models.stakeholder import Stakeholder
+    from tests.conftest import create_stakeholder_role_def
 
+    await create_stakeholder_role_def(
+        db, key="responsible", permissions={"card.view": True, "card.view_costs": True}
+    )
     other = await create_user(db, email="o@costs-api.com", role="nocost")
     db.add(Stakeholder(card_id=env["card"].id, user_id=env["nocost"].id, role="responsible"))
     await db.flush()

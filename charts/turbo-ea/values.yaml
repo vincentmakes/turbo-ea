@@ -269,6 +269,10 @@ mcp:
     pullPolicy: ""
   replicaCount: 1
   writesEnabled: true
+  # Let call_extension_write run the operations an installed extension marks
+  # destructive. Off by default: an extension's own records are not
+  # reversible by rollback_batch.
+  allowExtensionDestructive: false
   logoFetch:
     enabled: true
     # Comma-separated exact-match host allow-list; empty keeps the built-in

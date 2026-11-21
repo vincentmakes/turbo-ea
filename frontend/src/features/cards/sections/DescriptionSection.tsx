@@ -20,6 +20,7 @@ import {
   getUrlErrorMsg,
   isEmptyAttrValue,
   isEnforcedRequiredField,
+  isWriteLockedField,
   useFieldHelp,
 } from "@/features/cards/sections/cardDetailUtils";
 import HelpTip from "@/components/HelpTip";
@@ -233,14 +234,24 @@ function DescriptionSection({
               sx={{ mb: 2 }}
             />
             {extraFields && extraFields.map((field) =>
-              field.readonly || calculatedFieldKeys.includes(field.key) ? (
+              isWriteLockedField(field) || calculatedFieldKeys.includes(field.key) ? (
                 <Box key={field.key} sx={{ mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
                   <Typography variant="body2" color="text.secondary" sx={{ minWidth: 160 }}>
                     {fieldLabel(field)}
                     <HelpTip text={fieldHelp(field)} />
                   </Typography>
                   <FieldValue field={field} value={attrs[field.key]} currencyFmt={currencyFmt} />
-                  <Chip size="small" label={calculatedFieldKeys.includes(field.key) ? t("attributes.calculated") : t("attributes.auto")} sx={{ height: 18, fontSize: "0.6rem", ml: 0.5 }} />
+                  <Chip
+                    size="small"
+                    label={
+                      calculatedFieldKeys.includes(field.key)
+                        ? t("attributes.calculated")
+                        : field.readonly
+                          ? t("attributes.auto")
+                          : t("attributes.extLocked")
+                    }
+                    sx={{ height: 18, fontSize: "0.6rem", ml: 0.5 }}
+                  />
                 </Box>
               ) : (
                 <Box key={field.key} data-field-key={field.key} sx={{ mb: 2 }}>

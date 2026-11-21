@@ -165,6 +165,8 @@
   "dependencyCreateFailed": "Error al crear la dependencia",
   "dependencyDeleteFailed": "Error al eliminar la dependencia",
   "dependencyCycleError": "Esta dependencia crearía un ciclo",
+  "ganttMoveFailed": "No se pudo mover el elemento",
+  "ganttMoveWhileSorted": "Quite la ordenación por columna para reordenar los elementos.",
   "dependencyDuplicateError": "Esta dependencia ya existe",
   "confirmDeleteDependency": "¿Eliminar esta flecha de dependencia?",
   "today": "Hoy",

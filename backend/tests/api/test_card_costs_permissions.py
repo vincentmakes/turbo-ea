@@ -42,7 +42,10 @@ async def env(db):
     await cost_item_types.create_item(db, "lic", "Licences")
     for key, edit in (("responsible", True), ("observer", False)):
         await create_stakeholder_role_def(
-            db, key=key, label=key, permissions={"card.view": True, "card.edit": edit}
+            db,
+            key=key,
+            label=key,
+            permissions={"card.view": True, "card.edit": edit, "card.view_costs": edit},
         )
     card = await create_card(db, card_type="Application", name="ERP", user_id=users["admin"].id)
     db.add(Stakeholder(card_id=card.id, user_id=users["resp"].id, role="responsible"))
@@ -69,11 +72,12 @@ async def test_put_edit_stakeholder_200_observer_and_inventory_edit_403(client, 
 
 
 async def test_get_can_edit_flag(client, env):
-    for who, expected in (("admin", True), ("resp", True), ("obs", False)):
+    for who, expected in (("admin", True), ("resp", True)):
         for tail in ("", f"/{CUR}"):
             r = await client.get(url(env, tail), headers=auth_headers(env[who]))
             assert r.status_code == 200
             assert r.json()["can_edit"] is expected
+    assert (await client.get(url(env), headers=auth_headers(env["obs"]))).status_code == 403
 
 
 async def test_history_redacts_for_non_cost_reader_and_labels_event(client, db, env):
@@ -118,6 +122,8 @@ async def test_history_redacts_attribute_diff(client, db, env):
         "new": {"note": "b"},
     }
     r = await client.get(h, headers=auth_headers(env["obs"]))
+    assert "costTotalAnnual" not in r.json()[0]["data"]["changes"]["attributes"]["new"]
+    r = await client.get(h, headers=auth_headers(env["resp"]))
     assert r.json()[0]["data"]["changes"]["attributes"]["new"]["costTotalAnnual"] == 22
     r = await client.get(h, headers=auth_headers(env["admin"]))
     assert r.json()[0]["data"]["changes"]["attributes"]["new"]["costTotalAnnual"] == 22

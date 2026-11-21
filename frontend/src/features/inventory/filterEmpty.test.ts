@@ -4,6 +4,7 @@ import {
   EMPTY_VALUE,
   eolColumnApplies,
   filtersAfterTypeToggle,
+  filtersWithTypes,
   hierarchyLabelColumnApplies,
   normalizeRelationFilterKeys,
   normalizeSelectAttributeFilters,
@@ -241,6 +242,31 @@ describe("filtersAfterTypeToggle", () => {
     filtersAfterTypeToggle(baseFilters, "Application");
     expect(baseFilters.types).toEqual(["Application"]);
     expect(baseFilters.relations).toEqual({ relAppToItComponent: ["PostgreSQL"] });
+  });
+});
+
+describe("filtersWithTypes", () => {
+  it("is what unticking the last type gives — the Types section's clear relies on it", () => {
+    expect(filtersWithTypes(baseFilters, [])).toEqual(
+      filtersAfterTypeToggle(baseFilters, "Application"),
+    );
+  });
+
+  it("sets the given types, resets every type-specific facet and keeps the rest", () => {
+    const next = filtersWithTypes(
+      { ...baseFilters, eolStatuses: ["eol"] },
+      ["Organization", "Objective"],
+    );
+    expect(next).toEqual({
+      ...baseFilters,
+      types: ["Organization", "Objective"],
+      subtypes: [],
+      attributes: {},
+      relations: {},
+      eolStatuses: [],
+      linkTypes: [],
+    });
+    expect(baseFilters.subtypes).toEqual(["business_app"]);
   });
 });
 

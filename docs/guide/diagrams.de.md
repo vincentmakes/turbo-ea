@@ -6,7 +6,7 @@ Das Modul **Diagramme** ermöglicht es Ihnen, **visuelle Architekturdiagramme** 
 
 ## Diagramm-Galerie
 
-Die Galerie listet jedes Diagramm als kompakte Karte mit Vorschaubild, Name, Autor und der Anzahl der referenzierten Karten auf. **Erstellen**, **Öffnen**, **Details bearbeiten**, organisieren oder **Löschen** Sie jedes Diagramm.
+Die Galerie listet jedes Diagramm als kompakte Karte mit Vorschaubild, Name, Autor und der Anzahl der referenzierten Karten auf. **Erstellen**, **Öffnen**, **Details bearbeiten**, organisieren oder **Löschen** Sie jedes Diagramm. Wird ein Diagramm gelöscht, wird es auch aus jeder Entscheidung entfernt, an die es angehängt war (siehe [Diagramme mit Entscheidungen verknüpfen](#linking-diagrams-to-decisions)).
 
 ### Diagramme finden
 
@@ -154,6 +154,10 @@ Die Sync-Schaltfläche der Symbolleiste zeigt eine pulsierende «N unsynchron»-
 ### Diagramme mit Karten verknüpfen
 
 Diagramme können von der Registerkarte **Ressourcen** einer Karte aus mit **jeder beliebigen Karte** verknüpft werden (siehe [Karten-Details](card-details.de.md#registerkarte-ressourcen)). Wenn ein Diagramm mit einer **Initiative**-Karte verknüpft ist, erscheint es auch im Modul [EA Delivery](delivery.md) zusammen mit SoAW-Dokumenten.
+
+### Diagramme mit Entscheidungen verknüpfen {: #linking-diagrams-to-decisions }
+
+Ein Diagramm kann auch an eine Architekturentscheidung angehängt werden, über den Abschnitt **Diagramme** im Editor der Entscheidung (siehe [Diagramme einer Entscheidung](grc.md#decision-diagrams)). Die Entscheidung zeigt das Diagramm so, wie es jetzt ist: Wird das Diagramm bearbeitet, ändert sich, was die Entscheidung zeigt, selbst bei einer unterzeichneten Entscheidung; wird das Diagramm gelöscht, wird es aus jeder Entscheidung entfernt, an die es angehängt war.
 
 ## Data Modeller
 

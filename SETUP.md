@@ -27,6 +27,7 @@ A final verification section will follow.
 |---|---|---|
 | Git for Windows | 2.54.0 | `%LOCALAPPDATA%\Programs\Git` |
 | GitHub CLI (`gh`) | 2.97.0 | `%LOCALAPPDATA%\GitHub CLI\bin` |
+| GNU Make | 4.4.1 | `%LOCALAPPDATA%\Programs\GNU-Make\4.4.1\bin` |
 | Docker Desktop | Latest stable release | `%LOCALAPPDATA%\Programs\DockerDesktop` (per-user install) |
 
 ### Required variable for Claude Code: `CLAUDE_CODE_GIT_BASH_PATH`
@@ -59,6 +60,41 @@ $p = [Environment]::GetEnvironmentVariable("Path", "User")
 ```
 
 Then run `gh auth login` (access to the fork `TommasoChi/turbo-ea`).
+
+### GNU Make
+
+Install the portable Windows build for your user. The archive is the ezwinports build listed in the
+[Scoop manifest](https://github.com/ScoopInstaller/Main/blob/master/bucket/make.json).
+
+```powershell
+$makeArchive = Join-Path $env:TEMP 'make-4.4.1-without-guile-w32-bin.zip'
+$makeDir = Join-Path $env:LOCALAPPDATA 'Programs\GNU-Make\4.4.1'
+$makeUrl = 'https://downloads.sourceforge.net/project/ezwinports/make-4.4.1-without-guile-w32-bin.zip'
+$expectedMakeHash = 'FB66A02B530F7466F6222CE53C0B602C5288E601547A034E4156A512DD895EE7'
+if (Test-Path -LiteralPath $makeDir) { throw "Make is already present at $makeDir" }
+
+curl.exe --fail --location --output $makeArchive $makeUrl
+if ($LASTEXITCODE -ne 0) { throw 'GNU Make download failed.' }
+if ((Get-FileHash -LiteralPath $makeArchive -Algorithm SHA256).Hash -ne $expectedMakeHash) {
+    throw 'The GNU Make archive checksum does not match.'
+}
+Expand-Archive -LiteralPath $makeArchive -DestinationPath $makeDir
+```
+
+Open **Edit environment variables for your account** and add
+`%LOCALAPPDATA%\Programs\GNU-Make\4.4.1\bin` to the user `Path`. Open a new PowerShell
+and run `make --version`. Restart Claude Code or Codex if it still has the old `PATH`.
+
+After creating the backend venv in section 4, run this from the repository root when you want
+Ruff to apply lint fixes and format the backend.
+
+```powershell
+.\backend\venv\Scripts\Activate.ps1
+make format
+```
+
+`make --dry-run format` shows the commands that would run. After formatting, review the changed
+files with `git diff HEAD -- backend/` and list new files with `git status --short -- backend/`.
 
 ### Docker
 

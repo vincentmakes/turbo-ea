@@ -149,12 +149,14 @@ describe("editorAccess", () => {
       locked: false,
       cardsEditable: true,
       filesEditable: true,
+      diagramsEditable: true,
       panelReadOnly: false,
     });
   });
 
-  it("a new decision has no files to edit yet", () => {
+  it("a new decision has no files or diagrams to edit yet", () => {
     expect(editorAccess("draft", true).filesEditable).toBe(false);
+    expect(editorAccess("draft", true).diagramsEditable).toBe(false);
   });
 
   it("in review the content locks but cards stay editable", () => {
@@ -162,6 +164,7 @@ describe("editorAccess", () => {
       locked: true,
       cardsEditable: true,
       filesEditable: false,
+      diagramsEditable: true,
       panelReadOnly: true,
     });
   });
@@ -171,6 +174,7 @@ describe("editorAccess", () => {
       locked: true,
       cardsEditable: false,
       filesEditable: false,
+      diagramsEditable: false,
       panelReadOnly: true,
     });
   });

@@ -94,7 +94,7 @@ Use the **quick filter** search bar for full-text search across all ADRs. Right-
 
 #### Exporting and importing decisions {: #decisions-import }
 
-**Export** (next to **+ New ADR**) downloads the decisions the filter sidebar currently shows as an `.xlsx` file, one row per decision revision. The columns, in order: `reference_number`, `title`, `status`, `revision_number`, the four sections (`context`, `decision`, `consequences`, `alternatives_considered`) as plain text, `cards` and `related_decisions` (semicolon-separated), `author`, `signatories`, `signed_at`, `created_at`, `updated_at`, then the register's own facts — `standing` (as a key such as `in_force`), `decided_on`, `effective_from`, `valid_until`, `decision_makers`, `participants`, and the typed links `replaces`, `amends`, `revokes` and `consolidates` as references. Formatting such as bold or links is not carried into the spreadsheet. To share fully formatted decisions instead, select rows in the grid and use the grid's own **Export** button, which writes a Word document.
+**Export** (next to **+ New ADR**) downloads the decisions the filter sidebar currently shows as an `.xlsx` file, one row per decision revision. The columns, in order: `reference_number`, `title`, `status`, `revision_number`, the four sections (`context`, `decision`, `consequences`, `alternatives_considered`) as plain text, `cards` and `related_decisions` (semicolon-separated), `author`, `signatories`, `signed_at`, `created_at`, `updated_at`, then the register's own facts — `standing` (as a key such as `in_force`), `decided_on`, `effective_from`, `valid_until`, `decision_makers`, `participants`, and the typed links `replaces`, `amends`, `revokes` and `consolidates` as references. Formatting such as bold or links is not carried into the spreadsheet, and a table in a section is written as one line per row, its cells separated by ` | `. To share fully formatted decisions instead, select rows in the grid and use the grid's own **Export** button, which writes a Word document.
 
 **Import** creates decisions in bulk from an `.xlsx` file. Click **Download template** for a starter workbook, fill in one decision per row and upload it:
 
@@ -122,8 +122,11 @@ In every case, you can search and link additional cards during creation. Initiat
 
 The editor provides:
 
-- Rich-text editing for each section (Context, Decision, Consequences, Alternatives Considered)
+- Rich-text editing for each section (Context, Decision, Consequences, Alternatives Considered): bold, italic, underline, strikethrough, **Inline code**, a **Heading** and a **Sub-heading**, bulleted and numbered lists, quotes, a **Code block** for a command or a configuration excerpt (kept on its own lines in a monospace font) and dividers
+- **Links** — link selected text to a web page or an e-mail address (see [Links in the text](#decision-text-links))
+- **Tables** — insert and edit a table in a section (see [Tables](#decision-tables))
 - **Mentions** — type **@** in a section to mention a card or another decision (see [Mentions](#decision-mentions))
+- **Pictures** — insert a screenshot or a diagram into a section (see [Pictures](#decision-pictures))
 - **Discussion** — a panel beside the document with its discussion (see [Discussion](#decision-discussion))
 - **History** — a button at the top of the page that opens the decision's timeline and its saved versions (see [History](#decision-history))
 - Card linking — connect the ADR to relevant cards (applications, IT components, initiatives, …). Initiatives are linked via the standard card-linking feature, not a dedicated field, so an ADR can reference multiple initiatives
@@ -132,6 +135,76 @@ The editor provides:
 - **This decision…** — typed links to other decisions (see [Links between decisions](#decision-links))
 - **Change summary** — on a revision only: what changed in this revision, and why
 - **Files** — documents attached to the decision (see [Files](#decision-files))
+- **Diagrams** — diagrams from the Diagrams module attached to the decision (see [Diagrams](#decision-diagrams))
+
+#### Pictures {: #decision-pictures }
+
+Each of the four sections can hold pictures — a screenshot, an exported diagram, a photo of a whiteboard. Click **Insert picture** in the section's toolbar and choose a file, paste a picture from the clipboard, or drag a picture file onto the section. The picture is uploaded as it is inserted and appears on its own line.
+
+- **Resize** a picture by dragging its corner: its proportions are kept.
+- **Align** it by selecting it and clicking **Align left**, **Align center** or **Align right** in the toolbar.
+- **Formats.** PNG, JPEG, GIF and WebP, up to 5 MB each. A larger picture is refused, not shrunk. SVG is not accepted.
+- **Where it shows.** Pictures appear in the [preview](#preview), in the PDF / printed copy and in the Word export. In the [History](#decision-history) a version shows its pictures, and **Changes** marks a picture added or removed as *[Picture]*. A revision, a duplicate and a restored version keep the pictures of the text they came from.
+- **Only pictures uploaded here.** A decision keeps only pictures uploaded to decisions. A picture that links to another website, or one copied from a SoAW, is removed when the decision is saved.
+- **Comments** in the [discussion](#decision-discussion) take no pictures.
+- **When file uploads are off.** The **Insert picture** button, paste and drag-and-drop of pictures disappear when an administrator has [switched file uploads off](../admin/resources.md#when-file-uploads-are-disabled). Pictures already in the text stay visible.
+
+#### Links in the text {: #decision-text-links }
+
+Select some words and click **Link** in the section's toolbar, or press **Ctrl+K** (**Cmd+K** on a Mac), to link them. Type the **Address** and click **Apply**. With nothing selected, the dialog also asks for the **Text to show**; left empty, the address itself is shown. A web address or an e-mail address typed or pasted into the text becomes a link on its own.
+
+- **What can be a link.** Web addresses (`http://`, `https://`) and e-mail addresses (`mailto:`). An address without a scheme is completed: `example.com` becomes `https://example.com` and `ann@example.com` an e-mail link. Anything else — another scheme, or an address inside Turbo EA such as `/cards/…` — is refused with *Enter a web address (https://…) or an e-mail address*.
+- **Editing or removing a link.** Place the caret in the link and click **Link** or press Ctrl/Cmd+K again: the dialog opens with the address filled in, and also offers **Remove link** and **Open in new tab**.
+- **Following a link.** While you are editing, a click on a link places the caret in it, so it can be edited like any other text; **Ctrl+click** (**Cmd+click** on a Mac) opens it in a new tab. In the preview, the history and a locked or signed decision, a click opens it in a new tab.
+- **Ctrl/Cmd+K.** Inside a section you are editing, the shortcut opens the link dialog instead of the [global search](inventory.md); everywhere else it still opens the search.
+- **Comments** in the [discussion](#decision-discussion) take links the same way.
+- **Where it shows.** Links stay clickable in the preview, the PDF / printed copy and the Word export. In the [History](#decision-history), **Changes** reports a changed link address as a change.
+
+#### Tables {: #decision-tables }
+
+Each of the four sections can hold tables. Click **Table** in the section's toolbar and choose **Insert table**: a table of three rows and three columns is inserted, its first row a header row. A cell holds text like the rest of the section: formatting, links, mentions and pictures work in it.
+
+There are three ways to reach a table's actions, and each acts on the cell holding the caret or on the cells you have selected:
+
+- **The toolbar's Table menu** — with the caret in a table, **Table** lists every action below.
+- **Right-click** in a cell — the same actions open at the pointer.
+- **The handles** around the table — a grip beside a row or above a column opens the actions for that row or column, and a **+** inserts one (see *Handles* below).
+
+The actions:
+
+- **Select row** and **Select column** select the whole row or column of the caret, or of every cell selected.
+- **Add row above**, **Add row below**, **Add column before** and **Add column after**. **Add row above** is unavailable in the header row: a new row always goes below it.
+- **Move row up**, **Move row down**, **Move column before** and **Move column after** move the row or column by one place and keep it selected. A move is unavailable at the edge of the table, across the header row, with more than one row or column selected, and in a table where a merged cell spans several rows (for rows) or several columns (for columns).
+- **Delete row** and **Delete column** delete every row or column of the selection, and say how many (*Delete 2 rows*). A table keeps at least one row and one column: with every row selected **Delete row** is unavailable, and with every column selected **Delete column** is.
+- **Header row** turns the first row's header formatting on or off.
+- **Merge cells** joins the cells you selected by dragging across them, and **Split cell** divides a merged cell again.
+- **Delete table**.
+
+Before and after follow the reading direction: in a right-to-left language the column before is the one on the right.
+
+**Handles.** While you edit, the table has a narrow margin around it that holds its handles. They show for the cell under the pointer and, while you are working in the section, for the cell holding the caret:
+
+- **A row grip** beside the row and **a column grip** above the column. A click selects the row or column and opens its actions: for a row **Add row above**, **Add row below**, **Move row up**, **Move row down**, **Delete row**, and **Header row** on the first row; for a column **Add column before**, **Add column after**, **Move column before**, **Move column after** and **Delete column**. A right-click on a grip does the same. On a merged cell the grip stands for every row or column the cell spans, and its menu says so (*Delete 2 rows*).
+- **A +** on a row's lower border inserts a row below it, and **a +** on a column's end border inserts a column after it. The last row and the last column have the bars instead.
+- **A bar** under the last row adds a row at the end, and **a bar** after the last column adds a column at the end.
+
+A row or column added this way puts the caret in its first cell, and one undo removes it. On a touch screen the handles are larger, and they show for the cell you tapped.
+
+**The right-click menu.** A right-click in a cell opens the table's actions at the pointer. When the click is inside cells you have selected, the selection is kept, so the actions apply to all of them; anywhere else, the caret moves into the clicked cell first.
+
+- **Shift+right-click** opens the browser's own menu instead, for its spelling suggestions or **Paste**.
+- A right-click on a **link** or a **picture** in a cell opens the browser's menu too, to open or copy it.
+- On a touch screen, a long press selects text as usual; use the handles there.
+- With the keyboard, **Shift+F10** or the **Menu** key opens the same menu on the caret's cell.
+
+**Keyboard.** **Tab** moves to the next cell and **Shift+Tab** to the previous one; Tab in the last cell adds a row. The toolbar's **Table** menu reaches every action from the keyboard; the handles are for the pointer and touch and are not in the Tab order.
+
+**Widths and wide tables.** Drag the border between two columns to change their widths. A table wider than the section scrolls sideways; a row's grip then scrolls out of view with the first column, while the right-click menu and the toolbar's **Table** menu still reach every action.
+
+A locked or signed decision shows its tables without handles, and a right-click there opens the browser's menu.
+
+- **Where it shows.** Tables appear in the [preview](#preview) and the [History](#decision-history), where **Changes** reads each row as one line with its cells separated by ` | `. In the PDF / printed copy a table keeps the proportions of its columns and fits the page width. The Word export writes a real Word table, with its merged cells and column widths and a header row repeated at the top of each page.
+- **Comments** in the [discussion](#decision-discussion) take no tables: a table pasted into a comment becomes its cells' text.
 
 #### Dates {: #decision-dates }
 
@@ -158,6 +231,8 @@ The **This decision…** section of a decision links it to others. Pick the kind
 
 Links are shown on both decisions and point to the decision's current revision. They act on the whole decision, all its revisions included, and only once the decision carrying them is signed and effective: a draft that revokes another changes nothing until it is signed, and one with a later *Effective from* acts on that date (the other decision says *This decision will be revoked by … on …*). A decision cannot link to one of its own revisions, and every decision it links to must be signed before it is sent for review or recorded.
 
+These are links between decisions; for links to web pages in a section's text, see [Links in the text](#decision-text-links).
+
 #### Revoking or replacing a decision
 
 A signed decision is never retired by hand: it is revoked or replaced by another signed decision, so the register keeps who decided it and when. Open the signed decision and use the **Revise** menu:
@@ -176,6 +251,15 @@ A decision that another one amends stays in force, and its page lists the amendi
 
 The **Files** section attaches documents to a decision — a signed minute, a supporting analysis. Files accept the same formats as [card attachments](card-details.md#resources-tab), up to 20 MB each, and can be uploaded only while file uploads are enabled (deleting one is always possible). They can be added and deleted on a saved draft only: once the decision is sent for review they are locked with it. A revision carries its decision's files over.
 
+#### Diagrams {: #decision-diagrams }
+
+The **Diagrams** section, after **Files**, attaches diagrams from the [Diagrams](diagrams.md) module to a decision — the context diagram the decision is about, say. Click **Attach diagram**, search the list and pick one; it is attached at once, without saving. Each attached diagram shows its thumbnail and its name, and a click opens it. To detach one, click its remove button and confirm: the diagram itself is kept.
+
+- **Always the current diagram.** The decision links to the diagram, it does not keep a copy: it always shows the diagram as it is now, also once the decision is signed. Deleting the diagram removes it from every decision that had it attached, signed ones included.
+- **When it can change.** Diagrams can be attached and detached while the decision is a draft or in review. Once it is signed they are fixed: to change them, create a new revision.
+- **Who sees them.** Seeing the section needs the permission to view diagrams (`diagrams.view`); attaching and detaching also need `adr.manage`. A reader without `diagrams.view` sees no Diagrams section at all. A decision that cannot be edited and has no diagram shows no section either.
+- **Where it shows.** The [preview](#preview) shows the diagrams read-only; the PDF / printed copy and the Word export list their names. A revision and a duplicate carry the diagrams over. Diagrams are not part of a [History](#decision-history) version.
+
 #### Sign-off workflow
 
 ADRs support a formal sign-off process:
@@ -186,7 +270,7 @@ ADRs support a formal sign-off process:
 4. Signatories review and click **Sign**.
 5. Once every signatory has signed, the ADR automatically moves to **Signed**.
 
-**A decision in review is locked**, so signatories sign exactly what they were sent: the text, the dates, the people, the links, the files and the extension panels are read-only, and only the linked cards can still change. To edit it, click **Recall Signatures**, which returns it to draft. A signatory who clicks **Reject** also returns it to draft, under the same revision number.
+**A decision in review is locked**, so signatories sign exactly what they were sent: the text, the dates, the people, the links to other decisions, the files and the extension panels are read-only, and only the linked cards and the attached [diagrams](#decision-diagrams) can still change. To edit it, click **Recall Signatures**, which returns it to draft. A signatory who clicks **Reject** also returns it to draft, under the same revision number.
 
 Signed ADRs are locked and cannot be edited — to make changes, create a new revision.
 
@@ -198,7 +282,7 @@ The decision is then locked like a signed one and gets its standing, but its sta
 
 #### Revisions
 
-Open a signed ADR and choose **Revise → Revise this decision** to create a new draft based on the signed version. The revision keeps the decision's reference and takes the next revision number — **ADR-012 · Rev 2** — and inherits the content, linked cards, **Relates to** links, people, files and *Valid until* date. It does not inherit the decided and effective dates, the signatories, the change summary or the replaces / amends / revokes links, which stay on the revision that made them. Each revision keeps its own sign-off trail.
+Open a signed ADR and choose **Revise → Revise this decision** to create a new draft based on the signed version. The revision keeps the decision's reference and takes the next revision number — **ADR-012 · Rev 2** — and inherits the content, linked cards, attached diagrams, **Relates to** links, people, files and *Valid until* date. It does not inherit the decided and effective dates, the signatories, the change summary or the replaces / amends / revokes links, which stay on the revision that made them. Each revision keeps its own sign-off trail.
 
 - **One open revision at a time.** While a revision is being drafted, the current revision says so and the **Revise** menu opens that draft instead of starting another.
 - **The current revision is the one in force.** Once a revision is signed and effective, the earlier ones are **Superseded** and show a banner linking to the current one. The **Revisions** strip on every revision lists the whole chain and marks the current one.
@@ -208,9 +292,9 @@ Open a signed ADR and choose **Revise → Revise this decision** to create a new
 
 #### Preview
 
-Click the preview icon to view a read-only, formatted version of the ADR — useful for reviewing before signing.
+Click the preview icon to view a read-only, formatted version of the ADR — useful for reviewing before signing. It shows the attached diagrams too, and its links open in a new tab.
 
-From the preview click **PDF** to open a print-ready copy in a new tab — metadata and dates, the four sections, people, linked cards, links to other decisions, file names, extension sections and the signature block (or the recorded line), with the approver and print date in the footer. The editor has the same **PDF** button plus **Word**, which downloads the decision as a `.docx` until it is signed; both export what is currently in the editor, unsaved edits included.
+From the preview click **PDF** to open a print-ready copy in a new tab — metadata and dates, the four sections, people, linked cards, links to other decisions, file names, diagram names, extension sections and the signature block (or the recorded line), with the approver and print date in the footer. The editor has the same **PDF** button plus **Word**, which downloads the decision as a `.docx` until it is signed; both export what is currently in the editor, unsaved edits included. In the Word document, formatting and links are kept everywhere — in lists, quotes and headings too — links are clickable, code keeps a monospace font and tables are real Word tables.
 
 #### Discussion {: #decision-discussion }
 
@@ -220,6 +304,7 @@ Every decision has its own **Discussion**, so a decision can be settled in Turbo
 - **Filtering by section.** Once a thread has a section, a row of chips at the top of the discussion lists each section that has threads, with how many (*Decision (2)*), and a **General** chip when some threads have no section. Click a chip to show only its threads; turn on several to see the threads of any of them, click one again to turn it off, or click **Clear**. Clicking a thread's own section chip turns its filter on. The filter works with the resolved threads folded or not and with the earlier revisions shown, and counts only the threads listed. It is not kept when you leave the document, and a thread opened from a notification is always shown.
 - **Discussion on a section.** Every section shows a small chat icon beside its heading, on the editor and the preview, for people who may comment (people who may only read see it only on sections with threads): the number of open threads when the section has discussion, a muted icon once all of them are resolved. Click it to open the discussion filtered to that section, with the resolved threads unfolded when none of them is open, and the section already selected for a new comment (the icon is never printed or exported).
 - **Resolve and reopen.** Click **Resolve** once a thread is settled and **Reopen** if it is not. Resolved threads fold away behind **Show N resolved threads**.
+- **Formatting.** A comment takes bold, italic, strikethrough, **Inline code**, bulleted and numbered lists, quotes and [links](#decision-text-links) (the **Link** button or Ctrl/Cmd+K). Headings, code blocks, pictures and tables belong in the sections, not in comments.
 - **Who can post.** Reading the discussion follows who can open the decision (`adr.view`). Posting, replying, resolving and reopening need the `adr.comment` permission, which members and admins hold by default and viewers do not; an administrator can change it per role. The decision's signatories can always comment on it, including the people asked to sign it in an earlier review round that was recalled or rejected.
 - **During review and after signing.** The [review lock](#sign-off-workflow) covers the content, not the conversation: the discussion stays open while the decision is in review and after it is signed.
 - **Review notes.** When a signatory rejects a decision, the reason opens a thread marked **Rejection reason** (*No reason given* when the signatory left it empty), to be answered and resolved like any other. A signatory can add an optional note when signing; it appears in the discussion as a **Signing note**. Neither is lost any more when signatures are recalled, and both are also shown in the [History](#decision-history).
@@ -245,9 +330,9 @@ The **History** button at the top of the decision's editor or preview, beside th
 
 The History is not the hand-kept **Document Version History** table of a [Statement of Architecture Work](delivery.md#the-soaw-editor), which records what the authors choose to write in it.
 
-- **Versions.** A version is kept each time a draft is saved with changes. It holds the title, the four sections, the dates, the change summary and the people; links, linked cards and files are not part of a version. The steps that hold a version are marked in the timeline; the people who can edit the decision and its signatories select one to show it on the right, and the newest version is selected when the view opens. Other readers see the timeline without the versions (*Saved versions are shown to editors and signatories only.*). On a narrow screen the view shows the timeline first, then the selected version with a **Back** button.
-- **Changes.** Above the selected version, **Version** shows it as it was saved and **Changes** shows what changed between it and the version before it, word by word per section, together with the dates and people that changed; pick any other version under **Compare with**. Only the versions already loaded in the timeline can be compared: when the version before the selected one is not loaded yet, **Changes** says so, and **Load more** brings it in. A change of formatting alone is reported as *Formatting only: the words are the same.*
-- **Restore.** On a draft, someone who can edit the decision can restore the selected version with **Restore this version**. Restoring is forward only: the version's text, dates and people replace the draft's and are kept as a new version, and the draft's state before the restore stays in the history. Links, linked cards and files are not restored. When the editor holds unsaved edits, the confirmation says they will be discarded. Once restored, the page shows the restored decision and the view closes. A decision in review or signed cannot be restored.
+- **Versions.** A version is kept each time a draft is saved with changes. It holds the title, the four sections, the dates, the change summary and the people; links to other decisions, linked cards, files and diagrams are not part of a version. The steps that hold a version are marked in the timeline; the people who can edit the decision and its signatories select one to show it on the right, and the newest version is selected when the view opens. Other readers see the timeline without the versions (*Saved versions are shown to editors and signatories only.*). On a narrow screen the view shows the timeline first, then the selected version with a **Back** button.
+- **Changes.** Above the selected version, **Version** shows it as it was saved and **Changes** shows what changed between it and the version before it, word by word per section, together with the dates and people that changed; pick any other version under **Compare with**. Only the versions already loaded in the timeline can be compared: when the version before the selected one is not loaded yet, **Changes** says so, and **Load more** brings it in. A change of formatting alone is reported as *Formatting only: the words are the same.*; a link whose address changed counts as a change, and a table row reads as one line, its cells separated by ` | `.
+- **Restore.** On a draft, someone who can edit the decision can restore the selected version with **Restore this version**. Restoring is forward only: the version's text, dates and people replace the draft's and are kept as a new version, and the draft's state before the restore stays in the history. Links to other decisions, linked cards, files and diagrams are not restored. When the editor holds unsaved edits, the confirmation says they will be discarded. Once restored, the page shows the restored decision and the view closes. A decision in review or signed cannot be restored.
 
 #### Known limits {: #collaboration-limits }
 
@@ -287,5 +372,7 @@ The same Compliance tab also appears on Card Detail (auto-hides when the card ha
 | `adr.comment` | admin, bpm_admin, member — post in a decision's [discussion](#decision-discussion); a decision's signatories can always comment on it |
 | `risks.view` / `risks.manage` | see [Risk Register § Permissions](risks.md) |
 | `compliance.view` / `compliance.manage` | see [TurboLens § Security & Compliance](turbolens.md) |
+
+The [Diagrams](#decision-diagrams) section of a decision also needs `diagrams.view` (admin, bpm_admin, member, viewer by default): without it a reader sees no diagrams on any decision.
 
 `grc.view` controls visibility of the GRC route itself — without it the top-nav entry is hidden. Each tab additionally enforces its domain-specific permission so a viewer can read the register without being able to trigger an LLM scan, for example.

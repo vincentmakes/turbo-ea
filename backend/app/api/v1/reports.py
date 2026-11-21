@@ -55,6 +55,7 @@ from app.services.cost_components import cost_components
 from app.services.cost_event_redaction import redact_cost_events
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.cost_grouping import assign_groups, parse_group_by
+from app.services.cost_redaction import card_cost_redaction_map, redact_portfolio_costs
 from app.services.cost_report import (
     build_cost_sankey,
     cards_with_cost,
@@ -875,25 +876,24 @@ async def landscape(
 ):
     """Landscape report: cards grouped by a related type."""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
-    can_view_costs_global = await PermissionService.has_app_permission(db, user, "costs.view")
     readable = (await CardReadScope.load(db, user)).where(Card, mode="module")
     # Get all cards of the target type
     result = await db.execute(
         select(Card).where(Card.type == type, Card.status == "ACTIVE", *readable)
     )
     sheets = result.scalars().all()
+    cost_visible = await PermissionService.card_ids_with_cost_access(
+        db, user, (card.id for card in sheets)
+    )
     # Resolve cost field keys for the target type once
     target_type_result = await db.execute(
         select(CardType.fields_schema).where(CardType.key == type)
     )
-    target_cost_keys = (
-        cost_field_keys_from_card_schema(target_type_result.scalar_one_or_none())
-        if not can_view_costs_global
-        else frozenset()
-    )
+    target_cost_keys = cost_field_keys_from_card_schema(target_type_result.scalar_one_or_none())
 
-    def _strip_attrs(attrs: dict | None) -> dict | None:
-        if not attrs or not target_cost_keys:
+    def _strip_attrs(card: Card) -> dict | None:
+        attrs = card.attributes
+        if not attrs or not target_cost_keys or card.id in cost_visible:
             return attrs
         return {k: v for k, v in attrs.items() if k not in target_cost_keys}
 
@@ -934,7 +934,7 @@ async def landscape(
                 "id": card_id,
                 "name": card.name,
                 "type": card.type,
-                "attributes": _strip_attrs(card.attributes),
+                "attributes": _strip_attrs(card),
                 "lifecycle": card.lifecycle,
             }
         )
@@ -956,7 +956,7 @@ async def landscape(
             "id": str(card.id),
             "name": card.name,
             "type": card.type,
-            "attributes": _strip_attrs(card.attributes),
+            "attributes": _strip_attrs(card),
         }
         for card in sheets
         if str(card.id) not in grouped_ids
@@ -1011,9 +1011,7 @@ async def portfolio(
         if allowed_keys and param_val not in allowed_keys:
             raise HTTPException(400, f"Unknown field '{param_val}' for type '{type}'")
 
-    # If any of the chosen axes is a cost field, the caller must hold costs.view —
-    # the portfolio aggregates landscape-wide so per-card stakeholder access is
-    # not meaningful here.
+    # Cost axes require the report-wide grant and per-card visibility.
     cost_keys = cost_field_keys_from_card_schema(type_def.fields_schema if type_def else None)
     if cost_keys & {x_axis, y_axis, size_field, color_field}:
         await PermissionService.require_permission(db, user, "costs.view")
@@ -1023,16 +1021,25 @@ async def portfolio(
         select(Card).where(Card.type == type, Card.status == "ACTIVE", *readable)
     )
     sheets = result.scalars().all()
+    cost_visible = await PermissionService.card_ids_with_cost_access(
+        db, user, (card.id for card in sheets)
+    )
     items = []
     for card in sheets:
         attrs = card.attributes or {}
+        if card.id not in cost_visible:
+            attrs = {key: value for key, value in attrs.items() if key not in cost_keys}
         items.append(
             {
                 "id": str(card.id),
                 "name": card.name,
                 "x": attrs.get(x_axis),
                 "y": attrs.get(y_axis),
-                "size": attrs.get(size_field, 0),
+                "size": (
+                    None
+                    if card.id not in cost_visible and size_field in cost_keys
+                    else attrs.get(size_field, 0)
+                ),
                 "color": attrs.get(color_field),
                 "lifecycle": card.lifecycle,
             }
@@ -1063,7 +1070,10 @@ async def app_portfolio(
         raise HTTPException(status_code=404, detail=f"Card type '{type}' not found")
 
     read_scope = await CardReadScope.load(db, user)
-    return await build_portfolio_payload(db, read_scope, target_type, all_types)
+    payload = await build_portfolio_payload(db, read_scope, target_type, all_types)
+    # Every attribute of every card, for client-side grouping: the cost
+    # fields go only to a reader who may see them on the card itself.
+    return await redact_portfolio_costs(db, user, payload, target_type)
 
 
 #: Hard ceiling on the number of relation edges the matrix will serialise. A
@@ -1376,17 +1386,22 @@ async def roadmap(
         target_type = next((t for t in all_types if t.key == type), None)
         if target_type is not None and not target_type.is_hidden:
             payload = await build_portfolio_payload(db, read_scope, target_type, all_types)
+            payload = await redact_portfolio_costs(db, user, payload, target_type)
             return roadmap_from_portfolio(payload, type)
     q = select(Card).where(Card.status == "ACTIVE", *read_scope.where(Card, mode="module"))
     if type:
         q = q.where(Card.type == type)
     result = await db.execute(q)
     sheets = result.scalars().all()
+    redact = await card_cost_redaction_map(db, user, sheets)
     items = []
     for card in sheets:
         lc = card.lifecycle or {}
         attrs = card.attributes or {}
         if has_timeline_dates(lc, attrs):
+            strip = redact.get(card.id)
+            if strip:
+                attrs = {k: v for k, v in attrs.items() if k not in strip}
             items.append(
                 {
                     "id": str(card.id),
@@ -1435,6 +1450,10 @@ async def cost_report(
     if type in COST_ITEM_TYPES:
         # cost items, not the cached attribute: one definition with the treemap
         costed = await cards_with_cost(db, read_scope, type, DERIVED_KEY, fy, fy, fy_start)
+        allowed = await PermissionService.card_ids_with_cost_access(
+            db, user, (card.id for card, _ in costed)
+        )
+        costed = [(card, cost) for card, cost in costed if card.id in allowed]
         items = [{"id": str(c.id), "name": c.name, "cost": cost} for c, cost in costed]
         total = sum(cost for _, cost in costed)
     else:
@@ -1446,6 +1465,10 @@ async def cost_report(
         sheets = [
             c for c in result.scalars().all() if is_live_in_fiscal_year(c.lifecycle, fy, fy_start)
         ]
+        allowed = await PermissionService.card_ids_with_cost_access(
+            db, user, (card.id for card in sheets)
+        )
+        sheets = [card for card in sheets if card.id in allowed]
         items = []
         total = 0
         for card in sheets:
@@ -1527,6 +1550,10 @@ async def cost_treemap(
     sheets = await cards_with_cost_for_types(
         db, read_scope, type_keys, cost_field, target_fy, fy, fy_start
     )
+    allowed = await PermissionService.card_ids_with_cost_access(
+        db, user, (card.id for card, _ in sheets)
+    )
+    sheets = [(card, cost) for card, cost in sheets if card.id in allowed]
 
     items: list[dict] = [
         {
@@ -1651,6 +1678,7 @@ async def cost_sankey(
             target_fy,
             fy,
             fy_start,
+            user,
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
@@ -1716,16 +1744,15 @@ async def licensing_report(
         or []
         for f in s["fields"]
     }
-    hidden: dict[str, frozenset[str]] = {}
-    if not await PermissionService.has_app_permission(db, user, "costs.view"):
-        hidden = {
-            key: cost_field_keys_from_card_schema(ct.fields_schema)
-            for key, ct in license_card_types.items()
-        }
+    hidden = {
+        key: cost_field_keys_from_card_schema(ct.fields_schema)
+        for key, ct in license_card_types.items()
+    }
     try:
         return await build_license_report(
             db,
             read_scope,
+            user=user,
             card_types=type_keys,
             metric=metric,
             license_type=license_type,
@@ -1764,7 +1791,6 @@ async def capability_heatmap(
         raise HTTPException(400, str(exc)) from exc
     if metric == "total_cost":
         await PermissionService.require_permission(db, user, "costs.view")
-    can_view_costs_global = await PermissionService.has_app_permission(db, user, "costs.view")
     read_scope = await CardReadScope.load(db, user)
     readable = read_scope.where(Card, mode="module")
     # Get all business capabilities
@@ -1797,6 +1823,13 @@ async def capability_heatmap(
         select(Card).where(Card.type == "Application", Card.status == "ACTIVE", *readable)
     )
     apps = apps_result.scalars().all()
+    cost_visible = await PermissionService.card_ids_with_cost_access(
+        db, user, (card.id for card in [*caps, *apps])
+    )
+    cap_schema = (
+        await db.execute(select(CardType.fields_schema).where(CardType.key == "BusinessCapability"))
+    ).scalar_one_or_none()
+    cap_cost_keys = cost_field_keys_from_card_schema(cap_schema)
     app_map = {str(a.id): a for a in apps}
 
     # Get ALL relations touching applications (for dynamic filtering by any related type)
@@ -1909,7 +1942,7 @@ async def capability_heatmap(
         aid = str(a.id)
         by_type = app_related.get(aid, {})
         attrs = a.attributes
-        if attrs and not can_view_costs_global and cost_field_keys:
+        if attrs and a.id not in cost_visible and cost_field_keys:
             attrs = {k: v for k, v in attrs.items() if k not in cost_field_keys}
         return {
             "id": aid,
@@ -1951,8 +1984,8 @@ async def capability_heatmap(
         app_count = len(linked_apps)
 
         total_cost = 0.0
-        if can_view_costs_global:
-            for a in linked_apps:
+        for a in linked_apps:
+            if a.id in cost_visible:
                 attrs = a.attributes or {}
                 app_cost = sum(cost_value(attrs.get(ck)) for ck in cost_field_keys)
                 if attribution == SPLIT:
@@ -1969,7 +2002,11 @@ async def capability_heatmap(
                 "app_count": app_count,
                 "total_cost": total_cost,
                 "risk_count": risk_count,
-                "attributes": c.attributes,
+                "attributes": (
+                    {k: v for k, v in c.attributes.items() if k not in cap_cost_keys}
+                    if c.attributes and c.id not in cost_visible
+                    else c.attributes
+                ),
                 "apps": [_app_to_dict(a) for a in linked_apps],
             }
         )

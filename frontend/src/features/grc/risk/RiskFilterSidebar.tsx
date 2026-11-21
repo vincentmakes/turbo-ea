@@ -32,6 +32,7 @@ import {
   FilterCheckboxList,
   FilterSectionHeader,
 } from "@/components/FilterSidebarSection";
+import { resetFilterKeys } from "@/lib/filterSections";
 import ColumnOrderSection, {
   type ColumnOrderItem,
 } from "@/components/grid/ColumnOrderSection";
@@ -223,6 +224,9 @@ export default function RiskFilterSidebar({
   );
 
   const clearAll = () => onFiltersChange({ ...EMPTY_RISK_FILTERS });
+  /** One section's clear button: resets exactly that section's keys. */
+  const clearKeys = (...keys: (keyof RiskFilters)[]) =>
+    onFiltersChange(resetFilterKeys(filters, EMPTY_RISK_FILTERS, keys));
 
   const activeCount = useMemo(
     () =>
@@ -421,6 +425,7 @@ export default function RiskFilterSidebar({
             icon="search"
             expanded={expandedSections.search}
             onToggle={() => toggleSection("search")}
+            onClear={() => clearKeys("search")}
             count={filters.search.trim() ? 1 : 0}
           />
           <Collapse in={expandedSections.search}>
@@ -440,6 +445,7 @@ export default function RiskFilterSidebar({
             icon="route"
             expanded={expandedSections.status}
             onToggle={() => toggleSection("status")}
+            onClear={() => clearKeys("statuses")}
             count={filters.statuses.length}
           />
           <Collapse in={expandedSections.status}>
@@ -459,6 +465,7 @@ export default function RiskFilterSidebar({
             icon="label"
             expanded={expandedSections.category}
             onToggle={() => toggleSection("category")}
+            onClear={() => clearKeys("categories")}
             count={filters.categories.length}
           />
           <Collapse in={expandedSections.category}>
@@ -479,6 +486,7 @@ export default function RiskFilterSidebar({
             icon="flag"
             expanded={expandedSections.level}
             onToggle={() => toggleSection("level")}
+            onClear={() => clearKeys("levels")}
             count={filters.levels.length}
           />
           <Collapse in={expandedSections.level}>
@@ -499,6 +507,7 @@ export default function RiskFilterSidebar({
             icon="person"
             expanded={expandedSections.owner}
             onToggle={() => toggleSection("owner")}
+            onClear={() => clearKeys("owners")}
             count={filters.owners.length}
           />
           <Collapse in={expandedSections.owner}>
@@ -540,6 +549,7 @@ export default function RiskFilterSidebar({
             icon="category"
             expanded={expandedSections.cardTypes}
             onToggle={() => toggleSection("cardTypes")}
+            onClear={() => clearKeys("cardTypes")}
             count={filters.cardTypes.length}
           />
           <Collapse in={expandedSections.cardTypes}>
@@ -571,6 +581,7 @@ export default function RiskFilterSidebar({
             icon="style"
             expanded={expandedSections.cards}
             onToggle={() => toggleSection("cards")}
+            onClear={() => clearKeys("cards")}
             count={filters.cards.length}
           />
           <Collapse in={expandedSections.cards}>
@@ -617,6 +628,7 @@ export default function RiskFilterSidebar({
             icon="input"
             expanded={expandedSections.source}
             onToggle={() => toggleSection("source")}
+            onClear={() => clearKeys("sources")}
             count={filters.sources.length}
           />
           <Collapse in={expandedSections.source}>
@@ -636,6 +648,7 @@ export default function RiskFilterSidebar({
             icon="event"
             expanded={expandedSections.target}
             onToggle={() => toggleSection("target")}
+            onClear={() => clearKeys("dateTargetFrom", "dateTargetTo", "overdueOnly")}
             count={
               (filters.dateTargetFrom ? 1 : 0) +
               (filters.dateTargetTo ? 1 : 0) +

@@ -6,7 +6,7 @@ Le module **Diagrammes** vous permet de créer des **diagrammes d'architecture v
 
 ## Galerie de diagrammes
 
-La galerie présente chaque diagramme sous forme de fiche compacte avec une miniature, un nom, un auteur et le nombre de fiches référencées. **Créez**, **Ouvrez**, **Modifiez les détails**, organisez ou **Supprimez** n'importe quel diagramme.
+La galerie présente chaque diagramme sous forme de fiche compacte avec une miniature, un nom, un auteur et le nombre de fiches référencées. **Créez**, **Ouvrez**, **Modifiez les détails**, organisez ou **Supprimez** n'importe quel diagramme. Supprimer un diagramme le retire aussi de toutes les décisions auxquelles il était joint (voir [Lier des diagrammes à des décisions](#linking-diagrams-to-decisions)).
 
 ### Trouver des diagrammes
 
@@ -154,6 +154,10 @@ Le bouton Sync de la barre d'outils affiche une pastille pulsée « N non synchr
 ### Lier des diagrammes aux fiches
 
 Les diagrammes peuvent être liés à **n'importe quelle fiche** depuis l'onglet **Ressources** de la fiche (voir [Détail des fiches](card-details.fr.md#onglet-ressources)). Lorsqu'un diagramme est lié à une fiche **Initiative**, il apparaît également dans le module [EA Delivery](delivery.md) aux côtés des documents SoAW.
+
+### Lier des diagrammes à des décisions {: #linking-diagrams-to-decisions }
+
+Un diagramme peut aussi être joint à une décision d'architecture, depuis la section **Diagrammes** de l'éditeur de la décision (voir [Diagrammes d'une décision](grc.md#decision-diagrams)). La décision affiche le diagramme tel qu'il est maintenant : modifier le diagramme change donc ce que montre la décision, même signée ; supprimer le diagramme le retire de toutes les décisions auxquelles il était joint.
 
 ## Data Modeller
 

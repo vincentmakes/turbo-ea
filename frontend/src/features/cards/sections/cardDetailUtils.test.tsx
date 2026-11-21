@@ -20,6 +20,7 @@ import {
   FieldValue,
   isEmptyAttrValue,
   isEnforcedRequiredField,
+  isWriteLockedField,
   missingRequiredFields,
   NO_SUBTYPE_KEY,
   shouldGroupBySubtype,
@@ -475,6 +476,14 @@ describe("mandatory-field helpers", () => {
           { key: "gdpr", label: "GDPR", type: "boolean", required: true },
           { key: "score2", label: "Score", type: "number", required: true, readonly: true },
           { key: "notes", label: "Notes", type: "text" },
+          {
+            key: "extScore",
+            label: "Extension score",
+            type: "text",
+            required: true,
+            ext: "sample-ext",
+            ext_locked: true,
+          },
         ] as FieldDef[],
       },
     ],
@@ -499,6 +508,12 @@ describe("mandatory-field helpers", () => {
     expect(isEnforcedRequiredField(fields[2])).toBe(false); // boolean
     expect(isEnforcedRequiredField(fields[3])).toBe(false); // readonly
     expect(isEnforcedRequiredField(fields[4])).toBe(false); // not required
+  });
+
+  it("isEnforcedRequiredField exempts a locked extension field, not an unlocked one", () => {
+    const locked = typeConfig.fields_schema[0].fields[5];
+    expect(isEnforcedRequiredField(locked)).toBe(false);
+    expect(isEnforcedRequiredField({ ...locked, ext_locked: false })).toBe(true);
   });
 
   it("missingRequiredFields lists empty enforced-required fields", () => {
@@ -661,5 +676,14 @@ describe("multiple_select chips follow the option order (#1292)", () => {
   it("FieldEditor's selected chips use the same order", () => {
     render(<FieldEditor field={tiers} value={["bronze", "silver"]} onChange={() => {}} />);
     expect(chipOrder(["Bronze", "Silver"])).toEqual(["Silver", "Bronze"]);
+  });
+});
+
+describe("isWriteLockedField", () => {
+  it("locks a readonly field and a field of an inactive extension, nothing else", () => {
+    expect(isWriteLockedField({})).toBe(false);
+    expect(isWriteLockedField({ readonly: false, ext_locked: false })).toBe(false);
+    expect(isWriteLockedField({ readonly: true })).toBe(true);
+    expect(isWriteLockedField({ ext_locked: true })).toBe(true);
   });
 });

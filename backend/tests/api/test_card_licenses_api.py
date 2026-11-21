@@ -44,7 +44,10 @@ async def env(db):
     await create_license_type(db, "old", "Old")
     await license_types.update_item(db, "users", "old", archived=True)
     await create_stakeholder_role_def(
-        db, key="responsible", label="R", permissions={"card.view": True, "card.edit": True}
+        db,
+        key="responsible",
+        label="R",
+        permissions={"card.view": True, "card.edit": True, "card.view_licenses": True},
     )
     card = await create_card(
         db,

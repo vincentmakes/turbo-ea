@@ -19,6 +19,7 @@ from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
 from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.card_type import CardType
 from app.models.stakeholder import Stakeholder
+from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.turbolens import TurboLensVendorAnalysis
 from app.services.permission_service import PermissionService
 from tests.conftest import (
@@ -444,3 +445,75 @@ class TestSubtypeViewDeny:
             f"/api/v1/cards/{subtypes['hidden'].id}", headers=auth_headers(env["admin"])
         )
         assert resp.status_code == 200
+
+
+class TestCostsUnderAViewDeny:
+    """`costs.view` is landscape-wide, so a View deny on a type takes it away
+    there. The card API used to ignore that and return the costs of a card
+    held through a stakeholder role, while `my-permissions` said the reader
+    could not see them."""
+
+    @pytest.fixture
+    async def costed(self, db, env):
+        ct = (await db.execute(select(CardType).where(CardType.key == "Initiative"))).scalar_one()
+        ct.fields_schema = [
+            {
+                "section": "Budget",
+                "fields": [
+                    {"key": "costBudget", "type": "cost", "weight": 0},
+                    {"key": "note", "type": "text", "weight": 0},
+                ],
+            }
+        ]
+        env["held"].attributes = {"costBudget": 5000, "note": "funded"}
+        await db.flush()
+        return env
+
+    async def _read(self, client, costed):
+        member, held = costed["member"], costed["held"]
+        card = await client.get(f"/api/v1/cards/{held.id}", headers=auth_headers(member))
+        perms = await client.get(
+            f"/api/v1/cards/{held.id}/my-permissions", headers=auth_headers(member)
+        )
+        mine = await client.get("/api/v1/cards/my-stakeholder", headers=auth_headers(member))
+        assert card.status_code == perms.status_code == mine.status_code == 200
+        [item] = [i for i in mine.json()["items"] if i["id"] == str(held.id)]
+        return (
+            card.json()["attributes"],
+            perms.json()["effective"]["can_view_costs"],
+            item["attributes"],
+        )
+
+    async def test_the_card_and_my_permissions_agree_that_costs_are_closed(
+        self, client, db, costed
+    ):
+        # Member holds `costs.view`, may not view Initiatives, and opens this
+        # one through a role that grants `card.view` only.
+        detail, flag, listed = await self._read(client, costed)
+        assert flag is False
+        assert detail == {"note": "funded"}
+        assert listed == {"note": "funded"}
+
+    async def test_a_role_that_shows_costs_opens_them_on_both(self, client, db, costed):
+        srd = (
+            await db.execute(
+                select(StakeholderRoleDefinition).where(
+                    StakeholderRoleDefinition.card_type_key == "Initiative"
+                )
+            )
+        ).scalar_one()
+        srd.permissions = {"card.view": True, "card.view_costs": True}
+        await db.flush()
+        PermissionService.invalidate_srd_cache()
+
+        detail, flag, listed = await self._read(client, costed)
+        assert flag is True
+        assert detail == {"costBudget": 5000, "note": "funded"}
+        assert listed == {"costBudget": 5000, "note": "funded"}
+
+    async def test_without_the_deny_the_app_grant_shows_them(self, client, db, costed):
+        await set_overrides(db, "Initiative", {})
+        detail, flag, listed = await self._read(client, costed)
+        assert flag is True
+        assert detail == {"costBudget": 5000, "note": "funded"}
+        assert listed == {"costBudget": 5000, "note": "funded"}

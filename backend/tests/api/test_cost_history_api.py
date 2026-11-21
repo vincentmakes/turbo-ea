@@ -199,7 +199,11 @@ async def test_a_card_edit_stakeholder_may_still_write_the_history(client, db, e
     editor = await _editor_without_costs(db)
     card = await create_card(db, card_type="Provider", name="ERP", user_id=admin.id)
     await create_stakeholder_role_def(
-        db, card_type_key="Provider", key="owner", label="Owner", permissions={"card.edit": True}
+        db,
+        card_type_key="Provider",
+        key="owner",
+        label="Owner",
+        permissions={"card.edit": True, "card.view_costs": True},
     )
     db.add(Stakeholder(card_id=card.id, user_id=editor.id, role="owner"))
     await db.flush()

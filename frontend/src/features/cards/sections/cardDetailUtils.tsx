@@ -148,7 +148,8 @@ export function useFieldHelp(): (field: FieldDef) => string {
 // ── Mandatory (required) fields ─────────────────────────────────
 // Shared semantics with the backend (_is_empty_attr / the data-quality gate):
 // empty means null / "" / []; boolean fields are exempt (unset is one of a
-// boolean's three states, #1266) and so are readonly (calculated) fields.
+// boolean's three states, #1266) and so are write-locked fields (readonly /
+// calculated, or an inactive or unlicensed extension's `ext_locked` field).
 export function isEmptyAttrValue(val: unknown): boolean {
   return (
     val === null ||
@@ -158,8 +159,20 @@ export function isEmptyAttrValue(val: unknown): boolean {
   );
 }
 
+/** A field whose value cannot be changed here: a `readonly` (auto-maintained)
+ * field, or one an extension contributed while that extension is not enabled
+ * or not licensed (`ext_locked`). Every editing surface asks this, never
+ * `field.readonly` alone. */
+export function isWriteLockedField(field: Pick<FieldDef, "readonly" | "ext_locked">): boolean {
+  return !!field.readonly || field.ext_locked === true;
+}
+
+/** A required field the editor holds the user to: not a boolean (unset is one
+ * of its three states) and not write-locked — neither a `readonly` field nor
+ * one of an inactive or unlicensed extension (`ext_locked`), since the user
+ * cannot fill either and an empty one must not block saving the section. */
 export function isEnforcedRequiredField(field: FieldDef): boolean {
-  return !!field.required && field.type !== "boolean" && !field.readonly;
+  return !!field.required && field.type !== "boolean" && !isWriteLockedField(field);
 }
 
 /** All visible, enforced-required fields of `typeConfig` (respecting the

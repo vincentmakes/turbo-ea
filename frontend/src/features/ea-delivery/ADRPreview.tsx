@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router";
 import { sanitizeRichHtml } from "@/lib/richHtml";
+import { DOCUMENT_CONTENT_SX } from "@/lib/documentContentCss";
 import { fillMentionLabels } from "@/lib/mentionHtml";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -30,6 +31,7 @@ import RevisionStrip, { decisionRevisionItems, showsRevisionStrip } from "./Revi
 import DecisionPeopleField from "./DecisionPeopleField";
 import DecisionLinksBlock from "./DecisionLinksBlock";
 import DecisionFilesSection from "./DecisionFilesSection";
+import DecisionDiagramsSection from "./DecisionDiagramsSection";
 import { DecisionStandingChip, DecisionStatusChip } from "./DecisionStandingChip";
 import { DATE_LABEL_KEYS, decisionRefLabel } from "./decisionStanding";
 import { currentRevisionId } from "./adrEditorModel";
@@ -278,6 +280,7 @@ export default function ADRPreview() {
                     "& p": { mt: 0, mb: 1 },
                     "& ul, & ol": { pl: 3 },
                     lineHeight: 1.7,
+                    ...DOCUMENT_CONTENT_SX,
                   }}
                 />
               ) : (
@@ -349,6 +352,16 @@ export default function ADRPreview() {
             </Typography>
             <DecisionFilesSection adrId={id} files={adr.files} editable={false} live={false} />
           </Box>
+        )}
+
+        {/* Diagrams */}
+        {id && (
+          <DecisionDiagramsSection
+            adrId={id}
+            diagrams={adr.diagrams}
+            editable={false}
+            variant="plain"
+          />
         )}
 
         {/* Linked Cards */}

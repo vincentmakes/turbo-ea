@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ArchitectureDecision } from "@/types";
 import {
+  adrDiagramNames,
   adrFactRows,
   adrFileNames,
   adrHeading,
@@ -167,6 +168,19 @@ describe("adrFileNames", () => {
       "b.png",
     ]);
     expect(adrFileNames(adr())).toEqual([]);
+  });
+});
+
+describe("adrDiagramNames", () => {
+  it("lists the linked diagrams' names, in the order the detail carries them", () => {
+    const diagram = (id: string, name: string) => ({ id, name, thumbnail: "<svg/>", updated_at: null });
+    expect(
+      adrDiagramNames(
+        adr({ diagrams: [diagram("d1", "Landscape"), diagram("d2", ""), diagram("d3", "Flows")] }),
+      ),
+    ).toEqual(["Landscape", "Flows"]);
+    expect(adrDiagramNames(adr())).toEqual([]);
+    expect(adrDiagramNames(adr({ diagrams: [] }))).toEqual([]);
   });
 });
 

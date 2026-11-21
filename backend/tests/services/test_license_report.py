@@ -8,16 +8,19 @@ from sqlalchemy import update
 from app.models.card_license import CardLicense
 from app.models.card_logo import CardLogo
 from app.models.card_type import CardType
+from app.models.stakeholder import Stakeholder
 from app.services.card_read_scope import CardReadScope
 from app.services.cost_grouping import GroupBy
 from app.services.fiscal_year import current_fiscal_year
 from app.services.license_report import build_report, counts_in_year
+from app.services.permission_service import PermissionService
 from tests.conftest import (
     create_card,
     create_card_type,
     create_license_metric,
     create_license_type,
     create_role,
+    create_stakeholder_role_def,
     create_user,
 )
 
@@ -81,7 +84,7 @@ async def _report(db, env, fy=CUR, **kw):
         "card_id": None,
         **kw,
     }
-    return await build_report(db, await load(db, user), fy=fy, **params)
+    return await build_report(db, await load(db, user), user=user, fy=fy, **params)
 
 
 def _names(report):
@@ -90,6 +93,25 @@ def _names(report):
 
 def _by_name(report):
     return {r["name"]: r for r in report["rows"]}
+
+
+async def test_report_omits_licenses_denied_on_a_readable_card(db, env):
+    await create_role(db, key="licensed", permissions={"licenses.view": True})
+    user = await create_user(db, email="licensed-report@test.com", role="licensed")
+    await create_stakeholder_role_def(
+        db, key="reader", permissions={"card.view": True, "card.view_licenses": False}
+    )
+    card = await _card(db, "Readable")
+    db.add(Stakeholder(card_id=card.id, user_id=user.id, role="reader"))
+    await db.execute(
+        update(CardType)
+        .where(CardType.key == "Application")
+        .values(role_permissions={"licensed": {"inventory.view": False}})
+    )
+    await db.flush()
+    PermissionService.invalidate_type_permission_cache()
+    report = await _report(db, (CardReadScope.load, user))
+    assert _names(report) == []
 
 
 def test_counts_in_year_rules():

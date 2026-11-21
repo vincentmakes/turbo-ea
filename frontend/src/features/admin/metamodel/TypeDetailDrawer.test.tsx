@@ -544,6 +544,35 @@ describe("TypeDetailDrawer — subtypes", () => {
     });
   });
 
+  it("offers no delete on a subtype an active extension provides, and says why", async () => {
+    const { user, onRefresh } = renderDrawer("Application", [
+      {
+        ...APPLICATION_TYPE,
+        subtypes: [
+          { key: "own", label: "Own" },
+          { key: "contrib", label: "Contributed", ext: "sample-ext", ext_protected: true },
+          // A stamp alone (an uninstalled extension's leftover) does not protect.
+          { key: "leftover", label: "Leftover", ext: "gone-ext" },
+        ],
+      },
+      ...CARD_TYPES.slice(1),
+    ]);
+    await screen.findByRole("dialog");
+    const chipOf = (text: string) => screen.getByText(text).closest(".MuiChip-root")!;
+    expect(chipOf("Contributed (contrib)").querySelector(".MuiChip-deleteIcon")).toBeNull();
+    expect(
+      screen.getAllByRole("img", { name: ta("metamodel.typeDrawer.subtypeExtensionOwned") }),
+    ).toHaveLength(1);
+    await user.click(chipOf("Leftover (leftover)").querySelector(".MuiChip-deleteIcon")!);
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    expect(lastPatchBody()).toEqual({
+      subtypes: [
+        { key: "own", label: "Own" },
+        { key: "contrib", label: "Contributed", ext: "sample-ext", ext_protected: true },
+      ],
+    });
+  });
+
   it("reports a failed removal", async () => {
     mockApi.fail("patch", /^\/metamodel\/types\/[^/]+$/, 500, "boom");
     const { user, onRefresh } = renderDrawer();

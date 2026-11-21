@@ -443,3 +443,57 @@ describe("resize", () => {
     for (const [type, fn] of mine) expect(removed).toHaveBeenCalledWith(type, fn);
   });
 });
+
+describe("per-section clear", () => {
+  const FULL = filters({
+    search: "abc",
+    statuses: ["open", "closed"],
+    bands: ["low"],
+    owners: ["u1", NO_OWNER],
+  });
+
+  it("clears one section's filters and leaves every other section alone", async () => {
+    const { user, onFiltersChange } = renderSidebar({ filters: FULL });
+    await user.click(screen.getByRole("button", { name: "Clear Owner filters" }));
+    expect(onFiltersChange).toHaveBeenLastCalledWith({ ...FULL, owners: [] });
+    await user.click(screen.getByRole("button", { name: "Clear Risk Score filters" }));
+    expect(onFiltersChange).toHaveBeenLastCalledWith({ ...FULL, bands: [] });
+  });
+
+  it("never folds the section it clears", async () => {
+    const { user } = renderSidebar({ filters: FULL });
+    const status = document.querySelector('[data-section-icon="traffic"]') as HTMLElement;
+    expect(status).toHaveAttribute("aria-expanded", "true");
+    await user.click(screen.getByRole("button", { name: "Clear Status filters" }));
+    expect(status).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("shows no clear button on an empty section", () => {
+    renderSidebar({ filters: filters({ bands: ["high"] }) });
+    expect(screen.getByRole("button", { name: "Clear Risk Score filters" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Clear Owner filters" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Clear Status filters" })).toBeNull();
+  });
+});
+
+describe("per-section clear, every section", () => {
+  /** Every section holds a filter, so a clear that touches too much shows. */
+  const EVERY: PpmRiskFilters = {
+    search: "abc",
+    statuses: ["open", "closed"],
+    bands: ["low"],
+    owners: ["u1", NO_OWNER],
+  };
+
+  it.each<[string, Partial<PpmRiskFilters>]>([
+    ["Search", { search: "" }],
+    ["Status", { statuses: [] }],
+    ["Risk Score", { bands: [] }],
+    ["Owner", { owners: [] }],
+  ])("the %s clear resets exactly that section", async (section, reset) => {
+    const { user, onFiltersChange } = renderSidebar({ filters: EVERY });
+    await user.click(screen.getByRole("button", { name: `Clear ${section} filters` }));
+    expect(onFiltersChange).toHaveBeenCalledTimes(1);
+    expect(onFiltersChange.mock.calls[0][0]).toStrictEqual({ ...EVERY, ...reset });
+  });
+});

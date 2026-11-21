@@ -789,7 +789,8 @@ async def restore(
     ``entry_id`` is a version of ``doc``. The text goes through
     ``document_collab.before_save`` for ``user``: a mention the version holds
     was stored on this document once, so it is kept even when ``user`` cannot
-    read it, while the stored text's restricted chips map back as on a save.
+    read it, while the stored text's restricted chips map back as on a save;
+    likewise its pictures are kept without a look-up in the picture store.
     A decision's dates must pass ``adr_service.check_dates`` (400); a person
     whose user no longer exists comes back as the stored name. Links, linked
     cards, the initiative, files and attributes are never touched.
@@ -800,6 +801,8 @@ async def restore(
     entry = await load_version(db, doc_kind, doc, entry_id)
     fields = restore_fields(doc_kind, entry.content or {})
     kept = mention_service.mentions_of(doc_kind, entry.content or {})
+    # The version's pictures were stored on this document once: never re-checked.
+    kept_images = document_collab.images_of(doc_kind, entry.content or {})
     if doc_kind == document_collab.ADR:
         adr_service.check_dates(
             *(fields[f] for f in ADR_DATE_FIELDS),
@@ -813,6 +816,7 @@ async def restore(
             user=user,
             read_scope=read_scope,
             kept=kept,
+            kept_images=kept_images,
         )
         live = await _live_user_ids(db, fields)
         doc.title = fields["title"]
@@ -835,6 +839,7 @@ async def restore(
             user=user,
             read_scope=read_scope,
             kept=kept,
+            kept_images=kept_images,
         )
         doc.name = fields["name"]
         doc.document_info = fields["document_info"]

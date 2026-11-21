@@ -220,6 +220,30 @@ class TestSetCardTags:
         assert await _events(db, "tag.added") == []
         assert (await db.execute(select(MutationBatch))).scalars().all() == []
 
+    async def test_dry_run_publishes_nothing_live(self, db, env, monkeypatch):
+        """A savepoint rollback discards the Event rows, but ``publish`` has
+        already fanned the event out to live SSE subscribers by then — a
+        preview must never call it."""
+        from app.services.event_bus import event_bus
+
+        published: list[str] = []
+        real_publish = event_bus.publish
+
+        async def recording_publish(event_type, data, *args, **kwargs):
+            published.append(event_type)
+            return await real_publish(event_type, data, *args, **kwargs)
+
+        monkeypatch.setattr(event_bus, "publish", recording_publish)
+        load_registry(grants=["core.cards.write"])
+        t = env["tags"]
+        app_id = str(env["app"].id)
+        await ExtensionData(KEY).set_card_tags(app_id, [t["finance"]], dry_run=True)
+        assert [e for e in published if e.startswith("tag.")] == []
+
+        # Control: the same call for real does publish.
+        await ExtensionData(KEY).set_card_tags(app_id, [t["finance"]])
+        assert [e for e in published if e.startswith("tag.")] == ["tag.added"]
+
 
 class TestStakeholders:
     async def test_needs_its_own_grant_not_cards_write(self, db, env):

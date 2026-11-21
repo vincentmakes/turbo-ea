@@ -37,6 +37,7 @@ from app.core.permissions import (
     strip_legacy_card_permissions,
     type_cell_decision,
     validate_type_role_permissions,
+    view_denied,
 )
 
 # ---------------------------------------------------------------------------
@@ -802,6 +803,31 @@ class TestTypeCellDecision:
     )
     def test_decision_table_with_subtypes(self, cells, permission, subtype, expected):
         assert type_cell_decision(cells, permission, subtype) is expected
+
+    @pytest.mark.parametrize(
+        ("cells", "expected"),
+        [
+            ({"inventory.view": False}, True),
+            ({"inventory.view": False, "inventory.edit": True}, True),
+            # Only an explicit False is a deny.
+            ({"inventory.view": True}, False),
+            ({"inventory.view": None}, False),
+            ({"inventory.view": 0}, False),
+            ({"inventory.edit": False, "inventory.delete": False}, False),
+            ({}, False),
+            (None, False),
+        ],
+    )
+    def test_view_denied(self, cells, expected):
+        assert view_denied(cells) is expected
+
+    @pytest.mark.parametrize("permission", ["costs.view", "inventory.edit", "ppm.view", "x.y"])
+    def test_a_view_deny_is_what_answers_false_for_any_permission(self, permission):
+        # `type_cell_decision` and `view_denied` are one rule: where the second
+        # says deny, the first answers False whatever is asked.
+        assert view_denied({"inventory.view": False}) is True
+        assert type_cell_decision({"inventory.view": False}, permission) is False
+        assert type_cell_decision({"inventory.view": False, permission: True}, permission) is False
 
 
 class TestValidationMessages:

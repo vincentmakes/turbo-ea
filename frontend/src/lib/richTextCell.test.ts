@@ -38,6 +38,32 @@ describe("htmlToPlainText", () => {
     );
   });
 
+  it("reads a table row as one line, its cells joined by ' | '", () => {
+    expect(
+      htmlToPlainText(
+        "<p>Before</p><table><tbody><tr><th><p>Name</p></th><th>Role</th></tr>" +
+          "<tr><td><p>Ada</p><p>Lovelace</p></td><td>Author<br>lead</td></tr>" +
+          "<tr><td></td><td><ul><li>x</li></ul></td></tr></tbody></table><p>After</p>",
+      ),
+    ).toBe("Before\n\nName | Role\nAda Lovelace | Author lead\n| - x\n\nAfter");
+    // Anything in a row but a cell is not a cell.
+    expect(htmlToPlainText("<table><tr><td>a</td><td>b</td></tr></table>")).toBe("a | b");
+  });
+
+  it("reads a link as its text unless asked for its address", () => {
+    const html =
+      '<p>See <a href="https://x.example/a">the <b>docs</b></a>, ' +
+      '<a href="https://x.example/b">https://x.example/b</a>, ' +
+      '<a href=" mailto:Ann@x.example ">ann@x.example</a>, <a href="mailto:b@x.example">Bob</a>, ' +
+      '<a href="ftp://x.example">ftp</a>, <a href="/rel">rel</a> and <a>bare</a></p>';
+    expect(htmlToPlainText(html)).toBe(
+      "See the docs, https://x.example/b, ann@x.example, Bob, ftp, rel and bare",
+    );
+    expect(htmlToPlainText(html, undefined, { linkHrefs: true })).toBe(
+      "See the docs (https://x.example/a), https://x.example/b, ann@x.example, Bob (mailto:b@x.example), ftp, rel and bare",
+    );
+  });
+
   it("decodes entities and leaves bare text alone", () => {
     expect(htmlToPlainText("a &amp; b &lt;c&gt;")).toBe("a & b <c>");
   });
@@ -84,5 +110,36 @@ describe("plainTextToHtml", () => {
   it("round-trips what the export writes", () => {
     const html = "<p>Intro<br>more</p><ul><li>a</li><li>b</li></ul><ol><li>x</li></ol><p>End</p>";
     expect(plainTextToHtml(htmlToPlainText(html))).toBe(html);
+  });
+});
+
+describe("htmlToPlainText — document pictures", () => {
+  const PIC = "/api/v1/document-images/soaw/0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
+
+  it("leaves no text for a picture by default (spreadsheet cells unchanged)", () => {
+    expect(htmlToPlainText(`<p>a</p><img src="${PIC}"><p>b</p>`)).toBe("a\n\nb");
+  });
+
+  it("reads a document picture as the token on its own line when asked", () => {
+    expect(
+      htmlToPlainText(`<p>a</p><img src="${PIC}" width="20"><p>b</p>`, undefined, {
+        imageToken: "[Picture]",
+      }),
+    ).toBe("a\n\n[Picture]\n\nb");
+    expect(htmlToPlainText(`<img src="${PIC}">`, undefined, { imageToken: "[P]" })).toBe("[P]");
+  });
+
+  it("gives no token for a picture the sanitiser would remove, or for an empty token", () => {
+    expect(
+      htmlToPlainText('<p>a</p><img src="https://cdn.example.com/x.png">', undefined, {
+        imageToken: "[Picture]",
+      }),
+    ).toBe("a");
+    expect(htmlToPlainText(`<p>a</p><img src="${PIC}">`, undefined, { imageToken: "" })).toBe("a");
+  });
+
+  it("trims a token inside a list item to the item line", () => {
+    const img = `<img src="${PIC}">`;
+    expect(htmlToPlainText(`<li>${img}</li>`, undefined, { imageToken: "[P]" })).toBe("- [P]");
   });
 });

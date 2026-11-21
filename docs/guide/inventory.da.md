@@ -10,7 +10,7 @@
 
 Det venstre sidepanel lader dig **filtrere** kort efter forskellige kriterier:
 
-- **Søg** — Friform tekstsøgning på tværs af kortnavne, allerede fra første bogstav. De bedste match står øverst: eksakte navne, derefter navne der begynder med det, du skrev, så dem hvor det begynder et ord, og til sidst resten. Alle søgefelter i Turbo EA sorterer sådan — den globale søgning (**Ctrl+K** / **⌘K**), enhver kortvælger, risikoregistret, beslutninger og publicerede portaler — medmindre du selv har valgt en sortering, som altid vinder. Et korts **alias** og dets beskrivelse matches også, så et kort kan findes med det navn, din organisation faktisk bruger — og et alias, der matcher eksakt, rangerer lige så højt som et navn, der gør
+- **Søg** — Friform tekstsøgning på tværs af kortnavne, allerede fra første bogstav. De bedste match står øverst: eksakte navne, derefter navne der begynder med det, du skrev, så dem hvor det begynder et ord, og til sidst resten. Alle søgefelter i Turbo EA sorterer sådan — den globale søgning (**Ctrl+K** / **⌘K** — undtagen i beslutnings- eller SoAW-tekst, du er ved at redigere, hvor genvejen åbner [linkdialogen](grc.md#decision-text-links)), enhver kortvælger, risikoregistret, beslutninger og publicerede portaler — medmindre du selv har valgt en sortering, som altid vinder. Et korts **alias** og dets beskrivelse matches også, så et kort kan findes med det navn, din organisation faktisk bruger — og et alias, der matcher eksakt, rangerer lige så højt som et navn, der gør
 - **Typer** — Filtrer efter en eller flere korttyper, grupperet efter det arkitekturlag, hver type hører til: Strategy & Transformation (Objective, Platform, Initiative), Business Architecture (Organization, Business Capability, Business Context, Business Process), Application & Data (Application, Interface, Data Object) og Technical Architecture (IT Component, Tech Category, Provider). En type, som din administrator placerer i sit eget lag, får sin egen overskrift efter de fire, og enhver type uden lag vises til sidst under **Ukategoriseret**
 - **Undertyper** — Når en type er valgt, kan du filtrere yderligere efter undertype (f.eks. Application → Business Application, Microservice, AI Agent, Deployment)
 - **Godkendelsesstatus** — Draft, Approved, Broken eller Rejected
@@ -25,7 +25,7 @@ Det venstre sidepanel lader dig **filtrere** kort efter forskellige kriterier:
 - **Relationer** — Filtrer efter relaterede kort på tværs af relations­typer
 - **Brugerdefinerede attributter** — Filtrer efter værdier i brugerdefinerede felter (tekstsøgning, select-muligheder)
 - **Vis kun arkiverede** — Skift for at se arkiverede (soft-deleted) kort
-- **Ryd alle** — Nulstil alle aktive filtre på én gang
+- **Ryd alle** — Nulstil alle aktive filtre på én gang. For kun at nulstille én gruppe skal du bruge ryd-knappen, der vises ved siden af gruppens antal, så snart noget i den er valgt — rydning af **Typer** nulstiller også de filtre, der kun gælder for den valgte type (undertyper, linktyper, end of life, attributter og relationer).
 
 > **Find kort uden værdi.** Filtrene Undertype, Livscyklus, Tags, Relationer og brugerdefinerede valg-attributter har hver en **(tom)**-mulighed. Vælg den for kun at vise de kort, der *ikke* har en værdi for det felt — for eksempel alle kort uden en angivet livscyklus. Den kan kombineres med normale værdier (matcher en af dem) og på tværs af flere filtre (matcher alle).
 
@@ -269,6 +269,8 @@ En visning rummer højst **seks** forespørgselslinjer, **tolv** relationer på 
 
 **Redigering af en gemt forespørgselsvisning.** Når en forespørgselsvisning er åben, viser strimlen dens sti: korttyperne som chips, forbundet af det relationsverbum, der knytter hvert trin (for eksempel *Organisation → bruger Applikation → er berørt af Initiativ*), med hvert korts betingelser nedenunder. En visning med flere linjer viser den samme stak med sine OG-markører og ELLER-skillelinjer, men uden redigeringsknapperne. Hvis du ejer visningen eller har redigeringsrettigheder til den, skifter en **blyant** i strimlen den til den samme bygger; **Gem** opdaterer visningen. Knappen **×** (*Forlad denne visning*) vender tilbage til det normale inventar. **Gem aktuel visning**, mens en forespørgselsvisning er åben, gemmer en ny forespørgselsvisning med samme forespørgsel.
 
+**Fold striben sammen.** Pilen i starten af striben folder forespørgselslinjerne sammen i dens titelrække, som så kun viser visningens navn og antallet af linjer, så der bliver mere plads til gitteret; klik igen for at folde dem ud. Inventaret husker dit valg til den næste visning, du åbner. En visning med mange linjer beholder dem, i striben eller i buildere, i et område med begrænset højde, der ruller for sig, så gitteret nedenunder altid beholder sin plads, og blyanten, **×**, **Gem** og **Annuller** forbliver inden for rækkevidde.
+
 #### Se kortene bag et match { #query-view-matches }
 
 En forespørgselsvisning viser kun det første kort i sin forespørgsel. For at se, hvilke kort længere henne i kæden der fik en række til at matche, skal du klikke på deres korttype i forespørgslens sti. I *Organisationer, der bruger en applikation, der bruger en IT-komponent ved eller nær livets afslutning* klikker du på **Applikation**, og en kolonne viser for hver organisation de applikationer, den matcher igennem; klik på **IT-komponent**, og en anden kolonne viser de kvalificerende IT-komponenter. Klik på korttypen igen for at fjerne dens kolonne.
@@ -334,6 +336,12 @@ Celler er **deklarative**: sættet af mål i cellen bliver det komplette sæt af
 I en projektmappe eksporteret af Turbo EA (den har et `_Meta`-ark) er et komma aldrig en separator, så en celle med ét mål som `This is X, it does Y` forbliver ét mål. Et ark uden `_Meta` (bygget i hånden eller eksporteret før 1.23) kan stadig adskille mål med kommaer: en celle, der indeholder et `;`, er semikolon-separeret, og en celle uden læses som ét mål, når hele cellen navngiver et kort, og ellers som komma-separeret.
 
 Kolonnen `tags` følger samme regel: `Gruppe: Tag`-poster adskilt af `; ` (f.eks. `Vendor: Acme, Inc.; Region: EU`), hvor et `;` i et tagnavn skrives som `\;`. Projektmapper eksporteret før 2.156.1 adskilte tags med kommaer og importeres stadig som før.
+
+#### Find en relationstypes nøgle
+
+Navnet efter `rel:` er relationstypens **nøgle**, ikke dens verbum. Du kan se den under **Admin > Metamodel > Relationer**: åbn relationstypens redigeringsdialog, som viser nøglen under dens to korttyper. Kolonneoverskrifterne `rel:` i enhver eksport viser også nøglerne. En brugerdefineret relationstype fungerer præcis som en indbygget.
+
+Links oprettes og fjernes kun i kolonnen `rel:` på arket for den korttype, relationen **starter fra**. En `rel:`-kolonne placeret på arket for den korttype, den peger på, ignoreres, og importens forhåndsvisning angiver det ark, den hører til på. En relationstype uden værdier har ingen rækker på arket `Relations`, da der ikke er noget at udfylde. Hvor arket `Relations` skal bruge en `relation_type`, skal du angive nøglen; skriver du i stedet et verbum, fortæller forhåndsvisningen dig, hvilken nøgle du skal bruge.
 
 ### Interessent-celler
 

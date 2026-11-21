@@ -111,7 +111,7 @@ Dependiendo del tipo de ficha, verá secciones adicionales con **campos personal
 - **Texto** — Entrada de texto libre
 - **Texto multilínea** — Entrada de texto libre que preserva los saltos de línea, mostrada como un área de texto que crece automáticamente
 - **Número** — Valor numérico
-- **Costo** — Valor numérico mostrado con la moneda configurada en la plataforma
+- **Costo** — Valor numérico mostrado con la moneda configurada en la plataforma. Los campos de costo se muestran a los usuarios cuyo rol tiene el permiso `costs.view` (listado en **Costs** en el editor de roles) y a las partes interesadas de una tarjeta cuando su [rol de parte interesada](../admin/metamodel.md) lo permite. Los demás ven *Restringido* en su lugar y no pueden cambiar el valor. Observar una tarjeta no muestra sus costos
 - **Booleano** — Elección en una lista Sí / No, con **Ninguno** para borrarlo; se muestra como una etiqueta verde *Sí* o azul *No*, — si no está definido
 - **Fecha** — Selector de fecha
 - **URL** — Enlace interactivo (validado para http/https/mailto)
@@ -141,6 +141,7 @@ El campo **Coste anual total** (`costTotalAnnual`) de la ficha se deriva de las 
 
 La sección **Licencias** registra, año a año, cuántas licencias tiene contratadas la ficha y cuántas se usan realmente. Está junto a los Costes y tiene la misma fila verde **Time Travel** sobre seis años: los cuatro anteriores al actual, el actual y el **Forecast**. Todo lo que hay en la sección corresponde al año seleccionado.
 
+
 Una ficha tiene los **pares** *Métrica: Tipo* (por ejemplo *Usuarios: Admin* o *Instalaciones: Prod*) que se han añadido al año seleccionado. No hay ningún ajuste a nivel de ficha que marcar: un par existe en un año una vez que lo añade.
 
 ![Sección de Licencias](../assets/img/en/104_card_licensing.png)
@@ -155,7 +156,7 @@ Las métricas y los tipos de licencia proceden del catálogo que gestiona un adm
 
 **Un nuevo año fiscal.** Cuando una ficha aún no tiene datos de licencias para el nuevo año actual, la sección muestra los pares del año anterior con sus cantidades licenciadas, dibujados **atenuados** y marcados como **sin confirmar**, sin cantidad real, de modo que un año nuevo nunca hereda el consumo del anterior. Se mantienen así hasta que alguien confirma el año (**Confirmar**) o edita una cantidad.
 
-**Quién puede ver y editar las licencias.** Puede **verlas** con el permiso `licenses.view`, o si tiene cualquier rol de interesado en la ficha. Puede **editarlas** con el permiso `licenses.edit`, o si tiene en la ficha un rol de interesado que permite editarla. Por defecto, solo los administradores tienen `licenses.edit`. Un cambio aparece en la pestaña Historial como **Licencias actualizadas**, con los pares afectados (*Métrica: Tipo*) pero no las cantidades, y no se puede revertir.
+**Quién puede ver y editar las licencias.** Puede **ver** las licencias si su rol de aplicación le concede `licenses.view` para el tipo de ficha o si su rol de parte interesada en la ficha concede `card.view_licenses`. De forma predeterminada, Observer no tiene este permiso. Para **editar** las licencias también se requiere `licenses.edit` o un rol de parte interesada que le conceda `card.edit` en esa ficha. Por defecto, solo los administradores tienen `licenses.edit`. Un cambio aparece en la pestaña Historial como **Licencias actualizadas**, con los pares afectados (*Métrica: Tipo*) pero no las cantidades, y no se puede revertir.
 
 ### Sección de Jerarquía
 

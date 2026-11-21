@@ -109,7 +109,7 @@ Depending on the card type, you will see additional sections with **custom field
 - **Text** — Free text input
 - **Multi-line Text** — Free text input that preserves line breaks, rendered as an auto-growing text area
 - **Number** — Numeric value
-- **Cost** — Numeric value displayed with the platform's configured currency
+- **Cost** — Numeric value displayed with the platform's configured currency. Cost fields are shown to users whose role holds the `costs.view` permission (listed under **Costs** in the role editor), and to a card's stakeholders when their [stakeholder role](../admin/metamodel.md) allows it. Everyone else sees *Restricted* in their place and cannot change the value. Observing a card does not show its costs
 - **Boolean** — Chosen from a Yes / No list, with **None** to clear it; shown as a green *Yes* or blue *No* pill, — when unset
 - **Date** — Date picker
 - **URL** — Clickable link (validated for http/https/mailto)
@@ -153,7 +153,7 @@ Metrics and license types come from the catalogue an administrator manages under
 
 **A new fiscal year.** When a card has no licensing data for the new current year yet, the section shows the pairs of the previous year with their licensed counts, drawn **faded** and marked **not confirmed**, with no actual count, so a new year never inherits last year's consumption. They stay that way until someone confirms the year (**Confirm**) or edits a count.
 
-**Who can see and edit licenses.** You can **view** them with the `licenses.view` permission, or when you hold any stakeholder role on the card. You can **edit** them with the `licenses.edit` permission, or when you hold a stakeholder role on the card that allows editing the card. By default only administrators hold `licenses.edit`. A change appears in the History tab as **Licenses updated**, naming the pairs touched (*Metric: Type*) but not the counts, and it cannot be rolled back.
+**Who can see and edit licenses.** You can **view** them if your application role grants `licenses.view` for the card type or your stakeholder role on the card grants `card.view_licenses`. Observer starts without that grant. **Editing** also requires `licenses.edit` or a stakeholder role that grants `card.edit` on that card. By default only administrators hold `licenses.edit`. A change appears in the History tab as **Licenses updated**, naming the pairs touched (*Metric: Type*) but not the counts, and it cannot be rolled back.
 
 ### Hierarchy Section
 

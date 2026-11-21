@@ -111,7 +111,7 @@ Abhängig vom Kartentyp werden Sie zusätzliche Abschnitte mit **benutzerdefinie
 - **Text** — Freitexteingabe
 - **Mehrzeiliger Text** — Freitexteingabe, die Zeilenumbrüche beibehält und als automatisch wachsendes Textfeld dargestellt wird
 - **Zahl** — Numerischer Wert
-- **Kosten** — Numerischer Wert, angezeigt mit der konfigurierten Währung der Plattform
+- **Kosten** — Numerischer Wert, angezeigt mit der konfigurierten Währung der Plattform. Kostenfelder werden Benutzern angezeigt, deren Rolle die Berechtigung `costs.view` besitzt (im Rolleneditor unter **Costs** aufgeführt), sowie den Stakeholdern einer Karte, wenn ihre [Stakeholder-Rolle](../admin/metamodel.md) dies erlaubt. Alle anderen sehen stattdessen *Eingeschränkt* und können den Wert nicht ändern. Das Beobachten einer Karte macht ihre Kosten nicht sichtbar
 - **Boolean** — Auswahl aus einer Ja/Nein-Liste, **Keine** leert das Feld; angezeigt als grüne *Ja*- oder blaue *Nein*-Marke, — wenn nicht gesetzt
 - **Datum** — Datumsauswahl
 - **URL** — Klickbarer Link (validiert für http/https/mailto)
@@ -141,6 +141,7 @@ Das Feld **Jährliche Gesamtkosten** (`costTotalAnnual`) der Karte wird aus den 
 
 Der Abschnitt **Lizenzierung** erfasst Jahr für Jahr, wie viele Lizenzen die Karte vertraglich hat und wie viele tatsächlich genutzt werden. Er steht neben den Kosten und hat dieselbe grüne **Time Travel**-Zeile über sechs Jahre: die vier vor dem aktuellen, das aktuelle und das **Forecast**-Jahr. Alles im Abschnitt bezieht sich auf das gewählte Jahr.
 
+
 Eine Karte hat die **Paare** *Kennzahl: Typ* (zum Beispiel *Benutzer: Admin* oder *Installationen: Prod*), die dem gewählten Jahr hinzugefügt wurden. Es gibt keine Einstellung auf Kartenebene zum Anhaken: Ein Paar existiert in einem Jahr, sobald Sie es hinzufügen.
 
 ![Lizenzabschnitt](../assets/img/en/104_card_licensing.png)
@@ -155,7 +156,7 @@ Kennzahlen und Lizenztypen stammen aus dem Katalog, den ein Administrator unter 
 
 **Ein neues Geschäftsjahr.** Hat eine Karte für das neue aktuelle Jahr noch keine Lizenzdaten, zeigt der Abschnitt die Paare des Vorjahres mit ihren lizenzierten Mengen, **abgeblendet** dargestellt und als **nicht bestätigt** markiert, ohne Ist-Menge, sodass ein neues Jahr nie den Verbrauch des letzten erbt. Sie bleiben so, bis jemand das Jahr bestätigt (**Bestätigen**) oder eine Menge ändert.
 
-**Wer Lizenzen sehen und bearbeiten darf.** Lizenzen **ansehen** können Sie mit der Berechtigung `licenses.view` oder wenn Sie eine beliebige Stakeholder-Rolle auf der Karte haben. Lizenzen **bearbeiten** können Sie mit der Berechtigung `licenses.edit` oder wenn Sie eine Stakeholder-Rolle auf der Karte haben, die das Bearbeiten der Karte erlaubt. Standardmäßig besitzen nur Administratoren `licenses.edit`. Eine Änderung erscheint im Tab Verlauf als **Lizenzen aktualisiert**, nennt die betroffenen Paare (*Kennzahl: Typ*), aber nicht die Mengen, und kann nicht zurückgerollt werden.
+**Wer Lizenzen sehen und bearbeiten darf.** Sie können Lizenzen **ansehen**, wenn Ihre Anwendungsrolle Ihnen für den Kartentyp die Berechtigung `licenses.view` gewährt oder Ihre Stakeholder-Rolle auf der Karte `card.view_licenses` gewährt. Observer hat diese Berechtigung standardmäßig nicht. Zum **Bearbeiten** benötigen Sie außerdem `licenses.edit` oder eine Stakeholder-Rolle, die Ihnen auf dieser Karte `card.edit` gewährt. Standardmäßig besitzen nur Administratoren `licenses.edit`. Eine Änderung erscheint im Tab Verlauf als **Lizenzen aktualisiert**, nennt die betroffenen Paare (*Kennzahl: Typ*), aber nicht die Mengen, und kann nicht zurückgerollt werden.
 
 ### Hierarchieabschnitt
 

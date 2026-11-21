@@ -615,17 +615,23 @@ Every AG Grid page that filters server-side uses the same left-hand sidebar. The
 
 **Structure** — collapsed rail (44 px, chevron + active-filter count chip) · tabbed header (**Filters** / **Columns**, each with an 8 px primary dot when it has changes) · scrollable body of collapsible sections · 4 px drag resize handle (`MIN_WIDTH` 220 / `MAX_WIDTH` 480).
 
-**Every section header carries a glyph and a count.** Never a bare label:
+**Every section header carries a glyph, a count and a clear button.** Never a bare label, and never a local copy of the header — use the shared `FilterSectionHeader` (`src/components/FilterSidebarSection.tsx`):
 
 ```tsx
-<SectionHeader
+<FilterSectionHeader
   label={t("filter.types")}
   icon="category"          // section glyph, size 16 — required
   expanded={expandedSections.types}
   onToggle={() => toggleSection("types")}
   count={filters.types.length}   // primary Chip, height 18, hidden when 0
+  onClear={() => clearKeys("types")}   // per-section clear, shown only while count > 0
 />
 ```
+
+- **The count is what the clear button hangs on.** Count the section's active values (a search box or a date pair counts 1 per filled field; a "keep these" list counts the values left out). A section without a count can never show its clear button.
+- **`onClear` resets exactly that section, through the sidebar's own `onFiltersChange`.** `resetFilterKeys(filters, EMPTY_…, keys)` (`src/lib/filterSections.ts`) puts the named keys back to their empty value and leaves every other key alone. When clearing a section must drag dependent facets with it, reuse the sidebar's existing transition instead of re-implementing it — Inventory's Types clear goes through `filtersWithTypes(filters, [])`, the same reset unticking the last type applies.
+- **The clear button is a sibling of the toggle, never inside it** (same reasoning as §3.12's clear-all chip and the freeze pin below): a small `IconButton` with a `filter_alt_off` glyph and the translated label `common:filter.clearSection` ("Clear {{section}} filters"), its own tab stop, and a click on it never folds or unfolds the section. The toggle itself is a keyboard-operable `role="button"` with `aria-expanded` (Enter / Space) and carries `data-section-icon` for tests.
+- The panel-wide **Clear all** stays at the top of the Filters tab; the per-section buttons are in addition to it. The Columns tab's headers take no `onClear`.
 
 **Options are never plain checkbox rows.** Each row must carry the visual identity the entity has everywhere else in the app:
 
@@ -654,7 +660,7 @@ Take colours from `theme/tokens.ts` (`STATUS_COLORS`, `SEVERITY_COLORS`, `LAYER_
 **Filter/column state is persisted** under a `turboea.<page>.prefs` localStorage key through a defensive loader that validates every field and falls back to defaults — a malformed or stale entry must never break the page. Column visibility, `frozenColumns` and `columnOrder` each get their own field.
 
 ✅ Do
-- Give each new section a glyph and a count, even when the section holds a single control.
+- Give each new section a glyph, a count and an `onClear`, even when the section holds a single control.
 - Keep the sidebar fully controlled: it receives `filters` / `visibleColumns` / `frozenColumns` and their setters, plus pre-built option lists. It fetches nothing itself.
 
 ❌ Don't
@@ -684,8 +690,8 @@ and Capability Map had duplicated it near-verbatim before it was extracted).
   in another toolbar row is not part of it.
 - Let the header be a real button. The component gives you `aria-expanded`, `aria-controls`,
   a `role="region"` body and a focus ring for free — the vocabulary of §3.11's
-  `FilterSectionHeader` (chevron → glyph → label → primary count chip) with the button
-  semantics that one lacks.
+  `FilterSectionHeader` (chevron → glyph → label → primary count chip) in report-toolbar
+  typography.
 
 ❌ Don't
 - Don't nest the clear-all chip inside the toggle button. It is a **sibling** — a deletable
@@ -799,7 +805,10 @@ Stored **rich text** (ADR and SoAW sections, a portal's card description) goes t
 `target` and leaves every anchor same-tab. The wrapper autolinks bare URLs in text nodes,
 sanitises last so stored and generated anchors share one policy, stamps `target`/`rel` on
 every anchor whose href is `http`, `https` or `mailto`, and strips any other href. It runs on
-a private DOMPurify instance so the SVG-thumbnail sanitisers never inherit the hook.
+a private DOMPurify instance so the SVG-thumbnail sanitisers never inherit the hook. It also
+removes what the editor never writes (`<style>`, forms, media, SVG, URL-taking attributes)
+and keeps an inline `style` only as a table's or column's pixel width or a cell's
+`text-align`, so a surface that renders stored HTML styles it with classes, never inline.
 
 Detection in prose is **`http(s)://` only** — no bare `www.`, no bare e-mails — the same
 allowlist the `url` field type enforces, chosen for zero false positives. `mailto:` is

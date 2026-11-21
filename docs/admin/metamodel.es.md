@@ -34,7 +34,7 @@ Haga clic en **+ Nuevo Tipo** para crear un tipo de ficha personalizado. Configu
 
 | Campo | Descripción |
 |-------|-------------|
-| **Clave** | Identificador único (minúsculas, sin espacios) — no se puede cambiar después de la creación |
+| **Clave** | Identificador único (una letra seguida de letras y dígitos, sin espacios ni otros caracteres, por ejemplo `myCustomType`) — no se puede cambiar después de la creación |
 | **Etiqueta** | Nombre para mostrar en la interfaz |
 | **Icono** | Nombre del icono de Google Material Symbols |
 | **Color** | Color de marca para el tipo (usado en inventario, informes y diagramas) |
@@ -151,6 +151,8 @@ Asigne una **descripción** a un rol para explicar qué significa en su organiza
 
 Cada rol lleva además un interruptor **Cuenta para la calidad de datos**. La puntuación de calidad tiene una única casilla de partes interesadas, que se cumple en cuanto se asigna a alguien a la tarjeta en un rol con este interruptor activo. Desactívelo para roles puramente pasivos: el **Observador** integrado se entrega desactivado, de modo que observar una tarjeta nunca equivalga a ser responsable de ella. Un tipo cuyos roles estén todos desactivados no aporta casilla alguna. Cambiar el interruptor vuelve a puntuar de inmediato todas las tarjetas del tipo.
 
+Los permisos de un rol también determinan si sus titulares ven los **campos de costo** de una tarjeta. Los usuarios cuyo rol de aplicación tiene `costs.view` ven los costos en todas las tarjetas. Para todos los demás, marque **card.view_costs** en un rol de parte interesada: sus titulares verán entonces los costos de las tarjetas en las que ostentan ese rol y podrán modificarlos si el rol también puede editar. Los roles integrados se entregan con él activado, excepto **Observador**: cualquiera que pueda ver una tarjeta puede convertirse en su Observador con **Observar esta ficha**, por lo que todo lo que permite el rol Observador queda abierto a todos ellos, y el editor de roles lo indica en ese rol. Un rol que usted cree empieza con él desactivado. Tenga presente quién puede asignar un rol: un usuario que pueda gestionar las partes interesadas (el permiso `stakeholders.manage`, o un rol de parte interesada con **card.manage_stakeholders**) puede asignar a cualquiera, incluido él mismo, un rol que muestre los costes. Cuando los costes deban permanecer cerrados para esos usuarios, retíreles ese permiso o desmarque **card.view_costs** en los roles que puedan asignar.
+
 Los roles pueden retirarse de dos formas:
 
 - **Archivar** — el rol permanece en las tarjetas que ya lo usan pero deja de poder asignarse, y deja de otorgar sus permisos a nivel de tarjeta. Los roles archivados aparecen tras el interruptor **Mostrar archivados** y pueden restaurarse en cualquier momento. Es la opción adecuada para un rol que se ha usado realmente.
@@ -227,7 +229,7 @@ Los tipos de relación definen las conexiones permitidas entre tipos de fichas. 
 
 | Campo | Descripción |
 |-------|-------------|
-| **Clave** | Identificador único: se propone a partir de su verbo, se puede editar durante la creación y queda fijo después |
+| **Clave** | Identificador único: se propone a partir de su verbo, se puede editar durante la creación y queda fijo después. El diálogo de edición del tipo de relación la muestra, porque es el nombre que usa Excel: la columna `rel:<key>` y el valor `relation_type` de la hoja `Relations` (consulte [Importación / exportación de Excel](../guide/inventory.md#excel-import)) |
 | **Etiqueta** | Etiqueta de dirección directa (ej., «utiliza») |
 | **Etiqueta Inversa** | Etiqueta de dirección inversa (ej., «es utilizado por») |
 | **Tipo Origen** | El tipo de ficha en el lado «de» |

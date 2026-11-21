@@ -54,8 +54,12 @@ async def test_nobody_is_redacted_when_everyone_has_access(db, monkeypatch):
     async def no_keys(_db):
         raise AssertionError("the key set is only needed when somebody is redacted")
 
+    async def scrub(_db, _user, items):
+        return [payload for _, payload in items]
+
     monkeypatch.setattr(red.PermissionService, "card_ids_with_cost_access", access)
     monkeypatch.setattr(red, "all_cost_keys", no_keys)
+    monkeypatch.setattr(red, "scrub_event_costs", scrub)
     assert await red.redact_cost_events(db, object(), events, payloads) == payloads
     assert await red.redact_cost_events(db, object(), [_event(None)], [None]) == [None]
 
@@ -68,7 +72,16 @@ async def test_only_the_events_of_cards_without_cost_access_are_redacted(db, mon
     async def access(_db, _user, ids):
         return {allowed}
 
+    async def scrub(_db, _user, items):
+        return [
+            {**payload, "changes": {"name": payload["changes"]["name"]}}
+            if card_id == hidden
+            else payload
+            for card_id, payload in items
+        ]
+
     monkeypatch.setattr(red.PermissionService, "card_ids_with_cost_access", access)
+    monkeypatch.setattr(red, "scrub_event_costs", scrub)
     out = await red.redact_cost_events(db, object(), events, payloads)
     assert out[0] == payloads[0]  # costs readable
     assert out[1] == {"tag": "h", "changes": {"name": {"old": "a", "new": "b"}}}

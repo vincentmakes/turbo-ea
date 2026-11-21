@@ -27,6 +27,8 @@ import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { FilterSectionHeader } from "@/components/FilterSidebarSection";
+import { resetFilterKeys } from "@/lib/filterSections";
 import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
 import ColumnOrderSection, {
   type ColumnOrderItem,
@@ -113,43 +115,6 @@ interface Props {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// Helpers
-// ──────────────────────────────────────────────────────────────────────────
-
-function SectionHeader({
-  label,
-  expanded,
-  onToggle,
-}: {
-  label: string;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <Box
-      onClick={onToggle}
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        cursor: "pointer",
-        py: 0.5,
-        userSelect: "none",
-        "&:hover": { bgcolor: "action.hover", borderRadius: 1 },
-      }}
-    >
-      <MaterialSymbol
-        icon={expanded ? "expand_more" : "chevron_right"}
-        size={18}
-        style={{ marginRight: 4 }}
-      />
-      <Typography variant="subtitle2" sx={{ fontSize: 13, fontWeight: 600 }}>
-        {label}
-      </Typography>
-    </Box>
-  );
-}
-
-// ──────────────────────────────────────────────────────────────────────────
 // Component
 // ──────────────────────────────────────────────────────────────────────────
 
@@ -213,6 +178,9 @@ export default function AuditLogFilterSidebar({
   );
 
   const clearAll = () => onFiltersChange({ ...EMPTY_AUDIT_FILTERS });
+  /** One section's clear button: resets exactly that section's keys. */
+  const clearKeys = (...keys: (keyof AuditLogFilters)[]) =>
+    onFiltersChange(resetFilterKeys(filters, EMPTY_AUDIT_FILTERS, keys));
 
   const activeCount = useMemo(
     () =>
@@ -376,10 +344,13 @@ export default function AuditLogFilterSidebar({
               )}
 
               {/* Search */}
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("auditLog.filters.sectionSearch")}
+                icon="search"
                 expanded={expandedSections.search}
                 onToggle={() => toggleSection("search")}
+                onClear={() => clearKeys("search")}
+                count={filters.search.trim() ? 1 : 0}
               />
               <Collapse in={expandedSections.search}>
                 <TextField
@@ -395,10 +366,13 @@ export default function AuditLogFilterSidebar({
               <Divider sx={{ my: 1 }} />
 
               {/* Origin */}
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("auditLog.filters.sectionOrigin")}
+                icon="hub"
                 expanded={expandedSections.origin}
                 onToggle={() => toggleSection("origin")}
+                onClear={() => clearKeys("origins")}
+                count={filters.origins.length}
               />
               <Collapse in={expandedSections.origin}>
                 <List dense disablePadding>
@@ -430,10 +404,13 @@ export default function AuditLogFilterSidebar({
               <Divider sx={{ my: 1 }} />
 
               {/* Status */}
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("auditLog.filters.sectionStatus")}
+                icon="rule"
                 expanded={expandedSections.status}
                 onToggle={() => toggleSection("status")}
+                onClear={() => clearKeys("statuses")}
+                count={filters.statuses.length}
               />
               <Collapse in={expandedSections.status}>
                 <List dense disablePadding>
@@ -465,10 +442,13 @@ export default function AuditLogFilterSidebar({
               <Divider sx={{ my: 1 }} />
 
               {/* Tool name */}
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("auditLog.filters.sectionTool")}
+                icon="build"
                 expanded={expandedSections.tool}
                 onToggle={() => toggleSection("tool")}
+                onClear={() => clearKeys("toolName")}
+                count={filters.toolName.trim() ? 1 : 0}
               />
               <Collapse in={expandedSections.tool}>
                 <TextField
@@ -484,10 +464,13 @@ export default function AuditLogFilterSidebar({
               <Divider sx={{ my: 1 }} />
 
               {/* Date range */}
-              <SectionHeader
+              <FilterSectionHeader
                 label={t("auditLog.filters.sectionDate")}
+                icon="event"
                 expanded={expandedSections.date}
                 onToggle={() => toggleSection("date")}
+                onClear={() => clearKeys("dateFrom", "dateTo")}
+                count={(filters.dateFrom ? 1 : 0) + (filters.dateTo ? 1 : 0)}
               />
               <Collapse in={expandedSections.date}>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 1, my: 0.5 }}>

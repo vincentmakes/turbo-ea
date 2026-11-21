@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from app.models.calculation import Calculation
 from app.models.card_type import CardType
+from app.models.stakeholder import Stakeholder
 from app.services.permission_service import PermissionService
 from tests.conftest import (
     auth_headers,
@@ -15,6 +16,7 @@ from tests.conftest import (
     create_relation,
     create_relation_type,
     create_role,
+    create_stakeholder_role_def,
     create_user,
 )
 
@@ -111,6 +113,38 @@ async def test_hidden_type_cards_omitted_for_restricted_reader(client, db, env):
     )
     assert resp.status_code == 200, resp.text
     assert [i["name"] for i in resp.json()["items"]] == ["App"]
+
+
+@pytest.mark.parametrize("report", ["cost", "cost-treemap", "cost-sankey"])
+async def test_cost_reports_exclude_readable_cards_without_cost_visibility(client, db, env, report):
+    await create_role(
+        db, key="cost_reader", permissions={"inventory.view": True, "costs.view": True}
+    )
+    reader = await create_user(db, email="cost-reader@test.com", role="cost_reader")
+    await create_stakeholder_role_def(
+        db, card_type_key="Workload", key="reader", permissions={"card.view": True}
+    )
+    denied = await _app(db, "Denied", 90)
+    db.add(Stakeholder(card_id=denied.id, user_id=reader.id, role="reader"))
+    await create_card(db, card_type="Asset", name="Allowed", attributes={TOTAL: 50})
+    ct = (await db.execute(select(CardType).where(CardType.key == "Workload"))).scalar_one()
+    ct.role_permissions = {"cost_reader": {"inventory.view": False}}
+    await db.flush()
+    PermissionService.invalidate_type_permission_cache()
+
+    types = "Workload" if report == "cost" else "Workload,Asset"
+    response = await client.get(
+        f"/api/v1/reports/{report}",
+        params={"type": types},
+        headers=auth_headers(reader),
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["total"] == (0 if report == "cost" else 50)
+    names = [row["name"] for row in data.get("items", data.get("nodes", []))]
+    assert "Denied" not in names
+    if report != "cost":
+        assert "Allowed" in names
 
 
 async def test_group_by_field_other_bucket(client, db, env):

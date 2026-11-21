@@ -209,13 +209,15 @@ export default function CreateCardDialog({
     return new Set(st?.hidden_fields ?? []);
   }, [subtype, typeConfig]);
 
-  // Collect all required fields across all sections for the selected type
+  // Collect all required fields across all sections for the selected type.
+  // A field of an inactive or unlicensed extension (`ext_locked`) is never
+  // offered: the backend refuses to fill it in on create.
   const requiredFields = useMemo(() => {
     if (!typeConfig) return [];
     const fields: (FieldDef & { sectionName: string })[] = [];
     for (const section of typeConfig.fields_schema) {
       for (const field of section.fields) {
-        if (field.required && !hiddenFieldKeys.has(field.key)) {
+        if (field.required && !field.ext_locked && !hiddenFieldKeys.has(field.key)) {
           fields.push({ ...field, sectionName: section.section });
         }
       }

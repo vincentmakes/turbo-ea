@@ -230,6 +230,15 @@ export interface FieldDef {
   // manifest on enable/update, so the admin UI shows their config/help
   // read-only ("Managed by <ext>") rather than offering edits that won't stick.
   ext?: string;
+  // Transient, set by `GET /metamodel/types` (never stored): the extension
+  // that contributed this field is not enabled or not licensed, so its values
+  // are shown but cannot be changed — the backend refuses a change with 403
+  // `extension_fields_locked`. Read it through `isWriteLockedField`.
+  ext_locked?: boolean;
+  // Transient, set by `GET /metamodel/types` (never stored): an ACTIVE
+  // (installed, enabled) extension contributed this field, so a card-type save
+  // cannot delete it and the editor offers no delete.
+  ext_protected?: boolean;
   // Set on built-in relation attribute "dimensions" (e.g. usageType,
   // flowDirection): the field definition is locked, but its options can be
   // managed. Custom relation dimensions are fully editable.
@@ -253,6 +262,11 @@ export interface SubtypeDef {
    * side neither blocks approval nor counts against data quality.
    */
   optional_relations?: string[];
+  // Stamped `<extension key>` on a subtype an extension manifest contributed.
+  ext?: string;
+  // Transient, set by `GET /metamodel/types` (never stored): an active
+  // extension contributed this subtype, so it cannot be deleted here.
+  ext_protected?: boolean;
 }
 
 export interface SectionDef {
@@ -266,6 +280,13 @@ export interface SectionDef {
   // name → { locale → label }. Display-only and ungated; any metamodel section
   // (core or extension) may supply it so group headers aren't English-only.
   groupTranslations?: Record<string, TranslationMap>;
+  // Stamped `<extension key>` on a section an extension manifest contributed
+  // (see backend field_contributions).
+  ext?: string;
+  // Transient, set by `GET /metamodel/types` (never stored): an ACTIVE
+  // extension contributed this section, so the type editor cannot delete it.
+  // A stamp alone (an uninstalled extension's leftover) does not protect.
+  ext_protected?: boolean;
 }
 
 export interface StakeholderRoleDefinition {
@@ -1481,6 +1502,15 @@ export interface DecisionFile {
   created_by: { user_id: string; display_name: string | null } | null;
 }
 
+/** A free-draw diagram linked to a decision (a live link, not a copy). */
+export interface AdrLinkedDiagram {
+  id: string;
+  name: string;
+  /** The stored SVG (data URI or raw markup); `null` when none or too large. */
+  thumbnail: string | null;
+  updated_at: string | null;
+}
+
 export interface DecisionRevision extends DecisionRef {
   status: ArchitectureDecision["status"];
   standing: DecisionStanding | null;
@@ -1545,6 +1575,9 @@ export interface ArchitectureDecision {
   change_summary?: string | null;
   recorded_by?: { user_id: string; display_name: string | null } | null;
   files?: DecisionFile[];
+  /** Detail only: the free-draw diagrams linked to the decision, by name;
+   *  `[]` for a reader without `diagrams.view`. */
+  diagrams?: AdrLinkedDiagram[];
   /** Detail only: unresolved discussion threads on this revision. */
   open_thread_count?: number;
 }

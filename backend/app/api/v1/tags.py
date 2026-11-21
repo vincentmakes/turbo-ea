@@ -10,10 +10,16 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.models.card_type import CardType
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
-from app.schemas.common import TagCreate, TagGroupCreate, TagGroupUpdate, TagUpdate
-from app.services import audit_labels, audit_log
+from app.schemas.common import (
+    TagCreate,
+    TagGroupCreate,
+    TagGroupUpdate,
+    TagUpdate,
+)
+from app.services import audit_labels, audit_log, tag_service
 from app.services.card_read_scope import require_card_readable
 from app.services.data_quality import rescore_cards
 from app.services.permission_service import PermissionService
@@ -35,6 +41,36 @@ async def _group_name(db: AsyncSession, group_id: uuid.UUID) -> str | None:
     return (
         await db.execute(select(TagGroup.name).where(TagGroup.id == group_id))
     ).scalar_one_or_none()
+
+
+async def _check_restrict_types(
+    db: AsyncSession, keys: list[str] | None, *, already_stored: list[str] | None = None
+) -> None:
+    """422 unless every card-type key in ``keys`` names an existing card type.
+
+    A key the group already stores is let through, so a group whose type was
+    since deleted can still be edited without first dropping that key.
+    """
+    if not keys:
+        return
+    stored = set(already_stored or [])
+    to_check = sorted({k for k in keys if k not in stored})
+    if not to_check:
+        return
+    existing = set(
+        (await db.execute(select(CardType.key).where(CardType.key.in_(to_check)))).scalars().all()
+    )
+    unknown = [k for k in to_check if k not in existing]
+    if unknown:
+        raise HTTPException(422, "Unknown card type(s) in restrict_to_types: " + ", ".join(unknown))
+
+
+def _parse_group_id(group_id: str) -> uuid.UUID:
+    """The path's group id, or 404 — a malformed id names no group."""
+    try:
+        return uuid.UUID(group_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Tag group not found") from exc
 
 
 router = APIRouter(tags=["tags"])
@@ -84,6 +120,10 @@ async def create_tag_group(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "tags.manage")
+    await _check_restrict_types(db, body.restrict_to_types)
+    if body.dry_run:
+        # Every check has run; nothing is stored and no audit row is written.
+        return {"id": None, "name": body.name, "dry_run": True}
     group = TagGroup(
         name=body.name,
         description=body.description,
@@ -122,6 +162,10 @@ async def update_tag_group(
     if group is None:
         raise HTTPException(status_code=404, detail="Tag group not found")
     updates = body.model_dump(exclude_unset=True)
+    if "restrict_to_types" in updates:
+        await _check_restrict_types(
+            db, updates["restrict_to_types"], already_stored=group.restrict_to_types
+        )
     changes: dict[str, Any] = audit_log.diff(group, updates)
     if "restrict_to_types" in changes:
         # Named the way the tag-group editor lists them.
@@ -181,8 +225,20 @@ async def create_tag(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "tags.manage")
+    group = await db.get(TagGroup, _parse_group_id(group_id))
+    if group is None:
+        raise HTTPException(status_code=404, detail="Tag group not found")
+    if body.dry_run:
+        # Every check has run; nothing is stored and no audit row is written.
+        return {
+            "id": None,
+            "name": body.name,
+            "description": body.description,
+            "color": body.color,
+            "dry_run": True,
+        }
     tag = Tag(
-        tag_group_id=uuid.UUID(group_id),
+        tag_group_id=group.id,
         name=body.name,
         description=body.description,
         color=body.color,
@@ -284,23 +340,17 @@ async def delete_tag(
     await db.commit()
 
 
-async def _require_can_tag_card(db: AsyncSession, user: User, card_uuid: uuid.UUID) -> None:
-    """Allow tagging a card if the user has `tags.manage` globally OR can
-    edit the card (via `inventory.edit` at the app level, or `card.edit`
-    through a stakeholder role). A card the caller may not read does not exist for them: 404
-    before any permission answer."""
+async def _can_tag_card(db: AsyncSession, user: User, card_uuid: uuid.UUID) -> bool:
+    """May the user tag this card? `tags.manage` globally, OR edit rights on
+    the card (`inventory.edit` at the app level, or `card.edit` through a
+    stakeholder role)."""
     await require_card_readable(db, user, card_uuid, mode="module")
-    if await PermissionService.check_permission(db, user, "tags.manage"):
-        return
-    if await PermissionService.check_permission(
-        db,
-        user,
-        "inventory.edit",
-        card_id=card_uuid,
-        card_permission="card.edit",
-    ):
-        return
-    raise HTTPException(status_code=403, detail="Insufficient permissions")
+    return await tag_service.can_tag_card(db, user, card_uuid)
+
+
+async def _require_can_tag_card(db: AsyncSession, user: User, card_uuid: uuid.UUID) -> None:
+    if not await _can_tag_card(db, user, card_uuid):
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
 
 
 @router.post("/cards/{card_id}/tags", status_code=201)

@@ -165,6 +165,8 @@
   "dependencyCreateFailed": "Kunne ikke oprette afhængighed",
   "dependencyDeleteFailed": "Kunne ikke fjerne afhængighed",
   "dependencyCycleError": "Denne afhængighed ville skabe en cyklus",
+  "ganttMoveFailed": "Elementet kunne ikke flyttes",
+  "ganttMoveWhileSorted": "Ryd kolonnesorteringen for at omarrangere elementer.",
   "dependencyDuplicateError": "Denne afhængighed findes allerede",
   "confirmDeleteDependency": "Slet denne afhængighedspil?",
   "today": "I dag",

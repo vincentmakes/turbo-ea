@@ -34,7 +34,7 @@ Klicken Sie auf **+ Neuer Typ**, um einen benutzerdefinierten Kartentyp zu erste
 
 | Feld | Beschreibung |
 |------|-------------|
-| **Schlüssel** | Eindeutiger Bezeichner (Kleinbuchstaben, keine Leerzeichen) — kann nach der Erstellung nicht geändert werden |
+| **Schlüssel** | Eindeutiger Bezeichner (ein Buchstabe, gefolgt von Buchstaben und Ziffern, ohne Leerzeichen oder andere Zeichen, z. B. `myCustomType`) — kann nach der Erstellung nicht geändert werden |
 | **Bezeichnung** | Anzeigename in der Benutzeroberfläche |
 | **Symbol** | Google Material Symbol-Symbolname |
 | **Farbe** | Markenfarbe für den Typ (verwendet in Inventar, Berichten und Diagrammen) |
@@ -150,6 +150,8 @@ Geben Sie einer Rolle eine **Beschreibung**, um festzuhalten, was sie in Ihrer O
 
 Jede Rolle trägt außerdem einen Schalter **Zählt für die Datenqualität**. Die Datenqualität hat genau einen Stakeholder-Slot, und dieser gilt als erfüllt, sobald der Karte jemand in einer Rolle zugewiesen ist, bei der dieser Schalter aktiv ist. Deaktivieren Sie ihn für rein passive Rollen — der integrierte **Beobachter** wird bereits deaktiviert ausgeliefert, damit das Beobachten einer Karte nicht als Verantwortung zählt. Ein Typ, bei dem alle Rollen deaktiviert sind, trägt gar keinen Stakeholder-Slot bei. Das Umschalten bewertet sofort alle Karten dieses Typs neu.
 
+Die Berechtigungen einer Rolle bestimmen außerdem, ob ihre Inhaber die **Kostenfelder** einer Karte sehen. Benutzer, deren App-Rolle `costs.view` besitzt, sehen die Kosten auf jeder Karte. Für alle anderen aktivieren Sie **card.view_costs** bei einer Stakeholder-Rolle: Ihre Inhaber sehen dann die Kosten der Karten, auf denen sie diese Rolle innehaben, und können sie ändern, wenn die Rolle auch bearbeiten darf. Die integrierten Rollen werden mit aktivierter Berechtigung ausgeliefert, außer dem **Beobachter** – jeder, der eine Karte ansehen kann, kann sich mit **Diese Karte beobachten** selbst zu deren Beobachter machen, sodass alles, was die Beobachter-Rolle erlaubt, allen offensteht; der Rolleneditor weist bei dieser Rolle darauf hin. Eine von Ihnen erstellte Rolle startet mit deaktivierter Berechtigung. Bedenken Sie, wer eine Rolle vergeben kann: Ein Benutzer, der Stakeholder verwalten darf (die Berechtigung `stakeholders.manage` oder eine Stakeholder-Rolle mit **card.manage_stakeholders**), kann jedem – sich selbst eingeschlossen – eine Rolle zuweisen, die Kosten anzeigt. Wo Kosten für solche Benutzer verborgen bleiben müssen, entziehen Sie ihnen diese Berechtigung oder deaktivieren Sie **card.view_costs** bei den Rollen, die sie zuweisen können.
+
 Rollen lassen sich auf zwei Arten entfernen:
 
 - **Archivieren** — die Rolle bleibt auf Karten erhalten, die sie bereits verwenden, kann aber nicht mehr zugewiesen werden und gewährt keine Berechtigungen auf Kartenebene mehr. Archivierte Rollen erscheinen über den Schalter **Archivierte anzeigen** und können jederzeit wiederhergestellt werden. Das ist die richtige Wahl für eine Rolle, die tatsächlich verwendet wurde.
@@ -226,7 +228,7 @@ Beziehungstypen definieren die zulässigen Verbindungen zwischen Kartentypen. Je
 
 | Feld | Beschreibung |
 |------|-------------|
-| **Schlüssel** | Eindeutiger Bezeichner — wird aus Ihrem Verb vorgeschlagen, ist beim Anlegen noch änderbar und danach fest |
+| **Schlüssel** | Eindeutiger Bezeichner — wird aus Ihrem Verb vorgeschlagen, ist beim Anlegen noch änderbar und danach fest. Der Bearbeitungsdialog des Beziehungstyps zeigt ihn an, weil Excel diesen Namen verwendet: die Spalte `rel:<key>` und den Wert `relation_type` auf dem Blatt `Relations` (siehe [Excel-Import / -Export](../guide/inventory.md#excel-import)) |
 | **Bezeichnung** | Bezeichnung der Vorwärtsrichtung (z.B. «nutzt») |
 | **Umgekehrte Bezeichnung** | Bezeichnung der Rückwärtsrichtung (z.B. «wird genutzt von») |
 | **Quelltyp** | Der Kartentyp auf der «Von»-Seite |

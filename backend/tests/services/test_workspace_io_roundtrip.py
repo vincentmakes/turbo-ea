@@ -1605,6 +1605,235 @@ async def test_import_cannot_reintroduce_legacy_permission_keys(db):
     assert stored == {"card.view": True}
 
 
+async def _reimported_role_permissions(
+    db, roles: dict, *, app_version, wipe=True, fork=False
+) -> dict:
+    """Export ``roles`` (key -> permissions), stamp the bundle as written by
+    ``app_version`` (``None`` leaves the manifest without one) and import it
+    back; returns each role's stored permissions."""
+    from app.models.card_type import CardType
+    from app.models.stakeholder_role_definition import StakeholderRoleDefinition
+
+    user = await create_user(db, email="view-costs-ws@test.com", role="admin")
+    db.add(
+        CardType(
+            key="Application", label="Application", icon="apps", color="#0f7eb5", fields_schema=[]
+        )
+    )
+    await db.flush()
+    for key, permissions in roles.items():
+        db.add(
+            StakeholderRoleDefinition(
+                card_type_key="Application", key=key, label=key.title(), permissions=permissions
+            )
+        )
+    await db.flush()
+
+    bundle = parse_bundle(await build_bundle(db))
+    if not fork:
+        from app.services.workspace_io import schema
+
+        bundle.sheets.pop(schema.SHEET_COST_ITEM_TYPES, None)
+    if app_version is None:
+        bundle.manifest.pop("app_version", None)
+    else:
+        bundle.manifest["app_version"] = app_version
+
+    if wipe:
+        await db.execute(delete(StakeholderRoleDefinition))
+    else:
+        # The applier's update path: the rows stay, carrying something else.
+        for srd in (await db.execute(select(StakeholderRoleDefinition))).scalars().all():
+            srd.permissions = {"card.edit": True}
+    await db.flush()
+
+    result = await apply_bundle(db, bundle, user)
+    assert result.total_failed == 0, result.as_dict()
+    rows = await db.execute(
+        select(
+            StakeholderRoleDefinition.key, StakeholderRoleDefinition.permissions
+        ).execution_options(populate_existing=True)
+    )
+    return {key: permissions for key, permissions in rows.all()}
+
+
+_PRE_COSTS_ROLES = {
+    "responsible": {"card.view": True, "card.edit": True},
+    "observer": {"card.view": True},
+    "auditor": {},
+}
+
+
+@pytest.mark.parametrize(
+    ("version", "fork", "expected"),
+    [
+        ("2.205.3", False, True),
+        ("2.206.0", False, False),
+        ("2.207.1", False, False),
+        ("2.206.0", True, True),
+        ("2.207.1", True, True),
+        ("2.208.0", True, False),
+        ("2.208.0", False, False),
+        ("test", True, False),
+        (None, True, False),
+    ],
+)
+async def test_bundle_cost_permission_transition_depends_on_exporter(version, fork, expected):
+    from app.services.workspace_io import schema
+    from app.services.workspace_io.applier import _predates_view_costs
+
+    manifest = {"format_version": "1"}
+    if version is not None:
+        manifest["app_version"] = version
+    sheets = {schema.SHEET_COST_ITEM_TYPES: []} if fork else {}
+    assert (
+        _predates_view_costs(bundle_io.WorkspaceBundle(manifest=manifest, sheets=sheets))
+        is expected
+    )
+
+
+@pytest.mark.parametrize("wipe", [True, False])
+async def test_an_older_bundle_keeps_the_cost_access_its_roles_had(db, wipe):
+    """Before 2.206.0 upstream and 2.208.0 in this fork, roles showed costs (#1412).
+
+    A bundle exported then carries no ``card.view_costs`` — the key did not
+    exist — so importing it verbatim would take cost access away from every
+    owner. The importer fills the key the way migration 195 did on an upgraded
+    install: on for every role, off for Observer.
+    """
+    stored = await _reimported_role_permissions(
+        db, _PRE_COSTS_ROLES, app_version="2.205.3", wipe=wipe
+    )
+    assert stored == {
+        "responsible": {"card.view": True, "card.edit": True, "card.view_costs": True},
+        "observer": {"card.view": True, "card.view_costs": False},
+        "auditor": {"card.view_costs": True},
+    }
+
+
+@pytest.mark.parametrize(
+    "app_version",
+    ["2.206.0", "2.206.1", "3.0.0", "10.0.0", "0.0.0-dev", "2.205.3-dev", "test", "", None],
+)
+async def test_a_bundle_that_is_not_older_is_taken_at_its_word(db, app_version):
+    # A role created since the key exists has no entry until an admin ticks
+    # it, and that means "no costs". Only a bundle that says it is older gets
+    # the fill — never one from this release on, nor one that names no version
+    # (a content pack, a hand-built bundle).
+    stored = await _reimported_role_permissions(db, _PRE_COSTS_ROLES, app_version=app_version)
+    assert stored == _PRE_COSTS_ROLES
+
+
+@pytest.mark.parametrize("app_version", ["2.205.99", "2.9.0", "1.999.999", "0.6.0"])
+async def test_every_release_before_the_key_counts_as_older(db, app_version):
+    # Compared as numbers: "2.9.0" and "1.999.999" are older than 2.206.0.
+    stored = await _reimported_role_permissions(
+        db, {"responsible": {"card.view": True}}, app_version=app_version
+    )
+    assert stored == {"responsible": {"card.view": True, "card.view_costs": True}}
+
+
+async def test_an_older_bundle_never_overrides_a_stated_choice(db):
+    stored = await _reimported_role_permissions(
+        db,
+        {"responsible": {"card.view_costs": False}, "observer": {"card.view_costs": True}},
+        app_version="2.205.3",
+    )
+    assert stored == {
+        "responsible": {"card.view_costs": False},
+        "observer": {"card.view_costs": True},
+    }
+
+
+@pytest.mark.parametrize("wipe", [True, False])
+@pytest.mark.parametrize("app_version", ["2.206.0", "2.207.1"])
+async def test_old_fork_bundle_preserves_stakeholder_cost_access(db, wipe, app_version):
+    stored = await _reimported_role_permissions(
+        db, _PRE_COSTS_ROLES, app_version=app_version, wipe=wipe, fork=True
+    )
+    assert stored == {
+        "responsible": {
+            "card.view": True,
+            "card.edit": True,
+            "card.view_costs": True,
+            "card.view_licenses": True,
+        },
+        "observer": {"card.view": True, "card.view_costs": False, "card.view_licenses": False},
+        "auditor": {"card.view_costs": True, "card.view_licenses": True},
+    }
+
+
+async def test_old_fork_bundle_preserves_explicit_cost_choices(db):
+    stored = await _reimported_role_permissions(
+        db,
+        {"responsible": {"card.view_costs": False}, "observer": {"card.view_costs": True}},
+        app_version="2.207.1",
+        fork=True,
+    )
+    assert stored == {
+        "responsible": {"card.view_costs": False, "card.view_licenses": True},
+        "observer": {"card.view_costs": True, "card.view_licenses": False},
+    }
+
+
+async def test_old_fork_bundle_preserves_explicit_license_choices(db):
+    stored = await _reimported_role_permissions(
+        db,
+        {"responsible": {"card.view_licenses": False}, "observer": {"card.view_licenses": True}},
+        app_version="2.207.1",
+        fork=True,
+    )
+    assert stored == {
+        "responsible": {"card.view_costs": True, "card.view_licenses": False},
+        "observer": {"card.view_costs": False, "card.view_licenses": True},
+    }
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("2.205.3", (2, 205, 3)),
+        ("2.206.0", (2, 206, 0)),
+        ("10.20.30", (10, 20, 30)),
+        ("2.206.0-rc1", None),
+        ("0.0.0-dev", None),
+        ("2.205.3 ", None),
+        ("2.205.3.1", None),
+        ("test", None),
+        ("2.206", None),
+        ("v2.206.0", None),
+        ("", None),
+        (None, None),
+    ],
+)
+async def test_bundle_app_version(raw, expected):
+    manifest = {"format_version": "1"}
+    if raw is not None:
+        manifest["app_version"] = raw
+    assert bundle_io.WorkspaceBundle(manifest=manifest, sheets={}).app_version == expected
+
+
+async def test_the_release_that_added_the_key_is_the_one_the_importer_compares_to():
+    """``VIEW_COSTS_SINCE`` is a copy of the release that shipped
+    ``card.view_costs``. If that release is renumbered (another change takes
+    the version first), a bundle from the release in between would be read as
+    "not older" and its owner roles would lose cost access on import with every
+    other test still green — so the constant is pinned to the changelog."""
+    from pathlib import Path
+
+    from app.services.workspace_io.applier import VIEW_COSTS_SINCE
+
+    changelog = (Path(__file__).resolve().parents[3] / "CHANGELOG.md").read_text()
+    heading = "## [{}.{}.{}]".format(*VIEW_COSTS_SINCE)
+    assert changelog.count(heading) == 1, f"no changelog entry for {heading}"
+    section = changelog.split(heading, 1)[1].split("\n## [", 1)[0]
+    assert "card.view_costs" in section
+
+
+async def test_a_bundle_without_a_manifest_version_has_none():
+    assert bundle_io.WorkspaceBundle(manifest={}, sheets={}).app_version is None
+
+
 async def test_import_renames_legacy_app_permission_keys(db):
     """A bundle from a pre-033 instance must not reintroduce the old app names.
 
@@ -2961,6 +3190,221 @@ async def test_decision_register_roundtrips_and_reimports_as_all_skip(db, tmp_pa
         "AdrFileContents": (0, 1, 0, 0),
         "AdrFiles": (0, 2, 0, 0),
     }
+
+
+async def test_decision_diagram_links_roundtrip_and_reimport_as_all_skip(db):
+    """A decision's diagram links travel as ``AdrDiagrams`` rows naming both
+    ends by their preserved ids; after wiping decisions and diagrams the import
+    restores them, and importing the same bundle again changes nothing."""
+    from app.models.architecture_decision import ArchitectureDecision
+    from app.models.architecture_decision_diagram import ArchitectureDecisionDiagram
+    from app.models.diagram import Diagram
+    from app.services.workspace_io.sections import ENTITY_SECTIONS
+
+    sheets = [s.sheet for s in ENTITY_SECTIONS]
+    assert sheets.index("Diagrams") < sheets.index("Adrs") < sheets.index("AdrDiagrams")
+    assert sheets.index("AdrDiagrams") == sheets.index("AdrFiles") + 1
+
+    admin = await create_user(db, email="adr-dia@test.com", role="admin")
+    one = Diagram(name="Context view", data={"xml": "<x/>"}, created_by=admin.id)
+    two = Diagram(name="Deployment view", data={"xml": "<y/>"}, created_by=admin.id)
+    first = ArchitectureDecision(reference_number="ADR-951", title="First", created_by=admin.id)
+    second = ArchitectureDecision(reference_number="ADR-952", title="Second")
+    db.add_all([one, two, first, second])
+    await db.flush()
+    db.add_all(
+        [
+            ArchitectureDecisionDiagram(architecture_decision_id=first.id, diagram_id=one.id),
+            ArchitectureDecisionDiagram(architecture_decision_id=first.id, diagram_id=two.id),
+            ArchitectureDecisionDiagram(architecture_decision_id=second.id, diagram_id=two.id),
+        ]
+    )
+    await db.flush()
+    expected = sorted(
+        [(first.id, one.id), (first.id, two.id), (second.id, two.id)], key=lambda p: str(p)
+    )
+
+    async def _pairs():
+        rows = (
+            await db.execute(
+                select(
+                    ArchitectureDecisionDiagram.architecture_decision_id,
+                    ArchitectureDecisionDiagram.diagram_id,
+                )
+            )
+        ).all()
+        return sorted([(r[0], r[1]) for r in rows], key=lambda p: str(p))
+
+    def _counts(result) -> tuple[int, int, int, int]:
+        sr = next(s for s in result.sections if s.sheet == "AdrDiagrams")
+        return (sr.created, sr.skipped, sr.conflict, sr.failed)
+
+    raw = await build_bundle(db)
+    exported = parse_bundle(raw).rows("AdrDiagrams")
+    assert sorted((r["architecture_decision_id"], r["diagram_id"]) for r in exported) == sorted(
+        (str(a), str(d)) for a, d in expected
+    )
+
+    same = await apply_bundle(db, parse_bundle(raw), admin)
+    assert same.total_failed == 0, same.as_dict()
+    assert _counts(same) == (0, 3, 0, 0)
+
+    await db.execute(delete(ArchitectureDecision))
+    await db.execute(delete(Diagram))
+    await db.flush()
+    db.expunge_all()
+    assert await _pairs() == []
+
+    result = await apply_bundle(db, parse_bundle(raw), admin)
+    assert result.total_failed == 0, result.as_dict()
+    assert _counts(result) == (3, 0, 0, 0)
+    assert await _pairs() == expected
+
+    again = await apply_bundle(db, parse_bundle(raw), admin)
+    assert again.total_failed == 0, again.as_dict()
+    assert _counts(again) == (0, 3, 0, 0)
+    assert await _pairs() == expected
+
+
+async def test_document_pictures_roundtrip_and_the_text_still_finds_them(db, tmp_path):
+    """The pictures in a decision's and a SoAW's text travel as assets with
+    their kind, type, size, hash, uploader (by e-mail) and ``used_at``. The
+    text is copied verbatim: picture ids are preserved like every module PK,
+    so each ``src`` resolves to the imported row of its own kind. A picture
+    a document holds is not purged afterwards as never used; one no save
+    ever stored still is."""
+    from datetime import datetime, timedelta, timezone
+    from hashlib import sha256
+
+    from app.models.architecture_decision import ArchitectureDecision
+    from app.models.document_image import DocumentImage
+    from app.models.soaw import SoAW
+    from app.services import document_image_service as images
+    from app.services.document_image_markup import image_ids_of, serialise, src_for
+    from app.services.workspace_io.sections import ENTITY_SECTIONS
+
+    admin = await create_user(db, email="pic-admin@test.com", role="admin")
+    author = await create_user(db, email="pic-author@test.com", role="member")
+    png = b"\x89PNG\r\n\x1a\n" + b"adr-picture" * 40
+    jpeg = b"\xff\xd8\xff\xe0" + b"soaw-picture" * 30
+    gif = b"GIF89a" + b"never-saved" * 5
+    adr_pic = await images.store(db, "adr", png, mime_type="image/png", created_by=author.id)
+    soaw_pic = await images.store(db, "soaw", jpeg, mime_type="image/jpeg", created_by=None)
+    unused = await images.store(db, "adr", gif, mime_type="image/gif", created_by=admin.id)
+    used_at = datetime(2026, 11, 1, 8, 15, tzinfo=timezone.utc)
+    assert await images.mark_used(db, [adr_pic.id, soaw_pic.id], now=used_at) == 2
+    adr_id, soaw_pic_id, unused_id = adr_pic.id, soaw_pic.id, unused.id
+
+    adr_img = serialise(
+        {"src": src_for("adr", str(adr_id)), "alt": "Context", "width": "320"}
+        | {"data-align": "center"}
+    )
+    soaw_img = serialise({"src": src_for("soaw", str(soaw_pic_id)), "data-align": "right"})
+    context = f"<p>Before</p>{adr_img}<p>After</p>"
+    section_html = f"<p>Scope</p>{soaw_img}"
+    decision = ArchitectureDecision(
+        reference_number="ADR-960",
+        title="Pictured",
+        status="draft",
+        context=context,
+        created_by=admin.id,
+    )
+    soaw = SoAW(
+        name="Pictured plan",
+        sections={"1.1": {"content": section_html, "hidden": False}},
+        signatories=[],
+        created_by=admin.id,
+    )
+    db.add_all([decision, soaw])
+    await db.flush()
+    decision_id, soaw_id = decision.id, soaw.id
+
+    # The pictures are applied before the documents that show them.
+    order = [s.sheet for s in ENTITY_SECTIONS]
+    assert order.index("DocumentImages") < order.index("Adrs") < order.index("Soaws")
+
+    raw = await build_bundle(db)
+    _, _, assets = bundle_io.unpack(raw)
+    assert sorted(p for p in assets if p.startswith("DocumentImages/")) == sorted(
+        f"DocumentImages/{pid}__data.bin" for pid in (adr_id, soaw_pic_id, unused_id)
+    )
+    assert assets[f"DocumentImages/{adr_id}__data.bin"] == png
+    assert assets[f"DocumentImages/{soaw_pic_id}__data.bin"] == jpeg
+    exported = {r["id"]: r for r in parse_bundle(raw).rows("DocumentImages")}
+    assert "created_by" not in exported[str(adr_id)]
+    assert "data" not in exported[str(adr_id)]
+    assert exported[str(adr_id)]["created_by__email"] == "pic-author@test.com"
+    assert exported[str(soaw_pic_id)].get("created_by__email") is None
+
+    # Same instance: all-skip.
+    same = await apply_bundle(db, parse_bundle(raw), admin)
+    assert same.total_failed == 0, same.as_dict()
+    section = next(s for s in same.sections if s.sheet == "DocumentImages")
+    assert (section.created, section.skipped, section.conflict, section.failed) == (0, 3, 0, 0)
+
+    await db.execute(delete(ArchitectureDecision))
+    await db.execute(delete(SoAW))
+    await db.execute(delete(DocumentImage))
+    await db.flush()
+    db.expunge_all()
+
+    path = tmp_path / "workspace.zip"
+    path.write_bytes(raw)
+    with parse_bundle(path) as bundle:
+        result = await apply_bundle(db, bundle, admin)
+    assert result.total_failed == 0, result.as_dict()
+    section = next(s for s in result.sections if s.sheet == "DocumentImages")
+    assert (section.created, section.skipped, section.conflict, section.failed) == (3, 0, 0, 0)
+
+    rows = (
+        await db.execute(
+            select(
+                DocumentImage.id,
+                DocumentImage.kind,
+                DocumentImage.mime_type,
+                DocumentImage.size,
+                DocumentImage.sha256,
+                DocumentImage.data,
+                DocumentImage.created_by,
+                DocumentImage.used_at,
+            )
+        )
+    ).all()
+    assert sorted((tuple(r) for r in rows), key=lambda r: r[2]) == [
+        (unused_id, "adr", "image/gif", len(gif), sha256(gif).hexdigest(), gif, admin.id, None),
+        (
+            soaw_pic_id,
+            "soaw",
+            "image/jpeg",
+            len(jpeg),
+            sha256(jpeg).hexdigest(),
+            jpeg,
+            None,
+            used_at,
+        ),
+        (adr_id, "adr", "image/png", len(png), sha256(png).hexdigest(), png, author.id, used_at),
+    ]
+
+    # The text came across byte for byte, and each src finds its picture.
+    restored = (
+        await db.execute(select(ArchitectureDecision).where(ArchitectureDecision.id == decision_id))
+    ).scalar_one()
+    assert restored.context == context
+    assert image_ids_of(restored.context) == {str(adr_id)}
+    found = await images.load(db, "adr", adr_id)
+    assert found is not None and found.data == png
+    restored_soaw = (await db.execute(select(SoAW).where(SoAW.id == soaw_id))).scalar_one()
+    assert restored_soaw.sections["1.1"]["content"] == section_html
+    assert image_ids_of(restored_soaw.sections["1.1"]["content"]) == {str(soaw_pic_id)}
+    found = await images.load(db, "soaw", soaw_pic_id)
+    assert found is not None and found.data == jpeg
+
+    # A picture a document holds survives the unused-picture purge; the one
+    # no save ever stored does not.
+    later = datetime.now(timezone.utc) + timedelta(days=30)
+    assert await images.purge_unused_once(db, now=later) == 1
+    left = set((await db.execute(select(DocumentImage.id))).scalars().all())
+    assert left == {adr_id, soaw_pic_id}
 
 
 async def test_a_decision_person_whose_user_has_no_match_keeps_the_stored_name(db):

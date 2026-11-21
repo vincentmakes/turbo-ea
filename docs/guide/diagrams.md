@@ -6,7 +6,7 @@ The **Diagrams** module lets you create **visual architecture diagrams** using a
 
 ## Diagram Gallery
 
-The gallery lists every diagram as a compact card with a thumbnail, name, author, and the number of cards it references. **Create**, **Open**, **Edit details**, organise, or **Delete** any diagram.
+The gallery lists every diagram as a compact card with a thumbnail, name, author, and the number of cards it references. **Create**, **Open**, **Edit details**, organise, or **Delete** any diagram. Deleting a diagram also removes it from every decision it was attached to (see [Linking diagrams to decisions](#linking-diagrams-to-decisions)).
 
 ### Finding diagrams
 
@@ -155,6 +155,10 @@ The toolbar Sync button shows a pulsing "N unsynced" pill whenever pending work 
 ### Linking diagrams to cards
 
 Diagrams can be linked to **any card** from the card's **Resources** tab (see [Card Details](card-details.md#resources-tab)). When linked to an **Initiative** card, the diagram also appears in the [EA Delivery](delivery.md) module alongside SoAW documents.
+
+### Linking diagrams to decisions
+
+A diagram can also be attached to an architecture decision, from the **Diagrams** section of the decision's editor (see [Diagrams on a decision](grc.md#decision-diagrams)). The decision shows the diagram as it is now, so editing the diagram changes what the decision shows, even on a signed decision; deleting the diagram removes it from every decision it was attached to.
 
 ## Data Modeller
 

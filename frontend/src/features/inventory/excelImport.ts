@@ -1,7 +1,7 @@
 import * as XLSX from "xlsx";
 
 import { api } from "@/api/client";
-import { fieldLabel, typeLabel } from "@/hooks/useResolveLabel";
+import { fieldLabel, relationLabel, typeLabel } from "@/hooks/useResolveLabel";
 import i18n from "@/i18n";
 import type {
   CalculatedFieldsMap,
@@ -324,6 +324,24 @@ function sameTagSet(a: string[], b: string[]): boolean {
   const setA = new Set(a);
   for (const id of b) if (!setA.has(id)) return false;
   return true;
+}
+
+/**
+ * The key of the one relation type whose verb is `value` — its label or
+ * reverse label, as stored or in the current language, ignoring case — or
+ * `undefined` when none or several match. `value` arrives trimmed (`str`).
+ */
+function relationKeyForLabel(value: string, relationTypes: RelationType[]): string | undefined {
+  const wanted = value.toLowerCase();
+  const matches = relationTypes.filter((rt) =>
+    [
+      rt.label,
+      rt.reverse_label,
+      relationLabel(rt, i18n.language),
+      relationLabel(rt, i18n.language, true),
+    ].some((verb) => verb?.toLowerCase() === wanted),
+  );
+  return matches.length === 1 ? matches[0].key : undefined;
 }
 
 function str(v: unknown): string {
@@ -979,7 +997,11 @@ export function validateImport(
       // actually supplied a *different* value than what's on the existing
       // card. Otherwise we'd spam one warning per (row, calc-field)
       // combination on every re-import of an untouched workbook.
-      const isReadOnly = field.readonly === true || calcFieldsForType.has(field.key);
+      // A field whose contributing extension is not enabled or licensed is
+      // read-only too (`ext_locked`): the backend refuses a change to it.
+      const extLocked = field.ext_locked === true;
+      const isReadOnly =
+        field.readonly === true || extLocked || calcFieldsForType.has(field.key);
       if (isReadOnly) {
         if (val) {
           const existingVal = matchedExisting?.attributes?.[field.key];
@@ -993,10 +1015,15 @@ export function validateImport(
             warnings.push({
               row: rowNum,
               column: colKey,
-              message: t("import.warnings.readOnlyFieldIgnored", {
-                row: rowNum,
-                field: fieldLabel(field, i18n.language),
-              }),
+              message: t(
+                extLocked
+                  ? "import.warnings.extLockedFieldIgnored"
+                  : "import.warnings.readOnlyFieldIgnored",
+                {
+                  row: rowNum,
+                  field: fieldLabel(field, i18n.language),
+                },
+              ),
             });
           }
         }
@@ -1781,6 +1808,21 @@ export async function validateMultiSheet(
         const relTypeKey = col.slice(4);
         const rt = validRelTypes.get(relTypeKey);
         if (!rt) {
+          // A real relation type whose column sits on the wrong sheet is not
+          // "unknown": say which card type's sheet it belongs on (#1406).
+          const elsewhere = relationTypes.find((r) => r.key === relTypeKey);
+          if (elsewhere) {
+            const sourceType = allTypes.find((ct) => ct.key === elsewhere.source_type_key);
+            warnings.push({
+              row: rowNum,
+              column: col,
+              message: t("import.warnings.relationColumnOnWrongSheet", {
+                type: relTypeKey,
+                sourceType: typeLabel(sourceType, i18n.language) || elsewhere.source_type_key,
+              }),
+            });
+            continue;
+          }
           warnings.push({
             row: rowNum,
             column: col,
@@ -1896,10 +1938,15 @@ export async function validateMultiSheet(
       }
       const rt = relationTypes.find((r) => r.key === relType);
       if (!rt) {
+        // A verb typed where the key belongs: point at the key (#1406). Still
+        // an error — the row is not applied.
+        const keyForLabel = relationKeyForLabel(relType, relationTypes);
         errors.push({
           row: rowNum,
           column: "relation_type",
-          message: t("import.errors.unknownRelationType", { type: relType }),
+          message: keyForLabel
+            ? t("import.errors.relationTypeIsLabel", { type: relType, key: keyForLabel })
+            : t("import.errors.unknownRelationType", { type: relType }),
         });
         continue;
       }

@@ -752,6 +752,16 @@ export default function RelationTypesPanel({
                   {typeLabel(resolveType(editRel.target_type_key)) || editRel.target_type_key}
                 </Typography>
               </Box>
+              {/* The key is fixed at creation, so it is shown, never edited.
+                  It is the name Excel uses for this relation type (#1406). */}
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="caption" color="text.secondary" component="div">
+                  {t("metamodel.relKeyCaption", { key: editRel.key })}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" component="div">
+                  {t("metamodel.relKeyExcelHint", { key: editRel.key })}
+                </Typography>
+              </Box>
               <TextField
                 fullWidth
                 label={`${t("common:labels.name")}${localeSuffix}`}

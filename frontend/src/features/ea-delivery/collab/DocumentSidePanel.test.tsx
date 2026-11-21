@@ -146,6 +146,7 @@ describe("DocumentSidePanel", () => {
     expect(tabs.discussion[0]).toMatchObject({ owner: { kind: "adr", id: "a1" }, sections: SECTIONS, focusThreadId: null });
 
     await waitFor(() => expect(within(aside).getByTestId("open-thread-badge")).toHaveTextContent("5"));
+    // Reported from an effect, which React may flush a task after the badge's commit.
     await waitFor(() => expect(onOpenCountChange).toHaveBeenCalledWith(5));
   });
 

@@ -15,7 +15,9 @@ import logging
 from sqlalchemy import select
 
 from app.database import async_session
+from app.services.extensions.agent_tools import start_agent_tools
 from app.services.extensions.events import start_extension_event_dispatchers
+from app.services.extensions.field_contributions import heal_contributions
 from app.services.extensions.jobs import (
     build_context,
     extension_may_run,
@@ -60,6 +62,21 @@ async def _reconcile_rows(report: LoadReport) -> None:
         await db.commit()
 
 
+async def _heal_metamodel_contributions() -> None:
+    """Put back field sections and subtypes an active extension contributed
+    and the metamodel no longer carries. Its own short session; a failure is
+    logged and never blocks boot."""
+    try:
+        async with async_session() as db:
+            healed = await heal_contributions(db)
+            await db.commit()
+    except Exception:
+        logger.exception("Restoring extension metamodel contributions failed")
+        return
+    for key in healed:
+        logger.info("Extension %s: restored missing metamodel contributions", key)
+
+
 async def initialize_extensions(report: LoadReport) -> list[asyncio.Task]:
     """Full lifespan init. Returns job tasks for the caller to cancel on shutdown."""
     try:
@@ -69,6 +86,10 @@ async def initialize_extensions(report: LoadReport) -> list[asyncio.Task]:
     except Exception:
         logger.exception("Extension registry initialization failed")
         return []
+
+    # From the rows, not ``report.loaded``: a metamodel-only extension has no
+    # code to load and must be healed all the same.
+    await _heal_metamodel_contributions()
 
     if not report.loaded and not report.failed:
         return []
@@ -104,6 +125,9 @@ async def initialize_extensions(report: LoadReport) -> list[asyncio.Task]:
     # Manifest-driven, no task: the types must be known before the first
     # job or event handler sends under one of them.
     start_notification_types(report)
+    # Checked against the routers mounted at import time; liveness (enabled,
+    # licensed) is re-checked on every read, so this needs no task either.
+    start_agent_tools(report)
 
     return (
         start_extension_jobs(report)

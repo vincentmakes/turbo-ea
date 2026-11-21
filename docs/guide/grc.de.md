@@ -90,7 +90,7 @@ Verwende die **Schnellfilter**-Suchleiste für die Volltextsuche über alle ADRs
 
 #### Entscheidungen exportieren und importieren {: #decisions-import }
 
-**Exportieren** (neben **+ Neue Entscheidung**) lädt die Entscheidungen, die die Filterseitenleiste gerade anzeigt, als `.xlsx`-Datei herunter, eine Zeile pro Revision einer Entscheidung. Die Spalten in dieser Reihenfolge: `reference_number`, `title`, `status`, `revision_number`, die vier Abschnitte (`context`, `decision`, `consequences`, `alternatives_considered`) als reiner Text, `cards` und `related_decisions` (durch Semikolon getrennt), `author`, `signatories`, `signed_at`, `created_at`, `updated_at`, dann die eigenen Angaben des Registers — `standing` (als Schlüssel wie `in_force`), `decided_on`, `effective_from`, `valid_until`, `decision_makers`, `participants` sowie die typisierten Verknüpfungen `replaces`, `amends`, `revokes` und `consolidates` als Referenzen. Formatierungen wie Fettdruck oder Links werden nicht in die Tabelle übernommen. Um voll formatierte Entscheidungen weiterzugeben, wählen Sie Zeilen im Raster aus und verwenden Sie die **Export**-Schaltfläche des Rasters, die ein Word-Dokument schreibt.
+**Exportieren** (neben **+ Neue Entscheidung**) lädt die Entscheidungen, die die Filterseitenleiste gerade anzeigt, als `.xlsx`-Datei herunter, eine Zeile pro Revision einer Entscheidung. Die Spalten in dieser Reihenfolge: `reference_number`, `title`, `status`, `revision_number`, die vier Abschnitte (`context`, `decision`, `consequences`, `alternatives_considered`) als reiner Text, `cards` und `related_decisions` (durch Semikolon getrennt), `author`, `signatories`, `signed_at`, `created_at`, `updated_at`, dann die eigenen Angaben des Registers — `standing` (als Schlüssel wie `in_force`), `decided_on`, `effective_from`, `valid_until`, `decision_makers`, `participants` sowie die typisierten Verknüpfungen `replaces`, `amends`, `revokes` und `consolidates` als Referenzen. Formatierungen wie Fettdruck oder Links werden nicht in die Tabelle übernommen, und eine Tabelle in einem Abschnitt wird mit einer Zeile pro Tabellenzeile ausgegeben, die Zellen durch ` | ` getrennt. Um voll formatierte Entscheidungen weiterzugeben, wählen Sie Zeilen im Raster aus und verwenden Sie die **Export**-Schaltfläche des Rasters, die ein Word-Dokument schreibt.
 
 **Importieren** legt Entscheidungen gesammelt aus einer `.xlsx`-Datei an. Klicken Sie auf **Vorlage herunterladen**, um eine Beispielarbeitsmappe zu erhalten, füllen Sie pro Zeile eine Entscheidung aus und laden Sie die Datei hoch:
 
@@ -118,8 +118,11 @@ In allen Fällen können während der Erstellung weitere Karten gesucht und verk
 
 Der Editor bietet:
 
-- Rich-Text-Bearbeitung für jeden Abschnitt (Kontext, Entscheidung, Konsequenzen, Erwogene Alternativen)
+- Rich-Text-Bearbeitung für jeden Abschnitt (Kontext, Entscheidung, Konsequenzen, Erwogene Alternativen): Fett, Kursiv, Unterstrichen, Durchgestrichen, **Inline-Code**, eine **Überschrift** und eine **Unterüberschrift**, Aufzählungen und nummerierte Listen, Zitate, ein **Codeblock** für einen Befehl oder einen Konfigurationsauszug (in eigenen Zeilen in einer Festbreitenschrift) und Trennlinien
+- **Links** — markierten Text mit einer Webseite oder einer E-Mail-Adresse verlinken (siehe [Links im Text](#decision-text-links))
+- **Tabellen** — eine Tabelle in einen Abschnitt einfügen und bearbeiten (siehe [Tabellen](#decision-tables))
 - **Erwähnungen** — geben Sie **@** in einem Abschnitt ein, um eine Karte oder eine andere Entscheidung zu erwähnen (siehe [Erwähnungen](#decision-mentions))
+- **Bilder** — fügen Sie einen Screenshot oder ein Diagramm in einen Abschnitt ein (siehe [Bilder](#decision-pictures))
 - **Diskussion** — ein Bereich neben dem Dokument mit seiner Diskussion (siehe [Diskussion](#decision-discussion))
 - **Verlauf** — eine Schaltfläche oben auf der Seite, die die Zeitleiste der Entscheidung und ihre gespeicherten Versionen öffnet (siehe [Verlauf](#decision-history))
 - Kartenverknüpfung — verbinde das ADR mit relevanten Karten (Anwendungen, IT-Komponenten, Initiativen, …). Initiativen werden über die Standard-Kartenverknüpfung verknüpft, nicht über ein eigenes Feld, sodass ein ADR mehrere Initiativen referenzieren kann
@@ -128,6 +131,76 @@ Der Editor bietet:
 - **Diese Entscheidung…** — typisierte Verknüpfungen zu anderen Entscheidungen (siehe [Verknüpfungen zwischen Entscheidungen](#decision-links))
 - **Änderungszusammenfassung** — nur bei einer Revision: was sich in dieser Revision geändert hat und warum
 - **Dateien** — an die Entscheidung angehängte Dokumente (siehe [Dateien](#decision-files))
+- **Diagramme** — an die Entscheidung angehängte Diagramme aus dem Modul Diagramme (siehe [Diagramme](#decision-diagrams))
+
+#### Bilder {: #decision-pictures }
+
+Jeder der vier Abschnitte kann Bilder enthalten — einen Screenshot, ein exportiertes Diagramm, ein Foto eines Whiteboards. Klicken Sie in der Symbolleiste des Abschnitts auf **Bild einfügen** und wählen Sie eine Datei, fügen Sie ein Bild aus der Zwischenablage ein oder ziehen Sie eine Bilddatei auf den Abschnitt. Das Bild wird beim Einfügen hochgeladen und erscheint in einer eigenen Zeile.
+
+- **Größe ändern.** Ziehen Sie an der Ecke eines Bildes, um seine Größe zu ändern: Seine Proportionen bleiben erhalten.
+- **Ausrichten.** Wählen Sie das Bild aus und klicken Sie in der Symbolleiste auf **Linksbündig**, **Zentriert** oder **Rechtsbündig**.
+- **Formate.** PNG, JPEG, GIF und WebP, bis zu 5 MB pro Bild. Ein größeres Bild wird abgelehnt, nicht verkleinert. SVG wird nicht akzeptiert.
+- **Wo es erscheint.** Bilder erscheinen in der [Vorschau](#preview), in der PDF-/Druckfassung und im Word-Export. Im [Verlauf](#decision-history) zeigt eine Version ihre Bilder, und **Änderungen** markiert ein hinzugefügtes oder entferntes Bild als *[Bild]*. Eine Revision, ein Duplikat und eine wiederhergestellte Version behalten die Bilder des Textes, aus dem sie stammen.
+- **Nur hier hochgeladene Bilder.** Eine Entscheidung behält nur Bilder, die zu Entscheidungen hochgeladen wurden. Ein Bild, das auf eine andere Website verweist, oder eines, das aus einem SoAW kopiert wurde, wird beim Speichern der Entscheidung entfernt.
+- **Kommentare** in der [Diskussion](#decision-discussion) nehmen keine Bilder auf.
+- **Wenn Datei-Uploads deaktiviert sind.** Die Schaltfläche **Bild einfügen** sowie das Einfügen und Ziehen von Bildern verschwinden, wenn ein Administrator [Datei-Uploads deaktiviert](../admin/resources.md#when-file-uploads-are-disabled) hat. Bilder, die bereits im Text stehen, bleiben sichtbar.
+
+#### Links im Text {: #decision-text-links }
+
+Markieren Sie einige Wörter und klicken Sie in der Symbolleiste des Abschnitts auf **Link** oder drücken Sie **Strg+K** (**Cmd+K** auf einem Mac), um sie zu verlinken. Geben Sie die **Adresse** ein und klicken Sie auf **Anwenden**. Ist nichts markiert, fragt der Dialog zusätzlich nach dem **Angezeigten Text**; bleibt er leer, wird die Adresse selbst angezeigt. Eine Webadresse oder E-Mail-Adresse, die in den Text getippt oder eingefügt wird, wird von selbst zu einem Link.
+
+- **Was ein Link sein kann.** Webadressen (`http://`, `https://`) und E-Mail-Adressen (`mailto:`). Eine Adresse ohne Schema wird ergänzt: `example.com` wird zu `https://example.com` und `ann@example.com` zu einem E-Mail-Link. Alles andere — ein anderes Schema oder eine Adresse innerhalb von Turbo EA wie `/cards/…` — wird mit *Geben Sie eine Webadresse (https://…) oder eine E-Mail-Adresse ein* abgelehnt.
+- **Einen Link bearbeiten oder entfernen.** Setzen Sie den Cursor in den Link und klicken Sie erneut auf **Link** oder drücken Sie Strg/Cmd+K: Der Dialog öffnet sich mit der eingetragenen Adresse und bietet außerdem **Link entfernen** und **In neuem Tab öffnen** an.
+- **Einem Link folgen.** Während Sie bearbeiten, setzt ein Klick auf einen Link den Cursor hinein, sodass er sich wie jeder andere Text bearbeiten lässt; **Strg+Klick** (**Cmd+Klick** auf einem Mac) öffnet ihn in einem neuen Tab. In der Vorschau, im Verlauf und in einer gesperrten oder unterzeichneten Entscheidung öffnet ein Klick ihn in einem neuen Tab.
+- **Strg/Cmd+K.** In einem Abschnitt, den Sie bearbeiten, öffnet das Tastenkürzel den Link-Dialog statt der [globalen Suche](inventory.md); überall sonst öffnet es weiterhin die Suche.
+- **Kommentare** in der [Diskussion](#decision-discussion) nehmen Links auf dieselbe Weise auf.
+- **Wo sie erscheinen.** Links bleiben in der Vorschau, in der PDF-/Druckfassung und im Word-Export anklickbar. Im [Verlauf](#decision-history) meldet **Änderungen** eine geänderte Linkadresse als Änderung.
+
+#### Tabellen {: #decision-tables }
+
+Jeder der vier Abschnitte kann Tabellen enthalten. Klicken Sie in der Symbolleiste des Abschnitts auf **Tabelle** und wählen Sie **Tabelle einfügen**: Eine Tabelle mit drei Zeilen und drei Spalten wird eingefügt, ihre erste Zeile ist eine Kopfzeile. Eine Zelle enthält Text wie der Rest des Abschnitts: Formatierung, Links, Erwähnungen und Bilder funktionieren darin.
+
+Die Aktionen einer Tabelle erreichen Sie auf drei Wegen, und jede wirkt auf die Zelle mit dem Cursor oder auf die Zellen, die Sie markiert haben:
+
+- **Das Menü Tabelle der Symbolleiste** — steht der Cursor in einer Tabelle, listet **Tabelle** jede der unten genannten Aktionen auf.
+- **Rechtsklick** in eine Zelle — dieselben Aktionen öffnen sich am Mauszeiger.
+- **Die Griffe** rund um die Tabelle — ein Griff neben einer Zeile oder über einer Spalte öffnet die Aktionen für diese Zeile oder Spalte, und ein **+** fügt eine ein (siehe *Griffe* unten).
+
+Die Aktionen:
+
+- **Zeile auswählen** und **Spalte auswählen** markieren die ganze Zeile oder Spalte des Cursors oder jeder markierten Zelle.
+- **Zeile oberhalb einfügen**, **Zeile unterhalb einfügen**, **Spalte davor einfügen** und **Spalte danach einfügen**. **Zeile oberhalb einfügen** ist in der Kopfzeile nicht verfügbar: Eine neue Zeile kommt immer darunter.
+- **Zeile nach oben verschieben**, **Zeile nach unten verschieben**, **Spalte nach vorne verschieben** und **Spalte nach hinten verschieben** verschieben die Zeile oder Spalte um eine Position und lassen sie markiert. Ein Verschieben ist nicht verfügbar am Rand der Tabelle, über die Kopfzeile hinweg, wenn mehr als eine Zeile oder Spalte markiert ist, und in einer Tabelle, in der eine verbundene Zelle mehrere Zeilen (bei Zeilen) oder mehrere Spalten (bei Spalten) umfasst.
+- **Zeile löschen** und **Spalte löschen** löschen jede Zeile oder Spalte der Auswahl und nennen ihre Anzahl (*2 Zeilen löschen*). Eine Tabelle behält mindestens eine Zeile und eine Spalte: Sind alle Zeilen markiert, ist **Zeile löschen** nicht verfügbar, und sind alle Spalten markiert, ist es **Spalte löschen** nicht.
+- **Kopfzeile** schaltet die Kopfzeilenformatierung der ersten Zeile ein oder aus.
+- **Zellen verbinden** verbindet die Zellen, die Sie durch Ziehen darüber markiert haben, und **Zelle teilen** teilt eine verbundene Zelle wieder auf.
+- **Tabelle löschen**.
+
+Davor und danach, vorne und hinten folgen der Leserichtung: In einer Sprache, die von rechts nach links geschrieben wird, ist die Spalte davor die rechte.
+
+**Griffe.** Während Sie bearbeiten, hat die Tabelle einen schmalen Rand, der ihre Griffe trägt. Sie erscheinen für die Zelle unter dem Mauszeiger und, während Sie im Abschnitt arbeiten, für die Zelle mit dem Cursor:
+
+- **Ein Zeilengriff** neben der Zeile und **ein Spaltengriff** über der Spalte. Ein Klick markiert die Zeile oder Spalte und öffnet ihre Aktionen: für eine Zeile **Zeile oberhalb einfügen**, **Zeile unterhalb einfügen**, **Zeile nach oben verschieben**, **Zeile nach unten verschieben**, **Zeile löschen** und, in der ersten Zeile, **Kopfzeile**; für eine Spalte **Spalte davor einfügen**, **Spalte danach einfügen**, **Spalte nach vorne verschieben**, **Spalte nach hinten verschieben** und **Spalte löschen**. Ein Rechtsklick auf einen Griff bewirkt dasselbe. Bei einer verbundenen Zelle steht der Griff für jede Zeile oder Spalte, die die Zelle umfasst, und sein Menü sagt das (*2 Zeilen löschen*).
+- **Ein +** am unteren Rand einer Zeile fügt darunter eine Zeile ein, und **ein +** am hinteren Rand einer Spalte fügt danach eine Spalte ein. Die letzte Zeile und die letzte Spalte haben stattdessen die Leisten.
+- **Eine Leiste** unter der letzten Zeile fügt am Ende eine Zeile hinzu, und **eine Leiste** nach der letzten Spalte fügt am Ende eine Spalte hinzu.
+
+Eine so hinzugefügte Zeile oder Spalte setzt den Cursor in ihre erste Zelle, und ein einziges Rückgängigmachen entfernt sie. Auf einem Touchscreen sind die Griffe größer und erscheinen für die Zelle, die Sie angetippt haben.
+
+**Das Rechtsklickmenü.** Ein Rechtsklick in eine Zelle öffnet die Aktionen der Tabelle am Mauszeiger. Liegt der Klick innerhalb von Zellen, die Sie markiert haben, bleibt die Markierung erhalten, sodass die Aktionen für alle gelten; anderswo springt der Cursor zuerst in die angeklickte Zelle.
+
+- **Umschalt+Rechtsklick** öffnet stattdessen das eigene Menü des Browsers, für seine Rechtschreibvorschläge oder **Einfügen**.
+- Ein Rechtsklick auf einen **Link** oder ein **Bild** in einer Zelle öffnet ebenfalls das Menü des Browsers, um es zu öffnen oder zu kopieren.
+- Auf einem Touchscreen markiert langes Drücken wie gewohnt Text; verwenden Sie dort die Griffe.
+- Mit der Tastatur öffnet **Umschalt+F10** oder die **Menütaste** dasselbe Menü für die Zelle mit dem Cursor.
+
+**Tastatur.** **Tab** springt in die nächste Zelle und **Umschalt+Tab** in die vorherige; Tab in der letzten Zelle fügt eine Zeile hinzu. Über das Menü **Tabelle** der Symbolleiste ist jede Aktion per Tastatur erreichbar; die Griffe sind für Maus und Touch gedacht und nicht Teil der Tab-Reihenfolge.
+
+**Breiten und breite Tabellen.** Ziehen Sie die Grenze zwischen zwei Spalten, um ihre Breite zu ändern. Eine Tabelle, die breiter als der Abschnitt ist, lässt sich seitlich scrollen; der Griff einer Zeile scrollt dann mit der ersten Spalte aus dem Blick, während das Rechtsklickmenü und das Menü **Tabelle** der Symbolleiste weiterhin jede Aktion erreichen.
+
+Eine gesperrte oder unterschriebene Entscheidung zeigt ihre Tabellen ohne Griffe, und ein Rechtsklick dort öffnet das Menü des Browsers.
+
+- **Wo sie erscheinen.** Tabellen erscheinen in der [Vorschau](#preview) und im [Verlauf](#decision-history), wo **Änderungen** jede Tabellenzeile als eine Zeile liest, die Zellen durch ` | ` getrennt. In der PDF-/Druckfassung behält eine Tabelle die Proportionen ihrer Spalten und passt sich der Seitenbreite an. Der Word-Export schreibt eine echte Word-Tabelle, mit ihren verbundenen Zellen und Spaltenbreiten und einer Kopfzeile, die oben auf jeder Seite wiederholt wird.
+- **Kommentare** in der [Diskussion](#decision-discussion) nehmen keine Tabellen auf: Eine in einen Kommentar eingefügte Tabelle wird zum Text ihrer Zellen.
 
 #### Daten {: #decision-dates }
 
@@ -154,6 +227,8 @@ Der Abschnitt **Diese Entscheidung…** einer Entscheidung verknüpft sie mit an
 
 Verknüpfungen werden auf beiden Entscheidungen angezeigt und verweisen auf die aktuelle Revision der Entscheidung. Sie wirken auf die gesamte Entscheidung, alle ihre Revisionen eingeschlossen, und erst, wenn die Entscheidung, die sie trägt, unterzeichnet und wirksam ist: Ein Entwurf, der eine andere widerruft, ändert nichts, bis er unterzeichnet ist, und einer mit einem späteren *Wirksam ab* wirkt an diesem Datum (die andere Entscheidung meldet *Diese Entscheidung wird am … durch … widerrufen.*). Eine Entscheidung kann nicht mit einer ihrer eigenen Revisionen verknüpft werden, und jede Entscheidung, mit der sie verknüpft ist, muss unterzeichnet sein, bevor sie zur Prüfung gesendet oder erfasst wird.
 
+Dies sind Verknüpfungen zwischen Entscheidungen; zu Links auf Webseiten im Text eines Abschnitts siehe [Links im Text](#decision-text-links).
+
 #### Eine Entscheidung widerrufen oder ersetzen {: #revoking-or-replacing-a-decision }
 
 Eine unterzeichnete Entscheidung wird nie von Hand außer Kraft gesetzt: Sie wird durch eine andere unterzeichnete Entscheidung widerrufen oder ersetzt, sodass das Register festhält, wer sie wann getroffen hat. Öffnen Sie die unterzeichnete Entscheidung und verwenden Sie das Menü **Überarbeiten**:
@@ -172,6 +247,15 @@ Eine Entscheidung, die durch eine andere geändert wird, bleibt in Kraft, und ih
 
 Der Abschnitt **Dateien** hängt Dokumente an eine Entscheidung an — ein unterzeichnetes Protokoll, eine unterstützende Analyse. Dateien akzeptieren dieselben Formate wie [Kartenanhänge](card-details.md#registerkarte-ressourcen), bis zu 20 MB pro Datei, und können nur hochgeladen werden, solange Datei-Uploads aktiviert sind (Löschen ist immer möglich). Sie können nur in einem gespeicherten Entwurf hinzugefügt und gelöscht werden: Sobald die Entscheidung zur Prüfung gesendet wird, sind sie mit ihr gesperrt. Eine Revision übernimmt die Dateien ihrer Entscheidung.
 
+#### Diagramme {: #decision-diagrams }
+
+Der Abschnitt **Diagramme** nach **Dateien** hängt Diagramme aus dem Modul [Diagramme](diagrams.md) an eine Entscheidung an — etwa das Kontextdiagramm, um das es in der Entscheidung geht. Klicken Sie auf **Diagramm anhängen**, durchsuchen Sie die Liste und wählen Sie eines aus; es wird sofort angehängt, ohne Speichern. Jedes angehängte Diagramm zeigt sein Vorschaubild und seinen Namen, und ein Klick öffnet es. Um eines zu lösen, klicken Sie auf seine Schaltfläche zum Entfernen und bestätigen: Das Diagramm selbst bleibt erhalten.
+
+- **Immer das aktuelle Diagramm.** Die Entscheidung verweist auf das Diagramm, sie behält keine Kopie: Sie zeigt das Diagramm immer so, wie es jetzt ist, auch nachdem die Entscheidung unterzeichnet ist. Wird das Diagramm gelöscht, verschwindet es aus jeder Entscheidung, an die es angehängt war, unterzeichnete eingeschlossen.
+- **Wann es sich ändern kann.** Diagramme können angehängt und gelöst werden, solange die Entscheidung ein Entwurf oder in Prüfung ist. Sobald sie unterzeichnet ist, stehen sie fest: Um sie zu ändern, erstellen Sie eine neue Revision.
+- **Wer sie sieht.** Um den Abschnitt zu sehen, ist die Berechtigung zum Anzeigen von Diagrammen (`diagrams.view`) nötig; Anhängen und Lösen erfordern zusätzlich `adr.manage`. Ein Leser ohne `diagrams.view` sieht überhaupt keinen Abschnitt Diagramme. Auch eine Entscheidung, die nicht bearbeitet werden kann und kein Diagramm hat, zeigt keinen Abschnitt.
+- **Wo sie erscheinen.** Die [Vorschau](#preview) zeigt die Diagramme schreibgeschützt; die PDF-/Druckfassung und der Word-Export führen ihre Namen auf. Eine Revision und ein Duplikat übernehmen die Diagramme. Diagramme sind nicht Teil einer Version im [Verlauf](#decision-history).
+
 #### Abzeichnungsworkflow
 
 ADRs unterstützen einen formalen Abzeichnungsprozess:
@@ -182,7 +266,7 @@ ADRs unterstützen einen formalen Abzeichnungsprozess:
 4. Unterzeichner prüfen und klicken auf **Unterschreiben**.
 5. Sobald alle unterschrieben haben, wechselt das ADR automatisch auf **Unterschrieben**.
 
-**Eine Entscheidung in Überprüfung ist gesperrt**, sodass die Unterzeichner genau das unterschreiben, was ihnen gesendet wurde: Text, Daten, Personen, Verknüpfungen, Dateien und Erweiterungsbereiche sind schreibgeschützt, und nur die verknüpften Karten lassen sich noch ändern. Um sie zu bearbeiten, klicken Sie auf **Unterschriften zurückrufen**; sie kehrt dann in den Entwurf zurück. Ein Unterzeichner, der auf **Ablehnen** klickt, setzt sie ebenfalls auf Entwurf zurück, unter derselben Revisionsnummer.
+**Eine Entscheidung in Überprüfung ist gesperrt**, sodass die Unterzeichner genau das unterschreiben, was ihnen gesendet wurde: Text, Daten, Personen, Verknüpfungen zu anderen Entscheidungen, Dateien und Erweiterungsbereiche sind schreibgeschützt, und nur die verknüpften Karten und die angehängten [Diagramme](#decision-diagrams) lassen sich noch ändern. Um sie zu bearbeiten, klicken Sie auf **Unterschriften zurückrufen**; sie kehrt dann in den Entwurf zurück. Ein Unterzeichner, der auf **Ablehnen** klickt, setzt sie ebenfalls auf Entwurf zurück, unter derselben Revisionsnummer.
 
 Unterschriebene ADRs sind gesperrt und können nicht bearbeitet werden — für Änderungen wird eine neue Revision angelegt.
 
@@ -194,7 +278,7 @@ Die Entscheidung wird dann wie eine unterzeichnete gesperrt und erhält ihre Gel
 
 #### Revisionen
 
-Ein unterschriebenes ADR öffnen und **Überarbeiten → Diese Entscheidung überarbeiten** wählen, um einen neuen Entwurf auf Basis der unterschriebenen Version zu erstellen. Die Revision behält die Referenz der Entscheidung und erhält die nächste Revisionsnummer — **ADR-012 · Rev. 2** — und erbt Inhalt, verknüpfte Karten, Verknüpfungen **Bezieht sich auf**, Personen, Dateien und das Datum *Gültig bis*. Nicht übernommen werden Entscheidungs- und Wirksamkeitsdatum, Unterzeichner, Änderungszusammenfassung sowie die Verknüpfungen Ersetzt / Ändert / Widerruft, die auf der Revision bleiben, die sie angelegt hat. Jede Revision behält ihren eigenen Abzeichnungs-Pfad.
+Ein unterschriebenes ADR öffnen und **Überarbeiten → Diese Entscheidung überarbeiten** wählen, um einen neuen Entwurf auf Basis der unterschriebenen Version zu erstellen. Die Revision behält die Referenz der Entscheidung und erhält die nächste Revisionsnummer — **ADR-012 · Rev. 2** — und erbt Inhalt, verknüpfte Karten, angehängte Diagramme, Verknüpfungen **Bezieht sich auf**, Personen, Dateien und das Datum *Gültig bis*. Nicht übernommen werden Entscheidungs- und Wirksamkeitsdatum, Unterzeichner, Änderungszusammenfassung sowie die Verknüpfungen Ersetzt / Ändert / Widerruft, die auf der Revision bleiben, die sie angelegt hat. Jede Revision behält ihren eigenen Abzeichnungs-Pfad.
 
 - **Jeweils nur eine offene Revision.** Solange eine Revision entworfen wird, weist die aktuelle Revision darauf hin, und das Menü **Überarbeiten** öffnet diesen Entwurf, statt einen weiteren zu beginnen.
 - **Die aktuelle Revision ist die geltende.** Sobald eine Revision unterzeichnet und wirksam ist, sind die früheren **Ersetzt** und zeigen ein Banner mit einem Link zur aktuellen. Die Leiste **Revisionen** auf jeder Revision listet die gesamte Kette auf und markiert die aktuelle.
@@ -202,11 +286,11 @@ Ein unterschriebenes ADR öffnen und **Überarbeiten → Diese Entscheidung übe
 - **Eine Ablehnung zählt nicht als Revision**: Die Revisionsnummer ändert sich nur, wenn eine neue Revision erstellt wird.
 - Vor Version 2.199.0 überarbeitete Entscheidungen behalten die Referenznummern, unter denen sie ausgegeben wurden, und erscheinen weiterhin als eine Entscheidung mit einer Revisionsleiste.
 
-#### Vorschau
+#### Vorschau {: #preview }
 
-Klick auf das Vorschau-Symbol für eine schreibgeschützte, formatierte Ansicht des ADR — nützlich vor der Unterschrift.
+Klick auf das Vorschau-Symbol für eine schreibgeschützte, formatierte Ansicht des ADR — nützlich vor der Unterschrift. Sie zeigt auch die angehängten Diagramme, und ihre Links öffnen sich in einem neuen Tab.
 
-Klicken Sie in der Vorschau auf **PDF**, um eine druckfertige Kopie in einem neuen Tab zu öffnen — Metadaten und Daten, die vier Abschnitte, Personen, verknüpfte Karten, Verknüpfungen zu anderen Entscheidungen, Dateinamen, Erweiterungsabschnitte und der Unterschriftenblock (oder die Erfassungszeile), mit Genehmiger und Druckdatum in der Fußzeile. Der Editor hat dieselbe **PDF**-Schaltfläche sowie **Word**, das die Entscheidung bis zu ihrer Unterschrift als `.docx` herunterlädt; beide exportieren den aktuellen Stand des Editors, ungespeicherte Änderungen eingeschlossen.
+Klicken Sie in der Vorschau auf **PDF**, um eine druckfertige Kopie in einem neuen Tab zu öffnen — Metadaten und Daten, die vier Abschnitte, Personen, verknüpfte Karten, Verknüpfungen zu anderen Entscheidungen, Dateinamen, Diagrammnamen, Erweiterungsabschnitte und der Unterschriftenblock (oder die Erfassungszeile), mit Genehmiger und Druckdatum in der Fußzeile. Der Editor hat dieselbe **PDF**-Schaltfläche sowie **Word**, das die Entscheidung bis zu ihrer Unterschrift als `.docx` herunterlädt; beide exportieren den aktuellen Stand des Editors, ungespeicherte Änderungen eingeschlossen. Im Word-Dokument bleiben Formatierung und Links überall erhalten — auch in Listen, Zitaten und Überschriften —, Links sind anklickbar, Code behält eine Festbreitenschrift, und Tabellen sind echte Word-Tabellen.
 
 #### Diskussion {: #decision-discussion }
 
@@ -216,6 +300,7 @@ Jede Entscheidung hat ihre eigene **Diskussion**, sodass eine Entscheidung in Tu
 - **Nach Abschnitt filtern.** Sobald ein Diskussionsstrang einen Abschnitt hat, listet eine Reihe von Chips oben in der Diskussion jeden Abschnitt mit Diskussionssträngen auf, mit ihrer Anzahl (*Entscheidung (2)*), sowie einen Chip **Allgemein**, wenn einige Diskussionsstränge keinen Abschnitt haben. Klicken Sie auf einen Chip, um nur dessen Diskussionsstränge anzuzeigen; aktivieren Sie mehrere, um die Diskussionsstränge jedes davon zu sehen, klicken Sie erneut auf einen, um ihn zu deaktivieren, oder klicken Sie auf **Zurücksetzen**. Ein Klick auf den Abschnitts-Chip eines Diskussionsstrangs aktiviert dessen Filter. Der Filter funktioniert mit ein- oder ausgeklappten erledigten Diskussionssträngen und mit angezeigten früheren Revisionen und zählt nur die aufgelisteten Diskussionsstränge. Er bleibt nicht erhalten, wenn Sie das Dokument verlassen, und ein aus einer Benachrichtigung geöffneter Diskussionsstrang wird immer angezeigt.
 - **Diskussion zu einem Abschnitt.** Jeder Abschnitt zeigt neben seiner Überschrift ein kleines Chat-Symbol, im Editor und in der Vorschau, für Personen, die kommentieren dürfen (Personen, die nur lesen dürfen, sehen es nur bei Abschnitten mit Diskussionssträngen): die Anzahl der offenen Diskussionsstränge, wenn der Abschnitt eine Diskussion hat, oder ein abgeblendetes Symbol, sobald alle erledigt sind. Ein Klick darauf öffnet die auf diesen Abschnitt gefilterte Diskussion, mit ausgeklappten erledigten Diskussionssträngen, wenn keiner davon offen ist, und mit dem bereits für einen neuen Kommentar ausgewählten Abschnitt (das Symbol wird nie gedruckt oder exportiert).
 - **Erledigen und wieder öffnen.** Klicken Sie auf **Erledigen**, sobald ein Diskussionsstrang geklärt ist, und auf **Wieder öffnen**, wenn er es nicht ist. Erledigte Diskussionsstränge werden hinter **N erledigte Diskussionsstränge anzeigen** eingeklappt.
+- **Formatierung.** Ein Kommentar kann Fett, Kursiv, Durchgestrichen, **Inline-Code**, Aufzählungen und nummerierte Listen, Zitate und [Links](#decision-text-links) enthalten (die Schaltfläche **Link** oder Strg/Cmd+K). Überschriften, Codeblöcke, Bilder und Tabellen gehören in die Abschnitte, nicht in Kommentare.
 - **Wer posten darf.** Das Lesen der Diskussion folgt dem Recht, die Entscheidung zu öffnen (`adr.view`). Posten, Antworten, Erledigen und Wieder öffnen erfordern die Berechtigung `adr.comment`, die Mitglieder und Administratoren standardmäßig besitzen und Betrachter nicht; ein Administrator kann sie pro Rolle ändern. Die Unterzeichner der Entscheidung können sie immer kommentieren, einschließlich der Personen, die in einer früheren, zurückgerufenen oder abgelehnten Prüfungsrunde um ihre Unterschrift gebeten wurden.
 - **Während der Prüfung und nach der Unterzeichnung.** Die [Sperre während der Prüfung](#abzeichnungsworkflow) betrifft den Inhalt, nicht das Gespräch: Die Diskussion bleibt offen, solange die Entscheidung in Prüfung ist, und auch nachdem sie unterzeichnet wurde.
 - **Prüfungsnotizen.** Lehnt ein Unterzeichner eine Entscheidung ab, eröffnet der Grund einen Diskussionsstrang mit der Markierung **Ablehnungsgrund** (*Kein Grund angegeben*, wenn der Unterzeichner ihn leer gelassen hat), der wie jeder andere beantwortet und erledigt wird. Ein Unterzeichner kann beim Unterzeichnen eine optionale Notiz hinzufügen; sie erscheint in der Diskussion als **Unterzeichnungsnotiz**. Beide gehen nicht mehr verloren, wenn Unterschriften zurückgerufen werden, und beide werden auch im [Verlauf](#decision-history) angezeigt.
@@ -241,9 +326,9 @@ Die Schaltfläche **Verlauf** oben im Editor oder in der Vorschau der Entscheidu
 
 Der Verlauf ist nicht die von Hand gepflegte Tabelle **Dokumentversionshistorie** eines [Statement of Architecture Work](delivery.md#der-soaw-editor), die festhält, was die Autoren dort einzutragen beschließen.
 
-- **Versionen.** Jedes Mal, wenn ein Entwurf mit Änderungen gespeichert wird, wird eine Version aufbewahrt. Sie enthält den Titel, die vier Abschnitte, die Daten, die Änderungszusammenfassung und die Personen; Links, verknüpfte Karten und Dateien sind nicht Teil einer Version. Die Schritte, die eine Version enthalten, sind in der Zeitleiste markiert; die Personen, die die Entscheidung bearbeiten dürfen, und ihre Unterzeichner wählen einen davon aus, um ihn rechts anzuzeigen, und beim Öffnen der Ansicht ist die neueste Version ausgewählt. Andere Leser sehen die Zeitleiste ohne die Versionen (*Gespeicherte Versionen sind nur für Bearbeiter und Unterzeichner sichtbar.*). Auf einem schmalen Bildschirm zeigt die Ansicht zuerst die Zeitleiste, dann die ausgewählte Version mit einer Schaltfläche **Zurück**.
-- **Änderungen.** Über der ausgewählten Version zeigt **Version** sie so, wie sie gespeichert wurde, und **Änderungen** zeigt, was sich zwischen ihr und der vorherigen Version geändert hat, Wort für Wort pro Abschnitt, zusammen mit den geänderten Daten und Personen; wählen Sie unter **Vergleichen mit** eine beliebige andere Version. Nur die bereits in der Zeitleiste geladenen Versionen können verglichen werden: Ist die Version vor der ausgewählten noch nicht geladen, weist **Änderungen** darauf hin, und **Mehr laden** holt sie hinzu. Eine reine Formatierungsänderung wird als *Nur Formatierung: Der Wortlaut ist gleich.* gemeldet.
-- **Wiederherstellen.** Bei einem Entwurf kann jemand, der die Entscheidung bearbeiten darf, die ausgewählte Version mit **Diese Version wiederherstellen** zurückholen. Das Wiederherstellen wirkt nur vorwärts: Text, Daten und Personen der Version ersetzen die des Entwurfs und werden als neue Version aufbewahrt, und der Stand des Entwurfs vor der Wiederherstellung bleibt im Verlauf erhalten. Links, verknüpfte Karten und Dateien werden nicht wiederhergestellt. Enthält der Editor nicht gespeicherte Änderungen, weist die Bestätigung darauf hin, dass sie verworfen werden. Nach der Wiederherstellung zeigt die Seite die wiederhergestellte Entscheidung, und die Ansicht schließt sich. Eine Entscheidung in Prüfung oder eine unterzeichnete Entscheidung kann nicht wiederhergestellt werden.
+- **Versionen.** Jedes Mal, wenn ein Entwurf mit Änderungen gespeichert wird, wird eine Version aufbewahrt. Sie enthält den Titel, die vier Abschnitte, die Daten, die Änderungszusammenfassung und die Personen; Verknüpfungen zu anderen Entscheidungen, verknüpfte Karten, Dateien und Diagramme sind nicht Teil einer Version. Die Schritte, die eine Version enthalten, sind in der Zeitleiste markiert; die Personen, die die Entscheidung bearbeiten dürfen, und ihre Unterzeichner wählen einen davon aus, um ihn rechts anzuzeigen, und beim Öffnen der Ansicht ist die neueste Version ausgewählt. Andere Leser sehen die Zeitleiste ohne die Versionen (*Gespeicherte Versionen sind nur für Bearbeiter und Unterzeichner sichtbar.*). Auf einem schmalen Bildschirm zeigt die Ansicht zuerst die Zeitleiste, dann die ausgewählte Version mit einer Schaltfläche **Zurück**.
+- **Änderungen.** Über der ausgewählten Version zeigt **Version** sie so, wie sie gespeichert wurde, und **Änderungen** zeigt, was sich zwischen ihr und der vorherigen Version geändert hat, Wort für Wort pro Abschnitt, zusammen mit den geänderten Daten und Personen; wählen Sie unter **Vergleichen mit** eine beliebige andere Version. Nur die bereits in der Zeitleiste geladenen Versionen können verglichen werden: Ist die Version vor der ausgewählten noch nicht geladen, weist **Änderungen** darauf hin, und **Mehr laden** holt sie hinzu. Eine reine Formatierungsänderung wird als *Nur Formatierung: Der Wortlaut ist gleich.* gemeldet; ein Link, dessen Adresse sich geändert hat, zählt als Änderung, und eine Tabellenzeile wird als eine Zeile gelesen, die Zellen durch ` | ` getrennt.
+- **Wiederherstellen.** Bei einem Entwurf kann jemand, der die Entscheidung bearbeiten darf, die ausgewählte Version mit **Diese Version wiederherstellen** zurückholen. Das Wiederherstellen wirkt nur vorwärts: Text, Daten und Personen der Version ersetzen die des Entwurfs und werden als neue Version aufbewahrt, und der Stand des Entwurfs vor der Wiederherstellung bleibt im Verlauf erhalten. Verknüpfungen zu anderen Entscheidungen, verknüpfte Karten, Dateien und Diagramme werden nicht wiederhergestellt. Enthält der Editor nicht gespeicherte Änderungen, weist die Bestätigung darauf hin, dass sie verworfen werden. Nach der Wiederherstellung zeigt die Seite die wiederhergestellte Entscheidung, und die Ansicht schließt sich. Eine Entscheidung in Prüfung oder eine unterzeichnete Entscheidung kann nicht wiederhergestellt werden.
 
 #### Bekannte Einschränkungen {: #collaboration-limits }
 
@@ -280,5 +365,7 @@ Derselbe Compliance-Reiter erscheint auch auf den Kartendetails (automatisch aus
 | `adr.comment` | admin, bpm_admin, member — in der [Diskussion](#decision-discussion) einer Entscheidung posten; die Unterzeichner einer Entscheidung können sie immer kommentieren |
 | `risks.view` / `risks.manage` | siehe [Risikoregister § Berechtigungen](risks.md) |
 | `compliance.view` / `compliance.manage` | siehe [TurboLens § Security & Compliance](turbolens.md) |
+
+Der Abschnitt [Diagramme](#decision-diagrams) einer Entscheidung erfordert außerdem `diagrams.view` (standardmäßig admin, bpm_admin, member, viewer): Ohne diese Berechtigung sieht ein Leser bei keiner Entscheidung Diagramme.
 
 `grc.view` steuert die Sichtbarkeit der GRC-Route selbst — ohne diese Berechtigung wird der Eintrag im Top-Menü ausgeblendet. Jeder Reiter erzwingt zusätzlich seine domänenspezifische Berechtigung, sodass etwa eine Viewerin das Register lesen kann, ohne einen LLM-Scan auslösen zu dürfen.

@@ -110,6 +110,8 @@
   "attributes.calculated": "calculé",
   "attributes.percentageRange": "Saisissez un nombre entre 0 et 100",
   "attributes.auto": "auto",
+  "attributes.extLocked": "lecture seule",
+  "attributes.extLockedTooltip": "Lecture seule : l'extension qui fournit ce champ n'est pas active ou sous licence",
   "attributes.filterAll": "Tous",
   "hierarchy.title": "Hiérarchie",
   "hierarchy.level": "Niveau {{level}}",

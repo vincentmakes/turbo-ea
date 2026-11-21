@@ -48,6 +48,7 @@ from app.services.license_catalogue import (
     LicenseCatalogue,
     load_catalogue,
 )
+from app.services.permission_service import PermissionService
 from app.services.workspace_io.bundle import _check_declared_sizes
 
 HEADERS = ("component", "metric", "license type", "year", "licensed", "actual")
@@ -220,9 +221,13 @@ async def plan_import(
             )
         )
     ).all()
+    license_visible = await PermissionService.card_ids_with_license_access(
+        db, user, (card.id for card in found)
+    )
     by_name: dict[str, list[Row[uuid.UUID, str]]] = {}
     for card in found:
-        by_name.setdefault(card.name.strip().casefold(), []).append(card)
+        if card.id in license_visible:
+            by_name.setdefault(card.name.strip().casefold(), []).append(card)
     catalogue = await load_catalogue(db)
 
     plan = ImportPlan()

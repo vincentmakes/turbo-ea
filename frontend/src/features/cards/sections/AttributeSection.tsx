@@ -20,6 +20,7 @@ import {
   getUrlErrorMsg,
   isEmptyAttrValue,
   isEnforcedRequiredField,
+  isWriteLockedField,
   useFieldHelp,
 } from "@/features/cards/sections/cardDetailUtils";
 import HelpTip from "@/components/HelpTip";
@@ -44,6 +45,29 @@ const VENDOR_ELIGIBLE_TYPES = ["ITComponent", "Application"];
 // SECTION_SCROLL_MARGIN_TOP as scroll-margin-top so a post-save
 // scrollIntoView({block:"start"}) lands the header just below the bar instead
 // of under it.
+
+/** Marks a field whose extension is not enabled or licensed: its value is
+ * shown, never editable (the backend refuses a change). */
+function ExtLockedChip({ compact = false }: { compact?: boolean }) {
+  const { t } = useTranslation("cards");
+  return (
+    <Tooltip title={t("attributes.extLockedTooltip")}>
+      <Chip
+        component="span"
+        size="small"
+        data-testid="ext-locked-chip"
+        icon={<MaterialSymbol icon="lock" size={compact ? 10 : 12} />}
+        label={t("attributes.extLocked")}
+        sx={{
+          height: compact ? 16 : 18,
+          fontSize: compact ? "0.55rem" : "0.6rem",
+          ml: 0.5,
+          verticalAlign: "middle",
+        }}
+      />
+    </Tooltip>
+  );
+}
 
 function AttributeSection({
   section,
@@ -296,6 +320,8 @@ function AttributeSection({
               <Chip component="span" size="small" label={t("attributes.calculated")} sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
             ) : field.readonly ? (
               <Chip component="span" size="small" label={t("attributes.auto")} sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
+            ) : field.ext_locked ? (
+              <ExtLockedChip compact />
             ) : null}
             {field.badge ? (
               <Chip component="span" size="small" color="primary" variant="outlined" label={rl(field.badge, field.badgeTranslations)} sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
@@ -324,14 +350,18 @@ function AttributeSection({
   const renderEditFields = (fields: FieldDef[]) => (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
       {fields.map((field) =>
-        field.readonly || calculatedFieldKeys.includes(field.key) ? (
+        isWriteLockedField(field) || calculatedFieldKeys.includes(field.key) ? (
           <Box key={field.key} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Typography variant="body2" color="text.secondary" sx={{ minWidth: 160 }}>
               {fieldLabel(field)}
               <HelpTip text={fieldHelp(field)} />
             </Typography>
             <FieldValue field={field} value={attrs[field.key]} currencyFmt={fmt} canViewCosts={canViewCosts} />
-            <Chip size="small" label={calculatedFieldKeys.includes(field.key) ? t("attributes.calculated") : t("attributes.auto")} sx={{ height: 18, fontSize: "0.6rem", ml: 0.5 }} />
+            {!calculatedFieldKeys.includes(field.key) && !field.readonly ? (
+              <ExtLockedChip />
+            ) : (
+              <Chip size="small" label={calculatedFieldKeys.includes(field.key) ? t("attributes.calculated") : t("attributes.auto")} sx={{ height: 18, fontSize: "0.6rem", ml: 0.5 }} />
+            )}
             {field.badge ? (
               <Chip size="small" color="primary" variant="outlined" label={rl(field.badge, field.badgeTranslations)} sx={{ height: 18, fontSize: "0.6rem", ml: 0.5 }} />
             ) : null}

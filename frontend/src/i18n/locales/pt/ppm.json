@@ -165,6 +165,8 @@
   "dependencyCreateFailed": "Falha ao criar a dependência",
   "dependencyDeleteFailed": "Falha ao remover a dependência",
   "dependencyCycleError": "Esta dependência criaria um ciclo",
+  "ganttMoveFailed": "Não foi possível mover o elemento",
+  "ganttMoveWhileSorted": "Remova a ordenação por coluna para reordenar os elementos.",
   "dependencyDuplicateError": "Esta dependência já existe",
   "confirmDeleteDependency": "Excluir esta seta de dependência?",
   "today": "Hoje",

@@ -336,6 +336,7 @@ export default function ComplianceFilterSidebar({
           icon="verified"
           expanded={expanded.status}
           onToggle={() => toggleSection("status")}
+          onClear={() => onFiltersChange({ ...filters, statuses: new Set(STATUSES) })}
           count={STATUSES.length - filters.statuses.size}
         />
         <Collapse in={expanded.status}>
@@ -356,6 +357,7 @@ export default function ComplianceFilterSidebar({
           icon="flag"
           expanded={expanded.severity}
           onToggle={() => toggleSection("severity")}
+          onClear={() => onFiltersChange({ ...filters, severities: new Set(SEVERITIES) })}
           count={SEVERITIES.length - filters.severities.size}
         />
         <Collapse in={expanded.severity}>
@@ -379,6 +381,7 @@ export default function ComplianceFilterSidebar({
           icon="route"
           expanded={expanded.lifecycle}
           onToggle={() => toggleSection("lifecycle")}
+          onClear={() => onFiltersChange({ ...filters, decisions: new Set(LIFECYCLE_STATES) })}
           count={LIFECYCLE_STATES.length - filters.decisions.size}
         />
         <Collapse in={expanded.lifecycle}>
@@ -402,6 +405,7 @@ export default function ComplianceFilterSidebar({
           icon="category"
           expanded={expanded.cardType}
           onToggle={() => toggleSection("cardType")}
+          onClear={() => onFiltersChange({ ...filters, cardTypes: new Set(CARD_TYPES) })}
           count={CARD_TYPES.length - filters.cardTypes.size}
         />
         <Collapse in={expanded.cardType}>
@@ -426,6 +430,14 @@ export default function ComplianceFilterSidebar({
           icon="tune"
           expanded={expanded.other}
           onToggle={() => toggleSection("other")}
+          onClear={() =>
+            onFiltersChange({
+              ...filters,
+              aiOnly: false,
+              aiConfirmedOnly: false,
+              includeResolved: false,
+            })
+          }
           count={
             (filters.aiOnly ? 1 : 0) +
             (filters.aiConfirmedOnly ? 1 : 0) +

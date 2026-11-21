@@ -126,6 +126,21 @@
             ],
             "title": "Linked Card Ids"
           },
+          "linked_diagram_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked Diagram Ids"
+          },
           "links": {
             "anyOf": [
               {
@@ -187,6 +202,21 @@
           "title"
         ],
         "title": "ADRCreate",
+        "type": "object"
+      },
+      "ADRDiagramLink": {
+        "additionalProperties": false,
+        "description": "Body of ``POST /adr/{id}/diagrams``.",
+        "properties": {
+          "diagram_id": {
+            "title": "Diagram Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "diagram_id"
+        ],
+        "title": "ADRDiagramLink",
         "type": "object"
       },
       "ADRImportItem": {
@@ -738,6 +768,21 @@
             ],
             "title": "Linked Card Ids"
           },
+          "linked_diagram_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked Diagram Ids"
+          },
           "links": {
             "anyOf": [
               {
@@ -820,6 +865,118 @@
           }
         },
         "title": "ADRUpdate",
+        "type": "object"
+      },
+      "AgentToolCatalogueOut": {
+        "properties": {
+          "extensions": {
+            "items": {
+              "$ref": "#/components/schemas/AgentToolExtensionOut"
+            },
+            "title": "Extensions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "extensions"
+        ],
+        "title": "AgentToolCatalogueOut",
+        "type": "object"
+      },
+      "AgentToolExtensionOut": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "tools": {
+            "items": {
+              "$ref": "#/components/schemas/AgentToolOut"
+            },
+            "title": "Tools",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "version",
+          "tools"
+        ],
+        "title": "AgentToolExtensionOut",
+        "type": "object"
+      },
+      "AgentToolOut": {
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "input_schema": {
+            "additionalProperties": true,
+            "title": "Input Schema",
+            "type": "object"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "method": {
+            "title": "Method",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "path_params": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Path Params",
+            "type": "array"
+          },
+          "query_params": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Query Params",
+            "type": "array"
+          },
+          "supports_dry_run": {
+            "title": "Supports Dry Run",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "title",
+          "description",
+          "kind",
+          "method",
+          "path",
+          "path_params",
+          "query_params",
+          "input_schema",
+          "supports_dry_run"
+        ],
+        "title": "AgentToolOut",
         "type": "object"
       },
       "AiEolProductSuggestRequest": {
@@ -2699,6 +2856,20 @@
           }
         },
         "title": "Body_upload_card_logo_api_v1_cards__card_id__logo_post",
+        "type": "object"
+      },
+      "Body_upload_document_image_api_v1_document_images__kind__post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_document_image_api_v1_document_images__kind__post",
         "type": "object"
       },
       "Body_upload_favicon_api_v1_settings_favicon_post": {
@@ -5292,6 +5463,162 @@
           "restored_passenger_ids"
         ],
         "title": "CardRestoreResponse",
+        "type": "object"
+      },
+      "CardTagBulkRequest": {
+        "properties": {
+          "dry_run": {
+            "default": false,
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "operations": {
+            "items": {
+              "$ref": "#/components/schemas/CardTagOperation"
+            },
+            "maxItems": 2000,
+            "minItems": 1,
+            "title": "Operations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "operations"
+        ],
+        "title": "CardTagBulkRequest",
+        "type": "object"
+      },
+      "CardTagBulkResponse": {
+        "properties": {
+          "dry_run": {
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/CardTagBulkResult"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "unchanged": {
+            "title": "Unchanged",
+            "type": "integer"
+          },
+          "updated": {
+            "title": "Updated",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "results",
+          "updated",
+          "unchanged",
+          "failed",
+          "dry_run"
+        ],
+        "title": "CardTagBulkResponse",
+        "type": "object"
+      },
+      "CardTagBulkResult": {
+        "description": "One row's outcome. ``status`` is ``updated`` (or ``unchanged`` when the\ncard already had that set), ``not_found`` for a card that does not exist\nor that the caller may not read, ``failed`` for an archived card, a bad id\nor a group rule. ``tag_ids`` is the card's resulting set (empty unless the\nrow succeeded).",
+        "properties": {
+          "added": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Added",
+            "type": "array"
+          },
+          "card_id": {
+            "title": "Card Id",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "removed": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Removed",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "updated",
+              "unchanged",
+              "not_found",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tag_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Tag Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "index",
+          "card_id",
+          "status"
+        ],
+        "title": "CardTagBulkResult",
+        "type": "object"
+      },
+      "CardTagOperation": {
+        "description": "Add, remove or replace tags on one card.",
+        "properties": {
+          "card_id": {
+            "title": "Card Id",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "add",
+              "remove",
+              "replace"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "tag_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Tag Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "card_id",
+          "mode"
+        ],
+        "title": "CardTagOperation",
         "type": "object"
       },
       "CardTypeCategoryCreate": {
@@ -12733,6 +13060,48 @@
         "title": "PpmGanttItem",
         "type": "object"
       },
+      "PpmGanttMove": {
+        "description": "Move one Gantt row: re-parent it and place it among its siblings.\n\n``position`` is the index among the same-kind siblings under the new\nparent (work packages and tasks keep separate orders), counted with the\nmoved row left out; a value past the end appends.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "task",
+              "wbs"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "parent_wbs_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Wbs Id"
+          },
+          "position": {
+            "minimum": 0.0,
+            "title": "Position",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "position"
+        ],
+        "title": "PpmGanttMove",
+        "type": "object"
+      },
       "PpmGanttStakeholder": {
         "properties": {
           "display_name": {
@@ -19829,6 +20198,7 @@
           "color": {
             "anyOf": [
               {
+                "maxLength": 20,
                 "type": "string"
               },
               {
@@ -19848,7 +20218,14 @@
             ],
             "title": "Description"
           },
+          "dry_run": {
+            "default": false,
+            "title": "Dry Run",
+            "type": "boolean"
+          },
           "name": {
+            "maxLength": 200,
+            "minLength": 1,
             "title": "Name",
             "type": "string"
           }
@@ -19872,6 +20249,11 @@
             ],
             "title": "Description"
           },
+          "dry_run": {
+            "default": false,
+            "title": "Dry Run",
+            "type": "boolean"
+          },
           "mandatory": {
             "default": false,
             "title": "Mandatory",
@@ -19879,10 +20261,16 @@
           },
           "mode": {
             "default": "multi",
+            "enum": [
+              "single",
+              "multi"
+            ],
             "title": "Mode",
             "type": "string"
           },
           "name": {
+            "maxLength": 200,
+            "minLength": 1,
             "title": "Name",
             "type": "string"
           },
@@ -19934,6 +20322,10 @@
           "mode": {
             "anyOf": [
               {
+                "enum": [
+                  "single",
+                  "multi"
+                ],
                 "type": "string"
               },
               {
@@ -20002,6 +20394,17 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "tag_group_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tag Group Id"
           }
         },
         "required": [
@@ -24617,6 +25020,102 @@
         "summary": "Resolve Adr Thread",
         "tags": [
           "document-collaboration"
+        ]
+      }
+    },
+    "/api/v1/adr/{adr_id}/diagrams": {
+      "post": {
+        "description": "Link an existing free-draw diagram to a decision (a live link).\n\n404 without ``diagrams.view`` or for an unknown diagram; 409 when already\nlinked. Returns the decision's detail payload.",
+        "operationId": "link_diagram_api_v1_adr__adr_id__diagrams_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ADRDiagramLink"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Link Diagram",
+        "tags": [
+          "adr"
+        ]
+      }
+    },
+    "/api/v1/adr/{adr_id}/diagrams/{diagram_id}": {
+      "delete": {
+        "description": "Remove a diagram's link from a decision; the diagram itself stays.\n\n404 without ``diagrams.view``, for an unknown diagram, or when it is not linked.",
+        "operationId": "unlink_diagram_api_v1_adr__adr_id__diagrams__diagram_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "diagram_id",
+            "required": true,
+            "schema": {
+              "title": "Diagram Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unlink Diagram",
+        "tags": [
+          "adr"
         ]
       }
     },
@@ -29830,6 +30329,48 @@
         ]
       }
     },
+    "/api/v1/cards/tags/bulk": {
+      "post": {
+        "description": "Apply tag operations to readable cards and record each change in history.",
+        "operationId": "bulk_set_card_tags_api_v1_cards_tags_bulk_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardTagBulkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardTagBulkResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Set Card Tags",
+        "tags": [
+          "cards"
+        ]
+      }
+    },
     "/api/v1/cards/{card_id}": {
       "delete": {
         "description": "Permanently delete a card plus optional descendants and related peer cards.\n\nMirrors `archive_card`'s body shape and rules. The primary is always deleted;\ndescendants are deleted leaves-first to satisfy the self-FK on `parent_id`.\nRelated cards are processed single-hop only.\n\nReturns 409 if the primary has active direct children and `child_strategy` is\nNone. Archived children need no decision: they are detached, not deleted.",
@@ -34979,6 +35520,119 @@
         ]
       }
     },
+    "/api/v1/document-images/{kind}": {
+      "post": {
+        "description": "Store one picture for the text of a ``kind`` document.",
+        "operationId": "upload_document_image_api_v1_document_images__kind__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "enum": [
+                "adr",
+                "soaw"
+              ],
+              "title": "Kind",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_document_image_api_v1_document_images__kind__post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Upload Document Image Api V1 Document Images  Kind  Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Document Image",
+        "tags": [
+          "document-images"
+        ]
+      }
+    },
+    "/api/v1/document-images/{kind}/{image_id}": {
+      "get": {
+        "description": "One picture of a ``kind`` document, inline.",
+        "operationId": "get_document_image_api_v1_document_images__kind___image_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "enum": [
+                "adr",
+                "soaw"
+              ],
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "image_id",
+            "required": true,
+            "schema": {
+              "title": "Image Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Document Image",
+        "tags": [
+          "document-images"
+        ]
+      }
+    },
     "/api/v1/documents/{doc_id}": {
       "delete": {
         "operationId": "delete_document_api_v1_documents__doc_id__delete",
@@ -35994,6 +36648,28 @@
           }
         },
         "summary": "Get Extension Asset",
+        "tags": [
+          "Extensions"
+        ]
+      }
+    },
+    "/api/v1/extensions/agent-tools": {
+      "get": {
+        "description": "Operations installed extensions offer to AI assistants (SDK 1.18).\n\nRead by the MCP server on every extension call. Lists only extensions that\nare enabled, licensed and declare the ``core.agent.tools`` grant, and within\nthem only the tools whose permission the caller holds \u2014 the same permission\nthe extension's route checks when the tool is then called. Configuration is\nnever offered: the registry refused such declarations at startup.",
+        "operationId": "agent_tool_catalogue_api_v1_extensions_agent_tools_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentToolCatalogueOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Agent Tool Catalogue",
         "tags": [
           "Extensions"
         ]
@@ -41681,6 +42357,52 @@
           }
         },
         "summary": "Create Dependency",
+        "tags": [
+          "ppm"
+        ]
+      }
+    },
+    "/api/v1/ppm/initiatives/{initiative_id}/gantt/move": {
+      "post": {
+        "description": "Save a row dragged in the Gantt task list: its parent work package and\nits place among the siblings of its kind.\n\nA change of parent re-runs the completion and date roll-ups, as a change\nof ``wbs_id`` through ``PATCH /tasks`` does: the new parent counts the\nmoved row, and the old one is recomputed from what it still holds (a work\npackage left with no tasks keeps the values it had).",
+        "operationId": "move_gantt_row_api_v1_ppm_initiatives__initiative_id__gantt_move_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "initiative_id",
+            "required": true,
+            "schema": {
+              "title": "Initiative Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PpmGanttMove"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Move Gantt Row",
         "tags": [
           "ppm"
         ]

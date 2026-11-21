@@ -384,6 +384,29 @@ describe("RelationTypesPanel — ArchiMate mapping (archimate_type/archimate_acc
   });
 });
 
+describe("RelationTypesPanel — the key is visible once the type exists (#1406)", () => {
+  // The key is the Excel `rel:<key>` column and the Relations sheet's
+  // `relation_type` value, and it is fixed at creation. The edit dialog showed
+  // only the verbs, so a user who created a custom type had nowhere to read it.
+  it("shows a custom relation type's key, read-only, with where Excel uses it", async () => {
+    const user = userEvent.setup();
+    renderPanel({ scopeTypeKey: "Organization" });
+
+    await user.click(within(rowFor("has site")).getByRole("button", { name: /^edit$/i }));
+
+    const dialog = await screen.findByRole("dialog");
+    const keyCaption = within(dialog).getByText("Key: relOrgToOrg");
+    expect(keyCaption.closest("input, textarea")).toBeNull();
+    expect(
+      within(dialog).getByText(
+        "In Excel, this key heads the rel:relOrgToOrg column on the source card type's sheet and is the relation_type value on the Relations sheet.",
+      ),
+    ).toBeInTheDocument();
+    // Shown, not editable: no field holds the key.
+    expect(within(dialog).queryByDisplayValue("relOrgToOrg")).toBeNull();
+  });
+});
+
 describe("RelationTypesPanel — delete confirmation", () => {
   it("states the number of relation instances a delete would remove, in bold", async () => {
     const user = userEvent.setup();

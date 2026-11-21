@@ -1329,3 +1329,104 @@ describe("QueryPathStrip — matched-cards switches", () => {
     expect(onToggle).toHaveBeenCalledWith("1:0");
   });
 });
+
+describe("QueryPathStrip — folding and the capped lines area", () => {
+  const LINE = (type: string) => ({ type });
+  /** Six lines, the builder's maximum: two AND groups of two, OR two more. */
+  const SIX: ActiveQuery = {
+    viewId: "bm-six",
+    name: "Six lines",
+    createdVia: "web",
+    query: {
+      any_of: [
+        { all_of: [LINE("Application"), LINE("Application")] },
+        { all_of: [LINE("Organization"), LINE("Organization")] },
+        LINE("Initiative"),
+        LINE("Application"),
+      ],
+    },
+  };
+  const toggle = () => screen.getByTestId("query-path-collapse");
+
+  it("opens expanded, its chevron naming the region it folds", () => {
+    render(<QueryPathStrip view={SIX} onLeave={() => {}} />);
+    expect(toggle()).toHaveAttribute("aria-expanded", "true");
+    expect(toggle()).toHaveAccessibleName("Collapse the query lines");
+    expect(toggle()).toHaveTextContent("expand_more");
+    const region = screen.getByRole("region", { name: "Six lines" });
+    expect(toggle()).toHaveAttribute("aria-controls", region.id);
+    expect(within(region).getAllByTestId("query-line")).toHaveLength(6);
+    expect(screen.queryByTestId("query-path-line-count")).not.toBeInTheDocument();
+  });
+
+  it("folds the lines into the title row with a line count, keeping them mounted", () => {
+    const onCollapsedChange = vi.fn();
+    render(<QueryPathStrip view={SIX} onLeave={() => {}} onCollapsedChange={onCollapsedChange} />);
+    fireEvent.click(toggle());
+    expect(onCollapsedChange).toHaveBeenLastCalledWith(true);
+    expect(toggle()).toHaveAttribute("aria-expanded", "false");
+    expect(toggle()).toHaveAccessibleName("Expand the query lines");
+    expect(toggle()).toHaveTextContent("chevron_right");
+    expect(screen.getByTestId("query-path-line-count")).toHaveTextContent(/^6 lines$/);
+    // Folded, not unmounted.
+    expect(screen.getAllByTestId("query-line")).toHaveLength(6);
+
+    fireEvent.click(toggle());
+    expect(onCollapsedChange).toHaveBeenLastCalledWith(false);
+    expect(onCollapsedChange).toHaveBeenCalledTimes(2);
+    expect(toggle()).toHaveAttribute("aria-expanded", "true");
+    expect(screen.queryByTestId("query-path-line-count")).not.toBeInTheDocument();
+  });
+
+  it("follows the page when controlled, and counts a single line in the singular", () => {
+    const onCollapsedChange = vi.fn();
+    render(
+      <QueryPathStrip view={VIEW} onLeave={() => {}} collapsed onCollapsedChange={onCollapsedChange} />,
+    );
+    expect(toggle()).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByTestId("query-path-line-count")).toHaveTextContent(/^1 line$/);
+    fireEvent.click(toggle());
+    expect(onCollapsedChange).toHaveBeenCalledWith(false);
+    // The page owns the state: nothing changes until it says so.
+    expect(toggle()).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("points the folded chevron the reading direction", () => {
+    const { unmount } = render(<QueryPathStrip view={VIEW} onLeave={() => {}} collapsed />);
+    const glyph = () => within(toggle()).getByText("chevron_right");
+    expect(glyph().style.transform).toBe("");
+    unmount();
+
+    hookState.isRtl = true;
+    render(<QueryPathStrip view={VIEW} onLeave={() => {}} collapsed />);
+    expect(glyph().style.transform).toBe("scaleX(-1)");
+  });
+
+  it("keeps a refused query on screen while the lines are folded", () => {
+    render(<QueryPathStrip view={VIEW} onLeave={() => {}} collapsed queryError="eol_view_required" />);
+    const error = screen.getByTestId("query-path-error");
+    expect(screen.getByRole("region", { hidden: true }).contains(error)).toBe(false);
+  });
+
+  it("caps the view's lines in their own scroll area, the buttons outside it", () => {
+    render(<QueryPathStrip view={SIX} canEdit onLeave={() => {}} />);
+    const area = screen.getByTestId("query-path-lines");
+    expect(area).toHaveStyle({ maxHeight: "32vh", overflowY: "auto" });
+    expect(within(area).getAllByTestId("query-line")).toHaveLength(6);
+    for (const id of ["query-path-collapse", "query-path-edit", "query-path-leave"]) {
+      expect(area.contains(screen.getByTestId(id))).toBe(false);
+    }
+  });
+
+  it("caps the builder's lines too, never folds it, and keeps Save and Cancel outside", () => {
+    renderEditor({ query: SIX.query, viewId: "bm-six" });
+    expect(screen.queryByTestId("query-path-collapse")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("query-path-line-count")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region")).not.toBeInTheDocument();
+    const area = screen.getByTestId("query-path-lines");
+    expect(area).toHaveStyle({ maxHeight: "32vh", overflowY: "auto" });
+    expect(within(area).getAllByTestId("query-line")).toHaveLength(6);
+    expect(area.contains(screen.getByTestId("query-path-save"))).toBe(false);
+    expect(area.contains(screen.getByTestId("query-path-cancel"))).toBe(false);
+  });
+});

@@ -110,6 +110,8 @@
   "attributes.calculated": "calculated",
   "attributes.percentageRange": "Enter a number between 0 and 100",
   "attributes.auto": "auto",
+  "attributes.extLocked": "read-only",
+  "attributes.extLockedTooltip": "Read-only: the extension that provides this field is not active or licensed",
   "attributes.filterAll": "All",
   "hierarchy.title": "Hierarchy",
   "hierarchy.level": "Level {{level}}",

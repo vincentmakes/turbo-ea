@@ -3,7 +3,8 @@
  * finish-to-start dependencies become the library's rows, the timeline range
  * and date arithmetic the bars and the "Align start" action use, the zoom
  * scale and its pixel geometry, which way round a dragged dependency runs, and
- * the order a header click sorts the task list in.
+ * the order a header click sorts the task list in, and where a row dragged in
+ * the task list lands.
  *
  * `PpmGanttTab.tsx` renders and measures the DOM; this decides. Nothing here
  * touches React or the API, so each rule is unit-tested on its own
@@ -576,4 +577,109 @@ export function sortGanttRows(
     ...keyed.filter((k) => k.value === null).map((k) => k.row),
     ...rows.filter((row) => row.type === "empty"),
   ].map((row, i) => ({ ...row, displayOrder: i + 1 }));
+}
+
+/* ------------------------------------------------------------------ */
+/*  Moving a row in the task list                                      */
+/* ------------------------------------------------------------------ */
+
+/** Where a dragged row was dropped relative to the row under it. */
+export type GanttDropKind = "before" | "after" | "inside";
+
+/** The body of `POST /ppm/initiatives/{id}/gantt/move`. `position` counts
+ *  among the same-kind siblings under the new parent, with the moved row left
+ *  out: work packages and tasks keep separate orders. */
+export interface GanttMove {
+  kind: "task" | "wbs";
+  id: string;
+  parent_wbs_id: string | null;
+  position: number;
+}
+
+/**
+ * What a drop in the task list saves, or null when it saves nothing: an
+ * unknown row, a milestone as the container, a work package into itself or
+ * its own subtree, or a drop that leaves the row where it is.
+ *
+ * Under any parent the work packages are drawn above the tasks, so a task
+ * dropped next to a work package goes first among the tasks, and a work
+ * package dropped next to a task goes last among the work packages. Inside a
+ * work package a row goes last; on the empty "+" row it goes last at the top
+ * level. A task holds nothing, and most of its row is the library's "inside"
+ * zone, so a drop onto a task places the row after it. The "after" strip of an
+ * open work package that has children is drawn above its first child, so a
+ * drop there makes the row the first of its kind inside it. `wbsList` and
+ * `tasks` are in the order the API sends them, which is the stored order;
+ * `collapsed` holds the ids of folded work packages.
+ */
+export function resolveGanttMove(
+  dropKind: GanttDropKind,
+  targetId: string,
+  movedId: string,
+  wbsList: PpmWbs[],
+  tasks: PpmTask[],
+  collapsed: ReadonlySet<string> = new Set(),
+): GanttMove | null {
+  const moved = parseGanttId(movedId);
+  if (!moved) return null;
+  const wbsById = new Map(wbsList.map((w) => [w.id, w]));
+  const parentOf = (ref: { kind: "task" | "wbs"; id: string }): string | null | undefined =>
+    ref.kind === "task"
+      ? tasks.find((tk) => tk.id === ref.id)?.wbs_id
+      : wbsById.get(ref.id)?.parent_id;
+  const currentParent = parentOf(moved);
+  if (currentParent === undefined) return null;
+
+  const rowsOfKind =
+    moved.kind === "task"
+      ? tasks.map((tk) => ({ id: tk.id, parent: tk.wbs_id }))
+      : wbsList.map((w) => ({ id: w.id, parent: w.parent_id }));
+  const siblingsUnder = (parent: string | null) =>
+    rowsOfKind.filter((r) => r.parent === parent).map((r) => r.id);
+  const othersUnder = (parent: string | null) =>
+    siblingsUnder(parent).filter((id) => id !== moved.id);
+
+  let parent: string | null;
+  let position: number;
+  const target = parseGanttId(targetId);
+  const targetWbs = target?.kind === "wbs" ? wbsById.get(target.id) : undefined;
+  const hasChildren = (wbsId: string) =>
+    wbsList.some((w) => w.parent_id === wbsId) || tasks.some((tk) => tk.wbs_id === wbsId);
+  let drop = dropKind;
+  if (target?.kind === "task" && drop === "inside") drop = "after";
+  if (drop === "after" && targetWbs && !collapsed.has(targetWbs.id) && hasChildren(targetWbs.id)) {
+    if (targetWbs.is_milestone) return null;
+    parent = targetWbs.id;
+    position = 0;
+  } else if (!target) {
+    if (targetId !== EMPTY_ROW_ID) return null;
+    parent = null;
+    position = othersUnder(null).length;
+  } else if (drop === "inside") {
+    if (!targetWbs || targetWbs.is_milestone) return null;
+    parent = targetWbs.id;
+    position = othersUnder(parent).length;
+  } else {
+    const targetParent = parentOf(target);
+    if (targetParent === undefined) return null;
+    parent = targetParent;
+    const others = othersUnder(parent);
+    if (target.kind !== moved.kind) {
+      position = moved.kind === "task" ? 0 : others.length;
+    } else {
+      const index = others.indexOf(target.id);
+      if (index < 0) return null;
+      position = drop === "after" ? index + 1 : index;
+    }
+  }
+
+  // A work package cannot go into itself or its own subtree. (A task id is
+  // never a work package id, so the walk finds nothing for a task.)
+  for (let cursor = parent; cursor !== null; cursor = wbsById.get(cursor)?.parent_id ?? null) {
+    if (cursor === moved.id) return null;
+  }
+  // Under a new parent the row is not among the siblings yet (index -1), so
+  // only a drop back onto its own place matches here.
+  if (siblingsUnder(parent).indexOf(moved.id) === position) return null;
+  return { kind: moved.kind, id: moved.id, parent_wbs_id: parent, position };
 }

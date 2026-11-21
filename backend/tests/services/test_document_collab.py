@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
@@ -18,8 +19,9 @@ from app.models.architecture_decision import ArchitectureDecision
 from app.models.document_history import DocumentHistoryEntry
 from app.models.soaw import SoAW
 from app.services import document_collab as collab
+from app.services import document_image_service
 from app.services.card_read_scope import CardReadScope
-from tests.conftest import create_user
+from tests.conftest import create_card, create_card_type, create_user
 
 U1 = uuid.UUID("00000000-0000-4000-8000-000000000001")
 U2 = uuid.UUID("00000000-0000-4000-8000-000000000002")
@@ -252,3 +254,150 @@ async def test_load_document_and_404s(db):
     with pytest.raises(HTTPException) as exc:
         await collab.load_document(db, "soaw", str(adr.id))
     assert exc.value.detail == "Statement of Architecture Work not found"
+
+
+# --- pictures -----------------------------------------------------------------------
+
+
+def _pic(kind: str, image_id: object) -> str:
+    return f'<img src="/api/v1/document-images/{kind}/{image_id}">'
+
+
+def test_images_of_reads_every_text_field():
+    assert collab.images_of("adr", {"context": _pic("adr", U1), "decision": _pic("adr", U2)}) == {
+        str(U1),
+        str(U2),
+    }
+    sections = {"1.1": {"content": _pic("soaw", U1)}, "t": {"rows": [[_pic("soaw", U2)]]}}
+    assert collab.images_of("soaw", {"sections": sections}) == {str(U1)}
+    assert collab.images_of("adr", {"title": _pic("adr", U1)}) == set()
+    assert collab.stored_images("adr", None) == set()
+
+
+async def test_stored_images_reads_the_row(db):
+    adr = await _decision(db)
+    adr.decision = _pic("adr", U2)
+    assert collab.stored_images("adr", adr) == {str(U2)}
+
+
+async def test_unknown_pictures_that_keep_splicing_leave_text_only(db, monkeypatch):
+    """Every removal assembles yet another new picture: after ``MAX_PASSES``
+    look-ups the field keeps its text only, so no unchecked picture is stored."""
+    lookups: list[set[str]] = []
+
+    async def existing(_db, _kind, ids):
+        lookups.append(set(ids))
+        return set(ids)
+
+    def settle(text, kind, keep=None):
+        return f"<p>t</p>{_pic(kind, uuid.uuid4())}"
+
+    monkeypatch.setattr(collab.document_image_service, "existing", existing)
+    monkeypatch.setattr(collab, "settle_markup", settle)
+    out = await collab._drop_unknown_images(db, "adr", {"context": _pic("adr", U1)}, set())
+    assert out == {"context": "t"}
+    assert len(lookups) == collab.MAX_PASSES
+    assert lookups[0] == {str(U1)}
+
+
+async def test_a_known_picture_needs_no_lookup(db, monkeypatch):
+    async def existing(*_args):
+        raise AssertionError("looked up")
+
+    monkeypatch.setattr(collab.document_image_service, "existing", existing)
+    values = {"context": _pic("adr", U1)}
+    assert await collab._drop_unknown_images(db, "adr", values, {str(U1)}) is values
+
+
+def test_map_texts_hands_back_the_same_values_when_nothing_changes():
+    values = {"context": "<p>a</p>", "title": "T"}
+    assert collab._map_texts("adr", values, lambda text: text) is values
+    changed = collab._map_texts("adr", values, str.upper)
+    assert changed == {"context": "<P>A</P>", "title": "T"}
+    assert values == {"context": "<p>a</p>", "title": "T"}
+
+
+def test_stored_images_reads_a_row_that_lacks_some_text_fields():
+    row = SimpleNamespace(decision=_pic("adr", U1))
+    assert collab.stored_images("adr", row) == {str(U1)}
+
+
+async def test_a_known_picture_stays_beside_one_found_in_the_store(db):
+    """A picture already on the document is kept without a look-up, next to
+    a new one the store holds; a new one it does not hold is removed."""
+    found = await document_image_service.store(
+        db, "adr", b"\x89PNG\r\n\x1a\n", mime_type="image/png", created_by=None
+    )
+    values = {"context": _pic("adr", U1) + _pic("adr", found.id) + _pic("adr", U2)}
+    out = await collab._drop_unknown_images(db, "adr", values, {str(U1)})
+    assert out == {"context": _pic("adr", U1) + _pic("adr", found.id)}
+
+
+# --- mentions a picture removal splices together ------------------------------------
+
+#: A scope that reads no ``Application`` card.
+NO_APPLICATIONS = CardReadScope(
+    role_key="viewer",
+    wildcard=False,
+    base_view=True,
+    denied_types=frozenset({"Application"}),
+    allowed_types=frozenset(),
+    stakeholder_card_ids=frozenset(),
+)
+
+
+def _mention(card_id: object) -> str:
+    return f'<span data-type="mention" data-kind="card" data-id="{card_id}"></span>'
+
+
+def _spliced(card_id: object) -> str:
+    """A mention span split by a picture the store does not hold: removing
+    the picture at save time assembles the mention."""
+    return (
+        f"<p><sp{_pic('adr', uuid.uuid4())}an "
+        f'data-type="mention" data-kind="card" data-id="{card_id}"></span></p>'
+    )
+
+
+async def _application(db):
+    await create_card_type(db, key="Application", label="Application")
+    return await create_card(db, card_type="Application", name="App")
+
+
+async def test_a_spliced_mention_is_checked_against_the_writers_scope(db):
+    user = await create_user(db)  # an admin: the scope passed in decides, not their role
+    adr = await _decision(db)
+    card = await _application(db)
+    incoming = {"decision": _spliced(card.id)}
+    with pytest.raises(HTTPException) as exc:
+        await collab.before_save(db, "adr", adr, incoming, user=user, read_scope=NO_APPLICATIONS)
+    assert (exc.value.status_code, exc.value.detail) == (404, "Card not found")
+    out = await collab.before_save(
+        db, "adr", adr, incoming, user=user, read_scope=CardReadScope.everything()
+    )
+    assert out == {"decision": f"<p>{_mention(card.id)}</p>"}
+
+
+async def test_a_spliced_mention_already_stored_on_the_document_is_not_rechecked(db):
+    user = await create_user(db)
+    adr = await _decision(db)
+    card = await _application(db)
+    adr.decision = f"<p>{_mention(card.id)}</p>"
+    out = await collab.before_save(
+        db, "adr", adr, {"decision": _spliced(card.id)}, user=user, read_scope=NO_APPLICATIONS
+    )
+    assert out == {"decision": f"<p>{_mention(card.id)}</p>"}
+
+
+async def test_a_system_writer_needs_only_the_spliced_card_to_exist(db):
+    adr = await _decision(db)
+    card = await _application(db)
+    out = await collab.before_save(
+        db, "adr", adr, {"decision": _spliced(card.id)}, user=None, read_scope=None
+    )
+    assert out == {"decision": f"<p>{_mention(card.id)}</p>"}
+    with pytest.raises(HTTPException) as exc:
+        await collab.before_save(
+            db, "adr", adr, {"decision": _spliced(uuid.uuid4())}, user=None, read_scope=None
+        )
+    assert (exc.value.status_code, exc.value.detail) == (404, "Card not found")
