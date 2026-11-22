@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.210.0] - 2026-11-22
+
+### Added
+- An extension page can open a card in the side panel directly on the field, section or relation group to fill, as the data-quality score already does on the card page (UI SDK 1.37).
+
 ## [2.209.0] - 2026-11-22
 
 ### Added
