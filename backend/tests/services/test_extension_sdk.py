@@ -18,7 +18,7 @@ from app.services.extensions import sdk
 
 
 def test_sdk_version_is_current():
-    assert sdk.SDK_VERSION == "1.18"
+    assert sdk.SDK_VERSION == "1.19"
 
 
 def test_sdk_reexports_route_dependencies_verbatim():
@@ -212,13 +212,15 @@ def test_sdk_compatibility_is_major_only():
     assert sdk.sdk_compatible("1.16")
     assert sdk.sdk_compatible("1.17")
     assert sdk.sdk_compatible("1.18")
+    assert sdk.sdk_compatible("1.19")
     assert not sdk.sdk_compatible("2.0")
 
 
 def test_sdk_minor_newer_truth_table():
     # Newer minor on the same major → warn (still loads).
-    assert sdk.sdk_minor_newer("1.19")
+    assert sdk.sdk_minor_newer("1.20")
     # Same or older minor → no warning.
+    assert not sdk.sdk_minor_newer("1.19")
     assert not sdk.sdk_minor_newer("1.18")
     assert not sdk.sdk_minor_newer("1.17")
     assert not sdk.sdk_minor_newer("1.16")
@@ -554,3 +556,23 @@ def test_sdk_1_18_surface_exists():
     from app.services.extensions import bundle
 
     assert "core.agent.tools" in bundle.VALID_GRANTS
+
+
+def test_sdk_1_19_surface_exists():
+    # SDK 1.19 — ``ctx.on_behalf_of(user)``: writes made for a signed-in
+    # person name that person. Defaulted on the context so older direct
+    # constructions keep working, wired by build_context, and ungated.
+    import dataclasses
+
+    fields = {f.name: f for f in dataclasses.fields(sdk.ExtensionContext)}
+    assert "on_behalf_of" in fields
+    assert fields["on_behalf_of"].default is None
+
+    from app.services.extensions import bundle, data_service
+    from app.services.extensions.jobs import build_context, reset_contexts
+
+    try:
+        assert build_context("sample-ext").on_behalf_of is data_service.on_behalf_of
+    finally:
+        reset_contexts()
+    assert not any("behalf" in grant for grant in bundle.VALID_GRANTS)

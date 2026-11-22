@@ -20,7 +20,9 @@ Design invariants (mirroring ``risks_bridge`` and ``adr_bridge``):
 * **Fields come from the metamodel.** ``[{key, action}]`` is expanded by
   ``survey_service.expand_fields`` into the same rows the survey builder
   writes, so labels and options are never hand-written by a program.
-* **Provenance without a synthetic author.** ``created_by`` stays NULL; the
+* **Provenance without a synthetic author.** ``created_by`` stays NULL (the
+  signed-in person inside ``ctx.on_behalf_of(user)``, SDK 1.19, who is then
+  also the actor of the events and the notifications); the
   write runs in a committed ``MutationBatch(tool_name="ext:{key}",
   origin="ext")`` (or joins the open ``ctx.batch`` scope), and the
   ``survey.sent`` events fanned out to every matched card carry ``ext: {key}``
@@ -437,7 +439,7 @@ class ExtensionSurveys(SurveysBridge):
                 target_filters={"card_ids": [str(c) for c in parsed]},
                 target_roles=clean_roles,
                 fields=expanded,
-                created_by=None,
+                created_by=data_service.acting_person_id(),
             )
             # Resolve BEFORE the row exists: a refusal writes nothing.
             targets, _matched = await survey_service.resolve_targets(db, survey)
@@ -449,7 +451,11 @@ class ExtensionSurveys(SurveysBridge):
             db.add(survey)
             await db.flush()
             activation = await survey_service.activate_survey(
-                db, survey, targets, actor_id=None, event_extra={"ext": self._key}
+                db,
+                survey,
+                targets,
+                actor_id=data_service.acting_person_id(),
+                event_extra={"ext": self._key},
             )
             return await _to_ext_survey(db, survey), activation.recipients
 
@@ -465,6 +471,6 @@ class ExtensionSurveys(SurveysBridge):
         # Delivery AFTER the commit and with the session closed: each emailed
         # notification opens its own SMTP connection.
         await notification_service.deliver_notification_batch(
-            recipients, notif_type=NOTIFICATION_TYPE, actor_id=None
+            recipients, notif_type=NOTIFICATION_TYPE, actor_id=data_service.acting_person_id()
         )
         return out

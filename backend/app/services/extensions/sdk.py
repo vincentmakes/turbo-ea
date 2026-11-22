@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable, Sequence
-from contextlib import AbstractAsyncContextManager
+from contextlib import AbstractAsyncContextManager, AbstractContextManager
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
@@ -323,7 +323,26 @@ async def require_card_permission(
 #   user's token, so ``require_extension`` (installed, enabled, licensed) and
 #   the route's own permission check stay the authority.
 
-SDK_VERSION = "1.18"
+# 1.19: ``ctx.on_behalf_of(user)`` — a write an extension makes FOR a signed-in
+#   person is recorded under that person's name. Opt-in and synchronous:
+#   ``with ctx.on_behalf_of(user): await ctx.data.update_card(...)``, where
+#   ``user`` is what the route's ``get_current_user`` dependency returned (an
+#   active core user — an id, a dict, a deactivated user or ``None`` is refused
+#   with ``ExtensionDataError``). Inside the scope the data bridge (cards,
+#   relations, tags, stakeholders, archive), the risks bridge, the decisions
+#   bridge (``create_draft``'s author) and the surveys bridge name the person
+#   as actor / author; the extension stays on the record too (``data["ext"]``,
+#   origin ``ext``, the ``ext:{key}`` batch), so the own-write event filter is
+#   unchanged. NOT covered: todos (``created_by`` would make the todo the
+#   person's to edit and drop its extension origin), notifications (no actor
+#   by design) and the audit batch's own actor (it stays empty; the events in
+#   it name the person). Writes outside a scope — jobs, syncs, event handlers —
+#   are recorded exactly as before. Backed by a ContextVar: reset on exit (on
+#   an exception too), an inner scope replaces the outer one for its duration,
+#   and a task spawned inside inherits it. UNGATED, like the per-card
+#   permission helpers: it opens no data domain, it names who asked.
+
+SDK_VERSION = "1.19"
 
 
 @dataclass(frozen=True)
@@ -996,7 +1015,9 @@ class ExtensionContext:
     any extension holding a write grant; a scope that wrote nothing leaves
     no row. SDK 1.14 adds ``surveys`` — send a data-maintenance survey to
     the stakeholders of a set of cards (grants ``core.surveys.read`` /
-    ``core.surveys.write``; send only).
+    ``core.surveys.write``; send only). SDK 1.19 adds ``on_behalf_of`` —
+    ``with ctx.on_behalf_of(user):`` records the bridge writes made inside as
+    made for that signed-in person (no grant; see the 1.19 note above).
     """
 
     key: str
@@ -1017,6 +1038,7 @@ class ExtensionContext:
     notify: NotifyBridge | None = None
     batch: Callable[[str], AbstractAsyncContextManager[ExtBatch]] | None = None
     surveys: SurveysBridge | None = None
+    on_behalf_of: Callable[[Any], AbstractContextManager[None]] | None = None
 
     def __post_init__(self) -> None:
         if not self.settings_namespace:
