@@ -57,7 +57,7 @@
 | **权限** | `ext.eu-ai-act.view`、`ext.eu-ai-act.manage`、`ext.eu-ai-act.submit`、`ext.eu-ai-act.admin` |
 | **数据访问授权** | `core.cards.read`、`core.cards.write`、`core.users.read`、`metamodel.custom_field_types` |
 | **是否需要重启后端** | 是——包含后端代码 |
-| **出现位置** | **GRC** 菜单下的 **EU AI Act**，共七个标签页（当您无法使用 GRC 菜单时，则为顶层入口） · **报告 → EU AI Act**（可保存为报告的仪表板） · 卡片上的 EU AI Act 分区与 **Obligations implemented** 页眉标签 · 四个问卷模板 · Excel 登记册工作簿以及 Annex IV / FRIA Word 文档 |
+| **出现位置** | **GRC** 菜单下的 **EU AI Act**，共七个标签页（当您无法使用 GRC 菜单时，则为顶层入口） · **报告 → EU AI Act - Dashboard**（可保存为报告的仪表板） · 卡片上的 EU AI Act 分区与 **Obligations implemented** 页眉标签 · 四个问卷模板 · Excel 登记册工作簿以及 Annex IV / FRIA Word 文档 |
 
 它还丰富了核心[合规扫描器](../guide/compliance.md)中的 **EU AI Act** 法规，该扫描器的 AI 发现会汇入 [Suggestions](#suggestions)。
 

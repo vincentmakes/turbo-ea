@@ -45,7 +45,7 @@ jedem Export live aus den Karten zusammengesetzt.
 | **Berechtigungen** | `ext.dora-roi.view`, `ext.dora-roi.manage`, `ext.dora-roi.submit`, `ext.dora-roi.admin` |
 | **Datenzugriffs-Grants** | `core.cards.read`, `core.cards.write`, `metamodel.custom_field_types` |
 | **Backend-Neustart nötig** | ja — die Erweiterung enthält Backend-Code |
-| **Wo sie erscheint** | **DORA-Register** im Menü **GRC** (ein Eintrag auf oberster Ebene, wenn Ihnen das Menü GRC nicht zur Verfügung steht) · **Berichte → DORA-Register** · Abschnitte **DORA Register** und **DORA Function** auf Karten · sechs Umfragevorlagen |
+| **Wo sie erscheint** | **DORA-Register** im Menü **GRC** (ein Eintrag auf oberster Ebene, wenn Ihnen das Menü GRC nicht zur Verfügung steht) · **Berichte → DORA-Register - Übersicht** · Abschnitte **DORA Register** und **DORA Function** auf Karten · sechs Umfragevorlagen |
 
 ## Was sie Ihrem Metamodell hinzufügt
 
@@ -146,7 +146,7 @@ für nicht nachgelagerte Vereinbarungen) werden für Sie angewendet.
 ## Der Arbeitsbereich
 
 **DORA-Register** im Menü **GRC** hat fünf Reiter. Dieselbe Übersicht ist
-zusätzlich als speicherbarer Bericht unter **Berichte → DORA-Register**
+zusätzlich als speicherbarer Bericht unter **Berichte → DORA-Register - Übersicht**
 verfügbar.
 
 ### Übersicht

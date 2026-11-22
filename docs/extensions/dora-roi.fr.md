@@ -47,7 +47,7 @@ des fiches à chaque validation ou export.
 | **Permissions** | `ext.dora-roi.view`, `ext.dora-roi.manage`, `ext.dora-roi.submit`, `ext.dora-roi.admin` |
 | **Autorisations d'accès aux données** | `core.cards.read`, `core.cards.write`, `metamodel.custom_field_types` |
 | **Redémarrage du backend requis** | oui — l'extension embarque du code backend |
-| **Où elle apparaît** | **Registre DORA** dans le menu **GRC** (une entrée de premier niveau lorsque le menu GRC ne vous est pas accessible) · **Rapports → Registre DORA** · sections **DORA Register** et **DORA Function** sur les fiches · six modèles d'enquête |
+| **Où elle apparaît** | **Registre DORA** dans le menu **GRC** (une entrée de premier niveau lorsque le menu GRC ne vous est pas accessible) · **Rapports → Registre DORA - Tableau de bord** · sections **DORA Register** et **DORA Function** sur les fiches · six modèles d'enquête |
 
 ## Ce qu'elle ajoute à votre métamodèle
 
@@ -147,7 +147,7 @@ conventions de remplissage des ITS (`9999-12-31` pour les dates sans terme,
 
 **Registre DORA** dans le menu **GRC** comporte cinq onglets. Le même
 tableau de bord est également disponible comme rapport enregistrable sous
-**Rapports → Registre DORA**.
+**Rapports → Registre DORA - Tableau de bord**.
 
 ### Tableau de bord
 

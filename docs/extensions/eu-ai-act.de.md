@@ -89,7 +89,7 @@ eingestellt oder so umgestaltet werden, dass es nicht mehr unter Art. 5 fällt).
 | **Berechtigungen** | `ext.eu-ai-act.view`, `ext.eu-ai-act.manage`, `ext.eu-ai-act.submit`, `ext.eu-ai-act.admin` |
 | **Datenzugriffs-Grants** | `core.cards.read`, `core.cards.write`, `core.users.read`, `metamodel.custom_field_types` |
 | **Backend-Neustart nötig** | ja — die Erweiterung enthält Backend-Code |
-| **Wo sie erscheint** | **EU AI Act** im Menü **GRC**, mit sieben Reitern (ein Eintrag auf oberster Ebene, wenn Ihnen das Menü GRC nicht zur Verfügung steht) · **Berichte → EU AI Act** (das Dashboard als speicherbarer Bericht) · die Abschnitte EU AI Act und der Chip **Obligations implemented** auf Karten · vier Umfragevorlagen · die Excel-Registermappe und die Word-Dokumente Annex IV / FRIA |
+| **Wo sie erscheint** | **EU-KI-Verordnung** im Menü **GRC**, mit sieben Reitern (ein Eintrag auf oberster Ebene, wenn Ihnen das Menü GRC nicht zur Verfügung steht) · **Berichte → EU-KI-Verordnung - Dashboard** (das Dashboard als speicherbarer Bericht) · die Abschnitte EU AI Act und der Chip **Obligations implemented** auf Karten · vier Umfragevorlagen · die Excel-Registermappe und die Word-Dokumente Annex IV / FRIA |
 
 Sie ergänzt außerdem die Verordnung **EU AI Act** des
 [Compliance-Scanners](../guide/compliance.md) des Kerns, dessen KI-Befunde die
@@ -120,7 +120,7 @@ Sie ergänzt außerdem die Verordnung **EU AI Act** des
 
 ## Der Arbeitsbereich
 
-**EU AI Act** im Menü **GRC** hat sieben Reiter: **Dashboard**, **Register**,
+**EU-KI-Verordnung** im Menü **GRC** hat sieben Reiter: **Dashboard**, **Register**,
 **Classify**, **Obligations**, **Suggestions**, **Audit** und **Settings**. Jede
 Liste darin ist ein Turbo-EA-Grid mit derselben Seitenleiste wie das Inventar —
 ein Reiter **Filters** (Suche über alle Spalten sowie Facetten wie Risikoklasse,

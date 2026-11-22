@@ -88,7 +88,7 @@ udfases eller omdesignes, så det kommer ud af Art. 5).
 | **Tilladelser** | `ext.eu-ai-act.view`, `ext.eu-ai-act.manage`, `ext.eu-ai-act.submit`, `ext.eu-ai-act.admin` |
 | **Dataadgangsrettigheder** | `core.cards.read`, `core.cards.write`, `core.users.read`, `metamodel.custom_field_types` |
 | **Genstart af backend påkrævet** | Ja — den leveres med backend-kode |
-| **Hvor den vises** | **EU AI Act** i menuen **GRC**, med syv faneblade (et punkt på øverste niveau, når GRC-menuen ikke er tilgængelig for jer) · **Rapporter → EU AI Act** (overblikket som en rapport, der kan gemmes) · sektionerne EU AI Act og chippen **Obligations implemented** på kort · fire spørgeskemaskabeloner · Excel-registerprojektmappen og Word-dokumenterne Annex IV / FRIA |
+| **Hvor den vises** | **EU's AI-forordning** i menuen **GRC**, med syv faneblade (et punkt på øverste niveau, når GRC-menuen ikke er tilgængelig for jer) · **Rapporter → EU's AI-forordning - Dashboard** (overblikket som en rapport, der kan gemmes) · sektionerne EU AI Act og chippen **Obligations implemented** på kort · fire spørgeskemaskabeloner · Excel-registerprojektmappen og Word-dokumenterne Annex IV / FRIA |
 
 Den beriger også **EU AI Act**-reguleringen i kernens
 [compliance-scanner](../guide/compliance.md), hvis AI-fund fodrer
@@ -118,7 +118,7 @@ Den beriger også **EU AI Act**-reguleringen i kernens
 
 ## Arbejdsområdet
 
-**EU AI Act** i menuen **GRC** har syv faneblade: **Dashboard**, **Register**,
+**EU's AI-forordning** i menuen **GRC** har syv faneblade: **Dashboard**, **Register**,
 **Classify**, **Obligations**, **Suggestions**, **Audit** og **Settings**. Hver
 liste i det er et Turbo EA-gitter med den samme sidepanel som Lager — en fane
 **Filters** (søgning på tværs af alle kolonner samt facetter som risikoniveau,

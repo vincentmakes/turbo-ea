@@ -49,7 +49,7 @@
 | **الصلاحيات** | `ext.dora-roi.view`، `ext.dora-roi.manage`، `ext.dora-roi.submit`، `ext.dora-roi.admin` |
 | **تصاريح الوصول إلى البيانات** | `core.cards.read`، `core.cards.write`، `metamodel.custom_field_types` |
 | **هل تلزم إعادة تشغيل الواجهة الخلفية** | نعم — تتضمن شيفرة للواجهة الخلفية |
-| **أين تظهر** | **DORA Register** ضمن قائمة **GRC** (مدخل في المستوى الأعلى حين لا تتوفر لكم قائمة GRC) · **التقارير → DORA Register** · قسما **DORA Register** و**DORA Function** في البطاقات · ستة قوالب استبيان |
+| **أين تظهر** | **DORA Register** ضمن قائمة **GRC** (مدخل في المستوى الأعلى حين لا تتوفر لكم قائمة GRC) · **التقارير → DORA Register - Dashboard** · قسما **DORA Register** و**DORA Function** في البطاقات · ستة قوالب استبيان |
 
 ## ما تضيفه إلى نموذج بياناتكم
 
@@ -133,7 +133,7 @@
 ## مساحة العمل
 
 يضم **DORA Register** ضمن قائمة **GRC** خمسة تبويبات. ولوحة المعلومات نفسها متاحة
-أيضًا بوصفها تقريرًا قابلًا للحفظ في **التقارير → DORA Register**.
+أيضًا بوصفها تقريرًا قابلًا للحفظ في **التقارير → DORA Register - Dashboard**.
 
 ### Dashboard
 

@@ -57,7 +57,7 @@
 | **الصلاحيات** | `ext.eu-ai-act.view` و`ext.eu-ai-act.manage` و`ext.eu-ai-act.submit` و`ext.eu-ai-act.admin` |
 | **منح الوصول إلى البيانات** | `core.cards.read` و`core.cards.write` و`core.users.read` و`metamodel.custom_field_types` |
 | **يلزم إعادة تشغيل الواجهة الخلفية** | نعم — فهي تأتي بشيفرة خلفية |
-| **أين تظهر** | **EU AI Act** ضمن قائمة **GRC** بسبعة تبويبات (مدخل في المستوى الأعلى حين لا تتوفر لكم قائمة GRC) · **التقارير ← EU AI Act** (لوحة المعلومات كتقرير قابل للحفظ) · أقسام EU AI Act وشارة **Obligations implemented** على البطاقات · أربعة قوالب استبيانات · مصنّف Excel الخاص بالسجل ومستندات Word الخاصة بـ Annex IV / FRIA |
+| **أين تظهر** | **EU AI Act** ضمن قائمة **GRC** بسبعة تبويبات (مدخل في المستوى الأعلى حين لا تتوفر لكم قائمة GRC) · **التقارير ← EU AI Act - Dashboard** (لوحة المعلومات كتقرير قابل للحفظ) · أقسام EU AI Act وشارة **Obligations implemented** على البطاقات · أربعة قوالب استبيانات · مصنّف Excel الخاص بالسجل ومستندات Word الخاصة بـ Annex IV / FRIA |
 
 وهي تُثري كذلك لائحة **EU AI Act** في [ماسح الامتثال](../guide/compliance.md) الأساسي، التي تغذّي نتائجه المتعلقة بالذكاء الاصطناعي تبويب [Suggestions](#suggestions).
 

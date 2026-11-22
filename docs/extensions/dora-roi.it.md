@@ -47,7 +47,7 @@ dalle schede a ogni validazione o esportazione.
 | **Permessi** | `ext.dora-roi.view`, `ext.dora-roi.manage`, `ext.dora-roi.submit`, `ext.dora-roi.admin` |
 | **Autorizzazioni di accesso ai dati** | `core.cards.read`, `core.cards.write`, `metamodel.custom_field_types` |
 | **Riavvio del backend necessario** | sì — include codice di backend |
-| **Dove compare** | **Registro DORA** nel menu **GRC** (una voce di primo livello quando il menu GRC non è disponibile per voi) · **Report → Registro DORA** · sezioni **DORA Register** e **DORA Function** sulle schede · sei modelli di sondaggio |
+| **Dove compare** | **Registro DORA** nel menu **GRC** (una voce di primo livello quando il menu GRC non è disponibile per voi) · **Report → Registro DORA - Cruscotto** · sezioni **DORA Register** e **DORA Function** sulle schede · sei modelli di sondaggio |
 
 ## Che cosa aggiunge al vostro metamodello
 
@@ -144,7 +144,7 @@ applicate per voi.
 ## L'area di lavoro
 
 **Registro DORA** nel menu **GRC** ha cinque schede. Lo stesso
-cruscotto è disponibile anche come report salvabile in **Report → Registro DORA**.
+cruscotto è disponibile anche come report salvabile in **Report → Registro DORA - Cruscotto**.
 
 ### Cruscotto
 

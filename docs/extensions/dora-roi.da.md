@@ -44,7 +44,7 @@ registret samles løbende ud fra kortene, hver gang I validerer eller eksportere
 | **Rettigheder** | `ext.dora-roi.view`, `ext.dora-roi.manage`, `ext.dora-roi.submit`, `ext.dora-roi.admin` |
 | **Tilladelser til dataadgang** | `core.cards.read`, `core.cards.write`, `metamodel.custom_field_types` |
 | **Genstart af backend nødvendig** | ja — indeholder backend-kode |
-| **Hvor den vises** | **DORA-register** i menuen **GRC** (et punkt på øverste niveau, når GRC-menuen ikke er tilgængelig for jer) · **Rapporter → DORA-register** · afsnittene **DORA Register** og **DORA Function** på kort · seks undersøgelsesskabeloner |
+| **Hvor den vises** | **DORA-register** i menuen **GRC** (et punkt på øverste niveau, når GRC-menuen ikke er tilgængelig for jer) · **Rapporter → DORA-register - Overblik** · afsnittene **DORA Register** og **DORA Function** på kort · seks undersøgelsesskabeloner |
 
 ## Hvad den føjer til jeres metamodel
 
@@ -140,7 +140,7 @@ aftaler) anvendes for jer.
 ## Arbejdsområdet
 
 **DORA-register** i menuen **GRC** har fem faneblade. Det samme overblik findes
-også som en rapport, der kan gemmes, under **Rapporter → DORA-register**.
+også som en rapport, der kan gemmes, under **Rapporter → DORA-register - Overblik**.
 
 ### Overblik
 

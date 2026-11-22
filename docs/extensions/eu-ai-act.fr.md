@@ -88,7 +88,7 @@ encore défini) ou **Prohibited practice** (rien à mettre en œuvre — le syst
 | **Permissions** | `ext.eu-ai-act.view`, `ext.eu-ai-act.manage`, `ext.eu-ai-act.submit`, `ext.eu-ai-act.admin` |
 | **Accès aux données (grants)** | `core.cards.read`, `core.cards.write`, `core.users.read`, `metamodel.custom_field_types` |
 | **Redémarrage du backend nécessaire** | Oui — elle livre du code backend |
-| **Où elle apparaît** | **EU AI Act** dans le menu **GRC**, avec sept onglets (une entrée de premier niveau lorsque le menu GRC ne vous est pas accessible) · **Rapports → EU AI Act** (le tableau de bord sous forme de rapport enregistrable) · les sections EU AI Act et la pastille **Obligations implemented** sur les fiches · quatre modèles d'enquête · le classeur Excel du registre et les documents Word Annex IV / FRIA |
+| **Où elle apparaît** | **Règlement IA de l'UE** dans le menu **GRC**, avec sept onglets (une entrée de premier niveau lorsque le menu GRC ne vous est pas accessible) · **Rapports → Règlement IA de l'UE - Tableau de bord** (le tableau de bord sous forme de rapport enregistrable) · les sections EU AI Act et la pastille **Obligations implemented** sur les fiches · quatre modèles d'enquête · le classeur Excel du registre et les documents Word Annex IV / FRIA |
 
 Elle enrichit aussi la réglementation **EU AI Act** du
 [scanner de conformité](../guide/compliance.md) du cœur, dont les constats d'IA
@@ -118,7 +118,7 @@ alimentent les [Suggestions](#suggestions).
 
 ## L'espace de travail
 
-**EU AI Act** dans le menu **GRC** comporte sept onglets : **Dashboard**,
+**Règlement IA de l'UE** dans le menu **GRC** comporte sept onglets : **Dashboard**,
 **Register**, **Classify**, **Obligations**, **Suggestions**, **Audit** et
 **Settings**. Chaque liste est une grille Turbo EA avec la même barre latérale que
 l'Inventaire — un onglet **Filters** (recherche dans toutes les colonnes, plus des

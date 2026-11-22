@@ -51,7 +51,7 @@ cartões sempre que valida ou exporta.
 | **Permissões** | `ext.dora-roi.view`, `ext.dora-roi.manage`, `ext.dora-roi.submit`, `ext.dora-roi.admin` |
 | **Autorizações de acesso a dados** | `core.cards.read`, `core.cards.write`, `metamodel.custom_field_types` |
 | **Exige reiniciar o backend** | sim — inclui código de backend |
-| **Onde aparece** | **DORA Register** no menu **GRC** (uma entrada de nível superior quando o menu GRC não está disponível para si) · **Relatórios → DORA Register** · secções **DORA Register** e **DORA Function** nos cartões · seis modelos de inquérito |
+| **Onde aparece** | **DORA Register** no menu **GRC** (uma entrada de nível superior quando o menu GRC não está disponível para si) · **Relatórios → DORA Register - Dashboard** · secções **DORA Register** e **DORA Function** nos cartões · seis modelos de inquérito |
 
 ## O que acrescenta ao seu metamodelo
 
@@ -146,7 +146,7 @@ convenções de preenchimento das ITS (`9999-12-31` para datas sem termo,
 ## A área de trabalho
 
 **DORA Register** no menu **GRC** tem cinco separadores. O mesmo dashboard
-está também disponível como relatório guardável em **Relatórios → DORA Register**.
+está também disponível como relatório guardável em **Relatórios → DORA Register - Dashboard**.
 
 ### Dashboard
 

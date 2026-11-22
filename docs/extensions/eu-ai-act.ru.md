@@ -57,7 +57,7 @@
 | **Права** | `ext.eu-ai-act.view`, `ext.eu-ai-act.manage`, `ext.eu-ai-act.submit`, `ext.eu-ai-act.admin` |
 | **Гранты доступа к данным** | `core.cards.read`, `core.cards.write`, `core.users.read`, `metamodel.custom_field_types` |
 | **Нужен перезапуск бэкенда** | Да — расширение содержит код бэкенда |
-| **Где появляется** | **EU AI Act** в меню **GRC**, с семью вкладками (пункт верхнего уровня, если меню GRC вам недоступно) · **Отчёты → EU AI Act** (панель как сохраняемый отчёт) · разделы EU AI Act и чип **Obligations implemented** на карточках · четыре шаблона опросов · рабочая книга Excel с реестром и документы Word Annex IV / FRIA |
+| **Где появляется** | **EU AI Act** в меню **GRC**, с семью вкладками (пункт верхнего уровня, если меню GRC вам недоступно) · **Отчёты → EU AI Act - Dashboard** (панель как сохраняемый отчёт) · разделы EU AI Act и чип **Obligations implemented** на карточках · четыре шаблона опросов · рабочая книга Excel с реестром и документы Word Annex IV / FRIA |
 
 Оно также дополняет регламент **EU AI Act** в основном [сканере соответствия](../guide/compliance.md), чьи находки по ИИ питают [Suggestions](#suggestions).
 

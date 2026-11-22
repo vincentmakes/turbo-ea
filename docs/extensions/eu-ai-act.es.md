@@ -87,7 +87,7 @@ rediseñarse para salir del Art. 5).
 | **Permisos** | `ext.eu-ai-act.view`, `ext.eu-ai-act.manage`, `ext.eu-ai-act.submit`, `ext.eu-ai-act.admin` |
 | **Concesiones de acceso a datos** | `core.cards.read`, `core.cards.write`, `core.users.read`, `metamodel.custom_field_types` |
 | **Requiere reinicio del backend** | Sí — incluye código de backend |
-| **Dónde aparece** | **EU AI Act** en el menú **GRC**, con siete pestañas (una entrada de primer nivel cuando el menú GRC no está disponible para usted) · **Informes → EU AI Act** (el panel como informe guardable) · las secciones EU AI Act y el chip **Obligations implemented** en las tarjetas · cuatro plantillas de encuesta · el libro de Excel del registro y los documentos Word Annex IV / FRIA |
+| **Dónde aparece** | **Reglamento de IA de la UE** en el menú **GRC**, con siete pestañas (una entrada de primer nivel cuando el menú GRC no está disponible para usted) · **Informes → Reglamento de IA de la UE - Panel** (el panel como informe guardable) · las secciones EU AI Act y el chip **Obligations implemented** en las tarjetas · cuatro plantillas de encuesta · el libro de Excel del registro y los documentos Word Annex IV / FRIA |
 
 También enriquece la normativa **EU AI Act** del
 [escáner de cumplimiento](../guide/compliance.md) del núcleo, cuyos hallazgos de IA
@@ -117,7 +117,7 @@ alimentan las [Sugerencias](#sugerencias).
 
 ## El espacio de trabajo
 
-**EU AI Act** en el menú **GRC** tiene siete pestañas: **Dashboard**,
+**Reglamento de IA de la UE** en el menú **GRC** tiene siete pestañas: **Dashboard**,
 **Register**, **Classify**, **Obligations**, **Suggestions**, **Audit** y
 **Settings**. Cada lista es una cuadrícula de Turbo EA con la misma barra lateral
 que el Inventario — una pestaña **Filters** (búsqueda en todas las columnas, más

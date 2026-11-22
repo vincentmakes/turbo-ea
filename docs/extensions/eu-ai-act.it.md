@@ -87,7 +87,7 @@ essere dismesso o riprogettato per uscire dall'Art. 5).
 | **Permessi** | `ext.eu-ai-act.view`, `ext.eu-ai-act.manage`, `ext.eu-ai-act.submit`, `ext.eu-ai-act.admin` |
 | **Concessioni di accesso ai dati** | `core.cards.read`, `core.cards.write`, `core.users.read`, `metamodel.custom_field_types` |
 | **Riavvio del backend necessario** | Sì — include codice backend |
-| **Dove compare** | **EU AI Act** nel menu **GRC**, con sette schede (una voce di primo livello quando il menu GRC non è disponibile per voi) · **Report → EU AI Act** (il cruscotto come report salvabile) · le sezioni EU AI Act e il chip **Obligations implemented** sulle schede · quattro modelli di sondaggio · la cartella di lavoro Excel del registro e i documenti Word Annex IV / FRIA |
+| **Dove compare** | **Regolamento IA dell'UE** nel menu **GRC**, con sette schede (una voce di primo livello quando il menu GRC non è disponibile per voi) · **Report → Regolamento IA dell'UE - Dashboard** (il cruscotto come report salvabile) · le sezioni EU AI Act e il chip **Obligations implemented** sulle schede · quattro modelli di sondaggio · la cartella di lavoro Excel del registro e i documenti Word Annex IV / FRIA |
 
 Arricchisce inoltre la normativa **EU AI Act** dello
 [scanner di conformità](../guide/compliance.md) del nucleo, i cui riscontri sull'IA
@@ -117,7 +117,7 @@ alimentano i [Suggerimenti](#suggerimenti).
 
 ## L'area di lavoro
 
-**EU AI Act** nel menu **GRC** ha sette schede: **Dashboard**, **Register**,
+**Regolamento IA dell'UE** nel menu **GRC** ha sette schede: **Dashboard**, **Register**,
 **Classify**, **Obligations**, **Suggestions**, **Audit** e **Settings**. Ogni
 elenco è una griglia Turbo EA con la stessa barra laterale dell'Inventario — una
 scheda **Filters** (ricerca su tutte le colonne, più faccette come livello di

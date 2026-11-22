@@ -87,7 +87,7 @@ descontinuado ou redesenhado para sair do Art. 5).
 | **Permissões** | `ext.eu-ai-act.view`, `ext.eu-ai-act.manage`, `ext.eu-ai-act.submit`, `ext.eu-ai-act.admin` |
 | **Concessões de acesso a dados** | `core.cards.read`, `core.cards.write`, `core.users.read`, `metamodel.custom_field_types` |
 | **Reinício do backend necessário** | Sim — inclui código de backend |
-| **Onde aparece** | **EU AI Act** no menu **GRC**, com sete separadores (uma entrada de nível superior quando o menu GRC não está disponível para si) · **Relatórios → EU AI Act** (o dashboard como relatório guardável) · as secções EU AI Act e o chip **Obligations implemented** nos cartões · quatro modelos de inquérito · o livro Excel do registo e os documentos Word Annex IV / FRIA |
+| **Onde aparece** | **Regulamento da IA da UE** no menu **GRC**, com sete separadores (uma entrada de nível superior quando o menu GRC não está disponível para si) · **Relatórios → Regulamento da IA da UE - Painel** (o dashboard como relatório guardável) · as secções EU AI Act e o chip **Obligations implemented** nos cartões · quatro modelos de inquérito · o livro Excel do registo e os documentos Word Annex IV / FRIA |
 
 Enriquece também a regulamentação **EU AI Act** do
 [scanner de conformidade](../guide/compliance.md) do núcleo, cujas deteções de IA
@@ -115,7 +115,7 @@ alimentam as [Suggestions](#suggestions).
 
 ## A área de trabalho
 
-**EU AI Act** no menu **GRC** tem sete separadores: **Dashboard**, **Register**,
+**Regulamento da IA da UE** no menu **GRC** tem sete separadores: **Dashboard**, **Register**,
 **Classify**, **Obligations**, **Suggestions**, **Audit** e **Settings**. Cada
 lista é uma grelha do Turbo EA com a mesma barra lateral do Inventário — um
 separador **Filters** (pesquisa em todas as colunas, mais facetas como nível de

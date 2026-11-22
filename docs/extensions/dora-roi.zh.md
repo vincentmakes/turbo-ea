@@ -43,7 +43,7 @@ Information** 把 Turbo EA 变成您的登记册。
 | **权限** | `ext.dora-roi.view`、`ext.dora-roi.manage`、`ext.dora-roi.submit`、`ext.dora-roi.admin` |
 | **数据访问授权** | `core.cards.read`、`core.cards.write`、`metamodel.custom_field_types` |
 | **是否需要重启后端** | 是——包含后端代码 |
-| **出现位置** | **GRC** 菜单下的 **DORA Register**（当您无法使用 GRC 菜单时，则为顶层入口） · **报告 → DORA Register** · 卡片上的 **DORA Register** 与 **DORA Function** 区块 · 六个调查模板 |
+| **出现位置** | **GRC** 菜单下的 **DORA Register**（当您无法使用 GRC 菜单时，则为顶层入口） · **报告 → DORA Register - Dashboard** · 卡片上的 **DORA Register** 与 **DORA Function** 区块 · 六个调查模板 |
 
 ## 它为元模型增加了什么
 
@@ -121,7 +121,7 @@ Branch 子类型）、分包服务的接收方（源自提供商层级排序）�
 ## 工作台
 
 **GRC** 菜单下的 **DORA Register** 有五个标签页。同一个仪表板也可作为可保存的报告，位于
-**报告 → DORA Register**。
+**报告 → DORA Register - Dashboard**。
 
 ### Dashboard
 

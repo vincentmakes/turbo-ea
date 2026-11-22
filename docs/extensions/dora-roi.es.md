@@ -47,7 +47,7 @@ a partir de las tarjetas cada vez que valida o exporta.
 | **Permisos** | `ext.dora-roi.view`, `ext.dora-roi.manage`, `ext.dora-roi.submit`, `ext.dora-roi.admin` |
 | **Permisos de acceso a datos** | `core.cards.read`, `core.cards.write`, `metamodel.custom_field_types` |
 | **Requiere reiniciar el backend** | sí — incluye código de backend |
-| **Dónde aparece** | **Registro DORA** en el menú **GRC** (una entrada de primer nivel cuando el menú GRC no está disponible para usted) · **Informes → Registro DORA** · secciones **DORA Register** y **DORA Function** en las tarjetas · seis plantillas de encuesta |
+| **Dónde aparece** | **Registro DORA** en el menú **GRC** (una entrada de primer nivel cuando el menú GRC no está disponible para usted) · **Informes → Registro DORA - Panel** · secciones **DORA Register** y **DORA Function** en las tarjetas · seis plantillas de encuesta |
 
 ## Qué añade a su metamodelo
 
@@ -143,7 +143,7 @@ posteriores) se aplican por usted.
 ## El espacio de trabajo
 
 **Registro DORA** en el menú **GRC** tiene cinco pestañas. El mismo panel
-está también disponible como informe guardable en **Informes → Registro DORA**.
+está también disponible como informe guardable en **Informes → Registro DORA - Panel**.
 
 ### Panel
 
