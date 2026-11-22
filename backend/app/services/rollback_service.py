@@ -996,6 +996,11 @@ async def execute_rollback(
     if events is None:
         events = await _batch_events(db, batch)
 
+    ops = operations if operations is not None else plan_ops(events)
+    await _lock_inverse_writes(db, events, ops)
+    if authorize is not None:
+        await authorize(ops)
+
     conflicts = await _find_conflicting_batches(db, batch, events)
     if conflicts and not force:
         raise HTTPException(
@@ -1010,11 +1015,6 @@ async def execute_rollback(
                 "conflicting_batches": conflicts,
             },
         )
-
-    ops = operations if operations is not None else plan_ops(events)
-    await _lock_inverse_writes(db, events, ops)
-    if authorize is not None:
-        await authorize(ops)
 
     # Open the rollback's own batch row first so the events we emit
     # while reverting are themselves stamped with a batch id. The

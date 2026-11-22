@@ -10,8 +10,10 @@ executes the rollback of that batch.
 from __future__ import annotations
 
 import uuid
+from unittest.mock import AsyncMock
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import select
 
 from app.models.architecture_decision import ArchitectureDecision
@@ -35,6 +37,66 @@ from app.services.bo_relationship_constants import ER_RELATION
 from app.services.event_bus import event_bus, request_batch_id
 from app.services.rollback_service import _lock_inverse_writes, execute_rollback, plan_rollback
 from tests.conftest import create_card, create_relation, create_user
+
+
+async def test_execute_checks_authorization_before_conflict_details(monkeypatch):
+    from app.services import rollback_service as rs
+
+    sequence = []
+    ops = [{"op": "restore_card_fields", "card_id": str(uuid.uuid4())}]
+
+    async def lock(*args):
+        sequence.append("lock")
+
+    async def authorize(operations):
+        sequence.append("authorize")
+        assert operations is ops
+        raise HTTPException(403, "Insufficient permissions")
+
+    async def conflict(*args):
+        sequence.append("conflict")
+        return [{"id": "private-batch"}]
+
+    monkeypatch.setattr(rs, "_lock_inverse_writes", lock)
+    monkeypatch.setattr(rs, "_find_conflicting_batches", conflict)
+    create = AsyncMock()
+    monkeypatch.setattr(rs, "create_batch", create)
+    with pytest.raises(HTTPException) as exc:
+        await rs.execute_rollback(
+            object(), object(), uuid.uuid4(), events=[], operations=ops, authorize=authorize
+        )
+    assert exc.value.status_code == 403
+    assert "private-batch" not in str(exc.value.detail)
+    assert sequence == ["lock", "authorize"]
+    create.assert_not_awaited()
+
+
+async def test_execute_checks_conflicts_after_lock_and_authorization(monkeypatch):
+    from app.services import rollback_service as rs
+
+    sequence = []
+
+    async def lock(*args):
+        sequence.append("lock")
+
+    async def authorize(operations):
+        sequence.append("authorize")
+
+    async def conflict(*args):
+        sequence.append("conflict")
+        return [{"id": "later"}]
+
+    monkeypatch.setattr(rs, "_lock_inverse_writes", lock)
+    monkeypatch.setattr(rs, "_find_conflicting_batches", conflict)
+    create = AsyncMock()
+    monkeypatch.setattr(rs, "create_batch", create)
+    with pytest.raises(HTTPException) as exc:
+        await rs.execute_rollback(
+            object(), object(), uuid.uuid4(), events=[], operations=[], authorize=authorize
+        )
+    assert exc.value.status_code == 409
+    assert sequence == ["lock", "authorize", "conflict"]
+    create.assert_not_awaited()
 
 
 async def _open_batch(db, actor) -> MutationBatch:
