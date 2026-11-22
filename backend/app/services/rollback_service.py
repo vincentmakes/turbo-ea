@@ -964,9 +964,12 @@ async def _lock_inverse_writes(
     await lock_relation_endpoints(db, card_ids)
 
 
-async def plan_rollback(db: AsyncSession, batch: MutationBatch) -> dict[str, Any]:
+async def plan_rollback(
+    db: AsyncSession, batch: MutationBatch, *, events: list[Event] | None = None
+) -> dict[str, Any]:
     """Build the inverse-op plan for ``batch`` without applying anything."""
-    events = await _batch_events(db, batch)
+    if events is None:
+        events = await _batch_events(db, batch)
     plan = plan_ops(events)
     unsupported = [op for op in plan if op["op"] == "unsupported"]
     supported = [op for op in plan if op["op"] != "unsupported"]
@@ -984,10 +987,14 @@ async def execute_rollback(
     user_id: uuid.UUID,
     *,
     force: bool = False,
+    events: list[Event] | None = None,
+    operations: list[dict[str, Any]] | None = None,
+    authorize: Callable[[list[dict[str, Any]]], Awaitable[None]] | None = None,
 ) -> dict[str, Any]:
     """Apply the inverse of ``batch``. Records the rollback as a new
     batch so the audit log shows the causal chain."""
-    events = await _batch_events(db, batch)
+    if events is None:
+        events = await _batch_events(db, batch)
 
     conflicts = await _find_conflicting_batches(db, batch, events)
     if conflicts and not force:
@@ -1003,6 +1010,11 @@ async def execute_rollback(
                 "conflicting_batches": conflicts,
             },
         )
+
+    ops = operations if operations is not None else plan_ops(events)
+    await _lock_inverse_writes(db, events, ops)
+    if authorize is not None:
+        await authorize(ops)
 
     # Open the rollback's own batch row first so the events we emit
     # while reverting are themselves stamped with a batch id. The
@@ -1020,8 +1032,6 @@ async def execute_rollback(
         origin=request_origin.get() or "api",
     )
 
-    ops = plan_ops(events)
-    await _lock_inverse_writes(db, events, ops)
     results: list[dict[str, Any]] = []
     for op in ops:
         if op["op"] == "unsupported":

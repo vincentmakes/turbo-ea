@@ -314,3 +314,28 @@ async def test_a_rollback_preview_carries_the_batch_it_would_reverse(client, db,
     assert body["batch"]["actor_user_id"] == str(reader.id)
     assert body["event_count"] == 1
     assert body["unsupported_events"] == []
+
+
+async def test_rollback_keeps_current_cost_when_the_editor_cannot_view_it(client, db, env):
+    reader, card = env["users"]["reader"], env["card"]
+    batch_id = await _edit_in_a_batch(client, reader, card)
+    card.attributes = {**card.attributes, "costTotalAnnual": 500}
+    await db.flush()
+
+    response = await client.post(
+        f"/api/v1/mutation-batches/{batch_id}/rollback",
+        json={"dry_run": False},
+        headers=auth_headers(reader),
+    )
+
+    assert response.status_code == 200, response.text
+    attributes = (
+        await db.execute(
+            select(Card.attributes)
+            .where(Card.id == card.id)
+            .execution_options(populate_existing=True)
+        )
+    ).scalar_one()
+    assert attributes == {"costTotalAnnual": 500, "tier": "platinum"}
+    [result] = response.json()["results"]
+    assert result["fields"]["attributes"] == {"tier": "platinum"}

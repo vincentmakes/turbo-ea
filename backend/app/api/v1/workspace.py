@@ -527,22 +527,39 @@ async def _run_apply_job(transfer_id_str: str, user_id_str: str) -> None:
                 user = (
                     await db.execute(select(User).where(User.id == uuid.UUID(user_id_str)))
                 ).scalar_one_or_none()
-                if transfer is None or user is None or transfer.status != "applying":
+                if transfer is None or transfer.status != "applying":
                     return
-                result = await apply_bundle(db, bundle, user, commit=False)
-                transfer.result = result.as_dict()
-                transfer.status = "applied" if result.total_failed == 0 else "failed"
-                transfer.applied_at = datetime.now(timezone.utc)
-                if result.total_failed:
-                    transfer.error_message = f"{result.total_failed} section error(s) — see result"
-                await db.commit()
-                PermissionService.invalidate_role_cache()
-                PermissionService.invalidate_srd_cache()
-                PermissionService.invalidate_type_permission_cache()
-                completion = (
-                    "success" if result.total_failed == 0 else "failure",
-                    dict(result.as_dict()["totals"]),
-                )
+                now = datetime.now(timezone.utc)
+                if (
+                    user is None
+                    or not user.is_active
+                    or (user.access_expires_at is not None and user.access_expires_at < now)
+                    or not await PermissionService.has_app_permission(
+                        db, user, "admin.import_workspace", fresh=True
+                    )
+                ):
+                    message = "The requesting user is no longer authorized to import workspaces"
+                    transfer.status = "failed"
+                    transfer.error_message = message
+                    await db.commit()
+                    completion = ("failure", {"error": message})
+                else:
+                    result = await apply_bundle(db, bundle, user, commit=False)
+                    transfer.result = result.as_dict()
+                    transfer.status = "applied" if result.total_failed == 0 else "failed"
+                    transfer.applied_at = datetime.now(timezone.utc)
+                    if result.total_failed:
+                        transfer.error_message = (
+                            f"{result.total_failed} section error(s) — see result"
+                        )
+                    await db.commit()
+                    PermissionService.invalidate_role_cache()
+                    PermissionService.invalidate_srd_cache()
+                    PermissionService.invalidate_type_permission_cache()
+                    completion = (
+                        "success" if result.total_failed == 0 else "failure",
+                        dict(result.as_dict()["totals"]),
+                    )
             except Exception as exc:  # noqa: BLE001
                 logger.exception("workspace apply job failed")
                 await db.rollback()
