@@ -637,14 +637,14 @@ async def test_batch_summary_is_hidden_without_document_permissions(monkeypatch)
     )
     monkeypatch.setattr(routes.CardReadScope, "load", AsyncMock(return_value=scope))
     monkeypatch.setattr(routes, "document_event_read_filters", AsyncMock(return_value=(True,)))
-    monkeypatch.setattr(
-        routes,
-        "batch_to_dict",
-        lambda *args, **kwargs: {"summary": {"results": [{"detail": "Private decision"}]}},
-    )
+    summary = {"results": [{"op": "restore_card_fields", "detail": "Private decision"}]}
+    batch = SimpleNamespace(id=uuid.uuid4(), tool_name="rollback_batch", summary=summary)
+    db = SimpleNamespace(scalars=AsyncMock(return_value=[]))
+    monkeypatch.setattr(routes, "batch_to_dict", lambda *args, **kwargs: {"summary": summary})
     redact = AsyncMock()
     monkeypatch.setattr(routes, "scrub_summary_costs", redact)
-    result = await routes._batch_out(object(), object(), object(), None)
+    result = await routes._batch_out(db, object(), batch, None)
+    db.scalars.assert_awaited_once()
     assert result["summary"] is None
     redact.assert_not_awaited()
 
