@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Awaitable, Callable
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Response
 from sqlalchemy import select
@@ -19,7 +20,7 @@ from app.schemas.cost_items import (
     YearCostsDetailOut,
     YearCostsOut,
 )
-from app.services import card_costs, cost_item_types
+from app.services import card_costs, cost_import_template, cost_item_types
 from app.services.card_costs import COST_ITEM_TYPES, CostError, YearCosts
 from app.services.card_read_scope import require_card_readable
 from app.services.fiscal_year import MAX_FISCAL_YEAR, MIN_FISCAL_YEAR, get_fiscal_year_start
@@ -30,6 +31,40 @@ router = APIRouter(tags=["card-costs"])
 _KEY = Path(pattern=KEY_PATTERN)
 _FY = Path(ge=MIN_FISCAL_YEAR, le=MAX_FISCAL_YEAR)
 _STATUS = {"archived_item": 409}
+
+
+@router.get(
+    "/costs/import/template",
+    response_class=Response,
+    responses={
+        200: {
+            "content": {
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                    "schema": {"type": "string", "format": "binary"}
+                }
+            }
+        },
+        503: {"description": "Cost import template is unavailable"},
+    },
+)
+async def download_cost_import_template(
+    db: Annotated[AsyncSession, Depends(get_db)], user: Annotated[User, Depends(get_current_user)]
+):
+    await PermissionService.require_permission(db, user, "costs.view")
+    snapshot = await cost_import_template.catalogue_snapshot(db)
+    await db.commit()
+    try:
+        content = await cost_import_template.template_bytes(snapshot)
+    except Exception as exc:
+        raise HTTPException(503, "Cost import template is unavailable") from exc
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": 'attachment; filename="cost-import-template.xlsx"',
+            "Cache-Control": "private, no-store",
+        },
+    )
 
 
 async def _load_for_edit(db: AsyncSession, user: User, card_id: str) -> Card:

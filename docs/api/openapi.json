@@ -33622,6 +33622,31 @@
         ]
       }
     },
+    "/api/v1/costs/import/template": {
+      "get": {
+        "operationId": "download_cost_import_template_api_v1_costs_import_template_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "503": {
+            "description": "Cost import template is unavailable"
+          }
+        },
+        "summary": "Download Cost Import Template",
+        "tags": [
+          "card-costs"
+        ]
+      }
+    },
     "/api/v1/dashboards": {
       "get": {
         "description": "The dashboards the caller sees as homepage tabs, in tab order.",
