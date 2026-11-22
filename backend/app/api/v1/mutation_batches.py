@@ -345,17 +345,19 @@ async def rollback(
 ):
     """Reverse the writes performed under a mutation batch.
 
-    Permission rules: the batch owner can roll back their own batch
-    without ``admin.events``; reverting another user's batch needs
-    ``admin.events``. ``force=True`` requires ``admin.events``
-    regardless, since it accepts overwriting later writes by other
-    users.
+    Permission rules (the same as reading the batch): the batch owner can
+    roll back — or preview rolling back — their own batch without
+    ``admin.events``; any other batch needs ``admin.events``, including one
+    with no actor at all (an extension's, or an auto-batch no person
+    caused), since nobody owns it. ``force=True`` requires
+    ``admin.events`` regardless, since it accepts overwriting later
+    writes by other users.
     """
     batch = await get_batch(db, batch_id)
     if batch is None:
         raise HTTPException(status_code=404, detail="Mutation batch not found")
-    cross_actor = bool(batch.actor_user_id and batch.actor_user_id != user.id)
-    if cross_actor or body.force:
+    own_batch = batch.actor_user_id == user.id
+    if not own_batch or body.force:
         await PermissionService.require_permission(db, user, "admin.events")
     if body.dry_run:
         plan = await plan_rollback(db, batch)

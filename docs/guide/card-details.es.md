@@ -225,6 +225,8 @@ La ruta de invitación requiere el permiso **`users.invite`**, una forma delegad
 
 Un cambio que no procede de la interfaz web lleva una insignia junto al nombre de la persona: **MCP** cuando un asistente de IA lo realizó a través del [servidor MCP](../admin/mcp.md) en nombre de esa persona; **API**, **Extensión** o **Sistema** en los demás casos.
 
+Un cambio realizado por una extensión cuando alguien la usó —por ejemplo, al pulsar un botón de una página de la extensión— puede registrarse a nombre de esa persona, con la insignia **Extensión** a su lado. Los cambios que una extensión realiza por sí sola, como una sincronización programada, muestran **Sistema** como autor.
+
 Muestra el **registro completo de auditoría** de los cambios realizados en la ficha: **quién** hizo el cambio, **cuándo** se realizó y **qué** se modificó (valor anterior vs. valor nuevo). Esto permite la trazabilidad completa de todas las modificaciones a lo largo del tiempo.
 
 Todo lo que mueve la fecha **Modificado** de la ficha aparece aquí: una edición manual, una importación desde hoja de cálculo, una migración de plataforma o sincronización con ServiceNow, un cambio de etiqueta, una edición masiva, o un movimiento jerárquico que arrastró esta ficha. El mantenimiento del sistema no cambia ninguno de los dos: recalcular las puntuaciones de calidad de datos, volver a ejecutar los campos calculados y rellenar niveles jerárquicos o identificadores de ficha dejan intactos el historial y la fecha **Modificado**.

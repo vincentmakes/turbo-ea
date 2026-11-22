@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.209.0] - 2026-11-22
+
+### Added
+- A change an extension makes for a signed-in person can be recorded under that person's name, so the card history shows who applied it; changes an extension makes on its own keep showing System.
+
+### Security
+- Rolling back a change set that has no author, such as one an extension made, now needs the audit-log permission, as reading it already did.
+
 ## [2.208.1] - 2026-11-21
 
 ### Fixed

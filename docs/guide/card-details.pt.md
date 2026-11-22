@@ -222,6 +222,8 @@ O caminho de convite requer a permissão **`users.invite`**, uma forma delegada 
 
 Uma alteração que não veio da interface web traz um chip ao lado do nome da pessoa: **MCP** quando um assistente de IA a fez pelo [servidor MCP](../admin/mcp.md) em nome dessa pessoa, ou **API**, **Extensão** ou **Sistema** nos demais casos.
 
+Uma alteração feita por uma extensão quando alguém a usou — por exemplo, ao clicar num botão de uma página da extensão — pode ser registada em nome dessa pessoa, com o chip **Extensão** ao lado. As alterações que uma extensão faz por si própria, como uma sincronização agendada, mostram **Sistema** como autor.
+
 Mostra a **trilha de auditoria completa** das alterações feitas no card: **quem** fez a alteração, **quando** foi feita e **o que** foi modificado (valor anterior vs. novo valor). Isso permite total rastreabilidade de todas as modificações ao longo do tempo.
 
 Tudo o que move a data **Modificado** do card aparece aqui: uma edição manual, uma importação de planilha, uma migração de plataforma ou sincronização com o ServiceNow, uma alteração de etiqueta, uma edição em massa, ou uma movimentação hierárquica que arrastou este card. A manutenção do sistema não altera nenhum dos dois: recalcular as pontuações de qualidade dos dados, reexecutar os campos calculados e preencher níveis hierárquicos ou identificadores de card deixam o histórico e a data **Modificado** intactos.
