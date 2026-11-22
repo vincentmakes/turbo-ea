@@ -47,7 +47,9 @@ import FullscreenPanel from "./FullscreenPanel";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useReadableCardTypes } from "@/hooks/useReadableCardTypes";
 import { useSavedReport } from "@/hooks/useSavedReport";
-import { applyScope, useCardScope } from "@/hooks/useCardScope";
+import { applyScope } from "@/hooks/useCardScope";
+import { costScopeSource, useCostReportScope } from "./useCostReportScope";
+import Button from "@mui/material/Button";
 import CardScopeFilter from "@/components/CardScopeFilter";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -366,7 +368,6 @@ export default function CostReport() {
   // A type key, or COMBINED_KEY for Applications and IT Components together.
   const [cardTypeKey, setCardTypeKey] = useState("Application");
   const typeKeys = useMemo(() => typeKeysOf(cardTypeKey), [cardTypeKey]);
-  const combined = typeKeys.length > 1;
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
   const [costField, setCostField] = useState("costTotalAnnual");
   const [groupBy, setGroupBy] = useState("");
@@ -428,10 +429,8 @@ export default function CostReport() {
     );
   }, []);
 
-  // Narrow the treemap to chosen cards and everything beneath them (#954).
-  // A scope belongs to one type, so the combined option has none.
-  const scope = useCardScope({ typeKey: combined ? null : cardTypeKey, enabled: true });
-  const { scopeIds, setScopeIds, effectiveScopeIds } = scope;
+  const scope = useCostReportScope(typeKeys);
+  const { scopeIds, setScopeIds, effectiveScopeIds, restore: restoreScope, clear: clearScope } = scope;
 
   // One schema per selected type; empty until every one of them is known.
   const schemas = useMemo(() => {
@@ -526,16 +525,15 @@ export default function CostReport() {
         );
       // Set for the restored type, so the scope is read as that type's from
       // the render the type lands on.
-      if (Array.isArray(cfg.scopeIds) && restoredType !== COMBINED_KEY) {
-        setScopeIds(
+      if (Array.isArray(cfg.scopeIds)) {
+        restoreScope(
           (cfg.scopeIds as unknown[]).filter(
             (v): v is string => typeof v === "string",
           ),
-          restoredType,
         );
       }
     }
-  }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [saved.loadedConfig, restoreScope]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getConfig = () => ({
     cardTypeKey,
@@ -544,7 +542,7 @@ export default function CostReport() {
     view,
     sortK,
     sortD,
-    scopeIds,
+    scopeIds: scope.loading || scope.error ? scopeIds : effectiveScopeIds,
     extraColumns,
     fiscalYearParam,
   });
@@ -552,7 +550,7 @@ export default function CostReport() {
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [cardTypeKey, costField, groupBy, view, sortK, sortD, scopeIds, extraColumns, fiscalYearParam]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cardTypeKey, costField, groupBy, view, sortK, sortD, scopeIds, effectiveScopeIds, scope.loading, scope.error, extraColumns, fiscalYearParam]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -563,10 +561,10 @@ export default function CostReport() {
     setView("chart");
     setSortK("cost");
     setSortD("desc");
-    setScopeIds([]);
+    clearScope();
     setExtraColumns([]);
     setFiscalYearParam(null);
-  }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [saved, clearScope]);
 
   // The table's group-by: single selects with options and yes/no fields (a
   // multi-select cannot put a card in exactly one group). A yes/no field is
@@ -1118,10 +1116,13 @@ export default function CostReport() {
     );
   }
 
-  if (ml || (rawItems === null && sankeyData === null))
+  if (scope.error) return <Box sx={{ textAlign: "center", py: 8 }}><Typography>{t("cost.scopeLoadError")}</Typography><Button onClick={scope.retry}>{t("common:actions.retry")}</Button><Button onClick={scope.clear}>{t("common:cardScope.clearAll")}</Button></Box>;
+
+  if (ml || scope.loading || (rawItems === null && sankeyData === null))
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
         <CircularProgress />
+        {scope.loading && <Button onClick={scope.clear}>{t("common:cardScope.clearAll")}</Button>}
       </Box>
     );
 
@@ -1338,9 +1339,8 @@ export default function CostReport() {
                 </ToggleButton>
               ))}
           </ToggleButtonGroup>
-          {!combined && (
             <CardScopeFilter
-              types={cardTypeKey}
+              types={typeKeys}
               value={effectiveScopeIds}
               onChange={setScopeIds}
               labelAll={t("cost.scopeAll")}
@@ -1348,8 +1348,8 @@ export default function CostReport() {
               dialogTitle={t("cost.scopeDialogTitle")}
               helperText={t("cost.scopeHelper")}
               tooltip={t("cost.scopeTooltip")}
+              searchSource={costScopeSource}
             />
-          )}
           {costChoices.length > 1 && (
             <TextField
               select

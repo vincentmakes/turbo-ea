@@ -595,6 +595,7 @@
   "cost.scopeCount_other": "{{count}} cards",
   "cost.scopeDialogTitle": "Scope to cards",
   "cost.scopeHelper": "Cards beneath a selected card are included automatically.",
+  "cost.scopeLoadError": "Could not load the card scope.",
   "cost.scopeTooltip": "Show only the selected cards and everything beneath them",
   "matrix.scopeAllRows": "All rows",
   "matrix.scopeCountRows_one": "{{count}} row",

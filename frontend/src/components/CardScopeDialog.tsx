@@ -15,7 +15,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { useCardSearch } from "@/hooks/useCardSearch";
+import { useCardSearch, type CardSearchSource } from "@/hooks/useCardSearch";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import {
@@ -87,6 +87,7 @@ export default function CardScopeDialog({
   title,
   helperText,
   initialOptions,
+  searchSource,
 }: {
   open: boolean;
   onClose: () => void;
@@ -106,6 +107,7 @@ export default function CardScopeDialog({
    * dialog's own fetch is in flight.
    */
   initialOptions?: CardScopeOption[];
+  searchSource?: CardSearchSource;
 }) {
   const { t } = useTranslation(["common"]);
   const theme = useTheme();
@@ -164,6 +166,7 @@ export default function CardScopeDialog({
     search: flatMode ? debouncedSearch : "",
     enabled: open && typeList.length > 0,
     pageSize: TREE_PAGE_SIZE,
+    searchSource,
   });
 
   // Walk pages until the type is fully loaded, or give up on the tree.

@@ -29,7 +29,7 @@ vi.mock("react-router", async () => {
   };
 });
 
-vi.mock("@/api/client", () => ({ api: { get: vi.fn(), post: vi.fn() } }));
+vi.mock("@/api/client", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/api/client")>()), api: { get: vi.fn(), post: vi.fn() } }));
 vi.mock("@/hooks/useMetamodel", () => ({ useMetamodel: vi.fn() }));
 vi.mock("@/hooks/useSavedReport", () => ({ useSavedReport: vi.fn() }));
 vi.mock("@/hooks/useThumbnailCapture", () => ({
@@ -68,6 +68,7 @@ vi.mock("./CostTrendChart", () => ({
     components,
     labelOf,
     groupBy,
+    scopeIds,
   }: {
     years: number[];
     currentFiscalYear: number;
@@ -76,6 +77,7 @@ vi.mock("./CostTrendChart", () => ({
     components: string[];
     labelOf?: (key: string) => string;
     groupBy?: string;
+    scopeIds?: Set<string> | null;
   }) => {
     trendYearsSeen.push(years);
     return (
@@ -87,6 +89,7 @@ vi.mock("./CostTrendChart", () => ({
         data-field={costField}
         data-group-by={groupBy ?? ""}
         data-components={components.join(",")}
+        data-scope={scopeIds ? [...scopeIds].sort().join(",") : ""}
         data-labels={components.map((c) => labelOf?.(c) ?? c).join(",")}
       />
     );
@@ -239,6 +242,66 @@ const chart = () => document.querySelector(".report-chart-area") as HTMLElement;
 const toolbar = () => document.querySelector(".report-toolbar") as HTMLElement;
 
 describe("CostReport scope filter", () => {
+  it("offers both types in the combined scope picker", async () => {
+    consumedConfig = { view: "table", cardTypeKey: "Application+ITComponent" };
+    const defaultGet = vi.mocked(api.get).getMockImplementation()!;
+    vi.mocked(api.get).mockImplementation((path: string, ...args: unknown[]) => {
+      if (path.startsWith("/reports/cost-scope")) return Promise.resolve({ items: [...HIERARCHY, { id: "db", name: "DB", type: "ITComponent", parent_id: null }], total: 4 }) as never;
+      return defaultGet(path, ...args as []) as never;
+    });
+    renderCost();
+    await userEvent.click(await screen.findByText("All cards"));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click((await within(dialog).findByRole("checkbox", { name: "CRM" })).closest('[role="button"]')!);
+    await userEvent.click(within(dialog).getByRole("checkbox", { name: "DB" }).closest('[role="button"]')!);
+    expect(within(dialog).getByRole("checkbox", { name: "CRM" })).toBeChecked();
+    expect(within(dialog).getByRole("checkbox", { name: "DB" })).toBeChecked();
+    await userEvent.click(within(dialog).getByRole("button", { name: /apply/i }));
+    await waitFor(() => expect(within(toolbar()).getByText(/2 cards/)).toBeInTheDocument());
+  });
+  it("restores a mixed scope and resolves descendants on later pages", async () => {
+    consumedConfig = { view: "table", cardTypeKey: "Application+ITComponent", scopeIds: ["root", "db"], fiscalYearParam: 2027 };
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/reports/cost-scope")) {
+        const page = Number(new URL(path, "http://x").searchParams.get("page") ?? 1);
+        return Promise.resolve(page === 1
+          ? { items: [{ id: "root", name: "Root", type: "Application", parent_id: null }, { id: "db", name: "DB", type: "ITComponent", parent_id: null }], total: 3 }
+          : { items: [{ id: "crm", name: "CRM", type: "Application", parent_id: "root" }], total: 3 }) as never;
+      }
+      if (path.startsWith("/reports/cost-treemap")) return Promise.resolve({ items: [...COST_ITEMS, { id: "db", name: "DB", cost: 40, attributes: {} }], total: 660, components: ["licenseCost"], fiscal_year: 2027, current_fiscal_year: 2026, fiscal_year_start: 1 }) as never;
+      if (path.startsWith("/reports/cost-sankey")) return Promise.resolve({ nodes: [], links: [], total: 0 }) as never;
+      if (path.startsWith("/metamodel/cost-item-types")) return Promise.resolve(CATALOGUE) as never;
+      return Promise.resolve([]) as never;
+    });
+    renderCost();
+    await waitFor(() => expect(within(chart()).getAllByText("CRM").length).toBeGreaterThan(0));
+    expect(within(chart()).queryByText("ERP")).not.toBeInTheDocument();
+    expect(within(chart()).getAllByText("DB").length).toBeGreaterThan(0);
+    expect(within(chart()).getAllByText("$140").length).toBeGreaterThan(0);
+    expect(await screen.findByTestId("cost-trend-chart")).toHaveAttribute("data-scope", "crm,db,root");
+    await userEvent.click(typeButton("IT Component"));
+    await waitFor(() => expect(vi.mocked(useSavedReport).mock.results.at(-1)?.value.persistConfig).toHaveBeenLastCalledWith(expect.objectContaining({ scopeIds: ["root"] })));
+    await userEvent.click(typeButton("IT Component"));
+    await waitFor(() => expect(vi.mocked(useSavedReport).mock.results.at(-1)?.value.persistConfig).toHaveBeenLastCalledWith(expect.objectContaining({ scopeIds: ["root", "db"] })));
+    expect(vi.mocked(api.get).mock.calls.some(([path]) => String(path).startsWith("/reports/cost-scope") && new URL(String(path), "http://x").searchParams.get("page") === "2")).toBe(true);
+  });
+
+  it("does not show unfiltered totals while a saved hierarchy is pending or fails", async () => {
+    consumedConfig = { view: "table", scopeIds: ["crm"] };
+    let rejectHierarchy!: (reason: Error) => void;
+    const hierarchy = new Promise<never>((_, reject) => { rejectHierarchy = reject; });
+    const defaultGet = vi.mocked(api.get).getMockImplementation()!;
+    vi.mocked(api.get).mockImplementation((path: string, ...args: unknown[]) =>
+      path.startsWith("/reports/cost-scope") ? hierarchy : defaultGet(path, ...args as []) as never,
+    );
+    renderCost();
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith(expect.stringContaining("/reports/cost-scope"), expect.anything()));
+    expect(screen.queryByText("$620")).not.toBeInTheDocument();
+    await act(async () => rejectHierarchy(new Error("offline")));
+    expect(screen.queryByText("$620")).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /retry/i })).toBeInTheDocument();
+  });
+
   it("includes every card when unscoped", async () => {
     renderCost();
     await waitFor(() =>
@@ -275,6 +338,7 @@ describe("CostReport scope filter", () => {
       .mocked(api.get)
       .mock.calls.filter(([path]) => String(path).startsWith("/cards"));
     expect(cardCalls).toHaveLength(0);
+    expect(vi.mocked(api.get).mock.calls.some(([path]) => String(path).startsWith("/reports/cost-scope"))).toBe(false);
   });
 
   it("drops a scoped id whose card no longer exists", async () => {
