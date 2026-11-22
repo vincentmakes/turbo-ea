@@ -98,7 +98,7 @@ Il modello del ciclo di vita traccia un componente attraverso cinque fasi:
 
 Ogni fase ha un **selettore di data** per registrare quando il componente è entrato o entrerà in quella fase. Una barra temporale visiva mostra la posizione del componente nel suo ciclo di vita.
 
-Se l'amministratore ha configurato le **fasi del ciclo di vita** per il tipo di card, **Fase attuale** indica a che punto si trova oggi. Seleziona per esempio **Test** mentre la data di go-live non è ancora stata decisa. La fase attuale e le date della timeline vengono salvate separatamente.
+Se l'amministratore ha configurato le [fasi del ciclo di vita](../admin/metamodel.md#lifecycle-stages) per il tipo di card, **Fase attuale** indica a che punto si trova oggi. Seleziona per esempio **Test** mentre la data di go-live non è ancora stata decisa. La fase attuale e le date della timeline vengono salvate separatamente.
 
 Se una fase ha una data successiva a quella di una fase che dovrebbe seguirla — ad esempio **Phase Out** dopo **End of Life** — accanto a quella data compare un'icona di avviso, e lo stesso avviso è mostrato sotto il campo durante la modifica. È solo un'indicazione: le date possono comunque essere salvate così come sono state inserite.
 

@@ -98,7 +98,7 @@ Le modèle de cycle de vie suit un composant à travers cinq phases :
 
 Chaque phase dispose d'un **sélecteur de date** pour enregistrer quand le composant est entré ou entrera dans cette phase. Une barre chronologique visuelle montre la position du composant dans son cycle de vie.
 
-Si votre administrateur a configuré des **étapes du cycle de vie** pour le type de fiche, **Étape actuelle** indique où en est la fiche aujourd'hui. Sélectionnez par exemple **Test** tant que la date de mise en service n'est pas décidée. L'étape actuelle et les dates de la chronologie sont enregistrées séparément.
+Si votre administrateur a configuré des [étapes du cycle de vie](../admin/metamodel.md#lifecycle-stages) pour le type de fiche, **Étape actuelle** indique où en est la fiche aujourd'hui. Sélectionnez par exemple **Test** tant que la date de mise en service n'est pas décidée. L'étape actuelle et les dates de la chronologie sont enregistrées séparément.
 
 Si une phase est datée après une phase qui devrait la suivre — par exemple **Retrait progressif** après **Fin de vie** —, une icône d'avertissement apparaît à côté de cette date, et le même avertissement s'affiche sous le champ pendant la modification. Ce n'est qu'une indication : les dates peuvent tout de même être enregistrées telles quelles.
 
