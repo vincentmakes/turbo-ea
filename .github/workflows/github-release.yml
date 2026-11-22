@@ -22,16 +22,23 @@ jobs:
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
+          base_version="${version%-rc.*}"
+          number='0|[1-9][0-9]*'
+          tag_pattern="^v($number)\.($number)\.($number)(-rc\.($number))?$"
+          if [[ ! "$GITHUB_REF_NAME" =~ $tag_pattern || "$base_version" != "$(tr -d '[:space:]' < VERSION)" ]]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match VERSION"
+            exit 1
+          fi
           # Contract: CHANGELOG headings must stay in Keep a Changelog form,
           # e.g. `## [0.70.0] - 2026-05-05`, so the matching section can be cut.
-          section=$(awk -v heading="[$version]" '
+          section=$(awk -v heading="[$base_version]" '
             /^## / && $2 == heading { capture=1; next }
             capture && $0 ~ "^## \\[" { exit }
             capture { print }
           ' CHANGELOG.md)
 
           if [[ -z "$section" ]]; then
-            echo "Could not find changelog section for version $version" >&2
+            echo "Could not find changelog section for version $base_version" >&2
             exit 1
           fi
 

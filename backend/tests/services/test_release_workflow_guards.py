@@ -15,6 +15,76 @@ ROOT = Path(__file__).resolve().parents[3]
 WORKFLOWS = ROOT / ".github" / "workflows"
 
 
+def _run_release_step(tmp_path, workflow_name, step_name, tag, event_name="push"):
+    workflow = (WORKFLOWS / workflow_name).read_text(encoding="utf-8")
+    step = workflow.split(f"      - name: {step_name}", 1)[1].split("      - name:", 1)[0]
+    script = textwrap.dedent(step.split("run: |\n", 1)[1])
+    script = script.replace("${{ github.event_name }}", event_name)
+    (tmp_path / "VERSION").write_text("2.208.0\n", encoding="utf-8")
+    (tmp_path / "CHANGELOG.md").write_text(
+        "# Changelog\n\n## [2.208.0] - 2026-11-21\n\n"
+        "### Fixed\n\n- Candidate change.\n\n"
+        "## [2.207.0] - 2026-11-20\n\n- Earlier change.\n",
+        encoding="utf-8",
+    )
+    env = {
+        **os.environ,
+        "GITHUB_REF_NAME": tag,
+        "GITHUB_REF_TYPE": "tag",
+        "GITHUB_EVENT_NAME": event_name,
+        "GITHUB_OUTPUT": "output",
+    }
+    result = subprocess.run(
+        [_bash(), "-e", "-o", "pipefail", "-c", script],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    output = tmp_path / "output"
+    return result, output.read_text(encoding="utf-8") if output.exists() else ""
+
+
+@pytest.mark.parametrize("tag", ["v2.208.0", "v2.208.0-rc.1"])
+def test_helm_publish_uses_full_release_tag_version(tmp_path, tag):
+    result, output = _run_release_step(tmp_path, "helm-publish.yml", "Resolve version", tag)
+    assert result.returncode == 0, result.stderr
+    assert f"version={tag.removeprefix('v')}" in output.splitlines()
+    workflow = (WORKFLOWS / "helm-publish.yml").read_text(encoding="utf-8")
+    package = workflow.split("      - name: Package", 1)[1].split("      - name:", 1)[0]
+    assert '--version "${{ steps.version.outputs.version }}"' in package
+    assert '--app-version "${{ steps.version.outputs.version }}"' in package
+
+
+@pytest.mark.parametrize(
+    "tag",
+    ["v2.208.1", "v2.208.1-rc.1", "v2.208.0-rc.", "v2.208.0-rc.01", "v2.208.0-invalid"],
+)
+def test_helm_publish_rejects_unmatched_or_malformed_tag(tmp_path, tag):
+    result, _ = _run_release_step(tmp_path, "helm-publish.yml", "Resolve version", tag)
+    assert result.returncode != 0
+
+
+@pytest.mark.parametrize("tag", ["v2.208.0", "v2.208.0-rc.1"])
+def test_github_release_uses_base_changelog_for_candidate(tmp_path, tag):
+    result, output = _run_release_step(
+        tmp_path, "github-release.yml", "Build release notes from changelog", tag
+    )
+    assert result.returncode == 0, result.stderr
+    assert f"name=Turbo EA {tag.removeprefix('v')}" in output.splitlines()
+    assert "- Candidate change." in output
+    assert "- Earlier change." not in output
+
+
+@pytest.mark.parametrize("tag", ["v2.208.0-rc.", "v2.208.0-rc.01", "v2.208.0-invalid"])
+def test_github_release_rejects_malformed_tag(tmp_path, tag):
+    result, _ = _run_release_step(
+        tmp_path, "github-release.yml", "Build release notes from changelog", tag
+    )
+    assert result.returncode != 0
+
+
 def _bash():
     git = Path(shutil.which("git"))
     windows_bash = git.parent.parent / "bin" / "bash.exe"
