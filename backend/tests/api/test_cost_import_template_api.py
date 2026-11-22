@@ -2,7 +2,9 @@ from io import BytesIO
 
 import pytest
 from openpyxl import load_workbook
+from sqlalchemy import select
 
+from app.models.audit_log import AuditLogEntry
 from tests.conftest import auth_headers, create_role, create_user
 
 TEMPLATE = "/api/v1/costs/import/template"
@@ -142,10 +144,18 @@ async def test_build_failure_returns_503_and_next_download_retries(client, users
     response = await client.get(TEMPLATE, headers=headers)
     assert response.status_code == 503
     assert response.json() == {"detail": "Cost import template is unavailable"}
+    query = select(AuditLogEntry).where(
+        AuditLogEntry.action == "access.export.cost_import_template"
+    )
+    assert (await db.execute(query)).scalars().all() == []
     response = await client.get(TEMPLATE, headers=headers)
     assert response.status_code == 200
     assert load_workbook(BytesIO(response.content)).sheetnames == ["Costs", "Cost Items"]
     assert calls == 2
+    entry = (await db.execute(query)).scalar_one()
+    assert entry.category == "access"
+    assert entry.actor_user_id == user.id
+    assert entry.outcome == "success"
 
 
 async def test_illegal_xml_label_is_normalized_only_in_workbook(client, users):

@@ -22,7 +22,7 @@ from app.schemas.cost_items import (
     YearCostsDetailOut,
     YearCostsOut,
 )
-from app.services import card_costs, cost_import, cost_import_template, cost_item_types
+from app.services import audit_log, card_costs, cost_import, cost_import_template, cost_item_types
 from app.services.attachment_upload import read_validated_upload
 from app.services.card_costs import COST_ITEM_TYPES, CostError, YearCosts
 from app.services.card_read_scope import require_card_readable
@@ -99,6 +99,10 @@ async def download_cost_import_template(
         content = await cost_import_template.template_bytes(snapshot)
     except Exception as exc:
         raise HTTPException(503, "Cost import template is unavailable") from exc
+    await audit_log.record(
+        db, action="access.export.cost_import_template", category="access", actor=user
+    )
+    await db.commit()
     return Response(
         content=content,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

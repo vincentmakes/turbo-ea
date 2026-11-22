@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 
 - Import annual card costs from Excel in the Cost Report using a catalogue-based template, row-by-row preview and an import results report.
+- Record Cost Report template downloads in the security and admin log.
 
 ### Changed
 

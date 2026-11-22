@@ -2291,6 +2291,7 @@
   "securityLog.actionLabels.access_export_cards": "Fiches exportées (CSV / JSON)",
   "securityLog.actionLabels.access_export_workspace": "Espace de travail exporté",
   "securityLog.actionLabels.access_export_migration": "Exporté vers une autre plateforme EA",
+  "securityLog.actionLabels.access_export_cost_import_template": "Modèle d’importation des coûts téléchargé",
   "securityLog.actionLabels.admin_user_created": "Utilisateur créé",
   "securityLog.actionLabels.admin_user_updated": "Utilisateur modifié",
   "securityLog.actionLabels.admin_user_deleted": "Utilisateur supprimé",
