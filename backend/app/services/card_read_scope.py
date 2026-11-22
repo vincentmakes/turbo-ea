@@ -483,7 +483,7 @@ async def scrub_event_payloads(
         clean = dict(data)
         changes = data.get("changes")
         parent_change = changes.get("parent_id") if isinstance(changes, dict) else None
-        if isinstance(parent_change, dict):
+        if isinstance(changes, dict) and isinstance(parent_change, dict):
             cleaned_parent = dict(parent_change)
             for key in ("old", "new"):
                 if _event_uuid(parent_change.get(key)) in hidden:

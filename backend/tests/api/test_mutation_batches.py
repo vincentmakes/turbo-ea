@@ -498,6 +498,106 @@ async def test_rollback_requires_current_card_edit_permission(monkeypatch):
     assert check.await_args.args == (db, user, "inventory.edit", card_id, "card.edit")
 
 
+@pytest.mark.parametrize(
+    "operation,key",
+    [
+        ("delete_card", "card_id"),
+        ("restore_card_fields", "card_id"),
+        ("add_card_tag", "card_id"),
+        ("delete_relation", "relation_id"),
+        ("unlink_risk_card", "card_id"),
+        ("delete_adr", "adr_id"),
+        ("delete_diagram", "diagram_id"),
+        ("delete_todo", "todo_id"),
+    ],
+)
+async def test_rollback_rejects_invalid_resource_ids(monkeypatch, operation, key):
+    from app.api.v1 import mutation_batches as routes
+
+    check = AsyncMock()
+    monkeypatch.setattr(routes.PermissionService, "require_permission", check)
+    with pytest.raises(HTTPException) as exc:
+        await routes._require_rollback_permissions(
+            object(), SimpleNamespace(id=uuid.uuid4()), [{"op": operation, key: "not-a-uuid"}]
+        )
+    assert exc.value.status_code == 403
+
+
+async def test_rollback_relation_requires_both_endpoints_visible(monkeypatch):
+    from app.api.v1 import mutation_batches as routes
+
+    source, target = uuid.uuid4(), uuid.uuid4()
+    relation_id = uuid.uuid4()
+    db = SimpleNamespace(
+        get=AsyncMock(return_value=SimpleNamespace(source_id=source, target_id=target))
+    )
+    user = SimpleNamespace(id=uuid.uuid4())
+    require = AsyncMock()
+    readable = AsyncMock(side_effect=[None, HTTPException(status_code=404)])
+    monkeypatch.setattr(routes.PermissionService, "require_permission", require)
+    monkeypatch.setattr(routes, "require_card_readable", readable)
+    with pytest.raises(HTTPException) as exc:
+        await routes._require_rollback_permissions(
+            db, user, [{"op": "delete_relation", "relation_id": str(relation_id)}]
+        )
+    assert exc.value.status_code == 404
+    require.assert_awaited_once_with(db, user, "relations.manage")
+    assert [call.args[2] for call in readable.await_args_list] == [source, target]
+
+
+@pytest.mark.parametrize(
+    "is_creator,has_delete,expect", [(True, False, 200), (False, False, 403), (False, True, 200)]
+)
+async def test_rollback_decision_obeys_creator_or_delete_grant(
+    monkeypatch, is_creator, has_delete, expect
+):
+    from app.api.v1 import mutation_batches as routes
+
+    user = SimpleNamespace(id=uuid.uuid4())
+    decision = SimpleNamespace(created_by=user.id if is_creator else uuid.uuid4())
+    db = SimpleNamespace(get=AsyncMock(return_value=decision))
+    require = AsyncMock()
+    monkeypatch.setattr(routes.PermissionService, "require_permission", require)
+    monkeypatch.setattr(
+        routes.PermissionService, "has_app_permission", AsyncMock(return_value=has_delete)
+    )
+    operation = {"op": "delete_adr", "adr_id": str(uuid.uuid4())}
+    if expect == 403:
+        with pytest.raises(HTTPException) as exc:
+            await routes._require_rollback_permissions(db, user, [operation])
+        assert exc.value.status_code == 403
+    else:
+        await routes._require_rollback_permissions(db, user, [operation])
+        if is_creator and not has_delete:
+            require.assert_awaited_once_with(db, user, "adr.manage")
+        else:
+            require.assert_not_awaited()
+
+
+@pytest.mark.parametrize("owner", [True, False])
+async def test_rollback_todo_checks_owner_and_card_visibility(monkeypatch, owner):
+    from app.api.v1 import mutation_batches as routes
+
+    user = SimpleNamespace(id=uuid.uuid4())
+    card_id = uuid.uuid4()
+    todo = SimpleNamespace(
+        assigned_to=user.id if owner else uuid.uuid4(), created_by=uuid.uuid4(), card_id=card_id
+    )
+    db = SimpleNamespace(get=AsyncMock(return_value=todo))
+    require = AsyncMock()
+    readable = AsyncMock()
+    monkeypatch.setattr(routes.PermissionService, "require_permission", require)
+    monkeypatch.setattr(routes, "require_card_readable", readable)
+    await routes._require_rollback_permissions(
+        db, user, [{"op": "delete_todo", "todo_id": str(uuid.uuid4())}]
+    )
+    if owner:
+        require.assert_not_awaited()
+    else:
+        require.assert_awaited_once_with(db, user, "admin.todos")
+    readable.assert_awaited_once_with(db, user, card_id, mode="module")
+
+
 async def test_rollback_refuses_unknown_inverse_before_writes(monkeypatch):
     from app.api.v1 import mutation_batches as routes
 
