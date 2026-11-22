@@ -1,0 +1,83 @@
+# Cost Report navigation and Excel import implementation plan
+
+> **For agentic workers:** Use superpowers:subagent-driven-development or superpowers:executing-plans, following the project roles and review order. Track the work with the checkboxes. Execute only after the plan is approved.
+
+**Goal:** Improve scope, card identity and fullscreen in the three Cost Report views, and add catalogue-aware Excel download, preview and import.
+
+**Architecture:** Keep Cost Report as the entry point. Add minimal module-scoped card data and logo metadata to the report APIs. Reuse the cost writer and template generator with typed API contracts. Keep template bytes outside the catalogue transaction and import data in the existing cost tables.
+
+**Tech stack:** FastAPI, SQLAlchemy, Pydantic, openpyxl, React, MUI, ECharts, Pytest, Vitest and Playwright.
+
+**Spec:** [Cost Report navigation, card badges and Excel import](../specs/2026-11-22-cost-report-drill-and-import-design.md), commit `78cb83d8a`.
+
+## Global constraints
+
+- Work in the existing `fix/cost-report` checkout in `chatgpt-work`. Use Codex and the project agents in this environment. Keep adjacent existing edits out of task commits.
+- Read the cost items, fiscal year, card read scope, frontend patterns, API contracts and testing rules before editing matching paths. Reuse existing permissions, fiscal-year limits, TCO and reporting rules. Keep financial values out of the workbook template and error payloads.
+- Start each behavior change with its regression test. Use the Ruff and Biome post-edit hooks, and the Make single-file checks for edits made outside the hooks. Run the targeted suites at the end of each task and do one TypeScript project check in integration. Keep output compact.
+- The main session owns Git. The steps below define reviewable units. Commit approved units locally after their checks and the pre-commit Ruff run. Publication requires a separate request.
+
+## Review focus
+
+- A report reader without Inventory sees a zero-cost ancestor with children on multiple scope pages. Selecting the ancestor keeps all readable descendants. A failed hierarchy fetch must never show unfiltered totals. Task 1.
+- A slow treemap drill keeps the browser fullscreen element and breadcrumb mounted. The side panel and the tooltip for a tiny node remain visible on the fullscreen surface. Task 2.
+- An old template build completes after a newer catalogue commit and build. Requests after the commit receive the new bytes. A failed build is retryable. Task 3.
+- A reversed worksheet updates a historical year and a current year that inherits it. Apply uses the same projection as preview, preserves unlisted items, and leaves one cost line per key after replay. Task 4.
+- Permission or catalogue changes after preview can change the real result. Confirm displays what applied and which rows were skipped, and reloads data for the existing view and fiscal year. Tasks 4 and 5.
+
+## Task 1 — Mixed All Cards scope under module permissions
+
+**Files:** `backend/app/api/v1/reports.py`, `backend/app/schemas/cost_report.py` and `backend/tests/api/test_reports_cost_scope.py` (new), `frontend/src/components/CardScopeFilter.tsx`, `frontend/src/components/CardScopeDialog.tsx`, `frontend/src/features/reports/CostReport.tsx`, `frontend/src/features/reports/useCostReportScope.ts` and `useCostReportScope.test.ts` (new), `frontend/src/features/reports/CostReport.test.tsx`.
+
+**Interface:** `GET /reports/cost-scope?type=Application,ITComponent&page=1&page_size=1000&search=...` returns `{items: [{id, name, type, parent_id, alias}], total}`, matching `CardSearchSource`. `useCostReportScope(activeTypes: string[])` exposes the applied root IDs, closure, loading or error state, and operations to replace active roots, reset both types and restore saved roots. Saved configuration keeps the existing `scopeIds: string[]` shape.
+
+- [ ] Add `test_cost_scope_reader_without_inventory`, `test_cost_scope_pages_include_zero_cost_ancestors` and cases for denied types/subtypes, hidden parent IDs, unsupported types and missing `costs.view`. Add UI regressions for switching one/both types, clearing and resetting scope, saving/restoring mixed roots, a failure during hierarchy resolution, and scoped totals across views. Run the commands below and confirm the regressions fail.
+- [ ] Add the API with `costs.view` and `CardReadScope` in `module` mode. Accept only the Cost Report card types, return active minimal rows in stable pages, rank server search using the existing ranking, and omit parent IDs outside the readable selected hierarchy. Keep zero-cost nodes.
+- [ ] Pass an optional `CardSearchSource` through the existing filter and scope dialog. Cost Report uses the new route for picker browsing and fully resolves the hierarchy for a selected or restored scope. Load hierarchy only when scope or browsing needs it. Keep selections partitioned by type, combine and deduplicate descendants, and use the resulting closure for Treemap, Sankey, Table, metrics and trend. On load error show a retryable state, not the unscoped numbers. Preserve other callers' default source.
+- [ ] Re-run from `backend`: `.\venv\Scripts\python.exe -m pytest -q tests/api/test_reports_cost_scope.py tests/api/test_reports_cost_fiscal_year.py`. From `frontend`: `npm run test:run -- --reporter=agent src/features/reports/useCostReportScope.test.ts src/features/reports/CostReport.test.tsx`.
+
+## Task 2 — Card badges and one fullscreen surface
+
+**Files:** `backend/app/api/v1/reports.py`, `backend/app/services/cost_report.py`, `backend/tests/api/test_cost_report_items_api.py`, `backend/tests/api/test_reports_cost_fiscal_year.py`, `frontend/src/features/reports/CostReport.tsx`, `FullscreenPanel.tsx`, `costTreemapOption.ts`, `costSankeyOption.ts` and adjacent tests, `frontend/src/components/CardDetailSidePanel.tsx` only if it needs a portal target prop, `frontend/e2e/cost-report.spec.ts` (new).
+
+**Interfaces:** Treemap card items and Sankey card nodes gain optional `logo_updated_at: string | null`. Groups and cost-item nodes omit it. Use `CardLogoAvatar` and `cardLogoUrl` from `frontend/src/components/CardLogoAvatar.tsx`. The fullscreen panel provides its DOM element to any overlay that must render inside it.
+
+- [ ] Add API cases proving logo timestamps are present only for visible cost-bearing card data and absent when a card has no logo. Add component and chart-option regressions for badge/name order, missing logo fallback, tooltip on a small node, fullscreen breadcrumbs, and the drill loading transition. Add one live-browser round trip for treemap right-click, return via breadcrumb, open/close the card panel, see a small-node tooltip, and scroll/exit the fullscreen table. Confirm the new regressions fail.
+- [ ] Call `logo_updated_map` once per response over the already filtered card list on both report paths. Keep numeric flows, labels, group behavior and sort unchanged. Render the table badge and matching chart identity with the existing card URL and type glyph. Put the tooltip inside the fullscreen surface.
+- [ ] Put breadcrumbs, loading state and the selected report body inside a stable `FullscreenPanel`. Use the same surface for the sticky-header scrolling table. Keep the card detail panel on its existing component and preserve the unsaved-edits guard when routing its portal into the fullscreen surface.
+- [ ] Re-run from `backend`: `.\venv\Scripts\python.exe -m pytest -q tests/api/test_cost_report_items_api.py tests/api/test_reports_cost_fiscal_year.py`. From `frontend`: `npm run test:run -- --reporter=agent src/features/reports/CostReport.test.tsx src/features/reports/FullscreenPanel.test.tsx src/features/reports/costTreemapOption.test.ts src/features/reports/costSankeyOption.test.ts`. Run `npm run test:e2e -- e2e/cost-report.spec.ts` on the repository's isolated demo stack using its existing Playwright config. Confirm the same browser fullscreen element persists through right-click and the loading state.
+
+## Task 3 — Catalogue-driven XLSX template
+
+**Files:** `backend/app/services/cost_import_template.py` (new), `backend/app/api/v1/card_costs.py`, `backend/app/api/v1/cost_item_types.py`, `backend/tests/services/test_cost_import_template.py` and `backend/tests/api/test_cost_import_template_api.py` (new).
+
+**Interfaces:** `GET /costs/import/template` requires `costs.view`, returns an Excel attachment `cost-import-template.xlsx` and reads the current persisted catalogue. Service exports `COST_IMPORT_HEADERS` with `Card ID`, `Fiscal Year`, `Cost Item`, `Amount`, `Renewal Date` in that order, for Task 4. Its async entry point is `template_bytes(snapshot: CatalogueSnapshot) -> bytes`, where `CatalogueSnapshot` is an immutable copy of the ordered catalogue and its persisted timestamps.
+
+- [ ] Add tests that open the bytes with openpyxl, assert both sheets, exact headers, active catalogue keys in sort order, literal text labels and absence of actual card data. Test access denial, a cache hit, no-op save, create and edit including translations, archive/restore and reorder. Force R1 to finish after R2 and one failed build followed by a retry.
+- [ ] Build the workbook in a thread after releasing the DB session. Copy the catalogue to an immutable snapshot before releasing it. Derive its revision from persisted values including status, order, labels, translations and update timestamps. Keep a bounded cache of completed files and share concurrent builds by revision per worker. The earlier build can satisfy requests for that revision only. Drop failed jobs so retries are possible.
+- [ ] Warm the new revision after successful changed Cost Item create or patch and return the catalogue change even when warm-up fails. Do not warm for an unchanged patch. Downloads read the live revision so other writers and workers also see new catalogue data. Downloads on cache miss retry that revision, with an explicit failure when generation is unavailable.
+- [ ] Run the two new suites red before implementing and green after. From `backend`: `.\venv\Scripts\python.exe -m pytest -q tests/services/test_cost_import_template.py tests/api/test_cost_import_template_api.py tests/api/test_cost_item_types_api.py`.
+
+## Task 4 — Excel validation, preview and transactional apply
+
+**Files:** `backend/app/services/cost_import.py`, `backend/tests/services/test_cost_import.py` and `backend/tests/api/test_cost_import_api.py` (new), `backend/app/schemas/cost_items.py`, `backend/app/api/v1/card_costs.py`. Reuse `backend/app/services/card_costs.py` and `yearly_rows.py`. Extract shared cost-year validation only if needed to keep preview and normal writes consistent.
+
+**Interface:** `POST /costs/import?dry_run=true` accepts one multipart file. The response is `CostImportResultOut` with `matched: int`, `applied: int`, `clears_renewal_count: int` and `skipped: list[CostImportIssueOut]`. Each issue has `row: int` (the Excel row number) and `reason: str`. Apply passes `dry_run=false`. Preview returns `applied=0`. Malformed workbook returns 400. Unsupported or oversized upload uses the shared validator. A failed write transaction returns 409 with `detail={code: "cost_import_write_failed", applied: 0}`. Translate the issue codes `missing_required_value`, `invalid_card_id`, `card_not_found`, `edit_forbidden`, `unknown_cost_item`, `archived_cost_item`, `invalid_year`, `invalid_amount`, `invalid_renewal_date` and `duplicate_item`.
+
+- [ ] Add tests for required headers and optional omitted renewal, date and amount bounds including zero, permission matrix (denied report, hidden, stakeholder editor, allowed archived), mixed valid/skipped rows, duplicates, inherited archived items and change between preview and confirm. For out-of-order years, compare forward/reverse workbooks against independent fixtures and assert the same derived TCO and retained unlisted cost lines. Verify replay and rollback on a later writer failure, including no retained event on rollback.
+- [ ] Parse validated uploads off-thread with no checked-out DB session. Read the first worksheet and map known headers. Use existing `CostItemWrite` limits and fiscal-year window. Blank renewal date clears the field. Reject all occurrences of a duplicate card/year/item tuple. Unknown or hidden card produces the same available-universe issue, without disclosing details from the server.
+- [ ] Plan from fresh DB state on each request. Load readable Application/IT Component rows in module mode, including archived cards, and check `can_edit_costs` independently. Project valid historical writes before deciding which lines are inherited for the current year. Use the effective year rows to validate archived catalogue keys and count cleared dates. Preview returns without writing.
+- [ ] Apply in one transaction, with stable card order and ascending fiscal years. Group valid lines for each card-year through `card_costs.apply_write` and the existing per-item upsert/row lock. Keep unrelated keys and rows and existing derived-cost/event handling. If writing fails after validation, roll back the entire transaction.
+- [ ] Confirm failing regressions, then run from `backend`: `.\venv\Scripts\python.exe -m pytest -q tests/services/test_cost_import.py tests/api/test_cost_import_api.py tests/api/test_card_costs_permissions.py tests/api/test_card_costs_api.py`.
+
+## Task 5 — Import dialog and integrated verification
+
+**Files:** `frontend/src/features/reports/CostImportDialog.tsx` and `CostImportDialog.test.tsx` (new), `frontend/src/features/reports/CostReport.tsx` and adjacent tests, the report fetching hooks affected by the refresh (`useCostBreakdown.ts`, `CostTrendChart.tsx`), `frontend/src/types/index.ts`, `frontend/src/i18n/locales/en/reports.json`, `docs/api/openapi.json`, `docs/guide/reports.md`, `docs/admin/metamodel.md`, `VERSION` and `CHANGELOG.md`.
+
+**Consumes:** Task 3 attachment and Task 4 `CostImportResultOut`. **Produces:** `CostImportDialog({open, onClose, onApplied})`, with `onApplied` called once when apply reports a positive count.
+
+- [ ] Add failing tests for the download link, invalid workbook selection, preview/confirm, missing renewal clearing message, positive apply plus skipped rows, zero applied and write failure. In the report test verify a successful import refreshes totals and breakdown for the current filters, with no reset and no refresh after a preview. Wait on callback assertions directly.
+- [ ] Follow `LicensingImportDialog.tsx` for the accessible import action, preview and results. Link the authenticated `/api/v1/costs/import/template` attachment and use `api.upload` for preview and apply. Display actual apply counts and row issues. Invalidate only the report's current data inputs, including baselines, YoY and forecast when they are in use. Preserve view, selection and fiscal year.
+- [ ] Run from `frontend`: `npm run test:run -- --reporter=agent src/features/reports/CostImportDialog.test.tsx src/features/reports/CostReport.test.tsx src/features/reports/CostTrendChart.test.tsx`. Run ESLint on touched frontend files and `npx --no-install tsc --noEmit --pretty false` once.
+- [ ] Regenerate the API spec from repo root with `.\backend\venv\Scripts\python.exe scripts/dump_openapi.py`. Update the English manuals for scope, fullscreen and import, including the catalogue refresh and date-clearing behavior. Retake affected existing screenshots through the docs workflow. Bump the next minor version once and add a user-facing changelog entry under that version. Before publication run the project's translator, manual check and full suites in their prescribed order; the implementation session authors English only.
+- [ ] Follow the repository branch review chain before opening any PR. Include the isolated, defensive permission checks required for a new route, the simplifier and independent code and security reviews. Record the focused check results and follow the project's CI mutation reporting policy. No local mutation run.
