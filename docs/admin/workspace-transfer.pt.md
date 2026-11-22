@@ -50,6 +50,8 @@ Algumas outras coisas ficam para trás por design:
 3. O Turbo EA analisa o pacote e exibe uma **pré-visualização em dry-run** — uma tabela por seção mostrando quantas entidades seriam criadas, atualizadas, ignoradas ou estão em conflito. Nada é gravado ainda.
 4. Revise a pré-visualização e então clique em **Aplicar importação**.
 
+Se o servidor reiniciar durante uma importação, mantenha a página aberta enquanto restabelece a ligação e verifica o estado da transferência. Se indicar que a importação foi interrompida, reveja a área de trabalho de destino, clique em **Descartar** e carregue novamente o ficheiro para obter uma nova pré-visualização.
+
 A importação é **idempotente**: metamodelo e configuração são correspondidos por chave, cards por external id ou por tipo + caminho de hierarquia, e usuários por e-mail. Reimportar o mesmo pacote é seguro — entidades já presentes são ignoradas em vez de duplicadas. Tipos de metamodelo built-in existentes mantêm sua identidade; apenas seu schema editável é mesclado. Isso também vale para os cards arquivados incluídos no pacote: eles são reconhecidos em vez de criados novamente.
 
 O desenho guardado de **Relações entre objetos de negócio** pode ser importado para um destino que ainda não tenha guardado um desenho. Se já houver um desenho guardado no destino, mesmo que esteja vazio, a importação mantém o desenho e as posições do destino. Consulte o detalhe **Referências** para identificar os objetos de negócio ou as associações que a importação não conseguiu resolver. Se um objeto de negócio já tiver outra aplicação mestre no destino, a secção **Relações** dos resultados indica o conflito e a nova associação conserva as suas definições CRUD.

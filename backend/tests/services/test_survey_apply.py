@@ -740,6 +740,33 @@ async def test_open_auto_batch_records_the_request_and_stashes_its_id(db):
         request_batch_id.reset(t_batch)
 
 
+async def test_open_auto_batch_creates_its_own_batch_with_a_valid_request_candidate(db):
+    from app.models.mutation_batch import MutationBatch
+    from app.services.event_bus import (
+        event_bus,
+        request_actor_id,
+        request_batch_id,
+        request_candidate_batch_id,
+    )
+
+    user = await create_user(db, email="survey-auto-batch@test.com")
+    existing = MutationBatch(tool_name="survey", actor_user_id=user.id, origin="api", dry_run=False)
+    db.add(existing)
+    await db.flush()
+    actor_token = request_actor_id.set(user.id)
+    candidate_token = request_candidate_batch_id.set(existing.id)
+    batch_token = request_batch_id.set(None)
+    try:
+        created = await event_bus.open_auto_batch(db, user_id=user.id, event_type="card.updated")
+        assert created != existing.id
+        assert request_batch_id.get() == created
+        assert await db.get(MutationBatch, existing.id) is not None
+    finally:
+        request_batch_id.reset(batch_token)
+        request_candidate_batch_id.reset(candidate_token)
+        request_actor_id.reset(actor_token)
+
+
 async def test_open_auto_batch_falls_back_to_the_event_type_and_api_origin(db):
     from app.models.mutation_batch import MutationBatch
     from app.services.event_bus import (

@@ -115,8 +115,13 @@ async def commit_batch(
     return batch
 
 
-async def get_batch(db: AsyncSession, batch_id: uuid.UUID) -> MutationBatch | None:
-    res = await db.execute(select(MutationBatch).where(MutationBatch.id == batch_id))
+async def get_batch(
+    db: AsyncSession, batch_id: uuid.UUID, *, for_update: bool = False
+) -> MutationBatch | None:
+    query = select(MutationBatch).where(MutationBatch.id == batch_id)
+    if for_update:
+        query = query.with_for_update()
+    res = await db.execute(query)
     return res.scalar_one_or_none()
 
 

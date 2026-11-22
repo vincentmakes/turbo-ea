@@ -24,10 +24,11 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { primeBootstrap, resetBootstrap } from "@/api/bootstrap";
-import { api } from "@/api/client";
+import { api, ApiError } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { invalidateCalculatedFields } from "@/hooks/useCalculatedFields";
 import { invalidateCache as invalidateMetamodel } from "@/hooks/useMetamodel";
+import { useLatestRequest } from "@/hooks/useLatestRequest";
 
 interface SectionResult {
   sheet: string;
@@ -98,34 +99,44 @@ export default function WorkspaceTransferAdmin() {
   const [importError, setImportError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollRequest = useLatestRequest();
 
   const clearPoll = useCallback(() => {
+    pollRequest.cancel();
     if (pollRef.current) {
       clearTimeout(pollRef.current);
       pollRef.current = null;
     }
-  }, []);
+  }, [pollRequest]);
 
   useEffect(() => () => clearPoll(), [clearPoll]);
 
   const poll = useCallback(
     (id: string) => {
       clearPoll();
-      pollRef.current = setTimeout(async () => {
-        try {
-          const next = await api.get<WorkspaceTransfer>(`/admin/workspace/import/${id}`);
-          setTransfer(next);
-          if (!TERMINAL.has(next.status)) {
-            poll(id);
-          } else if (next.status === "applied") {
-            refreshAppCaches();
+      pollRef.current = setTimeout(() => {
+        void pollRequest.run(async ({ signal, isCurrent }) => {
+          try {
+            const next = await api.get<WorkspaceTransfer>(`/admin/workspace/import/${id}`, { signal });
+            if (!isCurrent()) return;
+            setTransfer(next);
+            setImportError(null);
+            if (!TERMINAL.has(next.status)) {
+              poll(id);
+            } else if (next.status === "applied") {
+              refreshAppCaches();
+            }
+          } catch (e) {
+            if (!isCurrent()) return;
+            setImportError(e instanceof Error ? e.message : String(e));
+            if (e instanceof TypeError || (e instanceof ApiError && (e.status >= 500 || e.status === 429))) {
+              poll(id);
+            }
           }
-        } catch (e) {
-          setImportError(e instanceof Error ? e.message : String(e));
-        }
+        });
       }, POLL_MS);
     },
-    [clearPoll],
+    [clearPoll, pollRequest],
   );
 
   const handleExport = async () => {
@@ -157,6 +168,7 @@ export default function WorkspaceTransferAdmin() {
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    clearPoll();
     setBusy(true);
     setImportError(null);
     setTransfer(null);

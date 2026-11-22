@@ -13,9 +13,10 @@ dedicated ``admin.export_workspace`` / ``admin.import_workspace`` permissions.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import BinaryIO, NamedTuple
 
@@ -23,7 +24,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Up
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -54,6 +55,9 @@ _BUNDLE_DIR = Path("data/workspace_transfers")
 # is the only place the size is enforced for a client that bypasses it.
 MAX_BUNDLE_BYTES = 2 * 1024**3
 _COPY_CHUNK = 4 * 1024 * 1024
+_LEASE_TIMEOUT = timedelta(minutes=10)
+_HEARTBEAT_SECONDS = 30
+_INTERRUPTED_PREFIX = "The workspace transfer was interrupted during "
 
 
 class _BundleTooLargeError(Exception):
@@ -118,7 +122,7 @@ def _to_out(t: WorkspaceTransfer) -> WorkspaceTransferOut:
         source_app_version=t.source_app_version,
         source_url=t.source_url,
         diff=t.diff or None,
-        result=t.result or None,
+        result={k: v for k, v in (t.result or {}).items() if k != "_interrupted"} or None,
         error_message=t.error_message,
         created_at=t.created_at,
         previewed_at=t.previewed_at,
@@ -226,6 +230,31 @@ async def get_workspace_transfer(
 ) -> WorkspaceTransferOut:
     await PermissionService.require_permission(db, user, "admin.import_workspace")
     transfer = await _load(db, transfer_id)
+    if transfer.status in {"parsing", "applying"}:
+        # A running database phase holds the row lock. Skip it rather than
+        # mistaking a long import on another worker for an abandoned job.
+        locked = (
+            await db.execute(
+                select(WorkspaceTransfer)
+                .where(
+                    WorkspaceTransfer.id == transfer_id,
+                    WorkspaceTransfer.status.in_(("parsing", "applying")),
+                    WorkspaceTransfer.updated_at < func.now() - _LEASE_TIMEOUT,
+                )
+                .with_for_update(skip_locked=True)
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one_or_none()
+        if locked is not None:
+            phase = locked.status
+            locked.status = "failed"
+            locked.result = {**(locked.result or {}), "_interrupted": True}
+            locked.error_message = (
+                f"{_INTERRUPTED_PREFIX}{phase}. "
+                "Review the workspace, discard this transfer, and upload the file again."
+            )
+            await db.commit()
+            transfer = locked
     return _to_out(transfer)
 
 
@@ -237,7 +266,11 @@ async def apply_workspace_transfer(
     user: User = Depends(get_current_user),
 ) -> WorkspaceTransferOut:
     await PermissionService.require_permission(db, user, "admin.import_workspace")
-    transfer = await _load(db, transfer_id)
+    transfer = await _load(db, transfer_id, for_update=True)
+    if (transfer.result or {}).get("_interrupted"):
+        raise HTTPException(
+            status_code=400, detail="Discard the interrupted transfer and upload again"
+        )
     if transfer.status not in {"previewed", "failed", "applied"}:
         raise HTTPException(
             status_code=400, detail=f"Cannot apply transfer in status {transfer.status!r}"
@@ -263,7 +296,9 @@ async def delete_workspace_transfer(
     user: User = Depends(get_current_user),
 ) -> None:
     await PermissionService.require_permission(db, user, "admin.import_workspace")
-    transfer = await _load(db, transfer_id)
+    transfer = await _load(db, transfer_id, for_update=True)
+    if transfer.status == "applying":
+        raise HTTPException(status_code=409, detail="Cannot discard an import while it is applying")
     if transfer.storage_path:
         try:
             Path(transfer.storage_path).unlink(missing_ok=True)
@@ -281,10 +316,13 @@ async def delete_workspace_transfer(
     await db.commit()
 
 
-async def _load(db: AsyncSession, transfer_id: uuid.UUID) -> WorkspaceTransfer:
-    transfer = (
-        await db.execute(select(WorkspaceTransfer).where(WorkspaceTransfer.id == transfer_id))
-    ).scalar_one_or_none()
+async def _load(
+    db: AsyncSession, transfer_id: uuid.UUID, *, for_update: bool = False
+) -> WorkspaceTransfer:
+    query = select(WorkspaceTransfer).where(WorkspaceTransfer.id == transfer_id)
+    if for_update:
+        query = query.with_for_update()
+    transfer = (await db.execute(query)).scalar_one_or_none()
     if transfer is None:
         raise HTTPException(status_code=404, detail="Workspace transfer not found")
     return transfer
@@ -322,10 +360,15 @@ async def _claim_bundle_path(transfer_id_str: str, user_id_str: str, label: str)
     async with async_session() as db:
         transfer = (
             await db.execute(
-                select(WorkspaceTransfer).where(WorkspaceTransfer.id == uuid.UUID(transfer_id_str))
+                select(WorkspaceTransfer)
+                .where(WorkspaceTransfer.id == uuid.UUID(transfer_id_str))
+                .with_for_update()
             )
         ).scalar_one_or_none()
         if transfer is None:
+            return _Claim(None, transfer_exists=False)
+        expected_status = "parsing" if label == "Preview" else "applying"
+        if transfer.status != expected_status:
             return _Claim(None, transfer_exists=False)
         user = (
             await db.execute(select(User).where(User.id == uuid.UUID(user_id_str)))
@@ -338,7 +381,45 @@ async def _claim_bundle_path(transfer_id_str: str, user_id_str: str, label: str)
         return _Claim(transfer.storage_path, transfer_exists=True)
 
 
+async def _heartbeat(transfer_id_str: str, status: str) -> None:
+    while True:
+        await asyncio.sleep(_HEARTBEAT_SECONDS)
+        try:
+            async with async_session() as db:
+                transfer = (
+                    await db.execute(
+                        select(WorkspaceTransfer)
+                        .where(
+                            WorkspaceTransfer.id == uuid.UUID(transfer_id_str),
+                            WorkspaceTransfer.status == status,
+                        )
+                        .with_for_update(skip_locked=True)
+                    )
+                ).scalar_one_or_none()
+                if transfer is not None:
+                    transfer.updated_at = func.now()
+                    await db.commit()
+        except Exception:  # noqa: BLE001
+            logger.exception("workspace transfer heartbeat failed")
+
+
+async def _run_workspace_job(job, transfer_id_str: str, user_id_str: str, status: str) -> None:
+    heartbeat = asyncio.create_task(_heartbeat(transfer_id_str, status))
+    try:
+        await job(transfer_id_str, user_id_str)
+    finally:
+        heartbeat.cancel()
+        try:
+            await heartbeat
+        except asyncio.CancelledError:
+            pass
+
+
 async def _preview_job(transfer_id_str: str, user_id_str: str) -> None:
+    await _run_workspace_job(_run_preview_job, transfer_id_str, user_id_str, "parsing")
+
+
+async def _run_preview_job(transfer_id_str: str, user_id_str: str) -> None:
     storage_path = (await _claim_bundle_path(transfer_id_str, user_id_str, "Preview")).path
     if storage_path is None:
         return
@@ -361,15 +442,15 @@ async def _preview_job(transfer_id_str: str, user_id_str: str) -> None:
             try:
                 transfer = (
                     await db.execute(
-                        select(WorkspaceTransfer).where(
-                            WorkspaceTransfer.id == uuid.UUID(transfer_id_str)
-                        )
+                        select(WorkspaceTransfer)
+                        .where(WorkspaceTransfer.id == uuid.UUID(transfer_id_str))
+                        .with_for_update()
                     )
                 ).scalar_one_or_none()
                 user = (
                     await db.execute(select(User).where(User.id == uuid.UUID(user_id_str)))
                 ).scalar_one_or_none()
-                if transfer is None or user is None:
+                if transfer is None or user is None or transfer.status != "parsing":
                     return
                 transfer.format_version = bundle.format_version
                 transfer.source_app_version = bundle.manifest.get("app_version")
@@ -396,6 +477,10 @@ async def _preview_job(transfer_id_str: str, user_id_str: str) -> None:
 
 
 async def _apply_job(transfer_id_str: str, user_id_str: str) -> None:
+    await _run_workspace_job(_run_apply_job, transfer_id_str, user_id_str, "applying")
+
+
+async def _run_apply_job(transfer_id_str: str, user_id_str: str) -> None:
     claim = await _claim_bundle_path(transfer_id_str, user_id_str, "Apply")
     storage_path = claim.path
     if storage_path is None:
@@ -434,23 +519,26 @@ async def _apply_job(transfer_id_str: str, user_id_str: str) -> None:
             try:
                 transfer = (
                     await db.execute(
-                        select(WorkspaceTransfer).where(
-                            WorkspaceTransfer.id == uuid.UUID(transfer_id_str)
-                        )
+                        select(WorkspaceTransfer)
+                        .where(WorkspaceTransfer.id == uuid.UUID(transfer_id_str))
+                        .with_for_update()
                     )
                 ).scalar_one_or_none()
                 user = (
                     await db.execute(select(User).where(User.id == uuid.UUID(user_id_str)))
                 ).scalar_one_or_none()
-                if transfer is None or user is None:
+                if transfer is None or user is None or transfer.status != "applying":
                     return
-                result = await apply_bundle(db, bundle, user)
+                result = await apply_bundle(db, bundle, user, commit=False)
                 transfer.result = result.as_dict()
                 transfer.status = "applied" if result.total_failed == 0 else "failed"
                 transfer.applied_at = datetime.now(timezone.utc)
                 if result.total_failed:
                     transfer.error_message = f"{result.total_failed} section error(s) — see result"
                 await db.commit()
+                PermissionService.invalidate_role_cache()
+                PermissionService.invalidate_srd_cache()
+                PermissionService.invalidate_type_permission_cache()
                 completion = (
                     "success" if result.total_failed == 0 else "failure",
                     dict(result.as_dict()["totals"]),
@@ -511,10 +599,12 @@ async def _fail(transfer_id_str: str, message: str) -> None:
     async with async_session() as db:
         transfer = (
             await db.execute(
-                select(WorkspaceTransfer).where(WorkspaceTransfer.id == uuid.UUID(transfer_id_str))
+                select(WorkspaceTransfer)
+                .where(WorkspaceTransfer.id == uuid.UUID(transfer_id_str))
+                .with_for_update()
             )
         ).scalar_one_or_none()
-        if transfer is not None:
+        if transfer is not None and transfer.status in {"parsing", "applying"}:
             transfer.status = "failed"
             transfer.error_message = message
             await db.commit()

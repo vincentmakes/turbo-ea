@@ -50,6 +50,8 @@ Alcune altre cose restano indietro per progettazione:
 3. Turbo EA analizza il bundle e mostra un'**anteprima dry-run** — una tabella per sezione di quante entità verrebbero create, aggiornate, saltate o sono in conflitto. Nulla viene ancora scritto.
 4. Revisionate l'anteprima, poi cliccate **Applica importazione**.
 
+Se il server si riavvia durante un'importazione, lasciate aperta la pagina mentre si riconnette e controlla lo stato del trasferimento. Se segnala un'interruzione, controllate l'area di lavoro di destinazione, fate clic su **Scarta** e caricate di nuovo il file per ottenere una nuova anteprima.
+
 L'importazione è **idempotente**: il metamodello e la configurazione sono abbinati per chiave, le carte per id esterno o per tipo + percorso gerarchico, e gli utenti per email. Reimportare lo stesso bundle è sicuro — le entità già presenti vengono saltate invece che duplicate. I tipi di metamodello built-in esistenti mantengono la loro identità; solo il loro schema modificabile viene unito. Vale anche per le carte archiviate incluse nel bundle: vengono riconosciute invece di essere create di nuovo.
 
 Il disegno salvato di **Relazioni tra oggetti di business** può essere importato in un’istanza di destinazione che non ne ha ancora salvato uno. Se la destinazione ha già un disegno salvato, anche vuoto, l’importazione conserva il disegno e le posizioni della destinazione. Consultate il dettaglio **Riferimenti** per individuare gli oggetti di business o i collegamenti che l’importazione non ha potuto risolvere. Se a destinazione un oggetto di business ha già un’altra applicazione master, la sezione **Relazioni** dei risultati segnala il conflitto e il nuovo collegamento conserva le proprie impostazioni CRUD.

@@ -21,12 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Moving tasks or work packages in the project Gantt persists the new position.
 - The metamodel shows relation type keys and Excel imports explain misplaced relation columns.
 - Saving a card type or importing a workspace preserves fields and subtypes contributed by enabled extensions.
+- Workspace imports interrupted by a server restart can be discarded and started again.
 
 ### Security
 
 - Stakeholder roles grant visibility of card costs through `card.view_costs`. The Observer role starts without access. Cost values in card history, activity and reports follow the card's cost permissions.
 - A stakeholder role must grant `card.view_licenses` to give access to a card's Licensing data. Observer starts without that grant.
 - MCP read-only mode blocks extension operations that use `POST`.
+- Mutation history and rollback keep events grouped under the correct batch.
 
 ## [2.207.1] - 2026-11-20
 

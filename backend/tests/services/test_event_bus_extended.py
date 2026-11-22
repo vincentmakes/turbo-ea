@@ -229,3 +229,31 @@ class TestConcurrentSubscribers:
         # subscribe() yields raw dicts; the endpoint handles SSE formatting.
         assert received[0][0]["event"] == "a"
         assert received[1][0]["event"] == "a"
+
+
+async def test_request_batch_guard_accepts_only_owner_open_non_preview(db):
+    from datetime import datetime, timezone
+
+    from app.services.event_bus import request_actor_id, request_candidate_batch_id
+    from app.services.mutation_batch_service import create_batch
+
+    await create_role(db, key="admin", permissions={"*": True})
+    owner = await create_user(db, role="admin")
+    other = await create_user(db, role="admin")
+    valid = await create_batch(db, "valid", owner, "mcp")
+    closed = await create_batch(db, "closed", owner, "mcp")
+    closed.committed_at = datetime.now(timezone.utc)
+    preview = await create_batch(db, "preview", owner, "mcp", dry_run=True)
+    foreign = await create_batch(db, "foreign", other, "mcp")
+    await db.flush()
+
+    actor_token = request_actor_id.set(owner.id)
+    try:
+        for row, expected in ((valid, valid.id), (closed, None), (preview, None), (foreign, None)):
+            candidate_token = request_candidate_batch_id.set(row.id)
+            try:
+                assert await EventBus().validated_request_batch(db) == expected
+            finally:
+                request_candidate_batch_id.reset(candidate_token)
+    finally:
+        request_actor_id.reset(actor_token)

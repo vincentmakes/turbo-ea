@@ -140,6 +140,23 @@ class TestSingleOpInboundBatch:
         assert batch.committed_at is not None
         assert batch.summary == {"via_batch_id": str(inbound.id)}
 
+    async def test_single_op_records_validated_request_batch(self, db, env):
+        from app.services.event_bus import request_actor_id, request_candidate_batch_id
+        from app.services.mutation_batch_service import create_batch
+        from tests.conftest import create_user
+
+        load_registry(grants=["core.cards.write"])
+        user = await create_user(db)
+        inbound = await create_batch(db, "call_extension_write", user, "mcp")
+        actor_token = request_actor_id.set(user.id)
+        candidate_token = request_candidate_batch_id.set(inbound.id)
+        try:
+            await ExtensionData(KEY).create_card(type="Application", name="Single")
+        finally:
+            request_candidate_batch_id.reset(candidate_token)
+            request_actor_id.reset(actor_token)
+        assert (await _ext_batch(db)).summary == {"via_batch_id": str(inbound.id)}
+
     async def test_single_op_write_ignores_an_unknown_inbound_id(self, db, env):
         from app.services.event_bus import request_batch_id
 

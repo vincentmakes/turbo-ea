@@ -74,6 +74,9 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_db))
 
         if user.access_expires_at < datetime.now(timezone.utc):
             raise HTTPException(status_code=401, detail="Account access has expired")
+    from app.services.event_bus import request_actor_id
+
+    request_actor_id.set(user.id)
     return user
 
 

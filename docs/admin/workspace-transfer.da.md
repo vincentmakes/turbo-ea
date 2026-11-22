@@ -50,6 +50,8 @@ Nogle få andre ting bliver bevidst tilbage:
 3. Turbo EA parser bundtet og viser en **dry-run-forhåndsvisning** — en tabel per sektion over, hvor mange entiteter der ville blive oprettet, opdateret, sprunget over eller er i konflikt. Intet skrives endnu.
 4. Gennemgå forhåndsvisningen, og klik derefter på **Anvend import**.
 
+Hvis serveren genstarter, mens en import er i gang, skal du lade siden være åben, mens den opretter forbindelse igen og kontrollerer overførslens status. Hvis den melder, at importen blev afbrudt, skal du gennemgå målinstansens arbejdsområde, klikke på **Kassér** og uploade filen igen for at få en ny forhåndsvisning.
+
 Import er **idempotent**: metamodel og konfiguration matches efter nøgle, kort efter ekstern id eller efter type + hierarkisti, og brugere efter e-mail. Genimport af samme bundt er sikkert — allerede tilstedeværende entiteter springes over i stedet for at blive dublerede. Eksisterende indbyggede metamodel-typer bevarer deres identitet; kun deres redigerbare skema fusioneres. Det gælder også arkiverede kort i bundtet: de genkendes i stedet for at blive oprettet igen.
 
 Første gang et gemt diagram for **Forretningsobjekters relationer** importeres, kan det bruges på en målinstans, hvor diagrammet aldrig har været gemt. Hvis målinstansen allerede har et gemt diagram, også et tomt diagram, bevarer importen målinstansens diagram og placeringer. Se under **Referencer** efter forretningsobjekter eller relationer, der ikke kunne matches ved importen. Hvis målinstansen allerede har en anden master for et forretningsobjekt, vises konflikten i resultaterne under **Relationer**, og den nye relation bevarer sine CRUD-indstillinger.
