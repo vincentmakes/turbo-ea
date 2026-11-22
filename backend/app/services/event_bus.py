@@ -84,6 +84,7 @@ class EventBus:
         batch_id: uuid.UUID | None = None,
         entity_type: str | None = None,
         entity_id: uuid.UUID | None = None,
+        deferred_messages: list[dict[str, Any]] | None = None,
     ) -> None:
         origin = request_origin.get()
         if origin and "origin" not in data:
@@ -146,6 +147,12 @@ class EventBus:
             "batch_id": str(effective_batch_id) if effective_batch_id else None,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
+        if deferred_messages is not None:
+            deferred_messages.append(message)
+        else:
+            self.fanout(message)
+
+    def fanout(self, message: dict[str, Any]) -> None:
         dead: list[asyncio.Queue] = []
         for q in self._subscribers:
             try:

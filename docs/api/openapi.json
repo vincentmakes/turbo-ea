@@ -2762,6 +2762,20 @@
         "title": "Body_import_bpmn_api_v1_bpm_processes__process_id__diagram_import_post",
         "type": "object"
       },
+      "Body_import_costs_api_v1_costs_import_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_import_costs_api_v1_costs_import_post",
+        "type": "object"
+      },
       "Body_import_licenses_api_v1_licenses_import_post": {
         "properties": {
           "file": {
@@ -6854,6 +6868,55 @@
           "value"
         ],
         "title": "CostHistoryRow",
+        "type": "object"
+      },
+      "CostImportIssueOut": {
+        "properties": {
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "row": {
+            "title": "Row",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "row",
+          "reason"
+        ],
+        "title": "CostImportIssueOut",
+        "type": "object"
+      },
+      "CostImportResultOut": {
+        "properties": {
+          "applied": {
+            "title": "Applied",
+            "type": "integer"
+          },
+          "clears_renewal_count": {
+            "title": "Clears Renewal Count",
+            "type": "integer"
+          },
+          "matched": {
+            "title": "Matched",
+            "type": "integer"
+          },
+          "skipped": {
+            "items": {
+              "$ref": "#/components/schemas/CostImportIssueOut"
+            },
+            "title": "Skipped",
+            "type": "array"
+          }
+        },
+        "required": [
+          "matched",
+          "applied",
+          "clears_renewal_count",
+          "skipped"
+        ],
+        "title": "CostImportResultOut",
         "type": "object"
       },
       "CostItemTypeCreate": {
@@ -33619,6 +33682,59 @@
         "summary": "Security Overview",
         "tags": [
           "Compliance"
+        ]
+      }
+    },
+    "/api/v1/costs/import": {
+      "post": {
+        "operationId": "import_costs_api_v1_costs_import_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Dry Run",
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_import_costs_api_v1_costs_import_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CostImportResultOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Costs",
+        "tags": [
+          "card-costs"
         ]
       }
     },
