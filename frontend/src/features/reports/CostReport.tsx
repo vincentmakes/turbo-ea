@@ -26,7 +26,7 @@ import {
   type CostTreemapGroup,
   type CostTreemapItem,
 } from "./costTreemapOption";
-import { buildCostSankeyOption } from "./costSankeyOption";
+import { buildCostSankeyOption, chartSankeyNodeHeight } from "./costSankeyOption";
 import SaveReportDialog from "./SaveReportDialog";
 import CostTrendChart, { type TrendSelection } from "./CostTrendChart";
 import CostDrillBar from "./CostDrillBar";
@@ -61,6 +61,7 @@ import {
   useRelationLabel,
 } from "@/hooks/useResolveLabel";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
+import CardLogoAvatar from "@/components/CardLogoAvatar";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
@@ -97,6 +98,7 @@ interface CostItem {
   group?: string;
   /** The card's type key. */
   type?: string;
+  logo_updated_at?: string | null;
 }
 
 interface CostTreemapResponse {
@@ -129,6 +131,8 @@ interface SankeyNode {
   /** Set by the page for the chart: the node's fill and a card's type label. */
   color?: string;
   typeLabel?: string;
+  typeIcon?: string;
+  logo_updated_at?: string | null;
 }
 
 interface SankeyLink {
@@ -304,14 +308,18 @@ function CostSankeyPanel({
   onNodeDrill,
 }: CostSankeyPanelProps) {
   const { t } = useTranslation(["reports", "common"]);
+  const chartRef = useRef<ECharts | null>(null);
+  const onInit = useCallback((chart: ECharts) => { chartRef.current = chart; }, []);
+  const nodeHeight = useCallback((index: number) => chartSankeyNodeHeight(chartRef.current, index), []);
   const option = useMemo(
     () =>
       buildCostSankeyOption(nodes, links, {
         chrome,
         isRtl: chrome.isRtl,
         format: (v) => fmt.format(v),
+        nodeHeight,
       }),
-    [nodes, links, chrome, fmt],
+    [nodes, links, chrome, fmt, nodeHeight],
   );
   return (
     <CostChartFrame
@@ -321,6 +329,7 @@ function CostSankeyPanel({
       testId="cost-sankey-panel"
       onClick={onNodeOpen}
       onContextMenu={onNodeDrill}
+      onInit={onInit}
     />
   );
 }
@@ -369,6 +378,8 @@ export default function CostReport() {
   const [cardTypeKey, setCardTypeKey] = useState("Application");
   const typeKeys = useMemo(() => typeKeysOf(cardTypeKey), [cardTypeKey]);
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
+  const [fullscreenContainer, setFullscreenContainer] = useState<HTMLElement | null>(null);
+  const [drawerContainer, setDrawerContainer] = useState<HTMLElement | null>(null);
   const [costField, setCostField] = useState("costTotalAnnual");
   const [groupBy, setGroupBy] = useState("");
   const [rawItems, setRawItems] = useState<CostItem[] | null>(null);
@@ -981,7 +992,7 @@ export default function CostReport() {
           ? { ...n, name: groupLabel(rawGroup(n)), color: colorPlan.groupHues.get(rawGroup(n)) }
           : n.type === "CostItem"
             ? { ...n, name: itemLabel(n.id.replace(/^item:/, ""), n.name) }
-            : { ...n, color: colorPlan.cardColors.get(n.id), typeLabel: typeLabelOf(n.type) },
+            : { ...n, color: colorPlan.cardColors.get(n.id), typeLabel: typeLabelOf(n.type), typeIcon: types.find((tp) => tp.key === n.type)?.icon },
       );
     });
     // Both ends are remapped, so the flows into and out of Others add up per (source, target).
@@ -995,7 +1006,7 @@ export default function CostReport() {
       merged.set(key, { source, target, value: (prev?.value ?? 0) + values[k] });
     });
     return { ...sankeyData, nodes, links: [...merged.values()] };
-  }, [sankeyData, sankeyCards, scope.closure, drill, drillActive, foldedKeys, colorPlan, groupLabel, itemLabel, typeLabelOf, t]);
+  }, [sankeyData, sankeyCards, scope.closure, drill, drillActive, foldedKeys, colorPlan, groupLabel, itemLabel, typeLabelOf, t, types]);
 
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
@@ -1070,16 +1081,20 @@ export default function CostReport() {
     },
     [sankeyCards, effectiveGroupBy, foldedKeys],
   );
+  const openCard = useCallback((id: string) => {
+    setDrawerContainer(document.fullscreenElement === fullscreenContainer ? fullscreenContainer : null);
+    setSidePanelCardId(id);
+  }, [fullscreenContainer]);
   const handleNodeOpen = useCallback((p: EChartClickParams) => {
     const name = p.name;
     if (p.dataType === "edge" || !name || name.startsWith("item:") || name.startsWith("group:")) return;
-    setSidePanelCardId(name);
-  }, []);
+    openCard(name);
+  }, [openCard]);
   // Left click opens the card in the side panel; a group frame does nothing.
   const handleTileOpen = useCallback((p: EChartClickParams) => {
     const d = p.data as { id?: string } | undefined;
-    if (d?.id) setSidePanelCardId(d.id);
-  }, []);
+    if (d?.id) openCard(d.id);
+  }, [openCard]);
 
   if (!canViewCostsGlobally) {
     return (
@@ -1151,6 +1166,8 @@ export default function CostReport() {
       deltaPct,
       color: colorPlan.cardColors.get(d.id) ?? cardColor(d.name, chartTheme.categorical),
       typeLabel: typeLabelOf(d.type),
+      typeIcon: types.find((tp) => tp.key === d.type)?.icon,
+      logo_updated_at: d.logo_updated_at,
     };
   };
   const cardDrilled = drill.cardId !== undefined;
@@ -1225,34 +1242,28 @@ export default function CostReport() {
     members.reduce((sum, m) => sum + (cellValue(m, key) ?? 0), 0);
   const shownTotal = tableItems.reduce((sum, i) => sum + i.cost, 0);
   const pctOfTotal = (v: number) => (total > 0 ? `${((v / total) * 100).toFixed(1)}%` : "—");
-  const typeBadge = (d: CostItem) => {
+  const cardRow = (d: CostItem, indent: boolean) => {
     const tp = types.find((x) => x.key === d.type);
-    return tp ? (
-      <Typography
-        component="span"
-        variant="caption"
-        color="text.secondary"
-        sx={{ ml: 1, display: "inline-flex", alignItems: "center", gap: 0.5, verticalAlign: "middle" }}
-      >
-        <MaterialSymbol icon={tp.icon} size={14} />
-        {typeLabel(tp)}
-      </Typography>
-    ) : null;
-  };
-  const cardRow = (d: CostItem, indent: boolean) => (
+    return (
     <TableRow
       key={d.id}
       hover
       sx={{ cursor: "pointer" }}
-      onClick={() => setSidePanelCardId(d.id)}
+      onClick={() => openCard(d.id)}
       onContextMenu={(e: React.MouseEvent) => {
         e.preventDefault();
         handleTileDrill({ data: { id: d.id } });
       }}
     >
       <TableCell sx={{ fontWeight: 500, ...(indent && { pl: 4 }) }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        {tp && <CardLogoAvatar cardId={d.id} logoUpdatedAt={d.logo_updated_at} typeIcon={tp.icon} typeColor={tp.color} size={28} radius={1} />}
         <span data-testid="cost-row-name">{d.name}</span>
-        {typeBadge(d)}
+        {tp && <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1, display: "inline-flex", alignItems: "center", gap: 0.5, verticalAlign: "middle" }}>
+          <MaterialSymbol icon={tp.icon} size={14} />
+          {typeLabel(tp)}
+        </Typography>}
+        </Box>
       </TableCell>
       {tableCols.map((c) => {
         const v = cellValue(d, c.key);
@@ -1268,7 +1279,8 @@ export default function CostReport() {
       {fiscalYearParam != null && yoyCell(d)}
       {extraCell(d)}
     </TableRow>
-  );
+    );
+  };
 
   const yesNoLabels = {
     yes: t("common:labels.yes"),
@@ -1478,14 +1490,13 @@ export default function CostReport() {
           </Box>
         ) : (
           <>
-            {drillBar}
-            {cardDrilled && cardItemTiles === null ? (
-              <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-                <CircularProgress />
-              </Box>
-            ) : (
-              <FullscreenPanel label={t("cost.fullscreen")}>
+              <FullscreenPanel label={t("cost.fullscreen")} onContainerChange={setFullscreenContainer}>
                 {(isFullscreen) => (
+                  <>
+                  {drillBar}
+                  {cardDrilled && cardItemTiles === null ? (
+                    <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>
+                  ) : (
                   <CostTreemapPanel
                     items={treemapItems}
                     groups={treemapGroups}
@@ -1496,9 +1507,10 @@ export default function CostReport() {
                     onTileOpen={handleTileOpen}
                     onTileDrill={handleTileDrill}
                   />
+                  )}
+                  </>
                 )}
               </FullscreenPanel>
-            )}
             {legend}
           </>
         )
@@ -1511,9 +1523,10 @@ export default function CostReport() {
           </Box>
         ) : (
           <>
-            {drillBar}
-            <FullscreenPanel label={t("cost.fullscreen")}>
+            <FullscreenPanel label={t("cost.fullscreen")} onContainerChange={setFullscreenContainer}>
               {(isFullscreen) => (
+                <>
+                {drillBar}
                 <CostSankeyPanel
                   nodes={sankeyView.nodes}
                   links={sankeyView.links}
@@ -1523,15 +1536,17 @@ export default function CostReport() {
                   onNodeOpen={handleNodeOpen}
                   onNodeDrill={handleNodeDrill}
                 />
+                </>
               )}
             </FullscreenPanel>
             {legend}
           </>
         )
       ) : (
-        <>
+        <FullscreenPanel label={t("cost.fullscreen")} onContainerChange={setFullscreenContainer}>
+        {(isFullscreen) => <>
         {drillBar}
-        <Paper variant="outlined" sx={{ overflow: "auto" }}>
+        <Paper variant="outlined" sx={{ overflow: "auto", ...(isFullscreen && { flex: 1, minHeight: 0 }) }}>
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
@@ -1644,12 +1659,14 @@ export default function CostReport() {
             </TableBody>
           </Table>
         </Paper>
-        </>
+        </>}
+        </FullscreenPanel>
       )}
       <CardDetailSidePanel
         cardId={sidePanelCardId}
         open={!!sidePanelCardId}
         onClose={() => setSidePanelCardId(null)}
+        container={drawerContainer}
       />
       <SaveReportDialog
         open={saved.saveDialogOpen}

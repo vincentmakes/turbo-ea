@@ -28,7 +28,12 @@ from app.models.tag import CardTag, Tag, TagGroup
 from app.models.todo import Todo
 from app.models.user import User
 from app.models.user_favorite import UserFavorite
-from app.schemas.cost_report import CostScopeItem, CostScopeResponse
+from app.schemas.cost_report import (
+    CostSankeyResponse,
+    CostScopeItem,
+    CostScopeResponse,
+    CostTreemapResponse,
+)
 from app.schemas.licenses import LicenseReportOut
 from app.services.bo_relationship_constants import APPLICATION_RELATION, OWNERSHIP_KEY
 from app.services.card_costs import COST_EVENT, COST_ITEM_TYPES, DERIVED_KEY
@@ -1574,7 +1579,7 @@ async def _validated_cost_request(
     return type_keys, field_keys
 
 
-@router.get("/cost-treemap")
+@router.get("/cost-treemap", response_model=CostTreemapResponse, response_model_exclude_unset=True)
 async def cost_treemap(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -1616,6 +1621,7 @@ async def cost_treemap(
         db, user, (card.id for card, _ in sheets)
     )
     sheets = [(card, cost) for card, cost in sheets if card.id in allowed]
+    logos = await logo_updated_map(db, [card for card, _ in sheets])
 
     items: list[dict] = [
         {
@@ -1625,6 +1631,7 @@ async def cost_treemap(
             "cost": cost,
             "lifecycle": card.lifecycle,
             "attributes": card.attributes,
+            **({"logo_updated_at": logos[card.id].isoformat()} if card.id in logos else {}),
         }
         for card, cost in sheets
     ]
@@ -1710,7 +1717,7 @@ async def _parent_type_link_counts(
     return {sheet_id: len(parents) for sheet_id, parents in linked.items()}
 
 
-@router.get("/cost-sankey")
+@router.get("/cost-sankey", response_model=CostSankeyResponse, response_model_exclude_unset=True)
 async def cost_sankey(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),

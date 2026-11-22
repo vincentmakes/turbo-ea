@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 from sqlalchemy import update
 
 from app.models.card_cost import CardCost
 from app.models.card_cost_history import CardCostHistory
+from app.models.card_logo import CardLogo
 from app.models.card_type import CardType
 from app.services import cost_item_types
 from app.services.fiscal_year import current_fiscal_year
@@ -182,6 +185,69 @@ async def test_hidden_card_type_leaks_nothing(client, db, env):
         assert "SecretERP" not in resp.text and str(app.id) not in resp.text
     admin = await _get(client, env, "cost-treemap", type="Application")
     assert "SecretERP" in admin.text
+
+
+@pytest.mark.parametrize("path", ["cost-treemap", "cost-sankey"])
+async def test_report_logo_metadata_respects_card_scope(client, db, env, path):
+    visible = await create_card(db, card_type="ITComponent", name="Visible")
+    plain = await create_card(db, card_type="ITComponent", name="Plain")
+    hidden = await create_card(db, card_type="Application", name="Hidden")
+    for card in (visible, plain, hidden):
+        await _costs(db, card, CUR, lic=10)
+    timestamp = datetime(2026, 1, 2, 3, 4, 5, tzinfo=UTC)
+    for card in (visible, hidden):
+        db.add(
+            CardLogo(
+                card_id=card.id, mime_type="image/png", size=1, data=b"x", updated_at=timestamp
+            )
+        )
+    await db.execute(
+        update(CardType)
+        .where(CardType.key == "ITComponent")
+        .values(
+            allow_card_logo=True,
+            fields_schema=[
+                {
+                    "section": "Cost",
+                    "fields": [
+                        {"key": "costTotalAnnual", "type": "cost", "weight": 0},
+                        {"key": "tier", "type": "single_select"},
+                    ],
+                }
+            ],
+        )
+    )
+    await db.execute(
+        update(CardType)
+        .where(CardType.key == "Application")
+        .values(
+            allow_card_logo=True,
+            role_permissions={"costviewer": {"inventory.view": False}},
+            fields_schema=[
+                {
+                    "section": "Cost",
+                    "fields": [
+                        {"key": "costTotalAnnual", "type": "cost", "weight": 0},
+                        {"key": "tier", "type": "single_select"},
+                    ],
+                }
+            ],
+        )
+    )
+    await db.flush()
+    response = await _get(
+        client, env, path, user="viewer", type="Application,ITComponent", group_by="field:tier"
+    )
+    assert response.status_code == 200, response.text
+    assert str(hidden.id) not in response.text and "Hidden" not in response.text
+    data = response.json()
+    rows = data["items"] if path == "cost-treemap" else data["nodes"]
+    by_id = {row["id"]: row for row in rows}
+    assert "logo_updated_at" not in by_id[str(plain.id)]
+    assert all(
+        "logo_updated_at" not in row for row in rows if row["id"].startswith(("group:", "item:"))
+    )
+    assert by_id[str(visible.id)]["logo_updated_at"] == timestamp.isoformat()
 
 
 async def test_per_item_cost_field_reads_that_item_for_current_and_past(client, db, env):

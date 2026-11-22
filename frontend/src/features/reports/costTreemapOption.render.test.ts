@@ -13,10 +13,11 @@
  */
 import { afterEach, describe, expect, it } from "vitest";
 import * as echarts from "echarts/core";
-import { TreemapChart } from "echarts/charts";
+import { SankeyChart, TreemapChart } from "echarts/charts";
 import { AriaComponent, TooltipComponent } from "echarts/components";
 import { SVGRenderer } from "echarts/renderers";
 import { buildEChartsChrome } from "@/components/charts/echartsTheme";
+import { buildCostSankeyOption, chartSankeyNodeHeight } from "./costSankeyOption";
 import {
   buildCostTreemapOption,
   chartTileRect,
@@ -25,7 +26,7 @@ import {
   type TileLabelParams,
 } from "./costTreemapOption";
 
-echarts.use([TreemapChart, TooltipComponent, AriaComponent, SVGRenderer]);
+echarts.use([TreemapChart, SankeyChart, TooltipComponent, AriaComponent, SVGRenderer]);
 
 /** Average glyph width at 12 px — the chart builders' estimate too. */
 const CHAR_WIDTH_12 = 6.6;
@@ -128,5 +129,47 @@ describe("Cost treemap tile labels on real ECharts", () => {
     }
     // And as many as the formatter asked for: none was dropped for want of room.
     expect(costs).toHaveLength(texts.filter((t) => t.includes("{value|")).length);
+  });
+});
+
+
+describe("Cost chart identity layout on real ECharts", () => {
+  it("inherits identity rich styles for a light treemap tile", () => {
+    const div = document.createElement("div");
+    document.body.appendChild(div);
+    const live = echarts.init(div, null, { renderer: "svg", width: 400, height: 200 });
+    chart = live;
+    const option = buildCostTreemapOption([{ id: "a", name: "Alpha", cost: 10, index: 0, color: "#ffffff", typeIcon: "apps" }], {
+      chrome, isRtl: false, format, panelTotal: 10, percentOfTotal: (p) => p, clickable: false,
+    });
+    live.setOption({ ...option, animation: false });
+    const svg = live.renderToSVGString();
+    expect(svg).toContain("apps");
+    expect(svg).toContain("Material Symbols Outlined");
+    expect(svg).toContain("Alpha");
+  });
+
+  it("reads actual Sankey node heights during label formatting", () => {
+    const div = document.createElement("div");
+    document.body.appendChild(div);
+    const live = echarts.init(div, null, { renderer: "svg", width: 500, height: 200 });
+    chart = live;
+    const heights: (number | undefined)[] = [];
+    const option = buildCostSankeyOption([
+      { id: "source", name: "Source", type: "CostItem" },
+      { id: "large", name: "Large", type: "Application", typeIcon: "apps" },
+      { id: "small", name: "Small", type: "Application", typeIcon: "apps" },
+    ], [{ source: 0, target: 1, value: 1000 }, { source: 0, target: 2, value: 1 }], {
+      chrome, isRtl: false, format, nodeHeight: (i) => {
+        const height = chartSankeyNodeHeight(live, i);
+        heights[i] = height;
+        return height;
+      },
+    });
+    live.setOption({ ...option, animation: false });
+    expect(heights[1]).toBeGreaterThan(20);
+    expect(heights[2]).toBeLessThan(20);
+    const svg = live.renderToSVGString();
+    expect(svg.match(/>apps<\/text>/g)).toHaveLength(1);
   });
 });

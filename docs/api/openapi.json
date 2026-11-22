@@ -7051,6 +7051,41 @@
         "title": "CostLineOut",
         "type": "object"
       },
+      "CostReportNode": {
+        "additionalProperties": true,
+        "properties": {
+          "logo_updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Updated At"
+          }
+        },
+        "title": "CostReportNode",
+        "type": "object"
+      },
+      "CostSankeyResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/CostReportNode"
+            },
+            "title": "Nodes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "nodes"
+        ],
+        "title": "CostSankeyResponse",
+        "type": "object"
+      },
       "CostScopeItem": {
         "properties": {
           "alias": {
@@ -7119,6 +7154,23 @@
           "total"
         ],
         "title": "CostScopeResponse",
+        "type": "object"
+      },
+      "CostTreemapResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CostReportNode"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CostTreemapResponse",
         "type": "object"
       },
       "CurrencyPayload": {
@@ -44407,7 +44459,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CostSankeyResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -44575,7 +44629,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CostTreemapResponse"
+                }
               }
             },
             "description": "Successful Response"

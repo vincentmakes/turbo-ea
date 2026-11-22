@@ -54,8 +54,8 @@ vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => ({ user: { permissions: { "costs.view": true } } }),
 }));
 vi.mock("@/components/CardDetailSidePanel", () => ({
-  default: ({ cardId, open }: { cardId: string | null; open: boolean }) =>
-    open ? <div data-testid="side-panel">{cardId}</div> : null,
+  default: ({ cardId, open, container }: { cardId: string | null; open: boolean; container?: HTMLElement | null }) =>
+    open ? <div data-testid="side-panel" data-container={container ? "fullscreen" : "body"}>{cardId}</div> : null,
 }));
 // The trend chart's own fetching is tested in CostTrendChart.test.tsx; here only the years it is given.
 const trendYearsSeen: number[][] = []; // every `years` array the stub was rendered with
@@ -105,6 +105,7 @@ import { echartState } from "@/test/echartMock";
 const APP_TYPE = {
   key: "Application",
   label: "Application",
+  icon: "apps",
   color: "#0f7eb5",
   is_hidden: false,
   has_hierarchy: true,
@@ -626,7 +627,7 @@ describe("CostReport card-type selector and Sankey view", () => {
     await userEvent.click(await findByRole("button", { name: /sankey chart view/i }));
     await findByTestId("cost-sankey-panel");
     const s = echartState.last().option.series[0];
-    const label = (id: string) => s.label.formatter({ name: id });
+    const label = (id: string) => s.label.formatter({ name: id }).replace(/^\{card\d+\|[^}]*\} /, "");
     const ids: string[] = s.data.map((d: { name: string }) => d.name);
     // Item and group nodes are named for what they are; the flow runs item -> group -> card.
     expect(ids.map(label)).toEqual(["Total Annual Cost", "EMEA", "CRM · Application"]);
@@ -997,7 +998,7 @@ describe("CostReport Sankey from per-card costs", () => {
     const ids: string[] = s.data.map((d: { name: string }) => d.name);
     return {
       // a card prints "Name · Type": the tests below read the name
-      nodes: ids.map((id) => ({ name: s.label.formatter({ name: id }).replace(/ · .*$/, "") })),
+      nodes: ids.map((id) => ({ name: s.label.formatter({ name: id }).replace(/^\{card\d+\|[^}]*\} /, "").replace(/ · .*$/, "") })),
       links: s.links.map((l: { source: string; target: string; value: number }) => ({
         source: ids.indexOf(l.source),
         target: ids.indexOf(l.target),
@@ -1206,13 +1207,44 @@ describe("CostReport treemap colours, type badge and drill", () => {
     expect(screen.queryByTestId("side-panel")).not.toBeInTheDocument();
   });
 
+  it("keeps the fullscreen surface and breadcrumb mounted while a drill loads", async () => {
+    mockApi(TEN);
+    const previous = vi.mocked(api.get).getMockImplementation()!;
+    vi.mocked(api.get).mockImplementation((path, options) =>
+      path.startsWith("/reports/cost-sankey") ? new Promise(() => {}) as never : previous(path, options),
+    );
+    consumedConfig = { view: "chart" };
+    renderCost();
+    await screen.findByRole("img", { name: "Cost Analysis" });
+    const panel = screen.getByTestId("fullscreen-panel");
+    clickTile({ id: "c1" });
+    expect(await screen.findByRole("progressbar")).toBeInTheDocument();
+    expect(screen.getByTestId("fullscreen-panel")).toBe(panel);
+    expect(panel).toContainElement(screen.getByRole("button", { name: /back/i }));
+  });
+
   it("left click on a tile opens the side panel and does not drill", async () => {
     consumedConfig = { view: "chart" };
     renderCost();
     await screen.findByRole("img", { name: "Cost Analysis" });
     rightClickTile({ id: "erp" });
     expect(await screen.findByTestId("side-panel")).toHaveTextContent("erp");
+    expect(screen.getByTestId("side-panel")).toHaveAttribute("data-container", "body");
     expect(backButton()).not.toBeInTheDocument();
+  });
+
+  it("pins a fullscreen drawer to its host even after fullscreen exits", async () => {
+    consumedConfig = { view: "chart" };
+    renderCost();
+    await screen.findByRole("img", { name: "Cost Analysis" });
+    const host = screen.getByTestId("fullscreen-panel");
+    Object.defineProperty(document, "fullscreenElement", { value: host, configurable: true });
+    act(() => document.dispatchEvent(new Event("fullscreenchange")));
+    rightClickTile({ id: "erp" });
+    expect(await screen.findByTestId("side-panel")).toHaveAttribute("data-container", "fullscreen");
+    Object.defineProperty(document, "fullscreenElement", { value: null, configurable: true });
+    act(() => document.dispatchEvent(new Event("fullscreenchange")));
+    expect(screen.getByTestId("side-panel")).toHaveAttribute("data-container", "fullscreen");
   });
 
   it("drills a card to one tile per cost item, the rest merged into Other items", async () => {
@@ -1428,7 +1460,17 @@ describe("CostReport Sankey colours, fold, drill and right click", () => {
 
   it("prints the card type on a card node", async () => {
     await open();
-    expect(series().label.formatter({ name: "c1" })).toBe("Card 1 · Application");
+    expect(series().label.formatter({ name: "c1" })).toMatch(/^\{card\d+\|apps\} Card 1 · Application$/);
+  });
+
+  it("uses the live Sankey node height to hide a badge that cannot fit", async () => {
+    await open();
+    let height = 10;
+    sankey().onInit!({ getModel: () => ({ getSeriesByIndex: () => ({ getData: () => ({ getItemLayout: () => ({ dy: height }) }) }) }) });
+    const label = () => series().label.formatter({ name: "c1", dataIndex: 12 });
+    expect(label()).toBe("Card 1 · Application");
+    height = 30;
+    expect(label()).toMatch(/^\{card\d+\|apps\} Card 1 · Application$/);
   });
 
   it("right click on a group node drills into the group", async () => {
@@ -1470,11 +1512,11 @@ describe("CostReport Sankey colours, fold, drill and right click", () => {
 });
 
 describe("CostReport table per-item columns, TCO and drill", () => {
-  const TREEMAP: Record<string, { id: string; name: string; type: string; cost: number; attributes: object }[]> = {
+  const TREEMAP: Record<string, { id: string; name: string; type: string; cost: number; attributes: object; logo_updated_at?: string }[]> = {
     costTotalAnnual: [
       { id: "crm", name: "CRM", type: "Application", cost: 160, attributes: {} },
       { id: "crm-web", name: "CRM Web", type: "Application", cost: 20, attributes: {} },
-      { id: "erp", name: "ERP", type: "Application", cost: 500, attributes: {} },
+      { id: "erp", name: "ERP", type: "Application", cost: 500, attributes: {}, logo_updated_at: "2026-01-01T00:00:00Z" },
     ],
     support: [
       { id: "crm", name: "CRM", type: "Application", cost: 150, attributes: {} },
@@ -1525,6 +1567,21 @@ describe("CostReport table per-item columns, TCO and drill", () => {
     renderCost();
     await screen.findByRole("table");
     await waitFor(() => expect(rowNamed("ERP")).toHaveTextContent("Application"));
+  });
+
+  it("places the card badge before its name in the first column and offers table fullscreen", async () => {
+    mockTable();
+    consumedConfig = { view: "table" };
+    renderCost();
+    await screen.findByRole("table");
+    await waitFor(() => expect(rowNamed("ERP")).toBeTruthy());
+    const cell = within(rowNamed("ERP")).getAllByRole("cell")[0];
+    const name = within(cell).getByTestId("cost-row-name");
+    const image = cell.querySelector("img")!;
+    expect(image).toHaveAttribute("src", expect.stringContaining("/api/v1/cards/erp/logo?v="));
+    expect(image.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(rowNamed("CRM")).toHaveTextContent("apps");
+    expect(screen.getByTestId("fullscreen-panel")).toContainElement(screen.getByRole("table"));
   });
 
   it("sorts by the TCO first and, when the cost type changes, by that column descending", async () => {
