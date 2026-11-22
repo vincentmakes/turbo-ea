@@ -94,8 +94,10 @@ from app.services.card_licenses import LICENSE_EVENT
 from app.services.card_logo_service import logo_updated_map
 from app.services.card_query import (
     CardQueryError,
+    lifecycle_stage_condition,
     parse_card_query,
     prepare_card_query,
+    valid_lifecycle_stages,
 )
 from app.services.card_query_matches import card_query_matches, match_nodes
 from app.services.card_read_scope import (
@@ -292,7 +294,7 @@ async def list_cards(
     parent_id: str | None = Query(None),
     approval_status: str | None = Query(None),
     lifecycle_stage: str | None = Query(
-        None, max_length=2550, description="Comma-separated current stages, or __empty__."
+        None, max_length=2559, description="Comma-separated current stages, or __empty__."
     ),
     mine: str | None = Query(
         None,
@@ -450,13 +452,9 @@ async def list_cards(
         count_q = count_q.where(Card.approval_status.in_(statuses))
     if lifecycle_stage:
         stages = [stage.strip() for stage in lifecycle_stage.split(",") if stage.strip()]
-        if len(stages) > 50:
+        if not valid_lifecycle_stages(stages):
             raise HTTPException(400, "Too many lifecycle stages")
-        stage_values = [stage for stage in stages if stage != "__empty__"]
-        conditions = [Card.lifecycle_stage.in_(stage_values)] if stage_values else []
-        if "__empty__" in stages:
-            conditions.append(Card.lifecycle_stage.is_(None))
-        condition = or_(*conditions) if conditions else Card.id.in_([])
+        condition = lifecycle_stage_condition(Card, stages)
         q = q.where(condition)
         count_q = count_q.where(condition)
     if mine == "stakeholder":
@@ -1909,8 +1907,6 @@ async def bulk_update(
             "Not enough permissions to edit cards of type: " + ", ".join(denied_types),
         )
     updates = body.updates.model_dump(exclude_unset=True)
-    if "lifecycle_stage" in updates:
-        raise HTTPException(400, "Lifecycle stages cannot be edited in bulk")
     strict_attrs = updates.pop("strict_attributes", False)
     if "subtype" in updates and any(
         card.type == "DataObject"
@@ -2674,6 +2670,7 @@ async def bulk_restore_cards(
 async def update_card(
     card_id: str,
     body: CardUpdate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -2721,16 +2718,29 @@ async def update_card(
                     card.attributes, updates["attributes"], cost_keys
                 )
 
+    pending_notifications = [] if "lifecycle_stage" in updates else None
     changed = await card_write_service.update_card(
         db,
         card_write_service.WriteActor.from_user(user),
         card,
         updates,
         strict_attributes=strict_attrs,
+        deferred_notifications=pending_notifications,
     )
 
     if changed:
         await db.commit()
+        by_type: dict[str, list[dict]] = {}
+        for row in pending_notifications or []:
+            recipient = dict(row)
+            by_type.setdefault(recipient.pop("notif_type"), []).append(recipient)
+        for notif_type, recipients in by_type.items():
+            background_tasks.add_task(
+                notification_service.deliver_notification_batch,
+                recipients,
+                notif_type=notif_type,
+                actor_id=user.id,
+            )
         result = await db.execute(
             select(Card)
             .where(Card.id == card.id)

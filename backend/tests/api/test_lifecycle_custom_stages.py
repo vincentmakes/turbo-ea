@@ -104,3 +104,139 @@ async def test_card_stage_filter_and_clear_preserve_dates_and_attributes(client,
     )
     assert cleared.json()["lifecycle_stage"] is None
     assert (await client.put(url, json={"stages": []}, headers=headers)).status_code == 200
+
+
+async def test_stage_edit_breaks_approval_and_keeps_dates(client, db, stages_env):
+    admin, _ = stages_env
+    headers = auth_headers(admin)
+    await client.put(
+        "/api/v1/metamodel/types/Application/lifecycle-stages",
+        json={"stages": STAGES},
+        headers=headers,
+    )
+    card = await create_card(
+        db,
+        card_type="Application",
+        name="Approved",
+        user_id=admin.id,
+        lifecycle={"active": "2025-03-01"},
+        attributes={"costTotalAnnual": 123},
+    )
+    card.approval_status = "APPROVED"
+    await db.flush()
+    response = await client.patch(
+        f"/api/v1/cards/{card.id}", json={"lifecycle_stage": "testing"}, headers=headers
+    )
+    assert response.status_code == 200
+    assert response.json()["approval_status"] == "BROKEN"
+    assert response.json()["lifecycle"] == {"active": "2025-03-01"}
+    assert response.json()["attributes"] == {"costTotalAnnual": 123}
+
+
+async def test_stage_color_change_is_visible_in_audit(client, db, stages_env):
+    from app.models.audit_log import AuditLogEntry
+
+    admin, _ = stages_env
+    headers = auth_headers(admin)
+    url = "/api/v1/metamodel/types/Application/lifecycle-stages"
+    await client.put(url, json={"stages": STAGES}, headers=headers)
+    changed = [{"key": "testing", "label": "Testing", "color": "#abcdef"}]
+    response = await client.put(url, json={"stages": changed}, headers=headers)
+    assert response.status_code == 200
+    rows = (
+        await db.scalars(
+            select(AuditLogEntry).where(AuditLogEntry.action == "admin.metamodel.type.updated")
+        )
+    ).all()
+    assert any(
+        {
+            "kind": "lifecycle_stage.changed",
+            "label": "Testing",
+            "property": "color",
+            "old": "#4578bb",
+            "new": "#abcdef",
+        }
+        in (row.details or {}).get("items", [])
+        for row in rows
+    )
+
+
+def test_stage_update_openapi_has_typed_response(app):
+    schema = app.openapi()
+    response = schema["paths"]["/api/v1/metamodel/types/{key}/lifecycle-stages"]["put"][
+        "responses"
+    ]["200"]["content"]["application/json"]["schema"]
+    assert "$ref" in response
+
+
+async def test_stage_reorder_logs_positions_even_for_duplicate_labels(client, db, stages_env):
+    from app.models.audit_log import AuditLogEntry
+
+    admin, _ = stages_env
+    url = "/api/v1/metamodel/types/Application/lifecycle-stages"
+    headers = auth_headers(admin)
+    stages = [
+        {"key": "one", "label": "Same", "color": "#111111"},
+        {"key": "two", "label": "Same", "color": "#222222"},
+    ]
+    assert (await client.put(url, json={"stages": stages}, headers=headers)).status_code == 200
+    assert (
+        await client.put(url, json={"stages": stages[::-1]}, headers=headers)
+    ).status_code == 200
+    rows = (
+        await db.scalars(
+            select(AuditLogEntry).where(AuditLogEntry.action == "admin.metamodel.type.updated")
+        )
+    ).all()
+    items = [item for row in rows for item in (row.details or {}).get("items", [])]
+    assert {
+        "kind": "lifecycle_stage.changed",
+        "label": "Same",
+        "property": "position",
+        "old": 1,
+        "new": 2,
+    } in items
+    assert {
+        "kind": "lifecycle_stage.changed",
+        "label": "Same",
+        "property": "position",
+        "old": 2,
+        "new": 1,
+    } in items
+
+
+async def test_rollback_api_rejects_removed_stage_before_restoring_any_fields(
+    client, db, stages_env
+):
+    from app.models.mutation_batch import MutationBatch
+
+    admin, _ = stages_env
+    card = await create_card(db, card_type="Application", name="Current", user_id=admin.id)
+    batch = MutationBatch(tool_name="ext:test", actor_user_id=admin.id, dry_run=False)
+    db.add(batch)
+    await db.flush()
+    db.add(
+        Event(
+            batch_id=batch.id,
+            user_id=admin.id,
+            card_id=card.id,
+            event_type="card.updated",
+            data={
+                "id": str(card.id),
+                "changes": {
+                    "name": {"old": "Before", "new": "Current"},
+                    "lifecycle_stage": {"old": "removed", "new": None},
+                },
+            },
+        )
+    )
+    await db.flush()
+    response = await client.post(
+        f"/api/v1/mutation-batches/{batch.id}/rollback",
+        json={"force": True, "dry_run": False},
+        headers=auth_headers(admin),
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"]["error"] == "rollback_conflict"
+    assert card.name == "Current"
+    assert card.lifecycle_stage is None

@@ -722,6 +722,17 @@ describe("InventoryFilterSidebar — subtype, approval, lifecycle, quality chips
     expect(last().lifecycleStages).toEqual(["testing"]);
   });
 
+  it("keeps custom stage text readable on light fills and dark outlines", async () => {
+    const type = makeCardType({ key: "Application", lifecycle_stages: [
+      { key: "light", label: "Light stage", color: "#ffff00" },
+      { key: "dark", label: "Dark stage", color: "#000000" },
+    ] });
+    await renderSidebar({ types: [type], initialFilters: { types: ["Application"], lifecycleStages: ["light"] } });
+    expandSection("Current stage");
+    expect(chip("Light stage")).not.toHaveStyle({ color: "rgb(255, 255, 255)" });
+    expect(chip("Dark stage")).not.toHaveStyle({ color: "rgb(0, 0, 0)" });
+  });
+
   it("toggles data-quality bands", async () => {
     const { last } = await renderSidebar();
     expandSection("Data Quality");

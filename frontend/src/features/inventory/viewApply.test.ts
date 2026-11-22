@@ -65,6 +65,15 @@ describe("isQueryView", () => {
 });
 
 describe("bookmarkFilters", () => {
+  it("restores stage filters only for one type and a string list", () => {
+    for (const lifecycleStages of ["pilot", 1, ["pilot", 1], null]) {
+      expect(bookmarkFilters(bookmark({ filters: { types: ["Application"], lifecycleStages } }))?.lifecycleStages).toEqual([]);
+    }
+    for (const types of [[], ["Application", "ITComponent"], [42]]) {
+      expect(bookmarkFilters(bookmark({ filters: { types, lifecycleStages: ["pilot"] } }))?.lifecycleStages).toEqual([]);
+    }
+    expect(bookmarkFilters(bookmark({ filters: { types: ["Application"], lifecycleStages: ["pilot", "__empty__"] } }))?.lifecycleStages).toEqual(["pilot", "__empty__"]);
+  });
   it("is null for a plain view without a filters payload", () => {
     expect(bookmarkFilters(bookmark())).toBeNull();
   });

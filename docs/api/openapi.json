@@ -4385,6 +4385,129 @@
         "title": "CardBulkDeleteSkippedEntry",
         "type": "object"
       },
+      "CardBulkFields": {
+        "properties": {
+          "alias": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alias"
+          },
+          "attributes": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attributes"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Id"
+          },
+          "lifecycle": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lifecycle"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "parent_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Label"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "strict_attributes": {
+            "default": false,
+            "title": "Strict Attributes",
+            "type": "boolean"
+          },
+          "subtype": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtype"
+          }
+        },
+        "title": "CardBulkFields",
+        "type": "object"
+      },
       "CardBulkRestoreRequest": {
         "properties": {
           "card_ids": {
@@ -4491,7 +4614,7 @@
             "type": "array"
           },
           "updates": {
-            "$ref": "#/components/schemas/CardUpdate"
+            "$ref": "#/components/schemas/CardBulkFields"
           }
         },
         "required": [
@@ -10849,6 +10972,22 @@
           "color"
         ],
         "title": "LifecycleStage",
+        "type": "object"
+      },
+      "LifecycleStagesResponse": {
+        "properties": {
+          "lifecycle_stages": {
+            "items": {
+              "$ref": "#/components/schemas/LifecycleStage"
+            },
+            "title": "Lifecycle Stages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "lifecycle_stages"
+        ],
+        "title": "LifecycleStagesResponse",
         "type": "object"
       },
       "LifecycleStagesUpdate": {
@@ -29808,7 +29947,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "maxLength": 2550,
+                  "maxLength": 2559,
                   "type": "string"
                 },
                 {
@@ -39666,7 +39805,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LifecycleStagesResponse"
+                }
               }
             },
             "description": "Successful Response"

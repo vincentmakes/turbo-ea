@@ -31,6 +31,7 @@ export interface ChainNode {
 /** What a condition chip filters on. */
 export type ConditionKind =
   | "lifecycle_phase"
+  | "lifecycle_stage"
   | "subtype"
   | "approval_status"
   | "data_quality_band"
@@ -212,6 +213,7 @@ function whereHasEmptyList(where: CardQueryWhere | undefined): boolean {
   if (!where) return false;
   const lists = [
     where.lifecycle_phase,
+    where.lifecycle_stage,
     where.subtype,
     where.approval_status,
     where.data_quality_band,
@@ -242,6 +244,7 @@ function sendableWhere(where: CardQueryWhere | undefined): CardQueryWhere | unde
   const next: CardQueryWhere = {};
   const kinds = [
     "lifecycle_phase",
+    "lifecycle_stage",
     "subtype",
     "approval_status",
     "data_quality_band",

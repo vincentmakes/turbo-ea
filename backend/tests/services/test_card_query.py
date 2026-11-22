@@ -506,6 +506,23 @@ class TestParse:
         tags = [str(uuid.UUID(int=i + 1)) for i in range(51)]
         assert _parse_code(_q("A", where={"tags": tags})) == "invalid_query"
 
+    def test_fifty_maximum_stage_keys_and_empty_are_accepted(self):
+        stages = [f"s{i:02d}" + "x" * 47 for i in range(50)] + ["__empty__"]
+        assert (
+            parse_card_query(_q("A", where={"lifecycle_stage": stages})).where.lifecycle_stage
+            == stages
+        )
+
+    def test_stage_limit_rejects_extra_key_or_repeated_empty(self):
+        stages = [f"stage{i}" for i in range(50)]
+        assert (
+            _parse_code(_q("A", where={"lifecycle_stage": stages + ["extra"]})) == "invalid_query"
+        )
+        assert (
+            _parse_code(_q("A", where={"lifecycle_stage": stages + ["__empty__", "__empty__"]}))
+            == "invalid_query"
+        )
+
     def test_a_tag_list_must_be_a_list(self):
         assert _parse_code(_q("A", where={"tags": TAG_1})) == "invalid_query"
 

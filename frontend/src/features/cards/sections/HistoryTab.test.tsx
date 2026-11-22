@@ -44,6 +44,26 @@ function renderTab() {
 }
 
 describe("HistoryTab — approval status changes", () => {
+  it("shows current stage labels and retains unknown historical keys", async () => {
+    meta.type = { key: "Application", color: "#0f7eb5", fields_schema: [], lifecycle_stages: [{ key: "pilot_stage", label: "Pilot", color: "#123456" }] };
+    vi.mocked(api.get).mockResolvedValue([{ id: "stage-event", event_type: "card.updated", created_at: "2026-09-04T10:00:00Z", data: { changes: { lifecycle_stage: { old: "retired_stage", new: "pilot_stage" } } } }]);
+    renderTab();
+    expect(await screen.findByText("Current stage")).toBeInTheDocument();
+    expect(screen.getByText("Pilot")).toBeInTheDocument();
+    expect(screen.getByText("retired_stage")).toBeInTheDocument();
+  });
+
+  it("does not confuse null or inherited object properties with stage keys", async () => {
+    meta.type = { key: "Application", color: "#0f7eb5", fields_schema: [], lifecycle_stages: [{ key: "null", label: "Null stage", color: "#123456" }] };
+    vi.mocked(api.get).mockResolvedValue([
+      { id: "assigned", event_type: "card.updated", created_at: "2026-09-04T10:00:00Z", data: { changes: { lifecycle_stage: { old: null, new: "null" } } } },
+      { id: "cleared", event_type: "card.updated", created_at: "2026-09-04T10:00:00Z", data: { changes: { lifecycle_stage: { old: "constructor", new: null } } } },
+    ]);
+    renderTab();
+    expect(await screen.findByText("constructor")).toBeInTheDocument();
+    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.getByText("Null stage")).toBeInTheDocument();
+  });
   beforeEach(() => {
     vi.clearAllMocks();
   });

@@ -70,6 +70,7 @@ STATUS_BREAKING_FIELDS: frozenset[str] = frozenset(
         "name",
         "description",
         "lifecycle",
+        "lifecycle_stage",
         "attributes",
         "subtype",
         "alias",

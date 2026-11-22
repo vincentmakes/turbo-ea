@@ -225,6 +225,10 @@ describe("lifecycle mapping", () => {
 });
 
 describe("draftProblem", () => {
+  it("validates current stage conditions at root and related nodes", () => {
+    expect(draftProblem({ type: "A", where: { lifecycle_stage: [] } })).toBe("empty_values");
+    expect(draftProblem({ type: "A", related: [{ relation: "r", type: "B", where: { lifecycle_stage: [] } }] })).toBe("empty_values");
+  });
   it("names a missing type, then a condition without values, anywhere in the tree", () => {
     expect(draftProblem({ type: "" })).toBe("empty_type");
     expect(draftProblem({ type: "", where: { subtype: [] } })).toBe("empty_type");
@@ -256,6 +260,12 @@ describe("draftProblem", () => {
 });
 
 describe("sendableQuery", () => {
+  it("preserves current stages on root and related nodes", () => {
+    const query: CardQuery = { type: "A", where: { lifecycle_stage: ["pilot"] }, related: [
+      { relation: "r", type: "B", where: { lifecycle_stage: ["running"] } },
+    ] };
+    expect(sendableQuery(query)).toEqual(query);
+  });
   it("leaves out the empty condition lists on the start node, keeping the rest", () => {
     const query: CardQuery = {
       type: "A",

@@ -6,9 +6,14 @@ from app.models.card import Card
 from app.models.card_type import CardType
 
 
-async def lock_type(db: AsyncSession, type_key: str) -> CardType:
+async def lock_type(db: AsyncSession, type_key: str, *, shared: bool = False) -> CardType:
     card_type = (
-        await db.execute(select(CardType).where(CardType.key == type_key).with_for_update())
+        await db.execute(
+            select(CardType)
+            .where(CardType.key == type_key)
+            .with_for_update(read=shared)
+            .execution_options(populate_existing=True)
+        )
     ).scalar_one_or_none()
     if card_type is None:
         raise HTTPException(404, "Card type not found")
@@ -18,7 +23,7 @@ async def lock_type(db: AsyncSession, type_key: str) -> CardType:
 async def validate_stage(db: AsyncSession, type_key: str, stage: str | None) -> None:
     if stage is None:
         return
-    card_type = await lock_type(db, type_key)
+    card_type = await lock_type(db, type_key, shared=True)
     if stage not in {item["key"] for item in card_type.lifecycle_stages or []}:
         raise HTTPException(400, "Unknown lifecycle stage")
 
@@ -40,7 +45,10 @@ async def ensure_stages_available(db: AsyncSession, type_key: str, stages: list[
     return card_type
 
 
-async def update_stages(db: AsyncSession, type_key: str, stages: list[dict]) -> CardType:
+async def update_stages(
+    db: AsyncSession, type_key: str, stages: list[dict]
+) -> tuple[CardType, list[dict]]:
     card_type = await ensure_stages_available(db, type_key, stages)
+    previous = card_type.lifecycle_stages or []
     card_type.lifecycle_stages = stages
-    return card_type
+    return card_type, previous

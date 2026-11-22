@@ -337,10 +337,22 @@ class BookmarkShareEntry(BaseModel):
     can_edit: bool = False
 
 
-class BookmarkCreate(BaseModel):
+class BookmarkFilters(BaseModel):
+    filters: dict | None = None
+
+    @field_validator("filters")
+    @classmethod
+    def validate_lifecycle_stages(cls, filters: dict | None) -> dict | None:
+        if filters is not None and "lifecycleStages" in filters:
+            stages = filters["lifecycleStages"]
+            if not isinstance(stages, list) or not all(isinstance(s, str) for s in stages):
+                raise ValueError("lifecycleStages must be a list of strings")
+        return filters
+
+
+class BookmarkCreate(BookmarkFilters):
     name: str
     card_type: str | None = None
-    filters: dict | None = None
     columns: list | None = None
     column_state: list | None = None
     column_filter_model: dict | None = None
@@ -356,10 +368,9 @@ class BookmarkCreate(BaseModel):
     query: dict | None = None
 
 
-class BookmarkUpdate(BaseModel):
+class BookmarkUpdate(BookmarkFilters):
     name: str | None = None
     card_type: str | None = None
-    filters: dict | None = None
     columns: list | None = None
     column_state: list | None = None
     column_filter_model: dict | None = None

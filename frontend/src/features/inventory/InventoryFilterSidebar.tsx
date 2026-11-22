@@ -1533,8 +1533,8 @@ export default function InventoryFilterSidebar({
                             variant={selected ? "filled" : "outlined"}
                             onClick={() => toggleLifecycleStage(stage.key)}
                             sx={selected
-                              ? { bgcolor: stage.color, color: "common.white", borderColor: stage.color }
-                              : { borderColor: stage.color, color: stage.color }}
+                              ? { bgcolor: stage.color, color: readableTextColor(stage.color), borderColor: stage.color }
+                              : { borderColor: stage.color, color: "text.primary" }}
                           />
                         );
                       })}

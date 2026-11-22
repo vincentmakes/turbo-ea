@@ -253,6 +253,29 @@ class TestDeliverNotificationBatch:
     async def _user(self, db, email):
         return await create_user(db, email=email, role="member")
 
+    async def test_inactive_recipient_gets_neither_email_nor_bell(self, db, monkeypatch):
+        await create_role(db, key="member", permissions={})
+        active = await self._user(db, "active@test.com")
+        inactive = await self._user(db, "inactive@test.com")
+        inactive.is_active = False
+        await db.flush()
+        monkeypatch.setattr("app.database.async_session", _session_factory_for(db))
+        sent = []
+
+        async def fake_send(**kwargs):
+            sent.append(kwargs["to"])
+            return True
+
+        with patch("app.services.email_service.send_notification_email", new=fake_send):
+            count = await deliver_notification_batch(
+                [{"user_id": user.id, "title": "T"} for user in (active, inactive)],
+                notif_type="survey_request",
+            )
+        rows = (await db.execute(select(Notification))).scalars().all()
+        assert count == 1
+        assert [row.user_id for row in rows] == [active.id]
+        assert sent == [active.email]
+
     async def test_creates_rows_and_emails_opted_in_users(self, db, monkeypatch):
         await create_role(db, key="member", permissions={})
         alice = await self._user(db, "alice@test.com")

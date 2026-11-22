@@ -35,12 +35,16 @@ export function bookmarkFilters(bm: Bookmark): Filters | null {
   const queryTypes = bm.query ? startTypes(bm.query) : [];
   if (!f && queryTypes.length === 0) return null;
   const src: Partial<Filters> = f ?? {};
+  const types = queryTypes.length > 0 ? queryTypes : src.types || [];
+  const lifecycleStages = Array.isArray(types) && types.length === 1 && typeof types[0] === "string"
+    && Array.isArray(src.lifecycleStages) && src.lifecycleStages.every((stage) => typeof stage === "string")
+    ? src.lifecycleStages : [];
   return {
-    types: queryTypes.length > 0 ? queryTypes : src.types || [],
+    types,
     search: src.search || "",
     subtypes: src.subtypes || [],
     lifecyclePhases: src.lifecyclePhases || [],
-    lifecycleStages: src.lifecycleStages || [],
+    lifecycleStages,
     // Views saved before bands existed carry a `dataQualityMin` threshold.
     dataQualityBands: normalizeDataQualityFilter(src),
     approvalStatuses: src.approvalStatuses || [],

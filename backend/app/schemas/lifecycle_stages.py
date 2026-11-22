@@ -28,3 +28,7 @@ class LifecycleStagesUpdate(BaseModel):
         if len(keys) != len(set(keys)):
             raise ValueError("Lifecycle stage keys must be unique")
         return self
+
+
+class LifecycleStagesResponse(BaseModel):
+    lifecycle_stages: list[LifecycleStage]

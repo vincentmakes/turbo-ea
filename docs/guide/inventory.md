@@ -16,7 +16,7 @@ The left sidebar panel allows you to **filter** cards by different criteria:
 - **Approval Status** — Draft, Approved, Broken, or Rejected
 - **Origin** — The channel each card was created through: **Web UI**, **MCP** (an AI assistant connected through the [MCP server](../admin/mcp.md)), **API** (a script or integration), **Extension** or **System** (a background job). Pick **MCP** to review everything an agent added. Cards created before Turbo EA recorded the channel match none of the options
 - **Lifecycle** — Filter by lifecycle phase: Plan, Phase In, Active, Phase Out, End of Life
-- **Current stage** — Select one card type with [configured lifecycle stages](../admin/metamodel.md#lifecycle-stages), then choose the stages you want to see. This filter uses the stage recorded on each card.
+- **Current stage** — Select one card type with [configured lifecycle stages](../admin/metamodel.md#lifecycle-stages), then choose the stages you want to see. This filter uses the stage recorded on each card. In a query view, you can also use **Current stage** as a condition on a card type with configured stages.
 - **Data Quality** — Band filtering (multi-select): Complete (≥80%), Partial (40–79%), Minimal (below 40%). Same bands the [Data Quality report](reports.md#data-quality-report) charts, so clicking a bar segment there lands here.
 - **Orphaned** — Only cards with no relation in either direction. Evaluated server-side, so it works with no card type selected.
 - **Stale** — Only cards not updated in the last 90 days. Both mirror the [Data Quality report](reports.md#data-quality-report)'s KPI tiles, so clicking a tile there lands here.

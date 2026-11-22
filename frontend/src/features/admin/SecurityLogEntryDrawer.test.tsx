@@ -545,6 +545,23 @@ describe("SecurityLogEntryDrawer — change items", () => {
     ]);
   });
 
+  it("describes lifecycle stage changes with their labels and values", () => {
+    renderDrawer(entry({ details: { items: [
+      { kind: "lifecycle_stage.added", label: "Pilot" },
+      { kind: "lifecycle_stage.removed", label: "Retired" },
+      { kind: "lifecycle_stage.renamed", old: "Pilot", new: "Trial" },
+      { kind: "lifecycle_stage.changed", label: "Trial", property: "color", old: "#123456", new: "#654321" },
+      { kind: "lifecycle_stage.changed", label: "Trial", property: "position", old: 1, new: 2 },
+    ] } }));
+    expect(items()).toEqual([
+      "Lifecycle stage “Pilot” added",
+      "Lifecycle stage “Retired” removed",
+      "Lifecycle stage renamed: “Pilot” → “Trial”",
+      "Lifecycle stage “Trial”: Colour changed from #123456 to #654321",
+      "Lifecycle stage “Trial”: Position changed from 1 to 2",
+    ]);
+  });
+
   it("names a translation's scope and a bare translated property", () => {
     renderDrawer(
       entry({

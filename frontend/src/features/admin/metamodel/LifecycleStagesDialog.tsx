@@ -12,7 +12,6 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { api, ApiError } from "@/api/client";
 import ColorPicker from "@/components/ColorPicker";
-import KeyInput, { isValidKey } from "@/components/KeyInput";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import type { CardType, LifecycleStage } from "@/types";
 import { DEFAULT_OPTION_COLOR } from "./constants";
@@ -24,15 +23,18 @@ interface Props {
   onSaved: () => void;
 }
 
+type StageRow = LifecycleStage & { persisted: boolean };
+const validStageKey = (key: string) => key.length <= 50 && /^[A-Za-z][A-Za-z0-9_]*$/.test(key);
+
 export default function LifecycleStagesDialog({ open, cardType, onClose, onSaved }: Props) {
   const { t } = useTranslation(["admin", "common", "validation"]);
-  const [stages, setStages] = useState<LifecycleStage[]>([]);
+  const [stages, setStages] = useState<StageRow[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (open) {
-      setStages((cardType.lifecycle_stages ?? []).map((stage) => ({ ...stage })));
+      setStages((cardType.lifecycle_stages ?? []).map((stage) => ({ ...stage, persisted: true })));
       setError("");
     }
   }, [open, cardType]);
@@ -48,7 +50,7 @@ export default function LifecycleStagesDialog({ open, cardType, onClose, onSaved
     });
   };
   const keys = stages.map((stage) => stage.key);
-  const invalid = stages.some((stage) => !isValidKey(stage.key) || !stage.label.trim())
+  const invalid = stages.some((stage) => !validStageKey(stage.key) || !stage.label.trim() || Array.from(stage.label).length > 200)
     || new Set(keys).size !== keys.length;
 
   const save = async () => {
@@ -56,7 +58,7 @@ export default function LifecycleStagesDialog({ open, cardType, onClose, onSaved
     setError("");
     try {
       await api.put(`/metamodel/types/${encodeURIComponent(cardType.key)}/lifecycle-stages`, {
-        stages: stages.map((stage) => ({ ...stage, label: stage.label.trim() })),
+        stages: stages.map(({ persisted: _persisted, ...stage }) => ({ ...stage, label: stage.label.trim() })),
       });
       onSaved();
       onClose();
@@ -81,13 +83,15 @@ export default function LifecycleStagesDialog({ open, cardType, onClose, onSaved
         </Typography>
         {stages.map((stage, index) => (
           <Box key={index} sx={{ display: "flex", gap: 1, mb: 1, alignItems: "flex-start", flexWrap: "wrap" }}>
-            <KeyInput
+            <TextField
               size="small"
               label={t("metamodel.fieldEditor.optionKeyLabel")}
               value={stage.key}
-              onChange={(key) => updateStage(index, { key })}
-              locked={(cardType.lifecycle_stages ?? []).some((saved) => saved.key === stage.key)}
-              lockedReason={t("metamodel.lifecycleStages.keyLocked")}
+              onChange={(event) => updateStage(index, { key: event.target.value })}
+              disabled={saving || stage.persisted}
+              error={!!stage.key && !validStageKey(stage.key)}
+              helperText={stage.persisted ? t("metamodel.lifecycleStages.keyLocked") : t("metamodel.lifecycleStages.keyHint")}
+              slotProps={{ htmlInput: { maxLength: 50 } }}
               required
             />
             <TextField
@@ -95,21 +99,22 @@ export default function LifecycleStagesDialog({ open, cardType, onClose, onSaved
               label={t("metamodel.fieldEditor.optionLabelLabel")}
               value={stage.label}
               onChange={(event) => updateStage(index, { label: event.target.value })}
+              disabled={saving}
               required
             />
-            <ColorPicker compact value={stage.color} onChange={(color) => updateStage(index, { color })} />
-            <IconButton aria-label={t("metamodel.lifecycleStages.moveUp")} disabled={index === 0} onClick={() => move(index, -1)}>
+            <ColorPicker compact value={stage.color} disabled={saving} onChange={(color) => updateStage(index, { color })} />
+            <IconButton aria-label={t("metamodel.lifecycleStages.moveUp")} disabled={saving || index === 0} onClick={() => move(index, -1)}>
               <MaterialSymbol icon="arrow_upward" size={18} />
             </IconButton>
-            <IconButton aria-label={t("metamodel.lifecycleStages.moveDown")} disabled={index === stages.length - 1} onClick={() => move(index, 1)}>
+            <IconButton aria-label={t("metamodel.lifecycleStages.moveDown")} disabled={saving || index === stages.length - 1} onClick={() => move(index, 1)}>
               <MaterialSymbol icon="arrow_downward" size={18} />
             </IconButton>
-            <IconButton aria-label={t("common:actions.delete")} onClick={() => setStages((previous) => previous.filter((_, i) => i !== index))}>
+            <IconButton aria-label={t("common:actions.delete")} disabled={saving} onClick={() => setStages((previous) => previous.filter((_, i) => i !== index))}>
               <MaterialSymbol icon="close" size={18} />
             </IconButton>
           </Box>
         ))}
-        <Button size="small" onClick={() => setStages((previous) => [...previous, { key: "", label: "", color: DEFAULT_OPTION_COLOR }])}>
+        <Button size="small" disabled={saving || stages.length >= 50} onClick={() => setStages((previous) => [...previous, { key: "", label: "", color: DEFAULT_OPTION_COLOR, persisted: false }])}>
           {t("metamodel.lifecycleStages.add")}
         </Button>
       </DialogContent>

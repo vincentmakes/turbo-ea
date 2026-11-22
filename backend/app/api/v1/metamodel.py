@@ -41,7 +41,7 @@ from app.models.resource_type import ResourceType
 from app.models.role import Role
 from app.models.stakeholder import Stakeholder
 from app.models.user import User
-from app.schemas.lifecycle_stages import LifecycleStagesUpdate
+from app.schemas.lifecycle_stages import LifecycleStagesResponse, LifecycleStagesUpdate
 from app.schemas.principle import (
     PrincipleImportRequest,
     PrincipleImportResponse,
@@ -1022,7 +1022,7 @@ async def get_type(
     return _serialize_type(t, include_role_permissions=rbac)
 
 
-@router.put("/types/{key}/lifecycle-stages")
+@router.put("/types/{key}/lifecycle-stages", response_model=LifecycleStagesResponse)
 async def put_lifecycle_stages(
     key: str,
     body: LifecycleStagesUpdate,
@@ -1030,11 +1030,8 @@ async def put_lifecycle_stages(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "admin.metamodel")
-    previous = await lifecycle_stages.lock_type(db, key)
-    old_stages = previous.lifecycle_stages or []
-    card_type = await lifecycle_stages.update_stages(
-        db, key, [stage.model_dump() for stage in body.stages]
-    )
+    stages = [stage.model_dump() for stage in body.stages]
+    card_type, old_stages = await lifecycle_stages.update_stages(db, key, stages)
     if old_stages != card_type.lifecycle_stages:
         await audit_log.record(
             db,
@@ -1042,12 +1039,12 @@ async def put_lifecycle_stages(
             category="admin",
             actor=user,
             target=("card_type", card_type.key, card_type.label),
-            changes={
-                "lifecycle_stages": {
-                    "old": [stage["label"] for stage in old_stages],
-                    "new": [stage["label"] for stage in card_type.lifecycle_stages],
-                }
-            },
+            items=audit_changes.keyed_list_items(
+                [{**stage, "position": index} for index, stage in enumerate(old_stages, 1)],
+                [{**stage, "position": index} for index, stage in enumerate(stages, 1)],
+                noun="lifecycle_stage",
+                props=("color", "position"),
+            ),
         )
     await db.commit()
     return {"lifecycle_stages": card_type.lifecycle_stages}

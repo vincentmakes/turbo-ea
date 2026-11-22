@@ -1049,6 +1049,30 @@ async def execute_rollback(
             },
         )
 
+    # A removed vocabulary key cannot be restored, even when later batch
+    # conflicts are forced. Validate every inverse before opening the batch.
+    from app.services.lifecycle_stages import validate_stage
+
+    for op in ops:
+        fields = op.get("fields") or {}
+        if op.get("op") != "restore_card_fields" or not fields.get("lifecycle_stage"):
+            continue
+        card = await _get_card(db, op.get("card_id"))
+        if card is not None:
+            try:
+                await validate_stage(db, card.type, fields["lifecycle_stage"])
+            except HTTPException as exc:
+                if exc.status_code != 400:
+                    raise
+                raise HTTPException(
+                    409,
+                    detail={
+                        "error": "rollback_conflict",
+                        "message": "Lifecycle stage is no longer available",
+                        "conflicting_batches": [],
+                    },
+                ) from exc
+
     # Open the rollback's own batch row first so the events we emit
     # while reverting are themselves stamped with a batch id. The
     # origin follows the caller's request (web / api / mcp) — not

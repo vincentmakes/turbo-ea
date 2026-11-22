@@ -1007,3 +1007,24 @@ async def test_rollback_and_inventory_relation_delete_do_not_deadlock(test_engin
             await cleanup.execute(delete(RelationType).where(RelationType.id == rt.id))
             await cleanup.execute(delete(CardType).where(CardType.id == ct.id))
             await cleanup.execute(delete(User).where(User.id == actor.id))
+
+
+async def test_removed_stage_cannot_be_restored_even_with_force(db, actor):
+    from tests.conftest import create_card_type
+
+    card_type = await create_card_type(db, key="Application")
+    card_type.lifecycle_stages = []
+    card = await create_card(db, name="Stage rollback")
+    batch = await _open_batch(db, actor)
+    with _InBatch(batch):
+        await event_bus.publish(
+            "card.updated",
+            {"id": str(card.id), "changes": {"lifecycle_stage": {"old": "removed", "new": None}}},
+            db=db,
+            card_id=card.id,
+        )
+    with pytest.raises(HTTPException) as exc:
+        await execute_rollback(db, batch, actor.id, force=True)
+    assert exc.value.status_code == 409
+    assert exc.value.detail["error"] == "rollback_conflict"
+    assert card.lifecycle_stage is None

@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, ClassVar, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from fastapi import HTTPException
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.services.card_query_matches import MAX_IDS, MAX_KEY_CHARS, MAX_NODES
 
@@ -131,9 +132,20 @@ class CardUpdate(BaseModel):
         return _validate_jsonb_dict(v, "attributes")
 
 
+class CardBulkFields(CardUpdate):
+    lifecycle_stage: ClassVar = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_lifecycle_stage(cls, value: Any) -> Any:
+        if isinstance(value, dict) and "lifecycle_stage" in value:
+            raise HTTPException(400, "Lifecycle stages cannot be edited in bulk")
+        return value
+
+
 class CardBulkUpdate(BaseModel):
     ids: list[str]
-    updates: CardUpdate
+    updates: CardBulkFields
     # Mirror the dry-run support already on `CardBulkCreateRequest`. When
     # true, the handler runs every validator and rolls the transaction
     # back instead of committing — used by the MCP `update_cards_bulk`

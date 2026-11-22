@@ -16,7 +16,7 @@ Det venstre sidepanel lader dig **filtrere** kort efter forskellige kriterier:
 - **Godkendelsesstatus** — Draft, Approved, Broken eller Rejected
 - **Oprindelse** — Den kanal, hvert kort blev oprettet via: **Webgrænseflade**, **MCP** (en AI-assistent forbundet via [MCP-serveren](../admin/mcp.md)), **API** (et script eller en integration), **Udvidelse** eller **System** (et baggrundsjob). Vælg **MCP** for at gennemgå alt, en agent har tilføjet. Kort oprettet, før Turbo EA registrerede kanalen, matcher ingen af mulighederne
 - **Livscyklus** — Filtrer efter livscyklus-fase: Plan, Phase In, Active, Phase Out, End of Life
-- **Aktuel fase** — Vælg en korttype med [konfigurerede livscyklusfaser](../admin/metamodel.md#lifecycle-stages), og vælg derefter de faser, du vil se. Filteret bruger den fase, der er registreret på hvert kort.
+- **Aktuel fase** — Vælg en korttype med [konfigurerede livscyklusfaser](../admin/metamodel.md#lifecycle-stages), og vælg derefter de faser, du vil se. Filteret bruger den fase, der er registreret på hvert kort. I en forespørgselsvisning kan du også bruge **Aktuel fase** som en betingelse for en korttype med konfigurerede faser.
 - **Datakvalitet** — Båndfiltrering (multivalg): Komplet (≥80%), Delvis (40–79%), Minimal (under 40%). Samme bånd som [Datakvalitetsrapporten](reports.md#data-quality-report), så et klik på et bjælkesegment der lander her.
 - **Forældreløse** — Kun kort uden relationer i nogen retning. Vurderes på serveren og virker derfor uden en valgt korttype.
 - **Forældede** — Kun kort, der ikke er opdateret de seneste 90 dage. Begge spejler felterne i [Datakvalitetsrapporten](reports.md#data-quality-report), så et klik på et felt lander her.

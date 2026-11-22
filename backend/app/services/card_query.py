@@ -195,7 +195,9 @@ class CardWhere(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     lifecycle_phase: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
-    lifecycle_stage: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
+    lifecycle_stage: list[Annotated[str, Field(max_length=50)]] | None = Field(
+        None, max_length=_MAX_VALUES + 1
+    )
     subtype: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
     approval_status: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
     data_quality_band: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
@@ -400,6 +402,8 @@ def _where_problem(where: CardWhere) -> str | None:
     lists.extend((where.attributes or {}).values())
     if any(values is not None and not values for values in lists):
         return "empty_values"
+    if where.lifecycle_stage and not valid_lifecycle_stages(where.lifecycle_stage):
+        return "invalid_query"
     if where.include_descendants and where.cards is None:
         return "descendants_without_cards"
     if any(p not in LIFECYCLE_PHASES for p in where.lifecycle_phase or []):
@@ -409,6 +413,22 @@ def _where_problem(where: CardWhere) -> str | None:
     if any(s not in EOL_STATUS_VALUES for s in where.eol_status or []):
         return "unknown_eol_status"
     return None
+
+
+def valid_lifecycle_stages(stages: list[str]) -> bool:
+    return (
+        len(stages) - stages.count(EMPTY_KEY) <= 50
+        and stages.count(EMPTY_KEY) <= 1
+        and all(len(stage) <= 50 for stage in stages)
+    )
+
+
+def lifecycle_stage_condition(card, stages: list[str]):
+    keys = [stage for stage in stages if stage != EMPTY_KEY]
+    options = [card.lifecycle_stage.in_(keys)] if keys else []
+    if EMPTY_KEY in stages:
+        options.append(card.lifecycle_stage.is_(None))
+    return or_(*options) if options else card.id.in_([])
 
 
 #: The ``where`` keys whose values are ids: the grammar's only legitimate UUIDs.
@@ -804,11 +824,7 @@ def where_conditions(
             options.append(phase.is_(None))
         clauses.append(or_(*options))
     if where.lifecycle_stage:
-        keys = [key for key in where.lifecycle_stage if key != EMPTY_KEY]
-        options = [card.lifecycle_stage.in_(keys)] if keys else []
-        if EMPTY_KEY in where.lifecycle_stage:
-            options.append(card.lifecycle_stage.is_(None))
-        clauses.append(or_(*options))
+        clauses.append(lifecycle_stage_condition(card, where.lifecycle_stage))
     if where.subtype:
         clauses.append(subtype_condition(where.subtype, card=card))
     if where.approval_status:

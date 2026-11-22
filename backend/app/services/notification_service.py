@@ -290,7 +290,11 @@ async def deliver_notification_batch(
                 # Not gated on ``notif``: a recipient who muted this type in
                 # the bell but kept it in their inbox still gets the email,
                 # they just have no row to stamp ``is_emailed`` on.
-                if recipient and _user_wants_notification(recipient, notif_type, "email"):
+                if (
+                    recipient
+                    and recipient.is_active
+                    and _user_wants_notification(recipient, notif_type, "email")
+                ):
                     emails.append(
                         (
                             notif.id if notif else None,
