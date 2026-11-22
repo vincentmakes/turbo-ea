@@ -383,12 +383,15 @@ async def open_batch(key: str, label: str) -> AsyncIterator[ExtBatch]:
 async def _existing_batch_id(db: AsyncSession, batch_id: uuid.UUID | None) -> str | None:
     """``batch_id`` as a string when it names a stored mutation batch, else None.
 
-    The inbound id comes from the ``X-Turbo-EA-Batch`` header (an MCP call
-    opened that batch and is calling an extension route inside it); it is
-    only a parsed UUID, so it is recorded only once it is known to exist.
+    Server-created context is checked for existence. An incoming candidate
+    is checked for actor ownership and an open, non-preview state.
     """
     if batch_id is None:
-        return None
+        from app.services.event_bus import event_bus
+
+        batch_id = await event_bus.validated_request_batch(db, for_update=False)
+        if batch_id is None:
+            return None
     row = await db.get(MutationBatch, batch_id)
     return str(batch_id) if row is not None else None
 

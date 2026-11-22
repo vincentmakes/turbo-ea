@@ -623,7 +623,7 @@ async def apply_responses(
     # back would vanish while the request still pointed every later event at
     # it.
     opened_batch = None
-    if request_batch_id.get() is None:
+    if request_batch_id.get() is None and await event_bus.validated_request_batch(db) is None:
         opened_batch = await event_bus.open_auto_batch(
             db, user_id=user.id, event_type="card.updated"
         )

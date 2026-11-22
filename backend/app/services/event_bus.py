@@ -6,6 +6,7 @@ from contextvars import ContextVar
 from datetime import datetime, timezone
 from typing import Any, AsyncGenerator
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.event import Event
@@ -18,12 +19,18 @@ from app.models.event import Event
 # audit log stays clean for pre-existing rows.
 request_origin: ContextVar[str | None] = ContextVar("request_origin", default=None)
 
-# Set by the mutation-batch service when an MCP tool wrapper opens a batch
-# at the start of a request. ``publish()`` stamps the batch id onto every
+# Trusted server-created batch context. Incoming candidates are checked
+# separately against the authenticated actor and the batch lifecycle.
+# ``publish()`` stamps the batch id onto every
 # event emitted during the request so ``GET /mutation-batches/{id}/events``
 # can return the whole batch's audit trail in a single query — that is the
 # foundation S6 (change history) and S7 (rollback) ride on.
 request_batch_id: ContextVar[uuid.UUID | None] = ContextVar("request_batch_id", default=None)
+# Incoming ids remain untrusted until checked in the event's transaction.
+request_candidate_batch_id: ContextVar[uuid.UUID | None] = ContextVar(
+    "request_candidate_batch_id", default=None
+)
+request_actor_id: ContextVar[uuid.UUID | None] = ContextVar("request_actor_id", default=None)
 
 # Captured by the same middleware as ``request_origin``: the HTTP method +
 # path of the in-flight request. Used to label auto-created batches when a
@@ -93,6 +100,8 @@ class EventBus:
                 "impersonated_role": impersonated_role,
             }
         effective_batch_id = batch_id if batch_id is not None else request_batch_id.get()
+        if effective_batch_id is None and db is not None:
+            effective_batch_id = await self.validated_request_batch(db)
 
         # Lazy auto-batch creation: web-UI and direct-API writes do not
         # open a mutation batch the way MCP tools do, so without this
@@ -100,8 +109,7 @@ class EventBus:
         # and never surface on the Admin → Audit log page. Create one on
         # the first publish in the request and stash it on the
         # contextvar so any subsequent publish in the same request
-        # shares it. MCP requests already set request_batch_id via the
-        # X-Turbo-EA-Batch header, so they short-circuit this branch.
+        # shares it. A valid incoming batch was checked above.
         if (
             effective_batch_id is None
             and db is not None
@@ -146,6 +154,26 @@ class EventBus:
                 dead.append(q)
         for q in dead:
             self._subscribers.remove(q)
+
+    async def validated_request_batch(
+        self, db: AsyncSession, *, for_update: bool = True
+    ) -> uuid.UUID | None:
+        from app.models.mutation_batch import MutationBatch
+
+        candidate = request_candidate_batch_id.get()
+        actor = request_actor_id.get()
+        if candidate is None or actor is None:
+            return None
+        query = select(MutationBatch).where(
+            MutationBatch.id == candidate,
+            MutationBatch.actor_user_id == actor,
+            MutationBatch.committed_at.is_(None),
+            MutationBatch.dry_run.is_(False),
+        )
+        if for_update:
+            query = query.with_for_update()
+        batch = (await db.execute(query)).scalar_one_or_none()
+        return batch.id if batch is not None else None
 
     async def open_auto_batch(
         self,
