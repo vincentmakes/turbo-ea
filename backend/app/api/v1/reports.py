@@ -5,6 +5,7 @@ import logging
 import re
 import uuid
 from datetime import datetime, timedelta, timezone
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import and_, case, func, not_, or_, select
@@ -27,6 +28,12 @@ from app.models.tag import CardTag, Tag, TagGroup
 from app.models.todo import Todo
 from app.models.user import User
 from app.models.user_favorite import UserFavorite
+from app.schemas.cost_report import (
+    CostSankeyResponse,
+    CostScopeItem,
+    CostScopeResponse,
+    CostTreemapResponse,
+)
 from app.schemas.licenses import LicenseReportOut
 from app.services.bo_relationship_constants import APPLICATION_RELATION, OWNERSHIP_KEY
 from app.services.card_costs import COST_EVENT, COST_ITEM_TYPES, DERIVED_KEY
@@ -50,6 +57,7 @@ from app.services.card_read_scope import (
     require_card_readable,
     scrub_event_payloads,
 )
+from app.services.card_search import card_search_filter, card_search_rank
 from app.services.cost_attribution import SPLIT, parse_attribution, split_share
 from app.services.cost_components import cost_components
 from app.services.cost_event_redaction import redact_cost_events
@@ -105,6 +113,65 @@ from app.services.yearly_rows import WINDOW_PAST
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 log = logging.getLogger(__name__)
+
+
+@router.get("/cost-scope", response_model=CostScopeResponse)
+async def cost_scope(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    type: str = Query(...),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(1000, ge=1, le=10000),
+    search: str | None = Query(None, max_length=200),
+):
+    await PermissionService.require_permission(db, user, "costs.view")
+    types = {key.strip() for key in type.split(",")}
+    if not types or not types <= COST_ITEM_TYPES:
+        raise HTTPException(status_code=422, detail="Unsupported cost scope type")
+
+    read_scope = await CardReadScope.load(db, user, include_subtype_denials=True)
+    hierarchy_filters = (
+        Card.status == "ACTIVE",
+        Card.type.in_(types),
+        *read_scope.where(Card, mode="module"),
+    )
+    filters = list(hierarchy_filters)
+    if search:
+        filters.append(card_search_filter(search, in_description=False))
+    total = (await db.execute(select(func.count(Card.id)).where(*filters))).scalar_one()
+    ordering = [func.lower(Card.name), Card.name, Card.id]
+    if search:
+        ordering.insert(0, card_search_rank(search))
+    rows = (
+        await db.execute(
+            select(Card.id, Card.name, Card.type, Card.parent_id, Card.alias)
+            .where(*filters)
+            .order_by(*ordering)
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+    ).all()
+    parent_ids = {row.parent_id for row in rows if row.parent_id is not None}
+    visible_parents = set()
+    if parent_ids:
+        visible_parents = set(
+            (await db.execute(select(Card.id).where(Card.id.in_(parent_ids), *hierarchy_filters)))
+            .scalars()
+            .all()
+        )
+    return CostScopeResponse(
+        items=[
+            CostScopeItem(
+                id=row.id,
+                name=row.name,
+                type=row.type,
+                parent_id=row.parent_id if row.parent_id in visible_parents else None,
+                alias=row.alias,
+            )
+            for row in rows
+        ],
+        total=total,
+    )
 
 
 def _current_lifecycle_phase(lifecycle: dict | None) -> str | None:
@@ -1512,7 +1579,7 @@ async def _validated_cost_request(
     return type_keys, field_keys
 
 
-@router.get("/cost-treemap")
+@router.get("/cost-treemap", response_model=CostTreemapResponse, response_model_exclude_unset=True)
 async def cost_treemap(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -1554,6 +1621,7 @@ async def cost_treemap(
         db, user, (card.id for card, _ in sheets)
     )
     sheets = [(card, cost) for card, cost in sheets if card.id in allowed]
+    logos = await logo_updated_map(db, [card for card, _ in sheets])
 
     items: list[dict] = [
         {
@@ -1563,6 +1631,7 @@ async def cost_treemap(
             "cost": cost,
             "lifecycle": card.lifecycle,
             "attributes": card.attributes,
+            **({"logo_updated_at": logos[card.id].isoformat()} if card.id in logos else {}),
         }
         for card, cost in sheets
     ]
@@ -1648,7 +1717,7 @@ async def _parent_type_link_counts(
     return {sheet_id: len(parents) for sheet_id, parents in linked.items()}
 
 
-@router.get("/cost-sankey")
+@router.get("/cost-sankey", response_model=CostSankeyResponse, response_model_exclude_unset=True)
 async def cost_sankey(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),

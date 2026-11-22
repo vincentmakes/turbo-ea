@@ -298,6 +298,8 @@ Element- og relationsnavnene er dem fra Open Groups udvekslingsformat. Standardv
 
 Hver post har en fast **nøgle**, en **etiket** og valgfri **oversættelser** af etiketten. Poster **arkiveres**, de slettes ikke: en arkiveret post kan ikke længere føjes til et kort, men beløb, der allerede er indtastet, tæller stadig med i TCO og i [omkostningsrapporten](../guide/reports.md#omkostningsrapport).
 
+Den downloadbare [Excel-importskabelon](../guide/reports.da.md#import-costs-from-excel) bruger dette katalog. Når en katalogændring gemmes, opdateres referencearket til efterfølgende downloads. Den aktuelle skabelon genbruges, indtil kataloget ændres. Referencearket indeholder aktive nøgler i katalogrækkefølge, men ingen kortdata eller beløb.
+
 Indtastning af beløb på et kort kræver `costs.edit` (eller en stakeholder-rolle, der må redigere kortet); ændring af kataloget kræver tilladelsen til administration af metamodellen.
 
 ## Licenstyper

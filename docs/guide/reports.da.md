@@ -163,7 +163,7 @@ Skift til **lagdelt afhængighedsvisning** ved hjælp af view-mode-knapperne i v
 **Omkostningsrapporten** giver finansiel analyse af dit teknologilandskab:
 
 - **Treemap-visning** — Indlejrede rektangler størrelses-justeret efter omkostning, med valgfri gruppering (f.eks. efter organisation eller kompetence)
-- **Bar chart-visning** — Omkostnings­sammenligning på tværs af komponenter
+- **Tabelvisning** — Sorterbar liste over kort med omkostningsposter og totaler
 - **Sankey-visning** — Den samme rapport tegnet som et omkostningsflow (se [Sankey-visning](#sankey-view))
 - **Korttype** — To skifteknapper, **Application** og **IT Component**. Tryk på én for at bygge rapporten omkring den type, eller hold begge trykket ind for **Application + IT Component** (begge typer i ét diagram, hvert kort med sin egen omkostning). Mindst én knap forbliver altid aktiv, så for at skifte fra én type til den anden skal du først trykke på den anden knap og derefter slippe den første. En type, du ikke må læse, tilbydes ikke. Initiativer er ikke længere en del af omkostningsrapporten.
 - **Omkostningstype** — Vælg hvad der summeres: **TCO** (summen af alle omkostningsposter på hvert kort) eller en enkelt omkostningspost fra kataloget. For den kombinerede mulighed tilbydes kun de omkostningstyper, der findes i begge typer.
@@ -176,7 +176,22 @@ Alle visninger deler samme værktøjslinje, filtre, regnskabsår og omkostningst
 
 **Drill-down** — Et **højreklik** på en gruppe eller et kort borer ned i det: diagrammet indsnævres til den gruppe (eller det kort), og en brødkrumme vises over det. Klik på **Tilbage**, eller på et vilkårligt segment i brødkrummen, for at gå et niveau op. Drill-down i **Andre** viser de grupper, der blev foldet ind i den. Et **venstreklik** på et kort åbner i stedet dets sidepanel (et venstreklik på en gruppe gør ingenting). Et tip over diagrammet minder om begge handlinger.
 
-**Tabel** — Ud over grupperings- og attributkolonnerne har tabellen én kolonne pr. omkostningspost og en **TCO**-kolonne. Sortering efter den valgte omkostningstype sætter de dyreste først. Gruppeoverskrifter og totalen i bunden viser summerne pr. post, og hver gruppeoverskrift har en farveprøve. Et badge med typeikon og typenavn i navnecellen skelner mellem applikationer og IT-komponenter i den kombinerede visning. Et højreklik på en række borer ned i den; et klik åbner kortet.
+**Alle kort** er fortsat tilgængelige med én eller begge valgte korttyper. Listen viser kort af de valgte typer, som du må læse. Vælg et kort for at afgrænse rapporten til kortet og dets efterkommere, eller ryd valget for at gå tilbage til **Alle kort**.
+
+**Kortbadges** — Treemap, Sankey og tabellen identificerer kort med logo og typeikon. Kort uden logo viser typeikonet. Hvis et element i diagrammet er for lille til badgen, kan du holde markøren over det for at se den i værktøjstippet.
+
+**Tabel** — Den første kolonne viser badge og kortnavn. De øvrige viser omkostningsposter, **TCO** og valgte felter. Sortering efter den valgte omkostningstype placerer de dyreste først. Gruppeoverskrifter og bundlinjen viser totaler. Højreklik på en række for at bore ned, eller klik for at åbne kortet.
+
+**Fuld skærm** — Brug fuldskærmsknappen i treemap, Sankey eller tabellen. Brødkrummen er stadig tilgængelig. I treemap borer et højreklik ned uden at lukke fuld skærm. I tabellen kan du rulle gennem rækkerne, mens kolonneoverskrifterne forbliver synlige.
+
+### Importér omkostninger fra Excel {#import-costs-from-excel}
+
+1. Åbn **Importér omkostninger fra Excel** i omkostningsrapportens værktøjslinje, og vælg **Download Excel-skabelon**. Arket **Cost Items** viser de aktuelle nøgler og etiketter til nye poster. Download en ny skabelon, hvis kataloget er ændret.
+2. Indtast én række pr. kort, regnskabsår og omkostningspost i det første ark. Brug kortets UUID fra URL'en som **Card ID**. ID'et kopieret fra **Card ID**-pillen er kortets visningsreference. Angiv regnskabsåret med fire cifre, katalogets **Cost Item**-nøgle og et **Amount** i arbejdsområdets valuta. Nul accepteres. Lad **Renewal Date** være tom for at rydde datoen for posten. Hvis den valgfrie kolonne udelades, sker det samme.
+3. Vælg `.xlsx`-projektmappen, og få vist en forhåndsvisning. Den viser antallet af rækker, der kan anvendes, og viser oversprungne rækker med Excel-rækkenummer og årsag. Hvis flere rækker har samme kort, år og omkostningspost, springes alle over.
+4. Bekræft importen for at anvende gyldige rækker. Resultatet viser anvendte og oversprungne rækker efter validering mod det aktuelle katalog og tilladelser. Rapporten opdaterer totaler og diagrammer og bevarer aktuelle filtre, regnskabsår og visning.
+
+Du kan kun importere omkostninger for Applications og IT Components, hvis omkostninger du må redigere. Hvis du må redigere et arkiveret kort, kan dets omkostninger opdateres, men kortet forbliver arkiveret og uden for rapporten. Importen ændrer kun omkostningsposter i filen. En arkiveret post kan kun opdateres, hvis den allerede findes for målet året, også som nedarvet post. Projektmappen er begrænset til 20 MB og 10.000 rækker. Formler i inputkolonner rapporteres som rækkefejl.
 
 ### Gruppér efter
 

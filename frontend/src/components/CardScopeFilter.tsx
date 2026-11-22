@@ -4,6 +4,7 @@ import Tooltip from "@mui/material/Tooltip";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardScopeDialog, { type CardScopeOption } from "@/components/CardScopeDialog";
+import type { CardSearchSource } from "@/hooks/useCardSearch";
 
 /**
  * The report-toolbar control for scoping to a set of cards (#954): a chip
@@ -30,6 +31,7 @@ export default function CardScopeFilter({
   initialOptions,
   disabled,
   disabledReason,
+  searchSource,
 }: {
   /** Card type key(s) to browse. */
   types: string | string[];
@@ -49,6 +51,7 @@ export default function CardScopeFilter({
   disabled?: boolean;
   /** Shown instead of `tooltip` while disabled, to say why. */
   disabledReason?: string;
+  searchSource?: CardSearchSource;
 }) {
   const { t } = useTranslation(["common"]);
   const [open, setOpen] = useState(false);
@@ -96,6 +99,7 @@ export default function CardScopeFilter({
         title={dialogTitle}
         helperText={helperText}
         initialOptions={initialOptions}
+        searchSource={searchSource}
       />
     </>
   );

@@ -434,6 +434,13 @@ def _id_keys(data: dict) -> list[str]:
     ]
 
 
+def _event_uuid(value) -> uuid.UUID | None:
+    try:
+        return uuid.UUID(str(value))
+    except (ValueError, TypeError):
+        return None
+
+
 async def scrub_event_payloads(
     db: AsyncSession, read_scope: CardReadScope, payloads: Iterable[dict | None]
 ) -> list[dict | None]:
@@ -450,14 +457,22 @@ async def scrub_event_payloads(
     for data in payloads:
         if not isinstance(data, dict):
             continue
+        changes = data.get("changes")
+        parent_change = changes.get("parent_id") if isinstance(changes, dict) else None
+        if isinstance(parent_change, dict):
+            for value in (parent_change.get("old"), parent_change.get("new")):
+                if parent_id := _event_uuid(value):
+                    candidates.add(parent_id)
+        fields = data.get("fields")
+        if data.get("op") == "restore_card_fields" and isinstance(fields, dict):
+            if parent_id := _event_uuid(fields.get("parent_id")):
+                candidates.add(parent_id)
         for key in _id_keys(data):
             values = data[key] if isinstance(data[key], list) else [data[key]]
             for v in values:
-                try:
-                    candidates.add(uuid.UUID(str(v)))
-                except (ValueError, TypeError):
-                    continue
-    hidden = {str(i) for i in await read_scope.hidden_card_ids(db, candidates, mode="module")}
+                if card_id := _event_uuid(v):
+                    candidates.add(card_id)
+    hidden = await read_scope.hidden_card_ids(db, candidates, mode="module")
     if not hidden:
         return payloads
     out: list[dict | None] = []
@@ -466,11 +481,23 @@ async def scrub_event_payloads(
             out.append(data)
             continue
         clean = dict(data)
+        changes = data.get("changes")
+        parent_change = changes.get("parent_id") if isinstance(changes, dict) else None
+        if isinstance(changes, dict) and isinstance(parent_change, dict):
+            cleaned_parent = dict(parent_change)
+            for key in ("old", "new"):
+                if _event_uuid(parent_change.get(key)) in hidden:
+                    cleaned_parent[key] = None
+            clean["changes"] = {**changes, "parent_id": cleaned_parent}
+        fields = data.get("fields")
+        if data.get("op") == "restore_card_fields" and isinstance(fields, dict):
+            if _event_uuid(fields.get("parent_id")) in hidden:
+                clean["fields"] = {**fields, "parent_id": None}
         for key in _id_keys(data):
             value = data[key]
             if isinstance(value, list):
-                clean[key] = [v for v in value if str(v) not in hidden]
-            elif str(value) in hidden:
+                clean[key] = [v for v in value if _event_uuid(v) not in hidden]
+            elif _event_uuid(value) in hidden:
                 clean[key] = None
         out.append(clean)
     return out

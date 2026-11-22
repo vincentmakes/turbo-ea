@@ -1329,6 +1329,8 @@ export const DOC_PAGES: PageDef[] = [
     route: "/reports/cost",
     waitFor: ".echart-container, [class*='Cost']",
     actions: [{ type: "wait", ms: 800 }],
+    viewport: { width: 1280, height: 1100 },
+    clipSelector: ".report-container",
     filenames: {
       en: "34_report_cost",
       de: "34_bericht_kosten",

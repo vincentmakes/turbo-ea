@@ -29,7 +29,7 @@ vi.mock("react-router", async () => {
   };
 });
 
-vi.mock("@/api/client", () => ({ api: { get: vi.fn(), post: vi.fn() } }));
+vi.mock("@/api/client", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/api/client")>()), api: { get: vi.fn(), post: vi.fn(), upload: vi.fn() } }));
 vi.mock("@/hooks/useMetamodel", () => ({ useMetamodel: vi.fn() }));
 vi.mock("@/hooks/useSavedReport", () => ({ useSavedReport: vi.fn() }));
 vi.mock("@/hooks/useThumbnailCapture", () => ({
@@ -54,8 +54,8 @@ vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => ({ user: { permissions: { "costs.view": true } } }),
 }));
 vi.mock("@/components/CardDetailSidePanel", () => ({
-  default: ({ cardId, open }: { cardId: string | null; open: boolean }) =>
-    open ? <div data-testid="side-panel">{cardId}</div> : null,
+  default: ({ cardId, open, container }: { cardId: string | null; open: boolean; container?: HTMLElement | null }) =>
+    open ? <div data-testid="side-panel" data-container={container ? "fullscreen" : "body"}>{cardId}</div> : null,
 }));
 // The trend chart's own fetching is tested in CostTrendChart.test.tsx; here only the years it is given.
 const trendYearsSeen: number[][] = []; // every `years` array the stub was rendered with
@@ -68,6 +68,8 @@ vi.mock("./CostTrendChart", () => ({
     components,
     labelOf,
     groupBy,
+    scopeIds,
+    refreshVersion,
   }: {
     years: number[];
     currentFiscalYear: number;
@@ -76,17 +78,21 @@ vi.mock("./CostTrendChart", () => ({
     components: string[];
     labelOf?: (key: string) => string;
     groupBy?: string;
+    scopeIds?: Set<string> | null;
+    refreshVersion?: number;
   }) => {
     trendYearsSeen.push(years);
     return (
       <div
         data-testid="cost-trend-chart"
+        data-refresh={refreshVersion}
         data-years={years.join(",")}
         data-current={currentFiscalYear}
         data-type={typeParam}
         data-field={costField}
         data-group-by={groupBy ?? ""}
         data-components={components.join(",")}
+        data-scope={scopeIds ? [...scopeIds].sort().join(",") : ""}
         data-labels={components.map((c) => labelOf?.(c) ?? c).join(",")}
       />
     );
@@ -102,6 +108,7 @@ import { echartState } from "@/test/echartMock";
 const APP_TYPE = {
   key: "Application",
   label: "Application",
+  icon: "apps",
   color: "#0f7eb5",
   is_hidden: false,
   has_hierarchy: true,
@@ -239,6 +246,66 @@ const chart = () => document.querySelector(".report-chart-area") as HTMLElement;
 const toolbar = () => document.querySelector(".report-toolbar") as HTMLElement;
 
 describe("CostReport scope filter", () => {
+  it("offers both types in the combined scope picker", async () => {
+    consumedConfig = { view: "table", cardTypeKey: "Application+ITComponent" };
+    const defaultGet = vi.mocked(api.get).getMockImplementation()!;
+    vi.mocked(api.get).mockImplementation((path: string, ...args: unknown[]) => {
+      if (path.startsWith("/reports/cost-scope")) return Promise.resolve({ items: [...HIERARCHY, { id: "db", name: "DB", type: "ITComponent", parent_id: null }], total: 4 }) as never;
+      return defaultGet(path, ...args as []) as never;
+    });
+    renderCost();
+    await userEvent.click(await screen.findByText("All cards"));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click((await within(dialog).findByRole("checkbox", { name: "CRM" })).closest('[role="button"]')!);
+    await userEvent.click(within(dialog).getByRole("checkbox", { name: "DB" }).closest('[role="button"]')!);
+    expect(within(dialog).getByRole("checkbox", { name: "CRM" })).toBeChecked();
+    expect(within(dialog).getByRole("checkbox", { name: "DB" })).toBeChecked();
+    await userEvent.click(within(dialog).getByRole("button", { name: /apply/i }));
+    await waitFor(() => expect(within(toolbar()).getByText(/2 cards/)).toBeInTheDocument());
+  });
+  it("restores a mixed scope and resolves descendants on later pages", async () => {
+    consumedConfig = { view: "table", cardTypeKey: "Application+ITComponent", scopeIds: ["root", "db"], fiscalYearParam: 2027 };
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/reports/cost-scope")) {
+        const page = Number(new URL(path, "http://x").searchParams.get("page") ?? 1);
+        return Promise.resolve(page === 1
+          ? { items: [{ id: "root", name: "Root", type: "Application", parent_id: null }, { id: "db", name: "DB", type: "ITComponent", parent_id: null }], total: 3 }
+          : { items: [{ id: "crm", name: "CRM", type: "Application", parent_id: "root" }], total: 3 }) as never;
+      }
+      if (path.startsWith("/reports/cost-treemap")) return Promise.resolve({ items: [...COST_ITEMS, { id: "db", name: "DB", cost: 40, attributes: {} }], total: 660, components: ["licenseCost"], fiscal_year: 2027, current_fiscal_year: 2026, fiscal_year_start: 1 }) as never;
+      if (path.startsWith("/reports/cost-sankey")) return Promise.resolve({ nodes: [], links: [], total: 0 }) as never;
+      if (path.startsWith("/metamodel/cost-item-types")) return Promise.resolve(CATALOGUE) as never;
+      return Promise.resolve([]) as never;
+    });
+    renderCost();
+    await waitFor(() => expect(within(chart()).getAllByText("CRM").length).toBeGreaterThan(0));
+    expect(within(chart()).queryByText("ERP")).not.toBeInTheDocument();
+    expect(within(chart()).getAllByText("DB").length).toBeGreaterThan(0);
+    expect(within(chart()).getAllByText("$140").length).toBeGreaterThan(0);
+    expect(await screen.findByTestId("cost-trend-chart")).toHaveAttribute("data-scope", "crm,db,root");
+    await userEvent.click(typeButton("IT Component"));
+    await waitFor(() => expect(vi.mocked(useSavedReport).mock.results.at(-1)?.value.persistConfig).toHaveBeenLastCalledWith(expect.objectContaining({ scopeIds: ["root"] })));
+    await userEvent.click(typeButton("IT Component"));
+    await waitFor(() => expect(vi.mocked(useSavedReport).mock.results.at(-1)?.value.persistConfig).toHaveBeenLastCalledWith(expect.objectContaining({ scopeIds: ["root", "db"] })));
+    expect(vi.mocked(api.get).mock.calls.some(([path]) => String(path).startsWith("/reports/cost-scope") && new URL(String(path), "http://x").searchParams.get("page") === "2")).toBe(true);
+  });
+
+  it("does not show unfiltered totals while a saved hierarchy is pending or fails", async () => {
+    consumedConfig = { view: "table", scopeIds: ["crm"] };
+    let rejectHierarchy!: (reason: Error) => void;
+    const hierarchy = new Promise<never>((_, reject) => { rejectHierarchy = reject; });
+    const defaultGet = vi.mocked(api.get).getMockImplementation()!;
+    vi.mocked(api.get).mockImplementation((path: string, ...args: unknown[]) =>
+      path.startsWith("/reports/cost-scope") ? hierarchy : defaultGet(path, ...args as []) as never,
+    );
+    renderCost();
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith(expect.stringContaining("/reports/cost-scope"), expect.anything()));
+    expect(screen.queryByText("$620")).not.toBeInTheDocument();
+    await act(async () => rejectHierarchy(new Error("offline")));
+    expect(screen.queryByText("$620")).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /retry/i })).toBeInTheDocument();
+  });
+
   it("includes every card when unscoped", async () => {
     renderCost();
     await waitFor(() =>
@@ -275,6 +342,7 @@ describe("CostReport scope filter", () => {
       .mocked(api.get)
       .mock.calls.filter(([path]) => String(path).startsWith("/cards"));
     expect(cardCalls).toHaveLength(0);
+    expect(vi.mocked(api.get).mock.calls.some(([path]) => String(path).startsWith("/reports/cost-scope"))).toBe(false);
   });
 
   it("drops a scoped id whose card no longer exists", async () => {
@@ -562,7 +630,7 @@ describe("CostReport card-type selector and Sankey view", () => {
     await userEvent.click(await findByRole("button", { name: /sankey chart view/i }));
     await findByTestId("cost-sankey-panel");
     const s = echartState.last().option.series[0];
-    const label = (id: string) => s.label.formatter({ name: id });
+    const label = (id: string) => s.label.formatter({ name: id }).replace(/^\{cardIdentity\|[^}]*\} /, "");
     const ids: string[] = s.data.map((d: { name: string }) => d.name);
     // Item and group nodes are named for what they are; the flow runs item -> group -> card.
     expect(ids.map(label)).toEqual(["Total Annual Cost", "EMEA", "CRM · Application"]);
@@ -933,7 +1001,7 @@ describe("CostReport Sankey from per-card costs", () => {
     const ids: string[] = s.data.map((d: { name: string }) => d.name);
     return {
       // a card prints "Name · Type": the tests below read the name
-      nodes: ids.map((id) => ({ name: s.label.formatter({ name: id }).replace(/ · .*$/, "") })),
+      nodes: ids.map((id) => ({ name: s.label.formatter({ name: id }).replace(/^\{cardIdentity\|[^}]*\} /, "").replace(/ · .*$/, "") })),
       links: s.links.map((l: { source: string; target: string; value: number }) => ({
         source: ids.indexOf(l.source),
         target: ids.indexOf(l.target),
@@ -1142,13 +1210,44 @@ describe("CostReport treemap colours, type badge and drill", () => {
     expect(screen.queryByTestId("side-panel")).not.toBeInTheDocument();
   });
 
+  it("keeps the fullscreen surface and breadcrumb mounted while a drill loads", async () => {
+    mockApi(TEN);
+    const previous = vi.mocked(api.get).getMockImplementation()!;
+    vi.mocked(api.get).mockImplementation((path, options) =>
+      path.startsWith("/reports/cost-sankey") ? new Promise(() => {}) as never : previous(path, options),
+    );
+    consumedConfig = { view: "chart" };
+    renderCost();
+    await screen.findByRole("img", { name: "Cost Analysis" });
+    const panel = screen.getByTestId("fullscreen-panel");
+    clickTile({ id: "c1" });
+    expect(await screen.findByRole("progressbar")).toBeInTheDocument();
+    expect(screen.getByTestId("fullscreen-panel")).toBe(panel);
+    expect(panel).toContainElement(screen.getByRole("button", { name: /back/i }));
+  });
+
   it("left click on a tile opens the side panel and does not drill", async () => {
     consumedConfig = { view: "chart" };
     renderCost();
     await screen.findByRole("img", { name: "Cost Analysis" });
     rightClickTile({ id: "erp" });
     expect(await screen.findByTestId("side-panel")).toHaveTextContent("erp");
+    expect(screen.getByTestId("side-panel")).toHaveAttribute("data-container", "body");
     expect(backButton()).not.toBeInTheDocument();
+  });
+
+  it("pins a fullscreen drawer to its host even after fullscreen exits", async () => {
+    consumedConfig = { view: "chart" };
+    renderCost();
+    await screen.findByRole("img", { name: "Cost Analysis" });
+    const host = screen.getByTestId("fullscreen-panel");
+    Object.defineProperty(document, "fullscreenElement", { value: host, configurable: true });
+    act(() => document.dispatchEvent(new Event("fullscreenchange")));
+    rightClickTile({ id: "erp" });
+    expect(await screen.findByTestId("side-panel")).toHaveAttribute("data-container", "fullscreen");
+    Object.defineProperty(document, "fullscreenElement", { value: null, configurable: true });
+    act(() => document.dispatchEvent(new Event("fullscreenchange")));
+    expect(screen.getByTestId("side-panel")).toHaveAttribute("data-container", "fullscreen");
   });
 
   it("drills a card to one tile per cost item, the rest merged into Other items", async () => {
@@ -1364,7 +1463,17 @@ describe("CostReport Sankey colours, fold, drill and right click", () => {
 
   it("prints the card type on a card node", async () => {
     await open();
-    expect(series().label.formatter({ name: "c1" })).toBe("Card 1 · Application");
+    expect(series().label.formatter({ name: "c1" })).toMatch(/^\{cardIdentity\|apps\} Card 1 · Application$/);
+  });
+
+  it("uses the live Sankey node height to hide a badge that cannot fit", async () => {
+    await open();
+    let height = 10;
+    sankey().onInit!({ getModel: () => ({ getSeriesByIndex: () => ({ getData: () => ({ getItemLayout: () => ({ dy: height }) }) }) }) });
+    const label = () => series().label.formatter({ name: "c1", dataIndex: 12 });
+    expect(label()).toBe("Card 1 · Application");
+    height = 30;
+    expect(label()).toMatch(/^\{cardIdentity\|apps\} Card 1 · Application$/);
   });
 
   it("right click on a group node drills into the group", async () => {
@@ -1406,11 +1515,11 @@ describe("CostReport Sankey colours, fold, drill and right click", () => {
 });
 
 describe("CostReport table per-item columns, TCO and drill", () => {
-  const TREEMAP: Record<string, { id: string; name: string; type: string; cost: number; attributes: object }[]> = {
+  const TREEMAP: Record<string, { id: string; name: string; type: string; cost: number; attributes: object; logo_updated_at?: string }[]> = {
     costTotalAnnual: [
       { id: "crm", name: "CRM", type: "Application", cost: 160, attributes: {} },
       { id: "crm-web", name: "CRM Web", type: "Application", cost: 20, attributes: {} },
-      { id: "erp", name: "ERP", type: "Application", cost: 500, attributes: {} },
+      { id: "erp", name: "ERP", type: "Application", cost: 500, attributes: {}, logo_updated_at: "2026-01-01T00:00:00Z" },
     ],
     support: [
       { id: "crm", name: "CRM", type: "Application", cost: 150, attributes: {} },
@@ -1461,6 +1570,21 @@ describe("CostReport table per-item columns, TCO and drill", () => {
     renderCost();
     await screen.findByRole("table");
     await waitFor(() => expect(rowNamed("ERP")).toHaveTextContent("Application"));
+  });
+
+  it("places the card badge before its name in the first column and offers table fullscreen", async () => {
+    mockTable();
+    consumedConfig = { view: "table" };
+    renderCost();
+    await screen.findByRole("table");
+    await waitFor(() => expect(rowNamed("ERP")).toBeTruthy());
+    const cell = within(rowNamed("ERP")).getAllByRole("cell")[0];
+    const name = within(cell).getByTestId("cost-row-name");
+    const image = cell.querySelector("img")!;
+    expect(image).toHaveAttribute("src", expect.stringContaining("/api/v1/cards/erp/logo?v="));
+    expect(image.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(rowNamed("CRM")).toHaveTextContent("apps");
+    expect(screen.getByTestId("fullscreen-panel")).toContainElement(screen.getByRole("table"));
   });
 
   it("sorts by the TCO first and, when the cost type changes, by that column descending", async () => {
@@ -1633,4 +1757,52 @@ describe("CostReport review fixes", () => {
       expect(l?.value).toBe(100);
     });
   });
+});
+
+it("refreshes the current table and breakdown after import, not preview", async () => {
+  consumedConfig = { view: "table", cardTypeKey: "Application", fiscalYearParam: 2025, scopeIds: ["erp"] };
+  let changed = false;
+  const originalGet = vi.mocked(api.get).getMockImplementation()!;
+  vi.mocked(api.get).mockImplementation((path: string, ...args: unknown[]) => {
+    if (changed && path.startsWith("/reports/cost-treemap")) return Promise.resolve({ items: [{ id: "erp", name: "ERP", cost: 700 }], total: 700, components: ["licenseCost"], fiscal_year: 2025, current_fiscal_year: 2026, fiscal_year_start: 1 }) as never;
+    return originalGet(path, ...args as []) as never;
+  });
+  vi.mocked(api.upload).mockImplementation(async (path) => {
+    if (path.includes("dry_run=false")) changed = true;
+    return { matched: 1, applied: changed ? 1 : 0, clears_renewal_count: 0, skipped: [] } as never;
+  });
+  renderCost();
+  await waitFor(() => expect(within(chart()).getAllByText("$500").length).toBeGreaterThan(0));
+  await userEvent.click(screen.getByRole("button", { name: "Import costs from Excel" }));
+  const dialog = await screen.findByRole("dialog");
+  const before = vi.mocked(api.get).mock.calls.length;
+  await userEvent.upload(document.querySelector('input[type="file"]') as HTMLInputElement, new File(["x"], "costs.xlsx"));
+  await within(dialog).findByRole("button", { name: "Apply 1 row" });
+  expect(vi.mocked(api.get).mock.calls.length).toBe(before);
+  await userEvent.click(within(dialog).getByRole("button", { name: "Apply 1 row" }));
+  await waitFor(() => expect(within(chart()).getAllByText("$700").length).toBeGreaterThan(0));
+  const paths = vi.mocked(api.get).mock.calls.slice(before).map(([path]) => String(path));
+  expect(paths.some((p) => p.includes("cost-sankey") && p.includes("fiscal_year=2025"))).toBe(true);
+  expect(paths.some((p) => p.includes("cost-treemap") && p.includes("fiscal_year=2024"))).toBe(true);
+  expect(within(toolbar()).getByText(/1 card/)).toBeInTheDocument();
+  expect(within(dialog).getByText("1 row applied")).toBeInTheDocument();
+  expect(document.querySelector('button[value="table"]')).toHaveAttribute("aria-pressed", "true");
+});
+
+it("refreshes forecast, current baseline and trend after applying an import", async () => {
+  consumedConfig = { view: "chart", cardTypeKey: "Application", fiscalYearParam: 2027 };
+  vi.mocked(api.upload).mockResolvedValue({ matched: 1, applied: 1, clears_renewal_count: 0, skipped: [] } as never);
+  renderCost();
+  expect(await screen.findByTestId("cost-trend-chart")).toHaveAttribute("data-refresh", "0");
+  await userEvent.click(screen.getByRole("button", { name: "Import costs from Excel" }));
+  const dialog = await screen.findByRole("dialog");
+  await userEvent.upload(document.querySelector('input[type="file"]') as HTMLInputElement, new File(["x"], "costs.xlsx"));
+  await within(dialog).findByRole("button", { name: "Apply 1 row" });
+  const before = vi.mocked(api.get).mock.calls.length;
+  await userEvent.click(within(dialog).getByRole("button", { name: "Apply 1 row" }));
+  await waitFor(() => expect(screen.getByTestId("cost-trend-chart")).toHaveAttribute("data-refresh", "1"));
+  const paths = vi.mocked(api.get).mock.calls.slice(before).map(([p]) => String(p)).filter((p) => p.startsWith("/reports/cost-treemap"));
+  expect(paths.some((p) => p.includes("fiscal_year=2027"))).toBe(true);
+  expect(paths.some((p) => !p.includes("fiscal_year="))).toBe(true);
+  expect(within(dialog).getByText("1 row applied")).toBeInTheDocument();
 });

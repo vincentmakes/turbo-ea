@@ -299,6 +299,8 @@ Os **itens de custo** são o catálogo de linhas de custo que os cards de Aplica
 
 Cada item tem uma **chave** estável, um **rótulo** e **traduções** opcionais do rótulo. Os itens são **arquivados**, não eliminados: um item arquivado já não pode ser adicionado a um card, mas os montantes já introduzidos continuam a contar no TCO e no [Relatório de custos](../guide/reports.md#relatório-de-custos).
 
+O [modelo de importação Excel](../guide/reports.pt.md#import-costs-from-excel) transferível utiliza este catálogo. Guardar uma alteração ao catálogo atualiza a folha de referência para transferências posteriores. Até lá, o modelo atual é reutilizado. A folha de referência contém as chaves ativas pela ordem do catálogo e não inclui dados nem montantes dos cartões.
+
 Introduzir montantes num card requer `costs.edit` (ou um papel de parte interessada que possa editar o card); alterar o catálogo requer a permissão de administração do metamodelo.
 
 ## Tipos de licença

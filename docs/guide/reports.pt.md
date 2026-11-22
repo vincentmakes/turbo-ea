@@ -163,7 +163,7 @@ Alterne para a **Layered Dependency View** usando os botões de modo de visualiz
 O **Relatório de Custos** fornece análise financeira do seu cenário tecnológico:
 
 - **Visualização treemap** — Retângulos aninhados dimensionados por custo, com agrupamento opcional (ex.: por organização ou capacidade)
-- **Visualização em gráfico de barras** — Comparação de custos entre componentes
+- **Vista de tabela** — Lista ordenável de cartões com itens de custo e totais
 - **Vista Sankey** — O mesmo relatório desenhado como um fluxo de custos (ver [Vista Sankey](#sankey-view))
 - **Tipo de cartão** — Dois botões de alternância, **Aplicação** e **Componente de TI**. Prima um para construir o relatório em torno desse tipo, ou mantenha os dois premidos para **Aplicação + Componente de TI** (os dois tipos num só gráfico, cada card com o seu próprio custo). Pelo menos um botão fica sempre ativo; por isso, para passar de um tipo para o outro, prima primeiro o outro botão e depois solte o primeiro. Um tipo que não pode ler não é apresentado. As iniciativas deixaram de fazer parte do relatório de custos.
 - **Tipo de custo** — Escolha o que é somado: **TCO** (o total de todos os itens de custo de cada cartão) ou qualquer item de custo individual do catálogo. Para a opção combinada só são oferecidos os tipos de custo que existem nos dois tipos.
@@ -176,7 +176,22 @@ Todas as vistas partilham a mesma barra de ferramentas, os mesmos filtros, o mes
 
 **Detalhe** — Um **clique direito** num grupo ou num cartão aprofunda-o: o gráfico limita-se a esse grupo (ou cartão) e surge um caminho de navegação por cima. Clique em **Voltar**, ou em qualquer segmento do caminho, para subir um nível. Aprofundar **Outros** lista os grupos que nele foram agrupados. Um **clique esquerdo** num cartão abre antes o seu painel lateral (um clique esquerdo num grupo não faz nada). Uma indicação por cima do gráfico lembra ambos os gestos.
 
-**Tabela** — Além das colunas de agrupamento e de atributos, a tabela tem uma coluna por item de custo e uma coluna **TCO**. Ordenar pelo tipo de custo selecionado coloca primeiro os mais caros. As linhas de cabeçalho de grupo e o total do rodapé mostram as somas por item, e cada cabeçalho de grupo traz a amostra da sua cor. Um emblema com o ícone e o nome do tipo na célula do nome distingue Aplicações e Componentes de TI na vista combinada. O clique direito numa linha aprofunda-a; o clique abre o cartão.
+**Todos os cartões** continua disponível com um ou ambos os tipos selecionados. A lista inclui os cartões desses tipos que pode consultar. Selecione um cartão para limitar o relatório a esse cartão e aos seus descendentes, ou limpe a seleção para voltar a **Todos os cartões**.
+
+**Emblemas dos cartões** — Treemap, Sankey e tabela identificam cartões pelo logótipo e ícone do tipo. Sem logótipo, mostram apenas o ícone. Quando um elemento do gráfico é demasiado pequeno para o emblema, passe o cursor para o ver na dica.
+
+**Tabela** — A primeira coluna mostra o emblema e o nome do cartão. As restantes mostram itens de custo, **TCO** e campos selecionados. Ordenar pelo tipo de custo selecionado coloca os mais caros primeiro. Os cabeçalhos de grupo e o rodapé mostram os totais. Clique com o botão direito numa linha para aprofundar ou clique para abrir o cartão.
+
+**Ecrã inteiro** — Use o botão de ecrã inteiro no treemap, Sankey ou tabela. O caminho de navegação continua disponível; no treemap, o clique direito aprofunda sem fechar o ecrã inteiro. Na tabela, pode percorrer as linhas mantendo os cabeçalhos das colunas visíveis.
+
+### Importar custos do Excel {#import-costs-from-excel}
+
+1. Abra **Importar custos do Excel** na barra do Relatório de Custos e escolha **Transferir modelo Excel**. A folha **Cost Items** lista as chaves e etiquetas disponíveis para novas entradas. Se o catálogo mudou, transfira um modelo atualizado.
+2. Na primeira folha, introduza uma linha por cartão, ano fiscal e item de custo. Em **Card ID**, use o UUID do URL do cartão. O ID copiado da pílula **Card ID** é a referência apresentada. Introduza o ano fiscal com quatro dígitos, a chave **Cost Item** do catálogo e um **Amount** na moeda do espaço de trabalho. Zero é aceite. Deixe **Renewal Date** vazio para limpar a data desse item; omitir a coluna opcional tem o mesmo efeito.
+3. Escolha o livro `.xlsx` e pré-visualize-o. A pré-visualização indica quantas linhas podem ser aplicadas e lista as ignoradas com o número da linha do Excel e o motivo. Se várias linhas tiverem o mesmo cartão, ano e item de custo, são todas ignoradas.
+4. Confirme a importação para aplicar as linhas válidas. O resultado mostra o que foi aplicado e ignorado após validar o catálogo e as permissões. O relatório atualiza totais e gráficos, mantendo os filtros, ano fiscal e vista atuais.
+
+Só pode importar custos para Aplicações e Componentes de TI cujos custos possa editar. Se puder editar um cartão arquivado, os custos podem ser atualizados, mas o cartão mantém-se arquivado e fora do relatório. A importação altera apenas os itens incluídos no ficheiro. Um item arquivado só pode ser atualizado se já existir no ano de destino, incluindo itens herdados. O livro está limitado a 20 MB e 10 000 linhas. Fórmulas nas colunas de entrada são comunicadas como problemas da linha.
 
 ### Agrupar por
 

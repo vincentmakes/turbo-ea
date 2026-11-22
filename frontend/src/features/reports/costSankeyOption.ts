@@ -14,6 +14,7 @@ import type { EChartsChrome } from "@/components/charts/echartsTheme";
 import { base, escapeHtml, tooltip, type ChartChromeContext } from "@/components/charts/chrome";
 import { sankeyInset } from "@/features/dashboard/charts/buildOption";
 import { CARD_TYPE_COLORS, CATEGORICAL_COLORS, DEFAULT_LAYER_COLOR, STATUS_COLORS } from "@/theme";
+import { costCardIdentityHtml, costCardRichStyle, type CostCardIdentity } from "./costCardIdentity";
 
 const MAX_LABEL = 24;
 
@@ -24,7 +25,7 @@ export function costSankeyNodeColor(type: string): string {
   return CARD_TYPE_COLORS[type as keyof typeof CARD_TYPE_COLORS] ?? DEFAULT_LAYER_COLOR;
 }
 
-export interface CostSankeyNodeIn {
+export interface CostSankeyNodeIn extends CostCardIdentity {
   id: string;
   name: string;
   type: string;
@@ -46,6 +47,19 @@ export interface CostSankeyOptions {
   isRtl: boolean;
   /** A cost as the workspace's currency prints it. */
   format: (v: number) => string;
+  /** Height of the laid-out node, in pixels, when available. */
+  nodeHeight?: (dataIndex: number) => number | undefined;
+}
+
+/** Read the real node height while ECharts formats the label. */
+export function chartSankeyNodeHeight(chart: object | null | undefined, dataIndex: number): number | undefined {
+  try {
+    const model = chart as { getModel(): { getSeriesByIndex(i: number): { getData(): { getItemLayout(i: number): { dy?: unknown } | undefined } } | undefined } | null } | null | undefined;
+    const height = model?.getModel()?.getSeriesByIndex(0)?.getData().getItemLayout(dataIndex)?.dy;
+    return typeof height === "number" ? height : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** A name shortened to `MAX_LABEL` characters, with an ellipsis. */
@@ -67,6 +81,9 @@ export function buildCostSankeyOption(
   const ctx: ChartChromeContext = { theme: o.chrome, isRtl: o.isRtl, valueFormatter: o.format };
   const nameOf = new Map(nodes.map((n) => [n.id, n.typeLabel ? `${n.name} · ${n.typeLabel}` : n.name]));
   const labelOf = new Map(nodes.map((n) => [n.id, nodeLabel(n)]));
+  const nodeOf = new Map(nodes.map((n) => [n.id, n]));
+  const identities = nodes.map(costCardRichStyle);
+  const identityOf = new Map(nodes.map((n, i) => [n.id, identities[i] ? "cardIdentity" : undefined]));
   // The last column's labels sit right of its bars: keep room for them.
   const hasOutgoing = new Set(links.map((l) => nodes[l.source].id));
   const inset = sankeyInset(
@@ -89,7 +106,7 @@ export function buildCostSankeyOption(
           const to = escapeHtml(nameOf.get(p.data.target ?? "") ?? "");
           return `${from} ${arrow} ${to}: ${v}`;
         }
-        return `${escapeHtml(nameOf.get(p.name ?? "") ?? "")}: ${v}`;
+        return `${costCardIdentityHtml(nodeOf.get(p.name ?? "") ?? {})}${escapeHtml(nameOf.get(p.name ?? "") ?? "")}: ${v}`;
       },
     }),
     series: [
@@ -106,11 +123,21 @@ export function buildCostSankeyOption(
         label: {
           color: ctx.theme.textPrimary,
           fontSize: 12,
-          formatter: (p: { name?: string }) => labelOf.get(p.name ?? "") ?? "",
+          rich: { cardIcon: { fontFamily: "Material Symbols Outlined", fontSize: 10 } },
+          formatter: (p: { name?: string; dataIndex?: number }) => {
+            const height = o.nodeHeight?.(p.dataIndex ?? -1);
+            const key = height !== undefined && height < 20 ? undefined : identityOf.get(p.name ?? "");
+            const node = nodeOf.get(p.name ?? "");
+            return `${key ? `{${key}|${node?.logo_updated_at ? " " : node?.typeIcon ?? ""}}${node?.logo_updated_at ? `{cardIcon|${node.typeIcon ?? ""}}` : ""} ` : ""}${labelOf.get(p.name ?? "") ?? ""}`;
+          },
         },
         lineStyle: { color: "source", opacity: 0.45, curveness: 0.5 },
         itemStyle: { borderColor: ctx.theme.surface, borderWidth: 1 },
-        data: nodes.map((n) => ({ name: n.id, itemStyle: { color: n.color ?? costSankeyNodeColor(n.type) } })),
+        data: nodes.map((n, i) => ({
+          name: n.id,
+          itemStyle: { color: n.color ?? costSankeyNodeColor(n.type) },
+          ...(identities[i] && { label: { rich: { cardIdentity: identities[i] } } }),
+        })),
         links: links.map((l) => ({
           source: nodes[l.source].id,
           target: nodes[l.target].id,

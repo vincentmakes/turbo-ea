@@ -888,14 +888,14 @@ describe("CostReport type, cost field and group by selectors", () => {
     expect(screen.getByText("No field or relation to group by.")).toBeInTheDocument();
   });
 
-  it("combined hides scope filter and extra columns", async () => {
+  it("combined shows scope filter and hides extra columns", async () => {
     saved.config = { cardTypeKey: "Application+ITComponent", view: "table" };
     renderCost();
     await screen.findByRole("table");
     expect(
       screen.queryByRole("combobox", { name: /columns/i }),
     ).not.toBeInTheDocument();
-    expect(screen.queryByText("All cards")).not.toBeInTheDocument();
+    expect(screen.getByText("All cards")).toBeInTheDocument();
   });
 
   it("a single type does show the scope filter", async () => {
@@ -976,7 +976,7 @@ describe("CostReport type, cost field and group by selectors", () => {
     await waitFor(() =>
       expect(
         JSON.parse(screen.getByTestId("sankey").getAttribute("data-names")!),
-      ).toEqual(["Other costs", "Gold", "Unspecified", "A · Application"]),
+      ).toEqual(["Other costs", "Gold", "Unspecified", "{cardIdentity|apps} A · Application"]),
     );
   });
 
@@ -1025,8 +1025,8 @@ describe("CostReport type, cost field and group by selectors", () => {
       groupBy: "field:tier",
       scopeIds: ["a", "c"],
     };
-    mockApi.on("get", "/cards*", {
-      items: ["a", "b", "c", "d"].map((id) => ({ id, parent_id: null })),
+    mockApi.on("get", "/reports/cost-scope*", {
+      items: ["a", "b", "c", "d"].map((id) => ({ id, name: id, type: "Application", parent_id: null })),
       total: 4,
     });
     mockApi.on("get", "/reports/cost-sankey*", {
@@ -1077,8 +1077,8 @@ describe("CostReport type, cost field and group by selectors", () => {
 
   it("never yields NaN when a scoped group loses every card", async () => {
     saved.config = { view: "sankey", groupBy: "field:tier", scopeIds: ["a"] };
-    mockApi.on("get", "/cards*", {
-      items: ["a", "b"].map((id) => ({ id, parent_id: null })),
+    mockApi.on("get", "/reports/cost-scope*", {
+      items: ["a", "b"].map((id) => ({ id, name: id, type: "Application", parent_id: null })),
       total: 2,
     });
     mockApi.on("get", "/reports/cost-sankey*", {
@@ -1161,10 +1161,10 @@ describe("CostReport type, cost field and group by selectors", () => {
 
   it("sankey scope filter removes dangling nodes", async () => {
     saved.config = { view: "sankey", scopeIds: ["a"] };
-    mockApi.on("get", "/cards*", {
+    mockApi.on("get", "/reports/cost-scope*", {
       items: [
-        { id: "a", parent_id: null },
-        { id: "b", parent_id: null },
+        { id: "a", name: "A", type: "Application", parent_id: null },
+        { id: "b", name: "B", type: "Application", parent_id: null },
       ],
       total: 2,
     });

@@ -37,6 +37,7 @@ export default function CostTrendChart({
   groupBy,
   selection,
   scopeIds,
+  refreshVersion,
 }: {
   typeParam: string;
   costField: string;
@@ -50,6 +51,7 @@ export default function CostTrendChart({
   selection?: TrendSelection;
   /** Cards in scope; null/undefined = all. */
   scopeIds?: Set<string> | null;
+  refreshVersion?: number;
 }) {
   // Per year, each component's response; selection and scope filter it locally, without a refetch.
   const [fetched, setFetched] = useState<{ fiscalYear: number; byComponent: [string, TrendResponse][] }[]>([]);
@@ -78,7 +80,7 @@ export default function CostTrendChart({
       if (isCurrent()) setFetched(results);
     },
     // costField: a new field can keep the same components yet must not show the old rows.
-    [typeParam, costField, components.join(","), years, groupBy],
+    [typeParam, costField, components.join(","), years, groupBy, refreshVersion],
   );
 
   const rows = useMemo<CostTrendRow[]>(

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,12 +12,22 @@ from app.api.v1.metamodel import _clean_translations, _label_translation_items
 from app.database import get_db
 from app.models.user import User
 from app.schemas.cost_items import CostItemTypeCreate, CostItemTypeUpdate
-from app.services import audit_log, cost_item_types
+from app.services import audit_log, cost_import_template, cost_item_types
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/metamodel", tags=["metamodel"])
 
 _COST_ITEM_AUDIT_SCALARS = ("label", "archived", "sort_order")
+logger = logging.getLogger(__name__)
+
+
+async def _warm_template(db: AsyncSession) -> None:
+    try:
+        snapshot = await cost_import_template.catalogue_snapshot(db)
+        await db.commit()
+        await cost_import_template.template_bytes(snapshot)
+    except Exception:
+        logger.exception("Could not warm cost import template")
 
 
 @router.get("/cost-item-types")
@@ -52,7 +64,9 @@ async def create_cost_item_type(
     )
     await db.commit()
     await db.refresh(row)
-    return cost_item_types.serialize(row)
+    result = cost_item_types.serialize(row)
+    await _warm_template(db)
+    return result
 
 
 @router.patch("/cost-item-types/{key}")
@@ -89,4 +103,7 @@ async def update_cost_item_type(
         )
     await db.commit()
     await db.refresh(row)
-    return cost_item_types.serialize(row)
+    result = cost_item_types.serialize(row)
+    if changes or items:
+        await _warm_template(db)
+    return result

@@ -100,8 +100,6 @@ Das Lebenszyklusmodell verfolgt eine Komponente durch fünf Phasen:
 
 Jede Phase verfügt über eine **Datumsauswahl**, damit Sie festhalten können, wann die Komponente in diese Phase eingetreten ist oder eintreten wird. Ein visueller Zeitleistenbalken zeigt die Position der Komponente in ihrem Lebenszyklus.
 
-Wenn Ihr Administrator **Lebenszyklusphasen** für den Kartentyp konfiguriert hat, zeigt **Aktuelle Phase**, wo sich die Karte heute befindet. Wählen Sie etwa **Testphase**, solange das Go-live-Datum noch nicht feststeht. Die aktuelle Phase und die Zeitplandaten werden getrennt gespeichert.
-
 Wenn Ihr Administrator **Lebenszyklusphasen** für den Kartentyp konfiguriert hat, zeigt **Aktuelle Phase**, wo sich die Karte heute befindet. Wählen Sie beispielsweise **Testphase**, solange das Go-live-Datum noch nicht feststeht. Die aktuelle Phase und die Zeitplandaten werden getrennt gespeichert.
 
 Liegt das Datum einer Phase nach dem einer folgenden Phase — zum Beispiel **Auslauf** nach **Lebensende** —, erscheint neben diesem Datum ein Warnsymbol, und beim Bearbeiten steht derselbe Hinweis unter dem Feld. Es ist nur ein Hinweis: Die Daten lassen sich trotzdem wie eingegeben speichern.

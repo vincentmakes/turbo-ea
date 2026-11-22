@@ -300,6 +300,8 @@ Element and relationship names are those of the Open Group exchange format. The 
 
 Each item has a stable **key**, a **label** and optional **translations** of the label. Items are **archived**, not deleted: an archived item can no longer be added to a card, but amounts already entered keep counting in the TCO and in the [Cost Report](../guide/reports.md#cost-report).
 
+The downloadable [Excel import template](../guide/reports.md#import-costs-from-excel) uses this catalogue. Saving a change to the catalogue refreshes the reference sheet for subsequent downloads. Downloads reuse the current template until the catalogue changes. The reference sheet shows active keys in catalogue order and contains no card data or amounts.
+
 Entering amounts on a card needs `costs.edit` (or a stakeholder role that may edit the card); changing the catalogue needs the metamodel administration permission.
 
 ## License types

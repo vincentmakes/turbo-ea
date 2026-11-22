@@ -299,6 +299,8 @@ Les **postes de coûts** forment le catalogue des lignes de coûts que peuvent p
 
 Chaque poste a une **clé** stable, un **libellé** et des **traductions** facultatives du libellé. Les postes sont **archivés**, jamais supprimés : un poste archivé ne peut plus être ajouté à une fiche, mais les montants déjà saisis continuent d'être comptés dans le TCO et dans le [rapport des coûts](../guide/reports.md#rapport-coûts).
 
+Le [modèle d'import Excel](../guide/reports.fr.md#import-costs-from-excel) téléchargeable utilise ce catalogue. Toute modification du catalogue actualise la feuille de référence pour les téléchargements suivants. Le modèle courant est réutilisé jusqu'à ce changement. La feuille de référence contient les clés actives dans l'ordre du catalogue, sans données de fiche ni montants.
+
 La saisie de montants sur une fiche requiert `costs.edit` (ou un rôle de partie prenante autorisé à modifier la fiche) ; la modification du catalogue requiert la permission d'administration du métamodèle.
 
 ## Types de licence

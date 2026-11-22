@@ -163,7 +163,7 @@ Wechseln Sie über die Ansichtsmodus-Schaltflächen in der Symbolleiste zur **La
 Der **Kostenbericht** bietet eine finanzielle Analyse Ihrer Technologielandschaft:
 
 - **Treemap-Ansicht** — Verschachtelte Rechtecke, nach Kosten dimensioniert, mit optionaler Gruppierung (z.B. nach Organisation oder Fähigkeit)
-- **Balkendiagramm-Ansicht** — Kostenvergleich über Komponenten hinweg
+- **Tabellenansicht** — Sortierbare Liste der Karten mit Kostenelementen und Summen
 - **Sankey-Ansicht** — Derselbe Bericht als Kostenfluss gezeichnet (siehe [Sankey-Ansicht](#sankey-view))
 - **Kartentyp** — Zwei Umschalter, **Anwendung** und **IT-Komponente**. Drücken Sie einen, um den Bericht um diesen Typ aufzubauen, oder lassen Sie beide gedrückt für **Anwendung + IT-Komponente** (beide Typen in einem Diagramm, jede Karte mit ihren eigenen Kosten). Mindestens ein Umschalter bleibt immer aktiv: Um von einem Typ zum anderen zu wechseln, drücken Sie zuerst den anderen Umschalter und lösen dann den ersten. Ein Typ, den Sie nicht lesen dürfen, wird nicht angeboten. Initiativen sind nicht mehr Teil des Kostenberichts.
 - **Kostenart** — Wählen Sie, was summiert wird: **TCO** (die Summe aller Kostenelemente jeder Karte) oder ein einzelnes Kostenelement des Katalogs. Für die kombinierte Option werden nur die Kostenarten angeboten, die in beiden Typen vorhanden sind.
@@ -176,7 +176,22 @@ Alle Ansichten teilen sich dieselbe Werkzeugleiste, dieselben Filter, dasselbe G
 
 **Drill-down** — Ein **Rechtsklick** auf eine Gruppe oder eine Karte öffnet sie: Das Diagramm beschränkt sich auf diese Gruppe (oder Karte), und darüber erscheint ein Breadcrumb. Klicken Sie auf **Zurück** oder auf ein beliebiges Segment des Breadcrumbs, um eine Ebene nach oben zu gehen. Ein Drill-down in **Sonstige** listet die darin zusammengefassten Gruppen auf. Ein **Linksklick** auf eine Karte öffnet stattdessen deren Seitenpanel (ein Linksklick auf eine Gruppe bewirkt nichts). Ein Hinweis über dem Diagramm erinnert an beide Gesten.
 
-**Tabelle** — Neben den Gruppierungs- und Attributspalten hat die Tabelle eine Spalte je Kostenelement und eine Spalte **TCO**. Die Sortierung nach der ausgewählten Kostenart stellt die teuersten zuerst. Gruppenkopfzeilen und die Summenzeile zeigen die Summen der Elemente, und jede Gruppenkopfzeile trägt das Farbfeld ihrer Farbe. Ein Badge mit Typsymbol und Typname in der Namenszelle unterscheidet Anwendungen und IT-Komponenten in der kombinierten Ansicht. Ein Rechtsklick auf eine Zeile öffnet den Drill-down; ein Klick öffnet die Karte.
+**Alle Karten** bleibt bei einem oder beiden ausgewählten Kartentypen verfügbar. Die Liste enthält lesbare Karten der ausgewählten Typen. Wählen Sie eine Karte aus, um den Bericht auf sie und ihre Nachfolger einzugrenzen, oder heben Sie die Auswahl auf, um zu **Alle Karten** zurückzukehren.
+
+**Kartensymbole** — Treemap, Sankey und Tabelle zeigen Karten mit Logo und Typsymbol. Ohne Logo wird nur das Typsymbol angezeigt. Ist ein Element im Diagramm zu klein für das Symbol, sehen Sie es beim Überfahren im Tooltip.
+
+**Tabelle** — Die erste Spalte zeigt Symbol und Kartenname. Die übrigen Spalten zeigen Kostenelemente, **TCO** und ausgewählte Felder. Nach der ausgewählten Kostenart sortiert stehen die teuersten zuerst. Gruppen und Fußzeile zeigen die Summen. Rechtsklick auf eine Zeile führt in die Detailansicht; ein Klick öffnet die Karte.
+
+**Vollbild** — Verwenden Sie die Vollbildschaltfläche in Treemap, Sankey oder Tabelle. Der Breadcrumb bleibt verfügbar. In der Treemap führt ein Rechtsklick tiefer, ohne den Vollbildmodus zu schließen. In der Tabelle können Sie die Zeilen scrollen, während die Spaltenüberschriften sichtbar bleiben.
+
+### Kosten aus Excel importieren {#import-costs-from-excel}
+
+1. Öffnen Sie **Kosten aus Excel importieren** in der Werkzeugleiste des Kostenberichts und wählen Sie **Excel-Vorlage herunterladen**. Das Blatt **Cost Items** enthält die aktuell verfügbaren Schlüssel und Bezeichnungen für neue Einträge. Hat sich der Katalog geändert, laden Sie eine neue Vorlage herunter.
+2. Tragen Sie im ersten Blatt je Karte, Geschäftsjahr und Kostenelement eine Zeile ein. Verwenden Sie für **Card ID** die UUID aus der Karten-URL. Die ID in der **Card ID**-Pille ist die Anzeige-Referenz. Geben Sie das Geschäftsjahr vierstellig, den **Cost Item**-Schlüssel aus dem Katalog und den **Amount** in der Währung des Arbeitsbereichs an. Null ist zulässig. Lassen Sie **Renewal Date** leer, um das Datum dieses Elements zu löschen. Eine weggelassene optionale Spalte hat denselben Effekt.
+3. Wählen Sie die `.xlsx`-Datei aus und prüfen Sie die Vorschau. Sie zeigt die Anzahl der übernehmbaren Zeilen sowie übersprungene Zeilen mit Excel-Zeilennummer und Grund. Zielen mehrere Zeilen auf dieselbe Karte, dasselbe Jahr und dasselbe Kostenelement, werden alle diese Zeilen übersprungen.
+4. Bestätigen Sie den Import, um gültige Zeilen zu übernehmen. Das Ergebnis zeigt übernommene und nach Prüfung von Katalog und Berechtigungen übersprungene Zeilen. Der Bericht aktualisiert Summen und Diagramme und behält aktuelle Filter, Geschäftsjahr und Ansicht bei.
+
+Importieren können Sie Kosten nur für Anwendungen und IT-Komponenten, deren Kosten Sie bearbeiten dürfen. Wenn Sie eine archivierte Karte bearbeiten dürfen, können ihre Kosten aktualisiert werden; die Karte bleibt archiviert und außerhalb des Berichts. Der Import ändert nur die im Arbeitsbuch enthaltenen Kostenelemente. Ein archiviertes Kostenelement kann nur aktualisiert werden, wenn es im Zieljahr bereits vorhanden ist, auch wenn es geerbt wurde. Die Arbeitsmappe darf höchstens 20 MB und 10.000 Zeilen umfassen. Formeln in Eingabespalten werden als Zeilenfehler gemeldet.
 
 ### Gruppieren nach
 

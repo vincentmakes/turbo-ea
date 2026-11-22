@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -328,3 +329,20 @@ def test_auto_batch_skiplist_keeps_audit_relevant_writes():
         assert not any(et.startswith(p) for p in _NO_AUTO_BATCH_PREFIXES), (
             f"{et} should NOT be skipped — it's audit-relevant"
         )
+
+
+async def test_get_batch_defaults_to_an_unlocked_read():
+    from app.services.mutation_batch_service import get_batch
+
+    db = SimpleNamespace(
+        execute=AsyncMock(return_value=SimpleNamespace(scalar_one_or_none=lambda: None))
+    )
+    assert await get_batch(db, uuid.uuid4()) is None
+    from sqlalchemy.dialects import postgresql
+
+    statement = db.execute.await_args.args[0]
+    assert "FOR UPDATE" not in str(statement.compile(dialect=postgresql.dialect()))
+
+    await get_batch(db, uuid.uuid4(), for_update=True)
+    statement = db.execute.await_args.args[0]
+    assert "FOR UPDATE" in str(statement.compile(dialect=postgresql.dialect()))

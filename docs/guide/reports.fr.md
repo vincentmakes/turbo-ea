@@ -163,7 +163,7 @@ Basculez vers la **Layered Dependency View** à l'aide des boutons de mode d'aff
 Le **Rapport Coûts** fournit une analyse financière de votre paysage technologique :
 
 - **Vue treemap** -- Rectangles imbriqués dimensionnés par coût, avec regroupement optionnel (par ex. par organisation ou capacité)
-- **Vue graphique à barres** -- Comparaison des coûts entre composants
+- **Vue tableau** -- Liste triable des fiches, postes de coûts et totaux
 - **Vue Sankey** -- Le même rapport dessiné comme un flux de coûts (voir [Vue Sankey](#sankey-view))
 - **Type de fiche** -- Deux boutons à bascule, **Application** et **Composant IT**. Appuyez sur l'un pour construire le rapport autour de ce type, ou gardez les deux enfoncés pour **Application + Composant IT** (les deux types dans un même graphique, chaque fiche avec son propre coût). Au moins un bouton reste toujours actif : pour passer d'un type à l'autre, appuyez d'abord sur l'autre bouton, puis relâchez le premier. Un type que vous n'avez pas le droit de lire n'est pas proposé. Les initiatives ne font plus partie du rapport de coûts.
 - **Type de coût** -- Choisissez ce qui est additionné : **TCO** (le total de tous les postes de coûts de chaque fiche) ou un poste de coûts isolé du catalogue. Pour l'option combinée, seuls les types de coût présents dans les deux types sont proposés.
@@ -176,7 +176,22 @@ Toutes les vues partagent la même barre d'outils, les mêmes filtres, le même 
 
 **Exploration** -- Un **clic droit** sur un groupe ou une fiche l'explore : le graphique se restreint à ce groupe (ou à cette fiche) et un fil d'Ariane apparaît au-dessus. Cliquez sur **Retour**, ou sur n'importe quel segment du fil d'Ariane, pour remonter d'un niveau. Explorer **Autres** liste les groupes qui y ont été repliés. Un **clic gauche** sur une fiche ouvre à la place son panneau latéral (un clic gauche sur un groupe ne fait rien). Une indication au-dessus du graphique rappelle les deux gestes.
 
-**Tableau** -- En plus des colonnes de regroupement et d'attributs, le tableau a une colonne par poste de coûts et une colonne **TCO**. Le tri par type de coût sélectionné place les plus coûteuses en premier. Les lignes d'en-tête de groupe et le total en pied affichent les sommes par poste, et chaque en-tête de groupe porte la pastille de sa couleur. Un badge avec l'icône et le nom du type dans la cellule du nom distingue les Applications des Composants IT dans la vue combinée. Un clic droit sur une ligne l'explore ; un clic ouvre la fiche.
+**Toutes les fiches** reste disponible avec un ou deux types sélectionnés. La liste contient les fiches lisibles des types choisis. Sélectionnez une fiche pour limiter le rapport à celle-ci et à ses descendantes, ou effacez la sélection pour revenir à **Toutes les fiches**.
+
+**Badges des fiches** — Le treemap, le Sankey et le tableau identifient les fiches par leur logo et l'icône de leur type. Sans logo, seule l'icône du type apparaît. Si un élément du graphique est trop petit pour le badge, survolez-le pour le voir dans l'infobulle.
+
+**Tableau** — La première colonne affiche le badge puis le nom de la fiche. Les autres colonnes affichent les postes de coûts, le **TCO** et les champs sélectionnés. Le tri par type de coût sélectionné place les plus coûteuses en premier. Les en-têtes de groupe et le pied de tableau affichent les totaux. Faites un clic droit sur une ligne pour l'explorer, ou cliquez dessus pour ouvrir la fiche.
+
+**Plein écran** — Utilisez le bouton plein écran du treemap, du Sankey ou du tableau. Le fil d'Ariane reste disponible ; dans le treemap, le clic droit permet d'explorer sans fermer le plein écran. Dans le tableau, faites défiler les lignes tandis que les en-têtes de colonnes restent visibles.
+
+### Importer des coûts depuis Excel {#import-costs-from-excel}
+
+1. Ouvrez **Importer des coûts depuis Excel** dans la barre d'outils du Rapport Coûts, puis choisissez **Télécharger le modèle Excel**. La feuille **Cost Items** répertorie les clés et libellés disponibles pour les nouvelles saisies. Si le catalogue a changé, téléchargez un nouveau modèle.
+2. Dans la première feuille, saisissez une ligne par fiche, exercice fiscal et poste de coûts. Pour **Card ID**, utilisez l'UUID de l'URL de la fiche. L'identifiant copié depuis la pastille **Card ID** est sa référence d'affichage. Saisissez l'exercice sur quatre chiffres, la clé **Cost Item** du catalogue et un **Amount** dans la devise de l'espace de travail. Zéro est accepté. Laissez **Renewal Date** vide pour effacer la date de ce poste ; omettre la colonne facultative a le même effet.
+3. Choisissez le classeur `.xlsx` et prévisualisez-le. L'aperçu indique le nombre de lignes applicables et répertorie les lignes ignorées avec leur numéro Excel et leur motif. Si plusieurs lignes visent la même fiche, le même exercice et le même poste, elles sont toutes ignorées.
+4. Confirmez l'import pour appliquer les lignes valides. Le résultat indique les lignes appliquées et celles ignorées après vérification du catalogue et des permissions. Le rapport actualise totaux et graphiques tout en conservant les filtres, l'exercice et la vue en cours.
+
+Vous ne pouvez importer des coûts que pour les Applications et Composants IT dont vous avez le droit de modifier les coûts. Si vous pouvez modifier une fiche archivée, ses coûts peuvent être mis à jour ; la fiche reste archivée et exclue du rapport. L'import ne modifie que les postes présents dans le fichier. Un poste de coûts archivé ne peut être mis à jour que s'il existe déjà pour l'exercice cible, y compris par héritage. Le classeur est limité à 20 Mo et 10 000 lignes. Les formules dans les colonnes de saisie sont signalées comme erreurs de ligne.
 
 ### Regrouper par
 

@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Awaitable, Callable
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Response
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.concurrency import run_in_threadpool
 
 from app.api.deps import get_current_user, parse_uuid
 from app.database import get_db
@@ -14,14 +16,17 @@ from app.models.user import User
 from app.schemas.cost_items import (
     KEY_PATTERN,
     CardCostsOut,
+    CostImportResultOut,
     CostItemTypeOut,
     CostItemWrite,
     YearCostsDetailOut,
     YearCostsOut,
 )
-from app.services import card_costs, cost_item_types
+from app.services import audit_log, card_costs, cost_import, cost_import_template, cost_item_types
+from app.services.attachment_upload import read_validated_upload
 from app.services.card_costs import COST_ITEM_TYPES, CostError, YearCosts
 from app.services.card_read_scope import require_card_readable
+from app.services.event_bus import event_bus
 from app.services.fiscal_year import MAX_FISCAL_YEAR, MIN_FISCAL_YEAR, get_fiscal_year_start
 from app.services.permission_service import PermissionService
 
@@ -30,6 +35,82 @@ router = APIRouter(tags=["card-costs"])
 _KEY = Path(pattern=KEY_PATTERN)
 _FY = Path(ge=MIN_FISCAL_YEAR, le=MAX_FISCAL_YEAR)
 _STATUS = {"archived_item": 409}
+
+
+@router.post("/costs/import", response_model=CostImportResultOut)
+async def import_costs(
+    file: UploadFile,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    dry_run: bool = Query(True),
+):
+    await PermissionService.require_permission(db, user, "costs.view")
+    await db.commit()
+    if not (file.filename or "").lower().endswith(".xlsx"):
+        raise HTTPException(400, "Expected an .xlsx workbook")
+    _, data = await read_validated_upload(file)
+    try:
+        rows = await run_in_threadpool(cost_import.parse_workbook, data)
+    except cost_import.ImportFileError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    await db.refresh(user, attribute_names=["role"])
+    await PermissionService.require_permission(db, user, "costs.view")
+    plan = await cost_import.plan_import(db, user, rows, for_apply=not dry_run)
+    applied = 0
+    deferred_messages: list[dict] = []
+    if not dry_run:
+        try:
+            applied = await cost_import.apply_import(db, user.id, plan, deferred_messages)
+            await db.commit()
+        except Exception as exc:
+            await db.rollback()
+            raise HTTPException(409, {"code": "cost_import_write_failed", "applied": 0}) from exc
+        for message in deferred_messages:
+            event_bus.fanout(message)
+    return CostImportResultOut(
+        matched=plan.matched,
+        applied=applied,
+        clears_renewal_count=plan.clears_renewal_count,
+        skipped=plan.skipped,
+    )
+
+
+@router.get(
+    "/costs/import/template",
+    response_class=Response,
+    responses={
+        200: {
+            "content": {
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                    "schema": {"type": "string", "format": "binary"}
+                }
+            }
+        },
+        503: {"description": "Cost import template is unavailable"},
+    },
+)
+async def download_cost_import_template(
+    db: Annotated[AsyncSession, Depends(get_db)], user: Annotated[User, Depends(get_current_user)]
+):
+    await PermissionService.require_permission(db, user, "costs.view")
+    snapshot = await cost_import_template.catalogue_snapshot(db)
+    await db.commit()
+    try:
+        content = await cost_import_template.template_bytes(snapshot)
+    except Exception as exc:
+        raise HTTPException(503, "Cost import template is unavailable") from exc
+    await audit_log.record(
+        db, action="access.export.cost_import_template", category="access", actor=user
+    )
+    await db.commit()
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": 'attachment; filename="cost-import-template.xlsx"',
+            "Cache-Control": "private, no-store",
+        },
+    )
 
 
 async def _load_for_edit(db: AsyncSession, user: User, card_id: str) -> Card:

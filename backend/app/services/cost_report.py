@@ -27,6 +27,7 @@ from app.services.card_costs import (
     resolve_year,
     year_costs,
 )
+from app.services.card_logo_service import logo_updated_map
 from app.services.card_read_scope import CardReadScope
 from app.services.cost_components import cost_components
 from app.services.cost_grouping import GroupBy, assign_groups
@@ -244,6 +245,7 @@ async def build_cost_sankey(
         db, user, (card.id for card, _ in totals)
     )
     totals = [(card, cost) for card, cost in totals if card.id in allowed]
+    logos = await logo_updated_map(db, [card for card, _ in totals])
     per_card: dict[uuid.UUID, tuple[Card, float, dict[str, float]]] = {
         c.id: (c, cost, {} if split else {cost_field: cost}) for c, cost in totals
     }
@@ -307,7 +309,13 @@ async def build_cost_sankey(
         total += card_total
         link_total = sum(costs.values())
         card_idx = node(
-            "card", str(card.id), card.name, card.type, cost=card_total, costs=dict(costs)
+            "card",
+            str(card.id),
+            card.name,
+            card.type,
+            cost=card_total,
+            costs=dict(costs),
+            **({"logo_updated_at": logos[card.id].isoformat()} if card.id in logos else {}),
         )
         if not group_by:
             links += [

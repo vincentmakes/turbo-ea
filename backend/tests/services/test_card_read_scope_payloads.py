@@ -229,6 +229,29 @@ class TestEventReadFilters:
 
 
 class TestScrubEventPayloads:
+    async def test_rollback_parent_is_scrubbed_without_mutating_stored_payload(self, db, landscape):
+        hidden = str(landscape["secret"].id).upper()
+        visible = str(landscape["open"].id)
+        payloads = [
+            {"op": "restore_card_fields", "fields": {"parent_id": hidden, "name": "unchanged"}},
+            {"op": "restore_card_fields", "fields": {"parent_id": visible}},
+            {"changes": {"parent_id": {"old": hidden, "new": visible}}},
+        ]
+        out = await scrub_event_payloads(db, scope(denied=("Secret",)), payloads)
+        assert out[0]["fields"] == {"parent_id": None, "name": "unchanged"}
+        assert out[1]["fields"]["parent_id"] == visible
+        assert out[2]["changes"]["parent_id"] == {"old": None, "new": visible}
+        assert payloads[0]["fields"]["parent_id"] == hidden
+        assert payloads[2]["changes"]["parent_id"]["old"] == hidden
+
+    async def test_parent_changes_hide_only_unreadable_parent_ids(self, db, landscape):
+        hidden = str(landscape["secret"].id)
+        visible = str(landscape["open"].id)
+        payload = {"changes": {"parent_id": {"old": hidden, "new": visible}}}
+        out = await scrub_event_payloads(db, scope(denied=("Secret",)), [payload])
+        assert out == [{"changes": {"parent_id": {"old": None, "new": visible}}}]
+        assert payload["changes"]["parent_id"]["old"] == hidden
+
     async def test_unrestricted_returns_the_payloads_as_stored(self, db):
         payloads = [{"card_id": str(uuid.uuid4())}, None]
         out = await scrub_event_payloads(db, scope(wildcard=True), payloads)

@@ -206,6 +206,8 @@ async def upsert_item(
     if key not in current and archived[key]:
         raise CostError("archived_item", f"Cost item '{key}' is archived")
     row = await _editable(db, card_id, fiscal_year, sm)
+    if archived[key] and key not in (row.items or {}):
+        raise CostError("archived_item", f"Cost item '{key}' is archived")
     row.items = {
         **(row.items or {}),
         key: {"amount": amount, "renewal_date": renewal_date.isoformat() if renewal_date else None},
@@ -353,11 +355,21 @@ async def apply_write(
     user_id: uuid.UUID,
     fiscal_year: int,
     op: Callable[[], Awaitable[object]],
+    *,
+    deferred_messages: list[dict] | None = None,
 ) -> YearCosts:
     """Run ``op``, refresh the derived total and publish the cost event. Flush only.
 
     The event carries item keys, never amounts or dates: it is readable without costs.view.
     """
+    card = (
+        await db.execute(
+            select(Card)
+            .where(Card.id == card.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    ).scalar_one()
     sm = await get_fiscal_year_start(db)
     old_total = (card.attributes or {}).get(DERIVED_KEY)
     old = await get_year_row(db, card.id, fiscal_year, sm)
@@ -383,5 +395,6 @@ async def apply_write(
         db=db,
         card_id=card.id,
         user_id=user_id,
+        deferred_messages=deferred_messages,
     )
     return new
