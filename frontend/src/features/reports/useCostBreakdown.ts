@@ -20,8 +20,9 @@ export function useCostBreakdown(args: {
   enabled: boolean;
   typeParam: string;
   fiscalYear: number | null;
+  refreshVersion?: number;
 }): { breakdown: Map<string, CardBreakdown> | null } {
-  const { enabled, typeParam, fiscalYear } = args;
+  const { enabled, typeParam, fiscalYear, refreshVersion } = args;
   const [breakdown, setBreakdown] = useState<Map<string, CardBreakdown> | null>(null);
 
   useAbortableEffect(
@@ -46,7 +47,7 @@ export function useCostBreakdown(args: {
       }
       setBreakdown(map);
     },
-    [enabled, typeParam, fiscalYear],
+    [enabled, typeParam, fiscalYear, refreshVersion],
   );
 
   return { breakdown };

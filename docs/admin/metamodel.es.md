@@ -293,6 +293,8 @@ Las **partidas de coste** son el catálogo de líneas de coste que pueden llevar
 
 Cada partida tiene una **clave** estable, una **etiqueta** y **traducciones** opcionales de la etiqueta. Las partidas se **archivan**, no se eliminan: una partida archivada ya no se puede añadir a una ficha, pero los importes ya introducidos siguen contando en el TCO y en el [Informe de costes](../guide/reports.md#informe-de-costos).
 
+La [plantilla de importación de Excel](../guide/reports.es.md#import-costs-from-excel) descargable usa este catálogo. Guardar un cambio del catálogo actualiza la hoja de referencia para las descargas posteriores. Hasta entonces se reutiliza la plantilla actual. La hoja de referencia contiene las claves activas en el orden del catálogo y no incluye datos de tarjetas ni importes.
+
 Introducir importes en una ficha requiere `costs.edit` (o un rol de parte interesada que pueda editar la ficha); cambiar el catálogo requiere el permiso de administración del metamodelo.
 
 ## Tipos de licencia

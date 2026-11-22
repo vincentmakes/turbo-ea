@@ -2291,6 +2291,7 @@
   "securityLog.actionLabels.access_export_cards": "卡片已导出（CSV / JSON）",
   "securityLog.actionLabels.access_export_workspace": "工作区已导出",
   "securityLog.actionLabels.access_export_migration": "已导出到其他 EA 平台",
+  "securityLog.actionLabels.access_export_cost_import_template": "成本导入模板已下载",
   "securityLog.actionLabels.admin_user_created": "用户已创建",
   "securityLog.actionLabels.admin_user_updated": "用户已更新",
   "securityLog.actionLabels.admin_user_deleted": "用户已删除",

@@ -5,9 +5,12 @@
  * usable while a card is previewed (#1289).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { StrictMode } from "react";
+import { StrictMode, useState } from "react";
+import Dialog from "@mui/material/Dialog";
+import Tooltip from "@mui/material/Tooltip";
+import Popover from "@mui/material/Popover";
 import { MemoryRouter } from "react-router";
 import CardDetailSidePanel from "./CardDetailSidePanel";
 
@@ -24,7 +27,7 @@ vi.mock("@/hooks/useAiStatus", () => ({
 // The real content drags in the whole card-detail graph; this suite is about
 // the drawer around it.
 vi.mock("@/features/cards/CardDetailContent", () => ({
-  default: ({
+  default: function MockCardDetailContent({
     card,
     onCardUpdate,
     onSaveOrigin,
@@ -34,9 +37,17 @@ vi.mock("@/features/cards/CardDetailContent", () => ({
     onCardUpdate: (c: unknown) => void;
     onSaveOrigin?: (anchor: string) => void;
     onDirtyChange?: (dirty: boolean) => void;
-  }) => (
+  }) {
+    const [dialogOpen, setDialogOpen] = useState(false);
+    const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+    return (
     <div data-testid="card-content">
       {card.name}
+      <Tooltip title="Nested tooltip"><button type="button">Hover nested</button></Tooltip>
+      <button type="button" onClick={(e) => setAnchor(e.currentTarget)}>Open popover</button>
+      <Popover open={!!anchor} anchorEl={anchor} onClose={() => setAnchor(null)}><div>Nested popover content</div></Popover>
+      <button type="button" onClick={() => setDialogOpen(true)}>Open nested</button>
+      <Dialog open={dialogOpen}><div>Nested dialog content</div></Dialog>
       <button type="button" onClick={() => onDirtyChange?.(true)}>
         Edit
       </button>
@@ -56,7 +67,8 @@ vi.mock("@/features/cards/CardDetailContent", () => ({
         Clear lifecycle
       </button>
     </div>
-  ),
+  );
+  },
 }));
 vi.mock("@/features/cards/gamification/GainFlight", () => ({
   GainFlight: ({
@@ -174,6 +186,23 @@ const panel = () => document.querySelector(".MuiDrawer-paper") as HTMLElement;
 const closeButton = () => panel().querySelector("button") as HTMLButtonElement;
 
 describe("CardDetailSidePanel — modal by default", () => {
+  it("places its modal in the supplied fullscreen container", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const view = render(<MemoryRouter><CardDetailSidePanel cardId="c1" open onClose={() => {}} container={container} /></MemoryRouter>);
+    await screen.findByTestId("card-content");
+    expect(container.querySelector(".MuiDrawer-paper")).not.toBeNull();
+    fireEvent.mouseOver(screen.getByRole("button", { name: "Nested tooltip" }));
+    expect(container).toContainElement(await screen.findByRole("tooltip"));
+    await userEvent.click(screen.getByRole("button", { name: "Open popover" }));
+    expect(container).toContainElement(await screen.findByText("Nested popover content"));
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(screen.getByRole("button", { name: "Open nested" }));
+    expect(await screen.findByText("Nested dialog content")).toBeInTheDocument();
+    expect(container).toContainElement(screen.getByText("Nested dialog content"));
+    view.unmount();
+    container.remove();
+  });
   it("renders a backdrop, locks the page scroll and hides the page from assistive tech", async () => {
     mount();
     expect(await screen.findByTestId("card-content")).toHaveTextContent("SAP ERP");

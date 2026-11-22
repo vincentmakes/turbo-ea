@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, waitFor } from "@testing-library/react";
 import CostTrendChart from "./CostTrendChart";
 
 vi.mock("@/api/client", () => ({ api: { get: vi.fn() }, isAbortError: () => false }));
@@ -189,4 +189,12 @@ describe("CostTrendChart selection and scope", () => {
     render(<CostTrendChart {...props({ components: ["licenseCost"], years: [2025] })} />);
     await waitFor(() => expect(rowsOf()).toEqual({ licenseCost: [999] }));
   });
+});
+
+it("refetches all component years when the refresh version changes", async () => {
+  const years = [2025, 2026];
+  const { rerender } = render(<CostTrendChart {...props({ years, refreshVersion: 0 })} />);
+  await waitFor(() => expect(api.get).toHaveBeenCalledTimes(4));
+  rerender(<CostTrendChart {...props({ years, refreshVersion: 1 })} />);
+  await waitFor(() => expect(api.get).toHaveBeenCalledTimes(8));
 });

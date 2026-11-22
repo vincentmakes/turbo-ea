@@ -2762,6 +2762,20 @@
         "title": "Body_import_bpmn_api_v1_bpm_processes__process_id__diagram_import_post",
         "type": "object"
       },
+      "Body_import_costs_api_v1_costs_import_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_import_costs_api_v1_costs_import_post",
+        "type": "object"
+      },
       "Body_import_licenses_api_v1_licenses_import_post": {
         "properties": {
           "file": {
@@ -6856,6 +6870,55 @@
         "title": "CostHistoryRow",
         "type": "object"
       },
+      "CostImportIssueOut": {
+        "properties": {
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "row": {
+            "title": "Row",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "row",
+          "reason"
+        ],
+        "title": "CostImportIssueOut",
+        "type": "object"
+      },
+      "CostImportResultOut": {
+        "properties": {
+          "applied": {
+            "title": "Applied",
+            "type": "integer"
+          },
+          "clears_renewal_count": {
+            "title": "Clears Renewal Count",
+            "type": "integer"
+          },
+          "matched": {
+            "title": "Matched",
+            "type": "integer"
+          },
+          "skipped": {
+            "items": {
+              "$ref": "#/components/schemas/CostImportIssueOut"
+            },
+            "title": "Skipped",
+            "type": "array"
+          }
+        },
+        "required": [
+          "matched",
+          "applied",
+          "clears_renewal_count",
+          "skipped"
+        ],
+        "title": "CostImportResultOut",
+        "type": "object"
+      },
       "CostItemTypeCreate": {
         "properties": {
           "key": {
@@ -7049,6 +7112,128 @@
           "amount"
         ],
         "title": "CostLineOut",
+        "type": "object"
+      },
+      "CostReportNode": {
+        "additionalProperties": true,
+        "properties": {
+          "logo_updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Updated At"
+          }
+        },
+        "title": "CostReportNode",
+        "type": "object"
+      },
+      "CostSankeyResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/CostReportNode"
+            },
+            "title": "Nodes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "nodes"
+        ],
+        "title": "CostSankeyResponse",
+        "type": "object"
+      },
+      "CostScopeItem": {
+        "properties": {
+          "alias": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alias"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "type",
+          "parent_id",
+          "alias"
+        ],
+        "title": "CostScopeItem",
+        "type": "object"
+      },
+      "CostScopeResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CostScopeItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "CostScopeResponse",
+        "type": "object"
+      },
+      "CostTreemapResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CostReportNode"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CostTreemapResponse",
         "type": "object"
       },
       "CurrencyPayload": {
@@ -33500,6 +33685,84 @@
         ]
       }
     },
+    "/api/v1/costs/import": {
+      "post": {
+        "operationId": "import_costs_api_v1_costs_import_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Dry Run",
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_import_costs_api_v1_costs_import_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CostImportResultOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Costs",
+        "tags": [
+          "card-costs"
+        ]
+      }
+    },
+    "/api/v1/costs/import/template": {
+      "get": {
+        "operationId": "download_cost_import_template_api_v1_costs_import_template_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "503": {
+            "description": "Cost import template is unavailable"
+          }
+        },
+        "summary": "Download Cost Import Template",
+        "tags": [
+          "card-costs"
+        ]
+      }
+    },
     "/api/v1/dashboards": {
       "get": {
         "description": "The dashboards the caller sees as homepage tabs, in tab order.",
@@ -44337,7 +44600,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CostSankeyResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -44354,6 +44619,88 @@
           }
         },
         "summary": "Cost Sankey",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/cost-scope": {
+      "get": {
+        "operationId": "cost_scope_api_v1_reports_cost_scope_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "type",
+            "required": true,
+            "schema": {
+              "title": "Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 1000,
+              "maximum": 10000,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CostScopeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cost Scope",
         "tags": [
           "reports"
         ]
@@ -44423,7 +44770,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CostTreemapResponse"
+                }
               }
             },
             "description": "Successful Response"

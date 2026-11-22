@@ -59,6 +59,19 @@ const build = (items: CostTreemapItem[] = ITEMS, over: Partial<CostTreemapOption
 const seriesOf = (option: any) => option.series[0];
 
 describe("costTooltipHtml", () => {
+  it("shows card identity in the tooltip even when a tile is too small for its label", () => {
+    const item = { id: "erp", name: "ERP", cost: 1, index: 0, color: P[0], typeLabel: "Application", typeIcon: "apps", logo_updated_at: "2026-01-01T00:00:00Z" };
+    const option = build([item], { tileRect: () => ({ width: 1, height: 1 }) });
+    const html = option.tooltip.formatter({ data: seriesOf(option).data[0] });
+    expect(html).toContain("/api/v1/cards/erp/logo?v=");
+    expect(html).toContain("Application");
+    const fallback = build([{ ...item, logo_updated_at: null }]);
+    expect(fallback.tooltip.formatter({ data: seriesOf(fallback).data[0] })).toContain("apps");
+    const large = build([item]);
+    const datum = seriesOf(large).data[0];
+    expect(datum.label.rich.cardIdentity.backgroundColor.image).toContain("/api/v1/cards/erp/logo?v=");
+    expect(seriesOf(large).label.formatter({ name: "ERP", value: 1, data: datum })).toContain("{cardIcon|apps}");
+  });
   it("names the card, prices it and gives its share of the panel total to one decimal", () => {
     expect(costTooltipHtml({ name: "ERP", cost: 500 }, opts())).toBe(
       '<div style="font-weight:700">ERP</div>' +
@@ -555,5 +568,27 @@ describe("cost report colours and type line", () => {
 
   it("names the type in the tooltip", () => {
     expect(costTooltipHtml({ name: "ERP", cost: 5, typeLabel: "Application" }, opts())).toContain("Application");
+  });
+});
+
+
+describe("identity regression fixes", () => {
+  it("keeps light tile rich styles bounded as identity count grows", () => {
+    const items = Array.from({ length: 30 }, (_, i) => ({ id: `c${i}`, name: `Card ${i}`, cost: 1, index: i, color: "#ffffff", typeIcon: "apps" }));
+    const series = seriesOf(build(items));
+    expect(Object.keys(series.label.rich).length).toBeLessThanOrEqual(7);
+    expect(Math.max(...series.data.map((d: any) => Object.keys(d.label.rich).length))).toBeLessThanOrEqual(5);
+    expect(series.data[0].label.rich.cardIdentity).toBeDefined();
+  });
+
+  it("uses an opaque image surface with a fallback glyph when the logo cannot load", () => {
+    const html = costTooltipHtml({ id: "erp", name: "ERP", cost: 1, typeIcon: "apps", logo_updated_at: "2026-01-01" }, opts());
+    const div = document.createElement("div");
+    div.innerHTML = html;
+    const image = div.querySelector("img");
+    expect(image?.getAttribute("src")).toContain("/api/v1/cards/erp/logo?v=");
+    expect(image?.getAttribute("style")).toContain("background:Canvas");
+    expect(image?.getAttribute("alt")).toBe("apps");
+    expect(html).not.toMatch(/\son\w+=/i);
   });
 });

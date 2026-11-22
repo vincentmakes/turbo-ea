@@ -1,4 +1,4 @@
-.PHONY: help dev dev-backend dev-frontend lint lint-backend lint-frontend \
+.PHONY: help dev dev-backend dev-frontend lint lint-backend lint-frontend python-check frontend-check \
 	test test-backend test-frontend test-unit e2e e2e-drawio e2e-coverage \
 	mutation-diff mutation-backend mutation-mcp mutation-frontend mutation-clean build format typecheck \
 	lock-deps audit docker-up docker-down docker-build pull-prod up-prod down-prod up-dev down-dev build-dev backup
@@ -25,8 +25,16 @@ lint: lint-backend lint-frontend ## Lint everything
 lint-backend: ## Lint backend (ruff check + format check)
 	cd backend && ruff check . && ruff format --check .
 
+python-check: private export TURBO_PYTHON_FILE := $(value FILE)
+python-check: ## Check one backend Python file with the expanded Ruff rules (FILE=backend/...)
+	@node scripts/quality/python-check.cjs
+
 lint-frontend: ## Lint frontend (eslint)
 	cd frontend && npm run lint
+
+frontend-check: private export TURBO_FRONTEND_FILE := $(value FILE)
+frontend-check: ## Check one frontend .ts or .tsx file with Biome (FILE=frontend/src/...)
+	@node scripts/quality/frontend-check.cjs
 
 # ── Formatting ──────────────────────────────────────────────────────────
 
