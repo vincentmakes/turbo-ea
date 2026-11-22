@@ -45,16 +45,22 @@ jobs:
       - name: Install cosign
         uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
 
-      # /VERSION is the single source of truth; the tag must agree with it so a
-      # chart never claims a version its images do not carry.
+      # Validate the tag's base against /VERSION, then keep the full version
+      # so a pre-release chart resolves to the corresponding image tags.
       - name: Resolve version
         id: version
         if: ${{ !inputs.sign_only_version }}
         run: |
-          version="$(tr -d '[:space:]' < VERSION)"
-          if [ "${{ github.event_name }}" = "push" ] && [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
-            echo "::error::tag ${GITHUB_REF_NAME} does not match VERSION (${version})"
-            exit 1
+          base_version="$(tr -d '[:space:]' < VERSION)"
+          version="$base_version"
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            version="${GITHUB_REF_NAME#v}"
+            number='0|[1-9][0-9]*'
+            tag_pattern="^v($number)\.($number)\.($number)(-rc\.($number))?$"
+            if [[ ! "$GITHUB_REF_NAME" =~ $tag_pattern || "${version%-rc.*}" != "$base_version" ]]; then
+              echo "::error::tag ${GITHUB_REF_NAME} does not match VERSION (${base_version})"
+              exit 1
+            fi
           fi
           echo "version=${version}" >> "$GITHUB_OUTPUT"
 
