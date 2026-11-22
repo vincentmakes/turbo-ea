@@ -33,7 +33,7 @@ d'essai — voir [Administration → Boutique d'extensions](../admin/extensions.
 
 | Extension | Rôle | Licence |
 |-----------|------|---------|
-| [DORA Register of Information](dora-roi.md) | Tient le registre d'informations DORA (art. 28) sur vos fiches existantes et exporte le paquet de soumission officiel xBRL-CSV | Commerciale |
+| [DORA Register of Information](dora-roi.md) | Tient le registre d'informations DORA (art. 28) sur vos fiches existantes, le contrôle selon les modèles de l'ABE et les règles de l'ABE exécutables hors ligne, et exporte un paquet de rapport xBRL-CSV construit selon la taxonomie du cadre ABE 4.0 | Commerciale |
 
 ## Ce que toutes les extensions ont en commun
 

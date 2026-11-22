@@ -32,7 +32,7 @@ consulte [Administração → Loja de extensões](../admin/extensions.md).
 
 | Extensão | O que faz | Licença |
 |----------|-----------|---------|
-| [DORA Register of Information](dora-roi.md) | Mantém o registo de informação do art. 28.º do DORA sobre os seus cartões existentes e exporta o pacote oficial de submissão xBRL-CSV | Comercial |
+| [DORA Register of Information](dora-roi.md) | Mantém o registo de informação do art. 28.º do DORA sobre os seus cartões existentes, verifica-o face aos modelos da EBA e às regras da EBA que podem ser executadas sem ligação, e exporta um pacote de relatório xBRL-CSV construído segundo a taxonomia do quadro EBA 4.0 | Comercial |
 
 ## O que todas as extensões têm em comum
 

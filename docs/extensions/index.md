@@ -32,7 +32,7 @@ instance IDs, installing, updating and trials — see
 
 | Extension | What it does | Licence |
 |-----------|--------------|---------|
-| [DORA Register of Information](dora-roi.md) | Maintains the EU DORA Art. 28 Register of Information on your existing cards and exports the official xBRL-CSV submission package | Commercial |
+| [DORA Register of Information](dora-roi.md) | Maintains the EU DORA Art. 28 Register of Information on your existing cards, checks it against the EBA templates and the EBA rules that can run offline, and exports an xBRL-CSV report package built to the EBA framework 4.0 taxonomy | Commercial |
 
 ## What every extension has in common
 

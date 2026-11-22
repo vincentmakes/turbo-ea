@@ -30,7 +30,7 @@
 
 | 扩展 | 功能 | 许可 |
 |------|------|------|
-| [DORA Register of Information](dora-roi.md) | 在既有卡片上维护欧盟 DORA 第 28 条的信息登记册，并导出官方 xBRL-CSV 报送包 | 商业 |
+| [DORA Register of Information](dora-roi.md) | 在既有卡片上维护欧盟 DORA 第 28 条的信息登记册，对照 EBA 报表以及可离线运行的 EBA 规则进行检查，并导出按 EBA 框架 4.0 分类法构建的 xBRL-CSV 报告包 | 商业 |
 
 ## 所有扩展的共同点
 

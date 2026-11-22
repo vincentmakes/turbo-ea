@@ -32,7 +32,7 @@ veda [Amministrazione → Store delle estensioni](../admin/extensions.md).
 
 | Estensione | Che cosa fa | Licenza |
 |------------|-------------|---------|
-| [DORA Register of Information](dora-roi.md) | Tiene il registro delle informazioni previsto dall'art. 28 DORA sulle vostre schede esistenti ed esporta il pacchetto ufficiale di trasmissione xBRL-CSV | Commerciale |
+| [DORA Register of Information](dora-roi.md) | Tiene il registro delle informazioni previsto dall'art. 28 DORA sulle vostre schede esistenti, lo verifica rispetto ai modelli EBA e alle regole EBA eseguibili offline ed esporta un pacchetto di report xBRL-CSV costruito secondo la tassonomia del quadro EBA 4.0 | Commerciale |
 
 ## Che cosa hanno in comune tutte le estensioni
 

@@ -33,7 +33,7 @@ beschreibt [Administration → Extension Store](../admin/extensions.md).
 
 | Erweiterung | Funktion | Lizenz |
 |-------------|----------|--------|
-| [DORA Register of Information](dora-roi.md) | Führt das Informationsregister nach EU-DORA Art. 28 auf Ihren vorhandenen Karten und exportiert das offizielle xBRL-CSV-Einreichungspaket | Kommerziell |
+| [DORA Register of Information](dora-roi.md) | Führt das Informationsregister nach EU-DORA Art. 28 auf Ihren vorhandenen Karten, prüft es gegen die EBA-Meldebögen und die EBA-Regeln, die offline laufen können, und exportiert ein nach der EBA-Taxonomie des Rahmenwerks 4.0 erstelltes xBRL-CSV-Berichtspaket | Kommerziell |
 
 ## Was alle Erweiterungen gemeinsam haben
 
