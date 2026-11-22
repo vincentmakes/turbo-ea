@@ -75,6 +75,24 @@ export const clearToken = (): void => {
 };
 export const hasToken = (): boolean => _authenticated;
 
+async function responseError(res: Response): Promise<ApiError> {
+  // HTTP/2 carries no reason phrase, so `statusText` is "" there; an error
+  // body that is not JSON (a proxy's own error page) must still name the
+  // status rather than surface as an empty message.
+  const fallback = res.statusText || `HTTP ${res.status}`;
+  const err = await res.json().catch(() => ({ detail: fallback }));
+  // FastAPI 422 returns detail as array of validation error objects
+  const detail = err.detail;
+  const msg = Array.isArray(detail)
+    ? detail.map((e: { msg?: string }) => e.msg || JSON.stringify(e)).join("; ")
+    : typeof detail === "string"
+      ? detail
+      : typeof detail === "object" && detail?.message
+        ? detail.message
+        : fallback;
+  return new ApiError(msg, res.status, detail);
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {}
@@ -95,23 +113,7 @@ async function request<T>(
     credentials: "same-origin",
   });
   if (res.status === 204) return undefined as T;
-  if (!res.ok) {
-    // HTTP/2 carries no reason phrase, so `statusText` is "" there; an error
-    // body that is not JSON (a proxy's own error page) must still name the
-    // status rather than surface as an empty message.
-    const fallback = res.statusText || `HTTP ${res.status}`;
-    const err = await res.json().catch(() => ({ detail: fallback }));
-    // FastAPI 422 returns detail as array of validation error objects
-    const detail = err.detail;
-    const msg = Array.isArray(detail)
-      ? detail.map((e: { msg?: string }) => e.msg || JSON.stringify(e)).join("; ")
-      : typeof detail === "string"
-        ? detail
-        : typeof detail === "object" && detail?.message
-          ? detail.message
-          : fallback;
-    throw new ApiError(msg, res.status, detail);
-  }
+  if (!res.ok) throw await responseError(res);
   return res.json();
 }
 
@@ -183,13 +185,7 @@ export const api = {
       headers: { "X-Turbo-EA-Origin": "web" },
     }).then(
       async (res) => {
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({ detail: res.statusText }));
-          const msg = Array.isArray(err.detail)
-            ? err.detail.map((e: { msg?: string }) => e.msg || JSON.stringify(e)).join("; ")
-            : err.detail || res.statusText;
-          throw new Error(msg);
-        }
+        if (!res.ok) throw await responseError(res);
         return res.json() as Promise<T>;
       },
     );

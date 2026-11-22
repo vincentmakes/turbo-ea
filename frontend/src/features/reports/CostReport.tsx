@@ -30,6 +30,7 @@ import { buildCostSankeyOption, chartSankeyNodeHeight } from "./costSankeyOption
 import SaveReportDialog from "./SaveReportDialog";
 import CostTrendChart, { type TrendSelection } from "./CostTrendChart";
 import CostDrillBar from "./CostDrillBar";
+import CostImportDialog from "./CostImportDialog";
 import { applyDrill, crumbsOf, type Drill } from "./costDrill";
 import { useCostBreakdown } from "./useCostBreakdown";
 import {
@@ -340,6 +341,8 @@ function CostSankeyPanel({
 
 export default function CostReport() {
   const { t } = useTranslation(["reports", "common"]);
+  const [importOpen, setImportOpen] = useState(false);
+  const [refreshVersion, setRefreshVersion] = useState(0);
   const { types, relationTypes, loading: ml } = useMetamodel();
   // Report type pickers offer only the types the user may see.
   const readableTypes = useReadableCardTypes("module");
@@ -657,7 +660,7 @@ export default function CostReport() {
         adoptCurrentFiscalYear(r.current_fiscal_year);
       }
     },
-    [cardTypeKey, costField, effectiveGroupBy, view, canViewCostsGlobally, fiscalYearParam],
+    [cardTypeKey, costField, effectiveGroupBy, view, canViewCostsGlobally, fiscalYearParam, refreshVersion],
   );
 
   // Delta badge baseline: the current fiscal year's per-card costs, fetched
@@ -684,7 +687,7 @@ export default function CostReport() {
       if (!isCurrent()) return;
       setBaselineCosts(new Map(r.items.map((it) => [it.id, it.cost])));
     },
-    [cardTypeKey, costField, view, canViewCostsGlobally, fiscalYearParam],
+    [cardTypeKey, costField, view, canViewCostsGlobally, fiscalYearParam, refreshVersion],
   );
 
   // The earliest year the picker itself offers — a selected year at or below
@@ -731,6 +734,7 @@ export default function CostReport() {
       canViewCostsGlobally,
       fiscalYearParam,
       minFiscalYearOption,
+      refreshVersion,
     ],
   );
 
@@ -866,6 +870,7 @@ export default function CostReport() {
       canViewCostsGlobally && (view === "table" || (view === "chart" && drill.cardId !== undefined)),
     typeParam: typeParam(cardTypeKey),
     fiscalYear: fiscalYearParam,
+    refreshVersion,
   });
   // A drilled card: one tile per cost item (catalogue order), the first 8 coloured, the rest merged.
   const cardItemTiles = useMemo<CostTreemapItem[] | null>(() => {
@@ -924,6 +929,7 @@ export default function CostReport() {
           groupBy={effectiveGroupBy}
           selection={trendSelection}
           scopeIds={scope.closure}
+          refreshVersion={refreshVersion}
         />
       </Box>
     ) : null;
@@ -1331,6 +1337,9 @@ export default function CostReport() {
       onResetSavedReport={saved.resetSavedReport}
       onReset={handleReset}
       printParams={printParams}
+      actions={
+        <Button size="small" variant="outlined" startIcon={<MaterialSymbol icon="upload_file" size={18} />} title={t("cost.import.title")} aria-label={t("cost.import.title")} onClick={() => setImportOpen(true)}>{t("cost.import.title")}</Button>
+      }
       toolbar={
         <>
           <ToggleButtonGroup
@@ -1668,6 +1677,7 @@ export default function CostReport() {
         onClose={() => setSidePanelCardId(null)}
         container={drawerContainer}
       />
+      <CostImportDialog open={importOpen} onClose={() => setImportOpen(false)} onApplied={() => setRefreshVersion((v) => v + 1)} />
       <SaveReportDialog
         open={saved.saveDialogOpen}
         onClose={() => saved.setSaveDialogOpen(false)}

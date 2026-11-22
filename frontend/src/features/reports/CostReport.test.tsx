@@ -29,7 +29,7 @@ vi.mock("react-router", async () => {
   };
 });
 
-vi.mock("@/api/client", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/api/client")>()), api: { get: vi.fn(), post: vi.fn() } }));
+vi.mock("@/api/client", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/api/client")>()), api: { get: vi.fn(), post: vi.fn(), upload: vi.fn() } }));
 vi.mock("@/hooks/useMetamodel", () => ({ useMetamodel: vi.fn() }));
 vi.mock("@/hooks/useSavedReport", () => ({ useSavedReport: vi.fn() }));
 vi.mock("@/hooks/useThumbnailCapture", () => ({
@@ -69,6 +69,7 @@ vi.mock("./CostTrendChart", () => ({
     labelOf,
     groupBy,
     scopeIds,
+    refreshVersion,
   }: {
     years: number[];
     currentFiscalYear: number;
@@ -78,11 +79,13 @@ vi.mock("./CostTrendChart", () => ({
     labelOf?: (key: string) => string;
     groupBy?: string;
     scopeIds?: Set<string> | null;
+    refreshVersion?: number;
   }) => {
     trendYearsSeen.push(years);
     return (
       <div
         data-testid="cost-trend-chart"
+        data-refresh={refreshVersion}
         data-years={years.join(",")}
         data-current={currentFiscalYear}
         data-type={typeParam}
@@ -627,7 +630,7 @@ describe("CostReport card-type selector and Sankey view", () => {
     await userEvent.click(await findByRole("button", { name: /sankey chart view/i }));
     await findByTestId("cost-sankey-panel");
     const s = echartState.last().option.series[0];
-    const label = (id: string) => s.label.formatter({ name: id }).replace(/^\{card\d+\|[^}]*\} /, "");
+    const label = (id: string) => s.label.formatter({ name: id }).replace(/^\{cardIdentity\|[^}]*\} /, "");
     const ids: string[] = s.data.map((d: { name: string }) => d.name);
     // Item and group nodes are named for what they are; the flow runs item -> group -> card.
     expect(ids.map(label)).toEqual(["Total Annual Cost", "EMEA", "CRM · Application"]);
@@ -998,7 +1001,7 @@ describe("CostReport Sankey from per-card costs", () => {
     const ids: string[] = s.data.map((d: { name: string }) => d.name);
     return {
       // a card prints "Name · Type": the tests below read the name
-      nodes: ids.map((id) => ({ name: s.label.formatter({ name: id }).replace(/^\{card\d+\|[^}]*\} /, "").replace(/ · .*$/, "") })),
+      nodes: ids.map((id) => ({ name: s.label.formatter({ name: id }).replace(/^\{cardIdentity\|[^}]*\} /, "").replace(/ · .*$/, "") })),
       links: s.links.map((l: { source: string; target: string; value: number }) => ({
         source: ids.indexOf(l.source),
         target: ids.indexOf(l.target),
@@ -1460,7 +1463,7 @@ describe("CostReport Sankey colours, fold, drill and right click", () => {
 
   it("prints the card type on a card node", async () => {
     await open();
-    expect(series().label.formatter({ name: "c1" })).toMatch(/^\{card\d+\|apps\} Card 1 · Application$/);
+    expect(series().label.formatter({ name: "c1" })).toMatch(/^\{cardIdentity\|apps\} Card 1 · Application$/);
   });
 
   it("uses the live Sankey node height to hide a badge that cannot fit", async () => {
@@ -1470,7 +1473,7 @@ describe("CostReport Sankey colours, fold, drill and right click", () => {
     const label = () => series().label.formatter({ name: "c1", dataIndex: 12 });
     expect(label()).toBe("Card 1 · Application");
     height = 30;
-    expect(label()).toMatch(/^\{card\d+\|apps\} Card 1 · Application$/);
+    expect(label()).toMatch(/^\{cardIdentity\|apps\} Card 1 · Application$/);
   });
 
   it("right click on a group node drills into the group", async () => {
@@ -1754,4 +1757,52 @@ describe("CostReport review fixes", () => {
       expect(l?.value).toBe(100);
     });
   });
+});
+
+it("refreshes the current table and breakdown after import, not preview", async () => {
+  consumedConfig = { view: "table", cardTypeKey: "Application", fiscalYearParam: 2025, scopeIds: ["erp"] };
+  let changed = false;
+  const originalGet = vi.mocked(api.get).getMockImplementation()!;
+  vi.mocked(api.get).mockImplementation((path: string, ...args: unknown[]) => {
+    if (changed && path.startsWith("/reports/cost-treemap")) return Promise.resolve({ items: [{ id: "erp", name: "ERP", cost: 700 }], total: 700, components: ["licenseCost"], fiscal_year: 2025, current_fiscal_year: 2026, fiscal_year_start: 1 }) as never;
+    return originalGet(path, ...args as []) as never;
+  });
+  vi.mocked(api.upload).mockImplementation(async (path) => {
+    if (path.includes("dry_run=false")) changed = true;
+    return { matched: 1, applied: changed ? 1 : 0, clears_renewal_count: 0, skipped: [] } as never;
+  });
+  renderCost();
+  await waitFor(() => expect(within(chart()).getAllByText("$500").length).toBeGreaterThan(0));
+  await userEvent.click(screen.getByRole("button", { name: "Import costs from Excel" }));
+  const dialog = await screen.findByRole("dialog");
+  const before = vi.mocked(api.get).mock.calls.length;
+  await userEvent.upload(document.querySelector('input[type="file"]') as HTMLInputElement, new File(["x"], "costs.xlsx"));
+  await within(dialog).findByRole("button", { name: "Apply 1 row" });
+  expect(vi.mocked(api.get).mock.calls.length).toBe(before);
+  await userEvent.click(within(dialog).getByRole("button", { name: "Apply 1 row" }));
+  await waitFor(() => expect(within(chart()).getAllByText("$700").length).toBeGreaterThan(0));
+  const paths = vi.mocked(api.get).mock.calls.slice(before).map(([path]) => String(path));
+  expect(paths.some((p) => p.includes("cost-sankey") && p.includes("fiscal_year=2025"))).toBe(true);
+  expect(paths.some((p) => p.includes("cost-treemap") && p.includes("fiscal_year=2024"))).toBe(true);
+  expect(within(toolbar()).getByText(/1 card/)).toBeInTheDocument();
+  expect(within(dialog).getByText("1 row applied")).toBeInTheDocument();
+  expect(document.querySelector('button[value="table"]')).toHaveAttribute("aria-pressed", "true");
+});
+
+it("refreshes forecast, current baseline and trend after applying an import", async () => {
+  consumedConfig = { view: "chart", cardTypeKey: "Application", fiscalYearParam: 2027 };
+  vi.mocked(api.upload).mockResolvedValue({ matched: 1, applied: 1, clears_renewal_count: 0, skipped: [] } as never);
+  renderCost();
+  expect(await screen.findByTestId("cost-trend-chart")).toHaveAttribute("data-refresh", "0");
+  await userEvent.click(screen.getByRole("button", { name: "Import costs from Excel" }));
+  const dialog = await screen.findByRole("dialog");
+  await userEvent.upload(document.querySelector('input[type="file"]') as HTMLInputElement, new File(["x"], "costs.xlsx"));
+  await within(dialog).findByRole("button", { name: "Apply 1 row" });
+  const before = vi.mocked(api.get).mock.calls.length;
+  await userEvent.click(within(dialog).getByRole("button", { name: "Apply 1 row" }));
+  await waitFor(() => expect(screen.getByTestId("cost-trend-chart")).toHaveAttribute("data-refresh", "1"));
+  const paths = vi.mocked(api.get).mock.calls.slice(before).map(([p]) => String(p)).filter((p) => p.startsWith("/reports/cost-treemap"));
+  expect(paths.some((p) => p.includes("fiscal_year=2027"))).toBe(true);
+  expect(paths.some((p) => !p.includes("fiscal_year="))).toBe(true);
+  expect(within(dialog).getByText("1 row applied")).toBeInTheDocument();
 });

@@ -163,7 +163,7 @@ Passate alla **Layered Dependency View** usando i pulsanti di modalità di visua
 Il **Report Costi** fornisce un'analisi finanziaria del vostro panorama tecnologico:
 
 - **Vista treemap** — Rettangoli annidati dimensionati per costo, con raggruppamento opzionale (es. per organizzazione o capability)
-- **Vista grafico a barre** — Confronto dei costi tra componenti
+- **Vista tabella** — Elenco ordinabile di schede con voci di costo e totali
 - **Vista Sankey** — Lo stesso report disegnato come flusso di costo (vedi [Vista Sankey](#sankey-view))
 - **Tipo di scheda** — Due pulsanti a commutazione, **Applicazione** e **Componente IT**. Premetene uno per costruire il report attorno a quel tipo, oppure teneteli premuti entrambi per **Applicazione + Componente IT** (entrambi i tipi in un solo grafico, ogni scheda con il proprio costo). Almeno un pulsante resta sempre attivo: per passare da un tipo all'altro, premete prima l'altro pulsante e poi rilasciate il primo. Un tipo che non potete leggere non viene proposto. Le iniziative non fanno più parte del report dei costi.
 - **Tipo di costo** — Scegliete cosa viene sommato: **TCO** (il totale di tutte le voci di costo di ogni scheda) o una qualsiasi singola voce di costo del catalogo. Per l'opzione combinata sono offerti solo i tipi di costo presenti in entrambi i tipi.
@@ -176,7 +176,22 @@ Tutte le viste condividono la stessa barra degli strumenti, gli stessi filtri, l
 
 **Drill-down** — Un **clic destro** su un gruppo o una scheda lo approfondisce: il grafico si restringe a quel gruppo (o scheda) e sopra compare un breadcrumb. Fate clic su **Indietro**, o su un qualsiasi segmento del breadcrumb, per salire di un livello. Approfondire **Altri** elenca i gruppi che vi sono stati raccolti. Un **clic sinistro** su una scheda ne apre invece il pannello laterale (un clic sinistro su un gruppo non fa nulla). Un suggerimento sopra il grafico ricorda entrambi i gesti.
 
-**Tabella** — Oltre alle colonne di raggruppamento e di attributi, la tabella ha una colonna per ogni voce di costo e una colonna **TCO**. L'ordinamento per il tipo di costo selezionato mette per prime le più costose. Le righe di intestazione dei gruppi e il totale a piè di tabella mostrano le somme per voce, e ogni intestazione di gruppo reca il campione del suo colore. Un badge con l'icona e il nome del tipo nella cella del nome distingue Applicazioni e Componenti IT nella vista combinata. Un clic destro su una riga la approfondisce; il clic apre la scheda.
+**Tutte le schede** resta disponibile con uno o entrambi i tipi selezionati. L'elenco include le schede leggibili dei tipi scelti. Seleziona una scheda per limitare il report a quella e alle sue discendenti, oppure deselezionala per tornare a **Tutte le schede**.
+
+**Badge delle schede** — Treemap, Sankey e tabella identificano le schede con logo e icona del tipo. Se il logo manca, mostrano l'icona. Quando un elemento del grafico è troppo piccolo per il badge, passa il puntatore per vederlo nel tooltip.
+
+**Tabella** — La prima colonna mostra il badge seguito dal nome della scheda. Le altre mostrano voci di costo, **TCO** e campi selezionati. Ordinando per il tipo di costo selezionato, i costi maggiori vengono prima. Intestazioni dei gruppi e piè di tabella mostrano i totali. Fai clic destro su una riga per approfondire, oppure fai clic per aprire la scheda.
+
+**Schermo intero** — Usa il pulsante a schermo intero in treemap, Sankey o tabella. Il breadcrumb resta disponibile; nel treemap il clic destro approfondisce senza chiudere lo schermo intero. Nella tabella puoi scorrere le righe mentre le intestazioni delle colonne restano visibili.
+
+### Importare costi da Excel {#import-costs-from-excel}
+
+1. Apri **Importare costi da Excel** nella barra degli strumenti del Report Costi e scegli **Scarica modello Excel**. Il foglio **Cost Items** elenca chiavi ed etichette disponibili per i nuovi inserimenti. Se il catalogo è cambiato, scarica un nuovo modello.
+2. Nel primo foglio inserisci una riga per scheda, anno fiscale e voce di costo. Per **Card ID**, usa l'UUID dell'URL della scheda. L'ID copiato dalla pill **Card ID** è il riferimento visualizzato. Inserisci l'anno fiscale a quattro cifre, la chiave **Cost Item** del catalogo e un **Amount** nella valuta dell'area di lavoro. Zero è accettato. Lascia vuoto **Renewal Date** per cancellare la data di quella voce; omettere la colonna facoltativa ha lo stesso effetto.
+3. Scegli la cartella di lavoro `.xlsx` e visualizzane l'anteprima. L'anteprima mostra quante righe possono essere applicate ed elenca quelle ignorate con numero di riga Excel e motivo. Se più righe puntano alla stessa scheda, anno e voce di costo, vengono ignorate tutte.
+4. Conferma l'importazione per applicare le righe valide. Il risultato mostra ciò che è stato applicato e ignorato dopo la verifica di catalogo e autorizzazioni. Il report aggiorna totali e grafici mantenendo filtri, anno fiscale e vista correnti.
+
+Puoi importare costi solo per Applicazioni e Componenti IT di cui puoi modificare i costi. Se puoi modificare una scheda archiviata, i relativi costi possono essere aggiornati, ma la scheda resta archiviata ed esclusa dal report. L'importazione modifica solo le voci incluse nel file. Una voce archiviata può essere aggiornata solo se già presente nell'anno di destinazione, anche se ereditata. Il file è limitato a 20 MB e 10.000 righe. Le formule nelle colonne di input vengono segnalate come errori di riga.
 
 ### Raggruppa per
 

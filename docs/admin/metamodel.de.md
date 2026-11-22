@@ -292,6 +292,8 @@ Element- und Beziehungsnamen sind die des Open-Group-Austauschformats. Die Stand
 
 Jedes Element hat einen festen **Schlüssel**, eine **Bezeichnung** und optionale **Übersetzungen** der Bezeichnung. Elemente werden **archiviert**, nicht gelöscht: Ein archiviertes Element kann einer Karte nicht mehr hinzugefügt werden, bereits erfasste Beträge zählen aber weiterhin zu den TCO und im [Kostenbericht](../guide/reports.md#kostenbericht).
 
+Die herunterladbare [Excel-Importvorlage](../guide/reports.de.md#import-costs-from-excel) verwendet diesen Katalog. Änderungen am Katalog aktualisieren das Referenzblatt für spätere Downloads. Bis dahin wird die aktuelle Vorlage wiederverwendet. Das Referenzblatt enthält aktive Schlüssel in Katalogreihenfolge, keine Kartendaten oder Beträge.
+
 Für die Erfassung von Beträgen auf einer Karte ist `costs.edit` nötig (oder eine Stakeholder-Rolle, die die Karte bearbeiten darf); für Änderungen am Katalog ist die Berechtigung zur Metamodell-Verwaltung nötig.
 
 ## Lizenztypen
