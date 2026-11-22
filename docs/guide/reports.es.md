@@ -163,7 +163,7 @@ Cambie a la **Layered Dependency View** utilizando los botones de modo de vista 
 El **Informe de Costos** proporciona un análisis financiero de su panorama tecnológico:
 
 - **Vista de mapa de árbol** — Rectángulos anidados dimensionados por costo, con agrupación opcional (por ejemplo, por organización o capacidad)
-- **Vista de gráfico de barras** — Comparación de costos entre componentes
+- **Vista de tabla** — Lista ordenable de tarjetas con partidas de coste y totales
 - **Vista Sankey** — El mismo informe dibujado como un flujo de costes (véase [Vista Sankey](#sankey-view))
 - **Tipo de tarjeta** — Dos botones de alternancia, **Aplicación** y **Componente TI**. Pulse uno para construir el informe en torno a ese tipo, o mantenga ambos pulsados para **Aplicación + Componente TI** (ambos tipos en un mismo gráfico, cada ficha con su propio coste). Siempre queda al menos un botón activo, así que para pasar de un tipo al otro, pulse primero el otro botón y después suelte el primero. No se ofrece un tipo que usted no puede leer. Las iniciativas ya no forman parte del informe de costes.
 - **Tipo de coste** — Elija qué se suma: **TCO** (el total de todas las partidas de coste de cada tarjeta) o cualquier partida de coste individual del catálogo. Para la opción combinada solo se ofrecen los tipos de coste que existen en ambos tipos.
@@ -176,7 +176,22 @@ Todas las vistas comparten la misma barra de herramientas, los mismos filtros, e
 
 **Desglose** — Un **clic derecho** en un grupo o una tarjeta profundiza en él: el gráfico se limita a ese grupo (o tarjeta) y aparece una ruta de navegación encima. Haga clic en **Volver**, o en cualquier segmento de la ruta, para subir un nivel. Profundizar en **Otros** lista los grupos que se plegaron en él. Un **clic izquierdo** en una tarjeta abre en cambio su panel lateral (un clic izquierdo en un grupo no hace nada). Una indicación sobre el gráfico recuerda ambos gestos.
 
-**Tabla** — Además de las columnas de agrupación y de atributos, la tabla tiene una columna por partida de coste y una columna **TCO**. Ordenar por el tipo de coste seleccionado pone primero las más costosas. Las filas de cabecera de grupo y el total del pie muestran las sumas por partida, y cada cabecera de grupo lleva la muestra de su color. Una insignia con el icono y el nombre del tipo en la celda del nombre distingue Aplicaciones y Componentes TI en la vista combinada. El clic derecho en una fila profundiza en ella; el clic abre la tarjeta.
+**Todas las tarjetas** sigue disponible con uno o ambos tipos seleccionados. La lista incluye las tarjetas de esos tipos que puede leer. Seleccione una tarjeta para limitar el informe a ella y sus descendientes, o borre la selección para volver a **Todas las tarjetas**.
+
+**Insignias de tarjeta** — El mapa de árbol, Sankey y la tabla identifican las tarjetas con su logotipo e icono de tipo. Si no tienen logotipo, muestran el icono. Cuando un elemento del gráfico es demasiado pequeño para la insignia, pase el cursor para verla en la ayuda emergente.
+
+**Tabla** — La primera columna muestra la insignia y el nombre de la tarjeta. Las demás muestran partidas de coste, **TCO** y los campos seleccionados. Ordenar por el tipo de coste seleccionado sitúa primero las más costosas. Las cabeceras de grupo y el pie muestran los totales. Haga clic derecho en una fila para profundizar o clic para abrir la tarjeta.
+
+**Pantalla completa** — Use el botón de pantalla completa en el mapa de árbol, Sankey o tabla. La ruta de navegación sigue disponible. En el mapa, el clic derecho profundiza sin cerrar la pantalla completa. En la tabla puede desplazarse por las filas mientras las cabeceras permanecen visibles.
+
+### Importar costes desde Excel {#import-costs-from-excel}
+
+1. Abra **Importar costes desde Excel** en la barra del Informe de Costos y elija **Descargar plantilla de Excel**. La hoja **Cost Items** contiene las claves y etiquetas disponibles para nuevas entradas. Si cambió el catálogo, descargue una plantilla nueva.
+2. En la primera hoja, introduzca una fila por tarjeta, año fiscal y partida de coste. Para **Card ID**, use el UUID de la URL de la tarjeta. El ID copiado de la píldora **Card ID** es la referencia visible de la tarjeta. Introduzca el año fiscal con cuatro dígitos, la clave **Cost Item** del catálogo y un **Amount** en la moneda del espacio de trabajo. Se acepta cero. Deje **Renewal Date** vacío para borrar la fecha de esa partida. Omitir la columna opcional produce el mismo efecto.
+3. Elija el libro `.xlsx` y previsualícelo. La vista previa indica cuántas filas se pueden aplicar y enumera las omitidas con el número de fila de Excel y el motivo. Si varias filas se refieren a la misma tarjeta, año y partida, se omiten todas.
+4. Confirme la importación para aplicar las filas válidas. El resultado muestra lo aplicado y lo omitido tras validar el catálogo y los permisos. El informe actualiza totales y gráficos y conserva los filtros, el año fiscal y la vista actuales.
+
+Solo puede importar costes para Aplicaciones y Componentes TI cuyos costes pueda editar. Si puede editar una tarjeta archivada, sus costes se pueden actualizar, pero la tarjeta sigue archivada y fuera del informe. La importación solo cambia las partidas incluidas en el archivo. Una partida archivada solo se puede actualizar si ya existe en el año de destino, incluso si es heredada. El libro admite hasta 20 MB y 10.000 filas. Las fórmulas en columnas de entrada se notifican como errores de fila.
 
 ### Agrupar por
 

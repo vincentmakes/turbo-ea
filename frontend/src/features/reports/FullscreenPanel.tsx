@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
@@ -8,17 +8,26 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 export default function FullscreenPanel({
   children,
   label,
+  onContainerChange,
 }: {
   /** A function child learns whether the panel is full screen, to fill the screen. */
   children: ReactNode | ((isFullscreen: boolean) => ReactNode);
   label: string;
+  onContainerChange?: (container: HTMLElement | null) => void;
 }) {
   const { t } = useTranslation("reports");
   const ref = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const setRef = useCallback((element: HTMLDivElement | null) => {
+    ref.current = element;
+    onContainerChange?.(element);
+  }, [onContainerChange]);
 
   useEffect(() => {
-    const onChange = () => setIsFullscreen(document.fullscreenElement === ref.current);
+    const onChange = () => {
+      const active = document.fullscreenElement === ref.current;
+      setIsFullscreen(active);
+    };
     document.addEventListener("fullscreenchange", onChange);
     return () => document.removeEventListener("fullscreenchange", onChange);
   }, []);
@@ -30,7 +39,7 @@ export default function FullscreenPanel({
 
   return (
     <Box
-      ref={ref}
+      ref={setRef}
       data-testid="fullscreen-panel"
       sx={{
         position: "relative",
@@ -43,12 +52,12 @@ export default function FullscreenPanel({
         }),
       }}
     >
-      <Tooltip title={isFullscreen ? t("shell.exitFullscreen") : label}>
+      <Tooltip title={isFullscreen ? t("shell.exitFullscreen") : label} slotProps={{ popper: { container: isFullscreen ? ref.current : undefined } }}>
         <IconButton
           size="small"
           onClick={toggle}
           aria-label={isFullscreen ? t("shell.exitFullscreen") : label}
-          sx={{ position: "absolute", top: 4, right: 4, zIndex: 1 }}
+          sx={{ position: "absolute", top: 4, right: 4, zIndex: 1, "@media print": { display: "none" } }}
         >
           <MaterialSymbol icon={isFullscreen ? "fullscreen_exit" : "fullscreen"} size={18} />
         </IconButton>

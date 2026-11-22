@@ -163,12 +163,14 @@ Toggle to the **Layered Dependency View** using the view-mode buttons in the too
 The **Cost Report** provides financial analysis of your technology landscape:
 
 - **Treemap view** — Nested rectangles sized by cost, with optional grouping (e.g., by organization or capability)
-- **Bar chart view** — Cost comparison across components
+- **Table view** — A sortable list of cards with cost items and totals
 - **Sankey view** — The same report drawn as a flow of cost (see [Sankey view](#sankey-view))
 - **Card Type** — Two toggle buttons, **Application** and **IT Component**. Press one to build the report around that type, or keep both pressed for **Application + IT Component** (both types in one chart, each card with its own cost). At least one button always stays on, so to go from one type to the other, press the other button first and then release the first. A type you may not read is not offered. Initiatives are no longer part of the Cost Report.
 - **Cost type** — Pick what is summed: **TCO** (the total of all cost items of each card) or any single cost item of the catalogue. For the combined option only the cost types that exist in both types are offered.
 
 All views share the same toolbar, filters, fiscal year and cost field, so switching view only changes the drawing.
+
+**All Cards** stays available with one or both card types selected. It lists cards of the selected types that you can read. Select a card to scope the report to that card and its descendants, or clear the selection to return to **All Cards**.
 
 **Trend chart** — The cost trend (the current year, the four before it and, when selected, the **Forecast**) is shown above the chart in all three views, not only in the treemap, and follows the selected cost type.
 
@@ -176,7 +178,20 @@ All views share the same toolbar, filters, fiscal year and cost field, so switch
 
 **Drill-down** — A **right click** on a group or a card drills into it: the chart narrows to that group (or card) and a breadcrumb appears above it. Click **Back**, or any segment of the breadcrumb, to go up one level. Drilling into **Others** lists the groups that were folded into it. A **left click** on a card opens its side panel instead (a left click on a group does nothing). A hint above the chart reminds you of both gestures.
 
-**Table** — Besides the grouping and the attribute columns, the table has one column per cost item and a **TCO** column. Sorting by the selected cost type puts the costliest first. Group header rows and the footer total show the item sums, and each group header carries the swatch of its colour. A badge with the type icon and name in the name cell tells Applications and IT Components apart in the combined view. Right clicking a row drills into it; clicking it opens the card.
+**Card badges** — Treemap, Sankey and Table identify cards with their logo and type icon. Cards without a logo show the type icon. When a chart item is too small for the badge, hover to see it in the tooltip.
+
+**Table** — The first column shows the badge followed by the card name. The other columns show cost items, **TCO** and any selected fields. Sorting by the selected cost type puts the costliest first. Group headers and the footer show item totals. Right-click a row to drill into it, or click it to open the card.
+
+**Fullscreen** — Use the fullscreen button in Treemap, Sankey or Table. The breadcrumb stays available, and a right-click in Treemap drills down while keeping fullscreen open. In Table, you can scroll the rows while the column headers stay visible.
+
+### Import costs from Excel
+
+1. Open **Import costs from Excel** in the Cost Report toolbar and choose **Download Excel template**. The **Cost Items** sheet lists the keys and labels currently available for new entries. If the catalogue has changed, download a fresh copy.
+2. Enter one row per card, fiscal year and cost item on the first sheet. Use the card's UUID from its URL for **Card ID**. The ID copied from the **Card ID** pill is the card's display reference. Enter the fiscal year as a four-digit year, the **Cost Item** key from the catalogue and an **Amount** in the workspace currency. Zero is accepted. Leave **Renewal Date** empty to clear the date for that item. Omitting the optional column has the same effect.
+3. Choose the `.xlsx` workbook and preview it. The preview shows how many rows can be applied and lists skipped rows by Excel row number and reason. If multiple rows target the same card, year and cost item, all rows for that combination are skipped.
+4. Confirm the import to apply the valid rows. The result shows what was applied and what was skipped after validation against the current catalogue and permissions. The report refreshes its totals and charts while keeping the current filters, fiscal year and view.
+
+You can import costs only for the Applications and IT Components whose costs you can edit. If you can edit an archived card, its costs can be updated and the card remains archived and outside the report. The import changes only the cost items included in the file. An archived cost item can be updated only where the target year already holds it, including inherited items. The workbook limit is 20 MB and 10,000 rows. Formulas in the input columns are reported as row issues.
 
 ### Group by
 

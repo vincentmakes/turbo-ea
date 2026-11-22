@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type KeyboardEvent } from "react";
+import { useState, useEffect, useMemo, useRef, type KeyboardEvent } from "react";
 import { useNavigate } from "react-router";
 import Box from "@mui/material/Box";
 import Drawer from "@mui/material/Drawer";
@@ -9,6 +9,7 @@ import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
 import Alert from "@mui/material/Alert";
 import Tooltip from "@mui/material/Tooltip";
+import { createTheme, ThemeProvider, useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardLogoAvatar from "@/components/CardLogoAvatar";
@@ -58,6 +59,7 @@ interface Props {
   cardId: string | null;
   open: boolean;
   onClose: () => void;
+  container?: HTMLElement | null;
   /**
    * Leave the page beside the panel usable: no backdrop, no scroll lock, no
    * focus trap, nothing marked `aria-hidden`, and a click outside the panel
@@ -87,6 +89,7 @@ export default function CardDetailSidePanel({
   cardId,
   open,
   onClose,
+  container,
   nonModal = false,
   boScoped = false,
   onSaved,
@@ -94,6 +97,14 @@ export default function CardDetailSidePanel({
   docked = false,
   onKeepCard,
 }: Props) {
+  const theme = useTheme();
+  const overlayTheme = useMemo(() => container ? createTheme(theme, {
+    components: {
+      MuiModal: { defaultProps: { container } },
+      MuiPopover: { defaultProps: { container } },
+      MuiPopper: { defaultProps: { container } },
+    },
+  }) : theme, [container, theme]);
   const navigate = useNavigate();
   const { t } = useTranslation("common");
   const { t: reportT } = useTranslation("reports");
@@ -502,13 +513,16 @@ export default function CardDetailSidePanel({
   }
 
   return (
+    <ThemeProvider theme={overlayTheme}>
     <Drawer
       anchor="right"
       open={shownId !== null}
       onClose={requestClose}
+      ModalProps={{ container: container ?? undefined }}
       PaperProps={{ sx: paperSx }}
     >
       {content}
     </Drawer>
+    </ThemeProvider>
   );
 }

@@ -3,6 +3,7 @@ import { buildEChartsChrome } from "@/components/charts/echartsTheme";
 import { STATUS_COLORS } from "@/theme/tokens";
 import {
   buildCostSankeyOption,
+  chartSankeyNodeHeight,
   costSankeyNodeColor,
   shortenSankeyLabel,
   type CostSankeyLinkIn,
@@ -52,6 +53,14 @@ describe("shortenSankeyLabel", () => {
 });
 
 describe("buildCostSankeyOption", () => {
+  it("shows a card logo or type glyph in its tooltip", () => {
+    const card = { id: "crm", name: "CRM", type: "Application", typeLabel: "Application", typeIcon: "apps", logo_updated_at: "2026-01-01T00:00:00Z" };
+    expect(build([card], []).tooltip.formatter({ dataType: "node", name: "crm", value: 1 })).toContain("/api/v1/cards/crm/logo?v=");
+    expect(build([{ ...card, logo_updated_at: null }], []).tooltip.formatter({ dataType: "node", name: "crm", value: 1 })).toContain("apps");
+    const series = build([card], []).series[0];
+    expect(series.data[0].label.rich.cardIdentity.backgroundColor.image).toContain("/api/v1/cards/crm/logo?v=");
+    expect(series.label.formatter({ name: "crm" })).toContain("{cardIcon|apps}");
+  });
   it("names each node by its id and links them by id, in the flow's order", () => {
     const s = build().series[0];
     expect(s.type).toBe("sankey");
@@ -117,5 +126,38 @@ describe("cost report colours and type", () => {
     expect(o.series[0].label.formatter({ name: "crm" })).toBe("CRM · Application");
     expect(o.series[0].label.formatter({ name: "item:lic" })).toBe("Licences");
     expect(o.tooltip.formatter({ dataType: "node", name: "crm", value: 1 })).toBe("CRM · Application: $1");
+  });
+});
+
+
+describe("Sankey node badge fit", () => {
+  it("hides a badge on a thin node but retains it in the tooltip", () => {
+    const card = { id: "crm", name: "CRM", type: "Application", typeIcon: "apps" };
+    const option = buildCostSankeyOption([card], [], { chrome, isRtl: false, format: (v) => `$${v}`, nodeHeight: () => 8 } as any) as any;
+    expect(option.series[0].label.formatter({ name: "crm", dataIndex: 0 })).toBe("CRM");
+    expect(option.tooltip.formatter({ dataType: "node", name: "crm", value: 1 })).toContain("apps");
+    const tall = buildCostSankeyOption([card], [], { chrome, isRtl: false, format: (v) => `$${v}`, nodeHeight: () => 30 } as any) as any;
+    expect(tall.series[0].label.formatter({ name: "crm", dataIndex: 0 })).toContain("{cardIdentity|apps}");
+  });
+});
+
+
+describe("chartSankeyNodeHeight", () => {
+  it("returns undefined when the chart or layout is unavailable", () => {
+    expect(chartSankeyNodeHeight(null, 0)).toBeUndefined();
+    expect(chartSankeyNodeHeight({}, 0)).toBeUndefined();
+    expect(chartSankeyNodeHeight({ getModel: () => { throw new Error("disposed"); } }, 0)).toBeUndefined();
+    expect(chartSankeyNodeHeight({ getModel: () => ({ getSeriesByIndex: () => ({ getData: () => ({ getItemLayout: () => ({ dy: "10" }) }) }) }) }, 0)).toBeUndefined();
+  });
+});
+
+
+describe("Sankey identity style scaling", () => {
+  it("keeps both series and per-node rich styles bounded", () => {
+    const nodes = Array.from({ length: 30 }, (_, i) => ({ id: `c${i}`, name: `Card ${i}`, type: "Application", typeIcon: "apps" }));
+    const series = build(nodes, []).series[0];
+    expect(Object.keys(series.label.rich).length).toBeLessThanOrEqual(2);
+    expect(Math.max(...series.data.map((d: any) => Object.keys(d.label.rich).length))).toBe(1);
+    expect(series.data[0].label.rich.cardIdentity).toBeDefined();
   });
 });

@@ -44,10 +44,11 @@ import {
   COST_DELTA_UP_ON_LIGHT,
 } from "@/theme/tokens";
 import { inkOn } from "./costColors";
+import { costCardIdentityHtml, costCardRichStyle, type CostCardIdentity } from "./costCardIdentity";
 
 
 /** One card on the treemap; `index` is its position by cost, largest first. */
-export interface CostTreemapItem {
+export interface CostTreemapItem extends CostCardIdentity {
   /** Absent for a row that names no card — its tile is inert. */
   id?: string;
   name: string;
@@ -129,7 +130,7 @@ export interface TileLabelParams {
   dataIndex?: number;
   name?: string;
   value?: unknown;
-  data?: { deltaPct?: number | null; typeLabel?: string };
+  data?: { deltaPct?: number | null; typeLabel?: string; typeIcon?: string; logo_updated_at?: string | null; identityKey?: string };
 }
 
 /** The change badge of a tile, as rich text: "▲ +12%", "▼ -3%" or "▲ new"; "" when none. */
@@ -151,7 +152,8 @@ export function tileLabelFormatter(
     const r = o.tileRect?.(p.dataIndex ?? -1);
     const tier = r ? tileLabelTier(r.width, r.height) : "full";
     if (tier === "none") return "";
-    const name = p.name ?? "";
+    const identity = p.data?.identityKey ? `{${p.data.identityKey}|${p.data.logo_updated_at ? " " : p.data.typeIcon ?? ""}}${p.data.logo_updated_at ? `{cardIcon|${p.data.typeIcon ?? ""}}` : ""} ` : "";
+    const name = identity + (p.name ?? "");
     if (tier === "name") return name;
     const badge = deltaBadge(p.data?.deltaPct, o.deltaNew ?? "");
     const type = p.data?.typeLabel ? `\n{type|${p.data.typeLabel}}` : "";
@@ -201,7 +203,7 @@ export function chartTileRect(
 }
 
 /** A tile's datum as the option carries it — and as a click hands it back. */
-export interface CostTreemapDatum {
+export interface CostTreemapDatum extends CostCardIdentity {
   name: string;
   value: number;
   id?: string;
@@ -211,8 +213,9 @@ export interface CostTreemapDatum {
   /** The group the card sits in, when the report is grouped. */
   group?: string;
   typeLabel?: string;
+  identityKey?: string;
   /** Present on a light tile only: dark ink and the badge colours that read on light. */
-  label?: { color: string; rich: Record<string, unknown> };
+  label?: { color?: string; rich: Record<string, unknown> };
 }
 
 /** A group's datum: its frame, holding its cards. */
@@ -227,10 +230,10 @@ export interface CostTreemapGroupDatum {
 
 /** The hover tooltip of one tile: its name, its cost and, against a non-zero total, its share. */
 export function costTooltipHtml(
-  d: { name: string; cost: number; group?: string; typeLabel?: string },
+  d: { name: string; cost: number; group?: string; typeLabel?: string } & CostCardIdentity,
   o: Pick<CostTreemapOptions, "format" | "panelTotal" | "percentOfTotal">,
 ): string {
-  let html = `<div style="font-weight:700">${escapeHtml(d.name)}</div>`;
+  let html = `<div style="font-weight:700">${costCardIdentityHtml(d)}${escapeHtml(d.name)}</div>`;
   if (d.group) html += `<div style="font-size:12px;opacity:.7">${escapeHtml(d.group)}</div>`;
   if (d.typeLabel) html += `<div style="font-size:12px;opacity:.7">${escapeHtml(d.typeLabel)}</div>`;
   html += `<div style="font-size:12px">${escapeHtml(o.format(d.cost))}</div>`;
@@ -262,6 +265,9 @@ export function buildCostTreemapOption(items: CostTreemapItem[], o: CostTreemapO
   };
   const leaf = (d: CostTreemapItem, group?: string): CostTreemapDatum => {
     const color = d.color;
+    const identity = costCardRichStyle(d);
+    const identityKey = identity ? "cardIdentity" : undefined;
+    const light = inkOn(color) === CHART_LABEL_ON_LIGHT;
     return {
       name: d.name,
       value: d.cost,
@@ -271,7 +277,11 @@ export function buildCostTreemapOption(items: CostTreemapItem[], o: CostTreemapO
       ...(d.deltaPct !== undefined && { deltaPct: d.deltaPct }),
       ...(group !== undefined && { group }),
       ...(d.typeLabel !== undefined && { typeLabel: d.typeLabel }),
-      ...(inkOn(color) === CHART_LABEL_ON_LIGHT && { label: lightLabel }),
+      ...(identityKey && { identityKey, typeIcon: d.typeIcon, logo_updated_at: d.logo_updated_at }),
+      ...((light || identity) && { label: {
+        ...(light ? lightLabel : {}),
+        rich: { ...(light ? lightLabel.rich : {}), ...(identity && { cardIdentity: identity }) },
+      } }),
     };
   };
   // Grouped: each group is a frame holding its cards, which take the frame's colour.
@@ -309,7 +319,7 @@ export function buildCostTreemapOption(items: CostTreemapItem[], o: CostTreemapO
         if (!d) return "";
         const group = "group" in d ? d.group : undefined;
         const typeLabel = "typeLabel" in d ? d.typeLabel : undefined;
-        return costTooltipHtml({ name: d.name, cost: d.value, group, typeLabel }, o);
+        return costTooltipHtml({ ...d, cost: d.value, group, typeLabel }, o);
       },
     }),
     series: [
@@ -339,6 +349,7 @@ export function buildCostTreemapOption(items: CostTreemapItem[], o: CostTreemapO
           // The change badge reads on the tile's blue in a lighter green or red.
           rich: {
             ...tileLabel.rich,
+            cardIcon: { fontFamily: "Material Symbols Outlined", fontSize: 10 },
             type: { color: CHART_LABEL_ON_DARK_MUTED, fontSize: 10, lineHeight: 14 },
             up: { color: COST_DELTA_UP, fontSize: 10, fontWeight: 700 },
             down: { color: COST_DELTA_DOWN, fontSize: 10, fontWeight: 700 },

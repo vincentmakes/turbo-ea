@@ -25,6 +25,8 @@
   // used nowhere at all.
   "ignoreExportsUsedInFile": true,
   "ignoreDependencies": [
+    // Invoked by path from the repository's scripts/quality/frontend-check.cjs.
+    "@biomejs/biome",
     // Read straight out of node_modules (not imported) by
     // scripts/gen-diagram-icon-paths.mjs (`npm run gen:diagram-icons`).
     // @mui/icons-material is read the same way; knip does not report it.

@@ -3891,3 +3891,10 @@ export interface LicenseImportResult {
   applied: number;
   skipped: LicenseImportIssue[];
 }
+
+export interface CostImportResult {
+  matched: number;
+  applied: number;
+  clears_renewal_count: number;
+  skipped: { row: number; reason: string }[];
+}

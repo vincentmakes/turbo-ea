@@ -26,10 +26,11 @@ import {
   type CostTreemapGroup,
   type CostTreemapItem,
 } from "./costTreemapOption";
-import { buildCostSankeyOption } from "./costSankeyOption";
+import { buildCostSankeyOption, chartSankeyNodeHeight } from "./costSankeyOption";
 import SaveReportDialog from "./SaveReportDialog";
 import CostTrendChart, { type TrendSelection } from "./CostTrendChart";
 import CostDrillBar from "./CostDrillBar";
+import CostImportDialog from "./CostImportDialog";
 import { applyDrill, crumbsOf, type Drill } from "./costDrill";
 import { useCostBreakdown } from "./useCostBreakdown";
 import {
@@ -47,7 +48,9 @@ import FullscreenPanel from "./FullscreenPanel";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useReadableCardTypes } from "@/hooks/useReadableCardTypes";
 import { useSavedReport } from "@/hooks/useSavedReport";
-import { applyScope, useCardScope } from "@/hooks/useCardScope";
+import { applyScope } from "@/hooks/useCardScope";
+import { costScopeSource, useCostReportScope } from "./useCostReportScope";
+import Button from "@mui/material/Button";
 import CardScopeFilter from "@/components/CardScopeFilter";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -59,6 +62,7 @@ import {
   useRelationLabel,
 } from "@/hooks/useResolveLabel";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
+import CardLogoAvatar from "@/components/CardLogoAvatar";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
@@ -95,6 +99,7 @@ interface CostItem {
   group?: string;
   /** The card's type key. */
   type?: string;
+  logo_updated_at?: string | null;
 }
 
 interface CostTreemapResponse {
@@ -127,6 +132,8 @@ interface SankeyNode {
   /** Set by the page for the chart: the node's fill and a card's type label. */
   color?: string;
   typeLabel?: string;
+  typeIcon?: string;
+  logo_updated_at?: string | null;
 }
 
 interface SankeyLink {
@@ -302,14 +309,18 @@ function CostSankeyPanel({
   onNodeDrill,
 }: CostSankeyPanelProps) {
   const { t } = useTranslation(["reports", "common"]);
+  const chartRef = useRef<ECharts | null>(null);
+  const onInit = useCallback((chart: ECharts) => { chartRef.current = chart; }, []);
+  const nodeHeight = useCallback((index: number) => chartSankeyNodeHeight(chartRef.current, index), []);
   const option = useMemo(
     () =>
       buildCostSankeyOption(nodes, links, {
         chrome,
         isRtl: chrome.isRtl,
         format: (v) => fmt.format(v),
+        nodeHeight,
       }),
-    [nodes, links, chrome, fmt],
+    [nodes, links, chrome, fmt, nodeHeight],
   );
   return (
     <CostChartFrame
@@ -319,6 +330,7 @@ function CostSankeyPanel({
       testId="cost-sankey-panel"
       onClick={onNodeOpen}
       onContextMenu={onNodeDrill}
+      onInit={onInit}
     />
   );
 }
@@ -329,6 +341,8 @@ function CostSankeyPanel({
 
 export default function CostReport() {
   const { t } = useTranslation(["reports", "common"]);
+  const [importOpen, setImportOpen] = useState(false);
+  const [refreshVersion, setRefreshVersion] = useState(0);
   const { types, relationTypes, loading: ml } = useMetamodel();
   // Report type pickers offer only the types the user may see.
   const readableTypes = useReadableCardTypes("module");
@@ -366,8 +380,9 @@ export default function CostReport() {
   // A type key, or COMBINED_KEY for Applications and IT Components together.
   const [cardTypeKey, setCardTypeKey] = useState("Application");
   const typeKeys = useMemo(() => typeKeysOf(cardTypeKey), [cardTypeKey]);
-  const combined = typeKeys.length > 1;
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
+  const [fullscreenContainer, setFullscreenContainer] = useState<HTMLElement | null>(null);
+  const [drawerContainer, setDrawerContainer] = useState<HTMLElement | null>(null);
   const [costField, setCostField] = useState("costTotalAnnual");
   const [groupBy, setGroupBy] = useState("");
   const [rawItems, setRawItems] = useState<CostItem[] | null>(null);
@@ -428,10 +443,8 @@ export default function CostReport() {
     );
   }, []);
 
-  // Narrow the treemap to chosen cards and everything beneath them (#954).
-  // A scope belongs to one type, so the combined option has none.
-  const scope = useCardScope({ typeKey: combined ? null : cardTypeKey, enabled: true });
-  const { scopeIds, setScopeIds, effectiveScopeIds } = scope;
+  const scope = useCostReportScope(typeKeys);
+  const { scopeIds, setScopeIds, effectiveScopeIds, restore: restoreScope, clear: clearScope } = scope;
 
   // One schema per selected type; empty until every one of them is known.
   const schemas = useMemo(() => {
@@ -526,16 +539,15 @@ export default function CostReport() {
         );
       // Set for the restored type, so the scope is read as that type's from
       // the render the type lands on.
-      if (Array.isArray(cfg.scopeIds) && restoredType !== COMBINED_KEY) {
-        setScopeIds(
+      if (Array.isArray(cfg.scopeIds)) {
+        restoreScope(
           (cfg.scopeIds as unknown[]).filter(
             (v): v is string => typeof v === "string",
           ),
-          restoredType,
         );
       }
     }
-  }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [saved.loadedConfig, restoreScope]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getConfig = () => ({
     cardTypeKey,
@@ -544,7 +556,7 @@ export default function CostReport() {
     view,
     sortK,
     sortD,
-    scopeIds,
+    scopeIds: scope.loading || scope.error ? scopeIds : effectiveScopeIds,
     extraColumns,
     fiscalYearParam,
   });
@@ -552,7 +564,7 @@ export default function CostReport() {
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [cardTypeKey, costField, groupBy, view, sortK, sortD, scopeIds, extraColumns, fiscalYearParam]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cardTypeKey, costField, groupBy, view, sortK, sortD, scopeIds, effectiveScopeIds, scope.loading, scope.error, extraColumns, fiscalYearParam]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -563,10 +575,10 @@ export default function CostReport() {
     setView("chart");
     setSortK("cost");
     setSortD("desc");
-    setScopeIds([]);
+    clearScope();
     setExtraColumns([]);
     setFiscalYearParam(null);
-  }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [saved, clearScope]);
 
   // The table's group-by: single selects with options and yes/no fields (a
   // multi-select cannot put a card in exactly one group). A yes/no field is
@@ -648,7 +660,7 @@ export default function CostReport() {
         adoptCurrentFiscalYear(r.current_fiscal_year);
       }
     },
-    [cardTypeKey, costField, effectiveGroupBy, view, canViewCostsGlobally, fiscalYearParam],
+    [cardTypeKey, costField, effectiveGroupBy, view, canViewCostsGlobally, fiscalYearParam, refreshVersion],
   );
 
   // Delta badge baseline: the current fiscal year's per-card costs, fetched
@@ -675,7 +687,7 @@ export default function CostReport() {
       if (!isCurrent()) return;
       setBaselineCosts(new Map(r.items.map((it) => [it.id, it.cost])));
     },
-    [cardTypeKey, costField, view, canViewCostsGlobally, fiscalYearParam],
+    [cardTypeKey, costField, view, canViewCostsGlobally, fiscalYearParam, refreshVersion],
   );
 
   // The earliest year the picker itself offers — a selected year at or below
@@ -722,6 +734,7 @@ export default function CostReport() {
       canViewCostsGlobally,
       fiscalYearParam,
       minFiscalYearOption,
+      refreshVersion,
     ],
   );
 
@@ -857,6 +870,7 @@ export default function CostReport() {
       canViewCostsGlobally && (view === "table" || (view === "chart" && drill.cardId !== undefined)),
     typeParam: typeParam(cardTypeKey),
     fiscalYear: fiscalYearParam,
+    refreshVersion,
   });
   // A drilled card: one tile per cost item (catalogue order), the first 8 coloured, the rest merged.
   const cardItemTiles = useMemo<CostTreemapItem[] | null>(() => {
@@ -915,6 +929,7 @@ export default function CostReport() {
           groupBy={effectiveGroupBy}
           selection={trendSelection}
           scopeIds={scope.closure}
+          refreshVersion={refreshVersion}
         />
       </Box>
     ) : null;
@@ -983,7 +998,7 @@ export default function CostReport() {
           ? { ...n, name: groupLabel(rawGroup(n)), color: colorPlan.groupHues.get(rawGroup(n)) }
           : n.type === "CostItem"
             ? { ...n, name: itemLabel(n.id.replace(/^item:/, ""), n.name) }
-            : { ...n, color: colorPlan.cardColors.get(n.id), typeLabel: typeLabelOf(n.type) },
+            : { ...n, color: colorPlan.cardColors.get(n.id), typeLabel: typeLabelOf(n.type), typeIcon: types.find((tp) => tp.key === n.type)?.icon },
       );
     });
     // Both ends are remapped, so the flows into and out of Others add up per (source, target).
@@ -997,7 +1012,7 @@ export default function CostReport() {
       merged.set(key, { source, target, value: (prev?.value ?? 0) + values[k] });
     });
     return { ...sankeyData, nodes, links: [...merged.values()] };
-  }, [sankeyData, sankeyCards, scope.closure, drill, drillActive, foldedKeys, colorPlan, groupLabel, itemLabel, typeLabelOf, t]);
+  }, [sankeyData, sankeyCards, scope.closure, drill, drillActive, foldedKeys, colorPlan, groupLabel, itemLabel, typeLabelOf, t, types]);
 
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
@@ -1072,16 +1087,20 @@ export default function CostReport() {
     },
     [sankeyCards, effectiveGroupBy, foldedKeys],
   );
+  const openCard = useCallback((id: string) => {
+    setDrawerContainer(document.fullscreenElement === fullscreenContainer ? fullscreenContainer : null);
+    setSidePanelCardId(id);
+  }, [fullscreenContainer]);
   const handleNodeOpen = useCallback((p: EChartClickParams) => {
     const name = p.name;
     if (p.dataType === "edge" || !name || name.startsWith("item:") || name.startsWith("group:")) return;
-    setSidePanelCardId(name);
-  }, []);
+    openCard(name);
+  }, [openCard]);
   // Left click opens the card in the side panel; a group frame does nothing.
   const handleTileOpen = useCallback((p: EChartClickParams) => {
     const d = p.data as { id?: string } | undefined;
-    if (d?.id) setSidePanelCardId(d.id);
-  }, []);
+    if (d?.id) openCard(d.id);
+  }, [openCard]);
 
   if (!canViewCostsGlobally) {
     return (
@@ -1118,10 +1137,13 @@ export default function CostReport() {
     );
   }
 
-  if (ml || (rawItems === null && sankeyData === null))
+  if (scope.error) return <Box sx={{ textAlign: "center", py: 8 }}><Typography>{t("cost.scopeLoadError")}</Typography><Button onClick={scope.retry}>{t("common:actions.retry")}</Button><Button onClick={scope.clear}>{t("common:cardScope.clearAll")}</Button></Box>;
+
+  if (ml || scope.loading || (rawItems === null && sankeyData === null))
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
         <CircularProgress />
+        {scope.loading && <Button onClick={scope.clear}>{t("common:cardScope.clearAll")}</Button>}
       </Box>
     );
 
@@ -1150,6 +1172,8 @@ export default function CostReport() {
       deltaPct,
       color: colorPlan.cardColors.get(d.id) ?? cardColor(d.name, chartTheme.categorical),
       typeLabel: typeLabelOf(d.type),
+      typeIcon: types.find((tp) => tp.key === d.type)?.icon,
+      logo_updated_at: d.logo_updated_at,
     };
   };
   const cardDrilled = drill.cardId !== undefined;
@@ -1224,34 +1248,28 @@ export default function CostReport() {
     members.reduce((sum, m) => sum + (cellValue(m, key) ?? 0), 0);
   const shownTotal = tableItems.reduce((sum, i) => sum + i.cost, 0);
   const pctOfTotal = (v: number) => (total > 0 ? `${((v / total) * 100).toFixed(1)}%` : "—");
-  const typeBadge = (d: CostItem) => {
+  const cardRow = (d: CostItem, indent: boolean) => {
     const tp = types.find((x) => x.key === d.type);
-    return tp ? (
-      <Typography
-        component="span"
-        variant="caption"
-        color="text.secondary"
-        sx={{ ml: 1, display: "inline-flex", alignItems: "center", gap: 0.5, verticalAlign: "middle" }}
-      >
-        <MaterialSymbol icon={tp.icon} size={14} />
-        {typeLabel(tp)}
-      </Typography>
-    ) : null;
-  };
-  const cardRow = (d: CostItem, indent: boolean) => (
+    return (
     <TableRow
       key={d.id}
       hover
       sx={{ cursor: "pointer" }}
-      onClick={() => setSidePanelCardId(d.id)}
+      onClick={() => openCard(d.id)}
       onContextMenu={(e: React.MouseEvent) => {
         e.preventDefault();
         handleTileDrill({ data: { id: d.id } });
       }}
     >
       <TableCell sx={{ fontWeight: 500, ...(indent && { pl: 4 }) }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        {tp && <CardLogoAvatar cardId={d.id} logoUpdatedAt={d.logo_updated_at} typeIcon={tp.icon} typeColor={tp.color} size={28} radius={1} />}
         <span data-testid="cost-row-name">{d.name}</span>
-        {typeBadge(d)}
+        {tp && <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1, display: "inline-flex", alignItems: "center", gap: 0.5, verticalAlign: "middle" }}>
+          <MaterialSymbol icon={tp.icon} size={14} />
+          {typeLabel(tp)}
+        </Typography>}
+        </Box>
       </TableCell>
       {tableCols.map((c) => {
         const v = cellValue(d, c.key);
@@ -1267,7 +1285,8 @@ export default function CostReport() {
       {fiscalYearParam != null && yoyCell(d)}
       {extraCell(d)}
     </TableRow>
-  );
+    );
+  };
 
   const yesNoLabels = {
     yes: t("common:labels.yes"),
@@ -1318,6 +1337,9 @@ export default function CostReport() {
       onResetSavedReport={saved.resetSavedReport}
       onReset={handleReset}
       printParams={printParams}
+      actions={
+        <Button size="small" variant="outlined" startIcon={<MaterialSymbol icon="upload_file" size={18} />} title={t("cost.import.title")} aria-label={t("cost.import.title")} onClick={() => setImportOpen(true)}>{t("cost.import.title")}</Button>
+      }
       toolbar={
         <>
           <ToggleButtonGroup
@@ -1338,9 +1360,8 @@ export default function CostReport() {
                 </ToggleButton>
               ))}
           </ToggleButtonGroup>
-          {!combined && (
             <CardScopeFilter
-              types={cardTypeKey}
+              types={typeKeys}
               value={effectiveScopeIds}
               onChange={setScopeIds}
               labelAll={t("cost.scopeAll")}
@@ -1348,8 +1369,8 @@ export default function CostReport() {
               dialogTitle={t("cost.scopeDialogTitle")}
               helperText={t("cost.scopeHelper")}
               tooltip={t("cost.scopeTooltip")}
+              searchSource={costScopeSource}
             />
-          )}
           {costChoices.length > 1 && (
             <TextField
               select
@@ -1478,14 +1499,13 @@ export default function CostReport() {
           </Box>
         ) : (
           <>
-            {drillBar}
-            {cardDrilled && cardItemTiles === null ? (
-              <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-                <CircularProgress />
-              </Box>
-            ) : (
-              <FullscreenPanel label={t("cost.fullscreen")}>
+              <FullscreenPanel label={t("cost.fullscreen")} onContainerChange={setFullscreenContainer}>
                 {(isFullscreen) => (
+                  <>
+                  {drillBar}
+                  {cardDrilled && cardItemTiles === null ? (
+                    <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>
+                  ) : (
                   <CostTreemapPanel
                     items={treemapItems}
                     groups={treemapGroups}
@@ -1496,9 +1516,10 @@ export default function CostReport() {
                     onTileOpen={handleTileOpen}
                     onTileDrill={handleTileDrill}
                   />
+                  )}
+                  </>
                 )}
               </FullscreenPanel>
-            )}
             {legend}
           </>
         )
@@ -1511,9 +1532,10 @@ export default function CostReport() {
           </Box>
         ) : (
           <>
-            {drillBar}
-            <FullscreenPanel label={t("cost.fullscreen")}>
+            <FullscreenPanel label={t("cost.fullscreen")} onContainerChange={setFullscreenContainer}>
               {(isFullscreen) => (
+                <>
+                {drillBar}
                 <CostSankeyPanel
                   nodes={sankeyView.nodes}
                   links={sankeyView.links}
@@ -1523,15 +1545,17 @@ export default function CostReport() {
                   onNodeOpen={handleNodeOpen}
                   onNodeDrill={handleNodeDrill}
                 />
+                </>
               )}
             </FullscreenPanel>
             {legend}
           </>
         )
       ) : (
-        <>
+        <FullscreenPanel label={t("cost.fullscreen")} onContainerChange={setFullscreenContainer}>
+        {(isFullscreen) => <>
         {drillBar}
-        <Paper variant="outlined" sx={{ overflow: "auto" }}>
+        <Paper variant="outlined" sx={{ overflow: "auto", ...(isFullscreen && { flex: 1, minHeight: 0 }) }}>
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
@@ -1644,13 +1668,16 @@ export default function CostReport() {
             </TableBody>
           </Table>
         </Paper>
-        </>
+        </>}
+        </FullscreenPanel>
       )}
       <CardDetailSidePanel
         cardId={sidePanelCardId}
         open={!!sidePanelCardId}
         onClose={() => setSidePanelCardId(null)}
+        container={drawerContainer}
       />
+      <CostImportDialog open={importOpen} onClose={() => setImportOpen(false)} onApplied={() => setRefreshVersion((v) => v + 1)} />
       <SaveReportDialog
         open={saved.saveDialogOpen}
         onClose={() => saved.setSaveDialogOpen(false)}

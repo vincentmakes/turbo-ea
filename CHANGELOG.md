@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.209.0] - 2026-11-22
+
+### Added
+
+- Import annual card costs from Excel in the Cost Report using a catalogue-based template, row-by-row preview and an import results report.
+- Record Cost Report template downloads in the security and admin log.
+
+### Changed
+
+- Scope the Cost Report to Applications, IT Components or both. Card badges appear in all views, and fullscreen keeps the drill-down breadcrumb visible and supports the Table view.
+
 ## [2.208.0] - 2026-11-21
 
 ### Added

@@ -251,6 +251,7 @@ KNOWN_BULK_EXPORTS = frozenset(
     {
         "cards.py::export_json",
         "cards.py::export_csv",
+        "card_costs.py::download_cost_import_template",
         "workspace.py::export_workspace",
         "migration.py::export_workspace",
         "ops.py::ops_export",
@@ -427,7 +428,8 @@ def test_export_records_name_the_access_category():
         module = entry.split("::")[0]
         source = (_V1 / module).read_text(encoding="utf-8")
         assert re.search(
-            r'action="access\.(export\.(cards|workspace|migration)|audit_log\.exported)"',
+            r'action="access\.(export\.(cards|workspace|migration|cost_import_template)'
+            r'|audit_log\.exported)"',
             source,
         ), module
 

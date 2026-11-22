@@ -2527,6 +2527,7 @@
   "securityLog.actionLabels.access_export_cards": "تم تصدير البطاقات (CSV / JSON)",
   "securityLog.actionLabels.access_export_workspace": "تم تصدير مساحة العمل",
   "securityLog.actionLabels.access_export_migration": "تم التصدير إلى منصة EA أخرى",
+  "securityLog.actionLabels.access_export_cost_import_template": "تم تنزيل قالب استيراد التكاليف",
   "securityLog.actionLabels.admin_user_created": "تم إنشاء المستخدم",
   "securityLog.actionLabels.admin_user_updated": "تم تحديث المستخدم",
   "securityLog.actionLabels.admin_user_deleted": "تم حذف المستخدم",

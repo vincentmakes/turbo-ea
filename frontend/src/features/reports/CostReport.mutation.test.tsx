@@ -178,6 +178,7 @@ const HIERARCHY = [
   { id: "web", name: "CRM Web Portal", type: "Application", parent_id: "crm" },
   { id: "erp", name: "ERP", type: "Application", parent_id: null },
   { id: "hr", name: "HR", type: "Application", parent_id: null },
+  { id: "server", name: "Server", type: "ITComponent", parent_id: null },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -296,7 +297,7 @@ beforeEach(() => {
   saved.resetAll = vi.fn();
   saved.persistConfig = vi.fn();
 
-  mockApi.on("get", "/cards*", { items: HIERARCHY, total: HIERARCHY.length });
+  mockApi.on("get", "/reports/cost-scope*", { items: HIERARCHY, total: HIERARCHY.length });
   mockApi.on("get", "/reports/cost-treemap*", {
     items: ITEMS,
     total: 700,
@@ -710,14 +711,18 @@ describe("CostReport saved configuration", () => {
   it("keeps the scope of a saved report that names another card type", async () => {
     // The page opens on Application; the report scopes IT Components. The
     // scope is restored for its own type, so the type change cannot drop it.
-    saved.config = { cardTypeKey: "ITComponent", scopeIds: ["crm"] };
+    saved.config = { cardTypeKey: "ITComponent", scopeIds: ["server"] };
+    mockApi.on("get", "/reports/cost-treemap*", {
+      items: [{ id: "server", name: "Server", cost: 75, attributes: {} }],
+      total: 75, fiscal_year: 2026, current_fiscal_year: 2026, fiscal_year_start: 1,
+    });
     renderCost();
     await screen.findByTestId("treemap");
     expect(await within(toolbar()).findByText("1 card")).toBeInTheDocument();
     await waitFor(() =>
       expect(lastPersisted()).toMatchObject({
         cardTypeKey: "ITComponent",
-        scopeIds: ["crm"],
+        scopeIds: ["server"],
       }),
     );
   });

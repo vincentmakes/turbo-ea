@@ -96,6 +96,12 @@
             "command": "cmd.exe /d /c \"set TRAIL_INVOKED_AS=trail&&set DO_NOT_TRACK=1&&set TRAIL_HOME=%CD%\\.trail\\cache\\codex-home&&set PATH=%CD%\\node_modules\\.bin;%PATH%&&node .trail/hook.cjs post-edit\"",
             "timeout": 10,
             "statusMessage": "Updating Trail context after the edit"
+          },
+          {
+            "type": "command",
+            "command": "node scripts/quality/post-edit.cjs",
+            "timeout": 15,
+            "statusMessage": "Ruff e Biome: controllo dopo la modifica"
           }
         ]
       }

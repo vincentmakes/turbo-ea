@@ -293,6 +293,8 @@ Le **elementi di costo** sono il catalogo delle righe di costo che le card Appli
 
 Ogni elemento ha una **chiave** stabile, un'**etichetta** e **traduzioni** facoltative dell'etichetta. Gli elementi vengono **archiviati**, non eliminate: un elemento archiviato non può più essere aggiunta a una card, ma gli importi già inseriti continuano a contare nel TCO e nel [Report dei costi](../guide/reports.md#report-costi).
 
+Il [modello di importazione Excel](../guide/reports.it.md#import-costs-from-excel) scaricabile usa questo catalogo. Salvare una modifica al catalogo aggiorna il foglio di riferimento per i download successivi. Fino ad allora viene riutilizzato il modello corrente. Il foglio di riferimento contiene le chiavi attive nell'ordine del catalogo, senza dati o importi delle schede.
+
 Inserire importi su una card richiede `costs.edit` (o un ruolo di stakeholder che può modificare la card); modificare il catalogo richiede il permesso di amministrazione del metamodello.
 
 ## Tipi di licenza

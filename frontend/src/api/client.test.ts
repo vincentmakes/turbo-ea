@@ -418,3 +418,11 @@ describe("AbortSignal support", () => {
     expect(apiErrorMessage(undefined, "fallback")).toBe("fallback");
   });
 });
+
+it("preserves structured upload failures as ApiError", async () => {
+  const detail = { code: "cost_import_write_failed", applied: 0 };
+  mockFetch.mockReturnValueOnce(jsonResponse({ detail }, 409));
+  const failure = await api.upload("/costs/import?dry_run=false", new File(["x"], "costs.xlsx")).catch((error: unknown) => error);
+  expect(failure).toBeInstanceOf(ApiError);
+  expect(failure).toMatchObject({ status: 409, detail });
+});

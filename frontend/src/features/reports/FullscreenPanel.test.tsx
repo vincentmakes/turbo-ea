@@ -1,9 +1,31 @@
 import { describe, it, expect, vi } from "vitest";
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import FullscreenPanel from "./FullscreenPanel";
 
 describe("FullscreenPanel", () => {
+  it("renders the fullscreen control tooltip within the fullscreen surface", async () => {
+    render(<FullscreenPanel label="Fullscreen"><div>chart</div></FullscreenPanel>);
+    const host = screen.getByTestId("fullscreen-panel");
+    Object.defineProperty(document, "fullscreenElement", { value: host, configurable: true });
+    act(() => document.dispatchEvent(new Event("fullscreenchange")));
+    fireEvent.mouseOver(screen.getByRole("button", { name: /exit fullscreen/i }));
+    expect(host).toContainElement(await screen.findByRole("tooltip"));
+    Object.defineProperty(document, "fullscreenElement", { value: null, configurable: true });
+  });
+  it("keeps the overlay container stable when entering and exiting fullscreen", async () => {
+    const onContainerChange = vi.fn();
+    const view = render(<FullscreenPanel label="Fullscreen" onContainerChange={onContainerChange}><div>chart</div></FullscreenPanel>);
+    const panel = screen.getByTestId("fullscreen-panel");
+    expect(onContainerChange).toHaveBeenLastCalledWith(panel);
+    Object.defineProperty(document, "fullscreenElement", { value: panel, configurable: true });
+    await act(async () => document.dispatchEvent(new Event("fullscreenchange")));
+    Object.defineProperty(document, "fullscreenElement", { value: null, configurable: true });
+    await act(async () => document.dispatchEvent(new Event("fullscreenchange")));
+    expect(onContainerChange).toHaveBeenCalledTimes(1);
+    view.unmount();
+    expect(onContainerChange).toHaveBeenLastCalledWith(null);
+  });
   it("calls requestFullscreen on click when not fullscreen", async () => {
     const user = userEvent.setup();
     const requestFullscreen = vi.fn();
