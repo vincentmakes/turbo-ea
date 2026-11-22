@@ -95,6 +95,39 @@ def _actor_name_for(batch: MutationBatch, users_by_id: dict) -> str | None:
     return user.display_name if user else None
 
 
+async def _rollback_summary_ids(db: AsyncSession, batches: list[MutationBatch]) -> set[uuid.UUID]:
+    candidates = [
+        batch.id for batch in batches if batch.tool_name == "rollback_batch" and batch.summary
+    ]
+    if not candidates:
+        return set()
+    ids = await db.scalars(
+        select(Event.batch_id)
+        .where(
+            Event.batch_id.in_(candidates),
+            Event.event_type.startswith("rollback.", autoescape=True),
+        )
+        .distinct()
+    )
+    return {batch_id for batch_id in ids if batch_id is not None}
+
+
+def _document_safe_summary(summary: dict | None, *, include_adr: bool) -> dict | None:
+    """Keep the server's rollback results when document activity is restricted."""
+    if not isinstance(summary, dict):
+        return None
+    results = summary.get("results")
+    if not isinstance(results, list) or any(
+        not isinstance(item, dict) or item.get("op") in (None, "unsupported") for item in results
+    ):
+        return None
+    return {
+        "reverses_batch_id": summary.get("reverses_batch_id"),
+        "forced": summary.get("forced"),
+        "results": [item for item in results if include_adr or item.get("op") != "delete_adr"],
+    }
+
+
 async def _batch_event_read_filters(db: AsyncSession, user: User, scope: CardReadScope):
     """Apply document and card visibility to historical rollback events as well."""
     filters = list(event_read_filters(scope))
@@ -274,16 +307,29 @@ async def list_batches(
 
     read_scope = await CardReadScope.load(db, user)
     document_filters = await document_event_read_filters(db, user)
+    summaries_visible = read_scope.is_unrestricted(mode="module")
+    trusted_rollbacks = set()
+    include_adr = False
+    if summaries_visible and document_filters:
+        trusted_rollbacks = await _rollback_summary_ids(db, batches)
+        include_adr = await PermissionService.has_app_permission(db, user, "adr.view")
 
     # A rollback batch's summary lists the values it restored: an auditor
     # without cost access reads it as they would the batch itself.
     items = []
     for b in batches:
         out = batch_to_dict(b, actor_display_name=_actor_name_for(b, users_by_id))
-        if read_scope.is_unrestricted(mode="module") and not document_filters:
-            out["summary"] = await scrub_summary_costs(db, user, out["summary"])
-        else:
+        if not summaries_visible:
             out["summary"] = None
+        else:
+            if document_filters:
+                out["summary"] = (
+                    _document_safe_summary(out["summary"], include_adr=include_adr)
+                    if b.id in trusted_rollbacks
+                    else None
+                )
+            if out["summary"] is not None:
+                out["summary"] = await scrub_summary_costs(db, user, out["summary"])
         items.append(MutationBatchOut(**out))
     return MutationBatchListPage(
         items=items,
@@ -301,10 +347,17 @@ async def _batch_out(
     out = batch_to_dict(batch, actor_display_name=actor.display_name if actor else None)
     scope = await CardReadScope.load(db, user)
     document_filters = await document_event_read_filters(db, user)
-    if scope.is_unrestricted(mode="module") and not document_filters:
-        out["summary"] = await scrub_summary_costs(db, user, out["summary"])
-    else:
+    if not scope.is_unrestricted(mode="module"):
         out["summary"] = None
+    else:
+        if document_filters:
+            if batch.id in await _rollback_summary_ids(db, [batch]):
+                include_adr = await PermissionService.has_app_permission(db, user, "adr.view")
+                out["summary"] = _document_safe_summary(out["summary"], include_adr=include_adr)
+            else:
+                out["summary"] = None
+        if out["summary"] is not None:
+            out["summary"] = await scrub_summary_costs(db, user, out["summary"])
     return out
 
 
@@ -471,11 +524,14 @@ async def _require_rollback_permissions(
                     fields.pop(f"attr_{key}", None)
                 op["fields"] = fields
             if kind == "delete_card":
-                child = await db.scalar(
-                    select(Card.id)
-                    .where(Card.parent_id == card_id, Card.id.not_in(planned_deletions))
-                    .limit(1)
+                children = select(Card.id).where(
+                    Card.parent_id == card_id, Card.id.not_in(planned_deletions)
                 )
+                scope = await CardReadScope.load(db, user)
+                readable = scope.clause(Card, mode="module")
+                if readable is not None and await db.scalar(children.where(~readable).limit(1)):
+                    raise HTTPException(404, "Card not found")
+                child = await db.scalar(children.limit(1))
                 if child is not None:
                     raise HTTPException(409, "Cannot roll back a card with children")
         elif kind in app_permissions:

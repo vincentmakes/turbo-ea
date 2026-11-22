@@ -649,6 +649,44 @@ async def test_batch_summary_is_hidden_without_document_permissions(monkeypatch)
     redact.assert_not_awaited()
 
 
+def test_document_safe_summary_preserves_non_document_results():
+    from app.api.v1.mutation_batches import _document_safe_summary
+
+    summary = {
+        "reverses_batch_id": "batch-id",
+        "forced": False,
+        "results": [
+            {"op": "restore_card_fields", "fields": {"name": "visible"}},
+            {"op": "delete_adr", "detail": "private decision"},
+        ],
+    }
+    assert _document_safe_summary(summary, include_adr=False) == {
+        "reverses_batch_id": "batch-id",
+        "forced": False,
+        "results": [{"op": "restore_card_fields", "fields": {"name": "visible"}}],
+    }
+    assert _document_safe_summary(summary, include_adr=True) == summary
+
+
+@pytest.mark.parametrize("hidden, expected", [(True, 404), (False, 409)])
+async def test_rollback_delete_card_protects_hidden_child(monkeypatch, hidden, expected):
+    from app.api.v1 import mutation_batches as routes
+
+    db = SimpleNamespace(
+        scalar=AsyncMock(side_effect=[uuid.uuid4()] if hidden else [None, uuid.uuid4()])
+    )
+    user = SimpleNamespace(id=uuid.uuid4())
+    scope = SimpleNamespace(clause=lambda card, mode: card.type != "Hidden")
+    monkeypatch.setattr(routes.CardReadScope, "load", AsyncMock(return_value=scope))
+    monkeypatch.setattr(routes, "require_card_readable", AsyncMock())
+    monkeypatch.setattr(routes.PermissionService, "require_permission", AsyncMock())
+    with pytest.raises(HTTPException) as exc:
+        await routes._require_rollback_permissions(
+            db, user, [{"op": "delete_card", "card_id": str(uuid.uuid4())}]
+        )
+    assert exc.value.status_code == expected
+
+
 async def test_rollback_route_checks_current_permission_before_dispatch(
     client, admin_user, app_card_type, db, monkeypatch
 ):

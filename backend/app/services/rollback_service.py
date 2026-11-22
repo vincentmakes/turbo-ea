@@ -63,7 +63,7 @@ from datetime import date, datetime, timezone
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import String, and_, case, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -414,30 +414,63 @@ async def _find_conflicting_batches(
     touched = await _entities_touched(events)
     if not any(touched.values()):
         return []
+    card_id = cast(Event.card_id, String)
+    data_id = Event.data["id"].astext
+    adr_id = Event.data["adr_id"].astext
+    prefixes = {
+        "card": (
+            (
+                Event.event_type.startswith("card.", autoescape=True),
+                func.coalesce(func.nullif(data_id, ""), card_id),
+            ),
+            (
+                or_(
+                    Event.event_type.startswith("stakeholder.", autoescape=True),
+                    Event.event_type.startswith("tag.", autoescape=True),
+                ),
+                card_id,
+            ),
+        ),
+        "relation": ((Event.event_type.startswith("relation.", autoescape=True), data_id),),
+        "risk": (
+            (Event.event_type.startswith("risk.", autoescape=True), Event.data["risk_id"].astext),
+        ),
+        "adr": (
+            (
+                Event.event_type.startswith("adr.", autoescape=True),
+                func.coalesce(func.nullif(adr_id, ""), data_id),
+            ),
+        ),
+        "diagram": ((Event.event_type.startswith("diagram.", autoescape=True), data_id),),
+    }
+    branches = [
+        (and_(prefix, entity_id.in_(touched[kind])), entity_id)
+        for kind, entries in prefixes.items()
+        if touched.get(kind)
+        for prefix, entity_id in entries
+    ]
+    entity = case(*branches)
     q = (
-        select(Event, MutationBatch)
-        .join(MutationBatch)
+        select(MutationBatch.id, MutationBatch.tool_name, MutationBatch.created_at, entity)
+        .select_from(Event)
+        .join(MutationBatch, Event.batch_id == MutationBatch.id)
         .where(Event.batch_id != batch.id)
         .where(MutationBatch.created_at > batch.created_at)
+        .where(or_(*(branch[0] for branch in branches)))
     )
     rows = (await db.execute(q)).all()
     conflicts: dict[uuid.UUID, dict[str, Any]] = {}
-    for ev, other in rows:
-        ref = _entity_ref(ev)
-        if ref is None:
-            continue
-        kind, ent_id = ref
-        if ent_id in touched.get(kind, set()):
-            conflicts.setdefault(
-                other.id,
-                {
-                    "batch_id": str(other.id),
-                    "tool_name": other.tool_name,
-                    "created_at": other.created_at.isoformat(),
-                    "touched_entities": set(),
-                },
-            )
-            conflicts[other.id]["touched_entities"].add(ent_id)
+    for batch_id, tool_name, created_at, ent_id in rows:
+        conflicts.setdefault(
+            batch_id,
+            {
+                "batch_id": str(batch_id),
+                "tool_name": tool_name,
+                "created_at": created_at.isoformat(),
+                "touched_entities": set(),
+            },
+        )
+        conflicts[batch_id]["touched_entities"].add(ent_id)
     # Convert sets to sorted lists for JSON serialisation.
     return [{**c, "touched_entities": sorted(c["touched_entities"])} for c in conflicts.values()]
 

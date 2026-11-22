@@ -980,7 +980,13 @@ async def test_rollback_and_inventory_relation_delete_do_not_deadlock(test_engin
             await asyncio.wait_for(wait_blocked(), timeout=5)
             await asyncio.wait_for(delete_relation(session, actor.id, locked), timeout=5)
             await asyncio.wait_for(session.flush(), timeout=5)
-        await asyncio.wait_for(task, timeout=5)
+        if delete_kind == "relation":
+            with pytest.raises(HTTPException) as exc:
+                await asyncio.wait_for(task, timeout=5)
+            assert exc.value.status_code == 409
+            assert exc.value.detail["error"] == "rollback_conflict"
+        else:
+            await asyncio.wait_for(task, timeout=5)
     finally:
         if task is not None:
             if not task.done():
