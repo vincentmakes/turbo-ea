@@ -2,11 +2,15 @@ import json
 import uuid
 
 import pytest
+from sqlalchemy import select
 
+from app.core.permissions import MEMBER_PERMISSIONS
 from app.models.bookmark import Bookmark
+from app.models.card_type import CardType
 from app.models.stakeholder import Stakeholder
 from app.schemas.card import CardBulkUpdate
 from app.services import notification_service
+from app.services.permission_service import PermissionService
 from tests.conftest import auth_headers, create_card, create_card_type, create_role, create_user
 
 
@@ -113,6 +117,77 @@ async def test_bad_stage_facet_is_ignored_for_legacy_feed(client, db, env, bad):
     assert response.json()["value"][0]["id"] == str(card.id)
 
 
+async def test_saved_stage_facet_bounds_on_write_and_legacy_read(client, db, env):
+    admin, stages = env
+    headers = auth_headers(admin)
+    empty = await create_card(db, name="Empty")
+    valid = {"types": ["Application"], "lifecycleStages": stages + ["__empty__"]}
+    created = await client.post(
+        "/api/v1/bookmarks",
+        headers=headers,
+        json={"name": "Boundaries", "odata_enabled": True, "filters": valid},
+    )
+    assert created.status_code == 201, created.text
+    bookmark = await db.get(Bookmark, uuid.UUID(created.json()["id"]))
+    url = f"/api/v1/bookmarks/{bookmark.id}"
+    for bad in (stages + ["extra"], stages + ["__empty__", "__empty__"], ["x" * 51]):
+        filters = {"types": ["Application"], "lifecycleStages": bad}
+        rejected = await client.post(
+            "/api/v1/bookmarks", headers=headers, json={"name": "Bad", "filters": filters}
+        )
+        assert rejected.status_code == 422
+        rejected = await client.patch(url, headers=headers, json={"filters": filters})
+        assert rejected.status_code == 422
+        bookmark.filters = filters
+        await db.flush()
+        response = await client.get(f"{url}/odata", headers=headers)
+        assert response.status_code == 200, response.text
+        assert response.json()["@odata.count"] == 1
+        assert response.json()["value"][0]["id"] == str(empty.id)
+
+
+async def test_stage_filters_respect_inventory_scope_and_counts(client, db, env):
+    admin, stages = env
+    await create_role(db, key="member", label="Member", permissions=MEMBER_PERMISSIONS)
+    reader = await create_user(db, email="scoped@test.com", role="member")
+    card_type = await db.scalar(select(CardType).where(CardType.key == "Application"))
+    card_type.subtypes = [
+        {"key": "visible", "label": "Visible"},
+        {"key": "hidden", "label": "Hidden"},
+    ]
+    card_type.role_permissions = {
+        "member": {"inventory.view": {"value": False, "subtypes": ["hidden"]}}
+    }
+    PermissionService.invalidate_type_permission_cache()
+    visible = await create_card(db, name="Visible", subtype="visible")
+    hidden = await create_card(db, name="Hidden", subtype="hidden")
+    visible.lifecycle_stage = hidden.lifecycle_stage = stages[0]
+    await db.flush()
+    headers = auth_headers(reader)
+    query = {"type": "Application", "where": {"lifecycle_stage": [stages[0]]}}
+    for params in ({"lifecycle_stage": stages[0]}, {"query": json.dumps(query)}):
+        response = await client.get("/api/v1/cards", params=params, headers=headers)
+        assert response.status_code == 200, response.text
+        assert response.json()["total"] == 1
+        assert [row["id"] for row in response.json()["items"]] == [str(visible.id)]
+    for payload in (
+        {"filters": {"types": ["Application"], "lifecycleStages": [stages[0]]}},
+        {"query": query},
+    ):
+        created = await client.post(
+            "/api/v1/bookmarks",
+            headers=auth_headers(admin),
+            json={"name": "Scoped", "visibility": "public", "odata_enabled": True, **payload},
+        )
+        assert created.status_code == 201, created.text
+        response = await client.get(
+            f"/api/v1/bookmarks/{created.json()['id']}/odata", headers=headers
+        )
+        assert response.status_code == 200, response.text
+        assert response.json()["@odata.count"] == 1
+        assert [row["id"] for row in response.json()["value"]] == [str(visible.id)]
+
+
 async def test_direct_and_structured_filters_accept_all_stages_and_empty(client, db, env):
     admin, stages = env
     card = await create_card(db, name="Selected")
@@ -177,8 +252,9 @@ async def test_stage_notification_is_delivered_after_commit(client, db, env, mon
     async def immediate(*args, **kwargs):
         pytest.fail("stage notification was delivered before commit")
 
-    async def deliver(recipients, *, notif_type, actor_id):
+    async def deliver(recipients, *, notif_type, actor_id, require_card_read):
         assert committed
+        assert require_card_read
         delivered.append((recipients, notif_type, actor_id))
 
     monkeypatch.setattr(db, "commit", commit)

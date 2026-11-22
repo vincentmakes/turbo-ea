@@ -2682,6 +2682,8 @@ async def update_card(
     result = await db.execute(
         select(Card)
         .where(Card.id == card_uuid)
+        .with_for_update(key_share=True)
+        .execution_options(populate_existing=True)
         .options(
             selectinload(Card.tags).selectinload(Tag.group),
             selectinload(Card.stakeholders).selectinload(Stakeholder.user),
@@ -2718,7 +2720,7 @@ async def update_card(
                     card.attributes, updates["attributes"], cost_keys
                 )
 
-    pending_notifications = [] if "lifecycle_stage" in updates else None
+    pending_notifications = []
     changed = await card_write_service.update_card(
         db,
         card_write_service.WriteActor.from_user(user),
@@ -2740,6 +2742,7 @@ async def update_card(
                 recipients,
                 notif_type=notif_type,
                 actor_id=user.id,
+                require_card_read=True,
             )
         result = await db.execute(
             select(Card)
@@ -3367,6 +3370,7 @@ async def get_history(
 @router.post("/{card_id}/approval-status")
 async def update_approval_status(
     card_id: str,
+    background_tasks: BackgroundTasks,
     action: str = Query(..., pattern="^(approve|reject|reset)$"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -3376,7 +3380,12 @@ async def update_approval_status(
         db, user, "inventory.approval_status", card_uuid, "card.approval_status"
     ):
         raise HTTPException(403, "Not enough permissions")
-    result = await db.execute(select(Card).where(Card.id == card_uuid))
+    result = await db.execute(
+        select(Card)
+        .where(Card.id == card_uuid)
+        .with_for_update(key_share=True)
+        .execution_options(populate_existing=True)
+    )
     card = result.scalar_one_or_none()
     if not card:
         raise HTTPException(404, "Card not found")
@@ -3404,18 +3413,30 @@ async def update_approval_status(
 
     # Notify stakeholders about approval status change
     action_label = {"approve": "approved", "reject": "rejected", "reset": "reset"}
-    await notification_service.create_notifications_for_subscribers(
-        db,
-        card_id=card.id,
-        notif_type="approval_status_changed",
-        title=f"Approval Status {action_label[action].title()}",
-        message=f'{user.display_name} {action_label[action]} the approval status on "{card.name}"',
-        link=f"/cards/{card_id}",
-        data={"approval_status": card.approval_status, "action": action},
-        actor_id=user.id,
-    )
-
+    subscriber_ids = (
+        await db.scalars(select(Stakeholder.user_id).where(Stakeholder.card_id == card.id))
+    ).all()
+    recipients = [
+        {
+            "user_id": subscriber_id,
+            "card_id": card.id,
+            "title": f"Approval Status {action_label[action].title()}",
+            "message": (
+                f'{user.display_name} {action_label[action]} the approval status on "{card.name}"'
+            ),
+            "link": f"/cards/{card_id}",
+            "data": {"approval_status": card.approval_status, "action": action},
+        }
+        for subscriber_id in subscriber_ids
+    ]
     await db.commit()
+    background_tasks.add_task(
+        notification_service.deliver_notification_batch,
+        recipients,
+        notif_type="approval_status_changed",
+        actor_id=user.id,
+        require_card_read=True,
+    )
     return {"approval_status": card.approval_status}
 
 

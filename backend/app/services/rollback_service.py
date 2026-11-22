@@ -995,6 +995,12 @@ async def _lock_inverse_writes(
     for _, source_id, target_id in relations:
         card_ids.update((source_id, target_id))
     await lock_relation_endpoints(db, card_ids)
+    if card_ids:
+        (
+            await db.scalars(
+                select(Card).where(Card.id.in_(card_ids)).execution_options(populate_existing=True)
+            )
+        ).all()
 
 
 async def plan_rollback(
@@ -1012,6 +1018,36 @@ async def plan_rollback(
         "unsupported_events": unsupported,
         "event_count": len(events),
     }
+
+
+async def _check_stage_rollback_conflicts(db: AsyncSession, events: list[Event]) -> None:
+    # Unbatched card edits do not appear in batch conflict detection. Check the
+    # last stage written by this batch against the freshly locked card too.
+    latest_stages = {}
+    for event in events:
+        if event.event_type != "card.updated":
+            continue
+        data = event.data or {}
+        stage_change = (data.get("changes") or {}).get("lifecycle_stage")
+        card_id = _card_id_of(event, data)
+        if not card_id or not isinstance(stage_change, dict) or "new" not in stage_change:
+            continue
+        previous = latest_stages.get(card_id)
+        if previous is None or event.created_at > previous[0]:
+            latest_stages[card_id] = (event.created_at, [stage_change["new"]])
+        elif event.created_at == previous[0] and stage_change["new"] not in previous[1]:
+            previous[1].append(stage_change["new"])
+    for card_id, (_, stages) in latest_stages.items():
+        card = await _get_card(db, card_id)
+        if card is not None and (len(stages) != 1 or card.lifecycle_stage != stages[0]):
+            raise HTTPException(
+                409,
+                detail={
+                    "error": "rollback_conflict",
+                    "message": "Lifecycle stage changed since the batch",
+                    "conflicting_batches": [],
+                },
+            )
 
 
 async def execute_rollback(
@@ -1048,6 +1084,9 @@ async def execute_rollback(
                 "conflicting_batches": conflicts,
             },
         )
+
+    if not force:
+        await _check_stage_rollback_conflicts(db, events)
 
     # A removed vocabulary key cannot be restored, even when later batch
     # conflicts are forced. Validate every inverse before opening the batch.

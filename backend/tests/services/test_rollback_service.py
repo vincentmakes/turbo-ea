@@ -1028,3 +1028,96 @@ async def test_removed_stage_cannot_be_restored_even_with_force(db, actor):
     assert exc.value.status_code == 409
     assert exc.value.detail["error"] == "rollback_conflict"
     assert card.lifecycle_stage is None
+
+
+async def test_rollback_refreshes_card_after_lock_before_restoring_legacy_attributes(db, actor):
+    from sqlalchemy import update
+
+    from app.models.card import Card
+
+    card = await create_card(db, name="Concurrent rollback", attributes={"other": "old"})
+    batch = await _open_batch(db, actor)
+    await db.execute(
+        update(Card)
+        .where(Card.id == card.id)
+        .values(attributes={"other": "new"})
+        .execution_options(synchronize_session=False)
+    )
+    await execute_rollback(
+        db,
+        batch,
+        actor.id,
+        events=[],
+        operations=[
+            {
+                "op": "restore_card_fields",
+                "card_id": str(card.id),
+                "fields": {"attr_legacy": "restored"},
+            }
+        ],
+    )
+    assert card.attributes == {"other": "new", "legacy": "restored"}
+
+
+@pytest.mark.parametrize("new_stage", ["three", None])
+async def test_stage_rollback_rejects_later_unbatched_edit_unless_forced(db, actor, new_stage):
+    from tests.conftest import create_card_type
+
+    card_type = await create_card_type(db, key="Application")
+    card_type.lifecycle_stages = [
+        {"key": key, "label": key, "color": "#123456"} for key in ("one", "two", "three")
+    ]
+    card = await create_card(db, name="Stage changes")
+    card.lifecycle_stage = "one"
+    await db.flush()
+    batch = await _open_batch(db, actor)
+    writer = card_write_service.WriteActor.from_user(actor)
+    with _InBatch(batch):
+        await card_write_service.update_card(db, writer, card, {"lifecycle_stage": "two"})
+    await card_write_service.update_card(db, writer, card, {"lifecycle_stage": new_stage})
+    await db.flush()
+
+    with pytest.raises(HTTPException) as exc:
+        await execute_rollback(db, batch, actor.id)
+    assert exc.value.status_code == 409
+    assert exc.value.detail["error"] == "rollback_conflict"
+    assert card.lifecycle_stage == new_stage
+    await execute_rollback(db, batch, actor.id, force=True)
+    assert card.lifecycle_stage == "one"
+
+
+async def test_stage_rollback_rejects_ambiguous_simultaneous_batch_events(db, actor):
+    from datetime import UTC, datetime
+
+    from sqlalchemy import update
+
+    from tests.conftest import create_card_type
+
+    card_type = await create_card_type(db, key="Application")
+    card_type.lifecycle_stages = [
+        {"key": key, "label": key, "color": "#123456"} for key in ("one", "two", "three")
+    ]
+    card = await create_card(db, name="Stage changes")
+    card.lifecycle_stage = "one"
+    await db.flush()
+    batch = await _open_batch(db, actor)
+    writer = card_write_service.WriteActor.from_user(actor)
+    with _InBatch(batch):
+        await card_write_service.update_card(db, writer, card, {"lifecycle_stage": "two"})
+        await card_write_service.update_card(db, writer, card, {"lifecycle_stage": "three"})
+    await db.flush()
+    events = (await db.scalars(select(Event).where(Event.batch_id == batch.id))).all()
+    stage_events = [event for event in events if "lifecycle_stage" in event.data.get("changes", {})]
+    assert len(stage_events) == 2
+    await db.execute(
+        update(Event)
+        .where(Event.id.in_([event.id for event in stage_events]))
+        .values(created_at=datetime(2025, 1, 1, tzinfo=UTC))
+    )
+    await db.flush()
+
+    with pytest.raises(HTTPException) as exc:
+        await execute_rollback(db, batch, actor.id)
+    assert exc.value.status_code == 409
+    assert exc.value.detail["error"] == "rollback_conflict"
+    assert card.lifecycle_stage == "three"

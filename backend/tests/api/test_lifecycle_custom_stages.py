@@ -240,3 +240,66 @@ async def test_rollback_api_rejects_removed_stage_before_restoring_any_fields(
     assert response.json()["detail"]["error"] == "rollback_conflict"
     assert card.name == "Current"
     assert card.lifecycle_stage is None
+
+
+async def test_stage_edit_refreshes_approval_before_breaking_it(client, db, stages_env):
+    from sqlalchemy import update
+
+    from app.models.card import Card
+
+    admin, _ = stages_env
+    headers = auth_headers(admin)
+    await client.put(
+        "/api/v1/metamodel/types/Application/lifecycle-stages",
+        json={"stages": STAGES},
+        headers=headers,
+    )
+    card = await create_card(db, card_type="Application", name="Concurrent", user_id=admin.id)
+    await db.execute(
+        update(Card)
+        .where(Card.id == card.id)
+        .values(approval_status="APPROVED")
+        .execution_options(synchronize_session=False)
+    )
+    response = await client.patch(
+        f"/api/v1/cards/{card.id}", json={"lifecycle_stage": "testing"}, headers=headers
+    )
+    assert response.status_code == 200
+    assert response.json()["approval_status"] == "BROKEN"
+
+
+async def test_approval_delivers_notification_after_commit(client, db, stages_env, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from app.models.card import Card
+    from app.models.stakeholder import Stakeholder
+    from app.services import notification_service
+
+    admin, viewer = stages_env
+    card = await create_card(db, card_type="Application", name="Approval", user_id=admin.id)
+    db.add(Stakeholder(card_id=card.id, user_id=viewer.id, role="responsible"))
+    await db.flush()
+    transaction_open_at_delivery = []
+
+    async def record_delivery(*args, **kwargs):
+        transaction_open_at_delivery.append(db.in_transaction())
+
+    deliver = AsyncMock(side_effect=record_delivery)
+    monkeypatch.setattr(notification_service, "deliver_notification_batch", deliver)
+
+    response = await client.post(
+        f"/api/v1/cards/{card.id}/approval-status?action=approve", headers=auth_headers(admin)
+    )
+
+    assert response.status_code == 200
+    assert await db.scalar(select(Card.approval_status).where(Card.id == card.id)) == "APPROVED"
+    assert transaction_open_at_delivery == [False]
+    recipients = deliver.await_args.args[0]
+    assert recipients[0]["user_id"] == viewer.id
+    assert recipients[0]["card_id"] == card.id
+    assert recipients[0]["link"] == f"/cards/{card.id}"
+    assert deliver.await_args.kwargs == {
+        "notif_type": "approval_status_changed",
+        "actor_id": admin.id,
+        "require_card_read": True,
+    }

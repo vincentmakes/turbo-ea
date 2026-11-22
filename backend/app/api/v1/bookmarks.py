@@ -25,6 +25,7 @@ from app.services.card_query import (
     resolve_card_query,
     stored_card_ids,
     stored_query,
+    valid_lifecycle_stages,
     view_fields_for_query,
     view_patch,
 )
@@ -535,6 +536,7 @@ async def bookmark_odata_feed(
         and isinstance(bm_types[0], str)
         and isinstance(stages, list)
         and all(isinstance(stage, str) for stage in stages)
+        and valid_lifecycle_stages(stages)
         and stages
     ):
         q = q.where(lifecycle_stage_condition(Card, stages))

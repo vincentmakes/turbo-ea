@@ -6,6 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.schemas.risk_mitigation_task import MAX_LEAD_TIME_DAYS, RecurrenceUnitLiteral
+from app.services.card_query import valid_lifecycle_stages
 
 
 class StakeholderCreate(BaseModel):
@@ -347,6 +348,8 @@ class BookmarkFilters(BaseModel):
             stages = filters["lifecycleStages"]
             if not isinstance(stages, list) or not all(isinstance(s, str) for s in stages):
                 raise ValueError("lifecycleStages must be a list of strings")
+            if not valid_lifecycle_stages(stages):
+                raise ValueError("lifecycleStages exceeds the stage limits")
         return filters
 
 
