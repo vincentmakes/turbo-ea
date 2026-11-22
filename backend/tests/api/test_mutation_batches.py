@@ -434,6 +434,52 @@ async def test_batch_history_exposes_extension_entity_reference(
     assert event["entity_id"] == str(entity_id)
 
 
+async def test_rollback_requires_parent_read_access(monkeypatch):
+    from app.api.v1 import mutation_batches as routes
+
+    card_id, parent_id = uuid.uuid4(), uuid.uuid4()
+    db = SimpleNamespace(get=AsyncMock(return_value=SimpleNamespace(parent_id=None)))
+    user = SimpleNamespace(id=uuid.uuid4())
+    readable = AsyncMock(side_effect=[None, HTTPException(status_code=404)])
+    monkeypatch.setattr(routes, "require_card_readable", readable)
+    monkeypatch.setattr(routes.PermissionService, "require_permission", AsyncMock())
+    monkeypatch.setattr(routes.PermissionService, "can_view_costs", AsyncMock(return_value=True))
+    with pytest.raises(HTTPException) as exc:
+        await routes._require_rollback_permissions(
+            db,
+            user,
+            [
+                {
+                    "op": "restore_card_fields",
+                    "card_id": str(card_id),
+                    "fields": {"parent_id": str(parent_id)},
+                }
+            ],
+        )
+    assert exc.value.status_code == 404
+    assert readable.await_args.args == (db, user, parent_id)
+
+
+@pytest.mark.parametrize("operation", ["add_card_tag", "remove_card_tag"])
+async def test_rollback_tag_operations_use_tag_permission(monkeypatch, operation):
+    from app.api.v1 import mutation_batches as routes
+    from app.services import tag_service
+
+    db, user, card_id = object(), SimpleNamespace(id=uuid.uuid4()), uuid.uuid4()
+    monkeypatch.setattr(routes, "require_card_readable", AsyncMock())
+    permission = AsyncMock(return_value=True)
+    monkeypatch.setattr(tag_service, "can_tag_card", permission)
+    monkeypatch.setattr(
+        routes.PermissionService,
+        "require_permission",
+        AsyncMock(side_effect=HTTPException(status_code=403)),
+    )
+    await routes._require_rollback_permissions(
+        db, user, [{"op": operation, "card_id": str(card_id)}]
+    )
+    permission.assert_awaited_once_with(db, user, card_id)
+
+
 async def test_rollback_requires_current_card_edit_permission(monkeypatch):
     from app.api.v1 import mutation_batches as routes
 
@@ -512,6 +558,95 @@ async def test_batch_history_filters_hidden_cards_and_preview_refuses_hidden_eve
     )
     assert preview.status_code == 404
     assert str(hidden.id) not in preview.text
+
+
+async def test_batch_history_filters_rollback_subjects_and_document_details(
+    client, admin_user, app_card_type, db, monkeypatch
+):
+    from app.api.v1 import mutation_batches as routes
+    from app.services.card_read_scope import CardReadScope
+    from tests.conftest import create_card, create_card_type
+
+    await create_card_type(db, key="Hidden", label="Hidden")
+    visible = await create_card(db, name="Visible")
+    hidden = await create_card(db, card_type="Hidden", name="Hidden")
+    opened = await _open(client, admin_user, rows=3, dry_run=False)
+    batch_id = uuid.UUID(opened.json()["id"])
+    for card in (visible, hidden):
+        db.add(
+            Event(
+                batch_id=batch_id,
+                user_id=admin_user.id,
+                event_type="rollback.restore_card_fields",
+                data={"card_id": str(card.id), "fields": {"name": card.name}},
+            )
+        )
+    db.add(
+        Event(
+            batch_id=batch_id,
+            user_id=admin_user.id,
+            event_type="rollback.delete_adr",
+            data={"adr_id": str(uuid.uuid4()), "detail": "Private decision"},
+        )
+    )
+    await db.flush()
+    read_scope = CardReadScope(
+        role_key="restricted",
+        wildcard=False,
+        base_view=True,
+        denied_types=frozenset({"Hidden"}),
+        allowed_types=frozenset(),
+        stakeholder_card_ids=frozenset(),
+    )
+    monkeypatch.setattr(routes.CardReadScope, "load", AsyncMock(return_value=read_scope))
+    original = routes.PermissionService.has_app_permission
+
+    async def document_permission(db_arg, user_arg, permission, *args, **kwargs):
+        if permission == "adr.view":
+            return False
+        return await original(db_arg, user_arg, permission, *args, **kwargs)
+
+    monkeypatch.setattr(routes.PermissionService, "has_app_permission", document_permission)
+    response = await client.get(
+        f"/api/v1/mutation-batches/{batch_id}/events", headers=auth_headers(admin_user)
+    )
+    assert response.status_code == 200
+    assert [item["data"]["card_id"] for item in response.json()["events"]] == [str(visible.id)]
+    assert str(hidden.id) not in response.text
+    assert "Private decision" not in response.text
+    preview = await client.post(
+        f"/api/v1/mutation-batches/{batch_id}/rollback",
+        json={"dry_run": True},
+        headers=auth_headers(admin_user),
+    )
+    assert preview.status_code == 404
+    assert "Private decision" not in preview.text
+
+
+async def test_batch_summary_is_hidden_without_document_permissions(monkeypatch):
+    from app.api.v1 import mutation_batches as routes
+    from app.services.card_read_scope import CardReadScope
+
+    scope = CardReadScope(
+        role_key="reader",
+        wildcard=True,
+        base_view=True,
+        denied_types=frozenset(),
+        allowed_types=frozenset(),
+        stakeholder_card_ids=frozenset(),
+    )
+    monkeypatch.setattr(routes.CardReadScope, "load", AsyncMock(return_value=scope))
+    monkeypatch.setattr(routes, "document_event_read_filters", AsyncMock(return_value=(True,)))
+    monkeypatch.setattr(
+        routes,
+        "batch_to_dict",
+        lambda *args, **kwargs: {"summary": {"results": [{"detail": "Private decision"}]}},
+    )
+    redact = AsyncMock()
+    monkeypatch.setattr(routes, "scrub_summary_costs", redact)
+    result = await routes._batch_out(object(), object(), object(), None)
+    assert result["summary"] is None
+    redact.assert_not_awaited()
 
 
 async def test_rollback_route_checks_current_permission_before_dispatch(

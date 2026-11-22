@@ -450,6 +450,14 @@ async def scrub_event_payloads(
     for data in payloads:
         if not isinstance(data, dict):
             continue
+        changes = data.get("changes")
+        parent_change = changes.get("parent_id") if isinstance(changes, dict) else None
+        if isinstance(parent_change, dict):
+            for value in (parent_change.get("old"), parent_change.get("new")):
+                try:
+                    candidates.add(uuid.UUID(str(value)))
+                except (ValueError, TypeError):
+                    pass
         for key in _id_keys(data):
             values = data[key] if isinstance(data[key], list) else [data[key]]
             for v in values:
@@ -466,6 +474,14 @@ async def scrub_event_payloads(
             out.append(data)
             continue
         clean = dict(data)
+        changes = data.get("changes")
+        parent_change = changes.get("parent_id") if isinstance(changes, dict) else None
+        if isinstance(parent_change, dict):
+            cleaned_parent = dict(parent_change)
+            for key in ("old", "new"):
+                if str(parent_change.get(key)) in hidden:
+                    cleaned_parent[key] = None
+            clean["changes"] = {**changes, "parent_id": cleaned_parent}
         for key in _id_keys(data):
             value = data[key]
             if isinstance(value, list):

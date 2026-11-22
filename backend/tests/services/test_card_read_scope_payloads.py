@@ -229,6 +229,14 @@ class TestEventReadFilters:
 
 
 class TestScrubEventPayloads:
+    async def test_parent_changes_hide_only_unreadable_parent_ids(self, db, landscape):
+        hidden = str(landscape["secret"].id)
+        visible = str(landscape["open"].id)
+        payload = {"changes": {"parent_id": {"old": hidden, "new": visible}}}
+        out = await scrub_event_payloads(db, scope(denied=("Secret",)), [payload])
+        assert out == [{"changes": {"parent_id": {"old": None, "new": visible}}}]
+        assert payload["changes"]["parent_id"]["old"] == hidden
+
     async def test_unrestricted_returns_the_payloads_as_stored(self, db):
         payloads = [{"card_id": str(uuid.uuid4())}, None]
         out = await scrub_event_payloads(db, scope(wildcard=True), payloads)

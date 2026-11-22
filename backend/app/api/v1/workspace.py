@@ -32,6 +32,7 @@ from app.database import async_session, get_db
 from app.models.user import User
 from app.models.workspace_transfer import WorkspaceTransfer
 from app.services import audit_log
+from app.services.event_bus import request_impersonation
 from app.services.permission_service import PermissionService
 from app.services.workspace_io import (
     WorkspaceBundle,
@@ -530,10 +531,21 @@ async def _run_apply_job(transfer_id_str: str, user_id_str: str) -> None:
                 if transfer is None or transfer.status != "applying":
                     return
                 now = datetime.now(timezone.utc)
+                impersonation = request_impersonation.get()
+                can_impersonate = True
+                if user is not None and impersonation and impersonation[0] == str(user.id):
+                    token = request_impersonation.set(None)
+                    try:
+                        can_impersonate = await PermissionService.has_app_permission(
+                            db, user, "admin.impersonate", fresh=True
+                        )
+                    finally:
+                        request_impersonation.reset(token)
                 if (
                     user is None
                     or not user.is_active
                     or (user.access_expires_at is not None and user.access_expires_at < now)
+                    or not can_impersonate
                     or not await PermissionService.has_app_permission(
                         db, user, "admin.import_workspace", fresh=True
                     )

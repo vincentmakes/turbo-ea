@@ -296,6 +296,49 @@ class TestApplyJob:
         assert completed.outcome == "failure"
         assert completed.actor_user_id == importer_id
 
+    @pytest.mark.parametrize("can_impersonate", [True, False])
+    async def test_queued_apply_rechecks_impersonation_authority(
+        self, client, db, env, monkeypatch, can_impersonate
+    ):
+        from app.services.event_bus import request_impersonation
+
+        owner_role = await create_role(
+            db,
+            key="import_impersonator",
+            label="Import impersonator",
+            permissions={"admin.impersonate": True},
+        )
+        await create_role(
+            db,
+            key="impersonated_importer",
+            label="Impersonated importer",
+            permissions={"admin.import_workspace": True},
+        )
+        owner = await create_user(db, email="import-impersonator@test.com", role=owner_role.key)
+        await db.commit()
+        transfer_id = await self._previewed(client, env)
+        transfer = await _row(db, transfer_id)
+        transfer.status = "applying"
+        if not can_impersonate:
+            owner_role.permissions = {}
+        await db.commit()
+
+        applied = False
+
+        async def capture_apply(*args, **kwargs):
+            nonlocal applied
+            applied = True
+            raise RuntimeError("apply observed")
+
+        monkeypatch.setattr(workspace_api, "apply_bundle", capture_apply)
+        token = request_impersonation.set((str(owner.id), "impersonated_importer"))
+        try:
+            await workspace_api._apply_job(transfer_id, str(owner.id))
+        finally:
+            request_impersonation.reset(token)
+
+        assert applied is can_impersonate
+
     async def test_apply_is_refused_while_the_preview_is_running(
         self, client, db, env, monkeypatch
     ):

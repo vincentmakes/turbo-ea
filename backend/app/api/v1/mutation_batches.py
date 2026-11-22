@@ -37,12 +37,13 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.models.card import Card
 from app.models.event import Event
 from app.models.mutation_batch import MutationBatch
 from app.models.user import User
@@ -92,6 +93,30 @@ def _actor_name_for(batch: MutationBatch, users_by_id: dict) -> str | None:
         return None
     user = users_by_id.get(batch.actor_user_id)
     return user.display_name if user else None
+
+
+async def _batch_event_read_filters(db: AsyncSession, user: User, scope: CardReadScope):
+    """Apply document and card visibility to historical rollback events as well."""
+    filters = list(event_read_filters(scope))
+    document_filters = await document_event_read_filters(db, user)
+    filters.extend(document_filters)
+    if document_filters:
+        if not await PermissionService.has_app_permission(db, user, "adr.view"):
+            filters.append(Event.event_type != "rollback.delete_adr")
+    card_clause = scope.clause(Card, mode="module")
+    if card_clause is not None:
+        payload_card = Event.data["card_id"].astext
+        readable = (
+            select(Card.id).where(cast(Card.id, String) == payload_card, card_clause).exists()
+        )
+        filters.append(
+            or_(
+                ~Event.event_type.startswith("rollback.", autoescape=True),
+                payload_card.is_(None),
+                readable,
+            )
+        )
+    return tuple(filters)
 
 
 _TOKEN_REASON_TEXT = {
@@ -248,14 +273,16 @@ async def list_batches(
         users_by_id = {u.id: u for u in rows.scalars().all()}
 
     read_scope = await CardReadScope.load(db, user)
+    document_filters = await document_event_read_filters(db, user)
 
     # A rollback batch's summary lists the values it restored: an auditor
     # without cost access reads it as they would the batch itself.
     items = []
     for b in batches:
         out = batch_to_dict(b, actor_display_name=_actor_name_for(b, users_by_id))
-        out["summary"] = await scrub_summary_costs(db, user, out["summary"])
-        if not read_scope.is_unrestricted(mode="module"):
+        if read_scope.is_unrestricted(mode="module") and not document_filters:
+            out["summary"] = await scrub_summary_costs(db, user, out["summary"])
+        else:
             out["summary"] = None
         items.append(MutationBatchOut(**out))
     return MutationBatchListPage(
@@ -273,8 +300,10 @@ async def _batch_out(
     values it restored, so its cost values go the way of a card's own."""
     out = batch_to_dict(batch, actor_display_name=actor.display_name if actor else None)
     scope = await CardReadScope.load(db, user)
-    out["summary"] = await scrub_summary_costs(db, user, out["summary"])
-    if not scope.is_unrestricted(mode="module"):
+    document_filters = await document_event_read_filters(db, user)
+    if scope.is_unrestricted(mode="module") and not document_filters:
+        out["summary"] = await scrub_summary_costs(db, user, out["summary"])
+    else:
         out["summary"] = None
     return out
 
@@ -323,8 +352,7 @@ async def get_batch_history(
         select(Event)
         .options(selectinload(Event.user))
         .where(Event.batch_id == batch_id)
-        .where(*event_read_filters(scope))
-        .where(*await document_event_read_filters(db, user))
+        .where(*await _batch_event_read_filters(db, user, scope))
         .order_by(Event.created_at.asc())
     )
     events = list((await db.execute(q)).scalars().all())
@@ -364,14 +392,13 @@ async def _require_rollback_permissions(
         cost_field_keys_from_card_schema,
         keep_stored_cost_values,
     )
+    from app.services.tag_service import can_tag_card
 
     card_permissions = {
         "delete_card": ("inventory.delete", "card.delete"),
         "archive_card": ("inventory.archive", "card.archive"),
         "restore_card": ("inventory.archive", "card.archive"),
         "restore_card_fields": ("inventory.edit", "card.edit"),
-        "remove_card_tag": ("inventory.edit", "card.edit"),
-        "add_card_tag": ("inventory.edit", "card.edit"),
         "remove_stakeholder": ("stakeholders.manage", "card.manage_stakeholders"),
         "assign_stakeholder": ("stakeholders.manage", "card.manage_stakeholders"),
         "restore_stakeholder_role": ("stakeholders.manage", "card.manage_stakeholders"),
@@ -394,6 +421,15 @@ async def _require_rollback_permissions(
         kind = op.get("op")
         if kind == "unsupported":
             continue
+        if kind in {"remove_card_tag", "add_card_tag"}:
+            try:
+                card_id = uuid.UUID(str(op.get("card_id")))
+            except ValueError:
+                raise HTTPException(403, "Cannot authorize rollback operation") from None
+            await require_card_readable(db, user, card_id, mode="module")
+            if not await can_tag_card(db, user, card_id):
+                raise HTTPException(403, "Cannot authorize rollback operation")
+            continue
         if kind in card_permissions:
             try:
                 card_id = uuid.UUID(str(op.get("card_id")))
@@ -404,6 +440,18 @@ async def _require_rollback_permissions(
             await PermissionService.require_permission(
                 db, user, app_permission, card_id, card_permission
             )
+            if kind == "restore_card_fields":
+                parent_id = (op.get("fields") or {}).get("parent_id")
+                if parent_id:
+                    try:
+                        parent_id = uuid.UUID(str(parent_id))
+                    except ValueError:
+                        raise HTTPException(403, "Cannot authorize rollback operation") from None
+                    card = await db.get(Card, card_id, populate_existing=True)
+                    if card is None:
+                        raise HTTPException(404, "Card not found")
+                    if parent_id != card.parent_id:
+                        await require_card_readable(db, user, parent_id, mode="module")
             if kind == "restore_card_fields" and not await PermissionService.can_view_costs(
                 db, user, card_id
             ):
@@ -523,19 +571,12 @@ async def rollback(
         .scalars()
         .all()
     )
-    visible_events = list(
-        (
-            await db.execute(
-                select(Event)
-                .where(Event.batch_id == batch_id)
-                .where(*event_read_filters(scope))
-                .where(*await document_event_read_filters(db, user))
-            )
-        )
-        .scalars()
-        .all()
+    visible_count = await db.scalar(
+        select(func.count(Event.id))
+        .where(Event.batch_id == batch_id)
+        .where(*await _batch_event_read_filters(db, user, scope))
     )
-    if len(visible_events) != len(all_events):
+    if visible_count != len(all_events):
         raise HTTPException(404, "Batch not found")
     payloads = await scrub_event_payloads(db, scope, [event.data for event in all_events])
     if any(payload != event.data for payload, event in zip(payloads, all_events)):
