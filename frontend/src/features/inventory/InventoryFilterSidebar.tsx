@@ -700,6 +700,14 @@ export default function InventoryFilterSidebar({
     onFiltersChange({ ...filters, lifecyclePhases: next });
   };
 
+  const toggleLifecycleStage = (key: string) => {
+    const current = filters.lifecycleStages ?? [];
+    const next = current.includes(key)
+      ? current.filter((stage) => stage !== key)
+      : [...current, key];
+    onFiltersChange({ ...filters, lifecycleStages: next });
+  };
+
   const toggleEolStatus = (key: string) => {
     const next = filters.eolStatuses.includes(key)
       ? filters.eolStatuses.filter((p) => p !== key)
@@ -1523,15 +1531,7 @@ export default function InventoryFilterSidebar({
                             label={stage.label}
                             size="small"
                             variant={selected ? "filled" : "outlined"}
-                            onClick={() => {
-                              const current = filters.lifecycleStages ?? [];
-                              onFiltersChange({
-                                ...filters,
-                                lifecycleStages: selected
-                                  ? current.filter((key) => key !== stage.key)
-                                  : [...current, stage.key],
-                              });
-                            }}
+                            onClick={() => toggleLifecycleStage(stage.key)}
                             sx={selected
                               ? { bgcolor: stage.color, color: "common.white", borderColor: stage.color }
                               : { borderColor: stage.color, color: stage.color }}
@@ -1541,15 +1541,7 @@ export default function InventoryFilterSidebar({
                       <EmptyChip
                         label={t("filter.emptyValue")}
                         selected={(filters.lifecycleStages ?? []).includes(EMPTY_VALUE)}
-                        onClick={() => {
-                          const current = filters.lifecycleStages ?? [];
-                          onFiltersChange({
-                            ...filters,
-                            lifecycleStages: current.includes(EMPTY_VALUE)
-                              ? current.filter((key) => key !== EMPTY_VALUE)
-                              : [...current, EMPTY_VALUE],
-                          });
-                        }}
+                        onClick={() => toggleLifecycleStage(EMPTY_VALUE)}
                       />
                     </Box>
                   </Collapse>
