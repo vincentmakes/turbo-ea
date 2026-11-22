@@ -36207,7 +36207,7 @@
     },
     "/api/v1/mutation-batches/{batch_id}/rollback": {
       "post": {
-        "description": "Reverse the writes performed under a mutation batch.\n\nPermission rules: the batch owner can roll back their own batch\nwithout ``admin.events``; reverting another user's batch needs\n``admin.events``. ``force=True`` requires ``admin.events``\nregardless, since it accepts overwriting later writes by other\nusers.",
+        "description": "Reverse the writes performed under a mutation batch.\n\nPermission rules (the same as reading the batch): the batch owner can\nroll back \u2014 or preview rolling back \u2014 their own batch without\n``admin.events``; any other batch needs ``admin.events``, including one\nwith no actor at all (an extension's, or an auto-batch no person\ncaused), since nobody owns it. ``force=True`` requires\n``admin.events`` regardless, since it accepts overwriting later\nwrites by other users.",
         "operationId": "rollback_api_v1_mutation_batches__batch_id__rollback_post",
         "parameters": [
           {

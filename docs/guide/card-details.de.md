@@ -225,6 +225,8 @@ Der Einladungspfad erfordert die **`users.invite`**-Berechtigung, eine delegiert
 
 Eine Änderung, die nicht aus der Weboberfläche stammt, trägt neben dem Namen der Person einen Chip: **MCP**, wenn ein KI-Assistent sie im Auftrag dieser Person über den [MCP-Server](../admin/mcp.md) vorgenommen hat, sonst **API**, **Erweiterung** oder **System**.
 
+Eine Änderung, die eine Erweiterung vorgenommen hat, als jemand sie benutzte – etwa durch einen Klick auf eine Schaltfläche auf einer Erweiterungsseite –, kann unter dem Namen dieser Person erfasst werden, mit dem Chip **Erweiterung** daneben. Änderungen, die eine Erweiterung selbstständig vornimmt, etwa ein geplanter Sync, zeigen **System** als Autor.
+
 Zeigt die **vollständige Historie** der an der Karte vorgenommenen Änderungen: **Wer** hat die Änderung vorgenommen, **wann** wurde sie durchgeführt und **was** wurde geändert (vorheriger Wert vs. neuer Wert). Dies ermöglicht die vollständige Nachverfolgbarkeit aller Änderungen über die Zeit.
 
 Alles, was das Datum **Geändert** der Karte verschiebt, erscheint hier — eine manuelle Bearbeitung, ein Tabellen-Import, eine Plattform-Migration oder ServiceNow-Synchronisierung, eine Tag-Änderung, eine Massenbearbeitung oder eine Hierarchie-Verschiebung, die diese Karte mitgezogen hat. Systemseitige Wartung ändert beides nicht: Die Neuberechnung von Datenqualitätswerten, das erneute Ausführen berechneter Felder sowie das Nachfüllen von Hierarchieebenen oder Karten-IDs lassen Historie und **Geändert**-Datum unberührt.

@@ -4,8 +4,8 @@ Toda entidad financiera de la UE debe mantener un **registro de información**
 sobre todos sus acuerdos con proveedores TIC terceros y presentarlo anualmente a
 través de su supervisor: 15 plantillas entrelazadas, entregadas como un paquete
 xBRL-CSV legible por máquina conforme al marco de la ABE. En el simulacro de las
-AES, el 93,5 % de las presentaciones contenía al menos un error de datos, y el
-86 % de esos errores eran información obligatoria ausente.
+AES de 2024, solo el 6,5 % de los registros superó todas las comprobaciones de
+calidad de los datos.
 
 Los datos que necesita el registro son exactamente los que ya contiene su
 repositorio de EA. **DORA Register of Information** convierte Turbo EA en su
@@ -43,11 +43,11 @@ a partir de las tarjetas cada vez que valida o exporta.
 | | |
 |---|---|
 | **Licencia** | Comercial — se requiere un derecho firmado |
-| **Versión mínima de Turbo EA** | 2.94.0 |
+| **Versión mínima de Turbo EA** | 2.182.0 |
 | **Permisos** | `ext.dora-roi.view`, `ext.dora-roi.manage`, `ext.dora-roi.submit`, `ext.dora-roi.admin` |
 | **Permisos de acceso a datos** | `core.cards.read`, `core.cards.write`, `metamodel.custom_field_types` |
 | **Requiere reiniciar el backend** | sí — incluye código de backend |
-| **Dónde aparece** | **Registro DORA** en la navegación principal · **Informes → Registro DORA** · secciones **DORA Register** y **DORA Function** en las tarjetas · seis plantillas de encuesta |
+| **Dónde aparece** | **Registro DORA** en el menú **GRC** (una entrada de primer nivel cuando el menú GRC no está disponible para usted) · **Informes → Registro DORA - Panel** · secciones **DORA Register** y **DORA Function** en las tarjetas · seis plantillas de encuesta |
 
 ## Qué añade a su metamodelo
 
@@ -57,9 +57,15 @@ a partir de las tarjetas cada vez que valida o exporta.
   **jerárquico**: los acuerdos marco son los padres y los acuerdos posteriores o
   asociados sus hijos. Lleva el gasto anual y la moneda.
 - **ICT Service** — uno por servicio prestado al amparo de un acuerdo, con la
-  línea de servicio (tipo, fechas, preavisos, ley aplicable, ubicación de los
-  datos, grado de dependencia) y su **evaluación** (sustituibilidad, plan de
+  línea de servicio (tipo, fechas, preavisos, ley aplicable, ubicaciones,
+  grado de dependencia) y su **evaluación** (sustituibilidad, plan de
   salida, reintegración, impacto de una interrupción, proveedores alternativos).
+  Sus tres campos de ubicación — **Country of provision of the services**,
+  **Location of the data at rest** y **Location of data management** (donde se
+  tratan los datos) — ofrecen cada uno **Not applicable**. Un servicio sin
+  ubicación del tratamiento de datos registrada impide finalizar una instantánea:
+  elija el país, o **Not applicable** si el servicio no implica tratamiento de
+  datos.
 
 **Un nuevo subtipo** — **Branch** en Organización.
 
@@ -68,8 +74,8 @@ a partir de las tarjetas cada vez que valida o exporta.
 | Tipo de tarjeta | Sección | Contenido |
 |---|---|---|
 | **Organización** | DORA Register | Dentro del alcance del registro DORA, LEI, País, Tipo de entidad, Posición en el grupo, Autoridad competente, Total de activos, Moneda de declaración, Código de sucursal |
-| **Provider** | DORA Register | LEI, Tipo de identificador, EUID, Tipo de persona, País de la sede, Proveedor intragrupo, gasto anual, matriz última |
-| **Capacidad de negocio** / **Proceso de negocio** | DORA Function | Función del registro DORA, Identificador de función, Actividad autorizada, Evaluación de criticidad, Motivos de criticidad, RTO, RPO, Impacto de una interrupción |
+| **Provider** | DORA Register | LEI, Tipo de identificador, EUID, Otro código de identificación, Tipo de persona, País de la sede, Proveedor intragrupo, gasto anual, matriz última |
+| **Capacidad de negocio** / **Proceso de negocio** | DORA Function | Función del registro DORA, Identificador de función, Actividad autorizada, Evaluación de criticidad o importancia, Motivos de criticidad, Fecha de la última evaluación, RTO, RPO, Impacto de una interrupción |
 
 Cada sección lleva además una **puntuación DORA (%)** de solo lectura: una barra
 de completitud que muestra cuántos datos de registro debe todavía esa tarjeta.
@@ -136,24 +142,30 @@ posteriores) se aplican por usted.
 
 ## El espacio de trabajo
 
-**Registro DORA** en la navegación principal tiene cinco pestañas. El mismo panel
-está también disponible como informe guardable en **Informes → Registro DORA**.
+**Registro DORA** en el menú **GRC** tiene cinco pestañas. El mismo panel
+está también disponible como informe guardable en **Informes → Registro DORA - Panel**.
 
 ### Panel
 
 Seis indicadores — **Register completeness**, **Blocking findings**, **Warnings**,
 **Critical functions**, **Providers**, **Arrangements** — sobre un botón
-**Validate now**. Debajo, una barra de recuentos enlaza directamente con el
-inventario para cada objeto del registro, y la tabla **Template completeness**
-muestra filas y hallazgos por plantilla.
+**Validate now** y una línea que indica cuántas de las reglas activas de la ABE se
+ejecutaron, con un enlace **Rules not run** (véase [Validación](#validacion)).
+Debajo, una barra de recuentos enlaza directamente con el inventario para cada
+objeto del registro, y la tabla **Template completeness** muestra filas y
+hallazgos por plantilla.
 
 ![La tabla «Template completeness»](../assets/img/en/74_ext_dora_template_completeness.png)
 
-Al pulsar un número de hallazgos se abre el panel lateral **Validation findings**,
-agrupado por fila de registro, con cada hallazgo clasificado como **Missing**,
-**Invalid value**, **Duplicate row**, **Broken reference**, **Unknown column** o
-**EBA rule**, y marcado como **Blocking** o **Warning**. Cada hallazgo dispone de
-un botón **Open card** que lleva exactamente al campo que hay que corregir.
+Al pulsar un número de hallazgos se abre **Validation findings**: una fila por
+hallazgo, con su gravedad (**Blocking** o **Warning**), plantilla, fila de
+registro, tarjeta, regla, columna y mensaje, y filtros por gravedad, plantilla,
+tipo de tarjeta y regla. La regla es una de **Missing**, **Missing key value**,
+**Invalid value**, **Invalid LEI**, **Duplicate row**, **Broken reference**,
+**Unknown column** o **EBA rule**. Al pulsar un hallazgo, o su acción **Open
+card**, se abre en un panel lateral la tarjeta que hay que corregir; un hallazgo
+sobre los ajustes de presentación ofrece **Open settings** en su lugar. El botón
+**Rules not run** abre la lista descrita en [Validación](#validacion).
 
 ### Registro
 
@@ -180,25 +192,42 @@ recorre después tres estados:
 1. **Draft** — pulse **Validate** para comprobarla. Los hallazgos se enumeran con
    gravedad, plantilla, fila, columna y mensaje.
 2. **Validated** — pulse **Finalize**. Se rechaza mientras quede algún hallazgo
-   **bloqueante** o no se haya definido una entidad declarante con LEI.
+   **bloqueante** o no se haya definido una entidad declarante con LEI. Los
+   hallazgos bloqueantes incluyen un servicio sin ubicación del tratamiento de
+   datos, cualquier otro campo clave que quede vacío donde corresponda, y un LEI de
+   proveedor que no cumple el formato ISO 17442 o su suma de control (**Invalid
+   LEI**).
 3. **Final** — la instantánea es inmutable, el hash de su paquete queda fijado para
-   auditoría y ya no puede eliminarse ni volver a validarse.
+   auditoría, conserva los hallazgos y la cobertura de reglas con los que se
+   comprobó, y ya no puede eliminarse ni volver a validarse.
 
 Hay dos descargas disponibles en todo momento:
 
-- **xBRL-CSV package** — el paquete oficial del módulo DORA del marco 4.0 de la
-  ABE, en `.zip`, con los metadatos del informe, los indicadores de presentación,
-  los parámetros y un CSV por plantilla. Es reproducible byte a byte, y una nueva
-  descarga de una instantánea final se comprueba contra su hash fijado.
+- **xBRL-CSV package** — un paquete de informe DORA construido conforme a la
+  taxonomía del marco 4.0 de la ABE (módulo DORA 1.1.0), en `.zip`, con los
+  metadatos del informe, los indicadores de presentación, los parámetros y un CSV
+  por plantilla. Su nombre de archivo incluye el código de país ISO de la entidad
+  declarante. Un proveedor que tiene tanto LEI como EUID se declara con ambos: el
+  LEI como código de identificación y el EUID como código de identificación
+  adicional. El paquete es reproducible byte a byte, y una nueva descarga de una
+  instantánea final se comprueba contra su hash fijado.
 - **Excel workbook** — un libro de revisión con portada, una hoja por plantilla
-  con las etiquetas y códigos de columna oficiales y una hoja de miembros, para
+  con las etiquetas y códigos de columna de la ABE y una hoja de miembros, para
   hacer circular el registro internamente antes de presentarlo.
+
+Antes de cada versión que modifica la exportación, el paquete generado a partir
+del registro de demostración se valida con Arelle, el procesador XBRL de código
+abierto, frente a la taxonomía del marco 4.0 publicada por la ABE, incluidas las
+aserciones de validación de la propia taxonomía. Eso cubre la estructura del
+paquete, no las comprobaciones de recepción de la ABE ni sus consultas a
+registros: que el portal de su supervisor acepte el archivo es una prueba aparte
+que debe realizar usted.
 
 ### Ajustes
 
 **Filing** — el **Filing scope** (**Consolidated (.CON)** o **Individual
 (.IND)**), la **Reporting currency**, la **Taxonomy version** y la **Reporting
-entity**, cuyo LEI y país determinan el paquete de presentación.
+entity**, cuyo LEI y país determinan el paquete de informe.
 
 **Definitions (B_99.01)** — definiciones libres opcionales para los términos de
 listas cerradas que emplee su registro, presentadas como plantilla B_99.01.
@@ -231,19 +260,36 @@ etiqueta **Demo Dora**; **Remove demo data** las retira.
 ## Validación
 
 La validación se ejecuta en cuatro capas: **estructura** (tipos de datos, sumas de
-control de los LEI, fechas, números y los indicadores de campo obligatorio como
-bloqueantes), **miembros** (valores de listas cerradas frente a los dominios
-oficiales), **claves** (completitud y unicidad de las claves primarias y
-referencias entre plantillas) y el **inventario de reglas de la ABE** con las
-gravedades publicadas.
+control de los LEI, fechas, números y los campos obligatorios y clave como
+bloqueantes cuando están vacíos), **miembros** (valores de listas cerradas frente
+a las listas de códigos de la taxonomía), **claves** (completitud y unicidad de
+las claves primarias y referencias entre plantillas) y las **reglas de validación
+de la ABE que pueden ejecutarse sin conexión**, con las gravedades publicadas. Las
+reglas que la ABE ha retirado no se ejecutan.
+
+El EUID de un proveedor se comprueba con el formato EUID: el código de país y el
+identificador del registro, un punto y después el número de registro. Un valor sin
+punto, o un LEI introducido como EUID, se notifica como advertencia. Una
+comprobación local es más estricta que la de la ABE: un código de identificación
+de proveedor declarado como LEI que no cumple el formato ISO 17442 o su suma de
+control es un hallazgo bloqueante **Invalid LEI**, mientras que la regla propia de
+la ABE es una advertencia. Un LEI no válido de la matriz última de un proveedor
+sigue siendo una advertencia.
 
 !!! warning "La cobertura es parcial, y se indica con honestidad"
-    Turbo EA ejecuta las reglas que puede evaluar sin conexión. Las que requieren
-    el motor de expresiones de las AES o consultas en vivo a los registros
-    GLEIF/BRIS no pueden ejecutarse en su instancia. En lugar de omitirlas en
-    silencio, el panel indica cuántas reglas de la ABE se ejecutaron y cuántas no.
-    Considere una validación limpia como una comprobación previa sólida, no como
-    una garantía de aceptación por parte del supervisor.
+    Turbo EA ejecuta las reglas de la ABE que puede evaluar sin conexión, y el
+    panel indica cuántas de las reglas activas de la ABE se ejecutaron. **Rules not
+    run**, que se abre desde esa indicación o desde los hallazgos de validación,
+    enumera todas las demás reglas con su plantilla, el texto propio de la ABE y el
+    motivo por el que no se ejecutan aquí: una **EBA expression** que excede las
+    comprobaciones sin conexión, que los sistemas del supervisor evalúan sobre el
+    archivo que usted presenta, o una **Package check** que la ABE aplica al
+    paquete de informe presentado y no al registro. También nombra las reglas de
+    LEI, EUID y país que aquí solo se ejecutan como comprobaciones sin conexión de
+    suma de control, formato y lista de códigos, mientras que la ABE consulta los
+    códigos en GLEIF y en los registros mercantiles (BRIS). Considere una
+    validación limpia como una comprobación previa sólida, no como una garantía de
+    aceptación por parte del supervisor.
 
 ## Permisos
 
@@ -251,7 +297,7 @@ gravedades publicadas.
 |---|---|
 | `ext.dora-roi.view` | Ver el registro, los paneles y los resultados de validación |
 | `ext.dora-roi.manage` | Editar los datos del registro y decidir sobre las sugerencias |
-| `ext.dora-roi.submit` | Fijar instantáneas en una fecha de referencia y descargar los paquetes de presentación |
+| `ext.dora-roi.submit` | Fijar instantáneas en una fecha de referencia y descargar los paquetes de informe |
 | `ext.dora-roi.admin` | Configurar los ajustes de presentación y cargar o retirar los datos de demostración |
 
 Editar los datos del registro utiliza además sus derechos normales de edición de
@@ -275,8 +321,9 @@ sin licencia, o el backend no se ha reiniciado desde que se instaló.
   la extensión; esas filas no se migran. Vuelva a introducirlos como tarjetas ICT
   Service y de función (o recargue los datos de demostración) y ejecute de nuevo
   **Find suggestions**.
-- El contenido de la taxonomía se genera a partir del marco publicado por la ABE,
-  así que adoptar una nueva versión es una actualización de datos más un cambio de
+- Las plantillas, listas de códigos y reglas se entregan como datos versionados
+  generados a partir del marco publicado por la ABE, así que una nueva versión del
+  marco llega como una actualización de la extensión más un cambio de
   **Taxonomy version**.
 - La **puntuación DORA** de una tarjeta es una señal de triaje, no un veredicto de
   cumplimiento. Los hallazgos del panel son la lista de carencias que cuenta.

@@ -4,8 +4,8 @@ Todas as entidades financeiras da UE têm de manter um **registo de informação
 sobre todos os seus acordos com terceiros prestadores de TIC e apresentá-lo
 anualmente através da sua autoridade de supervisão: 15 modelos interligados,
 entregues como um pacote xBRL-CSV legível por máquina conforme ao quadro da EBA.
-No ensaio das ESAs, 93,5 % das submissões continham pelo menos um erro de dados, e
-86 % desses eram informação obrigatória em falta.
+No ensaio das ESAs de 2024, apenas 6,5 % dos registos passaram todas as
+verificações de qualidade dos dados.
 
 Os dados de que o registo precisa são exatamente os que o seu repositório de EA já
 contém. **DORA Register of Information** transforma o Turbo EA no seu registo.
@@ -47,11 +47,11 @@ cartões sempre que valida ou exporta.
 | | |
 |---|---|
 | **Licença** | Comercial — é necessário um direito assinado |
-| **Versão mínima do Turbo EA** | 2.94.0 |
+| **Versão mínima do Turbo EA** | 2.182.0 |
 | **Permissões** | `ext.dora-roi.view`, `ext.dora-roi.manage`, `ext.dora-roi.submit`, `ext.dora-roi.admin` |
 | **Autorizações de acesso a dados** | `core.cards.read`, `core.cards.write`, `metamodel.custom_field_types` |
 | **Exige reiniciar o backend** | sim — inclui código de backend |
-| **Onde aparece** | **DORA Register** na navegação principal · **Relatórios → DORA Register** · secções **DORA Register** e **DORA Function** nos cartões · seis modelos de inquérito |
+| **Onde aparece** | **DORA Register** no menu **GRC** (uma entrada de nível superior quando o menu GRC não está disponível para si) · **Relatórios → DORA Register - Dashboard** · secções **DORA Register** e **DORA Function** nos cartões · seis modelos de inquérito |
 
 ## O que acrescenta ao seu metamodelo
 
@@ -61,9 +61,14 @@ cartões sempre que valida ou exporta.
   **hierárquico**: os acordos-quadro são os pais e os acordos subsequentes ou
   associados os seus filhos. Contém a despesa anual e a moeda.
 - **ICT Service** — um por serviço prestado ao abrigo de um acordo, com a linha de
-  serviço (tipo, datas, pré-avisos, lei aplicável, localização dos dados, grau de
+  serviço (tipo, datas, pré-avisos, lei aplicável, localizações, grau de
   dependência) e a respetiva **avaliação** (substituibilidade, plano de saída,
-  reintegração, impacto de uma interrupção, prestadores alternativos).
+  reintegração, impacto de uma interrupção, prestadores alternativos). Os seus três
+  campos de localização — **Country of provision of the services**, **Location of
+  the data at rest** e **Location of data management** (onde os dados são
+  tratados) — oferecem cada um **Not applicable**. Um serviço sem localização do
+  tratamento de dados registada impede finalizar um instantâneo: escolha o país,
+  ou **Not applicable** se o serviço não envolver tratamento de dados.
 
 **Um novo subtipo** — **Branch** em Organização.
 
@@ -72,8 +77,8 @@ cartões sempre que valida ou exporta.
 | Tipo de cartão | Secção | Conteúdo |
 |---|---|---|
 | **Organização** | DORA Register | No âmbito do registo DORA, LEI, País, Tipo de entidade, Posição no grupo, Autoridade competente, Total do ativo, Moeda de reporte, Código da sucursal |
-| **Provider** | DORA Register | LEI, Tipo de identificador, EUID, Tipo de pessoa, País da sede, Prestador intragrupo, despesa anual, empresa-mãe última |
-| **Capacidade de negócio** / **Processo de negócio** | DORA Function | Função do registo DORA, Identificador de função, Atividade autorizada, Avaliação de criticidade, Motivos de criticidade, RTO, RPO, Impacto de uma interrupção |
+| **Provider** | DORA Register | LEI, Tipo de identificador, EUID, Outro código de identificação, Tipo de pessoa, País da sede, Prestador intragrupo, despesa anual, empresa-mãe última |
+| **Capacidade de negócio** / **Processo de negócio** | DORA Function | Função do registo DORA, Identificador de função, Atividade autorizada, Avaliação de criticidade ou importância, Motivos de criticidade, Data da última avaliação, RTO, RPO, Impacto de uma interrupção |
 
 Cada secção inclui ainda uma **pontuação DORA (%)** só de leitura: uma barra de
 completude que mostra quantos dados de registo esse cartão ainda deve.
@@ -140,24 +145,29 @@ convenções de preenchimento das ITS (`9999-12-31` para datas sem termo,
 
 ## A área de trabalho
 
-**DORA Register** na navegação principal tem cinco separadores. O mesmo dashboard
-está também disponível como relatório guardável em **Relatórios → DORA Register**.
+**DORA Register** no menu **GRC** tem cinco separadores. O mesmo dashboard
+está também disponível como relatório guardável em **Relatórios → DORA Register - Dashboard**.
 
 ### Dashboard
 
 Seis mosaicos — **Register completeness**, **Blocking findings**, **Warnings**,
 **Critical functions**, **Providers**, **Arrangements** — sobre um botão **Validate
-now**. Por baixo, uma barra de contagens liga diretamente ao inventário para cada
-objeto do registo, e a tabela **Template completeness** mostra linhas e achados por
-modelo.
+now** e uma linha que indica quantas das regras ativas da EBA foram executadas,
+com uma ligação **Rules not run** (ver [Validação](#validacao)). Por baixo, uma
+barra de contagens liga diretamente ao inventário para cada objeto do registo, e a
+tabela **Template completeness** mostra linhas e achados por modelo.
 
 ![A tabela «Template completeness»](../assets/img/en/74_ext_dora_template_completeness.png)
 
-Clicar num número de achados abre a gaveta **Validation findings**, agrupada por
-linha de registo, com cada achado classificado como **Missing**, **Invalid
-value**, **Duplicate row**, **Broken reference**, **Unknown column** ou **EBA
-rule**, e marcado como **Blocking** ou **Warning**. Cada achado tem um botão **Open
-card** que leva exatamente ao campo a corrigir.
+Clicar num número de achados abre **Validation findings**: uma linha por achado,
+com a sua gravidade (**Blocking** ou **Warning**), modelo, linha de registo,
+cartão, regra, coluna e mensagem, e filtros por gravidade, modelo, tipo de cartão
+e regra. A regra é uma de **Missing**, **Missing key value**, **Invalid value**,
+**Invalid LEI**, **Duplicate row**, **Broken reference**, **Unknown column** ou
+**EBA rule**. Clicar num achado, ou na sua ação **Open card**, abre num painel
+lateral o cartão a corrigir; um achado sobre as definições de submissão oferece
+**Open settings**. O botão **Rules not run** abre a lista descrita em
+[Validação](#validacao).
 
 ### Register
 
@@ -183,24 +193,40 @@ depois por três estados:
    gravidade, modelo, linha, coluna e mensagem.
 2. **Validated** — clique em **Finalize**. A operação é recusada enquanto houver um
    achado **bloqueante** ou não estiver definida uma entidade declarante com LEI.
+   São achados bloqueantes, entre outros, um serviço sem localização do tratamento
+   de dados, qualquer outro campo-chave deixado vazio onde se aplica e um LEI de
+   prestador que não cumpre o formato ISO 17442 ou a soma de controlo (**Invalid
+   LEI**).
 3. **Final** — o instantâneo é imutável, o *hash* do seu pacote fica fixado para
-   auditoria e já não pode ser eliminado nem revalidado.
+   auditoria, mantém os achados e a cobertura de regras com que foi verificado e já
+   não pode ser eliminado nem revalidado.
 
 Estão sempre disponíveis dois descarregamentos:
 
-- **xBRL-CSV package** — o pacote oficial do módulo DORA do quadro EBA 4.0 em
-  `.zip`, com os metadados do relatório, os indicadores de submissão, os
-  parâmetros e um CSV por modelo. É reproduzível ao byte, e um novo
-  descarregamento de um instantâneo final é verificado face ao seu *hash* fixado.
+- **xBRL-CSV package** — um pacote de relatório DORA construído segundo a
+  taxonomia do quadro EBA 4.0 (módulo DORA 1.1.0), em `.zip`, com os metadados do
+  relatório, os indicadores de submissão, os parâmetros e um CSV por modelo. O
+  nome do ficheiro inclui o código de país ISO da entidade declarante. Um
+  prestador que tem LEI e EUID é declarado com ambos: o LEI como código de
+  identificação e o EUID como código de identificação adicional. O pacote é
+  reproduzível ao byte, e um novo descarregamento de um instantâneo final é
+  verificado face ao seu *hash* fixado.
 - **Excel workbook** — um livro de revisão com capa, uma folha por modelo com os
-  rótulos e códigos de coluna oficiais e uma folha de membros, para fazer circular
+  rótulos e códigos de coluna da EBA e uma folha de membros, para fazer circular
   o registo internamente antes da submissão.
+
+Antes de cada versão que altera a exportação, o pacote construído a partir do
+registo de demonstração é validado com o Arelle, o processador XBRL de código
+aberto, face à taxonomia do quadro 4.0 publicada pela EBA, incluindo as asserções
+de validação da própria taxonomia. Isto cobre a estrutura do pacote, não as
+verificações de receção da EBA nem as suas consultas a registos: saber se o portal
+da sua autoridade aceita o ficheiro é um teste à parte, que faz você.
 
 ### Settings
 
 **Filing** — o **Filing scope** (**Consolidated (.CON)** ou **Individual
 (.IND)**), a **Reporting currency**, a **Taxonomy version** e a **Reporting
-entity**, cujo LEI e país determinam o pacote de submissão.
+entity**, cujo LEI e país determinam o pacote de relatório.
 
 **Definitions (B_99.01)** — definições livres opcionais para os termos de listas
 fechadas usados pelo seu registo, submetidas como modelo B_99.01.
@@ -233,19 +259,34 @@ etiqueta **Demo Dora**; **Remove demo data** remove-os.
 ## Validação
 
 A validação decorre em quatro camadas: **estrutura** (tipos de dados, somas de
-controlo dos LEI, datas, números e os indicadores de campo obrigatório tratados
-como bloqueantes), **membros** (valores de listas fechadas confrontados com os
-domínios oficiais), **chaves** (completude e unicidade das chaves primárias e
-referências entre modelos) e o **inventário de regras da EBA** com as gravidades
-publicadas.
+controlo dos LEI, datas, números e os campos obrigatórios e chave tratados como
+bloqueantes quando vazios), **membros** (valores de listas fechadas confrontados
+com as listas de códigos da taxonomia), **chaves** (completude e unicidade das
+chaves primárias e referências entre modelos) e as **regras de validação da EBA
+que podem ser executadas sem ligação**, com as gravidades publicadas. As regras
+que a EBA retirou não são executadas.
+
+O EUID de um prestador é verificado face ao formato EUID: o código de país e o
+identificador do registo, um ponto, depois o número de registo. Um valor sem
+ponto, ou um LEI introduzido como EUID, é comunicado como aviso. Uma verificação
+local é mais rigorosa do que a da EBA: um código de identificação de prestador
+declarado como LEI que não cumpre o formato ISO 17442 ou a soma de controlo é um
+achado bloqueante **Invalid LEI**, ao passo que a regra própria da EBA é um aviso.
+Um LEI inválido da empresa-mãe última de um prestador continua a ser um aviso.
 
 !!! warning "A cobertura é parcial — e é declarada com honestidade"
-    O Turbo EA executa as regras que consegue avaliar sem ligação. As que exigem o
-    motor de expressões das ESAs ou consultas em direto aos registos GLEIF/BRIS não
-    podem correr na sua instância. Em vez de as ignorar em silêncio, o dashboard
-    indica quantas regras da EBA foram executadas e quantas não foram. Considere
-    uma validação sem achados como uma verificação prévia sólida, não como uma
-    garantia de aceitação pela autoridade de supervisão.
+    O Turbo EA executa as regras da EBA que consegue avaliar sem ligação, e o
+    dashboard indica quantas das regras ativas da EBA foram executadas. **Rules not
+    run**, aberto a partir dessa indicação ou dos achados de validação, lista todas
+    as outras regras com o seu modelo, o texto próprio da EBA e o motivo por que não
+    são executadas aqui: uma **EBA expression** que excede as verificações sem
+    ligação, que os sistemas da autoridade de supervisão avaliam sobre o ficheiro
+    que submete, ou uma **Package check** que a EBA aplica ao pacote de relatório
+    submetido e não ao registo. Nomeia também as regras de LEI, EUID e país que aqui
+    só correm como verificações sem ligação de soma de controlo, formato e lista de
+    códigos, enquanto a EBA consulta os códigos no GLEIF e nos registos comerciais
+    (BRIS). Considere uma validação sem achados como uma verificação prévia sólida,
+    não como uma garantia de aceitação pela autoridade de supervisão.
 
 ## Permissões
 
@@ -253,7 +294,7 @@ publicadas.
 |---|---|
 | `ext.dora-roi.view` | Consultar o registo, os dashboards e os resultados da validação |
 | `ext.dora-roi.manage` | Editar os dados do registo e decidir sobre as sugestões |
-| `ext.dora-roi.submit` | Fixar instantâneos numa data de referência e descarregar os pacotes de submissão |
+| `ext.dora-roi.submit` | Fixar instantâneos numa data de referência e descarregar os pacotes de relatório |
 | `ext.dora-roi.admin` | Configurar as definições de submissão e carregar ou remover os dados de demonstração |
 
 Editar os dados do registo usa ainda os seus direitos normais de edição de
@@ -277,9 +318,9 @@ licença, ou o backend não foi reiniciado desde a instalação.
   extensão; essas linhas não são migradas. Volte a introduzi-los como cartões ICT
   Service e de função (ou recarregue os dados de demonstração) e execute de novo
   **Find suggestions**.
-- O conteúdo da taxonomia é gerado a partir do quadro publicado pela EBA, pelo que
-  adotar uma nova versão é uma atualização de dados mais uma mudança de **Taxonomy
-  version**.
+- Os modelos, listas de códigos e regras são entregues como dados versionados
+  gerados a partir do quadro publicado pela EBA, pelo que uma nova versão do quadro
+  chega como uma atualização da extensão mais uma mudança de **Taxonomy version**.
 - A **pontuação DORA** de um cartão é um sinal de triagem, não um veredicto de
   conformidade. Os achados do dashboard é que fazem fé.
 - Não são produzidas variantes de Excel específicas de cada autoridade; o pacote

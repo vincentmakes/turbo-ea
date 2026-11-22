@@ -788,6 +788,7 @@ nav:
       - Jira Todo Sync: extensions/jira-todos.md
       - Slack Notifications: extensions/slack-notify.md
       - DORA Register of Information: extensions/dora-roi.md
+      - EU AI Act Register: extensions/eu-ai-act.md
       - Roadmap Studio: extensions/roadmap-studio.md
       - Automations: extensions/automations.md
   - Reference:

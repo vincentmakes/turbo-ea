@@ -32,7 +32,8 @@ instans-id'er, installation, opdateringer og prøveperioder — er beskrevet und
 
 | Udvidelse | Hvad den gør | Licens |
 |-----------|--------------|--------|
-| [DORA Register of Information](dora-roi.md) | Fører informationsregistret efter DORA art. 28 på jeres eksisterende kort og eksporterer den officielle xBRL-CSV-indberetningspakke | Kommerciel |
+| [DORA Register of Information](dora-roi.md) | Fører informationsregistret efter DORA art. 28 på jeres eksisterende kort, kontrollerer det mod EBA's skemaer og de EBA-regler, der kan køre offline, og eksporterer en xBRL-CSV-rapportpakke bygget efter taksonomien i EBA-rammen 4.0 | Kommerciel |
+| [EU AI Act Register](eu-ai-act.md) | Registrerer, hvilke af jeres systemer der er AI-systemer, og hvilket risikoniveau hvert enkelt har, med en klassificeringsguide, der citerer artiklerne, følger de deraf følgende forpligtelser og deres trinvise frister på jeres eksisterende kort og fryser registret til øjebliksbilleder med eksport til Excel, Annex IV og FRIA | Kommerciel |
 
 ## Det alle udvidelser har til fælles
 

@@ -223,6 +223,8 @@ Le chemin d'invitation nécessite la permission **`users.invite`**, une forme d�
 
 Une modification qui ne vient pas de l'interface web porte une pastille à côté du nom de la personne : **MCP** lorsqu'un assistant IA l'a effectuée via le [serveur MCP](../admin/mcp.md) au nom de cette personne, **API**, **Extension** ou **Système** dans les autres cas.
 
+Une modification effectuée par une extension lorsqu'une personne l'a utilisée — en appuyant sur un bouton d'une page d'extension, par exemple — peut être enregistrée au nom de cette personne, avec la pastille **Extension** à côté. Les modifications qu'une extension effectue d'elle-même, comme une synchronisation planifiée, affichent **Système** comme auteur.
+
 Affiche la **piste d'audit complète** des modifications apportées à la fiche : **qui** a effectué la modification, **quand** elle a été effectuée, et **ce qui** a été modifié (valeur précédente vs nouvelle valeur). Cela permet une traçabilité complète de toutes les modifications au fil du temps.
 
 Tout ce qui déplace la date **Modifié** de la fiche apparaît ici — une modification manuelle, un import de tableur, une migration de plateforme ou une synchronisation ServiceNow, un changement d'étiquette, une modification en masse, ou un déplacement hiérarchique qui a entraîné cette fiche. La maintenance système ne change ni l'un ni l'autre : le recalcul des scores de qualité des données, la ré-exécution des champs calculés et le remplissage des niveaux hiérarchiques ou des identifiants de fiche laissent l'historique et la date **Modifié** intacts.

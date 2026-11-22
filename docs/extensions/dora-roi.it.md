@@ -4,9 +4,8 @@ Ogni entità finanziaria dell'UE deve tenere un **registro delle informazioni** 
 tutti i propri accordi con fornitori terzi di servizi TIC e trasmetterlo
 annualmente tramite la propria autorità di vigilanza: 15 modelli interconnessi,
 consegnati come pacchetto xBRL-CSV leggibile da macchina conforme al quadro EBA.
-Nella prova a vuoto delle AEV il 93,5 % delle trasmissioni conteneva almeno un
-errore nei dati, e l'86 % di questi era costituito da informazioni obbligatorie
-mancanti.
+Nella prova a vuoto 2024 delle AEV solo il 6,5 % dei registri ha superato tutti i
+controlli di qualità dei dati.
 
 I dati di cui il registro ha bisogno sono esattamente quelli che il vostro
 repository EA già contiene. **DORA Register of Information** trasforma Turbo EA
@@ -44,11 +43,11 @@ dalle schede a ogni validazione o esportazione.
 | | |
 |---|---|
 | **Licenza** | Commerciale — è richiesto un diritto firmato |
-| **Versione minima di Turbo EA** | 2.94.0 |
+| **Versione minima di Turbo EA** | 2.182.0 |
 | **Permessi** | `ext.dora-roi.view`, `ext.dora-roi.manage`, `ext.dora-roi.submit`, `ext.dora-roi.admin` |
 | **Autorizzazioni di accesso ai dati** | `core.cards.read`, `core.cards.write`, `metamodel.custom_field_types` |
 | **Riavvio del backend necessario** | sì — include codice di backend |
-| **Dove compare** | **Registro DORA** nella navigazione principale · **Report → Registro DORA** · sezioni **DORA Register** e **DORA Function** sulle schede · sei modelli di sondaggio |
+| **Dove compare** | **Registro DORA** nel menu **GRC** (una voce di primo livello quando il menu GRC non è disponibile per voi) · **Report → Registro DORA - Cruscotto** · sezioni **DORA Register** e **DORA Function** sulle schede · sei modelli di sondaggio |
 
 ## Che cosa aggiunge al vostro metamodello
 
@@ -58,9 +57,15 @@ dalle schede a ogni validazione o esportazione.
   **gerarchico**: gli accordi quadro sono i genitori, gli accordi successivi o
   associati i loro figli. Porta la spesa annua e la valuta.
 - **ICT Service** — uno per ciascun servizio erogato nell'ambito di un accordo, con
-  la riga di servizio (tipo, date, preavvisi, legge applicabile, ubicazione dei
-  dati, grado di dipendenza) e la relativa **valutazione** (sostituibilità, piano
-  di uscita, reintegrazione, impatto di un'interruzione, fornitori alternativi).
+  la riga di servizio (tipo, date, preavvisi, legge applicabile, ubicazioni,
+  grado di dipendenza) e la relativa **valutazione** (sostituibilità, piano
+  di uscita, reintegrazione, impatto di un'interruzione, fornitori alternativi). I
+  suoi tre campi di ubicazione — **Country of provision of the services**,
+  **Location of the data at rest** e **Location of data management** (dove i dati
+  sono trattati) — offrono ciascuno **Not applicable**. Un servizio senza
+  ubicazione del trattamento dei dati registrata impedisce di finalizzare
+  un'istantanea: scegliete il Paese, oppure **Not applicable** se il servizio non
+  comporta alcun trattamento di dati.
 
 **Un nuovo sottotipo** — **Branch** su Organizzazione.
 
@@ -69,8 +74,8 @@ dalle schede a ogni validazione o esportazione.
 | Tipo di scheda | Sezione | Contenuto |
 |---|---|---|
 | **Organizzazione** | DORA Register | Nel perimetro del registro DORA, LEI, Paese, Tipo di entità, Posizione nel gruppo, Autorità competente, Totale attivo, Valuta di segnalazione, Codice della succursale |
-| **Provider** | DORA Register | LEI, Tipo di identificativo, EUID, Tipo di persona, Paese della sede, Fornitore infragruppo, spesa annua, capogruppo ultima |
-| **Capacità di business** / **Processo di business** | DORA Function | Funzione del registro DORA, Identificativo di funzione, Attività autorizzata, Valutazione di criticità, Motivi di criticità, RTO, RPO, Impatto di un'interruzione |
+| **Provider** | DORA Register | LEI, Tipo di identificativo, EUID, Altro codice di identificazione, Tipo di persona, Paese della sede, Fornitore infragruppo, spesa annua, capogruppo ultima |
+| **Capacità di business** / **Processo di business** | DORA Function | Funzione del registro DORA, Identificativo di funzione, Attività autorizzata, Valutazione di criticità o importanza, Motivi di criticità, Data dell'ultima valutazione, RTO, RPO, Impatto di un'interruzione |
 
 Ogni sezione porta inoltre un **punteggio DORA (%)** di sola lettura: una barra di
 completezza che mostra quanti dati di registro quella scheda deve ancora fornire.
@@ -138,24 +143,30 @@ applicate per voi.
 
 ## L'area di lavoro
 
-**Registro DORA** nella navigazione principale ha cinque schede. Lo stesso
-cruscotto è disponibile anche come report salvabile in **Report → Registro DORA**.
+**Registro DORA** nel menu **GRC** ha cinque schede. Lo stesso
+cruscotto è disponibile anche come report salvabile in **Report → Registro DORA - Cruscotto**.
 
 ### Cruscotto
 
 Sei riquadri — **Register completeness**, **Blocking findings**, **Warnings**,
 **Critical functions**, **Providers**, **Arrangements** — sopra un pulsante
-**Validate now**. Sotto, una barra di conteggi rimanda direttamente all'inventario
-per ciascun oggetto del registro, e la tabella **Template completeness** mostra
-righe e rilievi per modello.
+**Validate now** e una riga che indica quante delle regole attive dell'EBA sono
+state eseguite, con un collegamento **Rules not run** (vedi
+[Validazione](#validazione)). Sotto, una barra di conteggi rimanda direttamente
+all'inventario per ciascun oggetto del registro, e la tabella **Template
+completeness** mostra righe e rilievi per modello.
 
 ![La tabella «Template completeness»](../assets/img/en/74_ext_dora_template_completeness.png)
 
-Un clic su un numero di rilievi apre il pannello **Validation findings**,
-raggruppato per riga di registro, con ciascun rilievo classificato come
-**Missing**, **Invalid value**, **Duplicate row**, **Broken reference**, **Unknown
-column** o **EBA rule**, e contrassegnato **Blocking** o **Warning**. Ogni rilievo
-dispone di un pulsante **Open card** che porta esattamente al campo da correggere.
+Un clic su un numero di rilievi apre **Validation findings**: una riga per
+rilievo, con gravità (**Blocking** o **Warning**), modello, riga di registro,
+scheda, regola, colonna e messaggio, e filtri per gravità, modello, tipo di scheda
+e regola. La regola è una tra **Missing**, **Missing key value**, **Invalid
+value**, **Invalid LEI**, **Duplicate row**, **Broken reference**, **Unknown
+column** o **EBA rule**. Un clic su un rilievo, o sulla sua azione **Open card**,
+apre in un pannello laterale la scheda da correggere; un rilievo sulle
+impostazioni di deposito offre invece **Open settings**. Il pulsante **Rules not
+run** apre l'elenco descritto in [Validazione](#validazione).
 
 ### Registro
 
@@ -182,25 +193,42 @@ attraversa poi tre stati:
 1. **Draft** — premete **Validate** per controllarla. I rilievi sono elencati con
    gravità, modello, riga, colonna e messaggio.
 2. **Validated** — premete **Finalize**. L'operazione è rifiutata finché resta un
-   rilievo **bloccante** o non è impostata un'entità segnalante dotata di LEI.
+   rilievo **bloccante** o non è impostata un'entità segnalante dotata di LEI. Sono
+   rilievi bloccanti, tra gli altri, un servizio senza ubicazione del trattamento
+   dei dati, qualsiasi altro campo chiave lasciato vuoto dove si applica e un LEI
+   di fornitore che non rispetta il formato ISO 17442 o la somma di controllo
+   (**Invalid LEI**).
 3. **Final** — l'istantanea è immutabile, l'hash del suo pacchetto è fissato per
-   l'audit e non può più essere eliminata né rivalidata.
+   l'audit, conserva i rilievi e la copertura delle regole con cui è stata
+   controllata e non può più essere eliminata né rivalidata.
 
 Due download sono sempre disponibili:
 
-- **xBRL-CSV package** — il pacchetto ufficiale del modulo DORA del quadro EBA 4.0
-  in formato `.zip`, con i metadati del report, gli indicatori di deposito, i
-  parametri e un CSV per modello. È riproducibile byte per byte, e un nuovo
-  download di un'istantanea finale viene verificato rispetto al suo hash fissato.
+- **xBRL-CSV package** — un pacchetto di report DORA costruito secondo la
+  tassonomia del quadro EBA 4.0 (modulo DORA 1.1.0), in formato `.zip`, con i
+  metadati del report, gli indicatori di deposito, i parametri e un CSV per
+  modello. Il nome del file riporta il codice paese ISO dell'entità segnalante. Un
+  fornitore che ha sia un LEI sia un EUID è segnalato con entrambi: il LEI come
+  codice di identificazione e l'EUID come codice di identificazione aggiuntivo. Il
+  pacchetto è riproducibile byte per byte, e un nuovo download di un'istantanea
+  finale viene verificato rispetto al suo hash fissato.
 - **Excel workbook** — una cartella di revisione con copertina, un foglio per
-  modello con le etichette e i codici di colonna ufficiali e un foglio dei membri,
+  modello con le etichette e i codici di colonna dell'EBA e un foglio dei membri,
   per far circolare il registro internamente prima del deposito.
+
+Prima di ogni versione che modifica l'esportazione, il pacchetto costruito dal
+registro dimostrativo viene validato con Arelle, il processore XBRL open source,
+rispetto alla tassonomia del quadro 4.0 pubblicata dall'EBA, comprese le
+asserzioni di validazione della tassonomia stessa. Ciò copre la struttura del
+pacchetto, non i controlli di ricezione dell'EBA né le sue consultazioni di
+registri: se il portale della vostra autorità accetti il file è un test a parte,
+che eseguite voi.
 
 ### Impostazioni
 
 **Filing** — il **Filing scope** (**Consolidated (.CON)** o **Individual
 (.IND)**), la **Reporting currency**, la **Taxonomy version** e la **Reporting
-entity**, il cui LEI e Paese determinano il pacchetto di trasmissione.
+entity**, il cui LEI e Paese determinano il pacchetto di report.
 
 **Definitions (B_99.01)** — definizioni libere facoltative per i termini a lista
 chiusa usati dal vostro registro, depositate come modello B_99.01.
@@ -233,16 +261,33 @@ dimostrative si chiamano *Demo DORA — …* e portano l'etichetta **Demo Dora**
 ## Validazione
 
 La validazione si svolge su quattro livelli: **struttura** (tipi di dato, somme di
-controllo dei LEI, date, numeri e gli indicatori di campo obbligatorio trattati
-come bloccanti), **membri** (valori a lista chiusa confrontati con i domini
-ufficiali), **chiavi** (completezza e univocità delle chiavi primarie e riferimenti
-fra modelli) e l'**inventario delle regole EBA** con le gravità pubblicate.
+controllo dei LEI, date, numeri e i campi obbligatori e chiave trattati come
+bloccanti quando sono vuoti), **membri** (valori a lista chiusa confrontati con le
+liste di codici della tassonomia), **chiavi** (completezza e univocità delle chiavi
+primarie e riferimenti fra modelli) e le **regole di validazione dell'EBA
+eseguibili offline**, con le gravità pubblicate. Le regole ritirate dall'EBA non
+vengono eseguite.
+
+L'EUID di un fornitore viene controllato rispetto al formato EUID: il codice paese
+e l'identificativo del registro, un punto, poi il numero di registrazione. Un
+valore senza punto, o un LEI inserito come EUID, viene segnalato come avviso. Un
+controllo locale è più rigoroso di quello dell'EBA: un codice di identificazione
+di fornitore dichiarato come LEI che non rispetta il formato ISO 17442 o la somma
+di controllo è un rilievo bloccante **Invalid LEI**, mentre la regola propria
+dell'EBA è un avviso. Un LEI non valido della capogruppo ultima di un fornitore
+resta un avviso.
 
 !!! warning "La copertura è parziale — e viene dichiarata con onestà"
-    Turbo EA esegue le regole valutabili offline. Quelle che richiedono il motore
-    di espressioni delle AEV o interrogazioni dal vivo dei registri GLEIF/BRIS non
-    possono girare sulla vostra istanza. Anziché saltarle in silenzio, il
-    cruscotto dichiara quante regole EBA sono state eseguite e quante no.
+    Turbo EA esegue le regole dell'EBA valutabili offline, e il cruscotto indica
+    quante delle regole attive dell'EBA sono state eseguite. **Rules not run**,
+    aperto da tale indicazione o dai rilievi di validazione, elenca tutte le altre
+    regole con il loro modello, il testo proprio dell'EBA e il motivo per cui qui
+    non vengono eseguite: una **EBA expression** che va oltre i controlli offline,
+    che i sistemi dell'autorità di vigilanza valutano sul file che trasmettete, o
+    un **Package check** che l'EBA applica al pacchetto di report trasmesso anziché
+    al registro. Nomina inoltre le regole su LEI, EUID e Paese che qui girano solo
+    come controlli offline di somma di controllo, formato e lista di codici, mentre
+    l'EBA cerca i codici in GLEIF e nei registri delle imprese (BRIS).
     Considerate una validazione pulita come un solido controllo preliminare, non
     come una garanzia di accettazione da parte dell'autorità di vigilanza.
 
@@ -252,7 +297,7 @@ fra modelli) e l'**inventario delle regole EBA** con le gravità pubblicate.
 |---|---|
 | `ext.dora-roi.view` | Consultare il registro, i cruscotti e i risultati della validazione |
 | `ext.dora-roi.manage` | Modificare i dati del registro e decidere sui suggerimenti |
-| `ext.dora-roi.submit` | Fissare istantanee a una data di riferimento e scaricare i pacchetti di trasmissione |
+| `ext.dora-roi.submit` | Fissare istantanee a una data di riferimento e scaricare i pacchetti di report |
 | `ext.dora-roi.admin` | Configurare le impostazioni di deposito e caricare o rimuovere i dati dimostrativi |
 
 Modificare i dati del registro richiede inoltre i vostri normali diritti di
@@ -276,9 +321,9 @@ licenziata, oppure il backend non è stato riavviato dopo l'installazione.
   proprie dell'estensione; quelle righe non vengono migrate. Reinseriteli come
   schede ICT Service e di funzione (oppure ricaricate i dati dimostrativi) ed
   eseguite di nuovo **Find suggestions**.
-- I contenuti della tassonomia sono generati dal quadro EBA pubblicato: adottare
-  una nuova versione equivale quindi a un aggiornamento di dati più un cambio di
-  **Taxonomy version**.
+- Modelli, liste di codici e regole sono distribuiti come dati versionati generati
+  dal quadro EBA pubblicato: una nuova versione del quadro arriva quindi come
+  aggiornamento dell'estensione più un cambio di **Taxonomy version**.
 - Il **punteggio DORA** di una scheda è un segnale di triage, non un verdetto di
   conformità. Fanno fede i rilievi del cruscotto.
 - Non vengono prodotte varianti Excel specifiche per singola autorità; il pacchetto

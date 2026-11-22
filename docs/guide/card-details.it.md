@@ -223,6 +223,8 @@ Il percorso di invito richiede il permesso **`users.invite`**, una forma delegat
 
 Una modifica che non proviene dall'interfaccia web riporta un chip accanto al nome della persona: **MCP** quando un assistente IA l'ha effettuata tramite il [server MCP](../admin/mcp.md) per conto di quella persona, altrimenti **API**, **Estensione** o **Sistema**.
 
+Una modifica effettuata da un'estensione quando qualcuno la usava — ad esempio premendo un pulsante in una pagina dell'estensione — può essere registrata a nome di quella persona, con il chip **Estensione** accanto. Le modifiche che un'estensione effettua da sola, come una sincronizzazione pianificata, mostrano **Sistema** come autore.
+
 Mostra il **registro di audit completo** delle modifiche apportate alla card: **chi** ha effettuato la modifica, **quando** è stata fatta e **cosa** è stato modificato (valore precedente vs. nuovo valore). Questo consente la completa tracciabilità di tutte le modifiche nel tempo.
 
 Tutto ciò che sposta la data **Modificato** della card compare qui: una modifica manuale, un'importazione da foglio di calcolo, una migrazione di piattaforma o una sincronizzazione ServiceNow, un cambio di tag, una modifica di massa, o uno spostamento gerarchico che ha trascinato questa card. La manutenzione di sistema non cambia né l'una né l'altra: il ricalcolo dei punteggi di qualità dei dati, la riesecuzione dei campi calcolati e il popolamento dei livelli gerarchici o degli identificativi delle card lasciano intatti la cronologia e la data **Modificato**.

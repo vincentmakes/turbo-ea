@@ -26,7 +26,9 @@ Design invariants (mirroring ``todos_bridge`` and ``data_service``):
   own short session with the ``request_origin`` contextvar set to ``"ext"``
   and a committed ``MutationBatch(tool_name="ext:{key}", origin="ext")``
   whose summary carries the reference number; ``created_by`` stays NULL —
-  stamping a user would lie about who decided. Honours the instance-wide
+  stamping a user would lie about who decided — except inside
+  ``ctx.on_behalf_of(user)`` (SDK 1.19), where the signed-in person who asked
+  for the draft is its author, as with ``POST /adr``. Honours the instance-wide
   ``EXTENSION_WRITES_ENABLED`` kill switch. No event is published on
   create, matching ``POST /adr``.
 * **Tolerant related decisions.** ``related_decisions`` entries that are a
@@ -293,7 +295,7 @@ class ExtensionDecisions(DecisionsBridge):
                 related_decisions=list(related_decisions or []),
                 attributes=attrs,
                 linked_card_ids=card_ids,
-                created_by=None,
+                created_by=data_service.acting_person_id(),
             )
             # Server-side timestamp defaults are expired after the flush;
             # refresh so the wire mapping never lazy-loads.
