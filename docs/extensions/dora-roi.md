@@ -44,7 +44,7 @@ the register is assembled live from the cards whenever you validate or export.
 | **Permissions** | `ext.dora-roi.view`, `ext.dora-roi.manage`, `ext.dora-roi.submit`, `ext.dora-roi.admin` |
 | **Data access grants** | `core.cards.read`, `core.cards.write`, `metamodel.custom_field_types` |
 | **Backend restart needed** | Yes — it ships backend code |
-| **Where it appears** | **DORA Register** under the **GRC** menu (a top-level entry when the GRC menu is not available to you) · **Reports → DORA Register** · **DORA Register** / **DORA Function** sections on cards · six survey templates |
+| **Where it appears** | **DORA Register** under the **GRC** menu (a top-level entry when the GRC menu is not available to you) · **Reports → DORA Register - Dashboard** · **DORA Register** / **DORA Function** sections on cards · six survey templates |
 
 ## What it adds to your metamodel
 
@@ -134,7 +134,7 @@ automatically. The ITS fill-in conventions (`9999-12-31` for open-ended dates,
 ## The workbench
 
 **DORA Register** under the **GRC** menu has five tabs. The same dashboard is
-also available as a saveable report under **Reports → DORA Register**.
+also available as a saveable report under **Reports → DORA Register - Dashboard**.
 
 ### Dashboard
 

@@ -86,7 +86,7 @@ or redesigned out of Art. 5).
 | **Permissions** | `ext.eu-ai-act.view`, `ext.eu-ai-act.manage`, `ext.eu-ai-act.submit`, `ext.eu-ai-act.admin` |
 | **Data access grants** | `core.cards.read`, `core.cards.write`, `core.users.read`, `metamodel.custom_field_types` |
 | **Backend restart needed** | Yes — it ships backend code |
-| **Where it appears** | **EU AI Act** under the **GRC** menu, with seven tabs (a top-level entry when the GRC menu is not available to you) · **Reports → EU AI Act** (the dashboard as a saveable report) · the EU AI Act sections and the **Obligations implemented** header chip on cards · four survey templates · the Excel register workbook and the Annex IV / FRIA Word documents |
+| **Where it appears** | **EU AI Act** under the **GRC** menu, with seven tabs (a top-level entry when the GRC menu is not available to you) · **Reports → EU AI Act - Dashboard** (the dashboard as a saveable report) · the EU AI Act sections and the **Obligations implemented** header chip on cards · four survey templates · the Excel register workbook and the Annex IV / FRIA Word documents |
 
 It also enriches the **EU AI Act** regulation of the core
 [compliance scanner](../guide/compliance.md), whose AI findings feed the
