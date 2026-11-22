@@ -523,6 +523,13 @@ class TestParse:
             == "invalid_query"
         )
 
+    @pytest.mark.parametrize("stage", ["ready,live", "ready live", "1ready", "_ready"])
+    def test_stage_keys_obey_metamodel_grammar(self, stage):
+        assert _parse_code(_q("A", where={"lifecycle_stage": [stage]})) == "invalid_query"
+
+    def test_unknown_valid_stage_key_remains_structurally_valid(self):
+        assert parse_card_query(_q("A", where={"lifecycle_stage": ["Unknown_123", "__empty__"]}))
+
     def test_a_tag_list_must_be_a_list(self):
         assert _parse_code(_q("A", where={"tags": TAG_1})) == "invalid_query"
 

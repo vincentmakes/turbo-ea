@@ -1020,26 +1020,42 @@ async def plan_rollback(
     }
 
 
-async def _check_stage_rollback_conflicts(db: AsyncSession, events: list[Event]) -> None:
+async def _check_stage_rollback_conflicts(
+    db: AsyncSession, events: list[Event], *, force: bool
+) -> None:
     # Unbatched card edits do not appear in batch conflict detection. Check the
     # last stage written by this batch against the freshly locked card too.
     latest_stages = {}
+    stage_times = set()
     for event in events:
         if event.event_type != "card.updated":
             continue
         data = event.data or {}
         stage_change = (data.get("changes") or {}).get("lifecycle_stage")
         card_id = _card_id_of(event, data)
-        if not card_id or not isinstance(stage_change, dict) or "new" not in stage_change:
+        if not card_id or not isinstance(stage_change, dict):
+            continue
+        event_key = (card_id, event.created_at)
+        if event_key in stage_times:
+            raise HTTPException(
+                409,
+                detail={
+                    "error": "rollback_conflict",
+                    "message": "Lifecycle stage history has an ambiguous order",
+                    "conflicting_batches": [],
+                },
+            )
+        stage_times.add(event_key)
+        if "new" not in stage_change:
             continue
         previous = latest_stages.get(card_id)
         if previous is None or event.created_at > previous[0]:
-            latest_stages[card_id] = (event.created_at, [stage_change["new"]])
-        elif event.created_at == previous[0] and stage_change["new"] not in previous[1]:
-            previous[1].append(stage_change["new"])
-    for card_id, (_, stages) in latest_stages.items():
+            latest_stages[card_id] = (event.created_at, stage_change["new"])
+    if force:
+        return
+    for card_id, (_, stage) in latest_stages.items():
         card = await _get_card(db, card_id)
-        if card is not None and (len(stages) != 1 or card.lifecycle_stage != stages[0]):
+        if card is not None and card.lifecycle_stage != stage:
             raise HTTPException(
                 409,
                 detail={
@@ -1085,8 +1101,7 @@ async def execute_rollback(
             },
         )
 
-    if not force:
-        await _check_stage_rollback_conflicts(db, events)
+    await _check_stage_rollback_conflicts(db, events, force=force)
 
     # A removed vocabulary key cannot be restored, even when later batch
     # conflicts are forced. Validate every inverse before opening the batch.

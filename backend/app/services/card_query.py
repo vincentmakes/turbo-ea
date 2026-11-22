@@ -109,6 +109,7 @@ Reads only; never commits.
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -125,6 +126,7 @@ from app.models.card_type import CardType
 from app.models.relation_type import RelationType
 from app.models.tag import Tag, TagGroup
 from app.models.user import User
+from app.schemas.lifecycle_stages import LIFECYCLE_STAGE_KEY_PATTERN
 from app.services.card_flags import type_tracks_eol
 from app.services.card_read_scope import CardReadScope
 from app.services.dashboard_query import (
@@ -419,7 +421,11 @@ def valid_lifecycle_stages(stages: list[str]) -> bool:
     return (
         len(stages) - stages.count(EMPTY_KEY) <= 50
         and stages.count(EMPTY_KEY) <= 1
-        and all(len(stage) <= 50 for stage in stages)
+        and all(
+            stage == EMPTY_KEY
+            or (len(stage) <= 50 and re.fullmatch(LIFECYCLE_STAGE_KEY_PATTERN, stage))
+            for stage in stages
+        )
     )
 
 

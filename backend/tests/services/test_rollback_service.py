@@ -1086,7 +1086,11 @@ async def test_stage_rollback_rejects_later_unbatched_edit_unless_forced(db, act
     assert card.lifecycle_stage == "one"
 
 
-async def test_stage_rollback_rejects_ambiguous_simultaneous_batch_events(db, actor):
+@pytest.mark.parametrize("force", [False, True])
+@pytest.mark.parametrize("tie_earlier", [False, True])
+async def test_stage_rollback_rejects_ambiguous_simultaneous_batch_events(
+    db, actor, force, tie_earlier
+):
     from datetime import UTC, datetime
 
     from sqlalchemy import update
@@ -1095,7 +1099,7 @@ async def test_stage_rollback_rejects_ambiguous_simultaneous_batch_events(db, ac
 
     card_type = await create_card_type(db, key="Application")
     card_type.lifecycle_stages = [
-        {"key": key, "label": key, "color": "#123456"} for key in ("one", "two", "three")
+        {"key": key, "label": key, "color": "#123456"} for key in ("one", "two", "three", "four")
     ]
     card = await create_card(db, name="Stage changes")
     card.lifecycle_stage = "one"
@@ -1103,21 +1107,25 @@ async def test_stage_rollback_rejects_ambiguous_simultaneous_batch_events(db, ac
     batch = await _open_batch(db, actor)
     writer = card_write_service.WriteActor.from_user(actor)
     with _InBatch(batch):
-        await card_write_service.update_card(db, writer, card, {"lifecycle_stage": "two"})
-        await card_write_service.update_card(db, writer, card, {"lifecycle_stage": "three"})
+        for stage in ("two", "three", "four"):
+            await card_write_service.update_card(db, writer, card, {"lifecycle_stage": stage})
     await db.flush()
     events = (await db.scalars(select(Event).where(Event.batch_id == batch.id))).all()
-    stage_events = [event for event in events if "lifecycle_stage" in event.data.get("changes", {})]
-    assert len(stage_events) == 2
-    await db.execute(
-        update(Event)
-        .where(Event.id.in_([event.id for event in stage_events]))
-        .values(created_at=datetime(2025, 1, 1, tzinfo=UTC))
-    )
+    stages = {
+        event.data["changes"]["lifecycle_stage"]["new"]: event.id
+        for event in events
+        if "lifecycle_stage" in event.data.get("changes", {})
+    }
+    assert set(stages) == {"two", "three", "four"}
+    older = datetime(2025, 1, 1, tzinfo=UTC)
+    newer = datetime(2025, 1, 2, tzinfo=UTC)
+    for stage, event_id in stages.items():
+        timestamp = older if stage == "two" or (stage == "three" and tie_earlier) else newer
+        await db.execute(update(Event).where(Event.id == event_id).values(created_at=timestamp))
     await db.flush()
 
     with pytest.raises(HTTPException) as exc:
-        await execute_rollback(db, batch, actor.id)
+        await execute_rollback(db, batch, actor.id, force=force)
     assert exc.value.status_code == 409
     assert exc.value.detail["error"] == "rollback_conflict"
-    assert card.lifecycle_stage == "three"
+    assert card.lifecycle_stage == "four"

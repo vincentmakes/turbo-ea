@@ -2692,6 +2692,16 @@ async def update_card(
     card = result.scalar_one_or_none()
     if not card:
         raise HTTPException(404, "Card not found")
+    if not await PermissionService.check_permission(
+        db,
+        user,
+        "inventory.edit",
+        card_uuid,
+        "card.edit",
+        card_type_key=card.type,
+        subtype=card.subtype,
+    ):
+        raise HTTPException(403, "Not enough permissions")
 
     updates = body.model_dump(exclude_unset=True)
     # `strict_attributes` is a request-side flag, not a column.
@@ -3389,6 +3399,16 @@ async def update_approval_status(
     card = result.scalar_one_or_none()
     if not card:
         raise HTTPException(404, "Card not found")
+    if not await PermissionService.check_permission(
+        db,
+        user,
+        "inventory.approval_status",
+        card_uuid,
+        "card.approval_status",
+        card_type_key=card.type,
+        subtype=card.subtype,
+    ):
+        raise HTTPException(403, "Not enough permissions")
     # Gate: block approve when any mandatory relation / tag group is missing.
     if action == "approve":
         missing = await missing_mandatory(db, card)
@@ -3414,7 +3434,11 @@ async def update_approval_status(
     # Notify stakeholders about approval status change
     action_label = {"approve": "approved", "reject": "rejected", "reset": "reset"}
     subscriber_ids = (
-        await db.scalars(select(Stakeholder.user_id).where(Stakeholder.card_id == card.id))
+        await db.scalars(
+            select(Stakeholder.user_id).where(
+                Stakeholder.card_id == card.id, Stakeholder.user_id != user.id
+            )
+        )
     ).all()
     recipients = [
         {
@@ -3430,13 +3454,14 @@ async def update_approval_status(
         for subscriber_id in subscriber_ids
     ]
     await db.commit()
-    background_tasks.add_task(
-        notification_service.deliver_notification_batch,
-        recipients,
-        notif_type="approval_status_changed",
-        actor_id=user.id,
-        require_card_read=True,
-    )
+    if recipients:
+        background_tasks.add_task(
+            notification_service.deliver_notification_batch,
+            recipients,
+            notif_type="approval_status_changed",
+            actor_id=user.id,
+            require_card_read=True,
+        )
     return {"approval_status": card.approval_status}
 
 

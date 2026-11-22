@@ -1,10 +1,12 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+LIFECYCLE_STAGE_KEY_PATTERN = r"^[A-Za-z][A-Za-z0-9_]*$"
+
 
 class LifecycleStage(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    key: str = Field(min_length=1, max_length=50, pattern=r"^[A-Za-z][A-Za-z0-9_]*$")
+    key: str = Field(min_length=1, max_length=50, pattern=LIFECYCLE_STAGE_KEY_PATTERN)
     label: str = Field(min_length=1, max_length=200)
     color: str = Field(pattern=r"^#[0-9a-fA-F]{6}$")
 

@@ -37,7 +37,11 @@ export function bookmarkFilters(bm: Bookmark): Filters | null {
   const src: Partial<Filters> = f ?? {};
   const types = queryTypes.length > 0 ? queryTypes : src.types || [];
   const lifecycleStages = Array.isArray(types) && types.length === 1 && typeof types[0] === "string"
-    && Array.isArray(src.lifecycleStages) && src.lifecycleStages.every((stage) => typeof stage === "string")
+    && Array.isArray(src.lifecycleStages) && src.lifecycleStages.length <= 51
+    && src.lifecycleStages.filter((stage) => stage === "__empty__").length <= 1
+    && src.lifecycleStages.filter((stage) => stage !== "__empty__").length <= 50
+    && src.lifecycleStages.every((stage) => typeof stage === "string" && (stage === "__empty__"
+      || stage.match(/^[A-Za-z][A-Za-z0-9_]{0,49}$/)?.[0] === stage))
     ? src.lifecycleStages : [];
   return {
     types,

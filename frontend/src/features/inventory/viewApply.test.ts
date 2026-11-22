@@ -65,6 +65,20 @@ describe("isQueryView", () => {
 });
 
 describe("bookmarkFilters", () => {
+  it("drops malformed or oversized saved stage facets and keeps valid unknown keys", () => {
+    const keys = Array.from({ length: 50 }, (_, i) => `stage_${i}`);
+    const restore = (lifecycleStages: string[]) => bookmarkFilters(bookmark({
+      filters: { types: ["Application"], lifecycleStages },
+    }))?.lifecycleStages;
+    for (const invalid of [
+      ["pilot,other"], [" pilot"], ["pilot "], ["pilot\n"], ["1pilot"], ["a".repeat(51)],
+      [...keys, "extra"], ["__empty__", "__empty__"],
+    ]) {
+      expect(restore(invalid)).toEqual([]);
+    }
+    expect(restore([...keys, "__empty__"])).toEqual([...keys, "__empty__"]);
+    expect(restore(["Unknown_stage", "a".repeat(50)])).toEqual(["Unknown_stage", "a".repeat(50)]);
+  });
   it("restores stage filters only for one type and a string list", () => {
     for (const lifecycleStages of ["pilot", 1, ["pilot", 1], null]) {
       expect(bookmarkFilters(bookmark({ filters: { types: ["Application"], lifecycleStages } }))?.lifecycleStages).toEqual([]);

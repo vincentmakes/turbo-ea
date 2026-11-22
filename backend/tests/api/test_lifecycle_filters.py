@@ -130,7 +130,13 @@ async def test_saved_stage_facet_bounds_on_write_and_legacy_read(client, db, env
     assert created.status_code == 201, created.text
     bookmark = await db.get(Bookmark, uuid.UUID(created.json()["id"]))
     url = f"/api/v1/bookmarks/{bookmark.id}"
-    for bad in (stages + ["extra"], stages + ["__empty__", "__empty__"], ["x" * 51]):
+    for bad in (
+        stages + ["extra"],
+        stages + ["__empty__", "__empty__"],
+        ["x" * 51],
+        ["ready,live"],
+        ["ready live"],
+    ):
         filters = {"types": ["Application"], "lifecycleStages": bad}
         rejected = await client.post(
             "/api/v1/bookmarks", headers=headers, json={"name": "Bad", "filters": filters}
@@ -144,6 +150,19 @@ async def test_saved_stage_facet_bounds_on_write_and_legacy_read(client, db, env
         assert response.status_code == 200, response.text
         assert response.json()["@odata.count"] == 1
         assert response.json()["value"][0]["id"] == str(empty.id)
+
+
+async def test_direct_stage_filter_rejects_invalid_key_and_accepts_unknown_key(client, env):
+    admin, _ = env
+    headers = auth_headers(admin)
+    bad = await client.get(
+        "/api/v1/cards", headers=headers, params={"lifecycle_stage": "ready live"}
+    )
+    assert bad.status_code == 400
+    good = await client.get(
+        "/api/v1/cards", headers=headers, params={"lifecycle_stage": "Unknown_123,__empty__"}
+    )
+    assert good.status_code == 200
 
 
 async def test_stage_filters_respect_inventory_scope_and_counts(client, db, env):

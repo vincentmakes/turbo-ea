@@ -50,10 +50,14 @@ describe("LifecycleStagesDialog", () => {
   it("enforces stage, key and label limits", () => {
     const full = makeCardType({ ...type, lifecycle_stages: Array.from({ length: 50 }, (_, i) => ({ key: `stage${i}`, label: `Stage ${i}`, color: "#123456" })) });
     render(<LifecycleStagesDialog open cardType={full} onClose={() => {}} onSaved={() => {}} />);
-    expect(screen.getByRole("button", { name: "Add stage" })).toBeDisabled();
-    expect(screen.getAllByLabelText(/^Key/)[0]).toHaveAttribute("maxlength", "50");
-    fireEvent.click(screen.getAllByRole("button", { name: "Delete" })[0]);
-    expect(screen.getByRole("button", { name: "Add stage" })).toBeEnabled();
+    const dialog = screen.getByRole("dialog");
+    const add = Array.from(dialog.querySelectorAll("button")).find((button) => button.textContent === "Add stage")!;
+    const key = dialog.querySelector('input[value="stage0"]');
+    const remove = dialog.querySelector('button[aria-label="Delete"]')!;
+    expect(add).toBeDisabled();
+    expect(key).toHaveAttribute("maxlength", "50");
+    fireEvent.click(remove);
+    expect(add).toBeEnabled();
   });
 
   it("counts supplementary characters as one code point in stage labels", () => {

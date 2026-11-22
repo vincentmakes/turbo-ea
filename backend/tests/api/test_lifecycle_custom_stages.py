@@ -278,6 +278,7 @@ async def test_approval_delivers_notification_after_commit(client, db, stages_en
     admin, viewer = stages_env
     card = await create_card(db, card_type="Application", name="Approval", user_id=admin.id)
     db.add(Stakeholder(card_id=card.id, user_id=viewer.id, role="responsible"))
+    db.add(Stakeholder(card_id=card.id, user_id=admin.id, role="responsible"))
     await db.flush()
     transaction_open_at_delivery = []
 
@@ -295,6 +296,7 @@ async def test_approval_delivers_notification_after_commit(client, db, stages_en
     assert await db.scalar(select(Card.approval_status).where(Card.id == card.id)) == "APPROVED"
     assert transaction_open_at_delivery == [False]
     recipients = deliver.await_args.args[0]
+    assert len(recipients) == 1
     assert recipients[0]["user_id"] == viewer.id
     assert recipients[0]["card_id"] == card.id
     assert recipients[0]["link"] == f"/cards/{card.id}"
@@ -303,3 +305,80 @@ async def test_approval_delivers_notification_after_commit(client, db, stages_en
         "actor_id": admin.id,
         "require_card_read": True,
     }
+
+
+@pytest.mark.parametrize("action", ["patch", "approve"])
+async def test_card_write_rechecks_subtype_permission_after_lock(
+    client, db, stages_env, monkeypatch, action
+):
+    from sqlalchemy import update
+
+    from app.models.card import Card
+    from app.models.card_type import CardType
+    from app.services.permission_service import PermissionService
+
+    await create_role(
+        db,
+        key="editor",
+        label="Editor",
+        permissions={
+            "inventory.view": True,
+            "inventory.edit": True,
+            "inventory.approval_status": True,
+        },
+    )
+    editor = await create_user(db, email="stage-editor@test.com", role="editor")
+    card_type = await db.scalar(select(CardType).where(CardType.key == "Application"))
+    card_type.role_permissions = {
+        "editor": {"inventory.view": {"value": False, "subtypes": ["restricted"]}}
+    }
+    PermissionService.invalidate_type_permission_cache()
+    card = await create_card(db, card_type="Application", name="Before")
+    await db.flush()
+    check = PermissionService.check_permission
+    first_check = True
+
+    async def change_subtype_after_check(*args, **kwargs):
+        nonlocal first_check
+        allowed = await check(*args, **kwargs)
+        if first_check:
+            first_check = False
+            await db.execute(
+                update(Card)
+                .where(Card.id == card.id)
+                .values(subtype="restricted")
+                .execution_options(synchronize_session=False)
+            )
+        return allowed
+
+    monkeypatch.setattr(PermissionService, "check_permission", change_subtype_after_check)
+    if action == "patch":
+        response = await client.patch(
+            f"/api/v1/cards/{card.id}", json={"name": "After"}, headers=auth_headers(editor)
+        )
+    else:
+        response = await client.post(
+            f"/api/v1/cards/{card.id}/approval-status?action=approve", headers=auth_headers(editor)
+        )
+    assert response.status_code == 403
+    assert card.name == "Before"
+    assert card.approval_status == "DRAFT"
+
+
+async def test_approval_with_no_recipients_does_not_dispatch(client, db, stages_env, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from app.models.stakeholder import Stakeholder
+    from app.services import notification_service
+
+    admin, _ = stages_env
+    card = await create_card(db, card_type="Application", name="Only actor", user_id=admin.id)
+    db.add(Stakeholder(card_id=card.id, user_id=admin.id, role="responsible"))
+    await db.flush()
+    deliver = AsyncMock()
+    monkeypatch.setattr(notification_service, "deliver_notification_batch", deliver)
+    response = await client.post(
+        f"/api/v1/cards/{card.id}/approval-status?action=approve", headers=auth_headers(admin)
+    )
+    assert response.status_code == 200
+    deliver.assert_not_awaited()
