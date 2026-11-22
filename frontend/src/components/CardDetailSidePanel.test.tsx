@@ -14,8 +14,18 @@ import CardDetailSidePanel from "./CardDetailSidePanel";
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
 }));
+// The card type the metamodel resolves: none by default, a small schema for
+// the focus suite (which resolves fields and relation types against it).
+const metamodel = vi.hoisted(() => ({
+  type: undefined as unknown,
+  relationTypes: [] as unknown[],
+}));
 vi.mock("@/hooks/useMetamodel", () => ({
-  useMetamodel: () => ({ getType: () => undefined, types: [], relationTypes: [] }),
+  useMetamodel: () => ({
+    getType: () => metamodel.type,
+    types: [],
+    relationTypes: metamodel.relationTypes,
+  }),
 }));
 vi.mock("@/hooks/useAiStatus", () => ({
   useAiStatus: () => ({ aiStatus: { enabled: false, configured: false, enabled_types: [] } }),
@@ -29,13 +39,23 @@ vi.mock("@/features/cards/CardDetailContent", () => ({
     onCardUpdate,
     onSaveOrigin,
     onDirtyChange,
+    focusTarget,
   }: {
     card: { name: string; data_quality: number };
     onCardUpdate: (c: unknown) => void;
     onSaveOrigin?: (anchor: string) => void;
     onDirtyChange?: (dirty: boolean) => void;
+    focusTarget?: {
+      target: { tab: string; anchor?: string; fieldKey?: string };
+      nonce: number;
+    } | null;
   }) => (
-    <div data-testid="card-content">
+    <div
+      data-testid="card-content"
+      data-focus-anchor={focusTarget ? (focusTarget.target.anchor ?? "") : "none"}
+      data-focus-field={focusTarget?.target.fieldKey ?? ""}
+      data-focus-nonce={focusTarget ? String(focusTarget.nonce) : "none"}
+    >
       {card.name}
       <button type="button" onClick={() => onDirtyChange?.(true)}>
         Edit
@@ -127,6 +147,8 @@ const OTHER = { ...CARD, id: "c2", name: "Salesforce" };
 beforeEach(() => {
   vi.clearAllMocks();
   gamification.enabled = false;
+  metamodel.type = undefined;
+  metamodel.relationTypes = [];
   document.body.style.overflow = "";
   vi.mocked(api.get).mockImplementation((path: string) =>
     path.endsWith("/my-permissions")
@@ -537,3 +559,150 @@ describe("CardDetailSidePanel — unsaved edits (#1397)", () => {
     expect(screen.getByTestId("card-content")).toHaveTextContent("SAP ERP");
   });
 });
+
+describe("CardDetailSidePanel — focus (UI SDK 1.37)", () => {
+  type Focus = Parameters<typeof CardDetailSidePanel>[0]["focus"];
+
+  beforeEach(() => {
+    metamodel.type = {
+      key: "Application",
+      icon: "apps",
+      fields_schema: [
+        { section: "Run Costs", fields: [{ key: "alphaCost", label: "Alpha", type: "number" }] },
+      ],
+    };
+    metamodel.relationTypes = [
+      { key: "relAppToThing", source_type_key: "Application", target_type_key: "Thing" },
+    ];
+  });
+
+  function mountFocused(focus: Focus, opts: { cardId?: string; open?: boolean } = {}) {
+    const onKeepCard = vi.fn();
+    const view = (f: Focus, cardId: string, open: boolean) => (
+      <MemoryRouter>
+        <CardDetailSidePanel
+          cardId={cardId}
+          open={open}
+          onClose={() => {}}
+          onKeepCard={onKeepCard}
+          nonModal
+          focus={f}
+        />
+      </MemoryRouter>
+    );
+    const utils = render(view(focus, opts.cardId ?? "c1", opts.open ?? true));
+    return {
+      ...utils,
+      onKeepCard,
+      rerenderWith: (f: Focus, cardId = "c1", open = true) =>
+        utils.rerender(view(f, cardId, open)),
+    };
+  }
+
+  const content = () => screen.getByTestId("card-content");
+  const nonce = () => content().getAttribute("data-focus-nonce");
+  const anchor = () => content().getAttribute("data-focus-anchor");
+
+  it("hands no focus target to the content when no focus is asked for", async () => {
+    mountFocused(undefined);
+    expect(await screen.findByTestId("card-content")).toHaveTextContent("SAP ERP");
+    expect(content()).toHaveAttribute("data-focus-nonce", "none");
+  });
+
+  it("jumps to the field's section once the card has loaded, naming the field", async () => {
+    mountFocused({ field: "alphaCost" });
+    await waitFor(() => expect(anchor()).toBe("card-section-custom-run-costs"));
+    expect(content()).toHaveAttribute("data-focus-field", "alphaCost");
+    expect(nonce()).toBe("1");
+  });
+
+  it("jumps to a relation group and to a built-in section", async () => {
+    const { rerenderWith } = mountFocused({ relation: { type: "relAppToThing" } });
+    await waitFor(() => expect(anchor()).toBe("card-relation-relAppToThing-source"));
+    rerenderWith({ section: "lifecycle" });
+    await waitFor(() => expect(anchor()).toBe("card-section-lifecycle"));
+    expect(nonce()).toBe("2");
+  });
+
+  it("opens the card as usual for a focus that does not resolve", async () => {
+    mountFocused({ field: "noSuchField" });
+    expect(await screen.findByTestId("card-content")).toHaveTextContent("SAP ERP");
+    expect(content()).toHaveAttribute("data-focus-nonce", "none");
+  });
+
+  it("jumps again to a place asked for after a place the card does not have", async () => {
+    const { rerenderWith } = mountFocused({ field: "alphaCost" });
+    await waitFor(() => expect(nonce()).toBe("1"));
+    rerenderWith({ field: "noSuchField" });
+    expect(nonce()).toBe("1");
+    rerenderWith({ field: "alphaCost" });
+    await waitFor(() => expect(nonce()).toBe("2"));
+    expect(anchor()).toBe("card-section-custom-run-costs");
+  });
+
+  it("jumps once the metamodel arrives for a card that loaded before it", async () => {
+    const schema = metamodel.type;
+    metamodel.type = undefined;
+    const { rerenderWith } = mountFocused({ field: "alphaCost" });
+    expect(await screen.findByTestId("card-content")).toHaveTextContent("SAP ERP");
+    expect(nonce()).toBe("none");
+    metamodel.type = schema;
+    rerenderWith({ field: "alphaCost" });
+    await waitFor(() => expect(nonce()).toBe("1"));
+    rerenderWith({ field: "alphaCost" });
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(nonce()).toBe("1");
+  });
+
+  it("does not jump again for an equal focus passed as a fresh object", async () => {
+    const { rerenderWith } = mountFocused({ field: "alphaCost" });
+    await waitFor(() => expect(nonce()).toBe("1"));
+    rerenderWith({ field: "alphaCost" });
+    rerenderWith({ field: "alphaCost" });
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(nonce()).toBe("1");
+  });
+
+  it("jumps again when the focus changes, and after it was cleared and asked again", async () => {
+    const { rerenderWith } = mountFocused({ field: "alphaCost" });
+    await waitFor(() => expect(nonce()).toBe("1"));
+    rerenderWith({ section: "tags" });
+    await waitFor(() => expect(nonce()).toBe("2"));
+    expect(anchor()).toBe("card-section-tags");
+    rerenderWith(null);
+    await waitFor(() => expect(nonce()).toBe("none"));
+    rerenderWith({ section: "tags" });
+    await waitFor(() => expect(nonce()).toBe("3"));
+  });
+
+  it("jumps again on another card and when the panel is re-opened", async () => {
+    const { rerenderWith } = mountFocused({ section: "tags" });
+    await waitFor(() => expect(nonce()).toBe("1"));
+    rerenderWith({ section: "tags" }, "c2");
+    await waitFor(() => expect(content()).toHaveTextContent("Salesforce"));
+    await waitFor(() => expect(nonce()).toBe("2"));
+    rerenderWith({ section: "tags" }, "c2", false);
+    await waitFor(() => expect(screen.queryByTestId("card-content")).toBeNull());
+    rerenderWith({ section: "tags" }, "c2", true);
+    await waitFor(() => expect(nonce()).toBe("3"));
+  });
+
+  it("never applies another card's focus to a card whose edits the user kept", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const { rerenderWith, onKeepCard } = mountFocused({ section: "tags" });
+    await waitFor(() => expect(nonce()).toBe("1"));
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+
+    rerenderWith({ field: "alphaCost" }, "c2");
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(onKeepCard).toHaveBeenCalledWith("c1");
+    expect(content()).toHaveTextContent("SAP ERP");
+    expect(nonce()).toBe("1");
+    expect(anchor()).toBe("card-section-tags");
+
+    // The parent puts its own state back: the place already jumped to.
+    rerenderWith({ section: "tags" }, "c1");
+    expect(nonce()).toBe("1");
+  });
+});
+

@@ -74,6 +74,9 @@
  * It is the only chart stack: since SDK 1.33 it also draws scatter plots and
  * shaded reference areas (`markArea`), and the two deprecated chart entries of
  * 1.8 / 1.9 are gone.
+ * Since SDK 1.37 `CardDetailSidePanel` takes an optional plain-data `focus`
+ * (`{field?, section?, relation?: {type, side?}}`) that opens the card on the
+ * place to fill, as the data-quality breakdown does on the card page.
  *
  * Since SDK 1.12 the preferred way to add a plug point is the GENERIC SLOT
  * registry, not a new named extension point. An extension declares
@@ -154,9 +157,9 @@ import { FilterCheckboxList, FilterSectionHeader } from "@/components/FilterSide
 import LifecycleSection from "@/features/cards/sections/LifecycleSection";
 import { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
 import { buildGanttArrowPath } from "@/features/ppm/ganttArrowPath";
-import type { ArchitectureDecision, Card, DecisionStanding } from "@/types";
+import type { ArchitectureDecision, Card, CardPanelFocus, DecisionStanding } from "@/types";
 
-export const UI_SDK_VERSION = "1.36";
+export const UI_SDK_VERSION = "1.37";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -684,7 +687,11 @@ export function useExtensionFieldVisibilityProviders(): RegisteredFieldVisibilit
  *   export/print, filters toolbar slot, actions slot, thumbnail chart ref.
  * - FilterSelect — the shared multi-select filter dropdown.
  * - CardDetailSidePanel — the self-contained card-detail drawer reports open
- *   on node/row click ({cardId, open, onClose}).
+ *   on node/row click ({cardId, open, onClose}). Since SDK 1.37 an optional
+ *   plain-data `focus` ({field?, section?, relation?: {type, side?}}) opens
+ *   the card on that place, as the data-quality breakdown does on the card
+ *   page; a relation without `side` lands on the end the card's type is on
+ *   (see `CardPanelFocus` and `features/cards/cardFocus.ts`).
  *
  * ReportShell and CardDetailSidePanel are deliberately LAZY: ReportShell pulls
  * the export engine (xlsx / pptxgenjs / html-to-image) and the panel pulls the
@@ -703,6 +710,8 @@ export function ExtensionCardDetailSidePanel(props: {
   cardId: string | null;
   open: boolean;
   onClose: () => void;
+  /** SDK 1.37 — open the card on a field, a built-in section or a relation group. */
+  focus?: CardPanelFocus | null;
 }) {
   return (
     <React.Suspense fallback={null}>

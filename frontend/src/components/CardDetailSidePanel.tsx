@@ -26,9 +26,12 @@ import { GainFlight } from "@/features/cards/gamification/GainFlight";
 import { useSaveOrigin, useScoreGain } from "@/features/cards/gamification/useScoreGain";
 import { useGamificationEnabled } from "@/hooks/useGamificationEnabled";
 import CardDetailContent from "@/features/cards/CardDetailContent";
+import { cardFocusKey, resolveCardFocus } from "@/features/cards/cardFocus";
+import type { DataQualityJumpTarget } from "@/features/cards/dataQualityJump";
 import type {
   Card,
   CardEffectivePermissions,
+  CardPanelFocus,
   AiSuggestResponse,
 } from "@/types";
 
@@ -73,6 +76,17 @@ interface Props {
    * caller cannot switch cards behind the backdrop and needs nothing.
    */
   onKeepCard?: (cardId: string) => void;
+  /**
+   * Open the card on a place: a field, a built-in section or a relation group
+   * (UI SDK 1.37). Once the card has loaded the panel jumps there exactly as
+   * the data-quality breakdown does on the card page — the section expands
+   * and scrolls into view, and opens for editing for a user who may edit it.
+   * Compared by value: a fresh but equal object on a re-render does nothing;
+   * another place, another card or re-opening the panel jumps again. A focus
+   * that does not resolve on the card's type opens the card as usual. A
+   * relation without `side` lands on the end the card's type is on.
+   */
+  focus?: CardPanelFocus | null;
 }
 
 export default function CardDetailSidePanel({
@@ -81,10 +95,11 @@ export default function CardDetailSidePanel({
   onClose,
   nonModal = false,
   onKeepCard,
+  focus,
 }: Props) {
   const navigate = useNavigate();
   const { t } = useTranslation("common");
-  const { getType } = useMetamodel();
+  const { getType, relationTypes } = useMetamodel();
   const typeLabel = useTypeLabel();
   const resolveSubtypeLabel = useCardSubtypeLabel();
 
@@ -208,6 +223,53 @@ export default function CardDetailSidePanel({
   }, [shownId]);
 
   const typeConfig = card ? getType(card.type) : null;
+
+  // The caller's focus, as a jump for CardDetailContent: one nonce per place
+  // asked for on a loaded card. `firedRef` holds the last (card, focus) jumped
+  // to, so an equal focus on a re-render — or the one a parent puts back after
+  // the user kept unsaved edits — does not jump (and open edit mode) again.
+  // Both clear while no card is loaded (and the jump when there is no focus),
+  // so re-opening the panel jumps again and never replays a stale place.
+  const loadedId = card?.id ?? null;
+  const focusKey = cardFocusKey(focus);
+  const focusResolved = card ? resolveCardFocus(focus, typeConfig, relationTypes) : null;
+  const resolvedKey = focusResolved ? JSON.stringify(focusResolved) : null;
+  const focusTargetRef = useRef(focusResolved);
+  focusTargetRef.current = focusResolved;
+  const firedRef = useRef<string | null>(null);
+  const jumpNonceRef = useRef(0);
+  const [focusJump, setFocusJump] = useState<{
+    cardId: string;
+    target: DataQualityJumpTarget;
+    nonce: number;
+  } | null>(null);
+  useEffect(() => {
+    if (!loadedId || !focusKey) {
+      firedRef.current = null;
+      setFocusJump(null);
+      return;
+    }
+    // Closed: nothing to replay on the stale card a re-open shows first.
+    if (!shownId) {
+      setFocusJump(null);
+      return;
+    }
+    // A focus meant for a card the panel is not showing — the user kept
+    // unsaved edits on this one — is not this card's to act on.
+    if (cardId !== loadedId || shownId !== loadedId) return;
+    const target = focusTargetRef.current;
+    if (!target) {
+      // The card asked for, on a place it does not have: forget the last
+      // jump, so asking for that place again jumps again.
+      firedRef.current = null;
+      return;
+    }
+    const signature = JSON.stringify([loadedId, focusKey]);
+    if (firedRef.current === signature) return;
+    firedRef.current = signature;
+    jumpNonceRef.current += 1;
+    setFocusJump({ cardId: loadedId, target, nonce: jumpNonceRef.current });
+  }, [loadedId, cardId, shownId, focusKey, resolvedKey]);
   // Resolve the subtype key (e.g. "aiModel") to its translated metamodel label
   // (e.g. "AI Model"), mirroring CardDetail.tsx's header.
   const subtypeLabel = card ? resolveSubtypeLabel(card.type, card.subtype) : "";
@@ -370,6 +432,7 @@ export default function CardDetailSidePanel({
             onCardUpdate={setCard}
             onDirtyChange={setDirty}
             onSaveOrigin={reportSaveOrigin}
+            focusTarget={focusJump?.cardId === card.id ? focusJump : null}
             showBpmTabs={false}
             onAiSuggest={
               aiEnabled && perms.can_edit && !isArchived && !aiResponse

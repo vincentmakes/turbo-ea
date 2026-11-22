@@ -673,6 +673,23 @@ export interface DataQualityFactor {
   name?: string | null;
 }
 
+/**
+ * Where the card side panel opens a card (UI SDK 1.37): a field, a built-in
+ * section, or a relation group — the place a data-quality jump would land.
+ * Plain data, so an extension page can pass it to `sdk.CardDetailSidePanel`.
+ * When several are given, `field` wins, then `relation`, then `section`; one
+ * that does not resolve on the card's type opens the card as usual.
+ */
+export interface CardPanelFocus {
+  /** An attribute key of the card's type. */
+  field?: string;
+  section?: "description" | "lifecycle" | "tags" | "relations" | "hierarchy";
+  /** A relation type key, and the end this card is on. Without `side` the
+   * end is the one the card's type is on (`"source"` when it is on both); a
+   * `side` given must be an end the card's type is on. */
+  relation?: { type: string; side?: "source" | "target" };
+}
+
 /** Why a card scores what it scores, factor by factor (#1334). */
 export interface DataQualityBreakdown {
   score: number;
