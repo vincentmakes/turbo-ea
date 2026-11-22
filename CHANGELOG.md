@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - Scope the Cost Report to Applications, IT Components or both. Card badges appear in all views, and fullscreen keeps the drill-down breadcrumb visible and supports the Table view.
 
+## [2.208.1] - 2026-11-22
+
+### Security
+
+- Batch history, rollback and queued workspace imports respect permissions after access is revoked.
+
 ## [2.208.0] - 2026-11-21
 
 ### Added

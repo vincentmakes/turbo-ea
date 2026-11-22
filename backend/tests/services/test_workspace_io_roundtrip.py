@@ -55,6 +55,25 @@ from tests.conftest import (
 pytestmark = pytest.mark.asyncio
 
 
+async def test_apply_bundle_without_commit_keeps_transaction_open(db):
+    user = await create_user(db, email="import-transaction@example.com")
+    await db.flush()
+    bundle = parse_bundle(await build_bundle(db))
+    commits = []
+
+    def record_commit(session):
+        commits.append(True)
+
+    event.listen(db.sync_session, "after_commit", record_commit)
+    try:
+        result = await apply_bundle(db, bundle, user, commit=False)
+        assert result.total_failed == 0
+        assert commits == []
+    finally:
+        event.remove(db.sync_session, "after_commit", record_commit)
+        bundle.close()
+
+
 async def test_import_keeps_target_master_and_imports_incoming_crud(db):
     relation_type = "relAppToDataObj"
     actor = await create_user(db)

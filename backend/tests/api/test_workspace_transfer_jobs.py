@@ -250,6 +250,95 @@ class TestApplyJob:
         # Re-importing the instance's own export is a no-op: nothing failed.
         assert row.result["totals"]["failed"] == 0
 
+    @pytest.mark.parametrize("revocation", ["inactive", "expired", "role", "grant"])
+    async def test_queued_apply_requires_current_authorization(
+        self, client, db, env, monkeypatch, revocation
+    ):
+        from app.services.permission_service import PermissionService
+
+        importer_role = await create_role(
+            db, key="importer", label="Importer", permissions={"admin.import_workspace": True}
+        )
+        importer = await create_user(db, email="importer@test.com", role="importer")
+        importer_id = importer.id
+        await db.commit()
+        transfer_id = await self._previewed(client, env)
+        row = await _row(db, transfer_id)
+        row.status = "applying"
+        await db.commit()
+        # Warm the current process's role cache as a normal authorized request would.
+        assert await PermissionService.has_app_permission(db, importer, "admin.import_workspace")
+        if revocation == "inactive":
+            importer.is_active = False
+        elif revocation == "expired":
+            importer.access_expires_at = datetime.now(timezone.utc) - timedelta(minutes=1)
+        elif revocation == "role":
+            importer.role = "viewer"
+        else:
+            importer_role.permissions = {}
+        await db.commit()
+
+        applied = False
+
+        async def capture_apply(*args, **kwargs):
+            nonlocal applied
+            applied = True
+            raise RuntimeError("apply should not run")
+
+        monkeypatch.setattr(workspace_api, "apply_bundle", capture_apply)
+        await workspace_api._apply_job(transfer_id, str(importer_id))
+
+        row = await _row(db, transfer_id)
+        assert not applied
+        assert row.status == "failed"
+        assert row.error_message
+        [completed] = await _audit_rows(db, "admin.workspace.import.completed")
+        assert completed.outcome == "failure"
+        assert completed.actor_user_id == importer_id
+
+    @pytest.mark.parametrize("can_impersonate", [True, False])
+    async def test_queued_apply_rechecks_impersonation_authority(
+        self, client, db, env, monkeypatch, can_impersonate
+    ):
+        from app.services.event_bus import request_impersonation
+
+        owner_role = await create_role(
+            db,
+            key="import_impersonator",
+            label="Import impersonator",
+            permissions={"admin.impersonate": True},
+        )
+        await create_role(
+            db,
+            key="impersonated_importer",
+            label="Impersonated importer",
+            permissions={"admin.import_workspace": True},
+        )
+        owner = await create_user(db, email="import-impersonator@test.com", role=owner_role.key)
+        await db.commit()
+        transfer_id = await self._previewed(client, env)
+        transfer = await _row(db, transfer_id)
+        transfer.status = "applying"
+        if not can_impersonate:
+            owner_role.permissions = {}
+        await db.commit()
+
+        applied = False
+
+        async def capture_apply(*args, **kwargs):
+            nonlocal applied
+            applied = True
+            raise RuntimeError("apply observed")
+
+        monkeypatch.setattr(workspace_api, "apply_bundle", capture_apply)
+        token = request_impersonation.set((str(owner.id), "impersonated_importer"))
+        try:
+            await workspace_api._apply_job(transfer_id, str(owner.id))
+        finally:
+            request_impersonation.reset(token)
+
+        assert applied is can_impersonate
+
     async def test_apply_is_refused_while_the_preview_is_running(
         self, client, db, env, monkeypatch
     ):

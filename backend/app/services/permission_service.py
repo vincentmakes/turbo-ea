@@ -68,14 +68,17 @@ class PermissionService:
     _all_type_perm_cache: tuple[dict[str, dict], float] | None = None
 
     @staticmethod
-    async def load_role(db: AsyncSession, role_key: str) -> dict | None:
-        """Load role permissions with caching."""
+    async def load_role(db: AsyncSession, role_key: str, *, fresh: bool = False) -> dict | None:
+        """Load role permissions, bypassing the cache when a fresh check is required."""
         now = time.time()
         cached = PermissionService._role_cache.get(role_key)
-        if cached and (now - cached[1]) < PermissionService.CACHE_TTL:
+        if not fresh and cached and (now - cached[1]) < PermissionService.CACHE_TTL:
             return cached[0]
 
-        result = await db.execute(select(Role).where(Role.key == role_key))
+        query = select(Role).where(Role.key == role_key)
+        if fresh:
+            query = query.execution_options(populate_existing=True)
+        result = await db.execute(query)
         role = result.scalar_one_or_none()
         if role:
             role_dict = {
@@ -132,6 +135,7 @@ class PermissionService:
         *,
         card_type_key: str | None = None,
         subtype: str | None = None,
+        fresh: bool = False,
     ) -> bool:
         """Check if user's app-level role grants the given permission.
 
@@ -149,7 +153,11 @@ class PermissionService:
         never be locked out of a type.
         """
         role_key = effective_role_key(user)
-        role_data = await PermissionService.load_role(db, role_key)
+        role_data = (
+            await PermissionService.load_role(db, role_key, fresh=True)
+            if fresh
+            else (await PermissionService.load_role(db, role_key))
+        )
         if not role_data:
             return False
         perms = role_data["permissions"]

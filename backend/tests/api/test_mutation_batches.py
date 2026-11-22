@@ -432,3 +432,402 @@ async def test_batch_history_exposes_extension_entity_reference(
     )
     assert event["entity_type"] == "ext.swot-analysis.analysis"
     assert event["entity_id"] == str(entity_id)
+
+
+async def test_rollback_requires_parent_read_access(monkeypatch):
+    from app.api.v1 import mutation_batches as routes
+
+    card_id, parent_id = uuid.uuid4(), uuid.uuid4()
+    db = SimpleNamespace(get=AsyncMock(return_value=SimpleNamespace(parent_id=None)))
+    user = SimpleNamespace(id=uuid.uuid4())
+    readable = AsyncMock(side_effect=[None, HTTPException(status_code=404)])
+    monkeypatch.setattr(routes, "require_card_readable", readable)
+    monkeypatch.setattr(routes.PermissionService, "require_permission", AsyncMock())
+    monkeypatch.setattr(routes.PermissionService, "can_view_costs", AsyncMock(return_value=True))
+    with pytest.raises(HTTPException) as exc:
+        await routes._require_rollback_permissions(
+            db,
+            user,
+            [
+                {
+                    "op": "restore_card_fields",
+                    "card_id": str(card_id),
+                    "fields": {"parent_id": str(parent_id)},
+                }
+            ],
+        )
+    assert exc.value.status_code == 404
+    assert readable.await_args.args == (db, user, parent_id)
+
+
+@pytest.mark.parametrize("operation", ["add_card_tag", "remove_card_tag"])
+async def test_rollback_tag_operations_use_tag_permission(monkeypatch, operation):
+    from app.api.v1 import mutation_batches as routes
+    from app.services import tag_service
+
+    db, user, card_id = object(), SimpleNamespace(id=uuid.uuid4()), uuid.uuid4()
+    monkeypatch.setattr(routes, "require_card_readable", AsyncMock())
+    permission = AsyncMock(return_value=True)
+    monkeypatch.setattr(tag_service, "can_tag_card", permission)
+    monkeypatch.setattr(
+        routes.PermissionService,
+        "require_permission",
+        AsyncMock(side_effect=HTTPException(status_code=403)),
+    )
+    await routes._require_rollback_permissions(
+        db, user, [{"op": operation, "card_id": str(card_id)}]
+    )
+    permission.assert_awaited_once_with(db, user, card_id)
+
+
+async def test_rollback_requires_current_card_edit_permission(monkeypatch):
+    from app.api.v1 import mutation_batches as routes
+
+    db = object()
+    user = SimpleNamespace(id=uuid.uuid4())
+    card_id = uuid.uuid4()
+    check = AsyncMock(side_effect=HTTPException(status_code=403))
+    monkeypatch.setattr(routes.PermissionService, "require_permission", check)
+    monkeypatch.setattr(routes, "require_card_readable", AsyncMock())
+
+    with pytest.raises(HTTPException) as exc:
+        await routes._require_rollback_permissions(
+            db, user, [{"op": "restore_card_fields", "card_id": str(card_id)}]
+        )
+    assert exc.value.status_code == 403
+    assert check.await_args.args == (db, user, "inventory.edit", card_id, "card.edit")
+
+
+@pytest.mark.parametrize(
+    "operation,key",
+    [
+        ("delete_card", "card_id"),
+        ("restore_card_fields", "card_id"),
+        ("add_card_tag", "card_id"),
+        ("delete_relation", "relation_id"),
+        ("unlink_risk_card", "card_id"),
+        ("delete_adr", "adr_id"),
+        ("delete_diagram", "diagram_id"),
+        ("delete_todo", "todo_id"),
+    ],
+)
+async def test_rollback_rejects_invalid_resource_ids(monkeypatch, operation, key):
+    from app.api.v1 import mutation_batches as routes
+
+    check = AsyncMock()
+    monkeypatch.setattr(routes.PermissionService, "require_permission", check)
+    with pytest.raises(HTTPException) as exc:
+        await routes._require_rollback_permissions(
+            object(), SimpleNamespace(id=uuid.uuid4()), [{"op": operation, key: "not-a-uuid"}]
+        )
+    assert exc.value.status_code == 403
+
+
+async def test_rollback_relation_requires_both_endpoints_visible(monkeypatch):
+    from app.api.v1 import mutation_batches as routes
+
+    source, target = uuid.uuid4(), uuid.uuid4()
+    relation_id = uuid.uuid4()
+    db = SimpleNamespace(
+        get=AsyncMock(return_value=SimpleNamespace(source_id=source, target_id=target))
+    )
+    user = SimpleNamespace(id=uuid.uuid4())
+    require = AsyncMock()
+    readable = AsyncMock(side_effect=[None, HTTPException(status_code=404)])
+    monkeypatch.setattr(routes.PermissionService, "require_permission", require)
+    monkeypatch.setattr(routes, "require_card_readable", readable)
+    with pytest.raises(HTTPException) as exc:
+        await routes._require_rollback_permissions(
+            db, user, [{"op": "delete_relation", "relation_id": str(relation_id)}]
+        )
+    assert exc.value.status_code == 404
+    require.assert_awaited_once_with(db, user, "relations.manage")
+    assert [call.args[2] for call in readable.await_args_list] == [source, target]
+
+
+@pytest.mark.parametrize(
+    "is_creator,has_delete,expect", [(True, False, 200), (False, False, 403), (False, True, 200)]
+)
+async def test_rollback_decision_obeys_creator_or_delete_grant(
+    monkeypatch, is_creator, has_delete, expect
+):
+    from app.api.v1 import mutation_batches as routes
+
+    user = SimpleNamespace(id=uuid.uuid4())
+    decision = SimpleNamespace(created_by=user.id if is_creator else uuid.uuid4())
+    db = SimpleNamespace(get=AsyncMock(return_value=decision))
+    require = AsyncMock()
+    monkeypatch.setattr(routes.PermissionService, "require_permission", require)
+    monkeypatch.setattr(
+        routes.PermissionService, "has_app_permission", AsyncMock(return_value=has_delete)
+    )
+    operation = {"op": "delete_adr", "adr_id": str(uuid.uuid4())}
+    if expect == 403:
+        with pytest.raises(HTTPException) as exc:
+            await routes._require_rollback_permissions(db, user, [operation])
+        assert exc.value.status_code == 403
+    else:
+        await routes._require_rollback_permissions(db, user, [operation])
+        if is_creator and not has_delete:
+            require.assert_awaited_once_with(db, user, "adr.manage")
+        else:
+            require.assert_not_awaited()
+
+
+@pytest.mark.parametrize("owner", [True, False])
+async def test_rollback_todo_checks_owner_and_card_visibility(monkeypatch, owner):
+    from app.api.v1 import mutation_batches as routes
+
+    user = SimpleNamespace(id=uuid.uuid4())
+    card_id = uuid.uuid4()
+    todo = SimpleNamespace(
+        assigned_to=user.id if owner else uuid.uuid4(), created_by=uuid.uuid4(), card_id=card_id
+    )
+    db = SimpleNamespace(get=AsyncMock(return_value=todo))
+    require = AsyncMock()
+    readable = AsyncMock()
+    monkeypatch.setattr(routes.PermissionService, "require_permission", require)
+    monkeypatch.setattr(routes, "require_card_readable", readable)
+    await routes._require_rollback_permissions(
+        db, user, [{"op": "delete_todo", "todo_id": str(uuid.uuid4())}]
+    )
+    if owner:
+        require.assert_not_awaited()
+    else:
+        require.assert_awaited_once_with(db, user, "admin.todos")
+    readable.assert_awaited_once_with(db, user, card_id, mode="module")
+
+
+async def test_rollback_refuses_unknown_inverse_before_writes(monkeypatch):
+    from app.api.v1 import mutation_batches as routes
+
+    check = AsyncMock()
+    monkeypatch.setattr(routes.PermissionService, "require_permission", check)
+    with pytest.raises(HTTPException) as exc:
+        await routes._require_rollback_permissions(
+            object(), SimpleNamespace(id=uuid.uuid4()), [{"op": "new_unknown_inverse"}]
+        )
+    assert exc.value.status_code == 403
+    check.assert_not_awaited()
+
+
+async def test_batch_history_filters_hidden_cards_and_preview_refuses_hidden_events(
+    client, admin_user, app_card_type, db, monkeypatch
+):
+    from app.api.v1 import mutation_batches as routes
+    from app.services.card_read_scope import CardReadScope
+    from tests.conftest import create_card, create_card_type
+
+    await create_card_type(db, key="Hidden", label="Hidden")
+    visible = await create_card(db, name="Visible")
+    hidden = await create_card(db, card_type="Hidden", name="Hidden")
+    opened = await _open(client, admin_user, rows=1, dry_run=False)
+    batch_id = uuid.UUID(opened.json()["id"])
+    for card in (visible, hidden):
+        db.add(
+            Event(
+                batch_id=batch_id,
+                user_id=admin_user.id,
+                card_id=card.id,
+                event_type="card.updated",
+                data={"changes": {"name": {"old": "Earlier", "new": card.name}}},
+            )
+        )
+    await db.flush()
+    read_scope = CardReadScope(
+        role_key="restricted",
+        wildcard=False,
+        base_view=True,
+        denied_types=frozenset({"Hidden"}),
+        allowed_types=frozenset(),
+        stakeholder_card_ids=frozenset(),
+    )
+    monkeypatch.setattr(routes.CardReadScope, "load", AsyncMock(return_value=read_scope))
+
+    response = await client.get(
+        f"/api/v1/mutation-batches/{batch_id}/events", headers=auth_headers(admin_user)
+    )
+    assert response.status_code == 200
+    assert [event["card_id"] for event in response.json()["events"]] == [str(visible.id)]
+    assert str(hidden.id) not in response.text
+
+    preview = await client.post(
+        f"/api/v1/mutation-batches/{batch_id}/rollback",
+        json={"dry_run": True},
+        headers=auth_headers(admin_user),
+    )
+    assert preview.status_code == 404
+    assert str(hidden.id) not in preview.text
+
+
+async def test_batch_history_filters_rollback_subjects_and_document_details(
+    client, admin_user, app_card_type, db, monkeypatch
+):
+    from app.api.v1 import mutation_batches as routes
+    from app.services.card_read_scope import CardReadScope
+    from tests.conftest import create_card, create_card_type
+
+    await create_card_type(db, key="Hidden", label="Hidden")
+    visible = await create_card(db, name="Visible")
+    hidden = await create_card(db, card_type="Hidden", name="Hidden")
+    opened = await _open(client, admin_user, rows=3, dry_run=False)
+    batch_id = uuid.UUID(opened.json()["id"])
+    for card in (visible, hidden):
+        db.add(
+            Event(
+                batch_id=batch_id,
+                user_id=admin_user.id,
+                event_type="rollback.restore_card_fields",
+                data={"card_id": str(card.id), "fields": {"name": card.name}},
+            )
+        )
+    db.add(
+        Event(
+            batch_id=batch_id,
+            user_id=admin_user.id,
+            event_type="rollback.delete_adr",
+            data={"adr_id": str(uuid.uuid4()), "detail": "Private decision"},
+        )
+    )
+    await db.flush()
+    read_scope = CardReadScope(
+        role_key="restricted",
+        wildcard=False,
+        base_view=True,
+        denied_types=frozenset({"Hidden"}),
+        allowed_types=frozenset(),
+        stakeholder_card_ids=frozenset(),
+    )
+    monkeypatch.setattr(routes.CardReadScope, "load", AsyncMock(return_value=read_scope))
+    original = routes.PermissionService.has_app_permission
+
+    async def document_permission(db_arg, user_arg, permission, *args, **kwargs):
+        if permission == "adr.view":
+            return False
+        return await original(db_arg, user_arg, permission, *args, **kwargs)
+
+    monkeypatch.setattr(routes.PermissionService, "has_app_permission", document_permission)
+    response = await client.get(
+        f"/api/v1/mutation-batches/{batch_id}/events", headers=auth_headers(admin_user)
+    )
+    assert response.status_code == 200
+    assert [item["data"]["card_id"] for item in response.json()["events"]] == [str(visible.id)]
+    assert str(hidden.id) not in response.text
+    assert "Private decision" not in response.text
+    preview = await client.post(
+        f"/api/v1/mutation-batches/{batch_id}/rollback",
+        json={"dry_run": True},
+        headers=auth_headers(admin_user),
+    )
+    assert preview.status_code == 404
+    assert "Private decision" not in preview.text
+
+
+async def test_batch_summary_is_hidden_without_document_permissions(monkeypatch):
+    from app.api.v1 import mutation_batches as routes
+    from app.services.card_read_scope import CardReadScope
+
+    scope = CardReadScope(
+        role_key="reader",
+        wildcard=True,
+        base_view=True,
+        denied_types=frozenset(),
+        allowed_types=frozenset(),
+        stakeholder_card_ids=frozenset(),
+    )
+    monkeypatch.setattr(routes.CardReadScope, "load", AsyncMock(return_value=scope))
+    monkeypatch.setattr(routes, "document_event_read_filters", AsyncMock(return_value=(True,)))
+    summary = {"results": [{"op": "restore_card_fields", "detail": "Private decision"}]}
+    batch = SimpleNamespace(id=uuid.uuid4(), tool_name="rollback_batch", summary=summary)
+    db = SimpleNamespace(scalars=AsyncMock(return_value=[]))
+    monkeypatch.setattr(routes, "batch_to_dict", lambda *args, **kwargs: {"summary": summary})
+    redact = AsyncMock()
+    monkeypatch.setattr(routes, "scrub_summary_costs", redact)
+    result = await routes._batch_out(db, object(), batch, None)
+    db.scalars.assert_awaited_once()
+    assert result["summary"] is None
+    redact.assert_not_awaited()
+
+
+def test_document_safe_summary_preserves_non_document_results():
+    from app.api.v1.mutation_batches import _document_safe_summary
+
+    summary = {
+        "reverses_batch_id": "batch-id",
+        "forced": False,
+        "results": [
+            {"op": "restore_card_fields", "fields": {"name": "visible"}},
+            {"op": "delete_adr", "detail": "private decision"},
+        ],
+    }
+    assert _document_safe_summary(summary, include_adr=False) == {
+        "reverses_batch_id": "batch-id",
+        "forced": False,
+        "results": [{"op": "restore_card_fields", "fields": {"name": "visible"}}],
+    }
+    assert _document_safe_summary(summary, include_adr=True) == summary
+
+
+@pytest.mark.parametrize("hidden, expected", [(True, 404), (False, 409)])
+async def test_rollback_delete_card_protects_hidden_child(monkeypatch, hidden, expected):
+    from app.api.v1 import mutation_batches as routes
+
+    db = SimpleNamespace(
+        scalar=AsyncMock(side_effect=[uuid.uuid4()] if hidden else [None, uuid.uuid4()])
+    )
+    user = SimpleNamespace(id=uuid.uuid4())
+    scope = SimpleNamespace(clause=lambda card, mode: card.type != "Hidden")
+    monkeypatch.setattr(routes.CardReadScope, "load", AsyncMock(return_value=scope))
+    monkeypatch.setattr(routes, "require_card_readable", AsyncMock())
+    monkeypatch.setattr(routes.PermissionService, "require_permission", AsyncMock())
+    with pytest.raises(HTTPException) as exc:
+        await routes._require_rollback_permissions(
+            db, user, [{"op": "delete_card", "card_id": str(uuid.uuid4())}]
+        )
+    assert exc.value.status_code == expected
+
+
+async def test_rollback_route_checks_current_permission_before_dispatch(
+    client, admin_user, app_card_type, db, monkeypatch
+):
+    from app.api.v1 import mutation_batches as routes
+    from tests.conftest import create_card
+
+    card = await create_card(db, name="Current card")
+    opened = await _open(client, admin_user, rows=1, dry_run=False)
+    batch_id = uuid.UUID(opened.json()["id"])
+    db.add(
+        Event(
+            batch_id=batch_id,
+            user_id=admin_user.id,
+            card_id=card.id,
+            event_type="card.updated",
+            data={"changes": {"name": {"old": "Previous", "new": card.name}}},
+        )
+    )
+    await db.flush()
+    closed = await client.post(
+        f"/api/v1/mutation-batches/{batch_id}/commit",
+        json={"summary": {}},
+        headers=auth_headers(admin_user),
+    )
+    assert closed.status_code == 200
+    original = routes.PermissionService.require_permission
+
+    async def deny_edit(db_arg, user_arg, permission, *args, **kwargs):
+        if permission == "inventory.edit":
+            raise HTTPException(403, "Insufficient permissions")
+        return await original(db_arg, user_arg, permission, *args, **kwargs)
+
+    monkeypatch.setattr(routes.PermissionService, "require_permission", deny_edit)
+    from app.services import rollback_service
+
+    dispatch = AsyncMock()
+    monkeypatch.setattr(rollback_service, "_apply_inverse", dispatch)
+    response = await client.post(
+        f"/api/v1/mutation-batches/{batch_id}/rollback",
+        json={"dry_run": False},
+        headers=auth_headers(admin_user),
+    )
+    assert response.status_code == 403
+    dispatch.assert_not_awaited()
