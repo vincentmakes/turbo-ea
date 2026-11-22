@@ -991,16 +991,31 @@ class TestApplyResponses:
         assert apply_resp1.status_code == 200
         assert apply_resp1.json()["applied"] == 1
 
+        # A valid caller-owned batch must remain open when no response changes.
+        opened = await client.post(
+            "/api/v1/mutation-batches?row_count=1",
+            json={"tool_name": "survey_apply", "dry_run": False},
+            headers=auth_headers(admin),
+        )
+        assert opened.status_code == 201
+        batch_id = opened.json()["id"]
+
         # Apply again
         apply_resp2 = await client.post(
             f"/api/v1/surveys/{survey_id}/apply",
             json={"response_ids": [response_id]},
-            headers=auth_headers(admin),
+            headers={**auth_headers(admin), "X-Turbo-EA-Batch": batch_id},
         )
         assert apply_resp2.status_code == 200
         assert apply_resp2.json()["applied"] == 0
         assert len(apply_resp2.json()["errors"]) == 1
         assert "already applied" in apply_resp2.json()["errors"][0]["error"].lower()
+        closed = await client.post(
+            f"/api/v1/mutation-batches/{batch_id}/commit",
+            json={},
+            headers=auth_headers(admin),
+        )
+        assert closed.status_code == 200
 
     async def test_apply_pending_response_returns_error(self, client, db, survey_env):
         """Applying a pending (not yet submitted) response returns an error."""

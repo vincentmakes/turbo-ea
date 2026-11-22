@@ -1346,7 +1346,13 @@ from app.core.request_context import request_client as _request_client  # noqa: 
 from app.core.request_context import user_agent as _user_agent  # noqa: E402
 from app.core.security import decode_access_token as _decode_token_for_impersonation  # noqa: E402
 from app.services.event_bus import (  # noqa: E402
+    request_actor_id as _request_actor_id,
+)
+from app.services.event_bus import (  # noqa: E402
     request_batch_id as _request_batch_id,
+)
+from app.services.event_bus import (  # noqa: E402
+    request_candidate_batch_id as _request_candidate_batch_id,
 )
 from app.services.event_bus import (  # noqa: E402
     request_endpoint as _request_endpoint,
@@ -1372,11 +1378,8 @@ async def capture_request_origin(request, call_next):
     origin: str | None = raw if raw in _ORIGIN_ALLOWED else None
     token = _request_origin.set(origin)
 
-    # MCP write tools open a mutation batch and pass the id back on every
-    # subsequent write via ``X-Turbo-EA-Batch``. Mirror it into the
-    # event-bus contextvar so emitted events stamp the batch id. A bogus
-    # / malformed UUID is silently dropped — we never want a header value
-    # an attacker can forge to land on the audit log as a real batch.
+    # Keep the caller's batch candidate separate from trusted server context.
+    # The event bus validates the actor and lifecycle in the write transaction.
     batch_raw = request.headers.get("X-Turbo-EA-Batch", "").strip()
     batch_id: _uuid_for_batch.UUID | None = None
     if batch_raw:
@@ -1384,7 +1387,9 @@ async def capture_request_origin(request, call_next):
             batch_id = _uuid_for_batch.UUID(batch_raw)
         except ValueError:
             batch_id = None
-    batch_token = _request_batch_id.set(batch_id)
+    batch_token = _request_batch_id.set(None)
+    candidate_token = _request_candidate_batch_id.set(batch_id)
+    actor_token = _request_actor_id.set(None)
 
     # Capture an endpoint label (e.g. "PATCH /api/v1/cards/<id>") so
     # auto-created mutation batches for non-MCP web/api writes land with
@@ -1426,6 +1431,8 @@ async def capture_request_origin(request, call_next):
     finally:
         _request_origin.reset(token)
         _request_batch_id.reset(batch_token)
+        _request_candidate_batch_id.reset(candidate_token)
+        _request_actor_id.reset(actor_token)
         _request_endpoint.reset(endpoint_token)
         _request_impersonation.reset(impersonation_token)
         _request_client.reset(client_token)

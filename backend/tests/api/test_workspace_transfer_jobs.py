@@ -12,6 +12,7 @@ itself; this file covers what happens after the bytes land.
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -65,6 +66,108 @@ async def _row(db, transfer_id) -> WorkspaceTransfer:
             .execution_options(populate_existing=True)
         )
     ).scalar_one()
+
+
+class TestInterruptedImport:
+    @pytest.mark.parametrize("status", ["parsing", "applying"])
+    async def test_stale_transfer_is_failed_when_polled(self, client, db, env, monkeypatch, status):
+        monkeypatch.setattr(workspace_api, "_preview_job", _noop)
+        transfer_id = (await _upload(client, env["admin"], env["bundle"])).json()["id"]
+        row = await _row(db, transfer_id)
+        row.status = status
+        row.updated_at = datetime.now(timezone.utc) - timedelta(hours=2)
+        await db.commit()
+
+        response = await client.get(f"{IMPORT}/{transfer_id}", headers=auth_headers(env["admin"]))
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "failed"
+        assert "interrupt" in response.json()["error_message"].lower()
+        assert "_interrupted" not in (response.json()["result"] or {})
+        retry = await client.post(
+            f"{IMPORT}/{transfer_id}/apply", headers=auth_headers(env["admin"])
+        )
+        assert retry.status_code == 400
+
+    async def test_abandoned_worker_does_not_apply_after_recovery(
+        self, client, db, env, monkeypatch
+    ):
+        monkeypatch.setattr(workspace_api, "_preview_job", _noop)
+        transfer_id = (await _upload(client, env["admin"], env["bundle"])).json()["id"]
+        row = await _row(db, transfer_id)
+        row.status = "applying"
+        row.updated_at = datetime.now(timezone.utc) - timedelta(hours=2)
+        await db.commit()
+        await client.get(f"{IMPORT}/{transfer_id}", headers=auth_headers(env["admin"]))
+
+        async def unexpected_apply(*args, **kwargs):
+            raise AssertionError("an interrupted job must not apply its bundle")
+
+        monkeypatch.setattr(workspace_api, "apply_bundle", unexpected_apply)
+        await workspace_api._apply_job(transfer_id, str(env["admin"].id))
+        assert (await _row(db, transfer_id)).status == "failed"
+
+    async def test_stale_running_job_is_not_recovered_until_its_lock_is_released(
+        self, test_engine, monkeypatch
+    ):
+        import asyncio
+
+        from sqlalchemy import delete
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+        async def allow(*args, **kwargs):
+            return None
+
+        monkeypatch.setattr(workspace_api.PermissionService, "require_permission", allow)
+        sessions = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
+        transfer_id = uuid.uuid4()
+        async with sessions() as setup:
+            setup.add(
+                WorkspaceTransfer(
+                    id=transfer_id,
+                    filename="test.zip",
+                    status="applying",
+                    updated_at=datetime.now(timezone.utc) - timedelta(hours=2),
+                )
+            )
+            await setup.commit()
+
+        try:
+            async with sessions() as worker:
+                await worker.execute(
+                    select(WorkspaceTransfer)
+                    .where(WorkspaceTransfer.id == transfer_id)
+                    .with_for_update()
+                )
+                async with sessions() as reader:
+                    response = await asyncio.wait_for(
+                        workspace_api.get_workspace_transfer(transfer_id, db=reader, user=None),
+                        timeout=5,
+                    )
+                    assert response.status == "applying"
+                await worker.rollback()
+
+            async with sessions() as reader:
+                response = await workspace_api.get_workspace_transfer(
+                    transfer_id, db=reader, user=None
+                )
+                assert response.status == "failed"
+                assert "interrupt" in response.error_message.lower()
+        finally:
+            async with sessions() as cleanup:
+                await cleanup.execute(
+                    delete(WorkspaceTransfer).where(WorkspaceTransfer.id == transfer_id)
+                )
+                await cleanup.commit()
+
+    async def test_recent_transfer_remains_in_progress(self, client, db, env, monkeypatch):
+        monkeypatch.setattr(workspace_api, "_preview_job", _noop)
+        transfer_id = (await _upload(client, env["admin"], env["bundle"])).json()["id"]
+
+        response = await client.get(f"{IMPORT}/{transfer_id}", headers=auth_headers(env["admin"]))
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "parsing"
 
 
 class TestPreviewJob:
@@ -162,7 +265,7 @@ class TestApplyJob:
     async def test_a_section_failure_marks_the_transfer_failed(self, client, db, env, monkeypatch):
         transfer_id = await self._previewed(client, env)
 
-        async def boom(db_, bundle, user):
+        async def boom(db_, bundle, user, **kwargs):
             raise RuntimeError("apply exploded")
 
         monkeypatch.setattr(workspace_api, "apply_bundle", boom)
@@ -184,6 +287,10 @@ class TestApplyJob:
     async def test_a_vanished_user_fails_the_apply(self, client, db, env):
         transfer_id = await self._previewed(client, env)
 
+        # The route moves a previewed transfer to applying before queuing the job.
+        row = await _row(db, transfer_id)
+        row.status = "applying"
+        await db.commit()
         await workspace_api._apply_job(transfer_id, str(uuid.uuid4()))
 
         row = await _row(db, transfer_id)
@@ -332,7 +439,7 @@ class TestAudit:
     async def test_a_failed_apply_records_a_failure(self, client, db, env, monkeypatch):
         transfer_id = (await _upload(client, env["admin"], env["bundle"])).json()["id"]
 
-        async def boom(db_, bundle, user):
+        async def boom(db_, bundle, user, **kwargs):
             raise RuntimeError("apply exploded")
 
         monkeypatch.setattr(workspace_api, "apply_bundle", boom)
@@ -345,6 +452,10 @@ class TestAudit:
     async def test_a_vanished_user_records_a_failure_with_no_actor(self, client, db, env):
         transfer_id = (await _upload(client, env["admin"], env["bundle"])).json()["id"]
 
+        # The route moves a previewed transfer to applying before queuing the job.
+        row = await _row(db, transfer_id)
+        row.status = "applying"
+        await db.commit()
         await workspace_api._apply_job(transfer_id, str(uuid.uuid4()))
 
         [completed] = await _audit_rows(db, "admin.workspace.import.completed")
@@ -361,6 +472,7 @@ class TestAudit:
         transfer_id = (await _upload(client, env["admin"], env["bundle"])).json()["id"]
         row = await _row(db, transfer_id)
         row.storage_path = None
+        row.status = "applying"
         await db.commit()
 
         await workspace_api._apply_job(transfer_id, admin_id)

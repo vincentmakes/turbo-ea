@@ -221,10 +221,12 @@ def _update_if_changed(current: Any, data: dict[str, Any], cols, sr: SectionResu
 # ---------------------------------------------------------------------------
 
 
-async def apply_bundle(db: AsyncSession, bundle: WorkspaceBundle, user: User) -> ApplyResult:
+async def apply_bundle(
+    db: AsyncSession, bundle: WorkspaceBundle, user: User, *, commit: bool = True
+) -> ApplyResult:
     """Apply every sheet. Changes ``bundle``: its ``CardLicenses`` rows are replaced by the
     rows without the cells of an unknown metric or type (``_apply_license_catalogue``)."""
-    return await _run(db, bundle, user, dry_run=False)
+    return await _run(db, bundle, user, dry_run=False, commit=commit)
 
 
 async def diff_bundle(db: AsyncSession, bundle: WorkspaceBundle, user: User) -> ApplyResult:
@@ -257,6 +259,7 @@ async def _run(
     *,
     dry_run: bool,
     sheets: set[str] | None = None,
+    commit: bool = True,
 ) -> ApplyResult:
     result = ApplyResult(dry_run=dry_run)
 
@@ -387,7 +390,7 @@ async def _run(
         if root is not None:
             await root.rollback()
 
-    if not dry_run:
+    if not dry_run and commit:
         from app.services.permission_service import PermissionService
 
         await db.commit()

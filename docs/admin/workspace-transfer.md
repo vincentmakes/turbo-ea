@@ -50,6 +50,8 @@ A few other things stay behind by design:
 3. Turbo EA parses the bundle and shows a **dry-run preview** — a per-section table of how many entities would be created, updated, skipped, or are in conflict. Nothing is written yet.
 4. Review the preview, then click **Apply import**.
 
+If the server restarts while an import is running, leave the page open while it reconnects and checks the transfer. If it reports an interruption, review the target workspace, click **Discard**, then upload the bundle again to get a fresh preview.
+
 Import is **idempotent**: metamodel and configuration are matched by key, cards by external id or by type + hierarchy path, and users by email. Re-importing the same bundle is safe — already-present entities are skipped rather than duplicated. Existing built-in metamodel types keep their identity; only their editable schema is merged. This also holds for archived cards included in the bundle: they are recognised rather than created again.
 
 The first import of a saved **BO Relationship** drawing can fill a target that has never saved its drawing. If the target already has a saved drawing, including one saved empty, the import keeps the target drawing and positions. Check the **References** breakdown for BOs or links the import could not resolve. If the target already has a different Master for a BO, the Relations results report the conflict and the new link keeps its CRUD settings.

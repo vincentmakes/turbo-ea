@@ -4,14 +4,54 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import select
 
 from app.models.event import Event
 from app.models.mutation_batch import MutationBatch
 from app.services.mutation_batch_service import CONFIRM_TOKEN_TTL
 from tests.conftest import auth_headers, create_user
+
+
+async def test_ownerless_batch_close_requires_an_owner(monkeypatch):
+    from app.api.v1 import mutation_batches as routes
+    from app.schemas.mutation_batch import MutationBatchCommit
+
+    batch = SimpleNamespace(actor_user_id=None, committed_at=None)
+    monkeypatch.setattr(routes, "get_batch", AsyncMock(return_value=batch))
+    commit = AsyncMock()
+    monkeypatch.setattr(routes, "commit_batch", commit)
+
+    with pytest.raises(HTTPException) as exc:
+        await routes.close_batch(
+            uuid.uuid4(), MutationBatchCommit(), db=object(), user=SimpleNamespace(id=uuid.uuid4())
+        )
+    assert exc.value.status_code == 403
+    commit.assert_not_awaited()
+
+
+@pytest.mark.parametrize("dry_run", [True, False])
+async def test_ownerless_rollback_requires_audit_permission(monkeypatch, dry_run):
+    from app.api.v1 import mutation_batches as routes
+
+    batch = SimpleNamespace(actor_user_id=None)
+    monkeypatch.setattr(routes, "get_batch", AsyncMock(return_value=batch))
+    permission = AsyncMock(side_effect=HTTPException(status_code=403))
+    monkeypatch.setattr(routes.PermissionService, "require_permission", permission)
+
+    with pytest.raises(HTTPException) as exc:
+        await routes.rollback(
+            uuid.uuid4(),
+            routes.RollbackBody(dry_run=dry_run),
+            db=object(),
+            user=SimpleNamespace(id=uuid.uuid4()),
+        )
+    assert exc.value.status_code == 403
+    assert permission.await_args.args[2] == "admin.events"
 
 
 @pytest.mark.asyncio

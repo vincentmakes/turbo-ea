@@ -168,12 +168,12 @@ async def close_batch(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> MutationBatchOut:
-    batch = await get_batch(db, batch_id)
+    batch = await get_batch(db, batch_id, for_update=True)
     if batch is None:
         raise HTTPException(status_code=404, detail="Mutation batch not found")
     if batch.committed_at is not None:
         raise HTTPException(status_code=409, detail="Mutation batch already committed")
-    if batch.actor_user_id and batch.actor_user_id != user.id:
+    if batch.actor_user_id != user.id:
         # Cross-actor commit would let a second user finalise a batch
         # opened by someone else and confuse the audit trail. Reject.
         raise HTTPException(status_code=403, detail="Mutation batch belongs to another user")
@@ -355,7 +355,7 @@ async def rollback(
     batch = await get_batch(db, batch_id)
     if batch is None:
         raise HTTPException(status_code=404, detail="Mutation batch not found")
-    cross_actor = bool(batch.actor_user_id and batch.actor_user_id != user.id)
+    cross_actor = batch.actor_user_id != user.id
     if cross_actor or body.force:
         await PermissionService.require_permission(db, user, "admin.events")
     if body.dry_run:

@@ -1,10 +1,11 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import WorkspaceTransferAdmin from "./WorkspaceTransferAdmin";
 
-vi.mock("@/api/client", () => ({
+vi.mock("@/api/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/api/client")>()),
   api: {
     get: vi.fn(),
     post: vi.fn(),
@@ -25,7 +26,7 @@ vi.mock("@/hooks/useCalculatedFields", () => ({
 }));
 
 import { primeBootstrap, resetBootstrap } from "@/api/bootstrap";
-import { api } from "@/api/client";
+import { api, ApiError } from "@/api/client";
 import { invalidateCalculatedFields } from "@/hooks/useCalculatedFields";
 import { invalidateCache } from "@/hooks/useMetamodel";
 
@@ -85,6 +86,76 @@ describe("WorkspaceTransferAdmin", () => {
     );
     expect(screen.getByText("Cards")).toBeInTheDocument();
   });
+
+  it("allows discarding an import interrupted while applying", async () => {
+    vi.mocked(api.upload).mockResolvedValue({
+      id: "t-interrupted",
+      filename: "ws.zip",
+      status: "parsing",
+    });
+    vi.mocked(api.get)
+      .mockResolvedValueOnce({ id: "t-interrupted", filename: "ws.zip", status: "previewed" })
+      .mockRejectedValueOnce(new TypeError("Network unavailable"))
+      .mockResolvedValueOnce({
+        id: "t-interrupted",
+        filename: "ws.zip",
+        status: "failed",
+        error_message: "Import interrupted. Changes may have been partially applied.",
+      });
+    vi.mocked(api.post).mockResolvedValue({
+      id: "t-interrupted",
+      filename: "ws.zip",
+      status: "applying",
+    });
+    vi.mocked(api.delete).mockResolvedValue(undefined);
+
+    const { container } = render(<WorkspaceTransferAdmin />);
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await userEvent.upload(fileInput, new File(["zip"], "ws.zip"));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Apply import/ }, { timeout: 4000 }),
+    );
+
+    expect(screen.getByRole("button", { name: "Discard" })).toBeDisabled();
+    expect(await screen.findByText("Network unavailable", {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Changes may have been partially applied/, {}, { timeout: 4000 }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Network unavailable")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Choose bundle/ })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: /Apply import/ })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Discard" }));
+    expect(api.delete).toHaveBeenCalledWith("/admin/workspace/import/t-interrupted");
+    expect(screen.queryByText(/Changes may have been partially applied/)).not.toBeInTheDocument();
+  }, 12000);
+
+  it("stops polling when access to a transfer is denied", async () => {
+    vi.mocked(api.upload).mockResolvedValue({ id: "t-denied", filename: "ws.zip", status: "parsing" });
+    vi.mocked(api.get).mockRejectedValue(new ApiError("Access denied", 403, null));
+
+    const { container } = render(<WorkspaceTransferAdmin />);
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await userEvent.upload(fileInput, new File(["zip"], "ws.zip"));
+    expect(await screen.findByText("Access denied", {}, { timeout: 4000 })).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 2200));
+    expect(api.get).toHaveBeenCalledTimes(1);
+  }, 8000);
+
+  it("ignores a pending poll when its import is discarded", async () => {
+    vi.mocked(api.upload).mockResolvedValue({ id: "t-discarded", filename: "ws.zip", status: "parsing" });
+    let resolvePoll!: (value: unknown) => void;
+    vi.mocked(api.get).mockReturnValue(new Promise((resolve) => { resolvePoll = resolve; }));
+    vi.mocked(api.delete).mockResolvedValue(undefined);
+
+    const { container } = render(<WorkspaceTransferAdmin />);
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await userEvent.upload(fileInput, new File(["zip"], "ws.zip"));
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(1), { timeout: 4000 });
+    await userEvent.click(screen.getByRole("button", { name: "Discard" }));
+    await act(async () => resolvePoll({ id: "t-discarded", filename: "ws.zip", status: "previewed" }));
+    expect(screen.queryByText("ws.zip")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Apply import/ })).not.toBeInTheDocument();
+  }, 8000);
 
   it("explains skips and shows an advisory when the bundle's version differs", async () => {
     (api.upload as ReturnType<typeof vi.fn>).mockResolvedValue({
