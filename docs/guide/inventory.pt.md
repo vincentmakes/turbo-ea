@@ -16,6 +16,7 @@ O painel lateral esquerdo permite **filtrar** cards por diferentes critérios:
 - **Status de Aprovação** — Rascunho, Aprovado, Quebrado ou Rejeitado
 - **Origem** — O canal pelo qual cada card foi criado: **Interface web**, **MCP** (um assistente de IA conectado pelo [servidor MCP](../admin/mcp.md)), **API** (um script ou integração), **Extensão** ou **Sistema** (uma tarefa em segundo plano). Escolha **MCP** para revisar tudo o que um agente adicionou. Cards criados antes de o Turbo EA registrar o canal não correspondem a nenhuma das opções
 - **Ciclo de Vida** — Filtrar por fase do ciclo de vida: Planejamento, Implantação, Ativo, Desativação, Fim de Vida
+- **Fase atual** — Selecione um tipo de card com [fases do ciclo de vida configuradas](../admin/metamodel.md#lifecycle-stages) e, em seguida, as fases que pretende ver. O filtro usa a fase registada em cada card.
 - **Qualidade dos Dados** — Filtragem por faixa (seleção múltipla): Completo (≥80%), Parcial (40-79%), Mínimo (abaixo de 40%). São as faixas do [relatório Qualidade dos dados](reports.md#data-quality-report): clicar num segmento de barra leva até aqui.
 - **Órfãs** — Apenas fichas sem qualquer relação, em ambos os sentidos. Avaliado no servidor, pelo que funciona sem um tipo selecionado.
 - **Desatualizadas** — Apenas fichas não atualizadas nos últimos 90 dias. Ambas espelham os blocos do [relatório Qualidade dos dados](reports.md#data-quality-report): clicar num bloco leva até aqui.

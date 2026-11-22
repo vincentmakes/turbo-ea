@@ -3151,5 +3151,14 @@
   "metamodel.principles.reference": "Referência",
   "metamodel.principles.import.title": "Importar princípios de AE",
   "metamodel.principles.import.intro": "Carregue um ficheiro .xlsx para criar ou atualizar princípios em massa. Cada linha é associada a um princípio existente primeiro pela referência (P-001) e depois pelo título; um princípio associado é atualizado com os valores que diferem e qualquer outra linha cria um novo princípio. Uma coluna ausente da folha deixa o campo inalterado, e uma célula de texto vazia limpa-o, enquanto uma célula is_active ou sort_order vazia deixa esse valor como está.",
-  "metamodel.principles.import.skippedHint": "Estas linhas correspondem a um princípio existente e não alteram nada."
+  "metamodel.principles.import.skippedHint": "Estas linhas correspondem a um princípio existente e não alteram nada.",
+  "metamodel.lifecycleStages.title": "Fases do ciclo de vida",
+  "metamodel.lifecycleStages.help": "Defina as fases ordenadas que podem ser atribuídas aos cards deste tipo.",
+  "metamodel.lifecycleStages.edit": "Editar fases do ciclo de vida",
+  "metamodel.lifecycleStages.add": "Adicionar fase",
+  "metamodel.lifecycleStages.keyLocked": "Os cards já guardam esta chave, pelo que não pode ser renomeada.",
+  "metamodel.lifecycleStages.moveUp": "Mover fase para cima",
+  "metamodel.lifecycleStages.moveDown": "Mover fase para baixo",
+  "metamodel.lifecycleStages.inUse": "Há cards que ainda usam uma fase removida. Altere esses cards antes de remover a fase.",
+  "metamodel.lifecycleStages.saveFailed": "Não foi possível guardar as fases do ciclo de vida."
 }

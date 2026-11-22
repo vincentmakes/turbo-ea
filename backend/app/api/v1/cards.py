@@ -185,6 +185,7 @@ def _card_to_response(
         parent_id=str(card.parent_id) if card.parent_id else None,
         parent_label=card.parent_label,
         lifecycle=card.lifecycle,
+        lifecycle_stage=card.lifecycle_stage,
         attributes=attributes,
         status=card.status,
         approval_status=card.approval_status,
@@ -290,6 +291,9 @@ async def list_cards(
     search: str | None = Query(None, max_length=200),
     parent_id: str | None = Query(None),
     approval_status: str | None = Query(None),
+    lifecycle_stage: str | None = Query(
+        None, max_length=2550, description="Comma-separated current stages, or __empty__."
+    ),
     mine: str | None = Query(
         None,
         pattern="^(stakeholder)$",
@@ -444,6 +448,17 @@ async def list_cards(
         statuses = [s.strip() for s in approval_status.split(",") if s.strip()]
         q = q.where(Card.approval_status.in_(statuses))
         count_q = count_q.where(Card.approval_status.in_(statuses))
+    if lifecycle_stage:
+        stages = [stage.strip() for stage in lifecycle_stage.split(",") if stage.strip()]
+        if len(stages) > 50:
+            raise HTTPException(400, "Too many lifecycle stages")
+        stage_values = [stage for stage in stages if stage != "__empty__"]
+        conditions = [Card.lifecycle_stage.in_(stage_values)] if stage_values else []
+        if "__empty__" in stages:
+            conditions.append(Card.lifecycle_stage.is_(None))
+        condition = or_(*conditions) if conditions else Card.id.in_([])
+        q = q.where(condition)
+        count_q = count_q.where(condition)
     if mine == "stakeholder":
         mine_cards_sq = select(Stakeholder.card_id).where(Stakeholder.user_id == user.id).distinct()
         q = q.where(Card.id.in_(mine_cards_sq))
@@ -1894,6 +1909,8 @@ async def bulk_update(
             "Not enough permissions to edit cards of type: " + ", ".join(denied_types),
         )
     updates = body.updates.model_dump(exclude_unset=True)
+    if "lifecycle_stage" in updates:
+        raise HTTPException(400, "Lifecycle stages cannot be edited in bulk")
     strict_attrs = updates.pop("strict_attributes", False)
     if "subtype" in updates and any(
         card.type == "DataObject"

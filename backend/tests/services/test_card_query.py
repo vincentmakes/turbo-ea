@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import re
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
@@ -836,7 +837,7 @@ class TestResolve:
         raw = _q("Organization", _hop(USES, "Application", where={"subtype": ["micro"]}))
         seen = await self._statements(db, monkeypatch, raw)
         assert len(seen) == 2
-        assert not [s for s in seen if "tag" in s]
+        assert not [s for s in seen if re.search(r"\b(?:tags|tag_groups|card_tags)\b", s)]
 
     async def test_every_tag_in_the_tree_loads_in_one_query(self, db, land, monkeypatch):
         raw = _q(
@@ -2247,7 +2248,11 @@ class TestStackResolve:
         raw = _any(_all(APP_ACTIVE, APP_AFFECTED), ORG_LINE)
         seen = await self._statements(db, monkeypatch, raw, CardReadScope.everything())
         assert len(seen) == 2
-        assert not [s for s in seen if "tag" in s or "FROM cards" in s]
+        assert not [
+            s
+            for s in seen
+            if re.search(r"\b(?:tags|tag_groups|card_tags)\b", s) or "FROM cards" in s
+        ]
 
     async def test_the_tags_of_every_line_resolve(self, db, land):
         raw = _any(

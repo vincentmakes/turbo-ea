@@ -343,5 +343,6 @@
   "filter.eol": "Fine vita",
   "filter.linkType": "Tipo di collegamento",
   "filter.eolManual": "Gestito manualmente",
-  "massEdit.rel.attributesHint": "Applicati a ogni collegamento aggiunto. Anche le schede già collegate a una destinazione scelta ricevono questi dettagli; i dettagli lasciati vuoti restano invariati."
+  "massEdit.rel.attributesHint": "Applicati a ogni collegamento aggiunto. Anche le schede già collegate a una destinazione scelta ricevono questi dettagli; i dettagli lasciati vuoti restano invariati.",
+  "filter.currentStage": "Fase attuale"
 }

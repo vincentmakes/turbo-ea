@@ -5290,6 +5290,17 @@
             ],
             "title": "Lifecycle"
           },
+          "lifecycle_stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lifecycle Stage"
+          },
           "logo_updated_at": {
             "anyOf": [
               {
@@ -5795,6 +5806,18 @@
               }
             ],
             "title": "Lifecycle"
+          },
+          "lifecycle_stage": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lifecycle Stage"
           },
           "name": {
             "anyOf": [
@@ -10611,6 +10634,54 @@
           "phases"
         ],
         "title": "LifecyclePhaseHelpPayload",
+        "type": "object"
+      },
+      "LifecycleStage": {
+        "additionalProperties": false,
+        "properties": {
+          "color": {
+            "pattern": "^#[0-9a-fA-F]{6}$",
+            "title": "Color",
+            "type": "string"
+          },
+          "key": {
+            "maxLength": 50,
+            "minLength": 1,
+            "pattern": "^[A-Za-z][A-Za-z0-9_]*$",
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "color"
+        ],
+        "title": "LifecycleStage",
+        "type": "object"
+      },
+      "LifecycleStagesUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/LifecycleStage"
+            },
+            "maxItems": 50,
+            "title": "Stages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "stages"
+        ],
+        "title": "LifecycleStagesUpdate",
         "type": "object"
       },
       "LoginBrandingPayload": {
@@ -29545,6 +29616,25 @@
             }
           },
           {
+            "description": "Comma-separated current stages, or __empty__.",
+            "in": "query",
+            "name": "lifecycle_stage",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 2550,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated current stages, or __empty__.",
+              "title": "Lifecycle Stage"
+            }
+          },
+          {
             "description": "Scope the result to cards related to the current user. `stakeholder` keeps only cards on which the user holds at least one stakeholder role.",
             "in": "query",
             "name": "mine",
@@ -39280,6 +39370,56 @@
           }
         },
         "summary": "Get Hierarchy Label Usage",
+        "tags": [
+          "metamodel"
+        ]
+      }
+    },
+    "/api/v1/metamodel/types/{key}/lifecycle-stages": {
+      "put": {
+        "operationId": "put_lifecycle_stages_api_v1_metamodel_types__key__lifecycle_stages_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LifecycleStagesUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Lifecycle Stages",
         "tags": [
           "metamodel"
         ]

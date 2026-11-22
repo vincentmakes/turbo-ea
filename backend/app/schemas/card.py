@@ -107,6 +107,7 @@ class CardUpdate(BaseModel):
     # ``null`` clears it. Clearing ``parent_id`` clears it either way.
     parent_label: str | None = None
     lifecycle: dict | None = None
+    lifecycle_stage: str | None = Field(None, max_length=50)
     attributes: dict | None = None
     status: str | None = None
     external_id: str | None = None
@@ -170,6 +171,7 @@ class CardResponse(BaseModel):
     parent_id: str | None = None
     parent_label: str | None = None
     lifecycle: dict | None = None
+    lifecycle_stage: str | None = None
     attributes: dict | None = None
     status: str
     approval_status: str

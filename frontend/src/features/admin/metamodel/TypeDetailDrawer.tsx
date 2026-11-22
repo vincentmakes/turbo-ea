@@ -44,6 +44,7 @@ import CardTypePermissionsPanel from "./CardTypePermissionsPanel";
 import TranslationDialog from "./TranslationDialog";
 import RelationsTabContent from "./RelationsTabContent";
 import DeleteTypeDialog from "./DeleteTypeDialog";
+import LifecycleStagesDialog from "./LifecycleStagesDialog";
 import { STATUS_COLORS, brand, RAG_COLORS } from "@/theme/tokens";
 import CategoryCombobox from "./CategoryCombobox";
 import { categoryErrorCode, categoryErrorMessage } from "./categoryErrors";
@@ -118,6 +119,7 @@ export default function TypeDetailDrawer({
   const [generateConfirm, setGenerateConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [lifecycleStagesOpen, setLifecycleStagesOpen] = useState(false);
   const [snack, setSnack] = useState("");
   // One type-level write at a time (a subtype, a field, a section, the
   // visibility). A write that changes the scoring configuration re-scores
@@ -960,6 +962,26 @@ export default function TypeDetailDrawer({
               )}
             </Box>
           </Box>
+        </Box>
+
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle1" fontWeight={700}>
+            {t("metamodel.lifecycleStages.title")}
+          </Typography>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, my: 1 }}>
+            {(cardTypeKey.lifecycle_stages ?? []).map((stage) => (
+              <Chip key={stage.key} label={stage.label} size="small" />
+            ))}
+          </Box>
+          <Button size="small" onClick={() => setLifecycleStagesOpen(true)}>
+            {t("metamodel.lifecycleStages.edit")}
+          </Button>
+          <LifecycleStagesDialog
+            open={lifecycleStagesOpen}
+            cardType={cardTypeKey}
+            onClose={() => setLifecycleStagesOpen(false)}
+            onSaved={onRefresh}
+          />
         </Box>
 
         {/* -- Subtypes -- */}

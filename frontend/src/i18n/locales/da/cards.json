@@ -834,5 +834,7 @@
   "licensing.errors.archived_metric": "Denne licensmåling er arkiveret og kan ikke føjes til et år.",
   "licensing.errors.invalid_count": "Antal skal være hele tal fra 0 til 1.000.000.000.",
   "licensing.errors.forecast_actual": "Forecast-året tager kun imod licenserede antal.",
-  "licensing.errors.year_out_of_range": "Dette regnskabsår ligger uden for det redigerbare vindue."
+  "licensing.errors.year_out_of_range": "Dette regnskabsår ligger uden for det redigerbare vindue.",
+  "lifecycle.currentStage": "Aktuel fase",
+  "lifecycle.noCurrentStage": "Ikke angivet"
 }

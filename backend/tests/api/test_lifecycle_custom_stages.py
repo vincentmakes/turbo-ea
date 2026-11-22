@@ -1,0 +1,106 @@
+from __future__ import annotations
+
+import json
+
+import pytest
+from sqlalchemy import select
+
+from app.core.permissions import VIEWER_PERMISSIONS
+from app.models.event import Event
+from tests.conftest import auth_headers, create_card, create_card_type, create_role, create_user
+
+
+@pytest.fixture
+async def stages_env(db):
+    await create_role(db, key="admin", label="Admin", permissions={"*": True})
+    await create_role(db, key="viewer", label="Viewer", permissions=VIEWER_PERMISSIONS)
+    admin = await create_user(db, email="stages-admin@test.com", role="admin")
+    viewer = await create_user(db, email="stages-viewer@test.com", role="viewer")
+    await create_card_type(db, key="Application", label="Application")
+    return admin, viewer
+
+
+STAGES = [{"key": "testing", "label": "Testing", "color": "#4578bb"}]
+
+
+async def test_admin_configures_stages_and_viewer_cannot_change_them(client, stages_env):
+    admin, viewer = stages_env
+    url = "/api/v1/metamodel/types/Application/lifecycle-stages"
+    denied = await client.put(url, json={"stages": STAGES}, headers=auth_headers(viewer))
+    assert denied.status_code == 403
+    invalid = await client.put(url, json={"stages": STAGES + STAGES}, headers=auth_headers(admin))
+    assert invalid.status_code == 422
+    blank = await client.put(
+        url,
+        json={"stages": [{"key": "blank", "label": "   ", "color": "#4578bb"}]},
+        headers=auth_headers(admin),
+    )
+    assert blank.status_code == 422
+    saved = await client.put(url, json={"stages": STAGES}, headers=auth_headers(admin))
+    assert saved.status_code == 200
+    loaded = await client.get("/api/v1/metamodel/types/Application", headers=auth_headers(viewer))
+    assert loaded.json()["lifecycle_stages"] == STAGES
+
+
+async def test_card_stage_filter_and_clear_preserve_dates_and_attributes(client, db, stages_env):
+    admin, viewer = stages_env
+    headers = auth_headers(admin)
+    url = "/api/v1/metamodel/types/Application/lifecycle-stages"
+    assert (await client.put(url, json={"stages": STAGES}, headers=headers)).status_code == 200
+    original_lifecycle = {"active": "2025-03-01", "endOfLife": "2030-12-31"}
+    original_attributes = {"other": "unchanged", "costTotalAnnual": 120000}
+    card = await create_card(
+        db,
+        card_type="Application",
+        name="Document System",
+        user_id=admin.id,
+        lifecycle=original_lifecycle,
+        attributes=original_attributes,
+    )
+    other = await create_card(db, card_type="Application", name="Other App", user_id=admin.id)
+    bad = await client.patch(
+        f"/api/v1/cards/{card.id}", json={"lifecycle_stage": "unknown"}, headers=headers
+    )
+    assert bad.status_code in (400, 422)
+    denied = await client.patch(
+        f"/api/v1/cards/{card.id}",
+        json={"lifecycle_stage": "testing"},
+        headers=auth_headers(viewer),
+    )
+    assert denied.status_code == 403
+    changed = await client.patch(
+        f"/api/v1/cards/{card.id}", json={"lifecycle_stage": "testing"}, headers=headers
+    )
+    assert changed.status_code == 200
+    assert changed.json()["lifecycle_stage"] == "testing"
+    assert changed.json()["lifecycle"] == original_lifecycle
+    assert changed.json()["attributes"] == original_attributes
+    event = await db.scalar(
+        select(Event).where(Event.card_id == card.id, Event.event_type == "card.updated")
+    )
+    assert event.data["changes"]["lifecycle_stage"] == {"old": None, "new": "testing"}
+    query = {"type": "Application", "where": {"lifecycle_stage": ["testing"]}}
+    found = await client.get("/api/v1/cards", params={"query": json.dumps(query)}, headers=headers)
+    assert found.status_code == 200
+    assert [entry["id"] for entry in found.json()["items"]] == [str(card.id)]
+    assert str(other.id) not in [entry["id"] for entry in found.json()["items"]]
+    direct = await client.get(
+        "/api/v1/cards",
+        params={"type": "Application", "lifecycle_stage": "testing"},
+        headers=headers,
+    )
+    assert direct.status_code == 200
+    assert [entry["id"] for entry in direct.json()["items"]] == [str(card.id)]
+    missing = await client.get(
+        "/api/v1/cards",
+        params={"type": "Application", "lifecycle_stage": "__empty__"},
+        headers=headers,
+    )
+    assert [entry["id"] for entry in missing.json()["items"]] == [str(other.id)]
+    blocked = await client.put(url, json={"stages": []}, headers=headers)
+    assert blocked.status_code == 409
+    cleared = await client.patch(
+        f"/api/v1/cards/{card.id}", json={"lifecycle_stage": None}, headers=headers
+    )
+    assert cleared.json()["lifecycle_stage"] is None
+    assert (await client.put(url, json={"stages": []}, headers=headers)).status_code == 200

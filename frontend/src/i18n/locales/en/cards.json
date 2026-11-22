@@ -834,5 +834,7 @@
   "licensing.errors.archived_metric": "This license metric is archived and cannot be added to a year.",
   "licensing.errors.invalid_count": "Counts must be whole numbers from 0 to 1,000,000,000.",
   "licensing.errors.forecast_actual": "The Forecast year takes licensed counts only.",
-  "licensing.errors.year_out_of_range": "This fiscal year is outside the editable window."
+  "licensing.errors.year_out_of_range": "This fiscal year is outside the editable window.",
+  "lifecycle.currentStage": "Current stage",
+  "lifecycle.noCurrentStage": "Not stated"
 }

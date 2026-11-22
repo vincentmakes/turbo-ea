@@ -834,5 +834,7 @@
   "licensing.errors.archived_metric": "此许可证指标已归档，无法添加到某一年。",
   "licensing.errors.invalid_count": "数量必须是 0 到 1,000,000,000 之间的整数。",
   "licensing.errors.forecast_actual": "Forecast 年度只接受授权数量。",
-  "licensing.errors.year_out_of_range": "此财年超出可编辑范围。"
+  "licensing.errors.year_out_of_range": "此财年超出可编辑范围。",
+  "lifecycle.currentStage": "当前阶段",
+  "lifecycle.noCurrentStage": "未注明"
 }

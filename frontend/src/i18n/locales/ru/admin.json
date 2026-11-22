@@ -3281,5 +3281,14 @@
   "metamodel.principles.reference": "Номер",
   "metamodel.principles.import.title": "Импорт принципов ЕА",
   "metamodel.principles.import.intro": "Загрузите файл .xlsx, чтобы массово создать или обновить принципы. Каждая строка сопоставляется с существующим принципом сначала по номеру (P-001), затем по названию; сопоставленный принцип обновляется отличающимися значениями, а любая другая строка создаёт новый принцип. Столбец, отсутствующий в таблице, оставляет поле без изменений, а пустая текстовая ячейка очищает его, тогда как пустая ячейка is_active или sort_order оставляет это значение как есть.",
-  "metamodel.principles.import.skippedHint": "Эти строки совпадают с существующим принципом и ничего не меняют."
+  "metamodel.principles.import.skippedHint": "Эти строки совпадают с существующим принципом и ничего не меняют.",
+  "metamodel.lifecycleStages.title": "Этапы жизненного цикла",
+  "metamodel.lifecycleStages.help": "Задайте упорядоченный список этапов, которые можно назначать карточкам этого типа.",
+  "metamodel.lifecycleStages.edit": "Изменить этапы жизненного цикла",
+  "metamodel.lifecycleStages.add": "Добавить этап",
+  "metamodel.lifecycleStages.keyLocked": "Карточки уже хранят этот ключ, поэтому его нельзя переименовать.",
+  "metamodel.lifecycleStages.moveUp": "Переместить этап вверх",
+  "metamodel.lifecycleStages.moveDown": "Переместить этап вниз",
+  "metamodel.lifecycleStages.inUse": "Карточки всё ещё используют удалённый этап. Измените эти карточки, прежде чем удалять этап.",
+  "metamodel.lifecycleStages.saveFailed": "Не удалось сохранить этапы жизненного цикла."
 }

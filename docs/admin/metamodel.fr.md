@@ -218,6 +218,12 @@ Cliquez sur le bouton **Traduire** dans la barre d'outils du tiroir de type pour
 
 Les traductions sont stockées avec chaque type de fiche et sont résolues au moment du rendu en fonction de la langue sélectionnée par l'utilisateur. Les libellés non traduits utilisent la valeur anglaise par défaut.
 
+### Étapes du cycle de vie { #lifecycle-stages }
+
+Ouvrez un type de fiche sous **Admin → Métamodèle → Types de fiches**, puis choisissez **Étapes du cycle de vie** pour configurer les étapes disponibles sur ses fiches. Par exemple, ajoutez **Test** et **Déploiement limité** au type Application. Chaque étape possède une clé, un libellé et une couleur. Classez les étapes dans l'ordre où vous souhaitez les afficher.
+
+Après l'enregistrement, les personnes qui modifient une fiche peuvent sélectionner son **Étape actuelle** dans la section Cycle de vie. Dans l'Inventaire, vous pouvez filtrer les fiches du type sélectionné selon leur étape actuelle. Une étape attribuée à une fiche ne peut être supprimée qu'après avoir effacé ou modifié ses attributions.
+
 ### Suppression d'un type
 
 - Les **types intégrés** sont masqués (suppression logique) et peuvent être restaurés. Le bouton de suppression de l'éditeur de type est verrouillé pour eux — utilisez **Masquer le type** à la place.

@@ -834,5 +834,7 @@
   "licensing.errors.archived_metric": "Esta métrica de licença está arquivada e não pode ser adicionada a um ano.",
   "licensing.errors.invalid_count": "As quantidades têm de ser números inteiros de 0 a 1.000.000.000.",
   "licensing.errors.forecast_actual": "O ano Forecast só aceita quantidades licenciadas.",
-  "licensing.errors.year_out_of_range": "Este ano fiscal está fora do período editável."
+  "licensing.errors.year_out_of_range": "Este ano fiscal está fora do período editável.",
+  "lifecycle.currentStage": "Fase atual",
+  "lifecycle.noCurrentStage": "Não indicada"
 }

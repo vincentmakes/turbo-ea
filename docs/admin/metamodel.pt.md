@@ -218,6 +218,12 @@ Clique no botão **Traduzir** na barra de ferramentas do drawer do tipo para abr
 
 As traduções são armazenadas junto com cada tipo de card e são resolvidas no momento da renderização de acordo com o idioma selecionado pelo usuário. Rótulos não traduzidos recorrem ao padrão em inglês.
 
+### Fases do ciclo de vida { #lifecycle-stages }
+
+Abra um tipo de card em **Administração → Metamodelo → Tipos de card** e escolha **Fases do ciclo de vida** para configurar as fases disponíveis. Por exemplo, adicione **Testes** e **Implementação limitada** ao tipo Application. Cada fase tem uma chave, uma etiqueta e uma cor. Ordene-as pela ordem pretendida.
+
+Depois de guardar, quem edita um card pode selecionar a **Fase atual** na secção Ciclo de vida. No Inventário, filtre os cards do tipo selecionado pela fase atual. Uma fase atribuída só pode ser removida depois de eliminar ou alterar as atribuições.
+
 ### Excluindo um Tipo
 
 - **Tipos incorporados** são excluídos temporariamente (ocultos) e podem ser restaurados. O botão de excluir no editor de tipos fica bloqueado para eles — use **Ocultar tipo** em vez disso.

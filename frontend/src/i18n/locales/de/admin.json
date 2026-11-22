@@ -3151,5 +3151,14 @@
   "metamodel.principles.reference": "Referenz",
   "metamodel.principles.import.title": "EA-Prinzipien importieren",
   "metamodel.principles.import.intro": "Laden Sie eine .xlsx-Datei hoch, um Prinzipien gesammelt anzulegen oder zu aktualisieren. Jede Zeile wird zuerst anhand ihrer Referenz (P-001), dann anhand des Titels einem vorhandenen Prinzip zugeordnet; ein zugeordnetes Prinzip wird mit den abweichenden Werten aktualisiert, jede andere Zeile legt ein neues Prinzip an. Eine in der Tabelle fehlende Spalte lässt das Feld unverändert, eine leere Textzelle leert es, eine leere is_active- oder sort_order-Zelle lässt diesen Wert dagegen unverändert.",
-  "metamodel.principles.import.skippedHint": "Diese Zeilen entsprechen einem vorhandenen Prinzip und ändern nichts."
+  "metamodel.principles.import.skippedHint": "Diese Zeilen entsprechen einem vorhandenen Prinzip und ändern nichts.",
+  "metamodel.lifecycleStages.title": "Lebenszyklusphasen",
+  "metamodel.lifecycleStages.help": "Legen Sie die geordneten Phasen fest, die Karten dieses Typs zugewiesen werden können.",
+  "metamodel.lifecycleStages.edit": "Lebenszyklusphasen bearbeiten",
+  "metamodel.lifecycleStages.add": "Phase hinzufügen",
+  "metamodel.lifecycleStages.keyLocked": "Karten speichern bereits diesen Schlüssel; er kann daher nicht umbenannt werden.",
+  "metamodel.lifecycleStages.moveUp": "Phase nach oben verschieben",
+  "metamodel.lifecycleStages.moveDown": "Phase nach unten verschieben",
+  "metamodel.lifecycleStages.inUse": "Eine entfernte Phase wird noch von Karten verwendet. Ändern Sie diese Karten, bevor Sie die Phase entfernen.",
+  "metamodel.lifecycleStages.saveFailed": "Lebenszyklusphasen konnten nicht gespeichert werden."
 }

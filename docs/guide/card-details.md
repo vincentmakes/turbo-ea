@@ -98,6 +98,8 @@ The lifecycle model tracks a component through five phases:
 
 Each phase has a **date picker** so you can record when the component entered or will enter that phase. A visual timeline bar shows the component's position in its lifecycle.
 
+If your administrator configured [lifecycle stages](../admin/metamodel.md#lifecycle-stages) for the card type, **Current stage** records where the card is today. For example, select **Testing** while the go-live date is still undecided. The current stage and the timeline dates are saved separately.
+
 If a phase is dated after a phase that should follow it — for example **Phase Out** after **End of Life** — a warning icon appears next to that date, and the same warning shows under the field while editing. It is only a hint: the dates can still be saved as entered.
 
 An info icon beside each phase on the timeline explains what the phase means — hover over it to read the definition. It shows a default explanation unless your administrator changed it to describe how your organisation uses the phase, or removed it. The timeline, with its icons, stays on screen while you edit the dates. The texts are set under **Admin → Metamodel → Lifecycle phases** (see [Lifecycle phases](../admin/metamodel.md#lifecycle-phases)).

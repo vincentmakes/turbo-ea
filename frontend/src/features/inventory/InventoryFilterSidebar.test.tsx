@@ -65,6 +65,7 @@ const EMPTY_FILTERS: Filters = {
   search: "",
   subtypes: [],
   lifecyclePhases: [],
+  lifecycleStages: [],
   dataQualityBands: [],
   approvalStatuses: [],
   showArchived: false,
@@ -705,6 +706,20 @@ describe("InventoryFilterSidebar — subtype, approval, lifecycle, quality chips
     fireEvent.click(chip("Active"));
     expect(last().lifecyclePhases).toEqual([EMPTY_VALUE]);
     expect(chip("(empty)")).toHaveClass("MuiChip-filled");
+  });
+
+  it("filters the selected type by its custom current stage", async () => {
+    const type = makeCardType({
+      key: "Application",
+      lifecycle_stages: [{ key: "testing", label: "Testing", color: "#123456" }],
+    });
+    const { last } = await renderSidebar({
+      types: [type],
+      initialFilters: { types: ["Application"] },
+    });
+    expandSection("Current stage");
+    fireEvent.click(chip("Testing"));
+    expect(last().lifecycleStages).toEqual(["testing"]);
   });
 
   it("toggles data-quality bands", async () => {
@@ -1667,6 +1682,7 @@ describe("InventoryFilterSidebar — save dialog", () => {
         search: "erp",
         subtypes: [],
         lifecyclePhases: [],
+        lifecycleStages: [],
         dataQualityBands: [],
         approvalStatuses: [],
         showArchived: false,
@@ -2929,6 +2945,7 @@ describe("InventoryFilterSidebar — per-section clear, every section", () => {
     search: "erp",
     subtypes: ["microservice"],
     lifecyclePhases: ["active"],
+    lifecycleStages: ["testing"],
     dataQualityBands: ["complete"],
     approvalStatuses: ["APPROVED"],
     showArchived: true,
@@ -2950,6 +2967,7 @@ describe("InventoryFilterSidebar — per-section clear, every section", () => {
       {
         types: [],
         subtypes: [],
+        lifecycleStages: [],
         attributes: {},
         relations: {},
         eolStatuses: [],

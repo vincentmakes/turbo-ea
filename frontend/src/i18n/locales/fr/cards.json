@@ -834,5 +834,7 @@
   "licensing.errors.archived_metric": "Cet indicateur de licence est archivé et ne peut pas être ajouté à une année.",
   "licensing.errors.invalid_count": "Les quantités doivent être des nombres entiers de 0 à 1 000 000 000.",
   "licensing.errors.forecast_actual": "L'exercice Forecast n'accepte que des quantités sous licence.",
-  "licensing.errors.year_out_of_range": "Cet exercice est en dehors de la fenêtre modifiable."
+  "licensing.errors.year_out_of_range": "Cet exercice est en dehors de la fenêtre modifiable.",
+  "lifecycle.currentStage": "Étape actuelle",
+  "lifecycle.noCurrentStage": "Non renseignée"
 }

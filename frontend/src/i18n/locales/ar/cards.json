@@ -1010,5 +1010,7 @@
   "licensing.errors.archived_metric": "مقياس الترخيص هذا مؤرشف ولا يمكن إضافته إلى سنة.",
   "licensing.errors.invalid_count": "يجب أن تكون الأعداد أعدادًا صحيحة من 0 إلى 1,000,000,000.",
   "licensing.errors.forecast_actual": "تقبل سنة Forecast الأعداد المرخّصة فقط.",
-  "licensing.errors.year_out_of_range": "هذه السنة المالية خارج نطاق التعديل."
+  "licensing.errors.year_out_of_range": "هذه السنة المالية خارج نطاق التعديل.",
+  "lifecycle.currentStage": "المرحلة الحالية",
+  "lifecycle.noCurrentStage": "غير محددة"
 }

@@ -40,6 +40,7 @@ export function bookmarkFilters(bm: Bookmark): Filters | null {
     search: src.search || "",
     subtypes: src.subtypes || [],
     lifecyclePhases: src.lifecyclePhases || [],
+    lifecycleStages: src.lifecycleStages || [],
     // Views saved before bands existed carry a `dataQualityMin` threshold.
     dataQualityBands: normalizeDataQualityFilter(src),
     approvalStatuses: src.approvalStatuses || [],
@@ -183,6 +184,7 @@ export function emptyFilters(): Filters {
     search: "",
     subtypes: [],
     lifecyclePhases: [],
+    lifecycleStages: [],
     dataQualityBands: [],
     approvalStatuses: [],
     showArchived: false,
@@ -209,6 +211,7 @@ export function hasActiveFacets(filters: Filters): boolean {
     filters.search !== "" ||
     filters.subtypes.length > 0 ||
     filters.lifecyclePhases.length > 0 ||
+    (filters.lifecycleStages?.length ?? 0) > 0 ||
     filters.dataQualityBands.length > 0 ||
     filters.approvalStatuses.length > 0 ||
     filters.showArchived ||

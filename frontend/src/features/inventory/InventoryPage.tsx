@@ -1018,6 +1018,7 @@ function filtersFromPrefs(saved: InventoryPrefs | null): Filters {
     search: f?.search || "",
     subtypes: f?.subtypes || [],
     lifecyclePhases: f?.lifecyclePhases || [],
+    lifecycleStages: f?.lifecycleStages || [],
     // Prefs written before bands existed carry a `dataQualityMin`.
     dataQualityBands: normalizeDataQualityFilter(f),
     approvalStatuses: f?.approvalStatuses || [],
@@ -1137,6 +1138,7 @@ export default function InventoryPage() {
         // fetched page — GET /cards has no subtype param).
         subtypes: searchParams.getAll("subtype"),
         lifecyclePhases: [],
+        lifecycleStages: [],
         dataQualityBands: searchParams.getAll("dq").filter(isDataQualityBand),
         approvalStatuses: searchParams.get("approval_status") ? [searchParams.get("approval_status")!] : [],
         showArchived: searchParams.get("show_archived") === "true",
@@ -2156,6 +2158,9 @@ export default function InventoryPage() {
         if (filters.staleOnly) {
           params.set("stale", "true");
         }
+        if (filters.lifecycleStages?.length && filters.types.length === 1) {
+          params.set("lifecycle_stage", filters.lifecycleStages.join(","));
+        }
         // One origin narrows on the server; several are applied client-side
         // (GET /cards takes a single `created_via`), like the audit log does.
         if (filters.origins?.length === 1) {
@@ -2203,6 +2208,7 @@ export default function InventoryPage() {
     filters.mineScope,
     filters.orphanedOnly,
     filters.staleOnly,
+    filters.lifecycleStages,
     filters.origins,
   ]);
 

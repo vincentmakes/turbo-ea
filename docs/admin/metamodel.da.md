@@ -217,6 +217,12 @@ Klik på knappen **Oversæt** i typepanelets værktøjslinje for at åbne **Over
 
 Oversættelser gemmes sammen med hver korttype og opløses ved render-tid ved hjælp af brugerens valgte lokalitet. Uoversatte etiketter falder tilbage til den engelske standard.
 
+### Livscyklusfaser { #lifecycle-stages }
+
+Åbn en korttype under **Administration → Metamodel → Korttyper**, og vælg **Livscyklusfaser** for at konfigurere de faser, der er tilgængelige på dens kort. Føj for eksempel **Test** og **Begrænset udrulning** til typen Application. Hver fase har en nøgle, en etiket og en farve. Sortér dem i den ønskede rækkefølge.
+
+Når du har gemt, kan redaktører vælge **Aktuel fase** i kortets livscyklussektion. I Inventar kan du filtrere kort af den valgte type efter deres aktuelle fase. En tildelt fase kan først fjernes, når tildelingerne er ryddet eller ændret.
+
 ### Sletning af en type
 
 - **Indbyggede typer** soft-slettes (skjules) og kan gendannes. Slet-knappen i typeeditoren er låst for dem — brug **Skjul type** i stedet.

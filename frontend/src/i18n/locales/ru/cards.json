@@ -922,5 +922,7 @@
   "licensing.errors.archived_metric": "Этот показатель лицензий в архиве и не может быть добавлен в год.",
   "licensing.errors.invalid_count": "Количества должны быть целыми числами от 0 до 1 000 000 000.",
   "licensing.errors.forecast_actual": "Год Forecast принимает только лицензированные количества.",
-  "licensing.errors.year_out_of_range": "Этот финансовый год вне редактируемого периода."
+  "licensing.errors.year_out_of_range": "Этот финансовый год вне редактируемого периода.",
+  "lifecycle.currentStage": "Текущий этап",
+  "lifecycle.noCurrentStage": "Не указан"
 }

@@ -195,6 +195,7 @@ class CardWhere(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     lifecycle_phase: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
+    lifecycle_stage: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
     subtype: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
     approval_status: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
     data_quality_band: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
@@ -388,7 +389,13 @@ def stored_card_ids(stored: Any) -> set[uuid.UUID]:
 
 
 def _where_problem(where: CardWhere) -> str | None:
-    lists = [where.lifecycle_phase, where.subtype, where.approval_status, where.tags]
+    lists = [
+        where.lifecycle_phase,
+        where.lifecycle_stage,
+        where.subtype,
+        where.approval_status,
+        where.tags,
+    ]
     lists.extend((where.cards, where.data_quality_band, where.eol_status))
     lists.extend((where.attributes or {}).values())
     if any(values is not None and not values for values in lists):
@@ -542,6 +549,10 @@ def _check_where(where: CardWhere | None, card_type: Any) -> dict[str, str]:
         known = {s.get("key") for s in card_type.subtypes or [] if isinstance(s, dict)}
         if any(v != EMPTY_KEY and v not in known for v in where.subtype):
             raise CardQueryError("unknown_subtype")
+    if where.lifecycle_stage:
+        known = {s["key"] for s in card_type.lifecycle_stages or []}
+        if any(v != EMPTY_KEY and v not in known for v in where.lifecycle_stage):
+            raise CardQueryError("unknown_lifecycle_stage")
     for key, values in (where.attributes or {}).items():
         if key not in types:
             raise CardQueryError("unknown_field")
@@ -791,6 +802,12 @@ def where_conditions(
             options.append(phase.in_(real))
         if NO_PHASE in where.lifecycle_phase:
             options.append(phase.is_(None))
+        clauses.append(or_(*options))
+    if where.lifecycle_stage:
+        keys = [key for key in where.lifecycle_stage if key != EMPTY_KEY]
+        options = [card.lifecycle_stage.in_(keys)] if keys else []
+        if EMPTY_KEY in where.lifecycle_stage:
+            options.append(card.lifecycle_stage.is_(None))
         clauses.append(or_(*options))
     if where.subtype:
         clauses.append(subtype_condition(where.subtype, card=card))

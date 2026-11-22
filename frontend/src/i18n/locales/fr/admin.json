@@ -3151,5 +3151,14 @@
   "metamodel.principles.reference": "Référence",
   "metamodel.principles.import.title": "Importer des principes d'architecture d'entreprise",
   "metamodel.principles.import.intro": "Importez un fichier .xlsx pour créer ou mettre à jour des principes en masse. Chaque ligne est rapprochée d'un principe existant par sa référence (P-001), puis par son titre ; un principe rapproché est mis à jour avec les valeurs qui diffèrent, et toute autre ligne crée un nouveau principe. Une colonne absente de la feuille laisse le champ inchangé, et une cellule de texte vide l'efface, tandis qu'une cellule is_active ou sort_order vide laisse cette valeur telle quelle.",
-  "metamodel.principles.import.skippedHint": "Ces lignes correspondent à un principe existant et ne modifient rien."
+  "metamodel.principles.import.skippedHint": "Ces lignes correspondent à un principe existant et ne modifient rien.",
+  "metamodel.lifecycleStages.title": "Étapes du cycle de vie",
+  "metamodel.lifecycleStages.help": "Définissez les étapes ordonnées pouvant être attribuées aux fiches de ce type.",
+  "metamodel.lifecycleStages.edit": "Modifier les étapes du cycle de vie",
+  "metamodel.lifecycleStages.add": "Ajouter une étape",
+  "metamodel.lifecycleStages.keyLocked": "Des fiches utilisent déjà cette clé ; elle ne peut donc pas être renommée.",
+  "metamodel.lifecycleStages.moveUp": "Déplacer l'étape vers le haut",
+  "metamodel.lifecycleStages.moveDown": "Déplacer l'étape vers le bas",
+  "metamodel.lifecycleStages.inUse": "Des fiches utilisent encore une étape supprimée. Modifiez ces fiches avant de supprimer l'étape.",
+  "metamodel.lifecycleStages.saveFailed": "Échec de l'enregistrement des étapes du cycle de vie."
 }

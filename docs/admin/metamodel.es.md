@@ -218,6 +218,12 @@ Haga clic en el botón **Traducir** en la barra de herramientas del cajón de ti
 
 Las traducciones se almacenan junto con cada tipo de ficha y se resuelven en tiempo de renderizado según el idioma seleccionado por el usuario. Las etiquetas sin traducir recurren al valor predeterminado en inglés.
 
+### Fases del ciclo de vida { #lifecycle-stages }
+
+Abra un tipo de ficha en **Administración → Metamodelo → Tipos de ficha** y elija **Fases del ciclo de vida** para configurar las fases disponibles en sus fichas. Por ejemplo, añada **Pruebas** y **Despliegue limitado** al tipo Application. Cada fase tiene una clave, una etiqueta y un color. Ordénelas como quiera que se muestren.
+
+Después de guardar, quienes editan una ficha pueden seleccionar su **Fase actual** en la sección Ciclo de vida. En Inventario, filtre las fichas del tipo seleccionado por su fase actual. Para eliminar una fase asignada, primero hay que borrar o cambiar esas asignaciones.
+
 ### Eliminar un Tipo
 
 - Los **tipos predefinidos** se eliminan suavemente (se ocultan) y pueden restaurarse. El botón de eliminar del editor de tipos está bloqueado para ellos — use **Ocultar tipo** en su lugar.

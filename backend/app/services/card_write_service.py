@@ -917,6 +917,10 @@ async def update_card(
     # update (defensive: CardUpdate no longer carries it, but drop any stray).
     updates = dict(updates)
     updates.pop("reference", None)
+    if "lifecycle_stage" in updates:
+        from app.services.lifecycle_stages import validate_stage
+
+        await validate_stage(db, card.type, updates["lifecycle_stage"])
     if (
         "subtype" in updates
         and updates["subtype"] != card.subtype
@@ -1033,6 +1037,7 @@ async def update_card(
     if not changes:
         return False
 
+    stage_only = set(changes) == {"lifecycle_stage"}
     card.updated_by = actor.user_id
     # Break approval status on edit (attribute/lifecycle changes break it).
     # Recorded in `changes` rather than left implicit: from there it reaches the
@@ -1048,25 +1053,27 @@ async def update_card(
     current_attrs = card.attributes or {}
     changed_levels: list[Card] = []
     previous_levels: dict[uuid.UUID, dict] = {}
-    if (
+    if not stage_only and (
         "parent_id" in changes
         or current_attrs.get(HIERARCHY_LEVEL_KEY) is None
         or (card.type == "BusinessCapability" and not current_attrs.get("capabilityLevel"))
     ):
         changed_levels = await _sync_hierarchy_levels(db, card, previous=previous_levels)
 
-    # Run calculated fields (skip PPM-managed cost fields if PPM data exists)
-    ppm_excl = await _get_ppm_exclusions(db, card)
-    await recompute_derived(db, card)  # first: a formula may read costTotalAnnual
-    await run_calculations_for_card(db, card, exclude_fields=ppm_excl)
-    await sync_current_fy_history(db, card)
+    # A stage-only edit does not change the dated lifecycle or financial data.
+    if not stage_only:
+        ppm_excl = await _get_ppm_exclusions(db, card)
+        await recompute_derived(db, card)
+        await run_calculations_for_card(db, card, exclude_fields=ppm_excl)
+        await sync_current_fy_history(db, card)
     # Re-run calcs for descendants whose level moved (after the card's own
     # run, so a child formula reading a parent's computed field sees it fresh)
     await _recalc_changed_descendants(db, changed_levels, card.id)
 
     # Recalculate completion. Must run *after* the calculations, or a
     # weighted calculated field is scored on its previous value.
-    card.data_quality = await calc_data_quality(db, card)
+    if not stage_only:
+        card.data_quality = await calc_data_quality(db, card)
     if card.type in COST_ITEM_TYPES and "attributes" in changes:
         # History records what was stored, not the total the caller sent
         new_attrs = {k: v for k, v in changes["attributes"]["new"].items() if k != DERIVED_KEY}
