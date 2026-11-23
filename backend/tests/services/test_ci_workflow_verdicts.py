@@ -63,7 +63,9 @@ def job_if(body: str) -> str:
 
 def own_steps(body: str) -> list[str]:
     """Steps without the comment lines that introduce the NEXT job."""
-    return [re.sub(r"\n(?:  #.*\n|\s*\n)*\Z", "\n", s) for s in steps(body)]
+    # `[ \t]*`, not `\s*`: `\s` also matches the newline the group ends on, which
+    # makes the repetition ambiguous and backtrack exponentially on blank lines.
+    return [re.sub(r"\n(?:  #.*\n|[ \t]*\n)*\Z", "\n", s) for s in steps(body)]
 
 
 GROUPS = [pytest.param(g, id=g.name) for g in verdicts.GROUPS]
