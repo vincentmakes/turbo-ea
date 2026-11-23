@@ -538,6 +538,62 @@ describe("AiSuggestPanel — suggestions the card type would refuse (#1422)", ()
     expect(onApply).toHaveBeenCalledWith({ description: "A CRM.", fields: { criticality: "low" } });
   });
 
+  it("drops a value for a field that is neither yes/no nor a single select, even one its options list", async () => {
+    const user = userEvent.setup();
+    const schema: SectionDef[] = [
+      makeSection({
+        fields: [
+          makeField({
+            key: "team",
+            label: "Owning Team",
+            type: "text",
+            options: [makeOption({ key: "ops", label: "Ops" })],
+          }),
+          makeField({
+            key: "regions",
+            label: "Regions",
+            type: "multiple_select",
+            options: [makeOption({ key: "eu", label: "EU" })],
+          }),
+        ],
+      }),
+    ];
+    const { onApply } = renderPanel({
+      response: {
+        suggestions: {
+          description: { value: "A CRM.", confidence: 0.6 },
+          team: { value: "ops", confidence: 0.8 },
+          regions: { value: "eu", confidence: 0.8 },
+        },
+        sources: [],
+      },
+      fieldsSchema: schema,
+    });
+    expect(screen.queryByText("Owning Team")).not.toBeInTheDocument();
+    expect(screen.queryByText("Regions")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Apply description/ }));
+    expect(onApply).toHaveBeenCalledWith({ description: "A CRM.", fields: undefined });
+  });
+
+  it("drops a valueless suggestion for a single select that has no options list", async () => {
+    const user = userEvent.setup();
+    // No `options` key at all, not an empty list.
+    const tier = makeField({ key: "tier", label: "Tier", type: "single_select" });
+    const { onApply } = renderPanel({
+      response: {
+        suggestions: {
+          description: { value: "A CRM.", confidence: 0.6 },
+          tier: { confidence: 0.7 },
+        },
+        sources: [],
+      } as unknown as AiSuggestResponse,
+      fieldsSchema: [makeSection({ fields: [tier] })],
+    });
+    expect(screen.queryByText("Tier")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Apply description/ }));
+    expect(onApply).toHaveBeenCalledWith({ description: "A CRM.", fields: undefined });
+  });
+
   it("says there is nothing to suggest when no suggestion is left to apply", () => {
     renderPanel({
       response: { suggestions: { hostingType: { value: "cloudSaaS", confidence: 0.9 } }, sources: [] },

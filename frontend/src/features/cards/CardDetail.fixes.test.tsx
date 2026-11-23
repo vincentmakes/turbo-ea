@@ -441,6 +441,22 @@ describe("CardDetail — AI suggestions do not follow the user to the next card"
     await waitFor(() => expect(screen.getByTestId("content")).toHaveAttribute("data-name", "ERP"));
   };
 
+  it("keeps the next card's suggestion busy when the previous card's one settles late", async () => {
+    let answerC1: (v: unknown) => void = () => {};
+    mockApi.on("post", "/ai/suggest", () => new Promise((resolve) => (answerC1 = resolve)));
+    const { user } = renderPage();
+    await user.click(await screen.findByRole("button", { name: "ai-suggest" }));
+    expect(await screen.findByText("Generating description...")).toBeInTheDocument();
+    await goToC2(user);
+    mockApi.on("post", "/ai/suggest", () => new Promise(() => {}));
+    await user.click(screen.getByRole("button", { name: "ai-suggest" }));
+    expect(await screen.findByText("Generating description...")).toBeInTheDocument();
+    await act(async () => answerC1(SUGGESTION));
+    expect(screen.getByText("Generating description...")).toBeInTheDocument();
+    expect(screen.queryByText("AI Suggestions")).not.toBeInTheDocument();
+    expect(mockApi.callsOf("post", "/ai/suggest")).toHaveLength(2);
+  });
+
   it("drops the skipped-values warning on the next card", async () => {
     refuseValues();
     const { user } = renderPage();

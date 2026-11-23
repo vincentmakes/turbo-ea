@@ -9,6 +9,7 @@ import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
 import Alert from "@mui/material/Alert";
 import Tooltip from "@mui/material/Tooltip";
+import type { SxProps, Theme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardLogoAvatar from "@/components/CardLogoAvatar";
@@ -56,6 +57,12 @@ const DEFAULT_PERMISSIONS: CardEffectivePermissions["effective"] = {
   can_view_costs: true,
 };
 
+// Stryker disable all: static layout styles, jsdom has no layout
+const SX = {
+  skippedAlert: { mb: 2 },
+} satisfies Record<string, SxProps<Theme>>;
+// Stryker restore all
+
 interface Props {
   cardId: string | null;
   open: boolean;
@@ -100,7 +107,8 @@ export default function CardDetailSidePanel({
   focus,
 }: Props) {
   const navigate = useNavigate();
-  const { t, i18n } = useTranslation("common");
+  const { t } = useTranslation("common");
+  const { i18n } = useTranslation();
   const { getType, relationTypes } = useMetamodel();
   const typeLabel = useTypeLabel();
   const resolveSubtypeLabel = useCardSubtypeLabel();
@@ -452,7 +460,7 @@ export default function CardDetailSidePanel({
             beforeTabs={
               <>
                 {aiSkippedReason && (
-                  <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setAiSkippedReason("")}>
+                  <Alert severity="warning" sx={SX.skippedAlert} onClose={() => setAiSkippedReason("")}>
                     {t("ai.fieldsSkipped", { reason: aiSkippedReason })}
                   </Alert>
                 )}

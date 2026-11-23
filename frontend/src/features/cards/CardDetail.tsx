@@ -19,6 +19,7 @@ import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { alpha, useTheme } from "@mui/material/styles";
+import type { SxProps, Theme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardLogoMenu from "@/components/CardLogoMenu";
@@ -85,9 +86,16 @@ const DEFAULT_PERMISSIONS: CardEffectivePermissions["effective"] = {
   can_view_costs: true,
 };
 
+// Stryker disable all: static layout styles, jsdom has no layout
+const SX = {
+  skippedAlert: { mb: 2 },
+} satisfies Record<string, SxProps<Theme>>;
+// Stryker restore all
+
 // ── Main Detail Page ────────────────────────────────────────────
 export default function CardDetail() {
-  const { t, i18n } = useTranslation(["cards", "common", "validation"]);
+  const { t } = useTranslation(["cards", "common", "validation"]);
+  const { i18n } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1094,7 +1102,7 @@ export default function CardDetail() {
 
               {/* AI suggestion applied without the values the card type refused */}
               {aiSkippedReason && (
-                <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setAiSkippedReason("")}>
+                <Alert severity="warning" sx={SX.skippedAlert} onClose={() => setAiSkippedReason("")}>
                   {t("common:ai.fieldsSkipped", { reason: aiSkippedReason })}
                 </Alert>
               )}

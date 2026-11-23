@@ -90,7 +90,8 @@ export default function CreateCardDialog({
 }: Props) {
   const theme = useTheme();
   const navigate = useNavigate();
-  const { t, i18n } = useTranslation(["cards", "common"]);
+  const { t } = useTranslation(["cards", "common"]);
+  const { i18n } = useTranslation();
   const { types, relationTypes } = useMetamodel();
   const { user } = useAuthContext();
   const typeLabel = useTypeLabel();

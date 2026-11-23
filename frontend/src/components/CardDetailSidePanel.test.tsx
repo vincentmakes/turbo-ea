@@ -923,3 +923,112 @@ describe("CardDetailSidePanel — AI requests that settle after a switch", () =>
     expect(screen.getByRole("button", { name: /Apply description/ })).toBeInTheDocument();
   });
 });
+
+describe("CardDetailSidePanel — the AI panel's states", () => {
+  const SUGGESTION = {
+    suggestions: {
+      description: { value: "An ERP suite.", confidence: 0.9 },
+      shared: { value: true, confidence: 0.7 },
+    },
+    sources: [],
+  };
+  const SEARCHING = "Generating description...";
+
+  beforeEach(() => {
+    ai.enabled = true;
+    metamodel.type = {
+      key: "Application",
+      icon: "apps",
+      fields_schema: [
+        { section: "Info", fields: [{ key: "shared", label: "Shared", type: "boolean" }] },
+      ],
+      subtypes: [],
+    };
+    vi.mocked(api.get).mockImplementation((path: string) =>
+      path.endsWith("/my-permissions")
+        ? Promise.resolve({ effective: { can_edit: true } })
+        : Promise.resolve(path === "/cards/c2" ? OTHER : CARD),
+    );
+  });
+
+  const suggestButton = () => screen.findByRole("button", { name: "AI suggest" });
+
+  it("shows the panel while the suggestion is being made", async () => {
+    vi.mocked(api.post).mockImplementation(() => new Promise(() => {}));
+    mount();
+    await userEvent.click(await suggestButton());
+    expect(await screen.findByText(SEARCHING)).toBeInTheDocument();
+  });
+
+  it("shows a failed suggestion's reason in the panel", async () => {
+    vi.mocked(api.post).mockRejectedValue(new Error("Model offline"));
+    mount();
+    await userEvent.click(await suggestButton());
+    expect(await screen.findByText("Model offline")).toBeInTheDocument();
+    expect(screen.getByText("AI Suggestion Failed")).toBeInTheDocument();
+    expect(screen.queryByText(SEARCHING)).not.toBeInTheDocument();
+  });
+
+  it("keeps the new card's suggestion busy when the old card's one settles late", async () => {
+    let answerA: (v: unknown) => void = () => {};
+    vi.mocked(api.post).mockImplementationOnce(
+      () => new Promise((resolve) => (answerA = resolve)),
+    );
+    vi.mocked(api.post).mockImplementationOnce(() => new Promise(() => {}));
+    const { rerenderWith } = mount();
+    await userEvent.click(await suggestButton());
+    expect(await screen.findByText(SEARCHING)).toBeInTheDocument();
+    rerenderWith("c2");
+    await waitFor(() => expect(screen.getByTestId("card-content")).toHaveTextContent("Salesforce"));
+    await userEvent.click(await suggestButton());
+    expect(await screen.findByText(SEARCHING)).toBeInTheDocument();
+    await act(async () => answerA(SUGGESTION));
+    expect(screen.getByText(SEARCHING)).toBeInTheDocument();
+    expect(screen.queryByText("AI Suggestions")).not.toBeInTheDocument();
+    expect(api.post).toHaveBeenCalledTimes(2);
+  });
+
+  it("closes the panel on Dismiss and offers the suggest button again", async () => {
+    vi.mocked(api.post).mockResolvedValue(SUGGESTION);
+    mount();
+    await userEvent.click(await suggestButton());
+    expect(await screen.findByText("AI Suggestions")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "AI suggest" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByText("AI Suggestions")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "AI suggest" })).toBeInTheDocument();
+    expect(api.patch).not.toHaveBeenCalled();
+  });
+
+  it("clears a failed suggestion's reason on Close, and asking again shows no stale one", async () => {
+    vi.mocked(api.post).mockRejectedValueOnce(new Error("Model offline"));
+    mount();
+    await userEvent.click(await suggestButton());
+    expect(await screen.findByText("Model offline")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByText("Model offline")).not.toBeInTheDocument();
+    expect(screen.queryByText("AI Suggestion Failed")).not.toBeInTheDocument();
+    vi.mocked(api.post).mockImplementationOnce(() => new Promise(() => {}));
+    await userEvent.click(screen.getByRole("button", { name: "AI suggest" }));
+    expect(await screen.findByText(SEARCHING)).toBeInTheDocument();
+    expect(screen.queryByText("Model offline")).not.toBeInTheDocument();
+  });
+
+  it("suggests and applies on a card whose type the metamodel does not know", async () => {
+    metamodel.type = undefined;
+    vi.mocked(api.post).mockResolvedValue(SUGGESTION);
+    vi.mocked(api.patch).mockImplementation(async (_path, body) => ({
+      ...CARD,
+      ...(body as object),
+    }));
+    mount();
+    await userEvent.click(await suggestButton());
+    expect(await screen.findByText("AI Suggestions")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Apply suggestions/ }));
+    expect(await screen.findByText("An ERP suite.")).toBeInTheDocument();
+    expect(vi.mocked(api.patch).mock.calls).toEqual([
+      ["/cards/c1", { description: "An ERP suite.", attributes: { shared: true } }],
+    ]);
+    expect(screen.queryByText("AI Suggestions")).not.toBeInTheDocument();
+  });
+});

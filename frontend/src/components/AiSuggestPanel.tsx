@@ -13,6 +13,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
+import type { SxProps, Theme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { BooleanField } from "@/components/BooleanField";
 import { useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
@@ -45,6 +46,16 @@ interface Props {
   /** Field keys the card's subtype hides: a suggestion for one is not offered. */
   hiddenFields?: ReadonlySet<string>;
 }
+
+// Stryker disable all: static layout styles, jsdom has no layout
+const SX = {
+  /** The dashed outline shared by the loading, nothing-to-suggest and suggestions panels. */
+  dashedPanel: { p: 2, mt: 2, borderColor: "primary.main", borderStyle: "dashed" },
+  noSuggestionRow: { display: "flex", alignItems: "center", gap: 1 },
+  noSuggestionText: { flex: 1 },
+  applyError: { mt: 1.5 },
+} satisfies Record<string, SxProps<Theme>>;
+// Stryker restore all
 
 /** Confidence badge colour (the badge itself shows the percentage). */
 function confidenceBadge(confidence: number) {
@@ -116,10 +127,7 @@ export default function AiSuggestPanel({
   // Loading state
   if (loading) {
     return (
-      <Paper
-        variant="outlined"
-        sx={{ p: 2, mt: 2, borderColor: "primary.main", borderStyle: "dashed" }}
-      >
+      <Paper variant="outlined" sx={SX.dashedPanel}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
           <MaterialSymbol icon="auto_awesome" size={20} color={brand.primary} />
           <Typography variant="subtitle2" fontWeight={600}>
@@ -164,13 +172,10 @@ export default function AiSuggestPanel({
   // nothing here would leave no way to ask again.
   if (!suggestion && extraSuggestions.length === 0) {
     return (
-      <Paper
-        variant="outlined"
-        sx={{ p: 2, mt: 2, borderColor: "primary.main", borderStyle: "dashed" }}
-      >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+      <Paper variant="outlined" sx={SX.dashedPanel}>
+        <Box sx={SX.noSuggestionRow}>
           <MaterialSymbol icon="auto_awesome" size={20} color={brand.primary} />
-          <Typography variant="body2" sx={{ flex: 1 }}>
+          <Typography variant="body2" sx={SX.noSuggestionText}>
             {t("ai.noSuggestion")}
           </Typography>
           <Button size="small" onClick={onDismiss} color="inherit">
@@ -207,10 +212,7 @@ export default function AiSuggestPanel({
   const buttonLabel = extraSuggestions.length > 0 ? t("ai.applySuggestions") : t("ai.applyDescription");
 
   return (
-    <Paper
-      variant="outlined"
-      sx={{ p: 2, mt: 2, borderColor: "primary.main", borderStyle: "dashed" }}
-    >
+    <Paper variant="outlined" sx={SX.dashedPanel}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
         <MaterialSymbol icon="auto_awesome" size={20} color={brand.primary} />
         <Typography variant="subtitle2" fontWeight={600}>
@@ -369,7 +371,7 @@ export default function AiSuggestPanel({
 
       {/* A refused save: the panel stays open with the edits intact */}
       {applyError && (
-        <Alert severity="error" sx={{ mt: 1.5 }} onClose={() => setApplyError("")}>
+        <Alert severity="error" sx={SX.applyError} onClose={() => setApplyError("")}>
           <AlertTitle>{t("ai.applyFailed")}</AlertTitle>
           {applyError}
         </Alert>
