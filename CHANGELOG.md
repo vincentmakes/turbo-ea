@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 - Editing, deleting or posting a comment on a card you cannot see, or with a malformed id, now answers "not found" instead of an error or a refusal that confirmed the comment exists; a reply can no longer be attached to a comment on another card.
+- A card whose comments hold a reply thread four or more levels deep lists its comments again instead of showing none.
 
 ## [2.210.0] - 2026-11-22
 
