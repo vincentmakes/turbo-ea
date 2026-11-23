@@ -21,7 +21,6 @@ import {
 import vitestConfig from "../vitest.config";
 
 const frontendRoot = path.resolve(__dirname, "..");
-const repoRoot = path.resolve(frontendRoot, "..");
 
 const pr = (changes: { status: string; paths: string[] }[], always: string[] = []) =>
   decideScope({ event: "pull_request", changes, always });
@@ -310,7 +309,10 @@ describe("the setup file", () => {
       const file = queue.pop()!;
       if (seen.has(file)) continue;
       seen.add(file);
-      const rel = path.relative(repoRoot, file).split(path.sep).join("/");
+      // Repository-relative by construction, not by walking up one directory:
+      // in a StrykerJS sandbox this directory is a copy named sandbox-XXXX,
+      // and the triggers are written against `frontend/`.
+      const rel = `frontend/${path.relative(frontendRoot, file).split(path.sep).join("/")}`;
       expect(isFullRunTrigger(rel), `${rel} is reached from setupFiles`).toBe(true);
       // Inside a trigger directory everything is covered already; keep walking
       // anyway so an import that leaves it is caught.
