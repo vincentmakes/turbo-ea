@@ -26,6 +26,18 @@ Stdlib only: the ``changes`` job installs nothing.
   parent, a filter this matcher cannot read — means "no verdicts": every job
   runs, and a warning says why. Never the other way round.
 
+Trust assumption. A marker is an Actions cache in the pull request's own
+scope, and its key is computable in advance, so a commit of the same pull
+request that edits the workflow could save a marker for a later, clean-looking
+commit, whose checks would then be skipped rather than run; fingerprinting the
+``ci`` filter does not prevent that. This is acceptable only because pull
+requests are restricted to the maintainer and allowlisted bots
+(``restrict-pr-authors.yml``), every skipped job is named in the ``changes``
+job summary with the run that passed it, and every push to ``main`` runs the
+suites regardless. If the author allowlist is ever opened up, the cache must
+move to a recorder pull-request code cannot write to (for example a
+``workflow_run`` workflow from the default branch).
+
 Markers are saved by the last step of each covered job (``actions/cache/save``
 under ``<key>-<run id>-<run attempt>``), only on ``pull_request`` and only on
 success.
@@ -101,17 +113,39 @@ GROUPS: tuple[Group, ...] = (
     ),
     _one("frontend-lint", ("frontend",)),
     _one("frontend-build", ("frontend",)),
-    # The browser suite joins the unit: the aggregate merges its coverage, and
-    # it boots the real backend, so a backend change re-runs it.
+    # The shards and their aggregate are one unit, as on the backend. The
+    # aggregate also merges the browser suite's coverage, so it records only
+    # when Frontend E2E passed or was skipped by its path filter.
     Group(
         "frontend-tests",
-        ("frontend", "e2e", "backend"),
-        ("frontend-test-shards", "frontend-e2e", "frontend-test"),
+        ("frontend", "e2e"),
+        ("frontend-test-shards", "frontend-test"),
         "frontend-test",
+    ),
+    # The browser suite boots the real backend, so a backend change re-runs it
+    # (and only it: the unit shards do not read the backend). Its job skips on
+    # its own marker only when the aggregate will not need its coverage from
+    # this run — see E2E_CONDITION.
+    Group(
+        "frontend-e2e",
+        ("frontend", "e2e", "backend"),
+        ("frontend-e2e",),
+        "frontend-e2e",
     ),
     _one("frontend-mutation", ("frontend", "mutation")),
     _one("mcp-test", ("mcp",)),
     Group("mcp-mutation", ("mcp", "mutation"), ("mcp-mutation",), "mcp-mutation-verdict"),
+)
+
+
+# The one job whose skip reads two markers. If the aggregate runs on this push,
+# it needs Frontend E2E's coverage artifact from the same run, so E2E must run
+# too; when the `frontend` gate is off the aggregate never runs and E2E's own
+# marker is enough.
+E2E_CONDITION = (
+    "needs.changes.outputs.e2e == 'true' && !(needs.changes.outputs.done_frontend_e2e == 'true'"
+    " && (needs.changes.outputs.done_frontend_tests == 'true'"
+    " || needs.changes.outputs.frontend != 'true'))"
 )
 
 

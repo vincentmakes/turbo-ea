@@ -163,11 +163,13 @@ def test_the_frontend_aggregate_folds_in_the_browser_coverage_only_from_a_green_
     # the job gates on it alone: the wider `frontend` filter also fires for
     # the audit-ci config, which cannot move the figure and must not boot the
     # browser suite.
-    # ... and it is skipped by the verdict cache only together with the unit
-    # shards and the aggregate that merges its coverage.
+    # ... and the verdict cache skips it on its own marker only when the
+    # aggregate, which merges its coverage from the same run, is not running.
     assert (
         "    if: needs.changes.outputs.e2e == 'true'"
-        " && needs.changes.outputs.done_frontend_tests != 'true'\n"
+        " && !(needs.changes.outputs.done_frontend_e2e == 'true'"
+        " && (needs.changes.outputs.done_frontend_tests == 'true'"
+        " || needs.changes.outputs.frontend != 'true'))\n"
     ) in e2e
     rest = CI.read_text().split("            e2e:\n", 1)[1]
     entries = re.match(r"((?:              .*\n)+)", rest).group(1)
@@ -266,7 +268,7 @@ def test_a_pull_request_runs_only_the_tests_it_can_reach_and_falls_back_to_full(
     # never continue-on-error (the job guard above): a failure leaves `full`
     assert '|| : > "$diff"' in scope
     assert 'echo "mode=full" >> "$GITHUB_OUTPUT"' in scope
-    assert "git diff --name-status HEAD^1 HEAD" in scope
+    assert "git -c core.quotePath=false diff --name-status HEAD^1 HEAD" in scope
     assert "git rev-parse -q --verify 'HEAD^2'" in scope
     assert 'node scripts/pr-test-scope.mjs --event "$GITHUB_EVENT_NAME" --diff "$diff"' in scope
 

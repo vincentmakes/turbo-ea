@@ -157,6 +157,24 @@ describe("decideScope", () => {
     expect(d.reason).toContain(`has status ${status}`);
   });
 
+  it.each([
+    ['"frontend/src/\\303\\251.ts"'],
+    ['"backend/app/\\303\\251.py"'],
+    ['"docs/a\\tb.md"'],
+  ])("a path git quoted (%s) runs everything, wherever it may live", (quoted) => {
+    const d = pr([...m("frontend/src/lib/color.ts"), { status: "M", paths: [quoted] }]);
+    expect(d).toEqual({ mode: "full", reason: `unreadable path ${quoted}`, paths: [] });
+    // also as a rename's second path, and ahead of a trigger later in the list
+    const r = pr([{ status: "R100", paths: ["docs/x.md", quoted] }, ...m("frontend/package.json")]);
+    expect(r.reason).toBe(`unreadable path ${quoted}`);
+  });
+
+  it("reads a quoted path off a real diff line and still runs everything", () => {
+    const changes = parseNameStatus('M\t"frontend/src/\\303\\251.ts"\nM\tfrontend/src/lib/color.ts\n');
+    expect(changes[0].paths).toEqual(['"frontend/src/\\303\\251.ts"']);
+    expect(pr(changes).mode).toBe("full");
+  });
+
   it("ignores a deletion or rename outside frontend/", () => {
     const d = pr([{ status: "D", paths: ["backend/a.py"] }, { status: "R100", paths: ["docs/a", "docs/b"] }, ...m("frontend/src/a.ts")]);
     expect(d).toMatchObject({ mode: "related", paths: ["src/a.ts"] });

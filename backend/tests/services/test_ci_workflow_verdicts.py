@@ -69,15 +69,64 @@ def own_steps(body: str) -> list[str]:
 GROUPS = [pytest.param(g, id=g.name) for g in verdicts.GROUPS]
 
 
+# The one documented two-marker skip: Frontend E2E skips on its own marker only
+# when Frontend Tests, which needs its coverage artifact from the same run, is
+# not running on this push (skipped on its marker, or its gate is off).
+E2E_IF = (
+    "needs.changes.outputs.e2e == 'true'"
+    " && !(needs.changes.outputs.done_frontend_e2e == 'true'"
+    " && (needs.changes.outputs.done_frontend_tests == 'true'"
+    " || needs.changes.outputs.frontend != 'true'))"
+)
+
+
 @pytest.mark.parametrize("group", GROUPS)
 def test_every_job_of_a_group_skips_on_that_groups_marker_only(group):
     j = jobs()
     for job in group.jobs:
         condition = job_if(j[job])
-        assert condition.endswith(f" && needs.changes.outputs.done_{group.ident} != 'true'"), job
-        assert set(re.findall(r"outputs\.done_(\w+)", j[job])) == {group.ident}, job
         # never `== 'false'`: a missing output must run the job
         assert "== 'false'" not in condition
+        if job == "frontend-e2e":
+            assert condition == E2E_IF
+            assert verdicts.E2E_CONDITION == E2E_IF
+            assert set(re.findall(r"outputs\.done_(\w+)", j[job])) == {
+                "frontend_e2e",
+                "frontend_tests",
+            }
+            continue
+        assert condition.endswith(f" && needs.changes.outputs.done_{group.ident} != 'true'"), job
+        assert set(re.findall(r"outputs\.done_(\w+)", j[job])) == {group.ident}, job
+
+
+def _evaluate(condition: str, outputs: dict[str, bool]) -> bool:
+    """A job-level `if:` of this shape, evaluated in Python against string outputs."""
+    expr = re.sub(
+        r"needs\.changes\.outputs\.(\w+) (==|!=) 'true'",
+        lambda m: f"(outputs[{m.group(1)!r}] {'is' if m.group(2) == '==' else 'is not'} True)",
+        condition.replace("always() && ", ""),
+    )
+    expr = expr.replace("&&", " and ").replace("||", " or ").replace("!(", " not (")
+    assert "needs." not in expr and "'true'" not in expr, expr
+    return eval(expr, {"__builtins__": {}}, {"outputs": outputs})  # noqa: S307
+
+
+def test_the_browser_suite_runs_whenever_the_aggregate_needs_its_coverage():
+    """Evaluate the workflow's own two conditions over every combination of outputs."""
+    j = jobs()
+    e2e_if, tests_if = job_if(j["frontend-e2e"]), job_if(j["frontend-test"])
+    names = ("e2e", "frontend", "done_frontend_e2e", "done_frontend_tests")
+    for bits in range(16):
+        out = {name: bool(bits >> i & 1) for i, name in enumerate(names)}
+        e2e_runs, aggregate_runs = _evaluate(e2e_if, out), _evaluate(tests_if, out)
+        if aggregate_runs and out["e2e"]:
+            assert e2e_runs, out  # the aggregate merges its coverage from this run
+        if out["e2e"] and not out["done_frontend_e2e"]:
+            assert e2e_runs, out  # no marker of its own: it runs
+        if not out["e2e"]:
+            assert not e2e_runs, out
+        if out["e2e"] and out["done_frontend_e2e"] and not aggregate_runs:
+            assert not e2e_runs, out  # the skip this split exists for
 
 
 @pytest.mark.parametrize("group", GROUPS)
@@ -85,7 +134,11 @@ def test_the_fingerprint_covers_every_filter_that_gates_the_job(group):
     """A job that runs on a filter the fingerprint ignores could be skipped past a change."""
     j = jobs()
     for job in group.jobs:
-        gates = set(re.findall(r"needs\.changes\.outputs\.(\w+) == 'true'", job_if(j[job])))
+        gates = {
+            gate
+            for gate in re.findall(r"needs\.changes\.outputs\.(\w+) [!=]= 'true'", job_if(j[job]))
+            if not gate.startswith("done_")
+        }
         assert gates, job
         assert gates <= set(group.filters), (job, gates - set(group.filters))
 
@@ -145,8 +198,10 @@ def test_shards_and_the_browser_suite_never_record():
         else:
             assert not saves, job_id
             assert "needs.changes.outputs.key_" not in body, job_id
-    for job in ("backend-test-shards", "frontend-test-shards", "frontend-e2e"):
+    for job in ("backend-test-shards", "frontend-test-shards"):
         assert job not in recorders
+    # the browser suite is its own group now, and records for itself
+    assert "frontend-e2e" in recorders
 
 
 def test_every_skipping_job_is_in_the_table_and_the_rest_are_not():

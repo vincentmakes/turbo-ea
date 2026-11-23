@@ -23,6 +23,8 @@
  *    the always-run set, found by scanning, added to every related run;
  *  - a path that no longer exists: any deletion, rename or copy under
  *    frontend/ runs everything.
+ * A path git had to quote (a tab, a quote, a backslash, a non-ASCII byte the
+ * workflow did not ask it to keep) cannot be placed, frontend or not: full.
  * Any other doubt — a status it does not know, a file under frontend/ outside
  * src/ and scripts/, a non-TypeScript file under src/, nothing under src/ or
  * scripts/ changed at all — also returns `full`.
@@ -107,6 +109,13 @@ export function decideScope({ event, changes, always }) {
   if (event !== "pull_request") return full(`a ${event || "missing"} event, not a pull request`);
   if (changes.length === 0) return full("no changed file listed");
   const selected = new Set();
+  for (const { paths } of changes) {
+    // git C-quotes a path with a tab, a quote, a backslash or (without
+    // core.quotePath=false) a non-ASCII byte: "frontend/src/\303\251.ts".
+    // Such a path does not start with frontend/, so it cannot be placed.
+    const quoted = paths.find((p) => p.startsWith('"'));
+    if (quoted) return full(`unreadable path ${quoted}`);
+  }
   for (const { status, paths } of changes) {
     const frontend = paths.filter((p) => p.startsWith("frontend/"));
     for (const file of paths) {

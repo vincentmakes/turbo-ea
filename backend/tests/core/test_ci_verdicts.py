@@ -160,13 +160,15 @@ def test_the_units_are_what_the_plan_says():
     )
     assert GROUP["backend-integration"].recorder == "backend-test-integration"
     assert GROUP["frontend-tests"].recorder == "frontend-test"
-    assert set(GROUP["frontend-tests"].jobs) == {
-        "frontend-test-shards",
-        "frontend-e2e",
-        "frontend-test",
-    }
-    # the browser suite boots the backend, so a backend change re-runs it
-    assert "backend" in GROUP["frontend-tests"].filters
+    assert GROUP["frontend-tests"].jobs == ("frontend-test-shards", "frontend-test")
+    # a backend-only push does not re-run the unit shards ...
+    assert set(GROUP["frontend-tests"].filters) == {"frontend", "e2e"}
+    # ... but the browser suite boots the backend, so it re-runs that
+    assert GROUP["frontend-e2e"].jobs == ("frontend-e2e",)
+    assert GROUP["frontend-e2e"].recorder == "frontend-e2e"
+    assert set(GROUP["frontend-e2e"].filters) == {"frontend", "e2e", "backend"}
+    assert "done_frontend_e2e" in verdicts.E2E_CONDITION
+    assert "done_frontend_tests" in verdicts.E2E_CONDITION
     assert set(GROUP["backend-unit"].filters) == {"backend", "mutation", "images"}
 
 

@@ -448,7 +448,8 @@ same pull request on byte-identical inputs is skipped** on the next push (the
 verdict cache, `scripts/ci/verdicts.py`). The inputs are the files the group's
 path filters cover plus the workflows and `scripts/ci/`, on both sides of the
 merge commit GitHub builds, so a push that only fixes a frontend test no longer
-re-runs the backend suites, and vice versa. A skipped job reads as passing, the
+re-runs the backend suites, and vice versa (`Frontend E2E`, which boots the
+backend, does re-run on a backend change). A skipped job reads as passing, the
 same way a job the path filter skips does; the `Detect Changes` job summary
 names every skipped job and links the run that passed it. Any failure of the
 lookup runs everything. Pushes to `main` are unaffected.
