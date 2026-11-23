@@ -127,6 +127,43 @@ async def _events(db, batch, event_type: str) -> list[Event]:
     return list(rows.scalars().all())
 
 
+@pytest.mark.parametrize(
+    "original_type, original_data, later_type, later_data",
+    [
+        ("card.updated", {}, "card.updated", {"id": ""}),
+        ("card.updated", {}, "stakeholder.added", {}),
+        ("card.updated", {}, "tag.added", {}),
+        ("adr.created", {"id": "entity"}, "adr.signed", {"adr_id": "entity"}),
+        ("adr.created", {"id": "entity"}, "adr.signed", {"adr_id": "", "id": "entity"}),
+        ("diagram.created", {"id": "entity"}, "diagram.updated", {"id": "entity"}),
+    ],
+)
+async def test_conflict_scan_finds_later_entity_events(
+    db, actor, original_type, original_data, later_type, later_data
+):
+    from datetime import UTC, datetime
+
+    from app.services.rollback_service import _find_conflicting_batches
+
+    card = await create_card(db, name="Conflict scan")
+    batch = await _open_batch(db, actor)
+    later = await _open_batch(db, actor)
+    older = await _open_batch(db, actor)
+    batch.created_at = datetime(2025, 1, 2, tzinfo=UTC)
+    later.created_at = datetime(2025, 1, 3, tzinfo=UTC)
+    older.created_at = datetime(2025, 1, 1, tzinfo=UTC)
+    original = Event(event_type=original_type, data=original_data, card_id=card.id)
+    for other in (later, older):
+        db.add(Event(event_type=later_type, data=later_data, card_id=card.id, batch_id=other.id))
+    await db.flush()
+
+    conflicts = await _find_conflicting_batches(db, batch, [original])
+    expected = str(card.id) if original_type.startswith("card.") else "entity"
+    assert [(item["batch_id"], item["touched_entities"]) for item in conflicts] == [
+        (str(later.id), [expected])
+    ]
+
+
 def _ops(result: dict, op: str) -> list[dict]:
     return [r for r in result["results"] if r["op"] == op]
 
@@ -1026,7 +1063,11 @@ async def test_removed_stage_cannot_be_restored_even_with_force(db, actor):
     with pytest.raises(HTTPException) as exc:
         await execute_rollback(db, batch, actor.id, force=True)
     assert exc.value.status_code == 409
-    assert exc.value.detail["error"] == "rollback_conflict"
+    assert exc.value.detail == {
+        "error": "rollback_conflict",
+        "message": "Lifecycle stage is no longer available",
+        "conflicting_batches": [],
+    }
     assert card.lifecycle_stage is None
 
 
@@ -1080,7 +1121,11 @@ async def test_stage_rollback_rejects_later_unbatched_edit_unless_forced(db, act
     with pytest.raises(HTTPException) as exc:
         await execute_rollback(db, batch, actor.id)
     assert exc.value.status_code == 409
-    assert exc.value.detail["error"] == "rollback_conflict"
+    assert exc.value.detail == {
+        "error": "rollback_conflict",
+        "message": "Lifecycle stage or approval changed since the batch",
+        "conflicting_batches": [],
+    }
     assert card.lifecycle_stage == new_stage
     await execute_rollback(db, batch, actor.id, force=True)
     assert card.lifecycle_stage == "one"
@@ -1127,7 +1172,11 @@ async def test_stage_rollback_rejects_ambiguous_simultaneous_batch_events(
     with pytest.raises(HTTPException) as exc:
         await execute_rollback(db, batch, actor.id, force=force)
     assert exc.value.status_code == 409
-    assert exc.value.detail["error"] == "rollback_conflict"
+    assert exc.value.detail == {
+        "error": "rollback_conflict",
+        "message": "Lifecycle stage history has an ambiguous order",
+        "conflicting_batches": [],
+    }
     assert card.lifecycle_stage == "four"
 
 
@@ -1185,6 +1234,52 @@ async def test_stage_rollback_preserves_a_later_approval_decision(db, actor):
     assert card.approval_status == "BROKEN"
 
 
+@pytest.mark.parametrize("reverse", [False, True])
+async def test_stage_conflict_uses_latest_approval_even_with_unrelated_events(monkeypatch, reverse):
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+
+    from app.services import rollback_service as rs
+
+    card_id = uuid.uuid4()
+    card = SimpleNamespace(lifecycle_stage="three", approval_status="APPROVED")
+    monkeypatch.setattr(rs, "_get_card", AsyncMock(return_value=card))
+    events = [
+        Event(
+            event_type="card.updated",
+            card_id=card_id,
+            created_at=datetime(2025, 1, day, tzinfo=UTC),
+            data={
+                "changes": {"lifecycle_stage": {"new": stage}, "approval_status": {"new": approval}}
+            },
+        )
+        for day, stage, approval in [(1, "two", "APPROVED"), (2, "three", "BROKEN")]
+    ]
+    if reverse:
+        events.reverse()
+    events.insert(0, Event(event_type="tag.added", data={}))
+    events.insert(1, Event(event_type="card.updated", data={"changes": {}}))
+    events.insert(
+        2,
+        Event(
+            event_type="card.updated",
+            card_id=card_id,
+            created_at=datetime(2024, 1, 1, tzinfo=UTC),
+            data={"changes": {"lifecycle_stage": {}}},
+        ),
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await rs._check_stage_rollback_conflicts(None, events, force=False)
+    assert exc.value.detail == {
+        "error": "rollback_conflict",
+        "message": "Lifecycle stage or approval changed since the batch",
+        "conflicting_batches": [],
+    }
+    card.approval_status = "BROKEN"
+    await rs._check_stage_rollback_conflicts(None, events, force=False)
+
+
 @pytest.mark.parametrize("initial_approval", ["DRAFT", "BROKEN"])
 @pytest.mark.parametrize("force", [False, True])
 async def test_stage_rollback_refuses_to_change_a_later_approved_card(
@@ -1211,6 +1306,11 @@ async def test_stage_rollback_refuses_to_change_a_later_approved_card(
     with pytest.raises(HTTPException) as exc:
         await execute_rollback(db, batch, actor.id, force=force)
     assert exc.value.status_code == 409
+    assert exc.value.detail == {
+        "error": "rollback_conflict",
+        "message": "An approved card cannot be restored to different stage or content",
+        "conflicting_batches": [],
+    }
     assert card.lifecycle_stage == "two"
     assert card.approval_status == "APPROVED"
 
@@ -1234,6 +1334,23 @@ async def test_stage_rollback_strips_approval_from_other_inverse_operations(db, 
     assert card.approval_status == "BROKEN"
 
 
+def test_stage_approval_preservation_is_scoped_to_card_and_operation():
+    from app.services.rollback_service import _preserve_stage_approvals
+
+    operations = [
+        {"op": "restore_card_fields", "card_id": "one", "fields": {"lifecycle_stage": "x"}},
+        {"op": "restore_card_fields", "card_id": "one", "fields": {"approval_status": "A"}},
+        {"op": "restore_card_fields", "card_id": "two", "fields": {"approval_status": "B"}},
+        {"op": "other", "card_id": "one", "fields": {"approval_status": "C"}},
+    ]
+    result = _preserve_stage_approvals(operations)
+    assert result[1]["fields"] == {}
+    assert result[2:] == operations[2:]
+    assert operations[1]["fields"] == {"approval_status": "A"}
+    unchanged = [operations[0], operations[2], operations[3]]
+    assert _preserve_stage_approvals(unchanged) is unchanged
+
+
 async def test_stage_rollback_allows_approved_card_when_final_stage_is_unchanged(db, actor):
     card = await create_card(db, name="Unchanged stage")
     card.approval_status = "APPROVED"
@@ -1245,6 +1362,30 @@ async def test_stage_rollback_allows_approved_card_when_final_stage_is_unchanged
     await execute_rollback(db, batch, actor.id, events=[], operations=operations, force=True)
     assert card.lifecycle_stage is None
     assert card.approval_status == "APPROVED"
+
+
+async def test_stage_rollback_does_not_count_content_changes_on_another_card(db, actor):
+    approved = await create_card(db, name="Approved stage")
+    approved.approval_status = "APPROVED"
+    other = await create_card(db, name="Other content")
+    other.description = "current"
+    await db.flush()
+    batch = await _open_batch(db, actor)
+    operations = [
+        {
+            "op": "restore_card_fields",
+            "card_id": str(approved.id),
+            "fields": {"lifecycle_stage": None},
+        },
+        {
+            "op": "restore_card_fields",
+            "card_id": str(other.id),
+            "fields": {"description": "earlier"},
+        },
+    ]
+    await execute_rollback(db, batch, actor.id, events=[], operations=operations)
+    assert approved.approval_status == "APPROVED"
+    assert other.description == "earlier"
 
 
 @pytest.mark.parametrize("force", [False, True])

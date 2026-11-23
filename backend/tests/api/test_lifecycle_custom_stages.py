@@ -56,6 +56,7 @@ async def test_card_stage_filter_and_clear_preserve_dates_and_attributes(client,
         user_id=admin.id,
         lifecycle=original_lifecycle,
         attributes=original_attributes,
+        data_quality=42.0,
     )
     other = await create_card(db, card_type="Application", name="Other App", user_id=admin.id)
     bad = await client.patch(
@@ -75,10 +76,13 @@ async def test_card_stage_filter_and_clear_preserve_dates_and_attributes(client,
     assert changed.json()["lifecycle_stage"] == "testing"
     assert changed.json()["lifecycle"] == original_lifecycle
     assert changed.json()["attributes"] == original_attributes
+    assert changed.json()["data_quality"] == 42.0
     event = await db.scalar(
         select(Event).where(Event.card_id == card.id, Event.event_type == "card.updated")
     )
     assert event.data["changes"]["lifecycle_stage"] == {"old": None, "new": "testing"}
+    assert event.data["id"] == str(card.id)
+    assert event.card_id == card.id
     query = {"type": "Application", "where": {"lifecycle_stage": ["testing"]}}
     found = await client.get("/api/v1/cards", params={"query": json.dumps(query)}, headers=headers)
     assert found.status_code == 200

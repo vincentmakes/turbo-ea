@@ -360,6 +360,7 @@ def _preserve_stage_approvals(ops: list[dict[str, Any]]) -> list[dict[str, Any]]
     if not stage_cards:
         return ops
     result = []
+    changed = False
     for op in ops:
         fields = op.get("fields") or {}
         if (
@@ -367,14 +368,13 @@ def _preserve_stage_approvals(ops: list[dict[str, Any]]) -> list[dict[str, Any]]
             and str(op.get("card_id")) in stage_cards
             and "approval_status" in fields
         ):
+            changed = True
             op = {
                 **op,
                 "fields": {key: value for key, value in fields.items() if key != "approval_status"},
             }
         result.append(op)
-    return (
-        result if any(left is not right for left, right in zip(result, ops, strict=True)) else ops
-    )
+    return result if changed else ops
 
 
 def plan_ops(events: list[Event]) -> list[dict[str, Any]]:
@@ -1054,8 +1054,8 @@ async def _check_stage_rollback_conflicts(
 ) -> None:
     # Unbatched card edits do not appear in batch conflict detection. Check the
     # last stage written by this batch against the freshly locked card too.
-    latest_stages = {}
-    latest_approvals = {}
+    latest_stages: dict[str, tuple[datetime, Any]] = {}
+    latest_approvals: dict[str, tuple[datetime, Any]] = {}
     stage_times = set()
     for event in events:
         if event.event_type != "card.updated":

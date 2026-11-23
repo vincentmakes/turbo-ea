@@ -2963,3 +2963,36 @@ class TestPrepareCardQuery:
 
     def test_a_query_error_is_a_400_by_default(self):
         assert CardQueryError("unknown_band").status == 400
+
+
+def test_unknown_lifecycle_stage_reports_the_specific_query_error():
+    from types import SimpleNamespace
+
+    from app.services.card_query import CardWhere, _check_where
+
+    card_type = SimpleNamespace(fields_schema=[], lifecycle_stages=[{"key": "active"}])
+    with pytest.raises(CardQueryError) as exc:
+        _check_where(CardWhere(lifecycle_stage=["missing"]), card_type)
+    assert (exc.value.code, exc.value.status) == ("unknown_lifecycle_stage", 400)
+
+
+async def test_lifecycle_stage_condition_handles_empty_null_and_mixed_lists(db):
+    from app.services.card_query import lifecycle_stage_condition
+
+    cards = [await create_card(db, name=f"Stage condition {index}") for index in range(3)]
+    cards[0].lifecycle_stage = None
+    cards[1].lifecycle_stage = "active"
+    cards[2].lifecycle_stage = "other"
+    await db.flush()
+    for stages, expected in [
+        ([], set()),
+        (["__empty__"], {cards[0].id}),
+        (["active"], {cards[1].id}),
+        (["active", "__empty__"], {cards[0].id, cards[1].id}),
+    ]:
+        result = await db.scalars(
+            select(Card.id).where(
+                Card.id.in_([card.id for card in cards]), lifecycle_stage_condition(Card, stages)
+            )
+        )
+        assert set(result) == expected

@@ -108,10 +108,25 @@ test("cost report keeps its fullscreen surface through drill, detail and table",
   expect(await host.evaluate((el) => document.fullscreenElement === el)).toBe(true);
   releaseBreakdown();
   await expect(host.getByRole("img", { name: t("reports:cost.title") })).toBeVisible();
+  const canvas = chart.locator("canvas");
+  const waitForStableCanvas = async (previous?: Buffer) => {
+    let last: Buffer | undefined;
+    let unchanged = 0;
+    await expect.poll(async () => {
+      const frame = await canvas.screenshot();
+      unchanged = last?.equals(frame) && !previous?.equals(frame) ? unchanged + 1 : 0;
+      last = frame;
+      return unchanged;
+    }).toBeGreaterThanOrEqual(2);
+    return last!;
+  };
+  const breakdownFrame = await waitForStableCanvas();
   await host.getByRole("button", { name: `‹ ${t("reports:cost.back")}` }).click();
   await expect(host.getByText(t("reports:cost.breadcrumbRoot"), { exact: true })).toBeVisible();
   expect(await host.evaluate((el) => document.fullscreenElement === el)).toBe(true);
 
+  // The breadcrumb changes before ECharts finishes replacing the drill's tiles.
+  await waitForStableCanvas(breakdownFrame);
   await chart.click({ position: { x: 100, y: 100 } });
   const closeDetail = host.getByRole("button", { name: t("common:actions.close"), exact: true });
   await expect(closeDetail).toBeVisible();

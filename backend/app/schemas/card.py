@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Annotated, Any, ClassVar, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import HTTPException
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -99,7 +99,7 @@ class CardCreate(BaseModel):
         return _validate_jsonb_dict(v, "attributes")
 
 
-class CardUpdate(BaseModel):
+class CardUpdateFields(BaseModel):
     name: str | None = None
     subtype: str | None = None
     description: str | None = None
@@ -108,7 +108,6 @@ class CardUpdate(BaseModel):
     # ``null`` clears it. Clearing ``parent_id`` clears it either way.
     parent_label: str | None = None
     lifecycle: dict | None = None
-    lifecycle_stage: str | None = Field(None, max_length=50)
     attributes: dict | None = None
     status: str | None = None
     external_id: str | None = None
@@ -132,9 +131,11 @@ class CardUpdate(BaseModel):
         return _validate_jsonb_dict(v, "attributes")
 
 
-class CardBulkFields(CardUpdate):
-    lifecycle_stage: ClassVar = None
+class CardUpdate(CardUpdateFields):
+    lifecycle_stage: str | None = Field(None, max_length=50)
 
+
+class CardBulkFields(CardUpdateFields):
     @model_validator(mode="before")
     @classmethod
     def reject_lifecycle_stage(cls, value: Any) -> Any:
