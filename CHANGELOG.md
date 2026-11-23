@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [2.211.0] - 2026-11-23
 
 ### Added
-- The Layered Dependency View has a Relation types menu beside Card types: untick a relation type to take its lines off the view, along with the cards only those lines kept on it.
+- The Layered Dependency View's filter menu lists relation types below card types: untick a relation type to take its lines off the view, along with the cards only those lines kept on it.
 - A card comment can be deleted from the Comments tab by its author and by anyone allowed to manage comments; its replies, its in-app notifications and its text in the history go with it, and the history records the deletion.
 
 ### Fixed
