@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.212.0] - 2026-11-23
+
+### Added
+- AI description suggestions are written in the language you use Turbo EA in.
+
+### Fixed
+- Applying an AI suggestion saves the description even when a suggested Hosting Type or other value no longer exists on the card type, and a save that fails is now shown instead of doing nothing.
+
 ## [2.211.0] - 2026-11-23
 
 ### Added

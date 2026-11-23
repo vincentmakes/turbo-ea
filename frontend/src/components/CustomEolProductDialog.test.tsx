@@ -650,6 +650,7 @@ describe("CustomEolProductDialog — AI description", () => {
     expect(mockApi.callsOf("post", "/ai/suggest-eol-product")[0].body).toEqual({
       name: "Acme",
       link: "https://acme.example/x",
+      locale: "en",
     });
     await userEvent.click(await screen.findByRole("button", { name: /Apply description/ }));
     expect(screen.getByLabelText(/Description/)).toHaveValue("An ERP for widget makers.");
@@ -662,7 +663,11 @@ describe("CustomEolProductDialog — AI description", () => {
     mockApi.fail("post", "/ai/suggest-eol-product", 502, "down");
     render(<CustomEolProductDialog open initialTitle="Acme" onClose={() => {}} onSaved={() => {}} />);
     await userEvent.click(screen.getByRole("button", { name: /Suggest with AI/ }));
-    expect(mockApi.callsOf("post", "/ai/suggest-eol-product")[0].body).toEqual({ name: "Acme" });
+    expect(mockApi.callsOf("post", "/ai/suggest-eol-product")[0].body).toEqual({
+      name: "Acme",
+      link: undefined,
+      locale: "en",
+    });
     expect(await screen.findByText("POST /ai/suggest-eol-product failed")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(screen.queryByText("POST /ai/suggest-eol-product failed")).toBeNull();

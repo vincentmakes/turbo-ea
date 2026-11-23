@@ -4,7 +4,7 @@
  * override extra field suggestions, and hands the result to `onApply`.
  */
 import { describe, it, expect, vi } from "vitest";
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { makeField, makeOption, makeSection } from "@/test/fixtures/metamodel";
@@ -98,19 +98,27 @@ describe("AiSuggestPanel", () => {
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 
-  it("renders nothing without a response or without any suggestion", () => {
+  it("renders nothing without a response, and says so for a response with no suggestion", async () => {
+    const user = userEvent.setup();
+    const onDismiss = vi.fn();
     const { container, rerender } = renderPanel({ response: null });
     expect(container).toBeEmptyDOMElement();
+    // The hosts hide their suggest button while a response is set, so an
+    // empty one must still offer a way out (it used to render nothing).
     rerender(
       <AiSuggestPanel
         response={{ suggestions: {}, sources: [] }}
         loading={false}
         error=""
         onApply={vi.fn()}
-        onDismiss={vi.fn()}
+        onDismiss={onDismiss}
       />,
     );
-    expect(container).toBeEmptyDOMElement();
+    expect(screen.getByText("The AI found nothing to suggest. Try again or use a more specific name.")).toBeInTheDocument();
+    expect(screen.queryByText("AI Suggestions")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Apply/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 
   it("renders the description with its confidence, source, model and sources", () => {
@@ -181,8 +189,8 @@ describe("AiSuggestPanel", () => {
     await user.click(screen.getByRole("button", { name: /Apply suggestions/ }));
     expect(onApply).toHaveBeenCalledWith({
       description: "A CRM.",
-      // The unknown key is still forwarded with the suggested value.
-      fields: { isCloud: false, criticality: "low", unknownField: 42 },
+      // A key the card type does not carry is not sent: the save would refuse it.
+      fields: { isCloud: false, criticality: "low" },
     });
   });
 
@@ -283,7 +291,7 @@ describe("AiSuggestPanel — details", () => {
     await user.click(screen.getByRole("button", { name: /Apply suggestions/ }));
     expect(onApply).toHaveBeenCalledWith({
       description: "A CRM.",
-      fields: { isCloud: null, criticality: "high", unknownField: 42 },
+      fields: { isCloud: null, criticality: "high" },
     });
   });
 
@@ -316,15 +324,16 @@ describe("AiSuggestPanel — details", () => {
     await user.click(screen.getByRole("button", { name: /Apply suggestions/ }));
     expect(onApply).toHaveBeenCalledWith({
       description: "A CRM.",
-      fields: { isCloud: true, criticality: "high", unknownField: 42 },
+      fields: { isCloud: true, criticality: "high" },
     });
   });
 
-  it("renders nothing for a response that carries no suggestions object", () => {
-    const { container } = renderPanel({
+  it("says there is nothing to suggest for a response that carries no suggestions object", () => {
+    renderPanel({
       response: { sources: [], model: "gemma3:4b" } as unknown as AiSuggestResponse,
     });
-    expect(container).toBeEmptyDOMElement();
+    expect(screen.getByText("The AI found nothing to suggest. Try again or use a more specific name.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Dismiss" })).toBeEnabled();
   });
 
   it("lists the titled sources comma-separated, at most five", () => {
@@ -398,7 +407,8 @@ describe("AiSuggestPanel — details", () => {
     expect(screen.getByRole("button", { name: /Apply description/ })).toBeDisabled();
   });
 
-  it("offers a select only for a single_select field that has options", () => {
+  it("offers a select only for a single_select field that has options", async () => {
+    const user = userEvent.setup();
     const schema: SectionDef[] = [
       makeSection({
         fields: [
@@ -412,7 +422,7 @@ describe("AiSuggestPanel — details", () => {
         ],
       }),
     ];
-    renderPanel({
+    const { onApply } = renderPanel({
       response: {
         suggestions: {
           tier: { value: "gold", confidence: 0.7 },
@@ -422,10 +432,12 @@ describe("AiSuggestPanel — details", () => {
       },
       fieldsSchema: schema,
     });
-    expect(screen.getByText("Tier")).toBeInTheDocument();
-    // Only the boolean gets a dropdown: the option-less select has none.
+    // An option-less select can hold no value, so its suggestion is dropped.
+    expect(screen.queryByText("Tier")).not.toBeInTheDocument();
     expect(screen.getAllByRole("combobox")).toHaveLength(1);
     expect(comboFor("Cloud Hosted")).toHaveTextContent("Yes");
+    await user.click(screen.getByRole("button", { name: /Apply suggestions/ }));
+    expect(onApply).toHaveBeenCalledWith({ description: "", fields: { isCloud: true } });
   });
 });
 
@@ -476,5 +488,169 @@ describe("AiSuggestPanel — metamodel labels", () => {
         await i18n.changeLanguage(previous);
       });
     }
+  });
+});
+
+describe("AiSuggestPanel — suggestions the card type would refuse (#1422)", () => {
+  const REFUSED: AiSuggestResponse = {
+    suggestions: {
+      description: { value: "A CRM.", confidence: 0.6 },
+      // The field is gone from the card type.
+      hostingType: { value: "cloudSaaS", confidence: 0.9 },
+      // The field is now free text.
+      isCloud: { value: true, confidence: 0.4 },
+      // The option was removed.
+      criticality: { value: "medium", confidence: 0.7 },
+    },
+    sources: [],
+  };
+  const RETYPED: SectionDef[] = [
+    makeSection({
+      fields: [
+        makeField({ key: "isCloud", label: "Cloud Hosted", type: "text" }),
+        SCHEMA[0].fields[1],
+      ],
+    }),
+  ];
+
+  it("neither shows nor applies them, and still applies the description", async () => {
+    const user = userEvent.setup();
+    const { onApply } = renderPanel({ response: REFUSED, fieldsSchema: RETYPED });
+    expect(screen.queryByText("Cloud Hosted")).not.toBeInTheDocument();
+    expect(screen.queryByText("Criticality")).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    // With nothing but the description left, the button says so.
+    await user.click(screen.getByRole("button", { name: /Apply description/ }));
+    expect(onApply).toHaveBeenCalledWith({ description: "A CRM.", fields: undefined });
+  });
+
+  it("keeps a select suggestion whose value is one of the options", async () => {
+    const user = userEvent.setup();
+    const { onApply } = renderPanel({
+      response: {
+        ...REFUSED,
+        suggestions: { ...REFUSED.suggestions, criticality: { value: "low", confidence: 0.7 } },
+      },
+      fieldsSchema: RETYPED,
+    });
+    expect(comboFor("Criticality")).toHaveTextContent("Low");
+    await user.click(screen.getByRole("button", { name: /Apply suggestions/ }));
+    expect(onApply).toHaveBeenCalledWith({ description: "A CRM.", fields: { criticality: "low" } });
+  });
+
+  it("says there is nothing to suggest when no suggestion is left to apply", () => {
+    renderPanel({
+      response: { suggestions: { hostingType: { value: "cloudSaaS", confidence: 0.9 } }, sources: [] },
+      fieldsSchema: SCHEMA,
+    });
+    expect(screen.getByText("The AI found nothing to suggest. Try again or use a more specific name.")).toBeInTheDocument();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+  });
+
+  it("neither shows nor applies a field the card's subtype hides", async () => {
+    const user = userEvent.setup();
+    const { onApply } = renderPanel({
+      response: WITH_FIELDS,
+      fieldsSchema: SCHEMA,
+      hiddenFields: new Set(["isCloud"]),
+    });
+    expect(screen.queryByText("Cloud Hosted")).not.toBeInTheDocument();
+    expect(comboFor("Criticality")).toHaveTextContent("High");
+    await user.click(screen.getByRole("button", { name: /Apply suggestions/ }));
+    expect(onApply).toHaveBeenCalledWith({ description: "A CRM.", fields: { criticality: "high" } });
+  });
+
+  it("hides a field the subtype hides even without a schema", async () => {
+    const user = userEvent.setup();
+    const { onApply } = renderPanel({
+      response: WITH_FIELDS,
+      hiddenFields: new Set(["isCloud", "unknownField"]),
+    });
+    await user.click(screen.getByRole("button", { name: /Apply suggestions/ }));
+    expect(onApply).toHaveBeenCalledWith({ description: "A CRM.", fields: { criticality: "high" } });
+  });
+});
+
+describe("AiSuggestPanel — saving", () => {
+  it("keeps Apply busy and disabled until the save settles", async () => {
+    const user = userEvent.setup();
+    let finish: () => void = () => {};
+    const onApply = vi.fn(() => new Promise<void>((resolve) => (finish = resolve)));
+    renderPanel({ onApply });
+    const apply = screen.getByRole("button", { name: /Apply description/ });
+    await user.click(apply);
+    expect(apply).toBeDisabled();
+    expect(apply).toHaveAttribute("aria-busy", "true");
+    expect(within(apply).getByRole("progressbar")).toBeInTheDocument();
+    // The panel cannot be closed over a save whose failure it must show.
+    expect(screen.getByRole("button", { name: "Dismiss" })).toBeDisabled();
+    expect(onApply).toHaveBeenCalledTimes(1);
+    await act(async () => finish());
+    expect(screen.getByRole("button", { name: "Dismiss" })).toBeEnabled();
+    expect(apply).toBeEnabled();
+    expect(apply).toHaveAttribute("aria-busy", "false");
+    expect(within(apply).queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
+  it("shows a refused save and stays open with the edited text", async () => {
+    const user = userEvent.setup();
+    const onApply = vi.fn().mockRejectedValueOnce(new Error("Description too long"));
+    renderPanel({ onApply });
+    const box = screen.getByRole("textbox");
+    await user.clear(box);
+    await user.type(box, "Edited text");
+    await user.click(screen.getByRole("button", { name: /Apply description/ }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Could not apply the suggestion");
+    expect(alert).toHaveTextContent("Description too long");
+    expect(screen.getByText("AI Suggestions")).toBeInTheDocument();
+    expect(screen.getByRole("textbox")).toHaveValue("Edited text");
+    expect(screen.getByRole("button", { name: /Apply description/ })).toBeEnabled();
+
+    // A retry clears the old message; this time it succeeds.
+    await user.click(screen.getByRole("button", { name: /Apply description/ }));
+    await waitFor(() => expect(onApply).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(onApply).toHaveBeenLastCalledWith({ description: "Edited text", fields: undefined });
+  });
+
+  it("says the card was not changed when the failure carries no message", async () => {
+    const user = userEvent.setup();
+    renderPanel({ onApply: vi.fn().mockRejectedValue("offline") });
+    await user.click(screen.getByRole("button", { name: /Apply description/ }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "The card was not changed. Try again.",
+    );
+  });
+
+  it("lets the failure be closed, and drops it when a new response arrives", async () => {
+    const user = userEvent.setup();
+    const onApply = vi.fn().mockRejectedValue(new Error("Refused"));
+    const { rerender } = render(
+      <AiSuggestPanel
+        response={DESCRIPTION_ONLY}
+        loading={false}
+        error=""
+        onApply={onApply}
+        onDismiss={vi.fn()}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /Apply description/ }));
+    const alert = await screen.findByRole("alert");
+    await user.click(within(alert).getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Apply description/ }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Refused");
+    rerender(
+      <AiSuggestPanel
+        response={{ ...DESCRIPTION_ONLY }}
+        loading={false}
+        error=""
+        onApply={onApply}
+        onDismiss={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

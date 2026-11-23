@@ -12,6 +12,9 @@ class AiSuggestRequest(BaseModel):
     subtype: str | None = Field(None, max_length=100)
     name: str = Field(..., min_length=1, max_length=500)
     context: str | None = Field(None, max_length=500)
+    # The UI language to write the description in; the user's saved locale
+    # when omitted. Only mapped to a language name, never put in the prompt.
+    locale: str | None = Field(None, max_length=10)
 
 
 class AiEolProductSuggestRequest(BaseModel):
@@ -19,6 +22,7 @@ class AiEolProductSuggestRequest(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=200)
     link: str | None = Field(None, max_length=500)
+    locale: str | None = Field(None, max_length=10)
 
 
 class AiFieldSuggestion(BaseModel):

@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import Alert from "@mui/material/Alert";
+import AlertTitle from "@mui/material/AlertTitle";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
+import CircularProgress from "@mui/material/CircularProgress";
 import LinearProgress from "@mui/material/LinearProgress";
 import Link from "@mui/material/Link";
 import MenuItem from "@mui/material/MenuItem";
@@ -29,12 +32,18 @@ interface Props {
   loading: boolean;
   /** Error message if the suggestion failed */
   error: string;
-  /** Called when user accepts the suggestions */
-  onApply: (payload: AiApplyPayload) => void;
+  /**
+   * Called when user accepts the suggestions. A returned promise keeps Apply
+   * busy until it settles; a rejection is shown in the panel, which stays
+   * open with the edits intact.
+   */
+  onApply: (payload: AiApplyPayload) => void | Promise<void>;
   /** Called when user dismisses the panel */
   onDismiss: () => void;
   /** Field definitions from the card type (to resolve labels/options for extra fields) */
   fieldsSchema?: SectionDef[];
+  /** Field keys the card's subtype hides: a suggestion for one is not offered. */
+  hiddenFields?: ReadonlySet<string>;
 }
 
 /** Confidence badge colour (the badge itself shows the percentage). */
@@ -55,6 +64,18 @@ function findField(fieldsSchema: SectionDef[] | undefined, key: string): FieldDe
   return null;
 }
 
+/**
+ * Whether a suggested value can be saved on `field`: the panel has an editor
+ * for it (yes/no or a single select) and, for a select, the value is one of
+ * the card type's current options. Anything else would be refused on save and
+ * take the description down with it (#1422).
+ */
+function fitsField(field: FieldDef | null, value: unknown): boolean {
+  if (!field) return false;
+  if (field.type === "boolean") return true;
+  return field.type === "single_select" && (field.options ?? []).some((o) => o.key === value);
+}
+
 export default function AiSuggestPanel({
   response,
   loading,
@@ -62,6 +83,7 @@ export default function AiSuggestPanel({
   onApply,
   onDismiss,
   fieldsSchema,
+  hiddenFields,
 }: Props) {
   const { t } = useTranslation(["common"]);
   const fieldLabel = useFieldLabel();
@@ -69,18 +91,26 @@ export default function AiSuggestPanel({
 
   const [editedDescription, setEditedDescription] = useState<string | null>(null);
   const [fieldOverrides, setFieldOverrides] = useState<Record<string, unknown>>({});
+  const [applying, setApplying] = useState(false);
+  const [applyError, setApplyError] = useState("");
 
   // Reset overrides when response changes
   useEffect(() => {
     setEditedDescription(null);
     setFieldOverrides({});
+    setApplyError("");
   }, [response]);
 
   const suggestion = response?.suggestions?.description;
 
-  // Collect non-description suggestions
+  // Collect non-description suggestions. With the card type's schema, only
+  // the ones it would accept are shown and applied; without one they are
+  // forwarded as they came.
   const extraSuggestions = Object.entries(response?.suggestions ?? {}).filter(
-    ([k]) => k !== "description",
+    ([k, s]) =>
+      k !== "description" &&
+      !hiddenFields?.has(k) &&
+      (!fieldsSchema || fitsField(findField(fieldsSchema, k), s.value)),
   );
 
   // Loading state
@@ -127,21 +157,50 @@ export default function AiSuggestPanel({
     );
   }
 
-  // No response or no suggestions at all
-  if (!response || (!suggestion && extraSuggestions.length === 0)) return null;
+  if (!response) return null;
+
+  // A response with nothing to apply: say so and let it be dismissed — every
+  // host hides its suggest button while a response is shown, so rendering
+  // nothing here would leave no way to ask again.
+  if (!suggestion && extraSuggestions.length === 0) {
+    return (
+      <Paper
+        variant="outlined"
+        sx={{ p: 2, mt: 2, borderColor: "primary.main", borderStyle: "dashed" }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <MaterialSymbol icon="auto_awesome" size={20} color={brand.primary} />
+          <Typography variant="body2" sx={{ flex: 1 }}>
+            {t("ai.noSuggestion")}
+          </Typography>
+          <Button size="small" onClick={onDismiss} color="inherit">
+            {t("ai.dismiss")}
+          </Button>
+        </Box>
+      </Paper>
+    );
+  }
 
   const badge = suggestion ? confidenceBadge(suggestion.confidence) : null;
   const currentValue = editedDescription ?? (suggestion?.value as string) ?? "";
 
-  const handleApply = () => {
+  const handleApply = async () => {
     const fields: Record<string, unknown> = {};
     for (const [key, s] of extraSuggestions) {
       fields[key] = key in fieldOverrides ? fieldOverrides[key] : s.value;
     }
-    onApply({
-      description: currentValue,
-      fields: Object.keys(fields).length > 0 ? fields : undefined,
-    });
+    setApplyError("");
+    setApplying(true);
+    try {
+      await onApply({
+        description: currentValue,
+        fields: Object.keys(fields).length > 0 ? fields : undefined,
+      });
+    } catch (err) {
+      setApplyError(err instanceof Error ? err.message : t("ai.applyFailedHint"));
+    } finally {
+      setApplying(false);
+    }
   };
 
   const hasDescription = !!suggestion;
@@ -308,17 +367,32 @@ export default function AiSuggestPanel({
         </Box>
       )}
 
+      {/* A refused save: the panel stays open with the edits intact */}
+      {applyError && (
+        <Alert severity="error" sx={{ mt: 1.5 }} onClose={() => setApplyError("")}>
+          <AlertTitle>{t("ai.applyFailed")}</AlertTitle>
+          {applyError}
+        </Alert>
+      )}
+
       {/* Actions */}
       <Box sx={{ display: "flex", gap: 1, mt: 2, justifyContent: "flex-end" }}>
-        <Button size="small" onClick={onDismiss} color="inherit">
+        <Button size="small" onClick={onDismiss} color="inherit" disabled={applying}>
           {t("ai.dismiss")}
         </Button>
         <Button
           size="small"
           variant="contained"
           onClick={handleApply}
-          disabled={hasDescription && !currentValue.trim()}
-          startIcon={<MaterialSymbol icon="check" size={16} />}
+          disabled={applying || (hasDescription && !currentValue.trim())}
+          aria-busy={applying}
+          startIcon={
+            applying ? (
+              <CircularProgress size={16} color="inherit" />
+            ) : (
+              <MaterialSymbol icon="check" size={16} />
+            )
+          }
         >
           {buttonLabel}
         </Button>

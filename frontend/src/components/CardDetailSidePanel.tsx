@@ -21,6 +21,8 @@ import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useAiStatus, aiSuggestEnabledFor } from "@/hooks/useAiStatus";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { api } from "@/api/client";
+import { applyAiSuggestion } from "@/features/cards/applyAiSuggestion";
+import { hiddenFieldKeys } from "@/features/cards/sectionConfig";
 import { DataQualityPill } from "@/features/cards/sections";
 import { GainFlight } from "@/features/cards/gamification/GainFlight";
 import { useSaveOrigin, useScoreGain } from "@/features/cards/gamification/useScoreGain";
@@ -98,7 +100,7 @@ export default function CardDetailSidePanel({
   focus,
 }: Props) {
   const navigate = useNavigate();
-  const { t } = useTranslation("common");
+  const { t, i18n } = useTranslation("common");
   const { getType, relationTypes } = useMetamodel();
   const typeLabel = useTypeLabel();
   const resolveSubtypeLabel = useCardSubtypeLabel();
@@ -120,6 +122,9 @@ export default function CardDetailSidePanel({
   const [aiResponse, setAiResponse] = useState<AiSuggestResponse | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
+  // The description of an applied suggestion was saved but the card type
+  // refused the other suggested values: the server's reason, shown once.
+  const [aiSkippedReason, setAiSkippedReason] = useState("");
 
   // Unsaved edits (#1397). The sections report "any section dirty" through
   // CardDetailContent, exactly as on the full card page (#843), and report
@@ -200,6 +205,7 @@ export default function CardDetailSidePanel({
     setPerms(DEFAULT_PERMISSIONS);
     setAiResponse(null);
     setAiError("");
+    setAiSkippedReason("");
     setAiLoading(false);
     // A switch can land before the previous card's responses do; those must
     // not paint the old card over the new one.
@@ -276,35 +282,38 @@ export default function CardDetailSidePanel({
   const isArchived = card?.status === "ARCHIVED";
   const aiEnabled = aiSuggestEnabledFor(aiStatus, card?.type);
 
+  // As with the card fetch above, a switch can land before an AI request
+  // settles: its answer belongs to the card it was made for, not the one shown.
   const handleAiSuggest = async () => {
     if (!card) return;
+    const cardId = card.id;
     setAiError("");
     setAiResponse(null);
+    setAiSkippedReason("");
     setAiLoading(true);
     try {
       const res = await api.post<AiSuggestResponse>("/ai/suggest", {
         type_key: card.type,
         subtype: card.subtype || undefined,
         name: card.name,
+        locale: i18n.language,
       });
-      setAiResponse(res);
+      if (shownIdRef.current === cardId) setAiResponse(res);
     } catch (e: unknown) {
-      setAiError(e instanceof Error ? e.message : String(e));
+      if (shownIdRef.current === cardId) setAiError(e instanceof Error ? e.message : String(e));
     } finally {
-      setAiLoading(false);
+      if (shownIdRef.current === cardId) setAiLoading(false);
     }
   };
 
+  // A rejection propagates to the panel, which shows it and stays open.
   const handleAiApply = async (payload: AiApplyPayload) => {
     if (!card) return;
-    const patch: Record<string, unknown> = {};
-    if (payload.description) patch.description = payload.description;
-    if (payload.fields) {
-      patch.attributes = { ...(card.attributes ?? {}), ...payload.fields };
-    }
-    const updated = await api.patch<Card>(`/cards/${card.id}`, patch);
-    setCard(updated);
+    const result = await applyAiSuggestion(card, payload);
+    if (shownIdRef.current !== card.id) return;
+    setCard(result.card);
     setAiResponse(null);
+    setAiSkippedReason(result.skippedFields ? result.reason : "");
   };
 
   const content = (
@@ -441,19 +450,27 @@ export default function CardDetailSidePanel({
             }
             aiBusy={aiLoading}
             beforeTabs={
-              (aiLoading || aiError || aiResponse) && (
-                <AiSuggestPanel
-                  response={aiResponse}
-                  loading={aiLoading}
-                  error={aiError}
-                  onApply={handleAiApply}
-                  onDismiss={() => {
-                    setAiResponse(null);
-                    setAiError("");
-                  }}
-                  fieldsSchema={typeConfig?.fields_schema}
-                />
-              )
+              <>
+                {aiSkippedReason && (
+                  <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setAiSkippedReason("")}>
+                    {t("ai.fieldsSkipped", { reason: aiSkippedReason })}
+                  </Alert>
+                )}
+                {(aiLoading || aiError || aiResponse) && (
+                  <AiSuggestPanel
+                    response={aiResponse}
+                    loading={aiLoading}
+                    error={aiError}
+                    onApply={handleAiApply}
+                    onDismiss={() => {
+                      setAiResponse(null);
+                      setAiError("");
+                    }}
+                    fieldsSchema={typeConfig?.fields_schema}
+                    hiddenFields={hiddenFieldKeys(typeConfig?.subtypes, card.subtype, {}, [])}
+                  />
+                )}
+              </>
             }
           />
         )}

@@ -272,6 +272,109 @@ class TestSuggest:
         assert call["provider_type"] == "anthropic" and call["api_key"] == "sk-live"
         assert call["provider_url"] == "https://llm.test" and call["model"] == "test-model"
         assert call["fields_schema"] == []
+        # The Application type here declares no subtypes, so nothing is hidden.
+        assert call["hidden_fields"] == set()
+
+    async def test_the_fields_the_subtype_hides_are_passed_on(self, client, db, env, fakes):
+        await create_card_type(
+            db,
+            key="Widget",
+            label="Widget",
+            subtypes=[
+                {"key": "plain", "label": "Plain", "hidden_fields": []},
+                {"key": "micro", "label": "Micro", "hidden_fields": ["hostingType"]},
+            ],
+        )
+        await ai_settings(db)
+        body = {"type_key": "Widget", "name": "Kafka"}
+        for subtype in ("micro", "plain", None):
+            resp = await self._post(client, env["member"], {**body, "subtype": subtype})
+            assert resp.status_code == 200, resp.text
+        assert [c["hidden_fields"] for c in fakes.suggest_calls] == [{"hostingType"}, set(), set()]
+
+
+class TestSuggestionLanguage:
+    """The description is written in the UI language: the request's locale,
+    else the user's saved one, else English (#1422)."""
+
+    EOL = "/api/v1/ai/suggest-eol-product"
+
+    async def _suggest(self, client, user, **extra):
+        return await client.post(
+            "/api/v1/ai/suggest", json={**SUGGEST, **extra}, headers=auth_headers(user)
+        )
+
+    async def test_the_requested_locale_reaches_the_pipeline(self, client, db, env, fakes):
+        await ai_settings(db)
+        env["member"].locale = "de"
+        await db.flush()
+        resp = await self._suggest(client, env["member"], locale="fr")
+        assert resp.status_code == 200, resp.text
+        assert fakes.suggest_calls[0]["locale"] == "fr"
+
+    async def test_without_one_the_users_saved_locale_is_used(self, client, db, env, fakes):
+        await ai_settings(db)
+        env["member"].locale = "de"
+        await db.flush()
+        resp = await self._suggest(client, env["member"])
+        assert resp.status_code == 200, resp.text
+        assert fakes.suggest_calls[0]["locale"] == "de"
+
+    async def test_with_no_saved_locale_it_is_english(self, client, db, env, fakes):
+        await ai_settings(db)
+        env["member"].locale = ""
+        await db.flush()
+        resp = await self._suggest(client, env["member"])
+        assert resp.status_code == 200, resp.text
+        assert fakes.suggest_calls[0]["locale"] == "en"
+
+    async def test_the_eol_product_route_follows_the_same_rule(self, client, db, env, fakes):
+        await ai_settings(db)
+        env["member"].locale = "da"
+        await db.flush()
+        headers = auth_headers(env["member"])
+        asked = await client.post(
+            self.EOL, json={"name": "Acme ERP", "locale": "it"}, headers=headers
+        )
+        assert asked.status_code == 200, asked.text
+        saved = await client.post(self.EOL, json={"name": "Acme ERP"}, headers=headers)
+        assert saved.status_code == 200, saved.text
+        assert [c["locale"] for c in fakes.suggest_calls] == ["it", "da"]
+
+    async def test_an_overlong_locale_is_refused(self, client, db, env, fakes):
+        await ai_settings(db)
+        resp = await self._suggest(client, env["member"], locale="x" * 11)
+        assert resp.status_code == 422
+        eol = await client.post(
+            self.EOL,
+            json={"name": "Acme ERP", "locale": "x" * 11},
+            headers=auth_headers(env["member"]),
+        )
+        assert eol.status_code == 422
+        assert fakes.suggest_calls == []
+
+    async def test_an_unsupported_locale_is_written_in_english(self, client, db, env, monkeypatch):
+        """The real pipeline, the provider faked: the model is told English,
+        and the text the client sent is nowhere in the prompt."""
+        from app.services import ai_service
+
+        prompts: list[list[dict]] = []
+
+        async def no_search(*args, **kwargs):
+            return []
+
+        async def call_llm(provider_url, model, messages, **kwargs):
+            prompts.append(messages)
+            return {"description": {"value": "Ein CRM.", "confidence": 0.7}}
+
+        monkeypatch.setattr(ai_service, "web_search", no_search)
+        monkeypatch.setattr(ai_service, "call_llm", call_llm)
+        await ai_settings(db)
+        resp = await self._suggest(client, env["member"], locale="tlh")
+        assert resp.status_code == 200, resp.text
+        system = prompts[0][0]["content"]
+        assert "- Write the description in English." in system
+        assert "tlh" not in system and "tlh" not in prompts[0][1]["content"]
 
 
 class TestPortfolioInsights:

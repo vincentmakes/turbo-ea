@@ -324,7 +324,7 @@ interface ProductFieldsProps {
  * suggestions are on. Shared by the create dialog and the admin panel.
  */
 export function ProductFields({ value, onChange, disabled, autoFocus }: ProductFieldsProps) {
-  const { t } = useTranslation(["cards", "common"]);
+  const { t, i18n } = useTranslation(["cards", "common"]);
   const issues = productDraftIssues(value);
   const set = <K extends keyof ProductDraft>(key: K, v: ProductDraft[K]) =>
     onChange({ ...value, [key]: v });
@@ -348,6 +348,7 @@ export function ProductFields({ value, onChange, disabled, autoFocus }: ProductF
         const res = await api.post<AiSuggestResponse>("/ai/suggest-eol-product", {
           name: value.title.trim(),
           link: value.link.trim() || undefined,
+          locale: i18n.language,
         });
         if (!isCurrent()) return;
         setAiResponse(res);

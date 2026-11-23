@@ -183,6 +183,8 @@ Pour Ollama, l'interface d'administration affiche tous les modèles actuellement
 
 Une fois configuré par un administrateur, les utilisateurs disposant de la permission `ai.suggest` (accordée par défaut aux rôles Admin, Admin BPM et Membre) verront un bouton étincelle sur les pages de détail des fiches et dans le dialogue de création de fiche.
 
+La description est rédigée dans la langue choisie par l'utilisateur pour Turbo EA. Les noms de produits, de fournisseurs et de technologies sont conservés tels quels.
+
 ### Sur une fiche existante
 
 1. Ouvrez la vue détail de n'importe quelle fiche.
@@ -191,6 +193,8 @@ Une fois configuré par un administrateur, les utilisateurs disposant de la perm
 4. Examinez la suggestion : lisez la description générée, vérifiez le score de confiance et les liens vers les sources.
 5. **Modifiez** le texte si nécessaire -- la suggestion est entièrement modifiable avant l'application.
 6. Cliquez sur **Appliquer** pour définir la description, ou **Ignorer** pour la rejeter.
+
+Si l'enregistrement est refusé, le panneau reste ouvert avec le motif et votre texte modifié, afin que vous puissiez réessayer. Si l'IA ne trouve rien à suggérer, le panneau l'indique ; fermez-le pour réessayer.
 
 ### Lors de la création d'une nouvelle fiche
 
@@ -203,9 +207,11 @@ Une fois configuré par un administrateur, les utilisateurs disposant de la perm
 Pour les fiches **Application**, l'IA peut également suggérer des champs supplémentaires lorsqu'elle trouve des preuves dans les résultats de recherche web :
 
 - **Application commerciale** — activé si des pages de tarification, d'informations de licence ou de contact commercial sont trouvées
-- **Type d'hébergement** — suggéré comme On-Premise, Cloud (SaaS), Cloud (PaaS), Cloud (IaaS) ou Hybride selon le modèle de déploiement du produit
+- **Type d'hébergement** — suggéré parmi les options de Type d'hébergement de votre type de fiche Application (par défaut On-Premise, Cloud (SaaS), Cloud (PaaS), Cloud (IaaS) ou Hybride), selon le modèle de déploiement du produit
 
 Ces champs ne sont suggérés que lorsque l'IA trouve des preuves claires — ils ne sont pas spéculés. L'utilisateur peut examiner et ajuster les valeurs avant de les appliquer.
+
+Les suggestions respectent votre métamodèle. Les choix de Type d'hébergement sont transmis à l'IA avec leurs libellés, et la suggestion est toujours l'une de leurs clés. Si un administrateur a supprimé l'un de ces champs, changé son type, l'a rendu calculé ou a supprimé une option, ou si le sous-type de la fiche masque le champ, cette suggestion est ignorée et la description est tout de même proposée. Si une valeur suggérée est refusée à l'application, la description est enregistrée seule et un message indique quelle valeur n'a pas pu l'être.
 
 !!! note
     En dehors des champs spécifiques aux Applications, les suggestions IA génèrent principalement le champ **description**. Les champs personnalisés pour les autres types de fiches ne sont pas encore couverts.
@@ -268,6 +274,7 @@ Les clés de permission sont `ai.suggest` et `ai.portfolio_insights`. Les rôles
 | Le modèle n'apparaît pas dans la liste déroulante | Pour Ollama : assurez-vous que le modèle est téléchargé (`ollama pull nom-du-modele`). Pour les fournisseurs commerciaux : entrez le nom du modèle manuellement. |
 | Suggestions lentes | La vitesse d'inférence LLM dépend du matériel (pour Ollama) ou de la latence réseau (pour les fournisseurs commerciaux). Les modèles plus petits comme `gemma3:4b` sont plus rapides que les plus grands. |
 | Scores de confiance faibles | Le LLM peut ne pas trouver suffisamment d'informations pertinentes via la recherche web. Essayez un nom de fiche plus spécifique, ou envisagez d'utiliser Google Custom Search pour de meilleurs résultats. |
+| L'application enregistre la description mais indique que les autres valeurs n'ont pas pu l'être | Le type de fiche n'accepte plus l'une des valeurs suggérées, par exemple parce qu'une option de Type d'hébergement a été supprimée dans le métamodèle. La description est enregistrée ; renseignez les autres champs à la main. |
 | Le test de connexion échoue | Vérifiez que l'URL du fournisseur est accessible depuis le conteneur backend. Pour les configurations Docker, assurez-vous que les deux conteneurs sont sur le même réseau. |
 | Le test de connexion indique que le fournisseur n'accepte pas `response_format` ou `temperature` | Rien à corriger : le fournisseur fonctionne. Turbo EA omet ce paramètre de chaque requête qui lui est adressée. Sans `response_format`, la réponse dépend du respect par le modèle de la consigne de répondre en JSON ; si les suggestions reviennent vides, essayez un modèle plus performant. |
 | Le test de connexion Azure répond 404 | Azure répond 404 pour trois erreurs différentes. « Deployment not found » signifie que le champ **Modèle** ne correspond à aucun nom de déploiement. Sinon, le message indique le chemin appelé : vérifiez que l'**URL du fournisseur** est le point de terminaison de votre ressource ou se termine par `/openai/v1/`, et que la **version de l'API** contient une version de l'API Azure OpenAI et non la version du modèle. Si votre portail n'affiche aucune version d'API, utilisez le point de terminaison se terminant par `/openai/v1/`, qui n'en a pas besoin. |

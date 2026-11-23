@@ -1006,6 +1006,7 @@ describe("CreateCardDialog — AI suggestions", () => {
       type_key: "Widget",
       subtype: undefined,
       name: "Salesforce",
+      locale: "en",
     });
 
     await act(async () => {

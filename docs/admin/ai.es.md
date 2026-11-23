@@ -183,6 +183,8 @@ Para Ollama, la interfaz de administración muestra todos los modelos descargado
 
 Una vez configurado por un administrador, los usuarios con el permiso `ai.suggest` (otorgado a los roles Admin, BPM Admin y Miembro por defecto) verán un botón con un destello en las páginas de detalle de fichas y en el diálogo de creación de fichas.
 
+La descripción se redacta en el idioma que el usuario ha elegido para Turbo EA. Los nombres de productos, proveedores y tecnologías se mantienen tal cual.
+
 ### En una Ficha Existente
 
 1. Abra la vista de detalle de cualquier ficha.
@@ -191,6 +193,8 @@ Una vez configurado por un administrador, los usuarios con el permiso `ai.sugges
 4. Revise la sugerencia: lea la descripción generada, verifique la puntuación de confianza y consulte los enlaces a las fuentes.
 5. **Edite** el texto si es necesario — la sugerencia es completamente editable antes de aplicarla.
 6. Haga clic en **Aplicar** para establecer la descripción, o **Descartar** para descartarla.
+
+Si se rechaza el guardado, el panel permanece abierto con el motivo y su texto editado, para que pueda intentarlo de nuevo. Si la IA no encuentra nada que sugerir, el panel lo indica; ciérrelo para volver a intentarlo.
 
 ### Al Crear una Nueva Ficha
 
@@ -203,9 +207,11 @@ Una vez configurado por un administrador, los usuarios con el permiso `ai.sugges
 Para fichas de **Aplicación**, la IA también puede sugerir campos adicionales cuando encuentra evidencia en los resultados de búsqueda web:
 
 - **Aplicación Comercial** — se activa si se encuentran páginas de precios, información de licencias o contacto de ventas
-- **Tipo de Alojamiento** — se sugiere como On-Premise, Cloud (SaaS), Cloud (PaaS), Cloud (IaaS) o Híbrido según el modelo de despliegue del producto
+- **Tipo de Alojamiento** — se sugiere a partir de las opciones de Tipo de alojamiento de su tipo de ficha Aplicación (por defecto On-Premise, Cloud (SaaS), Cloud (PaaS), Cloud (IaaS) o Híbrido), según el modelo de despliegue del producto
 
 Estos campos solo se sugieren cuando la IA encuentra evidencia clara — no se especula. El usuario puede revisar y ajustar los valores antes de aplicarlos.
+
+Las sugerencias siguen su metamodelo. Las opciones de Tipo de alojamiento se entregan a la IA con sus etiquetas, y la sugerencia es siempre una de sus claves. Si un administrador ha eliminado uno de estos campos, ha cambiado su tipo, lo ha hecho calculado o ha eliminado una opción, o si el subtipo de la ficha oculta el campo, esa sugerencia se omite y la descripción se ofrece igualmente. Si un valor sugerido es rechazado al aplicar, la descripción se guarda por sí sola y un mensaje indica qué valor no se pudo guardar.
 
 !!! note
     Aparte de los campos específicos de Aplicación, las sugerencias de IA generan principalmente el campo de **descripción**. Los campos personalizados para otros tipos de fichas aún no están cubiertos.
@@ -268,6 +274,7 @@ Las claves de permiso son `ai.suggest` y `ai.portfolio_insights`. Los roles pers
 | El modelo no aparece en el menú desplegable | Para Ollama: asegúrese de que el modelo esté descargado (`ollama pull nombre-modelo`). Para proveedores comerciales: ingrese el nombre del modelo manualmente. |
 | Sugerencias lentas | La velocidad de inferencia del LLM depende del hardware (para Ollama) o la latencia de red (para proveedores comerciales). Modelos más pequeños como `gemma3:4b` son más rápidos que los grandes. |
 | Puntuaciones de confianza bajas | El LLM puede no encontrar suficiente información relevante mediante búsqueda web. Intente un nombre de ficha más específico, o considere usar Google Custom Search para mejores resultados. |
+| Aplicar guarda la descripción pero indica que no se pudieron guardar los demás valores | El tipo de ficha ya no acepta uno de los valores sugeridos, por ejemplo porque se eliminó una opción de Tipo de alojamiento en el metamodelo. La descripción se guarda; rellene los demás campos a mano. |
 | La prueba de conexión falla | Verifique que la URL del proveedor sea accesible desde el contenedor del backend. Para configuraciones Docker, asegúrese de que ambos contenedores estén en la misma red. |
 | Probar conexión indica que el proveedor no acepta `response_format` o `temperature` | Nada que corregir: el proveedor funciona. Turbo EA omite ese parámetro en todas las solicitudes que le envía. Sin `response_format`, la respuesta depende de que el modelo siga la instrucción de responder en JSON; si las sugerencias llegan vacías, pruebe un modelo más capaz. |
 | La prueba de conexión de Azure responde 404 | Azure responde 404 ante tres errores distintos. «Deployment not found» significa que el campo **Modelo** no coincide con ningún nombre de despliegue. En otro caso, el mensaje indica la ruta a la que se llamó: compruebe que la **URL del proveedor** es el endpoint de su recurso o termina en `/openai/v1/`, y que la **versión de la API** contiene una versión de la API de Azure OpenAI y no la versión del modelo. Si su portal no muestra ninguna versión de API, use el endpoint que termina en `/openai/v1/`, que no necesita ninguna. |

@@ -715,6 +715,7 @@ describe("CardDetail — AI suggestions", () => {
       type_key: "Application",
       subtype: "businessApp",
       name: "CRM",
+      locale: "en",
     });
     // While a suggestion is shown the trigger is withdrawn.
     await user.click(await screen.findByRole("button", { name: /Apply suggestions/ }));
@@ -724,6 +725,65 @@ describe("CardDetail — AI suggestions", () => {
       attributes: { shared: true },
     });
     expect(screen.getByText("content-ai-suggest")).toBeInTheDocument();
+  });
+
+  it("applies the description alone and says so when the values are refused", async () => {
+    mockApi.on("post", "/ai/suggest", {
+      suggestions: {
+        description: { value: "A CRM.", confidence: 0.9 },
+        shared: { value: true, confidence: 0.7 },
+      },
+      sources: [],
+    });
+    mockApi.on("patch", "/cards/c1", (_p: string, body: unknown) => {
+      if ("attributes" in (body as object)) {
+        throw new ApiError("Field 'Shared' is computed", 422, "readonly");
+      }
+      return { ...CARD, ...(body as object) };
+    });
+    const { user } = renderPage();
+
+    await user.click(await screen.findByText("content-ai-suggest"));
+    await user.click(await screen.findByRole("button", { name: /Apply suggestions/ }));
+    const warning = await screen.findByText(
+      "Description applied. The other suggested values could not be saved: Field 'Shared' is computed",
+    );
+    await waitFor(() => expect(screen.getByTestId("content")).toHaveTextContent("A CRM."));
+    expect(mockApi.callsOf("patch", "/cards/c1").map((c) => c.body)).toEqual([
+      { description: "A CRM.", attributes: { shared: true } },
+      { description: "A CRM." },
+    ]);
+    expect(screen.queryByText("AI Suggestions")).not.toBeInTheDocument();
+    await user.click(within(warning.closest('[role="alert"]') as HTMLElement).getByRole("button"));
+    expect(screen.queryByText(/Description applied\./)).not.toBeInTheDocument();
+  });
+
+  it("shows no warning when the whole suggestion was saved", async () => {
+    mockApi.on("post", "/ai/suggest", {
+      suggestions: { description: { value: "A CRM.", confidence: 0.9 } },
+      sources: [],
+    });
+    mockApi.on("patch", "/cards/c1", (_p: string, body: unknown) => ({ ...CARD, ...(body as object) }));
+    const { user } = renderPage();
+    await user.click(await screen.findByText("content-ai-suggest"));
+    await user.click(await screen.findByRole("button", { name: /Apply description/ }));
+    await waitFor(() => expect(screen.getByTestId("content")).toHaveTextContent("A CRM."));
+    expect(screen.queryByText(/Description applied\./)).not.toBeInTheDocument();
+  });
+
+  it("keeps the panel open with the reason when the save fails", async () => {
+    mockApi.on("post", "/ai/suggest", {
+      suggestions: { description: { value: "A CRM.", confidence: 0.9 } },
+      sources: [],
+    });
+    mockApi.fail("patch", "/cards/c1", 500, "boom");
+    const { user } = renderPage();
+    await user.click(await screen.findByText("content-ai-suggest"));
+    await user.click(await screen.findByRole("button", { name: /Apply description/ }));
+    expect(await screen.findByText("PATCH /cards/c1 failed")).toBeInTheDocument();
+    expect(screen.getByText("Could not apply the suggestion")).toBeInTheDocument();
+    expect(screen.getByText("AI Suggestions")).toBeInTheDocument();
+    expect(screen.queryByText(/Description applied\./)).not.toBeInTheDocument();
   });
 
   it("shows a failed suggestion and dismisses it", async () => {

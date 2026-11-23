@@ -26,6 +26,8 @@ import CardLogoAvatar from "@/components/CardLogoAvatar";
 import ApprovalStatusBadge from "@/components/ApprovalStatusBadge";
 import LifecycleBadge from "@/components/LifecycleBadge";
 import AiSuggestPanel, { type AiApplyPayload } from "@/components/AiSuggestPanel";
+import { applyAiSuggestion } from "@/features/cards/applyAiSuggestion";
+import { hiddenFieldKeys } from "@/features/cards/sectionConfig";
 import ArchiveDeleteDialog from "@/features/cards/ArchiveDeleteDialog";
 import RestoreDialog from "@/features/cards/RestoreDialog";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -85,7 +87,7 @@ const DEFAULT_PERMISSIONS: CardEffectivePermissions["effective"] = {
 
 // ── Main Detail Page ────────────────────────────────────────────
 export default function CardDetail() {
-  const { t } = useTranslation(["cards", "common", "validation"]);
+  const { t, i18n } = useTranslation(["cards", "common", "validation"]);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -114,6 +116,11 @@ export default function CardDetail() {
     nonce: number;
   } | null>(null);
   const jumpNonce = useRef(0);
+  // Bumped on every switch to another card: an AI request that settles after
+  // the switch must not write that card's state over the new one. A counter,
+  // not an id comparison — the route may spell the UUID differently (upper
+  // case, no hyphens) from the canonical id the server returns.
+  const aiEpochRef = useRef(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [actionsMenuAnchor, setActionsMenuAnchor] = useState<HTMLElement | null>(null);
@@ -181,6 +188,9 @@ export default function CardDetail() {
   const [aiResponse, setAiResponse] = useState<AiSuggestResponse | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
+  // The description of an applied suggestion was saved but the card type
+  // refused the other suggested values: the server's reason, shown once.
+  const [aiSkippedReason, setAiSkippedReason] = useState("");
   // Any other failed approve / reject / reset — the badge fires the action and
   // forgets it, so a failure nobody catches here would be shown to no one.
   const [approvalError, setApprovalError] = useState("");
@@ -254,6 +264,12 @@ export default function CardDetail() {
     setApprovalBlock(null);
     setSubtypeError("");
     setLogoError("");
+    // A suggestion, its failure or its warning belonged to the previous card.
+    aiEpochRef.current += 1;
+    setAiResponse(null);
+    setAiError("");
+    setAiLoading(false);
+    setAiSkippedReason("");
     // Read tab from URL search params: a tab key (?tab=resources) or, for
     // older links, an index (?tab=1&subtab=1). CardDetailContent resolves it.
     const urlTab = searchParams.get("tab");
@@ -495,32 +511,34 @@ export default function CardDetail() {
   const aiEnabled = aiSuggestEnabledFor(aiStatus, card.type);
 
   const handleAiSuggest = async () => {
+    const epoch = aiEpochRef.current;
     setAiError("");
     setAiResponse(null);
+    setAiSkippedReason("");
     setAiLoading(true);
     try {
       const res = await api.post<AiSuggestResponse>("/ai/suggest", {
         type_key: card.type,
         subtype: card.subtype || undefined,
         name: card.name,
+        locale: i18n.language,
       });
-      setAiResponse(res);
+      if (aiEpochRef.current === epoch) setAiResponse(res);
     } catch (e: unknown) {
-      setAiError(e instanceof Error ? e.message : String(e));
+      if (aiEpochRef.current === epoch) setAiError(e instanceof Error ? e.message : String(e));
     } finally {
-      setAiLoading(false);
+      if (aiEpochRef.current === epoch) setAiLoading(false);
     }
   };
 
+  // A rejection propagates to the panel, which shows it and stays open.
   const handleAiApply = async (payload: AiApplyPayload) => {
-    const patch: Record<string, unknown> = {};
-    if (payload.description) patch.description = payload.description;
-    if (payload.fields) {
-      patch.attributes = { ...(card.attributes ?? {}), ...payload.fields };
-    }
-    const updated = await api.patch<Card>(`/cards/${card.id}`, patch);
-    setCard(updated);
+    const epoch = aiEpochRef.current;
+    const result = await applyAiSuggestion(card, payload);
+    if (aiEpochRef.current !== epoch) return;
+    setCard(result.card);
     setAiResponse(null);
+    setAiSkippedReason(result.skippedFields ? result.reason : "");
   };
 
   // archiveRetentionDays === 0 means "keep indefinitely" — no purge countdown.
@@ -1074,6 +1092,13 @@ export default function CardDetail() {
                 </Alert>
               )}
 
+              {/* AI suggestion applied without the values the card type refused */}
+              {aiSkippedReason && (
+                <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setAiSkippedReason("")}>
+                  {t("common:ai.fieldsSkipped", { reason: aiSkippedReason })}
+                </Alert>
+              )}
+
               {/* AI Suggestion Panel */}
               {(aiLoading || aiError || aiResponse) && (
                 <AiSuggestPanel
@@ -1086,6 +1111,7 @@ export default function CardDetail() {
                     setAiError("");
                   }}
                   fieldsSchema={typeConfig?.fields_schema}
+                  hiddenFields={hiddenFieldKeys(typeConfig?.subtypes, card.subtype, {}, [])}
                 />
               )}
             </>

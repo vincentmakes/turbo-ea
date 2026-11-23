@@ -22,9 +22,17 @@ from app.services.ai_service import (
     validate_suggestions,
 )
 
+HOSTING = {
+    "key": "hostingType",
+    "type": "single_select",
+    "options": [{"key": "onPremise"}, {"key": "cloudSaaS"}],
+}
 SCHEMA = [
-    {"section": "Info", "fields": [{"key": "commercialApplication"}, {"key": "hostingType"}]},
-    {"section": "Other", "fields": [{"key": "costTotalAnnual"}]},
+    {
+        "section": "Info",
+        "fields": [{"key": "commercialApplication", "type": "boolean"}, HOSTING],
+    },
+    {"section": "Other", "fields": [{"key": "costTotalAnnual", "type": "cost"}]},
 ]
 
 
@@ -36,7 +44,7 @@ class TestExtraFields:
         assert _get_extra_fields("Organization", SCHEMA) == []
         assert _get_extra_fields("Application", None) == []
         assert _get_extra_fields("Application", []) == []
-        only_hosting = [{"section": "Info", "fields": [{"key": "hostingType"}, {}]}]
+        only_hosting = [{"section": "Info", "fields": [HOSTING, {}]}]
         assert [f["key"] for f in _get_extra_fields("Application", only_hosting)] == ["hostingType"]
         assert [f["key"] for f in _get_extra_fields("Application", SCHEMA)] == [
             "commercialApplication",
