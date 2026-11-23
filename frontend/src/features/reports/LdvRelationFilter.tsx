@@ -15,6 +15,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import MenuSectionHeader from "@/components/MenuSectionHeader";
 import { CheckRow } from "@/components/cardDisplay/menuRows";
 import { useFullScreenDialog } from "@/hooks/useFullScreenDialog";
+import { useMetamodel } from "@/hooks/useMetamodel";
 import { useRelationLabel, useTypeLabel } from "@/hooks/useResolveLabel";
 import type { CardType, RelationType } from "@/types";
 
@@ -22,7 +23,11 @@ const ICON = "conversion_path";
 
 interface Props {
   relationTypes: RelationType[];
-  /** The card types, to name each relation type's two ends. */
+  /**
+   * The card types, to name each relation type's two ends. A consumer may pass
+   * only the types on its canvas, so an end missing here is looked up in the
+   * whole metamodel before falling back to its raw key.
+   */
   types: CardType[];
   /**
    * Relation-type key → how many lines of that type the view holds, counted
@@ -70,6 +75,7 @@ export default function LdvRelationFilter({
   const { t } = useTranslation(["reports", "common"]);
   const relationLabel = useRelationLabel();
   const typeLabel = useTypeLabel();
+  const { types: allTypes } = useMetamodel();
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const fullScreen = useFullScreenDialog();
@@ -79,7 +85,9 @@ export default function LdvRelationFilter({
   const present = useMemo<Row[]>(() => {
     const rtByKey = new Map(relationTypes.map((rt) => [rt.key, rt]));
     const typeByKey = new Map(types.map((tp) => [tp.key, tp]));
-    const end = (key: string) => typeLabel(typeByKey.get(key)) || key;
+    const metamodelTypeByKey = new Map(allTypes.map((tp) => [tp.key, tp]));
+    const end = (key: string) =>
+      typeLabel(typeByKey.get(key) ?? metamodelTypeByKey.get(key)) || key;
     const rows = [...relationCounts.keys()].map((key): Row => {
       const rt = rtByKey.get(key);
       if (!rt) {
@@ -103,7 +111,15 @@ export default function LdvRelationFilter({
         a.sortOrder - b.sortOrder ||
         a.key.localeCompare(b.key),
     );
-  }, [relationTypes, types, relationCounts, fallbackLabels, relationLabel, typeLabel]);
+  }, [
+    relationTypes,
+    types,
+    allTypes,
+    relationCounts,
+    fallbackLabels,
+    relationLabel,
+    typeLabel,
+  ]);
 
   const hiddenSet = useMemo(() => new Set(hiddenRelationTypeKeys), [hiddenRelationTypeKeys]);
 

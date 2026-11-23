@@ -26,7 +26,7 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
 import LayeredDependencyView, { readableTypeColor } from "./LayeredDependencyView";
-import { resolveRevealIds } from "./layeredDependencyLayout";
+import { HIERARCHY_EDGE_TYPE, resolveRevealIds } from "./layeredDependencyLayout";
 import { buildAdjacency } from "./dependencyAdjacency";
 import { alpha, useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -908,7 +908,7 @@ export default function DependencyReport() {
         filteredEdges.push({
           source: n.parent_id,
           target: n.id,
-          type: "hierarchy",
+          type: HIERARCHY_EDGE_TYPE,
           label: t("dependency.hierarchyContains"),
           reverse_label: t("dependency.hierarchyPartOf"),
         });

@@ -1415,6 +1415,43 @@ describe("filterHiddenRelationTypes", () => {
     expect(types(r)).toEqual(["b-Y-d"]);
   });
 
+  it("leaves a card that had no path to the centre before the filter exactly as it was", () => {
+    // Stranded upstream (e.g. by the Card types filter): "x" and "y" share a
+    // line but neither reaches the centre. Hiding an unrelated type that
+    // strands "a" must not take them with it.
+    const nodes = [n("c"), n("a"), n("x"), n("y"), n("lone")];
+    const edges = [e("c", "a", "X"), e("x", "y", "Y")];
+    const r = filterHiddenRelationTypes(nodes, edges, new Set(["X"]), "c");
+    expect(ids(r)).toEqual(["c", "x", "y", "lone"]);
+    expect(types(r)).toEqual(["x-Y-y"]);
+  });
+
+  it("keeps an unreachable card even when the hidden type is its own line", () => {
+    // "x"—X—"y" never reached the centre; hiding X removes the line only.
+    const nodes = [n("c"), n("b"), n("x"), n("y")];
+    const edges = [e("c", "b", "Y"), e("x", "y", "X")];
+    const r = filterHiddenRelationTypes(nodes, edges, new Set(["X"]), "c");
+    expect(r.nodes).toBe(nodes);
+    expect(types(r)).toEqual(["c-Y-b"]);
+  });
+
+  it("keeps the nodes array itself when lines go but no card does", () => {
+    const nodes = [n("c"), n("a")];
+    const edges = [e("c", "a", "owns"), e("c", "a", "uses")];
+    const r = filterHiddenRelationTypes(nodes, edges, new Set(["owns"]), "c");
+    expect(r.nodes).toBe(nodes);
+    expect(r.edges).not.toBe(edges);
+    expect(types(r)).toEqual(["c-uses-a"]);
+  });
+
+  it("keeps the nodes array itself without a centre when no card is stranded", () => {
+    const nodes = [n("a"), n("b")];
+    const edges = [e("a", "b", "X"), e("a", "b", "Y")];
+    const r = filterHiddenRelationTypes(nodes, edges, new Set(["X"]));
+    expect(r.nodes).toBe(nodes);
+    expect(types(r)).toEqual(["a-Y-b"]);
+  });
+
   it("returns the very same arrays when nothing is hidden", () => {
     const nodes = [n("c"), n("a")];
     const edges = [e("c", "a", "X")];

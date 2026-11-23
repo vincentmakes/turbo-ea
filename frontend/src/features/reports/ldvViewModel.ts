@@ -21,6 +21,7 @@ import { MAX_CARD_LINES } from "@/lib/cardDisplayFields";
 import type { ObstacleBounds } from "./ldvObstacles";
 import type { LdvBackgroundStyle } from "./ldvDisplaySettings";
 import type { TimelineChange } from "./timelineRange";
+import { HIERARCHY_EDGE_TYPE } from "./layeredDependencyLayout";
 
 /* ------------------------------------------------------------------ */
 /*  Card (node)                                                        */
@@ -310,13 +311,13 @@ export function countByType(nodes: readonly { type: string }[]): Map<string, num
 
 /**
  * How many lines of each relation type are on the view (before the relation
- * type filter). The synthetic `"hierarchy"` line is not a relation type, so it
- * is not counted and never offered in the Relation types menu.
+ * type filter). The synthetic `HIERARCHY_EDGE_TYPE` line is not a relation
+ * type, so it is not counted and never offered in the Relation types menu.
  */
 export function countByRelationType(edges: readonly { type: string }[]): Map<string, number> {
   const counts = new Map<string, number>();
   for (const e of edges) {
-    if (e.type === "hierarchy") continue;
+    if (e.type === HIERARCHY_EDGE_TYPE) continue;
     counts.set(e.type, (counts.get(e.type) ?? 0) + 1);
   }
   return counts;
@@ -333,7 +334,7 @@ export function relationFallbackLabels(
 ): Map<string, string> {
   const labels = new Map<string, string>();
   for (const e of edges) {
-    if (e.type === "hierarchy" || labels.has(e.type)) continue;
+    if (e.type === HIERARCHY_EDGE_TYPE || labels.has(e.type)) continue;
     labels.set(e.type, e.label || e.type);
   }
   return labels;

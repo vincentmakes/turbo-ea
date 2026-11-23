@@ -10,10 +10,15 @@
  */
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import LdvRelationFilter from "./LdvRelationFilter";
 import { setViewportWidth } from "@/test/matchMedia";
+import { withMetamodel } from "@/test/hooks";
 import { CARD_TYPES, makeRelationType } from "@/test/fixtures/metamodel";
+import type { CardType } from "@/types";
+
+vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
+vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
 
 const RELATION_TYPES = [
   makeRelationType({
@@ -56,13 +61,14 @@ function setup(
     hidden?: string[];
     counts?: Array<[string, number]>;
     fallbackLabels?: Map<string, string>;
+    types?: CardType[];
   } = {},
 ) {
   const onChange = vi.fn();
   render(
     <LdvRelationFilter
       relationTypes={RELATION_TYPES}
-      types={CARD_TYPES}
+      types={opts.types ?? CARD_TYPES}
       relationCounts={
         new Map(
           opts.counts ?? [
@@ -85,6 +91,7 @@ async function openMenu() {
   return screen.getByRole("menu");
 }
 
+beforeEach(() => withMetamodel(CARD_TYPES, RELATION_TYPES));
 afterEach(() => setViewportWidth(1280));
 
 describe("LdvRelationFilter", () => {
@@ -163,6 +170,27 @@ describe("LdvRelationFilter", () => {
       "uses · Application → IT Component4",
       "talks to5",
       "adHocB1",
+    ]);
+  });
+
+  it("names an end missing from the types prop from the whole metamodel", async () => {
+    // A consumer may pass only the card types on its canvas.
+    setup({
+      types: CARD_TYPES.filter((tp) => tp.key === "Application"),
+      counts: [["relAppToITC", 4]],
+    });
+    const menu = await openMenu();
+    expect(within(menu).getAllByRole("menuitem").map((r) => r.textContent)).toEqual([
+      "uses · Application → IT Component4",
+    ]);
+  });
+
+  it("falls back to the raw key for an end the metamodel does not know either", async () => {
+    withMetamodel([], RELATION_TYPES);
+    setup({ types: [], counts: [["relAppToITC", 4]] });
+    const menu = await openMenu();
+    expect(within(menu).getAllByRole("menuitem").map((r) => r.textContent)).toEqual([
+      "uses · Application → ITComponent4",
     ]);
   });
 

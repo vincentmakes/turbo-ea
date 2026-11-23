@@ -171,7 +171,7 @@
   "dependency.cardTypesHint": "Untick a card type to take its cards, and every relation touching them, off the view. The card you are centered on is always shown.",
   "dependency.showAllTypes": "Show all",
   "dependency.relationTypes": "Relation types",
-  "dependency.relationTypesHint": "Untick a relation type to take its lines off the view, along with any card they alone connected. The card you are centered on is always shown.",
+  "dependency.relationTypesHint": "Untick a relation type to take its lines off the view, along with any card those lines alone kept on it. The card you are centered on is always shown.",
   "dependency.groupCards": "Cards",
   "dependency.groupRelations": "Relations",
   "dependency.subtypeLabel": "Subtype",
