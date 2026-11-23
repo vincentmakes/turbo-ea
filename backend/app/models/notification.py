@@ -32,7 +32,11 @@ class Notification(Base, UUIDMixin, TimestampMixin):
 
     # Optional link to a card for context
     card_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("cards.id", ondelete="SET NULL"), nullable=True
+        UUID(as_uuid=True),
+        ForeignKey("cards.id", ondelete="SET NULL"),
+        nullable=True,
+        # Migration 176: deleting a card comment finds its notifications by card.
+        index=True,
     )
     # Who triggered the notification (optional)
     actor_id: Mapped[uuid.UUID | None] = mapped_column(

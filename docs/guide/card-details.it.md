@@ -179,9 +179,9 @@ Mostrata per impostazione predefinita su Application e IT Component, e su qualsi
 ![Sezione commenti della card](../assets/img/it/05_scheda_commenti.png)
 
 - **Aggiungi commenti** — Lasciate note, domande o decisioni sul componente
-- **Risposte con thread** — Rispondete a commenti specifici per creare conversazioni con thread
 - **Timestamp** — Visualizzate quando ogni commento è stato pubblicato e da chi. Un commento pubblicato da un assistente IA tramite il server MCP riporta un chip **MCP** accanto all'autore
 - **Link** — Un indirizzo web in un commento è cliccabile e si apre in una nuova scheda
+- **Elimina commenti** — Un commento può essere eliminato dal suo autore e da chiunque abbia il permesso di gestire i commenti, tramite il proprio ruolo o tramite un ruolo di stakeholder che lo concede sulla card. Il pulsante **Elimina** si trova a destra del commento e chiede conferma prima di rimuovere qualsiasi cosa. Eliminare un commento elimina anche le risposte sottostanti, chiunque le abbia scritte, e la conferma indica quante sono. L'eliminazione è definitiva: il commento, le sue risposte e le notifiche in-app che li citavano scompaiono (le email già inviate non possono essere richiamate), e la **Cronologia** della card registra solo che un commento è stato eliminato, non cosa diceva
 
 ## Scheda Todo
 

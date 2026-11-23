@@ -18,9 +18,11 @@ import {
   surface,
 } from "@/theme/tokens";
 import { MAX_CARD_LINES } from "@/lib/cardDisplayFields";
+import type { CardType, RelationType } from "@/types";
 import type { ObstacleBounds } from "./ldvObstacles";
 import type { LdvBackgroundStyle } from "./ldvDisplaySettings";
 import type { TimelineChange } from "./timelineRange";
+import { HIERARCHY_EDGE_TYPE } from "./layeredDependencyLayout";
 
 /* ------------------------------------------------------------------ */
 /*  Card (node)                                                        */
@@ -308,7 +310,108 @@ export function countByType(nodes: readonly { type: string }[]): Map<string, num
   return counts;
 }
 
-/** Whether the type filter is what emptied the view: a hidden type has cards on it. */
+/**
+ * How many lines of each relation type are on the view (before the relation
+ * type filter). The synthetic `HIERARCHY_EDGE_TYPE` line is not a relation
+ * type, so it is not counted and never offered in the Filter menu.
+ */
+export function countByRelationType(edges: readonly { type: string }[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const e of edges) {
+    if (e.type === HIERARCHY_EDGE_TYPE) continue;
+    counts.set(e.type, (counts.get(e.type) ?? 0) + 1);
+  }
+  return counts;
+}
+
+/**
+ * What to call a relation type the metamodel does not know (an ad-hoc edge
+ * type a consumer such as TurboLens drew): the first line's own label, else
+ * its type key. Known relation types never read this — they are named by
+ * their verb from the metamodel.
+ */
+export function relationFallbackLabels(
+  edges: readonly { type: string; label?: string }[],
+): Map<string, string> {
+  const labels = new Map<string, string>();
+  for (const e of edges) {
+    if (e.type === HIERARCHY_EDGE_TYPE || labels.has(e.type)) continue;
+    labels.set(e.type, e.label || e.type);
+  }
+  return labels;
+}
+
+/** One row of the Filter menu's Relation types section. */
+export interface RelationFilterRow {
+  key: string;
+  label: string;
+  /** Lines of this relation type on the view, before the relation filter. */
+  count: number;
+}
+
+/**
+ * The Relation types section of the Filter menu: one row per relation type
+ * drawn on the view, named by its forward verb (UI_GUIDELINES §3.13) and the
+ * two card types it joins — several relation types may share a verb, or a
+ * card-type pair, and the reader has to tell them apart. Ordered by
+ * `(sort_order, key)`; a key the metamodel does not know (an ad-hoc edge type
+ * a consumer such as TurboLens drew) goes last, by key, under its fallback
+ * label, else the key itself.
+ *
+ * `types` may hold only the card types on the consumer's canvas, so an end
+ * missing there is looked up in `metamodelTypes` before falling back to its
+ * raw key. The labellers are the `useRelationLabel` / `useTypeLabel`
+ * callbacks, passed in so this stays a plain function.
+ */
+export function relationFilterRows({
+  relationTypes,
+  types,
+  metamodelTypes,
+  relationCounts,
+  fallbackLabels,
+  relationLabel,
+  typeLabel,
+}: {
+  relationTypes: readonly RelationType[];
+  types: readonly CardType[];
+  metamodelTypes: readonly CardType[];
+  relationCounts: ReadonlyMap<string, number>;
+  fallbackLabels?: ReadonlyMap<string, string>;
+  relationLabel: (rt: RelationType) => string;
+  typeLabel: (tp: CardType | undefined) => string;
+}): RelationFilterRow[] {
+  const rtByKey = new Map(relationTypes.map((rt) => [rt.key, rt]));
+  const typeByKey = new Map(types.map((tp) => [tp.key, tp]));
+  const metamodelTypeByKey = new Map(metamodelTypes.map((tp) => [tp.key, tp]));
+  const end = (key: string) =>
+    typeLabel(typeByKey.get(key) ?? metamodelTypeByKey.get(key)) || key;
+  const rows = [...relationCounts].map(([key, count]) => {
+    const rt = rtByKey.get(key);
+    if (!rt) {
+      return { key, count, label: fallbackLabels?.get(key) || key, sortOrder: 0, known: false };
+    }
+    return {
+      key,
+      count,
+      label: `${relationLabel(rt)} · ${end(rt.source_type_key)} → ${end(rt.target_type_key)}`,
+      sortOrder: rt.sort_order ?? 0,
+      known: true,
+    };
+  });
+  rows.sort(
+    (a, b) =>
+      Number(b.known) - Number(a.known) ||
+      a.sortOrder - b.sortOrder ||
+      a.key.localeCompare(b.key),
+  );
+  return rows.map(({ key, label, count }) => ({ key, label, count }));
+}
+
+/**
+ * Whether a filter is what emptied the view: one of its hidden keys is on it.
+ * Serves both sections of the Filter menu — card-type keys against
+ * `countByType`, and relation-type keys against `countByRelationType`.
+ */
 export function hidesCardsOnView(
   hiddenTypes: Iterable<string>,
   typeCounts: ReadonlyMap<string, number>,

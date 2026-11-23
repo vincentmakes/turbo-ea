@@ -176,6 +176,106 @@ export function filterHiddenTypes(
   };
 }
 
+/**
+ * The edge type of the synthetic parent/child (containment) line the Reveal
+ * tools draw. Not a relation type: the relation-type filter never drops it and
+ * the Relation types menu never lists it. The one definition — the consumers
+ * that create the line and the view-model helpers that skip it all read it.
+ */
+export const HIERARCHY_EDGE_TYPE = "hierarchy";
+
+/** Every card reachable from `start` over `edges`, following them either way. */
+function reachableFrom(start: string, edges: GEdge[]): Set<string> {
+  const adjacency = new Map<string, string[]>();
+  const link = (a: string, b: string) => {
+    const list = adjacency.get(a);
+    if (list) list.push(b);
+    else adjacency.set(a, [b]);
+  };
+  for (const e of edges) {
+    link(e.source, e.target);
+    link(e.target, e.source);
+  }
+  const seen = new Set([start]);
+  const queue = [start];
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    for (const next of adjacency.get(id) ?? []) {
+      if (seen.has(next)) continue;
+      seen.add(next);
+      queue.push(next);
+    }
+  }
+  return seen;
+}
+
+/** Every card that is an endpoint of at least one of `edges`. */
+function endpointsOf(edges: GEdge[]): Set<string> {
+  const ids = new Set<string>();
+  for (const e of edges) {
+    ids.add(e.source);
+    ids.add(e.target);
+  }
+  return ids;
+}
+
+/**
+ * Drop every line whose relation type the reader unticked in the Relation
+ * types menu, then drop the cards THOSE lines disconnected — and only those.
+ *
+ * The filters upstream leave cards stranded by design (`filterHiddenTypes`
+ * drops a line that lost an endpoint and keeps the card at its other end), so
+ * "not connected" alone is not a reason to go: a card that already had no path
+ * to the centre, or no line at all, before this filter stays exactly as it
+ * was. Otherwise whether it showed would hinge on an unrelated toggle.
+ *
+ *  - With a `centerId` on the view, a card goes when it was reachable from the
+ *    centre (over the lines, either direction) before the filter and is not
+ *    after it. That reaches past the first hop: hide centre —X→ B and B —Y→ C
+ *    goes with B, because C was only on the view through B. The centre itself
+ *    is never removed.
+ *  - Without one (TurboLens draws a whole proposed architecture), a card goes
+ *    when it had a line before and has none now.
+ *
+ * Lines are keyed by relation type, never by card pair: a card linked to a
+ * kept card through two relation types stays while either one is visible.
+ * The synthetic `HIERARCHY_EDGE_TYPE` line is never dropped.
+ *
+ * With nothing hidden, or no line actually removed, this returns the very
+ * arrays it was given; when lines go but no card does, `nodes` is still the
+ * array it was given (see `filterHiddenTypes` — the layout memos key on it).
+ */
+export function filterHiddenRelationTypes(
+  nodes: GNode[],
+  edges: GEdge[],
+  hidden: Set<string>,
+  centerId?: string,
+): { nodes: GNode[]; edges: GEdge[] } {
+  if (hidden.size === 0) return { nodes, edges };
+  const keptEdges = edges.filter((e) => e.type === HIERARCHY_EDGE_TYPE || !hidden.has(e.type));
+  if (keptEdges.length === edges.length) return { nodes, edges };
+
+  // Only ids that are cards on this view can be dropped: a line whose endpoint
+  // is not among `nodes` must not make `nodes` look changed (a fresh array with
+  // the same cards would rebuild every layout memo for nothing).
+  const nodeIds = new Set(nodes.map((n) => n.id));
+  const dropped = new Set<string>();
+  const dropIfGone = (before: Iterable<string>, after: Set<string>) => {
+    for (const id of before) if (!after.has(id) && nodeIds.has(id)) dropped.add(id);
+  };
+  if (centerId !== undefined && nodeIds.has(centerId)) {
+    dropIfGone(reachableFrom(centerId, edges), reachableFrom(centerId, keptEdges));
+  } else {
+    dropIfGone(endpointsOf(edges), endpointsOf(keptEdges));
+  }
+
+  if (dropped.size === 0) return { nodes, edges: keptEdges };
+  return {
+    nodes: nodes.filter((n) => !dropped.has(n.id)),
+    edges: keptEdges.filter((e) => !dropped.has(e.source) && !dropped.has(e.target)),
+  };
+}
+
 /* ------------------------------------------------------------------ */
 /*  Custom node data                                                   */
 /* ------------------------------------------------------------------ */
@@ -217,7 +317,7 @@ export interface LdvEdgeData {
   /** Relation type key this line stands for. Each line is exactly one relation
    *  type (several may connect the same card pair), so anything derived from the
    *  view — notably "Create diagram" — can stamp the real type instead of
-   *  guessing one per card pair. `"hierarchy"` marks a synthetic parent/child line. */
+   *  guessing one per card pair. `HIERARCHY_EDGE_TYPE` marks a synthetic parent/child line. */
   relType?: string;
   relLabel: string;
   /**

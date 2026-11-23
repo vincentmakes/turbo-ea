@@ -714,6 +714,9 @@ export interface Comment {
   created_via?: string | null;
   updated_via?: string | null;
   updated_at?: string;
+  /** What the caller may do with this comment, decided by the server: its
+   *  author, or anyone allowed to manage comments on the card, may delete it. */
+  can?: { delete: boolean };
   replies: Comment[];
 }
 

@@ -178,9 +178,9 @@ Exibida por padrão em Aplicações e Componentes de TI, e em qualquer outro tip
 ![Seção de Comentários do Card](../assets/img/pt/05_ficha_comentarios.png)
 
 - **Adicionar comentários** — Deixe notas, perguntas ou decisões sobre o componente
-- **Respostas em thread** — Responda a comentários específicos para criar conversações encadeadas
 - **Timestamps** — Veja quando cada comentário foi postado e por quem. Um comentário publicado por um assistente de IA pelo servidor MCP traz um chip **MCP** ao lado do autor
 - **Links** — Um endereço web em um comentário é clicável e abre em uma nova aba
+- **Excluir comentários** — Um comentário pode ser excluído pelo seu autor e por qualquer pessoa autorizada a gerenciar comentários, seja pelo seu papel ou por um papel de stakeholder que conceda isso no card. O botão **Excluir** fica à direita do comentário e pede confirmação antes de remover qualquer coisa. Excluir um comentário também exclui as respostas abaixo dele, independentemente de quem as escreveu, e a confirmação informa quantas são. A exclusão é permanente: o comentário, as suas respostas e as notificações no aplicativo que os citavam desaparecem (os e-mails já enviados não podem ser recolhidos), e o **Histórico** do card registra apenas que um comentário foi excluído, não o que ele dizia
 
 ## Aba de Tarefas
 

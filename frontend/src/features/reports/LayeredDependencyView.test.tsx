@@ -135,7 +135,8 @@ const EDGES: GEdge[] = [
 
 // reports.json, dependency.*
 const T = {
-  noData: "No dependency data. Adjust the type filter or create relations between cards.",
+  noData:
+    "No dependency data. Adjust the card type or relation type filters, or create relations between cards.",
   showAll: "Show all",
   highlight: "Highlight mode: click a card to highlight its connections",
   expand: "Expand mode: click a card to reveal all its relations",
@@ -438,6 +439,47 @@ describe("LayeredDependencyView empty state", () => {
     expect(screen.queryByText(T.noData)).toBeNull();
   });
 
+  it("offers to show all when the relation type filter is what emptied the view", () => {
+    // No centre (as in TurboLens): every card had a line, every line is hidden.
+    setLdvSettings({
+      hiddenTypeKeys: ["Provider"],
+      hiddenRelationTypeKeys: ["relAppToITC", "relAppToBC"],
+    });
+    renderView({ centerId: undefined });
+    expect(screen.getByText(T.noData)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: SHOW_ALL }));
+    // Both filters are reset, whichever one hid the cards.
+    expect(getLdvSettings().hiddenRelationTypeKeys).toEqual([]);
+    expect(getLdvSettings().hiddenTypeKeys).toEqual([]);
+    for (const n of NODES) expect(card(n.id)).toBeInTheDocument();
+    expect(screen.queryByText(T.noData)).toBeNull();
+  });
+
+  it("keeps the centred card when every relation type is hidden", () => {
+    setLdvSettings({ hiddenRelationTypeKeys: ["relAppToITC", "relAppToBC"] });
+    renderView();
+    expect(card("app-1")).toBeInTheDocument();
+    expect(document.querySelector('[data-id="itc-1"]')).toBeNull();
+    expect(document.querySelector('[data-id="bc-1"]')).toBeNull();
+    expect(screen.queryByText(T.noData)).toBeNull();
+  });
+
+  it("draws only the cards a visible relation type still reaches", () => {
+    setLdvSettings({ hiddenRelationTypeKeys: ["relAppToBC"] });
+    renderView();
+    expect(card("app-1")).toBeInTheDocument();
+    expect(card("itc-1")).toBeInTheDocument();
+    expect(document.querySelector('[data-id="bc-1"]')).toBeNull();
+  });
+
+  it("does not blame the relation filter for relation types that were never drawn", () => {
+    setLdvSettings({ hiddenRelationTypeKeys: ["relProviderToITC"] });
+    renderView({ nodes: [], edges: [] });
+    expect(screen.getByText(T.noData)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: SHOW_ALL })).toBeNull();
+  });
+
   it("does not blame the filter for types that were never on the canvas", () => {
     // A key left over from another diagram hid nothing here, so there is
     // nothing to offer.
@@ -445,6 +487,38 @@ describe("LayeredDependencyView empty state", () => {
     renderView({ nodes: [], edges: [] });
     expect(screen.getByText(T.noData)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: SHOW_ALL })).toBeNull();
+  });
+});
+
+describe("LayeredDependencyView filter menu", () => {
+  // The funnel's menu is a component of its own (LdvScopeFilter.test.tsx);
+  // what is pinned here is the wiring: each section writes its own setting,
+  // and the canvas follows it.
+  it("hides a relation type from the funnel's Relation types section, and the card it alone connected", async () => {
+    renderView();
+    fireEvent.click(screen.getByRole("button", { name: "Filter the view" }));
+    const menu = screen.getByRole("menu");
+    expect(within(menu).getByText("Card types")).toBeInTheDocument();
+    expect(within(menu).getByText("Relation types")).toBeInTheDocument();
+
+    fireEvent.click(within(menu).getByText("supports · Application → Business Capability"));
+    expect(getLdvSettings().hiddenRelationTypeKeys).toEqual(["relAppToBC"]);
+    expect(getLdvSettings().hiddenTypeKeys).toEqual([]);
+    // An open MUI menu hides the canvas from role queries — look nodes up directly.
+    await waitFor(() => expect(document.querySelector('[data-id="bc-1"]')).toBeNull());
+    expect(document.querySelector('[data-id="app-1"]')).not.toBeNull();
+    expect(document.querySelector('[data-id="itc-1"]')).not.toBeNull();
+  });
+
+  it("hides a card type from the funnel's Card types section", async () => {
+    renderView();
+    fireEvent.click(screen.getByRole("button", { name: "Filter the view" }));
+    const menu = screen.getByRole("menu");
+    fireEvent.click(within(menu).getByText("IT Component"));
+    expect(getLdvSettings().hiddenTypeKeys).toEqual(["ITComponent"]);
+    expect(getLdvSettings().hiddenRelationTypeKeys).toEqual([]);
+    await waitFor(() => expect(document.querySelector('[data-id="itc-1"]')).toBeNull());
+    expect(document.querySelector('[data-id="bc-1"]')).not.toBeNull();
   });
 });
 

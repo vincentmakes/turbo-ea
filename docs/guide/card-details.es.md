@@ -181,9 +181,9 @@ Se muestra por defecto en Aplicaciones y Componentes TI, y en cualquier otro tip
 ![Sección de Comentarios de una Ficha](../assets/img/es/05_ficha_comentarios.png)
 
 - **Agregar comentarios** — Deje notas, preguntas o decisiones sobre el componente
-- **Respuestas en hilo** — Responda a comentarios específicos para crear hilos de conversación
 - **Marcas de tiempo** — Vea cuándo se publicó cada comentario y por quién. Un comentario publicado por un asistente de IA a través del servidor MCP lleva una insignia **MCP** junto al autor
 - **Enlaces** — Una dirección web en un comentario es clicable y se abre en una pestaña nueva
+- **Eliminar comentarios** — Un comentario puede ser eliminado por su autor y por cualquiera con permiso para gestionar comentarios, ya sea por su rol o por un rol de interesado que se lo conceda en la ficha. El botón **Eliminar** está a la derecha del comentario y pide confirmación antes de quitar nada. Eliminar un comentario también elimina las respuestas que tiene debajo, sea quien sea su autor, y la confirmación indica cuántas hay. La eliminación es permanente: el comentario, sus respuestas y las notificaciones en la aplicación que los citaban desaparecen (los correos ya enviados no pueden recuperarse), y el **Historial** de la ficha solo registra que se eliminó un comentario, no lo que decía
 
 ## Pestaña de Tareas
 

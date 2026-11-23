@@ -3,10 +3,16 @@
  * real demo landscape (the depth-1 neighbourhood of SAP S/4HANA).
  */
 import { describe, expect, it } from "vitest";
-import type { Node } from "@xyflow/react";
+import type { Edge, Node } from "@xyflow/react";
 import demo from "./__fixtures__/demoDependencies.json";
 import { buildLdvAggregateFlow } from "./ldvAggregate";
-import { buildLdvFlow, type GNode, type GEdge, type LdvEdgeData } from "./layeredDependencyLayout";
+import {
+  buildLdvFlow,
+  HIERARCHY_EDGE_TYPE,
+  type GNode,
+  type GEdge,
+  type LdvEdgeData,
+} from "./layeredDependencyLayout";
 import { collectDiagramInputs } from "./ldvDiagramExport";
 import type { CardType } from "@/types";
 
@@ -117,5 +123,34 @@ describe("collectDiagramInputs — plain view", () => {
     const out = collectDiagramInputs(live, flow.edges);
     const layerIdx = flow.nodes.filter((n) => n.type === "ldvGroup").indexOf(lane);
     expect(out.layers[layerIdx]).toMatchObject({ w: 1234, h: 567 });
+  });
+});
+
+describe("collectDiagramInputs — a line's relation type", () => {
+  const card = (id: string, x: number): Node => ({
+    id,
+    type: "ldvNode",
+    position: { x, y: 0 },
+    data: { typeKey: "Application", name: id },
+  });
+  const live = [card("a", 0), card("b", 300), card("c", 600), card("d", 900)];
+
+  it("keeps a relation's type, blanks a hierarchy line's and a line without data", () => {
+    const edges: Edge[] = [
+      { id: "rel", source: "a", target: "b", data: { relType: "relAppToITC" } },
+      { id: "tree", source: "b", target: "c", data: { relType: HIERARCHY_EDGE_TYPE } },
+      { id: "bare", source: "c", target: "d" },
+    ];
+    const { rels } = collectDiagramInputs(live, edges);
+    expect(rels.map((r) => [r.sourceCardId, r.targetCardId, r.relationType])).toEqual([
+      ["a", "b", "relAppToITC"],
+      ["b", "c", ""],
+      ["c", "d", ""],
+    ]);
+  });
+
+  it("blanks a line whose data names no relation type", () => {
+    const edges: Edge[] = [{ id: "untyped", source: "a", target: "b", data: { relLabel: "x" } }];
+    expect(collectDiagramInputs(live, edges).rels[0].relationType).toBe("");
   });
 });

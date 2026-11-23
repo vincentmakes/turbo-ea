@@ -746,7 +746,6 @@ export default function CardDetailContent({
               <CommentsTab
                 fsId={card.id}
                 canCreateComments={perms.can_create_comments}
-                canManageComments={perms.can_manage_comments}
               />
             </CardContent>
           </MuiCard>

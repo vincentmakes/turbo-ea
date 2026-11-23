@@ -25,4 +25,14 @@ class Comment(Base, UUIDMixin, TimestampMixin, ProvenanceMixin):
     )
 
     user = relationship("User", lazy="selectin")
-    replies = relationship("Comment", lazy="selectin", join_depth=3)
+    # Deleting a comment deletes its replies. The ORM deletes the replies it
+    # has loaded; ``passive_deletes`` leaves any deeper, unloaded level to the
+    # ``ON DELETE CASCADE`` on ``parent_id``. Without the cascade the ORM nulled
+    # the loaded replies' ``parent_id``, turning them into top-level comments.
+    replies = relationship(
+        "Comment",
+        lazy="selectin",
+        join_depth=3,
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )

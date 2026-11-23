@@ -6,15 +6,24 @@ These tests require a PostgreSQL test database and an HTTP test client.
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 
 import pytest
+from sqlalchemy import select
 
 from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
+from app.models.card_type import CardType
+from app.models.comment import Comment
+from app.models.event import Event
+from app.models.notification import Notification
+from app.models.stakeholder import Stakeholder
+from app.services.permission_service import PermissionService
 from tests.conftest import (
     auth_headers,
     create_card,
     create_card_type,
     create_role,
+    create_stakeholder_role_def,
     create_user,
 )
 
@@ -216,3 +225,771 @@ class TestDeleteComment:
             headers=auth_headers(admin),
         )
         assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------
+# Who may delete (and edit) — and what a delete leaves behind
+# ---------------------------------------------------------------
+
+
+async def _add_comment(db, card, author, content="Some words", parent=None) -> Comment:
+    comment = Comment(
+        card_id=card.id,
+        user_id=author.id,
+        content=content,
+        parent_id=parent.id if parent else None,
+    )
+    db.add(comment)
+    await db.flush()
+    return comment
+
+
+async def _post(client, card, user, content="Posted", parent_id=None) -> dict:
+    body = {"content": content}
+    if parent_id:
+        body["parent_id"] = parent_id
+    resp = await client.post(
+        f"/api/v1/cards/{card.id}/comments", json=body, headers=auth_headers(user)
+    )
+    assert resp.status_code == 201
+    return resp.json()
+
+
+async def _existing_ids(db, ids) -> set[uuid.UUID]:
+    rows = await db.execute(select(Comment.id).where(Comment.id.in_(ids)))
+    return set(rows.scalars().all())
+
+
+async def _hide_type_from(db, type_key: str, role_key: str) -> None:
+    ct = (await db.execute(select(CardType).where(CardType.key == type_key))).scalar_one()
+    ct.role_permissions = {role_key: {"inventory.view": False}}
+    await db.flush()
+    PermissionService.invalidate_type_permission_cache()
+
+
+@pytest.fixture
+async def manage_env(db, comments_env):
+    """Adds a second member, a moderator holding a stakeholder role that grants
+    ``card.manage_comments`` on the card, and a plain observer on it."""
+    await create_stakeholder_role_def(
+        db,
+        card_type_key="Application",
+        key="moderator",
+        permissions={"card.view": True, "card.manage_comments": True},
+    )
+    await create_stakeholder_role_def(
+        db, card_type_key="Application", key="observer", permissions={"card.view": True}
+    )
+    card = comments_env["card"]
+    other = await create_user(db, email="other@test.com", role="member")
+    moderator = await create_user(db, email="moderator@test.com", role="member")
+    observer = await create_user(db, email="observer@test.com", role="member")
+    db.add(Stakeholder(card_id=card.id, user_id=moderator.id, role="moderator"))
+    db.add(Stakeholder(card_id=card.id, user_id=observer.id, role="observer"))
+    await db.flush()
+    return {**comments_env, "other": other, "moderator": moderator, "observer": observer}
+
+
+class TestWhoMayDelete:
+    async def test_member_cannot_delete_or_edit_anothers_comment(self, client, db, manage_env):
+        card = manage_env["card"]
+        theirs = await _add_comment(db, card, manage_env["other"], "Not yours")
+        headers = auth_headers(manage_env["member"])
+
+        resp = await client.delete(f"/api/v1/comments/{theirs.id}", headers=headers)
+        assert resp.status_code == 403
+        resp = await client.patch(
+            f"/api/v1/comments/{theirs.id}", json={"content": "Hijacked"}, headers=headers
+        )
+        assert resp.status_code == 403
+
+        assert await _existing_ids(db, [theirs.id]) == {theirs.id}
+        listed = await client.get(f"/api/v1/cards/{card.id}/comments", headers=headers)
+        assert [c["content"] for c in listed.json()] == ["Not yours"]
+
+    async def test_author_deletes_own_comment(self, client, db, manage_env):
+        mine = await _add_comment(db, manage_env["card"], manage_env["member"])
+        resp = await client.delete(
+            f"/api/v1/comments/{mine.id}", headers=auth_headers(manage_env["member"])
+        )
+        assert resp.status_code == 204
+        assert await _existing_ids(db, [mine.id]) == set()
+
+    async def test_admin_deletes_anothers_comment(self, client, db, manage_env):
+        card = manage_env["card"]
+        theirs = await _add_comment(db, card, manage_env["member"], "Off topic")
+        kept = await _add_comment(db, card, manage_env["member"], "On topic")
+        admin = manage_env["admin"]
+
+        resp = await client.delete(f"/api/v1/comments/{theirs.id}", headers=auth_headers(admin))
+        assert resp.status_code == 204
+
+        assert await _existing_ids(db, [theirs.id, kept.id]) == {kept.id}
+        listed = await client.get(f"/api/v1/cards/{card.id}/comments", headers=auth_headers(admin))
+        assert [c["id"] for c in listed.json()] == [str(kept.id)]
+
+    async def test_stakeholder_role_granting_manage_deletes_anothers(self, client, db, manage_env):
+        theirs = await _add_comment(db, manage_env["card"], manage_env["other"])
+        resp = await client.delete(
+            f"/api/v1/comments/{theirs.id}", headers=auth_headers(manage_env["moderator"])
+        )
+        assert resp.status_code == 204
+        assert await _existing_ids(db, [theirs.id]) == set()
+
+    async def test_stakeholder_role_without_manage_cannot(self, client, db, manage_env):
+        theirs = await _add_comment(db, manage_env["card"], manage_env["other"])
+        resp = await client.delete(
+            f"/api/v1/comments/{theirs.id}", headers=auth_headers(manage_env["observer"])
+        )
+        assert resp.status_code == 403
+        assert await _existing_ids(db, [theirs.id]) == {theirs.id}
+
+    async def test_manage_role_on_another_card_does_not_count(self, client, db, manage_env):
+        """The moderator's grant is per card: on a card they hold no role, 403."""
+        elsewhere = await create_card(db, card_type="Application", name="Elsewhere")
+        theirs = await _add_comment(db, elsewhere, manage_env["other"])
+        resp = await client.delete(
+            f"/api/v1/comments/{theirs.id}", headers=auth_headers(manage_env["moderator"])
+        )
+        assert resp.status_code == 403
+
+
+class TestHiddenCard:
+    """A comment on a card whose type is hidden from the caller does not exist
+    for them: 404 on edit and delete, whoever wrote it."""
+
+    @pytest.mark.parametrize("whose", ["member", "other"])
+    async def test_edit_and_delete_answer_404(self, client, db, manage_env, whose):
+        comment = await _add_comment(db, manage_env["card"], manage_env[whose], "Hidden")
+        await _hide_type_from(db, "Application", "member")
+        headers = auth_headers(manage_env["member"])
+
+        resp = await client.patch(
+            f"/api/v1/comments/{comment.id}", json={"content": "Changed"}, headers=headers
+        )
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "Comment not found"
+        resp = await client.delete(f"/api/v1/comments/{comment.id}", headers=headers)
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "Comment not found"
+
+        assert await _existing_ids(db, [comment.id]) == {comment.id}
+        stored = await db.execute(select(Comment.content).where(Comment.id == comment.id))
+        assert stored.scalar_one() == "Hidden"
+
+    async def test_a_role_the_deny_does_not_name_still_deletes(self, client, db, manage_env):
+        comment = await _add_comment(db, manage_env["card"], manage_env["other"])
+        await _hide_type_from(db, "Application", "viewer")
+        resp = await client.delete(
+            f"/api/v1/comments/{comment.id}", headers=auth_headers(manage_env["other"])
+        )
+        assert resp.status_code == 204
+
+
+class TestMalformedId:
+    """A malformed id names no comment: 404, as for a bad id elsewhere
+    (it used to raise an unhandled ValueError, a 500)."""
+
+    async def test_patch_and_delete_answer_404(self, client, db, comments_env):
+        headers = auth_headers(comments_env["admin"])
+        resp = await client.patch(
+            "/api/v1/comments/not-a-uuid", json={"content": "x"}, headers=headers
+        )
+        assert resp.status_code == 404
+        resp = await client.delete("/api/v1/comments/not-a-uuid", headers=headers)
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "Comment not found"
+
+
+class TestCardIdAndScopeOnListAndCreate:
+    async def test_a_malformed_card_id_is_404(self, client, db, comments_env):
+        headers = auth_headers(comments_env["admin"])
+        resp = await client.get("/api/v1/cards/not-a-uuid/comments", headers=headers)
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "Card not found"
+        resp = await client.post(
+            "/api/v1/cards/not-a-uuid/comments", json={"content": "x"}, headers=headers
+        )
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "Card not found"
+
+    async def test_an_unknown_card_is_404_on_create(self, client, db, comments_env):
+        resp = await client.post(
+            f"/api/v1/cards/{uuid.uuid4()}/comments",
+            json={"content": "x"},
+            headers=auth_headers(comments_env["admin"]),
+        )
+        assert resp.status_code == 404
+
+    async def test_a_hidden_card_is_404_on_create(self, client, db, manage_env):
+        await _hide_type_from(db, "Application", "member")
+        card = manage_env["card"]
+        resp = await client.post(
+            f"/api/v1/cards/{card.id}/comments",
+            json={"content": "Into the dark"},
+            headers=auth_headers(manage_env["member"]),
+        )
+        assert resp.status_code == 404
+        rows = await db.execute(select(Comment.id).where(Comment.card_id == card.id))
+        assert rows.scalars().all() == []
+
+    async def test_a_readable_card_without_create_stays_403(self, client, db, manage_env):
+        # The deny names another role: the viewer reads the card, may not post.
+        await _hide_type_from(db, "Application", "member")
+        resp = await client.post(
+            f"/api/v1/cards/{manage_env['card'].id}/comments",
+            json={"content": "x"},
+            headers=auth_headers(manage_env["viewer"]),
+        )
+        assert resp.status_code == 403
+
+
+class TestReplyParent:
+    """A reply sits on its parent's card; any other parent is 404, so the
+    answer says nothing about comments on a card the caller did not name."""
+
+    @pytest.mark.parametrize("which", ["malformed", "unknown", "other_card"])
+    async def test_a_parent_not_on_this_card_is_404(self, client, db, manage_env, which):
+        card = manage_env["card"]
+        other_card = await create_card(db, card_type="Application", name="Other card")
+        elsewhere = await _add_comment(db, other_card, manage_env["member"], "Elsewhere")
+        parent_id = {
+            "malformed": "not-a-uuid",
+            "unknown": str(uuid.uuid4()),
+            "other_card": str(elsewhere.id),
+        }[which]
+
+        resp = await client.post(
+            f"/api/v1/cards/{card.id}/comments",
+            json={"content": "Reply", "parent_id": parent_id},
+            headers=auth_headers(manage_env["admin"]),
+        )
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "Parent comment not found"
+        rows = await db.execute(select(Comment.id).where(Comment.card_id == card.id))
+        assert rows.scalars().all() == []
+
+    async def test_a_parent_on_this_card_is_accepted(self, client, db, manage_env):
+        card = manage_env["card"]
+        parent = await _add_comment(db, card, manage_env["member"], "Parent")
+        reply = await _post(client, card, manage_env["other"], "Reply", parent_id=str(parent.id))
+        assert reply["parent_id"] == str(parent.id)
+        assert reply["card_id"] == str(card.id)
+
+
+class TestRepliesGoWithTheirParent:
+    async def test_deleting_a_parent_deletes_its_replies(self, client, db, manage_env):
+        card = manage_env["card"]
+        parent = await _add_comment(db, card, manage_env["member"], "Parent")
+        reply = await _add_comment(db, card, manage_env["other"], "Reply", parent=parent)
+        sibling = await _add_comment(db, card, manage_env["other"], "Unrelated")
+        admin = manage_env["admin"]
+
+        resp = await client.delete(f"/api/v1/comments/{parent.id}", headers=auth_headers(admin))
+        assert resp.status_code == 204
+
+        # Gone, not re-parented to the top level.
+        assert await _existing_ids(db, [parent.id, reply.id, sibling.id]) == {sibling.id}
+        listed = await client.get(f"/api/v1/cards/{card.id}/comments", headers=auth_headers(admin))
+        assert [c["content"] for c in listed.json()] == ["Unrelated"]
+
+    async def test_replies_deeper_than_the_eager_load_go_too(self, client, db, manage_env):
+        card = manage_env["card"]
+        chain = [await _add_comment(db, card, manage_env["member"], "Level 0")]
+        for level in range(1, 6):
+            chain.append(
+                await _add_comment(db, card, manage_env["member"], f"Level {level}", chain[-1])
+            )
+        ids = [c.id for c in chain]
+        headers = auth_headers(manage_env["admin"])
+        # Nothing preloaded: the route loads the chain itself, three levels eagerly.
+        db.expire_all()
+
+        resp = await client.delete(f"/api/v1/comments/{ids[0]}", headers=headers)
+        assert resp.status_code == 204
+        assert await _existing_ids(db, ids) == set()
+
+    async def test_an_author_deletes_their_comment_with_someone_elses_reply(
+        self, client, db, manage_env
+    ):
+        """The owner's decision: a comment's replies go with it, whoever wrote
+        them — the author needs no right over the replies."""
+        card = manage_env["card"]
+        mine = await _add_comment(db, card, manage_env["member"], "Mine")
+        theirs = await _add_comment(db, card, manage_env["other"], "Their reply", parent=mine)
+        resp = await client.delete(
+            f"/api/v1/comments/{mine.id}", headers=auth_headers(manage_env["member"])
+        )
+        assert resp.status_code == 204
+        assert await _existing_ids(db, [mine.id, theirs.id]) == set()
+
+    async def test_deleting_a_reply_keeps_its_parent(self, client, db, manage_env):
+        card = manage_env["card"]
+        parent = await _add_comment(db, card, manage_env["member"], "Parent")
+        reply = await _add_comment(db, card, manage_env["member"], "Reply", parent=parent)
+        resp = await client.delete(
+            f"/api/v1/comments/{reply.id}", headers=auth_headers(manage_env["member"])
+        )
+        assert resp.status_code == 204
+        assert await _existing_ids(db, [parent.id, reply.id]) == {parent.id}
+
+
+class TestDeleteHistoryAndCopies:
+    async def test_a_comment_deleted_event_is_stored(self, client, db, manage_env):
+        card = manage_env["card"]
+        comment = await _add_comment(db, card, manage_env["member"], "Secret words")
+        moderator = manage_env["moderator"]
+
+        resp = await client.delete(
+            f"/api/v1/comments/{comment.id}", headers=auth_headers(moderator)
+        )
+        assert resp.status_code == 204
+
+        events = (
+            (
+                await db.execute(
+                    select(Event).where(
+                        Event.card_id == card.id, Event.event_type == "comment.deleted"
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(events) == 1
+        assert events[0].user_id == moderator.id
+        assert events[0].data["id"] == str(comment.id)
+        assert "content" not in events[0].data
+        assert "Secret words" not in str(events[0].data)
+
+    async def test_the_event_is_published_before_the_commit(
+        self, client, db, manage_env, publish_commit_log
+    ):
+        comment = await _add_comment(db, manage_env["card"], manage_env["member"])
+        resp = await client.delete(
+            f"/api/v1/comments/{comment.id}", headers=auth_headers(manage_env["member"])
+        )
+        assert resp.status_code == 204
+        assert publish_commit_log == [("publish", "comment.deleted", True), ("commit",)]
+
+    async def test_notifications_and_stored_text_are_erased(self, client, db, manage_env):
+        card = manage_env["card"]
+        member = manage_env["member"]
+        parent = await _post(client, card, member, "Parent words")
+        reply = await _post(client, card, member, "Reply words", parent_id=parent["id"])
+        deep = await _post(client, card, member, "Deep words", parent_id=reply["id"])
+        kept = await _post(client, card, member, "Kept words")
+        posted = {parent["id"], reply["id"], deep["id"], kept["id"]}
+
+        async def notified() -> set[str]:
+            rows = await db.execute(
+                select(Notification).where(Notification.type == "comment_added")
+            )
+            return {n.data["comment_id"] for n in rows.scalars().all()}
+
+        async def created_events() -> dict[str, dict]:
+            rows = await db.execute(
+                select(Event)
+                .where(Event.event_type == "comment.created")
+                .execution_options(populate_existing=True)
+            )
+            return {e.data["id"]: e.data for e in rows.scalars().all()}
+
+        # The moderator and the observer subscribe to the card: notified of all four.
+        assert await notified() == posted
+        assert (await created_events())[parent["id"]]["content"] == "Parent words"
+        assert (await created_events())[deep["id"]]["content"] == "Deep words"
+
+        resp = await client.delete(
+            f"/api/v1/comments/{parent['id']}", headers=auth_headers(manage_env["admin"])
+        )
+        assert resp.status_code == 204
+
+        assert await notified() == {kept["id"]}
+        events = await created_events()
+        assert set(events) == posted  # the history keeps that they were posted
+        assert "content" not in events[parent["id"]]
+        assert "content" not in events[reply["id"]]
+        # A reply to a reply: found by walking the thread past its first level.
+        assert "content" not in events[deep["id"]]
+        assert events[parent["id"]]["id"] == parent["id"]
+        assert events[kept["id"]]["content"] == "Kept words"
+
+    async def test_a_legacy_reply_on_another_card_is_erased_too(self, client, db, manage_env):
+        """Older data may hold a reply on another card than its parent: its
+        copies are looked up on the card the reply carries."""
+        card = manage_env["card"]
+        other_card = await create_card(db, card_type="Application", name="Other card")
+        parent = await _add_comment(db, card, manage_env["member"], "Parent")
+        stray = await _add_comment(db, other_card, manage_env["other"], "Stray words", parent)
+        stray_notification = Notification(
+            user_id=manage_env["observer"].id,
+            type="comment_added",
+            title="New Comment",
+            message="Stray words",
+            card_id=other_card.id,
+            data={"comment_id": str(stray.id)},
+        )
+        stray_event = Event(
+            card_id=other_card.id,
+            event_type="comment.created",
+            data={"id": str(stray.id), "content": "Stray words"},
+        )
+        db.add_all([stray_notification, stray_event])
+        await db.flush()
+        notification_id, event_id = stray_notification.id, stray_event.id
+
+        resp = await client.delete(
+            f"/api/v1/comments/{parent.id}", headers=auth_headers(manage_env["admin"])
+        )
+        assert resp.status_code == 204
+
+        assert await _existing_ids(db, [parent.id, stray.id]) == set()
+        left = await db.execute(select(Notification.id).where(Notification.id == notification_id))
+        assert left.scalar_one_or_none() is None
+        event = (
+            await db.execute(
+                select(Event).where(Event.id == event_id).execution_options(populate_existing=True)
+            )
+        ).scalar_one()
+        assert event.data == {"id": str(stray.id)}
+
+    async def test_copies_on_another_card_are_left_alone(self, client, db, manage_env):
+        """The erase looks only on the thread's own cards: a notification or a
+        ``comment.created`` event on another card is untouched, even one whose
+        data names the deleted comment."""
+        card = manage_env["card"]
+        other_card = await create_card(db, card_type="Application", name="Other card")
+        comment = await _add_comment(db, card, manage_env["member"], "Words")
+        foreign_notification = Notification(
+            user_id=manage_env["observer"].id,
+            type="comment_added",
+            title="New Comment",
+            message="Words",
+            card_id=other_card.id,
+            data={"comment_id": str(comment.id)},
+        )
+        foreign_event = Event(
+            card_id=other_card.id,
+            event_type="comment.created",
+            data={"id": str(comment.id), "content": "Words"},
+        )
+        db.add_all([foreign_notification, foreign_event])
+        await db.flush()
+        notification_id, event_id = foreign_notification.id, foreign_event.id
+
+        resp = await client.delete(
+            f"/api/v1/comments/{comment.id}", headers=auth_headers(manage_env["admin"])
+        )
+        assert resp.status_code == 204
+
+        left = await db.execute(select(Notification.id).where(Notification.id == notification_id))
+        assert left.scalar_one() == notification_id
+        event = (
+            await db.execute(
+                select(Event).where(Event.id == event_id).execution_options(populate_existing=True)
+            )
+        ).scalar_one()
+        assert event.data == {"id": str(comment.id), "content": "Words"}
+
+
+class TestThreadWalk:
+    async def test_a_cycle_ends_the_walk(self, db, manage_env):
+        """Two comments that name each other as parent (only possible through
+        bad data): the walk lists each once and stops."""
+        from app.api.v1.comments import _thread
+
+        card = manage_env["card"]
+        a = await _add_comment(db, card, manage_env["member"], "A")
+        b = await _add_comment(db, card, manage_env["member"], "B", parent=a)
+        a.parent_id = b.id
+        await db.flush()
+
+        ids, card_ids = await _thread(db, a)
+        assert ids == [a.id, b.id]
+        assert card_ids == {card.id}
+
+
+class TestListNesting:
+    async def test_five_levels_deep_list_in_full(self, client, db, manage_env):
+        card = manage_env["card"]
+        chain = [await _add_comment(db, card, manage_env["member"], "Level 0")]
+        for level in range(1, 6):
+            chain.append(
+                await _add_comment(db, card, manage_env["member"], f"Level {level}", chain[-1])
+            )
+        ids = [str(c.id) for c in chain]
+        url = f"/api/v1/cards/{card.id}/comments"
+        headers = auth_headers(manage_env["member"])
+        # Loaded afresh by the request, as in production.
+        db.expire_all()
+
+        resp = await client.get(url, headers=headers)
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body) == 1
+        node, seen = body[0], []
+        while True:
+            seen.append((node["id"], node["content"], node["can"]["delete"]))
+            if not node["replies"]:
+                break
+            assert len(node["replies"]) == 1
+            assert node["replies"][0]["parent_id"] == node["id"]
+            node = node["replies"][0]
+        assert seen == [(ids[i], f"Level {i}", True) for i in range(6)]
+
+    async def test_replies_on_another_card_are_not_listed(self, client, db, manage_env):
+        """Nesting is by ``parent_id`` among the card's own rows: a legacy
+        reply on another card shows under neither card, and never at the top."""
+        card = manage_env["card"]
+        other_card = await create_card(db, card_type="Application", name="Other card")
+        parent = await _add_comment(db, card, manage_env["member"], "Parent")
+        await _add_comment(db, card, manage_env["member"], "Local reply", parent=parent)
+        await _add_comment(db, other_card, manage_env["member"], "Stray reply", parent=parent)
+        await _add_comment(db, other_card, manage_env["member"], "Other top")
+        headers = auth_headers(manage_env["admin"])
+
+        here = (await client.get(f"/api/v1/cards/{card.id}/comments", headers=headers)).json()
+        assert [c["content"] for c in here] == ["Parent"]
+        assert [r["content"] for r in here[0]["replies"]] == ["Local reply"]
+        there = (
+            await client.get(f"/api/v1/cards/{other_card.id}/comments", headers=headers)
+        ).json()
+        assert [c["content"] for c in there] == ["Other top"]
+        assert there[0]["replies"] == []
+
+    async def test_an_edited_comment_returns_its_replies(self, client, db, manage_env):
+        card = manage_env["card"]
+        parent = await _add_comment(db, card, manage_env["member"], "Parent")
+        reply = await _add_comment(db, card, manage_env["other"], "Reply", parent=parent)
+        resp = await client.patch(
+            f"/api/v1/comments/{parent.id}",
+            json={"content": "Parent, edited"},
+            headers=auth_headers(manage_env["member"]),
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["content"] == "Parent, edited"
+        assert [(r["id"], r["can"]["delete"]) for r in body["replies"]] == [(str(reply.id), False)]
+
+
+class TestCanDelete:
+    async def test_list_says_who_may_delete(self, client, db, manage_env):
+        card = manage_env["card"]
+        parent = await _add_comment(db, card, manage_env["member"], "By member")
+        await _add_comment(db, card, manage_env["other"], "Reply by other", parent=parent)
+
+        async def listed(user) -> dict[str, bool]:
+            resp = await client.get(f"/api/v1/cards/{card.id}/comments", headers=auth_headers(user))
+            assert resp.status_code == 200
+            out = {}
+            for c in resp.json():
+                out[c["content"]] = c["can"]["delete"]
+                for r in c["replies"]:
+                    out[r["content"]] = r["can"]["delete"]
+            return out
+
+        assert await listed(manage_env["member"]) == {"By member": True, "Reply by other": False}
+        assert await listed(manage_env["other"]) == {"By member": False, "Reply by other": True}
+        assert await listed(manage_env["moderator"]) == {
+            "By member": True,
+            "Reply by other": True,
+        }
+        assert await listed(manage_env["admin"]) == {"By member": True, "Reply by other": True}
+        assert await listed(manage_env["viewer"]) == {"By member": False, "Reply by other": False}
+
+    async def test_create_and_update_responses_carry_it(self, client, db, manage_env):
+        card = manage_env["card"]
+        mine = await _post(client, card, manage_env["member"], "Mine")
+        assert mine["can"] == {"delete": True}
+        assert mine["replies"] == []
+
+        moderated = await _post(client, card, manage_env["moderator"], "Moderator's")
+        assert moderated["can"] == {"delete": True}
+
+        resp = await client.patch(
+            f"/api/v1/comments/{mine['id']}",
+            json={"content": "Mine, edited"},
+            headers=auth_headers(manage_env["member"]),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["can"] == {"delete": True}
+
+        # A manager editing someone else's comment may delete it too.
+        resp = await client.patch(
+            f"/api/v1/comments/{mine['id']}",
+            json={"content": "Mine, moderated"},
+            headers=auth_headers(manage_env["moderator"]),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["can"] == {"delete": True}
+
+
+class TestEraseLeavesOtherKindsAlone:
+    async def test_other_notification_and_event_kinds_keep_their_rows(self, client, db, manage_env):
+        """The erase reaches only ``comment_added`` notifications and the
+        ``comment.created`` events: on the same card, a notification of
+        another type and an event of another type stay as they were, even
+        when their data names the deleted comment and the event carries a
+        ``content`` key."""
+        card = manage_env["card"]
+        comment = await _add_comment(db, card, manage_env["member"], "Words")
+        other_notification = Notification(
+            user_id=manage_env["observer"].id,
+            type="card_updated",
+            title="Card updated",
+            message="Words",
+            card_id=card.id,
+            data={"comment_id": str(comment.id)},
+        )
+        other_event = Event(
+            card_id=card.id,
+            event_type="card.updated",
+            data={"id": str(comment.id), "content": "Words"},
+        )
+        db.add_all([other_notification, other_event])
+        await db.flush()
+        notification_id, event_id = other_notification.id, other_event.id
+
+        resp = await client.delete(
+            f"/api/v1/comments/{comment.id}", headers=auth_headers(manage_env["admin"])
+        )
+        assert resp.status_code == 204
+
+        notification = (
+            await db.execute(
+                select(Notification)
+                .where(Notification.id == notification_id)
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one_or_none()
+        assert notification is not None
+        assert notification.type == "card_updated"
+        assert notification.message == "Words"
+        assert notification.data == {"comment_id": str(comment.id)}
+        event = (
+            await db.execute(
+                select(Event).where(Event.id == event_id).execution_options(populate_existing=True)
+            )
+        ).scalar_one_or_none()
+        assert event is not None
+        assert event.event_type == "card.updated"
+        assert event.data == {"id": str(comment.id), "content": "Words"}
+
+
+class TestNotFoundAndForbiddenBodies:
+    """Every refusal of an edit or a delete names itself: 404 ``Comment not
+    found`` for an unknown, malformed or hidden comment alike, 403 ``Not enough
+    permissions`` for a readable comment the caller may not touch."""
+
+    @staticmethod
+    async def _send(client, method: str, comment_id: str, user):
+        if method == "patch":
+            return await client.patch(
+                f"/api/v1/comments/{comment_id}",
+                json={"content": "Changed"},
+                headers=auth_headers(user),
+            )
+        return await client.delete(f"/api/v1/comments/{comment_id}", headers=auth_headers(user))
+
+    @pytest.mark.parametrize("method", ["patch", "delete"])
+    @pytest.mark.parametrize("which", ["unknown", "malformed", "hidden"])
+    async def test_404_says_comment_not_found(self, client, db, manage_env, method, which):
+        member = manage_env["member"]
+        if which == "unknown":
+            comment_id = str(uuid.uuid4())
+        elif which == "malformed":
+            comment_id = "not-a-uuid"
+        else:
+            comment = await _add_comment(db, manage_env["card"], member, "Hidden")
+            await _hide_type_from(db, "Application", "member")
+            comment_id = str(comment.id)
+
+        resp = await self._send(client, method, comment_id, member)
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "Comment not found"
+
+    @pytest.mark.parametrize("method", ["patch", "delete"])
+    async def test_403_says_not_enough_permissions(self, client, db, manage_env, method):
+        theirs = await _add_comment(db, manage_env["card"], manage_env["other"], "Theirs")
+        resp = await self._send(client, method, str(theirs.id), manage_env["member"])
+        assert resp.status_code == 403
+        assert resp.json()["detail"] == "Not enough permissions"
+        stored = await db.execute(select(Comment.content).where(Comment.id == theirs.id))
+        assert stored.scalar_one() == "Theirs"
+
+
+class TestManagePermissionKey:
+    """``comments.manage`` on the app role, alone, is what lets a user edit
+    or delete someone else's comment: no wildcard, no stakeholder role."""
+
+    @pytest.mark.parametrize("manage", [True, False])
+    async def test_app_role_manage_decides(self, client, db, manage_env, manage):
+        role_key = "comment_moderator" if manage else "comment_writer"
+        permissions = {"comments.view": True, "comments.create": True}
+        if manage:
+            permissions["comments.manage"] = True
+        await create_role(db, key=role_key, label=role_key, permissions=permissions)
+        user = await create_user(db, email=f"{role_key}@test.com", role=role_key)
+        card = manage_env["card"]
+        theirs = await _add_comment(db, card, manage_env["member"], "By member")
+
+        listed = await client.get(f"/api/v1/cards/{card.id}/comments", headers=auth_headers(user))
+        assert listed.status_code == 200
+        assert [(c["id"], c["can"]) for c in listed.json()] == [
+            (str(theirs.id), {"delete": manage})
+        ]
+
+        resp = await client.delete(f"/api/v1/comments/{theirs.id}", headers=auth_headers(user))
+        if manage:
+            assert resp.status_code == 204
+            assert await _existing_ids(db, [theirs.id]) == set()
+        else:
+            assert resp.status_code == 403
+            assert resp.json()["detail"] == "Not enough permissions"
+            assert await _existing_ids(db, [theirs.id]) == {theirs.id}
+
+
+class TestPostedOrderTieBreak:
+    """Comments posted at the same instant are ordered by id: replies oldest
+    first (ascending id), threads newest first (descending id). The rows are
+    inserted against that order so the database's own order cannot pass."""
+
+    async def test_same_timestamp_orders_by_id(self, client, db, manage_env):
+        card = manage_env["card"]
+        author = manage_env["member"]
+        at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+        low_root = uuid.UUID("10000000-0000-0000-0000-000000000000")
+        high_root = uuid.UUID("e0000000-0000-0000-0000-000000000000")
+        low_reply = uuid.UUID("20000000-0000-0000-0000-000000000000")
+        high_reply = uuid.UUID("f0000000-0000-0000-0000-000000000000")
+        # Roots: low first, so insertion order is the reverse of the listing.
+        # Replies (under the high root): high first, the reverse again.
+        for cid, parent in [
+            (low_root, None),
+            (high_root, None),
+            (high_reply, high_root),
+            (low_reply, high_root),
+        ]:
+            db.add(
+                Comment(
+                    id=cid,
+                    card_id=card.id,
+                    user_id=author.id,
+                    content=str(cid),
+                    parent_id=parent,
+                    created_at=at,
+                )
+            )
+            await db.flush()
+        url = f"/api/v1/cards/{card.id}/comments"
+        headers = auth_headers(manage_env["admin"])
+        # Loaded afresh by the request, as in production.
+        db.expire_all()
+
+        resp = await client.get(url, headers=headers)
+        assert resp.status_code == 200
+        body = resp.json()
+        assert [c["id"] for c in body] == [str(high_root), str(low_root)]
+        assert {c["created_at"] for c in body} == {at.isoformat()}
+        assert [r["id"] for r in body[0]["replies"]] == [str(low_reply), str(high_reply)]

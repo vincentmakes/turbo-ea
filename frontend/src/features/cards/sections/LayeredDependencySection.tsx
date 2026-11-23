@@ -11,7 +11,10 @@ import LayeredDependencyView from "@/features/reports/LayeredDependencyView";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { api } from "@/api/client";
-import { resolveRevealIds } from "@/features/reports/layeredDependencyLayout";
+import {
+  HIERARCHY_EDGE_TYPE,
+  resolveRevealIds,
+} from "@/features/reports/layeredDependencyLayout";
 import { buildDependencyReportUrl } from "@/features/reports/dependencyReportLink";
 import type { GNode, GEdge } from "@/features/reports/layeredDependencyLayout";
 
@@ -221,7 +224,7 @@ export default function LayeredDependencySection({ cardId }: Props) {
         visibleEdges.push({
           source: n.parent_id,
           target: n.id,
-          type: "hierarchy",
+          type: HIERARCHY_EDGE_TYPE,
           label: t("reports:dependency.hierarchyContains"),
           reverse_label: t("reports:dependency.hierarchyPartOf"),
         });

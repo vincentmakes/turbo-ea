@@ -179,9 +179,9 @@ Shown on Applications and IT Components by default, and on any other card type w
 ![Card Comments Section](../assets/img/en/05_card_comments.png)
 
 - **Add comments** — Leave notes, questions, or decisions about the component
-- **Threaded replies** — Reply to specific comments to create conversation threads
 - **Timestamps** — See when each comment was posted and by whom. A comment an AI assistant posted through the MCP server carries an **MCP** chip beside the author
 - **Links** — A web address in a comment is clickable and opens in a new tab
+- **Delete comments** — A comment can be deleted by its author and by anyone allowed to manage comments, whether through their role or through a stakeholder role that grants it on the card. The **Delete** button sits at the right of the comment and asks you to confirm before anything is removed. Deleting a comment also deletes the replies under it, whoever wrote them, and the confirmation says how many there are. Deleting is permanent: the comment, its replies and the in-app notifications that quoted them are gone (e-mails already sent cannot be recalled), and the card's **History** records only that a comment was deleted, not what it said
 
 ## Todos Tab
 

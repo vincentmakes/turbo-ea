@@ -21,6 +21,7 @@ import type {
   DiagramRelInput,
 } from "@/features/diagrams/drawio-shapes";
 import {
+  HIERARCHY_EDGE_TYPE,
   LDV_NODE_W,
   LDV_NODE_H,
   type LdvNodeData,
@@ -163,7 +164,7 @@ export function collectDiagramInputs(
       // Each line IS one relation type (several may connect a card pair), so
       // take it off the edge rather than guessing one per pair. Synthetic
       // hierarchy lines are not relations and carry no type.
-      relationType: d?.relType && d.relType !== "hierarchy" ? d.relType : "",
+      relationType: d?.relType && d.relType !== HIERARCHY_EDGE_TYPE ? d.relType : "",
       label: d?.relLabel ?? "",
       flow: d?.flowDirection,
       ...route,

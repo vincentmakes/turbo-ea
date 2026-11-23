@@ -102,6 +102,11 @@ export const EVENT_META: Record<string, EventMeta> = {
     color: STATUS_COLORS.error,
   },
   "comment.created": { labelKey: "history.events.commentCreated", icon: "chat", color: brand.primary },
+  "comment.deleted": {
+    labelKey: "history.events.commentDeleted",
+    icon: "speaker_notes_off",
+    color: STATUS_COLORS.error,
+  },
   // Tagging rescores the card, which moves its Modified date — so it belongs
   // on the timeline like any other edit (#995).
   "tag.added": { labelKey: "history.events.tagAdded", icon: "label", color: brand.primary },
