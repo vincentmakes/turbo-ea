@@ -46,6 +46,14 @@ export interface LdvDisplaySettings {
    * the diagram, not one of its neighbours.
    */
   hiddenTypeKeys: string[];
+  /**
+   * Relation-type keys the reader has unticked in the Relation types menu.
+   * Their lines are taken off the view, and so is every card left with no way
+   * back to the centred card once they are gone. The centred card is always
+   * kept, and the synthetic parent/child line drawn by the Reveal tools is not
+   * a relation type, so it is never hidden.
+   */
+  hiddenRelationTypeKeys: string[];
   /** Show the verb on each relation edge ("supports", "uses", …). Off leaves
    *  the line and its arrowhead, which still carry the direction. */
   showRelationLabels: boolean;
@@ -76,6 +84,7 @@ export const LDV_DEFAULT_SETTINGS: LdvDisplaySettings = {
   showCardLogos: true,
   showEndOfLife: false,
   hiddenTypeKeys: [],
+  hiddenRelationTypeKeys: [],
   showRelationLabels: true,
   showRelationValues: true,
   aggregateBy: "none",

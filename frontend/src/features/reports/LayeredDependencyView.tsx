@@ -49,6 +49,7 @@ import { cardLogoUrl } from "@/components/CardLogoAvatar";
 import { getCurrentPhase } from "@/components/LifecycleBadge";
 import LdvShowOnCard from "./LdvShowOnCard";
 import LdvTypeFilter from "./LdvTypeFilter";
+import LdvRelationFilter from "./LdvRelationFilter";
 import LdvAggregateSelect from "./LdvAggregateSelect";
 import LdvCluster from "./LdvCluster";
 import LdvGroup from "./LdvGroup";
@@ -89,6 +90,7 @@ import {
   relationValueSuffix,
   filterEndOfLifeNodes,
   filterHiddenTypes,
+  filterHiddenRelationTypes,
   buildLdvAggregateFlow,
   orientEdgesToRelationTypes,
   stripEdgeLabels,
@@ -134,6 +136,8 @@ import {
   changeAccent,
   changeBadge,
   countByType,
+  countByRelationType,
+  relationFallbackLabels,
   DOT_INSET,
   edgeColors,
   edgeIsActive,
@@ -1133,10 +1137,41 @@ function LayeredDependencyInner({
      Everything downstream — the layout builders, the field catalogue, the
      hierarchy markers, the stats chip — reads `nodes`/`edges`, so the filter
      applies once here and nothing else has to know about it. */
-  const { nodes, edges } = useMemo(
+  const typeFiltered = useMemo(
     () =>
       filterHiddenTypes(lifecycleFiltered.nodes, lifecycleFiltered.edges, hiddenTypes, centerId),
     [lifecycleFiltered, hiddenTypes, centerId],
+  );
+
+  /* ---- Relation types on the view, counted BEFORE the relation filter ----
+     Same reason as `typeCounts`: a relation type the reader switched off stays
+     listed in its menu, with the number of lines ticking it would restore. */
+  const relationCounts = useMemo(
+    () => countByRelationType(typeFiltered.edges),
+    [typeFiltered.edges],
+  );
+  const relationFallbacks = useMemo(
+    () => relationFallbackLabels(typeFiltered.edges),
+    [typeFiltered.edges],
+  );
+
+  const hiddenRelationTypes = useMemo(
+    () => new Set(settings.hiddenRelationTypeKeys),
+    [settings.hiddenRelationTypeKeys],
+  );
+
+  /* ---- Drop the relation types the reader unticked, and the cards that cut
+         off from the centre (centre always kept). The result is the `nodes` /
+         `edges` everything downstream reads. ---- */
+  const { nodes, edges } = useMemo(
+    () =>
+      filterHiddenRelationTypes(
+        typeFiltered.nodes,
+        typeFiltered.edges,
+        hiddenRelationTypes,
+        centerId,
+      ),
+    [typeFiltered, hiddenRelationTypes, centerId],
   );
 
   /* ---- Resolve a relation's attribute values — single-select values and
@@ -1784,10 +1819,13 @@ function LayeredDependencyInner({
   const obstacles = useMemo(() => computeObstacles(flowNodes), [flowNodes]);
 
   if (builtNodes.length === 0) {
-    // This early return renders no toolbar, so a reader who hid every type on
-    // the canvas would have no way back to the button that hid them. Offer the
-    // escape hatch here whenever the filter is what emptied the view.
-    const hidSomething = hidesCardsOnView(hiddenTypes, typeCounts);
+    // This early return renders no toolbar, so a reader who hid every card
+    // type or relation type on the canvas would have no way back to the button
+    // that hid them. Offer the escape hatch here whenever either filter is what
+    // emptied the view, and have it reset both.
+    const hidSomething =
+      hidesCardsOnView(hiddenTypes, typeCounts) ||
+      hidesCardsOnView(hiddenRelationTypes, relationCounts);
     return (
       <Paper variant="outlined" sx={{ p: 6, textAlign: "center", borderRadius: 2 }}>
         <Typography color="text.disabled">{t("dependency.ldvNoData")}</Typography>
@@ -1796,7 +1834,7 @@ function LayeredDependencyInner({
             size="small"
             sx={{ mt: 2, textTransform: "none" }}
             startIcon={<MaterialSymbol icon="filter_alt_off" size={18} />}
-            onClick={() => updateSettings({ hiddenTypeKeys: [] })}
+            onClick={() => updateSettings({ hiddenTypeKeys: [], hiddenRelationTypeKeys: [] })}
           >
             {t("dependency.showAllTypes")}
           </Button>
@@ -1891,6 +1929,15 @@ function LayeredDependencyInner({
             typeCounts={typeCounts}
             hiddenTypeKeys={settings.hiddenTypeKeys}
             onChange={(hiddenTypeKeys) => updateSettings({ hiddenTypeKeys })}
+            container={isFullscreen ? containerRef.current : undefined}
+          />
+          <LdvRelationFilter
+            relationTypes={relationTypes}
+            types={types}
+            relationCounts={relationCounts}
+            fallbackLabels={relationFallbacks}
+            hiddenRelationTypeKeys={settings.hiddenRelationTypeKeys}
+            onChange={(hiddenRelationTypeKeys) => updateSettings({ hiddenRelationTypeKeys })}
             container={isFullscreen ? containerRef.current : undefined}
           />
           <LdvShowOnCard

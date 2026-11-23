@@ -135,7 +135,8 @@ const EDGES: GEdge[] = [
 
 // reports.json, dependency.*
 const T = {
-  noData: "No dependency data. Adjust the type filter or create relations between cards.",
+  noData:
+    "No dependency data. Adjust the card type or relation type filters, or create relations between cards.",
   showAll: "Show all",
   highlight: "Highlight mode: click a card to highlight its connections",
   expand: "Expand mode: click a card to reveal all its relations",
@@ -436,6 +437,47 @@ describe("LayeredDependencyView empty state", () => {
     // …and the cards come back, through the store the view subscribes to.
     for (const n of NODES) expect(card(n.id)).toBeInTheDocument();
     expect(screen.queryByText(T.noData)).toBeNull();
+  });
+
+  it("offers to show all when the relation type filter is what emptied the view", () => {
+    // No centre (as in TurboLens): every card had a line, every line is hidden.
+    setLdvSettings({
+      hiddenTypeKeys: ["Provider"],
+      hiddenRelationTypeKeys: ["relAppToITC", "relAppToBC"],
+    });
+    renderView({ centerId: undefined });
+    expect(screen.getByText(T.noData)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: SHOW_ALL }));
+    // Both filters are reset, whichever one hid the cards.
+    expect(getLdvSettings().hiddenRelationTypeKeys).toEqual([]);
+    expect(getLdvSettings().hiddenTypeKeys).toEqual([]);
+    for (const n of NODES) expect(card(n.id)).toBeInTheDocument();
+    expect(screen.queryByText(T.noData)).toBeNull();
+  });
+
+  it("keeps the centred card when every relation type is hidden", () => {
+    setLdvSettings({ hiddenRelationTypeKeys: ["relAppToITC", "relAppToBC"] });
+    renderView();
+    expect(card("app-1")).toBeInTheDocument();
+    expect(document.querySelector('[data-id="itc-1"]')).toBeNull();
+    expect(document.querySelector('[data-id="bc-1"]')).toBeNull();
+    expect(screen.queryByText(T.noData)).toBeNull();
+  });
+
+  it("draws only the cards a visible relation type still reaches", () => {
+    setLdvSettings({ hiddenRelationTypeKeys: ["relAppToBC"] });
+    renderView();
+    expect(card("app-1")).toBeInTheDocument();
+    expect(card("itc-1")).toBeInTheDocument();
+    expect(document.querySelector('[data-id="bc-1"]')).toBeNull();
+  });
+
+  it("does not blame the relation filter for relation types that were never drawn", () => {
+    setLdvSettings({ hiddenRelationTypeKeys: ["relProviderToITC"] });
+    renderView({ nodes: [], edges: [] });
+    expect(screen.getByText(T.noData)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: SHOW_ALL })).toBeNull();
   });
 
   it("does not blame the filter for types that were never on the canvas", () => {

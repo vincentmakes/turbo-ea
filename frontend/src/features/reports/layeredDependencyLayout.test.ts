@@ -4,6 +4,7 @@ import {
   relationValueSuffix,
   filterEndOfLifeNodes,
   filterHiddenTypes,
+  filterHiddenRelationTypes,
   resolveRevealIds,
   stripEdgeLabels,
   transposeRow,
@@ -1318,5 +1319,115 @@ describe("buildLdvFlow lanes from the category registry", () => {
       const result = buildLdvFlow([mixed[2]], [], types);
       expect(lanes(result)).toEqual([{ label: "Other", color: "#999999" }]);
     });
+  });
+});
+
+describe("filterHiddenRelationTypes", () => {
+  const n = (id: string, type = "Application"): GNode => ({ id, name: id, type });
+  const e = (source: string, target: string, type: string): GEdge => ({ source, target, type });
+  const ids = (r: { nodes: GNode[] }) => r.nodes.map((x) => x.id);
+  const types = (r: { edges: GEdge[] }) => r.edges.map((x) => `${x.source}-${x.type}-${x.target}`);
+
+  it("drops the lines of a hidden relation type and the cards only they reached", () => {
+    const nodes = [n("c"), n("a"), n("b", "ITComponent")];
+    const edges = [e("c", "a", "X"), e("c", "b", "Y")];
+    const r = filterHiddenRelationTypes(nodes, edges, new Set(["X"]), "c");
+    expect(ids(r)).toEqual(["c", "b"]);
+    expect(types(r)).toEqual(["c-Y-b"]);
+  });
+
+  it("follows lines in either direction when deciding what still reaches the centre", () => {
+    // b points AT the centre; it is still connected.
+    const nodes = [n("c"), n("b"), n("d")];
+    const edges = [e("b", "c", "Y"), e("c", "d", "X")];
+    const r = filterHiddenRelationTypes(nodes, edges, new Set(["X"]), "c");
+    expect(ids(r)).toEqual(["c", "b"]);
+    expect(types(r)).toEqual(["b-Y-c"]);
+  });
+
+  it("removes every card reached only through the hidden type, however many hops away", () => {
+    // centre —X→ B —Y→ C: hiding X strands both B and C, though B—C survives on its own.
+    const nodes = [n("c"), n("b"), n("cc")];
+    const edges = [e("c", "b", "X"), e("b", "cc", "Y")];
+    const r = filterHiddenRelationTypes(nodes, edges, new Set(["X"]), "c");
+    expect(ids(r)).toEqual(["c"]);
+    expect(r.edges).toEqual([]);
+  });
+
+  it("keeps a card reached over several hops through visible types", () => {
+    const nodes = [n("c"), n("b"), n("cc"), n("z")];
+    const edges = [e("c", "b", "Y"), e("b", "cc", "Y"), e("c", "z", "X")];
+    const r = filterHiddenRelationTypes(nodes, edges, new Set(["X"]), "c");
+    expect(ids(r)).toEqual(["c", "b", "cc"]);
+    expect(types(r)).toEqual(["c-Y-b", "b-Y-cc"]);
+  });
+
+  it("keeps a card linked through two relation types while one of them is visible", () => {
+    // Keyed by relation type, never by card pair.
+    const nodes = [n("c"), n("a")];
+    const edges = [e("c", "a", "owns"), e("c", "a", "uses")];
+    const r = filterHiddenRelationTypes(nodes, edges, new Set(["owns"]), "c");
+    expect(ids(r)).toEqual(["c", "a"]);
+    expect(types(r)).toEqual(["c-uses-a"]);
+    const both = filterHiddenRelationTypes(nodes, edges, new Set(["owns", "uses"]), "c");
+    expect(ids(both)).toEqual(["c"]);
+    expect(both.edges).toEqual([]);
+  });
+
+  it("never drops the synthetic hierarchy line, even when 'hierarchy' is in the hidden set", () => {
+    const nodes = [n("c"), n("p"), n("a")];
+    const edges = [e("p", "c", "hierarchy"), e("c", "a", "X")];
+    const r = filterHiddenRelationTypes(nodes, edges, new Set(["hierarchy", "X"]), "c");
+    expect(ids(r)).toEqual(["c", "p"]);
+    expect(types(r)).toEqual(["p-hierarchy-c"]);
+  });
+
+  it("returns the very same arrays when the hidden set holds only 'hierarchy'", () => {
+    const nodes = [n("c"), n("p")];
+    const edges = [e("p", "c", "hierarchy")];
+    const r = filterHiddenRelationTypes(nodes, edges, new Set(["hierarchy"]), "c");
+    expect(r.nodes).toBe(nodes);
+    expect(r.edges).toBe(edges);
+  });
+
+  it("always keeps the centre, even when every line to it is hidden", () => {
+    const nodes = [n("a"), n("c")];
+    const edges = [e("c", "a", "X")];
+    const r = filterHiddenRelationTypes(nodes, edges, new Set(["X"]), "c");
+    expect(ids(r)).toEqual(["c"]);
+  });
+
+  it("without a centre, drops only the cards the filter left with no line", () => {
+    // TurboLens passes no centre. "lone" never had a line and stays;
+    // "a" lost its only line and goes; "b" keeps one.
+    const nodes = [n("lone"), n("a"), n("b"), n("d")];
+    const edges = [e("a", "b", "X"), e("b", "d", "Y")];
+    const r = filterHiddenRelationTypes(nodes, edges, new Set(["X"]));
+    expect(ids(r)).toEqual(["lone", "b", "d"]);
+    expect(types(r)).toEqual(["b-Y-d"]);
+  });
+
+  it("falls back to the no-centre rule when the centre is not on the view", () => {
+    const nodes = [n("a"), n("b"), n("d")];
+    const edges = [e("a", "b", "X"), e("b", "d", "Y")];
+    const r = filterHiddenRelationTypes(nodes, edges, new Set(["X"]), "missing");
+    expect(ids(r)).toEqual(["b", "d"]);
+    expect(types(r)).toEqual(["b-Y-d"]);
+  });
+
+  it("returns the very same arrays when nothing is hidden", () => {
+    const nodes = [n("c"), n("a")];
+    const edges = [e("c", "a", "X")];
+    const r = filterHiddenRelationTypes(nodes, edges, new Set(), "c");
+    expect(r.nodes).toBe(nodes);
+    expect(r.edges).toBe(edges);
+  });
+
+  it("returns the very same arrays when the hidden types draw no line here", () => {
+    const nodes = [n("c"), n("a"), n("orphan")];
+    const edges = [e("c", "a", "X")];
+    const r = filterHiddenRelationTypes(nodes, edges, new Set(["Z"]), "c");
+    expect(r.nodes).toBe(nodes);
+    expect(r.edges).toBe(edges);
   });
 });

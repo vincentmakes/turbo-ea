@@ -150,6 +150,30 @@ describe("LDV display settings", () => {
     // Untouched options keep their values.
     expect(getLdvSettings().showRelationValues).toBe(true);
   });
+
+  it("hides no relation type by default", async () => {
+    const { LDV_DEFAULT_SETTINGS, getLdvSettings } = await freshStore();
+    expect(LDV_DEFAULT_SETTINGS.hiddenRelationTypeKeys).toEqual([]);
+    expect(getLdvSettings().hiddenRelationTypeKeys).toEqual([]);
+  });
+
+  it("hides no relation type for a browser holding settings from before the filter", async () => {
+    // No storage-key bump: an older blob picks the default up from the spread,
+    // and keeps everything it did store.
+    localStorage.setItem(KEY, JSON.stringify({ showType: false, hiddenTypeKeys: ["Provider"] }));
+    const { getLdvSettings } = await freshStore();
+    expect(getLdvSettings().hiddenRelationTypeKeys).toEqual([]);
+    expect(getLdvSettings().hiddenTypeKeys).toEqual(["Provider"]);
+    expect(getLdvSettings().showType).toBe(false);
+  });
+
+  it("persists the hidden relation types", async () => {
+    const { setLdvSettings } = await freshStore();
+    setLdvSettings({ hiddenRelationTypeKeys: ["relAppToITC"] });
+    expect(JSON.parse(localStorage.getItem(KEY)!).hiddenRelationTypeKeys).toEqual(["relAppToITC"]);
+    const { getLdvSettings } = await freshStore();
+    expect(getLdvSettings().hiddenRelationTypeKeys).toEqual(["relAppToITC"]);
+  });
 });
 
 describe("toCardLabels", () => {

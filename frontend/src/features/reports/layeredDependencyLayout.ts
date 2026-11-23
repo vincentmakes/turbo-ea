@@ -176,6 +176,83 @@ export function filterHiddenTypes(
   };
 }
 
+/** The synthetic parent/child line the Reveal tools draw. Not a relation type. */
+const HIERARCHY_EDGE_TYPE = "hierarchy";
+
+/**
+ * Drop every line whose relation type the reader unticked in the Relation
+ * types menu, then drop the cards that took away.
+ *
+ * Which cards go depends on whether the view has a centre:
+ *  - With a `centerId` on the view, the centre is kept and so is every card
+ *    still reachable from it over the remaining lines (either direction). A
+ *    card only reached through a hidden relation type is gone, and so is
+ *    whatever was only reached *through* that card — the view is "what this
+ *    card depends on", and a neighbour of a neighbour you can no longer get to
+ *    is not part of it.
+ *  - Without one (TurboLens draws a whole proposed architecture), only a card
+ *    the filter left stranded goes: it had a line before and has none now. A
+ *    card that never had a line was put there on purpose and stays.
+ *
+ * Lines are keyed by relation type, never by card pair: a card linked to a
+ * kept card through two relation types stays while either one is visible.
+ * The synthetic `"hierarchy"` line is never dropped.
+ *
+ * With nothing hidden, or nothing actually removed, this returns the very
+ * arrays it was given (see `filterHiddenTypes`).
+ */
+export function filterHiddenRelationTypes(
+  nodes: GNode[],
+  edges: GEdge[],
+  hidden: Set<string>,
+  centerId?: string,
+): { nodes: GNode[]; edges: GEdge[] } {
+  if (hidden.size === 0) return { nodes, edges };
+  const keptEdges = edges.filter((e) => e.type === HIERARCHY_EDGE_TYPE || !hidden.has(e.type));
+  if (keptEdges.length === edges.length) return { nodes, edges };
+
+  let keep: Set<string>;
+  if (centerId !== undefined && nodes.some((n) => n.id === centerId)) {
+    const adjacency = new Map<string, string[]>();
+    const link = (a: string, b: string) => {
+      const list = adjacency.get(a);
+      if (list) list.push(b);
+      else adjacency.set(a, [b]);
+    };
+    for (const e of keptEdges) {
+      link(e.source, e.target);
+      link(e.target, e.source);
+    }
+    keep = new Set([centerId]);
+    const queue = [centerId];
+    while (queue.length > 0) {
+      const id = queue.shift()!;
+      for (const next of adjacency.get(id) ?? []) {
+        if (keep.has(next)) continue;
+        keep.add(next);
+        queue.push(next);
+      }
+    }
+  } else {
+    const hadEdge = new Set<string>();
+    for (const e of edges) {
+      hadEdge.add(e.source);
+      hadEdge.add(e.target);
+    }
+    const hasEdge = new Set<string>();
+    for (const e of keptEdges) {
+      hasEdge.add(e.source);
+      hasEdge.add(e.target);
+    }
+    keep = new Set(nodes.filter((n) => !hadEdge.has(n.id) || hasEdge.has(n.id)).map((n) => n.id));
+  }
+
+  return {
+    nodes: nodes.filter((n) => keep.has(n.id)),
+    edges: keptEdges.filter((e) => keep.has(e.source) && keep.has(e.target)),
+  };
+}
+
 /* ------------------------------------------------------------------ */
 /*  Custom node data                                                   */
 /* ------------------------------------------------------------------ */

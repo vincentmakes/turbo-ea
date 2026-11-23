@@ -19,6 +19,8 @@ import {
   changeBadge,
   connectorWidth,
   countByType,
+  countByRelationType,
+  relationFallbackLabels,
   edgeColors,
   edgeIsActive,
   edgeLabelHeight,
@@ -431,6 +433,42 @@ describe("canvas", () => {
       ["Interface", 1],
     ]);
     expect(countByType([]).size).toBe(0);
+  });
+
+  it("counts the lines of each relation type, leaving out the hierarchy line", () => {
+    const counts = countByRelationType([
+      { type: "relAppToITC" },
+      { type: "hierarchy" },
+      { type: "relAppToBC" },
+      { type: "relAppToITC" },
+    ]);
+    expect([...counts]).toEqual([
+      ["relAppToITC", 2],
+      ["relAppToBC", 1],
+    ]);
+    expect(countByRelationType([]).size).toBe(0);
+    expect(countByRelationType([{ type: "hierarchy" }]).size).toBe(0);
+  });
+
+  it("names an unknown relation type by its first line's label, else its key", () => {
+    const labels = relationFallbackLabels([
+      { type: "hierarchy", label: "parent of" },
+      { type: "adHoc", label: "talks to" },
+      { type: "adHoc", label: "something else" },
+      { type: "bare" },
+      { type: "empty", label: "" },
+    ]);
+    expect([...labels]).toEqual([
+      ["adHoc", "talks to"],
+      ["bare", "bare"],
+      ["empty", "empty"],
+    ]);
+  });
+
+  it("knows the relation filter emptied the view only when a hidden type has lines", () => {
+    const counts = countByRelationType([{ type: "relAppToITC" }]);
+    expect(hidesCardsOnView(["relAppToBC", "relAppToITC"], counts)).toBe(true);
+    expect(hidesCardsOnView(["relAppToBC"], counts)).toBe(false);
   });
 
   it("knows the type filter emptied the view only when a hidden type has cards", () => {

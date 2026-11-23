@@ -308,7 +308,42 @@ export function countByType(nodes: readonly { type: string }[]): Map<string, num
   return counts;
 }
 
-/** Whether the type filter is what emptied the view: a hidden type has cards on it. */
+/**
+ * How many lines of each relation type are on the view (before the relation
+ * type filter). The synthetic `"hierarchy"` line is not a relation type, so it
+ * is not counted and never offered in the Relation types menu.
+ */
+export function countByRelationType(edges: readonly { type: string }[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const e of edges) {
+    if (e.type === "hierarchy") continue;
+    counts.set(e.type, (counts.get(e.type) ?? 0) + 1);
+  }
+  return counts;
+}
+
+/**
+ * What to call a relation type the metamodel does not know (an ad-hoc edge
+ * type a consumer such as TurboLens drew): the first line's own label, else
+ * its type key. Known relation types never read this — they are named by
+ * their verb from the metamodel.
+ */
+export function relationFallbackLabels(
+  edges: readonly { type: string; label?: string }[],
+): Map<string, string> {
+  const labels = new Map<string, string>();
+  for (const e of edges) {
+    if (e.type === "hierarchy" || labels.has(e.type)) continue;
+    labels.set(e.type, e.label || e.type);
+  }
+  return labels;
+}
+
+/**
+ * Whether a filter is what emptied the view: one of its hidden keys is on it.
+ * Serves both toolbar filters — card-type keys against `countByType`, and
+ * relation-type keys against `countByRelationType`.
+ */
 export function hidesCardsOnView(
   hiddenTypes: Iterable<string>,
   typeCounts: ReadonlyMap<string, number>,
