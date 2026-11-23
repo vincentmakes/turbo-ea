@@ -10,6 +10,8 @@ from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.card import Card
 from app.models.comment import Comment
+from app.models.event import Event
+from app.models.notification import Notification
 from app.models.user import User
 from app.schemas.common import CommentCreate, CommentUpdate
 from app.services import notification_service
@@ -27,16 +29,27 @@ async def list_comments(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "comments.view")
-    await require_card_readable(db, user, uuid.UUID(card_id), mode="module")
+    card_uuid = uuid.UUID(card_id)
+    await require_card_readable(db, user, card_uuid, mode="module")
     result = await db.execute(
         select(Comment)
-        .where(Comment.card_id == uuid.UUID(card_id), Comment.parent_id.is_(None))
+        .where(Comment.card_id == card_uuid, Comment.parent_id.is_(None))
         .order_by(Comment.created_at.desc())
     )
-    return [_comment_to_dict(c) for c in result.scalars().all()]
+    can_manage = await _can_manage(db, user, card_uuid)
+    return [_comment_to_dict(c, user, can_manage) for c in result.scalars().all()]
 
 
-def _comment_to_dict(c: Comment) -> dict:
+async def _can_manage(db: AsyncSession, user: User, card_id: uuid.UUID) -> bool:
+    """Whether ``user`` may edit or delete anyone's comment on the card."""
+    return await PermissionService.check_permission(
+        db, user, "comments.manage", card_id, "card.manage_comments"
+    )
+
+
+def _comment_to_dict(c: Comment, user: User, can_manage: bool) -> dict:
+    """The comment as the caller sees it: ``can.delete`` says whether this
+    caller may delete it (its author, or anyone who manages comments)."""
     return {
         "id": str(c.id),
         "card_id": str(c.card_id),
@@ -48,7 +61,8 @@ def _comment_to_dict(c: Comment) -> dict:
         "updated_via": c.updated_via,
         "created_at": c.created_at.isoformat() if c.created_at else None,
         "updated_at": c.updated_at.isoformat() if c.updated_at else None,
-        "replies": [_comment_to_dict(r) for r in (c.replies or [])],
+        "can": {"delete": can_manage or c.user_id == user.id},
+        "replies": [_comment_to_dict(r, user, can_manage) for r in (c.replies or [])],
     }
 
 
@@ -97,7 +111,76 @@ async def create_comment(
 
     await db.commit()
     await db.refresh(comment)
-    return _comment_to_dict(comment)
+    return _comment_to_dict(comment, user, await _can_manage(db, user, card_uuid))
+
+
+def _parse_comment_id(comment_id: str) -> uuid.UUID:
+    """A malformed id names no comment: 404, like an unknown one."""
+    try:
+        return uuid.UUID(comment_id)
+    except ValueError as exc:
+        raise HTTPException(404, "Comment not found") from exc
+
+
+async def _load_comment_for_write(db: AsyncSession, user: User, comment_id: str) -> Comment:
+    """The comment ``user`` may edit or delete, else 404 / 403.
+
+    404 when it does not exist or its card is hidden from the caller (a 403
+    would confirm the comment exists); 403 when the card is readable but the
+    caller is neither the author nor allowed to manage comments on it.
+    """
+    comment = await db.get(Comment, _parse_comment_id(comment_id))
+    if comment is None:
+        raise HTTPException(404, "Comment not found")
+    try:
+        await require_card_readable(db, user, comment.card_id, mode="module")
+    except HTTPException as exc:
+        # The same answer as an unknown id, so it says nothing about the card.
+        raise HTTPException(404, "Comment not found") from exc
+    if comment.user_id != user.id and not await _can_manage(db, user, comment.card_id):
+        raise HTTPException(403, "Not enough permissions")
+    return comment
+
+
+async def _thread_ids(db: AsyncSession, comment_id: uuid.UUID) -> list[uuid.UUID]:
+    """The comment's id followed by every reply's under it, at any depth.
+
+    Queried level by level rather than walked through ``Comment.replies``,
+    which is only eager-loaded ``join_depth`` levels down.
+    """
+    ids = [comment_id]
+    frontier = [comment_id]
+    while frontier:
+        result = await db.execute(select(Comment.id).where(Comment.parent_id.in_(frontier)))
+        frontier = [i for i in result.scalars().all() if i not in ids]
+        ids.extend(frontier)
+    return ids
+
+
+async def _erase_comment_copies(db: AsyncSession, comment_ids: list[uuid.UUID]) -> None:
+    """Remove every stored copy of these comments' text, in the caller's
+    transaction (never commits): the ``comment_added`` notifications, whose
+    message quotes the text, and the ``content`` of their ``comment.created``
+    events. The events themselves stay — the history keeps that a comment was
+    posted, not what it said."""
+    id_strings = [str(i) for i in comment_ids]
+    notifications = await db.execute(
+        select(Notification).where(
+            Notification.type == "comment_added",
+            Notification.data["comment_id"].astext.in_(id_strings),
+        )
+    )
+    for notification in notifications.scalars().all():
+        await db.delete(notification)
+    events = await db.execute(
+        select(Event).where(
+            Event.event_type == "comment.created",
+            Event.data["id"].astext.in_(id_strings),
+        )
+    )
+    for event in events.scalars().all():
+        if event.data and "content" in event.data:
+            event.data = {k: v for k, v in event.data.items() if k != "content"}
 
 
 @router.patch("/comments/{comment_id}")
@@ -107,20 +190,11 @@ async def update_comment(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    result = await db.execute(select(Comment).where(Comment.id == uuid.UUID(comment_id)))
-    comment = result.scalar_one_or_none()
-    if not comment:
-        raise HTTPException(404, "Comment not found")
-    # Allow own comment edit, or require manage permission
-    if comment.user_id != user.id:
-        if not await PermissionService.check_permission(
-            db, user, "comments.manage", comment.card_id, "card.manage_comments"
-        ):
-            raise HTTPException(403, "Not enough permissions")
+    comment = await _load_comment_for_write(db, user, comment_id)
     comment.content = body.content
     await db.commit()
     await db.refresh(comment)
-    return _comment_to_dict(comment)
+    return _comment_to_dict(comment, user, await _can_manage(db, user, comment.card_id))
 
 
 @router.delete("/comments/{comment_id}", status_code=204)
@@ -129,15 +203,16 @@ async def delete_comment(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    result = await db.execute(select(Comment).where(Comment.id == uuid.UUID(comment_id)))
-    comment = result.scalar_one_or_none()
-    if not comment:
-        raise HTTPException(404, "Comment not found")
-    # Allow own comment delete, or require manage permission
-    if comment.user_id != user.id:
-        if not await PermissionService.check_permission(
-            db, user, "comments.manage", comment.card_id, "card.manage_comments"
-        ):
-            raise HTTPException(403, "Not enough permissions")
+    comment = await _load_comment_for_write(db, user, comment_id)
+    card_id = comment.card_id
+    await _erase_comment_copies(db, await _thread_ids(db, comment.id))
+    # The replies go with it (``Comment.replies`` cascades the delete).
     await db.delete(comment)
+    await event_bus.publish(
+        "comment.deleted",
+        {"id": str(comment.id)},
+        db=db,
+        card_id=card_id,
+        user_id=user.id,
+    )
     await db.commit()

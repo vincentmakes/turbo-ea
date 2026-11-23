@@ -28,6 +28,7 @@ pytestmark = pytest.mark.source_scan
 MODULES = (
     "adr.py",
     "soaw.py",
+    "comments.py",
     "document_comments.py",
     "document_history.py",
     "mentions.py",
@@ -98,6 +99,7 @@ def test_the_scanned_modules_have_handlers_that_publish():
     assert publishing == {
         "adr.py": 8,
         "soaw.py": 4,
+        "comments.py": 2,
         "document_comments.py": 0,
         "document_history.py": 0,
         "mentions.py": 0,

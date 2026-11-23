@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("@/api/client", () => ({
@@ -59,5 +59,89 @@ describe("CommentsTab", () => {
     await userEvent.click(screen.getByRole("button"));
     expect(api.post).toHaveBeenCalledWith("/cards/card-1/comments", { content: "Hello" });
     await waitFor(() => expect(screen.getByText("Comment c3")).toBeInTheDocument());
+  });
+
+  describe("deleting a comment", () => {
+    const deletable = () => [
+      comment("c1", { content: "Mine", can: { delete: true } }),
+      comment("c2", { content: "Theirs", can: { delete: false } }),
+      comment("c3", { content: "Older payload" }),
+    ];
+
+    it("offers the delete button only on comments the server says the caller may delete", async () => {
+      vi.mocked(api.get).mockResolvedValue(deletable());
+      render(<CommentsTab fsId="card-1" canCreateComments={false} />);
+      await screen.findByText("Mine");
+      const buttons = screen.getAllByRole("button", { name: "Delete" });
+      expect(buttons).toHaveLength(1);
+      const mine = screen.getByText("Mine").closest(".MuiCard-root") as HTMLElement;
+      expect(within(mine).getByRole("button", { name: "Delete" })).toBe(buttons[0]);
+      expect(screen.queryByText("Delete this comment? This cannot be undone.")).toBeNull();
+    });
+
+    it("asks for confirmation inline, and Cancel closes it without deleting", async () => {
+      vi.mocked(api.get).mockResolvedValue(deletable());
+      render(<CommentsTab fsId="card-1" canCreateComments={false} />);
+      await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
+
+      const mine = screen.getByText("Mine").closest(".MuiCard-root") as HTMLElement;
+      expect(within(mine).getByText("Delete this comment? This cannot be undone.")).toBeInTheDocument();
+      expect(screen.getAllByText("Delete this comment? This cannot be undone.")).toHaveLength(1);
+
+      await userEvent.click(within(mine).getByRole("button", { name: "Cancel" }));
+      expect(screen.queryByText("Delete this comment? This cannot be undone.")).toBeNull();
+      expect(api.delete).not.toHaveBeenCalled();
+      expect(api.get).toHaveBeenCalledTimes(1);
+    });
+
+    it("deletes on confirm and reloads the list", async () => {
+      vi.mocked(api.get)
+        .mockResolvedValueOnce(deletable())
+        .mockResolvedValueOnce([comment("c2", { content: "Theirs", can: { delete: false } })]);
+      vi.mocked(api.delete).mockResolvedValue(undefined);
+      render(<CommentsTab fsId="card-1" canCreateComments={false} />);
+      await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
+      const row = screen.getByText("Delete this comment? This cannot be undone.").parentElement as HTMLElement;
+      await userEvent.click(within(row).getByRole("button", { name: "Delete" }));
+
+      expect(api.delete).toHaveBeenCalledWith("/comments/c1");
+      await waitFor(() => expect(screen.queryByText("Mine")).toBeNull());
+      expect(api.get).toHaveBeenCalledTimes(2);
+      expect(screen.getByText("Theirs")).toBeInTheDocument();
+      expect(screen.queryByText("Delete this comment? This cannot be undone.")).toBeNull();
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    it("shows an error and keeps the comment when the delete fails", async () => {
+      vi.mocked(api.get).mockResolvedValue(deletable());
+      vi.mocked(api.delete).mockRejectedValue(new Error("boom"));
+      render(<CommentsTab fsId="card-1" canCreateComments={false} />);
+      await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
+      const row = screen.getByText("Delete this comment? This cannot be undone.").parentElement as HTMLElement;
+      const confirm = within(row).getByRole("button", { name: "Delete" });
+      await userEvent.click(confirm);
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "The comment could not be deleted. Try again.",
+      );
+      expect(screen.getByText("Mine")).toBeInTheDocument();
+      expect(screen.getByText("Delete this comment? This cannot be undone.")).toBeInTheDocument();
+      expect(confirm).toBeEnabled();
+      expect(api.get).toHaveBeenCalledTimes(1);
+    });
+
+    it("clears an earlier error when the confirmation is opened again", async () => {
+      vi.mocked(api.get).mockResolvedValue(deletable());
+      vi.mocked(api.delete).mockRejectedValue(new Error("boom"));
+      render(<CommentsTab fsId="card-1" canCreateComments={false} />);
+      const open = await screen.findByRole("button", { name: "Delete" });
+      await userEvent.click(open);
+      const row = screen.getByText("Delete this comment? This cannot be undone.").parentElement as HTMLElement;
+      await userEvent.click(within(row).getByRole("button", { name: "Delete" }));
+      await screen.findByRole("alert");
+      await userEvent.click(within(row).getByRole("button", { name: "Cancel" }));
+      await userEvent.click(open);
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
   });
 });
