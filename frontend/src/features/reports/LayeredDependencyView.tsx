@@ -48,8 +48,7 @@ import MenuSectionHeader from "@/components/MenuSectionHeader";
 import { cardLogoUrl } from "@/components/CardLogoAvatar";
 import { getCurrentPhase } from "@/components/LifecycleBadge";
 import LdvShowOnCard from "./LdvShowOnCard";
-import LdvTypeFilter from "./LdvTypeFilter";
-import LdvRelationFilter from "./LdvRelationFilter";
+import LdvScopeFilter from "./LdvScopeFilter";
 import LdvAggregateSelect from "./LdvAggregateSelect";
 import LdvCluster from "./LdvCluster";
 import LdvGroup from "./LdvGroup";
@@ -1121,8 +1120,9 @@ function LayeredDependencyInner({
   );
 
   /* ---- Card types on the view, counted BEFORE the type filter ----
-     The Card types menu lists these, so a type the reader has switched off is
-     still listed, with the number of cards ticking it would bring back. */
+     The Filter menu's Card types section lists these, so a type the reader
+     has switched off is still listed, with the number of cards ticking it
+     would bring back. */
   const typeCounts = useMemo(
     () => countByType(lifecycleFiltered.nodes),
     [lifecycleFiltered.nodes],
@@ -1145,7 +1145,8 @@ function LayeredDependencyInner({
 
   /* ---- Relation types on the view, counted BEFORE the relation filter ----
      Same reason as `typeCounts`: a relation type the reader switched off stays
-     listed in its menu, with the number of lines ticking it would restore. */
+     listed in its section of the Filter menu, with the number of lines
+     ticking it would restore. */
   const relationCounts = useMemo(
     () => countByRelationType(typeFiltered.edges),
     [typeFiltered.edges],
@@ -1820,8 +1821,8 @@ function LayeredDependencyInner({
 
   if (builtNodes.length === 0) {
     // This early return renders no toolbar, so a reader who hid every card
-    // type or relation type on the canvas would have no way back to the button
-    // that hid them. Offer the escape hatch here whenever either filter is what
+    // type or relation type on the canvas would have no way back to the Filter
+    // menu that hid them. Offer the escape hatch here whenever either filter is what
     // emptied the view, and have it reset both.
     const hidSomething =
       hidesCardsOnView(hiddenTypes, typeCounts) ||
@@ -1924,20 +1925,18 @@ function LayeredDependencyInner({
           >
             {t("dependency.shiftClickHint")}
           </Typography>
-          <LdvTypeFilter
+          <LdvScopeFilter
             types={types}
             typeCounts={typeCounts}
             hiddenTypeKeys={settings.hiddenTypeKeys}
-            onChange={(hiddenTypeKeys) => updateSettings({ hiddenTypeKeys })}
-            container={isFullscreen ? containerRef.current : undefined}
-          />
-          <LdvRelationFilter
+            onTypesChange={(hiddenTypeKeys) => updateSettings({ hiddenTypeKeys })}
             relationTypes={relationTypes}
-            types={types}
             relationCounts={relationCounts}
-            fallbackLabels={relationFallbacks}
+            relationFallbackLabels={relationFallbacks}
             hiddenRelationTypeKeys={settings.hiddenRelationTypeKeys}
-            onChange={(hiddenRelationTypeKeys) => updateSettings({ hiddenRelationTypeKeys })}
+            onRelationTypesChange={(hiddenRelationTypeKeys) =>
+              updateSettings({ hiddenRelationTypeKeys })
+            }
             container={isFullscreen ? containerRef.current : undefined}
           />
           <LdvShowOnCard

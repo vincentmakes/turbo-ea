@@ -490,6 +490,38 @@ describe("LayeredDependencyView empty state", () => {
   });
 });
 
+describe("LayeredDependencyView filter menu", () => {
+  // The funnel's menu is a component of its own (LdvScopeFilter.test.tsx);
+  // what is pinned here is the wiring: each section writes its own setting,
+  // and the canvas follows it.
+  it("hides a relation type from the funnel's Relation types section, and the card it alone connected", async () => {
+    renderView();
+    fireEvent.click(screen.getByRole("button", { name: "Filter the view" }));
+    const menu = screen.getByRole("menu");
+    expect(within(menu).getByText("Card types")).toBeInTheDocument();
+    expect(within(menu).getByText("Relation types")).toBeInTheDocument();
+
+    fireEvent.click(within(menu).getByText("supports · Application → Business Capability"));
+    expect(getLdvSettings().hiddenRelationTypeKeys).toEqual(["relAppToBC"]);
+    expect(getLdvSettings().hiddenTypeKeys).toEqual([]);
+    // An open MUI menu hides the canvas from role queries — look nodes up directly.
+    await waitFor(() => expect(document.querySelector('[data-id="bc-1"]')).toBeNull());
+    expect(document.querySelector('[data-id="app-1"]')).not.toBeNull();
+    expect(document.querySelector('[data-id="itc-1"]')).not.toBeNull();
+  });
+
+  it("hides a card type from the funnel's Card types section", async () => {
+    renderView();
+    fireEvent.click(screen.getByRole("button", { name: "Filter the view" }));
+    const menu = screen.getByRole("menu");
+    fireEvent.click(within(menu).getByText("IT Component"));
+    expect(getLdvSettings().hiddenTypeKeys).toEqual(["ITComponent"]);
+    expect(getLdvSettings().hiddenRelationTypeKeys).toEqual([]);
+    await waitFor(() => expect(document.querySelector('[data-id="itc-1"]')).toBeNull());
+    expect(document.querySelector('[data-id="bc-1"]')).not.toBeNull();
+  });
+});
+
 /* ------------------------------------------------------------------ */
 /*  d) View options                                                    */
 /* ------------------------------------------------------------------ */

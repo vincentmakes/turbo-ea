@@ -39,6 +39,7 @@ import {
   paintOrder,
   phaseDotColor,
   placeEdgeLabel,
+  relationFilterRows,
   safeTypeColor,
   touchesHovered,
   typeIconPlacement,
@@ -50,6 +51,8 @@ import {
   brand,
   surface,
 } from "@/theme/tokens";
+import { makeCardType, makeRelationType } from "@/test/fixtures/metamodel";
+import type { CardType, RelationType } from "@/types";
 
 describe("card colour", () => {
   it("keeps a #rrggbb type colour and greys anything else", () => {
@@ -490,6 +493,111 @@ describe("canvas", () => {
     expect(exportFileName("a  b", "png")).toBe("a_b.png");
     expect(exportFileName(undefined, "svg")).toBe("dependency.svg");
     expect(exportFileName("", "png")).toBe("dependency.png");
+  });
+});
+
+describe("relationFilterRows", () => {
+  const REL: RelationType[] = [
+    makeRelationType({
+      key: "relB",
+      label: "uses",
+      source_type_key: "App",
+      target_type_key: "Itc",
+      sort_order: 2,
+    }),
+    makeRelationType({
+      key: "relA",
+      label: "sends to",
+      source_type_key: "App",
+      target_type_key: "App",
+      sort_order: 2,
+    }),
+    makeRelationType({
+      key: "relZ",
+      label: "supports",
+      source_type_key: "App",
+      target_type_key: "Cap",
+      sort_order: 1,
+    }),
+  ];
+  const TYPES = [makeCardType({ key: "App", label: "Application" })];
+  const METAMODEL = [
+    makeCardType({ key: "App", label: "Metamodel App" }),
+    makeCardType({ key: "Itc", label: "IT Component" }),
+  ];
+  // Stand-ins for the useRelationLabel / useTypeLabel callbacks.
+  const relationLabel = (rt: RelationType) => rt.label;
+  const typeLabel = (tp: CardType | undefined) => tp?.label ?? "";
+
+  const rows = (
+    counts: Array<[string, number]>,
+    fallbackLabels?: Map<string, string>,
+  ) =>
+    relationFilterRows({
+      relationTypes: REL,
+      types: TYPES,
+      metamodelTypes: METAMODEL,
+      relationCounts: new Map(counts),
+      fallbackLabels,
+      relationLabel,
+      typeLabel,
+    });
+
+  it("names each row by verb and its two ends, ordered by (sort_order, key)", () => {
+    expect(
+      rows([
+        ["relB", 4],
+        ["relZ", 1],
+        ["relA", 2],
+      ]),
+    ).toEqual([
+      // Ends: from `types` first, then the metamodel, then the raw key.
+      { key: "relZ", label: "supports · Application → Cap", count: 1 },
+      { key: "relA", label: "sends to · Application → Application", count: 2 },
+      { key: "relB", label: "uses · Application → IT Component", count: 4 },
+    ]);
+  });
+
+  it("lists only the relation types counted on the view", () => {
+    expect(rows([["relA", 3]])).toEqual([
+      { key: "relA", label: "sends to · Application → Application", count: 3 },
+    ]);
+    expect(rows([])).toEqual([]);
+  });
+
+  it("puts unknown keys last, by key, under their fallback label else the key", () => {
+    expect(
+      rows(
+        [
+          ["adHocB", 1],
+          ["adHocA", 5],
+          ["adHocC", 2],
+          ["relB", 4],
+        ],
+        new Map([
+          ["adHocA", "talks to"],
+          ["adHocC", ""],
+        ]),
+      ),
+    ).toEqual([
+      { key: "relB", label: "uses · Application → IT Component", count: 4 },
+      { key: "adHocA", label: "talks to", count: 5 },
+      { key: "adHocB", label: "adHocB", count: 1 },
+      { key: "adHocC", label: "adHocC", count: 2 },
+    ]);
+  });
+
+  it("names an unknown key by the key when no fallback labels are given", () => {
+    expect(rows([["0adHoc", 7]])).toEqual([{ key: "0adHoc", label: "0adHoc", count: 7 }]);
+  });
+
+  it("keeps a known type ahead of an unknown key that sorts first", () => {
+    expect(
+      rows([
+        ["0adHoc", 7],
+        ["relB", 4],
+      ]).map((r) => r.key),
+    ).toEqual(["relB", "0adHoc"]);
   });
 });
 
