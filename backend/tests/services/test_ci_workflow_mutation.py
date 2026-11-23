@@ -400,7 +400,12 @@ def test_stryker_config_leaves_the_floor_to_the_gate():
     timeout = int(re.search(r"^    timeout-minutes: (\d+)$", job, flags=re.M).group(1))
     assert timeout >= config["dryRunTimeoutMinutes"] + 60
     # The coverage tooling Frontend Tests gates on is mutated like the app.
-    for script in ("scripts/app-asset.mjs", "scripts/e2e-coverage.mjs", "scripts/merge-lcov.mjs"):
+    for script in (
+        "scripts/app-asset.mjs",
+        "scripts/e2e-coverage.mjs",
+        "scripts/merge-lcov.mjs",
+        "scripts/pr-test-scope.mjs",
+    ):
         assert script in config["mutate"]
     assert "frontend/scripts" in job and "frontend/src" in job
     # gitignore-style: an unanchored "reports" also drops src/features/reports,

@@ -243,3 +243,84 @@ def test_the_workflow_parses():
         "frontend-test-shards",
         "frontend-e2e",
     ]
+
+
+ZEROED = (
+    "--coverage.thresholds.lines=0 --coverage.thresholds.statements=0",
+    "--coverage.thresholds.branches=0 --coverage.thresholds.functions=0",
+)
+
+
+def _step(body: str, name: str) -> str:
+    return next(s for s in steps(body) if s.startswith(f"name: {name}"))
+
+
+def test_a_pull_request_runs_only_the_tests_it_can_reach_and_falls_back_to_full():
+    """frontend/scripts/pr-test-scope.mjs picks `related` or `full`; full is the default."""
+    shards = jobs()["frontend-test-shards"]
+    assert "fetch-depth: 2" in shards  # HEAD^1 is the base side of the merge commit
+    assert "      mode: ${{ steps.scope.outputs.mode }}\n" in shards
+    scope = _step(shards, "Pick the tests this pull request can reach")
+    assert "id: scope\n" in scope
+    assert "if: github.event_name == 'pull_request'\n" in scope
+    # never continue-on-error (the job guard above): a failure leaves `full`
+    assert '|| : > "$diff"' in scope
+    assert 'echo "mode=full" >> "$GITHUB_OUTPUT"' in scope
+    assert "git diff --name-status HEAD^1 HEAD" in scope
+    assert "git rev-parse -q --verify 'HEAD^2'" in scope
+    assert 'node scripts/pr-test-scope.mjs --event "$GITHUB_EVENT_NAME" --diff "$diff"' in scope
+
+    # Full is everything that is not explicitly `related`, so a skipped or failed
+    # scope step runs the whole suite with the command unchanged.
+    full = _step(shards, "Run shard ${{ matrix.shard }} of ${{ strategy.job-total }} with coverage")
+    assert "if: steps.scope.outputs.mode != 'related'\n" in full
+    assert "npx vitest run --shard=${{ matrix.shard }}/${{ strategy.job-total }}" in full
+    related = _step(
+        shards,
+        "Run shard ${{ matrix.shard }} of ${{ strategy.job-total }} on the tests the pull request",
+    )
+    assert "if: steps.scope.outputs.mode == 'related'\n" in related
+    # `related`, never `--changed`: --changed narrows the coverage report to the
+    # changed files, and the anchored merge needs coverage.include's universe.
+    run = related.split("run: |\n", 1)[1]
+    assert "npx vitest related --run" in run and "--changed" not in run
+    assert "--passWithNoTests" in related
+    assert '"${paths[@]}"' in related and "mapfile -t paths < pr-test-scope.txt" in related
+    for flag in (
+        "--shard=${{ matrix.shard }}/${{ strategy.job-total }}",
+        "--reporter=default --reporter=blob --coverage.enabled",
+        *ZEROED,
+    ):
+        assert flag in related, flag
+    assert shards.index("id: scope") < shards.index("with coverage\n")
+
+
+def test_the_frontend_aggregate_zeroes_the_floors_only_in_related_mode():
+    aggregate = jobs()["frontend-test"]
+    full = _step(aggregate, "Merge the shards' results and coverage, enforce the floors")
+    assert "if: needs.frontend-test-shards.outputs.mode != 'related'\n" in full
+    assert "--coverage.thresholds" not in full
+    assert full.rstrip().endswith(
+        "npx vitest run --merge-reports --coverage.enabled\n        working-directory: frontend"
+    )
+    related = _step(aggregate, "Merge the shards' results and coverage (the tests the pull")
+    assert "if: needs.frontend-test-shards.outputs.mode == 'related'\n" in related
+    assert 'test "$found" -eq "$expected"' in related
+    for flag in ZEROED:
+        assert flag in related, flag
+
+    floor = _step(aggregate, "Merge the browser suite's coverage into the published figure and")
+    assert "if: needs.frontend-test-shards.outputs.mode != 'related'\n" in floor
+    assert "--fail-under-from-package" in floor
+    unfloored = _step(aggregate, "Merge the browser suite's coverage into the published figure (")
+    assert "if: needs.frontend-test-shards.outputs.mode == 'related'\n" in unfloored
+    assert "--fail-under-from-package" not in unfloored
+    assert "node scripts/merge-lcov.mjs --out coverage-merged" in unfloored
+
+    # Only the related steps zero anything; the diff gate is the same in both.
+    assert aggregate.count("--coverage.thresholds.lines=0") == 1
+    assert aggregate.count("diff-cover coverage-merged/lcov.info") == 1
+    summary = _step(aggregate, "Coverage summary")
+    assert "SCOPE_MODE: ${{ needs.frontend-test-shards.outputs.mode }}" in summary
+    assert "**Mode: related**" in summary and "**Mode: full**" in summary
+    assert "jq -r '.testResults | length' vitest-results.json" in summary

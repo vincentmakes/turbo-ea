@@ -706,8 +706,15 @@ jobs:
         shard: [1, 2, 3]
     outputs:
       count: ${{ steps.meta.outputs.count }} # every leg writes the same value
+      # `related` or `full` (empty when the scope step did not run: a push, or
+      # a failure — both mean full). Every leg computes the same scope.
+      mode: ${{ steps.scope.outputs.mode }}
+      reason: ${{ steps.scope.outputs.reason }}
+      tests: ${{ steps.scope.outputs.tests }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2 # the PR merge commit and its base side, for the scope below
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
@@ -717,7 +724,35 @@ jobs:
         working-directory: frontend
       - id: meta
         run: echo "count=${{ strategy.job-total }}" >> "$GITHUB_OUTPUT"
+      # On a pull request, run only the test files the PR can reach:
+      # scripts/pr-test-scope.mjs reads what the PR changes (its merge commit
+      # against the base side) and answers `related` with a path list for
+      # `vitest related`, which runs every test whose import graph reaches one
+      # of them, plus the tests that read files as text; or `full`, whenever
+      # in doubt (setup files, i18n, config, dependencies, a deletion or
+      # rename, anything outside src/ and scripts/). A push always runs full.
+      # The scope never fails the job: any error is a warning and runs full.
+      - name: Pick the tests this pull request can reach
+        id: scope
+        # (No continue-on-error, which this job must never carry: every
+        # failure below is caught and leaves the mode `full` instead.)
+        if: github.event_name == 'pull_request'
+        run: |
+          diff="$RUNNER_TEMP/pr-diff.txt"
+          if git rev-parse -q --verify 'HEAD^2' > /dev/null; then
+            git diff --name-status HEAD^1 HEAD > "$diff" || : > "$diff"
+          else
+            echo "HEAD is not a pull request merge commit; running every test file."
+            : > "$diff"
+          fi
+          node scripts/pr-test-scope.mjs --event "$GITHUB_EVENT_NAME" --diff "$diff" \
+            --out pr-test-scope.txt || {
+            echo "::warning title=Frontend test scope::the scope script failed; running every test file."
+            echo "mode=full" >> "$GITHUB_OUTPUT"
+          }
+        working-directory: frontend
       - name: Run shard ${{ matrix.shard }} of ${{ strategy.job-total }} with coverage
+        if: steps.scope.outputs.mode != 'related'
         # `--reporter=default` keeps the console output a failing shard
         # needs; `blob` alone prints nothing.
         run: >-
@@ -725,6 +760,23 @@ jobs:
           --reporter=default --reporter=blob --coverage.enabled
           --coverage.thresholds.lines=0 --coverage.thresholds.statements=0
           --coverage.thresholds.branches=0 --coverage.thresholds.functions=0
+        working-directory: frontend
+      - name: Run shard ${{ matrix.shard }} of ${{ strategy.job-total }} on the tests the pull request reaches
+        if: steps.scope.outputs.mode == 'related'
+        # The same flags as the full shard. `vitest related` (not `--changed`)
+        # keeps coverage.include's whole file universe in the report, which the
+        # anchored LCOV merge and the diff gate rely on: a changed file no
+        # selected test imports is still listed, uncovered. A shard the hash
+        # deals no file writes an empty blob (--passWithNoTests), so the
+        # aggregate's count check still holds. The paths are file names the PR
+        # controls: they reach vitest as array elements, never re-parsed.
+        run: |
+          mapfile -t paths < pr-test-scope.txt
+          npx vitest related --run "${paths[@]}" --passWithNoTests \
+            --shard=${{ matrix.shard }}/${{ strategy.job-total }} \
+            --reporter=default --reporter=blob --coverage.enabled \
+            --coverage.thresholds.lines=0 --coverage.thresholds.statements=0 \
+            --coverage.thresholds.branches=0 --coverage.thresholds.functions=0
         working-directory: frontend
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -779,6 +831,7 @@ jobs:
           name: frontend-e2e-coverage
           path: frontend/coverage-e2e
       - name: Merge the shards' results and coverage, enforce the floors
+        if: needs.frontend-test-shards.outputs.mode != 'related'
         # A missing blob is silent at download, so the count is checked first.
         # The merge re-emits the reporters configured in
         # frontend/vitest.config.ts (text, lcov, json-summary) from the merged
@@ -789,6 +842,22 @@ jobs:
           test "$found" -eq "$expected" || { echo "::error::$found of $expected shard reports"; exit 1; }
           npx vitest run --merge-reports --coverage.enabled
         working-directory: frontend
+      - name: Merge the shards' results and coverage (the tests the pull request reaches)
+        if: needs.frontend-test-shards.outputs.mode == 'related'
+        # A subset of the suite cannot meet the suite-wide floors, so they are
+        # zeroed here and enforced on full runs only: every push to main, and a
+        # pull request whose scope fell back to full. The diff gate below is
+        # unchanged and reads the same complete LCOV. The JSON results give the
+        # summary its count of test files that ran.
+        run: |
+          expected="${{ needs.frontend-test-shards.outputs.count }}"
+          found=$(ls .vitest-reports/blob-*.json | wc -l)
+          test "$found" -eq "$expected" || { echo "::error::$found of $expected shard reports"; exit 1; }
+          npx vitest run --merge-reports --coverage.enabled \
+            --coverage.thresholds.lines=0 --coverage.thresholds.statements=0 \
+            --coverage.thresholds.branches=0 --coverage.thresholds.functions=0 \
+            --reporter=default --reporter=json --outputFile.json=vitest-results.json
+        working-directory: frontend
       - name: Merge the browser suite's coverage into the published figure and enforce its floor
         # Line union of coverage/lcov.info (unit) and coverage-e2e/lcov.info
         # (browser) into coverage-merged/, which the diff gate and the badge
@@ -798,6 +867,7 @@ jobs:
         # unit-only data would fail the merged floor for the wrong reason. A
         # missing artifact is silent at download, so it is checked against the
         # job's result first, like the shard count above.
+        if: needs.frontend-test-shards.outputs.mode != 'related'
         run: |
           if [ "${{ needs.frontend-e2e.result }}" = "success" ]; then
             test -f coverage-e2e/lcov.info || { echo "::error::Frontend E2E passed but handed over no coverage"; exit 1; }
@@ -807,11 +877,32 @@ jobs:
             node scripts/merge-lcov.mjs --out coverage-merged coverage/lcov.info
           fi
         working-directory: frontend
+      - name: Merge the browser suite's coverage into the published figure (the tests the pull request reaches)
+        if: needs.frontend-test-shards.outputs.mode == 'related'
+        # As above, without the merged floor: a subset cannot meet it.
+        run: |
+          if [ "${{ needs.frontend-e2e.result }}" = "success" ]; then
+            test -f coverage-e2e/lcov.info || { echo "::error::Frontend E2E passed but handed over no coverage"; exit 1; }
+            node scripts/merge-lcov.mjs --out coverage-merged coverage/lcov.info coverage-e2e/lcov.info
+          else
+            node scripts/merge-lcov.mjs --out coverage-merged coverage/lcov.info
+          fi
+        working-directory: frontend
       - name: Coverage summary
         # As in the backend aggregate: after a failed floor, not a failed guard.
         if: always() && steps.shards-ok.outcome == 'success'
+        env:
+          SCOPE_MODE: ${{ needs.frontend-test-shards.outputs.mode }}
+          SCOPE_REASON: ${{ needs.frontend-test-shards.outputs.reason }}
+          SCOPE_TESTS: ${{ needs.frontend-test-shards.outputs.tests }}
         run: |
           echo "## Frontend coverage" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$SCOPE_MODE" = "related" ]; then
+            ran=$(jq -r '.testResults | length' vitest-results.json 2>/dev/null || echo "?")
+            echo "**Mode: related** — $ran of $SCOPE_TESTS test files ran: the ones this pull request's changes can reach, plus the tests that read files as text. The suite floors (vitest.config.ts thresholds, the merged-lines floor) apply to full runs only; the diff gate applies as always." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "**Mode: full** — every test file ran${SCOPE_REASON:+ ($SCOPE_REASON)}." >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo "Unit suite (the floors in vitest.config.ts):" >> "$GITHUB_STEP_SUMMARY"
           if [ -f coverage/coverage-summary.json ]; then
             jq -r '.total | "| | Covered | Total | % |\n|---|---|---|---|",

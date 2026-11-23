@@ -25,7 +25,7 @@ export default defineConfig({
     // ones). 15s keeps genuine hangs failing while giving slow-runner
     // headroom.
     testTimeout: 15_000,
-    // scripts/: the coverage tooling CI runs (e2e-coverage.mjs, merge-lcov.mjs).
+    // scripts/: the tooling CI runs (e2e-coverage.mjs, merge-lcov.mjs, pr-test-scope.mjs).
     include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.ts"],
     coverage: {
       provider: "v8",
@@ -35,7 +35,13 @@ export default defineConfig({
       // tooling CI runs is measured too, named file by file: a `scripts/**`
       // glob would also take in the untested generator scripts (gen-*.mjs),
       // and the next PR to touch one would fail the diff gate on them.
-      include: ["src/**/*.{ts,tsx}", "scripts/app-asset.mjs", "scripts/e2e-coverage.mjs", "scripts/merge-lcov.mjs"],
+      include: [
+        "src/**/*.{ts,tsx}",
+        "scripts/app-asset.mjs",
+        "scripts/e2e-coverage.mjs",
+        "scripts/merge-lcov.mjs",
+        "scripts/pr-test-scope.mjs",
+      ],
       exclude: ["src/test/**", "src/**/*.test.{ts,tsx}", "src/main.tsx"],
       // `text` is what the CI log shows; `lcov` feeds the diff-coverage gate
       // on changed lines and `json-summary` the job summary (ci.yml).

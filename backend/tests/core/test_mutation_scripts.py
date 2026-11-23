@@ -1766,6 +1766,7 @@ class TestStrykerScope:
         assert "scripts/merge-lcov.mjs" in every
         assert "scripts/e2e-coverage.mjs" in every
         assert "scripts/app-asset.mjs" in every
+        assert "scripts/pr-test-scope.mjs" in every
         assert not any(f.startswith("scripts/gen-") for f in every)
         assert not any(f.endswith((".test.ts", ".test.tsx")) for f in every)
         shards = [stryker_scope.shard_files(f"{k}/4") for k in range(1, 5)]
