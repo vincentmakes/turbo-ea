@@ -170,6 +170,8 @@
   "dependency.cardTypes": "Korttyper",
   "dependency.cardTypesHint": "Fjern fluebenet ved en korttype for at tage dens kort, og alle relationer der rører dem, ud af visningen. Det centrerede kort vises altid.",
   "dependency.showAllTypes": "Vis alle",
+  "dependency.relationTypes": "Relationstyper",
+  "dependency.relationTypesHint": "Fjern markeringen ved en relationstype for at tage dens linjer af visningen sammen med alle kort, som kun disse linjer holdt i den. Kortet, du er centreret på, vises altid.",
   "dependency.groupCards": "Kort",
   "dependency.groupRelations": "Relationer",
   "dependency.subtypeLabel": "Undertype",

@@ -170,6 +170,8 @@
   "dependency.cardTypes": "Tipi di scheda",
   "dependency.cardTypesHint": "Deseleziona un tipo di scheda per togliere dalla vista le sue schede e ogni relazione che le tocca. La scheda al centro è sempre mostrata.",
   "dependency.showAllTypes": "Mostra tutto",
+  "dependency.relationTypes": "Tipi di relazione",
+  "dependency.relationTypesHint": "Deseleziona un tipo di relazione per rimuoverne le linee dalla vista, insieme a ogni card che solo quelle linee mantenevano in essa. La card su cui sei centrato è sempre mostrata.",
   "dependency.groupCards": "Schede",
   "dependency.groupRelations": "Relazioni",
   "dependency.subtypeLabel": "Sottotipo",

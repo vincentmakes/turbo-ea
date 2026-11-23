@@ -170,6 +170,8 @@
   "dependency.cardTypes": "Types de fiche",
   "dependency.cardTypesHint": "Décochez un type de fiche pour retirer ses fiches, et toutes les relations qui s'y rattachent, de la vue. La fiche centrée reste toujours affichée.",
   "dependency.showAllTypes": "Tout afficher",
+  "dependency.relationTypes": "Types de relation",
+  "dependency.relationTypesHint": "Décochez un type de relation pour retirer ses lignes de la vue, ainsi que toute fiche que ces lignes seules y maintenaient. La fiche sur laquelle vous êtes centré reste toujours affichée.",
   "dependency.groupCards": "Fiches",
   "dependency.groupRelations": "Relations",
   "dependency.subtypeLabel": "Sous-type",

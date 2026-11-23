@@ -170,6 +170,8 @@
   "dependency.cardTypes": "Tipos de cartão",
   "dependency.cardTypesHint": "Desmarque um tipo de cartão para retirar da vista os seus cartões e todas as relações que lhes tocam. O cartão centrado é sempre mostrado.",
   "dependency.showAllTypes": "Mostrar tudo",
+  "dependency.relationTypes": "Tipos de relação",
+  "dependency.relationTypesHint": "Desmarque um tipo de relação para retirar as suas linhas da vista, juntamente com qualquer card que apenas essas linhas mantinham nela. O card em que está centrado é sempre mostrado.",
   "dependency.groupCards": "Cartões",
   "dependency.groupRelations": "Relações",
   "dependency.subtypeLabel": "Subtipo",

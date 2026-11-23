@@ -179,9 +179,9 @@ Affichée par défaut sur les Applications et les Composants IT, et sur tout aut
 ![Section commentaires de la fiche](../assets/img/fr/05_fiche_commentaires.png)
 
 - **Ajouter des commentaires** -- Laissez des notes, questions ou décisions concernant le composant
-- **Réponses en fil** -- Répondez à des commentaires spécifiques pour créer des fils de conversation
 - **Horodatages** -- Voyez quand chaque commentaire a été publié et par qui. Un commentaire publié par un assistant IA via le serveur MCP porte une pastille **MCP** à côté de l'auteur
 - **Liens** -- Une adresse web dans un commentaire est cliquable et s'ouvre dans un nouvel onglet
+- **Supprimer des commentaires** -- Un commentaire peut être supprimé par son auteur et par toute personne autorisée à gérer les commentaires, que ce soit par son rôle ou par un rôle de partie prenante qui l'accorde sur la fiche. Le bouton **Supprimer** se trouve à droite du commentaire et demande une confirmation avant de retirer quoi que ce soit. Supprimer un commentaire supprime aussi les réponses qui s'y rattachent, quel qu'en soit l'auteur, et la confirmation indique combien il y en a. La suppression est définitive : le commentaire, ses réponses et les notifications dans l'application qui les citaient disparaissent (les e-mails déjà envoyés ne peuvent pas être rappelés), et l'**Historique** de la fiche indique seulement qu'un commentaire a été supprimé, pas ce qu'il disait
 
 ## Onglet Tâches
 

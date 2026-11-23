@@ -170,6 +170,8 @@
   "dependency.cardTypes": "卡片类型",
   "dependency.cardTypesHint": "取消勾选某个卡片类型，即可将该类型的卡片及与其相连的所有关系从视图中移除。居中的卡片始终显示。",
   "dependency.showAllTypes": "全部显示",
+  "dependency.relationTypes": "关系类型",
+  "dependency.relationTypesHint": "取消勾选某个关系类型，即可将其连线从视图中移除，同时移除仅靠这些连线才留在视图中的卡片。当前居中的卡片始终会显示。",
   "dependency.groupCards": "卡片",
   "dependency.groupRelations": "关联",
   "dependency.subtypeLabel": "子类型",

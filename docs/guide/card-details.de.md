@@ -181,9 +181,9 @@ Standardmäßig bei Anwendungen und IT-Komponenten angezeigt, außerdem bei jede
 ![Kartenkommentarbereich](../assets/img/de/05_karten_kommentare.png)
 
 - **Kommentare hinzufügen** — Notizen, Fragen oder Entscheidungen über die Komponente hinterlassen
-- **Verschachtelte Antworten** — Auf bestimmte Kommentare antworten, um Gesprächsfäden zu erstellen
 - **Zeitstempel** — Sehen, wann jeder Kommentar gepostet wurde und von wem. Ein Kommentar, den ein KI-Assistent über den MCP-Server gepostet hat, trägt neben dem Autor einen **MCP**-Chip
 - **Links** — Eine Webadresse in einem Kommentar ist anklickbar und öffnet sich in einem neuen Tab
+- **Kommentare löschen** — Ein Kommentar kann von seinem Autor und von allen gelöscht werden, die Kommentare verwalten dürfen, sei es über ihre Rolle oder über eine Stakeholder-Rolle, die dies auf der Karte gewährt. Die Schaltfläche **Löschen** steht rechts am Kommentar und fragt nach einer Bestätigung, bevor etwas entfernt wird. Beim Löschen eines Kommentars werden auch die Antworten darunter gelöscht, egal wer sie geschrieben hat; die Bestätigung nennt, wie viele es sind. Das Löschen ist endgültig: Der Kommentar, seine Antworten und die In-App-Benachrichtigungen, die ihn zitiert haben, sind weg (bereits versandte E-Mails lassen sich nicht zurückrufen), und die **Historie** der Karte hält nur fest, dass ein Kommentar gelöscht wurde, nicht was er enthielt
 
 ## Aufgaben-Tab
 

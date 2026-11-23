@@ -176,9 +176,9 @@ Vises som standard på Applications og IT Components og på enhver anden korttyp
 ![Kortets kommentar­sektion](../assets/img/da/05_card_comments.png)
 
 - **Tilføj kommentarer** — Efterlad noter, spørgsmål eller beslutninger om komponenten
-- **Trådede svar** — Svar på specifikke kommentarer for at oprette samtaletråde
 - **Tidsstempler** — Se hvornår hver kommentar blev sendt og af hvem. En kommentar, som en AI-assistent har sendt via MCP-serveren, har en **MCP**-chip ved siden af forfatteren
 - **Links** — En webadresse i en kommentar kan klikkes på og åbner i en ny fane
+- **Slet kommentarer** — En kommentar kan slettes af sin forfatter og af enhver, der må administrere kommentarer, enten gennem sin rolle eller gennem en interessentrolle, der giver det på kortet. Knappen **Slet** sidder til højre for kommentaren og beder om bekræftelse, før noget fjernes. Når en kommentar slettes, slettes svarene under den også, uanset hvem der har skrevet dem, og bekræftelsen angiver, hvor mange der er. Sletning er permanent: kommentaren, dens svar og de notifikationer i appen, der citerede dem, er væk (e-mails, der allerede er sendt, kan ikke kaldes tilbage), og kortets **Historik** registrerer kun, at en kommentar blev slettet, ikke hvad der stod i den
 
 ## Todos-fane
 
