@@ -82,6 +82,7 @@ describe("isMeasured", () => {
       "scripts/app-asset.mjs",
       "scripts/e2e-coverage.mjs",
       "scripts/merge-lcov.mjs",
+      "scripts/pr-test-scope.mjs",
     ]);
     expect(coverage.exclude, "update isMeasured in scripts/e2e-coverage.mjs").toEqual([
       "src/test/**",
