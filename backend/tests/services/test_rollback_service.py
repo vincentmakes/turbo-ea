@@ -1174,6 +1174,74 @@ async def test_stage_rollback_preserves_a_later_approval_decision(db, actor):
 
     card.approval_status = "BROKEN"
     await db.flush()
+    plan = await plan_rollback(db, batch)
+    assert all(
+        "approval_status" not in op.get("fields", {})
+        for op in plan["operations"]
+        if op.get("card_id") == str(card.id)
+    )
     await execute_rollback(db, batch, actor.id)
     assert card.lifecycle_stage == "one"
+    assert card.approval_status == "BROKEN"
+
+
+@pytest.mark.parametrize("initial_approval", ["DRAFT", "BROKEN"])
+@pytest.mark.parametrize("force", [False, True])
+async def test_stage_rollback_refuses_to_change_a_later_approved_card(
+    db, actor, initial_approval, force
+):
+    from tests.conftest import create_card_type
+
+    card_type = await create_card_type(db, key="Application")
+    card_type.lifecycle_stages = [
+        {"key": key, "label": key, "color": "#123456"} for key in ("one", "two")
+    ]
+    card = await create_card(db, name="Later approval")
+    card.lifecycle_stage = "one"
+    card.approval_status = initial_approval
+    await db.flush()
+    batch = await _open_batch(db, actor)
+    with _InBatch(batch):
+        await card_write_service.update_card(
+            db, card_write_service.WriteActor.from_user(actor), card, {"lifecycle_stage": "two"}
+        )
+    card.approval_status = "APPROVED"
+    await db.flush()
+
+    with pytest.raises(HTTPException) as exc:
+        await execute_rollback(db, batch, actor.id, force=force)
+    assert exc.value.status_code == 409
+    assert card.lifecycle_stage == "two"
+    assert card.approval_status == "APPROVED"
+
+
+async def test_stage_rollback_strips_approval_from_other_inverse_operations(db, actor):
+    card = await create_card(db, name="Mixed inverses")
+    card.lifecycle_stage = "two"
+    card.approval_status = "BROKEN"
+    await db.flush()
+    batch = await _open_batch(db, actor)
+    operations = [
+        {
+            "op": "restore_card_fields",
+            "card_id": str(card.id),
+            "fields": {"approval_status": "APPROVED"},
+        },
+        {"op": "restore_card_fields", "card_id": str(card.id), "fields": {"lifecycle_stage": None}},
+    ]
+    await execute_rollback(db, batch, actor.id, events=[], operations=operations)
+    assert card.lifecycle_stage is None
+    assert card.approval_status == "BROKEN"
+
+
+async def test_stage_rollback_allows_approved_card_when_final_stage_is_unchanged(db, actor):
+    card = await create_card(db, name="Unchanged stage")
+    card.approval_status = "APPROVED"
+    await db.flush()
+    batch = await _open_batch(db, actor)
+    operations = [
+        {"op": "restore_card_fields", "card_id": str(card.id), "fields": {"lifecycle_stage": None}},
+    ]
+    await execute_rollback(db, batch, actor.id, events=[], operations=operations, force=True)
+    assert card.lifecycle_stage is None
     assert card.approval_status == "APPROVED"
