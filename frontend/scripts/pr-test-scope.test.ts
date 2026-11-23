@@ -160,6 +160,8 @@ describe("decideScope", () => {
     ['"frontend/src/\\303\\251.ts"'],
     ['"backend/app/\\303\\251.py"'],
     ['"docs/a\\tb.md"'],
+    // judged by how the path STARTS: one that only ends in a quote is a name
+    ['"frontend/src/unterminated.ts'],
   ])("a path git quoted (%s) runs everything, wherever it may live", (quoted) => {
     const d = pr([...m("frontend/src/lib/color.ts"), { status: "M", paths: [quoted] }]);
     expect(d).toEqual({ mode: "full", reason: `unreadable path ${quoted}`, paths: [] });
@@ -186,6 +188,7 @@ describe("decideScope", () => {
     ["frontend/src/lib/a.tsx.snap", "is not TypeScript or JSON"],
     ["frontend/scripts/run.sh", "is not a script Vitest imports"],
     ["frontend/scripts/data.json", "is not a script Vitest imports"],
+    ["frontend/scripts/a.ts.bak", "is not a script Vitest imports"],
     ["frontend/index.html", "is outside src/ and scripts/"],
     ["frontend/e2e/login.spec.ts", "is outside src/ and scripts/"],
     ["frontend/stryker.config.json", "is outside src/ and scripts/"],
@@ -273,6 +276,7 @@ describe("readTests", () => {
     expect(tests.map((t) => t.file)).toContain("src/lib/color.test.ts");
     expect(tests.every((t) => /^(src|scripts)\/.*\.test\.tsx?$/.test(t.file))).toBe(true);
     expect(tests.find((t) => t.file === "src/lib/color.test.ts")!.source.length).toBeGreaterThan(0);
+    expect(tests.every((t) => typeof t.source === "string")).toBe(true);
   });
 });
 
@@ -333,6 +337,7 @@ describe("parseArgs", () => {
       out: "pr-test-scope.txt",
     });
     expect(parseArgs(["--diff", "d", "--out", "o", "--event", "push"])).toEqual({ event: "push", diff: "d", out: "o" });
+    expect(parseArgs(["--diff", "d"])).toEqual({ event: "", diff: "d", out: "pr-test-scope.txt" });
   });
 
   it("refuses an unknown option, a missing value and a missing diff", () => {
@@ -411,9 +416,28 @@ describe("main", () => {
   it("puts a multi-line reason on one output line", async () => {
     const root = await fixture("M\tfrontend/src/lib/a.ts\n");
     const output = path.join(root, "github-output");
-    await main(["--event", "push\nmode=related", "--diff", "diff.txt"], { root, env: { GITHUB_OUTPUT: output }, log: () => {} });
+    await main(["--event", "push\r\nmode=related", "--diff", "diff.txt"], { root, env: { GITHUB_OUTPUT: output }, log: () => {} });
     const text = await readFile(output, "utf8");
     expect(text.split("\n").filter((l) => l.startsWith("mode="))).toEqual(["mode=full"]);
+    // one space per run of line breaks: neither one per character nor none
+    expect(text.split("\n")).toContain("reason=a push mode=related event, not a pull request");
+  });
+
+  it("defaults to the frontend directory the script lives in", async () => {
+    dir = await mkdtemp(path.join(os.tmpdir(), "pr-test-scope-"));
+    const diff = path.join(dir, "diff.txt");
+    const out = path.join(dir, "scope.txt");
+    const output = path.join(dir, "github-output");
+    await writeFile(diff, "M\tfrontend/src/lib/color.ts\n");
+    const d = await main(["--event", "pull_request", "--diff", diff, "--out", out], {
+      env: { GITHUB_OUTPUT: output },
+      log: () => {},
+    });
+    // the real tree: its test count, and its always-run set beside the changed file
+    expect(d.mode).toBe("related");
+    expect(d.paths).toEqual(expect.arrayContaining(["src/lib/color.ts", "scripts/pr-test-scope.test.ts"]));
+    expect(Number(/^tests=(\d+)$/m.exec(await readFile(output, "utf8"))![1])).toBeGreaterThan(500);
+    expect(await readFile(out, "utf8")).toContain("src/lib/color.ts\n");
   });
 });
 

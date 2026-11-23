@@ -144,7 +144,7 @@ export async function readTests(root, dirs = ["src", "scripts"]) {
   const tests = [];
   for (const dir of dirs) {
     const names = await readdir(path.join(root, dir), { recursive: true });
-    for (const name of names.sort()) {
+    for (const name of names) {
       const file = `${dir}/${name.split(path.sep).join("/")}`;
       if (!TEST_FILE.test(file) || file.includes("/node_modules/")) continue;
       tests.push({ file, source: await readFile(path.join(root, file), "utf8") });
