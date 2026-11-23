@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.211.0] - 2026-11-23
+
+### Added
+- The Layered Dependency View has a Relation types menu beside Card types: untick a relation type to take its lines off the view, along with the cards only those lines kept on it.
+- A card comment can be deleted from the Comments tab by its author and by anyone allowed to manage comments; its replies, its in-app notifications and its text in the history go with it, and the history records the deletion.
+
+### Fixed
+- Editing, deleting or posting a comment on a card you cannot see, or with a malformed id, now answers "not found" instead of an error or a refusal that confirmed the comment exists; a reply can no longer be attached to a comment on another card.
+
 ## [2.210.0] - 2026-11-22
 
 ### Added
