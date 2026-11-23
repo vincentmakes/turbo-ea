@@ -262,6 +262,8 @@ O caminho de convite requer a permissão **`users.invite`**, uma forma delegada 
 
 Uma alteração que não veio da interface web traz um chip ao lado do nome da pessoa: **MCP** quando um assistente de IA a fez pelo [servidor MCP](../admin/mcp.md) em nome dessa pessoa, ou **API**, **Extensão** ou **Sistema** nos demais casos.
 
+Uma alteração feita por uma extensão quando alguém a usou — por exemplo, ao clicar num botão de uma página da extensão — pode ser registada em nome dessa pessoa, com o chip **Extensão** ao lado. As alterações que uma extensão faz por si própria, como uma sincronização agendada, mostram **Sistema** como autor.
+
 Mostra a **trilha de auditoria completa** das alterações feitas no card: **quem** fez a alteração, **quando** foi feita e **o que** foi modificado (valor anterior vs. novo valor). Isso permite total rastreabilidade de todas as modificações ao longo do tempo.
 
 Uma alteração aos custos do card aparece como **Custos atualizados**, com um resumo legível dos itens afetados. Os montantes só são mostrados aos utilizadores que podem ver os custos desse card, e uma alteração de custos não pode ser revertida a partir do registo de auditoria.

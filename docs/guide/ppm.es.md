@@ -11,9 +11,7 @@ El módulo **PPM** proporciona una solución completa de gestión de cartera de 
 
 El **Panel de Portafolio** es el punto de entrada principal para PPM. Proporciona:
 
-- **Tarjetas de KPI** — Total de iniciativas, presupuesto total, costo real total y resúmenes de estado de salud
-- **Gráficos circulares de salud** — Distribución de salud de cronograma, costo y alcance (En curso / En riesgo / Fuera de curso)
-- **Distribución de estado** — Desglose por subtipo de iniciativa y estado
+- **Barra de KPI** — El número de iniciativas, su presupuesto total (cuando se le muestran los costes) y cuántas están En camino, En riesgo y Fuera de camino en el cronograma. Las cifras siguen a la cartera: la búsqueda, el subtipo elegido y la sección **Filtros** las limitan a las iniciativas que está consultando
 - **Vista general Gantt** — Barras de cronograma mostrando las fechas de inicio y fin de cada iniciativa, con indicadores de salud RAG
 
 ### Agrupación y filtrado
@@ -27,7 +25,17 @@ Use la barra de herramientas para:
 - **Mostrar jerarquía** para anidar las iniciativas de cada grupo bajo su iniciativa padre (ver más abajo)
 - **Subagrupar por subtipo** para dividir cada grupo por subtipo (ver más abajo)
 
-Estos filtros se mantienen en la URL, por lo que al actualizar la página se conserva su vista actual. La jerarquía, su profundidad de visualización y la subagrupación también se conservan en la URL.
+Estos ajustes se mantienen en la URL, por lo que al actualizar la página se conserva su vista actual, y un enlace que comparta abre la misma cartera. La cartera también recuerda en su navegador la búsqueda, la agrupación, el subtipo, los ajustes de jerarquía y los filtros, y los restaura cuando vuelve — desde el menú PPM o con la flecha de retroceso después de abrir una iniciativa. Un enlace que lleva sus propios ajustes se abre con ellos, y estos pasan a ser los recordados. El icono **Restablecer valores predeterminados** de la barra de título devuelve la cartera a sus valores predeterminados.
+
+#### La sección Filtros
+
+Debajo de la barra de herramientas hay una sección **Filtros**, plegada la primera vez que abre la cartera para que siga a la vista y, después, tal como la dejó la última vez; mientras está plegada, un chip en su encabezado indica cuántos filtros están activos. Despliéguela para acotar la cartera con los mismos filtros que los informes:
+
+- **Tarjetas relacionadas** — conserva las iniciativas vinculadas a las tarjetas que elija, por ejemplo una Organización o una Aplicación. **Incluir subtarjetas** conserva también las iniciativas vinculadas a las tarjetas situadas bajo una tarjeta elegida en su jerarquía
+- **Etiquetas** — conserva las iniciativas que llevan las etiquetas que elija
+- **Campos** — conserva las iniciativas cuyos propios campos (los atributos del tipo Iniciativa) coinciden con los valores que elija
+
+Los filtros activos se conservan en la URL y se recuerdan junto con el resto de la cartera, de modo que un enlace que comparta abre la misma cartera, y aparecen en la línea de parámetros de una impresión o exportación. **Limpiar todo** vacía la sección Filtros y deja el resto de la barra de herramientas como está.
 
 #### Mostrar la jerarquía de iniciativas
 
@@ -57,7 +65,7 @@ Las cifras derivadas solo existen en el tablero de PPM y en las pestañas **Resu
 
 La cartera ofrece las mismas acciones en la barra de título que los informes:
 
-- **Imprimir / Guardar como PDF** — el icono de impresora imprime la cartera tal como se ve en pantalla. La barra de pestañas, la barra de filtros y las ventanas emergentes al pasar el ratón se ocultan, la agrupación, el subtipo y la búsqueda activos se imprimen como una línea compacta de parámetros, y la cuadrícula de cronología deja de recortarse para que todas las columnas quepan en la página. Cuando la jerarquía o la subagrupación están activadas, la línea de parámetros también lo indica, con la profundidad de visualización.
+- **Imprimir / Guardar como PDF** — el icono de impresora imprime la cartera tal como se ve en pantalla. La barra de pestañas, la barra de filtros y las ventanas emergentes al pasar el ratón se ocultan, la agrupación, el subtipo y la búsqueda activos, así como los filtros de la sección Filtros, se imprimen como una línea compacta de parámetros, y la cuadrícula de cronología deja de recortarse para que todas las columnas quepan en la página. Cuando la jerarquía o la subagrupación están activadas, la línea de parámetros también lo indica, con la profundidad de visualización.
 - **Exportar a PowerPoint (.pptx)** — desde el menú **⋮**. La primera diapositiva incluye el título, la marca de tiempo de generación y los filtros activos junto con la cartera con calidad de presentación; las carteras largas continúan en más diapositivas, cortadas solo entre iniciativas, nunca a través de una fila, un encabezado de grupo o una línea de totales.
 - **Exportar a Excel (.xlsx)** — también desde el menú **⋮**. Una fila por iniciativa con su grupo, subtipo, jefe de proyecto, fechas de inicio y fin, los tres indicadores de salud, CapEx/OpEx planificado frente a real y la fecha del último informe de estado. Las filas siguen el orden de la pantalla; mientras se muestra la jerarquía, una columna **Padre** indica la iniciativa padre de cada iniciativa. Tres columnas, **Origen del presupuesto**, **Origen de los costes** y **Origen de las fechas**, indican si el presupuesto, el gasto real y las fechas de una fila son los suyos propios o el total de las iniciativas que tiene por debajo. Cuando el tablero está agrupado por un subtipo de iniciativa, la iniciativa que agrupa es la **primera fila de su grupo**, con las cifras que muestra su línea final.
 

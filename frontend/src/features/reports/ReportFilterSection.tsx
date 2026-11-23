@@ -16,6 +16,10 @@ import { STATUS_COLORS } from "@/theme/tokens";
  * sub-sections on the Portfolio report — so it folds away, expanded by
  * default, with the collapse state persisted by the report alongside every
  * other setting (`filtersCollapsed` in its saved-report config).
+ * The one exception is a board whose content is the point: the PPM portfolio
+ * starts it folded by default and remembers the fold, with the rest of the
+ * board's state, in `turboea.ppm.portfolio.prefs` rather than a saved-report
+ * config, which the board does not have (UI_GUIDELINES §3.12).
  *
  * Extracted from the Portfolio and Capability Map reports, whose headers were
  * duplicated near-verbatim. It mirrors the vocabulary of the grid filter

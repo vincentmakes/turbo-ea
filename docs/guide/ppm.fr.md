@@ -11,9 +11,7 @@ Le module **PPM** fournit une solution complète de gestion de portefeuille de p
 
 Le **Tableau de Bord du Portefeuille** est le point d'entrée principal pour PPM. Il fournit :
 
-- **Cartes KPI** — Total des initiatives, budget total, coût réel total et résumés de l'état de santé
-- **Graphiques circulaires de santé** — Distribution de la santé du calendrier, des coûts et du périmètre (En cours / À risque / Hors piste)
-- **Distribution des statuts** — Répartition par sous-type d'initiative et statut
+- **Barre KPI** — Le nombre d'initiatives, leur budget total (lorsque les coûts vous sont affichés) et combien sont En bonne voie, À risque et Hors piste pour le calendrier. Les chiffres suivent le portefeuille : la recherche, le choix du sous-type et la section **Filtres** les restreignent aux initiatives que vous consultez
 - **Aperçu Gantt** — Barres de chronologie montrant les dates de début et de fin de chaque initiative, avec des indicateurs de santé RAG
 
 ### Regroupement et filtrage
@@ -27,7 +25,17 @@ Utilisez la barre d'outils pour :
 - **Afficher la hiérarchie** pour imbriquer les initiatives de chaque groupe sous leur initiative parente (voir ci-dessous)
 - **Sous-grouper par sous-type** pour scinder chaque groupe par sous-type (voir ci-dessous)
 
-Ces filtres sont conservés dans l'URL, donc l'actualisation de la page conserve votre vue actuelle. La hiérarchie, sa profondeur d’affichage et le sous-groupement sont eux aussi conservés dans l'URL.
+Ces réglages sont conservés dans l'URL : l'actualisation de la page conserve donc votre vue actuelle, et un lien que vous partagez ouvre le même portefeuille. Le portefeuille mémorise aussi sa recherche, son regroupement, son sous-type, ses réglages de hiérarchie et ses filtres dans votre navigateur, et les restaure lorsque vous revenez — depuis le menu PPM, ou avec la flèche de retour après avoir ouvert une initiative. Un lien qui porte ses propres réglages s'ouvre avec ceux-ci, et ils deviennent les réglages mémorisés. L'icône **Réinitialiser les paramètres par défaut** dans la barre de titre ramène le portefeuille à ses valeurs par défaut.
+
+#### La section Filtres
+
+Sous la barre d'outils se trouve une section **Filtres**, repliée la première fois que vous ouvrez le portefeuille pour qu'il reste visible, puis dans l'état où vous l'avez laissée ; tant qu'elle est repliée, une puce dans son en-tête indique combien de filtres sont actifs. Dépliez-la pour restreindre le portefeuille, avec les mêmes filtres que les rapports :
+
+- **Fiches liées** — conserve les initiatives liées aux fiches que vous choisissez, par exemple une Organisation ou une Application. **Inclure les sous-fiches** conserve aussi les initiatives liées aux fiches situées sous une fiche choisie dans sa hiérarchie
+- **Étiquettes** — conserve les initiatives portant les étiquettes que vous choisissez
+- **Champs** — conserve les initiatives dont les propres champs (les attributs du type Initiative) correspondent aux valeurs que vous choisissez
+
+Les filtres actifs sont conservés dans l'URL et mémorisés avec le reste du portefeuille : un lien que vous partagez ouvre donc le même portefeuille, et ils sont listés dans la ligne de paramètres d'une impression ou d'un export. **Tout effacer** vide la section Filtres et laisse le reste de la barre d'outils tel quel.
 
 #### Afficher la hiérarchie des initiatives
 
@@ -57,7 +65,7 @@ Les montants dérivés n'existent que sur le tableau PPM et sur les onglets **Vu
 
 Le portefeuille propose les mêmes actions de barre de titre que les rapports :
 
-- **Imprimer / Enregistrer en PDF** — l'icône d'imprimante imprime le portefeuille tel qu'il apparaît à l'écran. La barre d'onglets, la barre de filtres et les fenêtres contextuelles de survol sont masquées, le regroupement, le sous-type et la recherche actifs sont imprimés sous forme de ligne de paramètres compacte, et la grille chronologique n'est plus rognée : toutes les colonnes tiennent dans la page. Lorsque la hiérarchie ou le sous-groupement est activé, la ligne de paramètres l'indique également, avec la profondeur d’affichage.
+- **Imprimer / Enregistrer en PDF** — l'icône d'imprimante imprime le portefeuille tel qu'il apparaît à l'écran. La barre d'onglets, la barre de filtres et les fenêtres contextuelles de survol sont masquées, le regroupement, le sous-type et la recherche actifs ainsi que les filtres de la section Filtres sont imprimés sous forme de ligne de paramètres compacte, et la grille chronologique n'est plus rognée : toutes les colonnes tiennent dans la page. Lorsque la hiérarchie ou le sous-groupement est activé, la ligne de paramètres l'indique également, avec la profondeur d’affichage.
 - **Exporter vers PowerPoint (.pptx)** — depuis le menu **⋮**. La première diapositive porte le titre, l'horodatage de génération et les filtres actifs, accompagnés du portefeuille en qualité de présentation ; les portefeuilles longs se poursuivent sur d'autres diapositives, découpées uniquement entre initiatives — jamais au milieu d'une ligne, d'un en-tête de groupe ou d'une ligne de totaux.
 - **Exporter vers Excel (.xlsx)** — également depuis le menu **⋮**. Une ligne par initiative avec son groupe, son sous-type, son chef de projet, ses dates de début et de fin, les trois indicateurs de santé, le CapEx / OpEx prévu et réel, et la date du dernier rapport d'avancement. Les lignes suivent l'ordre affiché à l'écran ; lorsque la hiérarchie est affichée, une colonne **Parent** indique l'initiative parente de chaque initiative. Trois colonnes, **Origine du budget**, **Origine des coûts** et **Origine des dates**, indiquent si le budget, le réel et les dates d'une ligne sont les siens ou le total des initiatives situées en dessous. Lorsque le tableau est regroupé par un sous-type d'initiative, l'initiative de regroupement est la **première ligne de son groupe**, avec les montants qu'affiche sa ligne de bas de groupe.
 

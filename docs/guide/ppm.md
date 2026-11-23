@@ -11,9 +11,7 @@ The **PPM** module provides a complete project portfolio management solution for
 
 The **Portfolio Dashboard** is the main entry point for PPM. It provides:
 
-- **KPI Cards** — Total initiatives, total budget, total actual cost, and health status summaries
-- **Health Pie Charts** — Distribution of schedule, cost, and scope health (On Track / At Risk / Off Track)
-- **Status Distribution** — Breakdown by initiative subtype and status
+- **KPI Bar** — The number of initiatives, their total budget (where costs are shown to you) and how many are On Track, At Risk and Off Track on schedule. The figures follow the board: the search, the subtype pick and the **Filters** section narrow them to the initiatives you are looking at
 - **Gantt Overview** — Timeline bars showing each initiative's start and end dates, with RAG health indicators
 
 ### Grouping & Filtering
@@ -27,7 +25,17 @@ Use the toolbar to:
 - **Show hierarchy** to nest the initiatives of each group under their parent Initiative (see below)
 - **Sub-group by subtype** to split each group by subtype (see below)
 
-These filters persist in the URL, so refreshing the page retains your current view. The hierarchy, its display depth and the sub-grouping are kept in the URL too.
+These settings are kept in the URL, so refreshing the page retains your current view, and a link you share opens the same board. The board also remembers its search, grouping, subtype, hierarchy settings and filters in your browser and restores them when you come back — from the PPM menu, or with the back arrow after opening an initiative. A link that carries settings of its own opens with those, and they become the remembered ones. The **Reset to defaults** icon in the title bar returns the board to its defaults.
+
+#### The Filters section
+
+Below the toolbar sits a **Filters** section, folded the first time you open the board so the board stays in view, and afterwards the way you last left it; while it is folded, a chip on its header shows how many filters are active. Unfold it to narrow the board, with the same filters as the reports:
+
+- **Related cards** — keep the initiatives linked to the cards you pick, for example an Organization or an Application. **Include sub-cards** also keeps the initiatives linked to the cards beneath a picked card in its hierarchy
+- **Tags** — keep the initiatives carrying the tags you pick
+- **Fields** — keep the initiatives whose own fields (the Initiative type's attributes) match the values you pick
+
+Active filters are kept in the URL and remembered with the rest of the board, so a link you share opens the same board, and they are listed in the parameter line of a print or export. **Clear all** empties the Filters section and leaves the rest of the toolbar as it is.
 
 #### Showing the Initiative hierarchy
 
@@ -57,7 +65,7 @@ The derived figures exist only on the PPM board and on the initiative's own **Ov
 
 The portfolio offers the same title-bar actions as the reports:
 
-- **Print / Save as PDF** — the printer icon prints the portfolio the way it looks on screen. The tab strip, the filter toolbar and hover popovers are dropped, the active grouping / subtype / search are printed as a compact parameter line, and the timeline grid is unclipped so every column fits the page instead of being cut off at the scroll edge. When the hierarchy or the sub-grouping is switched on, the parameter line names it too, with the display depth.
+- **Print / Save as PDF** — the printer icon prints the portfolio the way it looks on screen. The tab strip, the filter toolbar and hover popovers are dropped, the active grouping / subtype / search and the filters of the Filters section are printed as a compact parameter line, and the timeline grid is unclipped so every column fits the page instead of being cut off at the scroll edge. When the hierarchy or the sub-grouping is switched on, the parameter line names it too, with the display depth.
 - **Export to PowerPoint (.pptx)** — from the **⋮** menu. The first slide carries the title, the generation timestamp and the active filters together with the portfolio at presentation quality; long portfolios continue onto further slides, split only between initiatives — never through a row, a group header or a totals line.
 - **Export to Excel (.xlsx)** — also from the **⋮** menu. One row per initiative with its group, subtype, project manager, start and end dates, the three health ratings, CapEx / OpEx planned vs. actual, and the date of the latest status report. The rows follow the order on screen; while the hierarchy is shown, a **Parent** column names each initiative's parent. Three columns, **Budget from**, **Costs from** and **Dates from**, say whether a row's budget, actuals and dates are its own or the total of the initiatives beneath it. When the board is grouped by an Initiative subtype, the grouping initiative is the **first row of its group**, with the figures its bottom line shows.
 

@@ -265,6 +265,8 @@ La ruta de invitación requiere el permiso **`users.invite`**, una forma delegad
 
 Un cambio que no procede de la interfaz web lleva una insignia junto al nombre de la persona: **MCP** cuando un asistente de IA lo realizó a través del [servidor MCP](../admin/mcp.md) en nombre de esa persona; **API**, **Extensión** o **Sistema** en los demás casos.
 
+Un cambio realizado por una extensión cuando alguien la usó —por ejemplo, al pulsar un botón de una página de la extensión— puede registrarse a nombre de esa persona, con la insignia **Extensión** a su lado. Los cambios que una extensión realiza por sí sola, como una sincronización programada, muestran **Sistema** como autor.
+
 Muestra el **registro completo de auditoría** de los cambios realizados en la ficha: **quién** hizo el cambio, **cuándo** se realizó y **qué** se modificó (valor anterior vs. valor nuevo). Esto permite la trazabilidad completa de todas las modificaciones a lo largo del tiempo.
 
 Un cambio en los costes de la ficha aparece como **Costes actualizados** con un resumen legible de las partidas afectadas. Los importes solo se muestran a los usuarios que pueden ver los costes de esa ficha, y un cambio de costes no se puede revertir desde el registro de auditoría.

@@ -42036,7 +42036,7 @@
     },
     "/api/v1/mutation-batches/{batch_id}/rollback": {
       "post": {
-        "description": "Reverse the writes performed under a mutation batch.\n\nPermission rules: the batch owner can roll back their own batch\nwithout ``admin.events``; reverting another user's batch needs\n``admin.events``. ``force=True`` requires ``admin.events``\nregardless, since it accepts overwriting later writes by other\nusers.",
+        "description": "Reverse the writes performed under a mutation batch.\n\nPermission rules (the same as reading the batch): the batch owner can\nroll back \u2014 or preview rolling back \u2014 their own batch without\n``admin.events``; any other batch needs ``admin.events``, including one\nwith no actor at all (an extension's, or an auto-batch no person\ncaused), since nobody owns it. ``force=True`` requires\n``admin.events`` regardless, since it accepts overwriting later\nwrites by other users.",
         "operationId": "rollback_api_v1_mutation_batches__batch_id__rollback_post",
         "parameters": [
           {
@@ -45697,6 +45697,26 @@
           }
         },
         "summary": "Ppm Dashboard",
+        "tags": [
+          "ppm-reports"
+        ]
+      }
+    },
+    "/api/v1/reports/ppm/filter-data": {
+      "get": {
+        "description": "What the board's Filters section matches initiatives on: every initiative\n``/gantt`` returns, with its relations, tags, subtype and attributes, plus the\nrelation types, related cards and tag groups the filter options list.\n\nThe same initiatives as ``/gantt``: ``build_portfolio_payload`` selects the\nACTIVE cards of the type inside the reader's module read scope, as\n``load_initiatives`` does, and neither consults the type's ``is_hidden``.\nCost attributes go only to a reader who may see them. An install without an\nInitiative type gets the empty payload, never a 404.",
+        "operationId": "ppm_filter_data_api_v1_reports_ppm_filter_data_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Ppm Filter Data",
         "tags": [
           "ppm-reports"
         ]

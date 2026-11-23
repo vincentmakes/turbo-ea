@@ -1158,3 +1158,217 @@ describe("PpmPortfolioView grouped by a subtype", () => {
     expect(within(anchorLines()[0]).queryByText("CapEx")).toBeNull();
   });
 });
+
+/* ------------------------------------------------------------------ */
+/*  The authenticated page's Filters section                           */
+/* ------------------------------------------------------------------ */
+
+describe("PpmPortfolioView Filters section slot", () => {
+  const ANCHOR: PpmPortfolioItem = {
+    ...ITEM,
+    id: "a0000000-0000-0000-0000-000000000000",
+    name: "Program Alpha",
+    subtype: "Program",
+    group_id: "a0000000-0000-0000-0000-000000000000",
+    group_name: "Program Alpha",
+    group_anchor: true,
+    capex_planned: 9000,
+    opex_planned: 0,
+    latest_report: { ...ITEM.latest_report!, schedule_health: "offTrack" },
+  };
+  const member = (id: string, name: string, over: Partial<PpmPortfolioItem> = {}) => ({
+    ...ITEM,
+    id,
+    name,
+    group_id: ANCHOR.id,
+    group_name: ANCHOR.name,
+    ...over,
+  });
+  const M1 = member("m1", "Alpha CRM", {
+    capex_planned: 100,
+    opex_planned: 10,
+    latest_report: { ...ITEM.latest_report!, schedule_health: "onTrack" },
+  });
+  const M2 = member("m2", "Alpha ERP", {
+    subtype: "Epic",
+    capex_planned: 200,
+    opex_planned: null,
+    latest_report: null,
+  });
+  const BOARD = [ANCHOR, M1, M2];
+  const URL = "/?groupBy=subtype%3AProgram";
+  const DEFS = [
+    { key: "Program", label: "Program" },
+    { key: "Project", label: "Project" },
+    { key: "Epic", label: "Epic" },
+  ];
+  // Server figures that differ from anything the rows add up to.
+  const SERVER: PpmPortfolioDashboard = {
+    total_initiatives: 42,
+    total_budget: 77,
+    health_schedule: { onTrack: 5, atRisk: 6, offTrack: 7, noReport: 8 },
+  };
+
+  const kpiBar = () => screen.getByText("Total Initiatives").closest(".MuiPaper-root") as HTMLElement;
+  const total = () => within(kpiBar()).getByText("Total Initiatives").nextElementSibling?.textContent;
+  const budget = () =>
+    within(kpiBar()).queryByText("Total Budget")?.nextElementSibling?.textContent ?? null;
+  const health = () =>
+    ["On Track", "At Risk", "Off Track"].map(
+      (label) => within(kpiBar()).getByText(label).previousElementSibling?.textContent,
+    );
+  const headerNames = () =>
+    Array.from(document.querySelectorAll('[data-group-variant="group"]')).map(
+      (el) => el.querySelector("p")?.textContent,
+    );
+
+  it("renders the section as the toolbar's last control", () => {
+    renderAt("/", { filterSection: <div data-testid="filters-slot">slot</div> });
+    const slot = screen.getByTestId("filters-slot");
+    expect(slot).toHaveTextContent("slot");
+    expect(
+      screen.getByLabelText("Sub-group by subtype").compareDocumentPosition(slot) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("narrows the rows to the ids it keeps, under their group's header", () => {
+    renderAt(URL, { items: BOARD, subtypeDefs: DEFS, matchIds: new Set(["m2"]) });
+    expect(rowNames()).toEqual(["Alpha ERP"]);
+    expect(headerNames()).toEqual(["Program Alpha"]);
+  });
+
+  it("shows the server's figures unchanged on an unfiltered board", () => {
+    renderAt(URL, { items: BOARD, subtypeDefs: DEFS, dashboard: SERVER });
+    expect(total()).toBe("42");
+    expect(budget()).toBe("CHF77");
+    expect(health()).toEqual(["5", "6", "7"]);
+  });
+
+  it("recounts the tiles over the ids kept, without the header-only anchor", () => {
+    renderAt(URL, {
+      items: BOARD,
+      subtypeDefs: DEFS,
+      dashboard: SERVER,
+      matchIds: new Set(["m1", "m2"]),
+    });
+    expect(total()).toBe("2");
+    expect(budget()).toBe("CHF310");
+    expect(health()).toEqual(["1", "0", "0"]);
+  });
+
+  it("recounts the tiles for the search alone", () => {
+    renderAt(URL, { items: BOARD, subtypeDefs: DEFS, dashboard: SERVER });
+    fireEvent.change(screen.getByPlaceholderText("Search initiatives..."), {
+      target: { value: "erp" },
+    });
+    expect(total()).toBe("1");
+    expect(budget()).toBe("CHF200");
+    expect(health()).toEqual(["0", "0", "0"]);
+  });
+
+  it("counts an anchor that matches the filters itself", () => {
+    renderAt(URL, { items: BOARD, subtypeDefs: DEFS, dashboard: SERVER });
+    fireEvent.change(screen.getByPlaceholderText("Search initiatives..."), {
+      target: { value: "alpha" },
+    });
+    expect(total()).toBe("3");
+    expect(budget()).toBe("CHF9310");
+    expect(health()).toEqual(["1", "0", "1"]);
+  });
+
+  it("recounts the tiles for the subtype alone", () => {
+    renderAt("/?subtype=Epic", { items: BOARD.slice(1), subtypeDefs: DEFS, dashboard: SERVER });
+    expect(total()).toBe("1");
+    expect(budget()).toBe("CHF200");
+  });
+
+  it("keeps a withheld budget hidden while narrowed, whatever the rows carry", () => {
+    renderAt(URL, {
+      items: BOARD,
+      subtypeDefs: DEFS,
+      dashboard: { ...SERVER, total_budget: null },
+      matchIds: new Set(["m1"]),
+    });
+    expect(total()).toBe("1");
+    expect(budget()).toBeNull();
+  });
+
+  it("appends its print lines after the board's own", () => {
+    const shell = vi.fn(() => null);
+    const extra = [{ label: "Organization", value: "Sales" }];
+    renderAt("/", { shell, extraPrintParams: extra });
+    const params = (shell.mock.calls.at(-1) as unknown as [{ printParams: unknown[] }])[0]
+      .printParams;
+    expect(params).toHaveLength(4);
+    expect(params[0]).toEqual({ label: "Group by", value: "Organization" });
+    expect(params[3]).toEqual(extra[0]);
+  });
+
+  it("adds no print lines of its own on the portal path", () => {
+    const shell = vi.fn(() => null);
+    renderAt("/", { shell });
+    const params = (shell.mock.calls.at(-1) as unknown as [{ printParams: unknown[] }])[0]
+      .printParams;
+    expect(params).toHaveLength(3);
+  });
+
+  it("writes the selection to ?filters= and drops it once emptied", () => {
+    const view = (filtersParam?: string) => (
+      <MemoryRouter initialEntries={["/?search=erp"]}>
+        <PpmPortfolioView
+          items={[ITEM]}
+          dashboard={DASHBOARD}
+          groupOptions={[]}
+          loading={false}
+          filtersParam={filtersParam}
+        />
+        <LocationProbe />
+      </MemoryRouter>
+    );
+    const { rerender } = render(view('{"tagFilterIds":["t"]}'));
+    expect(location()).toBe("?search=erp&filters=%7B%22tagFilterIds%22%3A%5B%22t%22%5D%7D");
+    rerender(view(""));
+    expect(location()).toBe("?search=erp");
+  });
+
+  it("leaves the portal board's rows, tiles and URL as they were", () => {
+    renderAt("/", { items: [ITEM, EPIC], dashboard: SERVER });
+    expect(screen.getByText("ERP Replacement")).toBeTruthy();
+    expect(screen.getByText("Data Platform")).toBeTruthy();
+    expect(total()).toBe("42");
+    expect(location()).toBe("");
+  });
+});
+
+describe("PpmPortfolioView board state", () => {
+  it("tells its container the board's parameters from its state, on opening and on change", () => {
+    const onBoardStateChange = vi.fn();
+    renderAt("/?tab=x&search=erp", { items: TREE, subtypeDefs: SUBTYPES, onBoardStateChange });
+    // Only the board's own parameters, never the link's others.
+    expect(onBoardStateChange).toHaveBeenLastCalledWith("search=erp");
+
+    fireEvent.change(screen.getByPlaceholderText("Search initiatives..."), {
+      target: { value: "" },
+    });
+    expect(onBoardStateChange).toHaveBeenLastCalledWith("");
+    fireEvent.click(hierarchySwitch());
+    expect(onBoardStateChange).toHaveBeenLastCalledWith("hierarchy=1");
+    expect(location()).toBe("?tab=x&hierarchy=1");
+  });
+
+  it("carries the Filters section's value it is handed", () => {
+    const onBoardStateChange = vi.fn();
+    renderAt("/", { filtersParam: '{"tagFilterIds":["t1"]}', onBoardStateChange });
+    expect(onBoardStateChange).toHaveBeenLastCalledWith(
+      new URLSearchParams({ filters: '{"tagFilterIds":["t1"]}' }).toString(),
+    );
+  });
+
+  it("needs no listener — the portal board passes none and still keeps its link", () => {
+    renderAt("/", { items: TREE, subtypeDefs: SUBTYPES });
+    fireEvent.click(hierarchySwitch());
+    expect(location()).toBe("?hierarchy=1");
+    expect(rowNames()).toEqual(["Transformation", "ERP Rollout", "Finance Stream"]);
+  });
+});

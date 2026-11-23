@@ -11,9 +11,7 @@ Il modulo **PPM** fornisce una soluzione completa di gestione del portafoglio pr
 
 Il **Dashboard del Portafoglio** è il punto di ingresso principale per PPM. Fornisce:
 
-- **Card KPI** — Totale iniziative, budget totale, costo effettivo totale e riepiloghi dello stato di salute
-- **Grafici a torta della salute** — Distribuzione della salute di calendario, costi e ambito (In corso / A rischio / Fuori rotta)
-- **Distribuzione dello stato** — Ripartizione per sottotipo di iniziativa e stato
+- **Barra dei KPI** — Il numero di iniziative, il loro budget totale (se i costi vi vengono mostrati) e quante sono In linea, A rischio e Fuori linea sul calendario. I valori seguono il portafoglio: la ricerca, il sottotipo scelto e la sezione **Filtri** li restringono alle iniziative che state guardando
 - **Panoramica Gantt** — Barre temporali che mostrano le date di inizio e fine di ogni iniziativa, con indicatori di salute RAG
 
 ### Raggruppamento e filtri
@@ -27,7 +25,17 @@ Utilizzare la barra degli strumenti per:
 - **Mostrare la gerarchia** per annidare le iniziative di ogni gruppo sotto la loro iniziativa padre (vedi sotto)
 - **Sottoraggruppare per sottotipo** per suddividere ogni gruppo per sottotipo (vedi sotto)
 
-Questi filtri vengono mantenuti nell'URL, quindi l'aggiornamento della pagina conserva la vista corrente. Anche la gerarchia, la sua profondità di visualizzazione e il sottoraggruppamento vengono mantenuti nell'URL.
+Queste impostazioni vengono mantenute nell'URL, quindi l'aggiornamento della pagina conserva la vista corrente e un link che condividete apre lo stesso portafoglio. Il portafoglio ricorda inoltre nel vostro browser la ricerca, il raggruppamento, il sottotipo, le impostazioni della gerarchia e i filtri, e li ripristina quando tornate — dal menu PPM, oppure con la freccia indietro dopo aver aperto un'iniziativa. Un link che porta impostazioni proprie si apre con quelle, che diventano le impostazioni ricordate. L'icona **Reimposta predefiniti** nella barra del titolo riporta il portafoglio alle impostazioni predefinite.
+
+#### La sezione Filtri
+
+Sotto la barra degli strumenti si trova una sezione **Filtri**, chiusa la prima volta che aprite il portafoglio così che resti in vista, e in seguito come l'avete lasciata l'ultima volta; mentre è chiusa, un chip nella sua intestazione indica quanti filtri sono attivi. Apritela per restringere il portafoglio, con gli stessi filtri dei report:
+
+- **Card correlate** — mantiene le iniziative collegate alle card che scegliete, per esempio un'Organizzazione o un'Applicazione. **Includi sotto-schede** mantiene anche le iniziative collegate alle card che si trovano sotto una card scelta nella sua gerarchia
+- **Tag** — mantiene le iniziative che portano i tag che scegliete
+- **Campi** — mantiene le iniziative i cui campi propri (gli attributi del tipo Iniziativa) corrispondono ai valori che scegliete
+
+I filtri attivi vengono mantenuti nell'URL e ricordati insieme al resto del portafoglio, così un link che condividete apre lo stesso portafoglio, e sono elencati nella riga dei parametri di una stampa o di un'esportazione. **Cancella tutto** svuota la sezione Filtri e lascia invariato il resto della barra degli strumenti.
 
 #### Mostrare la gerarchia delle iniziative
 
@@ -57,7 +65,7 @@ Gli importi derivati esistono solo sulla bacheca PPM e sulle schede **Panoramica
 
 Il portafoglio offre le stesse azioni nella barra del titolo dei report:
 
-- **Stampa / Salva come PDF** — l'icona della stampante stampa il portafoglio così come appare a schermo. La barra delle schede, la barra dei filtri e i popover al passaggio del mouse vengono nascosti, il raggruppamento, il sottotipo e la ricerca attivi vengono stampati come una riga compatta di parametri e la griglia della timeline non viene più ritagliata, così tutte le colonne entrano nella pagina. Quando la gerarchia o il sottoraggruppamento sono attivi, anche la riga dei parametri lo indica, con la profondità di visualizzazione.
+- **Stampa / Salva come PDF** — l'icona della stampante stampa il portafoglio così come appare a schermo. La barra delle schede, la barra dei filtri e i popover al passaggio del mouse vengono nascosti, il raggruppamento, il sottotipo e la ricerca attivi e i filtri della sezione Filtri vengono stampati come una riga compatta di parametri e la griglia della timeline non viene più ritagliata, così tutte le colonne entrano nella pagina. Quando la gerarchia o il sottoraggruppamento sono attivi, anche la riga dei parametri lo indica, con la profondità di visualizzazione.
 - **Esporta in PowerPoint (.pptx)** — dal menu **⋮**. La prima diapositiva riporta titolo, data e ora di generazione e filtri attivi insieme al portafoglio in qualità da presentazione; i portafogli lunghi proseguono su altre diapositive, tagliate solo tra le iniziative — mai attraverso una riga, un'intestazione di gruppo o una riga dei totali.
 - **Esporta in Excel (.xlsx)** — anch'esso dal menu **⋮**. Una riga per iniziativa con gruppo, sottotipo, project manager, date di inizio e fine, i tre indicatori di salute, CapEx/OpEx pianificato ed effettivo e la data dell'ultimo report di stato. Le righe seguono l'ordine sullo schermo; mentre la gerarchia è visualizzata, una colonna **Padre** indica l'iniziativa padre di ciascuna iniziativa. Tre colonne, **Origine del budget**, **Origine dei costi** e **Origine delle date**, indicano se il budget, il consuntivo e le date di una riga sono i suoi o il totale delle iniziative sottostanti. Quando la bacheca è raggruppata per un sottotipo di iniziativa, l'iniziativa che raggruppa è la **prima riga del suo gruppo**, con gli importi mostrati dalla sua riga finale.
 

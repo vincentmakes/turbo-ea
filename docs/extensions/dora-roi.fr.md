@@ -4,9 +4,8 @@ Toute entité financière de l'UE doit tenir un **registre d'informations** sur
 l'ensemble de ses accords avec des prestataires TIC tiers et le transmettre
 chaque année à son autorité de surveillance — 15 modèles imbriqués, remis sous
 forme de paquet xBRL-CSV lisible par machine conforme au cadre de l'ABE. Lors de
-l'exercice à blanc des AES, 93,5 % des soumissions comportaient au moins une
-erreur de données, et 86 % d'entre elles étaient des informations obligatoires
-manquantes.
+l'exercice à blanc 2024 des AES, seuls 6,5 % des registres ont passé tous les
+contrôles de qualité des données.
 
 Les données dont ce registre a besoin sont exactement celles que contient déjà
 votre référentiel EA. **DORA Register of Information** fait de Turbo EA votre
@@ -44,11 +43,11 @@ des fiches à chaque validation ou export.
 | | |
 |---|---|
 | **Licence** | Commerciale — un droit signé est requis |
-| **Version minimale de Turbo EA** | 2.94.0 |
+| **Version minimale de Turbo EA** | 2.182.0 |
 | **Permissions** | `ext.dora-roi.view`, `ext.dora-roi.manage`, `ext.dora-roi.submit`, `ext.dora-roi.admin` |
 | **Autorisations d'accès aux données** | `core.cards.read`, `core.cards.write`, `metamodel.custom_field_types` |
 | **Redémarrage du backend requis** | oui — l'extension embarque du code backend |
-| **Où elle apparaît** | **Registre DORA** dans la navigation principale · **Rapports → Registre DORA** · sections **DORA Register** et **DORA Function** sur les fiches · six modèles d'enquête |
+| **Où elle apparaît** | **Registre DORA** dans le menu **GRC** (une entrée de premier niveau lorsque le menu GRC ne vous est pas accessible) · **Rapports → Registre DORA - Tableau de bord** · sections **DORA Register** et **DORA Function** sur les fiches · six modèles d'enquête |
 
 ## Ce qu'elle ajoute à votre métamodèle
 
@@ -59,9 +58,15 @@ des fiches à chaque validation ou export.
   les accords subséquents ou associés leurs enfants. Porte la dépense annuelle et
   la devise.
 - **ICT Service** — un par service fourni au titre d'un accord, portant à la fois
-  la ligne de service (type, dates, préavis, droit applicable, localisation des
-  données, degré de dépendance) et son **évaluation** (substituabilité, plan de
-  sortie, réintégration, impact d'une interruption, prestataires alternatifs).
+  la ligne de service (type, dates, préavis, droit applicable, localisations,
+  degré de dépendance) et son **évaluation** (substituabilité, plan de
+  sortie, réintégration, impact d'une interruption, prestataires alternatifs). Ses
+  trois champs de localisation — **Country of provision of the services**,
+  **Location of the data at rest** et **Location of data management** (là où les
+  données sont traitées) — proposent chacun **Not applicable**. Un service sans
+  lieu de traitement des données renseigné empêche la finalisation d'un
+  instantané : choisissez le pays, ou **Not applicable** si le service n'implique
+  aucun traitement de données.
 
 **Un nouveau sous-type** — **Branch** sur Organisation.
 
@@ -70,8 +75,8 @@ des fiches à chaque validation ou export.
 | Type de fiche | Section | Contenu |
 |---|---|---|
 | **Organisation** | DORA Register | Dans le périmètre du registre DORA, LEI, Pays, Type d'entité, Position dans le groupe, Autorité compétente, Total de bilan, Devise de déclaration, Code de succursale |
-| **Provider** | DORA Register | LEI, Type d'identifiant, EUID, Type de personne, Pays du siège, Prestataire intragroupe, dépense annuelle, société mère ultime |
-| **Capacité métier** / **Processus métier** | DORA Function | Fonction du registre DORA, Identifiant de fonction, Activité agréée, Évaluation de criticité, Motifs de criticité, RTO, RPO, Impact d'une interruption |
+| **Provider** | DORA Register | LEI, Type d'identifiant, EUID, Autre code d'identification, Type de personne, Pays du siège, Prestataire intragroupe, dépense annuelle, société mère ultime |
+| **Capacité métier** / **Processus métier** | DORA Function | Fonction du registre DORA, Identifiant de fonction, Activité agréée, Évaluation de la criticité ou de l'importance, Motifs de criticité, Date de la dernière évaluation, RTO, RPO, Impact d'une interruption |
 
 Chaque section porte en outre un **score DORA (%)** en lecture seule — une barre
 de complétude indiquant la part de données de registre encore due par cette fiche.
@@ -140,25 +145,32 @@ conventions de remplissage des ITS (`9999-12-31` pour les dates sans terme,
 
 ## L'espace de travail
 
-**Registre DORA** dans la navigation principale comporte cinq onglets. Le même
+**Registre DORA** dans le menu **GRC** comporte cinq onglets. Le même
 tableau de bord est également disponible comme rapport enregistrable sous
-**Rapports → Registre DORA**.
+**Rapports → Registre DORA - Tableau de bord**.
 
 ### Tableau de bord
 
 Six tuiles — **Register completeness**, **Blocking findings**, **Warnings**,
 **Critical functions**, **Providers**, **Arrangements** — au-dessus d'un bouton
-**Validate now**. En dessous, une barre de compteurs mène directement à
-l'inventaire pour chaque objet du registre, et le tableau **Template
-completeness** indique les lignes et les constats par modèle.
+**Validate now** et d'une ligne indiquant combien des règles actives de l'ABE ont
+été exécutées, avec un lien **Rules not run** (voir [Validation](#validation)).
+En dessous, une barre de compteurs mène directement à l'inventaire pour chaque
+objet du registre, et le tableau **Template completeness** indique les lignes et
+les constats par modèle.
 
 ![Le tableau « Template completeness »](../assets/img/en/74_ext_dora_template_completeness.png)
 
-Un clic sur un nombre de constats ouvre le tiroir **Validation findings**, groupé
-par ligne de registre, chaque constat étant classé **Missing**, **Invalid value**,
-**Duplicate row**, **Broken reference**, **Unknown column** ou **EBA rule**, et
-marqué **Blocking** ou **Warning**. Chaque constat propose un bouton **Open card**
-qui mène exactement au champ à corriger.
+Un clic sur un nombre de constats ouvre **Validation findings** : une ligne par
+constat, avec sa gravité (**Blocking** ou **Warning**), son modèle, sa ligne de
+registre, sa fiche, sa règle, sa colonne et son message, et des filtres sur la
+gravité, le modèle, le type de fiche et la règle. La règle est l'une des
+suivantes : **Missing**, **Missing key value**, **Invalid value**, **Invalid
+LEI**, **Duplicate row**, **Broken reference**, **Unknown column** ou **EBA
+rule**. Un clic sur un constat, ou sur son action **Open card**, ouvre dans un
+panneau latéral la fiche à corriger ; un constat portant sur les paramètres de
+dépôt propose **Open settings** à la place. Le bouton **Rules not run** ouvre la
+liste décrite dans [Validation](#validation).
 
 ### Registre
 
@@ -186,26 +198,41 @@ passe ensuite par trois états :
    listés avec gravité, modèle, ligne, colonne et message.
 2. **Validated** — cliquez sur **Finalize**. L'opération est refusée tant qu'il
    reste un constat **bloquant** ou qu'aucune entité déclarante dotée d'un LEI
-   n'est définie.
+   n'est définie. Les constats bloquants comprennent un service sans lieu de
+   traitement des données, tout autre champ clé laissé vide là où il s'applique,
+   et un LEI de prestataire qui ne respecte pas le format ISO 17442 ou sa somme de
+   contrôle (**Invalid LEI**).
 3. **Final** — l'instantané est immuable, l'empreinte de son paquet est figée pour
-   l'audit, et il ne peut plus être supprimé ni revalidé.
+   l'audit, il conserve les constats et la couverture des règles avec lesquels il
+   a été contrôlé, et il ne peut plus être supprimé ni revalidé.
 
 Deux téléchargements sont disponibles à tout moment :
 
-- **xBRL-CSV package** — le paquet officiel du module DORA du cadre ABE 4.0, sous
-  forme de `.zip`, contenant les métadonnées du rapport, les indicateurs de
-  dépôt, les paramètres et un CSV par modèle. Il est reproductible à l'octet
-  près, et le retéléchargement d'un instantané final est vérifié contre son
-  empreinte figée.
+- **xBRL-CSV package** — un paquet de rapport DORA construit selon la taxonomie du
+  cadre ABE 4.0 (module DORA 1.1.0), sous forme de `.zip`, contenant les
+  métadonnées du rapport, les indicateurs de dépôt, les paramètres et un CSV par
+  modèle. Son nom de fichier porte le code pays ISO de l'entité déclarante. Un
+  prestataire ayant à la fois un LEI et un EUID est déclaré avec les deux : le LEI
+  comme code d'identification et l'EUID comme code d'identification
+  supplémentaire. Le paquet est reproductible à l'octet près, et le
+  retéléchargement d'un instantané final est vérifié contre son empreinte figée.
 - **Excel workbook** — un classeur de relecture avec une page de garde, une
-  feuille par modèle reprenant les libellés et codes de colonnes officiels et une
+  feuille par modèle reprenant les libellés et codes de colonnes de l'ABE et une
   feuille des membres, pour faire circuler le registre en interne avant le dépôt.
+
+Avant chaque version qui modifie l'export, le paquet construit à partir du
+registre de démonstration est validé avec Arelle, le processeur XBRL open source,
+contre la taxonomie du cadre 4.0 publiée par l'ABE, y compris les assertions de
+validation propres à la taxonomie. Cela couvre la structure du paquet, et non les
+contrôles de réception de l'ABE ni ses consultations de registres : savoir si le
+portail de votre autorité accepte le fichier est un test distinct, que vous
+effectuez vous-même.
 
 ### Paramètres
 
 **Filing** — le **Filing scope** (**Consolidated (.CON)** ou **Individual
 (.IND)**), la **Reporting currency**, la **Taxonomy version** et la **Reporting
-entity**, dont le LEI et le pays déterminent le paquet de soumission.
+entity**, dont le LEI et le pays déterminent le paquet de rapport.
 
 **Definitions (B_99.01)** — définitions libres facultatives pour les termes issus
 de listes fermées employés par votre registre, déposées comme modèle B_99.01.
@@ -238,20 +265,36 @@ toucher à de vraies données. Toutes les fiches de démonstration sont nommées
 ## Validation
 
 La validation s'effectue en quatre couches : la **structure** (types de données,
-sommes de contrôle des LEI, dates, nombres, ainsi que les indicateurs de champs
-obligatoires traités comme bloquants), les **membres** (valeurs de listes fermées
-confrontées aux domaines officiels), les **clés** (complétude et unicité des clés
-primaires, et références entre modèles) et l'**inventaire de règles de l'ABE**
-avec les niveaux de gravité publiés.
+sommes de contrôle des LEI, dates, nombres, ainsi que les champs obligatoires et
+clés traités comme bloquants lorsqu'ils sont vides), les **membres** (valeurs de
+listes fermées confrontées aux listes de codes de la taxonomie), les **clés**
+(complétude et unicité des clés primaires, et références entre modèles) et les
+**règles de validation de l'ABE exécutables hors ligne**, avec les niveaux de
+gravité publiés. Les règles retirées par l'ABE ne sont pas exécutées.
+
+Un EUID de prestataire est contrôlé selon le format EUID : le code pays et
+l'identifiant du registre, un point, puis le numéro d'immatriculation. Une valeur
+sans point, ou un LEI saisi comme EUID, est signalée par un avertissement. Un
+contrôle local est plus strict que celui de l'ABE : un code d'identification de
+prestataire déclaré comme LEI qui ne respecte pas le format ISO 17442 ou sa somme
+de contrôle est un constat bloquant **Invalid LEI**, alors que la règle de l'ABE
+n'est qu'un avertissement. Un LEI invalide de la société mère ultime d'un
+prestataire reste un avertissement.
 
 !!! warning "La couverture est partielle — et annoncée honnêtement"
-    Turbo EA exécute les règles évaluables hors ligne. Celles qui nécessitent le
-    moteur d'expressions des AES ou des consultations en direct des registres
-    GLEIF/BRIS ne peuvent pas s'exécuter sur votre instance. Plutôt que de les
-    ignorer en silence, le tableau de bord indique combien de règles de l'ABE ont
-    été exécutées et combien ne l'ont pas été. Considérez une validation sans
-    constat comme un solide contrôle préalable, non comme une garantie
-    d'acceptation par l'autorité.
+    Turbo EA exécute les règles de l'ABE évaluables hors ligne, et le tableau de
+    bord indique combien des règles actives de l'ABE ont été exécutées. **Rules
+    not run**, ouvert depuis cette mention ou depuis les constats de validation,
+    liste toutes les autres règles avec leur modèle, le texte propre de l'ABE et la
+    raison pour laquelle elles ne s'exécutent pas ici : une **EBA expression**
+    dépassant les contrôles hors ligne, que les systèmes de l'autorité évaluent sur
+    le fichier que vous remettez, ou un **Package check** que l'ABE applique au
+    paquet de rapport remis plutôt qu'au registre. Elle nomme aussi les règles de
+    LEI, d'EUID et de pays qui ne s'exécutent ici que comme contrôles hors ligne de
+    somme de contrôle, de format et de liste de codes, là où l'ABE consulte les
+    codes dans le GLEIF et les registres du commerce (BRIS). Considérez une
+    validation sans constat comme un solide contrôle préalable, non comme une
+    garantie d'acceptation par l'autorité.
 
 ## Permissions
 
@@ -259,7 +302,7 @@ avec les niveaux de gravité publiés.
 |---|---|
 | `ext.dora-roi.view` | Consulter le registre, les tableaux de bord et les résultats de validation |
 | `ext.dora-roi.manage` | Modifier les données du registre et statuer sur les suggestions |
-| `ext.dora-roi.submit` | Figer des instantanés à une date de référence et télécharger les paquets de soumission |
+| `ext.dora-roi.submit` | Figer des instantanés à une date de référence et télécharger les paquets de rapport |
 | `ext.dora-roi.admin` | Configurer les paramètres de dépôt et charger ou retirer les données de démonstration |
 
 La modification des données du registre s'appuie en outre sur vos droits normaux
@@ -284,8 +327,9 @@ installation.
   l'extension ; ces lignes ne sont pas migrées. Ressaisissez-les sous forme de
   fiches ICT Service et de fonctions (ou rechargez les données de démonstration)
   et relancez **Find suggestions**.
-- Le contenu de la taxonomie est généré à partir du cadre ABE publié : adopter une
-  nouvelle version revient donc à une mise à jour de données plus un changement de
+- Les modèles, listes de codes et règles sont livrés sous forme de données
+  versionnées générées à partir du cadre ABE publié : une nouvelle version du
+  cadre arrive donc comme une mise à jour de l'extension plus un changement de
   **Taxonomy version**.
 - Le **score DORA** d'une fiche est un signal de tri, pas un verdict de
   conformité. Les constats du tableau de bord font foi pour les écarts.

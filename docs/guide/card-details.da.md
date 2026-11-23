@@ -260,6 +260,8 @@ Invitations-stien kræver tilladelsen **`users.invite`**, en delegeret form af `
 
 En ændring, der ikke kom fra webgrænsefladen, har en chip ved siden af personens navn: **MCP**, når en AI-assistent foretog den via [MCP-serveren](../admin/mcp.md) på personens vegne, ellers **API**, **Udvidelse** eller **System**.
 
+En ændring, en udvidelse har foretaget, mens nogen brugte den — for eksempel ved at trykke på en knap på en udvidelsesside — kan registreres under den persons navn med chippen **Udvidelse** ved siden af. Ændringer, en udvidelse foretager af sig selv, såsom en planlagt synkronisering, viser **System** som forfatter.
+
 Viser det **komplette audit-spor** over ændringer foretaget på kortet: **hvem** der foretog ændringen, **hvornår** den blev foretaget, og **hvad** der blev ændret (tidligere værdi vs. ny værdi). Dette giver fuld sporbarhed over alle ændringer over tid.
 
 En ændring af kortets omkostninger vises som **Omkostninger opdateret** med et læsbart resumé af de berørte poster. Beløb vises kun for brugere, der kan se omkostningerne på det kort, og en omkostningsændring kan ikke rulles tilbage fra revisionsloggen.

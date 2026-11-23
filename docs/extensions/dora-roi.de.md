@@ -3,9 +3,8 @@
 Jedes EU-Finanzunternehmen muss ein **Informationsregister** über sämtliche
 IKT-Drittparteienvereinbarungen führen und es jährlich über seine Aufsicht
 einreichen — 15 ineinandergreifende Meldebögen, abgegeben als maschinenlesbares
-xBRL-CSV-Paket nach dem EBA-Rahmenwerk. Im Trockenlauf der ESAs enthielten 93,5 %
-der Einreichungen mindestens einen Datenfehler, und 86 % davon waren fehlende
-Pflichtangaben.
+xBRL-CSV-Paket nach dem EBA-Rahmenwerk. Im Trockenlauf der ESAs 2024 bestanden
+nur 6,5 % der Register alle Datenqualitätsprüfungen.
 
 Die Daten, die das Register braucht, liegen bereits in Ihrem EA-Repository.
 **DORA Register of Information** macht Turbo EA zu Ihrem Register.
@@ -42,11 +41,11 @@ jedem Export live aus den Karten zusammengesetzt.
 | | |
 |---|---|
 | **Lizenz** | Kommerziell — eine signierte Berechtigung ist erforderlich |
-| **Mindestversion von Turbo EA** | 2.94.0 |
+| **Mindestversion von Turbo EA** | 2.182.0 |
 | **Berechtigungen** | `ext.dora-roi.view`, `ext.dora-roi.manage`, `ext.dora-roi.submit`, `ext.dora-roi.admin` |
 | **Datenzugriffs-Grants** | `core.cards.read`, `core.cards.write`, `metamodel.custom_field_types` |
 | **Backend-Neustart nötig** | ja — die Erweiterung enthält Backend-Code |
-| **Wo sie erscheint** | **DORA-Register** in der Hauptnavigation · **Berichte → DORA-Register** · Abschnitte **DORA Register** und **DORA Function** auf Karten · sechs Umfragevorlagen |
+| **Wo sie erscheint** | **DORA-Register** im Menü **GRC** (ein Eintrag auf oberster Ebene, wenn Ihnen das Menü GRC nicht zur Verfügung steht) · **Berichte → DORA-Register - Übersicht** · Abschnitte **DORA Register** und **DORA Function** auf Karten · sechs Umfragevorlagen |
 
 ## Was sie Ihrem Metamodell hinzufügt
 
@@ -58,9 +57,14 @@ jedem Export live aus den Karten zusammengesetzt.
   Kinder. Trägt Jahresaufwand und Währung.
 - **ICT Service** — eine je erbrachter Dienstleistung unter einer Vereinbarung,
   mit der Dienstleistungszeile (Art, Termine, Kündigungsfristen, anwendbares
-  Recht, Datenstandort, Abhängigkeitsgrad) und ihrer **Bewertung**
+  Recht, Standorte, Abhängigkeitsgrad) und ihrer **Bewertung**
   (Substituierbarkeit, Exit-Plan, Reintegration, Auswirkung einer Einstellung,
-  alternative Anbieter).
+  alternative Anbieter). Seine drei Standortfelder — **Country of provision of
+  the services**, **Location of the data at rest** und **Location of data
+  management** (wo die Daten verarbeitet werden) — bieten jeweils **Not
+  applicable**. Eine Dienstleistung ohne erfassten Ort der Datenverarbeitung
+  verhindert das Finalisieren einer Momentaufnahme: Wählen Sie das Land oder
+  **Not applicable**, wenn die Dienstleistung keine Datenverarbeitung umfasst.
 
 **Ein neuer Subtyp** — **Branch** auf Organisation.
 
@@ -69,8 +73,8 @@ jedem Export live aus den Karten zusammengesetzt.
 | Kartentyp | Abschnitt | Inhalt |
 |---|---|---|
 | **Organisation** | DORA Register | Im DORA-Registerumfang, LEI, Land, Art des Unternehmens, Stellung im Konzern, Zuständige Behörde, Bilanzsumme, Berichtswährung, Zweigstellencode |
-| **Provider** | DORA Register | LEI, Kennungsart, EUID, Personenart, Land des Hauptsitzes, Konzerninterner Anbieter, Jahresaufwand, oberste Muttergesellschaft |
-| **Geschäftsfähigkeit** / **Geschäftsprozess** | DORA Function | DORA-Registerfunktion, Funktionskennung, Zulassungspflichtige Tätigkeit, Kritikalitätsbewertung, Begründung der Kritikalität, RTO, RPO, Auswirkung einer Einstellung |
+| **Provider** | DORA Register | LEI, Kennungsart, EUID, Sonstiger Identifikationscode, Personenart, Land des Hauptsitzes, Konzerninterner Anbieter, Jahresaufwand, oberste Muttergesellschaft |
+| **Geschäftsfähigkeit** / **Geschäftsprozess** | DORA Function | DORA-Registerfunktion, Funktionskennung, Zulassungspflichtige Tätigkeit, Bewertung der Kritikalität oder Wichtigkeit, Begründung der Kritikalität, Datum der letzten Bewertung, RTO, RPO, Auswirkung einer Einstellung |
 
 Jeder Abschnitt trägt zusätzlich eine schreibgeschützte **DORA-Bewertung (%)** —
 einen Vollständigkeitsbalken, der zeigt, wie viele Registerdaten diese Karte noch
@@ -141,25 +145,32 @@ für nicht nachgelagerte Vereinbarungen) werden für Sie angewendet.
 
 ## Der Arbeitsbereich
 
-**DORA-Register** in der Hauptnavigation hat fünf Reiter. Dieselbe Übersicht ist
-zusätzlich als speicherbarer Bericht unter **Berichte → DORA-Register**
+**DORA-Register** im Menü **GRC** hat fünf Reiter. Dieselbe Übersicht ist
+zusätzlich als speicherbarer Bericht unter **Berichte → DORA-Register - Übersicht**
 verfügbar.
 
 ### Übersicht
 
 Sechs Kacheln — **Register completeness**, **Blocking findings**, **Warnings**,
 **Critical functions**, **Providers**, **Arrangements** — über der Schaltfläche
-**Validate now**. Darunter verlinkt eine Zählleiste direkt ins Inventar für jedes
-Registerobjekt, und die Tabelle **Template completeness** zeigt Zeilen und
-Befunde je Meldebogen.
+**Validate now** und einer Zeile, die angibt, wie viele der aktiven EBA-Regeln
+ausgeführt wurden, mit einem Link **Rules not run** (siehe
+[Validierung](#validierung)). Darunter verlinkt eine Zählleiste direkt ins
+Inventar für jedes Registerobjekt, und die Tabelle **Template completeness**
+zeigt Zeilen und Befunde je Meldebogen.
 
 ![Die Tabelle «Template completeness»](../assets/img/en/74_ext_dora_template_completeness.png)
 
-Ein Klick auf eine Befundzahl öffnet die Leiste **Validation findings**,
-gruppiert nach Registerzeile, jeder Befund eingeordnet als **Missing**, **Invalid
-value**, **Duplicate row**, **Broken reference**, **Unknown column** oder **EBA
-rule** und als **Blocking** oder **Warning** gekennzeichnet. Jeder Befund hat eine
-Schaltfläche **Open card**, die genau zu dem Feld führt, das zu korrigieren ist.
+Ein Klick auf eine Befundzahl öffnet **Validation findings**: eine Zeile je
+Befund, mit Schweregrad (**Blocking** oder **Warning**), Meldebogen,
+Registerzeile, Karte, Regel, Spalte und Meldung sowie Filtern nach Schweregrad,
+Meldebogen, Kartentyp und Regel. Die Regel ist eine von **Missing**, **Missing
+key value**, **Invalid value**, **Invalid LEI**, **Duplicate row**, **Broken
+reference**, **Unknown column** oder **EBA rule**. Ein Klick auf einen Befund
+oder auf seine Aktion **Open card** öffnet die zu korrigierende Karte in einem
+Seitenbereich; ein Befund zu den Einreichungseinstellungen bietet stattdessen
+**Open settings**. Die Schaltfläche **Rules not run** öffnet die unter
+[Validierung](#validierung) beschriebene Liste.
 
 ### Register
 
@@ -187,27 +198,42 @@ durchläuft drei Zustände:
    Meldebogen, Zeile, Spalte und Meldung aufgelistet.
 2. **Validated** — **Finalize** klicken. Das wird verweigert, solange ein
    **blockierender** Befund besteht oder kein berichtendes Unternehmen mit LEI
-   gesetzt ist.
+   gesetzt ist. Blockierende Befunde sind unter anderem eine Dienstleistung ohne
+   Ort der Datenverarbeitung, jedes andere leer gelassene Schlüsselfeld, wo es
+   gilt, und eine Anbieter-LEI, die das ISO-17442-Format oder die Prüfsumme
+   nicht erfüllt (**Invalid LEI**).
 3. **Final** — die Momentaufnahme ist unveränderlich, ihr Paket-Hash ist für die
-   Revision festgeschrieben, und sie lässt sich weder löschen noch erneut
+   Revision festgeschrieben, sie behält die Befunde und die Regelabdeckung, mit
+   denen sie geprüft wurde, und lässt sich weder löschen noch erneut
    validieren.
 
 Zwei Downloads stehen jederzeit bereit:
 
-- **xBRL-CSV package** — das offizielle DORA-Berichtspaket des EBA-Rahmenwerks
-  4.0 als `.zip`, mit Berichtsmetadaten, Meldeindikatoren, Parametern und je einer
-  CSV-Datei pro Meldebogen. Es ist bytegleich reproduzierbar, und ein erneuter
-  Download einer finalen Momentaufnahme wird gegen ihren festgeschriebenen Hash
-  geprüft.
+- **xBRL-CSV package** — ein nach der EBA-Taxonomie des Rahmenwerks 4.0 (DORA-Modul
+  1.1.0) erstelltes DORA-Berichtspaket als `.zip`, mit Berichtsmetadaten,
+  Meldeindikatoren, Parametern und je einer CSV-Datei pro Meldebogen. Sein
+  Dateiname enthält den ISO-Ländercode des berichtenden Unternehmens. Ein
+  Anbieter mit LEI und EUID wird mit beiden gemeldet: die LEI als
+  Identifikationscode und die EUID als zusätzlicher Identifikationscode. Das
+  Paket ist bytegleich reproduzierbar, und ein erneuter Download einer finalen
+  Momentaufnahme wird gegen ihren festgeschriebenen Hash geprüft.
 - **Excel workbook** — eine Prüfmappe mit Deckblatt, je einem Blatt pro Meldebogen
-  mit den offiziellen Spaltenbezeichnungen und -codes sowie einem
+  mit den Spaltenbezeichnungen und -codes der EBA sowie einem
   Mitgliederblatt, um das Register vor der Einreichung intern in Umlauf zu geben.
+
+Vor jeder Version, die den Export ändert, wird das aus dem Demo-Register
+erstellte Paket mit Arelle, dem Open-Source-XBRL-Prozessor, gegen die
+veröffentlichte EBA-Taxonomie des Rahmenwerks 4.0 validiert, einschließlich der
+eigenen Validierungsassertionen der Taxonomie. Das deckt die Struktur des Pakets
+ab, nicht die Eingangsprüfungen oder Registerabfragen der EBA: Ob das Portal
+Ihrer Aufsicht die Datei annimmt, ist ein eigener Test, den Sie selbst
+durchführen.
 
 ### Einstellungen
 
 **Filing** — der **Filing scope** (**Consolidated (.CON)** oder **Individual
 (.IND)**), die **Reporting currency**, die **Taxonomy version** und die
-**Reporting entity**, deren LEI und Land das Einreichungspaket bestimmen.
+**Reporting entity**, deren LEI und Land das Berichtspaket bestimmen.
 
 **Definitions (B_99.01)** — optionale Freitextdefinitionen für die von Ihrem
 Register verwendeten Begriffe aus geschlossenen Listen, eingereicht als Meldebogen
@@ -241,19 +267,36 @@ mit **Demo Dora** getaggt; **Remove demo data** entfernt sie wieder.
 ## Validierung
 
 Die Validierung läuft in vier Schichten: **Struktur** (Datentypen,
-LEI-Prüfsummen, Datumsangaben, Zahlen sowie die Pflichtfeld-Kennzeichen als
-blockierend), **Mitglieder** (Werte aus geschlossenen Listen gegen die offiziellen
-Domänen), **Schlüssel** (Vollständigkeit und Eindeutigkeit der Primärschlüssel
-sowie meldebogenübergreifende Verweise) und das **EBA-Regelwerk** mit den dort
-veröffentlichten Schweregraden.
+LEI-Prüfsummen, Datumsangaben, Zahlen sowie Pflicht- und Schlüsselfelder als
+blockierend, wenn leer), **Mitglieder** (Werte aus geschlossenen Listen gegen die
+Codelisten der Taxonomie), **Schlüssel** (Vollständigkeit und Eindeutigkeit der
+Primärschlüssel sowie meldebogenübergreifende Verweise) und die **EBA-Validierungsregeln,
+die offline laufen können**, mit den dort veröffentlichten Schweregraden. Von
+der EBA zurückgezogene Regeln werden nicht ausgeführt.
+
+Eine Anbieter-EUID wird auf das EUID-Format geprüft: der Ländercode und die
+Kennung des Registers, ein Punkt, dann die Registernummer. Ein Wert ohne Punkt
+oder eine als EUID eingegebene LEI wird als Warnung gemeldet. Eine lokale Prüfung
+ist strenger als die der EBA: Ein als LEI deklarierter Identifikationscode eines
+Anbieters, der das ISO-17442-Format oder die Prüfsumme nicht erfüllt, ist ein
+blockierender Befund **Invalid LEI**, während die eigene Regel der EBA eine
+Warnung ist. Eine ungültige LEI der obersten Muttergesellschaft eines Anbieters
+bleibt eine Warnung.
 
 !!! warning "Die Abdeckung ist teilweise — und wird offen ausgewiesen"
-    Turbo EA führt die Regeln aus, die sich offline auswerten lassen. Regeln, die
-    die Ausdrucks-Engine der ESAs oder Live-Abfragen bei GLEIF/BRIS benötigen,
-    können auf Ihrer Instanz nicht laufen. Statt sie stillschweigend zu
-    überspringen, weist die Übersicht aus, wie viele EBA-Regeln ausgeführt wurden
-    und wie viele nicht. Betrachten Sie eine saubere Validierung als starke
-    Vorprüfung, nicht als Garantie für die Annahme durch die Aufsicht.
+    Turbo EA führt die EBA-Regeln aus, die sich offline auswerten lassen, und die
+    Übersicht weist aus, wie viele der aktiven EBA-Regeln ausgeführt wurden.
+    **Rules not run**, geöffnet über diese Angabe oder über die Validierungsbefunde,
+    listet jede andere Regel mit ihrem Meldebogen, dem Originaltext der EBA und dem
+    Grund auf, warum sie hier nicht läuft: ein **EBA expression** jenseits der
+    Offline-Prüfungen, den die Systeme der Aufsicht auf der eingereichten Datei
+    auswerten, oder ein **Package check**, den die EBA auf das eingereichte
+    Berichtspaket statt auf das Register anwendet. Außerdem nennt sie die Regeln zu
+    LEI, EUID und Land, die hier nur als Offline-Prüfungen von Prüfsumme, Format und
+    Codeliste laufen, während die EBA die Codes bei GLEIF und in den
+    Unternehmensregistern (BRIS) nachschlägt. Betrachten Sie eine saubere
+    Validierung als starke Vorprüfung, nicht als Garantie für die Annahme durch die
+    Aufsicht.
 
 ## Berechtigungen
 
@@ -261,7 +304,7 @@ veröffentlichten Schweregraden.
 |---|---|
 | `ext.dora-roi.view` | Register, Übersichten und Validierungsergebnisse ansehen |
 | `ext.dora-roi.manage` | Registerdaten bearbeiten und über Vorschläge entscheiden |
-| `ext.dora-roi.submit` | Stichtags-Momentaufnahmen festschreiben und Einreichungspakete herunterladen |
+| `ext.dora-roi.submit` | Stichtags-Momentaufnahmen festschreiben und Berichtspakete herunterladen |
 | `ext.dora-roi.admin` | Einreichungseinstellungen konfigurieren, Demodaten laden oder entfernen |
 
 Das Bearbeiten der Registerdaten selbst nutzt zusätzlich Ihre normalen
@@ -286,9 +329,10 @@ nicht neu gestartet.
   Erweiterung; diese Zeilen werden nicht migriert. Erfassen Sie sie erneut als
   ICT-Service- und Funktionskarten (oder laden Sie die Demodaten) und führen Sie
   **Find suggestions** erneut aus.
-- Die Taxonomieinhalte werden aus dem veröffentlichten EBA-Rahmenwerk generiert;
-  die Übernahme einer neuen Fassung ist daher eine Datenaktualisierung plus ein
-  Wechsel der **Taxonomy version**.
+- Vorlagen, Codelisten und Regeln werden als versionierte, aus dem
+  veröffentlichten EBA-Rahmenwerk generierte Daten ausgeliefert; eine neue Fassung
+  des Rahmenwerks kommt daher als Aktualisierung der Erweiterung plus ein Wechsel
+  der **Taxonomy version**.
 - Die **DORA-Bewertung** auf einer Karte ist ein Triage-Signal, kein
   Compliance-Urteil. Maßgeblich für Lücken sind die Befunde der Übersicht.
 - Aufsichtsspezifische Excel-Varianten werden nicht erzeugt; das xBRL-CSV-Paket

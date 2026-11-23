@@ -24,7 +24,11 @@ from app.core.encryption import decrypt_value, encrypt_value
 from app.database import async_session
 from app.services.extensions.adr_bridge import ExtensionDecisions
 from app.services.extensions.cron import CronError, next_fire
-from app.services.extensions.data_service import ExtensionData, open_context_batch
+from app.services.extensions.data_service import (
+    ExtensionData,
+    on_behalf_of,
+    open_context_batch,
+)
 from app.services.extensions.loader import LoadReport
 from app.services.extensions.notify_bridge import ExtensionNotify
 from app.services.extensions.registry import extension_registry
@@ -171,6 +175,8 @@ def build_context(key: str) -> ExtensionContext:
         notify=ExtensionNotify(key),
         batch=batch,
         surveys=ExtensionSurveys(key),
+        # SDK 1.19 — ungated: it names the person a write is for, opens no data.
+        on_behalf_of=on_behalf_of,
     )
     _contexts[key] = ctx
     return ctx

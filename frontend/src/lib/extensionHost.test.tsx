@@ -683,8 +683,7 @@ describe("extensionHost", () => {
   });
 
   it("pins the current UI SDK version", () => {
-    // Fork note: UI_SDK_VERSION is pinned at 1.19 (frozen — see CLAUDE.md). Upstream
-    // has since moved this to 1.34; the new surface is present without the constant.
+    // The fork keeps the SDK version pinned while incorporating upstream surfaces.
     expect(UI_SDK_VERSION).toBe("1.19");
   });
 

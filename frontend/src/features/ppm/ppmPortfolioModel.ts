@@ -1,6 +1,7 @@
 /**
  * The PPM portfolio board's model, as plain functions: which initiatives a
- * search and a subtype leave on the board and how they group, where each
+ * search, a subtype and the Filters section leave on the board, what the KPI
+ * tiles then count, and how they group, where each
  * Gantt bar sits in the board's rolling window and what colour it takes, what
  * a cost bar shows, which group totals exist, how a group nests by parent or
  * splits by subtype, which filters belong in the URL, which quarter labels
@@ -18,6 +19,8 @@ import type { InlineEntityLike } from "@/hooks/useResolveLabel";
 import { buildChildIndex } from "@/lib/cardTree";
 import { toLocalDate } from "@/lib/dates";
 import type {
+  PpmHealthCounts,
+  PpmPortfolioDashboard,
   PpmPortfolioGroupOption,
   PpmPortfolioItem,
   PpmPortfolioPerson,
@@ -323,26 +326,73 @@ export const subtypeKeys = (items: PpmPortfolioItem[]): string[] => [
 ];
 
 /**
- * Initiatives whose name contains the search, in any case, and — when a
- * subtype is picked — of that subtype. Both apply to the rows; a group's
- * anchor is kept when a row of its group is, or when neither filter is set,
- * so a filtered board never shows a header over nothing.
+ * Whether a row passes the board's filters on its own: its name contains the
+ * search, in any case; it is of the picked subtype, when one is picked; and it
+ * is among `ids`, the initiatives the Filters section keeps (null = that
+ * section narrows nothing).
+ */
+export function matchesBoard(
+  i: PpmPortfolioItem,
+  search: string,
+  subtype: string,
+  ids: ReadonlySet<string> | null,
+): boolean {
+  return (
+    i.name.toLowerCase().includes(search.toLowerCase()) &&
+    (!subtype || i.subtype === subtype) &&
+    (ids === null || ids.has(i.id))
+  );
+}
+
+/**
+ * The rows `matchesBoard` keeps. The filters apply to the rows; a group's
+ * anchor is kept when a row of its group is, or when no filter is set, so a
+ * filtered board never shows a header over nothing.
  */
 export function filterItems(
   items: PpmPortfolioItem[],
   search: string,
   subtype: string,
+  ids: ReadonlySet<string> | null,
 ): PpmPortfolioItem[] {
-  const s = search.toLowerCase();
-  const matches = (i: PpmPortfolioItem) =>
-    i.name.toLowerCase().includes(s) && (!subtype || i.subtype === subtype);
-  const unfiltered = !s && !subtype;
+  const matches = (i: PpmPortfolioItem) => matchesBoard(i, search, subtype, ids);
+  const unfiltered = !search && !subtype && ids === null;
   const keptGroups = new Set(
     items.filter((i) => !i.group_anchor && matches(i)).map((i) => i.group_id),
   );
   return items.filter((i) =>
     i.group_anchor ? unfiltered || keptGroups.has(i.group_id) : matches(i),
   );
+}
+
+/**
+ * The KPI tiles' figures for what the board shows. `rows` null means the board
+ * is not narrowed, and the server's own figures stand. Otherwise the count, the
+ * planned budget and the schedule health are recounted over `rows`; a budget
+ * the server withheld (a portal hiding costs) stays withheld.
+ */
+export function shownDashboard(
+  d: PpmPortfolioDashboard,
+  rows: PpmPortfolioItem[] | null,
+): PpmPortfolioDashboard {
+  if (rows === null) return d;
+  const health: PpmHealthCounts = { onTrack: 0, atRisk: 0, offTrack: 0, noReport: 0 };
+  for (const r of rows) {
+    const key = r.latest_report ? r.latest_report.schedule_health : "noReport";
+    // An own-property check, so a value spelled like `toString` counts nowhere.
+    if (Object.prototype.hasOwnProperty.call(health, key)) {
+      health[key as keyof PpmHealthCounts] += 1;
+    }
+  }
+  return {
+    ...d,
+    total_initiatives: rows.length,
+    total_budget:
+      d.total_budget == null
+        ? d.total_budget
+        : rows.reduce((sum, r) => sum + money(r.capex_planned) + money(r.opex_planned), 0),
+    health_schedule: health,
+  };
 }
 
 export interface PortfolioGroup {
@@ -582,6 +632,8 @@ export interface FilterState {
   /** Levels shown while the hierarchy is on; `ALL_LEVELS` for every level. */
   depth?: number;
   bySubtype?: boolean;
+  /** The Filters section's selection, encoded; "" when it selects nothing. */
+  filters: string;
 }
 
 /**
@@ -603,6 +655,7 @@ export function filterSearchParams(prev: URLSearchParams, s: FilterState): URLSe
   put("depth", s.hierarchy && s.depth && s.depth !== ALL_LEVELS ? String(s.depth) : "");
   // The two are exclusive, and the hierarchy wins.
   put("bySubtype", s.bySubtype && !s.hierarchy ? "1" : "");
+  put("filters", s.filters);
   return next;
 }
 
