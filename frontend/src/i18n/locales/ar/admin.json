@@ -2676,6 +2676,10 @@
   "securityLog.entry.changes": "التغييرات",
   "securityLog.entry.masked": "قيمة سرية",
   "securityLog.changes.section_added": "تمت إضافة القسم «{{section}}»",
+  "securityLog.changes.lifecycle_stage_added": "تمت إضافة مرحلة دورة الحياة «{{label}}»",
+  "securityLog.changes.lifecycle_stage_removed": "تمت إزالة مرحلة دورة الحياة «{{label}}»",
+  "securityLog.changes.lifecycle_stage_renamed": "تمت إعادة تسمية مرحلة دورة الحياة: «{{old}}» → «{{new}}»",
+  "securityLog.changes.lifecycle_stage_changed": "مرحلة دورة الحياة «{{label}}»: تم تغيير {{property}} من {{old}} إلى {{new}}",
   "securityLog.changes.section_removed": "تمت إزالة القسم «{{section}}»",
   "securityLog.changes.section_renamed": "تمت إعادة تسمية القسم «{{old}}» إلى «{{new}}»",
   "securityLog.changes.section_moved": "تم نقل القسم «{{section}}» من الموضع {{from}} إلى الموضع {{to}}",
@@ -3412,5 +3416,15 @@
   "metamodel.principles.reference": "المرجع",
   "metamodel.principles.import.title": "استيراد مبادئ هندسة المؤسسة",
   "metamodel.principles.import.intro": "ارفع ملف .xlsx لإنشاء المبادئ أو تحديثها دفعة واحدة. تُطابَق كل صف مع مبدأ موجود بمرجعه (P-001) أولاً ثم بعنوانه؛ يُحدَّث المبدأ المطابق بالقيم المختلفة، وينشئ أي صف آخر مبدأً جديداً. العمود غير الموجود في الورقة يترك الحقل دون تغيير، وخلية النص الفارغة تمسحه، أما خلية is_active أو sort_order الفارغة فتترك تلك القيمة كما هي.",
-  "metamodel.principles.import.skippedHint": "تطابق هذه الصفوف مبدأً موجوداً ولا تغيّر شيئاً."
+  "metamodel.principles.import.skippedHint": "تطابق هذه الصفوف مبدأً موجوداً ولا تغيّر شيئاً.",
+  "metamodel.lifecycleStages.title": "مراحل دورة الحياة",
+  "metamodel.lifecycleStages.help": "حدّد المراحل المرتبة التي يمكن إسنادها إلى بطاقات هذا النوع.",
+  "metamodel.lifecycleStages.edit": "تعديل مراحل دورة الحياة",
+  "metamodel.lifecycleStages.add": "إضافة مرحلة",
+  "metamodel.lifecycleStages.keyLocked": "تخزّن البطاقات هذا المفتاح بالفعل، لذلك لا يمكن تغيير اسمه.",
+  "metamodel.lifecycleStages.keyHint": "ابدأ بحرف؛ استخدم ما يصل إلى 50 حرفًا أو رقمًا أو شرطة سفلية.",
+  "metamodel.lifecycleStages.moveUp": "نقل المرحلة إلى أعلى",
+  "metamodel.lifecycleStages.moveDown": "نقل المرحلة إلى أسفل",
+  "metamodel.lifecycleStages.inUse": "ما زالت بعض البطاقات تستخدم مرحلة محذوفة. غيّر تلك البطاقات قبل حذف المرحلة.",
+  "metamodel.lifecycleStages.saveFailed": "تعذّر حفظ مراحل دورة الحياة."
 }

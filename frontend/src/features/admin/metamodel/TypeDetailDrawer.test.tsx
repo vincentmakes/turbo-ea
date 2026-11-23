@@ -291,6 +291,11 @@ beforeEach(() => {
 /* ------------------------------------------------------------------------- */
 
 describe("TypeDetailDrawer — header prefill", () => {
+  it("opens the lifecycle stage editor for the selected card type", async () => {
+    const { user } = renderDrawer();
+    await user.click(screen.getByRole("button", { name: /Edit lifecycle stages/i }));
+    expect(screen.getByRole("dialog", { name: "Lifecycle stages" })).toBeInTheDocument();
+  });
   it("renders nothing when the type key does not resolve", () => {
     renderDrawer("DoesNotExist");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

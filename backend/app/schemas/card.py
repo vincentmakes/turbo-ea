@@ -4,7 +4,8 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from fastapi import HTTPException
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.services.card_query_matches import MAX_IDS, MAX_KEY_CHARS, MAX_NODES
 
@@ -98,7 +99,7 @@ class CardCreate(BaseModel):
         return _validate_jsonb_dict(v, "attributes")
 
 
-class CardUpdate(BaseModel):
+class CardUpdateFields(BaseModel):
     name: str | None = None
     subtype: str | None = None
     description: str | None = None
@@ -130,9 +131,22 @@ class CardUpdate(BaseModel):
         return _validate_jsonb_dict(v, "attributes")
 
 
+class CardUpdate(CardUpdateFields):
+    lifecycle_stage: str | None = Field(None, max_length=50)
+
+
+class CardBulkFields(CardUpdateFields):
+    @model_validator(mode="before")
+    @classmethod
+    def reject_lifecycle_stage(cls, value: Any) -> Any:
+        if isinstance(value, dict) and "lifecycle_stage" in value:
+            raise HTTPException(400, "Lifecycle stages cannot be edited in bulk")
+        return value
+
+
 class CardBulkUpdate(BaseModel):
     ids: list[str]
-    updates: CardUpdate
+    updates: CardBulkFields
     # Mirror the dry-run support already on `CardBulkCreateRequest`. When
     # true, the handler runs every validator and rolls the transaction
     # back instead of committing — used by the MCP `update_cards_bulk`
@@ -170,6 +184,7 @@ class CardResponse(BaseModel):
     parent_id: str | None = None
     parent_label: str | None = None
     lifecycle: dict | None = None
+    lifecycle_stage: str | None = None
     attributes: dict | None = None
     status: str
     approval_status: str

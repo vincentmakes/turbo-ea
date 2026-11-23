@@ -408,6 +408,11 @@ describe("QueryPathStrip — view mode", () => {
 });
 
 describe("QueryPathStrip — edit mode", () => {
+  it("shows saved current stage conditions with their labels", () => {
+    withMetamodel([ORG, { ...APP, lifecycle_stages: [{ key: "pilot", label: "Pilot stage", color: "#123456" }] }], [REL_ORG_TO_APP]);
+    renderEditor({ query: { type: "Application", where: { lifecycle_stage: ["pilot"] } }, viewId: null });
+    expect(screen.getByText("Current stage: Pilot stage")).toBeInTheDocument();
+  });
   it("titles a new draft and an edited view, with Save and Cancel", () => {
     const onSave = vi.fn();
     const onCancel = vi.fn();

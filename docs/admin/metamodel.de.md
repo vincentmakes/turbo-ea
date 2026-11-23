@@ -217,6 +217,12 @@ Klicken Sie auf die Schaltfläche **Übersetzen** in der Symbolleiste des Typ-Dr
 
 Übersetzungen werden zusammen mit jedem Kartentyp gespeichert und beim Rendern entsprechend der vom Benutzer ausgewählten Sprache aufgelöst. Nicht übersetzte Bezeichnungen fallen auf den englischen Standard zurück.
 
+### Lebenszyklusphasen { #lifecycle-stages }
+
+Öffnen Sie einen Kartentyp unter **Admin → Metamodell → Kartentypen** und wählen Sie **Lebenszyklusphasen**, um die aktuellen Phasen zu konfigurieren, die für seine Karten verfügbar sind. Fügen Sie beispielsweise dem Typ Application die Phasen **Testphase** und **Einführung in begrenztem Umfang** hinzu. Jede Phase hat einen Schlüssel, eine Bezeichnung und eine Farbe. Legen Sie die Phasen in der Reihenfolge fest, in der sie angezeigt werden sollen.
+
+Nach dem Speichern können Bearbeiter im Abschnitt Lebenszyklus einer Karte unter **Aktuelle Phase** eine Phase auswählen. Im Inventar können Sie Karten des ausgewählten Typs nach ihrer aktuellen Phase filtern. Eine Phase, die einer Karte zugewiesen ist, kann erst entfernt werden, wenn ihre Zuweisungen gelöscht oder geändert wurden.
+
 ### Einen Typ löschen
 
 - **Integrierte Typen** werden weich gelöscht (ausgeblendet) und können wiederhergestellt werden. Die Löschen-Schaltfläche im Typ-Editor ist für sie gesperrt — verwenden Sie stattdessen **Typ ausblenden**.

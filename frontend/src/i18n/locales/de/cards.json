@@ -834,5 +834,7 @@
   "licensing.errors.archived_metric": "Diese Lizenzkennzahl ist archiviert und kann keinem Jahr hinzugefügt werden.",
   "licensing.errors.invalid_count": "Mengen müssen ganze Zahlen von 0 bis 1.000.000.000 sein.",
   "licensing.errors.forecast_actual": "Das Forecast-Jahr nimmt nur lizenzierte Mengen auf.",
-  "licensing.errors.year_out_of_range": "Dieses Geschäftsjahr liegt außerhalb des bearbeitbaren Zeitraums."
+  "licensing.errors.year_out_of_range": "Dieses Geschäftsjahr liegt außerhalb des bearbeitbaren Zeitraums.",
+  "lifecycle.currentStage": "Aktuelle Phase",
+  "lifecycle.noCurrentStage": "Nicht angegeben"
 }

@@ -30,6 +30,8 @@ from dataclasses import dataclass, field
 from datetime import timezone
 from typing import Any, cast
 
+from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy import exists, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -829,11 +831,26 @@ async def _apply_card_types(db, bundle: WorkspaceBundle, sr: SectionResult, dry_
         for not_null_json in ("reference_config", "role_permissions", "translations"):
             if not_null_json in data and data[not_null_json] is None:
                 data[not_null_json] = {}
+        if "lifecycle_stages" in data and data["lifecycle_stages"] is None:
+            data["lifecycle_stages"] = []
         key = data.get("key")
         if not key:
             sr.failed += 1
             continue
         current = existing.get(key)
+        if "lifecycle_stages" in data:
+            from app.schemas.lifecycle_stages import LifecycleStagesUpdate
+            from app.services.lifecycle_stages import ensure_stages_available
+
+            try:
+                stages = LifecycleStagesUpdate(stages=data["lifecycle_stages"]).stages
+                data["lifecycle_stages"] = [stage.model_dump() for stage in stages]
+                if current is not None:
+                    await ensure_stages_available(db, str(key), data["lifecycle_stages"])
+            except (ValidationError, HTTPException) as exc:
+                sr.failed += 1
+                sr.errors.append(f"card type {key!r}: invalid lifecycle stages: {exc}")
+                continue
         # A type new here is guarded too, against nothing stored: the same
         # stamp rule as for a type this instance has (no forged stamps of an
         # extension installed here), and no transient read flags written.
@@ -1580,6 +1597,9 @@ def _make_cards_applier(user: User, id_map: rm.IdMap | None = None):
             row_sp = await db.begin_nested()
             try:
                 await _validate_url_attributes(db, type_key, data.get("attributes") or {})
+                from app.services.lifecycle_stages import validate_stage
+
+                await validate_stage(db, type_key, data.get("lifecycle_stage"))
                 # Carry the human-readable reference verbatim so IDs stay stable
                 # across a move/restore. On a unique-index collision, regenerate
                 # from the type config (auto/custom) else drop it, keeping the card
@@ -1616,6 +1636,7 @@ def _make_cards_applier(user: User, id_map: rm.IdMap | None = None):
                         data.get("parent_label") if resolved_parent is not None else None
                     ),
                     lifecycle=data.get("lifecycle") or {},
+                    lifecycle_stage=data.get("lifecycle_stage"),
                     attributes=data.get("attributes") or {},
                     external_id=external_id,
                     reference=resolved_reference,

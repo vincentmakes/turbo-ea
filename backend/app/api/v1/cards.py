@@ -94,8 +94,10 @@ from app.services.card_licenses import LICENSE_EVENT
 from app.services.card_logo_service import logo_updated_map
 from app.services.card_query import (
     CardQueryError,
+    lifecycle_stage_condition,
     parse_card_query,
     prepare_card_query,
+    valid_lifecycle_stages,
 )
 from app.services.card_query_matches import card_query_matches, match_nodes
 from app.services.card_read_scope import (
@@ -185,6 +187,7 @@ def _card_to_response(
         parent_id=str(card.parent_id) if card.parent_id else None,
         parent_label=card.parent_label,
         lifecycle=card.lifecycle,
+        lifecycle_stage=card.lifecycle_stage,
         attributes=attributes,
         status=card.status,
         approval_status=card.approval_status,
@@ -290,6 +293,9 @@ async def list_cards(
     search: str | None = Query(None, max_length=200),
     parent_id: str | None = Query(None),
     approval_status: str | None = Query(None),
+    lifecycle_stage: str | None = Query(
+        None, max_length=2559, description="Comma-separated current stages, or __empty__."
+    ),
     mine: str | None = Query(
         None,
         pattern="^(stakeholder)$",
@@ -336,7 +342,8 @@ async def list_cards(
             '`{"type": <card type>, "where"?: {...}, "related"?: [{"relation": '
             '<relation type, `__out` / `__in` on a self-referencing one>, "type": '
             '<card type>, "where"?: {...}, "negate"?: bool, "related"?: [...]}]}`, '
-            "where `where` takes `lifecycle_phase`, `subtype`, `approval_status`, "
+            "where `where` takes `lifecycle_phase`, `lifecycle_stage` (including `__empty__` "
+            "for no current stage), `subtype`, `approval_status`, "
             "`data_quality_band`, `eol_status` (`eol`, `approaching`, `supported`, "
             "`unknown`, `__empty__` for no EOL data; computed from endoflife.date or a "
             "custom EOL product, on a card type that tracks End of Life, and needs "
@@ -444,6 +451,13 @@ async def list_cards(
         statuses = [s.strip() for s in approval_status.split(",") if s.strip()]
         q = q.where(Card.approval_status.in_(statuses))
         count_q = count_q.where(Card.approval_status.in_(statuses))
+    if lifecycle_stage:
+        stages = [stage.strip() for stage in lifecycle_stage.split(",") if stage.strip()]
+        if not valid_lifecycle_stages(stages):
+            raise HTTPException(400, "Too many lifecycle stages")
+        condition = lifecycle_stage_condition(Card, stages)
+        q = q.where(condition)
+        count_q = count_q.where(condition)
     if mine == "stakeholder":
         mine_cards_sq = select(Stakeholder.card_id).where(Stakeholder.user_id == user.id).distinct()
         q = q.where(Card.id.in_(mine_cards_sq))
@@ -2657,6 +2671,7 @@ async def bulk_restore_cards(
 async def update_card(
     card_id: str,
     body: CardUpdate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -2668,6 +2683,8 @@ async def update_card(
     result = await db.execute(
         select(Card)
         .where(Card.id == card_uuid)
+        .with_for_update(key_share=True)
+        .execution_options(populate_existing=True)
         .options(
             selectinload(Card.tags).selectinload(Tag.group),
             selectinload(Card.stakeholders).selectinload(Stakeholder.user),
@@ -2676,6 +2693,16 @@ async def update_card(
     card = result.scalar_one_or_none()
     if not card:
         raise HTTPException(404, "Card not found")
+    if not await PermissionService.check_permission(
+        db,
+        user,
+        "inventory.edit",
+        card_uuid,
+        "card.edit",
+        card_type_key=card.type,
+        subtype=card.subtype,
+    ):
+        raise HTTPException(403, "Not enough permissions")
 
     updates = body.model_dump(exclude_unset=True)
     # `strict_attributes` is a request-side flag, not a column.
@@ -2704,16 +2731,30 @@ async def update_card(
                     card.attributes, updates["attributes"], cost_keys
                 )
 
+    pending_notifications = []
     changed = await card_write_service.update_card(
         db,
         card_write_service.WriteActor.from_user(user),
         card,
         updates,
         strict_attributes=strict_attrs,
+        deferred_notifications=pending_notifications,
     )
 
     if changed:
         await db.commit()
+        by_type: dict[str, list[dict]] = {}
+        for row in pending_notifications or []:
+            recipient = dict(row)
+            by_type.setdefault(recipient.pop("notif_type"), []).append(recipient)
+        for notif_type, recipients in by_type.items():
+            background_tasks.add_task(
+                notification_service.deliver_notification_batch,
+                recipients,
+                notif_type=notif_type,
+                actor_id=user.id,
+                require_card_read=True,
+            )
         result = await db.execute(
             select(Card)
             .where(Card.id == card.id)
@@ -3340,6 +3381,7 @@ async def get_history(
 @router.post("/{card_id}/approval-status")
 async def update_approval_status(
     card_id: str,
+    background_tasks: BackgroundTasks,
     action: str = Query(..., pattern="^(approve|reject|reset)$"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -3349,10 +3391,25 @@ async def update_approval_status(
         db, user, "inventory.approval_status", card_uuid, "card.approval_status"
     ):
         raise HTTPException(403, "Not enough permissions")
-    result = await db.execute(select(Card).where(Card.id == card_uuid))
+    result = await db.execute(
+        select(Card)
+        .where(Card.id == card_uuid)
+        .with_for_update(key_share=True)
+        .execution_options(populate_existing=True)
+    )
     card = result.scalar_one_or_none()
     if not card:
         raise HTTPException(404, "Card not found")
+    if not await PermissionService.check_permission(
+        db,
+        user,
+        "inventory.approval_status",
+        card_uuid,
+        "card.approval_status",
+        card_type_key=card.type,
+        subtype=card.subtype,
+    ):
+        raise HTTPException(403, "Not enough permissions")
     # Gate: block approve when any mandatory relation / tag group is missing.
     if action == "approve":
         missing = await missing_mandatory(db, card)
@@ -3377,18 +3434,35 @@ async def update_approval_status(
 
     # Notify stakeholders about approval status change
     action_label = {"approve": "approved", "reject": "rejected", "reset": "reset"}
-    await notification_service.create_notifications_for_subscribers(
-        db,
-        card_id=card.id,
-        notif_type="approval_status_changed",
-        title=f"Approval Status {action_label[action].title()}",
-        message=f'{user.display_name} {action_label[action]} the approval status on "{card.name}"',
-        link=f"/cards/{card_id}",
-        data={"approval_status": card.approval_status, "action": action},
-        actor_id=user.id,
-    )
-
+    subscriber_ids = (
+        await db.scalars(
+            select(Stakeholder.user_id)
+            .where(Stakeholder.card_id == card.id, Stakeholder.user_id != user.id)
+            .distinct()
+        )
+    ).all()
+    recipients = [
+        {
+            "user_id": subscriber_id,
+            "card_id": card.id,
+            "title": f"Approval Status {action_label[action].title()}",
+            "message": (
+                f'{user.display_name} {action_label[action]} the approval status on "{card.name}"'
+            ),
+            "link": f"/cards/{card_id}",
+            "data": {"approval_status": card.approval_status, "action": action},
+        }
+        for subscriber_id in subscriber_ids
+    ]
     await db.commit()
+    if recipients:
+        background_tasks.add_task(
+            notification_service.deliver_notification_batch,
+            recipients,
+            notif_type="approval_status_changed",
+            actor_id=user.id,
+            require_card_read=True,
+        )
     return {"approval_status": card.approval_status}
 
 

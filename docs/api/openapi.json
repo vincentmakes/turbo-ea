@@ -4385,6 +4385,129 @@
         "title": "CardBulkDeleteSkippedEntry",
         "type": "object"
       },
+      "CardBulkFields": {
+        "properties": {
+          "alias": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alias"
+          },
+          "attributes": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attributes"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Id"
+          },
+          "lifecycle": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lifecycle"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "parent_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Label"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "strict_attributes": {
+            "default": false,
+            "title": "Strict Attributes",
+            "type": "boolean"
+          },
+          "subtype": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtype"
+          }
+        },
+        "title": "CardBulkFields",
+        "type": "object"
+      },
       "CardBulkRestoreRequest": {
         "properties": {
           "card_ids": {
@@ -4491,7 +4614,7 @@
             "type": "array"
           },
           "updates": {
-            "$ref": "#/components/schemas/CardUpdate"
+            "$ref": "#/components/schemas/CardBulkFields"
           }
         },
         "required": [
@@ -5304,6 +5427,17 @@
             ],
             "title": "Lifecycle"
           },
+          "lifecycle_stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lifecycle Stage"
+          },
           "logo_updated_at": {
             "anyOf": [
               {
@@ -5809,6 +5943,18 @@
               }
             ],
             "title": "Lifecycle"
+          },
+          "lifecycle_stage": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lifecycle Stage"
           },
           "name": {
             "anyOf": [
@@ -10796,6 +10942,70 @@
           "phases"
         ],
         "title": "LifecyclePhaseHelpPayload",
+        "type": "object"
+      },
+      "LifecycleStage": {
+        "additionalProperties": false,
+        "properties": {
+          "color": {
+            "pattern": "^#[0-9a-fA-F]{6}$",
+            "title": "Color",
+            "type": "string"
+          },
+          "key": {
+            "maxLength": 50,
+            "minLength": 1,
+            "pattern": "^[A-Za-z][A-Za-z0-9_]*$",
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "color"
+        ],
+        "title": "LifecycleStage",
+        "type": "object"
+      },
+      "LifecycleStagesResponse": {
+        "properties": {
+          "lifecycle_stages": {
+            "items": {
+              "$ref": "#/components/schemas/LifecycleStage"
+            },
+            "title": "Lifecycle Stages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "lifecycle_stages"
+        ],
+        "title": "LifecycleStagesResponse",
+        "type": "object"
+      },
+      "LifecycleStagesUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/LifecycleStage"
+            },
+            "maxItems": 50,
+            "title": "Stages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "stages"
+        ],
+        "title": "LifecycleStagesUpdate",
         "type": "object"
       },
       "LoginBrandingPayload": {
@@ -29730,6 +29940,25 @@
             }
           },
           {
+            "description": "Comma-separated current stages, or __empty__.",
+            "in": "query",
+            "name": "lifecycle_stage",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 2559,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated current stages, or __empty__.",
+              "title": "Lifecycle Stage"
+            }
+          },
+          {
             "description": "Scope the result to cards related to the current user. `stakeholder` keeps only cards on which the user holds at least one stakeholder role.",
             "in": "query",
             "name": "mine",
@@ -29810,7 +30039,7 @@
             }
           },
           {
-            "description": "A multi-hop card query as JSON (metamodel keys, plus tag ids): `{\"type\": <card type>, \"where\"?: {...}, \"related\"?: [{\"relation\": <relation type, `__out` / `__in` on a self-referencing one>, \"type\": <card type>, \"where\"?: {...}, \"negate\"?: bool, \"related\"?: [...]}]}`, where `where` takes `lifecycle_phase`, `subtype`, `approval_status`, `data_quality_band`, `eol_status` (`eol`, `approaching`, `supported`, `unknown`, `__empty__` for no EOL data; computed from endoflife.date or a custom EOL product, on a card type that tracks End of Life, and needs `eol.view`: 403 `eol_view_required` otherwise), `attributes` value lists, `tags` (tag ids: any tag of a group, every group named) and `cards` (card ids). Keeps the cards of the start type with a related card matching every hop (`negate`: with none); a related card must be ACTIVE and readable by the caller. Queries stack: `{\"all_of\": [<query>, \u2026]}` keeps the cards matching every query (AND; two or more, one start type), `{\"any_of\": [<query or all_of>, \u2026]}` the cards matching any group (OR; two or more, the groups may start from different card types, so the list can hold several types). At most 6 queries in a stack, 3 hops deep, 12 hops in all, 8000 characters. 400 with a code (`query_too_long`, `invalid_query_json`, `invalid_query`, `all_of_needs_two`, `all_of_type_mismatch`, `any_of_needs_two`, `too_many_lines`, `unknown_card_type`, `unknown_relation_type`, \u2026) when it cannot be answered.",
+            "description": "A multi-hop card query as JSON (metamodel keys, plus tag ids): `{\"type\": <card type>, \"where\"?: {...}, \"related\"?: [{\"relation\": <relation type, `__out` / `__in` on a self-referencing one>, \"type\": <card type>, \"where\"?: {...}, \"negate\"?: bool, \"related\"?: [...]}]}`, where `where` takes `lifecycle_phase`, `lifecycle_stage` (including `__empty__` for no current stage), `subtype`, `approval_status`, `data_quality_band`, `eol_status` (`eol`, `approaching`, `supported`, `unknown`, `__empty__` for no EOL data; computed from endoflife.date or a custom EOL product, on a card type that tracks End of Life, and needs `eol.view`: 403 `eol_view_required` otherwise), `attributes` value lists, `tags` (tag ids: any tag of a group, every group named) and `cards` (card ids). Keeps the cards of the start type with a related card matching every hop (`negate`: with none); a related card must be ACTIVE and readable by the caller. Queries stack: `{\"all_of\": [<query>, \u2026]}` keeps the cards matching every query (AND; two or more, one start type), `{\"any_of\": [<query or all_of>, \u2026]}` the cards matching any group (OR; two or more, the groups may start from different card types, so the list can hold several types). At most 6 queries in a stack, 3 hops deep, 12 hops in all, 8000 characters. 400 with a code (`query_too_long`, `invalid_query_json`, `invalid_query`, `all_of_needs_two`, `all_of_type_mismatch`, `any_of_needs_two`, `too_many_lines`, `unknown_card_type`, `unknown_relation_type`, \u2026) when it cannot be answered.",
             "in": "query",
             "name": "query",
             "required": false,
@@ -29823,7 +30052,7 @@
                   "type": "null"
                 }
               ],
-              "description": "A multi-hop card query as JSON (metamodel keys, plus tag ids): `{\"type\": <card type>, \"where\"?: {...}, \"related\"?: [{\"relation\": <relation type, `__out` / `__in` on a self-referencing one>, \"type\": <card type>, \"where\"?: {...}, \"negate\"?: bool, \"related\"?: [...]}]}`, where `where` takes `lifecycle_phase`, `subtype`, `approval_status`, `data_quality_band`, `eol_status` (`eol`, `approaching`, `supported`, `unknown`, `__empty__` for no EOL data; computed from endoflife.date or a custom EOL product, on a card type that tracks End of Life, and needs `eol.view`: 403 `eol_view_required` otherwise), `attributes` value lists, `tags` (tag ids: any tag of a group, every group named) and `cards` (card ids). Keeps the cards of the start type with a related card matching every hop (`negate`: with none); a related card must be ACTIVE and readable by the caller. Queries stack: `{\"all_of\": [<query>, \u2026]}` keeps the cards matching every query (AND; two or more, one start type), `{\"any_of\": [<query or all_of>, \u2026]}` the cards matching any group (OR; two or more, the groups may start from different card types, so the list can hold several types). At most 6 queries in a stack, 3 hops deep, 12 hops in all, 8000 characters. 400 with a code (`query_too_long`, `invalid_query_json`, `invalid_query`, `all_of_needs_two`, `all_of_type_mismatch`, `any_of_needs_two`, `too_many_lines`, `unknown_card_type`, `unknown_relation_type`, \u2026) when it cannot be answered.",
+              "description": "A multi-hop card query as JSON (metamodel keys, plus tag ids): `{\"type\": <card type>, \"where\"?: {...}, \"related\"?: [{\"relation\": <relation type, `__out` / `__in` on a self-referencing one>, \"type\": <card type>, \"where\"?: {...}, \"negate\"?: bool, \"related\"?: [...]}]}`, where `where` takes `lifecycle_phase`, `lifecycle_stage` (including `__empty__` for no current stage), `subtype`, `approval_status`, `data_quality_band`, `eol_status` (`eol`, `approaching`, `supported`, `unknown`, `__empty__` for no EOL data; computed from endoflife.date or a custom EOL product, on a card type that tracks End of Life, and needs `eol.view`: 403 `eol_view_required` otherwise), `attributes` value lists, `tags` (tag ids: any tag of a group, every group named) and `cards` (card ids). Keeps the cards of the start type with a related card matching every hop (`negate`: with none); a related card must be ACTIVE and readable by the caller. Queries stack: `{\"all_of\": [<query>, \u2026]}` keeps the cards matching every query (AND; two or more, one start type), `{\"any_of\": [<query or all_of>, \u2026]}` the cards matching any group (OR; two or more, the groups may start from different card types, so the list can hold several types). At most 6 queries in a stack, 3 hops deep, 12 hops in all, 8000 characters. 400 with a code (`query_too_long`, `invalid_query_json`, `invalid_query`, `all_of_needs_two`, `all_of_type_mismatch`, `any_of_needs_two`, `too_many_lines`, `unknown_card_type`, `unknown_relation_type`, \u2026) when it cannot be answered.",
               "title": "Query"
             }
           },
@@ -39543,6 +39772,58 @@
           }
         },
         "summary": "Get Hierarchy Label Usage",
+        "tags": [
+          "metamodel"
+        ]
+      }
+    },
+    "/api/v1/metamodel/types/{key}/lifecycle-stages": {
+      "put": {
+        "operationId": "put_lifecycle_stages_api_v1_metamodel_types__key__lifecycle_stages_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LifecycleStagesUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LifecycleStagesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Lifecycle Stages",
         "tags": [
           "metamodel"
         ]

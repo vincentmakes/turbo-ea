@@ -31,6 +31,7 @@ class CardType(Base, UUIDMixin, TimestampMixin):
     # (discussion #1100): [{key, label, color, translations}]. Empty means the
     # feature is invisible, which is why every pre-existing install is unchanged.
     hierarchy_labels: Mapped[list | None] = mapped_column(JSONB, default=list, server_default="[]")
+    lifecycle_stages: Mapped[list] = mapped_column(JSONB, default=list, server_default="[]")
     fields_schema: Mapped[list] = mapped_column(JSONB, default=list)
     stakeholder_roles: Mapped[list | None] = mapped_column(JSONB, default=list)  # [{key, label}]
     section_config: Mapped[dict | None] = mapped_column(

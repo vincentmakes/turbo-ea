@@ -88,7 +88,9 @@ def _capture_batches(monkeypatch) -> list[list[dict]]:
 
 
 class TestSingleCardEdit:
-    async def test_stakeholder_is_notified_and_the_editor_is_not(self, client, db, env):
+    async def test_stakeholder_is_notified_and_the_editor_is_not(
+        self, client, db, env, patched_async_session
+    ):
         editor, owner = env["editor"], env["owner"]
         card = await _approved_card_owned_by(db, owner)
 

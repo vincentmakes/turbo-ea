@@ -569,10 +569,19 @@ describe("MentionPopup review fixes", () => {
     const original = Element.prototype.scrollIntoView;
     Element.prototype.scrollIntoView = scrolled;
     try {
-      mockApi();
+      let release = () => {};
+      const hold = new Promise<void>((resolve) => (release = resolve));
+      vi.mocked(api.get).mockImplementation(async (path: string) => {
+        if (!path.startsWith("/cards?")) throw new Error(`unexpected ${path}`);
+        await hold;
+        return { items: CARDS, total: CARDS.length };
+      });
       const { start, key } = setup(["card"]);
       start();
+      await waitFor(() => expect(api.get).toHaveBeenCalled());
+      await act(async () => release());
       await screen.findByRole("option", { name: /CRM/ });
+      expect(screen.getByRole("option", { name: /SAP ERP/ })).toHaveAttribute("aria-selected", "true");
       expect(scrolled).not.toHaveBeenCalled();
       key("ArrowUp");
       expect(scrolled).toHaveBeenCalledTimes(1);

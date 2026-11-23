@@ -261,6 +261,7 @@ describe("filtersWithTypes", () => {
       ...baseFilters,
       types: ["Organization", "Objective"],
       subtypes: [],
+      lifecycleStages: [],
       attributes: {},
       relations: {},
       eolStatuses: [],

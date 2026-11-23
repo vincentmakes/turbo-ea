@@ -253,6 +253,65 @@ class TestDeliverNotificationBatch:
     async def _user(self, db, email):
         return await create_user(db, email=email, role="member")
 
+    async def test_card_batch_refreshes_accounts_and_skips_missing_card(self, db, monkeypatch):
+        from sqlalchemy import update
+
+        from app.models.user import User
+        from tests.conftest import create_card, create_card_type
+
+        await create_role(db, key="module_only", permissions={})
+        await create_card_type(db)
+        card = await create_card(db)
+        stale = await create_user(db, email="stale-batch@test.com", role="module_only")
+        allowed = await create_user(db, email="module-batch@test.com", role="module_only")
+        await db.execute(
+            update(User)
+            .where(User.id == stale.id)
+            .values(is_active=False)
+            .execution_options(synchronize_session=False)
+        )
+        monkeypatch.setattr("app.database.async_session", _session_factory_for(db))
+        with patch(
+            "app.services.email_service.send_notification_email", new=AsyncMock(return_value=True)
+        ):
+            count = await deliver_notification_batch(
+                [
+                    {"user_id": stale.id, "title": "Stale", "card_id": card.id},
+                    {"user_id": allowed.id, "title": "Missing", "card_id": None},
+                    {"user_id": allowed.id, "title": "Visible", "card_id": card.id},
+                ],
+                notif_type="card_updated",
+                require_card_read=True,
+            )
+        rows = (await db.execute(select(Notification))).scalars().all()
+        assert count == 1
+        assert [(row.user_id, row.title, row.card_id) for row in rows] == [
+            (allowed.id, "Visible", card.id)
+        ]
+
+    async def test_inactive_recipient_gets_neither_email_nor_bell(self, db, monkeypatch):
+        await create_role(db, key="member", permissions={})
+        active = await self._user(db, "active@test.com")
+        inactive = await self._user(db, "inactive@test.com")
+        inactive.is_active = False
+        await db.flush()
+        monkeypatch.setattr("app.database.async_session", _session_factory_for(db))
+        sent = []
+
+        async def fake_send(**kwargs):
+            sent.append(kwargs["to"])
+            return True
+
+        with patch("app.services.email_service.send_notification_email", new=fake_send):
+            count = await deliver_notification_batch(
+                [{"user_id": user.id, "title": "T"} for user in (active, inactive)],
+                notif_type="survey_request",
+            )
+        rows = (await db.execute(select(Notification))).scalars().all()
+        assert count == 1
+        assert [row.user_id for row in rows] == [active.id]
+        assert sent == [active.email]
+
     async def test_creates_rows_and_emails_opted_in_users(self, db, monkeypatch):
         await create_role(db, key="member", permissions={})
         alice = await self._user(db, "alice@test.com")
@@ -358,3 +417,48 @@ class TestDeliverNotificationBatch:
             [{"user_id": (await self._user(db, "x@test.com")).id, "title": "T"}],
             notif_type="survey_request",
         )
+
+    async def test_card_batch_rechecks_scope_and_account_before_any_channel(self, db, monkeypatch):
+        from datetime import UTC, datetime, timedelta
+
+        from app.services.permission_service import PermissionService
+        from tests.conftest import create_card, create_card_type
+
+        await create_role(db, key="allowed", permissions={"inventory.view": True})
+        await create_role(db, key="denied", permissions={"inventory.view": True})
+        await create_card_type(db, role_permissions={"denied": {"inventory.view": False}})
+        card = await create_card(db)
+        allowed = await create_user(db, email="allowed-batch@test.com", role="allowed")
+        muted = await create_user(db, email="muted-batch@test.com", role="allowed")
+        expired = await create_user(db, email="expired-batch@test.com", role="allowed")
+        denied = await create_user(db, email="denied-batch@test.com", role="denied")
+        inactive = await create_user(db, email="inactive-batch@test.com", role="allowed")
+        expired.access_expires_at = datetime.now(UTC) - timedelta(days=1)
+        inactive.is_active = False
+        for user in (allowed, muted, expired, denied, inactive):
+            user.notification_preferences = {
+                "in_app": {"card_updated": user is not muted},
+                "email": {"card_updated": True},
+            }
+        await db.flush()
+        PermissionService.invalidate_type_permission_cache()
+        monkeypatch.setattr("app.database.async_session", _session_factory_for(db))
+        sent = []
+
+        async def fake_send(**kwargs):
+            sent.append(kwargs["to"])
+            return True
+
+        with patch("app.services.email_service.send_notification_email", new=fake_send):
+            count = await deliver_notification_batch(
+                [
+                    {"user_id": user.id, "title": "Card", "card_id": card.id}
+                    for user in (allowed, muted, expired, denied, inactive)
+                ],
+                notif_type="card_updated",
+                require_card_read=True,
+            )
+        rows = (await db.execute(select(Notification))).scalars().all()
+        assert count == 1
+        assert [row.user_id for row in rows] == [allowed.id]
+        assert set(sent) == {allowed.email, muted.email}

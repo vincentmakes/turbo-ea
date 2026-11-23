@@ -41,6 +41,7 @@ from app.models.resource_type import ResourceType
 from app.models.role import Role
 from app.models.stakeholder import Stakeholder
 from app.models.user import User
+from app.schemas.lifecycle_stages import LifecycleStagesResponse, LifecycleStagesUpdate
 from app.schemas.principle import (
     PrincipleImportRequest,
     PrincipleImportResponse,
@@ -53,6 +54,7 @@ from app.services import (
     card_reference,
     card_type_categories,
     card_type_delete,
+    lifecycle_stages,
     principle_service,
 )
 from app.services.archimate import taxonomy
@@ -666,6 +668,7 @@ def _serialize_type(t: CardType, *, include_role_permissions: bool = True) -> di
             t.subtypes or [], contribution_guard.active_extension_keys()
         ),
         "hierarchy_labels": t.hierarchy_labels or [],
+        "lifecycle_stages": t.lifecycle_stages or [],
         "fields_schema": _schema_with_lock_flags(t.key, t.fields_schema),
         "stakeholder_roles": t.stakeholder_roles or [],
         "section_config": t.section_config or {},
@@ -1017,6 +1020,34 @@ async def get_type(
         raise HTTPException(404, "Card type not found")
     rbac = await PermissionService.has_app_permission(db, user, "admin.metamodel")
     return _serialize_type(t, include_role_permissions=rbac)
+
+
+@router.put("/types/{key}/lifecycle-stages", response_model=LifecycleStagesResponse)
+async def put_lifecycle_stages(
+    key: str,
+    body: LifecycleStagesUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    stages = [stage.model_dump() for stage in body.stages]
+    card_type, old_stages = await lifecycle_stages.update_stages(db, key, stages)
+    if old_stages != card_type.lifecycle_stages:
+        await audit_log.record(
+            db,
+            action="admin.metamodel.type.updated",
+            category="admin",
+            actor=user,
+            target=("card_type", card_type.key, card_type.label),
+            items=audit_changes.keyed_list_items(
+                [{**stage, "position": index} for index, stage in enumerate(old_stages, 1)],
+                [{**stage, "position": index} for index, stage in enumerate(stages, 1)],
+                noun="lifecycle_stage",
+                props=("color", "position"),
+            ),
+        )
+    await db.commit()
+    return {"lifecycle_stages": card_type.lifecycle_stages}
 
 
 @router.get("/types/{key}/permissions")

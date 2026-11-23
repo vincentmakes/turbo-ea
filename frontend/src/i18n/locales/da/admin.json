@@ -2440,6 +2440,10 @@
   "securityLog.entry.changes": "Ændringer",
   "securityLog.entry.masked": "Hemmelig værdi",
   "securityLog.changes.section_added": "Afsnittet «{{section}}» tilføjet",
+  "securityLog.changes.lifecycle_stage_added": "Livscyklusfasen “{{label}}” blev tilføjet",
+  "securityLog.changes.lifecycle_stage_removed": "Livscyklusfasen “{{label}}” blev fjernet",
+  "securityLog.changes.lifecycle_stage_renamed": "Livscyklusfasen blev omdøbt: “{{old}}” → “{{new}}”",
+  "securityLog.changes.lifecycle_stage_changed": "Livscyklusfasen “{{label}}”: {{property}} blev ændret fra {{old}} til {{new}}",
   "securityLog.changes.section_removed": "Afsnittet «{{section}}» fjernet",
   "securityLog.changes.section_renamed": "Afsnittet «{{old}}» omdøbt til «{{new}}»",
   "securityLog.changes.section_moved": "Afsnittet «{{section}}» flyttet fra position {{from}} til {{to}}",
@@ -3152,5 +3156,15 @@
   "metamodel.principles.reference": "Reference",
   "metamodel.principles.import.title": "Importér EA-principper",
   "metamodel.principles.import.intro": "Upload en .xlsx-fil for at oprette eller opdatere principper samlet. Hver række matches med et eksisterende princip først via referencen (P-001), derefter via titlen; et matchet princip opdateres med de værdier, der afviger, og alle andre rækker opretter et nyt princip. En kolonne, der mangler i arket, lader feltet være uændret, og en tom tekstcelle rydder det, mens en tom is_active- eller sort_order-celle lader værdien stå uændret.",
-  "metamodel.principles.import.skippedHint": "Disse rækker matcher et eksisterende princip og ændrer ingenting."
+  "metamodel.principles.import.skippedHint": "Disse rækker matcher et eksisterende princip og ændrer ingenting.",
+  "metamodel.lifecycleStages.title": "Livscyklusfaser",
+  "metamodel.lifecycleStages.help": "Definer de ordnede faser, der kan tildeles kort af denne type.",
+  "metamodel.lifecycleStages.edit": "Rediger livscyklusfaser",
+  "metamodel.lifecycleStages.add": "Tilføj fase",
+  "metamodel.lifecycleStages.keyLocked": "Kort gemmer allerede denne nøgle, så den kan ikke omdøbes.",
+  "metamodel.lifecycleStages.keyHint": "Start med et bogstav; brug op til 50 bogstaver, tal eller understregninger.",
+  "metamodel.lifecycleStages.moveUp": "Flyt fase op",
+  "metamodel.lifecycleStages.moveDown": "Flyt fase ned",
+  "metamodel.lifecycleStages.inUse": "Kort bruger stadig en fjernet fase. Ændr disse kort, før fasen fjernes.",
+  "metamodel.lifecycleStages.saveFailed": "Livscyklusfaser kunne ikke gemmes."
 }

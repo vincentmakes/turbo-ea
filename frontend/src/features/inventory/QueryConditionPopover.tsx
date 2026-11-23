@@ -145,6 +145,16 @@ function Editor({
       />
     );
   }
+  if (kind === "lifecycle_stage") {
+    return (
+      <FilterSelect
+        label={t("inventory:filter.currentStage")}
+        options={(type?.lifecycle_stages ?? []).map((stage) => ({ key: stage.key, label: stage.label, color: stage.color }))}
+        value={values}
+        onChange={onChange}
+      />
+    );
+  }
   if (kind === "subtype") {
     return (
       <FilterSelect

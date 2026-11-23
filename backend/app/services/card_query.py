@@ -109,6 +109,7 @@ Reads only; never commits.
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -125,6 +126,7 @@ from app.models.card_type import CardType
 from app.models.relation_type import RelationType
 from app.models.tag import Tag, TagGroup
 from app.models.user import User
+from app.schemas.lifecycle_stages import LIFECYCLE_STAGE_KEY_PATTERN
 from app.services.card_flags import type_tracks_eol
 from app.services.card_read_scope import CardReadScope
 from app.services.dashboard_query import (
@@ -195,6 +197,9 @@ class CardWhere(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     lifecycle_phase: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
+    lifecycle_stage: list[Annotated[str, Field(max_length=50)]] | None = Field(
+        None, max_length=_MAX_VALUES + 1
+    )
     subtype: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
     approval_status: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
     data_quality_band: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
@@ -388,11 +393,19 @@ def stored_card_ids(stored: Any) -> set[uuid.UUID]:
 
 
 def _where_problem(where: CardWhere) -> str | None:
-    lists = [where.lifecycle_phase, where.subtype, where.approval_status, where.tags]
+    lists = [
+        where.lifecycle_phase,
+        where.lifecycle_stage,
+        where.subtype,
+        where.approval_status,
+        where.tags,
+    ]
     lists.extend((where.cards, where.data_quality_band, where.eol_status))
     lists.extend((where.attributes or {}).values())
     if any(values is not None and not values for values in lists):
         return "empty_values"
+    if where.lifecycle_stage and not valid_lifecycle_stages(where.lifecycle_stage):
+        return "invalid_query"
     if where.include_descendants and where.cards is None:
         return "descendants_without_cards"
     if any(p not in LIFECYCLE_PHASES for p in where.lifecycle_phase or []):
@@ -402,6 +415,26 @@ def _where_problem(where: CardWhere) -> str | None:
     if any(s not in EOL_STATUS_VALUES for s in where.eol_status or []):
         return "unknown_eol_status"
     return None
+
+
+def valid_lifecycle_stages(stages: list[str]) -> bool:
+    return (
+        len(stages) - stages.count(EMPTY_KEY) <= 50
+        and stages.count(EMPTY_KEY) <= 1
+        and all(
+            stage == EMPTY_KEY
+            or (len(stage) <= 50 and re.fullmatch(LIFECYCLE_STAGE_KEY_PATTERN, stage))
+            for stage in stages
+        )
+    )
+
+
+def lifecycle_stage_condition(card, stages: list[str]):
+    keys = [stage for stage in stages if stage != EMPTY_KEY]
+    options = [card.lifecycle_stage.in_(keys)] if keys else []
+    if EMPTY_KEY in stages:
+        options.append(card.lifecycle_stage.is_(None))
+    return or_(*options) if options else card.id.in_([])
 
 
 #: The ``where`` keys whose values are ids: the grammar's only legitimate UUIDs.
@@ -542,6 +575,10 @@ def _check_where(where: CardWhere | None, card_type: Any) -> dict[str, str]:
         known = {s.get("key") for s in card_type.subtypes or [] if isinstance(s, dict)}
         if any(v != EMPTY_KEY and v not in known for v in where.subtype):
             raise CardQueryError("unknown_subtype")
+    if where.lifecycle_stage:
+        known = {s["key"] for s in card_type.lifecycle_stages or []}
+        if any(v != EMPTY_KEY and v not in known for v in where.lifecycle_stage):
+            raise CardQueryError("unknown_lifecycle_stage")
     for key, values in (where.attributes or {}).items():
         if key not in types:
             raise CardQueryError("unknown_field")
@@ -792,6 +829,8 @@ def where_conditions(
         if NO_PHASE in where.lifecycle_phase:
             options.append(phase.is_(None))
         clauses.append(or_(*options))
+    if where.lifecycle_stage:
+        clauses.append(lifecycle_stage_condition(card, where.lifecycle_stage))
     if where.subtype:
         clauses.append(subtype_condition(where.subtype, card=card))
     if where.approval_status:

@@ -2440,6 +2440,10 @@
   "securityLog.entry.changes": "Changes",
   "securityLog.entry.masked": "Secret value",
   "securityLog.changes.section_added": "Section “{{section}}” added",
+  "securityLog.changes.lifecycle_stage_added": "Lifecycle stage “{{label}}” added",
+  "securityLog.changes.lifecycle_stage_removed": "Lifecycle stage “{{label}}” removed",
+  "securityLog.changes.lifecycle_stage_renamed": "Lifecycle stage renamed: “{{old}}” → “{{new}}”",
+  "securityLog.changes.lifecycle_stage_changed": "Lifecycle stage “{{label}}”: {{property}} changed from {{old}} to {{new}}",
   "securityLog.changes.section_removed": "Section “{{section}}” removed",
   "securityLog.changes.section_renamed": "Section “{{old}}” renamed to “{{new}}”",
   "securityLog.changes.section_moved": "Section “{{section}}” moved from position {{from}} to {{to}}",
@@ -3152,5 +3156,15 @@
   "metamodel.principles.reference": "Reference",
   "metamodel.principles.import.title": "Import EA principles",
   "metamodel.principles.import.intro": "Upload an .xlsx file to create or update principles in bulk. Each row is matched to an existing principle by its reference (P-001), then by title; a matched principle is updated with the values that differ, and every other row creates a new principle. A column left out of the sheet leaves that field unchanged; an empty text cell clears it, while an empty is_active or sort_order cell leaves that value as it is.",
-  "metamodel.principles.import.skippedHint": "These rows match an existing principle and change nothing."
+  "metamodel.principles.import.skippedHint": "These rows match an existing principle and change nothing.",
+  "metamodel.lifecycleStages.title": "Lifecycle stages",
+  "metamodel.lifecycleStages.help": "Define the ordered stages that can be assigned to cards of this type.",
+  "metamodel.lifecycleStages.edit": "Edit lifecycle stages",
+  "metamodel.lifecycleStages.add": "Add stage",
+  "metamodel.lifecycleStages.keyLocked": "Cards already store this key, so it cannot be renamed.",
+  "metamodel.lifecycleStages.keyHint": "Start with a letter; use up to 50 letters, digits or underscores.",
+  "metamodel.lifecycleStages.moveUp": "Move stage up",
+  "metamodel.lifecycleStages.moveDown": "Move stage down",
+  "metamodel.lifecycleStages.inUse": "A removed stage is still used by cards. Change those cards before removing it.",
+  "metamodel.lifecycleStages.saveFailed": "Failed to save lifecycle stages."
 }

@@ -219,6 +219,12 @@ Click the **Translate** button in the type drawer toolbar to open the **Translat
 
 Translations are stored alongside each card type and are resolved at render time using the user's selected locale. Untranslated labels fall back to the English default.
 
+### Lifecycle stages { #lifecycle-stages }
+
+Open a card type under **Admin → Metamodel → Card Types** and choose **Lifecycle stages** to configure the current stages available on its cards. For example, add **Testing** and **Limited rollout** to the Application type. Each stage has a key, label and colour. Set the stages in the order you want people to see them.
+
+After saving, editors can select a **Current stage** in a card's Lifecycle section. Inventory can filter the selected card type by its current stage. A stage that is assigned to a card can be removed after its assignments are cleared or changed.
+
 ### Deleting a Type
 
 - **Built-in types** are soft-deleted (hidden) and can be restored. The delete button in the type editor is locked for them — use **Hide type** instead.

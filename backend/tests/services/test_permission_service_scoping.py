@@ -333,6 +333,28 @@ async def test_the_role_cache(db, world, clock):
     assert (await PermissionService.load_role(db, "plain"))["label"] == "Renamed"
 
 
+async def test_fresh_role_read_refreshes_cached_orm_instance(db, world):
+    from sqlalchemy import update
+
+    role = (await db.execute(select(ps.Role).where(ps.Role.key == "plain"))).scalar_one()
+    assert (await PermissionService.load_role(db, "plain"))["permissions"] == {
+        "inventory.view": False
+    }
+    await db.execute(
+        update(ps.Role)
+        .where(ps.Role.key == "plain")
+        .values(permissions={"inventory.view": True})
+        .execution_options(synchronize_session=False)
+    )
+    assert role.permissions == {"inventory.view": False}
+    assert (await PermissionService.load_role(db, "plain"))["permissions"] == {
+        "inventory.view": False
+    }
+    assert (await PermissionService.load_role(db, "plain", fresh=True))["permissions"] == {
+        "inventory.view": True
+    }
+
+
 async def test_a_role_stored_with_null_permissions_grants_nothing(db, world):
     role = (await db.execute(select(ps.Role).where(ps.Role.key == "plain"))).scalar_one()
     role.permissions = None

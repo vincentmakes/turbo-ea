@@ -228,6 +228,7 @@ export interface ChangeLabels {
   attributes: Record<string, string>;
   /** Approval status enum → its label, as the approval badge shows it. */
   statuses: Record<string, string>;
+  stages?: Record<string, string>;
 }
 
 function isDict(value: unknown): boolean {
@@ -264,6 +265,11 @@ export function parseChanges(changes: Record<string, unknown>, labels: ChangeLab
           });
         }
       }
+    } else if (field === "lifecycle_stage") {
+      const stageValue = (value: unknown) => typeof value === "string" && labels.stages && Object.prototype.hasOwnProperty.call(labels.stages, value)
+        ? labels.stages[value]
+        : fmt(value);
+      rows.push({ field: label(field), oldVal: stageValue(c.old), newVal: stageValue(c.new) });
     } else if (field === "approval_status") {
       // A status this build has not heard of still renders as its raw value.
       rows.push({

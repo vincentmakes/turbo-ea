@@ -38,6 +38,7 @@ function getFieldLabels(t: (key: string) => string): Record<string, string> {
     description: t("common:labels.description"),
     subtype: t("common:labels.subtype"),
     lifecycle: t("history.fields.lifecycle"),
+    lifecycle_stage: t("lifecycle.currentStage"),
     parent_id: t("common:labels.parent"),
     parent_label: t("history.fields.parentLabel"),
     alias: t("history.fields.alias"),
@@ -221,6 +222,7 @@ function HistoryTab({ fsId, cardType }: { fsId: string; cardType?: string }) {
               phases: phaseLabels,
               attributes: attrLabels,
               statuses: statusLabels,
+              stages: Object.fromEntries((cardType ? getType(cardType)?.lifecycle_stages ?? [] : []).map((stage) => [stage.key, stage.label])),
             })
           : [];
         // A send, or a change written by applying an answer: name the survey.

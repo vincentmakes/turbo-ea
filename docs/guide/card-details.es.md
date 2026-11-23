@@ -100,6 +100,8 @@ El modelo de ciclo de vida rastrea un componente a través de cinco fases:
 
 Cada fase tiene un **selector de fecha** para registrar cuándo el componente entró o entrará en esa fase. Una barra de línea temporal visual muestra la posición del componente en su ciclo de vida.
 
+Si el administrador ha configurado [fases del ciclo de vida](../admin/metamodel.md#lifecycle-stages) para el tipo de ficha, **Fase actual** indica en qué punto se encuentra hoy. Por ejemplo, seleccione **Pruebas** mientras aún no se haya decidido la fecha de puesta en producción. La fase actual y las fechas de la línea de tiempo se guardan por separado. Si cambia la fase actual de una ficha aprobada, su estado de aprobación pasa a **Roto** para que pueda revisarse de nuevo.
+
 Si una fase tiene una fecha posterior a la de una fase que debería seguirla —por ejemplo, **Fase de Salida** después de **Fin de Vida**—, aparece un icono de advertencia junto a esa fecha, y la misma advertencia se muestra bajo el campo durante la edición. Es solo un aviso: las fechas se pueden guardar igualmente tal como se introdujeron.
 
 Un icono de información junto a cada fase en la línea de tiempo explica qué significa la fase: pase el cursor sobre él para leer la definición. Muestra una explicación predeterminada, salvo que su administrador la haya cambiado para describir cómo su organización usa la fase, o la haya eliminado. La línea de tiempo, con sus iconos, sigue visible mientras edita las fechas. Los textos se definen en **Administración → Metamodelo → Fases del ciclo de vida** (véase [Fases del ciclo de vida](../admin/metamodel.md#lifecycle-phases)).

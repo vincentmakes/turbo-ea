@@ -27,6 +27,7 @@ class Card(Base, UUIDMixin, TimestampMixin, ProvenanceMixin):
     # and no `relations` row behind a parent/child link.
     parent_label: Mapped[str | None] = mapped_column(String(100))
     lifecycle: Mapped[dict | None] = mapped_column(JSONB, default=dict)
+    lifecycle_stage: Mapped[str | None] = mapped_column(String(50))
     attributes: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     status: Mapped[str] = mapped_column(String(20), default="ACTIVE")
     approval_status: Mapped[str] = mapped_column(String(20), default="DRAFT")

@@ -311,6 +311,12 @@ export interface DataQualityConfig {
   stakeholders?: number;
 }
 
+export interface LifecycleStage {
+  key: string;
+  label: string;
+  color: string;
+}
+
 export interface CardType {
   key: string;
   label: string;
@@ -331,6 +337,7 @@ export interface CardType {
    *  colours, translations and the `OptionChip` renderer for free. Empty (or
    *  absent) means the feature renders nowhere for this type. */
   hierarchy_labels?: FieldOption[];
+  lifecycle_stages?: LifecycleStage[];
   fields_schema: SectionDef[];
   stakeholder_roles?: StakeholderRoleDefinition[];
   section_config?: Record<string, SectionConfig>;
@@ -510,6 +517,7 @@ export interface Card {
    *  loses its parent. */
   parent_label?: string | null;
   lifecycle?: Record<string, string>;
+  lifecycle_stage?: string | null;
   attributes?: Record<string, unknown>;
   status: string;
   approval_status: string;
@@ -896,6 +904,7 @@ export interface Bookmark {
 export interface CardQueryWhere {
   /** Lifecycle phase keys (`plan` … `endOfLife`), or `none` for no lifecycle. */
   lifecycle_phase?: string[];
+  lifecycle_stage?: string[];
   subtype?: string[];
   approval_status?: string[];
   /** Data-quality bands (`complete` / `partial` / `minimal`, as `DATA_QUALITY_BANDS`). */

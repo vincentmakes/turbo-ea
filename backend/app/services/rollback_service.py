@@ -348,6 +348,35 @@ def _plan_inverse(event: Event) -> dict[str, Any]:
     return {"event_id": str(event.id), **planner(event, event.data or {})}
 
 
+def _preserve_stage_approvals(ops: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """A stage rollback never restores an earlier approval for the same card."""
+    stage_cards = {
+        str(op["card_id"])
+        for op in ops
+        if op.get("op") == "restore_card_fields"
+        and op.get("card_id")
+        and "lifecycle_stage" in (op.get("fields") or {})
+    }
+    if not stage_cards:
+        return ops
+    result = []
+    changed = False
+    for op in ops:
+        fields = op.get("fields") or {}
+        if (
+            op.get("op") == "restore_card_fields"
+            and str(op.get("card_id")) in stage_cards
+            and "approval_status" in fields
+        ):
+            changed = True
+            op = {
+                **op,
+                "fields": {key: value for key, value in fields.items() if key != "approval_status"},
+            }
+        result.append(op)
+    return result if changed else ops
+
+
 def plan_ops(events: list[Event]) -> list[dict[str, Any]]:
     """The inverse of every event in ``events`` (already in the order they
     are to be applied), duplicates collapsed on their target."""
@@ -362,7 +391,7 @@ def plan_ops(events: list[Event]) -> list[dict[str, Any]]:
                 continue
             seen.add(marker)
         ops.append(op)
-    return ops
+    return _preserve_stage_approvals(ops)
 
 
 # ---------------------------------------------------------------------------
@@ -995,6 +1024,12 @@ async def _lock_inverse_writes(
     for _, source_id, target_id in relations:
         card_ids.update((source_id, target_id))
     await lock_relation_endpoints(db, card_ids)
+    if card_ids:
+        (
+            await db.scalars(
+                select(Card).where(Card.id.in_(card_ids)).execution_options(populate_existing=True)
+            )
+        ).all()
 
 
 async def plan_rollback(
@@ -1014,6 +1049,63 @@ async def plan_rollback(
     }
 
 
+async def _check_stage_rollback_conflicts(
+    db: AsyncSession, events: list[Event], *, force: bool
+) -> None:
+    # Unbatched card edits do not appear in batch conflict detection. Check the
+    # last stage written by this batch against the freshly locked card too.
+    latest_stages: dict[str, tuple[datetime, Any]] = {}
+    latest_approvals: dict[str, tuple[datetime, Any]] = {}
+    stage_times = set()
+    for event in events:
+        if event.event_type != "card.updated":
+            continue
+        data = event.data or {}
+        stage_change = (data.get("changes") or {}).get("lifecycle_stage")
+        card_id = _card_id_of(event, data)
+        if not card_id or not isinstance(stage_change, dict):
+            continue
+        event_key = (card_id, event.created_at)
+        if event_key in stage_times:
+            raise HTTPException(
+                409,
+                detail={
+                    "error": "rollback_conflict",
+                    "message": "Lifecycle stage history has an ambiguous order",
+                    "conflicting_batches": [],
+                },
+            )
+        stage_times.add(event_key)
+        approval_change = (data.get("changes") or {}).get("approval_status")
+        if isinstance(approval_change, dict) and "new" in approval_change:
+            previous_approval = latest_approvals.get(card_id)
+            if previous_approval is None or event.created_at > previous_approval[0]:
+                latest_approvals[card_id] = (event.created_at, approval_change["new"])
+        if "new" not in stage_change:
+            continue
+        previous = latest_stages.get(card_id)
+        if previous is None or event.created_at > previous[0]:
+            latest_stages[card_id] = (event.created_at, stage_change["new"])
+    if force:
+        return
+    for card_id in latest_stages.keys() | latest_approvals.keys():
+        card = await _get_card(db, card_id)
+        if card is not None and (
+            (card_id in latest_stages and card.lifecycle_stage != latest_stages[card_id][1])
+            or (
+                card_id in latest_approvals and card.approval_status != latest_approvals[card_id][1]
+            )
+        ):
+            raise HTTPException(
+                409,
+                detail={
+                    "error": "rollback_conflict",
+                    "message": "Lifecycle stage or approval changed since the batch",
+                    "conflicting_batches": [],
+                },
+            )
+
+
 async def execute_rollback(
     db: AsyncSession,
     batch: MutationBatch,
@@ -1029,7 +1121,7 @@ async def execute_rollback(
     if events is None:
         events = await _batch_events(db, batch)
 
-    ops = operations if operations is not None else plan_ops(events)
+    ops = _preserve_stage_approvals(operations) if operations is not None else plan_ops(events)
     await _lock_inverse_writes(db, events, ops)
     if authorize is not None:
         await authorize(ops)
@@ -1048,6 +1140,68 @@ async def execute_rollback(
                 "conflicting_batches": conflicts,
             },
         )
+
+    await _check_stage_rollback_conflicts(db, events, force=force)
+
+    final_stages = {
+        str(op["card_id"]): op["fields"]["lifecycle_stage"]
+        for op in ops
+        if op.get("op") == "restore_card_fields"
+        and op.get("card_id")
+        and "lifecycle_stage" in (op.get("fields") or {})
+    }
+    from app.services.card_approval import STATUS_BREAKING_FIELDS
+
+    content_cards = {
+        str(op["card_id"])
+        for op in ops
+        if op.get("op") == "restore_card_fields"
+        and op.get("card_id")
+        and any(
+            (key != "lifecycle_stage" and key in STATUS_BREAKING_FIELDS)
+            or key.startswith(_LEGACY_ATTR_PREFIX)
+            for key in (op.get("fields") or {})
+        )
+    }
+    for card_id, stage in final_stages.items():
+        card = await _get_card(db, card_id)
+        if (
+            card is not None
+            and card.approval_status == "APPROVED"
+            and (card.lifecycle_stage != stage or card_id in content_cards)
+        ):
+            raise HTTPException(
+                409,
+                detail={
+                    "error": "rollback_conflict",
+                    "message": "An approved card cannot be restored to different stage or content",
+                    "conflicting_batches": [],
+                },
+            )
+
+    # A removed vocabulary key cannot be restored, even when later batch
+    # conflicts are forced. Validate every inverse before opening the batch.
+    from app.services.lifecycle_stages import validate_stage
+
+    for op in ops:
+        fields = op.get("fields") or {}
+        if op.get("op") != "restore_card_fields" or not fields.get("lifecycle_stage"):
+            continue
+        card = await _get_card(db, op.get("card_id"))
+        if card is not None:
+            try:
+                await validate_stage(db, card.type, fields["lifecycle_stage"])
+            except HTTPException as exc:
+                if exc.status_code != 400:
+                    raise
+                raise HTTPException(
+                    409,
+                    detail={
+                        "error": "rollback_conflict",
+                        "message": "Lifecycle stage is no longer available",
+                        "conflicting_batches": [],
+                    },
+                ) from exc
 
     # Open the rollback's own batch row first so the events we emit
     # while reverting are themselves stamped with a batch id. The

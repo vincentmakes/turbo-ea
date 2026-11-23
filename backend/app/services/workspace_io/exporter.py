@@ -62,6 +62,7 @@ CARD_TYPE_COLUMNS = (
     "allow_card_logo",
     "subtypes",
     "hierarchy_labels",
+    "lifecycle_stages",
     "fields_schema",
     "stakeholder_roles",
     "section_config",
@@ -76,6 +77,7 @@ CARD_TYPE_JSON = frozenset(
     {
         "subtypes",
         "hierarchy_labels",
+        "lifecycle_stages",
         "fields_schema",
         "stakeholder_roles",
         "section_config",
@@ -124,6 +126,7 @@ CARD_COLUMNS = (
     "approval_status",
     "status",
     "lifecycle",
+    "lifecycle_stage",
     "attributes",
     # The channel that created the card (migration 170). ``updated_via`` is
     # deliberately not carried: the import re-stamps it, like ``updated_by``.

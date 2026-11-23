@@ -393,6 +393,7 @@ def test_card_record_carries_every_card_column():
         alias="BIL",
         approval_status="APPROVED",
         status="ACTIVE",
+        lifecycle_stage="active",
         lifecycle={"active": "2024-01-01"},
         attributes={"criticality": "high"},
         created_via="mcp",
@@ -410,6 +411,7 @@ def test_card_record_carries_every_card_column():
         "alias": "BIL",
         "approval_status": "APPROVED",
         "status": "ACTIVE",
+        "lifecycle_stage": "active",
         "lifecycle": {"active": "2024-01-01"},
         "attributes": {"criticality": "high"},
         "created_via": "mcp",
@@ -431,11 +433,13 @@ def test_card_record_writes_empty_dicts_for_missing_json():
         alias=None,
         approval_status="DRAFT",
         status="ACTIVE",
+        lifecycle_stage=None,
         lifecycle=None,
         attributes=None,
         created_via=None,
     )
     record = exp._card_record(card, {card.id: card})
+    assert record["lifecycle_stage"] is None
     assert (record["parent_path"], record["lifecycle"], record["attributes"]) == ("", {}, {})
 
 

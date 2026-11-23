@@ -2440,6 +2440,10 @@
   "securityLog.entry.changes": "Cambios",
   "securityLog.entry.masked": "Valor secreto",
   "securityLog.changes.section_added": "Sección «{{section}}» añadida",
+  "securityLog.changes.lifecycle_stage_added": "Fase del ciclo de vida “{{label}}” añadida",
+  "securityLog.changes.lifecycle_stage_removed": "Fase del ciclo de vida “{{label}}” eliminada",
+  "securityLog.changes.lifecycle_stage_renamed": "Fase del ciclo de vida renombrada: “{{old}}” → “{{new}}”",
+  "securityLog.changes.lifecycle_stage_changed": "Fase del ciclo de vida “{{label}}”: {{property}} cambió de {{old}} a {{new}}",
   "securityLog.changes.section_removed": "Sección «{{section}}» eliminada",
   "securityLog.changes.section_renamed": "Sección «{{old}}» renombrada a «{{new}}»",
   "securityLog.changes.section_moved": "Sección «{{section}}» movida de la posición {{from}} a la {{to}}",
@@ -3152,5 +3156,15 @@
   "metamodel.principles.reference": "Referencia",
   "metamodel.principles.import.title": "Importar principios de AE",
   "metamodel.principles.import.intro": "Suba un archivo .xlsx para crear o actualizar principios de forma masiva. Cada fila se asocia a un principio existente por su referencia (P-001) y, si no, por su título; un principio asociado se actualiza con los valores que difieren, y cualquier otra fila crea un principio nuevo. Una columna ausente de la hoja deja el campo sin cambios, y una celda de texto vacía lo borra, mientras que una celda is_active o sort_order vacía deja ese valor como está.",
-  "metamodel.principles.import.skippedHint": "Estas filas coinciden con un principio existente y no cambian nada."
+  "metamodel.principles.import.skippedHint": "Estas filas coinciden con un principio existente y no cambian nada.",
+  "metamodel.lifecycleStages.title": "Fases del ciclo de vida",
+  "metamodel.lifecycleStages.help": "Defina las fases ordenadas que se pueden asignar a las fichas de este tipo.",
+  "metamodel.lifecycleStages.edit": "Editar fases del ciclo de vida",
+  "metamodel.lifecycleStages.add": "Añadir fase",
+  "metamodel.lifecycleStages.keyLocked": "Las fichas ya guardan esta clave, por lo que no se puede cambiar de nombre.",
+  "metamodel.lifecycleStages.keyHint": "Empieza por una letra; usa hasta 50 letras, dígitos o guiones bajos.",
+  "metamodel.lifecycleStages.moveUp": "Subir fase",
+  "metamodel.lifecycleStages.moveDown": "Bajar fase",
+  "metamodel.lifecycleStages.inUse": "Hay fichas que todavía usan una fase eliminada. Cámbielas antes de eliminar la fase.",
+  "metamodel.lifecycleStages.saveFailed": "No se pudieron guardar las fases del ciclo de vida."
 }

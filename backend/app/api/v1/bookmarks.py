@@ -17,6 +17,7 @@ from app.schemas.common import BookmarkCreate, BookmarkUpdate
 from app.services.card_query import (
     CardQueryError,
     CardQuerySet,
+    lifecycle_stage_condition,
     names_cards,
     parse_card_query,
     prepare_card_query,
@@ -24,6 +25,7 @@ from app.services.card_query import (
     resolve_card_query,
     stored_card_ids,
     stored_query,
+    valid_lifecycle_stages,
     view_fields_for_query,
     view_patch,
 )
@@ -526,6 +528,18 @@ async def bookmark_odata_feed(
     subtypes = filters.get("subtypes", [])
     if subtypes:
         q = q.where(Card.subtype.in_(subtypes))
+
+    stages = filters.get("lifecycleStages", [])
+    if (
+        isinstance(bm_types, list)
+        and len(bm_types) == 1
+        and isinstance(bm_types[0], str)
+        and isinstance(stages, list)
+        and all(isinstance(stage, str) for stage in stages)
+        and valid_lifecycle_stages(stages)
+        and stages
+    ):
+        q = q.where(lifecycle_stage_condition(Card, stages))
 
     # Data quality min
     dq_min = filters.get("dataQualityMin")

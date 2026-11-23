@@ -95,6 +95,7 @@ export interface Filters {
   search: string;
   subtypes: string[];
   lifecyclePhases: string[];
+  lifecycleStages?: string[];
   /** Selected quality bands (OR'd). Replaces the old `dataQualityMin`
    * threshold — see `dataQualityBands.ts` for why, and for the migration
    * every persisted read path has to run through. */
@@ -439,6 +440,7 @@ export function filtersWithTypes(filters: Filters, types: string[]): Filters {
     ...filters,
     types,
     subtypes: [],
+    lifecycleStages: [],
     attributes: {},
     relations: {},
     eolStatuses: [],
@@ -575,6 +577,7 @@ export default function InventoryFilterSidebar({
     search: true,
     subtypes: false,
     lifecycle: false,
+    lifecycleStage: false,
     eol: false,
     linkType: false,
     dataQuality: false,
@@ -640,6 +643,10 @@ export default function InventoryFilterSidebar({
     return t?.subtypes ?? [];
   }, [types, filters.types]);
 
+  const stageOptions = filters.types.length === 1
+    ? types.find((type) => type.key === filters.types[0])?.lifecycle_stages ?? []
+    : [];
+
   // The link-type vocabulary of the one selected type — same single-type rule
   // as `subtypeOptions`, and the same one `hierarchyLabelColumnApplies` uses.
   const linkTypeOptions = useMemo(() => {
@@ -691,6 +698,14 @@ export default function InventoryFilterSidebar({
       ? filters.lifecyclePhases.filter((p) => p !== key)
       : [...filters.lifecyclePhases, key];
     onFiltersChange({ ...filters, lifecyclePhases: next });
+  };
+
+  const toggleLifecycleStage = (key: string) => {
+    const current = filters.lifecycleStages ?? [];
+    const next = current.includes(key)
+      ? current.filter((stage) => stage !== key)
+      : [...current, key];
+    onFiltersChange({ ...filters, lifecycleStages: next });
   };
 
   const toggleEolStatus = (key: string) => {
@@ -787,6 +802,7 @@ export default function InventoryFilterSidebar({
     (filters.search ? 1 : 0) +
     filters.subtypes.length +
     filters.lifecyclePhases.length +
+    (filters.lifecycleStages?.length ?? 0) +
     filters.dataQualityBands.length +
     filters.approvalStatuses.length +
     (filters.showArchived ? 1 : 0) +
@@ -940,6 +956,7 @@ export default function InventoryFilterSidebar({
         search: filters.search,
         subtypes: filters.subtypes,
         lifecyclePhases: filters.lifecyclePhases,
+        lifecycleStages: filters.lifecycleStages ?? [],
         dataQualityBands: filters.dataQualityBands,
         approvalStatuses: filters.approvalStatuses,
         showArchived: filters.showArchived,
@@ -1493,6 +1510,43 @@ export default function InventoryFilterSidebar({
                   />
                 </Box>
               </Collapse>
+
+              {stageOptions.length > 0 && (
+                <>
+                  <FilterSectionHeader
+                    label={t("filter.currentStage")}
+                    icon="timeline"
+                    expanded={expandedSections.lifecycleStage}
+                    onToggle={() => toggleSection("lifecycleStage")}
+                    onClear={() => clearKeys("lifecycleStages")}
+                    count={filters.lifecycleStages?.length ?? 0}
+                  />
+                  <Collapse in={expandedSections.lifecycleStage}>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2, px: 0.5 }}>
+                      {stageOptions.map((stage) => {
+                        const selected = (filters.lifecycleStages ?? []).includes(stage.key);
+                        return (
+                          <Chip
+                            key={stage.key}
+                            label={stage.label}
+                            size="small"
+                            variant={selected ? "filled" : "outlined"}
+                            onClick={() => toggleLifecycleStage(stage.key)}
+                            sx={selected
+                              ? { bgcolor: stage.color, color: readableTextColor(stage.color), borderColor: stage.color }
+                              : { borderColor: stage.color, color: "text.primary" }}
+                          />
+                        );
+                      })}
+                      <EmptyChip
+                        label={t("filter.emptyValue")}
+                        selected={(filters.lifecycleStages ?? []).includes(EMPTY_VALUE)}
+                        onClick={() => toggleLifecycleStage(EMPTY_VALUE)}
+                      />
+                    </Box>
+                  </Collapse>
+                </>
+              )}
 
               {/* End of life — only for the types that can carry it. The
                   statuses come from the same backend classifier the EOL

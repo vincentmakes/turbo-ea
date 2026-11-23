@@ -2440,6 +2440,10 @@
   "securityLog.entry.changes": "Alterações",
   "securityLog.entry.masked": "Valor secreto",
   "securityLog.changes.section_added": "Seção “{{section}}” adicionada",
+  "securityLog.changes.lifecycle_stage_added": "Fase do ciclo de vida “{{label}}” adicionada",
+  "securityLog.changes.lifecycle_stage_removed": "Fase do ciclo de vida “{{label}}” removida",
+  "securityLog.changes.lifecycle_stage_renamed": "Fase do ciclo de vida renomeada: “{{old}}” → “{{new}}”",
+  "securityLog.changes.lifecycle_stage_changed": "Fase do ciclo de vida “{{label}}”: {{property}} mudou de {{old}} para {{new}}",
   "securityLog.changes.section_removed": "Seção “{{section}}” removida",
   "securityLog.changes.section_renamed": "Seção “{{old}}” renomeada para “{{new}}”",
   "securityLog.changes.section_moved": "Seção “{{section}}” movida da posição {{from}} para a {{to}}",
@@ -3152,5 +3156,15 @@
   "metamodel.principles.reference": "Referência",
   "metamodel.principles.import.title": "Importar princípios de AE",
   "metamodel.principles.import.intro": "Carregue um ficheiro .xlsx para criar ou atualizar princípios em massa. Cada linha é associada a um princípio existente primeiro pela referência (P-001) e depois pelo título; um princípio associado é atualizado com os valores que diferem e qualquer outra linha cria um novo princípio. Uma coluna ausente da folha deixa o campo inalterado, e uma célula de texto vazia limpa-o, enquanto uma célula is_active ou sort_order vazia deixa esse valor como está.",
-  "metamodel.principles.import.skippedHint": "Estas linhas correspondem a um princípio existente e não alteram nada."
+  "metamodel.principles.import.skippedHint": "Estas linhas correspondem a um princípio existente e não alteram nada.",
+  "metamodel.lifecycleStages.title": "Fases do ciclo de vida",
+  "metamodel.lifecycleStages.help": "Defina as fases ordenadas que podem ser atribuídas aos cards deste tipo.",
+  "metamodel.lifecycleStages.edit": "Editar fases do ciclo de vida",
+  "metamodel.lifecycleStages.add": "Adicionar fase",
+  "metamodel.lifecycleStages.keyLocked": "Os cards já guardam esta chave, pelo que não pode ser renomeada.",
+  "metamodel.lifecycleStages.keyHint": "Comece com uma letra; use até 50 letras, algarismos ou sublinhados.",
+  "metamodel.lifecycleStages.moveUp": "Mover fase para cima",
+  "metamodel.lifecycleStages.moveDown": "Mover fase para baixo",
+  "metamodel.lifecycleStages.inUse": "Há cards que ainda usam uma fase removida. Altere esses cards antes de remover a fase.",
+  "metamodel.lifecycleStages.saveFailed": "Não foi possível guardar as fases do ciclo de vida."
 }

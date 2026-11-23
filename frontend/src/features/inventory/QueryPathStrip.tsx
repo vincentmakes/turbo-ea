@@ -674,6 +674,12 @@ function useConditionItems(
       label: labelOf(t("inventory:columns.lifecycle"), values),
     });
   }
+  if (where.lifecycle_stage) {
+    const values = where.lifecycle_stage.map((key) => key === EMPTY_VALUE
+      ? empty
+      : type?.lifecycle_stages?.find((stage) => stage.key === key)?.label ?? key);
+    items.push({ key: "lifecycleStage", kind: "lifecycle_stage", label: labelOf(t("inventory:filter.currentStage"), values) });
+  }
   if (where.subtype) {
     const values = where.subtype.map((k) => {
       if (k === EMPTY_VALUE) return empty;
@@ -1317,6 +1323,7 @@ function EditConditions({
   offer("cards", t("inventory:queryView.conditionCards"));
   const cardsLeads = offers.length === 1;
   offer("lifecycle_phase", t("inventory:filter.lifecycle"));
+  if ((type?.lifecycle_stages ?? []).length > 0) offer("lifecycle_stage", t("inventory:filter.currentStage"));
   if ((type?.subtypes ?? []).length > 0) offer("subtype", t("common:labels.subtype"));
   offer("approval_status", t("inventory:columns.approvalStatus"));
   offer("data_quality_band", t("inventory:filter.dataQuality"));

@@ -41,6 +41,7 @@ const EMPTY = {
   search: "",
   subtypes: [],
   lifecyclePhases: [],
+  lifecycleStages: [],
   dataQualityBands: [],
   approvalStatuses: [],
   showArchived: false,
@@ -64,6 +65,29 @@ describe("isQueryView", () => {
 });
 
 describe("bookmarkFilters", () => {
+  it("drops malformed or oversized saved stage facets and keeps valid unknown keys", () => {
+    const keys = Array.from({ length: 50 }, (_, i) => `stage_${i}`);
+    const restore = (lifecycleStages: string[]) => bookmarkFilters(bookmark({
+      filters: { types: ["Application"], lifecycleStages },
+    }))?.lifecycleStages;
+    for (const invalid of [
+      ["pilot,other"], [" pilot"], ["pilot "], ["pilot\n"], ["1pilot"], ["a".repeat(51)],
+      [...keys, "extra"], ["__empty__", "__empty__"],
+    ]) {
+      expect(restore(invalid)).toEqual([]);
+    }
+    expect(restore([...keys, "__empty__"])).toEqual([...keys, "__empty__"]);
+    expect(restore(["Unknown_stage", "a".repeat(50)])).toEqual(["Unknown_stage", "a".repeat(50)]);
+  });
+  it("restores stage filters only for one type and a string list", () => {
+    for (const lifecycleStages of ["pilot", 1, ["pilot", 1], null]) {
+      expect(bookmarkFilters(bookmark({ filters: { types: ["Application"], lifecycleStages } }))?.lifecycleStages).toEqual([]);
+    }
+    for (const types of [[], ["Application", "ITComponent"], [42]]) {
+      expect(bookmarkFilters(bookmark({ filters: { types, lifecycleStages: ["pilot"] } }))?.lifecycleStages).toEqual([]);
+    }
+    expect(bookmarkFilters(bookmark({ filters: { types: ["Application"], lifecycleStages: ["pilot", "__empty__"] } }))?.lifecycleStages).toEqual(["pilot", "__empty__"]);
+  });
   it("is null for a plain view without a filters payload", () => {
     expect(bookmarkFilters(bookmark())).toBeNull();
   });
@@ -78,6 +102,7 @@ describe("bookmarkFilters", () => {
       search: "erp",
       subtypes: ["business_app"],
       lifecyclePhases: ["active"],
+      lifecycleStages: ["testing"],
       dataQualityBands: ["complete"],
       approvalStatuses: ["APPROVED"],
       showArchived: true,

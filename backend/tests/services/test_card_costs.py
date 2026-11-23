@@ -129,6 +129,26 @@ async def test_archived_new_item_refused_existing_editable(db):
     assert (await svc.get_year_row(db, card.id, CUR, SM)).tco == 7
 
 
+async def test_archived_item_removed_since_snapshot_cannot_be_reintroduced(db, monkeypatch):
+    card = await _setup(db, archived=("old",))
+    await _row(db, card, CUR, {"lic": _it(10)})
+    resolve = svc._resolve
+
+    async def stale_snapshot(db, card_id, fiscal_year, start_month):
+        return {"old": _it(5), "lic": _it(10)}, True, None
+
+    monkeypatch.setattr(svc, "_resolve", stale_snapshot)
+    with pytest.raises(svc.CostError) as exc:
+        await svc.upsert_item(db, card.id, CUR, "old", 7, None)
+    assert exc.value.code == "archived_item"
+    assert str(exc.value) == "Cost item 'old' is archived"
+    monkeypatch.setattr(svc, "_resolve", resolve)
+    unchanged = await svc.get_year_row(db, card.id, CUR, SM)
+    assert {item.key: item.amount for item in unchanged.items} == {"lic": 10}
+    await svc.upsert_item(db, card.id, CUR, "lic", 12, None)
+    assert (await svc.get_year_row(db, card.id, CUR, SM)).tco == 12
+
+
 async def test_unknown_item_and_negative_amount(db):
     card = await _setup(db)
     with pytest.raises(svc.CostError) as e:
@@ -535,6 +555,34 @@ async def test_apply_write_noop_returns_the_old_year_and_publishes_nothing(db, m
     out = await svc.apply_write(db, card, card.id, CUR, noop)
     assert [i.key for i in out.items] == ["lic"] and out.tco == 10
     assert published == []
+
+
+async def test_apply_write_refreshes_card_before_publishing_old_total(db, monkeypatch):
+    from sqlalchemy import update
+
+    from app.models.card import Card
+
+    card = await _setup(db)
+    await _row(db, card, CUR, {"lic": _it(10)})
+    await db.execute(
+        update(Card)
+        .where(Card.id == card.id)
+        .values(attributes={"costTotalAnnual": 10, "other": "retained"})
+        .execution_options(synchronize_session=False)
+    )
+    published = []
+
+    async def capture(event_type, data, **kwargs):
+        published.append(data)
+
+    monkeypatch.setattr(svc.event_bus, "publish", capture)
+
+    async def op():
+        await svc.upsert_item(db, card.id, CUR, "lic", 12, None)
+
+    await svc.apply_write(db, card, card.id, CUR, op)
+    assert published[0]["changes"]["costTotalAnnual"] == {"old": 10, "new": 12}
+    assert card.attributes["other"] == "retained"
 
 
 async def test_apply_write_publishes_keys_only_with_card_and_user(db, monkeypatch):

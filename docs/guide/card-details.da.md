@@ -95,6 +95,8 @@ Livscyklus-modellen sporer en komponent gennem fem faser:
 
 Hver fase har en **datovælger**, så du kan registrere, hvornår komponenten er trådt eller vil træde ind i den fase. En visuel tidslinje-bjælke viser komponentens position i sin livscyklus.
 
+Hvis administratoren har konfigureret [livscyklusfaser](../admin/metamodel.md#lifecycle-stages) for korttypen, angiver **Aktuel fase**, hvor kortet befinder sig i dag. Vælg for eksempel **Test**, mens idriftsættelsesdatoen endnu ikke er fastlagt. Den aktuelle fase og tidslinjens datoer gemmes hver for sig. Hvis den aktuelle fase for et godkendt kort ændres, ændres godkendelsesstatus til **Brudt**, så kortet kan gennemgås igen.
+
 Hvis en fase er dateret efter en fase, der burde komme efter den — for eksempel **Phase Out** efter **End of Life** — vises et advarselsikon ved siden af datoen, og den samme advarsel vises under feltet under redigering. Det er kun et hint: datoerne kan stadig gemmes, som de er indtastet.
 
 Et infoikon ved siden af hver fase på tidslinjen forklarer, hvad fasen betyder – hold musen over det for at læse definitionen. Det viser en standardforklaring, medmindre din administrator har ændret den, så den beskriver, hvordan din organisation bruger fasen, eller har fjernet den. Tidslinjen med dens ikoner forbliver synlig, mens du redigerer datoerne. Teksterne angives under **Administration → Metamodel → Livscyklusfaser** (se [Livscyklusfaser](../admin/metamodel.md#lifecycle-phases)).

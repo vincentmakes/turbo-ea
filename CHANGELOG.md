@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.210.0] - 2026-11-22
+
+### Added
+
+- Configure lifecycle stages by card type, assign the current stage on a card, and filter by stage in Inventory and saved views.
+
 ## [2.209.0] - 2026-11-22
 
 ### Added

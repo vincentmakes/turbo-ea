@@ -5,6 +5,8 @@ import Accordion from "@mui/material/Accordion";
 import AccordionSummary from "@mui/material/AccordionSummary";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import Button from "@mui/material/Button";
+import TextField from "@mui/material/TextField";
+import MenuItem from "@mui/material/MenuItem";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import { useTheme } from "@mui/material/styles";
@@ -13,6 +15,7 @@ import { DateField } from "@/components/DateField";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import HelpTip from "@/components/HelpTip";
 import { useLifecyclePhaseHelp } from "@/hooks/useLifecyclePhaseHelp";
+import { useMetamodel } from "@/hooks/useMetamodel";
 import { PHASE_ICONS } from "@/components/LifecycleBadge";
 import { PHASES, getPhaseLabels, lifecycleOrderIssues } from "@/lib/lifecyclePhases";
 import { useDateFormat } from "@/hooks/useDateFormat";
@@ -68,11 +71,14 @@ function LifecycleSection({
   const { formatDate } = useDateFormat();
   const phaseLabels = getPhaseLabels(t);
   const { phaseHelp } = useLifecyclePhaseHelp();
+  const { types } = useMetamodel();
+  const stages = (types ?? []).find((type) => type.key === card.type)?.lifecycle_stages ?? [];
   const [expanded, setExpanded] = useSyncedExpanded(initialExpanded, expandOn);
   const [editing, setEditing] = useState(false);
   const [lifecycle, setLifecycle] = useState<Record<string, string>>(
     card.lifecycle || {}
   );
+  const [currentStage, setCurrentStage] = useState(card.lifecycle_stage ?? "");
   const rootRef = useRef<HTMLDivElement>(null);
 
   // A data-quality jump opens the edit row, then focuses the first phase still
@@ -93,13 +99,17 @@ function LifecycleSection({
   // another section (which replaces the whole card object in the parent) can't
   // clobber this section's in-progress draft (issue #843).
   useEffect(() => {
-    if (!editing) setLifecycle(card.lifecycle || {});
-  }, [card.lifecycle, editing]);
+    if (!editing) {
+      setLifecycle(card.lifecycle || {});
+      setCurrentStage(card.lifecycle_stage ?? "");
+    }
+  }, [card.lifecycle, card.lifecycle_stage, editing]);
 
   // Report unsaved-changes state up so the page can warn on navigation (#843).
   const dirty =
     editing &&
-    JSON.stringify(lifecycle) !== JSON.stringify(card.lifecycle || {});
+    (JSON.stringify(lifecycle) !== JSON.stringify(card.lifecycle || {}) ||
+      currentStage !== (card.lifecycle_stage ?? ""));
   useEffect(() => {
     onDirtyChange?.(dirty);
     return () => onDirtyChange?.(false);
@@ -118,7 +128,14 @@ function LifecycleSection({
   };
 
   const save = async () => {
-    await onSave({ lifecycle });
+    const stageChanged = currentStage !== (card.lifecycle_stage ?? "");
+    const datesChanged = JSON.stringify(lifecycle) !== JSON.stringify(card.lifecycle || {});
+    await onSave({
+      ...(datesChanged || !stageChanged ? { lifecycle } : {}),
+      ...(stageChanged
+        ? { lifecycle_stage: currentStage || null }
+        : {}),
+    });
     setEditing(false);
   };
 
@@ -155,6 +172,29 @@ function LifecycleSection({
         )}
       </AccordionSummary>
       <AccordionDetails>
+        {stages.length > 0 && (
+          <Box sx={{ mb: 2 }}>
+            {editing ? (
+              <TextField
+                select
+                size="small"
+                label={t("lifecycle.currentStage")}
+                value={currentStage}
+                onChange={(event) => setCurrentStage(event.target.value)}
+                sx={{ minWidth: 220 }}
+              >
+                <MenuItem value="">{t("lifecycle.noCurrentStage")}</MenuItem>
+                {stages.map((stage) => (
+                  <MenuItem key={stage.key} value={stage.key}>{stage.label}</MenuItem>
+                ))}
+              </TextField>
+            ) : (
+              <Typography variant="body2">
+                {t("lifecycle.currentStage")}: {stages.find((stage) => stage.key === currentStage)?.label ?? t("lifecycle.noCurrentStage")}
+              </Typography>
+            )}
+          </Box>
+        )}
         {/* Timeline visualization */}
         <Box
           sx={{
@@ -377,6 +417,7 @@ function LifecycleSection({
                 size="small"
                 onClick={() => {
                   setLifecycle(card.lifecycle || {});
+                  setCurrentStage(card.lifecycle_stage ?? "");
                   setEditing(false);
                 }}
               >

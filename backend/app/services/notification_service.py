@@ -231,6 +231,7 @@ async def deliver_notification_batch(
     *,
     notif_type: str,
     actor_id: uuid.UUID | None = None,
+    require_card_read: bool = False,
 ) -> int:
     """Create and deliver a batch of notifications from a background task.
 
@@ -269,9 +270,34 @@ async def deliver_notification_batch(
         emails: list[tuple[uuid.UUID | None, str, dict[str, Any]]] = []
         async with async_session() as db:
             user_ids = {r["user_id"] for r in recipients}
-            result = await db.execute(select(User).where(User.id.in_(user_ids)))
+            result = await db.execute(
+                select(User).where(User.id.in_(user_ids)).execution_options(populate_existing=True)
+            )
             users = {u.id: u for u in result.scalars()}
+            visible_cards: dict[uuid.UUID, set[uuid.UUID]] = {}
+            if require_card_read:
+                from app.models.card import Card
+                from app.services.card_read_scope import CardReadScope
+
+                card_ids = {r.get("card_id") for r in recipients if r.get("card_id")}
+                existing_ids = set(
+                    (await db.execute(select(Card.id).where(Card.id.in_(card_ids)))).scalars()
+                )
+                now = datetime.now(UTC)
+                for user in users.values():
+                    if not user.is_active or (
+                        user.access_expires_at is not None and user.access_expires_at < now
+                    ):
+                        continue
+                    scope = await CardReadScope.load(db, user)
+                    visible_cards[user.id] = await scope.readable_card_ids(
+                        db, existing_ids, mode="module"
+                    )
             for r in recipients:
+                if require_card_read and r.get("card_id") not in visible_cards.get(
+                    r["user_id"], set()
+                ):
+                    continue
                 notif = await create_notification(
                     db,
                     user_id=r["user_id"],
@@ -290,7 +316,11 @@ async def deliver_notification_batch(
                 # Not gated on ``notif``: a recipient who muted this type in
                 # the bell but kept it in their inbox still gets the email,
                 # they just have no row to stamp ``is_emailed`` on.
-                if recipient and _user_wants_notification(recipient, notif_type, "email"):
+                if (
+                    recipient
+                    and recipient.is_active
+                    and _user_wants_notification(recipient, notif_type, "email")
+                ):
                     emails.append(
                         (
                             notif.id if notif else None,

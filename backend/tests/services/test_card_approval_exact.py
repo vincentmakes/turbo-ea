@@ -23,6 +23,7 @@ BREAKING = [
     "name",
     "description",
     "lifecycle",
+    "lifecycle_stage",
     "attributes",
     "subtype",
     "alias",

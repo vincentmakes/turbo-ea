@@ -218,6 +218,12 @@ Cliccate sul pulsante **Traduci** nella barra degli strumenti del drawer del tip
 
 Le traduzioni sono memorizzate insieme a ciascun tipo di card e vengono risolte al momento del rendering in base alla lingua selezionata dall'utente. Le etichette non tradotte utilizzano il valore predefinito in inglese.
 
+### Fasi del ciclo di vita { #lifecycle-stages }
+
+Apri un tipo di card in **Amministrazione → Metamodello → Tipi di card** e scegli **Fasi del ciclo di vita** per configurare le fasi disponibili. Per esempio, aggiungi **Test** e **Distribuzione limitata** al tipo Application. Ogni fase ha una chiave, un'etichetta e un colore. Disponile nell'ordine desiderato.
+
+Dopo il salvataggio, chi modifica una card può selezionare la **Fase attuale** nella sezione Ciclo di vita. In Inventario puoi filtrare le card del tipo selezionato in base alla fase attuale. Una fase assegnata può essere rimossa solo dopo aver cancellato o modificato le assegnazioni.
+
 ### Eliminazione di un tipo
 
 - I **tipi predefiniti** vengono eliminati temporaneamente (nascosti) e possono essere ripristinati. Il pulsante di eliminazione nell'editor del tipo è bloccato per loro — usa invece **Nascondi tipo**.

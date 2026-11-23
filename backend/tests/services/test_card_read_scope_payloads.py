@@ -229,6 +229,32 @@ class TestEventReadFilters:
 
 
 class TestScrubEventPayloads:
+    async def test_parent_references_are_collected_independently(self, db, landscape):
+        hidden = str(landscape["secret"].id)
+        payloads = [
+            {"changes": {"parent_id": {"old": None, "new": hidden}}},
+            {"op": "restore_card_fields", "fields": {"parent_id": hidden}},
+        ]
+        for payload in payloads:
+            result = await scrub_event_payloads(db, scope(denied=("Secret",)), [payload])
+            if "changes" in payload:
+                assert result == [{"changes": {"parent_id": {"old": None, "new": None}}}]
+            else:
+                assert result == [{"op": "restore_card_fields", "fields": {"parent_id": None}}]
+
+    async def test_unrelated_and_malformed_nested_fields_are_preserved(self, db, landscape):
+        hidden = str(landscape["secret"].id)
+        payloads = [
+            {"card_id": hidden, "changes": {"name": {"old": "a", "new": "b"}}},
+            {"card_id": hidden, "op": "restore_card_fields", "fields": None},
+            {"card_id": hidden, "op": "other", "fields": {"parent_id": hidden}},
+        ]
+        assert await scrub_event_payloads(db, scope(denied=("Secret",)), payloads) == [
+            {"card_id": None, "changes": {"name": {"old": "a", "new": "b"}}},
+            {"card_id": None, "op": "restore_card_fields", "fields": None},
+            {"card_id": None, "op": "other", "fields": {"parent_id": hidden}},
+        ]
+
     async def test_rollback_parent_is_scrubbed_without_mutating_stored_payload(self, db, landscape):
         hidden = str(landscape["secret"].id).upper()
         visible = str(landscape["open"].id)

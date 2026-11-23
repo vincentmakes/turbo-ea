@@ -97,6 +97,8 @@ O modelo de ciclo de vida acompanha um componente através de cinco fases:
 
 Cada fase tem um **seletor de data** para que você possa registrar quando o componente entrou ou entrará nessa fase. Uma barra de linha do tempo visual mostra a posição do componente em seu ciclo de vida.
 
+Se o administrador tiver configurado [fases do ciclo de vida](../admin/metamodel.md#lifecycle-stages) para o tipo de card, **Fase atual** regista em que ponto está hoje. Selecione, por exemplo, **Testes** enquanto a data de entrada em produção ainda não está decidida. A fase atual e as datas da linha temporal são guardadas separadamente. Se a fase atual de um card aprovado for alterada, o respetivo status de aprovação passa a **Quebrado** para que o card possa ser revisto novamente.
+
 Se uma fase tiver uma data posterior à de uma fase que deveria vir depois dela — por exemplo, **Desativação** após **Fim de Vida** —, um ícone de aviso aparece ao lado dessa data, e o mesmo aviso é exibido abaixo do campo durante a edição. É apenas uma indicação: as datas ainda podem ser salvas como foram inseridas.
 
 Um ícone de informação ao lado de cada fase na linha do tempo explica o que a fase significa – passe o cursor sobre ele para ler a definição. Mostra uma explicação padrão, a menos que o seu administrador a tenha alterado para descrever como a sua organização usa a fase, ou a tenha removido. A linha do tempo, com os seus ícones, continua visível enquanto você edita as datas. Os textos são definidos em **Admin → Metamodelo → Fases do ciclo de vida** (veja [Fases do ciclo de vida](../admin/metamodel.md#lifecycle-phases)).

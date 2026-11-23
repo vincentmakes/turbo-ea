@@ -52,6 +52,10 @@ AUDIT_ITEM_KINDS: frozenset[str] = frozenset(
         "attribute.renamed",
         "attribute.changed",
         # Keyed lists on a card type.
+        "lifecycle_stage.added",
+        "lifecycle_stage.removed",
+        "lifecycle_stage.renamed",
+        "lifecycle_stage.changed",
         "subtype.added",
         "subtype.removed",
         "subtype.renamed",
@@ -245,7 +249,7 @@ def keyed_list_items(
     label changed, ``.changed`` {label, property, old, new} for each prop in
     ``props`` that differs, and ``translation.changed`` (property
     ``"<noun>:<label>"``) for an entry's ``translations``. ``noun`` is
-    ``subtype``, ``hierarchy_label`` or ``stakeholder_role``.
+    ``lifecycle_stage``, ``subtype``, ``hierarchy_label`` or ``stakeholder_role``.
     """
     before, after = _index(_as_list(old), key), _index(_as_list(new), key)
     added = [

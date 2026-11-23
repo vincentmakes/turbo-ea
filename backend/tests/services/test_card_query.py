@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import re
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
@@ -505,6 +506,30 @@ class TestParse:
         tags = [str(uuid.UUID(int=i + 1)) for i in range(51)]
         assert _parse_code(_q("A", where={"tags": tags})) == "invalid_query"
 
+    def test_fifty_maximum_stage_keys_and_empty_are_accepted(self):
+        stages = [f"s{i:02d}" + "x" * 47 for i in range(50)] + ["__empty__"]
+        assert (
+            parse_card_query(_q("A", where={"lifecycle_stage": stages})).where.lifecycle_stage
+            == stages
+        )
+
+    def test_stage_limit_rejects_extra_key_or_repeated_empty(self):
+        stages = [f"stage{i}" for i in range(50)]
+        assert (
+            _parse_code(_q("A", where={"lifecycle_stage": stages + ["extra"]})) == "invalid_query"
+        )
+        assert (
+            _parse_code(_q("A", where={"lifecycle_stage": stages + ["__empty__", "__empty__"]}))
+            == "invalid_query"
+        )
+
+    @pytest.mark.parametrize("stage", ["ready,live", "ready live", "1ready", "_ready"])
+    def test_stage_keys_obey_metamodel_grammar(self, stage):
+        assert _parse_code(_q("A", where={"lifecycle_stage": [stage]})) == "invalid_query"
+
+    def test_unknown_valid_stage_key_remains_structurally_valid(self):
+        assert parse_card_query(_q("A", where={"lifecycle_stage": ["Unknown_123", "__empty__"]}))
+
     def test_a_tag_list_must_be_a_list(self):
         assert _parse_code(_q("A", where={"tags": TAG_1})) == "invalid_query"
 
@@ -836,7 +861,7 @@ class TestResolve:
         raw = _q("Organization", _hop(USES, "Application", where={"subtype": ["micro"]}))
         seen = await self._statements(db, monkeypatch, raw)
         assert len(seen) == 2
-        assert not [s for s in seen if "tag" in s]
+        assert not [s for s in seen if re.search(r"\b(?:tags|tag_groups|card_tags)\b", s)]
 
     async def test_every_tag_in_the_tree_loads_in_one_query(self, db, land, monkeypatch):
         raw = _q(
@@ -2247,7 +2272,11 @@ class TestStackResolve:
         raw = _any(_all(APP_ACTIVE, APP_AFFECTED), ORG_LINE)
         seen = await self._statements(db, monkeypatch, raw, CardReadScope.everything())
         assert len(seen) == 2
-        assert not [s for s in seen if "tag" in s or "FROM cards" in s]
+        assert not [
+            s
+            for s in seen
+            if re.search(r"\b(?:tags|tag_groups|card_tags)\b", s) or "FROM cards" in s
+        ]
 
     async def test_the_tags_of_every_line_resolve(self, db, land):
         raw = _any(
@@ -2934,3 +2963,36 @@ class TestPrepareCardQuery:
 
     def test_a_query_error_is_a_400_by_default(self):
         assert CardQueryError("unknown_band").status == 400
+
+
+def test_unknown_lifecycle_stage_reports_the_specific_query_error():
+    from types import SimpleNamespace
+
+    from app.services.card_query import CardWhere, _check_where
+
+    card_type = SimpleNamespace(fields_schema=[], lifecycle_stages=[{"key": "active"}])
+    with pytest.raises(CardQueryError) as exc:
+        _check_where(CardWhere(lifecycle_stage=["missing"]), card_type)
+    assert (exc.value.code, exc.value.status) == ("unknown_lifecycle_stage", 400)
+
+
+async def test_lifecycle_stage_condition_handles_empty_null_and_mixed_lists(db):
+    from app.services.card_query import lifecycle_stage_condition
+
+    cards = [await create_card(db, name=f"Stage condition {index}") for index in range(3)]
+    cards[0].lifecycle_stage = None
+    cards[1].lifecycle_stage = "active"
+    cards[2].lifecycle_stage = "other"
+    await db.flush()
+    for stages, expected in [
+        ([], set()),
+        (["__empty__"], {cards[0].id}),
+        (["active"], {cards[1].id}),
+        (["active", "__empty__"], {cards[0].id, cards[1].id}),
+    ]:
+        result = await db.scalars(
+            select(Card.id).where(
+                Card.id.in_([card.id for card in cards]), lifecycle_stage_condition(Card, stages)
+            )
+        )
+        assert set(result) == expected

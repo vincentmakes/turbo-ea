@@ -343,5 +343,6 @@
   "filter.eol": "End of Life",
   "filter.linkType": "Verbindungstyp",
   "filter.eolManual": "Manuell gepflegt",
-  "massEdit.rel.attributesHint": "Wird auf jede hinzugefügte Verknüpfung angewendet. Karten, die bereits mit einem gewählten Ziel verknüpft sind, erhalten diese Details ebenfalls; leer gelassene Details bleiben unverändert."
+  "massEdit.rel.attributesHint": "Wird auf jede hinzugefügte Verknüpfung angewendet. Karten, die bereits mit einem gewählten Ziel verknüpft sind, erhalten diese Details ebenfalls; leer gelassene Details bleiben unverändert.",
+  "filter.currentStage": "Aktuelle Phase"
 }

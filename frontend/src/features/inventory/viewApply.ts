@@ -35,11 +35,20 @@ export function bookmarkFilters(bm: Bookmark): Filters | null {
   const queryTypes = bm.query ? startTypes(bm.query) : [];
   if (!f && queryTypes.length === 0) return null;
   const src: Partial<Filters> = f ?? {};
+  const types = queryTypes.length > 0 ? queryTypes : src.types || [];
+  const lifecycleStages = Array.isArray(types) && types.length === 1 && typeof types[0] === "string"
+    && Array.isArray(src.lifecycleStages) && src.lifecycleStages.length <= 51
+    && src.lifecycleStages.filter((stage) => stage === "__empty__").length <= 1
+    && src.lifecycleStages.filter((stage) => stage !== "__empty__").length <= 50
+    && src.lifecycleStages.every((stage) => typeof stage === "string" && (stage === "__empty__"
+      || stage.match(/^[A-Za-z][A-Za-z0-9_]{0,49}$/)?.[0] === stage))
+    ? src.lifecycleStages : [];
   return {
-    types: queryTypes.length > 0 ? queryTypes : src.types || [],
+    types,
     search: src.search || "",
     subtypes: src.subtypes || [],
     lifecyclePhases: src.lifecyclePhases || [],
+    lifecycleStages,
     // Views saved before bands existed carry a `dataQualityMin` threshold.
     dataQualityBands: normalizeDataQualityFilter(src),
     approvalStatuses: src.approvalStatuses || [],
@@ -183,6 +192,7 @@ export function emptyFilters(): Filters {
     search: "",
     subtypes: [],
     lifecyclePhases: [],
+    lifecycleStages: [],
     dataQualityBands: [],
     approvalStatuses: [],
     showArchived: false,
@@ -209,6 +219,7 @@ export function hasActiveFacets(filters: Filters): boolean {
     filters.search !== "" ||
     filters.subtypes.length > 0 ||
     filters.lifecyclePhases.length > 0 ||
+    (filters.lifecycleStages?.length ?? 0) > 0 ||
     filters.dataQualityBands.length > 0 ||
     filters.approvalStatuses.length > 0 ||
     filters.showArchived ||

@@ -26,6 +26,7 @@ const EMPTY_FILTERS: Filters = {
   search: "",
   subtypes: [],
   lifecyclePhases: [],
+  lifecycleStages: [],
   dataQualityBands: [],
   orphanedOnly: false,
   staleOnly: false,
@@ -2725,6 +2726,21 @@ describe("InventoryPage query views", () => {
     expect(screen.getByTestId("filter-sidebar")).toHaveAttribute("data-external-view-id", "bm-q");
   });
 
+  it("sends a current-stage facet alongside a persisted query view", async () => {
+    localStorage.setItem(
+      "turboea_inventory",
+      JSON.stringify({
+        filters: { types: ["Application"], lifecycleStages: ["testing", "__empty__"] },
+        activeQuery: ACTIVE,
+      }),
+    );
+    renderInventory();
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    const first = paramsOf(cardUrls()[0]);
+    expect(JSON.parse(first.get("query")!)).toEqual(QUERY);
+    expect(first.get("lifecycle_stage")).toBe("testing,__empty__");
+  });
+
   it("leaving the view drops the query from the next request and from the prefs", async () => {
     localStorage.setItem(
       "turboea_inventory",
@@ -3608,6 +3624,7 @@ describe("InventoryPage query builder", () => {
       types: ["Application"],
       search: "SAP",
       lifecyclePhases: ["active"],
+      lifecycleStages: ["testing"],
       approvalStatuses: ["APPROVED"],
       origins: [],
     };
@@ -3652,6 +3669,7 @@ describe("InventoryPage query builder", () => {
       // The cleared search goes once its debounce settles.
       await waitFor(() => expect(lastCards().has("search")).toBe(false));
       expect([...lastCards().keys()].sort()).toEqual(["page_size"]);
+      expect(lastCards().has("lifecycle_stage")).toBe(false);
       await waitFor(() => expect(prefs().filters).toEqual(emptyFilters()));
 
       const before = cardUrls().length;
@@ -3661,6 +3679,7 @@ describe("InventoryPage query builder", () => {
       await waitFor(() => expect(lastCards().get("search")).toBe("SAP"));
       expect(lastCards().get("approval_status")).toBe("APPROVED");
       expect(lastCards().get("type")).toBe("Application");
+      expect(lastCards().get("lifecycle_stage")).toBe("testing");
       expect(lastCards().has("query")).toBe(false);
       await waitFor(() => expect(prefs().filters).toEqual(FACETED));
     });
