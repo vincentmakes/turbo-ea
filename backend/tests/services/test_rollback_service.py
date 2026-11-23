@@ -1129,3 +1129,51 @@ async def test_stage_rollback_rejects_ambiguous_simultaneous_batch_events(
     assert exc.value.status_code == 409
     assert exc.value.detail["error"] == "rollback_conflict"
     assert card.lifecycle_stage == "four"
+
+
+async def test_stage_rollback_preserves_a_later_approval_decision(db, actor):
+    from datetime import UTC, datetime
+
+    from sqlalchemy import update
+
+    from tests.conftest import create_card_type
+
+    card_type = await create_card_type(db, key="Application")
+    card_type.lifecycle_stages = [
+        {"key": key, "label": key, "color": "#123456"} for key in ("one", "two", "three")
+    ]
+    card = await create_card(db, name="Approval decision")
+    card.lifecycle_stage = "one"
+    card.approval_status = "APPROVED"
+    await db.flush()
+    batch = await _open_batch(db, actor)
+    writer = card_write_service.WriteActor.from_user(actor)
+    with _InBatch(batch):
+        await card_write_service.update_card(db, writer, card, {"lifecycle_stage": "two"})
+        await card_write_service.update_card(db, writer, card, {"lifecycle_stage": "three"})
+    await db.flush()
+    events = (await db.scalars(select(Event).where(Event.batch_id == batch.id))).all()
+    stage_events = [event for event in events if "lifecycle_stage" in event.data.get("changes", {})]
+    assert len(stage_events) == 2
+    for event in stage_events:
+        day = 1 if event.data["changes"]["lifecycle_stage"]["new"] == "two" else 2
+        await db.execute(
+            update(Event)
+            .where(Event.id == event.id)
+            .values(created_at=datetime(2025, 1, day, tzinfo=UTC))
+        )
+    card.approval_status = "APPROVED"
+    await db.flush()
+
+    with pytest.raises(HTTPException) as exc:
+        await execute_rollback(db, batch, actor.id)
+    assert exc.value.status_code == 409
+    assert exc.value.detail["error"] == "rollback_conflict"
+    assert card.lifecycle_stage == "three"
+    assert card.approval_status == "APPROVED"
+
+    card.approval_status = "BROKEN"
+    await db.flush()
+    await execute_rollback(db, batch, actor.id)
+    assert card.lifecycle_stage == "one"
+    assert card.approval_status == "APPROVED"

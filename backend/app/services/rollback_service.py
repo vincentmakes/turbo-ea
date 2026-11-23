@@ -1026,6 +1026,7 @@ async def _check_stage_rollback_conflicts(
     # Unbatched card edits do not appear in batch conflict detection. Check the
     # last stage written by this batch against the freshly locked card too.
     latest_stages = {}
+    latest_approvals = {}
     stage_times = set()
     for event in events:
         if event.event_type != "card.updated":
@@ -1046,6 +1047,11 @@ async def _check_stage_rollback_conflicts(
                 },
             )
         stage_times.add(event_key)
+        approval_change = (data.get("changes") or {}).get("approval_status")
+        if isinstance(approval_change, dict) and "new" in approval_change:
+            previous_approval = latest_approvals.get(card_id)
+            if previous_approval is None or event.created_at > previous_approval[0]:
+                latest_approvals[card_id] = (event.created_at, approval_change["new"])
         if "new" not in stage_change:
             continue
         previous = latest_stages.get(card_id)
@@ -1053,14 +1059,19 @@ async def _check_stage_rollback_conflicts(
             latest_stages[card_id] = (event.created_at, stage_change["new"])
     if force:
         return
-    for card_id, (_, stage) in latest_stages.items():
+    for card_id in latest_stages.keys() | latest_approvals.keys():
         card = await _get_card(db, card_id)
-        if card is not None and card.lifecycle_stage != stage:
+        if card is not None and (
+            (card_id in latest_stages and card.lifecycle_stage != latest_stages[card_id][1])
+            or (
+                card_id in latest_approvals and card.approval_status != latest_approvals[card_id][1]
+            )
+        ):
             raise HTTPException(
                 409,
                 detail={
                     "error": "rollback_conflict",
-                    "message": "Lifecycle stage changed since the batch",
+                    "message": "Lifecycle stage or approval changed since the batch",
                     "conflicting_batches": [],
                 },
             )

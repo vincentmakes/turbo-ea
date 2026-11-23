@@ -342,7 +342,8 @@ async def list_cards(
             '`{"type": <card type>, "where"?: {...}, "related"?: [{"relation": '
             '<relation type, `__out` / `__in` on a self-referencing one>, "type": '
             '<card type>, "where"?: {...}, "negate"?: bool, "related"?: [...]}]}`, '
-            "where `where` takes `lifecycle_phase`, `subtype`, `approval_status`, "
+            "where `where` takes `lifecycle_phase`, `lifecycle_stage` (including `__empty__` "
+            "for no current stage), `subtype`, `approval_status`, "
             "`data_quality_band`, `eol_status` (`eol`, `approaching`, `supported`, "
             "`unknown`, `__empty__` for no EOL data; computed from endoflife.date or a "
             "custom EOL product, on a card type that tracks End of Life, and needs "
@@ -3435,9 +3436,9 @@ async def update_approval_status(
     action_label = {"approve": "approved", "reject": "rejected", "reset": "reset"}
     subscriber_ids = (
         await db.scalars(
-            select(Stakeholder.user_id).where(
-                Stakeholder.card_id == card.id, Stakeholder.user_id != user.id
-            )
+            select(Stakeholder.user_id)
+            .where(Stakeholder.card_id == card.id, Stakeholder.user_id != user.id)
+            .distinct()
         )
     ).all()
     recipients = [

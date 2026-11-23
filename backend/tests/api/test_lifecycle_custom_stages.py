@@ -278,6 +278,7 @@ async def test_approval_delivers_notification_after_commit(client, db, stages_en
     admin, viewer = stages_env
     card = await create_card(db, card_type="Application", name="Approval", user_id=admin.id)
     db.add(Stakeholder(card_id=card.id, user_id=viewer.id, role="responsible"))
+    db.add(Stakeholder(card_id=card.id, user_id=viewer.id, role="observer"))
     db.add(Stakeholder(card_id=card.id, user_id=admin.id, role="responsible"))
     await db.flush()
     transaction_open_at_delivery = []
@@ -382,3 +383,10 @@ async def test_approval_with_no_recipients_does_not_dispatch(client, db, stages_
     )
     assert response.status_code == 200
     deliver.assert_not_awaited()
+
+
+def test_structured_query_openapi_describes_stage_and_empty_sentinel(app):
+    parameters = app.openapi()["paths"]["/api/v1/cards"]["get"]["parameters"]
+    query = next(item for item in parameters if item["name"] == "query")
+    assert "lifecycle_stage" in query["description"]
+    assert "__empty__" in query["description"]
