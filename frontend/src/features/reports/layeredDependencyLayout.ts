@@ -255,13 +255,18 @@ export function filterHiddenRelationTypes(
   const keptEdges = edges.filter((e) => e.type === HIERARCHY_EDGE_TYPE || !hidden.has(e.type));
   if (keptEdges.length === edges.length) return { nodes, edges };
 
+  // Only ids that are cards on this view can be dropped: a line whose endpoint
+  // is not among `nodes` must not make `nodes` look changed (a fresh array with
+  // the same cards would rebuild every layout memo for nothing).
+  const nodeIds = new Set(nodes.map((n) => n.id));
   const dropped = new Set<string>();
-  if (centerId !== undefined && nodes.some((n) => n.id === centerId)) {
-    const after = reachableFrom(centerId, keptEdges);
-    for (const id of reachableFrom(centerId, edges)) if (!after.has(id)) dropped.add(id);
+  const dropIfGone = (before: Iterable<string>, after: Set<string>) => {
+    for (const id of before) if (!after.has(id) && nodeIds.has(id)) dropped.add(id);
+  };
+  if (centerId !== undefined && nodeIds.has(centerId)) {
+    dropIfGone(reachableFrom(centerId, edges), reachableFrom(centerId, keptEdges));
   } else {
-    const after = endpointsOf(keptEdges);
-    for (const id of endpointsOf(edges)) if (!after.has(id)) dropped.add(id);
+    dropIfGone(endpointsOf(edges), endpointsOf(keptEdges));
   }
 
   if (dropped.size === 0) return { nodes, edges: keptEdges };
@@ -312,7 +317,7 @@ export interface LdvEdgeData {
   /** Relation type key this line stands for. Each line is exactly one relation
    *  type (several may connect the same card pair), so anything derived from the
    *  view — notably "Create diagram" — can stamp the real type instead of
-   *  guessing one per card pair. `"hierarchy"` marks a synthetic parent/child line. */
+   *  guessing one per card pair. `HIERARCHY_EDGE_TYPE` marks a synthetic parent/child line. */
   relType?: string;
   relLabel: string;
   /**

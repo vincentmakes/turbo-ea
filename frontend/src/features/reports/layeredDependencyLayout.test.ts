@@ -1444,6 +1444,18 @@ describe("filterHiddenRelationTypes", () => {
     expect(types(r)).toEqual(["c-uses-a"]);
   });
 
+  it("keeps the nodes array itself when a hidden line ends at a card not on the view", () => {
+    // "ghost" is not among the nodes; losing its line must not look like a change.
+    const nodes = [n("c"), n("a")];
+    const edges = [e("c", "a", "Y"), e("c", "ghost", "X")];
+    const r = filterHiddenRelationTypes(nodes, edges, new Set(["X"]), "c");
+    expect(r.nodes).toBe(nodes);
+    expect(types(r)).toEqual(["c-Y-a"]);
+    const noCentre = filterHiddenRelationTypes(nodes, edges, new Set(["X"]));
+    expect(noCentre.nodes).toBe(nodes);
+    expect(types(noCentre)).toEqual(["c-Y-a"]);
+  });
+
   it("keeps the nodes array itself without a centre when no card is stranded", () => {
     const nodes = [n("a"), n("b")];
     const edges = [e("a", "b", "X"), e("a", "b", "Y")];
