@@ -1345,6 +1345,16 @@ describe("filterHiddenRelationTypes", () => {
     expect(types(r)).toEqual(["b-Y-c"]);
   });
 
+  it("keeps a card whose kept line is stored pointing at the centre", () => {
+    // b is reached forwards (c —X→ b) before the filter; after hiding X only
+    // b —Y→ c is left, which reaches b from the centre against its direction.
+    const nodes = [n("c"), n("b")];
+    const edges = [e("c", "b", "X"), e("b", "c", "Y")];
+    const r = filterHiddenRelationTypes(nodes, edges, new Set(["X"]), "c");
+    expect(r.nodes).toBe(nodes);
+    expect(types(r)).toEqual(["b-Y-c"]);
+  });
+
   it("removes every card reached only through the hidden type, however many hops away", () => {
     // centre —X→ B —Y→ C: hiding X strands both B and C, though B—C survives on its own.
     const nodes = [n("c"), n("b"), n("cc")];

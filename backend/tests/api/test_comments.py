@@ -6,6 +6,7 @@ These tests require a PostgreSQL test database and an HTTP test client.
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import select
@@ -822,3 +823,173 @@ class TestCanDelete:
         )
         assert resp.status_code == 200
         assert resp.json()["can"] == {"delete": True}
+
+
+class TestEraseLeavesOtherKindsAlone:
+    async def test_other_notification_and_event_kinds_keep_their_rows(self, client, db, manage_env):
+        """The erase reaches only ``comment_added`` notifications and the
+        ``comment.created`` events: on the same card, a notification of
+        another type and an event of another type stay as they were, even
+        when their data names the deleted comment and the event carries a
+        ``content`` key."""
+        card = manage_env["card"]
+        comment = await _add_comment(db, card, manage_env["member"], "Words")
+        other_notification = Notification(
+            user_id=manage_env["observer"].id,
+            type="card_updated",
+            title="Card updated",
+            message="Words",
+            card_id=card.id,
+            data={"comment_id": str(comment.id)},
+        )
+        other_event = Event(
+            card_id=card.id,
+            event_type="card.updated",
+            data={"id": str(comment.id), "content": "Words"},
+        )
+        db.add_all([other_notification, other_event])
+        await db.flush()
+        notification_id, event_id = other_notification.id, other_event.id
+
+        resp = await client.delete(
+            f"/api/v1/comments/{comment.id}", headers=auth_headers(manage_env["admin"])
+        )
+        assert resp.status_code == 204
+
+        notification = (
+            await db.execute(
+                select(Notification)
+                .where(Notification.id == notification_id)
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one_or_none()
+        assert notification is not None
+        assert notification.type == "card_updated"
+        assert notification.message == "Words"
+        assert notification.data == {"comment_id": str(comment.id)}
+        event = (
+            await db.execute(
+                select(Event).where(Event.id == event_id).execution_options(populate_existing=True)
+            )
+        ).scalar_one_or_none()
+        assert event is not None
+        assert event.event_type == "card.updated"
+        assert event.data == {"id": str(comment.id), "content": "Words"}
+
+
+class TestNotFoundAndForbiddenBodies:
+    """Every refusal of an edit or a delete names itself: 404 ``Comment not
+    found`` for an unknown, malformed or hidden comment alike, 403 ``Not enough
+    permissions`` for a readable comment the caller may not touch."""
+
+    @staticmethod
+    async def _send(client, method: str, comment_id: str, user):
+        if method == "patch":
+            return await client.patch(
+                f"/api/v1/comments/{comment_id}",
+                json={"content": "Changed"},
+                headers=auth_headers(user),
+            )
+        return await client.delete(f"/api/v1/comments/{comment_id}", headers=auth_headers(user))
+
+    @pytest.mark.parametrize("method", ["patch", "delete"])
+    @pytest.mark.parametrize("which", ["unknown", "malformed", "hidden"])
+    async def test_404_says_comment_not_found(self, client, db, manage_env, method, which):
+        member = manage_env["member"]
+        if which == "unknown":
+            comment_id = str(uuid.uuid4())
+        elif which == "malformed":
+            comment_id = "not-a-uuid"
+        else:
+            comment = await _add_comment(db, manage_env["card"], member, "Hidden")
+            await _hide_type_from(db, "Application", "member")
+            comment_id = str(comment.id)
+
+        resp = await self._send(client, method, comment_id, member)
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "Comment not found"
+
+    @pytest.mark.parametrize("method", ["patch", "delete"])
+    async def test_403_says_not_enough_permissions(self, client, db, manage_env, method):
+        theirs = await _add_comment(db, manage_env["card"], manage_env["other"], "Theirs")
+        resp = await self._send(client, method, str(theirs.id), manage_env["member"])
+        assert resp.status_code == 403
+        assert resp.json()["detail"] == "Not enough permissions"
+        stored = await db.execute(select(Comment.content).where(Comment.id == theirs.id))
+        assert stored.scalar_one() == "Theirs"
+
+
+class TestManagePermissionKey:
+    """``comments.manage`` on the app role, alone, is what lets a user edit
+    or delete someone else's comment: no wildcard, no stakeholder role."""
+
+    @pytest.mark.parametrize("manage", [True, False])
+    async def test_app_role_manage_decides(self, client, db, manage_env, manage):
+        role_key = "comment_moderator" if manage else "comment_writer"
+        permissions = {"comments.view": True, "comments.create": True}
+        if manage:
+            permissions["comments.manage"] = True
+        await create_role(db, key=role_key, label=role_key, permissions=permissions)
+        user = await create_user(db, email=f"{role_key}@test.com", role=role_key)
+        card = manage_env["card"]
+        theirs = await _add_comment(db, card, manage_env["member"], "By member")
+
+        listed = await client.get(f"/api/v1/cards/{card.id}/comments", headers=auth_headers(user))
+        assert listed.status_code == 200
+        assert [(c["id"], c["can"]) for c in listed.json()] == [
+            (str(theirs.id), {"delete": manage})
+        ]
+
+        resp = await client.delete(f"/api/v1/comments/{theirs.id}", headers=auth_headers(user))
+        if manage:
+            assert resp.status_code == 204
+            assert await _existing_ids(db, [theirs.id]) == set()
+        else:
+            assert resp.status_code == 403
+            assert resp.json()["detail"] == "Not enough permissions"
+            assert await _existing_ids(db, [theirs.id]) == {theirs.id}
+
+
+class TestPostedOrderTieBreak:
+    """Comments posted at the same instant are ordered by id: replies oldest
+    first (ascending id), threads newest first (descending id). The rows are
+    inserted against that order so the database's own order cannot pass."""
+
+    async def test_same_timestamp_orders_by_id(self, client, db, manage_env):
+        card = manage_env["card"]
+        author = manage_env["member"]
+        at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+        low_root = uuid.UUID("10000000-0000-0000-0000-000000000000")
+        high_root = uuid.UUID("e0000000-0000-0000-0000-000000000000")
+        low_reply = uuid.UUID("20000000-0000-0000-0000-000000000000")
+        high_reply = uuid.UUID("f0000000-0000-0000-0000-000000000000")
+        # Roots: low first, so insertion order is the reverse of the listing.
+        # Replies (under the high root): high first, the reverse again.
+        for cid, parent in [
+            (low_root, None),
+            (high_root, None),
+            (high_reply, high_root),
+            (low_reply, high_root),
+        ]:
+            db.add(
+                Comment(
+                    id=cid,
+                    card_id=card.id,
+                    user_id=author.id,
+                    content=str(cid),
+                    parent_id=parent,
+                    created_at=at,
+                )
+            )
+            await db.flush()
+        url = f"/api/v1/cards/{card.id}/comments"
+        headers = auth_headers(manage_env["admin"])
+        # Loaded afresh by the request, as in production.
+        db.expire_all()
+
+        resp = await client.get(url, headers=headers)
+        assert resp.status_code == 200
+        body = resp.json()
+        assert [c["id"] for c in body] == [str(high_root), str(low_root)]
+        assert {c["created_at"] for c in body} == {at.isoformat()}
+        assert [r["id"] for r in body[0]["replies"]] == [str(low_reply), str(high_reply)]
