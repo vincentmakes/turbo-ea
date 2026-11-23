@@ -1245,3 +1245,26 @@ async def test_stage_rollback_allows_approved_card_when_final_stage_is_unchanged
     await execute_rollback(db, batch, actor.id, events=[], operations=operations, force=True)
     assert card.lifecycle_stage is None
     assert card.approval_status == "APPROVED"
+
+
+@pytest.mark.parametrize("force", [False, True])
+@pytest.mark.parametrize("field", ["description", "attr_legacy"])
+async def test_stage_rollback_rejects_approval_breaking_content_on_approved_card(
+    db, actor, force, field
+):
+    card = await create_card(db, name="Approved content", attributes={"legacy": "current"})
+    card.description = "current"
+    card.approval_status = "APPROVED"
+    await db.flush()
+    batch = await _open_batch(db, actor)
+    operations = [
+        {"op": "restore_card_fields", "card_id": str(card.id), "fields": {field: "earlier"}},
+        {"op": "restore_card_fields", "card_id": str(card.id), "fields": {"lifecycle_stage": None}},
+    ]
+    with pytest.raises(HTTPException) as exc:
+        await execute_rollback(db, batch, actor.id, events=[], operations=operations, force=force)
+    assert exc.value.status_code == 409
+    assert card.lifecycle_stage is None
+    assert card.description == "current"
+    assert card.attributes == {"legacy": "current"}
+    assert card.approval_status == "APPROVED"

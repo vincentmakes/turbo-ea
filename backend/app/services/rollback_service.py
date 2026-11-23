@@ -1150,18 +1150,31 @@ async def execute_rollback(
         and op.get("card_id")
         and "lifecycle_stage" in (op.get("fields") or {})
     }
+    from app.services.card_approval import STATUS_BREAKING_FIELDS
+
+    content_cards = {
+        str(op["card_id"])
+        for op in ops
+        if op.get("op") == "restore_card_fields"
+        and op.get("card_id")
+        and any(
+            (key != "lifecycle_stage" and key in STATUS_BREAKING_FIELDS)
+            or key.startswith(_LEGACY_ATTR_PREFIX)
+            for key in (op.get("fields") or {})
+        )
+    }
     for card_id, stage in final_stages.items():
         card = await _get_card(db, card_id)
         if (
             card is not None
             and card.approval_status == "APPROVED"
-            and card.lifecycle_stage != stage
+            and (card.lifecycle_stage != stage or card_id in content_cards)
         ):
             raise HTTPException(
                 409,
                 detail={
                     "error": "rollback_conflict",
-                    "message": "An approved card cannot be restored to a different lifecycle stage",
+                    "message": "An approved card cannot be restored to different stage or content",
                     "conflicting_batches": [],
                 },
             )
