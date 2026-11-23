@@ -253,6 +253,26 @@ describe("useCardTabActivity", () => {
     expect(result.current.hasUpdates("comments")).toBe(false);
   });
 
+  it("buckets a deleted comment into the Comments tab", async () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        [CARD_A]: { __first: isoMinus(500) },
+        __lru: [CARD_A],
+      }),
+    );
+    vi.mocked(api.get).mockResolvedValueOnce([
+      { id: "1", event_type: "comment.deleted", created_at: isoMinus(10), user_id: USER_OTHER },
+    ]);
+
+    const { result } = renderHook(() => useCardTabActivity(CARD_A, USER_ME));
+
+    await waitFor(() => {
+      expect(result.current.hasUpdates("comments")).toBe(true);
+    });
+    expect(result.current.hasUpdates("card")).toBe(false);
+  });
+
   it("evicts oldest cards from the LRU when capacity is exceeded", async () => {
     vi.mocked(api.get).mockResolvedValue([]);
 

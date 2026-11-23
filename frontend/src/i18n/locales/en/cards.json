@@ -230,6 +230,8 @@
   "comments.post": "Post",
   "comments.empty": "No comments yet.",
   "comments.confirmDelete": "Delete this comment? This cannot be undone.",
+  "comments.confirmDeleteWithReplies_one": "Delete this comment and its {{count}} reply? This cannot be undone.",
+  "comments.confirmDeleteWithReplies_other": "Delete this comment and its {{count}} replies? This cannot be undone.",
   "comments.deleteFailed": "The comment could not be deleted. Try again.",
   "todos.add": "Add Todo",
   "todos.empty": "No todos yet.",

@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -28,8 +28,8 @@ async def list_comments(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    card_uuid = _parse_card_id(card_id)
     await PermissionService.require_permission(db, user, "comments.view")
-    card_uuid = uuid.UUID(card_id)
     await require_card_readable(db, user, card_uuid, mode="module")
     result = await db.execute(
         select(Comment)
@@ -38,6 +38,33 @@ async def list_comments(
     )
     can_manage = await _can_manage(db, user, card_uuid)
     return [_comment_to_dict(c, user, can_manage) for c in result.scalars().all()]
+
+
+def _parse_card_id(card_id: str) -> uuid.UUID:
+    """A malformed id names no card: 404, like an unknown one."""
+    try:
+        return uuid.UUID(card_id)
+    except ValueError as exc:
+        raise HTTPException(404, "Card not found") from exc
+
+
+async def _reply_parent_id(
+    db: AsyncSession, card_id: uuid.UUID, parent_id: str | None
+) -> uuid.UUID | None:
+    """The parent a new reply hangs off, which must be a comment on the same
+    card. A malformed or unknown id and a comment on another card all answer
+    the same 404, so the answer says nothing about comments on a card the
+    caller did not name."""
+    if not parent_id:
+        return None
+    try:
+        parent_uuid = uuid.UUID(parent_id)
+    except ValueError as exc:
+        raise HTTPException(404, "Parent comment not found") from exc
+    parent = await db.get(Comment, parent_uuid)
+    if parent is None or parent.card_id != card_id:
+        raise HTTPException(404, "Parent comment not found")
+    return parent_uuid
 
 
 async def _can_manage(db: AsyncSession, user: User, card_id: uuid.UUID) -> bool:
@@ -73,7 +100,10 @@ async def create_comment(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    card_uuid = uuid.UUID(card_id)
+    card_uuid = _parse_card_id(card_id)
+    # Readability first: a hidden card is 404 (a View deny also takes away
+    # ``comments.create``, which would otherwise answer 403 and confirm it).
+    await require_card_readable(db, user, card_uuid, mode="module")
     if not await PermissionService.check_permission(
         db, user, "comments.create", card_uuid, "card.create_comments"
     ):
@@ -82,7 +112,7 @@ async def create_comment(
         card_id=card_uuid,
         user_id=user.id,
         content=body.content,
-        parent_id=uuid.UUID(body.parent_id) if body.parent_id else None,
+        parent_id=await _reply_parent_id(db, card_uuid, body.parent_id),
     )
     db.add(comment)
     await db.flush()
@@ -90,17 +120,17 @@ async def create_comment(
         "comment.created",
         {"id": str(comment.id), "content": comment.content[:100]},
         db=db,
-        card_id=uuid.UUID(card_id),
+        card_id=card_uuid,
         user_id=user.id,
     )
 
     # Notify subscribers of the card
-    card_result = await db.execute(select(Card).where(Card.id == uuid.UUID(card_id)))
+    card_result = await db.execute(select(Card).where(Card.id == card_uuid))
     card = card_result.scalar_one_or_none()
     card_name = card.name if card else "Unknown"
     await notification_service.create_notifications_for_subscribers(
         db,
-        card_id=uuid.UUID(card_id),
+        card_id=card_uuid,
         notif_type="comment_added",
         title="New Comment",
         message=f'{user.display_name} commented on "{card_name}": {comment.content[:80]}',
@@ -111,7 +141,8 @@ async def create_comment(
 
     await db.commit()
     await db.refresh(comment)
-    return _comment_to_dict(comment, user, await _can_manage(db, user, card_uuid))
+    # The author may always delete what they just posted: no permission query.
+    return _comment_to_dict(comment, user, True)
 
 
 def _parse_comment_id(comment_id: str) -> uuid.UUID:
@@ -142,38 +173,51 @@ async def _load_comment_for_write(db: AsyncSession, user: User, comment_id: str)
     return comment
 
 
-async def _thread_ids(db: AsyncSession, comment_id: uuid.UUID) -> list[uuid.UUID]:
-    """The comment's id followed by every reply's under it, at any depth.
+async def _thread(db: AsyncSession, comment: Comment) -> tuple[list[uuid.UUID], set[uuid.UUID]]:
+    """The ids of the comment and every reply under it, at any depth, and the
+    cards they sit on.
 
     Queried level by level rather than walked through ``Comment.replies``,
-    which is only eager-loaded ``join_depth`` levels down.
+    which is only eager-loaded ``join_depth`` levels down. A reply sits on its
+    parent's card, but older data may hold a reply on another card, so the
+    card ids are collected rather than assumed.
     """
-    ids = [comment_id]
-    frontier = [comment_id]
+    ids = [comment.id]
+    card_ids = {comment.card_id}
+    frontier = [comment.id]
     while frontier:
-        result = await db.execute(select(Comment.id).where(Comment.parent_id.in_(frontier)))
-        frontier = [i for i in result.scalars().all() if i not in ids]
+        result = await db.execute(
+            select(Comment.id, Comment.card_id).where(Comment.parent_id.in_(frontier))
+        )
+        frontier = []
+        for reply_id, reply_card_id in result.all():
+            if reply_id not in ids:
+                frontier.append(reply_id)
+                card_ids.add(reply_card_id)
         ids.extend(frontier)
-    return ids
+    return ids, card_ids
 
 
-async def _erase_comment_copies(db: AsyncSession, comment_ids: list[uuid.UUID]) -> None:
+async def _erase_comment_copies(
+    db: AsyncSession, comment_ids: list[uuid.UUID], card_ids: set[uuid.UUID]
+) -> None:
     """Remove every stored copy of these comments' text, in the caller's
-    transaction (never commits): the ``comment_added`` notifications, whose
-    message quotes the text, and the ``content`` of their ``comment.created``
-    events. The events themselves stay — the history keeps that a comment was
-    posted, not what it said."""
+    transaction (never commits): the in-app ``comment_added`` notifications,
+    whose message quotes the text, and the ``content`` of their
+    ``comment.created`` events. The events themselves stay — the history keeps
+    that a comment was posted, not what it said. Both lookups are scoped to the
+    comments' cards (``card_id`` is indexed on both tables)."""
     id_strings = [str(i) for i in comment_ids]
-    notifications = await db.execute(
-        select(Notification).where(
+    await db.execute(
+        delete(Notification).where(
+            Notification.card_id.in_(card_ids),
             Notification.type == "comment_added",
             Notification.data["comment_id"].astext.in_(id_strings),
         )
     )
-    for notification in notifications.scalars().all():
-        await db.delete(notification)
     events = await db.execute(
         select(Event).where(
+            Event.card_id.in_(card_ids),
             Event.event_type == "comment.created",
             Event.data["id"].astext.in_(id_strings),
         )
@@ -205,7 +249,7 @@ async def delete_comment(
 ):
     comment = await _load_comment_for_write(db, user, comment_id)
     card_id = comment.card_id
-    await _erase_comment_copies(db, await _thread_ids(db, comment.id))
+    await _erase_comment_copies(db, *await _thread(db, comment))
     # The replies go with it (``Comment.replies`` cascades the delete).
     await db.delete(comment)
     await event_bus.publish(

@@ -11,9 +11,14 @@ import Tooltip from "@mui/material/Tooltip";
 import MuiCard from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import { useTranslation } from "react-i18next";
-import { api } from "@/api/client";
+import { ApiError, api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import type { Comment as CommentType } from "@/types";
+
+/** Every reply under a comment, at any depth: deleting it deletes them all. */
+function countReplies(c: CommentType): number {
+  return (c.replies ?? []).reduce((n, r) => n + 1 + countReplies(r), 0);
+}
 
 // ── Tab: Comments ───────────────────────────────────────────────
 // Who may delete a comment is the server's answer (`can.delete`: its author,
@@ -55,8 +60,14 @@ function CommentsTab({ fsId, canCreateComments = true }: { fsId: string; canCrea
       await api.delete(`/comments/${id}`);
       setConfirmDelete(null);
       load();
-    } catch {
-      setDeleteError(t("comments.deleteFailed"));
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        // Already gone (deleted elsewhere): nothing to retry, show the list as it is.
+        setConfirmDelete(null);
+        load();
+      } else {
+        setDeleteError(t("comments.deleteFailed"));
+      }
     } finally {
       setBusy(false);
     }
@@ -103,15 +114,17 @@ function CommentsTab({ fsId, canCreateComments = true }: { fsId: string; canCrea
               </Typography>
               {c.can?.delete && (
                 <Tooltip title={t("common:actions.delete")}>
-                  <IconButton
-                    size="small"
-                    sx={{ ml: "auto" }}
-                    aria-label={t("common:actions.delete")}
-                    onClick={() => askDelete(c.id)}
-                    disabled={busy}
-                  >
-                    <MaterialSymbol icon="delete_outline" size={16} />
-                  </IconButton>
+                  {/* A disabled button fires no events: the span keeps the tooltip working. */}
+                  <Box component="span" sx={{ ml: "auto" }}>
+                    <IconButton
+                      size="small"
+                      aria-label={t("common:actions.delete")}
+                      onClick={() => askDelete(c.id)}
+                      disabled={busy}
+                    >
+                      <MaterialSymbol icon="delete_outline" size={16} />
+                    </IconButton>
+                  </Box>
                 </Tooltip>
               )}
             </Box>
@@ -122,7 +135,9 @@ function CommentsTab({ fsId, canCreateComments = true }: { fsId: string; canCrea
               <Box sx={{ mt: 0.5 }}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <Typography variant="caption" sx={{ flex: 1 }}>
-                    {t("comments.confirmDelete")}
+                    {countReplies(c) > 0
+                      ? t("comments.confirmDeleteWithReplies", { count: countReplies(c) })
+                      : t("comments.confirmDelete")}
                   </Typography>
                   <Button size="small" onClick={() => setConfirmDelete(null)} disabled={busy}>
                     {t("common:actions.cancel")}

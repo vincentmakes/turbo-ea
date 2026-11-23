@@ -4,10 +4,21 @@ import userEvent from "@testing-library/user-event";
 
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
+  // The tab tells a 404 apart from other failures with `instanceof ApiError`.
+  ApiError: class ApiError extends Error {
+    status: number;
+    detail: unknown;
+    constructor(message: string, status: number, detail: unknown) {
+      super(message);
+      this.name = "ApiError";
+      this.status = status;
+      this.detail = detail;
+    }
+  },
 }));
 vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useDateFormatModule()));
 
-import { api } from "@/api/client";
+import { ApiError, api } from "@/api/client";
 import type { Comment } from "@/types";
 import CommentsTab from "./CommentsTab";
 
@@ -141,6 +152,146 @@ describe("CommentsTab", () => {
       await screen.findByRole("alert");
       await userEvent.click(within(row).getByRole("button", { name: "Cancel" }));
       await userEvent.click(open);
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+    it("names the replies that go with the comment, counting every level", async () => {
+      vi.mocked(api.get).mockResolvedValue([
+        comment("c1", {
+          content: "Threaded",
+          can: { delete: true },
+          replies: [
+            comment("r1", { replies: [comment("r2", { replies: [] })] }),
+            comment("r3", { replies: [] }),
+          ],
+        }),
+        comment("c2", {
+          content: "One reply",
+          can: { delete: true },
+          replies: [comment("r4", { replies: [] })],
+        }),
+      ]);
+      render(<CommentsTab fsId="card-1" canCreateComments={false} />);
+      await screen.findByText("Threaded");
+      const [threaded, single] = screen.getAllByRole("button", { name: "Delete" });
+
+      await userEvent.click(threaded);
+      expect(
+        screen.getByText("Delete this comment and its 3 replies? This cannot be undone."),
+      ).toBeInTheDocument();
+
+      await userEvent.click(single);
+      expect(
+        screen.getByText("Delete this comment and its 1 reply? This cannot be undone."),
+      ).toBeInTheDocument();
+      expect(screen.queryByText("Delete this comment? This cannot be undone.")).toBeNull();
+    });
+
+    it("treats a 404 as already deleted: closes the confirmation and reloads, no error", async () => {
+      vi.mocked(api.get)
+        .mockResolvedValueOnce(deletable())
+        .mockResolvedValueOnce([comment("c2", { content: "Theirs", can: { delete: false } })]);
+      vi.mocked(api.delete).mockRejectedValue(new ApiError("Comment not found", 404, null));
+      render(<CommentsTab fsId="card-1" canCreateComments={false} />);
+      await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
+      const row = screen.getByText("Delete this comment? This cannot be undone.").parentElement as HTMLElement;
+      await userEvent.click(within(row).getByRole("button", { name: "Delete" }));
+
+      await waitFor(() => expect(screen.queryByText("Mine")).toBeNull());
+      expect(api.get).toHaveBeenCalledTimes(2);
+      expect(screen.queryByText("Delete this comment? This cannot be undone.")).toBeNull();
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    it("shows the error for a failure that is not a 404", async () => {
+      vi.mocked(api.get).mockResolvedValue(deletable());
+      vi.mocked(api.delete).mockRejectedValue(new ApiError("Forbidden", 403, null));
+      render(<CommentsTab fsId="card-1" canCreateComments={false} />);
+      await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
+      const row = screen.getByText("Delete this comment? This cannot be undone.").parentElement as HTMLElement;
+      await userEvent.click(within(row).getByRole("button", { name: "Delete" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "The comment could not be deleted. Try again.",
+      );
+      expect(api.get).toHaveBeenCalledTimes(1);
+    });
+
+    it("disables every delete control while the delete is in flight", async () => {
+      vi.mocked(api.get).mockResolvedValue(deletable());
+      let settle!: () => void;
+      vi.mocked(api.delete).mockReturnValue(
+        new Promise<undefined>((resolve) => {
+          settle = () => resolve(undefined);
+        }),
+      );
+      render(<CommentsTab fsId="card-1" canCreateComments={false} />);
+      const open = await screen.findByRole("button", { name: "Delete" });
+      await userEvent.click(open);
+      const row = screen.getByText("Delete this comment? This cannot be undone.").parentElement as HTMLElement;
+      const cancel = within(row).getByRole("button", { name: "Cancel" });
+      const confirm = within(row).getByRole("button", { name: "Delete" });
+      await userEvent.click(confirm);
+
+      expect(open).toBeDisabled();
+      expect(cancel).toBeDisabled();
+      expect(confirm).toBeDisabled();
+
+      settle();
+      await waitFor(() => expect(open).toBeEnabled());
+    });
+
+    it("re-enables the controls when the delete fails", async () => {
+      vi.mocked(api.get).mockResolvedValue(deletable());
+      let fail!: () => void;
+      vi.mocked(api.delete).mockReturnValue(
+        new Promise<undefined>((_resolve, reject) => {
+          fail = () => reject(new Error("boom"));
+        }),
+      );
+      render(<CommentsTab fsId="card-1" canCreateComments={false} />);
+      const open = await screen.findByRole("button", { name: "Delete" });
+      await userEvent.click(open);
+      const row = screen.getByText("Delete this comment? This cannot be undone.").parentElement as HTMLElement;
+      const cancel = within(row).getByRole("button", { name: "Cancel" });
+      const confirm = within(row).getByRole("button", { name: "Delete" });
+      await userEvent.click(confirm);
+      expect(confirm).toBeDisabled();
+
+      fail();
+      await screen.findByRole("alert");
+      expect(open).toBeEnabled();
+      expect(cancel).toBeEnabled();
+      expect(confirm).toBeEnabled();
+    });
+
+    it("clears the error when a retry succeeds, and reloads", async () => {
+      vi.mocked(api.get)
+        .mockResolvedValueOnce(deletable())
+        .mockResolvedValueOnce([comment("c2", { content: "Theirs", can: { delete: false } })]);
+      let settle!: () => void;
+      vi.mocked(api.delete)
+        .mockRejectedValueOnce(new Error("boom"))
+        .mockReturnValueOnce(
+          new Promise<undefined>((resolve) => {
+            settle = () => resolve(undefined);
+          }),
+        );
+      render(<CommentsTab fsId="card-1" canCreateComments={false} />);
+      await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
+      const row = screen.getByText("Delete this comment? This cannot be undone.").parentElement as HTMLElement;
+      const confirm = within(row).getByRole("button", { name: "Delete" });
+      await userEvent.click(confirm);
+      await screen.findByRole("alert");
+
+      await userEvent.click(confirm);
+      // The retry is still in flight and the row still open: the old error is gone.
+      expect(screen.getByText("Delete this comment? This cannot be undone.")).toBeInTheDocument();
+      expect(screen.queryByRole("alert")).toBeNull();
+
+      settle();
+      await waitFor(() => expect(screen.queryByText("Mine")).toBeNull());
+      expect(api.delete).toHaveBeenCalledTimes(2);
+      expect(api.get).toHaveBeenCalledTimes(2);
       expect(screen.queryByRole("alert")).toBeNull();
     });
   });

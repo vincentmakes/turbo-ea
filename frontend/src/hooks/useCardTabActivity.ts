@@ -14,6 +14,7 @@ const FIRST_VISIT_KEY = "__first";
 // Keys are card tabs (`cardTabs.ts`), so a tab renamed there fails to compile here.
 const EVENT_TAB_MAP: Record<string, CardTabKey> = {
   "comment.created": "comments",
+  "comment.deleted": "comments",
   "stakeholder.added": "stakeholders",
   "stakeholder.role_changed": "stakeholders",
   "stakeholder.removed": "stakeholders",
