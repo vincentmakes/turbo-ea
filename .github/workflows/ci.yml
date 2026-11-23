@@ -20,6 +20,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+      actions: read # scripts/ci/verdicts.py lists this PR's verdict caches
     # A change to any workflow file re-runs every suite, so CI config changes
     # are validated by the jobs they configure rather than landing untested.
     # Compare with `== 'true'` explicitly: paths-filter emits the *string*
@@ -38,8 +39,41 @@ jobs:
       deploy: ${{ steps.filter.outputs.deploy == 'true' || steps.filter.outputs.ci == 'true' }}
       terraform: ${{ steps.filter.outputs.terraform == 'true' || steps.filter.outputs.ci == 'true' }}
       e2e: ${{ steps.filter.outputs.e2e == 'true' || steps.filter.outputs.ci == 'true' }}
+      # The verdict cache (scripts/ci/verdicts.py, step `verdicts` below): per
+      # job group, `done_<group>` is the string 'true' when an earlier run of
+      # THIS pull request passed that group on byte-identical inputs, and
+      # `key_<group>` is the marker key its last step saves on success. Jobs
+      # compare with `!= 'true'`, so a missing or failed lookup runs them.
+      done_backend_lint: ${{ github.event_name == 'pull_request' && steps.verdicts.outputs.done_backend_lint == 'true' }}
+      key_backend_lint: ${{ steps.verdicts.outputs.key_backend_lint }}
+      done_backend_typecheck: ${{ github.event_name == 'pull_request' && steps.verdicts.outputs.done_backend_typecheck == 'true' }}
+      key_backend_typecheck: ${{ steps.verdicts.outputs.key_backend_typecheck }}
+      done_migration_rollback: ${{ github.event_name == 'pull_request' && steps.verdicts.outputs.done_migration_rollback == 'true' }}
+      key_migration_rollback: ${{ steps.verdicts.outputs.key_migration_rollback }}
+      done_backend_unit: ${{ github.event_name == 'pull_request' && steps.verdicts.outputs.done_backend_unit == 'true' }}
+      key_backend_unit: ${{ steps.verdicts.outputs.key_backend_unit }}
+      done_backend_integration: ${{ github.event_name == 'pull_request' && steps.verdicts.outputs.done_backend_integration == 'true' }}
+      key_backend_integration: ${{ steps.verdicts.outputs.key_backend_integration }}
+      done_backend_mutation: ${{ github.event_name == 'pull_request' && steps.verdicts.outputs.done_backend_mutation == 'true' }}
+      key_backend_mutation: ${{ steps.verdicts.outputs.key_backend_mutation }}
+      done_frontend_lint: ${{ github.event_name == 'pull_request' && steps.verdicts.outputs.done_frontend_lint == 'true' }}
+      key_frontend_lint: ${{ steps.verdicts.outputs.key_frontend_lint }}
+      done_frontend_build: ${{ github.event_name == 'pull_request' && steps.verdicts.outputs.done_frontend_build == 'true' }}
+      key_frontend_build: ${{ steps.verdicts.outputs.key_frontend_build }}
+      done_frontend_tests: ${{ github.event_name == 'pull_request' && steps.verdicts.outputs.done_frontend_tests == 'true' }}
+      key_frontend_tests: ${{ steps.verdicts.outputs.key_frontend_tests }}
+      done_frontend_mutation: ${{ github.event_name == 'pull_request' && steps.verdicts.outputs.done_frontend_mutation == 'true' }}
+      key_frontend_mutation: ${{ steps.verdicts.outputs.key_frontend_mutation }}
+      done_mcp_test: ${{ github.event_name == 'pull_request' && steps.verdicts.outputs.done_mcp_test == 'true' }}
+      key_mcp_test: ${{ steps.verdicts.outputs.key_mcp_test }}
+      done_mcp_mutation: ${{ github.event_name == 'pull_request' && steps.verdicts.outputs.done_mcp_mutation == 'true' }}
+      key_mcp_mutation: ${{ steps.verdicts.outputs.key_mcp_mutation }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The PR merge commit and both its parents: the verdict fingerprint
+          # hashes the base side (HEAD^1) as well as the merge (HEAD).
+          fetch-depth: 2
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
@@ -122,12 +156,28 @@ jobs:
               - 'Dockerfile'
             ci:
               - '.github/workflows/**'
+              # The verdict cache decides which jobs are skipped.
+              - 'scripts/ci/**'
+      # Skip what already passed: a later push to a pull request re-runs only
+      # the job groups whose inputs changed since a run in which they passed.
+      # Markers are Actions caches scoped to this PR's merge ref; the script
+      # reads them through the API, never a cache from another PR or branch.
+      # It never fails the job: any error is a warning and every job runs.
+      # The job summary names every skipped job and the run that passed it.
+      - name: Look up the verdicts this pull request already earned
+        id: verdicts
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: python3 scripts/ci/verdicts.py --pr "$PR_NUMBER" --repo "$GITHUB_REPOSITORY"
 
   # ── Backend ───────────────────────────────────────────────────────────
   backend-lint:
     name: Backend Lint
     needs: changes
-    if: needs.changes.outputs.backend == 'true'
+    if: needs.changes.outputs.backend == 'true' && needs.changes.outputs.done_backend_lint != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -142,6 +192,18 @@ jobs:
       - run: vulture
         working-directory: backend
       - run: ruff format --check backend/
+      # Last steps, reached only when every step above passed: tell later
+      # pushes of this pull request that the `backend-lint` group passed on
+      # these exact inputs, so they skip it (scripts/ci/verdicts.py).
+      - name: Record the verdict for later pushes
+        if: github.event_name == 'pull_request' && needs.changes.outputs.key_backend_lint != ''
+        run: mkdir -p .verdict && echo "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" > .verdict/passed
+      - name: Save the verdict
+        if: github.event_name == 'pull_request' && needs.changes.outputs.key_backend_lint != ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .verdict
+          key: ${{ needs.changes.outputs.key_backend_lint }}-${{ github.run_id }}-${{ github.run_attempt }}
 
   # Unit suite — pure logic, no Postgres. Fast (~2 min). Required for merge.
   # Catches typos, lint-equivalents, and most logic bugs before the slower
@@ -149,7 +211,7 @@ jobs:
   backend-test-unit:
     name: Backend Unit Tests
     needs: changes
-    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.mutation == 'true' || needs.changes.outputs.images == 'true'
+    if: (needs.changes.outputs.backend == 'true' || needs.changes.outputs.mutation == 'true' || needs.changes.outputs.images == 'true') && needs.changes.outputs.done_backend_unit != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -163,6 +225,18 @@ jobs:
       - name: Run unit tests
         run: python -m pytest tests/core/ tests/services/ -q
         working-directory: backend
+      # Last steps, reached only when every step above passed: tell later
+      # pushes of this pull request that the `backend-unit` group passed on
+      # these exact inputs, so they skip it (scripts/ci/verdicts.py).
+      - name: Record the verdict for later pushes
+        if: github.event_name == 'pull_request' && needs.changes.outputs.key_backend_unit != ''
+        run: mkdir -p .verdict && echo "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" > .verdict/passed
+      - name: Save the verdict
+        if: github.event_name == 'pull_request' && needs.changes.outputs.key_backend_unit != ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .verdict
+          key: ${{ needs.changes.outputs.key_backend_unit }}-${{ github.run_id }}-${{ github.run_attempt }}
 
   # Integration suite — exercises the full HTTP stack against a real
   # Postgres. It is the only job that runs tests/api/, i.e. most of the
@@ -184,7 +258,7 @@ jobs:
   backend-test-shards:
     name: Backend Integration Tests (shard ${{ matrix.shard }}/${{ strategy.job-total }})
     needs: changes
-    if: needs.changes.outputs.backend == 'true'
+    if: needs.changes.outputs.backend == 'true' && needs.changes.outputs.done_backend_integration != 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -259,7 +333,7 @@ jobs:
   backend-test-integration:
     name: Backend Integration Tests
     needs: [changes, backend-test-shards]
-    if: always() && needs.changes.outputs.backend == 'true'
+    if: always() && needs.changes.outputs.backend == 'true' && needs.changes.outputs.done_backend_integration != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Every shard must have passed
@@ -337,11 +411,23 @@ jobs:
           name: coverage-badge-backend
           path: coverage-badge/
           retention-days: 1
+      # Last steps, reached only when every step above passed: tell later
+      # pushes of this pull request that the `backend-integration` group passed on
+      # these exact inputs, so they skip it (scripts/ci/verdicts.py).
+      - name: Record the verdict for later pushes
+        if: github.event_name == 'pull_request' && needs.changes.outputs.key_backend_integration != ''
+        run: mkdir -p .verdict && echo "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" > .verdict/passed
+      - name: Save the verdict
+        if: github.event_name == 'pull_request' && needs.changes.outputs.key_backend_integration != ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .verdict
+          key: ${{ needs.changes.outputs.key_backend_integration }}-${{ github.run_id }}-${{ github.run_attempt }}
 
   backend-typecheck:
     name: Backend Type Check
     needs: changes
-    if: needs.changes.outputs.backend == 'true'
+    if: needs.changes.outputs.backend == 'true' && needs.changes.outputs.done_backend_typecheck != 'true'
     runs-on: ubuntu-latest
     # Informational only — does not block PRs until type errors are resolved
     continue-on-error: true
@@ -357,6 +443,18 @@ jobs:
       - name: Run mypy
         run: python -m mypy app/
         working-directory: backend
+      # Last steps, reached only when every step above passed: tell later
+      # pushes of this pull request that the `backend-typecheck` group passed on
+      # these exact inputs, so they skip it (scripts/ci/verdicts.py).
+      - name: Record the verdict for later pushes
+        if: github.event_name == 'pull_request' && needs.changes.outputs.key_backend_typecheck != ''
+        run: mkdir -p .verdict && echo "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" > .verdict/passed
+      - name: Save the verdict
+        if: github.event_name == 'pull_request' && needs.changes.outputs.key_backend_typecheck != ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .verdict
+          key: ${{ needs.changes.outputs.key_backend_typecheck }}-${{ github.run_id }}-${{ github.run_attempt }}
 
   # ── Secret scanning ──────────────────────────────────────────────────
   # Deliberately NOT path-filtered: a credential can land in any file, so
@@ -455,7 +553,7 @@ jobs:
   migration-rollback:
     name: Migration Rollback Test
     needs: changes
-    if: needs.changes.outputs.backend == 'true'
+    if: needs.changes.outputs.backend == 'true' && needs.changes.outputs.done_migration_rollback != 'true'
     runs-on: ubuntu-latest
     continue-on-error: true
     services:
@@ -513,12 +611,24 @@ jobs:
           POSTGRES_USER: turboea
           POSTGRES_PASSWORD: turboea
           POSTGRES_DB: turboea_migration_test
+      # Last steps, reached only when every step above passed: tell later
+      # pushes of this pull request that the `migration-rollback` group passed on
+      # these exact inputs, so they skip it (scripts/ci/verdicts.py).
+      - name: Record the verdict for later pushes
+        if: github.event_name == 'pull_request' && needs.changes.outputs.key_migration_rollback != ''
+        run: mkdir -p .verdict && echo "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" > .verdict/passed
+      - name: Save the verdict
+        if: github.event_name == 'pull_request' && needs.changes.outputs.key_migration_rollback != ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .verdict
+          key: ${{ needs.changes.outputs.key_migration_rollback }}-${{ github.run_id }}-${{ github.run_attempt }}
 
   # ── Frontend ──────────────────────────────────────────────────────────
   frontend-lint:
     name: Frontend Lint
     needs: changes
-    if: needs.changes.outputs.frontend == 'true'
+    if: needs.changes.outputs.frontend == 'true' && needs.changes.outputs.done_frontend_lint != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -533,11 +643,23 @@ jobs:
         working-directory: frontend
       - run: npm run knip
         working-directory: frontend
+      # Last steps, reached only when every step above passed: tell later
+      # pushes of this pull request that the `frontend-lint` group passed on
+      # these exact inputs, so they skip it (scripts/ci/verdicts.py).
+      - name: Record the verdict for later pushes
+        if: github.event_name == 'pull_request' && needs.changes.outputs.key_frontend_lint != ''
+        run: mkdir -p .verdict && echo "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" > .verdict/passed
+      - name: Save the verdict
+        if: github.event_name == 'pull_request' && needs.changes.outputs.key_frontend_lint != ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .verdict
+          key: ${{ needs.changes.outputs.key_frontend_lint }}-${{ github.run_id }}-${{ github.run_attempt }}
 
   frontend-build:
     name: Frontend Build
     needs: changes
-    if: needs.changes.outputs.frontend == 'true'
+    if: needs.changes.outputs.frontend == 'true' && needs.changes.outputs.done_frontend_build != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -550,6 +672,18 @@ jobs:
         working-directory: frontend
       - run: npm run build
         working-directory: frontend
+      # Last steps, reached only when every step above passed: tell later
+      # pushes of this pull request that the `frontend-build` group passed on
+      # these exact inputs, so they skip it (scripts/ci/verdicts.py).
+      - name: Record the verdict for later pushes
+        if: github.event_name == 'pull_request' && needs.changes.outputs.key_frontend_build != ''
+        run: mkdir -p .verdict && echo "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" > .verdict/passed
+      - name: Save the verdict
+        if: github.event_name == 'pull_request' && needs.changes.outputs.key_frontend_build != ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .verdict
+          key: ${{ needs.changes.outputs.key_frontend_build }}-${{ github.run_id }}-${{ github.run_attempt }}
 
   # The Vitest suite (~6,100 tests) took 9 min on one 4-core runner, so it
   # runs as three shards on three runners and the aggregate job below merges
@@ -564,7 +698,7 @@ jobs:
   frontend-test-shards:
     name: Frontend Tests (shard ${{ matrix.shard }}/${{ strategy.job-total }})
     needs: changes
-    if: needs.changes.outputs.frontend == 'true'
+    if: needs.changes.outputs.frontend == 'true' && needs.changes.outputs.done_frontend_tests != 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -613,7 +747,7 @@ jobs:
     # that cannot move the frontend figure (the `frontend` filter is wider
     # than the `e2e` one by the audit-ci config).
     needs: [changes, frontend-test-shards, frontend-e2e]
-    if: always() && needs.changes.outputs.frontend == 'true'
+    if: always() && needs.changes.outputs.frontend == 'true' && needs.changes.outputs.done_frontend_tests != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Every shard must have passed
@@ -727,6 +861,18 @@ jobs:
           name: coverage-badge-frontend
           path: coverage-badge/
           retention-days: 1
+      # Last steps, reached only when every step above passed: tell later
+      # pushes of this pull request that the `frontend-tests` group passed on
+      # these exact inputs, so they skip it (scripts/ci/verdicts.py).
+      - name: Record the verdict for later pushes
+        if: github.event_name == 'pull_request' && needs.changes.outputs.key_frontend_tests != '' && (needs.frontend-e2e.result == 'success' || needs.frontend-e2e.result == 'skipped')
+        run: mkdir -p .verdict && echo "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" > .verdict/passed
+      - name: Save the verdict
+        if: github.event_name == 'pull_request' && needs.changes.outputs.key_frontend_tests != '' && (needs.frontend-e2e.result == 'success' || needs.frontend-e2e.result == 'skipped')
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .verdict
+          key: ${{ needs.changes.outputs.key_frontend_tests }}-${{ github.run_id }}-${{ github.run_attempt }}
 
   # ── MCP Server ───────────────────────────────────────────────────────
   # The browser smoke suite: the diagram editor, the BPMN modeler, the Gantt,
@@ -747,7 +893,7 @@ jobs:
     # (the audit-ci config) skips it, and the aggregate then merges unit
     # coverage alone. It finishes minutes before the unit shards, so the
     # critical path is unchanged.
-    if: needs.changes.outputs.e2e == 'true'
+    if: needs.changes.outputs.e2e == 'true' && needs.changes.outputs.done_frontend_tests != 'true'
     # Pinned, not `ubuntu-latest`: `playwright install --with-deps` installs
     # Chromium's system libraries from a per-release apt list, and a runner
     # image Playwright does not know yet fails that step. `ubuntu-latest`
@@ -850,7 +996,7 @@ jobs:
   mcp-test:
     name: MCP Server Tests
     needs: changes
-    if: needs.changes.outputs.mcp == 'true'
+    if: needs.changes.outputs.mcp == 'true' && needs.changes.outputs.done_mcp_test != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -905,6 +1051,18 @@ jobs:
           name: coverage-badge-mcp
           path: coverage-badge/
           retention-days: 1
+      # Last steps, reached only when every step above passed: tell later
+      # pushes of this pull request that the `mcp-test` group passed on
+      # these exact inputs, so they skip it (scripts/ci/verdicts.py).
+      - name: Record the verdict for later pushes
+        if: github.event_name == 'pull_request' && needs.changes.outputs.key_mcp_test != ''
+        run: mkdir -p .verdict && echo "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" > .verdict/passed
+      - name: Save the verdict
+        if: github.event_name == 'pull_request' && needs.changes.outputs.key_mcp_test != ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .verdict
+          key: ${{ needs.changes.outputs.key_mcp_test }}-${{ github.run_id }}-${{ github.run_attempt }}
 
   # ── Coverage badges ──────────────────────────────────────────────────
   # On main, turns the totals the three test jobs hand over into shields.io
@@ -1009,6 +1167,7 @@ jobs:
     if: >-
       github.event_name == 'pull_request' &&
       (needs.changes.outputs.backend == 'true' || needs.changes.outputs.mutation == 'true')
+      && needs.changes.outputs.done_backend_mutation != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 150
     services:
@@ -1074,12 +1233,28 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+  # Records the `backend-mutation` verdict once that job passed (scripts/ci/verdicts.py).
+  # A job of its own because the mutmut jobs never save a cache: the caches
+  # they restore are the nightly's.
+  backend-mutation-verdict:
+    name: Record the backend-mutation verdict
+    needs: [changes, backend-mutation]
+    if: github.event_name == 'pull_request' && needs.backend-mutation.result == 'success' && needs.changes.outputs.key_backend_mutation != ''
+    runs-on: ubuntu-latest
+    steps:
+      - run: mkdir -p .verdict && echo "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" > .verdict/passed
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .verdict
+          key: ${{ needs.changes.outputs.key_backend_mutation }}-${{ github.run_id }}-${{ github.run_attempt }}
+
   mcp-mutation:
     name: MCP Mutation Tests
     needs: changes
     if: >-
       github.event_name == 'pull_request' &&
       (needs.changes.outputs.mcp == 'true' || needs.changes.outputs.mutation == 'true')
+      && needs.changes.outputs.done_mcp_mutation != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -1122,6 +1297,21 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+  # Records the `mcp-mutation` verdict once that job passed (scripts/ci/verdicts.py).
+  # A job of its own because the mutmut jobs never save a cache: the caches
+  # they restore are the nightly's.
+  mcp-mutation-verdict:
+    name: Record the mcp-mutation verdict
+    needs: [changes, mcp-mutation]
+    if: github.event_name == 'pull_request' && needs.mcp-mutation.result == 'success' && needs.changes.outputs.key_mcp_mutation != ''
+    runs-on: ubuntu-latest
+    steps:
+      - run: mkdir -p .verdict && echo "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" > .verdict/passed
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .verdict
+          key: ${{ needs.changes.outputs.key_mcp_mutation }}-${{ github.run_id }}-${{ github.run_attempt }}
+
   # Stryker's `--mutate` takes line ranges, so the frontend job mutates
   # exactly the changed lines rather than whole functions.
   frontend-mutation:
@@ -1130,6 +1320,7 @@ jobs:
     if: >-
       github.event_name == 'pull_request' &&
       (needs.changes.outputs.frontend == 'true' || needs.changes.outputs.mutation == 'true')
+      && needs.changes.outputs.done_frontend_mutation != 'true'
     runs-on: ubuntu-latest
     # Stryker's single-threaded dry run alone may take up to its
     # dryRunTimeoutMinutes (60, stryker.config.json) on a widely imported
@@ -1184,6 +1375,18 @@ jobs:
             frontend/reports/mutation/
           if-no-files-found: ignore
           retention-days: 14
+      # Last steps, reached only when every step above passed: tell later
+      # pushes of this pull request that the `frontend-mutation` group passed on
+      # these exact inputs, so they skip it (scripts/ci/verdicts.py).
+      - name: Record the verdict for later pushes
+        if: github.event_name == 'pull_request' && needs.changes.outputs.key_frontend_mutation != ''
+        run: mkdir -p .verdict && echo "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" > .verdict/passed
+      - name: Save the verdict
+        if: github.event_name == 'pull_request' && needs.changes.outputs.key_frontend_mutation != ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .verdict
+          key: ${{ needs.changes.outputs.key_frontend_mutation }}-${{ github.run_id }}-${{ github.run_attempt }}
 
   # ── OpenAPI Spec (auto-regenerated for the docs site) ────────────────
   # On PRs:  fails if docs/api/openapi.json has drifted from the backend.

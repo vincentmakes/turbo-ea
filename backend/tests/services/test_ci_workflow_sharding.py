@@ -45,6 +45,7 @@ CASES = [
         "",
         "Backend Integration Tests",
         "backend",
+        "backend_integration",
         4,
         [
             "--shard=${{ matrix.shard }}/${{ strategy.job-total }}",
@@ -65,6 +66,7 @@ CASES = [
         ", frontend-e2e",
         "Frontend Tests",
         "frontend",
+        "frontend_tests",
         3,
         [
             "--shard=${{ matrix.shard }}/${{ strategy.job-total }}",
@@ -86,7 +88,7 @@ CASES = [
 
 
 @pytest.mark.parametrize(
-    "aggregate_id, shards_id, extra_needs, required_name, gate, count, shard_flags, "
+    "aggregate_id, shards_id, extra_needs, required_name, gate, verdict, count, shard_flags, "
     "aggregate_commands",
     CASES,
 )
@@ -96,6 +98,7 @@ def test_the_aggregate_is_the_required_check_and_cannot_be_skipped_past_a_failed
     extra_needs,
     required_name,
     gate,
+    verdict,
     count,
     shard_flags,
     aggregate_commands,
@@ -111,10 +114,15 @@ def test_the_aggregate_is_the_required_check_and_cannot_be_skipped_past_a_failed
         in shards
     )
 
-    # Skipped reads as passing: run on always(), gate only on the changes filter,
-    # and make the very first step fail on anything but a fully green matrix.
+    # Skipped reads as passing: run on always(), gate only on the changes filter
+    # (and the verdict cache, which skips shards and aggregate together, never
+    # one without the other), and make the very first step fail on anything
+    # but a fully green matrix.
     assert f"    needs: [changes, {shards_id}{extra_needs}]\n" in aggregate
-    assert f"    if: always() && needs.changes.outputs.{gate} == 'true'\n" in aggregate
+    skip = f"needs.changes.outputs.done_{verdict} != 'true'"
+    assert f"    if: always() && needs.changes.outputs.{gate} == 'true' && {skip}\n" in aggregate
+    assert f"    if: needs.changes.outputs.{gate} == 'true' && {skip}\n" in shards
+    assert "always()" not in shards.split("    steps:\n", 1)[0]
     guard = first_step(aggregate)
     assert f"needs.{shards_id}.result" in guard and '= "success"' in guard
     # The always() summary step must not run before checkout when the guard
@@ -155,7 +163,12 @@ def test_the_frontend_aggregate_folds_in_the_browser_coverage_only_from_a_green_
     # the job gates on it alone: the wider `frontend` filter also fires for
     # the audit-ci config, which cannot move the figure and must not boot the
     # browser suite.
-    assert "    if: needs.changes.outputs.e2e == 'true'\n" in e2e
+    # ... and it is skipped by the verdict cache only together with the unit
+    # shards and the aggregate that merges its coverage.
+    assert (
+        "    if: needs.changes.outputs.e2e == 'true'"
+        " && needs.changes.outputs.done_frontend_tests != 'true'\n"
+    ) in e2e
     rest = CI.read_text().split("            e2e:\n", 1)[1]
     entries = re.match(r"((?:              .*\n)+)", rest).group(1)
     assert "- 'frontend/**'\n" in entries
