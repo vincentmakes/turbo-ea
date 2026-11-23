@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import uuid
+from collections import defaultdict
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import lazyload
 
 from app.api.deps import get_current_user
 from app.database import get_db
@@ -31,13 +33,43 @@ async def list_comments(
     card_uuid = _parse_card_id(card_id)
     await PermissionService.require_permission(db, user, "comments.view")
     await require_card_readable(db, user, card_uuid, mode="module")
-    result = await db.execute(
-        select(Comment)
-        .where(Comment.card_id == card_uuid, Comment.parent_id.is_(None))
-        .order_by(Comment.created_at.desc())
-    )
+    children = _children_by_parent(await _card_comments(db, card_uuid))
     can_manage = await _can_manage(db, user, card_uuid)
-    return [_comment_to_dict(c, user, can_manage) for c in result.scalars().all()]
+    # Newest thread first; a reply whose parent is not on this card is no thread.
+    roots = sorted(children.get(None, []), key=_posted_order, reverse=True)
+    return [_comment_to_dict(c, user, can_manage, children) for c in roots]
+
+
+async def _card_comments(db: AsyncSession, card_id: uuid.UUID) -> list[Comment]:
+    """Every comment on the card, in one flat query.
+
+    ``Comment.replies`` is eager-loaded only ``join_depth`` levels down, so the
+    nesting is built from ``parent_id`` instead (``_children_by_parent``) and
+    the relationship is not loaded here at all.
+    """
+    result = await db.execute(
+        select(Comment).where(Comment.card_id == card_id).options(lazyload(Comment.replies))
+    )
+    return list(result.scalars().all())
+
+
+def _posted_order(c: Comment) -> tuple:
+    return (c.created_at, str(c.id))
+
+
+def _children_by_parent(rows: list[Comment]) -> dict[uuid.UUID | None, list[Comment]]:
+    """The card's comments grouped by ``parent_id``, each group oldest first.
+
+    Only rows of one card go in, so a reply nests under its parent only when
+    both are on this card; a reply whose parent is elsewhere is under no key a
+    walk from the top level reaches, and is not listed.
+    """
+    children: dict[uuid.UUID | None, list[Comment]] = defaultdict(list)
+    for c in rows:
+        children[c.parent_id].append(c)
+    for siblings in children.values():
+        siblings.sort(key=_posted_order)
+    return children
 
 
 def _parse_card_id(card_id: str) -> uuid.UUID:
@@ -74,8 +106,14 @@ async def _can_manage(db: AsyncSession, user: User, card_id: uuid.UUID) -> bool:
     )
 
 
-def _comment_to_dict(c: Comment, user: User, can_manage: bool) -> dict:
-    """The comment as the caller sees it: ``can.delete`` says whether this
+def _comment_to_dict(
+    c: Comment,
+    user: User,
+    can_manage: bool,
+    children: dict[uuid.UUID | None, list[Comment]],
+) -> dict:
+    """The comment as the caller sees it, its replies nested from ``children``
+    (never from the ``replies`` relationship): ``can.delete`` says whether this
     caller may delete it (its author, or anyone who manages comments)."""
     return {
         "id": str(c.id),
@@ -89,7 +127,9 @@ def _comment_to_dict(c: Comment, user: User, can_manage: bool) -> dict:
         "created_at": c.created_at.isoformat() if c.created_at else None,
         "updated_at": c.updated_at.isoformat() if c.updated_at else None,
         "can": {"delete": can_manage or c.user_id == user.id},
-        "replies": [_comment_to_dict(r, user, can_manage) for r in (c.replies or [])],
+        "replies": [
+            _comment_to_dict(r, user, can_manage, children) for r in children.get(c.id, [])
+        ],
     }
 
 
@@ -142,7 +182,7 @@ async def create_comment(
     await db.commit()
     await db.refresh(comment)
     # The author may always delete what they just posted: no permission query.
-    return _comment_to_dict(comment, user, True)
+    return _comment_to_dict(comment, user, True, {})  # a new comment has no replies
 
 
 def _parse_comment_id(comment_id: str) -> uuid.UUID:
@@ -238,7 +278,8 @@ async def update_comment(
     comment.content = body.content
     await db.commit()
     await db.refresh(comment)
-    return _comment_to_dict(comment, user, await _can_manage(db, user, comment.card_id))
+    children = _children_by_parent(await _card_comments(db, comment.card_id))
+    return _comment_to_dict(comment, user, await _can_manage(db, user, comment.card_id), children)
 
 
 @router.delete("/comments/{comment_id}", status_code=204)

@@ -2,19 +2,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-vi.mock("@/api/client", () => ({
+vi.mock("@/api/client", async (importOriginal) => ({
+  // The real ApiError: the tab tells a 404 apart with `instanceof ApiError`,
+  // so a change to the class's shape must break this suite too.
+  ...(await importOriginal<typeof import("@/api/client")>()),
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
-  // The tab tells a 404 apart from other failures with `instanceof ApiError`.
-  ApiError: class ApiError extends Error {
-    status: number;
-    detail: unknown;
-    constructor(message: string, status: number, detail: unknown) {
-      super(message);
-      this.name = "ApiError";
-      this.status = status;
-      this.detail = detail;
-    }
-  },
 }));
 vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useDateFormatModule()));
 
@@ -88,6 +80,16 @@ describe("CommentsTab", () => {
       const mine = screen.getByText("Mine").closest(".MuiCard-root") as HTMLElement;
       expect(within(mine).getByRole("button", { name: "Delete" })).toBe(buttons[0]);
       expect(screen.queryByText("Delete this comment? This cannot be undone.")).toBeNull();
+    });
+
+    it("names the button, not its tooltip wrapper", async () => {
+      vi.mocked(api.get).mockResolvedValue(deletable());
+      render(<CommentsTab fsId="card-1" canCreateComments={false} />);
+      const button = await screen.findByRole("button", { name: "Delete" });
+      expect(button).toHaveAttribute("aria-label", "Delete");
+      const wrapper = button.parentElement as HTMLElement;
+      expect(wrapper.tagName).toBe("SPAN");
+      expect(wrapper).not.toHaveAttribute("aria-label");
     });
 
     it("asks for confirmation inline, and Cancel closes it without deleting", async () => {
@@ -187,19 +189,40 @@ describe("CommentsTab", () => {
     });
 
     it("treats a 404 as already deleted: closes the confirmation and reloads, no error", async () => {
-      vi.mocked(api.get)
-        .mockResolvedValueOnce(deletable())
-        .mockResolvedValueOnce([comment("c2", { content: "Theirs", can: { delete: false } })]);
+      // The reload still lists the comment (an older read): the confirmation
+      // must close because of the 404, not because the comment vanished.
+      vi.mocked(api.get).mockResolvedValue(deletable());
       vi.mocked(api.delete).mockRejectedValue(new ApiError("Comment not found", 404, null));
       render(<CommentsTab fsId="card-1" canCreateComments={false} />);
       await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
       const row = screen.getByText("Delete this comment? This cannot be undone.").parentElement as HTMLElement;
       await userEvent.click(within(row).getByRole("button", { name: "Delete" }));
 
-      await waitFor(() => expect(screen.queryByText("Mine")).toBeNull());
+      await waitFor(() =>
+        expect(screen.queryByText("Delete this comment? This cannot be undone.")).toBeNull(),
+      );
       expect(api.get).toHaveBeenCalledTimes(2);
-      expect(screen.queryByText("Delete this comment? This cannot be undone.")).toBeNull();
+      expect(api.get).toHaveBeenLastCalledWith("/cards/card-1/comments");
+      expect(screen.getByText("Mine")).toBeInTheDocument();
       expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    it("says the delete failed when the reload after a 404 fails too", async () => {
+      vi.mocked(api.get)
+        .mockResolvedValueOnce(deletable())
+        .mockRejectedValueOnce(new ApiError("Card not found", 404, null));
+      vi.mocked(api.delete).mockRejectedValue(new ApiError("Comment not found", 404, null));
+      render(<CommentsTab fsId="card-1" canCreateComments={false} />);
+      await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
+      const row = screen.getByText("Delete this comment? This cannot be undone.").parentElement as HTMLElement;
+      await userEvent.click(within(row).getByRole("button", { name: "Delete" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "The comment could not be deleted. Try again.",
+      );
+      expect(api.get).toHaveBeenCalledTimes(2);
+      expect(screen.getByText("Delete this comment? This cannot be undone.")).toBeInTheDocument();
+      expect(screen.getByText("Mine")).toBeInTheDocument();
     });
 
     it("shows the error for a failure that is not a 404", async () => {

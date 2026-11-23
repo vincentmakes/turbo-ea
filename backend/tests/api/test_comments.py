@@ -653,6 +653,124 @@ class TestDeleteHistoryAndCopies:
         ).scalar_one()
         assert event.data == {"id": str(stray.id)}
 
+    async def test_copies_on_another_card_are_left_alone(self, client, db, manage_env):
+        """The erase looks only on the thread's own cards: a notification or a
+        ``comment.created`` event on another card is untouched, even one whose
+        data names the deleted comment."""
+        card = manage_env["card"]
+        other_card = await create_card(db, card_type="Application", name="Other card")
+        comment = await _add_comment(db, card, manage_env["member"], "Words")
+        foreign_notification = Notification(
+            user_id=manage_env["observer"].id,
+            type="comment_added",
+            title="New Comment",
+            message="Words",
+            card_id=other_card.id,
+            data={"comment_id": str(comment.id)},
+        )
+        foreign_event = Event(
+            card_id=other_card.id,
+            event_type="comment.created",
+            data={"id": str(comment.id), "content": "Words"},
+        )
+        db.add_all([foreign_notification, foreign_event])
+        await db.flush()
+        notification_id, event_id = foreign_notification.id, foreign_event.id
+
+        resp = await client.delete(
+            f"/api/v1/comments/{comment.id}", headers=auth_headers(manage_env["admin"])
+        )
+        assert resp.status_code == 204
+
+        left = await db.execute(select(Notification.id).where(Notification.id == notification_id))
+        assert left.scalar_one() == notification_id
+        event = (
+            await db.execute(
+                select(Event).where(Event.id == event_id).execution_options(populate_existing=True)
+            )
+        ).scalar_one()
+        assert event.data == {"id": str(comment.id), "content": "Words"}
+
+
+class TestThreadWalk:
+    async def test_a_cycle_ends_the_walk(self, db, manage_env):
+        """Two comments that name each other as parent (only possible through
+        bad data): the walk lists each once and stops."""
+        from app.api.v1.comments import _thread
+
+        card = manage_env["card"]
+        a = await _add_comment(db, card, manage_env["member"], "A")
+        b = await _add_comment(db, card, manage_env["member"], "B", parent=a)
+        a.parent_id = b.id
+        await db.flush()
+
+        ids, card_ids = await _thread(db, a)
+        assert ids == [a.id, b.id]
+        assert card_ids == {card.id}
+
+
+class TestListNesting:
+    async def test_five_levels_deep_list_in_full(self, client, db, manage_env):
+        card = manage_env["card"]
+        chain = [await _add_comment(db, card, manage_env["member"], "Level 0")]
+        for level in range(1, 6):
+            chain.append(
+                await _add_comment(db, card, manage_env["member"], f"Level {level}", chain[-1])
+            )
+        ids = [str(c.id) for c in chain]
+        url = f"/api/v1/cards/{card.id}/comments"
+        headers = auth_headers(manage_env["member"])
+        # Loaded afresh by the request, as in production.
+        db.expire_all()
+
+        resp = await client.get(url, headers=headers)
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body) == 1
+        node, seen = body[0], []
+        while True:
+            seen.append((node["id"], node["content"], node["can"]["delete"]))
+            if not node["replies"]:
+                break
+            assert len(node["replies"]) == 1
+            assert node["replies"][0]["parent_id"] == node["id"]
+            node = node["replies"][0]
+        assert seen == [(ids[i], f"Level {i}", True) for i in range(6)]
+
+    async def test_replies_on_another_card_are_not_listed(self, client, db, manage_env):
+        """Nesting is by ``parent_id`` among the card's own rows: a legacy
+        reply on another card shows under neither card, and never at the top."""
+        card = manage_env["card"]
+        other_card = await create_card(db, card_type="Application", name="Other card")
+        parent = await _add_comment(db, card, manage_env["member"], "Parent")
+        await _add_comment(db, card, manage_env["member"], "Local reply", parent=parent)
+        await _add_comment(db, other_card, manage_env["member"], "Stray reply", parent=parent)
+        await _add_comment(db, other_card, manage_env["member"], "Other top")
+        headers = auth_headers(manage_env["admin"])
+
+        here = (await client.get(f"/api/v1/cards/{card.id}/comments", headers=headers)).json()
+        assert [c["content"] for c in here] == ["Parent"]
+        assert [r["content"] for r in here[0]["replies"]] == ["Local reply"]
+        there = (
+            await client.get(f"/api/v1/cards/{other_card.id}/comments", headers=headers)
+        ).json()
+        assert [c["content"] for c in there] == ["Other top"]
+        assert there[0]["replies"] == []
+
+    async def test_an_edited_comment_returns_its_replies(self, client, db, manage_env):
+        card = manage_env["card"]
+        parent = await _add_comment(db, card, manage_env["member"], "Parent")
+        reply = await _add_comment(db, card, manage_env["other"], "Reply", parent=parent)
+        resp = await client.patch(
+            f"/api/v1/comments/{parent.id}",
+            json={"content": "Parent, edited"},
+            headers=auth_headers(manage_env["member"]),
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["content"] == "Parent, edited"
+        assert [(r["id"], r["can"]["delete"]) for r in body["replies"]] == [(str(reply.id), False)]
+
 
 class TestCanDelete:
     async def test_list_says_who_may_delete(self, client, db, manage_env):

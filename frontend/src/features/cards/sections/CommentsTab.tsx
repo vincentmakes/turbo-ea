@@ -62,9 +62,15 @@ function CommentsTab({ fsId, canCreateComments = true }: { fsId: string; canCrea
       load();
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
-        // Already gone (deleted elsewhere): nothing to retry, show the list as it is.
-        setConfirmDelete(null);
-        load();
+        // Already gone (deleted elsewhere): nothing to retry, show the list as
+        // it is. If even that fails (the card became hidden), say so rather
+        // than close on a list that still shows the comment.
+        try {
+          setComments(await api.get<CommentType[]>(`/cards/${fsId}/comments`));
+          setConfirmDelete(null);
+        } catch {
+          setDeleteError(t("comments.deleteFailed"));
+        }
       } else {
         setDeleteError(t("comments.deleteFailed"));
       }
@@ -113,7 +119,10 @@ function CommentsTab({ fsId, canCreateComments = true }: { fsId: string; canCrea
                 {c.created_at ? formatDateTime(c.created_at) : ""}
               </Typography>
               {c.can?.delete && (
-                <Tooltip title={t("common:actions.delete")}>
+                // describeChild: the tooltip describes rather than names its
+                // child, so no aria-label lands on the span; the button keeps
+                // its own name.
+                <Tooltip title={t("common:actions.delete")} describeChild>
                   {/* A disabled button fires no events: the span keeps the tooltip working. */}
                   <Box component="span" sx={{ ml: "auto" }}>
                     <IconButton
