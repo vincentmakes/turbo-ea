@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from collections.abc import Collection
 from html import unescape
 from typing import Any
 
@@ -236,17 +237,12 @@ _TYPE_SEARCH_CONTEXT: dict[str, dict[str, Any]] = {
             {
                 "key": "hostingType",
                 "type": "single_select",
-                "options": ["onPremise", "cloudSaaS", "cloudPaaS", "cloudIaaS", "hybrid"],
-                "option_labels": {
-                    "onPremise": "On-Premise",
-                    "cloudSaaS": "Cloud (SaaS)",
-                    "cloudPaaS": "Cloud (PaaS)",
-                    "cloudIaaS": "Cloud (IaaS)",
-                    "hybrid": "Hybrid",
-                },
+                # The choices are the card type's own option keys, filled in by
+                # ``_get_extra_fields`` — an admin can rename or remove them.
                 "prompt": (
                     '"hostingType": set to the primary hosting/deployment model. '
-                    "Use one of: onPremise, cloudSaaS, cloudPaaS, cloudIaaS, hybrid. "
+                    "Use one of: {options}. "
+                    "The value must be the key itself, never the label in brackets. "
                     "Set value to null only if you truly cannot determine this."
                 ),
             },
@@ -329,20 +325,110 @@ def _get_llm_item_description(type_key: str, type_label: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _get_extra_fields(type_key: str, fields_schema: list[dict] | None) -> list[dict]:
-    """Return the extra field prompts for a type, filtering to fields that exist."""
+def _resolve_extra_field(spec: dict, field: dict | None) -> dict | None:
+    """``spec`` resolved against the card type's live definition of its field.
+
+    ``None`` when the card type would refuse any value for it: the field is
+    gone, its type is no longer the one asked for, it is computed (readonly),
+    or it is a select with no options left. A select's choices are the
+    field's current option keys, never a list kept here — an admin who
+    renamed or removed one would otherwise have every Apply refused (#1422).
+    """
+    if field is None or field.get("type") != spec["type"] or field.get("readonly"):
+        return None
+    resolved = {"key": spec["key"], "type": spec["type"], "prompt": spec["prompt"]}
+    if spec["type"] == "single_select":
+        usable = [
+            opt
+            for opt in field.get("options") or []
+            if isinstance(opt, dict) and isinstance(opt.get("key"), str) and opt["key"]
+        ]
+        if not usable:
+            return None
+        resolved["options"] = [opt["key"] for opt in usable]
+        choices = ", ".join(_option_choice(opt) for opt in usable)
+        resolved["prompt"] = spec["prompt"].replace("{options}", choices)
+    return resolved
+
+
+def _option_choice(option: dict) -> str:
+    """``key (Label)`` for the prompt — an admin's key such as ``opt6`` tells
+    the model nothing on its own; the key alone when there is no label. The
+    label is folded onto one line."""
+    label = " ".join(str(option.get("label") or "").split())
+    return f"{option['key']} ({label})" if label else option["key"]
+
+
+def _get_extra_fields(
+    type_key: str,
+    fields_schema: list[dict] | None,
+    hidden_fields: Collection[str] = (),
+) -> list[dict]:
+    """The extra fields to ask for and accept, resolved against the card type.
+
+    ``build_llm_prompt`` and ``validate_suggestions`` both read this, so the
+    model is never asked for a value the save would refuse, and a value it
+    returns anyway is dropped while the description is kept. A field the
+    card's subtype hides (``hidden_fields``) is left out: the card would
+    store a value it never shows.
+    """
     ctx = _TYPE_SEARCH_CONTEXT.get(type_key)
     if not ctx or "extra_fields" not in ctx:
         return []
     if not fields_schema:
         return []
-    # Collect all field keys present in the card type's schema
-    existing_keys: set[str] = set()
-    for section in fields_schema:
-        for field in section.get("fields", []):
-            existing_keys.add(field.get("key", ""))
-    # Only include extra fields whose key exists in the schema
-    return [ef for ef in ctx["extra_fields"] if ef["key"] in existing_keys]
+    by_key = {
+        field.get("key"): field for section in fields_schema for field in section.get("fields", [])
+    }
+    resolved = (
+        _resolve_extra_field(spec, by_key.get(spec["key"]))
+        for spec in ctx["extra_fields"]
+        if spec["key"] not in hidden_fields
+    )
+    return [ef for ef in resolved if ef is not None]
+
+
+def subtype_hidden_fields(subtypes: list[dict] | None, subtype: str | None) -> set[str]:
+    """The field keys a card type's subtype hides (its ``hidden_fields``);
+    empty without a subtype or for one the type does not declare."""
+    if not subtype:
+        return set()
+    for st in subtypes or []:
+        if st.get("key") == subtype:
+            return set(st.get("hidden_fields") or [])
+    return set()
+
+
+# ---------------------------------------------------------------------------
+# Output language
+# ---------------------------------------------------------------------------
+
+#: The language a suggestion is written in, per supported UI locale. Only a
+#: name from this map ever reaches the prompt — never the locale text the
+#: client sent. Keep it in step with ``SUPPORTED_LOCALES`` in ``users.py``.
+LOCALE_LANGUAGE_NAMES: dict[str, str] = {
+    "en": "English",
+    "de": "German",
+    "fr": "French",
+    "es": "Spanish",
+    "it": "Italian",
+    "pt": "Portuguese",
+    "zh": "Simplified Chinese",
+    "ru": "Russian",
+    "da": "Danish",
+    "ar": "Arabic",
+}
+
+DEFAULT_LANGUAGE = "English"
+
+
+def language_for_locale(locale: str | None) -> str:
+    """The language name for a UI locale (``"pt-BR"`` → Portuguese); English
+    for anything unknown or empty."""
+    if not locale:
+        return DEFAULT_LANGUAGE
+    base = locale.strip().lower().replace("_", "-").split("-")[0]
+    return LOCALE_LANGUAGE_NAMES.get(base, DEFAULT_LANGUAGE)
 
 
 def build_llm_prompt(
@@ -353,9 +439,16 @@ def build_llm_prompt(
     search_results: list[dict[str, str]],
     context: str | None = None,
     fields_schema: list[dict] | None = None,
+    locale: str = "en",
+    hidden_fields: Collection[str] = (),
 ) -> list[dict[str, str]]:
-    """Build the chat messages for a description-only LLM prompt."""
+    """Build the chat messages for a description-only LLM prompt.
+
+    ``locale`` picks the language the description is written in, through
+    ``language_for_locale``: the text itself never reaches the prompt.
+    """
     item_desc = _get_llm_item_description(type_key, type_label)
+    language = language_for_locale(locale)
 
     snippets_text = ""
     for i, sr in enumerate(search_results, 1):
@@ -379,7 +472,7 @@ def build_llm_prompt(
         )
 
     # Build extra field instructions if applicable
-    extra_fields = _get_extra_fields(type_key, fields_schema)
+    extra_fields = _get_extra_fields(type_key, fields_schema, hidden_fields)
     extra_field_instructions = ""
     extra_field_json = ""
     if extra_fields:
@@ -393,7 +486,7 @@ def build_llm_prompt(
                     '{ "value": true, "confidence": 0.8, "source": "example.com" }'
                 )
             elif ef["type"] == "single_select":
-                first_opt = ef.get("options", ["value"])[0]
+                first_opt = ef["options"][0]
                 json_lines.append(
                     f'  "{ef["key"]}": '
                     f'{{ "value": "{first_opt}", "confidence": 0.8, "source": "example.com" }}'
@@ -412,6 +505,9 @@ def build_llm_prompt(
         "- Write a 2-4 sentence description that explains what this item is, "
         "its purpose, and key characteristics.\n"
         "- Be factual and objective — do not speculate.\n"
+        f"- Write the description in {language}. Keep product, vendor and "
+        "technology names as they are. Keep every JSON key and every option "
+        "key exactly as given.\n"
         '- Include "confidence" (0.0-1.0) indicating how certain you are.\n'
         '- Include "source" with the domain where you found the info.\n'
         f"{extra_field_instructions}\n\n"
@@ -959,6 +1055,7 @@ def validate_suggestions(
     raw: dict[str, Any],
     type_key: str = "",
     fields_schema: list[dict] | None = None,
+    hidden_fields: Collection[str] = (),
 ) -> dict[str, dict]:
     """Validate and normalize LLM suggestions (description + extra fields)."""
     validated: dict[str, dict] = {}
@@ -985,7 +1082,7 @@ def validate_suggestions(
             validated["description"] = entry
 
     # ── Extra fields (type-specific) ──
-    extra_fields = _get_extra_fields(type_key, fields_schema)
+    extra_fields = _get_extra_fields(type_key, fields_schema, hidden_fields)
     for ef in extra_fields:
         key = ef["key"]
         field_raw = raw.get(key)
@@ -1257,8 +1354,14 @@ async def suggest_metadata(
     api_key: str = "",
     api_version: str = DEFAULT_AZURE_API_VERSION,
     fields_schema: list[dict] | None = None,
+    locale: str = "en",
+    hidden_fields: Collection[str] = (),
 ) -> dict[str, Any]:
-    """Full pipeline: web search → LLM description → validated suggestion."""
+    """Full pipeline: web search → LLM description → validated suggestion.
+
+    ``locale`` is the UI locale the description is written for;
+    ``hidden_fields`` the keys the card's subtype hides.
+    """
     # Step 1: Web search (always DuckDuckGo — commercial APIs have no web access)
     search_suffix = _get_search_suffix(type_key, subtype)
     query = f"{name} {search_suffix}"
@@ -1277,6 +1380,8 @@ async def suggest_metadata(
         search_results=search_results,
         context=context,
         fields_schema=fields_schema,
+        locale=locale,
+        hidden_fields=hidden_fields,
     )
     logger.info("[ai] Calling LLM")
     raw_response = await call_llm(
@@ -1290,7 +1395,7 @@ async def suggest_metadata(
     logger.info("[ai] LLM returned %d raw keys", len(raw_response))
 
     # Step 3: Validate (description + type-specific extra fields)
-    suggestions = validate_suggestions(raw_response, type_key, fields_schema)
+    suggestions = validate_suggestions(raw_response, type_key, fields_schema, hidden_fields)
     logger.info("[ai] Validated to %d suggestions", len(suggestions))
 
     # Build source list from search results

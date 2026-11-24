@@ -5,13 +5,15 @@
  * usable while a card is previewed (#1289).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { MemoryRouter } from "react-router";
 import CardDetailSidePanel from "./CardDetailSidePanel";
 
-vi.mock("@/api/client", () => ({
+vi.mock("@/api/client", async () => ({
+  // The real error class: applying an AI suggestion tells a refusal by it.
+  ApiError: (await vi.importActual<typeof import("@/api/client")>("@/api/client")).ApiError,
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
 }));
 // The card type the metamodel resolves: none by default, a small schema for
@@ -27,9 +29,11 @@ vi.mock("@/hooks/useMetamodel", () => ({
     relationTypes: metamodel.relationTypes,
   }),
 }));
+// AI suggestions are off unless a suite switches them on.
+const ai = vi.hoisted(() => ({ enabled: false }));
 vi.mock("@/hooks/useAiStatus", () => ({
   useAiStatus: () => ({ aiStatus: { enabled: false, configured: false, enabled_types: [] } }),
-  aiSuggestEnabledFor: () => false,
+  aiSuggestEnabledFor: () => ai.enabled,
 }));
 // The real content drags in the whole card-detail graph; this suite is about
 // the drawer around it.
@@ -40,8 +44,10 @@ vi.mock("@/features/cards/CardDetailContent", () => ({
     onSaveOrigin,
     onDirtyChange,
     focusTarget,
+    onAiSuggest,
+    beforeTabs,
   }: {
-    card: { name: string; data_quality: number };
+    card: { name: string; data_quality: number; description?: string };
     onCardUpdate: (c: unknown) => void;
     onSaveOrigin?: (anchor: string) => void;
     onDirtyChange?: (dirty: boolean) => void;
@@ -49,6 +55,8 @@ vi.mock("@/features/cards/CardDetailContent", () => ({
       target: { tab: string; anchor?: string; fieldKey?: string };
       nonce: number;
     } | null;
+    onAiSuggest?: () => void;
+    beforeTabs?: import("react").ReactNode;
   }) => (
     <div
       data-testid="card-content"
@@ -57,6 +65,13 @@ vi.mock("@/features/cards/CardDetailContent", () => ({
       data-focus-nonce={focusTarget ? String(focusTarget.nonce) : "none"}
     >
       {card.name}
+      {card.description && <p>{card.description}</p>}
+      {beforeTabs}
+      {onAiSuggest && (
+        <button type="button" onClick={onAiSuggest}>
+          AI suggest
+        </button>
+      )}
       <button type="button" onClick={() => onDirtyChange?.(true)}>
         Edit
       </button>
@@ -129,7 +144,7 @@ vi.mock("@/hooks/useGamificationEnabled", () => ({
   useGamificationEnabled: () => gamification.enabled,
 }));
 
-import { api } from "@/api/client";
+import { api, ApiError } from "@/api/client";
 
 const CARD = {
   id: "c1",
@@ -147,6 +162,7 @@ const OTHER = { ...CARD, id: "c2", name: "Salesforce" };
 beforeEach(() => {
   vi.clearAllMocks();
   gamification.enabled = false;
+  ai.enabled = false;
   metamodel.type = undefined;
   metamodel.relationTypes = [];
   document.body.style.overflow = "";
@@ -706,3 +722,313 @@ describe("CardDetailSidePanel — focus (UI SDK 1.37)", () => {
   });
 });
 
+
+describe("CardDetailSidePanel — AI suggestions", () => {
+  const SUGGESTION = {
+    suggestions: {
+      description: { value: "An ERP suite.", confidence: 0.9 },
+      shared: { value: true, confidence: 0.7 },
+    },
+    sources: [],
+  };
+
+  beforeEach(() => {
+    ai.enabled = true;
+    metamodel.type = {
+      key: "Application",
+      icon: "apps",
+      fields_schema: [
+        { section: "Info", fields: [{ key: "shared", label: "Shared", type: "boolean" }] },
+      ],
+      subtypes: [{ key: "micro", label: "Micro", hidden_fields: ["shared"] }],
+    };
+    vi.mocked(api.get).mockImplementation((path: string) =>
+      path.endsWith("/my-permissions")
+        ? Promise.resolve({ effective: { can_edit: true } })
+        : Promise.resolve(path === "/cards/c2" ? OTHER : CARD),
+    );
+    vi.mocked(api.post).mockResolvedValue(SUGGESTION);
+  });
+
+  async function suggestAndApply() {
+    await userEvent.click(await screen.findByRole("button", { name: "AI suggest" }));
+    await userEvent.click(await screen.findByRole("button", { name: /Apply suggestions/ }));
+  }
+
+  it("asks in the UI language and saves the description and values together", async () => {
+    vi.mocked(api.patch).mockImplementation(async (_path, body) => ({
+      ...CARD,
+      ...(body as object),
+    }));
+    mount();
+    await suggestAndApply();
+    expect(await screen.findByText("An ERP suite.")).toBeInTheDocument();
+    expect(api.post).toHaveBeenCalledWith("/ai/suggest", {
+      type_key: "Application",
+      subtype: undefined,
+      name: "SAP ERP",
+      locale: "en",
+    });
+    expect(vi.mocked(api.patch).mock.calls).toEqual([
+      ["/cards/c1", { description: "An ERP suite.", attributes: { shared: true } }],
+    ]);
+    expect(screen.queryByText("AI Suggestions")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Description applied\./)).not.toBeInTheDocument();
+  });
+
+  it("applies the description alone and says so when the values are refused", async () => {
+    vi.mocked(api.patch).mockImplementation(async (_path, body) => {
+      if ("attributes" in (body as object)) {
+        throw new ApiError("Invalid option for Shared", 422, null);
+      }
+      return { ...CARD, ...(body as object) };
+    });
+    mount();
+    await suggestAndApply();
+    const warning = await screen.findByText(
+      "Description applied. The other suggested values could not be saved: Invalid option for Shared",
+    );
+    expect(screen.getByText("An ERP suite.")).toBeInTheDocument();
+    expect(vi.mocked(api.patch).mock.calls.map((c) => c[1])).toEqual([
+      { description: "An ERP suite.", attributes: { shared: true } },
+      { description: "An ERP suite." },
+    ]);
+    await userEvent.click(
+      (warning.closest('[role="alert"]') as HTMLElement).querySelector("button")!,
+    );
+    expect(screen.queryByText(/Description applied\./)).not.toBeInTheDocument();
+  });
+
+  it("drops the warning when another card is shown", async () => {
+    vi.mocked(api.patch).mockRejectedValueOnce(new ApiError("Refused", 422, null));
+    vi.mocked(api.patch).mockResolvedValueOnce({ ...CARD, description: "An ERP suite." });
+    const { rerenderWith } = mount();
+    await suggestAndApply();
+    expect(await screen.findByText(/Description applied\./)).toBeInTheDocument();
+    rerenderWith("c2");
+    await waitFor(() => expect(screen.queryByText(/Description applied\./)).toBeNull());
+  });
+
+  it("keeps the panel open with the reason when the save fails", async () => {
+    vi.mocked(api.patch).mockRejectedValue(new Error("Network down"));
+    mount();
+    await suggestAndApply();
+    expect(await screen.findByText("Network down")).toBeInTheDocument();
+    expect(screen.getByText("Could not apply the suggestion")).toBeInTheDocument();
+    expect(screen.getByText("AI Suggestions")).toBeInTheDocument();
+    expect(api.patch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("CardDetailSidePanel — AI requests that settle after a switch", () => {
+  const SKIPPED = /Description applied\./;
+  const SUGGESTION = {
+    suggestions: {
+      description: { value: "An ERP suite.", confidence: 0.9 },
+      shared: { value: true, confidence: 0.7 },
+    },
+    sources: [],
+  };
+
+  beforeEach(() => {
+    ai.enabled = true;
+    metamodel.type = {
+      key: "Application",
+      icon: "apps",
+      fields_schema: [
+        { section: "Info", fields: [{ key: "shared", label: "Shared", type: "boolean" }] },
+      ],
+      subtypes: [{ key: "micro", label: "Micro", hidden_fields: ["shared"] }],
+    };
+    vi.mocked(api.get).mockImplementation((path: string) =>
+      path.endsWith("/my-permissions")
+        ? Promise.resolve({ effective: { can_edit: true } })
+        : Promise.resolve(path === "/cards/c2" ? OTHER : CARD),
+    );
+  });
+
+  const showC2 = async (rerenderWith: (id: string | null) => void) => {
+    rerenderWith("c2");
+    await waitFor(() => expect(screen.getByTestId("card-content")).toHaveTextContent("Salesforce"));
+  };
+
+  it("ignores a suggestion that arrives after another card is shown", async () => {
+    let answer: (v: unknown) => void = () => {};
+    vi.mocked(api.post).mockImplementation(() => new Promise((resolve) => (answer = resolve)));
+    const { rerenderWith } = mount();
+    await userEvent.click(await screen.findByRole("button", { name: "AI suggest" }));
+    await showC2(rerenderWith);
+    await act(async () => answer(SUGGESTION));
+    expect(screen.queryByText("AI Suggestions")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "AI suggest" })).toBeInTheDocument();
+  });
+
+  it("ignores a failed suggestion that arrives after another card is shown", async () => {
+    let fail: (e: unknown) => void = () => {};
+    vi.mocked(api.post).mockImplementation(
+      () => new Promise((_resolve, reject) => (fail = reject)),
+    );
+    const { rerenderWith } = mount();
+    await userEvent.click(await screen.findByRole("button", { name: "AI suggest" }));
+    await showC2(rerenderWith);
+    await act(async () => fail(new Error("late failure")));
+    expect(screen.queryByText("late failure")).not.toBeInTheDocument();
+  });
+
+  it("does not paint an apply that lands after the switch onto the next card", async () => {
+    vi.mocked(api.post).mockResolvedValue(SUGGESTION);
+    let land: () => void = () => {};
+    vi.mocked(api.patch).mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          land = () => reject(new ApiError("Refused", 422, null));
+        }),
+    );
+    vi.mocked(api.patch).mockResolvedValueOnce({ ...CARD, description: "An ERP suite." });
+    const { rerenderWith } = mount();
+    await userEvent.click(await screen.findByRole("button", { name: "AI suggest" }));
+    await userEvent.click(await screen.findByRole("button", { name: /Apply suggestions/ }));
+    await showC2(rerenderWith);
+    await act(async () => land());
+    await waitFor(() => expect(api.patch).toHaveBeenCalledTimes(2));
+    expect(screen.getByTestId("card-content")).toHaveTextContent("Salesforce");
+    expect(screen.queryByText("An ERP suite.")).not.toBeInTheDocument();
+    expect(screen.queryByText(SKIPPED)).not.toBeInTheDocument();
+  });
+
+  it("clears the warning when a new suggestion is asked for", async () => {
+    vi.mocked(api.post).mockResolvedValueOnce(SUGGESTION);
+    vi.mocked(api.patch).mockRejectedValueOnce(new ApiError("Refused", 422, null));
+    vi.mocked(api.patch).mockResolvedValueOnce({ ...CARD, description: "An ERP suite." });
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "AI suggest" }));
+    await userEvent.click(await screen.findByRole("button", { name: /Apply suggestions/ }));
+    expect(await screen.findByText(SKIPPED)).toBeInTheDocument();
+    vi.mocked(api.post).mockImplementationOnce(() => new Promise(() => {}));
+    await userEvent.click(screen.getByRole("button", { name: "AI suggest" }));
+    expect(screen.queryByText(SKIPPED)).not.toBeInTheDocument();
+  });
+
+  it("does not offer a value for a field the card's subtype hides", async () => {
+    vi.mocked(api.get).mockImplementation((path: string) =>
+      path.endsWith("/my-permissions")
+        ? Promise.resolve({ effective: { can_edit: true } })
+        : Promise.resolve({ ...CARD, subtype: "micro" }),
+    );
+    vi.mocked(api.post).mockResolvedValue(SUGGESTION);
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "AI suggest" }));
+    expect(await screen.findByText("AI Suggestions")).toBeInTheDocument();
+    expect(screen.queryByText("Shared")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Apply description/ })).toBeInTheDocument();
+  });
+});
+
+describe("CardDetailSidePanel — the AI panel's states", () => {
+  const SUGGESTION = {
+    suggestions: {
+      description: { value: "An ERP suite.", confidence: 0.9 },
+      shared: { value: true, confidence: 0.7 },
+    },
+    sources: [],
+  };
+  const SEARCHING = "Generating description...";
+
+  beforeEach(() => {
+    ai.enabled = true;
+    metamodel.type = {
+      key: "Application",
+      icon: "apps",
+      fields_schema: [
+        { section: "Info", fields: [{ key: "shared", label: "Shared", type: "boolean" }] },
+      ],
+      subtypes: [],
+    };
+    vi.mocked(api.get).mockImplementation((path: string) =>
+      path.endsWith("/my-permissions")
+        ? Promise.resolve({ effective: { can_edit: true } })
+        : Promise.resolve(path === "/cards/c2" ? OTHER : CARD),
+    );
+  });
+
+  const suggestButton = () => screen.findByRole("button", { name: "AI suggest" });
+
+  it("shows the panel while the suggestion is being made", async () => {
+    vi.mocked(api.post).mockImplementation(() => new Promise(() => {}));
+    mount();
+    await userEvent.click(await suggestButton());
+    expect(await screen.findByText(SEARCHING)).toBeInTheDocument();
+  });
+
+  it("shows a failed suggestion's reason in the panel", async () => {
+    vi.mocked(api.post).mockRejectedValue(new Error("Model offline"));
+    mount();
+    await userEvent.click(await suggestButton());
+    expect(await screen.findByText("Model offline")).toBeInTheDocument();
+    expect(screen.getByText("AI Suggestion Failed")).toBeInTheDocument();
+    expect(screen.queryByText(SEARCHING)).not.toBeInTheDocument();
+  });
+
+  it("keeps the new card's suggestion busy when the old card's one settles late", async () => {
+    let answerA: (v: unknown) => void = () => {};
+    vi.mocked(api.post).mockImplementationOnce(
+      () => new Promise((resolve) => (answerA = resolve)),
+    );
+    vi.mocked(api.post).mockImplementationOnce(() => new Promise(() => {}));
+    const { rerenderWith } = mount();
+    await userEvent.click(await suggestButton());
+    expect(await screen.findByText(SEARCHING)).toBeInTheDocument();
+    rerenderWith("c2");
+    await waitFor(() => expect(screen.getByTestId("card-content")).toHaveTextContent("Salesforce"));
+    await userEvent.click(await suggestButton());
+    expect(await screen.findByText(SEARCHING)).toBeInTheDocument();
+    await act(async () => answerA(SUGGESTION));
+    expect(screen.getByText(SEARCHING)).toBeInTheDocument();
+    expect(screen.queryByText("AI Suggestions")).not.toBeInTheDocument();
+    expect(api.post).toHaveBeenCalledTimes(2);
+  });
+
+  it("closes the panel on Dismiss and offers the suggest button again", async () => {
+    vi.mocked(api.post).mockResolvedValue(SUGGESTION);
+    mount();
+    await userEvent.click(await suggestButton());
+    expect(await screen.findByText("AI Suggestions")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "AI suggest" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByText("AI Suggestions")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "AI suggest" })).toBeInTheDocument();
+    expect(api.patch).not.toHaveBeenCalled();
+  });
+
+  it("clears a failed suggestion's reason on Close, and asking again shows no stale one", async () => {
+    vi.mocked(api.post).mockRejectedValueOnce(new Error("Model offline"));
+    mount();
+    await userEvent.click(await suggestButton());
+    expect(await screen.findByText("Model offline")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByText("Model offline")).not.toBeInTheDocument();
+    expect(screen.queryByText("AI Suggestion Failed")).not.toBeInTheDocument();
+    vi.mocked(api.post).mockImplementationOnce(() => new Promise(() => {}));
+    await userEvent.click(screen.getByRole("button", { name: "AI suggest" }));
+    expect(await screen.findByText(SEARCHING)).toBeInTheDocument();
+    expect(screen.queryByText("Model offline")).not.toBeInTheDocument();
+  });
+
+  it("suggests and applies on a card whose type the metamodel does not know", async () => {
+    metamodel.type = undefined;
+    vi.mocked(api.post).mockResolvedValue(SUGGESTION);
+    vi.mocked(api.patch).mockImplementation(async (_path, body) => ({
+      ...CARD,
+      ...(body as object),
+    }));
+    mount();
+    await userEvent.click(await suggestButton());
+    expect(await screen.findByText("AI Suggestions")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Apply suggestions/ }));
+    expect(await screen.findByText("An ERP suite.")).toBeInTheDocument();
+    expect(vi.mocked(api.patch).mock.calls).toEqual([
+      ["/cards/c1", { description: "An ERP suite.", attributes: { shared: true } }],
+    ]);
+    expect(screen.queryByText("AI Suggestions")).not.toBeInTheDocument();
+  });
+});

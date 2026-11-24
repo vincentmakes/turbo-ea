@@ -500,6 +500,7 @@ describe("CreateCardDialog — AI suggestions", () => {
       type_key: "Application",
       subtype: undefined,
       name: "Salesforce",
+      locale: "en",
     });
     await user.click(await screen.findByRole("button", { name: /Apply description/ }));
     expect(screen.getByRole("textbox", { name: /^Description/ })).toHaveValue("A CRM platform.");

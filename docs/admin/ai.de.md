@@ -183,6 +183,8 @@ Für Ollama zeigt die Admin-Oberfläche alle aktuell auf der Ollama-Instanz heru
 
 Sobald von einem Administrator konfiguriert, sehen Benutzer mit der Berechtigung `ai.suggest` (standardmäßig für Admin-, BPM-Admin- und Mitglieder-Rollen gewährt) eine Funkenschaltfläche auf Kartendetailseiten und im Karte-erstellen-Dialog.
 
+Die Beschreibung wird in der Sprache verfasst, die der Benutzer für Turbo EA gewählt hat. Produkt-, Hersteller- und Technologienamen bleiben unverändert.
+
 ### Auf einer bestehenden Karte
 
 1. Öffnen Sie die Detailansicht einer beliebigen Karte.
@@ -191,6 +193,8 @@ Sobald von einem Administrator konfiguriert, sehen Benutzer mit der Berechtigung
 4. Überprüfen Sie den Vorschlag: Lesen Sie die generierte Beschreibung, prüfen Sie den Konfidenzwert und verifizieren Sie die Quellenlinks.
 5. **Bearbeiten** Sie den Text bei Bedarf — der Vorschlag ist vor dem Anwenden vollständig bearbeitbar.
 6. Klicken Sie auf **Übernehmen**, um die Beschreibung zu setzen, oder **Verwerfen**, um sie zu ignorieren.
+
+Wird das Speichern abgelehnt, bleibt das Panel mit dem Grund und Ihrem bearbeiteten Text geöffnet, sodass Sie es erneut versuchen können. Findet die KI nichts vorzuschlagen, weist das Panel darauf hin; verwerfen Sie es, um es erneut zu versuchen.
 
 ### Beim Erstellen einer neuen Karte
 
@@ -203,9 +207,11 @@ Sobald von einem Administrator konfiguriert, sehen Benutzer mit der Berechtigung
 Für **Anwendungs**-Karten kann die KI auch zusätzliche Felder vorschlagen, wenn sie Belege in den Websuchergebnissen findet:
 
 - **Kommerzielle Anwendung** — wird aktiviert, wenn Preis-, Lizenzinformations- oder Vertriebskontaktseiten gefunden werden
-- **Hosting-Typ** — wird als On-Premise, Cloud (SaaS), Cloud (PaaS), Cloud (IaaS) oder Hybrid basierend auf dem Bereitstellungsmodell des Produkts vorgeschlagen
+- **Hosting-Typ** — wird aus den Optionen für den Hosting-Typ Ihres Kartentyps Anwendung vorgeschlagen (standardmäßig On-Premise, Cloud (SaaS), Cloud (PaaS), Cloud (IaaS) oder Hybrid), basierend auf dem Bereitstellungsmodell des Produkts
 
 Diese Felder werden nur vorgeschlagen, wenn die KI eindeutige Belege findet — es wird nicht spekuliert. Der Benutzer kann die Werte vor dem Anwenden überprüfen und anpassen.
+
+Die Vorschläge folgen Ihrem Metamodell. Die Auswahlmöglichkeiten für den Hosting-Typ werden der KI mit ihren Labels übergeben, und der Vorschlag ist immer einer ihrer Schlüssel. Hat ein Administrator eines dieser Felder entfernt, seinen Typ geändert, es berechnet gemacht oder eine Option entfernt, oder blendet der Untertyp der Karte das Feld aus, wird dieser Vorschlag übersprungen und die Beschreibung wird weiterhin angeboten. Wird ein vorgeschlagener Wert beim Übernehmen abgelehnt, wird die Beschreibung allein gespeichert und eine Meldung nennt den Wert, der nicht gespeichert werden konnte.
 
 !!! note
     Abgesehen von anwendungsspezifischen Feldern generieren KI-Vorschläge hauptsächlich das **Beschreibungs**-Feld. Benutzerdefinierte Felder für andere Kartentypen werden noch nicht abgedeckt.
@@ -268,6 +274,7 @@ Die Berechtigungsschlüssel sind `ai.suggest` und `ai.portfolio_insights`. Benut
 | Modell erscheint nicht im Dropdown | Für Ollama: Stellen Sie sicher, dass das Modell heruntergeladen ist (`ollama pull modell-name`). Für kommerzielle Anbieter: Geben Sie den Modellnamen manuell ein. |
 | Langsame Vorschläge | Die LLM-Inferenzgeschwindigkeit hängt von der Hardware ab (bei Ollama) oder der Netzwerklatenz (bei kommerziellen Anbietern). Kleinere Modelle wie `gemma3:4b` sind schneller als größere. |
 | Niedrige Konfidenzwerte | Das LLM findet möglicherweise nicht genügend relevante Informationen über die Websuche. Versuchen Sie einen spezifischeren Kartennamen oder erwägen Sie die Verwendung von Google Custom Search für bessere Ergebnisse. |
+| Übernehmen speichert die Beschreibung, meldet aber, dass die anderen Werte nicht gespeichert werden konnten | Der Kartentyp akzeptiert einen der vorgeschlagenen Werte nicht mehr, zum Beispiel weil eine Option des Hosting-Typs im Metamodell entfernt wurde. Die Beschreibung ist gespeichert; setzen Sie die anderen Felder von Hand. |
 | Verbindungstest schlägt fehl | Überprüfen Sie, ob die Anbieter-URL vom Backend-Container aus erreichbar ist. Bei Docker-Setups stellen Sie sicher, dass beide Container im selben Netzwerk sind. |
 | Der Verbindungstest meldet, dass der Anbieter `response_format` oder `temperature` nicht akzeptiert | Nichts zu beheben: Der Anbieter funktioniert. Turbo EA lässt diesen Parameter in jeder Anfrage an ihn weg. Ohne `response_format` hängt die Antwort davon ab, dass das Modell der Anweisung folgt, in JSON zu antworten; wenn Vorschläge leer zurückkommen, versuchen Sie ein leistungsfähigeres Modell. |
 | Der Azure-Verbindungstest antwortet mit 404 | Azure antwortet bei drei verschiedenen Fehlern mit 404. „Deployment not found“ bedeutet, dass das Feld **Modell** keinem Deployment-Namen entspricht. Andernfalls nennt die Meldung den aufgerufenen Pfad: Prüfen Sie, ob die **Anbieter-URL** Ihr Ressourcen-Endpunkt ist oder auf `/openai/v1/` endet und ob **API-Version** eine Azure-OpenAI-API-Version enthält und nicht die Version des Modells. Zeigt Ihr Portal keine API-Version an, verwenden Sie den auf `/openai/v1/` endenden Endpunkt, der keine benötigt. |

@@ -187,6 +187,8 @@ For Ollama viser admin-UI'et alle modeller, der i øjeblikket er downloadet på 
 
 Når det er konfigureret af en admin, vil brugere med tilladelsen `ai.suggest` (tildelt Admin-, BPM Admin- og Member-roller som standard) se en sparkle-knap på kortdetaljesider og i opret-kort-dialogen.
 
+Beskrivelsen skrives på det sprog, som brugeren har valgt til Turbo EA. Navne på produkter, leverandører og teknologier bevares uændret.
+
 ### På et eksisterende kort
 
 1. Åbn et kortdetaljevisning.
@@ -195,6 +197,8 @@ Når det er konfigureret af en admin, vil brugere med tilladelsen `ai.suggest` (
 4. Gennemgå forslaget: læs den genererede beskrivelse, tjek confidence-scoren og verificér kildelinksene.
 5. **Rediger** teksten, hvis det er nødvendigt — forslaget er fuldt redigerbart før anvendelse.
 6. Klik på **Anvend** for at indstille beskrivelsen, eller **Afvis** for at kassere den.
+
+Hvis lagringen afvises, forbliver panelet åbent med årsagen og din redigerede tekst, så du kan prøve igen. Hvis AI'en intet finder at foreslå, siger panelet det; luk det for at prøve igen.
 
 ### Når du opretter et nyt kort
 
@@ -207,9 +211,11 @@ Når det er konfigureret af en admin, vil brugere med tilladelsen `ai.suggest` (
 For **Application**-kort kan AI'en også foreslå yderligere felter, når den finder bevis i websøgeresultater:
 
 - **Kommerciel applikation** — slået til, hvis prisfastsættelse, licensinformation eller salgskontaktsider findes
-- **Hostingtype** — foreslået som On-Premise, Cloud (SaaS), Cloud (PaaS), Cloud (IaaS) eller Hybrid baseret på produktets deployment-model
+- **Hostingtype** — foreslås ud fra indstillingerne for Hosting-type på din korttype Applikation (som standard On-Premise, Cloud (SaaS), Cloud (PaaS), Cloud (IaaS) eller Hybrid), baseret på produktets implementeringsmodel
 
 Disse felter foreslås kun, når AI'en finder klart bevis — de spekuleres ikke. Brugeren kan gennemgå og justere værdierne før anvendelse.
+
+Forslagene følger din metamodel. Valgmulighederne for Hosting-type gives til AI'en sammen med deres etiketter, og forslaget er altid en af deres nøgler. Hvis en administrator har fjernet et af disse felter, ændret dets type, gjort det beregnet eller fjernet en indstilling, eller hvis kortets undertype skjuler feltet, springes det forslag over, og beskrivelsen tilbydes stadig. Hvis en foreslået værdi afvises ved anvendelse, gemmes beskrivelsen alene, og en besked angiver, hvilken værdi der ikke kunne gemmes.
 
 !!! note
     Bortset fra Application-specifikke felter genererer AI-forslag primært **beskrivelsesfeltet**. Brugerdefinerede felter for andre korttyper er endnu ikke dækket.
@@ -282,6 +288,7 @@ Brugerdefinerede roller kan tildeles disse tilladelser gennem Roller-administrat
 | Model vises ikke i dropdown | For Ollama: sørg for, at modellen er downloadet (`ollama pull model-name`). For kommercielle udbydere: indtast modelnavnet manuelt. |
 | Langsomme forslag | LLM-inferenshastighed afhænger af hardware (for Ollama) eller netværkslatens (for kommercielle udbydere). Mindre modeller som `gemma3:4b` er hurtigere end større. |
 | Lave confidence-scores | LLM'en kan muligvis ikke finde nok relevant information via websøgning. Prøv et mere specifikt kortnavn, eller overvej at bruge Google Custom Search for bedre resultater. |
+| Anvend gemmer beskrivelsen, men siger, at de andre værdier ikke kunne gemmes | Korttypen accepterer ikke længere en af de foreslåede værdier, for eksempel fordi en indstilling for Hosting-type er fjernet i metamodellen. Beskrivelsen er gemt; angiv de andre felter manuelt. |
 | Forbindelsestest mislykkes | Bekræft, at udbyder-URL'en er tilgængelig fra backend-containeren. For Docker-opsætninger skal du sikre dig, at begge containere er på samme netværk. |
 | Test forbindelse siger, at udbyderen ikke accepterer `response_format` eller `temperature` | Intet at rette: udbyderen fungerer. Turbo EA udelader den parameter i alle forespørgsler til den. Uden `response_format` afhænger svaret af, at modellen følger instruktionen om at svare i JSON; hvis forslag kommer tilbage tomme, så prøv en mere kapabel model. |
 | Azure-forbindelsestest svarer 404 | Azure svarer 404 ved tre forskellige fejl. «Deployment not found» betyder, at feltet **Model** ikke matcher et deployment-navn. Ellers nævner meddelelsen den sti, der blev kaldt: kontrollér, at **Udbyder-URL** er din ressources endpoint eller slutter på `/openai/v1/`, og at **API-version** indeholder en Azure OpenAI API-version og ikke modellens version. Hvis din portal ikke viser nogen API-version, så brug endpointet, der slutter på `/openai/v1/`, som ikke har brug for nogen. |

@@ -325,6 +325,7 @@ interface ProductFieldsProps {
  */
 export function ProductFields({ value, onChange, disabled, autoFocus }: ProductFieldsProps) {
   const { t } = useTranslation(["cards", "common"]);
+  const { i18n } = useTranslation();
   const issues = productDraftIssues(value);
   const set = <K extends keyof ProductDraft>(key: K, v: ProductDraft[K]) =>
     onChange({ ...value, [key]: v });
@@ -348,6 +349,7 @@ export function ProductFields({ value, onChange, disabled, autoFocus }: ProductF
         const res = await api.post<AiSuggestResponse>("/ai/suggest-eol-product", {
           name: value.title.trim(),
           link: value.link.trim() || undefined,
+          locale: i18n.language,
         });
         if (!isCurrent()) return;
         setAiResponse(res);

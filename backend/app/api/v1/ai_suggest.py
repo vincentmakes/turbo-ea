@@ -31,6 +31,7 @@ from app.services.ai_service import (
     EOL_PRODUCT_CONTEXT_KEY,
     fetch_running_models,
     generate_portfolio_insights,
+    subtype_hidden_fields,
     suggest_metadata,
 )
 from app.services.permission_service import PermissionService
@@ -129,6 +130,14 @@ def _require_ai_ready(ai_cfg: dict) -> None:
         )
 
 
+def _effective_locale(requested: str | None, user: User) -> str:
+    """The locale a suggestion is written for: the one the request names
+    (the live UI language), else the user's saved one, else English. An
+    unsupported value is harmless — ``ai_service.language_for_locale`` maps
+    it to English and only a mapped name reaches the prompt."""
+    return requested or user.locale or "en"
+
+
 async def _suggest_or_502(label: str, **kwargs: Any) -> dict:
     """Run the suggestion pipeline, mapping provider trouble to a 502."""
     try:
@@ -184,6 +193,8 @@ async def suggest(
         api_key=ai_cfg["api_key"],
         api_version=ai_cfg["api_version"],
         fields_schema=card_type.fields_schema or [],
+        locale=_effective_locale(body.locale, user),
+        hidden_fields=subtype_hidden_fields(card_type.subtypes, body.subtype),
     )
 
     return AiSuggestResponse(**result_data)
@@ -219,6 +230,7 @@ async def suggest_eol_product(
         api_key=ai_cfg["api_key"],
         api_version=ai_cfg["api_version"],
         fields_schema=None,
+        locale=_effective_locale(body.locale, user),
     )
     return AiSuggestResponse(**result_data)
 

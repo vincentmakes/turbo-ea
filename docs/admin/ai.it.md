@@ -183,6 +183,8 @@ Per Ollama, l'interfaccia admin mostra tutti i modelli attualmente scaricati sul
 
 Una volta configurato da un amministratore, gli utenti con il permesso `ai.suggest` (concesso ai ruoli Admin, BPM Admin e Member per impostazione predefinita) vedranno un pulsante scintilla nelle pagine di dettaglio delle card e nella finestra di creazione card.
 
+La descrizione viene scritta nella lingua scelta dall'utente per Turbo EA. I nomi di prodotti, fornitori e tecnologie vengono mantenuti così come sono.
+
 ### Su una card esistente
 
 1. Aprite la vista dettaglio di qualsiasi card.
@@ -191,6 +193,8 @@ Una volta configurato da un amministratore, gli utenti con il permesso `ai.sugge
 4. Revisionate il suggerimento: leggete la descrizione generata, controllate il punteggio di affidabilità e verificate i link alle fonti.
 5. **Modificate** il testo se necessario — il suggerimento è completamente modificabile prima dell'applicazione.
 6. Cliccate su **Applica** per impostare la descrizione, o **Ignora** per scartarla.
+
+Se il salvataggio viene rifiutato, il pannello resta aperto con il motivo e il testo modificato, così potete riprovare. Se l'IA non trova nulla da suggerire, il pannello lo indica; chiudetelo per riprovare.
 
 ### Quando create una nuova card
 
@@ -203,9 +207,11 @@ Una volta configurato da un amministratore, gli utenti con il permesso `ai.sugge
 Per le card **Application**, l'AI può anche suggerire campi aggiuntivi quando trova evidenze nei risultati della ricerca web:
 
 - **Applicazione commerciale** — attivato se vengono trovate pagine di prezzi, informazioni sulle licenze o contatti commerciali
-- **Tipo di hosting** — suggerito come On-Premise, Cloud (SaaS), Cloud (PaaS), Cloud (IaaS) o Ibrido in base al modello di distribuzione del prodotto
+- **Tipo di hosting** — suggerito tra le opzioni di Tipo di hosting del vostro tipo di card Application (per impostazione predefinita On-Premise, Cloud (SaaS), Cloud (PaaS), Cloud (IaaS) o Ibrido), in base al modello di distribuzione del prodotto
 
 Questi campi vengono suggeriti solo quando l'AI trova prove chiare — non vengono speculati. L'utente può rivedere e modificare i valori prima di applicarli.
+
+I suggerimenti seguono il vostro metamodello. Le scelte di Tipo di hosting vengono fornite all'IA con le loro etichette, e il suggerimento è sempre una delle loro chiavi. Se un amministratore ha rimosso uno di questi campi, ne ha cambiato il tipo, lo ha reso calcolato o ha rimosso un'opzione, oppure se il sottotipo della card nasconde il campo, quel suggerimento viene saltato e la descrizione viene comunque offerta. Se un valore suggerito viene rifiutato all'applicazione, la descrizione viene salvata da sola e un messaggio indica quale valore non è stato possibile salvare.
 
 !!! note
     A parte i campi specifici per le Applicazioni, i suggerimenti AI generano principalmente il campo **descrizione**. I campi personalizzati per altri tipi di card non sono ancora coperti.
@@ -268,6 +274,7 @@ Le chiavi dei permessi sono `ai.suggest` e `ai.portfolio_insights`. I ruoli pers
 | Modello non presente nel menu a tendina | Per Ollama: assicuratevi che il modello sia scaricato (`ollama pull nome-modello`). Per i provider commerciali: inserite il nome del modello manualmente. |
 | Suggerimenti lenti | La velocità di inferenza del LLM dipende dall'hardware (per Ollama) o dalla latenza di rete (per i provider commerciali). I modelli più piccoli come `gemma3:4b` sono più veloci di quelli più grandi. |
 | Punteggi di affidabilità bassi | Il LLM potrebbe non trovare abbastanza informazioni rilevanti tramite la ricerca web. Provate un nome di card più specifico, o considerate l'utilizzo di Google Custom Search per risultati migliori. |
+| Applica salva la descrizione ma segnala che gli altri valori non sono stati salvati | Il tipo di card non accetta più uno dei valori suggeriti, ad esempio perché un'opzione di Tipo di hosting è stata rimossa nel metamodello. La descrizione è salvata; impostate gli altri campi a mano. |
 | Test connessione fallito | Verificate che l'URL del provider sia raggiungibile dal container backend. Per le configurazioni Docker, assicuratevi che entrambi i container siano sulla stessa rete. |
 | Test connessione indica che il provider non accetta `response_format` o `temperature` | Nulla da correggere: il provider funziona. Turbo EA omette quel parametro da ogni richiesta che gli invia. Senza `response_format`, la risposta dipende dal fatto che il modello segua l'istruzione di rispondere in JSON; se i suggerimenti tornano vuoti, provate un modello più capace. |
 | Il test connessione di Azure risponde 404 | Azure risponde 404 per tre errori diversi. «Deployment not found» significa che il campo **Modello** non corrisponde a nessun nome di deployment. Altrimenti il messaggio indica il percorso chiamato: verificate che l'**URL del provider** sia l'endpoint della vostra risorsa o termini con `/openai/v1/`, e che la **versione dell'API** contenga una versione dell'API Azure OpenAI e non la versione del modello. Se il vostro portale non mostra alcuna versione dell'API, usate l'endpoint che termina con `/openai/v1/`, che non ne richiede. |

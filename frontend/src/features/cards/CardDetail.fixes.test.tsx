@@ -15,12 +15,19 @@ import { Link } from "react-router";
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
 
+// AI suggestions are off unless a suite switches them on.
+const ai = vi.hoisted(() => ({ enabled: false }));
 vi.mock("@/hooks/useAiStatus", async () => {
   const actual = await vi.importActual<typeof import("@/hooks/useAiStatus")>("@/hooks/useAiStatus");
   return {
     ...actual,
     useAiStatus: () => ({
-      aiStatus: { enabled: false, configured: false, enabled_types: [], running_models: [] },
+      aiStatus: {
+        enabled: ai.enabled,
+        configured: ai.enabled,
+        enabled_types: [],
+        running_models: [],
+      },
       aiStatusLoaded: true,
     }),
   };
@@ -35,10 +42,19 @@ vi.mock("@/features/cards/sections", () => ({
 }));
 
 vi.mock("@/features/cards/CardDetailContent", () => ({
-  default: (props: { card: { name: string }; beforeTabs?: ReactNode }) => (
+  default: (props: {
+    card: { name: string; description?: string };
+    beforeTabs?: ReactNode;
+    onAiSuggest?: () => void;
+  }) => (
     <div>
       {props.beforeTabs}
-      <div data-testid="content" data-name={props.card.name} />
+      {props.onAiSuggest && <button onClick={props.onAiSuggest}>ai-suggest</button>}
+      <div
+        data-testid="content"
+        data-name={props.card.name}
+        data-description={props.card.description ?? ""}
+      />
     </div>
   ),
 }));
@@ -81,7 +97,13 @@ import CardDetail from "./CardDetail";
 import { ApiError } from "@/api/client";
 import { mockApi } from "@/test/apiMock";
 import { hookState, withMetamodel } from "@/test/hooks";
-import { makeCardType, makeRelationType, makeSubtype } from "@/test/fixtures/metamodel";
+import {
+  makeCardType,
+  makeField,
+  makeRelationType,
+  makeSection,
+  makeSubtype,
+} from "@/test/fixtures/metamodel";
 import { renderWithProviders } from "@/test/render";
 import i18n from "@/i18n";
 import type { Card } from "@/types";
@@ -155,6 +177,7 @@ function renderPage() {
 beforeEach(() => {
   hookState.reset();
   mockApi.reset();
+  ai.enabled = false;
   withMetamodel([APP, ITC]);
   mockApi.on("get", "/cards/c1", CARD);
   mockApi.on("get", "/cards/c1/my-permissions", { effective: PERMS });
@@ -376,3 +399,186 @@ describe("CardDetail — a failed approval transition", () => {
   });
 });
 
+
+describe("CardDetail — AI suggestions do not follow the user to the next card", () => {
+  const SKIPPED = /Description applied\. The other suggested values could not be saved/;
+  const SUGGESTION = {
+    suggestions: {
+      description: { value: "A CRM suite.", confidence: 0.9 },
+      shared: { value: true, confidence: 0.7 },
+    },
+    sources: [],
+  };
+  const APP_AI = makeCardType({
+    key: "Application",
+    label: "Business App",
+    icon: "apps",
+    subtypes: [
+      makeSubtype({ key: "businessApp", label: "Business Application" }),
+      makeSubtype({ key: "microservice", label: "Microservice", hidden_fields: ["shared"] }),
+    ],
+    fields_schema: [
+      makeSection({ fields: [makeField({ key: "shared", label: "Shared", type: "boolean" })] }),
+    ],
+  });
+
+  beforeEach(() => {
+    ai.enabled = true;
+    withMetamodel([APP_AI, ITC]);
+    mockApi.on("post", "/ai/suggest", SUGGESTION);
+  });
+
+  /** A PATCH /cards/c1 that refuses attributes, so the description is saved alone. */
+  function refuseValues() {
+    mockApi.on("patch", "/cards/c1", (_p: string, body: unknown) => {
+      if ("attributes" in (body as object)) throw new ApiError("Shared is computed", 422, null);
+      return { ...CARD, ...(body as object) };
+    });
+  }
+
+  const goToC2 = async (user: ReturnType<typeof renderPage>["user"]) => {
+    await user.click(screen.getByRole("link", { name: "go-c2" }));
+    await waitFor(() => expect(screen.getByTestId("content")).toHaveAttribute("data-name", "ERP"));
+  };
+
+  it("keeps the next card's suggestion busy when the previous card's one settles late", async () => {
+    let answerC1: (v: unknown) => void = () => {};
+    mockApi.on("post", "/ai/suggest", () => new Promise((resolve) => (answerC1 = resolve)));
+    const { user } = renderPage();
+    await user.click(await screen.findByRole("button", { name: "ai-suggest" }));
+    expect(await screen.findByText("Generating description...")).toBeInTheDocument();
+    await goToC2(user);
+    mockApi.on("post", "/ai/suggest", () => new Promise(() => {}));
+    await user.click(screen.getByRole("button", { name: "ai-suggest" }));
+    expect(await screen.findByText("Generating description...")).toBeInTheDocument();
+    await act(async () => answerC1(SUGGESTION));
+    expect(screen.getByText("Generating description...")).toBeInTheDocument();
+    expect(screen.queryByText("AI Suggestions")).not.toBeInTheDocument();
+    expect(mockApi.callsOf("post", "/ai/suggest")).toHaveLength(2);
+  });
+
+  it("drops the skipped-values warning on the next card", async () => {
+    refuseValues();
+    const { user } = renderPage();
+    await user.click(await screen.findByRole("button", { name: "ai-suggest" }));
+    await user.click(await screen.findByRole("button", { name: /Apply suggestions/ }));
+    expect(await screen.findByText(SKIPPED)).toBeInTheDocument();
+    await goToC2(user);
+    expect(screen.queryByText(SKIPPED)).not.toBeInTheDocument();
+  });
+
+  it("drops a suggestion made for the previous card and offers a new one", async () => {
+    const { user } = renderPage();
+    await user.click(await screen.findByRole("button", { name: "ai-suggest" }));
+    expect(await screen.findByText("AI Suggestions")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "ai-suggest" })).not.toBeInTheDocument();
+    await goToC2(user);
+    expect(screen.queryByText("AI Suggestions")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "ai-suggest" })).toBeInTheDocument();
+  });
+
+  it("drops a failed suggestion of the previous card", async () => {
+    mockApi.fail("post", "/ai/suggest", 502, "provider down");
+    const { user } = renderPage();
+    await user.click(await screen.findByRole("button", { name: "ai-suggest" }));
+    expect(await screen.findByText("AI Suggestion Failed")).toBeInTheDocument();
+    await goToC2(user);
+    expect(screen.queryByText("AI Suggestion Failed")).not.toBeInTheDocument();
+  });
+
+  it("ignores a suggestion that arrives after the switch", async () => {
+    let answer: (v: unknown) => void = () => {};
+    mockApi.on("post", "/ai/suggest", () => new Promise((resolve) => (answer = resolve)));
+    const { user } = renderPage();
+    await user.click(await screen.findByRole("button", { name: "ai-suggest" }));
+    expect(await screen.findByText("Generating description...")).toBeInTheDocument();
+    await goToC2(user);
+    expect(screen.queryByText("Generating description...")).not.toBeInTheDocument();
+    await act(async () => answer(SUGGESTION));
+    expect(screen.queryByText("AI Suggestions")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "ai-suggest" })).toBeInTheDocument();
+  });
+
+  it("ignores a failed suggestion that arrives after the switch", async () => {
+    let fail: (e: unknown) => void = () => {};
+    mockApi.on("post", "/ai/suggest", () => new Promise((_resolve, reject) => (fail = reject)));
+    const { user } = renderPage();
+    await user.click(await screen.findByRole("button", { name: "ai-suggest" }));
+    await goToC2(user);
+    await act(async () => fail(new Error("late failure")));
+    expect(screen.queryByText("late failure")).not.toBeInTheDocument();
+  });
+
+  it("does not paint an apply that lands after the switch onto the next card", async () => {
+    let land: () => void = () => {};
+    mockApi.on("patch", "/cards/c1", (_p: string, body: unknown) => {
+      if ("attributes" in (body as object)) {
+        return new Promise((_resolve, reject) => {
+          land = () => reject(new ApiError("Shared is computed", 422, null));
+        });
+      }
+      return { ...CARD, ...(body as object) };
+    });
+    const { user } = renderPage();
+    await user.click(await screen.findByRole("button", { name: "ai-suggest" }));
+    await user.click(await screen.findByRole("button", { name: /Apply suggestions/ }));
+    await goToC2(user);
+    await act(async () => land());
+    await waitFor(() => expect(mockApi.callsOf("patch", "/cards/c1")).toHaveLength(2));
+    expect(screen.getByTestId("content")).toHaveAttribute("data-name", "ERP");
+    expect(screen.getByTestId("content")).toHaveAttribute("data-description", "");
+    expect(screen.queryByText(SKIPPED)).not.toBeInTheDocument();
+  });
+
+  it("clears the warning when a new suggestion is asked for", async () => {
+    refuseValues();
+    let answer: (v: unknown) => void = () => {};
+    const { user } = renderPage();
+    await user.click(await screen.findByRole("button", { name: "ai-suggest" }));
+    await user.click(await screen.findByRole("button", { name: /Apply suggestions/ }));
+    expect(await screen.findByText(SKIPPED)).toBeInTheDocument();
+    mockApi.on("post", "/ai/suggest", () => new Promise((resolve) => (answer = resolve)));
+    await user.click(screen.getByRole("button", { name: "ai-suggest" }));
+    expect(screen.queryByText(SKIPPED)).not.toBeInTheDocument();
+    await act(async () => answer(SUGGESTION));
+  });
+
+  it("shows and applies a suggestion when the URL spells the card id in upper case", async () => {
+    // The backend accepts any UUID spelling in the path but always answers
+    // with the canonical lower-case id, so the route param and card.id differ.
+    const LOWER = "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
+    const UPPER = LOWER.toUpperCase();
+    const card = { ...CARD, id: LOWER } as unknown as Card;
+    mockApi.on("get", `/cards/${UPPER}`, card);
+    mockApi.on("get", `/cards/${UPPER}/my-permissions`, { effective: PERMS });
+    mockApi.on("get", `/cards/${UPPER}/me/observe`, {
+      is_observer: false,
+      observer_role_available: false,
+    });
+    mockApi.on("patch", `/cards/${LOWER}`, (_p: string, body: unknown) => ({
+      ...card,
+      ...(body as object),
+    }));
+    const { user } = renderWithProviders(<CardDetail />, {
+      route: `/cards/${UPPER}`,
+      routes: [{ path: "/cards/:id" }],
+    });
+    await user.click(await screen.findByRole("button", { name: "ai-suggest" }));
+    expect(await screen.findByText("AI Suggestions")).toBeInTheDocument();
+    expect(screen.queryByText("Generating description...")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Apply suggestions/ }));
+    await waitFor(() =>
+      expect(screen.getByTestId("content")).toHaveAttribute("data-description", "A CRM suite."),
+    );
+    expect(screen.queryByText("AI Suggestions")).not.toBeInTheDocument();
+  });
+
+  it("does not offer a value for a field the card's subtype hides", async () => {
+    mockApi.on("get", "/cards/c1", { ...CARD, subtype: "microservice" });
+    const { user } = renderPage();
+    await user.click(await screen.findByRole("button", { name: "ai-suggest" }));
+    expect(await screen.findByText("AI Suggestions")).toBeInTheDocument();
+    expect(screen.queryByText("Shared")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Apply description/ })).toBeInTheDocument();
+  });
+});

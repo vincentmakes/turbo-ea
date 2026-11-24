@@ -91,6 +91,7 @@ export default function CreateCardDialog({
   const theme = useTheme();
   const navigate = useNavigate();
   const { t } = useTranslation(["cards", "common"]);
+  const { i18n } = useTranslation();
   const { types, relationTypes } = useMetamodel();
   const { user } = useAuthContext();
   const typeLabel = useTypeLabel();
@@ -379,6 +380,7 @@ export default function CreateCardDialog({
           type_key: selectedType,
           subtype: subtype || undefined,
           name: name.trim(),
+          locale: i18n.language,
         });
         if (!isCurrent()) return;
         setAiResponse(res);
@@ -892,6 +894,7 @@ export default function CreateCardDialog({
               setAiLoading(false);
             }}
             fieldsSchema={typeConfig?.fields_schema}
+            hiddenFields={hiddenFieldKeys}
           />
         )}
 

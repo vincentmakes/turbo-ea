@@ -187,6 +187,8 @@ For Ollama, the admin UI shows all models currently downloaded on the Ollama ins
 
 Once configured by an admin, users with the `ai.suggest` permission (granted to Admin, BPM Admin, and Member roles by default) will see a sparkle button on card detail pages and in the create card dialog.
 
+The description is written in the language the user has chosen for Turbo EA. Product, vendor and technology names are kept as they are.
+
 ### On an Existing Card
 
 1. Open any card's detail view.
@@ -195,6 +197,8 @@ Once configured by an admin, users with the `ai.suggest` permission (granted to 
 4. Review the suggestion: read the generated description, check the confidence score, and verify the source links.
 5. **Edit** the text if needed — the suggestion is fully editable before applying.
 6. Click **Apply** to set the description, or **Dismiss** to discard it.
+
+If the save is refused, the panel stays open with the reason and your edited text, so you can try again. If the AI finds nothing to suggest, the panel says so; dismiss it to try again.
 
 ### When Creating a New Card
 
@@ -207,9 +211,11 @@ Once configured by an admin, users with the `ai.suggest` permission (granted to 
 For **Application** cards, the AI can also suggest additional fields when it finds evidence in web search results:
 
 - **Commercial Application** — toggled on if pricing, license information, or sales contact pages are found
-- **Hosting Type** — suggested as On-Premise, Cloud (SaaS), Cloud (PaaS), Cloud (IaaS), or Hybrid based on the product's deployment model
+- **Hosting Type** — suggested from the Hosting Type options of your Application card type (by default On-Premise, Cloud (SaaS), Cloud (PaaS), Cloud (IaaS) or Hybrid), based on the product's deployment model
 
 These fields are only suggested when the AI finds clear evidence — they are not speculated. The user can review and adjust the values before applying.
+
+The suggestions follow your metamodel. The Hosting Type choices are given to the AI with their labels, and the suggestion is always one of their keys. If an admin has removed one of these fields, changed its type, made it calculated or removed an option, or if the card's subtype hides the field, that suggestion is skipped and the description is still offered. If a suggested value is refused when you apply it, the description is saved on its own and a message says which value could not be saved.
 
 !!! note
     Apart from Application-specific fields, AI suggestions primarily generate the **description** field. Custom fields for other card types are not yet covered.
@@ -282,6 +288,7 @@ Custom roles can be granted these permissions through the Roles administration p
 | Model not appearing in dropdown | For Ollama: ensure the model is downloaded (`ollama pull model-name`). For commercial providers: enter the model name manually. |
 | Slow suggestions | LLM inference speed depends on hardware (for Ollama) or network latency (for commercial providers). Smaller models like `gemma3:4b` are faster than larger ones. |
 | Low confidence scores | The LLM may not find enough relevant information via web search. Try a more specific card name, or consider using Google Custom Search for better results. |
+| Apply saves the description but says the other values could not be saved | The card type no longer accepts one of the suggested values, for example because a Hosting Type option was removed in the metamodel. The description is saved; set the other fields by hand. |
 | Connection test fails | Verify the provider URL is reachable from the backend container. For Docker setups, ensure both containers are on the same network. |
 | "The AI provider rejected the request" | The provider was reached but refused the request, and the message carries its reason (with a 401 or 403, check the API key and the model access instead). Correct the model name or the provider setting it names, then click Test Connection: it sends the same request a suggestion does, so it now fails or passes the same way. |
 | Bedrock returns "AccessDeniedException" | Two different causes: the IAM role is missing the `bedrock:InvokeModel` permission, or model access has not been enabled for that model in the Bedrock console. Check both. |
