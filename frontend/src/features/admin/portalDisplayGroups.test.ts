@@ -125,6 +125,13 @@ describe("setSurfaceForRows", () => {
     });
   });
 
+  it("keeps a stored detail tick when the card column is ticked", () => {
+    const toggles = { "field:b": { card: false, detail: true } };
+    expect(setSurfaceForRows(toggles, [rows[1]], "card", true)).toEqual({
+      "field:b": { card: true, detail: true },
+    });
+  });
+
   it("leaves the toggles it was given untouched", () => {
     const toggles = { "field:a": { card: false, detail: false } };
     setSurfaceForRows(toggles, rows, "card", true);

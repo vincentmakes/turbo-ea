@@ -153,3 +153,51 @@ describe("AddFilterMenu", () => {
     expect(chip).toHaveAttribute("aria-expanded", "true");
   });
 });
+
+describe("AddFilterMenu — keys, highlight and the search box", () => {
+  const selected = () => nameOf(screen.getByRole("option", { selected: true }));
+
+  it("keeps the arrows and Enter from doing anything else (they are default-prevented)", () => {
+    const { search } = open();
+    expect(fireEvent.keyDown(search, { key: "ArrowDown" })).toBe(false);
+    expect(fireEvent.keyDown(search, { key: "ArrowUp" })).toBe(false);
+    expect(fireEvent.keyDown(search, { key: "a" })).toBe(true);
+    expect(fireEvent.keyDown(search, { key: "Enter" })).toBe(false);
+  });
+
+  it("puts the highlight back on the first field when the search is cleared", () => {
+    const { search } = open();
+    fireEvent.change(search, { target: { value: "risk" } });
+    fireEvent.keyDown(search, { key: "ArrowDown" });
+    fireEvent.keyDown(search, { key: "ArrowDown" });
+    // Third of the ranked matches: Risk, Risk register, Owner risk.
+    expect(selected()).toBe("Owner risk");
+    fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+    // The full list again, highlighted from its top (not its third field, Prisk).
+    expect(optionNames()[0]).toBe("Owner risk");
+    expect(selected()).toBe("Owner risk");
+  });
+
+  it("reopens with the highlight on the first field", async () => {
+    const { search } = open();
+    fireEvent.keyDown(search, { key: "ArrowDown" });
+    fireEvent.keyDown(search, { key: "ArrowDown" });
+    expect(selected()).toBe("Prisk");
+    fireEvent.keyDown(search, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+    fireEvent.click(screen.getByText("Add filter"));
+    expect(selected()).toBe("Owner risk");
+  });
+
+  it("points at no option when nothing matches", () => {
+    const { search } = open();
+    expect(search).toHaveAttribute("aria-activedescendant");
+    fireEvent.change(search, { target: { value: "zzz" } });
+    expect(search).not.toHaveAttribute("aria-activedescendant");
+  });
+
+  it("hints at what the search matches", () => {
+    const { search } = open();
+    expect(search).toHaveAttribute("placeholder", "Field or section");
+  });
+});

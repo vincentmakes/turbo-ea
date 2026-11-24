@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   CONTAINS_MAX,
   DESCRIPTION_SECTION,
@@ -743,5 +743,184 @@ describe("schemaWithFields", () => {
     ]);
     expect(catalogFields(build(out)).map((e) => e.field.key)).toEqual(["tier", "risk"]);
     expect(SCHEMA[0].fields).toHaveLength(2);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  The module's own constants, loaded fresh                          */
+/* ------------------------------------------------------------------ */
+//
+// Every case below imports the module again inside the test: its module-level
+// tables (the kind sets, the patterns, `SHAPE_KEYS`, the bound guards) are
+// then evaluated while the test runs, so they are the ones measured here.
+
+const fresh = async () => {
+  vi.resetModules();
+  return import("./fieldFilters");
+};
+
+describe("the kind tables, as the module defines them", () => {
+  it("names each kind's glyph and the Description section", async () => {
+    const f = await fresh();
+    expect(f.FILTER_KIND_ICONS).toEqual({
+      facet: "checklist",
+      text: "text_fields",
+      number: "123",
+      date: "calendar_month",
+    });
+    expect(f.DESCRIPTION_SECTION).toBe("__description");
+  });
+
+  it.each([
+    ["text", "text"],
+    ["multiline_text", "text"],
+    ["url", "text"],
+    ["number", "number"],
+    ["percentage", "number"],
+    ["cost", "number"],
+    ["date", "date"],
+    ["", null],
+    ["logo", null],
+  ])("files a %s field as %s", async (type, kind) => {
+    const f = await fresh();
+    expect(f.filterKindOf({ key: "x", label: "X", type })).toBe(kind);
+  });
+
+  it("files a select with options as a facet and one without as nothing", async () => {
+    const f = await fresh();
+    expect(f.filterKindOf({ key: "s", label: "S", type: "single_select", options: opts })).toBe("facet");
+    expect(f.filterKindOf({ key: "s", label: "S", type: "single_select" })).toBeNull();
+  });
+});
+
+describe("NUMBER_PATTERN, through numericValueOf", () => {
+  it.each<[string, number | null]>([
+    ["+1", 1],
+    ["-1", -1],
+    ["1", 1],
+    ["12", 12],
+    ["12.5", 12.5],
+    ["1.", 1],
+    ["12.", 12],
+    [".5", 0.5],
+    [".25", 0.25],
+    ["1.25", 1.25],
+    ["1e5", 100000],
+    ["1e+05", 100000],
+    ["1E-2", 0.01],
+    ["1e10", 1e10],
+    ["1e100", null],
+    ["e5", null],
+    ["+", null],
+    [".", null],
+    ["1.5.5", null],
+    ["a1", null],
+    ["1a", null],
+    [" 1", null],
+    ["1e", null],
+    ["1e+", null],
+  ])("reads %j as %j", async (raw, expected) => {
+    const f = await fresh();
+    expect(f.numericValueOf(raw)).toBe(expected);
+  });
+});
+
+describe("DATE_VALUE_PATTERN, through matchesCondition", () => {
+  it.each<[string, boolean]>([
+    ["2026-01-02", true],
+    ["2026-01-02T10:00:00Z", true],
+    ["2026-01-02T10:00:00+02:00", true],
+    ["2026-1-02", false],
+    ["26-01-02", false],
+    ["2026-01-2", false],
+    ["x2026-01-02", false],
+    ["2026-01-02x", false],
+    ["2026-01-02T", false],
+    ["2026-01-02Tabc", false],
+  ])("reads a stored %j as a date: %j", async (stored, matches) => {
+    const f = await fresh();
+    expect(f.matchesCondition("date", { from: "2000-01-01" }, stored)).toBe(matches);
+  });
+});
+
+describe("DATE_BOUND_PATTERN and the bound guards, through normaliseCondition", () => {
+  it("keeps a YYYY-MM-DD bound and drops any other text or a number", async () => {
+    const f = await fresh();
+    expect(f.normaliseCondition("date", { from: "2026-01-02" })).toEqual({ from: "2026-01-02" });
+    expect(f.normaliseCondition("date", { to: "2026-01-02" })).toEqual({ to: "2026-01-02" });
+    for (const bad of ["2026-1-02", "2026-01-2", "x2026-01-02", "2026-01-02x", "2026-01-02T10:00", 20260102]) {
+      expect(f.normaliseCondition("date", { from: bad })).toBeNull();
+    }
+    expect(f.restoreAttrConditions({ a: { from: "2026-01-02" }, b: { from: "2026-01-02x" } })).toEqual({
+      a: { from: "2026-01-02" },
+    });
+  });
+
+  it("keeps a finite number bound and drops anything else", async () => {
+    const f = await fresh();
+    expect(f.normaliseCondition("number", { min: 1 })).toEqual({ min: 1 });
+    expect(f.normaliseCondition("number", { max: -2.5 })).toEqual({ max: -2.5 });
+    for (const bad of [Infinity, -Infinity, NaN, "5", true, null]) {
+      expect(f.normaliseCondition("number", { min: bad })).toBeNull();
+    }
+  });
+
+  it("is null for a range on a facet or an unknown kind", async () => {
+    const f = await fresh();
+    expect(f.normaliseCondition("facet", { from: "2026-01-01" })).toBeNull();
+    expect(f.normaliseCondition("other" as unknown as FilterKind, { from: "2026-01-01" })).toBeNull();
+  });
+});
+
+describe("SHAPE_KEYS, through shapeOfCondition", () => {
+  it.each<[string, string]>([
+    ["contains", "text"],
+    ["min", "number"],
+    ["max", "number"],
+    ["from", "date"],
+    ["to", "date"],
+  ])("files a lone %s key as %s", async (key, kind) => {
+    const f = await fresh();
+    expect(f.shapeOfCondition({ [key]: "x" })).toBe(kind);
+  });
+
+  it("is null for keys of two kinds, an unknown key, or an inherited key", async () => {
+    const f = await fresh();
+    expect(f.shapeOfCondition({ contains: "x", min: 1 })).toBeNull();
+    expect(f.shapeOfCondition({ max: 1, to: "2026-01-01" })).toBeNull();
+    expect(f.shapeOfCondition({ nope: 1 })).toBeNull();
+    expect(f.shapeOfCondition(Object.create({ contains: "x" }))).toBeNull();
+  });
+});
+
+describe("appliedConditions, exactly", () => {
+  it("leaves out a condition whose shape does not fit its field, and one that narrows nothing", () => {
+    const kinds = new Map<string, FilterKind>([
+      ["code", "text"],
+      ["n", "number"],
+      ["note", "text"],
+    ]);
+    expect(
+      appliedConditions(
+        { code: { min: 100 }, n: { contains: "9" }, note: { contains: "   " }, other: { contains: "x" } },
+        kinds,
+      ),
+    ).toEqual([]);
+    expect(appliedConditions({ note: { contains: "   " }, code: { contains: "a" } }, kinds)).toEqual([
+      { key: "code", kind: "text", condition: { contains: "a" } },
+    ]);
+  });
+});
+
+describe("describeCondition, with no bound at all", () => {
+  it("is an empty at-most", () => {
+    expect(describeCondition({})).toEqual({ op: "atMost", value: "" });
+  });
+});
+
+describe("activeFieldKeys, a blank text condition", () => {
+  it("is not active; a needle is", () => {
+    expect(activeFieldKeys({ attrFilters: {}, attrConditions: { a: { contains: "  " } } })).toEqual(new Set());
+    expect(activeFieldKeys({ attrFilters: {}, attrConditions: { a: { contains: " x " } } })).toEqual(new Set(["a"]));
   });
 });

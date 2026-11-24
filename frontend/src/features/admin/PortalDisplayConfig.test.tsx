@@ -238,8 +238,20 @@ describe("PortalDisplayConfig", () => {
     expect(rowCard("Code")).toBeChecked();
   });
 
+  it("draws the fold button's glyph by its state: open points down, folded points right", async () => {
+    const { user } = renderWithProviders(<Harness />);
+    const fold = screen.getByRole("button", { name: t("webPortals.foldGroup", { section: "Business" }) });
+    expect(fold).toHaveTextContent("expand_more");
+    expect(fold).not.toHaveTextContent("chevron_right");
+    await user.click(fold);
+    const unfold = screen.getByRole("button", { name: t("webPortals.unfoldGroup", { section: "Business" }) });
+    expect(unfold).toHaveTextContent("chevron_right");
+    expect(unfold).not.toHaveTextContent("expand_more");
+  });
+
   it("shows the subtype row with its filter box only when asked to", () => {
     const { unmount } = renderWithProviders(<Harness subtypeRow eligible={["subtype"]} initialFilters={["subtype"]} />);
+    expect(screen.getByText(t("webPortals.subtypeFilterRow"))).toBeInTheDocument();
     expect(box(t("webPortals.visitorFilterFor", { item: t("webPortals.subtypeFilterRow") }))).toBeChecked();
     unmount();
     renderWithProviders(<Harness />);

@@ -494,6 +494,14 @@ describe("PpmPortfolio Filters section", () => {
     expect(location().get("filters")).toBe('{"filterFields":["code"]}');
   });
 
+  it("does not hold the board back while the metamodel loads when the link carries no condition (#1425)", async () => {
+    metamodelLoading = true;
+    renderBoard();
+    await screen.findByText("Alpha Rollout");
+    expect(names()).toEqual(["Alpha Rollout", "Beta Upgrade", "Gamma Study"]);
+    expect(total()).toBe("3");
+  });
+
   it("ignores a cost condition in a link for a reader without cost access (#1425)", async () => {
     metamodelTypes = TYPES.map((tp) =>
       tp.key !== "Initiative"

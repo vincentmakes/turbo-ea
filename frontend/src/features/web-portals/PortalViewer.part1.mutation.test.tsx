@@ -1038,6 +1038,81 @@ describe("PortalViewer visitor filters from the server's lists", () => {
     expect(screen.queryByRole("combobox", { name: "Application" })).toBeNull();
     expect(paths().some((p) => p.includes("/relation-options"))).toBe(false);
   });
+
+  it("keeps the page when a field is added, and goes back to page one once it holds a value", async () => {
+    serve(SLUG, { portal: withLists(), cards: { items: [card()], total: 60 } as CardPage });
+    const user = await renderLoaded();
+    await goToPage2(user);
+    await openFilters(user);
+    const before = cardQueries().length;
+    fireEvent.click(screen.getByText("Add filter"));
+    const listbox = screen.getByRole("listbox", { name: "Add filter" });
+    // Grouped under the section's own label.
+    expect(
+      within(within(listbox).getByRole("group", { name: "Application Information" })).getByRole("option", {
+        name: "Owner Contact",
+      }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("option", { name: "Owner Contact" }));
+    await settle();
+    // An added row narrows nothing: no new query, still on page two.
+    expect(cardQueries()).toHaveLength(before);
+    expect(lastCardParams().get("page")).toBe("2");
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Owner Contact" }), { target: { value: "ORG" } });
+    await waitFor(() => {
+      const p = lastCardParams();
+      expect(sentFilters(p)).toEqual({ attrConditions: { owner: { contains: "ORG" } } });
+      expect(p.get("page")).toBe("1");
+    });
+  });
+
+  it("goes back to page one when an added row is removed", async () => {
+    localStorage.setItem("turboea.portal.apps.prefs", JSON.stringify({ filterFields: ["owner"] }));
+    serve(SLUG, { portal: withLists(), cards: { items: [card()], total: 60 } as CardPage });
+    const user = await renderLoaded();
+    await goToPage2(user);
+    await openFilters(user);
+    await user.click(await screen.findByRole("button", { name: "Remove the Owner Contact filter" }));
+    await waitFor(() => expect(lastCardParams().get("page")).toBe("1"));
+  });
+
+  it("offers a yes/no field's values as Yes and No", async () => {
+    serve(SLUG, {
+      portal: withLists({ shown: [...LISTS.shown, "field:cloud"], allowed: [...LISTS.allowed, "field:cloud"] }),
+    });
+    const user = await renderLoaded();
+    await openFilters(user);
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Cloud Native" }));
+    const options = within(await screen.findByRole("listbox"))
+      .getAllByRole("option")
+      .map((o) => o.textContent);
+    expect(options).toEqual(["(empty)", "Yes", "No"]);
+  });
+
+  it("lists the Description section's fields under Description in Add filter", async () => {
+    const base = portal();
+    serve(SLUG, {
+      portal: portal({
+        type_info: {
+          ...base.type_info!,
+          fields_schema: [
+            { section: "__description", fields: [{ key: "alias", label: "Alias", type: "text" }] },
+            ...base.type_info!.fields_schema,
+          ],
+        },
+        card_config: { toggles: { ...TOGGLES, "field:alias": { card: true, detail: true } } },
+        visitor_filters: { ...LISTS, allowed: [...LISTS.allowed, "field:alias"] },
+      } as unknown as Partial<PublicPortal>),
+    });
+    const user = await renderLoaded();
+    await openFilters(user);
+    fireEvent.click(screen.getByText("Add filter"));
+    const listbox = screen.getByRole("listbox", { name: "Add filter" });
+    expect(
+      within(within(listbox).getByRole("group", { name: "Description" })).getByRole("option", { name: "Alias" }),
+    ).toBeInTheDocument();
+  });
 });
 
 describe("PortalViewer relation filters", () => {

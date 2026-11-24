@@ -875,6 +875,26 @@ describe("WebPortalsAdmin — visitor filters (#1425)", () => {
     await selectOption(user, tc("labels.type"), "Application");
     expect(box("Alias")).not.toBeChecked();
   });
+
+  it("resets the column to the default when the portal type changes", async () => {
+    const { user } = await newApplicationPortal();
+    // A list of the admin's own, without the subtype filter.
+    await user.click(box(t("webPortals.subtypeFilterRow")));
+    expect(box(t("webPortals.subtypeFilterRow"))).not.toBeChecked();
+    await selectOption(user, /portal type/i, t("webPortals.portalTypePpm"));
+    await selectOption(user, /portal type/i, t("webPortals.portalTypeCards"));
+    // A card list again, now of the pinned Initiatives: the default column, subtype included.
+    expect(screen.getByRole("combobox", { name: tc("labels.type") })).toHaveTextContent("Initiative");
+    expect(box(t("webPortals.subtypeFilterRow"))).toBeChecked();
+  });
+
+  it("opens a portal with no visitor settings with adding allowed, and explains the switch", async () => {
+    const bare: WebPortal = { ...CARDS_PORTAL, card_config: undefined };
+    const { user } = await renderList([bare], true);
+    await user.click(screen.getByRole("button", { name: t("webPortals.editPortal") }));
+    expect(screen.getByRole("checkbox", { name: new RegExp(t("webPortals.visitorCanAddFilters")) })).toBeChecked();
+    expect(dialog().getByText(t("webPortals.visitorCanAddFiltersHint"))).toBeInTheDocument();
+  });
 });
 
 describe("WebPortalsAdmin — access protection", () => {

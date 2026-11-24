@@ -890,6 +890,64 @@ describe("text conditions (#1425)", () => {
   });
 });
 
+describe("conditions beside the other filters (#1425)", () => {
+  const CORE = app("core", "Core", { attributes: { notes: "Core LEDGER", criticality: "low" } });
+  const EDGE = app("edge", "Edge", { attributes: { notes: "edge proxy", criticality: "high" }, tag_ids: ["t-cloud"] });
+  const TAGGED = payload([cap("pool", "Pool", null, [CORE, EDGE])], {
+    tag_groups: [{ id: "g-host", name: "Hosting", mode: "multi", tags: [{ id: "t-cloud", name: "Cloud" }] }],
+  });
+  const printParams = () => document.querySelector(".report-print-params") as HTMLElement;
+
+  it("counts a condition and a tag pick together", async () => {
+    serve(TAGGED);
+    ctl.config = { showApps: true, attrConditions: { notes: { contains: "proxy" } }, tagFilterIds: ["t-cloud"] };
+    renderMap();
+    await loaded("Pool");
+    expect(chipNames(["Core", "Edge"])).toEqual(["Edge"]);
+    expect(within(printParams()).getByText("2 active")).toBeInTheDocument();
+  });
+
+  it("keeps a condition when a facet value is picked", async () => {
+    serve(TAGGED);
+    ctl.config = { showApps: true, attrConditions: { notes: { contains: "proxy" } } };
+    renderMap();
+    await loaded("Pool");
+    fireEvent.mouseDown(within(toolbar()).getByRole("combobox", { name: "Criticality" }));
+    fireEvent.click(within(await screen.findByRole("listbox")).getByRole("option", { name: "High Crit" }));
+    await waitFor(() => expect(lastPersisted().attrFilters).toEqual({ criticality: ["high"] }));
+    expect(lastPersisted().attrConditions).toEqual({ notes: { contains: "proxy" } });
+    expect(within(toolbar()).getByRole("textbox", { name: "Notes" })).toHaveValue("proxy");
+    expect(chipNames(["Core", "Edge"])).toEqual(["Edge"]);
+  });
+
+  it("starts with no added field when nothing was saved", async () => {
+    serve(TAGGED);
+    renderMap();
+    await loaded("Pool");
+    await waitFor(() => expect(lastPersisted()).toBeDefined());
+    expect(lastPersisted().filterFields).toEqual([]);
+  });
+
+  it("lists each addable field under its section's label, the Description section under Description", async () => {
+    serve(
+      payload([cap("pool", "Pool", null, [CORE, EDGE])], {
+        fields_schema: [{ section: "__description", fields: [{ key: "alias", label: "Alias", type: "text" }] }, ...FIELDS_SCHEMA],
+      }),
+    );
+    ctl.config = { showApps: true };
+    renderMap();
+    await loaded("Pool");
+    fireEvent.click(within(toolbar()).getByText("Add filter"));
+    const listbox = await screen.findByRole("listbox", { name: "Add filter" });
+    expect(
+      within(within(listbox).getByRole("group", { name: "Description" })).getByRole("option", { name: "Alias" }),
+    ).toBeInTheDocument();
+    expect(
+      within(within(listbox).getByRole("group", { name: "Business" })).getByRole("option", { name: "Notes" }),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("added filter fields (#1425)", () => {
   // Hosting's section is switched off for filters: offered by "Add filter" only.
   const HIDDEN = payload([cap("pool", "Pool", null, [ALPHA, BETA])], {

@@ -1263,3 +1263,67 @@ describe("a locale change", () => {
     }
   });
 });
+
+/* ------------------------------------------------------------------ */
+/*  Text conditions: Add filter, the AI request, a type switch         */
+/* ------------------------------------------------------------------ */
+
+describe("text conditions (#1425)", () => {
+  const CODE = { key: "code", label: "Code", type: "text" };
+  const ALIAS = { key: "alias", label: "Alias", type: "text" };
+  const CODED = {
+    ...PAYLOAD,
+    items: [
+      { ...ITEMS[0], attributes: { ...ITEMS[0].attributes, code: "ORG-12" } },
+      ...ITEMS.slice(1),
+    ],
+    // The facet section first: a lookup that ignores the key lands on Business Criticality.
+    fields_schema: [
+      ...PAYLOAD.fields_schema,
+      { section: "__description", fields: [ALIAS] },
+      { section: "Identity", fields: [CODE] },
+    ],
+  };
+  const aiButton = () => within(screen.getByLabelText("AI Insights")).getByRole("button");
+
+  it("lists each addable field under its section's label, the Description section under Description", async () => {
+    mockApi.on("get", "/reports/app-portfolio*", CODED);
+    renderPortfolio();
+    await within(document.body).findByText("Standalone Tool");
+    fireEvent.click(screen.getByText("Add filter"));
+    const listbox = await screen.findByRole("listbox", { name: "Add filter" });
+    expect(within(within(listbox).getByRole("group", { name: "Identity" })).getByRole("option", { name: "Code" })).toBeInTheDocument();
+    expect(
+      within(within(listbox).getByRole("group", { name: "Description" })).getByRole("option", { name: "Alias" }),
+    ).toBeInTheDocument();
+  });
+
+  it("words an applied condition in the AI request by its field's label, and leaves out one the catalog lacks", async () => {
+    state.aiEnabled = true;
+    mockApi.on("get", "/reports/app-portfolio*", CODED);
+    mockApi.on("post", "/ai/portfolio-insights", { insights: [] });
+    state.config = { attrConditions: { code: { contains: "org" }, gone: { contains: "x" } }, filterFields: ["code"] };
+    renderPortfolio();
+    await within(document.body).findByText("SAP ERP");
+    expect(within(chart()).queryByText("Salesforce")).not.toBeInTheDocument();
+
+    fireEvent.click(aiButton());
+    await waitFor(() => expect(mockApi.callsOf("post", "/ai/portfolio-insights")).toHaveLength(1));
+    const body = mockApi.callsOf("post", "/ai/portfolio-insights")[0].body as Record<string, unknown>;
+    expect(body.active_filters).toEqual(["Code: contains “org”"]);
+  });
+
+  it("drops the old type's conditions when the card type changes", async () => {
+    mockApi.on("get", "/reports/app-portfolio*", CODED);
+    mockApi.on("get", "/reports/app-portfolio?type=Provider", PROVIDER_PAYLOAD);
+    state.config = { attrConditions: { code: { contains: "org" } }, filterFields: ["code"] };
+    renderPortfolio({ showTypeSelector: true });
+    await within(document.body).findByText("SAP ERP");
+    await waitFor(() => expect(lastPersisted().attrConditions).toEqual({ code: { contains: "org" } }));
+
+    await pick(/card type/i, /Provider$/);
+    await within(document.body).findByText("Globex");
+    await waitFor(() => expect(lastPersisted().cardType).toBe("Provider"));
+    expect(lastPersisted().attrConditions).toEqual({});
+  });
+});

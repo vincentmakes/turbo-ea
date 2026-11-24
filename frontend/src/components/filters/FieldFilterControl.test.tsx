@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { FieldFilterState, FilterKind, RenderedFilterRow } from "@/lib/fieldFilters";
@@ -287,5 +288,152 @@ describe("FieldFilterControl", () => {
       fireEvent.blur(from);
       expect(onChange).toHaveBeenLastCalledWith({ attrConditions: { due: { from: "2026-01-01" } } });
     });
+  });
+});
+
+describe("FieldFilterControl — what each bound writes and shows", () => {
+  /** The control under a parent that applies every patch, as a report does. */
+  function Applied({ field, kind, initial }: { field: Field; kind: FilterKind; initial?: Partial<FieldFilterState> }) {
+    const [state, setState] = useState(value(initial));
+    return (
+      <FieldFilterControl row={row(false, field, kind)} value={state} onChange={(p) => setState((s) => ({ ...s, ...p }))} />
+    );
+  }
+
+  it("writes the max bound beside the min", () => {
+    const onChange = vi.fn();
+    render(
+      <FieldFilterControl
+        row={row(false, PRICE, "number")}
+        value={value({ attrConditions: { price: { min: 10 } } })}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Price to" }), { target: { value: "30" } });
+    expect(onChange).toHaveBeenLastCalledWith({ attrConditions: { price: { min: 10, max: 30 } } });
+  });
+
+  it("writes the max bound alone, and drops it when cleared", () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <FieldFilterControl row={row(false, PRICE, "number")} value={value()} onChange={onChange} />,
+    );
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Price to" }), { target: { value: "7" } });
+    expect(onChange).toHaveBeenLastCalledWith({ attrConditions: { price: { max: 7 } } });
+    rerender(
+      <FieldFilterControl
+        row={row(false, PRICE, "number")}
+        value={value({ attrConditions: { price: { min: 1, max: 7 } } })}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Price to" }), { target: { value: "" } });
+    expect(onChange).toHaveBeenLastCalledWith({ attrConditions: { price: { min: 1, max: undefined } } });
+  });
+
+  it("keeps what was typed in the box while the parent has not answered", () => {
+    render(<FieldFilterControl row={row(false, PRICE, "number")} value={value()} onChange={vi.fn()} />);
+    const from = screen.getByRole("spinbutton", { name: "Price from" });
+    fireEvent.change(from, { target: { value: "10" } });
+    expect(from).toHaveValue(10);
+  });
+
+  it("shows a new value set from outside, and an empty box once it is gone", () => {
+    const { rerender } = render(
+      <FieldFilterControl
+        row={row(false, PRICE, "number")}
+        value={value({ attrConditions: { price: { min: 5 } } })}
+        onChange={vi.fn()}
+      />,
+    );
+    const from = () => screen.getByRole("spinbutton", { name: "Price from" });
+    expect(from()).toHaveValue(5);
+    rerender(
+      <FieldFilterControl
+        row={row(false, PRICE, "number")}
+        value={value({ attrConditions: { price: { min: 7 } } })}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(from()).toHaveValue(7);
+    rerender(<FieldFilterControl row={row(false, PRICE, "number")} value={value()} onChange={vi.fn()} />);
+    expect(from()).toHaveValue(null);
+  });
+
+  it("keeps a typed bound as typed when it reads as the stored value", () => {
+    render(<Applied field={PRICE} kind="number" />);
+    const from = screen.getByRole("spinbutton", { name: "Price from" }) as HTMLInputElement;
+    fireEvent.change(from, { target: { value: "1.50" } });
+    // The parent now stores 1.5; the box keeps "1.50", not a reformatted "1.5".
+    expect(from.value).toBe("1.50");
+  });
+
+  it("shows a stored from date, and an empty to date", () => {
+    render(
+      <FieldFilterControl
+        row={row(false, DUE, "date")}
+        value={value({ attrConditions: { due: { from: "2026-01-01" } } })}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("Due from")).toHaveValue("2026-01-01");
+    expect(screen.getByLabelText("Due to")).toHaveValue("");
+  });
+
+  it("writes the to date beside the from date", () => {
+    const onChange = vi.fn();
+    render(
+      <FieldFilterControl
+        row={row(false, DUE, "date")}
+        value={value({ attrConditions: { due: { from: "2026-01-01" } } })}
+        onChange={onChange}
+      />,
+    );
+    const to = screen.getByLabelText("Due to");
+    fireEvent.focus(to);
+    fireEvent.change(to, { target: { value: "2026-12-31" } });
+    fireEvent.blur(to);
+    expect(onChange).toHaveBeenLastCalledWith({
+      attrConditions: { due: { from: "2026-01-01", to: "2026-12-31" } },
+    });
+  });
+
+  it("writes nothing when an empty date box is entered and left", () => {
+    const onChange = vi.fn();
+    render(
+      <FieldFilterControl
+        row={row(false, DUE, "date")}
+        value={value({ attrConditions: { due: { to: "2026-12-31" } } })}
+        onChange={onChange}
+      />,
+    );
+    const from = screen.getByLabelText("Due from");
+    fireEvent.focus(from);
+    fireEvent.blur(from);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("writes nothing when an empty to box is entered and left", () => {
+    const onChange = vi.fn();
+    render(
+      <FieldFilterControl
+        row={row(false, DUE, "date")}
+        value={value({ attrConditions: { due: { from: "2026-01-01" } } })}
+        onChange={onChange}
+      />,
+    );
+    const to = screen.getByLabelText("Due to");
+    fireEvent.focus(to);
+    fireEvent.blur(to);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("offers only the empty choice for a facet field with no options", () => {
+    const bare: Field = { key: "flag", label: "Flag", type: "single_select" };
+    render(<FieldFilterControl row={row(false, bare, "facet")} value={value()} onChange={vi.fn()} />);
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Flag" }));
+    const options = within(screen.getByRole("listbox")).getAllByRole("option");
+    expect(options).toHaveLength(1);
+    expect(options[0]).toHaveTextContent("(empty)");
   });
 });

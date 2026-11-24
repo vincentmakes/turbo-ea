@@ -498,9 +498,34 @@ describe("CardLayoutEditor — Hidden from filters (#1425)", () => {
     expect(filtersSwitch("Details")).toBeInTheDocument();
   });
 
+  it("has no Description switch while the Description section holds no fields, even with a leftover flag", () => {
+    setup({
+      cardType: {
+        ...TYPE,
+        fields_schema: [{ ...DESCRIPTION_SECTION, fields: [], hideInFilters: true }, DETAILS_SECTION, EXTRA_SECTION],
+      },
+    });
+    expect(filtersSwitch("Description")).not.toBeInTheDocument();
+    expect(filtersSwitch("Details")).toBeInTheDocument();
+  });
+
   it("has no Description switch when the type has no Description section", () => {
     setup({ cardType: { ...TYPE, fields_schema: [DETAILS_SECTION, EXTRA_SECTION] } });
     expect(filtersSwitch("Description")).not.toBeInTheDocument();
+    // The first entry of fields_schema is a custom section like any other.
+    expect(filtersSwitch("Details")).toBeInTheDocument();
+  });
+
+  it("shows the flag of a custom section that is the first entry of fields_schema, and clears it", async () => {
+    const { user, onRefresh } = setup({
+      cardType: { ...TYPE, fields_schema: [{ ...DETAILS_SECTION, hideInFilters: true }, EXTRA_SECTION] },
+    });
+    const sw = filtersSwitch("Details")!;
+    expect(sw).toBeChecked();
+    expect(filtersSwitch("Extra")).not.toBeChecked();
+    await user.click(sw);
+    await waitFor(() => expect(onRefresh).toHaveBeenCalled());
+    expect(lastPatch().fields_schema).toEqual([DETAILS_SECTION, EXTRA_SECTION]);
   });
 
   it("offers no switch on a section with nothing to filter on", () => {

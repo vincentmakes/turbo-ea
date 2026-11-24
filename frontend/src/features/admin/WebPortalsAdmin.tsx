@@ -370,8 +370,8 @@ export default function WebPortalsAdmin() {
     rows: BUILT_IN_PROPERTIES.map((prop) => ({
       key: prop.key,
       label: prop.label,
-      defaultCard: DEFAULT_CARD[prop.key] ?? true,
-      defaultDetail: DEFAULT_DETAIL[prop.key] ?? true,
+      defaultCard: DEFAULT_CARD[prop.key],
+      defaultDetail: DEFAULT_DETAIL[prop.key],
       filterKey: prop.key === "tags" ? "tags" : undefined,
     })),
   };
