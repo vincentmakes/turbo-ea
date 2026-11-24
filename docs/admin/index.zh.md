@@ -6,7 +6,7 @@
 
 | 页面 | 描述 |
 |------|------|
-| [通用设置](settings.md) | 外观（logo、favicon、货币）、启用的语言、财年、电子邮件（SMTP）和模块开关（BPM、PPM、GRC） |
+| [通用设置](settings.md) | 外观（logo、favicon、货币）、启用的语言、财年、电子邮件（SMTP）和模块开关（BPM、PML、GRC） |
 | [元模型](metamodel.md) | 卡片类型、字段、分区、子类型、关系类型、计算、标签、EA 原则和元模型图 |
 | [计算](calculations.md) | 管理员定义的公式，在保存卡片时自动计算字段值 |
 | [标签](tags.md) | 标签组和标签，用于灵活分类卡片 |

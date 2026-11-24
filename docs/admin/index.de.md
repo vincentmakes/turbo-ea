@@ -6,7 +6,7 @@ Der **Admin**-Bereich ist für Benutzer mit der **Admin**-Rolle verfügbar. Er b
 
 | Seite | Beschreibung |
 |-------|-------------|
-| [Allgemeine Einstellungen](settings.md) | Erscheinungsbild (Logo, Favicon, Währung), aktivierte Sprachen, Geschäftsjahr, E-Mail (SMTP) und Modulumschaltungen (BPM, PPM, GRC) |
+| [Allgemeine Einstellungen](settings.md) | Erscheinungsbild (Logo, Favicon, Währung), aktivierte Sprachen, Geschäftsjahr, E-Mail (SMTP) und Modulumschaltungen (BPM, PML, GRC) |
 | [Metamodell](metamodel.md) | Kartentypen, Felder, Sektionen, Untertypen, Relationstypen, Berechnungen, Tags, EA-Prinzipien und der Metamodell-Graph |
 | [Berechnungen](calculations.md) | Vom Administrator definierte Formeln, die Feldwerte beim Speichern von Karten automatisch berechnen |
 | [Tags](tags.md) | Tag-Gruppen und Tags zur flexiblen Kategorisierung von Karten |

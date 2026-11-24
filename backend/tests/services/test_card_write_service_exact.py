@@ -85,7 +85,9 @@ def ext_actor() -> WriteActor:
 def published(monkeypatch):
     calls = []
 
-    async def fake(event_type, data, db=None, card_id=None, user_id=None, batch_id=None):
+    async def fake(
+        event_type, data, db=None, card_id=None, user_id=None, batch_id=None, deferred_messages=None
+    ):
         calls.append(
             {"type": event_type, "data": data, "db": db, "card_id": card_id, "user_id": user_id}
         )

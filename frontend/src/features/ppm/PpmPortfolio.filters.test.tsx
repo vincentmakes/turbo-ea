@@ -13,6 +13,9 @@ import { MemoryRouter, useLocation, useNavigate, useNavigationType } from "react
 import { api } from "@/api/client";
 import PpmPortfolio from "./PpmPortfolio";
 
+let authUser = { id: "alice", role: "admin", impersonated_role: null as string | null };
+vi.mock("@/hooks/AuthContext", () => ({useOptionalAuthUser: () => authUser}));
+
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn() },
   isAbortError: () => false,
@@ -511,7 +514,7 @@ describe("PpmPortfolio Filters section", () => {
 /* What the board remembers between visits                                   */
 /* ------------------------------------------------------------------------ */
 
-const PREFS_KEY = "turboea.ppm.portfolio.prefs";
+const PREFS_KEY = "turboea.ppm.portfolio.prefs.alice.admin%2F";
 const SALES_RAW = '{"relationFilters":{"Organization":["sales"]}}';
 const remember = (value: unknown) => localStorage.setItem(PREFS_KEY, JSON.stringify(value));
 const remembered = () => JSON.parse(localStorage.getItem(PREFS_KEY) ?? "null");
@@ -723,5 +726,31 @@ describe("PpmPortfolio remembers its state", () => {
     expect(await screen.findByText("No initiatives found")).toBeInTheDocument();
     expect(searchBox()).toHaveValue("\ufffd");
     expect(location().get("search")).toBe("\ufffd");
+  });
+});
+
+describe("PpmPortfolio identity changes", () => {
+  it("clears the active user search when impersonating a different role", async () => {
+    const view = renderBoard();
+    await screen.findByText("Alpha Rollout");
+    fireEvent.change(searchBox(), {target:{value:"Beta"}});
+    await waitFor(()=>expect(searchBox()).toHaveValue("Beta"));
+    authUser = {...authUser, impersonated_role:"viewer"};
+    view.rerender(<MemoryRouter><PpmPortfolio /><LocationProbe /><MenuEntry /></MemoryRouter>);
+    await waitFor(()=>expect(searchBox()).toHaveValue(""));
+    expect(location().get("search")).toBeNull();
+    authUser = {...authUser, impersonated_role:null};
+    view.rerender(<MemoryRouter><PpmPortfolio /><LocationProbe /><MenuEntry /></MemoryRouter>);
+    await waitFor(()=>expect(searchBox()).toHaveValue("Beta"));
+  });
+  it("does not carry search from one signed-in account to another", async () => {
+    const view = renderBoard();
+    await screen.findByText("Alpha Rollout");
+    fireEvent.change(searchBox(), {target:{value:"Beta"}});
+    await waitFor(()=>expect(searchBox()).toHaveValue("Beta"));
+    authUser = {id:"bob", role:"admin", impersonated_role:null};
+    view.rerender(<MemoryRouter><PpmPortfolio /><LocationProbe /><MenuEntry /></MemoryRouter>);
+    await waitFor(()=>expect(searchBox()).toHaveValue(""));
+    expect(location().get("search")).toBeNull();
   });
 });

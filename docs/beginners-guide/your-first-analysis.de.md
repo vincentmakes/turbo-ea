@@ -120,7 +120,7 @@ Sobald Ihr Anwendungsportfolio lebendig und vertrauenswürdig ist, werden diese 
 |--------|----------------|------------------|
 | **Risk Register** | Wenn Sie bereit sind, Architekturrisiken gegenüber Anwendungen und Capabilities zu verfolgen (TOGAF Phase G). | [Risk Register](../guide/risks.md) |
 | **GRC / Compliance** | Wenn Sie Anwendungen und Capabilities gegenüber Regulierungen (DSGVO, NIS2, EU AI Act, DORA, SOC 2, ISO 27001) abbilden müssen. | [GRC](../guide/grc.md) |
-| **PPM** | Wenn die Rationalisierungsentscheidungen zu Projekten mit Budgets, Zeitplänen und Statusberichten werden. | [PPM](../guide/ppm.md) |
+| **PML** | Wenn die Rationalisierungsentscheidungen zu Projekten mit Budgets, Zeitplänen und Statusberichten werden. | [PML](../guide/ppm.md) |
 | **TurboLens AI** | Wenn Sie genug Karten haben, damit die KI Vendor-Duplikate, Modernisierungskandidaten und Architekturempfehlungen finden kann. | [TurboLens](../guide/turbolens.md) |
 | **BPM** | Wenn Sie bereit sind, die Prozesse zu modellieren, die auf Ihren Anwendungen sitzen. | [BPM](../guide/bpm.md) |
 | **Diagramme** | Wenn Sie freiformatige Architekturdiagramme benötigen, die mit dem Inventar synchron bleiben. | [Diagramme](../guide/diagrams.md) |

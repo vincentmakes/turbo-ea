@@ -4,7 +4,7 @@ A página de **Configurações** em **Admin → Configurações** (`/admin/setti
 
 | Aba | URL | O que controla | Guia completo |
 |-----|-----|----------------|---------------|
-| **Geral** | `/admin/settings?tab=general` | Aparência (logo, favicon, moeda, formato de data, idiomas habilitados, ano fiscal), envio de e-mail, **alternâncias de módulos** (BPM, PPM, GRC, ArchiMate, TurboLens, Sponsor button, Modo TurboRPG) | Esta página |
+| **Geral** | `/admin/settings?tab=general` | Aparência (logo, favicon, moeda, formato de data, idiomas habilitados, ano fiscal), envio de e-mail, **alternâncias de módulos** (BPM, PML, GRC, ArchiMate, TurboLens, Sponsor button, Modo TurboRPG) | Esta página |
 | **Autenticação** | `/admin/settings?tab=authentication` | Provedores SSO, registro, política de senha | [Autenticação e SSO](sso.md) |
 | **IA** | `/admin/settings?tab=ai` | Provedor LLM, modelo, backend de busca web, alternâncias de sugestão IA por tipo de card | [Capacidades de IA](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Vinculação em massa de produtos a entradas de endoflife.date | [Fim de vida (EOL)](eol.md) |
@@ -14,8 +14,9 @@ A página de **Configurações** em **Admin → Configurações** (`/admin/setti
 | **Migração** | `/admin/settings?tab=migration` | Importações de outras plataformas EA e transferência completa do espaço de trabalho entre instâncias do Turbo EA | [Migração de plataforma](migration.md) |
 | **Registro de auditoria** | `/admin/settings?tab=audit-log` | **Alterações**: o registro de lotes de mutação — quem mudou o quê e se veio da interface web, da API, de uma ferramenta de IA ou de uma extensão. **Segurança e administração**: entradas, tentativas com falha, bloqueios e outros eventos de segurança | [Registro de auditoria](audit-log.md) |
 | **Recursos** | `/admin/settings?tab=resources` | Todos os arquivos e links anexados a um cartão, com estatísticas de armazenamento e limpeza em massa | [Recursos](resources.md) |
+| **PML** | `/admin/settings?tab=pml` | Campos financeiros, cálculos, fornecedor herdado e mapeamento de datas | [Lista principal de projetos (PML)](#ppm-module) |
 
-O restante desta página cobre a aba **Geral**.
+As secções abaixo descrevem as definições gerais e a configuração PML.
 
 ![Configurações gerais](../assets/img/pt/28_admin_config_geral.png)
 
@@ -45,7 +46,7 @@ Selecione a moeda usada para campos de custo em toda a plataforma. Isso afeta co
 
 ### Formato de data
 
-Escolha como as datas são exibidas em todo o aplicativo. O formato selecionado aplica-se às datas de ciclo de vida dos cards, à grade de inventário, às assinaturas de ADR e SoAW, ao Registro de Riscos, aos relatórios e tarefas do PPM, às versões de fluxos de processos BPM, aos comentários, ao histórico, ao feed de atividade do painel, às notificações e às páginas de administração. Cinco formatos são oferecidos com pré-visualização em tempo real:
+Escolha como as datas são exibidas em todo o aplicativo. O formato selecionado aplica-se às datas de ciclo de vida dos cards, à grade de inventário, às assinaturas de ADR e SoAW, ao Registro de Riscos, aos relatórios e tarefas do PML, às versões de fluxos de processos BPM, aos comentários, ao histórico, ao feed de atividade do painel, às notificações e às páginas de administração. Cinco formatos são oferecidos com pré-visualização em tempo real:
 
 - `MM/DD/YYYY` — estilo EUA (ex. `04/29/2026`)
 - `DD/MM/YYYY` — estilo europeu (ex. `29/04/2026`)
@@ -65,7 +66,7 @@ Pelo menos um idioma deve permanecer habilitado o tempo todo.
 
 ### Início do Ano Fiscal
 
-Selecione o mês em que o ano fiscal da sua organização começa (janeiro a dezembro). Esta configuração afeta como as **linhas de orçamento** no módulo PPM são agrupadas por ano fiscal. Por exemplo, se o ano fiscal começa em abril, uma linha de orçamento de junho de 2026 pertence ao AF 2026–2027. Também determina qual ano fiscal o [Relatório de Custos](../guide/reports.md) apresenta.
+Selecione o mês em que o ano fiscal da sua organização começa (janeiro a dezembro). Esta configuração afeta como as **linhas de orçamento** no módulo PML são agrupadas por ano fiscal. Por exemplo, se o ano fiscal começa em abril, uma linha de orçamento de junho de 2026 pertence ao AF 2026–2027. Também determina qual ano fiscal o [Relatório de Custos](../guide/reports.md) apresenta.
 
 O padrão é **janeiro** (ano civil = ano fiscal).
 
@@ -168,14 +169,41 @@ Desativado por predefinição. Quando ativado, quem submete uma revisão de um f
 
 Deixe-o desativado numa equipa pequena onde a mesma pessoa redige e aprova. Ativá-lo não altera o que fica registado: submissões, aprovações, rejeições e retiradas ficam no separador **Histórico** do cartão em qualquer caso.
 
-## Módulo PPM
+## Lista principal de projetos (PML) { #ppm-module }
 
-Alterne o módulo de **Gestão de Portfólio de Projetos** (PPM) ligado ou desligado. Quando desabilitado:
+Em **Geral**, utilize **Lista principal de projetos (PML)** para ativar ou desativar o módulo. Quando desativado, a entrada de navegação, o separador PML e os resumos do cartão da iniciativa ficam ocultos. Os campos do metamodelo mantêm as permissões existentes. [Lista principal de projetos](../guide/ppm.md).
 
-- O item de navegação **PPM** é oculto para todos os usuários
-- Cards de Iniciativa permanecem no banco de dados, mas recursos específicos de PPM (relatórios de status, acompanhamento de orçamento e custos, registro de riscos, quadro de tarefas, gráfico de Gantt) não estão acessíveis
+### Configurar orçamento e custos { #pml-budget-costs }
 
-Quando habilitado, cards de Iniciativa ganham uma aba **PPM** na sua visualização de detalhes e o painel do portfólio PPM fica disponível na navegação principal. Veja [Gestão de Portfólio de Projetos](../guide/ppm.md) para o guia completo de funcionalidades.
+Abra **Administração → Definições → PML → Orçamento e custos** e escolha **Orçamento planeado**, **Itens de custo** ou **Faturação efetiva**. Adicione um campo com chave estável, nome e tipo. Use **Mostrar como coluna** para incluir o campo na hierarquia e na impressão. Reordene ou desative campos mantendo os valores registados. Guarde cada secção em separado.
+
+Para um campo **Calculado**, defina o tipo de resultado, os aliases e as fontes. Escolha uma fórmula ou regras ordenadas. A primeira regra aplicável fornece o resultado; quando nenhuma corresponde, aplica-se o valor alternativo. Combine comparações com AND, OR e NOT. Use valores de exemplo e **Pré-visualização** antes de guardar. Os [cálculos do metamodelo](calculations.md) aplicam-se aos campos dos cartões.
+
+Uma referência para cartão limita a escolha ao tipo indicado. Configure uma relação compatível para associar o cartão à iniciativa. Em Itens de custo, selecione o campo do fornecedor no orçamento e, se necessário, permita filhos diretos. A faturação tem campos próprios.
+
+#### Exemplo de configuração Aruba
+
+| Secção | Campo e chave de exemplo | Configuração |
+|---|---|---|
+| Orçamento planeado | **Origine Costi** (`origineCosti`) | Referência a um cartão Provider. Use a relação existente Suporta e escolha este campo como origem nos itens de custo. Permita filhos diretos quando necessário. |
+| Itens de custo | **Gestione intercompany** (`gestioneIntercompany`) | Seleção única com Plafond, Canone, Progetto e N.A. |
+| Itens de custo | **OdA — Ordine d’acquisto** (`ordineAcquisto`) | Texto, por exemplo `ODA-000427`. |
+| Itens de custo | **Origine Costi Aggregato** (`origineCostiAggregato`) | Cálculo com resultado textual. Use o fornecedor efetivo e, opcionalmente, o fornecedor do orçamento e o tipo de despesa. |
+
+O campo opcional **Tipo di spesa** distingue **Licenze** e **Servizi esterni** para o mesmo fornecedor. Introduza as regras nesta ordem.
+
+1. Uma compra de licença resulta em **Licenze**.
+2. Um serviço externo ou um fornecedor classificado como externo resulta em **Servizi Esterni**.
+3. **Aruba Spa**, **Aruba PEC** ou **Actalis** resultam em **Servizi interni**.
+4. **Aruba Software**, **Aruba System**, **Aruba Cybersecurity**, **Aruba Marketing**, **Aruba Service Desk**, **Aruba Enterprise** ou **Aruba DC&Infra** resultam em **Servizi Intercompany**.
+
+Selecione os cartões de fornecedores reais nas comparações. Se o filho não tiver classificação, pode consultar o fornecedor do orçamento e deixar o valor alternativo vazio quando faltarem dados. Um item de **Aruba Software / Licensing**, filho de **Aruba Software**, pode ter `Canone` e `ODA-000427`. As definições são exemplos de configuração da instância.
+
+### Configurar o cronograma { #pml-timeline }
+
+Em **Administração → Definições → PML → Cronograma**, selecione os campos de início e fim reais. As chaves incorporadas são `actualStart` e `actualEnd`. Pode escolher dois campos de data distintos e editáveis. O início e o fim continuam a ser as datas planeadas. As chaves distinguem maiúsculas de minúsculas. Quem pode editar o metamodelo pode criar um campo predefinido em falta.
+
+O cartão, o portefólio interno e o relatório respeitam a visibilidade dos campos. O portefólio público mostra o plano. Os campos e o mapeamento podem ser transferidos com um [pacote do espaço de trabalho](workspace-transfer.md).
 
 ## Módulo GRC
 

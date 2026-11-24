@@ -2,7 +2,7 @@
 
 Das **EA Delivery**-Modul verwaltet **Architekturinitiativen und deren Artefakte** — Diagramme, Statements of Architecture Work (SoAW) und Architecture Decision Records (ADR). Es bietet eine einheitliche Ansicht aller laufenden Architekturprojekte und ihrer Ergebnisse.
 
-Wenn PPM aktiviert ist — die übliche Konfiguration — lebt EA Delivery **innerhalb des PPM-Moduls**: Öffnen Sie **PPM** in der Top-Navigation und wechseln Sie auf den Reiter **EA Delivery** (`/ppm?tab=ea-delivery`). Wenn PPM deaktiviert ist, erscheint **EA Delivery** im Menü **IT Governance** als **EA Governance** (mit Link zu `/reports/ea-delivery`); ist GRC ausgeschaltet oder darf Ihre Rolle IT Governance nicht öffnen, erscheint stattdessen ein Top-Level-Eintrag **EA Delivery**. Die alte URL `/ea-delivery` funktioniert in beiden Fällen weiterhin als Weiterleitung, sodass bestehende Lesezeichen erhalten bleiben.
+Wenn PML aktiviert ist — die übliche Konfiguration — lebt EA Delivery **innerhalb des PML-Moduls**: Öffnen Sie **PML** in der Top-Navigation und wechseln Sie auf den Reiter **EA Delivery** (`/ppm?tab=ea-delivery`). Wenn PML deaktiviert ist, erscheint **EA Delivery** im Menü **IT Governance** als **EA Governance** (mit Link zu `/reports/ea-delivery`); ist GRC ausgeschaltet oder darf Ihre Rolle IT Governance nicht öffnen, erscheint stattdessen ein Top-Level-Eintrag **EA Delivery**. Die alte URL `/ea-delivery` funktioniert in beiden Fällen weiterhin als Weiterleitung, sodass bestehende Lesezeichen erhalten bleiben.
 
 ![EA Delivery-Verwaltung](../assets/img/de/17_ea_lieferung.png)
 

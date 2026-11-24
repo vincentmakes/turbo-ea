@@ -10,6 +10,14 @@ import userEvent from "@testing-library/user-event";
 import type { PpmStatusReport } from "@/types";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
+let canViewCosts = true;
+vi.mock("@/hooks/usePermissions", () => ({
+  usePermissions: () => ({
+    loadCardPermissions: vi.fn(),
+    canOnCard: () => canViewCosts,
+  }),
+}));
+
 
 import { mockApi } from "@/test/apiMock";
 import { todayIsoDate } from "@/lib/dates";
@@ -62,6 +70,7 @@ function deferred<T>() {
 }
 
 beforeEach(() => {
+  canViewCosts = true;
   mockApi.reset();
   mockApi.on("post", createPath, {});
   mockApi.on("patch", /^\/ppm\/reports\//, {});
@@ -269,4 +278,28 @@ describe("StatusReportDialog — pre-filled texts and translated buttons", () =>
       });
     }
   });
+});
+
+it("edits a report with withheld cost health without fabricating or sending that rating", async () => {
+  const {user, onSaved} = renderDialog({...REPORT, cost_health: null});
+  expect(screen.queryByText("Cost")).not.toBeInTheDocument();
+  expect(pressed("Schedule")).toEqual(["At Risk"]);
+  expect(pressed("Scope")).toEqual(["On Track"]);
+  await user.click(screen.getByRole("button", {name:"Save"}));
+  await waitFor(()=>expect(onSaved).toHaveBeenCalledOnce());
+  const body = mockApi.callsOf("patch", "/ppm/reports/rep1")[0].body as Record<string, unknown>;
+  expect(body).not.toHaveProperty("cost_health");
+  expect(body).toMatchObject({schedule_health:"atRisk", scope_health:"onTrack"});
+});
+
+it("omits cost health when the current card does not grant cost visibility", async () => {
+  canViewCosts = false;
+  const {user, onSaved} = renderDialog();
+  expect(screen.queryByText("Cost")).not.toBeInTheDocument();
+  expect(pressed("Schedule")).toEqual(["On Track"]);
+  expect(pressed("Scope")).toEqual(["On Track"]);
+  await user.click(screen.getByRole("button", {name:"Add Report"}));
+  await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
+  const body = mockApi.callsOf("post", createPath)[0].body as Record<string, unknown>;
+  expect(body).not.toHaveProperty("cost_health");
 });

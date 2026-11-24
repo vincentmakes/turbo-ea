@@ -37,6 +37,13 @@ async def ppm_env(db):
     return {"admin": admin, "viewer": viewer, "initiative": card}
 
 
+@pytest.fixture
+async def ppm_budget(db, ppm_env):
+    """Budget for API-created costs, keeping unrelated tests' empty state."""
+    budget = await create_budget_line(db, initiative_id=ppm_env["initiative"].id)
+    return str(budget.id)
+
+
 # ── Status Reports ────────────────────────────────────────────────
 
 
@@ -170,9 +177,10 @@ class TestCostLines:
         assert resp.status_code == 200
         assert resp.json() == []
 
-    async def test_create_cost_line(self, client, ppm_env):
+    async def test_create_cost_line(self, client, ppm_env, ppm_budget):
         init_id = str(ppm_env["initiative"].id)
         payload = {
+            "budget_line_id": ppm_budget,
             "description": "Contractor fees",
             "category": "opex",
             "planned": 10000,
@@ -192,11 +200,16 @@ class TestCostLines:
         assert data["actual"] == 8000
         assert data["date"] == "2026-03-15"
 
-    async def test_update_cost_line(self, client, ppm_env):
+    async def test_update_cost_line(self, client, ppm_env, ppm_budget):
         init_id = str(ppm_env["initiative"].id)
         create_resp = await client.post(
             f"{BASE}/initiatives/{init_id}/costs",
-            json={"description": "HW", "category": "capex", "actual": 500},
+            json={
+                "budget_line_id": ppm_budget,
+                "description": "HW",
+                "category": "capex",
+                "actual": 500,
+            },
             headers=auth_headers(ppm_env["admin"]),
         )
         cost_id = create_resp.json()["id"]
@@ -209,11 +222,11 @@ class TestCostLines:
         assert resp.status_code == 200
         assert resp.json()["actual"] == 750
 
-    async def test_delete_cost_line(self, client, ppm_env):
+    async def test_delete_cost_line(self, client, ppm_env, ppm_budget):
         init_id = str(ppm_env["initiative"].id)
         create_resp = await client.post(
             f"{BASE}/initiatives/{init_id}/costs",
-            json={"description": "Temp", "category": "opex"},
+            json={"budget_line_id": ppm_budget, "description": "Temp", "category": "opex"},
             headers=auth_headers(ppm_env["admin"]),
         )
         cost_id = create_resp.json()["id"]
@@ -224,12 +237,13 @@ class TestCostLines:
         )
         assert resp.status_code == 204
 
-    async def test_cost_sync_updates_initiative(self, client, ppm_env):
+    async def test_cost_sync_updates_initiative(self, client, ppm_env, ppm_budget):
         """Creating cost lines should update the initiative card attributes."""
         init_id = str(ppm_env["initiative"].id)
         await client.post(
             f"{BASE}/initiatives/{init_id}/costs",
             json={
+                "budget_line_id": ppm_budget,
                 "description": "Line A",
                 "category": "capex",
                 "actual": 1000,
@@ -239,6 +253,7 @@ class TestCostLines:
         await client.post(
             f"{BASE}/initiatives/{init_id}/costs",
             json={
+                "budget_line_id": ppm_budget,
                 "description": "Line B",
                 "category": "opex",
                 "actual": 2000,
@@ -525,11 +540,16 @@ class TestHasCosts:
         assert data["has_budget_lines"] is False
         assert data["has_cost_lines"] is False
 
-    async def test_returns_true_after_cost_line(self, client, ppm_env):
+    async def test_returns_true_after_cost_line(self, client, ppm_env, ppm_budget):
         init_id = str(ppm_env["initiative"].id)
         await client.post(
             f"{BASE}/initiatives/{init_id}/costs",
-            json={"description": "Licence", "category": "opex", "actual": 100},
+            json={
+                "budget_line_id": ppm_budget,
+                "description": "Licence",
+                "category": "opex",
+                "actual": 100,
+            },
             headers=auth_headers(ppm_env["admin"]),
         )
         resp = await client.get(
@@ -538,7 +558,7 @@ class TestHasCosts:
         )
         data = resp.json()
         assert data["has_cost_lines"] is True
-        assert data["has_budget_lines"] is False
+        assert data["has_budget_lines"] is True
 
     async def test_returns_true_after_budget_line(self, client, ppm_env):
         init_id = str(ppm_env["initiative"].id)
@@ -1814,11 +1834,11 @@ class TestPermissions:
     All mutating endpoints should return 403 for viewers.
     """
 
-    async def test_viewer_cannot_create_cost(self, client, ppm_env):
+    async def test_viewer_cannot_create_cost(self, client, ppm_env, ppm_budget):
         init_id = str(ppm_env["initiative"].id)
         resp = await client.post(
             f"{BASE}/initiatives/{init_id}/costs",
-            json={"description": "X", "category": "opex"},
+            json={"budget_line_id": ppm_budget, "description": "X", "category": "opex"},
             headers=auth_headers(ppm_env["viewer"]),
         )
         assert resp.status_code == 403
@@ -1939,12 +1959,12 @@ class TestPermissions:
         )
         assert resp.status_code in (401, 403)
 
-    async def test_viewer_cannot_delete_cost(self, client, ppm_env):
+    async def test_viewer_cannot_delete_cost(self, client, ppm_env, ppm_budget):
         """Viewer cannot delete even if they somehow know the cost ID."""
         init_id = str(ppm_env["initiative"].id)
         create_resp = await client.post(
             f"{BASE}/initiatives/{init_id}/costs",
-            json={"description": "Admin cost", "category": "opex"},
+            json={"budget_line_id": ppm_budget, "description": "Admin cost", "category": "opex"},
             headers=auth_headers(ppm_env["admin"]),
         )
         cost_id = create_resp.json()["id"]

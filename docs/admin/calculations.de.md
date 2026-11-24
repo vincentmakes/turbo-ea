@@ -107,15 +107,17 @@ COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.in
 `SUM`, `AVG`, `MIN` und `MAX` überspringen nicht-numerische Einträge bereits von sich aus und
 brauchen keine Absicherung.
 
-### PPM-Daten auf Initiative-Karten { #ppm-data-on-initiative-cards }
+### PML-Daten auf Initiative-Karten { #ppm-data-on-initiative-cards }
 
-Die Wurzel `ppm` macht die Daten des PPM-Moduls für Formeln zugänglich: die Budget- und Kostenzeilen, getrennt nach Capex und Opex und aufgeschlüsselt nach Geschäftsjahr — Detail, das die auf der Karte zusammengefassten Attribute `data.costBudget` / `data.costActual` nicht liefern können — sowie die Umsetzungskennzahlen der Initiative: ihren Gesamtfortschritt, ihre Arbeitspakete, Aufgaben und Risiken und den letzten Statusbericht.
+Für Berechnungen auf Budget-, Kosten- oder Rechnungszeilen verwenden Sie die [PML-Finanzfelder](settings.md#pml-budget-costs). Diese Seite beschreibt Berechnungen auf Karten.
+
+Die Wurzel `ppm` macht die Daten des PML-Moduls für Formeln zugänglich: die Budget- und Kostenzeilen, getrennt nach Capex und Opex und aufgeschlüsselt nach Geschäftsjahr — Detail, das die auf der Karte zusammengefassten Attribute `data.costBudget` / `data.costActual` nicht liefern können — sowie die Umsetzungskennzahlen der Initiative: ihren Gesamtfortschritt, ihre Arbeitspakete, Aufgaben und Risiken und den letzten Statusbericht.
 
 | Variable | Beschreibung |
 |----------|-------------|
-| `ppm.capexBudget`, `ppm.opexBudget`, `ppm.totalBudget` | Geplantes Budget, aus den PPM-Budgetzeilen |
-| `ppm.capexPlanned`, `ppm.opexPlanned`, `ppm.totalPlanned` | Geplante Beträge auf den PPM-Kostenzeilen |
-| `ppm.capexActual`, `ppm.opexActual`, `ppm.totalActual` | Ist-Werte auf den PPM-Kostenzeilen |
+| `ppm.capexBudget`, `ppm.opexBudget`, `ppm.totalBudget` | Geplantes Budget, aus den PML-Budgetzeilen |
+| `ppm.capexPlanned`, `ppm.opexPlanned`, `ppm.totalPlanned` | Geplante Beträge auf den PML-Kostenzeilen |
+| `ppm.capexActual`, `ppm.opexActual`, `ppm.totalActual` | Ist-Werte auf den PML-Kostenzeilen |
 | `ppm.byYear` | Dieselben neun Kennzahlen je Geschäftsjahr, als Liste `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | Das Geschäftsjahr, in das der heutige Tag fällt |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Kostenzeilen ohne Datum: zählen zu den Summen, gehören aber zu keinem Jahr |
@@ -125,7 +127,7 @@ Die Wurzel `ppm` macht die Daten des PPM-Moduls für Formeln zugänglich: die Bu
 | `ppm.wbsCount`, `ppm.milestoneCount` | Anzahl der Arbeitspakete und der Meilensteine |
 | `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | Anzahl der Aufgaben, insgesamt und je Status |
 | `ppm.tasksOverdue` | Aufgaben, deren Fälligkeitsdatum überschritten ist und die nicht erledigt sind |
-| `ppm.riskCount`, `ppm.risksOpen`, `ppm.riskScoreMax` | PPM-Risiken: alle, noch offene und der höchste Risikoscore |
+| `ppm.riskCount`, `ppm.risksOpen`, `ppm.riskScoreMax` | PML-Risiken: alle, noch offene und der höchste Risikoscore |
 | `ppm.reportCount`, `ppm.reportDate` | Wie viele Statusberichte es gibt, und das Datum des letzten (`None`, solange keiner vorliegt) |
 | `ppm.scheduleHealth`, `ppm.costHealth`, `ppm.scopeHealth` | Die Gesundheitsindikatoren des letzten Statusberichts: `onTrack`, `atRisk` oder `offTrack` (`None`, solange keiner vorliegt) |
 
@@ -151,7 +153,7 @@ IF(ppm.tasksOverdue > 0, "Gefährdet", COALESCE(ppm.scheduleHealth, "Kein Berich
 * `total*` ist die Summe aller Zeilen, nicht `capex + opex`. Eine Zeile mit einer anderen Kategorie (etwa aus einem Import) zählt trotzdem zur Summe.
 * Eine Karte, die keine Initiative ist, liest alle `ppm`-Kennzahlen als `0` mit leerem `byYear` — eine Formel auf dem falschen Kartentyp liefert also Null statt zu scheitern. Die Felder des letzten Berichts liefern `None` statt `0` — «noch kein Bericht» und «auf Kurs» sind zwei verschiedene Sachverhalte —, sichern Sie sie daher mit `COALESCE` ab.
 
-Das Bearbeiten einer PPM-Budget- oder Kostenzeile, eines Arbeitspakets, einer Aufgabe, eines Risikos oder eines Statusberichts führt die Berechnungen der Initiative erneut aus, sodass alles daraus Abgeleitete sofort aktuell ist und die Änderung im Historie-Tab der Karte erscheint. Karten, die die PPM-Daten einer *anderen* Karte über eine Beziehung lesen, werden nicht aktualisiert — siehe [Wann Berechnungen ausgeführt werden](#when-calculations-run).
+Das Bearbeiten einer PML-Budget- oder Kostenzeile, eines Arbeitspakets, einer Aufgabe, eines Risikos oder eines Statusberichts führt die Berechnungen der Initiative erneut aus, sodass alles daraus Abgeleitete sofort aktuell ist und die Änderung im Historie-Tab der Karte erscheint. Karten, die die PML-Daten einer *anderen* Karte über eine Beziehung lesen, werden nicht aktualisiert — siehe [Wann Berechnungen ausgeführt werden](#when-calculations-run).
 
 #### Initiativfortschritt auf einer Karte oder in einem Portal anzeigen { #show-initiative-progress-on-a-card-or-a-portal }
 
@@ -163,9 +165,9 @@ Der Fortschritt einer Initiative lebt auf ihrem Übersicht-Tab; Karten und verö
 
 Von da an bewegt jedes Erledigen einer Aufgabe, jedes Bearbeiten des Fertigstellungsgrads eines Arbeitspakets und jedes Löschen eines Arbeitspakets den Balken überall dort, wo die Karte angezeigt wird.
 
-#### PPM-Werte entlang der Initiativhierarchie aufsummieren { #rolling-ppm-figures-up-the-initiative-hierarchy }
+#### PML-Werte entlang der Initiativhierarchie aufsummieren { #rolling-ppm-figures-up-the-initiative-hierarchy }
 
-Das PPM-Portfolio zeigt einer übergeordneten Initiative ohne eigene Budget- oder Kostenzeilen die Summe der Initiativen darunter, doch dieser Wert existiert nur auf dem Board. Um auf einem Programm – im Inventar, in Berichten und Portalen – das Budget von allem darunter anzuzeigen, verwenden Sie eine einzige Berechnung, die das Ergebnis ihrer untergeordneten Initiativen liest:
+Das PML-Portfolio zeigt einer übergeordneten Initiative ohne eigene Budget- oder Kostenzeilen die Summe der Initiativen darunter, doch dieser Wert existiert nur auf dem Board. Um auf einem Programm – im Inventar, in Berichten und Portalen – das Budget von allem darunter anzuzeigen, verwenden Sie eine einzige Berechnung, die das Ergebnis ihrer untergeordneten Initiativen liest:
 
 1. Fügen Sie unter **Admin → Metamodell** dem Typ Initiative ein Feld vom Typ **Kosten** hinzu — etwa `rolledUpBudget` mit der Bezeichnung *Aufsummiertes Budget*.
 2. Legen Sie unter **Admin → Berechnungen** eine Berechnung auf Initiative mit der Formel `ppm.totalBudget + SUM(PLUCK(children, "attributes.rolledUpBudget"))` an, wählen Sie dieses Feld als Ziel und aktivieren Sie sie.
@@ -306,7 +308,7 @@ Die Berechnungen einer Karte werden neu ausgewertet, wenn:
   berechnet wird;
 * Sie die Berechnung manuell aus der Liste ausführen, wodurch sie für jede Karte des Zieltyps
   ausgewertet und die Ergebnisse gespeichert werden;
-* eine PPM-Budgetzeile, Kostenzeile, ein Arbeitspaket, eine Aufgabe, ein Risiko oder ein
+* eine PML-Budgetzeile, Kostenzeile, ein Arbeitspaket, eine Aufgabe, ein Risiko oder ein
   Statusbericht auf der Karte geändert wird, bei einer Initiative.
 * die obige Änderung an einer Initiative weiter unten in der Hierarchie erfolgt: Jede
   Initiative darüber wird ebenfalls neu berechnet, die nächstgelegene zuerst, sodass eine

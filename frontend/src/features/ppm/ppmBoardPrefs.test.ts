@@ -11,7 +11,7 @@ import {
 } from "./ppmBoardPrefs";
 import { filterSearchParams } from "./ppmPortfolioModel";
 
-const KEY = "turboea.ppm.portfolio.prefs";
+const KEY = "turboea.ppm.portfolio.prefs.alice.admin";
 const store = (value: unknown) => localStorage.setItem(KEY, JSON.stringify(value));
 
 beforeEach(() => localStorage.clear());
@@ -64,16 +64,16 @@ describe("BOARD_PARAMS", () => {
 
 describe("loadBoardPrefs", () => {
   it("defaults to nothing remembered and the section folded", () => {
-    expect(loadBoardPrefs()).toEqual({ params: {}, filtersCollapsed: true });
+    expect(loadBoardPrefs("alice", "admin")).toEqual({ params: {}, filtersCollapsed: true });
   });
 
   it("round-trips what was saved", () => {
-    saveBoardPrefs({ params: { search: "erp", hierarchy: "1" }, filtersCollapsed: false });
+    saveBoardPrefs({ params: { search: "erp", hierarchy: "1" }, filtersCollapsed: false }, "alice", "admin");
     expect(JSON.parse(localStorage.getItem(KEY)!)).toEqual({
       params: { search: "erp", hierarchy: "1" },
       filtersCollapsed: false,
     });
-    expect(loadBoardPrefs()).toEqual({
+    expect(loadBoardPrefs("alice", "admin")).toEqual({
       params: { search: "erp", hierarchy: "1" },
       filtersCollapsed: false,
     });
@@ -81,56 +81,56 @@ describe("loadBoardPrefs", () => {
 
   it("falls back to the defaults on corrupt JSON", () => {
     localStorage.setItem(KEY, "{nope");
-    expect(loadBoardPrefs()).toEqual({ params: {}, filtersCollapsed: true });
+    expect(loadBoardPrefs("alice", "admin")).toEqual({ params: {}, filtersCollapsed: true });
   });
 
   it("falls back to the defaults on a stored value that is not an object", () => {
     store(["search"]);
-    expect(loadBoardPrefs()).toEqual({ params: {}, filtersCollapsed: true });
+    expect(loadBoardPrefs("alice", "admin")).toEqual({ params: {}, filtersCollapsed: true });
     store(null);
-    expect(loadBoardPrefs()).toEqual({ params: {}, filtersCollapsed: true });
+    expect(loadBoardPrefs("alice", "admin")).toEqual({ params: {}, filtersCollapsed: true });
     store("search");
-    expect(loadBoardPrefs()).toEqual({ params: {}, filtersCollapsed: true });
+    expect(loadBoardPrefs("alice", "admin")).toEqual({ params: {}, filtersCollapsed: true });
   });
 
   it("drops params that are not an object", () => {
     store({ params: ["search"], filtersCollapsed: false });
-    expect(loadBoardPrefs()).toEqual({ params: {}, filtersCollapsed: false });
+    expect(loadBoardPrefs("alice", "admin")).toEqual({ params: {}, filtersCollapsed: false });
     store({ params: "search=erp", filtersCollapsed: false });
-    expect(loadBoardPrefs().params).toEqual({});
+    expect(loadBoardPrefs("alice", "admin").params).toEqual({});
     store({ params: null });
-    expect(loadBoardPrefs().params).toEqual({});
+    expect(loadBoardPrefs("alice", "admin").params).toEqual({});
   });
 
   it("keeps only the board's own parameters, as non-empty strings", () => {
     store({
       params: { search: "erp", tab: "x", depth: 2, hierarchy: true, subtype: "", groupBy: "Platform" },
     });
-    expect(loadBoardPrefs().params).toEqual({ search: "erp", groupBy: "Platform" });
+    expect(loadBoardPrefs("alice", "admin").params).toEqual({ search: "erp", groupBy: "Platform" });
   });
 
   it("reads the fold only from a real boolean", () => {
     store({ filtersCollapsed: "false" });
-    expect(loadBoardPrefs().filtersCollapsed).toBe(true);
+    expect(loadBoardPrefs("alice", "admin").filtersCollapsed).toBe(true);
     store({ filtersCollapsed: 0 });
-    expect(loadBoardPrefs().filtersCollapsed).toBe(true);
+    expect(loadBoardPrefs("alice", "admin").filtersCollapsed).toBe(true);
     store({ filtersCollapsed: true });
-    expect(loadBoardPrefs().filtersCollapsed).toBe(true);
+    expect(loadBoardPrefs("alice", "admin").filtersCollapsed).toBe(true);
     store({ filtersCollapsed: false });
-    expect(loadBoardPrefs().filtersCollapsed).toBe(false);
+    expect(loadBoardPrefs("alice", "admin").filtersCollapsed).toBe(false);
   });
 
   it("falls back to the defaults when storage cannot be read", () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("denied");
     });
-    expect(loadBoardPrefs()).toEqual({ params: {}, filtersCollapsed: true });
+    expect(loadBoardPrefs("alice", "admin")).toEqual({ params: {}, filtersCollapsed: true });
   });
 });
 
 describe("saveBoardPrefs / clearBoardPrefs", () => {
   it("stores only the board's own parameters", () => {
-    saveBoardPrefs({ params: { search: "erp", tab: "x", subtype: "" }, filtersCollapsed: true });
+    saveBoardPrefs({ params: { search: "erp", tab: "x", subtype: "" }, filtersCollapsed: true }, "alice", "admin");
     expect(JSON.parse(localStorage.getItem(KEY)!)).toEqual({
       params: { search: "erp" },
       filtersCollapsed: true,
@@ -138,7 +138,7 @@ describe("saveBoardPrefs / clearBoardPrefs", () => {
   });
 
   it("remembers an unfolded section with nothing else set", () => {
-    saveBoardPrefs({ params: {}, filtersCollapsed: false });
+    saveBoardPrefs({ params: {}, filtersCollapsed: false }, "alice", "admin");
     expect(JSON.parse(localStorage.getItem(KEY)!)).toEqual({
       params: {},
       filtersCollapsed: false,
@@ -147,14 +147,14 @@ describe("saveBoardPrefs / clearBoardPrefs", () => {
 
   it("leaves no entry for the default state", () => {
     store({ params: { search: "erp" }, filtersCollapsed: false });
-    saveBoardPrefs({ params: {}, filtersCollapsed: true });
+    saveBoardPrefs({ params: {}, filtersCollapsed: true }, "alice", "admin");
     expect(localStorage.getItem(KEY)).toBeNull();
   });
 
   it("clears what was remembered", () => {
     store({ params: { search: "erp" }, filtersCollapsed: false });
     localStorage.setItem("other", "kept");
-    clearBoardPrefs();
+    clearBoardPrefs("alice", "admin");
     expect(localStorage.getItem(KEY)).toBeNull();
     expect(localStorage.getItem("other")).toBe("kept");
   });
@@ -164,7 +164,7 @@ describe("saveBoardPrefs / clearBoardPrefs", () => {
       throw new Error("quota");
     });
     expect(() =>
-      saveBoardPrefs({ params: { search: "erp" }, filtersCollapsed: true }),
+      saveBoardPrefs({ params: { search: "erp" }, filtersCollapsed: true }, "alice", "admin"),
     ).not.toThrow();
   });
 
@@ -172,8 +172,8 @@ describe("saveBoardPrefs / clearBoardPrefs", () => {
     const remove = vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
       throw new Error("denied");
     });
-    expect(() => clearBoardPrefs()).not.toThrow();
-    expect(() => saveBoardPrefs({ params: {}, filtersCollapsed: true })).not.toThrow();
+    expect(() => clearBoardPrefs("alice", "admin")).not.toThrow();
+    expect(() => saveBoardPrefs({ params: {}, filtersCollapsed: true }, "alice", "admin")).not.toThrow();
     expect(remove).toHaveBeenCalledTimes(2);
   });
 });
@@ -228,5 +228,20 @@ describe("withBoardParams", () => {
     expect(withBoardParams(prev, {}).toString()).toBe("tab=x");
     // The link it was given is left alone.
     expect(prev.get("search")).toBe("old");
+  });
+});
+
+describe("account-isolated board preferences", () => {
+  it("does not load the old shared key or another user and role", () => {
+    localStorage.setItem("turboea.ppm.portfolio.prefs", JSON.stringify({params:{search:"legacy"},filtersCollapsed:false}));
+    saveBoardPrefs({ params: {search:"private"}, filtersCollapsed:false }, "alice", "admin");
+    expect(loadBoardPrefs("alice", "admin").params.search).toBe("private");
+    expect(loadBoardPrefs("bob", "admin").params).toEqual({});
+    expect(loadBoardPrefs("alice", "viewer").params).toEqual({});
+  });
+  it("never stores preferences without a user identity", () => {
+    saveBoardPrefs({ params: {search:"private"}, filtersCollapsed:false }, null, null);
+    expect(loadBoardPrefs(null, null).params).toEqual({});
+    expect(localStorage.length).toBe(0);
   });
 });

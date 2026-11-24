@@ -65,7 +65,6 @@ UNMAPPED_PARAMS = {
         "card costs by year — the sweep's list route /cards/{card_id}/costs stays in; the hidden "
         "card 404 is covered by tests/api/test_card_costs_api.py::test_hidden_card_is_404"
     ),
-    "initiative_id": "PPM — no Initiative seeded",
     "install_id": "extension admin",
     "mapping_id": "ServiceNow admin",
     "organization_id": (
@@ -144,6 +143,7 @@ async def world(db, client):
     restricted_perms = {k: True for k in ALL_APP_PERMISSION_KEYS if not k.startswith("admin.")}
     await create_role(db, key="restricted", label="Restricted", permissions=restricted_perms)
     await create_card_type(db, key="Application", label="Application")
+    await create_card_type(db, key="Initiative", label="Initiative")
     await create_card_type(db, key="Secret", label="Secret")
     await create_relation_type(
         db,
@@ -165,6 +165,11 @@ async def world(db, client):
         return resp.json()
 
     anchor = await post("/api/v1/cards", {"type": "Application", "name": "Anchor App"})
+    initiative = await post("/api/v1/cards", {"type": "Initiative", "name": "Sweep Initiative"})
+    budget = await post(
+        f"/api/v1/ppm/initiatives/{initiative['id']}/budgets",
+        {"fiscal_year": 2026, "category": "capex", "amount": 1000},
+    )
     sentinel = await post("/api/v1/cards", {"type": "Secret", "name": SENTINEL})
     held = await post("/api/v1/cards", {"type": "Secret", "name": HELD})
     await post(
@@ -252,6 +257,8 @@ async def world(db, client):
         "reader": reader,
         "ids": {
             "card_id": anchor["id"],
+            "initiative_id": initiative["id"],
+            "budget_id": budget["id"],
             "adr_id": adr["id"],
             "soaw_id": soaw["id"],
             "comment_id": comment["id"],

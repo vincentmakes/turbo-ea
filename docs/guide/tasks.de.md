@@ -12,7 +12,7 @@ Aufgaben sind Ihnen zugewiesene oder von Ihnen erstellte Tasks. Sie können mit 
 
 **Ursprungs-Chips** — Jedes Todo trägt einen Ursprung: woher es stammt. Mischt Ihre Liste Todos aus mehr als einem Ursprung, erscheinen darüber Filter-Chips — klicken Sie auf einen Chip, um nur Todos dieses Ursprungs anzuzeigen (mehrere Chips lassen sich kombinieren); jeder Chip zeigt eine Live-Anzahl. Die Ursprünge sind:
 
-- **Projektaufgabe** — Synchronisiert vom Task-Board einer PPM-Initiative
+- **Projektaufgabe** — Synchronisiert vom Task-Board einer PML-Initiative
 - **Risiko** — Zuweisungen als Risikoverantwortlicher und wiederkehrende Mitigationszyklen aus dem GRC-Risikoregister
 - **ADR** / **SoAW** — Signaturanfragen zu Architekturentscheidungen und Statements of Architecture Work
 - **Prozessfreigabe** — Prozessfluss-Revisionen, die auf Ihre Prüfung warten (BPM)

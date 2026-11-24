@@ -226,9 +226,30 @@ const ROLLUP_BENEATH: PpmRollupOut = {
 
 const BASE = "/ppm/initiatives/i1";
 
+const EMPTY_FINANCIALS = {
+  initiative_id: "i1", field_definitions: {}, invoice_access: true,
+  budget_lines: [], budget_subtotals: [], cost_items: [], invoices: [], actual_invoiced: "0",
+  budget_totals: { amount: "0", total_cost_items: "0", total_invoiced: "0", remaining_to_invoice: "0" },
+};
+const FINANCIALS = {
+  ...EMPTY_FINANCIALS,
+  budget_lines: BUDGETS.map((b) => ({ ...b, total_cost_items: "0", total_invoiced: "0", remaining_to_invoice: "0", field_values: {}, calculated_values: {} })),
+  cost_items: COSTS.map((c, i) => ({ ...c, budget_line_id: BUDGETS[i].id, total_invoiced: "0", remaining_to_invoice: "0", field_values: {}, calculated_values: {} })),
+};
+
 function scriptAll() {
+  mockApi.on("get", `${BASE}/financials`, FINANCIALS);
   mockApi.on("get", "/settings/fiscal-year-start", { month: 1 });
   mockApi.on("get", "/cards/i1", CARD);
+  mockApi.on("get", "/ppm/initiatives/i1/schedule", {
+    initiative_id: "i1",
+    start_date: "2025-01-15",
+    end_date: "2026-06-30",
+    start_label: "Start Date",
+    end_label: "End Date",
+    plan_derived: false,
+    cost_health: "atRisk",
+  });
   mockApi.on("get", `${BASE}/reports`, REPORTS);
   mockApi.on("get", `${BASE}/costs`, COSTS);
   mockApi.on("get", `${BASE}/budgets`, BUDGETS);
@@ -347,6 +368,13 @@ describe("PpmProjectReport — sections", () => {
     expect(document.querySelector(".ppm-project-report")).not.toBeNull();
   });
 
+  it("omits cost health in the overview when the protected schedule omits it", async () => {
+    mockApi.on("get", "/ppm/initiatives/i1/schedule", { initiative_id: "i1", start_date: null, plan_derived: false });
+    renderPage();
+    await loaded();
+    expect(within(section("overview")!).getByTestId("report-health")).not.toHaveTextContent("CostAt Risk");
+  });
+
   it("shows the overview's tiles, health with ratings, bars, timeline and description", async () => {
     renderPage();
     await loaded();
@@ -454,12 +482,10 @@ describe("PpmProjectReport — sections", () => {
     expect(within(cs).getByTestId("cost-charts")).toHaveTextContent(
       "readOnly=true costs=2 budgets=2",
     );
-    const budget = within(cs).getByTestId("ppm-budget-table");
-    expect(budget).toHaveTextContent("Licences");
-    expect(budget).toHaveTextContent("Run");
-    const costs = within(cs).getByTestId("ppm-cost-table");
-    expect(costs).toHaveTextContent("Partner invoice");
-    expect(costs).toHaveTextContent("Hosting");
+    await waitFor(() => expect(cs).toHaveTextContent("Licences"));
+    expect(cs).toHaveTextContent("Run");
+    expect(cs).toHaveTextContent("Partner invoice");
+    expect(cs).toHaveTextContent("Hosting");
     // Read-only: no toggles, no add / edit / delete.
     expect(within(cs).queryAllByRole("button")).toHaveLength(0);
   });
@@ -516,6 +542,7 @@ describe("PpmProjectReport — sections", () => {
 
 describe("PpmProjectReport — empty and derived", () => {
   it("says so in each section with nothing recorded", async () => {
+    mockApi.on("get", `${BASE}/financials`, EMPTY_FINANCIALS);
     mockApi.on("get", `${BASE}/reports`, []);
     mockApi.on("get", `${BASE}/risks`, []);
     mockApi.on("get", `${BASE}/wbs`, []);
@@ -535,11 +562,11 @@ describe("PpmProjectReport — empty and derived", () => {
     expect(within(section("risks")!).getByText("No risks yet")).toBeInTheDocument();
     expect(within(section("risks")!).queryByTestId("report-risk-table")).not.toBeInTheDocument();
     expect(within(section("schedule")!).getByText("Nothing recorded.")).toBeInTheDocument();
-    expect(within(section("costs")!).getByText("No budget lines yet")).toBeInTheDocument();
-    expect(within(section("costs")!).getByText("No cost items yet")).toBeInTheDocument();
+    await waitFor(() => expect(section("costs")!).toHaveTextContent("Add a budget before creating a Cost Item"));
   });
 
   it("marks derived figures and states their derivation in words", async () => {
+    mockApi.on("get", `${BASE}/financials`, EMPTY_FINANCIALS);
     mockApi.on("get", "/cards/i1", { ...CARD, description: null });
     mockApi.on("get", `${BASE}/costs`, []);
     mockApi.on("get", `${BASE}/budgets`, []);
@@ -565,12 +592,9 @@ describe("PpmProjectReport — empty and derived", () => {
     const cs = section("costs")!;
     expect(within(cs).getByTestId("report-derived-notes")).toBeInTheDocument();
     expect(cs.querySelector(".ppm-report-tiles")!.querySelectorAll("[data-derived]")).toHaveLength(5);
-    expect(within(cs).getByTestId("ppm-budget-table")).toHaveTextContent(
-      "the budget of the 2 initiatives beneath it",
-    );
-    expect(within(cs).getByTestId("ppm-cost-table")).toHaveTextContent(
-      "the actuals of the 2 initiatives beneath it",
-    );
+    await waitFor(() => expect(cs).toHaveTextContent("2025"));
+    expect(cs).toHaveTextContent("2.000.000");
+    expect(cs).toHaveTextContent("500.000");
   });
 
   it("names what lies beneath when only one side is derived", async () => {
@@ -662,6 +686,7 @@ describe("PpmProjectReport — print header and frame", () => {
   });
 
   it("drops the empty print parameters", async () => {
+    mockApi.on("get", `${BASE}/schedule`, { initiative_id: "i1", start_date: null, end_date: null });
     mockApi.on("get", "/cards/i1", { ...CARD, subtype: null, attributes: {} });
     renderPage();
     await loaded();
@@ -670,7 +695,7 @@ describe("PpmProjectReport — print header and frame", () => {
     expect(params).not.toHaveTextContent("Initiative Status");
     expect(params).not.toHaveTextContent("Start Date");
     expect(params).toHaveTextContent("Printed:");
-    expect(within(section("overview")!).getAllByText("—").length).toBeGreaterThanOrEqual(3);
+    expect(within(section("overview")!).getAllByText("—").length).toBeGreaterThanOrEqual(1);
   });
 
   it("shows a status the metamodel does not list as stored", async () => {
@@ -777,6 +802,7 @@ describe("PpmProjectReport — PowerPoint export", () => {
   });
 
   it("drops the empty parameters", async () => {
+    mockApi.on("get", `${BASE}/schedule`, { initiative_id: "i1", start_date: null, end_date: null });
     mockApi.on("get", "/cards/i1", { ...CARD, subtype: null, attributes: {} });
     renderPage();
     await loaded();
@@ -885,7 +911,7 @@ describe("PpmProjectReport — PowerPoint export", () => {
     const headings = [...document.querySelectorAll("h6[data-export-heading], [data-export-heading].MuiTypography-subtitle1")].map(
       (el) => el.textContent,
     );
-    expect(headings).toEqual(["Latest report", "Earlier reports", "Planned Budget", "Cost Items"]);
+    expect(headings).toEqual(["Latest report", "Earlier reports", "Planned Budget"]);
   });
 });
 
@@ -935,6 +961,8 @@ describe("PpmProjectReport — another initiative", () => {
     const other = "/ppm/initiatives/i2";
     mockApi.on("get", "/cards/i2", { ...CARD, id: "i2", name: "Second Initiative" });
     for (const [path, value] of [
+      ["financials", { ...EMPTY_FINANCIALS, initiative_id: "i2" }],
+      ["schedule", { initiative_id: "i2", start_date: null, end_date: null }],
       ["reports", []],
       ["costs", []],
       ["budgets", []],
@@ -978,6 +1006,8 @@ describe("PpmProjectReport — reading the initiative", () => {
     const other = "/ppm/initiatives/i2";
     mockApi.on("get", "/cards/i2", card);
     for (const [path, value] of [
+      ["financials", { ...EMPTY_FINANCIALS, initiative_id: "i2" }],
+      ["schedule", { initiative_id: "i2", start_date: null, end_date: null }],
       ["reports", []],
       ["costs", []],
       ["budgets", []],
@@ -1018,10 +1048,12 @@ describe("PpmProjectReport — reading the initiative", () => {
         "/cards/i1",
         `${BASE}/budgets`,
         `${BASE}/completion`,
+        `${BASE}/financials`,
         `${BASE}/costs`,
         `${BASE}/reports`,
         `${BASE}/risks`,
         `${BASE}/rollup`,
+        `${BASE}/schedule`,
         `${BASE}/tasks`,
         `${BASE}/wbs`,
       ].sort(),
@@ -1068,6 +1100,37 @@ describe("PpmProjectReport — reading the initiative", () => {
     expect(await screen.findByText("Second Initiative")).toBeInTheDocument();
   });
 
+  it("waits for selected financials before allowing print or export", async () => {
+    const financial = deferred<unknown>();
+    mockApi.on("get", `${BASE}/financials`, () => financial.promise);
+    renderPage();
+    await waitFor(() => expect(mockApi.callsOf("get").map((call) => call.path)).toContain(`${BASE}/financials`));
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Print / Save as PDF" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "More actions" })).not.toBeInTheDocument();
+    financial.resolve(FINANCIALS);
+    await loaded();
+    expect(screen.getByRole("button", { name: "Print / Save as PDF" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "More actions" })).toBeEnabled();
+  });
+
+  it("does not reveal late financial data after switching to a denied initiative", async () => {
+    const first = deferred<unknown>();
+    mockApi.on("get", `${BASE}/financials`, () => first.promise);
+    scriptOther({ ...CARD, id: "i2", name: "Second Initiative" });
+    mockApi.fail("get", "/ppm/initiatives/i2/financials", 403);
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(mockApi.callsOf("get").map((call) => call.path)).toContain(`${BASE}/financials`));
+    await user.click(screen.getByRole("button", { name: "other-initiative" }));
+    await screen.findByText("Second Initiative");
+    await waitFor(() => expect(section("costs")!.querySelector('[role="alert"]')).not.toBeNull());
+    first.resolve(FINANCIALS);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(section("costs")!).not.toHaveTextContent("Licences");
+    expect(section("costs")!).not.toHaveTextContent("Partner invoice");
+  });
+
   it("never shows a failure of the initiative the reader has left", async () => {
     const first = deferred<unknown>();
     mockApi.on("get", "/cards/i1", () => first.promise);
@@ -1078,7 +1141,7 @@ describe("PpmProjectReport — reading the initiative", () => {
     await screen.findByText("Second Initiative");
     first.reject(new Error("late failure"));
     await new Promise((r) => setTimeout(r, 20));
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(document.querySelector(".MuiAlert-standardError")).not.toBeInTheDocument();
     expect(screen.queryByText("late failure")).not.toBeInTheDocument();
     expect(screen.getAllByRole("heading", { level: 5 })[0]).toHaveTextContent("Second Initiative");
   });
@@ -1101,6 +1164,7 @@ describe("PpmProjectReport — reading the initiative", () => {
 
 describe("PpmProjectReport — the initiative's values", () => {
   it("leaves out a date or a status that is not text", async () => {
+    mockApi.on("get", `${BASE}/schedule`, { initiative_id: "i1", start_date: null, end_date: "2026-06-30", end_label: "End Date" });
     mockApi.on("get", "/cards/i1", {
       ...CARD,
       attributes: { startDate: Date.UTC(2025, 0, 15), endDate: "2026-06-30", initiativeStatus: 7 },
@@ -1112,7 +1176,7 @@ describe("PpmProjectReport — the initiative's values", () => {
     expect(params).toHaveTextContent("End Date: 2026-06-30");
     expect(params).not.toHaveTextContent("Initiative Status");
     const timeline = within(section("overview")!).getByText("Timeline").closest(".MuiPaper-root");
-    expect(timeline).toHaveTextContent("Start Date—End Date2026-06-30");
+    expect(timeline).toHaveTextContent("End Date2026-06-30");
     expect(timeline).toHaveTextContent(/Initiative Status—$/);
   });
 
@@ -1213,18 +1277,17 @@ describe("PpmProjectReport — figures", () => {
   });
 
   it("lists the derived budget by year from the budgets beneath, not their actuals", async () => {
+    mockApi.on("get", `${BASE}/financials`, EMPTY_FINANCIALS);
     mockApi.on("get", `${BASE}/budgets`, []);
     mockApi.on("get", `${BASE}/costs`, []);
     mockApi.on("get", `${BASE}/rollup`, ROLLUP_BENEATH);
     renderPage();
     await loaded();
     const cs = section("costs")!;
-    const budget = within(cs).getByTestId("ppm-budget-table");
-    expect(budget).toHaveTextContent("FY 2025$1500000$500000$2000000");
-    expect(budget).not.toHaveTextContent("$400000");
-    const costs = within(cs).getByTestId("ppm-cost-table");
-    expect(costs).toHaveTextContent("$400000$100000$500000");
-    expect(costs).not.toHaveTextContent("$1500000");
+    await waitFor(() => expect(cs).toHaveTextContent("2025"));
+    const rows = within(cs).getAllByRole("row");
+    expect(rows.some((row) => row.textContent?.includes("2.000.000"))).toBe(true);
+    expect(rows.some((row) => row.textContent?.includes("500.000"))).toBe(true);
   });
 
   it("gives the span beneath with one end open", async () => {
@@ -1285,3 +1348,70 @@ describe("PpmProjectReport — rows", () => {
     expect(within(section("schedule")!).queryByText("Nothing recorded.")).not.toBeInTheDocument();
   });
 });
+
+
+describe("PpmProjectReport — invoiced financial hierarchy", () => {
+  it("prints the expanded budget, cost and invoice with server totals", async () => {
+    mockApi.on("get", "/ppm/initiatives/i1/financials", {
+      initiative_id: "i1",
+      field_definitions: {},
+      invoice_access: true,
+      budget_lines: [{
+        id: "budget-a", fiscal_year: 2026, category: "opex", description: "Platform",
+        amount: "100.13", total_cost_items: "100.13", total_invoiced: "30.11",
+        remaining_to_invoice: "70.02", field_values: {}, calculated_values: {},
+      }],
+      budget_subtotals: [{
+        fiscal_year: 2026, category: "opex", amount: "100.13", total_cost_items: "100.13",
+        total_invoiced: "30.11", remaining_to_invoice: "70.02",
+      }],
+      budget_totals: {
+        amount: "100.13", total_cost_items: "100.13",
+        total_invoiced: "30.11", remaining_to_invoice: "70.02",
+      },
+      cost_items: [{
+        id: "cost-a", budget_line_id: "budget-a", description: "Renewal", category: "opex",
+        planned: "0", actual: "100.13", date: null, total_invoiced: "30.11",
+        remaining_to_invoice: "70.02", field_values: {}, calculated_values: {},
+      }],
+      invoices: [{
+        id: "invoice-a", initiative_id: "i1", cost_item_id: "cost-a",
+        invoice_date: "2026-11-23", invoice_id: "00038", amount: "30.11",
+        field_values: {}, calculated_values: {},
+      }],
+      actual_invoiced: "30.11",
+    });
+
+    renderPage();
+    await loaded();
+    const costs = section("costs")!;
+    await waitFor(() => expect(costs).toHaveTextContent("00038"));
+    expect(costs).toHaveTextContent("Platform");
+    expect(costs).toHaveTextContent("Renewal");
+    expect(costs).toHaveTextContent(/30[.,]11/);
+    expect(costs).toHaveTextContent(/70[.,]02/);
+    expect(mockApi.callsOf("get").map((call) => call.path)).toContain("/ppm/initiatives/i1/financials");
+  });
+});
+
+  it("does not print a date hidden by the protected schedule", async () => {
+    mockApi.on("get", "/cards/i1", {
+      ...CARD,
+      attributes: { ...CARD.attributes, endDate: "2099-12-31" },
+    });
+    mockApi.on("get", "/ppm/initiatives/i1/schedule", {
+      initiative_id: "i1",
+      start_date: "2025-01-15",
+      start_label: "Start Date",
+      plan_start_date: "2025-01-15",
+      actual_start_date: "2088-01-01",
+      actual_start_label: "Actual Start",
+      plan_derived: false,
+    });
+    renderPage();
+    await loaded();
+    expect(document.querySelector(".report-print-params")).not.toHaveTextContent("2099-12-31");
+    expect(within(section("overview")!).queryByText("2099-12-31")).not.toBeInTheDocument();
+    expect(document.querySelector(".report-print-params")).toHaveTextContent("2088");
+    expect(section("overview")).toHaveTextContent("2088");
+  });

@@ -637,7 +637,10 @@ class TestPpmGanttRollup:
         await create_role(db, key="member", label="Member", permissions=MEMBER_PERMISSIONS)
         member = await create_user(db, email="member@test.com", role="member")
         await create_stakeholder_role_def(
-            db, card_type_key="Initiative", key="responsible", permissions={"card.view": True}
+            db,
+            card_type_key="Initiative",
+            key="responsible",
+            permissions={"card.view": True, "card.view_costs": True},
         )
         program = await create_card(db, card_type="Initiative", name="Program")
         seen = await create_card(db, card_type="Initiative", name="Seen", parent_id=program.id)
@@ -1067,3 +1070,227 @@ class TestPpmReportsPermission:
             headers=auth_headers(user),
         )
         assert resp.status_code == 403
+
+
+async def _configure_private_timeline(db):
+    from sqlalchemy import select
+
+    from app.models.app_settings import AppSettings
+    from app.models.card_type import CardType
+
+    card_type = await db.scalar(select(CardType).where(CardType.key == "Initiative"))
+    card_type.fields_schema = [
+        {
+            "section": "Timeline",
+            "fields": [
+                {"key": "startDate", "label": "Start", "type": "date"},
+                {"key": "endDate", "label": "End", "type": "date"},
+                {"key": "actualStart", "label": "Actual Start", "type": "date"},
+                {"key": "ActualEnd", "label": "Actual End", "type": "date"},
+            ],
+        }
+    ]
+    settings = await db.get(AppSettings, "default")
+    if settings is None:
+        settings = AppSettings(id="default", general_settings={})
+        db.add(settings)
+    settings.general_settings = {
+        **(settings.general_settings or {}),
+        "pml.timeline": {
+            "actual_start_key": "actualStart",
+            "actual_end_key": "ActualEnd",
+        },
+    }
+    await db.flush()
+    return card_type
+
+
+async def test_schedule_and_private_portfolio_show_only_own_actual_dates(client, db, ppm_env):
+    await _configure_private_timeline(db)
+    parent = await create_card(
+        db,
+        card_type="Initiative",
+        name="Programme",
+        subtype="Program",
+        attributes={"startDate": "2026-01-01", "actualStart": "2026-01-03"},
+    )
+    await create_card(
+        db,
+        card_type="Initiative",
+        name="Project",
+        subtype="Project",
+        parent_id=parent.id,
+        attributes={
+            "startDate": "2026-02-01",
+            "endDate": "2026-06-01",
+            "actualStart": "2026-02-03",
+            "ActualEnd": "2026-05-31",
+        },
+    )
+    headers = auth_headers(ppm_env["admin"])
+    schedule = await client.get(f"/api/v1/ppm/initiatives/{parent.id}/schedule", headers=headers)
+    assert schedule.status_code == 200, schedule.text
+    assert schedule.json()["initiative_id"] == str(parent.id)
+    assert schedule.json()["actual_start_date"] == "2026-01-03"
+    assert schedule.json().get("actual_end_date") is None
+    portfolio = await client.get("/api/v1/reports/ppm/gantt", headers=headers)
+    assert portfolio.status_code == 200
+    rows = {row["id"]: row for row in portfolio.json()}
+    assert rows[str(parent.id)]["actual_start_date"] == "2026-01-03"
+    assert rows[str(parent.id)].get("actual_end_date") is None
+
+
+async def test_schedule_hides_subtype_actual_end_and_plan_from_descendant(client, db, ppm_env):
+    card_type = await _configure_private_timeline(db)
+    card_type.subtypes = [
+        {"key": "Program", "label": "Program", "hidden_fields": ["ActualEnd"]},
+        {"key": "Project", "label": "Project", "hidden_fields": ["endDate"]},
+    ]
+    parent = await create_card(
+        db,
+        card_type="Initiative",
+        name="Programme",
+        subtype="Program",
+        attributes={"actualStart": "2026-01-03", "ActualEnd": "2027-12-31"},
+    )
+    await create_card(
+        db,
+        card_type="Initiative",
+        name="Project",
+        subtype="Project",
+        parent_id=parent.id,
+        attributes={"startDate": "2026-02-01", "endDate": "2035-12-31"},
+    )
+    response = await client.get(
+        f"/api/v1/ppm/initiatives/{parent.id}/schedule", headers=auth_headers(ppm_env["admin"])
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["actual_start_date"] == "2026-01-03"
+    assert "actual_end_date" not in data
+    assert "2035-12-31" not in response.text
+    assert "2027-12-31" not in response.text
+    rollup = await client.get(
+        f"/api/v1/ppm/initiatives/{parent.id}/rollup", headers=auth_headers(ppm_env["admin"])
+    )
+    assert rollup.status_code == 200, rollup.text
+    assert "2035-12-31" not in rollup.text
+
+
+async def test_schedule_requires_module_and_hides_cost_health(client, db, ppm_env):
+    await _configure_private_timeline(db)
+    initiative = await create_card(db, card_type="Initiative", name="Restricted project")
+    await create_role(
+        db, key="schedule_reader", permissions={"ppm.view": True, "inventory.view": True}
+    )
+    reader = await create_user(db, role="schedule_reader", email="schedule-reader@example.test")
+    await create_role(db, key="no_ppm", permissions={"inventory.view": True})
+    denied = await create_user(db, role="no_ppm", email="no-ppm@example.test")
+    from datetime import date
+
+    from app.models.ppm_status_report import PpmStatusReport
+
+    db.add(
+        PpmStatusReport(
+            initiative_id=initiative.id,
+            report_date=date(2026, 1, 1),
+            schedule_health="onTrack",
+            cost_health="atRisk",
+            scope_health="offTrack",
+        )
+    )
+    await db.flush()
+    endpoint = f"/api/v1/ppm/initiatives/{initiative.id}/schedule"
+    assert (await client.get(endpoint, headers=auth_headers(denied))).status_code == 403
+    schedule = await client.get(endpoint, headers=auth_headers(reader))
+    assert schedule.status_code == 200, schedule.text
+    assert schedule.json()["schedule_health"] == "onTrack"
+    assert "cost_health" not in schedule.json()
+    portfolio = await client.get("/api/v1/reports/ppm/gantt", headers=auth_headers(reader))
+    assert portfolio.status_code == 200, portfolio.text
+    assert "cost_health" not in portfolio.json()[0]["latest_report"]
+
+
+async def test_schedule_and_portfolio_choose_same_report_when_dates_tie(client, db, ppm_env):
+    import uuid
+    from datetime import date, datetime, timezone
+
+    from app.models.ppm_status_report import PpmStatusReport
+
+    await _configure_private_timeline(db)
+    initiative = await create_card(db, card_type="Initiative", name="Tie")
+    timestamp = datetime(2026, 2, 1, tzinfo=timezone.utc)
+    for report_id, health in ((1, "onTrack"), (2, "offTrack")):
+        db.add(
+            PpmStatusReport(
+                id=uuid.UUID(int=report_id),
+                initiative_id=initiative.id,
+                report_date=date(2026, 1, 1),
+                created_at=timestamp,
+                updated_at=timestamp,
+                schedule_health=health,
+                cost_health="onTrack",
+                scope_health="onTrack",
+            )
+        )
+    await db.flush()
+    headers = auth_headers(ppm_env["admin"])
+    schedule = await client.get(
+        f"/api/v1/ppm/initiatives/{initiative.id}/schedule", headers=headers
+    )
+    assert schedule.status_code == 200, schedule.text
+    portfolio = await client.get("/api/v1/reports/ppm/gantt", headers=headers)
+    assert portfolio.status_code == 200, portfolio.text
+    assert schedule.json()["schedule_health"] == "offTrack"
+    assert portfolio.json()[0]["latest_report"]["schedule_health"] == "offTrack"
+
+
+async def test_schedule_returns_404_for_hidden_initiative(client, db, ppm_env):
+    card_type = await _configure_private_timeline(db)
+    await create_role(db, key="hidden_timeline", permissions={"ppm.view": True})
+    card_type.role_permissions = {"hidden_timeline": {"inventory.view": False}}
+    from app.services.permission_service import PermissionService
+
+    PermissionService.invalidate_type_permission_cache()
+    viewer = await create_user(db, role="hidden_timeline", email="hidden-timeline@example.test")
+    card = await create_card(db, card_type="Initiative", name="Hidden Initiative")
+    response = await client.get(
+        f"/api/v1/ppm/initiatives/{card.id}/schedule", headers=auth_headers(viewer)
+    )
+    assert response.status_code == 404
+
+
+async def test_dashboard_cost_health_omits_initiatives_without_cost_permission(client, db, ppm_env):
+    from datetime import date
+
+    from app.models.ppm_status_report import PpmStatusReport
+
+    await create_role(db, key="dashboard_no_cost", permissions={"ppm.view": True})
+    viewer = await create_user(db, role="dashboard_no_cost", email="dashboard-no-cost@example.test")
+    card = await create_card(db, card_type="Initiative", name="Private cost status")
+    db.add(
+        PpmStatusReport(
+            initiative_id=card.id,
+            report_date=date(2026, 1, 1),
+            schedule_health="onTrack",
+            cost_health="offTrack",
+            scope_health="onTrack",
+        )
+    )
+    await db.flush()
+    response = await client.get("/api/v1/reports/ppm/dashboard", headers=auth_headers(viewer))
+    assert response.status_code == 200, response.text
+    assert response.json()["health_cost"] == {
+        "onTrack": 0,
+        "atRisk": 0,
+        "offTrack": 0,
+        "noReport": 0,
+    }
+    assert response.json()["health_schedule"]["onTrack"] == 1
+
+
+async def test_schedule_rejects_invalid_initiative_id(client, ppm_env):
+    response = await client.get(
+        "/api/v1/ppm/initiatives/not-a-uuid/schedule", headers=auth_headers(ppm_env["admin"])
+    )
+    assert response.status_code == 422

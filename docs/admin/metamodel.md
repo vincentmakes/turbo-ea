@@ -186,13 +186,13 @@ A few rules are worth knowing:
 
 ##### Hiding a card type from a role
 
-Denying **View** hides the type from the role entirely. For its users, cards of that type do not exist: they are left out of the inventory, search, counts and exports, out of the relations and hierarchy on other cards, and out of every report, chart, dependency graph and dashboard, as well as the lists in BPM, PPM, GRC, decisions, diagrams and TurboLens. Opening such a card from a link shows **not found** rather than **access denied**, so the page does not even reveal that the card exists.
+Denying **View** hides the type from the role entirely. For its users, cards of that type do not exist: they are left out of the inventory, search, counts and exports, out of the relations and hierarchy on other cards, and out of every report, chart, dependency graph and dashboard, as well as the lists in BPM, PML, GRC, decisions, diagrams and TurboLens. Opening such a card from a link shows **not found** rather than **access denied**, so the page does not even reveal that the card exists.
 
 - **Allowing View works the other way.** A role that cannot browse the inventory at all can be allowed **View** on one type; its users then see the cards of that type, and only that type.
-- **Inherit reads two ways for View.** In the inventory, on card pages, in search and in exports, *inherit* follows the role's landscape-wide **View** permission. In modules that have their own permission — reports, BPM, PPM, risks, decisions, diagrams, TurboLens — only an explicit **Deny** hides anything, so a role that may read reports but not browse the inventory keeps its reports.
+- **Inherit reads two ways for View.** In the inventory, on card pages, in search and in exports, *inherit* follows the role's landscape-wide **View** permission. In modules that have their own permission — reports, BPM, PML, risks, decisions, diagrams, TurboLens — only an explicit **Deny** hides anything, so a role that may read reports but not browse the inventory keeps its reports.
 - **A View deny locks the other actions.** A role that may not see a type cannot create, edit, archive or delete its cards either. The row's other cells show a lock icon and keep their stored values, which apply again once **View** is no longer denied.
 - **Stakeholders keep their cards.** Someone assigned to a card through a stakeholder role that grants viewing still sees that card — and only that one — even when their app role may not view its type.
-- **A View deny on Initiative applies to PPM too.** The PPM permission does not bring hidden initiatives back; the role sees only the ones it is a stakeholder on.
+- **A View deny on Initiative applies to PML too.** The PML permission does not bring hidden initiatives back; the role sees only the ones it is a stakeholder on.
 - **Links you cannot see are kept.** When someone edits the cards linked to a decision, a diagram or a process step, links to cards they cannot see are left in place.
 - **Architecture AI needs the whole landscape.** The TurboLens Architecture AI reasons over every card, so it is unavailable to a role from which any card type is hidden.
 

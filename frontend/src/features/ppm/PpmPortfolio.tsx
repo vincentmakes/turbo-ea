@@ -34,6 +34,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useApiQuery } from "@/hooks/useApiQuery";
+import { useOptionalAuthUser } from "@/hooks/AuthContext";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import CardFilterSection from "@/features/reports/CardFilterSection";
@@ -91,9 +92,24 @@ const NO_PRINT_PARAMS: PrintParam[] = [];
  * what the link shows. So it mounts at the latest one navigation later.
  */
 export default function PpmPortfolio() {
+  const user = useOptionalAuthUser();
+  const userId = user?.id ?? null;
+  const role = user ? user.role + "/" + (user.impersonated_role ?? "") : null;
+  const identity = JSON.stringify([userId, role]);
+  const [previous, setPrevious] = useState({ identity, changed: false });
+  if (previous.identity !== identity) {
+    setPrevious({ identity, changed: true });
+    return <Box sx={PENDING_SX}><CircularProgress /></Box>;
+  }
+  return <PpmPortfolioSession key={identity} userId={userId} role={role} resetOnMount={previous.changed} />;
+}
+
+function PpmPortfolioSession({ userId, role, resetOnMount }: {
+  userId: string | null; role: string | null; resetOnMount: boolean;
+}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [pending, setPending] = useState(() =>
-    restoreTarget(searchParams, loadBoardPrefs().params),
+    resetOnMount ? loadBoardPrefs(userId, role).params : restoreTarget(searchParams, loadBoardPrefs(userId, role).params),
   );
   // The link as it was when `pending` was written onto it; null = not written yet.
   const writtenOver = useRef<URLSearchParams | null>(null);
@@ -115,11 +131,11 @@ export default function PpmPortfolio() {
   }, [pending, searchParams, setSearchParams]);
 
   const handleReset = useCallback(() => {
-    clearBoardPrefs();
+    clearBoardPrefs(userId, role);
     // Unmounts the board until the link is bare, so every piece of its state
     // — the view's, the Filters selection, the fold — starts over.
     setPending({});
-  }, []);
+  }, [userId, role]);
 
   if (pending !== null) {
     return (
@@ -128,10 +144,12 @@ export default function PpmPortfolio() {
       </Box>
     );
   }
-  return <PpmPortfolioBoard onReset={handleReset} />;
+  return <PpmPortfolioBoard userId={userId} role={role} onReset={handleReset} />;
 }
 
-function PpmPortfolioBoard({ onReset }: { onReset: () => void }) {
+function PpmPortfolioBoard({ onReset, userId, role }: {
+  onReset: () => void; userId: string | null; role: string | null;
+}) {
   const { t } = useTranslation(["ppm", "reports", "common"]);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -200,7 +218,7 @@ function PpmPortfolioBoard({ onReset }: { onReset: () => void }) {
   // point of the page, and the header's count chip says filters are on — and
   // afterwards the way the user last left it.
   const [filtersCollapsed, setFiltersCollapsed] = useState(
-    () => loadBoardPrefs().filtersCollapsed,
+    () => loadBoardPrefs(userId, role).filtersCollapsed,
   );
   // Latched: once requested the path never returns to null, which would clear
   // the payload (`useApiQuery`) and refetch on every re-open. A section that
@@ -220,8 +238,8 @@ function PpmPortfolioBoard({ onReset }: { onReset: () => void }) {
   const shownParams = useRef<Record<string, string>>({});
   const foldRef = useRef(filtersCollapsed);
   const remember = useCallback(
-    () => saveBoardPrefs({ params: shownParams.current, filtersCollapsed: foldRef.current }),
-    [],
+    () => saveBoardPrefs({ params: shownParams.current, filtersCollapsed: foldRef.current }, userId, role),
+    [userId, role],
   );
   const handleBoardState = useCallback(
     (params: string) => {
@@ -360,6 +378,7 @@ function PpmPortfolioBoard({ onReset }: { onReset: () => void }) {
 
   return (
     <PpmPortfolioView
+      showActualDates
       items={items}
       dashboard={dashboard}
       groupOptions={options}

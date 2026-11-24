@@ -120,7 +120,7 @@ Una volta che il portfolio applicativo è vivo e affidabile, questi diventano pa
 |--------|----------------|---------------|
 | **Risk Register** | Quando si è pronti a tracciare rischi di architettura su applicazioni e capability (TOGAF Fase G). | [Risk Register](../guide/risks.md) |
 | **GRC / Compliance** | Quando serve mappare applicazioni e capability su normative (GDPR, NIS2, EU AI Act, DORA, SOC 2, ISO 27001). | [GRC](../guide/grc.md) |
-| **PPM** | Quando le decisioni di razionalizzazione diventano progetti con budget, schedulazioni e status report. | [PPM](../guide/ppm.md) |
+| **PML** | Quando le decisioni di razionalizzazione diventano progetti con budget, schedulazioni e status report. | [PML](../guide/ppm.md) |
 | **TurboLens AI** | Quando ci sono abbastanza card perché l'AI trovi duplicati di fornitori, candidati alla modernizzazione e raccomandazioni di architettura. | [TurboLens](../guide/turbolens.md) |
 | **BPM** | Quando si è pronti a modellare i processi che stanno sopra le applicazioni. | [BPM](../guide/bpm.md) |
 | **Diagrammi** | Quando servono diagrammi di architettura in forma libera che restino sincronizzati con l'inventario. | [Diagrammi](../guide/diagrams.md) |

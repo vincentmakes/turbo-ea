@@ -290,9 +290,11 @@ Quando o [módulo GRC](grc.md) está habilitado **e** o card tem pelo menos uma 
 
 Para cards de **Processo de Negócio**, uma aba adicional de **Fluxo de Processo** aparece com um visualizador/editor de diagrama BPMN integrado. Veja [BPM](bpm.md) para detalhes sobre gerenciamento de fluxos de processo.
 
-## Aba PPM (apenas cards de Iniciativa)
+## Aba PML (apenas cards de Iniciativa) { #ppm-tab-initiative-cards-only }
 
-Quando o [módulo PPM](ppm.md) está ativado, os cards de **Iniciativa** exibem uma aba **PPM** adicional como última aba. Ao clicar nesta aba, você é direcionado à visualização detalhada PPM da iniciativa, onde pode gerenciar relatórios de status, orçamentos, riscos, tarefas e cronogramas Gantt.
+Em **Custos e cronograma**, barras sobrepostas comparam orçamento e custos reais para Total, CapEx e OpEx. A faturação total da iniciativa é apresentada separadamente conforme as permissões. O cronograma mostra datas planeadas e reais visíveis e os últimos indicadores de prazo, custo e âmbito.
+
+Quando o [módulo PML](ppm.md) está ativado, os cards de **Iniciativa** exibem uma aba **PML** adicional como última aba. Ao clicar nesta aba, você é direcionado à visualização detalhada PML da iniciativa, onde pode gerenciar relatórios de status, orçamentos, riscos, tarefas e cronogramas Gantt.
 
 ## Arquivamento
 

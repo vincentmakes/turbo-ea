@@ -84,7 +84,7 @@ plugins:
             Card Details: Detalles de ficha
             Reports: Informes
             Saved Reports: Informes guardados
-            PPM: PPM
+            Project Master List: Lista maestra de proyectos
             BPM: BPM
             Value Chain: Cadena de valor
             ArchiMate: ArchiMate
@@ -156,7 +156,7 @@ plugins:
             Card Details: Kartendetails
             Reports: Berichte
             Saved Reports: Gespeicherte Berichte
-            PPM: PPM
+            Project Master List: Projektstammliste
             BPM: BPM
             Value Chain: Wertschöpfungskette
             ArchiMate: ArchiMate
@@ -228,7 +228,7 @@ plugins:
             Card Details: Détails de la fiche
             Reports: Rapports
             Saved Reports: Rapports enregistrés
-            PPM: PPM
+            Project Master List: Liste principale des projets
             BPM: BPM
             Value Chain: Chaîne de valeur
             ArchiMate: ArchiMate
@@ -300,7 +300,7 @@ plugins:
             Card Details: Dettagli della card
             Reports: Report
             Saved Reports: Report salvati
-            PPM: PPM
+            Project Master List: Elenco principale dei progetti
             BPM: BPM
             Value Chain: Catena del valore
             ArchiMate: ArchiMate
@@ -372,7 +372,7 @@ plugins:
             Card Details: Detalhes do card
             Reports: Relatórios
             Saved Reports: Relatórios salvos
-            PPM: PPM
+            Project Master List: Lista principal de projetos
             BPM: BPM
             Value Chain: Cadeia de valor
             ArchiMate: ArchiMate
@@ -444,7 +444,7 @@ plugins:
             Card Details: 卡片详情
             Reports: 报告
             Saved Reports: 已保存的报告
-            PPM: 项目组合管理
+            Project Master List: 项目总表
             BPM: 业务流程管理
             Value Chain: 价值链
             ArchiMate: ArchiMate
@@ -516,7 +516,7 @@ plugins:
             Card Details: Детали карточки
             Reports: Отчёты
             Saved Reports: Сохранённые отчёты
-            PPM: PPM
+            Project Master List: Реестр проектов
             BPM: BPM
             Value Chain: Цепочка создания ценности
             ArchiMate: ArchiMate
@@ -588,7 +588,7 @@ plugins:
             Card Details: Kortdetaljer
             Reports: Rapporter
             Saved Reports: Gemte rapporter
-            PPM: PPM
+            Project Master List: Project Master List
             BPM: BPM
             Value Chain: Værdikæde
             ArchiMate: ArchiMate
@@ -660,7 +660,7 @@ plugins:
             Card Details: تفاصيل البطاقة
             Reports: التقارير
             Saved Reports: التقارير المحفوظة
-            PPM: PPM
+            Project Master List: قائمة المشاريع الرئيسية
             BPM: BPM
             Value Chain: سلسلة القيمة
             ArchiMate: ArchiMate
@@ -760,7 +760,7 @@ nav:
           - Diagrams: guide/diagrams.md
           - TurboLens AI: guide/turbolens.md
       - Modules:
-          - PPM: guide/ppm.md
+          - Project Master List: guide/ppm.md
           - BPM: guide/bpm.md
           - Value Chain: guide/value-chain.md
           - ArchiMate: guide/archimate.md

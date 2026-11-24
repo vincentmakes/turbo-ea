@@ -110,9 +110,11 @@ zero** on the calculation instead. Empty fields then evaluate as `0` in arithmet
 before turning it on: the result is *stored*, so a field that used to stay empty now holds a
 `0` and counts towards the card's completeness score.
 
-### PPM Data on Initiative Cards
+### PML Data on Initiative Cards { #ppm-data-on-initiative-cards }
 
-The `ppm` root exposes the PPM module's data to formulas: the budget and cost lines, split by
+For calculations that belong to individual budget, cost or invoice rows, use [PML financial field settings](settings.md#pml-budget-costs). This page covers calculations on the cards themselves.
+
+The `ppm` root exposes the PML module's data to formulas: the budget and cost lines, split by
 capex and opex and broken down by fiscal year — detail the rolled-up `data.costBudget` /
 `data.costActual` attributes on the card cannot give you — and the initiative's delivery
 figures: its overall completion, its work packages, tasks and risks, and the latest status
@@ -120,9 +122,9 @@ report.
 
 | Variable | Description |
 |----------|-------------|
-| `ppm.capexBudget`, `ppm.opexBudget`, `ppm.totalBudget` | Planned budget, from the PPM budget lines |
-| `ppm.capexPlanned`, `ppm.opexPlanned`, `ppm.totalPlanned` | Planned amounts on the PPM cost lines |
-| `ppm.capexActual`, `ppm.opexActual`, `ppm.totalActual` | Actuals on the PPM cost lines |
+| `ppm.capexBudget`, `ppm.opexBudget`, `ppm.totalBudget` | Planned budget, from the PML budget lines |
+| `ppm.capexPlanned`, `ppm.opexPlanned`, `ppm.totalPlanned` | Planned amounts on the PML cost lines |
+| `ppm.capexActual`, `ppm.opexActual`, `ppm.totalActual` | Actuals on the PML cost lines |
 | `ppm.byYear` | The same nine measures per fiscal year, as a list of `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | The fiscal year today falls in |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Cost lines with no date, which count towards the totals but belong to no year |
@@ -132,7 +134,7 @@ report.
 | `ppm.wbsCount`, `ppm.milestoneCount` | Number of work packages and of milestones |
 | `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | Task counts, in total and by status |
 | `ppm.tasksOverdue` | Tasks past their due date that are not done |
-| `ppm.riskCount`, `ppm.risksOpen`, `ppm.riskScoreMax` | PPM risks: all, still open, and the highest risk score |
+| `ppm.riskCount`, `ppm.risksOpen`, `ppm.riskScoreMax` | PML risks: all, still open, and the highest risk score |
 | `ppm.reportCount`, `ppm.reportDate` | How many status reports exist, and the date of the latest one (`None` until there is one) |
 | `ppm.scheduleHealth`, `ppm.costHealth`, `ppm.scopeHealth` | The latest status report's health flags: `onTrack`, `atRisk` or `offTrack` (`None` until there is one) |
 
@@ -169,9 +171,9 @@ A few rules worth knowing:
   read `None` rather than `0` — "no report yet" and "on track" are different facts — so guard
   them with `COALESCE`.
 
-Editing a PPM budget or cost line, a work package, a task, a risk or a status report re-runs
+Editing a PML budget or cost line, a work package, a task, a risk or a status report re-runs
 the initiative's calculations, so anything derived from this data updates straight away and
-the change appears on the card's History tab. Cards that read *another* card's PPM data
+the change appears on the card's History tab. Cards that read *another* card's PML data
 through a relation are not refreshed — see [When Calculations Run](#when-calculations-run).
 
 #### Show initiative progress on a card or a portal
@@ -188,9 +190,9 @@ attributes. To put the same number on the card and in a [web portal](web-portals
 From then on marking a task done, editing a work package's completion, or deleting one moves
 the bar wherever the card is shown.
 
-#### Rolling PPM figures up the Initiative hierarchy { #rolling-ppm-figures-up-the-initiative-hierarchy }
+#### Rolling PML figures up the Initiative hierarchy { #rolling-ppm-figures-up-the-initiative-hierarchy }
 
-The PPM portfolio board shows a parent without budget or cost lines of its own the total of the
+The PML portfolio board shows a parent without budget or cost lines of its own the total of the
 initiatives beneath it, but that figure lives on the board only. To show on a program — in the
 Inventory, reports and portals — the budget of everything beneath it, use one calculation that
 reads its children's result:
@@ -351,7 +353,7 @@ Calculations for a card are re-evaluated when:
 * you run the calculation manually from the list, which evaluates it for every card of the
   target type and saves the results.
 
-* a PPM budget line, cost line, work package, task, risk or status report on the card
+* a PML budget line, cost line, work package, task, risk or status report on the card
   changes, for an Initiative.
 * the change above happens on an Initiative lower in the hierarchy: every Initiative above
   it is re-run as well, nearest parent first, so a [roll-up](#rolling-ppm-figures-up-the-initiative-hierarchy) follows the change.

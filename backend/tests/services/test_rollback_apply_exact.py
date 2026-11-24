@@ -802,3 +802,37 @@ async def test_a_conflict_refuses_unless_forced(db, actor, published):
         )
     ).scalar_one()
     assert rollback.summary["forced"] is True
+
+
+async def test_rollback_skips_inverted_mapped_dates_without_modifying_card(db):
+    from app.models.app_settings import AppSettings
+
+    db.add(
+        AppSettings(
+            id="default",
+            general_settings={
+                "pml.timeline": {
+                    "actual_start_key": "actualStart",
+                    "actual_end_key": "ActualEnd",
+                }
+            },
+        )
+    )
+    card = await create_card(
+        db,
+        card_type="Initiative",
+        name="Current",
+        attributes={"actualStart": "2026-04-10", "ActualEnd": "2026-05-01"},
+    )
+    op = {
+        "op": "restore_card_fields",
+        "card_id": str(card.id),
+        "fields": {
+            "name": "Previous",
+            "attributes": {"actualStart": "2026-06-01", "ActualEnd": "2026-05-01"},
+        },
+    }
+    result = await apply(db, op)
+    assert result["status"] == "skipped"
+    assert card.name == "Current"
+    assert card.attributes == {"actualStart": "2026-04-10", "ActualEnd": "2026-05-01"}

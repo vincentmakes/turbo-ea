@@ -203,6 +203,35 @@ export function allFieldsHidden(section: SectionDef, hidden: Set<string>): boole
   return section.fields.length > 0 && section.fields.every((f) => hidden.has(f.key));
 }
 
+const INITIATIVE_COST_FIELDS = ["costBudget", "costActual"];
+const INITIATIVE_DATE_FIELDS = ["startDate", "actualStart", "endDate", "actualEnd"];
+
+export function initiativeSummaryGroups(section: SectionDef, cost: string, timeline: string): SectionDef {
+  if (section.section !== "Cost & Timeline") return section;
+  return {
+    ...section,
+    fields: section.fields.map((field) => {
+      if (field.group) return field;
+      if (INITIATIVE_COST_FIELDS.includes(field.key)) return { ...field, group: cost };
+      if (INITIATIVE_DATE_FIELDS.includes(field.key)) return { ...field, group: timeline };
+      return field;
+    }),
+  };
+}
+
+export function initiativeSummaryAnchors(sections: SectionDef[], hidden: Set<string>) {
+  const keys = new Set(sections.flatMap((section) => section.fields.map((field) => field.key)));
+  const visible = (key: string) => keys.has(key) && !hidden.has(key);
+  const timelineFields = sections.filter((section) =>
+    section.section === "Cost & Timeline" || section.fields.some((field) => INITIATIVE_DATE_FIELDS.includes(field.key)),
+  ).flatMap((section) => section.fields);
+  return {
+    financial: INITIATIVE_COST_FIELDS.every(visible) ? "costActual" : undefined,
+    schedule: [...INITIATIVE_DATE_FIELDS].reverse().find(visible)
+      ?? timelineFields.find((field) => field.type === "date" && visible(field.key))?.key,
+  };
+}
+
 /**
  * Field keys rendered read-only with a "calc" badge: the calculated fields of
  * the type, then the auto-computed ones (PPM's cost roll-ups) not already

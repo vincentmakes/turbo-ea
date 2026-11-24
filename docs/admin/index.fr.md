@@ -6,7 +6,7 @@ La section **Admin** est disponible pour les utilisateurs ayant le rôle **Admin
 
 | Page | Description |
 |------|-------------|
-| [Paramètres généraux](settings.md) | Apparence (logo, favicon, devise), langues activées, exercice fiscal, e-mail (SMTP) et bascules de modules (BPM, PPM, GRC) |
+| [Paramètres généraux](settings.md) | Apparence (logo, favicon, devise), langues activées, exercice fiscal, e-mail (SMTP) et bascules de modules (BPM, PML, GRC) |
 | [Métamodèle](metamodel.md) | Types de fiches, champs, sections, sous-types, types de relations, calculs, tags, principes EA et le graphe du métamodèle |
 | [Calculs](calculations.md) | Formules définies par l'administrateur qui calculent automatiquement les valeurs des champs lors de l'enregistrement des fiches |
 | [Tags](tags.md) | Groupes de tags et tags pour la catégorisation flexible des fiches |

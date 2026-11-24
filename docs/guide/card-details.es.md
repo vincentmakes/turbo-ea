@@ -293,9 +293,11 @@ Cuando el [módulo GRC](grc.md) está habilitado **y** la ficha tiene al menos u
 
 Para las fichas de **Proceso de Negocio**, aparece una pestaña adicional de **Flujo de Proceso** con un visor/editor de diagramas BPMN integrado. Consulte [BPM](bpm.es.md) para más detalles sobre la gestión de flujos de proceso.
 
-## Pestaña PPM (solo para fichas de Iniciativa)
+## Pestaña PML (solo para fichas de Iniciativa) { #ppm-tab-initiative-cards-only }
 
-Cuando el [módulo PPM](ppm.md) está activado, las fichas de **Iniciativa** muestran una pestaña **PPM** adicional como última pestaña. Al hacer clic en esta pestaña, se navega a la vista detallada PPM de la iniciativa, donde puede gestionar informes de estado, presupuestos, riesgos, tareas y diagramas de Gantt.
+En **Costes y cronograma**, las barras superpuestas comparan presupuesto y coste real para Total, CapEx y OpEx. El total facturado de la iniciativa aparece por separado según los permisos. El cronograma presenta fechas planificadas y reales visibles, y los últimos indicadores de plazo, coste y alcance.
+
+Cuando el [módulo PML](ppm.md) está activado, las fichas de **Iniciativa** muestran una pestaña **PML** adicional como última pestaña. Al hacer clic en esta pestaña, se navega a la vista detallada PML de la iniciativa, donde puede gestionar informes de estado, presupuestos, riesgos, tareas y diagramas de Gantt.
 
 ## Archivado
 

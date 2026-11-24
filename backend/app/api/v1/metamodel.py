@@ -1553,6 +1553,45 @@ async def update_type(
     await extension_registry.refresh_from_db(db)
     _guard_ext_contributions(body, t, contribution_guard.active_extension_keys())
 
+    # Protect fields used by PML Timeline before any field cleanup runs.
+    if key == "Initiative" and "fields_schema" in body:
+        from app.models.app_settings import AppSettings
+        from app.services.ppm_timeline import (
+            TimelineValidationError,
+            load_timeline_mapping,
+            validate_timeline_mapping,
+        )
+
+        await db.execute(
+            select(AppSettings.id).where(AppSettings.id == "default").with_for_update()
+        )
+        t = await db.scalar(
+            select(CardType)
+            .where(CardType.key == key)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if t is None:
+            raise HTTPException(404, "Type not found")
+        # Canonical dates remain protected even when the configured mapping uses
+        # other fields. Existing installations without the fields are grandfathered
+        # until their migration adds them.
+        for field_key in ("actualStart", "actualEnd"):
+            was = _fields_by_key(t.fields_schema, field_key)
+            if not was:
+                continue
+            now = _fields_by_key(body["fields_schema"], field_key)
+            if len(now) != 1 or now[0][1].get("type") != "date":
+                raise HTTPException(409, f"Cannot remove or change built-in field {field_key}")
+            if was[0][1].get("built_in"):
+                now[0][1]["built_in"] = True
+        mapping = await load_timeline_mapping(db)
+        candidate = CardType(key=key, label=t.label, fields_schema=body["fields_schema"] or [])
+        try:
+            validate_timeline_mapping(mapping, candidate)
+        except TimelineValidationError as exc:
+            raise HTTPException(409, str(exc)) from exc
+
     # ── Clean up card attributes when fields or options are removed ──
     if "fields_schema" in body:
         _guard_derived_cost_field(key, t.fields_schema, body["fields_schema"])

@@ -41,7 +41,7 @@ import json
 import uuid as uuid_mod
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Any
+from typing import Any, cast
 
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
@@ -288,6 +288,27 @@ async def export_entity_section(
         )
     value_cols = section.value_columns()
     pk0 = section.pk_columns()[0]
+    pml_budget_map = {}
+    pml_config = None
+    if section.sheet in {"PpmBudgetLines", "PpmCostLines", "PpmInvoices"}:
+        from app.api.v1.ppm_field_settings import load_section
+        from app.models.ppm_cost_line import PpmBudgetLine
+        from app.schemas.ppm_fields import PmlRowKind
+
+        pml_kind = {
+            "PpmBudgetLines": "budget",
+            "PpmCostLines": "cost_item",
+            "PpmInvoices": "invoice",
+        }[section.sheet]
+        pml_config = await load_section(db, cast(PmlRowKind, pml_kind))
+        if section.sheet == "PpmCostLines":
+            pml_budget_map = {
+                row.id: row for row in (await db.scalars(sa.select(PpmBudgetLine))).all()
+            }
+            budget_config = await load_section(db, "cost_item")
+            from app.models.card_type import CardType
+
+            provider_type = await db.scalar(sa.select(CardType).where(CardType.key == "Provider"))
     rows: list[dict[str, Any]] = []
     for obj in objs:
         if section.sheet == "DiagramFavorites" and obj.diagram_id in private_diagrams:
@@ -298,6 +319,44 @@ async def export_entity_section(
         out: dict[str, Any] = {}
         for col in value_cols:
             out[col] = _to_cell(getattr(obj, col), _kind(section.model, col))
+        if section.sheet == "PpmInvoices":
+            out["amount"] = str(obj.amount)
+        if pml_config is not None:
+            historical_ids = set()
+            for field in pml_config.fields:
+                value = (obj.field_values or {}).get(field.key)
+                if field.kind == "card_reference" and value:
+                    try:
+                        referenced = card_map.get(uuid_mod.UUID(str(value)))
+                    except ValueError:
+                        referenced = None
+                    if referenced is None or referenced.status != "ACTIVE":
+                        historical_ids.add(str(value))
+            if section.sheet == "PpmCostLines" and obj.provider_child_id:
+                child = card_map.get(obj.provider_child_id)
+                budget = pml_budget_map.get(obj.budget_line_id)
+                source = budget_config.provider_source
+                parent_id = (
+                    (budget.field_values or {}).get(source.budget_field_key)
+                    if budget and source
+                    else None
+                )
+                parent = card_map.get(uuid_mod.UUID(str(parent_id))) if parent_id else None
+                historical = (
+                    source is None
+                    or not source.allow_child_selection
+                    or provider_type is None
+                    or not provider_type.has_hierarchy
+                    or child is None
+                    or child.status != "ACTIVE"
+                    or parent is None
+                    or parent.status != "ACTIVE"
+                    or child.parent_id != parent.id
+                )
+                out["provider_child_historical"] = historical
+                if historical and child is None:
+                    historical_ids.add(str(obj.provider_child_id))
+            out["pml_historical_card_ids"] = json.dumps(sorted(historical_ids))
         for col in section.card_fk_columns:
             cid = getattr(obj, col)
             card = card_map.get(cid) if cid else None
@@ -346,7 +405,12 @@ async def export_entity_section(
             else:
                 out[f"{col}__{subkey}__asset"] = None
         rows.append(out)
-    return section.header(), rows
+    header = section.header()
+    if section.sheet in {"PpmBudgetLines", "PpmCostLines", "PpmInvoices"}:
+        header.append("pml_historical_card_ids")
+        if section.sheet == "PpmCostLines":
+            header.append("provider_child_historical")
+    return header, rows
 
 
 # ---------------------------------------------------------------------------
@@ -448,6 +512,28 @@ async def apply_entity_section(
     value_cols = section.value_columns()
     empty_text = section.empty_text_columns()
     rewrite = section.rewrite if remap is not None else None
+    from app.services.workspace_io.pml_financials import KINDS
+
+    pml_kind = KINDS.get(section.sheet)
+    pml_config = None
+    cost_config = None
+    if pml_kind:
+        from app.api.v1.ppm_field_settings import load_section
+        from app.schemas.ppm_fields import PmlRowKind, PmlSectionConfig
+
+        configured = getattr(remap, "pml_configs", {}) if remap else {}
+        raw = configured.get(pml_kind)
+        pml_config = (
+            PmlSectionConfig.model_validate(raw)
+            if raw is not None
+            else await load_section(db, cast(PmlRowKind, pml_kind))
+        )
+        raw_cost = configured.get("cost_item")
+        cost_config = (
+            PmlSectionConfig.model_validate(raw_cost)
+            if raw_cost is not None
+            else await load_section(db, "cost_item")
+        )
 
     existing_by_pk: dict[tuple, Any] = {}
     existing_objs: list[Any] = list((await db.execute(sa.select(model))).scalars().all())
@@ -471,8 +557,17 @@ async def apply_entity_section(
         # association tables RiskCard / AdrCard), so the PK isn't knowable until
         # the card reference is resolved.
         kwargs: dict[str, Any] = {}
-        for col in value_cols:
-            kwargs[col] = import_value(model, col, row.get(col), empty_text)
+        try:
+            for col in value_cols:
+                kwargs[col] = import_value(model, col, row.get(col), empty_text)
+        except (ValueError, TypeError) as exc:
+            if not pml_kind:
+                raise
+            if remap is not None and row.get("id"):
+                remap.pml_rejected_ids.add(str(row["id"]))
+            sr.conflict += 1
+            sr.errors.append(f"{section.sheet}: invalid financial value: {exc}")
+            continue
         for col in section.carry_timestamps:
             # An empty cell must not insert NULL: the server default dates it.
             if kwargs.get(col) is None:
@@ -487,6 +582,8 @@ async def apply_entity_section(
                 unresolved = f"card {col} = {row.get(f'{col}__ref')!r} ({row.get(f'{col}__type')})"
                 break
         if unresolved:
+            if pml_kind and remap is not None and kwargs.get("id"):
+                remap.pml_rejected_ids.add(str(kwargs["id"]))
             sr.conflict += 1
             sr.errors.append(f"{section.sheet}: required {unresolved} not found — row skipped")
             continue
@@ -572,6 +669,109 @@ async def apply_entity_section(
 
         if section.sheet == "DiagramFavorites" and kwargs.get("diagram_id") in private_diagrams:
             sr.skip("unresolved")
+            continue
+
+        if pml_kind:
+            if kwargs.get("field_values") is None:
+                kwargs["field_values"] = {}
+            from app.services.workspace_io import remap as pml_remap
+            from app.services.workspace_io.pml_financials import validate_financial_row
+
+            identifier = kwargs.get("id")
+            if not isinstance(kwargs["field_values"], dict):
+                if remap is not None and identifier:
+                    remap.pml_rejected_ids.add(str(identifier))
+                sr.conflict += 1
+                sr.errors.append(f"{section.sheet}: invalid field values")
+                continue
+            if identifier is None:
+                sr.conflict += 1
+                sr.errors.append(f"{section.sheet}: financial identity is required")
+                continue
+            rejected_ids: set[str] = getattr(remap, "pml_rejected_ids", set()) if remap else set()
+            rejected_sections: set[str] = (
+                getattr(remap, "pml_rejected_sections", set()) if remap else set()
+            )
+            if pml_kind in rejected_sections:
+                if identifier:
+                    rejected_ids.add(str(identifier))
+                sr.conflict += 1
+                sr.errors.append(f"{section.sheet}: financial configuration was rejected")
+                continue
+            previous_historical: set[str] = (
+                getattr(remap, "pml_historical_card_ids", set()) if remap else set()
+            )
+            assert pml_config is not None and cost_config is not None
+            try:
+                declared_historical = row.get("pml_historical_card_ids") or []
+                if isinstance(declared_historical, str):
+                    declared_historical = json.loads(declared_historical)
+                if not isinstance(declared_historical, list):
+                    raise ValueError("Invalid historical references")
+                permitted = {
+                    str((kwargs.get("field_values") or {}).get(field.key))
+                    for field in pml_config.fields
+                    if field.kind == "card_reference"
+                }
+                if pml_kind == "cost_item" and kwargs.get("provider_child_id"):
+                    permitted.add(str(kwargs["provider_child_id"]))
+                if set(map(str, declared_historical)) - permitted:
+                    raise ValueError("Invalid historical references")
+                historical_cards = set()
+                if remap is not None:
+                    remap.pml_historical_card_ids = set(map(str, declared_historical))
+                    for source_id in remap.pml_historical_card_ids:
+                        tally = pml_remap.RewriteTally()
+                        historical_cards.add(str(pml_remap.pml_card_id(source_id, remap, tally)))
+                    kwargs["_pml_section"] = pml_kind
+                    if rewrite is not None:
+                        sr.note_references(rewrite(kwargs, remap))
+                    else:
+                        kwargs.pop("_pml_section")
+                    if pml_kind == "cost_item" and kwargs.get("provider_child_id"):
+                        tally = pml_remap.RewriteTally()
+                        kwargs["provider_child_id"] = uuid_mod.UUID(
+                            str(pml_remap.pml_card_id(kwargs["provider_child_id"], remap, tally))
+                        )
+                        sr.note_references(tally)
+            except (ValueError, TypeError) as exc:
+                if identifier:
+                    rejected_ids.add(str(identifier))
+                sr.conflict += 1
+                sr.errors.append(f"{section.sheet}: {exc}")
+                continue
+            finally:
+                if remap is not None:
+                    remap.pml_historical_card_ids = previous_historical
+            current_financial = existing_by_pk.get(tuple(kwargs.get(c) for c in pk_cols))
+            assert pml_config is not None and cost_config is not None
+            historical = row.get("provider_child_historical") in (True, 1, "true", "True", "1")
+            error = await validate_financial_row(
+                db,
+                section.sheet,
+                kwargs,
+                current_financial,
+                pml_config,
+                cost_config,
+                historical_child=historical,
+                field_values_carried="field_values" in row,
+                historical_cards=historical_cards,
+                rejected_ids=rejected_ids,
+            )
+            if error:
+                if identifier:
+                    rejected_ids.add(str(identifier))
+                sr.conflict += 1
+                sr.errors.append(f"{section.sheet}: {error}")
+                continue
+            if current_financial is not None:
+                sr.skip("already_present")
+                continue
+            obj = model(**kwargs)
+            db.add(obj)
+            existing_by_pk[tuple(kwargs.get(c) for c in pk_cols)] = obj
+            sr.created += 1
+            await db.flush()
             continue
 
         pk_vals = tuple(kwargs.get(c) for c in pk_cols)

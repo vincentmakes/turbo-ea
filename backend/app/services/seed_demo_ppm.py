@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
+from typing import cast
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -1028,6 +1029,22 @@ def _budget_lines(ids: dict[str, uuid.UUID]) -> list[dict]:
 # ===================================================================
 # COST LINES (actuals)
 # ===================================================================
+def _select_cost_budget(cost: dict, budgets: list[dict]) -> uuid.UUID:
+    """Choose a same-initiative budget for a newly seeded demo cost."""
+    candidates = [budget for budget in budgets if budget["initiative_id"] == cost["initiative_id"]]
+    selected = min(
+        candidates,
+        key=lambda budget: (
+            budget["category"] != cost["category"],
+            abs(
+                budget["fiscal_year"]
+                - (cost["date"].year if cost["date"] else budget["fiscal_year"])
+            ),
+        ),
+    )
+    return cast(uuid.UUID, selected["id"])
+
+
 def _cost_lines(ids: dict[str, uuid.UUID]) -> list[dict]:
     _i = ids
     return [
@@ -1486,19 +1503,25 @@ async def seed_ppm_demo_data(db: AsyncSession) -> dict:
 
     # --- Budget Lines ---
     budgets = _budget_lines(ids)
+    seeded_budgets = []
     budget_count = 0
     for b in budgets:
         if b["initiative_id"] in ids.values():
-            db.add(PpmBudgetLine(**b))
+            budget = PpmBudgetLine(**b)
+            db.add(budget)
+            seeded_budgets.append((b, budget))
             budget_count += 1
     await db.flush()
+
+    budget_choices = [{**values, "id": budget.id} for values, budget in seeded_budgets]
 
     # --- Cost Lines ---
     costs = _cost_lines(ids)
     cost_count = 0
     for c in costs:
         if c["initiative_id"] in ids.values():
-            db.add(PpmCostLine(**c))
+            budget_id = _select_cost_budget(c, budget_choices)
+            db.add(PpmCostLine(**c, budget_line_id=budget_id))
             cost_count += 1
     await db.flush()
 

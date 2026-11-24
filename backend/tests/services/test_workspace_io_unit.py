@@ -699,3 +699,25 @@ def test_import_value_reads_an_empty_cell_as_empty_text_only_where_kept():
     assert entities.import_value(
         DocumentComment, "created_at", "2026-03-02T09:00:00+00:00", kept
     ) == datetime(2026, 3, 2, 9, 0, tzinfo=timezone.utc)
+
+
+def test_invoice_ids_starting_equals_roundtrip_as_literal_text():
+    import io
+
+    from openpyxl import Workbook, load_workbook
+
+    from app.services.workspace_io import bundle as bundle_io
+
+    workbook = Workbook(write_only=True)
+    bundle_io.write_sheet(
+        workbook,
+        "PpmInvoices",
+        ["invoice_id", "amount"],
+        [{"invoice_id": "=00038", "amount": "30.11"}, {"invoice_id": "00038", "amount": "0"}],
+    )
+    output = io.BytesIO()
+    workbook.save(output)
+    rows = bundle_io.read_workbook(output.getvalue())["PpmInvoices"]
+    assert [row["invoice_id"] for row in rows] == ["=00038", "00038"]
+    reopened = load_workbook(io.BytesIO(output.getvalue()), data_only=False)
+    assert reopened["PpmInvoices"]["A2"].data_type == "s"

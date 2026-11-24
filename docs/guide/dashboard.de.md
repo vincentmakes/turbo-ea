@@ -177,7 +177,7 @@ Neben einem Genehmigungsstatus und einer Lebenszyklusphase kann ein Diagramm ode
 
 Ein Sankey nimmt einen Beziehungstyp und gruppiert **jedes Ende** für sich: nach Kartentyp, Untertyp, Genehmigungsstatus, Lebenszyklusphase, Datenqualität, einem Feld des Typs dieses Endes oder den **Karten selbst** — Organisation → Anwendung zeigt, welche Organisationen welche Anwendungen nutzen, wobei die zwanzig größten Karten an jedem Ende erhalten bleiben und der Rest unter *Sonstige* zusammengefasst wird; das Widget weist dann unter dem Diagramm darauf hin, und **Angezeigte Kategorien (höchstens)** hebt die Grenze an. Ein Klick auf einen Kartenknoten öffnet die Karte.
 
-Diagramme können auch einen Modulbericht darstellen: Risiken nach Stufe oder Status, Compliance-Scores nach Regulierung, Terminplan-Status im PPM und BPM-Reifegrad stehen im Katalog, wenn das Modul aktiviert ist und Sie dessen Berechtigung besitzen. Tags können noch nicht als Dimension oder Filter verwendet werden.
+Diagramme können auch einen Modulbericht darstellen: Risiken nach Stufe oder Status, Compliance-Scores nach Regulierung, Terminplan-Status im PML und BPM-Reifegrad stehen im Katalog, wenn das Modul aktiviert ist und Sie dessen Berechtigung besitzen. Tags können noch nicht als Dimension oder Filter verwendet werden.
 
 Vier vorgefertigte Diagramme stehen in der Familie **Diagramme** des Katalogs, jeweils angeboten, wenn Ihr Metamodell die nötigen Bausteine enthält: **Anwendungen pro Organisation**, **Lebensende-Kalender**, **Veraltete Karten nach Typ** und das Sankey **Organisation → Anwendung**.
 

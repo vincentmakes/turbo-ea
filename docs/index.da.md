@@ -32,12 +32,12 @@ Denne guide er til **alle, der bruger Turbo EA** — enterprisearkitekter, it-ch
 | **Lager** | Søgbar, filtrérbar liste over alle kort på tværs af alle typer. Massredigering, Excel/CSV-import-eksport og gemte visninger med deling |
 | **Rapporter** | Forudbyggede visualiseringer: Portefølje, Kompetencekort, Livscyklus, Afhængigheder, Omkostninger, Matrix, Datakvalitet og End-of-Life |
 | **BPM** | Business Process Management — modellér forretningsprocesser med en BPMN 2.0-editor, kobl diagramelementer til kort, og vurder modenhed, risiko og automatisering |
-| **PPM** | Project Portfolio Management — administrér Initiativ-kort som fulde projekter med statusrapporter, Work Breakdown Structures, kanban + Gantt-opgavetavler, budgetter, omkostninger og et risikoregister pr. initiativ |
+| **PML** | Project Master List — administrér Initiativ-kort som fulde projekter med statusrapporter, Work Breakdown Structures, kanban + Gantt-opgavetavler, budgetter, omkostninger og et risikoregister pr. initiativ |
 | **TurboLens** | AI-drevet EA-intelligens — leverandøranalyse, dubletdetektion, moderniseringsvurdering, den 5-trins Architecture AI-guide og compliance-scanninger mod EU AI Act / GDPR / NIS2 / DORA / SOC 2 / ISO 27001 |
 | **EA Delivery** | Den TOGAF-tilpassede leveranceflade — Statements of Architecture Work, Architecture Decision Records og det landskabsdækkende Risk Register |
 | **SoAW** | Statement of Architecture Work — et formelt TOGAF-dokument, der afgrænser et arkitekturinitiativ |
 | **ADR** | Architecture Decision Record — fanger en beslutnings kontekst, alternativer og konsekvenser, med statusarbejdsproces og kortkobling |
-| **Risk Register** | Landskabsniveau TOGAF Phase G-risikoregister, adskilt fra initiativniveau-PPM-risici. Ejer-tildeling opretter automatisk en opgave |
+| **Risk Register** | Landskabsniveau TOGAF Phase G-risikoregister, adskilt fra initiativniveau-PML-risici. Ejer-tildeling opretter automatisk en opgave |
 | **Webportal** | Offentlig, slug-baseret, skrivebeskyttet visning af en del af EA-landskabet — kan deles uden login |
 | **MCP Server** | Skrivebeskyttet AI-værktøjsadgang via Model Context Protocol — forespørg EA-data fra Claude Desktop, Cursor, GitHub Copilot og andre MCP-klienter |
 | **RBAC** | Role-Based Access Control — app-niveau roller plus interessentroller pr. kort med 50+ granulære tilladelser |

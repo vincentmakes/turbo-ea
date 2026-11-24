@@ -239,6 +239,11 @@ describe("AppLayout — banners", () => {
 });
 
 describe("AppLayout — module toggles reshape the bar", () => {
+  it("labels the Project Master List entry and keeps its existing destination", () => {
+    hookState.ppm = { ppmEnabled: true, ppmLoaded: true };
+    renderLayout();
+    expect(screen.getByRole("link", { name: /Project Master List/ })).toHaveAttribute("href", "/ppm");
+  });
   it("promotes EA Delivery to a top-level item, before Diagrams, when PPM and GRC are off", () => {
     hookState.ppm = { ppmEnabled: false, ppmLoaded: true };
     hookState.grc = { grcEnabled: false, grcLoaded: true };
@@ -246,7 +251,7 @@ describe("AppLayout — module toggles reshape the bar", () => {
 
     const delivery = screen.getByRole("link", { name: /EA Delivery/ });
     expect(delivery).toHaveAttribute("href", "/reports/ea-delivery");
-    expect(screen.queryByRole("link", { name: /^view_timeline\s*PPM$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^view_timeline\s*Project Master List$/ })).not.toBeInTheDocument();
     const diagrams = screen.getByRole("link", { name: /Diagrams/ });
     expect(delivery.compareDocumentPosition(diagrams) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });

@@ -1,18 +1,18 @@
-# Gerenciamento de Portfólio de Projetos (PPM)
+# Lista principal de projetos (PML)
 
-O módulo **PPM** fornece uma solução completa de gerenciamento de portfólio de projetos para rastreamento de iniciativas, orçamentos, riscos, tarefas e cronogramas. Integra-se diretamente com o tipo de card Iniciativa para enriquecer cada projeto com relatórios de status, acompanhamento de custos e visualização Gantt.
+Abra a **Lista principal de projetos** na navegação principal para acompanhar iniciativas, orçamentos, riscos, tarefas e prazos. O módulo reúne relatórios de estado, acompanhamento financeiro e vistas Gantt.
 
 !!! note
-    O módulo PPM pode ser habilitado ou desabilitado por um administrador nas [Configurações](../admin/settings.md). Quando desabilitado, a navegação e funcionalidades do PPM ficam ocultas.
+    O módulo PML pode ser habilitado ou desabilitado por um administrador nas [Configurações](../admin/settings.md). Quando desabilitado, a navegação e funcionalidades do PML ficam ocultas.
 
 ## Painel do Portfólio
 
-![Painel do Portfólio PPM](../assets/img/pt/40_ppm_portfolio.png)
+![Painel do Portfólio PML](../assets/img/pt/40_ppm_portfolio.png)
 
-O **Painel do Portfólio** é o ponto de entrada principal para o PPM. Ele fornece:
+O **Painel do Portfólio** é o ponto de entrada principal para o PML. Ele fornece:
 
 - **Barra de KPIs** — O número de iniciativas, o orçamento total delas (quando os custos lhe são mostrados) e quantas estão No caminho, Em risco e Fora do caminho no cronograma. Os valores acompanham o portfólio: a pesquisa, o subtipo escolhido e a secção **Filtros** restringem-nos às iniciativas que você está consultando
-- **Visão geral Gantt** — Barras de cronograma mostrando as datas de início e fim de cada iniciativa, com indicadores de saúde RAG
+- O portefólio interno mostra **Plano** e **Real** na mesma escala trimestral. Uma única data aparece como marcador. As datas exatas são visíveis de acordo com as permissões. O portefólio público mostra o plano.
 
 ### Agrupamento e filtragem
 
@@ -25,7 +25,7 @@ Use a barra de ferramentas para:
 - **Mostrar hierarquia** para aninhar as iniciativas de cada grupo sob a iniciativa pai (veja abaixo)
 - **Subagrupar por subtipo** para dividir cada grupo por subtipo (veja abaixo)
 
-Estas definições são mantidas na URL, então atualizar a página preserva a sua visualização atual, e um link que você partilhar abre o mesmo portfólio. O portfólio também memoriza no seu navegador a pesquisa, o agrupamento, o subtipo, as definições de hierarquia e os filtros, e restaura-os quando você volta — a partir do menu PPM, ou com a seta de voltar depois de abrir uma iniciativa. Um link que traz definições próprias abre com essas, e elas passam a ser as memorizadas. O ícone **Redefinir padrões** na barra de título repõe o portfólio nas suas predefinições.
+Estas definições são mantidas na URL, então atualizar a página preserva a sua visualização atual, e um link que você partilhar abre o mesmo portfólio. O portfólio também memoriza no seu navegador a pesquisa, o agrupamento, o subtipo, as definições de hierarquia e os filtros, e restaura-os quando você volta — a partir do menu PML, ou com a seta de voltar depois de abrir uma iniciativa. Um link que traz definições próprias abre com essas, e elas passam a ser as memorizadas. O ícone **Redefinir padrões** na barra de título repõe o portfólio nas suas predefinições.
 
 #### A secção Filtros
 
@@ -43,7 +43,7 @@ Quando algumas iniciativas do portfólio têm uma iniciativa pai que também est
 
 O agrupamento continua sendo o principal: a hierarquia é montada **dentro de cada grupo**, então uma iniciativa cuja iniciativa pai pertence a outro grupo aparece como linha de primeiro nível do seu próprio grupo. Os filtros são aplicados primeiro e a árvore mostra o que resta: quando a pesquisa ou o filtro de subtipo deixam uma iniciativa pai de fora, as filhas dela sobem para o primeiro nível, em vez de a iniciativa pai ser mantida como contexto.
 
-![Portfólio PPM com a hierarquia exibida](../assets/img/pt/101_ppm_portfolio_hierarquia.png)
+![Portfólio PML com a hierarquia exibida](../assets/img/pt/101_ppm_portfolio_hierarquia.png)
 
 #### Subagrupar por subtipo
 
@@ -59,7 +59,7 @@ A linha final do grupo substitui a linha de totais: leva o nome do subtipo e mos
 
 Cada iniciativa mostra os próprios valores sempre que os tiver: as barras de CapEx e OpEx de uma iniciativa pai cobrem as linhas de orçamento e de custo registradas nela, e a barra de Gantt as próprias datas de início e término. Uma iniciativa pai **sem linhas de orçamento próprias** mostra, em vez disso, o orçamento das iniciativas abaixo dela, e uma **sem linhas de custo próprias** o realizado delas; em ambos os casos a barra é desenhada **contornada** com valores em itálico, e a dica de ferramenta indica qual metade vem de baixo. Uma iniciativa pai **sem data de início nem de término** abrange do início mais cedo ao término mais tardio abaixo dela, desenhada como uma barra **tracejada** com trimestres em itálico. Uma dica de ferramenta informa, em cada caso, quantas iniciativas estão incluídas. As três regras são independentes — um programa que detém o orçamento enquanto os projetos registram o gasto mostra o próprio orçamento diante do realizado deles, e um programa pode ter datas próprias e ainda assim mostrar os custos dos projetos — e basta registrar uma linha de orçamento, uma linha de custo ou uma data na iniciativa pai para que essa parte volte aos valores próprios. Só contam as iniciativas que você pode ver e, em um portal, as que o portal publica. Os totais de grupo e a barra de KPIs continuam somando apenas as linhas registradas, de modo que cada valor é contado uma única vez.
 
-Os valores derivados existem apenas no quadro de PPM e nas abas **Visão geral** e **Orçamento e custos** da própria iniciativa. Para levar um total consolidado ao inventário, aos relatórios ou a um portal, defina um campo calculado que some o orçamento próprio de cada nível aos totais das filhas — veja [Consolidar valores de PPM ao longo da hierarquia de iniciativas](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). Uma alteração de PPM em uma filha executa novamente os cálculos de todas as iniciativas acima dela, de modo que o total da iniciativa pai é atualizado na hora.
+Os valores derivados existem apenas no quadro de PML e nas abas **Visão geral** e **Orçamento e custos** da própria iniciativa. Para levar um total consolidado ao inventário, aos relatórios ou a um portal, defina um campo calculado que some o orçamento próprio de cada nível aos totais das filhas — veja [Consolidar valores de PML ao longo da hierarquia de iniciativas](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). Uma alteração de PML em uma filha executa novamente os cálculos de todas as iniciativas acima dela, de modo que o total da iniciativa pai é atualizado na hora.
 
 ### Impressão e exportação
 
@@ -71,11 +71,13 @@ O portfólio oferece as mesmas ações na barra de título que os relatórios:
 
 ## Visão Detalhada da Iniciativa
 
+**Início real** e **Fim real** são campos incorporados no cartão da iniciativa. Os valores podem ser editados ou limpos. Os administradores podem alterar os nomes e a posição no metamodelo. As definições estão protegidas contra eliminação.
+
 Clique em qualquer iniciativa para abrir sua página de detalhes com sete abas:
 
 ### Aba Visão Geral
 
-![Aba Visão Geral PPM](../assets/img/pt/41_ppm_visao_geral.png)
+![Aba Visão Geral PML](../assets/img/pt/41_ppm_visao_geral.png)
 
 A visão geral mostra um resumo da saúde e finanças da iniciativa:
 
@@ -87,7 +89,7 @@ A visão geral mostra um resumo da saúde e finanças da iniciativa:
 
 ### Aba Relatórios de Status
 
-![Relatórios de Status PPM](../assets/img/pt/42_ppm_relatorios_estado.png)
+![Relatórios de Status PML](../assets/img/pt/42_ppm_relatorios_estado.png)
 
 Relatórios de status mensais acompanham a saúde do projeto ao longo do tempo. Cada relatório inclui:
 
@@ -103,18 +105,20 @@ Relatórios de status mensais acompanham a saúde do projeto ao longo do tempo. 
 
 ### Aba Orçamento e Custos
 
-![Orçamento e Custos PPM](../assets/img/pt/43_ppm_orcamento_custos.png)
+![Orçamento e Custos PML](../assets/img/pt/43_ppm_orcamento_custos.png)
 
-Acompanhamento de dados financeiros com dois tipos de itens:
+O **Orçamento planeado** apresenta as linhas por exercício e categoria (CapEx ou OpEx). Expanda uma linha para ver os **Itens de custo** e um item para ver a **Faturação efetiva**. O início do exercício segue as [definições](../admin/settings.md#início-do-ano-fiscal).
 
-- **Linhas de orçamento** — Orçamento planejado por ano fiscal e categoria (CapEx / OpEx), com uma descrição opcional. Um mesmo ano fiscal e categoria podem ter quantas linhas forem necessárias — uma por licença, parceiro de implementação ou lote de hardware — e a descrição as distingue; os totais somam todas. As linhas de orçamento são agrupadas de acordo com o **mês de início do ano fiscal** configurado nas [Configurações](../admin/settings.md#início-do-ano-fiscal). Por exemplo, se o ano fiscal começa em abril, uma linha de orçamento de junho de 2026 pertence ao AF 2026–2027
-- **Linhas de custo** — Despesas reais com data, descrição e categoria
+Introduza os montantes de orçamento, custos e faturas sem IVA. A faturação efetiva regista faturas já emitidas.
 
-As duas tabelas são agrupadas por ano fiscal. Cada ano tem uma linha de cabeçalho com os subtotais de CapEx, OpEx e total e o número de linhas que contém; a seta do cabeçalho mostra ou oculta as linhas desse ano. Ao abrir a aba, apenas o ano fiscal atual fica expandido (ou o último ano com linhas, se o atual não tiver nenhuma). Os valores ficam em colunas **CapEx** e **OpEx** separadas, e uma linha **Total, todos os anos fiscais** abaixo de cada tabela soma todos os anos. O botão **+** no cabeçalho de um ano de orçamento adiciona uma linha de orçamento com esse ano fiscal já preenchido. As linhas de custo são agrupadas pelo ano fiscal da sua data e ordenadas por data dentro dele; as que não têm data ficam reunidas no final, no grupo **Sem data**, e contam para os totais de custos como qualquer outra linha.
+- Adicione um item de custo a partir da respetiva linha do orçamento. Os itens antigos sem orçamento podem ser atribuídos em **Custos sem orçamento**. É possível mover um item entre linhas da mesma iniciativa.
+- Registe a data, referência e montante da fatura. Se uma fatura cobrir vários itens, registe a respetiva parcela em cada um. Pode mover o registo para outro item da mesma iniciativa.
+- O item mostra o custo real, o montante faturado e o saldo a faturar. O saldo é o custo real menos o montante faturado e pode ser negativo. O orçamento soma os itens associados com subtotais por exercício e categoria. O montante faturado da iniciativa inclui faturas de itens sem orçamento.
+- O orçamento, os custos reais e os gráficos usam os montantes registados no orçamento e nos itens de custo. Registar ou mover uma fatura altera apenas a faturação.
 
-Quando a iniciativa **não tem linhas de orçamento próprias**, a tabela de orçamento mostra, no lugar do estado vazio, o orçamento das iniciativas abaixo dela: uma legenda indica de quantas iniciativas ele vem, uma linha somente leitura por ano fiscal apresenta CapEx, OpEx e total em itálico, e a linha **Total, todos os anos fiscais** os soma. A tabela de custos faz o mesmo com o realizado delas quando a iniciativa **não tem linhas de custo próprias**, com uma linha **Sem data** para as linhas de custo sem data. A barra de resumo marca esses valores em itálico, com uma dica de ferramenta. Cada tabela decide por si, nada é armazenado nem somado aos valores próprios da iniciativa, e só contam as iniciativas que você pode ver. Registrar uma primeira linha com **Adicionar linha de orçamento** ou **Adicionar item de custo** faz essa tabela voltar às linhas próprias da iniciativa; os gráficos de gasto mostram sempre as linhas próprias da iniciativa.
+Se configurado, o fornecedor da linha do orçamento é herdado pelo item de custo. Pode escolher um fornecedor filho direto autorizado. Consulte [Configurar orçamento e custos](../admin/settings.md#pml-budget-costs) sobre os campos adicionais e calculados.
 
-Os totais de orçamento e custos são automaticamente acumulados nos atributos `costBudget` e `costActual` do card de Iniciativa.
+Quando a iniciativa não tem orçamento ou custos próprios, o valor correspondente pode vir de iniciativas descendentes visíveis. Os dois lados são independentes, e as linhas derivadas mostram um traço para custos relacionados e faturação. Os totais atualizam `costBudget` e `costActual` no cartão. Se existirem itens de custo PML, os campos são de leitura apenas.
 
 #### Gastos ao longo do tempo
 
@@ -133,7 +137,7 @@ Dois aspetos a ter em conta ao ler os gráficos:
 
 ### Aba Gestão de Riscos
 
-![Gestão de Riscos PPM](../assets/img/pt/44_ppm_gestao_riscos.png)
+![Gestão de Riscos PML](../assets/img/pt/44_ppm_gestao_riscos.png)
 
 O registo de riscos acompanha os riscos da iniciativa. Cada risco tem:
 
@@ -224,7 +228,7 @@ As colunas são reconhecidas pelo seu cabeçalho no seu idioma ou em inglês. Um
 
 ### Aba Tarefas
 
-![Quadro de Tarefas PPM](../assets/img/pt/45_ppm_quadro_tarefas.png)
+![Quadro de Tarefas PML](../assets/img/pt/45_ppm_quadro_tarefas.png)
 
 O gerenciador de tarefas suporta as visualizações **quadro Kanban** e **lista** com quatro colunas de status:
 
@@ -239,7 +243,7 @@ Os filtros de exibição (modo de visualização, filtro WBS, alternância de ag
 
 ### Aba Gantt
 
-![Diagrama de Gantt PPM](../assets/img/pt/46_ppm_gantt.png)
+![Diagrama de Gantt PML](../assets/img/pt/46_ppm_gantt.png)
 
 O diagrama de Gantt visualiza o cronograma do projeto com:
 
@@ -262,9 +266,13 @@ Interaja com o diagrama de Gantt:
 
 A última aba mostra a visualização completa de detalhes do card, incluindo todas as seções padrão.
 
+Em **Custos e cronograma**, barras sobrepostas comparam orçamento e custos reais para Total, CapEx e OpEx. A faturação total da iniciativa é apresentada separadamente conforme as permissões. O cronograma mostra datas planeadas e reais visíveis e os últimos indicadores de prazo, custo e âmbito.
+
 ### Relatório da iniciativa { #initiative-report }
 
-![Relatório da iniciativa PPM](../assets/img/pt/103_ppm_relatorio_iniciativa.png)
+![Relatório da iniciativa PML](../assets/img/pt/103_ppm_relatorio_iniciativa.png)
+
+A impressão mostra datas planeadas e reais visíveis, a hierarquia expandida e subtotais por exercício. O total faturado da iniciativa aparece de acordo com as permissões.
 
 O botão **Relatório** no cabeçalho da iniciativa, ao lado do chip do subtipo (um ícone num telemóvel), abre o **Relatório da iniciativa**: uma única página só de leitura que reúne o que os separadores mostram, organizada como os outros relatórios, com o nome da iniciativa como título e uma seta para voltar à iniciativa. Os chips **Secções** na barra de ferramentas mostram ou ocultam cada secção; da primeira vez são todas mostradas, e a sua escolha é memorizada no navegador:
 
@@ -272,7 +280,7 @@ O botão **Relatório** no cabeçalho da iniciativa, ao lado do chip do subtipo 
 |--------|--------------|
 | **Visão geral** | Mosaicos para **Orçamento total**, **Real total**, **Variância** e **Conclusão**; o **Resumo de saúde** com os três indicadores do relatório de estado mais recente, a cores e por extenso; as barras de **Finanças** para o total, CapEx e OpEx; o cartão **Linha do tempo** com as datas de início e de fim, o subtipo e o estado da iniciativa; e a descrição. Os valores obtidos das iniciativas subordinadas são assinalados, com uma nota que os explica |
 | **Relatórios de estado** | O relatório mais recente completo, com os seus indicadores, e, depois, os relatórios anteriores numa tabela com data, relator e indicadores de saúde |
-| **Orçamento e custos** | Mosaicos para o orçamento, o real e a variância totais e para a despesa CapEx e OpEx face ao respetivo orçamento; os gráficos **Gastos ao longo do tempo** para o ano fiscal indicado no respetivo chip e para o projeto inteiro; depois, as tabelas **Orçamento planejado** e **Itens de custo** com todos os anos fiscais expandidos |
+| **Orçamento e custos** | Mosaicos para o orçamento, o real e a variância totais e para a despesa CapEx e OpEx face ao respetivo orçamento; os gráficos **Gastos ao longo do tempo** para o ano fiscal indicado no respetivo chip e para o projeto inteiro; Hierarquia expandida **Orçamento planeado → Itens de custo → Faturação efetiva**, subtotais por exercício e total faturado da iniciativa |
 | **Gestão de riscos** | Mosaicos para **Total de riscos**, **Aberto** e **Riscos elevados**; o **Mapa de calor dos riscos** de probabilidade face ao impacto, com cada célula colorida por faixa de pontuação e a indicar quantos riscos contém, ao lado de uma contagem **Por estado**; depois, cada risco com a pontuação (e probabilidade × impacto), o estado, o responsável, a descrição completa e a mitigação completa, da pontuação mais alta para a mais baixa |
 | **Tarefas e cronograma** | Uma tabela de pacotes de trabalho, cada um com as suas tarefas por baixo, seguidos das tarefas sem pacote de trabalho, ao lado de uma linha temporal numa escala trimestral: uma barra para cada pacote de trabalho preenchida até à sua conclusão, uma barra para cada tarefa na cor do seu estado, um losango para um marco (como no diagrama de Gantt), um ponto para um item com apenas uma data e uma linha para hoje quando cai dentro do intervalo. Cada linha mostra também o progresso ou o estado e a prioridade, e uma legenda explica os símbolos |
 
@@ -293,14 +301,16 @@ A EAP fornece uma decomposição hierárquica do escopo do projeto:
 
 ## Integração com os detalhes do card
 
-Quando o PPM está ativado, os cards de **Iniciativa** exibem uma aba **PPM** como última aba na [visualização de detalhes do card](card-details.md). Ao clicar nesta aba, você é direcionado diretamente à visualização detalhada PPM da iniciativa (aba Visão Geral). Isso fornece um ponto de acesso rápido de qualquer card de Iniciativa à sua página completa do projeto PPM.
+Quando o PML está ativado, os cards de **Iniciativa** exibem uma aba **PML** como última aba na [visualização de detalhes do card](card-details.md). Ao clicar nesta aba, você é direcionado diretamente à visualização detalhada PML da iniciativa (aba Visão Geral). Isso fornece um ponto de acesso rápido de qualquer card de Iniciativa à sua página completa do projeto PML.
 
-Por outro lado, a aba **Detalhes do Card** dentro da visualização detalhada PPM da iniciativa mostra as seções padrão do card sem a aba PPM, evitando navegação circular.
+Por outro lado, a aba **Detalhes do Card** dentro da visualização detalhada PML da iniciativa mostra as seções padrão do card sem a aba PML, evitando navegação circular.
 
 ## Permissões
 
 | Permissão | Descrição |
 |-----------|-----------|
-| `ppm.view` | Visualizar o painel PPM, diagrama de Gantt e relatórios de iniciativas, e ler os cartões de iniciativa. Concedido a todos os papéis por padrão |
+| `ppm.view` | Visualizar o painel PML, diagrama de Gantt e relatórios de iniciativas, e ler os cartões de iniciativa. Concedido a todos os papéis por padrão |
 | `ppm.manage` | Criar e gerenciar relatórios de status, tarefas, custos, riscos e itens WBS. Concedido aos papéis Admin, Admin BPM e Membro |
-| `reports.ppm_dashboard` | Visualizar o painel do portfólio PPM. Concedido a todos os papéis por padrão |
+| `reports.ppm_dashboard` | Visualizar o painel do portfólio PML. Concedido a todos os papéis por padrão |
+
+O orçamento e os itens de custo seguem as permissões PML e a visibilidade da iniciativa. Os detalhes e o total das faturas e o indicador de custos do cronograma também exigem acesso aos custos da iniciativa. Registar ou mover faturas requer ainda a permissão de gestão PML.

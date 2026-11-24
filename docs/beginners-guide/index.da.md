@@ -2,7 +2,7 @@
 
 Så du har installeret Turbo EA. Login-skærmen virker, demodataene loader, alle menupunkter viser dig noget — og nu stirrer du på et tomt lager og spekulerer på, hvor du egentlig skal begynde. Denne guide er til dig.
 
-Det er en sekventieret, holdningsdrevet gennemgang af det **første konkrete EA-initiativ**, de fleste organisationer kører på Turbo EA: at få et applikationslager under kontrol og bruge det til at besvare reelle porteføljespørgsmål. Den ignorerer bevidst de mere avancerede moduler (risikoregister, compliance, PPM, TurboLens AI) — de bliver først nyttige, når dit lager er levende, ikke før.
+Det er en sekventieret, holdningsdrevet gennemgang af det **første konkrete EA-initiativ**, de fleste organisationer kører på Turbo EA: at få et applikationslager under kontrol og bruge det til at besvare reelle porteføljespørgsmål. Den ignorerer bevidst de mere avancerede moduler (risikoregister, compliance, PML, TurboLens AI) — de bliver først nyttige, når dit lager er levende, ikke før.
 
 ## Hvem denne guide er til
 
@@ -47,7 +47,7 @@ Denne guide dækker **kravl** og begyndelsen af **gå**. Når du er færdig, vil
 Disse er stærke moduler, men de antager, at du allerede har et befolket lager. Åbn dem ikke endnu:
 
 - **Risikoregister** og **compliance-scanning** — nyttige, når du har applikationer og kompetencer at knytte risici til.
-- **PPM** (projektporteføljestyring) — nyttig, når du har en projektpipeline, der er værd at følge.
+- **PML** (projektporteføljestyring) — nyttig, når du har en projektpipeline, der er værd at følge.
 - **TurboLens AI** (leverandøranalyse, dubletdetektion, Architect-guide) — nyttig, når du har nok kort til, at AI kan finde mønstre.
 
 Du finder en kort "hvad er det næste"-henvisning til hver af dem på [sidste side](your-first-analysis.md) i denne guide.

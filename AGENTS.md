@@ -4,6 +4,12 @@
 > **(1) ask the user**, **(2) say exactly which lines you want to change and WHY**, **(3) wait for a clear yes.**
 > Never add, reword or remove on your own initiative.
 
+# REGOLA OBBLIGATORIA — AMBIENTI SEPARATI
+
+**CLAUDE CODE LAVORA SOLO IN `claude-work`. CODEX LAVORA SOLO IN `chatgpt-work`.**
+
+Ogni assistente usa esclusivamente gli strumenti, le sessioni e le credenziali del proprio ambiente. È vietato avviare, contattare o delegare lavoro all’altro assistente, anche per prove, review o come ripiego. Se uno strumento del proprio ambiente blocca il lavoro, segnalare il blocco all’utente e attendere istruzioni.
+
 # Turbo EA
 
 Self-hosted Enterprise Architecture Management platform that creates a **digital twin of a company's IT landscape**. Fully admin-configurable metamodel — card types, fields, subtypes, relations, stakeholder roles, and calculated fields are all data, not code.

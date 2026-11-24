@@ -1331,3 +1331,29 @@ describe("CardLayoutEditor — what an active extension contributed cannot be de
     expect(sectionDeleteBlock(undefined)).toBeNull();
   });
 });
+
+describe("built-in timeline fields", () => {
+  it("prevents deleting a built-in date and its section while keeping edit and move available", async () => {
+    const timeline = makeSection({
+      section: "Timeline",
+      fields: [
+        makeField({ key: "actualStart", label: "Actual Start", type: "date", built_in: true }),
+        makeField({ key: "actualEnd", label: "Actual End", type: "date", built_in: true }),
+        makeField({ key: "note", label: "Note", type: "text" }),
+      ],
+    });
+    const cardType = { ...TYPE, key: "Initiative", fields_schema: [DESCRIPTION_SECTION, timeline, EXTRA_SECTION] };
+    const { user, openEditField, promptDeleteField, promptDeleteSection } = setup({ cardType });
+    const start = within(fieldRoot("Actual Start"));
+    const end = within(fieldRoot("Actual End"));
+    expect(start.getByRole("button", { name: "Built-in field" })).toBeDisabled();
+    expect(end.getByRole("button", { name: "Built-in field" })).toBeDisabled();
+    expect(within(sectionRoot("Timeline")).getByRole("button", { name: "Contains a built-in field" })).toBeDisabled();
+    await user.click(start.getByRole("button", { name: "edit" }));
+    expect(openEditField).toHaveBeenCalledWith(1, 0);
+    expect(start.getByRole("button", { name: "Move to another section" })).toBeEnabled();
+    await user.click(within(fieldRoot("Note")).getByRole("button", { name: "delete" }));
+    expect(promptDeleteField).toHaveBeenCalledWith(1, 2);
+    expect(promptDeleteSection).not.toHaveBeenCalled();
+  });
+});

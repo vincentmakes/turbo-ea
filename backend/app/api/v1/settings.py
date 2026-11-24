@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import RedirectResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -151,6 +152,23 @@ async def _get_or_create_row(db: AsyncSession) -> AppSettings:
         row = AppSettings(id="default", email_settings={})
         db.add(row)
         await db.flush()
+    return row
+
+
+async def _lock_general_settings_row(db: AsyncSession) -> AppSettings:
+    """Refresh and lock the shared settings before a read-modify-write."""
+    await db.execute(
+        insert(AppSettings)
+        .values(id="default", general_settings={}, email_settings={})
+        .on_conflict_do_nothing(index_elements=["id"])
+    )
+    row = await db.scalar(
+        select(AppSettings)
+        .where(AppSettings.id == "default")
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    assert row is not None
     return row
 
 
@@ -560,7 +578,7 @@ async def update_currency(
     """Admin endpoint — set the display currency for all cost fields."""
     await PermissionService.require_permission(db, user, "admin.settings")
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = general.get("currency", DEFAULT_CURRENCY)
     general["currency"] = body.currency
@@ -597,7 +615,7 @@ async def update_date_format(
     if body.date_format not in ALLOWED_DATE_FORMATS:
         raise HTTPException(400, "Unsupported date format")
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = general.get("dateFormat", DEFAULT_DATE_FORMAT)
     general["dateFormat"] = body.date_format
@@ -636,7 +654,7 @@ async def update_app_title(
     """Admin endpoint — set the app title shown in navbar, tab, and emails."""
     await PermissionService.require_permission(db, user, "admin.settings")
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = general.get("app_title", "")
     trimmed = body.app_title.strip()
@@ -689,7 +707,7 @@ async def update_navbar_style(
     """Admin endpoint — set the navbar background + text color for all users."""
     await PermissionService.require_permission(db, user, "admin.settings")
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = _read_navbar_style(general)
     general["navbarBg"] = body.navbar_bg.lower()
@@ -749,7 +767,7 @@ async def update_login_branding(
     """Admin endpoint — update login-page tagline / help text / contact link."""
     await PermissionService.require_permission(db, user, "admin.settings")
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = _read_login_branding(general)
     general["loginTagline"] = body.login_tagline.strip()
@@ -799,7 +817,7 @@ async def update_bpm_enabled(
     """
     await PermissionService.require_permission(db, user, "admin.settings")
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = general.get("bpmEnabled", True)
     general["bpmEnabled"] = body.enabled
@@ -857,7 +875,7 @@ async def update_value_chain_enabled(
     """Admin endpoint — enable or disable the Value Chain module."""
     await PermissionService.require_permission(db, user, "admin.settings")
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = general.get("valueChainEnabled", True)
     general["valueChainEnabled"] = body.enabled
@@ -890,7 +908,7 @@ async def update_archimate_enabled(
     """Admin endpoint — enable or disable the ArchiMate module."""
     await PermissionService.require_permission(db, user, "admin.settings")
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = general.get("archimateEnabled", False)
     general["archimateEnabled"] = body.enabled
@@ -923,7 +941,7 @@ async def update_ppm_enabled(
     """Admin endpoint — enable or disable the PPM module."""
     await PermissionService.require_permission(db, user, "admin.settings")
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = general.get("ppmEnabled", False)
     general["ppmEnabled"] = body.enabled
@@ -956,7 +974,7 @@ async def update_file_uploads_enabled(
     """Admin endpoint — enable or disable card file uploads."""
     await PermissionService.require_permission(db, user, "admin.settings")
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = general.get("fileUploadsEnabled", True)
     general["fileUploadsEnabled"] = body.enabled
@@ -989,7 +1007,7 @@ async def update_grc_enabled(
     """Admin endpoint — enable or disable the GRC module (Governance, Risk, Compliance)."""
     await PermissionService.require_permission(db, user, "admin.settings")
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = general.get("grcEnabled", True)
     general["grcEnabled"] = body.enabled
@@ -1027,7 +1045,7 @@ async def update_sponsor_button_enabled(
     """Admin endpoint — show or hide the Sponsor button in the user (avatar) menu."""
     await PermissionService.require_permission(db, user, "admin.settings")
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = general.get("sponsorButtonEnabled", True)
     general["sponsorButtonEnabled"] = body.enabled
@@ -1068,7 +1086,7 @@ async def update_gamification_enabled(
     """Admin endpoint — turn the gamified data-quality feedback on or off."""
     await PermissionService.require_permission(db, user, "admin.settings")
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = general.get("gamificationEnabled", False)
     general["gamificationEnabled"] = body.enabled
@@ -1267,7 +1285,7 @@ async def update_announce_upgrades_enabled(
     """
     await PermissionService.require_permission(db, user, "admin.settings")
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = general.get("announceUpgradesEnabled", True)
     general["announceUpgradesEnabled"] = body.enabled
@@ -1299,7 +1317,7 @@ async def update_update_check_enabled(
     """
     await PermissionService.require_permission(db, user, "admin.settings")
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = general.get("updateCheckEnabled", True)
     general["updateCheckEnabled"] = body.enabled
@@ -1330,7 +1348,7 @@ async def update_extension_notices_enabled(
     """
     await PermissionService.require_permission(db, user, "admin.settings")
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = general.get("extensionNoticesEnabled", True)
     general["extensionNoticesEnabled"] = body.enabled
@@ -1369,7 +1387,7 @@ async def update_bpm_separate_approver(
     """Admin endpoint — require a separate approver for BPMN flow revisions."""
     await PermissionService.require_permission(db, user, "admin.settings")
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = general.get("bpmRequireSeparateApprover", False)
     general["bpmRequireSeparateApprover"] = body.enabled
@@ -1408,7 +1426,7 @@ async def update_turbolens_enabled(
     """Admin endpoint — enable or disable the TurboLens module."""
     await PermissionService.require_permission(db, user, "admin.settings")
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = general.get("turboLensEnabled", True)
     general["turboLensEnabled"] = body.enabled
@@ -1437,7 +1455,7 @@ async def update_bpm_row_order(
     """Admin endpoint — set BPM process type row display order."""
     await PermissionService.require_permission(db, user, "admin.settings")
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = general.get("bpmRowOrder", ["management", "core", "support"])
     general["bpmRowOrder"] = body.row_order
@@ -1477,7 +1495,7 @@ async def update_fiscal_year_start(
     if body.month < 1 or body.month > 12:
         raise HTTPException(status_code=422, detail="Month must be between 1 and 12")
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = general.get("fiscalYearStart", 1)
     general["fiscalYearStart"] = body.month
@@ -1534,7 +1552,7 @@ async def update_lifecycle_phase_help(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = lifecycle_phase_help.read_phase_help(general)
     general[lifecycle_phase_help.SETTING_KEY] = phases
@@ -1586,7 +1604,7 @@ async def update_archive_retention_days(
             detail=f"Days must be between 0 and {MAX_ARCHIVE_RETENTION_DAYS}",
         )
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = general.get("archiveRetentionDays", DEFAULT_ARCHIVE_RETENTION_DAYS)
     general["archiveRetentionDays"] = body.days
@@ -1634,7 +1652,7 @@ async def update_audit_log_retention_days(
             detail=f"Days must be between 0 and {MAX_AUDIT_LOG_RETENTION_DAYS}",
         )
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = audit_log.retention_days(general)
     general[audit_log.RETENTION_SETTING_KEY] = body.days
@@ -1905,7 +1923,7 @@ async def update_sso_settings(
     """Admin endpoint — update SSO configuration."""
     await PermissionService.require_permission(db, user, "admin.settings")
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = dict(general.get("sso", {}))
     sso = dict(old)
@@ -1970,7 +1988,7 @@ async def update_registration_settings(
     """Admin endpoint — enable or disable self-registration."""
     await PermissionService.require_permission(db, user, "admin.settings")
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = general.get("registrationEnabled", True)
     general["registrationEnabled"] = body.enabled
@@ -2084,7 +2102,7 @@ async def update_ai_settings(
                 "the field empty to use the IAM role of the container.",
             )
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     prev_ai = general.get("ai", {})
 
@@ -2228,7 +2246,7 @@ async def update_enabled_locales(
     if not valid:
         raise HTTPException(status_code=400, detail="At least one valid locale is required.")
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = general.get("enabledLocales", SUPPORTED_LOCALES)
     general["enabledLocales"] = valid
@@ -2286,7 +2304,7 @@ async def update_mcp_settings(
     """Admin endpoint — enable or disable MCP integration."""
     await PermissionService.require_permission(db, user, "admin.mcp")
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = dict(general.get("mcp", {}))
     mcp = dict(old)
@@ -2322,7 +2340,7 @@ async def update_principles_display(
     """Admin endpoint — toggle EA Principles tab visibility on EA Delivery."""
     await PermissionService.require_permission(db, user, "admin.settings")
 
-    row = await _get_or_create_row(db)
+    row = await _lock_general_settings_row(db)
     general = dict(row.general_settings or {})
     old = general.get("showPrinciplesTab", True)
     general["showPrinciplesTab"] = bool(body.get("enabled", True))

@@ -58,6 +58,7 @@ import type { PrintParam } from "@/features/reports/ReportShell";
 import type { ReportExportData } from "@/features/reports/reportExport";
 import type {
   PpmPortfolioItem,
+  PpmPrivatePortfolioItem,
   PpmPortfolioDashboard,
   PpmPortfolioGroupOption,
   PpmPortfolioReport,
@@ -75,6 +76,7 @@ import {
 import {
   ALL_LEVELS,
   barModel,
+  dateRangeBar,
   buildPortfolioExport,
   buildPrintParams,
   costBarModel,
@@ -347,6 +349,7 @@ export interface PpmPortfolioShellParts {
 }
 
 export interface PpmPortfolioViewProps {
+  showActualDates?: boolean;
   items: PpmPortfolioItem[];
   dashboard: PpmPortfolioDashboard | null;
   /** Card types the board can group by, as metamodel entities. */
@@ -407,6 +410,7 @@ export interface PpmPortfolioViewProps {
 
 export default function PpmPortfolioView({
   items,
+  showActualDates = false,
   dashboard,
   groupOptions,
   subtypeDefs,
@@ -652,26 +656,55 @@ export default function PpmPortfolioView({
     return f.derivedDates ? <Tooltip title={derivedDatesTip(f)}>{text}</Tooltip> : text;
   };
 
+  const actualText = (item: PpmPortfolioItem) => {
+    if (!showActualDates) return null;
+    const { actual_start_date: start, actual_end_date: end } = item as PpmPrivatePortfolioItem;
+    if (!start && !end) return null;
+    return t("actualDates", { start: start ? formatDate(start) : "—", end: end ? formatDate(end) : "—" });
+  };
+
+  const renderActual = (item: PpmPortfolioItem) => {
+    const label = actualText(item);
+    if (!label) return null;
+    const { actual_start_date: start, actual_end_date: end } = item as PpmPrivatePortfolioItem;
+    const bar = dateRangeBar(start, end, timeline);
+    return (
+      <Box aria-label={label} role="img" sx={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+        {bar && <Box data-actual-track sx={{
+          position: "absolute", left: bar.left + "%",
+          width: bar.width ? bar.width + "%" : 8,
+          height: 7, bottom: "16%", bgcolor: theme.palette.secondary.main,
+          borderRadius: bar.width ? bar.borderRadius : "50%",
+          transform: bar.width ? undefined : "translateX(-50%)",
+        }} />}
+      </Box>
+    );
+  };
+  const renderActualText = (item: PpmPortfolioItem) => {
+    const label = actualText(item);
+    return label ? <Typography variant="caption" color="text.secondary">{label}</Typography> : null;
+  };
+
   // ── Desktop: Gantt timeline bar ──
   // An anchored group's bottom line passes `clickable: false`: it is no row to open.
   const renderBar = (item: PpmPortfolioItem, f: RowFigures, clickable = true) => {
     const open = clickable ? onOpen : undefined;
     const bar = barModel(item, timeline);
     if (!bar) return null;
-    const range = `${f.startDate} \u2192 ${f.endDate}`;
+    const rangeLabel = `${f.startDate} \u2192 ${f.endDate}`;
     return (
-      <Tooltip title={bar.derived ? `${range} \u00b7 ${derivedDatesTip(f)}` : range}>
+      <Tooltip title={bar.derived ? `${rangeLabel} \u00b7 ${derivedDatesTip(f)}` : rangeLabel}>
         <Box
           data-derived={bar.derived ? "dates" : undefined}
           sx={{
             position: "absolute",
             left: `${bar.left}%`,
-            width: `${bar.width}%`,
+            width: bar.width ? `${bar.width}%` : 8,
             height: 16,
-            borderRadius: bar.borderRadius,
+            borderRadius: bar.width ? bar.borderRadius : "50%",
             ...(bar.derived ? dashedOutline(bar.color) : { bgcolor: bar.color }),
             opacity: 0.9,
-            top: "50%",
+            top: showActualDates && actualText(item) ? "28%" : "50%",
             transform: "translateY(-50%)",
             ...(open ? { cursor: "pointer", "&:hover": { opacity: 1 } } : {}),
           }}
@@ -682,13 +715,13 @@ export default function PpmPortfolioView({
   };
 
   // ── RAG dot helper ──
-  const ragDot = (value: string | undefined, size = 16) => (
+  const ragDot = (value: string | null | undefined, size = 16) => (
     <Box
       sx={{
         width: size,
         height: size,
         borderRadius: "50%",
-        bgcolor: ragColor(value),
+        bgcolor: ragColor(value ?? undefined),
         border: value ? undefined : `1px solid ${theme.palette.divider}`,
         flexShrink: 0,
       }}
@@ -781,12 +814,13 @@ export default function PpmPortfolioView({
         </Typography>
 
         {/* Plan column */}
-        {renderPlan(f, plan, PLAN_CELL_SX)}
+        <Box>{renderPlan(f, plan, PLAN_CELL_SX)}{renderActualText(item)}</Box>
 
         {/* Timeline bar */}
         <Box sx={{ position: "relative", height: "100%", mx: 0.5 }}>
           {nowLine}
           {renderBar(item, f)}
+          {renderActual(item)}
         </Box>
 
         {/* RAG dots */}
@@ -899,8 +933,16 @@ export default function PpmPortfolioView({
           <Typography variant="caption" color="text.secondary" noWrap>
             {pm?.display_name || "\u2014"}
           </Typography>
-          {renderPlan(f, plan, NO_SX)}
+          <Box>{renderPlan(f, plan, NO_SX)}{renderActualText(item)}</Box>
         </Box>
+
+        {showActualDates && (f.startDate || f.endDate || actualText(item)) && (
+          <Box sx={{ position: "relative", height: 32, mt: 1 }}>
+            {nowLine}
+            {renderBar(item, f)}
+            {renderActual(item)}
+          </Box>
+        )}
 
         {/* Row 3: RAG dots + Report date */}
         <Box
@@ -1056,10 +1098,11 @@ export default function PpmPortfolioView({
           {groupLabel}
         </Typography>
         <Box />
-        {renderPlan(f, plan, PLAN_CELL_SX)}
+        <Box>{renderPlan(f, plan, PLAN_CELL_SX)}{renderActualText(anchor)}</Box>
         <Box sx={{ position: "relative", height: "100%", mx: 0.5 }}>
           {nowLine}
           {renderBar(anchor, f, false)}
+          {renderActual(anchor)}
         </Box>
         <Box />
         <Box />
@@ -1108,8 +1151,15 @@ export default function PpmPortfolioView({
           <Typography variant="caption" fontWeight={600} color="text.secondary">
             {groupLabel}
           </Typography>
-          {renderPlan(f, plan, NO_SX)}
+          <Box>{renderPlan(f, plan, NO_SX)}{renderActualText(anchor)}</Box>
         </Box>
+        {showActualDates && (f.startDate || f.endDate || actualText(anchor)) && (
+          <Box sx={{ position: "relative", height: 32, mt: 1 }}>
+            {nowLine}
+            {renderBar(anchor, f, false)}
+            {renderActual(anchor)}
+          </Box>
+        )}
         {hasAnyCost(anchor) && (
           <Box display="flex" gap={2} mt={0.75}>
             <Box flex={1}>

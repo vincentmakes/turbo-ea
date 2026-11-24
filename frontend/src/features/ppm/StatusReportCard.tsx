@@ -50,7 +50,8 @@ export function ReportHealth({ report, showRating = false }: ReportHealthProps) 
   return (
     <Box display="flex" gap={1.5} flexWrap="wrap">
       {HEALTH_DIMENSIONS.map(([key, labelKey]) => {
-        const value = report[key] as string | undefined;
+        const value = report[key];
+        if (value === null) return null;
         const statusLabel = ratingLabel(value);
         return (
           <Box key={key} display="flex" alignItems="center" gap={0.5}>

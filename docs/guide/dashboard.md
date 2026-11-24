@@ -177,7 +177,7 @@ Besides an approval status and a lifecycle phase, a chart or KPI can be narrowed
 
 A sankey takes a relation type and groups **each end** on its own: by card type, subtype, approval status, lifecycle phase, data quality, a field of that end's type, or the **cards themselves** — Organization → Application shows which organizations use which applications, with the twenty largest cards on each end kept and the rest folded into *Other*; the widget says so under the chart when it happens, and **Categories shown (at most)** raises the limit. Clicking a card node opens the card.
 
-Charts can also draw a module report: risks by level or status, compliance scores by regulation, PPM schedule health and BPM maturity are in the catalogue when the module is enabled and you hold its permission. Tags cannot be used as a dimension or filter yet.
+Charts can also draw a module report: risks by level or status, compliance scores by regulation, PML schedule health and BPM maturity are in the catalogue when the module is enabled and you hold its permission. Tags cannot be used as a dimension or filter yet.
 
 Four ready-made charts sit in the **Charts** family of the catalogue, each offered when your metamodel has the pieces it needs: **Applications per organization**, **End-of-life calendar**, **Stale cards by type** and the **Organization → Application** sankey.
 

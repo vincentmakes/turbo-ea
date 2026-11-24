@@ -2,7 +2,7 @@
 
 So you've installed Turbo EA. The login screen works, the demo data loads, every menu item shows you something — and now you're staring at an empty inventory wondering where to actually start. This guide is for you.
 
-It's a sequenced, opinionated walkthrough of the **first concrete EA initiative** most organisations run on Turbo EA: getting an application inventory under control and using it to answer real portfolio questions. It deliberately ignores the more advanced modules (Risk Register, Compliance, PPM, TurboLens AI) — those become useful once your inventory is alive, not before.
+It's a sequenced, opinionated walkthrough of the **first concrete EA initiative** most organisations run on Turbo EA: getting an application inventory under control and using it to answer real portfolio questions. It deliberately ignores the more advanced modules (Risk Register, Compliance, PML, TurboLens AI) — those become useful once your inventory is alive, not before.
 
 ## Who this guide is for
 
@@ -47,7 +47,7 @@ This guide covers **crawl** and the beginning of **walk**. By the end of it, you
 These are powerful modules, but they assume you already have a populated inventory. Don't open them yet:
 
 - **Risk Register** and **Compliance scanning** — useful once you have applications and capabilities to attach risks to.
-- **PPM** (Project Portfolio Management) — useful once you have a project pipeline worth tracking.
+- **PML** (Project Master List) — useful once you have a project pipeline worth tracking.
 - **TurboLens AI** (vendor analysis, duplicate detection, Architect wizard) — useful once you have enough cards for the AI to find patterns in.
 
 You'll find a short "what's next" pointer to each of them on the [final page](your-first-analysis.md) of this guide.

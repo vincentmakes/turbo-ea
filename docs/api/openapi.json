@@ -9982,6 +9982,46 @@
         "title": "FieldMappingUpdate",
         "type": "object"
       },
+      "FieldSettingsUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/PmlFieldDefinition"
+                },
+                {
+                  "$ref": "#/components/schemas/ProtectedFieldMarker"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "title": "Fields",
+            "type": "array"
+          },
+          "provider_source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PmlProviderSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visible_columns": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 150,
+            "title": "Visible Columns",
+            "type": "array"
+          }
+        },
+        "title": "FieldSettingsUpdate",
+        "type": "object"
+      },
       "FileAttachmentUpdate": {
         "description": "Rename or re-categorise a file attachment \u2014 omitted fields stay as is.\n\nThe bytes are untouched (that is what ``PUT \u2026/content`` is for), so a new\n``name`` must keep an extension that maps to the stored format; the route\nchecks that against the row. ``category`` set to ``\"\"`` or ``null`` clears.",
         "properties": {
@@ -12720,6 +12760,548 @@
         "title": "OccurrenceCompleteRequest",
         "type": "object"
       },
+      "PmlCalculation": {
+        "additionalProperties": false,
+        "properties": {
+          "expression": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expression"
+          },
+          "fallback": {
+            "title": "Fallback"
+          },
+          "inputs": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 30,
+            "title": "Inputs",
+            "type": "object"
+          },
+          "result_type": {
+            "enum": [
+              "text",
+              "number",
+              "date",
+              "boolean"
+            ],
+            "title": "Result Type",
+            "type": "string"
+          },
+          "rules": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "maxItems": 100,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rules"
+          }
+        },
+        "required": [
+          "result_type"
+        ],
+        "title": "PmlCalculation",
+        "type": "object"
+      },
+      "PmlFieldDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "default": true,
+            "title": "Active",
+            "type": "boolean"
+          },
+          "calculation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PmlCalculation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "card_type": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Type"
+          },
+          "default": {
+            "title": "Default"
+          },
+          "help": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Help"
+          },
+          "key": {
+            "maxLength": 100,
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "text",
+              "number",
+              "date",
+              "boolean",
+              "select",
+              "card_reference",
+              "calculated"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/PmlOption"
+            },
+            "maxItems": 500,
+            "title": "Options",
+            "type": "array"
+          },
+          "relation_type": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relation Type"
+          },
+          "required": {
+            "default": false,
+            "title": "Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "kind"
+        ],
+        "title": "PmlFieldDefinition",
+        "type": "object"
+      },
+      "PmlInitiativeScheduleOut": {
+        "properties": {
+          "actual_end_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual End Date"
+          },
+          "actual_end_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual End Label"
+          },
+          "actual_start_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Start Date"
+          },
+          "actual_start_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Start Label"
+          },
+          "cost_health": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Health"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "end_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Label"
+          },
+          "initiative_id": {
+            "title": "Initiative Id",
+            "type": "string"
+          },
+          "plan_derived": {
+            "default": false,
+            "title": "Plan Derived",
+            "type": "boolean"
+          },
+          "plan_end_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan End Date"
+          },
+          "plan_start_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Start Date"
+          },
+          "schedule_health": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schedule Health"
+          },
+          "scope_health": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope Health"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "start_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Label"
+          }
+        },
+        "required": [
+          "initiative_id"
+        ],
+        "title": "PmlInitiativeScheduleOut",
+        "type": "object"
+      },
+      "PmlOption": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "default": true,
+            "title": "Active",
+            "type": "boolean"
+          },
+          "id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "PmlOption",
+        "type": "object"
+      },
+      "PmlProviderChoice": {
+        "properties": {
+          "alias": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alias"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "parent_id": {
+            "format": "uuid",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "type",
+          "parent_id"
+        ],
+        "title": "PmlProviderChoice",
+        "type": "object"
+      },
+      "PmlProviderChoicePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PmlProviderChoice"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "PmlProviderChoicePage",
+        "type": "object"
+      },
+      "PmlProviderSource": {
+        "additionalProperties": false,
+        "properties": {
+          "allow_child_selection": {
+            "default": false,
+            "title": "Allow Child Selection",
+            "type": "boolean"
+          },
+          "budget_field_key": {
+            "title": "Budget Field Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "budget_field_key"
+        ],
+        "title": "PmlProviderSource",
+        "type": "object"
+      },
+      "PmlSectionConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/PmlFieldDefinition"
+            },
+            "maxItems": 100,
+            "title": "Fields",
+            "type": "array"
+          },
+          "provider_source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PmlProviderSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visible_columns": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 150,
+            "title": "Visible Columns",
+            "type": "array"
+          }
+        },
+        "title": "PmlSectionConfig",
+        "type": "object"
+      },
+      "PmlTimelineMapping": {
+        "additionalProperties": false,
+        "properties": {
+          "actual_end_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual End Key"
+          },
+          "actual_start_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Start Key"
+          }
+        },
+        "title": "PmlTimelineMapping",
+        "type": "object"
+      },
+      "PmlTimelineUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "actual_end_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual End Key"
+          },
+          "actual_start_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Start Key"
+          },
+          "create_defaults": {
+            "items": {
+              "enum": [
+                "start",
+                "end"
+              ],
+              "type": "string"
+            },
+            "maxItems": 2,
+            "title": "Create Defaults",
+            "type": "array"
+          }
+        },
+        "title": "PmlTimelineUpdate",
+        "type": "object"
+      },
       "PortalSsoCallbackRequest": {
         "properties": {
           "code": {
@@ -12836,6 +13418,7 @@
         "type": "object"
       },
       "PpmBudgetLineCreate": {
+        "additionalProperties": false,
         "properties": {
           "amount": {
             "default": 0,
@@ -12861,6 +13444,11 @@
             ],
             "title": "Description"
           },
+          "field_values": {
+            "additionalProperties": true,
+            "title": "Field Values",
+            "type": "object"
+          },
           "fiscal_year": {
             "title": "Fiscal Year",
             "type": "integer"
@@ -12878,6 +13466,11 @@
           "amount": {
             "title": "Amount",
             "type": "number"
+          },
+          "calculated_values": {
+            "additionalProperties": true,
+            "title": "Calculated Values",
+            "type": "object"
           },
           "category": {
             "title": "Category",
@@ -12899,6 +13492,11 @@
             ],
             "title": "Description"
           },
+          "field_values": {
+            "additionalProperties": true,
+            "title": "Field Values",
+            "type": "object"
+          },
           "fiscal_year": {
             "title": "Fiscal Year",
             "type": "integer"
@@ -12910,6 +13508,11 @@
           "initiative_id": {
             "title": "Initiative Id",
             "type": "string"
+          },
+          "reference_display": {
+            "additionalProperties": true,
+            "title": "Reference Display",
+            "type": "object"
           },
           "updated_at": {
             "format": "date-time",
@@ -12930,6 +13533,7 @@
         "type": "object"
       },
       "PpmBudgetLineUpdate": {
+        "additionalProperties": false,
         "properties": {
           "amount": {
             "anyOf": [
@@ -12968,6 +13572,18 @@
             ],
             "title": "Description"
           },
+          "field_values": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Values"
+          },
           "fiscal_year": {
             "anyOf": [
               {
@@ -12984,11 +13600,17 @@
         "type": "object"
       },
       "PpmCostLineCreate": {
+        "additionalProperties": false,
         "properties": {
           "actual": {
             "default": 0,
             "title": "Actual",
             "type": "number"
+          },
+          "budget_line_id": {
+            "format": "uuid",
+            "title": "Budget Line Id",
+            "type": "string"
           },
           "category": {
             "enum": [
@@ -13014,13 +13636,31 @@
             "title": "Description",
             "type": "string"
           },
+          "field_values": {
+            "additionalProperties": true,
+            "title": "Field Values",
+            "type": "object"
+          },
           "planned": {
             "default": 0,
             "title": "Planned",
             "type": "number"
+          },
+          "provider_child_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Child Id"
           }
         },
         "required": [
+          "budget_line_id",
           "description",
           "category"
         ],
@@ -13032,6 +13672,23 @@
           "actual": {
             "title": "Actual",
             "type": "number"
+          },
+          "budget_line_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Line Id"
+          },
+          "calculated_values": {
+            "additionalProperties": true,
+            "title": "Calculated Values",
+            "type": "object"
           },
           "category": {
             "title": "Category",
@@ -13058,6 +13715,11 @@
             "title": "Description",
             "type": "string"
           },
+          "field_values": {
+            "additionalProperties": true,
+            "title": "Field Values",
+            "type": "object"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -13069,6 +13731,40 @@
           "planned": {
             "title": "Planned",
             "type": "number"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "provider_child_enabled": {
+            "default": false,
+            "title": "Provider Child Enabled",
+            "type": "boolean"
+          },
+          "provider_child_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Child Id"
+          },
+          "reference_display": {
+            "additionalProperties": true,
+            "title": "Reference Display",
+            "type": "object"
           },
           "updated_at": {
             "format": "date-time",
@@ -13090,6 +13786,7 @@
         "type": "object"
       },
       "PpmCostLineUpdate": {
+        "additionalProperties": false,
         "properties": {
           "actual": {
             "anyOf": [
@@ -13101,6 +13798,18 @@
               }
             ],
             "title": "Actual"
+          },
+          "budget_line_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Line Id"
           },
           "category": {
             "anyOf": [
@@ -13140,6 +13849,18 @@
             ],
             "title": "Description"
           },
+          "field_values": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Values"
+          },
           "planned": {
             "anyOf": [
               {
@@ -13150,6 +13871,18 @@
               }
             ],
             "title": "Planned"
+          },
+          "provider_child_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Child Id"
           }
         },
         "title": "PpmCostLineUpdate",
@@ -13267,8 +14000,475 @@
         "title": "PpmEnabledPayload",
         "type": "object"
       },
+      "PpmFinancialBudgetOut": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "string"
+          },
+          "calculated_values": {
+            "additionalProperties": true,
+            "title": "Calculated Values",
+            "type": "object"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "field_values": {
+            "additionalProperties": true,
+            "title": "Field Values",
+            "type": "object"
+          },
+          "fiscal_year": {
+            "title": "Fiscal Year",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "provider_child_enabled": {
+            "default": false,
+            "title": "Provider Child Enabled",
+            "type": "boolean"
+          },
+          "reference_display": {
+            "additionalProperties": true,
+            "title": "Reference Display",
+            "type": "object"
+          },
+          "remaining_to_invoice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining To Invoice"
+          },
+          "total_cost_items": {
+            "title": "Total Cost Items",
+            "type": "string"
+          },
+          "total_invoiced": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Invoiced"
+          }
+        },
+        "required": [
+          "id",
+          "fiscal_year",
+          "category",
+          "description",
+          "amount",
+          "total_cost_items"
+        ],
+        "title": "PpmFinancialBudgetOut",
+        "type": "object"
+      },
+      "PpmFinancialComparison": {
+        "properties": {
+          "actual": {
+            "$ref": "#/components/schemas/PpmFinancialComparisonSide"
+          },
+          "budget": {
+            "$ref": "#/components/schemas/PpmFinancialComparisonSide"
+          }
+        },
+        "required": [
+          "budget",
+          "actual"
+        ],
+        "title": "PpmFinancialComparison",
+        "type": "object"
+      },
+      "PpmFinancialComparisonSide": {
+        "properties": {
+          "capex": {
+            "title": "Capex",
+            "type": "string"
+          },
+          "derived": {
+            "title": "Derived",
+            "type": "boolean"
+          },
+          "opex": {
+            "title": "Opex",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "string"
+          }
+        },
+        "required": [
+          "capex",
+          "opex",
+          "total",
+          "derived"
+        ],
+        "title": "PpmFinancialComparisonSide",
+        "type": "object"
+      },
+      "PpmFinancialCostOut": {
+        "properties": {
+          "actual": {
+            "title": "Actual",
+            "type": "string"
+          },
+          "budget_line_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Line Id"
+          },
+          "calculated_values": {
+            "additionalProperties": true,
+            "title": "Calculated Values",
+            "type": "object"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "field_values": {
+            "additionalProperties": true,
+            "title": "Field Values",
+            "type": "object"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "planned": {
+            "title": "Planned",
+            "type": "string"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "provider_child_enabled": {
+            "default": false,
+            "title": "Provider Child Enabled",
+            "type": "boolean"
+          },
+          "provider_child_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Child Id"
+          },
+          "reference_display": {
+            "additionalProperties": true,
+            "title": "Reference Display",
+            "type": "object"
+          },
+          "remaining_to_invoice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining To Invoice"
+          },
+          "total_invoiced": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Invoiced"
+          }
+        },
+        "required": [
+          "id",
+          "budget_line_id",
+          "description",
+          "category",
+          "planned",
+          "actual",
+          "date"
+        ],
+        "title": "PpmFinancialCostOut",
+        "type": "object"
+      },
+      "PpmFinancialSubtotalOut": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "string"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "fiscal_year": {
+            "title": "Fiscal Year",
+            "type": "integer"
+          },
+          "remaining_to_invoice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining To Invoice"
+          },
+          "total_cost_items": {
+            "title": "Total Cost Items",
+            "type": "string"
+          },
+          "total_invoiced": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Invoiced"
+          }
+        },
+        "required": [
+          "amount",
+          "total_cost_items",
+          "fiscal_year",
+          "category"
+        ],
+        "title": "PpmFinancialSubtotalOut",
+        "type": "object"
+      },
+      "PpmFinancialTotalsOut": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "string"
+          },
+          "remaining_to_invoice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining To Invoice"
+          },
+          "total_cost_items": {
+            "title": "Total Cost Items",
+            "type": "string"
+          },
+          "total_invoiced": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Invoiced"
+          }
+        },
+        "required": [
+          "amount",
+          "total_cost_items"
+        ],
+        "title": "PpmFinancialTotalsOut",
+        "type": "object"
+      },
+      "PpmFinancialsOut": {
+        "properties": {
+          "actual_invoiced": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Invoiced"
+          },
+          "budget_lines": {
+            "items": {
+              "$ref": "#/components/schemas/PpmFinancialBudgetOut"
+            },
+            "title": "Budget Lines",
+            "type": "array"
+          },
+          "budget_subtotals": {
+            "items": {
+              "$ref": "#/components/schemas/PpmFinancialSubtotalOut"
+            },
+            "title": "Budget Subtotals",
+            "type": "array"
+          },
+          "budget_totals": {
+            "$ref": "#/components/schemas/PpmFinancialTotalsOut"
+          },
+          "card_comparison": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PpmFinancialComparison"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cost_items": {
+            "items": {
+              "$ref": "#/components/schemas/PpmFinancialCostOut"
+            },
+            "title": "Cost Items",
+            "type": "array"
+          },
+          "field_definitions": {
+            "additionalProperties": true,
+            "title": "Field Definitions",
+            "type": "object"
+          },
+          "initiative_id": {
+            "title": "Initiative Id",
+            "type": "string"
+          },
+          "invoice_access": {
+            "title": "Invoice Access",
+            "type": "boolean"
+          },
+          "invoices": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/PpmInvoiceOut"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoices"
+          }
+        },
+        "required": [
+          "initiative_id",
+          "budget_lines",
+          "budget_subtotals",
+          "budget_totals",
+          "cost_items",
+          "invoice_access"
+        ],
+        "title": "PpmFinancialsOut",
+        "type": "object"
+      },
       "PpmGanttItem": {
         "properties": {
+          "actual_end_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual End Date"
+          },
+          "actual_start_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Start Date"
+          },
           "capex_actual": {
             "default": 0,
             "title": "Capex Actual",
@@ -13346,7 +14546,7 @@
           "latest_report": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/PpmStatusReportOut"
+                "$ref": "#/components/schemas/PpmPortfolioReportOut"
               },
               {
                 "type": "null"
@@ -13447,8 +14647,6 @@
           "subtype",
           "status",
           "parent_id",
-          "start_date",
-          "end_date",
           "cost_budget",
           "cost_actual"
         ],
@@ -13564,6 +14762,291 @@
           "type_label"
         ],
         "title": "PpmGroupOption",
+        "type": "object"
+      },
+      "PpmInvoiceCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Amount"
+          },
+          "cost_item_id": {
+            "format": "uuid",
+            "title": "Cost Item Id",
+            "type": "string"
+          },
+          "field_values": {
+            "additionalProperties": true,
+            "title": "Field Values",
+            "type": "object"
+          },
+          "invoice_date": {
+            "format": "date",
+            "title": "Invoice Date",
+            "type": "string"
+          },
+          "invoice_id": {
+            "minLength": 1,
+            "title": "Invoice Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cost_item_id",
+          "invoice_date",
+          "invoice_id",
+          "amount"
+        ],
+        "title": "PpmInvoiceCreate",
+        "type": "object"
+      },
+      "PpmInvoiceOut": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "string"
+          },
+          "calculated_values": {
+            "additionalProperties": true,
+            "title": "Calculated Values",
+            "type": "object"
+          },
+          "cost_item_id": {
+            "format": "uuid",
+            "title": "Cost Item Id",
+            "type": "string"
+          },
+          "field_values": {
+            "additionalProperties": true,
+            "title": "Field Values",
+            "type": "object"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "initiative_id": {
+            "format": "uuid",
+            "title": "Initiative Id",
+            "type": "string"
+          },
+          "invoice_date": {
+            "format": "date",
+            "title": "Invoice Date",
+            "type": "string"
+          },
+          "invoice_id": {
+            "title": "Invoice Id",
+            "type": "string"
+          },
+          "reference_display": {
+            "additionalProperties": true,
+            "title": "Reference Display",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "initiative_id",
+          "cost_item_id",
+          "invoice_date",
+          "invoice_id",
+          "amount"
+        ],
+        "title": "PpmInvoiceOut",
+        "type": "object"
+      },
+      "PpmInvoiceUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "cost_item_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Item Id"
+          },
+          "field_values": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Values"
+          },
+          "invoice_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoice Date"
+          },
+          "invoice_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoice Id"
+          }
+        },
+        "title": "PpmInvoiceUpdate",
+        "type": "object"
+      },
+      "PpmPortfolioReportOut": {
+        "properties": {
+          "accomplishments": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accomplishments"
+          },
+          "cost_health": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Health"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "initiative_id": {
+            "title": "Initiative Id",
+            "type": "string"
+          },
+          "next_steps": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Steps"
+          },
+          "report_date": {
+            "format": "date",
+            "title": "Report Date",
+            "type": "string"
+          },
+          "reporter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReporterOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reporter_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reporter Id"
+          },
+          "schedule_health": {
+            "title": "Schedule Health",
+            "type": "string"
+          },
+          "scope_health": {
+            "title": "Scope Health",
+            "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "initiative_id",
+          "report_date",
+          "schedule_health",
+          "scope_health",
+          "summary",
+          "accomplishments",
+          "next_steps",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PpmPortfolioReportOut",
         "type": "object"
       },
       "PpmPublicDashboard": {
@@ -14590,8 +16073,15 @@
             "title": "Accomplishments"
           },
           "cost_health": {
-            "title": "Cost Health",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Health"
           },
           "created_at": {
             "format": "date-time",
@@ -15589,6 +17079,29 @@
         "title": "PreviewPage",
         "type": "object"
       },
+      "PreviewRequest": {
+        "properties": {
+          "configuration": {
+            "$ref": "#/components/schemas/PmlSectionConfig"
+          },
+          "field_key": {
+            "title": "Field Key",
+            "type": "string"
+          },
+          "sample_values": {
+            "additionalProperties": true,
+            "title": "Sample Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "configuration",
+          "field_key",
+          "sample_values"
+        ],
+        "title": "PreviewRequest",
+        "type": "object"
+      },
       "PrincipleCreate": {
         "properties": {
           "description": {
@@ -16174,6 +17687,28 @@
           "reason"
         ],
         "title": "ProcessFlowVersionWithdraw",
+        "type": "object"
+      },
+      "ProtectedFieldMarker": {
+        "additionalProperties": false,
+        "properties": {
+          "keep_existing": {
+            "const": true,
+            "title": "Keep Existing",
+            "type": "boolean"
+          },
+          "key": {
+            "maxLength": 100,
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "keep_existing"
+        ],
+        "title": "ProtectedFieldMarker",
         "type": "object"
       },
       "RecalcCalculationReport": {
@@ -42673,6 +44208,93 @@
         ]
       }
     },
+    "/api/v1/ppm/initiatives/{initiative_id}/budgets/{budget_id}/provider-children": {
+      "get": {
+        "operationId": "provider_children_api_v1_ppm_initiatives__initiative_id__budgets__budget_id__provider_children_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "initiative_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Initiative Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "budget_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Budget Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 200,
+              "title": "Search",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PmlProviderChoicePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Provider Children",
+        "tags": [
+          "ppm"
+        ]
+      }
+    },
     "/api/v1/ppm/initiatives/{initiative_id}/completion": {
       "get": {
         "description": "Return overall completion % for an initiative (average of root WBS items).",
@@ -42906,6 +44528,48 @@
         ]
       }
     },
+    "/api/v1/ppm/initiatives/{initiative_id}/financials": {
+      "get": {
+        "operationId": "get_financials_api_v1_ppm_initiatives__initiative_id__financials_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "initiative_id",
+            "required": true,
+            "schema": {
+              "title": "Initiative Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PpmFinancialsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Financials",
+        "tags": [
+          "ppm"
+        ]
+      }
+    },
     "/api/v1/ppm/initiatives/{initiative_id}/gantt/move": {
       "post": {
         "description": "Save a row dragged in the Gantt task list: its parent work package and\nits place among the siblings of its kind.\n\nA change of parent re-runs the completion and date roll-ups, as a change\nof ``wbs_id`` through ``PATCH /tasks`` does: the new parent counts the\nmoved row, and the old one is recomputed from what it still holds (a work\npackage left with no tasks keeps the values it had).",
@@ -42987,6 +44651,58 @@
           }
         },
         "summary": "Has Costs",
+        "tags": [
+          "ppm"
+        ]
+      }
+    },
+    "/api/v1/ppm/initiatives/{initiative_id}/invoices": {
+      "post": {
+        "operationId": "create_invoice_api_v1_ppm_initiatives__initiative_id__invoices_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "initiative_id",
+            "required": true,
+            "schema": {
+              "title": "Initiative Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PpmInvoiceCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PpmInvoiceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Invoice",
         "tags": [
           "ppm"
         ]
@@ -43227,6 +44943,49 @@
         ]
       }
     },
+    "/api/v1/ppm/initiatives/{initiative_id}/schedule": {
+      "get": {
+        "operationId": "initiative_schedule_api_v1_ppm_initiatives__initiative_id__schedule_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "initiative_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Initiative Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PmlInitiativeScheduleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Initiative Schedule",
+        "tags": [
+          "ppm"
+        ]
+      }
+    },
     "/api/v1/ppm/initiatives/{initiative_id}/tasks": {
       "get": {
         "operationId": "list_tasks_api_v1_ppm_initiatives__initiative_id__tasks_get",
@@ -43414,6 +45173,91 @@
           }
         },
         "summary": "Create Wbs",
+        "tags": [
+          "ppm"
+        ]
+      }
+    },
+    "/api/v1/ppm/invoices/{invoice_id}": {
+      "delete": {
+        "operationId": "delete_invoice_api_v1_ppm_invoices__invoice_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "invoice_id",
+            "required": true,
+            "schema": {
+              "title": "Invoice Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Invoice",
+        "tags": [
+          "ppm"
+        ]
+      },
+      "patch": {
+        "operationId": "update_invoice_api_v1_ppm_invoices__invoice_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "invoice_id",
+            "required": true,
+            "schema": {
+              "title": "Invoice Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PpmInvoiceUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PpmInvoiceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Invoice",
         "tags": [
           "ppm"
         ]
@@ -50566,6 +52410,207 @@
           }
         },
         "summary": "Update Navbar Style",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/pml/financial-fields": {
+      "get": {
+        "operationId": "get_field_settings_api_v1_settings_pml_financial_fields_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Field Settings Api V1 Settings Pml Financial Fields Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Field Settings",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/pml/financial-fields/{section}": {
+      "put": {
+        "operationId": "put_field_settings_api_v1_settings_pml_financial_fields__section__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "section",
+            "required": true,
+            "schema": {
+              "enum": [
+                "budget",
+                "cost_item",
+                "invoice"
+              ],
+              "title": "Section",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FieldSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Put Field Settings Api V1 Settings Pml Financial Fields  Section  Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Field Settings",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/pml/financial-fields/{section}/preview": {
+      "post": {
+        "operationId": "preview_field_api_v1_settings_pml_financial_fields__section__preview_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "section",
+            "required": true,
+            "schema": {
+              "enum": [
+                "budget",
+                "cost_item",
+                "invoice"
+              ],
+              "title": "Section",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Preview Field Api V1 Settings Pml Financial Fields  Section  Preview Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Field",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/pml/timeline": {
+      "get": {
+        "operationId": "get_timeline_api_v1_settings_pml_timeline_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PmlTimelineMapping"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Timeline",
+        "tags": [
+          "settings"
+        ]
+      },
+      "put": {
+        "operationId": "put_timeline_api_v1_settings_pml_timeline_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PmlTimelineUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PmlTimelineMapping"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Timeline",
         "tags": [
           "settings"
         ]

@@ -288,9 +288,11 @@ Når [GRC-modulet](grc.md) er aktiveret **og** kortet har mindst ét linket comp
 
 For **Business Process**-kort vises en yderligere **Process Flow**-fane med en indlejret BPMN-diagram-viewer/-editor. Se [BPM](bpm.md) for detaljer om procesflow-styring.
 
-## PPM-fane (kun Initiative-kort)
+## PML-fane (kun Initiative-kort) { #ppm-tab-initiative-cards-only }
 
-Når [PPM-modulet](ppm.md) er aktiveret, viser **Initiative**-kort en yderligere **PPM**-fane som den sidste fane. Klikker du på denne fane, navigeres til PPM Initiativ-detaljevisningen, hvor du kan administrere statusrapporter, budgetter, risici, opgaver og Gantt-tidslinjer.
+I **Omkostninger og tidslinje** sammenligner overlappende søjler budget og faktiske omkostninger for Total, CapEx og OpEx. Det fakturerede initiativbeløb vises særskilt for brugere med adgang. Tidslinjen viser synlige planlagte og faktiske datoer samt de seneste indikatorer for tid, omkostning og omfang.
+
+Når [PML-modulet](ppm.md) er aktiveret, viser **Initiative**-kort en yderligere **PML**-fane som den sidste fane. Klikker du på denne fane, navigeres til PML Initiativ-detaljevisningen, hvor du kan administrere statusrapporter, budgetter, risici, opgaver og Gantt-tidslinjer.
 
 ## Arkivering
 

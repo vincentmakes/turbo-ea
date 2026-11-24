@@ -19,12 +19,14 @@ Chaque portail publie l'une de trois vues, choisie via **Type de portail** :
 | Type | Ce que voient les visiteurs |
 |------|-----------------------------|
 | **Liste de fiches** | Une grille de fiches consultable et filtrable — le portail classique, configuré avec les propriétés ci-dessous. |
-| **Tableau de portefeuille PPM** | Le [tableau de portefeuille PPM](../guide/ppm.md) en lecture seule — échéancier, indicateurs de santé et budget contre réalisé pour chaque initiative active. |
+| **Tableau de portefeuille PML** | Le [tableau de portefeuille PML](../guide/ppm.md) en lecture seule — échéancier, indicateurs de santé et budget contre réalisé pour chaque initiative active. |
 | **Navigateur de processus** | La [Maison des processus](../guide/bpm.md) en lecture seule — votre hiérarchie de processus métier et le flux BPMN publié de chaque processus. |
 
-### Portails de portefeuille PPM
+### Portails de portefeuille PML { #ppm-portfolio-portals }
 
-Choisir **Tableau de portefeuille PPM** transforme le portail en vue de direction de
+Le portefeuille public présente le prévisionnel. Les portails de liste de fiches existants conservent leurs réglages de visibilité des dates.
+
+Choisir **Tableau de portefeuille PML** transforme le portail en vue de direction de
 votre portefeuille de projets, accessible par un lien public **sans compte, sans licence
 et sans connexion**. Conçu pour le cas fréquent où la direction souhaite de la visibilité
 sur le portefeuille sans gérer d'identifiants supplémentaires.
@@ -54,7 +56,7 @@ Le tableau s'ouvre également sur un regroupement et un sous-type de votre choix
 | **S'ouvre groupé par** | Organisation | Le regroupement affiché en premier |
 | **S'ouvre sur le sous-type** | Tous | Le sous-type sélectionné en premier |
 
-**S'ouvre groupé par** accepte aussi un sous-type d'initiative : le tableau s'ouvre alors avec un groupe par initiative de ce sous-type (voir [Gestion de portefeuille de projets](../guide/ppm.md)). Un sous-type que le propre filtre de sous-type du portail exclut n'est pas proposé : le portail ne publierait aucune de ces initiatives, et chaque ligne se retrouverait sous « Non groupé ».
+**S'ouvre groupé par** accepte aussi un sous-type d'initiative : le tableau s'ouvre alors avec un groupe par initiative de ce sous-type (voir [Liste principale des projets](../guide/ppm.md)). Un sous-type que le propre filtre de sous-type du portail exclut n'est pas proposé : le portail ne publierait aucune de ces initiatives, et chaque ligne se retrouverait sous « Non groupé ».
 
 Ce ne sont que des points de départ : un visiteur peut changer l'un ou l'autre, et
 rien n'est mémorisé — rouvrir le portail revient à votre configuration. À ne pas
@@ -68,7 +70,7 @@ initiatives sont publiées.
     risques, tâches et historique des rapports restent derrière la connexion.
 
 Un portail de portefeuille peut être protégé par SSO comme n'importe quel autre portail.
-Désactiver le module PPM dans **Admin > Paramètres** rend immédiatement inaccessibles
+Désactiver le module PML dans **Admin > Paramètres** rend immédiatement inaccessibles
 tous les portails de portefeuille, sans avoir à les dépublier un par un.
 
 ### Portails navigateur de processus
@@ -169,7 +171,7 @@ Chaque contrôle propose aussi **(vide)**, pour les fiches sans valeur, sans rel
 !!! note
     Un portail créé avant la version 2.178.0 conserve ses filtres de sous-types et d'étiquettes tels quels jusqu'à son prochain enregistrement. Ensuite, des étiquettes choisies dans deux groupes différents doivent toutes deux figurer sur une fiche, comme dans le rapport de portefeuille.
 
-Les portails de portefeuille PPM et de navigateur de processus conservent leurs propres sélecteurs **Sous-types** et **Étiquettes**.
+Les portails de portefeuille PML et de navigateur de processus conservent leurs propres sélecteurs **Sous-types** et **Étiquettes**.
 
 ## Configuration de la visibilité
 

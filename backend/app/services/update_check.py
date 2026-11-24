@@ -36,6 +36,7 @@ from dataclasses import dataclass
 
 import httpx
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import APP_VERSION
@@ -87,8 +88,11 @@ class ReleaseInfo:
     notes: str = ""
 
 
-async def _settings_row(db: AsyncSession) -> AppSettings | None:
-    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+async def _settings_row(db: AsyncSession, *, for_update: bool = False) -> AppSettings | None:
+    statement = select(AppSettings).where(AppSettings.id == "default")
+    if for_update:
+        statement = statement.with_for_update().execution_options(populate_existing=True)
+    result = await db.execute(statement)
     return result.scalar_one_or_none()
 
 
@@ -199,10 +203,13 @@ async def record_result(
     Returns the number of notifications created. Does **not** commit — the
     caller owns the session and knows what else it has pending.
     """
-    row = await _settings_row(db)
-    if row is None:
-        row = AppSettings(id="default", email_settings={}, general_settings={})
-        db.add(row)
+    await db.execute(
+        insert(AppSettings)
+        .values(id="default", email_settings={}, general_settings={})
+        .on_conflict_do_nothing(index_elements=["id"])
+    )
+    row = await _settings_row(db, for_update=True)
+    assert row is not None
 
     general = dict(row.general_settings or {})
     state = dict(general.get(STATE_SETTING) or {})

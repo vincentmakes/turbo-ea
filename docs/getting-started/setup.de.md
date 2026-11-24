@@ -65,12 +65,12 @@ Dann `docker compose up -d` (falls Sie bereits gestartet haben, siehe „Zurück
 
 | Variable | Standard | Beschreibung |
 |----------|----------|-------------|
-| `SEED_DEMO` | `false` | Lädt den vollständigen NexaTech-Industries-Datensatz, einschließlich BPM- und PPM-Daten |
+| `SEED_DEMO` | `false` | Lädt den vollständigen NexaTech-Industries-Datensatz, einschließlich BPM- und PML-Daten |
 | `SEED_BPM` | `false` | Lädt nur BPM-Demoprozesse (Teilmenge von `SEED_DEMO`) |
-| `SEED_PPM` | `false` | Lädt nur PPM-Projektdaten (Teilmenge von `SEED_DEMO`) |
+| `SEED_PPM` | `false` | Lädt nur PML-Projektdaten (Teilmenge von `SEED_DEMO`) |
 | `RESET_DB` | `false` | Verwirft alle Tabellen und erstellt sie beim Start neu |
 
-`SEED_DEMO=true` enthält bereits BPM- und PPM-Daten — die Teilmengen-Flags müssen nicht zusätzlich gesetzt werden.
+`SEED_DEMO=true` enthält bereits BPM- und PML-Daten — die Teilmengen-Flags müssen nicht zusätzlich gesetzt werden.
 
 !!! note "Demodaten werden einmalig eingespielt"
     Jeder Seeder läuft **einmal pro Installation** und vermerkt dies. Das Löschen
@@ -94,11 +94,11 @@ Beim Laden der Demodaten wird ein Standard-Adminkonto erstellt:
 
 ### Was die Demodaten enthalten
 
-Etwa 150 Karten über alle vier Architekturschichten, plus Beziehungen, Tags, Kommentare, Aufgaben, BPM-Diagramme, PPM-Daten, EA-Entscheidungsdokumente und ein Statement of Architecture Work:
+Etwa 150 Karten über alle vier Architekturschichten, plus Beziehungen, Tags, Kommentare, Aufgaben, BPM-Diagramme, PML-Daten, EA-Entscheidungsdokumente und ein Statement of Architecture Work:
 
 - **Kern-EA** — Organisationen, ~20 Geschäftsfähigkeiten, Geschäftskontexte, ~15 Anwendungen, ~20 IT-Komponenten, Schnittstellen, Datenobjekte, Plattformen, Ziele, 6 Initiativen, 5 Tag-Gruppen, 60+ Beziehungen.
 - **BPM** — ~30 Geschäftsprozesse in einer 4-stufigen Hierarchie mit BPMN-2.0-Diagrammen, Element-zu-Karte-Verknüpfungen und Prozessbewertungen.
-- **PPM** — Statusberichte, Work Breakdown Structures, ~60 Aufgaben, Budget- und Kostenpositionen sowie ein Risikoregister über die 6 Demo-Initiativen.
+- **PML** — Statusberichte, Work Breakdown Structures, ~60 Aufgaben, Budget- und Kostenpositionen sowie ein Risikoregister über die 6 Demo-Initiativen.
 - **EA Delivery** — Architektur-Entscheidungsdokumente und Statements of Architecture Work.
 
 ### Zurücksetzen und neu seeden

@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
 from openpyxl import Workbook, load_workbook
+from openpyxl.cell import WriteOnlyCell
 
 from app.services.workspace_io.schema import (
     ASSETS_DIR,
@@ -222,6 +223,10 @@ def write_sheet(
                 key = f"overflow/{uuid.uuid4().hex}.txt"
                 assets[key] = v.encode("utf-8")
                 v = OVERFLOW_PREFIX + key
+            if name == "PpmInvoices" and col == "invoice_id" and isinstance(v, str):
+                cell = WriteOnlyCell(ws, value=v)
+                cell.data_type = "s"
+                v = cell
             cells.append(v)
         ws.append(cells)
 

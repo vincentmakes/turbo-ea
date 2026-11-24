@@ -32,12 +32,12 @@ Este guia é para **todos que utilizam o Turbo EA** — arquitetos empresariais,
 | **Inventário** | Lista pesquisável e filtrável de todos os cards de qualquer tipo. Edição em lote, importação-exportação Excel/CSV e visualizações salvas com compartilhamento |
 | **Relatórios** | Visualizações pré-construídas: Portfólio, Mapa de Capacidades, Ciclo de Vida, Dependências, Custos, Matriz, Qualidade dos Dados e Fim de Vida |
 | **BPM** | Business Process Management — modele processos com um editor BPMN 2.0, vincule elementos do diagrama a cards e avalie maturidade, risco e automação |
-| **PPM** | Project Portfolio Management — gerencie cards de Iniciativa como projetos completos com relatórios de status, Work Breakdown Structures, quadros kanban e Gantt, orçamentos, custos e um registro de riscos por iniciativa |
+| **PML** | Project Portfolio Management — gerencie cards de Iniciativa como projetos completos com relatórios de status, Work Breakdown Structures, quadros kanban e Gantt, orçamentos, custos e um registro de riscos por iniciativa |
 | **TurboLens** | Inteligência EA com IA — análise de fornecedores, detecção de duplicatas, avaliação de modernização, o assistente Architecture AI de 5 etapas e varreduras de Conformidade (EU AI Act / LGPD / NIS2 / DORA / SOC 2 / ISO 27001) |
 | **EA Delivery** | A superfície de entrega alinhada com TOGAF — Statements of Architecture Work, Architecture Decision Records e o Registro de Riscos no nível do panorama |
 | **SoAW** | Statement of Architecture Work — documento TOGAF formal que delimita o escopo de uma iniciativa de arquitetura |
 | **ADR** | Architecture Decision Record — captura contexto, alternativas e consequências de uma decisão, com fluxo de status e vinculação a cards |
-| **Registro de Riscos** | Registro de riscos no nível do panorama (TOGAF Fase G), separado dos riscos no nível de iniciativa do PPM. A atribuição de proprietário cria automaticamente um Todo |
+| **Registro de Riscos** | Registro de riscos no nível do panorama (TOGAF Fase G), separado dos riscos no nível de iniciativa do PML. A atribuição de proprietário cria automaticamente um Todo |
 | **Portal Web** | Visão pública, baseada em slug e somente leitura de parte do panorama EA — compartilhável sem login |
 | **Servidor MCP** | Acesso de IA somente leitura via Model Context Protocol — consulte dados EA do Claude Desktop, Cursor, GitHub Copilot e outros clientes MCP |
 | **RBAC** | Controle de Acesso Baseado em Funções — funções no nível do aplicativo mais funções de stakeholder por card, com mais de 50 permissões granulares |

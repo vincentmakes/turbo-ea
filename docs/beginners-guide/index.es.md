@@ -2,7 +2,7 @@
 
 Así que ha instalado Turbo EA. La pantalla de inicio de sesión funciona, los datos de demostración se cargan, cada elemento del menú le muestra algo — y ahora está mirando un inventario vacío preguntándose por dónde empezar realmente. Esta guía es para usted.
 
-Es un recorrido secuenciado y con opiniones de la **primera iniciativa concreta de EA** que la mayoría de las organizaciones ejecutan en Turbo EA: poner bajo control un inventario de aplicaciones y usarlo para responder preguntas reales sobre el portafolio. Ignora deliberadamente los módulos más avanzados (Registro de Riesgos, Cumplimiento, PPM, TurboLens AI) — esos resultan útiles una vez que su inventario está vivo, no antes.
+Es un recorrido secuenciado y con opiniones de la **primera iniciativa concreta de EA** que la mayoría de las organizaciones ejecutan en Turbo EA: poner bajo control un inventario de aplicaciones y usarlo para responder preguntas reales sobre el portafolio. Ignora deliberadamente los módulos más avanzados (Registro de Riesgos, Cumplimiento, PML, TurboLens AI) — esos resultan útiles una vez que su inventario está vivo, no antes.
 
 ## Para quién es esta guía
 
@@ -47,7 +47,7 @@ Esta guía cubre **gatear** y el inicio de **caminar**. Al final, tendrá un por
 Estos son módulos potentes, pero asumen que ya tiene un inventario poblado. No los abra todavía:
 
 - **Registro de Riesgos** y **Escaneo de Cumplimiento** — útiles una vez que tenga aplicaciones y capacidades a las que adjuntar riesgos.
-- **PPM** (Gestión de Portafolio de Proyectos) — útil una vez que tenga una cartera de proyectos que valga la pena rastrear.
+- **PML** (Gestión de Portafolio de Proyectos) — útil una vez que tenga una cartera de proyectos que valga la pena rastrear.
 - **TurboLens AI** (análisis de proveedores, detección de duplicados, asistente Architect) — útil una vez que tenga suficientes fichas para que la IA encuentre patrones.
 
 Encontrará un breve puntero de "qué sigue" para cada uno de ellos en la [página final](your-first-analysis.md) de esta guía.

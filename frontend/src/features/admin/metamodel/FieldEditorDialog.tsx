@@ -246,7 +246,7 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
           <Select
             value={field.type}
             label={t("metamodel.fieldEditor.typeLabel")}
-            disabled={!!isCalculated}
+            disabled={!!isCalculated || !!initial.built_in}
             onChange={(e) => {
               const newType = e.target.value as FieldDef["type"];
               const rft = extFieldTypes[newType];

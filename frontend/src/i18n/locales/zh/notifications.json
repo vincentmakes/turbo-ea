@@ -28,7 +28,7 @@
   "preferences.loadFailed": "加载偏好设置失败",
   "preferences.saveFailed": "保存偏好设置失败",
   "preferences.todoAssigned": "待办事项已指派",
-  "preferences.taskAssigned": "PPM任务已分配",
+  "preferences.taskAssigned": "已分配 PML 任务",
   "preferences.surveyRequest": "调查请求",
   "preferences.cardUpdated": "卡片已更新",
   "preferences.commentAdded": "新增评论",

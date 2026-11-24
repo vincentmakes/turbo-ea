@@ -2,7 +2,7 @@
 
 Então você instalou o Turbo EA. A tela de login funciona, os dados de demonstração carregam, cada item de menu mostra algo para você — e agora você está olhando para um inventário vazio se perguntando por onde realmente começar. Este guia é para você.
 
-É um passo a passo sequenciado e opinativo da **primeira iniciativa concreta de EA** que a maioria das organizações executa no Turbo EA: colocar um inventário de aplicações sob controle e usá-lo para responder perguntas reais de portfólio. Ele deliberadamente ignora os módulos mais avançados (Registro de Riscos, Compliance, PPM, TurboLens AI) — eles se tornam úteis quando seu inventário está vivo, não antes.
+É um passo a passo sequenciado e opinativo da **primeira iniciativa concreta de EA** que a maioria das organizações executa no Turbo EA: colocar um inventário de aplicações sob controle e usá-lo para responder perguntas reais de portfólio. Ele deliberadamente ignora os módulos mais avançados (Registro de Riscos, Compliance, PML, TurboLens AI) — eles se tornam úteis quando seu inventário está vivo, não antes.
 
 ## Para quem é este guia
 
@@ -47,7 +47,7 @@ Este guia cobre **crawl** e o início de **walk**. Ao final, você terá um port
 Estes são módulos poderosos, mas presumem que você já tenha um inventário populado. Não os abra ainda:
 
 - **Registro de Riscos** e **Varredura de Compliance** — úteis quando você tiver aplicações e capacidades às quais anexar riscos.
-- **PPM** (Project Portfolio Management) — útil quando você tiver um pipeline de projetos que valha a pena rastrear.
+- **PML** (Project Portfolio Management) — útil quando você tiver um pipeline de projetos que valha a pena rastrear.
 - **TurboLens AI** (análise de fornecedores, detecção de duplicatas, assistente Architect) — útil quando você tiver cards suficientes para que a IA encontre padrões.
 
 Você encontrará um curto indicador "próximos passos" para cada um deles na [página final](your-first-analysis.md) deste guia.

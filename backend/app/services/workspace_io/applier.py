@@ -23,6 +23,8 @@ no-op (all-skip).
 
 from __future__ import annotations
 
+import ast
+import copy
 import functools
 import uuid
 from collections.abc import Callable
@@ -254,6 +256,379 @@ async def apply_selected(
     return await _run(db, bundle, user, dry_run=dry_run, sheets=sheets)
 
 
+def _rename_legacy_date_formula(formula: str) -> str:
+    """Rewrite only Initiative data references, preserving all other formula text."""
+    output = []
+    for line in formula.splitlines(keepends=True):
+        stripped = line.strip()
+        try:
+            tree = ast.parse(stripped)
+        except SyntaxError:
+            output.append(line)
+            continue
+        encoded = line.encode("utf-8")
+        prefix = len(line[: len(line) - len(line.lstrip())].encode("utf-8"))
+        edits = []
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Attribute)
+                and isinstance(node.value, ast.Name)
+                and node.value.id == "data"
+                and node.attr == "ActualEnd"
+                and node.end_col_offset is not None
+            ):
+                end = prefix + node.end_col_offset
+                edits.append((end - len("ActualEnd"), end, b"actualEnd"))
+            elif (
+                isinstance(node, ast.Subscript)
+                and isinstance(node.value, ast.Name)
+                and node.value.id == "data"
+                and isinstance(node.slice, ast.Constant)
+                and node.slice.value == "ActualEnd"
+                and node.slice.end_col_offset is not None
+            ):
+                start = prefix + node.slice.col_offset
+                end = prefix + node.slice.end_col_offset
+                quote = b'"' if encoded[start:end].startswith(b'"') else b"'"
+                edits.append((start, end, quote + b"actualEnd" + quote))
+        for start, end, value in sorted(edits, reverse=True):
+            encoded = encoded[:start] + value + encoded[end:]
+        output.append(encoded.decode("utf-8"))
+    return "".join(output)
+
+
+def _normalize_legacy_initiative_dates(
+    bundle: WorkspaceBundle, sheets_selected: set[str] | None, *, protect_existing_legacy=False
+) -> WorkspaceBundle:
+    """Interpret a pre-201 Aruba date without changing the caller's bundle."""
+    from datetime import date
+
+    sheets = dict(bundle.sheets)
+    # A selected portal may come from a bundle without its card data. Treat that
+    # case conservatively because conflicting historical values cannot be ruled out.
+    cards_selected = sheets_selected is None or schema.SHEET_CARDS in sheets_selected
+    portals_selected = sheets_selected is None or "WebPortals" in sheets_selected
+    imported_portals = any(
+        row.get("card_type") == "Initiative" for row in bundle.rows("WebPortals")
+    )
+    protect_legacy = protect_existing_legacy or imported_portals
+    portal_date_conflict = protect_legacy or (portals_selected and not cards_selected)
+    types_selected = sheets_selected is None or schema.SHEET_CARD_TYPES in sheets_selected
+    settings_selected = sheets_selected is None or schema.SHEET_SETTINGS in sheets_selected
+    rows = [dict(row) for row in bundle.rows(schema.SHEET_CARD_TYPES)]
+    has_legacy_date = False
+    source_has_canonical = False
+    incompatible = False
+    for row in rows:
+        if row.get("key") != "Initiative" or "fields_schema" not in row:
+            continue
+        try:
+            fields_schema = copy.deepcopy(from_cell(row["fields_schema"], is_json=True) or [])
+        except (ValueError, TypeError):
+            if types_selected:
+                raise
+            continue
+        fields = [
+            f
+            for section in fields_schema
+            if isinstance(section, dict)
+            for f in (section.get("fields") or [])
+            if isinstance(f, dict)
+        ]
+        legacy = [f for f in fields if f.get("key") == "ActualEnd"]
+        canonical = [f for f in fields if f.get("key") == "actualEnd"]
+        source_has_canonical = bool(canonical)
+        if any(f.get("type") != "date" for f in legacy + canonical):
+            incompatible = True
+            continue
+        if not legacy:
+            continue
+        has_legacy_date = True
+        if portal_date_conflict and canonical:
+            pass
+        elif portal_date_conflict:
+            for section in fields_schema:
+                if isinstance(section, dict) and legacy[0] in (section.get("fields") or []):
+                    section["fields"].append({**legacy[0], "key": "actualEnd", "built_in": True})
+                    break
+        elif canonical:
+            for section in fields_schema:
+                if isinstance(section, dict) and isinstance(section.get("fields"), list):
+                    section["fields"] = [
+                        f
+                        for f in section["fields"]
+                        if not isinstance(f, dict) or f.get("key") != "ActualEnd"
+                    ]
+        else:
+            legacy[0]["key"] = "actualEnd"
+        row["fields_schema"] = fields_schema
+        for column in ("section_config", "subtypes"):
+            if column not in row:
+                continue
+            value = copy.deepcopy(from_cell(row[column], is_json=True))
+            containers = (
+                value.values()
+                if isinstance(value, dict)
+                else value
+                if isinstance(value, list)
+                else []
+            )
+            for item in containers:
+                if isinstance(item, dict):
+                    for prop in ("hidden_fields", "field_order"):
+                        if isinstance(item.get(prop), list):
+                            keys = item[prop]
+                            if portal_date_conflict:
+                                if "ActualEnd" in keys and "actualEnd" not in keys:
+                                    item[prop] = [*keys, "actualEnd"]
+                            else:
+                                item[prop] = [
+                                    "actualEnd" if key == "ActualEnd" else key for key in keys
+                                ]
+            row[column] = value
+    if types_selected:
+        sheets[schema.SHEET_CARD_TYPES] = rows
+    settings_rows = (
+        [dict(row) for row in bundle.rows(schema.SHEET_SETTINGS)] if settings_selected else []
+    )
+    for row in settings_rows:
+        if incompatible or row.get("key") != "general_settings":
+            continue
+        general = copy.deepcopy(from_cell(row.get("value"), is_json=True))
+        if isinstance(general, dict) and isinstance(general.get("pml.timeline"), dict):
+            mapping = general["pml.timeline"]
+            if mapping.get("actual_end_key") == "ActualEnd":
+                if not protect_legacy:
+                    mapping["actual_end_key"] = "actualEnd"
+                has_legacy_date = True
+        row["value"] = general
+    if settings_selected:
+        sheets[schema.SHEET_SETTINGS] = settings_rows
+    card_rows = [dict(row) for row in bundle.rows(schema.SHEET_CARDS)] if cards_selected else []
+    for row in card_rows:
+        if incompatible or row.get("type") != "Initiative" or "attributes" not in row:
+            continue
+        attrs = copy.deepcopy(from_cell(row["attributes"], is_json=True))
+        if not isinstance(attrs, dict) or "ActualEnd" not in attrs:
+            continue
+        legacy_value = attrs["ActualEnd"]
+        if not has_legacy_date:
+            try:
+                if legacy_value is not None:
+                    date.fromisoformat(str(legacy_value))
+            except ValueError:
+                continue
+        if "actualEnd" not in attrs and not protect_legacy:
+            attrs["actualEnd"] = attrs.pop("ActualEnd")
+        elif not protect_legacy and attrs.get("actualEnd") == legacy_value and "actualEnd" in attrs:
+            attrs.pop("ActualEnd")
+        row["attributes"] = attrs
+    if cards_selected:
+        sheets[schema.SHEET_CARDS] = card_rows
+
+    if has_legacy_date and not incompatible:
+        if not protect_legacy and (
+            sheets_selected is None or schema.SHEET_CALCULATIONS in sheets_selected
+        ):
+            calculations = [dict(row) for row in bundle.rows(schema.SHEET_CALCULATIONS)]
+            for row in calculations:
+                if row.get("target_type_key") != "Initiative":
+                    continue
+                if row.get("target_field_key") == "ActualEnd":
+                    row["target_field_key"] = "actualEnd"
+                if isinstance(row.get("formula"), str):
+                    row["formula"] = _rename_legacy_date_formula(row["formula"])
+            sheets[schema.SHEET_CALCULATIONS] = calculations
+        if sheets_selected is None or "WebPortals" in sheets_selected:
+            portals = [dict(row) for row in bundle.rows("WebPortals")]
+            for row in portals:
+                if row.get("card_type") != "Initiative":
+                    continue
+                display = copy.deepcopy(from_cell(row.get("display_fields"), is_json=True))
+                if portal_date_conflict:
+                    config = copy.deepcopy(from_cell(row.get("card_config"), is_json=True))
+                    if not isinstance(config, dict):
+                        config = {}
+                    toggles = config.get("toggles")
+                    if not isinstance(toggles, dict):
+                        toggles = {}
+                    if not source_has_canonical and "field:actualEnd" not in toggles:
+                        toggles["field:actualEnd"] = {"card": False, "detail": False}
+                    config["toggles"] = toggles
+                    row["card_config"] = config
+                    continue
+                if isinstance(display, list):
+                    row["display_fields"] = [
+                        "actualEnd" if item == "ActualEnd" else item for item in display
+                    ]
+                config = copy.deepcopy(from_cell(row.get("card_config"), is_json=True))
+                if isinstance(config, dict) and isinstance(config.get("toggles"), dict):
+                    toggles = config["toggles"]
+                    if "field:ActualEnd" in toggles:
+                        legacy = toggles.pop("field:ActualEnd")
+                        canonical = toggles.get("field:actualEnd")
+                        if isinstance(legacy, dict) and isinstance(canonical, dict):
+                            toggles["field:actualEnd"] = {
+                                **canonical,
+                                "card": bool(legacy.get("card")) and bool(canonical.get("card")),
+                                "detail": bool(legacy.get("detail"))
+                                and bool(canonical.get("detail")),
+                            }
+                        else:
+                            toggles.setdefault("field:actualEnd", legacy)
+                    row["card_config"] = config
+                filters = copy.deepcopy(from_cell(row.get("filters"), is_json=True))
+                if isinstance(filters, dict) and isinstance(filters.get("attributes"), dict):
+                    attributes = filters["attributes"]
+                    if "ActualEnd" in attributes:
+                        legacy = attributes.pop("ActualEnd")
+                        attributes.setdefault("actualEnd", legacy)
+                    row["filters"] = filters
+            sheets["WebPortals"] = portals
+    return WorkspaceBundle(
+        manifest=bundle.manifest,
+        sheets=sheets,
+        assets=bundle.assets,
+        parse_errors=bundle.parse_errors,
+    )
+
+
+def _workspace_general_settings(bundle: WorkspaceBundle) -> dict[str, Any]:
+    for row in bundle.rows(schema.SHEET_SETTINGS):
+        if row.get("key") == "general_settings":
+            value = from_cell(row.get("value"), is_json=True)
+            if isinstance(value, dict):
+                cleaned, _ = strip_secrets(value, None)
+                return cleaned
+            return {}
+    return {}
+
+
+async def _timeline_import_conflict(
+    db, bundle: WorkspaceBundle, general: dict[str, Any], types_selected: bool
+) -> str | None:
+    from app.schemas.ppm_timeline import PmlTimelineMapping
+    from app.services.ppm_timeline import (
+        TimelineValidationError,
+        load_timeline_mapping,
+        validate_timeline_mapping,
+    )
+
+    type_row = (
+        next(
+            (
+                row
+                for row in bundle.rows(schema.SHEET_CARD_TYPES)
+                if row.get("key") == "Initiative" and "fields_schema" in row
+            ),
+            None,
+        )
+        if types_selected
+        else None
+    )
+    if type_row is None and "pml.timeline" not in general:
+        return None
+    existing = await db.scalar(select(CardType).where(CardType.key == "Initiative"))
+    raw = general.get("pml.timeline")
+    try:
+        mapping = (
+            PmlTimelineMapping.model_validate(raw)
+            if "pml.timeline" in general
+            else await load_timeline_mapping(db)
+        )
+        fields = existing.fields_schema if existing is not None else []
+        if type_row is not None:
+            candidate = _coerce(type_row, exp.CARD_TYPE_COLUMNS, exp.CARD_TYPE_JSON)
+            _preserve_initiative_actual_dates(candidate, existing)
+            fields = candidate.get("fields_schema") or []
+        temporary = CardType(key="Initiative", label="Initiative", fields_schema=fields)
+        validate_timeline_mapping(mapping, temporary)
+    except (ValidationError, TimelineValidationError, TypeError, ValueError) as exc:
+        return str(exc)
+    return None
+
+
+async def _finalize_pml_settings(
+    db, incoming: dict[str, Any], ctx: rm.RemapContext, result: ApplyResult
+) -> None:
+    from app.api.v1.ppm_field_settings import _reference_pairs, _validate, load_section
+    from app.schemas.ppm_fields import PmlRowKind, PmlSectionConfig
+
+    sr = next((part for part in result.sections if part.sheet == schema.SHEET_SETTINGS), None)
+    await db.execute(
+        insert(AppSettings)
+        .values(id="default", general_settings={}, email_settings={})
+        .on_conflict_do_nothing(index_elements=["id"])
+    )
+    settings = await db.scalar(
+        select(AppSettings)
+        .where(AppSettings.id == "default")
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    kinds: tuple[PmlRowKind, ...] = ("budget", "cost_item", "invoice")
+    previous: dict[str, PmlSectionConfig] = {}
+    for kind in kinds:
+        previous[kind] = await load_section(db, kind)
+    candidates = dict(previous)
+    failures: dict[str, Exception] = {}
+    selected = {kind for kind in kinds if f"pml.financial_fields.{kind}" in incoming}
+    for kind in selected:
+        try:
+            parsed = PmlSectionConfig.model_validate(incoming[f"pml.financial_fields.{kind}"])
+            rewritten, _ = rm.rewrite_pml_field_configuration(parsed.model_dump(mode="json"), ctx)
+            candidate = PmlSectionConfig.model_validate(rewritten)
+            for field in candidate.fields:
+                for card_id, card_type in _reference_pairs(candidate, field):
+                    if not await db.scalar(
+                        select(Card.id).where(Card.id == card_id, Card.type == card_type)
+                    ):
+                        raise ValueError(f"Unresolved {card_type} reference")
+            candidates[kind] = candidate
+        except (ValueError, ValidationError, HTTPException, TypeError) as exc:
+            failures[kind] = exc
+    # Budget and cost share a Provider definition, so validate their resulting
+    # pair and retain both old definitions if either selected member is invalid.
+    for kind in kinds:
+        if kind not in selected or kind in failures:
+            continue
+        try:
+            await _validate(db, kind, candidates[kind], previous[kind], prospective=candidates)
+        except (ValueError, ValidationError, HTTPException, TypeError) as exc:
+            failures[kind] = exc
+    if failures.keys() & {"budget", "cost_item"}:
+        for kind in selected & {"budget", "cost_item"}:
+            failures.setdefault(kind, ValueError("Provider settings pair is incompatible"))
+    for kind in kinds:
+        if kind in failures:
+            ctx.pml_rejected_sections.add(kind)
+            ctx.pml_configs[kind] = previous[kind].model_dump(mode="json")
+            if sr is not None:
+                sr.conflict += 1
+                sr.errors.append(f"PML {kind} settings: {failures[kind]}")
+            continue
+        candidate = candidates[kind]
+        if kind not in selected:
+            ctx.pml_configs[kind] = candidate.model_dump(mode="json")
+            continue
+        if candidate == previous[kind]:
+            ctx.pml_configs[kind] = candidate.model_dump(mode="json")
+            if sr is not None:
+                sr.skip("identical")
+            continue
+        if settings is None:
+            settings = AppSettings(id="default", general_settings={}, email_settings={})
+            db.add(settings)
+        updated = dict(settings.general_settings or {})
+        key = f"pml.financial_fields.{kind}"
+        updated[key] = candidate.model_dump(mode="json")
+        settings.general_settings = updated
+        await db.flush()
+        ctx.pml_configs[kind] = updated[key]
+        if sr is not None:
+            sr.updated += 1
+
+
 async def _run(
     db: AsyncSession,
     bundle: WorkspaceBundle,
@@ -264,6 +639,16 @@ async def _run(
     commit: bool = True,
 ) -> ApplyResult:
     result = ApplyResult(dry_run=dry_run)
+    # Any existing portal can distinguish the two date keys on card, detail,
+    # or implicit display paths. Keep both values until that policy is edited.
+    from app.models.web_portal import WebPortal
+
+    existing_portals = list(
+        (await db.scalars(select(WebPortal).where(WebPortal.card_type == "Initiative"))).all()
+    )
+    bundle = _normalize_legacy_initiative_dates(
+        bundle, sheets, protect_existing_legacy=bool(existing_portals)
+    )
 
     # Mirror the proven bulk-create dry-run pattern: ONE savepoint for the whole
     # preview, rolled back at the end. The real apply runs flat in the caller's
@@ -273,6 +658,43 @@ async def _run(
     # break that visibility under the test harness's savepoint-restart fixture).
     root = await db.begin_nested() if dry_run else None
 
+    # A new metamodel field is public by default on an existing portal. Mark
+    # newly introduced date keys hidden without altering previously live keys.
+    if existing_portals and (sheets is None or schema.SHEET_CARD_TYPES in sheets):
+        existing_type = await db.scalar(select(CardType).where(CardType.key == "Initiative"))
+        existing_keys = (
+            {
+                field.get("key")
+                for section in (existing_type.fields_schema or [])
+                if isinstance(section, dict)
+                for field in (section.get("fields") or [])
+                if isinstance(field, dict)
+            }
+            if existing_type is not None
+            else set()
+        )
+        source_rows = [
+            row for row in bundle.rows(schema.SHEET_CARD_TYPES) if row.get("key") == "Initiative"
+        ]
+        source_fields = (
+            from_cell(source_rows[0].get("fields_schema"), is_json=True) if source_rows else []
+        )
+        incoming_keys = {
+            field.get("key")
+            for section in source_fields or []
+            if isinstance(section, dict)
+            for field in (section.get("fields") or [])
+            if isinstance(field, dict)
+        }
+        for portal in existing_portals:
+            config = dict(portal.card_config or {})
+            toggles = dict(config.get("toggles") or {})
+            for key in {"ActualEnd", "actualEnd"} & incoming_keys - existing_keys:
+                toggles.setdefault(f"field:{key}", {"card": False, "detail": False})
+            if toggles != (config.get("toggles") or {}):
+                config["toggles"] = toggles
+                portal.card_config = config
+
     def _wanted(sheet: str) -> bool:
         return sheets is None or sheet in sheets
 
@@ -281,11 +703,31 @@ async def _run(
     # their blobs hold (#1246).
     id_map = rm.IdMap()
 
+    # Resolve the candidate schema and mapping before either is written.
+    incoming_general = _workspace_general_settings(bundle) if _wanted(schema.SHEET_SETTINGS) else {}
+    timeline_conflict = await _timeline_import_conflict(
+        db, bundle, incoming_general, _wanted(schema.SHEET_CARD_TYPES)
+    )
+    financial_keys = {f"pml.financial_fields.{kind}" for kind in ("budget", "cost_item", "invoice")}
+    excluded_settings = financial_keys | ({"pml.timeline"} if timeline_conflict else set())
+    incoming_mapping = incoming_general.get("pml.timeline")
+    blocked_keys = (
+        {value for value in incoming_mapping.values() if isinstance(value, str)}
+        if isinstance(incoming_mapping, dict)
+        else set()
+    )
+
+    timeline_state = {"type_rejected": False}
     sections = [
         # Categories first: the card types name them, and a built-in one on the
         # target must win over whatever the bundle carries.
         (schema.SHEET_CARD_TYPE_CATEGORIES, _apply_card_type_categories),
-        (schema.SHEET_CARD_TYPES, _apply_card_types),
+        (
+            schema.SHEET_CARD_TYPES,
+            functools.partial(
+                _apply_card_types, reject_timeline=timeline_conflict, timeline_state=timeline_state
+            ),
+        ),
         (schema.SHEET_RELATION_TYPES, _apply_relation_types),
         *(
             (sec.sheet, _make_config_applier(sec))
@@ -295,8 +737,16 @@ async def _run(
         (schema.SHEET_TAG_GROUPS, _apply_tag_groups),
         (schema.SHEET_TAGS, functools.partial(_apply_tags, id_map=id_map)),
         (schema.SHEET_USERS, functools.partial(_apply_users, id_map=id_map)),
-        (schema.SHEET_SETTINGS, _apply_settings),
-        (schema.SHEET_CARDS, _make_cards_applier(user, id_map)),
+        (
+            schema.SHEET_SETTINGS,
+            functools.partial(_apply_settings, excluded_general_keys=excluded_settings),
+        ),
+        (
+            schema.SHEET_CARDS,
+            _make_cards_applier(
+                user, id_map, timeline_blocked=bool(timeline_conflict), blocked_keys=blocked_keys
+            ),
+        ),
         (schema.SHEET_CARD_TAGS, functools.partial(_apply_card_tags, id_map=id_map)),
         (schema.SHEET_RELATIONS, functools.partial(_apply_relations, id_map=id_map)),
     ]
@@ -307,7 +757,28 @@ async def _run(
                 continue
             sr = SectionResult(sheet=sheet)
             result.sections.append(sr)
+            if sheet == schema.SHEET_CARDS:
+                applier = _make_cards_applier(
+                    user,
+                    id_map,
+                    timeline_blocked=bool(timeline_conflict),
+                    blocked_keys=blocked_keys,
+                )
             await applier(db, bundle, sr, dry_run)
+            if sheet == schema.SHEET_CARD_TYPES:
+                actual_conflict = await _timeline_import_conflict(
+                    db, bundle, incoming_general, False
+                )
+                if timeline_state["type_rejected"] or actual_conflict:
+                    timeline_conflict = actual_conflict or "Initiative type was rejected"
+                    excluded_settings.add("pml.timeline")
+            if (
+                timeline_conflict
+                and sheet == schema.SHEET_SETTINGS
+                and "pml.timeline" in incoming_general
+            ):
+                sr.conflict += 1
+                sr.errors.append(f"PML Timeline mapping: {timeline_conflict}")
         # The license catalogue also runs for a CardLicenses-only import: it is what drops the
         # cells whose metric or type exists nowhere.
         dropped_license_cells: list[str] = []
@@ -324,16 +795,31 @@ async def _run(
         # Built after the cards pass so every card FK resolves. Cards never
         # preserve UUIDs; module rows do, so intra-module FKs copy verbatim.
         wanted_entity_sections = [ent for ent in ENTITY_SECTIONS if _wanted(ent.sheet)]
-        needs_resolver = bool(wanted_entity_sections) or _wanted(SHEET_DIAGRAM_CARDS)
+        needs_resolver = (
+            bool(wanted_entity_sections)
+            or _wanted(SHEET_DIAGRAM_CARDS)
+            or bool(financial_keys & incoming_general.keys())
+        )
         # Only these sections read the card resolver and the email map, so
         # nothing is loaded for a run that applies none of them.
         if needs_resolver or _wanted(SHEET_BOOKMARK_SHARES):
             ent_resolver, email_to_id = await _load_entity_context(db)
         remap_ctx = None
-        if wanted_entity_sections:
+        if wanted_entity_sections or (financial_keys & incoming_general.keys()):
             remap_ctx = await _load_remap_context(
-                db, bundle, id_map, ent_resolver, wanted_entity_sections
+                db,
+                bundle,
+                id_map,
+                ent_resolver,
+                wanted_entity_sections,
+                include_pml_live=bool(financial_keys & incoming_general.keys())
+                or any(
+                    ent.sheet in {"PpmBudgetLines", "PpmCostLines", "PpmInvoices"}
+                    for ent in wanted_entity_sections
+                ),
             )
+        if remap_ctx is not None:
+            await _finalize_pml_settings(db, incoming_general, remap_ctx, result)
         # An older bundle's decisions carry ``related_decisions``: note which
         # decisions exist before the entity pass, so only the ones it creates
         # are given their links and dates afterwards.
@@ -551,6 +1037,8 @@ async def _load_remap_context(
     id_map: rm.IdMap,
     resolver: CardResolver,
     wanted_sections,
+    *,
+    include_pml_live: bool = False,
 ) -> rm.RemapContext:
     """Everything the entity sections' blob rewriters consult (#1246).
 
@@ -560,6 +1048,8 @@ async def _load_remap_context(
     ``source_id`` existed — builds the indexes the diagram name fallback reads.
     """
     ctx = rm.RemapContext(ids=id_map)
+    if include_pml_live:
+        ctx.live_card_ids = {str(card_id) for card_id in (await db.scalars(select(Card.id))).all()}
     card_rows = bundle.rows(schema.SHEET_CARDS)
     sheets = {sec.sheet for sec in wanted_sections}
     wants_diagrams = "Diagrams" in sheets
@@ -806,7 +1296,65 @@ async def _apply_bookmark_shares(
 # ---------------------------------------------------------------------------
 
 
-async def _apply_card_types(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: bool) -> None:
+def _preserve_initiative_actual_dates(data: dict, current: CardType | None) -> None:
+    if current is None or current.key != "Initiative" or "fields_schema" not in data:
+        return
+    incoming = data["fields_schema"]
+    if not isinstance(incoming, list):
+        incoming = []
+        data["fields_schema"] = incoming
+    for old_section in current.fields_schema or []:
+        if not isinstance(old_section, dict):
+            continue
+        for original in old_section.get("fields") or []:
+            if not isinstance(original, dict) or original.get("key") not in {
+                "actualStart",
+                "actualEnd",
+            }:
+                continue
+            if not original.get("built_in"):
+                continue
+            matches = [
+                (sec, field)
+                for sec in incoming
+                if isinstance(sec, dict)
+                for field in (sec.get("fields") or [])
+                if isinstance(field, dict) and field.get("key") == original["key"]
+            ]
+            if (
+                len(matches) == 1
+                and matches[0][1].get("type") == "date"
+                and not matches[0][1].get("readonly")
+            ):
+                matches[0][1]["built_in"] = True
+                continue
+            for sec, matched in matches:
+                sec["fields"].remove(matched)
+            section = next(
+                (
+                    sec
+                    for sec in incoming
+                    if isinstance(sec, dict) and sec.get("section") == old_section.get("section")
+                ),
+                None,
+            )
+            if section is None:
+                section = {**old_section, "fields": []}
+                incoming.append(section)
+            if section.get("fields") is None:
+                section["fields"] = []
+            section["fields"].append(dict(original))
+
+
+async def _apply_card_types(
+    db,
+    bundle: WorkspaceBundle,
+    sr: SectionResult,
+    dry_run: bool,
+    *,
+    reject_timeline: str | None = None,
+    timeline_state: dict[str, bool] | None = None,
+) -> None:
     existing = {ct.key: ct for ct in (await db.execute(select(CardType))).scalars().all()}
     # A row replaces fields_schema / subtypes / section_config whole. What an
     # active extension contributed to a type on THIS instance is kept, by the
@@ -838,6 +1386,10 @@ async def _apply_card_types(db, bundle: WorkspaceBundle, sr: SectionResult, dry_
             sr.failed += 1
             continue
         current = existing.get(key)
+        if key == "Initiative" and "fields_schema" in data and reject_timeline:
+            sr.conflict += 1
+            sr.errors.append(f"Initiative Timeline schema: {reject_timeline}")
+            continue
         if "lifecycle_stages" in data:
             from app.schemas.lifecycle_stages import LifecycleStagesUpdate
             from app.services.lifecycle_stages import ensure_stages_available
@@ -848,6 +1400,8 @@ async def _apply_card_types(db, bundle: WorkspaceBundle, sr: SectionResult, dry_
                 if current is not None:
                     await ensure_stages_available(db, str(key), data["lifecycle_stages"])
             except (ValidationError, HTTPException) as exc:
+                if key == "Initiative" and timeline_state is not None:
+                    timeline_state["type_rejected"] = True
                 sr.failed += 1
                 sr.errors.append(f"card type {key!r}: invalid lifecycle stages: {exc}")
                 continue
@@ -863,6 +1417,7 @@ async def _apply_card_types(db, bundle: WorkspaceBundle, sr: SectionResult, dry_
             mode="import",
             installed=contribution_guard.installed_contributions(str(key)),
         )
+        _preserve_initiative_actual_dates(data, current)
         if current is None:
             ct = CardType(**{k: v for k, v in data.items()})
             db.add(ct)
@@ -1359,9 +1914,26 @@ async def _apply_users(
 # ---------------------------------------------------------------------------
 
 
-async def _apply_settings(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: bool) -> None:
+async def _apply_settings(
+    db,
+    bundle: WorkspaceBundle,
+    sr: SectionResult,
+    dry_run: bool,
+    *,
+    excluded_general_keys: set[str] | None = None,
+) -> None:
+    await db.execute(
+        insert(AppSettings)
+        .values(id="default", general_settings={}, email_settings={})
+        .on_conflict_do_nothing(index_elements=["id"])
+    )
     row_obj = (
-        await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+        await db.execute(
+            select(AppSettings)
+            .where(AppSettings.id == "default")
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
     ).scalar_one_or_none()
     if row_obj is None:
         row_obj = AppSettings()  # the singleton: its id and both blobs take their defaults
@@ -1382,7 +1954,12 @@ async def _apply_settings(db, bundle: WorkspaceBundle, sr: SectionResult, dry_ru
     if "general_settings" in incoming and isinstance(incoming["general_settings"], dict):
         general = dict(row_obj.general_settings or {})
         clean_general, _ = strip_secrets(incoming["general_settings"], None)
+        clean_general = {
+            k: v for k, v in clean_general.items() if k not in (excluded_general_keys or set())
+        }
         merged = _merge_settings(general, clean_general, GENERAL_SECRET_PATHS)
+        if "pml.timeline" in clean_general:
+            merged["pml.timeline"] = clean_general["pml.timeline"]
         if merged != (row_obj.general_settings or {}):
             row_obj.general_settings = merged
             sr.updated += 1
@@ -1492,7 +2069,13 @@ async def _finalize_cards(db) -> None:
         await db.flush()
 
 
-def _make_cards_applier(user: User, id_map: rm.IdMap | None = None):
+def _make_cards_applier(
+    user: User,
+    id_map: rm.IdMap | None = None,
+    *,
+    timeline_blocked: bool = False,
+    blocked_keys: set[str] | None = None,
+):
     ids = id_map if id_map is not None else rm.IdMap()
 
     async def _apply(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: bool) -> None:
@@ -1575,6 +2158,36 @@ def _make_cards_applier(user: User, id_map: rm.IdMap | None = None):
             if existing.status == "ambiguous":
                 sr.skip("ambiguous_match")
                 continue
+
+            if type_key == "Initiative":
+                from app.services.ppm_timeline import (
+                    TimelineValidationError,
+                    load_timeline_mapping,
+                    validate_actual_date_pair,
+                )
+
+                attrs = data.get("attributes") or {}
+                mapping = await load_timeline_mapping(db)
+                if timeline_blocked and any(
+                    key in attrs
+                    for key in (
+                        mapping.actual_start_key,
+                        mapping.actual_end_key,
+                        *(blocked_keys or set()),
+                        "actualStart",
+                        "actualEnd",
+                    )
+                    if key
+                ):
+                    sr.conflict += 1
+                    sr.errors.append(f"card {name!r}: PML Timeline mapping conflict")
+                    continue
+                try:
+                    validate_actual_date_pair(mapping, attrs)
+                except TimelineValidationError as exc:
+                    sr.conflict += 1
+                    sr.errors.append(f"card {name!r}: {exc}")
+                    continue
 
             # Resolve parent.
             resolved_parent = None

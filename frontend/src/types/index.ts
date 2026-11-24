@@ -2632,7 +2632,7 @@ export interface PpmStatusReport {
   reporter: { id: string; display_name: string } | null;
   report_date: string;
   schedule_health: string;
-  cost_health: string;
+  cost_health: string | null;
   scope_health: string;
   summary: string | null;
   accomplishments: string | null;
@@ -2662,6 +2662,131 @@ export interface PpmBudgetLine {
   amount: number;
   created_at: string;
   updated_at: string;
+}
+
+export type PmlRowKind = "budget" | "cost_item" | "invoice";
+export type PmlFieldKind = "text" | "number" | "date" | "boolean" | "select" | "card_reference" | "calculated";
+export type PmlFieldValue = string | number | boolean | null;
+
+export interface PmlReferenceDisplay {
+  id?: string;
+  name?: string;
+  status: string;
+}
+
+export interface PmlFieldDefinition {
+  key: string;
+  label: string;
+  help?: string | null;
+  kind: PmlFieldKind;
+  required?: boolean;
+  default?: PmlFieldValue;
+  default_display?: PmlReferenceDisplay;
+  options?: { id: string; label: string; active: boolean }[];
+  card_type?: string | null;
+  result_type?: "text" | "number" | "date" | "boolean" | null;
+}
+
+export interface PmlSectionConfig {
+  fields: PmlFieldDefinition[];
+  visible_columns: string[];
+}
+
+export interface PmlProviderChoicePage {
+  items: { id: string; name: string; type: string; parent_id: string; alias: string | null }[];
+  total: number;
+}
+
+export interface PmlRowFields {
+  field_values?: Record<string, PmlFieldValue>;
+  calculated_values?: Record<string, PmlFieldValue>;
+  reference_display?: Record<string, PmlReferenceDisplay>;
+}
+
+export interface PpmFinancialTotals {
+  amount: string;
+  total_cost_items: string;
+  total_invoiced?: string | null;
+  remaining_to_invoice?: string | null;
+}
+
+export interface PpmFinancialBudget extends PpmFinancialTotals, PmlRowFields {
+  id: string;
+  fiscal_year: number;
+  category: PpmBudgetLine["category"];
+  description: string | null;
+  provider?: PmlReferenceDisplay | null;
+  provider_child_enabled?: boolean;
+}
+
+export interface PpmFinancialCost extends PmlRowFields {
+  id: string;
+  budget_line_id: string | null;
+  description: string;
+  category: PpmCostLine["category"];
+  planned: string;
+  actual: string;
+  date: string | null;
+  total_invoiced?: string | null;
+  remaining_to_invoice?: string | null;
+  provider?: PmlReferenceDisplay | null;
+  provider_child_id?: string | null;
+  provider_child_enabled?: boolean;
+}
+
+export interface PpmInvoice extends PmlRowFields {
+  id: string;
+  initiative_id: string;
+  cost_item_id: string;
+  invoice_date: string;
+  invoice_id: string;
+  amount: string;
+}
+
+export interface PpmFinancialSubtotal extends PpmFinancialTotals {
+  fiscal_year: number;
+  category: PpmBudgetLine["category"];
+}
+
+export interface PpmFinancialComparisonSide {
+  capex: string;
+  opex: string;
+  total: string;
+  derived: boolean;
+}
+
+export interface PpmFinancials {
+  initiative_id: string;
+  budget_lines: PpmFinancialBudget[];
+  budget_subtotals: PpmFinancialSubtotal[];
+  budget_totals: PpmFinancialTotals;
+  cost_items: PpmFinancialCost[];
+  invoice_access: boolean;
+  invoices?: PpmInvoice[] | null;
+  actual_invoiced?: string | null;
+  field_definitions: Partial<Record<PmlRowKind, PmlSectionConfig>>;
+  card_comparison?: {
+    budget: PpmFinancialComparisonSide;
+    actual: PpmFinancialComparisonSide;
+  } | null;
+}
+
+export interface PmlInitiativeSchedule {
+  initiative_id: string;
+  start_date?: string | null;
+  end_date?: string | null;
+  actual_start_date?: string | null;
+  actual_end_date?: string | null;
+  start_label?: string | null;
+  end_label?: string | null;
+  actual_start_label?: string | null;
+  actual_end_label?: string | null;
+  plan_start_date?: string | null;
+  plan_end_date?: string | null;
+  plan_derived: boolean;
+  schedule_health?: string | null;
+  cost_health?: string | null;
+  scope_health?: string | null;
 }
 
 export interface PpmRisk {
@@ -2694,6 +2819,8 @@ export interface PpmGanttItem {
   parent_id: string | null;
   start_date: string | null;
   end_date: string | null;
+  actual_start_date?: string | null;
+  actual_end_date?: string | null;
   cost_budget: number | null;
   cost_actual: number | null;
   capex_planned: number;
@@ -2857,7 +2984,7 @@ export interface PpmPortfolioPerson {
 export interface PpmPortfolioReport {
   report_date: string;
   schedule_health: string;
-  cost_health: string;
+  cost_health: string | null;
   scope_health: string;
   reporter?: { display_name: string } | null;
   summary?: string | null;
@@ -2894,6 +3021,12 @@ export interface PpmPortfolioItem {
   latest_report: PpmPortfolioReport | null;
   /** Derived costs and dates for a parent without its own (see `PpmRollup`). */
   rollup?: PpmRollup | null;
+}
+
+/** Actual dates are returned only by the authenticated Portfolio API. */
+export interface PpmPrivatePortfolioItem extends PpmPortfolioItem {
+  actual_start_date?: string | null;
+  actual_end_date?: string | null;
 }
 
 export interface PpmPortfolioDashboard {

@@ -177,7 +177,7 @@ Além de um status de aprovação e de uma fase do ciclo de vida, um gráfico ou
 
 Um diagrama Sankey recebe um tipo de relação e agrupa **cada extremidade** separadamente: por tipo de card, subtipo, status de aprovação, fase do ciclo de vida, qualidade dos dados, um campo do tipo dessa extremidade ou os **próprios cards** — Organização → Aplicação mostra que organizações usam que aplicações, mantendo os vinte maiores cards de cada extremidade e agrupando o resto em *Outros*; o widget indica-o sob o gráfico quando isso acontece, e **Categorias apresentadas (no máximo)** aumenta o limite. Clicar num nó de card abre o card.
 
-Os gráficos também podem representar um relatório de módulo: riscos por nível ou estado, pontuações de conformidade por regulamento, estado do calendário do PPM e maturidade do BPM constam do catálogo quando o módulo está ativado e tem a respetiva permissão. As etiquetas ainda não podem ser usadas como dimensão ou filtro.
+Os gráficos também podem representar um relatório de módulo: riscos por nível ou estado, pontuações de conformidade por regulamento, estado do calendário do PML e maturidade do BPM constam do catálogo quando o módulo está ativado e tem a respetiva permissão. As etiquetas ainda não podem ser usadas como dimensão ou filtro.
 
 Quatro gráficos prontos a usar estão na família **Gráficos** do catálogo, cada um oferecido quando o seu metamodelo tem os elementos necessários: **Aplicações por organização**, **Calendário de fim de vida**, **Fichas desatualizadas por tipo** e o diagrama Sankey **Organização → Aplicação**.
 

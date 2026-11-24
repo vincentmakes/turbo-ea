@@ -177,7 +177,7 @@ Oltre a uno stato di approvazione e a una fase del ciclo di vita, un grafico o u
 
 Un diagramma Sankey prende un tipo di relazione e raggruppa **ciascuna estremità** separatamente: per tipo di card, sottotipo, stato di approvazione, fase del ciclo di vita, qualità dei dati, un campo del tipo di quell'estremità o le **card stesse** — Organizzazione → Applicazione mostra quali organizzazioni usano quali applicazioni, mantenendo le venti card più grandi a ciascuna estremità e raggruppando il resto in *Altro*; in tal caso il widget lo segnala sotto il grafico, e **Categorie mostrate (al massimo)** alza il limite. Facendo clic su un nodo card si apre la card.
 
-I grafici possono anche rappresentare un report di modulo: rischi per livello o stato, punteggi di conformità per normativa, stato della pianificazione PPM e maturità BPM sono nel catalogo quando il modulo è abilitato e hai il relativo permesso. I tag non possono ancora essere usati come dimensione o filtro.
+I grafici possono anche rappresentare un report di modulo: rischi per livello o stato, punteggi di conformità per normativa, stato della pianificazione PML e maturità BPM sono nel catalogo quando il modulo è abilitato e hai il relativo permesso. I tag non possono ancora essere usati come dimensione o filtro.
 
 Quattro grafici pronti all'uso si trovano nella famiglia **Grafici** del catalogo, ciascuno offerto quando il tuo metamodello ha gli elementi necessari: **Applicazioni per organizzazione**, **Calendario di fine vita**, **Schede obsolete per tipo** e il diagramma Sankey **Organizzazione → Applicazione**.
 

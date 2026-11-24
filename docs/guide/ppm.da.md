@@ -1,15 +1,17 @@
-# Project Portfolio Management (PPM)
+# Project Master List (PML)
 
-**PPM**-modulet tilbyder en komplet projekt­porteføljestyringsløsning til at spore initiativer, budgetter, risici, opgaver og tidslinjer. Det integrerer direkte med Initiative-korttypen for at berige hvert projekt med statusrapportering, omkostningssporing og Gantt-visualisering.
+Åbn **Project Master List** fra hovednavigationen for at følge initiativer, budgetter, risici, opgaver og tidslinjer. Modulet samler statusrapporter, økonomi og Gantt-visninger.
 
 !!! note
-    PPM-modulet kan slås til eller fra af en administrator i [Indstillinger](../admin/settings.md). Når det er slået fra, skjules PPM-navigation og -funktioner.
+    PML-modulet kan slås til eller fra af en administrator i [Indstillinger](../admin/settings.md). Når det er slået fra, skjules PML-navigation og -funktioner.
 
 ## Portefølje-dashboard
 
-![PPM Portefølje-dashboard](../assets/img/da/40_ppm_portfolio.png)
+![PML Portefølje-dashboard](../assets/img/da/40_ppm_portfolio.png)
 
-**Portefølje-dashboardet** er hovedindgangspunktet for PPM. Det tilbyder:
+Den interne portefølje viser **Plan** og **Faktisk** på samme kvartalsskala. En enkelt dato vises som en markør, og de nøjagtige datoer er tilgængelige for brugere med adgang. Den offentlige portefølje viser **Plan**.
+
+**Portefølje-dashboardet** er hovedindgangspunktet for PML. Det tilbyder:
 
 - **KPI-linje** — Antallet af initiativer, deres samlede budget (hvor omkostninger vises for dig) og hvor mange der er På sporet, I fare og Ude af spor i tidsplanen. Tallene følger porteføljen: søgningen, den valgte undertype og sektionen **Filtre** indsnævrer dem til de initiativer, du ser på
 - **Gantt-oversigt** — Tidslinjebjælker, der viser hvert initiativs start- og slutdatoer, med RAG-sundhedsindikatorer
@@ -25,7 +27,7 @@ Brug værktøjslinjen til at:
 - **Vise hierarki** for at indlejre initiativerne i hver gruppe under deres overordnede initiativ (se nedenfor)
 - **Undergruppere efter undertype** for at opdele hver gruppe efter undertype (se nedenfor)
 
-Disse indstillinger gemmes i URL'en, så opdatering af siden bibeholder din nuværende visning, og et link, du deler, åbner den samme portefølje. Porteføljen husker også sin søgning, gruppering, undertype, hierarkiindstillinger og filtre i din browser og gendanner dem, når du vender tilbage — fra PPM-menuen eller med tilbage-pilen efter at have åbnet et initiativ. Et link, der har sine egne indstillinger med, åbner med dem, og de bliver de huskede. Ikonet **Nulstil til standarder** i titellinjen sætter porteføljen tilbage til standardindstillingerne.
+Disse indstillinger gemmes i URL'en, så opdatering af siden bibeholder din nuværende visning, og et link, du deler, åbner den samme portefølje. Porteføljen husker også sin søgning, gruppering, undertype, hierarkiindstillinger og filtre i din browser og gendanner dem, når du vender tilbage — fra PML-menuen eller med tilbage-pilen efter at have åbnet et initiativ. Et link, der har sine egne indstillinger med, åbner med dem, og de bliver de huskede. Ikonet **Nulstil til standarder** i titellinjen sætter porteføljen tilbage til standardindstillingerne.
 
 #### Sektionen Filtre
 
@@ -43,7 +45,7 @@ Når nogle initiativer i porteføljen har et overordnet initiativ, der også er 
 
 Grupperingen kommer stadig først: hierarkiet indlejres **inden for hver gruppe**, så et initiativ, hvis overordnede hører til en anden gruppe, vises som en række på øverste niveau i sin egen gruppe. Filtrene anvendes først, og træet viser det, der er tilbage: når søgningen eller undertypefilteret udelader et overordnet initiativ, rykker dets underordnede op på øverste niveau i stedet for, at det overordnede bevares som kontekst.
 
-![PPM-portefølje med hierarkiet vist](../assets/img/da/101_ppm_portfolio_hierarchy.png)
+![PML-portefølje med hierarkiet vist](../assets/img/da/101_ppm_portfolio_hierarchy.png)
 
 #### Undergruppér efter undertype
 
@@ -59,7 +61,7 @@ Gruppens bundlinje træder i stedet for totalrækken: Den bærer undertypens nav
 
 Hvert initiativ viser sine egne tal, når det har nogen: et overordnet initiativs CapEx- og OpEx-bjælker dækker de budget- og omkostningslinjer, der er registreret på det selv, og dets Gantt-bjælke dets egne start- og slutdatoer. Et overordnet initiativ **uden egne budgetlinjer** viser i stedet budgettet for initiativerne under det, og et **uden egne omkostningslinjer** deres realiserede tal; i begge tilfælde tegnes bjælken **omridset** med kursive tal, og dens værktøjstip angiver, hvilken halvdel der kommer nedefra. Et initiativ **uden hverken start- eller slutdato** spænder fra den tidligste start til den seneste slutning under det, tegnet som en **stiplet** bjælke med kursive kvartaler. Et værktøjstip fortæller i begge tilfælde, hvor mange initiativer det dækker. De tre regler er uafhængige af hinanden — et program, der har budgettet, mens dets projekter registrerer forbruget, viser sit eget budget over for deres realiserede tal, og et program kan have egne datoer og alligevel vise sine projekters omkostninger — og én budgetlinje, én omkostningslinje eller én dato på det overordnede initiativ er nok til at skifte den del tilbage til dets egne tal. Kun de initiativer, du kan se, tæller med, og på en portal kun dem, portalen udgiver. Gruppetotalerne og KPI-linjen lægger fortsat kun registrerede linjer sammen, så hvert tal tælles én gang.
 
-De afledte tal findes kun på PPM-tavlen og på initiativets egne faner **Oversigt** og **Budget og omkostninger**. Hvis du vil have en sammenlagt total med i inventaret, rapporter eller en portal, skal du definere et beregnet felt, der lægger hvert niveaus eget budget til de underordnedes totaler — se [Summér PPM-tal op gennem initiativhierarkiet](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). En PPM-ændring på et underordnet initiativ kører beregningerne igen for alle initiativer over det, så det overordnedes total flytter sig med det samme.
+De afledte tal findes kun på PML-tavlen og på initiativets egne faner **Oversigt** og **Budget og omkostninger**. Hvis du vil have en sammenlagt total med i inventaret, rapporter eller en portal, skal du definere et beregnet felt, der lægger hvert niveaus eget budget til de underordnedes totaler — se [Summér PML-tal op gennem initiativhierarkiet](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). En PML-ændring på et underordnet initiativ kører beregningerne igen for alle initiativer over det, så det overordnedes total flytter sig med det samme.
 
 ### Udskrivning og eksport
 
@@ -71,15 +73,18 @@ Porteføljen tilbyder de samme handlinger i titellinjen som rapporterne:
 
 ## Initiativ-detaljevisning
 
+Faktisk start og faktisk slut er indbyggede felter på initiativkortet. Du kan ændre eller rydde værdierne. En administrator kan ændre etiketter og placering i Metamodel. Feltdefinitionerne kan ikke slettes.
+
 Klik på et initiativ for at åbne dets detaljeside med syv faner:
 
 ### Overview-fane
 
-![PPM Initiativ-overblik](../assets/img/da/41_ppm_overview.png)
+![PML Initiativ-overblik](../assets/img/da/41_ppm_overview.png)
 
 Overblikket viser et resumé af initiativets sundhed og økonomi:
 
 - **Sundhedsresumé** — Tidsplan-, omkostnings- og scope-indikatorer fra den seneste statusrapport
+- **Tidslinje** — planlagte og faktiske datoer med to spor på samme kvartalsskala
 - **Budget vs. faktisk** — Kombineret KPI-kort, der viser samlet budget og faktisk forbrug med varians
 - **Tal nedefra** — Når initiativet ikke har egne budgetlinjer, viser dets samlede budget, dets budgetbjælker og variansen i stedet budgettet for initiativerne under det: i kursiv, markeret med en ↳-pil, med budgetsporet omridset og et værktøjstip, der fortæller, hvor mange initiativer de dækker. Når det ikke har egne omkostningslinjer, kommer dets realiserede tal nedefra på samme måde, med forbrugsbjælkerne omridset. De to sider afgøres hver for sig, og den første egne linje skifter den side tilbage til initiativets egne tal.
 - **Under dette initiativ** — Når initiativet har initiativer under sig, viser en linje under budgetbjælkerne, hvor mange der er, deres samlede budget og faktiske forbrug samt det tidsrum, deres datoer spænder over. Den vises ved siden af initiativets egne tal og lægges aldrig til dem. Når både budgettet og de realiserede tal allerede kommer nedefra, beholder linjen kun antallet og tidsrummet.
@@ -87,7 +92,7 @@ Overblikket viser et resumé af initiativets sundhed og økonomi:
 
 ### Statusrapporter-fane
 
-![PPM Statusrapporter](../assets/img/da/42_ppm_status_reports.png)
+![PML Statusrapporter](../assets/img/da/42_ppm_status_reports.png)
 
 Månedlige statusrapporter sporer projektsundhed over tid. Hver rapport indeholder:
 
@@ -103,18 +108,20 @@ Månedlige statusrapporter sporer projektsundhed over tid. Hver rapport indehold
 
 ### Budget og omkostninger-fane
 
-![PPM Budget og omkostninger](../assets/img/da/43_ppm_budget_costs.png)
+![PML Budget og omkostninger](../assets/img/da/43_ppm_budget_costs.png)
 
-Spor finansielle data med to typer af linjeposter:
+**Planlagt budget** viser budgetlinjer efter regnskabsår og kategori (CapEx eller OpEx). Fold en budgetlinje ud for at se dens **Omkostningsposter**. Fold en omkostningspost ud for at se **Faktisk faktureret**. Regnskabsårets start følger [Indstillinger](../admin/settings.md#fiscal-year-start).
 
-- **Budgetlinjer** — Planlagt budget pr. regnskabsår og kategori (CapEx / OpEx) med en valgfri beskrivelse. Et regnskabsår og en kategori kan have så mange linjer, som du har brug for — én pr. licens, implementeringspartner eller hardwareparti — og beskrivelsen skelner dem fra hinanden; totalerne lægger dem alle sammen. Budgetlinjer grupperes efter den **startmåned for regnskabsåret**, der er konfigureret i [Indstillinger](../admin/settings.md#fiscal-year-start). For eksempel, hvis regnskabsåret begynder i april, tilhører en budgetlinje dateret juni 2026 FY 2026–2027
-- **Omkostningslinjer** — Faktiske udgifter med dato, beskrivelse og kategori
+Indtast budget-, omkostnings- og fakturabeløb uden moms. Brug Faktisk faktureret til at registrere allerede udstedte fakturaer.
 
-Begge tabeller er grupperet efter regnskabsår. Hvert år har en overskriftsrække med årets subtotaler for CapEx, OpEx og i alt samt antallet af linjer; pilen i overskriften viser eller skjuler årets linjer. Når fanen åbnes, er kun det aktuelle regnskabsår foldet ud (eller det seneste år med linjer, hvis det aktuelle ikke har nogen). Beløbene står i separate kolonner **CapEx** og **OpEx**, og en række **I alt, alle regnskabsår** under hver tabel lægger alle år sammen. Vælg **+** i overskriften for et budgetår for at tilføje en budgetlinje med det regnskabsår allerede udfyldt. Omkostningslinjer grupperes efter det regnskabsår, deres dato falder i, og sorteres efter dato inden for året; omkostningslinjer uden dato samles til sidst i gruppen **Uden dato** og tæller med i omkostningstotalerne som alle andre linjer.
+- Opret en omkostningspost fra budgetlinjen. Under **Omkostninger uden budget** kan du knytte en ældre post til et budget. Du kan flytte poster mellem budgetlinjer i samme initiativ.
+- Registrér fakturadato, dokumentreference og beløb. Dækker en faktura flere omkostningsposter, registrerer du den relevante del under hver post. Du kan flytte en fakturaregistrering til en anden post i samme initiativ.
+- En omkostningspost viser faktisk omkostning, faktureret beløb og rest til fakturering. Resten er faktisk omkostning minus faktureret beløb og kan være negativ. Budgettet summerer sine tilknyttede poster. Delsummer grupperer budgetlinjer efter regnskabsår og kategori. Initiativets fakturerede total omfatter også fakturaer på poster uden budget.
+- Budgettet, de faktiske omkostninger og diagrammerne bruger de registrerede budget- og omkostningsbeløb. Når du registrerer eller flytter en faktura, ændres faktureringstallene, mens budget- og omkostningsbeløbene bevares.
 
-Når initiativet **ikke har egne budgetlinjer**, viser budgettabellen budgettet for initiativerne under det i stedet for sin tomme tilstand: en billedtekst angiver, hvor mange initiativer det kommer fra, én skrivebeskyttet række pr. regnskabsår viser CapEx, OpEx og total i kursiv, og rækken **I alt, alle regnskabsår** lægger dem sammen. Omkostningstabellen gør det samme med deres realiserede tal, når initiativet **ikke har egne omkostningslinjer**, med en række **Uden dato** for deres omkostningslinjer uden dato. Opsummeringslinjen markerer disse tal i kursiv med et værktøjstip. Hver tabel afgør det selv, intet gemmes eller lægges til initiativets egne tal, og kun de initiativer, du kan se, tæller med. Den første egne linje via **Tilføj budgetlinje** eller **Tilføj omkostningspost** skifter tabellen tilbage til initiativets egne linjer; forbrugsdiagrammerne viser altid initiativets egne linjer.
+Hvis administratoren har konfigureret en leverandør på budgettet, arver omkostningsposten den og kan vælge en tilladt direkte underleverandør. Se [Konfigurér budget og omkostninger](../admin/settings.md#pml-budget-costs) for supplerende og beregnede felter.
 
-Budget- og omkostnings­totaler rulles automatisk op til Initiative-kortets egenskaber `costBudget` og `costActual`. Når PPM-omkostningslinjer findes, markeres disse kort-felter som auto-beregnet og bliver skrivebeskyttede i kortdetaljevisningen.
+Hvis initiativet ikke har egne budget- eller omkostningsposter, kan det pågældende tal komme fra synlige underordnede initiativer. Budget og omkostning vurderes uafhængigt, og afledte rækker viser en streg for tilknyttede omkostninger og fakturering. Budget- og omkostningstotalerne opdaterer `costBudget` og `costActual` på initiativkortet automatisk. Når initiativet har egne omkostningsposter, beregnes felterne automatisk og er skrivebeskyttede på kortet.
 
 #### Forbrug over tid
 
@@ -133,7 +140,7 @@ To ting at være opmærksom på, når diagrammerne læses:
 
 ### Risikostyring-fane
 
-![PPM Risikostyring](../assets/img/da/44_ppm_risk_management.png)
+![PML Risikostyring](../assets/img/da/44_ppm_risk_management.png)
 
 Risikoregistret sporer initiativets risici. Hver risiko har:
 
@@ -224,7 +231,7 @@ Kolonner genkendes på deres overskrift på dit sprog eller på engelsk. En kolo
 
 ### Tasks-fane
 
-![PPM Opgavetavle](../assets/img/da/45_ppm_task_board.png)
+![PML Opgavetavle](../assets/img/da/45_ppm_task_board.png)
 
 Opgavestyringen understøtter både **Kanban-tavle**- og **liste**-visninger med fire status-kolonner:
 
@@ -245,7 +252,7 @@ Visningsfiltre (visningstilstand, WBS-filter, gruppér-efter-skifter) vedvarer i
 
 ### Gantt-fane
 
-![PPM Gantt-diagram](../assets/img/da/46_ppm_gantt.png)
+![PML Gantt-diagram](../assets/img/da/46_ppm_gantt.png)
 
 Gantt-diagrammet visualiserer projekttidslinjen med:
 
@@ -272,17 +279,21 @@ Interager med Gantt-diagrammet ved hjælp af:
 
 Den sidste fane viser den fulde kortdetaljevisning, inklusive alle standardsektioner (beskrivelse, livscyklus, egenskaber, relationer, interessenter, kommentarer, historik).
 
+I **Omkostninger og tidslinje** sammenligner overlappende søjler budget og faktiske omkostninger for Total, CapEx og OpEx. Det fakturerede initiativbeløb vises særskilt for brugere med adgang. Tidslinjen viser synlige planlagte og faktiske datoer samt de seneste indikatorer for tid, omkostning og omfang.
+
 ### Initiativrapport
 
-![PPM-initiativrapport](../assets/img/da/103_ppm_initiative_report.png)
+![PML-initiativrapport](../assets/img/da/103_ppm_initiative_report.png)
+
+Udskriften indeholder synlige planlagte og faktiske datoer samt det udfoldede hierarki med budget, omkostningsposter og fakturaer. Delsummer efter regnskabsår og initiativets faktureringstotal vises efter brugerens tilladelser.
 
 Knappen **Rapport** i initiativets overskrift, ved siden af undertype-chippen (et ikon på en telefon), åbner **Initiativrapport**: én skrivebeskyttet side, der samler det, fanerne viser, opsat som de andre rapporter, med initiativets navn som titel og en tilbagepil til at vende tilbage til initiativet. Chippene **Afsnit** på værktøjslinjen viser eller skjuler hvert afsnit; første gang vises alle, og dit valg huskes i din browser:
 
 | Afsnit | Hvad det viser |
 |--------|----------------|
-| **Oversigt** | Felter for **Samlet budget**, **Samlet realiseret**, **Afvigelse** og **Fuldførelse**; **Sundhedsoversigt** med de tre vurderinger fra den seneste statusrapport i farve og i ord; bjælkerne under **Økonomi** for i alt, CapEx og OpEx; kortet **Tidslinje** med start- og slutdato, undertype og initiativstatus; og beskrivelsen. Tal hentet fra de underliggende initiativer er markeret med en note, der forklarer dem |
+| **Oversigt** | Felter for **Samlet budget**, **Samlet realiseret**, **Afvigelse** og **Fuldførelse**; **Sundhedsoversigt** med de tre vurderinger fra den seneste statusrapport i farve og i ord; bjælkerne under **Økonomi** for i alt, CapEx og OpEx; kortet **Tidslinje** med synlige planlagte og faktiske datoer, undertype og initiativstatus; og beskrivelsen. Tal hentet fra de underliggende initiativer er markeret med en note, der forklarer dem |
 | **Statusrapporter** | Den seneste rapport i sin helhed med dens vurderinger og derefter de tidligere rapporter i en tabel med dato, rapportør og sundhedsvurderinger |
-| **Budget og omkostninger** | Felter for samlet budget, realiseret og afvigelse samt for CapEx og OpEx brugt i forhold til deres budget; diagrammerne **Forbrug over tid** for det regnskabsår, der står i deres chip, og for hele projektet; derefter tabellerne **Planlagt budget** og **Omkostningsposter** med alle regnskabsår foldet ud |
+| **Budget og omkostninger** | Felter for samlet budget, realiseret og afvigelse samt for CapEx og OpEx brugt i forhold til deres budget; diagrammerne **Forbrug over tid** for det regnskabsår, der står i deres chip, og for hele projektet; derefter det udfoldede hierarki **Planlagt budget → Omkostningsposter → Faktisk faktureret** med delsummer pr. regnskabsår og initiativets fakturerede beløb |
 | **Risikostyring** | Felter for **Risici i alt**, **Åben** og **Høje risici**; **Risikovarmekort** over sandsynlighed mod konsekvens, hvor hver celle er farvet efter scoreinterval og viser, hvor mange risici den rummer, ved siden af en optælling **Efter status**; derefter hver risiko med sin score (og sandsynlighed × konsekvens), status, ejer, fuld beskrivelse og fuld afbødning, højeste score først |
 | **Opgaver og tidsplan** | En tabel over arbejdspakker, hver med sine opgaver under sig, og derefter opgaverne uden arbejdspakke, ved siden af en tidslinje på en kvartalsskala: en bjælke for hver arbejdspakke udfyldt efter dens fuldførelse, en bjælke for hver opgave i dens statusfarve, en rombe for en milepæl (som i Gantt-diagrammet), en prik for et element med kun én dato og en linje for i dag, når den falder inden for intervallet. Hver række viser også sin fremdrift eller status og sin prioritet, og en signaturforklaring forklarer markeringerne |
 
@@ -303,14 +314,16 @@ WBS'en tilbyder en hierarkisk nedbrydning af projektets scope:
 
 ## Kortdetalje-integration
 
-Når PPM er aktiveret, viser **Initiative**-kort en **PPM**-fane som den sidste fane i [kortdetaljevisningen](card-details.md). Klikker du på denne fane, navigeres direkte til PPM Initiativ-detaljevisningen (Overview-fane). Dette giver et hurtigt indgangspunkt fra ethvert Initiative-kort til dets fulde PPM-projektside.
+Når PML er aktiveret, viser **Initiative**-kort en **PML**-fane som den sidste fane i [kortdetaljevisningen](card-details.md). Klikker du på denne fane, navigeres direkte til PML Initiativ-detaljevisningen (Overview-fane). Dette giver et hurtigt indgangspunkt fra ethvert Initiative-kort til dets fulde PML-projektside.
 
-Omvendt viser **Card Details**-fanen inden i PPM Initiativ-detaljevisningen standardkortdetaljesektionerne uden PPM-fanen, hvilket undgår cirkulær navigation.
+Omvendt viser **Card Details**-fanen inden i PML Initiativ-detaljevisningen standardkortdetaljesektionerne uden PML-fanen, hvilket undgår cirkulær navigation.
 
 ## Tilladelser
 
 | Tilladelse | Beskrivelse |
 |------------|-------------|
-| `ppm.view` | Se PPM-dashboardet, Gantt-diagram og initiativrapporter samt læse initiativkort. Givet til alle roller som standard |
+| `ppm.view` | Se PML-dashboardet, Gantt-diagram og initiativrapporter samt læse initiativkort. Givet til alle roller som standard |
 | `ppm.manage` | Opret og administrer statusrapporter, opgaver, omkostninger, risici og WBS-elementer. Givet til Admin-, BPM Admin- og Member-roller |
-| `reports.ppm_dashboard` | Se PPM-portefølje-dashboardet. Givet til alle roller som standard |
+| `reports.ppm_dashboard` | Se PML-portefølje-dashboardet. Givet til alle roller som standard |
+
+Budget og omkostningsposter følger PML-tilladelsen og initiativets synlighed. Fakturadetaljer, faktureringstotal og tidslinjens omkostningsindikator kræver også ret til at se omkostningerne. Registrering og flytning af fakturaer kræver desuden adgang til at administrere PML.

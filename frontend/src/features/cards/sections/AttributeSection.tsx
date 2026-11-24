@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Accordion from "@mui/material/Accordion";
@@ -82,6 +82,7 @@ function AttributeSection({
   onDirtyChange,
   expandOn,
   editOn,
+  renderAfterFields,
 }: {
   section: SectionDef & { defaultExpanded?: boolean; columns?: 1 | 2 };
   card: Card;
@@ -97,6 +98,7 @@ function AttributeSection({
   expandOn?: number;
   /** A data-quality jump: open in edit mode, focused on its field. */
   editOn?: SectionEditRequest;
+  renderAfterFields?: (fieldKeys: string[]) => ReactNode;
 }) {
   const { t } = useTranslation(["cards", "common", "validation"]);
   const { fmt, symbol } = useCurrency();
@@ -408,12 +410,14 @@ function AttributeSection({
                 {rl(item.name, section.groupTranslations?.[item.name])}
               </Typography>
               {isEdit ? renderEditFields(item.fields) : renderReadGrid(item.fields)}
+              {!isEdit && expanded && renderAfterFields?.(item.fields.map((field) => field.key))}
             </Box>
           );
         }
         return (
           <Box key={item.field.key} sx={{ mb: isEdit ? 2.5 : 0.5 }}>
             {isEdit ? renderEditFields([item.field]) : renderReadGrid([item.field])}
+            {!isEdit && expanded && renderAfterFields?.([item.field.key])}
           </Box>
         );
       })}

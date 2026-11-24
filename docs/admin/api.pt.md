@@ -111,7 +111,7 @@ A referência ao vivo acima é a fonte completa da verdade; a tabela abaixo é u
 | `/metamodel` | Tipos de card, campos, seções, subtipos, tipos de relação |
 | `/reports` | KPIs do painel, portfólio, matriz, ciclo de vida, dependências, custo, qualidade dos dados |
 | `/bpm` | Gestão de processos de negócio — diagramas, elementos, versões de fluxo, avaliações |
-| `/ppm` | Gestão de portfólio de projetos — iniciativas, relatórios de status, EAP, tarefas, custos, riscos |
+| `/ppm` | Lista principal de projetos — iniciativas, relatórios de estado, WBS, tarefas, custos e riscos |
 | `/turbolens` | Análise com IA (fornecedores, duplicatas, segurança, IA de arquitetura) |
 | `/risks` | Registro de riscos de EA (Fase G do TOGAF) |
 | `/diagrams` | Diagramas DrawIO |

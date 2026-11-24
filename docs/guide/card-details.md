@@ -290,9 +290,9 @@ When the [GRC module](grc.md) is enabled **and** the card has at least one linke
 
 For **Business Process** cards, an additional **Process Flow** tab appears with an embedded BPMN diagram viewer/editor. See [BPM](bpm.md) for details on process flow management.
 
-## PPM Tab (Initiative cards only)
+## PML Tab (Initiative cards only) { #ppm-tab-initiative-cards-only }
 
-When the [PPM module](ppm.md) is enabled, **Initiative** cards display an additional **PPM** tab as the last tab. Clicking this tab navigates to the PPM Initiative Detail View where you can manage status reports, budgets, risks, tasks, and Gantt timelines.
+When the [PML module](ppm.md) is enabled, **Initiative** cards display an additional **PML** tab as the last tab. Clicking this tab navigates to the PML Initiative Detail View where you can manage status reports, budgets, risks, tasks, and Gantt timelines.
 
 ## Archiving
 

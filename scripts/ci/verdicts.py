@@ -201,9 +201,9 @@ _GLOB_CHARS = re.compile(r"[*?\[\]{}!]")
 def compile_pattern(pattern: str) -> Callable[[str], bool]:
     """A predicate for one paths-filter pattern, in the forms ``ci.yml`` uses.
 
-    ``dir/**`` (everything below ``dir``), an exact path, and either of those
-    negated with a leading ``!``. Anything else raises :class:`NoVerdictsError`, so
-    a new glob form in ``ci.yml`` turns the cache off instead of mismatching.
+    ``dir/**`` (everything below ``dir``), ``dir/*literal*`` (an immediate child
+    containing a literal), and exact paths are supported, with optional leading
+    ``!`` negation. Other forms raise :class:`NoVerdictsError` and turn the cache off.
 
     A negated pattern follows dorny/paths-filter's default ``some`` quantifier
     literally: ``!p`` matches every path ``p`` does not, so a filter carrying
@@ -220,12 +220,20 @@ def compile_pattern(pattern: str) -> Callable[[str], bool]:
 
         def positive(path: str) -> bool:
             return path.startswith(prefix)
-    else:
-        if not body or _GLOB_CHARS.search(body):
-            raise NoVerdictsError(f"unsupported filter pattern {pattern!r}")
+    elif not _GLOB_CHARS.search(body) and body:
 
         def positive(path: str) -> bool:
             return path == body
+    else:
+        directory, _, filename = body.rpartition("/")
+        literal = re.fullmatch(r"\*([A-Za-z0-9_.-]+)\*", filename)
+        if not directory or _GLOB_CHARS.search(directory) or literal is None:
+            raise NoVerdictsError(f"unsupported filter pattern {pattern!r}")
+        fragment = literal.group(1)
+
+        def positive(path: str) -> bool:
+            parent, _, leaf = path.rpartition("/")
+            return parent == directory and fragment in leaf
 
     if negated:
         return lambda path: not positive(path)

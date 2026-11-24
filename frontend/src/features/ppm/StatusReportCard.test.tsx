@@ -155,3 +155,11 @@ describe("StatusReportCard", () => {
     expect(container.firstElementChild).toHaveClass("MuiPaper-outlined");
   });
 });
+
+it("omits the withheld cost dimension while retaining the other ratings", () => {
+  render(<ReportHealth report={report({cost_health: null})} showRating />);
+  expect(screen.queryByText("Cost")).not.toBeInTheDocument();
+  expect(screen.queryByTitle("Off Track")).not.toBeInTheDocument();
+  expect(screen.getByText("Schedule")).toBeInTheDocument();
+  expect(screen.getByText("Scope")).toBeInTheDocument();
+});

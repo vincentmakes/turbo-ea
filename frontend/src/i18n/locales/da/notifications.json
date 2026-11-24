@@ -28,7 +28,7 @@
   "preferences.loadFailed": "Kunne ikke indlæse indstillinger",
   "preferences.saveFailed": "Kunne ikke gemme indstillinger",
   "preferences.todoAssigned": "Opgave tildelt",
-  "preferences.taskAssigned": "PPM-opgave tildelt",
+  "preferences.taskAssigned": "PML-opgave tildelt",
   "preferences.surveyRequest": "Anmodning om undersøgelse",
   "preferences.cardUpdated": "Kort opdateret",
   "preferences.commentAdded": "Kommentar tilføjet",

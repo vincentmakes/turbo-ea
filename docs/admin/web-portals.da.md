@@ -19,12 +19,14 @@ Hver portal offentliggør én af tre visninger, valgt med **Portaltype**:
 | Type | Hvad besøgende ser |
 |------|--------------------|
 | **Kortliste** | Et gitter af kort, der kan søges og filtreres — den klassiske portal, konfigureret med egenskaberne nedenfor. |
-| **PPM-porteføljetavle** | Den skrivebeskyttede [PPM-porteføljetavle](../guide/ppm.md) — tidslinje, statusindikatorer og budget over for faktisk forbrug for hvert aktivt initiativ. |
+| **PML-porteføljetavle** | Den skrivebeskyttede [PML-porteføljetavle](../guide/ppm.md) — tidslinje, statusindikatorer og budget over for faktisk forbrug for hvert aktivt initiativ. |
 | **Procesnavigator** | Det skrivebeskyttede [Proceshus](../guide/bpm.md) — dit forretningsprocesthierarki og hver proces' offentliggjorte BPMN-flow. |
 
-### PPM-porteføljeportaler
+### PML-porteføljeportaler { #ppm-portfolio-portals }
 
-Vælger du **PPM-porteføljetavle**, bliver portalen til en ledelsesvisning af din
+Den offentlige porteføljeportal viser Plan. En eksisterende kortlisteportal følger sin egen konfiguration af synligheden for datofelter.
+
+Vælger du **PML-porteføljetavle**, bliver portalen til en ledelsesvisning af din
 projektportefølje, tilgængelig via et offentligt link **uden konto, uden licens og uden
 login**. Lavet til det almindelige tilfælde, hvor ledelsen ønsker indblik i porteføljen,
 men ikke vil vedligeholde endnu et sæt loginoplysninger.
@@ -66,7 +68,7 @@ overhovedet offentliggøres.
     Initiativ-kortet, brugernes e-mailadresser og alt på et initiativs detaljeside —
     arbejdspakker, milepæle, risici, opgaver og rapporthistorik forbliver bag login.
 
-En porteføljeportal kan SSO-beskyttes som enhver anden portal. Slår du PPM-modulet fra
+En porteføljeportal kan SSO-beskyttes som enhver anden portal. Slår du PML-modulet fra
 under **Admin > Indstillinger**, bliver alle porteføljeportaler utilgængelige med det
 samme; du behøver ikke afpublicere dem én ad gangen.
 
@@ -164,7 +166,7 @@ Hvert felt tilbyder også **(tom)** for kort uden værdi, uden relation eller ud
 !!! note
     En portal, der er oprettet før version 2.178.0, beholder sine undertype- og tagfiltre, præcis som de var, indtil du gemmer den næste gang. Derefter skal tags valgt fra to forskellige taggrupper begge være på et kort, som i porteføljerapporten.
 
-PPM-porteføljeportaler og procesnavigatorportaler beholder deres egne vælgere for **Undertyper** og **Tags**.
+PML-porteføljeportaler og procesnavigatorportaler beholder deres egne vælgere for **Undertyper** og **Tags**.
 
 ## Konfiguration af synlighed
 

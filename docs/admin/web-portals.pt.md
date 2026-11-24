@@ -19,12 +19,14 @@ Cada portal publica uma de três vistas, escolhida em **Tipo de portal**:
 | Tipo | O que os visitantes veem |
 |------|--------------------------|
 | **Lista de cartões** | Uma grelha de cartões com pesquisa e filtros — o portal clássico, configurado com as propriedades abaixo. |
-| **Painel de portfólio PPM** | O [painel de portfólio PPM](../guide/ppm.md) só de leitura — cronograma, indicadores de estado e orçamento face ao real de cada iniciativa ativa. |
+| **Painel de portfólio PML** | O [painel de portfólio PML](../guide/ppm.md) só de leitura — cronograma, indicadores de estado e orçamento face ao real de cada iniciativa ativa. |
 | **Navegador de processos** | A [Casa de Processos](../guide/bpm.md) só de leitura — a sua hierarquia de processos de negócio e o fluxo BPMN publicado de cada processo. |
 
-### Portais de portfólio PPM
+### Portais de portfólio PML { #ppm-portfolio-portals }
 
-Escolher **Painel de portfólio PPM** transforma o portal numa vista executiva do seu
+O portefólio público mostra o plano. Um portal de lista de cartões existente aplica a sua configuração de visibilidade aos campos de data da iniciativa.
+
+Escolher **Painel de portfólio PML** transforma o portal numa vista executiva do seu
 portfólio de projetos, acessível através de uma ligação pública **sem conta, sem licença
 e sem autenticação**. Pensado para o caso comum em que a direção quer visibilidade sobre
 o portfólio mas não vai manter mais credenciais.
@@ -68,7 +70,7 @@ iniciativas são publicadas.
     riscos, tarefas e histórico de relatórios ficam por trás da autenticação.
 
 Um portal de portfólio pode ser protegido por SSO como qualquer outro portal. Desativar
-o módulo PPM em **Admin > Definições** torna todos os portais de portfólio imediatamente
+o módulo PML em **Admin > Definições** torna todos os portais de portfólio imediatamente
 inacessíveis, sem ter de os despublicar um a um.
 
 ### Portais de navegador de processos
@@ -166,7 +168,7 @@ Cada controlo oferece também **(vazio)**, para os cartões sem valor, sem rela�
 !!! note
     Um portal criado antes da versão 2.178.0 mantém os seus filtros de subtipos e etiquetas tal como estavam até o voltar a guardar. A partir daí, etiquetas escolhidas de dois grupos diferentes têm de estar ambas num cartão, como no relatório de portefólio.
 
-Os portais de portefólio PPM e de navegador de processos mantêm os seus próprios seletores de **Subtipos** e **Etiquetas**.
+Os portais de portefólio PML e de navegador de processos mantêm os seus próprios seletores de **Subtipos** e **Etiquetas**.
 
 ## Configurando Visibilidade
 

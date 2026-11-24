@@ -722,6 +722,7 @@ describe("FormulaEditor suggestions", () => {
     await user.type(textarea, "ppm.");
     list = await suggestionList();
     expect(list.getByText("Planned budget (capex)")).toBeInTheDocument();
+    expect(list.getAllByText("PML").length).toBeGreaterThan(0);
     expect(list.getByText("Amounts per fiscal year (list)")).toBeInTheDocument();
     // Only the first twenty are listed after a bare dot.
     expect(list.getByText("tasksTodo")).toBeInTheDocument();
@@ -731,7 +732,7 @@ describe("FormulaEditor suggestions", () => {
     await waitFor(() => expect(screen.queryByText("tasksTodo")).not.toBeInTheDocument());
     list = await suggestionList();
     expect(list.getByText("riskScoreMax")).toBeInTheDocument();
-    expect(list.getAllByText("PPM risks — all, open, and the highest risk score")).toHaveLength(3);
+    expect(list.getAllByText("PML risks — all, open, and the highest risk score")).toHaveLength(3);
     // Four multi-segment paths typed keystroke by keystroke take ~6 s on their
     // own, so the global 15 s is too tight on a loaded CI shard.
   }, 30_000);

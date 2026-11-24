@@ -46,6 +46,7 @@ ID_FREE_COLUMNS: dict[tuple[str, str], str] = {
     ("PpmStatusReports", "next_steps"): PROSE,
     ("PpmCostLines", "description"): PROSE,
     ("PpmCostLines", "category"): ENUM,
+    ("PpmInvoices", "invoice_id"): PROSE,
     ("PpmBudgetLines", "description"): PROSE,
     ("PpmBudgetLines", "category"): ENUM,
     ("PpmRisks", "title"): PROSE,
@@ -144,6 +145,9 @@ def test_a_rewrite_and_its_columns_come_together():
 def test_the_sections_that_hold_ids_are_the_known_ones():
     declared = {s.sheet: s.id_bearing_columns for s in ENTITY_SECTIONS if s.id_bearing_columns}
     assert declared == {
+        "PpmBudgetLines": ("field_values",),
+        "PpmCostLines": ("field_values",),
+        "PpmInvoices": ("field_values",),
         "Todos": ("link",),
         "Diagrams": ("data",),
         "ProcessDiagrams": ("bpmn_xml",),
@@ -166,3 +170,16 @@ def test_the_sections_that_hold_ids_are_the_known_ones():
         "Surveys": ("target_filters",),
         "SurveyResponses": ("responses",),
     }
+
+
+def test_financial_sections_have_dependency_order_and_id_rewriters():
+    sections = {section.sheet: section for section in ENTITY_SECTIONS}
+    names = list(sections)
+    assert names.index("PpmBudgetLines") < names.index("PpmCostLines") < names.index("PpmInvoices")
+    for name in ("PpmBudgetLines", "PpmCostLines", "PpmInvoices"):
+        assert "field_values" in sections[name].id_bearing_columns
+        assert sections[name].rewrite is not None
+
+
+def test_invoice_document_id_is_not_an_instance_reference():
+    assert ID_FREE_COLUMNS[("PpmInvoices", "invoice_id")] == PROSE

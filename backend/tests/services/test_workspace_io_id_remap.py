@@ -1683,3 +1683,197 @@ async def test_a_timeline_row_without_a_date_takes_the_import_time(db):
     assert _section(result, "DocumentHistory").created == 1
     entry = (await db.execute(select(DocumentHistoryEntry))).scalar_one()
     assert entry.created_at is not None
+
+
+def test_pml_settings_rewrite_remaps_card_defaults_and_nested_rules():
+    from app.services.workspace_io import remap
+
+    source, target = str(uuid.uuid4()), str(uuid.uuid4())
+    ctx = remap.RemapContext()
+    ctx.ids.record(remap.CARDS, source, target)
+    config = {
+        "fields": [
+            {"key": "vendor", "kind": "card_reference", "card_type": "Provider", "default": source},
+            {
+                "key": "category",
+                "kind": "calculated",
+                "calculation": {
+                    "inputs": {"effective": "provider.effective"},
+                    "rules": [
+                        {
+                            "when": {"input": "effective", "op": "eq", "value": source},
+                            "then": "Licenses",
+                        }
+                    ],
+                },
+            },
+        ],
+    }
+    rewritten, tally = remap.rewrite_pml_field_configuration(config, ctx)
+    assert rewritten["fields"][0]["default"] == target
+    assert rewritten["fields"][1]["calculation"]["rules"][0]["when"]["value"] == target
+    assert config["fields"][0]["default"] == source
+    assert tally.counts[remap.REMAPPED] == 2
+
+
+def test_pml_settings_rewrite_rejects_unresolved_reference():
+    from app.services.workspace_io import remap
+
+    config = {"fields": [{"key": "vendor", "kind": "card_reference", "default": str(uuid.uuid4())}]}
+    with pytest.raises(ValueError, match="unresolved"):
+        remap.rewrite_pml_field_configuration(config, remap.RemapContext())
+
+
+def test_pml_historical_card_ids_are_distinct_stable_and_do_not_leak_source():
+    from app.services.workspace_io import remap
+
+    first, second = str(uuid.uuid4()), str(uuid.uuid4())
+    ctx = remap.RemapContext(pml_historical_card_ids={first, second})
+    tally = remap.RewriteTally()
+    first_result = remap.pml_card_id(first, ctx, tally)
+    assert first_result == remap.pml_card_id(first, ctx, tally)
+    assert first_result != first
+    assert first_result != remap.pml_card_id(second, ctx, tally)
+    with pytest.raises(ValueError, match="unresolved"):
+        remap.pml_card_id(str(uuid.uuid4()), ctx, tally)
+
+
+async def test_pml_wipe_restore_remaps_provider_and_preserves_invoice(db):
+    from decimal import Decimal
+
+    from app.models.app_settings import AppSettings
+    from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
+    from app.models.ppm_invoice import PpmInvoice
+
+    actor = await create_user(db, email="pml-wipe@example.test", role="admin")
+    await create_card_type(db, key="Initiative", label="Initiative")
+    await create_card_type(db, key="Provider", label="Provider")
+    initiative = await create_card(
+        db,
+        card_type="Initiative",
+        name="Initiative for PML transfer",
+        attributes={"pmlActualInvoiced": "custom attribute"},
+    )
+    provider = await create_card(db, card_type="Provider", name="Provider for PML transfer")
+    initiative_id, provider_id = initiative.id, provider.id
+    budget, cost, invoice = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    budget_config = {
+        "fields": [
+            {
+                "key": "origin",
+                "label": "Origin",
+                "kind": "card_reference",
+                "card_type": "Provider",
+                "default": str(provider_id),
+            }
+        ],
+        "visible_columns": ["origin"],
+    }
+    cost_config = {
+        "fields": [
+            {
+                "key": "classification",
+                "label": "Classification",
+                "kind": "calculated",
+                "calculation": {
+                    "result_type": "text",
+                    "inputs": {"origin": "provider.budget"},
+                    "rules": [
+                        {
+                            "when": {"input": "origin", "op": "eq", "value": str(provider_id)},
+                            "then": "Internal",
+                        }
+                    ],
+                    "fallback": "Other",
+                },
+            }
+        ],
+        "visible_columns": ["classification"],
+        "provider_source": {"budget_field_key": "origin", "allow_child_selection": False},
+    }
+    db.add(
+        AppSettings(
+            id="default",
+            general_settings={
+                "pml.financial_fields.budget": budget_config,
+                "pml.financial_fields.cost_item": cost_config,
+                "pml.financial_fields.invoice": {"fields": [], "visible_columns": []},
+            },
+        )
+    )
+    db.add(
+        PpmBudgetLine(
+            id=budget,
+            initiative_id=initiative_id,
+            fiscal_year=2026,
+            category="opex",
+            amount=100,
+            field_values={"origin": str(provider_id)},
+        )
+    )
+    db.add(
+        PpmCostLine(
+            id=cost,
+            initiative_id=initiative_id,
+            budget_line_id=budget,
+            description="PML cost",
+            category="opex",
+            actual=50,
+        )
+    )
+    db.add(
+        PpmInvoice(
+            id=invoice,
+            initiative_id=initiative_id,
+            cost_item_id=cost,
+            invoice_date=__import__("datetime").date(2026, 11, 20),
+            invoice_id="000123",
+            amount=Decimal("30.11"),
+        )
+    )
+    await db.flush()
+    raw = await build_bundle(db)
+
+    await db.execute(delete(PpmInvoice))
+    await db.execute(delete(PpmCostLine))
+    await db.execute(delete(PpmBudgetLine))
+    await db.execute(delete(Card))
+    await db.execute(delete(AppSettings).where(AppSettings.id == "default"))
+    await db.flush()
+    with parse_bundle(raw) as bundle:
+        result = await apply_bundle(db, bundle, actor)
+    assert result.total_failed == 0, result
+    restored_init = await _by_name(db, "Initiative for PML transfer", "Initiative")
+    restored_provider = await _by_name(db, "Provider for PML transfer", "Provider")
+    assert restored_init.id != initiative_id
+    assert restored_provider.id != provider_id
+    assert restored_init.attributes["pmlActualInvoiced"] == "custom attribute"
+    settings = await db.get(AppSettings, "default", populate_existing=True)
+    assert settings.general_settings["pml.financial_fields.budget"]["fields"][0]["default"] == str(
+        restored_provider.id
+    )
+    condition = settings.general_settings["pml.financial_fields.cost_item"]["fields"][0][
+        "calculation"
+    ]["rules"][0]["when"]
+    assert condition["value"] == str(restored_provider.id)
+    restored_cost = await db.get(PpmCostLine, cost)
+    restored_invoice = await db.get(PpmInvoice, invoice)
+    assert restored_cost.initiative_id == restored_init.id
+    assert restored_invoice.cost_item_id == restored_cost.id
+    assert restored_invoice.initiative_id == restored_init.id
+    assert restored_invoice.invoice_id == "000123"
+    assert restored_invoice.amount == Decimal("30.11")
+
+
+def test_pml_historical_id_survives_reexport_and_repeated_restore():
+    from app.services.workspace_io import remap
+
+    original = str(uuid.uuid4())
+    first_ctx = remap.RemapContext(pml_historical_card_ids={original})
+    restored = remap.pml_card_id(original, first_ctx, remap.RewriteTally())
+    reexport_ctx = remap.RemapContext(pml_historical_card_ids={restored})
+    assert remap.pml_card_id(restored, reexport_ctx, remap.RewriteTally()) == restored
+
+    unrelated = str(uuid.uuid4())
+    with pytest.raises(ValueError, match="unresolved"):
+        remap.pml_card_id(unrelated, reexport_ctx, remap.RewriteTally())

@@ -32,12 +32,12 @@ This guide is for **everyone who uses Turbo EA** — enterprise architects, IT m
 | **Inventory** | Searchable, filterable list of all cards across every type. Bulk edit, Excel/CSV import-export, and saved views with sharing |
 | **Reports** | Pre-built visualizations: Portfolio, Capability Map, Lifecycle, Dependencies, Cost, Matrix, Data Quality, and End-of-Life |
 | **BPM** | Business Process Management — model business processes with a BPMN 2.0 editor, link diagram elements to cards, and assess maturity, risk, and automation |
-| **PPM** | Project Portfolio Management — manage Initiative cards as full projects with status reports, Work Breakdown Structures, kanban + Gantt task boards, budgets, costs, and a per-initiative risk register |
+| **PML** | Project Master List — manage Initiative cards as full projects with status reports, Work Breakdown Structures, kanban + Gantt task boards, budgets, costs, and a per-initiative risk register |
 | **TurboLens** | AI-powered EA intelligence — vendor analysis, duplicate detection, modernization assessment, the 5-step Architecture AI wizard, and compliance scans against EU AI Act / GDPR / NIS2 / DORA / SOC 2 / ISO 27001 |
 | **EA Delivery** | The TOGAF-aligned delivery surface — Statements of Architecture Work, Architecture Decision Records, and the landscape-level Risk Register |
 | **SoAW** | Statement of Architecture Work — a formal TOGAF document scoping an architecture initiative |
 | **ADR** | Architecture Decision Record — captures a decision's context, alternatives, and consequences, with status workflow and card linking |
-| **Risk Register** | Landscape-level TOGAF Phase G risk register, separate from initiative-level PPM risks. Owner assignment auto-creates a Todo |
+| **Risk Register** | Landscape-level TOGAF Phase G risk register, separate from initiative-level PML risks. Owner assignment auto-creates a Todo |
 | **Web Portal** | Public, slug-based, read-only view of part of the EA landscape — shareable without a login |
 | **MCP Server** | Read-only AI tool access via the Model Context Protocol — query EA data from Claude Desktop, Cursor, GitHub Copilot, and other MCP clients |
 | **RBAC** | Role-Based Access Control — app-level roles plus per-card stakeholder roles with 50+ granular permissions |

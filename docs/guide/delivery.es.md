@@ -2,7 +2,7 @@
 
 El módulo de **Entrega EA** gestiona las **iniciativas de arquitectura y sus artefactos** — diagramas, Declaraciones de Trabajo de Arquitectura (SoAW) y Registros de Decisiones de Arquitectura (ADR). Proporciona una vista única de todos los proyectos de arquitectura en curso y sus entregables.
 
-Cuando PPM está habilitado — la configuración habitual — Entrega EA vive **dentro del módulo PPM**: abra **PPM** en la navegación superior y cambie a la pestaña **EA Delivery** (`/ppm?tab=ea-delivery`). Cuando PPM está deshabilitado, **EA Delivery** aparece en el menú **IT Governance** con el nombre **EA Governance** (enlazando a `/reports/ea-delivery`); si GRC está desactivado, o su rol no puede abrir IT Governance, aparece en su lugar como un elemento de nivel superior **Entrega EA**. La URL legada `/ea-delivery` sigue funcionando como redirección en ambos casos, de modo que los marcadores existentes se resuelven.
+Cuando PML está habilitado — la configuración habitual — Entrega EA vive **dentro del módulo PML**: abra **PML** en la navegación superior y cambie a la pestaña **EA Delivery** (`/ppm?tab=ea-delivery`). Cuando PML está deshabilitado, **EA Delivery** aparece en el menú **IT Governance** con el nombre **EA Governance** (enlazando a `/reports/ea-delivery`); si GRC está desactivado, o su rol no puede abrir IT Governance, aparece en su lugar como un elemento de nivel superior **Entrega EA**. La URL legada `/ea-delivery` sigue funcionando como redirección en ambos casos, de modo que los marcadores existentes se resuelven.
 
 ![Gestión de Entrega EA](../assets/img/es/17_entrega_ea.png)
 

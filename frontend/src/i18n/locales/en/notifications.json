@@ -28,7 +28,7 @@
   "preferences.loadFailed": "Failed to load preferences",
   "preferences.saveFailed": "Failed to save preferences",
   "preferences.todoAssigned": "Todo Assigned",
-  "preferences.taskAssigned": "PPM Task Assigned",
+  "preferences.taskAssigned": "PML Task Assigned",
   "preferences.surveyRequest": "Survey Request",
   "preferences.cardUpdated": "Card Updated",
   "preferences.commentAdded": "Comment Added",

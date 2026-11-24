@@ -14,6 +14,8 @@
  */
 
 const PREFS_KEY = "turboea.ppm.portfolio.prefs";
+const prefsKey = (userId: string | null, role: string | null) =>
+  userId && role ? PREFS_KEY + "." + encodeURIComponent(userId) + "." + encodeURIComponent(role) : null;
 
 /** The link parameters the board owns — the ones `filterSearchParams` writes. */
 export const BOARD_PARAMS = [
@@ -44,10 +46,12 @@ function onlyBoardParams(source: Record<string, unknown>): Record<string, string
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-export function loadBoardPrefs(): BoardPrefs {
+export function loadBoardPrefs(userId: string | null, role: string | null): BoardPrefs {
+  const key = prefsKey(userId, role);
+  if (!key) return { params: {}, filtersCollapsed: true };
   try {
     // A missing key reads as `null`, which parses to `null`: the defaults below.
-    const parsed: unknown = JSON.parse(localStorage.getItem(PREFS_KEY) as string);
+    const parsed: unknown = JSON.parse(localStorage.getItem(key) as string);
     const prefs = isRecord(parsed) ? parsed : {};
     return {
       params: isRecord(prefs.params) ? onlyBoardParams(prefs.params) : {},
@@ -63,15 +67,17 @@ export function loadBoardPrefs(): BoardPrefs {
  * is remembered as nothing at all, so a fresh board — after Reset too — leaves
  * no entry behind.
  */
-export function saveBoardPrefs(prefs: BoardPrefs): void {
+export function saveBoardPrefs(prefs: BoardPrefs, userId: string | null, role: string | null): void {
+  const key = prefsKey(userId, role);
+  if (!key) return;
   const params = onlyBoardParams(prefs.params);
   if (Object.keys(params).length === 0 && prefs.filtersCollapsed) {
-    clearBoardPrefs();
+    clearBoardPrefs(userId, role);
     return;
   }
   try {
     localStorage.setItem(
-      PREFS_KEY,
+      key,
       JSON.stringify({ params, filtersCollapsed: prefs.filtersCollapsed }),
     );
   } catch {
@@ -79,9 +85,11 @@ export function saveBoardPrefs(prefs: BoardPrefs): void {
   }
 }
 
-export function clearBoardPrefs(): void {
+export function clearBoardPrefs(userId: string | null, role: string | null): void {
+  const key = prefsKey(userId, role);
+  if (!key) return;
   try {
-    localStorage.removeItem(PREFS_KEY);
+    localStorage.removeItem(key);
   } catch {
     // Storage unavailable — there is nothing remembered to clear.
   }

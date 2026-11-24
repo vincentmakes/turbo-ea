@@ -65,12 +65,12 @@ Then `docker compose up -d` (if you've already started, see "Reset and re-seed" 
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SEED_DEMO` | `false` | Load the full NexaTech Industries dataset, including BPM and PPM data |
+| `SEED_DEMO` | `false` | Load the full NexaTech Industries dataset, including BPM and PML data |
 | `SEED_BPM` | `false` | Load only BPM demo processes (subset of `SEED_DEMO`) |
-| `SEED_PPM` | `false` | Load only PPM project data (subset of `SEED_DEMO`) |
+| `SEED_PPM` | `false` | Load only PML project data (subset of `SEED_DEMO`) |
 | `RESET_DB` | `false` | Drop all tables and re-create from scratch on startup |
 
-`SEED_DEMO=true` already includes BPM and PPM data — you do not need to set the subset flags separately.
+`SEED_DEMO=true` already includes BPM and PML data — you do not need to set the subset flags separately.
 
 !!! note "Demo data is seeded once"
     Each seeder runs **once per install** and records that it has. Deleting demo
@@ -93,11 +93,11 @@ When demo data is loaded, a default admin account is created:
 
 ### What the demo includes
 
-About 150 cards across all four architecture layers, plus relations, tags, comments, todos, BPM diagrams, PPM data, EA Decision Records, and a Statement of Architecture Work:
+About 150 cards across all four architecture layers, plus relations, tags, comments, todos, BPM diagrams, PML data, EA Decision Records, and a Statement of Architecture Work:
 
 - **Core EA** — Organizations, ~20 Business Capabilities, Business Contexts, ~15 Applications, ~20 IT Components, Interfaces, Data Objects, Platforms, Objectives, 6 Initiatives, 5 tag groups, 60+ relations.
 - **BPM** — ~30 business processes in a 4-level hierarchy with BPMN 2.0 diagrams, element-to-card links, and process assessments.
-- **PPM** — Status reports, Work Breakdown Structures, ~60 tasks, budget and cost lines, and a risk register across the 6 demo Initiatives.
+- **PML** — Status reports, Work Breakdown Structures, ~60 tasks, budget and cost lines, and a risk register across the 6 demo Initiatives.
 - **EA Delivery** — Architecture Decision Records and Statements of Architecture Work.
 
 ### Reset and re-seed

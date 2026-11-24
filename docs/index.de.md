@@ -32,12 +32,12 @@ Dieses Handbuch richtet sich an **alle Nutzer von Turbo EA** — Enterprise-Arch
 | **Inventar** | Durchsuch- und filterbare Liste aller Karten über alle Typen hinweg. Bulk-Bearbeitung, Excel/CSV-Import-Export und gespeicherte Ansichten mit Freigabe |
 | **Berichte** | Vorgefertigte Visualisierungen: Portfolio, Fähigkeitskarte, Lebenszyklus, Abhängigkeiten, Kosten, Matrix, Datenqualität und End-of-Life |
 | **BPM** | Business Process Management — Geschäftsprozesse mit einem BPMN-2.0-Editor modellieren, Diagrammelemente mit Karten verknüpfen und Reife, Risiko und Automatisierung bewerten |
-| **PPM** | Project Portfolio Management — Initiative-Karten als vollständige Projekte verwalten mit Statusberichten, Work Breakdown Structures, Kanban- und Gantt-Boards, Budgets, Kosten und einem Risikoregister je Initiative |
+| **PML** | Projektstammliste — Initiative-Karten als vollständige Projekte verwalten mit Statusberichten, Work Breakdown Structures, Kanban- und Gantt-Boards, Budgets, Kosten und einem Risikoregister je Initiative |
 | **TurboLens** | KI-gestützte EA-Intelligenz — Anbieteranalyse, Duplikaterkennung, Modernisierungsbewertung, der 5-stufige Architecture-AI-Assistent und Compliance-Scans (EU AI Act / DSGVO / NIS2 / DORA / SOC 2 / ISO 27001) |
 | **EA Delivery** | Die TOGAF-konforme Lieferungsoberfläche — Statements of Architecture Work, Architecture Decision Records und das landschaftsweite Risikoregister |
 | **SoAW** | Statement of Architecture Work — ein formales TOGAF-Dokument, das eine Architekturinitiative abgrenzt |
 | **ADR** | Architecture Decision Record — erfasst Kontext, Alternativen und Konsequenzen einer Entscheidung, mit Status-Workflow und Karten-Verknüpfung |
-| **Risikoregister** | Landschaftsweites TOGAF-Phase-G-Risikoregister, getrennt von initiativenbezogenen PPM-Risiken. Eigentümerzuweisung erstellt automatisch eine Aufgabe |
+| **Risikoregister** | Landschaftsweites TOGAF-Phase-G-Risikoregister, getrennt von initiativenbezogenen PML-Risiken. Eigentümerzuweisung erstellt automatisch eine Aufgabe |
 | **Web-Portal** | Öffentliche, slug-basierte, schreibgeschützte Ansicht eines Teils der EA-Landschaft — ohne Login teilbar |
 | **MCP-Server** | Read-only-KI-Tool-Zugriff über das Model Context Protocol — EA-Daten aus Claude Desktop, Cursor, GitHub Copilot und anderen MCP-Clients abfragen |
 | **RBAC** | Role-Based Access Control — App-weite Rollen plus kartenspezifische Stakeholder-Rollen mit über 50 granularen Berechtigungen |

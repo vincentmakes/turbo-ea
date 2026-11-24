@@ -291,9 +291,11 @@ Quand le [module GRC](grc.md) est activé **et** que la fiche a au moins un cons
 
 Pour les fiches **Processus Métier**, un onglet supplémentaire **Flux de processus** apparaît avec un visualiseur/éditeur de diagramme BPMN intégré. Voir [BPM](bpm.md) pour les détails sur la gestion des flux de processus.
 
-## Onglet PPM (fiches Initiative uniquement)
+## Onglet PML (fiches Initiative uniquement) { #ppm-tab-initiative-cards-only }
 
-Lorsque le [module PPM](ppm.md) est activé, les fiches **Initiative** affichent un onglet **PPM** supplémentaire en dernière position. Cliquer sur cet onglet ouvre la vue détaillée PPM de l'initiative, où vous pouvez gérer les rapports de statut, budgets, risques, tâches et diagrammes de Gantt.
+Dans **Coûts et calendrier**, les barres superposées comparent budget et coûts réels pour le total, le CapEx et l'OpEx. Le facturé total de l'initiative est affiché séparément selon les droits. La chronologie présente les dates prévisionnelles et réelles visibles ainsi que les indicateurs de délai, de coût et de périmètre.
+
+Lorsque le [module PML](ppm.md) est activé, les fiches **Initiative** affichent un onglet **PML** supplémentaire en dernière position. Cliquer sur cet onglet ouvre la vue détaillée PML de l'initiative, où vous pouvez gérer les rapports de statut, budgets, risques, tâches et diagrammes de Gantt.
 
 ## Archivage
 

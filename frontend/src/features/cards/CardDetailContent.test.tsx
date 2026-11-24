@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { api } from "@/api/client";
 import { MemoryRouter } from "react-router";
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -11,6 +12,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn().mockResolvedValue([]), patch: vi.fn(), post: vi.fn(), delete: vi.fn() },
   ApiError: class extends Error {},
+  isAbortError: () => false,
 }));
 
 vi.mock("@/hooks/useMetamodel", () => ({ useMetamodel: vi.fn() }));
@@ -18,9 +20,10 @@ vi.mock("@/hooks/useCalculatedFields", () => ({
   useCalculatedFields: () => ({ calculatedFields: {}, isCalculated: () => false, loading: false }),
 }));
 vi.mock("@/hooks/useCurrency", () => ({
-  useCurrency: () => ({ fmt: (v: number) => `$${v}`, fmtShort: (v: number) => `$${v}`, symbol: "$" }),
+  useCurrency: () => ({ fmt: { format: (v: number) => "$" + v }, fmtShort: (v: number) => `$${v}`, symbol: "$" }),
 }));
-vi.mock("@/hooks/usePpmEnabled", () => ({ usePpmEnabled: () => ({ ppmEnabled: false }) }));
+const pml = vi.hoisted(() => ({ enabled: false, canView: true }));
+vi.mock("@/hooks/usePpmEnabled", () => ({ usePpmEnabled: () => ({ ppmEnabled: pml.enabled }) }));
 vi.mock("@/hooks/useGrcEnabled", () => ({ useGrcEnabled: () => ({ grcEnabled: false }) }));
 vi.mock("@/hooks/useCardTabActivity", () => ({
   useCardTabActivity: () => ({ hasUpdates: () => false, noteVisit: () => {} }),
@@ -29,8 +32,10 @@ vi.mock("@/hooks/AuthContext", () => ({
   useOptionalAuthUser: () => null,
   useAuthContext: () => ({ user: { id: "u1", permissions: { "*": true } } }),
 }));
-vi.mock("@/hooks/usePermissions", () => ({ usePermissions: () => ({ can: () => true }) }));
+vi.mock("@/hooks/usePermissions", () => ({ usePermissions: () => ({ can: (permission: string) => permission !== "ppm.view" || pml.canView }) }));
 
+vi.mock("@/features/ppm/PpmInitiativeFinancials", () => ({ default: ({ data }: { data?: { actual_invoiced?: string } }) => <span data-testid="initiative-financials">{data?.actual_invoiced}</span> }));
+vi.mock("@/features/ppm/PpmInitiativeTimeline", () => ({ default: ({ schedule }: { schedule?: { start_date?: string; actual_start_date?: string } }) => <span data-testid="initiative-timeline">{schedule?.start_date} {schedule?.actual_start_date}</span> }));
 vi.mock("@/components/EolLinkSection", () => ({ default: () => null }));
 vi.mock("@/features/bpm/ProcessFlowTab", () => ({ default: () => null }));
 vi.mock("@/features/bpm/ProcessAssessmentPanel", () => ({ default: () => null }));
@@ -131,6 +136,9 @@ function renderContent(boScoped = false) {
 
 beforeEach(() => {
   resetExtensionHost();
+  pml.enabled = false;
+  pml.canView = true;
+  vi.mocked(api.get).mockReset().mockResolvedValue([]);
   vi.mocked(useMetamodel).mockReturnValue({
     types: [APP_TYPE],
     relationTypes: [],
@@ -274,5 +282,90 @@ describe("CardDetailContent extension header slot", () => {
     renderContent();
     // `&:empty` then hides the band, so an undecorated card keeps no stray margin.
     await waitFor(() => expect(screen.getByTestId("card-header-slot")).toBeEmptyDOMElement());
+  });
+});
+
+describe("CardDetailContent Initiative summaries", () => {
+  function initiative(summaryConfig = {}, canViewCosts = true) {
+    const type = {
+      ...APP_TYPE, key: "Initiative",
+      fields_schema: [{
+        section: "Cost & Timeline", fields: [
+          { key: "costBudget", label: "Budget", type: "cost" },
+          { key: "costActual", label: "Actual Cost", type: "cost" },
+          { key: "startDate", label: "Start Date", type: "date" },
+          { key: "actualStart", label: "Actual Start", type: "date" },
+          { key: "endDate", label: "End Date", type: "date" },
+          { key: "actualEnd", label: "Actual End", type: "date" },
+        ],
+      }],
+      section_config: summaryConfig,
+    };
+    vi.mocked(useMetamodel).mockReturnValue({
+      ...vi.mocked(useMetamodel)(), getType: () => type,
+    } as unknown as ReturnType<typeof useMetamodel>);
+    vi.mocked(api.get).mockImplementation(async (path) => path.endsWith("/financials")
+      ? { initiative_id: card.id, actual_invoiced: "30.11" }
+      : path.endsWith("/schedule")
+        ? { initiative_id: card.id, start_date: "2026-04-01", actual_start_date: "2026-05-15" }
+        : []);
+    const record = { ...card, type: "Initiative", attributes: {
+      costBudget: 100, costActual: 70, startDate: "2026-04-01", actualStart: "2026-05-15",
+      endDate: "2026-09-30", actualEnd: "2026-10-15",
+    } };
+    vi.mocked(api.patch).mockResolvedValue(record);
+    return render(<MemoryRouter><CardDetailContent card={record} perms={{ ...perms, can_view_costs: canViewCosts }}
+      onCardUpdate={() => {}} showLdvSection={false} showPpmTab={false} /></MemoryRouter>);
+  }
+
+  it("places protected Financials and Timeline inside the configured groups", async () => {
+    pml.enabled = true;
+    initiative();
+    const summary = screen.getByRole("button", { name: /cost & timeline/i }).closest(".MuiAccordion-root");
+    expect(summary).toContainElement(await screen.findByTestId("initiative-financials"));
+    expect(summary).toContainElement(await screen.findByTestId("initiative-timeline"));
+    const group = screen.getByText("Cost", { exact: true }).parentElement;
+    expect(group).toContainElement(screen.getByTestId("initiative-financials"));
+    expect(screen.getByText("Timeline", { exact: true }).parentElement).toContainElement(
+      screen.getByTestId("initiative-timeline"),
+    );
+  });
+
+  it("keeps ordinary Metamodel fields when PML is disabled", () => {
+    initiative();
+    expect(screen.getByText("Actual Cost")).toBeInTheDocument();
+    expect(screen.getByText("Actual Start")).toBeInTheDocument();
+    expect(api.get).not.toHaveBeenCalledWith(expect.stringMatching(/\/(financials|schedule)$/), expect.anything());
+    expect(screen.queryByTestId("initiative-financials")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("initiative-timeline")).not.toBeInTheDocument();
+  });
+
+  it("does not mount private requests on hidden sections or without PML access", () => {
+    pml.enabled = true;
+    const view = initiative({ "custom:0": { hidden: true } });
+    expect(api.get).not.toHaveBeenCalledWith(expect.stringMatching(/\/(financials|schedule)$/), expect.anything());
+    view.unmount();
+    pml.canView = false;
+    initiative();
+    expect(api.get).not.toHaveBeenCalledWith(expect.stringMatching(/\/(financials|schedule)$/), expect.anything());
+  });
+
+  it("refreshes the same Initiative schedule after saving the date without requesting financials for restricted readers", async () => {
+    pml.enabled = true;
+    initiative({}, false);
+    const schedule = await screen.findByTestId("initiative-timeline");
+    expect(schedule).toHaveTextContent("2026-05-15");
+    expect(api.get).not.toHaveBeenCalledWith(expect.stringMatching(/\/financials$/), expect.anything());
+    vi.mocked(api.get).mockImplementation(async (path) => path.endsWith("/schedule")
+      ? { initiative_id: card.id, start_date: "2026-04-01", actual_start_date: "2026-06-02" }
+      : []);
+    const accordion = schedule.closest<HTMLElement>(".MuiAccordion-root");
+    if (accordion) accordion.scrollIntoView = vi.fn();
+    fireEvent.click(screen.getByRole("button", { name: "edit" }));
+    fireEvent.change(screen.getByLabelText("Actual Start"), { target: { value: "2026-06-02" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(screen.getByTestId("initiative-timeline")).toHaveTextContent("2026-06-02"));
+    expect(screen.getByTestId("initiative-timeline")).toHaveTextContent("2026-04-01");
+    expect(api.patch).toHaveBeenCalledWith("/cards/" + card.id, expect.objectContaining({ attributes: expect.objectContaining({ actualStart: "2026-06-02" }) }));
   });
 });

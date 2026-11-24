@@ -403,3 +403,54 @@ async def test_an_admin_who_muted_the_type_is_not_notified(db, monkeypatch):
     assert created == 0
     assert await _notifications(db) == []
     assert (await _state(db))["notifiedVersion"] == "2.60.0"
+
+
+@pytest.mark.parametrize("operation", ["update", "store", "notified"])
+async def test_background_settings_save_preserves_concurrent_pml_definition(test_engine, operation):
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.services import extension_store_check
+
+    async with AsyncSession(test_engine, expire_on_commit=False) as setup:
+        row = await setup.get(AppSettings, "default")
+        original = dict(row.general_settings or {}) if row else None
+        if row is None:
+            row = AppSettings(id="default", email_settings={}, general_settings={})
+            setup.add(row)
+        row.general_settings = {**(original or {}), "currency": "USD"}
+        await setup.commit()
+
+    try:
+        async with AsyncSession(test_engine, expire_on_commit=False) as writer:
+            stale = await writer.get(AppSettings, "default")
+            assert stale.general_settings["currency"] == "USD"
+            async with AsyncSession(test_engine, expire_on_commit=False) as importer:
+                row = await importer.get(AppSettings, "default")
+                row.general_settings = {
+                    **(row.general_settings or {}),
+                    "pml.financial_fields.budget": {"fields": [{"key": "origin"}]},
+                }
+                await importer.commit()
+
+            if operation == "update":
+                await update_check.record_result(writer, release=None, error="offline")
+            elif operation == "store":
+                await extension_store_check.record_result(writer, items=None, error="offline")
+            else:
+                await extension_store_check.record_notified(writer, 2)
+            await writer.commit()
+
+        async with AsyncSession(test_engine) as verify:
+            saved = await verify.get(AppSettings, "default")
+            assert (
+                saved.general_settings["pml.financial_fields.budget"]["fields"][0]["key"]
+                == "origin"
+            )
+    finally:
+        async with AsyncSession(test_engine) as cleanup:
+            row = await cleanup.get(AppSettings, "default")
+            if original is None:
+                await cleanup.delete(row)
+            else:
+                row.general_settings = original
+            await cleanup.commit()

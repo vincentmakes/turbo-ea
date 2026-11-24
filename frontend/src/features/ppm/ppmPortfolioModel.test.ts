@@ -36,6 +36,8 @@ import {
   parseDepth,
   pctOf,
   portfolioWindow,
+  dateRangeBar,
+  portfolioWindowIncludingDates,
   projectManager,
   ragColor,
   rowFigures,
@@ -1881,5 +1883,18 @@ describe("shownDashboard", () => {
     });
     expect(full.total_initiatives).toBe(9);
     expect(full.health_schedule.noReport).toBe(1);
+  });
+});
+
+describe("actual timeline ranges", () => {
+  it("marks one known date and hides a range completely outside the viewport", () => {
+    expect(dateRangeBar("2026-01-03", null, eightDays)).toMatchObject({ left: 25, width: 0 });
+    expect(dateRangeBar("2025-01-01", "2025-02-01", eightDays)).toBeNull();
+    expect(dateRangeBar("2026-01-05", "2026-02-01", eightDays)).toMatchObject({ left: 50, width: 50 });
+  });
+  it("extends single-initiative windows to full quarters containing the visible dates", () => {
+    const range = portfolioWindowIncludingDates(new Date(2026, 6, 1), ["2023-05-10", "2029-11-01"]);
+    expect([range.start.getFullYear(), range.start.getMonth(), range.start.getDate()]).toEqual([2023, 3, 1]);
+    expect([range.end.getFullYear(), range.end.getMonth(), range.end.getDate()]).toEqual([2029, 11, 31]);
   });
 });

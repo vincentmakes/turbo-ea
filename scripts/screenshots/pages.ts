@@ -229,7 +229,6 @@ const TAB_COMPLIANCE = tabSelector(
 );
 const TAB_PPM_OVERVIEW = tabSelector(...i18nLabels("ppm:overview"));
 const TAB_PPM_STATUS_REPORTS = tabSelector(...i18nLabels("ppm:statusReports"));
-const TAB_PPM_BUDGET = tabSelector(...i18nLabels("ppm:budgetAndCosts"));
 const TAB_PPM_RISK = tabSelector(...i18nLabels("ppm:riskManagement"));
 const TAB_PPM_TASKS = tabSelector(...i18nLabels("ppm:tasks"));
 const TAB_PPM_GANTT = tabSelector(...i18nLabels("ppm:gantt"));
@@ -1448,11 +1447,11 @@ export const DOC_PAGES: PageDef[] = [
     },
   },
 
-  // ── PPM (Project Portfolio Management) ──────────────────────────────────
+  // ── PML (Project Master List) ──────────────────────────────────
   {
     id: "40_ppm_portfolio",
     route: "/ppm",
-    waitFor: ".MuiPaper-root",
+    waitFor: "[data-qlabel]",
     actions: [{ type: "wait", ms: 800 }],
     filenames: {
       en: "40_ppm_portfolio",
@@ -1532,15 +1531,13 @@ export const DOC_PAGES: PageDef[] = [
   },
   {
     id: "43_ppm_budget_costs",
-    route: "/ppm/{{cardId:sampleInitiative}}",
-    // Wait for the tablist itself: the page paints Papers before its async
-    // load renders the Tabs, so a Paper wait can fire first and the tab
-    // click then finds nothing — a silent WARNING and a duplicate shot.
-    waitFor: "[role='tablist']",
+    route: "/ppm/{{cardId:sampleInitiative}}?tab=cost",
+    waitFor: "table tbody tr:first-child td:first-child button[aria-expanded]",
     actions: [
-      { type: "wait", ms: 1200 },
-      { type: "click", selector: TAB_PPM_BUDGET },
+      { type: "click", selector: "table tbody tr:has-text('Build and data migration') td:first-child button[aria-expanded=false]" },
+      { type: "click", selector: "table tbody tr:has-text('Build and data migration') + tr td:first-child button[aria-expanded=false]" },
       { type: "wait", ms: 600 },
+      { type: "scroll", target: "table", align: "start" },
     ],
     filenames: {
       en: "43_ppm_budget_costs",
@@ -1629,8 +1626,8 @@ export const DOC_PAGES: PageDef[] = [
     // The spend charts load lazily: give them time to draw.
     id: "103_ppm_initiative_report",
     route: "/ppm/{{cardId:sampleInitiative}}/report",
-    waitFor: "[data-report-section]",
-    actions: [{ type: "wait", ms: 1500 }],
+    waitFor: "[data-report-section=costs] table",
+    actions: [{ type: "wait", ms: 1200 }],
     filenames: {
       en: "103_ppm_initiative_report",
       de: "103_ppm_initiativbericht",

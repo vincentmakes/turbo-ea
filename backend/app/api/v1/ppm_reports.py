@@ -50,15 +50,22 @@ async def ppm_dashboard(
     await PermissionService.require_permission(db, user, "ppm.view")
 
     initiatives = await portfolio.load_initiatives(
-        db, portfolio.PortfolioScope(), read_scope=await CardReadScope.load(db, user)
+        db,
+        portfolio.PortfolioScope(),
+        read_scope=await CardReadScope.load(db, user, include_subtype_denials=True),
     )
     init_ids = [c.id for c in initiatives]
     latest = await portfolio.latest_reports(db, init_ids)
-    totals = await portfolio.sum_budget_actual(db, init_ids)
-    return portfolio.build_dashboard(initiatives, latest, totals)
+    cost_access = await PermissionService.card_ids_with_cost_access(db, user, init_ids)
+    totals = await portfolio.sum_budget_actual(db, list(cost_access))
+    result = portfolio.build_dashboard(initiatives, latest, totals, cost_access=cost_access)
+    if set(init_ids) - cost_access:
+        result["total_budget"] = None
+        result["total_actual"] = None
+    return result
 
 
-@router.get("/gantt", response_model=list[PpmGanttItem])
+@router.get("/gantt", response_model=list[PpmGanttItem], response_model_exclude_unset=True)
 async def ppm_gantt(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -72,13 +79,13 @@ async def ppm_gantt(
 ):
     await PermissionService.require_permission(db, user, "ppm.view")
 
-    read_scope = await CardReadScope.load(db, user)
+    read_scope = await CardReadScope.load(db, user, include_subtype_denials=True)
     initiatives = await portfolio.load_initiatives(
         db, portfolio.PortfolioScope(), read_scope=read_scope
     )
     latest = await portfolio.latest_reports(db, [c.id for c in initiatives])
     return await portfolio.build_gantt_items(
-        db, initiatives, latest, group_by=group_by, read_scope=read_scope
+        db, initiatives, latest, group_by=group_by, read_scope=read_scope, user=user
     )
 
 
@@ -98,7 +105,7 @@ async def ppm_filter_data(
     Initiative type gets the empty payload, never a 404.
     """
     await PermissionService.require_permission(db, user, "ppm.view")
-    read_scope = await CardReadScope.load(db, user)
+    read_scope = await CardReadScope.load(db, user, include_subtype_denials=True)
 
     all_types = (await db.execute(select(CardType))).scalars().all()
     initiative_type = next((t for t in all_types if t.key == portfolio.INITIATIVE_TYPE), None)
@@ -107,4 +114,24 @@ async def ppm_filter_data(
 
     payload = await build_portfolio_payload(db, read_scope, initiative_type, all_types)
     payload = await redact_portfolio_costs(db, user, payload, initiative_type)
+    await portfolio.scope_board_cost_attributes(db, user, read_scope, payload)
+    from app.models.card import Card
+    from app.services.ppm_timeline import load_timeline_mapping, visible_date_fields
+
+    mapping = await load_timeline_mapping(db)
+    actual_keys = {"actualStart", "actualEnd", "ActualEnd"}
+    actual_keys.update(
+        key for key in (mapping.actual_start_key, mapping.actual_end_key) if key is not None
+    )
+    date_keys = {"startDate", "endDate"} | actual_keys
+    for item in payload["items"]:
+        attrs = item.get("attributes") or {}
+        card = Card(attributes=attrs, subtype=item.get("subtype"))
+        visible = {
+            **portfolio._visible_plan(card, initiative_type),
+            **visible_date_fields(card, initiative_type, list(actual_keys)),
+        }
+        item["attributes"] = {
+            key: value for key, value in attrs.items() if key not in date_keys or key in visible
+        }
     return portfolio.card_filter_payload(payload)

@@ -1644,3 +1644,61 @@ class TestBrandingBlobsAreDeferred:
         src = py_inspect.getsource(exporter.build_bundle)
         assert "undefer(AppSettings.custom_logo)" in src
         assert "undefer(AppSettings.custom_favicon)" in src
+
+
+async def test_currency_update_preserves_settings_committed_after_initial_read(test_engine):
+    import uuid
+
+    from sqlalchemy import delete
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.api.v1.settings import CurrencyPayload, update_currency
+    from app.models.app_settings import AppSettings
+    from app.models.role import Role
+    from app.models.user import User
+
+    role_key = "settings_concurrency_" + uuid.uuid4().hex[:12]
+    async with AsyncSession(test_engine, expire_on_commit=False) as setup:
+        original_row = await setup.get(AppSettings, "default")
+        original = dict(original_row.general_settings or {}) if original_row else None
+        if original_row is None:
+            original_row = AppSettings(id="default", general_settings={}, email_settings={})
+            setup.add(original_row)
+        original_row.general_settings = {**(original or {}), "currency": "USD"}
+        await create_role(setup, key=role_key, permissions={"*": True})
+        user = await create_user(setup, role=role_key)
+        user_id = user.id
+        await setup.commit()
+
+    try:
+        async with AsyncSession(test_engine, expire_on_commit=False) as writer:
+            stale = await writer.get(AppSettings, "default")
+            assert stale.general_settings["currency"] == "USD"
+            async with AsyncSession(test_engine, expire_on_commit=False) as importer:
+                current = await importer.get(AppSettings, "default")
+                current.general_settings = {
+                    **(current.general_settings or {}),
+                    "pml.financial_fields.budget": {"fields": [{"key": "origin", "kind": "text"}]},
+                }
+                await importer.commit()
+
+            admin = await writer.get(User, user_id)
+            await update_currency(CurrencyPayload(currency="EUR"), db=writer, user=admin)
+
+        async with AsyncSession(test_engine) as verify:
+            saved = await verify.get(AppSettings, "default")
+            assert saved.general_settings["currency"] == "EUR"
+            assert (
+                saved.general_settings["pml.financial_fields.budget"]["fields"][0]["key"]
+                == "origin"
+            )
+    finally:
+        async with AsyncSession(test_engine) as cleanup:
+            await cleanup.execute(delete(User).where(User.id == user_id))
+            await cleanup.execute(delete(Role).where(Role.key == role_key))
+            settings = await cleanup.get(AppSettings, "default")
+            if original is None:
+                await cleanup.delete(settings)
+            else:
+                settings.general_settings = original
+            await cleanup.commit()

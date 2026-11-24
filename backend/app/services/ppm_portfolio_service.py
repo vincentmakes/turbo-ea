@@ -17,7 +17,7 @@ from __future__ import annotations
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, Any, Sequence
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,13 +35,14 @@ from app.models.user import User
 if TYPE_CHECKING:
     from app.services.card_read_scope import CardReadScope
 from app.schemas.ppm import (
+    PmlInitiativeScheduleOut,
     PpmGanttItem,
     PpmGanttStakeholder,
     PpmGroupOption,
+    PpmPortfolioReportOut,
     PpmRollup,
     PpmRollupOut,
     PpmRollupYear,
-    PpmStatusReportOut,
     ReporterOut,
 )
 from app.schemas.ppm_public import (
@@ -155,28 +156,33 @@ async def latest_reports(
 ) -> dict[uuid.UUID, PpmStatusReport]:
     """The most recent status report per initiative.
 
-    Note: ties on ``report_date`` within one initiative are resolved arbitrarily
-    (the last row wins) — pre-existing behaviour, preserved deliberately.
+    Break ties by creation time and then id, both descending.
     """
     if not initiative_ids:
         return {}
-    sub = (
+    ranked = (
         select(
-            PpmStatusReport.initiative_id,
-            func.max(PpmStatusReport.report_date).label("max_date"),
+            PpmStatusReport.id,
+            func.row_number()
+            .over(
+                partition_by=PpmStatusReport.initiative_id,
+                order_by=(
+                    PpmStatusReport.report_date.desc(),
+                    PpmStatusReport.created_at.desc(),
+                    PpmStatusReport.id.desc(),
+                ),
+            )
+            .label("position"),
         )
         .where(PpmStatusReport.initiative_id.in_(initiative_ids))
-        .group_by(PpmStatusReport.initiative_id)
         .subquery()
     )
-    result = await db.execute(
-        select(PpmStatusReport).join(
-            sub,
-            (PpmStatusReport.initiative_id == sub.c.initiative_id)
-            & (PpmStatusReport.report_date == sub.c.max_date),
-        )
+    reports = await db.scalars(
+        select(PpmStatusReport)
+        .join(ranked, ranked.c.id == PpmStatusReport.id)
+        .where(ranked.c.position == 1)
     )
-    return {r.initiative_id: r for r in result.scalars().all()}
+    return {report.initiative_id: report for report in reports}
 
 
 async def load_reporters(
@@ -308,8 +314,59 @@ async def sum_budget_actual(
     return float(budget_sum.scalar() or 0), float(actual_sum.scalar() or 0)
 
 
+def _visible_plan(card: Card, type_schema: CardType | None) -> dict[str, Any]:
+    from app.services.ppm_timeline import visible_date_fields
+
+    if type_schema is None:
+        return {}
+    keys = ["startDate", "endDate"]
+    result: dict[str, Any] = dict(visible_date_fields(card, type_schema, keys))
+    defined = {
+        field.get("key")
+        for section in type_schema.fields_schema or []
+        if isinstance(section, dict)
+        for field in section.get("fields") or []
+        if isinstance(field, dict)
+    }
+    hidden = {
+        key
+        for subtype in type_schema.subtypes or []
+        if isinstance(subtype, dict) and subtype.get("key") == card.subtype
+        for key in subtype.get("hidden_fields") or []
+    }
+    for key in keys:
+        if key not in defined and key not in hidden and not type_schema.section_config:
+            result[key] = (card.attributes or {}).get(key)
+    return result
+
+
+async def _visible_descendant_dates(
+    db: AsyncSession, root: Card, read_scope: CardReadScope, type_schema: CardType | None
+) -> tuple[list[uuid.UUID], dict[uuid.UUID, tuple[str | None, str | None]]]:
+    candidate_ids = await collect_descendants(db, root.id)
+    parents: dict[uuid.UUID, uuid.UUID | None] = {root.id: None}
+    dates: dict[uuid.UUID, tuple[str | None, str | None]] = {}
+    if candidate_ids:
+        cards = await db.scalars(
+            select(Card).where(
+                Card.id.in_(candidate_ids),
+                Card.type == INITIATIVE_TYPE,
+                Card.status == "ACTIVE",
+                *read_scope.where(Card, mode="module"),
+            )
+        )
+        for child in cards:
+            parents[child.id] = child.parent_id
+            values = _visible_plan(child, type_schema)
+            dates[child.id] = (
+                str(values["startDate"]) if values.get("startDate") else None,
+                str(values["endDate"]) if values.get("endDate") else None,
+            )
+    return descendants_within(parents, root.id), dates
+
+
 async def build_initiative_rollup(
-    db: AsyncSession, root: Card, read_scope: CardReadScope
+    db: AsyncSession, root: Card, read_scope: CardReadScope, *, user: User
 ) -> PpmRollupOut:
     """What the initiatives beneath ``root`` add up to, for its Overview and cost tabs.
 
@@ -324,29 +381,20 @@ async def build_initiative_rollup(
     # calculation_ppm imports this module (``latest_reports``), so it is
     # imported here rather than at the top.
     from app.services.calculation_ppm import build_ppm_map, get_fiscal_year_start
+    from app.services.permission_service import PermissionService
 
-    candidate_ids = await collect_descendants(db, root.id)
-    parents: dict[uuid.UUID, uuid.UUID | None] = {root.id: None}
-    dates: dict[uuid.UUID, tuple[str | None, str | None]] = {}
-    if candidate_ids:
-        rows = await db.execute(
-            select(Card.id, Card.parent_id, Card.attributes).where(
-                Card.id.in_(candidate_ids),
-                Card.type == INITIATIVE_TYPE,
-                Card.status == "ACTIVE",
-                *read_scope.where(Card, mode="module"),
-            )
-        )
-        for card_id, parent_id, attrs in rows.all():
-            parents[card_id] = parent_id
-            dates[card_id] = ((attrs or {}).get("startDate"), (attrs or {}).get("endDate"))
-    ids = descendants_within(parents, root.id)
-    cost_rows = await load_cost_rows(db, [root.id, *ids])
+    type_schema = await db.scalar(select(CardType).where(CardType.key == INITIATIVE_TYPE))
+    ids, dates = await _visible_descendant_dates(db, root, read_scope, type_schema)
+    cost_access = await PermissionService.card_ids_with_cost_access(db, user, [root.id, *ids])
+    cost_ids = (
+        [card_id for card_id in ids if card_id in cost_access] if root.id in cost_access else []
+    )
+    cost_rows = await load_cost_rows(db, [root.id, *cost_ids] if root.id in cost_access else [])
     own = cost_presence_from(cost_rows).get(root.id, LinePresence(False, False))
     aggregates = cost_aggregates_from(cost_rows)
-    figures = sum_figures(ids, aggregates)
+    figures = sum_figures(cost_ids, aggregates)
     start, end = date_span(ids, dates)
-    ppm_map = await build_ppm_map(db, ids, start_month=await get_fiscal_year_start(db))
+    ppm_map = await build_ppm_map(db, cost_ids, start_month=await get_fiscal_year_start(db))
     return PpmRollupOut(
         descendant_count=len(ids),
         **figures,
@@ -532,6 +580,7 @@ async def build_gantt_items(
     role_keys: Sequence[str] | None = None,
     allow_email_fallback: bool = True,
     read_scope: CardReadScope | None = None,
+    user: User | None = None,
 ) -> list[PpmGanttItem]:
     """Build the full (unredacted) board rows. Used directly by the authed route.
 
@@ -542,6 +591,32 @@ async def build_gantt_items(
     empty name and is dropped by the projection rather than published by address.
     """
     init_ids = [c.id for c in initiatives]
+    from app.services.permission_service import PermissionService
+    from app.services.ppm_timeline import load_timeline_mapping, visible_date_fields
+
+    mapping = await load_timeline_mapping(db) if user else None
+    type_schema = (
+        await db.scalar(select(CardType).where(CardType.key == INITIATIVE_TYPE)) if user else None
+    )
+    cost_access = (
+        await PermissionService.card_ids_with_cost_access(db, user, init_ids)
+        if user
+        else set(init_ids)
+    )
+    actual_keys = (
+        [key for key in (mapping.actual_start_key, mapping.actual_end_key) if key]
+        if mapping
+        else []
+    )
+    visible_dates: dict[uuid.UUID, dict[str, Any]] = {}
+    for card in initiatives:
+        if user and type_schema:
+            visible_dates[card.id] = {
+                **_visible_plan(card, type_schema),
+                **visible_date_fields(card, type_schema, actual_keys),
+            }
+        else:
+            visible_dates[card.id] = card.attributes or {}
 
     def _name(u: User) -> str:
         return (u.display_name or u.email) if allow_email_fallback else (u.display_name or "")
@@ -569,7 +644,9 @@ async def build_gantt_items(
         group_map = await build_group_map(db, init_ids, group_by, read_scope=read_scope)
     else:
         group_map = {}
-    cost_rows = await load_cost_rows(db, init_ids)
+    cost_rows = await load_cost_rows(
+        db, [card_id for card_id in init_ids if card_id in cost_access]
+    )
     cost_agg = cost_aggregates_from(cost_rows)
     reporters = await load_reporters(db, [r.reporter_id for r in latest.values()])
     stakeholder_map = await load_stakeholders(db, init_ids, role_keys=role_keys)
@@ -585,7 +662,14 @@ async def build_gantt_items(
         cost_agg,
         cost_presence_from(cost_rows),
         {
-            c.id: ((c.attributes or {}).get("startDate"), (c.attributes or {}).get("endDate"))
+            c.id: (
+                str(visible_dates[c.id].get("startDate"))
+                if visible_dates[c.id].get("startDate")
+                else None,
+                str(visible_dates[c.id].get("endDate"))
+                if visible_dates[c.id].get("endDate")
+                else None,
+            )
             for c in initiatives
         },
     )
@@ -597,14 +681,14 @@ async def build_gantt_items(
         report_out = None
         if report:
             u = reporters.get(report.reporter_id) if report.reporter_id else None
-            report_out = PpmStatusReportOut(
+            report_out = PpmPortfolioReportOut(
                 id=str(report.id),
                 initiative_id=str(report.initiative_id),
                 reporter_id=str(report.reporter_id) if report.reporter_id else None,
                 reporter=(ReporterOut(id=str(u.id), display_name=_name(u)) if u else None),
                 report_date=report.report_date,
                 schedule_health=report.schedule_health,
-                cost_health=report.cost_health,
+                **({"cost_health": report.cost_health} if card.id in cost_access else {}),
                 scope_health=report.scope_health,
                 summary=report.summary,
                 accomplishments=report.accomplishments,
@@ -616,6 +700,35 @@ async def build_gantt_items(
         group_info = group_map.get(card.id)
         costs = cost_agg.get(card.id, {})
 
+        date_kwargs: dict[str, Any] = {}
+        for source_key, target_key in (("startDate", "start_date"), ("endDate", "end_date")):
+            if source_key in visible_dates[card.id]:
+                value = visible_dates[card.id][source_key]
+                date_kwargs[target_key] = str(value) if value else None
+        if mapping:
+            for actual_key, target_key in (
+                (mapping.actual_start_key, "actual_start_date"),
+                (mapping.actual_end_key, "actual_end_date"),
+            ):
+                if actual_key and actual_key in visible_dates[card.id]:
+                    date_kwargs[target_key] = visible_dates[card.id][actual_key]
+        rollup = rollups.get(card.id)
+        if user is None:
+            budget_total = float(attrs.get("costBudget") or 0)
+            actual_total = float(attrs.get("costActual") or 0)
+        else:
+            # Stored derived attributes span the full hierarchy; a board row must use its scope.
+            budget_total, actual_total = _board_cost_totals(costs, rollup)
+        row_rollup = rollup_out(rollup)
+        if row_rollup is not None and card.id not in cost_access:
+            row_rollup = row_rollup.model_copy(
+                update={
+                    "capex_planned": None,
+                    "capex_actual": None,
+                    "opex_planned": None,
+                    "opex_actual": None,
+                }
+            )
         items.append(
             PpmGanttItem(
                 id=str(card.id),
@@ -623,10 +736,9 @@ async def build_gantt_items(
                 subtype=card.subtype,
                 status=attrs.get("initiativeStatus"),
                 parent_id=str(card.parent_id) if card.parent_id in on_board else None,
-                start_date=attrs.get("startDate"),
-                end_date=attrs.get("endDate"),
-                cost_budget=float(attrs.get("costBudget") or 0) or None,
-                cost_actual=float(attrs.get("costActual") or 0) or None,
+                **date_kwargs,
+                cost_budget=(budget_total or None) if card.id in cost_access else None,
+                cost_actual=(actual_total or None) if card.id in cost_access else None,
                 capex_planned=costs.get("capex_planned", 0),
                 capex_actual=costs.get("capex_actual", 0),
                 opex_planned=costs.get("opex_planned", 0),
@@ -644,16 +756,73 @@ async def build_gantt_items(
                     )
                     for sh, u in stakeholder_map.get(card.id, [])
                 ],
-                rollup=rollup_out(rollups.get(card.id)),
+                rollup=row_rollup,
             )
         )
     return items
+
+
+async def build_initiative_schedule(
+    db: AsyncSession, card: Card, user: User, read_scope: CardReadScope
+) -> PmlInitiativeScheduleOut:
+    from app.services.permission_service import PermissionService
+    from app.services.ppm_timeline import load_timeline_mapping, visible_date_fields
+
+    mapping = await load_timeline_mapping(db)
+    card_type = await db.scalar(select(CardType).where(CardType.key == INITIATIVE_TYPE))
+    fields: dict[str, dict[str, Any]] = {}
+    visible: dict[str, Any] = {}
+    if card_type:
+        fields = {
+            field["key"]: field
+            for section in card_type.fields_schema or []
+            if isinstance(section, dict)
+            for field in section.get("fields") or []
+            if isinstance(field, dict) and isinstance(field.get("key"), str)
+        }
+        visible = {
+            **_visible_plan(card, card_type),
+            **visible_date_fields(
+                card,
+                card_type,
+                [key for key in (mapping.actual_start_key, mapping.actual_end_key) if key],
+            ),
+        }
+    data: dict[str, Any] = {"initiative_id": str(card.id)}
+    for key, output, label in (
+        ("startDate", "start_date", "start_label"),
+        ("endDate", "end_date", "end_label"),
+        (mapping.actual_start_key, "actual_start_date", "actual_start_label"),
+        (mapping.actual_end_key, "actual_end_date", "actual_end_label"),
+    ):
+        if key and key in visible:
+            data[output] = visible[key]
+            if key in fields:
+                data[label] = fields[key].get("label", key)
+    own_start, own_end = visible.get("startDate"), visible.get("endDate")
+    derived = False
+    if not own_start and not own_end:
+        ids, dates = await _visible_descendant_dates(db, card, read_scope, card_type)
+        plan_start, plan_end = date_span(ids, dates)
+        derived = bool(plan_start or plan_end)
+    else:
+        plan_start, plan_end = own_start, own_end
+    data.update(plan_start_date=plan_start, plan_end_date=plan_end, plan_derived=derived)
+    report = (await latest_reports(db, [card.id])).get(card.id)
+    if report:
+        data["schedule_health"] = report.schedule_health
+        data["scope_health"] = report.scope_health
+        if await PermissionService.can_view_costs(db, user, card.id):
+            data["cost_health"] = report.cost_health
+    return PmlInitiativeScheduleOut.model_validate(data)
 
 
 def build_dashboard(
     initiatives: Sequence[Card],
     latest: dict[uuid.UUID, PpmStatusReport],
     totals: tuple[float, float],
+    *,
+    cost_access: set[uuid.UUID] | None = None,
 ) -> dict:
     """Portfolio KPI rollup."""
     by_subtype: dict[str, int] = {}
@@ -671,11 +840,13 @@ def build_dashboard(
         report = latest.get(card.id)
         if report:
             health_schedule[report.schedule_health] += 1
-            health_cost[report.cost_health] += 1
+            if cost_access is None or card.id in cost_access:
+                health_cost[report.cost_health] += 1
             health_scope[report.scope_health] += 1
         else:
             health_schedule["noReport"] += 1
-            health_cost["noReport"] += 1
+            if cost_access is None or card.id in cost_access:
+                health_cost["noReport"] += 1
             health_scope["noReport"] += 1
 
     total_budget, total_actual = totals
@@ -812,7 +983,7 @@ def to_public_portfolio(
             report = PpmPublicReport(
                 report_date=r.report_date,
                 schedule_health=r.schedule_health,
-                cost_health=r.cost_health,
+                cost_health=r.cost_health or "onTrack",
                 scope_health=r.scope_health,
                 reporter=(
                     _public_person(r.reporter.display_name)
@@ -881,6 +1052,54 @@ def to_public_portfolio(
 #: client-side matcher needs the relations (with their side), the tags, the
 #: subtype and the attributes. Lifecycle and the legacy ``org_ids`` stay out.
 FILTER_ITEM_KEYS = ("id", "name", "subtype", "attributes", "relations", "tag_ids")
+
+
+def _board_cost_totals(costs: dict[str, float], rollup: Rollup | None) -> tuple[float, float]:
+    planned = rollup.planned if rollup and rollup.planned is not None else costs
+    actual = rollup.actual if rollup and rollup.actual is not None else costs
+    return (
+        planned.get("capex_planned", 0) + planned.get("opex_planned", 0),
+        actual.get("capex_actual", 0) + actual.get("opex_actual", 0),
+    )
+
+
+async def scope_board_cost_attributes(
+    db: AsyncSession, user: User, read_scope: CardReadScope, payload: dict
+) -> None:
+    """Replace stored Initiative totals with the same scoped totals as the board."""
+    from app.services.permission_service import PermissionService
+
+    keys = ("costBudget", "costActual")
+    items = payload["items"]
+    if not any(any(key in (item["attributes"] or {}) for key in keys) for item in items):
+        return
+    if read_scope.is_unrestricted(mode="module") and await PermissionService.sees_all_costs(
+        db, user
+    ):
+        return
+    ids = [uuid.UUID(item["id"]) for item in items]
+    readable_cards = await db.execute(
+        select(Card.id, Card.parent_id).where(
+            Card.id.in_(ids), *read_scope.where(Card, mode="module")
+        )
+    )
+    parents = {card_id: parent_id for card_id, parent_id in readable_cards}
+    allowed = await PermissionService.card_ids_with_cost_access(db, user, list(parents))
+    rows = await load_cost_rows(db, list(allowed))
+    amounts = cost_aggregates_from(rows)
+    rollups = rollup_for_board(
+        parents, amounts, cost_presence_from(rows), dict.fromkeys(parents, (None, None))
+    )
+    for item in items:
+        card_id = uuid.UUID(item["id"])
+        attrs = item["attributes"] or {}
+        values = _board_cost_totals(amounts.get(card_id, {}), rollups.get(card_id))
+        projected = {key: value for key, value in attrs.items() if key not in keys}
+        if card_id in allowed:
+            projected.update(
+                {key: value for key, value in zip(keys, values, strict=True) if key in attrs}
+            )
+        item["attributes"] = projected
 
 
 def card_filter_payload(payload: dict) -> dict:

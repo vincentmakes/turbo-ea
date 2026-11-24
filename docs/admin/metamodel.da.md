@@ -184,13 +184,13 @@ Nogle regler er værd at kende:
 
 ##### Skjul en korttype for en rolle { #hiding-a-card-type-from-a-role }
 
-At nægte **Vis** skjuler typen helt for rollen. For rollens brugere findes kort af den type ikke: de er udeladt af lageret, søgning, optællinger og eksporter, af relationerne og hierarkiet på andre kort og af alle rapporter, grafer, afhængighedsgrafer og dashboards samt af listerne i BPM, PPM, GRC, beslutninger, diagrammer og TurboLens. Åbnes et sådant kort fra et link, vises **ikke fundet** i stedet for **adgang nægtet**, så siden ikke engang afslører, at kortet findes.
+At nægte **Vis** skjuler typen helt for rollen. For rollens brugere findes kort af den type ikke: de er udeladt af lageret, søgning, optællinger og eksporter, af relationerne og hierarkiet på andre kort og af alle rapporter, grafer, afhængighedsgrafer og dashboards samt af listerne i BPM, PML, GRC, beslutninger, diagrammer og TurboLens. Åbnes et sådant kort fra et link, vises **ikke fundet** i stedet for **adgang nægtet**, så siden ikke engang afslører, at kortet findes.
 
 - **At tillade Vis virker den modsatte vej.** En rolle, der slet ikke må gennemse lageret, kan få tilladt **Vis** på én type; dens brugere ser så kortene af den type og kun den type.
-- **Arv læses på to måder for Vis.** I lageret, på kortsider, i søgning og i eksporter følger *arv* rollens landskabsdækkende **Vis**-tilladelse. I moduler, der har deres egen tilladelse — rapporter, BPM, PPM, risici, beslutninger, diagrammer, TurboLens — skjuler kun et udtrykkeligt **Nægt** noget, så en rolle, der må læse rapporter, men ikke gennemse lageret, beholder sine rapporter.
+- **Arv læses på to måder for Vis.** I lageret, på kortsider, i søgning og i eksporter følger *arv* rollens landskabsdækkende **Vis**-tilladelse. I moduler, der har deres egen tilladelse — rapporter, BPM, PML, risici, beslutninger, diagrammer, TurboLens — skjuler kun et udtrykkeligt **Nægt** noget, så en rolle, der må læse rapporter, men ikke gennemse lageret, beholder sine rapporter.
 - **Et nej til Vis låser de øvrige handlinger.** En rolle, der ikke må se en type, kan heller ikke oprette, redigere, arkivere eller slette dens kort. Rækkens øvrige celler viser et låseikon og bevarer deres gemte værdier, som gælder igen, så snart **Vis** ikke længere er nægtet.
 - **Interessenter beholder deres kort.** En person, der er tildelt et kort gennem en interessentrolle, som giver adgang til at se det, ser stadig det kort — og kun det — selv når vedkommendes applikationsrolle ikke må se typen.
-- **Et nej til Vis på Initiativ gælder også i PPM.** PPM-tilladelsen bringer ikke skjulte initiativer tilbage; rollen ser kun dem, den er interessent på.
+- **Et nej til Vis på Initiativ gælder også i PML.** PML-tilladelsen bringer ikke skjulte initiativer tilbage; rollen ser kun dem, den er interessent på.
 - **Links, du ikke kan se, bevares.** Når nogen redigerer de kort, der er knyttet til en beslutning, et diagram eller et procestrin, bliver links til kort, som vedkommende ikke kan se, liggende.
 - **Architecture AI kræver hele landskabet.** TurboLens' Architecture AI ræsonnerer over alle kort, så den er ikke tilgængelig for en rolle, der har blot én korttype skjult.
 

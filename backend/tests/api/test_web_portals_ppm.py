@@ -725,3 +725,80 @@ class TestCardPortalUnaffected:
         assert meta.status_code == 200
         assert meta.json()["view"] == "cards"
         assert (await client.get("/api/v1/web-portals/public/catalog/cards")).status_code == 200
+
+
+async def test_public_portfolio_stays_plan_only_when_actual_dates_are_mapped(
+    client, db, ppm_portal_env
+):
+    env = ppm_portal_env
+    env["initiative"].attributes = {
+        **env["initiative"].attributes,
+        "actualStart": "2026-02-02",
+        "ActualEnd": "2026-10-10",
+    }
+    settings = await db.get(AppSettings, "default")
+    settings.general_settings = {
+        **settings.general_settings,
+        "pml.timeline": {"actual_start_key": "actualStart", "actual_end_key": "ActualEnd"},
+    }
+    await db.flush()
+    response = await client.get(PUBLIC)
+    assert response.status_code == 200, response.text
+    assert "actual_start_date" not in response.text
+    assert "actual_end_date" not in response.text
+    assert "2026-02-02" not in response.text
+    assert "2026-10-10" not in response.text
+
+
+async def test_existing_card_portal_visibility_survives_mapping(client, db, ppm_portal_env):
+    from app.models.card_type import CardType
+    from app.models.web_portal import WebPortal
+
+    env = ppm_portal_env
+    card_type = await db.scalar(select(CardType).where(CardType.key == "Initiative"))
+    card_type.fields_schema = [
+        {
+            "section": "Timeline",
+            "fields": [
+                {"key": "ActualEnd", "label": "Actual End", "type": "date"},
+                {"key": "hiddenDate", "label": "Hidden Date", "type": "date"},
+            ],
+        }
+    ]
+    env["initiative"].attributes = {
+        **env["initiative"].attributes,
+        "ActualEnd": "2026-10-10",
+        "hiddenDate": "2026-11-11",
+    }
+    portal = WebPortal(
+        name="Initiative cards",
+        slug="initiative-cards",
+        card_type="Initiative",
+        is_published=True,
+        created_by=env["admin"].id,
+        card_config={
+            "toggles": {
+                "field:ActualEnd": {"card": False, "detail": True},
+                "field:hiddenDate": {"card": False, "detail": False},
+            }
+        },
+    )
+    db.add(portal)
+    await db.flush()
+    url = "/api/v1/web-portals/public/initiative-cards/cards"
+    before = await client.get(url)
+    assert before.status_code == 200, before.text
+    assert before.json()["items"][0]["attributes"]["ActualEnd"] == "2026-10-10"
+    assert "hiddenDate" not in before.text
+    mapped = await client.put(
+        "/api/v1/settings/pml/timeline",
+        json={"actual_start_key": None, "actual_end_key": "ActualEnd"},
+        headers=auth_headers(env["admin"]),
+    )
+    assert mapped.status_code == 200, mapped.text
+    after = await client.get(url)
+    assert after.status_code == 200, after.text
+    assert after.json()["items"][0]["attributes"]["ActualEnd"] == "2026-10-10"
+    assert "hiddenDate" not in after.text
+    assert "actual_end_date" not in after.text
+    assert portal.card_config["toggles"]["field:ActualEnd"] == {"card": False, "detail": True}

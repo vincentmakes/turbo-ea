@@ -2,7 +2,7 @@
 
 Il modulo **EA Delivery** gestisce le **iniziative architetturali e i relativi artefatti** — diagrammi, Statement of Architecture Work (SoAW) e Architecture Decision Records (ADR). Fornisce una vista unica di tutti i progetti architetturali in corso e i loro deliverable.
 
-Quando PPM è abilitato — la configurazione tipica — EA Delivery vive **dentro il modulo PPM**: aprite **PPM** nella navigazione in alto e passate alla scheda **EA Delivery** (`/ppm?tab=ea-delivery`). Quando PPM è disabilitato, **EA Delivery** appare nel menu **IT Governance** con il nome **EA Governance** (collegamento a `/reports/ea-delivery`); se GRC è disattivato, o il vostro ruolo non può aprire IT Governance, appare invece come voce di primo livello **Consegna EA**. L'URL legacy `/ea-delivery` continua a funzionare come redirect in entrambi i casi, così i segnalibri esistenti restano risolvibili.
+Quando PML è abilitato — la configurazione tipica — EA Delivery vive **dentro il modulo PML**: aprite **PML** nella navigazione in alto e passate alla scheda **EA Delivery** (`/ppm?tab=ea-delivery`). Quando PML è disabilitato, **EA Delivery** appare nel menu **IT Governance** con il nome **EA Governance** (collegamento a `/reports/ea-delivery`); se GRC è disattivato, o il vostro ruolo non può aprire IT Governance, appare invece come voce di primo livello **Consegna EA**. L'URL legacy `/ea-delivery` continua a funzionare come redirect in entrambi i casi, così i segnalibri esistenti restano risolvibili.
 
 ![Gestione EA Delivery](../assets/img/it/17_consegna_ea.png)
 

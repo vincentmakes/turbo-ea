@@ -118,6 +118,8 @@ vi.mock("./TurboLensAdmin", () => ({ default: () => <div data-testid="tab-turbol
 vi.mock("./MigrationHub", () => ({ default: () => <div data-testid="tab-migration" /> }));
 vi.mock("./AuditLogAdmin", () => ({ default: () => <div data-testid="tab-audit-log" /> }));
 vi.mock("./ResourcesAdmin", () => ({ default: () => <div data-testid="tab-resources" /> }));
+vi.mock("./PmlFieldSettings", () => ({ default: () => <div data-testid="pml-financial-fields" /> }));
+vi.mock("./PmlTimelineSettings", () => ({ default: () => <div data-testid="pml-timeline-settings" /> }));
 vi.mock("./NavbarStyleCard", () => ({
   default: ({ onSaved }: { onSaved: (m: string) => void }) => (
     <button type="button" data-testid="navbar-style-card" onClick={() => onSaved("navbar saved")} />
@@ -1025,6 +1027,23 @@ describe("SettingsAdmin — email delivery", () => {
     );
     expect(card.getByRole("textbox", { name: t("settings.email.serviceAccountJson") })).toBeInTheDocument();
     expect(card.queryByRole("textbox", { name: t("settings.email.tenantId") })).toBeNull();
+  });
+});
+
+describe("SettingsAdmin — Project Master List", () => {
+  it("opens and switches the PML configuration panels", async () => {
+    const { user } = renderWithProviders(<SettingsAdmin />, { route: "/admin/settings?tab=pml" });
+    expect(screen.getByRole("tab", { name: "PML" })).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByTestId("pml-financial-fields")).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Timeline" }));
+    expect(await screen.findByTestId("pml-timeline-settings")).toBeInTheDocument();
+    expect(screen.queryByTestId("pml-financial-fields")).toBeNull();
+  });
+
+  it("restores the Timeline settings from its direct URL", async () => {
+    renderWithProviders(<SettingsAdmin />, { route: "/admin/settings?tab=pml&section=timeline" });
+    expect(await screen.findByTestId("pml-timeline-settings")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Timeline" })).toHaveAttribute("aria-selected", "true");
   });
 });
 

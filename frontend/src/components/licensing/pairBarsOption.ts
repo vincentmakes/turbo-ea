@@ -29,6 +29,10 @@ export interface PairBar {
   statusColor: string;
   /** The utilisation as the user reads it (`80 %`, "no license"), empty when there is none to show. */
   pct: string;
+  /** Optional exact, consumer-formatted value shown after the bars. */
+  display?: string;
+  licensedDisplay?: string;
+  actualDisplay?: string;
 }
 
 export interface PairGroup {
@@ -75,6 +79,7 @@ export function pairConsumption(
   p: PairBar,
   o: Pick<PairBarsOptions, "forecast" | "noDataLabel">,
 ): string {
+  if (p.display !== undefined) return p.display;
   if (o.forecast) return String(p.licensed);
   if (p.actual == null) return p.licensed === 0 ? o.noDataLabel : `— / ${p.licensed}`;
   return `${p.actual} / ${p.licensed}${p.pct ? ` (${p.pct})` : ""}`;
@@ -162,8 +167,8 @@ export function pairBarsOption(groups: PairGroup[], o: PairBarsOptions): ECharts
         if (!pair) return "";
         return [
           `<b>${escapeHtml(g.label)}: ${escapeHtml(pair.label)}</b>`,
-          `${escapeHtml(o.licensedLabel)}: ${pair.licensed}`,
-          `${escapeHtml(o.actualLabel)}: ${pair.actual ?? "—"}`,
+          `${escapeHtml(o.licensedLabel)}: ${escapeHtml(pair.licensedDisplay ?? String(pair.licensed))}`,
+          `${escapeHtml(o.actualLabel)}: ${escapeHtml(pair.actualDisplay ?? String(pair.actual ?? "—"))}`,
           escapeHtml(pair.status),
         ].join("<br/>");
       },

@@ -1104,3 +1104,160 @@ async def test_only_the_record_s_own_identity_row_is_stamped(db, env, monkeypatc
     assert own.last_synced_at is not None
     assert own.last_synced_at.tzinfo is not None
     assert (same_card.last_synced_at, same_sys_id.last_synced_at) == (None, None)
+
+
+async def test_timeline_mapping_rejects_invalid_snow_create_and_update(db, env):
+    from app.models.app_settings import AppSettings
+
+    await create_card_type(db, key="Initiative")
+    env["mapping"].card_type_key = "Initiative"
+    db.add(
+        AppSettings(
+            id="default",
+            general_settings={
+                "pml.timeline": {"actual_start_key": "actualStart", "actual_end_key": "ActualEnd"}
+            },
+        )
+    )
+    engine = SyncEngine(db, ServiceNowClient(INSTANCE, {"username": "u", "password": "p"}))
+    field_mappings = [
+        SnowFieldMapping(turbo_field="name", snow_field="name"),
+        SnowFieldMapping(turbo_field="attributes.actualStart", snow_field="start"),
+        SnowFieldMapping(turbo_field="attributes.ActualEnd", snow_field="end"),
+    ]
+    staged = SnowStagedRecord(
+        snow_sys_id=S1,
+        snow_data={"name": "Invalid", "start": "2026-06-01", "end": "2026-05-01"},
+    )
+    with pytest.raises(ValueError, match="(?i)(date|start|end)"):
+        await engine._apply_create(staged, env["mapping"], field_mappings)
+    card = await create_card(
+        db,
+        card_type="Initiative",
+        name="Existing",
+        attributes={"actualStart": "2026-04-01", "ActualEnd": "2026-05-01"},
+    )
+    staged.card_id = card.id
+    staged.diff = {"attributes.actualStart": {"old": "2026-04-01", "new": "2026-06-01"}}
+    with pytest.raises(ValueError, match="(?i)(date|start|end)"):
+        await engine._apply_update(staged)
+    assert card.attributes["actualStart"] == "2026-04-01"
+
+
+@pytest.mark.parametrize("existing", [False, True])
+async def test_timeline_invalid_snow_row_is_reported_at_staging(db, env, existing):
+    from app.models.app_settings import AppSettings
+
+    await create_card_type(db, key="Initiative")
+    env["mapping"].card_type_key = "Initiative"
+    db.add(
+        AppSettings(
+            id="default",
+            general_settings={
+                "pml.timeline": {"actual_start_key": "actualStart", "actual_end_key": "ActualEnd"}
+            },
+        )
+    )
+    await db.flush()
+    run = SnowSyncRun(connection_id=env["conn"].id, mapping_id=env["mapping"].id, stats={})
+    db.add(run)
+    await db.flush()
+    engine = SyncEngine(db, ServiceNowClient(INSTANCE, {"username": "u", "password": "p"}))
+    fields = [
+        SnowFieldMapping(turbo_field="name", snow_field="name"),
+        SnowFieldMapping(turbo_field="attributes.actualStart", snow_field="start"),
+        SnowFieldMapping(turbo_field="attributes.ActualEnd", snow_field="end"),
+    ]
+    record = {"name": "Initiative", "start": "2026-06-01"}
+    identities = {}
+    if existing:
+        card = await create_card(
+            db,
+            card_type="Initiative",
+            name="Initiative",
+            attributes={"actualStart": "2026-04-01", "ActualEnd": "2026-05-01"},
+        )
+        identities[S1] = await _identity(db, env, card, S1)
+    else:
+        record["end"] = "2026-05-01"
+    await engine._process_pull_record(run, env["mapping"], fields, [], record, S1, identities)
+    (row,) = await _staged(db, run)
+    assert row.status == "error"
+    assert "Actual" in row.error_message
+    assert run.stats["errors"] == 1
+
+
+async def test_snow_mapped_actual_dates_distinguish_explicit_null_from_missing(db, env):
+    from app.models.app_settings import AppSettings
+
+    await create_card_type(db, key="Initiative")
+    env["mapping"].card_type_key = "Initiative"
+    db.add(
+        AppSettings(
+            id="default",
+            general_settings={
+                "pml.timeline": {"actual_start_key": "actualStart", "actual_end_key": "ActualEnd"}
+            },
+        )
+    )
+    run = SnowSyncRun(connection_id=env["conn"].id, mapping_id=env["mapping"].id, stats={})
+    db.add(run)
+    await db.flush()
+    card = await create_card(
+        db,
+        card_type="Initiative",
+        name="Initiative",
+        attributes={"actualStart": "2026-04-01", "ActualEnd": "2026-05-01"},
+    )
+    identity = await _identity(db, env, card, S1)
+    engine = SyncEngine(db, ServiceNowClient(INSTANCE, {"username": "u", "password": "p"}))
+    fields = [
+        SnowFieldMapping(turbo_field="attributes.actualStart", snow_field="start"),
+        SnowFieldMapping(turbo_field="attributes.ActualEnd", snow_field="end"),
+    ]
+    await engine._process_pull_record(
+        run, env["mapping"], fields, [], {"start": None}, S1, {S1: identity}
+    )
+    (row,) = await _staged(db, run)
+    assert row.action == "update"
+    assert row.diff == {"attributes.actualStart": {"old": "2026-04-01", "new": None}}
+    assert await engine._apply_update(row) is True
+    assert card.attributes == {"actualStart": None, "ActualEnd": "2026-05-01"}
+
+
+async def test_snow_null_cannot_clear_locked_mapped_actual_date(db, env, monkeypatch):
+    from app.models.app_settings import AppSettings
+
+    await create_card_type(db, key="Initiative")
+    env["mapping"].card_type_key = "Initiative"
+    db.add(
+        AppSettings(
+            id="default",
+            general_settings={
+                "pml.timeline": {"actual_start_key": "actualStart", "actual_end_key": "ActualEnd"}
+            },
+        )
+    )
+    run = SnowSyncRun(connection_id=env["conn"].id, mapping_id=env["mapping"].id, stats={})
+    db.add(run)
+    await db.flush()
+    card = await create_card(
+        db,
+        card_type="Initiative",
+        name="Initiative",
+        attributes={"actualStart": "2026-04-01", "ActualEnd": "2026-05-01"},
+    )
+    identity = await _identity(db, env, card, S1)
+    engine = SyncEngine(db, ServiceNowClient(INSTANCE, {"username": "u", "password": "p"}))
+
+    async def locked(_type_key):
+        return {"actualStart": "disabled-extension"}
+
+    monkeypatch.setattr(engine, "_locked_fields", locked)
+    fields = [SnowFieldMapping(turbo_field="attributes.actualStart", snow_field="start")]
+    await engine._process_pull_record(
+        run, env["mapping"], fields, [], {"start": None}, S1, {S1: identity}
+    )
+    (row,) = await _staged(db, run)
+    assert row.action == "skip"
+    assert card.attributes["actualStart"] == "2026-04-01"

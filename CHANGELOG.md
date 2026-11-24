@@ -5,6 +5,18 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.211.0] - 2026-11-23
+
+### Added
+
+- Track Initiative budgets, Cost Items and actual invoicing in a nested view with printable totals.
+- Configure fields, formulas and Provider inheritance for Initiative financial records.
+- View budget and actual spend as overlapping bars and follow planned and actual dates on Initiative cards and the internal Portfolio.
+
+### Changed
+
+- Rename the PPM module to Project Master List (PML) while keeping existing links working.
+
 ## [2.210.0] - 2026-11-22
 
 ### Added

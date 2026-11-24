@@ -66,6 +66,9 @@ const MigrationHub = lazy(() => import("./MigrationHub"));
 const AuditLogAdmin = lazy(() => import("./AuditLogAdmin"));
 const ResourcesAdmin = lazy(() => import("./ResourcesAdmin"));
 
+const PmlFieldSettings = lazy(() => import("./PmlFieldSettings"));
+const PmlTimelineSettings = lazy(() => import("./PmlTimelineSettings"));
+
 const TAB_KEYS = [
   "general",
   "authentication",
@@ -77,6 +80,7 @@ const TAB_KEYS = [
   "migration",
   "audit-log",
   "resources",
+  "pml",
 ];
 
 // Legacy tab keys that bookmarks / redirects may still carry, mapped to the
@@ -1648,7 +1652,7 @@ function GeneralTab() {
         />
       </Paper>
 
-      {/* PPM Module Toggle */}
+      {/* Project Master List module toggle */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
           <MaterialSymbol icon="assignment" size={22} color={theme.palette.text.secondary} />
@@ -2211,6 +2215,7 @@ export default function SettingsAdmin() {
   const rawTabKey = params.get("tab") || "general";
   const tabKey = LEGACY_TAB_ALIASES[rawTabKey] ?? rawTabKey;
   const tabIndex = Math.max(0, TAB_KEYS.indexOf(tabKey));
+  const pmlSection = params.get("section") === "timeline" ? "timeline" : "budget-costs";
 
   const TAB_LABELS = [
     t("settings.tabs.general"),
@@ -2223,6 +2228,7 @@ export default function SettingsAdmin() {
     t("settings.tabs.migration"),
     t("settings.tabs.auditLog", "Audit log"),
     t("settings.tabs.resources"),
+    t("settings.tabs.pml"),
   ];
 
   // «Settings · Integrations» — the route supplies «Settings».
@@ -2303,6 +2309,30 @@ export default function SettingsAdmin() {
         <Suspense fallback={<TabLoader />}>
           <ResourcesAdmin />
         </Suspense>
+      )}
+      {TAB_KEYS[tabIndex] === "pml" && (
+        <>
+          <Tabs
+            value={pmlSection}
+            onChange={(_event, section: string) => setParams({ tab: "pml", section })}
+            aria-label={t("settings.ppm.title")}
+            sx={{ mb: 2 }}
+          >
+            <Tab
+              id="pml-budget-costs-tab" aria-controls="pml-settings-panel"
+              value="budget-costs" label={t("pml.settings.budgetCosts")}
+            />
+            <Tab
+              id="pml-timeline-tab" aria-controls="pml-settings-panel"
+              value="timeline" label={t("pml.settings.timeline")}
+            />
+          </Tabs>
+          <Box role="tabpanel" id="pml-settings-panel" aria-labelledby={`pml-${pmlSection}-tab`}>
+            <Suspense fallback={<TabLoader />}>
+              {pmlSection === "timeline" ? <PmlTimelineSettings /> : <PmlFieldSettings />}
+            </Suspense>
+          </Box>
+        </>
       )}
     </Box>
   );

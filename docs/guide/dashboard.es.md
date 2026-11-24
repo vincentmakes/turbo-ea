@@ -177,7 +177,7 @@ Además de un estado de aprobación y una fase del ciclo de vida, un gráfico o 
 
 Un diagrama de Sankey toma un tipo de relación y agrupa **cada extremo** por separado: por tipo de ficha, subtipo, estado de aprobación, fase del ciclo de vida, calidad de los datos, un campo del tipo de ese extremo o las **propias fichas**: Organización → Aplicación muestra qué organizaciones usan qué aplicaciones, conservando las veinte fichas más grandes de cada extremo y agrupando el resto en *Otros*; en ese caso el widget lo indica bajo el gráfico, y **Categorías mostradas (como máximo)** amplía el límite. Al hacer clic en un nodo de ficha se abre la ficha.
 
-Los gráficos también pueden representar un informe de módulo: riesgos por nivel o estado, puntuaciones de cumplimiento por normativa, estado del calendario de PPM y madurez de BPM figuran en el catálogo cuando el módulo está activado y usted tiene su permiso. Las etiquetas aún no pueden usarse como dimensión ni como filtro.
+Los gráficos también pueden representar un informe de módulo: riesgos por nivel o estado, puntuaciones de cumplimiento por normativa, estado del calendario de PML y madurez de BPM figuran en el catálogo cuando el módulo está activado y usted tiene su permiso. Las etiquetas aún no pueden usarse como dimensión ni como filtro.
 
 Cuatro gráficos predefinidos están en la familia **Gráficos** del catálogo, y cada uno se ofrece cuando su metamodelo tiene las piezas necesarias: **Aplicaciones por organización**, **Calendario de fin de vida**, **Fichas obsoletas por tipo** y el diagrama de Sankey **Organización → Aplicación**.
 

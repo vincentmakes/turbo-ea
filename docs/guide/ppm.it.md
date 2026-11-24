@@ -1,18 +1,18 @@
-# Gestione del Portafoglio Progetti (PPM)
+# Elenco principale dei progetti (PML)
 
-Il modulo **PPM** fornisce una soluzione completa di gestione del portafoglio progetti per il monitoraggio di iniziative, budget, rischi, attività e tempistiche. Si integra direttamente con il tipo di card Iniziativa per arricchire ogni progetto con report di stato, monitoraggio dei costi e visualizzazione Gantt.
+Apri **Elenco principale dei progetti** dalla navigazione principale per seguire schede Iniziativa, budget, rischi, attività e date. Il modulo riunisce report di stato, dati finanziari e viste Gantt.
 
 !!! note
-    Il modulo PPM può essere abilitato o disabilitato da un amministratore nelle [Impostazioni](../admin/settings.md). Quando disabilitato, la navigazione e le funzionalità PPM sono nascoste.
+    Il modulo PML può essere abilitato o disabilitato da un amministratore nelle [Impostazioni](../admin/settings.md). Quando disabilitato, la navigazione e le funzionalità PML sono nascoste.
 
 ## Dashboard del Portafoglio
 
-![Dashboard del Portafoglio PPM](../assets/img/it/40_ppm_portafoglio.png)
+![Dashboard del Portafoglio PML](../assets/img/it/40_ppm_portafoglio.png)
 
-Il **Dashboard del Portafoglio** è il punto di ingresso principale per PPM. Fornisce:
+Il **Dashboard del Portafoglio** è il punto di ingresso principale per PML. Fornisce:
 
 - **Barra dei KPI** — Il numero di iniziative, il loro budget totale (se i costi vi vengono mostrati) e quante sono In linea, A rischio e Fuori linea sul calendario. I valori seguono il portafoglio: la ricerca, il sottotipo scelto e la sezione **Filtri** li restringono alle iniziative che state guardando
-- **Panoramica Gantt** — Barre temporali che mostrano le date di inizio e fine di ogni iniziativa, con indicatori di salute RAG
+- La vista interna mostra **Pianificato** ed **Effettivo** sulla stessa scala trimestrale. Una sola data appare come indicatore. Le date esatte sono visibili secondo i permessi. Il portafoglio pubblico mostra il piano.
 
 ### Raggruppamento e filtri
 
@@ -25,7 +25,7 @@ Utilizzare la barra degli strumenti per:
 - **Mostrare la gerarchia** per annidare le iniziative di ogni gruppo sotto la loro iniziativa padre (vedi sotto)
 - **Sottoraggruppare per sottotipo** per suddividere ogni gruppo per sottotipo (vedi sotto)
 
-Queste impostazioni vengono mantenute nell'URL, quindi l'aggiornamento della pagina conserva la vista corrente e un link che condividete apre lo stesso portafoglio. Il portafoglio ricorda inoltre nel vostro browser la ricerca, il raggruppamento, il sottotipo, le impostazioni della gerarchia e i filtri, e li ripristina quando tornate — dal menu PPM, oppure con la freccia indietro dopo aver aperto un'iniziativa. Un link che porta impostazioni proprie si apre con quelle, che diventano le impostazioni ricordate. L'icona **Reimposta predefiniti** nella barra del titolo riporta il portafoglio alle impostazioni predefinite.
+Queste impostazioni vengono mantenute nell'URL, quindi l'aggiornamento della pagina conserva la vista corrente e un link che condividete apre lo stesso portafoglio. Il portafoglio ricorda inoltre nel vostro browser la ricerca, il raggruppamento, il sottotipo, le impostazioni della gerarchia e i filtri, e li ripristina quando tornate — dal menu PML, oppure con la freccia indietro dopo aver aperto un'iniziativa. Un link che porta impostazioni proprie si apre con quelle, che diventano le impostazioni ricordate. L'icona **Reimposta predefiniti** nella barra del titolo riporta il portafoglio alle impostazioni predefinite.
 
 #### La sezione Filtri
 
@@ -43,7 +43,7 @@ Quando alcune iniziative del portafoglio hanno un'iniziativa padre anch'essa pre
 
 Il raggruppamento resta prioritario: la gerarchia si annida **all'interno di ogni gruppo**, quindi un'iniziativa il cui padre appartiene a un altro gruppo compare come riga di primo livello del proprio gruppo. I filtri si applicano per primi e l'albero mostra ciò che resta: quando la ricerca o il filtro per sottotipo escludono un padre, le sue figlie salgono al primo livello invece di mantenere il padre come contesto.
 
-![Portafoglio PPM con la gerarchia visualizzata](../assets/img/it/101_ppm_portafoglio_gerarchia.png)
+![Portafoglio PML con la gerarchia visualizzata](../assets/img/it/101_ppm_portafoglio_gerarchia.png)
 
 #### Sottoraggruppare per sottotipo
 
@@ -59,7 +59,7 @@ La riga finale del gruppo sostituisce la riga dei totali: porta il nome del sott
 
 Ogni iniziativa mostra i propri importi ogni volta che ne ha: le barre CapEx e OpEx di un padre coprono le righe di budget e di costo registrate sul padre, e la sua barra Gantt le sue date di inizio e fine. Un padre **senza righe di budget proprie** mostra invece il budget delle iniziative sottostanti, e un padre **senza righe di costo proprie** il loro consuntivo; in entrambi i casi la barra è disegnata **a contorno** con importi in corsivo, e il suo tooltip indica quale metà proviene dal basso. Un padre **senza data di inizio né di fine** copre il periodo che va dall'inizio più precoce alla fine più tardiva delle iniziative sottostanti, disegnato come barra **tratteggiata** con trimestri in corsivo. Un tooltip indica in ogni caso quante iniziative sono comprese. Le tre regole sono indipendenti — un programma che detiene il budget mentre i suoi progetti registrano la spesa mostra il proprio budget a fronte del loro consuntivo, e un programma può avere date proprie e mostrare comunque i costi dei suoi progetti — e basta registrare una riga di budget, una riga di costo o una data sul padre perché quella parte torni ai suoi importi. Contano solo le iniziative che potete vedere e, su un portale, quelle che il portale pubblica. I totali di gruppo e la barra dei KPI continuano a sommare solo le righe registrate, così ogni importo è contato una sola volta.
 
-Gli importi derivati esistono solo sulla bacheca PPM e sulle schede **Panoramica** e **Budget e costi** dell'iniziativa stessa. Per portare un totale aggregato nell'inventario, nei report o in un portale, definire un campo calcolato che sommi il budget proprio di ogni livello ai totali delle sue figlie: vedere [Aggregare gli importi PPM lungo la gerarchia delle iniziative](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). Una modifica PPM su una figlia riesegue i calcoli di tutte le iniziative superiori, così il totale del padre si aggiorna subito.
+Gli importi derivati esistono solo sulla bacheca PML e sulle schede **Panoramica** e **Budget e costi** dell'iniziativa stessa. Per portare un totale aggregato nell'inventario, nei report o in un portale, definire un campo calcolato che sommi il budget proprio di ogni livello ai totali delle sue figlie: vedere [Aggregare gli importi PML lungo la gerarchia delle iniziative](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). Una modifica PML su una figlia riesegue i calcoli di tutte le iniziative superiori, così il totale del padre si aggiorna subito.
 
 ### Stampa ed esportazione
 
@@ -71,11 +71,13 @@ Il portafoglio offre le stesse azioni nella barra del titolo dei report:
 
 ## Vista Dettagliata dell'Iniziativa
 
+**Inizio effettivo** e **Fine effettiva** sono campi integrati della scheda Iniziativa. Puoi modificarne o cancellarne i valori. Gli amministratori possono cambiare etichette e posizione nel Metamodel. Le definizioni sono protette dalla cancellazione.
+
 Cliccare su qualsiasi iniziativa per aprire la sua pagina di dettaglio con sette schede:
 
 ### Scheda Panoramica
 
-![Scheda Panoramica PPM](../assets/img/it/41_ppm_panoramica.png)
+![Scheda Panoramica PML](../assets/img/it/41_ppm_panoramica.png)
 
 La panoramica mostra un riepilogo della salute e delle finanze dell'iniziativa:
 
@@ -87,7 +89,7 @@ La panoramica mostra un riepilogo della salute e delle finanze dell'iniziativa:
 
 ### Scheda Report di Stato
 
-![Report di Stato PPM](../assets/img/it/42_ppm_rapporti_stato.png)
+![Report di Stato PML](../assets/img/it/42_ppm_rapporti_stato.png)
 
 I report di stato mensili monitorano la salute del progetto nel tempo. Ogni report include:
 
@@ -103,18 +105,20 @@ I report di stato mensili monitorano la salute del progetto nel tempo. Ogni repo
 
 ### Scheda Budget e Costi
 
-![Budget e Costi PPM](../assets/img/it/43_ppm_budget_costi.png)
+![Budget e Costi PML](../assets/img/it/43_ppm_budget_costi.png)
 
-Monitoraggio dei dati finanziari con due tipi di voci:
+**Budget pianificato** mostra le righe per esercizio e categoria (CapEx o OpEx). Espandi una riga di budget per vedere le **Voci di costo**, poi espandi una voce per vedere il **Fatturato effettivo**. L'inizio dell'esercizio dipende dalle [impostazioni](../admin/settings.md#inizio-dellanno-fiscale).
 
-- **Voci di budget** — Budget pianificato per anno fiscale e categoria (CapEx / OpEx), con una descrizione facoltativa. Uno stesso anno fiscale e categoria possono contenere tutte le voci necessarie — una per licenza, partner di implementazione o lotto di hardware — e la descrizione le distingue; i totali le sommano tutte. Le linee di budget sono raggruppate in base al **mese di inizio dell'anno fiscale** configurato nelle [Impostazioni](../admin/settings.md#inizio-dellanno-fiscale). Ad esempio, se l'anno fiscale inizia ad aprile, una linea di budget di giugno 2026 appartiene all'AF 2026–2027
-- **Voci di costo** — Spese effettive con data, descrizione e categoria
+Inserisci gli importi di budget, costi e fatture al netto dell'IVA. Il fatturato effettivo registra fatture già emesse.
 
-Entrambe le tabelle sono raggruppate per anno fiscale. Ogni anno ha una riga di intestazione con i subtotali CapEx, OpEx e totale e il numero di righe che contiene; la freccia nell'intestazione mostra o nasconde le righe di quell'anno. All'apertura della scheda è espanso solo l'anno fiscale corrente (o l'ultimo anno con righe, se quello corrente non ne ha). Gli importi si trovano in colonne **CapEx** e **OpEx** separate, e una riga **Totale, tutti gli anni fiscali** sotto ogni tabella somma tutti gli anni. Il pulsante **+** nell'intestazione di un anno di budget aggiunge una riga di budget con quell'anno fiscale già compilato. Le voci di costo sono raggruppate per l'anno fiscale della loro data e ordinate per data al suo interno; quelle senza data sono raccolte in fondo nel gruppo **Senza data** e contano nei totali dei costi come qualsiasi altra voce.
+- Aggiungi una voce di costo dalla riga di budget. Le voci precedenti senza un budget sono in **Costi senza budget** e possono essere assegnate. Puoi spostare una voce tra righe di budget della stessa iniziativa.
+- Registra data, riferimento e importo della fattura. Se una fattura copre più voci, registra la quota sotto ciascuna voce. Puoi spostare una registrazione su un'altra voce della stessa iniziativa.
+- Ogni voce mostra costo effettivo, fatturato e residuo. Il residuo è il costo effettivo meno il fatturato e può essere negativo. Il budget somma le voci collegate e mostra subtotali per esercizio e categoria. Il totale fatturato dell'iniziativa include anche le fatture delle voci senza budget.
+- Budget, costo effettivo e grafici si basano sugli importi di budget e delle voci di costo. Registrare o spostare una fattura modifica solo i dati di fatturazione.
 
-Quando l'iniziativa **non ha righe di budget proprie**, la tabella del budget mostra, al posto del suo stato vuoto, il budget delle iniziative sottostanti: una didascalia indica da quante iniziative proviene, una riga di sola lettura per anno fiscale riporta CapEx, OpEx e totale in corsivo, e la riga **Totale, tutti gli anni fiscali** li somma. La tabella dei costi fa lo stesso con il loro consuntivo quando l'iniziativa **non ha righe di costo proprie**, con una riga **Senza data** per le loro righe di costo senza data. La barra di riepilogo segnala quegli importi in corsivo, con un tooltip. Ogni tabella decide da sé, nulla viene salvato né sommato agli importi propri dell'iniziativa, e contano solo le iniziative che potete vedere. La registrazione di una prima riga con **Aggiungi riga di budget** o **Aggiungi voce di costo** riporta quella tabella alle righe proprie dell'iniziativa; i grafici della spesa mostrano sempre le righe proprie dell'iniziativa.
+Se configurato, il Provider della riga di budget viene ereditato dalle voci di costo. È possibile scegliere un Provider figlio diretto consentito. Vedi [Configurare Budget e costi](../admin/settings.md#pml-budget-costs) per i campi aggiuntivi e calcolati.
 
-I totali di budget e costi vengono automaticamente aggregati negli attributi `costBudget` e `costActual` della card Iniziativa.
+Quando l'iniziativa non ha budget o costi propri, il dato corrispondente può provenire dalle iniziative discendenti visibili. I due lati sono indipendenti; le righe derivate mostrano un trattino per costi collegati e fatturazione. I totali del budget e dei costi aggiornano automaticamente `costBudget` e `costActual` sulla scheda. Quando esistono voci di costo PML, questi campi diventano di sola lettura.
 
 #### Spesa nel tempo
 
@@ -133,7 +137,7 @@ Due aspetti da tenere presenti nella lettura dei grafici:
 
 ### Scheda Gestione dei Rischi
 
-![Gestione dei Rischi PPM](../assets/img/it/44_ppm_gestione_rischi.png)
+![Gestione dei Rischi PML](../assets/img/it/44_ppm_gestione_rischi.png)
 
 Il registro dei rischi monitora i rischi dell'iniziativa. Ogni rischio ha:
 
@@ -224,7 +228,7 @@ Le colonne vengono riconosciute dalla loro intestazione nella vostra lingua o in
 
 ### Scheda Attività
 
-![Board Attività PPM](../assets/img/it/45_ppm_board_attivita.png)
+![Board Attività PML](../assets/img/it/45_ppm_board_attivita.png)
 
 Il gestore delle attività supporta le viste **board Kanban** e **lista** con quattro colonne di stato:
 
@@ -239,7 +243,7 @@ I filtri di visualizzazione (modalità vista, filtro WBS, interruttore raggruppa
 
 ### Scheda Gantt
 
-![Diagramma di Gantt PPM](../assets/img/it/46_ppm_gantt.png)
+![Diagramma di Gantt PML](../assets/img/it/46_ppm_gantt.png)
 
 Il diagramma di Gantt visualizza la tempistica del progetto con:
 
@@ -262,17 +266,21 @@ Interagisci con il diagramma di Gantt:
 
 L'ultima scheda mostra la vista completa dei dettagli della card, incluse tutte le sezioni standard.
 
+In **Costi e tempistica**, i grafici sovrapposti confrontano budget e costo effettivo per totale, CapEx e OpEx. Il totale del fatturato dell'iniziativa è visibile separatamente secondo i permessi. La timeline presenta le date pianificate ed effettive visibili e gli indicatori di tempo, costo e ambito.
+
 ### Report dell'iniziativa { #initiative-report }
 
-![Report dell'iniziativa PPM](../assets/img/it/103_ppm_report_iniziativa.png)
+![Report dell'iniziativa PML](../assets/img/it/103_ppm_report_iniziativa.png)
+
+La stampa mostra le date pianificate ed effettive visibili, la gerarchia espansa e i subtotali per esercizio. Il totale fatturato dell'iniziativa compare secondo i permessi.
 
 Il pulsante **Report** nell'intestazione dell'iniziativa, accanto al chip del sottotipo (un'icona su un telefono), apre il **Report dell'iniziativa**: un'unica pagina di sola lettura che raccoglie ciò che mostrano le schede, impaginata come gli altri report, con il nome dell'iniziativa come titolo e una freccia indietro per tornare all'iniziativa. I chip **Sezioni** nella barra degli strumenti mostrano o nascondono ciascuna sezione; la prima volta sono tutte visibili e la vostra scelta viene ricordata nel vostro browser:
 
 | Sezione | Cosa mostra |
 |---------|-------------|
-| **Panoramica** | Riquadri per **Budget totale**, **Consuntivo totale**, **Scostamento** e **Completamento**; il **Riepilogo salute** con i tre indicatori dell'ultimo rapporto di stato a colori e a parole; le barre **Finanze** per totale, CapEx e OpEx; la scheda **Cronologia** con le date di inizio e fine, il sottotipo e lo stato dell'iniziativa; e la descrizione. Gli importi presi dalle iniziative sottostanti sono contrassegnati, con una nota che li spiega |
+| **Panoramica** | Riquadri per **Budget totale**, **Consuntivo totale**, **Scostamento** e **Completamento**; il **Riepilogo salute** con i tre indicatori dell'ultimo rapporto di stato a colori e a parole; le barre **Finanze** per totale, CapEx e OpEx; la scheda **Cronologia** con le date pianificate ed effettive visibili, il sottotipo e lo stato dell'iniziativa; e la descrizione. Gli importi presi dalle iniziative sottostanti sono contrassegnati, con una nota che li spiega |
 | **Rapporti di stato** | L'ultimo rapporto per intero, con i suoi indicatori, poi i rapporti precedenti in una tabella con data, relatore e indicatori di salute |
-| **Budget e costi** | Riquadri per budget, consuntivo e scostamento totali e per la spesa CapEx e OpEx rispetto al relativo budget; i grafici **Spesa nel tempo** per l'anno fiscale indicato nel loro chip e per l'intero progetto; poi le tabelle **Budget pianificato** e **Voci di costo** con tutti gli anni fiscali espansi |
+| **Budget e costi** | Riquadri per budget, consuntivo e scostamento totali e per la spesa CapEx e OpEx rispetto al relativo budget; i grafici **Spesa nel tempo** per l'anno fiscale indicato nel loro chip e per l'intero progetto; Gerarchia espansa **Budget pianificato → Voci di costo → Fatturato effettivo**, con subtotali per esercizio e totale fatturato dell'iniziativa |
 | **Gestione dei rischi** | Riquadri per **Totale rischi**, **Aperto** e **Rischi elevati**; la **Mappa di calore dei rischi** di probabilità rispetto a impatto, con ogni cella colorata per fascia di punteggio e il numero di rischi che contiene, accanto a un conteggio **Per stato**; poi ogni rischio con il punteggio (e probabilità × impatto), lo stato, il responsabile, la descrizione completa e la mitigazione completa, dal punteggio più alto |
 | **Attività e pianificazione** | Una tabella dei pacchetti di lavoro, ciascuno con le sue attività sotto, poi le attività senza pacchetto di lavoro, affiancata da una timeline su scala trimestrale: una barra per ogni pacchetto di lavoro riempita fino al suo completamento, una barra per ogni attività nel colore del suo stato, un rombo per una milestone (come nel diagramma di Gantt), un punto per un elemento con una sola data e una linea per oggi quando cade nell'intervallo. Ogni riga mostra anche l'avanzamento o lo stato e la priorità, e una legenda spiega i simboli |
 
@@ -293,14 +301,16 @@ La WBS fornisce una scomposizione gerarchica dell'ambito del progetto:
 
 ## Integrazione con i dettagli della card
 
-Quando il PPM è attivato, le card **Iniziativa** mostrano una scheda **PPM** come ultima scheda nella [vista dettagli della card](card-details.md). Cliccando su questa scheda si accede direttamente alla vista dettagliata PPM dell'iniziativa (scheda Panoramica). Questo offre un punto di accesso rapido da qualsiasi card Iniziativa alla sua pagina completa del progetto PPM.
+Quando il PML è attivato, le card **Iniziativa** mostrano una scheda **PML** come ultima scheda nella [vista dettagli della card](card-details.md). Cliccando su questa scheda si accede direttamente alla vista dettagliata PML dell'iniziativa (scheda Panoramica). Questo offre un punto di accesso rapido da qualsiasi card Iniziativa alla sua pagina completa del progetto PML.
 
-Al contrario, la scheda **Dettagli della card** all'interno della vista dettagliata PPM dell'iniziativa mostra le sezioni standard senza la scheda PPM, evitando la navigazione circolare.
+Al contrario, la scheda **Dettagli della card** all'interno della vista dettagliata PML dell'iniziativa mostra le sezioni standard senza la scheda PML, evitando la navigazione circolare.
 
 ## Permessi
 
 | Permesso | Descrizione |
 |----------|-------------|
-| `ppm.view` | Visualizzare il dashboard PPM, il diagramma di Gantt e i report delle iniziative, e leggere le card Iniziativa. Concesso a tutti i ruoli per impostazione predefinita |
+| `ppm.view` | Visualizzare il dashboard PML, il diagramma di Gantt e i report delle iniziative, e leggere le card Iniziativa. Concesso a tutti i ruoli per impostazione predefinita |
 | `ppm.manage` | Creare e gestire report di stato, attività, costi, rischi ed elementi WBS. Concesso ai ruoli Admin, Admin BPM e Membro |
-| `reports.ppm_dashboard` | Visualizzare il dashboard del portafoglio PPM. Concesso a tutti i ruoli per impostazione predefinita |
+| `reports.ppm_dashboard` | Visualizzare il dashboard del portafoglio PML. Concesso a tutti i ruoli per impostazione predefinita |
+
+Budget e voci di costo seguono l'accesso a PML e la visibilità dell'iniziativa. Dettagli e totale delle fatture, così come l'indicatore dei costi in timeline, richiedono anche l'accesso ai costi della scheda. Registrare e spostare fatture richiede inoltre il permesso di gestione PML.

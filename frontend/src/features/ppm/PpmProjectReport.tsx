@@ -42,7 +42,6 @@ import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDateFormat } from "@/hooks/useDateFormat";
-import { useFiscalYearStart } from "@/hooks/useFiscalYearStart";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { usePageSection, usePageSubject } from "@/hooks/usePageTitle";
 import { useOptionLabel } from "@/hooks/useResolveLabel";
@@ -51,16 +50,18 @@ import type {
   Card,
   PpmBudgetLine,
   PpmCostLine,
+  PpmFinancials,
+  PmlInitiativeSchedule,
   PpmRisk,
   PpmRollupOut,
   PpmStatusReport,
   PpmTask,
   PpmWbs,
 } from "@/types";
-import { groupBudgetLines, groupCostLines } from "./costTableGroups";
 import DerivedValue from "./DerivedValue";
-import { derivedYearGroups, financialTotals } from "./derivedFinancials";
-import { BudgetTable, CostTable } from "./PpmCostTables";
+import { financialTotals } from "./derivedFinancials";
+import PpmFinanceTree from "./PpmFinanceTree";
+import { usePpmFinancials, usePpmSchedule } from "./usePpmFinancials";
 import PpmRiskMatrix from "./PpmRiskMatrix";
 import PpmScheduleTimeline from "./PpmScheduleTimeline";
 import StatusReportCard, { ReportHealth } from "./StatusReportCard";
@@ -169,6 +170,8 @@ export default function PpmProjectReport() {
   const subtypeLabel = useCardSubtypeLabel();
   const statusLabel = useInitiativeStatusLabel();
   const { formatDate, formatDateTime } = useDateFormat();
+  const financials = usePpmFinancials(id);
+  const schedule = usePpmSchedule(id);
 
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -178,7 +181,7 @@ export default function PpmProjectReport() {
   const chartRef = useRef<HTMLDivElement>(null);
   const theme = useTheme();
 
-  usePageSubject(data?.card.name);
+  usePageSubject(data && data.card.id === id ? data.card.name : undefined);
   usePageSection(t("pdfDocumentTitle"));
 
   useAbortableEffect(
@@ -239,7 +242,7 @@ export default function PpmProjectReport() {
     </Tooltip>
   );
 
-  if (loading) {
+  if (loading || schedule.loading || (data && data.card.id !== id)) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight={240}>
         <CircularProgress />
@@ -256,10 +259,18 @@ export default function PpmProjectReport() {
     );
   }
 
+  // Do not offer an incomplete print or deck while the selected financial tree loads.
+  if (sections.includes("costs") && !financials.data && !financials.error) {
+    return (
+      <Box display="flex" alignItems="center" gap={2} minHeight={120} role="status">
+        <CircularProgress size={24} />
+        <Typography>{t("budgetAndCosts")}</Typography>
+      </Box>
+    );
+  }
+
   const { card } = data;
   const typeConfig = getType(card.type);
-  const attrs = card.attributes || {};
-
   const dateOf = (v: unknown) => (typeof v === "string" && v ? formatDate(v) : "");
 
   // What the initiative is; the print header adds when it was printed, the
@@ -267,8 +278,18 @@ export default function PpmProjectReport() {
   const cardParams: PrintParam[] = [
     { label: t("subtype"), value: card.subtype ? subtypeLabel(card.type, card.subtype) : "" },
     { label: t("initiativeStatus"), value: statusLabel(card) },
-    { label: t("startDate"), value: dateOf(attrs.startDate) },
-    { label: t("endDate"), value: dateOf(attrs.endDate) },
+    ...(schedule.data?.start_date
+      ? [{ label: schedule.data.start_label || t("startDate"), value: dateOf(schedule.data.start_date) }]
+      : []),
+    ...(schedule.data?.actual_start_date
+      ? [{ label: schedule.data.actual_start_label || t("actualStart"), value: dateOf(schedule.data.actual_start_date) }]
+      : []),
+    ...(schedule.data?.end_date
+      ? [{ label: schedule.data.end_label || t("endDate"), value: dateOf(schedule.data.end_date) }]
+      : []),
+    ...(schedule.data?.actual_end_date
+      ? [{ label: schedule.data.actual_end_label || t("actualEnd"), value: dateOf(schedule.data.actual_end_date) }]
+      : []),
   ];
   const printParams: PrintParam[] = [
     ...cardParams,
@@ -373,9 +394,11 @@ export default function PpmProjectReport() {
             {t("reportNoSections")}
           </Typography>
         )}
-        {sections.includes("overview") && <OverviewSection data={data} />}
+        {sections.includes("overview") && <OverviewSection data={data} schedule={schedule.data} />}
         {sections.includes("reports") && <ReportsSection reports={data.reports} />}
-        {sections.includes("costs") && <CostsSection data={data} />}
+        {sections.includes("costs") && (
+          <CostsSection data={data} financials={financials.data} financialsError={financials.error} />
+        )}
         {sections.includes("risks") && <RisksSection risks={data.risks} />}
         {sections.includes("schedule") && <ScheduleSection wbs={data.wbs} tasks={data.tasks} />}
       </Box>
@@ -510,7 +533,7 @@ function useVarianceColor(variance: number): string {
 
 // ─── Overview ───────────────────────────────────────────────────────────────
 
-function OverviewSection({ data }: { data: ReportData }) {
+function OverviewSection({ data, schedule }: { data: ReportData; schedule: PmlInitiativeSchedule | undefined }) {
   // Stryker disable next-line StringLiteral: equivalent: its one common key is written "common:labels.description" and all namespaces are bundled at init (the "ppm" entry is pinned by the overview tests)
   const { t } = useTranslation(["ppm", "common"]);
   const theme = useTheme();
@@ -521,7 +544,6 @@ function OverviewSection({ data }: { data: ReportData }) {
   const money = useMoney(data);
   const varianceColor = useVarianceColor(money.variance);
   const { card, rollup, completion } = data;
-  const attrs = card.attributes || {};
   const latest = data.reports[0] ?? null;
   const { totals } = money;
 
@@ -589,11 +611,11 @@ function OverviewSection({ data }: { data: ReportData }) {
                 label={t("health_schedule")}
                 rating={ratingLabel(latest.schedule_health)}
               />
-              <HealthDot
-                value={latest.cost_health}
+              {schedule?.cost_health && <HealthDot
+                value={schedule.cost_health}
                 label={t("health_cost")}
-                rating={ratingLabel(latest.cost_health)}
-              />
+                rating={ratingLabel(schedule.cost_health)}
+              />}
               <HealthDot
                 value={latest.scope_health}
                 label={t("health_scope")}
@@ -641,18 +663,17 @@ function OverviewSection({ data }: { data: ReportData }) {
 
         <SectionPaper data-export-row icon="event" title={t("timeline")}>
           <Box display="flex" gap={3} mb={2} flexWrap="wrap">
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                {t("startDate")}
-              </Typography>
-              <Typography variant="body2">{dateText(attrs.startDate)}</Typography>
-            </Box>
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                {t("endDate")}
-              </Typography>
-              <Typography variant="body2">{dateText(attrs.endDate)}</Typography>
-            </Box>
+            {([
+              [schedule?.start_date, schedule?.start_label || t("startDate")],
+              [schedule?.actual_start_date, schedule?.actual_start_label || t("actualStart")],
+              [schedule?.end_date, schedule?.end_label || t("endDate")],
+              [schedule?.actual_end_date, schedule?.actual_end_label || t("actualEnd")],
+            ] as const).map(([value, label]) => value && (
+              <Box key={label}>
+                <Typography variant="caption" color="text.secondary">{label}</Typography>
+                <Typography variant="body2">{dateText(value)}</Typography>
+              </Box>
+            ))}
             {card.subtype && (
               <Box sx={SUBTYPE_BOX_SX}>
                 <Typography variant="caption" color="text.secondary">
@@ -741,9 +762,16 @@ function ReportsSection({ reports }: { reports: PpmStatusReport[] }) {
 
 // ─── Budget & costs ─────────────────────────────────────────────────────────
 
-function CostsSection({ data }: { data: ReportData }) {
+function CostsSection({
+  data,
+  financials,
+  financialsError,
+}: {
+  data: ReportData;
+  financials: PpmFinancials | undefined;
+  financialsError: Error | null;
+}) {
   const { t } = useTranslation("ppm");
-  const { month: fyStart } = useFiscalYearStart();
   const money = useMoney(data);
   const varianceColor = useVarianceColor(money.variance);
   const { totals } = money;
@@ -794,31 +822,11 @@ function CostsSection({ data }: { data: ReportData }) {
         <PpmCostCharts readOnly costLines={costLines} budgetLines={budgetLines} />
       </Suspense>
 
-      <TableHeading>{t("plannedBudget")}</TableHeading>
-      <BudgetTable
-        readOnly
-        expandAll
-        groups={groupBudgetLines(budgetLines)}
-        derived={
-          totals.budget.derived
-            ? { rows: derivedYearGroups(rollup, "budget"), totals: totals.budget }
-            : null
-        }
-        derivedCount={money.count}
-      />
-      <TableHeading>{t("costItems")}</TableHeading>
-      <CostTable
-        readOnly
-        expandAll
-        groups={groupCostLines(costLines, fyStart)}
-        derived={
-          totals.actual.derived
-            ? // Stryker disable next-line StringLiteral: equivalent: derivedYearGroups reads every side but "budget" as the actuals, so "" reads them too
-              { rows: derivedYearGroups(rollup, "cost"), totals: totals.actual }
-            : null
-        }
-        derivedCount={money.count}
-      />
+      {financialsError ? (
+        <Alert severity="error">{financialsError.message}</Alert>
+      ) : (
+        <PpmFinanceTree data={financials} rollup={rollup} readOnly expandAll onChanged={() => {}} />
+      )}
     </Section>
   );
 }

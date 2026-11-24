@@ -293,9 +293,11 @@ Wenn das [GRC-Modul](grc.md) aktiviert ist **und** die Karte mindestens einen ve
 
 Für **Geschäftsprozess**-Karten erscheint ein zusätzlicher **Prozessfluss**-Tab mit einem eingebetteten BPMN-Diagramm-Betrachter/-Editor. Siehe [BPM](bpm.md) für Details zum Prozessflussmanagement.
 
-## PPM-Tab (nur für Initiativ-Karten)
+## PML-Tab (nur für Initiativ-Karten) { #ppm-tab-initiative-cards-only }
 
-Wenn das [PPM-Modul](ppm.md) aktiviert ist, zeigen **Initiativ**-Karten einen zusätzlichen **PPM**-Tab als letzten Tab an. Ein Klick auf diesen Tab navigiert zur PPM-Initiativ-Detailansicht, in der Sie Statusberichte, Budgets, Risiken, Aufgaben und Gantt-Zeitpläne verwalten können.
+Unter **Kosten und Zeitplan** vergleichen überlagerte Balken Budget und Ist-Kosten für Gesamt, CapEx und OpEx. Der fakturierte Gesamtbetrag der Initiative erscheint separat gemäß Berechtigung. Die Zeitachse zeigt sichtbare Plan- und Ist-Termine und die neuesten Indikatoren zu Zeit, Kosten und Leistungsumfang.
+
+Wenn das [PML-Modul](ppm.md) aktiviert ist, zeigen **Initiativ**-Karten einen zusätzlichen **PML**-Tab als letzten Tab an. Ein Klick auf diesen Tab navigiert zur PML-Initiativ-Detailansicht, in der Sie Statusberichte, Budgets, Risiken, Aufgaben und Gantt-Zeitpläne verwalten können.
 
 ## Archivierung
 

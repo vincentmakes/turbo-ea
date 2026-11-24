@@ -208,7 +208,7 @@ describe("PpmPortfolioView opening state", () => {
 });
 
 describe("PpmPortfolioView chrome", () => {
-  const HEADING = "Project Portfolio Management";
+  const HEADING = "Project Master List";
 
   it("renders its own heading by default", () => {
     renderBoard();
@@ -1370,5 +1370,35 @@ describe("PpmPortfolioView board state", () => {
     fireEvent.click(hierarchySwitch());
     expect(location()).toBe("?hierarchy=1");
     expect(rowNames()).toEqual(["Transformation", "ERP Rollout", "Finance Stream"]);
+  });
+});
+
+describe("private actual dates", () => {
+  const dated = { ...ITEM, actual_start_date: "2026-05-15", actual_end_date: "2026-11-10" };
+  it("shows exact actual dates on the internal board and keeps the public board Plan-only", () => {
+    const { unmount } = renderBoard({ items: [dated], showActualDates: true });
+    expect(screen.getByLabelText(/Actual.*2026-05-15.*2026-11-10/i)).toBeInTheDocument();
+    unmount();
+    renderBoard({ items: [dated] });
+    expect(screen.queryByLabelText(/Actual.*2026-05-15/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/2026-05-15/)).not.toBeInTheDocument();
+  });
+  it("retains exact actual dates on a grouped Program anchor", () => {
+    const anchor = {
+      ...dated, id: "program", name: "Program", subtype: "Program",
+      group_id: "program", group_name: "Program", group_anchor: true,
+    };
+    const child = { ...ITEM, id: "child", group_id: "program", group_name: "Program" };
+    renderAt("/?groupBy=subtype%3AProgram", {
+      items: [anchor, child], subtypeDefs: [{ key: "Program", label: "Program" }], showActualDates: true,
+    });
+    const line = document.querySelector("[data-anchor-line]");
+    expect(line).not.toBeNull();
+    expect(within(line as HTMLElement).getByText(/2026-05-15.*2026-11-10/)).toBeInTheDocument();
+  });
+  it("shows exact actual dates in the compact layout", () => {
+    setViewportWidth(600);
+    renderBoard({ items: [dated], showActualDates: true });
+    expect(screen.getByText(/2026-05-15.*2026-11-10/)).toBeInTheDocument();
   });
 });

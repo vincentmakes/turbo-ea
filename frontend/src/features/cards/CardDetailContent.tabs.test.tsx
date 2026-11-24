@@ -281,12 +281,12 @@ describe("CardDetailContent tab strip", () => {
         "Stakeholders",
         "Resources",
         "History",
-        "PPM",
+        "PML",
       ]),
     );
     fireEvent.click(screen.getByRole("tab", { name: "SoAW" }));
     expect(await screen.findByTestId("panel-soaw")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "PPM" }));
+    fireEvent.click(screen.getByRole("tab", { name: "PML" }));
     expect(await screen.findByTestId("ppm-page")).toBeInTheDocument();
     expect(noteVisit).not.toHaveBeenCalledWith("ppm");
   });

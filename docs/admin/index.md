@@ -6,7 +6,7 @@ The **Admin** section is available to users with the **Admin** role. It provides
 
 | Page | Description |
 |------|-------------|
-| [General Settings](settings.md) | Appearance (logo, favicon, currency), enabled languages, fiscal year, email (SMTP), and module toggles (BPM, PPM, GRC) |
+| [General Settings](settings.md) | Appearance (logo, favicon, currency), enabled languages, fiscal year, email (SMTP), and module toggles (BPM, PML, GRC) |
 | [Metamodel](metamodel.md) | Card types, fields, sections, subtypes, relation types, calculations, tags, EA principles, and the metamodel graph |
 | [Calculations](calculations.md) | Admin-defined formulas that automatically compute field values when cards are saved |
 | [Tags](tags.md) | Tag groups and tags for flexible categorization of cards |

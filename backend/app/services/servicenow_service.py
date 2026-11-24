@@ -408,6 +408,14 @@ class SyncEngine:
         # Read-only extension fields per card type, resolved once per engine
         # (one engine serves one sync request) rather than once per record.
         self._locked_by_type: dict[str, dict[str, str]] = {}
+        self._timeline_mapping = None
+
+    async def _timeline(self):
+        from app.services.ppm_timeline import load_timeline_mapping
+
+        if self._timeline_mapping is None:
+            self._timeline_mapping = await load_timeline_mapping(self.db)
+        return self._timeline_mapping
 
     async def _locked_fields(self, type_key: str) -> dict[str, str]:
         """``field_gate.locked_fields_for_type``, cached per card type."""
@@ -562,12 +570,69 @@ class SyncEngine:
         # Step 3: Transform
         transformed = FieldTransformer.apply_mappings(record, field_mappings, "snow_to_turbo")
 
+        explicit_null_dates: set[str] = set()
+        if mapping.card_type_key == "Initiative":
+            from app.services.ppm_timeline import (
+                TimelineValidationError,
+                validate_actual_date_pair,
+            )
+
+            timeline = await self._timeline()
+            date_keys = {timeline.actual_start_key, timeline.actual_end_key}
+            for field in field_mappings:
+                key = field.turbo_field.removeprefix("attributes.")
+                if (
+                    field.turbo_field.startswith("attributes.")
+                    and key in date_keys
+                    and field.direction != "turbo_leads"
+                    and field.snow_field in record
+                    and record[field.snow_field] is None
+                    and (transformed.get("attributes") or {}).get(key) is None
+                ):
+                    explicit_null_dates.add(key)
+            previous = dict(existing_card.attributes or {}) if existing_card else {}
+            incoming = transformed.get("attributes") or {}
+            if existing_card is not None:
+                incoming = {
+                    key: value
+                    for key, value in incoming.items()
+                    if value is not None or key in explicit_null_dates
+                }
+            candidate = {**previous, **incoming}
+            locked = await self._locked_fields(mapping.card_type_key)
+            candidate, _ = field_gate.apply_field_lock(previous, candidate, locked)
+            try:
+                validate_actual_date_pair(timeline, candidate)
+            except TimelineValidationError as exc:
+                if skip_staging:
+                    raise
+                self.db.add(
+                    SnowStagedRecord(
+                        sync_run_id=run.id,
+                        mapping_id=mapping.id,
+                        snow_sys_id=sys_id,
+                        snow_data=record,
+                        card_id=card_id,
+                        action="skip",
+                        status="error",
+                        error_message=str(exc),
+                    )
+                )
+                _bump(run, "errors")
+                return
+
         # Step 4: Determine action and diff
         action = "skip"
         diff: dict | None = None
 
         if existing_card:
             diff = self._compute_diff(existing_card, transformed)
+            for key in explicit_null_dates - set(await self._locked_fields(mapping.card_type_key)):
+                old_value = (existing_card.attributes or {}).get(key)
+                if old_value is not None:
+                    if diff is None:
+                        diff = {}
+                    diff[f"attributes.{key}"] = {"old": old_value, "new": None}
             if diff:
                 action = "update"
                 card_id = existing_card.id
@@ -812,6 +877,11 @@ class SyncEngine:
                 ", ".join(skipped),
             )
 
+        if mapping.card_type_key == "Initiative":
+            from app.services.ppm_timeline import validate_actual_date_pair
+
+            validate_actual_date_pair(await self._timeline(), attributes)
+
         card = Card(
             type=mapping.card_type_key,
             subtype=transformed.get("subtype"),
@@ -880,6 +950,14 @@ class SyncEngine:
             await self._touch_identity(staged)
             return False
         before_attrs = dict(card.attributes or {})
+        if card.type == "Initiative":
+            from app.services.ppm_timeline import validate_actual_date_pair
+
+            candidate = dict(before_attrs)
+            for field_path, change in diff.items():
+                if field_path.startswith("attributes."):
+                    candidate[field_path.split(".", 1)[1]] = change.get("new")
+            validate_actual_date_pair(await self._timeline(), candidate)
         before_lifecycle = dict(card.lifecycle or {})
         for field_path, change in diff.items():
             new_val = change.get("new")

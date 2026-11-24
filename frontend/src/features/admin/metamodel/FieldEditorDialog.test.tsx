@@ -614,3 +614,31 @@ describe("FieldEditorDialog — while the parent saves", () => {
     expect(screen.getByRole("button", { name: /^Save$/ })).toBeEnabled();
   });
 });
+
+describe("built-in card fields", () => {
+  it("keeps the type locked while allowing label edits and preserving the built-in marker", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    render(
+      <FieldEditorDialog
+        open
+        field={{ key: "actualStart", label: "Actual Start", type: "date", built_in: true }}
+        typeKey="Initiative"
+        fieldKey="actualStart"
+        onSave={onSave}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("combobox")).toHaveAttribute("aria-disabled", "true");
+    const label = screen.getByRole("textbox", { name: /label/i });
+    await user.clear(label);
+    await user.type(label, "Real Start");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      key: "actualStart",
+      type: "date",
+      label: "Real Start",
+      built_in: true,
+    }));
+  });
+});

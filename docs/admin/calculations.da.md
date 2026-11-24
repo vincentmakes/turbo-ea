@@ -105,15 +105,17 @@ COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.in
 `SUM`, `AVG`, `MIN` og `MAX` springer allerede ikke-numeriske poster over og behøver derfor
 ingen beskyttelse.
 
-### PPM-data på Initiative-kort { #ppm-data-on-initiative-cards }
+### PML-data på Initiative-kort { #ppm-data-on-initiative-cards }
 
-Roden `ppm` gør PPM-modulets data tilgængelige for formler: budget- og omkostningslinjerne, opdelt i capex og opex og fordelt på regnskabsår — detaljer, som de sammenlagte attributter `data.costBudget` / `data.costActual` på kortet ikke kan give — samt initiativets leverancetal: dets samlede fuldførelse, dets arbejdspakker, opgaver og risici og den seneste statusrapport.
+Brug [PML-økonomifelter](settings.md#pml-budget-costs) til at beregne felter på budget-, omkostnings- eller fakturarækker. Her beskrives beregninger på kort.
+
+Roden `ppm` gør PML-modulets data tilgængelige for formler: budget- og omkostningslinjerne, opdelt i capex og opex og fordelt på regnskabsår — detaljer, som de sammenlagte attributter `data.costBudget` / `data.costActual` på kortet ikke kan give — samt initiativets leverancetal: dets samlede fuldførelse, dets arbejdspakker, opgaver og risici og den seneste statusrapport.
 
 | Variabel | Beskrivelse |
 |----------|-------------|
-| `ppm.capexBudget`, `ppm.opexBudget`, `ppm.totalBudget` | Planlagt budget, fra PPM-budgetlinjerne |
-| `ppm.capexPlanned`, `ppm.opexPlanned`, `ppm.totalPlanned` | Planlagte beløb på PPM-omkostningslinjerne |
-| `ppm.capexActual`, `ppm.opexActual`, `ppm.totalActual` | Faktiske beløb på PPM-omkostningslinjerne |
+| `ppm.capexBudget`, `ppm.opexBudget`, `ppm.totalBudget` | Planlagt budget, fra PML-budgetlinjerne |
+| `ppm.capexPlanned`, `ppm.opexPlanned`, `ppm.totalPlanned` | Planlagte beløb på PML-omkostningslinjerne |
+| `ppm.capexActual`, `ppm.opexActual`, `ppm.totalActual` | Faktiske beløb på PML-omkostningslinjerne |
 | `ppm.byYear` | De samme ni mål pr. regnskabsår, som en liste `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | Det regnskabsår, dagens dato falder i |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Omkostningslinjer uden dato: tæller med i totalerne, men hører til intet år |
@@ -123,7 +125,7 @@ Roden `ppm` gør PPM-modulets data tilgængelige for formler: budget- og omkostn
 | `ppm.wbsCount`, `ppm.milestoneCount` | Antal arbejdspakker og antal milepæle |
 | `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | Antal opgaver, i alt og pr. status |
 | `ppm.tasksOverdue` | Opgaver, hvis forfaldsdato er overskredet, og som ikke er udført |
-| `ppm.riskCount`, `ppm.risksOpen`, `ppm.riskScoreMax` | PPM-risici: alle, stadig åbne og den højeste risikoscore |
+| `ppm.riskCount`, `ppm.risksOpen`, `ppm.riskScoreMax` | PML-risici: alle, stadig åbne og den højeste risikoscore |
 | `ppm.reportCount`, `ppm.reportDate` | Hvor mange statusrapporter der findes, og datoen for den seneste (`None`, indtil der findes én) |
 | `ppm.scheduleHealth`, `ppm.costHealth`, `ppm.scopeHealth` | Den seneste statusrapports sundhedsflag: `onTrack`, `atRisk` eller `offTrack` (`None`, indtil der findes én) |
 
@@ -149,7 +151,7 @@ IF(ppm.tasksOverdue > 0, "At risk", COALESCE(ppm.scheduleHealth, "No report"))
 * `total*` er summen af alle linjer, ikke `capex + opex`. En linje med en anden kategori (fra en import, for eksempel) tæller stadig med i totalen.
 * Et kort, der ikke er et initiativ, læser alle `ppm`-mål som `0` med et tomt `byYear`, så en formel på den forkerte korttype returnerer nul i stedet for at fejle. Felterne fra den seneste rapport læses som `None` og ikke `0` — "ingen rapport endnu" og "på sporet" er to forskellige ting — så beskyt dem med `COALESCE`.
 
-Redigering af en PPM-budget- eller omkostningslinje, en arbejdspakke, en opgave, en risiko eller en statusrapport kører initiativets beregninger igen, så alt afledt af disse data opdateres med det samme, og ændringen vises på kortets **History**-fane. Kort, der læser et *andet* korts PPM-data via en relation, opdateres ikke — se [Hvornår beregninger kører](#when-calculations-run).
+Redigering af en PML-budget- eller omkostningslinje, en arbejdspakke, en opgave, en risiko eller en statusrapport kører initiativets beregninger igen, så alt afledt af disse data opdateres med det samme, og ændringen vises på kortets **History**-fane. Kort, der læser et *andet* korts PML-data via en relation, opdateres ikke — se [Hvornår beregninger kører](#when-calculations-run).
 
 #### Vis initiativets fremdrift på et kort eller en portal { #show-initiative-progress-on-a-card-or-a-portal }
 
@@ -161,9 +163,9 @@ Et initiativs fremdrift bor på dets Overview-fane; kort og udgivne portaler vis
 
 Fra da af flytter bjælken sig, overalt hvor kortet vises, når en opgave markeres som udført, en arbejdspakkes fuldførelse redigeres, eller en af dem slettes.
 
-#### Summér PPM-tal op gennem initiativhierarkiet { #rolling-ppm-figures-up-the-initiative-hierarchy }
+#### Summér PML-tal op gennem initiativhierarkiet { #rolling-ppm-figures-up-the-initiative-hierarchy }
 
-PPM-porteføljen viser et overordnet initiativ uden egne budget- eller omkostningslinjer summen af initiativerne under det, men det tal findes kun på tavlen. For at vise budgettet for alt under et program på selve programmet — i inventaret, rapporter og portaler — bruger du én beregning, der læser resultatet fra de underordnede:
+PML-porteføljen viser et overordnet initiativ uden egne budget- eller omkostningslinjer summen af initiativerne under det, men det tal findes kun på tavlen. For at vise budgettet for alt under et program på selve programmet — i inventaret, rapporter og portaler — bruger du én beregning, der læser resultatet fra de underordnede:
 
 1. Tilføj under **Admin → Metamodel** et felt af typen **Omkostning** til Initiative-typen — fx `rolledUpBudget` med etiketten *Summeret budget*.
 2. Tilføj under **Admin → Beregninger** en beregning på Initiative med formlen `ppm.totalBudget + SUM(PLUCK(children, "attributes.rolledUpBudget"))`, vælg feltet som mål, og aktivér den.
@@ -301,7 +303,7 @@ Et korts beregninger evalueres igen, når:
 * du kører beregningen manuelt fra listen, hvilket evaluerer den for hvert kort af måltypen og
   gemmer resultaterne.
 
-* en PPM-budgetlinje, omkostningslinje, arbejdspakke, opgave, risiko eller statusrapport på
+* en PML-budgetlinje, omkostningslinje, arbejdspakke, opgave, risiko eller statusrapport på
   kortet ændres, for et Initiative.
 * ændringen ovenfor sker på et Initiative længere nede i hierarkiet: hvert Initiative over
   det genberegnes også, startende med det nærmeste overordnede, så en [summering](#rolling-ppm-figures-up-the-initiative-hierarchy)

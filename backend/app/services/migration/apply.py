@@ -230,6 +230,11 @@ async def _apply_card_pass(
     # Read-only extension fields per card type, resolved once for the pass.
     locked_by_type: dict[str, dict[str, str]] = {}
 
+    timeline_mapping = None
+    if any(row.card_type_key == "Initiative" for row in ordered):
+        from app.services.ppm_timeline import load_timeline_mapping
+
+        timeline_mapping = await load_timeline_mapping(db)
     for staged in ordered:
         if staged.action == "skip":
             # Existing card with no diff. The identity-map row is still
@@ -256,7 +261,12 @@ async def _apply_card_pass(
 
         try:
             await _apply_single_card(
-                db, staged, user, field_mappings=field_mappings, locked_by_type=locked_by_type
+                db,
+                staged,
+                user,
+                field_mappings=field_mappings,
+                locked_by_type=locked_by_type,
+                timeline_mapping=timeline_mapping,
             )
             counts["created" if staged.action == "create" else "updated"] += 1
             staged.status = "applied"
@@ -296,6 +306,7 @@ async def _apply_single_card(
     user: User,
     field_mappings: dict[str, dict[str, str]] | None = None,
     locked_by_type: dict[str, dict[str, str]] | None = None,
+    timeline_mapping=None,
 ) -> None:
     payload = (staged.source_data or {}).get("payload") or {}
     raw = (staged.source_data or {}).get("raw") or {}
@@ -331,6 +342,12 @@ async def _apply_single_card(
             {}, payload.get("attributes") or {}, locked
         )
         _note_skipped_fields(staged, skipped)
+        if payload["type"] == "Initiative":
+            from app.services.ppm_timeline import load_timeline_mapping, validate_actual_date_pair
+
+            if timeline_mapping is None:
+                timeline_mapping = await load_timeline_mapping(db)
+            validate_actual_date_pair(timeline_mapping, attributes)
         card = Card(
             type=payload["type"],
             subtype=payload.get("subtype"),
@@ -388,6 +405,16 @@ async def _apply_single_card(
             "external_id": card.external_id,
             "parent_id": str(card.parent_id) if card.parent_id else None,
         }
+        merged_attrs = {**(card.attributes or {}), **(payload.get("attributes") or {})}
+        locked = await _locked_fields(db, card.type, locked_by_type)
+        merged_attrs, skipped = field_gate.apply_field_lock(card.attributes, merged_attrs, locked)
+        if card.type == "Initiative":
+            from app.services.ppm_timeline import load_timeline_mapping, validate_actual_date_pair
+
+            if timeline_mapping is None:
+                timeline_mapping = await load_timeline_mapping(db)
+            validate_actual_date_pair(timeline_mapping, merged_attrs)
+
         # Apply diff'd fields back onto the existing card. Attributes
         # the import doesn't know about are intentionally **not** wiped
         # — merge instead of replace.
@@ -399,9 +426,6 @@ async def _apply_single_card(
             card.subtype = payload["subtype"]
         if payload.get("lifecycle"):
             card.lifecycle = {**(card.lifecycle or {}), **payload["lifecycle"]}
-        merged_attrs = {**(card.attributes or {}), **(payload.get("attributes") or {})}
-        locked = await _locked_fields(db, card.type, locked_by_type)
-        merged_attrs, skipped = field_gate.apply_field_lock(card.attributes, merged_attrs, locked)
         _note_skipped_fields(staged, skipped)
         card.attributes = merged_attrs
         if payload.get("external_id"):

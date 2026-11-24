@@ -205,7 +205,7 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
       { insert: "children_count", label: "children_count", detail: "Number of children", category: "Context" },
       { insert: "parent", label: "parent", detail: "Parent card object (or None)", category: "Context" },
       { insert: "hierarchy_level", label: "hierarchy_level", detail: "Depth in hierarchy (1 = root)", category: "Context" },
-      { insert: "ppm", label: "ppm", detail: "PPM budget & cost data (Initiative)", category: "Context" },
+      { insert: "ppm", label: "ppm", detail: t("calculations.ctxPpm"), category: "Context" },
       { insert: "None", label: "None", detail: "Null value", category: "Constants" },
       { insert: "True", label: "True", detail: "Boolean true", category: "Constants" },
       { insert: "False", label: "False", detail: "Boolean false", category: "Constants" },
@@ -242,7 +242,7 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
     }
 
     return items;
-  }, []);
+  }, [t]);
 
   // PPM budget/cost measures (used after "ppm.")
   const ppmFieldSuggestions = useMemo<Suggestion[]>(() => {
@@ -253,29 +253,29 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
           insert: `${bucket}${measure}`,
           label: `${bucket}${measure}`,
           detail: t(`calculations.ppm${measure}`, { bucket }),
-          category: "PPM",
+          category: t("common:modules.ppm"),
         });
       }
     }
-    items.push({ insert: "byYear", label: "byYear", detail: t("calculations.ppmByYear"), category: "PPM" });
-    items.push({ insert: "currentFiscalYear", label: "currentFiscalYear", detail: t("calculations.ppmCurrentFy"), category: "PPM" });
-    items.push({ insert: "unscheduledPlanned", label: "unscheduledPlanned", detail: t("calculations.ppmUnscheduled"), category: "PPM" });
-    items.push({ insert: "unscheduledActual", label: "unscheduledActual", detail: t("calculations.ppmUnscheduled"), category: "PPM" });
-    items.push({ insert: "unscheduledCapexActual", label: "unscheduledCapexActual", detail: t("calculations.ppmUnscheduled"), category: "PPM" });
-    items.push({ insert: "unscheduledOpexActual", label: "unscheduledOpexActual", detail: t("calculations.ppmUnscheduled"), category: "PPM" });
+    items.push({ insert: "byYear", label: "byYear", detail: t("calculations.ppmByYear"), category: t("common:modules.ppm") });
+    items.push({ insert: "currentFiscalYear", label: "currentFiscalYear", detail: t("calculations.ppmCurrentFy"), category: t("common:modules.ppm") });
+    items.push({ insert: "unscheduledPlanned", label: "unscheduledPlanned", detail: t("calculations.ppmUnscheduled"), category: t("common:modules.ppm") });
+    items.push({ insert: "unscheduledActual", label: "unscheduledActual", detail: t("calculations.ppmUnscheduled"), category: t("common:modules.ppm") });
+    items.push({ insert: "unscheduledCapexActual", label: "unscheduledCapexActual", detail: t("calculations.ppmUnscheduled"), category: t("common:modules.ppm") });
+    items.push({ insert: "unscheduledOpexActual", label: "unscheduledOpexActual", detail: t("calculations.ppmUnscheduled"), category: t("common:modules.ppm") });
     // Delivery figures (#1111): progress, tasks, risks, the latest status report.
-    items.push({ insert: "completion", label: "completion", detail: t("calculations.ppmCompletion"), category: "PPM" });
-    items.push({ insert: "wbsCount", label: "wbsCount", detail: t("calculations.ppmWbsCount"), category: "PPM" });
-    items.push({ insert: "milestoneCount", label: "milestoneCount", detail: t("calculations.ppmMilestoneCount"), category: "PPM" });
+    items.push({ insert: "completion", label: "completion", detail: t("calculations.ppmCompletion"), category: t("common:modules.ppm") });
+    items.push({ insert: "wbsCount", label: "wbsCount", detail: t("calculations.ppmWbsCount"), category: t("common:modules.ppm") });
+    items.push({ insert: "milestoneCount", label: "milestoneCount", detail: t("calculations.ppmMilestoneCount"), category: t("common:modules.ppm") });
     for (const key of ["taskCount", "tasksTodo", "tasksInProgress", "tasksDone", "tasksBlocked"]) {
-      items.push({ insert: key, label: key, detail: t("calculations.ppmTaskCounts"), category: "PPM" });
+      items.push({ insert: key, label: key, detail: t("calculations.ppmTaskCounts"), category: t("common:modules.ppm") });
     }
-    items.push({ insert: "tasksOverdue", label: "tasksOverdue", detail: t("calculations.ppmTasksOverdue"), category: "PPM" });
+    items.push({ insert: "tasksOverdue", label: "tasksOverdue", detail: t("calculations.ppmTasksOverdue"), category: t("common:modules.ppm") });
     for (const key of ["riskCount", "risksOpen", "riskScoreMax"]) {
-      items.push({ insert: key, label: key, detail: t("calculations.ppmRisks"), category: "PPM" });
+      items.push({ insert: key, label: key, detail: t("calculations.ppmRisks"), category: t("common:modules.ppm") });
     }
     for (const key of ["reportCount", "reportDate", "scheduleHealth", "costHealth", "scopeHealth"]) {
-      items.push({ insert: key, label: key, detail: t("calculations.ppmReport"), category: "PPM" });
+      items.push({ insert: key, label: key, detail: t("calculations.ppmReport"), category: t("common:modules.ppm") });
     }
     return items;
   }, [t]);

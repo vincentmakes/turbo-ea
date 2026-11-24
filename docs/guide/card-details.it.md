@@ -291,9 +291,11 @@ Quando il [modulo GRC](grc.md) è abilitato **e** la card ha almeno una rilevazi
 
 Per le card **Business Process**, appare una scheda aggiuntiva **Flusso di processo** con un visualizzatore/editor di diagrammi BPMN integrato. Vedi [BPM](bpm.md) per i dettagli sulla gestione dei flussi di processo.
 
-## Scheda PPM (solo card Iniziativa)
+## Scheda PML (solo card Iniziativa) { #ppm-tab-initiative-cards-only }
 
-Quando il [modulo PPM](ppm.md) è attivato, le card **Iniziativa** mostrano una scheda **PPM** aggiuntiva come ultima scheda. Cliccando su questa scheda si accede alla vista dettagliata PPM dell'iniziativa, dove è possibile gestire report di stato, budget, rischi, attività e diagrammi di Gantt.
+In **Costi e tempistica**, i grafici sovrapposti confrontano budget e costo effettivo per totale, CapEx e OpEx. Il totale del fatturato dell'iniziativa è visibile separatamente secondo i permessi. La timeline presenta le date pianificate ed effettive visibili e gli indicatori di tempo, costo e ambito.
+
+Quando il [modulo PML](ppm.md) è attivato, le card **Iniziativa** mostrano una scheda **PML** aggiuntiva come ultima scheda. Cliccando su questa scheda si accede alla vista dettagliata PML dell'iniziativa, dove è possibile gestire report di stato, budget, rischi, attività e diagrammi di Gantt.
 
 ## Archiviazione
 

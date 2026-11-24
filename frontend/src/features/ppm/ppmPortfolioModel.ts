@@ -271,6 +271,44 @@ export function barModel(item: PpmPortfolioItem, window: PortfolioWindow): BarMo
   };
 }
 
+
+/** Expand an Initiative's timeline to full quarters that contain every visible date. */
+export function portfolioWindowIncludingDates(
+  now: Date,
+  dates: readonly (string | null | undefined)[],
+): PortfolioWindow {
+  const base = portfolioWindow(now);
+  let start = base.start;
+  let end = base.end;
+  for (const value of dates) {
+    const date = toLocalDate(value);
+    if (!date) continue;
+    if (date < start) start = new Date(date.getFullYear(), Math.floor(date.getMonth() / 3) * 3, 1);
+    if (date > end) end = new Date(date.getFullYear(), Math.floor(date.getMonth() / 3) * 3 + 3, 0);
+  }
+  return { start, end, ms: end.getTime() - start.getTime() };
+}
+
+/** Clip a dated interval to a window. A single date has zero width and can render as a marker. */
+export function dateRangeBar(
+  startDate: string | null | undefined,
+  endDate: string | null | undefined,
+  window: PortfolioWindow,
+): { left: number; width: number; borderRadius: string } | null {
+  const start = toLocalDate(startDate);
+  const end = toLocalDate(endDate);
+  if (!start && !end) return null;
+  const from = start ?? end!;
+  const to = end ?? start!;
+  if (to < from || to < window.start || from > window.end) return null;
+  const left = pctOf(window, startDate ?? endDate)!;
+  const right = pctOf(window, endDate ?? startDate)!;
+  return {
+    left,
+    width: start && end ? Math.max(right - left, 0.5) : 0,
+    borderRadius: [from < window.start ? 0 : 8, to > window.end ? 0 : 8, to > window.end ? 0 : 8, from < window.start ? 0 : 8].map((value) => value + "px").join(" "),
+  };
+}
 /** One quarter label's horizontal extent, as measured in the browser. */
 export interface LabelRect {
   left: number;
