@@ -408,6 +408,11 @@ describe("visitor filter lists", () => {
     expect(visitorFilterLists(p)).toEqual({ shown, allowed: shown, can_add: false });
   });
 
+  it("offer no tag filter for a payload without tag groups", () => {
+    const p = filterPortal(undefined, { tag_groups: undefined as unknown as PublicPortal["tag_groups"] });
+    expect(visitorFilterLists(p).shown).toEqual(["field:single", "field:multi"]);
+  });
+
   it("fall back to nothing at all without a portal", () => {
     expect(visitorFilterLists(null)).toEqual({ shown: [], allowed: [], can_add: false });
   });
@@ -639,6 +644,7 @@ describe("portal prefs", () => {
     ["a list", "[\"code\"]"],
     ["a string", "\"code\""],
     ["null", "null"],
+    ["a number", "3"],
     ["no list", "{\"filterFields\": \"code\"}"],
   ])("read %s as nothing remembered", (_label, raw) => {
     localStorage.setItem("turboea.portal.acme.prefs", raw);

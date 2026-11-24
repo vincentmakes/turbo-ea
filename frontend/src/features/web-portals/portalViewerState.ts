@@ -252,7 +252,7 @@ export function visitorFilterLists(portal: PublicPortal | null): PortalVisitorFi
   );
   const shown = [
     ...((portal?.type_info?.subtypes ?? []).length > 0 ? ["subtype"] : []),
-    ...((portal?.tag_groups ?? []).some((g) => (g.tags ?? []).length > 0) ? ["tags"] : []),
+    ...(portal?.tag_groups?.some((g) => (g.tags ?? []).length > 0) ? ["tags"] : []),
     ...selects.map((f) => fieldFilterKey(f.key)),
     ...portalRelationTypes(portal).visible.map((rt) => relationFilterKey(rt.key)),
   ];
@@ -389,16 +389,16 @@ export function portalPrefsKey(slug: string): string {
   return `turboea.portal.${slug}.prefs`;
 }
 
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
-}
-
 /** What the browser remembers for a portal; anything malformed, or storage that throws, reads as nothing. */
 export function loadPortalPrefs(slug: string): PortalPrefs {
   try {
-    // A missing key reads as `null`, which parses to `null`: nothing remembered.
-    const parsed: unknown = JSON.parse(localStorage.getItem(portalPrefsKey(slug)) as string);
-    return { filterFields: isRecord(parsed) ? restoreFilterFields(parsed.filterFields) : [] };
+    // A missing key reads as `null`, which parses to `null` and throws below: nothing
+    // remembered. Any other shape (a list, a string, a number) has no `filterFields`, and
+    // `restoreFilterFields` keeps only a list of strings.
+    const parsed = JSON.parse(localStorage.getItem(portalPrefsKey(slug)) as string) as {
+      filterFields?: unknown;
+    };
+    return { filterFields: restoreFilterFields(parsed.filterFields) };
   } catch {
     return { filterFields: [] };
   }
