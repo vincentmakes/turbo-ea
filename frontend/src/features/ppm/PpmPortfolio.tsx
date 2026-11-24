@@ -35,12 +35,16 @@ import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useOptionalAuthUser } from "@/hooks/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
+import { catalogFields, withActiveFilterFields } from "@/lib/fieldFilters";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import CardFilterSection from "@/features/reports/CardFilterSection";
 import ReportShell from "@/features/reports/ReportShell";
 import type { PrintParam } from "@/features/reports/ReportShell";
 import {
-  EMPTY_CARD_FILTERS,
+  clearCardFilterValues,
+  conditionLabelsFor,
   countActiveFilters,
   describeActiveFilters,
 } from "@/features/reports/cardFilters";
@@ -138,7 +142,7 @@ function PpmPortfolioBoard({ onReset }: { onReset: () => void }) {
   // Read the type array directly rather than through `getType`: the subtype
   // definitions live on the card type, and this is the same lookup
   // `useCardSubtypeLabel` does — which is what the board used before the split.
-  const { types } = useMetamodel();
+  const { types, loading: metamodelLoading } = useMetamodel();
   const typeLabel = useTypeLabel();
 
   const [loading, setLoading] = useState(true);
@@ -205,8 +209,13 @@ function PpmPortfolioBoard({ onReset }: { onReset: () => void }) {
   // Latched: once requested the path never returns to null, which would clear
   // the payload (`useApiQuery`) and refetch on every re-open. A section that
   // opens unfolded needs its payload at once, or it would say "Loading…" for good.
+  // A condition counts here before the catalog is known: the link restored
+  // only usable ones, and the payload is what applies them.
   const [requested, setRequested] = useState(
-    () => countActiveFilters(filters) > 0 || !filtersCollapsed,
+    () =>
+      countActiveFilters(filters) > 0 ||
+      Object.keys(filters.attrConditions).length > 0 ||
+      !filtersCollapsed,
   );
   const filterQuery = useApiQuery<PpmFilterData>(requested ? "/reports/ppm/filter-data" : null);
   const filterData = filterQuery.data;
@@ -230,6 +239,9 @@ function PpmPortfolioBoard({ onReset }: { onReset: () => void }) {
     },
     [remember],
   );
+  // A cost field is offered, and a condition on one applies, only to a reader
+  // who may see costs.
+  const { canViewCostsGlobally: canViewCosts } = usePermissions(useOptionalAuthUser());
   const relationTypes = useMemo(() => filterData?.relation_types ?? [], [filterData]);
   const groupableTypes = useMemo(() => filterData?.groupable_types ?? {}, [filterData]);
   const tagGroups = useMemo(() => filterData?.tag_groups ?? [], [filterData]);
@@ -238,11 +250,14 @@ function PpmPortfolioBoard({ onReset }: { onReset: () => void }) {
     relationOptions: payloadOrder,
     relSubtypes,
     facetFields,
+    catalog: fieldCatalog,
+    kindByKey: conditionKinds,
   } = useCardFilterOptions({
     cardTypeKey: "Initiative",
     relationTypes,
     groupableTypes,
     includeDescendants: filters.includeDescendants,
+    canViewCosts,
   });
   // Other card types before the Initiative's own facets, in the section and
   // the print header alike.
@@ -256,19 +271,26 @@ function PpmPortfolioBoard({ onReset }: { onReset: () => void }) {
       filterData
         ? matchingInitiativeIds(filterData.items, filters, {
             facetFields,
+            conditionKinds,
             relationTypes,
             groupableTypes,
             relSubtypes,
             tagGroups,
           })
         : null,
-    [filterData, filters, facetFields, relationTypes, groupableTypes, relSubtypes, tagGroups],
+    [filterData, filters, facetFields, conditionKinds, relationTypes, groupableTypes, relSubtypes, tagGroups],
   );
 
   // A selection whose payload has not arrived yet must not show the board
   // unfiltered; a failed load narrows nothing and says so in the section.
+  // A condition counts only once the metamodel has said which kind its field
+  // is (`conditionKinds`); until then a link carrying one counts as zero and
+  // the board would show every initiative, then narrow — even with the
+  // payload in. Hold it back until the metamodel has loaded.
+  const conditionsUnresolved = metamodelLoading && Object.keys(filters.attrConditions).length > 0;
   const filtersPending =
-    countActiveFilters(filters) > 0 && !filterData && filterQuery.error === null;
+    filterQuery.error === null &&
+    ((countActiveFilters(filters, conditionKinds) > 0 && !filterData) || conditionsUnresolved);
 
   // Only filters that are applied reach the print header: without the payload
   // the board is unfiltered, and the options to name a pick by are missing.
@@ -289,9 +311,20 @@ function PpmPortfolioBoard({ onReset }: { onReset: () => void }) {
           empty: t("common:labels.empty"),
           subCards: t("reports:cardFilters.inclSubCards"),
         },
+        conditions: {
+          fields: catalogFields(fieldCatalog).map((e) => e.field),
+          kindByKey: conditionKinds,
+          labels: conditionLabelsFor(t),
+        },
       }),
-    [filterData, filters, relationOptions, tagGroups, facetFields, relSubtypes, t],
+    [filterData, filters, relationOptions, tagGroups, facetFields, fieldCatalog, conditionKinds, relSubtypes, t],
   );
+
+  // The section renders every field holding a value as an added row, so a
+  // condition that arrived by link without its row keeps that row while it is
+  // cleared. In memory only: the link is encoded from `filters`, which stays as
+  // the link carried it until the person edits something.
+  const sectionValue = useMemo(() => withActiveFilterFields(filters), [filters]);
 
   const initiativeLabel = typeLabel(initiativeType);
   const filterSection = (
@@ -310,16 +343,14 @@ function PpmPortfolioBoard({ onReset }: { onReset: () => void }) {
         setRequested(true);
         remember();
       }}
-      value={filters}
+      value={sectionValue}
       onChange={setFilters}
       relationOptions={relationOptions}
       tagGroups={tagGroups}
       subtypeOptions={[]}
-      fields={facetFields}
+      catalog={fieldCatalog}
       relSubtypes={relSubtypes}
-      onClearAll={() =>
-        setFilters((prev) => ({ ...EMPTY_CARD_FILTERS, includeDescendants: prev.includeDescendants }))
-      }
+      onClearAll={() => setFilters(clearCardFilterValues)}
       disabledReason={
         filterQuery.error
           ? t("filtersLoadFailed")

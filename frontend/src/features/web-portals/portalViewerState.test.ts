@@ -1,23 +1,38 @@
-import { describe, expect, it } from "vitest";
-import type { FieldDef, PortalCard, PortalRelationType, PublicPortal } from "@/types";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { FieldDef, PortalCard, PortalRelationType, PortalVisitorFilters, PublicPortal } from "@/types";
+import { catalogFields } from "@/lib/fieldFilters";
 import {
   DEFAULT_CARD,
   DEFAULT_DETAIL,
+  EMPTY_VISITOR_FILTERS,
   cardQueryParams,
+  clearVisitorFilters,
   detailRelationGroups,
+  fieldFilterKey,
   fieldsWithValues,
+  filterableFieldKeys,
   hasActiveFilters,
   hasAttributeValue,
   isVisible,
+  knownFilterFields,
+  loadPortalPrefs,
   portalFields,
+  portalFilterCatalog,
+  portalPrefsKey,
   portalRelationTypes,
   portalSilentKey,
   portalToggles,
   relatedTypeKeys,
+  relationFilterKey,
   relationFilterLabel,
+  savePortalPrefs,
+  showsFilter,
   tileRelations,
+  visitorFilterLists,
+  visitorFiltersParam,
   type CardQuery,
   type Toggles,
+  type VisitorFilterState,
 } from "./portalViewerState";
 
 /* ------------------------------------------------------------------ */
@@ -146,13 +161,13 @@ describe("visibility toggles", () => {
 
 describe("fields", () => {
   it("has none without a type", () => {
-    expect(portalFields(null)).toEqual({ all: [], card: [], detail: [], filterable: [] });
-    expect(portalFields(portal())).toEqual({ all: [], card: [], detail: [], filterable: [] });
+    expect(portalFields(null)).toEqual({ all: [], card: [], detail: [] });
+    expect(portalFields(portal())).toEqual({ all: [], card: [], detail: [] });
     // A type payload without a schema (an older backend) has no fields either.
     const noSchema = { key: "Application", label: "Application", icon: "apps", color: "#000" };
     expect(
       portalFields(portal({ type_info: noSchema as PublicPortal["type_info"] })),
-    ).toEqual({ all: [], card: [], detail: [], filterable: [] });
+    ).toEqual({ all: [], card: [], detail: [] });
   });
 
   it("puts the first three fields on a tile and every field in the panel by default", () => {
@@ -173,27 +188,6 @@ describe("fields", () => {
     );
     expect(out.card.map((f) => f.key)).toEqual(["b", "c", "d"]);
     expect(out.detail.map((f) => f.key)).toEqual(["b", "c", "d"]);
-  });
-
-  it("offers a select field with options as a filter while it shows somewhere", () => {
-    const fs = [
-      field("single", "single_select", OPTS),
-      field("multi", "multiple_select", OPTS),
-      field("noOptions", "single_select"),
-      field("emptyOptions", "single_select", []),
-      field("text", "text", OPTS),
-      field("hidden", "single_select", OPTS),
-      field("panelOnly", "single_select", OPTS),
-      field("tileOnly", "single_select", OPTS),
-    ];
-    const out = portalFields(
-      withFields(fs, {
-        "field:hidden": { card: false, detail: false },
-        "field:panelOnly": { card: false, detail: true },
-        "field:tileOnly": { card: true, detail: false },
-      }),
-    );
-    expect(out.filterable.map((f) => f.key)).toEqual(["single", "multi", "panelOnly", "tileOnly"]);
   });
 
   it("counts a value as present unless it is absent, null or empty text", () => {
@@ -347,15 +341,159 @@ describe("detail relation groups", () => {
 });
 
 /* ------------------------------------------------------------------ */
+/*  Visitor filters                                                    */
+/* ------------------------------------------------------------------ */
+
+const LISTS: PortalVisitorFilters = {
+  shown: ["subtype", "field:single", "rel:r1"],
+  allowed: ["subtype", "tags", "field:single", "field:code", "field:count", "rel:r1"],
+  can_add: true,
+};
+
+/** A portal of every field kind, with the server's lists when given. */
+function filterPortal(lists?: PortalVisitorFilters, over: Partial<PublicPortal> = {}): PublicPortal {
+  const fs = [
+    field("single", "single_select", OPTS),
+    field("multi", "multiple_select", OPTS),
+    field("code", "text"),
+    field("count", "number"),
+    field("flag", "boolean"),
+  ];
+  return {
+    ...withFields(fs),
+    ...(lists ? { visitor_filters: lists } : {}),
+    ...over,
+  };
+}
+
+const LABELS = {
+  sectionLabel: (s: { section: string }) => `S:${s.section}`,
+  descriptionLabel: "Description",
+  resolveField: (f: FieldDef) => ({ ...f, label: `F:${f.label}` }),
+};
+
+describe("visitor filter lists", () => {
+  it("are the server's lists when the payload carries them", () => {
+    expect(visitorFilterLists(filterPortal(LISTS))).toBe(LISTS);
+  });
+
+  it("fall back to the old bar on a payload without them: shown selects, subtype, tags, relations, nothing to add", () => {
+    const p = filterPortal(undefined, {
+      type_info: {
+        ...withFields([
+          field("single", "single_select", OPTS),
+          field("multi", "multiple_select", OPTS),
+          field("bare", "single_select"),
+          field("hidden", "single_select", OPTS),
+          field("panel", "single_select", OPTS),
+          field("flag", "boolean"),
+          field("code", "text", OPTS),
+        ]).type_info!,
+        subtypes: [{ key: "saas", label: "SaaS" }],
+      },
+      card_config: {
+        toggles: {
+          "field:hidden": { card: false, detail: false },
+          "field:panel": { card: false, detail: true },
+          "rel:r1": { card: true, detail: false },
+        },
+      },
+      relation_types: [rt("r1"), rt("r2")],
+      tag_groups: [
+        { id: "g0", name: "Empty", tags: [] },
+        { id: "g1", name: "Domain", tags: [{ id: "t1", name: "Finance" }] },
+      ],
+    });
+    const shown = ["subtype", "tags", "field:single", "field:multi", "field:panel", "rel:r1"];
+    expect(visitorFilterLists(p)).toEqual({ shown, allowed: shown, can_add: false });
+  });
+
+  it("offer no tag filter for a payload without tag groups", () => {
+    const p = filterPortal(undefined, { tag_groups: undefined as unknown as PublicPortal["tag_groups"] });
+    expect(visitorFilterLists(p).shown).toEqual(["field:single", "field:multi"]);
+  });
+
+  it("fall back to nothing at all without a portal", () => {
+    expect(visitorFilterLists(null)).toEqual({ shown: [], allowed: [], can_add: false });
+  });
+
+  it("leave out the subtype without subtypes, and the tags when no group has any", () => {
+    const p = filterPortal(undefined, {
+      tag_groups: [{ id: "g0", name: "Bare" } as unknown as PublicPortal["tag_groups"][number]],
+    });
+    expect(visitorFilterLists(p).shown).toEqual(["field:single", "field:multi"]);
+  });
+
+  it("names filters by toggle key", () => {
+    expect(fieldFilterKey("code")).toBe("field:code");
+    expect(relationFilterKey("r1")).toBe("rel:r1");
+    expect(showsFilter(LISTS, "rel:r1")).toBe(true);
+    expect(showsFilter(LISTS, "tags")).toBe(false);
+  });
+
+  it("lets a visitor filter on the allowed fields, or only the shown ones while adding is off", () => {
+    expect(filterableFieldKeys(LISTS)).toEqual(["single", "code", "count"]);
+    expect(filterableFieldKeys({ ...LISTS, can_add: false })).toEqual(["single"]);
+    expect(filterableFieldKeys({ shown: [], allowed: ["tags", "rel:x", "subtype"], can_add: true })).toEqual([]);
+  });
+});
+
+describe("portal filter catalog", () => {
+  it("holds the allowed fields, each shown by default iff the server lists it", () => {
+    const catalog = portalFilterCatalog(filterPortal(LISTS), LISTS, LABELS);
+    expect(catalogFields(catalog).map((e) => [e.field.key, e.kind, e.shownByDefault])).toEqual([
+      ["single", "facet", true],
+      ["code", "text", false],
+      ["count", "number", false],
+    ]);
+    // Labels as the caller resolves them.
+    expect(catalog.map((s) => s.label)).toEqual(["S:One", "S:Two"]);
+    expect(catalogFields(catalog)[0].field.label).toBe("F:single");
+  });
+
+  it("shows a listed text field by default, not only facets", () => {
+    const lists = { ...LISTS, shown: ["field:code"] };
+    const catalog = portalFilterCatalog(filterPortal(lists), lists, LABELS);
+    expect(catalogFields(catalog).map((e) => [e.field.key, e.shownByDefault])).toEqual([
+      ["single", false],
+      ["code", true],
+      ["count", false],
+    ]);
+  });
+
+  it("holds only the shown fields when adding is off, so nothing is addable", () => {
+    const lists = { ...LISTS, can_add: false };
+    const catalog = portalFilterCatalog(filterPortal(lists), lists, LABELS);
+    expect(catalogFields(catalog).map((e) => [e.field.key, e.shownByDefault])).toEqual([["single", true]]);
+  });
+
+  it("is empty without a type", () => {
+    expect(portalFilterCatalog(null, LISTS, LABELS)).toEqual([]);
+    expect(portalFilterCatalog(portal(), LISTS, LABELS)).toEqual([]);
+  });
+
+  it("drops a cost field even if a list named it", () => {
+    const p = withFields([field("budget", "cost"), field("code", "text")]);
+    const lists = { shown: ["field:budget"], allowed: ["field:budget", "field:code"], can_add: true };
+    expect(catalogFields(portalFilterCatalog(p, lists, LABELS)).map((e) => e.field.key)).toEqual(["code"]);
+  });
+});
+
+/* ------------------------------------------------------------------ */
 /*  The card query                                                     */
 /* ------------------------------------------------------------------ */
 
+const NONE: CardQuery["filters"] = {
+  subtypeFilters: [],
+  attrFilters: {},
+  attrConditions: {},
+  relationFilters: {},
+  tagFilterIds: [],
+};
+
 const BASE: CardQuery = {
   search: "",
-  subtype: "",
-  attrFilters: {},
-  relationFilters: {},
-  tagFilter: [],
+  filters: NONE,
   page: 1,
   pageSize: 24,
   sortBy: "name",
@@ -367,58 +505,178 @@ describe("card query", () => {
     expect(cardQueryParams(BASE)).toBe("page=1&page_size=24&sort_by=name&sort_dir=asc");
   });
 
-  it("sends every set filter, leaving out emptied dropdowns", () => {
+  it("sends every set filter as one canonical filters parameter", () => {
     const params = new URLSearchParams(
       cardQueryParams({
         ...BASE,
         search: "crm",
-        subtype: "saas",
-        attrFilters: { criticality: "high", status: "" },
-        relationFilters: { owns: "c1", uses: "" },
-        tagFilter: ["t1", "t2"],
+        filters: {
+          subtypeFilters: ["saas", "__empty__"],
+          attrFilters: { criticality: ["high"], status: [] },
+          attrConditions: {
+            code: { contains: " ORG " },
+            count: { min: 2 },
+            blank: { contains: "  " },
+            since: { from: "2025-01-01", to: "nope" },
+          },
+          relationFilters: { owns: ["c1", "c2"], uses: [] },
+          tagFilterIds: ["t1", "t2"],
+        },
         page: 3,
         pageSize: 12,
         sortBy: "updated_at",
         sortDir: "desc",
       }),
     );
-    expect([...params.keys()]).toEqual([
-      "search",
-      "subtype",
-      "attr_filters",
-      "relation_filters",
-      "tag_ids",
-      "page",
-      "page_size",
-      "sort_by",
-      "sort_dir",
-    ]);
+    expect([...params.keys()]).toEqual(["search", "filters", "page", "page_size", "sort_by", "sort_dir"]);
     expect(params.get("search")).toBe("crm");
-    expect(params.get("subtype")).toBe("saas");
-    expect(params.get("attr_filters")).toBe('{"criticality":"high"}');
-    expect(params.get("relation_filters")).toBe('{"owns":"c1"}');
-    expect(params.get("tag_ids")).toBe("t1,t2");
+    expect(JSON.parse(params.get("filters")!)).toEqual({
+      subtypeFilters: ["saas", "__empty__"],
+      attrFilters: { criticality: ["high"] },
+      attrConditions: { code: { contains: "ORG" }, count: { min: 2 }, since: { from: "2025-01-01" } },
+      relationFilters: { owns: ["c1", "c2"] },
+      tagFilterIds: ["t1", "t2"],
+    });
     expect(params.get("page")).toBe("3");
     expect(params.get("page_size")).toBe("12");
     expect(params.get("sort_by")).toBe("updated_at");
     expect(params.get("sort_dir")).toBe("desc");
   });
 
-  it("leaves out a filter map whose every entry was emptied", () => {
+  it("leaves out the parameter when every pick was emptied", () => {
     const query = cardQueryParams({
       ...BASE,
-      attrFilters: { criticality: "" },
-      relationFilters: { owns: "" },
+      filters: {
+        ...NONE,
+        attrFilters: { criticality: [] },
+        attrConditions: { code: { contains: "" } },
+        relationFilters: { owns: [] },
+      },
     });
     expect(query).toBe("page=1&page_size=24&sort_by=name&sort_dir=asc");
   });
 
-  it("counts a filter as active only once one is set", () => {
-    const none = { subtype: "", attrFilters: { a: "" }, relationFilters: { r: "" }, tagFilter: [] };
+  it("sends each kind on its own, with no other key", () => {
+    const one = (f: Partial<CardQuery["filters"]>) => JSON.parse(visitorFiltersParam({ ...NONE, ...f })!);
+    expect(one({ subtypeFilters: ["a"] })).toEqual({ subtypeFilters: ["a"] });
+    expect(one({ attrFilters: { a: ["x"] } })).toEqual({ attrFilters: { a: ["x"] } });
+    expect(one({ attrConditions: { a: { max: 1 } } })).toEqual({ attrConditions: { a: { max: 1 } } });
+    expect(one({ relationFilters: { r: ["c"] } })).toEqual({ relationFilters: { r: ["c"] } });
+    expect(one({ tagFilterIds: ["t"] })).toEqual({ tagFilterIds: ["t"] });
+    expect(visitorFiltersParam(NONE)).toBeNull();
+  });
+
+  it("never sends the added fields", () => {
+    const f: VisitorFilterState = { ...EMPTY_VISITOR_FILTERS, filterFields: ["code"] };
+    expect(visitorFiltersParam(f)).toBeNull();
+  });
+});
+
+describe("active filters and Clear", () => {
+  it("counts a filter as active only once one narrows", () => {
+    const none = EMPTY_VISITOR_FILTERS;
     expect(hasActiveFilters(none)).toBe(false);
-    expect(hasActiveFilters({ ...none, subtype: "saas" })).toBe(true);
-    expect(hasActiveFilters({ ...none, attrFilters: { a: "", b: "x" } })).toBe(true);
-    expect(hasActiveFilters({ ...none, relationFilters: { r: "", s: "c1" } })).toBe(true);
-    expect(hasActiveFilters({ ...none, tagFilter: ["t1"] })).toBe(true);
+    expect(hasActiveFilters({ ...none, filterFields: ["code"], attrFilters: { a: [] } })).toBe(false);
+    expect(hasActiveFilters({ ...none, attrConditions: { code: { contains: " " } } })).toBe(false);
+    expect(hasActiveFilters({ ...none, subtypeFilters: ["saas"] })).toBe(true);
+    expect(hasActiveFilters({ ...none, attrFilters: { a: [], b: ["x"] } })).toBe(true);
+    expect(hasActiveFilters({ ...none, attrConditions: { code: { contains: "x" } } })).toBe(true);
+    expect(hasActiveFilters({ ...none, relationFilters: { r: [], s: ["c1"] } })).toBe(true);
+    expect(hasActiveFilters({ ...none, tagFilterIds: ["t1"] })).toBe(true);
+  });
+
+  it("clears every value and keeps the added rows", () => {
+    const f: VisitorFilterState = {
+      subtypeFilters: ["saas"],
+      attrFilters: { a: ["x"] },
+      attrConditions: { code: { contains: "x" } },
+      filterFields: ["code", "count"],
+      relationFilters: { r: ["c1"] },
+      tagFilterIds: ["t1"],
+    };
+    expect(clearVisitorFilters(f)).toEqual({ ...EMPTY_VISITOR_FILTERS, filterFields: ["code", "count"] });
+  });
+
+  it("starts empty", () => {
+    expect(EMPTY_VISITOR_FILTERS).toEqual({
+      subtypeFilters: [],
+      attrFilters: {},
+      attrConditions: {},
+      filterFields: [],
+      relationFilters: {},
+      tagFilterIds: [],
+    });
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  What the visitor's browser remembers                               */
+/* ------------------------------------------------------------------ */
+
+describe("portal prefs", () => {
+  beforeEach(() => localStorage.clear());
+  afterEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it("are kept per portal", () => {
+    expect(portalPrefsKey("acme")).toBe("turboea.portal.acme.prefs");
+  });
+
+  it("round-trip the added fields, and nothing else", () => {
+    savePortalPrefs("acme", { filterFields: ["code", "code", "", "count"] });
+    expect(JSON.parse(localStorage.getItem("turboea.portal.acme.prefs")!)).toEqual({
+      filterFields: ["code", "count"],
+    });
+    expect(loadPortalPrefs("acme")).toEqual({ filterFields: ["code", "count"] });
+    expect(loadPortalPrefs("other")).toEqual({ filterFields: [] });
+  });
+
+  it("remember no added field as nothing at all", () => {
+    localStorage.setItem("turboea.portal.acme.prefs", JSON.stringify({ filterFields: ["code"] }));
+    savePortalPrefs("acme", { filterFields: [] });
+    expect(localStorage.getItem("turboea.portal.acme.prefs")).toBeNull();
+  });
+
+  it.each([
+    ["garbage", "{not json"],
+    ["a list", "[\"code\"]"],
+    ["a string", "\"code\""],
+    ["null", "null"],
+    ["a number", "3"],
+    ["no list", "{\"filterFields\": \"code\"}"],
+  ])("read %s as nothing remembered", (_label, raw) => {
+    localStorage.setItem("turboea.portal.acme.prefs", raw);
+    expect(loadPortalPrefs("acme")).toEqual({ filterFields: [] });
+  });
+
+  it("keep only the strings of a mixed list", () => {
+    localStorage.setItem(
+      "turboea.portal.acme.prefs",
+      JSON.stringify({ filterFields: ["code", 3, null, "count", "code"] }),
+    );
+    expect(loadPortalPrefs("acme")).toEqual({ filterFields: ["code", "count"] });
+  });
+
+  it("survive storage that throws (private mode, blocked site data)", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    expect(loadPortalPrefs("acme")).toEqual({ filterFields: [] });
+    expect(() => savePortalPrefs("acme", { filterFields: ["code"] })).not.toThrow();
+    expect(() => savePortalPrefs("acme", { filterFields: [] })).not.toThrow();
+  });
+
+  it("ignore remembered fields no longer in the catalog", () => {
+    const catalog = portalFilterCatalog(filterPortal(LISTS), LISTS, LABELS);
+    expect(knownFilterFields(["count", "gone", "code", "flag"], catalog)).toEqual(["count", "code"]);
+    expect(knownFilterFields([], catalog)).toEqual([]);
   });
 });

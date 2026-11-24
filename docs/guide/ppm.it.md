@@ -33,9 +33,9 @@ Sotto la barra degli strumenti si trova una sezione **Filtri**, chiusa la prima 
 
 - **Card correlate** — mantiene le iniziative collegate alle card che scegliete, per esempio un'Organizzazione o un'Applicazione. **Includi sotto-schede** mantiene anche le iniziative collegate alle card che si trovano sotto una card scelta nella sua gerarchia
 - **Tag** — mantiene le iniziative che portano i tag che scegliete
-- **Campi** — mantiene le iniziative i cui campi propri (gli attributi del tipo Iniziativa) corrispondono ai valori che scegliete
+- **Campi** — mantiene le iniziative i cui campi propri (gli attributi del tipo Iniziativa) corrispondono ai valori che scegliete I campi di una sezione che un amministratore ha contrassegnato come **Nascosto dai filtri** non sono mostrati, ma il chip **Aggiungi filtro** in fondo alla riga li elenca, con ricerca per nome del campo o della sezione; un campo aggiunto ha un pulsante **×** che lo rimuove insieme ai suoi valori. **Aggiungi filtro** offre anche campi di testo, numero e data — un codice che contiene del testo, un budget tra due importi, un intervallo di date — e campi di costo per chi può vedere i costi (vedi [Aggiungere campi su cui filtrare](reports.md#add-filter))
 
-I filtri attivi vengono mantenuti nell'URL e ricordati insieme al resto del portafoglio, così un link che condividete apre lo stesso portafoglio, e sono elencati nella riga dei parametri di una stampa o di un'esportazione. **Cancella tutto** svuota la sezione Filtri e lascia invariato il resto della barra degli strumenti.
+I filtri attivi vengono mantenuti nell'URL e ricordati insieme al resto del portafoglio, così un link che condividete apre lo stesso portafoglio, e sono elencati nella riga dei parametri di una stampa o di un'esportazione. I campi che avete aggiunto viaggiano nel link e vengono ricordati anch'essi. **Cancella tutto** svuota i valori della sezione Filtri, mantiene i campi aggiunti e lascia invariato il resto della barra degli strumenti; **Reimposta predefiniti** rimuove anche i campi aggiunti.
 
 #### Mostrare la gerarchia delle iniziative
 

@@ -25,11 +25,29 @@ Reads only; never commits.
 
 from __future__ import annotations
 
+import json
+import math
+import re
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
+from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import CTE, ColumnElement, Text, and_, exists, false, func, not_, or_, select
+from sqlalchemy import (
+    CTE,
+    ColumnElement,
+    Numeric,
+    Text,
+    and_,
+    case,
+    cast,
+    exists,
+    false,
+    func,
+    not_,
+    or_,
+    select,
+)
 from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
@@ -39,6 +57,8 @@ from app.models.card_type import CardType
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.tag import CardTag, Tag, TagGroup
+from app.services.lifecycle import _SQL_DATE_PATTERN
+from app.services.search_rank import search_filter
 
 #: The "(empty)" option of every filter (``EMPTY_FILTER_KEY`` in
 #: ``FilterSelect.tsx``): a card with no value, no relation, no subtype.
@@ -70,6 +90,207 @@ def _string_lists(value: object) -> dict[str, list[str]]:
     return out
 
 
+# ---------------------------------------------------------------------------
+# Field conditions: text contains, number range, date range (#1425)
+# ---------------------------------------------------------------------------
+#
+# The Python twin of ``normaliseCondition`` / ``matchesCondition`` in
+# ``frontend/src/lib/fieldFilters.ts``. Both suites pin the same edge cases
+# (``test_portal_card_filters.py``, ``fieldFilters.test.ts``). Known
+# divergences, all outside what the UI writes:
+#
+# - text: ``ILIKE`` folds case by the database collation, JavaScript's
+#   ``toLowerCase`` by Unicode; the tests use ASCII only. A JSON number is
+#   read as Postgres prints it (``1.0`` stays ``1.0``; JavaScript prints
+#   ``1``).
+# - number: a JSON *number* longer than 40 characters as Postgres prints it is
+#   not a number here but is in the browser; a value with more than 15
+#   significant digits compares exactly here and as a double there.
+# - date: an impossible calendar date (``2026-13-45``) matches the pattern
+#   on both sides and is compared as its text, as ``lifecycle.py`` does.
+
+#: The longest ``contains`` needle kept; the rest is cut off.
+CONTAINS_MAX = 200
+
+#: A plain decimal: optional sign, digits with an optional fraction (or a bare
+#: fraction), an optional exponent of at most two digits. Two, not three:
+#: ``9e999`` is a finite ``numeric`` in Postgres but ``Infinity`` in the
+#: browser, so a three-digit exponent would let the two matchers disagree.
+#: ``[0-9]``, never ``\d``, which a Postgres locale may widen past ASCII.
+NUMBER_PATTERN = r"^[+-]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][+-]?[0-9]{1,2})?$"
+#: A numeric text longer than this is not read as a number (no cast is tried).
+NUMBER_MAX_CHARS = 40
+
+#: A date bound as the UI writes it.
+_DATE_BOUND = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+
+#: The keys of each condition shape, by filter kind.
+_SHAPE_KEYS: dict[str, tuple[str, ...]] = {
+    "text": ("contains",),
+    "number": ("min", "max"),
+    "date": ("from", "to"),
+}
+
+#: The field types each condition kind applies to. ``cost`` is a number field
+#: the reports filter on for readers who may see costs; a portal never does.
+CONDITION_FIELD_TYPES: dict[str, frozenset[str]] = {
+    "text": frozenset({"text", "multiline_text", "url"}),
+    "number": frozenset({"number", "percentage"}),
+    "date": frozenset({"date"}),
+}
+
+
+def condition_shape(raw: object) -> str | None:
+    """The kind a stored condition's keys name (``text`` / ``number`` /
+    ``date``), or ``None`` when it is not an object or names keys of more than
+    one kind (``shapeOfCondition`` in ``fieldFilters.ts``)."""
+    if not isinstance(raw, dict):
+        return None
+    kinds = [kind for kind, keys in _SHAPE_KEYS.items() if any(k in raw for k in keys)]
+    return kinds[0] if len(kinds) == 1 else None
+
+
+def _finite_number(value: object) -> float | int | None:
+    """A JSON number usable as a bound: not a boolean, finite."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    try:
+        return value if math.isfinite(float(value)) else None
+    except OverflowError:
+        return None
+
+
+def normalise_condition(kind: str, raw: object) -> dict[str, Any] | None:
+    """One condition of ``kind`` in its canonical shape, or ``None`` when it
+    narrows nothing: a trimmed, non-empty ``contains`` (cut at
+    ``CONTAINS_MAX``); finite ``min`` / ``max``; ``YYYY-MM-DD`` ``from`` /
+    ``to``. A bound that is unusable is dropped; no usable bound, no
+    condition."""
+    if not isinstance(raw, dict):
+        return None
+    if kind == "text":
+        needle = raw.get("contains")
+        if not isinstance(needle, str) or not needle.strip():
+            return None
+        return {"contains": needle.strip()[:CONTAINS_MAX]}
+    if kind == "number":
+        out: dict[str, Any] = {}
+        for key in ("min", "max"):
+            bound = _finite_number(raw.get(key))
+            if bound is not None:
+                out[key] = bound
+        return out or None
+    if kind == "date":
+        out = {}
+        for key in ("from", "to"):
+            bound = raw.get(key)
+            if isinstance(bound, str) and _DATE_BOUND.fullmatch(bound):
+                out[key] = bound
+        return out or None
+    return None
+
+
+def normalise_attr_conditions(raw: object) -> dict[str, dict[str, Any]]:
+    """``attrConditions`` with every unusable condition dropped — the twin of
+    ``restoreAttrConditions`` (``fieldFilters.ts``)."""
+    if not isinstance(raw, dict):
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for key, value in raw.items():
+        if not isinstance(key, str) or not key:
+            continue
+        kind = condition_shape(value)
+        condition = normalise_condition(kind, value) if kind else None
+        if condition is not None:
+            out[key] = condition
+    return out
+
+
+def _text_condition(col, needle: str) -> ColumnElement[bool]:
+    """A string or a number whose text contains ``needle``, case-insensitive,
+    wildcards escaped (``search_filter``). A list, an object, a boolean or no
+    value never matches."""
+    return and_(
+        func.jsonb_typeof(col).in_(("string", "number")),
+        search_filter(col.astext, needle),
+    )
+
+
+def _decimal(value: float | int) -> Decimal:
+    # ``repr`` of a float is its shortest round-tripping text: 0.1 → "0.1".
+    return Decimal(value) if isinstance(value, int) else Decimal(repr(value))
+
+
+def numeric_value(col) -> ColumnElement[Any]:
+    """``attributes[key]`` as a ``numeric``, NULL when it is not a plain
+    decimal (``numericValueOf`` in ``fieldFilters.ts``). The ``CASE`` orders
+    the guard before the cast, so no stored text can make the cast raise; a
+    JSON boolean reads ``true`` / ``false`` and fails the guard."""
+    txt = col.astext
+    guard = and_(func.char_length(txt) <= NUMBER_MAX_CHARS, txt.regexp_match(NUMBER_PATTERN))
+    return case((guard, cast(txt, Numeric)))
+
+
+def _number_condition(col, condition: Mapping[str, Any]) -> ColumnElement[bool]:
+    # ``normalise_condition`` keeps at least one bound. A NULL (not a number)
+    # compares as NULL, never true, so no separate "is a number" test is needed.
+    num = numeric_value(col)
+    clauses: list[ColumnElement[bool]] = []
+    if "min" in condition:
+        clauses.append(num >= _decimal(condition["min"]))
+    if "max" in condition:
+        clauses.append(num <= _decimal(condition["max"]))
+    return and_(*clauses)
+
+
+def _date_condition(col, condition: Mapping[str, Any]) -> ColumnElement[bool]:
+    """A stored ``YYYY-MM-DD`` (a time part allowed) within the bounds, both
+    ends included, compared as text behind the ``lifecycle.py`` pattern."""
+    txt = col.astext
+    day = func.left(txt, 10)
+    clauses: list[ColumnElement[bool]] = [txt.regexp_match(_SQL_DATE_PATTERN)]
+    if "from" in condition:
+        clauses.append(day >= condition["from"])
+    if "to" in condition:
+        clauses.append(day <= condition["to"])
+    return and_(*clauses)
+
+
+def condition_clause(
+    key: str, condition: object, field_type: str | None, *, card=Card
+) -> ColumnElement[bool] | None:
+    """One field condition over ``card.attributes[key]``, or ``None`` when it
+    does not apply: an unknown field, a ``cost`` field, a type the
+    condition's shape does not fit, or a condition that narrows nothing."""
+    kind = condition_shape(condition)
+    if kind is None or field_type not in CONDITION_FIELD_TYPES[kind]:
+        return None
+    normalised = normalise_condition(kind, condition)
+    if normalised is None:
+        return None
+    col = card.attributes[key]
+    if kind == "text":
+        return _text_condition(col, normalised["contains"])
+    if kind == "number":
+        return _number_condition(col, normalised)
+    return _date_condition(col, normalised)
+
+
+def condition_clauses(
+    conditions: Mapping[str, Any], types: Mapping[str, str], *, card=Card
+) -> list[ColumnElement[bool]]:
+    """The where-clauses for ``attrConditions`` (``{field key: condition}``),
+    ``types`` being ``field_types`` of the card type; every condition that
+    does not apply is skipped (``condition_clause``). The preset and a
+    visitor's own conditions share this one builder."""
+    out = []
+    for key, condition in sorted(conditions.items()):
+        clause = condition_clause(key, condition, types.get(key), card=card)
+        if clause is not None:
+            out.append(clause)
+    return out
+
+
 def normalise_card_filters(raw: object) -> dict[str, Any] | None:
     """``raw`` in the ``CardFilterValue`` shape, anything malformed dropped —
     the Python twin of ``restoreCardFilters`` (``cardFilters.ts``). ``None``
@@ -79,6 +300,7 @@ def normalise_card_filters(raw: object) -> dict[str, Any] | None:
     return {
         "subtypeFilters": _strings(raw.get("subtypeFilters")),
         "attrFilters": _string_lists(raw.get("attrFilters")),
+        "attrConditions": normalise_attr_conditions(raw.get("attrConditions")),
         "relationFilters": _string_lists(raw.get("relationFilters")),
         "relSubtypeFilters": _string_lists(raw.get("relSubtypeFilters")),
         "tagFilterIds": _strings(raw.get("tagFilterIds")),
@@ -95,6 +317,7 @@ def has_active_card_filters(card_filters: Mapping[str, Any] | None) -> bool:
         for key in (
             "subtypeFilters",
             "attrFilters",
+            "attrConditions",
             "relationFilters",
             "relSubtypeFilters",
             "tagFilterIds",
@@ -360,13 +583,15 @@ async def _card_filter_conditions(
         subtype_condition(card_filters["subtypeFilters"])
     ]
 
-    if card_filters["attrFilters"]:
+    attr_conditions = card_filters.get("attrConditions") or {}
+    if card_filters["attrFilters"] or attr_conditions:
         ct = await db.scalar(select(CardType).where(CardType.key == card_type))
         types = field_types(ct.fields_schema if ct else None)
         conditions.extend(
             attribute_condition(key, vals, types.get(key))
             for key, vals in sorted(card_filters["attrFilters"].items())
         )
+        conditions.extend(condition_clauses(attr_conditions, types))
 
     if card_filters["relationFilters"] or card_filters["relSubtypeFilters"]:
         # Every visible relation type: one that does not touch this card type
@@ -444,4 +669,232 @@ async def preset_conditions(
         # No card filters, or ones that narrow nothing: the legacy keys (which
         # the dialog never writes beside card filters) are what is left.
         conditions.extend(_legacy_conditions(filters))
+    return conditions
+
+
+# ---------------------------------------------------------------------------
+# A visitor's own filters (#1425)
+# ---------------------------------------------------------------------------
+#
+# A visitor of a card-list portal narrows the page with the ``filters`` query
+# parameter of ``GET /web-portals/public/{slug}/cards``: a JSON object in the
+# ``CardFilterValue`` subset the viewer edits (``cardQueryParams`` in
+# ``portalViewerState.ts``). It is parsed (``normalise_visitor_filters``),
+# cut to what the portal lets a visitor filter on (``restrict_visitor_filters``
+# with ``visitor_filter_lists(...).allowed``) and turned into where-clauses
+# ANDed with the preset (``visitor_conditions``) — so a visitor can narrow the
+# page, never widen it, and a filter on anything the portal does not publish
+# changes nothing, not even ``total``.
+#
+# The query parameters the viewer sent before (``subtype``, ``tag_ids``,
+# ``attr_filters``, ``relation_filters``, ``related_type`` / ``related_id``)
+# keep working through ``legacy_visitor_filters``, onto the same builders and
+# the same restriction. Tags differ on purpose: ``tagFilterIds`` in
+# ``filters`` matches like the reports (any tag of a group, every group with
+# a pick — ``tag_conditions``), while the legacy ``tag_ids`` keeps its old
+# any-of meaning (``anyTagIds``, which ``filters`` itself never carries).
+
+#: The longest ``filters`` parameter (or legacy JSON parameter) read; a longer
+#: one is refused (``VisitorFiltersTooLongError``), never ignored: ignoring it would
+#: answer with every card while the visitor's bar shows picks.
+VISITOR_FILTERS_MAX_CHARS = 8192
+
+
+class VisitorFiltersTooLongError(ValueError):
+    """A visitor's ``filters`` parameter, or a legacy JSON parameter, is longer
+    than ``VISITOR_FILTERS_MAX_CHARS``. The public cards route answers 422."""
+
+    def __init__(self) -> None:
+        super().__init__(f"filters is longer than {VISITOR_FILTERS_MAX_CHARS} characters")
+
+
+def _check_length(raw: str) -> None:
+    if len(raw) > VISITOR_FILTERS_MAX_CHARS:
+        raise VisitorFiltersTooLongError()
+
+
+#: The keys of a visitor's filter value.
+_VISITOR_KEYS = ("subtypeFilters", "attrFilters", "attrConditions", "relationFilters")
+
+
+def _empty_visitor_filters() -> dict[str, Any]:
+    return {
+        "subtypeFilters": [],
+        "attrFilters": {},
+        "attrConditions": {},
+        "relationFilters": {},
+        "tagFilterIds": [],
+        "anyTagIds": [],
+    }
+
+
+def normalise_visitor_filters(raw: object) -> dict[str, Any]:
+    """The ``filters`` parameter (JSON text, or an already parsed object) as
+    a visitor's filter value: ``subtypeFilters``, ``attrFilters``,
+    ``attrConditions``, ``relationFilters`` and ``tagFilterIds``, anything
+    malformed dropped. Invalid JSON or anything but an object is no filter at
+    all; text over ``VISITOR_FILTERS_MAX_CHARS`` raises
+    ``VisitorFiltersTooLongError``. Relation subtypes and *Include sub-cards* are
+    preset-only."""
+    out = _empty_visitor_filters()
+    if isinstance(raw, str):
+        _check_length(raw)
+        try:
+            raw = json.loads(raw)
+        except ValueError:
+            return out
+    if not isinstance(raw, dict):
+        return out
+    out["subtypeFilters"] = _strings(raw.get("subtypeFilters"))
+    out["attrFilters"] = _string_lists(raw.get("attrFilters"))
+    out["attrConditions"] = normalise_attr_conditions(raw.get("attrConditions"))
+    out["relationFilters"] = _string_lists(raw.get("relationFilters"))
+    out["tagFilterIds"] = _strings(raw.get("tagFilterIds"))
+    return out
+
+
+def restrict_visitor_filters(
+    value: Mapping[str, Any], allowed: Iterable[str], field_types: Mapping[str, str]
+) -> dict[str, Any]:
+    """``value`` without every filter outside ``allowed`` (toggle keys:
+    ``subtype``, ``tags``, ``field:<key>``, ``rel:<key>``) — and, defensively,
+    without any field the public schema types ``cost`` or does not know."""
+    keys = set(allowed)
+
+    def field_ok(key: str) -> bool:
+        ftype = field_types.get(key)
+        return f"field:{key}" in keys and ftype is not None and ftype != "cost"
+
+    tags = "tags" in keys
+    return {
+        "subtypeFilters": list(value.get("subtypeFilters") or []) if "subtype" in keys else [],
+        "attrFilters": {k: v for k, v in (value.get("attrFilters") or {}).items() if field_ok(k)},
+        "attrConditions": {
+            k: v for k, v in (value.get("attrConditions") or {}).items() if field_ok(k)
+        },
+        "relationFilters": {
+            k: v for k, v in (value.get("relationFilters") or {}).items() if f"rel:{k}" in keys
+        },
+        "tagFilterIds": list(value.get("tagFilterIds") or []) if tags else [],
+        "anyTagIds": list(value.get("anyTagIds") or []) if tags else [],
+    }
+
+
+def _json_object(raw: str | None) -> dict:
+    """A legacy JSON parameter as an object; ``{}`` when absent or malformed.
+    Over ``VISITOR_FILTERS_MAX_CHARS`` it raises ``VisitorFiltersTooLongError``."""
+    if not raw:
+        return {}
+    _check_length(raw)
+    try:
+        parsed = json.loads(raw)
+    except ValueError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _legacy_value(value: object) -> str | None:
+    """One legacy filter value as the option key it names: a string as is, a
+    JSON boolean as ``"true"`` / ``"false"`` (a facet's keys), a number as its
+    text; anything else (a list, an object, null, ``""``) names nothing."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    return value if isinstance(value, str) and value else None
+
+
+def legacy_visitor_filters(
+    *,
+    subtype: str | None = None,
+    tag_ids: str | None = None,
+    attr_filters: str | None = None,
+    relation_filters: str | None = None,
+    related_type: str | None = None,
+    related_id: str | None = None,
+) -> dict[str, Any]:
+    """The query parameters the viewer sent before ``filters``, as a visitor's
+    filter value: each single value becomes a one-value list, so a
+    ``multiple_select`` now matches a card holding the value among others.
+    Malformed JSON, a malformed id or an unusable value is ignored, never an
+    error; a JSON parameter over ``VISITOR_FILTERS_MAX_CHARS`` raises
+    ``VisitorFiltersTooLongError``. ``tag_ids`` keeps its any-of meaning (``anyTagIds``);
+    ``related_type`` / ``related_id`` join ``relation_filters`` (a pick on the
+    same relation type matches either card)."""
+    out = _empty_visitor_filters()
+    if subtype:
+        out["subtypeFilters"] = [subtype]
+    if tag_ids:
+        out["anyTagIds"] = [str(t) for t in uuids(t.strip() for t in tag_ids.split(","))]
+    for key, value in _json_object(attr_filters).items():
+        picked = _legacy_value(value)
+        if isinstance(key, str) and picked is not None:
+            out["attrFilters"][key] = [picked]
+    relations: dict[str, list[str]] = {}
+    pairs = list(_json_object(relation_filters).items())
+    if related_type and related_id:
+        pairs.append((related_type, related_id))
+    for key, value in pairs:
+        ids = uuids([value] if isinstance(value, str) else [])
+        if isinstance(key, str) and ids:
+            bucket = relations.setdefault(key, [])
+            if str(ids[0]) not in bucket:
+                bucket.append(str(ids[0]))
+    out["relationFilters"] = relations
+    return out
+
+
+def has_visitor_filters(value: Mapping[str, Any]) -> bool:
+    """Does a visitor's value narrow anything?"""
+    return any(value.get(key) for key in (*_VISITOR_KEYS, "tagFilterIds", "anyTagIds"))
+
+
+async def visitor_conditions(
+    db: AsyncSession, card_type: str, value: Mapping[str, Any]
+) -> list[ColumnElement[bool]]:
+    """The where-clauses a visitor's (restricted) value adds to the preset,
+    built with the preset's own builders. Call it on a value that went through
+    ``restrict_visitor_filters``: a relation key is then a relation type the
+    page shows, never read as a card type."""
+    if not has_visitor_filters(value):
+        return []
+    conditions = await _card_filter_conditions(
+        db,
+        card_type,
+        {
+            "subtypeFilters": list(value.get("subtypeFilters") or []),
+            "attrFilters": dict(value.get("attrFilters") or {}),
+            "attrConditions": dict(value.get("attrConditions") or {}),
+            "relationFilters": dict(value.get("relationFilters") or {}),
+            "relSubtypeFilters": {},
+            "tagFilterIds": list(value.get("tagFilterIds") or []),
+            "includeDescendants": False,
+        },
+    )
+    any_tags = uuids(value.get("anyTagIds") or [])
+    if any_tags:
+        conditions.append(Card.id.in_(select(CardTag.card_id).where(CardTag.tag_id.in_(any_tags))))
+    return conditions
+
+
+async def public_visitor_conditions(
+    db: AsyncSession,
+    card_type: str,
+    *,
+    allowed: Iterable[str],
+    field_types: Mapping[str, str],
+    filters: str | None,
+    legacy: Mapping[str, str | None],
+) -> list[ColumnElement[bool]]:
+    """Every where-clause a visitor's query adds to a card-list portal: the
+    ``filters`` parameter and the legacy parameters (``legacy``, the keyword
+    arguments of ``legacy_visitor_filters``), each restricted to ``allowed``.
+    When both are sent, both apply (AND): a legacy parameter can only narrow
+    what ``filters`` already narrowed, never undo it. An over-long parameter
+    raises ``VisitorFiltersTooLongError`` before any query is built."""
+    allowed = list(allowed)
+    conditions: list[ColumnElement[bool]] = []
+    for value in (normalise_visitor_filters(filters), legacy_visitor_filters(**legacy)):
+        restricted = restrict_visitor_filters(value, allowed, field_types)
+        conditions.extend(await visitor_conditions(db, card_type, restricted))
     return conditions

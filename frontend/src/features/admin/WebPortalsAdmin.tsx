@@ -7,7 +7,6 @@ import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
-import Checkbox from "@mui/material/Checkbox";
 import IconButton from "@mui/material/IconButton";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -21,11 +20,6 @@ import Switch from "@mui/material/Switch";
 import Alert from "@mui/material/Alert";
 import Tooltip from "@mui/material/Tooltip";
 import Divider from "@mui/material/Divider";
-import Table from "@mui/material/Table";
-import TableHead from "@mui/material/TableHead";
-import TableBody from "@mui/material/TableBody";
-import TableRow from "@mui/material/TableRow";
-import TableCell from "@mui/material/TableCell";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import TagPicker from "@/components/TagPicker";
 import { api } from "@/api/client";
@@ -35,6 +29,7 @@ import {
   useTypeLabel,
   useRelationLabel,
   useFieldLabel,
+  useResolveLabel,
   useSubtypeLabel,
 } from "@/hooks/useResolveLabel";
 import { usePpmEnabled } from "@/hooks/usePpmEnabled";
@@ -43,13 +38,27 @@ import { useBpmEnabled } from "@/hooks/useBpmEnabled";
 import CardFilterSection from "@/features/reports/CardFilterSection";
 import {
   EMPTY_CARD_FILTERS,
+  clearCardFilterValues,
   type CardFilterValue,
   type FilterMember,
 } from "@/features/reports/cardFilters";
 import type { RelTypeDef, TagGroupDef } from "@/features/reports/portfolioHelpers";
 import { useCardFilterOptions } from "@/features/reports/useCardFilterOptions";
 import type { WebPortal, TagGroup, PortalView, PpmGroupOption } from "@/types";
-import { legacyTagsSpanGroups, portalCardFilters, portalFiltersBody } from "./webPortalFilters";
+import {
+  canBeVisitorFilter,
+  eligibleVisitorFilters,
+  effectiveVisitorFilters,
+  legacyTagsSpanGroups,
+  portalCardFilters,
+  portalFiltersBody,
+  storedVisitorFilters,
+  toggleVisitorFilters,
+  visitorFiltersBody,
+  type VisitorFilterInput,
+} from "./webPortalFilters";
+import PortalDisplayConfig from "./PortalDisplayConfig";
+import { fieldGroups, type DisplayGroup } from "./portalDisplayGroups";
 import { alpha, useTheme } from "@mui/material/styles";
 
 interface ToggleEntry {
@@ -111,6 +120,7 @@ export default function WebPortalsAdmin() {
   const relLabel = useRelationLabel();
   const fieldLabel = useFieldLabel();
   const stLabel = useSubtypeLabel();
+  const rl = useResolveLabel();
 
   const BUILT_IN_PROPERTIES = BUILT_IN_PROPERTY_KEYS.map((key) => ({
     key,
@@ -140,6 +150,10 @@ export default function WebPortalsAdmin() {
   const [approvalStatuses, setApprovalStatuses] = useState<string[]>([]);
   const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
   const [showLogo, setShowLogo] = useState(true);
+  // The visitor filter column: the admin's list, or null while it follows the
+  // computed default; and whether visitors may add more filters.
+  const [visitorFilters, setVisitorFilters] = useState<string[] | null>(null);
+  const [visitorCanAdd, setVisitorCanAdd] = useState(true);
   const [accessMode, setAccessMode] = useState<"public" | "sso">("public");
   const [view, setView] = useState<PortalView>("cards");
   const [ppmShowCosts, setPpmShowCosts] = useState(true);
@@ -203,6 +217,8 @@ export default function WebPortalsAdmin() {
     setCardFiltersCollapsed(false);
     setApprovalStatuses([]);
     setShowLogo(true);
+    setVisitorFilters(null);
+    setVisitorCanAdd(true);
     setAccessMode("public");
     setView("cards");
     setBpmShowElementLinks(false);
@@ -238,6 +254,8 @@ export default function WebPortalsAdmin() {
     setShowLogo(
       (portal.card_config as Record<string, unknown>)?.show_logo !== false
     );
+    setVisitorFilters(storedVisitorFilters(portal.card_config));
+    setVisitorCanAdd(portal.card_config?.visitor_can_add_filters !== false);
     setFilterSubtypes(
       ((portal.filters as Record<string, unknown>)?.subtypes as string[]) || []
     );
@@ -292,14 +310,20 @@ export default function WebPortalsAdmin() {
     filterOptionsPath,
     { keepPreviousData: false },
   );
-  const { relationOptions, relSubtypes, subtypeOptions, facetFields } = useCardFilterOptions({
+  const {
+    relationOptions,
+    relSubtypes,
+    subtypeOptions,
+    catalog: fieldCatalog,
+    kindByKey: conditionKinds,
+  } = useCardFilterOptions({
     cardTypeKey: filterOptionsPath ? cardType : "",
     relationTypes: filterOptions?.relation_types ?? EMPTY_REL_TYPES,
     groupableTypes: filterOptions?.groupable_types ?? EMPTY_GROUPABLE,
     includeDescendants: cardFilters.includeDescendants,
+    // A portal never filters on costs, whoever sets it up.
+    canViewCosts: false,
   });
-  const allFields =
-    selectedType?.fields_schema?.flatMap((s) => s.fields) || [];
 
   // Relation types applicable to the selected card type
   // Since the API excludes hidden types, check that the other-end type exists in visible types
@@ -318,6 +342,17 @@ export default function WebPortalsAdmin() {
       )
     : [];
 
+  // What the visitor filter column reads: which rows can be a filter, and the
+  // default it is compared against (`defaultVisitorFilters`).
+  const visitorInput: VisitorFilterInput = {
+    subtypes: selectedType?.subtypes,
+    fieldsSchema: selectedType?.fields_schema ?? [],
+    relationKeys: applicableRelTypes.map((r) => r.key),
+    toggles,
+  };
+  const eligibleFilters = new Set(eligibleVisitorFilters(visitorInput));
+  const checkedFilters = new Set(effectiveVisitorFilters(visitorFilters, visitorInput));
+
   const getOtherTypeLabel = (rt: { source_type_key: string; target_type_key: string }) => {
     const otherKey =
       rt.source_type_key === cardType
@@ -325,6 +360,38 @@ export default function WebPortalsAdmin() {
         : rt.source_type_key;
     const tp = types.find((tp) => tp.key === otherKey);
     return tp ? typeLabel(tp) : otherKey;
+  };
+
+  // The Display configuration's groups: the built-in properties, each section
+  // of the card type with its fields, then the relation types.
+  const generalGroup: DisplayGroup = {
+    key: "general",
+    label: t("webPortals.generalProperties"),
+    rows: BUILT_IN_PROPERTIES.map((prop) => ({
+      key: prop.key,
+      label: prop.label,
+      defaultCard: DEFAULT_CARD[prop.key],
+      defaultDetail: DEFAULT_DETAIL[prop.key],
+      filterKey: prop.key === "tags" ? "tags" : undefined,
+    })),
+  };
+  const sectionGroups = fieldGroups(selectedType?.fields_schema ?? [], {
+    sectionLabel: (section) => rl(section.section, section.translations),
+    descriptionLabel: t("common:labels.description"),
+    fieldLabel,
+    canBeFilter: canBeVisitorFilter,
+  });
+  const relationGroup: DisplayGroup = {
+    key: "relations",
+    label: t("webPortals.relatedItems"),
+    rows: applicableRelTypes.map((rt) => ({
+      key: `rel:${rt.key}`,
+      label: getOtherTypeLabel(rt),
+      hint: rt.source_type_key === cardType ? relLabel(rt) : relLabel(rt, true),
+      defaultCard: false,
+      defaultDetail: false,
+      filterKey: `rel:${rt.key}`,
+    })),
   };
 
   const commitDomainInput = (raw: string): string[] => {
@@ -367,7 +434,17 @@ export default function WebPortalsAdmin() {
       : null;
     // `card_config` collapses to null when there is nothing in it — each board's
     // block has to count, or its switches silently vanish on save.
-    const hasCardConfig = hasToggles || !showLogo || ppmConfig !== null || bpmConfig !== null;
+    // Visitor filters belong to a card-list portal: the list only when it
+    // differs from the computed default, the switch only when off.
+    const visitorList = isBoard ? undefined : visitorFiltersBody(visitorFilters, visitorInput);
+    const visitorAddOff = !isBoard && !visitorCanAdd;
+    const hasCardConfig =
+      hasToggles ||
+      !showLogo ||
+      ppmConfig !== null ||
+      bpmConfig !== null ||
+      visitorList !== undefined ||
+      visitorAddOff;
     // Fold any un-committed text in the domain input into the list on save.
     const effectiveDomains =
       accessMode === "sso" && domainInput.trim()
@@ -392,12 +469,15 @@ export default function WebPortalsAdmin() {
         subtypes: filterSubtypes,
         tagIds: filterTagIds,
         approvalStatuses,
+        kindByKey: conditionKinds,
       }),
       card_config: hasCardConfig
         ? {
             ...(hasToggles ? { toggles } : {}),
             ...(ppmConfig ? { ppm: ppmConfig } : {}),
             ...(bpmConfig ? { bpm: bpmConfig } : {}),
+            ...(visitorList !== undefined ? { visitor_filters: visitorList } : {}),
+            ...(visitorAddOff ? { visitor_can_add_filters: false } : {}),
             show_logo: showLogo,
           }
         : null,
@@ -753,6 +833,7 @@ export default function WebPortalsAdmin() {
               // and filters below key off the card type, so reset them whenever
               // the target changes.
               setToggles({});
+              setVisitorFilters(null);
               setFilterSubtypes([]);
               setFilterTagIds([]);
               setCardFilters(EMPTY_CARD_FILTERS);
@@ -808,6 +889,7 @@ export default function WebPortalsAdmin() {
             onChange={(e) => {
               setCardType(e.target.value);
               setToggles({});
+              setVisitorFilters(null);
               setFilterSubtypes([]);
               setFilterTagIds([]);
               setCardFilters(EMPTY_CARD_FILTERS);
@@ -845,14 +927,9 @@ export default function WebPortalsAdmin() {
                 relationOptions={relationOptions}
                 tagGroups={filterOptions?.tag_groups ?? EMPTY_TAG_GROUPS}
                 subtypeOptions={subtypeOptions}
-                fields={facetFields}
+                catalog={fieldCatalog}
                 relSubtypes={relSubtypes}
-                onClearAll={() =>
-                  setCardFilters((prev) => ({
-                    ...EMPTY_CARD_FILTERS,
-                    includeDescendants: prev.includeDescendants,
-                  }))
-                }
+                onClearAll={() => setCardFilters(clearCardFilterValues)}
                 disabledReason={filterOptionsLoading ? t("webPortals.cardFiltersLoading") : undefined}
               />
               <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
@@ -1156,200 +1233,40 @@ export default function WebPortalsAdmin() {
             <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
               {t("webPortals.displayConfigHint")}
             </Typography>
-              <Table size="small" sx={{ "& td, & th": { py: 0.5, px: 1 } }}>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 600, width: "50%" }}>{t("webPortals.columns.property")}</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 600 }}>{t("webPortals.columns.summaryCard")}</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 600 }}>{t("webPortals.columns.expandedDetail")}</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {BUILT_IN_PROPERTIES.map((prop) => {
-                    const tog = toggles[prop.key];
-                    const cardChecked = tog ? tog.card : (DEFAULT_CARD[prop.key] ?? true);
-                    const detailChecked = tog ? tog.detail : (DEFAULT_DETAIL[prop.key] ?? true);
-                    return (
-                      <TableRow key={prop.key}>
-                        <TableCell>
-                          <Typography variant="body2">{prop.label}</Typography>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Checkbox
-                            size="small"
-                            checked={cardChecked}
-                            onChange={(e) =>
-                              setToggles((prev) => ({
-                                ...prev,
-                                [prop.key]: {
-                                  card: e.target.checked,
-                                  detail: detailChecked,
-                                },
-                              }))
-                            }
-                          />
-                        </TableCell>
-                        <TableCell align="center">
-                          <Checkbox
-                            size="small"
-                            checked={detailChecked}
-                            onChange={(e) =>
-                              setToggles((prev) => ({
-                                ...prev,
-                                [prop.key]: {
-                                  card: cardChecked,
-                                  detail: e.target.checked,
-                                },
-                              }))
-                            }
-                          />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-
-                  {allFields.length > 0 && (
-                    <TableRow>
-                      <TableCell
-                        colSpan={3}
-                        sx={{
-                          pt: 1.5,
-                          pb: 0.5,
-                          fontWeight: 600,
-                          fontSize: "0.75rem",
-                          textTransform: "uppercase",
-                          letterSpacing: 0.5,
-                          color: "text.secondary",
-                          borderBottom: "none",
-                        }}
-                      >
-                        {t("webPortals.customFields")}
-                      </TableCell>
-                    </TableRow>
-                  )}
-
-                  {allFields.map((field, idx) => {
-                    const fKey = `field:${field.key}`;
-                    const tog = toggles[fKey];
-                    const cardChecked = tog ? tog.card : idx < 3;
-                    const detailChecked = tog ? tog.detail : true;
-                    return (
-                      <TableRow key={fKey}>
-                        <TableCell>
-                          <Typography variant="body2">{fieldLabel(field)}</Typography>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Checkbox
-                            size="small"
-                            checked={cardChecked}
-                            onChange={(e) =>
-                              setToggles((prev) => ({
-                                ...prev,
-                                [fKey]: {
-                                  card: e.target.checked,
-                                  detail: detailChecked,
-                                },
-                              }))
-                            }
-                          />
-                        </TableCell>
-                        <TableCell align="center">
-                          <Checkbox
-                            size="small"
-                            checked={detailChecked}
-                            onChange={(e) =>
-                              setToggles((prev) => ({
-                                ...prev,
-                                [fKey]: {
-                                  card: cardChecked,
-                                  detail: e.target.checked,
-                                },
-                              }))
-                            }
-                          />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-
-                  {applicableRelTypes.length > 0 && (
-                    <TableRow>
-                      <TableCell
-                        colSpan={3}
-                        sx={{
-                          pt: 1.5,
-                          pb: 0.5,
-                          fontWeight: 600,
-                          fontSize: "0.75rem",
-                          textTransform: "uppercase",
-                          letterSpacing: 0.5,
-                          color: "text.secondary",
-                          borderBottom: "none",
-                        }}
-                      >
-                        {t("webPortals.relatedItems")}
-                      </TableCell>
-                    </TableRow>
-                  )}
-
-                  {applicableRelTypes.map((rt) => {
-                    const rKey = `rel:${rt.key}`;
-                    const tog = toggles[rKey];
-                    const cardChecked = tog ? tog.card : false;
-                    const detailChecked = tog ? tog.detail : false;
-                    const verb =
-                      rt.source_type_key === cardType
-                        ? relLabel(rt)
-                        : relLabel(rt, true);
-                    return (
-                      <TableRow key={rKey}>
-                        <TableCell>
-                          <Typography variant="body2">
-                            {getOtherTypeLabel(rt)}{" "}
-                            <Typography
-                              component="span"
-                              variant="caption"
-                              color="text.secondary"
-                            >
-                              ({verb})
-                            </Typography>
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Checkbox
-                            size="small"
-                            checked={cardChecked}
-                            onChange={(e) =>
-                              setToggles((prev) => ({
-                                ...prev,
-                                [rKey]: {
-                                  card: e.target.checked,
-                                  detail: detailChecked,
-                                },
-                              }))
-                            }
-                          />
-                        </TableCell>
-                        <TableCell align="center">
-                          <Checkbox
-                            size="small"
-                            checked={detailChecked}
-                            onChange={(e) =>
-                              setToggles((prev) => ({
-                                ...prev,
-                                [rKey]: {
-                                  card: cardChecked,
-                                  detail: e.target.checked,
-                                },
-                              }))
-                            }
-                          />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              <PortalDisplayConfig
+                key={cardType}
+                general={generalGroup}
+                sections={sectionGroups}
+                relations={relationGroup}
+                subtypeRow={(selectedType?.subtypes ?? []).length > 0}
+                toggles={toggles}
+                onTogglesChange={setToggles}
+                filters={{
+                  eligible: eligibleFilters,
+                  checked: checkedFilters,
+                  onChange: (keys, checked) =>
+                    setVisitorFilters(toggleVisitorFilters(visitorFilters, visitorInput, keys, checked)),
+                }}
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={visitorCanAdd}
+                    onChange={(e) => setVisitorCanAdd(e.target.checked)}
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body1" fontWeight={500}>
+                      {t("webPortals.visitorCanAddFilters")}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {t("webPortals.visitorCanAddFiltersHint")}
+                    </Typography>
+                  </Box>
+                }
+                sx={{ mt: 1.5, display: "flex", alignItems: "flex-start" }}
+              />
             </>
           )}
 

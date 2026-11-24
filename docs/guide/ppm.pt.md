@@ -33,9 +33,9 @@ Abaixo da barra de ferramentas fica uma secção **Filtros**, recolhida na prime
 
 - **Cards relacionados** — mantém as iniciativas ligadas aos cards que você escolher, por exemplo uma Organização ou uma Aplicação. **Incluir subcartões** mantém também as iniciativas ligadas aos cards situados abaixo de um card escolhido na hierarquia dele
 - **Etiquetas** — mantém as iniciativas que têm as etiquetas que você escolher
-- **Campos** — mantém as iniciativas cujos próprios campos (os atributos do tipo Iniciativa) correspondem aos valores que você escolher
+- **Campos** — mantém as iniciativas cujos próprios campos (os atributos do tipo Iniciativa) correspondem aos valores que você escolher Os campos de uma seção que um administrador marcou como **Oculto dos filtros** não são mostrados, mas o chip **Adicionar filtro** no fim da linha lista-os, com pesquisa por nome de campo ou de seção; um campo adicionado tem um botão **×** que o remove com os seus valores. **Adicionar filtro** oferece também campos de texto, número e data — um código que contém algum texto, um orçamento entre dois montantes, um intervalo de datas — e campos de custo para quem pode ver custos (ver [Adicionar campos para filtrar](reports.md#add-filter))
 
-Os filtros ativos são mantidos na URL e memorizados com o resto do portfólio, de modo que um link que você partilhar abre o mesmo portfólio, e são listados na linha de parâmetros de uma impressão ou exportação. **Limpar tudo** esvazia a secção Filtros e deixa o resto da barra de ferramentas como está.
+Os filtros ativos são mantidos na URL e memorizados com o resto do portfólio, de modo que um link que você partilhar abre o mesmo portfólio, e são listados na linha de parâmetros de uma impressão ou exportação. Os campos que adicionou viajam no link e também são memorizados. **Limpar tudo** esvazia os valores da secção Filtros, mantém os campos adicionados e deixa o resto da barra de ferramentas como está; **Redefinir padrões** também remove os campos adicionados.
 
 #### Mostrar a hierarquia de iniciativas
 

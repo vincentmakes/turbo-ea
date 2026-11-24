@@ -451,6 +451,118 @@ describe("CardLayoutEditor — section switches", () => {
   });
 });
 
+describe("CardLayoutEditor — Hidden from filters (#1425)", () => {
+  const filtersSwitch = (label: string) =>
+    within(sectionRoot(label)).queryByRole("checkbox", { name: "Hidden from filters" });
+
+  it("writes hideInFilters onto the section in fields_schema, never into section_config", async () => {
+    const { user, onRefresh } = setup();
+    const sw = filtersSwitch("Details")!;
+    expect(sw).not.toBeChecked();
+    await user.click(sw);
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    const body = lastPatch();
+    expect(body.section_config).toBeUndefined();
+    expect(body.fields_schema).toEqual([
+      DESCRIPTION_SECTION,
+      { ...DETAILS_SECTION, hideInFilters: true },
+      EXTRA_SECTION,
+    ]);
+  });
+
+  it("removes the key when the section is shown in filters again", async () => {
+    const type = { ...TYPE, fields_schema: [DESCRIPTION_SECTION, DETAILS_SECTION, { ...EXTRA_SECTION, hideInFilters: true }] };
+    const { user, onRefresh } = setup({ cardType: type });
+    expect(filtersSwitch("Details")).not.toBeChecked();
+    const sw = filtersSwitch("Extra")!;
+    expect(sw).toBeChecked();
+    await user.click(sw);
+    await waitFor(() => expect(onRefresh).toHaveBeenCalled());
+    const schema = lastPatch().fields_schema!;
+    expect(schema[2]).toEqual(EXTRA_SECTION);
+    expect("hideInFilters" in schema[2]).toBe(false);
+    expect(lastPatch().section_config).toBeUndefined();
+  });
+
+  it("offers the switch on Description only once it holds fields, and on no built-in section", async () => {
+    const { user, onRefresh } = setup();
+    expect(filtersSwitch("Lifecycle")).not.toBeInTheDocument();
+    await user.click(filtersSwitch("Description")!);
+    await waitFor(() => expect(onRefresh).toHaveBeenCalled());
+    expect(lastPatch().fields_schema?.[0]).toEqual({ ...DESCRIPTION_SECTION, hideInFilters: true });
+  });
+
+  it("has no Description switch while the Description section holds no fields", () => {
+    setup({ cardType: { ...TYPE, fields_schema: [{ ...DESCRIPTION_SECTION, fields: [] }, DETAILS_SECTION, EXTRA_SECTION] } });
+    expect(filtersSwitch("Description")).not.toBeInTheDocument();
+    expect(filtersSwitch("Details")).toBeInTheDocument();
+  });
+
+  it("has no Description switch while the Description section holds no fields, even with a leftover flag", () => {
+    setup({
+      cardType: {
+        ...TYPE,
+        fields_schema: [{ ...DESCRIPTION_SECTION, fields: [], hideInFilters: true }, DETAILS_SECTION, EXTRA_SECTION],
+      },
+    });
+    expect(filtersSwitch("Description")).not.toBeInTheDocument();
+    expect(filtersSwitch("Details")).toBeInTheDocument();
+  });
+
+  it("has no Description switch when the type has no Description section", () => {
+    setup({ cardType: { ...TYPE, fields_schema: [DETAILS_SECTION, EXTRA_SECTION] } });
+    expect(filtersSwitch("Description")).not.toBeInTheDocument();
+    // The first entry of fields_schema is a custom section like any other.
+    expect(filtersSwitch("Details")).toBeInTheDocument();
+  });
+
+  it("shows the flag of a custom section that is the first entry of fields_schema, and clears it", async () => {
+    const { user, onRefresh } = setup({
+      cardType: { ...TYPE, fields_schema: [{ ...DETAILS_SECTION, hideInFilters: true }, EXTRA_SECTION] },
+    });
+    const sw = filtersSwitch("Details")!;
+    expect(sw).toBeChecked();
+    expect(filtersSwitch("Extra")).not.toBeChecked();
+    await user.click(sw);
+    await waitFor(() => expect(onRefresh).toHaveBeenCalled());
+    expect(lastPatch().fields_schema).toEqual([DETAILS_SECTION, EXTRA_SECTION]);
+  });
+
+  it("offers no switch on a section with nothing to filter on", () => {
+    const rating = makeField({ key: "rating", label: "Rating", type: "ext.plus.rating" });
+    setup({
+      cardType: {
+        ...TYPE,
+        fields_schema: [
+          { ...DESCRIPTION_SECTION, fields: [rating] },
+          DETAILS_SECTION,
+          { ...EXTRA_SECTION, fields: [makeField({ key: "stars", label: "Stars", type: "ext.plus.rating" })] },
+        ],
+      },
+    });
+    expect(filtersSwitch("Description")).not.toBeInTheDocument();
+    expect(filtersSwitch("Extra")).not.toBeInTheDocument();
+    expect(filtersSwitch("Details")).toBeInTheDocument();
+  });
+
+  it("offers no switch on a custom section without fields", () => {
+    setup({ cardType: { ...TYPE, fields_schema: [DESCRIPTION_SECTION, DETAILS_SECTION, { ...EXTRA_SECTION, fields: [] }] } });
+    expect(filtersSwitch("Extra")).not.toBeInTheDocument();
+    expect(filtersSwitch("Details")).toBeInTheDocument();
+  });
+
+  it("keeps the switch on a section with nothing to filter while its flag is set, so it can be cleared", async () => {
+    const stars = makeField({ key: "stars", label: "Stars", type: "ext.plus.rating" });
+    const extra = { ...EXTRA_SECTION, fields: [stars], hideInFilters: true };
+    const { user, onRefresh } = setup({ cardType: { ...TYPE, fields_schema: [DESCRIPTION_SECTION, DETAILS_SECTION, extra] } });
+    const sw = filtersSwitch("Extra")!;
+    expect(sw).toBeChecked();
+    await user.click(sw);
+    await waitFor(() => expect(onRefresh).toHaveBeenCalled());
+    expect("hideInFilters" in lastPatch().fields_schema![2]).toBe(false);
+  });
+});
+
 describe("CardLayoutEditor — End of Life follows the type's real state", () => {
   const typeWith = (key: string, section_config: Record<string, unknown> = {}) =>
     makeCardType({

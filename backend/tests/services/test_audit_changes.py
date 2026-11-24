@@ -8,6 +8,7 @@ matching rules fails here first.
 from __future__ import annotations
 
 import copy
+import datetime
 
 import pytest
 
@@ -779,6 +780,39 @@ def test_section_config_relations_starts_collapsed():
     ]
 
 
+def test_fields_schema_hide_in_filters_alone_is_one_section_change():
+    # The Card Layout editor's "Hidden from filters" switch writes only this
+    # flag on the section dict; a save changing nothing else is still logged.
+    old = [_section("S", _field("f"))]
+    hidden = [_section("S", _field("f"), hideInFilters=True)]
+    assert fields_schema_items(old, hidden) == [
+        {
+            "kind": "section.changed",
+            "section": "S",
+            "property": "hideInFilters",
+            "old": False,
+            "new": True,
+        }
+    ]
+    # Switched back on (the editor removes the key): the reverse item.
+    assert fields_schema_items(hidden, old) == [
+        {
+            "kind": "section.changed",
+            "section": "S",
+            "property": "hideInFilters",
+            "old": True,
+            "new": False,
+        }
+    ]
+
+
+def test_fields_schema_hide_in_filters_absent_equals_false():
+    old = [_section("S", _field("f"))]
+    explicit = [_section("S", _field("f"), hideInFilters=False)]
+    assert fields_schema_items(old, explicit) == []
+    assert fields_schema_items(explicit, old) == []
+
+
 def test_fields_schema_section_defaults_are_no_change():
     old = [_section("S", _field("f"))]
     new = [_section("S", _field("f"), defaultExpanded=True, hidden=False)]
@@ -969,6 +1003,59 @@ def test_portal_filter_items_read_the_card_filter_set():
     assert portal_filter_items(new, {**new}) == []
 
 
+def test_portal_filter_items_log_a_changed_field_condition():
+    """A text / number / date condition reads ``Field: condition`` in symbols
+    (``_condition_text``), labelled by the field, never by its key."""
+    old = {
+        "card_filters": {
+            "attrConditions": {"code": {"contains": "ORG-12"}, "cost": {"min": 10}},
+        }
+    }
+    new = {
+        "card_filters": {
+            "attrConditions": {
+                "code": {"contains": "ORG-13"},
+                "cost": {"min": 10},
+                "n": {"min": 10, "max": 20},
+                "m": {"max": 0},
+                "due": {"from": "2026-01-01"},
+                "odd": {"x": 1},
+            },
+        }
+    }
+    items = portal_filter_items(old, new, facet_labels={"code": "Code", "due": "Due"})
+    assert items == [
+        {
+            "kind": "portal_filter.changed",
+            "filter": "card_conditions",
+            "old": ['Code: "ORG-12"', "cost: ≥ 10"],
+            "new": [
+                'Code: "ORG-13"',
+                "cost: ≥ 10",
+                "Due: ≥ 2026-01-01",
+                "m: ≤ 0",
+                "n: 10 – 20",
+                'odd: {"x": 1}',
+            ],
+        }
+    ]
+    assert portal_filter_items(new, {**new}) == []
+    assert portal_filter_items(None, {"card_filters": {"attrConditions": {"d": {"to": "x"}}}}) == [
+        {"kind": "portal_filter.changed", "filter": "card_conditions", "old": [], "new": ["d: ≤ x"]}
+    ]
+    # A legacy preset has no conditions, so moving to card filters without
+    # any is not a change.
+    assert portal_filter_items({"subtypes": []}, {"card_filters": {}}) == []
+
+
+def test_an_unknown_condition_reads_as_json_with_sorted_keys():
+    """A condition of no known shape is shown as its JSON: keys sorted, so the
+    same condition always reads the same, and a value JSON cannot encode is
+    shown as its text rather than failing the log line."""
+    assert ac._condition_text({"y": 1, "x": 2}) == '{"x": 2, "y": 1}'
+    assert ac._condition_text({"at": datetime.date(2026, 1, 2)}) == '{"at": "2026-01-02"}'
+
+
 def test_portal_filter_items_label_the_old_side_too():
     old = {
         "card_filters": {
@@ -1094,6 +1181,147 @@ def test_portal_card_config_unset_show_logo_reads_true_and_no_op_is_empty():
             "new": '{"nested":2}',
         }
     ]
+
+
+def test_portal_card_config_visitor_filters():
+    labels = {"field:code": "Code", "rel:owns": "owns", "tags": "tags"}
+    old = {"visitor_filters": ["tags", "field:code"]}
+    new = {"visitor_filters": ["field:code", "rel:owns"], "visitor_can_add_filters": False}
+    assert portal_card_config_items(old, new, item_labels=labels) == [
+        {
+            "kind": "portal_toggle.changed",
+            "item": "tags",
+            "surface": "filter",
+            "old": True,
+            "new": False,
+        },
+        {
+            "kind": "portal_toggle.changed",
+            "item": "owns",
+            "surface": "filter",
+            "old": False,
+            "new": True,
+        },
+        {
+            "kind": "portal_option.changed",
+            "option": "visitor_can_add_filters",
+            "old": True,
+            "new": False,
+        },
+    ]
+
+
+def test_portal_card_config_visitor_filters_against_the_default():
+    """A side without the list follows a default this builder cannot know:
+    its value is None, and only the listed keys are reported."""
+    listed = {"visitor_filters": ["subtype", 3]}
+    assert portal_card_config_items(None, listed) == [
+        {
+            "kind": "portal_toggle.changed",
+            "item": "subtype",
+            "surface": "filter",
+            "old": None,
+            "new": True,
+        }
+    ]
+    assert portal_card_config_items(listed, {}) == [
+        {
+            "kind": "portal_toggle.changed",
+            "item": "subtype",
+            "surface": "filter",
+            "old": True,
+            "new": None,
+        }
+    ]
+    assert portal_card_config_items(listed, copy.deepcopy(listed)) == []
+    assert portal_card_config_items({"visitor_filters": []}, {"visitor_filters": "x"}) == []
+
+
+def test_stored_visitor_filters_past_a_non_string_key():
+    """A non-string entry is skipped, not the end of the list: the keys after
+    it are still reported."""
+    assert portal_card_config_items({"visitor_filters": [3, "tags"]}, {"visitor_filters": []}) == [
+        {
+            "kind": "portal_toggle.changed",
+            "item": "tags",
+            "surface": "filter",
+            "old": True,
+            "new": False,
+        }
+    ]
+
+
+_DEFAULT_SHOWN = ("subtype", "tags", "field:tier", "rel:owns")
+_FILTER_LABELS = {"field:tier": "Tier", "rel:owns": "owns"}
+
+
+def _filter_item(label: str, old: bool, new: bool) -> dict:
+    return {
+        "kind": "portal_toggle.changed",
+        "item": label,
+        "surface": "filter",
+        "old": old,
+        "new": new,
+    }
+
+
+def test_unticking_one_filter_from_the_default_logs_that_filter_only():
+    """Regression: the side following the default was ``None`` and only the
+    stored keys were walked, so the remaining filters read as newly added."""
+    new = {"visitor_filters": ["subtype", "tags", "rel:owns"]}
+    shown = (_DEFAULT_SHOWN, ("subtype", "tags", "rel:owns"))
+    items = portal_card_config_items(
+        None, new, item_labels=_FILTER_LABELS, visitor_filters_shown=shown
+    )
+    assert items == [_filter_item("Tier", True, False)]
+
+
+def test_returning_to_the_default_logs_the_filter_that_came_back_only():
+    old = {"visitor_filters": ["subtype", "tags", "rel:owns"]}
+    shown = (("subtype", "tags", "rel:owns"), _DEFAULT_SHOWN)
+    items = portal_card_config_items(
+        old, {}, item_labels=_FILTER_LABELS, visitor_filters_shown=shown
+    )
+    assert items == [_filter_item("Tier", False, True)]
+
+
+def test_equal_resolved_lists_log_nothing_even_when_the_stored_key_appears():
+    new = {"visitor_filters": list(_DEFAULT_SHOWN)}
+    shown = (_DEFAULT_SHOWN, list(_DEFAULT_SHOWN))
+    assert portal_card_config_items(None, new, visitor_filters_shown=shown) == []
+    # And the other way round: the stored list goes, the bar stays the same.
+    back = (list(_DEFAULT_SHOWN), _DEFAULT_SHOWN)
+    assert portal_card_config_items(new, None, visitor_filters_shown=back) == []
+
+
+def test_resolved_lists_report_each_key_that_moved_in_order():
+    shown = (("tags", "field:tier"), ("field:tier", "rel:owns", "subtype"))
+    items = portal_card_config_items(
+        {}, {}, item_labels=_FILTER_LABELS, visitor_filters_shown=shown
+    )
+    assert items == [
+        _filter_item("tags", True, False),
+        _filter_item("owns", False, True),
+        _filter_item("subtype", False, True),
+    ]
+
+
+def test_portal_card_config_adding_switch_reads_unset_as_on():
+    assert portal_card_config_items(None, {"visitor_can_add_filters": True}) == []
+    assert portal_card_config_items({"visitor_can_add_filters": False}, None) == [
+        {
+            "kind": "portal_option.changed",
+            "option": "visitor_can_add_filters",
+            "old": False,
+            "new": True,
+        }
+    ]
+    assert (
+        portal_card_config_items(
+            {"visitor_can_add_filters": False}, {"visitor_can_add_filters": False}
+        )
+        == []
+    )
 
 
 # ── lists and caps ────────────────────────────────────────────────────────

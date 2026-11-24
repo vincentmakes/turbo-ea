@@ -12,8 +12,8 @@ import {
   countActiveFilters,
   expandRelationFilters,
   relatedTypeOfKey,
+  readCardFilters,
   relationTypeKeys,
-  restoreCardFilters,
 } from "@/features/reports/cardFilters";
 import type {
   CardFilterValue,
@@ -21,6 +21,8 @@ import type {
   RelationFilterOption,
 } from "@/features/reports/cardFilters";
 import { matchesStaticFilters } from "@/features/reports/portfolioHelpers";
+import { restoreAttrConditions } from "@/lib/fieldFilters";
+import type { FilterKind } from "@/lib/fieldFilters";
 import type {
   AppRelation,
   FieldDef,
@@ -55,8 +57,10 @@ function nonEmpty(r: Record<string, string[]>): Record<string, string[]> {
 /**
  * The selection as the `?filters=` value: compact JSON of the keys that select
  * something, always in the same order, so one selection is one URL. Nothing
- * selected is "" (the param is then dropped). The section's subtype is never
- * written — the toolbar's `?subtype=` is the board's only subtype filter.
+ * selected is "" (the param is then dropped). The fields the person added
+ * ("Add filter") travel too, so a shared link shows the same rows. The
+ * section's subtype is never written — the toolbar's `?subtype=` is the
+ * board's only subtype filter.
  */
 export function encodeCardFilters(v: CardFilterValue): string {
   const out: Record<string, unknown> = {};
@@ -71,13 +75,24 @@ export function encodeCardFilters(v: CardFilterValue): string {
   }
   if (v.tagFilterIds.length > 0) out.tagFilterIds = v.tagFilterIds;
   if (v.includeDescendants) out.includeDescendants = true;
+  // Text / number / date conditions, canonical (trimmed, unusable ones
+  // dropped) so one selection is one URL. After the keys older links carry,
+  // so a link without conditions reads byte for byte as before.
+  const conditions = restoreAttrConditions(v.attrConditions);
+  if (Object.keys(conditions).length > 0) out.attrConditions = conditions;
+  // Last, so a link written before "Add filter" existed reads byte for byte the same.
+  if (v.filterFields.length > 0) out.filterFields = v.filterFields;
   return Object.keys(out).length > 0 ? JSON.stringify(out) : "";
 }
 
 /**
  * The selection a `?filters=` value names. Anything unreadable — no param,
  * broken JSON, a non-object — is the empty selection, and malformed members
- * are dropped by the same restore a saved report goes through.
+ * are dropped by the same reader a saved report goes through. `filterFields`
+ * is read as the link carries it (`readCardFilters`), never widened to the
+ * fields holding a value: the board writes its state back to the link, and a
+ * link that is opened must not be rewritten. The board widens it in memory
+ * for the section it renders (`withActiveFilterFields`).
  */
 export function decodeCardFilters(raw: string | null): CardFilterValue {
   let parsed: unknown = null;
@@ -90,7 +105,7 @@ export function decodeCardFilters(raw: string | null): CardFilterValue {
   // to the empty selection on its own; only null (no param, broken JSON, the
   // literal `null`) has no keys to read and needs a stand-in object.
   const cfg = (parsed ?? {}) as Record<string, unknown>;
-  return { ...restoreCardFilters(cfg), subtypeFilters: [] };
+  return { ...readCardFilters(cfg), subtypeFilters: [] };
 }
 
 /**
@@ -113,6 +128,9 @@ export function otherTypesFirst(
 /** What the matcher needs besides the selection. */
 export interface PpmFilterContext {
   facetFields: FieldDef[];
+  /** The reader's catalog kinds (`catalogKinds`): a condition applies only on
+   *  a field listed here. Absent = no condition applies. */
+  conditionKinds?: ReadonlyMap<string, FilterKind>;
   relationTypes: RelTypeDef[];
   groupableTypes: Record<string, FilterMember[]>;
   relSubtypes: RelSubtype[];
@@ -130,10 +148,12 @@ export function matchingInitiativeIds(
   value: CardFilterValue,
   ctx: PpmFilterContext,
 ): ReadonlySet<string> | null {
-  if (countActiveFilters(value) === 0) return null;
+  if (countActiveFilters(value, ctx.conditionKinds) === 0) return null;
   const matchFilters = {
     attributeFilters: value.attrFilters,
     facetFields: ctx.facetFields,
+    attrConditions: value.attrConditions,
+    conditionKinds: ctx.conditionKinds,
     // With sub-cards included a pick is widened to itself plus everything
     // beneath it, then matched by the very rules the portfolio uses.
     relationFilters: value.includeDescendants

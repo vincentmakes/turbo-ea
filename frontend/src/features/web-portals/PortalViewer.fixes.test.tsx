@@ -7,7 +7,7 @@
  * the detail dialog, and a failed card query that said nothing.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useNavigate, type NavigateFunction } from "react-router";
 
@@ -234,15 +234,13 @@ describe("PortalViewer item count and labels", () => {
     expect(screen.queryByText(/ item$/)).toBeNull();
   });
 
-  it("offers each relation filter's empty choice without pluralising its label", async () => {
+  it("offers each relation filter's empty choice, never a pluralised label", async () => {
     const user = userEvent.setup();
     renderPortal();
     await screen.findByText("Customer Management");
     await user.click(screen.getByRole("button", { name: "tune" }));
-    await user.click(await screen.findByRole("combobox", { name: /IT Component · runs on/ }));
-    expect(
-      await screen.findByRole("option", { name: "All IT Component · runs on", selected: true }),
-    ).toBeInTheDocument();
+    fireEvent.mouseDown(await screen.findByRole("combobox", { name: /IT Component · runs on/ }));
+    expect(await screen.findByRole("option", { name: "(empty)" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: /ons$/ })).toBeNull();
   });
 });
@@ -422,6 +420,27 @@ describe("PortalViewer card grid", () => {
     expect(await screen.findByText("cards exploded")).toBeInTheDocument();
     expect(screen.queryByText("No results found")).toBeNull();
     expect(screen.getByRole("alert")).toHaveTextContent("cards exploded");
+  });
+
+  it("says why under the previous rows when a newer query is refused", async () => {
+    const user = userEvent.setup();
+    let calls = 0;
+    serve(SLUG, {
+      cards: () => {
+        calls += 1;
+        return calls === 1
+          ? Promise.resolve({ items: [card()], total: 1 })
+          : Promise.reject(httpError(422, "filters is longer than 8192 characters"));
+      },
+    });
+    renderPortal();
+    expect(await screen.findByText("Customer Management")).toBeInTheDocument();
+    expect(screen.getByText("1 Business Capability")).toBeInTheDocument();
+
+    await user.type(screen.getByPlaceholderText("Search Business Capability..."), "x");
+    // The refusal is shown; the rows of the last answered query stay, as for any failed query.
+    expect(await screen.findByRole("alert")).toHaveTextContent("filters is longer than 8192 characters");
+    expect(screen.getByText("Customer Management")).toBeInTheDocument();
   });
 
   it("says something went wrong when the card query fails without a message", async () => {

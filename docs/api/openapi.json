@@ -48984,7 +48984,7 @@
     },
     "/api/v1/web-portals/public/{slug}/cards": {
       "get": {
-        "description": "Public endpoint: returns cards for a published portal with optional filtering.\n\nEach card carries only what the portal's page shows (``card_config.toggles``),\nand a filter or sort on anything else is ignored: a filtered ``total`` would\notherwise reveal the value the page hides.",
+        "description": "Public endpoint: returns cards for a published portal with optional filtering.\n\nEach card carries only what the portal's page shows (``card_config.toggles``),\nand a filter or sort on anything else is ignored: a filtered ``total`` would\notherwise reveal the value the page hides. A visitor filters with\n``filters`` (or the legacy parameters ``subtype``, ``tag_ids``,\n``attr_filters``, ``relation_filters``, ``related_type`` / ``related_id``);\nboth are cut to the portal's ``visitor_filters.allowed`` and, when both\nare sent, both apply.",
         "operationId": "get_public_portal_cards_api_v1_web_portals_public__slug__cards_get",
         "parameters": [
           {
@@ -49010,6 +49010,24 @@
                 }
               ],
               "title": "Search"
+            }
+          },
+          {
+            "description": "The visitor's filters as a JSON object: subtypeFilters, attrFilters, attrConditions, relationFilters, tagFilterIds. Filters the portal does not let a visitor use are ignored. ANDed with the legacy parameters. A value (or legacy JSON parameter) over 8192 characters is refused with 422.",
+            "in": "query",
+            "name": "filters",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The visitor's filters as a JSON object: subtypeFilters, attrFilters, attrConditions, relationFilters, tagFilterIds. Filters the portal does not let a visitor use are ignored. ANDed with the legacy parameters. A value (or legacy JSON parameter) over 8192 characters is refused with 422.",
+              "title": "Filters"
             }
           },
           {

@@ -23,11 +23,13 @@ const value = (over: Partial<CardFilterValue> = {}): CardFilterValue => ({
 
 const EMPTY = {
   attrFilters: {},
+  attrConditions: {},
   relationFilters: {},
   relSubtypeFilters: {},
   subtypeFilters: [],
   tagFilterIds: [],
   includeDescendants: false,
+  filterFields: [],
 };
 
 describe("encodeCardFilters", () => {
@@ -80,11 +82,45 @@ describe("encodeCardFilters", () => {
       relSubtypeFilters: { "r::f": ["v"] },
       attrFilters: { a: ["1"] },
       relationFilters: { R: ["r1"] },
+      filterFields: [],
     };
     expect(encodeCardFilters(v)).toBe(
       '{"relationFilters":{"R":["r1"]},"attrFilters":{"a":["1"]},' +
         '"relSubtypeFilters":{"r::f":["v"]},"tagFilterIds":["t"],"includeDescendants":true}',
     );
+  });
+
+  it("leaves a link byte for byte as before when no field was added", () => {
+    const picks = { attrFilters: { size: ["big"] }, includeDescendants: true };
+    expect(encodeCardFilters(value({ ...picks, filterFields: [] }))).toBe(
+      '{"attrFilters":{"size":["big"]},"includeDescendants":true}',
+    );
+  });
+
+  it("writes the conditions canonical, after the older keys and before the added fields", () => {
+    expect(encodeCardFilters(value({ attrConditions: { code: { contains: " PRJ " } } }))).toBe(
+      '{"attrConditions":{"code":{"contains":"PRJ"}}}',
+    );
+    expect(
+      encodeCardFilters(
+        value({
+          filterFields: ["code"],
+          attrConditions: { code: { contains: "PRJ" }, blank: { contains: "" } },
+          includeDescendants: true,
+        }),
+      ),
+    ).toBe('{"includeDescendants":true,"attrConditions":{"code":{"contains":"PRJ"}},"filterFields":["code"]}');
+    // A condition that narrows nothing writes nothing.
+    expect(encodeCardFilters(value({ attrConditions: { n: {} } }))).toBe("");
+  });
+
+  it("writes the added fields last, and on their own", () => {
+    expect(encodeCardFilters(value({ filterFields: ["risk", "tier"] }))).toBe(
+      '{"filterFields":["risk","tier"]}',
+    );
+    expect(
+      encodeCardFilters(value({ filterFields: ["risk"], tagFilterIds: ["t"], includeDescendants: true })),
+    ).toBe('{"tagFilterIds":["t"],"includeDescendants":true,"filterFields":["risk"]}');
   });
 });
 
@@ -122,8 +158,36 @@ describe("decodeCardFilters", () => {
       subtypeFilters: [],
       tagFilterIds: ["t1"],
       includeDescendants: true,
+      filterFields: ["risk"],
+      attrConditions: { code: { contains: "PRJ" }, budget: { min: 0, max: 1000 }, due: { to: "2026-12-31" } },
     };
     expect(decodeCardFilters(encodeCardFilters(v))).toEqual(v);
+  });
+
+  it("drops conditions it cannot use", () => {
+    expect(
+      decodeCardFilters('{"attrConditions":{"code":{"contains":"  "},"n":{"min":"1"},"d":{"from":"2026"},"x":[]}}'),
+    ).toEqual(EMPTY);
+    expect(decodeCardFilters('{"attrConditions":{"code":{"contains":" PRJ "}}}')).toEqual({
+      ...EMPTY,
+      attrConditions: { code: { contains: "PRJ" } },
+    });
+  });
+
+  it("reads a link written before added fields existed", () => {
+    expect(decodeCardFilters('{"attrFilters":{"size":["big"]},"includeDescendants":true}')).toEqual({
+      ...EMPTY,
+      attrFilters: { size: ["big"] },
+      includeDescendants: true,
+      filterFields: [],
+    });
+  });
+
+  it("drops added fields that are not strings, and repeats", () => {
+    expect(decodeCardFilters('{"filterFields":["risk",3,null,"risk",""]}')).toEqual({
+      ...EMPTY,
+      filterFields: ["risk"],
+    });
   });
 });
 
@@ -384,5 +448,42 @@ describe("otherTypesFirst", () => {
 
   it("returns an empty list for no facets", () => {
     expect(otherTypesFirst([], RTS, "Initiative")).toEqual([]);
+  });
+});
+
+describe("matchingInitiativeIds with conditions", () => {
+  const item = (id: string, attributes: Record<string, unknown>): PpmFilterItem => ({
+    id,
+    name: id,
+    subtype: null,
+    attributes,
+    relations: [],
+    tag_ids: [],
+  });
+  const items = [item("a", { code: "PRJ-7", budget: 500 }), item("b", { code: "OPS-1", budget: "2000" })];
+  const ctx: PpmFilterContext = {
+    facetFields: [],
+    conditionKinds: new Map([
+      ["code", "text"],
+      ["budget", "number"],
+    ]),
+    relationTypes: [],
+    groupableTypes: {},
+    relSubtypes: [],
+    tagGroups: [],
+  };
+  const ids = (v: CardFilterValue, c = ctx) => {
+    const set = matchingInitiativeIds(items, v, c);
+    return set === null ? null : [...set].sort();
+  };
+
+  it("keeps the initiatives a condition matches", () => {
+    expect(ids(value({ attrConditions: { code: { contains: "prj" } } }))).toEqual(["a"]);
+    expect(ids(value({ attrConditions: { budget: { min: 1000 } } }))).toEqual(["b"]);
+  });
+
+  it("narrows nothing with a condition on a field outside the catalog", () => {
+    expect(ids(value({ attrConditions: { cost: { min: 1 } } }))).toBeNull();
+    expect(ids(value({ attrConditions: { code: { contains: "prj" } } }), { ...ctx, conditionKinds: undefined })).toBeNull();
   });
 });

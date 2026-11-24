@@ -61,6 +61,7 @@ import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { FIELD_TYPE_COLORS, brand, STATUS_COLORS } from "@/theme/tokens";
 import { EOL_SECTION_KEY, typeTracksEol } from "@/lib/eol";
+import { filterKindOf } from "@/lib/fieldFilters";
 import { useTheme } from "@mui/material/styles";
 
 // ── Constants ────────────────────────────────────────────────────
@@ -1176,7 +1177,7 @@ const DELETE_BLOCK_KEYS = {
 
 function SortableSectionItem({
   id, sectionKey, info, cfg, expanded, onToggleExpand,
-  onToggleCollapsed, onToggleHidden, onDelete, children, dqWeight, note,
+  onToggleCollapsed, onToggleHidden, hiddenInFilters, onToggleHiddenInFilters, onDelete, children, dqWeight, note,
 }: {
   id: string; sectionKey: string;
   info: { label: string; icon: string; isCustom: boolean; labelKey?: string; section?: SectionDef | null };
@@ -1184,6 +1185,10 @@ function SortableSectionItem({
   onToggleExpand: () => void;
   onToggleCollapsed: () => void;
   onToggleHidden: () => void;
+  /** The section's "Hidden from filters" state (`SectionDef.hideInFilters`). */
+  hiddenInFilters?: boolean;
+  /** Offered only on a section whose fields can be filtered on (#1425). */
+  onToggleHiddenInFilters?: () => void;
   onDelete?: () => void;
   children?: React.ReactNode;
   dqWeight?: number;
@@ -1200,7 +1205,7 @@ function SortableSectionItem({
 
   return (
     <Box ref={setNodeRef} style={style} sx={{ border: 1, borderColor: cfg.hidden ? "action.disabled" : "divider", borderRadius: 1.5, mb: 1, bgcolor: cfg.hidden ? "action.disabledBackground" : "background.paper" }}>
-      <Box sx={{ display: "flex", alignItems: "center", px: 1.5, py: 0.75, gap: 0.75 }}>
+      <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", rowGap: 0.25, px: 1.5, py: 0.75, gap: 0.75 }}>
         <Box {...attributes} {...listeners} sx={{ cursor: "grab", display: "flex", mr: 0.5, "&:active": { cursor: "grabbing" } }}>
           <MaterialSymbol icon="drag_indicator" size={20} color={STATUS_COLORS.neutral} />
         </Box>
@@ -1223,6 +1228,15 @@ function SortableSectionItem({
             sx={{ mr: 0, ml: 0 }}
           />
         </Tooltip>
+        {onToggleHiddenInFilters && (
+          <Tooltip title={t("cardLayout.hiddenFromFiltersTooltip")} describeChild>
+            <FormControlLabel
+              control={<Switch size="small" checked={!!hiddenInFilters} onChange={onToggleHiddenInFilters} />}
+              label={<Typography variant="caption" color="text.secondary">{t("cardLayout.hiddenFromFilters")}</Typography>}
+              sx={{ mr: 0, ml: 0 }}
+            />
+          </Tooltip>
+        )}
         {onDelete && (deleteBlock ? (
           <Tooltip title={t(DELETE_BLOCK_KEYS[deleteBlock])}>
             <span>
@@ -1353,6 +1367,18 @@ export default function CardLayoutEditor({
     await persistSectionConfig({ [sectionKey]: { ...(secCfg[sectionKey] || {}), ...prop } });
   };
 
+  // "Hidden from filters" lives on the section dict in `fields_schema` (never
+  // in `section_config`, which addresses custom sections by position): set it
+  // when switched off, and drop the key when switched back on.
+  const descSchemaIdx = cardType.fields_schema.findIndex((s) => s.section === "__description");
+  const descHasFields = descSchemaIdx >= 0 && cardType.fields_schema[descSchemaIdx].fields.length > 0;
+  const toggleHiddenInFilters = async (schemaIdx: number) => {
+    const schema = [...cardType.fields_schema];
+    const { hideInFilters, ...rest } = schema[schemaIdx];
+    schema[schemaIdx] = hideInFilters ? rest : { ...rest, hideInFilters: true };
+    await saveLayout(cardType.key, { fields_schema: schema }, refreshAfterSave, reportSaveError);
+  };
+
   const customToSchemaIdx = (customIdx: number) => {
     let count = 0;
     for (let i = 0; i < cardType.fields_schema.length; i++) {
@@ -1440,6 +1466,16 @@ export default function CardLayoutEditor({
                     ? { ...(typeof storedCfg === "object" ? storedCfg : {}), hidden: !typeTracksEol(cardType) }
                     : storedCfg;
                 const schemaIdx = info.isCustom ? customToSchemaIdx(info.idx) : -1;
+                // The custom section itself, or the Description section once it holds fields.
+                const sectionIdx = schemaIdx >= 0 ? schemaIdx : key === "description" && descHasFields ? descSchemaIdx : -1;
+                // Offered only where a field can be filtered on — but always while the
+                // flag is set, so a stored flag can be switched back off.
+                const filterSection = sectionIdx >= 0 ? cardType.fields_schema[sectionIdx] : undefined;
+                const filterIdx =
+                  filterSection &&
+                  (filterSection.hideInFilters === true || filterSection.fields.some((f) => filterKindOf(f) !== null))
+                    ? sectionIdx
+                    : -1;
 
                 return (
                   <SortableSectionItem
@@ -1451,6 +1487,8 @@ export default function CardLayoutEditor({
                     // was never configured, depends on that section's own default.
                     onToggleCollapsed={() => updateSectionProp(key, { defaultExpanded: isSectionCollapsedByDefault(cfgForSection, key) })}
                     onToggleHidden={() => updateSectionProp(key, { hidden: !cfgForSection.hidden })}
+                    hiddenInFilters={filterIdx >= 0 && cardType.fields_schema[filterIdx].hideInFilters === true}
+                    onToggleHiddenInFilters={filterIdx >= 0 ? () => toggleHiddenInFilters(filterIdx) : undefined}
                     onDelete={info.isCustom && promptDeleteSection && schemaIdx >= 0 ? () => promptDeleteSection(schemaIdx) : undefined}
                     dqWeight={DQ_SECTION_KEYS.has(key) ? (dqConfig[key] ?? 1) : undefined}
                     note={key === EOL_SECTION_KEY ? t("cardLayout.eolNote") : undefined}

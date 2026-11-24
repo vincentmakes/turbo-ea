@@ -141,10 +141,10 @@ On a **Card list** portal, the **Card filters** section narrows the portal to th
 |-----|-------------------|
 | **Related By** | related to one of the picked cards — one control per related card type, plus one per relation where several relations reach the same type. **Include sub-cards** also counts a card related to anything beneath a pick |
 | **Tags** | carrying a picked tag: any tag within one group, and one from every group you pick from |
-| **Fields** | with a picked subtype, or a picked value in one of the card's select or yes/no fields |
+| **Fields** | with a picked subtype, or a picked value in one of the card's select or yes/no fields. Text, number and date fields can be added through **Add filter**: a text field keeps the cards whose value contains what you type (ignoring case), a number or percentage field the cards between a minimum and a maximum, a date field the cards between two days |
 | **Relation Subtypes** | with a relation whose attribute (for example *Usage Type*) holds a picked value |
 
-Every control also offers **(empty)**, for cards with no value, no relation or no subtype. Visitors only ever see the matching cards: the filters they choose on the portal narrow the list further, never wider, and the filter settings themselves are never sent to the visitor's browser.
+Every select control also offers **(empty)**, for cards with no value, no relation or no subtype; a text, number or date filter keeps only cards that hold a value. A portal never filters on cost fields: the dialog does not offer them, whatever your own permissions. Visitors only ever see the matching cards: the filters they choose on the portal narrow the list further, never wider, and the filter settings themselves are never sent to the visitor's browser.
 
 !!! note
     A portal created before version 2.178.0 keeps its subtype and tag filters exactly as they were until you next save it. After that, tags picked from two different tag groups must both be on a card, as in the portfolio report.
@@ -153,14 +153,18 @@ The PPM portfolio and process navigator portals keep their own **Subtypes** and 
 
 ## Configuring Visibility
 
-For each portal, you control exactly which information is visible. There are two contexts:
+For each portal, you control exactly which information is visible.
+
+The display table lists the rows in groups: **General** (the built-in properties), then each section of the card type's layout with its fields, under **Custom fields**, then **Related items**. Each group's header row has a checkbox in every column that ticks or unticks all of the group's rows at once; it is half-filled while only some are ticked. The arrow at the start of a header row folds the group away, and its checkboxes keep working while it is folded, so a long section such as one an extension adds can be switched on or off without opening it.
+
+There are two contexts:
 
 ### List View Properties
 
 What columns/properties appear in the card list:
 
 - **Built-in properties**: description, lifecycle, tags, data quality, approval status
-- **Custom fields**: Each field from the card type's schema can be individually toggled
+- **Custom fields**: Each field from the card type's schema, grouped by section, can be toggled one by one or a whole section at a time
 
 The **data quality** bar is the card's completeness score — how many of its fields are filled
 in — not project progress. To publish an Initiative's real progress, add a **Percentage** field
@@ -172,6 +176,20 @@ here; the recipe is in [Calculations](calculations.md#show-initiative-progress-o
 What information appears when a visitor clicks on a card:
 
 - Same toggle controls as the list view, but for the expanded detail panel
+
+### Visitor filters
+
+On a **Card list** portal, the display table has a third column, **Visitor filter**. A ticked row is shown in the visitors' filter bar:
+
+- **Subtype** (a row of its own, when the card type has subtypes), **Tags**, each **relation type**, and each field that can be filtered: select and yes/no fields (pick values, **(empty)** included), text fields ("contains"), number and percentage fields (a range) and date fields (a range).
+- **A filter needs the property to be shown.** A row shown neither on the summary card nor in the expanded detail has its filter checkbox greyed out: a visitor can never filter on something the portal does not publish.
+- **Cost fields are never filterable on a portal**, and have no checkbox.
+
+Until you change the column, it follows the default: the subtype, the tags, every shown select field with options and every shown relation type — the filter bar portals always had — minus the fields of a section marked **Hidden from filters** in the card layout. While the column stays at its default, nothing is stored, so a field added to the card type later follows the same rule.
+
+Below the table, **Visitors can add more filters** (on by default) lets visitors add any other shown field through an **Add filter** chip in their filter bar. Their browser remembers the fields they added, never the values. Subtype, tags and relation filters are not offered there: they appear only when ticked. Switch it off and visitors get exactly the ticked filters, and the portal ignores any other filter it is sent.
+
+Visitor filters always narrow the cards the portal's own card filters keep, never widen them. A tag filter matches like the reports: any tag within one group, and one from every group picked from.
 
 ## Access Protection
 

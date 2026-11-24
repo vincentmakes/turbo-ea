@@ -10,7 +10,7 @@
  * fails loudly instead of being served a portal by a catch-all.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter, Route, Routes, useNavigate, type NavigateFunction } from "react-router";
@@ -348,6 +348,20 @@ function clearChip() {
   return screen.queryByRole("button", { name: "Clear Filters" });
 }
 
+/** The `filters` parameter a card query sent, parsed. */
+function sentFilters(p: URLSearchParams): unknown {
+  const raw = p.get("filters");
+  return raw === null ? null : JSON.parse(raw);
+}
+
+/** Pick one option of a filter select (the shared `FilterSelect`). */
+async function pick(label: string, option: string) {
+  fireEvent.mouseDown(screen.getByRole("combobox", { name: label }));
+  fireEvent.click(within(await screen.findByRole("listbox")).getByText(option));
+  // The list stays open for more picks; close it so the next pick finds its own.
+  fireEvent.keyDown(screen.getByRole("combobox", { name: label }), { key: "Escape" });
+}
+
 beforeEach(() => {
   sites = {};
   publicGet.mockReset();
@@ -666,6 +680,8 @@ describe("PortalViewer card query", () => {
     await renderLoaded();
     const first = cardQueries()[0];
     expect(first.has("search")).toBe(false);
+    // No filter set: no `filters` parameter, and never a legacy one.
+    expect(first.has("filters")).toBe(false);
     expect(first.has("subtype")).toBe(false);
     expect(first.has("tag_ids")).toBe(false);
     expect(first.has("attr_filters")).toBe(false);
@@ -763,14 +779,10 @@ describe("PortalViewer filter bar", () => {
     const user = await renderLoaded();
     await goToPage2(user);
     await openFilters(user);
-    await user.click(screen.getByRole("combobox", { name: "Subtype" }));
-    expect(
-      await screen.findByRole("option", { name: "All Subtypes", selected: true }),
-    ).toBeInTheDocument();
-    await user.click(screen.getByRole("option", { name: "Microservice" }));
+    await pick("Subtype", "Microservice");
     await waitFor(() => {
       const p = lastCardParams();
-      expect(p.get("subtype")).toBe("micro");
+      expect(sentFilters(p)).toEqual({ subtypeFilters: ["micro"] });
       expect(p.get("page")).toBe("1");
     });
     // The subtype alone makes the filters "active".
@@ -780,7 +792,7 @@ describe("PortalViewer filter bar", () => {
     await user.click(within(clearChip()!).getByTestId("CancelIcon"));
     await waitFor(() => {
       const p = lastCardParams();
-      expect(p.has("subtype")).toBe(false);
+      expect(p.has("filters")).toBe(false);
       expect(p.get("page")).toBe("1");
     });
     expect(clearChip()).toBeNull();
@@ -798,53 +810,52 @@ describe("PortalViewer filter bar", () => {
     expect(screen.queryByRole("combobox", { name: "Subtype" })).toBeNull();
   });
 
-  it("filters by a select field alone, and 'All' takes the filter off again", async () => {
+  it("filters by several values of a select field, and '(empty)', then unpicks them", async () => {
     serve(SLUG, { cards: { items: [card()], total: 60 } as CardPage });
     const user = await renderLoaded();
     await goToPage2(user);
     await openFilters(user);
-    await user.click(screen.getByRole("combobox", { name: "Criticality" }));
-    expect(await screen.findByRole("option", { name: "All", selected: true })).toBeInTheDocument();
-    await user.click(screen.getByRole("option", { name: "High" }));
+    await pick("Criticality", "High");
     await waitFor(() => {
       const p = lastCardParams();
-      expect(JSON.parse(p.get("attr_filters")!)).toEqual({ criticality: "high" });
+      expect(sentFilters(p)).toEqual({ attrFilters: { criticality: ["high"] } });
       expect(p.get("page")).toBe("1");
     });
-    expect(screen.getByRole("combobox", { name: "Criticality" })).toHaveTextContent("High");
+    await pick("Criticality", "(empty)");
+    await waitFor(() =>
+      expect(sentFilters(lastCardParams())).toEqual({
+        attrFilters: { criticality: ["high", "__empty__"] },
+      }),
+    );
     expect(clearChip()).toBeInTheDocument();
 
-    await user.click(screen.getByRole("combobox", { name: "Criticality" }));
-    await user.click(await screen.findByRole("option", { name: "All" }));
-    await waitFor(() => expect(lastCardParams().has("attr_filters")).toBe(false));
+    const combo = screen.getByRole("combobox", { name: "Criticality" }).closest(".MuiAutocomplete-root") as HTMLElement;
+    for (const icon of within(combo).getAllByTestId("CancelIcon")) fireEvent.click(icon);
+    await waitFor(() => expect(lastCardParams().has("filters")).toBe(false));
     expect(clearChip()).toBeNull();
   });
 
-  it("filters by a relation alone, and 'All' takes the filter off again", async () => {
+  it("filters by a relation alone, and unpicking takes the filter off again", async () => {
     serve(SLUG, { cards: { items: [card()], total: 60 } as CardPage });
     const user = await renderLoaded();
     await goToPage2(user);
     await openFilters(user);
-    await user.click(await screen.findByRole("combobox", { name: "Application" }));
-    expect(
-      await screen.findByRole("option", { name: "All Application", selected: true }),
-    ).toBeInTheDocument();
-    await user.click(screen.getByRole("option", { name: "CRM" }));
+    await screen.findByRole("combobox", { name: "Application" });
+    await pick("Application", "CRM");
     await waitFor(() => {
       const p = lastCardParams();
-      expect(JSON.parse(p.get("relation_filters")!)).toEqual({ relAppToApp: "a2" });
+      expect(sentFilters(p)).toEqual({ relationFilters: { relAppToApp: ["a2"] } });
       expect(p.get("page")).toBe("1");
     });
-    expect(screen.getByRole("combobox", { name: "Application" })).toHaveTextContent("CRM");
     expect(clearChip()).toBeInTheDocument();
 
-    await user.click(screen.getByRole("combobox", { name: "Application" }));
-    await user.click(await screen.findByRole("option", { name: "All Application" }));
-    await waitFor(() => expect(lastCardParams().has("relation_filters")).toBe(false));
+    const combo = screen.getByRole("combobox", { name: "Application" }).closest(".MuiAutocomplete-root") as HTMLElement;
+    fireEvent.click(within(combo).getByTestId("CancelIcon"));
+    await waitFor(() => expect(lastCardParams().has("filters")).toBe(false));
     expect(clearChip()).toBeNull();
   });
 
-  it("filters by several tags alone, joined by commas, back on page one", async () => {
+  it("filters by several tags alone, back on page one", async () => {
     serve(SLUG, { cards: { items: [card()], total: 60 } as CardPage });
     const user = await renderLoaded();
     await goToPage2(user);
@@ -852,7 +863,7 @@ describe("PortalViewer filter bar", () => {
     await user.click(screen.getByRole("button", { name: "pick-two:Tags" }));
     await waitFor(() => {
       const p = lastCardParams();
-      expect(p.get("tag_ids")).toBe("t1,t2");
+      expect(sentFilters(p)).toEqual({ tagFilterIds: ["t1", "t2"] });
       expect(p.get("page")).toBe("1");
     });
     expect(clearChip()).toBeInTheDocument();
@@ -882,6 +893,225 @@ describe("PortalViewer filter bar", () => {
     });
     await renderLoaded();
     expect(screen.queryByText("pick-one:Tags")).toBeNull();
+  });
+});
+
+describe("PortalViewer visitor filters from the server's lists", () => {
+  const LISTS = {
+    shown: ["subtype", "field:criticality", "rel:relAppToApp"],
+    allowed: ["subtype", "tags", "field:criticality", "field:platforms", "field:owner", "field:phase", "rel:relAppToApp"],
+    can_add: true,
+  };
+  const withLists = (lists: Partial<typeof LISTS> = {}) =>
+    portal({ visitor_filters: { ...LISTS, ...lists } } as unknown as Partial<PublicPortal>);
+
+  beforeEach(() => localStorage.clear());
+  afterEach(() => localStorage.clear());
+
+  it("shows the listed filters only, and offers the allowed fields under Add filter", async () => {
+    serve(SLUG, { portal: withLists() });
+    const user = await renderLoaded();
+    await openFilters(user);
+    expect(screen.getByRole("combobox", { name: "Subtype" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Criticality" })).toBeInTheDocument();
+    expect(await screen.findByRole("combobox", { name: "Application" })).toBeInTheDocument();
+    // Allowed but not listed: not shown, but addable.
+    expect(screen.queryByRole("combobox", { name: "Platforms" })).toBeNull();
+    // Tags are allowed but not shown: no tag picker.
+    expect(screen.queryByText("pick-one:Tags")).toBeNull();
+    fireEvent.click(screen.getByText("Add filter"));
+    expect(screen.getByRole("option", { name: "Platforms" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Owner Contact" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Delivery Phase" })).toBeInTheDocument();
+    // Never offered: not allowed by the server.
+    expect(screen.queryByRole("option", { name: "Notes" })).toBeNull();
+    expect(screen.queryByRole("option", { name: "Region" })).toBeNull();
+  });
+
+  it("adds a text field and sends its condition once typing settles", async () => {
+    serve(SLUG, { portal: withLists() });
+    const user = await renderLoaded();
+    await openFilters(user);
+    fireEvent.click(screen.getByText("Add filter"));
+    fireEvent.click(screen.getByRole("option", { name: "Owner Contact" }));
+    const before = cardQueries().length;
+    // An added row alone narrows nothing: no new query, no Clear chip.
+    expect(clearChip()).toBeNull();
+    fireEvent.change(screen.getByRole("textbox", { name: "Owner Contact" }), {
+      target: { value: "ORG-1" },
+    });
+    // Waiting on the debounce: still loading, nothing sent yet.
+    expect(loadingBar()).toBeDefined();
+    expect(cardQueries()).toHaveLength(before);
+    await waitFor(() =>
+      expect(sentFilters(lastCardParams())).toEqual({
+        attrConditions: { owner: { contains: "ORG-1" } },
+      }),
+    );
+    expect(cardQueries()).toHaveLength(before + 1);
+    expect(clearChip()).toBeInTheDocument();
+    // The added row is remembered, its value is not.
+    expect(JSON.parse(localStorage.getItem("turboea.portal.apps.prefs")!)).toEqual({
+      filterFields: ["owner"],
+    });
+  });
+
+  it("Clear filters keeps the added rows", async () => {
+    serve(SLUG, { portal: withLists() });
+    const user = await renderLoaded();
+    await openFilters(user);
+    fireEvent.click(screen.getByText("Add filter"));
+    fireEvent.click(screen.getByRole("option", { name: "Owner Contact" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Owner Contact" }), {
+      target: { value: "x" },
+    });
+    await waitFor(() => expect(clearChip()).toBeInTheDocument());
+    await user.click(within(clearChip()!).getByTestId("CancelIcon"));
+    expect(screen.getByRole("textbox", { name: "Owner Contact" })).toHaveValue("");
+    await waitFor(() => expect(lastCardParams().has("filters")).toBe(false));
+  });
+
+  it("restores the fields added on an earlier visit, ignoring ones no longer allowed", async () => {
+    localStorage.setItem(
+      "turboea.portal.apps.prefs",
+      JSON.stringify({ filterFields: ["owner", "notes", "gone"] }),
+    );
+    serve(SLUG, { portal: withLists() });
+    const user = await renderLoaded();
+    await openFilters(user);
+    expect(await screen.findByRole("textbox", { name: "Owner Contact" })).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Notes" })).toBeNull();
+    // Restored rows carry no value: the first query is unfiltered.
+    expect(cardQueries()[0].has("filters")).toBe(false);
+  });
+
+  it("keeps the added fields and the Add filter chip after every listed filter", async () => {
+    localStorage.setItem("turboea.portal.apps.prefs", JSON.stringify({ filterFields: ["owner"] }));
+    serve(SLUG, { portal: withLists({ shown: ["field:criticality", "rel:relAppToApp", "tags"] }) });
+    const user = await renderLoaded();
+    await openFilters(user);
+    const relation = await screen.findByRole("combobox", { name: "Application" });
+    const order = [
+      screen.getByRole("combobox", { name: "Criticality" }),
+      relation,
+      screen.getByText("pick-one:Tags"),
+      screen.getByRole("textbox", { name: "Owner Contact" }),
+      screen.getByText("Add filter"),
+    ];
+    order.slice(1).forEach((el, i) =>
+      expect(order[i].compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy(),
+    );
+  });
+
+  it("forgets a removed row", async () => {
+    localStorage.setItem("turboea.portal.apps.prefs", JSON.stringify({ filterFields: ["owner"] }));
+    serve(SLUG, { portal: withLists() });
+    const user = await renderLoaded();
+    await openFilters(user);
+    await user.click(await screen.findByRole("button", { name: "Remove the Owner Contact filter" }));
+    expect(screen.queryByRole("textbox", { name: "Owner Contact" })).toBeNull();
+    expect(localStorage.getItem("turboea.portal.apps.prefs")).toBeNull();
+  });
+
+  it("offers no Add filter chip when adding is switched off", async () => {
+    serve(SLUG, {
+      portal: withLists({ allowed: LISTS.shown, can_add: false }),
+    });
+    const user = await renderLoaded();
+    await openFilters(user);
+    expect(screen.getByRole("combobox", { name: "Criticality" })).toBeInTheDocument();
+    expect(screen.queryByText("Add filter")).toBeNull();
+  });
+
+  it("shows the tag picker only when tags are listed", async () => {
+    serve(SLUG, { portal: withLists({ shown: [...LISTS.shown, "tags"] }) });
+    await renderLoaded();
+    expect(screen.getByText("pick-one:Tags")).toBeInTheDocument();
+  });
+
+  it("shows no relation filter, and loads no options, for an unlisted relation type", async () => {
+    serve(SLUG, { portal: withLists({ shown: ["field:criticality"] }) });
+    const user = await renderLoaded();
+    await openFilters(user);
+    expect(screen.getByRole("combobox", { name: "Criticality" })).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Subtype" })).toBeNull();
+    expect(screen.queryByRole("combobox", { name: "Application" })).toBeNull();
+    expect(paths().some((p) => p.includes("/relation-options"))).toBe(false);
+  });
+
+  it("keeps the page when a field is added, and goes back to page one once it holds a value", async () => {
+    serve(SLUG, { portal: withLists(), cards: { items: [card()], total: 60 } as CardPage });
+    const user = await renderLoaded();
+    await goToPage2(user);
+    await openFilters(user);
+    const before = cardQueries().length;
+    fireEvent.click(screen.getByText("Add filter"));
+    const listbox = screen.getByRole("listbox", { name: "Add filter" });
+    // Grouped under the section's own label.
+    expect(
+      within(within(listbox).getByRole("group", { name: "Application Information" })).getByRole("option", {
+        name: "Owner Contact",
+      }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("option", { name: "Owner Contact" }));
+    await settle();
+    // An added row narrows nothing: no new query, still on page two.
+    expect(cardQueries()).toHaveLength(before);
+    expect(lastCardParams().get("page")).toBe("2");
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Owner Contact" }), { target: { value: "ORG" } });
+    await waitFor(() => {
+      const p = lastCardParams();
+      expect(sentFilters(p)).toEqual({ attrConditions: { owner: { contains: "ORG" } } });
+      expect(p.get("page")).toBe("1");
+    });
+  });
+
+  it("goes back to page one when an added row is removed", async () => {
+    localStorage.setItem("turboea.portal.apps.prefs", JSON.stringify({ filterFields: ["owner"] }));
+    serve(SLUG, { portal: withLists(), cards: { items: [card()], total: 60 } as CardPage });
+    const user = await renderLoaded();
+    await goToPage2(user);
+    await openFilters(user);
+    await user.click(await screen.findByRole("button", { name: "Remove the Owner Contact filter" }));
+    await waitFor(() => expect(lastCardParams().get("page")).toBe("1"));
+  });
+
+  it("offers a yes/no field's values as Yes and No", async () => {
+    serve(SLUG, {
+      portal: withLists({ shown: [...LISTS.shown, "field:cloud"], allowed: [...LISTS.allowed, "field:cloud"] }),
+    });
+    const user = await renderLoaded();
+    await openFilters(user);
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Cloud Native" }));
+    const options = within(await screen.findByRole("listbox"))
+      .getAllByRole("option")
+      .map((o) => o.textContent);
+    expect(options).toEqual(["(empty)", "Yes", "No"]);
+  });
+
+  it("lists the Description section's fields under Description in Add filter", async () => {
+    const base = portal();
+    serve(SLUG, {
+      portal: portal({
+        type_info: {
+          ...base.type_info!,
+          fields_schema: [
+            { section: "__description", fields: [{ key: "alias", label: "Alias", type: "text" }] },
+            ...base.type_info!.fields_schema,
+          ],
+        },
+        card_config: { toggles: { ...TOGGLES, "field:alias": { card: true, detail: true } } },
+        visitor_filters: { ...LISTS, allowed: [...LISTS.allowed, "field:alias"] },
+      } as unknown as Partial<PublicPortal>),
+    });
+    const user = await renderLoaded();
+    await openFilters(user);
+    fireEvent.click(screen.getByText("Add filter"));
+    const listbox = screen.getByRole("listbox", { name: "Add filter" });
+    expect(
+      within(within(listbox).getByRole("group", { name: "Description" })).getByRole("option", { name: "Alias" }),
+    ).toBeInTheDocument();
   });
 });
 

@@ -160,10 +160,10 @@ En un portal de tipo **Lista de tarjetas**, la sección **Filtros de tarjetas** 
 |------|----------------------------|
 | **Relacionado por** | relacionadas con alguna de las tarjetas elegidas: un control por tipo de tarjeta relacionado, más uno por relación cuando varias relaciones llegan al mismo tipo. **Incluir subtarjetas** cuenta también una tarjeta relacionada con cualquier elemento por debajo de una selección |
 | **Etiquetas** | que llevan una etiqueta elegida: cualquier etiqueta dentro de un grupo, y una de cada grupo del que elija |
-| **Campos** | con un subtipo elegido, o un valor elegido en uno de los campos de selección o sí/no de la tarjeta |
+| **Campos** | con un subtipo elegido, o un valor elegido en uno de los campos de selección o sí/no de la tarjeta Los campos de texto, número y fecha se pueden añadir mediante **Añadir filtro**: un campo de texto conserva las fichas cuyo valor contiene lo que escriba (sin distinguir mayúsculas), un campo de número o porcentaje las fichas entre un mínimo y un máximo, un campo de fecha las fichas entre dos días |
 | **Subtipos de relación** | con una relación cuyo atributo (por ejemplo *Tipo de uso*) tiene un valor elegido |
 
-Cada control ofrece además **(vacío)**, para las tarjetas sin valor, sin relación o sin subtipo. Los visitantes solo ven las tarjetas que coinciden: los filtros que eligen en el portal reducen aún más la lista, nunca la amplían, y la propia configuración de los filtros nunca se envía al navegador del visitante.
+Cada control de selección ofrece además **(vacío)**, para las fichas sin valor, sin relación o sin subtipo; un filtro de texto, número o fecha conserva solo las fichas que tienen un valor. Un portal nunca filtra por campos de coste: el diálogo no los ofrece, sean cuales sean sus propios permisos. Los visitantes solo ven las fichas coincidentes: los filtros que eligen en el portal reducen aún más la lista, nunca la amplían, y los ajustes de filtro nunca se envían al navegador del visitante.
 
 !!! note
     Un portal creado antes de la versión 2.178.0 conserva sus filtros de subtipos y etiquetas tal como estaban hasta que lo vuelva a guardar. A partir de entonces, las etiquetas elegidas de dos grupos distintos deben estar ambas en una tarjeta, como en el informe de portafolio.
@@ -172,14 +172,18 @@ Los portales de portafolio PPM y de navegador de procesos conservan sus propios 
 
 ## Configuración de Visibilidad
 
-Para cada portal, usted controla exactamente qué información es visible. Hay dos contextos:
+Para cada portal, usted controla exactamente qué información es visible.
+
+La tabla de visualización lista las filas por grupos: **General** (las propiedades incorporadas), después cada sección del diseño del tipo de ficha con sus campos, bajo **Campos personalizados**, y por último **Elementos relacionados**. La fila de encabezado de cada grupo tiene una casilla en cada columna que marca o desmarca de una vez todas las filas del grupo; aparece a medio rellenar mientras solo algunas están marcadas. La flecha al inicio de una fila de encabezado contrae el grupo, y sus casillas siguen funcionando contraído, de modo que una sección larga, como la que añade una extensión, puede activarse o desactivarse sin abrirla.
+
+Hay dos contextos:
 
 ### Propiedades de la Vista de Lista
 
 Qué columnas/propiedades aparecen en la lista de fichas:
 
 - **Propiedades incorporadas**: descripción, ciclo de vida, etiquetas, calidad de datos, estado de aprobación
-- **Campos personalizados**: Cada campo del esquema del tipo de ficha puede activarse o desactivarse individualmente
+- **Campos personalizados**: Cada campo del esquema del tipo de ficha, agrupado por sección, puede activarse o desactivarse uno a uno o una sección entera a la vez
 
 La barra de **calidad de datos** es la puntuación de completitud de la ficha —cuántos de sus campos están rellenados—, no el avance del proyecto. Para publicar el avance real de una Iniciativa, añada un campo **Porcentaje** al tipo Iniciativa, rellénelo con un cálculo sobre `ppm.completion` y marque ese campo aquí; la receta está en [Cálculos](calculations.md#show-initiative-progress-on-a-card-or-a-portal).
 
@@ -188,6 +192,20 @@ La barra de **calidad de datos** es la puntuación de completitud de la ficha �
 Qué información aparece cuando un visitante hace clic en una ficha:
 
 - Los mismos controles de activación que la vista de lista, pero para el panel de detalle expandido
+
+### Filtros de visitante
+
+En un portal de **Lista de fichas**, la tabla de visualización tiene una tercera columna, **Filtro de visitante**. Una fila marcada aparece en la barra de filtros de los visitantes:
+
+- **Subtipo** (una fila propia, cuando el tipo de ficha tiene subtipos), **Etiquetas**, cada **tipo de relación** y cada campo filtrable: campos de selección y sí/no (elegir valores, **(vacío)** incluido), campos de texto («contiene»), campos de número y porcentaje (un rango) y campos de fecha (un rango).
+- **Un filtro requiere que la propiedad se muestre.** Una fila que no se muestra ni en la ficha resumen ni en el detalle ampliado tiene su casilla de filtro atenuada: un visitante nunca puede filtrar por algo que el portal no publica.
+- **Los campos de coste nunca son filtrables en un portal** y no tienen casilla.
+
+Mientras no cambie la columna, sigue el valor por defecto: el subtipo, las etiquetas, cada campo de selección mostrado con opciones y cada tipo de relación mostrado —la barra de filtros que los portales siempre tuvieron—, menos los campos de una sección marcada como **Oculto en los filtros** en el diseño de la ficha. Mientras la columna siga en su valor por defecto no se almacena nada, de modo que un campo añadido más tarde al tipo de ficha sigue la misma regla.
+
+Debajo de la tabla, **Los visitantes pueden añadir más filtros** (activado por defecto) permite a los visitantes añadir cualquier otro campo mostrado mediante un chip **Añadir filtro** en su barra de filtros. Su navegador recuerda los campos añadidos, nunca los valores. Los filtros de subtipo, etiquetas y relación no se ofrecen allí: solo aparecen si están marcados. Si lo desactiva, los visitantes obtienen exactamente los filtros marcados y el portal ignora cualquier otro filtro que reciba.
+
+Los filtros de visitante siempre reducen las fichas que conservan los filtros de fichas del propio portal, nunca las amplían. Un filtro de etiquetas coincide como en los informes: cualquier etiqueta dentro de un grupo y una de cada grupo elegido.
 
 ## Acceso al Portal
 

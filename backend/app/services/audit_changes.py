@@ -108,12 +108,13 @@ _FIELD_PROPS = (
     "config",
     "hidden",
 )
-_SECTION_PROPS = ("columns", "groups", "defaultExpanded", "hidden")
+_SECTION_PROPS = ("columns", "groups", "defaultExpanded", "hidden", "hideInFilters")
 _OPTION_PROPS = ("color", "hidden")
 
 # Flags whose absence means ``False``: reading an absent flag as ``None`` would
 # report a no-op "— → No" every time an editor wrote the default explicitly.
-_BOOLEAN_PROPS = frozenset({"required", "readonly", "hidden"})
+# ``hideInFilters`` is a section's "Hidden from filters" switch: absent = shown.
+_BOOLEAN_PROPS = frozenset({"required", "readonly", "hidden", "hideInFilters"})
 
 # Props whose absence means a rendered default other than ``False``, read the
 # same way: a section with no ``defaultExpanded`` starts expanded, so the first
@@ -651,6 +652,7 @@ def _portal_filter_view(filters: Any) -> dict[str, Any]:
             tags=_as_list(d.get("tag_ids")),
             related_cards={},
             card_fields={},
+            card_conditions={},
             relation_subtypes={},
             include_sub_cards=False,
         )
@@ -661,10 +663,34 @@ def _portal_filter_view(filters: Any) -> dict[str, Any]:
         tags=_as_list(cf.get("tagFilterIds")),
         related_cards=_as_dict(cf.get("relationFilters")),
         card_fields=_as_dict(cf.get("attrFilters")),
+        card_conditions=_as_dict(cf.get("attrConditions")),
         relation_subtypes=_as_dict(cf.get("relSubtypeFilters")),
         include_sub_cards=cf.get("includeDescendants") is True,
     )
     return view
+
+
+def _condition_text(condition: Any) -> str:
+    """A field condition (``attrConditions``) as a reader sees it, in symbols
+    rather than words so the stored label reads the same in every language:
+    ``"ORG-12"`` (contains), ``≥ 10``, ``≤ 20``, ``10 – 20``, the same for
+    dates. A shape this does not know is shown as its JSON."""
+    c = _as_dict(condition)
+    if isinstance(c.get("contains"), str):
+        return f'"{c["contains"]}"'
+    for low_key, high_key in (("min", "max"), ("from", "to")):
+        if low_key not in c and high_key not in c:
+            continue
+        low, high = c.get(low_key), c.get(high_key)
+        if low is not None and high is not None:
+            return f"{low} – {high}"
+        return f"≥ {low}" if low is not None else f"≤ {high}"
+    return json.dumps(condition, sort_keys=True, default=str)
+
+
+def _conditions(value: Mapping[Any, Any]) -> list[tuple[str, str]]:
+    """``{field key: condition}`` as sorted ``(key, readable condition)`` pairs."""
+    return sorted((str(k), _condition_text(v)) for k, v in value.items())
 
 
 def _picks(value: Mapping[Any, Any]) -> list[tuple[str, str]]:
@@ -691,7 +717,9 @@ def portal_filter_items(
     ``filter`` is one row of the filter set: ``subtypes``, ``tags``,
     ``related_cards`` / ``card_fields`` / ``relation_subtypes`` (each value a
     ``Facet: value`` label — the facet a relation verb, a card type or a
-    field, the value a card name or an option label), ``include_sub_cards``
+    field, the value a card name or an option label), ``card_conditions``
+    (``Field: condition``, the condition in symbols — ``_condition_text``),
+    ``include_sub_cards``
     (``old`` / ``new`` booleans) and ``approval_statuses`` (status codes).
 
     ``facet_labels`` maps a facet key (a relation-filter key, an attribute
@@ -762,6 +790,18 @@ def portal_filter_items(
                 )
             )
 
+    # A text / number / date condition, labelled ``Field: condition``.
+    a, b = _conditions(before["card_conditions"]), _conditions(after["card_conditions"])
+    if a != b:
+        out.append(
+            item(
+                "portal_filter.changed",
+                filter="card_conditions",
+                old=[f"{facets.get(k) or k}: {text}" for k, text in a],
+                new=[f"{facets.get(k) or k}: {text}" for k, text in b],
+            )
+        )
+
     if before["include_sub_cards"] != after["include_sub_cards"]:
         out.append(
             item(
@@ -781,19 +821,94 @@ def portal_filter_items(
 
 _PORTAL_SURFACES = ("card", "detail")
 _PORTAL_BLOCKS = ("ppm", "bpm")
+#: The surface a ``card_config.visitor_filters`` entry is reported under.
+_PORTAL_FILTER_SURFACE = "filter"
+
+
+def _resolved_visitor_filter_items(
+    shown: tuple[Iterable[str], Iterable[str]], labels: Mapping[Any, Any]
+) -> list[dict[str, Any]]:
+    """``portal_toggle.changed`` {item, surface: "filter", old, new} for each
+    key that entered or left the RESOLVED ``shown`` list — old side's keys
+    first, in their order, then the new side's new ones. Equal lists: none."""
+    old = [k for k in shown[0] if isinstance(k, str)]
+    new = [k for k in shown[1] if isinstance(k, str)]
+    out = []
+    for key in [*old, *(k for k in new if k not in old)]:
+        a, b = key in old, key in new
+        if a != b:
+            out.append(
+                item(
+                    "portal_toggle.changed",
+                    item=labels.get(key) or key,
+                    surface=_PORTAL_FILTER_SURFACE,
+                    old=a,
+                    new=b,
+                )
+            )
+    return out
+
+
+def _visitor_filter_items(
+    before: Mapping[str, Any],
+    after: Mapping[str, Any],
+    labels: Mapping[Any, Any],
+    shown: tuple[Iterable[str], Iterable[str]] | None = None,
+) -> list[dict[str, Any]]:
+    """``portal_toggle.changed`` {item, surface: "filter", old, new} for each
+    visitor filter whose membership changed. With ``shown`` — each side's
+    filters as the visitor's bar resolves them (``visitor_filter_lists``),
+    default included — the resolved lists are diffed. Without it, the stored
+    ``visitor_filters`` lists are: a side without the list follows the
+    computed default, which this builder cannot know, so its value is
+    ``None`` ("—") and only the keys the other side lists appear."""
+    if shown is not None:
+        return _resolved_visitor_filter_items(shown, labels)
+    was, now = before.get("visitor_filters"), after.get("visitor_filters")
+    was_list, now_list = isinstance(was, list), isinstance(now, list)
+    keys = [*_as_list(was), *(k for k in _as_list(now) if k not in _as_list(was))]
+    out = []
+    for key in keys:
+        if not isinstance(key, str):
+            continue
+        a = (key in _as_list(was)) if was_list else None
+        b = (key in _as_list(now)) if now_list else None
+        if a != b:
+            out.append(
+                item(
+                    "portal_toggle.changed",
+                    item=labels.get(key) or key,
+                    surface=_PORTAL_FILTER_SURFACE,
+                    old=a,
+                    new=b,
+                )
+            )
+    return out
 
 
 def portal_card_config_items(
-    old: Any, new: Any, *, item_labels: Mapping[str, str] | None = None
+    old: Any,
+    new: Any,
+    *,
+    item_labels: Mapping[str, str] | None = None,
+    visitor_filters_shown: tuple[Iterable[str], Iterable[str]] | None = None,
 ) -> list[dict[str, Any]]:
     """Items for a portal's ``card_config``.
 
     ``portal_toggle.changed`` {item, surface, old, new} for each per-item
     exposure switch (``toggles[<item>][card|detail]``; ``item`` is the label
     from ``item_labels``, the key when unknown; an unset switch is ``None``),
-    then ``portal_option.changed`` {option, old, new} for the board settings —
-    ``ppm_<key>`` / ``bpm_<key>`` — and ``show_logo`` (unset reads as ``True``,
-    as the portal renders it).
+    then ``portal_toggle.changed`` with surface ``filter`` for each visitor
+    filter the admin listed or unlisted (``visitor_filters``), then
+    ``portal_option.changed`` {option, old, new} for the board settings —
+    ``ppm_<key>`` / ``bpm_<key>`` —, ``visitor_can_add_filters`` and
+    ``show_logo`` (both unset read as ``True``, as the portal applies them).
+
+    ``visitor_filters_shown`` is ``(old, new)``: each side's visitor filters
+    as resolved by the caller (``portal_visibility.visitor_filter_lists``, the
+    default included). Given, the filter items diff those, so unticking one
+    filter from the default logs exactly that filter. Absent ("not
+    provided"), the stored lists are diffed. This module reads no database.
     """
     before, after = _as_dict(old), _as_dict(new)
     labels = _as_dict(item_labels)
@@ -826,6 +941,18 @@ def portal_card_config_items(
                         new=_compact(b),
                     )
                 )
+    out.extend(_visitor_filter_items(before, after, labels, visitor_filters_shown))
+    old_add = before.get("visitor_can_add_filters") is not False
+    new_add = after.get("visitor_can_add_filters") is not False
+    if old_add != new_add:
+        out.append(
+            item(
+                "portal_option.changed",
+                option="visitor_can_add_filters",
+                old=old_add,
+                new=new_add,
+            )
+        )
     old_logo, new_logo = before.get("show_logo", True), after.get("show_logo", True)
     if old_logo != new_logo:
         out.append(

@@ -807,5 +807,15 @@
   "spreadsheetImport.doneSkipped_other": "已跳过 {{count}} 行。",
   "spreadsheetImport.doneFailed_one": "因错误未导入 {{count}} 行。",
   "spreadsheetImport.doneFailed_other": "因错误未导入 {{count}} 行。",
-  "filter.clearSection": "清除{{section}}筛选器"
+  "filter.clearSection": "清除{{section}}筛选器",
+  "fieldFilters.add": "添加筛选器",
+  "fieldFilters.search": "搜索字段",
+  "fieldFilters.searchPlaceholder": "字段或分区",
+  "fieldFilters.clearSearch": "清除搜索",
+  "fieldFilters.noMatch": "没有匹配的字段",
+  "fieldFilters.remove": "移除 {{field}} 筛选器",
+  "fieldFilters.clearValue": "清除 {{field}} 筛选器",
+  "fieldFilters.containsPlaceholder": "包含…",
+  "fieldFilters.rangeFrom": "{{field}} 起",
+  "fieldFilters.rangeTo": "{{field}} 至"
 }

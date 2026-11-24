@@ -5,10 +5,13 @@ import {
   useFieldLabel,
   useOptionLabel,
   useRelationLabel,
+  useResolveLabel,
   useSubtypeLabel,
   useTypeLabel,
 } from "@/hooks/useResolveLabel";
-import { isFacetField, resolveFacetField } from "@/lib/fieldFacets";
+import { resolveFacetField } from "@/lib/fieldFacets";
+import { buildFilterCatalog, catalogFields, catalogKinds } from "@/lib/fieldFilters";
+import type { FilterCatalog, FilterKind } from "@/lib/fieldFilters";
 import { buildRelationFilterOptions, buildRelSubtypes } from "./cardFilters";
 import type { FilterMember, RelationFilterOption } from "./cardFilters";
 import type { FieldDef, RelSubtype, RelTypeDef } from "./portfolioHelpers";
@@ -21,14 +24,32 @@ export interface CardFilterOptionsInput {
   relationTypes: RelTypeDef[];
   groupableTypes: Record<string, FilterMember[]>;
   includeDescendants: boolean;
+  /**
+   * Whether the reader may see cost values: a report passes
+   * `usePermissions(user).canViewCostsGlobally`, the web portal dialog
+   * `false` (a portal never filters on costs). Without it a cost field is
+   * left out of the catalog, and a condition on one never applies.
+   */
+  canViewCosts: boolean;
 }
 
 export interface CardFilterOptions {
   relationOptions: RelationFilterOption[];
   relSubtypes: RelSubtype[];
   subtypeOptions: { key: string; label: string }[];
-  /** The type's facet fields (selects with options, yes/no fields), labels resolved. */
+  /**
+   * Every facet field of the type (selects with options, yes/no fields),
+   * labels resolved — hidden-from-filters sections included, because the
+   * matcher must still apply a value such a field holds.
+   */
   facetFields: FieldDef[];
+  /** The type's filter catalog: what the Fields row shows and "Add filter" offers. */
+  catalog: FilterCatalog<FieldDef>;
+  /**
+   * Each catalog field's kind (`catalogKinds`): what the matcher, the count
+   * and the print header read to decide whether a condition applies.
+   */
+  kindByKey: Map<string, FilterKind>;
 }
 
 /**
@@ -43,6 +64,7 @@ export function useCardFilterOptions({
   relationTypes,
   groupableTypes,
   includeDescendants,
+  canViewCosts,
 }: CardFilterOptionsInput): CardFilterOptions {
   const { t } = useTranslation(["common"]);
   const { types } = useMetamodel();
@@ -51,6 +73,7 @@ export function useCardFilterOptions({
   const optLabel = useOptionLabel();
   const relLabel = useRelationLabel();
   const subtypeDefLabel = useSubtypeLabel();
+  const rl = useResolveLabel();
 
   const selectedType = useMemo(() => types.find((tp) => tp.key === cardTypeKey), [types, cardTypeKey]);
 
@@ -89,23 +112,31 @@ export function useCardFilterOptions({
     [selectedType, subtypeDefLabel],
   );
 
-  const facetFields = useMemo(() => {
-    const out: FieldDef[] = [];
-    if (!selectedType) return out;
+  const catalog = useMemo<FilterCatalog<FieldDef>>(() => {
+    if (!selectedType) return [];
     const yesNo = { yes: t("common:labels.yes"), no: t("common:labels.no") };
-    for (const section of selectedType.fields_schema) {
-      for (const f of section.fields) {
-        if (!isFacetField(f)) continue;
-        const resolved: FieldDef = {
-          ...f,
-          label: fieldLabel(f),
-          options: f.options?.map((o) => ({ ...o, label: optLabel(o) })),
-        };
-        out.push(resolveFacetField(resolved, yesNo));
-      }
-    }
-    return out;
-  }, [selectedType, fieldLabel, optLabel, t]);
+    return buildFilterCatalog(selectedType.fields_schema, {
+      canViewCosts,
+      sectionLabel: (section) => rl(section.section, section.translations),
+      descriptionLabel: t("common:labels.description"),
+      resolveField: (f): FieldDef =>
+        resolveFacetField(
+          { ...f, label: fieldLabel(f), options: f.options?.map((o) => ({ ...o, label: optLabel(o) })) },
+          yesNo,
+        ),
+    });
+  }, [selectedType, canViewCosts, fieldLabel, optLabel, rl, t]);
 
-  return { relationOptions, relSubtypes, subtypeOptions, facetFields };
+  // The facet fields only: the attribute matcher reads options, which a
+  // text, number or date field does not have.
+  const facetFields = useMemo(
+    () =>
+      catalogFields(catalog)
+        .filter((e) => e.kind === "facet")
+        .map((e) => e.field),
+    [catalog],
+  );
+  const kindByKey = useMemo(() => catalogKinds(catalog), [catalog]);
+
+  return { relationOptions, relSubtypes, subtypeOptions, facetFields, catalog, kindByKey };
 }

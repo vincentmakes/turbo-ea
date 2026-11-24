@@ -33,6 +33,30 @@ Et klik på en gruppe åbner et panel med gruppens kort. Panelets knap **Vis i l
 
 Rækken **Filtre** kan foldes sammen: klik på dens overskrift for at skjule filterkontrollerne og give diagrammet den lodrette plads tilbage. Indstillingen huskes sammen med resten af rapportens konfiguration, så en rapport åbnes igen, præcis som du forlod den. Mens rækken er foldet sammen, viser overskriften stadig, hvor mange filtre der er aktive, og **Ryd alle** er stadig inden for rækkevidde — en sammenfoldet sektion skjuler aldrig, at data er filtreret.
 
+### Tilføjelse af felter at filtrere på {: #add-filter }
+
+Rækken **Felter** viser korttypens valg- og ja/nej-felter. En administrator kan slå en sektion af felter fra med **Skjult fra filtre** i [kortlayout-editoren](../admin/metamodel.md), hvilket er nyttigt, når en type har mange felter, der sjældent filtreres på. Disse felter vises ikke, men er ikke væk: den stiplede **Tilføj filter**-chip i enden af rækken åbner en liste over alle felter, rækken endnu ikke viser, grupperet efter sektion. Skriv i dens søgefelt for at finde et felt ud fra dets eget navn eller sektionens navn; de bedste match kommer først. Brug piletasterne og Enter, eller klik på et felt, for at føje det til rækken.
+
+- Et tilføjet felt får en lille **×**-knap. Den fjerner rækken og rydder de værdier, der er valgt i den.
+- **Ryd alle** rydder værdierne, men beholder de felter, du har tilføjet, så du straks kan vælge nye værdier.
+- De tilføjede felter huskes sammen med rapporten: de kommer tilbage, når du åbner den igen, og gemmes i en gemt rapport. **Nulstil til standarder** og valg af en anden korttype fører rækken tilbage til typens standardfelter.
+- Et felt med en værdi vises altid, også fra en skjult sektion, så en gemt rapport aldrig filtrerer på noget, du ikke kan se.
+- Chippen vises kun, når der er et felt tilbage at tilføje.
+
+**Tilføj filter** lister også typens tekst-, tal- og datofelter, som aldrig vises som standard. Hver art får sin egen kontrol:
+
+| Felttype | Kontrol | Beholder de kort… |
+|----------|---------|-------------------|
+| Tekst, flerlinjet tekst, URL | et søgefelt | hvis værdi indeholder det, du skriver, uanset store og små bogstaver |
+| Tal, procent, omkostning | et **fra**- og et **til**-felt | hvis værdi ligger mellem de to tal, begge inklusive; lad det ene være tomt for «mindst» eller «højst» |
+| Dato | en **fra**- og en **til**-dato | hvis dato ligger mellem de to dage, begge inklusive; lad den ene være tom for «fra og med» eller «til og med» |
+
+Et kort uden værdi i det felt matcher ikke et tekst-, tal- eller datofilter. Rapporten indsnævres, mens du skriver; en dato gælder, når du forlader dens felt. Disse filtre tælles i overskriften, nævnes i overskriften på en udskrift eller eksport (fx *Kode: indeholder «ORG-12»*), ryddes af **Ryd alle** og gemmes med rapporten som alle andre.
+
+Omkostningsfelter tilbydes kun til dem, der må se omkostninger. En gemt rapport eller et delt link med et omkostningsfilter indsnævrer intet for en uden denne tilladelse, og filteret vises eller tælles ikke for vedkommende. **Vis i lager** i porteføljerapporten udelader tekst-, tal- og datofiltre, ligesom relationsundertyper, fordi lageret ikke har noget tilsvarende.
+
+Rapporterne Portefølje, Fleksibel portefølje, Kapabilitetskort og Livscyklus, [PPM-tavlen](ppm.md) og webportalernes filterdialog tilbyder alle **Tilføj filter**.
+
 ### Tidsrejse
 
 Tidslinje-skyderen bærer de samme transformationsinstrumenter som [Afhængighedsrapporten](#afhngighedsrapport): markeringer ved hver dato, hvor en applikation går i drift (blå) eller udfases (rød), piller, der navngiver de applikationer, der ændrer sig, mens skyderen står på en markering, pileknapper, der springer fra ændring til ændring, og chips, der opsummerer transformationen, når du kigger fremad («+4 kommer til · −7 udfases» — de indgår også i print- og eksportoverskrifter). Et klik på en markering eller en pille fremhæver de applikationer, der ændrer sig dér — resten af visningen nedtones, mens de pulserer, og en applikation, der allerede er væk på den valgte dato, vises kun under pulseringen og skjules derefter igen.
@@ -98,7 +122,7 @@ Komponenter vises som vandrette bjælker, der spænder over deres livscyklus-fas
 
 **Afgrænsning til bestemte kort** — Når du har valgt en korttype, åbner chippen ved siden af en vælger: vælg et eller flere kort, og tidslinjen viser kun disse og alt under dem. Underkort medtages automatisk. Chippen er deaktiveret, så længe vælgeren står på *Alle typer*, fordi en afgrænsning kræver ét hierarki.
 
-**Filtrering** — Når en korttype er valgt, tilbyder rapporten den samme **Filtre**-række som **Fleksibel portefølje**: relaterede kort (med *Medtag underkort*), tags, kortets undertype og dets valgfelter samt relationsundertyper, plus et søgefelt. Forskellige filtre virker sammen (et kort skal opfylde dem alle), mens værdierne valgt inden for ét filter er alternativer. En tekst viser, hvor mange kort der matcher, og **Ryd alle** fjerner alle filtre. Filtrene gemmes med rapporten og nævnes enkeltvis i overskriften på en udskrift eller eksport, så publikum ved, hvad tidslinjen dækker. Vælg for eksempel jeres driftskompetencer med *Medtag underkort* slået til og tagget *Egenudviklet* for kun at gennemgå de egenudviklede applikationer bag kernedriften — et udgiftsværktøj som Concur bliver i inventaret, men forsvinder fra denne visning. Under *Alle typer* er filtrene ikke tilgængelige, fordi de læser én korttypes felter, relationer og tags.
+**Filtrering** — Når en korttype er valgt, tilbyder rapporten den samme **Filtre**-række som **Fleksibel portefølje**: relaterede kort (med *Medtag underkort*), tags, kortets undertype og dets valgfelter samt relationsundertyper, plus et søgefelt. Forskellige filtre virker sammen (et kort skal opfylde dem alle), mens værdierne valgt inden for ét filter er alternativer. En tekst viser, hvor mange kort der matcher, og **Ryd alle** fjerner alle filtre og beholder de felter, du har [tilføjet til rækken](#add-filter). Filtrene gemmes med rapporten og nævnes enkeltvis i overskriften på en udskrift eller eksport, så publikum ved, hvad tidslinjen dækker. Vælg for eksempel jeres driftskompetencer med *Medtag underkort* slået til og tagget *Egenudviklet* for kun at gennemgå de egenudviklede applikationer bag kernedriften — et udgiftsværktøj som Concur bliver i inventaret, men forsvinder fra denne visning. Under *Alle typer* er filtrene ikke tilgængelige, fordi de læser én korttypes felter, relationer og tags.
 
 **Sortering** — Menuen **Sortér efter** ordner tidslinjen og tabellen ens: efter navn, type, undertype, aktuel fase, en fasedato (Planlagt, Indfasning, Aktiv, Udfasning, Udløb) eller et af korttypens enkeltvalgsfelter, som forretningskritikalitet, der følger rækkefølgen af feltets muligheder i stedet for alfabetet. I datointervalvisningen tilbydes i stedet startdato, slutdato og farvefeltet. Pilen ved siden af skifter mellem stigende og faldende; kort uden værdi kommer altid sidst, uanset retningen. Et klik på en kolonneoverskrift i tabellen sorterer på samme måde. Sorteringen gemmes med rapporten, og enhver sortering ud over efter navn står i eksportoverskriften.
 

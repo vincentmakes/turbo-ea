@@ -49,6 +49,7 @@ const tr = (key: string) => i18n.t(`reports:${key}`) as string;
 /** A card-list portal's preset with `picks` set, the shape a save sends. */
 const cardFilters = (picks: Record<string, unknown> = {}) => ({
   attrFilters: {},
+  attrConditions: {},
   relationFilters: {},
   relSubtypeFilters: {},
   subtypeFilters: [],
@@ -441,6 +442,78 @@ describe("WebPortalsAdmin — card filters", () => {
     expect(lastBody("patch")).toMatchObject({ filters: { approval_statuses: ["APPROVED"] } });
   });
 
+  it("offers a hidden section's field through Add filter and never sends the added rows", async () => {
+    // Business Information is switched off for filters (#1425).
+    const hiddenApp = {
+      ...APPLICATION_TYPE,
+      fields_schema: APPLICATION_TYPE.fields_schema.map((sec) =>
+        sec.section === "Business Information" ? { ...sec, hideInFilters: true } : sec,
+      ),
+    };
+    withMetamodel([hiddenApp, ...TYPES.filter((tp) => tp.key !== "Application")], RELATION_TYPES);
+    const { user } = await renderList([CARDS_PORTAL]);
+    await user.click(screen.getByRole("button", { name: t("webPortals.editPortal") }));
+    const d = dialog();
+    await d.findByRole("combobox", { name: "Organization" });
+    expect(d.queryByRole("combobox", { name: "Business Criticality" })).toBeNull();
+
+    await user.click(d.getByText(tc("fieldFilters.add")));
+    await user.click(await screen.findByRole("option", { name: "Business Criticality" }));
+    await user.click(await d.findByRole("combobox", { name: "Business Criticality" }));
+    await user.click(await screen.findByRole("option", { name: "Mission Critical" }));
+    await user.keyboard("{Escape}");
+
+    await user.click(d.getByRole("button", { name: t("webPortals.saveChanges") }));
+    await waitFor(() => expect(mockApi.callsOf("patch", "/web-portals/p1")).toHaveLength(1));
+    const sent = (lastBody("patch").filters as { card_filters: Record<string, unknown> }).card_filters;
+    expect(sent).toEqual(
+      cardFilters({
+        subtypeFilters: ["microservice"],
+        tagFilterIds: ["tag-9"],
+        attrFilters: { businessCriticality: ["missionCritical"] },
+      }),
+    );
+    expect("filterFields" in sent).toBe(false);
+  });
+
+  it("sends a text condition added through Add filter, and never offers a cost field (#1425)", async () => {
+    const { user } = await renderList([CARDS_PORTAL]);
+    await user.click(screen.getByRole("button", { name: t("webPortals.editPortal") }));
+    const d = dialog();
+    await d.findByRole("combobox", { name: "Organization" });
+
+    await user.click(d.getByText(tc("fieldFilters.add")));
+    // A portal never filters on costs, whoever sets it up.
+    expect(screen.queryByRole("option", { name: "Total Annual Cost" })).toBeNull();
+    await user.click(await screen.findByRole("option", { name: "Alias" }));
+    await user.type(await d.findByRole("textbox", { name: "Alias" }), " ORG-12 ");
+
+    await user.click(d.getByRole("button", { name: t("webPortals.saveChanges") }));
+    await waitFor(() => expect(mockApi.callsOf("patch", "/web-portals/p1")).toHaveLength(1));
+    const sent = (lastBody("patch").filters as { card_filters: Record<string, unknown> }).card_filters;
+    expect(sent.attrConditions).toEqual({ alias: { contains: "ORG-12" } });
+    expect("filterFields" in sent).toBe(false);
+  });
+
+  it("keeps a reopened condition's row while its box is emptied (#1425)", async () => {
+    // The save strips the added rows: the preset comes back with its value only.
+    const portal: WebPortal = {
+      ...CARDS_PORTAL,
+      filters: { card_filters: cardFilters({ attrConditions: { alias: { contains: "ORG-12" } } }) },
+    };
+    const { user } = await renderList([portal]);
+    await user.click(screen.getByRole("button", { name: t("webPortals.editPortal") }));
+    const d = dialog();
+    const box = await d.findByRole("textbox", { name: "Alias" });
+    expect(box).toHaveValue("ORG-12");
+
+    await user.clear(box);
+    // The control is still mounted, empty, and the same element keeps focus.
+    expect(d.getByRole("textbox", { name: "Alias" })).toBe(box);
+    expect(box).toHaveValue("");
+    expect(box).toHaveFocus();
+  });
+
   it("warns before a resave changes how tags from several groups match", async () => {
     const portal: WebPortal = {
       ...CARDS_PORTAL,
@@ -617,6 +690,210 @@ describe("WebPortalsAdmin — creating a cards portal", () => {
     // A relation whose other end is not a type this metamodel carries (Provider is
     // left out of TYPES above) is not offered — the portal could never render it.
     expect(d.queryByText("(is provided by)")).toBeNull();
+  });
+});
+
+describe("WebPortalsAdmin — visitor filters (#1425)", () => {
+  const box = (item: string) =>
+    dialog().getByRole("checkbox", { name: t("webPortals.visitorFilterFor", { item }) });
+  const queryBox = (item: string) =>
+    dialog().queryByRole("checkbox", { name: t("webPortals.visitorFilterFor", { item }) });
+
+  async function newApplicationPortal() {
+    const result = await openNewPortalForm();
+    await result.user.type(screen.getByRole("textbox", { name: /^portal name/i }), "Apps");
+    await selectOption(result.user, tc("labels.type"), "Application");
+    return result;
+  }
+
+  it("ticks the old bar by default: subtype, tags, the shown selects and shown relations", async () => {
+    await newApplicationPortal();
+    expect(dialog().getByRole("columnheader", { name: t("webPortals.columns.visitorFilter") })).toBeInTheDocument();
+    expect(box(t("webPortals.subtypeFilterRow"))).toBeChecked();
+    expect(box(t("webPortals.builtInProps.tags"))).toBeChecked();
+    expect(box("Business Criticality")).toBeChecked();
+    expect(box("Regions")).toBeChecked();
+    // Filterable, but never on by default: a text, a yes/no, a date field.
+    expect(box("Alias")).not.toBeChecked();
+    expect(box("Cloud Hosted")).not.toBeChecked();
+    expect(box("Go-Live Date")).not.toBeChecked();
+    // A cost field is never a portal filter; a built-in other than tags has no filter.
+    expect(queryBox("Total Annual Cost")).toBeNull();
+    expect(queryBox(t("webPortals.builtInProps.description"))).toBeNull();
+    // A relation type shown nowhere cannot be a filter yet.
+    const itc = box("IT Component (uses)");
+    expect(itc).toBeDisabled();
+    expect(itc).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: new RegExp(t("webPortals.visitorCanAddFilters")) })).toBeChecked();
+  });
+
+  it("disables a row's filter while the property is shown nowhere, and enables it once shown", async () => {
+    const { user } = await newApplicationPortal();
+    const rows = dialog().getAllByRole("row");
+    const regions = rows.find((r) => within(r).queryByText("Regions"))!;
+    const [card, detail] = within(regions).getAllByRole("checkbox");
+    // Regions is in the detail panel only (it is not among the first three).
+    await user.click(detail);
+    expect(card).not.toBeChecked();
+    expect(box("Regions")).toBeDisabled();
+    expect(box("Regions")).not.toBeChecked();
+    await user.click(detail);
+    expect(box("Regions")).toBeEnabled();
+    expect(box("Regions")).toBeChecked();
+
+    const itc = rows.find((r) => within(r).queryByText("IT Component"))!;
+    await user.click(within(itc).getAllByRole("checkbox")[1]);
+    expect(box("IT Component (uses)")).toBeEnabled();
+    // A shown relation type is on by default, like the old bar.
+    expect(box("IT Component (uses)")).toBeChecked();
+  });
+
+  it("hides the tags filter with the tags, and offers no subtype row on a type without subtypes", async () => {
+    const { user } = await newApplicationPortal();
+    const tags = dialog().getAllByRole("row").find((r) =>
+      within(r).queryByText(t("webPortals.builtInProps.tags")),
+    )!;
+    const [card, detail] = within(tags).getAllByRole("checkbox");
+    await user.click(card);
+    await user.click(detail);
+    expect(box(t("webPortals.builtInProps.tags"))).toBeDisabled();
+
+    await selectOption(user, tc("labels.type"), "Business Capability");
+    expect(queryBox(t("webPortals.subtypeFilterRow"))).toBeNull();
+    // Number fields are filters, but not by default.
+    expect(box("Maturity")).not.toBeChecked();
+  });
+
+  it("sends no list while the column is at its default", async () => {
+    const { user } = await newApplicationPortal();
+    // Ticked and unticked again: back at the default.
+    await user.click(box("Alias"));
+    await user.click(box("Alias"));
+    await user.click(dialog().getByRole("button", { name: /^create$/i }));
+    await waitFor(() => expect(mockApi.callsOf("post", "/web-portals")).toHaveLength(1));
+    expect(lastBody("post").card_config).toBeNull();
+  });
+
+  it("groups the fields by section, and a section's box ticks and saves every field in it", async () => {
+    const { user } = await newApplicationPortal();
+    const d = dialog();
+    // The Description section's own field is a group of its own, labelled like card detail.
+    expect(
+      d.getByRole("checkbox", { name: t("webPortals.groupOnCard", { section: tc("labels.description") }) }),
+    ).toBeChecked();
+    const sectionCard = d.getByRole("checkbox", {
+      name: t("webPortals.groupOnCard", { section: "Business Information" }),
+    });
+    // Two of its fields are among the first three on the card: the box is half-filled.
+    expect(sectionCard).toHaveAttribute("data-indeterminate", "true");
+    await user.click(sectionCard);
+    expect(sectionCard).toBeChecked();
+    expect(d.getByRole("checkbox", { name: t("webPortals.showOnCard", { item: "Notes" }) })).toBeChecked();
+
+    await user.click(d.getByRole("button", { name: /^create$/i }));
+    await waitFor(() => expect(mockApi.callsOf("post", "/web-portals")).toHaveLength(1));
+    const toggles = (lastBody("post").card_config as { toggles: Record<string, unknown> }).toggles;
+    const keys = [
+      "businessCriticality",
+      "costTotalAnnual",
+      "isCloud",
+      "goLiveDate",
+      "coverage",
+      "regions",
+      "vendorScore",
+      "docsUrl",
+      "notes",
+    ];
+    expect(toggles).toEqual(Object.fromEntries(keys.map((k) => [`field:${k}`, { card: true, detail: true }])));
+  });
+
+  it("sends the ticked filters once they differ from the default", async () => {
+    const { user } = await newApplicationPortal();
+    await user.click(box("Alias"));
+    await user.click(box(t("webPortals.subtypeFilterRow")));
+    await user.click(dialog().getByRole("button", { name: /^create$/i }));
+    await waitFor(() => expect(mockApi.callsOf("post", "/web-portals")).toHaveLength(1));
+    expect(lastBody("post").card_config).toEqual({
+      visitor_filters: ["tags", "field:alias", "field:businessCriticality", "field:regions"],
+      show_logo: true,
+    });
+  });
+
+  it("sends an empty list when every filter is unticked", async () => {
+    const { user } = await newApplicationPortal();
+    for (const item of [
+      t("webPortals.subtypeFilterRow"),
+      t("webPortals.builtInProps.tags"),
+      "Business Criticality",
+      "Regions",
+    ]) {
+      await user.click(box(item));
+    }
+    await user.click(dialog().getByRole("button", { name: /^create$/i }));
+    await waitFor(() => expect(mockApi.callsOf("post", "/web-portals")).toHaveLength(1));
+    expect(lastBody("post").card_config).toEqual({ visitor_filters: [], show_logo: true });
+  });
+
+  it("writes the switch only when visitors may not add filters", async () => {
+    const { user } = await newApplicationPortal();
+    await user.click(screen.getByRole("checkbox", { name: new RegExp(t("webPortals.visitorCanAddFilters")) }));
+    await user.click(dialog().getByRole("button", { name: /^create$/i }));
+    await waitFor(() => expect(mockApi.callsOf("post", "/web-portals")).toHaveLength(1));
+    // Not dropped by the "nothing configured" collapse.
+    expect(lastBody("post").card_config).toEqual({ visitor_can_add_filters: false, show_logo: true });
+  });
+
+  it("restores the stored column and switch, and keeps them on save", async () => {
+    const stored: WebPortal = {
+      ...CARDS_PORTAL,
+      card_config: {
+        show_logo: false,
+        visitor_filters: ["field:alias", 3, "tags"] as unknown as string[],
+        visitor_can_add_filters: false,
+      },
+    };
+    const { user } = await renderList([stored], true);
+    await user.click(screen.getByRole("button", { name: t("webPortals.editPortal") }));
+    expect(box("Alias")).toBeChecked();
+    expect(box(t("webPortals.builtInProps.tags"))).toBeChecked();
+    expect(box("Business Criticality")).not.toBeChecked();
+    expect(box(t("webPortals.subtypeFilterRow"))).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: new RegExp(t("webPortals.visitorCanAddFilters")) })).not.toBeChecked();
+    await user.click(dialog().getByRole("button", { name: t("webPortals.saveChanges") }));
+    await waitFor(() => expect(mockApi.callsOf("patch", "/web-portals/p1")).toHaveLength(1));
+    expect(lastBody("patch").card_config).toEqual({
+      visitor_filters: ["tags", "field:alias"],
+      visitor_can_add_filters: false,
+      show_logo: false,
+    });
+  });
+
+  it("resets the column to the default when the card type changes", async () => {
+    const { user } = await newApplicationPortal();
+    await user.click(box("Alias"));
+    await selectOption(user, tc("labels.type"), "Business Capability");
+    await selectOption(user, tc("labels.type"), "Application");
+    expect(box("Alias")).not.toBeChecked();
+  });
+
+  it("resets the column to the default when the portal type changes", async () => {
+    const { user } = await newApplicationPortal();
+    // A list of the admin's own, without the subtype filter.
+    await user.click(box(t("webPortals.subtypeFilterRow")));
+    expect(box(t("webPortals.subtypeFilterRow"))).not.toBeChecked();
+    await selectOption(user, /portal type/i, t("webPortals.portalTypePpm"));
+    await selectOption(user, /portal type/i, t("webPortals.portalTypeCards"));
+    // A card list again, now of the pinned Initiatives: the default column, subtype included.
+    expect(screen.getByRole("combobox", { name: tc("labels.type") })).toHaveTextContent("Initiative");
+    expect(box(t("webPortals.subtypeFilterRow"))).toBeChecked();
+  });
+
+  it("opens a portal with no visitor settings with adding allowed, and explains the switch", async () => {
+    const bare: WebPortal = { ...CARDS_PORTAL, card_config: undefined };
+    const { user } = await renderList([bare], true);
+    await user.click(screen.getByRole("button", { name: t("webPortals.editPortal") }));
+    expect(screen.getByRole("checkbox", { name: new RegExp(t("webPortals.visitorCanAddFilters")) })).toBeChecked();
+    expect(dialog().getByText(t("webPortals.visitorCanAddFiltersHint"))).toBeInTheDocument();
   });
 });
 

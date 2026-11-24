@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router";
 import { sanitizeRichHtml } from "@/lib/richHtml";
@@ -52,27 +52,41 @@ import {
 } from "@/theme/tokens";
 import { PercentBar } from "@/components/PercentBar";
 import { OptionChip } from "@/components/OptionChip";
-import { booleanOption } from "@/lib/fieldFacets";
+import { booleanOption, resolveFacetField } from "@/lib/fieldFacets";
 import { todayIsoDate } from "@/lib/dates";
 import TagPicker from "@/components/TagPicker";
+import FilterSelect from "@/components/FilterSelect";
+import FieldFilters from "@/components/filters/FieldFilters";
+import type { FieldFilterState } from "@/lib/fieldFilters";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { publicGet, type ApiError } from "./publicApi";
 import { useLatestRequest } from "@/hooks/useLatestRequest";
 import { failureMessage, wordFailure } from "@/lib/failureMessage";
 import { buildAuthorizeUrl, newNonce } from "@/lib/publicSso";
 import PortalPpmPortfolio from "./PortalPpmPortfolio";
 import {
+  EMPTY_VISITOR_FILTERS,
   cardQueryParams,
+  clearVisitorFilters,
   detailRelationGroups,
   fieldsWithValues,
   hasActiveFilters as anyFilterSet,
   isVisible,
+  knownFilterFields,
+  loadPortalPrefs,
   portalFields,
+  portalFilterCatalog,
   portalRelationTypes,
   portalSilentKey,
   portalToggles,
   relatedTypeKeys,
+  relationFilterKey,
   relationFilterLabel,
+  savePortalPrefs,
+  showsFilter,
   tileRelations,
+  visitorFilterLists,
+  type VisitorFilterState,
 } from "./portalViewerState";
 import { BOARD_MAX_WIDTH, BOARD_GUTTER } from "@/features/ppm/ppmPortfolioFormat";
 import type {
@@ -339,10 +353,9 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
   const [page, setPage] = useState(1);
   const [pageSize] = useState(24);
   const [search, setSearch] = useState("");
-  const [subtype, setSubtype] = useState("");
-  const [attrFilters, setAttrFilters] = useState<Record<string, string>>({});
-  const [relationFilters, setRelationFilters] = useState<Record<string, string>>({});
-  const [tagFilter, setTagFilter] = useState<string[]>([]);
+  // The visitor's filters: the Fields row's value (`FieldFilterState`) plus
+  // the subtype, relation and tag picks.
+  const [filters, setFilters] = useState<VisitorFilterState>(EMPTY_VISITOR_FILTERS);
   const [relationOptions, setRelationOptions] = useState<Record<string, { id: string; name: string }[]>>({});
   const [sortBy, setSortBy] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
@@ -422,13 +435,21 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
     detail: detailRelTypes,
   } = portalRelationTypes(portal);
 
+  // What a visitor may filter on, as the server resolved it (never derived
+  // from the schema here): the shown filters and, unless the admin switched
+  // adding off, the fields "Add filter" offers.
+  const visitorLists = visitorFilterLists(portal);
+  const filterRelTypes = visibleRelTypes.filter((rt) =>
+    showsFilter(visitorLists, relationFilterKey(rt.key)),
+  );
+
   // Stable key for effect dependency
-  const visibleRelKeysStr = visibleRelTypes.map((r) => r.key).join(",");
+  const filterRelKeysStr = filterRelTypes.map((r) => r.key).join(",");
 
   // Fetch relation options (cards of each related type) for filter dropdowns
   useEffect(() => {
-    if (!slug || !visibleRelTypes.length) return;
-    relatedTypeKeys(visibleRelTypes).forEach((typeKey) => {
+    if (!slug || !filterRelTypes.length) return;
+    relatedTypeKeys(filterRelTypes).forEach((typeKey) => {
       publicGet<{ id: string; name: string }[]>(
         `/web-portals/public/${slug}/relation-options?type_key=${typeKey}`
       )
@@ -440,7 +461,45 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
         .catch(() => {});
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, visibleRelKeysStr]);
+  }, [slug, filterRelKeysStr]);
+
+  // The Fields row's catalog, labels resolved the way the detail panel
+  // resolves them.
+  const filterCatalog = useMemo(
+    () =>
+      portalFilterCatalog(portal, visitorFilterLists(portal), {
+        sectionLabel: (section) => rl(section.section, section.translations),
+        descriptionLabel: t("labels.description"),
+        resolveField: (f) =>
+          resolveFacetField(
+            { ...f, label: fieldLabel(f), options: f.options?.map((o) => ({ ...o, label: optLabel(o) })) },
+            { yes: t("labels.yes"), no: t("labels.no") },
+          ),
+      }),
+    [portal, rl, fieldLabel, optLabel, t],
+  );
+
+  // The fields this visitor added on an earlier visit, as long as the portal
+  // still lets them filter on them. Read once per portal payload.
+  useEffect(() => {
+    if (!slug || !portal) return;
+    const remembered = knownFilterFields(loadPortalPrefs(slug).filterFields, filterCatalog);
+    if (remembered.length > 0) setFilters((prev) => ({ ...prev, filterFields: remembered }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, portal]);
+
+  // A change to the filters. A value goes back to page one; an added or
+  // removed row is remembered in the visitor's browser (never a value).
+  const updateFilters = (patch: Partial<VisitorFilterState>) => {
+    setFilters((prev) => ({ ...prev, ...patch }));
+    if (patch.filterFields && slug) savePortalPrefs(slug, { filterFields: patch.filterFields });
+    if (Object.keys(patch).some((k) => k !== "filterFields")) setPage(1);
+  };
+
+  // Typed conditions (contains, ranges) are sent once typing settles; a pick
+  // is sent at once.
+  const [debouncedConditions, conditionsPending] = useDebouncedValue(filters.attrConditions, 300);
+  const { subtypeFilters, attrFilters, relationFilters, tagFilterIds } = filters;
 
   // Keyed on every filter, so it runs as the newest request: a reply for the
   // previous query can neither overwrite this one's cards nor put its error
@@ -456,10 +515,13 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
         try {
           const params = cardQueryParams({
             search,
-            subtype,
-            attrFilters,
-            relationFilters,
-            tagFilter,
+            filters: {
+              subtypeFilters,
+              attrFilters,
+              attrConditions: debouncedConditions,
+              relationFilters,
+              tagFilterIds,
+            },
             page,
             pageSize,
             sortBy,
@@ -482,7 +544,20 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
           if (isCurrent()) setFsLoading(false);
         }
       }),
-    [cardsRequest, slug, search, subtype, attrFilters, relationFilters, tagFilter, page, pageSize, sortBy, sortDir],
+    [
+      cardsRequest,
+      slug,
+      search,
+      subtypeFilters,
+      attrFilters,
+      debouncedConditions,
+      relationFilters,
+      tagFilterIds,
+      page,
+      pageSize,
+      sortBy,
+      sortDir,
+    ],
   );
 
   useEffect(() => {
@@ -501,19 +576,18 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
 
   const totalPages = Math.ceil(total / pageSize);
 
-  // The fields on a tile (per toggle, else the first three), in the detail
-  // panel (per toggle, else all), and the select fields offered as filters.
-  const {
-    card: cardVisibleFields,
-    detail: detailVisibleFields,
-    filterable: filterableFields,
-  } = portalFields(portal);
+  // The fields on a tile (per toggle, else the first three) and in the detail
+  // panel (per toggle, else all).
+  const { card: cardVisibleFields, detail: detailVisibleFields } = portalFields(portal);
   const cardToggles = portalToggles(portal);
 
   const show = (key: string, mode: "card" | "detail", fallback = true) =>
     isVisible(cardToggles, key, mode, fallback);
 
-  const hasActiveFilters = anyFilterSet({ subtype, attrFilters, relationFilters, tagFilter });
+  const hasActiveFilters = anyFilterSet(filters);
+  // Still loading while a typed condition waits to be sent: the grid must not
+  // look settled over the previous query's cards.
+  const cardsLoading = fsLoading || conditionsPending;
 
   if (loading || signingIn) {
     return (
@@ -809,111 +883,66 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
                 pb: 0.5,
               }}
             >
-              {portal.type_info?.subtypes &&
-                portal.type_info.subtypes.length > 0 && (
-                  <TextField
-                    select
-                    size="small"
-                    label={t("portal.filterSubtype")}
-                    value={subtype}
-                    onChange={(e) => {
-                      setSubtype(e.target.value);
-                      setPage(1);
-                    }}
-                    sx={{ width: 180 }}
-                  >
-                    <MenuItem value="">{t("portal.allSubtypes")}</MenuItem>
-                    {portal.type_info.subtypes.map((st) => (
-                      <MenuItem key={st.key} value={st.key}>
-                        {stLabel(st)}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                )}
+              <FieldFilters
+                catalog={filterCatalog}
+                value={filters}
+                onChange={(patch: Partial<FieldFilterState>) => updateFilters(patch)}
+                fixed={
+                  <>
+                    {filterRelTypes.map((rt) => {
+                      const opts = relationOptions[rt.other_type_key] || [];
+                      if (opts.length === 0) return null;
+                      // The filter state is keyed by relation type, so two relation
+                      // types reaching one card type add their verb to tell apart.
+                      const relFilterLabel = relationFilterLabel(rt, filterRelTypes, relLabel);
+                      return (
+                        <FilterSelect
+                          key={rt.key}
+                          label={relFilterLabel}
+                          options={opts.map((o) => ({ key: o.id, label: o.name }))}
+                          value={relationFilters[rt.key] || []}
+                          onChange={(v) =>
+                            updateFilters({ relationFilters: { ...relationFilters, [rt.key]: v } })
+                          }
+                        />
+                      );
+                    })}
 
-              {filterableFields.map((field) => (
-                <TextField
-                  key={field.key}
-                  select
-                  size="small"
-                  label={fieldLabel(field)}
-                  value={attrFilters[field.key] || ""}
-                  onChange={(e) => {
-                    setAttrFilters((prev) => ({
-                      ...prev,
-                      [field.key]: e.target.value,
-                    }));
-                    setPage(1);
-                  }}
-                  sx={{ width: 180 }}
-                >
-                  <MenuItem value="">{t("labels.all")}</MenuItem>
-                  {field.options!.map((opt) => (
-                    <MenuItem key={opt.key} value={opt.key}>
-                      {optLabel(opt)}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              ))}
-
-              {visibleRelTypes.map((rt) => {
-                const opts = relationOptions[rt.other_type_key] || [];
-                if (opts.length === 0) return null;
-                // The filter state is keyed by relation type, so two relation
-                // types reaching one card type add their verb to tell apart.
-                const relFilterLabel = relationFilterLabel(rt, visibleRelTypes, relLabel);
-                return (
-                  <TextField
-                    key={rt.key}
-                    select
-                    size="small"
-                    label={relFilterLabel}
-                    value={relationFilters[rt.key] || ""}
-                    onChange={(e) => {
-                      setRelationFilters((prev) => ({
-                        ...prev,
-                        [rt.key]: e.target.value,
-                      }));
-                      setPage(1);
-                    }}
-                    sx={{ width: 200 }}
-                  >
-                    <MenuItem value="">
-                      {t("portal.allRelType", { label: relFilterLabel })}
-                    </MenuItem>
-                    {opts.map((o) => (
-                      <MenuItem key={o.id} value={o.id}>
-                        {o.name}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                );
-              })}
-
-              {(portal.tag_groups || []).some((g) => (g.tags || []).length > 0) && (
-                <TagPicker
-                  groups={(portal.tag_groups || []) as unknown as TagGroup[]}
-                  value={tagFilter}
-                  onChange={(ids) => {
-                    setTagFilter(ids);
-                    setPage(1);
-                  }}
-                  size="small"
-                  label={t("portal.tags")}
-                  placeholder=""
-                  sx={{ width: 200 }}
-                />
-              )}
+                    {showsFilter(visitorLists, "tags") &&
+                      (portal.tag_groups || []).some((g) => (g.tags || []).length > 0) && (
+                      <TagPicker
+                        groups={(portal.tag_groups || []) as unknown as TagGroup[]}
+                        value={tagFilterIds}
+                        onChange={(ids) => updateFilters({ tagFilterIds: ids })}
+                        size="small"
+                        label={t("portal.tags")}
+                        placeholder=""
+                        sx={{ width: 200 }}
+                      />
+                    )}
+                  </>
+                }
+              >
+                {showsFilter(visitorLists, "subtype") &&
+                  (portal.type_info?.subtypes ?? []).length > 0 && (
+                    <FilterSelect
+                      label={t("portal.filterSubtype")}
+                      options={(portal.type_info?.subtypes ?? []).map((st) => ({
+                        key: st.key,
+                        label: stLabel(st),
+                      }))}
+                      value={subtypeFilters}
+                      onChange={(v) => updateFilters({ subtypeFilters: v })}
+                    />
+                  )}
+              </FieldFilters>
 
               {hasActiveFilters && (
                 <Chip
                   label={t("portal.clearFilters")}
                   size="small"
                   onDelete={() => {
-                    setSubtype("");
-                    setAttrFilters({});
-                    setRelationFilters({});
-                    setTagFilter([]);
+                    setFilters(clearVisitorFilters);
                     setPage(1);
                   }}
                 />
@@ -922,7 +951,7 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
           </Collapse>
         </Box>
 
-        {fsLoading && <LinearProgress sx={{ height: 2 }} />}
+        {cardsLoading && <LinearProgress sx={{ height: 2 }} />}
 
         {/* Cards Grid */}
         <Box sx={{ maxWidth: 1200, mx: "auto", px: { xs: 2, md: 4 }, py: 3 }}>
@@ -932,7 +961,7 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
               {wordFailure(cardsError, t)}
             </Alert>
           )}
-          {cards.length === 0 && !fsLoading && !cardsError && (
+          {cards.length === 0 && !cardsLoading && !cardsError && (
             <Box sx={{ textAlign: "center", py: 8 }}>
               <Icon name="search_off" size={48} color={theme.palette.action.disabled} />
               <Typography variant="h6" color="text.secondary" sx={{ mt: 1 }}>

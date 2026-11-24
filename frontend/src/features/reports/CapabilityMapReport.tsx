@@ -65,6 +65,20 @@ import {
   type FacetLabels,
 } from "@/lib/fieldFacets";
 import {
+  buildFilterCatalog,
+  catalogKinds,
+  countActiveConditions,
+  matchesConditions,
+  restoreAttrConditions,
+  restoreFilterFields,
+  withActiveFilterFields,
+} from "@/lib/fieldFilters";
+import type { AttrCondition, FilterKind } from "@/lib/fieldFilters";
+import { useOptionalAuthUser } from "@/hooks/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
+import type { FieldFilterState, FilterCatalog } from "@/lib/fieldFilters";
+import FieldFilters from "@/components/filters/FieldFilters";
+import {
   CARD_TYPE_COLORS,
   CHART_LABEL_ON_DARK,
   EOL_WARNING_COLOR,
@@ -80,7 +94,13 @@ import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTimeline } from "@/hooks/useTimeline";
 import { applyScope, useCardScope } from "@/hooks/useCardScope";
-import { useTypeLabel, useFieldLabel, useOptionLabel, useRelationLabel } from "@/hooks/useResolveLabel";
+import {
+  useTypeLabel,
+  useFieldLabel,
+  useOptionLabel,
+  useRelationLabel,
+  useResolveLabel,
+} from "@/hooks/useResolveLabel";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -104,6 +124,8 @@ interface FieldDef {
 interface SectionDef {
   section: string;
   fields: FieldDef[];
+  translations?: Record<string, string>;
+  hideInFilters?: boolean;
 }
 
 interface AppData {
@@ -251,6 +273,12 @@ function getAppColorLabel(
   return bucket.kind === "unset" ? null : bucket.label;
 }
 
+/** The text / number / date conditions an app is matched against. */
+interface AppConditions {
+  values: Record<string, AttrCondition>;
+  kinds: ReadonlyMap<string, FilterKind>;
+}
+
 /**
  * Filter an app based on active attribute, relation and tag filters. The
  * timeline date is deliberately NOT part of this matcher: the milestone
@@ -270,9 +298,13 @@ function matchesFilters(
   /** The card's own facet fields: a filter on one of them goes through the
    *  shared facet rule (Yes / No for a boolean, any-of for a multi-select). */
   fields: FieldDef[] = [],
+  /** Text / number / date conditions and the reader's catalog kinds: a
+   *  condition applies only on a field in the catalog (`lib/fieldFilters.ts`). */
+  conditions?: AppConditions,
 ): boolean {
   // Attribute filters
   const attrs = app.attributes || {};
+  if (!matchesConditions(attrs, conditions?.values, conditions?.kinds)) return false;
   for (const [key, vals] of Object.entries(attrFilters)) {
     if (vals.length === 0) continue;
     const facet = fields.find((f) => f.key === key);
@@ -357,12 +389,13 @@ function buildTree(
   /** "full": an app's whole cost counts on every branch it supports.
    *  "split": only the share of its capabilities inside the branch. */
   attribution: Attribution = "full",
+  conditions?: AppConditions,
 ): CapNode[] {
   const nodeMap = new Map<string, CapNode>();
   for (const item of items) {
     const filteredApps = item.apps.filter(
       (a) =>
-        matchesFilters(a, attrFilters, relationFilters, tagFilterIds, tagGroups, relTypeKeys, fields) &&
+        matchesFilters(a, attrFilters, relationFilters, tagFilterIds, tagGroups, relTypeKeys, fields, conditions) &&
         (isAliveAtDate(a.lifecycle, timelineDate) || revealedForPulse.has(a.id)),
     );
     nodeMap.set(item.id, {
@@ -800,6 +833,7 @@ export default function CapabilityMapReport() {
   const relLabel = useRelationLabel();
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
+  const rl = useResolveLabel();
   const saved = useSavedReport("capability-map");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
 
@@ -838,6 +872,12 @@ export default function CapabilityMapReport() {
   const [attrFilters, setAttrFilters] = useState<Record<string, string[]>>({});
   const [relationFilters, setRelationFilters] = useState<Record<string, string[]>>({});
   const [tagFilterIds, setTagFilterIds] = useState<string[]>([]);
+  // The fields added through "Add filter" (#1425): which rows show, not what
+  // matches. Kept by Clear all; Reset empties it.
+  const [filterFields, setFilterFields] = useState<string[]>([]);
+  // Text / number / date conditions (#1425): values, so Clear all and Reset
+  // clear them; applied only on a field in this reader's catalog.
+  const [attrConditions, setAttrConditions] = useState<Record<string, AttrCondition>>({});
   const [tagGroupsData, setTagGroupsData] = useState<TagGroupDef[]>([]);
   const [showAllRelFilters, setShowAllRelFilters] = useState(false);
   // Fold the filter block away. Expanded by default; persisted with the rest
@@ -866,6 +906,15 @@ export default function CapabilityMapReport() {
       }
       if (cfg.attrFilters) setAttrFilters(cfg.attrFilters as Record<string, string[]>);
       if (cfg.relationFilters) setRelationFilters(cfg.relationFilters as Record<string, string[]>);
+      // Every field holding a value gets a row of its own, so clearing a value
+      // restored without its added row does not unmount the control mid-edit.
+      const restoredFields = withActiveFilterFields({
+        attrFilters: (cfg.attrFilters as Record<string, string[]> | undefined) ?? {},
+        attrConditions: restoreAttrConditions(cfg.attrConditions),
+        filterFields: restoreFilterFields(cfg.filterFields),
+      });
+      setFilterFields(restoredFields.filterFields);
+      setAttrConditions(restoredFields.attrConditions);
       if (cfg.filtersCollapsed != null) setFiltersCollapsed(!!cfg.filtersCollapsed);
       // Migrate prior `{groupId: tagIds[]}` shape to a flat `string[]`
       if (cfg.tagFilterIds) {
@@ -882,12 +931,12 @@ export default function CapabilityMapReport() {
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ metric, attribution, displayLevel, columns, showApps, colorBy, timelineDate: tl.persistValue, attrFilters, relationFilters, tagFilterIds, scopeIds, filtersCollapsed });
+  const getConfig = () => ({ metric, attribution, displayLevel, columns, showApps, colorBy, timelineDate: tl.persistValue, attrFilters, relationFilters, tagFilterIds, filterFields, attrConditions, scopeIds, filtersCollapsed });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [metric, attribution, displayLevel, columns, showApps, colorBy, tl.timelineDate, attrFilters, relationFilters, tagFilterIds, scopeIds, filtersCollapsed]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [metric, attribution, displayLevel, columns, showApps, colorBy, tl.timelineDate, attrFilters, relationFilters, tagFilterIds, filterFields, attrConditions, scopeIds, filtersCollapsed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -903,6 +952,8 @@ export default function CapabilityMapReport() {
     setAttrFilters({});
     setRelationFilters({});
     setTagFilterIds([]);
+    setFilterFields([]);
+    setAttrConditions({});
     setShowAllRelFilters(false);
     setFiltersCollapsed(false);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -927,6 +978,39 @@ export default function CapabilityMapReport() {
       ),
     );
   }, [fieldsSchema, fieldLabel, optLabel, colorLabels]);
+
+  // The Fields row's catalog (shared with the other reports through
+  // `FieldFilters`): which fields show by default and which "Add filter"
+  // offers. `selectFields` stays every facet field — colour and matching read them all.
+  const { canViewCostsGlobally: canViewCosts } = usePermissions(useOptionalAuthUser());
+  const fieldCatalog = useMemo<FilterCatalog<FieldDef>>(
+    () =>
+      buildFilterCatalog(fieldsSchema, {
+        canViewCosts,
+        sectionLabel: (section) => rl(section.section, section.translations),
+        descriptionLabel: t("common:labels.description"),
+        resolveField: (f) =>
+          resolveFacetField(
+            { ...f, label: fieldLabel(f), options: f.options?.map((o) => ({ ...o, label: optLabel(o) })) },
+            colorLabels,
+          ),
+      }),
+    [fieldsSchema, canViewCosts, fieldLabel, optLabel, colorLabels, rl, t],
+  );
+  const conditionKinds = useMemo(() => catalogKinds(fieldCatalog), [fieldCatalog]);
+  const appConditions = useMemo<AppConditions>(
+    () => ({ values: attrConditions, kinds: conditionKinds }),
+    [attrConditions, conditionKinds],
+  );
+  const fieldFilterValue = useMemo<FieldFilterState>(
+    () => ({ attrFilters, attrConditions, filterFields }),
+    [attrFilters, attrConditions, filterFields],
+  );
+  const handleFieldFiltersChange = useCallback((patch: Partial<FieldFilterState>) => {
+    if (patch.attrFilters) setAttrFilters(patch.attrFilters);
+    if (patch.attrConditions) setAttrConditions(patch.attrConditions);
+    if (patch.filterFields) setFilterFields(patch.filterFields);
+  }, []);
 
   // The field the apps are coloured by, or "" — the picker's no-colour value,
   // which no field key can collide with.
@@ -999,8 +1083,10 @@ export default function CapabilityMapReport() {
     [data, tl.todayMs],
   );
 
+  const activeConditionCount = countActiveConditions(attrConditions, conditionKinds);
   const hasActiveFilters =
     Object.values(attrFilters).some((v) => v.length > 0) ||
+    activeConditionCount > 0 ||
     Object.values(relationFilters).some((v) => v.length > 0) ||
     tagFilterIds.length > 0;
 
@@ -1102,14 +1188,14 @@ export default function CapabilityMapReport() {
         if (
           matchesFilters(
             app, attrFilters, relationFilters, tagFilterIds, tagGroupsData, allRelTypeKeys,
-            selectFields,
+            selectFields, appConditions,
           )
         )
           byId.set(app.id, app);
       }
     }
     return [...byId.values()];
-  }, [scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, allRelTypeKeys, selectFields]);
+  }, [scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, allRelTypeKeys, selectFields, appConditions]);
 
   const milestones = useMemo(
     () => computeTimelineMilestones(milestoneScope.map((a) => a.lifecycle)),
@@ -1164,8 +1250,8 @@ export default function CapabilityMapReport() {
   }, [milestoneScope, tl.timelineDate, tl.todayMs]);
 
   const tree = useMemo(
-    () => (scopedData ? buildTree(scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys, revealedForPulse, allRelTypeKeys, selectFields, attribution) : []),
-    [scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys, revealedForPulse, allRelTypeKeys, selectFields, attribution],
+    () => (scopedData ? buildTree(scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys, revealedForPulse, allRelTypeKeys, selectFields, attribution, appConditions) : []),
+    [scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys, revealedForPulse, allRelTypeKeys, selectFields, attribution, appConditions],
   );
   const maxLvl = useMemo(() => getMaxLevel(tree), [tree]);
 
@@ -1291,7 +1377,11 @@ export default function CapabilityMapReport() {
     return facetLegend(fd, colorLabels, anyMultiple).map(({ label, color }) => ({ label, color }));
   }, [colorKey, selectFields, colorLabels, milestoneScope]);
 
-  const activeFilterCount = Object.values(attrFilters).flat().length + Object.values(relationFilters).flat().length + tagFilterIds.length;
+  const activeFilterCount =
+    Object.values(attrFilters).flat().length +
+    activeConditionCount +
+    Object.values(relationFilters).flat().length +
+    tagFilterIds.length;
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
     const mo = METRIC_OPTIONS.find((o) => o.key === metric);
@@ -1486,6 +1576,7 @@ export default function CapabilityMapReport() {
                 hasActiveFilters
                   ? () => {
                       setAttrFilters({});
+                      setAttrConditions({});
                       setRelationFilters({});
                       setTagFilterIds([]);
                     }
@@ -1594,7 +1685,7 @@ export default function CapabilityMapReport() {
               )}
 
               {/* Own Fields section */}
-              {selectFields.length > 0 && (
+              {fieldCatalog.length > 0 && (
                 <Box
                   sx={{
                     display: "flex",
@@ -1613,21 +1704,11 @@ export default function CapabilityMapReport() {
                   >
                     {t("capabilityMap.fields")}
                   </Typography>
-                  {selectFields.map((f) => (
-                    <FilterSelect
-                      key={f.key}
-                      label={f.label}
-                      options={(f.options || []).map((o) => ({
-                        key: o.key,
-                        label: o.label,
-                        color: o.color,
-                      }))}
-                      value={attrFilters[f.key] || []}
-                      onChange={(v) =>
-                        setAttrFilters((prev) => ({ ...prev, [f.key]: v }))
-                      }
-                    />
-                  ))}
+                  <FieldFilters
+                    catalog={fieldCatalog}
+                    value={fieldFilterValue}
+                    onChange={handleFieldFiltersChange}
+                  />
                 </Box>
               )}
             </ReportFilterSection>

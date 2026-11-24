@@ -7,7 +7,13 @@ import { renderHook } from "@testing-library/react";
 
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
 
-import { APPLICATION_TYPE, IT_COMPONENT_TYPE, makeCardType } from "@/test/fixtures/metamodel";
+import {
+  APPLICATION_TYPE,
+  IT_COMPONENT_TYPE,
+  makeCardType,
+  makeField,
+  makeSection,
+} from "@/test/fixtures/metamodel";
 import { withMetamodel } from "@/test/hooks";
 import { useCardFilterOptions, type CardFilterOptionsInput } from "./useCardFilterOptions";
 import type { RelTypeDef } from "./portfolioHelpers";
@@ -39,6 +45,7 @@ function run(input: Partial<CardFilterOptionsInput> = {}) {
       relationTypes: [OWNS, USES],
       groupableTypes: GROUPABLE,
       includeDescendants: false,
+      canViewCosts: false,
       ...input,
     }),
   ).result.current;
@@ -91,6 +98,8 @@ describe("useCardFilterOptions", () => {
       relSubtypes: [],
       subtypeOptions: [],
       facetFields: [],
+      catalog: [],
+      kindByKey: new Map(),
     });
   });
 
@@ -98,5 +107,62 @@ describe("useCardFilterOptions", () => {
     const out = run({ cardTypeKey: "Unknown", relationTypes: [] });
     expect(out.subtypeOptions).toEqual([]);
     expect(out.facetFields).toEqual([]);
+    expect(out.catalog).toEqual([]);
+  });
+
+  it("builds the filter catalog: sections labelled, hidden ones offered but not shown (#1425)", () => {
+    const risk = makeField({
+      key: "risk",
+      label: "Risk",
+      type: "single_select",
+      options: [{ key: "high", label: "High", translations: { de: "Hoch" } }],
+      translations: { de: "Risiko" },
+    });
+    const flag = makeField({ key: "flag", label: "Flag", type: "boolean" });
+    withMetamodel([
+      makeCardType({
+        key: "Gadget",
+        label: "Gadget",
+        fields_schema: [
+          makeSection({ section: "__description", fields: [flag] }),
+          makeSection({
+            section: "Compliance",
+            hideInFilters: true,
+            translations: { de: "Konformität" },
+            fields: [risk, makeField({ key: "note", label: "Note", type: "text" })],
+          }),
+        ],
+      }),
+    ]);
+    const { catalog, facetFields } = run({ cardTypeKey: "Gadget", relationTypes: [] });
+    expect(catalog.map((s) => [s.key, s.label, s.hidden])).toEqual([
+      ["__description", "Description", false],
+      ["Compliance", "Compliance", true],
+    ]);
+    expect(catalog[0].fields[0].shownByDefault).toBe(true);
+    // A yes/no field gains its Yes / No options, as everywhere else.
+    expect(catalog[0].fields[0].field.options?.map((o) => o.label)).toEqual(["Yes", "No"]);
+    // The text field is added through "Add filter", never shown by default.
+    expect(catalog[1].fields.map((f) => [f.field.key, f.kind, f.shownByDefault])).toEqual([
+      ["risk", "facet", false],
+      ["note", "text", false],
+    ]);
+    // The matcher still reads every facet field, the hidden section's included,
+    // and no text field.
+    expect(facetFields.map((f) => f.key)).toEqual(["flag", "risk"]);
+  });
+
+  it("offers a cost field only when told the reader may see costs, and maps every kind", () => {
+    const keysOf = (canViewCosts: boolean) =>
+      run({ canViewCosts }).catalog.flatMap((s) => s.fields.map((f) => f.field.key));
+    expect(keysOf(false)).not.toContain("costTotalAnnual");
+    expect(keysOf(true)).toContain("costTotalAnnual");
+    const { kindByKey, facetFields } = run({ canViewCosts: true });
+    expect(kindByKey.get("alias")).toBe("text");
+    expect(kindByKey.get("costTotalAnnual")).toBe("number");
+    expect(kindByKey.get("goLiveDate")).toBe("date");
+    expect(kindByKey.get("businessCriticality")).toBe("facet");
+    expect(facetFields.every((f) => kindByKey.get(f.key) === "facet")).toBe(true);
+    expect(facetFields.map((f) => f.key)).not.toContain("alias");
   });
 });

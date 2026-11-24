@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import copy
-import json
 import logging
 import re
 import uuid
@@ -11,7 +10,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.types import Text
 
 from app.api.deps import get_current_user
 from app.api.v1.auth import _is_secure_request
@@ -189,6 +187,16 @@ def _normalise_filters(filters: object, view: str) -> object:
     return out
 
 
+def _normalise_card_config(card_config: object, view: str) -> object:
+    """``card_config`` with its visitor filter settings normalised
+    (``portal_visibility.normalise_visitor_filter_config``); a malformed
+    setting is a 422."""
+    try:
+        return portal_visibility.normalise_visitor_filter_config(card_config, view)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
 def _portal_to_dict(p: WebPortal) -> dict:
     return {
         "id": str(p.id),
@@ -279,12 +287,16 @@ class _PortalAuditLabels:
         return [self.fields.get(k, k) if isinstance(k, str) else k for k in keys]
 
     def item_labels(self) -> dict[str, str]:
-        """``card_config.toggles`` key → label: a field key → its label,
-        ``rel:<key>`` → the relation type's label; a built-in property keeps its
-        key, a code the Security log translates."""
+        """``card_config.toggles`` / ``visitor_filters`` key → label: a field
+        key (bare or ``field:<key>``) → its label, ``rel:<key>`` → the relation
+        type's label; a built-in property and ``subtype`` keep their key, a
+        code the Security log translates."""
         labels = dict(self.fields)
+        labels.update({f"field:{k}": v for k, v in self.fields.items()})
         labels.update({f"rel:{k}": v for k, v in self.relations.items()})
         labels.update({k: k for k in portal_visibility.BUILT_IN_TOGGLES.values()})
+        # A visitor filter on the subtype: a code the Security log translates.
+        labels["subtype"] = "subtype"
         return labels
 
 
@@ -384,7 +396,9 @@ async def _card_filter_labels(
         labels.facets[composite] = f"{rel_label} · {fdef.get('label') or field_key}"
         labels.options.update(_option_labels(composite, fdef))
     for cf in values:
-        labels.facets.update({k: labels.fields[k] for k in cf["attrFilters"] if k in labels.fields})
+        for key in (*cf["attrFilters"], *cf["attrConditions"]):
+            if key in labels.fields:
+                labels.facets[key] = labels.fields[key]
 
     card_ids = portal_card_filters.uuids(
         v for cf in values for vals in cf["relationFilters"].values() for v in vals
@@ -397,9 +411,13 @@ async def _card_filter_labels(
 def _toggle_relation_keys(*configs: object) -> set[str]:
     keys: set[str] = set()
     for config in configs:
+        listed = config.get("visitor_filters") if isinstance(config, dict) else None
         keys.update(
             k.removeprefix("rel:")
-            for k in portal_visibility.portal_toggles(config)
+            for k in [
+                *portal_visibility.portal_toggles(config),
+                *(listed if isinstance(listed, list) else []),
+            ]
             if isinstance(k, str) and k.startswith("rel:")
         )
     return keys
@@ -444,12 +462,46 @@ async def _portal_audit_labels(db: AsyncSession, *snapshots: dict) -> _PortalAud
     return labels
 
 
+async def _shown_visitor_filters(db: AsyncSession, snapshot: dict) -> tuple[str, ...]:
+    """The visitor filters a snapshot's bar shows, the default included
+    (``load_portal_visibility``); none for a portal that is not a card list."""
+    if (snapshot.get("view") or "cards") != "cards" or not snapshot.get("card_type"):
+        return ()
+    visibility = await portal_visibility.load_portal_visibility(
+        db, snapshot["card_type"], snapshot.get("card_config")
+    )
+    return visibility.visitor_filters.shown
+
+
+async def _visitor_filters_shown(
+    db: AsyncSession, before: dict, after: dict
+) -> tuple[tuple[str, ...], tuple[str, ...]] | None:
+    """Both sides' resolved visitor filters, each with its own card type, view
+    and toggles — or ``None`` when the admin's own ``visitor_filters`` setting
+    did not change. A change to the page's toggles also moves the default bar
+    (showing a relation adds its filter), but that is the toggle's own log line:
+    logging it again as a filter change would double every toggle entry."""
+
+    def stored(snapshot: dict) -> object:
+        config = snapshot.get("card_config")
+        return config.get("visitor_filters") if isinstance(config, dict) else None
+
+    if stored(before) == stored(after):
+        return None
+    return await _shown_visitor_filters(db, before), await _shown_visitor_filters(db, after)
+
+
 def _portal_audit_changes(
-    before: dict, after: dict, labels: _PortalAuditLabels
+    before: dict,
+    after: dict,
+    labels: _PortalAuditLabels,
+    visitor_filters_shown: tuple[tuple[str, ...], tuple[str, ...]] | None = None,
 ) -> tuple[dict, list]:
     """``(changes, items)`` between two snapshots: plain columns as old/new
     pairs (the card type and ``display_fields`` as labels, the description as
-    clipped text), the configuration blobs as semantic change items."""
+    clipped text), the configuration blobs as semantic change items. The
+    visitor filter items diff ``visitor_filters_shown`` when given
+    (``_visitor_filters_shown``)."""
     plain = (*_PORTAL_AUDIT_FIELDS, "description", "display_fields")
     changes = audit_log.diff(before, after, keys=plain)
     if "card_type" in changes:
@@ -479,6 +531,7 @@ def _portal_audit_changes(
             before.get("card_config"),
             after.get("card_config"),
             item_labels=labels.item_labels(),
+            visitor_filters_shown=visitor_filters_shown,
         ),
     ]
     return changes, audit_changes.cap_items(items)
@@ -517,7 +570,7 @@ async def create_portal(
         card_type=card_type,
         filters=_normalise_filters(body.filters, view),
         display_fields=body.display_fields,
-        card_config=body.card_config,
+        card_config=_normalise_card_config(body.card_config, view),
         is_published=body.is_published,
         view=view,
         access_mode=access_mode,
@@ -647,6 +700,14 @@ async def update_portal(
         if "filters" not in body.model_fields_set and updates["filters"] == portal.filters:
             del updates["filters"]
 
+    if "card_config" in updates or "view" in updates:
+        eff_view = updates.get("view", portal.view) or "cards"
+        card_config = _normalise_card_config(
+            updates.get("card_config", portal.card_config), eff_view
+        )
+        if "card_config" in updates or card_config != portal.card_config:
+            updates["card_config"] = card_config
+
     if "access_mode" in updates or "allowed_email_domains" in updates:
         eff_mode = updates.get("access_mode", portal.access_mode)
         eff_domains = updates.get("allowed_email_domains", portal.allowed_email_domains)
@@ -660,7 +721,8 @@ async def update_portal(
 
     audit_after = _portal_audit_snapshot(portal)
     labels = await _portal_audit_labels(db, audit_before, audit_after)
-    changes, items = _portal_audit_changes(audit_before, audit_after, labels)
+    shown = await _visitor_filters_shown(db, audit_before, audit_after)
+    changes, items = _portal_audit_changes(audit_before, audit_after, labels, shown)
     if changes or items:
         await audit_log.record(
             db,
@@ -885,11 +947,19 @@ async def get_public_portal(
             }
         )
 
+    # What a visitor may filter on, resolved here once for the viewer and by
+    # the same function the cards route enforces with.
+    visibility = await portal_visibility.load_portal_visibility(
+        db, portal.card_type, portal.card_config
+    )
+
     # Fetch tag groups applicable to this portal's card type (honour
-    # `restrict_to_types`) so the filter bar only offers relevant groups.
+    # `restrict_to_types`) so the filter bar only offers relevant groups —
+    # none at all when the page hides tags: their names are not published.
     tag_groups_result = await db.execute(select(TagGroup).order_by(TagGroup.name))
     tag_groups = []
-    for tg in tag_groups_result.scalars().all():
+    shown_groups = tag_groups_result.scalars().all() if visibility.shows_built_in("tags") else []
+    for tg in shown_groups:
         if tg.restrict_to_types and portal.card_type not in tg.restrict_to_types:
             continue
         tags_result = await db.execute(
@@ -919,6 +989,7 @@ async def get_public_portal(
         "type_info": type_info,
         "relation_types": rel_types,
         "tag_groups": tag_groups,
+        "visitor_filters": visibility.visitor_filters.as_payload(),
     }
 
 
@@ -940,7 +1011,9 @@ async def get_public_portal_relation_options(
     visibility = await portal_visibility.load_portal_visibility(
         db, portal.card_type, portal.card_config
     )
-    rel_keys = visibility.relation_types_reaching(type_key)
+    # Only a relation filter the visitor may use: with adding switched off,
+    # one the admin did not list is not offered, so its cards are not named.
+    rel_keys = portal_visibility.filterable_relation_types(visibility, type_key)
     if not rel_keys:
         return []
 
@@ -975,9 +1048,20 @@ async def get_public_portal_relation_options(
 
 
 @router.get("/public/{slug}/cards")
+@limiter.limit("240/minute")
 async def get_public_portal_cards(
     slug: str,
+    request: Request,
     search: str | None = Query(None),
+    filters: str | None = Query(
+        None,
+        description=(
+            "The visitor's filters as a JSON object: subtypeFilters, attrFilters, "
+            "attrConditions, relationFilters, tagFilterIds. Filters the portal does "
+            "not let a visitor use are ignored. ANDed with the legacy parameters. "
+            "A value (or legacy JSON parameter) over 8192 characters is refused with 422."
+        ),
+    ),
     subtype: str | None = Query(None),
     tag_ids: str | None = Query(None),
     related_type: str | None = Query(None),
@@ -995,7 +1079,11 @@ async def get_public_portal_cards(
 
     Each card carries only what the portal's page shows (``card_config.toggles``),
     and a filter or sort on anything else is ignored: a filtered ``total`` would
-    otherwise reveal the value the page hides.
+    otherwise reveal the value the page hides. A visitor filters with
+    ``filters`` (or the legacy parameters ``subtype``, ``tag_ids``,
+    ``attr_filters``, ``relation_filters``, ``related_type`` / ``related_id``);
+    both are cut to the portal's ``visitor_filters.allowed`` and, when both
+    are sent, both apply.
     """
     visibility = await portal_visibility.load_portal_visibility(
         db, portal.card_type, portal.card_config
@@ -1022,79 +1110,31 @@ async def get_public_portal_cards(
         q = q.where(match)
         count_q = count_q.where(match)
 
-    # Filter by subtype (user)
-    if subtype:
-        q = q.where(Card.subtype == subtype)
-        count_q = count_q.where(Card.subtype == subtype)
-
-    # Filter by tags
-    if tag_ids:
-        ids = [t.strip() for t in tag_ids.split(",") if t.strip()]
-        if ids:
-            tag_uuids = [uuid.UUID(tid) for tid in ids]
-            tagged_fs = select(CardTag.card_id).where(CardTag.tag_id.in_(tag_uuids))
-            q = q.where(Card.id.in_(tagged_fs))
-            count_q = count_q.where(Card.id.in_(tagged_fs))
-
-    # Filter by attribute values (e.g. {"businessCriticality": "high"})
-    if attr_filters:
-        try:
-            parsed = json.loads(attr_filters)
-            if isinstance(parsed, dict):
-                for attr_key, attr_val in parsed.items():
-                    if attr_key not in visibility.exposed_fields:
-                        continue
-                    cond = Card.attributes[attr_key].astext.cast(Text) == str(attr_val)
-                    q = q.where(cond)
-                    count_q = count_q.where(cond)
-        except (json.JSONDecodeError, TypeError):
-            pass  # Ignore malformed attr_filters
-
-    # Filter by relationship to a specific card (single, legacy)
-    if related_type in visibility.relation_types and related_id:
-        rid = uuid.UUID(related_id)
-        related_fs = (
-            select(Relation.target_id)
-            .where(
-                Relation.type == related_type,
-                Relation.source_id == rid,
-            )
-            .union(
-                select(Relation.source_id).where(
-                    Relation.type == related_type,
-                    Relation.target_id == rid,
-                )
-            )
+    # The visitor's own filters, cut to what the portal lets a visitor filter
+    # on (``visitor_filters.allowed``) and ANDed with the preset above.
+    # An over-long parameter is refused: ignoring it would list every card
+    # while the visitor's bar shows picks.
+    try:
+        visitor = await portal_card_filters.public_visitor_conditions(
+            db,
+            portal.card_type,
+            allowed=visibility.visitor_filters.allowed,
+            field_types=visibility.field_types,
+            filters=filters,
+            legacy={
+                "subtype": subtype,
+                "tag_ids": tag_ids,
+                "attr_filters": attr_filters,
+                "relation_filters": relation_filters,
+                "related_type": related_type,
+                "related_id": related_id,
+            },
         )
-        q = q.where(Card.id.in_(related_fs))
-        count_q = count_q.where(Card.id.in_(related_fs))
-
-    # Filter by multiple relations (JSON: {"relTypeKey": "cardId", ...})
-    if relation_filters:
-        try:
-            parsed_rf = json.loads(relation_filters)
-            if isinstance(parsed_rf, dict):
-                for rel_key, card_id in parsed_rf.items():
-                    if rel_key not in visibility.relation_types or not card_id:
-                        continue
-                    rid = uuid.UUID(str(card_id))
-                    sub = (
-                        select(Relation.target_id)
-                        .where(
-                            Relation.type == rel_key,
-                            Relation.source_id == rid,
-                        )
-                        .union(
-                            select(Relation.source_id).where(
-                                Relation.type == rel_key,
-                                Relation.target_id == rid,
-                            )
-                        )
-                    )
-                    q = q.where(Card.id.in_(sub))
-                    count_q = count_q.where(Card.id.in_(sub))
-        except (json.JSONDecodeError, TypeError, ValueError):
-            pass
+    except portal_card_filters.VisitorFiltersTooLongError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    if visitor:
+        q = q.where(*visitor)
+        count_q = count_q.where(*visitor)
 
     # Sorting — H9: whitelist sort columns
     _allowed_sorts = {

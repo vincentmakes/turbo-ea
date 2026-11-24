@@ -3,16 +3,23 @@ import { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
 import {
   EMPTY_CARD_FILTERS,
   buildRelationFilterOptions,
+  clearCardFilterValues,
   buildRelSubtypes,
   countActiveFilters,
+  conditionLabelsFor,
+  conditionText,
   describeActiveFilters,
   expandRelationFilters,
   hasActiveFilters,
   relatedTypeOfKey,
+  readCardFilters,
   relationTypeKeys,
   restoreCardFilters,
+  type ConditionLabels,
   type FilterMember,
 } from "./cardFilters";
+import type { TFunction } from "i18next";
+import { activeFieldKeys, rowsToRender, type FilterKind } from "@/lib/fieldFilters";
 import { matchesStaticFilters, type AppData, type RelTypeDef } from "./portfolioHelpers";
 
 const rt = (key: string, source: string, target: string, other: string, extra: Partial<RelTypeDef> = {}): RelTypeDef => ({
@@ -259,21 +266,180 @@ describe("restoreCardFilters", () => {
         subtypeFilters: ["saas", null],
         tagFilterIds: "t1",
         includeDescendants: "yes",
+        filterFields: ["risk", 4, "risk", null, "tier"],
+        attrConditions: { code: { contains: " ORG " }, bad: { contains: "x", min: 1 }, n: "x" },
       }),
     ).toEqual({
       attrFilters: { fit: ["good"] },
+      attrConditions: { code: { contains: "ORG" } },
       relationFilters: { BusinessCapability: ["ops"] },
       relSubtypeFilters: {},
       subtypeFilters: ["saas"],
       tagFilterIds: [],
       includeDescendants: false,
+      // The stored rows first, then every field holding a value: picks, then conditions.
+      filterFields: ["risk", "tier", "fit", "code"],
     });
+    expect(restoreCardFilters({ filterFields: "risk" }).filterFields).toEqual([]);
     expect(restoreCardFilters({ includeDescendants: true }).includeDescendants).toBe(true);
     expect(restoreCardFilters({})).toEqual(EMPTY_CARD_FILTERS);
     // A null, a scalar and a list in place of a record all read as empty.
     expect(
       restoreCardFilters({ attrFilters: null, relationFilters: 7, relSubtypeFilters: [["x"]] }),
     ).toEqual(EMPTY_CARD_FILTERS);
+  });
+
+  it("gives a value restored without its added row a row of its own, so clearing it keeps the row", () => {
+    const restored = restoreCardFilters({ attrConditions: { code: { contains: "ORG" } } });
+    expect(restored.filterFields).toEqual(["code"]);
+    // The person empties the box: the row no longer holds a value, yet it is
+    // still an added row, so `rowsToRender` keeps it.
+    const catalog = [
+      {
+        key: "s",
+        label: "S",
+        hidden: false,
+        fields: [{ field: { key: "code" }, kind: "text" as const, shownByDefault: false }],
+      },
+    ];
+    const cleared = { ...restored, attrConditions: {} };
+    expect(
+      rowsToRender(catalog, cleared.filterFields, activeFieldKeys(cleared)).map((r) => r.field.key),
+    ).toEqual(["code"]);
+    // A key already stored is not repeated, and an unusable value adds nothing.
+    expect(
+      restoreCardFilters({
+        filterFields: ["code"],
+        attrConditions: { code: { contains: "x" }, blank: { contains: "  " } },
+      }).filterFields,
+    ).toEqual(["code"]);
+  });
+
+  it("reads a config as stored through readCardFilters, filterFields not widened", () => {
+    expect(
+      readCardFilters({ attrFilters: { fit: ["good"] }, attrConditions: { code: { contains: "x" } } })
+        .filterFields,
+    ).toEqual([]);
+  });
+});
+
+describe("text, number and date conditions", () => {
+  const kinds = new Map<string, FilterKind>([
+    ["code", "text"],
+    ["n", "number"],
+    ["due", "date"],
+  ]);
+  const value = {
+    ...EMPTY_CARD_FILTERS,
+    attrConditions: {
+      code: { contains: "ORG" },
+      n: { min: 10, max: 20 },
+      due: { from: "2026-01-01" },
+      price: { min: 1000 },
+    },
+  };
+  const conditionLabels: ConditionLabels = {
+    contains: (v) => `contains "${v}"`,
+    between: (a, b) => `${a} – ${b}`,
+    atLeast: (v) => `≥ ${v}`,
+    atMost: (v) => `≤ ${v}`,
+  };
+  const describe_ = (kindByKey = kinds) =>
+    describeActiveFilters({
+      value,
+      relationOptions: [],
+      tagGroups: [],
+      subtypeOptions: [],
+      fields: [],
+      relSubtypes: [],
+      labels: { subtype: "Subtype", tags: "Tags", empty: "(empty)", subCards: "(incl. sub-cards)" },
+      conditions: {
+        fields: [
+          { key: "code", label: "Code" },
+          { key: "n", label: "Count" },
+        ],
+        kindByKey,
+        labels: conditionLabels,
+        formatNumber: (x) => `${x}.0`,
+      },
+    });
+
+  it("counts a condition only when its field is in the reader's catalog", () => {
+    expect(countActiveFilters(value, kinds)).toBe(3);
+    expect(countActiveFilters(value)).toBe(0);
+    expect(countActiveFilters(value, new Map([["price", "number"]]))).toBe(1);
+    expect(hasActiveFilters(value, "", kinds)).toBe(true);
+    expect(hasActiveFilters(value, "")).toBe(false);
+    expect(hasActiveFilters({ ...value, attrConditions: { price: { min: 1 } } }, "", kinds)).toBe(false);
+  });
+
+  it("describes exactly the conditions it counts, one line each", () => {
+    const lines = describe_();
+    expect(lines).toEqual([
+      { label: "Code", value: 'contains "ORG"' },
+      { label: "Count", value: "10.0 – 20.0" },
+      // A field the label list misses falls back to its key.
+      { label: "due", value: "≥ 2026-01-01" },
+    ]);
+    expect(lines).toHaveLength(countActiveFilters(value, kinds));
+    expect(describe_(new Map())).toEqual([]);
+  });
+
+  it("describes nothing without the catalog", () => {
+    expect(
+      describeActiveFilters({
+        value,
+        relationOptions: [],
+        tagGroups: [],
+        subtypeOptions: [],
+        fields: [],
+        relSubtypes: [],
+        labels: { subtype: "Subtype", tags: "Tags", empty: "(empty)", subCards: "(incl. sub-cards)" },
+      }),
+    ).toEqual([]);
+  });
+
+  it("words each condition through the labels", () => {
+    expect(conditionText({ op: "contains", value: "x" }, conditionLabels)).toBe('contains "x"');
+    expect(conditionText({ op: "between", from: "1", to: "2" }, conditionLabels)).toBe("1 – 2");
+    expect(conditionText({ op: "atLeast", value: "1" }, conditionLabels)).toBe("≥ 1");
+    expect(conditionText({ op: "atMost", value: "2" }, conditionLabels)).toBe("≤ 2");
+  });
+
+  it("reads the words from the reports namespace", () => {
+    const t = ((key: string, opts?: Record<string, unknown>) => `${key} ${JSON.stringify(opts)}`) as unknown as TFunction;
+    const words = conditionLabelsFor(t);
+    expect(words.contains("x")).toBe('reports:cardFilters.conditionContains {"value":"x"}');
+    expect(words.between("1", "2")).toBe('reports:cardFilters.conditionBetween {"from":"1","to":"2"}');
+    expect(words.atLeast("1")).toBe('reports:cardFilters.conditionAtLeast {"value":"1"}');
+    expect(words.atMost("2")).toBe('reports:cardFilters.conditionAtMost {"value":"2"}');
+  });
+
+  it("Clear all empties the conditions, keeping the added rows", () => {
+    expect(clearCardFilterValues({ ...value, filterFields: ["code"] })).toEqual({
+      ...EMPTY_CARD_FILTERS,
+      filterFields: ["code"],
+    });
+    expect(EMPTY_CARD_FILTERS.attrConditions).toEqual({});
+  });
+
+  it("the shared matcher applies a condition on a catalog field only", () => {
+    const base = {
+      attributeFilters: {},
+      relationFilters: {},
+      relSubtypeFilters: {},
+      relSubtypes: [],
+      subtypeFilters: [],
+      tagFilterIds: [],
+      tagGroups: [],
+      search: "",
+    };
+    const app: AppData = { id: "a", name: "A", attributes: { code: "ORG-1", price: 5 }, relations: [], org_ids: [] };
+    const run = (attrConditions: Record<string, unknown>) =>
+      matchesStaticFilters(app, { ...base, attrConditions, conditionKinds: kinds });
+    expect(run({ code: { contains: "org" } })).toBe(true);
+    expect(run({ code: { contains: "xyz" } })).toBe(false);
+    expect(run({ price: { min: 1000 } })).toBe(true);
   });
 });
 
@@ -285,19 +451,33 @@ describe("counting and describing", () => {
     subtypeFilters: ["saas"],
     tagFilterIds: ["t1", "t9"],
     includeDescendants: true,
+    filterFields: ["risk", "tier"],
   };
 
-  it("counts every selected value", () => {
+  it("counts every selected value, never the added fields", () => {
     expect(countActiveFilters(value)).toBe(8);
     expect(countActiveFilters(EMPTY_CARD_FILTERS)).toBe(0);
+    expect(countActiveFilters({ ...EMPTY_CARD_FILTERS, filterFields: ["risk"] })).toBe(0);
   });
 
   it("is active with any selection or a search", () => {
     expect(hasActiveFilters(EMPTY_CARD_FILTERS, "")).toBe(false);
     expect(hasActiveFilters(EMPTY_CARD_FILTERS, "erp")).toBe(true);
     expect(hasActiveFilters({ ...EMPTY_CARD_FILTERS, tagFilterIds: ["t"] }, "")).toBe(true);
-    // The sub-card switch alone narrows nothing.
+    // The sub-card switch alone narrows nothing, nor does an added, empty row.
     expect(hasActiveFilters({ ...EMPTY_CARD_FILTERS, includeDescendants: true }, "")).toBe(false);
+    expect(hasActiveFilters({ ...EMPTY_CARD_FILTERS, filterFields: ["risk"] }, "")).toBe(false);
+  });
+
+  it("Clear all empties every value and keeps the added rows and the sub-card preference", () => {
+    expect(clearCardFilterValues(value)).toEqual({
+      ...EMPTY_CARD_FILTERS,
+      includeDescendants: true,
+      filterFields: ["risk", "tier"],
+    });
+    expect(clearCardFilterValues({ ...value, includeDescendants: false, filterFields: [] })).toEqual(
+      EMPTY_CARD_FILTERS,
+    );
   });
 
   it("names nothing when nothing is picked, whatever options are offered", () => {

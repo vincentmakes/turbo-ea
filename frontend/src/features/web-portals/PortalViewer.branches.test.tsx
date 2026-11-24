@@ -9,7 +9,7 @@
  * reached from a portal.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 
@@ -284,6 +284,19 @@ function lastCardParams(): URLSearchParams {
   return new URLSearchParams(paths[paths.length - 1].split("?")[1]);
 }
 
+/** The `filters` parameter of the most recent card query, parsed. */
+function sentFilters(): unknown {
+  const raw = lastCardParams().get("filters");
+  return raw === null ? null : JSON.parse(raw);
+}
+
+/** Pick one option of a filter select (the shared `FilterSelect`), then close its list. */
+async function pick(label: string, option: string) {
+  fireEvent.mouseDown(screen.getByRole("combobox", { name: label }));
+  fireEvent.click(within(await screen.findByRole("listbox")).getByText(option));
+  fireEvent.keyDown(screen.getByRole("combobox", { name: label }), { key: "Escape" });
+}
+
 function renderPortal() {
   return render(
     <MemoryRouter initialEntries={[`/portal/${SLUG}`]}>
@@ -444,24 +457,25 @@ describe("PortalViewer header and toolbar", () => {
     await user.click(screen.getByRole("button", { name: "tune" }));
 
     // Subtype
-    await user.click(screen.getByRole("combobox", { name: "Subtype" }));
-    await user.click(await screen.findByRole("option", { name: "Microservice" }));
-    await waitFor(() => expect(lastCardParams().get("subtype")).toBe("micro"));
+    await pick("Subtype", "Microservice");
+    await waitFor(() => expect(sentFilters()).toEqual({ subtypeFilters: ["micro"] }));
 
     // Select-type field (single + multiple are both filterable)
     expect(screen.getByRole("combobox", { name: "Platforms" })).toBeInTheDocument();
-    await user.click(screen.getByRole("combobox", { name: "Criticality" }));
-    await user.click(await screen.findByRole("option", { name: "High" }));
+    await pick("Criticality", "High");
     await waitFor(() =>
-      expect(JSON.parse(lastCardParams().get("attr_filters")!)).toEqual({ criticality: "high" }),
+      expect(sentFilters()).toEqual({
+        subtypeFilters: ["micro"],
+        attrFilters: { criticality: ["high"] },
+      }),
     );
 
     // Two relation types reach IT Component, so each label carries its verb.
-    await user.click(await screen.findByRole("combobox", { name: "IT Component · runs on" }));
-    await user.click(await screen.findByRole("option", { name: "Linux" }));
+    await screen.findByRole("combobox", { name: "IT Component · runs on" });
+    await pick("IT Component · runs on", "Linux");
     await waitFor(() =>
-      expect(JSON.parse(lastCardParams().get("relation_filters")!)).toEqual({
-        relAppToITCRuns: "i2",
+      expect((sentFilters() as { relationFilters?: unknown }).relationFilters).toEqual({
+        relAppToITCRuns: ["i2"],
       }),
     );
     expect(screen.getByRole("combobox", { name: "IT Component · uses" })).toBeInTheDocument();
@@ -473,18 +487,18 @@ describe("PortalViewer header and toolbar", () => {
 
     // Tags
     await user.click(screen.getByRole("button", { name: "pick-tag:Tags" }));
-    await waitFor(() => expect(lastCardParams().get("tag_ids")).toBe("t1"));
+    await waitFor(() =>
+      expect((sentFilters() as { tagFilterIds?: unknown }).tagFilterIds).toEqual(["t1"]),
+    );
+    // Never a legacy parameter.
+    for (const legacy of ["subtype", "attr_filters", "relation_filters", "tag_ids"]) {
+      expect(lastCardParams().has(legacy)).toBe(false);
+    }
 
     // Clear all
     const clear = screen.getByRole("button", { name: "Clear Filters" });
     await user.click(within(clear).getByTestId("CancelIcon"));
-    await waitFor(() => {
-      const p = lastCardParams();
-      expect(p.get("subtype")).toBeNull();
-      expect(p.get("attr_filters")).toBeNull();
-      expect(p.get("relation_filters")).toBeNull();
-      expect(p.get("tag_ids")).toBeNull();
-    });
+    await waitFor(() => expect(lastCardParams().has("filters")).toBe(false));
     expect(screen.queryByRole("button", { name: "Clear Filters" })).toBeNull();
   });
 

@@ -191,6 +191,9 @@ describe("label keys", () => {
   it("names a field generically, and scoped to a target type first", () => {
     expect(fieldLabelKey("smtp_host")).toEqual(["securityLog.fields.smtp_host"]);
     expect(fieldLabelKey("smtpHost", null)).toEqual(["securityLog.fields.smtp_host"]);
+    // A section's "Hidden from filters" switch, as `section.changed` names it.
+    expect(fieldLabelKey("hideInFilters")).toEqual(["securityLog.fields.hide_in_filters"]);
+    expect(i18n.t("admin:securityLog.fields.hide_in_filters")).toBe("Hidden from filters");
     expect(fieldLabelKey("label", "role")).toEqual([
       "securityLog.fields.role.label",
       "securityLog.fields.label",
@@ -266,6 +269,13 @@ describe("classifyValue", () => {
     // The default lookup is this build's catalogue.
     expect(classifyValue("single_select", "type")).toBe("code");
     expect(classifyValue("no_such_code", "type")).toBe("text");
+  });
+
+  it("labels a portal's visitor filter items: the filter surface, the subtype filter", () => {
+    expect(classifyValue("filter", "surface")).toBe("code");
+    expect(classifyValue("subtype", "item")).toBe("code");
+    expect(hasValueLabel("filter")).toBe(true);
+    expect(hasValueLabel("subtype")).toBe(true);
   });
 
   it("never reads a label, slug or email as a code — except the description section", () => {

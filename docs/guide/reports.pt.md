@@ -33,6 +33,30 @@ Clicar num grupo abre um painel com os cartões desse grupo. O seu botão **Ver 
 
 A linha **Filtros** pode ser fechada: clique no seu cabeçalho para ocultar os controlos de filtro e devolver ao gráfico o espaço vertical. A definição é memorizada com o resto da configuração do relatório, pelo que um relatório reabre tal como o deixou. Mesmo recolhido, o cabeçalho continua a indicar quantos filtros estão ativos e **Limpar tudo** permanece acessível — uma secção fechada nunca esconde o facto de os dados estarem filtrados.
 
+### Adicionar campos para filtrar {: #add-filter }
+
+A linha **Campos** mostra os campos de seleção e sim/não do tipo de card. Um administrador pode desativar uma seção de campos com **Oculto dos filtros** no [editor de layout de cards](../admin/metamodel.md), o que é útil quando um tipo tem muitos campos pelos quais raramente se filtra. Esses campos não são mostrados, mas não desapareceram: o chip tracejado **Adicionar filtro** no fim da linha abre uma lista de todos os campos que a linha ainda não mostra, agrupados por seção. Escreva na sua caixa de pesquisa para encontrar um campo pelo seu próprio nome ou pelo nome da sua seção; as melhores correspondências vêm primeiro. Use as setas e Enter, ou clique num campo, para o adicionar à linha.
+
+- Um campo adicionado recebe um pequeno botão **×**. Remove a linha e limpa os valores escolhidos nela.
+- **Limpar tudo** limpa os valores, mas mantém os campos que adicionou, para poder escolher novos valores de imediato.
+- Os campos adicionados são memorizados com o relatório: voltam ao reabri-lo e ficam guardados num relatório guardado. **Redefinir padrões** e a escolha de outro tipo de card devolvem a linha aos campos predefinidos do tipo.
+- Um campo que contém um valor é sempre mostrado, mesmo de uma seção oculta, para que um relatório guardado nunca filtre por algo que não vê.
+- O chip só é mostrado quando ainda há um campo por adicionar.
+
+**Adicionar filtro** lista também os campos de texto, número e data do tipo, que nunca são mostrados por predefinição. Cada tipo tem o seu próprio controlo:
+
+| Tipo de campo | Controlo | Mantém os cards… |
+|---------------|----------|------------------|
+| Texto, texto multilinha, URL | uma caixa de pesquisa | cujo valor contém o que escrever, sem distinguir maiúsculas de minúsculas |
+| Número, percentagem, custo | uma caixa **de** e uma caixa **até** | cujo valor está entre os dois números, ambos incluídos; deixe uma vazia para «pelo menos» ou «no máximo» |
+| Data | uma data **de** e uma data **até** | cuja data está entre os dois dias, ambos incluídos; deixe uma vazia para «a partir de» ou «até» |
+
+Um card sem valor nesse campo não corresponde a um filtro de texto, número ou data. O relatório restringe-se à medida que escreve; uma data aplica-se quando sai da sua caixa. Estes filtros são contados no cabeçalho, nomeados no cabeçalho de uma impressão ou exportação (por exemplo *Código: contém «ORG-12»*), limpos por **Limpar tudo** e guardados com o relatório como qualquer outro.
+
+Os campos de custo só são oferecidos a quem pode ver custos. Um relatório guardado ou uma ligação partilhada com um filtro de custo não restringe nada para quem não tem essa permissão, e o filtro não lhe é mostrado nem contado. **Ver no inventário** no relatório de portfólio omite os filtros de texto, número e data, tal como os subtipos de relação, porque o inventário não tem equivalente.
+
+Os relatórios Portfólio, Portfólio flexível, Mapa de capacidades e Ciclo de vida, o [quadro PPM](ppm.md) e a caixa de diálogo de filtros dos portais web oferecem todos **Adicionar filtro**.
+
 ### Viagem no tempo
 
 O controle deslizante da linha do tempo traz os mesmos instrumentos de transição do [Relatório de Dependências](#relatorio-de-dependencias): marcas em cada data em que uma aplicação entra em produção (azul) ou é desativada (vermelho), pílulas que nomeiam as aplicações que mudam enquanto o controle está sobre uma marca, botões de seta que saltam de mudança em mudança e chips que resumem a transformação quando se olha para o futuro («+4 entram · −7 saem» — também incluídos nos cabeçalhos de impressão e exportação). Clicar numa marca ou numa pílula destaca as aplicações que mudam ali — o resto da vista escurece enquanto elas pulsam, e uma aplicação já desaparecida na data selecionada é revelada apenas durante a pulsação, voltando depois a ficar oculta.
@@ -98,7 +122,7 @@ Os componentes são exibidos como barras horizontais abrangendo suas fases do ci
 
 **Limitar a cartões específicos** — Depois de escolher um tipo de cartão, o chip ao lado abre um seletor: escolha um ou mais cartões e a linha temporal mostra apenas esses e tudo o que está abaixo deles. Os cartões filhos são incluídos automaticamente. O chip fica desativado enquanto o seletor estiver em *Todos os tipos*, porque um âmbito precisa de uma única hierarquia.
 
-**Filtrar** — Depois de escolher um tipo de cartão, o relatório oferece a mesma linha de **Filtros** do **Portfólio flexível**: cartões relacionados (com *Incluir subcartões*), etiquetas, o subtipo do cartão e os seus campos de seleção, e subtipos de relação, além de uma caixa de pesquisa. Filtros diferentes combinam-se (um cartão tem de cumprir todos), enquanto os valores escolhidos dentro de um filtro são alternativas. Uma legenda mostra quantos cartões correspondem, e **Limpar tudo** remove todos os filtros. Os filtros são guardados com o relatório e nomeados um a um no cabeçalho de uma impressão ou exportação, para que o público saiba o que a linha temporal abrange. Por exemplo, escolha as suas capacidades operacionais com *Incluir subcartões* ativado e a etiqueta *Desenvolvimento interno* para rever apenas as aplicações próprias por trás das operações principais — uma ferramenta de despesas como o Concur continua no inventário, mas sai desta vista. Em *Todos os tipos* os filtros não estão disponíveis, porque leem os campos, relações e etiquetas de um único tipo de cartão.
+**Filtrar** — Depois de escolher um tipo de cartão, o relatório oferece a mesma linha de **Filtros** do **Portfólio flexível**: cartões relacionados (com *Incluir subcartões*), etiquetas, o subtipo do cartão e os seus campos de seleção, e subtipos de relação, além de uma caixa de pesquisa. Filtros diferentes combinam-se (um cartão tem de cumprir todos), enquanto os valores escolhidos dentro de um filtro são alternativas. Uma legenda mostra quantos cartões correspondem, e **Limpar tudo** remove todos os filtros, mantendo os campos que [adicionou à linha](#add-filter). Os filtros são guardados com o relatório e nomeados um a um no cabeçalho de uma impressão ou exportação, para que o público saiba o que a linha temporal abrange. Por exemplo, escolha as suas capacidades operacionais com *Incluir subcartões* ativado e a etiqueta *Desenvolvimento interno* para rever apenas as aplicações próprias por trás das operações principais — uma ferramenta de despesas como o Concur continua no inventário, mas sai desta vista. Em *Todos os tipos* os filtros não estão disponíveis, porque leem os campos, relações e etiquetas de um único tipo de cartão.
 
 **Ordenar** — O menu **Ordenar por** ordena a linha temporal e a tabela da mesma forma: por nome, tipo, subtipo, fase atual, a data de uma fase (Planejamento, Entrada, Ativo, Saída, Fim de vida) ou um dos campos de seleção única do tipo de cartão, como a criticidade de negócio, que segue a ordem das suas opções em vez da alfabética. Na visualização do intervalo de datas oferece, em vez disso, a data de início, a data de fim e o campo de cor. A seta ao lado alterna entre crescente e decrescente; os cartões sem valor ficam sempre no fim, seja qual for o sentido. Clicar no cabeçalho de uma coluna da tabela ordena da mesma forma. A ordenação é guardada com o relatório, e qualquer ordenação que não seja por nome aparece no cabeçalho da exportação.
 

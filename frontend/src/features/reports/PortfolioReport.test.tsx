@@ -1130,3 +1130,238 @@ describe("PortfolioReport subtype filter", () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// "Add filter" and a section hidden from filters (#1425)
+// ---------------------------------------------------------------------------
+
+describe("PortfolioReport added filter fields (#1425)", () => {
+  // Compliance is switched off with "Hidden from filters": its field is
+  // offered by "Add filter" only.
+  const HIDDEN_RESPONSE = {
+    ...MOCK_API_RESPONSE,
+    items: [
+      { ...MOCK_API_RESPONSE.items[0], attributes: { businessCriticality: "high", risk: "elevated" } },
+      { ...MOCK_API_RESPONSE.items[1], attributes: { businessCriticality: "medium", risk: "minor" } },
+    ],
+    fields_schema: [
+      ...MOCK_API_RESPONSE.fields_schema,
+      {
+        section: "Compliance",
+        hideInFilters: true,
+        fields: [
+          {
+            key: "risk",
+            label: "Risk Level",
+            type: "single_select",
+            options: [
+              { key: "elevated", label: "Elevated" },
+              { key: "minor", label: "Minor" },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+  const persisted = () => vi.mocked(useSavedReport).mock.results[0].value.persistConfig;
+  const riskSelect = () => screen.queryByRole("combobox", { name: "Risk Level" });
+
+  beforeEach(() => {
+    vi.mocked(api.get).mockResolvedValue(HIDDEN_RESPONSE);
+  });
+
+  it("offers a hidden section's field through Add filter and remembers it", async () => {
+    const user = userEvent.setup();
+    renderPortfolio();
+    await screen.findByRole("combobox", { name: "Business Criticality" });
+    expect(riskSelect()).not.toBeInTheDocument();
+
+    await user.click(screen.getByText("Add filter"));
+    await user.click(await screen.findByRole("option", { name: "Risk Level" }));
+
+    expect(await screen.findByRole("combobox", { name: "Risk Level" })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(persisted()).toHaveBeenCalledWith(expect.objectContaining({ filterFields: ["risk"] })),
+    );
+  });
+
+  it("restores an added field from the saved config, and Clear all keeps its row", async () => {
+    const user = userEvent.setup();
+    mockSavedConfig({ filterFields: ["risk"], attrFilters: { risk: ["elevated"] } });
+    renderPortfolio();
+    await screen.findByText("SAP ERP");
+    expect(screen.queryByText("Salesforce")).not.toBeInTheDocument();
+    expect(riskSelect()).toBeInTheDocument();
+
+    const toolbar = document.querySelector(".report-toolbar") as HTMLElement;
+    const clear = within(toolbar).getByText("Clear all").closest(".MuiChip-root") as HTMLElement;
+    await user.click(within(clear).getByTestId("CancelIcon"));
+
+    expect(await screen.findByText("Salesforce")).toBeInTheDocument();
+    expect(riskSelect()).toBeInTheDocument();
+    await waitFor(() =>
+      expect(persisted()).toHaveBeenLastCalledWith(
+        expect.objectContaining({ attrFilters: {}, filterFields: ["risk"] }),
+      ),
+    );
+  });
+
+  it("shows a hidden field that holds a value without it being added", async () => {
+    mockSavedConfig({ attrFilters: { risk: ["minor"] } });
+    renderPortfolio();
+    await screen.findByText("Salesforce");
+    expect(screen.queryByText("SAP ERP")).not.toBeInTheDocument();
+    expect(riskSelect()).toBeInTheDocument();
+  });
+
+  it("drops the added fields on Reset to defaults", async () => {
+    const user = userEvent.setup();
+    mockSavedConfig({ filterFields: ["risk"] });
+    renderPortfolio();
+    await waitFor(() => expect(riskSelect()).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: /reset to defaults/i }));
+    await waitFor(() => expect(riskSelect()).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(persisted()).toHaveBeenLastCalledWith(expect.objectContaining({ filterFields: [] })),
+    );
+  });
+
+  it("removes an added row, and its value, with its remove button", async () => {
+    const user = userEvent.setup();
+    mockSavedConfig({ filterFields: ["risk"], attrFilters: { risk: ["elevated"] } });
+    renderPortfolio();
+    await screen.findByText("SAP ERP");
+    await user.click(screen.getByRole("button", { name: "Remove the Risk Level filter" }));
+    expect(await screen.findByText("Salesforce")).toBeInTheDocument();
+    expect(riskSelect()).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(persisted()).toHaveBeenLastCalledWith(
+        expect.objectContaining({ attrFilters: {}, filterFields: [] }),
+      ),
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Text / number / date conditions through "Add filter" (#1425, stage 2)
+// ---------------------------------------------------------------------------
+
+describe("PortfolioReport text conditions (#1425)", () => {
+  const CODED_RESPONSE = {
+    ...MOCK_API_RESPONSE,
+    items: [
+      { ...MOCK_API_RESPONSE.items[0], attributes: { businessCriticality: "high", code: "ORG-12", price: 10 } },
+      { ...MOCK_API_RESPONSE.items[1], attributes: { businessCriticality: "medium", code: "SF-1", price: 5000 } },
+    ],
+    fields_schema: [
+      ...MOCK_API_RESPONSE.fields_schema,
+      {
+        section: "Identity",
+        fields: [
+          { key: "code", label: "Code", type: "text" },
+          { key: "price", label: "Price", type: "cost" },
+        ],
+      },
+    ],
+  };
+  const persisted = () => vi.mocked(useSavedReport).mock.results[0].value.persistConfig;
+  const codeBox = () => screen.queryByRole("textbox", { name: "Code" });
+  const clearAll = async (user: ReturnType<typeof userEvent.setup>) => {
+    const toolbar = document.querySelector(".report-toolbar") as HTMLElement;
+    const clear = within(toolbar).getByText("Clear all").closest(".MuiChip-root") as HTMLElement;
+    await user.click(within(clear).getByTestId("CancelIcon"));
+  };
+
+  beforeEach(() => {
+    vi.mocked(api.get).mockResolvedValue(CODED_RESPONSE);
+  });
+
+  it("adds a text field through Add filter and narrows the cards as the person types", async () => {
+    const user = userEvent.setup();
+    renderPortfolio();
+    await screen.findByText("Salesforce");
+    expect(codeBox()).not.toBeInTheDocument();
+
+    await user.click(screen.getByText("Add filter"));
+    await user.click(await screen.findByRole("option", { name: "Code" }));
+    await user.type(await screen.findByRole("textbox", { name: "Code" }), "org");
+
+    await waitFor(() => expect(screen.queryByText("Salesforce")).not.toBeInTheDocument());
+    expect(screen.getByText("SAP ERP")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(persisted()).toHaveBeenLastCalledWith(
+        expect.objectContaining({ attrConditions: { code: { contains: "org" } }, filterFields: ["code"] }),
+      ),
+    );
+  });
+
+  it("restores a condition, and Clear all clears it while the added row stays", async () => {
+    const user = userEvent.setup();
+    mockSavedConfig({ attrConditions: { code: { contains: "sf" } }, filterFields: ["code"] });
+    renderPortfolio();
+    await screen.findByText("Salesforce");
+    expect(screen.queryByText("SAP ERP")).not.toBeInTheDocument();
+    expect(codeBox()).toHaveValue("sf");
+
+    await clearAll(user);
+    expect(await screen.findByText("SAP ERP")).toBeInTheDocument();
+    expect(codeBox()).toHaveValue("");
+    await waitFor(() =>
+      expect(persisted()).toHaveBeenLastCalledWith(
+        expect.objectContaining({ attrConditions: {}, filterFields: ["code"] }),
+      ),
+    );
+  });
+
+  it("keeps a condition restored without its added row while its box is emptied", async () => {
+    const user = userEvent.setup();
+    // An older saved config: the value, no filterFields.
+    mockSavedConfig({ attrConditions: { code: { contains: "sf" } } });
+    renderPortfolio();
+    await screen.findByText("Salesforce");
+    const box = codeBox() as HTMLElement;
+    expect(box).toHaveValue("sf");
+    await user.clear(box);
+    expect(await screen.findByText("SAP ERP")).toBeInTheDocument();
+    expect(codeBox()).toBe(box);
+    expect(box).toHaveValue("");
+  });
+
+  it("drops the condition on Reset to defaults", async () => {
+    const user = userEvent.setup();
+    mockSavedConfig({ attrConditions: { code: { contains: "sf" } }, filterFields: ["code"] });
+    renderPortfolio();
+    await screen.findByText("Salesforce");
+    await user.click(screen.getByRole("button", { name: /reset to defaults/i }));
+    expect(await screen.findByText("SAP ERP")).toBeInTheDocument();
+    await waitFor(() => expect(codeBox()).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(persisted()).toHaveBeenLastCalledWith(expect.objectContaining({ attrConditions: {} })),
+    );
+  });
+
+  it("offers no cost field to a reader without cost access, and ignores a cost condition", async () => {
+    const user = userEvent.setup();
+    mockSavedConfig({ attrConditions: { price: { min: 1000 } } });
+    renderPortfolio();
+    await screen.findByText("Salesforce");
+    // The saved cost condition narrows nothing for this reader.
+    expect(screen.getByText("SAP ERP")).toBeInTheDocument();
+    await user.click(screen.getByText("Add filter"));
+    expect(await screen.findByRole("option", { name: "Code" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Price" })).not.toBeInTheDocument();
+  });
+
+  it("never carries a condition into the View in inventory link", async () => {
+    mockSavedConfig({ groupByRaw: "rel:Organization", attrConditions: { code: { contains: "org" } } });
+    renderPortfolio();
+    await waitFor(() => expect(screen.getByText("Finance")).toBeInTheDocument());
+    await userEvent.setup().click(screen.getByText("Finance"));
+    await waitFor(() => {
+      const href = screen.getByRole("link").getAttribute("href") ?? "";
+      expect(href).toContain("rel_Organization=Finance");
+      expect(href).not.toContain("code");
+      expect(href).not.toContain("contains");
+    });
+  });
+});

@@ -33,9 +33,9 @@ Debajo de la barra de herramientas hay una sección **Filtros**, plegada la prim
 
 - **Tarjetas relacionadas** — conserva las iniciativas vinculadas a las tarjetas que elija, por ejemplo una Organización o una Aplicación. **Incluir subtarjetas** conserva también las iniciativas vinculadas a las tarjetas situadas bajo una tarjeta elegida en su jerarquía
 - **Etiquetas** — conserva las iniciativas que llevan las etiquetas que elija
-- **Campos** — conserva las iniciativas cuyos propios campos (los atributos del tipo Iniciativa) coinciden con los valores que elija
+- **Campos** — conserva las iniciativas cuyos propios campos (los atributos del tipo Iniciativa) coinciden con los valores que elija Los campos de una sección que un administrador ha marcado como **Oculto en los filtros** no se muestran, pero el chip **Añadir filtro** al final de la fila los lista, con búsqueda por nombre de campo o de sección; un campo añadido tiene un botón **×** que lo quita junto con sus valores. **Añadir filtro** también ofrece campos de texto, número y fecha —un código que contiene cierto texto, un presupuesto entre dos importes, un rango de fechas— y campos de coste para quienes pueden ver los costes (véase [Añadir campos por los que filtrar](reports.md#add-filter))
 
-Los filtros activos se conservan en la URL y se recuerdan junto con el resto de la cartera, de modo que un enlace que comparta abre la misma cartera, y aparecen en la línea de parámetros de una impresión o exportación. **Limpiar todo** vacía la sección Filtros y deja el resto de la barra de herramientas como está.
+Los filtros activos se conservan en la URL y se recuerdan junto con el resto de la cartera, de modo que un enlace que comparta abre la misma cartera, y aparecen en la línea de parámetros de una impresión o exportación. Los campos que añadió viajan en el enlace y también se recuerdan. **Limpiar todo** vacía los valores de la sección Filtros, conserva los campos añadidos y deja el resto de la barra de herramientas como está; **Restablecer valores predeterminados** también quita los campos añadidos.
 
 #### Mostrar la jerarquía de iniciativas
 

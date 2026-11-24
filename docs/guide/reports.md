@@ -33,6 +33,30 @@ Clicking a group opens a drawer listing that group's cards. Its **View in invent
 
 The **Filters** row folds away: click its header to hide the filter controls and give the chart the vertical space back. The setting is remembered with the rest of the report's configuration, so a report reopens the way you left it. While collapsed the header still shows how many filters are active, and **Clear all** stays reachable — a folded section never hides the fact that the data is filtered.
 
+### Adding fields to filter on {: #add-filter }
+
+The **Fields** row shows the card type's select and yes/no fields. An administrator can switch a section of fields off with **Hidden from filters** in the [Card Layout editor](../admin/metamodel.md#card-layout-editor), which is useful when a type has many fields that are rarely filtered on. Those fields are not shown, but they are not gone: the dashed **Add filter** chip at the end of the row opens a list of every field the row does not show yet, grouped by section. Type in its search box to find a field by its own name or by its section's name; the best matches come first. Use the arrow keys and Enter, or click a field, to add it to the row.
+
+- An added field gets a small **×** button. It removes the row and clears the values picked in it.
+- **Clear all** clears the values, but keeps the fields you added, so you can pick new values straight away.
+- The added fields are remembered with the report: they come back when you reopen it and are stored in a saved report. **Reset to defaults** and picking another card type return the row to the type's default fields.
+- A field that holds a value is always shown, even from a hidden section, so a saved report never filters on something you cannot see.
+- The chip is only shown when there is a field left to add.
+
+**Add filter** also lists the type's text, number and date fields, which are never shown by default. Each kind gets its own control:
+
+| Field type | Control | Keeps the cards… |
+|-----------|---------|------------------|
+| Text, multi-line text, URL | a search box | whose value contains what you type, ignoring upper and lower case |
+| Number, percentage, cost | a **from** and a **to** box | whose value lies between the two numbers, both included; leave one empty for "at least" or "at most" |
+| Date | a **from** and a **to** date | whose date lies between the two days, both included; leave one empty for "on or after" or "on or before" |
+
+A card with no value in that field does not match a text, number or date filter. The report narrows as you type; a date applies once you leave its box. These filters are counted in the header, named in a print or export header (for example *Code: contains "ORG-12"*), cleared by **Clear all** and saved with the report like any other.
+
+Cost fields are offered only to people who may see costs. A saved report or a shared link that carries a cost filter narrows nothing for someone without that permission, and the filter is not shown or counted for them. **View in inventory** in the Portfolio report leaves text, number and date filters out, as it does relation subtypes, because the inventory has no equivalent for them.
+
+The Portfolio, Flexible Portfolio, Capability Map and Lifecycle reports, the [PPM board](ppm.md) and the web portal filter dialog all offer **Add filter**.
+
 ### Time travel
 
 The timeline slider carries the same transition instruments as the [Dependencies Report](#dependencies-report): marks on every date an application goes live (blue) or retires (red), pills naming the changing applications while the slider stands on a mark, arrow buttons that step from change to change, and chips summarising the transformation while you look forward ("+4 arriving · −7 retiring" — also included in print and export headers). Clicking a mark or a pill spotlights the applications that change there — the rest of the view dims while they pulse, and an application already gone at the selected date is revealed just for the pulse, then hidden again.
@@ -98,7 +122,7 @@ Components are displayed as horizontal bars spanning their lifecycle phases: Pla
 
 **Scoping to specific cards** — Once you have picked a card type, the chip beside it opens a picker: select one or more cards and the timeline shows only those and everything beneath them in the hierarchy. Sub-cards are included automatically. The chip stays disabled while the type selector is on *All types*, because a scope needs one hierarchy to work from.
 
-**Filtering** — Once a card type is picked, the report offers the same **Filters** row as the [Flexible Portfolio](#flexible-portfolio): related cards (with *Include sub-cards*), tags, the card's subtype and its select fields, and relation subtypes, plus a search box. Different filters combine (a card must match all of them), while the values picked within one filter are alternatives. A caption shows how many cards match, and **Clear all** removes every filter. The filters are saved with the report and named one by one in the header of a print or export, so the audience knows what the timeline covers. For example, pick your operational capabilities with *Include sub-cards* on and the tag *Internally Developed* to review only the in-house applications behind core operations — an expense tool such as Concur stays in the inventory but leaves this view. On *All types* the filters are unavailable, because they read one card type's fields, relations and tags.
+**Filtering** — Once a card type is picked, the report offers the same **Filters** row as the [Flexible Portfolio](#flexible-portfolio): related cards (with *Include sub-cards*), tags, the card's subtype and its select fields, and relation subtypes, plus a search box. Different filters combine (a card must match all of them), while the values picked within one filter are alternatives. A caption shows how many cards match, and **Clear all** removes every filter while keeping the fields you [added to the row](#add-filter). The filters are saved with the report and named one by one in the header of a print or export, so the audience knows what the timeline covers. For example, pick your operational capabilities with *Include sub-cards* on and the tag *Internally Developed* to review only the in-house applications behind core operations — an expense tool such as Concur stays in the inventory but leaves this view. On *All types* the filters are unavailable, because they read one card type's fields, relations and tags.
 
 **Sorting** — The **Sort by** menu orders the timeline and the table alike: by name, type, subtype, current phase, any phase date (Plan, Phase In, Active, Phase Out, End of Life) or one of the card type's single-select fields such as Business Criticality, which follows the order of the field's options rather than the alphabet. In the date-range view it offers the start date, the end date and the colour field instead. The arrow beside it switches between ascending and descending, and cards without a value always come last, whichever the direction. Clicking a column header in the table sorts the same way. The sort is saved with the report, and any sort other than by name appears in the export header.
 

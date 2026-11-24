@@ -153,7 +153,12 @@ class TestGateEnforcement:
     async def test_sso_portal_data_locked_without_cookie(self, client, db, portals_env):
         await _set_sso_config(db, enabled=True)
         await _create_portal(client, portals_env["admin"], access_mode="sso")
-        for path in ("", "/cards", "/relation-options?type_key=Application"):
+        for path in (
+            "",
+            "/cards",
+            '/cards?filters={"subtypeFilters":["x"]}',
+            "/relation-options?type_key=Application",
+        ):
             resp = await client.get(f"/api/v1/web-portals/public/catalog{path}")
             assert resp.status_code == 401, path
             assert resp.json()["detail"] == "portal_locked"

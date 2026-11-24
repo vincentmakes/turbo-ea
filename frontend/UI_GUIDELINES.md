@@ -650,6 +650,48 @@ and Capability Map had duplicated it near-verbatim before it was extracted).
   `FilterSectionHeader` (chevron → glyph → label → primary count chip) in report-toolbar
   typography.
 
+**The Fields row** (the card's own fields) is one catalog and one row component, never a
+hand-rolled list of `FilterSelect`s:
+
+- The catalog is `buildFilterCatalog` (`src/lib/fieldFilters.ts`): every filterable field of
+  the type's `fields_schema`, by section, each with its kind and whether it is shown by
+  default. A field is shown by default when it is a facet field (`isFacetField`) of a section
+  the admin did not switch off with **Hidden from filters** (`SectionDef.hideInFilters`). The
+  module is a leaf (no API client, no metamodel hook, no feature import) so the account-less
+  portal viewer can use it; labels come in through `sectionLabel` / `resolveField`.
+- The row is `FieldFilters` (`src/components/filters/`): leading controls (the subtype
+  select) first, then the fields shown by default in schema order, then the block's
+  `fixed` filters (the portal's relation and tag filters), then the fields the person
+  added in the order they added them (`filterFields`, then any other field holding a
+  value — `rowsToRender`), and **last** the dashed **Add filter** chip (`AddFilterMenu`),
+  rendered **only when something is addable**: what the chip adds appears just before it. An added row has a remove
+  button that also clears its value (`removeFilterField`).
+- `filterFields` is display state: never counted, described or matched. **Clear all** clears
+  values and keeps it (`clearCardFilterValues`); a report Reset and a card-type change empty
+  it. It is persisted with the five-edit convention above, travels last in the PPM link
+  (`encodeCardFilters`) and is stripped from a portal preset before it is sent.
+- The section switch shapes the rows only. Colour, grouping and matching keep reading every
+  facet field (`pickFacetFields` / `useCardFilterOptions().facetFields`), so a value held by
+  a field of a hidden section still applies — and its row is shown.
+- Kinds (`filterKindOf`): `facet` (a `FilterSelect`), `text` (`text`, `multiline_text`,
+  `url`: a "contains" box), `number` (`number`, `percentage`, `cost`: a from and a to box),
+  `date` (two `DateField`s). Only facets are ever shown by default; the others are added.
+  Their values live in `attrConditions` (`{contains}` / `{min, max}` / `{from, to}`),
+  separate from `attrFilters`, and follow the same rules: values, so **Clear all**, Reset and
+  a type change clear them; persisted with the five-edit convention; encoded in the PPM link
+  before `filterFields`; sent canonical in a portal preset.
+- **A condition applies only when its field is in the reader's catalog** with the kind its
+  shape names (`matchesConditions(attrs, conditions, kindByKey)`, `kindByKey` from
+  `catalogKinds(catalog)` or `useCardFilterOptions().kindByKey`). The catalog leaves a `cost`
+  field out unless `canViewCosts` (required — a report passes
+  `usePermissions(user).canViewCostsGlobally`, the portal dialog `false`), so a saved report
+  or link carrying a cost condition never narrows invisibly. Match, count
+  (`countActiveFilters(v, kindByKey)`) and print (`describeActiveFilters({…, conditions})`)
+  take the same `kindByKey`, which is what keeps the header count equal to the print lines.
+- The text and number boxes report every keystroke; the report filters the cards it holds at
+  once (no debounce). A surface that sends the value to a server debounces what it sends, never
+  the control.
+
 ❌ Don't
 - Don't nest the clear-all chip inside the toggle button. It is a **sibling** — a deletable
   chip inside a `<button>` is a second tab stop inside the first and needs `stopPropagation`

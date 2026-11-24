@@ -600,7 +600,6 @@
   "portal.sortRecentlyUpdated": "Recently Updated",
   "portal.sortHighestQuality": "Highest Data Quality",
   "portal.sortLowestQuality": "Lowest Data Quality",
-  "portal.allSubtypes": "All Subtypes",
   "portal.clearFilters": "Clear Filters",
   "portal.dataQuality": "{{percent}}% data quality",
   "portal.description": "Description",
@@ -609,7 +608,6 @@
   "portal.relatedItems": "Related Items",
   "portal.lastUpdated": "Last updated: {{date}}",
   "portal.filterSubtype": "Subtype",
-  "portal.allRelType": "All {{label}}",
   "portal.roles.responsible": "Responsible",
   "portal.roles.observer": "Observer",
   "portal.roles.technicalApplicationOwner": "Technical Owner",
@@ -807,5 +805,15 @@
   "spreadsheetImport.doneSkipped_other": "{{count}} rows were skipped.",
   "spreadsheetImport.doneFailed_one": "{{count}} row was not imported because of errors.",
   "spreadsheetImport.doneFailed_other": "{{count}} rows were not imported because of errors.",
-  "filter.clearSection": "Clear {{section}} filters"
+  "filter.clearSection": "Clear {{section}} filters",
+  "fieldFilters.add": "Add filter",
+  "fieldFilters.search": "Search fields",
+  "fieldFilters.searchPlaceholder": "Field or section",
+  "fieldFilters.clearSearch": "Clear search",
+  "fieldFilters.noMatch": "No field matches",
+  "fieldFilters.remove": "Remove the {{field}} filter",
+  "fieldFilters.clearValue": "Clear the {{field}} filter",
+  "fieldFilters.containsPlaceholder": "Contains…",
+  "fieldFilters.rangeFrom": "{{field}} from",
+  "fieldFilters.rangeTo": "{{field}} to"
 }

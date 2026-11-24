@@ -909,5 +909,15 @@
   "spreadsheetImport.doneFailed_few": "Не импортировано из-за ошибок строк: {{count}}",
   "spreadsheetImport.doneFailed_many": "Не импортировано из-за ошибок строк: {{count}}",
   "spreadsheetImport.doneFailed_other": "Не импортировано из-за ошибок строк: {{count}}",
-  "filter.clearSection": "Очистить фильтры «{{section}}»"
+  "filter.clearSection": "Очистить фильтры «{{section}}»",
+  "fieldFilters.add": "Добавить фильтр",
+  "fieldFilters.search": "Поиск полей",
+  "fieldFilters.searchPlaceholder": "Поле или раздел",
+  "fieldFilters.clearSearch": "Очистить поиск",
+  "fieldFilters.noMatch": "Подходящих полей нет",
+  "fieldFilters.remove": "Удалить фильтр «{{field}}»",
+  "fieldFilters.clearValue": "Сбросить фильтр «{{field}}»",
+  "fieldFilters.containsPlaceholder": "Содержит…",
+  "fieldFilters.rangeFrom": "{{field}}: от",
+  "fieldFilters.rangeTo": "{{field}}: до"
 }

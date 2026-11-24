@@ -361,6 +361,8 @@ const DEFAULT_CONFIG = {
   subtypeFilters: [],
   tagFilterIds: [],
   includeDescendants: false,
+  filterFields: [],
+  attrConditions: {},
   search: "",
   filtersCollapsed: false,
 };

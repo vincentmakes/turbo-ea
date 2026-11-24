@@ -655,6 +655,50 @@ def test_every_report_key_that_holds_an_id_is_translated():
     assert tally.counts == {rm.REMAPPED: 12}
 
 
+def test_added_filter_fields_are_field_keys_never_rewritten():
+    """``filterFields`` names metamodel field keys ("Add filter", #1425). A key
+    that happens to spell a mapped id is still a key: the walk leaves it alone,
+    counts nothing, and the rest of the config translates as before."""
+    tally = rm.RewriteTally()
+    config = {"filterFields": [OLD_A, OLD_TAG, "risk"], "scopeIds": [OLD_A]}
+    out = rm.rewrite_saved_report_config(config, _ids(), tally)
+    assert out == {"filterFields": [OLD_A, OLD_TAG, "risk"], "scopeIds": [NEW_A]}
+    assert tally.counts == {rm.REMAPPED: 1}
+    assert "filterFields" in rm.REPORT_KNOWN_KEYS
+
+
+def test_field_conditions_are_typed_values_never_rewritten():
+    """``attrConditions`` holds what a person typed (#1425). A needle that
+    spells a mapped id is still text: neither the report walk nor the portal
+    row's ``card_filters`` rewrite touches it. The map is chained so a value
+    walked once too often would show."""
+    ids = _ids()
+    ids.record(rm.CARDS, NEW_A, NEW_C)
+    tally = rm.RewriteTally()
+    conditions = {"code": {"contains": OLD_A}, "ref": {"contains": NEW_A}, "n": {"min": 1}}
+    config = {"attrConditions": conditions, "scopeIds": [OLD_A]}
+    out = rm.rewrite_saved_report_config(config, ids, tally)
+    assert out == {"attrConditions": conditions, "scopeIds": [NEW_A]}
+    assert tally.counts == {rm.REMAPPED: 1}
+    assert "attrConditions" in rm.REPORT_KNOWN_KEYS
+
+    kw = {
+        "filters": {
+            "card_filters": {
+                "attrConditions": {"code": {"contains": OLD_A}},
+                "relationFilters": {"Organization": [OLD_A]},
+            }
+        }
+    }
+    assert rm.rewrite_portal_row(kw, _ctx(ids=ids)).counts == {rm.REMAPPED: 1}
+    assert kw["filters"] == {
+        "card_filters": {
+            "attrConditions": {"code": {"contains": OLD_A}},
+            "relationFilters": {"Organization": [NEW_A]},
+        }
+    }
+
+
 def test_card_and_tag_ids_are_looked_up_in_their_own_tables():
     tally = rm.RewriteTally()
     out = rm.rewrite_saved_report_config(
