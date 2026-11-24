@@ -77,6 +77,7 @@ import {
   useRelationLabel,
   useFieldLabel,
   useOptionLabel,
+  useResolveLabel,
   useSubtypeLabel,
 } from "@/hooks/useResolveLabel";
 import { useAiStatus } from "@/hooks/useAiStatus";
@@ -88,6 +89,8 @@ import {
   rawValues,
   resolveFacetField,
 } from "@/lib/fieldFacets";
+import { buildFilterCatalog, restoreFilterFields } from "@/lib/fieldFilters";
+import type { FilterCatalog } from "@/lib/fieldFilters";
 import {
   appColorBucket,
   attributeLabel,
@@ -663,6 +666,7 @@ export default function PortfolioReport({
   const relLabel = useRelationLabel();
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
+  const rl = useResolveLabel();
   const subtypeLabel = useCardSubtypeLabel();
   const subtypeDefLabel = useSubtypeLabel();
   const saved = useSavedReport(savedReportKey);
@@ -708,6 +712,9 @@ export default function PortfolioReport({
   const [subtypeFilters, setSubtypeFilters] = useState<string[]>([]);
   // A related-card pick also covers the cards beneath it (#1305).
   const [includeDescendants, setIncludeDescendants] = useState(false);
+  // The fields added through "Add filter" (#1425): which rows show, not what
+  // matches. Kept by Clear all; a Reset or a type change empties it.
+  const [filterFields, setFilterFields] = useState<string[]>([]);
   // Fold the (tall) filter block away. Expanded by default; persisted with
   // the rest of the report config, so a missing key means expanded.
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
@@ -735,6 +742,7 @@ export default function PortfolioReport({
         setRelSubtypeFilters(cfg.relSubtypeFilters as Record<string, string[]>);
       if (Array.isArray(cfg.subtypeFilters)) setSubtypeFilters(cfg.subtypeFilters as string[]);
       if (cfg.includeDescendants != null) setIncludeDescendants(!!cfg.includeDescendants);
+      setFilterFields(restoreFilterFields(cfg.filterFields));
       if (cfg.filtersCollapsed != null) setFiltersCollapsed(!!cfg.filtersCollapsed);
       if (cfg.nestedGroups != null) setNestedGroups(!!cfg.nestedGroups);
       if (cfg.groupDepth != null) setGroupDepth(cfg.groupDepth as number);
@@ -757,7 +765,7 @@ export default function PortfolioReport({
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ cardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, subtypeFilters, tagFilterIds, includeDescendants, timelineDate: tl.persistValue, sortK, sortD, nestedGroups, groupDepth, columns, filtersCollapsed });
+  const getConfig = () => ({ cardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, subtypeFilters, tagFilterIds, includeDescendants, filterFields, timelineDate: tl.persistValue, sortK, sortD, nestedGroups, groupDepth, columns, filtersCollapsed });
 
   // Auto-persist config to localStorage. Skip the very first run so that on
   // mount we don't overwrite a previously-saved config with the initial
@@ -774,7 +782,7 @@ export default function PortfolioReport({
     }
     if (dataCardType !== cardType) return;
     saved.persistConfig(getConfig());
-  }, [cardType, dataCardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, subtypeFilters, tagFilterIds, includeDescendants, tl.timelineDate, sortK, sortD, nestedGroups, groupDepth, columns, filtersCollapsed]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cardType, dataCardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, subtypeFilters, tagFilterIds, includeDescendants, filterFields, tl.timelineDate, sortK, sortD, nestedGroups, groupDepth, columns, filtersCollapsed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -790,6 +798,7 @@ export default function PortfolioReport({
     setSubtypeFilters([]);
     setTagFilterIds([]);
     setIncludeDescendants(false);
+    setFilterFields([]);
     setFiltersCollapsed(false);
     tl.reset();
     setSortK("name");
@@ -842,6 +851,7 @@ export default function PortfolioReport({
     setRelSubtypeFilters({});
     setSubtypeFilters([]);
     setTagFilterIds([]);
+    setFilterFields([]);
     setNestedGroups(false);
     setGroupDepth(2);
     setDefaultsApplied(false);
@@ -868,6 +878,23 @@ export default function PortfolioReport({
       ),
     );
   }, [data, fieldLabel, optLabel, t]);
+
+  // The filter catalog, from the same payload schema: which fields the Fields
+  // row shows by default and which "Add filter" offers. `selectFields` stays
+  // every facet field, because colour, grouping and matching read them all.
+  const fieldCatalog = useMemo<FilterCatalog<FieldDef>>(() => {
+    if (!data) return [];
+    const yesNo = { yes: t("common:labels.yes"), no: t("common:labels.no") };
+    return buildFilterCatalog(data.fields_schema, {
+      sectionLabel: (section) => rl(section.section, section.translations),
+      descriptionLabel: t("common:labels.description"),
+      resolveField: (f) =>
+        resolveFacetField(
+          { ...f, label: fieldLabel(f), options: f.options?.map((o) => ({ ...o, label: optLabel(o) })) },
+          yesNo,
+        ),
+    });
+  }, [data, fieldLabel, optLabel, rl, t]);
 
   // Relation subtypes — single_select attributes on relation types touching
   // the current card type (e.g. "is used by · Usage Type"), tagged with the
@@ -1216,8 +1243,8 @@ export default function PortfolioReport({
 
   // The shared filter section edits these as one value.
   const cardFilters = useMemo<CardFilterValue>(
-    () => ({ attrFilters, relationFilters, relSubtypeFilters, subtypeFilters, tagFilterIds, includeDescendants }),
-    [attrFilters, relationFilters, relSubtypeFilters, subtypeFilters, tagFilterIds, includeDescendants],
+    () => ({ attrFilters, relationFilters, relSubtypeFilters, subtypeFilters, tagFilterIds, includeDescendants, filterFields }),
+    [attrFilters, relationFilters, relSubtypeFilters, subtypeFilters, tagFilterIds, includeDescendants, filterFields],
   );
   const setCardFilters = useCallback((next: CardFilterValue) => {
     setAttrFilters(next.attrFilters);
@@ -1226,6 +1253,7 @@ export default function PortfolioReport({
     setSubtypeFilters(next.subtypeFilters);
     setTagFilterIds(next.tagFilterIds);
     setIncludeDescendants(next.includeDescendants);
+    setFilterFields(next.filterFields);
   }, []);
 
   const clearFilters = useCallback(() => {
@@ -1813,7 +1841,7 @@ export default function PortfolioReport({
             relationOptions={relationFilterOptions}
             tagGroups={data?.tag_groups || []}
             subtypeOptions={subtypeOptions}
-            fields={selectFields}
+            catalog={fieldCatalog}
             relSubtypes={relSubtypes}
             search={search}
             onClearAll={clearFilters}

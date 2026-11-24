@@ -786,6 +786,7 @@ describe("reset", () => {
       attrFilters: { crit: ["high"] },
       relationFilters: { Organization: ["org-pay"] },
       tagFilterIds: ["tag-cloud"],
+      filterFields: ["crit"],
       filtersCollapsed: true,
       sortK: "crit",
       sortD: "desc",
@@ -817,6 +818,7 @@ describe("reset", () => {
         groupDepth: 2,
         columns: 3,
         tagFilterIds: [],
+        filterFields: [],
       }),
     );
   });
@@ -844,6 +846,7 @@ describe("switching card types", () => {
     state.config = {
       attrFilters: { crit: ["high"] },
       relationFilters: { Organization: ["org-hq"] },
+      filterFields: ["crit"],
       nestedGroups: true,
       groupDepth: 3,
     };
@@ -868,6 +871,7 @@ describe("switching card types", () => {
         colorBy: "vendorTier",
         attrFilters: {},
         relationFilters: {},
+        filterFields: [],
         nestedGroups: false,
         groupDepth: 2,
       }),

@@ -10,6 +10,8 @@ import Typography from "@mui/material/Typography";
 import FilterSelect from "@/components/FilterSelect";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import TagPicker from "@/components/TagPicker";
+import FieldFilters from "@/components/filters/FieldFilters";
+import type { FilterCatalog } from "@/lib/fieldFilters";
 import type { TagGroup } from "@/types";
 import ReportFilterSection from "./ReportFilterSection";
 import { countActiveFilters, hasActiveFilters } from "./cardFilters";
@@ -29,8 +31,11 @@ export interface CardFilterSectionProps {
   relationOptions: RelationFilterOption[];
   tagGroups: TagGroupDef[];
   subtypeOptions: { key: string; label: string }[];
-  /** The card type's own facet fields, labels and options resolved. */
-  fields: FieldDef[];
+  /**
+   * The card type's filter catalog (`buildFilterCatalog`), labels and options
+   * resolved: which fields the Fields row shows and "Add filter" offers.
+   */
+  catalog: FilterCatalog<FieldDef>;
   relSubtypes: RelSubtype[];
   /** The report's search box, which Clear all also empties. */
   search?: string;
@@ -70,7 +75,8 @@ function FilterRow({ title, children }: { title: string; children: ReactNode }) 
 /**
  * The card filter section shared by the Portfolio, Flexible Portfolio and
  * Lifecycle reports: Related by (with *Include sub-cards*), Tags, the card's
- * own Fields (subtype first) and Relation subtypes, under one collapsible
+ * own Fields (subtype first, then `FieldFilters` with its "Add filter" chip)
+ * and Relation subtypes, under one collapsible
  * header with a count and Clear all. It only renders: the report owns the
  * value, builds the options and does the matching.
  */
@@ -83,7 +89,7 @@ export default function CardFilterSection({
   relationOptions,
   tagGroups,
   subtypeOptions,
-  fields,
+  catalog,
   relSubtypes,
   search = "",
   onClearAll,
@@ -198,30 +204,19 @@ export default function CardFilterSection({
             </FilterRow>
           )}
 
-          {/* The card's subtype first, then its own facet fields. */}
-          {(subtypeOptions.length > 0 || fields.length > 0) && (
+          {/* The card's subtype first, then its own fields and "Add filter". */}
+          {(subtypeOptions.length > 0 || catalog.length > 0) && (
             <FilterRow title={t("portfolio.fields")}>
-              {subtypeOptions.length > 0 && (
-                <FilterSelect
-                  label={t("portfolio.filters.subtype")}
-                  options={subtypeOptions}
-                  value={value.subtypeFilters}
-                  onChange={(v) => set({ subtypeFilters: v })}
-                />
-              )}
-              {fields.map((f) => (
-                <FilterSelect
-                  key={f.key}
-                  label={f.label}
-                  options={(f.options || []).map((o) => ({
-                    key: o.key,
-                    label: o.label,
-                    color: o.color,
-                  }))}
-                  value={value.attrFilters[f.key] || []}
-                  onChange={(v) => set({ attrFilters: { ...value.attrFilters, [f.key]: v } })}
-                />
-              ))}
+              <FieldFilters catalog={catalog} value={value} onChange={set}>
+                {subtypeOptions.length > 0 && (
+                  <FilterSelect
+                    label={t("portfolio.filters.subtype")}
+                    options={subtypeOptions}
+                    value={value.subtypeFilters}
+                    onChange={(v) => set({ subtypeFilters: v })}
+                  />
+                )}
+              </FieldFilters>
             </FilterRow>
           )}
 

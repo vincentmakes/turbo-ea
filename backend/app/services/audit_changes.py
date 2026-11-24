@@ -108,12 +108,13 @@ _FIELD_PROPS = (
     "config",
     "hidden",
 )
-_SECTION_PROPS = ("columns", "groups", "defaultExpanded", "hidden")
+_SECTION_PROPS = ("columns", "groups", "defaultExpanded", "hidden", "hideInFilters")
 _OPTION_PROPS = ("color", "hidden")
 
 # Flags whose absence means ``False``: reading an absent flag as ``None`` would
 # report a no-op "— → No" every time an editor wrote the default explicitly.
-_BOOLEAN_PROPS = frozenset({"required", "readonly", "hidden"})
+# ``hideInFilters`` is a section's "Hidden from filters" switch: absent = shown.
+_BOOLEAN_PROPS = frozenset({"required", "readonly", "hidden", "hideInFilters"})
 
 # Props whose absence means a rendered default other than ``False``, read the
 # same way: a section with no ``defaultExpanded`` starts expanded, so the first

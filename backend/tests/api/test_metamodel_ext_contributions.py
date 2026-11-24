@@ -156,6 +156,21 @@ class TestUpdateTypeKeepsContributions:
         assert sample["ext"] == EXT
         assert sample["fields"][0] == {"key": "s1", "label": "Score", "type": "text", "ext": EXT}
 
+    async def test_hide_in_filters_on_a_contributed_section_stays_the_bodys(
+        self, client, db, admin, gadget
+    ):
+        # "Hidden from filters" is how an admin tames an extension's many
+        # fields (#1425): the guard keeps the body's section flags.
+        body = stored_schema()
+        body[2]["hideInFilters"] = True
+        await _patch(client, admin, {"fields_schema": body})
+        sample = (await _stored(db)).fields_schema[2]
+        assert sample == {**CONTRIBUTED, "hideInFilters": True}
+
+        # A body that drops the whole section gets it back as stored, flag included.
+        await _patch(client, admin, {"fields_schema": _without(stored_schema(), "Sample")})
+        assert (await _stored(db)).fields_schema[2] == {**CONTRIBUTED, "hideInFilters": True}
+
     async def test_an_admin_field_added_inside_the_contributed_section_stays(
         self, client, db, admin, gadget
     ):

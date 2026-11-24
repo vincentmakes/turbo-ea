@@ -40,7 +40,7 @@ import CardFilterSection from "@/features/reports/CardFilterSection";
 import ReportShell from "@/features/reports/ReportShell";
 import type { PrintParam } from "@/features/reports/ReportShell";
 import {
-  EMPTY_CARD_FILTERS,
+  clearCardFilterValues,
   countActiveFilters,
   describeActiveFilters,
 } from "@/features/reports/cardFilters";
@@ -238,6 +238,7 @@ function PpmPortfolioBoard({ onReset }: { onReset: () => void }) {
     relationOptions: payloadOrder,
     relSubtypes,
     facetFields,
+    catalog: fieldCatalog,
   } = useCardFilterOptions({
     cardTypeKey: "Initiative",
     relationTypes,
@@ -315,11 +316,9 @@ function PpmPortfolioBoard({ onReset }: { onReset: () => void }) {
       relationOptions={relationOptions}
       tagGroups={tagGroups}
       subtypeOptions={[]}
-      fields={facetFields}
+      catalog={fieldCatalog}
       relSubtypes={relSubtypes}
-      onClearAll={() =>
-        setFilters((prev) => ({ ...EMPTY_CARD_FILTERS, includeDescendants: prev.includeDescendants }))
-      }
+      onClearAll={() => setFilters(clearCardFilterValues)}
       disabledReason={
         filterQuery.error
           ? t("filtersLoadFailed")

@@ -655,6 +655,18 @@ def test_every_report_key_that_holds_an_id_is_translated():
     assert tally.counts == {rm.REMAPPED: 12}
 
 
+def test_added_filter_fields_are_field_keys_never_rewritten():
+    """``filterFields`` names metamodel field keys ("Add filter", #1425). A key
+    that happens to spell a mapped id is still a key: the walk leaves it alone,
+    counts nothing, and the rest of the config translates as before."""
+    tally = rm.RewriteTally()
+    config = {"filterFields": [OLD_A, OLD_TAG, "risk"], "scopeIds": [OLD_A]}
+    out = rm.rewrite_saved_report_config(config, _ids(), tally)
+    assert out == {"filterFields": [OLD_A, OLD_TAG, "risk"], "scopeIds": [NEW_A]}
+    assert tally.counts == {rm.REMAPPED: 1}
+    assert "filterFields" in rm.REPORT_KNOWN_KEYS
+
+
 def test_card_and_tag_ids_are_looked_up_in_their_own_tables():
     tally = rm.RewriteTally()
     out = rm.rewrite_saved_report_config(

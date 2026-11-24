@@ -78,6 +78,9 @@ export interface FieldDef {
 export interface SectionDef {
   section: string;
   fields: FieldDef[];
+  translations?: Record<string, string>;
+  /** The section's fields are offered by "Add filter" only, not shown by default. */
+  hideInFilters?: boolean;
 }
 
 export interface RelTypeDef {

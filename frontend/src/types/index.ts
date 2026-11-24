@@ -274,6 +274,11 @@ export interface SectionDef {
   columns?: 1 | 2;
   groups?: string[];
   translations?: TranslationMap;
+  // "Hidden from filters" (Card Layout editor): the section's fields are not
+  // shown in a filter block by default, but can still be added through "Add
+  // filter" (`lib/fieldFilters.ts`). Absent = shown. Stored on the section
+  // dict, never in `section_config`, which addresses custom sections by position.
+  hideInFilters?: boolean;
   // Localized labels for subsection (group) headers, keyed by the raw group
   // name → { locale → label }. Display-only and ungated; any metamodel section
   // (core or extension) may supply it so group headers aren't English-only.

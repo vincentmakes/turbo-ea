@@ -650,6 +650,28 @@ and Capability Map had duplicated it near-verbatim before it was extracted).
   `FilterSectionHeader` (chevron → glyph → label → primary count chip) in report-toolbar
   typography.
 
+**The Fields row** (the card's own fields) is one catalog and one row component, never a
+hand-rolled list of `FilterSelect`s:
+
+- The catalog is `buildFilterCatalog` (`src/lib/fieldFilters.ts`): every filterable field of
+  the type's `fields_schema`, by section, each with its kind and whether it is shown by
+  default. A field is shown by default when it is a facet field (`isFacetField`) of a section
+  the admin did not switch off with **Hidden from filters** (`SectionDef.hideInFilters`). The
+  module is a leaf (no API client, no metamodel hook, no feature import) so the account-less
+  portal viewer can use it; labels come in through `sectionLabel` / `resolveField`.
+- The row is `FieldFilters` (`src/components/filters/`): leading controls (the subtype
+  select) first, then `rowsToRender` — shown by default ∪ added by the person
+  (`filterFields`) ∪ holding a value, in schema order — then the dashed **Add filter** chip
+  (`AddFilterMenu`), rendered **only when something is addable**. An added row has a remove
+  button that also clears its value (`removeFilterField`).
+- `filterFields` is display state: never counted, described or matched. **Clear all** clears
+  values and keeps it (`clearCardFilterValues`); a report Reset and a card-type change empty
+  it. It is persisted with the five-edit convention above, travels last in the PPM link
+  (`encodeCardFilters`) and is stripped from a portal preset before it is sent.
+- The section switch shapes the rows only. Colour, grouping and matching keep reading every
+  facet field (`pickFacetFields` / `useCardFilterOptions().facetFields`), so a value held by
+  a field of a hidden section still applies — and its row is shown.
+
 ❌ Don't
 - Don't nest the clear-all chip inside the toggle button. It is a **sibling** — a deletable
   chip inside a `<button>` is a second tab stop inside the first and needs `stopPropagation`

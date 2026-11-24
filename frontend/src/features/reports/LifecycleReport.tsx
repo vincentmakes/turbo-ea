@@ -28,6 +28,7 @@ import CardFilterSection from "./CardFilterSection";
 import { useCardFilterOptions } from "./useCardFilterOptions";
 import {
   EMPTY_CARD_FILTERS,
+  clearCardFilterValues,
   describeActiveFilters,
   expandRelationFilters,
   hasActiveFilters,
@@ -296,6 +297,7 @@ export default function LifecycleReport() {
     relSubtypes,
     subtypeOptions,
     facetFields: selectFields,
+    catalog: fieldCatalog,
   } = useCardFilterOptions({
     cardTypeKey,
     relationTypes,
@@ -705,11 +707,11 @@ export default function LifecycleReport() {
             relationOptions={relationFilterOptions}
             tagGroups={tagGroups}
             subtypeOptions={subtypeOptions}
-            fields={selectFields}
+            catalog={fieldCatalog}
             relSubtypes={relSubtypes}
             search={search}
             onClearAll={() => {
-              setFilters((prev) => ({ ...EMPTY_CARD_FILTERS, includeDescendants: prev.includeDescendants }));
+              setFilters(clearCardFilterValues);
               setSearch("");
             }}
             disabledReason={cardTypeKey ? undefined : t("lifecycle.filtersNeedType")}

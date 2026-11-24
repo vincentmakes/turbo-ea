@@ -7,7 +7,13 @@ import { renderHook } from "@testing-library/react";
 
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
 
-import { APPLICATION_TYPE, IT_COMPONENT_TYPE, makeCardType } from "@/test/fixtures/metamodel";
+import {
+  APPLICATION_TYPE,
+  IT_COMPONENT_TYPE,
+  makeCardType,
+  makeField,
+  makeSection,
+} from "@/test/fixtures/metamodel";
 import { withMetamodel } from "@/test/hooks";
 import { useCardFilterOptions, type CardFilterOptionsInput } from "./useCardFilterOptions";
 import type { RelTypeDef } from "./portfolioHelpers";
@@ -91,6 +97,7 @@ describe("useCardFilterOptions", () => {
       relSubtypes: [],
       subtypeOptions: [],
       facetFields: [],
+      catalog: [],
     });
   });
 
@@ -98,5 +105,44 @@ describe("useCardFilterOptions", () => {
     const out = run({ cardTypeKey: "Unknown", relationTypes: [] });
     expect(out.subtypeOptions).toEqual([]);
     expect(out.facetFields).toEqual([]);
+    expect(out.catalog).toEqual([]);
+  });
+
+  it("builds the filter catalog: sections labelled, hidden ones offered but not shown (#1425)", () => {
+    const risk = makeField({
+      key: "risk",
+      label: "Risk",
+      type: "single_select",
+      options: [{ key: "high", label: "High", translations: { de: "Hoch" } }],
+      translations: { de: "Risiko" },
+    });
+    const flag = makeField({ key: "flag", label: "Flag", type: "boolean" });
+    withMetamodel([
+      makeCardType({
+        key: "Gadget",
+        label: "Gadget",
+        fields_schema: [
+          makeSection({ section: "__description", fields: [flag] }),
+          makeSection({
+            section: "Compliance",
+            hideInFilters: true,
+            translations: { de: "Konformität" },
+            fields: [risk, makeField({ key: "note", label: "Note", type: "text" })],
+          }),
+        ],
+      }),
+    ]);
+    const { catalog, facetFields } = run({ cardTypeKey: "Gadget", relationTypes: [] });
+    expect(catalog.map((s) => [s.key, s.label, s.hidden])).toEqual([
+      ["__description", "Description", false],
+      ["Compliance", "Compliance", true],
+    ]);
+    expect(catalog[0].fields[0].shownByDefault).toBe(true);
+    // A yes/no field gains its Yes / No options, as everywhere else.
+    expect(catalog[0].fields[0].field.options?.map((o) => o.label)).toEqual(["Yes", "No"]);
+    // The text field is not filterable (yet) and is left out.
+    expect(catalog[1].fields.map((f) => [f.field.key, f.shownByDefault])).toEqual([["risk", false]]);
+    // The matcher still reads every facet field, the hidden section's included.
+    expect(facetFields.map((f) => f.key)).toEqual(["flag", "risk"]);
   });
 });

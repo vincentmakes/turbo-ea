@@ -655,6 +655,8 @@ REPORT_KNOWN_KEYS = frozenset(
         *REPORT_TAG_ID_LIST_KEYS,
         *REPORT_TAG_ID_MAP_KEYS,
         "drillStack",
+        # Field keys the person added through "Add filter": metamodel keys, never ids.
+        "filterFields",
     )
 )
 

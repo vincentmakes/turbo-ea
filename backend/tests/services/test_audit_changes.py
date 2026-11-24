@@ -779,6 +779,39 @@ def test_section_config_relations_starts_collapsed():
     ]
 
 
+def test_fields_schema_hide_in_filters_alone_is_one_section_change():
+    # The Card Layout editor's "Hidden from filters" switch writes only this
+    # flag on the section dict; a save changing nothing else is still logged.
+    old = [_section("S", _field("f"))]
+    hidden = [_section("S", _field("f"), hideInFilters=True)]
+    assert fields_schema_items(old, hidden) == [
+        {
+            "kind": "section.changed",
+            "section": "S",
+            "property": "hideInFilters",
+            "old": False,
+            "new": True,
+        }
+    ]
+    # Switched back on (the editor removes the key): the reverse item.
+    assert fields_schema_items(hidden, old) == [
+        {
+            "kind": "section.changed",
+            "section": "S",
+            "property": "hideInFilters",
+            "old": True,
+            "new": False,
+        }
+    ]
+
+
+def test_fields_schema_hide_in_filters_absent_equals_false():
+    old = [_section("S", _field("f"))]
+    explicit = [_section("S", _field("f"), hideInFilters=False)]
+    assert fields_schema_items(old, explicit) == []
+    assert fields_schema_items(explicit, old) == []
+
+
 def test_fields_schema_section_defaults_are_no_change():
     old = [_section("S", _field("f"))]
     new = [_section("S", _field("f"), defaultExpanded=True, hidden=False)]

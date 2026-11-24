@@ -1,7 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import { buildFilterCatalog } from "@/lib/fieldFilters";
 import CardFilterSection, { type CardFilterSectionProps } from "./CardFilterSection";
-import { EMPTY_CARD_FILTERS, type RelationFilterOption } from "./cardFilters";
+import { EMPTY_CARD_FILTERS, clearCardFilterValues, type RelationFilterOption } from "./cardFilters";
+import type { FieldDef, SectionDef } from "./portfolioHelpers";
+
+/** A catalog with labels taken as they are. */
+const catalogOf = (sections: SectionDef[]) =>
+  buildFilterCatalog<FieldDef, FieldDef>(sections, {
+    sectionLabel: (s) => s.section,
+    descriptionLabel: "Description",
+    resolveField: (f) => f,
+  });
+const FIT: FieldDef = { key: "fit", label: "Fit", type: "single_select", options: [{ key: "good", label: "Good" }] };
+const RISK: FieldDef = { key: "risk", label: "Risk", type: "single_select", options: [{ key: "high", label: "High" }] };
 
 const relation = (typeKey: string, hierarchical = false): RelationFilterOption => ({
   typeKey,
@@ -21,7 +33,7 @@ function renderSection(over: Partial<CardFilterSectionProps> = {}) {
     relationOptions: [],
     tagGroups: [],
     subtypeOptions: [],
-    fields: [],
+    catalog: [],
     relSubtypes: [],
     onClearAll: vi.fn(),
     ...over,
@@ -38,7 +50,7 @@ describe("CardFilterSection", () => {
       relationOptions: [relation("Organization")],
       tagGroups: [{ id: "g", name: "Origin", mode: "multi", tags: [{ id: "t", name: "In-house" }] }],
       subtypeOptions: [{ key: "saas", label: "SaaS" }],
-      fields: [{ key: "fit", label: "Fit", type: "single_select", options: [{ key: "good", label: "Good" }] }],
+      catalog: catalogOf([{ section: "Main", fields: [FIT] }]),
       relSubtypes: [
         {
           composite: "r::usage",
@@ -71,9 +83,7 @@ describe("CardFilterSection", () => {
   });
 
   it("reports a field pick under the field's key", () => {
-    const props = renderSection({
-      fields: [{ key: "fit", label: "Fit", type: "single_select", options: [{ key: "good", label: "Good" }] }],
-    });
+    const props = renderSection({ catalog: catalogOf([{ section: "Main", fields: [FIT] }]) });
     fireEvent.mouseDown(screen.getByRole("combobox", { name: "Fit" }));
     fireEvent.click(within(screen.getByRole("listbox")).getByText("Good"));
     expect(props.onChange).toHaveBeenLastCalledWith({ ...EMPTY_CARD_FILTERS, attrFilters: { fit: ["good"] } });
@@ -133,5 +143,76 @@ describe("CardFilterSection", () => {
     renderSection({ relationOptions: [relation("Organization")], disabledReason: "Pick a type first" });
     expect(screen.getByText("Pick a type first")).toBeInTheDocument();
     expect(screen.queryByText("Related By")).not.toBeInTheDocument();
+  });
+  describe("the Fields row and Add filter (#1425)", () => {
+    const CATALOG = catalogOf([
+      { section: "Main", fields: [FIT] },
+      { section: "Compliance", hideInFilters: true, fields: [RISK] },
+    ]);
+
+    it("keeps a hidden section's field out of the row, behind Add filter", () => {
+      const props = renderSection({ catalog: CATALOG });
+      expect(facet("Fit")).toBeInTheDocument();
+      expect(facet("Risk")).not.toBeInTheDocument();
+      fireEvent.click(screen.getByText("Add filter"));
+      fireEvent.click(screen.getByRole("option", { name: "Risk" }));
+      expect(props.onChange).toHaveBeenLastCalledWith({ ...EMPTY_CARD_FILTERS, filterFields: ["risk"] });
+    });
+
+    it("shows a hidden section's field once added, with a remove button", () => {
+      const value = { ...EMPTY_CARD_FILTERS, filterFields: ["risk"] };
+      const props = renderSection({ catalog: CATALOG, value });
+      expect(facet("Risk")).toBeInTheDocument();
+      // Everything is shown, so nothing is left to add.
+      expect(screen.queryByText("Add filter")).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Remove the Risk filter" }));
+      expect(props.onChange).toHaveBeenLastCalledWith({ ...EMPTY_CARD_FILTERS, filterFields: [] });
+    });
+
+    it("shows a hidden section's field that holds a value, without it being added", () => {
+      renderSection({ catalog: CATALOG, value: { ...EMPTY_CARD_FILTERS, attrFilters: { risk: ["high"] } } });
+      expect(facet("Risk")).toBeInTheDocument();
+    });
+
+    it("renders the Fields row for a catalog of hidden fields only, with just the chip", () => {
+      renderSection({ catalog: catalogOf([{ section: "Compliance", hideInFilters: true, fields: [RISK] }]) });
+      expect(screen.getByText("Fields")).toBeInTheDocument();
+      expect(facet("Risk")).not.toBeInTheDocument();
+      expect(screen.getByText("Add filter")).toBeInTheDocument();
+    });
+
+    it("keeps the subtype select first in the row", () => {
+      renderSection({ catalog: CATALOG, subtypeOptions: [{ key: "saas", label: "SaaS" }] });
+      const boxes = screen.getAllByRole("combobox");
+      expect(boxes).toHaveLength(2);
+      expect(boxes[0]).toBe(facet("Subtype"));
+      expect(boxes[1]).toBe(facet("Fit"));
+    });
+
+    it("keeps the added rows through Clear all", () => {
+      const value = {
+        ...EMPTY_CARD_FILTERS,
+        attrFilters: { risk: ["high"] },
+        tagFilterIds: ["t"],
+        includeDescendants: true,
+        filterFields: ["risk"],
+      };
+      const props = renderSection({ catalog: CATALOG, value });
+      const clearChip = screen.getByText("Clear all").closest(".MuiChip-root") as HTMLElement;
+      fireEvent.click(within(clearChip).getByTestId("CancelIcon"));
+      expect(props.onClearAll).toHaveBeenCalledTimes(1);
+    });
+
+    it("still shows an added row once its value is cleared by Clear all", () => {
+      const value = { ...EMPTY_CARD_FILTERS, attrFilters: { risk: ["high"] }, filterFields: ["risk"] };
+      // What the reports hand their setter on Clear all.
+      renderSection({ catalog: CATALOG, value: clearCardFilterValues(value) });
+      expect(facet("Risk")).toBeInTheDocument();
+    });
+
+    it("does not count the added fields", () => {
+      renderSection({ catalog: CATALOG, value: { ...EMPTY_CARD_FILTERS, filterFields: ["risk"] } });
+      expect(screen.queryByText("Clear all")).not.toBeInTheDocument();
+    });
   });
 });

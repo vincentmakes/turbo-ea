@@ -55,8 +55,10 @@ function nonEmpty(r: Record<string, string[]>): Record<string, string[]> {
 /**
  * The selection as the `?filters=` value: compact JSON of the keys that select
  * something, always in the same order, so one selection is one URL. Nothing
- * selected is "" (the param is then dropped). The section's subtype is never
- * written — the toolbar's `?subtype=` is the board's only subtype filter.
+ * selected is "" (the param is then dropped). The fields the person added
+ * ("Add filter") travel too, so a shared link shows the same rows. The
+ * section's subtype is never written — the toolbar's `?subtype=` is the
+ * board's only subtype filter.
  */
 export function encodeCardFilters(v: CardFilterValue): string {
   const out: Record<string, unknown> = {};
@@ -71,6 +73,8 @@ export function encodeCardFilters(v: CardFilterValue): string {
   }
   if (v.tagFilterIds.length > 0) out.tagFilterIds = v.tagFilterIds;
   if (v.includeDescendants) out.includeDescendants = true;
+  // Last, so a link written before "Add filter" existed reads byte for byte the same.
+  if (v.filterFields.length > 0) out.filterFields = v.filterFields;
   return Object.keys(out).length > 0 ? JSON.stringify(out) : "";
 }
 

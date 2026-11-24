@@ -22,7 +22,8 @@ export function portalCardFilters(filters: Record<string, unknown> | null | unde
  * The `filters` a save sends: a card-list portal's `card_filters`, or a
  * board's subtypes and tags — plus the approval statuses the portal already
  * had, which the dialog has no control for and must not drop. `null` when
- * nothing is left.
+ * nothing is left. The rows the admin added in the dialog (`filterFields`)
+ * are editing state and are never sent.
  */
 export function portalFiltersBody(input: {
   view: PortalView;
@@ -35,7 +36,9 @@ export function portalFiltersBody(input: {
   const out: Record<string, unknown> = {};
   if (view === "cards") {
     if (countActiveFilters(cardFilters) > 0 || cardFilters.includeDescendants) {
-      out.card_filters = cardFilters;
+      const preset: Partial<CardFilterValue> = { ...cardFilters };
+      delete preset.filterFields;
+      out.card_filters = preset;
     }
   } else {
     if (subtypes.length > 0) out.subtypes = subtypes;

@@ -28,6 +28,7 @@ const EMPTY = {
   subtypeFilters: [],
   tagFilterIds: [],
   includeDescendants: false,
+  filterFields: [],
 };
 
 describe("encodeCardFilters", () => {
@@ -80,11 +81,28 @@ describe("encodeCardFilters", () => {
       relSubtypeFilters: { "r::f": ["v"] },
       attrFilters: { a: ["1"] },
       relationFilters: { R: ["r1"] },
+      filterFields: [],
     };
     expect(encodeCardFilters(v)).toBe(
       '{"relationFilters":{"R":["r1"]},"attrFilters":{"a":["1"]},' +
         '"relSubtypeFilters":{"r::f":["v"]},"tagFilterIds":["t"],"includeDescendants":true}',
     );
+  });
+
+  it("leaves a link byte for byte as before when no field was added", () => {
+    const picks = { attrFilters: { size: ["big"] }, includeDescendants: true };
+    expect(encodeCardFilters(value({ ...picks, filterFields: [] }))).toBe(
+      '{"attrFilters":{"size":["big"]},"includeDescendants":true}',
+    );
+  });
+
+  it("writes the added fields last, and on their own", () => {
+    expect(encodeCardFilters(value({ filterFields: ["risk", "tier"] }))).toBe(
+      '{"filterFields":["risk","tier"]}',
+    );
+    expect(
+      encodeCardFilters(value({ filterFields: ["risk"], tagFilterIds: ["t"], includeDescendants: true })),
+    ).toBe('{"tagFilterIds":["t"],"includeDescendants":true,"filterFields":["risk"]}');
   });
 });
 
@@ -122,8 +140,25 @@ describe("decodeCardFilters", () => {
       subtypeFilters: [],
       tagFilterIds: ["t1"],
       includeDescendants: true,
+      filterFields: ["risk"],
     };
     expect(decodeCardFilters(encodeCardFilters(v))).toEqual(v);
+  });
+
+  it("reads a link written before added fields existed", () => {
+    expect(decodeCardFilters('{"attrFilters":{"size":["big"]},"includeDescendants":true}')).toEqual({
+      ...EMPTY,
+      attrFilters: { size: ["big"] },
+      includeDescendants: true,
+      filterFields: [],
+    });
+  });
+
+  it("drops added fields that are not strings, and repeats", () => {
+    expect(decodeCardFilters('{"filterFields":["risk",3,null,"risk",""]}')).toEqual({
+      ...EMPTY,
+      filterFields: ["risk"],
+    });
   });
 });
 

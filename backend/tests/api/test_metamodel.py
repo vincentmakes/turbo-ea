@@ -6,6 +6,7 @@ These tests require a PostgreSQL test database and an HTTP test client.
 from __future__ import annotations
 
 import copy
+import json
 
 import pytest
 from sqlalchemy import select
@@ -160,6 +161,109 @@ class TestUpdateType:
             select(CardType.translations).where(CardType.key == "Application")
         )
         assert stored.scalar_one() == {}
+
+
+class TestSectionHideInFilters:
+    """The Card Layout editor's "Hidden from filters" switch is stored on the
+    section dict of ``fields_schema`` (``hideInFilters``), never in
+    ``section_config``; the route keeps it as sent and logs the change."""
+
+    SCHEMA = [
+        {
+            "section": "Compliance",
+            "fields": [
+                {
+                    "key": "risk",
+                    "label": "Risk",
+                    "type": "single_select",
+                    "options": [{"key": "high", "label": "High"}],
+                }
+            ],
+        }
+    ]
+
+    async def test_flag_round_trips_through_patch_and_get(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await create_card_type(
+            db, key="Gizmo", label="Gizmo", fields_schema=copy.deepcopy(self.SCHEMA)
+        )
+        body = copy.deepcopy(self.SCHEMA)
+        body[0]["hideInFilters"] = True
+
+        resp = await client.patch(
+            "/api/v1/metamodel/types/Gizmo",
+            json={"fields_schema": body},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+
+        got = await client.get("/api/v1/metamodel/types/Gizmo", headers=auth_headers(admin))
+        assert got.status_code == 200
+        [section] = got.json()["fields_schema"]
+        assert section["section"] == "Compliance"
+        assert section["hideInFilters"] is True
+        # Nothing went into section_config.
+        stored = await db.execute(select(CardType).where(CardType.key == "Gizmo"))
+        ct = stored.scalar_one()
+        await db.refresh(ct)
+        assert "hideInFilters" not in json.dumps(ct.section_config or {})
+
+        # Switched back on: the editor sends the section without the key.
+        resp = await client.patch(
+            "/api/v1/metamodel/types/Gizmo",
+            json={"fields_schema": copy.deepcopy(self.SCHEMA)},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+        got = await client.get("/api/v1/metamodel/types/Gizmo", headers=auth_headers(admin))
+        assert "hideInFilters" not in got.json()["fields_schema"][0]
+
+    async def test_saving_only_the_flag_is_logged_as_a_section_change(
+        self, client, db, metamodel_env
+    ):
+        admin = metamodel_env["admin"]
+        await create_card_type(
+            db, key="Gizmo", label="Gizmo", fields_schema=copy.deepcopy(self.SCHEMA)
+        )
+        body = copy.deepcopy(self.SCHEMA)
+        body[0]["hideInFilters"] = True
+        resp = await client.patch(
+            "/api/v1/metamodel/types/Gizmo",
+            json={"fields_schema": body},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+
+        [row] = await _audit_rows(db, "admin.metamodel.type.updated")
+        assert row.details == {
+            "items": [
+                {
+                    "kind": "section.changed",
+                    "section": "Compliance",
+                    "property": "hideInFilters",
+                    "old": False,
+                    "new": True,
+                }
+            ]
+        }
+
+    async def test_viewer_cannot_set_the_flag(self, client, db, metamodel_env):
+        viewer = metamodel_env["viewer"]
+        await create_card_type(
+            db, key="Gizmo", label="Gizmo", fields_schema=copy.deepcopy(self.SCHEMA)
+        )
+        body = copy.deepcopy(self.SCHEMA)
+        body[0]["hideInFilters"] = True
+        resp = await client.patch(
+            "/api/v1/metamodel/types/Gizmo",
+            json={"fields_schema": body},
+            headers=auth_headers(viewer),
+        )
+        assert resp.status_code == 403
+        stored = await db.execute(select(CardType).where(CardType.key == "Gizmo"))
+        ct = stored.scalar_one()
+        await db.refresh(ct)
+        assert "hideInFilters" not in ct.fields_schema[0]
 
 
 class TestTypeColor:

@@ -3,6 +3,7 @@ import { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
 import {
   EMPTY_CARD_FILTERS,
   buildRelationFilterOptions,
+  clearCardFilterValues,
   buildRelSubtypes,
   countActiveFilters,
   describeActiveFilters,
@@ -259,6 +260,7 @@ describe("restoreCardFilters", () => {
         subtypeFilters: ["saas", null],
         tagFilterIds: "t1",
         includeDescendants: "yes",
+        filterFields: ["risk", 4, "risk", null, "tier"],
       }),
     ).toEqual({
       attrFilters: { fit: ["good"] },
@@ -267,7 +269,9 @@ describe("restoreCardFilters", () => {
       subtypeFilters: ["saas"],
       tagFilterIds: [],
       includeDescendants: false,
+      filterFields: ["risk", "tier"],
     });
+    expect(restoreCardFilters({ filterFields: "risk" }).filterFields).toEqual([]);
     expect(restoreCardFilters({ includeDescendants: true }).includeDescendants).toBe(true);
     expect(restoreCardFilters({})).toEqual(EMPTY_CARD_FILTERS);
     // A null, a scalar and a list in place of a record all read as empty.
@@ -285,19 +289,33 @@ describe("counting and describing", () => {
     subtypeFilters: ["saas"],
     tagFilterIds: ["t1", "t9"],
     includeDescendants: true,
+    filterFields: ["risk", "tier"],
   };
 
-  it("counts every selected value", () => {
+  it("counts every selected value, never the added fields", () => {
     expect(countActiveFilters(value)).toBe(8);
     expect(countActiveFilters(EMPTY_CARD_FILTERS)).toBe(0);
+    expect(countActiveFilters({ ...EMPTY_CARD_FILTERS, filterFields: ["risk"] })).toBe(0);
   });
 
   it("is active with any selection or a search", () => {
     expect(hasActiveFilters(EMPTY_CARD_FILTERS, "")).toBe(false);
     expect(hasActiveFilters(EMPTY_CARD_FILTERS, "erp")).toBe(true);
     expect(hasActiveFilters({ ...EMPTY_CARD_FILTERS, tagFilterIds: ["t"] }, "")).toBe(true);
-    // The sub-card switch alone narrows nothing.
+    // The sub-card switch alone narrows nothing, nor does an added, empty row.
     expect(hasActiveFilters({ ...EMPTY_CARD_FILTERS, includeDescendants: true }, "")).toBe(false);
+    expect(hasActiveFilters({ ...EMPTY_CARD_FILTERS, filterFields: ["risk"] }, "")).toBe(false);
+  });
+
+  it("Clear all empties every value and keeps the added rows and the sub-card preference", () => {
+    expect(clearCardFilterValues(value)).toEqual({
+      ...EMPTY_CARD_FILTERS,
+      includeDescendants: true,
+      filterFields: ["risk", "tier"],
+    });
+    expect(clearCardFilterValues({ ...value, includeDescendants: false, filterFields: [] })).toEqual(
+      EMPTY_CARD_FILTERS,
+    );
   });
 
   it("names nothing when nothing is picked, whatever options are offered", () => {

@@ -5,10 +5,13 @@ import {
   useFieldLabel,
   useOptionLabel,
   useRelationLabel,
+  useResolveLabel,
   useSubtypeLabel,
   useTypeLabel,
 } from "@/hooks/useResolveLabel";
-import { isFacetField, resolveFacetField } from "@/lib/fieldFacets";
+import { resolveFacetField } from "@/lib/fieldFacets";
+import { buildFilterCatalog, catalogFields } from "@/lib/fieldFilters";
+import type { FilterCatalog } from "@/lib/fieldFilters";
 import { buildRelationFilterOptions, buildRelSubtypes } from "./cardFilters";
 import type { FilterMember, RelationFilterOption } from "./cardFilters";
 import type { FieldDef, RelSubtype, RelTypeDef } from "./portfolioHelpers";
@@ -27,8 +30,14 @@ export interface CardFilterOptions {
   relationOptions: RelationFilterOption[];
   relSubtypes: RelSubtype[];
   subtypeOptions: { key: string; label: string }[];
-  /** The type's facet fields (selects with options, yes/no fields), labels resolved. */
+  /**
+   * Every facet field of the type (selects with options, yes/no fields),
+   * labels resolved — hidden-from-filters sections included, because the
+   * matcher must still apply a value such a field holds.
+   */
   facetFields: FieldDef[];
+  /** The type's filter catalog: what the Fields row shows and "Add filter" offers. */
+  catalog: FilterCatalog<FieldDef>;
 }
 
 /**
@@ -51,6 +60,7 @@ export function useCardFilterOptions({
   const optLabel = useOptionLabel();
   const relLabel = useRelationLabel();
   const subtypeDefLabel = useSubtypeLabel();
+  const rl = useResolveLabel();
 
   const selectedType = useMemo(() => types.find((tp) => tp.key === cardTypeKey), [types, cardTypeKey]);
 
@@ -89,23 +99,23 @@ export function useCardFilterOptions({
     [selectedType, subtypeDefLabel],
   );
 
-  const facetFields = useMemo(() => {
-    const out: FieldDef[] = [];
-    if (!selectedType) return out;
+  const catalog = useMemo<FilterCatalog<FieldDef>>(() => {
+    if (!selectedType) return [];
     const yesNo = { yes: t("common:labels.yes"), no: t("common:labels.no") };
-    for (const section of selectedType.fields_schema) {
-      for (const f of section.fields) {
-        if (!isFacetField(f)) continue;
-        const resolved: FieldDef = {
-          ...f,
-          label: fieldLabel(f),
-          options: f.options?.map((o) => ({ ...o, label: optLabel(o) })),
-        };
-        out.push(resolveFacetField(resolved, yesNo));
-      }
-    }
-    return out;
-  }, [selectedType, fieldLabel, optLabel, t]);
+    return buildFilterCatalog(selectedType.fields_schema, {
+      sectionLabel: (section) => rl(section.section, section.translations),
+      descriptionLabel: t("common:labels.description"),
+      resolveField: (f): FieldDef =>
+        resolveFacetField(
+          { ...f, label: fieldLabel(f), options: f.options?.map((o) => ({ ...o, label: optLabel(o) })) },
+          yesNo,
+        ),
+    });
+  }, [selectedType, fieldLabel, optLabel, rl, t]);
 
-  return { relationOptions, relSubtypes, subtypeOptions, facetFields };
+  // Every catalog field is a facet field today. Once other kinds (text,
+  // number, date) join the catalog, this list keeps the facet ones only.
+  const facetFields = useMemo(() => catalogFields(catalog).map((e) => e.field), [catalog]);
+
+  return { relationOptions, relSubtypes, subtypeOptions, facetFields, catalog };
 }

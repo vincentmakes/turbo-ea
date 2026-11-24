@@ -381,6 +381,38 @@ describe("PpmPortfolio Filters section", () => {
     expect(location().get("filters")).toBe('{"includeDescendants":true}');
   });
 
+  it("carries the rows added through Add filter in the link, and keeps them through Clear all (#1425)", async () => {
+    // The Initiative's Compliance section is switched off for filters.
+    metamodelTypes = TYPES.map((tp) =>
+      tp.key !== "Initiative"
+        ? tp
+        : {
+            ...tp,
+            fields_schema: [
+              {
+                section: "Compliance",
+                hideInFilters: true,
+                fields: [
+                  { key: "risk", label: "Risk Level", type: "single_select", options: [{ key: "high", label: "Elevated" }] },
+                ],
+              },
+            ],
+          },
+    ) as typeof TYPES;
+    renderBoard(
+      `/?filters=${encodeURIComponent('{"relationFilters":{"Organization":["sales"]},"filterFields":["risk"]}')}`,
+    );
+    await waitFor(() => expect(names()).toEqual(["Alpha Rollout"]));
+    fireEvent.click(header());
+    expect(await screen.findByRole("combobox", { name: "Risk Level" })).toBeInTheDocument();
+
+    const chip = screen.getByText("Clear all").closest(".MuiChip-root") as HTMLElement;
+    fireEvent.click(within(chip).getByTestId("CancelIcon"));
+    await waitFor(() => expect(names()).toEqual(["Alpha Rollout", "Beta Upgrade", "Gamma Study"]));
+    expect(location().get("filters")).toBe('{"filterFields":["risk"]}');
+    expect(screen.getByRole("combobox", { name: "Risk Level" })).toBeInTheDocument();
+  });
+
   it("drops the param once nothing is selected", async () => {
     renderBoard(`/?search=a&filters=${SALES}`);
     await screen.findByText("Alpha Rollout");

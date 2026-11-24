@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EMPTY_CARD_FILTERS } from "@/features/reports/cardFilters";
+import { EMPTY_CARD_FILTERS, type CardFilterValue } from "@/features/reports/cardFilters";
 import { legacyTagsSpanGroups, portalCardFilters, portalFiltersBody } from "./webPortalFilters";
 
 describe("portalCardFilters", () => {
@@ -35,6 +35,12 @@ describe("portalCardFilters", () => {
 
 describe("portalFiltersBody", () => {
   const base = { cardFilters: EMPTY_CARD_FILTERS, subtypes: [], tagIds: [], approvalStatuses: [] };
+  /** The preset as stored: the dialog's added rows are editing state, never sent. */
+  const stored = (v: CardFilterValue) => {
+    const out: Partial<CardFilterValue> = { ...v };
+    delete out.filterFields;
+    return out;
+  };
 
   it("is null when nothing narrows the portal", () => {
     expect(portalFiltersBody({ ...base, view: "cards" })).toBeNull();
@@ -44,13 +50,27 @@ describe("portalFiltersBody", () => {
   it("sends a card-list portal's card filters, never the board keys", () => {
     const cardFilters = { ...EMPTY_CARD_FILTERS, tagFilterIds: ["t1"] };
     expect(portalFiltersBody({ ...base, view: "cards", cardFilters, subtypes: ["x"], tagIds: ["y"] })).toEqual({
-      card_filters: cardFilters,
+      card_filters: stored(cardFilters),
     });
+  });
+
+  it("never sends the rows the admin added in the dialog", () => {
+    const cardFilters = { ...EMPTY_CARD_FILTERS, attrFilters: { risk: ["high"] }, filterFields: ["risk"] };
+    const body = portalFiltersBody({ ...base, view: "cards", cardFilters });
+    expect(body).toEqual({ card_filters: { ...stored(EMPTY_CARD_FILTERS), attrFilters: { risk: ["high"] } } });
+    expect("filterFields" in (body!.card_filters as object)).toBe(false);
+    // The dialog's own value is left as it was.
+    expect(cardFilters.filterFields).toEqual(["risk"]);
+  });
+
+  it("sends nothing for added rows alone", () => {
+    const cardFilters = { ...EMPTY_CARD_FILTERS, filterFields: ["risk"] };
+    expect(portalFiltersBody({ ...base, view: "cards", cardFilters })).toBeNull();
   });
 
   it("keeps the include-sub-cards preference even with no pick", () => {
     const cardFilters = { ...EMPTY_CARD_FILTERS, includeDescendants: true };
-    expect(portalFiltersBody({ ...base, view: "cards", cardFilters })).toEqual({ card_filters: cardFilters });
+    expect(portalFiltersBody({ ...base, view: "cards", cardFilters })).toEqual({ card_filters: stored(cardFilters) });
   });
 
   it("sends a board's subtypes and tags, never card filters", () => {

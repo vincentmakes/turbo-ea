@@ -191,6 +191,9 @@ describe("label keys", () => {
   it("names a field generically, and scoped to a target type first", () => {
     expect(fieldLabelKey("smtp_host")).toEqual(["securityLog.fields.smtp_host"]);
     expect(fieldLabelKey("smtpHost", null)).toEqual(["securityLog.fields.smtp_host"]);
+    // A section's "Hidden from filters" switch, as `section.changed` names it.
+    expect(fieldLabelKey("hideInFilters")).toEqual(["securityLog.fields.hide_in_filters"]);
+    expect(i18n.t("admin:securityLog.fields.hide_in_filters")).toBe("Hidden from filters");
     expect(fieldLabelKey("label", "role")).toEqual([
       "securityLog.fields.role.label",
       "securityLog.fields.label",

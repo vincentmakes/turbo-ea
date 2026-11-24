@@ -316,6 +316,91 @@ describe("LifecycleReport filters (#1305)", () => {
   });
 });
 
+describe("LifecycleReport added filter fields (#1425)", () => {
+  // Application with a Compliance section switched off for filters.
+  const WITH_HIDDEN = TYPES.map((tp) =>
+    tp.key !== "Application"
+      ? tp
+      : {
+          ...tp,
+          fields_schema: [
+            ...tp.fields_schema,
+            {
+              section: "Compliance",
+              hideInFilters: true,
+              fields: [
+                {
+                  key: "risk",
+                  label: "Risk Level",
+                  type: "single_select",
+                  options: [
+                    { key: "elevated", label: "Elevated" },
+                    { key: "minor", label: "Minor" },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+  );
+  const riskSelect = () => screen.queryByRole("combobox", { name: "Risk Level" });
+
+  beforeEach(() => {
+    vi.mocked(useMetamodel).mockReturnValue({
+      types: WITH_HIDDEN,
+      relationTypes: [],
+      loading: false,
+      getType: (key: string) => WITH_HIDDEN.find((t) => t.key === key),
+      getRelationsForType: () => [],
+      invalidateCache: vi.fn(),
+    } as unknown as ReturnType<typeof useMetamodel>);
+  });
+
+  it("keeps a hidden section's field out of the row until it is added, then persists it", async () => {
+    config = { cardTypeKey: "Application", view: "table" };
+    renderReport();
+    await screen.findByRole("combobox", { name: "Business Criticality" });
+    expect(riskSelect()).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Add filter"));
+    fireEvent.click(await screen.findByRole("option", { name: "Risk Level" }));
+    expect(await screen.findByRole("combobox", { name: "Risk Level" })).toBeInTheDocument();
+    await waitFor(() => expect(lastPersisted()).toMatchObject({ filterFields: ["risk"] }));
+  });
+
+  it("restores the added fields, and Clear all keeps them", async () => {
+    config = { cardTypeKey: "Application", view: "table", filterFields: ["risk"], subtypeFilters: ["microservice"] };
+    renderReport();
+    await waitFor(() => expect(tableRows()).toEqual(["Ledger"]));
+    expect(riskSelect()).toBeInTheDocument();
+
+    const clearChip = screen.getByText("Clear all").closest(".MuiChip-root") as HTMLElement;
+    fireEvent.click(within(clearChip).getByTestId("CancelIcon"));
+    await waitFor(() => expect(tableRows()).toHaveLength(4));
+    expect(riskSelect()).toBeInTheDocument();
+    expect(lastPersisted()).toMatchObject({ subtypeFilters: [], filterFields: ["risk"] });
+  });
+
+  it("forgets the added fields on a new card type", async () => {
+    config = { cardTypeKey: "Application", view: "table", filterFields: ["risk"] };
+    renderReport();
+    await waitFor(() => expect(riskSelect()).toBeInTheDocument());
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Card Type" }));
+    fireEvent.click(within(screen.getByRole("listbox")).getByRole("option", { name: "Business Capability" }));
+    await waitFor(() =>
+      expect(lastPersisted()).toMatchObject({ cardTypeKey: "BusinessCapability", filterFields: [] }),
+    );
+  });
+
+  it("forgets the added fields on Reset to defaults", async () => {
+    config = { cardTypeKey: "Application", view: "table", filterFields: ["risk"] };
+    renderReport();
+    await waitFor(() => expect(riskSelect()).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /reset to defaults/i }));
+    await waitFor(() => expect(lastPersisted()).toMatchObject({ cardTypeKey: "", filterFields: [] }));
+  });
+});
+
 describe("LifecycleReport sorting (#1305)", () => {
   it("orders the timeline rows by the chosen key, missing values last both ways", async () => {
     config = { cardTypeKey: "Application" };

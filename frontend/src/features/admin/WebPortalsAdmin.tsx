@@ -43,6 +43,7 @@ import { useBpmEnabled } from "@/hooks/useBpmEnabled";
 import CardFilterSection from "@/features/reports/CardFilterSection";
 import {
   EMPTY_CARD_FILTERS,
+  clearCardFilterValues,
   type CardFilterValue,
   type FilterMember,
 } from "@/features/reports/cardFilters";
@@ -292,7 +293,7 @@ export default function WebPortalsAdmin() {
     filterOptionsPath,
     { keepPreviousData: false },
   );
-  const { relationOptions, relSubtypes, subtypeOptions, facetFields } = useCardFilterOptions({
+  const { relationOptions, relSubtypes, subtypeOptions, catalog: fieldCatalog } = useCardFilterOptions({
     cardTypeKey: filterOptionsPath ? cardType : "",
     relationTypes: filterOptions?.relation_types ?? EMPTY_REL_TYPES,
     groupableTypes: filterOptions?.groupable_types ?? EMPTY_GROUPABLE,
@@ -845,14 +846,9 @@ export default function WebPortalsAdmin() {
                 relationOptions={relationOptions}
                 tagGroups={filterOptions?.tag_groups ?? EMPTY_TAG_GROUPS}
                 subtypeOptions={subtypeOptions}
-                fields={facetFields}
+                catalog={fieldCatalog}
                 relSubtypes={relSubtypes}
-                onClearAll={() =>
-                  setCardFilters((prev) => ({
-                    ...EMPTY_CARD_FILTERS,
-                    includeDescendants: prev.includeDescendants,
-                  }))
-                }
+                onClearAll={() => setCardFilters(clearCardFilterValues)}
                 disabledReason={filterOptionsLoading ? t("webPortals.cardFiltersLoading") : undefined}
               />
               <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>

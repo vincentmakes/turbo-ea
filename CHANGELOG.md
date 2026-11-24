@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.213.0] - 2026-11-24
+
+### Added
+- Card Layout editor: a **Hidden from filters** switch on a section keeps its fields out of the report, PPM board and portal filter rows by default, without removing them.
+- An **Add filter** chip at the end of a filter block's Fields row lists the fields not shown yet, searchable by field or section name, in the Portfolio, Flexible Portfolio, Capability Map and Lifecycle reports, the PPM board and the web portal filter dialog.
+- Added filter fields are remembered with each report and saved report (and in the PPM board's link), and **Clear all** keeps them while it clears their values.
+
 ## [2.212.0] - 2026-11-23
 
 ### Added

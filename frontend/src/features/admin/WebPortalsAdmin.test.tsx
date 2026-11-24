@@ -441,6 +441,40 @@ describe("WebPortalsAdmin — card filters", () => {
     expect(lastBody("patch")).toMatchObject({ filters: { approval_statuses: ["APPROVED"] } });
   });
 
+  it("offers a hidden section's field through Add filter and never sends the added rows", async () => {
+    // Business Information is switched off for filters (#1425).
+    const hiddenApp = {
+      ...APPLICATION_TYPE,
+      fields_schema: APPLICATION_TYPE.fields_schema.map((sec) =>
+        sec.section === "Business Information" ? { ...sec, hideInFilters: true } : sec,
+      ),
+    };
+    withMetamodel([hiddenApp, ...TYPES.filter((tp) => tp.key !== "Application")], RELATION_TYPES);
+    const { user } = await renderList([CARDS_PORTAL]);
+    await user.click(screen.getByRole("button", { name: t("webPortals.editPortal") }));
+    const d = dialog();
+    await d.findByRole("combobox", { name: "Organization" });
+    expect(d.queryByRole("combobox", { name: "Business Criticality" })).toBeNull();
+
+    await user.click(d.getByText(tc("fieldFilters.add")));
+    await user.click(await screen.findByRole("option", { name: "Business Criticality" }));
+    await user.click(await d.findByRole("combobox", { name: "Business Criticality" }));
+    await user.click(await screen.findByRole("option", { name: "Mission Critical" }));
+    await user.keyboard("{Escape}");
+
+    await user.click(d.getByRole("button", { name: t("webPortals.saveChanges") }));
+    await waitFor(() => expect(mockApi.callsOf("patch", "/web-portals/p1")).toHaveLength(1));
+    const sent = (lastBody("patch").filters as { card_filters: Record<string, unknown> }).card_filters;
+    expect(sent).toEqual(
+      cardFilters({
+        subtypeFilters: ["microservice"],
+        tagFilterIds: ["tag-9"],
+        attrFilters: { businessCriticality: ["missionCritical"] },
+      }),
+    );
+    expect("filterFields" in sent).toBe(false);
+  });
+
   it("warns before a resave changes how tags from several groups match", async () => {
     const portal: WebPortal = {
       ...CARDS_PORTAL,

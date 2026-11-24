@@ -6,6 +6,7 @@
  */
 import { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
 import { expandScopeIds } from "@/hooks/useCardScope";
+import { restoreFilterFields } from "@/lib/fieldFilters";
 import { expandSides, parseSideKey, sideKey } from "@/lib/relationSort";
 import { extractRelSubtypes, relSubtypeComposite } from "./portfolioHelpers";
 import type { FieldDef, FieldOption, RelSubtype, RelTypeDef, TagGroupDef } from "./portfolioHelpers";
@@ -23,6 +24,11 @@ export interface CardFilterValue {
   tagFilterIds: string[];
   /** A related-card pick also covers the cards beneath it in its hierarchy. */
   includeDescendants: boolean;
+  /**
+   * The fields the person added through "Add filter" (`lib/fieldFilters.ts`).
+   * Display state: never counted, described or matched, kept by Clear all.
+   */
+  filterFields: string[];
 }
 
 export const EMPTY_CARD_FILTERS: CardFilterValue = {
@@ -32,7 +38,22 @@ export const EMPTY_CARD_FILTERS: CardFilterValue = {
   subtypeFilters: [],
   tagFilterIds: [],
   includeDescendants: false,
+  filterFields: [],
 };
+
+/**
+ * What "Clear all" leaves: every value emptied, while the rows the person
+ * added stay and *Include sub-cards* — a preference, not a filter — stays as
+ * it was. A report Reset or a card-type change starts from
+ * `EMPTY_CARD_FILTERS` instead.
+ */
+export function clearCardFilterValues(prev: CardFilterValue): CardFilterValue {
+  return {
+    ...EMPTY_CARD_FILTERS,
+    includeDescendants: prev.includeDescendants,
+    filterFields: prev.filterFields,
+  };
+}
 
 /** A related card as the payload's `groupable_types` lists it. */
 export interface FilterMember {
@@ -214,6 +235,7 @@ export function restoreCardFilters(cfg: Record<string, unknown>): CardFilterValu
     subtypeFilters: stringArray(cfg.subtypeFilters),
     tagFilterIds: stringArray(cfg.tagFilterIds),
     includeDescendants: cfg.includeDescendants === true,
+    filterFields: restoreFilterFields(cfg.filterFields),
   };
 }
 

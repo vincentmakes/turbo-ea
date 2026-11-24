@@ -795,6 +795,7 @@ describe("reset", () => {
       attrFilters: { criticality: ["high"] },
       relationFilters: { Organization: ["o1"] },
       tagFilterIds: ["t1"],
+      filterFields: ["hosting"],
       filtersCollapsed: true,
     };
     renderMap();
@@ -815,6 +816,7 @@ describe("reset", () => {
     // toMatchObject treats `{}` as "any object", so the maps are compared exactly.
     expect(lastPersisted().attrFilters).toEqual({});
     expect(lastPersisted().relationFilters).toEqual({});
+    expect(lastPersisted().filterFields).toEqual([]);
     expect(ctl.resetAll).toHaveBeenCalled();
   });
 
@@ -833,6 +835,56 @@ describe("reset", () => {
     fireEvent.click(within(toolbar()).getByRole("checkbox", { name: /show applications/i }));
     expect(await within(toolbar()).findByText("2 more")).toBeInTheDocument();
     expect(within(toolbar()).queryByText("Less")).not.toBeInTheDocument();
+  });
+});
+
+describe("added filter fields (#1425)", () => {
+  // Hosting's section is switched off for filters: offered by "Add filter" only.
+  const HIDDEN = payload([cap("pool", "Pool", null, [ALPHA, BETA])], {
+    fields_schema: [
+      { section: "Infra", hideInFilters: true, fields: [FIELDS_SCHEMA[0].fields[0]] },
+      { section: "Business", fields: FIELDS_SCHEMA[0].fields.slice(1) },
+    ],
+  });
+  const hostingSelect = () => within(toolbar()).queryByRole("combobox", { name: "Hosting" });
+
+  it("keeps a hidden section's field out of the Fields row until it is added", async () => {
+    serve(HIDDEN);
+    ctl.config = { showApps: true };
+    renderMap();
+    await loaded("Pool");
+    expect(within(toolbar()).getByRole("combobox", { name: "Criticality" })).toBeInTheDocument();
+    expect(hostingSelect()).not.toBeInTheDocument();
+
+    fireEvent.click(within(toolbar()).getByText("Add filter"));
+    fireEvent.click(await screen.findByRole("option", { name: "Hosting" }));
+    await waitFor(() => expect(hostingSelect()).toBeInTheDocument());
+    await waitFor(() => expect(lastPersisted().filterFields).toEqual(["hosting"]));
+  });
+
+  it("restores the added fields, matches their value, and Clear all keeps the row", async () => {
+    serve(HIDDEN);
+    ctl.config = { showApps: true, filterFields: ["hosting"], attrFilters: { hosting: ["cloud"] } };
+    renderMap();
+    await loaded("Pool");
+    expect(hostingSelect()).toBeInTheDocument();
+    expect(chipNames(["Alpha", "Beta"])).toEqual(["Alpha"]);
+
+    const clear = within(toolbar()).getByText("Clear all").closest(".MuiChip-root") as HTMLElement;
+    fireEvent.click(within(clear).getByTestId("CancelIcon"));
+    await waitFor(() => expect(chipNames(["Alpha", "Beta"])).toEqual(["Alpha", "Beta"]));
+    expect(hostingSelect()).toBeInTheDocument();
+    expect(lastPersisted().attrFilters).toEqual({});
+    expect(lastPersisted().filterFields).toEqual(["hosting"]);
+  });
+
+  it("ignores a malformed stored list", async () => {
+    serve(HIDDEN);
+    ctl.config = { showApps: true, filterFields: "hosting" };
+    renderMap();
+    await loaded("Pool");
+    expect(hostingSelect()).not.toBeInTheDocument();
+    expect(lastPersisted().filterFields).toEqual([]);
   });
 });
 
