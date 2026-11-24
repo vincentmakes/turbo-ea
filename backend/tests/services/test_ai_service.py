@@ -449,6 +449,20 @@ class TestExtraFieldsFollowTheCardType:
             "description": {"value": "An issue tracker.", "confidence": 0.8}
         }
 
+    def test_a_section_without_a_fields_key_is_skipped(self):
+        # A section may carry no ``fields`` list at all; it must not stop the
+        # fields of the sections after it from being resolved.
+        schema = [{"section": "Empty"}, *_app_schema()]
+        system = _system(schema)
+        assert "Use one of: onPremise (On-Premise), cloudSaaS. " in system
+        assert '"hostingType": { "value": "onPremise", "confidence": 0.8' in system
+        assert '"commercialApplication": { "value": true' in system
+        assert validate_suggestions(RAW, "Application", schema) == {
+            "description": {"value": "An issue tracker.", "confidence": 0.8},
+            "hostingType": {"value": "cloudSaaS", "confidence": 0.7},
+            "commercialApplication": {"value": True, "confidence": 0.9},
+        }
+
 
 # ---------------------------------------------------------------------------
 # Output language
