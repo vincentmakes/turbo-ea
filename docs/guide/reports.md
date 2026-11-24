@@ -43,6 +43,18 @@ The **Fields** row shows the card type's select and yes/no fields. An administra
 - A field that holds a value is always shown, even from a hidden section, so a saved report never filters on something you cannot see.
 - The chip is only shown when there is a field left to add.
 
+**Add filter** also lists the type's text, number and date fields, which are never shown by default. Each kind gets its own control:
+
+| Field type | Control | Keeps the cards… |
+|-----------|---------|------------------|
+| Text, multi-line text, URL | a search box | whose value contains what you type, ignoring upper and lower case |
+| Number, percentage, cost | a **from** and a **to** box | whose value lies between the two numbers, both included; leave one empty for "at least" or "at most" |
+| Date | a **from** and a **to** date | whose date lies between the two days, both included; leave one empty for "on or after" or "on or before" |
+
+A card with no value in that field does not match a text, number or date filter. The report narrows as you type; a date applies once you leave its box. These filters are counted in the header, named in a print or export header (for example *Code: contains "ORG-12"*), cleared by **Clear all** and saved with the report like any other.
+
+Cost fields are offered only to people who may see costs. A saved report or a shared link that carries a cost filter narrows nothing for someone without that permission, and the filter is not shown or counted for them. **View in inventory** in the Portfolio report leaves text, number and date filters out, as it does relation subtypes, because the inventory has no equivalent for them.
+
 The Portfolio, Flexible Portfolio, Capability Map and Lifecycle reports, the [PPM board](ppm.md) and the web portal filter dialog all offer **Add filter**.
 
 ### Time travel

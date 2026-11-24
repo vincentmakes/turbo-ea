@@ -1002,6 +1002,51 @@ def test_portal_filter_items_read_the_card_filter_set():
     assert portal_filter_items(new, {**new}) == []
 
 
+def test_portal_filter_items_log_a_changed_field_condition():
+    """A text / number / date condition reads ``Field: condition`` in symbols
+    (``_condition_text``), labelled by the field, never by its key."""
+    old = {
+        "card_filters": {
+            "attrConditions": {"code": {"contains": "ORG-12"}, "cost": {"min": 10}},
+        }
+    }
+    new = {
+        "card_filters": {
+            "attrConditions": {
+                "code": {"contains": "ORG-13"},
+                "cost": {"min": 10},
+                "n": {"min": 10, "max": 20},
+                "m": {"max": 0},
+                "due": {"from": "2026-01-01"},
+                "odd": {"x": 1},
+            },
+        }
+    }
+    items = portal_filter_items(old, new, facet_labels={"code": "Code", "due": "Due"})
+    assert items == [
+        {
+            "kind": "portal_filter.changed",
+            "filter": "card_conditions",
+            "old": ['Code: "ORG-12"', "cost: ≥ 10"],
+            "new": [
+                'Code: "ORG-13"',
+                "cost: ≥ 10",
+                "Due: ≥ 2026-01-01",
+                "m: ≤ 0",
+                "n: 10 – 20",
+                'odd: {"x": 1}',
+            ],
+        }
+    ]
+    assert portal_filter_items(new, {**new}) == []
+    assert portal_filter_items(None, {"card_filters": {"attrConditions": {"d": {"to": "x"}}}}) == [
+        {"kind": "portal_filter.changed", "filter": "card_conditions", "old": [], "new": ["d: ≤ x"]}
+    ]
+    # A legacy preset has no conditions, so moving to card filters without
+    # any is not a change.
+    assert portal_filter_items({"subtypes": []}, {"card_filters": {}}) == []
+
+
 def test_portal_filter_items_label_the_old_side_too():
     old = {
         "card_filters": {

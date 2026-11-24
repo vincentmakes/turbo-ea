@@ -32,22 +32,36 @@ import { cardSearchRank, compareByRank } from "@/lib/searchRank";
 
 /**
  * How a field is filtered. `facet`: pick among its options (selects with
- * options, yes/no fields). New kinds (text, number, date) extend this union,
- * `filterKindOf`, `FILTER_KIND_ICONS` and `FieldFilterControl`.
+ * options, yes/no fields). `text`: contains. `number`: a min–max range.
+ * `date`: a from–to range. A new kind extends this union, `filterKindOf`,
+ * `FILTER_KIND_ICONS`, the condition helpers below and `FieldFilterControl`.
  */
-export type FilterKind = "facet";
+export type FilterKind = "facet" | "text" | "number" | "date";
 
 /** The glyph "Add filter" shows beside a field of each kind. */
 export const FILTER_KIND_ICONS: Record<FilterKind, string> = {
   facet: "checklist",
+  text: "text_fields",
+  number: "123",
+  date: "calendar_month",
 };
 
 /** The reserved section card detail folds into its Description section. */
 export const DESCRIPTION_SECTION = "__description";
 
-/** A field's filter kind, or `null` when it cannot be filtered on. */
+const TEXT_TYPES = new Set(["text", "multiline_text", "url"]);
+const NUMBER_TYPES = new Set(["number", "percentage", "cost"]);
+
+/**
+ * A field's filter kind, or `null` when it cannot be filtered on (an
+ * extension's `ext.*` type, a select without options, …). A `cost` field is
+ * a number here; whether the reader may filter on it is the catalog's call.
+ */
 export function filterKindOf(field: FacetFieldLike): FilterKind | null {
-  return isFacetField(field) ? "facet" : null;
+  if (isFacetField(field)) return "facet";
+  if (TEXT_TYPES.has(field.type)) return "text";
+  if (NUMBER_TYPES.has(field.type)) return "number";
+  return field.type === "date" ? "date" : null;
 }
 
 /** A `fields_schema` section, as much of it as the catalog reads. */
@@ -81,10 +95,12 @@ export type FilterCatalog<F> = FilterCatalogSection<F>[];
 
 export interface FilterCatalogOptions<R, F> {
   /**
-   * Whether the reader may see cost values. Cost fields are not filterable
-   * yet; once a number kind covers them, they are left out without it.
+   * Whether the reader may see cost values. A `cost` field is left out of the
+   * catalog without it — and so is a condition on one (`matchesConditions`).
+   * Required, so no filter block can forget to ask. A web portal passes
+   * `false`: it never filters on costs.
    */
-  canViewCosts?: boolean;
+  canViewCosts: boolean;
   /** A section's display label (its translation, else its name). */
   sectionLabel: (section: FilterSchemaSection<R>) => string;
   /** The label of the `__description` section, which has no name of its own. */
@@ -95,7 +111,9 @@ export interface FilterCatalogOptions<R, F> {
 
 /**
  * The catalog of a `fields_schema`: every section with a filterable field,
- * each field with its kind and whether it is shown by default.
+ * each field with its kind and whether it is shown by default. Shown by
+ * default = a facet field of a section not hidden from filters; a text,
+ * number or date field is always added by the person.
  */
 export function buildFilterCatalog<R extends FacetFieldLike, F extends FacetFieldLike>(
   schema: readonly FilterSchemaSection<R>[],
@@ -108,7 +126,8 @@ export function buildFilterCatalog<R extends FacetFieldLike, F extends FacetFiel
     for (const raw of section.fields) {
       const kind = filterKindOf(raw);
       if (kind === null) continue;
-      fields.push({ field: opts.resolveField(raw), kind, shownByDefault: !hidden });
+      if (raw.type === "cost" && !opts.canViewCosts) continue;
+      fields.push({ field: opts.resolveField(raw), kind, shownByDefault: kind === "facet" && !hidden });
     }
     if (fields.length === 0) continue;
     out.push({
@@ -121,9 +140,246 @@ export function buildFilterCatalog<R extends FacetFieldLike, F extends FacetFiel
   return out;
 }
 
+/**
+ * `schema` with only the fields named in `allowed`, sections otherwise as
+ * they are: what a surface whose filterable fields are decided elsewhere (the
+ * portal viewer, from the server's allowed list) feeds `buildFilterCatalog`.
+ */
+export function schemaWithFields<R extends { key: string }>(
+  schema: readonly FilterSchemaSection<R>[],
+  allowed: Iterable<string>,
+): FilterSchemaSection<R>[] {
+  const keep = new Set(allowed);
+  return schema.map((section) => ({ ...section, fields: section.fields.filter((f) => keep.has(f.key)) }));
+}
+
 /** Every field of the catalog, in schema order. */
 export function catalogFields<F>(catalog: FilterCatalog<F>): FilterCatalogField<F>[] {
   return catalog.flatMap((s) => s.fields);
+}
+
+/** Each catalog field's kind, by key: the reader's catalog, as the matcher reads it. */
+export function catalogKinds<F extends { key: string }>(catalog: FilterCatalog<F>): Map<string, FilterKind> {
+  return new Map(catalogFields(catalog).map((e) => [e.field.key, e.kind]));
+}
+
+/* ------------------------------------------------------------------ */
+/*  Conditions: text contains, number range, date range               */
+/* ------------------------------------------------------------------ */
+//
+// The browser twin of `backend/app/services/portal_card_filters.py`
+// (`normalise_condition`, `condition_clause`). Both suites pin the same edge
+// cases. Known divergences, all outside what the UI writes:
+//  - text: `toLowerCase` folds case by Unicode, Postgres `ILIKE` by the
+//    database collation (the tests use ASCII only); a JSON number is printed
+//    by JavaScript (`1` for a stored `1.0`, `1e+21`), by Postgres there; the
+//    200-character cap counts UTF-16 units here, code points there.
+//  - number: a JSON number longer than 40 characters as Postgres prints it
+//    counts here and not there; past 15 significant digits this side
+//    compares doubles, that side exact decimals.
+//  - date: an impossible calendar date (`2026-13-45`) matches the pattern on
+//    both sides and compares as its text, as `lifecycle.py` does.
+
+/** Text: the stored value contains `contains`, case-insensitive. */
+export interface TextCondition {
+  contains: string;
+}
+/** Number: the stored value lies within the bounds, both included. */
+export interface NumberCondition {
+  min?: number;
+  max?: number;
+}
+/** Date: the stored day (`YYYY-MM-DD`) lies within the bounds, both included. */
+export interface DateCondition {
+  from?: string;
+  to?: string;
+}
+export type AttrCondition = TextCondition | NumberCondition | DateCondition;
+export type ConditionKind = Exclude<FilterKind, "facet">;
+
+/** The longest `contains` kept (the server cuts at the same length). */
+export const CONTAINS_MAX = 200;
+/** A numeric text longer than this is not read as a number. */
+export const NUMBER_MAX_CHARS = 40;
+/**
+ * A plain decimal: optional sign, digits with an optional fraction (or a bare
+ * fraction), an optional exponent of at most two digits — so every text it
+ * accepts is a finite double here and a `numeric` on the server. `[0-9]`,
+ * never `\d`: the server's twin must not widen past ASCII.
+ */
+export const NUMBER_PATTERN = /^[+-]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][+-]?[0-9]{1,2})?$/;
+/** A stored date: `YYYY-MM-DD`, optionally an ISO time part (`lifecycle.py`'s `_SQL_DATE_PATTERN`). */
+export const DATE_VALUE_PATTERN = /^[0-9]{4}-[0-9]{2}-[0-9]{2}(T[0-9:.,+Z-]+)?$/;
+/** A date bound as the UI writes it. */
+export const DATE_BOUND_PATTERN = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
+
+const SHAPE_KEYS: [ConditionKind, string[]][] = [
+  ["text", ["contains"]],
+  ["number", ["min", "max"]],
+  ["date", ["from", "to"]],
+];
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+const own = (o: object, key: string) => Object.prototype.hasOwnProperty.call(o, key);
+
+/**
+ * The kind a condition's keys name, or `null` when it is not an object or
+ * names keys of more than one kind (`condition_shape` on the server).
+ */
+export function shapeOfCondition(raw: unknown): ConditionKind | null {
+  if (!isPlainObject(raw)) return null;
+  const kinds = SHAPE_KEYS.filter(([, keys]) => keys.some((k) => own(raw, k)));
+  return kinds.length === 1 ? kinds[0][0] : null;
+}
+
+const finiteNumber = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+const dateBound = (v: unknown): v is string => typeof v === "string" && DATE_BOUND_PATTERN.test(v);
+
+/**
+ * One condition of `kind` in its canonical shape, or `null` when it narrows
+ * nothing: a trimmed, non-empty `contains` (cut at `CONTAINS_MAX`); finite
+ * `min` / `max`; `YYYY-MM-DD` `from` / `to`. An unusable bound is dropped;
+ * no usable bound, no condition.
+ */
+export function normaliseCondition(kind: FilterKind, raw: unknown): AttrCondition | null {
+  if (!isPlainObject(raw)) return null;
+  if (kind === "text") {
+    const needle = typeof raw.contains === "string" ? raw.contains.trim() : "";
+    return needle ? { contains: needle.slice(0, CONTAINS_MAX) } : null;
+  }
+  if (kind === "number") {
+    const out: NumberCondition = {};
+    if (finiteNumber(raw.min)) out.min = raw.min;
+    if (finiteNumber(raw.max)) out.max = raw.max;
+    return Object.keys(out).length > 0 ? out : null;
+  }
+  if (kind === "date") {
+    const out: DateCondition = {};
+    if (dateBound(raw.from)) out.from = raw.from;
+    if (dateBound(raw.to)) out.to = raw.to;
+    return Object.keys(out).length > 0 ? out : null;
+  }
+  return null;
+}
+
+/** Read `attrConditions` back from a saved config or a link, every unusable condition dropped. */
+export function restoreAttrConditions(raw: unknown): Record<string, AttrCondition> {
+  if (!isPlainObject(raw)) return {};
+  const out: Record<string, AttrCondition> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (!key) continue;
+    const kind = shapeOfCondition(value);
+    const condition = kind ? normaliseCondition(kind, value) : null;
+    if (condition) out[key] = condition;
+  }
+  return out;
+}
+
+/**
+ * A stored value as a number: a JSON number, or a plain decimal text of at
+ * most `NUMBER_MAX_CHARS` ("12.5", "-.5", "1e2"). A boolean, a list, an
+ * object, null, "" or any other text is not a number. A text the pattern
+ * accepts is always finite (40 characters, a two-digit exponent).
+ */
+export function numericValueOf(v: unknown): number | null {
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  if (typeof v !== "string" || v.length > NUMBER_MAX_CHARS || !NUMBER_PATTERN.test(v)) return null;
+  return Number(v);
+}
+
+/**
+ * Does a card's stored value satisfy one condition of `kind`? A card with no
+ * usable value fails an active condition. `condition` is normalised first,
+ * so a draft the control holds ("ORG " while typing) matches as stored.
+ */
+export function matchesCondition(kind: FilterKind, condition: unknown, rawValue: unknown): boolean {
+  const c = normaliseCondition(kind, condition);
+  if (c === null) return true;
+  if (kind === "text") {
+    if (typeof rawValue !== "string" && typeof rawValue !== "number") return false;
+    return String(rawValue).toLowerCase().includes((c as TextCondition).contains.toLowerCase());
+  }
+  if (kind === "number") {
+    const n = numericValueOf(rawValue);
+    const { min, max } = c as NumberCondition;
+    if (n === null) return false;
+    return (min === undefined || n >= min) && (max === undefined || n <= max);
+  }
+  if (typeof rawValue !== "string" || !DATE_VALUE_PATTERN.test(rawValue)) return false;
+  const day = rawValue.slice(0, 10);
+  const { from, to } = c as DateCondition;
+  return (from === undefined || day >= from) && (to === undefined || day <= to);
+}
+
+/**
+ * The conditions that apply for this reader, normalised: only those whose
+ * field is in the reader's catalog (`kindByKey`, `catalogKinds`) with the
+ * kind the condition's shape names. A condition on a field the catalog lacks
+ * — a cost field for a reader without cost access, a field since deleted —
+ * is ignored, so a saved report or a shared link never filters out of sight.
+ */
+export function appliedConditions(
+  conditions: Readonly<Record<string, unknown>> | undefined,
+  kindByKey: ReadonlyMap<string, FilterKind> | undefined,
+): { key: string; kind: ConditionKind; condition: AttrCondition }[] {
+  const out: { key: string; kind: ConditionKind; condition: AttrCondition }[] = [];
+  if (!conditions || !kindByKey) return out;
+  for (const [key, raw] of Object.entries(conditions)) {
+    const kind = shapeOfCondition(raw);
+    if (kind === null || kindByKey.get(key) !== kind) continue;
+    const condition = normaliseCondition(kind, raw);
+    if (condition) out.push({ key, kind, condition });
+  }
+  return out;
+}
+
+/** Does a card's `attributes` satisfy every condition that applies (`appliedConditions`)? */
+export function matchesConditions(
+  attributes: Readonly<Record<string, unknown>> | undefined,
+  conditions: Readonly<Record<string, unknown>> | undefined,
+  kindByKey: ReadonlyMap<string, FilterKind> | undefined,
+): boolean {
+  const attrs = attributes ?? {};
+  return appliedConditions(conditions, kindByKey).every(({ key, kind, condition }) =>
+    matchesCondition(kind, condition, attrs[key]),
+  );
+}
+
+/** How many conditions apply: what a filter block's count and its print header both count. */
+export function countActiveConditions(
+  conditions: Readonly<Record<string, unknown>> | undefined,
+  kindByKey: ReadonlyMap<string, FilterKind> | undefined,
+): number {
+  return appliedConditions(conditions, kindByKey).length;
+}
+
+/**
+ * A condition as parts a caller words (no i18n here): `contains` its text,
+ * `between` two bounds, `atLeast` / `atMost` one. Numbers are formatted by
+ * `formatNumber` (the caller's locale), dates are left as stored.
+ */
+export type ConditionDescription =
+  | { op: "contains"; value: string }
+  | { op: "between"; from: string; to: string }
+  | { op: "atLeast"; value: string }
+  | { op: "atMost"; value: string };
+
+export function describeCondition(
+  condition: AttrCondition,
+  formatNumber: (n: number) => string = String,
+): ConditionDescription {
+  if ("contains" in condition) return { op: "contains", value: condition.contains };
+  const [low, high] =
+    "min" in condition || "max" in condition
+      ? [(condition as NumberCondition).min, (condition as NumberCondition).max].map((n) =>
+          n === undefined ? undefined : formatNumber(n),
+        )
+      : [(condition as DateCondition).from, (condition as DateCondition).to];
+  if (low !== undefined && high !== undefined) return { op: "between", from: low, to: high };
+  return low !== undefined ? { op: "atLeast", value: low } : { op: "atMost", value: high ?? "" };
 }
 
 /**
@@ -133,17 +389,28 @@ export function catalogFields<F>(catalog: FilterCatalog<F>): FilterCatalogField<
 export interface FieldFilterState {
   /** Picked option keys per facet field. */
   attrFilters: Record<string, string[]>;
+  /**
+   * Text / number / date conditions per field. The control writes what the
+   * person typed (a needle may still carry a trailing space); every reader
+   * normalises, and a field whose condition narrows nothing is left out.
+   */
+  attrConditions: Record<string, AttrCondition>;
   /** Fields added through "Add filter", by key. */
   filterFields: string[];
 }
 
-/** The keys of the fields that hold a value. */
-export function activeFieldKeys(state: Pick<FieldFilterState, "attrFilters">): Set<string> {
-  return new Set(
-    Object.entries(state.attrFilters)
-      .filter(([, vals]) => vals.length > 0)
-      .map(([key]) => key),
-  );
+/** The keys of the fields that hold a value: a picked option or a condition that narrows. */
+export function activeFieldKeys(
+  state: Pick<FieldFilterState, "attrFilters"> & Partial<Pick<FieldFilterState, "attrConditions">>,
+): Set<string> {
+  const keys = Object.entries(state.attrFilters)
+    .filter(([, vals]) => vals.length > 0)
+    .map(([key]) => key);
+  for (const [key, raw] of Object.entries(state.attrConditions ?? {})) {
+    const kind = shapeOfCondition(raw);
+    if (kind !== null && normaliseCondition(kind, raw) !== null) keys.push(key);
+  }
+  return new Set(keys);
 }
 
 /** A row the Fields row renders. */
@@ -227,11 +494,29 @@ export function addFilterField(filterFields: readonly string[], key: string): st
   return filterFields.includes(key) ? [...filterFields] : [...filterFields, key];
 }
 
-/** Removing an added row: the field leaves `filterFields` and its value is cleared. */
+/** Removing an added row: the field leaves `filterFields` and its value — picks or condition — is cleared. */
 export function removeFilterField(state: FieldFilterState, key: string): FieldFilterState {
   const attrFilters = { ...state.attrFilters };
   delete attrFilters[key];
-  return { attrFilters, filterFields: state.filterFields.filter((k) => k !== key) };
+  const attrConditions = { ...state.attrConditions };
+  delete attrConditions[key];
+  return { attrFilters, attrConditions, filterFields: state.filterFields.filter((k) => k !== key) };
+}
+
+/**
+ * `attrConditions` with `key` set to `condition`, or without `key` when the
+ * condition narrows nothing (an emptied box, both bounds cleared).
+ */
+export function setCondition(
+  conditions: Readonly<Record<string, AttrCondition>>,
+  key: string,
+  kind: ConditionKind,
+  condition: AttrCondition,
+): Record<string, AttrCondition> {
+  const out = { ...conditions };
+  if (normaliseCondition(kind, condition) === null) delete out[key];
+  else out[key] = condition;
+  return out;
 }
 
 /** Read `filterFields` back from a saved config or a link: strings only, each once. */

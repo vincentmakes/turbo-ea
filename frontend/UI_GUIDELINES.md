@@ -671,6 +671,24 @@ hand-rolled list of `FilterSelect`s:
 - The section switch shapes the rows only. Colour, grouping and matching keep reading every
   facet field (`pickFacetFields` / `useCardFilterOptions().facetFields`), so a value held by
   a field of a hidden section still applies — and its row is shown.
+- Kinds (`filterKindOf`): `facet` (a `FilterSelect`), `text` (`text`, `multiline_text`,
+  `url`: a "contains" box), `number` (`number`, `percentage`, `cost`: a from and a to box),
+  `date` (two `DateField`s). Only facets are ever shown by default; the others are added.
+  Their values live in `attrConditions` (`{contains}` / `{min, max}` / `{from, to}`),
+  separate from `attrFilters`, and follow the same rules: values, so **Clear all**, Reset and
+  a type change clear them; persisted with the five-edit convention; encoded in the PPM link
+  before `filterFields`; sent canonical in a portal preset.
+- **A condition applies only when its field is in the reader's catalog** with the kind its
+  shape names (`matchesConditions(attrs, conditions, kindByKey)`, `kindByKey` from
+  `catalogKinds(catalog)` or `useCardFilterOptions().kindByKey`). The catalog leaves a `cost`
+  field out unless `canViewCosts` (required — a report passes
+  `usePermissions(user).canViewCostsGlobally`, the portal dialog `false`), so a saved report
+  or link carrying a cost condition never narrows invisibly. Match, count
+  (`countActiveFilters(v, kindByKey)`) and print (`describeActiveFilters({…, conditions})`)
+  take the same `kindByKey`, which is what keeps the header count equal to the print lines.
+- The text and number boxes report every keystroke; the report filters the cards it holds at
+  once (no debounce). A surface that sends the value to a server debounces what it sends, never
+  the control.
 
 ❌ Don't
 - Don't nest the clear-all chip inside the toggle button. It is a **sibling** — a deletable

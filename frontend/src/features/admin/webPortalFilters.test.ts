@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EMPTY_CARD_FILTERS, type CardFilterValue } from "@/features/reports/cardFilters";
+import type { FilterKind } from "@/lib/fieldFilters";
 import { legacyTagsSpanGroups, portalCardFilters, portalFiltersBody } from "./webPortalFilters";
 
 describe("portalCardFilters", () => {
@@ -15,6 +16,12 @@ describe("portalCardFilters", () => {
       relationFilters: { Org: ["o1"] },
       includeDescendants: true,
     });
+  });
+
+  it("reads stored conditions back, dropping the unusable ones", () => {
+    expect(
+      portalCardFilters({ card_filters: { attrConditions: { code: { contains: "x" }, bad: { min: "1" } } } }),
+    ).toEqual({ ...EMPTY_CARD_FILTERS, attrConditions: { code: { contains: "x" } } });
   });
 
   it("seeds a portal saved before card filters from its subtypes and tags", () => {
@@ -61,6 +68,36 @@ describe("portalFiltersBody", () => {
     expect("filterFields" in (body!.card_filters as object)).toBe(false);
     // The dialog's own value is left as it was.
     expect(cardFilters.filterFields).toEqual(["risk"]);
+  });
+
+  it("sends the conditions on the dialog's catalog fields, canonical, and no other", () => {
+    const kindByKey = new Map<string, FilterKind>([
+      ["code", "text"],
+      ["go", "date"],
+    ]);
+    const cardFilters = {
+      ...EMPTY_CARD_FILTERS,
+      attrConditions: {
+        code: { contains: " ORG-12 " },
+        go: { from: "2026-01-01" },
+        price: { min: 10 },
+        blank: { contains: "" },
+      },
+      filterFields: ["code"],
+    };
+    expect(portalFiltersBody({ ...base, view: "cards", cardFilters, kindByKey })).toEqual({
+      card_filters: {
+        ...stored(EMPTY_CARD_FILTERS),
+        attrConditions: { code: { contains: "ORG-12" }, go: { from: "2026-01-01" } },
+      },
+    });
+  });
+
+  it("sends nothing for a condition alone on a field outside the catalog", () => {
+    const cardFilters = { ...EMPTY_CARD_FILTERS, attrConditions: { price: { min: 10 } } };
+    const kindByKey = new Map<string, FilterKind>([["code", "text"]]);
+    expect(portalFiltersBody({ ...base, view: "cards", cardFilters, kindByKey })).toBeNull();
+    expect(portalFiltersBody({ ...base, view: "cards", cardFilters })).toBeNull();
   });
 
   it("sends nothing for added rows alone", () => {

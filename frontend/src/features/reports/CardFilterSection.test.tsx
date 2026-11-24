@@ -8,6 +8,7 @@ import type { FieldDef, SectionDef } from "./portfolioHelpers";
 /** A catalog with labels taken as they are. */
 const catalogOf = (sections: SectionDef[]) =>
   buildFilterCatalog<FieldDef, FieldDef>(sections, {
+    canViewCosts: false,
     sectionLabel: (s) => s.section,
     descriptionLabel: "Description",
     resolveField: (f) => f,
@@ -213,6 +214,35 @@ describe("CardFilterSection", () => {
     it("does not count the added fields", () => {
       renderSection({ catalog: CATALOG, value: { ...EMPTY_CARD_FILTERS, filterFields: ["risk"] } });
       expect(screen.queryByText("Clear all")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("text, number and date conditions (#1425)", () => {
+    const CODE: FieldDef = { key: "code", label: "Code", type: "text" };
+    const PRICE: FieldDef = { key: "price", label: "Price", type: "cost" };
+    const CATALOG = catalogOf([{ section: "Main", fields: [FIT, CODE, PRICE] }]);
+
+    it("counts a condition on a catalog field and offers Clear all", () => {
+      const value = { ...EMPTY_CARD_FILTERS, attrConditions: { code: { contains: "ORG" } }, tagFilterIds: ["t"] };
+      renderSection({ catalog: CATALOG, value });
+      const header = screen.getByRole("button", { name: /Application Filters/ });
+      expect(within(header).getByText("2")).toBeInTheDocument();
+      expect(screen.getByText("Clear all")).toBeInTheDocument();
+      expect(screen.getByRole("textbox", { name: "Code" })).toHaveValue("ORG");
+    });
+
+    it("neither counts nor shows a condition on a field out of the reader's catalog", () => {
+      renderSection({ catalog: CATALOG, value: { ...EMPTY_CARD_FILTERS, attrConditions: { price: { min: 1 } } } });
+      expect(screen.queryByText("Clear all")).not.toBeInTheDocument();
+      expect(screen.queryByRole("group", { name: "Price" })).not.toBeInTheDocument();
+    });
+
+    it("adds a text field and reports what is typed as a condition", () => {
+      const props = renderSection({ catalog: CATALOG });
+      fireEvent.click(screen.getByText("Add filter"));
+      expect(screen.queryByRole("option", { name: "Price" })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("option", { name: "Code" }));
+      expect(props.onChange).toHaveBeenLastCalledWith({ ...EMPTY_CARD_FILTERS, filterFields: ["code"] });
     });
   });
 });

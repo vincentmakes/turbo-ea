@@ -2638,6 +2638,7 @@
   "securityLog.values.tags": "Tags",
   "securityLog.values.related_cards": "Related cards",
   "securityLog.values.card_fields": "Card fields",
+  "securityLog.values.card_conditions": "Card field conditions",
   "securityLog.values.relation_subtypes": "Relation subtypes",
   "securityLog.values.include_sub_cards": "Include sub-cards",
   "securityLog.values.approval_statuses": "Approval statuses",

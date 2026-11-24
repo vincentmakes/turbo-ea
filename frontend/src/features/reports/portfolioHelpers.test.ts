@@ -28,6 +28,7 @@ import {
   UNSET_COLOR,
 } from "./portfolioHelpers";
 import type { AppData, FieldDef, FilterState, RelSubtype, RelTypeDef } from "./portfolioHelpers";
+import type { FilterKind } from "@/lib/fieldFilters";
 
 const LABELS = { notSet: "Not set", multiple: "Multiple", yes: "Yes", no: "No" };
 
@@ -1003,5 +1004,30 @@ describe("matchesStaticFilters — the card's own subtype (#1294)", () => {
   it("applies under the timeline wrapper too", () => {
     expect(matchesFilters(withSubtype("microservice"), only("saas"))).toBe(false);
     expect(matchesFilters(withSubtype("saas"), only("saas"))).toBe(true);
+  });
+});
+
+describe("matchesStaticFilters — text / number / date conditions (#1425)", () => {
+  const kinds = new Map<string, FilterKind>([
+    ["code", "text"],
+    ["n", "number"],
+  ]);
+  const card: AppData = { ...app("a"), attributes: { code: "ORG-12", n: "15", price: 5000 } };
+  const run = (attrConditions: Record<string, unknown>, conditionKinds: ReadonlyMap<string, FilterKind> = kinds) =>
+    matchesStaticFilters(card, baseFilters({ attrConditions, conditionKinds }));
+
+  it("keeps a card that satisfies the condition", () => {
+    expect(run({ code: { contains: "org-1" }, n: { min: 15, max: 15 } })).toBe(true);
+  });
+
+  it("drops a card that does not", () => {
+    expect(run({ code: { contains: "ORG-13" } })).toBe(false);
+    expect(run({ n: { min: 15.5 } })).toBe(false);
+  });
+
+  it("ignores a condition on a field the reader's catalog lacks", () => {
+    expect(run({ price: { min: 1e6 } })).toBe(true);
+    expect(run({ code: { contains: "zzz" } }, new Map())).toBe(true);
+    expect(matchesStaticFilters(card, baseFilters({ attrConditions: { code: { contains: "zzz" } } }))).toBe(true);
   });
 });

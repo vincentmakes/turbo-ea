@@ -25,11 +25,28 @@ Reads only; never commits.
 
 from __future__ import annotations
 
+import math
+import re
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
+from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import CTE, ColumnElement, Text, and_, exists, false, func, not_, or_, select
+from sqlalchemy import (
+    CTE,
+    ColumnElement,
+    Numeric,
+    Text,
+    and_,
+    case,
+    cast,
+    exists,
+    false,
+    func,
+    not_,
+    or_,
+    select,
+)
 from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
@@ -39,6 +56,8 @@ from app.models.card_type import CardType
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.tag import CardTag, Tag, TagGroup
+from app.services.lifecycle import _SQL_DATE_PATTERN
+from app.services.search_rank import search_filter
 
 #: The "(empty)" option of every filter (``EMPTY_FILTER_KEY`` in
 #: ``FilterSelect.tsx``): a card with no value, no relation, no subtype.
@@ -70,6 +89,207 @@ def _string_lists(value: object) -> dict[str, list[str]]:
     return out
 
 
+# ---------------------------------------------------------------------------
+# Field conditions: text contains, number range, date range (#1425)
+# ---------------------------------------------------------------------------
+#
+# The Python twin of ``normaliseCondition`` / ``matchesCondition`` in
+# ``frontend/src/lib/fieldFilters.ts``. Both suites pin the same edge cases
+# (``test_portal_card_filters.py``, ``fieldFilters.test.ts``). Known
+# divergences, all outside what the UI writes:
+#
+# - text: ``ILIKE`` folds case by the database collation, JavaScript's
+#   ``toLowerCase`` by Unicode; the tests use ASCII only. A JSON number is
+#   read as Postgres prints it (``1.0`` stays ``1.0``; JavaScript prints
+#   ``1``).
+# - number: a JSON *number* longer than 40 characters as Postgres prints it is
+#   not a number here but is in the browser; a value with more than 15
+#   significant digits compares exactly here and as a double there.
+# - date: an impossible calendar date (``2026-13-45``) matches the pattern
+#   on both sides and is compared as its text, as ``lifecycle.py`` does.
+
+#: The longest ``contains`` needle kept; the rest is cut off.
+CONTAINS_MAX = 200
+
+#: A plain decimal: optional sign, digits with an optional fraction (or a bare
+#: fraction), an optional exponent of at most two digits. Two, not three:
+#: ``9e999`` is a finite ``numeric`` in Postgres but ``Infinity`` in the
+#: browser, so a three-digit exponent would let the two matchers disagree.
+#: ``[0-9]``, never ``\d``, which a Postgres locale may widen past ASCII.
+NUMBER_PATTERN = r"^[+-]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][+-]?[0-9]{1,2})?$"
+#: A numeric text longer than this is not read as a number (no cast is tried).
+NUMBER_MAX_CHARS = 40
+
+#: A date bound as the UI writes it.
+_DATE_BOUND = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+
+#: The keys of each condition shape, by filter kind.
+_SHAPE_KEYS: dict[str, tuple[str, ...]] = {
+    "text": ("contains",),
+    "number": ("min", "max"),
+    "date": ("from", "to"),
+}
+
+#: The field types each condition kind applies to. ``cost`` is a number field
+#: the reports filter on for readers who may see costs; a portal never does.
+CONDITION_FIELD_TYPES: dict[str, frozenset[str]] = {
+    "text": frozenset({"text", "multiline_text", "url"}),
+    "number": frozenset({"number", "percentage"}),
+    "date": frozenset({"date"}),
+}
+
+
+def condition_shape(raw: object) -> str | None:
+    """The kind a stored condition's keys name (``text`` / ``number`` /
+    ``date``), or ``None`` when it is not an object or names keys of more than
+    one kind (``shapeOfCondition`` in ``fieldFilters.ts``)."""
+    if not isinstance(raw, dict):
+        return None
+    kinds = [kind for kind, keys in _SHAPE_KEYS.items() if any(k in raw for k in keys)]
+    return kinds[0] if len(kinds) == 1 else None
+
+
+def _finite_number(value: object) -> float | int | None:
+    """A JSON number usable as a bound: not a boolean, finite."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    try:
+        return value if math.isfinite(float(value)) else None
+    except OverflowError:
+        return None
+
+
+def normalise_condition(kind: str, raw: object) -> dict[str, Any] | None:
+    """One condition of ``kind`` in its canonical shape, or ``None`` when it
+    narrows nothing: a trimmed, non-empty ``contains`` (cut at
+    ``CONTAINS_MAX``); finite ``min`` / ``max``; ``YYYY-MM-DD`` ``from`` /
+    ``to``. A bound that is unusable is dropped; no usable bound, no
+    condition."""
+    if not isinstance(raw, dict):
+        return None
+    if kind == "text":
+        needle = raw.get("contains")
+        if not isinstance(needle, str) or not needle.strip():
+            return None
+        return {"contains": needle.strip()[:CONTAINS_MAX]}
+    if kind == "number":
+        out: dict[str, Any] = {}
+        for key in ("min", "max"):
+            bound = _finite_number(raw.get(key))
+            if bound is not None:
+                out[key] = bound
+        return out or None
+    if kind == "date":
+        out = {}
+        for key in ("from", "to"):
+            bound = raw.get(key)
+            if isinstance(bound, str) and _DATE_BOUND.match(bound):
+                out[key] = bound
+        return out or None
+    return None
+
+
+def normalise_attr_conditions(raw: object) -> dict[str, dict[str, Any]]:
+    """``attrConditions`` with every unusable condition dropped — the twin of
+    ``restoreAttrConditions`` (``fieldFilters.ts``)."""
+    if not isinstance(raw, dict):
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for key, value in raw.items():
+        if not isinstance(key, str) or not key:
+            continue
+        kind = condition_shape(value)
+        condition = normalise_condition(kind, value) if kind else None
+        if condition is not None:
+            out[key] = condition
+    return out
+
+
+def _text_condition(col, needle: str) -> ColumnElement[bool]:
+    """A string or a number whose text contains ``needle``, case-insensitive,
+    wildcards escaped (``search_filter``). A list, an object, a boolean or no
+    value never matches."""
+    return and_(
+        func.jsonb_typeof(col).in_(("string", "number")),
+        search_filter(col.astext, needle),
+    )
+
+
+def _decimal(value: float | int) -> Decimal:
+    # ``repr`` of a float is its shortest round-tripping text: 0.1 → "0.1".
+    return Decimal(value) if isinstance(value, int) else Decimal(repr(value))
+
+
+def numeric_value(col) -> ColumnElement[Any]:
+    """``attributes[key]`` as a ``numeric``, NULL when it is not a plain
+    decimal (``numericValueOf`` in ``fieldFilters.ts``). The ``CASE`` orders
+    the guard before the cast, so no stored text can make the cast raise; a
+    JSON boolean reads ``true`` / ``false`` and fails the guard."""
+    txt = col.astext
+    guard = and_(func.char_length(txt) <= NUMBER_MAX_CHARS, txt.regexp_match(NUMBER_PATTERN))
+    return case((guard, cast(txt, Numeric)))
+
+
+def _number_condition(col, condition: Mapping[str, Any]) -> ColumnElement[bool]:
+    # ``normalise_condition`` keeps at least one bound. A NULL (not a number)
+    # compares as NULL, never true, so no separate "is a number" test is needed.
+    num = numeric_value(col)
+    clauses: list[ColumnElement[bool]] = []
+    if "min" in condition:
+        clauses.append(num >= _decimal(condition["min"]))
+    if "max" in condition:
+        clauses.append(num <= _decimal(condition["max"]))
+    return and_(*clauses)
+
+
+def _date_condition(col, condition: Mapping[str, Any]) -> ColumnElement[bool]:
+    """A stored ``YYYY-MM-DD`` (a time part allowed) within the bounds, both
+    ends included, compared as text behind the ``lifecycle.py`` pattern."""
+    txt = col.astext
+    day = func.left(txt, 10)
+    clauses: list[ColumnElement[bool]] = [txt.regexp_match(_SQL_DATE_PATTERN)]
+    if "from" in condition:
+        clauses.append(day >= condition["from"])
+    if "to" in condition:
+        clauses.append(day <= condition["to"])
+    return and_(*clauses)
+
+
+def condition_clause(
+    key: str, condition: object, field_type: str | None, *, card=Card
+) -> ColumnElement[bool] | None:
+    """One field condition over ``card.attributes[key]``, or ``None`` when it
+    does not apply: an unknown field, a ``cost`` field, a type the
+    condition's shape does not fit, or a condition that narrows nothing."""
+    kind = condition_shape(condition)
+    if kind is None or field_type not in CONDITION_FIELD_TYPES[kind]:
+        return None
+    normalised = normalise_condition(kind, condition)
+    if normalised is None:
+        return None
+    col = card.attributes[key]
+    if kind == "text":
+        return _text_condition(col, normalised["contains"])
+    if kind == "number":
+        return _number_condition(col, normalised)
+    return _date_condition(col, normalised)
+
+
+def condition_clauses(
+    conditions: Mapping[str, Any], types: Mapping[str, str], *, card=Card
+) -> list[ColumnElement[bool]]:
+    """The where-clauses for ``attrConditions`` (``{field key: condition}``),
+    ``types`` being ``field_types`` of the card type; every condition that
+    does not apply is skipped (``condition_clause``). The preset and a
+    visitor's own conditions share this one builder."""
+    out = []
+    for key, condition in sorted(conditions.items()):
+        clause = condition_clause(key, condition, types.get(key), card=card)
+        if clause is not None:
+            out.append(clause)
+    return out
+
+
 def normalise_card_filters(raw: object) -> dict[str, Any] | None:
     """``raw`` in the ``CardFilterValue`` shape, anything malformed dropped —
     the Python twin of ``restoreCardFilters`` (``cardFilters.ts``). ``None``
@@ -79,6 +299,7 @@ def normalise_card_filters(raw: object) -> dict[str, Any] | None:
     return {
         "subtypeFilters": _strings(raw.get("subtypeFilters")),
         "attrFilters": _string_lists(raw.get("attrFilters")),
+        "attrConditions": normalise_attr_conditions(raw.get("attrConditions")),
         "relationFilters": _string_lists(raw.get("relationFilters")),
         "relSubtypeFilters": _string_lists(raw.get("relSubtypeFilters")),
         "tagFilterIds": _strings(raw.get("tagFilterIds")),
@@ -95,6 +316,7 @@ def has_active_card_filters(card_filters: Mapping[str, Any] | None) -> bool:
         for key in (
             "subtypeFilters",
             "attrFilters",
+            "attrConditions",
             "relationFilters",
             "relSubtypeFilters",
             "tagFilterIds",
@@ -360,13 +582,15 @@ async def _card_filter_conditions(
         subtype_condition(card_filters["subtypeFilters"])
     ]
 
-    if card_filters["attrFilters"]:
+    attr_conditions = card_filters.get("attrConditions") or {}
+    if card_filters["attrFilters"] or attr_conditions:
         ct = await db.scalar(select(CardType).where(CardType.key == card_type))
         types = field_types(ct.fields_schema if ct else None)
         conditions.extend(
             attribute_condition(key, vals, types.get(key))
             for key, vals in sorted(card_filters["attrFilters"].items())
         )
+        conditions.extend(condition_clauses(attr_conditions, types))
 
     if card_filters["relationFilters"] or card_filters["relSubtypeFilters"]:
         # Every visible relation type: one that does not touch this card type

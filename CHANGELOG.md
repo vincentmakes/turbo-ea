@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Card Layout editor: a **Hidden from filters** switch on a section keeps its fields out of the report, PPM board and portal filter rows by default, without removing them.
 - An **Add filter** chip at the end of a filter block's Fields row lists the fields not shown yet, searchable by field or section name, in the Portfolio, Flexible Portfolio, Capability Map and Lifecycle reports, the PPM board and the web portal filter dialog.
 - Added filter fields are remembered with each report and saved report (and in the PPM board's link), and **Clear all** keeps them while it clears their values.
+- **Add filter** also offers text, number and date fields: a text field filters on "contains", a number or percentage field on a min–max range and a date field on a from–to range, in the reports, the PPM board and the web portal filter dialog.
+- Cost fields can be added as number filters only by people who may see costs; a saved report or shared link carrying a cost filter narrows nothing for anyone else, and a web portal never filters on costs.
+- **View in inventory** from the Portfolio report does not carry text, number or date filters, which the inventory has no equivalent for.
 
 ## [2.212.0] - 2026-11-23
 

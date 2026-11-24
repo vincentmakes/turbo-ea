@@ -54,8 +54,6 @@ export default function AddFilterMenu<F extends { key: string; label: string }>(
     }
     return out;
   }, [shown]);
-  // Every change to the list (a new search, a reopen) puts it back to 0.
-  const highlighted = active;
   const optionId = (i: number) => `${listId}-option-${i}`;
 
   const close = () => {
@@ -78,7 +76,7 @@ export default function AddFilterMenu<F extends { key: string; label: string }>(
       setActive((i) => (i - 1 + flat.length) % flat.length);
     } else if (e.key === "Enter") {
       e.preventDefault();
-      pick(flat[highlighted].field.key);
+      pick(flat[active].field.key);
     }
   };
 
@@ -140,7 +138,7 @@ export default function AddFilterMenu<F extends { key: string; label: string }>(
               htmlInput: {
                 "aria-label": t("fieldFilters.search"),
                 "aria-controls": listId,
-                "aria-activedescendant": flat.length > 0 ? optionId(highlighted) : undefined,
+                "aria-activedescendant": flat.length > 0 ? optionId(active) : undefined,
               },
             }}
           />
@@ -168,7 +166,7 @@ export default function AddFilterMenu<F extends { key: string; label: string }>(
                 </ListSubheader>
                 {section.fields.map((entry, fi) => {
                   const i = starts[si] + fi;
-                  const selected = i === highlighted;
+                  const selected = i === active;
                   return (
                     <ListItemButton
                       key={entry.field.key}

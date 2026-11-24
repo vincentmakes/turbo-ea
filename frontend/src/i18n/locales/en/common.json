@@ -813,5 +813,9 @@
   "fieldFilters.searchPlaceholder": "Field or section",
   "fieldFilters.clearSearch": "Clear search",
   "fieldFilters.noMatch": "No field matches",
-  "fieldFilters.remove": "Remove the {{field}} filter"
+  "fieldFilters.remove": "Remove the {{field}} filter",
+  "fieldFilters.clearValue": "Clear the {{field}} filter",
+  "fieldFilters.containsPlaceholder": "Contains…",
+  "fieldFilters.rangeFrom": "{{field}} from",
+  "fieldFilters.rangeTo": "{{field}} to"
 }

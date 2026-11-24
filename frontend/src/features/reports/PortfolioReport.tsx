@@ -55,6 +55,8 @@ import CardFilterSection from "./CardFilterSection";
 import {
   buildRelationFilterOptions,
   buildRelSubtypes,
+  conditionLabelsFor,
+  conditionText,
   countActiveFilters,
   expandRelationFilters,
   hasActiveFilters,
@@ -89,8 +91,18 @@ import {
   rawValues,
   resolveFacetField,
 } from "@/lib/fieldFacets";
-import { buildFilterCatalog, restoreFilterFields } from "@/lib/fieldFilters";
-import type { FilterCatalog } from "@/lib/fieldFilters";
+import {
+  appliedConditions,
+  buildFilterCatalog,
+  catalogFields,
+  catalogKinds,
+  describeCondition,
+  restoreAttrConditions,
+  restoreFilterFields,
+} from "@/lib/fieldFilters";
+import type { AttrCondition, FilterCatalog } from "@/lib/fieldFilters";
+import { useOptionalAuthUser } from "@/hooks/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import {
   appColorBucket,
   attributeLabel,
@@ -715,6 +727,9 @@ export default function PortfolioReport({
   // The fields added through "Add filter" (#1425): which rows show, not what
   // matches. Kept by Clear all; a Reset or a type change empties it.
   const [filterFields, setFilterFields] = useState<string[]>([]);
+  // Text / number / date conditions (#1425), applied only on a field in this
+  // reader's catalog. Values: cleared by Clear all, Reset and a type change.
+  const [attrConditions, setAttrConditions] = useState<Record<string, AttrCondition>>({});
   // Fold the (tall) filter block away. Expanded by default; persisted with
   // the rest of the report config, so a missing key means expanded.
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
@@ -743,6 +758,7 @@ export default function PortfolioReport({
       if (Array.isArray(cfg.subtypeFilters)) setSubtypeFilters(cfg.subtypeFilters as string[]);
       if (cfg.includeDescendants != null) setIncludeDescendants(!!cfg.includeDescendants);
       setFilterFields(restoreFilterFields(cfg.filterFields));
+      setAttrConditions(restoreAttrConditions(cfg.attrConditions));
       if (cfg.filtersCollapsed != null) setFiltersCollapsed(!!cfg.filtersCollapsed);
       if (cfg.nestedGroups != null) setNestedGroups(!!cfg.nestedGroups);
       if (cfg.groupDepth != null) setGroupDepth(cfg.groupDepth as number);
@@ -765,7 +781,7 @@ export default function PortfolioReport({
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ cardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, subtypeFilters, tagFilterIds, includeDescendants, filterFields, timelineDate: tl.persistValue, sortK, sortD, nestedGroups, groupDepth, columns, filtersCollapsed });
+  const getConfig = () => ({ cardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, subtypeFilters, tagFilterIds, includeDescendants, filterFields, attrConditions, timelineDate: tl.persistValue, sortK, sortD, nestedGroups, groupDepth, columns, filtersCollapsed });
 
   // Auto-persist config to localStorage. Skip the very first run so that on
   // mount we don't overwrite a previously-saved config with the initial
@@ -782,7 +798,7 @@ export default function PortfolioReport({
     }
     if (dataCardType !== cardType) return;
     saved.persistConfig(getConfig());
-  }, [cardType, dataCardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, subtypeFilters, tagFilterIds, includeDescendants, filterFields, tl.timelineDate, sortK, sortD, nestedGroups, groupDepth, columns, filtersCollapsed]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cardType, dataCardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, subtypeFilters, tagFilterIds, includeDescendants, filterFields, attrConditions, tl.timelineDate, sortK, sortD, nestedGroups, groupDepth, columns, filtersCollapsed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -799,6 +815,7 @@ export default function PortfolioReport({
     setTagFilterIds([]);
     setIncludeDescendants(false);
     setFilterFields([]);
+    setAttrConditions({});
     setFiltersCollapsed(false);
     tl.reset();
     setSortK("name");
@@ -852,6 +869,7 @@ export default function PortfolioReport({
     setSubtypeFilters([]);
     setTagFilterIds([]);
     setFilterFields([]);
+    setAttrConditions({});
     setNestedGroups(false);
     setGroupDepth(2);
     setDefaultsApplied(false);
@@ -879,6 +897,9 @@ export default function PortfolioReport({
     );
   }, [data, fieldLabel, optLabel, t]);
 
+  // A cost field is offered, and a condition on one applies, only to a reader
+  // who may see costs.
+  const { canViewCostsGlobally: canViewCosts } = usePermissions(useOptionalAuthUser());
   // The filter catalog, from the same payload schema: which fields the Fields
   // row shows by default and which "Add filter" offers. `selectFields` stays
   // every facet field, because colour, grouping and matching read them all.
@@ -886,6 +907,7 @@ export default function PortfolioReport({
     if (!data) return [];
     const yesNo = { yes: t("common:labels.yes"), no: t("common:labels.no") };
     return buildFilterCatalog(data.fields_schema, {
+      canViewCosts,
       sectionLabel: (section) => rl(section.section, section.translations),
       descriptionLabel: t("common:labels.description"),
       resolveField: (f) =>
@@ -894,7 +916,9 @@ export default function PortfolioReport({
           yesNo,
         ),
     });
-  }, [data, fieldLabel, optLabel, rl, t]);
+  }, [data, canViewCosts, fieldLabel, optLabel, rl, t]);
+  // What decides whether a condition applies (and counts) for this reader.
+  const conditionKinds = useMemo(() => catalogKinds(fieldCatalog), [fieldCatalog]);
 
   // Relation subtypes — single_select attributes on relation types touching
   // the current card type (e.g. "is used by · Usage Type"), tagged with the
@@ -1090,6 +1114,8 @@ export default function PortfolioReport({
     () => ({
       attributeFilters: attrFilters,
       facetFields: selectFields,
+      attrConditions,
+      conditionKinds,
       relationFilters: matchedRelationFilters,
       relTypeKeys: allRelTypeKeys,
       relSubtypeFilters,
@@ -1099,7 +1125,7 @@ export default function PortfolioReport({
       tagGroups: data?.tag_groups || [],
       search,
     }),
-    [attrFilters, selectFields, matchedRelationFilters, allRelTypeKeys, relSubtypeFilters, relSubtypes, subtypeFilters, tagFilterIds, data, search],
+    [attrFilters, selectFields, attrConditions, conditionKinds, matchedRelationFilters, allRelTypeKeys, relSubtypeFilters, relSubtypes, subtypeFilters, tagFilterIds, data, search],
   );
 
   // Resolve the active Color By into a descriptor + shared bucket labels.
@@ -1243,11 +1269,12 @@ export default function PortfolioReport({
 
   // The shared filter section edits these as one value.
   const cardFilters = useMemo<CardFilterValue>(
-    () => ({ attrFilters, relationFilters, relSubtypeFilters, subtypeFilters, tagFilterIds, includeDescendants, filterFields }),
-    [attrFilters, relationFilters, relSubtypeFilters, subtypeFilters, tagFilterIds, includeDescendants, filterFields],
+    () => ({ attrFilters, attrConditions, relationFilters, relSubtypeFilters, subtypeFilters, tagFilterIds, includeDescendants, filterFields }),
+    [attrFilters, attrConditions, relationFilters, relSubtypeFilters, subtypeFilters, tagFilterIds, includeDescendants, filterFields],
   );
   const setCardFilters = useCallback((next: CardFilterValue) => {
     setAttrFilters(next.attrFilters);
+    setAttrConditions(next.attrConditions);
     setRelationFilters(next.relationFilters);
     setRelSubtypeFilters(next.relSubtypeFilters);
     setSubtypeFilters(next.subtypeFilters);
@@ -1258,6 +1285,7 @@ export default function PortfolioReport({
 
   const clearFilters = useCallback(() => {
     setAttrFilters({});
+    setAttrConditions({});
     setRelationFilters({});
     setRelSubtypeFilters({});
     setSubtypeFilters([]);
@@ -1332,6 +1360,12 @@ export default function PortfolioReport({
           activeFilterDescs.push(`${field?.label || key}: ${vals.join(", ")}`);
         }
       }
+      // A condition, worded as the print header words it, when it applies.
+      const conditionWords = conditionLabelsFor(t);
+      for (const { key, condition } of appliedConditions(attrConditions, conditionKinds)) {
+        const field = catalogFields(fieldCatalog).find((e) => e.field.key === key)?.field;
+        activeFilterDescs.push(`${field?.label || key}: ${conditionText(describeCondition(condition), conditionWords)}`);
+      }
       if (tl.isTimeTraveling)
         activeFilterDescs.push(`Timeline date: ${toIsoDate(new Date(tl.timelineDate))}`);
 
@@ -1350,7 +1384,7 @@ export default function PortfolioReport({
     } finally {
       setAiLoading(false);
     }
-  }, [data, filteredApps, groups, selectFields, colorBy, colorRes, colorLabels, groupByRaw, attrFilters, search, tl.timelineDate, tl.isTimeTraveling, t]);
+  }, [data, filteredApps, groups, selectFields, colorBy, colorRes, colorLabels, groupByRaw, attrFilters, attrConditions, conditionKinds, fieldCatalog, search, tl.timelineDate, tl.isTimeTraveling, t]);
 
   const handleGroupClick = useCallback((g: GroupData) => {
     // g.key is the related card id for relation groups — keep it so the drawer
@@ -1377,8 +1411,9 @@ export default function PortfolioReport({
 
   // Report filters the "View in inventory" deep-link carries over. Relation
   // filters are translated member-id → name (the inventory's relation filter
-  // is name-based); relation-subtype filters and the timeline date have no
-  // inventory equivalent and are deliberately dropped.
+  // is name-based); relation-subtype filters, text / number / date conditions
+  // (`attrConditions`) and the timeline date have no inventory equivalent and
+  // are deliberately dropped.
   const carriedLinkFilters = useMemo<InventorySliceFilters>(() => {
     const relations: Record<string, string[]> = {};
     if (data) {
@@ -1453,8 +1488,8 @@ export default function PortfolioReport({
     groupByOptions.find((o) => o.key === groupByKey)?.label || t("common.group");
 
   const colorByLabel = colorByOptions.find((o) => o.key === colorBy)?.label || "";
-  const activeFilterCount = countActiveFilters(cardFilters);
-  const anyFilterActive = hasActiveFilters(cardFilters, search);
+  const activeFilterCount = countActiveFilters(cardFilters, conditionKinds);
+  const anyFilterActive = hasActiveFilters(cardFilters, search, conditionKinds);
   // A sub-card pick is a subtree the inventory's relation filter cannot
   // express; "(empty)" is never widened, so it keeps the link.
   const relationPicksWidened =

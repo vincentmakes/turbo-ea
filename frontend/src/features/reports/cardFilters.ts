@@ -4,9 +4,17 @@
  * widened before matching. Matching itself stays `matchesStaticFilters`
  * (`portfolioHelpers.ts`), so every report reads a filter the same way.
  */
+import type { TFunction } from "i18next";
 import { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
 import { expandScopeIds } from "@/hooks/useCardScope";
-import { restoreFilterFields } from "@/lib/fieldFilters";
+import {
+  appliedConditions,
+  countActiveConditions,
+  describeCondition,
+  restoreAttrConditions,
+  restoreFilterFields,
+} from "@/lib/fieldFilters";
+import type { AttrCondition, ConditionDescription, FilterKind } from "@/lib/fieldFilters";
 import { expandSides, parseSideKey, sideKey } from "@/lib/relationSort";
 import { extractRelSubtypes, relSubtypeComposite } from "./portfolioHelpers";
 import type { FieldDef, FieldOption, RelSubtype, RelTypeDef, TagGroupDef } from "./portfolioHelpers";
@@ -15,6 +23,14 @@ import type { FieldDef, FieldOption, RelSubtype, RelTypeDef, TagGroupDef } from 
 export interface CardFilterValue {
   /** The card's own facet fields, by field key. */
   attrFilters: Record<string, string[]>;
+  /**
+   * Text / number / date conditions on the card's own fields, by field key
+   * (`lib/fieldFilters.ts`). Applied, counted and described only when the
+   * field is in the reader's catalog (`kindByKey`), so a cost condition in a
+   * saved report or link never narrows out of sight for a reader without
+   * cost access.
+   */
+  attrConditions: Record<string, AttrCondition>;
   /** Related card ids, keyed by a card-type key or a relation side key. */
   relationFilters: Record<string, string[]>;
   /** Relation attribute values, keyed `relTypeKey::fieldKey`. */
@@ -33,6 +49,7 @@ export interface CardFilterValue {
 
 export const EMPTY_CARD_FILTERS: CardFilterValue = {
   attrFilters: {},
+  attrConditions: {},
   relationFilters: {},
   relSubtypeFilters: {},
   subtypeFilters: [],
@@ -161,11 +178,20 @@ export function expandRelationFilters(
   return out;
 }
 
-/** How many values the section has selected, for its header chip. */
-export function countActiveFilters(v: CardFilterValue): number {
+/**
+ * How many values the section has selected, for its header chip: each pick,
+ * plus one per condition that applies for this reader. `kindByKey` is the
+ * reader's catalog (`catalogKinds`); without it no condition counts, as none
+ * applies. The print header (`describeActiveFilters`) reads the same rule.
+ */
+export function countActiveFilters(
+  v: CardFilterValue,
+  kindByKey?: ReadonlyMap<string, FilterKind>,
+): number {
   const flat = (r: Record<string, string[]>) => Object.values(r).flat().length;
   return (
     flat(v.attrFilters) +
+    countActiveConditions(v.attrConditions, kindByKey) +
     flat(v.relationFilters) +
     flat(v.relSubtypeFilters) +
     v.subtypeFilters.length +
@@ -174,8 +200,12 @@ export function countActiveFilters(v: CardFilterValue): number {
 }
 
 /** Whether anything narrows the cards, a search included. */
-export function hasActiveFilters(v: CardFilterValue, search: string): boolean {
-  return countActiveFilters(v) > 0 || search.length > 0;
+export function hasActiveFilters(
+  v: CardFilterValue,
+  search: string,
+  kindByKey?: ReadonlyMap<string, FilterKind>,
+): boolean {
+  return countActiveFilters(v, kindByKey) > 0 || search.length > 0;
 }
 
 /**
@@ -236,7 +266,44 @@ export function restoreCardFilters(cfg: Record<string, unknown>): CardFilterValu
     tagFilterIds: stringArray(cfg.tagFilterIds),
     includeDescendants: cfg.includeDescendants === true,
     filterFields: restoreFilterFields(cfg.filterFields),
+    attrConditions: restoreAttrConditions(cfg.attrConditions),
   };
+}
+
+/** The words a condition reads as in a print header, by its parts (`describeCondition`). */
+export interface ConditionLabels {
+  contains: (value: string) => string;
+  between: (from: string, to: string) => string;
+  atLeast: (value: string) => string;
+  atMost: (value: string) => string;
+}
+
+/** What `describeActiveFilters` needs to describe the conditions that apply. */
+export interface DescribeConditions {
+  /** The reader's catalog fields, labels resolved. */
+  fields: { key: string; label: string }[];
+  /** Their kinds (`catalogKinds`), the same map the count reads. */
+  kindByKey: ReadonlyMap<string, FilterKind>;
+  labels: ConditionLabels;
+  /** How a number bound is shown (the caller's locale); `String` when absent. */
+  formatNumber?: (n: number) => string;
+}
+
+/** The condition words, from the `reports` namespace. */
+export function conditionLabelsFor(t: TFunction): ConditionLabels {
+  return {
+    contains: (value) => t("reports:cardFilters.conditionContains", { value }),
+    between: (from, to) => t("reports:cardFilters.conditionBetween", { from, to }),
+    atLeast: (value) => t("reports:cardFilters.conditionAtLeast", { value }),
+    atMost: (value) => t("reports:cardFilters.conditionAtMost", { value }),
+  };
+}
+
+/** One condition as its header line's value. */
+export function conditionText(d: ConditionDescription, labels: ConditionLabels): string {
+  if (d.op === "contains") return labels.contains(d.value);
+  if (d.op === "between") return labels.between(d.from, d.to);
+  return d.op === "atLeast" ? labels.atLeast(d.value) : labels.atMost(d.value);
 }
 
 /**
@@ -252,6 +319,12 @@ export function describeActiveFilters(input: {
   fields: FieldDef[];
   relSubtypes: RelSubtype[];
   labels: { subtype: string; tags: string; empty: string; subCards: string };
+  /**
+   * The reader's catalog (`conditionsFrom`): a condition is described only
+   * when it applies, exactly as `countActiveFilters` counts it given the same
+   * `kindByKey`. Absent, no condition applies and none is described.
+   */
+  conditions?: DescribeConditions;
 }): { label: string; value: string }[] {
   const { value, relationOptions, tagGroups, subtypeOptions, fields, relSubtypes, labels } = input;
   const named = (keys: string[], options: { key: string; label: string }[]) =>
@@ -275,6 +348,13 @@ export function describeActiveFilters(input: {
   for (const f of fields) {
     const picked = value.attrFilters[f.key] ?? [];
     if (picked.length > 0) out.push({ label: f.label, value: named(picked, f.options ?? []) });
+  }
+  const cond = input.conditions;
+  if (cond) {
+    for (const { key, condition } of appliedConditions(value.attrConditions, cond.kindByKey)) {
+      const label = cond.fields.find((f) => f.key === key)?.label ?? key;
+      out.push({ label, value: conditionText(describeCondition(condition, cond.formatNumber), cond.labels) });
+    }
   }
   for (const sub of relSubtypes) {
     const picked = value.relSubtypeFilters[sub.composite] ?? [];

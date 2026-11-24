@@ -293,11 +293,19 @@ export default function WebPortalsAdmin() {
     filterOptionsPath,
     { keepPreviousData: false },
   );
-  const { relationOptions, relSubtypes, subtypeOptions, catalog: fieldCatalog } = useCardFilterOptions({
+  const {
+    relationOptions,
+    relSubtypes,
+    subtypeOptions,
+    catalog: fieldCatalog,
+    kindByKey: conditionKinds,
+  } = useCardFilterOptions({
     cardTypeKey: filterOptionsPath ? cardType : "",
     relationTypes: filterOptions?.relation_types ?? EMPTY_REL_TYPES,
     groupableTypes: filterOptions?.groupable_types ?? EMPTY_GROUPABLE,
     includeDescendants: cardFilters.includeDescendants,
+    // A portal never filters on costs, whoever sets it up.
+    canViewCosts: false,
   });
   const allFields =
     selectedType?.fields_schema?.flatMap((s) => s.fields) || [];
@@ -393,6 +401,7 @@ export default function WebPortalsAdmin() {
         subtypes: filterSubtypes,
         tagIds: filterTagIds,
         approvalStatuses,
+        kindByKey: conditionKinds,
       }),
       card_config: hasCardConfig
         ? {

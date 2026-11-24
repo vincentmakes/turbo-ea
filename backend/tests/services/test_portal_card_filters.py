@@ -13,6 +13,8 @@ from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.orm import aliased
 
 from app.models.card import Card
 from app.models.tag import TagGroup
@@ -237,6 +239,168 @@ class TestAttributes:
         assert await _names(db, filters) == {"Beta"}
 
 
+# ---------------------------------------------------------------------------
+# Text / number / date conditions (``attrConditions``, #1425)
+# ---------------------------------------------------------------------------
+#
+# The same edge cases are pinned on the browser's matcher
+# (``frontend/src/lib/fieldFilters.test.ts``): numeric text counts as a
+# number, a JSON boolean / list never does, a number longer than 40
+# characters or with a three-digit exponent is not read, an impossible
+# calendar date compares as its text, the needle is ASCII.
+
+GADGET_FIELDS = [
+    {
+        "section": "Main",
+        "fields": [
+            {"key": "code", "type": "text"},
+            {"key": "notes", "type": "multiline_text"},
+            {"key": "site", "type": "url"},
+            {"key": "n", "type": "number"},
+            {"key": "pct", "type": "percentage"},
+            {"key": "price", "type": "cost"},
+            {"key": "due", "type": "date"},
+            {"key": "crit", "type": "single_select", "options": [{"key": "high"}]},
+        ],
+    }
+]
+
+GADGETS = {
+    "Alpha": {
+        "code": "ORG-12",
+        "notes": "Line one\nLine two",
+        "site": "https://alpha.example",
+        "n": 12.5,
+        "pct": 50,
+        "price": 100,
+        "due": "2026-01-01",
+        "crit": "high",
+    },
+    "Beta": {"code": "org-120", "n": "12.5", "pct": 49.5, "due": "2026-12-31T10:00:00Z"},
+    "Gamma": {"code": 12345, "n": "abc", "due": "2026-13-45"},
+    "Delta": {"code": ["ORG-12"], "n": [12], "due": ["2026-06-01"]},
+    "Eps": {"code": True, "n": True, "due": "01/02/2026"},
+    "Zeta": {"code": None, "n": None, "due": None},
+    "Eta": {},
+    "Theta": {"code": "100%", "n": "1" * 500},
+    "Iota": {"code": "a_b", "n": "1e999999"},
+    "Kappa": {"code": "a\\b", "n": "1e2", "due": "2025-12-31"},
+    "Lambda": {"code": "axb", "n": "-.5", "due": "2026-06-01 noon"},
+    "Mu": {"n": "9e99"},
+    "Nu": {"n": "1" * 40},
+    "Xi": {"n": "1" * 41},
+    "Omicron": {"n": "9e100"},
+}
+ALL_GADGETS = set(GADGETS)
+
+
+@pytest.fixture
+async def gadgets(db):
+    await create_card_type(db, key="Gadget", fields_schema=GADGET_FIELDS)
+    for name, attributes in GADGETS.items():
+        await create_card(db, card_type="Gadget", name=name, attributes=attributes)
+
+
+async def _gadgets(db, conditions) -> set[str]:
+    return await _names(db, _cf(attrConditions=conditions), card_type="Gadget")
+
+
+class TestTextConditions:
+    async def test_contains_is_case_insensitive_on_strings_and_numbers(self, db, gadgets):
+        assert await _gadgets(db, {"code": {"contains": "org-12"}}) == {"Alpha", "Beta"}
+        assert await _gadgets(db, {"code": {"contains": "234"}}) == {"Gamma"}
+
+    async def test_the_needle_is_trimmed(self, db, gadgets):
+        assert await _gadgets(db, {"code": {"contains": "  ORG-120 "}}) == {"Beta"}
+
+    async def test_a_list_or_a_boolean_never_matches(self, db, gadgets):
+        assert await _gadgets(db, {"code": {"contains": "tru"}}) == set()
+        assert await _gadgets(db, {"code": {"contains": "["}}) == set()
+
+    @pytest.mark.parametrize(
+        "needle,expected",
+        [("%", {"Theta"}), ("_", {"Iota"}), ("a_b", {"Iota"}), ("\\", {"Kappa"})],
+    )
+    async def test_wildcards_are_literal(self, db, gadgets, needle, expected):
+        assert await _gadgets(db, {"code": {"contains": needle}}) == expected
+
+    async def test_multiline_and_url_fields_are_text(self, db, gadgets):
+        assert await _gadgets(db, {"notes": {"contains": "line TWO"}}) == {"Alpha"}
+        assert await _gadgets(db, {"site": {"contains": "example"}}) == {"Alpha"}
+
+
+NUMERIC = {"Alpha", "Beta", "Kappa", "Lambda", "Mu", "Nu"}
+
+
+class TestNumberConditions:
+    async def test_only_plain_decimals_are_numbers(self, db, gadgets):
+        """``"abc"``, a list, ``true``, null, a 500-digit text, a 41-character
+        text and a three-digit exponent are not numbers; a 40-character one
+        and a two-digit exponent are."""
+        assert await _gadgets(db, {"n": {"min": -1e99}}) == NUMERIC
+        assert await _gadgets(db, {"n": {"max": 1e101}}) == NUMERIC
+
+    async def test_bounds_are_inclusive(self, db, gadgets):
+        assert await _gadgets(db, {"n": {"min": 12.5, "max": 12.5}}) == {"Alpha", "Beta"}
+        assert await _gadgets(db, {"n": {"min": 12.5, "max": 100}}) == {"Alpha", "Beta", "Kappa"}
+
+    async def test_only_min(self, db, gadgets):
+        assert await _gadgets(db, {"n": {"min": 12.6}}) == {"Kappa", "Mu", "Nu"}
+
+    async def test_only_max(self, db, gadgets):
+        assert await _gadgets(db, {"n": {"max": 12.4}}) == {"Lambda"}
+        assert await _gadgets(db, {"n": {"max": -0.5}}) == {"Lambda"}
+        assert await _gadgets(db, {"n": {"max": -0.6}}) == set()
+
+    async def test_percentage_is_a_number(self, db, gadgets):
+        assert await _gadgets(db, {"pct": {"min": 50}}) == {"Alpha"}
+        assert await _gadgets(db, {"pct": {"max": 49.5}}) == {"Beta"}
+
+
+class TestDateConditions:
+    async def test_from(self, db, gadgets):
+        """A time suffix is read by its day; an impossible date compares as
+        its text; a list, a malformed date and a date followed by junk do not
+        count."""
+        assert await _gadgets(db, {"due": {"from": "2026-01-01"}}) == {"Alpha", "Beta", "Gamma"}
+
+    async def test_to(self, db, gadgets):
+        assert await _gadgets(db, {"due": {"to": "2026-01-01"}}) == {"Alpha", "Kappa"}
+
+    async def test_both_bounds_are_inclusive(self, db, gadgets):
+        assert await _gadgets(db, {"due": {"from": "2026-01-02", "to": "2026-12-31"}}) == {"Beta"}
+        assert await _gadgets(db, {"due": {"from": "2026-01-01", "to": "2026-12-30"}}) == {"Alpha"}
+
+
+class TestConditionsThatDoNotApply:
+    @pytest.mark.parametrize(
+        "conditions",
+        [
+            {"price": {"min": 0}},  # a portal never filters on costs
+            {"code": {"min": 1}},  # a number condition on a text field
+            {"n": {"contains": "1"}},  # a text condition on a number field
+            {"due": {"min": 1}},
+            {"n": {"from": "2026-01-01"}},
+            {"crit": {"contains": "high"}},  # a select is a facet, not text
+            {"ghost": {"contains": "x"}},  # a field the type does not have
+            {"code": {"contains": "x", "min": 1}},  # two shapes at once
+            {"code": {"contains": "   "}},
+        ],
+    )
+    async def test_skipped(self, db, gadgets, conditions):
+        assert await _gadgets(db, conditions) == ALL_GADGETS
+
+    async def test_conditions_are_anded(self, db, gadgets):
+        conditions = {"code": {"contains": "org"}, "n": {"min": 12.5}, "pct": {"max": 49.5}}
+        assert await _gadgets(db, conditions) == {"Beta"}
+
+    def test_condition_clause_reads_the_given_entity(self):
+        other = aliased(Card, name="cond_other")
+        clause = pcf.condition_clause("code", {"contains": "x"}, "text", card=other)
+        assert "cond_other" in str(clause.compile(dialect=postgresql.dialect()))
+        assert pcf.condition_clause("code", {"contains": "x"}, None) is None
+
+
 class TestRelations:
     async def test_card_type_key_is_any_relation_to_that_type(self, db, land):
         filters = _cf(relationFilters={"Organization": [str(land.corp.id)]})
@@ -449,6 +613,7 @@ class TestNormalise:
         assert normalise_card_filters(raw) == {
             "subtypeFilters": ["a"],
             "attrFilters": {"k": ["v"]},
+            "attrConditions": {},
             "relationFilters": {},
             "relSubtypeFilters": {"r::f": ["x"]},
             "tagFilterIds": [],
@@ -477,6 +642,7 @@ class TestActive:
         [
             ("subtypeFilters", ["a"]),
             ("attrFilters", {"k": ["v"]}),
+            ("attrConditions", {"k": {"contains": "v"}}),
             ("relationFilters", {"T": ["id"]}),
             ("relSubtypeFilters", {"r::f": ["v"]}),
             ("tagFilterIds", ["t"]),
@@ -484,6 +650,73 @@ class TestActive:
     )
     def test_any_pick_is_active(self, key, picked):
         assert has_active_card_filters({**normalise_card_filters({}), key: picked}) is True
+
+
+class TestNormaliseAttrConditions:
+    def test_not_an_object(self):
+        assert pcf.normalise_attr_conditions(None) == {}
+        assert pcf.normalise_attr_conditions([{"contains": "x"}]) == {}
+
+    def test_canonical_shapes(self):
+        raw = {
+            "code": {"contains": "  ORG-12 "},
+            "n": {"min": 0, "max": 2.5},
+            "due": {"from": "2026-01-01", "to": "2026-12-31"},
+        }
+        assert pcf.normalise_attr_conditions(raw) == {
+            "code": {"contains": "ORG-12"},
+            "n": {"min": 0, "max": 2.5},
+            "due": {"from": "2026-01-01", "to": "2026-12-31"},
+        }
+
+    def test_drops_whatever_is_unusable(self):
+        raw = {
+            "": {"contains": "x"},
+            "blank": {"contains": "   "},
+            "notText": {"contains": 3},
+            "mixed": {"contains": "x", "min": 1},
+            "empty": {},
+            "list": ["x"],
+            "str": "x",
+            "bool": {"min": True},
+            "inf": {"max": float("inf")},
+            "nan": {"min": float("nan")},
+            "huge": {"min": 10**400},
+            "textNumber": {"min": "2"},
+            "noBound": {"min": None, "max": None},
+            "shortDate": {"from": "2026-1-1"},
+            "timeDate": {"to": "2026-01-01T00:00"},
+            "dateNumber": {"from": 20260101},
+            "half": {"min": True, "max": 3},
+            "halfDate": {"from": "x", "to": "2026-02-03"},
+        }
+        assert pcf.normalise_attr_conditions(raw) == {
+            "half": {"max": 3},
+            "halfDate": {"to": "2026-02-03"},
+        }
+
+    def test_contains_is_capped(self):
+        exact = "y" * pcf.CONTAINS_MAX
+        assert pcf.normalise_condition("text", {"contains": exact}) == {"contains": exact}
+        assert pcf.normalise_condition("text", {"contains": f" {exact}z "}) == {"contains": exact}
+        assert pcf.CONTAINS_MAX == 200
+
+    def test_condition_shape(self):
+        assert pcf.condition_shape({"contains": ""}) == "text"
+        assert pcf.condition_shape({"max": None}) == "number"
+        assert pcf.condition_shape({"to": None}) == "date"
+        assert pcf.condition_shape({"from": 1, "min": 1}) is None
+        assert pcf.condition_shape({"other": 1}) is None
+        assert pcf.condition_shape("contains") is None
+
+    def test_an_unknown_kind_is_nothing(self):
+        assert pcf.normalise_condition("facet", {"contains": "x"}) is None
+        assert pcf.normalise_condition("text", "x") is None
+
+    def test_normalise_card_filters_keeps_conditions(self):
+        cf = normalise_card_filters({"attrConditions": {"code": {"contains": "x"}, "bad": 1}})
+        assert cf["attrConditions"] == {"code": {"contains": "x"}}
+        assert has_active_card_filters(cf) is True
 
 
 class TestPublicFilters:

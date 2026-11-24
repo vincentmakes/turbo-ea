@@ -384,7 +384,9 @@ async def _card_filter_labels(
         labels.facets[composite] = f"{rel_label} · {fdef.get('label') or field_key}"
         labels.options.update(_option_labels(composite, fdef))
     for cf in values:
-        labels.facets.update({k: labels.fields[k] for k in cf["attrFilters"] if k in labels.fields})
+        for key in (*cf["attrFilters"], *cf["attrConditions"]):
+            if key in labels.fields:
+                labels.facets[key] = labels.fields[key]
 
     card_ids = portal_card_filters.uuids(
         v for cf in values for vals in cf["relationFilters"].values() for v in vals

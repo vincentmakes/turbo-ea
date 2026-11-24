@@ -28,6 +28,7 @@ import CardFilterSection from "./CardFilterSection";
 import { useCardFilterOptions } from "./useCardFilterOptions";
 import {
   EMPTY_CARD_FILTERS,
+  conditionLabelsFor,
   clearCardFilterValues,
   describeActiveFilters,
   expandRelationFilters,
@@ -51,6 +52,9 @@ import {
   type SortDir,
 } from "./lifecycleSort";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useOptionalAuthUser } from "@/hooks/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
+import { catalogFields } from "@/lib/fieldFilters";
 import { useReadableCardTypes } from "@/hooks/useReadableCardTypes";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { applyScope, useCardScope } from "@/hooks/useCardScope";
@@ -285,6 +289,10 @@ export default function LifecycleReport() {
 
   /* ---- The shared card filters ---------------------------------------- */
 
+  // A cost field is offered, and a condition on one applies, only to a
+  // reader who may see costs.
+  const { canViewCostsGlobally: canViewCosts } = usePermissions(useOptionalAuthUser());
+
   const relationTypes = useMemo(() => payload?.relation_types ?? [], [payload]);
   const groupableTypes = useMemo(() => payload?.groupable_types ?? {}, [payload]);
   const tagGroups = useMemo(() => payload?.tag_groups ?? [], [payload]);
@@ -298,11 +306,13 @@ export default function LifecycleReport() {
     subtypeOptions,
     facetFields: selectFields,
     catalog: fieldCatalog,
+    kindByKey: conditionKinds,
   } = useCardFilterOptions({
     cardTypeKey,
     relationTypes,
     groupableTypes,
     includeDescendants: filters.includeDescendants,
+    canViewCosts,
   });
 
   // The labels a bar's colour bucket is named with.
@@ -373,6 +383,8 @@ export default function LifecycleReport() {
     const matchFilters = {
       attributeFilters: filters.attrFilters,
       facetFields: selectFields,
+      attrConditions: filters.attrConditions,
+      conditionKinds,
       // With sub-cards included a pick is widened to itself plus everything
       // beneath it, then matched by the very rules the portfolio uses.
       relationFilters: filters.includeDescendants
@@ -387,9 +399,9 @@ export default function LifecycleReport() {
       search,
     };
     return scopedData.filter((item) => matchesStaticFilters(asMatchable(item), matchFilters));
-  }, [scopedData, filters, selectFields, groupableTypes, relationTypes, relTypeKeys, relSubtypes, tagGroups, search]);
+  }, [scopedData, filters, selectFields, conditionKinds, groupableTypes, relationTypes, relTypeKeys, relSubtypes, tagGroups, search]);
 
-  const filtersActive = hasActiveFilters(filters, search);
+  const filtersActive = hasActiveFilters(filters, search, conditionKinds);
 
   const { items, totalMin, totalRange, viewMin, contentPct, todayPct, eolCount } = useMemo(() => {
     const data = filteredData;
@@ -538,6 +550,11 @@ export default function LifecycleReport() {
           empty: t("common:labels.empty"),
           subCards: t("cardFilters.inclSubCards"),
         },
+        conditions: {
+          fields: catalogFields(fieldCatalog).map((e) => e.field),
+          kindByKey: conditionKinds,
+          labels: conditionLabelsFor(t),
+        },
       }),
     );
     if (search) params.push({ label: t("common.search"), value: search });
@@ -549,7 +566,7 @@ export default function LifecycleReport() {
       });
     }
     return params;
-  }, [cardTypeKey, types, useCustomDates, customColorBy, colorByOptions, view, effectiveScopeIds, typeLabel, t, filters, relationFilterOptions, tagGroups, subtypeOptions, selectFields, relSubtypes, search, sortLabel, effectiveSortK, sortD]);
+  }, [cardTypeKey, types, useCustomDates, customColorBy, colorByOptions, view, effectiveScopeIds, typeLabel, t, filters, relationFilterOptions, tagGroups, subtypeOptions, selectFields, fieldCatalog, conditionKinds, relSubtypes, search, sortLabel, effectiveSortK, sortD]);
 
   if (ml || data === null)
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;

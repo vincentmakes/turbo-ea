@@ -17,6 +17,8 @@ import {
   matchesFacet,
   rawValues,
 } from "@/lib/fieldFacets";
+import { matchesConditions } from "@/lib/fieldFilters";
+import type { FilterKind } from "@/lib/fieldFilters";
 import { parseSideKey } from "@/lib/relationSort";
 
 /* ------------------------------------------------------------------ */
@@ -142,6 +144,11 @@ export interface FilterState {
    *  reads `"true"` / `"false"` and a multi-select matches any one value.
    *  Absent, or a key it does not name, keeps the plain scalar comparison. */
   facetFields?: FieldDef[];
+  /** Text / number / date conditions by field key (`CardFilterValue.attrConditions`). */
+  attrConditions?: Readonly<Record<string, unknown>>;
+  /** The reader's catalog kinds (`catalogKinds`): a condition applies only on a
+   *  field listed here with its shape's kind. Absent = no condition applies. */
+  conditionKinds?: ReadonlyMap<string, FilterKind>;
   /** Flat list of selected tag ids (bucketed by group at filter time) */
   tagFilterIds: string[];
   tagGroups: TagGroupDef[];
@@ -500,6 +507,8 @@ export function matchesStaticFilters(
     if (realVals.includes(v as string)) continue;
     return false;
   }
+  // Text / number / date conditions: the rule lives in `lib/fieldFilters.ts`.
+  if (!matchesConditions(attrs, filters.attrConditions, filters.conditionKinds)) return false;
   // Relation filters. A key is a CARD type ("related to an Organization at
   // all") or a RELATION type ("owned by an Organization"), so that several
   // relation types reaching one card type can be filtered apart. Card-type keys

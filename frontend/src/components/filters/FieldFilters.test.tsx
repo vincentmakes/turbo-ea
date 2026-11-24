@@ -23,12 +23,22 @@ const catalogOf = (hidden: boolean) =>
       { section: "Main", fields: [select("crit", "Criticality")] },
       { section: "Compliance", hideInFilters: hidden, fields: [select("risk", "Risk")] },
     ],
-    { sectionLabel: (s) => s.section, descriptionLabel: "Description", resolveField: (f) => f },
+    {
+      canViewCosts: false,
+      sectionLabel: (s) => s.section,
+      descriptionLabel: "Description",
+      resolveField: (f) => f,
+    },
   );
 
 /** The row as a block wires it: one value, patched in place. */
 function Harness({ hidden = true, initial }: { hidden?: boolean; initial?: Partial<FieldFilterState> }) {
-  const [value, setValue] = useState<FieldFilterState>({ attrFilters: {}, filterFields: [], ...initial });
+  const [value, setValue] = useState<FieldFilterState>({
+    attrFilters: {},
+    attrConditions: {},
+    filterFields: [],
+    ...initial,
+  });
   return (
     <>
       <FieldFilters catalog={catalogOf(hidden)} value={value} onChange={(p) => setValue((v) => ({ ...v, ...p }))}>
@@ -66,7 +76,7 @@ describe("FieldFilters", () => {
     render(<Harness initial={{ filterFields: ["risk"], attrFilters: { risk: ["a"], crit: ["a"] } }} />);
     fireEvent.click(screen.getByRole("button", { name: "Remove the Risk filter" }));
     expect(facet("Risk")).not.toBeInTheDocument();
-    expect(state()).toEqual({ attrFilters: { crit: ["a"] }, filterFields: [] });
+    expect(state()).toEqual({ attrFilters: { crit: ["a"] }, attrConditions: {}, filterFields: [] });
     expect(screen.getByText("Add filter")).toBeInTheDocument();
   });
 
@@ -86,11 +96,35 @@ describe("FieldFilters", () => {
   it("calls back once per add with the new list", () => {
     const onChange = vi.fn();
     render(
-      <FieldFilters catalog={catalogOf(true)} value={{ attrFilters: {}, filterFields: ["gone"] }} onChange={onChange} />,
+      <FieldFilters catalog={catalogOf(true)} value={{ attrFilters: {}, attrConditions: {}, filterFields: ["gone"] }} onChange={onChange} />,
     );
     fireEvent.click(screen.getByText("Add filter"));
     fireEvent.click(screen.getByRole("option", { name: "Risk" }));
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledWith({ filterFields: ["gone", "risk"] });
+  });
+
+  it("adds a text field through Add filter and narrows on what is typed", () => {
+    const catalog = buildFilterCatalog<Field, Field>(
+      [{ section: "Main", fields: [select("crit", "Criticality"), { key: "code", label: "Code", type: "text" }] }],
+      { canViewCosts: false, sectionLabel: (s) => s.section, descriptionLabel: "Description", resolveField: (f) => f },
+    );
+    function TextHarness() {
+      const [value, setValue] = useState<FieldFilterState>({ attrFilters: {}, attrConditions: {}, filterFields: [] });
+      return (
+        <>
+          <FieldFilters catalog={catalog} value={value} onChange={(p) => setValue((v) => ({ ...v, ...p }))} />
+          <output data-testid="state">{JSON.stringify(value)}</output>
+        </>
+      );
+    }
+    render(<TextHarness />);
+    expect(screen.queryByRole("textbox", { name: "Code" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("Add filter"));
+    fireEvent.click(screen.getByRole("option", { name: "Code" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Code" }), { target: { value: "ORG" } });
+    expect(state().attrConditions).toEqual({ code: { contains: "ORG" } });
+    fireEvent.click(screen.getByRole("button", { name: "Remove the Code filter" }));
+    expect(state()).toEqual({ attrFilters: {}, attrConditions: {}, filterFields: [] });
   });
 });

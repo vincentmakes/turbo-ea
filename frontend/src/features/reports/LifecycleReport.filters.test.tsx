@@ -401,6 +401,96 @@ describe("LifecycleReport added filter fields (#1425)", () => {
   });
 });
 
+describe("LifecycleReport text conditions (#1425)", () => {
+  // Application with a text code and a cost field; the roadmap items carry codes.
+  const CODED = TYPES.map((tp) =>
+    tp.key !== "Application"
+      ? tp
+      : {
+          ...tp,
+          fields_schema: [
+            ...tp.fields_schema,
+            {
+              section: "Identity",
+              fields: [
+                { key: "code", label: "Code", type: "text" },
+                { key: "price", label: "Price", type: "cost" },
+              ],
+            },
+          ],
+        },
+  );
+  const CODES: Record<string, string> = { dispatch: "LOG-1", concur: "FIN-1", ledger: "FIN-2", router: "LOG-2" };
+  const CODED_ROADMAP = {
+    ...ROADMAP,
+    items: ROADMAP.items.map((it) => ({ ...it, attributes: { ...it.attributes, code: CODES[it.id], price: 100 } })),
+  };
+  const codeBox = () => screen.queryByRole("textbox", { name: "Code" });
+
+  beforeEach(() => {
+    vi.mocked(useMetamodel).mockReturnValue({
+      types: CODED,
+      relationTypes: [],
+      loading: false,
+      getType: (key: string) => CODED.find((t) => t.key === key),
+      getRelationsForType: () => [],
+      invalidateCache: vi.fn(),
+    } as unknown as ReturnType<typeof useMetamodel>);
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.startsWith("/reports/roadmap?type=Application")) return CODED_ROADMAP;
+      if (path.startsWith("/reports/roadmap")) return ALL_TYPES_ROADMAP;
+      return { items: [], total: 0 };
+    });
+  });
+
+  it("narrows to the cards whose field contains the typed text, and persists it", async () => {
+    config = { cardTypeKey: "Application", view: "table" };
+    renderReport();
+    await waitFor(() => expect(tableRows()).toHaveLength(4));
+    expect(codeBox()).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Add filter"));
+    fireEvent.click(await screen.findByRole("option", { name: "Code" }));
+    fireEvent.change(await screen.findByRole("textbox", { name: "Code" }), { target: { value: "fin" } });
+
+    await waitFor(() => expect(tableRows().sort()).toEqual(["Concur", "Ledger"]));
+    await waitFor(() =>
+      expect(lastPersisted()).toMatchObject({ attrConditions: { code: { contains: "fin" } }, filterFields: ["code"] }),
+    );
+    expect(printParams()).toContain("Code: contains “fin”");
+  });
+
+  it("restores a condition, and Clear all clears it", async () => {
+    config = { cardTypeKey: "Application", view: "table", attrConditions: { code: { contains: "LOG" } } };
+    renderReport();
+    await waitFor(() => expect(tableRows().sort()).toEqual(["Dispatch", "Router"]));
+    expect(codeBox()).toHaveValue("LOG");
+
+    const clearChip = screen.getByText("Clear all").closest(".MuiChip-root") as HTMLElement;
+    fireEvent.click(within(clearChip).getByTestId("CancelIcon"));
+    await waitFor(() => expect(tableRows()).toHaveLength(4));
+    expect(lastPersisted()).toMatchObject({ attrConditions: {} });
+  });
+
+  it("drops the condition on Reset to defaults", async () => {
+    config = { cardTypeKey: "Application", view: "table", attrConditions: { code: { contains: "LOG" } } };
+    renderReport();
+    await waitFor(() => expect(codeBox()).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /reset to defaults/i }));
+    await waitFor(() => expect(lastPersisted()).toMatchObject({ cardTypeKey: "", attrConditions: {} }));
+  });
+
+  it("offers no cost field without cost access, and a saved cost condition narrows nothing", async () => {
+    config = { cardTypeKey: "Application", view: "table", attrConditions: { price: { min: 1000 } } };
+    renderReport();
+    await waitFor(() => expect(tableRows()).toHaveLength(4));
+    expect(printParams()).not.toContain("Price");
+    fireEvent.click(screen.getByText("Add filter"));
+    expect(await screen.findByRole("option", { name: "Code" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Price" })).not.toBeInTheDocument();
+  });
+});
+
 describe("LifecycleReport sorting (#1305)", () => {
   it("orders the timeline rows by the chosen key, missing values last both ways", async () => {
     config = { cardTypeKey: "Application" };

@@ -796,6 +796,7 @@ describe("reset", () => {
       relationFilters: { Organization: ["o1"] },
       tagFilterIds: ["t1"],
       filterFields: ["hosting"],
+      attrConditions: { notes: { contains: "x" } },
       filtersCollapsed: true,
     };
     renderMap();
@@ -817,6 +818,7 @@ describe("reset", () => {
     expect(lastPersisted().attrFilters).toEqual({});
     expect(lastPersisted().relationFilters).toEqual({});
     expect(lastPersisted().filterFields).toEqual([]);
+    expect(lastPersisted().attrConditions).toEqual({});
     expect(ctl.resetAll).toHaveBeenCalled();
   });
 
@@ -835,6 +837,55 @@ describe("reset", () => {
     fireEvent.click(within(toolbar()).getByRole("checkbox", { name: /show applications/i }));
     expect(await within(toolbar()).findByText("2 more")).toBeInTheDocument();
     expect(within(toolbar()).queryByText("Less")).not.toBeInTheDocument();
+  });
+});
+
+describe("text conditions (#1425)", () => {
+  const CORE = app("core", "Core", { attributes: { notes: "Core LEDGER", costTotalAnnual: 1000 } });
+  const EDGE = app("edge", "Edge", { attributes: { notes: "edge proxy" } });
+  const NOTED = payload([cap("pool", "Pool", null, [CORE, EDGE])]);
+  const notesBox = () => within(toolbar()).queryByRole("textbox", { name: "Notes" });
+
+  it("adds a text field through Add filter and narrows the apps as the person types", async () => {
+    serve(NOTED);
+    ctl.config = { showApps: true };
+    renderMap();
+    await loaded("Pool");
+    expect(notesBox()).not.toBeInTheDocument();
+
+    fireEvent.click(within(toolbar()).getByText("Add filter"));
+    // A reader without cost access is never offered the cost field.
+    expect(screen.queryByRole("option", { name: "Annual Cost" })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("option", { name: "Notes" }));
+    fireEvent.change(await within(toolbar()).findByRole("textbox", { name: "Notes" }), {
+      target: { value: "ledger" },
+    });
+    await waitFor(() => expect(chipNames(["Core", "Edge"])).toEqual(["Core"]));
+    await waitFor(() => expect(lastPersisted().attrConditions).toEqual({ notes: { contains: "ledger" } }));
+    expect(within(toolbar()).getByText("Clear all")).toBeInTheDocument();
+  });
+
+  it("restores a condition, and Clear all clears it", async () => {
+    serve(NOTED);
+    ctl.config = { showApps: true, attrConditions: { notes: { contains: "edge" } } };
+    renderMap();
+    await loaded("Pool");
+    expect(chipNames(["Core", "Edge"])).toEqual(["Edge"]);
+    expect(notesBox()).toHaveValue("edge");
+
+    const clear = within(toolbar()).getByText("Clear all").closest(".MuiChip-root") as HTMLElement;
+    fireEvent.click(within(clear).getByTestId("CancelIcon"));
+    await waitFor(() => expect(chipNames(["Core", "Edge"])).toEqual(["Core", "Edge"]));
+    expect(lastPersisted().attrConditions).toEqual({});
+  });
+
+  it("ignores a saved cost condition for a reader without cost access", async () => {
+    serve(NOTED);
+    ctl.config = { showApps: true, attrConditions: { costTotalAnnual: { min: 1 } } };
+    renderMap();
+    await loaded("Pool");
+    expect(chipNames(["Core", "Edge"])).toEqual(["Core", "Edge"]);
+    expect(within(toolbar()).queryByText("Clear all")).not.toBeInTheDocument();
   });
 });
 

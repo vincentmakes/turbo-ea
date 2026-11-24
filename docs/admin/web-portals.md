@@ -141,10 +141,10 @@ On a **Card list** portal, the **Card filters** section narrows the portal to th
 |-----|-------------------|
 | **Related By** | related to one of the picked cards — one control per related card type, plus one per relation where several relations reach the same type. **Include sub-cards** also counts a card related to anything beneath a pick |
 | **Tags** | carrying a picked tag: any tag within one group, and one from every group you pick from |
-| **Fields** | with a picked subtype, or a picked value in one of the card's select or yes/no fields |
+| **Fields** | with a picked subtype, or a picked value in one of the card's select or yes/no fields. Text, number and date fields can be added through **Add filter**: a text field keeps the cards whose value contains what you type (ignoring case), a number or percentage field the cards between a minimum and a maximum, a date field the cards between two days |
 | **Relation Subtypes** | with a relation whose attribute (for example *Usage Type*) holds a picked value |
 
-Every control also offers **(empty)**, for cards with no value, no relation or no subtype. Visitors only ever see the matching cards: the filters they choose on the portal narrow the list further, never wider, and the filter settings themselves are never sent to the visitor's browser.
+Every select control also offers **(empty)**, for cards with no value, no relation or no subtype; a text, number or date filter keeps only cards that hold a value. A portal never filters on cost fields: the dialog does not offer them, whatever your own permissions. Visitors only ever see the matching cards: the filters they choose on the portal narrow the list further, never wider, and the filter settings themselves are never sent to the visitor's browser.
 
 !!! note
     A portal created before version 2.178.0 keeps its subtype and tag filters exactly as they were until you next save it. After that, tags picked from two different tag groups must both be on a card, as in the portfolio report.

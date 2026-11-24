@@ -35,12 +35,16 @@ import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useOptionalAuthUser } from "@/hooks/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
+import { catalogFields } from "@/lib/fieldFilters";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import CardFilterSection from "@/features/reports/CardFilterSection";
 import ReportShell from "@/features/reports/ReportShell";
 import type { PrintParam } from "@/features/reports/ReportShell";
 import {
   clearCardFilterValues,
+  conditionLabelsFor,
   countActiveFilters,
   describeActiveFilters,
 } from "@/features/reports/cardFilters";
@@ -205,8 +209,13 @@ function PpmPortfolioBoard({ onReset }: { onReset: () => void }) {
   // Latched: once requested the path never returns to null, which would clear
   // the payload (`useApiQuery`) and refetch on every re-open. A section that
   // opens unfolded needs its payload at once, or it would say "Loading…" for good.
+  // A condition counts here before the catalog is known: the link restored
+  // only usable ones, and the payload is what applies them.
   const [requested, setRequested] = useState(
-    () => countActiveFilters(filters) > 0 || !filtersCollapsed,
+    () =>
+      countActiveFilters(filters) > 0 ||
+      Object.keys(filters.attrConditions).length > 0 ||
+      !filtersCollapsed,
   );
   const filterQuery = useApiQuery<PpmFilterData>(requested ? "/reports/ppm/filter-data" : null);
   const filterData = filterQuery.data;
@@ -230,6 +239,9 @@ function PpmPortfolioBoard({ onReset }: { onReset: () => void }) {
     },
     [remember],
   );
+  // A cost field is offered, and a condition on one applies, only to a reader
+  // who may see costs.
+  const { canViewCostsGlobally: canViewCosts } = usePermissions(useOptionalAuthUser());
   const relationTypes = useMemo(() => filterData?.relation_types ?? [], [filterData]);
   const groupableTypes = useMemo(() => filterData?.groupable_types ?? {}, [filterData]);
   const tagGroups = useMemo(() => filterData?.tag_groups ?? [], [filterData]);
@@ -239,11 +251,13 @@ function PpmPortfolioBoard({ onReset }: { onReset: () => void }) {
     relSubtypes,
     facetFields,
     catalog: fieldCatalog,
+    kindByKey: conditionKinds,
   } = useCardFilterOptions({
     cardTypeKey: "Initiative",
     relationTypes,
     groupableTypes,
     includeDescendants: filters.includeDescendants,
+    canViewCosts,
   });
   // Other card types before the Initiative's own facets, in the section and
   // the print header alike.
@@ -257,19 +271,20 @@ function PpmPortfolioBoard({ onReset }: { onReset: () => void }) {
       filterData
         ? matchingInitiativeIds(filterData.items, filters, {
             facetFields,
+            conditionKinds,
             relationTypes,
             groupableTypes,
             relSubtypes,
             tagGroups,
           })
         : null,
-    [filterData, filters, facetFields, relationTypes, groupableTypes, relSubtypes, tagGroups],
+    [filterData, filters, facetFields, conditionKinds, relationTypes, groupableTypes, relSubtypes, tagGroups],
   );
 
   // A selection whose payload has not arrived yet must not show the board
   // unfiltered; a failed load narrows nothing and says so in the section.
   const filtersPending =
-    countActiveFilters(filters) > 0 && !filterData && filterQuery.error === null;
+    countActiveFilters(filters, conditionKinds) > 0 && !filterData && filterQuery.error === null;
 
   // Only filters that are applied reach the print header: without the payload
   // the board is unfiltered, and the options to name a pick by are missing.
@@ -290,8 +305,13 @@ function PpmPortfolioBoard({ onReset }: { onReset: () => void }) {
           empty: t("common:labels.empty"),
           subCards: t("reports:cardFilters.inclSubCards"),
         },
+        conditions: {
+          fields: catalogFields(fieldCatalog).map((e) => e.field),
+          kindByKey: conditionKinds,
+          labels: conditionLabelsFor(t),
+        },
       }),
-    [filterData, filters, relationOptions, tagGroups, facetFields, relSubtypes, t],
+    [filterData, filters, relationOptions, tagGroups, facetFields, fieldCatalog, conditionKinds, relSubtypes, t],
   );
 
   const initiativeLabel = typeLabel(initiativeType);

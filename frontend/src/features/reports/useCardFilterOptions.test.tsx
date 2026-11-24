@@ -45,6 +45,7 @@ function run(input: Partial<CardFilterOptionsInput> = {}) {
       relationTypes: [OWNS, USES],
       groupableTypes: GROUPABLE,
       includeDescendants: false,
+      canViewCosts: false,
       ...input,
     }),
   ).result.current;
@@ -98,6 +99,7 @@ describe("useCardFilterOptions", () => {
       subtypeOptions: [],
       facetFields: [],
       catalog: [],
+      kindByKey: new Map(),
     });
   });
 
@@ -140,9 +142,27 @@ describe("useCardFilterOptions", () => {
     expect(catalog[0].fields[0].shownByDefault).toBe(true);
     // A yes/no field gains its Yes / No options, as everywhere else.
     expect(catalog[0].fields[0].field.options?.map((o) => o.label)).toEqual(["Yes", "No"]);
-    // The text field is not filterable (yet) and is left out.
-    expect(catalog[1].fields.map((f) => [f.field.key, f.shownByDefault])).toEqual([["risk", false]]);
-    // The matcher still reads every facet field, the hidden section's included.
+    // The text field is added through "Add filter", never shown by default.
+    expect(catalog[1].fields.map((f) => [f.field.key, f.kind, f.shownByDefault])).toEqual([
+      ["risk", "facet", false],
+      ["note", "text", false],
+    ]);
+    // The matcher still reads every facet field, the hidden section's included,
+    // and no text field.
     expect(facetFields.map((f) => f.key)).toEqual(["flag", "risk"]);
+  });
+
+  it("offers a cost field only when told the reader may see costs, and maps every kind", () => {
+    const keysOf = (canViewCosts: boolean) =>
+      run({ canViewCosts }).catalog.flatMap((s) => s.fields.map((f) => f.field.key));
+    expect(keysOf(false)).not.toContain("costTotalAnnual");
+    expect(keysOf(true)).toContain("costTotalAnnual");
+    const { kindByKey, facetFields } = run({ canViewCosts: true });
+    expect(kindByKey.get("alias")).toBe("text");
+    expect(kindByKey.get("costTotalAnnual")).toBe("number");
+    expect(kindByKey.get("goLiveDate")).toBe("date");
+    expect(kindByKey.get("businessCriticality")).toBe("facet");
+    expect(facetFields.every((f) => kindByKey.get(f.key) === "facet")).toBe(true);
+    expect(facetFields.map((f) => f.key)).not.toContain("alias");
   });
 });

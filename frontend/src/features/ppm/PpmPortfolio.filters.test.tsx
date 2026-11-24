@@ -413,6 +413,54 @@ describe("PpmPortfolio Filters section", () => {
     expect(screen.getByRole("combobox", { name: "Risk Level" })).toBeInTheDocument();
   });
 
+  it("applies a text condition from the link, names it in print and clears it (#1425)", async () => {
+    metamodelTypes = TYPES.map((tp) =>
+      tp.key !== "Initiative"
+        ? tp
+        : {
+            ...tp,
+            fields_schema: [
+              {
+                section: "Identity",
+                fields: [
+                  { key: "code", label: "Code", type: "text" },
+                  { key: "budget", label: "Budget", type: "cost" },
+                ],
+              },
+            ],
+          },
+    ) as typeof TYPES;
+    filterAnswer = () =>
+      Promise.resolve({
+        ...FILTER_DATA,
+        items: FILTER_DATA.items.map((it, i) => ({ ...it, attributes: { code: ["PRJ-1", "OPS-2", "PRJ-3"][i] } })),
+      });
+    renderBoard(`/?filters=${encodeURIComponent('{"attrConditions":{"code":{"contains":"prj"}}}')}`);
+    await waitFor(() => expect(names()).toEqual(["Alpha Rollout", "Gamma Study"]));
+    expect(document.querySelector(".report-print-params")?.textContent ?? "").toContain("Code: contains “prj”");
+
+    const chip = screen.getByText("Clear all").closest(".MuiChip-root") as HTMLElement;
+    fireEvent.click(within(chip).getByTestId("CancelIcon"));
+    await waitFor(() => expect(names()).toEqual(["Alpha Rollout", "Beta Upgrade", "Gamma Study"]));
+    expect(location().get("filters")).toBeNull();
+  });
+
+  it("ignores a cost condition in a link for a reader without cost access (#1425)", async () => {
+    metamodelTypes = TYPES.map((tp) =>
+      tp.key !== "Initiative"
+        ? tp
+        : { ...tp, fields_schema: [{ section: "Money", fields: [{ key: "budget", label: "Budget", type: "cost" }] }] },
+    ) as typeof TYPES;
+    filterAnswer = () =>
+      Promise.resolve({
+        ...FILTER_DATA,
+        items: FILTER_DATA.items.map((it) => ({ ...it, attributes: { budget: 10 } })),
+      });
+    renderBoard(`/?filters=${encodeURIComponent('{"attrConditions":{"budget":{"min":1000}}}')}`);
+    await waitFor(() => expect(names()).toEqual(["Alpha Rollout", "Beta Upgrade", "Gamma Study"]));
+    expect(screen.queryByText("Clear all")).not.toBeInTheDocument();
+  });
+
   it("drops the param once nothing is selected", async () => {
     renderBoard(`/?search=a&filters=${SALES}`);
     await screen.findByText("Alpha Rollout");

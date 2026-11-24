@@ -4,6 +4,8 @@ import {
   type CardFilterValue,
 } from "@/features/reports/cardFilters";
 import type { TagGroupDef } from "@/features/reports/portfolioHelpers";
+import { appliedConditions } from "@/lib/fieldFilters";
+import type { FilterKind } from "@/lib/fieldFilters";
 import type { PortalView } from "@/types";
 
 /**
@@ -23,7 +25,9 @@ export function portalCardFilters(filters: Record<string, unknown> | null | unde
  * board's subtypes and tags — plus the approval statuses the portal already
  * had, which the dialog has no control for and must not drop. `null` when
  * nothing is left. The rows the admin added in the dialog (`filterFields`)
- * are editing state and are never sent.
+ * are editing state and are never sent. The text / number / date conditions
+ * go in canonical shape, and only those on a field of the dialog's catalog
+ * (`kindByKey`, built without cost fields): a portal never filters on costs.
  */
 export function portalFiltersBody(input: {
   view: PortalView;
@@ -31,12 +35,17 @@ export function portalFiltersBody(input: {
   subtypes: string[];
   tagIds: string[];
   approvalStatuses: string[];
+  /** The dialog's catalog kinds (`catalogKinds`); absent, no condition is sent. */
+  kindByKey?: ReadonlyMap<string, FilterKind>;
 }): Record<string, unknown> | null {
-  const { view, cardFilters, subtypes, tagIds, approvalStatuses } = input;
+  const { view, cardFilters, subtypes, tagIds, approvalStatuses, kindByKey } = input;
   const out: Record<string, unknown> = {};
   if (view === "cards") {
-    if (countActiveFilters(cardFilters) > 0 || cardFilters.includeDescendants) {
-      const preset: Partial<CardFilterValue> = { ...cardFilters };
+    if (countActiveFilters(cardFilters, kindByKey) > 0 || cardFilters.includeDescendants) {
+      const attrConditions = Object.fromEntries(
+        appliedConditions(cardFilters.attrConditions, kindByKey).map((c) => [c.key, c.condition]),
+      );
+      const preset: Partial<CardFilterValue> = { ...cardFilters, attrConditions };
       delete preset.filterFields;
       out.card_filters = preset;
     }

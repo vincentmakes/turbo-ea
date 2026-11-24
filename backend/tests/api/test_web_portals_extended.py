@@ -12,7 +12,9 @@ import json
 import uuid
 
 import pytest
+from sqlalchemy import select
 
+from app.models.card_type import CardType
 from app.models.web_portal import WebPortal
 from tests.conftest import (
     auth_headers,
@@ -521,6 +523,7 @@ def _card_filters(**kwargs) -> dict:
     value = {
         "subtypeFilters": [],
         "attrFilters": {},
+        "attrConditions": {},
         "relationFilters": {},
         "relSubtypeFilters": {},
         "tagFilterIds": [],
@@ -708,6 +711,127 @@ class TestPortalCardFilters:
         )
         assert resp.status_code == 200
         assert resp.json()["filters"] == stored
+
+
+class TestPortalCardConditions:
+    """Text / number / date conditions in a portal preset (#1425)."""
+
+    @pytest.fixture
+    async def coded(self, db, portal_env):
+        ct = await db.scalar(select(CardType).where(CardType.key == "Application"))
+        ct.fields_schema = [
+            {
+                "section": "Main",
+                "fields": [
+                    {"key": "code", "label": "Code", "type": "text"},
+                    {"key": "price", "label": "Price", "type": "cost"},
+                    {"key": "go", "label": "Go-live", "type": "date"},
+                ],
+            }
+        ]
+        admin = portal_env["admin"]
+        for name, attributes in (
+            ("CRM", {"code": "ORG-12", "price": 10, "go": "2026-03-01"}),
+            ("ERP", {"code": "ORG-34", "price": 5000, "go": "2025-03-01"}),
+            ("HR", {}),
+        ):
+            await create_card(
+                db, card_type="Application", name=name, attributes=attributes, user_id=admin.id
+            )
+        await db.flush()
+
+    async def _names(self, client) -> set[str]:
+        resp = await client.get("/api/v1/web-portals/public/app-portal/cards")
+        assert resp.status_code == 200
+        return {i["name"] for i in resp.json()["items"]}
+
+    async def test_create_stores_conditions_in_canonical_shape(self, client, portal_env):
+        resp = await client.post(
+            "/api/v1/web-portals",
+            json={
+                "name": "Coded",
+                "slug": "coded",
+                "card_type": "Application",
+                "filters": {
+                    "card_filters": {
+                        "attrConditions": {
+                            "code": {"contains": "  ORG-12 "},
+                            "go": {"from": "2026-01-01", "to": "junk"},
+                            "mixed": {"contains": "x", "min": 1},
+                            "blank": {"contains": "  "},
+                        },
+                        "filterFields": ["code"],
+                    }
+                },
+            },
+            headers=auth_headers(portal_env["admin"]),
+        )
+        assert resp.status_code == 201
+        assert resp.json()["filters"] == {
+            "card_filters": _card_filters(
+                attrConditions={"code": {"contains": "ORG-12"}, "go": {"from": "2026-01-01"}}
+            )
+        }
+
+    async def test_a_condition_alone_is_kept(self, client, portal_env):
+        resp = await client.post(
+            "/api/v1/web-portals",
+            json={
+                "name": "Only",
+                "slug": "only",
+                "card_type": "Application",
+                "filters": {"card_filters": {"attrConditions": {"code": {"contains": "x"}}}},
+            },
+            headers=auth_headers(portal_env["admin"]),
+        )
+        assert resp.json()["filters"]["card_filters"]["attrConditions"] == {
+            "code": {"contains": "x"}
+        }
+
+    async def test_the_preset_condition_narrows_the_public_list(
+        self, client, db, portal_env, coded
+    ):
+        portal_env["portal"].filters = {
+            "card_filters": _card_filters(attrConditions={"code": {"contains": "org-1"}})
+        }
+        await db.flush()
+        assert await self._names(client) == {"CRM"}
+        portal_env["portal"].filters = {
+            "card_filters": _card_filters(attrConditions={"go": {"to": "2025-12-31"}})
+        }
+        await db.flush()
+        assert await self._names(client) == {"ERP"}
+
+    async def test_a_cost_condition_is_never_applied(self, client, db, portal_env, coded):
+        portal_env["portal"].filters = {
+            "card_filters": _card_filters(attrConditions={"price": {"min": 1000}})
+        }
+        await db.flush()
+        assert await self._names(client) == {"CRM", "ERP", "HR"}
+
+    async def test_a_malformed_condition_is_dropped(self, client, db, portal_env, coded):
+        portal_env["portal"].filters = {
+            "card_filters": _card_filters(
+                attrConditions={"code": {"contains": 12}, "go": {"from": "2026"}}
+            )
+        }
+        await db.flush()
+        assert await self._names(client) == {"CRM", "ERP", "HR"}
+
+    async def test_needs_the_portal_permission(self, client, db, portal_env):
+        await create_role(db, key="viewer", permissions={"reports.portfolio": True})
+        viewer = await create_user(db, email="viewer@test.com", role="viewer")
+        resp = await client.post(
+            "/api/v1/web-portals",
+            json={
+                "name": "Nope",
+                "slug": "nope",
+                "card_type": "Application",
+                "filters": {"card_filters": {"attrConditions": {"code": {"contains": "x"}}}},
+            },
+            headers=auth_headers(viewer),
+        )
+        assert resp.status_code == 403
 
 
 class TestPortalFilterOptions:

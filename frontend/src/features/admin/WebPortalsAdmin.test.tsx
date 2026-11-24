@@ -49,6 +49,7 @@ const tr = (key: string) => i18n.t(`reports:${key}`) as string;
 /** A card-list portal's preset with `picks` set, the shape a save sends. */
 const cardFilters = (picks: Record<string, unknown> = {}) => ({
   attrFilters: {},
+  attrConditions: {},
   relationFilters: {},
   relSubtypeFilters: {},
   subtypeFilters: [],
@@ -472,6 +473,25 @@ describe("WebPortalsAdmin — card filters", () => {
         attrFilters: { businessCriticality: ["missionCritical"] },
       }),
     );
+    expect("filterFields" in sent).toBe(false);
+  });
+
+  it("sends a text condition added through Add filter, and never offers a cost field (#1425)", async () => {
+    const { user } = await renderList([CARDS_PORTAL]);
+    await user.click(screen.getByRole("button", { name: t("webPortals.editPortal") }));
+    const d = dialog();
+    await d.findByRole("combobox", { name: "Organization" });
+
+    await user.click(d.getByText(tc("fieldFilters.add")));
+    // A portal never filters on costs, whoever sets it up.
+    expect(screen.queryByRole("option", { name: "Total Annual Cost" })).toBeNull();
+    await user.click(await screen.findByRole("option", { name: "Alias" }));
+    await user.type(await d.findByRole("textbox", { name: "Alias" }), " ORG-12 ");
+
+    await user.click(d.getByRole("button", { name: t("webPortals.saveChanges") }));
+    await waitFor(() => expect(mockApi.callsOf("patch", "/web-portals/p1")).toHaveLength(1));
+    const sent = (lastBody("patch").filters as { card_filters: Record<string, unknown> }).card_filters;
+    expect(sent.attrConditions).toEqual({ alias: { contains: "ORG-12" } });
     expect("filterFields" in sent).toBe(false);
   });
 

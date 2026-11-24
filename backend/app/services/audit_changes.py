@@ -652,6 +652,7 @@ def _portal_filter_view(filters: Any) -> dict[str, Any]:
             tags=_as_list(d.get("tag_ids")),
             related_cards={},
             card_fields={},
+            card_conditions={},
             relation_subtypes={},
             include_sub_cards=False,
         )
@@ -662,10 +663,34 @@ def _portal_filter_view(filters: Any) -> dict[str, Any]:
         tags=_as_list(cf.get("tagFilterIds")),
         related_cards=_as_dict(cf.get("relationFilters")),
         card_fields=_as_dict(cf.get("attrFilters")),
+        card_conditions=_as_dict(cf.get("attrConditions")),
         relation_subtypes=_as_dict(cf.get("relSubtypeFilters")),
         include_sub_cards=cf.get("includeDescendants") is True,
     )
     return view
+
+
+def _condition_text(condition: Any) -> str:
+    """A field condition (``attrConditions``) as a reader sees it, in symbols
+    rather than words so the stored label reads the same in every language:
+    ``"ORG-12"`` (contains), ``≥ 10``, ``≤ 20``, ``10 – 20``, the same for
+    dates. A shape this does not know is shown as its JSON."""
+    c = _as_dict(condition)
+    if isinstance(c.get("contains"), str):
+        return f'"{c["contains"]}"'
+    for low_key, high_key in (("min", "max"), ("from", "to")):
+        if low_key not in c and high_key not in c:
+            continue
+        low, high = c.get(low_key), c.get(high_key)
+        if low is not None and high is not None:
+            return f"{low} – {high}"
+        return f"≥ {low}" if low is not None else f"≤ {high}"
+    return json.dumps(condition, sort_keys=True, default=str)
+
+
+def _conditions(value: Mapping[Any, Any]) -> list[tuple[str, str]]:
+    """``{field key: condition}`` as sorted ``(key, readable condition)`` pairs."""
+    return sorted((str(k), _condition_text(v)) for k, v in value.items())
 
 
 def _picks(value: Mapping[Any, Any]) -> list[tuple[str, str]]:
@@ -692,7 +717,9 @@ def portal_filter_items(
     ``filter`` is one row of the filter set: ``subtypes``, ``tags``,
     ``related_cards`` / ``card_fields`` / ``relation_subtypes`` (each value a
     ``Facet: value`` label — the facet a relation verb, a card type or a
-    field, the value a card name or an option label), ``include_sub_cards``
+    field, the value a card name or an option label), ``card_conditions``
+    (``Field: condition``, the condition in symbols — ``_condition_text``),
+    ``include_sub_cards``
     (``old`` / ``new`` booleans) and ``approval_statuses`` (status codes).
 
     ``facet_labels`` maps a facet key (a relation-filter key, an attribute
@@ -762,6 +789,18 @@ def portal_filter_items(
                     new=[pick_label(name, k, v) for k, v in b],
                 )
             )
+
+    # A text / number / date condition, labelled ``Field: condition``.
+    a, b = _conditions(before["card_conditions"]), _conditions(after["card_conditions"])
+    if a != b:
+        out.append(
+            item(
+                "portal_filter.changed",
+                filter="card_conditions",
+                old=[f"{facets.get(k) or k}: {text}" for k, text in a],
+                new=[f"{facets.get(k) or k}: {text}" for k, text in b],
+            )
+        )
 
     if before["include_sub_cards"] != after["include_sub_cards"]:
         out.append(

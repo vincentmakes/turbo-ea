@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
@@ -11,6 +11,7 @@ import FilterSelect from "@/components/FilterSelect";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import TagPicker from "@/components/TagPicker";
 import FieldFilters from "@/components/filters/FieldFilters";
+import { catalogKinds } from "@/lib/fieldFilters";
 import type { FilterCatalog } from "@/lib/fieldFilters";
 import type { TagGroup } from "@/types";
 import ReportFilterSection from "./ReportFilterSection";
@@ -98,7 +99,9 @@ export default function CardFilterSection({
 }: CardFilterSectionProps) {
   const { t } = useTranslation(["reports", "common"]);
   const [showAllRelations, setShowAllRelations] = useState(false);
-  const active = hasActiveFilters(value, search);
+  // A condition counts only when its field is in this reader's catalog.
+  const kindByKey = useMemo(() => catalogKinds(catalog), [catalog]);
+  const active = hasActiveFilters(value, search, kindByKey);
   const set = (patch: Partial<CardFilterValue>) => onChange({ ...value, ...patch });
   const hidden = relationOptions.length - VISIBLE_RELATION_FACETS;
   const anyHierarchical = relationOptions.some((o) => o.hierarchical);
@@ -108,7 +111,7 @@ export default function CardFilterSection({
       label={label}
       collapsed={collapsed}
       onToggle={onToggle}
-      count={countActiveFilters(value)}
+      count={countActiveFilters(value, kindByKey)}
       clearAllLabel={active ? t("portfolio.clearAll") : undefined}
       onClearAll={active ? onClearAll : undefined}
     >

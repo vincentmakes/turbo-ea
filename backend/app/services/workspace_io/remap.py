@@ -657,6 +657,9 @@ REPORT_KNOWN_KEYS = frozenset(
         "drillStack",
         # Field keys the person added through "Add filter": metamodel keys, never ids.
         "filterFields",
+        # Text / number / date conditions keyed by field key: a typed needle,
+        # a number or a date, never an id — even when the needle spells one.
+        "attrConditions",
     )
 )
 
