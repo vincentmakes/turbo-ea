@@ -242,4 +242,50 @@ describe("FieldFilterControl", () => {
       expect(onChange).toHaveBeenLastCalledWith({ attrConditions: {} });
     });
   });
+
+  describe("a stored condition of another kind (the field's type changed)", () => {
+    it("shows a text row over a number condition empty", () => {
+      render(
+        <FieldFilterControl
+          row={row(true, CODE, "text")}
+          value={value({ attrConditions: { code: { min: 1 } } })}
+          onChange={vi.fn()}
+        />,
+      );
+      expect(screen.getByRole("textbox", { name: "Code" })).toHaveValue("");
+      expect(screen.queryByRole("button", { name: "Clear the Code filter" })).not.toBeInTheDocument();
+    });
+
+    it("writes a number row's bound over a text condition as a number condition only", () => {
+      const onChange = vi.fn();
+      render(
+        <FieldFilterControl
+          row={row(true, PRICE, "number")}
+          value={value({ attrConditions: { price: { contains: "5" } } })}
+          onChange={onChange}
+        />,
+      );
+      const from = screen.getByRole("spinbutton", { name: "Price from" });
+      expect(from).toHaveValue(null);
+      fireEvent.change(from, { target: { value: "3" } });
+      expect(onChange).toHaveBeenLastCalledWith({ attrConditions: { price: { min: 3 } } });
+    });
+
+    it("writes a date row's bound over a number condition as a date condition only", () => {
+      const onChange = vi.fn();
+      render(
+        <FieldFilterControl
+          row={row(true, DUE, "date")}
+          value={value({ attrConditions: { due: { min: 1 } } })}
+          onChange={onChange}
+        />,
+      );
+      const from = screen.getByLabelText("Due from");
+      expect(from).toHaveValue("");
+      fireEvent.focus(from);
+      fireEvent.change(from, { target: { value: "2026-01-01" } });
+      fireEvent.blur(from);
+      expect(onChange).toHaveBeenLastCalledWith({ attrConditions: { due: { from: "2026-01-01" } } });
+    });
+  });
 });

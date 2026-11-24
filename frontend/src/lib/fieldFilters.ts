@@ -426,6 +426,21 @@ export function activeFieldKeys(
   return new Set(keys);
 }
 
+/**
+ * `state` with every field that holds a value added to `filterFields`: the
+ * stored keys first, in their order, then each new key in `activeFieldKeys`'
+ * order (picks, then conditions). For a value restored without its
+ * `filterFields` (a portal preset, a hand-written link, an older saved
+ * config): the row would otherwise exist only because of its value, and
+ * clearing that value mid-edit would unmount the control. A key of a field
+ * shown by default is harmless — `rowsToRender` only consults it for
+ * addable fields. Returns `state` itself when nothing is missing.
+ */
+export function withActiveFilterFields<S extends FieldFilterState>(state: S): S {
+  const missing = [...activeFieldKeys(state)].filter((k) => !state.filterFields.includes(k));
+  return missing.length === 0 ? state : { ...state, filterFields: [...state.filterFields, ...missing] };
+}
+
 /** A row the Fields row renders. */
 export interface RenderedFilterRow<F> extends FilterCatalogField<F> {
   /** Not shown by default, so the row has a remove button. */

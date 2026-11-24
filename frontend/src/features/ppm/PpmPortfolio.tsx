@@ -37,7 +37,7 @@ import { useApiQuery } from "@/hooks/useApiQuery";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useOptionalAuthUser } from "@/hooks/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
-import { catalogFields } from "@/lib/fieldFilters";
+import { catalogFields, withActiveFilterFields } from "@/lib/fieldFilters";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import CardFilterSection from "@/features/reports/CardFilterSection";
 import ReportShell from "@/features/reports/ReportShell";
@@ -142,7 +142,7 @@ function PpmPortfolioBoard({ onReset }: { onReset: () => void }) {
   // Read the type array directly rather than through `getType`: the subtype
   // definitions live on the card type, and this is the same lookup
   // `useCardSubtypeLabel` does — which is what the board used before the split.
-  const { types } = useMetamodel();
+  const { types, loading: metamodelLoading } = useMetamodel();
   const typeLabel = useTypeLabel();
 
   const [loading, setLoading] = useState(true);
@@ -283,8 +283,14 @@ function PpmPortfolioBoard({ onReset }: { onReset: () => void }) {
 
   // A selection whose payload has not arrived yet must not show the board
   // unfiltered; a failed load narrows nothing and says so in the section.
+  // A condition counts only once the metamodel has said which kind its field
+  // is (`conditionKinds`); until then a link carrying one counts as zero and
+  // the board would show every initiative, then narrow — even with the
+  // payload in. Hold it back until the metamodel has loaded.
+  const conditionsUnresolved = metamodelLoading && Object.keys(filters.attrConditions).length > 0;
   const filtersPending =
-    countActiveFilters(filters, conditionKinds) > 0 && !filterData && filterQuery.error === null;
+    filterQuery.error === null &&
+    ((countActiveFilters(filters, conditionKinds) > 0 && !filterData) || conditionsUnresolved);
 
   // Only filters that are applied reach the print header: without the payload
   // the board is unfiltered, and the options to name a pick by are missing.
@@ -314,6 +320,12 @@ function PpmPortfolioBoard({ onReset }: { onReset: () => void }) {
     [filterData, filters, relationOptions, tagGroups, facetFields, fieldCatalog, conditionKinds, relSubtypes, t],
   );
 
+  // The section renders every field holding a value as an added row, so a
+  // condition that arrived by link without its row keeps that row while it is
+  // cleared. In memory only: the link is encoded from `filters`, which stays as
+  // the link carried it until the person edits something.
+  const sectionValue = useMemo(() => withActiveFilterFields(filters), [filters]);
+
   const initiativeLabel = typeLabel(initiativeType);
   const filterSection = (
     <CardFilterSection
@@ -331,7 +343,7 @@ function PpmPortfolioBoard({ onReset }: { onReset: () => void }) {
         setRequested(true);
         remember();
       }}
-      value={filters}
+      value={sectionValue}
       onChange={setFilters}
       relationOptions={relationOptions}
       tagGroups={tagGroups}

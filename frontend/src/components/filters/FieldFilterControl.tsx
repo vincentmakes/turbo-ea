@@ -9,7 +9,7 @@ import { DateField } from "@/components/DateField";
 import FilterSelect from "@/components/FilterSelect";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import type { FacetFieldLike } from "@/lib/fieldFacets";
-import { removeFilterField, setCondition } from "@/lib/fieldFilters";
+import { removeFilterField, setCondition, shapeOfCondition } from "@/lib/fieldFilters";
 import type {
   DateCondition,
   FieldFilterState,
@@ -103,7 +103,11 @@ export default function FieldFilterControl<F extends FacetFieldLike>({
   const { t } = useTranslation("common");
   const { field, kind } = row;
   const conditions = value.attrConditions ?? {};
-  const current = conditions[field.key];
+  // The stored condition only when it is of this row's kind: a leftover of
+  // another shape (the field's type changed) is shown empty and never spread
+  // into the next write, which would make a mixed shape no reader accepts.
+  const stored = conditions[field.key];
+  const current = shapeOfCondition(stored) === kind ? stored : undefined;
   const setCond = (next: TextCondition | NumberCondition | DateCondition) => {
     if (kind === "facet") return;
     onChange({ attrConditions: setCondition(conditions, field.key, kind, next) });
@@ -111,7 +115,7 @@ export default function FieldFilterControl<F extends FacetFieldLike>({
 
   let control: ReactNode;
   if (kind === "text") {
-    const text = current && "contains" in current ? current.contains : "";
+    const text = current ? (current as TextCondition).contains : "";
     const clearLabel = t("fieldFilters.clearValue", { field: field.label });
     control = (
       <TextField

@@ -49013,7 +49013,7 @@
             }
           },
           {
-            "description": "The visitor's filters as a JSON object: subtypeFilters, attrFilters, attrConditions, relationFilters, tagFilterIds. Filters the portal does not let a visitor use are ignored. ANDed with the legacy parameters.",
+            "description": "The visitor's filters as a JSON object: subtypeFilters, attrFilters, attrConditions, relationFilters, tagFilterIds. Filters the portal does not let a visitor use are ignored. ANDed with the legacy parameters. A value (or legacy JSON parameter) over 8192 characters is refused with 422.",
             "in": "query",
             "name": "filters",
             "required": false,
@@ -49026,7 +49026,7 @@
                   "type": "null"
                 }
               ],
-              "description": "The visitor's filters as a JSON object: subtypeFilters, attrFilters, attrConditions, relationFilters, tagFilterIds. Filters the portal does not let a visitor use are ignored. ANDed with the legacy parameters.",
+              "description": "The visitor's filters as a JSON object: subtypeFilters, attrFilters, attrConditions, relationFilters, tagFilterIds. Filters the portal does not let a visitor use are ignored. ANDed with the legacy parameters. A value (or legacy JSON parameter) over 8192 characters is refused with 422.",
               "title": "Filters"
             }
           },

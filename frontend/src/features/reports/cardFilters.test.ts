@@ -12,13 +12,14 @@ import {
   expandRelationFilters,
   hasActiveFilters,
   relatedTypeOfKey,
+  readCardFilters,
   relationTypeKeys,
   restoreCardFilters,
   type ConditionLabels,
   type FilterMember,
 } from "./cardFilters";
 import type { TFunction } from "i18next";
-import type { FilterKind } from "@/lib/fieldFilters";
+import { activeFieldKeys, rowsToRender, type FilterKind } from "@/lib/fieldFilters";
 import { matchesStaticFilters, type AppData, type RelTypeDef } from "./portfolioHelpers";
 
 const rt = (key: string, source: string, target: string, other: string, extra: Partial<RelTypeDef> = {}): RelTypeDef => ({
@@ -276,7 +277,8 @@ describe("restoreCardFilters", () => {
       subtypeFilters: ["saas"],
       tagFilterIds: [],
       includeDescendants: false,
-      filterFields: ["risk", "tier"],
+      // The stored rows first, then every field holding a value: picks, then conditions.
+      filterFields: ["risk", "tier", "fit", "code"],
     });
     expect(restoreCardFilters({ filterFields: "risk" }).filterFields).toEqual([]);
     expect(restoreCardFilters({ includeDescendants: true }).includeDescendants).toBe(true);
@@ -285,6 +287,39 @@ describe("restoreCardFilters", () => {
     expect(
       restoreCardFilters({ attrFilters: null, relationFilters: 7, relSubtypeFilters: [["x"]] }),
     ).toEqual(EMPTY_CARD_FILTERS);
+  });
+
+  it("gives a value restored without its added row a row of its own, so clearing it keeps the row", () => {
+    const restored = restoreCardFilters({ attrConditions: { code: { contains: "ORG" } } });
+    expect(restored.filterFields).toEqual(["code"]);
+    // The person empties the box: the row no longer holds a value, yet it is
+    // still an added row, so `rowsToRender` keeps it.
+    const catalog = [
+      {
+        key: "s",
+        label: "S",
+        hidden: false,
+        fields: [{ field: { key: "code" }, kind: "text" as const, shownByDefault: false }],
+      },
+    ];
+    const cleared = { ...restored, attrConditions: {} };
+    expect(
+      rowsToRender(catalog, cleared.filterFields, activeFieldKeys(cleared)).map((r) => r.field.key),
+    ).toEqual(["code"]);
+    // A key already stored is not repeated, and an unusable value adds nothing.
+    expect(
+      restoreCardFilters({
+        filterFields: ["code"],
+        attrConditions: { code: { contains: "x" }, blank: { contains: "  " } },
+      }).filterFields,
+    ).toEqual(["code"]);
+  });
+
+  it("reads a config as stored through readCardFilters, filterFields not widened", () => {
+    expect(
+      readCardFilters({ attrFilters: { fit: ["good"] }, attrConditions: { code: { contains: "x" } } })
+        .filterFields,
+    ).toEqual([]);
   });
 });
 

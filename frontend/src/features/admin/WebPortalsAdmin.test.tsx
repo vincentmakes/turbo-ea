@@ -495,6 +495,25 @@ describe("WebPortalsAdmin — card filters", () => {
     expect("filterFields" in sent).toBe(false);
   });
 
+  it("keeps a reopened condition's row while its box is emptied (#1425)", async () => {
+    // The save strips the added rows: the preset comes back with its value only.
+    const portal: WebPortal = {
+      ...CARDS_PORTAL,
+      filters: { card_filters: cardFilters({ attrConditions: { alias: { contains: "ORG-12" } } }) },
+    };
+    const { user } = await renderList([portal]);
+    await user.click(screen.getByRole("button", { name: t("webPortals.editPortal") }));
+    const d = dialog();
+    const box = await d.findByRole("textbox", { name: "Alias" });
+    expect(box).toHaveValue("ORG-12");
+
+    await user.clear(box);
+    // The control is still mounted, empty, and the same element keeps focus.
+    expect(d.getByRole("textbox", { name: "Alias" })).toBe(box);
+    expect(box).toHaveValue("");
+    expect(box).toHaveFocus();
+  });
+
   it("warns before a resave changes how tags from several groups match", async () => {
     const portal: WebPortal = {
       ...CARDS_PORTAL,

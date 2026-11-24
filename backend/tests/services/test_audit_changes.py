@@ -1228,6 +1228,61 @@ def test_portal_card_config_visitor_filters_against_the_default():
     assert portal_card_config_items({"visitor_filters": []}, {"visitor_filters": "x"}) == []
 
 
+_DEFAULT_SHOWN = ("subtype", "tags", "field:tier", "rel:owns")
+_FILTER_LABELS = {"field:tier": "Tier", "rel:owns": "owns"}
+
+
+def _filter_item(label: str, old: bool, new: bool) -> dict:
+    return {
+        "kind": "portal_toggle.changed",
+        "item": label,
+        "surface": "filter",
+        "old": old,
+        "new": new,
+    }
+
+
+def test_unticking_one_filter_from_the_default_logs_that_filter_only():
+    """Regression: the side following the default was ``None`` and only the
+    stored keys were walked, so the remaining filters read as newly added."""
+    new = {"visitor_filters": ["subtype", "tags", "rel:owns"]}
+    shown = (_DEFAULT_SHOWN, ("subtype", "tags", "rel:owns"))
+    items = portal_card_config_items(
+        None, new, item_labels=_FILTER_LABELS, visitor_filters_shown=shown
+    )
+    assert items == [_filter_item("Tier", True, False)]
+
+
+def test_returning_to_the_default_logs_the_filter_that_came_back_only():
+    old = {"visitor_filters": ["subtype", "tags", "rel:owns"]}
+    shown = (("subtype", "tags", "rel:owns"), _DEFAULT_SHOWN)
+    items = portal_card_config_items(
+        old, {}, item_labels=_FILTER_LABELS, visitor_filters_shown=shown
+    )
+    assert items == [_filter_item("Tier", False, True)]
+
+
+def test_equal_resolved_lists_log_nothing_even_when_the_stored_key_appears():
+    new = {"visitor_filters": list(_DEFAULT_SHOWN)}
+    shown = (_DEFAULT_SHOWN, list(_DEFAULT_SHOWN))
+    assert portal_card_config_items(None, new, visitor_filters_shown=shown) == []
+    # And the other way round: the stored list goes, the bar stays the same.
+    back = (list(_DEFAULT_SHOWN), _DEFAULT_SHOWN)
+    assert portal_card_config_items(new, None, visitor_filters_shown=back) == []
+
+
+def test_resolved_lists_report_each_key_that_moved_in_order():
+    shown = (("tags", "field:tier"), ("field:tier", "rel:owns", "subtype"))
+    items = portal_card_config_items(
+        {}, {}, item_labels=_FILTER_LABELS, visitor_filters_shown=shown
+    )
+    assert items == [
+        _filter_item("tags", True, False),
+        _filter_item("owns", False, True),
+        _filter_item("subtype", False, True),
+    ]
+
+
 def test_portal_card_config_adding_switch_reads_unset_as_on():
     assert portal_card_config_items(None, {"visitor_can_add_filters": True}) == []
     assert portal_card_config_items({"visitor_can_add_filters": False}, None) == [

@@ -462,12 +462,39 @@ async def _portal_audit_labels(db: AsyncSession, *snapshots: dict) -> _PortalAud
     return labels
 
 
+async def _shown_visitor_filters(db: AsyncSession, snapshot: dict) -> tuple[str, ...]:
+    """The visitor filters a snapshot's bar shows, the default included
+    (``load_portal_visibility``); none for a portal that is not a card list."""
+    if (snapshot.get("view") or "cards") != "cards" or not snapshot.get("card_type"):
+        return ()
+    visibility = await portal_visibility.load_portal_visibility(
+        db, snapshot["card_type"], snapshot.get("card_config")
+    )
+    return visibility.visitor_filters.shown
+
+
+async def _visitor_filters_shown(
+    db: AsyncSession, before: dict, after: dict
+) -> tuple[tuple[str, ...], tuple[str, ...]] | None:
+    """Both sides' resolved visitor filters, each with its own card type, view
+    and toggles — or ``None`` when none of those changed, so the lists are
+    equal and nothing needs loading."""
+    if all(before.get(k) == after.get(k) for k in ("card_type", "view", "card_config")):
+        return None
+    return await _shown_visitor_filters(db, before), await _shown_visitor_filters(db, after)
+
+
 def _portal_audit_changes(
-    before: dict, after: dict, labels: _PortalAuditLabels
+    before: dict,
+    after: dict,
+    labels: _PortalAuditLabels,
+    visitor_filters_shown: tuple[tuple[str, ...], tuple[str, ...]] | None = None,
 ) -> tuple[dict, list]:
     """``(changes, items)`` between two snapshots: plain columns as old/new
     pairs (the card type and ``display_fields`` as labels, the description as
-    clipped text), the configuration blobs as semantic change items."""
+    clipped text), the configuration blobs as semantic change items. The
+    visitor filter items diff ``visitor_filters_shown`` when given
+    (``_visitor_filters_shown``)."""
     plain = (*_PORTAL_AUDIT_FIELDS, "description", "display_fields")
     changes = audit_log.diff(before, after, keys=plain)
     if "card_type" in changes:
@@ -497,6 +524,7 @@ def _portal_audit_changes(
             before.get("card_config"),
             after.get("card_config"),
             item_labels=labels.item_labels(),
+            visitor_filters_shown=visitor_filters_shown,
         ),
     ]
     return changes, audit_changes.cap_items(items)
@@ -686,7 +714,8 @@ async def update_portal(
 
     audit_after = _portal_audit_snapshot(portal)
     labels = await _portal_audit_labels(db, audit_before, audit_after)
-    changes, items = _portal_audit_changes(audit_before, audit_after, labels)
+    shown = await _visitor_filters_shown(db, audit_before, audit_after)
+    changes, items = _portal_audit_changes(audit_before, audit_after, labels, shown)
     if changes or items:
         await audit_log.record(
             db,
@@ -1022,7 +1051,8 @@ async def get_public_portal_cards(
         description=(
             "The visitor's filters as a JSON object: subtypeFilters, attrFilters, "
             "attrConditions, relationFilters, tagFilterIds. Filters the portal does "
-            "not let a visitor use are ignored. ANDed with the legacy parameters."
+            "not let a visitor use are ignored. ANDed with the legacy parameters. "
+            "A value (or legacy JSON parameter) over 8192 characters is refused with 422."
         ),
     ),
     subtype: str | None = Query(None),
@@ -1075,21 +1105,26 @@ async def get_public_portal_cards(
 
     # The visitor's own filters, cut to what the portal lets a visitor filter
     # on (``visitor_filters.allowed``) and ANDed with the preset above.
-    visitor = await portal_card_filters.public_visitor_conditions(
-        db,
-        portal.card_type,
-        allowed=visibility.visitor_filters.allowed,
-        field_types=visibility.field_types,
-        filters=filters,
-        legacy={
-            "subtype": subtype,
-            "tag_ids": tag_ids,
-            "attr_filters": attr_filters,
-            "relation_filters": relation_filters,
-            "related_type": related_type,
-            "related_id": related_id,
-        },
-    )
+    # An over-long parameter is refused: ignoring it would list every card
+    # while the visitor's bar shows picks.
+    try:
+        visitor = await portal_card_filters.public_visitor_conditions(
+            db,
+            portal.card_type,
+            allowed=visibility.visitor_filters.allowed,
+            field_types=visibility.field_types,
+            filters=filters,
+            legacy={
+                "subtype": subtype,
+                "tag_ids": tag_ids,
+                "attr_filters": attr_filters,
+                "relation_filters": relation_filters,
+                "related_type": related_type,
+                "related_id": related_id,
+            },
+        )
+    except portal_card_filters.VisitorFiltersTooLongError as exc:
+        raise HTTPException(422, str(exc)) from exc
     if visitor:
         q = q.where(*visitor)
         count_q = count_q.where(*visitor)

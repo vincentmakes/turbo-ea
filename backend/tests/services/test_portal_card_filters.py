@@ -709,6 +709,13 @@ class TestNormaliseAttrConditions:
         assert pcf.condition_shape({"other": 1}) is None
         assert pcf.condition_shape("contains") is None
 
+    def test_a_date_bound_with_a_trailing_newline_is_dropped(self):
+        """``$`` matches before a final newline; the browser twin rejects it."""
+        assert pcf.normalise_condition("date", {"from": "2026-01-01\n"}) is None
+        assert pcf.normalise_condition("date", {"from": "2026-01-01\n", "to": "2026-02-01"}) == {
+            "to": "2026-02-01"
+        }
+
     def test_an_unknown_kind_is_nothing(self):
         assert pcf.normalise_condition("facet", {"contains": "x"}) is None
         assert pcf.normalise_condition("text", "x") is None
@@ -832,12 +839,17 @@ class TestNormaliseVisitorFilters:
         }
         assert pcf.normalise_visitor_filters(raw) == EMPTY_VISITOR
 
-    def test_oversize_is_ignored_whole(self):
+    def test_oversize_is_refused(self):
+        """Exactly the cap is read; one character more raises, so the route
+        answers 422 rather than every card under a bar showing picks."""
         at_cap = '{"subtypeFilters": ["a"]}'.ljust(pcf.VISITOR_FILTERS_MAX_CHARS)
         assert len(at_cap) == pcf.VISITOR_FILTERS_MAX_CHARS
         assert pcf.normalise_visitor_filters(at_cap)["subtypeFilters"] == ["a"]
         over = at_cap + " "
-        assert pcf.normalise_visitor_filters(over) == EMPTY_VISITOR
+        with pytest.raises(pcf.VisitorFiltersTooLongError) as err:
+            pcf.normalise_visitor_filters(over)
+        assert isinstance(err.value, ValueError)
+        assert str(pcf.VISITOR_FILTERS_MAX_CHARS) in str(err.value)
 
 
 class TestRestrictVisitorFilters:
@@ -924,10 +936,18 @@ class TestLegacyVisitorFilters:
         )
         assert out == EMPTY_VISITOR
 
-    @pytest.mark.parametrize("raw", ["not-json", "[1]", '"x"', "{" + " " * 9000 + "}"])
+    @pytest.mark.parametrize("raw", ["not-json", "[1]", '"x"', ""])
     def test_malformed_json_is_ignored(self, raw):
         out = pcf.legacy_visitor_filters(attr_filters=raw, relation_filters=raw)
         assert out == EMPTY_VISITOR
+
+    @pytest.mark.parametrize("param", ["attr_filters", "relation_filters"])
+    def test_oversize_json_is_refused(self, param):
+        at_cap = '{"criticality": "high"}'.ljust(pcf.VISITOR_FILTERS_MAX_CHARS)
+        assert len(at_cap) == pcf.VISITOR_FILTERS_MAX_CHARS
+        pcf.legacy_visitor_filters(**{param: at_cap})  # read, no error
+        with pytest.raises(pcf.VisitorFiltersTooLongError):
+            pcf.legacy_visitor_filters(**{param: at_cap + " "})
 
     def test_related_id_without_a_type_is_ignored(self):
         assert pcf.legacy_visitor_filters(related_id=str(uuid.uuid4())) == EMPTY_VISITOR

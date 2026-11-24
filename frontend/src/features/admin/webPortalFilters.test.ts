@@ -34,7 +34,13 @@ describe("portalCardFilters", () => {
   it("reads stored conditions back, dropping the unusable ones", () => {
     expect(
       portalCardFilters({ card_filters: { attrConditions: { code: { contains: "x" }, bad: { min: "1" } } } }),
-    ).toEqual({ ...EMPTY_CARD_FILTERS, attrConditions: { code: { contains: "x" } } });
+    ).toEqual({
+      ...EMPTY_CARD_FILTERS,
+      attrConditions: { code: { contains: "x" } },
+      // The save strips the added rows, so a field holding a value gets its row
+      // back here — clearing the value must not unmount the control.
+      filterFields: ["code"],
+    });
   });
 
   it("seeds a portal saved before card filters from its subtypes and tags", () => {

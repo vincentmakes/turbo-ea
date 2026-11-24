@@ -979,6 +979,8 @@ class TestVisitorFilterConfig:
         app_type.fields_schema = [
             {"section": "Main", "fields": [{"key": "code", "label": "Code", "type": "text"}]}
         ]
+        # A subtype filter needs subtypes; a relation filter needs the relation shown.
+        app_type.subtypes = [{"key": "saas", "label": "SaaS"}]
         await db.flush()
         await create_relation_type(
             db,
@@ -987,9 +989,12 @@ class TestVisitorFilterConfig:
             source_type_key="Application",
             target_type_key="Application",
         )
+        toggles = {"rel:appRunsOnApp": {"card": False, "detail": True}}
         headers = auth_headers(portals_env["admin"])
         created = await self._create(
-            client, portals_env["admin"], {"visitor_filters": ["tags", "subtype"]}
+            client,
+            portals_env["admin"],
+            {"visitor_filters": ["tags", "subtype"], "toggles": toggles},
         )
         resp = await client.patch(
             f"/api/v1/web-portals/{created.json()['id']}",
@@ -997,6 +1002,7 @@ class TestVisitorFilterConfig:
                 "card_config": {
                     "visitor_filters": ["tags", "field:code", "rel:appRunsOnApp"],
                     "visitor_can_add_filters": False,
+                    "toggles": toggles,
                 }
             },
             headers=headers,
@@ -1033,3 +1039,47 @@ class TestVisitorFilterConfig:
                 "new": False,
             },
         ]
+
+    async def test_the_default_is_resolved_on_both_sides(self, client, db, portals_env):
+        """Regression: a side following the default was logged as ``None`` and
+        only the stored keys were walked, so unticking one filter from the
+        default logged the others as added and nothing about the one removed."""
+        from sqlalchemy import select
+
+        from app.models.card_type import CardType
+
+        app_type = (
+            await db.execute(select(CardType).where(CardType.key == "Application"))
+        ).scalar_one()
+        tier = {"key": "tier", "label": "Tier", "type": "single_select"}
+        tier["options"] = [{"key": "gold", "label": "Gold"}]
+        app_type.fields_schema = [{"section": "Main", "fields": [tier]}]
+        await db.flush()
+        headers = auth_headers(portals_env["admin"])
+        # The default bar: the tags and the Tier select.
+        pid = (await self._create(client, portals_env["admin"], None)).json()["id"]
+
+        async def filter_items(card_config) -> list:
+            # Every row is stamped with the one test transaction's now(), so
+            # the new row is told apart by id, never by its timestamp.
+            seen = {r.id for r in await _audit_rows(db)}
+            resp = await client.patch(
+                f"/api/v1/web-portals/{pid}", json={"card_config": card_config}, headers=headers
+            )
+            assert resp.status_code == 200
+            rows = [r for r in await _audit_rows(db) if r.id not in seen]
+            return [
+                i
+                for r in rows
+                for i in (r.details or {}).get("items") or []
+                if i.get("surface") == "filter"
+            ]
+
+        untick = {"kind": "portal_toggle.changed", "item": "Tier", "surface": "filter"}
+        assert await filter_items({"visitor_filters": ["tags"]}) == [
+            {**untick, "old": True, "new": False}
+        ]
+        # Back to the default: Tier returns, and nothing else is reported.
+        assert await filter_items({}) == [{**untick, "old": False, "new": True}]
+        # The default written out as a list: the bar is the same, so nothing.
+        assert await filter_items({"visitor_filters": ["tags", "field:tier"]}) == []

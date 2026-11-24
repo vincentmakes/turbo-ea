@@ -12,8 +12,8 @@ import {
   countActiveFilters,
   expandRelationFilters,
   relatedTypeOfKey,
+  readCardFilters,
   relationTypeKeys,
-  restoreCardFilters,
 } from "@/features/reports/cardFilters";
 import type {
   CardFilterValue,
@@ -88,7 +88,11 @@ export function encodeCardFilters(v: CardFilterValue): string {
 /**
  * The selection a `?filters=` value names. Anything unreadable — no param,
  * broken JSON, a non-object — is the empty selection, and malformed members
- * are dropped by the same restore a saved report goes through.
+ * are dropped by the same reader a saved report goes through. `filterFields`
+ * is read as the link carries it (`readCardFilters`), never widened to the
+ * fields holding a value: the board writes its state back to the link, and a
+ * link that is opened must not be rewritten. The board widens it in memory
+ * for the section it renders (`withActiveFilterFields`).
  */
 export function decodeCardFilters(raw: string | null): CardFilterValue {
   let parsed: unknown = null;
@@ -101,7 +105,7 @@ export function decodeCardFilters(raw: string | null): CardFilterValue {
   // to the empty selection on its own; only null (no param, broken JSON, the
   // literal `null`) has no keys to read and needs a stand-in object.
   const cfg = (parsed ?? {}) as Record<string, unknown>;
-  return { ...restoreCardFilters(cfg), subtypeFilters: [] };
+  return { ...readCardFilters(cfg), subtypeFilters: [] };
 }
 
 /**

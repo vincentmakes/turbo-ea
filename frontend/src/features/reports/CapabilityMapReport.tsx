@@ -71,6 +71,7 @@ import {
   matchesConditions,
   restoreAttrConditions,
   restoreFilterFields,
+  withActiveFilterFields,
 } from "@/lib/fieldFilters";
 import type { AttrCondition, FilterKind } from "@/lib/fieldFilters";
 import { useOptionalAuthUser } from "@/hooks/AuthContext";
@@ -905,8 +906,15 @@ export default function CapabilityMapReport() {
       }
       if (cfg.attrFilters) setAttrFilters(cfg.attrFilters as Record<string, string[]>);
       if (cfg.relationFilters) setRelationFilters(cfg.relationFilters as Record<string, string[]>);
-      setFilterFields(restoreFilterFields(cfg.filterFields));
-      setAttrConditions(restoreAttrConditions(cfg.attrConditions));
+      // Every field holding a value gets a row of its own, so clearing a value
+      // restored without its added row does not unmount the control mid-edit.
+      const restoredFields = withActiveFilterFields({
+        attrFilters: (cfg.attrFilters as Record<string, string[]> | undefined) ?? {},
+        attrConditions: restoreAttrConditions(cfg.attrConditions),
+        filterFields: restoreFilterFields(cfg.filterFields),
+      });
+      setFilterFields(restoredFields.filterFields);
+      setAttrConditions(restoredFields.attrConditions);
       if (cfg.filtersCollapsed != null) setFiltersCollapsed(!!cfg.filtersCollapsed);
       // Migrate prior `{groupId: tagIds[]}` shape to a flat `string[]`
       if (cfg.tagFilterIds) {

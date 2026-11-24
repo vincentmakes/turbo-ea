@@ -61,6 +61,7 @@ import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { FIELD_TYPE_COLORS, brand, STATUS_COLORS } from "@/theme/tokens";
 import { EOL_SECTION_KEY, typeTracksEol } from "@/lib/eol";
+import { filterKindOf } from "@/lib/fieldFilters";
 import { useTheme } from "@mui/material/styles";
 
 // ── Constants ────────────────────────────────────────────────────
@@ -1466,7 +1467,15 @@ export default function CardLayoutEditor({
                     : storedCfg;
                 const schemaIdx = info.isCustom ? customToSchemaIdx(info.idx) : -1;
                 // The custom section itself, or the Description section once it holds fields.
-                const filterIdx = schemaIdx >= 0 ? schemaIdx : key === "description" && descHasFields ? descSchemaIdx : -1;
+                const sectionIdx = schemaIdx >= 0 ? schemaIdx : key === "description" && descHasFields ? descSchemaIdx : -1;
+                // Offered only where a field can be filtered on — but always while the
+                // flag is set, so a stored flag can be switched back off.
+                const filterSection = sectionIdx >= 0 ? cardType.fields_schema[sectionIdx] : undefined;
+                const filterIdx =
+                  filterSection &&
+                  (filterSection.hideInFilters === true || filterSection.fields.some((f) => filterKindOf(f) !== null))
+                    ? sectionIdx
+                    : -1;
 
                 return (
                   <SortableSectionItem

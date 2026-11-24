@@ -539,6 +539,11 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
           // A superseded query is aborted by the hook; that is not a failure.
           // Stryker disable next-line OptionalChaining,StringLiteral: defensive; an abort only reaches here from a superseded query, which isCurrent() already stops
           if (!isCurrent() || (e as { name?: unknown } | null)?.name === "AbortError") return;
+          // The previous query's cards are not this query's answer (a refused,
+          // over-long filter answers 422): never leave them under the error as
+          // though they were the filtered result.
+          setCards([]);
+          setTotal(0);
           setCardsError(failureMessage(e, "errors.generic"));
         } finally {
           if (isCurrent()) setFsLoading(false);

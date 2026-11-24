@@ -99,6 +99,7 @@ import {
   describeCondition,
   restoreAttrConditions,
   restoreFilterFields,
+  withActiveFilterFields,
 } from "@/lib/fieldFilters";
 import type { AttrCondition, FilterCatalog } from "@/lib/fieldFilters";
 import { useOptionalAuthUser } from "@/hooks/AuthContext";
@@ -757,8 +758,15 @@ export default function PortfolioReport({
         setRelSubtypeFilters(cfg.relSubtypeFilters as Record<string, string[]>);
       if (Array.isArray(cfg.subtypeFilters)) setSubtypeFilters(cfg.subtypeFilters as string[]);
       if (cfg.includeDescendants != null) setIncludeDescendants(!!cfg.includeDescendants);
-      setFilterFields(restoreFilterFields(cfg.filterFields));
-      setAttrConditions(restoreAttrConditions(cfg.attrConditions));
+      // Every field holding a value gets a row of its own, so clearing a value
+      // restored without its added row does not unmount the control mid-edit.
+      const restoredFields = withActiveFilterFields({
+        attrFilters: (cfg.attrFilters as Record<string, string[]> | undefined) ?? {},
+        attrConditions: restoreAttrConditions(cfg.attrConditions),
+        filterFields: restoreFilterFields(cfg.filterFields),
+      });
+      setFilterFields(restoredFields.filterFields);
+      setAttrConditions(restoredFields.attrConditions);
       if (cfg.filtersCollapsed != null) setFiltersCollapsed(!!cfg.filtersCollapsed);
       if (cfg.nestedGroups != null) setNestedGroups(!!cfg.nestedGroups);
       if (cfg.groupDepth != null) setGroupDepth(cfg.groupDepth as number);

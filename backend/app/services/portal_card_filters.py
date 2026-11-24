@@ -184,7 +184,7 @@ def normalise_condition(kind: str, raw: object) -> dict[str, Any] | None:
         out = {}
         for key in ("from", "to"):
             bound = raw.get(key)
-            if isinstance(bound, str) and _DATE_BOUND.match(bound):
+            if isinstance(bound, str) and _DATE_BOUND.fullmatch(bound):
                 out[key] = bound
         return out or None
     return None
@@ -694,8 +694,24 @@ async def preset_conditions(
 # a pick — ``tag_conditions``), while the legacy ``tag_ids`` keeps its old
 # any-of meaning (``anyTagIds``, which ``filters`` itself never carries).
 
-#: The longest ``filters`` parameter read; a longer one is ignored whole.
+#: The longest ``filters`` parameter (or legacy JSON parameter) read; a longer
+#: one is refused (``VisitorFiltersTooLongError``), never ignored: ignoring it would
+#: answer with every card while the visitor's bar shows picks.
 VISITOR_FILTERS_MAX_CHARS = 8192
+
+
+class VisitorFiltersTooLongError(ValueError):
+    """A visitor's ``filters`` parameter, or a legacy JSON parameter, is longer
+    than ``VISITOR_FILTERS_MAX_CHARS``. The public cards route answers 422."""
+
+    def __init__(self) -> None:
+        super().__init__(f"filters is longer than {VISITOR_FILTERS_MAX_CHARS} characters")
+
+
+def _check_length(raw: str) -> None:
+    if len(raw) > VISITOR_FILTERS_MAX_CHARS:
+        raise VisitorFiltersTooLongError()
+
 
 #: The keys of a visitor's filter value.
 _VISITOR_KEYS = ("subtypeFilters", "attrFilters", "attrConditions", "relationFilters")
@@ -716,13 +732,13 @@ def normalise_visitor_filters(raw: object) -> dict[str, Any]:
     """The ``filters`` parameter (JSON text, or an already parsed object) as
     a visitor's filter value: ``subtypeFilters``, ``attrFilters``,
     ``attrConditions``, ``relationFilters`` and ``tagFilterIds``, anything
-    malformed dropped. Text over ``VISITOR_FILTERS_MAX_CHARS``, invalid JSON
-    or anything but an object is no filter at all. Relation subtypes and
-    *Include sub-cards* are preset-only."""
+    malformed dropped. Invalid JSON or anything but an object is no filter at
+    all; text over ``VISITOR_FILTERS_MAX_CHARS`` raises
+    ``VisitorFiltersTooLongError``. Relation subtypes and *Include sub-cards* are
+    preset-only."""
     out = _empty_visitor_filters()
     if isinstance(raw, str):
-        if len(raw) > VISITOR_FILTERS_MAX_CHARS:
-            return out
+        _check_length(raw)
         try:
             raw = json.loads(raw)
         except ValueError:
@@ -765,8 +781,11 @@ def restrict_visitor_filters(
 
 
 def _json_object(raw: str | None) -> dict:
-    if not raw or len(raw) > VISITOR_FILTERS_MAX_CHARS:
+    """A legacy JSON parameter as an object; ``{}`` when absent or malformed.
+    Over ``VISITOR_FILTERS_MAX_CHARS`` it raises ``VisitorFiltersTooLongError``."""
+    if not raw:
         return {}
+    _check_length(raw)
     try:
         parsed = json.loads(raw)
     except ValueError:
@@ -798,7 +817,8 @@ def legacy_visitor_filters(
     filter value: each single value becomes a one-value list, so a
     ``multiple_select`` now matches a card holding the value among others.
     Malformed JSON, a malformed id or an unusable value is ignored, never an
-    error. ``tag_ids`` keeps its any-of meaning (``anyTagIds``);
+    error; a JSON parameter over ``VISITOR_FILTERS_MAX_CHARS`` raises
+    ``VisitorFiltersTooLongError``. ``tag_ids`` keeps its any-of meaning (``anyTagIds``);
     ``related_type`` / ``related_id`` join ``relation_filters`` (a pick on the
     same relation type matches either card)."""
     out = _empty_visitor_filters()
@@ -870,7 +890,8 @@ async def public_visitor_conditions(
     ``filters`` parameter and the legacy parameters (``legacy``, the keyword
     arguments of ``legacy_visitor_filters``), each restricted to ``allowed``.
     When both are sent, both apply (AND): a legacy parameter can only narrow
-    what ``filters`` already narrowed, never undo it."""
+    what ``filters`` already narrowed, never undo it. An over-long parameter
+    raises ``VisitorFiltersTooLongError`` before any query is built."""
     allowed = list(allowed)
     conditions: list[ColumnElement[bool]] = []
     for value in (normalise_visitor_filters(filters), legacy_visitor_filters(**legacy)):

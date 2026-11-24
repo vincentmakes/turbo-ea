@@ -1313,6 +1313,20 @@ describe("PortfolioReport text conditions (#1425)", () => {
     );
   });
 
+  it("keeps a condition restored without its added row while its box is emptied", async () => {
+    const user = userEvent.setup();
+    // An older saved config: the value, no filterFields.
+    mockSavedConfig({ attrConditions: { code: { contains: "sf" } } });
+    renderPortfolio();
+    await screen.findByText("Salesforce");
+    const box = codeBox() as HTMLElement;
+    expect(box).toHaveValue("sf");
+    await user.clear(box);
+    expect(await screen.findByText("SAP ERP")).toBeInTheDocument();
+    expect(codeBox()).toBe(box);
+    expect(box).toHaveValue("");
+  });
+
   it("drops the condition on Reset to defaults", async () => {
     const user = userEvent.setup();
     mockSavedConfig({ attrConditions: { code: { contains: "sf" } }, filterFields: ["code"] });

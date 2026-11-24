@@ -18,6 +18,7 @@ import pytest
 from app.models.stakeholder import Stakeholder
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.web_portal import WebPortal
+from app.services import portal_card_filters
 from tests.conftest import (
     create_card,
     create_card_type,
@@ -578,6 +579,26 @@ class TestMalformedInputAnswers200:
             resp = await client.get(f"{PRODUCTS}/cards", params={"filters": raw})
             assert resp.status_code == 200
             assert resp.json()["total"] == 3
+
+
+class TestOverLongFiltersAreRefused:
+    """An over-long parameter is refused, never ignored: ignoring it listed
+    every card while the visitor's bar showed picks."""
+
+    async def test_an_over_long_filters_answers_422(self, client, products):
+        cap = portal_card_filters.VISITOR_FILTERS_MAX_CHARS
+        at_cap = json.dumps({"subtypeFilters": ["hw"]}).ljust(cap)
+        ok = await client.get(f"{PRODUCTS}/cards", params={"filters": at_cap})
+        assert ok.status_code == 200
+        assert _names(ok.json()) == ["P1"]
+        resp = await client.get(f"{PRODUCTS}/cards", params={"filters": at_cap + " "})
+        assert resp.status_code == 422
+        assert str(cap) in resp.json()["detail"]
+
+    async def test_an_over_long_legacy_parameter_answers_422(self, client, products):
+        raw = json.dumps({"tier": "gold"}).ljust(portal_card_filters.VISITOR_FILTERS_MAX_CHARS + 1)
+        resp = await client.get(f"{PRODUCTS}/cards", params={"attr_filters": raw})
+        assert resp.status_code == 422
 
 
 class TestLegacyParameters:

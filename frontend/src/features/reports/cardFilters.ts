@@ -13,6 +13,7 @@ import {
   describeCondition,
   restoreAttrConditions,
   restoreFilterFields,
+  withActiveFilterFields,
 } from "@/lib/fieldFilters";
 import type { AttrCondition, ConditionDescription, FilterKind } from "@/lib/fieldFilters";
 import { expandSides, parseSideKey, sideKey } from "@/lib/relationSort";
@@ -256,8 +257,13 @@ function stringArrayRecord(v: unknown): Record<string, string[]> {
   return out;
 }
 
-/** Read the filter keys back out of a saved report config, dropping anything malformed. */
-export function restoreCardFilters(cfg: Record<string, unknown>): CardFilterValue {
+/**
+ * Read the filter keys back out of a saved report config, dropping anything
+ * malformed — exactly as stored: `filterFields` is not widened to the fields
+ * holding a value. What the PPM board's link decoder uses, so a link that is
+ * opened is not rewritten; every other caller wants `restoreCardFilters`.
+ */
+export function readCardFilters(cfg: Record<string, unknown>): CardFilterValue {
   return {
     attrFilters: stringArrayRecord(cfg.attrFilters),
     relationFilters: stringArrayRecord(cfg.relationFilters),
@@ -268,6 +274,16 @@ export function restoreCardFilters(cfg: Record<string, unknown>): CardFilterValu
     filterFields: restoreFilterFields(cfg.filterFields),
     attrConditions: restoreAttrConditions(cfg.attrConditions),
   };
+}
+
+/**
+ * Read the filter keys back out of a saved report config, dropping anything
+ * malformed. Every field that holds a value joins `filterFields`
+ * (`withActiveFilterFields`), so a value restored without its added rows
+ * keeps its row while it is being cleared.
+ */
+export function restoreCardFilters(cfg: Record<string, unknown>): CardFilterValue {
+  return withActiveFilterFields(readCardFilters(cfg));
 }
 
 /** The words a condition reads as in a print header, by its parts (`describeCondition`). */

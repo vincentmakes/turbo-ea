@@ -49,12 +49,14 @@ const TYPES = [
 
 /** The metamodel's card types for the current test — every test starts from `TYPES`. */
 let metamodelTypes: typeof TYPES = TYPES;
+/** Whether the metamodel is still loading — every test starts loaded. */
+let metamodelLoading = false;
 
 vi.mock("@/hooks/useMetamodel", () => ({
   useMetamodel: () => ({
     types: metamodelTypes,
     relationTypes: [],
-    loading: false,
+    loading: metamodelLoading,
     getType: (key: string) => metamodelTypes.find((tp) => tp.key === key),
     getRelationsForType: () => [],
     invalidateCache: vi.fn(),
@@ -198,6 +200,7 @@ beforeEach(() => {
   groupOptionRows = [];
   navigationTypes = [];
   metamodelTypes = TYPES;
+  metamodelLoading = false;
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -237,14 +240,18 @@ function MenuEntry() {
   );
 }
 
-function renderBoard(url = "/") {
-  return render(
+function board(url = "/") {
+  return (
     <MemoryRouter initialEntries={[url]}>
       <PpmPortfolio />
       <LocationProbe />
       <MenuEntry />
-    </MemoryRouter>,
+    </MemoryRouter>
   );
+}
+
+function renderBoard(url = "/") {
+  return render(board(url));
 }
 
 const location = () => new URLSearchParams(screen.getByTestId("location").textContent ?? "");
@@ -443,6 +450,48 @@ describe("PpmPortfolio Filters section", () => {
     fireEvent.click(within(chip).getByTestId("CancelIcon"));
     await waitFor(() => expect(names()).toEqual(["Alpha Rollout", "Beta Upgrade", "Gamma Study"]));
     expect(location().get("filters")).toBeNull();
+  });
+
+  it("holds the board back while the metamodel that types a linked condition loads (#1425)", async () => {
+    const withCode = TYPES.map((tp) =>
+      tp.key !== "Initiative"
+        ? tp
+        : { ...tp, fields_schema: [{ section: "Identity", fields: [{ key: "code", label: "Code", type: "text" }] }] },
+    ) as typeof TYPES;
+    // Until the metamodel answers, no type is known, so the condition's kind is not either.
+    metamodelTypes = [];
+    metamodelLoading = true;
+    filterAnswer = () =>
+      Promise.resolve({
+        ...FILTER_DATA,
+        items: FILTER_DATA.items.map((it, i) => ({ ...it, attributes: { code: ["PRJ-1", "OPS-2", "PRJ-3"][i] } })),
+      });
+    const url = `/?filters=${encodeURIComponent('{"attrConditions":{"code":{"contains":"prj"}}}')}`;
+    const view = renderBoard(url);
+    await waitFor(() => expect(filterCalls()).toBe(1));
+    await waitFor(() =>
+      expect(vi.mocked(api.get).mock.calls.some(([p]) => p.startsWith("/reports/ppm/gantt"))).toBe(true),
+    );
+    // The board data and the filter payload have both landed; the condition's kind has not.
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.queryAllByRole("progressbar").length).toBeGreaterThan(0);
+    expect(names()).toEqual([]);
+
+    metamodelTypes = withCode;
+    metamodelLoading = false;
+    view.rerender(board(url));
+    await waitFor(() => expect(names()).toEqual(["Alpha Rollout", "Gamma Study"]));
+    expect(total()).toBe("2");
+    // Opening the link did not rewrite it.
+    expect(location().get("filters")).toBe('{"attrConditions":{"code":{"contains":"prj"}}}');
+
+    // The condition came without its added row; emptying its box keeps the row.
+    fireEvent.click(header());
+    const box = await screen.findByRole("textbox", { name: "Code" });
+    fireEvent.change(box, { target: { value: "" } });
+    await waitFor(() => expect(names()).toEqual(["Alpha Rollout", "Beta Upgrade", "Gamma Study"]));
+    expect(screen.getByRole("textbox", { name: "Code" })).toBe(box);
+    expect(location().get("filters")).toBe('{"filterFields":["code"]}');
   });
 
   it("ignores a cost condition in a link for a reader without cost access (#1425)", async () => {

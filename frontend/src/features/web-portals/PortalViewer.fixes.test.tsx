@@ -422,6 +422,27 @@ describe("PortalViewer card grid", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("cards exploded");
   });
 
+  it("drops the previous query's cards when a newer query is refused", async () => {
+    const user = userEvent.setup();
+    let calls = 0;
+    serve(SLUG, {
+      cards: () => {
+        calls += 1;
+        return calls === 1
+          ? Promise.resolve({ items: [card()], total: 1 })
+          : Promise.reject(httpError(422, "filters is longer than 8192 characters"));
+      },
+    });
+    renderPortal();
+    expect(await screen.findByText("Customer Management")).toBeInTheDocument();
+    expect(screen.getByText("1 Business Capability")).toBeInTheDocument();
+
+    await user.type(screen.getByPlaceholderText("Search Business Capability..."), "x");
+    expect(await screen.findByRole("alert")).toHaveTextContent("filters is longer than 8192 characters");
+    expect(screen.queryByText("Customer Management")).toBeNull();
+    expect(screen.queryByText("1 Business Capability")).toBeNull();
+  });
+
   it("says something went wrong when the card query fails without a message", async () => {
     serve(SLUG, { cards: () => Promise.reject("offline") });
     renderPortal();

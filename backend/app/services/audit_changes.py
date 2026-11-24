@@ -825,13 +825,45 @@ _PORTAL_BLOCKS = ("ppm", "bpm")
 _PORTAL_FILTER_SURFACE = "filter"
 
 
-def _visitor_filter_items(
-    before: Mapping[str, Any], after: Mapping[str, Any], labels: Mapping[Any, Any]
+def _resolved_visitor_filter_items(
+    shown: tuple[Iterable[str], Iterable[str]], labels: Mapping[Any, Any]
 ) -> list[dict[str, Any]]:
     """``portal_toggle.changed`` {item, surface: "filter", old, new} for each
-    key of ``visitor_filters`` whose membership changed. A side without the
-    list follows the computed default, which this builder cannot know, so its
-    value is ``None`` ("—") and only the keys the other side lists appear."""
+    key that entered or left the RESOLVED ``shown`` list — old side's keys
+    first, in their order, then the new side's new ones. Equal lists: none."""
+    old = [k for k in shown[0] if isinstance(k, str)]
+    new = [k for k in shown[1] if isinstance(k, str)]
+    out = []
+    for key in [*old, *(k for k in new if k not in old)]:
+        a, b = key in old, key in new
+        if a != b:
+            out.append(
+                item(
+                    "portal_toggle.changed",
+                    item=labels.get(key) or key,
+                    surface=_PORTAL_FILTER_SURFACE,
+                    old=a,
+                    new=b,
+                )
+            )
+    return out
+
+
+def _visitor_filter_items(
+    before: Mapping[str, Any],
+    after: Mapping[str, Any],
+    labels: Mapping[Any, Any],
+    shown: tuple[Iterable[str], Iterable[str]] | None = None,
+) -> list[dict[str, Any]]:
+    """``portal_toggle.changed`` {item, surface: "filter", old, new} for each
+    visitor filter whose membership changed. With ``shown`` — each side's
+    filters as the visitor's bar resolves them (``visitor_filter_lists``),
+    default included — the resolved lists are diffed. Without it, the stored
+    ``visitor_filters`` lists are: a side without the list follows the
+    computed default, which this builder cannot know, so its value is
+    ``None`` ("—") and only the keys the other side lists appear."""
+    if shown is not None:
+        return _resolved_visitor_filter_items(shown, labels)
     was, now = before.get("visitor_filters"), after.get("visitor_filters")
     was_list, now_list = isinstance(was, list), isinstance(now, list)
     keys = [*_as_list(was), *(k for k in _as_list(now) if k not in _as_list(was))]
@@ -855,7 +887,11 @@ def _visitor_filter_items(
 
 
 def portal_card_config_items(
-    old: Any, new: Any, *, item_labels: Mapping[str, str] | None = None
+    old: Any,
+    new: Any,
+    *,
+    item_labels: Mapping[str, str] | None = None,
+    visitor_filters_shown: tuple[Iterable[str], Iterable[str]] | None = None,
 ) -> list[dict[str, Any]]:
     """Items for a portal's ``card_config``.
 
@@ -867,6 +903,12 @@ def portal_card_config_items(
     ``portal_option.changed`` {option, old, new} for the board settings —
     ``ppm_<key>`` / ``bpm_<key>`` —, ``visitor_can_add_filters`` and
     ``show_logo`` (both unset read as ``True``, as the portal applies them).
+
+    ``visitor_filters_shown`` is ``(old, new)``: each side's visitor filters
+    as resolved by the caller (``portal_visibility.visitor_filter_lists``, the
+    default included). Given, the filter items diff those, so unticking one
+    filter from the default logs exactly that filter. Absent ("not
+    provided"), the stored lists are diffed. This module reads no database.
     """
     before, after = _as_dict(old), _as_dict(new)
     labels = _as_dict(item_labels)
@@ -899,7 +941,7 @@ def portal_card_config_items(
                         new=_compact(b),
                     )
                 )
-    out.extend(_visitor_filter_items(before, after, labels))
+    out.extend(_visitor_filter_items(before, after, labels, visitor_filters_shown))
     old_add = before.get("visitor_can_add_filters") is not False
     new_add = after.get("visitor_can_add_filters") is not False
     if old_add != new_add:

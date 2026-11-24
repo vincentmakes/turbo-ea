@@ -25,6 +25,7 @@ import {
   searchFilterCatalog,
   setCondition,
   shapeOfCondition,
+  withActiveFilterFields,
   type FilterCatalog,
   type FilterKind,
   type FilterSchemaSection,
@@ -377,6 +378,26 @@ describe("added fields", () => {
 /*  Conditions — the same edge cases as backend                        */
 /*  tests/services/test_portal_card_filters.py                         */
 /* ------------------------------------------------------------------ */
+
+describe("withActiveFilterFields", () => {
+  it("adds every field holding a value after the stored rows: picks, then conditions", () => {
+    const state = {
+      attrFilters: { fit: ["good"], none: [] },
+      attrConditions: { n: { min: 1 }, code: { contains: "x" }, blank: { contains: " " } },
+      filterFields: ["code", "risk"],
+    };
+    expect(withActiveFilterFields(state).filterFields).toEqual(["code", "risk", "fit", "n"]);
+  });
+
+  it("keeps the other keys and the stored order, and returns the state itself when nothing is missing", () => {
+    const state = { attrFilters: {}, attrConditions: { code: { contains: "x" } }, filterFields: [], extra: 1 };
+    expect(withActiveFilterFields(state)).toEqual({ ...state, filterFields: ["code"] });
+    const complete = { attrFilters: { fit: ["a"] }, attrConditions: {}, filterFields: ["fit"] };
+    expect(withActiveFilterFields(complete)).toBe(complete);
+    const empty = { attrFilters: {}, attrConditions: {}, filterFields: ["z"] };
+    expect(withActiveFilterFields(empty)).toBe(empty);
+  });
+});
 
 describe("shapeOfCondition", () => {
   it("names the kind a condition's keys belong to", () => {
