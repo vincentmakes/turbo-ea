@@ -807,5 +807,15 @@
   "spreadsheetImport.doneSkipped_other": "{{count}} lignes ont été ignorées.",
   "spreadsheetImport.doneFailed_one": "{{count}} ligne n'a pas été importée à cause d'erreurs.",
   "spreadsheetImport.doneFailed_other": "{{count}} lignes n'ont pas été importées à cause d'erreurs.",
-  "filter.clearSection": "Effacer les filtres {{section}}"
+  "filter.clearSection": "Effacer les filtres {{section}}",
+  "fieldFilters.add": "Ajouter un filtre",
+  "fieldFilters.search": "Rechercher des champs",
+  "fieldFilters.searchPlaceholder": "Champ ou section",
+  "fieldFilters.clearSearch": "Effacer la recherche",
+  "fieldFilters.noMatch": "Aucun champ correspondant",
+  "fieldFilters.remove": "Retirer le filtre {{field}}",
+  "fieldFilters.clearValue": "Effacer le filtre {{field}}",
+  "fieldFilters.containsPlaceholder": "Contient…",
+  "fieldFilters.rangeFrom": "{{field}} de",
+  "fieldFilters.rangeTo": "{{field}} à"
 }

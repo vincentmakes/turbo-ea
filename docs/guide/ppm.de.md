@@ -33,9 +33,9 @@ Unter der Symbolleiste befindet sich der Abschnitt **Filter**, beim ersten Öffn
 
 - **Verknüpfte Karten** — behält die Initiativen, die mit den ausgewählten Karten verknüpft sind, zum Beispiel mit einer Organisation oder einer Anwendung. **Unterkarten einbeziehen** behält auch die Initiativen, die mit den Karten unterhalb einer ausgewählten Karte in deren Hierarchie verknüpft sind
 - **Tags** — behält die Initiativen, die die ausgewählten Tags tragen
-- **Felder** — behält die Initiativen, deren eigene Felder (die Attribute des Kartentyps Initiative) den ausgewählten Werten entsprechen
+- **Felder** — behält die Initiativen, deren eigene Felder (die Attribute des Kartentyps Initiative) den ausgewählten Werten entsprechen Felder eines Abschnitts, den ein Administrator als **Aus Filtern ausgeblendet** markiert hat, werden nicht angezeigt, doch der Chip **Filter hinzufügen** am Ende der Zeile listet sie auf, durchsuchbar nach Feld- oder Abschnittsname; ein ergänztes Feld hat eine Schaltfläche **×**, die es samt seinen Werten entfernt. **Filter hinzufügen** bietet auch Text-, Zahlen- und Datumsfelder – ein Code, der einen Text enthält, ein Budget zwischen zwei Beträgen, einen Datumsbereich – sowie Kostenfelder für Personen, die Kosten sehen dürfen (siehe [Felder zum Filtern hinzufügen](reports.md#add-filter))
 
-Aktive Filter bleiben in der URL erhalten und werden mit dem Rest des Portfolios gemerkt, sodass ein geteilter Link dasselbe Portfolio öffnet, und sie werden in der Parameterzeile eines Ausdrucks oder Exports aufgeführt. **Alle löschen** leert den Abschnitt Filter und lässt den Rest der Symbolleiste unverändert.
+Aktive Filter bleiben in der URL erhalten und werden mit dem Rest des Portfolios gemerkt, sodass ein geteilter Link dasselbe Portfolio öffnet, und sie werden in der Parameterzeile eines Ausdrucks oder Exports aufgeführt. Die ergänzten Felder reisen im Link mit und werden ebenfalls gemerkt. **Alle löschen** leert die Werte im Abschnitt Filter, behält die ergänzten Felder und lässt den Rest der Symbolleiste unverändert; **Auf Standard zurücksetzen** entfernt auch die ergänzten Felder.
 
 #### Die Initiativhierarchie anzeigen
 

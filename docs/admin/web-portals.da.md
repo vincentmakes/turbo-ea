@@ -156,10 +156,10 @@ På en portal af typen **Kortliste** begrænser sektionen **Kortfiltre** portale
 |-------|--------------------|
 | **Relateret via** | der er relateret til et af de valgte kort — ét felt pr. relateret korttype, plus ét pr. relation, når flere relationer når samme type. **Medtag underkort** tæller også et kort, der er relateret til noget under et valg |
 | **Tags** | der har et valgt tag: et vilkårligt tag inden for én gruppe og ét fra hver gruppe, du vælger fra |
-| **Felter** | med en valgt undertype eller en valgt værdi i et af kortets valg- eller ja/nej-felter |
+| **Felter** | med en valgt undertype eller en valgt værdi i et af kortets valg- eller ja/nej-felter Tekst-, tal- og datofelter kan tilføjes via **Tilføj filter**: et tekstfelt beholder de kort, hvis værdi indeholder det, du skriver (uanset store og små bogstaver), et tal- eller procentfelt kortene mellem et minimum og et maksimum, et datofelt kortene mellem to dage |
 | **Relationsundertyper** | med en relation, hvis attribut (for eksempel *Anvendelsestype*) har en valgt værdi |
 
-Hvert felt tilbyder også **(tom)** for kort uden værdi, uden relation eller uden undertype. Besøgende ser kun de kort, der matcher: De filtre, de vælger på portalen, indsnævrer listen yderligere, aldrig bredere, og selve filterindstillingerne sendes aldrig til den besøgendes browser.
+Hvert valgfelt tilbyder også **(tom)** for kort uden værdi, uden relation eller uden undertype; et tekst-, tal- eller datofilter beholder kun kort, der har en værdi. Et portal filtrerer aldrig på omkostningsfelter: dialogen tilbyder dem ikke, uanset dine egne rettigheder. Besøgende ser kun de matchende kort: de filtre, de vælger på portalen, indsnævrer listen yderligere, aldrig udvider den, og selve filterindstillingerne sendes aldrig til den besøgendes browser.
 
 !!! note
     En portal, der er oprettet før version 2.178.0, beholder sine undertype- og tagfiltre, præcis som de var, indtil du gemmer den næste gang. Derefter skal tags valgt fra to forskellige taggrupper begge være på et kort, som i porteføljerapporten.
@@ -184,6 +184,20 @@ Hvilke kolonner/egenskaber der vises i kortlisten:
 Hvilken information der vises, når en besøgende klikker på et kort:
 
 - Samme omskifterkontroller som listevisning, men for det udvidede detaljepanel
+
+### Besøgsfiltre
+
+På en **Kortliste**-portal har visningstabellen en tredje kolonne, **Besøgsfilter**. En afkrydset række vises i de besøgendes filterlinje:
+
+- **Undertype** (en egen række, når korttypen har undertyper), **Tags**, hver **relationstype** og hvert felt, der kan filtreres: valg- og ja/nej-felter (vælg værdier, **(tom)** inkluderet), tekstfelter («indeholder»), tal- og procentfelter (et interval) og datofelter (et interval).
+- **Et filter kræver, at egenskaben vises.** En række, der hverken vises på oversigtskortet eller i den udvidede detalje, har sit filterfelt nedtonet: en besøgende kan aldrig filtrere på noget, portalen ikke udgiver.
+- **Omkostningsfelter kan aldrig filtreres på en portal** og har ikke noget afkrydsningsfelt.
+
+Indtil du ændrer kolonnen, følger den standarden: undertypen, tags, hvert vist valgfelt med valgmuligheder og hver vist relationstype — den filterlinje, portaler altid har haft — minus felterne i en sektion markeret **Skjult fra filtre** i kortlayoutet. Så længe kolonnen står på standard, gemmes intet, så et felt, der senere føjes til korttypen, følger samme regel.
+
+Under tabellen lader **Besøgende kan tilføje flere filtre** (til som standard) de besøgende tilføje ethvert andet vist felt via en **Tilføj filter**-chip i deres filterlinje. Deres browser husker de tilføjede felter, aldrig værdierne. Undertype-, tag- og relationsfiltre tilbydes ikke dér: de vises kun, når de er afkrydset. Slå den fra, og de besøgende får præcis de afkrydsede filtre; portalen ignorerer ethvert andet filter, den får sendt.
+
+Besøgsfiltre indsnævrer altid de kort, portalens egne kortfiltre beholder, og udvider dem aldrig. Et tagfilter matcher som i rapporterne: et vilkårligt tag inden for en gruppe og et fra hver gruppe, der vælges fra.
 
 ## Portal-adgang
 

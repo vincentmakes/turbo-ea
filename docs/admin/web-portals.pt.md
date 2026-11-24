@@ -158,10 +158,10 @@ Num portal do tipo **Lista de cartões**, a secção **Filtros de cartões** res
 |-------|---------------------------|
 | **Relacionado por** | relacionados com um dos cartões escolhidos: um controlo por tipo de cartão relacionado, mais um por relação quando várias relações chegam ao mesmo tipo. **Incluir subcartões** conta também um cartão relacionado com qualquer elemento abaixo de uma seleção |
 | **Etiquetas** | que têm uma etiqueta escolhida: qualquer etiqueta dentro de um grupo, e uma de cada grupo de onde escolhe |
-| **Campos** | com um subtipo escolhido, ou um valor escolhido num dos campos de seleção ou sim/não do cartão |
+| **Campos** | com um subtipo escolhido, ou um valor escolhido num dos campos de seleção ou sim/não do cartão Os campos de texto, número e data podem ser adicionados através de **Adicionar filtro**: um campo de texto mantém os cards cujo valor contém o que escrever (sem distinguir maiúsculas de minúsculas), um campo de número ou percentagem os cards entre um mínimo e um máximo, um campo de data os cards entre dois dias |
 | **Subtipos de relação** | com uma relação cujo atributo (por exemplo *Tipo de utilização*) tem um valor escolhido |
 
-Cada controlo oferece também **(vazio)**, para os cartões sem valor, sem relação ou sem subtipo. Os visitantes só veem os cartões correspondentes: os filtros que escolhem no portal restringem ainda mais a lista, nunca a alargam, e as próprias definições dos filtros nunca são enviadas para o navegador do visitante.
+Cada controlo de seleção oferece também **(vazio)**, para os cards sem valor, sem relação ou sem subtipo; um filtro de texto, número ou data mantém apenas os cards que têm um valor. Um portal nunca filtra por campos de custo: a caixa de diálogo não os oferece, sejam quais forem as suas próprias permissões. Os visitantes só veem os cards correspondentes: os filtros que escolhem no portal restringem ainda mais a lista, nunca a alargam, e as definições de filtro nunca são enviadas ao navegador do visitante.
 
 !!! note
     Um portal criado antes da versão 2.178.0 mantém os seus filtros de subtipos e etiquetas tal como estavam até o voltar a guardar. A partir daí, etiquetas escolhidas de dois grupos diferentes têm de estar ambas num cartão, como no relatório de portefólio.
@@ -186,6 +186,20 @@ A barra de **qualidade dos dados** é a pontuação de completude do card — qu
 Quais informações aparecem quando um visitante clica em um card:
 
 - Mesmos controles de alternância que a visualização em lista, mas para o painel de detalhe expandido
+
+### Filtros de visitante
+
+Num portal de **Lista de cards**, a tabela de apresentação tem uma terceira coluna, **Filtro de visitante**. Uma linha assinalada aparece na barra de filtros dos visitantes:
+
+- **Subtipo** (uma linha própria, quando o tipo de card tem subtipos), **Etiquetas**, cada **tipo de relação** e cada campo filtrável: campos de seleção e sim/não (escolher valores, **(vazio)** incluído), campos de texto («contém»), campos de número e percentagem (um intervalo) e campos de data (um intervalo).
+- **Um filtro exige que a propriedade seja mostrada.** Uma linha que não é mostrada nem no card de resumo nem no detalhe expandido tem a caixa de filtro esbatida: um visitante nunca pode filtrar por algo que o portal não publica.
+- **Os campos de custo nunca são filtráveis num portal** e não têm caixa.
+
+Enquanto não alterar a coluna, ela segue a predefinição: o subtipo, as etiquetas, cada campo de seleção mostrado com opções e cada tipo de relação mostrado — a barra de filtros que os portais sempre tiveram — menos os campos de uma seção marcada como **Oculto dos filtros** no layout do card. Enquanto a coluna se mantiver na predefinição, nada é guardado, pelo que um campo adicionado mais tarde ao tipo de card segue a mesma regra.
+
+Por baixo da tabela, **Os visitantes podem adicionar mais filtros** (ativado por predefinição) permite aos visitantes adicionar qualquer outro campo mostrado através de um chip **Adicionar filtro** na sua barra de filtros. O navegador deles memoriza os campos adicionados, nunca os valores. Os filtros de subtipo, etiquetas e relação não são oferecidos aí: só aparecem se estiverem assinalados. Desative-o e os visitantes recebem exatamente os filtros assinalados; o portal ignora qualquer outro filtro que lhe seja enviado.
+
+Os filtros de visitante restringem sempre os cards que os filtros de cards do próprio portal mantêm, nunca os alargam. Um filtro de etiquetas corresponde como nos relatórios: qualquer etiqueta dentro de um grupo e uma de cada grupo escolhido.
 
 ## Acesso ao Portal
 

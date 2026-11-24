@@ -159,10 +159,10 @@ Bei einem Portal vom Typ **Kartenliste** schränkt der Abschnitt **Kartenfilter*
 |-------|---------------------|
 | **Verknüpft über** | die mit einer der gewählten Karten verknüpft sind – ein Steuerelement pro verknüpftem Kartentyp, dazu eines pro Beziehung, wenn mehrere Beziehungen denselben Typ erreichen. **Unterkarten einbeziehen** zählt auch Karten, die mit etwas unterhalb einer Auswahl verknüpft sind |
 | **Tags** | die einen gewählten Tag tragen: einen beliebigen Tag innerhalb einer Gruppe und je einen aus jeder Gruppe, aus der Sie wählen |
-| **Felder** | mit einem gewählten Subtyp oder einem gewählten Wert in einem der Auswahl- oder Ja/Nein-Felder der Karte |
+| **Felder** | mit einem gewählten Subtyp oder einem gewählten Wert in einem der Auswahl- oder Ja/Nein-Felder der Karte Text-, Zahlen- und Datumsfelder lassen sich über **Filter hinzufügen** ergänzen: Ein Textfeld behält die Karten, deren Wert den eingegebenen Text enthält (ohne Beachtung der Groß-/Kleinschreibung), ein Zahlen- oder Prozentfeld die Karten zwischen einem Minimum und einem Maximum, ein Datumsfeld die Karten zwischen zwei Tagen |
 | **Beziehungs-Untertypen** | mit einer Beziehung, deren Attribut (zum Beispiel *Nutzungsart*) einen gewählten Wert hat |
 
-Jedes Steuerelement bietet zusätzlich **(leer)** für Karten ohne Wert, ohne Beziehung oder ohne Subtyp. Besucher sehen ausschließlich die passenden Karten: Die Filter, die sie im Portal wählen, schränken die Liste weiter ein, erweitern sie aber nie, und die Filtereinstellungen selbst werden nie an den Browser des Besuchers gesendet.
+Jedes Auswahl-Steuerelement bietet zusätzlich **(leer)** für Karten ohne Wert, ohne Beziehung oder ohne Subtyp; ein Text-, Zahlen- oder Datumsfilter behält nur Karten mit einem Wert. Ein Portal filtert nie nach Kostenfeldern: Der Dialog bietet sie nicht an, unabhängig von Ihren eigenen Berechtigungen. Besucher sehen ausschließlich die passenden Karten: Die Filter, die sie im Portal wählen, schränken die Liste weiter ein, erweitern sie aber nie, und die Filtereinstellungen selbst werden nie an den Browser des Besuchers gesendet.
 
 !!! note
     Ein Portal, das vor Version 2.178.0 erstellt wurde, behält seine Subtyp- und Tag-Filter unverändert, bis Sie es das nächste Mal speichern. Danach müssen Tags aus zwei verschiedenen Tag-Gruppen beide an einer Karte vorhanden sein, wie im Portfolio-Bericht.
@@ -187,6 +187,20 @@ Der Balken **Datenqualität** ist der Vollständigkeitsgrad der Karte — wie vi
 Welche Informationen angezeigt werden, wenn ein Besucher auf eine Karte klickt:
 
 - Dieselben Umschaltsteuerungen wie bei der Listenansicht, aber für das erweiterte Detailpanel
+
+### Besucherfilter
+
+Bei einem **Kartenlisten**-Portal hat die Anzeigetabelle eine dritte Spalte, **Besucherfilter**. Eine angehakte Zeile erscheint in der Filterleiste der Besucher:
+
+- **Subtyp** (eine eigene Zeile, wenn der Kartentyp Subtypen hat), **Tags**, jeder **Beziehungstyp** und jedes filterbare Feld: Auswahl- und Ja/Nein-Felder (Werte wählen, **(leer)** inbegriffen), Textfelder („enthält“), Zahlen- und Prozentfelder (ein Bereich) und Datumsfelder (ein Bereich).
+- **Ein Filter setzt voraus, dass die Eigenschaft angezeigt wird.** Bei einer Zeile, die weder auf der Zusammenfassungskarte noch in den erweiterten Details angezeigt wird, ist das Filter-Kontrollkästchen ausgegraut: Besucher können nie nach etwas filtern, das das Portal nicht veröffentlicht.
+- **Kostenfelder sind in einem Portal nie filterbar** und haben kein Kontrollkästchen.
+
+Solange Sie die Spalte nicht ändern, gilt der Standard: der Subtyp, die Tags, jedes angezeigte Auswahlfeld mit Optionen und jeder angezeigte Beziehungstyp – die Filterleiste, die Portale schon immer hatten – abzüglich der Felder eines im Karten-Layout als **Aus Filtern ausgeblendet** markierten Abschnitts. Solange die Spalte beim Standard bleibt, wird nichts gespeichert, sodass ein später zum Kartentyp hinzugefügtes Feld derselben Regel folgt.
+
+Unter der Tabelle erlaubt **Besucher können weitere Filter hinzufügen** (standardmäßig an), dass Besucher jedes andere angezeigte Feld über einen Chip **Filter hinzufügen** in ihrer Filterleiste ergänzen. Ihr Browser merkt sich die ergänzten Felder, nie die Werte. Subtyp-, Tag- und Beziehungsfilter werden dort nicht angeboten: Sie erscheinen nur, wenn sie angehakt sind. Schalten Sie die Option aus, erhalten Besucher genau die angehakten Filter, und das Portal ignoriert jeden anderen Filter, der ihm gesendet wird.
+
+Besucherfilter schränken die Karten, die die eigenen Kartenfilter des Portals behalten, immer weiter ein und erweitern sie nie. Ein Tag-Filter gilt wie in den Berichten: ein beliebiger Tag innerhalb einer Gruppe und je einer aus jeder Gruppe, aus der gewählt wird.
 
 ## Portalzugriff
 

@@ -33,9 +33,9 @@ Under værktøjslinjen ligger sektionen **Filtre**, der er foldet sammen første
 
 - **Relaterede kort** — beholder de initiativer, der er knyttet til de kort, du vælger, for eksempel en Organisation eller en Applikation. **Medtag underkort** beholder også de initiativer, der er knyttet til kortene under et valgt kort i dets hierarki
 - **Tags** — beholder de initiativer, der har de tags, du vælger
-- **Felter** — beholder de initiativer, hvis egne felter (attributterne for korttypen Initiativ) matcher de værdier, du vælger
+- **Felter** — beholder de initiativer, hvis egne felter (attributterne for korttypen Initiativ) matcher de værdier, du vælger Felter i en sektion, som en administrator har markeret **Skjult fra filtre**, vises ikke, men **Tilføj filter**-chippen i enden af rækken lister dem, med søgning på felt- eller sektionsnavn; et tilføjet felt har en **×**-knap, der fjerner det og dets værdier. **Tilføj filter** tilbyder også tekst-, tal- og datofelter — en kode, der indeholder noget tekst, et budget mellem to beløb, et datointerval — og omkostningsfelter til dem, der må se omkostninger (se [Tilføjelse af felter at filtrere på](reports.md#add-filter))
 
-Aktive filtre gemmes i URL'en og huskes sammen med resten af porteføljen, så et link, du deler, åbner den samme portefølje, og de står i parameterlinjen på en udskrift eller eksport. **Ryd alle** tømmer sektionen Filtre og lader resten af værktøjslinjen være, som den er.
+Aktive filtre gemmes i URL'en og huskes sammen med resten af porteføljen, så et link, du deler, åbner den samme portefølje, og de står i parameterlinjen på en udskrift eller eksport. De felter, du har tilføjet, følger med i linket og huskes også. **Ryd alle** tømmer værdierne i sektionen Filtre, beholder de tilføjede felter og lader resten af værktøjslinjen være, som den er; **Nulstil til standarder** fjerner også de tilføjede felter.
 
 #### Vis initiativhierarkiet
 

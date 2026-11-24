@@ -159,10 +159,10 @@ In un portale di tipo **Elenco di schede**, la sezione **Filtri delle schede** l
 |------|------------------------|
 | **Correlato per** | collegate a una delle schede scelte: un controllo per ogni tipo di scheda collegato, più uno per relazione quando più relazioni raggiungono lo stesso tipo. **Includi sotto-schede** conta anche una scheda collegata a qualcosa sotto una selezione |
 | **Tag** | che hanno un tag scelto: un tag qualsiasi all'interno di un gruppo, e uno di ogni gruppo da cui scegliete |
-| **Campi** | con un sottotipo scelto, o un valore scelto in uno dei campi di selezione o sì/no della scheda |
+| **Campi** | con un sottotipo scelto, o un valore scelto in uno dei campi di selezione o sì/no della scheda I campi di testo, numero e data si possono aggiungere tramite **Aggiungi filtro**: un campo di testo mantiene le card il cui valore contiene ciò che digitate (senza distinguere maiuscole e minuscole), un campo numero o percentuale le card comprese tra un minimo e un massimo, un campo data le card comprese tra due giorni |
 | **Sottotipi di relazione** | con una relazione il cui attributo (per esempio *Tipo di utilizzo*) ha un valore scelto |
 
-Ogni controllo offre anche **(vuoto)**, per le schede senza valore, senza relazione o senza sottotipo. I visitatori vedono soltanto le schede corrispondenti: i filtri che scelgono nel portale restringono ulteriormente l'elenco, senza mai allargarlo, e le impostazioni dei filtri non vengono mai inviate al browser del visitatore.
+Ogni controllo di selezione offre anche **(vuoto)**, per le card senza valore, senza relazione o senza sottotipo; un filtro di testo, numero o data mantiene solo le card che hanno un valore. Un portale non filtra mai sui campi di costo: la finestra non li offre, qualunque siano i vostri permessi. I visitatori vedono solo le card corrispondenti: i filtri che scelgono nel portale restringono ulteriormente l'elenco, non lo ampliano mai, e le impostazioni di filtro non vengono mai inviate al browser del visitatore.
 
 !!! note
     Un portale creato prima della versione 2.178.0 mantiene i suoi filtri per sottotipi e tag così come sono fino al successivo salvataggio. Da quel momento, i tag scelti da due gruppi di tag diversi devono essere presenti entrambi su una scheda, come nel report del portafoglio.
@@ -187,6 +187,20 @@ La barra della **qualità dei dati** è il punteggio di completezza della card �
 Quali informazioni appaiono quando un visitatore clicca su una card:
 
 - Stessi controlli toggle della vista elenco, ma per il pannello di dettaglio espanso
+
+### Filtri visitatore
+
+In un portale **Elenco di card**, la tabella di visualizzazione ha una terza colonna, **Filtro visitatore**. Una riga selezionata compare nella barra dei filtri dei visitatori:
+
+- **Sottotipo** (una riga a sé, quando il tipo di card ha sottotipi), **Tag**, ogni **tipo di relazione** e ogni campo filtrabile: campi di selezione e sì/no (scelta di valori, **(vuoto)** incluso), campi di testo («contiene»), campi numero e percentuale (un intervallo) e campi data (un intervallo).
+- **Un filtro richiede che la proprietà sia mostrata.** Una riga mostrata né nella card di riepilogo né nel dettaglio esteso ha la casella del filtro disattivata: un visitatore non può mai filtrare su ciò che il portale non pubblica.
+- **I campi di costo non sono mai filtrabili in un portale** e non hanno casella.
+
+Finché non modificate la colonna, segue il valore predefinito: il sottotipo, i tag, ogni campo di selezione mostrato con opzioni e ogni tipo di relazione mostrato — la barra dei filtri che i portali hanno sempre avuto — meno i campi di una sezione contrassegnata come **Nascosto dai filtri** nel layout della card. Finché la colonna resta al valore predefinito non viene memorizzato nulla, quindi un campo aggiunto più tardi al tipo di card segue la stessa regola.
+
+Sotto la tabella, **I visitatori possono aggiungere altri filtri** (attivo per impostazione predefinita) consente ai visitatori di aggiungere qualsiasi altro campo mostrato tramite un chip **Aggiungi filtro** nella loro barra dei filtri. Il loro browser ricorda i campi aggiunti, mai i valori. I filtri di sottotipo, tag e relazione non vi sono offerti: compaiono solo se selezionati. Disattivandolo, i visitatori ottengono esattamente i filtri selezionati e il portale ignora qualsiasi altro filtro riceva.
+
+I filtri visitatore restringono sempre le card che i filtri di card del portale mantengono, non le ampliano mai. Un filtro di tag corrisponde come nei report: un tag qualsiasi all'interno di un gruppo e uno per ogni gruppo scelto.
 
 ## Accesso al portale
 

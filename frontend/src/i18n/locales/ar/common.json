@@ -1011,5 +1011,15 @@
   "spreadsheetImport.doneFailed_few": "الصفوف التي لم تُستورد بسبب أخطاء: {{count}}",
   "spreadsheetImport.doneFailed_many": "الصفوف التي لم تُستورد بسبب أخطاء: {{count}}",
   "spreadsheetImport.doneFailed_other": "الصفوف التي لم تُستورد بسبب أخطاء: {{count}}",
-  "filter.clearSection": "مسح عوامل تصفية {{section}}"
+  "filter.clearSection": "مسح عوامل تصفية {{section}}",
+  "fieldFilters.add": "إضافة عامل تصفية",
+  "fieldFilters.search": "البحث في الحقول",
+  "fieldFilters.searchPlaceholder": "حقل أو قسم",
+  "fieldFilters.clearSearch": "مسح البحث",
+  "fieldFilters.noMatch": "لا يوجد حقل مطابق",
+  "fieldFilters.remove": "إزالة عامل التصفية {{field}}",
+  "fieldFilters.clearValue": "مسح عامل التصفية {{field}}",
+  "fieldFilters.containsPlaceholder": "يحتوي على…",
+  "fieldFilters.rangeFrom": "{{field}} من",
+  "fieldFilters.rangeTo": "{{field}} إلى"
 }

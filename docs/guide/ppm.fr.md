@@ -33,9 +33,9 @@ Sous la barre d'outils se trouve une section **Filtres**, repliée la première 
 
 - **Fiches liées** — conserve les initiatives liées aux fiches que vous choisissez, par exemple une Organisation ou une Application. **Inclure les sous-fiches** conserve aussi les initiatives liées aux fiches situées sous une fiche choisie dans sa hiérarchie
 - **Étiquettes** — conserve les initiatives portant les étiquettes que vous choisissez
-- **Champs** — conserve les initiatives dont les propres champs (les attributs du type Initiative) correspondent aux valeurs que vous choisissez
+- **Champs** — conserve les initiatives dont les propres champs (les attributs du type Initiative) correspondent aux valeurs que vous choisissez Les champs d'une section qu'un administrateur a marquée **Masqué des filtres** ne sont pas affichés, mais la pastille **Ajouter un filtre** au bout de la ligne les liste, avec une recherche par nom de champ ou de section ; un champ ajouté a un bouton **×** qui le retire avec ses valeurs. **Ajouter un filtre** propose aussi les champs texte, nombre et date — un code qui contient un texte, un budget entre deux montants, une plage de dates — et les champs de coût aux personnes autorisées à voir les coûts (voir [Ajouter des champs à filtrer](reports.md#add-filter))
 
-Les filtres actifs sont conservés dans l'URL et mémorisés avec le reste du portefeuille : un lien que vous partagez ouvre donc le même portefeuille, et ils sont listés dans la ligne de paramètres d'une impression ou d'un export. **Tout effacer** vide la section Filtres et laisse le reste de la barre d'outils tel quel.
+Les filtres actifs sont conservés dans l'URL et mémorisés avec le reste du portefeuille : un lien que vous partagez ouvre donc le même portefeuille, et ils sont listés dans la ligne de paramètres d'une impression ou d'un export. Les champs que vous avez ajoutés voyagent dans le lien et sont eux aussi mémorisés. **Tout effacer** vide les valeurs de la section Filtres, conserve les champs ajoutés et laisse le reste de la barre d'outils tel quel ; **Réinitialiser les paramètres par défaut** retire aussi les champs ajoutés.
 
 #### Afficher la hiérarchie des initiatives
 

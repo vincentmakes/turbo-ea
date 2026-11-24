@@ -807,5 +807,15 @@
   "spreadsheetImport.doneSkipped_other": "{{count}} rækker blev sprunget over.",
   "spreadsheetImport.doneFailed_one": "{{count}} række blev ikke importeret på grund af fejl.",
   "spreadsheetImport.doneFailed_other": "{{count}} rækker blev ikke importeret på grund af fejl.",
-  "filter.clearSection": "Ryd {{section}}-filtre"
+  "filter.clearSection": "Ryd {{section}}-filtre",
+  "fieldFilters.add": "Tilføj filter",
+  "fieldFilters.search": "Søg i felter",
+  "fieldFilters.searchPlaceholder": "Felt eller sektion",
+  "fieldFilters.clearSearch": "Ryd søgning",
+  "fieldFilters.noMatch": "Ingen felter matcher",
+  "fieldFilters.remove": "Fjern filteret {{field}}",
+  "fieldFilters.clearValue": "Ryd filteret {{field}}",
+  "fieldFilters.containsPlaceholder": "Indeholder…",
+  "fieldFilters.rangeFrom": "{{field}} fra",
+  "fieldFilters.rangeTo": "{{field}} til"
 }

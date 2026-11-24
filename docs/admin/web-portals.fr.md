@@ -161,10 +161,10 @@ Sur un portail **Liste de fiches**, la section **Filtres des fiches** restreint 
 |-------|---------------------------|
 | **Lié par** | liées à l'une des fiches choisies — un contrôle par type de fiche lié, plus un par relation lorsque plusieurs relations mènent au même type. **Inclure les sous-fiches** compte aussi une fiche liée à un élément situé sous une sélection |
 | **Étiquettes** | portant une étiquette choisie : n'importe quelle étiquette d'un même groupe, et une de chaque groupe dans lequel vous choisissez |
-| **Champs** | ayant un sous-type choisi, ou une valeur choisie dans l'un des champs de sélection ou oui/non de la fiche |
+| **Champs** | ayant un sous-type choisi, ou une valeur choisie dans l'un des champs de sélection ou oui/non de la fiche Les champs texte, nombre et date peuvent être ajoutés via **Ajouter un filtre** : un champ texte conserve les fiches dont la valeur contient ce que vous saisissez (sans tenir compte de la casse), un champ nombre ou pourcentage les fiches comprises entre un minimum et un maximum, un champ date les fiches comprises entre deux jours |
 | **Sous-types de relation** | ayant une relation dont l'attribut (par exemple *Type d'usage*) porte une valeur choisie |
 
-Chaque contrôle propose aussi **(vide)**, pour les fiches sans valeur, sans relation ou sans sous-type. Les visiteurs ne voient jamais que les fiches correspondantes : les filtres qu'ils choisissent sur le portail restreignent davantage la liste, sans jamais l'élargir, et les réglages de filtre eux-mêmes ne sont jamais envoyés au navigateur du visiteur.
+Chaque contrôle de sélection propose aussi **(vide)**, pour les fiches sans valeur, sans relation ou sans sous-type ; un filtre texte, nombre ou date ne conserve que les fiches qui ont une valeur. Un portail ne filtre jamais sur les champs de coût : la boîte de dialogue ne les propose pas, quelles que soient vos propres permissions. Les visiteurs ne voient que les fiches correspondantes : les filtres qu'ils choisissent sur le portail restreignent encore la liste, jamais ne l'élargissent, et les réglages de filtre eux-mêmes ne sont jamais envoyés au navigateur du visiteur.
 
 !!! note
     Un portail créé avant la version 2.178.0 conserve ses filtres de sous-types et d'étiquettes tels quels jusqu'à son prochain enregistrement. Ensuite, des étiquettes choisies dans deux groupes différents doivent toutes deux figurer sur une fiche, comme dans le rapport de portefeuille.
@@ -193,6 +193,20 @@ Initiative, ajoutez un champ **Pourcentage** au type Initiative, alimentez-le pa
 Quelles informations apparaissent lorsqu'un visiteur clique sur une fiche :
 
 - Mêmes contrôles de bascule que la vue liste, mais pour le panneau de détail développé
+
+### Filtres visiteur
+
+Sur un portail **Liste de fiches**, le tableau d'affichage comporte une troisième colonne, **Filtre visiteur**. Une ligne cochée apparaît dans la barre de filtres des visiteurs :
+
+- **Sous-type** (une ligne à part, lorsque le type de fiche a des sous-types), **Tags**, chaque **type de relation** et chaque champ filtrable : champs de sélection et oui/non (choix de valeurs, **(vide)** compris), champs texte (« contient »), champs nombre et pourcentage (une plage) et champs date (une plage).
+- **Un filtre exige que la propriété soit affichée.** Une ligne affichée ni sur la fiche résumée ni dans le détail étendu a sa case de filtre grisée : un visiteur ne peut jamais filtrer sur ce que le portail ne publie pas.
+- **Les champs de coût ne sont jamais filtrables sur un portail** et n'ont pas de case.
+
+Tant que vous ne modifiez pas la colonne, elle suit la valeur par défaut : le sous-type, les tags, chaque champ de sélection affiché avec des options et chaque type de relation affiché — la barre de filtres que les portails ont toujours eue — moins les champs d'une section marquée **Masqué des filtres** dans la disposition de la fiche. Tant que la colonne reste à sa valeur par défaut, rien n'est enregistré : un champ ajouté plus tard au type de fiche suit donc la même règle.
+
+Sous le tableau, **Les visiteurs peuvent ajouter d'autres filtres** (activé par défaut) permet aux visiteurs d'ajouter tout autre champ affiché via une pastille **Ajouter un filtre** dans leur barre de filtres. Leur navigateur mémorise les champs ajoutés, jamais les valeurs. Les filtres de sous-type, de tags et de relation n'y sont pas proposés : ils n'apparaissent que s'ils sont cochés. Désactivez l'option et les visiteurs obtiennent exactement les filtres cochés ; le portail ignore tout autre filtre qui lui est envoyé.
+
+Les filtres visiteur restreignent toujours les fiches que conservent les filtres de fiches du portail, sans jamais les élargir. Un filtre de tags correspond comme dans les rapports : n'importe quel tag au sein d'un groupe, et un de chaque groupe choisi.
 
 ## Accès au portail
 
