@@ -92,7 +92,17 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.image }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+          # `ignore-error=true`: a failed cache UPLOAD must not fail the publish.
+          # The cache is exported after the images are pushed, and on
+          # 2026-11-24 the Actions cache service answered 503 ("no healthy
+          # upstream") twice: the `backend` build on main and the `nginx` build
+          # of the v2.213.0 tag. Each time the tags were already on GHCR, but the
+          # failed step skipped cosign signing, the signature check and the
+          # Trivy gate, so `nginx:2.213.0` / `:latest` went out unsigned and
+          # unscanned. A lost cache only costs the next build its speed.
+          # `cache-from` needs nothing: a failed cache read is a cold build.
+          # Pinned by backend/tests/services/test_publish_image_matrix.py.
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }},ignore-error=true
           # Bypass build cache on scheduled and manual runs so `apk upgrade`
           # actually re-runs against fresh alpine repos. Regular push builds
           # keep the cache for speed (~1m vs ~14m).

@@ -224,3 +224,30 @@ class TestNginxBaseIsPatched:
         assert not _nginx_is_patched(1, 31, 8)
         assert not _nginx_is_patched(1, 29, 9)
         assert not _nginx_is_patched(0, 31, 9)
+
+
+class TestCacheUploadCannotFailThePublish:
+    """The build cache is exported after the images are pushed.
+
+    On 2026-11-24 the Actions cache service answered 503 twice during that export
+    (``backend`` on ``main``, ``nginx`` on the ``v2.213.0`` tag). The tags were
+    already on GHCR, but the failed step skipped signing, the signature check and
+    the Trivy gate, so ``nginx:2.213.0`` and ``:latest`` were published unsigned
+    and unscanned. ``ignore-error=true`` makes a cache upload failure a warning.
+    """
+
+    _CACHE_TO_RE = re.compile(r"^\s*cache-to:\s*(.+?)\s*$", re.MULTILINE)
+
+    def _cache_to(self) -> list[str]:
+        text = (_WORKFLOWS / "docker-publish.yml").read_text(encoding="utf-8")
+        return self._CACHE_TO_RE.findall(text)
+
+    def test_the_publish_exports_its_cache_once(self):
+        assert len(self._cache_to()) == 1, self._cache_to()
+
+    def test_a_failed_cache_upload_is_ignored(self):
+        options = [option.strip() for option in self._cache_to()[0].split(",")]
+        assert "ignore-error=true" in options, (
+            "docker-publish.yml: `cache-to` must carry `ignore-error=true`, or an "
+            "Actions-cache outage fails the publish after the push and skips signing"
+        )
