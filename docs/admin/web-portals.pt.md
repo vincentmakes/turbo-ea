@@ -170,14 +170,18 @@ Os portais de portefólio PPM e de navegador de processos mantêm os seus própr
 
 ## Configurando Visibilidade
 
-Para cada portal, você controla exatamente quais informações são visíveis. Há dois contextos:
+Para cada portal, você controla exatamente quais informações são visíveis.
+
+A tabela de exibição lista as linhas em grupos: **Geral** (as propriedades incorporadas), depois cada seção do layout do tipo de card com seus campos, em **Campos personalizados**, e por fim **Itens relacionados**. A linha de cabeçalho de cada grupo tem uma caixa de seleção em cada coluna que marca ou desmarca de uma só vez todas as linhas do grupo; ela fica meio preenchida enquanto apenas algumas estão marcadas. A seta no início de uma linha de cabeçalho recolhe o grupo, e as caixas continuam funcionando com ele recolhido, de modo que uma seção longa, como a que uma extensão adiciona, pode ser ativada ou desativada sem abri-la.
+
+Há dois contextos:
 
 ### Propriedades da Visualização em Lista
 
 Quais colunas/propriedades aparecem na lista de cards:
 
 - **Propriedades incorporadas**: descrição, ciclo de vida, tags, qualidade dos dados, status de aprovação
-- **Campos personalizados**: Cada campo do esquema do tipo de card pode ser alternado individualmente
+- **Campos personalizados**: Cada campo do esquema do tipo de card, agrupado por seção, pode ser alternado um a um ou uma seção inteira de cada vez
 
 A barra de **qualidade dos dados** é a pontuação de completude do card — quantos dos seus campos estão preenchidos — e não o progresso do projeto. Para publicar o progresso real de uma Iniciativa, adicione um campo **Porcentagem** ao tipo Iniciativa, preencha-o com um cálculo sobre `ppm.completion` e marque esse campo aqui; a receita está em [Cálculos](calculations.md#show-initiative-progress-on-a-card-or-a-portal).
 

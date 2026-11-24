@@ -153,14 +153,18 @@ The PPM portfolio and process navigator portals keep their own **Subtypes** and 
 
 ## Configuring Visibility
 
-For each portal, you control exactly which information is visible. There are two contexts:
+For each portal, you control exactly which information is visible.
+
+The display table lists the rows in groups: **General** (the built-in properties), then each section of the card type's layout with its fields, under **Custom fields**, then **Related items**. Each group's header row has a checkbox in every column that ticks or unticks all of the group's rows at once; it is half-filled while only some are ticked. The arrow at the start of a header row folds the group away, and its checkboxes keep working while it is folded, so a long section such as one an extension adds can be switched on or off without opening it.
+
+There are two contexts:
 
 ### List View Properties
 
 What columns/properties appear in the card list:
 
 - **Built-in properties**: description, lifecycle, tags, data quality, approval status
-- **Custom fields**: Each field from the card type's schema can be individually toggled
+- **Custom fields**: Each field from the card type's schema, grouped by section, can be toggled one by one or a whole section at a time
 
 The **data quality** bar is the card's completeness score — how many of its fields are filled
 in — not project progress. To publish an Initiative's real progress, add a **Percentage** field

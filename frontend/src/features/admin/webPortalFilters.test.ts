@@ -11,7 +11,7 @@ import {
   portalFiltersBody,
   shownOnPortal,
   storedVisitorFilters,
-  toggleVisitorFilter,
+  toggleVisitorFilters,
   visitorFiltersBody,
   type VisitorFilterInput,
 } from "./webPortalFilters";
@@ -302,15 +302,35 @@ describe("the visitor filter selection", () => {
   });
 
   it("ticks and unticks from what is checked now", () => {
-    const ticked = toggleVisitorFilter(null, INPUT, "field:code", true);
+    const ticked = toggleVisitorFilters(null, INPUT, ["field:code"], true);
     expect(ticked).toEqual(["subtype", "tags", "field:single", "field:multi", "rel:r1", "field:code"]);
-    expect(toggleVisitorFilter(ticked, INPUT, "field:code", false)).toEqual(defaultVisitorFilters(INPUT));
-    expect(toggleVisitorFilter(null, INPUT, "tags", false)).toEqual([
+    expect(toggleVisitorFilters(ticked, INPUT, ["field:code"], false)).toEqual(defaultVisitorFilters(INPUT));
+    expect(toggleVisitorFilters(null, INPUT, ["tags"], false)).toEqual([
       "subtype",
       "field:single",
       "field:multi",
       "rel:r1",
     ]);
+  });
+
+  it("ticks and unticks a whole group, leaving what cannot be a filter and the rest as they are", () => {
+    // code and notes are not on by default; spend is a cost field, r2 is shown nowhere.
+    const keys = ["field:code", "field:notes", "field:spend", "rel:r2", "field:code"];
+    expect(toggleVisitorFilters(null, INPUT, keys, true)).toEqual([
+      "subtype",
+      "tags",
+      "field:single",
+      "field:multi",
+      "rel:r1",
+      "field:code",
+      "field:notes",
+    ]);
+    expect(toggleVisitorFilters(null, INPUT, ["field:single", "field:multi", "rel:r2"], false)).toEqual([
+      "subtype",
+      "tags",
+      "rel:r1",
+    ]);
+    expect(toggleVisitorFilters(["tags"], INPUT, [], true)).toEqual(["tags"]);
   });
 
   it("sends a list only when it differs from the default, in any order", () => {

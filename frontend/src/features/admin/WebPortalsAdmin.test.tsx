@@ -774,6 +774,39 @@ describe("WebPortalsAdmin — visitor filters (#1425)", () => {
     expect(lastBody("post").card_config).toBeNull();
   });
 
+  it("groups the fields by section, and a section's box ticks and saves every field in it", async () => {
+    const { user } = await newApplicationPortal();
+    const d = dialog();
+    // The Description section's own field is a group of its own, labelled like card detail.
+    expect(
+      d.getByRole("checkbox", { name: t("webPortals.groupOnCard", { section: tc("labels.description") }) }),
+    ).toBeChecked();
+    const sectionCard = d.getByRole("checkbox", {
+      name: t("webPortals.groupOnCard", { section: "Business Information" }),
+    });
+    // Two of its fields are among the first three on the card: the box is half-filled.
+    expect(sectionCard).toHaveAttribute("data-indeterminate", "true");
+    await user.click(sectionCard);
+    expect(sectionCard).toBeChecked();
+    expect(d.getByRole("checkbox", { name: t("webPortals.showOnCard", { item: "Notes" }) })).toBeChecked();
+
+    await user.click(d.getByRole("button", { name: /^create$/i }));
+    await waitFor(() => expect(mockApi.callsOf("post", "/web-portals")).toHaveLength(1));
+    const toggles = (lastBody("post").card_config as { toggles: Record<string, unknown> }).toggles;
+    const keys = [
+      "businessCriticality",
+      "costTotalAnnual",
+      "isCloud",
+      "goLiveDate",
+      "coverage",
+      "regions",
+      "vendorScore",
+      "docsUrl",
+      "notes",
+    ];
+    expect(toggles).toEqual(Object.fromEntries(keys.map((k) => [`field:${k}`, { card: true, detail: true }])));
+  });
+
   it("sends the ticked filters once they differ from the default", async () => {
     const { user } = await newApplicationPortal();
     await user.click(box("Alias"));

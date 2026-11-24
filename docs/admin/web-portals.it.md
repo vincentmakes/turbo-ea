@@ -171,14 +171,18 @@ I portali del portafoglio PPM e del navigatore dei processi mantengono i propri 
 
 ## Configurazione della visibilità
 
-Per ogni portale, controllate esattamente quali informazioni sono visibili. Ci sono due contesti:
+Per ogni portale, controllate esattamente quali informazioni sono visibili.
+
+La tabella di visualizzazione elenca le righe in gruppi: **Generale** (le proprietà predefinite), poi ogni sezione del layout del tipo di card con i suoi campi, sotto **Campi personalizzati**, quindi **Elementi correlati**. La riga di intestazione di ogni gruppo ha una casella in ogni colonna che seleziona o deseleziona in una volta tutte le righe del gruppo; è semipiena finché ne sono selezionate solo alcune. La freccia all'inizio di una riga di intestazione comprime il gruppo e le sue caselle continuano a funzionare anche da compresso, così una sezione lunga, come quella aggiunta da un'estensione, si può attivare o disattivare senza aprirla.
+
+Ci sono due contesti:
 
 ### Proprietà della vista elenco
 
 Quali colonne/proprietà appaiono nell'elenco delle card:
 
 - **Proprietà predefinite**: descrizione, ciclo di vita, tag, qualità dei dati, stato di approvazione
-- **Campi personalizzati**: Ogni campo dallo schema del tipo di card può essere attivato/disattivato individualmente
+- **Campi personalizzati**: Ogni campo dallo schema del tipo di card, raggruppato per sezione, può essere attivato/disattivato singolarmente o per un'intera sezione alla volta
 
 La barra della **qualità dei dati** è il punteggio di completezza della card — quanti dei suoi campi sono compilati — non l'avanzamento del progetto. Per pubblicare l'avanzamento reale di un'Iniziativa, aggiungete al tipo Iniziativa un campo **Percentuale**, alimentatelo con un calcolo su `ppm.completion` e spuntate quel campo qui; la ricetta è in [Calcoli](calculations.md#show-initiative-progress-on-a-card-or-a-portal).
 

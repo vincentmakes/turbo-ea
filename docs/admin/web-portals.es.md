@@ -172,14 +172,18 @@ Los portales de portafolio PPM y de navegador de procesos conservan sus propios 
 
 ## Configuración de Visibilidad
 
-Para cada portal, usted controla exactamente qué información es visible. Hay dos contextos:
+Para cada portal, usted controla exactamente qué información es visible.
+
+La tabla de visualización lista las filas por grupos: **General** (las propiedades incorporadas), después cada sección del diseño del tipo de ficha con sus campos, bajo **Campos personalizados**, y por último **Elementos relacionados**. La fila de encabezado de cada grupo tiene una casilla en cada columna que marca o desmarca de una vez todas las filas del grupo; aparece a medio rellenar mientras solo algunas están marcadas. La flecha al inicio de una fila de encabezado contrae el grupo, y sus casillas siguen funcionando contraído, de modo que una sección larga, como la que añade una extensión, puede activarse o desactivarse sin abrirla.
+
+Hay dos contextos:
 
 ### Propiedades de la Vista de Lista
 
 Qué columnas/propiedades aparecen en la lista de fichas:
 
 - **Propiedades incorporadas**: descripción, ciclo de vida, etiquetas, calidad de datos, estado de aprobación
-- **Campos personalizados**: Cada campo del esquema del tipo de ficha puede activarse o desactivarse individualmente
+- **Campos personalizados**: Cada campo del esquema del tipo de ficha, agrupado por sección, puede activarse o desactivarse uno a uno o una sección entera a la vez
 
 La barra de **calidad de datos** es la puntuación de completitud de la ficha —cuántos de sus campos están rellenados—, no el avance del proyecto. Para publicar el avance real de una Iniciativa, añada un campo **Porcentaje** al tipo Iniciativa, rellénelo con un cálculo sobre `ppm.completion` y marque ese campo aquí; la receta está en [Cálculos](calculations.md#show-initiative-progress-on-a-card-or-a-portal).
 

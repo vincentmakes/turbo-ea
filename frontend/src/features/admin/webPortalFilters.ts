@@ -175,15 +175,22 @@ export function effectiveVisitorFilters(
   return eligibleVisitorFilters(input).filter((k) => chosen.has(k));
 }
 
-/** The selection with `key` ticked or unticked, starting from what is checked now. */
-export function toggleVisitorFilter(
+/**
+ * The selection with every key of `keys` that can be a filter now ticked or
+ * unticked, starting from what is checked now — one row's checkbox in the
+ * display table, or a group's. A key that cannot be a filter (its property
+ * shown nowhere) is left as it is.
+ */
+export function toggleVisitorFilters(
   selection: readonly string[] | null,
   input: VisitorFilterInput,
-  key: string,
+  keys: readonly string[],
   checked: boolean,
 ): string[] {
-  const current = effectiveVisitorFilters(selection, input).filter((k) => k !== key);
-  return checked ? [...current, key] : current;
+  const eligible = new Set(eligibleVisitorFilters(input));
+  const picked = new Set(keys.filter((k) => eligible.has(k)));
+  const current = effectiveVisitorFilters(selection, input).filter((k) => !picked.has(k));
+  return checked ? [...current, ...picked] : current;
 }
 
 /**

@@ -173,14 +173,18 @@ Les portails de portefeuille PPM et de navigateur de processus conservent leurs 
 
 ## Configuration de la visibilité
 
-Pour chaque portail, vous contrôlez exactement quelles informations sont visibles. Il y a deux contextes :
+Pour chaque portail, vous contrôlez exactement quelles informations sont visibles.
+
+Le tableau d'affichage présente les lignes par groupes : **Général** (les propriétés intégrées), puis chaque section de la mise en page du type de fiche avec ses champs, sous **Champs personnalisés**, puis **Éléments liés**. La ligne d'en-tête de chaque groupe comporte une case à cocher dans chaque colonne, qui coche ou décoche d'un coup toutes les lignes du groupe ; elle est à moitié remplie tant que seules certaines lignes sont cochées. La flèche au début d'une ligne d'en-tête replie le groupe, et ses cases continuent de fonctionner lorsqu'il est replié : une longue section, par exemple celle qu'ajoute une extension, peut ainsi être activée ou désactivée sans l'ouvrir.
+
+Il y a deux contextes :
 
 ### Propriétés de la vue liste
 
 Quelles colonnes/propriétés apparaissent dans la liste des fiches :
 
 - **Propriétés intégrées** : description, cycle de vie, tags, qualité des données, statut d'approbation
-- **Champs personnalisés** : Chaque champ du schema du type de fiche peut être activé/désactivé individuellement
+- **Champs personnalisés** : Chaque champ du schema du type de fiche, regroupé par section, peut être activé/désactivé un par un ou section par section
 
 La barre de **qualité des données** est le score de complétude de la fiche — combien de ses
 champs sont renseignés — et non l'avancement du projet. Pour publier l'avancement réel d'une

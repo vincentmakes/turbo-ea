@@ -168,14 +168,18 @@ PPM-porteføljeportaler og procesnavigatorportaler beholder deres egne vælgere 
 
 ## Konfiguration af synlighed
 
-For hver portal styrer du præcis, hvilken information der er synlig. Der er to kontekster:
+For hver portal styrer du præcis, hvilken information der er synlig.
+
+Visningstabellen viser rækkerne i grupper: **Generelt** (de indbyggede egenskaber), derefter hver sektion i korttypens layout med sine felter under **Brugerdefinerede felter**, og til sidst **Relaterede elementer**. Hver gruppes overskriftsrække har et afkrydsningsfelt i hver kolonne, der markerer eller fjerner markeringen af alle gruppens rækker på én gang; det er halvt udfyldt, så længe kun nogle er markeret. Pilen i begyndelsen af en overskriftsrække skjuler gruppen, og dens afkrydsningsfelter virker stadig, mens den er skjult, så en lang sektion, f.eks. en som en udvidelse tilføjer, kan slås til eller fra uden at åbne den.
+
+Der er to kontekster:
 
 ### Listevisnings-egenskaber
 
 Hvilke kolonner/egenskaber der vises i kortlisten:
 
 - **Indbyggede egenskaber**: beskrivelse, livscyklus, tags, datakvalitet, godkendelsesstatus
-- **Brugerdefinerede felter**: Hvert felt fra korttypens skema kan slås individuelt til/fra
+- **Brugerdefinerede felter**: Hvert felt fra korttypens skema, grupperet efter sektion, kan slås til/fra enkeltvis eller en hel sektion ad gangen
 
 **Datakvalitets**-bjælken er kortets fuldstændighedsscore — hvor mange af dets felter der er udfyldt — ikke projektets fremdrift. For at udgive et initiativs reelle fremdrift skal du tilføje et **Procent**-felt til Initiative-typen, udfylde det med en beregning over `ppm.completion` og markere feltet her; opskriften står under [Beregninger](calculations.md#show-initiative-progress-on-a-card-or-a-portal).
 

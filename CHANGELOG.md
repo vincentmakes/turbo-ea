@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 - Web portal filters now take several values each and offer "(empty)" for cards with no value.
 - In a web portal's filter bar, tags picked from different tag groups must all match; tags from one group still match any of them.
+- The web portal editor's display table groups the fields under their card-layout sections, each with a checkbox per column that ticks or unticks the whole section; a section can be folded away.
 
 ### Fixed
 - A web portal filter on a multiple-select field never matched any card.

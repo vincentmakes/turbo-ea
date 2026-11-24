@@ -171,14 +171,18 @@ PPM-Portfolio- und Prozessnavigator-Portale behalten ihre eigenen Auswahlfelder 
 
 ## Sichtbarkeit konfigurieren
 
-Für jedes Portal steuern Sie genau, welche Informationen sichtbar sind. Es gibt zwei Kontexte:
+Für jedes Portal steuern Sie genau, welche Informationen sichtbar sind.
+
+Die Anzeigetabelle listet die Zeilen in Gruppen auf: **Allgemein** (die eingebauten Eigenschaften), dann jeden Abschnitt des Layouts des Kartentyps mit seinen Feldern unter **Benutzerdefinierte Felder**, dann **Verknüpfte Elemente**. Die Kopfzeile jeder Gruppe hat in jeder Spalte ein Kontrollkästchen, das alle Zeilen der Gruppe auf einmal aktiviert oder deaktiviert; es ist halb gefüllt, solange nur einige aktiviert sind. Mit dem Pfeil am Anfang einer Kopfzeile klappen Sie die Gruppe ein, und ihre Kontrollkästchen funktionieren auch eingeklappt weiter – so lässt sich ein langer Abschnitt, etwa von einer Erweiterung hinzugefügt, ein- oder ausschalten, ohne ihn zu öffnen.
+
+Es gibt zwei Kontexte:
 
 ### Listenansicht-Eigenschaften
 
 Welche Spalten/Eigenschaften in der Kartenliste erscheinen:
 
 - **Eingebaute Eigenschaften**: Beschreibung, Lebenszyklus, Tags, Datenqualität, Genehmigungsstatus
-- **Benutzerdefinierte Felder**: Jedes Feld aus dem Kartentypschema kann einzeln umgeschaltet werden
+- **Benutzerdefinierte Felder**: Jedes Feld aus dem Kartentypschema, nach Abschnitt gruppiert, kann einzeln oder abschnittsweise umgeschaltet werden
 
 Der Balken **Datenqualität** ist der Vollständigkeitsgrad der Karte — wie viele ihrer Felder ausgefüllt sind — und nicht der Projektfortschritt. Um den tatsächlichen Fortschritt einer Initiative zu veröffentlichen, fügen Sie dem Typ Initiative ein Feld **Prozentsatz** hinzu, füllen es mit einer Berechnung über `ppm.completion` und haken dieses Feld hier an; die Anleitung steht unter [Berechnungen](calculations.md#show-initiative-progress-on-a-card-or-a-portal).
 
