@@ -423,12 +423,8 @@ async def load_portal_visibility(
     visible = visible_relation_type_keys(toggles, [key for key, _ in pairs])
     exposed = exposed_field_keys(toggles, public_field_keys(public))
     built_ins = exposed_built_ins(toggles)
-    shape = {
-        "exposed_fields": exposed,
-        "has_subtypes": isinstance(subtypes, list) and len(subtypes) > 0,
-        "shows_tags": "tags" in built_ins,
-        "relation_types": visible,
-    }
+    has_subtypes = isinstance(subtypes, list) and len(subtypes) > 0
+    shows_tags = "tags" in built_ins
     return PortalVisibility(
         exposed_fields=exposed,
         built_ins=built_ins,
@@ -436,8 +432,20 @@ async def load_portal_visibility(
         relation_other_types={key: other for key, other in pairs if key in visible},
         visitor_filters=visitor_filter_lists(
             card_config,
-            publishable=publishable_filters(public, **shape),
-            default=default_shown_filters(public, **shape),
+            publishable=publishable_filters(
+                public,
+                exposed_fields=exposed,
+                has_subtypes=has_subtypes,
+                shows_tags=shows_tags,
+                relation_types=visible,
+            ),
+            default=default_shown_filters(
+                public,
+                exposed_fields=exposed,
+                has_subtypes=has_subtypes,
+                shows_tags=shows_tags,
+                relation_types=visible,
+            ),
         ),
         field_types={f["key"]: str(f.get("type") or "") for f, _ in _schema_fields(public)},
     )

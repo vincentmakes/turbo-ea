@@ -871,8 +871,8 @@ def _visitor_filter_items(
     for key in keys:
         if not isinstance(key, str):
             continue
-        a = (key in was) if was_list else None
-        b = (key in now) if now_list else None
+        a = (key in _as_list(was)) if was_list else None
+        b = (key in _as_list(now)) if now_list else None
         if a != b:
             out.append(
                 item(
