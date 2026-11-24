@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 import pytest
 
 from app.schemas.ppm_fields import PmlSectionConfig
@@ -707,3 +709,24 @@ def test_core_budget_root_works_with_legacy_custom_budget_key():
     )
     with pytest.raises(PmlFieldError):
         validate_section_config("cost_item", invalid)
+
+
+@pytest.mark.parametrize(
+    ("expression", "expected"),
+    [
+        ("data.amount * (1 / 2)", "5.10"),
+        ("LN(1) + data.amount", "10.20"),
+        ("LN(data.amount)", str(Decimal("10.20").ln())),
+        ("ROUND(data.amount / 3, 1)", "3.4"),
+    ],
+)
+def test_core_financial_formula_decimal_operations(expression, expected):
+    config = _config(
+        _calculated(
+            "result", {}, result_type="number", formula_engine="core", expression=expression
+        )
+    )
+    validate_section_config("budget", config)
+    values, errors = evaluate_row_fields(config, {}, {"amount": "10.20"})
+    assert errors == {}
+    assert Decimal(values["result"]) == Decimal(expected)

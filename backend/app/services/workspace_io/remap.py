@@ -50,6 +50,7 @@ from app.services.bo_relationship_constants import (
     ER_RELATION,
 )
 from app.services.drawio_refs import extract_card_refs
+from app.services.ppm_fields import PROVIDER_INPUTS
 
 CARDS = "cards"
 RELATIONS = "relations"
@@ -219,7 +220,7 @@ def rewrite_pml_field_configuration(
         for item in fields
         if item.get("kind") == "card_reference" and isinstance(item.get("key"), str)
     }
-    card_keys.update(("provider.effective", "provider.budget"))
+    card_keys.update(PROVIDER_INPUTS)
 
     def rewrite_condition(condition: Any, aliases: set[str]) -> None:
         if not isinstance(condition, dict):

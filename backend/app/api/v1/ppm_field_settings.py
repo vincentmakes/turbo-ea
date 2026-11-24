@@ -29,6 +29,7 @@ from app.schemas.ppm_fields import (
 from app.services.card_read_scope import CardReadScope
 from app.services.permission_service import PermissionService
 from app.services.ppm_fields import (
+    PROVIDER_INPUTS,
     STANDARD_INPUTS,
     PmlFieldError,
     evaluate_row_fields,
@@ -103,7 +104,7 @@ def _reference_pairs(config: PmlSectionConfig, field) -> set[tuple[uuid.UUID, st
     card_types = {
         item.key: item.card_type for item in config.fields if item.kind == "card_reference"
     }
-    card_types.update({"provider.effective": "Provider", "provider.budget": "Provider"})
+    card_types.update(dict.fromkeys(PROVIDER_INPUTS, "Provider"))
     card_aliases = {
         key: card_types[source]
         for key, source in calculation.inputs.items()
@@ -354,13 +355,7 @@ async def preview_field(
         if field.kind == "card_reference"
     }
     if section == "cost_item":
-        card_fields.update(
-            {
-                "provider.effective": "Provider",
-                "provider.budget": "Provider",
-                "budget.provider": "Provider",
-            }
-        )
+        card_fields.update(dict.fromkeys(PROVIDER_INPUTS, "Provider"))
     scope = await CardReadScope.load(db, user, include_subtype_denials=True)
     for key, value in body.sample_values.items():
         if key not in card_fields or value is None:

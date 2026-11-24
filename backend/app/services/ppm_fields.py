@@ -32,6 +32,9 @@ class PmlFieldError(ValueError):
         super().__init__(str(errors))
 
 
+PROVIDER_INPUTS = frozenset({"provider.effective", "provider.budget", "budget.provider"})
+
+
 STANDARD_INPUTS = {
     "budget": {"fiscal_year", "category", "description", "amount"},
     "cost_item": {

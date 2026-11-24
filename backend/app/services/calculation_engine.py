@@ -563,10 +563,27 @@ def _evaluate_formula(
     if not lines:
         raise ValueError("Empty formula")
 
+    operators = NULL_SAFE_OPERATORS if blanks_as_zero else DEFAULT_OPERATORS
+    functions = SAFE_FUNCTIONS
+    if decimal_numbers:
+        divide = operators[ast.Div]
+
+        def decimal_divide(left, right):
+            if isinstance(left, int) and isinstance(right, int):
+                left = Decimal(left)
+            return divide(left, right)
+
+        def decimal_ln(value):
+            if not isinstance(value, (int, float, Decimal)) or value <= 0:
+                return None
+            return Decimal(str(value)).ln()
+
+        operators = {**operators, ast.Div: decimal_divide}
+        functions = {**functions, "LN": decimal_ln}
     evaluator = (_DecimalIfEval if decimal_numbers else _LazyIfEval)(
         names=dict(context),  # copy — assignments mutate this
-        functions=SAFE_FUNCTIONS,
-        operators=NULL_SAFE_OPERATORS if blanks_as_zero else None,  # None → defaults
+        functions=functions,
+        operators=operators,
     )
 
     # `lines` is not empty, so the loop always binds `result`.

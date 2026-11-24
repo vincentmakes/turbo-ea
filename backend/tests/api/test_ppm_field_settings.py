@@ -1171,3 +1171,97 @@ async def test_core_formula_preview_accepts_direct_select_and_provider(client, d
         )
         assert response.status_code == 200, response.text
         assert response.json() == {"value": expected, "errors": {}}
+
+
+async def test_budget_provider_rule_reference_is_protected(client, db, ppm_env):
+    await create_role(
+        db,
+        key="budget_provider_hidden",
+        permissions={"admin.settings": True, "inventory.view": True},
+    )
+    await create_card_type(
+        db,
+        key="Provider",
+        label="Provider",
+        role_permissions={"budget_provider_hidden": {"inventory.view": False}},
+    )
+    provider = await create_card(db, card_type="Provider", name="Restricted Provider")
+    scoped = await create_user(
+        db, role="budget_provider_hidden", email="budget-provider-hidden@example.test"
+    )
+    config = _config(
+        _field(
+            "classification",
+            "calculated",
+            calculation={
+                "result_type": "text",
+                "inputs": {"source": "budget.provider"},
+                "rules": [
+                    {
+                        "when": {"input": "source", "op": "eq", "value": str(provider.id)},
+                        "then": "internal",
+                    }
+                ],
+                "fallback": "other",
+            },
+        )
+    )
+    admin_headers = auth_headers(ppm_env["admin"])
+    scoped_headers = auth_headers(scoped)
+    denied = await client.put(f"{SETTINGS}/cost_item", json=config, headers=scoped_headers)
+    assert denied.status_code == 422
+    saved = await client.put(f"{SETTINGS}/cost_item", json=config, headers=admin_headers)
+    assert saved.status_code == 200, saved.text
+    fetched = await client.get(SETTINGS, headers=scoped_headers)
+    assert fetched.status_code == 200
+    assert str(provider.id) not in fetched.text
+    assert fetched.json()["cost_item"]["fields"][0]["protected"] is True
+
+
+async def test_decimal_core_formula_preview_matches_budget_projection(client, ppm_env):
+    from decimal import Decimal
+
+    headers = auth_headers(ppm_env["admin"])
+    config = _config(
+        _field(
+            "half",
+            "calculated",
+            calculation={
+                "result_type": "number",
+                "inputs": {},
+                "formula_engine": "core",
+                "expression": "data.amount * (1 / 2) + LN(1)",
+            },
+        )
+    )
+    preview = await client.post(
+        f"{SETTINGS}/budget/preview",
+        json={
+            "configuration": config,
+            "field_key": "half",
+            "sample_values": {"amount": "10.20"},
+        },
+        headers=headers,
+    )
+    assert preview.status_code == 200, preview.text
+    assert not preview.json()["errors"]
+    assert Decimal(preview.json()["value"]) == Decimal("5.10")
+    saved = await client.put(f"{SETTINGS}/budget", json=config, headers=headers)
+    assert saved.status_code == 200, saved.text
+    base = f"/api/v1/ppm/initiatives/{ppm_env['initiative'].id}"
+    budget = await client.post(
+        f"{base}/budgets",
+        json={
+            "fiscal_year": 2026,
+            "category": "opex",
+            "amount": "10.20",
+        },
+        headers=headers,
+    )
+    assert budget.status_code == 200, budget.text
+    financials = await client.get(f"{base}/financials", headers=headers)
+    assert financials.status_code == 200, financials.text
+    entry = next(
+        row for row in financials.json()["budget_lines"] if row["id"] == budget.json()["id"]
+    )
+    assert Decimal(entry["calculated_values"]["half"]) == Decimal("5.10")

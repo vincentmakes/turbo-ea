@@ -1944,3 +1944,31 @@ def test_pml_historical_id_survives_reexport_and_repeated_restore():
     unrelated = str(uuid.uuid4())
     with pytest.raises(ValueError, match="unresolved"):
         remap.pml_card_id(unrelated, reexport_ctx, remap.RewriteTally())
+
+
+def test_pml_budget_provider_condition_rewrites_reference():
+    from app.services.workspace_io import remap
+
+    source, target = str(uuid.uuid4()), str(uuid.uuid4())
+    ctx = remap.RemapContext()
+    ctx.ids.record(remap.CARDS, source, target)
+    config = {
+        "fields": [
+            {
+                "key": "result",
+                "kind": "calculated",
+                "calculation": {
+                    "inputs": {"source": "budget.provider"},
+                    "rules": [
+                        {
+                            "when": {"input": "source", "op": "eq", "value": source},
+                            "then": "internal",
+                        }
+                    ],
+                },
+            }
+        ]
+    }
+    rewritten, tally = remap.rewrite_pml_field_configuration(config, ctx)
+    assert rewritten["fields"][0]["calculation"]["rules"][0]["when"]["value"] == target
+    assert tally.counts[remap.REMAPPED] == 1
