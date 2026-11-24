@@ -162,7 +162,7 @@ export default function CardDetailContent({
   const [manageTab, setManageTab] = useState<{ cardId: string; tab: "cost" | "gantt" | "reports" } | null>(null);
   const showInitiativeSummaries = !boScoped && card.type === "Initiative" && ppmEnabled && can("ppm.view");
   const canShowManage = !!manageTab && manageTab.cardId === card.id && showInitiativeSummaries
-    && (manageTab.tab !== "cost" || perms.can_view_costs);
+    && (manageTab.tab === "cost" ? perms.can_view_costs : can("ppm.manage"));
   if (manageTab && !canShowManage) setManageTab(null);
 
   // Card-scoped Risks / Compliance counts. `null` = still loading → render the
@@ -615,7 +615,7 @@ export default function CardDetailContent({
                     {t("ppm:manage")}
                   </Button>
                 )}
-                {summaryAnchors.schedule && keys.includes(summaryAnchors.schedule) && (
+                {can("ppm.manage") && summaryAnchors.schedule && keys.includes(summaryAnchors.schedule) && (
                   <Button size="small" aria-label={t("ppm:manageSection", { section: t("ppm:summaryTimeline") })} onClick={() => setManageTab({ cardId: card.id, tab: "gantt" })}>
                     {t("ppm:manage")}
                   </Button>
@@ -631,7 +631,7 @@ export default function CardDetailContent({
                 )}
                 {summaryAnchors.schedule && keys.includes(summaryAnchors.schedule) && (
                   <Box key="schedule-summary">
-                    <InitiativeTimelineSummary card={card} revision={scheduleRevision} onManage={() => setManageTab({ cardId: card.id, tab: "reports" })} />
+                    <InitiativeTimelineSummary card={card} revision={scheduleRevision} onManage={can("ppm.manage") ? () => setManageTab({ cardId: card.id, tab: "reports" }) : undefined} />
                   </Box>
                 )}
               </>
@@ -962,7 +962,7 @@ function InitiativeFinancialSummary({ initiativeId, revision }: { initiativeId: 
   return data ? <Suspense fallback={null}><PpmInitiativeFinancials data={data} /></Suspense> : null;
 }
 
-function InitiativeTimelineSummary({ card, revision, onManage }: { card: Card; revision: number; onManage: () => void }) {
+function InitiativeTimelineSummary({ card, revision, onManage }: { card: Card; revision: number; onManage?: () => void }) {
   const { t: tPpm } = useTranslation("ppm");
   const { data } = usePpmSchedule(card.id, revision);
   if (!data) return null;
@@ -973,9 +973,9 @@ function InitiativeTimelineSummary({ card, revision, onManage }: { card: Card; r
       <Box sx={{ mt: 2 }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ borderBottom: 1, borderColor: "divider", pb: 0.5, mb: 1 }}>
           <Typography variant="subtitle2" fontWeight={600}>{tPpm("healthSummary")}</Typography>
-          <Button size="small" aria-label={tPpm("manageSection", { section: tPpm("healthSummary") })} onClick={onManage}>
+          {onManage && <Button size="small" aria-label={tPpm("manageSection", { section: tPpm("healthSummary") })} onClick={onManage}>
             {tPpm("manage")}
-          </Button>
+          </Button>}
         </Box>
         <PpmHealthSummary report={report} costHealth={data.cost_health} />
       </Box>

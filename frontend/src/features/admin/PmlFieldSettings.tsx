@@ -373,16 +373,14 @@ function calculationSources(
 ): string[] {
   const sources = [...Object.values(calculation.inputs)];
   if (calculation.formula_engine !== "core" || !calculation.expression) return sources;
-  const direct = calculation.expression.matchAll(
-    /\bdata\.([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)/g,
+  // Skip quoted strings and comments while recognizing dot and bracket access.
+  const tokens = calculation.expression.matchAll(
+    /\bdata((?:\s*\.\s*[A-Za-z_]\w*|\s*\[\s*["'][A-Za-z_]\w*["']\s*\])+)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|#[^\n]*)/g,
   );
-  const indexed = calculation.expression.matchAll(
-    /\bdata\[\s*(["'])([A-Za-z_][A-Za-z0-9_]*)\1\s*\]/g,
-  );
-  for (const path of [
-    ...Array.from(direct, (match) => match[1]),
-    ...Array.from(indexed, (match) => match[2]),
-  ]) {
+  for (const token of tokens) {
+    if (!token[1]) continue;
+    const path = Array.from(token[1].matchAll(/\.\s*([A-Za-z_]\w*)|\[\s*["']([A-Za-z_]\w*)["']\s*\]/g),
+      (match) => match[1] ?? match[2]).join(".");
     const key = path.startsWith("budget.") ? path : path.split(".")[0];
     if (section === "cost_item" && key === "budget") continue;
     sources.push(fields.some((field) => field.key === key) ? key : (coreSource[key] ?? key));
@@ -584,7 +582,7 @@ export default function PmlFieldSettings() {
         }
       } else if (source && !dependency?.protected) {
         const alias = Object.entries(calculation.inputs).find(([, value]) => value === source)?.[0];
-        sampleInputs[alias ?? source] = source;
+        sampleInputs[source] = alias ?? source;
       }
     }
   };
@@ -1085,6 +1083,7 @@ export default function PmlFieldSettings() {
                     cardType={null}
                     relationTypes={[]}
                     dataFields={financialDataFields}
+                    legacy={calc.formula_engine !== "core"}
                     nestedFields={
                       section === "cost_item"
                         ? {
@@ -1109,6 +1108,7 @@ export default function PmlFieldSettings() {
                     ]}
                     textareaId="pml-formula-editor-textarea"
                   />
+                  {section === "cost_item" && calc.formula_engine === "core" && <Typography variant="caption">{k("ifExample")}</Typography>}
                   {section === "cost_item" && (
                     <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
                       {Object.entries(calc.provider_constants ?? {}).map(([alias, id], index) => (
@@ -1267,17 +1267,18 @@ export default function PmlFieldSettings() {
               )}
               {Object.entries(sampleInputs)
                 .filter(
-                  ([, source]) =>
+                  ([source]) =>
                     !config.fields.some(
                       (item) => item.key === source && item.kind === "calculated",
                     ),
                 )
-                .map(([alias, source]) =>
-                  sourceType(source) ? (
+                .map(([source, alias]) => {
+                  const label = k("sample") + " " + (Object.values(sampleInputs).filter((value) => value === alias).length > 1 ? `${alias} (${source})` : alias);
+                  return sourceType(source) ? (
                     <CardPicker
-                      key={alias}
+                      key={source}
                       types={sourceType(source) ?? undefined}
-                      label={k("sample") + " " + alias}
+                      label={label}
                       value={sampleCards[source] ?? null}
                       onChange={(value) => {
                         setSampleCards({ ...sampleCards, [source]: value });
@@ -1287,8 +1288,8 @@ export default function PmlFieldSettings() {
                   ) : typeFor(source) === "select" ? (
                     <TextField
                       select
-                      key={alias}
-                      label={k("sample") + " " + alias}
+                      key={source}
+                      label={label}
                       value={String(samples[source] ?? "")}
                       onChange={(event) =>
                         setSamples({ ...samples, [source]: event.target.value || null })
@@ -1306,8 +1307,8 @@ export default function PmlFieldSettings() {
                   ) : typeFor(source) === "boolean" ? (
                     <TextField
                       select
-                      key={alias}
-                      label={k("sample") + " " + alias}
+                      key={source}
+                      label={label}
                       value={samples[source] == null ? "" : String(samples[source])}
                       onChange={(event) =>
                         setSamples({
@@ -1323,8 +1324,8 @@ export default function PmlFieldSettings() {
                     </TextField>
                   ) : (
                     <TextField
-                      key={alias}
-                      label={k("sample") + " " + alias}
+                      key={source}
+                      label={label}
                       value={String(samples[source] ?? "")}
                       onChange={(event) =>
                         setSamples({
@@ -1333,8 +1334,8 @@ export default function PmlFieldSettings() {
                         })
                       }
                     />
-                  ),
-                )}
+                  );
+                })}
               <Button onClick={() => void runPreview()} disabled={busy}>
                 {k("preview")}
               </Button>

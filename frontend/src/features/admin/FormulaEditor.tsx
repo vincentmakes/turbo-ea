@@ -30,6 +30,7 @@ interface FormulaEditorProps {
   nestedFields?: Record<string, { key: string; label: string }[]>;
   extraNames?: string[];
   textareaId?: string;
+  legacy?: boolean;
 }
 
 export function FormulaEditor({
@@ -41,6 +42,7 @@ export function FormulaEditor({
   nestedFields,
   extraNames,
   textareaId = "formula-editor-textarea",
+  legacy = false,
 }: FormulaEditorProps) {
   const { t } = useTranslation(["admin"]);
   const fieldLabel = useFieldLabel();
@@ -99,12 +101,18 @@ export function FormulaEditor({
 
     if (dataFields) {
       items.splice(1, 7);
+      if (legacy) items.shift();
       items.push(
-        ...(extraNames ?? []).map((name) => ({ insert: name, label: name, category: "Inputs" })),
+        ...(extraNames ?? []).map((name) => ({ insert: name, label: name, category: t("pml.fields.conditionInput") })),
       );
     }
 
-    const fns: [string, string, string][] = [
+    const fns: [string, string, string][] = legacy ? [
+      ["IF", "IF(cond, true_val, false_val)", "Conditional"],
+      ["YEAR", "YEAR(date)", "Year"],
+      ["MONTH", "MONTH(date)", "Month"],
+      ["DAY", "DAY(date)", "Day"],
+    ] : [
       ["IF", "IF(cond, true_val, false_val)", "Conditional"],
       ["SUM", "SUM(list)", "Sum numbers"],
       ["AVG", "AVG(list)", "Average"],
@@ -132,7 +140,7 @@ export function FormulaEditor({
       });
     }
 
-    for (const b of [
+    for (const b of legacy ? [] : [
       "len(",
       "str(",
       "int(",
@@ -149,7 +157,7 @@ export function FormulaEditor({
     }
 
     return items;
-  }, [t, dataFields, extraNames]);
+  }, [t, dataFields, extraNames, legacy]);
 
   const ppmFieldSuggestions = useMemo<Suggestion[]>(() => {
     const items: Suggestion[] = [];
@@ -292,7 +300,7 @@ export function FormulaEditor({
               field.options.map((option) => option.label + ': "' + option.id + '"').join(", ") +
               ")"
             : ""),
-        category: "Fields",
+        category: t("surveyBuilder.steps.fields"),
       }));
     }
     if (cardType) {
@@ -308,7 +316,7 @@ export function FormulaEditor({
       }
     }
     return items;
-  }, [cardType, dataFields, fieldLabel]);
+  }, [cardType, dataFields, fieldLabel, t]);
 
   const relationKeySuggestions = useMemo(() => {
     if (!cardType) return [];
@@ -340,14 +348,14 @@ export function FormulaEditor({
     const lower = token.toLowerCase();
 
     let pool: Suggestion[];
-    if (prefix === "data") {
+    if (prefix === "data" && !legacy) {
       pool = dataFieldSuggestions;
-    } else if (nestedFields?.[prefix]) {
+    } else if (!legacy && nestedFields?.[prefix]) {
       pool = nestedFields[prefix].map((field) => ({
         insert: field.key,
         label: field.key,
         detail: field.label,
-        category: "Fields",
+        category: t("surveyBuilder.steps.fields"),
       }));
     } else if (prefix === "relations" || prefix === "relation_count") {
       pool = relationKeySuggestions;
@@ -370,6 +378,8 @@ export function FormulaEditor({
     ppmFieldSuggestions,
     dataFields,
     nestedFields,
+    legacy,
+    t,
   ]);
 
   const handleValueChange = useCallback(
@@ -455,7 +465,7 @@ export function FormulaEditor({
   return (
     <Box sx={{ position: "relative" }} ref={containerRef}>
       <style>{HL_STYLES}</style>
-      <Typography variant="caption" sx={{ color: "text.secondary", mb: 0.5, display: "block" }}>
+      <Typography component="label" htmlFor={textareaId} variant="caption" sx={{ color: "text.secondary", mb: 0.5, display: "block" }}>
         {t("calculations.formula")}
       </Typography>
       <Box

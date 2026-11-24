@@ -327,7 +327,7 @@ export default function PpmFinanceTree({
                     sx={{ py: 0, borderBottom: 0 }}
                   >
                     <Collapse in={open(cost.id)} unmountOnExit>
-                      <Box sx={{ ml: 3, my: 1 }}>{invoiceTable(cost)}</Box>
+                      <Box sx={{ ml: 3, my: 1 }}>{open(cost.id) && invoiceTable(cost)}</Box>
                     </Collapse>
                   </TableCell>
                 </TableRow>
@@ -470,7 +470,7 @@ export default function PpmFinanceTree({
                             </Table>
                           </TableContainer>
                         )}
-                        {costTable(costsByBudget.get(budget.id) ?? [])}
+                        {open(budget.id) && costTable(costsByBudget.get(budget.id) ?? [])}
                       </Box>
                     </Collapse>
                   </TableCell>
@@ -492,7 +492,7 @@ export default function PpmFinanceTree({
                   sx={{ py: 0, borderBottom: 0 }}
                 >
                   <Collapse in={open("legacy")} unmountOnExit>
-                    <Box sx={{ ml: 3, my: 1 }}>{costTable(legacy)}</Box>
+                    <Box sx={{ ml: 3, my: 1 }}>{open("legacy") && costTable(legacy)}</Box>
                   </Collapse>
                 </TableCell>
               </TableRow>

@@ -22,7 +22,7 @@ vi.mock("@/hooks/useCalculatedFields", () => ({
 vi.mock("@/hooks/useCurrency", () => ({
   useCurrency: () => ({ fmt: { format: (v: number) => "$" + v }, fmtShort: (v: number) => `$${v}`, symbol: "$" }),
 }));
-const pml = vi.hoisted(() => ({ enabled: false, canView: true }));
+const pml = vi.hoisted(() => ({ enabled: false, canView: true, canManage: true }));
 vi.mock("@/hooks/usePpmEnabled", () => ({ usePpmEnabled: () => ({ ppmEnabled: pml.enabled }) }));
 vi.mock("@/hooks/useGrcEnabled", () => ({ useGrcEnabled: () => ({ grcEnabled: false }) }));
 vi.mock("@/hooks/useCardTabActivity", () => ({
@@ -32,7 +32,7 @@ vi.mock("@/hooks/AuthContext", () => ({
   useOptionalAuthUser: () => null,
   useAuthContext: () => ({ user: { id: "u1", permissions: { "*": true } } }),
 }));
-vi.mock("@/hooks/usePermissions", () => ({ usePermissions: () => ({ can: (permission: string) => permission !== "ppm.view" || pml.canView }) }));
+vi.mock("@/hooks/usePermissions", () => ({ usePermissions: () => ({ can: (permission: string) => permission === "ppm.view" ? pml.canView : permission === "ppm.manage" ? pml.canManage : true }) }));
 
 vi.mock("@/features/ppm/PpmInitiativeFinancials", () => ({ default: ({ data }: { data?: { actual_invoiced?: string } }) => <span data-testid="initiative-financials">{data?.actual_invoiced}</span> }));
 vi.mock("@/features/ppm/PpmInitiativeTimeline", () => ({ default: ({ schedule }: { schedule?: { start_date?: string; actual_start_date?: string } }) => <span data-testid="initiative-timeline">{schedule?.start_date} {schedule?.actual_start_date}</span> }));
@@ -141,6 +141,7 @@ beforeEach(() => {
   resetExtensionHost();
   pml.enabled = false;
   pml.canView = true;
+  pml.canManage = true;
   vi.mocked(api.get).mockReset().mockResolvedValue([]);
   vi.mocked(useMetamodel).mockReturnValue({
     types: [APP_TYPE],
@@ -362,6 +363,16 @@ describe("CardDetailContent Initiative summaries", () => {
     const reportReads = vi.mocked(api.get).mock.calls.filter(([path]) => path.endsWith("/reports")).length;
     fireEvent.click(within(dialog).getByRole("button", { name: "Refresh reports" }));
     await waitFor(() => expect(vi.mocked(api.get).mock.calls.filter(([path]) => path.endsWith("/reports")).length).toBeGreaterThan(reportReads));
+  });
+
+  it("keeps initiative summaries visible without offering management to viewers", async () => {
+    pml.enabled = true;
+    pml.canManage = false;
+    initiative();
+    expect(await screen.findByTestId("initiative-timeline")).toBeInTheDocument();
+    expect(screen.getByText("Health Summary")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /manage timeline/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /manage health summary/i })).not.toBeInTheDocument();
   });
 
   it("shows cost health even when the other health values are missing", async () => {

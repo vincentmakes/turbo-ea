@@ -296,3 +296,47 @@ it("reserves the nested budget while allowing a custom budget input and custom P
   fireEvent.change(editor, { target: { value: "data.prov", selectionStart: 9, selectionEnd: 9 } });
   await waitFor(() => expect(screen.getAllByText("providerEffective")).toHaveLength(1));
 });
+
+it("previews bracket and mixed budget paths while ignoring quoted text and comments", async () => {
+  const coreCost = { ...cost, fields: [{ ...cost.fields[0], calculation: { ...calculation, formula_engine: "core", inputs: {}, expression: `data["budget"]["amount"] + data.budget['amount'] # data.budget.category` } }] };
+  vi.mocked(api.get).mockImplementation(async (path) => path === "/settings/pml/financial-fields" ? { budget, cost_item: coreCost, invoice: { fields: [], visible_columns: [], provider_source: null } } : provider);
+  render(<PmlFieldSettings />);
+  await screen.findByText("Origin");
+  fireEvent.click(screen.getByRole("tab", { name: "pml.fields.costItem" }));
+  fireEvent.click(screen.getByRole("button", { name: "pml.fields.edit" }));
+  fireEvent.change(screen.getByLabelText("pml.fields.sample budget.amount"), { target: { value: "900" } });
+  expect(screen.queryByLabelText("pml.fields.sample budget.category")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "pml.fields.preview" }));
+  await waitFor(() => expect(api.post).toHaveBeenCalledWith("/settings/pml/financial-fields/cost_item/preview", expect.objectContaining({ sample_values: { "budget.amount": "900" } })));
+  expect(screen.getByLabelText("calculations.formula")).toBeInTheDocument();
+});
+
+it("keeps separate samples for dependencies that reuse an alias", async () => {
+  const dep = (key: string, source: string) => ({ key, label: key, kind: "calculated", active: true, calculation: { ...calculation, result_type: "number", formula_engine: "legacy", inputs: { x: source }, expression: "x" } });
+  const coreCost = { ...cost, fields: [dep("first", "planned"), dep("second", "actual"), { ...cost.fields[0], calculation: { ...calculation, formula_engine: "core", inputs: { first: "first", second: "second" }, expression: "first + second" } }] };
+  vi.mocked(api.get).mockImplementation(async (path) => path === "/settings/pml/financial-fields" ? { budget, cost_item: coreCost, invoice: { fields: [], visible_columns: [], provider_source: null } } : provider);
+  render(<PmlFieldSettings />);
+  await screen.findByText("Origin");
+  fireEvent.click(screen.getByRole("tab", { name: "pml.fields.costItem" }));
+  fireEvent.click(screen.getAllByRole("button", { name: "pml.fields.edit" })[2]);
+  fireEvent.change(screen.getByLabelText("pml.fields.sample x (planned)"), { target: { value: "100" } });
+  fireEvent.change(screen.getByLabelText("pml.fields.sample x (actual)"), { target: { value: "75" } });
+  fireEvent.click(screen.getByRole("button", { name: "pml.fields.preview" }));
+  await waitFor(() => expect(api.post).toHaveBeenCalledWith("/settings/pml/financial-fields/cost_item/preview", expect.objectContaining({ sample_values: { planned: "100", actual: "75" } })));
+});
+
+it("offers functions of the selected calculation engine", async () => {
+  render(<PmlFieldSettings />);
+  await screen.findByText("Origin");
+  fireEvent.click(screen.getByRole("tab", { name: "pml.fields.costItem" }));
+  fireEvent.click(screen.getByRole("button", { name: "pml.fields.edit" }));
+  const editor = screen.getByLabelText("calculations.formula");
+  fireEvent.change(editor, { target: { value: "YEA", selectionStart: 3, selectionEnd: 3 } });
+  await waitFor(() => expect(screen.getByText("YEAR")).toBeInTheDocument());
+  fireEvent.change(editor, { target: { value: "SUM", selectionStart: 3, selectionEnd: 3 } });
+  await waitFor(() => expect(screen.queryByText(/SUM\(list\)/)).not.toBeInTheDocument());
+  fireEvent.mouseDown(screen.getByLabelText("pml.fields.formulaEngine"));
+  fireEvent.click(screen.getByRole("option", { name: "pml.fields.formulaEngineCore" }));
+  fireEvent.change(editor, { target: { value: "SUM", selectionStart: 3, selectionEnd: 3 } });
+  await waitFor(() => expect(screen.getByText(/SUM\(list\)/)).toBeInTheDocument());
+});

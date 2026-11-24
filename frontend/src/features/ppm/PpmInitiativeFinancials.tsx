@@ -84,7 +84,9 @@ export default function PpmInitiativeFinancials({ data }: { data?: PpmFinancials
           noDataLabel: "—",
         })}
         style={{ height: pairBarsHeight(groups), width: "100%" }}
-        ariaLabel={t("financials")}
+        ariaLabel={[t("financials"), ...rows.map((row) =>
+          `${labelFor(row.bucket)}: ${t("actual")} ${format(comparison.actual[row.bucket])}, ${t("budget")} ${format(comparison.budget[row.bucket])}`
+        )].join(". ")}
       />
     </Box>
   );

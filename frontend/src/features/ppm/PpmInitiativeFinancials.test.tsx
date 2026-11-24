@@ -20,7 +20,7 @@ const data = {
 describe("PpmInitiativeFinancials", () => {
   it("shows the comparison without repeating summary totals", () => {
     render(<PpmInitiativeFinancials data={data} />);
-    expect(screen.getByRole("img", { name: "Financials" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Financials.*Total.*11.*12.*CapEx.*3.*0.*OpEx.*8.*12/i })).toBeInTheDocument();
     expect(screen.getByText(/30[.,]11/)).toBeInTheDocument();
     expect(screen.queryByText(/^Total:/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^CapEx:/)).not.toBeInTheDocument();

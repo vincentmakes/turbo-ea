@@ -476,3 +476,14 @@ it("labels budgets and subtotals with the configured fiscal year span", () => {
     resetFiscalYearStart();
   }
 });
+
+it("does not build invoice rows before their cost is expanded", () => {
+  const amountRead = vi.fn(() => "30.11");
+  const invoice = { ...data.invoices[0], get amount() { return amountRead(); } };
+  render(<PpmFinanceTree data={{ ...data, invoices: [invoice] }} rollup={null} onChanged={vi.fn()} />);
+  expect(amountRead).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: /expand Software/i }));
+  expect(amountRead).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: /expand Renewal/i }));
+  expect(amountRead).toHaveBeenCalled();
+});
