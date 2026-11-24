@@ -477,9 +477,16 @@ async def _visitor_filters_shown(
     db: AsyncSession, before: dict, after: dict
 ) -> tuple[tuple[str, ...], tuple[str, ...]] | None:
     """Both sides' resolved visitor filters, each with its own card type, view
-    and toggles — or ``None`` when none of those changed, so the lists are
-    equal and nothing needs loading."""
-    if all(before.get(k) == after.get(k) for k in ("card_type", "view", "card_config")):
+    and toggles — or ``None`` when the admin's own ``visitor_filters`` setting
+    did not change. A change to the page's toggles also moves the default bar
+    (showing a relation adds its filter), but that is the toggle's own log line:
+    logging it again as a filter change would double every toggle entry."""
+
+    def stored(snapshot: dict) -> object:
+        config = snapshot.get("card_config")
+        return config.get("visitor_filters") if isinstance(config, dict) else None
+
+    if stored(before) == stored(after):
         return None
     return await _shown_visitor_filters(db, before), await _shown_visitor_filters(db, after)
 

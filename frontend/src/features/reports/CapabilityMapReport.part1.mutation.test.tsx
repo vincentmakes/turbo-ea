@@ -867,11 +867,12 @@ describe("text conditions (#1425)", () => {
 
   it("restores a condition, and Clear all clears it", async () => {
     serve(NOTED);
-    ctl.config = { showApps: true, attrConditions: { notes: { contains: "edge" } } };
+    // "proxy", not "edge": Core's note reads "Core LEDGER", which contains "edge".
+    ctl.config = { showApps: true, attrConditions: { notes: { contains: "proxy" } } };
     renderMap();
     await loaded("Pool");
     expect(chipNames(["Core", "Edge"])).toEqual(["Edge"]);
-    expect(notesBox()).toHaveValue("edge");
+    expect(notesBox()).toHaveValue("proxy");
 
     const clear = within(toolbar()).getByText("Clear all").closest(".MuiChip-root") as HTMLElement;
     fireEvent.click(within(clear).getByTestId("CancelIcon"));

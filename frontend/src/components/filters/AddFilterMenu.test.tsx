@@ -31,7 +31,14 @@ function open(onAdd = vi.fn()) {
   return { onAdd, search: screen.getByRole("textbox", { name: "Search fields" }) };
 }
 
-const optionNames = () => screen.getAllByRole("option").map((o) => o.textContent);
+/** An option's name as a reader hears it: its text without the decorative (aria-hidden) kind glyph. */
+const nameOf = (option: HTMLElement) => {
+  const clone = option.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll("[aria-hidden]").forEach((n) => n.remove());
+  return clone.textContent;
+};
+
+const optionNames = () => screen.getAllByRole("option").map(nameOf);
 
 describe("AddFilterMenu", () => {
   it("opens on the chip with the search focused, every field under its section heading", () => {
@@ -84,7 +91,7 @@ describe("AddFilterMenu", () => {
 
   it("moves through the list with the arrow keys, wrapping, and adds on Enter", () => {
     const { onAdd, search } = open();
-    const selected = () => screen.getByRole("option", { selected: true }).textContent;
+    const selected = () => nameOf(screen.getByRole("option", { selected: true }));
     expect(selected()).toBe("Owner risk");
     expect(search).toHaveAttribute("aria-activedescendant", screen.getByRole("option", { name: "Owner risk" }).id);
     fireEvent.keyDown(search, { key: "ArrowDown" });

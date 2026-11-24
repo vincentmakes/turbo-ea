@@ -422,7 +422,7 @@ describe("PortalViewer card grid", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("cards exploded");
   });
 
-  it("drops the previous query's cards when a newer query is refused", async () => {
+  it("says why under the previous rows when a newer query is refused", async () => {
     const user = userEvent.setup();
     let calls = 0;
     serve(SLUG, {
@@ -438,9 +438,9 @@ describe("PortalViewer card grid", () => {
     expect(screen.getByText("1 Business Capability")).toBeInTheDocument();
 
     await user.type(screen.getByPlaceholderText("Search Business Capability..."), "x");
+    // The refusal is shown; the rows of the last answered query stay, as for any failed query.
     expect(await screen.findByRole("alert")).toHaveTextContent("filters is longer than 8192 characters");
-    expect(screen.queryByText("Customer Management")).toBeNull();
-    expect(screen.queryByText("1 Business Capability")).toBeNull();
+    expect(screen.getByText("Customer Management")).toBeInTheDocument();
   });
 
   it("says something went wrong when the card query fails without a message", async () => {
