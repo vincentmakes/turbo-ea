@@ -1,6 +1,7 @@
 """The PPM portfolio must honor timeline visibility and cost permissions."""
 
 from tests.api.test_ppm_reports import _configure_private_timeline
+from tests.api.test_ppm_reports import ppm_env as ppm_env
 from tests.conftest import (
     auth_headers,
     create_budget_line,
@@ -9,8 +10,6 @@ from tests.conftest import (
     create_role,
     create_user,
 )
-
-pytest_plugins = ("tests.api.test_ppm_reports",)
 
 
 async def test_filter_data_respects_hidden_dates_and_legacy_keys(client, db, ppm_env):

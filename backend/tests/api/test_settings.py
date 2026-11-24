@@ -1654,6 +1654,7 @@ async def test_currency_update_preserves_settings_committed_after_initial_read(t
 
     from app.api.v1.settings import CurrencyPayload, update_currency
     from app.models.app_settings import AppSettings
+    from app.models.audit_log import AuditLogEntry
     from app.models.role import Role
     from app.models.user import User
 
@@ -1694,6 +1695,10 @@ async def test_currency_update_preserves_settings_committed_after_initial_read(t
             )
     finally:
         async with AsyncSession(test_engine) as cleanup:
+            # A committed audit row survives deletion of its actor.
+            await cleanup.execute(
+                delete(AuditLogEntry).where(AuditLogEntry.actor_user_id == user_id)
+            )
             await cleanup.execute(delete(User).where(User.id == user_id))
             await cleanup.execute(delete(Role).where(Role.key == role_key))
             settings = await cleanup.get(AppSettings, "default")

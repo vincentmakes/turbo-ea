@@ -60,6 +60,9 @@ class FakeSession:
                 return _Result(rows)
         return _Result([])
 
+    async def scalars(self, stmt: Any) -> _Result:
+        return await self.execute(stmt)
+
     def add(self, obj: Any) -> None:
         self.added.append(obj)
 

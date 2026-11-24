@@ -15,7 +15,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import { useLocation } from "react-router";
 import { api } from "@/api/client";
-import { renderWithProviders } from "@/test/render";
+import { adminUser, renderWithProviders } from "@/test/render";
+import { saveBoardPrefs } from "./ppmBoardPrefs";
 import PpmHome from "./PpmHome";
 // Loaded up front so the page's lazy() import of the board resolves at once.
 import "./PpmPortfolio";
@@ -88,7 +89,7 @@ const DASHBOARD = {
   health_scope: { onTrack: 0, atRisk: 0, offTrack: 0, noReport: 2 },
 };
 
-const PREFS_KEY = "turboea.ppm.portfolio.prefs";
+const admin = adminUser();
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -159,7 +160,7 @@ describe("PpmHome — the tab in the link with the real Portfolio board", () => 
   });
 
   it("keeps a remembered board search through a round trip, and ends on a link without `tab`", async () => {
-    localStorage.setItem(PREFS_KEY, JSON.stringify({ params: { search: "Beta" } }));
+    saveBoardPrefs({ params: { search: "Beta" }, filtersCollapsed: true }, admin.id, admin.role + "/");
     const { user } = renderHome("/ppm");
     // The bare link gets the remembered search before the board opens.
     expect(await screen.findByText("Beta Upgrade")).toBeInTheDocument();
@@ -178,7 +179,7 @@ describe("PpmHome — the tab in the link with the real Portfolio board", () => 
   });
 
   it("restores a remembered search when returning to a bare Portfolio link from EA Delivery", async () => {
-    localStorage.setItem(PREFS_KEY, JSON.stringify({ params: { search: "Beta" } }));
+    saveBoardPrefs({ params: { search: "Beta" }, filtersCollapsed: true }, admin.id, admin.role + "/");
     // EA Delivery opened by a link without board parameters: going to Portfolio
     // leaves the link bare, so the board restores what the browser remembers.
     const { user } = renderHome("/ppm?tab=ea-delivery");

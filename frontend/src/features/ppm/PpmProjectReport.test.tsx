@@ -20,6 +20,8 @@ import type {
   PpmWbs,
 } from "@/types";
 
+const number = new Intl.NumberFormat();
+
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useCurrency", () => import("@/test/hooks").then((m) => m.useCurrencyModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
@@ -593,8 +595,8 @@ describe("PpmProjectReport — empty and derived", () => {
     expect(within(cs).getByTestId("report-derived-notes")).toBeInTheDocument();
     expect(cs.querySelector(".ppm-report-tiles")!.querySelectorAll("[data-derived]")).toHaveLength(5);
     await waitFor(() => expect(cs).toHaveTextContent("2025"));
-    expect(cs).toHaveTextContent("2.000.000");
-    expect(cs).toHaveTextContent("500.000");
+    expect(cs).toHaveTextContent(number.format(2000000));
+    expect(cs).toHaveTextContent(number.format(500000));
   });
 
   it("names what lies beneath when only one side is derived", async () => {
@@ -1286,8 +1288,8 @@ describe("PpmProjectReport — figures", () => {
     const cs = section("costs")!;
     await waitFor(() => expect(cs).toHaveTextContent("2025"));
     const rows = within(cs).getAllByRole("row");
-    expect(rows.some((row) => row.textContent?.includes("2.000.000"))).toBe(true);
-    expect(rows.some((row) => row.textContent?.includes("500.000"))).toBe(true);
+    expect(rows.some((row) => row.textContent?.includes(number.format(2000000)))).toBe(true);
+    expect(rows.some((row) => row.textContent?.includes(number.format(500000)))).toBe(true);
   });
 
   it("gives the span beneath with one end open", async () => {

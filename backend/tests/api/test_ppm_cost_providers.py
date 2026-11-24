@@ -4,9 +4,9 @@ from decimal import Decimal
 
 import pytest
 
+from tests.api.test_ppm import ppm_env as ppm_env
 from tests.conftest import auth_headers, create_card, create_card_type, create_role, create_user
 
-pytest_plugins = ("tests.api.test_ppm",)
 SETTINGS = "/api/v1/settings/pml/financial-fields"
 
 

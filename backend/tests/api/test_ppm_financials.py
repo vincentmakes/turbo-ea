@@ -7,9 +7,8 @@ from uuid import uuid4
 
 import pytest
 
+from tests.api.test_ppm import ppm_env as ppm_env
 from tests.conftest import auth_headers, create_budget_line, create_cost_line
-
-pytest_plugins = ("tests.api.test_ppm",)
 
 BASE = "/api/v1/ppm"
 
